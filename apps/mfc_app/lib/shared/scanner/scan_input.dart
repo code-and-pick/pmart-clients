@@ -25,8 +25,9 @@ class TestScan {
   final String value;
 }
 
-/// 스캔 입력. 입력칸은 키보드 웨지(하드웨어 스캐너)·직접 입력을 받고, 카메라 버튼은 카메라 스캐너를 연다.
-/// 두 경로 모두 같은 [onScan] 으로 간다. 실제 앱(안드로이드)은 스캔으로만 확인한다.
+/// 스캔 입력. 스캔 받는 자리는 키보드 웨지(하드웨어 스캐너)의 입력을 받고, 카메라 버튼은 카메라 스캐너를 연다.
+/// 두 경로 모두 같은 [onScan] 으로 간다. 실제 앱(안드로이드)은 스캔으로만 확인한다 — 화면 키보드가 뜨지 않아
+/// 손으로 칠 수 없다. (PC 브라우저처럼 실제 키보드가 달린 곳에서는 키 입력을 스캐너와 구별하지 못한다 — 개발 확인용.)
 /// 목 모드(`PMART_ENV=mock` — 웹 미리보기·테스트)에서만 [testValues] 드롭다운이 보인다.
 class ScanInput extends ConsumerStatefulWidget {
   const ScanInput({
@@ -97,12 +98,28 @@ class _ScanInputState extends ConsumerState<ScanInput> {
     return Row(
       children: [
         Expanded(
+          // 타이핑 칸이 아니라 "스캔 받는 자리"다(사용자 2026-11-13: 바코드만 찍는다 — 손 입력 칸은 숨긴다).
+          // 하드웨어 스캐너(키보드 웨지)는 글자 + Enter 를 보내므로 받을 자리는 있어야 한다. 그래서 입력칸은 두되
+          // 화면 키보드를 띄우지 않고(TextInputType.none), 커서·글자·붙여넣기 메뉴를 보이지 않게 한다.
+          // 눌러서 이 자리를 고르면(포커스) 스캐너 입력이 여기로 온다.
           child: TextField(
             key: ValueKey(widget.id),
             controller: _text,
             focusNode: _focus,
             autofocus: widget.autofocus,
-            decoration: InputDecoration(labelText: widget.label),
+            keyboardType: TextInputType.none,
+            showCursor: false,
+            enableInteractiveSelection: false,
+            autocorrect: false,
+            enableSuggestions: false,
+            style: const TextStyle(color: Colors.transparent),
+            decoration: InputDecoration(
+              labelText: widget.label,
+              hintText: l10n.scanHint,
+              floatingLabelBehavior: FloatingLabelBehavior.always,
+              prefixIcon: const Icon(Icons.barcode_reader),
+              filled: true,
+            ),
             onSubmitted: _submit,
           ),
         ),

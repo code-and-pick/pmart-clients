@@ -75,6 +75,9 @@ enum LoginError {
   /// 티켓 교환 결과를 모른다(네트워크·5xx). 티켓은 1회용이라 다시 로그인한다.
   network,
 
+  /// 아이디·비밀번호가 맞지 않음 — 임시 아이디·비밀번호 로그인(목 전용)에서만 나온다.
+  badCredentials,
+
   /// 계약에 없는 error 값
   unknown,
 }

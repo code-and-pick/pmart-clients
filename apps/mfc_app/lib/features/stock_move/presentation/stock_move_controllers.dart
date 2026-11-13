@@ -11,8 +11,18 @@ import '../../tasks/presentation/task_controllers.dart';
 import '../domain/stock_move.dart';
 
 /// 스캔 결과. 칸·카트·상품을 한 입력칸에서 받는다.
-/// needFrom = 출발 칸을 먼저, wrongItem = 지시 상품이 아님, over = 옮길 양을 넘음.
-enum LocScan { ok, wrongPlace, notLocation, needFrom, wrongItem, over }
+/// needCart = 카트를 먼저, needFrom = 출발 칸을 먼저, needLoad = 상품을 다 실었다고 누른 뒤에 도착 칸을,
+/// wrongItem = 지시 상품이 아님, over = 옮길 양을 넘음.
+enum LocScan {
+  ok,
+  wrongPlace,
+  notLocation,
+  needCart,
+  needFrom,
+  needLoad,
+  wrongItem,
+  over,
+}
 
 // ───────────────────────── 이동·보충 지시 ─────────────────────────
 
@@ -78,7 +88,7 @@ class MoveFlowState {
 final moveFlowProvider = NotifierProvider.autoDispose
     .family<MoveController, MoveFlowState, String>(MoveController.new);
 
-/// 이동·보충 지시 1건: 출발 칸 확인 → 수량 → 카트 스캔 → 집어 올리기 → 도착 칸 확인 → 내려놓기.
+/// 이동·보충 지시 1건: 카트 스캔 → 출발 칸 확인 → 상품 스캔(수량) → 집어 올리기 → 도착 칸 확인 → 내려놓기.
 class MoveController extends Notifier<MoveFlowState> {
   MoveController(this.moveId);
 
@@ -141,16 +151,38 @@ class MoveController extends Notifier<MoveFlowState> {
     return m == null ? null : ref.read(productHintsProvider).bySku(m.sku)?.name;
   }
 
-  /// 스캔. 집기 단계는 출발 칸 → 상품(1개씩) → 카트, 내려놓기 단계는 도착 칸.
+  /// 집기 단계에서 카트와 출발 칸을 둘 다 찍었다 → 상품을 스캔해 싣는 쪽으로 넘어간다.
+  bool get located => state.cart != null && state.atFrom;
+
+  /// 스캔(사용자 2026-11-13 순서). 집기 단계는 카트 → 출발 칸(여기까지 위치 확인) → 상품(1개씩),
+  /// 내려놓기 단계는 도착 칸. 카트를 찍기 전에는 출발 칸을 받지 않는다.
   LocScan scan(String code) {
     final m = state.move;
     final c = code.trim();
     if (m == null || state.unknown) return LocScan.notLocation;
     final bc = productBarcode;
     final LocScan r;
-    if (state.phase == MovePhase.pickUp && bc != null && !isMfcLocation(c)) {
-      if (!state.atFrom) {
+    if (state.phase == MovePhase.pickUp && isCartLocation(c)) {
+      // 카트는 싣기 전까지 다시 찍어 바꿀 수 있다.
+      state = state.copyWith(cart: () => c);
+      r = LocScan.ok;
+    } else if (state.phase == MovePhase.pickUp && state.cart == null) {
+      r = LocScan.needCart;
+    } else if (state.phase == MovePhase.pickUp && !state.atFrom) {
+      if (!isMfcLocation(c)) {
         r = LocScan.needFrom;
+      } else if (c == m.fromLocation) {
+        state = state.copyWith(atFrom: true);
+        r = LocScan.ok;
+      } else {
+        r = LocScan.wrongPlace;
+      }
+    } else if (state.phase == MovePhase.pickUp) {
+      // 위치 확인이 끝났다 — 상품을 하나씩 센다.
+      if (isMfcLocation(c)) {
+        r = c == m.fromLocation ? LocScan.ok : LocScan.wrongPlace;
+      } else if (bc == null) {
+        r = LocScan.notLocation;
       } else if (c != bc) {
         r = LocScan.wrongItem;
       } else if (state.qty >= m.toPick) {
@@ -159,14 +191,8 @@ class MoveController extends Notifier<MoveFlowState> {
         state = state.copyWith(qty: state.qty + 1);
         r = LocScan.ok;
       }
-    } else if (state.phase == MovePhase.pickUp && isCartLocation(c)) {
-      state = state.copyWith(cart: () => c);
-      r = LocScan.ok;
     } else if (!isMfcLocation(c)) {
       r = LocScan.notLocation;
-    } else if (state.phase == MovePhase.pickUp && c == m.fromLocation) {
-      state = state.copyWith(atFrom: true);
-      r = LocScan.ok;
     } else if (state.phase == MovePhase.drop && c == m.dropTarget) {
       state = state.copyWith(atTo: true);
       r = LocScan.ok;
@@ -244,6 +270,7 @@ class PutawayState {
     this.task,
     this.to,
     this.atFrom = false,
+    this.loaded = false,
     this.qty = 0,
     this.busy = false,
     this.unknown = false,
@@ -256,6 +283,9 @@ class PutawayState {
 
   /// 출발 위치(입고 구역)를 찍었다.
   final bool atFrom;
+
+  /// 상품을 세어 실었다고 눌렀다 — 이제 도착 선반으로 간다(화면 안의 단계. 서버 호출 없음).
+  final bool loaded;
 
   /// 찍은 도착 선반.
   final String? to;
@@ -270,6 +300,7 @@ class PutawayState {
     InboundTaskView? task,
     String? Function()? to,
     bool? atFrom,
+    bool? loaded,
     int? qty,
     bool? busy,
     bool? unknown,
@@ -280,6 +311,7 @@ class PutawayState {
     task: task ?? this.task,
     to: to != null ? to() : this.to,
     atFrom: atFrom ?? this.atFrom,
+    loaded: loaded ?? this.loaded,
     qty: qty ?? this.qty,
     busy: busy ?? this.busy,
     unknown: unknown ?? this.unknown,
@@ -291,7 +323,9 @@ class PutawayState {
 final putawayFlowProvider = NotifierProvider.autoDispose
     .family<PutawayController, PutawayState, String>(PutawayController.new);
 
-/// 적치 1건(입고 작업 PUTAWAY): 도착 선반 스캔 → 수량 → 적치. 나눠 놓으면 남은 양으로 다시.
+/// 적치 1건(입고 작업 PUTAWAY) — 이동·보충과 같은 순서(사용자 2026-11-13):
+/// 출발 위치 확인 → 상품 스캔(수량) → "실었어요" → 도착 선반 스캔 → 적치. 나눠 놓으면 남은 양으로 다시.
+/// 카트 스캔은 없다 — 적치 계약(`putaways`)에 카트가 없다.
 /// 목적지 검사(등록·온도대·구역)는 서버(mfc-inventory)가 한다.
 class PutawayController extends Notifier<PutawayState> {
   PutawayController(this.taskId);
@@ -331,7 +365,7 @@ class PutawayController extends Notifier<PutawayState> {
     return t.barcode ?? ref.read(productHintsProvider).bySku(t.sku)?.barcode;
   }
 
-  /// 출발 위치 → 상품(1개씩) → 도착 칸. 추천 칸이 아니어도 받는다(진열 판정은 서버).
+  /// 출발 위치 → 상품(1개씩) → (실었어요) → 도착 칸. 추천 칸이 아니어도 받는다(진열 판정은 서버).
   LocScan scan(String code) {
     final t = state.task;
     final c = code.trim();
@@ -345,8 +379,13 @@ class PutawayController extends Notifier<PutawayState> {
           ? LocScan.wrongPlace
           : LocScan.needFrom;
       if (r == LocScan.ok) state = state.copyWith(atFrom: true);
-    } else if (bc != null && !isMfcLocation(c)) {
-      if (c != bc) {
+    } else if (!state.loaded) {
+      // 상품 싣기: 상품만 센다. 도착 칸은 "실었어요" 뒤에 받는다.
+      if (isMfcLocation(c)) {
+        r = c == t.locationCode ? LocScan.ok : LocScan.needLoad;
+      } else if (bc == null) {
+        r = LocScan.notLocation;
+      } else if (c != bc) {
         r = LocScan.wrongItem;
       } else if (state.qty >= t.remainingQty) {
         r = LocScan.over;
@@ -368,6 +407,18 @@ class PutawayController extends Notifier<PutawayState> {
 
   void setQty(int q) {
     if (!state.unknown) state = state.copyWith(qty: q);
+  }
+
+  /// 상품을 다 실었다 → 도착 선반으로(화면 안의 단계).
+  void markLoaded() {
+    if (state.unknown || !state.atFrom || state.qty < 1) return;
+    state = state.copyWith(loaded: true, lastScan: () => null);
+  }
+
+  /// 수량을 다시 센다 → 상품 싣기로 돌아간다.
+  void recount() {
+    if (state.unknown || state.busy) return;
+    state = state.copyWith(loaded: false, to: () => null, lastScan: () => null);
   }
 
   Future<void> submit() async {
@@ -393,6 +444,7 @@ class PutawayController extends Notifier<PutawayState> {
             : state.copyWith(
                 task: next,
                 qty: 0,
+                loaded: false,
                 to: () => null,
                 busy: false,
                 unknown: false,

@@ -239,4 +239,44 @@ void main() {
     await t.pumpAndSettle();
     expect(got, ['BOX-00000001']);
   });
+
+  testWidgets('스캔 받는 자리는 타이핑 칸이 아니다 — 화면 키보드·커서·붙여넣기 없음, 스캐너(글자 + Enter)는 그대로 받는다', (t) async {
+    final got = <String>[];
+    await t.pumpWidget(
+      ProviderScope(
+        overrides: [envProvider.overrideWithValue(PmartEnv.local)],
+        child: MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('ko'),
+          home: Scaffold(
+            body: ScanInput(
+              id: 'x',
+              label: '출발 칸',
+              cameraTitle: 'scan',
+              onScan: (c) {
+                got.add(c);
+                return const ScanFeedback.ok();
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+    await t.pumpAndSettle();
+
+    final field = t.widget<TextField>(find.byKey(const ValueKey('x')));
+    expect(field.keyboardType, TextInputType.none); // 화면 키보드를 띄우지 않는다
+    expect(field.showCursor, isFalse);
+    expect(field.enableInteractiveSelection, isFalse); // 붙여넣기 메뉴 없음
+    expect(find.text('바코드를 찍어 주세요'), findsOneWidget);
+    expect(find.byKey(const ValueKey('x-camera')), findsOneWidget);
+
+    // 키보드 웨지: 글자가 들어오고 Enter.
+    await t.enterText(find.byKey(const ValueKey('x')), 'LOC-A-01');
+    await t.testTextInput.receiveAction(TextInputAction.done);
+    await t.pump();
+    expect(got, ['LOC-A-01']);
+    expect(field.controller!.text, isEmpty); // 다음 스캔을 받게 비운다
+  });
 }

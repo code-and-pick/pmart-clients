@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:pmart_ui/pmart_ui.dart';
@@ -42,6 +44,193 @@ class StepHeader extends StatelessWidget {
               ],
             ),
           ),
+      ],
+    );
+  }
+}
+
+/// "이동하세요" 안내 — 물건을 실은 뒤 도착 칸으로 가는 동안 보인다.
+class GoBanner extends StatelessWidget {
+  const GoBanner({super.key, required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: scheme.primaryContainer,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            children: [
+              Icon(Icons.directions_walk, color: scheme.onPrimaryContainer),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  text,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    color: scheme.onPrimaryContainer,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 작업 하나가 끝났을 때의 완료 화면: 제목 + 한 줄 요약 + 요약 줄(무엇을·어디서·어디로) + "다음 작업".
+///
+/// "다음 작업"을 [autoNextAfter] 안에 누르지 않으면 누른 것과 똑같이 자동으로 다음 작업을 받는다
+/// (사용자 2026-11-13: 10초). 남은 초를 버튼 위에 보인다. 서버가 끝났다고 답한 뒤에만 띄운다.
+class TaskDoneView extends StatefulWidget {
+  const TaskDoneView({
+    super.key,
+    required this.title,
+    required this.message,
+    required this.rows,
+    required this.onNext,
+  });
+
+  static const autoNextAfter = Duration(seconds: 10);
+
+  final String title;
+  final String message;
+
+  /// (이름, 값) 줄.
+  final List<(String, String)> rows;
+  final Future<void> Function() onNext;
+
+  @override
+  State<TaskDoneView> createState() => _TaskDoneViewState();
+}
+
+class _TaskDoneViewState extends State<TaskDoneView> {
+  Timer? _tick;
+  int _left = TaskDoneView.autoNextAfter.inSeconds;
+  bool _going = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _tick = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) return;
+      if (_left > 1) {
+        setState(() => _left -= 1);
+      } else {
+        _next();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _tick?.cancel();
+    super.dispose();
+  }
+
+  /// 버튼을 눌렀든 시간이 됐든 한 번만 넘어간다.
+  Future<void> _next() async {
+    if (_going) return;
+    _tick?.cancel();
+    setState(() {
+      _going = true;
+      _left = 0;
+    });
+    await widget.onNext();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const Spacer(),
+        Icon(Icons.check_circle, size: 72, color: scheme.primary),
+        const SizedBox(height: 12),
+        Text(
+          widget.title,
+          key: const ValueKey('done-title'),
+          textAlign: TextAlign.center,
+          style: theme.textTheme.headlineSmall?.copyWith(
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          widget.message,
+          textAlign: TextAlign.center,
+          style: theme.textTheme.titleMedium,
+        ),
+        if (widget.rows.isNotEmpty) ...[
+          const SizedBox(height: 20),
+          Card(
+            key: const ValueKey('done-summary'),
+            margin: EdgeInsets.zero,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Column(
+                children: [
+                  for (final (label, value) in widget.rows)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 6),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          SizedBox(
+                            width: 72,
+                            child: Text(
+                              label,
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: scheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ),
+                          Expanded(
+                            child: Text(
+                              value,
+                              style: theme.textTheme.titleMedium,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ],
+        const Spacer(flex: 2),
+        if (!_going)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Text(
+              l10n.moveDoneAutoNext(_left),
+              key: const ValueKey('done-auto-next'),
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: scheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+        CommandButton(
+          key: const ValueKey('result-action'),
+          label: l10n.nextTask,
+          busy: _going,
+          onPressed: _next,
+        ),
       ],
     );
   }

@@ -16,7 +16,9 @@ String locScanText(AppLocalizations l10n, LocScan r) => switch (r) {
   LocScan.ok => '',
   LocScan.wrongPlace => l10n.moveWrongPlace,
   LocScan.notLocation => l10n.moveNotLocation,
+  LocScan.needCart => l10n.moveNeedCart,
   LocScan.needFrom => l10n.moveNeedFrom,
+  LocScan.needLoad => l10n.moveNeedLoad,
   LocScan.wrongItem => l10n.moveWrongItem,
   LocScan.over => l10n.moveOver,
 };
@@ -45,7 +47,10 @@ class _ProductCheck extends StatelessWidget {
   }
 }
 
-/// 이동·보충 지시: 출발 칸 → 상품(1개씩 스캔) → 카트(집어 올리기) → 도착 칸(내려놓기).
+/// 이동·보충 지시(사용자 2026-11-13 순서) — 세 쪽으로 나뉜다:
+/// ① 위치 확인: 카트 스캔 → (그 뒤에야) 출발 칸 스캔. 둘 다 찍으면 다음 쪽으로.
+/// ② 상품 싣기: 상품을 1개씩 스캔해 세고 "카트에 실었어요"(서버 `pickups` — 실은 수량을 여기서 기록).
+/// ③ 내려놓기: "이동하세요" 안내 → 도착 칸 스캔 → "내려놓았어요"(`drops`).
 class MoveScreen extends ConsumerWidget {
   const MoveScreen({super.key, required this.moveId});
 
@@ -62,6 +67,10 @@ class MoveScreen extends ConsumerWidget {
         ? l10n.typeReplenish
         : l10n.typeMove;
     final barcode = ctl.productBarcode;
+    final picking = s.phase == MovePhase.pickUp;
+    // ① 위치 확인(카트·출발 칸을 아직 다 찍지 않았다) ② 상품 싣기 ③ 내려놓기
+    final locating = picking && !(s.cart != null && s.atFrom);
+    final loading = picking && !locating;
 
     final Widget body = switch (s.phase) {
       MovePhase.loading => const Center(child: CircularProgressIndicator()),
@@ -85,19 +94,35 @@ class MoveScreen extends ConsumerWidget {
         action: l10n.nextTask,
         onAction: () => _next(context),
       ),
-      MovePhase.done => ResultView(
+      // 서버가 이 지시를 끝났다고(COMPLETED) 답한 뒤에만 나온다.
+      MovePhase.done => TaskDoneView(
         key: const ValueKey('move-done'),
-        icon: Icons.check_circle,
-        text: l10n.moveDone(m?.droppedQty ?? 0, m?.toLocation ?? '-'),
-        action: l10n.nextTask,
-        onAction: () => _next(context),
+        title: m?.kind == MoveKind.replenish
+            ? l10n.moveDoneTitleReplenish
+            : l10n.moveDoneTitle,
+        message: l10n.moveDone(m?.droppedQty ?? 0, m?.toLocation ?? '-'),
+        rows: [
+          if (m != null) ...[
+            (l10n.moveDoneProduct, ctl.productName ?? m.sku),
+            (l10n.moveDoneLot, [m.sku, l10n.lot(m.lotId)].join(' · ')),
+            (l10n.moveDoneQty, l10n.moveDoneQtyValue(m.droppedQty, m.qty)),
+            (l10n.moveFrom, m.fromLocation),
+            (l10n.moveTo, m.toLocation),
+            if ((m.cartLocation ?? s.cart) case final c?) (l10n.moveCart, c),
+          ],
+        ],
+        onNext: () => _next(context),
       ),
       MovePhase.pickUp || MovePhase.drop => Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           StepHeader(
-            names: [l10n.moveStepPick, l10n.moveStepDrop],
-            current: s.phase == MovePhase.pickUp ? 0 : 1,
+            names: [l10n.moveStepLocate, l10n.moveStepLoad, l10n.moveStepDrop],
+            current: locating
+                ? 0
+                : loading
+                ? 1
+                : 2,
           ),
           const SizedBox(height: 12),
           Card(
@@ -130,20 +155,32 @@ class MoveScreen extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 12),
-          if (s.phase == MovePhase.pickUp) ...[
-            TargetLine(
-              key: const ValueKey('target-from'),
-              label: l10n.moveFrom,
-              code: m.fromLocation,
-              confirmed: s.atFrom,
-            ),
+          if (picking) ...[
+            // 카트가 먼저다. 카트를 찍기 전에는 출발 칸을 받지 않는다(흐리게 보인다).
             TargetLine(
               key: const ValueKey('target-cart'),
               label: l10n.moveCart,
               code: s.cart ?? l10n.moveCartScan,
               confirmed: s.cart != null,
             ),
-          ] else
+            Opacity(
+              key: const ValueKey('target-from-lock'),
+              opacity: s.cart == null ? 0.4 : 1,
+              child: TargetLine(
+                key: const ValueKey('target-from'),
+                label: l10n.moveFrom,
+                code: m.fromLocation,
+                confirmed: s.atFrom,
+              ),
+            ),
+          ] else ...[
+            if (!s.atTo)
+              GoBanner(
+                key: const ValueKey('move-go'),
+                text: m.state == MoveState.cancelPending
+                    ? l10n.moveGoBack
+                    : l10n.moveGo,
+              ),
             TargetLine(
               key: const ValueKey('target-to'),
               label: m.state == MoveState.cancelPending
@@ -152,30 +189,36 @@ class MoveScreen extends ConsumerWidget {
               code: m.dropTarget,
               confirmed: s.atTo,
             ),
+          ],
           const SizedBox(height: 8),
           ScanInput(
             id: 'move-scan',
-            testValues: s.phase == MovePhase.pickUp
+            testValues: locating
                 ? [
+                    TestScan(l10n.tsCart, 'CRT-C-01'),
                     TestScan(l10n.tsFrom, m.fromLocation),
+                    TestScan(l10n.tsWrong, 'A-S9-09-9-99'),
+                  ]
+                : loading
+                ? [
                     if (barcode != null) TestScan(l10n.tsProduct, barcode),
                     TestScan(l10n.tsWrongProduct, '0000000000000'),
-                    TestScan(l10n.tsCart, 'CRT-C-01'),
-                    TestScan(l10n.tsWrong, 'A-S9-09-9-99'),
                   ]
                 : [
                     TestScan(l10n.tsTo, m.dropTarget),
                     TestScan(l10n.tsWrong, 'A-S9-09-9-99'),
                   ],
             testActions: [
-              if (s.phase == MovePhase.pickUp && barcode != null)
+              if (loading && barcode != null)
                 TestAction('fill', l10n.testFillMove, () {
                   while (ctl.current.qty < m.toPick &&
                       ctl.scan(barcode) == LocScan.ok) {}
                 }),
             ],
-            label: s.phase == MovePhase.pickUp
-                ? (s.atFrom ? l10n.moveScanItemOrCart : l10n.moveScanPick)
+            label: locating
+                ? (s.cart == null ? l10n.moveScanCart : l10n.moveScanPick)
+                : loading
+                ? l10n.moveScanItem
                 : l10n.moveScanDrop,
             cameraTitle: title,
             autofocus: false,
@@ -194,7 +237,14 @@ class MoveScreen extends ConsumerWidget {
                   )
                 : null,
           ),
-          if (s.phase == MovePhase.pickUp) ...[
+          if (locating)
+            // ① 위치 확인 쪽에는 수량·싣기 버튼이 없다 — 둘 다 찍으면 상품 싣기 쪽으로 넘어간다.
+            Text(
+              s.cart == null ? l10n.moveLocateCartFirst : l10n.moveLocateFrom,
+              key: const ValueKey('move-locate-hint'),
+              style: theme.textTheme.bodyMedium,
+            )
+          else if (loading) ...[
             _ProductCheck(barcodeKnown: barcode != null, counted: s.qty),
             // 바코드를 알면 스캔으로만 늘린다(줄이기만 가능). 모르면 직접 넣는다.
             QtyStepper(
@@ -202,7 +252,7 @@ class MoveScreen extends ConsumerWidget {
               label: l10n.moveQtyPick,
               value: s.qty,
               max: barcode != null ? s.qty : m.toPick,
-              enabled: !s.unknown && s.atFrom,
+              enabled: !s.unknown,
               onChanged: ctl.setQty,
             ),
           ] else
@@ -248,19 +298,19 @@ class MoveScreen extends ConsumerWidget {
                 onReported: (_) => ctl.reported(),
               ),
             ),
-          CommandButton(
-            key: const ValueKey('move-submit'),
-            busy: s.busy,
-            label: s.unknown
-                ? l10n.checkAgain
-                : s.phase == MovePhase.pickUp
-                ? l10n.movePickUp
-                : l10n.moveDrop,
-            onPressed:
-                (s.phase == MovePhase.pickUp ? ctl.canPickUp : ctl.canDrop)
-                ? ctl.submit
-                : null,
-          ),
+          if (!locating || s.unknown)
+            CommandButton(
+              key: const ValueKey('move-submit'),
+              busy: s.busy,
+              label: s.unknown
+                  ? l10n.checkAgain
+                  : picking
+                  ? l10n.movePickUp
+                  : l10n.moveDrop,
+              onPressed: (picking ? ctl.canPickUp : ctl.canDrop)
+                  ? ctl.submit
+                  : null,
+            ),
         ],
       ),
     };
@@ -273,7 +323,8 @@ class MoveScreen extends ConsumerWidget {
   }
 }
 
-/// 적치: 출발 위치 → 상품(1개씩 스캔) → 도착 선반(추천) → 적치(이때부터 판매 가능).
+/// 적치 — 이동·보충과 같은 순서(사용자 2026-11-13): ① 출발 위치 확인 ② 상품(1개씩 스캔) → "실었어요"
+/// ③ "이동하세요" → 도착 선반(추천) → 적치(이때부터 판매 가능). 카트 스캔은 없다(계약에 카트가 없다).
 class PutawayScreen extends ConsumerWidget {
   const PutawayScreen({super.key, required this.taskId});
 
@@ -309,19 +360,42 @@ class PutawayScreen extends ConsumerWidget {
         action: l10n.nextTask,
         onAction: () => _next(context),
       ),
-      PutawayPhase.done => ResultView(
+      // 서버가 적치를 끝났다고 답한 뒤에만 나온다.
+      PutawayPhase.done => TaskDoneView(
         key: const ValueKey('putaway-done'),
-        icon: Icons.check_circle,
-        text: l10n.putawayDone,
-        action: l10n.nextTask,
-        onAction: () => _next(context),
+        title: l10n.putawayDoneTitle,
+        message: l10n.putawayDone,
+        rows: [
+          if (s.task case final t?) ...[
+            (l10n.moveDoneProduct, t.productName ?? t.sku),
+            (l10n.moveDoneLot, '${t.sku} · ${l10n.lot(t.lotId)}'),
+            (l10n.moveFrom, t.locationCode),
+            if (s.to case final to?) (l10n.moveTo, to),
+          ],
+        ],
+        onNext: () => _next(context),
       ),
       PutawayPhase.editing => () {
         final t = s.task!;
         final suggested = t.suggestedLocations;
+        // ① 위치 확인(출발 위치) ② 상품 싣기 ③ 내려놓기(도착 선반) — 이동·보충과 같은 순서.
+        final step = !s.atFrom
+            ? 0
+            : !s.loaded
+            ? 1
+            : 2;
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            StepHeader(
+              names: [
+                l10n.moveStepLocate,
+                l10n.moveStepLoad,
+                l10n.moveStepDrop,
+              ],
+              current: step,
+            ),
+            const SizedBox(height: 12),
             Card(
               margin: EdgeInsets.zero,
               child: Padding(
@@ -340,60 +414,77 @@ class PutawayScreen extends ConsumerWidget {
               ),
             ),
             const SizedBox(height: 12),
-            TargetLine(
-              key: const ValueKey('target-putaway-from'),
-              label: l10n.moveFrom,
-              code: t.locationCode,
-              confirmed: s.atFrom,
-            ),
-            TargetLine(
-              key: const ValueKey('target-putaway'),
-              label: l10n.moveTo,
-              code:
-                  s.to ??
-                  (suggested.isNotEmpty
-                      ? suggested.first
-                      : l10n.putawayScanShelf),
-              confirmed: s.to != null,
-            ),
-            if (suggested.isNotEmpty)
-              Text(
-                l10n.returnShelfSuggested(suggested.join(', ')),
-                key: const ValueKey('putaway-suggested'),
+            if (step < 2)
+              TargetLine(
+                key: const ValueKey('target-putaway-from'),
+                label: l10n.moveFrom,
+                code: t.locationCode,
+                confirmed: s.atFrom,
               )
-            else
-              Text(
-                l10n.putawayNoSuggestion,
-                key: const ValueKey('putaway-no-suggestion'),
-                style: theme.textTheme.bodySmall,
+            else ...[
+              if (s.to == null)
+                GoBanner(
+                  key: const ValueKey('putaway-go'),
+                  text: l10n.putawayGo,
+                ),
+              TargetLine(
+                key: const ValueKey('target-putaway'),
+                label: l10n.moveTo,
+                code:
+                    s.to ??
+                    (suggested.isNotEmpty
+                        ? suggested.first
+                        : l10n.putawayScanShelf),
+                confirmed: s.to != null,
               ),
-            if (s.to case final to?
-                when suggested.isNotEmpty && !suggested.contains(to))
-              Text(
-                l10n.returnShelfNotSuggested,
-                style: TextStyle(color: theme.colorScheme.error),
-              ),
+              if (suggested.isNotEmpty)
+                Text(
+                  l10n.returnShelfSuggested(suggested.join(', ')),
+                  key: const ValueKey('putaway-suggested'),
+                )
+              else
+                Text(
+                  l10n.putawayNoSuggestion,
+                  key: const ValueKey('putaway-no-suggestion'),
+                  style: theme.textTheme.bodySmall,
+                ),
+              if (s.to case final to?
+                  when suggested.isNotEmpty && !suggested.contains(to))
+                Text(
+                  l10n.returnShelfNotSuggested,
+                  style: TextStyle(color: theme.colorScheme.error),
+                ),
+            ],
             const SizedBox(height: 8),
             ScanInput(
               id: 'putaway-scan',
-              testValues: [
-                TestScan(l10n.tsFrom, t.locationCode),
-                if (barcode != null) TestScan(l10n.tsProduct, barcode),
-                TestScan(l10n.tsWrongProduct, '0000000000000'),
-                for (final x in suggested) TestScan(l10n.tsShelf, x),
-                TestScan(l10n.tsShelf, 'C-S1-03-2-05'),
-                TestScan(l10n.tsWrong, 'hello'),
-              ],
+              testValues: switch (step) {
+                0 => [
+                  TestScan(l10n.tsFrom, t.locationCode),
+                  TestScan(l10n.tsWrong, 'hello'),
+                ],
+                1 => [
+                  if (barcode != null) TestScan(l10n.tsProduct, barcode),
+                  TestScan(l10n.tsWrongProduct, '0000000000000'),
+                ],
+                _ => [
+                  for (final x in suggested) TestScan(l10n.tsShelf, x),
+                  TestScan(l10n.tsShelf, 'C-S1-03-2-05'),
+                  TestScan(l10n.tsWrong, 'hello'),
+                ],
+              },
               testActions: [
-                if (barcode != null)
+                if (step == 1 && barcode != null)
                   TestAction('fill', l10n.testFillMove, () {
                     while (ctl.current.qty < t.remainingQty &&
                         ctl.scan(barcode) == LocScan.ok) {}
                   }),
               ],
-              label: !s.atFrom
-                  ? l10n.putawayScanFrom
-                  : l10n.putawayScanItemOrShelf,
+              label: switch (step) {
+                0 => l10n.putawayScanFrom,
+                1 => l10n.moveScanItem,
+                _ => l10n.moveScanDrop,
+              },
               cameraTitle: l10n.typePutaway,
               autofocus: false,
               onScan: (code) => switch (ctl.scan(code)) {
@@ -411,15 +502,40 @@ class PutawayScreen extends ConsumerWidget {
                     )
                   : null,
             ),
-            _ProductCheck(barcodeKnown: barcode != null, counted: s.qty),
-            QtyStepper(
-              id: 'putaway-qty',
-              label: l10n.putawayQty,
-              value: s.qty,
-              max: barcode != null ? s.qty : t.remainingQty,
-              enabled: !s.unknown && s.atFrom,
-              onChanged: ctl.setQty,
-            ),
+            if (step == 0)
+              Text(
+                l10n.moveLocateFrom,
+                key: const ValueKey('putaway-locate-hint'),
+                style: theme.textTheme.bodyMedium,
+              )
+            else if (step == 1) ...[
+              _ProductCheck(barcodeKnown: barcode != null, counted: s.qty),
+              QtyStepper(
+                id: 'putaway-qty',
+                label: l10n.putawayQty,
+                value: s.qty,
+                max: barcode != null ? s.qty : t.remainingQty,
+                enabled: !s.unknown,
+                onChanged: ctl.setQty,
+              ),
+            ] else
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      l10n.moveLoadedQty(s.qty),
+                      key: const ValueKey('putaway-loaded-qty'),
+                      style: theme.textTheme.titleMedium,
+                    ),
+                  ),
+                  if (!s.unknown)
+                    TextButton(
+                      key: const ValueKey('putaway-recount'),
+                      onPressed: s.busy ? null : ctl.recount,
+                      child: Text(l10n.moveRecount),
+                    ),
+                ],
+              ),
             const Spacer(),
             if (s.code case final c?)
               Text(
@@ -446,14 +562,23 @@ class PutawayScreen extends ConsumerWidget {
                   onReported: (_) => ctl.reported(),
                 ),
               ),
-            CommandButton(
-              key: const ValueKey('putaway-submit'),
-              busy: s.busy,
-              label: s.unknown ? l10n.checkAgain : l10n.putawaySubmit,
-              onPressed: s.unknown || (s.to != null && s.qty > 0)
-                  ? ctl.submit
-                  : null,
-            ),
+            if (step == 1 && !s.unknown)
+              // 화면 안의 단계 — 서버에는 적치할 때 한 번만 보낸다.
+              CommandButton(
+                key: const ValueKey('putaway-load'),
+                busy: false,
+                label: l10n.moveLoaded,
+                onPressed: s.qty > 0 ? () async => ctl.markLoaded() : null,
+              )
+            else if (step == 2 || s.unknown)
+              CommandButton(
+                key: const ValueKey('putaway-submit'),
+                busy: s.busy,
+                label: s.unknown ? l10n.checkAgain : l10n.putawaySubmit,
+                onPressed: s.unknown || (s.to != null && s.qty > 0)
+                    ? ctl.submit
+                    : null,
+              ),
           ],
         );
       }(),

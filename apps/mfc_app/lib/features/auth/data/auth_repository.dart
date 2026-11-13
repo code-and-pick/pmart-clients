@@ -314,3 +314,69 @@ final class MockAuthRepository implements AuthRepository {
     signedIn = false;
   }
 }
+
+/// **임시(목 전용)** — 앱 안에서 아이디·비밀번호를 받는 로그인(사용자 지시 2026-11-13: "원랜 Keycloak 외부 링크를
+/// 열어야 하는데 임시로 아이디 비번 넣는 페이지").
+///
+/// 계약에 없다: 직원 로그인 계약(employee-auth-service, ADR-0056)은 Keycloak 화면에서 입력받고 앱은 비밀번호를
+/// 받지 않는다. 그래서 실서버 구현([ApiAuthRepository])에는 없고, 서버로 보내는 것도 없다. 실서버에서 쓰려면
+/// 백엔드에 로그인 경로를 요청해야 한다(BR 미등록 — PC 1 이 합칠 때).
+abstract interface class TemporaryPasswordLogin {
+  /// 실패는 [LoginFailure]([LoginError.badCredentials]).
+  Future<EmployeeSession> loginWithPassword({
+    required String loginId,
+    required String password,
+  });
+}
+
+/// 목 모드 앱이 쓰는 임시 아이디·비밀번호 로그인. 로그아웃 상태로 시작한다.
+///
+/// 아이디는 LAN 시험 작업자 계정의 모양만 확인한다(`mfcw-pp-01`~`30`, `mfcw-rcv|qc|mv|rtn-01`~`10`).
+/// **비밀번호는 비어 있지 않은지만 본다** — 실제 값은 저장소에 두지 않는다(비밀값).
+final class MockPasswordAuthRepository extends MockAuthRepository
+    implements TemporaryPasswordLogin {
+  MockPasswordAuthRepository() : super(signedIn: false);
+
+  static final _account = RegExp(r'^mfcw-(pp|rcv|qc|mv|rtn)-(\d{2})$');
+
+  /// 시험 작업자 계정 아이디인지.
+  static bool isTestWorker(String loginId) {
+    final m = _account.firstMatch(loginId);
+    if (m == null) return false;
+    final n = int.parse(m.group(2)!);
+    return n >= 1 && n <= (m.group(1) == 'pp' ? 30 : 10);
+  }
+
+  EmployeeSession? _current;
+
+  @override
+  AuthState get initialState =>
+      signedIn ? AuthSignedIn(_current ?? session) : const AuthSignedOut();
+
+  @override
+  Future<EmployeeSession?> restore() async =>
+      signedIn ? _current ?? session : null;
+
+  @override
+  Future<EmployeeSession> loginWithPassword({
+    required String loginId,
+    required String password,
+  }) async {
+    loginCalls += 1;
+    if (!isTestWorker(loginId) || password.isEmpty) {
+      throw const LoginFailure(LoginError.badCredentials);
+    }
+    signedIn = true;
+    return _current = EmployeeSession(
+      operatorId: 'OP-mock-$loginId',
+      roles: session.roles,
+      centers: session.centers,
+    );
+  }
+
+  @override
+  Future<void> logout() async {
+    await super.logout();
+    _current = null;
+  }
+}

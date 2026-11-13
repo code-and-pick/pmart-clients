@@ -61,6 +61,23 @@ final class AuthController extends Notifier<AuthState> {
     state = AuthSignedIn(session);
   }
 
+  /// 임시 아이디·비밀번호 로그인(목 전용 — [TemporaryPasswordLogin]). 실패는 [LoginFailure].
+  Future<void> loginWithPassword({
+    required String loginId,
+    required String password,
+  }) async {
+    final Object repo = _repo;
+    if (repo is! TemporaryPasswordLogin) {
+      throw const LoginFailure(LoginError.unknown);
+    }
+    final session = await repo.loginWithPassword(
+      loginId: loginId,
+      password: password,
+    );
+    ref.read(sessionEndRecorderProvider).take();
+    state = AuthSignedIn(session);
+  }
+
   Future<void> logout() async {
     await _repo.logout();
     state = const AuthSignedOut();

@@ -448,6 +448,47 @@ void main() {
       expect(find.byKey(const ValueKey('awaiting-grant')), findsNothing);
     });
 
+    // 임시(목 전용): 앱 안 아이디·비밀번호 로그인. 계약에 없어 서버로 보내는 것이 없다.
+    testWidgets('임시 아이디·비밀번호 로그인: 둘 다 넣어야 버튼이 켜지고, 시험 작업자 아이디면 메인', (t) async {
+      final repo = MockPasswordAuthRepository();
+      final c = await pump(t, repo);
+      expect(find.byKey(const ValueKey('login-id')), findsOneWidget);
+      expect(find.byKey(const ValueKey('login-password')), findsOneWidget);
+      expect(find.byKey(const ValueKey('login-temporary-note')), findsOneWidget);
+      FilledButton button() => t.widget<FilledButton>(find.byKey(const ValueKey('employee-login')));
+      expect(button().onPressed, isNull);
+
+      await t.enterText(find.byKey(const ValueKey('login-id')), ' mfcw-pp-01 ');
+      await t.pump();
+      expect(button().onPressed, isNull); // 비밀번호가 아직 없다
+      await t.enterText(find.byKey(const ValueKey('login-password')), 'anything');
+      await t.pump();
+      expect(t.widget<TextField>(find.byKey(const ValueKey('login-password'))).obscureText, isTrue);
+
+      await t.tap(find.byKey(const ValueKey('employee-login')));
+      await t.pumpAndSettle();
+
+      expect(find.byKey(const ValueKey('menu-handover')), findsOneWidget);
+      expect(c.read(employeeSessionProvider)!.operatorId, 'OP-mock-mfcw-pp-01');
+    });
+
+    testWidgets('임시 아이디·비밀번호 로그인: 시험 작업자 아이디가 아니면 안내하고 머문다 — 비밀번호 칸은 비운다', (t) async {
+      await pump(t, MockPasswordAuthRepository());
+      for (final id in ['someone', 'mfcw-pp-31', 'mfcw-rcv-11', 'mfcw-qc-00', 'mfcw-pp-1']) {
+        await t.enterText(find.byKey(const ValueKey('login-id')), id);
+        await t.enterText(find.byKey(const ValueKey('login-password')), 'anything');
+        await t.pump();
+        await t.tap(find.byKey(const ValueKey('employee-login')));
+        await t.pumpAndSettle();
+        expect(find.byKey(const ValueKey('login-error')), findsOneWidget, reason: id);
+        expect(find.textContaining('아이디 또는 비밀번호가 맞지 않아요'), findsOneWidget);
+        expect(t.widget<TextField>(find.byKey(const ValueKey('login-password'))).controller!.text, isEmpty);
+        expect(find.byKey(const ValueKey('menu-handover')), findsNothing);
+      }
+      expect(MockPasswordAuthRepository.isTestWorker('mfcw-pp-30'), isTrue);
+      expect(MockPasswordAuthRepository.isTestWorker('mfcw-rtn-10'), isTrue);
+    });
+
     testWidgets('로그인 실패는 이유를 안내하고 로그인 화면에 머문다 — 다시 누르면 다시 시도', (t) async {
       final repo = MockAuthRepository(signedIn: false)..nextLoginError = LoginError.accountNotAvailable;
       await pump(t, repo);
