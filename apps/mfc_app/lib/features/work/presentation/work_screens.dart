@@ -189,7 +189,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ],
       ),
       // 역할이 아직 없으면(권한 승인 대기) 업무 API 가 403 이다 — 조회 오류 대신 이유를 먼저 알린다.
-      bottomNavigationBar: (ref.watch(employeeSessionProvider)?.awaitingGrant ?? false)
+      bottomNavigationBar:
+          (ref.watch(employeeSessionProvider)?.awaitingGrant ?? false)
           ? SafeArea(
               child: Padding(
                 padding: const EdgeInsets.all(12),
@@ -565,6 +566,7 @@ class WorkSessionScreen extends ConsumerWidget {
             WorkProblemCode.onBreak => l10n.nextOnBreak,
             WorkProblemCode.offShift => l10n.nextOffShift,
             WorkProblemCode.dailyNotEnrolled => l10n.nextNotEnrolled,
+            WorkProblemCode.workAreaNotAllowed => l10n.nextWorkAreaNotAllowed,
             _ => l10n.nextNotAllowed,
           },
           key: const ValueKey('session-unavailable'),

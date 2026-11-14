@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -328,6 +330,80 @@ void main() {
       expect(req.uri.path, '/api/v1/mfcs/MFC-1/workers/w-1/next-tasks');
       expect(req.method, 'POST');
       expect(req.headers['Idempotency-Key'], 'k-1');
+      // 고른 업무를 본문으로 보낸다(mfc-capacity 0.13.0, BR-52 R1).
+      expect(jsonDecode(req.data as String), {'workArea': 'PICK_PACK'});
+    });
+
+    test(
+      '다음 작업 받기: 업무마다 계약 WorkArea 값, 422 WORK_AREA_NOT_ALLOWED 는 받을 수 없음(확정)',
+      () async {
+        final adapter = FakeAdapter(
+          (_, _) async =>
+              FakeReply.problem(422, problemBody('WORK_AREA_NOT_ALLOWED')),
+        );
+        final r = repo(adapter);
+        const sent = {
+          WorkArea.inbound: 'INBOUND',
+          WorkArea.inspection: 'INSPECTION',
+          WorkArea.stockMove: 'STOCK_MOVE',
+          WorkArea.stockCount: 'STOCK_COUNT',
+          WorkArea.pickPack: 'PICK_PACK',
+        };
+        for (final a in WorkArea.values) {
+          final out = await r.next(
+            'MFC-1',
+            'w-1',
+            a,
+            key: IdempotencyKey('k-${a.name}'),
+          );
+          expect(
+            out,
+            isA<NextUnavailable>().having(
+              (u) => u.code,
+              'code',
+              WorkProblemCode.workAreaNotAllowed,
+            ),
+          );
+          expect(jsonDecode(adapter.requests.last.data as String), {
+            'workArea': sent[a],
+          });
+        }
+      },
+    );
+
+    test('본인 조회: 서버가 준 workAreas 가 고를 수 있는 업무 — 작업 유형으로 넓히지 않는다', () async {
+      Future<WorkerProfile> me(Map<String, Object?> extra) => repo(
+        FakeAdapter(
+          (_, _) async => FakeReply(
+            200,
+            body: {
+              'workerId': 'w-1',
+              'state': 'ACTIVE',
+              'effectiveTaskTypes': ['PICK', 'PACK', 'RETURN'],
+              ...extra,
+            },
+          ),
+        ),
+      ).me('MFC-1', 'w-1');
+
+      final some = await me({
+        'workAreas': ['STOCK_MOVE', 'PICK_PACK'],
+      });
+      expect(some.workAreas, {WorkArea.stockMove, WorkArea.pickPack});
+      expect(some.can(WorkArea.pickPack), isTrue);
+      expect(some.can(WorkArea.stockMove), isTrue);
+      expect(some.can(WorkArea.inbound), isFalse);
+
+      // 빈 목록 = 고를 업무 없음(일일크루 근무 등록 전 등). 작업 유형이 있어도 열지 않는다.
+      final none = await me({'workAreas': <String>[]});
+      expect(none.workAreas, isEmpty);
+      expect(WorkArea.values.where(none.can), isEmpty);
+
+      // 필드가 없으면(0.12.0 이하 서버) 전처럼 작업 유형 겹침으로 본다.
+      final old = await me({});
+      expect(old.workAreas, isNull);
+      expect(old.can(WorkArea.pickPack), isTrue);
+      expect(old.can(WorkArea.inbound), isFalse);
     });
 
     test('본인 조회: 유효 작업 유형이 권한, 휴게 여부', () async {

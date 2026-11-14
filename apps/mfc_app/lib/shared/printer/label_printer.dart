@@ -113,7 +113,7 @@ final class PrintSent extends PrintOutcome {
 final class PrintPreview extends PrintOutcome {
   const PrintPreview(this.label);
 
-  final PackageLabel label;
+  final PrintableLabel label;
 }
 
 enum PrintFailure { notConfigured, unreachable }
@@ -128,13 +128,13 @@ final labelPrintServiceProvider = Provider<LabelPrintService>(
   LabelPrintService.new,
 );
 
-/// 라벨 출력. 재출력은 같은 포장 ID·같은 QR(서버 값) 그대로다 — 새 포장을 만들지 않는다.
+/// 라벨 출력. 재출력은 같은 포장 ID·같은 QR(서버 값), 상품 스티커는 같은 바코드 그대로다 — 새 번호를 만들지 않는다.
 class LabelPrintService {
   LabelPrintService(this._ref);
 
   final Ref _ref;
 
-  Future<PrintOutcome> print(PackageLabel label) async {
+  Future<PrintOutcome> print(PrintableLabel label) async {
     final s = await _ref.read(printerSettingsProvider.future);
     switch (s.mode) {
       case PrinterMode.preview:
@@ -147,7 +147,7 @@ class LabelPrintService {
           await _ref.read(rawPrintSenderProvider)(
             s.host.trim(),
             s.port,
-            utf8.encode(packageLabelZpl(label)),
+            utf8.encode(label.zpl()),
           );
           return const PrintSent();
         } on SocketException catch (e) {

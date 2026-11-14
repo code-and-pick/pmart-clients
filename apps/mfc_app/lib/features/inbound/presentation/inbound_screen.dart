@@ -5,6 +5,7 @@ import 'package:pmart_ui/pmart_ui.dart';
 
 import '../../../l10n/gen/app_localizations.dart';
 import '../../../shared/field_widgets.dart';
+import '../../../shared/printer/reprint.dart';
 import '../../../shared/scanner/scan_input.dart';
 import '../../../shared/scanner/scanner.dart';
 import '../../work/domain/work.dart';
@@ -386,6 +387,9 @@ class _CountStep extends ConsumerWidget {
         const SizedBox(height: 8),
         ScanInput(
           id: 'inbound-scan',
+          reprint: [
+            ReprintTarget(sku: l.sku, name: l.productName, barcode: l.barcode),
+          ],
           testValues: [
             for (final x in p.lines)
               if (x.barcode case final bc?)
@@ -901,6 +905,10 @@ class _BoxInspectStep extends ConsumerWidget {
           // 낱개는 0부터 — 상품 바코드 1번 = 정상 +1(입고는 수량·겉보기 파손만, 품질 판정은 품질검사).
           ScanInput(
             id: 'box-item-scan',
+            reprint: [
+              if (lineOf(b) case final l?)
+                ReprintTarget(sku: l.sku, name: nameOf(b), barcode: l.barcode),
+            ],
             testValues: [
               if (lineOf(b)?.barcode case final bc?) TestScan(nameOf(b), bc),
               TestScan(l10n.tsWrong, '0000000000000'),

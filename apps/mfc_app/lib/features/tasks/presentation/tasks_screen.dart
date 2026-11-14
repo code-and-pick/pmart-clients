@@ -10,6 +10,7 @@ import '../../work/presentation/work_screens.dart' show backToSession;
 import '../../work/presentation/work_controller.dart' show continueToPack;
 import 'return_screen.dart';
 import '../../../shared/field_widgets.dart';
+import '../../../shared/printer/reprint.dart';
 import '../../../shared/scanner/scan_input.dart';
 import '../../../shared/scanner/scanner.dart';
 import '../../../shared/ui_state_of.dart';
@@ -419,6 +420,13 @@ class _PickingScreenState extends ConsumerState<PickingScreen> {
                   // 3. 상품 — 한 번에 하나씩. 다 차면 바로 보낸다.
                   ScanInput(
                     id: 'scan-field',
+                    reprint: [
+                      ReprintTarget(
+                        sku: stop.line.sku,
+                        name: stop.line.productName,
+                        barcode: stop.line.barcode,
+                      ),
+                    ],
                     testValues: [
                       for (final l in task.lines)
                         if (l.barcode case final bc?)

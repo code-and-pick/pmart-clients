@@ -8,12 +8,14 @@ import '../../../shared/codes.dart';
 import '../../../shared/field_widgets.dart';
 import '../../../shared/issue_report.dart';
 import '../../../shared/product_hints.dart';
+import '../../../shared/printer/reprint.dart';
 import '../../../shared/scanner/scan_input.dart';
 import '../../../shared/scanner/scanner.dart';
 import '../../../shared/ui_state_of.dart';
 import '../../stock_move/presentation/stock_move_controllers.dart' show LocScan;
 import '../../stock_move/presentation/stock_move_screens.dart' show locScanText;
 import '../../work/domain/work.dart';
+import '../../work/presentation/work_controller.dart' show autoNextAllowed;
 import '../../work/presentation/work_screens.dart' show backToSession;
 import '../data/task_repository.dart';
 import '../domain/task_list.dart';
@@ -315,6 +317,7 @@ class ReturnShelfScreen extends ConsumerWidget {
                         ],
                         onNext: () async =>
                             backToSession(context, WorkArea.stockMove),
+                        autoNext: autoNextAllowed(ref),
                       )
                     : ResultView(
                         key: const ValueKey('return-waiting'),
@@ -404,6 +407,15 @@ class ReturnShelfScreen extends ConsumerWidget {
                   const SizedBox(height: 8),
                   ScanInput(
                     id: 'return-scan',
+                    reprint: step == 1
+                        ? [
+                            ReprintTarget(
+                              sku: p.line.sku,
+                              name: p.line.productName,
+                              barcode: bc,
+                            ),
+                          ]
+                        : null,
                     testValues: switch (step) {
                       0 => [
                         TestScan(l10n.tsFrom, p.from),

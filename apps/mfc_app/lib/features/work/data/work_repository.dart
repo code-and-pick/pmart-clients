@@ -6,11 +6,13 @@ import '../../../shared/providers.dart' show sourceSystem;
 import '../domain/work.dart';
 
 abstract interface class WorkRepository {
-  /// 작업자 본인(권한·휴게). `GET /mfcs/{mfcId}/workers/{workerId}` — 본인 조회 허용은 BR-52.
+  /// 작업자 본인(권한·휴게). `GET /mfcs/{mfcId}/workers/{workerId}` 를 본인 토큰으로 부른다
+  /// (workerId = 토큰 subject — BR-52 R3 회신, mfc-capacity 0.13.0). 고를 수 있는 업무는 `workAreas`.
   Future<WorkerProfile> me(String mfcId, String workerId);
 
-  /// 다음 작업 받기. 들고 있는 작업이 있으면 그것을 돌려준다.
-  /// 고른 업무로 거르는 값은 계약에 없다(BR-52) — 목만 업무로 거른다.
+  /// 다음 작업 받기 — 고른 업무를 본문 `workArea` 로 보낸다(BR-52 R1 회신, 0.13.0).
+  /// 들고 있는 작업이 있으면 **고른 업무와 상관없이** 그것을 돌려준다(한 번에 하나).
+  /// 고른 업무에 유효 작업 유형이 없으면 422 `WORK_AREA_NOT_ALLOWED`.
   Future<NextTaskOutcome> next(
     String mfcId,
     String workerId,
@@ -50,6 +52,8 @@ final class ApiWorkRepository implements WorkRepository {
       allowedTaskTypes: {
         for (final t in w.effectiveTaskTypes ?? const <cap.TaskType>[]) t.value,
       },
+      // 서버가 필드를 주지 않으면(0.12.0 이하) null — 빈 목록("고를 업무 없음")과 구별한다.
+      workAreas: w.workAreas?.map(workAreaFromContract).toSet(),
       active: w.state == null || w.state!.value == 'ACTIVE',
       onBreak: w.onBreak ?? false,
     );
@@ -69,6 +73,9 @@ final class ApiWorkRepository implements WorkRepository {
           workerId: workerId,
           idempotencyKey: key.value,
           xSourceSystem: sourceSystem,
+          pullNextTaskRequest: cap.PullNextTaskRequest(
+            workArea: workAreaToContract(area),
+          ),
           extra: commandOptions(key).extra,
         ),
       );
@@ -118,6 +125,23 @@ final class ApiWorkRepository implements WorkRepository {
     ),
   );
 }
+
+/// 앱의 업무 ↔ 계약 `WorkArea`(다섯 값이 하나씩 대응 — 회신 §1).
+cap.WorkArea workAreaToContract(WorkArea a) => switch (a) {
+  WorkArea.inbound => cap.WorkArea.INBOUND,
+  WorkArea.inspection => cap.WorkArea.INSPECTION,
+  WorkArea.stockMove => cap.WorkArea.STOCK_MOVE,
+  WorkArea.stockCount => cap.WorkArea.STOCK_COUNT,
+  WorkArea.pickPack => cap.WorkArea.PICK_PACK,
+};
+
+WorkArea workAreaFromContract(cap.WorkArea a) => switch (a) {
+  cap.WorkArea.INBOUND => WorkArea.inbound,
+  cap.WorkArea.INSPECTION => WorkArea.inspection,
+  cap.WorkArea.STOCK_MOVE => WorkArea.stockMove,
+  cap.WorkArea.STOCK_COUNT => WorkArea.stockCount,
+  cap.WorkArea.PICK_PACK => WorkArea.pickPack,
+};
 
 AssignedTask assignedTaskFromContract(cap.Assignment a) {
   final d = a.detail;

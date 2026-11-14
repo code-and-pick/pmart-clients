@@ -160,3 +160,8 @@ Future<void> continueToPack(BuildContext context, WidgetRef ref) async {
   }
   context.go('/work/${WorkArea.pickPack.name}');
 }
+
+/// 완료 화면의 자동 다음 작업을 켤지 — 휴게 중이면 끈다(사용자 2026-11-14).
+/// 본인 정보를 아직 못 읽었으면 켠다: 휴게 중이면 서버가 `ON_BREAK` 로 거절하고 근무 화면이 그 안내를 보인다.
+bool autoNextAllowed(WidgetRef ref) =>
+    ref.watch(meProvider).value?.onBreak != true;

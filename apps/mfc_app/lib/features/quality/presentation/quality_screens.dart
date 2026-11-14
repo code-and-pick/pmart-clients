@@ -6,6 +6,7 @@ import 'package:pmart_ui/pmart_ui.dart';
 import '../../../l10n/gen/app_localizations.dart';
 import '../../../shared/evidence.dart';
 import '../../../shared/field_widgets.dart';
+import '../../../shared/printer/reprint.dart';
 import '../../../shared/scanner/scan_input.dart';
 import '../../../shared/scanner/scanner.dart';
 import '../../work/domain/work.dart';
@@ -176,6 +177,13 @@ class InspectScreen extends ConsumerWidget {
           if (t.barcode != null) ...[
             ScanInput(
               id: 'inspect-product-scan',
+              reprint: [
+                ReprintTarget(
+                  sku: t.sku,
+                  name: t.productName,
+                  barcode: t.barcode,
+                ),
+              ],
               testValues: [
                 TestScan(t.productName ?? t.sku, t.barcode!),
                 TestScan(l10n.tsWrong, '8801115114154'),

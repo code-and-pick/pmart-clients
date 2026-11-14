@@ -92,6 +92,7 @@ class GoBanner extends StatelessWidget {
 ///
 /// "다음 작업"을 [autoNextAfter] 안에 누르지 않으면 누른 것과 똑같이 자동으로 다음 작업을 받는다
 /// (사용자 2026-11-13: 10초). 남은 초를 버튼 위에 보인다. 서버가 끝났다고 답한 뒤에만 띄운다.
+/// [autoNext] 가 false(휴게 중)면 자동으로 넘어가지 않고 버튼만 둔다(사용자 2026-11-14).
 class TaskDoneView extends StatefulWidget {
   const TaskDoneView({
     super.key,
@@ -99,6 +100,7 @@ class TaskDoneView extends StatefulWidget {
     required this.message,
     required this.rows,
     required this.onNext,
+    this.autoNext = true,
   });
 
   static const autoNextAfter = Duration(seconds: 10);
@@ -109,6 +111,7 @@ class TaskDoneView extends StatefulWidget {
   /// (이름, 값) 줄.
   final List<(String, String)> rows;
   final Future<void> Function() onNext;
+  final bool autoNext;
 
   @override
   State<TaskDoneView> createState() => _TaskDoneViewState();
@@ -122,6 +125,21 @@ class _TaskDoneViewState extends State<TaskDoneView> {
   @override
   void initState() {
     super.initState();
+    if (widget.autoNext) _startTimer();
+  }
+
+  @override
+  void didUpdateWidget(TaskDoneView old) {
+    super.didUpdateWidget(old);
+    if (_going || old.autoNext == widget.autoNext) return;
+    // 휴게가 바뀌면(또는 본인 정보가 늦게 오면) 타이머를 처음부터 다시 켜거나 끈다.
+    _tick?.cancel();
+    _tick = null;
+    _left = TaskDoneView.autoNextAfter.inSeconds;
+    if (widget.autoNext) _startTimer();
+  }
+
+  void _startTimer() {
     _tick = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!mounted) return;
       if (_left > 1) {
@@ -217,8 +235,12 @@ class _TaskDoneViewState extends State<TaskDoneView> {
           Padding(
             padding: const EdgeInsets.only(bottom: 8),
             child: Text(
-              l10n.moveDoneAutoNext(_left),
-              key: const ValueKey('done-auto-next'),
+              widget.autoNext
+                  ? l10n.moveDoneAutoNext(_left)
+                  : l10n.doneAutoNextOnBreak,
+              key: ValueKey(
+                widget.autoNext ? 'done-auto-next' : 'done-auto-next-off',
+              ),
               textAlign: TextAlign.center,
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: scheme.onSurfaceVariant,

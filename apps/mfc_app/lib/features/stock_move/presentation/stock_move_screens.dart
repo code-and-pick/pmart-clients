@@ -5,9 +5,11 @@ import 'package:pmart_ui/pmart_ui.dart';
 import '../../../l10n/gen/app_localizations.dart';
 import '../../../shared/field_widgets.dart';
 import '../../../shared/issue_report.dart';
+import '../../../shared/printer/reprint.dart';
 import '../../../shared/scanner/scan_input.dart';
 import '../../../shared/scanner/scanner.dart';
 import '../../work/domain/work.dart';
+import '../../work/presentation/work_controller.dart' show autoNextAllowed;
 import '../../work/presentation/work_screens.dart' show backToSession;
 import '../domain/stock_move.dart';
 import 'stock_move_controllers.dart';
@@ -112,6 +114,7 @@ class MoveScreen extends ConsumerWidget {
           ],
         ],
         onNext: () => _next(context),
+        autoNext: autoNextAllowed(ref),
       ),
       MovePhase.pickUp || MovePhase.drop => Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -193,6 +196,15 @@ class MoveScreen extends ConsumerWidget {
           const SizedBox(height: 8),
           ScanInput(
             id: 'move-scan',
+            reprint: loading
+                ? [
+                    ReprintTarget(
+                      sku: m.sku,
+                      name: ctl.productName,
+                      barcode: barcode,
+                    ),
+                  ]
+                : null,
             testValues: locating
                 ? [
                     TestScan(l10n.tsCart, 'CRT-C-01'),
@@ -374,6 +386,7 @@ class PutawayScreen extends ConsumerWidget {
           ],
         ],
         onNext: () => _next(context),
+        autoNext: autoNextAllowed(ref),
       ),
       PutawayPhase.editing => () {
         final t = s.task!;
@@ -458,6 +471,15 @@ class PutawayScreen extends ConsumerWidget {
             const SizedBox(height: 8),
             ScanInput(
               id: 'putaway-scan',
+              reprint: step == 1
+                  ? [
+                      ReprintTarget(
+                        sku: t.sku,
+                        name: t.productName,
+                        barcode: barcode,
+                      ),
+                    ]
+                  : null,
               testValues: switch (step) {
                 0 => [
                   TestScan(l10n.tsFrom, t.locationCode),

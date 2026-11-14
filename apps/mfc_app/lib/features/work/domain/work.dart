@@ -52,6 +52,7 @@ class WorkerProfile {
   const WorkerProfile({
     required this.workerId,
     required this.allowedTaskTypes,
+    this.workAreas,
     this.displayName,
     this.active = true,
     this.onBreak = false,
@@ -60,10 +61,17 @@ class WorkerProfile {
   final String workerId;
   final String? displayName;
   final Set<String> allowedTaskTypes;
+
+  /// 서버가 준 "고를 수 있는 업무"(mfc-capacity 0.13.0 `Worker.workAreas` — BR-52 R3·R4 회신).
+  /// 서버가 주지 않았으면 null(0.12.0 이하 서버·목) — 그때만 작업 유형 겹침으로 본다.
+  final Set<WorkArea>? workAreas;
   final bool active;
   final bool onBreak;
 
-  bool can(WorkArea a) => active && a.taskTypes.any(allowedTaskTypes.contains);
+  /// 이 업무를 고를 수 있는지(안내용 — 판정은 서버). 서버 값이 있으면 그 값만 따른다.
+  bool can(WorkArea a) =>
+      active &&
+      (workAreas?.contains(a) ?? a.taskTypes.any(allowedTaskTypes.contains));
 
   bool canUse(PdaMenu m) =>
       m.requires.isEmpty || m.requires.any(allowedTaskTypes.contains);
@@ -163,6 +171,9 @@ abstract final class WorkProblemCode {
   static const onBreak = 'ON_BREAK';
   static const offShift = 'OFF_SHIFT';
   static const dailyNotEnrolled = 'DAILY_NOT_ENROLLED';
+
+  /// 고른 업무에 유효 작업 유형이 하나도 없다(422 — mfc-capacity 0.13.0).
+  static const workAreaNotAllowed = 'WORK_AREA_NOT_ALLOWED';
   static const workerNotActive = 'WORKER_NOT_ACTIVE';
   static const workerNotRegistered = 'WORKER_NOT_REGISTERED';
   static const configRequired = 'CONFIG_REQUIRED';

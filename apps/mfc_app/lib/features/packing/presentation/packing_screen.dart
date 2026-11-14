@@ -10,6 +10,7 @@ import '../../../shared/printer/label.dart';
 import '../../../shared/field_widgets.dart';
 import '../../../shared/product_hints.dart';
 import '../../../shared/printer/printer_ui.dart';
+import '../../../shared/printer/reprint.dart';
 import '../../../shared/scanner/scan_input.dart';
 import '../../../shared/scanner/scanner.dart';
 import '../../../shared/ui_state_of.dart';
@@ -303,6 +304,14 @@ class _PackingScreenState extends ConsumerState<PackingScreen> {
                         ),
                     ScanInput(
                       id: 'pack-scan',
+                      reprint: [
+                        for (final l in task.lines)
+                          ReprintTarget(
+                            sku: l.sku,
+                            name: l.productName,
+                            barcode: l.barcode,
+                          ),
+                      ],
                       testValues: [
                         for (final l in task.lines)
                           if (l.barcode case final bc?)

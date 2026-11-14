@@ -13,7 +13,15 @@ Future<void> printPackageLabel(
   BuildContext context,
   WidgetRef ref,
   PackageLabel label,
-) async {
+) => printLabel(context, ref, label);
+
+/// 라벨(포장·상품 바코드)을 출력하고 결과를 알린다. [sentText] 는 프린터로 보낸 뒤의 안내(없으면 공통 문구).
+Future<void> printLabel(
+  BuildContext context,
+  WidgetRef ref,
+  PrintableLabel label, {
+  String? sentText,
+}) async {
   final l10n = AppLocalizations.of(context);
   final messenger = ScaffoldMessenger.of(context);
   final outcome = await ref.read(labelPrintServiceProvider).print(label);
@@ -22,10 +30,16 @@ Future<void> printPackageLabel(
     case PrintPreview(:final label):
       await showDialog<void>(
         context: context,
-        builder: (_) => LabelPreviewDialog(label: label),
+        builder: (_) => switch (label) {
+          final ProductBarcodeLabel p => ProductBarcodePreviewDialog(label: p),
+          final PackageLabel p => LabelPreviewDialog(label: p),
+          _ => const SizedBox.shrink(),
+        },
       );
     case PrintSent():
-      messenger.showSnackBar(SnackBar(content: Text(l10n.printSent)));
+      messenger.showSnackBar(
+        SnackBar(content: Text(sentText ?? l10n.printSent)),
+      );
     case PrintFailed(:final reason):
       messenger.showSnackBar(
         SnackBar(
@@ -84,6 +98,49 @@ class LabelPreviewDialog extends StatelessWidget {
             Text(l10n.labelPreviewNote, style: theme.textTheme.bodySmall),
           ],
         ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(l10n.confirmOk),
+        ),
+      ],
+    );
+  }
+}
+
+/// 프린터가 없을 때 쓰는 상품 바코드 스티커 미리보기.
+class ProductBarcodePreviewDialog extends StatelessWidget {
+  const ProductBarcodePreviewDialog({super.key, required this.label});
+
+  final ProductBarcodeLabel label;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final theme = Theme.of(context);
+    return AlertDialog(
+      key: const ValueKey('barcode-label-preview'),
+      title: Text(l10n.labelPreviewTitle),
+      content: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // 바코드 그림은 그리지 않는다(렌더링 패키지 미승인). 원문만 보인다.
+          SelectableText(
+            label.barcode,
+            key: const ValueKey('barcode-label-text'),
+            style: theme.textTheme.headlineSmall?.copyWith(
+              fontFamily: 'monospace',
+            ),
+          ),
+          const Divider(),
+          if (label.productName != null)
+            Text(label.productName!, style: theme.textTheme.titleMedium),
+          Text(l10n.reprintSku(label.sku)),
+          const SizedBox(height: 12),
+          Text(l10n.labelPreviewNote, style: theme.textTheme.bodySmall),
+        ],
       ),
       actions: [
         TextButton(

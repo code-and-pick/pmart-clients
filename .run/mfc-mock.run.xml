@@ -1,0 +1,9 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="MFC앱 목" type="FlutterRunConfigurationType" factoryName="Flutter">
+    <!-- kotlin.incremental=false: 저장소와 pub 캐시가 다른 드라이브(D: / C:)에 있으면 Kotlin 증분 캐시가
+         "different roots" 로 실패한다(PC 3, 2026-11-13). 같은 드라이브인 PC 에서는 없어도 된다. -->
+    <option name="additionalArgs" value="--dart-define=PMART_ENV=mock --android-project-arg=kotlin.incremental=false" />
+    <option name="filePath" value="$PROJECT_DIR$/apps/mfc_app/lib/main.dart" />
+    <method v="2" />
+  </configuration>
+</component>

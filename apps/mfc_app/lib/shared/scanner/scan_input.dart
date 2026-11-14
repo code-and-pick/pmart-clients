@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pmart_core/pmart_core.dart';
 
 import '../../l10n/gen/app_localizations.dart';
+import '../printer/reprint.dart';
 import '../providers.dart';
 import 'scanner.dart';
 
@@ -40,6 +41,7 @@ class ScanInput extends ConsumerStatefulWidget {
     this.autofocus = true,
     this.testValues = const [],
     this.testActions = const [],
+    this.reprint,
   });
 
   /// 입력칸 키는 `ValueKey(id)`, 카메라 버튼은 `ValueKey('$id-camera')`.
@@ -55,6 +57,10 @@ class ScanInput extends ConsumerStatefulWidget {
 
   /// 일괄 처리 같은 테스트 동작. 목 모드에서만 쓴다.
   final List<TestAction> testActions;
+
+  /// 상품 스캔 자리면 그 자리에서 찍을 수 있는 상품들 — "바코드가 안 찍혀요"(재출력) 버튼을 아래에 둔다.
+  /// null 이면 버튼이 없다(위치·카트·포장 QR 같은 자리). 빈 목록이면 버튼은 있되 누를 수 없다.
+  final List<ReprintTarget>? reprint;
 
   @override
   ConsumerState<ScanInput> createState() => _ScanInputState();
@@ -94,6 +100,20 @@ class _ScanInputState extends ConsumerState<ScanInput> {
 
   @override
   Widget build(BuildContext context) {
+    final row = _row(context);
+    final reprint = widget.reprint;
+    if (reprint == null) return row;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        row,
+        BarcodeReprintButton(id: widget.id, targets: reprint),
+      ],
+    );
+  }
+
+  Widget _row(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     return Row(
       children: [

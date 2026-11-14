@@ -5,6 +5,7 @@ import 'package:pmart_ui/pmart_ui.dart';
 import '../../../l10n/gen/app_localizations.dart';
 import '../../../shared/field_widgets.dart';
 import '../../../shared/issue_report.dart';
+import '../../../shared/printer/reprint.dart';
 import '../../../shared/scanner/scan_input.dart';
 import '../../../shared/scanner/scanner.dart';
 import '../../work/domain/work.dart';
@@ -135,6 +136,14 @@ class CountScreen extends ConsumerWidget {
             TargetLine(label: l10n.countAt, code: s.location!, confirmed: true),
             ScanInput(
               id: 'count-item-scan',
+              reprint: [
+                for (final l in lines)
+                  ReprintTarget(
+                    sku: l.sku,
+                    name: ctl.nameOf(l),
+                    barcode: ctl.barcodeOf(l),
+                  ),
+              ],
               testValues: [
                 for (final l in lines)
                   if (ctl.barcodeOf(l) case final bc?)
