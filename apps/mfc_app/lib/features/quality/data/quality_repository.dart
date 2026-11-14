@@ -257,4 +257,12 @@ InboundTaskView inboundTaskFromContract(ib.InboundTask t) => InboundTaskView(
   doneQty: t.doneQty,
   completed: t.state.value == 'COMPLETED',
   version: t.version,
+  productName: switch (t.productName?.trim()) {
+    final n? when n.isNotEmpty => n,
+    _ => null,
+  },
+  barcodes: [
+    for (final b in t.barcodes ?? const <String>[])
+      if (b.trim().isNotEmpty) b.trim(),
+  ],
 );

@@ -314,7 +314,7 @@ class InspectController extends Notifier<InspectState> {
 
   /// 2단계: 상품 바코드 대조. 바코드 정보가 없으면(계약 공백) [confirmProductWithoutBarcode].
   InspectScan scanProduct(String code) {
-    final ok = code.trim() == state.task?.barcode;
+    final ok = state.task?.matchesBarcode(code) ?? false;
     state = state.copyWith(
       lastScan: () => ok ? InspectScan.ok : InspectScan.wrong,
       phase: ok ? InspectPhase.judge : state.phase,

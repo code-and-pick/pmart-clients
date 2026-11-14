@@ -235,15 +235,16 @@ class _ArrivalStep extends ConsumerWidget {
         ScanInput(
           id: 'trf-scan',
           testValues: [
-            TestScan(l10n.tsNext, trfId),
-            TestScan(l10n.tsOtherTruck, 'TRF-OTHER-999'),
+            TestScan(l10n.tsNext, 'TRF:$trfId:1'),
+            TestScan(l10n.tsOtherTruck, 'TRF:TRF-OTHER-999:1'),
           ],
           label: l10n.inboundTrfScanHint,
           cameraTitle: l10n.inboundTrfScanHint,
           continuous: false,
           autofocus: false,
           onScan: (code) {
-            if (code.trim() != trfId) {
+            // 송장 라벨 `TRF:{trfId}:{version}` — trfId 만 비교한다(BR-53 R10).
+            if (trfIdFromLabel(code) != trfId) {
               return ScanFeedback.error(l10n.inboundTrfMismatch);
             }
             ctl.arrive();
@@ -927,7 +928,7 @@ class _BoxInspectStep extends ConsumerWidget {
             cameraTitle: l10n.boxItemScan,
             autofocus: false,
             onScan: (code) {
-              if (code.trim() != lineOf(b)?.barcode) {
+              if (!(lineOf(b)?.matchesBarcode(code) ?? false)) {
                 return ScanFeedback.error(l10n.inboundOtherLine);
               }
               final now = ctl.boxCountOf(id);

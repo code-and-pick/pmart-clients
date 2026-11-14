@@ -387,10 +387,10 @@ class InboundFlowController extends Notifier<InboundState> {
     final l = state.line;
     final c = code.trim();
     final InboundScan r;
-    if (l != null && l.barcode != null && l.barcode == c) {
+    if (l != null && l.matchesBarcode(c)) {
       _set(l, state.countOf(l).copyWith(normal: state.countOf(l).normal + 1));
       r = InboundScan.counted;
-    } else if (state.promise?.lines.any((x) => x.barcode == c) ?? false) {
+    } else if (state.promise?.lines.any((x) => x.matchesBarcode(c)) ?? false) {
       r = InboundScan.otherLine;
     } else {
       r = InboundScan.unknownCode;

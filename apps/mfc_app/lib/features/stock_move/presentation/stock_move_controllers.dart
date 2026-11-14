@@ -385,7 +385,7 @@ class PutawayController extends Notifier<PutawayState> {
         r = c == t.locationCode ? LocScan.ok : LocScan.needLoad;
       } else if (bc == null) {
         r = LocScan.notLocation;
-      } else if (c != bc) {
+      } else if (!(t.matchesBarcode(c) || c == bc)) {
         r = LocScan.wrongItem;
       } else if (state.qty >= t.remainingQty) {
         r = LocScan.over;

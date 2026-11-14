@@ -36,7 +36,7 @@ class InboundLine {
     required this.expectedQty,
     this.lotId,
     this.productName,
-    this.barcode,
+    this.barcodes = const [],
     this.unitsPerBox,
     this.boxCount,
     this.receivedQty = 0,
@@ -47,9 +47,17 @@ class InboundLine {
   final String sku;
   final String? lotId;
 
-  /// 표시용 상품명·스캔 대조값 — 계약 입고 예정 행에 없다(BR-53). 목만 채운다.
+  /// 표시용 상품명·스캔 대조값 — 서버 값(mfc-inbound 0.8.0 `lines[].productName`·`barcodes`, BR-53 R8).
+  /// 입고 예정은 서버에 아직 없어(501) 지금은 목만 채운다. 비면 SKU 로 보이고 스캔 대조를 건너뛴다.
   final String? productName;
-  final String? barcode;
+
+  /// 그 SKU 의 활성 바코드 전부(선행 0 보존).
+  final List<String> barcodes;
+
+  /// 화면·재출력에 쓰는 대표 바코드(첫 번째).
+  String? get barcode => barcodes.firstOrNull;
+
+  bool matchesBarcode(String code) => barcodes.contains(code.trim());
 
   /// 박스 입수·예정 박스 수 — 계약에 없다(BR-53 R17). 목만. 수량(expectedQty)은 판매 단위.
   final int? unitsPerBox;
@@ -211,4 +219,16 @@ final class InboundUnknown extends InboundCommandOutcome {
 abstract final class InboundProblemCode {
   static const invalidState = 'INVALID_STATE';
   static const versionConflict = 'VERSION_CONFLICT';
+}
+
+/// 송장 라벨 스캔 값 `TRF:{trfId}:{version}`(mfc-inbound 0.8.0, BR-53 R10)에서 trfId 를 꺼낸다.
+/// 맞는 송장인지는 trfId 만 비교한다 — 버전은 라벨 인쇄 때 값이라 지금 입고 예정 버전과 다를 수 있다.
+/// 형식이 아니면 null.
+String? trfIdFromLabel(String raw) {
+  final s = raw.trim();
+  if (!s.startsWith('TRF:')) return null;
+  final rest = s.substring(4);
+  final i = rest.lastIndexOf(':');
+  if (i <= 0 || int.tryParse(rest.substring(i + 1)) == null) return null;
+  return rest.substring(0, i);
 }

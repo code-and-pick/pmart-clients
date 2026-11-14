@@ -18,7 +18,7 @@ class InboundTaskView {
     required this.version,
     this.parentTaskId,
     this.productName,
-    this.barcode,
+    this.barcodes = const [],
     this.minRemainingDays,
     this.maxDaysSinceManufacture,
     this.zone,
@@ -31,10 +31,20 @@ class InboundTaskView {
   final List<String> suggestedLocations;
   final InboundTaskKind kind;
 
-  /// 상품명·바코드·판정 기준·보관 온도대 — 입고 작업 계약에 없다(BR-52 R18). 목만.
-  /// 기준은 상품 정보(product-service `minRemainingDays`·`maxDaysSinceManufacture`)의 값.
+  /// 상품명·바코드 — 서버 값(mfc-inbound 0.8.0 `productName`·`barcodes`, BR-53 R8). 상품명은 상품 관리용
+  /// 명칭(internalName). 서버가 모르면(옛 상품·조회 실패) null·빈 목록 → SKU 로 보이고 바코드 대조를 건너뛴다.
   final String? productName;
-  final String? barcode;
+
+  /// 그 SKU 의 활성 바코드 전부(선행 0 보존). 스캔 값이 이 중 하나면 맞는 상품.
+  final List<String> barcodes;
+
+  /// 화면·재출력에 쓰는 대표 바코드(첫 번째).
+  String? get barcode => barcodes.firstOrNull;
+
+  bool matchesBarcode(String code) => barcodes.contains(code.trim());
+
+  /// 판정 기준·보관 온도대 — 입고 작업 계약에 없다(BR-52 R18). 목만.
+  /// 기준은 상품 정보(product-service `minRemainingDays`·`maxDaysSinceManufacture`)의 값.
   final int? minRemainingDays;
   final int? maxDaysSinceManufacture;
   final TempZone? zone;

@@ -182,6 +182,14 @@ InboundPromiseView promiseFromContract(ib.InboundPromise p) =>
             receivedQty: l.receivedQty ?? 0,
             quarantinedQty: l.quarantinedQty ?? 0,
             pendingQty: l.pendingQty ?? 0,
+            productName: switch (l.productName?.trim()) {
+              final n? when n.isNotEmpty => n,
+              _ => null,
+            },
+            barcodes: [
+              for (final b in l.barcodes ?? const <String>[])
+                if (b.trim().isNotEmpty) b.trim(),
+            ],
           ),
       ],
       receipts: [
