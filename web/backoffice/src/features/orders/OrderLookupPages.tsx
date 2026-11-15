@@ -14,6 +14,7 @@ import { useApi } from '../../app/ApiContext';
 import { messages as m } from '../../shared/messages';
 import { addSeoulDays, Facts, isSeoulDate, label, seoulDayEnd, seoulDayStart, seoulToday, spanDays, text, when, won } from '../../shared/ops';
 import { ClaimsOfOrder } from '../claims/ClaimPages';
+import { DeliveriesOf } from '../deliveries/DeliveryPages';
 
 type OrderStatus = components['schemas']['OrderStatus'];
 type Detail = components['schemas']['StaffOrderDetail'];
@@ -404,6 +405,9 @@ export function OrderDetailPage() {
                 ))}
               </ul>
             )}
+
+            <h2 className="font-bold">{m.deliveries.ofOrder}</h2>
+            <DeliveriesOf orderId={o.orderId} />
 
             <h2 className="font-bold">{m.orders.claims}</h2>
             <ClaimsOfOrder orderId={o.orderId} />
