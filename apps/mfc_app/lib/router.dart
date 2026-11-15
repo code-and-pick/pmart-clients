@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'features/manage/presentation/manage_screens.dart';
+import 'features/manage/presentation/move_admin_screens.dart';
 import 'features/auth/domain/employee_auth.dart';
 import 'features/auth/presentation/auth_controller.dart';
 import 'features/auth/presentation/login_screen.dart';
@@ -44,6 +45,14 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/manage/tasks',
         builder: (_, _) => const CenterTasksScreen(),
+      ),
+      GoRoute(
+        path: '/manage/moves',
+        builder: (_, _) => const MoveOrdersScreen(),
+      ),
+      GoRoute(
+        path: '/manage/moves/new',
+        builder: (_, _) => const NewMoveScreen(),
       ),
       GoRoute(
         path: '/manage/workers',

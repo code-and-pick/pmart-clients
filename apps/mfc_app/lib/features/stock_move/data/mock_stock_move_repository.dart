@@ -65,6 +65,14 @@ final class MockStockMoveRepository implements StockMoveRepository {
     (m) => m.state == MoveState.active || m.state == MoveState.cancelPending,
   );
 
+  /// 모든 이동 지시(센터 관리자 목 — 목록·지시·취소가 같은 지시를 본다).
+  Iterable<MoveOrderView> get allMoves => _moves.values;
+
+  MoveOrderView? moveById(String moveId) => _moves[moveId];
+
+  /// 센터 관리자 목이 지시·취소한 결과를 넣는다.
+  void putMove(MoveOrderView m) => _moves[m.moveId] = m;
+
   /// 검수 대기 반입 ID(다음 작업 받기 목이 고른다 — 계약에는 목록 없음, BR-52 R12).
   Iterable<String> get pendingReturnIds =>
       _received.values.where((r) => !r.inspected).map((r) => r.returnReceiptId);

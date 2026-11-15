@@ -31,6 +31,8 @@ dependencies:
     path: ../../packages/pmart_api/gen/mfc-inventory
   pmart_api_mfc_capacity:
     path: ../../packages/pmart_api/gen/mfc-capacity
+  pmart_api_product:
+    path: ../../packages/pmart_api/gen/product
   pmart_api_delivery_tracking:
     path: ../../packages/pmart_api/gen/delivery-tracking
   mobile_scanner: ^7.5.0

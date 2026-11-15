@@ -347,6 +347,14 @@ class _ManageMenu extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             _MenuButton(
+              key: const ValueKey('manage-moves'),
+              icon: Icons.swap_horiz,
+              label: l10n.manageMoves,
+              allowed: true,
+              onTap: () => context.push('/manage/moves'),
+            ),
+            const SizedBox(width: 8),
+            _MenuButton(
               key: const ValueKey('manage-workers'),
               icon: Icons.groups_outlined,
               label: l10n.manageWorkers,
