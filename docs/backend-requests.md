@@ -61,9 +61,9 @@
 | BR-51 | 높음 | MFC | 배차 자동 요청(AUTO_ON_READY) 제거 — 사용자 결정(2026-11-10): 배차는 무조건 점원 요청. 계약 0.4.5 D-5 는 READY 시 자동 요청 | OPEN(요청 `docs/handoff/archive/2026-11-10-backend-dispatch-manual-only.md`). PDA 는 직원 요청만, 서버가 AUTO_ON_READY 를 보내면 숨기지 않고 관리자 알림 문구 |
 | BR-52 | 높음 | MFC | PDA 업무 선택(입고/품질검사/재고 이동/재고 실사/피패킹) 기반 배정 — 다음 작업 받기에 고른 업무 필터, 입고·품질검사·적치 배정 포함, 회수품 반입·회수품 검사·실사 작업 유형 추가, 작업자 본인 조회 허용, 메뉴 권한 기준, 작업 가능 신호, 품질검사 LOT 은 시스템 배정(R15), 품질검사 판정 기준·격리 사유·증빙 사진 업로드·반입 줄 온도대(R18), 이동·실사·피패킹 상품 바코드·패킹 온도대·장바구니·적치 추천·격리 이동·실사 목록 밖 상품·예외 보고(R19), 피킹한 사람에게 같은 주문 패킹 배정·출하대기 랙 위치(R20) | OPEN — **R1·R3·R4 완료**(mfc-capacity 0.13, 클라이언트 PR #2 2026-11-14: `workAreas`·다음 작업 받기 `workArea`·422 `WORK_AREA_NOT_ALLOWED`). 나머지 R2·R5~R7·R12~R20 OPEN — 다음 차례로 R2·R19-1 요청(`docs/handoff/mfc-app/2026-11-14-backend-br52-next-priority.md`). 원 요청 `docs/handoff/mfc-app/2026-11-10-backend-pda-work-areas.md` |
 | BR-53 | 중간 | MFC | 입고 수령 화면에 필요한 값 — 입고 예정 행의 상품명·바코드(스캔 대조), RECEIVE 배정의 taskId ↔ trfId 연결, 송장(TRF) 바코드 원문 형식, 행당 차이 사유 1개의 우선순위(수량 차이 vs 격리 사유) | **R8~R11 완료**(mfc-inbound 0.8.0·mfc-inventory 0.15.0, 클라이언트 PR #3 2026-11-14: 실서버 `productName`·`barcodes`, 송장 라벨 `TRF:{trfId}:{version}` 은 trfId 만 비교, R9·R11 확정). 실서버 확인은 안 함. R17(박스 단위)·입고 예정 구현(서버 501)은 남음. 원 요청 `docs/handoff/mfc-app/2026-11-10-backend-pda-work-areas.md` |
-| BR-54 | 중간 | 백오피스 | 직원용 라이더 찾기·상세(`GET /riders`, `GET /riders/{riderId}` — PC 5 BOD-3) | OPEN(2026-11-15). 화면은 만듦 — 목 모드만 메모리 목, 실서버 모드는 안내만(부르지 않음) |
-| BR-55 | 중간 | 백오피스 | 전달 실패·도움요청 대기 목록(`GET /delivery-help-requests` 제안 — PC 5 BOD-4), "처리함" 닫기 API 여부 | OPEN(2026-11-15). 화면은 만듦 — 목 모드만, 처리는 배송 화면(계약 API) |
-| BR-56 | 중간 | 백오피스 | 직원 주문 조회·문의에서 배송 번호(deliveryId)로 잇기 — 컴플레인 기록·배송 확인에 필요 | OPEN(2026-11-15). 지금은 상담원이 배송 번호를 직접 넣는다 |
+| BR-54 | 중간 | 백오피스 | 직원용 라이더 찾기·상세(`GET /riders`, `GET /riders/{riderId}` — PC 5 BOD-3) | **DONE(2026-11-16)** — rider 0.4.0 `GET /riders`·`/riders/{id}`·`pii-reveals`(BOD-3, LAN 11-15). 화면이 실제 API 를 부른다(목 riderDirectoryMock 지움) |
+| BR-55 | 중간 | 백오피스 | 전달 실패·도움요청 대기 목록(`GET /delivery-help-requests` 제안 — PC 5 BOD-4), "처리함" 닫기 API 여부 | **DONE(2026-11-16)** — 도움요청은 사건함(case 0.4.0 RIDER_HELP)으로, 전달 실패 확정 대기는 execution 0.4.0 `GET /deliveries?state=FAILURE_REPORTED&sort=OLDEST`. 대기 목록 화면·목(helpQueueMock) 지움 |
+| BR-56 | 중간 | 백오피스 | 직원 주문 조회·문의에서 배송 번호(deliveryId)로 잇기 — 컴플레인 기록·배송 확인에 필요 | **DONE(2026-11-16)** — execution 0.4.0 `GET /deliveries?orderId=` — 주문 상세 "이 주문의 배송" |
 | BR-57 | 낮음 | 인사팀 백오피스 | 요청 권한으로 고를 수 있는 역할 목록 API(employee-auth) — 역할이 늘 때마다 화면 고정 목록을 맞추지 않게 | **DONE(2026-11-16)** — `GET /employee-auth/roles`(employee-auth 0.5.0, 백엔드 알림 `hr-backoffice/2026-11-15-notice-role-list-and-departments.md` §1). 직원 등록의 요청 권한 역할이 이 응답(이름·순서·센터 필요 여부)을 쓴다 |
 
 ---
@@ -355,15 +355,18 @@
 - 백엔드 요청 2026-11-15 `backoffice/2026-11-15-clients-request-backoffice-cs-rider-menus.md` §3, PC 5 BOD-3(`GET /riders`, `GET /riders/{riderId}`) — 아직 계약 없음.
 - 클라이언트: 화면은 만들었다(`/riders`). 목 모드에서만 메모리 목(`features/riders/riderDirectoryMock.ts`, BOD-3 제안 모양을 가정), 실서버 모드는 "서버 API 준비 전" 안내만 하고 부르지 않는다. 라이더 ID 를 알면 계정 제한 화면은 바로 연다(계약 있음).
 - 필요한 것: 전화번호 완전 일치(숫자만), 제한 상태·수단·운행 상태·운행 센터 필터, 목록 전화번호 가림, 상세(이름·전화 전체·수단·운행·신규 배차·운행 센터·제한·가입일·마지막 heartbeat). 계약이 나오면 생성 타입으로 바꾼다.
+- **끝남(2026-11-16)**: rider 0.4.0(백엔드 알림 `backoffice/2026-11-16-notice-rider-delivery-staff-apis.md`). 찾기는 라이더 ID·전화 완전 일치(이름 검색 없음), 상세 이름·전화는 가린 값, 원문은 사유 + `POST /riders/{id}/pii-reveals`. 목 지움.
 
 ## BR-55 전달 실패·도움요청 대기 목록 (백오피스 라이더 운영)
 - 같은 요청서 §3, PC 5 BOD-4(`GET /delivery-help-requests` 제안) — 아직 계약 없음.
 - 클라이언트: 화면은 만들었다(`/delivery-help-requests`, 상태 탭 대기·처리 중·처리함, 오래된 것 먼저, 행 → 배송 화면). 목 모드에서만 메모리 목, 실서버 모드는 안내만. 처리(실패 확정·반려)는 배송 화면의 계약된 API 로 한다. "처리함" 닫기 API 는 정해지지 않아 버튼이 없다.
+- **끝남(2026-11-16)**: 백엔드 권고대로 도움요청은 사건함("지원센터 사건" kind=RIDER_HELP, 사건 상세에 도움요청 단건 `GET /deliveries/{id}/help-requests/{requestId}`), 전달 실패 확정 대기는 배송 확인의 `GET /deliveries?state=FAILURE_REPORTED&sort=OLDEST`. `/delivery-help-requests` 는 사건함으로 넘긴다.
 
 ## BR-56 직원 주문 조회에서 배송 번호로 잇기 (백오피스 고객센터)
 - order 0.3.0 `GET /orders/lookups/{orderId}` 에 배송 번호(deliveryId)가 없다. 문의(`Inquiry`)에도 없다.
 - 라이더 컴플레인 기록(`POST /rider-complaints`)·배송 확인은 deliveryId 가 필요해서, 상담원이 주문·문의에서 바로 넘어갈 수 없다(지금은 배송 번호를 직접 넣는다).
 - 요청: 주문 상세에 그 주문의 배송 번호 목록(분할·회수 포함)을 싣거나, 주문 ID 로 배송을 찾는 직원용 조회를 계약에 넣어 줄지 회신.
+- **끝남(2026-11-16)**: execution 0.4.0 `GET /deliveries?orderId=` — 주문 상세 "이 주문의 배송", 라이더 상세 "이 라이더의 배송".
 
 ## BR-57 요청 권한 역할 목록 API (인사팀 백오피스)
 - 직원 등록 화면의 "요청 권한 역할" 고르기 목록을 주는 API 가 없어 `web/hr-backoffice/src/api/models.ts` `GRANT_ROLES` 에 고정해 두었다(handoff 2026-11-13 §3). 2026-11-15 `RIDER_OPS` 알림(`hr-backoffice/2026-11-15-notice-role-rider-ops.md`)으로 13개가 됐다.

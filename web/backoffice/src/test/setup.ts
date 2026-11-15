@@ -3,6 +3,7 @@ import { cleanup } from '@testing-library/react';
 import { afterAll, afterEach, beforeAll } from 'vitest';
 
 import { resetDb } from '../mocks/db';
+import { resetMockCases } from '../mocks/caseHandlers';
 import { resetMockOps } from '../mocks/opsHandlers';
 import { pollConfig } from '@pmart/web-core';
 import { server } from './server';
@@ -18,6 +19,7 @@ afterEach(() => {
   server.resetHandlers();
   resetDb();
   resetMockOps();
+  resetMockCases();
   cleanup();
   // 세션 복원 보관(refresh token)이 다음 테스트로 새지 않게
   sessionStorage.clear();
