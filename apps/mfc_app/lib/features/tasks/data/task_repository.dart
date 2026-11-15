@@ -10,6 +10,9 @@ abstract interface class TaskRepository {
   /// 내 작업. [blocked] 면 막힌 작업만(기본 조회에 BLOCKED 가 없다). 실패는 [PmartFailure].
   Future<TaskList> myTasks(String mfcId, {bool blocked = false});
 
+  /// 센터 작업 목록(센터 관리자 — 사용자 2026-11-16 "작업 현황"). `assignee` 없이 그 센터 전체.
+  Future<TaskList> centerTasks(String mfcId, {required List<TaskState> states});
+
   Future<TaskDetailView> task(String taskId);
 
   /// `POST /tasks/{id}/starts`. 결과 불명이면 같은 [key] 로 다시 부른다.
@@ -42,6 +45,22 @@ final class ApiTaskRepository implements TaskRepository {
         mfcId: mfcId,
         assignee: 'me',
         state: blocked ? [api.TaskState.BLOCKED] : null,
+      ),
+    );
+    final body = res.data;
+    if (body == null) throw const ContractViolationFailure('listTasks 본문 없음');
+    return taskListFromContract(body);
+  }
+
+  @override
+  Future<TaskList> centerTasks(
+    String mfcId, {
+    required List<TaskState> states,
+  }) async {
+    final res = await pmartGuard(
+      () => _tasks.listTasks(
+        mfcId: mfcId,
+        state: [for (final s in states) ?taskStateToContract(s)],
       ),
     );
     final body = res.data;
@@ -298,6 +317,9 @@ TaskList taskListFromContract(api.ListTasks200Response body) {
           promisedReadyAt: t.promisedReadyAt,
           headlineProduct: t.headline?.productName,
           otherLineCount: t.headline?.otherLineCount,
+          assigneeId: t.assignment?.workerId,
+          late: t.late_ ?? false,
+          idle: t.idle ?? false,
         ),
     ],
   );
@@ -384,4 +406,17 @@ Map<String, Object?> packPayload({
     for (final l in lines)
       {'orderLineId': l.orderLineId, 'sku': l.sku, 'pickedQty': l.qty},
   ],
+};
+
+api.TaskState? taskStateToContract(TaskState s) => switch (s) {
+  TaskState.waiting => api.TaskState.WAITING,
+  TaskState.ready => api.TaskState.READY,
+  TaskState.assigned => api.TaskState.ASSIGNED,
+  TaskState.inProgress => api.TaskState.IN_PROGRESS,
+  TaskState.completed => api.TaskState.COMPLETED,
+  TaskState.blocked => api.TaskState.BLOCKED,
+  TaskState.failed => api.TaskState.FAILED,
+  TaskState.cancelled => api.TaskState.CANCELLED,
+  TaskState.closedPartial => api.TaskState.CLOSED_PARTIAL,
+  TaskState.unknown => null,
 };

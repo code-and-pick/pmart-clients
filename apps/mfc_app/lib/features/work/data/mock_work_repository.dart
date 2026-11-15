@@ -68,6 +68,39 @@ final class MockWorkRepository implements WorkRepository {
   }
 
   @override
+  Future<List<WorkerProfile>> workers(String mfcId) async {
+    await _wait();
+    return [
+      WorkerProfile(
+        workerId: MockTaskRepository.workerId,
+        displayName: '목 작업자',
+        allowedTaskTypes: allowed,
+        onBreak: onBreak,
+      ),
+      const WorkerProfile(
+        workerId: 'OP-mock-2',
+        displayName: '목 작업자 2',
+        allowedTaskTypes: {'PICK', 'PACK'},
+        workAreas: {WorkArea.pickPack},
+      ),
+      const WorkerProfile(
+        workerId: 'OP-mock-3',
+        displayName: '목 작업자 3',
+        allowedTaskTypes: {'PUTAWAY', 'REPLENISH', 'MOVE', 'RETURN'},
+        workAreas: {WorkArea.stockMove},
+        onBreak: true,
+      ),
+      const WorkerProfile(
+        workerId: 'OP-mock-4',
+        displayName: '목 작업자 4',
+        allowedTaskTypes: {'PICK', 'PACK'},
+        workAreas: {WorkArea.pickPack},
+        active: false,
+      ),
+    ];
+  }
+
+  @override
   Future<NextTaskOutcome> next(
     String mfcId,
     String workerId,

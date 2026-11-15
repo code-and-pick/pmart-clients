@@ -331,13 +331,17 @@ abstract interface class TemporaryPasswordLogin {
 
 /// 목 모드 앱이 쓰는 임시 아이디·비밀번호 로그인. 로그아웃 상태로 시작한다.
 ///
-/// 아이디는 LAN 시험 작업자 계정의 모양만 확인한다(`mfcw-pp-01`~`30`, `mfcw-rcv|qc|mv|rtn-01`~`10`).
+/// 아이디는 LAN 시험 계정의 모양만 확인한다 — 작업자 `mfcw-pp-01`~`30`, `mfcw-rcv|qc|mv|rtn-01`~`10`,
+/// 센터 관리자 `claude-mfc-sup`(역할 `MFC_SUPERVISOR`, 백엔드 `dev-on-other-pcs.md` §2).
 /// **비밀번호는 비어 있지 않은지만 본다** — 실제 값은 저장소에 두지 않는다(비밀값).
 final class MockPasswordAuthRepository extends MockAuthRepository
     implements TemporaryPasswordLogin {
   MockPasswordAuthRepository() : super(signedIn: false);
 
   static final _account = RegExp(r'^mfcw-(pp|rcv|qc|mv|rtn)-(\d{2})$');
+
+  /// LAN 시험 센터 관리자 계정.
+  static const supervisorAccount = 'claude-mfc-sup';
 
   /// 시험 작업자 계정 아이디인지.
   static bool isTestWorker(String loginId) {
@@ -363,13 +367,16 @@ final class MockPasswordAuthRepository extends MockAuthRepository
     required String password,
   }) async {
     loginCalls += 1;
-    if (!isTestWorker(loginId) || password.isEmpty) {
+    final supervisor = loginId == supervisorAccount;
+    if (!(supervisor || isTestWorker(loginId)) || password.isEmpty) {
       throw const LoginFailure(LoginError.badCredentials);
     }
     signedIn = true;
     return _current = EmployeeSession(
       operatorId: 'OP-mock-$loginId',
-      roles: session.roles,
+      roles: supervisor
+          ? const [EmployeeSession.mfcSupervisorRole]
+          : session.roles,
       centers: session.centers,
     );
   }

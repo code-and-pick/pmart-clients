@@ -10,6 +10,9 @@ abstract interface class WorkRepository {
   /// (workerId = 토큰 subject — BR-52 R3 회신, mfc-capacity 0.13.0). 고를 수 있는 업무는 `workAreas`.
   Future<WorkerProfile> me(String mfcId, String workerId);
 
+  /// 센터 작업자 목록(센터 관리자 — 사용자 2026-11-16 "작업자 현황"). 기본 ACTIVE·SUSPENDED(퇴사 제외).
+  Future<List<WorkerProfile>> workers(String mfcId);
+
   /// 다음 작업 받기 — 고른 업무를 본문 `workArea` 로 보낸다(BR-52 R1 회신, 0.13.0).
   /// 들고 있는 작업이 있으면 **고른 업무와 상관없이** 그것을 돌려준다(한 번에 하나).
   /// 고른 업무에 유효 작업 유형이 없으면 422 `WORK_AREA_NOT_ALLOWED`.
@@ -57,6 +60,30 @@ final class ApiWorkRepository implements WorkRepository {
       active: w.state == null || w.state!.value == 'ACTIVE',
       onBreak: w.onBreak ?? false,
     );
+  }
+
+  @override
+  Future<List<WorkerProfile>> workers(String mfcId) async {
+    final res = await pmartGuard(() => _workers.listWorkers(mfcId: mfcId));
+    final items =
+        res.data?.items ??
+        (throw const ContractViolationFailure('listWorkers.items 없음'));
+    return [
+      for (final w in items)
+        WorkerProfile(
+          workerId:
+              w.workerId ??
+              (throw const ContractViolationFailure('workerId 없음')),
+          displayName: w.displayName,
+          allowedTaskTypes: {
+            for (final t in w.effectiveTaskTypes ?? const <cap.TaskType>[])
+              t.value,
+          },
+          workAreas: w.workAreas?.map(workAreaFromContract).toSet(),
+          active: w.state == null || w.state!.value == 'ACTIVE',
+          onBreak: w.onBreak ?? false,
+        ),
+    ];
   }
 
   @override

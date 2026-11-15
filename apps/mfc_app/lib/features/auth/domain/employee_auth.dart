@@ -19,6 +19,11 @@ final class EmployeeSession {
   /// 역할이 없으면 권한 승인 대기(업무 API 는 403).
   bool get awaitingGrant => roles.isEmpty;
 
+  /// 센터 관리자(`MFC_SUPERVISOR`) — 홈에 관리 메뉴를 더 보인다(사용자 2026-11-16). 판정은 서버.
+  bool get isSupervisor => roles.contains(mfcSupervisorRole);
+
+  static const mfcSupervisorRole = 'MFC_SUPERVISOR';
+
   /// access token 의 클레임(`sub`·`roles`·`centers`)을 읽는다. 서명은 검증하지 않는다(안내용).
   /// 형식이 아니면 null. 토큰 값을 오류 문구·로그에 남기지 않는다.
   static EmployeeSession? fromAccessToken(String token) {

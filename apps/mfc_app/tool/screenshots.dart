@@ -11,6 +11,11 @@ import 'package:pmart_core/pmart_core.dart';
 import 'package:pmart_ui/pmart_ui.dart';
 
 import 'package:mfc_app/app.dart';
+import 'package:mfc_app/features/auth/data/auth_repository.dart';
+import 'package:mfc_app/features/auth/domain/employee_auth.dart';
+import 'package:mfc_app/features/auth/presentation/auth_controller.dart';
+import 'package:mfc_app/features/work/data/mock_work_repository.dart';
+import 'package:mfc_app/features/work/presentation/work_controller.dart';
 import 'package:mfc_app/features/inbound/data/mock_inbound_repository.dart';
 import 'package:mfc_app/features/inbound/presentation/inbound_controller.dart';
 import 'package:mfc_app/features/packing/data/mock_packing_repository.dart';
@@ -168,6 +173,57 @@ void main() {
     }
     await tap('move-submit');
     await shot('12-move-drop');
+    debugDisableShadows = true;
+  });
+
+  testWidgets('supervisor', (t) async {
+    if (_dir.isEmpty) fail('--dart-define=SHOT_DIR=<절대 경로> 가 필요하다');
+    await t.runAsync(_loadFonts);
+    debugDisableShadows = false;
+    t.view
+      ..physicalSize = const Size(1080, 2160)
+      ..devicePixelRatio = 3;
+    addTearDown(t.view.reset);
+    final tasks = MockTaskRepository(latency: Duration.zero);
+    await t.pumpWidget(
+      ProviderScope(
+        retry: (_, _) => null,
+        overrides: [
+          envProvider.overrideWithValue(PmartEnv.mock),
+          authRepositoryProvider.overrideWithValue(
+            MockAuthRepository(
+              session: const EmployeeSession(
+                operatorId: 'OP-mock-sup',
+                roles: [EmployeeSession.mfcSupervisorRole],
+                centers: ['MFC-MOCK-01'],
+              ),
+            ),
+          ),
+          taskRepositoryProvider.overrideWithValue(tasks),
+          workRepositoryProvider.overrideWithValue(
+            MockWorkRepository(tasks: tasks, latency: Duration.zero),
+          ),
+          secureStoreProvider.overrideWithValue(MemoryKeyValueStore()),
+        ],
+        child: const MfcApp(),
+      ),
+    );
+    await t.pumpAndSettle();
+    Future<void> shot(String name) async {
+      await t.pumpAndSettle();
+      await expectLater(
+        find.byType(MfcApp),
+        matchesGoldenFile(File('$_dir/$name.png').uri),
+      );
+    }
+
+    await shot('21-sup-home');
+    await t.tap(find.byKey(const ValueKey('manage-tasks')));
+    await shot('22-sup-tasks');
+    Navigator.of(t.element(find.byType(Scaffold).last)).pop();
+    await t.pumpAndSettle();
+    await t.tap(find.byKey(const ValueKey('manage-workers')));
+    await shot('23-sup-workers');
     debugDisableShadows = true;
   });
 }

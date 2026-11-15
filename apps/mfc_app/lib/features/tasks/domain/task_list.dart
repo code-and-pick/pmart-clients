@@ -53,6 +53,9 @@ class TaskItem {
     this.promisedReadyAt,
     this.headlineProduct,
     this.otherLineCount,
+    this.assigneeId,
+    this.late = false,
+    this.idle = false,
   });
 
   final String taskId;
@@ -65,6 +68,13 @@ class TaskItem {
   /// 목록 표시용 첫 줄 상품명과 나머지 줄 수("상품명 외 N건", fulfillment 0.4.9).
   final String? headlineProduct;
   final int? otherLineCount;
+
+  /// 담당(mfc-capacity 배정 투영). 목록 사본이라 늦을 수 있다.
+  final String? assigneeId;
+
+  /// (fulfillment 0.4.8) 예상 시간의 2배를 넘김 · 30분 동안 실적 없음 — 센터 관리자 화면 표시만.
+  final bool late;
+  final bool idle;
 }
 
 /// 피킹 칸 상태(0.4.9, 화면 표시용 — 서버 값 그대로).

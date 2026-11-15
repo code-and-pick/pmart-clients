@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'features/manage/presentation/manage_screens.dart';
 import 'features/auth/domain/employee_auth.dart';
 import 'features/auth/presentation/auth_controller.dart';
 import 'features/auth/presentation/login_screen.dart';
@@ -39,6 +40,15 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/login', builder: (_, _) => const LoginScreen()),
       GoRoute(path: '/starting', builder: (_, _) => const StartingScreen()),
       GoRoute(path: '/', builder: (_, _) => const HomeScreen()),
+      // 센터 관리자 관리 메뉴(사용자 2026-11-16). 권한 판정은 서버 — 작업자가 열면 서버가 403.
+      GoRoute(
+        path: '/manage/tasks',
+        builder: (_, _) => const CenterTasksScreen(),
+      ),
+      GoRoute(
+        path: '/manage/workers',
+        builder: (_, _) => const CenterWorkersScreen(),
+      ),
       GoRoute(
         path: '/work/:area',
         redirect: (_, s) =>

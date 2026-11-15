@@ -352,6 +352,29 @@ base class MockTaskRepository implements TaskRepository {
     );
   }
 
+  @override
+  Future<TaskList> centerTasks(
+    String mfcId, {
+    required List<TaskState> states,
+  }) async {
+    await _wait();
+    final items = [
+      for (final t in _tasks.values)
+        if (states.contains(TaskState.fromWire(t['state'] as String?)))
+          {
+            for (final e in t.entries)
+              if (e.key != 'lines') e.key: e.value,
+          },
+    ];
+    return taskListFromContract(
+      api.ListTasks200Response.fromJson({
+        'items': items,
+        'page': {'nextCursor': null, 'size': 50},
+        'asOf': {'asOf': '2026-10-24T06:05:00Z', 'freshness': 'CURRENT'},
+      }),
+    );
+  }
+
   /// 목 작업 JSON(테스트에서 상태를 바꿀 때 쓴다).
   Map<String, Object?> taskJson(String taskId) => _tasks[taskId]!;
 

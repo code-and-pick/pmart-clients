@@ -203,99 +203,160 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ),
             )
           : null,
-      body: UiStateView<WorkerProfile>(
-        state: uiStateOf(ref.watch(meProvider)),
-        onRetry: () => ref.invalidate(meProvider),
-        ready: (context, me) => SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  l10n.homeHello(me.displayName ?? me.workerId),
-                  style: theme.textTheme.titleLarge,
-                ),
-                Text(
-                  me.onBreak ? l10n.statusOnBreak : l10n.statusReady,
-                  key: const ValueKey('worker-status'),
-                  style: theme.textTheme.bodyLarge?.copyWith(
-                    color: me.onBreak
-                        ? theme.colorScheme.error
-                        : theme.colorScheme.primary,
+      body: _withManage(
+        ref.watch(employeeSessionProvider)?.isSupervisor ?? false,
+        UiStateView<WorkerProfile>(
+          state: uiStateOf(ref.watch(meProvider)),
+          onRetry: () => ref.invalidate(meProvider),
+          ready: (context, me) => SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    l10n.homeHello(me.displayName ?? me.workerId),
+                    style: theme.textTheme.titleLarge,
                   ),
-                ),
-                const SizedBox(height: 16),
-                Text(l10n.chooseArea, style: theme.textTheme.titleMedium),
-                const SizedBox(height: 8),
-                for (final a in WorkArea.values)
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: _AreaTile(
-                        area: a,
-                        allowed: me.can(a),
-                        onTap: () {
-                          if (!me.can(a)) {
-                            unawaited(
-                              showNoPermission(context, workAreaText(l10n, a)),
-                            );
-                            return;
-                          }
-                          if (me.onBreak) {
-                            unawaited(_onBreakDialog(me));
-                            return;
-                          }
-                          // 고르면 바로 그 업무의 작업 순서 안내로.
-                          context.push('/work/${a.name}/guide');
-                        },
-                      ),
+                  Text(
+                    me.onBreak ? l10n.statusOnBreak : l10n.statusReady,
+                    key: const ValueKey('worker-status'),
+                    style: theme.textTheme.bodyLarge?.copyWith(
+                      color: me.onBreak
+                          ? theme.colorScheme.error
+                          : theme.colorScheme.primary,
                     ),
                   ),
-                Row(
-                  children: [
-                    _MenuButton(
-                      key: const ValueKey('menu-handover'),
-                      icon: Icons.inventory_2_outlined,
-                      label: l10n.handoverChecksMenu,
-                      allowed: me.canUse(PdaMenu.handoverCheck),
-                      onTap: () => _menu(
-                        me,
-                        PdaMenu.handoverCheck,
-                        l10n.handoverChecksMenu,
-                        () => context.push('/handover-checks'),
+                  const SizedBox(height: 16),
+                  Text(l10n.chooseArea, style: theme.textTheme.titleMedium),
+                  const SizedBox(height: 8),
+                  for (final a in WorkArea.values)
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: _AreaTile(
+                          area: a,
+                          allowed: me.can(a),
+                          onTap: () {
+                            if (!me.can(a)) {
+                              unawaited(
+                                showNoPermission(
+                                  context,
+                                  workAreaText(l10n, a),
+                                ),
+                              );
+                              return;
+                            }
+                            if (me.onBreak) {
+                              unawaited(_onBreakDialog(me));
+                              return;
+                            }
+                            // 고르면 바로 그 업무의 작업 순서 안내로.
+                            context.push('/work/${a.name}/guide');
+                          },
+                        ),
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    _MenuButton(
-                      key: const ValueKey('menu-printer'),
-                      icon: Icons.print_outlined,
-                      label: l10n.printerSettingsTitle,
-                      allowed: me.canUse(PdaMenu.printerSettings),
-                      onTap: () => _menu(
-                        me,
-                        PdaMenu.printerSettings,
-                        l10n.printerSettingsTitle,
-                        () => context.push('/settings/printer'),
+                  Row(
+                    children: [
+                      _MenuButton(
+                        key: const ValueKey('menu-handover'),
+                        icon: Icons.inventory_2_outlined,
+                        label: l10n.handoverChecksMenu,
+                        allowed: me.canUse(PdaMenu.handoverCheck),
+                        onTap: () => _menu(
+                          me,
+                          PdaMenu.handoverCheck,
+                          l10n.handoverChecksMenu,
+                          () => context.push('/handover-checks'),
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    _MenuButton(
-                      key: const ValueKey('menu-break'),
-                      icon: me.onBreak
-                          ? Icons.play_circle_outline
-                          : Icons.coffee_outlined,
-                      label: me.onBreak ? l10n.breakEnd : l10n.breakStart,
-                      allowed: me.canUse(PdaMenu.rest),
-                      onTap: _breakBusy ? null : () => _toggleBreak(me),
-                    ),
-                  ],
-                ),
-              ],
+                      const SizedBox(width: 8),
+                      _MenuButton(
+                        key: const ValueKey('menu-printer'),
+                        icon: Icons.print_outlined,
+                        label: l10n.printerSettingsTitle,
+                        allowed: me.canUse(PdaMenu.printerSettings),
+                        onTap: () => _menu(
+                          me,
+                          PdaMenu.printerSettings,
+                          l10n.printerSettingsTitle,
+                          () => context.push('/settings/printer'),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      _MenuButton(
+                        key: const ValueKey('menu-break'),
+                        icon: me.onBreak
+                            ? Icons.play_circle_outline
+                            : Icons.coffee_outlined,
+                        label: me.onBreak ? l10n.breakEnd : l10n.breakStart,
+                        allowed: me.canUse(PdaMenu.rest),
+                        onTap: _breakBusy ? null : () => _toggleBreak(me),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
         ),
       ),
+    );
+  }
+
+  /// 센터 관리자면 관리 메뉴를 위에 더한다(사용자 2026-11-16 "관리 메뉴 + 작업 업무").
+  /// 작업자 정보 조회가 실패해도(작업자로 등록되지 않은 관리자) 관리 메뉴는 보인다.
+  Widget _withManage(bool supervisor, Widget worker) {
+    if (!supervisor) return worker;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const Padding(
+          padding: EdgeInsets.fromLTRB(16, 8, 16, 0),
+          child: _ManageMenu(),
+        ),
+        Expanded(child: worker),
+      ],
+    );
+  }
+}
+
+/// 관리 메뉴(센터 관리자만). 조회 화면 — 배정·설정은 MFC 백오피스.
+class _ManageMenu extends StatelessWidget {
+  const _ManageMenu();
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final theme = Theme.of(context);
+    return Column(
+      key: const ValueKey('manage-menu'),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(l10n.manageTitle, style: theme.textTheme.titleMedium),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            _MenuButton(
+              key: const ValueKey('manage-tasks'),
+              icon: Icons.assignment_outlined,
+              label: l10n.manageTasks,
+              allowed: true,
+              onTap: () => context.push('/manage/tasks'),
+            ),
+            const SizedBox(width: 8),
+            _MenuButton(
+              key: const ValueKey('manage-workers'),
+              icon: Icons.groups_outlined,
+              label: l10n.manageWorkers,
+              allowed: true,
+              onTap: () => context.push('/manage/workers'),
+            ),
+          ],
+        ),
+        const Divider(height: 24),
+      ],
     );
   }
 }
