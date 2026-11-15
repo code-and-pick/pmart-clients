@@ -11,7 +11,7 @@ import { useState, type FormEvent } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router';
 
 import { ProblemFailure, request, type EmployeeAccount, type EmployeeGrant, type EmployeeRole } from '@pmart/web-core';
-import { CommandFeedback, formatSeoul, QueryState, toUiState, uiStateFromError, useCommand } from '@pmart/web-ui';
+import { CommandFeedback, formatSeoul, formatSeoulDate, QueryState, toUiState, uiStateFromError, useCommand } from '@pmart/web-ui';
 import { commandParams } from '../../api/command';
 import type { RequestedGrant } from '../../api/models';
 import { useApi } from '../../app/ApiContext';
@@ -195,7 +195,7 @@ function AccountView({ operatorId, account, roles, self, canRevokeAdmin }: {
                 <tr key={g.grantId} data-testid="grant-row" data-role={g.role}>
                   <td>{roleName(roles, g.role)}</td>
                   <td>{g.centers.join(', ') || m.none}</td>
-                  <td>{`${formatSeoul(g.validFrom)} ~ ${g.validUntil ? formatSeoul(g.validUntil) : m.permissions.untilEmployment}`}</td>
+                  <td>{`${formatSeoulDate(g.validFrom)} ~ ${g.validUntil ? formatSeoulDate(g.validUntil) : m.permissions.untilEmployment}`}</td>
                   <td>{g.approverId.startsWith('RULE:') ? `${m.permissions.autoApproved} · ${g.approvalId}` : `${g.approvalId} · ${g.approverId}`}</td>
                   <td>
                     {st === 'revoked'

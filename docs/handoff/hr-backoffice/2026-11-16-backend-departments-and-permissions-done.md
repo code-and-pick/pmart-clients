@@ -17,4 +17,8 @@
 
 ## 3. 확인·빌드
 - typecheck·lint 통과, 테스트 46개 통과(목 모드). 실서버 확인은 아직.
-- 빌드: `web-common/2026-11-16-backend-session-roles-centers-done.md` §2 표의 hr-backoffice 해시를 바꿨다(`index-CIy9U2nd.js`·`index-CU0EfKq_.css`).
+- 빌드: `web-common/2026-11-16-backend-session-roles-centers-done.md` §2 표의 hr-backoffice 해시를 바꿨다(`index-Bkg8rNsZ.js`·`index-CU0EfKq_.css`).
+
+## 4. 덧붙임 — hr 0.4.0 소속 변경 자동 종료 반영 (백엔드 8e7c84eb)
+- 소속 변경 창 안내를 "권한은 바뀌지 않아요" → "이전 센터 권한은 내일 00:00 에 자동으로 끝나요(오늘 안에 인계). 새 센터 권한은 권한 관리에서 따로 요청"으로 바꿨다. 목도 같은 규칙(이전 센터가 든 grant 의 validUntil = 다음 날 00:00 서울).
+- 빌드 해시는 web-common 회신 §2 표(`index-Bkg8rNsZ.js`).

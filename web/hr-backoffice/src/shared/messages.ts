@@ -178,7 +178,8 @@ export const messages = {
     grantApproval: '승인 ID',
     actions: '인사 처리',
     changeAffiliation: '소속 변경',
-    affiliationNote: '소속을 바꿔도 권한은 바뀌지 않아요. 센터 이동은 권한을 따로 요청해 주세요.',
+    /** hr 0.4.0(BO-01): 이전 소속이 센터면 그 센터 권한은 바뀐 날 다음 날 00:00(서울) 자동 종료, 새 센터 권한은 따로 요청 */
+    affiliationNote: '소속을 바꾸면 이전 센터 권한은 내일 00:00 에 자동으로 끝나요(오늘 안에 하던 일을 넘겨 주세요). 새 센터 권한은 자동으로 생기지 않으니 권한 관리에서 따로 요청해 주세요.',
     affiliationChanged: '소속을 바꿨어요.',
     suspend: '정지',
     suspendWarning: '정지하면 이 직원의 로그인이 바로 막혀요(이미 받은 토큰도 쓸 수 없어요).',

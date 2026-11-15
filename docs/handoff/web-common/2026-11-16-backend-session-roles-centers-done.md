@@ -19,7 +19,7 @@
 | 앱 | 명령 | 진입 파일 |
 |---|---|---|
 | backoffice | `lan.sh publish-backoffice` | `assets/index-BEI3dP9H.js`, `assets/index-CfStOUC1.css` |
-| hr-backoffice | `lan.sh publish-hr-backoffice` | `assets/index-CIy9U2nd.js`, `assets/index-CU0EfKq_.css` |
+| hr-backoffice | `lan.sh publish-hr-backoffice` | `assets/index-Bkg8rNsZ.js`, `assets/index-CU0EfKq_.css` |
 | mfc-backoffice | `lan.sh publish-mfc-backoffice` | `assets/index-ChSinewe.js`, `assets/index-BtcOg322.css` |
 
 - 세 빌드 모두 이 회신의 변경 + `backoffice/2026-11-16-backend-product-menu-operator-admin-done.md` + `hr-backoffice/2026-11-16-backend-role-list-done.md` 를 담았다.

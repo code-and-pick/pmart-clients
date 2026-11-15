@@ -18,6 +18,7 @@ describe('권한 관리', () => {
     expect(grant).toHaveTextContent('자동 승인');
     expect(grant).toHaveTextContent('MFC-BSN-01');
     expect(grant).toHaveTextContent('유효');
+    expect(grant).toHaveTextContent('2026-09-01 ~ 2027-02-28'); // 기간은 서울 날짜만
   });
 
   it('계정 발급 전 직원은 "계정 발급 중"(404 EMPLOYEE_NOT_FOUND 를 오류로 보이지 않는다)', async () => {

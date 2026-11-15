@@ -228,12 +228,12 @@ describe('직원 상세', () => {
     expect(screen.getByText('재직', { selector: 'dd' })).toBeInTheDocument();
   });
 
-  it('소속 변경: 권한은 바뀌지 않는다는 안내와 함께 새 소속·사유를 보낸다', async () => {
+  it('소속 변경: 이전 센터 권한은 내일 00:00 자동 종료·새 권한은 따로 요청이라는 안내(hr 0.4.0)와 함께 새 소속·사유를 보낸다', async () => {
     const view = renderAt('/employees/OP-picker-1');
     await screen.findByRole('heading', { name: /이피킹/ });
     await userEvent.click(screen.getByRole('button', { name: '소속 변경' }));
     const dialog = within(screen.getByRole('dialog', { name: '소속 변경' }));
-    expect(dialog.getByText(/권한은 바뀌지 않아요/)).toBeInTheDocument();
+    expect(dialog.getByText(/이전 센터 권한은 내일 00:00 에 자동으로 끝나요/)).toBeInTheDocument();
     await userEvent.selectOptions(await dialog.findByRole('combobox', { name: '센터' }), 'MFC-SEL-01');
     await userEvent.type(dialog.getByLabelText('사유'), '센터 이동');
     await userEvent.click(dialog.getByRole('button', { name: '확인' }));

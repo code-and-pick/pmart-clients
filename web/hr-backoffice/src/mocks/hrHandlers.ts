@@ -258,7 +258,17 @@ export const hrHandlers = [
   reasonCommand('affiliation-changes', (m, body) => {
     if (!validAffiliation(body.affiliation)) return problem(400, 'VALIDATION_FAILED', [{ field: 'affiliation', reason: 'REQUIRED' }]);
     if (m.employee.status === 'LEFT') return problem(409, 'INVALID_STATE');
-    return touch(m, { affiliation: body.affiliation });
+    const before = m.employee.affiliation;
+    const changed = before.type !== body.affiliation.type || before.code !== body.affiliation.code;
+    // hr 0.4.0: 발급 끝난 직원의 소속이 센터에서 바뀌면 그 센터가 든 권한을 다음 날 00:00(서울)에 끝낸다(목: 계정 grants 의 validUntil)
+    if (changed && before.type === 'CENTER' && m.employee.provisioning.step === 'DONE') {
+      const seoulToday = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul' }).format(new Date());
+      const nextMidnight = new Date(Date.parse(`${seoulToday}T00:00:00+09:00`) + 24 * 3_600_000).toISOString();
+      for (const g of db.accountGrants.get(m.employee.operatorId) ?? []) {
+        if (!g.revokedAt && g.centers.includes(before.code) && (!g.validUntil || g.validUntil > nextMidnight)) g.validUntil = nextMidnight;
+      }
+    }
+    return changed ? touch(m, { affiliation: body.affiliation }) : m.employee;
   }),
 
   reasonCommand('suspensions', (m) => {
