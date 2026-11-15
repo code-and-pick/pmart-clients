@@ -30,6 +30,8 @@ pmart-clients 와 pmart-backend 는 서로의 저장소에 쓰지 않는다. 각
 | `web-common/2026-11-16-backend-session-roles-centers-done.md` | 메뉴·센터를 `sessions/current` 로 바꾼 세 웹 빌드 올리기(§2 표가 최신 해시) |
 | `web-common/2026-11-16-backend-session-center-names-done.md` | 센터 이름(0.9.0) 반영 확인 — 빌드는 위 표 |
 | `backoffice/2026-11-16-backend-pii-reveal-and-pending-done.md` | 주문 개인정보 열람·처리 대기 반영 확인(빌드는 web-common 표) |
+| `backoffice/2026-11-16-backend-case-inbox-and-pending-work-done.md` | 사건함·처리 대기(bff) 반영 확인, 질문 3개(빌드는 web-common 표) |
+| `backoffice/2026-11-16-backend-rider-delivery-staff-apis-done.md` | 라이더·배송 직원 API·도움요청 사건함 반영 확인, refs incidentId 질문(빌드는 web-common 표) |
 | `hr-backoffice/2026-11-16-backend-departments-and-permissions-done.md` | 본사 부서·권한 관리 반영 확인(빌드는 web-common 표) |
 | `all/2026-11-16-backend-login-code-pc1-only-done.md` | 클라이언트 표(경로 보탬) 확인 |
 | `backoffice/2026-11-16-backend-product-menu-operator-admin-done.md` | 상품 관리 묶음 `OPERATOR_ADMIN` 반영 확인(빌드는 web-common 회신) |

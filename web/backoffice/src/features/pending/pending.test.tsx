@@ -1,65 +1,80 @@
-// 처리 대기 — 이행 확인 필요(order 0.6.0). OPERATOR_ADMIN 은 모든 센터, 확인은 표시만, 나머지 조치는 준비 중.
+// 처리 대기(bff 0.2.0 pending-work, BO-12) — 멈춘 주문 처리·이행 확인 필요 한 목록, allowedActions 버튼만, 명령은 bff 프록시(짝 조회까지).
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { http } from 'msw';
+import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 
-import { API_BASE } from '../../api/client';
+import { BFF_BASE } from '../../api/client';
 import { problem } from '../../mocks/support';
 import { as, renderAt } from '../../test/render';
 import { server } from '../../test/server';
 
-describe('처리 대기 — 이행 확인 필요', () => {
-  it('관리자: 센터를 비우면 모든 센터의 OPEN 을 새 것부터, 주문 번호는 주문 상세로', async () => {
-    const view = renderAt('/pending/fulfillment-issues', as.admin);
-    const rows = await screen.findAllByTestId('pending-issue');
-    expect(rows.map((r) => within(r).getByRole('link').textContent)).toEqual(['ORD-MOCK-1003', 'ORD-MOCK-1001']);
-    expect(rows[1]).toHaveTextContent('MFC-SEL-01');
-    expect(rows[0]).toHaveTextContent('품질 격리');
-    expect(within(rows[0]!).getByRole('link')).toHaveAttribute('href', '/orders/ORD-MOCK-1003');
-    const url = new URL(view.sent.find((r) => r.url.includes('/fulfillment-issues'))!.url);
-    expect(url.searchParams.get('state')).toBe('OPEN');
-    expect(url.searchParams.has('mfcId')).toBe(false);
+const rowOf = async (ref: string) => (await screen.findAllByTestId('pending-item')).find((r) => r.textContent?.includes(ref))!;
+
+describe('처리 대기', () => {
+  it('멈춘 주문·이행 확인 필요를 오래된 것부터 한 목록으로, 버튼은 allowedActions 만', async () => {
+    renderAt('/pending', as.admin);
+    const rows = await screen.findAllByTestId('pending-item');
+    expect(rows.map((r) => r.getAttribute('data-kind'))).toEqual(['STUCK_SAGA', 'FULFILLMENT_ISSUE', 'FULFILLMENT_ISSUE', 'STUCK_SAGA']);
+    const payment = await rowOf('ORD-MOCK-1001');
+    const saga1 = (await screen.findAllByTestId('pending-item')).find((r) => r.textContent?.includes('PG 승인 결과'))!;
+    expect(within(saga1).getByRole('button', { name: '결제 결과 다시 확인' })).toBeInTheDocument();
+    expect(within(saga1).getByRole('button', { name: '처리 완료(밖에서 해결)' })).toBeInTheDocument();
+    const saga2 = (await screen.findAllByTestId('pending-item')).find((r) => r.textContent?.includes('MFC 예약 거절'))!;
+    expect(within(saga2).queryByRole('button', { name: '결제 결과 다시 확인' })).not.toBeInTheDocument(); // 허락되지 않은 조치
+    expect(payment).toBeTruthy();
+    expect(screen.getByTestId('pending-not-yet')).toHaveTextContent('MFC 인계 거절');
   });
 
-  it('센터를 넣으면 그 센터만, 상태 탭은 URL 쿼리로', async () => {
-    renderAt('/pending/fulfillment-issues', as.admin);
-    await screen.findAllByTestId('pending-issue');
-    await userEvent.type(screen.getByLabelText('센터(비우면 모든 센터)'), 'MFC-SEL-01');
-    await userEvent.click(screen.getByRole('button', { name: '조회' }));
-    await waitFor(() => expect(screen.getAllByTestId('pending-issue')).toHaveLength(1));
-    await userEvent.click(screen.getByRole('tab', { name: '확인함' }));
-    expect(await screen.findByText('해당 기록이 없어요.')).toBeInTheDocument(); // MFC-SEL-01 의 확인함 없음
+  it('처리 완료: 경고 + 사유 필수 → bff saga-resolve(키·targetRef·reason) → 목록에서 빠진다', async () => {
+    const view = renderAt('/pending', as.admin);
+    const row = (await screen.findAllByTestId('pending-item')).find((r) => r.textContent?.includes('MFC 예약 거절'))!;
+    await userEvent.click(within(row).getByRole('button', { name: '처리 완료(밖에서 해결)' }));
+    expect(within(row).getByRole('alert')).toHaveTextContent('주문·재고는 바뀌지 않으니');
+    expect(within(row).getByRole('button', { name: '보내기' })).toBeDisabled();
+    await userEvent.type(within(row).getByLabelText('처리 사유'), 'MFC 재예약으로 해결');
+    await userEvent.click(within(row).getByRole('button', { name: '보내기' }));
+    await waitFor(() => expect(screen.queryByText(/MFC 예약 거절/)).not.toBeInTheDocument());
+    const sent = view.mutations('/commands/order-orchestration-service/saga-resolve')[0]!;
+    expect(sent.headers.get('Idempotency-Key')).toBeTruthy();
+    expect(await sent.json()).toEqual({ targetRef: 'SAGA-MOCK-2', payload: {}, reason: 'MFC 재예약으로 해결' });
   });
 
-  it('확인 처리: 메모(개인정보 안내) → acknowledgements(키·출처) → 확인함 탭으로 옮겨 간다', async () => {
-    const view = renderAt('/pending/fulfillment-issues', as.admin);
-    const row = (await screen.findAllByTestId('pending-issue'))[0]!;
-    await userEvent.click(within(row).getByRole('button', { name: '확인 처리' }));
+  it('결제 결과 다시 확인은 메모 없이도 보낼 수 있다 → saga-requery', async () => {
+    const view = renderAt('/pending', as.admin);
+    const row = (await screen.findAllByTestId('pending-item')).find((r) => r.textContent?.includes('PG 승인 결과'))!;
+    await userEvent.click(within(row).getByRole('button', { name: '결제 결과 다시 확인' }));
+    await userEvent.click(within(row).getByRole('button', { name: '보내기' }));
+    await waitFor(() => expect(screen.queryByText(/PG 승인 결과/)).not.toBeInTheDocument());
+    expect(await view.mutations('/saga-requery')[0]!.json()).toEqual({ targetRef: 'SAGA-MOCK-1', payload: {} });
+  });
+
+  it('이미 바뀌었으면(422 NOT_RESOLVABLE) 새로고침 안내', async () => {
+    server.use(http.post(`${BFF_BASE}/commands/:ts/:cmd`, () => problem(422, 'NOT_RESOLVABLE')));
+    renderAt('/pending', as.admin);
+    const row = (await screen.findAllByTestId('pending-item')).find((r) => r.textContent?.includes('MFC 예약 거절'))!;
+    await userEvent.click(within(row).getByRole('button', { name: '처리 완료(밖에서 해결)' }));
+    await userEvent.type(within(row).getByLabelText('처리 사유'), '해결');
+    await userEvent.click(within(row).getByRole('button', { name: '보내기' }));
+    expect(await within(row).findByText(/이미 상태가 바뀌어 완료 표시할 수 없어요/)).toBeInTheDocument();
+  });
+
+  it('확인(이행 확인 필요): 메모 → order-service acknowledgements → 목록에서 빠진다', async () => {
+    const view = renderAt('/pending', as.admin);
+    const row = await rowOf('품질 격리');
+    await userEvent.click(within(row).getByRole('button', { name: '확인' }));
     expect(within(row).getByText(/개인정보는 적지 마세요/)).toBeInTheDocument();
     await userEvent.type(within(row).getByLabelText('처리 메모'), 'MFC 에 재검수 요청');
-    await userEvent.click(within(row).getByRole('button', { name: '확인으로 표시' }));
-    await waitFor(() => expect(screen.getAllByTestId('pending-issue')).toHaveLength(1));
-    const sent = view.mutations('/acknowledgements')[0]!;
-    expect(sent.headers.get('Idempotency-Key')).toBeTruthy();
-    expect(sent.headers.get('X-Source-System')).toBe('backoffice-web');
-    expect(await sent.json()).toEqual({ note: 'MFC 에 재검수 요청' });
-    await userEvent.click(screen.getByRole('tab', { name: '확인함' }));
-    expect(await screen.findByText('MFC 에 재검수 요청')).toBeInTheDocument();
+    await userEvent.click(within(row).getByRole('button', { name: '보내기' }));
+    await waitFor(() => expect(screen.getAllByTestId('pending-item')).toHaveLength(3));
+    expect(await view.mutations('/fulfillment-issues/FI-MOCK-1/acknowledgements')[0]!.json()).toEqual({ note: 'MFC 에 재검수 요청' });
   });
 
-  it('조회 실패는 빈 목록이 아니라 오류', async () => {
-    server.use(http.get(`${API_BASE}/fulfillment-issues`, () => problem(500, 'INTERNAL_ERROR')));
-    renderAt('/pending/fulfillment-issues', as.admin);
-    expect(await screen.findByText('정보를 불러오지 못했어요')).toBeInTheDocument();
-    expect(screen.queryByText('해당 기록이 없어요.')).not.toBeInTheDocument();
-  });
-
-  it('멈춘 주문 조치·인계 재시도·현장 중지 재시도는 준비 중 — 버튼 없음', async () => {
-    renderAt('/pending/fulfillment-issues', as.admin);
-    const box = await screen.findByTestId('pending-preparing');
-    expect(box).toHaveTextContent('멈춘 주문 조치');
-    expect(box).toHaveTextContent('인계 재시도');
-    expect(within(box).queryByRole('button')).not.toBeInTheDocument();
+  it('일부 원천을 못 읽으면 표시한다(빈 목록 아님)', async () => {
+    server.use(http.get(`${BFF_BASE}/views/pending-work`, () => HttpResponse.json({ sources: [], unavailableSources: ['order-orchestration-service'], items: [] })));
+    renderAt('/pending', as.admin);
+    expect((await screen.findAllByText(/order-orchestration-service/)).length).toBeGreaterThan(0);
+    expect(screen.getByRole('alert')).toHaveTextContent('조회하지 못한 원천');
+    expect(screen.queryByText('처리할 일이 없어요.')).not.toBeInTheDocument();
   });
 });

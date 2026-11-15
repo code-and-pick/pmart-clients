@@ -6,6 +6,7 @@ import { authHandlers } from './authHandlers';
 import { catalogHandlers } from './catalogHandlers';
 import { approvalInbox, centerList } from './fixtures';
 import { inquiryHandlers } from './inquiryHandlers';
+import { caseHandlers } from './caseHandlers';
 import { opsHandlers } from './opsHandlers';
 import { priceImportHandlers } from './priceImportHandlers';
 import { pricingHandlers } from './pricingHandlers';
@@ -32,4 +33,5 @@ export const handlers = [
   ...priceImportHandlers,
   ...inquiryHandlers,
   ...opsHandlers,
+  ...caseHandlers,
 ];
