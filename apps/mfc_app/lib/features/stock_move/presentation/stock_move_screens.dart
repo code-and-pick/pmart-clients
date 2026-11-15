@@ -279,7 +279,7 @@ class MoveScreen extends ConsumerWidget {
           const Spacer(),
           if (s.code case final c?)
             Text(
-              l10n.inspectRejected(c),
+              fieldRejectedText(l10n, c),
               key: const ValueKey('move-rejected'),
               style: TextStyle(color: theme.colorScheme.error),
             ),
@@ -561,7 +561,7 @@ class PutawayScreen extends ConsumerWidget {
             const Spacer(),
             if (s.code case final c?)
               Text(
-                l10n.inspectRejected(c),
+                fieldRejectedText(l10n, c),
                 key: const ValueKey('putaway-rejected'),
                 style: TextStyle(color: theme.colorScheme.error),
               ),

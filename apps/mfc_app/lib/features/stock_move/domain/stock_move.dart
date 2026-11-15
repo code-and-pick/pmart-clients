@@ -25,6 +25,8 @@ class MoveOrderView {
     this.assigneeId,
     this.pickedBy,
     this.reason,
+    this.productName,
+    this.barcodes = const [],
   });
 
   final String moveId;
@@ -49,6 +51,17 @@ class MoveOrderView {
   /// 카트에 실은 사람 — 그 사람만 내려놓는다.
   final String? pickedBy;
   final String? reason;
+
+  /// (mfc-inbound 0.9.0, BR-52 R19-1) 표시용 상품명. 모르면 null.
+  final String? productName;
+
+  /// 활성 바코드 전부(선행 0 보존). 모르면 빈 배열 — 그때는 상품 확인 스캔을 건너뛴다.
+  final List<String> barcodes;
+
+  /// 대표 바코드(재출력용) — 첫 번째.
+  String? get barcode => barcodes.firstOrNull;
+
+  bool matchesBarcode(String code) => barcodes.contains(code.trim());
 
   /// 더 집을 양.
   int get toPick => state == MoveState.active ? qty - pickedQty : 0;

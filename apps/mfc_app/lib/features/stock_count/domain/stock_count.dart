@@ -22,12 +22,22 @@ class CountSheetLine {
     required this.sku,
     required this.lotId,
     this.expiryDate,
+    this.productName,
+    this.barcodes = const [],
   });
 
   final String locationCode;
   final String sku;
   final String lotId;
   final String? expiryDate;
+
+  /// (mfc-inventory 0.16.0, BR-52 R19-1) 표시용 상품명. 모르면 null.
+  final String? productName;
+
+  /// 활성 바코드 전부(선행 0 보존). 모르면 빈 배열 — 그 줄은 수량을 직접 넣는다.
+  final List<String> barcodes;
+
+  bool matchesBarcode(String code) => barcodes.contains(code.trim());
 
   String get key => '$locationCode|$sku|$lotId';
 }

@@ -460,3 +460,7 @@ class _QtyDialogState extends State<QtyDialog> {
     );
   }
 }
+
+/// 현장 명령 거절 문구. 담당 아님(409 `NOT_ASSIGNEE` — 이동 지시, 입고 작업 mfc-inbound 0.9.0)은 따로 알린다.
+String fieldRejectedText(AppLocalizations l10n, String code) =>
+    code == 'NOT_ASSIGNEE' ? l10n.startNotAssignee : l10n.inspectRejected(code);

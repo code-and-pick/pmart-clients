@@ -384,7 +384,7 @@ class _JudgeStep extends ConsumerWidget {
           ),
         if (s.code case final code?)
           Text(
-            l10n.inspectRejected(code),
+            fieldRejectedText(l10n, code),
             key: const ValueKey('inspect-rejected'),
             style: TextStyle(color: theme.colorScheme.error),
           ),

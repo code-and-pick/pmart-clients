@@ -218,4 +218,12 @@ MoveOrderView moveFromContract(ib.MoveOrder m) => MoveOrderView(
   assigneeId: m.assigneeId,
   pickedBy: m.pickedBy,
   reason: m.reason,
+  productName: switch (m.productName?.trim()) {
+    final n? when n.isNotEmpty => n,
+    _ => null,
+  },
+  barcodes: [
+    for (final b in m.barcodes ?? const <String>[])
+      if (b.trim().isNotEmpty) b.trim(),
+  ],
 );

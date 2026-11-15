@@ -138,17 +138,18 @@ class MoveController extends Notifier<MoveFlowState> {
     }
   }
 
-  /// 지시 상품 바코드(상품 정보). 모르면 null — 상품 확인 없이 수량을 직접 넣는다.
+  /// 지시 상품 바코드 — 서버 값(mfc-inbound 0.9.0) 먼저, 없으면 상품 정보. 모르면 null — 상품 확인 없이
+  /// 수량을 직접 넣는다.
   String? get productBarcode {
     final m = state.move;
-    return m == null
-        ? null
-        : ref.read(productHintsProvider).bySku(m.sku)?.barcode;
+    if (m == null) return null;
+    return m.barcode ?? ref.read(productHintsProvider).bySku(m.sku)?.barcode;
   }
 
   String? get productName {
     final m = state.move;
-    return m == null ? null : ref.read(productHintsProvider).bySku(m.sku)?.name;
+    if (m == null) return null;
+    return m.productName ?? ref.read(productHintsProvider).bySku(m.sku)?.name;
   }
 
   /// 집기 단계에서 카트와 출발 칸을 둘 다 찍었다 → 상품을 스캔해 싣는 쪽으로 넘어간다.
@@ -183,7 +184,7 @@ class MoveController extends Notifier<MoveFlowState> {
         r = c == m.fromLocation ? LocScan.ok : LocScan.wrongPlace;
       } else if (bc == null) {
         r = LocScan.notLocation;
-      } else if (c != bc) {
+      } else if (!(m.matchesBarcode(c) || c == bc)) {
         r = LocScan.wrongItem;
       } else if (state.qty >= m.toPick) {
         r = LocScan.over;

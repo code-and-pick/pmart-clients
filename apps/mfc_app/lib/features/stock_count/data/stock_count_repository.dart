@@ -109,14 +109,28 @@ final class ApiStockCountRepository implements StockCountRepository {
 }
 
 CountSessionView countFromContract(inv.CountSession s) {
-  CountSheetLine line(String? loc, String? sku, String? lot, [String? exp]) =>
-      CountSheetLine(
-        locationCode:
-            loc ?? (throw const ContractViolationFailure('locationCode 없음')),
-        sku: sku ?? (throw const ContractViolationFailure('sku 없음')),
-        lotId: lot ?? (throw const ContractViolationFailure('lotId 없음')),
-        expiryDate: exp,
-      );
+  CountSheetLine line(
+    String? loc,
+    String? sku,
+    String? lot, {
+    String? exp,
+    String? name,
+    List<String>? barcodes,
+  }) => CountSheetLine(
+    locationCode:
+        loc ?? (throw const ContractViolationFailure('locationCode 없음')),
+    sku: sku ?? (throw const ContractViolationFailure('sku 없음')),
+    lotId: lot ?? (throw const ContractViolationFailure('lotId 없음')),
+    expiryDate: exp,
+    productName: switch (name?.trim()) {
+      final n? when n.isNotEmpty => n,
+      _ => null,
+    },
+    barcodes: [
+      for (final b in barcodes ?? const <String>[])
+        if (b.trim().isNotEmpty) b.trim(),
+    ],
+  );
   return CountSessionView(
     sessionId:
         s.sessionId ?? (throw const ContractViolationFailure('sessionId 없음')),
@@ -132,7 +146,14 @@ CountSessionView countFromContract(inv.CountSession s) {
     locationCodes: s.locationCodes ?? const [],
     sheet: [
       for (final l in s.sheet ?? const <inv.CountSessionSheetInner>[])
-        line(l.locationCode, l.sku, l.lotId, l.expiryDate),
+        line(
+          l.locationCode,
+          l.sku,
+          l.lotId,
+          exp: l.expiryDate,
+          name: l.productName,
+          barcodes: l.barcodes,
+        ),
     ],
     differences: s.differences == null
         ? null

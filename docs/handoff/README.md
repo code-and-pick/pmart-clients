@@ -24,7 +24,7 @@ pmart-clients 와 pmart-backend 는 서로의 저장소에 쓰지 않는다. 각
 |---|---|
 | `all/2026-11-13-backend-client-todo-done.md` | 새 웹 빌드 두 개를 백엔드가 올리는 것 |
 | `all/2026-11-13-backend-handoff-folders.md` | 백엔드 쪽 handoff 폴더를 같은 구조로 나눌지 |
-| `mfc-app/2026-11-10-backend-pda-work-areas.md` | BR-52·BR-53 회신(R1·R3·R4, R8~R11 은 받음 — 나머지) |
+| `mfc-app/2026-11-10-backend-pda-work-areas.md` | BR-52·BR-53 회신(R1~R4 일부·R8~R11·R19-1 은 받음 — 나머지. 다음 차례 R12 → R20) |
 | `backoffice/2026-11-15-backend-assistant-connected.md` | 새 백오피스 빌드 올리기, 업무 도우미·문의 답변의 HTTPS 게이트웨이 경로·CORS, 답변 POST 의 같은 키 재전송 |
 | `backoffice/2026-11-15-backend-cs-rider-menus-done.md` | 고객센터·라이더 운영 메뉴 반영 회신 — BR-54~56, 역할·version 질문, PC 5 권한 반영 |
 | `web-common/2026-11-16-backend-session-roles-centers-done.md` | 메뉴·센터를 `sessions/current` 로 바꾼 세 웹 빌드 올리기(§2 표가 최신 해시) |
@@ -35,4 +35,3 @@ pmart-clients 와 pmart-backend 는 서로의 저장소에 쓰지 않는다. 각
 | `backoffice/2026-11-16-backend-product-menu-operator-admin-done.md` | 상품 관리 묶음 `OPERATOR_ADMIN` 반영 확인(빌드는 web-common 회신) |
 | `hr-backoffice/2026-11-16-backend-role-list-done.md` | 역할 목록 API 반영 확인(BR-57 끝, 빌드는 web-common 회신) |
 | `customer-app/2026-11-15-backend-support-chat-inquiry.md` | 고객앱 문의·AI 상담 반영 알림 — LAN 고객 토큰으로 실제 확인, 질문 3개 |
-| `mfc-app/2026-11-14-backend-br52-next-priority.md` | BR-52 R2·R19-1 을 먼저 해 줄지, LAN 기존 상품의 상품명·바코드 재발행 상태 |

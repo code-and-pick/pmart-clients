@@ -149,10 +149,13 @@ class CountController extends Notifier<CountFlowState> {
 
   ProductHints get _hints => ref.read(productHintsProvider);
 
-  /// 줄 상품 바코드. 모르면 null — 그 줄은 수량을 직접 넣는다.
-  String? barcodeOf(CountSheetLine l) => _hints.bySku(l.sku)?.barcode;
+  /// 줄 상품 바코드 — 서버 값(mfc-inventory 0.16.0) 먼저, 없으면 상품 정보. 모르면 null — 그 줄은 수량을
+  /// 직접 넣는다.
+  String? barcodeOf(CountSheetLine l) =>
+      l.barcodes.firstOrNull ?? _hints.bySku(l.sku)?.barcode;
 
-  String? nameOf(CountSheetLine l) => _hints.bySku(l.sku)?.name;
+  String? nameOf(CountSheetLine l) =>
+      l.productName ?? _hints.bySku(l.sku)?.name;
 
   Future<void> load() async {
     try {
@@ -199,7 +202,7 @@ class CountController extends Notifier<CountFlowState> {
     final c = code.trim();
     final lines = [
       for (final l in state.linesAt(loc))
-        if (barcodeOf(l) == c) l,
+        if (l.matchesBarcode(c) || barcodeOf(l) == c) l,
     ];
     final CountScan r;
     if (lines.isEmpty) {

@@ -176,6 +176,8 @@ void main() {
           'mfcId': 'MFC-1',
           'state': 'READY',
           'taskType': 'INSPECT',
+          // mfc-inbound 0.9.0: 기본값 true 를 생성 클라이언트가 그대로 보낸다 — 앱은 상품명·바코드가 필요하다.
+          'withLabels': 'true',
         });
         await r.putaway(
           'TSK-PUT-mock-1',
