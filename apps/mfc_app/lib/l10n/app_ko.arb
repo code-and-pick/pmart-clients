@@ -939,5 +939,20 @@
   "sessionEndedExpired": "로그인이 끝났어요(30분 동안 쓰지 않았거나 시간이 다 됐어요). 다시 로그인해 주세요.",
   "sessionEndedBlocked": "이용할 수 없는 계정이에요. 인사팀에 문의해 주세요.",  "logout": "로그아웃",
   "logoutConfirm": "로그아웃할까요? 교대하거나 자리를 비울 때 로그아웃해 주세요.",
-  "awaitingGrant": "아직 권한이 없어요(권한 승인 대기). 승인되면 다시 로그인해 주세요."
+  "awaitingGrant": "아직 권한이 없어요(권한 승인 대기). 승인되면 다시 로그인해 주세요.",
+  "locGoTo": "다음 위치로 이동해 주세요",
+  "locCodeLabel": "위치 바코드",
+  "locZone": "구역",
+  "locRack": "랙",
+  "locLevel": "단",
+  "locSlot": "칸",
+  "locScanHint": "위치 바코드 스캔",
+  "pickTitleCart": "장바구니 스캔",
+  "pickTitleLocation": "위치 스캔",
+  "pickTitleItem": "상품 스캔",
+  "taskInfo": "작업 정보",
+  "taskInfoLine": "{done}/{total}개",
+  "@taskInfoLine": { "placeholders": { "done": { "type": "int" }, "total": { "type": "int" } } },
+  "pickFooterQty": "{qty}개",
+  "@pickFooterQty": { "placeholders": { "qty": { "type": "int" } } }
 }

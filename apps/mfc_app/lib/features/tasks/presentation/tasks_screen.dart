@@ -10,6 +10,7 @@ import '../../work/presentation/work_screens.dart' show backToSession;
 import '../../work/presentation/work_controller.dart' show continueToPack;
 import 'return_screen.dart';
 import '../../../shared/field_widgets.dart';
+import '../../../shared/location_guide.dart';
 import '../../../shared/printer/reprint.dart';
 import '../../../shared/scanner/scan_input.dart';
 import '../../../shared/scanner/scanner.dart';
@@ -255,10 +256,45 @@ class _PickingScreenState extends ConsumerState<PickingScreen> {
     final detail = ref.watch(taskDetailProvider(widget.taskId));
     final picking = ref.watch(pickingProvider(widget.taskId));
     final queue = ref.watch(taskQueueProvider(widget.taskId)).value ?? const [];
+    final task = detail.value;
+    final stepTitle = picking.cart == null
+        ? l10n.pickTitleCart
+        : picking.at == null
+        ? l10n.pickTitleLocation
+        : l10n.pickTitleItem;
     return Scaffold(
       appBar: AppBar(
-        title: Text(l10n.pickingTitle),
+        // 위치 스캔 화면 구성(사용자 2026-11-16 참고 화면): 제목은 지금 단계, 위에 작업 이름.
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(l10n.pickingTitle, style: theme.textTheme.labelMedium),
+            Text(stepTitle, key: const ValueKey('pick-step-title')),
+          ],
+        ),
         actions: [
+          if (picking.cart case final cart?)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: Column(
+                key: const ValueKey('pick-cart-chip'),
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.shopping_cart_outlined, size: 20),
+                  Text(cart, style: theme.textTheme.labelSmall),
+                ],
+              ),
+            ),
+          if (task != null)
+            IconButton(
+              key: const ValueKey('task-info'),
+              tooltip: l10n.taskInfo,
+              onPressed: () => showModalBottomSheet<void>(
+                context: context,
+                builder: (_) => _TaskInfoSheet(task: task),
+              ),
+              icon: const Icon(Icons.info_outline),
+            ),
           IconButton(
             key: const ValueKey('sync'),
             tooltip: l10n.sync,
@@ -329,8 +365,61 @@ class _PickingScreenState extends ConsumerState<PickingScreen> {
                       : ScanFeedback.error(l10n.pickNotCart),
                 ),
               ] else if (stop != null) ...[
-                if (picking.cart case final cart?)
-                  TargetLine(label: l10n.moveCart, code: cart, confirmed: true),
+                if (picking.at == null)
+                  // 2. 칸 — 갈 위치를 크게(조각마다 색 블록 + 구역·랙·단·칸 표).
+                  // 같은 상품이 여러 칸·LOT 에 있어도 지시 LOT 을 집게(IV-07 오로트 차단).
+                  LocationGuide(
+                    code: stop.location,
+                    codeKey: const ValueKey('pick-location'),
+                  )
+                else
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.check_circle,
+                        color: theme.colorScheme.primary,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(l10n.pickStepLocation),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          picking.at!,
+                          key: const ValueKey('pick-location'),
+                          style: theme.textTheme.titleLarge,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                const SizedBox(height: 12),
+                if (picking.at == null) ...[
+                  ScanInput(
+                    id: 'pick-loc-scan',
+                    testValues: [
+                      TestScan(l10n.tsLocation, stop.location),
+                      for (final o in stop.otherLocations)
+                        TestScan(l10n.tsOtherLocation, o),
+                      TestScan(l10n.tsWrong, 'A-S9-09-9-99'),
+                    ],
+                    label: l10n.locScanHint,
+                    cameraTitle: l10n.pickCameraTitle,
+                    continuous: false,
+                    autofocus: false,
+                    onScan: (code) => switch (_ctl.scanLocation(task, code)) {
+                      PickLocScan.ok => const ScanFeedback.ok(),
+                      final r => ScanFeedback.error(pickLocText(l10n, r)),
+                    },
+                  ),
+                  if (picking.lastLocScan case final r?
+                      when r != PickLocScan.ok)
+                    Text(
+                      pickLocText(l10n, r),
+                      key: const ValueKey('pick-loc-error'),
+                      style: TextStyle(color: theme.colorScheme.error),
+                    ),
+                  const SizedBox(height: 12),
+                ],
                 Card(
                   key: ValueKey('current-${stop.line.orderLineId}'),
                   child: Padding(
@@ -338,14 +427,27 @@ class _PickingScreenState extends ConsumerState<PickingScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          picking.at ?? stop.location,
-                          key: const ValueKey('pick-location'),
-                          style: theme.textTheme.headlineSmall,
-                        ),
-                        Text(
-                          stop.line.productName ?? stop.line.sku,
-                          style: theme.textTheme.titleMedium,
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: Text(
+                                stop.line.productName ?? stop.line.sku,
+                                style: picking.at == null
+                                    ? theme.textTheme.titleMedium
+                                    : theme.textTheme.titleLarge?.copyWith(
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              l10n.pickFooterQty(stop.qty),
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
                         ),
                         Text(
                           [
@@ -390,33 +492,8 @@ class _PickingScreenState extends ConsumerState<PickingScreen> {
                     ),
                   ),
                 ),
-                if (picking.at == null) ...[
-                  // 2. 칸 — 같은 상품이 여러 칸·LOT 에 있어도 지시 LOT 을 집게(IV-07 오로트 차단).
-                  ScanInput(
-                    id: 'pick-loc-scan',
-                    testValues: [
-                      TestScan(l10n.tsLocation, stop.location),
-                      for (final o in stop.otherLocations)
-                        TestScan(l10n.tsOtherLocation, o),
-                      TestScan(l10n.tsWrong, 'A-S9-09-9-99'),
-                    ],
-                    label: l10n.pickScanLocation,
-                    cameraTitle: l10n.pickCameraTitle,
-                    continuous: false,
-                    autofocus: false,
-                    onScan: (code) => switch (_ctl.scanLocation(task, code)) {
-                      PickLocScan.ok => const ScanFeedback.ok(),
-                      final r => ScanFeedback.error(pickLocText(l10n, r)),
-                    },
-                  ),
-                  if (picking.lastLocScan case final r?
-                      when r != PickLocScan.ok)
-                    Text(
-                      pickLocText(l10n, r),
-                      key: const ValueKey('pick-loc-error'),
-                      style: TextStyle(color: theme.colorScheme.error),
-                    ),
-                ] else ...[
+                if (picking.at != null) ...[
+                  const SizedBox(height: 8),
                   // 3. 상품 — 한 번에 하나씩. 다 차면 바로 보낸다.
                   ScanInput(
                     id: 'scan-field',
@@ -577,6 +654,42 @@ class PickInstructionTile extends StatelessWidget {
               style: (c.allocatedQty ?? 0) > 0
                   ? theme.textTheme.titleMedium
                   : theme.textTheme.bodyMedium,
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 작업 정보 — 이 작업의 상품 줄과 진행(서버 값 그대로).
+class _TaskInfoSheet extends StatelessWidget {
+  const _TaskInfoSheet({required this.task});
+
+  final TaskDetailView task;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final theme = Theme.of(context);
+    return SafeArea(
+      child: ListView(
+        key: const ValueKey('task-info-sheet'),
+        shrinkWrap: true,
+        padding: const EdgeInsets.all(16),
+        children: [
+          Text(l10n.taskInfo, style: theme.textTheme.titleLarge),
+          Text(l10n.taskProgress(task.totalCompleted, task.totalPlanned)),
+          const Divider(),
+          for (final l in task.lines)
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(
+                l.done ? Icons.check_circle : Icons.radio_button_unchecked,
+                color: l.done ? theme.colorScheme.primary : null,
+              ),
+              title: Text(l.productName ?? l.sku),
+              subtitle: Text(firstPickLocation(l) ?? '-'),
+              trailing: Text(l10n.taskInfoLine(l.completedQty, l.plannedQty)),
             ),
         ],
       ),
