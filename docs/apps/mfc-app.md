@@ -9,6 +9,7 @@
   - 관리 메뉴(사용자 고름): 작업 현황(fulfillment `listTasks` 를 `assignee` 없이 — 진행 중·대기·막힘, 담당·늦음·30분 실적 없음), 작업자 현황(capacity `listWorkers` — 근무·휴게·정지, 고를 수 있는 업무), 이동 지시 만들기·취소, 실사 시작·차이 승인. 조회·지시만 — 배정·설정은 MFC 백오피스.
   - 작업자로 등록되지 않은 관리자도 관리 메뉴는 보인다(아래 업무 칸만 조회 오류).
   - **이동 지시**(`/manage/moves`): 진행 중 지시 목록(inbound `listMoveOrders` 기본 ACTIVE·CANCEL_PENDING), 지시 취소(사유 필수 — `cancellations`, 카트에 실린 물건이 있으면 "출발 칸에 되돌려 놓으면 끝나요"). 새 지시(`/manage/moves/new`): 상품 바코드·SKU 스캔(바코드는 product `resolveBarcode`) → 그 SKU 의 정상·보관 재고(inventory `getCenterStock`)에서 출발 칸·LOT 고르기 → 도착 칸 스캔 → 수량(그 묶음 이하)·사유·긴급 → `POST /move-orders`(같은 키 = 같은 이동). 칸 배정·용량·칸당 한 상품은 서버 판정, 거절은 코드 그대로. 칸으로 재고를 찾는 API 가 없어 상품부터 고른다(MB-1).
+  - **실사**(`/manage/counts`): 실사 번호로 찾기 + 이 기기에서 연 실사(목록 API 없음 — MB-1, 앱을 끄면 사라짐). 실사 시작(`/manage/counts/new`): 칸 스캔(최대 50) → inventory `createCountSession`. 실사 잠금은 PDA 가 하지 않는다 — 잠기지 않은 칸은 서버 409 `LOCATION_NOT_LOCKED` 를 그대로 안내(사용자 2026-11-16 "시작만, 잠금은 서버 판정", 잠금 주체는 BR-52 R14 대기). 상세(`/manage/counts/:id`): 상태·칸·계수자, 계수가 끝난 뒤에만 차이(장부 → 계수). 승인 대기면 승인(승인 번호 직접 입력 필수 — 사용자 2026-11-16, 승인 서비스가 없어 서버는 기록만, Q-11)·반려. `SELF_APPROVAL`·`APPROVAL_REQUIRED`·`BOOK_CHANGED` 안내, 결과 불명은 같은 키·같은 결정으로 "다시 확인".
   - 목 로그인: `claude-mfc-sup` = 센터 관리자(LAN 시험 계정 이름), `mfcw-*` = 작업자.
 - 크루는 **작업 목록을 볼 수 없다**(목록 화면 삭제). 메인(모든 작업자 공통): 업무 5개, 메뉴(인계 확인·프린터 설정·휴게). "작업 준비 완료" 버튼 없음 — 업무를 누르면 바로 작업 순서 안내(2026-11-10).
 - 업무 묶음(사용자 2026-11-10 "지금은 이렇게 묶을 거야"):

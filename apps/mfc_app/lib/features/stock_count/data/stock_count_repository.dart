@@ -6,7 +6,7 @@ import '../../../shared/field_outcome.dart';
 import '../../../shared/providers.dart' show sourceSystem;
 import '../domain/stock_count.dart';
 
-/// 재고 실사 업무(mfc-inventory count-sessions). 차이 승인(approvals)은 센터 관리자 전용이라 PDA 에 두지 않는다.
+/// 재고 실사 업무(mfc-inventory count-sessions). 차이 승인(approvals)은 센터 관리자 관리 메뉴에서(사용자 2026-11-16).
 /// 실사 작업 배정(어느 실사를 누가 셀지)은 계약에 없다 — BR-52 R2.
 abstract interface class StockCountRepository {
   /// `POST /mfcs/{mfcId}/count-sessions` — 실사 잠금된 위치의 장부를 기준 시각에 고정.
@@ -19,6 +19,17 @@ abstract interface class StockCountRepository {
 
   /// `GET /mfcs/{mfcId}/count-sessions/{sessionId}`.
   Future<CountSessionView> session(String mfcId, String sessionId);
+
+  /// `POST …/approvals` — 센터 관리자 차이 승인(조정 반영)·반려. PENDING_APPROVAL 만.
+  /// 승인은 [approvalRef] 필수(관리자가 입력 — 사용자 2026-11-16, 승인 서비스가 없어 서버는 기록만).
+  Future<FieldOutcome<CountSessionView>> decide(
+    String mfcId,
+    String sessionId, {
+    required bool approve,
+    String? approvalRef,
+    String? note,
+    required IdempotencyKey key,
+  });
 
   /// `POST …/counts` — 계수·재계수 제출.
   Future<FieldOutcome<CountSessionView>> submit(
@@ -64,6 +75,31 @@ final class ApiStockCountRepository implements StockCountRepository {
       createCountSessionRequest: inv.CreateCountSessionRequest(
         locationCodes: locationCodes,
         reason: reason,
+      ),
+      extra: commandOptions(key).extra,
+    ),
+  );
+
+  @override
+  Future<FieldOutcome<CountSessionView>> decide(
+    String mfcId,
+    String sessionId, {
+    required bool approve,
+    String? approvalRef,
+    String? note,
+    required IdempotencyKey key,
+  }) => _cmd(
+    () => _api.decideCountSession(
+      mfcId: mfcId,
+      sessionId: sessionId,
+      idempotencyKey: key.value,
+      xSourceSystem: sourceSystem,
+      decideCountSessionRequest: inv.DecideCountSessionRequest(
+        action: approve
+            ? inv.DecideCountSessionRequestActionEnum.APPROVE
+            : inv.DecideCountSessionRequestActionEnum.REJECT,
+        approvalRef: approvalRef,
+        note: note,
       ),
       extra: commandOptions(key).extra,
     ),

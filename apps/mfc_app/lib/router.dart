@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'features/manage/presentation/count_admin_screens.dart';
 import 'features/manage/presentation/manage_screens.dart';
 import 'features/manage/presentation/move_admin_screens.dart';
 import 'features/auth/domain/employee_auth.dart';
@@ -53,6 +54,19 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/manage/moves/new',
         builder: (_, _) => const NewMoveScreen(),
+      ),
+      GoRoute(
+        path: '/manage/counts',
+        builder: (_, _) => const CountAdminScreen(),
+      ),
+      GoRoute(
+        path: '/manage/counts/new',
+        builder: (_, _) => const StartCountScreen(),
+      ),
+      GoRoute(
+        path: '/manage/counts/:id',
+        builder: (_, s) =>
+            CountSessionAdminScreen(sessionId: s.pathParameters['id']!),
       ),
       GoRoute(
         path: '/manage/workers',

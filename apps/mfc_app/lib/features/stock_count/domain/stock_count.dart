@@ -125,4 +125,13 @@ abstract final class CountProblemCode {
   static const sameCounter = 'SAME_COUNTER';
   static const locationNotLocked = 'LOCATION_NOT_LOCKED';
   static const countInProgress = 'COUNT_IN_PROGRESS';
+
+  /// 실사를 시작·계수한 사람은 승인할 수 없다(422).
+  static const selfApproval = 'SELF_APPROVAL';
+
+  /// 승인에는 승인 번호(approvalRef)가 필요하다(422).
+  static const approvalRequired = 'APPROVAL_REQUIRED';
+
+  /// 반영 직전 장부가 기준 시각과 다르다 — 다시 실사(409).
+  static const bookChanged = 'BOOK_CHANGED';
 }

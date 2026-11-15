@@ -12,8 +12,41 @@ final class MockStockCountRepository implements StockCountRepository {
     bool seed = true,
   }) {
     // 목: 센터 관리자가 시작해 둔 실사 1건(선반 2칸) — 실사 배정은 계약에 없다(BR-52 R14).
-    if (seed) _seed(const ['A-S3-01-1-10', 'C-S1-02-2-05']);
+    if (seed) {
+      _seed(const ['A-S3-01-1-10', 'C-S1-02-2-05']);
+      _seedPendingApproval();
+    }
   }
+
+  /// 목: 두 작업자가 세어 차이가 남은 실사(승인 대기) — 센터 관리자 승인 화면용.
+  void _seedPendingApproval() {
+    const line = CountSheetLine(
+      locationCode: 'A-S3-02-1-01',
+      sku: 'E-00000005',
+      lotId: 'LOT-C-0901',
+      expiryDate: '2027-03-01',
+    );
+    _book[line.key] = 12;
+    final s = CountSessionView(
+      sessionId: 'CNT-mock-${++_seq}',
+      state: CountState.pendingApproval,
+      locationCodes: const ['A-S3-02-1-01'],
+      sheet: const [line],
+      differences: const [
+        CountDifference(line: line, bookQty: 12, countedQty: 10, deltaQty: -2),
+      ],
+      firstCounter: 'OP-mock-1',
+      recounter: 'OP-mock-2',
+      version: 3,
+    );
+    _sessions[s.sessionId] = s;
+  }
+
+  /// 목 실사 번호(센터 관리자 목록 — 실서버는 목록 API 가 없다, MB-1).
+  Iterable<String> get sessionIds => _sessions.keys;
+
+  /// 승인하는 사람(실서버는 토큰 주체). 실사를 시작·계수한 사람이면 SELF_APPROVAL.
+  String approver = 'OP-mock-sup';
 
   void _seed(List<String> locs) {
     final sheet = [
@@ -108,6 +141,42 @@ final class MockStockCountRepository implements StockCountRepository {
     );
     _sessions[s.sessionId] = s;
     return _keys[key.value] = FieldDone(s);
+  }
+
+  @override
+  Future<FieldOutcome<CountSessionView>> decide(
+    String mfcId,
+    String sessionId, {
+    required bool approve,
+    String? approvalRef,
+    String? note,
+    required IdempotencyKey key,
+  }) async {
+    await _wait();
+    if (_keys[key.value] case final o?) return o;
+    final s = _sessions[sessionId];
+    if (s == null) return const FieldRejected(ProblemCode.notFound);
+    if (s.state != CountState.pendingApproval) {
+      return const FieldRejected(ProblemCode.invalidState);
+    }
+    if (approver == s.firstCounter || approver == s.recounter) {
+      return const FieldRejected(CountProblemCode.selfApproval);
+    }
+    if (approve && (approvalRef == null || approvalRef.trim().isEmpty)) {
+      return const FieldRejected(CountProblemCode.approvalRequired);
+    }
+    final next = CountSessionView(
+      sessionId: s.sessionId,
+      state: approve ? CountState.adjusted : CountState.rejected,
+      locationCodes: s.locationCodes,
+      sheet: s.sheet,
+      differences: s.differences,
+      firstCounter: s.firstCounter,
+      recounter: s.recounter,
+      version: (s.version ?? 0) + 1,
+    );
+    _sessions[sessionId] = next;
+    return _keys[key.value] = FieldDone(next);
   }
 
   /// 마지막 제출의 계수표 밖 상품(목만 받는다).

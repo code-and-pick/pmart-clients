@@ -336,6 +336,7 @@ class _ManageMenu extends StatelessWidget {
       children: [
         Text(l10n.manageTitle, style: theme.textTheme.titleMedium),
         const SizedBox(height: 8),
+        // 2×2 — 작은 화면에서도 글자가 잘리지 않게.
         Row(
           children: [
             _MenuButton(
@@ -347,6 +348,18 @@ class _ManageMenu extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             _MenuButton(
+              key: const ValueKey('manage-workers'),
+              icon: Icons.groups_outlined,
+              label: l10n.manageWorkers,
+              allowed: true,
+              onTap: () => context.push('/manage/workers'),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            _MenuButton(
               key: const ValueKey('manage-moves'),
               icon: Icons.swap_horiz,
               label: l10n.manageMoves,
@@ -355,11 +368,11 @@ class _ManageMenu extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             _MenuButton(
-              key: const ValueKey('manage-workers'),
-              icon: Icons.groups_outlined,
-              label: l10n.manageWorkers,
+              key: const ValueKey('manage-counts'),
+              icon: Icons.fact_check_outlined,
+              label: l10n.manageCounts,
               allowed: true,
-              onTap: () => context.push('/manage/workers'),
+              onTap: () => context.push('/manage/counts'),
             ),
           ],
         ),
