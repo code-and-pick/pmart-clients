@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:pmart_ui/pmart_ui.dart';
 
 import '../l10n/gen/app_localizations.dart';
+import 'location_guide.dart';
 
 /// 단계 표시(1 → 2 → 3 …). [current] 까지 채운다.
 class StepHeader extends StatelessWidget {
@@ -317,7 +318,7 @@ class TargetLine extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Row(
+    final row = Row(
       children: [
         Icon(
           confirmed ? Icons.check_circle : Icons.place_outlined,
@@ -333,6 +334,17 @@ class TargetLine extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
           ),
         ),
+      ],
+    );
+    // 아직 가야 할 선반 칸이면 조각 색 블록을 아래에 크게(위치 스캔 화면 구성 — 사용자 2026-11-16).
+    if (confirmed || ShelfCode.parse(code) == null) return row;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        row,
+        const SizedBox(height: 4),
+        LocationBlocks(code: code),
+        const SizedBox(height: 4),
       ],
     );
   }

@@ -135,11 +135,37 @@ class LocationGuide extends StatelessWidget {
   }
 }
 
+/// 선반 위치 코드의 색 블록만(위치 줄 아래 — 아직 확인 안 한 칸). 선반 형식이 아니면 아무것도 그리지 않는다.
+class LocationBlocks extends StatelessWidget {
+  const LocationBlocks({super.key, required this.code, this.height = 48});
+
+  final String code;
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    final shelf = ShelfCode.parse(code);
+    if (shelf == null) return const SizedBox.shrink();
+    return _Blocks(
+      code: code,
+      shelf: shelf,
+      tempText: _tempText(AppLocalizations.of(context), shelf.temp),
+      height: height,
+    );
+  }
+}
+
 class _Blocks extends StatelessWidget {
-  const _Blocks({required this.code, required this.shelf, this.tempText});
+  const _Blocks({
+    required this.code,
+    required this.shelf,
+    this.tempText,
+    this.height = 64,
+  });
 
   final String code;
   final ShelfCode? shelf;
+  final double height;
 
   /// 구역 블록 위에 작게 — 냉장·냉동·상온.
   final String? tempText;
@@ -157,7 +183,7 @@ class _Blocks extends StatelessWidget {
           ];
     return ExcludeSemantics(
       child: SizedBox(
-        height: 64,
+        height: height,
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [

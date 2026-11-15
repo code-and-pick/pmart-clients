@@ -11,8 +11,16 @@ import 'package:pmart_core/pmart_core.dart';
 import 'package:pmart_ui/pmart_ui.dart';
 
 import 'package:mfc_app/app.dart';
+import 'package:mfc_app/features/inbound/data/mock_inbound_repository.dart';
+import 'package:mfc_app/features/inbound/presentation/inbound_controller.dart';
+import 'package:mfc_app/features/packing/data/mock_packing_repository.dart';
+import 'package:mfc_app/features/packing/presentation/packing_controller.dart';
+import 'package:mfc_app/features/quality/data/mock_quality_repository.dart';
+import 'package:mfc_app/features/stock_count/data/mock_stock_count_repository.dart';
+import 'package:mfc_app/features/stock_move/data/mock_stock_move_repository.dart';
 import 'package:mfc_app/features/tasks/data/mock_task_repository.dart';
 import 'package:mfc_app/features/tasks/presentation/task_controllers.dart';
+import 'package:mfc_app/shared/field_repositories.dart';
 import 'package:mfc_app/shared/providers.dart';
 
 import '../test/support.dart';
@@ -90,5 +98,76 @@ void main() {
     await scanTo('pick-loc-scan', 'C-S1-01-1-01');
     await shot('pick-item');
     debugDisableShadows = true; // 테스트 끝 검사 전에 되돌린다.
+  });
+
+  testWidgets('move', (t) async {
+    if (_dir.isEmpty) fail('--dart-define=SHOT_DIR=<절대 경로> 가 필요하다');
+    await t.runAsync(_loadFonts);
+    debugDisableShadows = false;
+    t.view
+      ..physicalSize = const Size(1080, 2160)
+      ..devicePixelRatio = 3;
+    addTearDown(t.view.reset);
+    final stockMove = MockStockMoveRepository(latency: Duration.zero);
+    await t.pumpWidget(
+      ProviderScope(
+        retry: (_, _) => null,
+        overrides: [
+          envProvider.overrideWithValue(PmartEnv.mock),
+          taskRepositoryProvider.overrideWithValue(
+            MockTaskRepository(latency: Duration.zero),
+          ),
+          packingRepositoryProvider.overrideWithValue(
+            MockPackingRepository(latency: Duration.zero),
+          ),
+          inboundRepositoryProvider.overrideWithValue(
+            MockInboundRepository(latency: Duration.zero),
+          ),
+          qualityRepositoryProvider.overrideWithValue(
+            MockQualityRepository(latency: Duration.zero, returns: stockMove),
+          ),
+          stockMoveRepositoryProvider.overrideWithValue(stockMove),
+          stockCountRepositoryProvider.overrideWithValue(
+            MockStockCountRepository(latency: Duration.zero),
+          ),
+          secureStoreProvider.overrideWithValue(MemoryKeyValueStore()),
+        ],
+        child: const MfcApp(),
+      ),
+    );
+    await t.pumpAndSettle();
+
+    Future<void> tap(String key) async {
+      await t.ensureVisible(find.byKey(ValueKey(key)));
+      await t.tap(find.byKey(ValueKey(key)));
+      await t.pumpAndSettle();
+    }
+
+    Future<void> scanTo(String id, String code) async {
+      await t.enterText(find.byKey(ValueKey(id)), code);
+      await t.testTextInput.receiveAction(TextInputAction.done);
+      await t.pumpAndSettle();
+    }
+
+    Future<void> shot(String name) async {
+      await t.pumpAndSettle();
+      await expectLater(
+        find.byType(MfcApp),
+        matchesGoldenFile(File('$_dir/$name.png').uri),
+      );
+    }
+
+    await tap('area-stockMove');
+    await tap('guide-ok');
+    await tap('run-task');
+    await scanTo('move-scan', 'CRT-C-01');
+    await shot('11-move-from');
+    await scanTo('move-scan', 'C-R1-01-1-01');
+    for (var i = 0; i < 6; i++) {
+      await scanTo('move-scan', MockTaskRepository.milkBarcode);
+    }
+    await tap('move-submit');
+    await shot('12-move-drop');
+    debugDisableShadows = true;
   });
 }
