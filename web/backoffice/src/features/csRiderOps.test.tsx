@@ -5,7 +5,6 @@ import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 
 import { API_BASE } from '../api/client';
-import { env } from '../env';
 import { as, renderAt } from '../test/render';
 import { server } from '../test/server';
 
@@ -16,10 +15,10 @@ describe('메뉴 묶음 — 역할로 보이고(합집합) 접고 편다', () =>
     const cases: Array<[string, string[]]> = [
       [as.md, ['상품 관리', '업무 도우미']],
       [as.approver, ['승인', '업무 도우미']],
-      [as.cs, ['고객센터', '업무 도우미']],
-      [as.riderOps, ['라이더 운영', '업무 도우미']],
-      [as.csRider, ['고객센터', '라이더 운영', '업무 도우미']],
-      [as.admin, ['상품 관리', '승인', '고객센터', '라이더 운영', '처리 대기', '업무 도우미']], // 상품 관리는 2026-11-15 부터 OPERATOR_ADMIN 도
+      [as.cs, ['고객센터', '지원센터', '업무 도우미']],
+      [as.riderOps, ['라이더 운영', '지원센터', '업무 도우미']],
+      [as.csRider, ['고객센터', '라이더 운영', '지원센터', '업무 도우미']],
+      [as.admin, ['상품 관리', '승인', '고객센터', '라이더 운영', '지원센터', '처리 대기', '업무 도우미']], // 상품 관리는 2026-11-15 부터 OPERATOR_ADMIN 도
       [as.center, ['업무 도우미']],
     ];
     for (const [token, expected] of cases) {
@@ -256,10 +255,10 @@ describe('배송 확인', () => {
     view.stop();
   });
 
-  it('상담원은 배차 조회가 아직 403(PC 5 반영 전) — 수행 상태는 보이고 배차는 오류로 따로 보인다', async () => {
+  it('상담원도 배차를 볼 수 있다(dispatch 0.3.2, BOD-2) — 수행·배차를 따로 읽는다', async () => {
     renderAt('/deliveries/DLV-MOCK-1', as.cs);
     expect(await screen.findByTestId('execution-state')).toHaveTextContent('픽업');
-    expect(await within(screen.getByTestId('dispatch-panel')).findByRole('heading', { name: '이용할 수 없는 화면이에요' })).toBeInTheDocument();
+    expect(await within(screen.getByTestId('dispatch-panel')).findByTestId('dispatch-state')).toBeInTheDocument();
   });
 
   it('픽업 전 배차 취소: 202 접수 → 짝 조회로 결과 확인, 같은 키. 운영자 판단 사유는 승인 번호가 필요', async () => {
@@ -312,9 +311,11 @@ describe('라이더 운영', () => {
     view.stop();
   });
 
-  it('라이더 운영 역할은 계정 제한이 아직 403(PC 5 반영 전) — 오류로 보인다', async () => {
+  it('라이더 운영 역할도 계정 제한을 보고 건다(rider 0.4.0, BOD-1)', async () => {
     renderAt('/riders/RID-MOCK-2', as.riderOps);
-    expect((await screen.findAllByRole('heading', { name: '이용할 수 없는 화면이에요' })).length).toBeGreaterThanOrEqual(1);
+    expect(await screen.findByTestId('rider-current-restriction')).toHaveTextContent('정상');
+    expect(screen.getByRole('button', { name: '제한 보내기' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: '이용할 수 없는 화면이에요' })).not.toBeInTheDocument();
   });
 
   it('제한 검토: 제한 없이 "제한함"은 거절, 기각은 그 자리에서 닫힌다', async () => {
@@ -332,34 +333,74 @@ describe('라이더 운영', () => {
     await waitFor(() => expect(screen.getByTestId('review-row')).toHaveTextContent('기각'));
   });
 
-  it('라이더 찾기(BR-54)·대기 목록(BR-55)은 계약 전 — 목 모드는 목 데이터 표시', async () => {
+  it('라이더 찾기(rider 0.4.0): 전화번호 완전 일치(숫자만) → 이름·전화는 가린 값, 쪽 이동', async () => {
     const user = userEvent.setup();
-    renderAt('/riders', as.riderOps);
-    expect(screen.getByTestId('not-in-contract-mock')).toHaveTextContent('BR-54');
+    const view = renderAt('/riders', as.riderOps);
     await user.type(screen.getByLabelText('전화번호(완전 일치)'), '010-1111-2222');
     await user.click(screen.getByRole('button', { name: '찾기' }));
     const rows = await screen.findAllByTestId('rider-row');
     expect(rows).toHaveLength(1);
-    expect(rows[0]).toHaveTextContent('010-****-2222');
-    cleanup();
-
-    renderAt('/delivery-help-requests', as.riderOps);
-    const help = await screen.findAllByTestId('help-row');
-    expect(help.map((r) => r.textContent)).toEqual([expect.stringContaining('DLV-MOCK-2'), expect.stringContaining('DLV-MOCK-1')]);
+    expect(rows[0]).toHaveTextContent('010****2222');
+    expect(rows[0]).not.toHaveTextContent('김라이더'); // 이름은 가린 값
+    expect(rows[0]).not.toHaveTextContent('01011112222');
+    const get = view.sent.find((r) => r.method === 'GET' && new URL(r.url).pathname.endsWith('/riders'))!;
+    expect(new URL(get.url).searchParams.get('phone')).toBe('01011112222');
+    expect(screen.queryByLabelText('이름')).not.toBeInTheDocument(); // 이름 검색 없음
   });
 
-  it('실서버 모드에서는 계약 전 화면이 서버를 부르지 않고 안내만 보인다', async () => {
-    env.isMock = false;
-    try {
-      renderAt('/delivery-help-requests', as.riderOps);
-      expect(await screen.findByText('서버 API 준비 전이에요')).toBeInTheDocument();
-      expect(screen.queryByTestId('help-row')).not.toBeInTheDocument();
-      cleanup();
-      renderAt('/riders', as.riderOps);
-      expect(screen.getByText(/BR-54/)).toBeInTheDocument();
-      expect(screen.queryByLabelText('전화번호(완전 일치)')).not.toBeInTheDocument();
-    } finally {
-      env.isMock = true;
-    }
+  it('전화번호가 10~11자리가 아니면 보내기 전에 막는다', async () => {
+    const user = userEvent.setup();
+    renderAt('/riders', as.riderOps);
+    await user.type(screen.getByLabelText('전화번호(완전 일치)'), '1234');
+    expect(screen.getByRole('button', { name: '찾기' })).toBeDisabled();
+  });
+
+  it('라이더 상세: 가린 이름·전화 → 사유 + pii-reveals(전화만) → 전화만 원문, 다시 가리기', async () => {
+    const user = userEvent.setup();
+    const view = renderAt('/riders/RID-MOCK-1', as.riderOps);
+    expect(await screen.findByTestId('rider-phone')).toHaveTextContent('010****2222');
+    const form = screen.getByRole('form', { name: '원문 열람' });
+    await user.click(within(form).getByLabelText('이름'));
+    await user.type(within(form).getByLabelText('열람 사유'), '컴플레인 확인 — 연락');
+    await user.click(within(form).getByRole('button', { name: '열람' }));
+    await waitFor(() => expect(screen.getByTestId('rider-phone')).toHaveTextContent('01011112222'));
+    expect(screen.getByTestId('rider-name')).toHaveAttribute('data-masked', 'true');
+    expect(await view.mutations('/pii-reveals')[0]!.json()).toEqual({ reason: '컴플레인 확인 — 연락', fields: ['PHONE'] });
+    await user.click(screen.getByRole('button', { name: '다시 가리기' }));
+    expect(screen.getByTestId('rider-phone')).toHaveTextContent('010****2222');
+  });
+
+  it('라이더 상세의 "이 라이더의 배송"은 GET /deliveries?riderId=', async () => {
+    const view = renderAt('/riders/RID-MOCK-1', as.riderOps);
+    const rows = await screen.findAllByTestId('delivery-row');
+    expect(rows.length).toBeGreaterThan(0);
+    expect(view.sent.some((r) => new URL(r.url).pathname.endsWith('/deliveries') && new URL(r.url).searchParams.get('riderId') === 'RID-MOCK-1')).toBe(true);
+  });
+
+  it('배송 확인: "전달 실패 확정 대기" = state=FAILURE_REPORTED&sort=OLDEST', async () => {
+    const user = userEvent.setup();
+    const view = renderAt('/deliveries', as.riderOps);
+    await user.click(screen.getByRole('button', { name: '전달 실패 확정 대기' }));
+    const rows = await screen.findAllByTestId('delivery-row');
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toHaveTextContent('DLV-MOCK-2');
+    const get = view.sent.find((r) => new URL(r.url).pathname.endsWith('/deliveries'))!;
+    expect(new URL(get.url).searchParams.get('state')).toBe('FAILURE_REPORTED');
+    expect(new URL(get.url).searchParams.get('sort')).toBe('OLDEST');
+  });
+
+  it('주문 상세의 "이 주문의 배송"(BR-56 끝)', async () => {
+    renderAt('/orders/ORD-MOCK-1003', as.cs);
+    const rows = await screen.findAllByTestId('delivery-row');
+    expect(rows.map((r) => within(r).getAllByRole('link')[0]!.textContent)).toEqual(expect.arrayContaining(['DLV-MOCK-3', 'DLV-MOCK-4']));
+  });
+
+  it('도움요청 대기는 사건함으로 — 라이더 도움요청 사건 상세에 라이더가 쓴 내용', async () => {
+    const user = userEvent.setup();
+    renderAt('/delivery-help-requests', as.riderOps);
+    const row = await screen.findByTestId('case-row');
+    expect(row).toHaveTextContent('라이더 도움요청');
+    await user.click(within(row).getByRole('link', { name: /라이더 도움요청 — 건물 출입 불가/ }));
+    expect(await screen.findByTestId('case-help-request')).toHaveTextContent('공동현관이 잠겨');
   });
 });
