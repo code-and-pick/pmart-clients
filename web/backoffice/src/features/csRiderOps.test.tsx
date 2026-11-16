@@ -42,6 +42,20 @@ describe('메뉴 묶음 — 역할로 보이고(합집합) 접고 편다', () =>
     expect(cs).not.toHaveAttribute('open');
   });
 
+  it('같은 화면은 한 번만 — 두 역할이면 앞 묶음(고객센터)에만, 역할 하나면 그 묶음에 그대로', async () => {
+    const links = (g: string) => within(screen.getByTestId(`nav-group-${g}`)).getAllByRole('link', { hidden: true }).map((a) => a.textContent);
+    renderAt('/inquiries', as.csRider);
+    await screen.findByTestId('nav-group-riderOps');
+    expect(links('cs')).toEqual(expect.arrayContaining(['주문 조회', '라이더 컴플레인', '배송 확인']));
+    expect(links('riderOps')).toEqual(['라이더 찾기·계정 제한', '제한 검토']);
+    const all = [...document.querySelectorAll('[data-testid^="nav-group-"] a')].map((a) => a.getAttribute('href'));
+    expect(new Set(all).size).toBe(all.length);
+    cleanup();
+    renderAt('/session', as.riderOps);
+    await screen.findByTestId('nav-group-riderOps');
+    expect(links('riderOps')).toEqual(expect.arrayContaining(['라이더 찾기·계정 제한', '주문 조회', '라이더 컴플레인', '배송·배차 확인']));
+  });
+
   it('첫 화면은 역할로 보이는 첫 메뉴 — 상담원은 주문 조회, 라이더 운영은 라이더 찾기', async () => {
     renderAt('/', as.cs);
     expect(await screen.findByRole('heading', { name: '주문 조회' })).toBeInTheDocument();

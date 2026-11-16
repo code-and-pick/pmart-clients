@@ -1,6 +1,6 @@
 // 왼쪽 메뉴 묶음(백엔드 요청 2026-11-15 cs-rider-menus §1, 정본 표 pmart-backend docs/architecture/backoffice-role-menus.md §2).
 // 역할은 세션 응답(sessions/current 0.6.0, 안내용). 메뉴 숨김은 편의일 뿐 — 권한은 서버가 행위마다 판정한다(숨긴 화면의 API 도 403).
-// 여러 역할이면 합집합. 묶음 안 하위 메뉴가 하나도 안 보이면 묶음도 숨긴다. 같은 화면이 두 묶음에 있어도 된다.
+// 여러 역할이면 합집합. 묶음 안 하위 메뉴가 하나도 안 보이면 묶음도 숨긴다. 같은 화면이 두 묶음에 있어도 된다(둘 다 보이면 앞 묶음에만 — visibleGroups).
 // MFC 메뉴는 넣지 않는다(2026-11-15 사용자 결정 — MFC 백오피스는 따로 앱).
 import { messages as m } from '../shared/messages';
 
@@ -99,9 +99,16 @@ export const navGroups: readonly NavGroup[] = [
   },
 ];
 
-/** 이 역할들로 보이는 묶음(순서 유지). */
+/**
+ * 이 역할들로 보이는 묶음(순서 유지). 같은 화면이 보이는 여러 묶음에 있으면 앞 묶음에만 둔다(2026-11-16 사용자 —
+ * 두 역할을 다 가진 계정에서 같은 메뉴가 두 번 강조돼 보이지 않게). 역할이 하나면 묶음도 하나라 정본 표 그대로다.
+ */
 export function visibleGroups(roles: readonly string[]): NavGroup[] {
-  return navGroups.filter((g) => g.items.length > 0 && (g.visibleTo === 'ALL' || roles.some(g.visibleTo)));
+  const seen = new Set<string>();
+  return navGroups
+    .filter((g) => g.visibleTo === 'ALL' || roles.some(g.visibleTo))
+    .map((g) => ({ ...g, items: g.items.filter((i) => !seen.has(i.to) && seen.add(i.to)) }))
+    .filter((g) => g.items.length > 0);
 }
 
 /** 메뉴 항목이 지금 경로의 화면인가(하위 경로 포함 — 상세 화면에서도 묶음을 펼쳐 둔다). */
