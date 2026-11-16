@@ -35,7 +35,7 @@ describe('지원센터 사건', () => {
     await waitFor(() => expect(screen.getAllByTestId('case-row')).toHaveLength(1));
     expect(screen.getByTestId('case-row')).toHaveTextContent('위치 끊김');
     expect(inboxCalls(view.sent).some((q) => q.get('assignee') === 'op-rider-ops-1')).toBe(true);
-    await userEvent.click(screen.getByRole('tab', { name: '닫힌 것' }));
+    await userEvent.click(screen.getByRole('tab', { name: '처리 끝남' }));
     await waitFor(() => expect(screen.getByTestId('case-row')).toHaveTextContent('오배송'));
   });
 
@@ -52,21 +52,21 @@ describe('지원센터 사건', () => {
 
   it('닫기: 결과 + 요약(개인정보 안내) → closures → 닫힘·종결 기록', async () => {
     const view = renderAt('/cases/CASE-MOCK-3', as.riderOps); // 내가 집은 사건
-    const form = await screen.findByRole('form', { name: '닫기' });
+    const form = await screen.findByRole('form', { name: '처리 끝내기' });
     expect(within(form).getByText(/고객 주소·연락처 원문은 적지 마세요/)).toBeInTheDocument();
     await userEvent.selectOptions(within(form).getByLabelText('결과'), 'NO_ACTION_REQUIRED');
-    await userEvent.type(within(form).getByLabelText('종결 요약'), '위치 다시 들어옴');
-    await userEvent.click(within(form).getByRole('button', { name: '닫기' }));
-    await waitFor(() => expect(screen.getByTestId('case-state')).toHaveTextContent('닫힘'));
+    await userEvent.type(within(form).getByLabelText('처리 결과 요약'), '위치 다시 들어옴');
+    await userEvent.click(within(form).getByRole('button', { name: '처리 끝내기' }));
+    await waitFor(() => expect(screen.getByTestId('case-state')).toHaveTextContent('처리 끝남'));
     expect(screen.getByTestId('case-closure')).toHaveTextContent('조치 필요 없음');
     expect(await view.mutations('/closures')[0]!.json()).toEqual({ resolution: 'NO_ACTION_REQUIRED', summary: '위치 다시 들어옴' });
   });
 
   it('상담원은 보기만 — 집기·닫기 없음', async () => {
     renderAt('/cases/CASE-MOCK-2', as.cs);
-    expect(await screen.findByText('상담원은 사건을 보기만 해요(집기·닫기는 지원센터 담당).')).toBeInTheDocument();
+    expect(await screen.findByText('상담원은 접수 건을 보기만 해요(집기·처리 끝내기는 지원센터 담당).')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '내가 집기' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('form', { name: '닫기' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('form', { name: '처리 끝내기' })).not.toBeInTheDocument();
   });
 
   it('사가·결제 이상(case 0.5.0): 관리자에게만 종류·사건이 보이고, 상세는 처리 대기로 안내', async () => {
@@ -121,15 +121,15 @@ describe('지원센터 사건', () => {
     const view = renderAt('/cases/new-misdelivery?deliveryId=DLV-MOCK-2', as.cs);
     expect(await screen.findByLabelText('배송 번호')).toHaveValue('DLV-MOCK-2');
     await userEvent.type(screen.getByLabelText('요약'), '옆 동 경비실로 전달됨(고객 확인)');
-    await userEvent.click(screen.getByRole('button', { name: '오배송 사건 열기' }));
-    expect(await screen.findByRole('heading', { name: /사건 CASE-MOCK-101/ })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: '오배송 접수하기' }));
+    expect(await screen.findByRole('heading', { name: /접수 건 CASE-MOCK-101/ })).toBeInTheDocument();
     expect(await view.mutations('/cases')[0]!.json()).toEqual({ kind: 'MISDELIVERY', subjectType: 'DELIVERY', subjectRef: 'DLV-MOCK-2', summary: '옆 동 경비실로 전달됨(고객 확인)' });
 
     view.unmount();
     renderAt('/cases/new-misdelivery?deliveryId=DLV-MOCK-2', as.cs);
     await userEvent.type(await screen.findByLabelText('요약'), '다시');
-    await userEvent.click(screen.getByRole('button', { name: '오배송 사건 열기' }));
-    expect(await screen.findByText('같은 일로 열린 사건이 이미 있어요. 그 사건에서 처리해 주세요.')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: '오배송 접수하기' }));
+    expect(await screen.findByText('같은 일로 처리 중인 접수 건이 이미 있어요. 그 접수 건에서 처리해 주세요.')).toBeInTheDocument();
   });
 
   it('요약이 없는 사건은 사건 번호 대신 종류 이름(백엔드 회신 reply-case-inbox-questions §2-1)', async () => {
@@ -221,12 +221,12 @@ describe('사건 다시 열기(case 0.6.0)·넘기기(0.7.0)', () => {
   it('닫힌 사건 다시 열기: 사유 필수 → reopenings(키·사유) → 다시 열림·담당 비움, 이력에 사유', async () => {
     const view = renderAt('/cases/CASE-MOCK-4', as.riderOps);
     const form = await screen.findByTestId('case-reopen');
-    expect(within(form).getByRole('button', { name: '다시 열기' })).toBeDisabled();
+    expect(within(form).getByRole('button', { name: '다시 처리하기' })).toBeDisabled();
     await userEvent.type(within(form).getByLabelText('사유'), '고객이 다시 다른 집이라고 연락');
-    await userEvent.click(within(form).getByRole('button', { name: '다시 열기' }));
-    await waitFor(() => expect(screen.getByTestId('case-state')).toHaveTextContent('다시 열림'));
+    await userEvent.click(within(form).getByRole('button', { name: '다시 처리하기' }));
+    await waitFor(() => expect(screen.getByTestId('case-state')).toHaveTextContent('다시 처리 중'));
     expect(screen.getByTestId('case-assignee')).toHaveTextContent('아무도 안 집음');
-    expect(screen.getByText(/다시 열림 · op-rider-ops-1 → 다시 열림 · 고객이 다시 다른 집이라고 연락/)).toBeInTheDocument();
+    expect(screen.getByText(/다시 처리 · op-rider-ops-1 → 다시 처리 중 · 고객이 다시 다른 집이라고 연락/)).toBeInTheDocument();
     const sent = view.mutations('/cases/CASE-MOCK-4/reopenings')[0]!;
     expect(sent.headers.get('Idempotency-Key')).toBeTruthy();
     expect(await sent.json()).toEqual({ reason: '고객이 다시 다른 집이라고 연락' });
@@ -240,7 +240,7 @@ describe('사건 다시 열기(case 0.6.0)·넘기기(0.7.0)', () => {
     renderAt('/cases/CASE-MOCK-4', as.admin);
     const form = await screen.findByTestId('case-reopen');
     await userEvent.type(within(form).getByLabelText('사유'), '재확인');
-    await userEvent.click(within(form).getByRole('button', { name: '다시 열기' }));
+    await userEvent.click(within(form).getByRole('button', { name: '다시 처리하기' }));
     expect(await within(form).findByTestId('case-open-elsewhere')).toHaveAttribute('href', expect.stringMatching(/^\/lookup\?q=DLV-/));
   });
 
@@ -258,13 +258,13 @@ describe('사건 다시 열기(case 0.6.0)·넘기기(0.7.0)', () => {
     await userEvent.click(within(form).getByRole('button', { name: '관리자에게 넘기기' }));
     await waitFor(() => expect(screen.getByTestId('case-group')).toHaveTextContent('관리자 팀'));
     expect(screen.getByTestId('case-group')).toHaveTextContent('관리자 처리 중');
-    expect(screen.getByRole('note')).toHaveTextContent('아직 해결된 사건이 아니에요');
+    expect(screen.getByRole('note')).toHaveTextContent('아직 처리가 끝나지 않았어요');
     // 지원센터에는 집기·닫기·넘기기가 없다
     expect(screen.queryByRole('button', { name: '집기' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('form', { name: '닫기' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('form', { name: '처리 끝내기' })).not.toBeInTheDocument();
     expect(screen.queryByTestId('case-transfer')).not.toBeInTheDocument();
     expect(await view.mutations('/cases/CASE-MOCK-1/transfers')[0]!.json()).toEqual({ toGroup: 'ORDER_OPS', reason: '환불이 얽힌 오배송' });
-    expect(screen.getByText(/넘김 · op-rider-ops-1 → 열림 · DELIVERY_OPS → ORDER_OPS: 환불이 얽힌 오배송/)).toBeInTheDocument();
+    expect(screen.getByText(/넘김 · op-rider-ops-1 → 접수됨 · DELIVERY_OPS → ORDER_OPS: 환불이 얽힌 오배송/)).toBeInTheDocument();
     // 목록에도 "관리자 처리 중"
     cleanup();
     renderAt('/cases', as.riderOps);
@@ -299,6 +299,6 @@ describe('사건 다시 열기(case 0.6.0)·넘기기(0.7.0)', () => {
       ),
     );
     renderAt('/cases/CASE-NEXT', as.riderOps);
-    expect(await screen.findByRole('link', { name: '이전 사건 CASE-MOCK-4' })).toHaveAttribute('href', '/cases/CASE-MOCK-4');
+    expect(await screen.findByRole('link', { name: '이전 접수 건 CASE-MOCK-4' })).toHaveAttribute('href', '/cases/CASE-MOCK-4');
   });
 });

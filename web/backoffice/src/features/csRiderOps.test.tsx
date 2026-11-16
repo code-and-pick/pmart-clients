@@ -333,7 +333,7 @@ describe('라이더 운영', () => {
     const user = userEvent.setup();
     renderAt('/riders/restriction-reviews', as.admin);
     const row = await screen.findByTestId('review-row');
-    await user.click(within(row).getByRole('button', { name: '제한함으로 닫기' }));
+    await user.click(within(row).getByRole('button', { name: '제한함으로 결정' }));
     expect(await within(row).findByRole('alert')).toHaveAttribute('data-code', 'INVALID_STATE');
     cleanup();
 
