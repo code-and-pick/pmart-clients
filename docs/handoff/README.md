@@ -25,7 +25,6 @@ pmart-clients 와 pmart-backend 는 서로의 저장소에 쓰지 않는다. 각
 | `mfc-app/2026-11-10-backend-pda-work-areas.md` | BR-52·BR-53 회신(R1~R4 일부·R8~R11·R19-1 은 받음 — 나머지. 다음 차례 R12 → R20) |
 | `backoffice/2026-11-16-backend-pii-reveal-and-pending-done.md` | 주문 개인정보 열람·처리 대기 — LAN 조회 화면은 확인(2026-11-16 PC 2), 원문 열람은 실서버에서 아직 안 눌러 봄 |
 | `all/2026-11-16-backend-login-code-pc1-only-done.md` | 클라이언트 표(경로 보탬) 확인 |
-| `backoffice/2026-11-16-backend-menu-shared-lookup-group.md` | 메뉴 "조회·현황" 공통 묶음 알림 — 정본 표(`backoffice-role-menus.md` §2)에 반영할지 회신 |
 | `backoffice/2026-11-16-backend-case-order-exceptions-done.md` | 사건함 사가·결제 이상·배차 실패 화면 반영 확인(PR #13) — case 0.5.0 LAN 배포됨(백엔드 알림, 데이터 0건), 사건이 생기면 실서버 확인 |
 | `web-common/2026-11-16-backend-lan-cors-dev-origins.md` | LAN 게이트웨이 CORS 에 개발 서버 출처 `http://localhost:5173·5174·5175` 추가(allowed·credentialed), refresh 쿠키가 실리는지 — PC 2 가 `dev:lan` 으로 실서버 확인용 |
 | `customer-app/2026-11-16-backend-review-photos-and-inbox-done.md` | 리뷰 0.2.0(사진)·고객 알림함 0.2.0 반영 확인 — 실서버 확인은 배송 완료·고객 주문 뒤 |
