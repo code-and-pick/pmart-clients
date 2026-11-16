@@ -253,7 +253,7 @@ export const messages = {
       PAYMENT_UNKNOWN: '결제 결과 불명',
     } as Readonly<Record<string, string>>,
     /** 이력 동작 이름 — 모르는 코드는 그대로 */
-    actionName: { RECURRED: '재발', REOPENED: '다시 처리', TRANSFERRED: '넘김', OPENED: '접수', ASSIGNED: '집음', CLOSED: '처리 끝냄', HANDOVER_REQUESTED: '인계서에 들어감', HANDED_OVER: '인계됨', RECOVERY_CREATED: '회수 배송 생김', RECOVERY_PICKED_UP: '회수함', RECOVERY_RETURNED: '매장 반납' } as Readonly<Record<string, string>>,
+    actionName: { RECURRED: '재발', REOPENED: '다시 처리', TRANSFERRED: '넘김', OPENED: '접수', ASSIGNED: '집음', CLOSED: '처리 끝냄', HANDOVER_REQUESTED: '인계서에 들어감', HANDED_OVER: '인계됨', RECOVERY_CREATED: '회수 배송 생김', RECOVERY_PICKED_UP: '회수함', RECOVERY_RETURNED: '매장 반납', RESHIPMENT_CREATED: '재발송 배송 생김' } as Readonly<Record<string, string>>,
     /** case 0.5.0 사가·결제 이상(관리자만) — 사건은 알림·기록, 조치는 처리 대기 */
     orderNote: '대사 필요·결제 결과 불명은 본사 관리자만 봐요. 이 접수 건은 알림·기록이고, 조치는 처리 대기와 각 메뉴(환불·재고 정정)에서 해요.',
     orderAction: '처리 대기에서 조치하기',
@@ -263,7 +263,8 @@ export const messages = {
     linked: '연결 상태',
     linkedDelivery: '배송',
     linkedRecovery: '회수 배송',
-    recoveryNote: '회수 배송이 있어요. 매장에 반납돼도 처리가 저절로 끝나지 않고 후속 처리도 저절로 해소되지 않아요 — 이력을 보고 처리해 주세요.',
+    linkedReshipment: '재발송 배송',
+    recoveryNote: '회수·재발송 배송이 있어요. 회수가 끝나거나 재발송이 생겨도 처리가 저절로 끝나지 않고 후속 처리도 저절로 해소되지 않아요 — 이력을 보고 처리해 주세요.',
     linkedOrder: '주문',
     linkedUnknown: '확인 불가',
     linkedMissing: '원천에 없음',
@@ -279,6 +280,7 @@ export const messages = {
       resourceId: '보상 자원',
       previousCaseId: '이전 접수 건',
       recoveryDeliveryId: '회수 배송',
+      reshipmentDeliveryId: '재발송 배송',
     } as Readonly<Record<string, string>>,
     sla: '처리 기한',
     overdue: '기한 넘김',

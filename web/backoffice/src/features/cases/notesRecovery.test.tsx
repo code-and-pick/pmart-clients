@@ -44,8 +44,9 @@ describe('오배송 회수 진행', () => {
   it('상세: "회수 배송" 링크, 이력 회수 배송 생김·회수함·매장 반납, 저절로 끝나지 않는다는 안내', async () => {
     renderAt('/cases/CASE-MOCK-4', as.riderOps);
     expect(await screen.findByRole('link', { name: '회수 배송 DLV-MOCK-R1' })).toHaveAttribute('href', '/deliveries/DLV-MOCK-R1');
+    expect(screen.getByRole('link', { name: '재발송 배송 DLV-MOCK-S1' })).toHaveAttribute('href', '/deliveries/DLV-MOCK-S1');
     expect(screen.getByTestId('case-recovery-note')).toHaveTextContent('저절로 끝나지 않고');
-    for (const t of ['회수 배송 생김', '회수함', '매장 반납 · SYSTEM · MFC-BSN-01']) expect(screen.getByText(new RegExp(t))).toBeInTheDocument();
+    for (const t of ['회수 배송 생김', '회수함', '매장 반납 · SYSTEM · MFC-BSN-01', '재발송 배송 생김 · SYSTEM · DLV-MOCK-S1']) expect(screen.getByText(new RegExp(t))).toBeInTheDocument();
   });
 
   it('사건함 연결 상태: 원래 배송과 회수 배송을 나눠 보인다', async () => {
@@ -54,5 +55,6 @@ describe('오배송 회수 진행', () => {
     const linked = within(row).getAllByTestId('case-linked').map((l) => l.textContent);
     expect(linked).toContain('배송 전달 완료');
     expect(linked).toContain('회수 배송 회수 중');
+    expect(linked).toContain('재발송 배송 배정');
   });
 });
