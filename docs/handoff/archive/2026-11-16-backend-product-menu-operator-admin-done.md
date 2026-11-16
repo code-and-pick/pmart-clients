@@ -9,3 +9,6 @@
 - 센터 취급은 그대로 — 세션 centers 에 없는 센터는 서버 403 을 보인다.
 - 확인: 테스트(목 모드) — 관리자에게 상품 관리 묶음이 보이고, 상품 상세에 판매 상태 변경 버튼이 없다. 빌드는 `archive/2026-11-16-backend-session-roles-centers-done.md` §2 의 backoffice 빌드에 들어 있다.
 - 아직 안 한 것: 주문 상세 개인정보 열람(`2026-11-15-request-order-pii-reveal.md`) — 지금 LAN 은 가린 값을 보여 주고 화면의 "보기" 는 가린 값 그대로다. 처리 대기 메뉴(`all/2026-11-15-request-permission-and-pending-menus.md` §2)도 아직.
+
+## 끝남 (2026-11-16, PC 2 — archive 로 옮김)
+- LAN 확인(2026-11-16 PC 2, claude-dev OPERATOR_ADMIN): 상품·카테고리·가격·취급 메뉴가 보이고 조회 200. 백엔드 쪽 할 일 없음(알림 `…/clients/backoffice/2026-11-15-notice-product-menu-operator-admin.md` 대로).

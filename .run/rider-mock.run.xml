@@ -1,0 +1,9 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="라이더앱 목" type="FlutterRunConfigurationType" factoryName="Flutter">
+    <!-- 목 모드(가짜 데이터, 서버 호출 없음). PMART_ENV 를 안 주면 기본도 mock 이다.
+         kotlin.incremental=false: 저장소와 pub 캐시가 다른 드라이브면 Kotlin 증분 캐시가 실패한다(PC 3 에서 겪음). 비밀값 없음. -->
+    <option name="additionalArgs" value="--dart-define=PMART_ENV=mock --android-project-arg=kotlin.incremental=false" />
+    <option name="filePath" value="$PROJECT_DIR$/apps/rider_app/lib/main.dart" />
+    <method v="2" />
+  </configuration>
+</component>

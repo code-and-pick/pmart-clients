@@ -65,11 +65,8 @@ backoffice 194, hr-backoffice 46, web/core 25, web/ui 2, mfc-backoffice 16 — �
 ## 5. 열린 handoff (클라이언트 → 백엔드, `docs/handoff/`)
 | 문서 | 기다리는 것 | 넘김 |
 |---|---|---|
-| `backoffice/2026-11-15-backend-assistant-connected.md` | 업무 도우미·문의 답변의 HTTPS 경로·CORS, 답변 POST 같은 키 재전송 | PC 2 |
-| `backoffice/2026-11-15-backend-cs-rider-menus-done.md` | BR-54~56(끝남)·역할·version 질문 회신 확인 | PC 2 |
-| `backoffice/2026-11-16-backend-pii-reveal-and-pending-done.md` | 반영 확인 | PC 2 |
-| `backoffice/2026-11-16-backend-product-menu-operator-admin-done.md` | 반영 확인 | PC 2 |
-| `hr-backoffice/2026-11-16-backend-departments-and-permissions-done.md`, `…-role-list-done.md` | 반영 확인 | PC 2 |
+| `backoffice/2026-11-16-backend-pii-reveal-and-pending-done.md` | 반영 확인 — LAN 조회는 확인, 원문 열람 실서버 미확인 | PC 2 |
+| (끝남 — 2026-11-16 PC 2 `archive/`) `2026-11-15-backend-assistant-connected.md`, `…-cs-rider-menus-done.md`, `2026-11-16-backend-product-menu-operator-admin-done.md`, `…-departments-and-permissions-done.md`, `…-role-list-done.md`, `…-case-inbox-and-pending-work-done.md` | 회신 받음·LAN 조회 화면 확인(각 문서 끝 "끝남") / 사건함 질문은 클라이언트 후속 반영(PR #19) | — |
 | (끝남 — 2026-11-16 `archive/`) `2026-11-16-backend-rider-delivery-staff-apis-done.md`, `…-session-roles-centers-done.md`, `…-session-center-names-done.md` | 회신·빌드 올림 확인 | — |
 | `web-common/2026-11-14-backend-logout-propagation.md`, `…-refresh-cookie-silent-login.md` | 로그인 관련 | PC 1 |
 

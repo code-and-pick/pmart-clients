@@ -39,3 +39,7 @@
 ## 4. 덧붙임(2026-11-15 15:10) — 토큰 없이 본 것
 - `:8443` 에서 `/inquiries`·`/assistant/question-history` 401(경로 있음), 출처 `https://192.168.0.40` 사전 요청 200(허용 헤더에 `idempotency-key`·`x-source-system`·`x-expected-version`). §3 의 경로·CORS 질문은 이것으로 풀렸다 — 남은 것은 빌드 올리기와 로그인한 뒤의 실제 확인.
 - 새 요청 `backoffice/2026-11-15-clients-request-backoffice-cs-rider-menus.md` 는 받았고 아직 반영 전이다. 문의 답변 화면은 이 빌드에 이미 있다(메뉴는 아직 묶지 않은 한 줄 "고객센터 문의").
+
+## 끝남 (2026-11-16, PC 2 — archive 로 옮김)
+- 백엔드 회신 `../pmart-backend/docs/handoff/clients/backoffice/2026-11-15-reply-cs-rider-menus-and-assistant.md` §0(빌드 올림)·§2(같은 키·같은 본문 = 답변 한 번, 다른 본문 409 `IDEMPOTENCY_CONFLICT`). 경로·CORS 는 §4 덧붙임대로 열려 있음.
+- LAN 확인(2026-11-16 PC 2, `index-BGISi3dQ.js`): 업무 도우미 200(claude-dev·test-cs-rider), 문의 목록 200(test-cs-rider, 0건). 관리자 문의 403 은 case 0.4.2(PR #11)로 따로 처리. 답변 보내기는 문의 0건이라 실서버로 눌러 보지 않음 — 일지 미결로 남김.

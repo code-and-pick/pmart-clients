@@ -9,3 +9,6 @@
 - BR-57 은 `docs/backend-requests.md` 에서 DONE.
 - 확인: 테스트(목 모드) 36개 통과. 빌드는 `archive/2026-11-16-backend-session-roles-centers-done.md` §2 의 hr-backoffice 빌드(앞서 보낸 `RIDER_OPS` 반영분도 포함).
 - 아직 안 한 것: §2 본사 부서 목록·부서 이름 관리, 권한 관리 메뉴(`all/2026-11-15-request-permission-and-pending-menus.md` §1).
+
+## 끝남 (2026-11-16, PC 2 — archive 로 옮김)
+- LAN 확인(2026-11-16 PC 2, claude-approver): 직원 등록·권한 추가 요청 양식의 역할 목록(`GET /employee-auth/roles`, 13개) 200. BR-57 끝.

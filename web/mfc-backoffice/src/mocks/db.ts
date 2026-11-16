@@ -1,7 +1,70 @@
 // 목 서버 상태(메모리). 테스트마다 resetDb() 로 되돌린다.
+import type { components as InboundSchemas } from '../api/generated/mfc-inbound';
+import type { components as InventorySchemas } from '../api/generated/mfc-inventory';
 import type { components as LocationSchemas } from '../api/generated/mfc-location';
 
 type Location = LocationSchemas['schemas']['Location'];
+
+/** 재고 이동 지시 — 계약 MoveOrder(목은 모든 칸을 채운다) */
+export type MockMove = Required<InboundSchemas['schemas']['MoveOrder']>;
+
+/** 위치·LOT 별 재고 단위 행(mfc-inventory CenterStock.units + 센터·상품) */
+export type MockStockUnit = Required<InventorySchemas['schemas']['CenterStock']['units'][number]> & { readonly mfcId: string; readonly sku: string };
+
+function move(moveId: string, extra: Partial<MockMove>): [string, MockMove] {
+  return [
+    moveId,
+    {
+      moveId,
+      kind: 'MOVE',
+      mfcId: 'MFC-BSN-01',
+      sku: 'SKU-MILK-1',
+      productName: '서울우유 1L',
+      barcodes: ['8801115114154'],
+      lotId: 'LOT-MILK-A',
+      fromLocation: 'A-P1-01-1-01',
+      toLocation: 'C-S1-03-2-04',
+      cartLocation: null,
+      qty: 6,
+      pickedQty: 0,
+      droppedQty: 0,
+      onCartQty: 0,
+      state: 'ACTIVE',
+      reason: null,
+      createdBy: 'OP-sup-1',
+      createdAt: '2026-11-16T00:10:00.000Z',
+      updatedAt: '2026-11-16T00:10:00.000Z',
+      urgent: false,
+      assigneeId: null,
+      pickedBy: null,
+      ...extra,
+    },
+  ];
+}
+
+/** 목 이동: 진행 중 2(관리자 긴급·시스템 보충), 카트 정리 대기 1, 끝남 1, 다른 센터 1 */
+function seedMoves(): Array<[string, MockMove]> {
+  return [
+    move('MOVE-1', { urgent: true, reason: '진열 위치 변경', assigneeId: 'OP-wkr-1' }),
+    move('MOVE-2', { kind: 'REPLENISH', sku: 'SKU-RAMEN-5', productName: '신라면 5입', lotId: 'LOT-RAMEN-1', fromLocation: 'F-S2-02-1-03', toLocation: 'A-P1-01-1-01', qty: 10, createdBy: 'SYSTEM', createdAt: '2026-11-16T00:20:00.000Z' }),
+    move('MOVE-3', { state: 'CANCEL_PENDING', qty: 4, pickedQty: 2, onCartQty: 2, cartLocation: 'CRT-C-01', pickedBy: 'OP-wkr-1', reason: '잘못 지시', createdAt: '2026-11-16T00:05:00.000Z' }),
+    move('MOVE-4', { state: 'COMPLETED', qty: 3, pickedQty: 3, droppedQty: 3, createdAt: '2026-11-15T23:00:00.000Z' }),
+    move('MOVE-5', { mfcId: 'MFC-SEL-01', fromLocation: 'A-S1-01-1-01' }),
+  ];
+}
+
+function seedStock(): MockStockUnit[] {
+  const unit = (locationCode: string, lotId: string, qty: number, qualityState: MockStockUnit['qualityState'] = 'NORMAL'): MockStockUnit => ({
+    mfcId: 'MFC-BSN-01',
+    sku: 'SKU-MILK-1',
+    locationCode,
+    lotId,
+    qualityState,
+    workState: 'STORED',
+    qty,
+  });
+  return [unit('A-P1-01-1-01', 'LOT-MILK-A', 12), unit('RCV-C-01', 'LOT-MILK-B', 5), unit('QRT-A-01', 'LOT-MILK-A', 2, 'QUARANTINED')];
+}
 
 /** 위치(칸) — 계약 Location + 목 전용 재고 단위(폐지 판정용, 실서버는 mfc-inventory 스냅샷) */
 export type MockLocation = Location & Required<Pick<Location, 'locationId' | 'version' | 'state' | 'updatedAt'>> & { readonly stockUnits: number };
@@ -95,6 +158,8 @@ function seedGrants(): Array<[string, MockGrant]> {
 }
 
 export const db = {
+  moves: new Map<string, MockMove>(),
+  stockUnits: [] as MockStockUnit[],
   locations: new Map<string, MockLocation>(),
   locationStateChanges: new Map<string, MockLocationStateChange>(),
   grants: new Map<string, MockGrant>(),
@@ -113,6 +178,8 @@ export function resetDb(): void {
   db.seq = 100;
   db.locations = new Map(seedLocations());
   db.locationStateChanges = new Map();
+  db.moves = new Map(seedMoves());
+  db.stockUnits = seedStock();
 }
 
 resetDb();
