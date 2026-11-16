@@ -8,6 +8,7 @@ import { CenterSwitcher } from '../features/centers/centers';
 import { CenterDeliveriesMenu, DispatchFailuresMenu } from '../features/delivery/CenterDeliveryPages';
 import { LocationsMenu } from '../features/locations/LocationPages';
 import { MovesMenu } from '../features/moves/MovePages';
+import { WorkersMenu } from '../features/workers/WorkerPages';
 import { PreparingPage } from '../features/menus/PreparingPage';
 import { LoginCallbackPage, LoginPage } from '../features/session/LoginPage';
 import { SessionPage } from '../features/session/SessionPage';
@@ -107,6 +108,7 @@ function CenterScope({ menu }: { readonly menu: MenuItem }) {
 const menuPages: Partial<Record<MenuKey, ComponentType<{ readonly mfcId: string }>>> = {
   locations: LocationsMenu,
   moves: MovesMenu,
+  workers: WorkersMenu,
   deliveries: CenterDeliveriesMenu,
   dispatchFailures: DispatchFailuresMenu,
 };
