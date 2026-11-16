@@ -19,7 +19,7 @@ import 'features/work/domain/work.dart';
 import 'features/work/presentation/work_screens.dart';
 import 'shared/printer/printer_ui.dart';
 
-/// 라우트. 로그인 전에는 기기 설정(첫 화면, 사용자 2026-11-17) → 로그인, 세션이 끝나면 로그인 화면으로 보낸다
+/// 라우트. 로그인 전·세션이 끝난 뒤에는 첫 화면(맨 위 로그인 + 기기 설정, 사용자 2026-11-17)으로 보낸다
 /// (직원 로그인 — 백엔드 handoff 2026-11-13).
 /// 화면을 막는 것은 편의일 뿐이고, 권한 판정은 서버가 한다.
 /// 크루는 작업 목록을 보지 않는다(2026-11-10) — 메인 → 업무 안내 → 서버가 준 작업 하나.
@@ -36,17 +36,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       final at = s.matchedLocation;
       return switch (auth.value) {
         AuthRestoring() => at == '/starting' ? null : '/starting',
-        // 로그인 전 첫 화면은 기기 설정(사용자 2026-11-17). 세션이 끝나 나온 경우만 바로 로그인(이유 안내).
-        AuthSignedOut(:final ended) =>
-          at == '/login' || at.startsWith('/setup')
-              ? null
-              : ended != null
-              ? '/login'
-              : '/setup',
+        // 세션이 끝나 나온 경우의 이유 안내는 첫 화면 로그인 칸이 보인다.
+        AuthSignedOut() => at.startsWith('/setup') ? null : '/setup',
         AuthSignedIn() =>
-          at == '/login' || at == '/starting' || at.startsWith('/setup')
-              ? '/'
-              : null,
+          at == '/starting' || at.startsWith('/setup') ? '/' : null,
       };
     },
     routes: [
@@ -69,7 +62,6 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(path: 'device', builder: (_, _) => const DeviceInfoScreen()),
         ],
       ),
-      GoRoute(path: '/login', builder: (_, _) => const LoginScreen()),
       GoRoute(path: '/starting', builder: (_, _) => const StartingScreen()),
       GoRoute(path: '/', builder: (_, _) => const HomeScreen()),
       // 센터 관리자 관리 메뉴(사용자 2026-11-16). 권한 판정은 서버 — 작업자가 열면 서버가 403.

@@ -242,7 +242,7 @@ void main() {
         overrides: [
           envProvider.overrideWithValue(PmartEnv.mock),
           authRepositoryProvider.overrideWithValue(
-            MockAuthRepository(signedIn: false),
+            MockPasswordAuthRepository(), // 데모 앱과 같은 임시 아이디·비밀번호 칸
           ),
           taskRepositoryProvider.overrideWithValue(tasks),
           workRepositoryProvider.overrideWithValue(
@@ -271,8 +271,9 @@ void main() {
     await shot('33-setup-scanner');
     Navigator.of(t.element(find.byType(Scaffold).last)).pop();
     await t.pumpAndSettle();
-    await t.tap(find.byKey(const ValueKey('setup-login')));
-    await shot('34-login');
+    await t.enterText(find.byKey(const ValueKey('login-id')), 'mfcw-pp-01');
+    await t.enterText(find.byKey(const ValueKey('login-password')), 'x');
+    await t.pump();
     await t.tap(find.byKey(const ValueKey('employee-login')));
     await shot('35-home');
     debugDisableShadows = true;

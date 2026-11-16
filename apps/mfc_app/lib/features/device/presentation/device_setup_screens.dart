@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:pmart_core/pmart_core.dart';
 
 import '../../../l10n/gen/app_localizations.dart';
+import '../../auth/presentation/login_screen.dart';
 import '../../../shared/menu_tile.dart';
 import '../../../shared/printer/label_printer.dart';
 import '../../../shared/providers.dart';
@@ -11,10 +12,13 @@ import '../../../shared/scanner/scan_input.dart';
 import '../../../shared/scanner/scanner.dart';
 import '../data/server_address.dart';
 
-/// 앱 첫 화면 — 기기 설정(사용자 2026-11-17). 로그인 전에 PDA 를 확인하고, 아래 버튼으로 로그인.
-/// 모양은 메인의 업무 고르기 목록과 같다([MenuTile]).
+/// 앱 첫 화면(로그인 전) — 맨 위에 로그인, 아래에 기기 설정(사용자 2026-11-17).
+/// 기기 설정 칸 모양은 메인의 업무 고르기 목록과 같다([MenuTile]).
 class DeviceSetupScreen extends ConsumerWidget {
   const DeviceSetupScreen({super.key});
+
+  /// 메인 업무 칸과 같은 높이(설명 줄이 보이는 높이).
+  static const _tileHeight = 84.0;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -22,81 +26,72 @@ class DeviceSetupScreen extends ConsumerWidget {
     final theme = Theme.of(context);
     final mock = ref.watch(envProvider) == PmartEnv.mock;
     final printer = ref.watch(printerSettingsProvider).value;
+    final tiles = [
+      MenuTile(
+        key: const ValueKey('setup-network'),
+        icon: Icons.wifi,
+        title: l10n.setupNetwork,
+        hint: mock ? l10n.setupNetworkMock : ref.watch(apiBaseUrlProvider),
+        onTap: () => context.push('/setup/network'),
+      ),
+      MenuTile(
+        key: const ValueKey('setup-printer'),
+        icon: Icons.print_outlined,
+        title: l10n.setupPrinter,
+        hint: printer == null
+            ? null
+            : printer.mode == PrinterMode.networkZpl
+            ? l10n.setupPrinterNetwork(printer.host, printer.port)
+            : l10n.setupPrinterPreview,
+        onTap: () => context.push('/setup/printer'),
+      ),
+      MenuTile(
+        key: const ValueKey('setup-scanner'),
+        icon: Icons.qr_code_scanner,
+        title: l10n.setupScanner,
+        hint: l10n.setupScannerHint,
+        onTap: () => context.push('/setup/scanner'),
+      ),
+      MenuTile(
+        key: const ValueKey('setup-device'),
+        icon: Icons.smartphone_outlined,
+        title: l10n.setupDevice,
+        hint: l10n.setupDeviceHint,
+        onTap: () => context.push('/setup/device'),
+      ),
+    ];
     return Scaffold(
       appBar: AppBar(
-        title: Text(l10n.setupTitle),
+        title: Text(l10n.homeTitle),
         actions: [
           if (mock)
             Padding(
               padding: const EdgeInsets.only(right: 12),
-              child: Chip(label: Text(l10n.mockModeBadge)),
+              child: Chip(
+                key: const ValueKey('login-mock-badge'),
+                label: Text(l10n.mockModeBadge),
+              ),
             ),
         ],
       ),
       body: SafeArea(
-        child: Padding(
+        child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(l10n.setupIntro, style: theme.textTheme.titleMedium),
-              const SizedBox(height: 8),
-              for (final tile in [
-                MenuTile(
-                  key: const ValueKey('setup-network'),
-                  icon: Icons.wifi,
-                  title: l10n.setupNetwork,
-                  hint: mock
-                      ? l10n.setupNetworkMock
-                      : ref.watch(apiBaseUrlProvider),
-                  onTap: () => context.push('/setup/network'),
-                ),
-                MenuTile(
-                  key: const ValueKey('setup-printer'),
-                  icon: Icons.print_outlined,
-                  title: l10n.setupPrinter,
-                  hint: printer == null
-                      ? null
-                      : printer.mode == PrinterMode.networkZpl
-                      ? l10n.setupPrinterNetwork(printer.host, printer.port)
-                      : l10n.setupPrinterPreview,
-                  onTap: () => context.push('/setup/printer'),
-                ),
-                MenuTile(
-                  key: const ValueKey('setup-scanner'),
-                  icon: Icons.qr_code_scanner,
-                  title: l10n.setupScanner,
-                  hint: l10n.setupScannerHint,
-                  onTap: () => context.push('/setup/scanner'),
-                ),
-                MenuTile(
-                  key: const ValueKey('setup-device'),
-                  icon: Icons.smartphone_outlined,
-                  title: l10n.setupDevice,
-                  hint: l10n.setupDeviceHint,
-                  onTap: () => context.push('/setup/device'),
-                ),
-              ])
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: tile,
-                  ),
-                ),
-              const SizedBox(height: 8),
-              // 장갑을 끼고도 누를 수 있게 크게.
-              FilledButton.icon(
-                key: const ValueKey('setup-login'),
-                style: FilledButton.styleFrom(
-                  minimumSize: const Size.fromHeight(60),
-                  textStyle: theme.textTheme.titleMedium,
-                ),
-                onPressed: () => context.push('/login'),
-                icon: const Icon(Icons.login),
-                label: Text(l10n.setupLogin),
+          children: [
+            const LoginPanel(),
+            const SizedBox(height: 24),
+            Text(
+              l10n.setupTitle,
+              key: const ValueKey('setup-title'),
+              style: theme.textTheme.titleMedium,
+            ),
+            const SizedBox(height: 8),
+            for (final tile in tiles)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: SizedBox(height: _tileHeight, child: tile),
               ),
-            ],
-          ),
+          ],
         ),
       ),
     );

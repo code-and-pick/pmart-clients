@@ -67,8 +67,11 @@ final class _FakeBrowser implements LoginBrowser {
   }
 }
 
-({ApiAuthRepository repo, TokenStore tokens, MemoryKeyValueStore store})
-_repo(_FakeBrowser browser, FakeAdapter adapter, {SessionEndRecorder? ended}) {
+({ApiAuthRepository repo, TokenStore tokens, MemoryKeyValueStore store}) _repo(
+  _FakeBrowser browser,
+  FakeAdapter adapter, {
+  SessionEndRecorder? ended,
+}) {
   final store = MemoryKeyValueStore();
   final tokens = TokenStore(store);
   final deviceId = DeviceIdProvider(store);
@@ -134,13 +137,22 @@ void main() {
 
   group('로그인', () {
     test('로그인 창 주소(app=mfc·기기 ID·challenge·복귀 주소) → 티켓 교환(공개 요청, 같은 기기 ID, verifier) → 토큰 보관', () async {
-      final adapter = FakeAdapter((o, _) async => FakeReply(200, body: _loginResult()));
+      final adapter = FakeAdapter(
+        (o, _) async => FakeReply(200, body: _loginResult()),
+      );
       final browser = _FakeBrowser(_ticketBack);
       final t = _repo(browser, adapter);
 
       final session = await t.repo.login();
 
-      expect(session, const EmployeeSession(operatorId: 'OP-1', roles: ['MFC_WORKER'], centers: ['MFC-SEED-01']));
+      expect(
+        session,
+        const EmployeeSession(
+          operatorId: 'OP-1',
+          roles: ['MFC_WORKER'],
+          centers: ['MFC-SEED-01'],
+        ),
+      );
       final url = browser.opened.single;
       expect(url.path, '/api/v1/employee-auth/logins');
       expect(url.queryParameters['app'], 'mfc');
@@ -159,7 +171,10 @@ void main() {
       final body = _body(req);
       expect(body['ticket'], 'TICKET-1');
       // 서버가 검증하는 그대로: 보낸 verifier 의 S256 = 로그인 창에 실은 challenge
-      expect(Pkce.challenge(body['codeVerifier'] as String), url.queryParameters['codeChallenge']);
+      expect(
+        Pkce.challenge(body['codeVerifier'] as String),
+        url.queryParameters['codeChallenge'],
+      );
       expect(url.toString(), isNot(contains(body['codeVerifier'] as String)));
 
       expect(t.tokens.accessToken, _access);
@@ -177,8 +192,14 @@ void main() {
       };
       for (final e in cases.entries) {
         final adapter = FakeAdapter((_, _) async => const FakeReply(500));
-        final t = _repo(_FakeBrowser(Uri.parse('pmart-mfc://login?error=${e.key}')), adapter);
-        await expectLater(t.repo.login(), throwsA(isA<LoginFailure>().having((f) => f.error, 'error', e.value)));
+        final t = _repo(
+          _FakeBrowser(Uri.parse('pmart-mfc://login?error=${e.key}')),
+          adapter,
+        );
+        await expectLater(
+          t.repo.login(),
+          throwsA(isA<LoginFailure>().having((f) => f.error, 'error', e.value)),
+        );
         expect(adapter.requests, isEmpty);
         expect(await t.tokens.readRefreshToken(), isNull);
       }
@@ -187,12 +208,30 @@ void main() {
     test('로그인 창을 닫으면 취소, 티켓 없이 돌아오면 다시 로그인', () async {
       final adapter = FakeAdapter((_, _) async => const FakeReply(500));
       await expectLater(
-        _repo(_FakeBrowser(const LoginFailure(LoginError.cancelled)), adapter).repo.login(),
-        throwsA(isA<LoginFailure>().having((f) => f.error, 'error', LoginError.cancelled)),
+        _repo(
+          _FakeBrowser(const LoginFailure(LoginError.cancelled)),
+          adapter,
+        ).repo.login(),
+        throwsA(
+          isA<LoginFailure>().having(
+            (f) => f.error,
+            'error',
+            LoginError.cancelled,
+          ),
+        ),
       );
       await expectLater(
-        _repo(_FakeBrowser(Uri.parse('pmart-mfc://login')), adapter).repo.login(),
-        throwsA(isA<LoginFailure>().having((f) => f.error, 'error', LoginError.ticketInvalid)),
+        _repo(
+          _FakeBrowser(Uri.parse('pmart-mfc://login')),
+          adapter,
+        ).repo.login(),
+        throwsA(
+          isA<LoginFailure>().having(
+            (f) => f.error,
+            'error',
+            LoginError.ticketInvalid,
+          ),
+        ),
       );
       expect(adapter.requests, isEmpty);
     });
@@ -212,9 +251,28 @@ void main() {
         return (error, adapter.requests.length);
       }
 
-      expect(await run(const FakeReply.problem(401, {'code': 'TICKET_INVALID', 'status': 401})), (LoginError.ticketInvalid, 1));
-      expect(await run(const FakeReply.problem(403, {'code': 'ACCOUNT_NOT_AVAILABLE', 'status': 403})), (LoginError.accountNotAvailable, 1));
-      expect(await run(const FakeReply.transport(DioExceptionType.receiveTimeout)), (LoginError.network, 1));
+      expect(
+        await run(
+          const FakeReply.problem(401, {
+            'code': 'TICKET_INVALID',
+            'status': 401,
+          }),
+        ),
+        (LoginError.ticketInvalid, 1),
+      );
+      expect(
+        await run(
+          const FakeReply.problem(403, {
+            'code': 'ACCOUNT_NOT_AVAILABLE',
+            'status': 403,
+          }),
+        ),
+        (LoginError.accountNotAvailable, 1),
+      );
+      expect(
+        await run(const FakeReply.transport(DioExceptionType.receiveTimeout)),
+        (LoginError.network, 1),
+      );
       expect(await run(const FakeReply(503)), (LoginError.network, 1));
     });
   });
@@ -222,21 +280,31 @@ void main() {
   group('토큰 갱신', () {
     DeviceIdProvider device() => DeviceIdProvider(MemoryKeyValueStore());
 
-    test('POST /employee-auth/tokens/refresh — 기기 ID·멱등키를 싣고 새 토큰 쌍으로 바꾼다', () async {
-      final adapter = FakeAdapter((_, _) async => FakeReply(200, body: _pair(refresh: 'rt-2')));
-      final d = device();
-      final refresh = employeeAuthRefresher(baseUrl: _base, sourceSystem: sourceSystem, deviceId: d, adapter: adapter);
+    test(
+      'POST /employee-auth/tokens/refresh — 기기 ID·멱등키를 싣고 새 토큰 쌍으로 바꾼다',
+      () async {
+        final adapter = FakeAdapter(
+          (_, _) async => FakeReply(200, body: _pair(refresh: 'rt-2')),
+        );
+        final d = device();
+        final refresh = employeeAuthRefresher(
+          baseUrl: _base,
+          sourceSystem: sourceSystem,
+          deviceId: d,
+          adapter: adapter,
+        );
 
-      final next = await refresh('rt-1');
+        final next = await refresh('rt-1');
 
-      expect(next!.refreshToken, 'rt-2');
-      final req = adapter.requests.single;
-      expect(req.path, '/employee-auth/tokens/refresh');
-      expect(_body(req), {'refreshToken': 'rt-1'});
-      expect(req.headers['X-Device-Id'], await d.get());
-      expect(req.headers['X-Source-System'], 'mfc-app');
-      expect(req.headers['Idempotency-Key'], isNotEmpty);
-    });
+        expect(next!.refreshToken, 'rt-2');
+        final req = adapter.requests.single;
+        expect(req.path, '/employee-auth/tokens/refresh');
+        expect(_body(req), {'refreshToken': 'rt-1'});
+        expect(req.headers['X-Device-Id'], await d.get());
+        expect(req.headers['X-Source-System'], 'mfc-app');
+        expect(req.headers['Idempotency-Key'], isNotEmpty);
+      },
+    );
 
     test('401 이면 세션 종료(null) — 갱신 거절은 "만료"로 남긴다(정지·퇴사도 TOKEN_INVALID 로 온다). 네트워크 오류는 세션 종료가 아니다', () async {
       Future<(AuthTokens?, SessionEnd?)> run(FakeReply reply) async {
@@ -251,12 +319,44 @@ void main() {
         return (await refresh('rt-1'), ended.take());
       }
 
-      expect(await run(const FakeReply.problem(401, {'code': 'SESSION_EXPIRED', 'status': 401})), (null, SessionEnd.expired));
-      expect(await run(const FakeReply.problem(401, {'code': 'TOKEN_REUSED', 'status': 401})), (null, SessionEnd.expired));
-      expect(await run(const FakeReply.problem(401, {'code': 'TOKEN_INVALID', 'status': 401})), (null, SessionEnd.expired));
+      expect(
+        await run(
+          const FakeReply.problem(401, {
+            'code': 'SESSION_EXPIRED',
+            'status': 401,
+          }),
+        ),
+        (null, SessionEnd.expired),
+      );
+      expect(
+        await run(
+          const FakeReply.problem(401, {'code': 'TOKEN_REUSED', 'status': 401}),
+        ),
+        (null, SessionEnd.expired),
+      );
+      expect(
+        await run(
+          const FakeReply.problem(401, {
+            'code': 'TOKEN_INVALID',
+            'status': 401,
+          }),
+        ),
+        (null, SessionEnd.expired),
+      );
       // 지금 백엔드는 갱신에 이 code 를 주지 않는다(바꾸면 그대로 "이용할 수 없는 계정").
-      expect(await run(const FakeReply.problem(401, {'code': 'ACCOUNT_NOT_AVAILABLE', 'status': 401})), (null, SessionEnd.accountBlocked));
-      await expectLater(run(const FakeReply.transport(DioExceptionType.connectionTimeout)), throwsA(isA<PmartFailure>()));
+      expect(
+        await run(
+          const FakeReply.problem(401, {
+            'code': 'ACCOUNT_NOT_AVAILABLE',
+            'status': 401,
+          }),
+        ),
+        (null, SessionEnd.accountBlocked),
+      );
+      await expectLater(
+        run(const FakeReply.transport(DioExceptionType.connectionTimeout)),
+        throwsA(isA<PmartFailure>()),
+      );
     });
 
     test('정지·퇴사: 업무 요청 401 SUBJECT_BLOCKED → 갱신은 TOKEN_INVALID 로 거절 → 이유는 "이용할 수 없는 계정"', () async {
@@ -264,9 +364,17 @@ void main() {
       final store = MemoryKeyValueStore();
       final tokens = TokenStore(store);
       await tokens.save(AuthTokens(accessToken: _access, refreshToken: 'rt-1'));
-      final adapter = FakeAdapter((o, _) async => o.path.endsWith('/employee-auth/tokens/refresh')
-          ? const FakeReply.problem(401, {'code': 'TOKEN_INVALID', 'status': 401})
-          : const FakeReply.problem(401, {'code': 'SUBJECT_BLOCKED', 'status': 401}));
+      final adapter = FakeAdapter(
+        (o, _) async => o.path.endsWith('/employee-auth/tokens/refresh')
+            ? const FakeReply.problem(401, {
+                'code': 'TOKEN_INVALID',
+                'status': 401,
+              })
+            : const FakeReply.problem(401, {
+                'code': 'SUBJECT_BLOCKED',
+                'status': 401,
+              }),
+      );
       SessionEnd? told;
       final dio = watchSubjectBlocked(
         createPmartDio(
@@ -289,7 +397,10 @@ void main() {
         ended,
       );
 
-      await expectLater(dio.get<dynamic>('/work'), throwsA(isA<DioException>()));
+      await expectLater(
+        dio.get<dynamic>('/work'),
+        throwsA(isA<DioException>()),
+      );
 
       expect(told, SessionEnd.accountBlocked);
       expect(tokens.accessToken, isNull);
@@ -301,9 +412,17 @@ void main() {
       final store = MemoryKeyValueStore();
       final tokens = TokenStore(store);
       await tokens.save(AuthTokens(accessToken: _access, refreshToken: 'rt-1'));
-      final adapter = FakeAdapter((o, _) async => o.path.endsWith('/employee-auth/tokens/refresh')
-          ? const FakeReply.problem(401, {'code': 'TOKEN_INVALID', 'status': 401})
-          : const FakeReply.problem(401, {'code': 'TOKEN_EXPIRED', 'status': 401}));
+      final adapter = FakeAdapter(
+        (o, _) async => o.path.endsWith('/employee-auth/tokens/refresh')
+            ? const FakeReply.problem(401, {
+                'code': 'TOKEN_INVALID',
+                'status': 401,
+              })
+            : const FakeReply.problem(401, {
+                'code': 'TOKEN_EXPIRED',
+                'status': 401,
+              }),
+      );
       SessionEnd? told;
       final dio = watchSubjectBlocked(
         createPmartDio(
@@ -325,7 +444,10 @@ void main() {
         ended,
       );
 
-      await expectLater(dio.get<dynamic>('/work'), throwsA(isA<DioException>()));
+      await expectLater(
+        dio.get<dynamic>('/work'),
+        throwsA(isA<DioException>()),
+      );
 
       expect(told, SessionEnd.expired);
     });
@@ -336,25 +458,45 @@ void main() {
       final adapter = FakeAdapter((o, _) async {
         if (o.path.endsWith('/tokens/refresh')) {
           refreshes += 1;
-          return const FakeReply.problem(401, {'code': 'SESSION_EXPIRED', 'status': 401});
+          return const FakeReply.problem(401, {
+            'code': 'SESSION_EXPIRED',
+            'status': 401,
+          });
         }
-        return const FakeReply.problem(401, {'code': 'SUBJECT_BLOCKED', 'status': 401});
+        return const FakeReply.problem(401, {
+          'code': 'SUBJECT_BLOCKED',
+          'status': 401,
+        });
       });
       final store = MemoryKeyValueStore();
       final tokens = TokenStore(store);
-      await tokens.save(const AuthTokens(accessToken: 'a-old', refreshToken: 'rt-1'));
+      await tokens.save(
+        const AuthTokens(accessToken: 'a-old', refreshToken: 'rt-1'),
+      );
       final dio = createPmartDio(
         baseUrl: _base,
         sourceSystem: sourceSystem,
         tokens: tokens,
-        refresher: employeeAuthRefresher(baseUrl: _base, sourceSystem: sourceSystem, deviceId: DeviceIdProvider(store), adapter: adapter),
+        refresher: employeeAuthRefresher(
+          baseUrl: _base,
+          sourceSystem: sourceSystem,
+          deviceId: DeviceIdProvider(store),
+          adapter: adapter,
+        ),
         onSessionExpired: () => expired += 1,
         adapter: adapter,
         delay: (_) async {},
       );
 
       final results = await Future.wait([
-        for (var i = 0; i < 3; i++) dio.get<dynamic>('/mfc/anything').then((_) => 'ok', onError: (Object e) => (e as DioException).error.runtimeType.toString()),
+        for (var i = 0; i < 3; i++)
+          dio
+              .get<dynamic>('/mfc/anything')
+              .then(
+                (_) => 'ok',
+                onError: (Object e) =>
+                    (e as DioException).error.runtimeType.toString(),
+              ),
       ]);
 
       expect(results, everyElement('SessionExpiredFailure'));
@@ -368,12 +510,17 @@ void main() {
   group('세션 복원·로그아웃', () {
     test('보관한 refresh 가 없으면 서버에 묻지 않는다', () async {
       final adapter = FakeAdapter((_, _) async => const FakeReply(500));
-      expect(await _repo(_FakeBrowser(_ticketBack), adapter).repo.restore(), isNull);
+      expect(
+        await _repo(_FakeBrowser(_ticketBack), adapter).repo.restore(),
+        isNull,
+      );
       expect(adapter.requests, isEmpty);
     });
 
     test('보관한 refresh 로 갱신해 세션을 되살리고, 회전된 값으로 바꿔 둔다', () async {
-      final adapter = FakeAdapter((_, _) async => FakeReply(200, body: _pair(refresh: 'rt-2')));
+      final adapter = FakeAdapter(
+        (_, _) async => FakeReply(200, body: _pair(refresh: 'rt-2')),
+      );
       final t = _repo(_FakeBrowser(_ticketBack), adapter);
       await t.store.write(TokenStore.defaultRefreshKey, 'rt-1');
 
@@ -386,22 +533,41 @@ void main() {
     });
 
     test('세션이 끝났으면 보관을 지우고 null, 네트워크 오류면 보관을 둔다', () async {
-      final ended = _repo(_FakeBrowser(_ticketBack), FakeAdapter((_, _) async => const FakeReply.problem(401, {'code': 'SESSION_EXPIRED', 'status': 401})));
+      final ended = _repo(
+        _FakeBrowser(_ticketBack),
+        FakeAdapter(
+          (_, _) async => const FakeReply.problem(401, {
+            'code': 'SESSION_EXPIRED',
+            'status': 401,
+          }),
+        ),
+      );
       await ended.store.write(TokenStore.defaultRefreshKey, 'rt-1');
       expect(await ended.repo.restore(), isNull);
       expect(await ended.tokens.readRefreshToken(), isNull);
 
-      final offline = _repo(_FakeBrowser(_ticketBack), FakeAdapter((_, _) async => const FakeReply.transport(DioExceptionType.connectionError)));
+      final offline = _repo(
+        _FakeBrowser(_ticketBack),
+        FakeAdapter(
+          (_, _) async =>
+              const FakeReply.transport(DioExceptionType.connectionError),
+        ),
+      );
       await offline.store.write(TokenStore.defaultRefreshKey, 'rt-1');
       await expectLater(offline.repo.restore(), throwsA(isA<PmartFailure>()));
       expect(await offline.tokens.readRefreshToken(), 'rt-1');
     });
 
     test('로그아웃: Bearer 로 POST /employee-auth/logouts(allDevices=false) 뒤 토큰 삭제 — 서버가 실패해도 지운다', () async {
-      for (final reply in [const FakeReply(200, body: <String, Object?>{}), const FakeReply(500)]) {
+      for (final reply in [
+        const FakeReply(200, body: <String, Object?>{}),
+        const FakeReply(500),
+      ]) {
         final adapter = FakeAdapter((_, _) async => reply);
         final t = _repo(_FakeBrowser(_ticketBack), adapter);
-        await t.tokens.save(AuthTokens(accessToken: _access, refreshToken: 'rt-1'));
+        await t.tokens.save(
+          AuthTokens(accessToken: _access, refreshToken: 'rt-1'),
+        );
 
         await t.repo.logout();
 
@@ -430,12 +596,6 @@ void main() {
         ),
       );
       await t.pumpAndSettle();
-      // 로그인 전 첫 화면은 기기 설정(사용자 2026-11-17) — 아래 로그인 버튼으로 로그인 화면에 간다.
-      final setupLogin = find.byKey(const ValueKey('setup-login'));
-      if (setupLogin.evaluate().isNotEmpty) {
-        await t.tap(setupLogin);
-        await t.pumpAndSettle();
-      }
       return ProviderScope.containerOf(t.element(find.byType(Scaffold).first));
     }
 
@@ -460,16 +620,28 @@ void main() {
       final c = await pump(t, repo);
       expect(find.byKey(const ValueKey('login-id')), findsOneWidget);
       expect(find.byKey(const ValueKey('login-password')), findsOneWidget);
-      expect(find.byKey(const ValueKey('login-temporary-note')), findsOneWidget);
-      FilledButton button() => t.widget<FilledButton>(find.byKey(const ValueKey('employee-login')));
+      expect(
+        find.byKey(const ValueKey('login-temporary-note')),
+        findsOneWidget,
+      );
+      FilledButton button() =>
+          t.widget<FilledButton>(find.byKey(const ValueKey('employee-login')));
       expect(button().onPressed, isNull);
 
       await t.enterText(find.byKey(const ValueKey('login-id')), ' mfcw-pp-01 ');
       await t.pump();
       expect(button().onPressed, isNull); // 비밀번호가 아직 없다
-      await t.enterText(find.byKey(const ValueKey('login-password')), 'anything');
+      await t.enterText(
+        find.byKey(const ValueKey('login-password')),
+        'anything',
+      );
       await t.pump();
-      expect(t.widget<TextField>(find.byKey(const ValueKey('login-password'))).obscureText, isTrue);
+      expect(
+        t
+            .widget<TextField>(find.byKey(const ValueKey('login-password')))
+            .obscureText,
+        isTrue,
+      );
 
       await t.tap(find.byKey(const ValueKey('employee-login')));
       await t.pumpAndSettle();
@@ -478,17 +650,38 @@ void main() {
       expect(c.read(employeeSessionProvider)!.operatorId, 'OP-mock-mfcw-pp-01');
     });
 
-    testWidgets('임시 아이디·비밀번호 로그인: 시험 작업자 아이디가 아니면 안내하고 머문다 — 비밀번호 칸은 비운다', (t) async {
+    testWidgets('임시 아이디·비밀번호 로그인: 시험 작업자 아이디가 아니면 안내하고 머문다 — 비밀번호 칸은 비운다', (
+      t,
+    ) async {
       await pump(t, MockPasswordAuthRepository());
-      for (final id in ['someone', 'mfcw-pp-31', 'mfcw-rcv-11', 'mfcw-qc-00', 'mfcw-pp-1']) {
+      for (final id in [
+        'someone',
+        'mfcw-pp-31',
+        'mfcw-rcv-11',
+        'mfcw-qc-00',
+        'mfcw-pp-1',
+      ]) {
         await t.enterText(find.byKey(const ValueKey('login-id')), id);
-        await t.enterText(find.byKey(const ValueKey('login-password')), 'anything');
+        await t.enterText(
+          find.byKey(const ValueKey('login-password')),
+          'anything',
+        );
         await t.pump();
         await t.tap(find.byKey(const ValueKey('employee-login')));
         await t.pumpAndSettle();
-        expect(find.byKey(const ValueKey('login-error')), findsOneWidget, reason: id);
+        expect(
+          find.byKey(const ValueKey('login-error')),
+          findsOneWidget,
+          reason: id,
+        );
         expect(find.textContaining('아이디 또는 비밀번호가 맞지 않아요'), findsOneWidget);
-        expect(t.widget<TextField>(find.byKey(const ValueKey('login-password'))).controller!.text, isEmpty);
+        expect(
+          t
+              .widget<TextField>(find.byKey(const ValueKey('login-password')))
+              .controller!
+              .text,
+          isEmpty,
+        );
         expect(find.byKey(const ValueKey('menu-handover')), findsNothing);
       }
       expect(MockPasswordAuthRepository.isTestWorker('mfcw-pp-30'), isTrue);
@@ -496,7 +689,8 @@ void main() {
     });
 
     testWidgets('로그인 실패는 이유를 안내하고 로그인 화면에 머문다 — 다시 누르면 다시 시도', (t) async {
-      final repo = MockAuthRepository(signedIn: false)..nextLoginError = LoginError.accountNotAvailable;
+      final repo = MockAuthRepository(signedIn: false)
+        ..nextLoginError = LoginError.accountNotAvailable;
       await pump(t, repo);
       await t.tap(find.byKey(const ValueKey('employee-login')));
       await t.pumpAndSettle();
@@ -525,11 +719,9 @@ void main() {
       await t.tap(find.byKey(const ValueKey('logout-confirm')));
       await t.pumpAndSettle();
       expect(repo.logoutCalls, 1);
-      // 직접 로그아웃은 첫 화면(기기 설정)으로 — 종료 안내가 없다.
-      expect(find.byKey(const ValueKey('setup-login')), findsOneWidget);
-      await t.tap(find.byKey(const ValueKey('setup-login')));
-      await t.pumpAndSettle();
+      // 직접 로그아웃은 첫 화면(맨 위 로그인 + 기기 설정)으로 — 종료 안내가 없다.
       expect(find.byKey(const ValueKey('employee-login')), findsOneWidget);
+      expect(find.byKey(const ValueKey('setup-network')), findsOneWidget);
       expect(find.byKey(const ValueKey('session-ended')), findsNothing);
     });
 
@@ -551,11 +743,22 @@ void main() {
     });
 
     testWidgets('역할이 없는 직원(권한 승인 대기)은 메인에서 안내를 본다', (t) async {
-      await pump(t, MockAuthRepository(session: const EmployeeSession(operatorId: 'OP-new', roles: [], centers: [])));
+      await pump(
+        t,
+        MockAuthRepository(
+          session: const EmployeeSession(
+            operatorId: 'OP-new',
+            roles: [],
+            centers: [],
+          ),
+        ),
+      );
       expect(find.byKey(const ValueKey('awaiting-grant')), findsOneWidget);
     });
 
-    testWidgets('앱을 켠 직후에는 세션을 되살리는 동안 기다리고, 끝나면 메인(로그인 화면이 깜빡이지 않는다)', (t) async {
+    testWidgets('앱을 켠 직후에는 세션을 되살리는 동안 기다리고, 끝나면 메인(로그인 화면이 깜빡이지 않는다)', (
+      t,
+    ) async {
       final repo = _SlowRestore();
       await t.pumpWidget(
         ProviderScope(
@@ -585,8 +788,8 @@ void main() {
       await t.pump();
       repo.done.complete(null);
       await t.pumpAndSettle();
-      expect(find.byKey(const ValueKey('setup-login')), findsOneWidget);
-      expect(find.byKey(const ValueKey('employee-login')), findsNothing);
+      expect(find.byKey(const ValueKey('employee-login')), findsOneWidget);
+      expect(find.byKey(const ValueKey('setup-network')), findsOneWidget);
     });
   });
 }

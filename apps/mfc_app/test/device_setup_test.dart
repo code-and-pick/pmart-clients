@@ -54,23 +54,28 @@ void main() {
     await t.pumpAndSettle();
   }
 
-  testWidgets('로그인 전 첫 화면은 기기 설정 — 메뉴 4개와 로그인 버튼, 로그인은 그 다음', (t) async {
+  testWidgets('첫 화면: 맨 위에 로그인, 그 아래 기기 설정 4칸', (t) async {
     await pump(t);
+    final login = t.getTopLeft(find.byKey(const ValueKey('employee-login')));
+    final title = t.getTopLeft(find.byKey(const ValueKey('setup-title')));
+    expect(login.dy, lessThan(title.dy));
     for (final k in [
       'setup-network',
       'setup-printer',
       'setup-scanner',
       'setup-device',
     ]) {
+      await t.scrollUntilVisible(find.byKey(ValueKey(k)), 100);
       expect(find.byKey(ValueKey(k)), findsOneWidget, reason: k);
     }
-    expect(find.byKey(const ValueKey('employee-login')), findsNothing);
-    await tap(t, 'setup-login');
-    expect(find.byKey(const ValueKey('employee-login')), findsOneWidget);
-    // 뒤로 가면 다시 기기 설정.
-    await t.tap(find.byType(BackButton));
-    await t.pumpAndSettle();
-    expect(find.byKey(const ValueKey('setup-network')), findsOneWidget);
+    // 로그인하면 메인.
+    await t.scrollUntilVisible(
+      find.byKey(const ValueKey('employee-login')),
+      -100,
+    );
+    await tap(t, 'employee-login');
+    expect(find.byKey(const ValueKey('setup-network')), findsNothing);
+    expect(find.byKey(const ValueKey('logout')), findsOneWidget);
   });
 
   testWidgets('네트워크: 주소를 고쳐 저장하면 실서버 요청 주소가 바뀌고, 기본값으로 되돌릴 수 있다', (t) async {
