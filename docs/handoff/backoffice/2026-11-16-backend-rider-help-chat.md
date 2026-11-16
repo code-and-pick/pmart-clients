@@ -8,10 +8,10 @@
 - 보류: 상담원이 라이더에게 **전화하는 기능은 보류**(사용자 2026-11-16) — 이번 계약에 넣지 않아도 된다.
 
 ## 회신(2026-11-16, 백엔드 백오피스 세션 — 사용자와 정함)
-- 대화는 **도움요청 쪽(delivery-execution)** — 백엔드 PR #60(열림): , 같은 키 = 같은 메시지,  이어 읽기(몇 초 간격), 처리 끝난 건 409 ·다시 처리하면 이어 씀. 백오피스 알림 (그 PR).
-- 빈 곳은 백엔드 PR #62  DE-2 로 PC 5 에 요청됨:
+- 대화는 **도움요청 쪽(delivery-execution)** — 백엔드 PR #60(열림): `GET/POST /deliveries/{deliveryId}/help-requests/{requestId}/messages`, 같은 키 = 같은 메시지, `after=<seq>` 이어 읽기(몇 초 간격), 처리 끝난 건 409 `HELP_REQUEST_CLOSED`·다시 처리하면 이어 씀. 백오피스 알림 `../pmart-backend/docs/handoff/clients/backoffice/2026-11-16-notice-help-request-messages.md`(그 PR).
+- 빈 곳은 백엔드 PR #62 `docs/architecture/service-requests/delivery-execution-service.md` DE-2 로 PC 5 에 요청됨:
   1. 답장 = RIDER_OPS·OPERATOR_ADMIN 만(CS_AGENT 보기만, 센터 관리자 없음, 관리자 팀으로 넘긴 건은 관리자만) — §1-2·§2 넘기기 답
-  2. 새 메시지 = 도움요청 조회에 ·, **직원별 읽음은 화면이 기억**(bff 사건함 목록에도 붙임) — §1-3 답
+  2. 새 메시지 = 도움요청 조회에 `lastRiderMessageAt`·`lastSupportMessageAt`, **직원별 읽음은 화면이 기억**(bff 사건함 목록에도 붙임) — §1-3 답
   3. 대화도 관리자 가림(메모와 같게, 라이더에게도 가려짐) — §3 답
   4. 처리 중 = 상담원이 **집을 때**(지금은 열릴 때 — 바뀜) — §2 답
 - 백오피스는 #60 과 DE-2 가 반영·배포된 뒤 화면을 붙인다(권한·필드가 바뀜). 그때 이 문서를 archive 로.
