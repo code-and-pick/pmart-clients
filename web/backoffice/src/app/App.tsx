@@ -17,6 +17,8 @@ import { ContentImportPage, NewContentImportPage } from '../features/contents/Co
 import { SkuHandlingPage } from '../features/handlings/SkuHandlingPage';
 import { ClaimDetailPage, ClaimListPage } from '../features/claims/ClaimPages';
 import { PendingPage } from '../features/pending/PendingPage';
+import { UnifiedLookupPage } from '../features/lookup/UnifiedLookupPage';
+import { LiveDeliveryPage } from '../features/live/LiveDeliveryPage';
 import { CaseDetailPage, CaseListPage, NewMisdeliveryPage } from '../features/cases/CasePages';
 import { DeliveryDetailPage, DeliveryOpenPage } from '../features/deliveries/DeliveryPages';
 import { InquiryDetailPage, InquiryListPage } from '../features/inquiries/InquiryPages';
@@ -140,6 +142,8 @@ const routes = [
       { path: 'orders', element: guarded(<OrderLookupPage />) },
       { path: 'orders/:orderId', element: guarded(<OrderDetailPage />) },
       { path: 'pending', element: guarded(<PendingPage />) },
+      { path: 'lookup', element: guarded(<UnifiedLookupPage />) },
+      { path: 'live-delivery', element: guarded(<LiveDeliveryPage />) },
       { path: 'cases', element: guarded(<CaseListPage />) },
       { path: 'cases/new-misdelivery', element: guarded(<NewMisdeliveryPage />) },
       { path: 'cases/:caseId', element: guarded(<CaseDetailPage />) },

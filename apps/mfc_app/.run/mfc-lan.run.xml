@@ -1,0 +1,9 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="MFC앱 LAN 서버" type="FlutterRunConfigurationType" factoryName="Flutter">
+    <!-- apps/mfc_app 폴더를 프로젝트로 열 때 보이는 설정(저장소 루트로 열면 루트 .run/mfc-lan.run.xml). 내용은 같다.
+         LAN 게이트웨이 http 8080, 기기에 LAN 루트 CA 설치 필요(직원 로그인 화면), 비밀값 없음. -->
+    <option name="additionalArgs" value="--dart-define=PMART_ENV=local --dart-define=PMART_API_BASE_URL=http://192.168.0.40:8080/api/v1 --android-project-arg=kotlin.incremental=false" />
+    <option name="filePath" value="$PROJECT_DIR$/lib/main.dart" />
+    <method v="2" />
+  </configuration>
+</component>

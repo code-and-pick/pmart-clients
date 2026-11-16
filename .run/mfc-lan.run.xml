@@ -1,0 +1,10 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="MFC앱 LAN 서버" type="FlutterRunConfigurationType" factoryName="Flutter">
+    <!-- LAN 게이트웨이(실서버). http 8080 — mfc_app 은 아직 앱 안 LAN CA 신뢰(trustPmartLanRootCa)가 없어 https 8443 을 쓰지 않는다.
+         직원 로그인(Keycloak, 기기의 Chrome)은 https 라 기기에 LAN 루트 CA 를 설치해야 한다(tools/install_lan_ca.ps1).
+         kotlin.incremental=false: 저장소와 pub 캐시가 다른 드라이브면 Kotlin 증분 캐시가 실패한다(PC 3). 비밀값 없음. -->
+    <option name="additionalArgs" value="--dart-define=PMART_ENV=local --dart-define=PMART_API_BASE_URL=http://192.168.0.40:8080/api/v1 --android-project-arg=kotlin.incremental=false" />
+    <option name="filePath" value="$PROJECT_DIR$/apps/mfc_app/lib/main.dart" />
+    <method v="2" />
+  </configuration>
+</component>

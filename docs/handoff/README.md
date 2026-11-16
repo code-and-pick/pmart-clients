@@ -30,6 +30,8 @@ pmart-clients 와 pmart-backend 는 서로의 저장소에 쓰지 않는다. 각
 | `hr-backoffice/2026-11-16-backend-departments-and-permissions-done.md` | 본사 부서·권한 관리 반영 확인(빌드는 archive 의 session-roles-centers 표) |
 | `all/2026-11-16-backend-login-code-pc1-only-done.md` | 클라이언트 표(경로 보탬) 확인 |
 | `backoffice/2026-11-16-backend-product-menu-operator-admin-done.md` | 상품 관리 묶음 `OPERATOR_ADMIN` 반영 확인(빌드는 archive 의 session-roles-centers 표) |
-| `hr-backoffice/2026-11-16-backend-role-list-done.md` | 역할 목록 API 반영 확인(BR-57 끝, 빌드는 web-common 회신) |
+| `hr-backoffice/2026-11-16-backend-role-list-done.md` | 역할 목록 API 반영 확인(BR-57 끝, 빌드는 archive 의 session-roles-centers 표) |
+| `backoffice/2026-11-16-backend-case-order-exceptions-done.md` | 사건함 사가·결제 이상·배차 실패 화면 반영 확인(PR #13) — 실서버는 case 0.5.0 LAN 배포 뒤 |
+| `web-common/2026-11-16-backend-lan-cors-dev-origins.md` | LAN 게이트웨이 CORS 에 개발 서버 출처 `http://localhost:5173·5174·5175` 추가(allowed·credentialed), refresh 쿠키가 실리는지 — PC 2 가 `dev:lan` 으로 실서버 확인용 |
 | `customer-app/2026-11-16-backend-review-photos-and-inbox-done.md` | 리뷰 0.2.0(사진)·고객 알림함 0.2.0 반영 확인 — 실서버 확인은 배송 완료·고객 주문 뒤 |
 | `customer-app/2026-11-15-backend-support-chat-inquiry.md` | 고객앱 문의·AI 상담 반영 알림 — LAN 고객 토큰으로 실제 확인, 질문 3개 |
