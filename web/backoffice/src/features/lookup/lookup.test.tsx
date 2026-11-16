@@ -24,7 +24,7 @@ describe('통합 조회', () => {
   it('배송 번호로 찾으면 그 주문으로 이어 원천별 칸에 나눠 보이고, 각 항목은 기존 상세로', async () => {
     const view = renderAt('/lookup', as.riderOps);
     await search('DLV-MOCK-1');
-    expect(await screen.findByText('배송로 찾음 → 주문 ORD-MOCK-1001')).toBeInTheDocument();
+    expect(await screen.findByText('배송 번호로 찾음 → 주문 ORD-MOCK-1001')).toBeInTheDocument();
     expect(within(section('주문')).getByRole('link', { name: '상세 보기' })).toHaveAttribute('href', '/orders/ORD-MOCK-1001');
     expect(within(section('배송(수행)')).getByText('IN_TRANSIT')).toBeInTheDocument();
     expect(within(section('배차')).getByText('ASSIGNED')).toBeInTheDocument();
@@ -36,7 +36,7 @@ describe('통합 조회', () => {
     // 고객 문의는 라이더 운영에게 "권한 없음" — 0건이 아니다
     expect(within(section('고객 문의')).getByRole('alert')).toHaveTextContent('조회 실패 또는 볼 권한 없음');
     // 금액은 원천 값 그대로(계산하지 않음)
-    expect(within(section('주문')).getByText(/total 24800/)).toBeInTheDocument();
+    expect(within(section('주문')).getByText(/총액 24,800원/)).toBeInTheDocument();
     const sent = view.sent.find((r) => new URL(r.url).pathname.endsWith('/views/unified-lookup'))!;
     expect([new URL(sent.url).searchParams.get('q'), new URL(sent.url).searchParams.get('kind')]).toEqual(['DLV-MOCK-1', null]);
   });
@@ -64,7 +64,7 @@ describe('통합 조회', () => {
     const orders = await screen.findAllByTestId('customer-order');
     expect(orders).toHaveLength(2);
     await userEvent.click(within(orders[0]!).getByRole('button', { name: '이 주문으로 다시 조회' }));
-    expect(await screen.findByText('주문로 찾음 → 주문 ORD-MOCK-1001')).toBeInTheDocument();
+    expect(await screen.findByText('주문 번호로 찾음 → 주문 ORD-MOCK-1001')).toBeInTheDocument();
     const last = view.sent.filter((r) => new URL(r.url).pathname.endsWith('/views/unified-lookup')).at(-1)!;
     expect([new URL(last.url).searchParams.get('q'), new URL(last.url).searchParams.get('kind')]).toEqual(['ORD-MOCK-1001', 'ORDER']);
   });

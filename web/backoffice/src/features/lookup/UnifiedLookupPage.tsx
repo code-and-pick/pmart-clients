@@ -14,7 +14,7 @@ import { FailureAlert, QueryState, toUiState } from '@pmart/web-ui';
 import type { components } from '../../api/generated/backoffice-bff';
 import { useApi } from '../../app/ApiContext';
 import { messages } from '../../shared/messages';
-import { label, when } from '../../shared/ops';
+import { label, when, won } from '../../shared/ops';
 import { SourceStamps } from '../../shared/SourceStamps';
 
 const m = messages.lookup;
@@ -60,11 +60,15 @@ const detailPath = (kind: string | undefined, id: string) =>
             ? `/inquiries/${encodeURIComponent(id)}`
             : null;
 
-/** 값 하나 표시 — 시각(…At)은 서울 시각, 참거짓은 예/아니요, 객체는 한 단계 펼친다(계산하지 않음) */
+/** 금액 필드(원천 값 그대로 원·천 단위 표시만 — 계산하지 않음) */
+const MONEY = new Set(['approvedAmount', 'totalAmount', 'total', 'itemAmount', 'bagFee', 'deliveryTip', 'deliveryTipBase', 'deliveryFee', 'itemsTotal']);
+
+/** 값 하나 표시 — 시각(…At)은 서울 시각, 금액은 원, 참거짓은 예/아니요, 객체는 한 단계 펼친다(계산하지 않음) */
 function show(key: string, v: unknown): string {
   if (v === null || v === undefined || v === '') return messages.none;
   if (typeof v === 'boolean') return v ? m.yes : m.no;
   if (typeof v === 'string' && /At$/.test(key)) return when(v);
+  if (typeof v === 'number' && MONEY.has(key)) return won(v);
   if (Array.isArray(v)) {
     const items = v as unknown[];
     return items.length ? items.map((x) => show('', x)).join(', ') : messages.none;

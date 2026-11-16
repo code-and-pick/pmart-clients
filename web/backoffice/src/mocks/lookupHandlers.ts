@@ -34,7 +34,8 @@ const order1001: readonly MockMatch[] = [
       mfcId: 'MFC-BSN-01',
       deliveryMode: 'INSTANT',
       confirmedAt: '2026-11-16T00:30:00.000Z',
-      amounts: { itemsTotal: 21800, deliveryFee: 3000, total: 24800 },
+      // 실서버 모양(LAN 2026-11-16): amounts 에 approvedAmount·bagFee·deliveryTip·itemAmount·totalAmount …
+      amounts: { approvedAmount: 24800, bagFee: 0, deliveryTip: 3000, itemAmount: 21800, totalAmount: 24800 },
       payment: { state: 'APPROVED', approvedAmount: 24800 },
       lineCount: 3,
       fulfillmentIssueCount: 0,
