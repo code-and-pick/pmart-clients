@@ -8,6 +8,7 @@ import 'package:pmart_ui/pmart_ui.dart';
 
 import '../../auth/presentation/auth_controller.dart';
 import '../../../l10n/gen/app_localizations.dart';
+import '../../../shared/menu_tile.dart';
 import '../../../shared/providers.dart';
 import '../../../shared/ui_state_of.dart';
 import '../../tasks/presentation/task_controllers.dart';
@@ -431,62 +432,13 @@ class _AreaTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    final fg = allowed ? scheme.onSurface : scheme.onSurface.withAlpha(97);
-    return Material(
+    return MenuTile(
       key: ValueKey('area-${area.name}'),
-      color: scheme.surfaceContainerHigh,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(16),
-        onTap: onTap,
-        // 작은 화면에서는 칸이 낮아 설명 줄을 숨긴다.
-        child: LayoutBuilder(
-          builder: (context, c) {
-            final roomy = c.maxHeight >= 72;
-            return Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                children: [
-                  Icon(workAreaIcon(area), size: roomy ? 36 : 24, color: fg),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          workAreaText(l10n, area),
-                          maxLines: 1,
-                          style:
-                              (roomy
-                                      ? theme.textTheme.headlineSmall
-                                      : theme.textTheme.titleMedium)
-                                  ?.copyWith(color: fg),
-                        ),
-                        if (roomy)
-                          Text(
-                            workAreaHint(l10n, area),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: fg,
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                  Icon(
-                    allowed ? Icons.chevron_right : Icons.lock_outline,
-                    color: fg,
-                  ),
-                ],
-              ),
-            );
-          },
-        ),
-      ),
+      icon: workAreaIcon(area),
+      title: workAreaText(l10n, area),
+      hint: workAreaHint(l10n, area),
+      allowed: allowed,
+      onTap: onTap,
     );
   }
 }

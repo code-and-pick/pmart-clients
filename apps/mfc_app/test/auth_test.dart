@@ -430,6 +430,12 @@ void main() {
         ),
       );
       await t.pumpAndSettle();
+      // 로그인 전 첫 화면은 기기 설정(사용자 2026-11-17) — 아래 로그인 버튼으로 로그인 화면에 간다.
+      final setupLogin = find.byKey(const ValueKey('setup-login'));
+      if (setupLogin.evaluate().isNotEmpty) {
+        await t.tap(setupLogin);
+        await t.pumpAndSettle();
+      }
       return ProviderScope.containerOf(t.element(find.byType(Scaffold).first));
     }
 
@@ -519,8 +525,12 @@ void main() {
       await t.tap(find.byKey(const ValueKey('logout-confirm')));
       await t.pumpAndSettle();
       expect(repo.logoutCalls, 1);
+      // 직접 로그아웃은 첫 화면(기기 설정)으로 — 종료 안내가 없다.
+      expect(find.byKey(const ValueKey('setup-login')), findsOneWidget);
+      await t.tap(find.byKey(const ValueKey('setup-login')));
+      await t.pumpAndSettle();
       expect(find.byKey(const ValueKey('employee-login')), findsOneWidget);
-      expect(find.byKey(const ValueKey('session-ended')), findsNothing); // 직접 로그아웃은 종료 안내가 없다
+      expect(find.byKey(const ValueKey('session-ended')), findsNothing);
     });
 
     testWidgets('세션이 끝나면(갱신 거절) 어느 화면에 있든 로그인 화면으로 — 이유를 안내한다', (t) async {
@@ -563,7 +573,7 @@ void main() {
       expect(find.byKey(const ValueKey('menu-handover')), findsOneWidget);
     });
 
-    testWidgets('되살릴 세션이 없으면 로그인 화면', (t) async {
+    testWidgets('되살릴 세션이 없으면 첫 화면(기기 설정)', (t) async {
       final repo = _SlowRestore();
       await t.pumpWidget(
         ProviderScope(
@@ -575,7 +585,8 @@ void main() {
       await t.pump();
       repo.done.complete(null);
       await t.pumpAndSettle();
-      expect(find.byKey(const ValueKey('employee-login')), findsOneWidget);
+      expect(find.byKey(const ValueKey('setup-login')), findsOneWidget);
+      expect(find.byKey(const ValueKey('employee-login')), findsNothing);
     });
   });
 }

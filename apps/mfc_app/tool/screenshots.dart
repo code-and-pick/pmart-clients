@@ -226,4 +226,55 @@ void main() {
     await shot('23-sup-workers');
     debugDisableShadows = true;
   });
+
+  testWidgets('setup', (t) async {
+    if (_dir.isEmpty) fail('--dart-define=SHOT_DIR=<절대 경로> 가 필요하다');
+    await t.runAsync(_loadFonts);
+    debugDisableShadows = false;
+    t.view
+      ..physicalSize = const Size(1080, 2160)
+      ..devicePixelRatio = 3;
+    addTearDown(t.view.reset);
+    final tasks = MockTaskRepository(latency: Duration.zero);
+    await t.pumpWidget(
+      ProviderScope(
+        retry: (_, _) => null,
+        overrides: [
+          envProvider.overrideWithValue(PmartEnv.mock),
+          authRepositoryProvider.overrideWithValue(
+            MockAuthRepository(signedIn: false),
+          ),
+          taskRepositoryProvider.overrideWithValue(tasks),
+          workRepositoryProvider.overrideWithValue(
+            MockWorkRepository(tasks: tasks, latency: Duration.zero),
+          ),
+          secureStoreProvider.overrideWithValue(MemoryKeyValueStore()),
+        ],
+        child: const MfcApp(),
+      ),
+    );
+    await t.pumpAndSettle();
+    Future<void> shot(String name) async {
+      await t.pumpAndSettle();
+      await expectLater(
+        find.byType(MfcApp),
+        matchesGoldenFile(File('$_dir/$name.png').uri),
+      );
+    }
+
+    await shot('31-setup');
+    await t.tap(find.byKey(const ValueKey('setup-network')));
+    await shot('32-setup-network');
+    Navigator.of(t.element(find.byType(Scaffold).last)).pop();
+    await t.pumpAndSettle();
+    await t.tap(find.byKey(const ValueKey('setup-scanner')));
+    await shot('33-setup-scanner');
+    Navigator.of(t.element(find.byType(Scaffold).last)).pop();
+    await t.pumpAndSettle();
+    await t.tap(find.byKey(const ValueKey('setup-login')));
+    await shot('34-login');
+    await t.tap(find.byKey(const ValueKey('employee-login')));
+    await shot('35-home');
+    debugDisableShadows = true;
+  });
 }

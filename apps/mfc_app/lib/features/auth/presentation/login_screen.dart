@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:pmart_core/pmart_core.dart';
 
 import '../../../l10n/gen/app_localizations.dart';
@@ -87,6 +88,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final scheme = theme.colorScheme;
     // 배치는 다른 앱의 로그인을 따랐다: 고객앱(큰 브랜드 이름 + 한 줄 설명 + 버튼), 백오피스 직원 로그인(카드 안에 버튼·안내·참고 문구).
     return Scaffold(
+      // 기기 설정에서 왔으면 뒤로, 세션이 끝나 바로 왔으면 기기 설정으로 가는 버튼.
+      appBar: AppBar(
+        automaticallyImplyLeading: false,
+        leading: context.canPop()
+            ? const BackButton()
+            : IconButton(
+                key: const ValueKey('login-setup'),
+                tooltip: l10n.setupBack,
+                icon: const Icon(Icons.settings_outlined),
+                onPressed: () => context.go('/setup'),
+              ),
+      ),
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
