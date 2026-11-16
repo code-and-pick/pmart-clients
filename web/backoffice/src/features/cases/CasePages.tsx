@@ -32,6 +32,7 @@ import { useSession } from '../../app/SessionContext';
 import { messages as m } from '../../shared/messages';
 import { label, text, when } from '../../shared/ops';
 import { SourceStamps } from '../../shared/SourceStamps';
+import { FollowUps, isOpenObligation } from './FollowUps';
 
 type Case = components['schemas']['Case'];
 type InboxView = BffOps['getCaseInboxView']['responses'][200]['content']['application/json'];
@@ -311,7 +312,7 @@ function AssignForm({ c, onDone }: { readonly c: Case; readonly onDone: (c: Case
   );
 }
 
-function CloseForm({ c, onDone }: { readonly c: Case; readonly onDone: (c: Case) => void }) {
+function CloseForm({ c, onDone, openFollowUps }: { readonly c: Case; readonly onDone: (c: Case) => void; readonly openFollowUps: number }) {
   const api = useApi();
   const [resolution, setResolution] = useState<Resolution>('RESOLVED');
   const [summary, setSummary] = useState('');
@@ -350,7 +351,12 @@ function CloseForm({ c, onDone }: { readonly c: Case; readonly onDone: (c: Case)
         <textarea className="textarea textarea-sm w-full max-w-lg" maxLength={1000} value={summary} onChange={(e) => setSummary(e.target.value)} />
       </label>
       <p className="text-xs opacity-70">{m.cases.piiHint}</p>
-      <button type="submit" className="btn btn-sm" disabled={!summary.trim() || close.busy}>
+      {openFollowUps > 0 && (
+        <p role="note" className="text-xs text-warning" data-testid="close-blocked">
+          {m.followUps.closeBlocked(openFollowUps)}
+        </p>
+      )}
+      <button type="submit" className="btn btn-sm" disabled={!summary.trim() || close.busy || openFollowUps > 0}>
         {m.cases.close}
       </button>
       <CommandFeedback command={close}>{() => <span className="text-xs text-success">{m.cases.closed}</span>}</CommandFeedback>
@@ -576,7 +582,8 @@ export function CaseDetailPage() {
                 </p>
               )}
               {!closed && <AssignForm c={c} onDone={onDone} />}
-              {canClose && <CloseForm c={c} onDone={onDone} />}
+              <FollowUps c={c} canAdd={!closed && (admin || teamCan)} />
+              {canClose && <CloseForm c={c} onDone={onDone} openFollowUps={(c.obligations ?? []).filter(isOpenObligation).length} />}
               {canToAdmin && <TransferForm c={c} toGroup="ORDER_OPS" onDone={onDone} />}
               {canToSupport && <TransferForm c={c} toGroup="DELIVERY_OPS" onDone={onDone} />}
               {canReopen && <ReopenForm c={c} onDone={onDone} />}

@@ -9,6 +9,7 @@ import type { components as CaseC } from '../api/generated/case';
 import { idempotent, operator, problem, unauthorized } from './support';
 
 type Case = CaseC['schemas']['Case'];
+type Obligation = CaseC['schemas']['Obligation'];
 type Summary = CaseC['schemas']['CaseSummary'];
 type Kind = CaseC['schemas']['CaseKind'];
 
@@ -32,6 +33,11 @@ function seed(): Case[] {
   return [
     base({
       caseId: 'CASE-MOCK-1',
+      openObligationCount: 2,
+      obligations: [
+        { obligationId: 'OBL-MOCK-1', caseId: 'CASE-MOCK-1', kind: 'CUSTOMER_CONTACT', owner: 'CS', state: 'OPEN', note: '[목] 도착 지연 안내 연락', dueAt: at(1), createdAt: at(-1), version: 1, resolutions: [] },
+        { obligationId: 'OBL-MOCK-2', caseId: 'CASE-MOCK-1', kind: 'RETURN_PICKUP', owner: 'DELIVERY_OPS', state: 'OPEN', qty: 1, resolvedQty: 0, createdAt: at(-1), version: 1, resolutions: [] },
+      ],
       kind: 'RIDER_HELP',
       priority: 'P1',
       summary: '[목] 라이더 도움요청 — 건물 출입 불가',
@@ -135,6 +141,14 @@ function viewer(request: Request) {
   if (!admin && !team && !cs) return { denied: problem(403, 'FORBIDDEN') } as const;
   return { who, admin, team, cs, sees: (c: Case) => admin || DELIVERY_KINDS.includes(c.kind ?? 'OTHER') } as const;
 }
+
+const OPEN_STATES = ['OPEN', 'PARTIALLY_RESOLVED'];
+const isOpen = (o: Obligation) => OPEN_STATES.includes(o.state ?? 'OPEN');
+const CREATABLE = ['REFUND', 'RETURN_PICKUP', 'REDELIVERY', 'RECONCILIATION', 'CUSTOMER_CONTACT', 'EVIDENCE_COLLECTION', 'COMPENSATION', 'OTHER'];
+const countOpen = (c: Case) => {
+  c.openObligationCount = (c.obligations ?? []).filter(isOpen).length;
+};
+const ownerOf = (o: Obligation, c: Case) => o.owner ?? c.assigneeGroup ?? 'DELIVERY_OPS';
 
 function log(c: Case, action: string, actorId: string, toState: NonNullable<Case['state']>, note?: string) {
   c.history = [...(c.history ?? []), { action, at: new Date().toISOString(), actorId, ...(c.state ? { fromState: c.state } : {}), toState, ...(note ? { note } : {}) }];
@@ -281,6 +295,7 @@ export const caseHandlers = [
       if (!v.admin && c.assigneeGroup === 'ORDER_OPS') return problem(403, 'FORBIDDEN');
       if (c.state === 'CLOSED') return problem(409, 'INVALID_STATE');
       if (!body.resolution || !(body.summary ?? '').trim()) return problem(400, 'VALIDATION_FAILED');
+      if ((c.obligations ?? []).some(isOpen)) return problem(409, 'OPEN_OBLIGATIONS');
       c.closure = { closedAt: new Date().toISOString(), closedBy: v.who.subject, resolution: body.resolution, summary: (body.summary ?? '').trim() };
       c.overdue = false;
       log(c, 'CLOSED', v.who.subject, 'CLOSED');
@@ -329,5 +344,98 @@ export const caseHandlers = [
       log(c, 'TRANSFERRED', v.who.subject, 'OPEN', `${from} → ${body.toGroup}: ${(body.reason ?? '').trim()}`);
       return { status: 200, body: c };
     });
+  }),
+
+  // case 0.8.0 후속 처리(의무) 등록 — 접수 건을 다룰 수 있는 사람. 8종 밖 422 UNSUPPORTED_KIND, 사가·결제 접수 건에 지원센터·고객센터 몫 422 OWNER_CANNOT_SEE_CASE.
+  http.post(`${API_BASE}/cases/:caseId/obligations`, async ({ request, params }) => {
+    const v = viewer(request);
+    if ('denied' in v) return v.denied;
+    const body = (await request.clone().json()) as Partial<Obligation>;
+    return idempotent(request, () => {
+      const c = cases.find((x) => x.caseId === params['caseId']);
+      if (!c || !v.sees(c)) return problem(404, 'NOT_FOUND');
+      if (!v.admin && !(v.team && c.assigneeGroup !== 'ORDER_OPS')) return problem(403, 'FORBIDDEN');
+      if (c.state === 'CLOSED') return problem(409, 'INVALID_STATE');
+      if (!body.kind || !CREATABLE.includes(body.kind)) return problem(422, 'UNSUPPORTED_KIND');
+      if (!DELIVERY_KINDS.includes(c.kind ?? 'OTHER') && (body.owner === 'DELIVERY_OPS' || body.owner === 'CS')) return problem(422, 'OWNER_CANNOT_SEE_CASE');
+      seq += 1;
+      const o: Obligation = {
+        obligationId: `OBL-MOCK-${seq}`,
+        caseId: c.caseId ?? '',
+        kind: body.kind,
+        state: 'OPEN',
+        createdAt: new Date().toISOString(),
+        version: 1,
+        resolutions: [],
+        ...(body.owner ? { owner: body.owner } : {}),
+        ...(body.qty !== undefined ? { qty: body.qty, resolvedQty: 0 } : {}),
+        ...(body.amount !== undefined ? { amount: body.amount, resolvedAmount: 0 } : {}),
+        ...(body.dueAt ? { dueAt: body.dueAt } : {}),
+        ...(body.note ? { note: body.note } : {}),
+      };
+      c.obligations = [...(c.obligations ?? []), o];
+      countOpen(c);
+      return { status: 201, body: o };
+    });
+  }),
+
+  // 결과: 완료(수량·금액 일부 가능)·시도 기록(상태 그대로, 메모 필수)·면제·실패(관리자만, 사유 필수). 근거 필수.
+  http.post(`${API_BASE}/obligations/:obligationId/resolutions`, async ({ request, params }) => {
+    const v = viewer(request);
+    if ('denied' in v) return v.denied;
+    const body = (await request.clone().json()) as { outcome?: string; resolvedQty?: number; resolvedAmount?: number; evidence?: { system?: string; ref?: string }; note?: string };
+    return idempotent(request, () => {
+      const c = cases.find((x) => (x.obligations ?? []).some((o) => o.obligationId === params['obligationId']));
+      const o = c?.obligations?.find((x) => x.obligationId === params['obligationId']);
+      if (!c || !o || !v.sees(c)) return problem(404, 'NOT_FOUND');
+      const owner = ownerOf(o, c);
+      if (!v.admin && !((owner === 'DELIVERY_OPS' && v.team) || (owner === 'CS' && v.cs))) return problem(403, 'FORBIDDEN');
+      if ((body.outcome === 'WAIVED' || body.outcome === 'FAILED') && !v.admin) return problem(403, 'FORBIDDEN');
+      if (!body.evidence?.system || !body.evidence.ref) return problem(400, 'VALIDATION_FAILED', [{ field: 'evidence', reason: 'REQUIRED' }]);
+      if (body.outcome !== 'FULFILLED' && !(body.note ?? '').trim()) return problem(400, 'VALIDATION_FAILED', [{ field: 'note', reason: 'REQUIRED' }]);
+      if (!isOpen(o)) return problem(409, 'INVALID_STATE');
+      const at_ = new Date().toISOString();
+      const res: NonNullable<Obligation['resolutions']>[number] = { outcome: body.outcome ?? '', resolvedAt: at_, resolvedBy: v.who.subject, evidence: { system: body.evidence.system, ref: body.evidence.ref }, ...(body.note ? { note: body.note } : {}) };
+      if (body.outcome === 'FULFILLED') {
+        let done = true;
+        if (o.qty !== undefined) {
+          const add = body.resolvedQty ?? 0;
+          if (add < 1) return problem(400, 'VALIDATION_FAILED');
+          if ((o.resolvedQty ?? 0) + add > o.qty) return problem(409, 'QTY_EXCEEDS_OBLIGATION');
+          o.resolvedQty = (o.resolvedQty ?? 0) + add;
+          res.qty = add;
+          done &&= o.resolvedQty >= o.qty;
+        }
+        if (o.amount !== undefined) {
+          const add = body.resolvedAmount ?? 0;
+          o.resolvedAmount = (o.resolvedAmount ?? 0) + add;
+          res.amount = add;
+          done &&= o.resolvedAmount >= o.amount;
+        }
+        o.state = done ? 'RESOLVED' : 'PARTIALLY_RESOLVED';
+      } else if (body.outcome === 'WAIVED' || body.outcome === 'FAILED') {
+        o.state = body.outcome;
+      } else if (body.outcome !== 'ATTEMPTED') return problem(400, 'VALIDATION_FAILED');
+      o.resolutions = [...(o.resolutions ?? []), res];
+      o.version = (o.version ?? 1) + 1;
+      countOpen(c);
+      return { status: 200, body: o };
+    });
+  }),
+
+  // 목록: owner(비우면 접수 건 팀으로 본다)·state(기본 처리 중)·caseId
+  http.get(`${API_BASE}/obligations`, ({ request }) => {
+    const v = viewer(request);
+    if ('denied' in v) return v.denied;
+    const q = new URL(request.url).searchParams;
+    const state = q.get('state');
+    const items = cases
+      .filter(v.sees)
+      .flatMap((c) => (c.obligations ?? []).map((o) => ({ o, c })))
+      .filter(({ o, c }) => !q.get('owner') || ownerOf(o, c) === q.get('owner'))
+      .filter(({ o }) => (state ? o.state === state : isOpen(o)))
+      .filter(({ c }) => !q.get('caseId') || c.caseId === q.get('caseId'))
+      .map(({ o }) => o);
+    return HttpResponse.json({ items, page: { size: items.length, nextCursor: null } });
   }),
 ];

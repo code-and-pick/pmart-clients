@@ -75,6 +75,8 @@ export const navGroups: readonly NavGroup[] = [
     items: [
       { to: '/inquiries', label: m.nav.inquiries },
       { to: '/claims', label: m.nav.claims },
+      // 후속 처리(case 0.8.0 의무, owner=CS) — 상담원이 고객 연락 등의 결과를 남긴다
+      { to: '/follow-ups/cs', label: m.nav.csFollowUps },
     ],
   },
   {
