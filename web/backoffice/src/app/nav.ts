@@ -1,6 +1,8 @@
 // 왼쪽 메뉴 묶음(백엔드 요청 2026-11-15 cs-rider-menus §1, 정본 표 pmart-backend docs/architecture/backoffice-role-menus.md §2).
 // 역할은 세션 응답(sessions/current 0.6.0, 안내용). 메뉴 숨김은 편의일 뿐 — 권한은 서버가 행위마다 판정한다(숨긴 화면의 API 도 403).
-// 여러 역할이면 합집합. 묶음 안 하위 메뉴가 하나도 안 보이면 묶음도 숨긴다. 같은 화면이 두 묶음에 있어도 된다(둘 다 보이면 앞 묶음에만 — visibleGroups).
+// 여러 역할이면 합집합. 묶음 안 하위 메뉴가 하나도 안 보이면 묶음도 숨긴다.
+// 같은 화면은 한 묶음에만 둔다: 상담원·라이더 운영이 함께 쓰는 조회 화면은 "조회·현황" 묶음으로(2026-11-16 사용자 — 두 역할 계정에서
+// 같은 메뉴가 두 번 보이고 함께 강조되던 것). 정본 표는 역할→화면이 그대로이고 묶는 방법만 다르다(백엔드 알림 handoff 2026-11-16-backend-menu-shared-lookup-group).
 // MFC 메뉴는 넣지 않는다(2026-11-15 사용자 결정 — MFC 백오피스는 따로 앱).
 import { messages as m } from '../shared/messages';
 
@@ -15,6 +17,8 @@ export interface NavGroup {
   /** 이 묶음을 보는 역할(하나라도 있으면 보인다). 'ALL' = 모든 직원 */
   readonly visibleTo: 'ALL' | ((role: string) => boolean);
   readonly items: readonly NavItem[];
+  /** 이 묶음이 첫 화면을 정할 때 쓸 화면(없으면 첫 메뉴). 다른 묶음의 화면이어도 된다(고객센터 → 주문 조회). */
+  readonly home?: string;
 }
 
 const oneOf =
@@ -51,18 +55,26 @@ export const navGroups: readonly NavGroup[] = [
     ],
   },
   {
+    id: 'lookup',
+    label: m.nav.group.lookup,
+    // 상담원·라이더 운영이 함께 쓰는 조회 화면(정본 표 §2 의 두 줄에 모두 있는 것). 라이더 컴플레인 기록은 상담원만(서버 판정).
+    visibleTo: oneOf('CS_AGENT', 'RIDER_OPS', 'OPERATOR_ADMIN'),
+    items: [
+      { to: '/orders', label: m.nav.orders },
+      { to: '/lookup', label: m.nav.lookup }, // BO-11, bff 0.3.0
+      { to: '/live-delivery', label: m.nav.live },
+      { to: '/deliveries', label: m.nav.deliveries },
+      { to: '/rider-complaints', label: m.nav.riderComplaints },
+    ],
+  },
+  {
     id: 'cs',
     label: m.nav.group.cs,
     visibleTo: oneOf('CS_AGENT', 'OPERATOR_ADMIN'),
+    home: '/orders',
     items: [
-      { to: '/orders', label: m.nav.orders },
-      // 통합 조회(BO-11, bff 0.3.0) — 고객센터·라이더 운영 묶음 모두 두 번째(첫 화면 = 묶음 첫 메뉴는 그대로)
-      { to: '/lookup', label: m.nav.lookup },
-      { to: '/live-delivery', label: m.nav.live },
       { to: '/inquiries', label: m.nav.inquiries },
-      { to: '/rider-complaints', label: m.nav.riderComplaints },
       { to: '/claims', label: m.nav.claims },
-      { to: '/deliveries', label: m.nav.deliveries },
     ],
   },
   {
@@ -71,12 +83,7 @@ export const navGroups: readonly NavGroup[] = [
     visibleTo: oneOf('RIDER_OPS', 'OPERATOR_ADMIN'),
     items: [
       { to: '/riders', label: m.nav.riders },
-      { to: '/lookup', label: m.nav.lookup },
-      { to: '/live-delivery', label: m.nav.live },
       { to: '/riders/restriction-reviews', label: m.nav.restrictionReviews },
-      { to: '/deliveries', label: m.nav.deliveriesRiderOps },
-      { to: '/rider-complaints', label: m.nav.riderComplaints },
-      { to: '/orders', label: m.nav.orders },
     ],
   },
   {
@@ -104,16 +111,9 @@ export const navGroups: readonly NavGroup[] = [
   },
 ];
 
-/**
- * 이 역할들로 보이는 묶음(순서 유지). 같은 화면이 보이는 여러 묶음에 있으면 앞 묶음에만 둔다(2026-11-16 사용자 —
- * 두 역할을 다 가진 계정에서 같은 메뉴가 두 번 강조돼 보이지 않게). 역할이 하나면 묶음도 하나라 정본 표 그대로다.
- */
+/** 이 역할들로 보이는 묶음(순서 유지). */
 export function visibleGroups(roles: readonly string[]): NavGroup[] {
-  const seen = new Set<string>();
-  return navGroups
-    .filter((g) => g.visibleTo === 'ALL' || roles.some(g.visibleTo))
-    .map((g) => ({ ...g, items: g.items.filter((i) => !seen.has(i.to) && seen.add(i.to)) }))
-    .filter((g) => g.items.length > 0);
+  return navGroups.filter((g) => g.items.length > 0 && (g.visibleTo === 'ALL' || roles.some(g.visibleTo)));
 }
 
 /** 메뉴 항목이 지금 경로의 화면인가(하위 경로 포함 — 상세 화면에서도 묶음을 펼쳐 둔다). */
@@ -121,7 +121,12 @@ export function covers(item: NavItem, pathname: string): boolean {
   return pathname === item.to || pathname.startsWith(`${item.to}/`);
 }
 
-/** 첫 화면: 보이는 첫 메뉴. 역할에 맞는 메뉴가 없으면 내 세션. */
+/**
+ * 첫 화면: 역할 묶음 중 보이는 첫 묶음의 첫 화면(home 이 있으면 그것) — 상담원은 주문 조회, 라이더 운영은 라이더 찾기.
+ * 함께 쓰는 조회·현황 묶음과 업무 도우미는 역할 묶음이 없을 때만. 그것도 없으면 내 세션.
+ */
 export function homePath(roles: readonly string[]): string {
-  return visibleGroups(roles).find((g) => g.id !== 'assistant')?.items[0]?.to ?? '/session';
+  const groups = visibleGroups(roles);
+  const own = groups.find((g) => g.id !== 'lookup' && g.id !== 'assistant') ?? groups.find((g) => g.id === 'lookup');
+  return own ? (own.home ?? own.items[0]?.to ?? '/session') : '/session';
 }
