@@ -21,8 +21,10 @@ final reviewsRepositoryProvider = Provider<ReviewsRepository>(
 );
 
 /// 사진 고르는 곳. [ReviewPhotoSource.camera] 는 한 장, 사진첩은 [max] 장까지. 고르지 않으면 빈 목록.
-typedef ReviewPhotoPicker =
-    Future<List<ReviewPhotoFile>> Function(ReviewPhotoSource source, int max);
+typedef ReviewPhotoPicker = Future<List<ReviewPhotoFile>> Function(
+  ReviewPhotoSource source,
+  int max,
+);
 
 enum ReviewPhotoSource { gallery, camera }
 
@@ -87,6 +89,7 @@ class ReviewPhotoSlot {
     required this.status,
     this.photoId,
     this.code,
+    this.url,
   });
 
   ReviewPhotoSlot.picked(ReviewPhotoFile file)
@@ -96,8 +99,22 @@ class ReviewPhotoSlot {
         status: ReviewPhotoStatus.uploading,
       );
 
-  final ReviewPhotoFile file;
+  /// 수정 화면: 리뷰에 이미 붙은 사진(서버 주소로 그린다, 다시 올리지 않는다).
+  ReviewPhotoSlot.existing(ReviewPhotoRef photo)
+    : this(
+        file: null,
+        key: IdempotencyKey.generate(),
+        status: ReviewPhotoStatus.uploaded,
+        photoId: photo.photoId,
+        url: photo.url,
+      );
+
+  /// 기기에서 고른 원본. 이미 붙은 사진이면 null([url] 로 그린다).
+  final ReviewPhotoFile? file;
   final IdempotencyKey key;
+
+  /// 이미 붙은 사진의 서버 경로.
+  final String? url;
   final ReviewPhotoStatus status;
   final String? photoId;
 
@@ -114,6 +131,7 @@ class ReviewPhotoSlot {
     status: status,
     photoId: photoId,
     code: code,
+    url: url,
   );
 }
 
@@ -123,15 +141,20 @@ Future<ReviewPhotoSlot> uploadReviewPhoto(
   ReviewsRepository repo,
   ReviewPhotoSlot slot,
 ) async {
-  if (slot.file.bytes.length > reviewPhotoMaxBytes) {
+  final file = slot.file;
+  if (file == null) return slot; // 이미 붙은 사진 — 올릴 것이 없다.
+  if (file.bytes.length > reviewPhotoMaxBytes) {
     return slot.copyWith(
       status: ReviewPhotoStatus.rejected,
       code: ReviewProblemCode.photoInvalid,
     );
   }
   try {
-    final p = await repo.uploadPhoto(slot.file, key: slot.key);
-    return slot.copyWith(status: ReviewPhotoStatus.uploaded, photoId: p.photoId);
+    final p = await repo.uploadPhoto(file, key: slot.key);
+    return slot.copyWith(
+      status: ReviewPhotoStatus.uploaded,
+      photoId: p.photoId,
+    );
   } on ProblemFailure catch (f) {
     // 5xx Problem 은 결과 불명(같은 키로 다시), 4xx 는 거절.
     if (f.problem.status >= 500 || f.problem.retryable) {
@@ -398,5 +421,69 @@ class ReviewSubmitter {
   void _clear() {
     _key = null;
     _body = null;
+  }
+}
+
+/// 리뷰 수정에서 보낼 것(바뀐 것만). 모두 null 이면 보낼 것이 없다(서버 400).
+typedef ReviewChanges = ({int? rating, String? text, List<String>? photoIds});
+
+/// [original] 과 지금 입력을 견줘 바뀐 것만 고른다. 바뀐 것이 없으면 null.
+/// 사진은 순서까지 같으면 그대로 둔다(빼고 보낸다 — 보내면 그 목록으로 통째로 바뀐다).
+ReviewChanges? reviewChanges(
+  ReviewView original, {
+  required int rating,
+  required String text,
+  required List<String> photoIds,
+}) {
+  final before = [for (final p in original.photos) p.photoId];
+  final samePhotos =
+      before.length == photoIds.length &&
+      [for (var i = 0; i < before.length; i++) before[i] == photoIds[i]]
+          .every((x) => x);
+  final changes = (
+    rating: rating == original.rating ? null : rating,
+    text: text == (original.text ?? '') ? null : text,
+    photoIds: samePhotos ? null : photoIds,
+  );
+  return changes.rating == null &&
+          changes.text == null &&
+          changes.photoIds == null
+      ? null
+      : changes;
+}
+
+/// 수정·삭제처럼 "결과를 모르면 같은 키·같은 본문으로만 다시" 보내는 명령(백엔드 요청 2026-11-16 review-edit-delete §2·§3).
+/// - 처음 [run] 에 준 보내기 함수와 키를 결과가 나올 때까지 보관한다. "다시 확인"은 그 둘로만 다시 보낸다.
+/// - Problem(4xx) 은 거절로 끝내고 키를 버린다(다음 누름 = 새 키).
+class KeptReviewCommand<T> {
+  IdempotencyKey? _key;
+  Future<T> Function(IdempotencyKey key)? _send;
+
+  /// 결과를 모르는 채 보관 중(입력을 바꾸면 안 된다).
+  bool get pending => _key != null;
+
+  Future<CommandOutcome<T>> run(
+    Future<T> Function(IdempotencyKey key) send,
+  ) async {
+    final s = _send ??= send;
+    final key = _key ??= IdempotencyKey.generate();
+    try {
+      final v = await s(key);
+      _clear();
+      return CommandDone(v);
+    } on UnknownResultFailure {
+      return const CommandUnknown();
+    } on ProblemFailure catch (f) {
+      _clear();
+      return CommandRejected(f.problem.code);
+    } on PmartFailure {
+      _clear();
+      return const CommandRejected(ProblemCode.unknown);
+    }
+  }
+
+  void _clear() {
+    _key = null;
+    _send = null;
   }
 }
