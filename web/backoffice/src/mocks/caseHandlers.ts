@@ -253,10 +253,24 @@ export const caseHandlers = [
   http.post(`${API_BASE}/cases`, async ({ request }) => {
     const v = viewer(request);
     if ('denied' in v) return v.denied;
-    const body = (await request.clone().json()) as { kind?: Kind; subjectType?: string; subjectRef?: string; summary?: string };
+    const body = (await request.clone().json()) as {
+      kind?: Kind;
+      subjectType?: string;
+      subjectRef?: string;
+      summary?: string;
+      misdelivery?: { fault?: string; resolution?: string; redeliveryDestinationId?: string };
+    };
     return idempotent(request, () => {
       if (body.kind !== 'MISDELIVERY') return problem(422, 'UNSUPPORTED_KIND');
       if (body.subjectType !== 'DELIVERY' || !body.subjectRef || !(body.summary ?? '').trim()) return problem(400, 'VALIDATION_FAILED');
+      // case 0.11.0 귀책·고객 선택(ADR-0065): RIDER·SYSTEM → RESHIP(기본)·REFUND, CUSTOMER → REDELIVER(기본, 실제 주소 ID 필요)·REFUND
+      const md = body.misdelivery;
+      if (md) {
+        const res = md.resolution ?? (md.fault === 'CUSTOMER' ? 'REDELIVER' : 'RESHIP');
+        const allowed = md.fault === 'CUSTOMER' ? ['REDELIVER', 'REFUND'] : md.fault === 'RIDER' || md.fault === 'SYSTEM' ? ['RESHIP', 'REFUND'] : [];
+        if (!allowed.includes(res)) return problem(422, 'INVALID_MISDELIVERY_RESOLUTION');
+        if (md.fault === 'CUSTOMER' && res === 'REDELIVER' && !md.redeliveryDestinationId) return problem(422, 'REDELIVERY_DESTINATION_REQUIRED');
+      }
       if (cases.some((c) => c.kind === 'MISDELIVERY' && c.subjectRef === body.subjectRef && c.state !== 'CLOSED')) return problem(409, 'CASE_ALREADY_OPEN');
       seq += 1;
       const c: Case = {
@@ -267,7 +281,10 @@ export const caseHandlers = [
         summary: (body.summary ?? '').trim(),
         subjectType: 'DELIVERY',
         subjectRef: body.subjectRef,
-        refs: [{ refType: 'deliveryId', refId: body.subjectRef }],
+        refs: [
+          { refType: 'deliveryId', refId: body.subjectRef },
+          ...(md?.fault ? [{ refType: 'fault', refId: md.fault }, { refType: 'resolution', refId: md.resolution ?? (md.fault === 'CUSTOMER' ? 'REDELIVER' : 'RESHIP') }] : []),
+        ],
         openedAt: new Date().toISOString(),
         assigneeId: null,
         overdue: false,

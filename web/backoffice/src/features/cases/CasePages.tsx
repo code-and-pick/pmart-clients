@@ -82,7 +82,8 @@ const refLink = (refType: string | undefined, refId: string | undefined) => {
           : refType === 'previousCaseId'
             ? `/cases/${encodeURIComponent(refId)}`
             : null;
-  const name = `${label(m.cases.refName, refType)} ${refId}`;
+  const value = refType === 'fault' ? label(m.cases.faultName, refId) : refType === 'resolution' ? label(m.cases.resolutionChoiceName, refId) : refId;
+  const name = `${label(m.cases.refName, refType)} ${value}`;
   return to ? (
     <Link key={`${refType}:${refId}`} className="link" to={to}>
       {name}
@@ -629,6 +630,13 @@ export function CaseDetailPage() {
   );
 }
 
+/** 귀책(ADR-0065, case 0.11.0) — 고객 잘못(CUSTOMER)은 뒤쪽 처리·실제 주소 API 가 없어 지금은 고를 수 없다(백엔드 요청서 §3) */
+type Fault = 'RIDER' | 'SYSTEM' | 'CUSTOMER';
+type Choice = 'RESHIP' | 'REFUND';
+const FAULTS: readonly Fault[] = ['RIDER', 'SYSTEM', 'CUSTOMER'];
+const FAULT_READY: Readonly<Record<Fault, boolean>> = { RIDER: true, SYSTEM: true, CUSTOMER: false };
+const CHOICES: readonly Choice[] = ['RESHIP', 'REFUND'];
+
 export function NewMisdeliveryPage() {
   const api = useApi();
   const navigate = useNavigate();
@@ -636,7 +644,9 @@ export function NewMisdeliveryPage() {
   const [deliveryId, setDeliveryId] = useState(params.get('deliveryId') ?? '');
   const [summary, setSummary] = useState('');
   const [evidence, setEvidence] = useState('');
-  const open = useCommand(async (v: { deliveryId: string; summary: string; evidence: string }, key) => {
+  const [fault, setFault] = useState<Fault | ''>('');
+  const [choice, setChoice] = useState<Choice>('RESHIP');
+  const open = useCommand(async (v: { deliveryId: string; summary: string; evidence: string; fault: Fault; choice: Choice }, key) => {
     const c = await request(
       'POST',
       api.cases.POST('/cases', {
@@ -647,13 +657,14 @@ export function NewMisdeliveryPage() {
           subjectRef: v.deliveryId,
           summary: v.summary,
           ...(v.evidence ? { evidence: [{ system: 'backoffice-web', ref: v.evidence, kind: 'PHOTO' as const }] } : {}),
+          misdelivery: { fault: v.fault, resolution: v.choice },
         },
       }),
     );
     void navigate(`/cases/${encodeURIComponent(c.caseId ?? '')}`);
     return c;
   });
-  const ok = deliveryId.trim() !== '' && summary.trim() !== '';
+  const ok = deliveryId.trim() !== '' && summary.trim() !== '' && fault !== '' && FAULT_READY[fault];
   return (
     <section className="max-w-2xl space-y-4">
       <h1 className="text-xl font-bold">{m.cases.newTitle}</h1>
@@ -664,7 +675,7 @@ export function NewMisdeliveryPage() {
           e.preventDefault();
           if (!ok) return;
           if (open.phase.kind === 'rejected') open.reset();
-          void open.run({ deliveryId: deliveryId.trim(), summary: summary.trim(), evidence: evidence.trim() });
+          void open.run({ deliveryId: deliveryId.trim(), summary: summary.trim(), evidence: evidence.trim(), fault, choice });
         }}
       >
         <label className="flex flex-col gap-1">
@@ -674,6 +685,33 @@ export function NewMisdeliveryPage() {
         <label className="flex flex-col gap-1">
           {m.cases.summary}
           <textarea className="textarea textarea-sm w-full" maxLength={1000} value={summary} onChange={(e) => setSummary(e.target.value)} />
+        </label>
+        <fieldset className="space-y-1" data-testid="misdelivery-fault">
+          <legend className="mb-1">{m.cases.faultQuestion}</legend>
+          {FAULTS.map((f) => (
+            <label key={f} className={`flex items-center gap-2 ${FAULT_READY[f] ? '' : 'opacity-50'}`}>
+              <input type="radio" className="radio radio-sm" name="misdelivery-fault" value={f} checked={fault === f} disabled={!FAULT_READY[f]} onChange={() => setFault(f)} />
+              {m.cases.faultName[f]}
+              {!FAULT_READY[f] && <span className="badge badge-ghost badge-sm">{m.cases.notReady}</span>}
+            </label>
+          ))}
+          <p className="text-xs opacity-70">{m.cases.customerFaultNote}</p>
+          {fault === 'RIDER' && (
+            <p role="note" className="text-xs text-warning" data-testid="rider-fee-note">
+              {m.cases.riderFeeNote}
+            </p>
+          )}
+        </fieldset>
+        <label className="flex flex-col gap-1">
+          {m.cases.choiceQuestion}
+          <select className="select select-sm w-56" value={choice} onChange={(e) => setChoice(e.target.value === 'REFUND' ? 'REFUND' : 'RESHIP')}>
+            {CHOICES.map((c) => (
+              <option key={c} value={c}>
+                {m.cases.resolutionChoiceName[c]}
+              </option>
+            ))}
+          </select>
+          <span className="text-xs opacity-70">{choice === 'REFUND' ? m.cases.refundNote : m.cases.reshipNote}</span>
         </label>
         <label className="flex flex-col gap-1">
           {m.cases.evidence}

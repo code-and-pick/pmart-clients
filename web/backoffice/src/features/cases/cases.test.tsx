@@ -121,15 +121,35 @@ describe('지원센터 사건', () => {
     const view = renderAt('/cases/new-misdelivery?deliveryId=DLV-MOCK-2', as.cs);
     expect(await screen.findByLabelText('배송 번호')).toHaveValue('DLV-MOCK-2');
     await userEvent.type(screen.getByLabelText('요약'), '옆 동 경비실로 전달됨(고객 확인)');
+    expect(screen.getByRole('button', { name: '오배송 접수하기' })).toBeDisabled(); // 귀책을 골라야
+    await userEvent.click(screen.getByRole('radio', { name: '지도·시스템 오류' }));
     await userEvent.click(screen.getByRole('button', { name: '오배송 접수하기' }));
     expect(await screen.findByRole('heading', { name: /접수 건 CASE-MOCK-101/ })).toBeInTheDocument();
-    expect(await view.mutations('/cases')[0]!.json()).toEqual({ kind: 'MISDELIVERY', subjectType: 'DELIVERY', subjectRef: 'DLV-MOCK-2', summary: '옆 동 경비실로 전달됨(고객 확인)' });
+    expect(await view.mutations('/cases')[0]!.json()).toEqual({ kind: 'MISDELIVERY', subjectType: 'DELIVERY', subjectRef: 'DLV-MOCK-2', summary: '옆 동 경비실로 전달됨(고객 확인)', misdelivery: { fault: 'SYSTEM', resolution: 'RESHIP' } });
+    expect(await screen.findByText('귀책 지도·시스템 오류')).toBeInTheDocument();
+    expect(screen.getByText('고객 선택 재발송')).toBeInTheDocument();
 
     view.unmount();
     renderAt('/cases/new-misdelivery?deliveryId=DLV-MOCK-2', as.cs);
     await userEvent.type(await screen.findByLabelText('요약'), '다시');
+    await userEvent.click(screen.getByRole('radio', { name: '지도·시스템 오류' }));
     await userEvent.click(screen.getByRole('button', { name: '오배송 접수하기' }));
     expect(await screen.findByText('같은 일로 처리 중인 접수 건이 이미 있어요. 그 접수 건에서 처리해 주세요.')).toBeInTheDocument();
+  });
+
+  it('오배송 귀책(ADR-0065): 고객 잘못은 준비 중으로 막고, 라이더 실수는 배달료 미지급 안내, 환불 선택은 그대로 보낸다', async () => {
+    const view = renderAt('/cases/new-misdelivery?deliveryId=DLV-MOCK-3', as.riderOps);
+    expect(await screen.findByRole('radio', { name: /고객 주소 오입력 등/ })).toBeDisabled();
+    expect(screen.getByTestId('misdelivery-fault')).toHaveTextContent('준비 중');
+    expect(screen.queryByTestId('rider-fee-note')).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('radio', { name: '라이더 실수' }));
+    expect(screen.getByTestId('rider-fee-note')).toHaveTextContent('라이더 원래 배달료가 지급되지 않습니다');
+    await userEvent.selectOptions(screen.getByLabelText(/고객이 고른 처리/), 'REFUND');
+    expect(screen.getByText(/전 품목을 환불해요/)).toBeInTheDocument();
+    await userEvent.type(screen.getByLabelText('요약'), '다른 동에 놓음');
+    await userEvent.click(screen.getByRole('button', { name: '오배송 접수하기' }));
+    expect(await screen.findByText('귀책 라이더 실수')).toBeInTheDocument();
+    expect(await view.mutations('/cases')[0]!.json()).toMatchObject({ misdelivery: { fault: 'RIDER', resolution: 'REFUND' } });
   });
 
   it('요약이 없는 사건은 사건 번호 대신 종류 이름(백엔드 회신 reply-case-inbox-questions §2-1)', async () => {
