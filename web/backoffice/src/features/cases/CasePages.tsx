@@ -9,6 +9,10 @@
 // - case 0.5.0 배차 실패 DISPATCH_FAILED — 배송 쪽(모든 역할, 집기·닫기 RIDER_OPS·관리자), refs deliveryId·orderId, 뒤 실패는 이력 RECURRED(재발).
 // - case 0.5.0(백엔드 PR #21, R-3): 사가·결제 이상 RECONCILIATION·PAYMENT_UNKNOWN — 관리자만 보이고(종류 필터도 관리자만),
 //   사건은 알림·기록, 조치는 처리 대기(/pending)·각 메뉴. refs 에 orderId(주문 화면 링크)·sagaId·paymentAttemptId·resourceId.
+// - 목록은 bff 0.5.0 `GET /backoffice/views/case-inbox`(백엔드 요청 request-case-inbox-linked-state) — case 목록 값 + 연결 배송·주문의 지금 상태(linked).
+//   linked 칸: confidence UNKNOWN → "확인 불가"(장애이거나 그 역할이 못 보는 원천), state null + DIRECT → "원천에 없음". 원천 값은 기존 상태 이름표로만 옮긴다.
+//   unavailableSources 에 case-service 가 있으면 목록 자체를 못 읽은 것 → 오류(빈 목록 아님). size 최대 50 → page.nextCursor 로 다음 쪽(URL cursor).
+//   집기·닫기·상세는 그대로 case-service 직접.
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
@@ -16,13 +20,23 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 import { request } from '@pmart/web-core';
 import { CommandFeedback, QueryState, toUiState, useCommand } from '@pmart/web-ui';
 import { commandParams } from '../../api/command';
+import type { operations as BffOps } from '../../api/generated/backoffice-bff';
 import type { components } from '../../api/generated/case';
 import { useApi } from '../../app/ApiContext';
 import { useSession } from '../../app/SessionContext';
 import { messages as m } from '../../shared/messages';
 import { label, text, when } from '../../shared/ops';
+import { SourceStamps } from '../../shared/SourceStamps';
 
 type Case = components['schemas']['Case'];
+type InboxView = BffOps['getCaseInboxView']['responses'][200]['content']['application/json'];
+type InboxItem = NonNullable<InboxView['items']>[number];
+type Linked = NonNullable<InboxItem['linked']>[number];
+
+const CASE_SOURCE = 'case-service';
+
+/** bff 가 case 목록을 못 읽었으면(unavailableSources 에 case-service) 빈 목록이 아니라 조회 실패 */
+class CaseSourceUnavailable extends Error {}
 type Summary = components['schemas']['CaseSummary'];
 type Resolution = keyof typeof m.cases.resolutionName;
 const RESOLUTIONS = Object.keys(m.cases.resolutionName) as Resolution[];
@@ -60,13 +74,31 @@ const refLink = (refType: string | undefined, refId: string | undefined) => {
   );
 };
 
-function Refs({ c }: { readonly c: Summary }) {
+function Refs({ c }: { readonly c: Pick<Summary, 'refs' | 'subjectRef'> }) {
   const refs = c.refs ?? [];
   if (refs.length === 0) return <span>{text(c.subjectRef)}</span>;
   return <span className="flex flex-wrap gap-x-2">{refs.map((r) => refLink(r.refType, r.refId))}</span>;
 }
 
-function Sla({ c }: { readonly c: Summary }) {
+/** 연결 배송·주문 한 칸 — 원천 값을 기존 상태 이름표로만 옮긴다(합치거나 해석하지 않음) */
+function LinkedState({ l }: { readonly l: Linked }) {
+  const name = l.kind === 'ORDER' ? m.cases.linkedOrder : m.cases.linkedDelivery;
+  const unknown = l.source?.confidence === 'UNKNOWN';
+  const value = unknown ? (
+    <span className="text-warning">{m.cases.linkedUnknown}</span>
+  ) : l.state ? (
+    label(l.kind === 'ORDER' ? m.orders.statusName : m.deliveries.executionState, l.state)
+  ) : (
+    <span className="opacity-70">{m.cases.linkedMissing}</span>
+  );
+  return (
+    <li data-testid="case-linked" data-kind={l.kind} data-id={l.id}>
+      <span className="opacity-70">{name}</span> {value}
+    </li>
+  );
+}
+
+function Sla({ c }: { readonly c: Pick<Summary, 'slaDueAt' | 'overdue'> }) {
   if (!c.slaDueAt) return <span>{m.none}</span>;
   return (
     <span className={c.overdue ? 'font-semibold text-error' : ''} data-overdue={c.overdue ? 'true' : 'false'}>
@@ -84,28 +116,33 @@ export function CaseListPage() {
   const tabParam = params.get('tab');
   const tab: Tab = isTab(tabParam) ? tabParam : 'unassigned';
   const kind = kinds.find((k) => k === params.get('kind'));
-  const setQuery = (next: { tab?: Tab; kind?: Kind | '' }) => {
+  const cursor = params.get('cursor') ?? '';
+  const setQuery = (next: { tab?: Tab; kind?: Kind | ''; cursor?: string }) => {
     const k = next.kind === undefined ? kind : next.kind || undefined;
-    setParams({ tab: next.tab ?? tab, ...(k ? { kind: k } : {}) });
+    setParams({ tab: next.tab ?? tab, ...(k ? { kind: k } : {}), ...(next.cursor ? { cursor: next.cursor } : {}) });
   };
   const query = useQuery({
-    queryKey: ['cases', tab, me, kind ?? ''],
-    queryFn: () =>
-      request(
+    queryKey: ['cases', tab, me, kind ?? '', cursor],
+    queryFn: async (): Promise<InboxView> => {
+      const view = await request(
         'GET',
-        api.cases.GET('/cases', {
+        api.bff.GET('/views/case-inbox', {
           params: {
             query: {
-              size: 100,
+              size: 50,
               ...(kind ? { kind } : {}),
               ...(tab === 'unassigned' ? { unassigned: true } : {}),
-              ...(tab === 'mine' ? { assigneeId: me } : {}),
+              ...(tab === 'mine' ? { assignee: me } : {}),
               ...(tab === 'overdue' ? { overdue: true } : {}),
-              ...(tab === 'closed' ? { state: 'CLOSED' as const } : {}),
+              ...(tab === 'closed' ? { state: 'CLOSED' } : {}),
+              ...(cursor ? { cursor } : {}),
             },
           },
         }),
-      ),
+      );
+      if ((view.unavailableSources ?? []).includes(CASE_SOURCE)) throw new CaseSourceUnavailable(CASE_SOURCE);
+      return view;
+    },
   });
   return (
     <section className="max-w-6xl space-y-4">
@@ -132,6 +169,8 @@ export function CaseListPage() {
       </label>
       <QueryState state={toUiState(query, (r) => (r.items ?? []).length === 0)} onRetry={() => void query.refetch()} emptyText={m.cases.empty}>
         {(r) => (
+          <>
+          <SourceStamps sources={r.sources} unavailableSources={r.unavailableSources} />
           <table className="table table-sm rounded-box bg-base-100">
             <thead>
               <tr>
@@ -139,6 +178,7 @@ export function CaseListPage() {
                 <th>{m.cases.kind}</th>
                 <th>{m.cases.summary}</th>
                 <th>{m.cases.refs}</th>
+                <th>{m.cases.linked}</th>
                 <th>{m.cases.sla}</th>
                 <th>{m.cases.assignee}</th>
                 <th>{m.cases.state}</th>
@@ -157,10 +197,21 @@ export function CaseListPage() {
                     </Link>
                   </td>
                   <td>
-                    <Refs c={c} />
+                    <Refs c={{ subjectRef: c.subjectRef ?? '', refs: (c.linkedRefs ?? []).map((x) => ({ refType: x.kind ?? '', refId: x.id ?? '' })) }} />
                   </td>
                   <td>
-                    <Sla c={c} />
+                    {(c.linked ?? []).length === 0 ? (
+                      <span className="opacity-70">{m.none}</span>
+                    ) : (
+                      <ul className="space-y-0.5 text-xs">
+                        {(c.linked ?? []).map((l) => (
+                          <LinkedState key={`${l.kind ?? ''}:${l.id ?? ''}`} l={l} />
+                        ))}
+                      </ul>
+                    )}
+                  </td>
+                  <td>
+                    <Sla c={{ slaDueAt: c.slaDueAt ?? null, overdue: c.overdue ?? false }} />
                   </td>
                   <td>{c.assigneeId ?? m.cases.unassigned}</td>
                   <td>{label(m.cases.stateName, c.state)}</td>
@@ -168,6 +219,21 @@ export function CaseListPage() {
               ))}
             </tbody>
           </table>
+          {(cursor || r.page?.nextCursor) && (
+            <div className="flex gap-2">
+              {cursor && (
+                <button type="button" className="btn btn-sm" onClick={() => setQuery({})}>
+                  {m.cases.firstPage}
+                </button>
+              )}
+              {r.page?.nextCursor && (
+                <button type="button" className="btn btn-sm" onClick={() => setQuery({ cursor: r.page?.nextCursor ?? '' })}>
+                  {m.cases.nextPage}
+                </button>
+              )}
+            </div>
+          )}
+          </>
         )}
       </QueryState>
     </section>

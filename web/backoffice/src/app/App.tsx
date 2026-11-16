@@ -17,6 +17,7 @@ import { ContentImportPage, NewContentImportPage } from '../features/contents/Co
 import { SkuHandlingPage } from '../features/handlings/SkuHandlingPage';
 import { ClaimDetailPage, ClaimListPage } from '../features/claims/ClaimPages';
 import { PendingPage } from '../features/pending/PendingPage';
+import { PiiAccessLogDetailPage, PiiAccessLogListPage } from '../features/piiAccess/PiiAccessLogPages';
 import { UnifiedLookupPage } from '../features/lookup/UnifiedLookupPage';
 import { LiveDeliveryPage } from '../features/live/LiveDeliveryPage';
 import { CaseDetailPage, CaseListPage, NewMisdeliveryPage } from '../features/cases/CasePages';
@@ -142,6 +143,8 @@ const routes = [
       { path: 'orders', element: guarded(<OrderLookupPage />) },
       { path: 'orders/:orderId', element: guarded(<OrderDetailPage />) },
       { path: 'pending', element: guarded(<PendingPage />) },
+      { path: 'pii-access-logs', element: guarded(<PiiAccessLogListPage />) },
+      { path: 'pii-access-logs/:piiAccessLogId', element: guarded(<PiiAccessLogDetailPage />) },
       { path: 'lookup', element: guarded(<UnifiedLookupPage />) },
       { path: 'live-delivery', element: guarded(<LiveDeliveryPage />) },
       { path: 'cases', element: guarded(<CaseListPage />) },

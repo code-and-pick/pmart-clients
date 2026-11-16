@@ -45,14 +45,29 @@ final class MockReviewsRepository implements ReviewsRepository {
   final createKeys = <String>[];
   final createBodies =
       <
-        ({
-          String orderLineId,
-          int rating,
-          String? text,
-          List<String> photoIds,
-        })
+        ({String orderLineId, int rating, String? text, List<String> photoIds})
       >[];
   final uploadKeys = <String>[];
+
+  /// 다음 수정·삭제에서 던질 실패. [updateFailureApplies]·[deleteFailureApplies] 면 반영한 뒤 응답만 잃은 것처럼 한다.
+  final updateFailures = Queue<PmartFailure>();
+  bool updateFailureApplies = false;
+  final deleteFailures = Queue<PmartFailure>();
+  bool deleteFailureApplies = false;
+
+  final updateKeys = <String>[];
+  final updateBodies =
+      <
+        ({
+          String reviewId,
+          int expectedVersion,
+          int? rating,
+          String? text,
+          List<String>? photoIds,
+        })
+      >[];
+  final deleteKeys = <String>[];
+  final _updatedByKey = <String, String>{};
 
   /// 올린 사진 photoId → 붙은 리뷰(아직 안 붙었으면 null).
   final uploadedPhotos = <String, String?>{};
@@ -291,6 +306,125 @@ final class MockReviewsRepository implements ReviewsRepository {
       );
     }
     return _view(reviewId);
+  }
+
+  @override
+  Future<ReviewView> update(
+    String reviewId, {
+    required int expectedVersion,
+    int? rating,
+    String? text,
+    List<String>? photoIds,
+    required IdempotencyKey key,
+  }) async {
+    calls++;
+    await _wait();
+    updateKeys.add(key.value);
+    updateBodies.add((
+      reviewId: reviewId,
+      expectedVersion: expectedVersion,
+      rating: rating,
+      text: text,
+      photoIds: photoIds,
+    ));
+    ReviewView apply() =>
+        _applyUpdate(reviewId, expectedVersion, rating, text, photoIds, key);
+    if (updateFailures.isNotEmpty) {
+      final f = updateFailures.removeFirst();
+      if (updateFailureApplies) apply();
+      throw f;
+    }
+    return apply();
+  }
+
+  /// 서버 판정을 흉내 낸다(계약 PATCH /reviews/{id}). 같은 키 재전송은 처음 결과를 그대로 준다.
+  ReviewView _applyUpdate(
+    String reviewId,
+    int expectedVersion,
+    int? rating,
+    String? text,
+    List<String>? photoIds,
+    IdempotencyKey key,
+  ) {
+    if (_updatedByKey[key.value] case final id?) return _view(id);
+    final r = reviewJson.where((r) => r['reviewId'] == reviewId).firstOrNull;
+    if (r == null) {
+      throw const ProblemFailure(
+        Problem(status: 404, code: ProblemCode.notFound),
+      );
+    }
+    if (r['state'] != 'PUBLISHED') {
+      throw const ProblemFailure(
+        Problem(status: 409, code: ReviewProblemCode.invalidState),
+      );
+    }
+    if (r['version'] != expectedVersion) {
+      throw const ProblemFailure(
+        Problem(status: 409, code: ReviewProblemCode.versionConflict),
+      );
+    }
+    if (rating == null && text == null && photoIds == null) {
+      throw const ProblemFailure(
+        Problem(status: 400, code: ProblemCode.validationFailed),
+      );
+    }
+    if (photoIds != null &&
+        photoIds.any(
+          (p) =>
+              !uploadedPhotos.containsKey(p) ||
+              (uploadedPhotos[p] != null && uploadedPhotos[p] != reviewId),
+        )) {
+      throw const ProblemFailure(
+        Problem(status: 422, code: ReviewProblemCode.photoNotFound),
+      );
+    }
+    if (rating != null) r['rating'] = rating;
+    if (text != null) r['text'] = text;
+    if (photoIds != null) {
+      // 빠진 사진은 서버가 정리한다.
+      uploadedPhotos.removeWhere(
+        (p, owner) => owner == reviewId && !photoIds.contains(p),
+      );
+      for (final p in photoIds) {
+        uploadedPhotos[p] = reviewId;
+      }
+      r['photos'] = [
+        for (final p in photoIds)
+          {'photoId': p, 'url': '/api/v1/review-photos/$p'},
+      ];
+    }
+    r['version'] = (r['version'] as int) + 1;
+    r['updatedAt'] = '2026-11-16T04:00:00Z';
+    _updatedByKey[key.value] = reviewId;
+    return _view(reviewId);
+  }
+
+  @override
+  Future<void> delete(String reviewId, {required IdempotencyKey key}) async {
+    calls++;
+    await _wait();
+    deleteKeys.add(key.value);
+    void apply() {
+      final r = reviewJson.where((r) => r['reviewId'] == reviewId).firstOrNull;
+      if (r == null) {
+        throw const ProblemFailure(
+          Problem(status: 404, code: ProblemCode.notFound),
+        );
+      }
+      // 이미 삭제여도 성공(멱등).
+      r['state'] = 'DELETED';
+      for (final e in eligibilityJson) {
+        if (e['reviewId'] == reviewId) e['state'] = 'DELETED';
+      }
+      uploadedPhotos.removeWhere((_, owner) => owner == reviewId);
+    }
+
+    if (deleteFailures.isNotEmpty) {
+      final f = deleteFailures.removeFirst();
+      if (deleteFailureApplies) apply();
+      throw f;
+    }
+    apply();
   }
 
   @override
