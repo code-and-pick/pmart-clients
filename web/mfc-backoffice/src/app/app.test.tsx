@@ -156,12 +156,12 @@ describe('역할', () => {
 });
 
 describe('메뉴', () => {
-  it('묶음 4개 · 하위 메뉴 9개가 모두 보이고 센터 주소 아래로 간다', async () => {
+  it('묶음 5개 · 하위 메뉴 11개가 모두 보이고 센터 주소 아래로 간다', async () => {
     renderAt('/');
     await screen.findByRole('heading', { name: '작업자' });
-    for (const group of ['인력', '작업', '재고·품질', '센터']) expect(screen.getByText(group, { selector: 'summary' })).toBeInTheDocument();
-    expect(allMenus).toHaveLength(9);
-    for (const label of ['작업자', '배정', '작업 현황', '이동·보충', '입고', '재고', '품질', '위치(칸)', '운영 제한']) {
+    for (const group of ['인력', '작업', '배송', '재고·품질', '센터']) expect(screen.getByText(group, { selector: 'summary' })).toBeInTheDocument();
+    expect(allMenus).toHaveLength(11);
+    for (const label of ['작업자', '배정', '작업 현황', '이동·보충', '입고', '재고', '품질', '위치(칸)', '운영 제한', '배송 현황', '배차 실패']) {
       expect(screen.getByRole('link', { name: label }).getAttribute('href')).toMatch(/^\/c\/MFC-BSN-01\//);
     }
   });

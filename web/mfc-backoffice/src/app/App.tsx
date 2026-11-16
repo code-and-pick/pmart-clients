@@ -5,6 +5,7 @@ import { createBrowserRouter, createMemoryRouter, Link, Navigate, NavLink, Outle
 
 import { env } from '../env';
 import { CenterSwitcher } from '../features/centers/centers';
+import { CenterDeliveriesMenu, DispatchFailuresMenu } from '../features/delivery/CenterDeliveryPages';
 import { LocationsMenu } from '../features/locations/LocationPages';
 import { MovesMenu } from '../features/moves/MovePages';
 import { PreparingPage } from '../features/menus/PreparingPage';
@@ -106,6 +107,8 @@ function CenterScope({ menu }: { readonly menu: MenuItem }) {
 const menuPages: Partial<Record<MenuKey, ComponentType<{ readonly mfcId: string }>>> = {
   locations: LocationsMenu,
   moves: MovesMenu,
+  deliveries: CenterDeliveriesMenu,
+  dispatchFailures: DispatchFailuresMenu,
 };
 
 function MenuPage({ menu, mfcId }: { readonly menu: MenuItem; readonly mfcId: string }) {

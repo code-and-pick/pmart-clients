@@ -3,6 +3,8 @@ import createClient from 'openapi-fetch';
 import { createPmartFetch, TokenStore, type EmployeeAuthPaths, type PmartFetch } from '@pmart/web-core';
 import { SOURCE_SYSTEM } from './command';
 import { refreshEmployeeTokens } from './employeeAuth';
+import type { paths as BffPaths } from './generated/backoffice-bff';
+import type { paths as CasePaths } from './generated/case';
 import type { paths as CenterPaths } from './generated/center-master';
 import type { paths as CapacityPaths } from './generated/mfc-capacity';
 import type { paths as FulfillmentPaths } from './generated/mfc-fulfillment';
@@ -30,6 +32,9 @@ export function createApi(pmartFetch: PmartFetch, baseUrl = API_BASE) {
     inventory: createClient<InventoryPaths>(options),
     location: createClient<LocationPaths>(options),
     quality: createClient<QualityPaths>(options),
+    // 우리 센터 배송 현황(bff 0.3.1 live-delivery — 계약 servers.url /api/v1/backoffice)·배차 실패 사건(case 0.5.2)
+    bff: createClient<BffPaths>({ ...options, baseUrl: `${baseUrl}/backoffice` }),
+    cases: createClient<CasePaths>(options),
   };
 }
 
