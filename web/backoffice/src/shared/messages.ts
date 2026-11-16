@@ -70,7 +70,7 @@ export const messages = {
     mockNote: (br: string) => `목 데이터(계약 전 — ${br}). 실제 서버 모양과 다를 수 있어요.`,
   },
 
-  /** 사건함(case 0.4.0, 백엔드 요청 backoffice/2026-11-16-request-case-inbox-and-pending-work §1) — RIDER_OPS·OPERATOR_ADMIN, CS_AGENT 는 보기 + 오배송 열기 */
+  /** 사건함(case 0.4.0, 백엔드 요청 backoffice/2026-11-16-request-case-inbox-and-pending-work §1) — RIDER_OPS·OPERATOR_ADMIN, CS_AGENT 는 보기 + 오배송 열기. 0.5.0 사가·결제 이상은 관리자만 */
   cases: {
     title: '지원센터 사건',
     intro: '유형별 팀이 공용 목록에서 사건을 집어 가요. 긴급(P1)·기한 이른 것이 먼저예요. 처리 기한은 표시만 해요(알림 없음).',
@@ -81,11 +81,29 @@ export const messages = {
     anyKind: '전체 종류',
     helpRequest: '라이더 도움요청 내용',
     helpDetail: '라이더가 쓴 내용',
-    kindName: { RIDER_HELP: '라이더 도움요청', DELIVERY_INCIDENT: '전달 실패', RIDER_LOCATION_STALE: '위치 끊김', MISDELIVERY: '오배송' } as Readonly<Record<string, string>>,
+    kindName: {
+      RIDER_HELP: '라이더 도움요청',
+      DELIVERY_INCIDENT: '전달 실패',
+      RIDER_LOCATION_STALE: '위치 끊김',
+      MISDELIVERY: '오배송',
+      RECONCILIATION: '대사 필요',
+      PAYMENT_UNKNOWN: '결제 결과 불명',
+    } as Readonly<Record<string, string>>,
+    /** case 0.5.0 사가·결제 이상(관리자만) — 사건은 알림·기록, 조치는 처리 대기 */
+    orderNote: '대사 필요·결제 결과 불명은 본사 관리자만 봐요. 사건은 알림·기록이고, 조치는 처리 대기와 각 메뉴(환불·재고 정정)에서 해요.',
+    orderAction: '처리 대기에서 조치하기',
     priority: '우선순위',
     summary: '요약',
     refs: '관련',
-    refName: { deliveryId: '배송', orderId: '주문', riderId: '라이더', incidentId: '사고' } as Readonly<Record<string, string>>,
+    refName: {
+      deliveryId: '배송',
+      orderId: '주문',
+      riderId: '라이더',
+      incidentId: '사고',
+      sagaId: '주문 처리',
+      paymentAttemptId: '결제 시도',
+      resourceId: '보상 자원',
+    } as Readonly<Record<string, string>>,
     sla: '처리 기한',
     overdue: '기한 넘김',
     assignee: '담당',

@@ -6,6 +6,8 @@
 // - 오배송 열기 `POST /cases` {kind: MISDELIVERY, subjectType: DELIVERY, subjectRef: deliveryId, summary, evidence?} → 201 → 상세. 409 CASE_ALREADY_OPEN.
 // - 역할: 집기·닫기 버튼은 RIDER_OPS·OPERATOR_ADMIN 에게만(CS_AGENT 는 보기). 다른 사람이 집은 사건 닫기는 관리자만. 판정은 서버.
 // - 요약·근거에 고객 주소·연락처 원문을 적지 않게 안내한다.
+// - case 0.5.0(백엔드 PR #21, R-3): 사가·결제 이상 RECONCILIATION·PAYMENT_UNKNOWN — 관리자만 보이고(종류 필터도 관리자만),
+//   사건은 알림·기록, 조치는 처리 대기(/pending)·각 메뉴. refs 에 orderId(주문 화면 링크)·sagaId·paymentAttemptId·resourceId.
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
@@ -24,8 +26,11 @@ type Summary = components['schemas']['CaseSummary'];
 type Resolution = keyof typeof m.cases.resolutionName;
 const RESOLUTIONS = Object.keys(m.cases.resolutionName) as Resolution[];
 type Kind = components['schemas']['CaseKind'];
-/** 사건함이 보이는 종류(0.4.0 — 배송 쪽 넷) */
-const KINDS: readonly Kind[] = ['RIDER_HELP', 'DELIVERY_INCIDENT', 'RIDER_LOCATION_STALE', 'MISDELIVERY'];
+/** 배송 쪽 넷(0.4.0 — RIDER_OPS·CS_AGENT·관리자) */
+const DELIVERY_KINDS: readonly Kind[] = ['RIDER_HELP', 'DELIVERY_INCIDENT', 'RIDER_LOCATION_STALE', 'MISDELIVERY'];
+/** 사가·결제 이상(0.5.0 — 관리자만) */
+const ORDER_KINDS: readonly Kind[] = ['RECONCILIATION', 'PAYMENT_UNKNOWN'];
+const isOrderKind = (k: Kind | undefined) => k !== undefined && ORDER_KINDS.includes(k);
 type Tab = keyof typeof m.cases.tabs;
 const TABS = Object.keys(m.cases.tabs) as Tab[];
 const isTab = (v: string | null): v is Tab => TABS.some((t) => t === v);
@@ -72,11 +77,12 @@ function Sla({ c }: { readonly c: Summary }) {
 
 export function CaseListPage() {
   const api = useApi();
-  const { me } = useCaseRoles();
+  const { me, admin } = useCaseRoles();
+  const kinds = admin ? [...DELIVERY_KINDS, ...ORDER_KINDS] : DELIVERY_KINDS;
   const [params, setParams] = useSearchParams();
   const tabParam = params.get('tab');
   const tab: Tab = isTab(tabParam) ? tabParam : 'unassigned';
-  const kind = KINDS.find((k) => k === params.get('kind'));
+  const kind = kinds.find((k) => k === params.get('kind'));
   const setQuery = (next: { tab?: Tab; kind?: Kind | '' }) => {
     const k = next.kind === undefined ? kind : next.kind || undefined;
     setParams({ tab: next.tab ?? tab, ...(k ? { kind: k } : {}) });
@@ -104,6 +110,7 @@ export function CaseListPage() {
     <section className="max-w-6xl space-y-4">
       <h1 className="text-xl font-bold">{m.cases.title}</h1>
       <p className="text-sm opacity-70">{m.cases.intro}</p>
+      {admin && <p className="text-sm opacity-70">{m.cases.orderNote}</p>}
       <div role="tablist" className="tabs tabs-box w-fit">
         {TABS.map((t) => (
           <button key={t} type="button" role="tab" aria-selected={t === tab} className={`tab ${t === tab ? 'tab-active' : ''}`} onClick={() => setQuery({ tab: t })}>
@@ -113,9 +120,9 @@ export function CaseListPage() {
       </div>
       <label className="flex w-fit items-center gap-2 text-sm">
         {m.cases.kind}
-        <select className="select select-sm" value={kind ?? ''} onChange={(e) => setQuery({ kind: KINDS.find((k) => k === e.target.value) ?? '' })}>
+        <select className="select select-sm" value={kind ?? ''} onChange={(e) => setQuery({ kind: kinds.find((k) => k === e.target.value) ?? '' })}>
           <option value="">{m.cases.anyKind}</option>
-          {KINDS.map((k) => (
+          {kinds.map((k) => (
             <option key={k} value={k}>
               {label(m.cases.kindName, k)}
             </option>
@@ -346,6 +353,15 @@ export function CaseDetailPage() {
               </dl>
 
               {(c.kind === 'RIDER_HELP' || c.kind === 'DELIVERY_INCIDENT') && <HelpRequestOfCase c={c} />}
+
+              {isOrderKind(c.kind) && (
+                <div className="space-y-1 rounded-box bg-base-100 p-3 text-sm" data-testid="case-order-note">
+                  <p className="opacity-70">{m.cases.orderNote}</p>
+                  <Link className="link" to="/pending">
+                    {m.cases.orderAction}
+                  </Link>
+                </div>
+              )}
 
               {!admin && !team && <p className="text-sm opacity-70">{m.cases.viewOnly}</p>}
               {!closed && <AssignForm c={c} onDone={onDone} />}

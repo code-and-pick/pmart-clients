@@ -1,5 +1,5 @@
 // ⚠ 화면 개발·시험용 목 — 사건함(case 0.4.0, 백엔드 요청 backoffice/2026-11-16-request-case-inbox-and-pending-work §1). 실제 서버 동작이 아니다.
-// 규칙(계약 설명 그대로 흉내): OPERATOR_ADMIN 은 모든 사건, RIDER_OPS·CS_AGENT 는 배송 쪽 사건만(CS_AGENT 는 보기 + 오배송 열기만).
+// 규칙(계약 설명 그대로 흉내): OPERATOR_ADMIN 은 모든 사건(0.5.0 사가·결제 이상 포함), RIDER_OPS·CS_AGENT 는 배송 쪽 사건만(CS_AGENT 는 보기 + 오배송 열기만).
 // 집기: 팀 직원은 자기 자신으로만·아무도 안 집은 것만(다른 사람이 집었으면 409), 관리자는 누구에게나. 닫기: 배송 팀(RIDER_OPS)·관리자, 다른 사람이 집은 것은 관리자만.
 // 직원이 여는 종류는 MISDELIVERY 하나(그 밖 422 UNSUPPORTED_KIND), 같은 배송의 열린 오배송이 있으면 409 CASE_ALREADY_OPEN.
 import { http, HttpResponse } from 'msw';
@@ -76,6 +76,18 @@ function seed(): Case[] {
       refs: [{ refType: 'deliveryId', refId: 'DLV-MOCK-4' }, { refType: 'orderId', refId: 'ORD-MOCK-1003' }],
       state: 'CLOSED',
       closure: { closedAt: at(-1), closedBy: 'op-admin-1', resolution: 'RESOLVED', summary: '[목] 회수 배차 완료' },
+    }),
+    // case 0.5.0(R-3) 사가·결제 이상 — 관리자만 보인다(sees). 서버 모양: 팀 ORDER_OPS, 기한 1시간, refs 만
+    base({
+      caseId: 'CASE-MOCK-5',
+      kind: 'RECONCILIATION',
+      priority: 'P2',
+      summary: '[목] 보상 해제 실패 — INVENTORY_RESERVATION',
+      subjectType: 'ORDER',
+      subjectRef: 'ORD-MOCK-1004',
+      assigneeGroup: 'ORDER_OPS',
+      refs: [{ refType: 'orderId', refId: 'ORD-MOCK-1004' }, { refType: 'sagaId', refId: 'SAGA-MOCK-1' }, { refType: 'resourceId', refId: 'RSV-MOCK-1' }],
+      slaDueAt: at(0.5),
     }),
   ];
 }
