@@ -8,6 +8,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart' show ProviderScope;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:pmart_ui/pmart_ui.dart';
@@ -217,6 +218,40 @@ void main() {
     await shot('review-write-photos-ok');
     await t.tap(find.byKey(const ValueKey('review-close')));
     await t.pumpAndSettle();
+    // 내가 쓴 리뷰 → 리뷰 하나(수정·삭제, 백엔드 요청 2026-11-16 review-edit-delete).
+    await t.tap(find.byKey(const ValueKey('review-tab-mine')));
+    await t.pumpAndSettle();
+    await shot('review-mine');
+    await t.tap(find.byKey(const ValueKey('review-mine-open-rv-mine-1')));
+    await t.pumpAndSettle();
+    await shot('review-mine-detail');
+    await t.tap(find.byKey(const ValueKey('review-edit')));
+    await t.pumpAndSettle();
+    await shot('review-edit');
+    await t.tap(find.byKey(const ValueKey('review-star-3')));
+    await t.pumpAndSettle();
+    await shot('review-edit-changed');
+    await t.tap(find.byKey(const ValueKey('review-edit-close')));
+    await t.pumpAndSettle();
+    await t.tap(find.byKey(const ValueKey('review-delete')));
+    await t.pumpAndSettle();
+    await shot('review-delete-confirm');
+    await t.tap(find.byKey(const ValueKey('review-delete-cancel')));
+    await t.pumpAndSettle();
+    // 등록 후 3일이 지난 리뷰(서버 LOCKED).
+    reviews.reviewJson.firstWhere((r) => r['reviewId'] == 'rv-mine-1')['state'] =
+        'LOCKED';
+    ProviderScope.containerOf(
+      t.element(find.byType(Scaffold).first),
+    ).invalidate(reviewProvider('rv-mine-1'));
+    await go('/reviews');
+    await t.tap(find.byKey(const ValueKey('review-tab-mine')));
+    await t.pumpAndSettle();
+    await t.tap(find.byKey(const ValueKey('review-mine-open-rv-mine-1')));
+    await t.pumpAndSettle();
+    await shot('review-mine-locked');
+    reviews.reviewJson.firstWhere((r) => r['reviewId'] == 'rv-mine-1')['state'] =
+        'PUBLISHED';
     await go('/addresses/new');
     await shot('address-new');
     await go('/notifications/settings');

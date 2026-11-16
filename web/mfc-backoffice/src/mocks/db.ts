@@ -1,9 +1,91 @@
 // 목 서버 상태(메모리). 테스트마다 resetDb() 로 되돌린다.
+import type { components as CapacitySchemas } from '../api/generated/mfc-capacity';
 import type { components as InboundSchemas } from '../api/generated/mfc-inbound';
 import type { components as InventorySchemas } from '../api/generated/mfc-inventory';
 import type { components as LocationSchemas } from '../api/generated/mfc-location';
 
 type Location = LocationSchemas['schemas']['Location'];
+
+type Cap = CapacitySchemas['schemas'];
+export type TaskType = Cap['TaskType'];
+
+/** 작업자 — 계정(workerId)·업무 이력·자격·상태 이력(목은 정본 값만 들고, 유효 업무·업무 묶음은 핸들러가 계산) */
+export interface MockWorker {
+  readonly mfcId: string;
+  readonly workerId: string;
+  readonly displayName: string;
+  readonly employmentType: Cap['EmploymentType'];
+  readonly state: Cap['WorkerState'];
+  /** 새 버전부터 */
+  readonly duties: ReadonlyArray<Required<Pick<Cap['WorkerDuty'], 'dutyVersion' | 'taskTypes' | 'changedBy' | 'changedAt'>> & { readonly reason: string | null }>;
+  readonly qualification: { readonly qualificationVersion: number; readonly taskTypes: readonly TaskType[]; readonly expiresAt: string | null; readonly changedBy: string; readonly changedAt: string };
+  readonly stateHistory: ReadonlyArray<{ fromState: string | null; toState: string; reason: string | null; changedBy: string; changedAt: string }>;
+  readonly speedFactor: number;
+  readonly onBreak: boolean;
+  /** 일일크루 오늘 출근 등록(목은 날짜 하나만 본다) */
+  readonly enrolledToday: boolean;
+  readonly registeredBy: string;
+  readonly registeredAt: string;
+}
+
+export type MockShift = Required<Cap['WorkerShift']>;
+export type MockAssignment = Pick<Required<Cap['Assignment']>, 'assignmentId' | 'mfcId' | 'taskId' | 'taskType' | 'workerId' | 'assignmentVersion' | 'state' | 'assignedAt'>;
+
+function worker(workerId: string, displayName: string, extra: Partial<MockWorker> & { taskTypes?: readonly TaskType[] } = {}): [string, MockWorker] {
+  const taskTypes = extra.taskTypes ?? ['PICK', 'PACK'];
+  const at = '2026-11-10T00:00:00.000Z';
+  return [
+    `${extra.mfcId ?? 'MFC-BSN-01'}/${workerId}`,
+    {
+      mfcId: 'MFC-BSN-01',
+      workerId,
+      displayName,
+      employmentType: 'REGULAR',
+      state: 'ACTIVE',
+      duties: [{ dutyVersion: 1, taskTypes: [...taskTypes], changedBy: 'OP-sup-1', changedAt: at, reason: null }],
+      qualification: { qualificationVersion: 1, taskTypes, expiresAt: null, changedBy: 'OP-sup-1', changedAt: at },
+      stateHistory: [{ fromState: null, toState: 'ACTIVE', reason: null, changedBy: 'OP-sup-1', changedAt: at }],
+      speedFactor: 1,
+      onBreak: false,
+      enrolledToday: false,
+      registeredBy: 'OP-sup-1',
+      registeredAt: at,
+      ...extra,
+    },
+  ];
+}
+
+/** 목 작업자: MFC-BSN-01 에 정규직(자격이 업무보다 넓음)·알바(휴게 중)·일일크루(출근 전)·정지·퇴사, MFC-SEL-01 에 1명 */
+function seedWorkers(): Array<[string, MockWorker]> {
+  return [
+    worker('OP-wkr-1', '김현장', {
+      qualification: { qualificationVersion: 2, taskTypes: ['PICK', 'PACK', 'MOVE', 'PUTAWAY'], expiresAt: null, changedBy: 'OP-sup-1', changedAt: '2026-11-12T00:00:00.000Z' },
+    }),
+    worker('OP-wkr-2', '이알바', { employmentType: 'PART_TIME', taskTypes: ['PICK'], onBreak: true, speedFactor: 0.8 }),
+    worker('OP-day-1', '박일일', { employmentType: 'DAILY' }),
+    worker('OP-wkr-3', '최정지', {
+      state: 'SUSPENDED',
+      stateHistory: [
+        { fromState: 'ACTIVE', toState: 'SUSPENDED', reason: '교육 기간', changedBy: 'OP-sup-1', changedAt: '2026-11-14T00:00:00.000Z' },
+        { fromState: null, toState: 'ACTIVE', reason: null, changedBy: 'OP-sup-1', changedAt: '2026-11-10T00:00:00.000Z' },
+      ],
+    }),
+    worker('OP-wkr-9', '정퇴사', { state: 'LEFT' }),
+    worker('OP-wkr-5', '송파작업자', { mfcId: 'MFC-SEL-01' }),
+  ];
+}
+
+function seedShifts(): Array<[string, MockShift]> {
+  return [
+    ['SHIFT-1', { shiftId: 'SHIFT-1', mfcId: 'MFC-BSN-01', workerId: 'OP-wkr-1', startAt: '2026-11-17T00:00:00.000Z', endAt: '2026-11-17T09:00:00.000Z', state: 'PLANNED', note: '오전 근무', createdBy: 'OP-sup-1', cancelReason: null }],
+  ];
+}
+
+function seedAssignments(): MockAssignment[] {
+  return [
+    { assignmentId: 'ASG-1', mfcId: 'MFC-BSN-01', taskId: 'TASK-PICK-1', taskType: 'PICK', workerId: 'OP-wkr-1', assignmentVersion: 1, state: 'ACTIVE', assignedAt: '2026-11-16T00:30:00.000Z' },
+  ];
+}
 
 /** 재고 이동 지시 — 계약 MoveOrder(목은 모든 칸을 채운다) */
 export type MockMove = Required<InboundSchemas['schemas']['MoveOrder']>;
@@ -158,6 +240,10 @@ function seedGrants(): Array<[string, MockGrant]> {
 }
 
 export const db = {
+  /** 키 = `${mfcId}/${workerId}` */
+  workers: new Map<string, MockWorker>(),
+  shifts: new Map<string, MockShift>(),
+  assignments: [] as MockAssignment[],
   moves: new Map<string, MockMove>(),
   stockUnits: [] as MockStockUnit[],
   locations: new Map<string, MockLocation>(),
@@ -180,6 +266,9 @@ export function resetDb(): void {
   db.locationStateChanges = new Map();
   db.moves = new Map(seedMoves());
   db.stockUnits = seedStock();
+  db.workers = new Map(seedWorkers());
+  db.shifts = new Map(seedShifts());
+  db.assignments = seedAssignments();
 }
 
 resetDb();

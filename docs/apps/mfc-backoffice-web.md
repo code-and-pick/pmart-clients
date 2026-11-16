@@ -6,7 +6,7 @@
 - 근거: 백엔드 요청 `../pmart-backend/docs/handoff/clients/mfc-backoffice/2026-11-15-request-mfc-backoffice.md`. 메뉴·API 정본은 `pmart-backend/docs/architecture/backoffice-role-menus.md` §3, 계약 `contracts/openapi/mfc-*.yaml`.
 - 기본 백오피스(`web/backoffice`)에는 MFC 메뉴를 넣지 않는다(백엔드 요청 2026-11-15 cs-rider-menus §0).
 - 상태(2026-11-15): **기반만**(앱 뼈대·로그인·센터 고르기·메뉴 자리). 메뉴 화면은 모두 "준비 중". 목 모드로 확인, LAN 배포·실서버 확인은 아직.
-- 2026-11-16(PC 2): **위치(칸)**(§4-1)·**이동·보충**(§4-2) 화면. 나머지 메뉴는 "준비 중". 목 모드만 확인.
+- 2026-11-16(PC 2): **위치(칸)**(§4-1)·**이동·보충**(§4-2)·**작업자**(§4-3) 화면. 나머지 메뉴는 "준비 중". 목 모드만 확인.
 
 ## 1. 앱과 로그인
 
@@ -33,7 +33,7 @@
 
 | 묶음 | 메뉴 | 경로 | 화면 | 서버 API 가 아직 없는 것(백엔드 §2-1) |
 |---|---|---|---|---|
-| 인력 | 작업자 | `workers` | 준비 중 | — |
+| 인력 | 작업자 | `workers` | **됨**(§4-3) | — |
 |  | 배정 | `assignments` | 준비 중 | 배정 추천 계획 목록 |
 | 작업 | 작업 현황 | `tasks` | 준비 중 | 확인 필요 포장 목록·확인(지금은 작업자만 — 백엔드 결정 대기) |
 |  | 이동·보충 | `moves` | **됨**(§4-2) | — |
@@ -70,9 +70,26 @@
 | 취소 | `POST /move-orders/{id}/cancellations` {reason} | 진행 중(ACTIVE)에만. 사유 필수. 서버가 돌려준 상태로 문구(CANCELLED = 취소, CANCEL_PENDING = 카트 되돌려 놓으면 끝남) |
 - 집어 올리기·내려놓기는 현장(PDA) 일 — 이 화면에 없다.
 
+### 4-3. 작업자 — mfc-capacity-service 0.14.0 `/mfcs/{mfcId}/workers*` (`features/workers/WorkerPages.tsx`)
+| 화면·동작 | API | 규칙 |
+|---|---|---|
+| 목록 `workers` | `GET …/workers?state=` | 비우면 서버 기본(재직·정지). 지금 배정 조건(effectiveTaskTypes)·휴게·오늘 출근(일일크루)·속도는 서버 값을 보이기만 |
+| 등록 `workers/new` | `POST …/workers` | workerId = 직원 계정 운영자 ID(직접 입력 — 서버는 계정 존재를 확인하지 않고 기록만). 업무 필수, 자격은 "따로 정하기"일 때만 보낸다(생략 = 서버 기본). 409 `WORKER_ALREADY_REGISTERED`, 422 `DUTY_OUTSIDE_QUALIFICATION` |
+| 상세 `workers/<workerId>` | `GET …/workers/{id}` | 업무·자격(버전·만료)·PDA 업무 묶음·업무 이력·상태 이력 |
+| 업무 바꾸기 | `POST …/duty-changes` + `X-Expected-Version` = dutyVersion | 사유 필수. 응답 `changed=false` 면 "바뀐 것 없음". `affectedAssignments`(맞지 않게 된 진행 중 배정)를 경고로 — 지우지 않음 |
+| 자격 바꾸기 | `POST …/qualification-changes` + `X-Expected-Version` = qualificationVersion | 만료는 선택(한국 시간 입력 → +09:00) |
+| 상태 바꾸기 | `POST …/state-changes` | 재직·정지·퇴사, 사유 필수, `affectedAssignments` 경고. 로그인·센터 권한은 인사팀 소관(안내만) |
+| 속도 배율 | `POST …/speed-changes` | 0.5~2.0 밖이면 보내지 않음, 사유 필수 |
+| 휴게 | `POST …/breaks`, `…/breaks/current/end` | 지금 휴게 여부로 단추 하나 |
+| 일일크루 오늘 출근 | `POST …/day-enrollments` 본문 `{}` | 일일크루이고 아직 출근 전일 때만. 날짜를 보내지 않는다(생략 = 오늘, 서버가 정함) |
+| 근무 일정 | `GET/POST …/shifts`, `POST …/shifts/{id}/cancellations` | 시각 입력은 한국 시간으로 `…+09:00` 을 붙여 보낸다. 16시간·겹침(409 `SHIFT_OVERLAP`)은 서버 판정. 취소는 사유 필수 |
+- 바꾼 뒤 완료 문구·맞지 않는 배정은 상세 화면 위에(양식은 새 버전으로 다시 그려진다).
+- 다음 작업 받기(`next-tasks`)는 PDA 전용 — 넣지 않는다.
+
 ## 5. 목 모드
 - 목 계정: 센터 관리자(MFC 1곳 `MFC-BSN-01`), 센터 관리자(MFC 2곳 `MFC-BSN-01`·`MFC-SEL-01`), 현장 작업자, 운영 관리자(센터 없음). `src/mocks/db.ts`.
-- 목 핸들러: 로그인(employee-auth — 세션 응답에 목 센터 이름), 위치(`mocks/locationHandlers.ts` — 센터 권한·코드 중복·문법·버전·폐지 조건), 이동(`mocks/moveHandlers.ts` — 관리자만 지시·취소, 카테고리 칸 거절, 재고·적치 후보). 메뉴 화면을 만들 때 그 계약의 목을 더한다.
+- 목 핸들러: 로그인(employee-auth — 세션 응답에 목 센터 이름), 위치(`mocks/locationHandlers.ts` — 센터 권한·코드 중복·문법·버전·폐지 조건), 이동(`mocks/moveHandlers.ts` — 관리자만 지시·취소, 카테고리 칸 거절, 재고·적치 후보), 작업자(`mocks/workerHandlers.ts` — 관리자만 바꾸기(휴게·출근은 본인도), 버전·중복·자격 밖 업무·근무 겹침·맞지 않는 배정). 메뉴 화면을 만들 때 그 계약의 목을 더한다.
 - 목 이동: 진행 중 2(긴급 재배치·자동 보충), 카트 정리 대기 1, 끝남 1(+ 다른 센터 1). 목 재고는 `SKU-MILK-1` 세 줄(하나는 격리).
+- 목 작업자(`MFC-BSN-01`): 김현장(정규직, 자격이 업무보다 넓음, 진행 중 피킹 배정 1·근무 1), 이알바(알바, 휴게 중), 박일일(일일크루, 출근 전), 최정지(정지), 정퇴사(퇴사).
 - 목 위치: `MFC-BSN-01` 에 사용 중 3·닫힘 2(하나는 재고가 남아 폐지 거절)·폐지 1, `MFC-SEL-01` 에 1.
 - 목 모드는 새로고침하면 목 서버 기억이 지워져 다시 로그인해야 한다(화면 안 링크로 옮겨 다닌다).

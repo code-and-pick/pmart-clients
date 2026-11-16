@@ -35,6 +35,20 @@ abstract interface class ReviewsRepository {
   /// `GET /reviews/{reviewId}`.
   Future<ReviewView> get(String reviewId);
 
+  /// `PATCH /reviews/{reviewId}`(`X-Expected-Version`). 바꿀 것만 보낸다 — null 은 빼고 보낸다.
+  /// [photoIds] 를 보내면 그 목록으로 바뀐다(사진을 그대로 두려면 null).
+  Future<ReviewView> update(
+    String reviewId, {
+    required int expectedVersion,
+    int? rating,
+    String? text,
+    List<String>? photoIds,
+    required IdempotencyKey key,
+  });
+
+  /// `DELETE /reviews/{reviewId}`. 204(이미 삭제여도 204 — 멱등). 삭제 뒤 같은 품목은 다시 쓸 수 없다.
+  Future<void> delete(String reviewId, {required IdempotencyKey key});
+
   /// `GET /products/{productId}/reviews`(최신 순).
   Future<ProductReviewPage> productReviews(String productId, {String? cursor});
 }
@@ -129,6 +143,46 @@ final class ApiReviewsRepository implements ReviewsRepository {
   }
 
   @override
+  Future<ReviewView> update(
+    String reviewId, {
+    required int expectedVersion,
+    int? rating,
+    String? text,
+    List<String>? photoIds,
+    required IdempotencyKey key,
+  }) async {
+    final res = await pmartGuard(
+      () => _reviews.updateReview(
+        reviewId: reviewId,
+        idempotencyKey: key.value,
+        xSourceSystem: sourceSystem,
+        xExpectedVersion: expectedVersion,
+        updateReviewRequest: api.UpdateReviewRequest(
+          rating: rating,
+          text: text,
+          photoIds: photoIds,
+        ),
+        extra: commandOptions(key, expectedVersion: expectedVersion).extra,
+      ),
+    );
+    return reviewFromContract(
+      res.data ?? (throw UnknownResultFailure(requestId: key.value)),
+    );
+  }
+
+  @override
+  Future<void> delete(String reviewId, {required IdempotencyKey key}) async {
+    await pmartGuard(
+      () => _reviews.deleteReview(
+        reviewId: reviewId,
+        idempotencyKey: key.value,
+        xSourceSystem: sourceSystem,
+        extra: commandOptions(key).extra,
+      ),
+    );
+  }
+
+  @override
   Future<ProductReviewPage> productReviews(
     String productId, {
     String? cursor,
@@ -185,8 +239,10 @@ ReviewView reviewFromContract(api.Review r) => ReviewView(
   authorMasked: r.authorMasked,
   rating: r.rating,
   text: r.text,
-  photoUrls: [
-    for (final p in r.photos ?? const <api.ReviewPhotosInner>[]) ?p.url,
+  photos: [
+    for (final p in r.photos ?? const <api.ReviewPhotosInner>[])
+      // photoId 가 없으면 수정 때 쓸 수 없다. 추측해 채우지 않고 뺀다.
+      if (p.photoId case final id?) ReviewPhotoRef(photoId: id, url: p.url),
   ],
   state: reviewStateFromWire(r.state.value),
   version: r.version,
