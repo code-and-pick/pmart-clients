@@ -13,11 +13,16 @@
 //   linked 칸: confidence UNKNOWN → "확인 불가"(장애이거나 그 역할이 못 보는 원천), state null + DIRECT → "원천에 없음". 원천 값은 기존 상태 이름표로만 옮긴다.
 //   unavailableSources 에 case-service 가 있으면 목록 자체를 못 읽은 것 → 오류(빈 목록 아님). size 최대 50 → page.nextCursor 로 다음 쪽(URL cursor).
 //   집기·닫기·상세는 그대로 case-service 직접.
+// - case 0.6.0 다시 열기 `POST /cases/{id}/reopenings` {reason} — 닫힌 사건, 닫기와 같은 사람(배송 쪽 = 지원센터·관리자, 관리자 팀 사건 = 관리자).
+//   REOPENED 는 열린 사건. 409 CASE_ALREADY_OPEN = 같은 일로 열린 사건이 있음 → 통합 조회로 그 대상의 사건을 찾게 안내. refs previousCaseId → "이전 사건" 링크.
+// - case 0.7.0 넘기기 `POST /cases/{id}/transfers` {toGroup, reason} — 배송 쪽 사건만 지원센터(DELIVERY_OPS) ↔ 관리자 팀(ORDER_OPS). 담당 비움·기한 그대로.
+//   관리자 팀으로 간 배송 쪽 사건은 지원센터·상담원이 보기만 — 목록·상세에 "관리자 처리 중"(해결된 것처럼 보이지 않게, 업무 원문 §5.3).
+//   버튼은 할 수 있어 보일 때만(판정은 서버 — 403·409·422 는 코드 문구).
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState, type FormEvent } from 'react';
+import { useState, type FormEvent, type ReactNode } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 
-import { request } from '@pmart/web-core';
+import { ProblemFailure, request } from '@pmart/web-core';
 import { CommandFeedback, QueryState, toUiState, useCommand } from '@pmart/web-ui';
 import { commandParams } from '../../api/command';
 import type { operations as BffOps } from '../../api/generated/backoffice-bff';
@@ -27,6 +32,8 @@ import { useSession } from '../../app/SessionContext';
 import { messages as m } from '../../shared/messages';
 import { label, text, when } from '../../shared/ops';
 import { SourceStamps } from '../../shared/SourceStamps';
+import { CaseNotes } from './CaseNotes';
+import { FollowUps, isOpenObligation } from './FollowUps';
 
 type Case = components['schemas']['Case'];
 type InboxView = BffOps['getCaseInboxView']['responses'][200]['content']['application/json'];
@@ -46,6 +53,9 @@ const DELIVERY_KINDS: readonly Kind[] = ['RIDER_HELP', 'DELIVERY_INCIDENT', 'RID
 /** 사가·결제 이상(0.5.0 — 관리자만) */
 const ORDER_KINDS: readonly Kind[] = ['RECONCILIATION', 'PAYMENT_UNKNOWN'];
 const isOrderKind = (k: Kind | undefined) => k !== undefined && ORDER_KINDS.includes(k);
+/** 관리자 팀으로 넘어간 배송 쪽 사건 — 지원센터·상담원은 보기만(0.7.0) */
+const withAdminTeam = (c: { readonly kind?: string | null; readonly assigneeGroup?: string | null }) =>
+  c.assigneeGroup === 'ORDER_OPS' && !isOrderKind((c.kind ?? undefined) as Kind | undefined);
 type Tab = keyof typeof m.cases.tabs;
 const TABS = Object.keys(m.cases.tabs) as Tab[];
 const isTab = (v: string | null): v is Tab => TABS.some((t) => t === v);
@@ -63,7 +73,15 @@ function useCaseRoles() {
 const refLink = (refType: string | undefined, refId: string | undefined) => {
   if (!refId) return null;
   const to =
-    refType === 'deliveryId' ? `/deliveries/${encodeURIComponent(refId)}` : refType === 'orderId' ? `/orders/${encodeURIComponent(refId)}` : refType === 'riderId' ? `/riders/${encodeURIComponent(refId)}` : null;
+    refType === 'deliveryId' || refType === 'recoveryDeliveryId'
+      ? `/deliveries/${encodeURIComponent(refId)}`
+      : refType === 'orderId'
+        ? `/orders/${encodeURIComponent(refId)}`
+        : refType === 'riderId'
+          ? `/riders/${encodeURIComponent(refId)}`
+          : refType === 'previousCaseId'
+            ? `/cases/${encodeURIComponent(refId)}`
+            : null;
   const name = `${label(m.cases.refName, refType)} ${refId}`;
   return to ? (
     <Link key={`${refType}:${refId}`} className="link" to={to}>
@@ -81,8 +99,8 @@ function Refs({ c }: { readonly c: Pick<Summary, 'refs' | 'subjectRef'> }) {
 }
 
 /** 연결 배송·주문 한 칸 — 원천 값을 기존 상태 이름표로만 옮긴다(합치거나 해석하지 않음) */
-function LinkedState({ l }: { readonly l: Linked }) {
-  const name = l.kind === 'ORDER' ? m.cases.linkedOrder : m.cases.linkedDelivery;
+function LinkedState({ l, recovery }: { readonly l: Linked; readonly recovery: boolean }) {
+  const name = l.kind === 'ORDER' ? m.cases.linkedOrder : recovery ? m.cases.linkedRecovery : m.cases.linkedDelivery;
   const unknown = l.source?.confidence === 'UNKNOWN';
   const value = unknown ? (
     <span className="text-warning">{m.cases.linkedUnknown}</span>
@@ -205,7 +223,11 @@ export function CaseListPage() {
                     ) : (
                       <ul className="space-y-0.5 text-xs">
                         {(c.linked ?? []).map((l) => (
-                          <LinkedState key={`${l.kind ?? ''}:${l.id ?? ''}`} l={l} />
+                          <LinkedState
+                            key={`${l.kind ?? ''}:${l.id ?? ''}`}
+                            l={l}
+                            recovery={l.kind === 'DELIVERY' && (c.linkedRefs ?? []).some((x) => x.kind === 'recoveryDeliveryId' && x.id === l.id)}
+                          />
                         ))}
                       </ul>
                     )}
@@ -213,7 +235,14 @@ export function CaseListPage() {
                   <td>
                     <Sla c={{ slaDueAt: c.slaDueAt ?? null, overdue: c.overdue ?? false }} />
                   </td>
-                  <td>{c.assigneeId ?? m.cases.unassigned}</td>
+                  <td>
+                    {withAdminTeam(c) && (
+                      <span className="badge badge-warning badge-sm mr-1" data-testid="case-admin-team">
+                        {m.cases.adminHandling}
+                      </span>
+                    )}
+                    {c.assigneeId ?? m.cases.unassigned}
+                  </td>
                   <td>{label(m.cases.stateName, c.state)}</td>
                 </tr>
               ))}
@@ -256,7 +285,7 @@ function AssignForm({ c, onDone }: { readonly c: Case; readonly onDone: (c: Case
     if (assign.phase.kind === 'rejected' || assign.phase.kind === 'done') assign.reset();
     void assign.run({ assigneeId });
   };
-  const canPick = (team || admin) && !c.assigneeId;
+  const canPick = ((team && !withAdminTeam(c)) || admin) && !c.assigneeId;
   if (!canPick && !admin) return null;
   return (
     <div className="space-y-2 rounded-box bg-base-100 p-3 text-sm">
@@ -288,7 +317,7 @@ function AssignForm({ c, onDone }: { readonly c: Case; readonly onDone: (c: Case
   );
 }
 
-function CloseForm({ c, onDone }: { readonly c: Case; readonly onDone: (c: Case) => void }) {
+function CloseForm({ c, onDone, openFollowUps }: { readonly c: Case; readonly onDone: (c: Case) => void; readonly openFollowUps: number }) {
   const api = useApi();
   const [resolution, setResolution] = useState<Resolution>('RESOLVED');
   const [summary, setSummary] = useState('');
@@ -327,11 +356,114 @@ function CloseForm({ c, onDone }: { readonly c: Case; readonly onDone: (c: Case)
         <textarea className="textarea textarea-sm w-full max-w-lg" maxLength={1000} value={summary} onChange={(e) => setSummary(e.target.value)} />
       </label>
       <p className="text-xs opacity-70">{m.cases.piiHint}</p>
-      <button type="submit" className="btn btn-sm" disabled={!summary.trim() || close.busy}>
+      {openFollowUps > 0 && (
+        <p role="note" className="text-xs text-warning" data-testid="close-blocked">
+          {m.followUps.closeBlocked(openFollowUps)}
+        </p>
+      )}
+      <button type="submit" className="btn btn-sm" disabled={!summary.trim() || close.busy || openFollowUps > 0}>
         {m.cases.close}
       </button>
       <CommandFeedback command={close}>{() => <span className="text-xs text-success">{m.cases.closed}</span>}</CommandFeedback>
     </form>
+  );
+}
+
+/** 사유 하나 받는 명령 폼(다시 열기·넘기기 공통) — 사유 1~500자 필수, 개인정보 금지 안내 */
+function ReasonForm({
+  title,
+  submitLabel,
+  doneText,
+  testId,
+  warn,
+  send,
+  failureHint,
+}: {
+  readonly title: string;
+  readonly submitLabel: string;
+  readonly doneText: string;
+  readonly testId: string;
+  readonly warn?: string;
+  readonly send: (reason: string, key: Parameters<Parameters<typeof useCommand>[0]>[1]) => Promise<Case>;
+  readonly failureHint?: (code: string | undefined) => ReactNode;
+}) {
+  const [reason, setReason] = useState('');
+  const cmd = useCommand(async (v: { reason: string }, key) => send(v.reason, key));
+  const ok = reason.trim().length >= 1 && reason.trim().length <= 500;
+  const code = cmd.phase.kind === 'rejected' && cmd.phase.failure instanceof ProblemFailure ? cmd.phase.failure.problem.code : undefined;
+  return (
+    <form
+      className="space-y-2 rounded-box bg-base-100 p-3 text-sm"
+      aria-label={title}
+      data-testid={testId}
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (!ok) return;
+        if (cmd.phase.kind === 'rejected') cmd.reset();
+        void cmd.run({ reason: reason.trim() });
+      }}
+    >
+      <h2 className="font-semibold">{title}</h2>
+      {warn && <p className="text-xs opacity-70">{warn}</p>}
+      <label className="flex flex-col gap-1">
+        {m.cases.reason}
+        <textarea className="textarea textarea-sm w-full max-w-lg" maxLength={500} value={reason} onChange={(e) => setReason(e.target.value)} />
+      </label>
+      <p className="text-xs opacity-70">{m.cases.piiHint}</p>
+      <button type="submit" className="btn btn-sm" disabled={!ok || cmd.busy}>
+        {submitLabel}
+      </button>
+      <CommandFeedback command={cmd}>{() => <span className="text-xs text-success">{doneText}</span>}</CommandFeedback>
+      {cmd.phase.kind === 'rejected' && failureHint?.(code)}
+    </form>
+  );
+}
+
+/** 이 사건의 대상(배송·주문) 번호 — 통합 조회로 같은 대상의 사건을 찾게 */
+const subjectOf = (c: Case) => (c.refs ?? []).find((r) => r.refType === 'deliveryId' || r.refType === 'orderId')?.refId ?? c.subjectRef ?? '';
+
+function ReopenForm({ c, onDone }: { readonly c: Case; readonly onDone: (c: Case) => void }) {
+  const api = useApi();
+  const target = subjectOf(c);
+  return (
+    <ReasonForm
+      title={m.cases.reopen}
+      submitLabel={m.cases.reopen}
+      doneText={m.cases.reopened}
+      testId="case-reopen"
+      warn={m.cases.reopenNote}
+      send={async (reason, key) => {
+        const r = await request('POST', api.cases.POST('/cases/{caseId}/reopenings', { ...commandParams(key, { path: { caseId: c.caseId ?? '' }, version: c.version }), body: { reason } }));
+        onDone(r);
+        return r;
+      }}
+      failureHint={(code) =>
+        code === 'CASE_ALREADY_OPEN' && target ? (
+          <Link className="link text-xs" to={`/lookup?q=${encodeURIComponent(target)}`} data-testid="case-open-elsewhere">
+            {m.cases.findOpenCase(target)}
+          </Link>
+        ) : null
+      }
+    />
+  );
+}
+
+function TransferForm({ c, toGroup, onDone }: { readonly c: Case; readonly toGroup: 'DELIVERY_OPS' | 'ORDER_OPS'; readonly onDone: (c: Case) => void }) {
+  const api = useApi();
+  const toAdmin = toGroup === 'ORDER_OPS';
+  return (
+    <ReasonForm
+      title={toAdmin ? m.cases.transferToAdmin : m.cases.transferToSupport}
+      submitLabel={toAdmin ? m.cases.transferToAdmin : m.cases.transferToSupport}
+      doneText={m.cases.transferred}
+      testId="case-transfer"
+      warn={toAdmin ? m.cases.transferToAdminNote : m.cases.transferToSupportNote}
+      send={async (reason, key) => {
+        const r = await request('POST', api.cases.POST('/cases/{caseId}/transfers', { ...commandParams(key, { path: { caseId: c.caseId ?? '' }, version: c.version }), body: { toGroup, reason } }));
+        onDone(r);
+        return r;
+      }}
+    />
   );
 }
 
@@ -395,7 +527,14 @@ export function CaseDetailPage() {
       <QueryState state={toUiState(query)} onRetry={() => void query.refetch()}>
         {(c) => {
           const closed = c.state === 'CLOSED';
-          const canClose = !closed && (admin || (team && (!c.assigneeId || c.assigneeId === me)));
+          const adminTeam = withAdminTeam(c);
+          // 지원센터는 자기 팀(배송 쪽, 관리자 팀으로 가지 않은) 사건만 — 관리자 팀 사건·사가 사건은 관리자만(서버 판정)
+          const teamCan = team && !adminTeam && !isOrderKind(c.kind);
+          const canClose = !closed && (admin || (teamCan && (!c.assigneeId || c.assigneeId === me)));
+          const canReopen = closed && (admin || teamCan);
+          const deliverySide = !isOrderKind(c.kind);
+          const canToAdmin = !closed && deliverySide && !adminTeam && (admin || (teamCan && (!c.assigneeId || c.assigneeId === me)));
+          const canToSupport = !closed && deliverySide && adminTeam && admin;
           return (
             <>
               <dl className="grid grid-cols-[8rem_1fr] gap-1 rounded-box bg-base-100 p-4 text-sm" data-testid="case-facts">
@@ -415,6 +554,15 @@ export function CaseDetailPage() {
                 <dd>
                   <Sla c={c} />
                 </dd>
+                <dt>{m.cases.assigneeGroup}</dt>
+                <dd data-testid="case-group">
+                  {label(m.cases.groupName, c.assigneeGroup)}
+                  {adminTeam && (
+                    <span className="badge badge-warning badge-sm ml-1" data-testid="case-admin-team">
+                      {m.cases.adminHandling}
+                    </span>
+                  )}
+                </dd>
                 <dt>{m.cases.assignee}</dt>
                 <dd data-testid="case-assignee">{c.assigneeId ?? m.cases.unassigned}</dd>
                 <dt>{m.cases.openedAt}</dt>
@@ -422,6 +570,12 @@ export function CaseDetailPage() {
               </dl>
 
               {(c.kind === 'RIDER_HELP' || c.kind === 'DELIVERY_INCIDENT') && <HelpRequestOfCase c={c} />}
+
+              {(c.refs ?? []).some((r) => r.refType === 'recoveryDeliveryId') && (
+                <p role="note" className="alert alert-info text-sm" data-testid="case-recovery-note">
+                  {m.cases.recoveryNote}
+                </p>
+              )}
 
               {isOrderKind(c.kind) && (
                 <div className="space-y-1 rounded-box bg-base-100 p-3 text-sm" data-testid="case-order-note">
@@ -433,17 +587,28 @@ export function CaseDetailPage() {
               )}
 
               {!admin && !team && <p className="text-sm opacity-70">{m.cases.viewOnly}</p>}
+              {adminTeam && !admin && (
+                <p role="note" className="alert alert-warning text-sm">
+                  {m.cases.adminHandlingNote}
+                </p>
+              )}
               {!closed && <AssignForm c={c} onDone={onDone} />}
-              {canClose && <CloseForm c={c} onDone={onDone} />}
+              <FollowUps c={c} canAdd={!closed && (admin || teamCan)} />
+              {canClose && <CloseForm c={c} onDone={onDone} openFollowUps={(c.obligations ?? []).filter(isOpenObligation).length} />}
+              {canToAdmin && <TransferForm c={c} toGroup="ORDER_OPS" onDone={onDone} />}
+              {canToSupport && <TransferForm c={c} toGroup="DELIVERY_OPS" onDone={onDone} />}
+              {canReopen && <ReopenForm c={c} onDone={onDone} />}
 
               {c.closure && (
                 <>
-                  <h2 className="font-bold">{m.cases.closure}</h2>
+                  <h2 className="font-bold">{closed ? m.cases.closure : m.cases.lastClosure}</h2>
                   <p className="rounded-box bg-base-100 p-3 text-sm" data-testid="case-closure">
                     {`${label(m.cases.resolutionName, c.closure.resolution)} · ${text(c.closure.summary)} · ${text(c.closure.closedBy)} · ${when(c.closure.closedAt)}`}
                   </p>
                 </>
               )}
+
+              <CaseNotes caseId={c.caseId ?? caseId} />
 
               <h2 className="font-bold">{m.cases.history}</h2>
               <ul className="space-y-1 text-sm">
