@@ -6,7 +6,7 @@
 - 근거: 백엔드 요청 `../pmart-backend/docs/handoff/clients/mfc-backoffice/2026-11-15-request-mfc-backoffice.md`. 메뉴·API 정본은 `pmart-backend/docs/architecture/backoffice-role-menus.md` §3, 계약 `contracts/openapi/mfc-*.yaml`.
 - 기본 백오피스(`web/backoffice`)에는 MFC 메뉴를 넣지 않는다(백엔드 요청 2026-11-15 cs-rider-menus §0).
 - 상태(2026-11-15): **기반만**(앱 뼈대·로그인·센터 고르기·메뉴 자리). 메뉴 화면은 모두 "준비 중". 목 모드로 확인, LAN 배포·실서버 확인은 아직.
-- 2026-11-16(PC 2): **위치(칸)**(§4-1)·**이동·보충**(§4-2)·**작업자**(§4-3)·**배송 현황·배차 실패**(§4-4) 화면. 나머지 메뉴는 "준비 중". 목 모드만 확인.
+- 2026-11-16(PC 2): **위치(칸)**(§4-1)·**이동·보충**(§4-2)·**작업자**(§4-3)·**배송 현황·배차 실패**(§4-4)·**작업 현황**(§4-5) 화면. 나머지 메뉴는 "준비 중". 목 모드만 확인.
 
 ## 1. 앱과 로그인
 
@@ -35,7 +35,7 @@
 |---|---|---|---|---|
 | 인력 | 작업자 | `workers` | **됨**(§4-3) | — |
 |  | 배정 | `assignments` | 준비 중 | 배정 추천 계획 목록 |
-| 작업 | 작업 현황 | `tasks` | 준비 중 | 확인 필요 포장 목록·확인(지금은 작업자만 — 백엔드 결정 대기) |
+| 작업 | 작업 현황 | `tasks` | **됨**(§4-5) — 확인 필요 포장은 안내만 | 확인 필요 포장 목록·확인(지금은 작업자만 — 백엔드 결정 대기) |
 |  | 이동·보충 | `moves` | **됨**(§4-2) | — |
 |  | 입고 | `inbound` | 준비 중 | 입고 예정(TRF, 계약만), 초기 보유 센터별 수령 대기 목록, 회수품·공급 요청 목록 |
 | 배송 | 배송 현황 | `deliveries` | **됨**(§4-4) | — |
@@ -95,10 +95,21 @@
 - API 클라이언트: `api.bff`(`/api/v1/backoffice`)·`api.cases`. 계약 타입은 `gen:api` 의 mfc-backoffice 복사 목록에 backoffice-bff·case 를 더해 만든다(`tools/web-tools/gen-api.mjs`).
 - 목 `mocks/centerDeliveryHandlers.ts`(우리 센터 진행 중 2·끝난 1·다른 센터 1, 사건 열린 1·닫힌 1·다른 센터 1 — 상태 SUSPENDED 로 거르면 배차·사건 원천 실패). 시험 `features/delivery/centerDelivery.test.tsx`(7).
 
+### 4-5. 작업 현황 — mfc-fulfillment-service 0.4.11 (`features/tasks/TaskPages.tsx`)
+| 화면·동작 | API | 규칙 |
+|---|---|---|
+| 목록 `tasks` | `GET /tasks?mfcId=&type=&state=` | state 를 비우면 서버 기본(ASSIGNED·IN_PROGRESS). 유형·상태 거르기는 URL 쿼리(상태는 하나씩). 커서 더 보기. 담당은 capacity 배정의 투영 — 응답 asOf 를 "담당 기준"으로. 늦음·멈춤은 서버 표시값(자동으로 빼앗지 않음) |
+| 상세 `tasks/<taskId>` | `GET /tasks/{id}` | 줄(계획·완료·취소·남음·확정 대기), 막힌 이유, 포장 위치, 방문 순서 방법. 재고 확정 대기 실적이 있으면 안내 |
+| 작업 내놓기 | `POST /tasks/{id}/releases` {workerId = 지금 담당, reason?} | ASSIGNED·IN_PROGRESS 이고 담당이 있을 때만 단추. 409 `EXECUTION_IN_FLIGHT` 문구, 503 은 결과 불명(같은 키로 확인). 응답 상태가 READY 일 때만 "내놓음" |
+| 출하·포장 | `GET /shipments/{id}`, `GET /packages/{id}/handover-resolution`(누를 때만) | 포장 상태·인계 허가(만료 시각)·라이더. 판정과 "점원 확인 필요" 표시 |
+- 확인 필요 포장 목록·확인(`GET /packages?checkRequired=true`, `handover-checks`)은 지금 MFC_WORKER 만(MB-3 결정 대기) — 목록 위에 안내만, 부르지 않는다.
+- 시작·실적·포장·배차 요청은 현장 일 — 넣지 않는다.
+
 ## 5. 목 모드
 - 목 계정: 센터 관리자(MFC 1곳 `MFC-BSN-01`), 센터 관리자(MFC 2곳 `MFC-BSN-01`·`MFC-SEL-01`), 현장 작업자, 운영 관리자(센터 없음). `src/mocks/db.ts`.
-- 목 핸들러: 로그인(employee-auth — 세션 응답에 목 센터 이름), 위치(`mocks/locationHandlers.ts` — 센터 권한·코드 중복·문법·버전·폐지 조건), 이동(`mocks/moveHandlers.ts` — 관리자만 지시·취소, 카테고리 칸 거절, 재고·적치 후보), 작업자(`mocks/workerHandlers.ts` — 관리자만 바꾸기(휴게·출근은 본인도), 버전·중복·자격 밖 업무·근무 겹침·맞지 않는 배정). 메뉴 화면을 만들 때 그 계약의 목을 더한다.
+- 목 핸들러: 로그인(employee-auth — 세션 응답에 목 센터 이름), 위치(`mocks/locationHandlers.ts` — 센터 권한·코드 중복·문법·버전·폐지 조건), 이동(`mocks/moveHandlers.ts` — 관리자만 지시·취소, 카테고리 칸 거절, 재고·적치 후보), 작업자(`mocks/workerHandlers.ts` — 관리자만 바꾸기(휴게·출근은 본인도), 버전·중복·자격 밖 업무·근무 겹침·맞지 않는 배정), 작업(`mocks/taskHandlers.ts` — 기본 상태·커서·내놓기 조건·출하·인계 판정). 메뉴 화면을 만들 때 그 계약의 목을 더한다.
 - 목 이동: 진행 중 2(긴급 재배치·자동 보충), 카트 정리 대기 1, 끝남 1(+ 다른 센터 1). 목 재고는 `SKU-MILK-1` 세 줄(하나는 격리).
 - 목 작업자(`MFC-BSN-01`): 김현장(정규직, 자격이 업무보다 넓음, 진행 중 피킹 배정 1·근무 1), 이알바(알바, 휴게 중), 박일일(일일크루, 출근 전), 최정지(정지), 정퇴사(퇴사).
+- 목 작업(`MFC-BSN-01`): 피킹 진행 중(멈춤, 출하 SHP-1 — 포장 PKG-1 밀봉·허가 만료), 포장 담당, 피킹 대기(담당 없음), 피킹 막힘, 피킹 끝남, 복귀 진행 중(늦음·재고 확정 대기 실적 1).
 - 목 위치: `MFC-BSN-01` 에 사용 중 3·닫힘 2(하나는 재고가 남아 폐지 거절)·폐지 1, `MFC-SEL-01` 에 1.
 - 목 모드는 새로고침하면 목 서버 기억이 지워져 다시 로그인해야 한다(화면 안 링크로 옮겨 다닌다).

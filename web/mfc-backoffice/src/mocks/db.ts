@@ -1,5 +1,6 @@
 // 목 서버 상태(메모리). 테스트마다 resetDb() 로 되돌린다.
 import type { components as CapacitySchemas } from '../api/generated/mfc-capacity';
+import type { components as FulfillmentSchemas } from '../api/generated/mfc-fulfillment';
 import type { components as InboundSchemas } from '../api/generated/mfc-inbound';
 import type { components as InventorySchemas } from '../api/generated/mfc-inventory';
 import type { components as LocationSchemas } from '../api/generated/mfc-location';
@@ -84,6 +85,125 @@ function seedShifts(): Array<[string, MockShift]> {
 function seedAssignments(): MockAssignment[] {
   return [
     { assignmentId: 'ASG-1', mfcId: 'MFC-BSN-01', taskId: 'TASK-PICK-1', taskType: 'PICK', workerId: 'OP-wkr-1', assignmentVersion: 1, state: 'ACTIVE', assignedAt: '2026-11-16T00:30:00.000Z' },
+  ];
+}
+
+type Ful = FulfillmentSchemas['schemas'];
+/** 센터 작업 — 계약 TaskDetail(목은 상세 값을 모두 들고 목록은 요약만 돌려준다) */
+export type MockTask = Ful['TaskDetail'] & Required<Pick<Ful['TaskSummary'], 'taskId' | 'taskType' | 'state' | 'mfcId' | 'createdAt' | 'version'>>;
+export type MockShipment = Ful['Shipment'] & { readonly shipmentId: string; readonly mfcId: string };
+
+function task(taskId: string, extra: Partial<MockTask>): [string, MockTask] {
+  const line = (n: number, productName: string, sku: string, planned: number, completed: number): Ful['TaskLine'] => ({
+    taskLineId: `${taskId}-L${n}`,
+    orderLineId: `OL-${taskId}-${n}`,
+    sku,
+    productName,
+    barcode: null,
+    locationId: 'A-P1-01-1-01',
+    lotId: 'LOT-MILK-A',
+    expiresOn: '2026-11-25',
+    picks: [],
+    plannedQty: planned,
+    completedQty: completed,
+    cancelledQty: 0,
+    remainingQty: planned - completed,
+    pendingQty: 0,
+  });
+  const lines = extra.lines ?? [line(1, '서울우유 1L', 'SKU-MILK-1', 2, 1), line(2, '신라면 5입', 'SKU-RAMEN-5', 1, 0)];
+  const planned = lines.reduce((n, l) => n + l.plannedQty, 0);
+  const completed = lines.reduce((n, l) => n + l.completedQty, 0);
+  return [
+    taskId,
+    {
+      taskId,
+      taskType: 'PICK',
+      state: 'ASSIGNED',
+      version: 1,
+      mfcId: 'MFC-BSN-01',
+      fulfillmentId: `FUL-${taskId}`,
+      shipmentId: 'SHP-1',
+      assignment: { workerId: 'OP-wkr-1', assignmentVersion: 1, asOf: { asOf: '2026-11-16T01:00:00.000Z', freshness: 'CURRENT' } },
+      lineCount: lines.length,
+      plannedQty: planned,
+      completedQty: completed,
+      remainingQty: planned - completed,
+      promisedReadyAt: '2026-11-16T02:00:00.000Z',
+      createdAt: '2026-11-16T00:40:00.000Z',
+      late: false,
+      idle: false,
+      lastActivityAt: null,
+      headline: { productName: lines[0]?.productName ?? null, otherLineCount: lines.length - 1 },
+      lines,
+      pendingExecutions: [],
+      blockReason: null,
+      packingLocations: [],
+      routeMethod: null,
+      ...extra,
+    },
+  ];
+}
+
+/** 목 작업: 진행 중(늦음·멈춤)·담당 대기·미배정·막힘·끝남·복귀(실적 확정 대기), 다른 센터 1 */
+function seedTasks(): Array<[string, MockTask]> {
+  return [
+    task('TASK-PICK-1', { state: 'IN_PROGRESS', idle: true, lastActivityAt: '2026-11-16T00:45:00.000Z', routeMethod: 'ROUTING' }),
+    task('TASK-PACK-1', { taskType: 'PACK', assignment: { workerId: 'OP-wkr-2', assignmentVersion: 1 }, createdAt: '2026-11-16T00:41:00.000Z', packingLocations: ['PAK-C-01'] }),
+    task('TASK-PICK-2', { state: 'READY', assignment: { workerId: null, assignmentVersion: 0 }, createdAt: '2026-11-16T00:50:00.000Z', shipmentId: 'SHP-2' }),
+    task('TASK-PICK-3', { state: 'BLOCKED', blockReason: '결품 보고 — 신라면 5입', createdAt: '2026-11-16T00:30:00.000Z', shipmentId: 'SHP-3' }),
+    task('TASK-PICK-4', { state: 'COMPLETED', createdAt: '2026-11-15T23:00:00.000Z', shipmentId: 'SHP-4' }),
+    task('TASK-RET-1', {
+      taskType: 'RETURN',
+      state: 'IN_PROGRESS',
+      late: true,
+      createdAt: '2026-11-16T00:35:00.000Z',
+      shipmentId: null,
+      pendingExecutions: [{ executionId: 'EXE-1', state: 'INVENTORY_PENDING', recordedAt: '2026-11-16T00:55:00.000Z' }],
+    }),
+    task('TASK-SEL-1', { mfcId: 'MFC-SEL-01', state: 'IN_PROGRESS' }),
+  ];
+}
+
+function seedShipments(): Array<[string, MockShipment]> {
+  return [
+    [
+      'SHP-1',
+      {
+        shipmentId: 'SHP-1',
+        mfcId: 'MFC-BSN-01',
+        fulfillmentId: 'FUL-1',
+        orderId: 'ORD-1',
+        deliveryId: 'DLV-1',
+        version: 3,
+        state: 'PREPARING',
+        holdReason: null,
+        bagCount: 2,
+        containsAlcohol: false,
+        weightG: 2400,
+        readyAt: null,
+        dispatchRequest: null,
+        packages: [
+          {
+            packageId: 'PKG-1',
+            packageVersion: 1,
+            shipmentId: 'SHP-1',
+            orderId: 'ORD-1',
+            version: 2,
+            state: 'SEALED',
+            qrCode: 'PKG:PKG-1:1',
+            contents: [{ orderLineId: 'OL-1', sku: 'SKU-MILK-1', qty: 2, lotId: 'LOT-MILK-A' }],
+            bagCount: 1,
+            containsAlcohol: false,
+            temperatureZone: 'CHILLED',
+            weightG: 2100,
+            fence: { state: 'EXPIRED', handoverAuthorizationId: 'HA-1', fenceVersion: 1, riderId: 'RDR-1', expiresAt: '2026-11-16T01:10:00.000Z' },
+            sealedAt: '2026-11-16T01:00:00.000Z',
+            handedOverAt: null,
+            invalidatedReason: null,
+          },
+        ],
+      },
+    ],
   ];
 }
 
@@ -240,6 +360,8 @@ function seedGrants(): Array<[string, MockGrant]> {
 }
 
 export const db = {
+  tasks: new Map<string, MockTask>(),
+  shipments: new Map<string, MockShipment>(),
   /** 키 = `${mfcId}/${workerId}` */
   workers: new Map<string, MockWorker>(),
   shifts: new Map<string, MockShift>(),
@@ -269,6 +391,8 @@ export function resetDb(): void {
   db.workers = new Map(seedWorkers());
   db.shifts = new Map(seedShifts());
   db.assignments = seedAssignments();
+  db.tasks = new Map(seedTasks());
+  db.shipments = new Map(seedShipments());
 }
 
 resetDb();

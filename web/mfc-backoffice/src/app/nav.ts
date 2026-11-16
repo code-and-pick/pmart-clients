@@ -48,7 +48,7 @@ export const navGroups: readonly MenuGroup[] = [
       {
         key: 'tasks',
         segment: 'tasks',
-        ready: false,
+        ready: true,
         apiReady: ['작업 목록·상세', '작업 풀기', '포장 상세·인계 상태'],
         apiMissing: ['확인 필요 포장 목록·확인(지금은 현장 작업자만 — 백엔드 결정 대기)'],
       },

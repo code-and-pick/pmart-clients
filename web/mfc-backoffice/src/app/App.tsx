@@ -8,6 +8,7 @@ import { CenterSwitcher } from '../features/centers/centers';
 import { CenterDeliveriesMenu, DispatchFailuresMenu } from '../features/delivery/CenterDeliveryPages';
 import { LocationsMenu } from '../features/locations/LocationPages';
 import { MovesMenu } from '../features/moves/MovePages';
+import { TasksMenu } from '../features/tasks/TaskPages';
 import { WorkersMenu } from '../features/workers/WorkerPages';
 import { PreparingPage } from '../features/menus/PreparingPage';
 import { LoginCallbackPage, LoginPage } from '../features/session/LoginPage';
@@ -109,6 +110,7 @@ const menuPages: Partial<Record<MenuKey, ComponentType<{ readonly mfcId: string 
   locations: LocationsMenu,
   moves: MovesMenu,
   workers: WorkersMenu,
+  tasks: TasksMenu,
   deliveries: CenterDeliveriesMenu,
   dispatchFailures: DispatchFailuresMenu,
 };
