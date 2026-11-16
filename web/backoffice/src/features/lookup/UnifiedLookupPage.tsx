@@ -33,7 +33,7 @@ interface Match {
 
 /**
  * 원천 칸 → 그 원천 이름(SourceStamp.system).
- * 계약에는 이름 목록이 없어 백엔드 구현(PR #25 LookupClients.Source)을 따른다 — 계약에 적어 달라고 handoff 로 물었다.
+ * 계약 unified-lookup 설명에 적힌 목록(PR #25 985a2ecd — 질문 handoff 답 2026-11-16).
  */
 const SECTION_SYSTEM: Readonly<Record<string, string>> = {
   ORDER: 'order-service',

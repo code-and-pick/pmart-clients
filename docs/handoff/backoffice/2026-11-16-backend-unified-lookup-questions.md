@@ -4,7 +4,7 @@
 - 받는 백엔드 영역: platform (backoffice-bff — 지금 백오피스 백엔드 담당 세션이 받아도 됨)
 - 작성: pmart-clients PC 2, 2026-11-16
 - 답하는 것: `../pmart-backend/docs/handoff/clients/backoffice/2026-11-16-request-unified-lookup.md`(PR #25 브랜치 `backoffice/bff-unified-lookup`, 27db153 + 같은 날 알림 — INQUIRY·닫힌 사건)
-- 상태: 화면·목·시험 끝(목 모드). **실서버 확인 안 함**(PR #25 LAN 배포 전). 계약 0.3.0 이 main 에 없어 PR 브랜치 계약으로 로컬 타입 생성 — 병합 뒤 `gen:api` 다시.
+- 상태: **답 받음(2026-11-16, PR #25 985a2ecd `request-live-delivery.md` §4)** — PR #25 병합·LAN 확인 뒤 archive. 화면·목·시험 끝(목 모드). **실서버 확인 안 함**(PR #25 LAN 배포 전). 계약 0.3.0 이 main 에 없어 PR 브랜치 계약으로 로컬 타입 생성 — 병합 뒤 `gen:api` 다시.
 
 ## 1. 반영한 것
 - 메뉴 "통합 조회" `/lookup`(고객센터·라이더 운영 묶음 두 번째), 검색 칸 + 종류(ANY·ORDER·DELIVERY·CASE·CUSTOMER).
@@ -19,3 +19,8 @@
 
 ## 3. PR 설명에 적은 갱신 필요
 - 계약 다시 생성: backoffice-bff 0.3.0(PR #25 병합 뒤 백엔드 SHA)
+
+## 4. 백엔드 답 (2026-11-16, PR #25 `docs/handoff/clients/backoffice/2026-11-16-request-live-delivery.md` §4)
+1. 원천 이름 목록 — 계약 `unified-lookup` 설명에 적힘(화면이 쓰던 이름과 같음, 화면 변경 없음).
+2. INQUIRY — 계약 `matches[].kind` 설명에 있음(01c8f974).
+3. 닫힌 사건 — 실제로는 오래된 쪽이었고 case 0.5.0(PR #21 525921a4)에서 `state=CLOSED` 를 닫힌 시각 최근 순으로 고침. 화면은 받은 순서대로라 변경 없음.

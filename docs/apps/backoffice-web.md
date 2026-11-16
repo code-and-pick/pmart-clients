@@ -103,10 +103,19 @@ BO §7(≈L1492-1510)의 화면은 "업무 동선 제안"이다. 화면을 BO �
 ## 2-5. 통합 조회 (BO-11, 2026-11-16, bff 0.3.0 — 백엔드 요청 `backoffice/2026-11-16-request-unified-lookup.md`, PR #25)
 - 메뉴 "통합 조회" `/lookup` — 고객센터·라이더 운영 묶음의 **두 번째**(첫 화면 = 묶음 첫 메뉴는 그대로). OPERATOR_ADMIN·CS_AGENT·RIDER_OPS(서버 판정 — 그 밖 403 → 권한 없음 화면).
 - `GET /backoffice/views/unified-lookup?q=&kind=` — 찾는 값·종류는 URL 쿼리. 종류 고르기는 번호로 알아서(ANY, 보내지 않음)·주문·배송·사건·고객(TRANSFER·TRIP 은 원천이 없어 고르기에 없음). 422 `UNSUPPORTED_LOOKUP`(전화번호 등)은 코드 문구, 5xx 는 오류(빈 결과 아님), 없는 대상은 "찾는 대상이 없어요".
-- 결과: 원천 표시(`SourceStamps` — 기준 시각·신선도·조회 못 한 원천), "○로 찾음 → 주문 …", 주문 칸 위 + 배송(수행)·배차·클레임·고객 문의 칸 + 사건 칸(열린 것 / 닫힌 것 최근 20건, `state` 로만 나눔). **실패·권한 없음 원천은 그 칸에 "조회 실패 또는 볼 권한 없음"**(0건과 구분). 원천 이름 ↔ 칸: order-service·delivery-execution-service·delivery-dispatch-service·claim-service·case-service·case-service/inquiries — 계약에 이름 목록이 없어 PR #25 구현(`LookupClients.Source`)과 백엔드 알림을 따름(질문 handoff `backoffice/2026-11-16-backend-unified-lookup-questions.md`).
+- 결과: 원천 표시(`SourceStamps` — 기준 시각·신선도·조회 못 한 원천), "○로 찾음 → 주문 …", 주문 칸 위 + 배송(수행)·배차·클레임·고객 문의 칸 + 사건 칸(열린 것 / 닫힌 것 최근 20건, `state` 로만 나눔). **실패·권한 없음 원천은 그 칸에 "조회 실패 또는 볼 권한 없음"**(0건과 구분). 원천 이름 ↔ 칸: order-service·delivery-execution-service·delivery-dispatch-service·claim-service·case-service·case-service/inquiries — 계약 설명에 적힌 목록(PR #25 985a2ecd, 질문 handoff 답). 닫힌 사건은 case 0.5.0 부터 닫힌 시각 최근 순(받은 순서대로 보임).
 - `summary` 는 원천 필드 이름 그대로 — 아는 이름만 한국어, 모르는 이름은 그대로, 시각(…At)은 서울 시각, 객체는 한 단계 펼침. 금액·상태를 계산하지 않는다. 개인정보는 오지 않는다(원문은 주문 상세 열람).
 - 각 항목 "상세 보기": 주문 `/orders/{id}`·배송·배차 `/deliveries/{id}`·클레임 `/claims/{id}`·사건 `/cases/{id}`·문의 `/inquiries/{id}`. 고객 번호면 주문 목록만 → "이 주문으로 다시 조회"(q = 주문, kind ORDER).
 - 계약 타입: bff 0.3.0 이 main 에 없어(PR #25) 그 브랜치 계약으로 로컬 생성(생성물은 커밋 안 함) — PR #25 병합 뒤 `gen:api` 로 다시, `contracts.lock` 은 PC 1. 목 `mocks/lookupHandlers.ts`.
+
+## 2-6. 실시간 배송 현황 (2026-11-16, bff 0.3.0 — 백엔드 요청 `backoffice/2026-11-16-request-live-delivery.md`, PR #25, 배송 원문 §10.1)
+- 메뉴 "실시간 배송 현황" `/live-delivery` — 고객센터·라이더 운영 묶음, 통합 조회 다음. OPERATOR_ADMIN·CS_AGENT·RIDER_OPS(서버 판정, 셋 다 모든 센터 — 그 밖 403 → 권한 없음 화면).
+- `GET /backoffice/views/live-delivery?mfcId=&state=&size=50&cursor=` — 센터·상태·쪽은 URL 쿼리. 센터 고르기는 center-master `GET /centers?type=MFC`(못 읽으면 "모든 센터"만 + 안내). 상태 고르기는 진행 중 9개 중 하나(비우면 진행 중 전부).
+- 상태를 비우면 오래된 순 50건, 쪽 넘김 없음 — `truncated` 면 "더 있어요 — 센터나 상태로 좁혀 주세요". 상태를 고르면 `page.nextCursor` 로 "다음 쪽"/"처음 쪽"(상태 없이 cursor 를 보내지 않는다).
+- 표: 배송(→ 배송 상세)·주문(→ 주문 상세)·센터·종류·수행 상태·배차 상태·라이더(없으면 "미배정")·예정 시간대(arrivalWindow 받은 그대로) + "약속 지남"(promisedAt < 응답 composedAt — 화면 시계를 쓰지 않음)·열린 사건(종류·우선순위 → 사건 상세, overdue 면 "기한 넘김").
+- 원천 실패: 배차 `state null` → "모름(조회 실패)", `openCases null` → "조회 실패"(0건과 구분), 원천 줄에 "조회하지 못한 원천". 5xx 는 오류(빈 목록 아님).
+- 1분마다 자동 새로 고침(요청서 — 30초 이상 권장), 수동 "새로 고침". latestEta 는 아직 늘 null 이라 열 없음(안내 문구만). 개인정보 없음.
+- 목 `mocks/liveDeliveryHandlers.ts`(진행 중 8·끝남 1, `mfcId=MFC-MOCK-DOWN` 이면 배차·사건 원천 실패).
 ## 3. 기술 메모
 - 개발: Vite 프록시 `/api → http://localhost:8080` (CORS 없음, BR-04). 목은 MSW.
 - 모든 목록은 커서 페이지(`size`, `cursor`). 표·필터 상태는 URL 쿼리에 둔다(공유·새로고침 복원).

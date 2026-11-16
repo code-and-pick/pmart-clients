@@ -7,6 +7,7 @@ import { catalogHandlers } from './catalogHandlers';
 import { approvalInbox, centerList } from './fixtures';
 import { inquiryHandlers } from './inquiryHandlers';
 import { caseHandlers } from './caseHandlers';
+import { liveDeliveryHandlers } from './liveDeliveryHandlers';
 import { lookupHandlers } from './lookupHandlers';
 import { opsHandlers } from './opsHandlers';
 import { priceImportHandlers } from './priceImportHandlers';
@@ -36,4 +37,5 @@ export const handlers = [
   ...opsHandlers,
   ...caseHandlers,
   ...lookupHandlers,
+  ...liveDeliveryHandlers,
 ];
