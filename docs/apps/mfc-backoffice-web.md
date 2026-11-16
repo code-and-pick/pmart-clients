@@ -6,7 +6,7 @@
 - 근거: 백엔드 요청 `../pmart-backend/docs/handoff/clients/mfc-backoffice/2026-11-15-request-mfc-backoffice.md`. 메뉴·API 정본은 `pmart-backend/docs/architecture/backoffice-role-menus.md` §3, 계약 `contracts/openapi/mfc-*.yaml`.
 - 기본 백오피스(`web/backoffice`)에는 MFC 메뉴를 넣지 않는다(백엔드 요청 2026-11-15 cs-rider-menus §0).
 - 상태(2026-11-15): **기반만**(앱 뼈대·로그인·센터 고르기·메뉴 자리). 메뉴 화면은 모두 "준비 중". 목 모드로 확인, LAN 배포·실서버 확인은 아직.
-- 2026-11-16(PC 2): **위치(칸)** 화면(§4-1). 나머지 메뉴는 "준비 중". 목 모드만 확인.
+- 2026-11-16(PC 2): **위치(칸)**(§4-1)·**이동·보충**(§4-2) 화면. 나머지 메뉴는 "준비 중". 목 모드만 확인.
 
 ## 1. 앱과 로그인
 
@@ -36,7 +36,7 @@
 | 인력 | 작업자 | `workers` | 준비 중 | — |
 |  | 배정 | `assignments` | 준비 중 | 배정 추천 계획 목록 |
 | 작업 | 작업 현황 | `tasks` | 준비 중 | 확인 필요 포장 목록·확인(지금은 작업자만 — 백엔드 결정 대기) |
-|  | 이동·보충 | `moves` | 준비 중 | — |
+|  | 이동·보충 | `moves` | **됨**(§4-2) | — |
 |  | 입고 | `inbound` | 준비 중 | 입고 예정(TRF, 계약만), 초기 보유 센터별 수령 대기 목록, 회수품·공급 요청 목록 |
 | 재고·품질 | 재고 | `inventory` | 준비 중 | 센터 전체 재고 목록(상품 코드 없이), 실사 세션 목록 |
 |  | 품질 | `quality` | 준비 중 | 해제 승인 대기·폐기·검수 목록, 품질 사고(계약만) |
@@ -60,8 +60,19 @@
 - 완료 문구는 상세 화면 위에(성공 뒤 칸을 다시 읽으면 양식이 새 버전으로 다시 그려지므로).
 - 실서버 확인 전(서버는 상태 변경·폐지를 바로 APPLIED 로 돌려준다 — `LocationService`).
 
+### 4-2. 이동·보충 — mfc-inbound-service 0.9.0 `/move-orders*` (`features/moves/MovePages.tsx`)
+| 화면 | API | 규칙 |
+|---|---|---|
+| 목록 `moves` | `GET /move-orders?mfcId=&state=` | 상태를 비우면 서버 기본(진행 중 = ACTIVE·CANCEL_PENDING). 상태 거르기는 URL 쿼리. 쪽 나누기 없음(계약). 종류(재배치·자동 보충)·긴급·진행(집음/내려놓음/카트)·담당 |
+| 이동 지시 `moves/new` | `POST /move-orders` → 201 MoveOrder | MFC_SUPERVISOR. 같은 키 = 같은 이동(서버) — 결과 불명(503 등)은 "같은 요청으로 결과 확인". 거절 코드는 inventory 이동 배정 그대로(CATEGORY_MISMATCH·SKU_ALREADY_SHELVED·SKU_SPLIT_NOT_ALLOWED·LOCATION_CAPACITY_EXCEEDED·LOT_NOT_SHIPPABLE·CONFIG_REQUIRED 문구) |
+| 고르기 도움 | `GET /mfcs/{id}/stock?sku=`(inventory), `GET /putaway-candidates?mfcId=&sku=`(location) | 누를 때만 부른다. 위치·LOT·품질·업무 상태를 보이고 고르면 칸에 채운다 — 걸러 내지 않는다(판정은 서버). 남은 공간 null = "모름" |
+| 상세 `moves/<moveId>` | `GET /move-orders/{id}` | 지시한 사람 `SYSTEM` = "시스템". 카트 정리 대기는 안내만 |
+| 취소 | `POST /move-orders/{id}/cancellations` {reason} | 진행 중(ACTIVE)에만. 사유 필수. 서버가 돌려준 상태로 문구(CANCELLED = 취소, CANCEL_PENDING = 카트 되돌려 놓으면 끝남) |
+- 집어 올리기·내려놓기는 현장(PDA) 일 — 이 화면에 없다.
+
 ## 5. 목 모드
 - 목 계정: 센터 관리자(MFC 1곳 `MFC-BSN-01`), 센터 관리자(MFC 2곳 `MFC-BSN-01`·`MFC-SEL-01`), 현장 작업자, 운영 관리자(센터 없음). `src/mocks/db.ts`.
-- 목 핸들러: 로그인(employee-auth — 세션 응답에 목 센터 이름), 위치(`mocks/locationHandlers.ts` — 센터 권한·코드 중복·문법·버전·폐지 조건). 메뉴 화면을 만들 때 그 계약의 목을 더한다.
+- 목 핸들러: 로그인(employee-auth — 세션 응답에 목 센터 이름), 위치(`mocks/locationHandlers.ts` — 센터 권한·코드 중복·문법·버전·폐지 조건), 이동(`mocks/moveHandlers.ts` — 관리자만 지시·취소, 카테고리 칸 거절, 재고·적치 후보). 메뉴 화면을 만들 때 그 계약의 목을 더한다.
+- 목 이동: 진행 중 2(긴급 재배치·자동 보충), 카트 정리 대기 1, 끝남 1(+ 다른 센터 1). 목 재고는 `SKU-MILK-1` 세 줄(하나는 격리).
 - 목 위치: `MFC-BSN-01` 에 사용 중 3·닫힘 2(하나는 재고가 남아 폐지 거절)·폐지 1, `MFC-SEL-01` 에 1.
 - 목 모드는 새로고침하면 목 서버 기억이 지워져 다시 로그인해야 한다(화면 안 링크로 옮겨 다닌다).

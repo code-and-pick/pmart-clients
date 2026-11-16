@@ -6,6 +6,7 @@ import { createBrowserRouter, createMemoryRouter, Link, Navigate, NavLink, Outle
 import { env } from '../env';
 import { CenterSwitcher } from '../features/centers/centers';
 import { LocationsMenu } from '../features/locations/LocationPages';
+import { MovesMenu } from '../features/moves/MovePages';
 import { PreparingPage } from '../features/menus/PreparingPage';
 import { LoginCallbackPage, LoginPage } from '../features/session/LoginPage';
 import { SessionPage } from '../features/session/SessionPage';
@@ -104,6 +105,7 @@ function CenterScope({ menu }: { readonly menu: MenuItem }) {
 /** 만든 메뉴 화면(nav.ts `ready`). 아직이면 "준비 중" */
 const menuPages: Partial<Record<MenuKey, ComponentType<{ readonly mfcId: string }>>> = {
   locations: LocationsMenu,
+  moves: MovesMenu,
 };
 
 function MenuPage({ menu, mfcId }: { readonly menu: MenuItem; readonly mfcId: string }) {

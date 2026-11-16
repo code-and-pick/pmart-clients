@@ -55,7 +55,7 @@ export const navGroups: readonly MenuGroup[] = [
       {
         key: 'moves',
         segment: 'moves',
-        ready: false,
+        ready: true,
         apiReady: ['이동 지시 목록·상세', '이동 지시 만들기·취소'],
         apiMissing: [],
       },
