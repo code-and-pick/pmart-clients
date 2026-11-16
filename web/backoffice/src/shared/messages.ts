@@ -908,7 +908,7 @@ export const messages = {
 
   inquiries: {
     title: '고객센터 문의',
-    intro: '고객이 앱에서 남긴 문의에 답해요(상담원 권한). 답변은 응대일 뿐 주문·환불을 바꾸지 않아요.',
+    intro: '고객이 앱에서 남긴 문의에 답해요(답변은 상담원, 본사 관리자는 보기만). 답변은 응대일 뿐 주문·환불을 바꾸지 않아요.',
     statusFilter: '상태',
     all: '전체',
     status: { RECEIVED: '접수', ANSWERED: '답변 완료', CLOSED: '종료' } as Readonly<Record<string, string>>,
@@ -945,6 +945,7 @@ export const messages = {
     replySent: '답변을 보냈어요.',
     replyUnknown: '답변이 반영됐는지 확인하지 못했어요. 같은 요청으로 결과를 확인해 주세요(새로 쓰지 않아요).',
     closedNote: '종료된 문의라 답변할 수 없어요.',
+    readOnly: '보기만 할 수 있어요. 답변은 고객센터 상담원(CS_AGENT)이 해요.',
     recordComplaint: '이 문의로 라이더 컴플레인 기록',
     back: '문의 목록',
   },

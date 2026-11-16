@@ -1,5 +1,5 @@
 // ⚠ 화면 개발·시험용 목(case-service 0.2.0 inquiries). 실제 서버 동작이 아니다.
-// 계약의 뜻만 흉내 낸다: 상담원(CS_AGENT)만 조회·답변(그 밖 403), 답변하면 ANSWERED·version+1,
+// 계약의 뜻만 흉내 낸다: 조회는 상담원(CS_AGENT)·본사 관리자(OPERATOR_ADMIN, 0.4.2), 답변은 상담원만(그 밖 403), 답변하면 ANSWERED·version+1,
 // 낡은 X-Expected-Version 409 VERSION_CONFLICT, 닫힌 문의 409 INQUIRY_CLOSED, 같은 Idempotency-Key 재전송은 같은 결과.
 import { http, HttpResponse } from 'msw';
 
@@ -74,9 +74,16 @@ const agent = (request: Request) => {
   return who.roles.includes('CS_AGENT') ? null : problem(403, 'FORBIDDEN');
 };
 
+/** 조회 — 상담원 + 본사 관리자(보기만, case 0.4.2). */
+const reader = (request: Request) => {
+  const who = operator(request);
+  if (!who) return unauthorized();
+  return who.roles.includes('CS_AGENT') || who.roles.includes('OPERATOR_ADMIN') ? null : problem(403, 'FORBIDDEN');
+};
+
 export const inquiryHandlers = [
   http.get(`${API_BASE}/inquiries`, ({ request }) => {
-    const denied = agent(request);
+    const denied = reader(request);
     if (denied) return denied;
     const url = new URL(request.url);
     const status = url.searchParams.get('status');
@@ -101,7 +108,7 @@ export const inquiryHandlers = [
   }),
 
   http.get(`${API_BASE}/inquiries/:inquiryId`, ({ request, params }) => {
-    const denied = agent(request);
+    const denied = reader(request);
     if (denied) return denied;
     const found = inquiries.find((i) => i.inquiryId === params.inquiryId);
     return found ? HttpResponse.json(found) : problem(404, 'NOT_FOUND');

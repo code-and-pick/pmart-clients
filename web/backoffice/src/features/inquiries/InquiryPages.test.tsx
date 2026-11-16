@@ -31,6 +31,11 @@ describe('고객센터 문의 목록', () => {
     expect(screen.queryByTestId('inquiry-row')).not.toBeInTheDocument();
   });
 
+  it('본사 관리자(OPERATOR_ADMIN)는 목록을 본다(case 0.4.2 — 보기만)', async () => {
+    renderAt('/inquiries', as.admin);
+    expect(await screen.findAllByTestId('inquiry-row')).toHaveLength(3);
+  });
+
   it('메뉴는 역할로 숨기지만(편의) 화면은 열 수 있고 권한은 서버가 판정한다(403 은 오류로)', async () => {
     renderAt('/inquiries', as.md);
     expect(screen.queryByRole('link', { name: '문의 답변' })).not.toBeInTheDocument();
@@ -40,6 +45,15 @@ describe('고객센터 문의 목록', () => {
 
 describe('고객센터 문의 상세·답변', () => {
   const replies = (view: ReturnType<typeof renderAt>) => view.mutations('/replies');
+
+  it('본사 관리자: 상세·답변은 보지만 답변 칸은 없다(답변은 상담원만 — 2026-11-16 사용자 (가))', async () => {
+    const view = renderAt('/inquiries/INQ-MOCK-3', as.admin);
+    expect(await screen.findByTestId('inquiry-body')).toHaveTextContent('배송 완료라고 뜨는데');
+    expect(screen.getByTestId('inquiry-read-only')).toHaveTextContent('보기만 할 수 있어요');
+    expect(screen.queryByRole('textbox', { name: '답변 쓰기' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '답변 보내기' })).not.toBeInTheDocument();
+    expect(replies(view)).toHaveLength(0);
+  });
 
   it('답변: X-Expected-Version = 문의 version, Idempotency-Key — 반영되면 답변 완료·답변이 보인다', async () => {
     const view = renderAt('/inquiries/INQ-MOCK-3', as.cs);

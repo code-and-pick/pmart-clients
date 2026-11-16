@@ -1,6 +1,7 @@
 // 고객센터 문의(상담원 CS_AGENT) — case-service 0.2.0 inquiries, 백엔드 요청 2026-11-09 customer-inquiry-page §2.
 // 목록(GET /inquiries?status=) · 상세(GET /inquiries/{id}) · 답변(POST /inquiries/{id}/replies, X-Expected-Version = 문의 version).
-// 권한은 서버 판정(상담원이 아니면 403) — 메뉴를 숨겨 대신하지 않는다. 답변은 접수 응대일 뿐 주문·환불을 바꾸지 않는다.
+// 권한은 서버 판정 — 조회는 CS_AGENT·OPERATOR_ADMIN, 답변은 CS_AGENT 만(case 0.4.2, 2026-11-16 사용자 (가)).
+// 답변 칸은 상담원에게만 그린다(편의 — 서버도 403). 답변은 접수 응대일 뿐 주문·환불을 바꾸지 않는다.
 // 문의·답변 본문은 고객이 쓴 신뢰할 수 없는 텍스트 — 일반 텍스트로만 그린다. 로그에 남기지 않는다.
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
@@ -11,6 +12,7 @@ import { formatSeoul, QueryState, toUiState, uiStateFromError, useCommand } from
 import { commandParams } from '../../api/command';
 import type { components } from '../../api/generated/case';
 import { useApi } from '../../app/ApiContext';
+import { useSession } from '../../app/SessionContext';
 import { CommandFeedback } from '../../shared/Feedback';
 import { messages as m } from '../../shared/messages';
 
@@ -184,6 +186,8 @@ function ReplyForm({ inquiry }: { readonly inquiry: Inquiry }) {
 export function InquiryDetailPage() {
   const { inquiryId = '' } = useParams();
   const api = useApi();
+  const { session } = useSession();
+  const canReply = (session?.roles ?? []).includes('CS_AGENT');
   const query = useQuery({
     queryKey: ['inquiries', 'detail', inquiryId],
     queryFn: () => request('GET', api.cases.GET('/inquiries/{inquiryId}', { params: { path: { inquiryId } } })),
@@ -233,7 +237,13 @@ export function InquiryDetailPage() {
               </ul>
             )}
 
-            <ReplyForm key={q.inquiryId} inquiry={q} />
+            {canReply ? (
+              <ReplyForm key={q.inquiryId} inquiry={q} />
+            ) : (
+              <p className="text-sm opacity-70" data-testid="inquiry-read-only">
+                {m.inquiries.readOnly}
+              </p>
+            )}
             {/* 라이더 때문에 생긴 문의면 컴플레인을 기록한다(문의 ID 로 사건 연결 — case 0.3.0). 배송 번호는 상담원이 넣는다(문의에 없음). */}
             <Link
               className="btn btn-sm"
