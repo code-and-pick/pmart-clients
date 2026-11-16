@@ -11,6 +11,7 @@ import '../../../l10n/gen/app_localizations.dart';
 import '../../../shared/menu_tile.dart';
 import '../../../shared/providers.dart';
 import '../../../shared/ui_state_of.dart';
+import '../../my_work/presentation/my_work.dart';
 import '../../tasks/presentation/task_controllers.dart';
 import '../domain/work.dart';
 import 'work_controller.dart';
@@ -176,6 +177,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(l10n.homeTitle),
+        // 오늘 업무 내역 칩(사용자 2026-11-17). 근무 센터가 정해졌을 때만(내역 조회에 센터가 필요).
+        bottom: ref.watch(centerScopeProvider) is SingleCenter
+            ? const MyWorkBar()
+            : null,
         actions: [
           if (mock)
             Padding(
@@ -675,6 +680,7 @@ class WorkSessionScreen extends ConsumerWidget {
       appBar: AppBar(
         title: Text(workAreaText(l10n, area)),
         automaticallyImplyLeading: false,
+        bottom: const MyWorkBar(),
       ),
       body: SafeArea(
         child: Padding(

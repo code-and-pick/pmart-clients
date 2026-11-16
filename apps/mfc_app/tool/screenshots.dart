@@ -297,6 +297,10 @@ void main() {
       await t.pumpAndSettle();
     }
     await shot('37-home');
+    await t.tap(find.byKey(const ValueKey('my-work-chip')));
+    await t.pump(const Duration(seconds: 1));
+    await t.pumpAndSettle();
+    await shot('38-my-work');
     debugDisableShadows = true;
   });
 }

@@ -1121,5 +1121,19 @@
   "stockWorkPacked": "포장됨",
   "stockWorkCancelReturnPending": "취소 복귀 대기",
   "stockCheckMenu": "재고 확인",
-  "printerMenu": "프린터"
+  "printerMenu": "프린터",
+  "myWorkChip": "업무 내역",
+  "myWorkChipCount": "업무 내역 · 오늘 {count}건",
+  "@myWorkChipCount": {"placeholders": {"count": {"type": "int"}}},
+  "myWorkTitle": "오늘 업무 내역",
+  "myWorkDone": "완료",
+  "myWorkInProgress": "진행 중",
+  "myWorkCount": "{count}건",
+  "@myWorkCount": {"placeholders": {"count": {"type": "int"}}},
+  "myWorkEmpty": "오늘 한 작업이 아직 없어요",
+  "myWorkHeadline": "{name} 외 {count}건",
+  "@myWorkHeadline": {"placeholders": {"name": {"type": "String"}, "count": {"type": "int"}}},
+  "myWorkQty": "{done}/{planned}개",
+  "@myWorkQty": {"placeholders": {"done": {"type": "int"}, "planned": {"type": "int"}}},
+  "myWorkScopeNote": "피킹 · 패킹 · 출고 · 복귀 작업만 보여요. 입고 · 품질검사 · 재고 이동 · 실사 내역은 서버에서 아직 받을 수 없어요."
 }

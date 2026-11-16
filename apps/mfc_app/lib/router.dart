@@ -11,6 +11,7 @@ import 'features/auth/presentation/login_screen.dart';
 import 'features/device/presentation/device_setup_screens.dart';
 import 'features/handover/presentation/handover_screens.dart';
 import 'features/inbound/presentation/inbound_screen.dart';
+import 'features/my_work/presentation/my_work.dart';
 import 'features/quality/presentation/quality_screens.dart';
 import 'features/stock_check/presentation/stock_check_screen.dart';
 import 'features/stock_count/presentation/stock_count_screen.dart';
@@ -106,6 +107,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: 'stock-check',
             builder: (_, _) => const StockCheckScreen(),
           ),
+          GoRoute(path: 'my-work', builder: (_, _) => const MyWorkScreen()),
         ],
       ),
       // 센터 관리자 관리 메뉴(사용자 2026-11-16). 권한 판정은 서버 — 작업자가 열면 서버가 403.
