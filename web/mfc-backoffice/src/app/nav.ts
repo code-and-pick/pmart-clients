@@ -62,7 +62,7 @@ export const navGroups: readonly MenuGroup[] = [
       {
         key: 'inbound',
         segment: 'inbound',
-        ready: false,
+        ready: true,
         apiReady: ['입고 작업 목록·상세', '품질검사·적치', '회수품 반입·조회', '초기 보유 수령', '공급 요청 만들기·수정·철회·조회'],
         apiMissing: ['입고 예정(TRF) — 계약만', '초기 보유 센터별 수령 대기 목록', '회수품 목록', '공급 요청 목록'],
       },

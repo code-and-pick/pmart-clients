@@ -212,6 +212,100 @@ function seedShipments(): Array<[string, MockShipment]> {
   ];
 }
 
+type Inb = InboundSchemas['schemas'];
+export type MockInboundTask = Inb['InboundTask'];
+export type MockInitialLoad = Inb['InitialStockLoad'];
+export type MockSupplyRequest = Inb['SupplyRequest'] & { readonly supplyRequestId: string; readonly version: number; readonly state: Inb['SupplyRequestState'] };
+export interface MockReturnReceipt {
+  readonly returnReceiptId: string;
+  readonly claimId: string;
+  readonly returnPickupId: string;
+  readonly mfcId: string;
+  readonly inventoryApplyStatus: 'SUBMITTED' | 'APPLIED' | 'REJECTED' | 'UNKNOWN_RESULT';
+  readonly inventoryCommitId: string | null;
+  readonly inspectionState: 'PENDING' | 'INSPECTED';
+  readonly receivedAt: string;
+  readonly orderId: string | null;
+  readonly toLocationCode: string;
+  readonly receivedBy: string;
+  readonly rejectReason: string | null;
+  readonly lines: ReadonlyArray<{ orderLineId: string | null; sku: string; qty: number; lotId: string | null; conditionNote: string | null }>;
+  readonly putawayTaskIds: readonly string[];
+}
+
+function inboundTask(taskId: string, extra: Partial<MockInboundTask>): [string, MockInboundTask] {
+  return [
+    taskId,
+    {
+      taskId,
+      taskType: 'INSPECT',
+      mfcId: 'MFC-BSN-01',
+      receiptId: 'RCPT-1',
+      parentTaskId: null,
+      sku: 'SKU-MILK-1',
+      productName: '서울우유 1L',
+      barcodes: ['8801115114154'],
+      lotId: 'LOT-RCV-1',
+      locationCode: 'RCV-C-01',
+      plannedQty: 6,
+      doneQty: 0,
+      state: 'READY',
+      version: 1,
+      assigneeId: null,
+      createdAt: '2026-11-16T00:20:00.000Z',
+      ...extra,
+    },
+  ];
+}
+
+/** 목 입고 작업: 품질검사 대기 2(하나는 담당 있음), 적치 대기 1, 끝난 검사 1 */
+function seedInboundTasks(): Array<[string, MockInboundTask]> {
+  return [
+    inboundTask('ITK-1', {}),
+    inboundTask('ITK-2', { sku: 'SKU-RAMEN-5', productName: '신라면 5입', plannedQty: 10, assigneeId: 'OP-wkr-1', createdAt: '2026-11-16T00:21:00.000Z' }),
+    inboundTask('ITK-3', { taskType: 'PUTAWAY', parentTaskId: 'ITK-0', lotId: 'LOT-MILK-A', plannedQty: 4, doneQty: 1, version: 2, createdAt: '2026-11-16T00:25:00.000Z' }),
+    inboundTask('ITK-0', { state: 'COMPLETED', plannedQty: 4, doneQty: 4, version: 3, createdAt: '2026-11-15T23:00:00.000Z' }),
+  ];
+}
+
+function seedInitialLoads(): MockInitialLoad[] {
+  return [
+    {
+      receiptId: 'RCPT-9',
+      approvalId: 'AP-INIT-1',
+      mfcId: 'MFC-BSN-01',
+      state: 'EXPECTED',
+      receivingLocation: null,
+      receivedAt: null,
+      rejectReason: null,
+      inventoryCommitId: null,
+      attempts: 0,
+      lastError: null,
+      lines: [
+        { sku: 'SKU-MILK-1', productName: '서울우유 1L', barcodes: [], qty: 10, receivedQty: null },
+        { sku: 'SKU-RAMEN-5', productName: '신라면 5입', barcodes: [], qty: 5, receivedQty: null },
+      ],
+      createdAt: '2026-11-16T00:00:00.000Z',
+      appliedAt: null,
+    },
+    {
+      receiptId: 'RCPT-8',
+      approvalId: 'AP-INIT-1',
+      mfcId: 'MFC-SEL-01',
+      state: 'EXPECTED',
+      receivingLocation: null,
+      receivedAt: null,
+      rejectReason: null,
+      inventoryCommitId: null,
+      attempts: 0,
+      lastError: null,
+      lines: [{ sku: 'SKU-MILK-1', productName: '서울우유 1L', barcodes: [], qty: 3, receivedQty: null }],
+      createdAt: '2026-11-16T00:00:00.000Z',
+      appliedAt: null,
+    },
+  ];
+}
+
 /** 재고 이동 지시 — 계약 MoveOrder(목은 모든 칸을 채운다) */
 export type MockMove = Required<InboundSchemas['schemas']['MoveOrder']>;
 
@@ -365,6 +459,10 @@ function seedGrants(): Array<[string, MockGrant]> {
 }
 
 export const db = {
+  inboundTasks: new Map<string, MockInboundTask>(),
+  initialLoads: [] as MockInitialLoad[],
+  returnReceipts: new Map<string, MockReturnReceipt>(),
+  supplyRequests: new Map<string, MockSupplyRequest>(),
   tasks: new Map<string, MockTask>(),
   shipments: new Map<string, MockShipment>(),
   /** 키 = `${mfcId}/${workerId}` */
@@ -400,6 +498,10 @@ export function resetDb(): void {
   db.plans = new Map();
   db.tasks = new Map(seedTasks());
   db.shipments = new Map(seedShipments());
+  db.inboundTasks = new Map(seedInboundTasks());
+  db.initialLoads = seedInitialLoads();
+  db.returnReceipts = new Map();
+  db.supplyRequests = new Map();
 }
 
 resetDb();

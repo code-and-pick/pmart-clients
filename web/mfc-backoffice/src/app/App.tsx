@@ -7,6 +7,7 @@ import { env } from '../env';
 import { AssignmentsMenu } from '../features/assignments/AssignmentPages';
 import { CenterSwitcher } from '../features/centers/centers';
 import { CenterDeliveriesMenu, DispatchFailuresMenu } from '../features/delivery/CenterDeliveryPages';
+import { InboundMenu } from '../features/inbound/InboundPages';
 import { LocationsMenu } from '../features/locations/LocationPages';
 import { MovesMenu } from '../features/moves/MovePages';
 import { TasksMenu } from '../features/tasks/TaskPages';
@@ -115,6 +116,7 @@ const menuPages: Partial<Record<MenuKey, ComponentType<{ readonly mfcId: string 
   assignments: AssignmentsMenu,
   deliveries: CenterDeliveriesMenu,
   dispatchFailures: DispatchFailuresMenu,
+  inbound: InboundMenu,
 };
 
 function MenuPage({ menu, mfcId }: { readonly menu: MenuItem; readonly mfcId: string }) {
