@@ -21,6 +21,8 @@ import { PiiAccessLogDetailPage, PiiAccessLogListPage } from '../features/piiAcc
 import { UnifiedLookupPage } from '../features/lookup/UnifiedLookupPage';
 import { LiveDeliveryPage } from '../features/live/LiveDeliveryPage';
 import { CaseDetailPage, CaseListPage, NewMisdeliveryPage } from '../features/cases/CasePages';
+import { CsFollowUpPage } from '../features/cases/FollowUps';
+import { HandoverPage } from '../features/cases/HandoverPages';
 import { DeliveryDetailPage, DeliveryOpenPage } from '../features/deliveries/DeliveryPages';
 import { InquiryDetailPage, InquiryListPage } from '../features/inquiries/InquiryPages';
 import { OrderDetailPage, OrderLookupPage } from '../features/orders/OrderLookupPages';
@@ -143,6 +145,8 @@ const routes = [
       { path: 'orders', element: guarded(<OrderLookupPage />) },
       { path: 'orders/:orderId', element: guarded(<OrderDetailPage />) },
       { path: 'pending', element: guarded(<PendingPage />) },
+      { path: 'follow-ups/cs', element: guarded(<CsFollowUpPage />) },
+      { path: 'cases/handovers', element: guarded(<HandoverPage />) },
       { path: 'pii-access-logs', element: guarded(<PiiAccessLogListPage />) },
       { path: 'pii-access-logs/:piiAccessLogId', element: guarded(<PiiAccessLogDetailPage />) },
       { path: 'lookup', element: guarded(<UnifiedLookupPage />) },
