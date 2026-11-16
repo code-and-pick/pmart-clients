@@ -5,6 +5,7 @@ import { createBrowserRouter, createMemoryRouter, Link, Navigate, NavLink, Outle
 
 import { env } from '../env';
 import { CenterSwitcher } from '../features/centers/centers';
+import { CenterDeliveriesMenu, DispatchFailuresMenu } from '../features/delivery/CenterDeliveryPages';
 import { LocationsMenu } from '../features/locations/LocationPages';
 import { MovesMenu } from '../features/moves/MovePages';
 import { WorkersMenu } from '../features/workers/WorkerPages';
@@ -108,6 +109,8 @@ const menuPages: Partial<Record<MenuKey, ComponentType<{ readonly mfcId: string 
   locations: LocationsMenu,
   moves: MovesMenu,
   workers: WorkersMenu,
+  deliveries: CenterDeliveriesMenu,
+  dispatchFailures: DispatchFailuresMenu,
 };
 
 function MenuPage({ menu, mfcId }: { readonly menu: MenuItem; readonly mfcId: string }) {

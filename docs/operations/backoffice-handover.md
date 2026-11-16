@@ -50,7 +50,7 @@ backoffice 194, hr-backoffice 46, web/core 25, web/ui 2, mfc-backoffice 16 — �
 ### 4-1. PC 1 이 마저 할 것 (보낸 요청 — PC 2 는 반영 뒤 확인만)
 | 일 | 근거 | 상태 |
 |---|---|---|
-| **개인정보 열람 기록 메뉴**(OPERATOR_ADMIN, audit 0.3.0 `GET /pii-access-logs`) | 백엔드 `handoff/clients/backoffice/2026-11-16-notice-pii-access-log-api.md` | 아직 |
+| **개인정보 열람 기록 메뉴**(OPERATOR_ADMIN, audit 0.3.0 `GET /pii-access-logs`) | 백엔드 `handoff/clients/backoffice/2026-11-16-notice-pii-access-log-api.md` | PC 2 가 함(브랜치 `backoffice/pii-access-logs`, `backoffice-web.md` §2-7) |
 | 처리 대기 명령의 결과 불명 처리 | 백엔드 회신 `2026-11-16-reply-case-inbox-questions.md` §3 — 결과 조회 `GET /backoffice/commands/…/{requestId}` 는 501, 시간 초과·`UNKNOWN_RESULT` 면 **목록을 다시 읽어** 확인해 달라 | **끝남(2026-11-16 PC 2)** — 결과 조회를 부르지 않고 목록 다시 읽기 |
 | 사건 `refs` 의 `requestId`(case 0.4.1) | 백엔드 회신 `backoffice/2026-11-16-reply-rider-delivery-staff-apis.md` §1 — RIDER_HELP·DELIVERY_INCIDENT 는 `incidentId` 가 늘 있고, 0.4.1 부터 `requestId` 도 따로. 그 전 사건은 `incidentId` 만 | **끝남(2026-11-16 PC 2)** — `requestId`·`deliveryId` 먼저, 없으면 `incidentId`(계약 다시 생성 필요 없음 — refType 은 문자열) |
 

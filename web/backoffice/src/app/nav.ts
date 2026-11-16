@@ -104,6 +104,13 @@ export const navGroups: readonly NavGroup[] = [
     items: [{ to: '/pending', label: m.nav.pendingWork }],
   },
   {
+    id: 'audit',
+    label: m.nav.group.audit,
+    // 개인정보 열람 기록 — OPERATOR_ADMIN 만(ADR-0062 결정 10, 백엔드 알림 2026-11-16-notice-pii-access-log-api). 본인 기록 보기·감사 역할 없음.
+    visibleTo: oneOf('OPERATOR_ADMIN'),
+    items: [{ to: '/pii-access-logs', label: m.nav.piiAccessLogs }],
+  },
+  {
     id: 'assistant',
     label: m.nav.group.assistant,
     visibleTo: 'ALL',

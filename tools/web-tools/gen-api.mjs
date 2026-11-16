@@ -24,7 +24,8 @@ const copies = [
   {
     label: 'web/mfc-backoffice',
     dir: join(repo, 'web/mfc-backoffice/src/api/generated'),
-    services: ['center-master', 'mfc-capacity', 'mfc-fulfillment', 'mfc-inbound', 'mfc-inventory', 'mfc-location', 'mfc-quality'],
+    // backoffice-bff·case: 우리 센터 배송 현황·배차 실패 사건(2026-11-16, bff 0.3.1·case 0.5.2)
+    services: ['backoffice-bff', 'case', 'center-master', 'mfc-capacity', 'mfc-fulfillment', 'mfc-inbound', 'mfc-inventory', 'mfc-location', 'mfc-quality'],
   },
 ];
 const excluded = ['/internal', '/webhooks', '/actuator'];
