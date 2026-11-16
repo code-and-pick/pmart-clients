@@ -37,8 +37,7 @@ export const messages = {
     orders: '주문 조회',
     riderComplaints: '라이더 컴플레인',
     claims: '클레임 조회',
-    deliveries: '배송 확인',
-    deliveriesRiderOps: '배송·배차 확인',
+    deliveries: '배송·배차 확인',
     pendingWork: '처리 대기',
     cases: '지원센터 사건',
     misdelivery: '오배송 확인 열기',
@@ -50,6 +49,7 @@ export const messages = {
     group: {
       catalog: '상품 관리',
       approval: '승인',
+      lookup: '조회·현황',
       cs: '고객센터',
       riderOps: '라이더 운영',
       pending: '처리 대기',

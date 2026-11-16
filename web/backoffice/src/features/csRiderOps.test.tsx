@@ -15,10 +15,10 @@ describe('메뉴 묶음 — 역할로 보이고(합집합) 접고 편다', () =>
     const cases: Array<[string, string[]]> = [
       [as.md, ['상품 관리', '업무 도우미']],
       [as.approver, ['승인', '업무 도우미']],
-      [as.cs, ['고객센터', '지원센터', '업무 도우미']],
-      [as.riderOps, ['라이더 운영', '지원센터', '업무 도우미']],
-      [as.csRider, ['고객센터', '라이더 운영', '지원센터', '업무 도우미']],
-      [as.admin, ['상품 관리', '승인', '고객센터', '라이더 운영', '지원센터', '처리 대기', '감사', '업무 도우미']], // 상품 관리는 2026-11-15 부터 OPERATOR_ADMIN 도
+      [as.cs, ['조회·현황', '고객센터', '지원센터', '업무 도우미']],
+      [as.riderOps, ['조회·현황', '라이더 운영', '지원센터', '업무 도우미']],
+      [as.csRider, ['조회·현황', '고객센터', '라이더 운영', '지원센터', '업무 도우미']],
+      [as.admin, ['상품 관리', '승인', '조회·현황', '고객센터', '라이더 운영', '지원센터', '처리 대기', '감사', '업무 도우미']], // 상품 관리는 2026-11-15 부터 OPERATOR_ADMIN 도
       [as.center, ['업무 도우미']],
     ];
     for (const [token, expected] of cases) {
@@ -42,18 +42,15 @@ describe('메뉴 묶음 — 역할로 보이고(합집합) 접고 편다', () =>
     expect(cs).not.toHaveAttribute('open');
   });
 
-  it('같은 화면은 한 번만 — 두 역할이면 앞 묶음(고객센터)에만, 역할 하나면 그 묶음에 그대로', async () => {
+  it('같은 화면은 메뉴에 한 번만 — 함께 쓰는 조회는 조회·현황 묶음에', async () => {
     const links = (g: string) => within(screen.getByTestId(`nav-group-${g}`)).getAllByRole('link', { hidden: true }).map((a) => a.textContent);
-    renderAt('/inquiries', as.csRider);
-    await screen.findByTestId('nav-group-riderOps');
-    expect(links('cs')).toEqual(expect.arrayContaining(['주문 조회', '라이더 컴플레인', '배송 확인']));
+    renderAt('/session', as.admin);
+    await screen.findByTestId('nav-group-lookup');
+    expect(links('lookup')).toEqual(['주문 조회', '통합 조회', '실시간 배송 현황', '배송·배차 확인', '라이더 컴플레인']);
+    expect(links('cs')).toEqual(['문의 답변', '클레임 조회']);
     expect(links('riderOps')).toEqual(['라이더 찾기·계정 제한', '제한 검토']);
     const all = [...document.querySelectorAll('[data-testid^="nav-group-"] a')].map((a) => a.getAttribute('href'));
     expect(new Set(all).size).toBe(all.length);
-    cleanup();
-    renderAt('/session', as.riderOps);
-    await screen.findByTestId('nav-group-riderOps');
-    expect(links('riderOps')).toEqual(expect.arrayContaining(['라이더 찾기·계정 제한', '주문 조회', '라이더 컴플레인', '배송·배차 확인']));
   });
 
   it('첫 화면은 역할로 보이는 첫 메뉴 — 상담원은 주문 조회, 라이더 운영은 라이더 찾기', async () => {
