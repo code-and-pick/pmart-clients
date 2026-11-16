@@ -120,7 +120,7 @@ export const navGroups: readonly MenuGroup[] = [
       {
         key: 'restrictions',
         segment: 'restrictions',
-        ready: false,
+        ready: true,
         apiReady: ['운영 제한 목록·상세', '등록(승인 근거 필수)·해제'],
         apiMissing: [],
       },

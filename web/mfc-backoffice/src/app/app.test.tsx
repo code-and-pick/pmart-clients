@@ -1,5 +1,5 @@
 // MFC 백오피스 기반(handoff mfc-backoffice/2026-11-15-request-mfc-backoffice §1·§2) — 로그인 앱 이름, 센터 고르기, 메뉴 자리, 역할 안내.
-import { screen, waitFor, within } from '@testing-library/react';
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -11,6 +11,7 @@ import { beginEmployeeLogin, browser, LOGIN_SILENT_KEY } from '../api/employeeAu
 import { env } from '../env';
 import { as, renderAt } from '../test/render';
 import { server } from '../test/server';
+import { PreparingPage } from '../features/menus/PreparingPage';
 import { allMenus } from './nav';
 
 afterEach(() => {
@@ -166,15 +167,17 @@ describe('메뉴', () => {
     }
   });
 
-  it('아직 만들지 않은 메뉴는 "화면 준비 중" + 서버 API 가 있는 기능 목록', async () => {
-    renderAt('/c/MFC-BSN-01/restrictions');
-    expect(await screen.findByText('화면 준비 중')).toBeInTheDocument();
-    expect(screen.getByText('서버 API 가 있는 기능(다음 차례에 화면을 만들어요)')).toBeInTheDocument();
+  it('9개 메뉴가 모두 화면을 가진다(2026-11-16) — "준비 중"이 아니다', () => {
+    expect(allMenus.filter((menu) => !menu.ready).map((menu) => menu.key)).toEqual([]);
   });
 
-  it('API 가 다 있는 메뉴에는 "없는 기능" 목록이 없다', async () => {
-    renderAt('/c/MFC-BSN-01/restrictions');
-    expect(await screen.findByText('화면 준비 중')).toBeInTheDocument();
+  // 메뉴가 모두 만들어져 "준비 중" 화면은 메뉴로 열 수 없다 — 앞으로 생길 메뉴를 위해 부품을 직접 확인한다
+  it('준비 중 화면: 서버 API 가 있는 기능과 없는 기능을 나눠 보인다', () => {
+    render(<PreparingPage menu={{ key: 'quality', segment: 'quality', ready: false, apiReady: ['단건 조회'], apiMissing: ['목록'] }} />);
+    expect(screen.getByText('화면 준비 중')).toBeInTheDocument();
+    expect(within(screen.getByTestId('api-missing')).getByText('목록')).toBeInTheDocument();
+    cleanup();
+    render(<PreparingPage menu={{ key: 'quality', segment: 'quality', ready: false, apiReady: ['단건 조회'], apiMissing: [] }} />);
     expect(screen.queryByTestId('api-missing')).not.toBeInTheDocument();
   });
 

@@ -57,6 +57,46 @@ function seedDisposals(): Array<[string, MockDisposal]> {
 
 type Cap = CapacitySchemas['schemas'];
 export type TaskType = Cap['TaskType'];
+export type MockRestriction = Cap['OperationRestriction'] & { readonly restrictionId: string; readonly mfcId: string; readonly version: number; readonly state: 'ACTIVE' | 'LIFTED' };
+
+function seedRestrictions(): Array<[string, MockRestriction]> {
+  return [
+    [
+      'RST-1',
+      {
+        restrictionId: 'RST-1',
+        mfcId: 'MFC-BSN-01',
+        restrictionType: 'CAPACITY_REDUCE',
+        state: 'ACTIVE',
+        version: 1,
+        approvalRef: 'AP-OPS-1',
+        liftApprovalRef: null,
+        reason: '냉장 설비 점검',
+        effectiveFrom: '2026-11-16T05:00:00.000Z',
+        effectiveTo: '2026-11-16T09:00:00.000Z',
+        reducedCapacityUnits: 20,
+        affectedOrderIds: ['ORD-7'],
+      },
+    ],
+    [
+      'RST-0',
+      {
+        restrictionId: 'RST-0',
+        mfcId: 'MFC-BSN-01',
+        restrictionType: 'INTAKE_STOP',
+        state: 'LIFTED',
+        version: 2,
+        approvalRef: 'AP-OPS-0',
+        liftApprovalRef: 'AP-OPS-0L',
+        reason: '정전',
+        effectiveFrom: '2026-11-14T01:00:00.000Z',
+        effectiveTo: null,
+        reducedCapacityUnits: null,
+        affectedOrderIds: [],
+      },
+    ],
+  ];
+}
 
 /** 작업자 — 계정(workerId)·업무 이력·자격·상태 이력(목은 정본 값만 들고, 유효 업무·업무 묶음은 핸들러가 계산) */
 export interface MockWorker {
@@ -570,6 +610,7 @@ function seedGrants(): Array<[string, MockGrant]> {
 }
 
 export const db = {
+  restrictions: new Map<string, MockRestriction>(),
   decisions: new Map<string, MockDecision>(),
   disposals: new Map<string, MockDisposal>(),
   inspections: new Map<string, MockInspection>(),
@@ -624,6 +665,7 @@ export function resetDb(): void {
   db.policies = seedPolicies();
   db.handlings = seedHandlings();
   db.unshippable = seedUnshippable();
+  db.restrictions = new Map(seedRestrictions());
   db.decisions = new Map(seedDecisions());
   db.disposals = new Map(seedDisposals());
   db.inspections = new Map();

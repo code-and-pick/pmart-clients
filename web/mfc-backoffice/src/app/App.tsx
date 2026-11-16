@@ -12,6 +12,7 @@ import { InventoryMenu } from '../features/inventory/InventoryPages';
 import { LocationsMenu } from '../features/locations/LocationPages';
 import { MovesMenu } from '../features/moves/MovePages';
 import { QualityMenu } from '../features/quality/QualityPages';
+import { RestrictionsMenu } from '../features/restrictions/RestrictionPages';
 import { TasksMenu } from '../features/tasks/TaskPages';
 import { WorkersMenu } from '../features/workers/WorkerPages';
 import { PreparingPage } from '../features/menus/PreparingPage';
@@ -121,6 +122,7 @@ const menuPages: Partial<Record<MenuKey, ComponentType<{ readonly mfcId: string 
   inbound: InboundMenu,
   inventory: InventoryMenu,
   quality: QualityMenu,
+  restrictions: RestrictionsMenu,
 };
 
 function MenuPage({ menu, mfcId }: { readonly menu: MenuItem; readonly mfcId: string }) {
