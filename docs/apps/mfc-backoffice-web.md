@@ -39,7 +39,7 @@
 |  | 이동·보충 | `moves` | **됨**(§4-2) | — |
 |  | 입고 | `inbound` | **됨**(§4-7) — 목록 없는 것은 ID 로, TRF 는 안내만 | 입고 예정(TRF, 계약만), 초기 보유 센터별 수령 대기 목록, 회수품·공급 요청 목록 |
 | 배송 | 배송 현황 | `deliveries` | **됨**(§4-4) | — |
-|  | 배차 실패 | `dispatch-failures` | **됨**(§4-4, 보기만) | (배차 쪽 사건에 센터가 실리기 전엔 0건 — DD-MFC) |
+|  | 배차 실패 | `dispatch-failures` | **됨**(§4-4, 보기만) | — (센터 정보 DD-MFC 배포됨 2026-11-16 — 그 뒤 생긴 배차 실패부터) |
 | 재고·품질 | 재고 | `inventory` | **됨**(§4-8) — 상품 코드로·실사는 ID 로 | 센터 전체 재고 목록(상품 코드 없이), 실사 세션 목록 |
 |  | 품질 | `quality` | **됨**(§4-9) — 목록 없는 것은 번호로, 사고는 안내만 | 해제 승인 대기·폐기·검수 목록, 품질 사고(계약만) |
 | 센터 | 위치(칸) | `locations` | **됨**(§4-1) | — |
@@ -92,7 +92,7 @@
 - 화면 용어(사용자 2026-11-16): 백엔드 case 는 "접수 건"(배차 실패 접수 건), 상태 접수됨·처리 끝남·다시 처리 중, 종결 → 처리 결과 — 백오피스와 같다(`backoffice-web.md` §2-4).
 - 백엔드 요청 `mfc-backoffice/2026-11-16-request-center-deliveries-and-dispatch-failures.md`(사용자 "①②③ 추천대로", 배송 원문 §1·§3.6). 새 묶음 "배송".
 - **배송 현황** `deliveries`: bff `GET /backoffice/views/live-delivery?mfcId=<주소의 센터>&state=&size=50&cursor=` — 백오피스와 같은 API, 센터 관리자는 자기 센터 고정(다른 센터 403). 상태 비우면 진행 중 전부(오래된 순 50, 넘으면 truncated), 상태 고르면 `page.nextCursor`. 1분마다 다시 읽기. 배차 원천 실패 "모름(조회 실패)", `openCases null` "조회 실패", 못 읽은 원천 경고. "약속 지남"은 서버 `promisedAt < composedAt` 만. 열린 배차 실패 사건은 이 앱의 사건 상세로. 배송·주문 상세 화면은 이 앱에 없어 번호만.
-- **배차 실패** `dispatch-failures`: case `GET /cases?kind=DISPATCH_FAILED&centerId=<센터>&size=50`(탭 "처리 중" / "처리 끝남"(`state=CLOSED`), 탭은 URL — 센터 관리자는 닫지 않으므로 열림·닫힘 대신 처리 단계로 부른다, 사용자 2026-11-16) · `GET /cases/{caseId}`(요약·관련·기한·담당·종결·이력). **보기만** — 집기·닫기 버튼 없음(서버 403), "처리는 지원센터(라이더 운영)" 안내. 배차 쪽 사건에 센터가 실리기 전(배송 영역 DD-MFC)에는 0건이 정상이라 안내.
+- **배차 실패** `dispatch-failures`: case `GET /cases?kind=DISPATCH_FAILED&centerId=<센터>&size=50`(탭 "처리 중" / "처리 끝남"(`state=CLOSED`), 탭은 URL — 센터 관리자는 닫지 않으므로 열림·닫힘 대신 처리 단계로 부른다, 사용자 2026-11-16) · `GET /cases/{caseId}`(요약·관련·기한·담당·종결·이력). **보기만** — 집기·닫기 버튼 없음(서버 403), "처리는 지원센터(라이더 운영)" 안내. 배차 실패 접수 건의 센터 정보(배송 영역 DD-MFC)는 2026-11-16 배포(백엔드 #55) — 그 뒤 생긴 배차 실패부터 보이고, 그 전 것은 안 보인다고 안내(예전 "센터 정보가 실리기 전엔 0건이 정상" 문구는 지움).
 - API 클라이언트: `api.bff`(`/api/v1/backoffice`)·`api.cases`. 계약 타입은 `gen:api` 의 mfc-backoffice 복사 목록에 backoffice-bff·case 를 더해 만든다(`tools/web-tools/gen-api.mjs`).
 - 목 `mocks/centerDeliveryHandlers.ts`(우리 센터 진행 중 2·끝난 1·다른 센터 1, 사건 열린 1·닫힌 1·다른 센터 1 — 상태 SUSPENDED 로 거르면 배차·사건 원천 실패). 시험 `features/delivery/centerDelivery.test.tsx`(7).
 

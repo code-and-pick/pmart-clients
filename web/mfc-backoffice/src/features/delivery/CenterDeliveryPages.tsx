@@ -4,7 +4,7 @@
 //   (다른 센터 403). 상태를 비우면 끝나지 않은 배송 전부 오래된 순 50건(넘으면 truncated), 상태를 고르면 page.nextCursor 로 다음 쪽. 1분마다 다시 읽는다.
 //   배차 원천 실패면 "모름(조회 실패)", 사건 원천 실패(openCases null)면 "조회 실패"(0건과 구분). "약속 지남"은 서버 promisedAt < composedAt 일 때만.
 // - 배차 실패: case `GET /cases?kind=DISPATCH_FAILED&centerId=`(열린 것 / state=CLOSED 닫힌 것) · `GET /cases/{caseId}` — 보기만.
-//   집기·닫기는 없다(서버 403) — 처리는 지원센터(RIDER_OPS). 배차 쪽 사건에 센터가 실리기 전(DD-MFC)에는 0건이 정상이라 안내한다.
+//   집기·닫기는 없다(서버 403) — 처리는 지원센터(RIDER_OPS). 배차 실패의 센터 정보(DD-MFC)는 2026-11-16 배포 — 그 뒤 생긴 배차 실패부터 보인다고 안내한다.
 // - 배송·주문 상세 화면은 이 앱에 없어 번호만 보인다. 개인정보 없음.
 import { useQuery } from '@tanstack/react-query';
 import { Link, Route, Routes, useParams, useSearchParams } from 'react-router';
