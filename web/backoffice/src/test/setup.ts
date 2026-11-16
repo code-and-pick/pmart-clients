@@ -4,6 +4,8 @@ import { afterAll, afterEach, beforeAll } from 'vitest';
 
 import { resetDb } from '../mocks/db';
 import { resetMockCases } from '../mocks/caseHandlers';
+import { resetMockCsIntakes } from '../mocks/csIntakeHandlers';
+import { resetMockInquiries } from '../mocks/inquiryHandlers';
 import { resetMockOps } from '../mocks/opsHandlers';
 import { pollConfig } from '@pmart/web-core';
 import { server } from './server';
@@ -20,6 +22,8 @@ afterEach(() => {
   resetDb();
   resetMockOps();
   resetMockCases();
+  resetMockCsIntakes();
+  resetMockInquiries();
   cleanup();
   // 세션 복원 보관(refresh token)이 다음 테스트로 새지 않게
   sessionStorage.clear();

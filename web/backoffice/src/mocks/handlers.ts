@@ -7,6 +7,7 @@ import { catalogHandlers } from './catalogHandlers';
 import { approvalInbox, centerList } from './fixtures';
 import { inquiryHandlers } from './inquiryHandlers';
 import { caseHandlers } from './caseHandlers';
+import { csIntakeHandlers } from './csIntakeHandlers';
 import { liveDeliveryHandlers } from './liveDeliveryHandlers';
 import { lookupHandlers } from './lookupHandlers';
 import { opsHandlers } from './opsHandlers';
@@ -37,6 +38,7 @@ export const handlers = [
   ...inquiryHandlers,
   ...opsHandlers,
   ...caseHandlers,
+  ...csIntakeHandlers,
   ...lookupHandlers,
   ...liveDeliveryHandlers,
   ...piiAccessLogHandlers,

@@ -14,6 +14,7 @@ import type { components } from '../../api/generated/case';
 import { useApi } from '../../app/ApiContext';
 import { useSession } from '../../app/SessionContext';
 import { CommandFeedback } from '../../shared/Feedback';
+import { canSeeIntakes, CsIntakeLog } from '../csIntakes/CsIntakePages';
 import { messages as m } from '../../shared/messages';
 
 type Inquiry = components['schemas']['Inquiry'];
@@ -98,6 +99,10 @@ export function InquiryListPage() {
                   <td className="max-w-xs truncate">
                     {i.title ?? m.none}
                     {i.origin === 'ASSISTANT_HANDOFF' && <span className="badge badge-ghost badge-sm ml-1">{m.inquiries.fromAssistant}</span>}
+                    {i.origin === 'STAFF_INTAKE' && (
+                      <span className="badge badge-ghost badge-sm ml-1" data-testid="inquiry-channel">{`${m.inquiries.fromStaff} · ${label(m.csIntake.channelName, i.channel)}`}</span>
+                    )}
+                    {i.callerRelation === 'PROXY' && <span className="badge badge-warning badge-sm ml-1">{m.inquiries.proxy}</span>}
                   </td>
                   <td>{label(m.inquiries.status, i.status)}</td>
                   <td>{formatSeoul(i.createdAt)}</td>
@@ -164,7 +169,7 @@ function ReplyForm({ inquiry }: { readonly inquiry: Inquiry }) {
           onChange={(e) => setBody(e.target.value)}
         />
       </label>
-      <p className="text-xs opacity-60">{m.inquiries.replyNote}</p>
+      <p className="text-xs opacity-60">{inquiry.origin === 'STAFF_INTAKE' ? m.inquiries.replyNoteStaff : m.inquiries.replyNote}</p>
       <div className="flex items-center gap-2">
         <button type="submit" className="btn btn-primary btn-sm" disabled={!trimmed || locked}>
           {m.inquiries.replySend}
@@ -209,12 +214,33 @@ export function InquiryDetailPage() {
               <dt>{m.inquiries.order}</dt>
               <dd>{q.orderId ?? m.none}</dd>
               <dt>{m.inquiries.origin}</dt>
-              <dd>{q.origin === 'ASSISTANT_HANDOFF' ? m.inquiries.fromAssistant : q.origin === 'INQUIRY_PAGE' ? m.inquiries.fromPage : (q.origin ?? m.none)}</dd>
+              <dd>
+                {q.origin === 'ASSISTANT_HANDOFF'
+                  ? m.inquiries.fromAssistant
+                  : q.origin === 'INQUIRY_PAGE'
+                    ? m.inquiries.fromPage
+                    : q.origin === 'STAFF_INTAKE'
+                      ? m.inquiries.fromStaff
+                      : (q.origin ?? m.none)}
+              </dd>
+              {q.channel && (
+                <>
+                  <dt>{m.inquiries.channel}</dt>
+                  <dd>{`${label(m.csIntake.channelName, q.channel)}${q.callerRelation ? ` · ${label(m.csIntake.relationName, q.callerRelation)}` : ''}`}</dd>
+                </>
+              )}
               <dt>{m.inquiries.createdAt}</dt>
               <dd>{formatSeoul(q.createdAt)}</dd>
               <dt>{m.inquiries.caseId}</dt>
               <dd>{q.caseId}</dd>
             </dl>
+
+            {q.callerRelation === 'PROXY' && (
+              <p role="alert" className="alert alert-warning text-sm" data-testid="inquiry-proxy-warning">
+                {m.inquiries.proxyWarning}
+              </p>
+            )}
+            {q.origin === 'STAFF_INTAKE' && <p className="text-sm opacity-70">{m.inquiries.staffNote}</p>}
 
             <article className="rounded-box bg-base-100 p-4">
               {q.title && <h2 className="mb-2 font-bold">{q.title}</h2>}
@@ -251,6 +277,15 @@ export function InquiryDetailPage() {
             >
               {m.inquiries.recordComplaint}
             </Link>
+            {canSeeIntakes(session?.roles ?? []) && (
+              <Link
+                className="btn btn-sm ml-2"
+                to={`/cs-intakes/new?${new URLSearchParams({ linkCaseId: q.caseId, ...(q.customerId ? { customerRef: q.customerId } : {}), ...(q.orderId ? { subjectRef: q.orderId } : {}) }).toString()}`}
+              >
+                {m.inquiries.recordContact}
+              </Link>
+            )}
+            <CsIntakeLog caseId={q.caseId} title={m.inquiries.contactLog} />
           </>
         )}
       </QueryState>

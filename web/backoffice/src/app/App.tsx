@@ -25,6 +25,7 @@ import { CsFollowUpPage } from '../features/cases/FollowUps';
 import { HandoverPage } from '../features/cases/HandoverPages';
 import { DeliveryDetailPage, DeliveryOpenPage } from '../features/deliveries/DeliveryPages';
 import { InquiryDetailPage, InquiryListPage } from '../features/inquiries/InquiryPages';
+import { NewCsIntakePage } from '../features/csIntakes/CsIntakePages';
 import { OrderDetailPage, OrderLookupPage } from '../features/orders/OrderLookupPages';
 import { NewRiderComplaintPage, RiderComplaintDetailPage, RiderComplaintListPage } from '../features/riderComplaints/RiderComplaintPages';
 import { RestrictionReviewPage } from '../features/riders/RestrictionReviewPage';
@@ -141,6 +142,7 @@ const routes = [
       { path: 'handlings', element: guarded(<SkuHandlingPage />) },
       { path: 'inquiries', element: guarded(<InquiryListPage />) },
       { path: 'inquiries/:inquiryId', element: guarded(<InquiryDetailPage />) },
+      { path: 'cs-intakes/new', element: guarded(<NewCsIntakePage />) },
       // 고객센터·라이더 운영(백엔드 요청 2026-11-15 cs-rider-menus)
       { path: 'orders', element: guarded(<OrderLookupPage />) },
       { path: 'orders/:orderId', element: guarded(<OrderDetailPage />) },

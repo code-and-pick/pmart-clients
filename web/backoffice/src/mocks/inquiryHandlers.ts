@@ -60,6 +60,41 @@ const seed = (): Inquiry[] => [
 let inquiries = seed();
 const replied = new Map<string, Inquiry>(); // Idempotency-Key → 결과
 
+/** 상담원 접수(case 0.12.0 — csIntakeHandlers)가 만드는 문의(STAFF_INTAKE). 새 문의 ID 를 돌려준다. */
+export function addStaffInquiry(x: {
+  category: string;
+  customerId: string;
+  orderId: string | null;
+  body: string;
+  channel: string | null;
+  callerRelation: string;
+  createdAt: string;
+  caseId: string;
+}): string {
+  const inquiryId = `INQ-MOCK-S${inquiries.length + 1}`;
+  inquiries = [
+    {
+      inquiryId,
+      category: x.category as Inquiry['category'],
+      orderId: x.orderId,
+      title: null,
+      status: 'RECEIVED',
+      origin: 'STAFF_INTAKE',
+      channel: x.channel,
+      callerRelation: x.callerRelation,
+      createdAt: x.createdAt,
+      answeredAt: null,
+      version: 1,
+      caseId: x.caseId,
+      customerId: x.customerId,
+      body: x.body,
+      replies: [],
+    },
+    ...inquiries,
+  ];
+  return inquiryId;
+}
+
 /** 시험 사이에 목 상태를 처음으로 돌린다. */
 export function resetMockInquiries(): void {
   inquiries = seed();
@@ -99,6 +134,8 @@ export const inquiryHandlers = [
         title: i.title,
         status: i.status,
         origin: i.origin,
+        channel: i.channel ?? null,
+        callerRelation: i.callerRelation ?? null,
         createdAt: i.createdAt,
         answeredAt: i.answeredAt,
         version: i.version,

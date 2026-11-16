@@ -32,6 +32,7 @@ import { useSession } from '../../app/SessionContext';
 import { messages as m } from '../../shared/messages';
 import { label, text, when } from '../../shared/ops';
 import { SourceStamps } from '../../shared/SourceStamps';
+import { canSeeIntakes, CsIntakeLog } from '../csIntakes/CsIntakePages';
 import { CaseNotes } from './CaseNotes';
 import { HelpChat } from './HelpChat';
 import { FollowUps, isOpenObligation } from './FollowUps';
@@ -528,6 +529,7 @@ export function CaseDetailPage() {
   const api = useApi();
   const queryClient = useQueryClient();
   const { me, admin, team } = useCaseRoles();
+  const { session } = useSession();
   const key = ['cases', 'detail', caseId];
   const query = useQuery({ queryKey: key, queryFn: () => request('GET', api.cases.GET('/cases/{caseId}', { params: { path: { caseId } } })) });
   const onDone = (c: Case) => {
@@ -622,6 +624,14 @@ export function CaseDetailPage() {
               )}
 
               <CaseNotes caseId={c.caseId ?? caseId} />
+
+              {/* 고객 연락 기록(case 0.12.0) — 상담원·관리자만(그 밖 역할은 서버 403이라 그리지 않는다) */}
+              {canSeeIntakes(session?.roles ?? []) && (
+                <Link className="btn btn-sm" to={`/cs-intakes/new?${new URLSearchParams({ linkCaseId: c.caseId ?? caseId }).toString()}`}>
+                  {m.csIntake.caseRecord}
+                </Link>
+              )}
+              <CsIntakeLog caseId={c.caseId ?? caseId} title={m.csIntake.caseLog} />
 
               <h2 className="font-bold">{m.cases.history}</h2>
               <ul className="space-y-1 text-sm">
