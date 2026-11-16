@@ -354,6 +354,21 @@ export const messages = {
     addressReasonHint: '사유에는 주소·전화번호를 적지 마세요(예: 고객 통화 — 동 호수 잘못 입력).',
     addressRecorded: (id: string) => `실제 주소를 기록했어요(번호 ${id}). 접수만 다시 보내면 돼요.`,
   },
+  /** 라이더 도움요청 대화(execution 0.6.0) — 라이더 ↔ 지원센터 */
+  helpChat: {
+    title: '라이더와 대화',
+    intro: '라이더 앱의 도움요청 화면과 같은 대화예요. 여기에 쓴 답장은 라이더에게 보여요(직원끼리 기록은 아래 메모에). 열어 둔 동안 5초마다 새 메시지를 확인해요.',
+    empty: '아직 주고받은 메시지가 없어요.',
+    rider: '라이더',
+    support: '지원센터',
+    photos: (refs: string) => `사진 ${refs}`,
+    replyLabel: '라이더에게 답장(1~1,000자)',
+    reply: '답장 보내기',
+    sent: '보냈어요.',
+    piiHint: '고객 전화번호·출입 비밀번호 같은 개인정보는 쓰지 마세요.',
+    closed: '처리가 끝난 접수 건이라 대화가 닫혔어요. 다시 처리하면 이어서 쓸 수 있어요.',
+    pollFailed: '새 메시지를 확인하지 못했어요 — 아래는 마지막으로 받은 대화예요.',
+  },
   /** 접수 건 메모(case 0.10.0) — 덧붙이기만, 가림은 관리자 */
   caseNotes: {
     title: '메모',
@@ -1417,6 +1432,7 @@ export const messages = {
     UNSUPPORTED_KIND: '직원이 직접 접수할 수 없는 종류예요.',
     INVALID_MISDELIVERY_RESOLUTION: '그 잘못에는 고를 수 없는 처리예요.',
     REDELIVERY_DESTINATION_REQUIRED: '다시 배송할 실제 주소가 필요해요(아직 준비 중).',
+    HELP_REQUEST_CLOSED: '처리가 끝난 도움요청이라 더 쓸 수 없어요. 다시 처리하면 이어서 쓸 수 있어요.',
     OPEN_OBLIGATIONS: '후속 처리가 남아 있어 처리를 끝낼 수 없어요.',
     CASE_IN_HANDOVER: '다른 진행 중 인계서에 들어 있는 접수 건이에요.',
     NOT_HANDOVERABLE: '넘길 수 없는 접수 건이 있어요(처리가 끝났거나, 내가 맡지 않았거나, 다른 팀 건).',

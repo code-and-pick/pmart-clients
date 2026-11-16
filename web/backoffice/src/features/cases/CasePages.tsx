@@ -33,6 +33,7 @@ import { messages as m } from '../../shared/messages';
 import { label, text, when } from '../../shared/ops';
 import { SourceStamps } from '../../shared/SourceStamps';
 import { CaseNotes } from './CaseNotes';
+import { HelpChat } from './HelpChat';
 import { FollowUps, isOpenObligation } from './FollowUps';
 
 type Case = components['schemas']['Case'];
@@ -517,6 +518,7 @@ function HelpRequestOfCase({ c }: { readonly c: Case }) {
           </dl>
         )}
       </QueryState>
+      <HelpChat deliveryId={deliveryId} requestId={requestId} />
     </>
   );
 }

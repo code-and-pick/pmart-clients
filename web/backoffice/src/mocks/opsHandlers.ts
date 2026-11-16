@@ -134,6 +134,17 @@ function dispatch(deliveryId: string, orderId: string, state: DispatchC['schemas
   };
 }
 
+/** execution 0.6.0 도움요청 대화 메시지 */
+interface HelpMessageMock {
+  messageId: string;
+  seq: number;
+  senderType: 'RIDER' | 'SUPPORT';
+  senderId: string | null;
+  body: string;
+  photoRefs: string[];
+  createdAt: string;
+}
+
 interface OpsState {
   seq: number;
   orders: StaffOrder[];
@@ -146,6 +157,8 @@ interface OpsState {
   reviews: Review[];
   /** 배차 취소 짝 조회: requestId → 처리 결과(다음 조회부터 확정으로 보인다) */
   cancellations: Map<string, { deliveryId: string; outcome: 'CANCELLED_BEFORE_PICKUP' | 'REJECTED_PICKED_UP'; polled: boolean }>;
+  helpMessages: HelpMessageMock[];
+  helpState: 'OPEN' | 'IN_PROGRESS' | 'RESOLVED';
   /** order 0.6.0 이행 확인 필요(처리 대기 메뉴) */
   issues: Issue[];
   /** orchestration 0.2.0 멈춘 사가(bff pending-work 의 STUCK_SAGA) — resolved 면 목록에서 빠진다 */
@@ -252,6 +265,11 @@ function seed(): OpsState {
       },
     ],
     cancellations: new Map(),
+    /** execution 0.6.0 도움요청 대화(DLV-MOCK-1:HLP-MOCK-1) — seq 오름차순 */
+    helpMessages: [
+      { messageId: 'HMSG-MOCK-1', seq: 1, senderType: 'RIDER', senderId: 'RID-MOCK-1', body: '[목] 호출해도 응답이 없어요. 문 앞에 두고 가도 될까요?', photoRefs: ['PHOTO-MOCK-1'], createdAt: ago(1) },
+    ],
+    helpState: 'IN_PROGRESS',
   };
 }
 
@@ -831,6 +849,28 @@ export const opsHandlers = [
       evidenceRefs: ['PHOTO-MOCK-1'],
       createdAt: ago(1),
       caseId: 'CASE-MOCK-1',
+    });
+  }),
+  // execution 0.6.0 도움요청 대화 — after 뒤만, 한 번에 200개. 답장은 처리 끝난 건 409 HELP_REQUEST_CLOSED, 같은 키 = 같은 메시지
+  http.get(`${API_BASE}/deliveries/:deliveryId/help-requests/:requestId/messages`, ({ request, params }) => {
+    const { denied } = allow(request, ...LOOKUP);
+    if (denied) return denied;
+    if (params['deliveryId'] !== 'DLV-MOCK-1' || params['requestId'] !== 'HLP-MOCK-1') return problem(404, 'NOT_FOUND');
+    const after = Number(new URL(request.url).searchParams.get('after') ?? '0');
+    return HttpResponse.json({ items: ops.helpMessages.filter((x) => x.seq > after).slice(0, 200), helpState: ops.helpState });
+  }),
+  http.post(`${API_BASE}/deliveries/:deliveryId/help-requests/:requestId/messages`, async ({ request, params }) => {
+    const { denied, who } = allow(request, ...LOOKUP);
+    if (denied) return denied;
+    if (params['deliveryId'] !== 'DLV-MOCK-1' || params['requestId'] !== 'HLP-MOCK-1') return problem(404, 'NOT_FOUND');
+    const body = ((await request.clone().json()) as { body?: string }).body ?? '';
+    return idempotent(request, () => {
+      if (body.trim().length < 1 || body.length > 1000) return problem(400, 'VALIDATION_FAILED', [{ field: 'body', reason: 'INVALID_FORMAT' }]);
+      if (ops.helpState === 'RESOLVED') return problem(409, 'HELP_REQUEST_CLOSED');
+      const seq = (ops.helpMessages.at(-1)?.seq ?? 0) + 1;
+      const msg: HelpMessageMock = { messageId: `HMSG-MOCK-${seq}`, seq, senderType: 'SUPPORT', senderId: who?.subject ?? null, body, photoRefs: [], createdAt: new Date().toISOString() };
+      ops.helpMessages.push(msg);
+      return { status: 201, body: msg };
     });
   }),
 ];
