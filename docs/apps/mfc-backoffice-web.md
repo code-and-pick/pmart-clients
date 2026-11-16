@@ -6,7 +6,7 @@
 - 근거: 백엔드 요청 `../pmart-backend/docs/handoff/clients/mfc-backoffice/2026-11-15-request-mfc-backoffice.md`. 메뉴·API 정본은 `pmart-backend/docs/architecture/backoffice-role-menus.md` §3, 계약 `contracts/openapi/mfc-*.yaml`.
 - 기본 백오피스(`web/backoffice`)에는 MFC 메뉴를 넣지 않는다(백엔드 요청 2026-11-15 cs-rider-menus §0).
 - 상태(2026-11-15): **기반만**(앱 뼈대·로그인·센터 고르기·메뉴 자리). 메뉴 화면은 모두 "준비 중". 목 모드로 확인, LAN 배포·실서버 확인은 아직.
-- 2026-11-16(PC 2): **위치(칸)**(§4-1)·**이동·보충**(§4-2)·**작업자**(§4-3)·**배송 현황·배차 실패**(§4-4)·**작업 현황**(§4-5)·**배정**(§4-6)·**입고**(§4-7) 화면. 나머지 메뉴는 "준비 중". 목 모드만 확인.
+- 2026-11-16(PC 2): **위치(칸)**(§4-1)·**이동·보충**(§4-2)·**작업자**(§4-3)·**배송 현황·배차 실패**(§4-4)·**작업 현황**(§4-5)·**배정**(§4-6)·**입고**(§4-7)·**재고**(§4-8) 화면. 나머지 메뉴는 "준비 중". 목 모드만 확인.
 
 ## 1. 앱과 로그인
 
@@ -40,7 +40,7 @@
 |  | 입고 | `inbound` | **됨**(§4-7) — 목록 없는 것은 ID 로, TRF 는 안내만 | 입고 예정(TRF, 계약만), 초기 보유 센터별 수령 대기 목록, 회수품·공급 요청 목록 |
 | 배송 | 배송 현황 | `deliveries` | **됨**(§4-4) | — |
 |  | 배차 실패 | `dispatch-failures` | **됨**(§4-4, 보기만) | (배차 쪽 사건에 센터가 실리기 전엔 0건 — DD-MFC) |
-| 재고·품질 | 재고 | `inventory` | 준비 중 | 센터 전체 재고 목록(상품 코드 없이), 실사 세션 목록 |
+| 재고·품질 | 재고 | `inventory` | **됨**(§4-8) — 상품 코드로·실사는 ID 로 | 센터 전체 재고 목록(상품 코드 없이), 실사 세션 목록 |
 |  | 품질 | `quality` | 준비 중 | 해제 승인 대기·폐기·검수 목록, 품질 사고(계약만) |
 | 센터 | 위치(칸) | `locations` | **됨**(§4-1) | — |
 |  | 운영 제한 | `restrictions` | 준비 중 | — |
@@ -128,11 +128,25 @@
 | 공급 요청(`supply`) | `POST /supply-requests`, `GET/PATCH /supply-requests/{id}`(버전), `POST …/withdrawals`(버전) | 목록 API 없음(MB-1) — 요청 ID 로 연다. 작성 중·제출됨일 때만 고치기, 본사 수신 뒤엔 철회 후 다시. 희망 시각은 한국 시간 +09:00 |
 | 입고 예정(`promises`) | `/inbound-promises*` | 계약만(501, MB-2) — 안내만 |
 
+### 4-8. 재고 — mfc-inventory-service 0.16.0 (`features/inventory/InventoryPages.tsx`)
+탭은 URL 쿼리 `tab`(상품별 재고 기본 · `counts` · `unshippable` · `policies` · `handlings`). **승인 근거(approvalRef)는 화면에서 직접 입력**(사용자 2026-11-16 "승인 근거 너가 받아도 괜찮아" — 승인 서비스가 없어 서버는 기록만, PDA 실사 승인과 같음).
+
+| 화면·동작 | API | 규칙 |
+|---|---|---|
+| 상품별 재고 | `GET /mfcs/{id}/stock?sku=` | 상품 코드 필수(센터 전체 목록 MB-1 — 안내). LOT 요약(보유·격리·판매 가능·예약·가용)과 위치·품질·업무 상태별 단위 행 — 서버 값만 |
+| 위치·LOT 정정 | `POST /mfcs/{id}/stock-corrections` | 단위 행의 "정정" → 수량(보이는 수량 이하)·목적 위치·바로잡은 LOT 표기/소비기한/제조일 중 하나 이상·사유·승인 근거. 201 CommandResponse(REJECTED·UNKNOWN_RESULT 처리), 반영 뒤 재고 다시 읽기. 422 `INSUFFICIENT_STOCK`·`APPROVAL_REQUIRED`, 409 `INVARIANT_VIOLATION` 문구 |
+| 순환 실사 시작(`counts`) | `POST …/count-sessions` {locationCodes(최대 50, 중복 제거), reason?} | 실사 잠금 칸만 — 409 `LOCATION_NOT_LOCKED`(잠금 주체는 BR-52 R14 대기, 화면은 서버 판정만 안내). 시작하면 그 실사를 연다 |
+| 실사 보기·결정 | `GET …/count-sessions/{id}`, `POST …/approvals` | 목록 API 없음(MB-1) — 실사 ID 로 연다. 계수 중에는 차이를 숨긴다(서버가 null). 승인 대기면 승인(승인 근거 필수)·반려(근거 없이). 422 `SELF_APPROVAL`·`APPROVAL_REQUIRED`, 409 `BOOK_CHANGED`. 결정 문구는 실사 화면 위에(결정 영역은 사라진다). 계수·재계수는 PDA |
+| 출하 부적격 LOT(`unshippable`) | `GET …/unshippable-lots` | 소비기한 빠른 순. 이미 기타 칸이 아니면 "이동 지시" → 이동 화면을 상품·LOT·출발 칸·수량으로 채워 연다(`moves/new?sku=&lotId=&fromLocation=&qty=`) |
+| 보충 기준(`policies`) | `GET/PUT/DELETE …/replenishment-policies` | 칸·상품·최소·목표·단위. 최소 > 목표면 보내지 않음. 고회전 선반이 아니면 422 `REPLENISH_ONLY_HIGH_TURNOVER`. 삭제는 204(`locationCode`·`sku` 쿼리) |
+| 상품 취급(`handlings`) | `GET/POST …/sku-handlings` | ON/OFF 거르기, 커서 더 보기. 켜기·끄기는 `X-Expected-Version` = 취급 레코드 version(없으면 0). `changed=false` 면 "바뀐 것 없음". 422 `SKU_INACTIVE`, 404 `SKU_NOT_FOUND` 문구. 일괄 변경(`sku-handling-batches`)은 아직 안 붙임 |
+
 ## 5. 목 모드
 - 목 계정: 센터 관리자(MFC 1곳 `MFC-BSN-01`), 센터 관리자(MFC 2곳 `MFC-BSN-01`·`MFC-SEL-01`), 현장 작업자, 운영 관리자(센터 없음). `src/mocks/db.ts`.
-- 목 핸들러: 로그인(employee-auth — 세션 응답에 목 센터 이름), 위치(`mocks/locationHandlers.ts` — 센터 권한·코드 중복·문법·버전·폐지 조건), 이동(`mocks/moveHandlers.ts` — 관리자만 지시·취소, 카테고리 칸 거절, 재고·적치 후보), 작업자(`mocks/workerHandlers.ts` — 관리자만 바꾸기(휴게·출근은 본인도), 버전·중복·자격 밖 업무·근무 겹침·맞지 않는 배정), 작업(`mocks/taskHandlers.ts` — 기본 상태·커서·내놓기 조건·출하·인계 판정), 배정(`mocks/assignmentHandlers.ts` — 버전·적격 422·같은 사람·추천 계산(READY 작업 → 적격 작업자)·확정 재확인 PLAN_STALE), 입고(`mocks/inboundHandlers.ts` — 담당만·잔량·정상 LOT 마다 적치 작업·선반 아니면 REJECTED·초기 보유 EXPECTED/승인 수량·공급 요청 버전). 메뉴 화면을 만들 때 그 계약의 목을 더한다.
+- 목 핸들러: 로그인(employee-auth — 세션 응답에 목 센터 이름), 위치(`mocks/locationHandlers.ts` — 센터 권한·코드 중복·문법·버전·폐지 조건), 이동(`mocks/moveHandlers.ts` — 관리자만 지시·취소, 카테고리 칸 거절, 재고·적치 후보), 작업자(`mocks/workerHandlers.ts` — 관리자만 바꾸기(휴게·출근은 본인도), 버전·중복·자격 밖 업무·근무 겹침·맞지 않는 배정), 작업(`mocks/taskHandlers.ts` — 기본 상태·커서·내놓기 조건·출하·인계 판정), 배정(`mocks/assignmentHandlers.ts` — 버전·적격 422·같은 사람·추천 계산(READY 작업 → 적격 작업자)·확정 재확인 PLAN_STALE), 입고(`mocks/inboundHandlers.ts` — 담당만·잔량·정상 LOT 마다 적치 작업·선반 아니면 REJECTED·초기 보유 EXPECTED/승인 수량·공급 요청 버전), 재고(`mocks/inventoryHandlers.ts` — 정정 수량·승인 근거, 실사 잠금·자기 승인, 고회전 보충 기준, 취급 버전·비활성. 상품별 재고 조회는 moveHandlers 의 같은 목). 메뉴 화면을 만들 때 그 계약의 목을 더한다.
 - 목 이동: 진행 중 2(긴급 재배치·자동 보충), 카트 정리 대기 1, 끝남 1(+ 다른 센터 1). 목 재고는 `SKU-MILK-1` 세 줄(하나는 격리).
 - 목 작업자(`MFC-BSN-01`): 김현장(정규직, 자격이 업무보다 넓음, 진행 중 피킹 배정 1·근무 1), 이알바(알바, 휴게 중), 박일일(일일크루, 출근 전), 최정지(정지), 정퇴사(퇴사).
+- 목 재고(`MFC-BSN-01`): 실사 CNT-1 승인 대기(시작·계수 = 작업자, 장부 12 → 10), CNT-2 계수 중(시작 = OP-sup-1), 보충 기준 1, 취급 3(ON·OFF·판매 중지), 출하 부적격 2(하나는 이미 기타 칸).
 - 목 작업(`MFC-BSN-01`): 피킹 진행 중(멈춤, 출하 SHP-1 — 포장 PKG-1 밀봉·허가 만료), 포장 담당, 피킹 대기(담당 없음), 피킹 막힘, 피킹 끝남, 복귀 진행 중(늦음·재고 확정 대기 실적 1).
 - 목 위치: `MFC-BSN-01` 에 사용 중 3·닫힘 2(하나는 재고가 남아 폐지 거절)·폐지 1, `MFC-SEL-01` 에 1.
 - 목 모드는 새로고침하면 목 서버 기억이 지워져 다시 로그인해야 한다(화면 안 링크로 옮겨 다닌다).

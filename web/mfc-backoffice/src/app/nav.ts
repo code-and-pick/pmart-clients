@@ -94,7 +94,7 @@ export const navGroups: readonly MenuGroup[] = [
       {
         key: 'inventory',
         segment: 'inventory',
-        ready: false,
+        ready: true,
         apiReady: ['상품별 재고(상품 코드 필수)', '위치·LOT 정정', '순환 실사 만들기·입력·승인', '보충 기준', '출하 부적격 LOT', '상품 취급'],
         apiMissing: ['센터 전체 재고 목록(상품 코드 없이)', '실사 세션 목록'],
       },

@@ -167,9 +167,9 @@ describe('메뉴', () => {
   });
 
   it('아직 만들지 않은 메뉴는 "화면 준비 중" + 서버 API 가 없는 기능 목록', async () => {
-    renderAt('/c/MFC-BSN-01/inventory');
+    renderAt('/c/MFC-BSN-01/quality');
     expect(await screen.findByText('화면 준비 중')).toBeInTheDocument();
-    expect(within(screen.getByTestId('api-missing')).getByText('센터 전체 재고 목록(상품 코드 없이)')).toBeInTheDocument();
+    expect(within(screen.getByTestId('api-missing')).getByText('품질 사고 — 계약만')).toBeInTheDocument();
   });
 
   it('API 가 다 있는 메뉴에는 "없는 기능" 목록이 없다', async () => {

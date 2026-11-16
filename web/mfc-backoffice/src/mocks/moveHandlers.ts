@@ -118,8 +118,11 @@ export const moveHandlers = [
       .filter((u) => u.mfcId === mfcId && u.sku === sku)
       .map((u) => ({ locationCode: u.locationCode, lotId: u.lotId, qualityState: u.qualityState, workState: u.workState, qty: u.qty }));
     const lots = [...new Set(units.map((u) => u.lotId))].map((lotId) => {
-      const onHand = units.filter((u) => u.lotId === lotId).reduce((n, u) => n + u.qty, 0);
-      return { lotId, tracking: 'TRACKED', expiryDate: '2026-11-25', manufactureDate: null, onHand, quarantined: 0, sellable: onHand, reserved: 0, available: onHand };
+      const of = units.filter((u) => u.lotId === lotId);
+      const onHand = of.reduce((n, u) => n + u.qty, 0);
+      const quarantined = of.filter((u) => u.qualityState === 'QUARANTINED').reduce((n, u) => n + u.qty, 0);
+      const sellable = onHand - quarantined;
+      return { lotId, tracking: 'TRACKED', expiryDate: '2026-11-25', manufactureDate: null, onHand, quarantined, sellable, reserved: 0, available: sellable };
     });
     return HttpResponse.json({ mfcId, sku, lots, units });
   }),

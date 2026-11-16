@@ -263,7 +263,15 @@ function MoveCreatePage({ mfcId }: { readonly mfcId: string }) {
   const api = useApi();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
-  const [v, setV] = useState(emptyCreate);
+  // 다른 화면(재고 > 출하 부적격 LOT)에서 값을 채워 열 수 있다 — 주소 쿼리 sku·lotId·fromLocation·qty
+  const [query] = useSearchParams();
+  const [v, setV] = useState<CreateValues>(() => ({
+    ...emptyCreate,
+    sku: query.get('sku') ?? '',
+    lotId: query.get('lotId') ?? '',
+    fromLocation: query.get('fromLocation') ?? '',
+    qty: query.get('qty') ?? '',
+  }));
   const set = <K extends keyof CreateValues>(k: K, value: CreateValues[K]) => setV((prev) => ({ ...prev, [k]: value }));
   const qty = Number(v.qty);
   const ok = !!v.sku.trim() && !!v.lotId.trim() && !!v.fromLocation.trim() && !!v.toLocation.trim() && Number.isInteger(qty) && qty >= 1;

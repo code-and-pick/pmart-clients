@@ -354,6 +354,69 @@ function seedMoves(): Array<[string, MockMove]> {
   ];
 }
 
+type Inv = InventorySchemas['schemas'];
+export type MockCountSession = Inv['CountSession'] & { readonly sessionId: string; readonly mfcId: string; readonly state: NonNullable<Inv['CountSession']['state']> };
+export type MockPolicy = Required<Inv['ReplenishmentPolicy']>;
+export interface MockHandling {
+  readonly sku: string;
+  readonly handlingEnabled: boolean;
+  readonly version: number;
+  readonly skuState: 'ACTIVE' | 'INACTIVE';
+}
+export interface MockUnshippable {
+  readonly mfcId: string;
+  readonly sku: string;
+  readonly lotId: string;
+  readonly expiryDate: string | null;
+  readonly manufactureDate: string | null;
+  readonly locationCode: string;
+  readonly locationCategoryId: string | null;
+  readonly onMiscShelf: boolean;
+  readonly qty: number;
+}
+
+function seedCountSessions(): Array<[string, MockCountSession]> {
+  const base = { mfcId: 'MFC-BSN-01', reason: '순환 실사', baselineAt: '2026-11-16T00:00:00.000Z', approverId: null, approvalRef: null, commitId: null, updatedAt: '2026-11-16T00:30:00.000Z' };
+  const sheet = [{ locationCode: 'A-P1-01-1-01', sku: 'SKU-MILK-1', productName: '서울우유 1L', barcodes: [], lotId: 'LOT-MILK-A', expiryDate: '2026-11-25' }];
+  return [
+    [
+      'CNT-1',
+      {
+        ...base,
+        sessionId: 'CNT-1',
+        state: 'PENDING_APPROVAL',
+        locationCodes: ['A-P1-01-1-01'],
+        createdBy: 'OP-wkr-1',
+        firstCounter: 'OP-wkr-1',
+        recounter: 'OP-wkr-2',
+        sheet,
+        differences: [{ locationCode: 'A-P1-01-1-01', sku: 'SKU-MILK-1', lotId: 'LOT-MILK-A', bookQty: 12, heldQty: 0, countedQty: 10, deltaQty: -2 }],
+        version: 3,
+      },
+    ],
+    ['CNT-2', { ...base, sessionId: 'CNT-2', state: 'COUNTING', locationCodes: ['C-S1-03-2-04'], createdBy: 'OP-sup-1', firstCounter: null, recounter: null, sheet, differences: null, version: 1 }],
+  ];
+}
+
+function seedPolicies(): MockPolicy[] {
+  return [{ mfcId: 'MFC-BSN-01', locationCode: 'A-P1-01-1-01', sku: 'SKU-MILK-1', minQty: 3, targetQty: 10, unitQty: 2, updatedBy: 'OP-sup-1', updatedAt: '2026-11-15T00:00:00.000Z' }];
+}
+
+function seedHandlings(): MockHandling[] {
+  return [
+    { sku: 'SKU-MILK-1', handlingEnabled: true, version: 2, skuState: 'ACTIVE' },
+    { sku: 'SKU-OLD-9', handlingEnabled: false, version: 0, skuState: 'INACTIVE' },
+    { sku: 'SKU-RAMEN-5', handlingEnabled: false, version: 0, skuState: 'ACTIVE' },
+  ];
+}
+
+function seedUnshippable(): MockUnshippable[] {
+  return [
+    { mfcId: 'MFC-BSN-01', sku: 'SKU-MILK-1', lotId: 'LOT-MILK-OLD', expiryDate: '2026-11-17', manufactureDate: null, locationCode: 'C-S1-03-2-04', locationCategoryId: 'CAT-DAIRY', onMiscShelf: false, qty: 3 },
+    { mfcId: 'MFC-BSN-01', sku: 'SKU-RAMEN-5', lotId: 'LOT-RAMEN-OLD', expiryDate: '2026-11-20', manufactureDate: null, locationCode: 'A-P1-01-1-01', locationCategoryId: null, onMiscShelf: true, qty: 1 },
+  ];
+}
+
 function seedStock(): MockStockUnit[] {
   const unit = (locationCode: string, lotId: string, qty: number, qualityState: MockStockUnit['qualityState'] = 'NORMAL'): MockStockUnit => ({
     mfcId: 'MFC-BSN-01',
@@ -459,6 +522,10 @@ function seedGrants(): Array<[string, MockGrant]> {
 }
 
 export const db = {
+  countSessions: new Map<string, MockCountSession>(),
+  policies: [] as MockPolicy[],
+  handlings: [] as MockHandling[],
+  unshippable: [] as MockUnshippable[],
   inboundTasks: new Map<string, MockInboundTask>(),
   initialLoads: [] as MockInitialLoad[],
   returnReceipts: new Map<string, MockReturnReceipt>(),
@@ -502,6 +569,10 @@ export function resetDb(): void {
   db.initialLoads = seedInitialLoads();
   db.returnReceipts = new Map();
   db.supplyRequests = new Map();
+  db.countSessions = new Map(seedCountSessions());
+  db.policies = seedPolicies();
+  db.handlings = seedHandlings();
+  db.unshippable = seedUnshippable();
 }
 
 resetDb();
