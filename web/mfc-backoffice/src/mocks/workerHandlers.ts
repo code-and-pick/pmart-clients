@@ -22,7 +22,7 @@ const AREAS: ReadonlyArray<[Cap['WorkArea'], readonly TaskType[]]> = [
 const expired = (w: MockWorker) => w.qualification.expiresAt !== null && Date.parse(w.qualification.expiresAt) <= Date.now();
 
 /** 지금 배정 조건 = 업무 ∩ 유효 자격(일일크루는 오늘 출근 등록한 날만 — 그날 업무 = 유효 자격 전부) */
-function effective(w: MockWorker): TaskType[] {
+export function effective(w: MockWorker): TaskType[] {
   const qual = expired(w) ? [] : w.qualification.taskTypes;
   if (w.employmentType === 'DAILY') return w.enrolledToday ? [...qual] : [];
   return w.duties[0]!.taskTypes.filter((t) => qual.includes(t));

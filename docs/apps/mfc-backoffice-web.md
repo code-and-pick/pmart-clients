@@ -6,7 +6,7 @@
 - 근거: 백엔드 요청 `../pmart-backend/docs/handoff/clients/mfc-backoffice/2026-11-15-request-mfc-backoffice.md`. 메뉴·API 정본은 `pmart-backend/docs/architecture/backoffice-role-menus.md` §3, 계약 `contracts/openapi/mfc-*.yaml`.
 - 기본 백오피스(`web/backoffice`)에는 MFC 메뉴를 넣지 않는다(백엔드 요청 2026-11-15 cs-rider-menus §0).
 - 상태(2026-11-15): **기반만**(앱 뼈대·로그인·센터 고르기·메뉴 자리). 메뉴 화면은 모두 "준비 중". 목 모드로 확인, LAN 배포·실서버 확인은 아직.
-- 2026-11-16(PC 2): **위치(칸)**(§4-1)·**이동·보충**(§4-2)·**작업자**(§4-3)·**배송 현황·배차 실패**(§4-4)·**작업 현황**(§4-5) 화면. 나머지 메뉴는 "준비 중". 목 모드만 확인.
+- 2026-11-16(PC 2): **위치(칸)**(§4-1)·**이동·보충**(§4-2)·**작업자**(§4-3)·**배송 현황·배차 실패**(§4-4)·**작업 현황**(§4-5)·**배정**(§4-6) 화면. 나머지 메뉴는 "준비 중". 목 모드만 확인.
 
 ## 1. 앱과 로그인
 
@@ -34,7 +34,7 @@
 | 묶음 | 메뉴 | 경로 | 화면 | 서버 API 가 아직 없는 것(백엔드 §2-1) |
 |---|---|---|---|---|
 | 인력 | 작업자 | `workers` | **됨**(§4-3) | — |
-|  | 배정 | `assignments` | 준비 중 | 배정 추천 계획 목록 |
+|  | 배정 | `assignments` | **됨**(§4-6) — 지난 추천은 ID 로만 | 배정 추천 계획 목록 |
 | 작업 | 작업 현황 | `tasks` | **됨**(§4-5) — 확인 필요 포장은 안내만 | 확인 필요 포장 목록·확인(지금은 작업자만 — 백엔드 결정 대기) |
 |  | 이동·보충 | `moves` | **됨**(§4-2) | — |
 |  | 입고 | `inbound` | 준비 중 | 입고 예정(TRF, 계약만), 초기 보유 센터별 수령 대기 목록, 회수품·공급 요청 목록 |
@@ -105,9 +105,18 @@
 - 확인 필요 포장 목록·확인(`GET /packages?checkRequired=true`, `handover-checks`)은 지금 MFC_WORKER 만(MB-3 결정 대기) — 목록 위에 안내만, 부르지 않는다.
 - 시작·실적·포장·배차 요청은 현장 일 — 넣지 않는다.
 
+### 4-6. 배정 — mfc-capacity-service 0.14.0 `/assignments`·`/assignment-plans*` (`features/assignments/AssignmentPages.tsx`)
+| 화면·동작 | API | 규칙 |
+|---|---|---|
+| 배정 목록(탭 `?tab=` 기본) | `GET /assignments?mfcId=&state=&date=&workerId=&taskId=` | state 생략 = ACTIVE. 거르기는 URL 쿼리. 출처(직접·추천 확정·다음 작업 받기), 경고(OFF_SHIFT = 근무 밖), `workerEligibility`(지금 맡을 수 없으면 사유) — 서버 값. 진행 중 행에 "다시 배정" |
+| 직접 배정(`?tab=manual`) | `GET /assignments?taskId=`(지금 담당 확인) → `POST /assignments` + `X-Expected-Version` | 확인한 지금 담당 버전(없으면 0)으로 보낸다 — 확인 전·작업 ID 를 바꾸면 단추 꺼짐. 작업자는 재직 작업자 목록에서(못 불러오면 직접 입력). 응답 버전이 그대로면 "바뀐 것 없음", OFF_SHIFT 는 알리기만. 422 `WORKER_NOT_REGISTERED`·`WORKER_NOT_ACTIVE`·`DUTY_NOT_ALLOWED`·`ZONE_NOT_QUALIFIED`, 409 `VERSION_CONFLICT` 문구 |
+| 배정 추천(`?tab=plan`) | `POST /assignment-plans` {mfcId, horizonMinutes 10~480} | 계산만으로는 배정이 바뀌지 않는다. 계산하면 추천 화면으로. 지난 추천 목록 API 가 없어(MB-1) 추천 ID 로 연다 |
+| 추천 화면 `assignments/plans/<planId>` | `GET /assignment-plans/{id}`, `POST …/commits` | 상태·계산 결과·평가(못 넣음·늦음·최대 부하)·한계(limitations)·근무 미등록 작업자·추천 배정·못 넣은 작업(사유). PROPOSED 만 확정 단추. 409 `PLAN_STALE` 이면 계획을 다시 읽어 STALE·낡은 이유를 보인다(아무것도 배정 안 됨) |
+- 계산 입력(`…/input`)은 아직 화면에 넣지 않았다(재현 디버그용).
+
 ## 5. 목 모드
 - 목 계정: 센터 관리자(MFC 1곳 `MFC-BSN-01`), 센터 관리자(MFC 2곳 `MFC-BSN-01`·`MFC-SEL-01`), 현장 작업자, 운영 관리자(센터 없음). `src/mocks/db.ts`.
-- 목 핸들러: 로그인(employee-auth — 세션 응답에 목 센터 이름), 위치(`mocks/locationHandlers.ts` — 센터 권한·코드 중복·문법·버전·폐지 조건), 이동(`mocks/moveHandlers.ts` — 관리자만 지시·취소, 카테고리 칸 거절, 재고·적치 후보), 작업자(`mocks/workerHandlers.ts` — 관리자만 바꾸기(휴게·출근은 본인도), 버전·중복·자격 밖 업무·근무 겹침·맞지 않는 배정), 작업(`mocks/taskHandlers.ts` — 기본 상태·커서·내놓기 조건·출하·인계 판정). 메뉴 화면을 만들 때 그 계약의 목을 더한다.
+- 목 핸들러: 로그인(employee-auth — 세션 응답에 목 센터 이름), 위치(`mocks/locationHandlers.ts` — 센터 권한·코드 중복·문법·버전·폐지 조건), 이동(`mocks/moveHandlers.ts` — 관리자만 지시·취소, 카테고리 칸 거절, 재고·적치 후보), 작업자(`mocks/workerHandlers.ts` — 관리자만 바꾸기(휴게·출근은 본인도), 버전·중복·자격 밖 업무·근무 겹침·맞지 않는 배정), 작업(`mocks/taskHandlers.ts` — 기본 상태·커서·내놓기 조건·출하·인계 판정), 배정(`mocks/assignmentHandlers.ts` — 버전·적격 422·같은 사람·추천 계산(READY 작업 → 적격 작업자)·확정 재확인 PLAN_STALE). 메뉴 화면을 만들 때 그 계약의 목을 더한다.
 - 목 이동: 진행 중 2(긴급 재배치·자동 보충), 카트 정리 대기 1, 끝남 1(+ 다른 센터 1). 목 재고는 `SKU-MILK-1` 세 줄(하나는 격리).
 - 목 작업자(`MFC-BSN-01`): 김현장(정규직, 자격이 업무보다 넓음, 진행 중 피킹 배정 1·근무 1), 이알바(알바, 휴게 중), 박일일(일일크루, 출근 전), 최정지(정지), 정퇴사(퇴사).
 - 목 작업(`MFC-BSN-01`): 피킹 진행 중(멈춤, 출하 SHP-1 — 포장 PKG-1 밀봉·허가 만료), 포장 담당, 피킹 대기(담당 없음), 피킹 막힘, 피킹 끝남, 복귀 진행 중(늦음·재고 확정 대기 실적 1).

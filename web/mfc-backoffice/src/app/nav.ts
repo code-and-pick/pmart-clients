@@ -36,7 +36,7 @@ export const navGroups: readonly MenuGroup[] = [
       {
         key: 'assignments',
         segment: 'assignments',
-        ready: false,
+        ready: true,
         apiReady: ['배정 목록', '배정·재배정', '배정 추천 계산·확정·조회'],
         apiMissing: ['배정 추천 계획 목록'],
       },

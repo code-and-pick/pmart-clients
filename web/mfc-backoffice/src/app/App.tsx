@@ -4,6 +4,7 @@ import type { ComponentType, ReactNode } from 'react';
 import { createBrowserRouter, createMemoryRouter, Link, Navigate, NavLink, Outlet, RouterProvider, useParams } from 'react-router';
 
 import { env } from '../env';
+import { AssignmentsMenu } from '../features/assignments/AssignmentPages';
 import { CenterSwitcher } from '../features/centers/centers';
 import { CenterDeliveriesMenu, DispatchFailuresMenu } from '../features/delivery/CenterDeliveryPages';
 import { LocationsMenu } from '../features/locations/LocationPages';
@@ -111,6 +112,7 @@ const menuPages: Partial<Record<MenuKey, ComponentType<{ readonly mfcId: string 
   moves: MovesMenu,
   workers: WorkersMenu,
   tasks: TasksMenu,
+  assignments: AssignmentsMenu,
   deliveries: CenterDeliveriesMenu,
   dispatchFailures: DispatchFailuresMenu,
 };

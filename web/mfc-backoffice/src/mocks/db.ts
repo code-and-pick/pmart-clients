@@ -30,7 +30,9 @@ export interface MockWorker {
 }
 
 export type MockShift = Required<Cap['WorkerShift']>;
-export type MockAssignment = Pick<Required<Cap['Assignment']>, 'assignmentId' | 'mfcId' | 'taskId' | 'taskType' | 'workerId' | 'assignmentVersion' | 'state' | 'assignedAt'>;
+export type MockAssignment = Pick<Required<Cap['Assignment']>, 'assignmentId' | 'mfcId' | 'taskId' | 'taskType' | 'workerId' | 'assignmentVersion' | 'state' | 'assignedAt'> &
+  Partial<Pick<Cap['Assignment'], 'planId' | 'assignedBy' | 'source' | 'warnings'>>;
+export type MockPlan = Cap['AssignmentPlan'] & { readonly planId: string; readonly mfcId: string; readonly state: NonNullable<Cap['AssignmentPlan']['state']> };
 
 function worker(workerId: string, displayName: string, extra: Partial<MockWorker> & { taskTypes?: readonly TaskType[] } = {}): [string, MockWorker] {
   const taskTypes = extra.taskTypes ?? ['PICK', 'PACK'];
@@ -84,7 +86,10 @@ function seedShifts(): Array<[string, MockShift]> {
 
 function seedAssignments(): MockAssignment[] {
   return [
-    { assignmentId: 'ASG-1', mfcId: 'MFC-BSN-01', taskId: 'TASK-PICK-1', taskType: 'PICK', workerId: 'OP-wkr-1', assignmentVersion: 1, state: 'ACTIVE', assignedAt: '2026-11-16T00:30:00.000Z' },
+    { assignmentId: 'ASG-1', mfcId: 'MFC-BSN-01', taskId: 'TASK-PICK-1', taskType: 'PICK', workerId: 'OP-wkr-1', assignmentVersion: 1, state: 'ACTIVE', assignedAt: '2026-11-16T00:30:00.000Z', source: 'MANUAL', assignedBy: 'OP-sup-1', warnings: [] },
+    { assignmentId: 'ASG-2', mfcId: 'MFC-BSN-01', taskId: 'TASK-PACK-1', taskType: 'PACK', workerId: 'OP-wkr-2', assignmentVersion: 1, state: 'ACTIVE', assignedAt: '2026-11-16T00:42:00.000Z', source: 'SYSTEM', assignedBy: null, warnings: ['OFF_SHIFT'] },
+    { assignmentId: 'ASG-3', mfcId: 'MFC-BSN-01', taskId: 'TASK-PICK-3', taskType: 'PICK', workerId: 'OP-wkr-3', assignmentVersion: 2, state: 'ACTIVE', assignedAt: '2026-11-16T00:31:00.000Z', source: 'MANUAL', assignedBy: 'OP-sup-1', warnings: [] },
+    { assignmentId: 'ASG-0', mfcId: 'MFC-BSN-01', taskId: 'TASK-PICK-3', taskType: 'PICK', workerId: 'OP-wkr-1', assignmentVersion: 1, state: 'SUPERSEDED', assignedAt: '2026-11-16T00:30:30.000Z', source: 'MANUAL', assignedBy: 'OP-sup-1', warnings: [] },
   ];
 }
 
@@ -366,6 +371,7 @@ export const db = {
   workers: new Map<string, MockWorker>(),
   shifts: new Map<string, MockShift>(),
   assignments: [] as MockAssignment[],
+  plans: new Map<string, MockPlan>(),
   moves: new Map<string, MockMove>(),
   stockUnits: [] as MockStockUnit[],
   locations: new Map<string, MockLocation>(),
@@ -391,6 +397,7 @@ export function resetDb(): void {
   db.workers = new Map(seedWorkers());
   db.shifts = new Map(seedShifts());
   db.assignments = seedAssignments();
+  db.plans = new Map();
   db.tasks = new Map(seedTasks());
   db.shipments = new Map(seedShipments());
 }

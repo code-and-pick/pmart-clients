@@ -80,7 +80,7 @@ describe('작업자 상세', () => {
     const post = posts(view.sent, '/duty-changes')[0]!;
     expect(post.headers.get('X-Expected-Version')).toBe('1');
     expect(await sentBody(post)).toEqual({ taskTypes: ['PACK'], reason: '포장 전담' });
-    expect(db.assignments).toHaveLength(1);
+    expect(db.assignments.find((a) => a.assignmentId === 'ASG-1')?.state).toBe('ACTIVE');
   });
 
   it('다른 사람이 먼저 업무를 바꿨으면 VERSION_CONFLICT 문구', async () => {

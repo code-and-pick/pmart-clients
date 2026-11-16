@@ -1,6 +1,7 @@
 import { http } from 'msw';
 
 import { API_BASE } from '../api/client';
+import { assignmentHandlers } from './assignmentHandlers';
 import { authHandlers } from './authHandlers';
 import { centerDeliveryHandlers } from './centerDeliveryHandlers';
 import { locationHandlers } from './locationHandlers';
@@ -20,4 +21,4 @@ const gateway = http.all(`${API_BASE}/*`, ({ request }) => {
 });
 
 // 센터 이름은 sessions/current 의 centerDetails(0.9.0)로 온다 — GET /centers 목은 두지 않는다(authHandlers 의 mockCenterNames).
-export const handlers = [gateway, ...authHandlers, ...locationHandlers, ...moveHandlers, ...workerHandlers, ...taskHandlers, ...centerDeliveryHandlers];
+export const handlers = [gateway, ...authHandlers, ...locationHandlers, ...moveHandlers, ...workerHandlers, ...taskHandlers, ...assignmentHandlers, ...centerDeliveryHandlers];
