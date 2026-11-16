@@ -37,7 +37,7 @@ export const messages = {
   /** 우리 센터 배송 현황(bff 0.3.1 live-delivery — 센터 관리자는 자기 센터 고정) */
   centerDelivery: {
     title: '배송 현황',
-    intro: '우리 센터에서 나간 배송 중 끝나지 않은 것을 배송 수행·배차·열린 사건 원천별로 봐요. 고객 이름·연락처·주소는 없어요.',
+    intro: '우리 센터에서 나간 배송 중 끝나지 않은 것을 배송 수행·배차·처리 중인 접수 건 원천별로 봐요. 고객 이름·연락처·주소는 없어요.',
     state: '수행 상태',
     activeStates: '진행 중 전부',
     refresh: '새로 고침',
@@ -46,7 +46,7 @@ export const messages = {
     empty: '진행 중인 배송이 없어요.',
     next: '다음 쪽',
     first: '처음 쪽',
-    col: { delivery: '배송', order: '주문', type: '종류', execution: '수행 상태', dispatch: '배차 상태', rider: '라이더', window: '예정 시간대', cases: '열린 사건' },
+    col: { delivery: '배송', order: '주문', type: '종류', execution: '수행 상태', dispatch: '배차 상태', rider: '라이더', window: '예정 시간대', cases: '처리 중인 접수 건' },
     unknown: '모름(조회 실패)',
     late: '약속 지남',
     casesFailed: '조회 실패',
@@ -82,9 +82,9 @@ export const messages = {
   /** 우리 센터 배차 실패 사건(case 0.5.2 — 보기만, 처리는 지원센터) */
   dispatchFailures: {
     title: '배차 실패',
-    intro: '우리 센터 배송의 배차 실패 사건이에요. 긴급·기한 이른 것 먼저 보여요(서버 순서).',
-    handledBySupport: '보기만 할 수 있어요. 사건 처리(집기·닫기)는 지원센터(라이더 운영)가 해요 — 준비 지연·추가 배차가 필요하면 지원센터에 알려 주세요.',
-    notYetNote: '배차 쪽 사건에 센터 정보가 아직 실리지 않아, 서버가 이를 고치기 전까지는 0건이 정상이에요.',
+    intro: '우리 센터 배송의 배차 실패 접수 건이에요. 긴급·기한 이른 것 먼저 보여요(서버 순서).',
+    handledBySupport: '보기만 할 수 있어요. 접수 건 처리(집기·처리 끝내기)는 지원센터(라이더 운영)가 해요 — 준비 지연·추가 배차가 필요하면 지원센터에 알려 주세요.',
+    notYetNote: '배차 쪽 접수 건에 센터 정보가 아직 실리지 않아, 서버가 이를 고치기 전까지는 0건이 정상이에요.',
     tabOpen: '처리 중',
     tabClosed: '처리 끝남',
     emptyOpen: '처리 중인 배차 실패가 없어요.',
@@ -93,16 +93,16 @@ export const messages = {
     overdue: '기한 넘김',
     col: { priority: '우선순위', summary: '요약', refs: '관련', sla: '처리 기한', state: '상태' },
     refName: { deliveryId: '배송', orderId: '주문' } as Readonly<Record<string, string>>,
-    stateName: { OPEN: '열림', ASSIGNED: '집음', ACTION_PENDING: '조치 대기', MONITORING: '지켜보는 중', RESOLUTION_REVIEW: '종결 검토', CLOSED: '닫힘', REOPENED: '다시 열림' } as Readonly<Record<string, string>>,
-    actionName: { OPENED: '열림', RECURRED: '재발', ASSIGNED: '집음', CLOSED: '닫힘' } as Readonly<Record<string, string>>,
+    stateName: { OPEN: '접수됨', ASSIGNED: '집음', ACTION_PENDING: '조치 대기', MONITORING: '지켜보는 중', RESOLUTION_REVIEW: '결과 검토', CLOSED: '처리 끝남', REOPENED: '다시 처리 중' } as Readonly<Record<string, string>>,
+    actionName: { OPENED: '접수', RECURRED: '재발', ASSIGNED: '집음', CLOSED: '처리 끝냄', REOPENED: '다시 처리', TRANSFERRED: '넘김' } as Readonly<Record<string, string>>,
     resolutionName: { RESOLVED: '해결', NOT_REPRODUCIBLE: '재현 안 됨', DUPLICATE: '중복', NO_ACTION_REQUIRED: '조치 필요 없음', ESCALATED_EXTERNAL: '외부로 넘김' } as Readonly<Record<string, string>>,
-    openedAt: '열린 시각',
+    openedAt: '접수 시각',
     assignee: '담당',
     unassigned: '아직 안 집음',
-    closure: '종결',
+    closure: '처리 결과',
     history: '이력',
     back: '배차 실패 목록',
-    detailTitle: (id: string) => `배차 실패 사건 ${id}`,
+    detailTitle: (id: string) => `배차 실패 접수 건 ${id}`,
   },
 
   center: {
