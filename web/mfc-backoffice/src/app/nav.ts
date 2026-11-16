@@ -29,7 +29,7 @@ export const navGroups: readonly MenuGroup[] = [
       {
         key: 'workers',
         segment: 'workers',
-        ready: false,
+        ready: true,
         apiReady: ['작업자 목록·상세', '등록·업무·자격·상태·속도 변경', '근무 목록·등록·취소', '휴게·일일크루 등록'],
         apiMissing: [],
       },

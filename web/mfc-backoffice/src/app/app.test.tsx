@@ -49,7 +49,7 @@ describe('센터', () => {
     const view = renderAt('/');
     expect(await screen.findByRole('heading', { name: '작업자' })).toBeInTheDocument();
     expect(await screen.findByText('부산진구 MFC (MFC-BSN-01)')).toBeInTheDocument();
-    expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
+    expect(screen.queryByRole('combobox', { name: '센터 고르기' })).not.toBeInTheDocument();
     expect(view.gets('/centers')).toHaveLength(0);
   });
 
@@ -82,7 +82,7 @@ describe('센터', () => {
       ),
     );
     renderAt('/c/MFC-BSN-01/workers', as.sup2);
-    const select = await screen.findByRole('combobox');
+    const select = await screen.findByRole('combobox', { name: '센터 고르기' });
     await waitFor(() => expect(within(select).getAllByRole('option').map((o) => o.textContent)).toEqual(['부산진구 MFC (MFC-BSN-01)', 'MFC-SEL-01']));
     expect(screen.getByText('센터 이름을 불러오지 못해 센터 코드로만 보여요.')).toBeInTheDocument();
   });
