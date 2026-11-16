@@ -281,10 +281,10 @@ export const messages = {
   /** 처리 대기(BO-12, 백엔드 요청 backoffice/2026-11-16-request-case-inbox-and-pending-work §2 — bff 0.2.0) — OPERATOR_ADMIN */
   pending: {
     title: '처리 대기',
-    intro: '멈춘 주문 처리와 이행 확인 필요를 한 목록으로 보여요. 버튼은 서버가 허락한 조치만 보여요. 조치는 주문·재고를 바꾸지 않아요 — 실제 환불·재고 정정은 각 메뉴에서 먼저 해 주세요.',
+    intro: '멈춘 주문 처리·이행 확인 필요·MFC 중지 실패·인계 거절을 한 목록으로 보여요. 버튼은 서버가 허락한 조치만 보여요. 처리 완료·확인은 주문·재고를 바꾸지 않아요 — 실제 환불·재고 정정은 각 메뉴에서 먼저 해 주세요.',
     empty: '처리할 일이 없어요.',
     kind: '종류',
-    kindName: { STUCK_SAGA: '멈춘 주문 처리', FULFILLMENT_ISSUE: '이행 확인 필요' } as Readonly<Record<string, string>>,
+    kindName: { STUCK_SAGA: '멈춘 주문 처리', FULFILLMENT_ISSUE: '이행 확인 필요', MFC_STOP_FAILED: 'MFC 중지 실패(취소 멈춤)', MFC_HANDOVER_REJECTED: 'MFC 인계 거절' } as Readonly<Record<string, string>>,
     sagaTypeName: { S1_CHECKOUT: '주문·결제', S2_FULFILLMENT: '이행', S3_CANCELLATION: '취소', SHORTAGE: '결품' } as Readonly<Record<string, string>>,
     orderId: '주문',
     state: '상태',
@@ -306,7 +306,12 @@ export const messages = {
     cancel: '취소',
     done: '반영됐어요. 목록을 새로 불러와요.',
     unknownReread: '반영됐는지 아직 확인하지 못했어요. 목록을 다시 읽었으니 이 항목이 바뀌었는지 보세요. 그대로면 "같은 요청으로 결과 확인"을 눌러 주세요(같은 요청이라 두 번 반영되지 않아요).',
-    notYet: 'MFC 인계 거절·현장 중지 실패는 아직 이 목록에 없어요(서버 준비 중).',
+    notYet: 'MFC 인계 거절·중지 실패는 아직 이 목록에 나오지 않아요 — 서버가 MFC 목록을 켜면 보여요(장애 아님).',
+    retry: '다시 시도',
+    retryReason: '다시 시도 메모(필수)',
+    retryHint: '1~500자. 개인정보는 적지 마세요. 메모는 아직 MFC 에 저장되지 않아요.',
+    retryRejected: '다시 실패했어요. 원인을 고친 뒤 다시 시도해 주세요.',
+    handoverRetryGuide: '먼저 실물을 확인하고 재고를 정정한 뒤 다시 시도해 주세요.',
   },
   orders: {
     title: '주문 조회',
