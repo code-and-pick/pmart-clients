@@ -9,6 +9,9 @@ import type { components as CaseC } from '../api/generated/case';
 import { idempotent, operator, problem, unauthorized } from './support';
 
 type Case = CaseC['schemas']['Case'];
+type Obligation = CaseC['schemas']['Obligation'];
+type Handover = CaseC['schemas']['ShiftHandover'];
+type Note = CaseC['schemas']['CaseNote'];
 type Summary = CaseC['schemas']['CaseSummary'];
 type Kind = CaseC['schemas']['CaseKind'];
 
@@ -24,6 +27,7 @@ function seed(): Case[] {
     assigneeId: null,
     overdue: false,
     openObligationCount: 0,
+    assigneeGroup: 'DELIVERY_OPS', // 배송 쪽 기본 팀(사가·결제 사건은 ORDER_OPS 로 덮어쓴다)
     version: 1,
     history: [{ action: 'OPENED', at: at(-2), toState: 'OPEN', actorId: 'SYSTEM' }],
     ...c,
@@ -31,6 +35,11 @@ function seed(): Case[] {
   return [
     base({
       caseId: 'CASE-MOCK-1',
+      openObligationCount: 2,
+      obligations: [
+        { obligationId: 'OBL-MOCK-1', caseId: 'CASE-MOCK-1', kind: 'CUSTOMER_CONTACT', owner: 'CS', state: 'OPEN', note: '[목] 도착 지연 안내 연락', dueAt: at(1), createdAt: at(-1), version: 1, resolutions: [] },
+        { obligationId: 'OBL-MOCK-2', caseId: 'CASE-MOCK-1', kind: 'RETURN_PICKUP', owner: 'DELIVERY_OPS', state: 'OPEN', qty: 1, resolvedQty: 0, createdAt: at(-1), version: 1, resolutions: [] },
+      ],
       kind: 'RIDER_HELP',
       priority: 'P1',
       summary: '[목] 라이더 도움요청 — 건물 출입 불가',
@@ -73,9 +82,16 @@ function seed(): Case[] {
       summary: '[목] 옆 동으로 오배송 확인',
       subjectType: 'DELIVERY',
       subjectRef: 'DLV-MOCK-4',
-      refs: [{ refType: 'deliveryId', refId: 'DLV-MOCK-4' }, { refType: 'orderId', refId: 'ORD-MOCK-1003' }],
+      refs: [{ refType: 'deliveryId', refId: 'DLV-MOCK-4' }, { refType: 'orderId', refId: 'ORD-MOCK-1003' }, { refType: 'recoveryDeliveryId', refId: 'DLV-MOCK-R1' }],
       state: 'CLOSED',
       closure: { closedAt: at(-1), closedBy: 'op-admin-1', resolution: 'RESOLVED', summary: '[목] 회수 배차 완료' },
+      history: [
+        { action: 'OPENED', at: at(-3), toState: 'OPEN', actorId: 'op-cs-1' },
+        { action: 'RECOVERY_CREATED', at: at(-2.5), actorId: 'SYSTEM', note: 'DLV-MOCK-R1' },
+        { action: 'RECOVERY_PICKED_UP', at: at(-2), actorId: 'SYSTEM' },
+        { action: 'RECOVERY_RETURNED', at: at(-1.5), actorId: 'SYSTEM', note: 'MFC-BSN-01' },
+        { action: 'CLOSED', at: at(-1), toState: 'CLOSED', actorId: 'op-admin-1' },
+      ],
     }),
     // case 0.5.0(R-3) 사가·결제 이상 — 관리자만 보인다(sees). 서버 모양: 팀 ORDER_OPS, 기한 1시간, refs 만
     base({
@@ -112,9 +128,16 @@ let cases = seed();
 let seq = 100;
 
 /** 시험 사이에 목 상태를 처음으로 돌린다. */
+/** case 0.9.0 교대 인계서 */
+let handovers: Handover[] = [];
+/** case 0.10.0 접수 건 메모 */
+let notes: Note[] = [];
+
 export function resetMockCases(): void {
   cases = seed();
   seq = 100;
+  handovers = [];
+  notes = [];
 }
 
 /** 목록 항목(CaseSummary) — 상세에만 있는 이력·종결은 뺀다 */
@@ -134,6 +157,14 @@ function viewer(request: Request) {
   if (!admin && !team && !cs) return { denied: problem(403, 'FORBIDDEN') } as const;
   return { who, admin, team, cs, sees: (c: Case) => admin || DELIVERY_KINDS.includes(c.kind ?? 'OTHER') } as const;
 }
+
+const OPEN_STATES = ['OPEN', 'PARTIALLY_RESOLVED'];
+const isOpen = (o: Obligation) => OPEN_STATES.includes(o.state ?? 'OPEN');
+const CREATABLE = ['REFUND', 'RETURN_PICKUP', 'REDELIVERY', 'RECONCILIATION', 'CUSTOMER_CONTACT', 'EVIDENCE_COLLECTION', 'COMPENSATION', 'OTHER'];
+const countOpen = (c: Case) => {
+  c.openObligationCount = (c.obligations ?? []).filter(isOpen).length;
+};
+const ownerOf = (o: Obligation, c: Case) => o.owner ?? c.assigneeGroup ?? 'DELIVERY_OPS';
 
 function log(c: Case, action: string, actorId: string, toState: NonNullable<Case['state']>, note?: string) {
   c.history = [...(c.history ?? []), { action, at: new Date().toISOString(), actorId, ...(c.state ? { fromState: c.state } : {}), toState, ...(note ? { note } : {}) }];
@@ -162,6 +193,7 @@ const LINKED_STATE: Readonly<Record<string, string>> = {
   'DLV-MOCK-2': 'FAILURE_REPORTED',
   'DLV-MOCK-3': 'ASSIGNED',
   'DLV-MOCK-4': 'COMPLETED',
+  'DLV-MOCK-R1': 'RETURN_IN_PROGRESS', // 회수 배송(case 0.8.1)
   'ORD-MOCK-1001': 'IN_DELIVERY',
   'ORD-MOCK-1002': 'IN_DELIVERY',
   'ORD-MOCK-1003': 'CANCELLED',
@@ -182,9 +214,9 @@ export const caseHandlers = [
       .map((c) => {
         const refs = c.refs ?? [];
         const linked = refs
-          .filter((r) => r.refType === 'deliveryId' || r.refType === 'orderId')
+          .filter((r) => r.refType === 'deliveryId' || r.refType === 'recoveryDeliveryId' || r.refType === 'orderId')
           .map((r) => {
-            const delivery = r.refType === 'deliveryId';
+            const delivery = r.refType === 'deliveryId' || r.refType === 'recoveryDeliveryId';
             const id = r.refId ?? '';
             if (!delivery && !seesOrders) return { kind: 'ORDER' as const, id, state: null, version: null, source: stamp('order-service', 'UNKNOWN') };
             return { kind: delivery ? ('DELIVERY' as const) : ('ORDER' as const), id, state: LINKED_STATE[id] ?? null, version: LINKED_STATE[id] ? 3 : null, source: stamp(delivery ? 'delivery-execution-service' : 'order-service') };
@@ -255,6 +287,7 @@ export const caseHandlers = [
       const c = cases.find((x) => x.caseId === params['caseId']);
       if (!c || !v.sees(c)) return problem(404, 'NOT_FOUND');
       if (!v.admin && !v.team) return problem(403, 'FORBIDDEN');
+      if (!v.admin && c.assigneeGroup === 'ORDER_OPS') return problem(403, 'FORBIDDEN');
       if (c.state === 'CLOSED') return problem(409, 'INVALID_STATE');
       if (!body.assigneeId) return problem(400, 'VALIDATION_FAILED');
       if (!v.admin) {
@@ -276,12 +309,287 @@ export const caseHandlers = [
       if (!c || !v.sees(c)) return problem(404, 'NOT_FOUND');
       if (!v.admin && !v.team) return problem(403, 'FORBIDDEN');
       if (!v.admin && c.assigneeId && c.assigneeId !== v.who.subject) return problem(403, 'FORBIDDEN');
+      if (!v.admin && c.assigneeGroup === 'ORDER_OPS') return problem(403, 'FORBIDDEN');
       if (c.state === 'CLOSED') return problem(409, 'INVALID_STATE');
       if (!body.resolution || !(body.summary ?? '').trim()) return problem(400, 'VALIDATION_FAILED');
+      if ((c.obligations ?? []).some(isOpen)) return problem(409, 'OPEN_OBLIGATIONS');
       c.closure = { closedAt: new Date().toISOString(), closedBy: v.who.subject, resolution: body.resolution, summary: (body.summary ?? '').trim() };
       c.overdue = false;
       log(c, 'CLOSED', v.who.subject, 'CLOSED');
       return { status: 200, body: c };
+    });
+  }),
+
+  // case 0.6.0 다시 열기: 닫기와 같은 사람(배송 쪽 = 지원센터·관리자, 관리자 팀 사건 = 관리자). 사유 필수. 닫히지 않음 409 INVALID_STATE,
+  // 같은 종류·대상으로 열린 사건이 있으면 409 CASE_ALREADY_OPEN. 담당 비우고 기한 새로(10분 — 목).
+  http.post(`${API_BASE}/cases/:caseId/reopenings`, async ({ request, params }) => {
+    const v = viewer(request);
+    if ('denied' in v) return v.denied;
+    const body = (await request.clone().json()) as { reason?: string };
+    return idempotent(request, () => {
+      const c = cases.find((x) => x.caseId === params['caseId']);
+      if (!c || !v.sees(c)) return problem(404, 'NOT_FOUND');
+      if (!v.admin && !(v.team && c.assigneeGroup !== 'ORDER_OPS')) return problem(403, 'FORBIDDEN');
+      if (!(body.reason ?? '').trim()) return problem(400, 'VALIDATION_FAILED', [{ field: 'reason', reason: 'REQUIRED' }]);
+      if (c.state !== 'CLOSED') return problem(409, 'INVALID_STATE');
+      if (cases.some((x) => x !== c && x.kind === c.kind && x.subjectRef === c.subjectRef && x.state !== 'CLOSED')) return problem(409, 'CASE_ALREADY_OPEN');
+      c.assigneeId = null;
+      c.slaDueAt = at(10 / 60);
+      c.overdue = false;
+      log(c, 'REOPENED', v.who.subject, 'REOPENED', (body.reason ?? '').trim());
+      return { status: 200, body: c };
+    });
+  }),
+
+  // case 0.7.0 넘기기: 배송 쪽 사건만 DELIVERY_OPS ↔ ORDER_OPS. 사유 필수. 담당 비움(집은 상태 → 열림), 기한 그대로.
+  // 지원센터는 자기 팀 사건(안 집었거나 자기가 집은 것)을 관리자 팀으로만. 되돌리기·남이 맡은 사건은 관리자만. 상담원 403.
+  http.post(`${API_BASE}/cases/:caseId/transfers`, async ({ request, params }) => {
+    const v = viewer(request);
+    if ('denied' in v) return v.denied;
+    const body = (await request.clone().json()) as { toGroup?: string; reason?: string };
+    return idempotent(request, () => {
+      const c = cases.find((x) => x.caseId === params['caseId']);
+      if (!c || !v.sees(c)) return problem(404, 'NOT_FOUND');
+      if (!v.admin && !v.team) return problem(403, 'FORBIDDEN');
+      if (!(body.reason ?? '').trim() || !body.toGroup) return problem(400, 'VALIDATION_FAILED');
+      if (!DELIVERY_KINDS.includes(c.kind ?? 'OTHER') || (body.toGroup !== 'DELIVERY_OPS' && body.toGroup !== 'ORDER_OPS')) return problem(422, 'UNSUPPORTED_ACTION');
+      if (c.state === 'CLOSED' || c.assigneeGroup === body.toGroup) return problem(409, 'INVALID_STATE');
+      if (!v.admin && (c.assigneeGroup === 'ORDER_OPS' || (c.assigneeId && c.assigneeId !== v.who.subject))) return problem(403, 'FORBIDDEN');
+      const from = c.assigneeGroup ?? 'DELIVERY_OPS';
+      c.assigneeGroup = body.toGroup;
+      c.assigneeId = null;
+      log(c, 'TRANSFERRED', v.who.subject, 'OPEN', `${from} → ${body.toGroup}: ${(body.reason ?? '').trim()}`);
+      return { status: 200, body: c };
+    });
+  }),
+
+  // case 0.8.0 후속 처리(의무) 등록 — 접수 건을 다룰 수 있는 사람. 8종 밖 422 UNSUPPORTED_KIND, 사가·결제 접수 건에 지원센터·고객센터 몫 422 OWNER_CANNOT_SEE_CASE.
+  http.post(`${API_BASE}/cases/:caseId/obligations`, async ({ request, params }) => {
+    const v = viewer(request);
+    if ('denied' in v) return v.denied;
+    const body = (await request.clone().json()) as Partial<Obligation>;
+    return idempotent(request, () => {
+      const c = cases.find((x) => x.caseId === params['caseId']);
+      if (!c || !v.sees(c)) return problem(404, 'NOT_FOUND');
+      if (!v.admin && !(v.team && c.assigneeGroup !== 'ORDER_OPS')) return problem(403, 'FORBIDDEN');
+      if (c.state === 'CLOSED') return problem(409, 'INVALID_STATE');
+      if (!body.kind || !CREATABLE.includes(body.kind)) return problem(422, 'UNSUPPORTED_KIND');
+      if (!DELIVERY_KINDS.includes(c.kind ?? 'OTHER') && (body.owner === 'DELIVERY_OPS' || body.owner === 'CS')) return problem(422, 'OWNER_CANNOT_SEE_CASE');
+      seq += 1;
+      const o: Obligation = {
+        obligationId: `OBL-MOCK-${seq}`,
+        caseId: c.caseId ?? '',
+        kind: body.kind,
+        state: 'OPEN',
+        createdAt: new Date().toISOString(),
+        version: 1,
+        resolutions: [],
+        ...(body.owner ? { owner: body.owner } : {}),
+        ...(body.qty !== undefined ? { qty: body.qty, resolvedQty: 0 } : {}),
+        ...(body.amount !== undefined ? { amount: body.amount, resolvedAmount: 0 } : {}),
+        ...(body.dueAt ? { dueAt: body.dueAt } : {}),
+        ...(body.note ? { note: body.note } : {}),
+      };
+      c.obligations = [...(c.obligations ?? []), o];
+      countOpen(c);
+      return { status: 201, body: o };
+    });
+  }),
+
+  // 결과: 완료(수량·금액 일부 가능)·시도 기록(상태 그대로, 메모 필수)·면제·실패(관리자만, 사유 필수). 근거 필수.
+  http.post(`${API_BASE}/obligations/:obligationId/resolutions`, async ({ request, params }) => {
+    const v = viewer(request);
+    if ('denied' in v) return v.denied;
+    const body = (await request.clone().json()) as { outcome?: string; resolvedQty?: number; resolvedAmount?: number; evidence?: { system?: string; ref?: string }; note?: string };
+    return idempotent(request, () => {
+      const c = cases.find((x) => (x.obligations ?? []).some((o) => o.obligationId === params['obligationId']));
+      const o = c?.obligations?.find((x) => x.obligationId === params['obligationId']);
+      if (!c || !o || !v.sees(c)) return problem(404, 'NOT_FOUND');
+      const owner = ownerOf(o, c);
+      if (!v.admin && !((owner === 'DELIVERY_OPS' && v.team) || (owner === 'CS' && v.cs))) return problem(403, 'FORBIDDEN');
+      if ((body.outcome === 'WAIVED' || body.outcome === 'FAILED') && !v.admin) return problem(403, 'FORBIDDEN');
+      if (!body.evidence?.system || !body.evidence.ref) return problem(400, 'VALIDATION_FAILED', [{ field: 'evidence', reason: 'REQUIRED' }]);
+      if (body.outcome !== 'FULFILLED' && !(body.note ?? '').trim()) return problem(400, 'VALIDATION_FAILED', [{ field: 'note', reason: 'REQUIRED' }]);
+      if (!isOpen(o)) return problem(409, 'INVALID_STATE');
+      const at_ = new Date().toISOString();
+      const res: NonNullable<Obligation['resolutions']>[number] = { outcome: body.outcome ?? '', resolvedAt: at_, resolvedBy: v.who.subject, evidence: { system: body.evidence.system, ref: body.evidence.ref }, ...(body.note ? { note: body.note } : {}) };
+      if (body.outcome === 'FULFILLED') {
+        let done = true;
+        if (o.qty !== undefined) {
+          const add = body.resolvedQty ?? 0;
+          if (add < 1) return problem(400, 'VALIDATION_FAILED');
+          if ((o.resolvedQty ?? 0) + add > o.qty) return problem(409, 'QTY_EXCEEDS_OBLIGATION');
+          o.resolvedQty = (o.resolvedQty ?? 0) + add;
+          res.qty = add;
+          done &&= o.resolvedQty >= o.qty;
+        }
+        if (o.amount !== undefined) {
+          const add = body.resolvedAmount ?? 0;
+          o.resolvedAmount = (o.resolvedAmount ?? 0) + add;
+          res.amount = add;
+          done &&= o.resolvedAmount >= o.amount;
+        }
+        o.state = done ? 'RESOLVED' : 'PARTIALLY_RESOLVED';
+      } else if (body.outcome === 'WAIVED' || body.outcome === 'FAILED') {
+        o.state = body.outcome;
+      } else if (body.outcome !== 'ATTEMPTED') return problem(400, 'VALIDATION_FAILED');
+      o.resolutions = [...(o.resolutions ?? []), res];
+      o.version = (o.version ?? 1) + 1;
+      countOpen(c);
+      return { status: 200, body: o };
+    });
+  }),
+
+  // 목록: owner(비우면 접수 건 팀으로 본다)·state(기본 처리 중)·caseId
+  http.get(`${API_BASE}/obligations`, ({ request }) => {
+    const v = viewer(request);
+    if ('denied' in v) return v.denied;
+    const q = new URL(request.url).searchParams;
+    const state = q.get('state');
+    const items = cases
+      .filter(v.sees)
+      .flatMap((c) => (c.obligations ?? []).map((o) => ({ o, c })))
+      .filter(({ o, c }) => !q.get('owner') || ownerOf(o, c) === q.get('owner'))
+      .filter(({ o }) => (state ? o.state === state : isOpen(o)))
+      .filter(({ c }) => !q.get('caseId') || c.caseId === q.get('caseId'))
+      .map(({ o }) => o);
+    return HttpResponse.json({ items, page: { size: items.length, nextCursor: null } });
+  }),
+
+  // case 0.9.0 교대 인계 — 작성(PENDING, 담당 그대로)·수락(후임 본인만, 건별 결과)·취소(수락 전, 전임·관리자)·목록·단건.
+  http.post(`${API_BASE}/shift-handovers`, async ({ request }) => {
+    const v = viewer(request);
+    if ('denied' in v) return v.denied;
+    const body = (await request.clone().json()) as { group?: string; toOperatorId?: string; fromOperatorId?: string; note?: string; items?: Array<{ caseId?: string; nextAction?: string; checkDueAt?: string }> };
+    return idempotent(request, () => {
+      const from = body.fromOperatorId ?? v.who.subject;
+      if (from !== v.who.subject && !v.admin) return problem(403, 'FORBIDDEN');
+      const items = body.items ?? [];
+      const ids = items.map((i) => i.caseId ?? '');
+      if (!body.toOperatorId || body.toOperatorId === from || items.length === 0 || items.some((i) => !(i.nextAction ?? '').trim()) || new Set(ids).size !== ids.length) return problem(400, 'VALIDATION_FAILED');
+      const picked = ids.map((id) => cases.find((c) => c.caseId === id));
+      if (picked.some((c) => !c || c.state === 'CLOSED' || c.assigneeId !== from || (c.assigneeGroup ?? 'DELIVERY_OPS') !== body.group)) return problem(422, 'NOT_HANDOVERABLE');
+      if (handovers.some((h) => h.state === 'PENDING' && (h.items ?? []).some((i) => ids.includes(i.caseId ?? '')))) return problem(409, 'CASE_IN_HANDOVER');
+      seq += 1;
+      const now = new Date().toISOString();
+      const h: Handover = {
+        shiftHandoverId: `SH-MOCK-${seq}`,
+        group: body.group ?? 'DELIVERY_OPS',
+        fromOperatorId: from,
+        toOperatorId: body.toOperatorId,
+        createdBy: v.who.subject,
+        createdAt: now,
+        state: 'PENDING',
+        unreceived: true,
+        note: body.note ?? null,
+        items: items.map((i, k) => ({ caseId: i.caseId ?? '', nextAction: i.nextAction ?? '', checkDueAt: i.checkDueAt ?? null, outcome: 'PENDING', caseStateAt: picked[k]?.state ?? 'OPEN', priorityAt: picked[k]?.priority ?? null, openObligationsAt: picked[k]?.openObligationCount ?? 0 })),
+        teamSnapshot: cases
+          .filter((c) => c.state !== 'CLOSED' && (c.assigneeGroup ?? 'DELIVERY_OPS') === body.group)
+          .map((c) => ({ caseId: c.caseId ?? '', kind: c.kind ?? '', state: c.state ?? 'OPEN', priority: c.priority ?? null, assigneeId: c.assigneeId ?? null, openObligationCount: c.openObligationCount ?? 0 })),
+      };
+      for (const c of picked) if (c) log(c, 'HANDOVER_REQUESTED', v.who.subject, c.state ?? 'ASSIGNED');
+      handovers.unshift(h);
+      return { status: 201, body: h };
+    });
+  }),
+
+  http.post(`${API_BASE}/shift-handovers/:id/acceptances`, async ({ request, params }) => {
+    const v = viewer(request);
+    if ('denied' in v) return v.denied;
+    const body = (await request.clone().json()) as { excludedCaseIds?: string[] };
+    return idempotent(request, () => {
+      const h = handovers.find((x) => x.shiftHandoverId === params['id']);
+      if (!h) return problem(404, 'NOT_FOUND');
+      if (h.toOperatorId !== v.who.subject) return problem(403, 'FORBIDDEN'); // 관리자도 대신 받지 못한다
+      if (h.state !== 'PENDING') return problem(409, 'INVALID_STATE');
+      const excluded = new Set(body.excludedCaseIds ?? []);
+      h.items = (h.items ?? []).map((it) => {
+        const c = cases.find((x) => x.caseId === it.caseId);
+        if (excluded.has(it.caseId ?? '')) return { ...it, outcome: 'EXCLUDED' as const };
+        if (!c || c.state === 'CLOSED' || c.assigneeId !== h.fromOperatorId) return { ...it, outcome: 'SKIPPED_CHANGED' as const };
+        c.assigneeId = h.toOperatorId ?? null;
+        log(c, 'HANDED_OVER', v.who.subject, c.state ?? 'ASSIGNED', `${h.fromOperatorId ?? ''} → ${h.toOperatorId ?? ''}: ${it.nextAction ?? ''}`);
+        return { ...it, outcome: 'ACCEPTED' as const, resolvedAt: new Date().toISOString() };
+      });
+      h.state = 'COMPLETED';
+      h.completedAt = new Date().toISOString();
+      h.unreceived = (h.items ?? []).some((i) => i.outcome === 'EXCLUDED');
+      return { status: 200, body: h };
+    });
+  }),
+
+  http.post(`${API_BASE}/shift-handovers/:id/cancellations`, ({ request, params }) => {
+    const v = viewer(request);
+    if ('denied' in v) return v.denied;
+    return idempotent(request, () => {
+      const h = handovers.find((x) => x.shiftHandoverId === params['id']);
+      if (!h) return problem(404, 'NOT_FOUND');
+      if (!v.admin && h.fromOperatorId !== v.who.subject && h.createdBy !== v.who.subject) return problem(403, 'FORBIDDEN');
+      if (h.state !== 'PENDING') return problem(409, 'INVALID_STATE');
+      h.state = 'CANCELLED';
+      h.cancelledAt = new Date().toISOString();
+      h.unreceived = false;
+      h.items = (h.items ?? []).map((i) => ({ ...i, outcome: 'CANCELLED' as const }));
+      return { status: 200, body: h };
+    });
+  }),
+
+  http.get(`${API_BASE}/shift-handovers`, ({ request }) => {
+    const v = viewer(request);
+    if ('denied' in v) return v.denied;
+    const q = new URL(request.url).searchParams;
+    const items = handovers
+      .filter((h) => v.admin || h.fromOperatorId === v.who.subject || h.toOperatorId === v.who.subject || h.createdBy === v.who.subject)
+      .filter((h) => !q.get('state') || h.state === q.get('state'))
+      .filter((h) => q.get('unreceived') !== 'true' || h.state === 'PENDING' || (h.items ?? []).some((i) => i.outcome === 'EXCLUDED'));
+    return HttpResponse.json({ items, page: { size: items.length, nextCursor: null } });
+  }),
+
+  http.get(`${API_BASE}/shift-handovers/:id`, ({ request, params }) => {
+    const v = viewer(request);
+    if ('denied' in v) return v.denied;
+    const h = handovers.find((x) => x.shiftHandoverId === params['id']);
+    return h ? HttpResponse.json(h) : problem(404, 'NOT_FOUND');
+  }),
+
+  // case 0.10.0 메모 — 덧붙이기만(처리 끝난 건에도), 가림은 관리자만(가린 메모는 text null·masked true)
+  http.get(`${API_BASE}/cases/:caseId/notes`, ({ request, params }) => {
+    const v = viewer(request);
+    if ('denied' in v) return v.denied;
+    const c = cases.find((x) => x.caseId === params['caseId']);
+    if (!c || !v.sees(c)) return problem(404, 'NOT_FOUND');
+    const items = notes.filter((n) => n.caseId === c.caseId).map((n) => (n.masked ? { ...n, text: null } : n));
+    return HttpResponse.json({ items, page: { size: items.length, nextCursor: null } });
+  }),
+  http.post(`${API_BASE}/cases/:caseId/notes`, async ({ request, params }) => {
+    const v = viewer(request);
+    if ('denied' in v) return v.denied;
+    const body = (await request.clone().json()) as { text?: string };
+    return idempotent(request, () => {
+      const c = cases.find((x) => x.caseId === params['caseId']);
+      if (!c || !v.sees(c)) return problem(404, 'NOT_FOUND');
+      const t = (body.text ?? '').trim();
+      if (t.length < 1 || t.length > 500) return problem(400, 'VALIDATION_FAILED');
+      seq += 1;
+      const n: Note = { noteId: `NOTE-MOCK-${seq}`, caseId: c.caseId ?? '', authorId: v.who.subject, createdAt: new Date().toISOString(), text: t, masked: false };
+      notes.push(n);
+      return { status: 201, body: n };
+    });
+  }),
+  http.post(`${API_BASE}/cases/:caseId/notes/:noteId/maskings`, async ({ request, params }) => {
+    const v = viewer(request);
+    if ('denied' in v) return v.denied;
+    const body = (await request.clone().json()) as { reason?: string };
+    return idempotent(request, () => {
+      if (!v.admin) return problem(403, 'FORBIDDEN');
+      const n = notes.find((x) => x.noteId === params['noteId'] && x.caseId === params['caseId']);
+      if (!n) return problem(404, 'NOT_FOUND');
+      if (!(body.reason ?? '').trim()) return problem(400, 'VALIDATION_FAILED');
+      n.masked = true;
+      n.maskedBy = v.who.subject;
+      n.maskedAt = new Date().toISOString();
+      n.maskReason = (body.reason ?? '').trim();
+      return { status: 200, body: { ...n, text: null } };
     });
   }),
 ];
