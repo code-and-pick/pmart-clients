@@ -47,7 +47,7 @@ describe('메뉴 묶음 — 역할로 보이고(합집합) 접고 편다', () =>
     renderAt('/session', as.admin);
     await screen.findByTestId('nav-group-lookup');
     expect(links('lookup')).toEqual(['주문 조회', '통합 조회', '실시간 배송 현황', '배송·배차 확인', '라이더 컴플레인']);
-    expect(links('cs')).toEqual(['문의 답변', '클레임 조회']);
+    expect(links('cs')).toEqual(['문의 답변', '클레임 조회', '고객센터 후속 처리']);
     expect(links('riderOps')).toEqual(['라이더 찾기·계정 제한', '제한 검토']);
     const all = [...document.querySelectorAll('[data-testid^="nav-group-"] a')].map((a) => a.getAttribute('href'));
     expect(new Set(all).size).toBe(all.length);
@@ -333,7 +333,7 @@ describe('라이더 운영', () => {
     const user = userEvent.setup();
     renderAt('/riders/restriction-reviews', as.admin);
     const row = await screen.findByTestId('review-row');
-    await user.click(within(row).getByRole('button', { name: '제한함으로 닫기' }));
+    await user.click(within(row).getByRole('button', { name: '제한함으로 결정' }));
     expect(await within(row).findByRole('alert')).toHaveAttribute('data-code', 'INVALID_STATE');
     cleanup();
 

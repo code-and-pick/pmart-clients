@@ -89,6 +89,7 @@
 - 다음 작업 받기(`next-tasks`)는 PDA 전용 — 넣지 않는다.
 
 ### 4-4. 배송 현황·배차 실패 — bff 0.3.1 `live-delivery`, case 0.5.2 (`features/delivery/CenterDeliveryPages.tsx`, 2026-11-16)
+- 화면 용어(사용자 2026-11-16): 백엔드 case 는 "접수 건"(배차 실패 접수 건), 상태 접수됨·처리 끝남·다시 처리 중, 종결 → 처리 결과 — 백오피스와 같다(`backoffice-web.md` §2-4).
 - 백엔드 요청 `mfc-backoffice/2026-11-16-request-center-deliveries-and-dispatch-failures.md`(사용자 "①②③ 추천대로", 배송 원문 §1·§3.6). 새 묶음 "배송".
 - **배송 현황** `deliveries`: bff `GET /backoffice/views/live-delivery?mfcId=<주소의 센터>&state=&size=50&cursor=` — 백오피스와 같은 API, 센터 관리자는 자기 센터 고정(다른 센터 403). 상태 비우면 진행 중 전부(오래된 순 50, 넘으면 truncated), 상태 고르면 `page.nextCursor`. 1분마다 다시 읽기. 배차 원천 실패 "모름(조회 실패)", `openCases null` "조회 실패", 못 읽은 원천 경고. "약속 지남"은 서버 `promisedAt < composedAt` 만. 열린 배차 실패 사건은 이 앱의 사건 상세로. 배송·주문 상세 화면은 이 앱에 없어 번호만.
 - **배차 실패** `dispatch-failures`: case `GET /cases?kind=DISPATCH_FAILED&centerId=<센터>&size=50`(탭 "처리 중" / "처리 끝남"(`state=CLOSED`), 탭은 URL — 센터 관리자는 닫지 않으므로 열림·닫힘 대신 처리 단계로 부른다, 사용자 2026-11-16) · `GET /cases/{caseId}`(요약·관련·기한·담당·종결·이력). **보기만** — 집기·닫기 버튼 없음(서버 403), "처리는 지원센터(라이더 운영)" 안내. 배차 쪽 사건에 센터가 실리기 전(배송 영역 DD-MFC)에는 0건이 정상이라 안내.
