@@ -34,7 +34,7 @@ describe('배송 현황(우리 센터)', () => {
 });
 
 describe('배차 실패(우리 센터, 보기만)', () => {
-  it('열린 것: 우리 센터 DISPATCH_FAILED 만, 기한 넘김 표시, 처리는 지원센터 안내 — 집기·닫기 버튼 없음', async () => {
+  it('처리 중: 우리 센터 DISPATCH_FAILED 만, 기한 넘김 표시, 처리는 지원센터 안내 — 집기·닫기 버튼 없음', async () => {
     const view = renderAt('/c/MFC-BSN-01/dispatch-failures');
     const rows = await screen.findAllByTestId('dispatch-failure-row');
     expect(rows).toHaveLength(1);
@@ -47,10 +47,10 @@ describe('배차 실패(우리 센터, 보기만)', () => {
     expect([q.get('kind'), q.get('centerId'), q.get('state')]).toEqual(['DISPATCH_FAILED', 'MFC-BSN-01', null]);
   });
 
-  it('닫힌 것 탭은 state=CLOSED(주소에 남음)', async () => {
+  it('처리 끝남 탭은 state=CLOSED(주소에 남음)', async () => {
     const view = renderAt('/c/MFC-BSN-01/dispatch-failures');
     await screen.findAllByTestId('dispatch-failure-row');
-    await userEvent.click(screen.getByRole('tab', { name: '닫힌 것' }));
+    await userEvent.click(screen.getByRole('tab', { name: '처리 끝남' }));
     await waitFor(() => expect(screen.getByTestId('dispatch-failure-row')).toHaveTextContent('시스템 장애'));
     expect(caseCalls(view.sent).some((q) => q.get('state') === 'CLOSED')).toBe(true);
   });
