@@ -127,7 +127,7 @@ describe('세션 응답(sessions/current 0.6.0) — 토큰을 풀지 않는다',
     renderAt('/', null);
     await userEvent.click(await screen.findByRole('button', { name: '센터 관리자(MFC 1곳)' }));
     expect(await screen.findByText('정보를 불러오지 못했어요')).toBeInTheDocument();
-    expect(screen.queryByText('인력')).not.toBeInTheDocument();
+    expect(screen.queryByText('작업자 관리')).not.toBeInTheDocument();
     fail = false;
     await userEvent.click(screen.getByRole('button', { name: '다시 시도' }));
     expect(await screen.findByRole('heading', { name: '작업자' })).toBeInTheDocument();
@@ -138,7 +138,7 @@ describe('역할', () => {
   it('MFC_WORKER 만 있으면 "센터 관리자만 쓰는 화면" — 메뉴 없음', async () => {
     renderAt('/', as.worker);
     expect(await screen.findByRole('alert')).toHaveTextContent('센터 관리자만 쓰는 화면입니다');
-    expect(screen.queryByText('인력')).not.toBeInTheDocument();
+    expect(screen.queryByText('작업자 관리')).not.toBeInTheDocument();
     renderAt('/c/MFC-BSN-01/workers', as.worker);
     expect(screen.queryByRole('heading', { name: '작업자' })).not.toBeInTheDocument();
   });
@@ -146,7 +146,7 @@ describe('역할', () => {
   it('센터가 없는 운영 관리자: 맡은 센터가 없다는 안내 — 메뉴 없음', async () => {
     renderAt('/', as.admin);
     expect(await screen.findByRole('alert')).toHaveTextContent('맡은 센터가 없어요');
-    expect(screen.queryByText('인력')).not.toBeInTheDocument();
+    expect(screen.queryByText('작업자 관리')).not.toBeInTheDocument();
   });
 
   it('센터 관리자가 아닌 역할 + 센터: 막지 않고 안내만(판정은 서버)', async () => {
@@ -160,7 +160,7 @@ describe('메뉴', () => {
   it('묶음 5개 · 하위 메뉴 11개가 모두 보이고 센터 주소 아래로 간다', async () => {
     renderAt('/');
     await screen.findByRole('heading', { name: '작업자' });
-    for (const group of ['인력', '작업', '배송', '재고·품질', '센터']) expect(screen.getByText(group, { selector: 'summary' })).toBeInTheDocument();
+    for (const group of ['작업자 관리', '작업', '배송', '재고·품질', '센터']) expect(screen.getByText(group, { selector: 'summary' })).toBeInTheDocument();
     expect(allMenus).toHaveLength(11);
     for (const label of ['작업자', '배정', '작업 현황', '이동·보충', '입고', '재고', '품질', '위치(칸)', '운영 제한', '배송 현황', '배차 실패']) {
       expect(screen.getByRole('link', { name: label }).getAttribute('href')).toMatch(/^\/c\/MFC-BSN-01\//);

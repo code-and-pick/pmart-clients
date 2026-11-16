@@ -14,7 +14,7 @@ export const messages = {
 
   /** 메뉴 묶음·하위 메뉴(handoff 2026-11-15 §2 — 이름·순서는 클라이언트가 정해도 된다) */
   groups: {
-    people: '인력',
+    people: '작업자 관리', // '인력' 에서 바꿈(사용자 2026-11-16)
     work: '작업',
     stock: '재고·품질',
     center: '센터',
