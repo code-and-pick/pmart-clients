@@ -86,9 +86,12 @@ export const messages = {
       DELIVERY_INCIDENT: '전달 실패',
       RIDER_LOCATION_STALE: '위치 끊김',
       MISDELIVERY: '오배송',
+      DISPATCH_FAILED: '배차 실패',
       RECONCILIATION: '대사 필요',
       PAYMENT_UNKNOWN: '결제 결과 불명',
     } as Readonly<Record<string, string>>,
+    /** 이력 동작 이름 — 모르는 코드는 그대로 */
+    actionName: { RECURRED: '재발' } as Readonly<Record<string, string>>,
     /** case 0.5.0 사가·결제 이상(관리자만) — 사건은 알림·기록, 조치는 처리 대기 */
     orderNote: '대사 필요·결제 결과 불명은 본사 관리자만 봐요. 사건은 알림·기록이고, 조치는 처리 대기와 각 메뉴(환불·재고 정정)에서 해요.',
     orderAction: '처리 대기에서 조치하기',

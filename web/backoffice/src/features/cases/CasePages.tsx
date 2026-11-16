@@ -6,6 +6,7 @@
 // - 오배송 열기 `POST /cases` {kind: MISDELIVERY, subjectType: DELIVERY, subjectRef: deliveryId, summary, evidence?} → 201 → 상세. 409 CASE_ALREADY_OPEN.
 // - 역할: 집기·닫기 버튼은 RIDER_OPS·OPERATOR_ADMIN 에게만(CS_AGENT 는 보기). 다른 사람이 집은 사건 닫기는 관리자만. 판정은 서버.
 // - 요약·근거에 고객 주소·연락처 원문을 적지 않게 안내한다.
+// - case 0.5.0 배차 실패 DISPATCH_FAILED — 배송 쪽(모든 역할, 집기·닫기 RIDER_OPS·관리자), refs deliveryId·orderId, 뒤 실패는 이력 RECURRED(재발).
 // - case 0.5.0(백엔드 PR #21, R-3): 사가·결제 이상 RECONCILIATION·PAYMENT_UNKNOWN — 관리자만 보이고(종류 필터도 관리자만),
 //   사건은 알림·기록, 조치는 처리 대기(/pending)·각 메뉴. refs 에 orderId(주문 화면 링크)·sagaId·paymentAttemptId·resourceId.
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -26,8 +27,8 @@ type Summary = components['schemas']['CaseSummary'];
 type Resolution = keyof typeof m.cases.resolutionName;
 const RESOLUTIONS = Object.keys(m.cases.resolutionName) as Resolution[];
 type Kind = components['schemas']['CaseKind'];
-/** 배송 쪽 넷(0.4.0 — RIDER_OPS·CS_AGENT·관리자) */
-const DELIVERY_KINDS: readonly Kind[] = ['RIDER_HELP', 'DELIVERY_INCIDENT', 'RIDER_LOCATION_STALE', 'MISDELIVERY'];
+/** 배송 쪽(0.4.0 넷 + 0.5.0 배차 실패 — RIDER_OPS·CS_AGENT·관리자) */
+const DELIVERY_KINDS: readonly Kind[] = ['RIDER_HELP', 'DELIVERY_INCIDENT', 'RIDER_LOCATION_STALE', 'MISDELIVERY', 'DISPATCH_FAILED'];
 /** 사가·결제 이상(0.5.0 — 관리자만) */
 const ORDER_KINDS: readonly Kind[] = ['RECONCILIATION', 'PAYMENT_UNKNOWN'];
 const isOrderKind = (k: Kind | undefined) => k !== undefined && ORDER_KINDS.includes(k);
@@ -380,7 +381,7 @@ export function CaseDetailPage() {
               <ul className="space-y-1 text-sm">
                 {(c.history ?? []).map((h, i) => (
                   <li key={`${h.at ?? ''}-${i}`} className="rounded-box bg-base-100 p-2">
-                    {`${when(h.at)} · ${text(h.action)} · ${text(h.actorId)}${h.toState ? ` → ${label(m.cases.stateName, h.toState)}` : ''}${h.note ? ` · ${h.note}` : ''}`}
+                    {`${when(h.at)} · ${h.action ? label(m.cases.actionName, h.action) : text(h.action)} · ${text(h.actorId)}${h.toState ? ` → ${label(m.cases.stateName, h.toState)}` : ''}${h.note ? ` · ${h.note}` : ''}`}
                   </li>
                 ))}
               </ul>

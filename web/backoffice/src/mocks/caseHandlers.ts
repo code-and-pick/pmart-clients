@@ -12,7 +12,7 @@ type Case = CaseC['schemas']['Case'];
 type Summary = CaseC['schemas']['CaseSummary'];
 type Kind = CaseC['schemas']['CaseKind'];
 
-const DELIVERY_KINDS: readonly Kind[] = ['RIDER_HELP', 'DELIVERY_INCIDENT', 'RIDER_LOCATION_STALE', 'MISDELIVERY'];
+const DELIVERY_KINDS: readonly Kind[] = ['RIDER_HELP', 'DELIVERY_INCIDENT', 'RIDER_LOCATION_STALE', 'MISDELIVERY', 'DISPATCH_FAILED'];
 const HOUR = 3_600_000;
 const at = (hours: number) => new Date(Date.now() + hours * HOUR).toISOString();
 const PRIORITY_ORDER = { P1: 1, P2: 2, P3: 3, P4: 4 } as const;
@@ -88,6 +88,22 @@ function seed(): Case[] {
       assigneeGroup: 'ORDER_OPS',
       refs: [{ refType: 'orderId', refId: 'ORD-MOCK-1004' }, { refType: 'sagaId', refId: 'SAGA-MOCK-1' }, { refType: 'resourceId', refId: 'RSV-MOCK-1' }],
       slaDueAt: at(0.5),
+    }),
+    // case 0.5.0 배차 실패 — 배송 쪽(DELIVERY_OPS, 모든 역할이 본다). refs deliveryId·orderId(incidentId 없음), 그 뒤 실패는 이력 RECURRED
+    base({
+      caseId: 'CASE-MOCK-6',
+      kind: 'DISPATCH_FAILED',
+      priority: 'P2',
+      summary: '[목] 배차 실패 2번째 — 응답 만료 (10분마다 자동 재배차 중)',
+      subjectType: 'DELIVERY',
+      subjectRef: 'DLV-MOCK-6',
+      assigneeGroup: 'DELIVERY_OPS',
+      refs: [{ refType: 'deliveryId', refId: 'DLV-MOCK-6' }, { refType: 'orderId', refId: 'ORD-MOCK-1006' }],
+      slaDueAt: at(0.1),
+      history: [
+        { action: 'OPENED', at: at(-0.3), toState: 'OPEN', actorId: 'SYSTEM' },
+        { action: 'RECURRED', at: at(-0.1), actorId: 'SYSTEM', note: '3번째 — NO_RIDER' },
+      ],
     }),
   ];
 }
