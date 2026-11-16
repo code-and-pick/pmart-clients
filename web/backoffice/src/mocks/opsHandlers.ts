@@ -489,10 +489,8 @@ export const opsHandlers = [
       return { status: 202, body: result };
     });
   }),
-  http.get(`${BFF_BASE}/commands/:targetService/:command/:requestId`, ({ params }) => {
-    const r = ops.bffResults.get(String(params['requestId']));
-    return r ? HttpResponse.json(r) : problem(404, 'NOT_FOUND');
-  }),
+  // 결과 조회는 실서버가 아직 501(백엔드 회신 reply-case-inbox-questions §3) — 화면은 부르지 않는다(목록 다시 읽기). 불리면 501 로 드러나게.
+  http.get(`${BFF_BASE}/commands/:targetService/:command/:requestId`, () => problem(501, 'NOT_IMPLEMENTED')),
 
   // ---- case 0.3.0 rider-complaints ----
   http.post(`${API_BASE}/rider-complaints`, async ({ request }) => {

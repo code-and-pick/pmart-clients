@@ -1,7 +1,11 @@
 // 지원센터 사건함(case 0.4.0) — 탭(안 집은·내 것·기한 넘김·닫힌), 집기·닫기, 역할별 버튼, 오배송 열기.
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
+
+import { API_BASE } from '../../api/client';
+import { server } from '../../test/server';
 
 import { as, renderAt } from '../../test/render';
 
@@ -123,5 +127,38 @@ describe('지원센터 사건', () => {
     await userEvent.type(await screen.findByLabelText('요약'), '다시');
     await userEvent.click(screen.getByRole('button', { name: '오배송 사건 열기' }));
     expect(await screen.findByText('이 배송의 오배송 사건이 이미 열려 있어요.')).toBeInTheDocument();
+  });
+
+  it('요약이 없는 사건은 사건 번호 대신 종류 이름(백엔드 회신 reply-case-inbox-questions §2-1)', async () => {
+    server.use(
+      http.get(`${API_BASE}/cases`, () =>
+        HttpResponse.json({ items: [{ caseId: 'CASE-NOSUM', kind: 'RIDER_HELP', priority: 'P2', state: 'OPEN', openedAt: '2026-11-16T00:00:00.000Z', overdue: false, version: 1 }], page: { nextCursor: null, size: 1 } }),
+      ),
+    );
+    renderAt('/cases', as.riderOps);
+    const row = (await rows())[0]!;
+    expect(within(row).getByRole('link', { name: '라이더 도움요청' })).toHaveAttribute('href', '/cases/CASE-NOSUM');
+    expect(within(row).queryByText('CASE-NOSUM')).not.toBeInTheDocument();
+  });
+
+  it('도움요청 사건은 따로 실린 requestId·deliveryId(case 0.4.1)로 라이더가 쓴 내용을 읽는다 — incidentId 없어도', async () => {
+    server.use(
+      http.get(`${API_BASE}/cases/:caseId`, () =>
+        HttpResponse.json({
+          caseId: 'CASE-NEW',
+          kind: 'RIDER_HELP',
+          priority: 'P1',
+          state: 'OPEN',
+          summary: '[목] 새 도움요청',
+          openedAt: '2026-11-16T00:00:00.000Z',
+          overdue: false,
+          version: 1,
+          history: [],
+          refs: [{ refType: 'deliveryId', refId: 'DLV-MOCK-1' }, { refType: 'requestId', refId: 'HLP-MOCK-1' }],
+        }),
+      ),
+    );
+    renderAt('/cases/CASE-NEW', as.riderOps);
+    expect(await screen.findByTestId('case-help-request')).toHaveTextContent('공동현관이 잠겨');
   });
 });

@@ -4,13 +4,15 @@
 //   REQUERY_RESULT → bff `POST /backoffice/commands/order-orchestration-service/saga-requery` {targetRef: refId, reason?, payload: {}}
 //   MARK_RESOLVED  → bff `…/saga-resolve`(사유 필수 — 목록에서 빠질 뿐 주문·재고는 그대로)
 //   ACKNOWLEDGE    → order-service `POST /fulfillment-issues/{refId}/acknowledgements` {note}
-//   bff 명령 응답은 CommandResponse(ACCEPTED ≠ 성공) — settleCommand 로 짝 조회(`GET …/commands/{ts}/{cmd}/{requestId}`)까지. 422 NOT_REQUERYABLE·NOT_RESOLVABLE = 이미 바뀜(새로고침).
+//   bff 명령 응답은 CommandResponse(ACCEPTED ≠ 성공). 짝 조회 `GET …/commands/{ts}/{cmd}/{requestId}` 는 아직 501(백엔드 회신 reply-case-inbox-questions §3) —
+//   그래서 APPLIED·REJECTED 만 확정하고, ACCEPTED·UNKNOWN_RESULT·시간 초과는 목록을 다시 읽어 "목록에서 확인" 안내(결과 불명 — 같은 키 재전송만).
+//   422 NOT_REQUERYABLE·NOT_RESOLVABLE = 이미 바뀜(새로고침).
 // - 사유·메모에 개인정보를 적지 않게 안내하고, 로그에 남기지 않는다.
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link } from 'react-router';
 
-import { request, settleCommand } from '@pmart/web-core';
+import { CommandRejectedFailure, UnknownResultFailure, request } from '@pmart/web-core';
 import { CommandFeedback, QueryState, uiStateFromError, useCommand, type UiState } from '@pmart/web-ui';
 import { commandParams } from '../../api/command';
 import type { components } from '../../api/generated/backoffice-bff';
@@ -29,6 +31,27 @@ const COMMAND: Record<'REQUERY_RESULT' | 'MARK_RESOLVED', string> = { REQUERY_RE
 const ACTION_LABEL: Record<Action, string> = { REQUERY_RESULT: m.pending.requery, MARK_RESOLVED: m.pending.resolve, ACKNOWLEDGE: m.pending.acknowledge };
 const isAction = (a: string): a is Action => a === 'REQUERY_RESULT' || a === 'MARK_RESOLVED' || a === 'ACKNOWLEDGE';
 
+/**
+ * bff 명령을 한 번 보낸다 — 짝 조회(지금 501) 대신 목록 다시 읽기.
+ * APPLIED → 그대로, REJECTED → 거절. ACCEPTED·UNKNOWN_RESULT·시간 초과 → 목록을 다시 읽고 결과 불명(같은 키 재전송만 허용).
+ */
+async function sendBffOnce<S extends { readonly status?: string; readonly requestId?: string; readonly nextAction?: string }>(
+  send: () => Promise<S>,
+  keyValue: string,
+  reread: () => Promise<unknown>,
+): Promise<S> {
+  let first: S | undefined;
+  try {
+    first = await send();
+  } catch (e) {
+    if (!(e instanceof UnknownResultFailure)) throw e;
+  }
+  if (first?.status === 'APPLIED') return first;
+  if (first?.status === 'REJECTED') throw new CommandRejectedFailure(first.nextAction, first.requestId);
+  await reread();
+  throw new UnknownResultFailure(undefined, first?.requestId || keyValue);
+}
+
 function ActionForm({ item, action, onClose }: { readonly item: Item; readonly action: Action; readonly onClose: () => void }) {
   const api = useApi();
   const queryClient = useQueryClient();
@@ -39,8 +62,7 @@ function ActionForm({ item, action, onClose }: { readonly item: Item; readonly a
       r = await request('POST', api.orders.POST('/fulfillment-issues/{issueId}/acknowledgements', { ...commandParams(key, { path: { issueId: item.refId } }), body: { note: v.text } }));
     } else {
       const command = COMMAND[action];
-      r = await settleCommand(
-        key,
+      r = await sendBffOnce(
         () =>
           request(
             'POST',
@@ -49,7 +71,8 @@ function ActionForm({ item, action, onClose }: { readonly item: Item; readonly a
               body: { targetRef: item.refId, payload: {}, ...(v.text ? { reason: v.text } : {}) },
             }),
           ),
-        (requestId) => request('GET', api.bff.GET('/commands/{targetService}/{command}/{requestId}', { params: { path: { targetService: ORCHESTRATION, command, requestId } } })),
+        key.value,
+        () => queryClient.invalidateQueries({ queryKey: ['bff', 'pending-work'] }),
       );
     }
     await queryClient.invalidateQueries({ queryKey: ['bff', 'pending-work'] });
@@ -86,7 +109,7 @@ function ActionForm({ item, action, onClose }: { readonly item: Item; readonly a
           {m.pending.cancel}
         </button>
       </div>
-      <CommandFeedback command={cmd}>{() => <span className="text-xs text-success">{m.pending.done}</span>}</CommandFeedback>
+      <CommandFeedback command={cmd} {...(action === 'ACKNOWLEDGE' ? {} : { unknown: { body: m.pending.unknownReread } })}>{() => <span className="text-xs text-success">{m.pending.done}</span>}</CommandFeedback>
     </form>
   );
 }

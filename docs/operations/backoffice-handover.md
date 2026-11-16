@@ -51,8 +51,8 @@ backoffice 194, hr-backoffice 46, web/core 25, web/ui 2, mfc-backoffice 16 — �
 | 일 | 근거 | 상태 |
 |---|---|---|
 | **개인정보 열람 기록 메뉴**(OPERATOR_ADMIN, audit 0.3.0 `GET /pii-access-logs`) | 백엔드 `handoff/clients/backoffice/2026-11-16-notice-pii-access-log-api.md` | 아직 |
-| 처리 대기 명령의 결과 불명 처리 | 백엔드 회신 `2026-11-16-reply-case-inbox-questions.md` §3 — 결과 조회 `GET /backoffice/commands/…/{requestId}` 는 501, 시간 초과·`UNKNOWN_RESULT` 면 **목록을 다시 읽어** 확인해 달라 | 지금 `PendingPage.tsx` 는 `settleCommand` 로 그 501 경로를 부른다 — 고칠 것(PC 1 확인 필요) |
-| 사건 `refs` 의 `requestId`(case 0.4.1) | 백엔드 회신 `backoffice/2026-11-16-reply-rider-delivery-staff-apis.md` §1 — RIDER_HELP·DELIVERY_INCIDENT 는 `incidentId` 가 늘 있고, 0.4.1 부터 `requestId` 도 따로. 그 전 사건은 `incidentId` 만 | 지금 화면은 `incidentId` 를 나눠 쓴다(그대로 동작). `requestId` 를 먼저 쓰게 바꿀지는 선택 — 계약 다시 생성 필요 |
+| 처리 대기 명령의 결과 불명 처리 | 백엔드 회신 `2026-11-16-reply-case-inbox-questions.md` §3 — 결과 조회 `GET /backoffice/commands/…/{requestId}` 는 501, 시간 초과·`UNKNOWN_RESULT` 면 **목록을 다시 읽어** 확인해 달라 | **끝남(2026-11-16 PC 2)** — 결과 조회를 부르지 않고 목록 다시 읽기 |
+| 사건 `refs` 의 `requestId`(case 0.4.1) | 백엔드 회신 `backoffice/2026-11-16-reply-rider-delivery-staff-apis.md` §1 — RIDER_HELP·DELIVERY_INCIDENT 는 `incidentId` 가 늘 있고, 0.4.1 부터 `requestId` 도 따로. 그 전 사건은 `incidentId` 만 | **끝남(2026-11-16 PC 2)** — `requestId`·`deliveryId` 먼저, 없으면 `incidentId`(계약 다시 생성 필요 없음 — refType 은 문자열) |
 
 - 끝난 것(11-16 오전 백엔드 회신): backoffice 빌드 `index-BGISi3dQ.js`(f50025c — 라이더·배송 포함)가 LAN 에 올라갔다. hr `index-Bkg8rNsZ.js`·mfc `index-ChSinewe.js` 는 그대로. 실서버에서 사람이 눌러 본 화면은 아직 없다.
 
@@ -68,7 +68,6 @@ backoffice 194, hr-backoffice 46, web/core 25, web/ui 2, mfc-backoffice 16 — �
 | `backoffice/2026-11-15-backend-assistant-connected.md` | 업무 도우미·문의 답변의 HTTPS 경로·CORS, 답변 POST 같은 키 재전송 | PC 2 |
 | `backoffice/2026-11-15-backend-cs-rider-menus-done.md` | BR-54~56(끝남)·역할·version 질문 회신 확인 | PC 2 |
 | `backoffice/2026-11-16-backend-pii-reveal-and-pending-done.md` | 반영 확인 | PC 2 |
-| `backoffice/2026-11-16-backend-case-inbox-and-pending-work-done.md` | 질문 3개 — 백엔드 회신 옴(`reply-case-inbox-questions`), 4-1 반영 뒤 닫기 | PC 1 반영 → PC 2 닫기 |
 | `backoffice/2026-11-16-backend-product-menu-operator-admin-done.md` | 반영 확인 | PC 2 |
 | `hr-backoffice/2026-11-16-backend-departments-and-permissions-done.md`, `…-role-list-done.md` | 반영 확인 | PC 2 |
 | (끝남 — 2026-11-16 `archive/`) `2026-11-16-backend-rider-delivery-staff-apis-done.md`, `…-session-roles-centers-done.md`, `…-session-center-names-done.md` | 회신·빌드 올림 확인 | — |

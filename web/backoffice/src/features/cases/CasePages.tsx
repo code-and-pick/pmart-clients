@@ -153,7 +153,7 @@ export function CaseListPage() {
                   <td>{label(m.cases.kindName, c.kind)}</td>
                   <td>
                     <Link className="link" to={`/cases/${encodeURIComponent(c.caseId ?? '')}`}>
-                      {text(c.summary ?? c.caseId)}
+                      {c.summary ? c.summary : label(m.cases.kindName, c.kind)}
                     </Link>
                   </td>
                   <td>
@@ -270,15 +270,17 @@ function CloseForm({ c, onDone }: { readonly c: Case; readonly onDone: (c: Case)
 }
 
 /**
- * 라이더 도움요청·전달 실패 사건: refs 의 incidentId(= `<deliveryId>:<requestId>`)로 execution `GET /deliveries/{id}/help-requests/{requestId}`
+ * 라이더 도움요청·전달 실패 사건: refs 의 requestId·deliveryId(case 0.4.1 부터), 없으면(그 전 사건) incidentId(= `<deliveryId>:<requestId>`)를 나눠 execution `GET /deliveries/{id}/help-requests/{requestId}`
  * (라이더가 쓴 내용·사진 참조). 사건 처리는 사건 집기·닫기로(백엔드 알림 2026-11-16 rider-delivery-staff-apis §3).
  */
 function HelpRequestOfCase({ c }: { readonly c: Case }) {
   const api = useApi();
-  const incident = (c.refs ?? []).find((r) => r.refType === 'incidentId')?.refId ?? '';
+  const ref = (t: string) => (c.refs ?? []).find((r) => r.refType === t)?.refId ?? '';
+  const incident = ref('incidentId');
   const sep = incident.lastIndexOf(':');
-  const deliveryId = sep > 0 ? incident.slice(0, sep) : '';
-  const requestId = sep > 0 ? incident.slice(sep + 1) : '';
+  // 따로 실린 requestId(case 0.4.1)를 먼저 — 그 전 사건은 incidentId 에서 `<deliveryId>:` 를 뗀다(백엔드 회신 reply-rider-delivery-staff-apis §1)
+  const deliveryId = ref('deliveryId') || (sep > 0 ? incident.slice(0, sep) : '');
+  const requestId = ref('requestId') || (sep > 0 ? incident.slice(sep + 1) : '');
   const query = useQuery({
     queryKey: ['help-request', deliveryId, requestId],
     enabled: deliveryId !== '' && requestId !== '',

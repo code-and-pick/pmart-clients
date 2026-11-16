@@ -26,7 +26,6 @@ pmart-clients 와 pmart-backend 는 서로의 저장소에 쓰지 않는다. 각
 | `backoffice/2026-11-15-backend-assistant-connected.md` | 새 백오피스 빌드 올리기, 업무 도우미·문의 답변의 HTTPS 게이트웨이 경로·CORS, 답변 POST 의 같은 키 재전송 |
 | `backoffice/2026-11-15-backend-cs-rider-menus-done.md` | 고객센터·라이더 운영 메뉴 반영 회신 — BR-54~56, 역할·version 질문, PC 5 권한 반영 |
 | `backoffice/2026-11-16-backend-pii-reveal-and-pending-done.md` | 주문 개인정보 열람·처리 대기 반영 확인(빌드는 archive 의 session-roles-centers 표) |
-| `backoffice/2026-11-16-backend-case-inbox-and-pending-work-done.md` | 사건함·처리 대기(bff) 반영 확인, 질문 3개(빌드는 archive 의 session-roles-centers 표) |
 | `hr-backoffice/2026-11-16-backend-departments-and-permissions-done.md` | 본사 부서·권한 관리 반영 확인(빌드는 archive 의 session-roles-centers 표) |
 | `all/2026-11-16-backend-login-code-pc1-only-done.md` | 클라이언트 표(경로 보탬) 확인 |
 | `backoffice/2026-11-16-backend-product-menu-operator-admin-done.md` | 상품 관리 묶음 `OPERATOR_ADMIN` 반영 확인(빌드는 archive 의 session-roles-centers 표) |
