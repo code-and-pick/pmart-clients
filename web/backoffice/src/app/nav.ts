@@ -56,6 +56,8 @@ export const navGroups: readonly NavGroup[] = [
     visibleTo: oneOf('CS_AGENT', 'OPERATOR_ADMIN'),
     items: [
       { to: '/orders', label: m.nav.orders },
+      // 통합 조회(BO-11, bff 0.3.0) — 고객센터·라이더 운영 묶음 모두 두 번째(첫 화면 = 묶음 첫 메뉴는 그대로)
+      { to: '/lookup', label: m.nav.lookup },
       { to: '/inquiries', label: m.nav.inquiries },
       { to: '/rider-complaints', label: m.nav.riderComplaints },
       { to: '/claims', label: m.nav.claims },
@@ -68,6 +70,7 @@ export const navGroups: readonly NavGroup[] = [
     visibleTo: oneOf('RIDER_OPS', 'OPERATOR_ADMIN'),
     items: [
       { to: '/riders', label: m.nav.riders },
+      { to: '/lookup', label: m.nav.lookup },
       { to: '/riders/restriction-reviews', label: m.nav.restrictionReviews },
       { to: '/deliveries', label: m.nav.deliveriesRiderOps },
       { to: '/rider-complaints', label: m.nav.riderComplaints },

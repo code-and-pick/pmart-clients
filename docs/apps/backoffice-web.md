@@ -99,6 +99,14 @@ BO §7(≈L1492-1510)의 화면은 "업무 동선 제안"이다. 화면을 BO �
 - 권한(서버 판정, 지금 계약): 배차 조회는 `CS_AGENT`·`RIDER_OPS` 가, 계정 제한·제한 검토·배차 취소·실패 결정은 `RIDER_OPS` 가 PC 5 반영 뒤에 열린다 — 그 전에는 403 이 오류로 보인다(목도 같게 흉내).
 - 개인정보: 주문 목록·상세는 서버가 가린 값, 원문은 사유를 적고 `pii-reveals`(2026-11-16 — 위 "주문 상세 배송지 열람"). 라이더 상세의 이름·연락처는 아직 `Masked`(화면 안 가림, "보기"). 검색 조건·연락처·주소·메모·열람 사유를 로그에 남기지 않는다.
 - 목: `mocks/opsHandlers.ts`(주문 3·배송 4·클레임 2·컴플레인 2·라이더 2·검토 1), 목 계정 "라이더 운영 정"(`RIDER_OPS`)·"상담·라이더운영 한"(`CS_AGENT`+`RIDER_OPS`, LAN `test-cs-rider` 와 같은 역할). 실서버 확인은 아직 안 함.
+
+## 2-5. 통합 조회 (BO-11, 2026-11-16, bff 0.3.0 — 백엔드 요청 `backoffice/2026-11-16-request-unified-lookup.md`, PR #25)
+- 메뉴 "통합 조회" `/lookup` — 고객센터·라이더 운영 묶음의 **두 번째**(첫 화면 = 묶음 첫 메뉴는 그대로). OPERATOR_ADMIN·CS_AGENT·RIDER_OPS(서버 판정 — 그 밖 403 → 권한 없음 화면).
+- `GET /backoffice/views/unified-lookup?q=&kind=` — 찾는 값·종류는 URL 쿼리. 종류 고르기는 번호로 알아서(ANY, 보내지 않음)·주문·배송·사건·고객(TRANSFER·TRIP 은 원천이 없어 고르기에 없음). 422 `UNSUPPORTED_LOOKUP`(전화번호 등)은 코드 문구, 5xx 는 오류(빈 결과 아님), 없는 대상은 "찾는 대상이 없어요".
+- 결과: 원천 표시(`SourceStamps` — 기준 시각·신선도·조회 못 한 원천), "○로 찾음 → 주문 …", 주문 칸 위 + 배송(수행)·배차·클레임·고객 문의 칸 + 사건 칸(열린 것 / 닫힌 것 최근 20건, `state` 로만 나눔). **실패·권한 없음 원천은 그 칸에 "조회 실패 또는 볼 권한 없음"**(0건과 구분). 원천 이름 ↔ 칸: order-service·delivery-execution-service·delivery-dispatch-service·claim-service·case-service·case-service/inquiries — 계약에 이름 목록이 없어 PR #25 구현(`LookupClients.Source`)과 백엔드 알림을 따름(질문 handoff `backoffice/2026-11-16-backend-unified-lookup-questions.md`).
+- `summary` 는 원천 필드 이름 그대로 — 아는 이름만 한국어, 모르는 이름은 그대로, 시각(…At)은 서울 시각, 객체는 한 단계 펼침. 금액·상태를 계산하지 않는다. 개인정보는 오지 않는다(원문은 주문 상세 열람).
+- 각 항목 "상세 보기": 주문 `/orders/{id}`·배송·배차 `/deliveries/{id}`·클레임 `/claims/{id}`·사건 `/cases/{id}`·문의 `/inquiries/{id}`. 고객 번호면 주문 목록만 → "이 주문으로 다시 조회"(q = 주문, kind ORDER).
+- 계약 타입: bff 0.3.0 이 main 에 없어(PR #25) 그 브랜치 계약으로 로컬 생성(생성물은 커밋 안 함) — PR #25 병합 뒤 `gen:api` 로 다시, `contracts.lock` 은 PC 1. 목 `mocks/lookupHandlers.ts`.
 ## 3. 기술 메모
 - 개발: Vite 프록시 `/api → http://localhost:8080` (CORS 없음, BR-04). 목은 MSW.
 - 모든 목록은 커서 페이지(`size`, `cursor`). 표·필터 상태는 URL 쿼리에 둔다(공유·새로고침 복원).
