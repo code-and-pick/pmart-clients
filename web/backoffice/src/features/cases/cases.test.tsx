@@ -1,5 +1,5 @@
 // 지원센터 사건함(case 0.4.0) — 탭(안 집은·내 것·기한 넘김·닫힌), 집기·닫기, 역할별 버튼, 오배송 열기.
-import { screen, waitFor, within } from '@testing-library/react';
+import { cleanup, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
@@ -129,7 +129,7 @@ describe('지원센터 사건', () => {
     renderAt('/cases/new-misdelivery?deliveryId=DLV-MOCK-2', as.cs);
     await userEvent.type(await screen.findByLabelText('요약'), '다시');
     await userEvent.click(screen.getByRole('button', { name: '오배송 사건 열기' }));
-    expect(await screen.findByText('이 배송의 오배송 사건이 이미 열려 있어요.')).toBeInTheDocument();
+    expect(await screen.findByText('같은 일로 열린 사건이 이미 있어요. 그 사건에서 처리해 주세요.')).toBeInTheDocument();
   });
 
   it('요약이 없는 사건은 사건 번호 대신 종류 이름(백엔드 회신 reply-case-inbox-questions §2-1)', async () => {
@@ -214,5 +214,91 @@ describe('지원센터 사건', () => {
     );
     renderAt('/cases', as.riderOps);
     expect(await screen.findByTestId('case-linked')).toHaveTextContent('배송 원천에 없음');
+  });
+});
+
+describe('사건 다시 열기(case 0.6.0)·넘기기(0.7.0)', () => {
+  it('닫힌 사건 다시 열기: 사유 필수 → reopenings(키·사유) → 다시 열림·담당 비움, 이력에 사유', async () => {
+    const view = renderAt('/cases/CASE-MOCK-4', as.riderOps);
+    const form = await screen.findByTestId('case-reopen');
+    expect(within(form).getByRole('button', { name: '다시 열기' })).toBeDisabled();
+    await userEvent.type(within(form).getByLabelText('사유'), '고객이 다시 다른 집이라고 연락');
+    await userEvent.click(within(form).getByRole('button', { name: '다시 열기' }));
+    await waitFor(() => expect(screen.getByTestId('case-state')).toHaveTextContent('다시 열림'));
+    expect(screen.getByTestId('case-assignee')).toHaveTextContent('아무도 안 집음');
+    expect(screen.getByText(/다시 열림 · op-rider-ops-1 → 다시 열림 · 고객이 다시 다른 집이라고 연락/)).toBeInTheDocument();
+    const sent = view.mutations('/cases/CASE-MOCK-4/reopenings')[0]!;
+    expect(sent.headers.get('Idempotency-Key')).toBeTruthy();
+    expect(await sent.json()).toEqual({ reason: '고객이 다시 다른 집이라고 연락' });
+    // 열린 사건이 되면 다시 열기 대신 닫기·넘기기
+    expect(screen.queryByTestId('case-reopen')).not.toBeInTheDocument();
+    expect(screen.getByTestId('case-transfer')).toBeInTheDocument();
+  });
+
+  it('같은 일로 열린 사건이 있으면(409 CASE_ALREADY_OPEN) 통합 조회로 그 대상의 사건을 찾게', async () => {
+    server.use(http.post(`${API_BASE}/cases/:caseId/reopenings`, () => HttpResponse.json({ type: 'about:blank', title: 'x', status: 409, code: 'CASE_ALREADY_OPEN' }, { status: 409, headers: { 'content-type': 'application/problem+json' } })));
+    renderAt('/cases/CASE-MOCK-4', as.admin);
+    const form = await screen.findByTestId('case-reopen');
+    await userEvent.type(within(form).getByLabelText('사유'), '재확인');
+    await userEvent.click(within(form).getByRole('button', { name: '다시 열기' }));
+    expect(await within(form).findByTestId('case-open-elsewhere')).toHaveAttribute('href', expect.stringMatching(/^\/lookup\?q=DLV-/));
+  });
+
+  it('상담원은 닫힌 사건을 다시 열 수 없다(버튼 없음)', async () => {
+    renderAt('/cases/CASE-MOCK-4', as.cs);
+    await screen.findByTestId('case-facts');
+    expect(screen.queryByTestId('case-reopen')).not.toBeInTheDocument();
+  });
+
+  it('지원센터 → 관리자에게 넘기기(사유) → 관리자 팀·담당 비움, 지원센터는 그 뒤 "관리자 처리 중"으로 보기만', async () => {
+    const view = renderAt('/cases/CASE-MOCK-1', as.riderOps);
+    expect(await screen.findByTestId('case-group')).toHaveTextContent('지원센터');
+    const form = screen.getByTestId('case-transfer');
+    await userEvent.type(within(form).getByLabelText('사유'), '환불이 얽힌 오배송');
+    await userEvent.click(within(form).getByRole('button', { name: '관리자에게 넘기기' }));
+    await waitFor(() => expect(screen.getByTestId('case-group')).toHaveTextContent('관리자 팀'));
+    expect(screen.getByTestId('case-group')).toHaveTextContent('관리자 처리 중');
+    expect(screen.getByRole('note')).toHaveTextContent('아직 해결된 사건이 아니에요');
+    // 지원센터에는 집기·닫기·넘기기가 없다
+    expect(screen.queryByRole('button', { name: '집기' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('form', { name: '닫기' })).not.toBeInTheDocument();
+    expect(screen.queryByTestId('case-transfer')).not.toBeInTheDocument();
+    expect(await view.mutations('/cases/CASE-MOCK-1/transfers')[0]!.json()).toEqual({ toGroup: 'ORDER_OPS', reason: '환불이 얽힌 오배송' });
+    expect(screen.getByText(/넘김 · op-rider-ops-1 → 열림 · DELIVERY_OPS → ORDER_OPS: 환불이 얽힌 오배송/)).toBeInTheDocument();
+    // 목록에도 "관리자 처리 중"
+    cleanup();
+    renderAt('/cases', as.riderOps);
+    const row = (await screen.findAllByTestId('case-row')).find((r) => r.textContent?.includes('라이더 도움요청'))!;
+    expect(within(row).getByTestId('case-admin-team')).toHaveTextContent('관리자 처리 중');
+  });
+
+  it('관리자는 관리자 팀 배송 사건을 지원센터로 돌려보낸다', async () => {
+    const view = renderAt('/cases/CASE-MOCK-1', as.admin);
+    let form = await screen.findByTestId('case-transfer');
+    await userEvent.type(within(form).getByLabelText('사유'), '확인 필요');
+    await userEvent.click(within(form).getByRole('button', { name: '관리자에게 넘기기' }));
+    await waitFor(() => expect(screen.getByTestId('case-group')).toHaveTextContent('관리자 팀'));
+    form = screen.getByTestId('case-transfer');
+    await userEvent.type(within(form).getByLabelText('사유'), '배송 쪽 처리로 충분');
+    await userEvent.click(within(form).getByRole('button', { name: '지원센터로 돌려보내기' }));
+    await waitFor(() => expect(screen.getByTestId('case-group')).not.toHaveTextContent('관리자 팀'));
+    expect(await view.mutations('/cases/CASE-MOCK-1/transfers')[1]!.json()).toEqual({ toGroup: 'DELIVERY_OPS', reason: '배송 쪽 처리로 충분' });
+  });
+
+  it('사가·결제 사건(관리자 팀)에는 넘기기가 없다', async () => {
+    renderAt('/cases/CASE-MOCK-5', as.admin);
+    await screen.findByTestId('case-facts');
+    expect(screen.queryByTestId('case-transfer')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('case-admin-team')).not.toBeInTheDocument();
+  });
+
+  it('refs previousCaseId 는 "이전 사건" 링크', async () => {
+    server.use(
+      http.get(`${API_BASE}/cases/:caseId`, () =>
+        HttpResponse.json({ caseId: 'CASE-NEXT', kind: 'MISDELIVERY', priority: 'P2', state: 'OPEN', summary: '[목] 또 오배송', assigneeGroup: 'DELIVERY_OPS', openedAt: '2026-11-16T00:00:00.000Z', overdue: false, version: 1, history: [], refs: [{ refType: 'deliveryId', refId: 'DLV-MOCK-4' }, { refType: 'previousCaseId', refId: 'CASE-MOCK-4' }] }),
+      ),
+    );
+    renderAt('/cases/CASE-NEXT', as.riderOps);
+    expect(await screen.findByRole('link', { name: '이전 사건 CASE-MOCK-4' })).toHaveAttribute('href', '/cases/CASE-MOCK-4');
   });
 });

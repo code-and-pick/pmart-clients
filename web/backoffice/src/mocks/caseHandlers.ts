@@ -24,6 +24,7 @@ function seed(): Case[] {
     assigneeId: null,
     overdue: false,
     openObligationCount: 0,
+    assigneeGroup: 'DELIVERY_OPS', // 배송 쪽 기본 팀(사가·결제 사건은 ORDER_OPS 로 덮어쓴다)
     version: 1,
     history: [{ action: 'OPENED', at: at(-2), toState: 'OPEN', actorId: 'SYSTEM' }],
     ...c,
@@ -255,6 +256,7 @@ export const caseHandlers = [
       const c = cases.find((x) => x.caseId === params['caseId']);
       if (!c || !v.sees(c)) return problem(404, 'NOT_FOUND');
       if (!v.admin && !v.team) return problem(403, 'FORBIDDEN');
+      if (!v.admin && c.assigneeGroup === 'ORDER_OPS') return problem(403, 'FORBIDDEN');
       if (c.state === 'CLOSED') return problem(409, 'INVALID_STATE');
       if (!body.assigneeId) return problem(400, 'VALIDATION_FAILED');
       if (!v.admin) {
@@ -276,11 +278,55 @@ export const caseHandlers = [
       if (!c || !v.sees(c)) return problem(404, 'NOT_FOUND');
       if (!v.admin && !v.team) return problem(403, 'FORBIDDEN');
       if (!v.admin && c.assigneeId && c.assigneeId !== v.who.subject) return problem(403, 'FORBIDDEN');
+      if (!v.admin && c.assigneeGroup === 'ORDER_OPS') return problem(403, 'FORBIDDEN');
       if (c.state === 'CLOSED') return problem(409, 'INVALID_STATE');
       if (!body.resolution || !(body.summary ?? '').trim()) return problem(400, 'VALIDATION_FAILED');
       c.closure = { closedAt: new Date().toISOString(), closedBy: v.who.subject, resolution: body.resolution, summary: (body.summary ?? '').trim() };
       c.overdue = false;
       log(c, 'CLOSED', v.who.subject, 'CLOSED');
+      return { status: 200, body: c };
+    });
+  }),
+
+  // case 0.6.0 다시 열기: 닫기와 같은 사람(배송 쪽 = 지원센터·관리자, 관리자 팀 사건 = 관리자). 사유 필수. 닫히지 않음 409 INVALID_STATE,
+  // 같은 종류·대상으로 열린 사건이 있으면 409 CASE_ALREADY_OPEN. 담당 비우고 기한 새로(10분 — 목).
+  http.post(`${API_BASE}/cases/:caseId/reopenings`, async ({ request, params }) => {
+    const v = viewer(request);
+    if ('denied' in v) return v.denied;
+    const body = (await request.clone().json()) as { reason?: string };
+    return idempotent(request, () => {
+      const c = cases.find((x) => x.caseId === params['caseId']);
+      if (!c || !v.sees(c)) return problem(404, 'NOT_FOUND');
+      if (!v.admin && !(v.team && c.assigneeGroup !== 'ORDER_OPS')) return problem(403, 'FORBIDDEN');
+      if (!(body.reason ?? '').trim()) return problem(400, 'VALIDATION_FAILED', [{ field: 'reason', reason: 'REQUIRED' }]);
+      if (c.state !== 'CLOSED') return problem(409, 'INVALID_STATE');
+      if (cases.some((x) => x !== c && x.kind === c.kind && x.subjectRef === c.subjectRef && x.state !== 'CLOSED')) return problem(409, 'CASE_ALREADY_OPEN');
+      c.assigneeId = null;
+      c.slaDueAt = at(10 / 60);
+      c.overdue = false;
+      log(c, 'REOPENED', v.who.subject, 'REOPENED', (body.reason ?? '').trim());
+      return { status: 200, body: c };
+    });
+  }),
+
+  // case 0.7.0 넘기기: 배송 쪽 사건만 DELIVERY_OPS ↔ ORDER_OPS. 사유 필수. 담당 비움(집은 상태 → 열림), 기한 그대로.
+  // 지원센터는 자기 팀 사건(안 집었거나 자기가 집은 것)을 관리자 팀으로만. 되돌리기·남이 맡은 사건은 관리자만. 상담원 403.
+  http.post(`${API_BASE}/cases/:caseId/transfers`, async ({ request, params }) => {
+    const v = viewer(request);
+    if ('denied' in v) return v.denied;
+    const body = (await request.clone().json()) as { toGroup?: string; reason?: string };
+    return idempotent(request, () => {
+      const c = cases.find((x) => x.caseId === params['caseId']);
+      if (!c || !v.sees(c)) return problem(404, 'NOT_FOUND');
+      if (!v.admin && !v.team) return problem(403, 'FORBIDDEN');
+      if (!(body.reason ?? '').trim() || !body.toGroup) return problem(400, 'VALIDATION_FAILED');
+      if (!DELIVERY_KINDS.includes(c.kind ?? 'OTHER') || (body.toGroup !== 'DELIVERY_OPS' && body.toGroup !== 'ORDER_OPS')) return problem(422, 'UNSUPPORTED_ACTION');
+      if (c.state === 'CLOSED' || c.assigneeGroup === body.toGroup) return problem(409, 'INVALID_STATE');
+      if (!v.admin && (c.assigneeGroup === 'ORDER_OPS' || (c.assigneeId && c.assigneeId !== v.who.subject))) return problem(403, 'FORBIDDEN');
+      const from = c.assigneeGroup ?? 'DELIVERY_OPS';
+      c.assigneeGroup = body.toGroup;
+      c.assigneeId = null;
+      log(c, 'TRANSFERRED', v.who.subject, 'OPEN', `${from} → ${body.toGroup}: ${(body.reason ?? '').trim()}`);
       return { status: 200, body: c };
     });
   }),
