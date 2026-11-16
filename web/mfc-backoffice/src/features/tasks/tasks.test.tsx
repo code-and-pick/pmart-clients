@@ -86,7 +86,7 @@ describe('작업 상세', () => {
     await heading();
     expect(screen.getByText(/재고 확정을 기다리는 실적이 1건/)).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: '작업 내놓기' }));
-    expect(await screen.findByText('진행 중인 실적·열린 포장이 있어요. 끝난 뒤에 내놓을 수 있어요.')).toBeInTheDocument();
+    expect(await screen.findByText('진행 중인 실적·포장이 있어요. 끝난 뒤에 내놓을 수 있어요.')).toBeInTheDocument();
     expect(db.tasks.get('TASK-RET-1')!.state).toBe('IN_PROGRESS');
   });
 
