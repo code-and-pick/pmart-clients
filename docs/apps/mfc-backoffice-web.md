@@ -167,7 +167,18 @@
 
 ## 5. 목 모드
 - 목 계정: 센터 관리자(MFC 1곳 `MFC-BSN-01`), 센터 관리자(MFC 2곳 `MFC-BSN-01`·`MFC-SEL-01`), 현장 작업자, 운영 관리자(센터 없음). `src/mocks/db.ts`.
-- 목 핸들러: 로그인(employee-auth — 세션 응답에 목 센터 이름), 위치(`mocks/locationHandlers.ts` — 센터 권한·코드 중복·문법·버전·폐지 조건), 이동(`mocks/moveHandlers.ts` — 관리자만 지시·취소, 카테고리 칸 거절, 재고·적치 후보), 작업자(`mocks/workerHandlers.ts` — 관리자만 바꾸기(휴게·출근은 본인도), 버전·중복·자격 밖 업무·근무 겹침·맞지 않는 배정), 작업(`mocks/taskHandlers.ts` — 기본 상태·커서·내놓기 조건·출하·인계 판정), 배정(`mocks/assignmentHandlers.ts` — 버전·적격 422·같은 사람·추천 계산(READY 작업 → 적격 작업자)·확정 재확인 PLAN_STALE), 입고(`mocks/inboundHandlers.ts` — 담당만·잔량·정상 LOT 마다 적치 작업·선반 아니면 REJECTED·초기 보유 EXPECTED/승인 수량·공급 요청 버전), 재고(`mocks/inventoryHandlers.ts` — 정정 수량·승인 근거, 실사 잠금·자기 승인, 고회전 보충 기준, 취급 버전·비활성. 상품별 재고 조회는 moveHandlers 의 같은 목), 품질(`mocks/qualityHandlers.ts` — 격리 바로 반영·해제 요청, 자기 승인, 폐기 승인 근거·버전·잔량, 회수품 재판매 조건·합계), 운영 제한(`mocks/restrictionHandlers.ts` — 관리자만, 승인 근거, 축소 단위, 활성만 기본, 해제 버전). 메뉴 화면을 만들 때 그 계약의 목을 더한다.
+- 목 핸들러:
+  - 로그인(employee-auth — 세션 응답에 목 센터 이름)
+  - 위치(`mocks/locationHandlers.ts` — 센터 권한·코드 중복·문법·버전·폐지 조건)
+  - 이동(`mocks/moveHandlers.ts` — 관리자만 지시·취소, 카테고리 칸 거절, 재고·적치 후보)
+  - 작업자(`mocks/workerHandlers.ts` — 관리자만 바꾸기(휴게·출근은 본인도), 버전·중복·자격 밖 업무·근무 겹침·맞지 않는 배정)
+  - 작업(`mocks/taskHandlers.ts` — 기본 상태·커서·내놓기 조건·출하·인계 판정)
+  - 배정(`mocks/assignmentHandlers.ts` — 버전·적격 422·같은 사람·추천 계산(READY 작업 → 적격 작업자)·확정 재확인 PLAN_STALE)
+  - 입고(`mocks/inboundHandlers.ts` — 담당만·잔량·정상 LOT 마다 적치 작업·선반 아니면 REJECTED·초기 보유 EXPECTED/승인 수량·공급 요청 버전)
+  - 재고(`mocks/inventoryHandlers.ts` — 정정 수량·승인 근거, 실사 잠금·자기 승인, 고회전 보충 기준, 취급 버전·비활성. 상품별 재고 조회는 moveHandlers 의 같은 목)
+  - 품질(`mocks/qualityHandlers.ts` — 격리 바로 반영·해제 요청, 자기 승인, 폐기 승인 근거·버전·잔량, 회수품 재판매 조건·합계)
+  - 운영 제한(`mocks/restrictionHandlers.ts` — 관리자만, 승인 근거, 축소 단위, 활성만 기본, 해제 버전).
+  - 메뉴 화면을 만들 때 그 계약의 목을 더한다.
 - 목 이동: 진행 중 2(긴급 재배치·자동 보충), 카트 정리 대기 1, 끝남 1(+ 다른 센터 1). 목 재고는 `SKU-MILK-1` 세 줄(하나는 격리).
 - 목 작업자(`MFC-BSN-01`): 김현장(정규직, 자격이 업무보다 넓음, 진행 중 피킹 배정 1·근무 1), 이알바(알바, 휴게 중), 박일일(일일크루, 출근 전), 최정지(정지), 정퇴사(퇴사).
 - 목 운영 제한(`MFC-BSN-01`): 활성 수용 축소 RST-1(영향 주문 1), 해제된 접수 중지 RST-0.
