@@ -137,10 +137,9 @@ describe('지원센터 사건', () => {
     expect(await screen.findByText('같은 일로 처리 중인 접수 건이 이미 있어요. 그 접수 건에서 처리해 주세요.')).toBeInTheDocument();
   });
 
-  it('오배송 귀책(ADR-0065): 고객 잘못은 준비 중으로 막고, 라이더 실수는 배달료 미지급 안내, 환불 선택은 그대로 보낸다', async () => {
+  it('오배송 귀책(ADR-0065): 라이더 실수는 배달료 미지급 안내, 환불 선택은 그대로 보낸다', async () => {
     const view = renderAt('/cases/new-misdelivery?deliveryId=DLV-MOCK-3', as.riderOps);
-    expect(await screen.findByRole('radio', { name: /고객 주소 오입력 등/ })).toBeDisabled();
-    expect(screen.getByTestId('misdelivery-fault')).toHaveTextContent('준비 중');
+    expect(await screen.findByRole('radio', { name: '고객 주소 오입력 등' })).toBeEnabled();
     expect(screen.queryByTestId('rider-fee-note')).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole('radio', { name: '라이더 실수' }));
     expect(screen.getByTestId('rider-fee-note')).toHaveTextContent('라이더 원래 배달료가 지급되지 않습니다');
@@ -150,6 +149,52 @@ describe('지원센터 사건', () => {
     await userEvent.click(screen.getByRole('button', { name: '오배송 접수하기' }));
     expect(await screen.findByText('귀책 라이더 실수')).toBeInTheDocument();
     expect(await view.mutations('/cases')[0]!.json()).toMatchObject({ misdelivery: { fault: 'RIDER', resolution: 'REFUND' } });
+  });
+
+  it('고객 잘못 + 다시 배송: 실제 주소 기록(배송 → 주문 번호) → 그 번호로 접수, 주소는 다시 보여 주지 않는다', async () => {
+    const view = renderAt('/cases/new-misdelivery?deliveryId=DLV-MOCK-3', as.cs);
+    await userEvent.click(await screen.findByRole('radio', { name: '고객 주소 오입력 등' }));
+    const select = screen.getByLabelText('고객이 고른 처리');
+    expect([...within(select).getAllByRole('option')].map((o) => o.textContent)).toEqual(['다시 배송', '환불(상품값 − 9,000원)']);
+    expect(screen.getByTestId('choice-note')).toHaveTextContent('200m 안이면 원래 라이더가 무료로');
+    const box = screen.getByTestId('redelivery-address');
+    await userEvent.type(screen.getByLabelText('요약'), '고객이 동 호수를 잘못 입력');
+    expect(screen.getByRole('button', { name: '오배송 접수하기' })).toBeDisabled(); // 주소·사유 필수
+    await userEvent.type(within(box).getByLabelText('도로명 주소(필수)'), '부산 부산진구 시험로 1');
+    await userEvent.type(within(box).getByLabelText('상세 주소'), '101동 1001호');
+    await userEvent.type(within(box).getByLabelText('기록 사유(필수, 2~200자)'), '고객 통화 — 동 호수 잘못 입력');
+    await userEvent.click(screen.getByRole('button', { name: '오배송 접수하기' }));
+    expect(await screen.findByRole('heading', { name: /접수 건 CASE-MOCK-/ })).toBeInTheDocument();
+    const rec = view.mutations('/redelivery-destinations')[0]!;
+    expect(new URL(rec.url).pathname).toContain('/orders/lookups/ORD-MOCK-');
+    expect(await rec.json()).toEqual({ deliveryId: 'DLV-MOCK-3', roadAddress: '부산 부산진구 시험로 1', detailAddress: '101동 1001호', reason: '고객 통화 — 동 호수 잘못 입력' });
+    const body = (await view.mutations('/cases').find((r) => new URL(r.url).pathname.endsWith('/cases'))!.json()) as { misdelivery?: Record<string, string> };
+    expect(body.misdelivery).toMatchObject({ fault: 'CUSTOMER', resolution: 'REDELIVER' });
+    expect(body.misdelivery?.['redeliveryDestinationId']).toMatch(/^RDD-MOCK-/);
+    expect(document.body.textContent).not.toContain('시험로 1'); // 주소를 다시 보여 주지 않음
+    expect(await screen.findByText('귀책 고객 주소 오입력 등')).toBeInTheDocument();
+  });
+
+  it('고객 잘못: 주소는 기록됐는데 접수가 실패하면, 주소를 다시 쓰지 않고 접수만 다시 보낸다', async () => {
+    let fail = true;
+    server.use(
+      http.post(`${API_BASE}/cases`, () => {
+        if (!fail) return undefined;
+        fail = false;
+        return HttpResponse.json({ type: 'about:blank', title: 'x', status: 409, code: 'CASE_ALREADY_OPEN' }, { status: 409, headers: { 'content-type': 'application/problem+json' } });
+      }),
+    );
+    const view = renderAt('/cases/new-misdelivery?deliveryId=DLV-MOCK-3', as.cs);
+    await userEvent.click(await screen.findByRole('radio', { name: '고객 주소 오입력 등' }));
+    await userEvent.type(screen.getByLabelText('요약'), '주소 오입력');
+    await userEvent.type(screen.getByLabelText('도로명 주소(필수)'), '부산 부산진구 시험로 2');
+    await userEvent.type(screen.getByLabelText('기록 사유(필수, 2~200자)'), '고객 통화');
+    await userEvent.click(screen.getByRole('button', { name: '오배송 접수하기' }));
+    expect(await screen.findByTestId('address-recorded')).toHaveTextContent('실제 주소를 기록했어요');
+    expect(screen.queryByLabelText('도로명 주소(필수)')).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: '오배송 접수하기' }));
+    expect(await screen.findByRole('heading', { name: /접수 건 CASE-MOCK-/ })).toBeInTheDocument();
+    expect(view.mutations('/redelivery-destinations')).toHaveLength(1); // 주소는 한 번만 기록
   });
 
   it('요약이 없는 사건은 사건 번호 대신 종류 이름(백엔드 회신 reply-case-inbox-questions §2-1)', async () => {

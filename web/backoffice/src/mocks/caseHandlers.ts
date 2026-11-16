@@ -609,4 +609,16 @@ export const caseHandlers = [
       return { status: 200, body: { ...n, text: null } };
     });
   }),
+
+  // order 0.9.0 오배송 다시 배송 실제 주소 기록(ADR-0065) — OPERATOR_ADMIN·CS_AGENT·RIDER_OPS. 주소는 돌려주지 않는다(내부 조회에만)
+  http.post(`${API_BASE}/orders/lookups/:orderId/redelivery-destinations`, async ({ request, params }) => {
+    const v = viewer(request);
+    if ('denied' in v) return v.denied;
+    const body = (await request.clone().json()) as { deliveryId?: string; roadAddress?: string; reason?: string };
+    return idempotent(request, () => {
+      if (!body.deliveryId || !(body.roadAddress ?? '').trim() || (body.reason ?? '').trim().length < 2) return problem(400, 'VALIDATION_FAILED');
+      seq += 1;
+      return { status: 201, body: { destinationId: `RDD-MOCK-${seq}`, orderId: String(params['orderId']), deliveryId: body.deliveryId, recordedAt: new Date().toISOString() } };
+    });
+  }),
 ];

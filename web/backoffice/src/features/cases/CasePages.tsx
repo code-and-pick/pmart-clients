@@ -630,12 +630,28 @@ export function CaseDetailPage() {
   );
 }
 
-/** 귀책(ADR-0065, case 0.11.0) — 고객 잘못(CUSTOMER)은 뒤쪽 처리·실제 주소 API 가 없어 지금은 고를 수 없다(백엔드 요청서 §3) */
+/**
+ * 귀책(ADR-0065, case 0.11.0). 고객 잘못(CUSTOMER)은 2026-11-16 백엔드 #49~#53 배포로 쓸 수 있다(요청서 다시 씀):
+ * - 라이더·시스템 잘못 → 재발송(기본)·전 품목 환불. 고객 잘못 → 다시 배송(기본)·환불(상품값 − 9,000원 — 정책 안내만, 화면은 계산하지 않음).
+ * - 고객 잘못 + 다시 배송은 두 단계: ① 배송에서 주문 번호를 읽고 order `POST /orders/lookups/{orderId}/redelivery-destinations`
+ *   {deliveryId, roadAddress, detailAddress?, postalCode?, reason} → destinationId ② case `POST /cases` misdelivery {fault, resolution, redeliveryDestinationId}.
+ *   ①에서 받은 번호는 화면에 들고 있어 ②만 실패하면 주소를 다시 기록하지 않는다. 같은 요청 재전송은 같은 키(서버가 같은 번호를 준다).
+ * - 실제 주소는 입력만 — 다시 보여 주지 않고 로그에 남기지 않는다. 기록 사유에 주소·전화번호 금지 안내.
+ */
 type Fault = 'RIDER' | 'SYSTEM' | 'CUSTOMER';
-type Choice = 'RESHIP' | 'REFUND';
+type Choice = 'RESHIP' | 'REFUND' | 'REDELIVER';
 const FAULTS: readonly Fault[] = ['RIDER', 'SYSTEM', 'CUSTOMER'];
-const FAULT_READY: Readonly<Record<Fault, boolean>> = { RIDER: true, SYSTEM: true, CUSTOMER: false };
-const CHOICES: readonly Choice[] = ['RESHIP', 'REFUND'];
+const CHOICES_OF: Readonly<Record<Fault, readonly Choice[]>> = { RIDER: ['RESHIP', 'REFUND'], SYSTEM: ['RESHIP', 'REFUND'], CUSTOMER: ['REDELIVER', 'REFUND'] };
+const choiceNote = (f: Fault | '', c: Choice) =>
+  f === 'CUSTOMER' ? (c === 'REDELIVER' ? m.cases.redeliverNote : m.cases.customerRefundNote) : c === 'REFUND' ? m.cases.refundNote : m.cases.reshipNote;
+
+interface Address {
+  readonly road: string;
+  readonly detail: string;
+  readonly postal: string;
+  readonly reason: string;
+}
+const EMPTY_ADDRESS: Address = { road: '', detail: '', postal: '', reason: '' };
 
 export function NewMisdeliveryPage() {
   const api = useApi();
@@ -646,7 +662,40 @@ export function NewMisdeliveryPage() {
   const [evidence, setEvidence] = useState('');
   const [fault, setFault] = useState<Fault | ''>('');
   const [choice, setChoice] = useState<Choice>('RESHIP');
-  const open = useCommand(async (v: { deliveryId: string; summary: string; evidence: string; fault: Fault; choice: Choice }, key) => {
+  const [address, setAddress] = useState<Address>(EMPTY_ADDRESS);
+  /** ①에서 받은 실제 주소 번호(배송 번호가 같을 때만 다시 쓴다) */
+  const [destination, setDestination] = useState<{ readonly deliveryId: string; readonly id: string } | null>(null);
+  const needsAddress = fault === 'CUSTOMER' && choice === 'REDELIVER';
+  const pickFault = (f: Fault) => {
+    setFault(f);
+    setChoice(CHOICES_OF[f][0] ?? 'RESHIP');
+  };
+  const open = useCommand(async (v: { deliveryId: string; summary: string; evidence: string; fault: Fault; choice: Choice; address: Address }, key) => {
+    let redeliveryDestinationId: string | undefined;
+    if (v.fault === 'CUSTOMER' && v.choice === 'REDELIVER') {
+      if (destination && destination.deliveryId === v.deliveryId) {
+        redeliveryDestinationId = destination.id;
+      } else {
+        const d = await request('GET', api.execution.GET('/deliveries/{deliveryId}', { params: { path: { deliveryId: v.deliveryId } } }));
+        const orderId = d.orderId ?? '';
+        const rec = await request(
+          'POST',
+          api.orders.POST('/orders/lookups/{orderId}/redelivery-destinations', {
+            ...commandParams(key, { path: { orderId } }),
+            body: {
+              deliveryId: v.deliveryId,
+              roadAddress: v.address.road,
+              reason: v.address.reason,
+              ...(v.address.detail ? { detailAddress: v.address.detail } : {}),
+              ...(v.address.postal ? { postalCode: v.address.postal } : {}),
+            },
+          }),
+        );
+        redeliveryDestinationId = rec.destinationId;
+        setDestination({ deliveryId: v.deliveryId, id: rec.destinationId });
+        setAddress(EMPTY_ADDRESS); // 기록했으면 화면에서 지운다(다시 보여 주지 않음)
+      }
+    }
     const c = await request(
       'POST',
       api.cases.POST('/cases', {
@@ -657,14 +706,20 @@ export function NewMisdeliveryPage() {
           subjectRef: v.deliveryId,
           summary: v.summary,
           ...(v.evidence ? { evidence: [{ system: 'backoffice-web', ref: v.evidence, kind: 'PHOTO' as const }] } : {}),
-          misdelivery: { fault: v.fault, resolution: v.choice },
+          misdelivery: { fault: v.fault, resolution: v.choice, ...(redeliveryDestinationId ? { redeliveryDestinationId } : {}) },
         },
       }),
     );
     void navigate(`/cases/${encodeURIComponent(c.caseId ?? '')}`);
     return c;
   });
-  const ok = deliveryId.trim() !== '' && summary.trim() !== '' && fault !== '' && FAULT_READY[fault];
+  const recorded = needsAddress && destination !== null && destination.deliveryId === deliveryId.trim();
+  const addressOk =
+    !needsAddress ||
+    recorded ||
+    (address.road.trim().length >= 1 && address.road.trim().length <= 200 && address.reason.trim().length >= 2 && address.reason.trim().length <= 200);
+  const ok = deliveryId.trim() !== '' && summary.trim() !== '' && fault !== '' && addressOk;
+  const setAddr = (k: keyof Address, val: string) => setAddress((a) => ({ ...a, [k]: val }));
   return (
     <section className="max-w-2xl space-y-4">
       <h1 className="text-xl font-bold">{m.cases.newTitle}</h1>
@@ -675,7 +730,14 @@ export function NewMisdeliveryPage() {
           e.preventDefault();
           if (!ok) return;
           if (open.phase.kind === 'rejected') open.reset();
-          void open.run({ deliveryId: deliveryId.trim(), summary: summary.trim(), evidence: evidence.trim(), fault, choice });
+          void open.run({
+            deliveryId: deliveryId.trim(),
+            summary: summary.trim(),
+            evidence: evidence.trim(),
+            fault,
+            choice,
+            address: { road: address.road.trim(), detail: address.detail.trim(), postal: address.postal.trim(), reason: address.reason.trim() },
+          });
         }}
       >
         <label className="flex flex-col gap-1">
@@ -689,13 +751,11 @@ export function NewMisdeliveryPage() {
         <fieldset className="space-y-1" data-testid="misdelivery-fault">
           <legend className="mb-1">{m.cases.faultQuestion}</legend>
           {FAULTS.map((f) => (
-            <label key={f} className={`flex items-center gap-2 ${FAULT_READY[f] ? '' : 'opacity-50'}`}>
-              <input type="radio" className="radio radio-sm" name="misdelivery-fault" value={f} checked={fault === f} disabled={!FAULT_READY[f]} onChange={() => setFault(f)} />
+            <label key={f} className="flex items-center gap-2">
+              <input type="radio" className="radio radio-sm" name="misdelivery-fault" value={f} checked={fault === f} onChange={() => pickFault(f)} />
               {m.cases.faultName[f]}
-              {!FAULT_READY[f] && <span className="badge badge-ghost badge-sm">{m.cases.notReady}</span>}
             </label>
           ))}
-          <p className="text-xs opacity-70">{m.cases.customerFaultNote}</p>
           {fault === 'RIDER' && (
             <p role="note" className="text-xs text-warning" data-testid="rider-fee-note">
               {m.cases.riderFeeNote}
@@ -704,15 +764,52 @@ export function NewMisdeliveryPage() {
         </fieldset>
         <label className="flex flex-col gap-1">
           {m.cases.choiceQuestion}
-          <select className="select select-sm w-56" value={choice} onChange={(e) => setChoice(e.target.value === 'REFUND' ? 'REFUND' : 'RESHIP')}>
-            {CHOICES.map((c) => (
+          <select className="select select-sm w-56" value={choice} disabled={fault === ''} onChange={(e) => setChoice((CHOICES_OF[fault || 'RIDER'].find((c) => c === e.target.value) ?? 'RESHIP'))}>
+            {CHOICES_OF[fault || 'RIDER'].map((c) => (
               <option key={c} value={c}>
-                {m.cases.resolutionChoiceName[c]}
+                {fault === 'CUSTOMER' && c === 'REFUND' ? m.cases.customerRefundName : m.cases.resolutionChoiceName[c]}
               </option>
             ))}
           </select>
-          <span className="text-xs opacity-70">{choice === 'REFUND' ? m.cases.refundNote : m.cases.reshipNote}</span>
         </label>
+        {fault !== '' && (
+          <p className={`text-xs ${fault === 'CUSTOMER' ? 'text-warning' : 'opacity-70'}`} data-testid="choice-note">
+            {choiceNote(fault, choice)}
+          </p>
+        )}
+        {needsAddress && (
+          <fieldset className="space-y-2 rounded-box border border-base-300 p-3" data-testid="redelivery-address">
+            <legend className="px-1 font-semibold">{m.cases.addressTitle}</legend>
+            {recorded ? (
+              <p className="text-xs text-success" data-testid="address-recorded">
+                {m.cases.addressRecorded(destination?.id ?? '')}
+              </p>
+            ) : (
+              <>
+                <p className="text-xs opacity-70">{m.cases.addressIntro}</p>
+                <label className="flex flex-col gap-1">
+                  {m.cases.roadAddress}
+                  <input className="input input-sm w-full" maxLength={200} autoComplete="off" value={address.road} onChange={(e) => setAddr('road', e.target.value)} />
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  <label className="flex flex-col gap-1">
+                    {m.cases.detailAddress}
+                    <input className="input input-sm w-64" maxLength={100} autoComplete="off" value={address.detail} onChange={(e) => setAddr('detail', e.target.value)} />
+                  </label>
+                  <label className="flex flex-col gap-1">
+                    {m.cases.postalCode}
+                    <input className="input input-sm w-28" maxLength={10} autoComplete="off" value={address.postal} onChange={(e) => setAddr('postal', e.target.value)} />
+                  </label>
+                </div>
+                <label className="flex flex-col gap-1">
+                  {m.cases.addressReason}
+                  <input className="input input-sm w-full" maxLength={200} value={address.reason} onChange={(e) => setAddr('reason', e.target.value)} />
+                </label>
+                <p className="text-xs text-warning">{m.cases.addressReasonHint}</p>
+              </>
+            )}
+          </fieldset>
+        )}
         <label className="flex flex-col gap-1">
           {m.cases.evidence}
           <input className="input input-sm w-64" value={evidence} onChange={(e) => setEvidence(e.target.value)} />
