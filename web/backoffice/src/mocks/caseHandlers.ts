@@ -10,6 +10,7 @@ import { idempotent, operator, problem, unauthorized } from './support';
 
 type Case = CaseC['schemas']['Case'];
 type Obligation = CaseC['schemas']['Obligation'];
+type Handover = CaseC['schemas']['ShiftHandover'];
 type Summary = CaseC['schemas']['CaseSummary'];
 type Kind = CaseC['schemas']['CaseKind'];
 
@@ -119,9 +120,13 @@ let cases = seed();
 let seq = 100;
 
 /** 시험 사이에 목 상태를 처음으로 돌린다. */
+/** case 0.9.0 교대 인계서 */
+let handovers: Handover[] = [];
+
 export function resetMockCases(): void {
   cases = seed();
   seq = 100;
+  handovers = [];
 }
 
 /** 목록 항목(CaseSummary) — 상세에만 있는 이력·종결은 뺀다 */
@@ -437,5 +442,101 @@ export const caseHandlers = [
       .filter(({ c }) => !q.get('caseId') || c.caseId === q.get('caseId'))
       .map(({ o }) => o);
     return HttpResponse.json({ items, page: { size: items.length, nextCursor: null } });
+  }),
+
+  // case 0.9.0 교대 인계 — 작성(PENDING, 담당 그대로)·수락(후임 본인만, 건별 결과)·취소(수락 전, 전임·관리자)·목록·단건.
+  http.post(`${API_BASE}/shift-handovers`, async ({ request }) => {
+    const v = viewer(request);
+    if ('denied' in v) return v.denied;
+    const body = (await request.clone().json()) as { group?: string; toOperatorId?: string; fromOperatorId?: string; note?: string; items?: Array<{ caseId?: string; nextAction?: string; checkDueAt?: string }> };
+    return idempotent(request, () => {
+      const from = body.fromOperatorId ?? v.who.subject;
+      if (from !== v.who.subject && !v.admin) return problem(403, 'FORBIDDEN');
+      const items = body.items ?? [];
+      const ids = items.map((i) => i.caseId ?? '');
+      if (!body.toOperatorId || body.toOperatorId === from || items.length === 0 || items.some((i) => !(i.nextAction ?? '').trim()) || new Set(ids).size !== ids.length) return problem(400, 'VALIDATION_FAILED');
+      const picked = ids.map((id) => cases.find((c) => c.caseId === id));
+      if (picked.some((c) => !c || c.state === 'CLOSED' || c.assigneeId !== from || (c.assigneeGroup ?? 'DELIVERY_OPS') !== body.group)) return problem(422, 'NOT_HANDOVERABLE');
+      if (handovers.some((h) => h.state === 'PENDING' && (h.items ?? []).some((i) => ids.includes(i.caseId ?? '')))) return problem(409, 'CASE_IN_HANDOVER');
+      seq += 1;
+      const now = new Date().toISOString();
+      const h: Handover = {
+        shiftHandoverId: `SH-MOCK-${seq}`,
+        group: body.group ?? 'DELIVERY_OPS',
+        fromOperatorId: from,
+        toOperatorId: body.toOperatorId,
+        createdBy: v.who.subject,
+        createdAt: now,
+        state: 'PENDING',
+        unreceived: true,
+        note: body.note ?? null,
+        items: items.map((i, k) => ({ caseId: i.caseId ?? '', nextAction: i.nextAction ?? '', checkDueAt: i.checkDueAt ?? null, outcome: 'PENDING', caseStateAt: picked[k]?.state ?? 'OPEN', priorityAt: picked[k]?.priority ?? null, openObligationsAt: picked[k]?.openObligationCount ?? 0 })),
+        teamSnapshot: cases
+          .filter((c) => c.state !== 'CLOSED' && (c.assigneeGroup ?? 'DELIVERY_OPS') === body.group)
+          .map((c) => ({ caseId: c.caseId ?? '', kind: c.kind ?? '', state: c.state ?? 'OPEN', priority: c.priority ?? null, assigneeId: c.assigneeId ?? null, openObligationCount: c.openObligationCount ?? 0 })),
+      };
+      for (const c of picked) if (c) log(c, 'HANDOVER_REQUESTED', v.who.subject, c.state ?? 'ASSIGNED');
+      handovers.unshift(h);
+      return { status: 201, body: h };
+    });
+  }),
+
+  http.post(`${API_BASE}/shift-handovers/:id/acceptances`, async ({ request, params }) => {
+    const v = viewer(request);
+    if ('denied' in v) return v.denied;
+    const body = (await request.clone().json()) as { excludedCaseIds?: string[] };
+    return idempotent(request, () => {
+      const h = handovers.find((x) => x.shiftHandoverId === params['id']);
+      if (!h) return problem(404, 'NOT_FOUND');
+      if (h.toOperatorId !== v.who.subject) return problem(403, 'FORBIDDEN'); // 관리자도 대신 받지 못한다
+      if (h.state !== 'PENDING') return problem(409, 'INVALID_STATE');
+      const excluded = new Set(body.excludedCaseIds ?? []);
+      h.items = (h.items ?? []).map((it) => {
+        const c = cases.find((x) => x.caseId === it.caseId);
+        if (excluded.has(it.caseId ?? '')) return { ...it, outcome: 'EXCLUDED' as const };
+        if (!c || c.state === 'CLOSED' || c.assigneeId !== h.fromOperatorId) return { ...it, outcome: 'SKIPPED_CHANGED' as const };
+        c.assigneeId = h.toOperatorId ?? null;
+        log(c, 'HANDED_OVER', v.who.subject, c.state ?? 'ASSIGNED', `${h.fromOperatorId ?? ''} → ${h.toOperatorId ?? ''}: ${it.nextAction ?? ''}`);
+        return { ...it, outcome: 'ACCEPTED' as const, resolvedAt: new Date().toISOString() };
+      });
+      h.state = 'COMPLETED';
+      h.completedAt = new Date().toISOString();
+      h.unreceived = (h.items ?? []).some((i) => i.outcome === 'EXCLUDED');
+      return { status: 200, body: h };
+    });
+  }),
+
+  http.post(`${API_BASE}/shift-handovers/:id/cancellations`, ({ request, params }) => {
+    const v = viewer(request);
+    if ('denied' in v) return v.denied;
+    return idempotent(request, () => {
+      const h = handovers.find((x) => x.shiftHandoverId === params['id']);
+      if (!h) return problem(404, 'NOT_FOUND');
+      if (!v.admin && h.fromOperatorId !== v.who.subject && h.createdBy !== v.who.subject) return problem(403, 'FORBIDDEN');
+      if (h.state !== 'PENDING') return problem(409, 'INVALID_STATE');
+      h.state = 'CANCELLED';
+      h.cancelledAt = new Date().toISOString();
+      h.unreceived = false;
+      h.items = (h.items ?? []).map((i) => ({ ...i, outcome: 'CANCELLED' as const }));
+      return { status: 200, body: h };
+    });
+  }),
+
+  http.get(`${API_BASE}/shift-handovers`, ({ request }) => {
+    const v = viewer(request);
+    if ('denied' in v) return v.denied;
+    const q = new URL(request.url).searchParams;
+    const items = handovers
+      .filter((h) => v.admin || h.fromOperatorId === v.who.subject || h.toOperatorId === v.who.subject || h.createdBy === v.who.subject)
+      .filter((h) => !q.get('state') || h.state === q.get('state'))
+      .filter((h) => q.get('unreceived') !== 'true' || h.state === 'PENDING' || (h.items ?? []).some((i) => i.outcome === 'EXCLUDED'));
+    return HttpResponse.json({ items, page: { size: items.length, nextCursor: null } });
+  }),
+
+  http.get(`${API_BASE}/shift-handovers/:id`, ({ request, params }) => {
+    const v = viewer(request);
+    if ('denied' in v) return v.denied;
+    const h = handovers.find((x) => x.shiftHandoverId === params['id']);
+    return h ? HttpResponse.json(h) : problem(404, 'NOT_FOUND');
   }),
 ];

@@ -96,6 +96,8 @@ export const navGroups: readonly NavGroup[] = [
     items: [
       { to: '/cases', label: m.nav.cases },
       { to: '/cases/new-misdelivery', label: m.nav.misdelivery },
+      // 교대 인계(case 0.9.0 — 백엔드 PR #42). 지원센터·관리자(서버 판정)
+      { to: '/cases/handovers', label: m.nav.handovers },
     ],
   },
   {
