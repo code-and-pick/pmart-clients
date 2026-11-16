@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pmart_core/pmart_core.dart';
 
+import '../../auth/presentation/auth_controller.dart';
 import '../../../shared/codes.dart';
 import '../../../shared/providers.dart';
 import '../data/mock_task_repository.dart';
@@ -15,13 +16,62 @@ final taskRepositoryProvider = Provider<TaskRepository>(
   },
 );
 
-/// 근무 센터. 점원 로그인(BR-02) 뒤 세션의 centerScope 로 바꾼다.
-final currentMfcIdProvider = Provider<String>((_) => 'MFC-MOCK-01');
+/// 로그인 세션의 근무 센터(토큰 `centers` 클레임).
+sealed class CenterScope {
+  const CenterScope();
+}
 
-/// 작업자 ID. BR-02(점원 로그인·직원 ID 바코드) 전에는 목 작업자다.
-final currentWorkerIdProvider = Provider<String>(
-  (_) => MockTaskRepository.workerId,
+/// 센터가 하나 — 모든 요청 경로의 `mfcId`.
+final class SingleCenter extends CenterScope {
+  const SingleCenter(this.mfcId);
+  final String mfcId;
+}
+
+/// 센터가 없다(권한 승인 대기 등) — 업무 API 를 부르지 않고 홈에서 안내한다.
+final class NoCenter extends CenterScope {
+  const NoCenter();
+}
+
+/// 센터가 여럿 — 어느 센터로 일할지 고르는 방법이 아직 정해지지 않았다.
+/// 앞의 것을 골라 쓰지 않고 홈에서 안내한다.
+final class MultipleCenters extends CenterScope {
+  const MultipleCenters(this.centers);
+  final List<String> centers;
+}
+
+/// 목 데이터의 센터.
+const mockMfcId = 'MFC-MOCK-01';
+
+/// 근무 센터. 목 모드는 목 데이터의 센터, 실서버는 로그인 세션의 센터.
+/// 세션의 센터는 요청을 어디로 보낼지만 정한다 — 권한 판정은 서버가 토큰으로 다시 한다.
+final centerScopeProvider = Provider<CenterScope>((ref) {
+  if (ref.watch(envProvider) == PmartEnv.mock) {
+    return const SingleCenter(mockMfcId);
+  }
+  final centers = ref.watch(employeeSessionProvider)?.centers ?? const [];
+  return switch (centers) {
+    [] => const NoCenter(),
+    [final only] => SingleCenter(only),
+    _ => MultipleCenters(centers),
+  };
+});
+
+/// 요청 경로의 센터 ID. 센터가 하나가 아니면 빈 문자열 — 홈이 업무 화면으로 보내지 않는다.
+final currentMfcIdProvider = Provider<String>(
+  (ref) => switch (ref.watch(centerScopeProvider)) {
+    SingleCenter(:final mfcId) => mfcId,
+    _ => '',
+  },
 );
+
+/// 작업자 ID = 로그인한 운영자 ID(토큰 `sub`, `OP-…` — 계약 mfc-capacity "workerId = 토큰 subject").
+/// 목 모드는 목 데이터의 작업자. 로그인 전에는 빈 문자열(라우터가 로그인 화면에 둔다).
+final currentWorkerIdProvider = Provider<String>((ref) {
+  if (ref.watch(envProvider) == PmartEnv.mock) {
+    return MockTaskRepository.workerId;
+  }
+  return ref.watch(employeeSessionProvider)?.operatorId ?? '';
+});
 
 /// 현장 실적 내구 큐(앱이 꺼져도 남는다).
 final fieldQueueProvider = Provider<FieldQueue>(
