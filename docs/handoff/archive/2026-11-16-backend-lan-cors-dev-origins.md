@@ -26,3 +26,6 @@
 ## 3. 반영되면 클라이언트가 할 일
 - `npm run dev:lan -w web/mfc-backoffice`(5175)로 띄우고, 사용자가 `claude-mfc-sup` 으로 로그인해 메뉴 9개를 실서버에서 확인한다. backoffice(5173)·hr-backoffice(5174)도 같은 방식.
 - 결과는 각 앱 일지와 회신 handoff 로 알린다.
+
+## 닫음 (2026-11-16 PC 2)
+- 반영됨: LAN 게이트웨이 CORS 에 `http://localhost:5173·5174·5175` 추가(pmart-config 2d05239, 백엔드 세션 알림). refresh 쿠키 포함 `dev:lan` 로그인·조회가 실서버에서 동작함을 확인 — 백오피스(5173: 통합 조회·실시간 배송·사건함·처리 대기·열람 기록·후속 처리), MFC 백오피스(5175: 센터 관리자 배송 현황·배차 실패 200). → archive.
