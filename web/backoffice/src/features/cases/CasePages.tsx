@@ -32,6 +32,7 @@ import { useSession } from '../../app/SessionContext';
 import { messages as m } from '../../shared/messages';
 import { label, text, when } from '../../shared/ops';
 import { SourceStamps } from '../../shared/SourceStamps';
+import { CaseNotes } from './CaseNotes';
 import { FollowUps, isOpenObligation } from './FollowUps';
 
 type Case = components['schemas']['Case'];
@@ -72,7 +73,7 @@ function useCaseRoles() {
 const refLink = (refType: string | undefined, refId: string | undefined) => {
   if (!refId) return null;
   const to =
-    refType === 'deliveryId'
+    refType === 'deliveryId' || refType === 'recoveryDeliveryId'
       ? `/deliveries/${encodeURIComponent(refId)}`
       : refType === 'orderId'
         ? `/orders/${encodeURIComponent(refId)}`
@@ -98,8 +99,8 @@ function Refs({ c }: { readonly c: Pick<Summary, 'refs' | 'subjectRef'> }) {
 }
 
 /** 연결 배송·주문 한 칸 — 원천 값을 기존 상태 이름표로만 옮긴다(합치거나 해석하지 않음) */
-function LinkedState({ l }: { readonly l: Linked }) {
-  const name = l.kind === 'ORDER' ? m.cases.linkedOrder : m.cases.linkedDelivery;
+function LinkedState({ l, recovery }: { readonly l: Linked; readonly recovery: boolean }) {
+  const name = l.kind === 'ORDER' ? m.cases.linkedOrder : recovery ? m.cases.linkedRecovery : m.cases.linkedDelivery;
   const unknown = l.source?.confidence === 'UNKNOWN';
   const value = unknown ? (
     <span className="text-warning">{m.cases.linkedUnknown}</span>
@@ -222,7 +223,11 @@ export function CaseListPage() {
                     ) : (
                       <ul className="space-y-0.5 text-xs">
                         {(c.linked ?? []).map((l) => (
-                          <LinkedState key={`${l.kind ?? ''}:${l.id ?? ''}`} l={l} />
+                          <LinkedState
+                            key={`${l.kind ?? ''}:${l.id ?? ''}`}
+                            l={l}
+                            recovery={l.kind === 'DELIVERY' && (c.linkedRefs ?? []).some((x) => x.kind === 'recoveryDeliveryId' && x.id === l.id)}
+                          />
                         ))}
                       </ul>
                     )}
@@ -566,6 +571,12 @@ export function CaseDetailPage() {
 
               {(c.kind === 'RIDER_HELP' || c.kind === 'DELIVERY_INCIDENT') && <HelpRequestOfCase c={c} />}
 
+              {(c.refs ?? []).some((r) => r.refType === 'recoveryDeliveryId') && (
+                <p role="note" className="alert alert-info text-sm" data-testid="case-recovery-note">
+                  {m.cases.recoveryNote}
+                </p>
+              )}
+
               {isOrderKind(c.kind) && (
                 <div className="space-y-1 rounded-box bg-base-100 p-3 text-sm" data-testid="case-order-note">
                   <p className="opacity-70">{m.cases.orderNote}</p>
@@ -596,6 +607,8 @@ export function CaseDetailPage() {
                   </p>
                 </>
               )}
+
+              <CaseNotes caseId={c.caseId ?? caseId} />
 
               <h2 className="font-bold">{m.cases.history}</h2>
               <ul className="space-y-1 text-sm">

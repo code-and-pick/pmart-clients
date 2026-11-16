@@ -11,6 +11,7 @@ import { idempotent, operator, problem, unauthorized } from './support';
 type Case = CaseC['schemas']['Case'];
 type Obligation = CaseC['schemas']['Obligation'];
 type Handover = CaseC['schemas']['ShiftHandover'];
+type Note = CaseC['schemas']['CaseNote'];
 type Summary = CaseC['schemas']['CaseSummary'];
 type Kind = CaseC['schemas']['CaseKind'];
 
@@ -81,9 +82,16 @@ function seed(): Case[] {
       summary: '[목] 옆 동으로 오배송 확인',
       subjectType: 'DELIVERY',
       subjectRef: 'DLV-MOCK-4',
-      refs: [{ refType: 'deliveryId', refId: 'DLV-MOCK-4' }, { refType: 'orderId', refId: 'ORD-MOCK-1003' }],
+      refs: [{ refType: 'deliveryId', refId: 'DLV-MOCK-4' }, { refType: 'orderId', refId: 'ORD-MOCK-1003' }, { refType: 'recoveryDeliveryId', refId: 'DLV-MOCK-R1' }],
       state: 'CLOSED',
       closure: { closedAt: at(-1), closedBy: 'op-admin-1', resolution: 'RESOLVED', summary: '[목] 회수 배차 완료' },
+      history: [
+        { action: 'OPENED', at: at(-3), toState: 'OPEN', actorId: 'op-cs-1' },
+        { action: 'RECOVERY_CREATED', at: at(-2.5), actorId: 'SYSTEM', note: 'DLV-MOCK-R1' },
+        { action: 'RECOVERY_PICKED_UP', at: at(-2), actorId: 'SYSTEM' },
+        { action: 'RECOVERY_RETURNED', at: at(-1.5), actorId: 'SYSTEM', note: 'MFC-BSN-01' },
+        { action: 'CLOSED', at: at(-1), toState: 'CLOSED', actorId: 'op-admin-1' },
+      ],
     }),
     // case 0.5.0(R-3) 사가·결제 이상 — 관리자만 보인다(sees). 서버 모양: 팀 ORDER_OPS, 기한 1시간, refs 만
     base({
@@ -122,11 +130,14 @@ let seq = 100;
 /** 시험 사이에 목 상태를 처음으로 돌린다. */
 /** case 0.9.0 교대 인계서 */
 let handovers: Handover[] = [];
+/** case 0.10.0 접수 건 메모 */
+let notes: Note[] = [];
 
 export function resetMockCases(): void {
   cases = seed();
   seq = 100;
   handovers = [];
+  notes = [];
 }
 
 /** 목록 항목(CaseSummary) — 상세에만 있는 이력·종결은 뺀다 */
@@ -182,6 +193,7 @@ const LINKED_STATE: Readonly<Record<string, string>> = {
   'DLV-MOCK-2': 'FAILURE_REPORTED',
   'DLV-MOCK-3': 'ASSIGNED',
   'DLV-MOCK-4': 'COMPLETED',
+  'DLV-MOCK-R1': 'RETURN_IN_PROGRESS', // 회수 배송(case 0.8.1)
   'ORD-MOCK-1001': 'IN_DELIVERY',
   'ORD-MOCK-1002': 'IN_DELIVERY',
   'ORD-MOCK-1003': 'CANCELLED',
@@ -202,9 +214,9 @@ export const caseHandlers = [
       .map((c) => {
         const refs = c.refs ?? [];
         const linked = refs
-          .filter((r) => r.refType === 'deliveryId' || r.refType === 'orderId')
+          .filter((r) => r.refType === 'deliveryId' || r.refType === 'recoveryDeliveryId' || r.refType === 'orderId')
           .map((r) => {
-            const delivery = r.refType === 'deliveryId';
+            const delivery = r.refType === 'deliveryId' || r.refType === 'recoveryDeliveryId';
             const id = r.refId ?? '';
             if (!delivery && !seesOrders) return { kind: 'ORDER' as const, id, state: null, version: null, source: stamp('order-service', 'UNKNOWN') };
             return { kind: delivery ? ('DELIVERY' as const) : ('ORDER' as const), id, state: LINKED_STATE[id] ?? null, version: LINKED_STATE[id] ? 3 : null, source: stamp(delivery ? 'delivery-execution-service' : 'order-service') };
@@ -538,5 +550,46 @@ export const caseHandlers = [
     if ('denied' in v) return v.denied;
     const h = handovers.find((x) => x.shiftHandoverId === params['id']);
     return h ? HttpResponse.json(h) : problem(404, 'NOT_FOUND');
+  }),
+
+  // case 0.10.0 메모 — 덧붙이기만(처리 끝난 건에도), 가림은 관리자만(가린 메모는 text null·masked true)
+  http.get(`${API_BASE}/cases/:caseId/notes`, ({ request, params }) => {
+    const v = viewer(request);
+    if ('denied' in v) return v.denied;
+    const c = cases.find((x) => x.caseId === params['caseId']);
+    if (!c || !v.sees(c)) return problem(404, 'NOT_FOUND');
+    const items = notes.filter((n) => n.caseId === c.caseId).map((n) => (n.masked ? { ...n, text: null } : n));
+    return HttpResponse.json({ items, page: { size: items.length, nextCursor: null } });
+  }),
+  http.post(`${API_BASE}/cases/:caseId/notes`, async ({ request, params }) => {
+    const v = viewer(request);
+    if ('denied' in v) return v.denied;
+    const body = (await request.clone().json()) as { text?: string };
+    return idempotent(request, () => {
+      const c = cases.find((x) => x.caseId === params['caseId']);
+      if (!c || !v.sees(c)) return problem(404, 'NOT_FOUND');
+      const t = (body.text ?? '').trim();
+      if (t.length < 1 || t.length > 500) return problem(400, 'VALIDATION_FAILED');
+      seq += 1;
+      const n: Note = { noteId: `NOTE-MOCK-${seq}`, caseId: c.caseId ?? '', authorId: v.who.subject, createdAt: new Date().toISOString(), text: t, masked: false };
+      notes.push(n);
+      return { status: 201, body: n };
+    });
+  }),
+  http.post(`${API_BASE}/cases/:caseId/notes/:noteId/maskings`, async ({ request, params }) => {
+    const v = viewer(request);
+    if ('denied' in v) return v.denied;
+    const body = (await request.clone().json()) as { reason?: string };
+    return idempotent(request, () => {
+      if (!v.admin) return problem(403, 'FORBIDDEN');
+      const n = notes.find((x) => x.noteId === params['noteId'] && x.caseId === params['caseId']);
+      if (!n) return problem(404, 'NOT_FOUND');
+      if (!(body.reason ?? '').trim()) return problem(400, 'VALIDATION_FAILED');
+      n.masked = true;
+      n.maskedBy = v.who.subject;
+      n.maskedAt = new Date().toISOString();
+      n.maskReason = (body.reason ?? '').trim();
+      return { status: 200, body: { ...n, text: null } };
+    });
   }),
 ];
