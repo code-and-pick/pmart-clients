@@ -93,7 +93,7 @@ export const navGroups: readonly MenuGroup[] = [
       {
         key: 'locations',
         segment: 'locations',
-        ready: false,
+        ready: true,
         apiReady: ['칸 목록·상세·등록·수정', '닫기·열기·폐지', '적치 후보'],
         apiMissing: [],
       },

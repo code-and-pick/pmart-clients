@@ -173,7 +173,7 @@ describe('메뉴', () => {
   });
 
   it('API 가 다 있는 메뉴에는 "없는 기능" 목록이 없다', async () => {
-    renderAt('/c/MFC-BSN-01/locations');
+    renderAt('/c/MFC-BSN-01/restrictions');
     expect(await screen.findByText('화면 준비 중')).toBeInTheDocument();
     expect(screen.queryByTestId('api-missing')).not.toBeInTheDocument();
   });

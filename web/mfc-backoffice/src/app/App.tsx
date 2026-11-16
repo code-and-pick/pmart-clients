@@ -1,15 +1,16 @@
 import { UiTextProvider } from '@pmart/web-ui';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import type { ReactNode } from 'react';
+import type { ComponentType, ReactNode } from 'react';
 import { createBrowserRouter, createMemoryRouter, Link, Navigate, NavLink, Outlet, RouterProvider, useParams } from 'react-router';
 
 import { env } from '../env';
 import { CenterSwitcher } from '../features/centers/centers';
+import { LocationsMenu } from '../features/locations/LocationPages';
 import { PreparingPage } from '../features/menus/PreparingPage';
 import { LoginCallbackPage, LoginPage } from '../features/session/LoginPage';
 import { SessionPage } from '../features/session/SessionPage';
 import { messages as m } from '../shared/messages';
-import { allMenus, centerPath, isWorkerOnly, navGroups, type MenuItem } from './nav';
+import { allMenus, centerPath, isWorkerOnly, navGroups, type MenuItem, type MenuKey } from './nav';
 import { RequireSession, SessionProvider, useSession } from './SessionContext';
 
 /** 주소의 센터(`/c/:mfcId/…`). 세션 centers(sessions/current)에 있을 때만 그 센터 */
@@ -95,9 +96,19 @@ function CenterScope({ menu }: { readonly menu: MenuItem }) {
           {m.noSupervisor}
         </p>
       )}
-      <PreparingPage menu={menu} />
+      <MenuPage menu={menu} mfcId={center.mfcId} />
     </>
   );
+}
+
+/** 만든 메뉴 화면(nav.ts `ready`). 아직이면 "준비 중" */
+const menuPages: Partial<Record<MenuKey, ComponentType<{ readonly mfcId: string }>>> = {
+  locations: LocationsMenu,
+};
+
+function MenuPage({ menu, mfcId }: { readonly menu: MenuItem; readonly mfcId: string }) {
+  const Page = menu.ready ? menuPages[menu.key] : undefined;
+  return Page ? <Page mfcId={mfcId} /> : <PreparingPage menu={menu} />;
 }
 
 function WorkerOnly() {
@@ -137,7 +148,8 @@ const routes = [
       { index: true, element: guarded(<Home />) },
       { path: 'session', element: guarded(<SessionPage />) },
       { path: 'c/:mfcId', element: guarded(<Home />) },
-      ...allMenus.map((menu) => ({ path: `c/:mfcId/${menu.segment}`, element: guarded(<CenterScope menu={menu} />) })),
+      // 메뉴 아래 화면(목록·상세·등록)은 메뉴 화면이 자기 Routes 로 나눈다
+      ...allMenus.map((menu) => ({ path: `c/:mfcId/${menu.segment}/*`, element: guarded(<CenterScope menu={menu} />) })),
       { path: '*', element: <Navigate to="/" replace /> },
     ],
   },
