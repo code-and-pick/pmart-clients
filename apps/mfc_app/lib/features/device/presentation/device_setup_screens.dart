@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:pmart_core/pmart_core.dart';
 
 import '../../../l10n/gen/app_localizations.dart';
+import '../../../router.dart' show afterLoginProvider;
 import '../../../shared/menu_tile.dart';
 import '../../../shared/printer/label_printer.dart';
 import '../../../shared/providers.dart';
@@ -11,7 +12,7 @@ import '../../../shared/scanner/scan_input.dart';
 import '../../../shared/scanner/scanner.dart';
 import '../data/server_address.dart';
 
-/// 앱 첫 화면 — 기기 설정(사용자 2026-11-17). 맨 위 로그인 버튼 → 로그인 화면, 그 아래 PDA 설정 칸.
+/// 기기 설정(시작 메뉴 → 기기 설정, 사용자 2026-11-17). 로그인 없이 연다.
 /// 모양은 메인의 업무 고르기 목록과 같다([MenuTile]).
 class DeviceSetupScreen extends ConsumerWidget {
   const DeviceSetupScreen({super.key});
@@ -19,7 +20,6 @@ class DeviceSetupScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
-    final theme = Theme.of(context);
     final mock = ref.watch(envProvider) == PmartEnv.mock;
     final printer = ref.watch(printerSettingsProvider).value;
     return Scaffold(
@@ -39,20 +39,6 @@ class DeviceSetupScreen extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // 장갑을 끼고도 누를 수 있게 크게.
-              FilledButton.icon(
-                key: const ValueKey('setup-login'),
-                style: FilledButton.styleFrom(
-                  minimumSize: const Size.fromHeight(60),
-                  textStyle: theme.textTheme.titleMedium,
-                ),
-                onPressed: () => context.push('/login'),
-                icon: const Icon(Icons.login),
-                label: Text(l10n.setupLogin),
-              ),
-              const SizedBox(height: 24),
-              Text(l10n.setupIntro, style: theme.textTheme.titleMedium),
-              const SizedBox(height: 8),
               for (final tile in [
                 MenuTile(
                   key: const ValueKey('setup-network'),
@@ -97,6 +83,77 @@ class DeviceSetupScreen extends ConsumerWidget {
                 ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 앱 시작 메뉴(로그인 전, 사용자 2026-11-17) — 로그인 · 기기 설정 · 재고 확인.
+/// 모양은 메인의 업무 고르기 목록과 같다([MenuTile]). 재고 확인은 로그인이 필요해 누르면 로그인 화면 →
+/// 로그인되면 바로 재고 확인으로 간다.
+class StartScreen extends ConsumerWidget {
+  const StartScreen({super.key});
+
+  static const _tileHeight = 96.0;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
+    final theme = Theme.of(context);
+    final mock = ref.watch(envProvider) == PmartEnv.mock;
+    final tiles = [
+      MenuTile(
+        key: const ValueKey('start-login'),
+        icon: Icons.login,
+        title: l10n.startLogin,
+        hint: l10n.startLoginHint,
+        onTap: () {
+          ref.read(afterLoginProvider.notifier).set(null);
+          context.push('/login');
+        },
+      ),
+      MenuTile(
+        key: const ValueKey('start-setup'),
+        icon: Icons.settings_outlined,
+        title: l10n.setupTitle,
+        hint: l10n.startSetupHint,
+        onTap: () => context.push('/setup'),
+      ),
+      MenuTile(
+        key: const ValueKey('start-stock'),
+        icon: Icons.manage_search,
+        title: l10n.stockCheckTitle,
+        hint: '${l10n.startStockHint} · ${l10n.startNeedsLogin}',
+        onTap: () {
+          ref.read(afterLoginProvider.notifier).set('/stock-check');
+          context.push('/login');
+        },
+      ),
+    ];
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(l10n.homeTitle),
+        actions: [
+          if (mock)
+            Padding(
+              padding: const EdgeInsets.only(right: 12),
+              child: Chip(label: Text(l10n.mockModeBadge)),
+            ),
+        ],
+      ),
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+          children: [
+            Text(l10n.startChoose, style: theme.textTheme.titleMedium),
+            const SizedBox(height: 8),
+            for (final tile in tiles)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: SizedBox(height: _tileHeight, child: tile),
+              ),
+          ],
         ),
       ),
     );

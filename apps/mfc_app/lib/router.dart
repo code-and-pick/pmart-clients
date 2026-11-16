@@ -12,6 +12,7 @@ import 'features/device/presentation/device_setup_screens.dart';
 import 'features/handover/presentation/handover_screens.dart';
 import 'features/inbound/presentation/inbound_screen.dart';
 import 'features/quality/presentation/quality_screens.dart';
+import 'features/stock_check/presentation/stock_check_screen.dart';
 import 'features/stock_count/presentation/stock_count_screen.dart';
 import 'features/stock_move/presentation/stock_move_screens.dart';
 import 'features/tasks/presentation/tasks_screen.dart';
@@ -19,10 +20,29 @@ import 'features/work/domain/work.dart';
 import 'features/work/presentation/work_screens.dart';
 import 'shared/printer/printer_ui.dart';
 
-/// 라우트. 로그인 전에는 기기 설정(첫 화면, 사용자 2026-11-17) → 로그인, 세션이 끝나면 로그인 화면으로 보낸다
+/// 라우트. 로그인 전에는 시작 메뉴(로그인·기기 설정·재고 확인, 사용자 2026-11-17)로, 세션이 끝나면 로그인 화면으로 보낸다
 /// (직원 로그인 — 백엔드 handoff 2026-11-13).
 /// 화면을 막는 것은 편의일 뿐이고, 권한 판정은 서버가 한다.
 /// 크루는 작업 목록을 보지 않는다(2026-11-10) — 메인 → 업무 안내 → 서버가 준 작업 하나.
+/// 로그인 뒤 갈 곳(시작 메뉴의 "재고 확인" — 사용자 2026-11-17 "로그인 화면 → 끝나면 그 메뉴로").
+final afterLoginProvider = NotifierProvider<AfterLogin, String?>(
+  AfterLogin.new,
+);
+
+class AfterLogin extends Notifier<String?> {
+  @override
+  String? build() => null;
+
+  void set(String? location) => state = location;
+
+  /// 한 번 쓰고 지운다.
+  String? take() {
+    final v = state;
+    state = null;
+    return v;
+  }
+}
+
 final routerProvider = Provider<GoRouter>((ref) {
   // 세션 상태가 바뀌면 리다이렉트를 다시 계산한다.
   final auth = ValueNotifier<AuthState>(ref.read(authControllerProvider));
@@ -36,16 +56,21 @@ final routerProvider = Provider<GoRouter>((ref) {
       final at = s.matchedLocation;
       return switch (auth.value) {
         AuthRestoring() => at == '/starting' ? null : '/starting',
-        // 로그인 전 첫 화면은 기기 설정(사용자 2026-11-17). 세션이 끝나 나온 경우만 바로 로그인(이유 안내).
+        // 로그인 전 첫 화면은 시작 메뉴(로그인·기기 설정·재고 확인, 사용자 2026-11-17).
+        // 세션이 끝나 나온 경우만 이유 안내를 위해 바로 로그인 화면.
         AuthSignedOut(:final ended) =>
-          at == '/login' || at.startsWith('/setup')
+          at == '/start' || at == '/login' || at.startsWith('/setup')
               ? null
               : ended != null
               ? '/login'
-              : '/setup',
+              : '/start',
+        // 로그인되면 메인 — 시작 메뉴에서 고른 곳(재고 확인)이 있으면 그리로(메인 위에 쌓인다).
         AuthSignedIn() =>
-          at == '/login' || at == '/starting' || at.startsWith('/setup')
-              ? '/'
+          at == '/start' ||
+                  at == '/starting' ||
+                  at == '/login' ||
+                  at.startsWith('/setup')
+              ? ref.read(afterLoginProvider.notifier).take() ?? '/'
               : null,
       };
     },
@@ -71,7 +96,18 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(path: '/login', builder: (_, _) => const LoginScreen()),
       GoRoute(path: '/starting', builder: (_, _) => const StartingScreen()),
-      GoRoute(path: '/', builder: (_, _) => const HomeScreen()),
+      GoRoute(path: '/start', builder: (_, _) => const StartScreen()),
+      GoRoute(
+        path: '/',
+        builder: (_, _) => const HomeScreen(),
+        routes: [
+          // 메인 위에 쌓인다(뒤로 → 메인).
+          GoRoute(
+            path: 'stock-check',
+            builder: (_, _) => const StockCheckScreen(),
+          ),
+        ],
+      ),
       // 센터 관리자 관리 메뉴(사용자 2026-11-16). 권한 판정은 서버 — 작업자가 열면 서버가 403.
       GoRoute(
         path: '/manage/tasks',

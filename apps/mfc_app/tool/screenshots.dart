@@ -262,23 +262,41 @@ void main() {
       );
     }
 
-    await shot('31-setup');
+    await shot('31-start');
+    await t.tap(find.byKey(const ValueKey('start-setup')));
+    await shot('32-setup');
     await t.tap(find.byKey(const ValueKey('setup-network')));
-    await shot('32-setup-network');
+    await shot('33-setup-network');
     Navigator.of(t.element(find.byType(Scaffold).last)).pop();
     await t.pumpAndSettle();
-    await t.tap(find.byKey(const ValueKey('setup-scanner')));
-    await shot('33-setup-scanner');
     Navigator.of(t.element(find.byType(Scaffold).last)).pop();
     await t.pumpAndSettle();
-    await t.tap(find.byKey(const ValueKey('setup-login')));
+    await t.tap(find.byKey(const ValueKey('start-stock')));
     await shot('34-login');
     await t.tap(find.byKey(const ValueKey('employee-login')));
     await shot('35-mock-signin');
     await t.enterText(find.byKey(const ValueKey('login-id')), 'mfcw-pp-01');
     await t.enterText(find.byKey(const ValueKey('login-password')), 'x');
+    await t.pump();
     await t.tap(find.byKey(const ValueKey('mock-signin-submit')));
-    await shot('36-home');
+    for (var i = 0; i < 3; i++) {
+      await t.pump(const Duration(seconds: 1));
+      await t.pumpAndSettle();
+    }
+    await t.enterText(
+      find.byKey(const ValueKey('stock-check-scan')),
+      '8801115114154',
+    );
+    await t.testTextInput.receiveAction(TextInputAction.done);
+    await t.pump(const Duration(seconds: 1));
+    await t.pumpAndSettle();
+    await shot('36-stock-check');
+    Navigator.of(t.element(find.byType(Scaffold).last)).pop();
+    for (var i = 0; i < 3; i++) {
+      await t.pump(const Duration(seconds: 1));
+      await t.pumpAndSettle();
+    }
+    await shot('37-home');
     debugDisableShadows = true;
   });
 }

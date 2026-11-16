@@ -289,7 +289,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           _MenuButton(
                             key: const ValueKey('menu-printer'),
                             icon: Icons.print_outlined,
-                            label: l10n.printerSettingsTitle,
+                            label: l10n.printerMenu,
                             allowed: me.canUse(PdaMenu.printerSettings),
                             onTap: () => _menu(
                               me,
@@ -297,6 +297,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               l10n.printerSettingsTitle,
                               () => context.push('/settings/printer'),
                             ),
+                          ),
+                          const SizedBox(width: 8),
+                          // 재고 확인 — 시작 메뉴와 같은 화면(사용자 2026-11-17 "홈 아래 메뉴줄에도").
+                          _MenuButton(
+                            key: const ValueKey('menu-stock'),
+                            icon: Icons.manage_search,
+                            label: l10n.stockCheckMenu,
+                            allowed: true,
+                            onTap: () => context.push('/stock-check'),
                           ),
                           const SizedBox(width: 8),
                           _MenuButton(

@@ -21,6 +21,7 @@ void main() {
     WidgetTester t, {
     PmartEnv env = PmartEnv.mock,
     ProbeResult probe = ProbeResult.reachable,
+    bool openSetup = true,
   }) async {
     t.view
       ..physicalSize = const Size(412, 915)
@@ -46,7 +47,12 @@ void main() {
       ),
     );
     await t.pumpAndSettle();
-    return ProviderScope.containerOf(t.element(find.byType(Scaffold).first));
+    final c = ProviderScope.containerOf(t.element(find.byType(Scaffold).first));
+    if (openSetup) {
+      await t.tap(find.byKey(const ValueKey('start-setup')));
+      await t.pumpAndSettle();
+    }
+    return c;
   }
 
   Future<void> tap(WidgetTester t, String key) async {
@@ -54,8 +60,21 @@ void main() {
     await t.pumpAndSettle();
   }
 
-  testWidgets('로그인 전 첫 화면은 기기 설정 — 메뉴 4개와 로그인 버튼, 로그인은 그 다음', (t) async {
-    await pump(t);
+  testWidgets('시작 메뉴: 로그인 · 기기 설정 · 재고 확인 — 로그인은 로그인 화면으로, 뒤로 오면 다시 시작 메뉴', (
+    t,
+  ) async {
+    await pump(t, openSetup: false);
+    for (final k in ['start-login', 'start-setup', 'start-stock']) {
+      expect(find.byKey(ValueKey(k)), findsOneWidget, reason: k);
+    }
+    expect(find.byKey(const ValueKey('employee-login')), findsNothing);
+    await tap(t, 'start-login');
+    expect(find.byKey(const ValueKey('employee-login')), findsOneWidget);
+    await t.tap(find.byType(BackButton));
+    await t.pumpAndSettle();
+    expect(find.byKey(const ValueKey('start-setup')), findsOneWidget);
+
+    await tap(t, 'start-setup');
     for (final k in [
       'setup-network',
       'setup-printer',
@@ -64,13 +83,6 @@ void main() {
     ]) {
       expect(find.byKey(ValueKey(k)), findsOneWidget, reason: k);
     }
-    expect(find.byKey(const ValueKey('employee-login')), findsNothing);
-    await tap(t, 'setup-login');
-    expect(find.byKey(const ValueKey('employee-login')), findsOneWidget);
-    // 뒤로 가면 다시 기기 설정.
-    await t.tap(find.byType(BackButton));
-    await t.pumpAndSettle();
-    expect(find.byKey(const ValueKey('setup-network')), findsOneWidget);
   });
 
   testWidgets('네트워크: 주소를 고쳐 저장하면 실서버 요청 주소가 바뀌고, 기본값으로 되돌릴 수 있다', (t) async {
