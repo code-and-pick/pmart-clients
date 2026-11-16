@@ -73,7 +73,7 @@ function useCaseRoles() {
 const refLink = (refType: string | undefined, refId: string | undefined) => {
   if (!refId) return null;
   const to =
-    refType === 'deliveryId' || refType === 'recoveryDeliveryId'
+    refType === 'deliveryId' || refType === 'recoveryDeliveryId' || refType === 'reshipmentDeliveryId'
       ? `/deliveries/${encodeURIComponent(refId)}`
       : refType === 'orderId'
         ? `/orders/${encodeURIComponent(refId)}`
@@ -100,8 +100,18 @@ function Refs({ c }: { readonly c: Pick<Summary, 'refs' | 'subjectRef'> }) {
 }
 
 /** 연결 배송·주문 한 칸 — 원천 값을 기존 상태 이름표로만 옮긴다(합치거나 해석하지 않음) */
-function LinkedState({ l, recovery }: { readonly l: Linked; readonly recovery: boolean }) {
-  const name = l.kind === 'ORDER' ? m.cases.linkedOrder : recovery ? m.cases.linkedRecovery : m.cases.linkedDelivery;
+/** 연결 배송의 쓰임 — 원래 배송(subjectRef)·회수(refs recoveryDeliveryId, case 0.8.1)·재발송(refs reshipmentDeliveryId, case 0.11.2) */
+type DeliveryRole = 'recovery' | 'reshipment' | null;
+const deliveryRoleOf = (refs: ReadonlyArray<{ readonly kind?: string; readonly id?: string }> | undefined, id: string | undefined): DeliveryRole =>
+  (refs ?? []).some((x) => x.kind === 'recoveryDeliveryId' && x.id === id)
+    ? 'recovery'
+    : (refs ?? []).some((x) => x.kind === 'reshipmentDeliveryId' && x.id === id)
+      ? 'reshipment'
+      : null;
+
+function LinkedState({ l, role }: { readonly l: Linked; readonly role: DeliveryRole }) {
+  const name =
+    l.kind === 'ORDER' ? m.cases.linkedOrder : role === 'recovery' ? m.cases.linkedRecovery : role === 'reshipment' ? m.cases.linkedReshipment : m.cases.linkedDelivery;
   const unknown = l.source?.confidence === 'UNKNOWN';
   const value = unknown ? (
     <span className="text-warning">{m.cases.linkedUnknown}</span>
@@ -227,7 +237,7 @@ export function CaseListPage() {
                           <LinkedState
                             key={`${l.kind ?? ''}:${l.id ?? ''}`}
                             l={l}
-                            recovery={l.kind === 'DELIVERY' && (c.linkedRefs ?? []).some((x) => x.kind === 'recoveryDeliveryId' && x.id === l.id)}
+                            role={l.kind === 'DELIVERY' ? deliveryRoleOf(c.linkedRefs, l.id) : null}
                           />
                         ))}
                       </ul>
@@ -572,7 +582,7 @@ export function CaseDetailPage() {
 
               {(c.kind === 'RIDER_HELP' || c.kind === 'DELIVERY_INCIDENT') && <HelpRequestOfCase c={c} />}
 
-              {(c.refs ?? []).some((r) => r.refType === 'recoveryDeliveryId') && (
+              {(c.refs ?? []).some((r) => r.refType === 'recoveryDeliveryId' || r.refType === 'reshipmentDeliveryId') && (
                 <p role="note" className="alert alert-info text-sm" data-testid="case-recovery-note">
                   {m.cases.recoveryNote}
                 </p>

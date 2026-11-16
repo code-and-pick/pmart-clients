@@ -71,9 +71,9 @@ describe('작업자 상세', () => {
   it('업무 바꾸기: 지금 업무 버전으로 보내고, 맞지 않게 된 진행 중 배정을 알린다(지우지 않음)', async () => {
     const view = renderAt('/c/MFC-BSN-01/workers/OP-wkr-1');
     expect(await heading()).toHaveTextContent('김현장');
-    const form = screen.getByRole('form', { name: '업무 바꾸기' });
+    const form = screen.getByRole('form', { name: '맡은 일(업무) 바꾸기' });
     await userEvent.click(within(form).getByRole('checkbox', { name: '피킹' }));
-    await userEvent.type(within(form).getByRole('textbox', { name: '업무 바꾸기 사유' }), '포장 전담');
+    await userEvent.type(within(form).getByRole('textbox', { name: '맡은 일(업무) 바꾸기 사유' }), '포장 전담');
     await userEvent.click(within(form).getByRole('button', { name: '저장' }));
     expect(await screen.findByText('바꿨어요.')).toBeInTheDocument();
     expect(within(screen.getByRole('list', { name: /맞지 않는 진행 중 배정/ })).getByText('피킹 · TASK-PICK-1')).toBeInTheDocument();
@@ -88,8 +88,8 @@ describe('작업자 상세', () => {
     await heading();
     const w = db.workers.get('MFC-BSN-01/OP-wkr-1')!;
     db.workers.set('MFC-BSN-01/OP-wkr-1', { ...w, duties: [{ ...w.duties[0]!, dutyVersion: 3 }] });
-    const form = screen.getByRole('form', { name: '업무 바꾸기' });
-    await userEvent.type(within(form).getByRole('textbox', { name: '업무 바꾸기 사유' }), '변경');
+    const form = screen.getByRole('form', { name: '맡은 일(업무) 바꾸기' });
+    await userEvent.type(within(form).getByRole('textbox', { name: '맡은 일(업무) 바꾸기 사유' }), '변경');
     await userEvent.click(within(form).getByRole('button', { name: '저장' }));
     expect(await screen.findByText('다른 사람이 먼저 바꿨어요. 새로 고침한 뒤 다시 해 주세요.')).toBeInTheDocument();
   });
@@ -187,5 +187,20 @@ describe('작업자 상세', () => {
     await userEvent.click(within(form).getByRole('button', { name: '저장' }));
     expect(await screen.findByText('이 센터 권한이 없습니다.')).toBeInTheDocument();
     expect(db.workers.get('MFC-BSN-01/OP-wkr-1')!.state).toBe('ACTIVE');
+  });
+  it('맡은 일(업무)·할 수 있는 일(자격) 차이 안내와 지금 값, 저장 전 미리 경고(사용자 2026-11-16)', async () => {
+    renderAt('/c/MFC-BSN-01/workers/OP-wkr-1');
+    const guide = await screen.findByTestId('duty-qualification-guide');
+    expect(guide).toHaveTextContent('실제 배정되는 일 = 맡은 일(업무) 중 할 수 있는 일(자격)');
+    expect(guide).toHaveTextContent(/할 수 있는 일 .*적치/);
+    // 맡은 일에 자격 없는 일(검사)을 넣으면 배정되지 않는다고 미리 알린다
+    const duty = screen.getByRole('form', { name: '맡은 일(업무) 바꾸기' });
+    expect(within(duty).queryByTestId('preview-warning')).not.toBeInTheDocument();
+    await userEvent.click(within(duty).getByRole('checkbox', { name: '검사' }));
+    expect(within(duty).getByTestId('preview-warning')).toHaveTextContent('할 수 있는 일(자격)에 없어 배정되지 않아요: 검사');
+    // 자격에서 맡은 일(포장)을 빼면 배정에서 빠진다고 미리 알린다
+    const qual = screen.getByRole('form', { name: '할 수 있는 일(자격) 바꾸기' });
+    await userEvent.click(within(qual).getByRole('checkbox', { name: '포장' }));
+    expect(within(qual).getByTestId('preview-warning')).toHaveTextContent('맡은 일(업무)이지만 배정에서 빠져요: 포장');
   });
 });

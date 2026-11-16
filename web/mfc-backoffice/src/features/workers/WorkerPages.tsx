@@ -323,6 +323,7 @@ function WorkerDetailPage({ mfcId }: { readonly mfcId: string }) {
             <Section title={m.sections.shifts}>
               <Shifts mfcId={mfcId} workerId={workerId} notify={notify} />
             </Section>
+            <DutyQualificationGuide worker={w} />
             <Section title={m.sections.duty}>
               <DutyChange key={`duty-${w.duty?.dutyVersion ?? 0}`} mfcId={mfcId} worker={w} notify={notify} />
             </Section>
@@ -340,6 +341,33 @@ function WorkerDetailPage({ mfcId }: { readonly mfcId: string }) {
         )}
       </QueryState>
     </section>
+  );
+}
+
+/** 맡은 일(업무)과 할 수 있는 일(자격)의 차이와 지금 값(서버 값 그대로) — 사용자 2026-11-16 "두 기능이 같아 보인다" */
+function DutyQualificationGuide({ worker: w }: { readonly worker: WorkerDetail }) {
+  return (
+    <div role="note" className="space-y-1 rounded-box border border-info/40 bg-info/10 p-3 text-sm" data-testid="duty-qualification-guide">
+      <p>{m.howItWorks}</p>
+      <p className="text-xs">
+        {m.howItWorksNow(tasks(w.duty?.taskTypes), tasks(w.qualification?.taskTypes), w.effectiveTaskTypes?.length ? tasks(w.effectiveTaskTypes) : m.noEffective)}
+      </p>
+      {w.qualification?.expired && <p className="text-xs text-warning">{m.qualificationExpiredNote}</p>}
+    </div>
+  );
+}
+
+/** 지금 유효한 자격(만료면 없음) — 저장 전 미리 보기용. 확정 값은 서버 effectiveTaskTypes */
+const qualifiedNow = (w: Worker): readonly TaskType[] => (w.qualification?.expired ? [] : (w.qualification?.taskTypes ?? []));
+const notIn = (a: readonly TaskType[], b: readonly TaskType[]) => a.filter((t) => !b.includes(t));
+
+function PreviewWarning({ list, text }: { readonly list: readonly TaskType[]; readonly text: (s: string) => string }) {
+  if (list.length === 0) return null;
+  return (
+    <div className="text-xs" data-testid="preview-warning">
+      <p className="text-warning">{text(list.map((t) => m.task[t] ?? t).join(', '))}</p>
+      <p className="opacity-70">{m.previewNote}</p>
+    </div>
   );
 }
 
@@ -457,6 +485,7 @@ function DutyChange({ mfcId, worker, notify }: { readonly mfcId: string; readonl
     >
       <p className="text-xs opacity-70">{m.dutyChangeHint}</p>
       <TaskTypePicker label={m.fields.duty} value={taskTypes} onChange={setTaskTypes} />
+      <PreviewWarning list={notIn(taskTypes, qualifiedNow(worker))} text={m.willNotAssign} />
       <ReasonInput label={`${m.sections.duty} ${m.fields.reason}`} value={reason} onChange={setReason} />
     </ChangeForm>
   );
@@ -495,6 +524,7 @@ function QualificationChange({ mfcId, worker, notify }: { readonly mfcId: string
     >
       <p className="text-xs opacity-70">{m.qualificationChangeHint}</p>
       <TaskTypePicker label={m.fields.qualification} value={taskTypes} onChange={setTaskTypes} />
+      <PreviewWarning list={notIn(worker.duty?.taskTypes ?? [], taskTypes)} text={m.willDrop} />
       <label className="flex flex-col gap-1">
         {m.fields.expiresAt}
         <input className="input input-sm w-56" type="datetime-local" value={expiresAt} onChange={(e) => setExpiresAt(e.target.value)} />

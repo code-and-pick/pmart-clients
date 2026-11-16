@@ -82,7 +82,7 @@ function seed(): Case[] {
       summary: '[목] 옆 동으로 오배송 확인',
       subjectType: 'DELIVERY',
       subjectRef: 'DLV-MOCK-4',
-      refs: [{ refType: 'deliveryId', refId: 'DLV-MOCK-4' }, { refType: 'orderId', refId: 'ORD-MOCK-1003' }, { refType: 'recoveryDeliveryId', refId: 'DLV-MOCK-R1' }],
+      refs: [{ refType: 'deliveryId', refId: 'DLV-MOCK-4' }, { refType: 'orderId', refId: 'ORD-MOCK-1003' }, { refType: 'recoveryDeliveryId', refId: 'DLV-MOCK-R1' }, { refType: 'reshipmentDeliveryId', refId: 'DLV-MOCK-S1' }],
       state: 'CLOSED',
       closure: { closedAt: at(-1), closedBy: 'op-admin-1', resolution: 'RESOLVED', summary: '[목] 회수 배차 완료' },
       history: [
@@ -90,6 +90,7 @@ function seed(): Case[] {
         { action: 'RECOVERY_CREATED', at: at(-2.5), actorId: 'SYSTEM', note: 'DLV-MOCK-R1' },
         { action: 'RECOVERY_PICKED_UP', at: at(-2), actorId: 'SYSTEM' },
         { action: 'RECOVERY_RETURNED', at: at(-1.5), actorId: 'SYSTEM', note: 'MFC-BSN-01' },
+        { action: 'RESHIPMENT_CREATED', at: at(-1.2), actorId: 'SYSTEM', note: 'DLV-MOCK-S1' },
         { action: 'CLOSED', at: at(-1), toState: 'CLOSED', actorId: 'op-admin-1' },
       ],
     }),
@@ -194,6 +195,7 @@ const LINKED_STATE: Readonly<Record<string, string>> = {
   'DLV-MOCK-3': 'ASSIGNED',
   'DLV-MOCK-4': 'COMPLETED',
   'DLV-MOCK-R1': 'RETURN_IN_PROGRESS', // 회수 배송(case 0.8.1)
+  'DLV-MOCK-S1': 'ASSIGNED', // 재발송 배송(case 0.11.2)
   'ORD-MOCK-1001': 'IN_DELIVERY',
   'ORD-MOCK-1002': 'IN_DELIVERY',
   'ORD-MOCK-1003': 'CANCELLED',
@@ -214,9 +216,9 @@ export const caseHandlers = [
       .map((c) => {
         const refs = c.refs ?? [];
         const linked = refs
-          .filter((r) => r.refType === 'deliveryId' || r.refType === 'recoveryDeliveryId' || r.refType === 'orderId')
+          .filter((r) => r.refType === 'deliveryId' || r.refType === 'recoveryDeliveryId' || r.refType === 'reshipmentDeliveryId' || r.refType === 'orderId')
           .map((r) => {
-            const delivery = r.refType === 'deliveryId' || r.refType === 'recoveryDeliveryId';
+            const delivery = r.refType === 'deliveryId' || r.refType === 'recoveryDeliveryId' || r.refType === 'reshipmentDeliveryId';
             const id = r.refId ?? '';
             if (!delivery && !seesOrders) return { kind: 'ORDER' as const, id, state: null, version: null, source: stamp('order-service', 'UNKNOWN') };
             return { kind: delivery ? ('DELIVERY' as const) : ('ORDER' as const), id, state: LINKED_STATE[id] ?? null, version: LINKED_STATE[id] ? 3 : null, source: stamp(delivery ? 'delivery-execution-service' : 'order-service') };
