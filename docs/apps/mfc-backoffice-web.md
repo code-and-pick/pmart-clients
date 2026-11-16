@@ -6,7 +6,7 @@
 - 근거: 백엔드 요청 `../pmart-backend/docs/handoff/clients/mfc-backoffice/2026-11-15-request-mfc-backoffice.md`. 메뉴·API 정본은 `pmart-backend/docs/architecture/backoffice-role-menus.md` §3, 계약 `contracts/openapi/mfc-*.yaml`.
 - 기본 백오피스(`web/backoffice`)에는 MFC 메뉴를 넣지 않는다(백엔드 요청 2026-11-15 cs-rider-menus §0).
 - 상태(2026-11-15): **기반만**(앱 뼈대·로그인·센터 고르기·메뉴 자리). 메뉴 화면은 모두 "준비 중". 목 모드로 확인, LAN 배포·실서버 확인은 아직.
-- 2026-11-16(PC 2): **위치(칸)**(§4-1)·**이동·보충**(§4-2)·**작업자**(§4-3) 화면. 나머지 메뉴는 "준비 중". 목 모드만 확인.
+- 2026-11-16(PC 2): **위치(칸)**(§4-1)·**이동·보충**(§4-2)·**작업자**(§4-3)·**배송 현황·배차 실패**(§4-4) 화면. 나머지 메뉴는 "준비 중". 목 모드만 확인.
 
 ## 1. 앱과 로그인
 
@@ -38,6 +38,8 @@
 | 작업 | 작업 현황 | `tasks` | 준비 중 | 확인 필요 포장 목록·확인(지금은 작업자만 — 백엔드 결정 대기) |
 |  | 이동·보충 | `moves` | **됨**(§4-2) | — |
 |  | 입고 | `inbound` | 준비 중 | 입고 예정(TRF, 계약만), 초기 보유 센터별 수령 대기 목록, 회수품·공급 요청 목록 |
+| 배송 | 배송 현황 | `deliveries` | **됨**(§4-4) | — |
+|  | 배차 실패 | `dispatch-failures` | **됨**(§4-4, 보기만) | (배차 쪽 사건에 센터가 실리기 전엔 0건 — DD-MFC) |
 | 재고·품질 | 재고 | `inventory` | 준비 중 | 센터 전체 재고 목록(상품 코드 없이), 실사 세션 목록 |
 |  | 품질 | `quality` | 준비 중 | 해제 승인 대기·폐기·검수 목록, 품질 사고(계약만) |
 | 센터 | 위치(칸) | `locations` | **됨**(§4-1) | — |
@@ -85,6 +87,13 @@
 | 근무 일정 | `GET/POST …/shifts`, `POST …/shifts/{id}/cancellations` | 시각 입력은 한국 시간으로 `…+09:00` 을 붙여 보낸다. 16시간·겹침(409 `SHIFT_OVERLAP`)은 서버 판정. 취소는 사유 필수 |
 - 바꾼 뒤 완료 문구·맞지 않는 배정은 상세 화면 위에(양식은 새 버전으로 다시 그려진다).
 - 다음 작업 받기(`next-tasks`)는 PDA 전용 — 넣지 않는다.
+
+### 4-4. 배송 현황·배차 실패 — bff 0.3.1 `live-delivery`, case 0.5.2 (`features/delivery/CenterDeliveryPages.tsx`, 2026-11-16)
+- 백엔드 요청 `mfc-backoffice/2026-11-16-request-center-deliveries-and-dispatch-failures.md`(사용자 "①②③ 추천대로", 배송 원문 §1·§3.6). 새 묶음 "배송".
+- **배송 현황** `deliveries`: bff `GET /backoffice/views/live-delivery?mfcId=<주소의 센터>&state=&size=50&cursor=` — 백오피스와 같은 API, 센터 관리자는 자기 센터 고정(다른 센터 403). 상태 비우면 진행 중 전부(오래된 순 50, 넘으면 truncated), 상태 고르면 `page.nextCursor`. 1분마다 다시 읽기. 배차 원천 실패 "모름(조회 실패)", `openCases null` "조회 실패", 못 읽은 원천 경고. "약속 지남"은 서버 `promisedAt < composedAt` 만. 열린 배차 실패 사건은 이 앱의 사건 상세로. 배송·주문 상세 화면은 이 앱에 없어 번호만.
+- **배차 실패** `dispatch-failures`: case `GET /cases?kind=DISPATCH_FAILED&centerId=<센터>&size=50`(탭 "처리 중" / "처리 끝남"(`state=CLOSED`), 탭은 URL — 센터 관리자는 닫지 않으므로 열림·닫힘 대신 처리 단계로 부른다, 사용자 2026-11-16) · `GET /cases/{caseId}`(요약·관련·기한·담당·종결·이력). **보기만** — 집기·닫기 버튼 없음(서버 403), "처리는 지원센터(라이더 운영)" 안내. 배차 쪽 사건에 센터가 실리기 전(배송 영역 DD-MFC)에는 0건이 정상이라 안내.
+- API 클라이언트: `api.bff`(`/api/v1/backoffice`)·`api.cases`. 계약 타입은 `gen:api` 의 mfc-backoffice 복사 목록에 backoffice-bff·case 를 더해 만든다(`tools/web-tools/gen-api.mjs`).
+- 목 `mocks/centerDeliveryHandlers.ts`(우리 센터 진행 중 2·끝난 1·다른 센터 1, 사건 열린 1·닫힌 1·다른 센터 1 — 상태 SUSPENDED 로 거르면 배차·사건 원천 실패). 시험 `features/delivery/centerDelivery.test.tsx`(7).
 
 ## 5. 목 모드
 - 목 계정: 센터 관리자(MFC 1곳 `MFC-BSN-01`), 센터 관리자(MFC 2곳 `MFC-BSN-01`·`MFC-SEL-01`), 현장 작업자, 운영 관리자(센터 없음). `src/mocks/db.ts`.

@@ -2,6 +2,7 @@ import createClient from 'openapi-fetch';
 
 import type { paths as AssistantPaths } from './generated/ai-assistant';
 import type { paths as ApprovalPaths } from './generated/approval';
+import type { paths as AuditPaths } from './generated/audit';
 import type { paths as BffPaths } from './generated/backoffice-bff';
 import type { paths as CasePaths } from './generated/case';
 import type { paths as CdcInventoryPaths } from './generated/cdc-inventory';
@@ -52,6 +53,8 @@ export function createApi(pmartFetch: PmartFetch, baseUrl = API_BASE) {
     riders: createClient<RiderPaths>(options),
     dispatch: createClient<DispatchPaths>(options),
     execution: createClient<ExecutionPaths>(options),
+    // 개인정보 열람 기록(audit 0.3.0, OPERATOR_ADMIN)
+    audit: createClient<AuditPaths>(options),
   };
 }
 

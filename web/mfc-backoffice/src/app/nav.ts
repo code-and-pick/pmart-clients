@@ -69,6 +69,26 @@ export const navGroups: readonly MenuGroup[] = [
     ],
   },
   {
+    // 우리 센터 배송(2026-11-16 백엔드 요청 request-center-deliveries-and-dispatch-failures — bff 0.3.1·case 0.5.2, 보기만)
+    key: 'delivery',
+    items: [
+      {
+        key: 'deliveries',
+        segment: 'deliveries',
+        ready: true,
+        apiReady: ['진행 중 배송(수행·배차·열린 사건)'],
+        apiMissing: [],
+      },
+      {
+        key: 'dispatchFailures',
+        segment: 'dispatch-failures',
+        ready: true,
+        apiReady: ['배차 실패 사건 목록·상세(보기만)'],
+        apiMissing: [],
+      },
+    ],
+  },
+  {
     key: 'stock',
     items: [
       {
