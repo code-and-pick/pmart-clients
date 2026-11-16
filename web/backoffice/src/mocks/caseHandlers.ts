@@ -4,7 +4,7 @@
 // 직원이 여는 종류는 MISDELIVERY 하나(그 밖 422 UNSUPPORTED_KIND), 같은 배송의 열린 오배송이 있으면 409 CASE_ALREADY_OPEN.
 import { http, HttpResponse } from 'msw';
 
-import { API_BASE } from '../api/client';
+import { API_BASE, BFF_BASE } from '../api/client';
 import type { components as CaseC } from '../api/generated/case';
 import { idempotent, operator, problem, unauthorized } from './support';
 
@@ -141,21 +141,73 @@ function log(c: Case, action: string, actorId: string, toState: NonNullable<Case
   c.version = (c.version ?? 0) + 1;
 }
 
+/** case 목록 거르기·순서(case /cases 와 bff case-inbox 가 같은 뜻 — bff 는 assigneeId 대신 assignee) */
+function listCases(sees: (c: Case) => boolean, q: URLSearchParams): Summary[] {
+  const state = q.get('state');
+  const assignee = q.get('assigneeId') ?? q.get('assignee');
+  return cases
+    .filter(sees)
+    .filter((c) => (state ? c.state === state : c.state !== 'CLOSED'))
+    .filter((c) => q.get('unassigned') !== 'true' || !c.assigneeId)
+    .filter((c) => q.get('overdue') !== 'true' || c.overdue)
+    .filter((c) => !assignee || c.assigneeId === assignee)
+    .filter((c) => !q.get('kind') || c.kind === q.get('kind'))
+    .sort((a, b) => PRIORITY_ORDER[a.priority ?? 'P4'] - PRIORITY_ORDER[b.priority ?? 'P4'] || (a.slaDueAt ?? '').localeCompare(b.slaDueAt ?? ''))
+    .map(summaryOf);
+}
+
+/** bff 0.5.0 연결 상태 목: 배송 = delivery-execution state, 주문 = order status. 표에 없는 ID 는 원천에 없음(state null·DIRECT). */
+const LINKED_STATE: Readonly<Record<string, string>> = {
+  'DLV-MOCK-1': 'PICKED_UP',
+  'DLV-MOCK-2': 'FAILURE_REPORTED',
+  'DLV-MOCK-3': 'ASSIGNED',
+  'DLV-MOCK-4': 'COMPLETED',
+  'ORD-MOCK-1001': 'IN_DELIVERY',
+  'ORD-MOCK-1002': 'IN_DELIVERY',
+  'ORD-MOCK-1003': 'CANCELLED',
+  'ORD-MOCK-1004': 'PAYMENT_PENDING',
+};
+
 export const caseHandlers = [
+  // bff 0.5.0 사건함 — case 목록 + 연결 배송·주문의 지금 상태. 주문을 못 보는 역할(RIDER_OPS 만)은 주문 칸 UNKNOWN + unavailableSources order-service.
+  http.get(`${BFF_BASE}/views/case-inbox`, ({ request }) => {
+    const v = viewer(request);
+    if ('denied' in v) return v.denied;
+    const q = new URL(request.url).searchParams;
+    const now = new Date().toISOString();
+    const stamp = (system: string, confidence: 'DIRECT' | 'UNKNOWN' = 'DIRECT') => ({ system, confidence, asOf: { asOf: now, freshness: confidence === 'DIRECT' ? ('CURRENT' as const) : ('UNAVAILABLE' as const) } });
+    const seesOrders = v.admin || v.cs;
+    const items = listCases(v.sees, q)
+      .slice(0, Math.min(Number(q.get('size') ?? 20) || 20, 50))
+      .map((c) => {
+        const refs = c.refs ?? [];
+        const linked = refs
+          .filter((r) => r.refType === 'deliveryId' || r.refType === 'orderId')
+          .map((r) => {
+            const delivery = r.refType === 'deliveryId';
+            const id = r.refId ?? '';
+            if (!delivery && !seesOrders) return { kind: 'ORDER' as const, id, state: null, version: null, source: stamp('order-service', 'UNKNOWN') };
+            return { kind: delivery ? ('DELIVERY' as const) : ('ORDER' as const), id, state: LINKED_STATE[id] ?? null, version: LINKED_STATE[id] ? 3 : null, source: stamp(delivery ? 'delivery-execution-service' : 'order-service') };
+          });
+        const rest: Partial<Summary> = { ...c };
+        delete rest.refs;
+        return { ...rest, linkedRefs: refs.map((r) => ({ kind: r.refType ?? '', id: r.refId ?? '' })), linked, source: stamp('case-service') };
+      });
+    const anyOrder = items.some((i) => i.linked.some((l) => l.kind === 'ORDER'));
+    return HttpResponse.json({
+      composedAt: now,
+      sources: [stamp('case-service'), stamp('delivery-execution-service'), ...(seesOrders ? [stamp('order-service')] : [])],
+      unavailableSources: !seesOrders && anyOrder ? ['order-service'] : [],
+      items,
+      page: { nextCursor: null, size: items.length },
+    });
+  }),
+
   http.get(`${API_BASE}/cases`, ({ request }) => {
     const v = viewer(request);
     if ('denied' in v) return v.denied;
     const q = new URL(request.url).searchParams;
-    const state = q.get('state');
-    const items = cases
-      .filter(v.sees)
-      .filter((c) => (state ? c.state === state : c.state !== 'CLOSED'))
-      .filter((c) => q.get('unassigned') !== 'true' || !c.assigneeId)
-      .filter((c) => q.get('overdue') !== 'true' || c.overdue)
-      .filter((c) => !q.get('assigneeId') || c.assigneeId === q.get('assigneeId'))
-      .filter((c) => !q.get('kind') || c.kind === q.get('kind'))
-      .sort((a, b) => PRIORITY_ORDER[a.priority ?? 'P4'] - PRIORITY_ORDER[b.priority ?? 'P4'] || (a.slaDueAt ?? '').localeCompare(b.slaDueAt ?? ''))
-      .map(summaryOf);
+    const items = listCases(v.sees, q);
     return HttpResponse.json({ items, page: { nextCursor: null, size: items.length } });
   }),
 

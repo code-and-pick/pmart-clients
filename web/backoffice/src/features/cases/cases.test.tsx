@@ -4,12 +4,14 @@ import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 
-import { API_BASE } from '../../api/client';
+import { API_BASE, BFF_BASE } from '../../api/client';
 import { server } from '../../test/server';
 
 import { as, renderAt } from '../../test/render';
 
 const rows = () => screen.findAllByTestId('case-row');
+/** 사건함 목록은 bff 0.5.0 views/case-inbox */
+const inboxCalls = (sent: readonly Request[]) => sent.filter((r) => new URL(r.url).pathname.endsWith('/views/case-inbox')).map((r) => new URL(r.url).searchParams);
 
 describe('지원센터 사건', () => {
   it('안 집은 것: 긴급 먼저, 기한 넘김 빨간 표시, 관련 배송·주문·라이더 링크', async () => {
@@ -22,7 +24,8 @@ describe('지원센터 사건', () => {
     expect(within(list[0]!).getByRole('link', { name: '배송 DLV-MOCK-1' })).toHaveAttribute('href', '/deliveries/DLV-MOCK-1');
     expect(within(list[0]!).getByRole('link', { name: '주문 ORD-MOCK-1001' })).toHaveAttribute('href', '/orders/ORD-MOCK-1001');
     expect(within(list[0]!).getByRole('link', { name: '라이더 RID-MOCK-1' })).toHaveAttribute('href', '/riders/RID-MOCK-1');
-    expect(new URL(view.sent.find((r) => new URL(r.url).pathname.endsWith('/cases'))!.url).searchParams.get('unassigned')).toBe('true');
+    const q = inboxCalls(view.sent)[0]!;
+    expect([q.get('unassigned'), q.get('size')]).toEqual(['true', '50']);
   });
 
   it('탭: 내 것(assigneeId=나)·기한 넘김·닫힌 것', async () => {
@@ -31,7 +34,7 @@ describe('지원센터 사건', () => {
     await userEvent.click(screen.getByRole('tab', { name: '내 것' }));
     await waitFor(() => expect(screen.getAllByTestId('case-row')).toHaveLength(1));
     expect(screen.getByTestId('case-row')).toHaveTextContent('위치 끊김');
-    expect(view.sent.some((r) => new URL(r.url).searchParams.get('assigneeId') === 'op-rider-ops-1')).toBe(true);
+    expect(inboxCalls(view.sent).some((q) => q.get('assignee') === 'op-rider-ops-1')).toBe(true);
     await userEvent.click(screen.getByRole('tab', { name: '닫힌 것' }));
     await waitFor(() => expect(screen.getByTestId('case-row')).toHaveTextContent('오배송'));
   });
@@ -131,8 +134,8 @@ describe('지원센터 사건', () => {
 
   it('요약이 없는 사건은 사건 번호 대신 종류 이름(백엔드 회신 reply-case-inbox-questions §2-1)', async () => {
     server.use(
-      http.get(`${API_BASE}/cases`, () =>
-        HttpResponse.json({ items: [{ caseId: 'CASE-NOSUM', kind: 'RIDER_HELP', priority: 'P2', state: 'OPEN', openedAt: '2026-11-16T00:00:00.000Z', overdue: false, version: 1 }], page: { nextCursor: null, size: 1 } }),
+      http.get(`${BFF_BASE}/views/case-inbox`, () =>
+        HttpResponse.json({ sources: [], unavailableSources: [], items: [{ caseId: 'CASE-NOSUM', kind: 'RIDER_HELP', priority: 'P2', state: 'OPEN', openedAt: '2026-11-16T00:00:00.000Z', overdue: false, linked: [] }], page: { nextCursor: null, size: 1 } }),
       ),
     );
     renderAt('/cases', as.riderOps);
@@ -160,5 +163,56 @@ describe('지원센터 사건', () => {
     );
     renderAt('/cases/CASE-NEW', as.riderOps);
     expect(await screen.findByTestId('case-help-request')).toHaveTextContent('공동현관이 잠겨');
+  });
+  it('연결 상태: 배송·주문의 지금 상태를 원천 값 이름표로(bff 0.5.0)', async () => {
+    renderAt('/cases', as.admin);
+    const list = await rows();
+    const help = list.find((r) => r.textContent?.includes('라이더 도움요청'))!;
+    const linked = within(help).getAllByTestId('case-linked');
+    expect(linked.map((l) => l.textContent)).toEqual(['배송 픽업', '주문 배송 중']);
+  });
+
+  it('지원센터(RIDER_OPS)는 주문 원천을 못 볼 수 있다 — 주문 칸 "확인 불가"(0건·정상 아님)와 못 읽은 원천 표시', async () => {
+    renderAt('/cases', as.riderOps);
+    const list = await rows();
+    const order = within(list[0]!).getAllByTestId('case-linked').find((l) => l.getAttribute('data-kind') === 'ORDER')!;
+    expect(order).toHaveTextContent('확인 불가');
+    expect(screen.getByLabelText('원천')).toHaveTextContent(/order-service/);
+  });
+
+  it('case-service 를 못 읽었으면(unavailableSources) 빈 목록이 아니라 조회 실패', async () => {
+    server.use(
+      http.get(`${BFF_BASE}/views/case-inbox`, () => HttpResponse.json({ sources: [], unavailableSources: ['case-service'], items: [], page: { nextCursor: null, size: 0 } })),
+    );
+    renderAt('/cases', as.riderOps);
+    await waitFor(() => expect(document.querySelector('[data-state="error"]')).not.toBeNull());
+    expect(screen.queryByTestId('case-row')).not.toBeInTheDocument();
+  });
+
+  it('다음 쪽은 서버 nextCursor 로(주소에 남음), 처음 쪽으로 돌아간다', async () => {
+    server.use(
+      http.get(`${BFF_BASE}/views/case-inbox`, ({ request }) => {
+        const cursor = new URL(request.url).searchParams.get('cursor');
+        const item = (id: string) => ({ caseId: id, kind: 'RIDER_HELP', priority: 'P2', state: 'OPEN', summary: id, overdue: false, linked: [] });
+        return HttpResponse.json({ sources: [], unavailableSources: [], items: [item(cursor ? 'CASE-P2' : 'CASE-P1')], page: { nextCursor: cursor ? null : 'CUR-2', size: 1 } });
+      }),
+    );
+    const view = renderAt('/cases', as.riderOps);
+    await rows();
+    await userEvent.click(screen.getByRole('button', { name: '다음 쪽' }));
+    expect(await screen.findByRole('link', { name: 'CASE-P2' })).toBeInTheDocument();
+    expect(inboxCalls(view.sent).some((q) => q.get('cursor') === 'CUR-2')).toBe(true);
+    await userEvent.click(screen.getByRole('button', { name: '처음 쪽' }));
+    expect(await screen.findByRole('link', { name: 'CASE-P1' })).toBeInTheDocument();
+  });
+  it('연결 원천에 없으면(state null·DIRECT) "원천에 없음" — 상태를 지어내지 않는다', async () => {
+    const stamp = { system: 'delivery-execution-service', confidence: 'DIRECT', asOf: { asOf: '2026-11-16T00:00:00Z', freshness: 'CURRENT' } };
+    server.use(
+      http.get(`${BFF_BASE}/views/case-inbox`, () =>
+        HttpResponse.json({ sources: [stamp], unavailableSources: [], items: [{ caseId: 'CASE-GONE', kind: 'MISDELIVERY', priority: 'P2', state: 'OPEN', summary: '없는 배송', overdue: false, linked: [{ kind: 'DELIVERY', id: 'DLV-GONE', state: null, version: null, source: stamp }] }], page: { nextCursor: null, size: 1 } }),
+      ),
+    );
+    renderAt('/cases', as.riderOps);
+    expect(await screen.findByTestId('case-linked')).toHaveTextContent('배송 원천에 없음');
   });
 });

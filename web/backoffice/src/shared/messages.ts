@@ -227,6 +227,13 @@ export const messages = {
     priority: '우선순위',
     summary: '요약',
     refs: '관련',
+    linked: '연결 상태',
+    linkedDelivery: '배송',
+    linkedOrder: '주문',
+    linkedUnknown: '확인 불가',
+    linkedMissing: '원천에 없음',
+    nextPage: '다음 쪽',
+    firstPage: '처음 쪽',
     refName: {
       deliveryId: '배송',
       orderId: '주문',
