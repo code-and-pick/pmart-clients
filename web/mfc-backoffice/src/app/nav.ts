@@ -101,7 +101,7 @@ export const navGroups: readonly MenuGroup[] = [
       {
         key: 'quality',
         segment: 'quality',
-        ready: false,
+        ready: true,
         apiReady: ['격리·해제 요청', '해제 승인(다른 관리자)', '폐기 요청·결정·실행', '회수품 검수', '단건 조회'],
         apiMissing: ['해제 승인 대기·폐기·검수 목록', '품질 사고 — 계약만'],
       },

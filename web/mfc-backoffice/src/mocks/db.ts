@@ -4,8 +4,56 @@ import type { components as FulfillmentSchemas } from '../api/generated/mfc-fulf
 import type { components as InboundSchemas } from '../api/generated/mfc-inbound';
 import type { components as InventorySchemas } from '../api/generated/mfc-inventory';
 import type { components as LocationSchemas } from '../api/generated/mfc-location';
+import type { components as QualitySchemas } from '../api/generated/mfc-quality';
 
 type Location = LocationSchemas['schemas']['Location'];
+
+type Qual = QualitySchemas['schemas'];
+export type MockDecision = Qual['QualityDecision'] & { readonly qualityDecisionId: string; readonly state: NonNullable<Qual['QualityDecision']['state']>; readonly decidedBy: string };
+export type MockDisposal = Qual['DisposalApproval'] & { readonly disposalApprovalId: string; readonly mfcId: string; readonly version: number; readonly state: NonNullable<Qual['DisposalApproval']['state']> };
+export type MockInspection = Qual['ReturnInspection'] & { readonly returnInspectionId: string };
+
+function seedDecisions(): Array<[string, MockDecision]> {
+  return [
+    [
+      'QD-1',
+      {
+        qualityDecisionId: 'QD-1',
+        mfcId: 'MFC-BSN-01',
+        decisionType: 'RELEASE',
+        decidedBy: 'OP-wkr-1',
+        reason: 'INSPECTION_PASS',
+        note: '재검사 통과',
+        lines: [{ sku: 'SKU-MILK-1', lotId: 'LOT-MILK-A', locationCode: 'QRT-A-01', qty: 2, workState: 'STORED' }],
+        version: 1,
+        state: 'REQUESTED',
+        rejectReason: null,
+        approvedAt: null,
+        inventoryApplyStatus: 'NOT_REQUESTED',
+        inventoryCommitId: null,
+        appliedQty: 0,
+        affectedOrderIds: [],
+        decidedAt: '2026-11-16T00:40:00.000Z',
+      },
+    ],
+  ];
+}
+
+function seedDisposals(): Array<[string, MockDisposal]> {
+  const line = (requested: number, approved: number, executed: number) => ({
+    sku: 'SKU-MILK-1',
+    lotId: 'LOT-MILK-A',
+    locationCode: 'QRT-A-01',
+    requestedQty: requested,
+    approvedQty: approved,
+    executedQty: executed,
+    remainingQty: approved - executed,
+  });
+  return [
+    ['DSP-1', { disposalApprovalId: 'DSP-1', mfcId: 'MFC-BSN-01', version: 1, state: 'REQUESTED', requesterId: 'OP-wkr-1', approverId: null, approvalRef: null, sourceRef: 'QD-0', lines: [line(2, 0, 0)], executions: [], reason: '파손', requestedAt: '2026-11-16T00:50:00.000Z', decidedAt: null }],
+    ['DSP-2', { disposalApprovalId: 'DSP-2', mfcId: 'MFC-BSN-01', version: 2, state: 'APPROVED', requesterId: 'OP-wkr-1', approverId: 'OP-sup-2', approvalRef: 'AP-LOSS-1', sourceRef: 'QD-0', lines: [line(3, 3, 0)], executions: [], reason: '유통기한 경과', requestedAt: '2026-11-15T23:00:00.000Z', decidedAt: '2026-11-15T23:30:00.000Z' }],
+  ];
+}
 
 type Cap = CapacitySchemas['schemas'];
 export type TaskType = Cap['TaskType'];
@@ -522,6 +570,9 @@ function seedGrants(): Array<[string, MockGrant]> {
 }
 
 export const db = {
+  decisions: new Map<string, MockDecision>(),
+  disposals: new Map<string, MockDisposal>(),
+  inspections: new Map<string, MockInspection>(),
   countSessions: new Map<string, MockCountSession>(),
   policies: [] as MockPolicy[],
   handlings: [] as MockHandling[],
@@ -573,6 +624,29 @@ export function resetDb(): void {
   db.policies = seedPolicies();
   db.handlings = seedHandlings();
   db.unshippable = seedUnshippable();
+  db.decisions = new Map(seedDecisions());
+  db.disposals = new Map(seedDisposals());
+  db.inspections = new Map();
+  // 검수할 회수품 반입(작업자가 반입 — 관리자가 검수)
+  db.returnReceipts.set('RR-1', {
+    returnReceiptId: 'RR-1',
+    claimId: 'CLM-1',
+    returnPickupId: 'RPU-1',
+    mfcId: 'MFC-BSN-01',
+    inventoryApplyStatus: 'APPLIED',
+    inventoryCommitId: 'CMT-RR-1',
+    inspectionState: 'PENDING',
+    receivedAt: '2026-11-16T00:10:00.000Z',
+    orderId: 'ORD-1',
+    toLocationCode: 'RTN-A-01',
+    receivedBy: 'OP-wkr-1',
+    rejectReason: null,
+    lines: [
+      { orderLineId: 'OL-1', sku: 'SKU-RAMEN-5', qty: 2, lotId: 'RET-CLM-1', conditionNote: null },
+      { orderLineId: 'OL-2', sku: 'SKU-MILK-1', qty: 1, lotId: 'RET-CLM-1', conditionNote: '냉장' },
+    ],
+    putawayTaskIds: [],
+  });
 }
 
 resetDb();

@@ -117,7 +117,7 @@ describe('순환 실사', () => {
     const card = await screen.findByTestId('count-session');
     await userEvent.type(within(card).getByRole('textbox', { name: /승인 근거/ }), 'AP-CNT-2');
     await userEvent.click(within(card).getByRole('button', { name: '승인(조정 반영)' }));
-    expect(await screen.findByRole('alert')).toHaveTextContent('실사를 시작·계수한 사람은 승인할 수 없어요. 다른 센터 관리자가 승인해 주세요.');
+    expect(await screen.findByRole('alert')).toHaveTextContent('직접 요청·시작·계수·반입한 사람은 승인할 수 없어요.');
   });
 
   it('반려는 승인 근거 없이 — 재고는 그대로', async () => {
