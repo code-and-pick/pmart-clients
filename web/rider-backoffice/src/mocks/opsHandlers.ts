@@ -65,6 +65,9 @@ function guard(request: Request, act = false) {
   return { who } as const;
 }
 
+const IQP_1 = { photoId: 'IQP-1', url: '/api/v1/inquiry-photos/IQP-1', contentType: 'image/jpeg' as const, sizeBytes: 4, uploadedAt: '2026-11-17T00:29:00.000Z' };
+const SUR_DONE = { requestId: 'SUR-0', deliveryId: 'DLV-3', riderId: 'RD-8', reason: 'ELEVATOR_OUT_OF_ORDER', floor: 18, amount: 500, evidenceRefs: [], state: 'APPROVED', requestedAt: '2026-11-16T05:00:00.000Z', decidedAt: '2026-11-16T06:00:00.000Z', decidedBy: 'OP-rops-1', decisionNote: null };
+
 export const opsHandlers = [
   http.get(`${API_BASE}/centers`, () => HttpResponse.json({ items: [{ centerId: 'MFC-BSJ-01', name: 'PMart 부산진구지점', type: 'MFC' }] })),
 
@@ -194,7 +197,10 @@ export const opsHandlers = [
   http.get(`${API_BASE}/surcharge-requests`, ({ request }) => {
     const g = guard(request);
     if ('error' in g) return g.error;
-    return HttpResponse.json({ items: ops.surcharges.filter((s) => s.state === 'REQUESTED') });
+    // 거르기: state·riderId(완전 일치), 기본은 전부(계약). 목 전용: SUR-0 은 이미 승인된 건
+    const q = new URL(request.url).searchParams;
+    const all = [SUR_DONE, ...ops.surcharges];
+    return HttpResponse.json({ items: all.filter((s) => (!q.get('state') || s.state === q.get('state')) && (!q.get('riderId') || s.riderId === q.get('riderId'))) });
   }),
   http.post(`${API_BASE}/surcharge-requests/:requestId/decisions`, async ({ request, params }) => {
     const g = guard(request, true);
@@ -352,9 +358,16 @@ export const opsHandlers = [
       return { status: 200, body: { inquiryId: params.inquiryId, status: 'CLOSED' } };
     });
   }),
+  // 문의 사진(case 0.14.0) — 목 전용: IQP-1 만 있음, 그 밖 404
+  http.get(`${API_BASE}/inquiry-photos/:photoId`, ({ request, params }) => {
+    const g = guard(request);
+    if ('error' in g) return g.error;
+    if (params.photoId !== IQP_1.photoId) return problem(404, 'NOT_FOUND');
+    return new HttpResponse(new Uint8Array([0xff, 0xd8, 0xff, 0xd9]), { headers: { 'content-type': 'image/jpeg', 'cache-control': 'private, no-store' } });
+  }),
   http.get(`${API_BASE}/inquiries/:inquiryId`, ({ request, params }) => {
     const g = guard(request);
     if ('error' in g) return g.error;
-    return HttpResponse.json({ inquiryId: params.inquiryId, category: 'SETTLEMENT', title: '정산 문의', body: '지난주 정산이 빠졌어요', status: ops.inquiryStatus, createdAt: '2026-11-17T00:30:00.000Z', version: 1, replies: [] });
+    return HttpResponse.json({ inquiryId: params.inquiryId, category: 'SETTLEMENT', title: '정산 문의', body: '지난주 정산이 빠졌어요', status: ops.inquiryStatus, createdAt: '2026-11-17T00:30:00.000Z', version: 1, replies: [], photos: [IQP_1] });
   }),
 ];

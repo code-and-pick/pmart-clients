@@ -1,11 +1,10 @@
 // 도움요청 상세 보탬(PC 5, 2026-11-17 — #88 위). 모두 execution 계약 그대로:
-// - 증빙 사진 `GET /deliveries/{deliveryId}/evidence-photos/{photoRef}` — 토큰이 필요해 받아서 blob → object URL, 화면을 떠나면 해제(no-store, 캐시 안 함).
-//   못 받으면 빈칸이 아니라 "불러오지 못함". 사진 내용·URL 은 로그에 남기지 않는다.
+// - 증빙 사진 `GET /deliveries/{deliveryId}/evidence-photos/{photoRef}` — 공통 AuthedPhotos(토큰 붙여 받기·해제·못 받으면 "불러오지 못함").
 // - 처리함 `POST …/resolutions` — OPEN·IN_PROGRESS → RESOLVED. 접수 건(caseId)이 붙은 건 서버가 409 HELP_REQUEST_HAS_CASE 이므로 버튼 대신 접수 건 링크.
 //   "닫았어요"는 서버가 돌려준 resolvedAt 으로만. 메모에는 개인정보를 적지 않는다(안내).
 // - 가리기 `POST …/messages/{messageId}/maskings` — OPERATOR_ADMIN 만(그 밖 403), 사유 2~500자. 가린 뒤 대화를 다시 읽는다.
 import { useQueryClient } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Link } from 'react-router';
 
 import { request } from '@pmart/web-core';
@@ -13,20 +12,14 @@ import { CommandFeedback, useCommand } from '@pmart/web-ui';
 import { commandParams } from '../../api/command';
 import type { components } from '../../api/generated/delivery-execution';
 import { useApi } from '../../app/ApiContext';
+import { AuthedPhotos } from '../../shared/AuthedPhotos';
+import { useEvidenceLoader } from '../../shared/evidenceLoader';
 import { when } from '../../shared/opsUi';
 
 type HelpRequest = components['schemas']['HelpRequest'];
 
 export const helpExtrasMessages = {
-  photos: {
-    title: (n: number) => `증빙 사진 ${n}장`,
-    none: '라이더가 올린 사진이 없어요.',
-    unavailable: '사진을 불러오지 못했어요',
-    retry: '다시 불러오기',
-    alt: (i: number) => `증빙 사진 ${i}`,
-    open: (i: number) => `증빙 사진 ${i} 크게 보기`,
-    close: '작게',
-  },
+  photos: { label: '증빙 사진', inquiryLabel: '문의 사진' },
   resolve: {
     title: '처리',
     button: '처리함으로 닫기',
@@ -52,83 +45,19 @@ export const helpExtrasMessages = {
 const m = helpExtrasMessages;
 const NOTE_MAX = 300;
 
-type Loaded = { readonly kind: 'loading' } | { readonly kind: 'ready'; readonly url: string } | { readonly kind: 'error' };
-
-function usePhotoUrl(deliveryId: string, photoRef: string): readonly [Loaded, () => void] {
-  const api = useApi();
-  const [attempt, setAttempt] = useState(0);
-  const [result, setResult] = useState<{ readonly attempt: number; readonly loaded: Loaded } | null>(null);
-  useEffect(() => {
-    let url: string | undefined;
-    let alive = true;
-    request('GET', api.execution.GET('/deliveries/{deliveryId}/evidence-photos/{photoRef}', { params: { path: { deliveryId, photoRef } }, parseAs: 'blob' })).then(
-      (blob) => {
-        if (!alive) return;
-        url = URL.createObjectURL(blob);
-        setResult({ attempt, loaded: { kind: 'ready', url } });
-      },
-      () => {
-        if (alive) setResult({ attempt, loaded: { kind: 'error' } });
-      },
-    );
-    return () => {
-      alive = false;
-      if (url) URL.revokeObjectURL(url);
-    };
-  }, [api, deliveryId, photoRef, attempt]);
-  const state: Loaded = result?.attempt === attempt ? result.loaded : { kind: 'loading' };
-  return [state, () => setAttempt((n) => n + 1)] as const;
-}
-
-function Photo({ deliveryId, photoRef, index }: { readonly deliveryId: string; readonly photoRef: string; readonly index: number }) {
-  const [state, retry] = usePhotoUrl(deliveryId, photoRef);
-  const [big, setBig] = useState(false);
-  if (state.kind === 'loading') return <span className="loading loading-spinner loading-sm" />;
-  if (state.kind === 'error')
-    return (
-      <span className="flex flex-col items-start gap-1 text-xs text-error" data-testid="evidence-photo-error">
-        {m.photos.unavailable}
-        <button type="button" className="btn btn-ghost btn-xs" onClick={retry}>
-          {m.photos.retry}
-        </button>
-      </span>
-    );
-  if (big)
-    return (
-      <figure className="space-y-2 rounded-box bg-base-200 p-3" data-testid="evidence-photo-large">
-        <img src={state.url} alt={m.photos.alt(index + 1)} className="max-h-[70vh] max-w-full object-contain" />
-        <figcaption className="flex items-center gap-2 text-xs opacity-70">
-          {m.photos.alt(index + 1)}
-          <button type="button" className="btn btn-ghost btn-xs" onClick={() => setBig(false)}>
-            {m.photos.close}
-          </button>
-        </figcaption>
-      </figure>
-    );
-  return (
-    <button type="button" className="rounded-box border border-base-300" aria-label={m.photos.open(index + 1)} onClick={() => setBig(true)}>
-      <img src={state.url} alt={m.photos.alt(index + 1)} className="h-24 w-24 rounded-box object-cover" />
-    </button>
-  );
-}
-
 export function EvidencePhotos({ deliveryId, refs }: { readonly deliveryId: string; readonly refs: readonly string[] }) {
-  return (
-    <section className="space-y-2" aria-label={m.photos.title(refs.length)}>
-      <h2 className="font-bold">{m.photos.title(refs.length)}</h2>
-      {refs.length === 0 ? (
-        <p className="text-sm opacity-70">{m.photos.none}</p>
-      ) : (
-        <ul className="flex flex-wrap gap-2">
-          {refs.map((ref, i) => (
-            <li key={ref} data-testid="evidence-photo">
-              <Photo deliveryId={deliveryId} photoRef={ref} index={i} />
-            </li>
-          ))}
-        </ul>
-      )}
-    </section>
+  const load = useEvidenceLoader(deliveryId);
+  return <AuthedPhotos refs={refs} load={load} label={m.photos.label} />;
+}
+
+/** 라이더 문의 사진(case 0.14.0) — `GET /inquiry-photos/{photoId}`(RIDER_OPS·OPERATOR_ADMIN 은 라이더 문의 사진을 본다, 공유 캐시 금지) */
+export function InquiryPhotos({ photoIds }: { readonly photoIds: readonly string[] }) {
+  const api = useApi();
+  const load = useCallback(
+    (photoId: string) => request('GET', api.cases.GET('/inquiry-photos/{photoId}', { params: { path: { photoId } }, parseAs: 'blob' })),
+    [api],
   );
+  return <AuthedPhotos refs={photoIds} load={load} label={m.photos.inquiryLabel} />;
 }
 
 export function ResolvePanel({ help, deliveryId, requestId }: { readonly help: HelpRequest; readonly deliveryId: string; readonly requestId: string }) {

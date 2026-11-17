@@ -12,7 +12,7 @@ import { messages } from '../../shared/messages';
 import { ops } from '../../shared/opsMessages';
 import { label, none, when } from '../../shared/opsUi';
 import { useSession } from '../../app/SessionContext';
-import { EvidencePhotos, MaskMessage, ResolvePanel } from './HelpExtras';
+import { EvidencePhotos, InquiryPhotos, MaskMessage, ResolvePanel } from './HelpExtras';
 
 const h = ops.help;
 const q = ops.inquiries;
@@ -285,6 +285,9 @@ function InquiryDetailPage() {
             <p className="text-xs opacity-70">{`${q.first} · ${label(n.inquiryCategory, d.category)} · ${label(q.statusName, d.status)} · ${when(d.createdAt)}`}</p>
             {d.title && <p className="font-semibold">{d.title}</p>}
             <p className="whitespace-pre-wrap">{d.body}</p>
+            <div className="mt-3">
+              <InquiryPhotos photoIds={(d.photos ?? []).map((p) => p.photoId)} />
+            </div>
           </div>
         )}
       </QueryState>

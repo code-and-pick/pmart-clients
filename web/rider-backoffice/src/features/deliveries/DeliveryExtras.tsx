@@ -6,12 +6,17 @@ import type { ReactNode } from 'react';
 import { request } from '@pmart/web-core';
 import { QueryState, toUiState } from '@pmart/web-ui';
 import type { components as DispatchC } from '../../api/generated/delivery-dispatch';
+import type { components as ExecC } from '../../api/generated/delivery-execution';
 import type { components as TrackingC } from '../../api/generated/delivery-tracking';
 import { useApi } from '../../app/ApiContext';
-import { label, none, when } from '../../shared/opsUi';
+import { AuthedPhotos } from '../../shared/AuthedPhotos';
+import { messages } from '../../shared/messages';
+import { label, none, when, won } from '../../shared/opsUi';
+import { useEvidenceLoader } from '../../shared/evidenceLoader';
 
 type Attempt = NonNullable<DispatchC['schemas']['Delivery']['attempts']>[number];
 type EtaLeg = TrackingC['schemas']['EtaLeg'];
+type Execution = ExecC['schemas']['DeliveryExecution'];
 
 export const extrasMessages = {
   attempts: '배차 시도',
@@ -41,6 +46,25 @@ export const extrasMessages = {
   riderLocationAt: (at: string, staleSeconds: number | null) => (staleSeconds === null ? at : `${at} (받은 지 ${staleSeconds}초)`),
   asOf: '기준 시각',
   freshness: { CURRENT: '최신', STALE: '지연', UNAVAILABLE: '확인 불가' } as Readonly<Record<string, string>>,
+  proof: '전달 완료 증빙',
+  noProof: '증빙이 없어요(아직 전달 전이거나 사진 없는 완료).',
+  method: '완료 방법',
+  // FACE·CONTACTLESS = 계약 Evidence, CUSTOMER_CONFIRMED = 계약 설명(0.20.0), AUTO_COMPLETED = 백엔드 알림(2026-11-17 조치 API) — 그 밖 값은 받은 그대로
+  methodName: { FACE: '대면 전달', CONTACTLESS: '비대면(사진)', CUSTOMER_CONFIRMED: '고객이 "받았어요"', AUTO_COMPLETED: '자동 완료(픽업 5시간)' } as Readonly<Record<string, string>>,
+  placement: '놓은 곳',
+  placementName: { HANDED_TO_CUSTOMER: '고객에게 직접', FRONT_DOOR: '문 앞', SECURITY_OFFICE: '경비실', DELIVERY_BOX: '택배함', OTHER: '기타' } as Readonly<Record<string, string>>,
+  takenAt: '찍은 시각',
+  proofPhoto: '완료 사진',
+  substituteCase: '대체 증빙 접수 건',
+  earning: '이 배송 수행료',
+  earningNote: '금액·지급 상태는 서버 값 그대로예요(화면에서 계산하지 않아요).',
+  fee: { base: '기본', surcharge: '할증', compensation: '보상(추가 배달료 포함)', deduction: '차감', total: '합계' },
+  settlement: '정산 상태',
+  payoutDate: '지급 예정일',
+  notCalculable: '산정 불가 — 수행료 조정에서 귀책을 정해요',
+  earningNone: '수행료 기록이 없어요.',
+  returnFlow: '반납 방식',
+  returnPickup: (v: boolean) => (v ? '받음 → 반납(다른 라이더가 원래 라이더에게서 받아 반납)' : '바로 반납(같은 라이더)'),
 } as const;
 
 const m = extrasMessages;
@@ -145,6 +169,73 @@ export function EtaPanel({ deliveryId }: { readonly deliveryId: string }) {
           </dl>
         )}
       </QueryState>
+    </div>
+  );
+}
+
+/** 전달 완료 증빙(execution `evidence`) — 방법·놓은 곳·시각·사진. 반납 배송이면 반납 방식(`returnPickupRequired`). */
+export function DeliveryProof({ delivery }: { readonly delivery: Execution }) {
+  const deliveryId = delivery.deliveryId ?? '';
+  const load = useEvidenceLoader(deliveryId);
+  const ev = delivery.evidence;
+  const isReturn = delivery.returnPickupRequired !== undefined && delivery.returnPickupRequired !== null;
+  return (
+    <div className="space-y-2" data-testid="delivery-proof">
+      <h2 className="font-bold">{m.proof}</h2>
+      {isReturn && (
+        <dl className={DL} data-testid="return-flow">
+          <Row k={m.returnFlow}>{m.returnPickup(delivery.returnPickupRequired === true)}</Row>
+        </dl>
+      )}
+      {!ev ? (
+        <p className="text-sm opacity-70">{m.noProof}</p>
+      ) : (
+        <>
+          <dl className={DL}>
+            <Row k={m.method}>{label(m.methodName, ev.method)}</Row>
+            {ev.placement && <Row k={m.placement}>{label(m.placementName, ev.placement)}</Row>}
+            <Row k={m.takenAt}>{when(ev.takenAt)}</Row>
+            {ev.substituteEvidenceCaseId && <Row k={m.substituteCase}>{ev.substituteEvidenceCaseId}</Row>}
+          </dl>
+          {(ev.photoRefs ?? []).length > 0 && <AuthedPhotos refs={ev.photoRefs ?? []} load={load} label={m.proofPhoto} heading={false} />}
+        </>
+      )}
+    </div>
+  );
+}
+
+/** 이 배송의 수행료(execution `earning`) — 서버 금액 그대로 */
+export function DeliveryEarning({ delivery }: { readonly delivery: Execution }) {
+  const e = delivery.earning;
+  return (
+    <div className="space-y-2" data-testid="delivery-earning">
+      <h2 className="font-bold">{m.earning}</h2>
+      {!e ? (
+        <p className="text-sm opacity-70">{m.earningNone}</p>
+      ) : (
+        <>
+          <dl className={DL}>
+            {e.calculable === false ? (
+              <Row k={m.fee.total}>
+                <span className="badge badge-warning badge-sm">{m.notCalculable}</span>
+              </Row>
+            ) : (
+              <>
+                <Row k={m.fee.base}>{won(e.baseFee)}</Row>
+                {e.surcharge !== undefined && <Row k={m.fee.surcharge}>{won(e.surcharge)}</Row>}
+                {e.compensation !== undefined && <Row k={m.fee.compensation}>{won(e.compensation)}</Row>}
+                {e.deduction !== undefined && <Row k={m.fee.deduction}>{won(e.deduction)}</Row>}
+                <Row k={m.fee.total}>
+                  <strong>{won(e.total)}</strong>
+                </Row>
+              </>
+            )}
+            <Row k={m.settlement}>{label(messages.names.settlementState, e.settlementState)}</Row>
+            {e.payoutDate && <Row k={m.payoutDate}>{e.payoutDate}</Row>}
+          </dl>
+          <p className="text-xs opacity-70">{m.earningNote}</p>
+        </>
+      )}
     </div>
   );
 }

@@ -53,6 +53,8 @@ export const mockDeliveries: Execution[] = [
     mfcId: 'MFC-BSJ-01',
     assignedAt: '2026-11-16T05:00:00.000Z',
     completedAt: '2026-11-16T05:30:00.000Z',
+    evidence: { method: 'CONTACTLESS', placement: 'FRONT_DOOR', photoRefs: ['EVP-D3'], takenAt: '2026-11-16T05:29:00.000Z' },
+    earning: { earningId: 'ERN-3', deliveryId: 'DLV-3', riderId: 'RD-8', calculable: true, baseFee: 3500, surcharge: 500, compensation: 500, deduction: 0, total: 4500, settlementState: 'CONFIRMED', payoutDate: '2026-11-21' },
     version: 6,
   },
   {
@@ -60,6 +62,7 @@ export const mockDeliveries: Execution[] = [
     orderId: 'ORD-1',
     type: 'RETURN',
     purpose: 'FAILED_DELIVERY_RETURN',
+    returnPickupRequired: true,
     state: 'ASSIGNED',
     riderId: 'RD-7',
     mfcId: 'MFC-BSJ-01',

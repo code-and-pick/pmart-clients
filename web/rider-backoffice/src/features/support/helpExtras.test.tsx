@@ -18,7 +18,7 @@ describe('도움요청 상세 — 증빙 사진·처리함·가리기', () => {
     renderAt('/help-requests/DLV-1/HR-1', as.riderOps);
     expect(await screen.findByRole('heading', { name: '증빙 사진 2장' })).toBeInTheDocument();
     expect(await screen.findByRole('button', { name: '증빙 사진 1 크게 보기' })).toBeInTheDocument();
-    expect(await screen.findByTestId('evidence-photo-error')).toHaveTextContent('사진을 불러오지 못했어요');
+    expect(await screen.findByTestId('photo-error')).toHaveTextContent('사진을 불러오지 못했어요');
   });
 
   it('처리함: 확인 창 → 멱등 키로 보내고, 서버 resolvedAt 으로 "닫았어요" — 대화는 닫힘', async () => {

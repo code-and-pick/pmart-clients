@@ -13,7 +13,7 @@ import { useApi } from '../../app/ApiContext';
 import { messages } from '../../shared/messages';
 import { ops } from '../../shared/opsMessages';
 import { DeliveryActions } from './DeliveryActions';
-import { DispatchAttempts, EtaPanel } from './DeliveryExtras';
+import { DeliveryEarning, DeliveryProof, DispatchAttempts, EtaPanel } from './DeliveryExtras';
 
 const m = messages.deliveries;
 const n = messages.names;
@@ -322,7 +322,11 @@ function DeliveryDetailPage() {
           </QueryState>
         </div>
       </div>
-      <EtaPanel deliveryId={deliveryId} />
+      <div className="grid gap-4 lg:grid-cols-3">
+        <EtaPanel deliveryId={deliveryId} />
+        {execution.data && <DeliveryProof delivery={execution.data} />}
+        {execution.data && <DeliveryEarning delivery={execution.data} />}
+      </div>
       {execution.data && <DeliveryActions delivery={execution.data} dispatch={dispatch.data} />}
     </section>
   );
