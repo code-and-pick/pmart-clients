@@ -87,6 +87,7 @@ auth-service 의 운영자 로그인·비밀번호 변경·운영자 계정 API 
 - 답변 `POST /inquiries/{inquiryId}/replies`(본문 1~4000자, `X-Expected-Version` = 문의 `version`). 반영되면 `ANSWERED`. 결과 불명은 같은 키로만 재확인, 409 `VERSION_CONFLICT`·`INQUIRY_CLOSED` 는 안내 + 다시 읽기. 종료(CLOSED) 문의에는 답변 칸이 없다.
 - **상담원 접수 문의**(case 0.12.0): 목록·상세에 `origin: STAFF_INTAKE` 는 "상담원 접수 · 전화/채팅/메일", `callerRelation: PROXY` 는 "대리" 표시 + 상세 경고("본인 확인 전에는 취소·환불을 요청하지 마세요"). 고객 앱에 없는 문의라 답변 안내 문구가 다르다(알림 없음, 통화·채팅 기록용). 상세에 "이 문의로 고객 연락 남기기"·"이 문의의 연락 기록".
 - **전화·채팅 접수** `/cs-intakes/new`(case 0.12.0, 백엔드 PR #68·요청서 `backoffice/2026-11-16-request-cs-intake` — `features/csIntakes/CsIntakePages.tsx`, 고객센터 묶음 "전화·채팅 접수", `CS_AGENT`·`OPERATOR_ADMIN`): 경로(전화·채팅·메일)·고객 계정 ID·주문(선택, 주문 상세 새 창)·본인 확인 방법(필수 — 주문 내용 대조는 주문 필요, 앱 로그인 채팅은 채팅만, 기타는 메모 필수, 화면도 막음)·본인/대리(대리면 노란 경고)·분류(라이더 일은 라이더 컴플레인으로 안내)·내용(개인정보 금지)·동의 기록(접어 둠, 기록만)·기존 건 연결(선택) → `POST /cs-intakes`(같은 키 재전송). 새 문의/연결 결과 링크. 422 `CUSTOMER_ORDER_MISMATCH`·`ORDER_NOT_FOUND` 코드 문구. 접수 건 상세에 "이 건으로 고객 연락 남기기"·"이 건의 연락 기록"(`GET /cs-intakes?caseId=`, 상담원·관리자에게만). 목으로만 확인, 실서버 쓰기는 사용자 승인 뒤.
+- **라이더 문의** `/rider-inquiries`(case 0.13.0, 백엔드 요청 `backoffice/2026-11-16-request-rider-inquiries` — 지원센터 묶음, 메뉴 항목은 `RIDER_OPS`·`OPERATOR_ADMIN` 만): 고객 문의 화면을 같이 쓰고 목록은 `requesterType=RIDER`(고객센터 문의는 `CUSTOMER` — 관리자도 메뉴별로 나뉨). 분류 정산·앱 오류, 상세 "문의한 사람"·라이더 ID(라이더 찾기 링크), 컴플레인·연락 기록 없음. 답변은 `RIDER_OPS` 만(관리자 보기만, 서버도 종류별 403). 못 보는 종류 403 은 오류로. 목으로만 확인.
 - 답변은 응대일 뿐 주문·환불을 바꾸지 않는다. 고객 알림은 없다(고객은 앱 "내 문의"에서 본다).
 - 실서버 확인은 아직 안 함(목: `mocks/inquiryHandlers.ts`, 목 계정 "상담원 최").
 

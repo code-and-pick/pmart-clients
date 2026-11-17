@@ -9,6 +9,8 @@ import { messages as m } from '../shared/messages';
 export interface NavItem {
   readonly to: string;
   readonly label: string;
+  /** 묶음 안에서 이 항목만 보는 역할(없으면 묶음 역할 그대로) */
+  readonly visibleTo?: (role: string) => boolean;
 }
 
 export interface NavGroup {
@@ -96,6 +98,8 @@ export const navGroups: readonly NavGroup[] = [
     visibleTo: oneOf('RIDER_OPS', 'OPERATOR_ADMIN', 'CS_AGENT'),
     items: [
       { to: '/cases', label: m.nav.cases },
+      // 라이더 문의(case 0.13.0 — 백엔드 요청 2026-11-16 request-rider-inquiries). 지원센터·관리자만(상담원은 403)
+      { to: '/rider-inquiries', label: m.nav.riderInquiries, visibleTo: oneOf('RIDER_OPS', 'OPERATOR_ADMIN') },
       { to: '/cases/new-misdelivery', label: m.nav.misdelivery },
       // 교대 인계(case 0.9.0 — 백엔드 PR #42). 지원센터·관리자(서버 판정)
       { to: '/cases/handovers', label: m.nav.handovers },
@@ -125,7 +129,10 @@ export const navGroups: readonly NavGroup[] = [
 
 /** 이 역할들로 보이는 묶음(순서 유지). */
 export function visibleGroups(roles: readonly string[]): NavGroup[] {
-  return navGroups.filter((g) => g.items.length > 0 && (g.visibleTo === 'ALL' || roles.some(g.visibleTo)));
+  return navGroups
+    .filter((g) => g.visibleTo === 'ALL' || roles.some(g.visibleTo))
+    .map((g) => ({ ...g, items: g.items.filter((i) => !i.visibleTo || roles.some(i.visibleTo)) }))
+    .filter((g) => g.items.length > 0);
 }
 
 /** 메뉴 항목이 지금 경로의 화면인가(하위 경로 포함 — 상세 화면에서도 묶음을 펼쳐 둔다). */

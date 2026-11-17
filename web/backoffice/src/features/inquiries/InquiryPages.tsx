@@ -1,6 +1,8 @@
 // 고객센터 문의(상담원 CS_AGENT) — case-service 0.2.0 inquiries, 백엔드 요청 2026-11-09 customer-inquiry-page §2.
 // 목록(GET /inquiries?status=) · 상세(GET /inquiries/{id}) · 답변(POST /inquiries/{id}/replies, X-Expected-Version = 문의 version).
 // 권한은 서버 판정 — 조회는 CS_AGENT·OPERATOR_ADMIN, 답변은 CS_AGENT 만(case 0.4.2, 2026-11-16 사용자 (가)).
+// 라이더 문의(case 0.13.0, requesterType=RIDER): 지원센터 메뉴 `/rider-inquiries` — 조회 RIDER_OPS·OPERATOR_ADMIN, 답변 RIDER_OPS 만.
+// 두 메뉴가 같은 화면을 쓰고 목록은 `requesterType` 으로 서버에 거른다(관리자는 둘 다 보지만 메뉴별로 나뉘어 보인다).
 // 답변 칸은 상담원에게만 그린다(편의 — 서버도 403). 답변은 접수 응대일 뿐 주문·환불을 바꾸지 않는다.
 // 문의·답변 본문은 고객이 쓴 신뢰할 수 없는 텍스트 — 일반 텍스트로만 그린다. 로그에 남기지 않는다.
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -20,6 +22,9 @@ import { messages as m } from '../../shared/messages';
 type Inquiry = components['schemas']['Inquiry'];
 type InquirySummary = components['schemas']['InquirySummary'];
 type InquiryStatus = components['schemas']['InquiryStatus'];
+type RequesterType = components['schemas']['InquiryRequesterType'];
+
+const basePath = (kind: RequesterType) => (kind === 'RIDER' ? '/rider-inquiries' : '/inquiries');
 
 const STATUSES: readonly InquiryStatus[] = ['RECEIVED', 'ANSWERED', 'CLOSED'];
 const MAX_REPLY = 4000; // 계약 replyInquiry body maxLength
@@ -29,18 +34,21 @@ const isStatus = (v: string | null): v is InquiryStatus => v !== null && (STATUS
 const label = (map: Readonly<Record<string, string>>, v: string | null | undefined) => (v ? (map[v] ?? v) : m.none);
 
 /** 문의 목록(최근 접수 순). 상태 필터는 URL 쿼리(`?status=`)에 둔다 — 서버에 그대로 묻는다(화면에서 거르지 않는다). */
-export function InquiryListPage() {
+export function InquiryListPage({ kind = 'CUSTOMER' }: { readonly kind?: RequesterType }) {
   const api = useApi();
+  const rider = kind === 'RIDER';
   const [search, setSearch] = useSearchParams();
   const raw = search.get('status');
   const status = isStatus(raw) ? raw : undefined;
 
   const query = useInfiniteQuery({
-    queryKey: ['inquiries', 'list', status ?? 'ALL'],
+    queryKey: ['inquiries', 'list', kind, status ?? 'ALL'],
     queryFn: ({ pageParam }) =>
       request(
         'GET',
-        api.cases.GET('/inquiries', { params: { query: { ...(status ? { status } : {}), ...(pageParam ? { cursor: pageParam } : {}) } } }),
+        api.cases.GET('/inquiries', {
+          params: { query: { requesterType: kind, ...(status ? { status } : {}), ...(pageParam ? { cursor: pageParam } : {}) } },
+        }),
       ),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (last) => last.page?.nextCursor ?? undefined,
@@ -49,8 +57,8 @@ export function InquiryListPage() {
 
   return (
     <section className="space-y-4">
-      <h1 className="text-xl font-bold">{m.inquiries.title}</h1>
-      <p className="text-sm opacity-70">{m.inquiries.intro}</p>
+      <h1 className="text-xl font-bold">{rider ? m.inquiries.riderTitle : m.inquiries.title}</h1>
+      <p className="text-sm opacity-70">{rider ? m.inquiries.riderIntro : m.inquiries.intro}</p>
       <div role="group" aria-label={m.inquiries.statusFilter} className="join">
         {([undefined, ...STATUSES] as const).map((s) => (
           <button
@@ -91,7 +99,7 @@ export function InquiryListPage() {
               {items.map((i) => (
                 <tr key={i.inquiryId} data-testid="inquiry-row">
                   <td>
-                    <Link className="link" to={`/inquiries/${encodeURIComponent(i.inquiryId)}`}>
+                    <Link className="link" to={`${basePath(kind)}/${encodeURIComponent(i.inquiryId)}`}>
                       {i.inquiryId}
                     </Link>
                   </td>
@@ -169,7 +177,9 @@ function ReplyForm({ inquiry }: { readonly inquiry: Inquiry }) {
           onChange={(e) => setBody(e.target.value)}
         />
       </label>
-      <p className="text-xs opacity-60">{inquiry.origin === 'STAFF_INTAKE' ? m.inquiries.replyNoteStaff : m.inquiries.replyNote}</p>
+      <p className="text-xs opacity-60">
+        {inquiry.requesterType === 'RIDER' ? m.inquiries.riderReplyNote : inquiry.origin === 'STAFF_INTAKE' ? m.inquiries.replyNoteStaff : m.inquiries.replyNote}
+      </p>
       <div className="flex items-center gap-2">
         <button type="submit" className="btn btn-primary btn-sm" disabled={!trimmed || locked}>
           {m.inquiries.replySend}
@@ -188,11 +198,13 @@ function ReplyForm({ inquiry }: { readonly inquiry: Inquiry }) {
 }
 
 /** 문의 상세 + 답변. */
-export function InquiryDetailPage() {
+export function InquiryDetailPage({ kind = 'CUSTOMER' }: { readonly kind?: RequesterType }) {
   const { inquiryId = '' } = useParams();
   const api = useApi();
   const { session } = useSession();
-  const canReply = (session?.roles ?? []).includes('CS_AGENT');
+  const roles = session?.roles ?? [];
+  // 답변 역할은 문의 종류별(case 0.13.0) — 라이더 문의 RIDER_OPS, 고객 문의 CS_AGENT. 판정은 서버(403).
+  const canReplyTo = (q: Inquiry) => roles.includes(q.requesterType === 'RIDER' ? 'RIDER_OPS' : 'CS_AGENT');
   const query = useQuery({
     queryKey: ['inquiries', 'detail', inquiryId],
     queryFn: () => request('GET', api.cases.GET('/inquiries/{inquiryId}', { params: { path: { inquiryId } } })),
@@ -209,10 +221,29 @@ export function InquiryDetailPage() {
               <dd data-testid="inquiry-status">{label(m.inquiries.status, q.status)}</dd>
               <dt>{m.inquiries.category}</dt>
               <dd>{label(m.inquiries.categoryName, q.category)}</dd>
-              <dt>{m.inquiries.customer}</dt>
-              <dd>{q.customerId ?? m.none}</dd>
-              <dt>{m.inquiries.order}</dt>
-              <dd>{q.orderId ?? m.none}</dd>
+              <dt>{m.inquiries.requester}</dt>
+              <dd data-testid="inquiry-requester">{label(m.inquiries.requesterName, q.requesterType ?? 'CUSTOMER')}</dd>
+              {q.requesterType === 'RIDER' ? (
+                <>
+                  <dt>{m.inquiries.rider}</dt>
+                  <dd>
+                    {q.riderId ? (
+                      <Link className="link" to={`/riders/${encodeURIComponent(q.riderId)}`}>
+                        {q.riderId}
+                      </Link>
+                    ) : (
+                      m.none
+                    )}
+                  </dd>
+                </>
+              ) : (
+                <>
+                  <dt>{m.inquiries.customer}</dt>
+                  <dd>{q.customerId ?? m.none}</dd>
+                  <dt>{m.inquiries.order}</dt>
+                  <dd>{q.orderId ?? m.none}</dd>
+                </>
+              )}
               <dt>{m.inquiries.origin}</dt>
               <dd>
                 {q.origin === 'ASSISTANT_HANDOFF'
@@ -263,34 +294,38 @@ export function InquiryDetailPage() {
               </ul>
             )}
 
-            {canReply ? (
+            {canReplyTo(q) ? (
               <ReplyForm key={q.inquiryId} inquiry={q} />
             ) : (
               <p className="text-sm opacity-70" data-testid="inquiry-read-only">
-                {m.inquiries.readOnly}
+                {q.requesterType === 'RIDER' ? m.inquiries.riderReadOnly : m.inquiries.readOnly}
               </p>
             )}
-            {/* 라이더 때문에 생긴 문의면 컴플레인을 기록한다(문의 ID 로 사건 연결 — case 0.3.0). 배송 번호는 상담원이 넣는다(문의에 없음). */}
-            <Link
-              className="btn btn-sm"
-              to={`/rider-complaints/new?${new URLSearchParams({ inquiryId: q.inquiryId, ...(q.orderId ? { orderId: q.orderId } : {}) }).toString()}`}
-            >
-              {m.inquiries.recordComplaint}
-            </Link>
-            {canSeeIntakes(session?.roles ?? []) && (
-              <Link
-                className="btn btn-sm ml-2"
-                to={`/cs-intakes/new?${new URLSearchParams({ linkCaseId: q.caseId, ...(q.customerId ? { customerRef: q.customerId } : {}), ...(q.orderId ? { subjectRef: q.orderId } : {}) }).toString()}`}
-              >
-                {m.inquiries.recordContact}
-              </Link>
+            {q.requesterType !== 'RIDER' && (
+              <>
+                {/* 라이더 때문에 생긴 문의면 컴플레인을 기록한다(문의 ID 로 사건 연결 — case 0.3.0). 배송 번호는 상담원이 넣는다(문의에 없음). */}
+                <Link
+                  className="btn btn-sm"
+                  to={`/rider-complaints/new?${new URLSearchParams({ inquiryId: q.inquiryId, ...(q.orderId ? { orderId: q.orderId } : {}) }).toString()}`}
+                >
+                  {m.inquiries.recordComplaint}
+                </Link>
+                {canSeeIntakes(session?.roles ?? []) && (
+                  <Link
+                    className="btn btn-sm ml-2"
+                    to={`/cs-intakes/new?${new URLSearchParams({ linkCaseId: q.caseId, ...(q.customerId ? { customerRef: q.customerId } : {}), ...(q.orderId ? { subjectRef: q.orderId } : {}) }).toString()}`}
+                  >
+                    {m.inquiries.recordContact}
+                  </Link>
+                )}
+                <CsIntakeLog caseId={q.caseId} title={m.inquiries.contactLog} />
+              </>
             )}
-            <CsIntakeLog caseId={q.caseId} title={m.inquiries.contactLog} />
           </>
         )}
       </QueryState>
-      <Link className="link text-sm" to="/inquiries">
-        {m.inquiries.back}
+      <Link className="link text-sm" to={basePath(kind)}>
+        {kind === 'RIDER' ? m.inquiries.riderBack : m.inquiries.back}
       </Link>
     </section>
   );

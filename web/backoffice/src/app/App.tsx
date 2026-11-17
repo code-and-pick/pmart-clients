@@ -142,6 +142,8 @@ const routes = [
       { path: 'handlings', element: guarded(<SkuHandlingPage />) },
       { path: 'inquiries', element: guarded(<InquiryListPage />) },
       { path: 'inquiries/:inquiryId', element: guarded(<InquiryDetailPage />) },
+      { path: 'rider-inquiries', element: guarded(<InquiryListPage kind="RIDER" />) },
+      { path: 'rider-inquiries/:inquiryId', element: guarded(<InquiryDetailPage kind="RIDER" />) },
       { path: 'cs-intakes/new', element: guarded(<NewCsIntakePage />) },
       // 고객센터·라이더 운영(백엔드 요청 2026-11-15 cs-rider-menus)
       { path: 'orders', element: guarded(<OrderLookupPage />) },
