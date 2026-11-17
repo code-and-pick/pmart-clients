@@ -4,6 +4,8 @@ import 'package:pmart_api_delivery_dispatch/pmart_api_delivery_dispatch.dart'
     as dp;
 import 'package:pmart_api_delivery_execution/pmart_api_delivery_execution.dart'
     as ex;
+import 'package:pmart_api_delivery_tracking/pmart_api_delivery_tracking.dart'
+    as tk;
 import 'package:pmart_core/pmart_core.dart';
 
 import '../../../shared/mfc_directory.dart';
@@ -89,9 +91,28 @@ MfcBranch _serverStore(
 /// 배정 전(제안만 있는 배송)은 배송 조회가 안 되므로 제안 요약만 쓴다.
 final class ApiTripRepository implements TripRepository {
   ApiTripRepository(Dio dio)
-    : _exec = ex.PmartApiDeliveryExecution(dio: dio).getExecutionApi();
+    : _exec = ex.PmartApiDeliveryExecution(dio: dio).getExecutionApi(),
+      _eta = tk.PmartApiDeliveryTracking(dio: dio).getEtaApi();
 
   final ex.ExecutionApi _exec;
+  final tk.EtaApi _eta;
+
+  /// 수락 뒤 예정 시각(delivery-tracking 0.7.0 `GET /deliveries/{id}/eta` — 라이더 본인 배송, 백엔드 회신
+  /// 2026-11-17 reply-rider-eta). 계산 전·위치 끊김(ETA_PENDING·LOCATING)·못 읽음이면 null —
+  /// 그때는 제안 때 잡은 예정을 그대로 쓴다.
+  Future<({DateTime? pickup, DateTime? drop})> _serverEta(String id) async {
+    try {
+      final e = (await pmartGuard(() => _eta.getDeliveryEta(deliveryId: id)))
+          .data;
+      DateTime? at(tk.EtaLeg? l) => switch (l?.status?.value) {
+        'AVAILABLE' || 'FINAL' => l?.etaAt?.toLocal(),
+        _ => null,
+      };
+      return (pickup: at(e?.pickupEta), drop: at(e?.dropEta));
+    } on PmartFailure {
+      return (pickup: null, drop: null);
+    }
+  }
 
   @override
   Future<TripInfo?> forDelivery(String deliveryId) async {
@@ -105,7 +126,14 @@ final class ApiTripRepository implements TripRepository {
       if (hint == null) rethrow;
     }
     final summary = d?.orderSummary;
-    if (summary == null) return hint;
+    // 배정된 배송이면 서버 예정 시각을 먼저 쓴다(1분마다 다시 계산된다).
+    final eta = d == null
+        ? (pickup: null, drop: null)
+        : await _serverEta(deliveryId);
+    if (summary == null) {
+      if (hint == null) return null;
+      return _withEta(hint, eta.pickup, eta.drop);
+    }
     final items = [
       for (final i
           in summary.items ??
@@ -139,11 +167,26 @@ final class ApiTripRepository implements TripRepository {
       deliveryRequest: summary.deliveryNote ?? hint?.deliveryRequest,
       dropLabel: hint?.dropLabel,
       drop: hint?.drop,
-      pickupDueAt: hint?.pickupDueAt,
-      dropDueAt: hint?.dropDueAt,
+      pickupDueAt: eta.pickup ?? hint?.pickupDueAt,
+      dropDueAt: eta.drop ?? hint?.dropDueAt,
       dropEtaSeconds: hint?.dropEtaSeconds,
     );
   }
+
+  static TripInfo _withEta(TripInfo t, DateTime? pickup, DateTime? drop) =>
+      TripInfo(
+        orderNo: t.orderNo,
+        store: t.store,
+        items: t.items,
+        menuTotal: t.menuTotal,
+        storeRequest: t.storeRequest,
+        deliveryRequest: t.deliveryRequest,
+        dropLabel: t.dropLabel,
+        drop: t.drop,
+        pickupDueAt: pickup ?? t.pickupDueAt,
+        dropDueAt: drop ?? t.dropDueAt,
+        dropEtaSeconds: t.dropEtaSeconds,
+      );
 }
 
 /// 목 주문(부산진구지점). 이름·전화·주소는 모두 가짜다.

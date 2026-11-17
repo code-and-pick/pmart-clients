@@ -468,6 +468,44 @@ void main() {
     expect(notificationTarget('HELP_REQUEST', 'broken'), isA<NoTarget>());
   });
 
+  test('수락 뒤 예정 시각: 서버 ETA(AVAILABLE)를 쓰고, 계산 전(ETA_PENDING)은 비운다', () async {
+    Map<String, Object?> eta(String status) => {
+      'deliveryId': 'dlv-1',
+      'pickupEta': {'status': status, 'etaAt': '2026-11-17T10:12:00Z'},
+      'dropEta': {'status': status, 'etaAt': '2026-11-17T10:30:00Z'},
+    };
+    final delivery = {
+      'deliveryId': 'dlv-1',
+      'state': 'ASSIGNED',
+      'orderSummary': {
+        'orderNumber': '12345678',
+        'items': [
+          {'name': '요거트', 'qty': 1, 'lineAmount': 5980},
+        ],
+      },
+    };
+    final ready = await ApiTripRepository(
+      _dio(
+        _FakeAdapter({
+          'GET /api/v1/deliveries/dlv-1': (200, delivery),
+          'GET /api/v1/deliveries/dlv-1/eta': (200, eta('AVAILABLE')),
+        }),
+      ),
+    ).forDelivery('dlv-1');
+    expect(ready?.pickupDueAt, DateTime.utc(2026, 11, 17, 10, 12).toLocal());
+    expect(ready?.dropDueAt, DateTime.utc(2026, 11, 17, 10, 30).toLocal());
+
+    final pending = await ApiTripRepository(
+      _dio(
+        _FakeAdapter({
+          'GET /api/v1/deliveries/dlv-1': (200, delivery),
+          'GET /api/v1/deliveries/dlv-1/eta': (200, eta('ETA_PENDING')),
+        }),
+      ),
+    ).forDelivery('dlv-1');
+    expect(pending?.pickupDueAt, isNull, reason: '계산 전 숫자를 만들지 않는다');
+    expect(pending?.orderNo, '12345678');
+  });
   test('사진 다시 보기: 도움요청 상세 evidenceRefs → 사진 원본(새 API 없이)', () async {
     final a = _FakeAdapter({
       'GET /api/v1/deliveries/dlv-1/help-requests/req-1': (

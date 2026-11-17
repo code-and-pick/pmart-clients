@@ -70,6 +70,9 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
   @override
   void initState() {
     super.initState();
+    _etaPoll = Timer.periodic(const Duration(minutes: 1), (_) {
+      if (mounted) ref.invalidate(tripInfoProvider(_id));
+    });
     _sheet.addListener(() {
       final size = _sheet.size;
       final open = size > (_peekSize + _sheetFull) / 2;
@@ -196,8 +199,12 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
     unawaited(context.push('/deliveries/$_id/support/${last.key.value}'));
   }
 
+  /// 서버 예정 시각은 1분마다 다시 계산된다 — 화면도 1분마다 다시 읽는다.
+  Timer? _etaPoll;
+
   @override
   void dispose() {
+    _etaPoll?.cancel();
     _failurePoll?.cancel();
     _sheet.dispose();
     super.dispose();
