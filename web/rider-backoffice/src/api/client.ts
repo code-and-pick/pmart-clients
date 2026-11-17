@@ -3,6 +3,9 @@ import createClient from 'openapi-fetch';
 import { createPmartFetch, TokenStore, type EmployeeAuthPaths, type PmartFetch } from '@pmart/web-core';
 import { SOURCE_SYSTEM } from './command';
 import { refreshEmployeeTokens } from './employeeAuth';
+import type { paths as CasePaths } from './generated/case';
+import type { paths as DispatchPaths } from './generated/delivery-dispatch';
+import type { paths as ExecutionPaths } from './generated/delivery-execution';
 
 export { SOURCE_SYSTEM };
 
@@ -19,6 +22,10 @@ export function createApi(pmartFetch: PmartFetch, baseUrl = API_BASE) {
   const options = { baseUrl, fetch: pmartFetch };
   return {
     employeeAuth: createClient<EmployeeAuthPaths>(options),
+    // 접수 건(사건함 — RIDER_OPS 는 배송 쪽 사건만), 배송 찾기·상세(수행), 배차 조회(dispatch)
+    cases: createClient<CasePaths>(options),
+    execution: createClient<ExecutionPaths>(options),
+    dispatch: createClient<DispatchPaths>(options),
   };
 }
 

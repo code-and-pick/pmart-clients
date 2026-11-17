@@ -1,0 +1,62 @@
+// 배송 찾기(execution 0.4.0)·상세(수행 + 배차) — 목(MSW) 기준. 실서버 확인은 아니다.
+import { screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { describe, expect, it } from 'vitest';
+
+import { as, renderAt } from '../../test/render';
+
+const searchCalls = (sent: readonly Request[]) => sent.filter((r) => new URL(r.url).pathname.endsWith('/deliveries')).map((r) => new URL(r.url).searchParams);
+
+describe('배송 찾기', () => {
+  it('비워 두면 최근 배송부터, 행을 누르면 상세', async () => {
+    const view = renderAt('/deliveries', as.riderOps);
+    const rows = await screen.findAllByTestId('delivery-row');
+    expect(rows).toHaveLength(4);
+    const failed = rows.find((r) => r.textContent?.includes('DLV-1'))!;
+    expect(within(failed).getByText('전달 실패 등록')).toBeInTheDocument();
+    expect(within(failed).getByRole('link', { name: 'DLV-1' })).toHaveAttribute('href', '/deliveries/DLV-1');
+    const unassigned = rows.find((r) => r.textContent?.includes('DLV-2'))!;
+    expect(within(unassigned).getByText('배정 전')).toBeInTheDocument();
+    const q = searchCalls(view.sent)[0]!;
+    expect([q.get('orderId'), q.get('state'), q.get('sort'), q.get('size')]).toEqual([null, null, null, '20']);
+  });
+
+  it('주문 ID 완전 일치·상태로 거르고 주소에 남긴다, 없으면 "없어요"(실패와 구분)', async () => {
+    const view = renderAt('/deliveries', as.riderOps);
+    await screen.findAllByTestId('delivery-row');
+    await userEvent.type(screen.getByLabelText('주문 ID'), 'ORD-1');
+    await userEvent.click(screen.getByRole('button', { name: '찾기' }));
+    expect(await screen.findAllByTestId('delivery-row')).toHaveLength(2); // 원래 배송 + 반납 배송
+    expect(searchCalls(view.sent).at(-1)!.get('orderId')).toBe('ORD-1');
+
+    await userEvent.selectOptions(screen.getByLabelText('수행 상태'), 'COMPLETED');
+    expect(await screen.findByText('조건에 맞는 배송이 없어요.')).toBeInTheDocument();
+    const q = searchCalls(view.sent).at(-1)!;
+    expect([q.get('orderId'), q.get('state')]).toEqual(['ORD-1', 'COMPLETED']);
+  });
+});
+
+describe('배송 상세', () => {
+  it('수행·배차를 따로 — 전달 실패 사유, 주문 품목, 수행 이력', async () => {
+    renderAt('/deliveries/DLV-1', as.riderOps);
+    const exec = await screen.findByTestId('execution-detail');
+    expect(exec).toHaveTextContent('전달 실패 등록');
+    expect(exec).toHaveTextContent('48213075');
+    expect(exec).toHaveTextContent('PMart 부산진구지점');
+    expect(screen.getByTestId('failure-detail')).toHaveTextContent('연락 안 됨');
+    expect(screen.getByTestId('order-items')).toHaveTextContent('그릭요거트 플레인 400g × 3');
+    expect(screen.getByTestId('execution-history')).toHaveTextContent('픽업 · 라이더');
+    const dispatch = await screen.findByTestId('dispatch-detail');
+    expect(dispatch).toHaveTextContent('배정');
+    expect(dispatch).toHaveTextContent('RD-7');
+    expect(screen.queryByRole('button', { name: /배차 취소|확정|반려/ })).not.toBeInTheDocument();
+  });
+
+  it('배차를 못 읽어도 수행은 보이고, 배차 칸만 오류(0·빈 값으로 바꾸지 않음)', async () => {
+    renderAt('/deliveries/DLV-4', as.riderOps);
+    const exec = await screen.findByTestId('execution-detail');
+    expect(exec).toHaveTextContent('전달 실패 반납');
+    expect(await screen.findByRole('alert')).toBeInTheDocument();
+    expect(screen.queryByTestId('dispatch-detail')).not.toBeInTheDocument();
+  });
+});

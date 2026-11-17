@@ -25,22 +25,37 @@ export interface MenuGroup {
 export const navGroups: readonly MenuGroup[] = [
   {
     key: 'control',
-    items: [{ key: 'riderMap', segment: 'control', ready: false, apiReady: [], apiMissing: ['직원용 라이더 위치 목록(delivery-tracking — 아직 없음)'] }],
+    items: [
+      {
+        key: 'riderMap',
+        segment: 'control',
+        ready: false,
+        apiReady: ['진행 중 배송·배차·라이더·열린 사건(bff /views/live-delivery)', '배송 한 건 도착 예정(delivery-tracking /deliveries/{id}/eta·stream)'],
+        apiMissing: ['직원용 라이더 위치 목록(delivery-tracking — 아직 없음)', '운행 중 라이더 목록(운행 상태·신규배차·제한 — rider-service, 아직 없음)'],
+      },
+    ],
   },
   {
     key: 'riders',
-    items: [{ key: 'riders', segment: 'riders', ready: false, apiReady: [], apiMissing: [] }],
+    items: [
+      {
+        key: 'riders',
+        segment: 'riders',
+        ready: false,
+        apiReady: ['라이더 찾기(ID·전화 완전 일치)·상세(가림)·원문 열람(사유)', '계정 제한 걸기·이력, 제한 검토', '산정 불가 수행료 조정', '라이더 컴플레인'],
+        apiMissing: ['이름·상태로 찾기, 라이더 목록 넘기기'],
+      },
+    ],
   },
   {
     key: 'deliveries',
-    items: [{ key: 'deliveries', segment: 'deliveries', ready: false, apiReady: [], apiMissing: [] }],
+    items: [{ key: 'deliveries', segment: 'deliveries', ready: true, apiReady: [], apiMissing: [] }],
   },
   {
     key: 'support',
-    items: [{ key: 'cases', segment: 'cases', ready: false, apiReady: [], apiMissing: [] }],
+    items: [{ key: 'cases', segment: 'cases', ready: true, apiReady: [], apiMissing: [] }],
   },
 ];
-
 export const allMenus: readonly MenuItem[] = navGroups.flatMap((g) => g.items);
 
 export const menuPath = (segment = allMenus[0]!.segment) => `/${segment}`;

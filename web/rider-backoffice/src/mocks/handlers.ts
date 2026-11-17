@@ -2,6 +2,8 @@ import { http } from 'msw';
 
 import { API_BASE } from '../api/client';
 import { authHandlers } from './authHandlers';
+import { caseHandlers } from './caseHandlers';
+import { deliveryHandlers } from './deliveryHandlers';
 import { operator, unauthorized } from './support';
 
 /** 게이트웨이 공개 경로(계약 security: []) */
@@ -14,4 +16,4 @@ const gateway = http.all(`${API_BASE}/*`, ({ request }) => {
   return operator(request) ? undefined : unauthorized();
 });
 
-export const handlers = [gateway, ...authHandlers];
+export const handlers = [gateway, ...authHandlers, ...caseHandlers, ...deliveryHandlers];

@@ -12,7 +12,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.app.json && tsc --noEmit -p tsconfig.node.json",
     "test": "vitest run",
     "test:watch": "vitest",
-    "gen:api": "npm --prefix ../../tools/web-tools run gen:api",
+    "gen:api": "npm --prefix ../../tools/web-tools run gen:api && node scripts/copy-generated.mjs",
     "lint": "node ../../tools/web-tools/node_modules/eslint/bin/eslint.js --config ../../tools/web-tools/eslint.config.js src"
   },
   "dependencies": {

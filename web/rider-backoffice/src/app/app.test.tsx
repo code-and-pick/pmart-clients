@@ -118,14 +118,16 @@ describe('역할', () => {
 });
 
 describe('메뉴 자리', () => {
-  it(`묶음 ${navGroups.length}개 · 메뉴 ${allMenus.length}개가 보이고, 아직 모두 "화면 준비 중"`, async () => {
+  it(`묶음 ${navGroups.length}개 · 메뉴 ${allMenus.length}개 — 만든 메뉴(배송 찾기·접수 건)는 화면, 나머지는 "화면 준비 중"`, async () => {
     renderAt('/');
     for (const g of ['관제', '라이더', '배송·배차', '지원센터']) expect(await screen.findByText(g)).toBeInTheDocument();
     for (const name of ['라이더 관제', '라이더 찾기', '배송 찾기', '접수 건']) {
       await userEvent.click(screen.getByRole('link', { name }));
       expect(await screen.findByRole('heading', { name })).toBeInTheDocument();
-      expect(screen.getByText('화면 준비 중')).toBeInTheDocument();
+      const ready = allMenus.find((menu) => menu.segment === (name === '배송 찾기' ? 'deliveries' : name === '접수 건' ? 'cases' : ''))?.ready ?? false;
+      if (ready) expect(screen.queryByText('화면 준비 중')).not.toBeInTheDocument();
+      else expect(screen.getByText('화면 준비 중')).toBeInTheDocument();
     }
-    expect(allMenus.every((menu) => !menu.ready)).toBe(true);
+    expect(allMenus.filter((menu) => menu.ready).map((menu) => menu.segment)).toEqual(['deliveries', 'cases']);
   });
 });

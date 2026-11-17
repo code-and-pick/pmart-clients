@@ -5,6 +5,8 @@ import type { ReactNode } from 'react';
 import { createBrowserRouter, createMemoryRouter, Link, Navigate, NavLink, Outlet, RouterProvider } from 'react-router';
 
 import { env } from '../env';
+import { CasesMenu } from '../features/cases/CasePages';
+import { DeliveriesMenu } from '../features/deliveries/DeliveryPages';
 import { PreparingPage } from '../features/menus/PreparingPage';
 import { LoginCallbackPage, LoginPage } from '../features/session/LoginPage';
 import { SessionPage } from '../features/session/SessionPage';
@@ -62,9 +64,22 @@ function MenuScope({ menu }: { readonly menu: MenuItem }) {
           {m.noRiderRole}
         </p>
       )}
-      <PreparingPage menu={menu} />
+      <MenuPage menu={menu} />
     </>
   );
+}
+
+/** 만든 메뉴는 그 화면, 아직이면 "준비 중"(PC 5 — 2026-11-17 접수 건·배송 찾기부터) */
+function MenuPage({ menu }: { readonly menu: MenuItem }) {
+  if (!menu.ready) return <PreparingPage menu={menu} />;
+  switch (menu.key) {
+    case 'cases':
+      return <CasesMenu />;
+    case 'deliveries':
+      return <DeliveriesMenu />;
+    default:
+      return <PreparingPage menu={menu} />;
+  }
 }
 
 const guarded = (element: ReactNode) => <RequireSession>{element}</RequireSession>;
