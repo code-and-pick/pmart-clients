@@ -66,6 +66,10 @@ dependencies:
   flutter_inappwebview: ^6.1.5
   # 리뷰 사진 고르기(사진첩·카메라) — review 0.2.0 `POST /review-photos`. Flutter 팀 공식 플러그인(사용자 2026-11-16).
   image_picker: ^1.2.4
+  # 휴대폰 푸시(FCM) — 단말 토큰을 notification `/me/push-tokens` 에 등록(BR-09). 사용자 승인 2026-11-17.
+  # Android 만, 설정은 android/app/google-services.json(git 제외)에서 읽는다(FlutterFire CLI 안 씀).
+  firebase_core: ^5.2.0
+  firebase_messaging: ^17.1.0
 
 dev_dependencies:
   flutter_test:

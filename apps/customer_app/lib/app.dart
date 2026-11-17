@@ -6,6 +6,8 @@ import 'package:pmart_ui/pmart_ui.dart';
 import 'package:pmart_core/pmart_core.dart' show PmartEnv;
 
 import 'features/auth/presentation/auth_controller.dart';
+import 'features/push/presentation/push_controller.dart'
+    show pushRegistrationProvider;
 import 'l10n/gen/app_localizations.dart';
 import 'router.dart';
 import 'shared/providers.dart';
@@ -20,6 +22,8 @@ class CustomerApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     // 저장된 세션 확인(한 번). 결과는 sessionProvider 로 퍼진다.
     ref.watch(sessionRestoreProvider);
+    // 휴대폰 푸시: 회원이 되면 알림 권한·토큰 등록, 비회원이 되면 단말 토큰을 버린다.
+    ref.watch(pushRegistrationProvider);
     // 세션이 끝났을 때 한 번 알린다: 조용히 이어졌으면 짧게, 안 됐으면 "다시 로그인" 버튼과 함께.
     ref.listen(sessionNoticeProvider, (_, notice) {
       if (notice == null) return;

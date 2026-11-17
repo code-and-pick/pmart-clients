@@ -38,4 +38,5 @@ pmart-clients 와 pmart-backend 는 서로의 저장소에 쓰지 않는다. 각
 | `customer-app/2026-11-16-backend-review-photos-and-inbox-done.md` | 리뷰 0.2.0(사진)·고객 알림함 0.2.0 반영 확인 — 실서버 확인은 배송 완료·고객 주문 뒤 |
 | `customer-app/2026-11-16-backend-review-edit-delete-done.md` | 리뷰 수정·삭제 화면 반영 확인, 빈 글 수정 질문 1개 — 실서버 확인은 배송 완료 뒤 |
 | `rider-backoffice/2026-11-17-backend-rider-backoffice-base-done.md` | 라이더 백오피스 뼈대·로그인 회신 — 들어간 커밋 `756db67` 을 그대로 받음(사용자 2026-11-17), 검토·시험 11개·LAN 빌드 이름 확인. **남은 것: 실서버(8446) 로그인을 브라우저로 눌러 보기** |
+| `customer-app/2026-11-17-backend-customer-push-fcm.md` | 고객앱 휴대폰 푸시(FCM) — 고객 발송 코드가 있는지(Q1), Firebase 프로젝트를 라이더와 같은 `pmart-123` 으로 해도 되는지(Q2), 범위·data·수신 설정·설정 값·계약 문구(Q3~Q7). **답을 받은 뒤 앱 작업 시작** |
 | `customer-app/2026-11-15-backend-support-chat-inquiry.md` | 고객앱 문의·AI 상담 반영 알림 — LAN 고객 토큰으로 실제 확인, 질문 3개 |

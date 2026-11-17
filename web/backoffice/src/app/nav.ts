@@ -65,6 +65,8 @@ export const navGroups: readonly NavGroup[] = [
       { to: '/orders', label: m.nav.orders },
       { to: '/lookup', label: m.nav.lookup }, // BO-11, bff 0.3.0
       { to: '/live-delivery', label: m.nav.live },
+      // 포장 인계 현황(bff 0.11.0) — 본사 셋, 센터 필수
+      { to: '/packing-handover', label: m.nav.packing },
       { to: '/deliveries', label: m.nav.deliveries },
       { to: '/rider-complaints', label: m.nav.riderComplaints },
     ],
