@@ -88,13 +88,13 @@ export function CaseNotes({ caseId }: { readonly caseId: string }) {
         {(r) => (
           <ul className="space-y-1 text-sm">
             {(r.items ?? []).map((n) => (
-              <li key={n.noteId} className="space-y-1 rounded-box bg-base-100 p-2" data-testid="case-note" data-masked={n.masked ? 'true' : 'false'}>
-                <div className="flex flex-wrap items-center gap-2 text-xs opacity-70">
+              <li key={n.noteId} className="space-y-1 rounded-box border border-base-300 bg-base-100 p-2" data-testid="case-note" data-masked={n.masked ? 'true' : 'false'}>
+                <div className="flex flex-wrap items-center gap-2 text-xs text-base-content/60">
                   <span>{when(n.createdAt)}</span>
                   <span className="font-mono">{text(n.authorId)}</span>
                 </div>
                 {n.masked ? (
-                  <p className="italic opacity-70">{m.maskedLine(text(n.maskedBy), text(n.maskReason))}</p>
+                  <p className="italic text-base-content/60">{m.maskedLine(text(n.maskedBy), text(n.maskReason))}</p>
                 ) : (
                   <p className="whitespace-pre-wrap">{n.text}</p>
                 )}
@@ -120,7 +120,7 @@ export function CaseNotes({ caseId }: { readonly caseId: string }) {
             <textarea className="textarea textarea-sm w-full max-w-lg" maxLength={500} value={draft} onChange={(e) => setDraft(e.target.value)} />
           </label>
           <p className="text-xs text-warning">{m.piiHint}</p>
-          <p className="text-xs opacity-70">{m.noEdit}</p>
+          <p className="text-xs text-base-content/60">{m.noEdit}</p>
           <button type="submit" className="btn btn-sm" disabled={!ok || add.busy}>
             {m.add}
           </button>

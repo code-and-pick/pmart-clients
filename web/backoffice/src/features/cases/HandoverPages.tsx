@@ -20,6 +20,7 @@ import { useApi } from '../../app/ApiContext';
 import { useSession } from '../../app/SessionContext';
 import { messages } from '../../shared/messages';
 import { label, text, when } from '../../shared/ops';
+import { PageHeader } from '../../shared/admin';
 
 const m = messages.handovers;
 type Handover = components['schemas']['ShiftHandover'];
@@ -42,8 +43,7 @@ export function HandoverPage() {
   const tab: Tab = tabs.find((t) => t === raw) ?? tabs[0] ?? 'inbox';
   return (
     <section className="max-w-5xl space-y-4">
-      <h1 className="text-xl font-bold">{m.title}</h1>
-      <p className="text-sm opacity-70">{m.intro}</p>
+      <PageHeader title={m.title} description={m.intro} />
       <p role="note" className="alert alert-info text-sm">
         {m.noAuto}
       </p>
@@ -121,7 +121,7 @@ function WriteForm() {
         void cmd.run(null);
       }}
     >
-      <div className="flex flex-wrap items-end gap-2 rounded-box bg-base-100 p-3 text-sm">
+      <div className="flex flex-wrap items-end gap-2 rounded-box border border-base-300 bg-base-100 p-3 text-sm">
         {admin && (
           <>
             <label className="flex flex-col gap-1">
@@ -152,7 +152,7 @@ function WriteForm() {
           {m.to}
           <input className="input input-sm w-56 font-mono" value={to} onChange={(e) => setTo(e.target.value)} />
         </label>
-        <p className="max-w-xs text-xs opacity-70" data-testid="handover-to-hint">
+        <p className="max-w-xs text-xs text-base-content/60" data-testid="handover-to-hint">
           {m.toRoleHint}
         </p>
       </div>
@@ -164,7 +164,7 @@ function WriteForm() {
               const id = c.caseId ?? '';
               const row = rowOf(id);
               return (
-                <li key={id} className="space-y-1 rounded-box bg-base-100 p-3 text-sm" data-testid="handover-case">
+                <li key={id} className="space-y-1 rounded-box border border-base-300 bg-base-100 p-3 text-sm" data-testid="handover-case">
                   <label className="flex items-center gap-2">
                     <input type="checkbox" className="checkbox checkbox-sm" checked={row.picked} onChange={(e) => setRow(id, { picked: e.target.checked })} />
                     <span className="badge badge-ghost badge-sm">{text(c.priority)}</span>
@@ -196,7 +196,7 @@ function WriteForm() {
         {m.note}
         <textarea className="textarea textarea-sm w-full max-w-lg" maxLength={1000} value={note} onChange={(e) => setNote(e.target.value)} />
       </label>
-      <p className="text-xs opacity-70">{m.piiHint}</p>
+      <p className="text-xs text-base-content/60">{m.piiHint}</p>
       <button type="submit" className="btn btn-sm btn-primary" disabled={!ok || cmd.busy}>
         {m.write}
       </button>
@@ -270,7 +270,7 @@ function HandoverCard({ h, mode }: { readonly h: Handover; readonly mode: 'inbox
   const canAccept = pending && h.toOperatorId === me && mode === 'inbox';
   const canCancel = pending && (h.fromOperatorId === me || h.createdBy === me || admin) && mode !== 'inbox';
   return (
-    <li className="space-y-2 rounded-box bg-base-100 p-3 text-sm" data-testid="handover" data-state={h.state}>
+    <li className="space-y-2 rounded-box border border-base-300 bg-base-100 p-3 text-sm" data-testid="handover" data-state={h.state}>
       <div className="flex flex-wrap items-center gap-2">
         <span className="font-mono">{h.shiftHandoverId}</span>
         <span className="badge badge-sm">{label(m.stateName, h.state)}</span>
@@ -279,7 +279,7 @@ function HandoverCard({ h, mode }: { readonly h: Handover; readonly mode: 'inbox
         <span className="opacity-70">{label(messages.cases.groupName, h.group)}</span>
         <span className="opacity-70">{when(h.createdAt)}</span>
       </div>
-      {pending && <p className="text-xs opacity-70">{m.pendingNote}</p>}
+      {pending && <p className="text-xs text-base-content/60">{m.pendingNote}</p>}
       {h.note && <p className="whitespace-pre-wrap opacity-80">{h.note}</p>}
       <ul className="space-y-1">
         {(h.items ?? []).map((it) => {
@@ -313,7 +313,7 @@ function HandoverCard({ h, mode }: { readonly h: Handover; readonly mode: 'inbox
           );
         })}
       </ul>
-      {(h.teamSnapshot?.length ?? 0) > 0 && <p className="text-xs opacity-70">{m.snapshot(h.teamSnapshot?.length ?? 0)}</p>}
+      {(h.teamSnapshot?.length ?? 0) > 0 && <p className="text-xs text-base-content/60">{m.snapshot(h.teamSnapshot?.length ?? 0)}</p>}
       {canAccept && (
         <div className="space-y-1">
           <button type="button" className="btn btn-sm btn-primary" disabled={accept.busy} onClick={() => void accept.run(null)}>

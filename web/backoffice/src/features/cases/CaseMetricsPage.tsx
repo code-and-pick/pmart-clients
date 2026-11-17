@@ -10,6 +10,7 @@ import type { components } from '../../api/generated/case';
 import { useApi } from '../../app/ApiContext';
 import { messages } from '../../shared/messages';
 import { label, when } from '../../shared/ops';
+import { DataTable, PageHeader } from '../../shared/admin';
 
 const m = messages.caseMetrics;
 type Kind = components['schemas']['CaseKind'];
@@ -40,26 +41,26 @@ export function CaseMetricsPage() {
   return (
     <section className="max-w-4xl space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <h1 className="text-xl font-bold">{m.title}</h1>
+        <PageHeader title={m.title} />
         <button type="button" className="btn btn-ghost btn-sm" disabled={query.isFetching} onClick={() => void query.refetch()}>
           {m.refresh}
         </button>
       </div>
-      <p className="text-sm opacity-70">{m.intro}</p>
+      <p className="text-sm text-base-content/60">{m.intro}</p>
       <QueryState state={toUiState(query)} onRetry={() => void query.refetch()}>
         {(r) => {
           const total = r.cases.reduce((s, c) => s + c.open, 0);
           return (
             <div className="space-y-4">
-              <p className="text-xs opacity-70" data-testid="metrics-as-of">
+              <p className="text-xs text-base-content/60" data-testid="metrics-as-of">
                 {m.asOf(when(r.asOf))}
               </p>
 
               <h2 className="font-bold">{m.cases}</h2>
               {r.cases.length === 0 ? (
-                <p className="text-sm opacity-70">{m.noOpenCases}</p>
+                <p className="text-sm text-base-content/60">{m.noOpenCases}</p>
               ) : (
-                <table className="table table-sm bg-base-100">
+                <DataTable>
                   <thead>
                     <tr>
                       <th>{m.kind}</th>
@@ -95,16 +96,16 @@ export function CaseMetricsPage() {
                       <td />
                     </tr>
                   </tfoot>
-                </table>
+                </DataTable>
               )}
 
               <h2 className="font-bold">{m.obligations}</h2>
               {r.obligations.length === 0 ? (
-                <p className="text-sm opacity-70">{m.noObligations}</p>
+                <p className="text-sm text-base-content/60">{m.noObligations}</p>
               ) : (
                 <ul className="space-y-1 text-sm">
                   {r.obligations.map((o) => (
-                    <li key={o.owner} className="rounded-box bg-base-100 p-2" data-testid="metrics-obligation">
+                    <li key={o.owner} className="rounded-box border border-base-300 bg-base-100 p-2" data-testid="metrics-obligation">
                       {`${label(messages.cases.groupName, o.owner)} · ${m.open} `}
                       <Count n={o.open} />
                       {` · ${m.overdue} `}
@@ -116,7 +117,7 @@ export function CaseMetricsPage() {
               )}
 
               <h2 className="font-bold">{m.handoversTitle}</h2>
-              <p className="rounded-box bg-base-100 p-2 text-sm" data-testid="metrics-handovers">
+              <p className="rounded-box border border-base-300 bg-base-100 p-2 text-sm" data-testid="metrics-handovers">
                 {m.pendingHandovers}{' '}
                 <Count n={r.pendingHandovers} to="/cases/handovers?tab=unreceived" />
               </p>
@@ -127,7 +128,7 @@ export function CaseMetricsPage() {
                   const row = r.inquiries.find((i) => i.requesterType === t);
                   const n = row?.awaitingAnswer ?? 0;
                   return (
-                    <li key={t} className="rounded-box bg-base-100 p-2" data-testid="metrics-inquiry" data-type={t}>
+                    <li key={t} className="rounded-box border border-base-300 bg-base-100 p-2" data-testid="metrics-inquiry" data-type={t}>
                       {`${m.inquiryName[t]} · ${m.awaiting} `}
                       <Count n={n} to={`${t === 'RIDER' ? '/rider-inquiries' : '/inquiries'}?status=RECEIVED`} />
                       {row?.oldestReceivedAt && <span className="opacity-70">{` · ${m.oldest(when(row.oldestReceivedAt))}`}</span>}
@@ -135,7 +136,7 @@ export function CaseMetricsPage() {
                   );
                 })}
               </ul>
-              <p className="text-xs opacity-70">{m.noRates}</p>
+              <p className="text-xs text-base-content/60">{m.noRates}</p>
             </div>
           );
         }}

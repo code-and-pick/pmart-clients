@@ -62,7 +62,7 @@ function NewActionRequest({ c }: { readonly c: Case }) {
   });
   return (
     <form
-      className="space-y-2 rounded-box bg-base-100 p-3 text-sm"
+      className="space-y-2 rounded-box border border-base-300 bg-base-100 p-3 text-sm"
       aria-label={m.newTitle}
       onSubmit={(e) => {
         e.preventDefault();
@@ -105,7 +105,7 @@ function NewActionRequest({ c }: { readonly c: Case }) {
         <button type="submit" className="btn btn-sm" disabled={!ok || create.busy}>
           {m.record}
         </button>
-        <span className="text-xs opacity-70">{m.recordOnly}</span>
+        <span className="text-xs text-base-content/60">{m.recordOnly}</span>
       </div>
       <CommandFeedback command={create}>{() => <span className="text-xs text-success">{m.recorded}</span>}</CommandFeedback>
     </form>
@@ -210,13 +210,13 @@ export function ActionRequests({ c, canAct }: { readonly c: Case; readonly canAc
   return (
     <section className="space-y-2" aria-label={m.title}>
       <h2 className="font-bold">{m.title}</h2>
-      <p className="text-xs opacity-70">{m.intro}</p>
+      <p className="text-xs text-base-content/60">{m.intro}</p>
       {items.length === 0 ? (
-        <p className="text-sm opacity-70">{m.empty}</p>
+        <p className="text-sm text-base-content/60">{m.empty}</p>
       ) : (
         <ul className="space-y-1 text-sm">
           {items.map((ar) => (
-            <li key={ar.actionRequestId} className="flex flex-wrap items-center gap-2 rounded-box bg-base-100 p-2" data-testid="action-request" data-state={ar.state}>
+            <li key={ar.actionRequestId} className="flex flex-wrap items-center gap-2 rounded-box border border-base-300 bg-base-100 p-2" data-testid="action-request" data-state={ar.state}>
               <span className="badge badge-sm">{label(m.stateName, ar.state)}</span>
               <span className="font-medium">{label(m.typeName, ar.actionType)}</span>
               <span className="font-mono text-xs">{`${ar.targetService} · ${ar.command}${ar.targetRef ? ` · ${ar.targetRef}` : ''}`}</span>

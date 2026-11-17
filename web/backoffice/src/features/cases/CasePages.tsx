@@ -29,6 +29,7 @@ import type { operations as BffOps } from '../../api/generated/backoffice-bff';
 import type { components } from '../../api/generated/case';
 import { useApi } from '../../app/ApiContext';
 import { useSession } from '../../app/SessionContext';
+import { DataTable, PageHeader, SearchRow, StatusBadge } from '../../shared/admin';
 import { messages as m } from '../../shared/messages';
 import { label, text, when } from '../../shared/ops';
 import { SourceStamps } from '../../shared/SourceStamps';
@@ -179,6 +180,7 @@ function Sla({ c }: { readonly c: Pick<Summary, 'slaDueAt' | 'overdue'> }) {
 export function CaseListPage() {
   const api = useApi();
   const { me, admin, agent } = useCaseRoles();
+  const navigate = useNavigate();
   // 반품 회수 실패(CS 팀)는 상담원·관리자만 — 지원센터에는 안 보인다(서버도 목록에서 뺀다)
   const kinds = admin ? [...DELIVERY_KINDS, ...CS_KINDS, ...ORDER_KINDS] : agent ? [...DELIVERY_KINDS, ...CS_KINDS] : DELIVERY_KINDS;
   const [params, setParams] = useSearchParams();
@@ -215,18 +217,27 @@ export function CaseListPage() {
   });
   return (
     <section className="max-w-6xl space-y-4">
-      <h1 className="text-xl font-bold">{m.cases.title}</h1>
-      <p className="text-sm opacity-70">{m.cases.intro}</p>
-      {admin && <p className="text-sm opacity-70">{m.cases.orderNote}</p>}
-      <div role="tablist" className="tabs tabs-box w-fit">
+      <PageHeader title={m.cases.title} description={m.cases.intro} />
+      {admin && <p className="text-sm text-base-content/60">{m.cases.orderNote}</p>}
+      {/* 관리자 형식(2026-11-18): 밑줄 탭 + 거르기 상자 */}
+      <div role="tablist" className="flex gap-1 border-b border-base-300">
         {TABS.map((t) => (
-          <button key={t} type="button" role="tab" aria-selected={t === tab} className={`tab ${t === tab ? 'tab-active' : ''}`} onClick={() => setQuery({ tab: t })}>
+          <button
+            key={t}
+            type="button"
+            role="tab"
+            aria-selected={t === tab}
+            className={`-mb-px border-b-2 px-4 py-2 text-sm ${t === tab ? 'border-primary font-semibold text-base-content' : 'border-transparent text-base-content/60 hover:text-base-content'}`}
+            onClick={() => setQuery({ tab: t })}
+          >
             {m.cases.tabs[t]}
           </button>
         ))}
       </div>
+      <div className="overflow-hidden rounded-box border border-base-300 bg-base-100">
+      <SearchRow label={m.cases.kind}>
       <label className="flex w-fit items-center gap-2 text-sm">
-        {m.cases.kind}
+        <span className="sr-only">{m.cases.kind}</span>
         <select className="select select-sm" value={kind ?? ''} onChange={(e) => setQuery({ kind: kinds.find((k) => k === e.target.value) ?? '' })}>
           <option value="">{m.cases.anyKind}</option>
           {kinds.map((k) => (
@@ -236,11 +247,13 @@ export function CaseListPage() {
           ))}
         </select>
       </label>
+      </SearchRow>
+      </div>
       <QueryState state={toUiState(query, (r) => (r.items ?? []).length === 0)} onRetry={() => void query.refetch()} emptyText={m.cases.empty}>
         {(r) => (
           <>
           <SourceStamps sources={r.sources} unavailableSources={r.unavailableSources} />
-          <table className="table table-sm rounded-box bg-base-100">
+          <DataTable>
             <thead>
               <tr>
                 <th>{m.cases.priority}</th>
@@ -255,13 +268,18 @@ export function CaseListPage() {
             </thead>
             <tbody>
               {(r.items ?? []).map((c, i) => (
-                <tr key={c.caseId ?? `case-${i}`} data-testid="case-row" className={c.overdue ? 'bg-error/5' : ''}>
+                <tr
+                  key={c.caseId ?? `case-${i}`}
+                  data-testid="case-row"
+                  className={`cursor-pointer ${c.overdue ? 'bg-error/5' : ''}`}
+                  onClick={() => c.caseId && void navigate(`/cases/${encodeURIComponent(c.caseId)}`)}
+                >
                   <td>
                     <span className={`badge badge-sm ${c.priority === 'P1' ? 'badge-error' : 'badge-ghost'}`}>{text(c.priority)}</span>
                   </td>
                   <td>{label(m.cases.kindName, c.kind)}</td>
                   <td>
-                    <Link className="link" to={`/cases/${encodeURIComponent(c.caseId ?? '')}`}>
+                    <Link className="text-primary hover:underline" to={`/cases/${encodeURIComponent(c.caseId ?? '')}`} onClick={(e) => e.stopPropagation()}>
                       {c.summary ? c.summary : label(m.cases.kindName, c.kind)}
                     </Link>
                   </td>
@@ -295,13 +313,15 @@ export function CaseListPage() {
                     )}
                     {c.assigneeId ?? m.cases.unassigned}
                   </td>
-                  <td>{label(m.cases.stateName, c.state)}</td>
+                  <td>
+                    <StatusBadge tone={c.state === 'CLOSED' ? 'ghost' : c.overdue ? 'error' : 'info'}>{label(m.cases.stateName, c.state)}</StatusBadge>
+                  </td>
                 </tr>
               ))}
             </tbody>
-          </table>
+          </DataTable>
           {(cursor || r.page?.nextCursor) && (
-            <div className="flex gap-2">
+            <div className="flex justify-center gap-2">
               {cursor && (
                 <button type="button" className="btn btn-sm" onClick={() => setQuery({})}>
                   {m.cases.firstPage}
@@ -340,7 +360,7 @@ function AssignForm({ c, onDone }: { readonly c: Case; readonly onDone: (c: Case
   const canPick = ((isCsCase(c) ? agent : team && !withAdminTeam(c)) || admin) && !c.assigneeId;
   if (!canPick && !admin) return null;
   return (
-    <div className="space-y-2 rounded-box bg-base-100 p-3 text-sm">
+    <div className="space-y-2 rounded-box border border-base-300 bg-base-100 p-3 text-sm">
       {canPick && (
         <button type="button" className="btn btn-sm btn-primary" disabled={assign.busy} onClick={() => run(me)}>
           {m.cases.pick}
@@ -383,7 +403,7 @@ function CloseForm({ c, onDone, openFollowUps }: { readonly c: Case; readonly on
   });
   return (
     <form
-      className="space-y-2 rounded-box bg-base-100 p-3 text-sm"
+      className="space-y-2 rounded-box border border-base-300 bg-base-100 p-3 text-sm"
       aria-label={m.cases.close}
       onSubmit={(e) => {
         e.preventDefault();
@@ -407,7 +427,7 @@ function CloseForm({ c, onDone, openFollowUps }: { readonly c: Case; readonly on
         {m.cases.closeSummary}
         <textarea className="textarea textarea-sm w-full max-w-lg" maxLength={1000} value={summary} onChange={(e) => setSummary(e.target.value)} />
       </label>
-      <p className="text-xs opacity-70">{m.cases.piiHint}</p>
+      <p className="text-xs text-base-content/60">{m.cases.piiHint}</p>
       {openFollowUps > 0 && (
         <p role="note" className="text-xs text-warning" data-testid="close-blocked">
           {m.followUps.closeBlocked(openFollowUps)}
@@ -445,7 +465,7 @@ function ReasonForm({
   const code = cmd.phase.kind === 'rejected' && cmd.phase.failure instanceof ProblemFailure ? cmd.phase.failure.problem.code : undefined;
   return (
     <form
-      className="space-y-2 rounded-box bg-base-100 p-3 text-sm"
+      className="space-y-2 rounded-box border border-base-300 bg-base-100 p-3 text-sm"
       aria-label={title}
       data-testid={testId}
       onSubmit={(e) => {
@@ -456,12 +476,12 @@ function ReasonForm({
       }}
     >
       <h2 className="font-semibold">{title}</h2>
-      {warn && <p className="text-xs opacity-70">{warn}</p>}
+      {warn && <p className="text-xs text-base-content/60">{warn}</p>}
       <label className="flex flex-col gap-1">
         {m.cases.reason}
         <textarea className="textarea textarea-sm w-full max-w-lg" maxLength={500} value={reason} onChange={(e) => setReason(e.target.value)} />
       </label>
-      <p className="text-xs opacity-70">{m.cases.piiHint}</p>
+      <p className="text-xs text-base-content/60">{m.cases.piiHint}</p>
       <button type="submit" className="btn btn-sm" disabled={!ok || cmd.busy}>
         {submitLabel}
       </button>
@@ -542,7 +562,7 @@ function HelpRequestOfCase({ c }: { readonly c: Case }) {
       <h2 className="font-bold">{m.cases.helpRequest}</h2>
       <QueryState state={toUiState(query)} onRetry={() => void query.refetch()}>
         {(h) => (
-          <dl className="grid grid-cols-[8rem_1fr] gap-1 rounded-box bg-base-100 p-4 text-sm" data-testid="case-help-request">
+          <dl className="grid grid-cols-[8rem_1fr] gap-x-4 gap-y-2.5 rounded-box border border-base-300 bg-base-100 px-5 py-4 text-sm [&_dt]:text-base-content/55" data-testid="case-help-request">
             <dt>{m.helpQueue.category}</dt>
             <dd>{label(m.helpQueue.categoryName, h.category)}</dd>
             <dt>{m.helpQueue.stage}</dt>
@@ -584,7 +604,7 @@ export function CaseDetailPage() {
   };
   return (
     <section className="max-w-4xl space-y-4">
-      <h1 className="text-xl font-bold">{m.cases.detailTitle(caseId)}</h1>
+      <PageHeader title={m.cases.detailTitle(caseId)} />
       <QueryState state={toUiState(query)} onRetry={() => void query.refetch()}>
         {(c) => {
           const closed = c.state === 'CLOSED';
@@ -601,7 +621,7 @@ export function CaseDetailPage() {
           const canToSupport = !closed && deliverySide && adminTeam && admin;
           return (
             <>
-              <dl className="grid grid-cols-[8rem_1fr] gap-1 rounded-box bg-base-100 p-4 text-sm" data-testid="case-facts">
+              <dl className="grid grid-cols-[8rem_1fr] gap-x-4 gap-y-2.5 rounded-box border border-base-300 bg-base-100 px-5 py-4 text-sm [&_dt]:text-base-content/55" data-testid="case-facts">
                 <dt>{m.cases.kind}</dt>
                 <dd>{label(m.cases.kindName, c.kind)}</dd>
                 <dt>{m.cases.priority}</dt>
@@ -643,7 +663,7 @@ export function CaseDetailPage() {
               )}
 
               {isOrderKind(c.kind) && (
-                <div className="space-y-1 rounded-box bg-base-100 p-3 text-sm" data-testid="case-order-note">
+                <div className="space-y-1 rounded-box border border-base-300 bg-base-100 p-3 text-sm" data-testid="case-order-note">
                   <p className="opacity-70">{m.cases.orderNote}</p>
                   <Link className="link" to="/pending">
                     {m.cases.orderAction}
@@ -651,7 +671,7 @@ export function CaseDetailPage() {
                 </div>
               )}
 
-              {!admin && !team && !(agent && csCase) && <p className="text-sm opacity-70">{m.cases.viewOnly}</p>}
+              {!admin && !team && !(agent && csCase) && <p className="text-sm text-base-content/60">{m.cases.viewOnly}</p>}
               {adminTeam && !admin && (
                 <p role="note" className="alert alert-warning text-sm">
                   {m.cases.adminHandlingNote}
@@ -667,7 +687,7 @@ export function CaseDetailPage() {
               {c.closure && (
                 <>
                   <h2 className="font-bold">{closed ? m.cases.closure : m.cases.lastClosure}</h2>
-                  <p className="rounded-box bg-base-100 p-3 text-sm" data-testid="case-closure">
+                  <p className="rounded-box border border-base-300 bg-base-100 p-3 text-sm" data-testid="case-closure">
                     {`${label(m.cases.resolutionName, c.closure.resolution)} · ${text(c.closure.summary)} · ${text(c.closure.closedBy)} · ${when(c.closure.closedAt)}`}
                   </p>
                 </>
@@ -689,7 +709,7 @@ export function CaseDetailPage() {
               <h2 className="font-bold">{m.cases.history}</h2>
               <ul className="space-y-1 text-sm">
                 {(c.history ?? []).map((h, i) => (
-                  <li key={`${h.at ?? ''}-${i}`} className="rounded-box bg-base-100 p-2">
+                  <li key={`${h.at ?? ''}-${i}`} className="rounded-box border border-base-300 bg-base-100 p-2">
                     {`${when(h.at)} · ${h.action ? label(m.cases.actionName, h.action) : text(h.action)} · ${text(h.actorId)}${h.toState ? ` → ${label(m.cases.stateName, h.toState)}` : ''}${h.note ? ` · ${h.note}` : ''}`}
                   </li>
                 ))}
@@ -797,10 +817,9 @@ export function NewMisdeliveryPage() {
   const setAddr = (k: keyof Address, val: string) => setAddress((a) => ({ ...a, [k]: val }));
   return (
     <section className="max-w-2xl space-y-4">
-      <h1 className="text-xl font-bold">{m.cases.newTitle}</h1>
-      <p className="text-sm opacity-70">{m.cases.newIntro}</p>
+      <PageHeader title={m.cases.newTitle} description={m.cases.newIntro} />
       <form
-        className="space-y-3 rounded-box bg-base-100 p-4 text-sm"
+        className="space-y-3 rounded-box border border-base-300 bg-base-100 p-4 text-sm"
         onSubmit={(e) => {
           e.preventDefault();
           if (!ok) return;
@@ -861,7 +880,7 @@ export function NewMisdeliveryPage() {
               </p>
             ) : (
               <>
-                <p className="text-xs opacity-70">{m.cases.addressIntro}</p>
+                <p className="text-xs text-base-content/60">{m.cases.addressIntro}</p>
                 <label className="flex flex-col gap-1">
                   {m.cases.roadAddress}
                   <input className="input input-sm w-full" maxLength={200} autoComplete="off" value={address.road} onChange={(e) => setAddr('road', e.target.value)} />
@@ -889,7 +908,7 @@ export function NewMisdeliveryPage() {
           {m.cases.evidence}
           <input className="input input-sm w-64" value={evidence} onChange={(e) => setEvidence(e.target.value)} />
         </label>
-        <p className="text-xs opacity-70">{m.cases.piiHint}</p>
+        <p className="text-xs text-base-content/60">{m.cases.piiHint}</p>
         <button type="submit" className="btn btn-primary btn-sm" disabled={!ok || open.busy}>
           {m.cases.open}
         </button>

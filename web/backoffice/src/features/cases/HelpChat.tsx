@@ -148,7 +148,7 @@ export function HelpChat({
   return (
     <section className="space-y-2" aria-label={m.title}>
       <h2 className="font-bold">{m.title}</h2>
-      <p className="text-xs opacity-70">{m.intro}</p>
+      <p className="text-xs text-base-content/60">{m.intro}</p>
       {/* 새로 읽기가 실패해도 받은 대화는 그대로 두고 경고만 — 0건·정상으로 바꾸지 않는다 */}
       {query.data && query.isError && (
         <p role="alert" className="text-xs text-error">
@@ -163,19 +163,19 @@ export function HelpChat({
               return (
                 <li key={x.seq} className={`flex ${rider ? 'justify-start' : 'justify-end'}`} data-testid="help-message" data-sender={x.senderType}>
                   <div className={`max-w-[80%] space-y-1 rounded-box p-2 ${rider ? 'bg-base-100' : 'bg-primary/10'}`}>
-                    <div className="flex flex-wrap items-center gap-2 text-xs opacity-70">
+                    <div className="flex flex-wrap items-center gap-2 text-xs text-base-content/60">
                       <span className="font-semibold">{rider ? m.rider : m.support}</span>
                       <span className="font-mono">{text(x.senderId)}</span>
                       <span>{when(x.createdAt)}</span>
                     </div>
                     {x.masked ? (
-                      <p className="text-xs italic opacity-70" data-testid="help-message-masked">
+                      <p className="text-xs italic text-base-content/60" data-testid="help-message-masked">
                         {m.maskedLine(text(x.maskedBy), text(x.maskReason))}
                       </p>
                     ) : (
                       <p className="whitespace-pre-wrap">{x.body}</p>
                     )}
-                    {(x.photoRefs ?? []).length > 0 && <p className="text-xs opacity-70">{m.photos((x.photoRefs ?? []).join(', '))}</p>}
+                    {(x.photoRefs ?? []).length > 0 && <p className="text-xs text-base-content/60">{m.photos((x.photoRefs ?? []).join(', '))}</p>}
                     {admin && !x.masked && <MaskMessage deliveryId={deliveryId} requestId={requestId} messageId={x.messageId} onDone={reload} />}
                   </div>
                 </li>
@@ -186,7 +186,7 @@ export function HelpChat({
       </QueryState>
       {canWrite &&
         (closed ? (
-          <p className="text-xs opacity-70" data-testid="help-chat-closed">
+          <p className="text-xs text-base-content/60" data-testid="help-chat-closed">
             {m.closed}
           </p>
         ) : (
@@ -212,7 +212,7 @@ export function HelpChat({
           </form>
         ))}
       {!canWrite && (
-        <p className="text-xs opacity-70" data-testid="help-chat-read-only">
+        <p className="text-xs text-base-content/60" data-testid="help-chat-read-only">
           {adminTeam ? m.readOnlyAdminTeam : m.readOnly}
         </p>
       )}
