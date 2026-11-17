@@ -168,7 +168,7 @@ interface OpsState {
   /** orchestration 0.2.0 멈춘 사가(bff pending-work 의 STUCK_SAGA) — resolved 면 목록에서 빠진다 */
   sagas: Array<{ sagaId: string; orderId: string; sagaType: string; state: string; step: string; reasonCode: string; reasonMessage: string; since: string; requeryable: boolean; resolved: boolean }>;
   /** bff 0.4.0 MFC 중지 실패·인계 거절(처리 대기 RETRY). retry = 다시 시도했을 때 결과(목) */
-  mfcPending: Array<{ kind: 'MFC_STOP_FAILED' | 'MFC_HANDOVER_REJECTED'; refId: string; orderId: string; mfcId: string; state: string; reasonCode: string; reasonMessage: string; since: string; retry: 'APPLIED' | 'REJECTED'; done: boolean }>;
+  mfcPending: Array<{ kind: 'MFC_STOP_FAILED' | 'MFC_HANDOVER_REJECTED'; refId: string; orderId: string; mfcId: string; state: string; reasonCode: string; reasonMessage: string; since: string; retry: 'APPLIED' | 'REJECTED'; done: boolean; lastRetry: { operatorId: string | null; reason: string | null; retriedAt: string } | null }>;
   /** bff 명령 결과(짝 조회) */
   bffResults: Map<string, { requestId: string; status: 'APPLIED'; occurredAt: string }>;
 }
@@ -184,8 +184,8 @@ function seed(): OpsState {
     ],
     bffResults: new Map(),
     mfcPending: [
-      { kind: 'MFC_STOP_FAILED', refId: 'STOP-MOCK-1', orderId: 'ORD-MOCK-1002', mfcId: 'MFC-BSN-01', state: 'PENDING', reasonCode: 'PDA_OFFLINE', reasonMessage: '[목] 피킹 PDA 응답 없음 — 중지 확인 못 함', since: ago(4), retry: 'APPLIED', done: false },
-      { kind: 'MFC_HANDOVER_REJECTED', refId: 'HO-MOCK-1', orderId: 'ORD-MOCK-1001', mfcId: 'MFC-BSN-01', state: 'REJECTED', reasonCode: 'STOCK_MISMATCH', reasonMessage: '[목] 재고와 인계 수량이 다름', since: ago(8), retry: 'REJECTED', done: false },
+      { kind: 'MFC_STOP_FAILED', refId: 'STOP-MOCK-1', orderId: 'ORD-MOCK-1002', mfcId: 'MFC-BSN-01', state: 'PENDING', reasonCode: 'PDA_OFFLINE', reasonMessage: '[목] 피킹 PDA 응답 없음 — 중지 확인 못 함', since: ago(4), retry: 'APPLIED', done: false, lastRetry: null },
+      { kind: 'MFC_HANDOVER_REJECTED', refId: 'HO-MOCK-1', orderId: 'ORD-MOCK-1001', mfcId: 'MFC-BSN-01', state: 'REJECTED', reasonCode: 'STOCK_MISMATCH', reasonMessage: '[목] 재고와 인계 수량이 다름', since: ago(8), retry: 'REJECTED', done: false, lastRetry: { operatorId: 'op-admin-1', reason: '[목] 실물 확인 전 재시도', retriedAt: ago(2) } },
     ],
     issues: [
       { issueId: 'FI-MOCK-1', orderId: 'ORD-MOCK-1003', mfcId: 'MFC-BSN-01', sku: 'E-00000001', lotId: 'LOT-MOCK-7', blockedQty: 1, reason: 'QUALITY_HOLD', state: 'OPEN', blockedAt: ago(3), reservationId: 'RSV-MOCK-1', note: null, acknowledgedBy: null, acknowledgedAt: null, resolvedAt: null },
@@ -507,14 +507,14 @@ export const opsHandlers = [
         })),
       ...ops.mfcPending
         .filter((x) => !x.done)
-        .map((x) => ({ kind: x.kind, refId: x.refId, orderId: x.orderId, mfcId: x.mfcId, state: x.state, reasonCode: x.reasonCode, reasonMessage: x.reasonMessage, since: x.since, allowedActions: ['RETRY'], source: stamp('mfc-fulfillment-service') })),
+        .map((x) => ({ kind: x.kind, refId: x.refId, orderId: x.orderId, mfcId: x.mfcId, state: x.state, reasonCode: x.reasonCode, reasonMessage: x.reasonMessage, since: x.since, allowedActions: ['RETRY'], lastRetry: x.lastRetry, source: stamp('mfc-fulfillment-service') })),
     ].sort((a, b) => a.since.localeCompare(b.since));
     return HttpResponse.json({ composedAt: now, sources: [stamp('order-orchestration-service'), stamp('order-service'), stamp('mfc-fulfillment-service')], unavailableSources: [], items });
   }),
 
   // bff 명령 프록시: order-orchestration-service saga-requery·saga-resolve(승인 없음, OPERATOR_ADMIN). 이미 바뀐 사가는 422.
   http.post(`${BFF_BASE}/commands/:targetService/:command`, async ({ request, params }) => {
-    const { denied } = allow(request, ...ADMIN);
+    const { denied, who } = allow(request, ...ADMIN);
     if (denied) return denied;
     const body = (await request.clone().json()) as { targetRef?: string; reason?: string };
     // bff 0.4.0 MFC 다시 시도: 사유 필수, APPLIED 면 목록에서 빠지고 REJECTED 면 그대로(nextAction FIX_AND_RETRY)
@@ -524,6 +524,9 @@ export const opsHandlers = [
         const kind = params['command'] === 'stop-retry' ? 'MFC_STOP_FAILED' : params['command'] === 'handover-retry' ? 'MFC_HANDOVER_REJECTED' : null;
         const item = ops.mfcPending.find((x) => x.kind === kind && x.refId === body.targetRef);
         if (!item) return problem(404, 'NOT_FOUND');
+        if ((body.reason ?? '').length > 500) return problem(400, 'VALIDATION_FAILED', [{ field: 'reason', reason: 'TOO_LONG' }]);
+        // bff 0.8.0: 운영자·사유가 MFC 재시도 기록으로 남는다 → 다음 목록의 lastRetry
+        item.lastRetry = { operatorId: who?.subject ?? null, reason: (body.reason ?? '').trim(), retriedAt: new Date().toISOString() };
         if (item.retry === 'APPLIED') item.done = true;
         const result = item.retry === 'APPLIED' ? { requestId: keyOf(request), status: 'APPLIED' as const, occurredAt: new Date().toISOString() } : { requestId: keyOf(request), status: 'REJECTED' as const, nextAction: 'FIX_AND_RETRY', occurredAt: new Date().toISOString() };
         return { status: 200, body: result };

@@ -113,6 +113,7 @@ auth-service 의 운영자 로그인·비밀번호 변경·운영자 계정 API 
 - **처리 대기** `/pending`(2026-11-16, `OPERATOR_ADMIN` 만) — bff 0.2.0 `GET /backoffice/views/pending-work`(멈춘 주문 처리 + 이행 확인 필요, 원천 표시·못 읽은 원천 경고).
   - 버튼은 `allowedActions` 만: 결제 결과 다시 확인(`saga-requery`), 처리 완료(`saga-resolve`, 사유 필수·주문·재고 그대로 경고) — bff 명령 프록시 — 짝 조회 `GET …/commands/…/{requestId}` 는 아직 501 이라 부르지 않고, `ACCEPTED`·`UNKNOWN_RESULT`·시간 초과면 목록을 다시 읽어 "목록에서 확인"(결과 불명, 같은 키 재전송만, 2026-11-16 백엔드 회신 reply-case-inbox-questions §3), 확인(order-service acknowledgements). 422 `NOT_REQUERYABLE`·`NOT_RESOLVABLE` = 새로고침 안내.
   - **MFC 중지 실패·인계 거절**(bff 0.4.0, 백엔드 알림 `notice-pending-work-mfc-retry`): `allowedActions: [RETRY]` → "다시 시도"(메모 필수) → bff `mfc-fulfillment-service/stop-retry`·`handover-retry`. APPLIED = 목록에서 빠짐, REJECTED = "다시 실패 — 원인 고친 뒤 다시", 그 밖은 위와 같이 목록 다시 읽기. 인계 거절은 "실물 확인 → 재고 정정 → 다시 시도" 안내. 처리 완료 버튼 없음. 메모는 MFC 에 아직 저장 안 됨 — "기록됨"이라 쓰지 않음.
+  - **MFC 묶음 켜짐**(bff 0.8.0 #96, 백엔드 요청 `request-pending-work-mfc`): 항목마다 "최근 재시도: 누가 · 언제 · 사유"(lastRetry, 없으면 줄 없음), 다시 시도 "사유(필수, 500자)" — 누가·사유가 MFC 재시도 기록으로 남는다는 안내. 다시 실패(REJECTED)여도 목록을 다시 읽어 최근 재시도를 갱신. LAN(관리자): 지금 항목 0건, MFC 원천 켜짐("아직 연결 전" 안내 안 보임).
   - MFC 목록은 PC 3 API(F-4) 전까지 서버 설정으로 꺼짐 — `sources` 에 mfc-fulfillment-service 가 없으면 "아직 이 목록에 나오지 않아요(장애 아님)" 안내.
   - LAN(2026-11-16, claude-dev): 0건 + 그 안내 확인, 재시도 명령은 대상이 없어 실서버로 보내 보지 않음.
 - **지원센터 사건** `/cases`·`/cases/:caseId`·`/cases/new-misdelivery`(2026-11-16, `RIDER_OPS`·`OPERATOR_ADMIN`, `CS_AGENT` 보기 + 오배송 열기) — case 0.4.0.

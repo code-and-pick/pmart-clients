@@ -66,25 +66,29 @@ function ActionForm({ item, action, onClose }: { readonly item: Item; readonly a
   const [text_, setText] = useState('');
   const cmd = useCommand(async (v: { text: string }, key) => {
     let r: unknown;
-    if (action === 'ACKNOWLEDGE') {
-      r = await request('POST', api.orders.POST('/fulfillment-issues/{issueId}/acknowledgements', { ...commandParams(key, { path: { issueId: item.refId } }), body: { note: v.text } }));
-    } else {
-      const targetService = action === 'RETRY' ? MFC : ORCHESTRATION;
-      const command = action === 'RETRY' ? (RETRY_COMMAND[item.kind] ?? '') : COMMAND[action];
-      r = await sendBffOnce(
-        () =>
-          request(
-            'POST',
-            api.bff.POST('/commands/{targetService}/{command}', {
-              ...commandParams(key, { path: { targetService, command } }),
-              body: { targetRef: item.refId, payload: {}, ...(v.text ? { reason: v.text } : {}) },
-            }),
-          ),
-        key.value,
-        () => queryClient.invalidateQueries({ queryKey: ['bff', 'pending-work'] }),
-      );
+    try {
+      if (action === 'ACKNOWLEDGE') {
+        r = await request('POST', api.orders.POST('/fulfillment-issues/{issueId}/acknowledgements', { ...commandParams(key, { path: { issueId: item.refId } }), body: { note: v.text } }));
+      } else {
+        const targetService = action === 'RETRY' ? MFC : ORCHESTRATION;
+        const command = action === 'RETRY' ? (RETRY_COMMAND[item.kind] ?? '') : COMMAND[action];
+        r = await sendBffOnce(
+          () =>
+            request(
+              'POST',
+              api.bff.POST('/commands/{targetService}/{command}', {
+                ...commandParams(key, { path: { targetService, command } }),
+                body: { targetRef: item.refId, payload: {}, ...(v.text ? { reason: v.text } : {}) },
+              }),
+            ),
+          key.value,
+          () => queryClient.invalidateQueries({ queryKey: ['bff', 'pending-work'] }),
+        );
+      }
+    } finally {
+      // 거절(REJECTED)이어도 MFC 에 재시도 기록이 남는다(bff 0.8.0 lastRetry) — 목록을 다시 읽는다
+      await queryClient.invalidateQueries({ queryKey: ['bff', 'pending-work'] });
     }
-    await queryClient.invalidateQueries({ queryKey: ['bff', 'pending-work'] });
     return r;
   });
   const required = action !== 'REQUERY_RESULT';
@@ -212,6 +216,12 @@ export function PendingPage() {
                     <td>{text(i.state)}</td>
                     <td>
                       <Actions item={i} />
+                      {/* bff 0.8.0 — 최근 운영자 재시도(MFC 에 남은 기록). 없으면 줄 없음 */}
+                      {i.lastRetry && (
+                        <p className="mt-1 text-xs opacity-70" data-testid="pending-last-retry">
+                          {m.pending.lastRetry(text(i.lastRetry.operatorId), when(i.lastRetry.retriedAt), text(i.lastRetry.reason))}
+                        </p>
+                      )}
                     </td>
                   </tr>
                 ))}

@@ -110,9 +110,9 @@ describe('처리 대기', () => {
     expect(within(row).getByText('MFC 중지 실패(취소 멈춤)')).toBeInTheDocument();
     expect(within(row).queryByRole('button', { name: '처리 완료(밖에서 해결)' })).not.toBeInTheDocument();
     await userEvent.click(within(row).getByRole('button', { name: '다시 시도' }));
-    expect(within(row).getByText(/메모는 아직 MFC 에 저장되지 않아요/)).toBeInTheDocument();
+    expect(within(row).getByText(/누가·사유가 MFC 재시도 기록으로 남아요/)).toBeInTheDocument();
     expect(within(row).getByRole('button', { name: '보내기' })).toBeDisabled();
-    await userEvent.type(within(row).getByLabelText('다시 시도 메모(필수)'), 'PDA 재부팅 확인');
+    await userEvent.type(within(row).getByLabelText('다시 시도 사유(필수)'), 'PDA 재부팅 확인');
     await userEvent.click(within(row).getByRole('button', { name: '보내기' }));
     await waitFor(() => expect(screen.queryByText(/PDA 응답 없음/)).not.toBeInTheDocument());
     const sent = view.mutations('/commands/mfc-fulfillment-service/stop-retry')[0]!;
@@ -126,11 +126,23 @@ describe('처리 대기', () => {
     const row = await rowOf('재고와 인계 수량이 다름');
     await userEvent.click(within(row).getByRole('button', { name: '다시 시도' }));
     expect(within(row).getByRole('note')).toHaveTextContent('실물을 확인하고 재고를 정정한 뒤');
-    await userEvent.type(within(row).getByLabelText('다시 시도 메모(필수)'), '재고 정정함');
+    await userEvent.type(within(row).getByLabelText('다시 시도 사유(필수)'), '재고 정정함');
     await userEvent.click(within(row).getByRole('button', { name: '보내기' }));
     expect(await within(row).findByTestId('retry-rejected')).toHaveTextContent('다시 실패했어요');
     expect(screen.getByText(/재고와 인계 수량이 다름/)).toBeInTheDocument();
     expect(view.mutations('/commands/mfc-fulfillment-service/handover-retry')).toHaveLength(1);
+    // bff 0.8.0: 다시 읽은 목록의 최근 재시도 = 방금 보낸 운영자·사유
+    await waitFor(() => expect(within(screen.getByText(/재고와 인계 수량이 다름/).closest('tr')!).getByTestId('pending-last-retry')).toHaveTextContent('op-admin-1'));
+    expect(within(screen.getByText(/재고와 인계 수량이 다름/).closest('tr')!).getByTestId('pending-last-retry')).toHaveTextContent('재고 정정함');
+  });
+
+  it('최근 재시도(bff 0.8.0): 누가·언제·사유, 없으면 줄 없음', async () => {
+    renderAt('/pending', as.admin);
+    const handover = await rowOf('재고와 인계 수량이 다름');
+    expect(within(handover).getByTestId('pending-last-retry')).toHaveTextContent('최근 재시도: op-admin-1 ·');
+    expect(within(handover).getByTestId('pending-last-retry')).toHaveTextContent('실물 확인 전 재시도');
+    const stop = await rowOf('PDA 응답 없음');
+    expect(within(stop).queryByTestId('pending-last-retry')).not.toBeInTheDocument();
   });
 
   it('주문 번호가 없는 항목(MFC 거절 인계 — bff 0.9.2)은 /orders/null 링크 대신 "—"', async () => {
