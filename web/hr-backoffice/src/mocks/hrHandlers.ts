@@ -150,6 +150,18 @@ export const hrHandlers = [
             reason: `existingGrantId=${x.grantId};role=${x.role};centers=${x.centers.join(',')};validFrom=${x.validFrom};validUntil=${x.validUntil ?? 'none'};extension=${Boolean(g.validTo && x.validUntil)}`,
           })),
       );
+      // hr 0.7.0 CENTER_ROLE_MIX: 같은 때 유효한 MFC 역할끼리 센터 묶음이 다르면 409(같은 역할끼리는 괜찮다)
+      const sameSet = (a: readonly string[], b: readonly string[]) => a.length === b.length && a.every((c) => b.includes(c));
+      const mixes = body.grants.flatMap((g, i) =>
+        !CENTER_SCOPED.includes(g.role)
+          ? []
+          : activeAccountGrants(found.employee.operatorId)
+              .filter((x) => x.role !== g.role && CENTER_SCOPED.includes(x.role) && !sameSet(x.centers, g.centers ?? []))
+              .filter((x) => !g.validFrom || !x.validUntil || Date.parse(`${g.validFrom}T00:00:00+09:00`) < Date.parse(x.validUntil))
+              .map((x) => ({ field: `grants[${i}]`, reason: `existingGrantId=${x.grantId};role=${x.role};centers=${x.centers.join(',')}` })),
+      );
+      if (mixes.length > 0)
+        return problem(409, 'CENTER_ROLE_MIX', mixes, '[목] 지금 권한(센터 작업자 · MFC-BSN-01)과 센터가 다른 MFC 역할이라 섞입니다. 다른 센터 권한을 먼저 회수하거나 같은 센터로 요청하세요.');
       if (conflicts.length > 0) return problem(409, 'GRANT_ALREADY_ACTIVE', conflicts, '이미 유효하거나 시작 전인 같은 권한이 있습니다(목). 그 권한이 끝난 다음 날부터로 요청하거나, 필요 없으면 먼저 회수하세요.');
       const added: GrantRequestState[] = body.grants.map((g) => ({
         role: g.role,

@@ -18,7 +18,7 @@ import { useApi } from '../../app/ApiContext';
 import { useSession } from '../../app/SessionContext';
 import { messages as m } from '../../shared/messages';
 import { CenterMultiSelect, useCenters } from '../employees/centers';
-import { activeGrants, lastDayOf, lineProblems, needsCenter, overlappingGrants, parseConflict, problemDetail } from '../employees/grantRules';
+import { activeGrants, extensionStart, failureCodeOf, followingGrants, lastDayOf, lineProblems, needsCenter, overlappingGrants, parseConflict, problemDetail, roleMixGrants } from '../employees/grantRules';
 import { roleLabel, useEmployeeRoles } from '../employees/roles';
 import { DataTable, PageHeader, SearchPanel, SearchRow } from '../../shared/admin';
 
@@ -91,7 +91,7 @@ const roleName = (roles: readonly EmployeeRole[] | undefined, code: string) => {
 const grantStatus = (g: EmployeeGrant, now: number): 'revoked' | 'ended' | 'live' =>
   g.revokedAt ? 'revoked' : g.validUntil && Date.parse(g.validUntil) <= now ? 'ended' : 'live';
 
-function RevokeRow({ operatorId, grant, onDone }: { readonly operatorId: string; readonly grant: EmployeeGrant; readonly onDone: (a: EmployeeAccount) => void }) {
+function RevokeRow({ operatorId, grant, following, onDone }: { readonly operatorId: string; readonly grant: EmployeeGrant; readonly following: readonly EmployeeGrant[]; readonly onDone: (a: EmployeeAccount) => void }) {
   const api = useApi();
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState('');
@@ -127,6 +127,12 @@ function RevokeRow({ operatorId, grant, onDone }: { readonly operatorId: string;
       <p role="alert" className="text-xs text-warning">
         {m.permissions.revokeWarn}
       </p>
+      {/* 연장으로 이어지는 같은 권한(앞뒤 두 줄) — 둘 다 회수해야 끝난다(요청서 "알아 둘 것") */}
+      {following.length > 0 && (
+        <p role="note" className="text-xs text-warning" data-testid="revoke-following">
+          {m.permissions.revokeFollowing(following.map(periodText).join(', '))}
+        </p>
+      )}
       <label className="flex flex-col gap-1 text-xs">
         {m.permissions.revokeReason}
         <input className="input input-xs w-56" maxLength={500} value={reason} onChange={(e) => setReason(e.target.value)} />
@@ -144,12 +150,14 @@ function RevokeRow({ operatorId, grant, onDone }: { readonly operatorId: string;
   );
 }
 
-function AccountView({ operatorId, account, roles, self, canRevokeAdmin }: {
+function AccountView({ operatorId, account, roles, self, canRevokeAdmin, onExtend }: {
   readonly operatorId: string;
   readonly account: EmployeeAccount;
   readonly roles: readonly EmployeeRole[] | undefined;
   readonly self: boolean;
   readonly canRevokeAdmin: boolean;
+  /** 연장(끝나는 날부터 새 요청) — 요청을 올릴 수 없으면(본인·결정 대기) 없음 */
+  readonly onExtend?: ((g: EmployeeGrant) => void) | undefined;
 }) {
   const queryClient = useQueryClient();
   // 기한 판정 기준 시각 — 화면을 연 때 한 번(렌더마다 바뀌지 않게). 판정은 서버가 한다(지난 줄 회수 409).
@@ -189,12 +197,22 @@ function AccountView({ operatorId, account, roles, self, canRevokeAdmin }: {
             {grants.map((g) => {
               const st = grantStatus(g, now);
               const canRevoke = st === 'live' && !self && (canRevokeAdmin || !ADMIN_ROLES.includes(g.role));
+              // 연장: 끝나는 날이 있는 유효·예정 권한만(기한 없음은 늘릴 것이 없다)
+              const canExtend = st === 'live' && Boolean(g.validUntil) && onExtend !== undefined;
+              const following = followingGrants(grants, g);
               return (
                 <tr key={g.grantId} data-testid="grant-row" data-role={g.role}>
                   <td>{roleName(roles, g.role)}</td>
                   <td>{g.centers.join(', ') || m.none}</td>
                   {/* validUntil = 이 시각부터 무효 → 마지막 날은 그 전날(HR-2 §3) */}
-                  <td>{`${formatSeoulDate(g.validFrom)} ~ ${lastDayOf(g.validUntil) ?? m.permissions.untilEmployment}`}</td>
+                  <td>
+                    {`${formatSeoulDate(g.validFrom)} ~ ${lastDayOf(g.validUntil) ?? m.permissions.untilEmployment}`}
+                    {st === 'live' && following.length > 0 && (
+                      <p className="text-xs text-base-content/60" data-testid="grant-continued">
+                        {m.permissions.continued(lastDayOf(following[following.length - 1]?.validUntil) ?? m.permissions.untilEmployment)}
+                      </p>
+                    )}
+                  </td>
                   <td data-testid="grant-approver">{g.approverId.startsWith('RULE:') ? `${m.permissions.autoApproved} · ${g.approvalId}` : `${g.approvalId} · ${g.approverName ?? g.approverId}`}</td>
                   <td>
                     {st === 'revoked'
@@ -204,7 +222,14 @@ function AccountView({ operatorId, account, roles, self, canRevokeAdmin }: {
                         : m.permissions.live}
                     {st === 'revoked' && g.revokeReason && <p className="text-xs text-base-content/60">{g.revokeReason}</p>}
                   </td>
-                  <td>{canRevoke && <RevokeRow operatorId={operatorId} grant={g} onDone={onRevoked} />}</td>
+                  <td className="space-x-1">
+                    {canExtend && (
+                      <button type="button" className="btn btn-xs btn-outline" onClick={() => onExtend?.(g)} data-testid="grant-extend">
+                        {m.permissions.extend}
+                      </button>
+                    )}
+                    {canRevoke && <RevokeRow operatorId={operatorId} grant={g} following={following} onDone={onRevoked} />}
+                  </td>
                 </tr>
               );
             })}
@@ -236,7 +261,12 @@ function GrantRequestForm({
   version,
   roles,
   grants,
+  extendFrom,
+  onCancelExtend,
 }: {
+  /** 연장할 권한 — 역할·센터는 그대로(잠금), 시작일 = 그 권한 validUntil 의 서울 날짜(요청서 §2) */
+  readonly extendFrom?: EmployeeGrant | undefined;
+  readonly onCancelExtend?: () => void;
   readonly operatorId: string;
   readonly version: number;
   readonly roles: readonly EmployeeRole[];
@@ -246,7 +276,10 @@ function GrantRequestForm({
   const api = useApi();
   const queryClient = useQueryClient();
   const centers = useCenters();
-  const [draft, setDraft] = useState<Draft>({ role: '', centers: [], validFrom: '', validTo: '' });
+  const [draft, setDraft] = useState<Draft>(
+    extendFrom?.validUntil ? { role: extendFrom.role, centers: [...extendFrom.centers], validFrom: extensionStart(extendFrom.validUntil), validTo: '' } : { role: '', centers: [], validFrom: '', validTo: '' },
+  );
+  const extending = extendFrom !== undefined;
   const [reason, setReason] = useState('');
   const submit = useCommand(async (v: { grant: RequestedGrant; reason: string; version: number }, key) => {
     const e = await request(
@@ -268,6 +301,9 @@ function GrantRequestForm({
   const conflicts = problems.filter((p) => p.part === 'line').map((p) => parseConflict(p.reason));
   const conflictIds = new Set(conflicts.flatMap((c) => (c.existingGrantId ? [c.existingGrantId] : [])));
   const extension = conflicts.some((c) => c.extension);
+  // hr-service 0.7.0: 센터마다 다른 MFC 역할 — 미리 경고(서버가 정본, 409 CENTER_ROLE_MIX)
+  const mix = roleMixGrants(grants, roles, draft, now);
+  const roleMixRejected = failureCodeOf(rejected) === 'CENTER_ROLE_MIX';
   return (
     <form
       className="space-y-3 rounded-box border border-base-300 bg-base-100 p-4 text-sm"
@@ -288,8 +324,16 @@ function GrantRequestForm({
         });
       }}
     >
-      <h2 className="font-bold">{m.permissions.newRequest}</h2>
+      <h2 id="grant-request-form" className="font-bold">{m.permissions.newRequest}</h2>
       <p className="text-xs text-base-content/60">{m.permissions.requestNote}</p>
+      {extendFrom && (
+        <div role="note" className="flex flex-wrap items-center gap-2 rounded-box bg-info/10 px-3 py-2 text-xs" data-testid="grant-extending">
+          <span>{m.permissions.extending(roleName(roles, extendFrom.role), extendFrom.centers.join(', ') || m.none, lastDayOf(extendFrom.validUntil) ?? m.permissions.noEnd, draft.validFrom)}</span>
+          <button type="button" className="btn btn-ghost btn-xs" onClick={onCancelExtend}>
+            {m.permissions.extendCancel}
+          </button>
+        </div>
+      )}
       <div className="space-y-1" data-testid="current-grants">
         <h3 className="text-xs font-bold">{m.permissions.current}</h3>
         {current.length === 0 ? (
@@ -314,6 +358,7 @@ function GrantRequestForm({
           {m.register.grantRole}
           <select
             className="select select-sm w-full"
+            disabled={extending}
             value={draft.role}
             // 센터가 필요 없는 역할로 바꾸면 고른 센터를 비운다
             onChange={(e) => setDraft({ ...draft, role: e.target.value, ...(needsCenter(roles, e.target.value) ? {} : { centers: [] }) })}
@@ -329,7 +374,11 @@ function GrantRequestForm({
         <div className="flex flex-col gap-1">
           {scoped ? (
             <>
-              <CenterMultiSelect centers={centers} label={m.register.grantCenters} value={draft.centers} onChange={(next) => setDraft({ ...draft, centers: next })} />
+              {extending ? (
+                <p className="mt-6 text-xs" data-testid="grant-extend-centers">{`${m.register.grantCenters}: ${draft.centers.join(', ')}`}</p>
+              ) : (
+                <CenterMultiSelect centers={centers} label={m.register.grantCenters} value={draft.centers} onChange={(next) => setDraft({ ...draft, centers: next })} />
+              )}
               {draft.centers.length === 0 && <span className="text-xs text-warning">{m.register.roleNeedsCenter}</span>}
             </>
           ) : (
@@ -347,6 +396,11 @@ function GrantRequestForm({
           <input type="date" className="input input-sm" value={draft.validTo} onChange={(e) => setDraft({ ...draft, validTo: e.target.value })} />
         </label>
       </div>
+      {mix.length > 0 && (
+        <p role="alert" className="text-xs text-warning" data-testid="grant-role-mix">
+          {m.permissions.roleMixWarn(mix.map((g) => `${roleName(roles, g.role)} · ${g.centers.join(', ')}`).join(', '))}
+        </p>
+      )}
       {overlap.length > 0 && (
         <p role="alert" className="text-xs text-warning" data-testid="grant-overlap">
           {m.permissions.overlapWarn(lastDayOf(overlap[0]?.validUntil) ?? m.permissions.noEnd)}
@@ -366,13 +420,14 @@ function GrantRequestForm({
             {m.register.lineProblem[p.part]}
           </p>
         ))}
-      {/* 서버 문장(400·409 detail)은 그대로, 연장 거절이면 연장은 아직 없다는 안내(HR-2 §4 — 연장 버튼은 만들지 않는다) */}
+      {/* 서버 문장(400·409 detail)은 그대로. 409 CENTER_ROLE_MIX 는 그 기존 권한 줄 강조(위 current-grant) + 안내, 연장 거절(extension=true)이면 "연장"을 쓰라고 */}
       {problemDetail(rejected) && (
         <p className="text-xs text-error" data-testid="grant-problem-detail">
           {problemDetail(rejected)}
         </p>
       )}
-      {extension && <p className="text-xs opacity-80">{m.permissions.noExtension}</p>}
+      {roleMixRejected && <p className="text-xs opacity-80" data-testid="grant-role-mix-rejected">{m.permissions.roleMixRejected}</p>}
+      {extension && <p className="text-xs opacity-80" data-testid="grant-use-extend">{m.permissions.useExtend}</p>}
       <CommandFeedback command={submit}>{() => <p className="text-xs text-success">{m.permissions.submitted}</p>}</CommandFeedback>
     </form>
   );
@@ -395,6 +450,7 @@ export function PermissionDetailPage() {
   const self = session?.subject === operatorId;
   const canRevokeAdmin = session?.roles.includes('OPERATOR_ADMIN') ?? false;
   const accountPending = account.error instanceof ProblemFailure && account.error.problem.code === 'EMPLOYEE_NOT_FOUND';
+  const [extendFrom, setExtendFrom] = useState<EmployeeGrant | undefined>(undefined);
 
   return (
     <section className="max-w-5xl space-y-4">
@@ -417,7 +473,23 @@ export function PermissionDetailPage() {
                 </QueryState>
               ) : (
                 <QueryState state={toUiState(account)} onRetry={() => void account.refetch()}>
-                  {(a) => <AccountView operatorId={operatorId} account={a} roles={roles.data} self={self} canRevokeAdmin={canRevokeAdmin} />}
+                  {(a) => (
+                    <AccountView
+                      operatorId={operatorId}
+                      account={a}
+                      roles={roles.data}
+                      self={self}
+                      canRevokeAdmin={canRevokeAdmin}
+                      onExtend={
+                        self || pending || !roles.isSuccess
+                          ? undefined
+                          : (g) => {
+                              setExtendFrom(g);
+                              document.getElementById('grant-request-form')?.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
+                            }
+                      }
+                    />
+                  )}
                 </QueryState>
               )}
 
@@ -446,7 +518,15 @@ export function PermissionDetailPage() {
                 (pending ? (
                   <p className="text-sm text-base-content/60">{m.permissions.pendingNote}</p>
                 ) : roles.isSuccess ? (
-                  <GrantRequestForm operatorId={operatorId} version={e.version} roles={roles.data} grants={account.data?.grants ?? []} />
+                  <GrantRequestForm
+                    key={extendFrom?.grantId ?? 'new'}
+                    operatorId={operatorId}
+                    version={e.version}
+                    roles={roles.data}
+                    grants={account.data?.grants ?? []}
+                    extendFrom={extendFrom}
+                    onCancelExtend={() => setExtendFrom(undefined)}
+                  />
                 ) : (
                   <QueryState state={toUiState(roles)} onRetry={() => void roles.refetch()}>
                     {() => null}

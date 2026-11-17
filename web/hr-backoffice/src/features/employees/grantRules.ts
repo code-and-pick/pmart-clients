@@ -22,6 +22,30 @@ const seoulStart = (date: string) => Date.parse(`${date}T00:00:00+09:00`);
  */
 export const lastDayOf = (validUntil: string | null | undefined): string | null => (validUntil ? seoulDate(Date.parse(validUntil) - 1) : null);
 
+/**
+ * 연장 시작일(백엔드 요청 hr-backoffice/2026-11-18-request-grant-extension §2): validUntil 은 "이 시각부터 무효"(마지막 날 다음 날 0시 서울)라
+ * **validUntil 의 서울 날짜를 그대로** 새 요청의 validFrom 으로 넣는다(그 전날이 아님).
+ */
+export const extensionStart = (validUntil: string): string => seoulDate(Date.parse(validUntil));
+
+/** 이 권한 뒤에 이어지는 같은 권한(같은 역할·같은 센터, 이 권한이 끝나는 때 또는 그 뒤에 시작, 회수 안 됨) — 회수할 때 함께 안내 */
+export function followingGrants(all: readonly EmployeeGrant[], g: EmployeeGrant): EmployeeGrant[] {
+  if (!g.validUntil) return [];
+  const end = Date.parse(g.validUntil);
+  const same = (a: readonly string[], b: readonly string[]) => a.length === b.length && a.every((c) => b.includes(c));
+  return all.filter((x) => x.grantId !== g.grantId && !x.revokedAt && x.role === g.role && same(x.centers, g.centers) && Date.parse(x.validFrom) >= end);
+}
+
+/**
+ * 미리 경고(hr-service 0.7.0 CENTER_ROLE_MIX — 서버가 정본): 센터 지정 역할(MFC 역할)을 고를 때, 끝나지 않은 다른 센터 지정 역할이 다른 센터 묶음이면
+ * 토큰에서 역할·센터가 따로 합쳐져 다른 센터에서도 그 역할이 된다. 같은 역할끼리는 센터가 달라도 된다.
+ */
+export function roleMixGrants(existing: readonly EmployeeGrant[], roles: readonly EmployeeRole[], draft: GrantDraftLike, now: number): EmployeeGrant[] {
+  if (!draft.role || !needsCenter(roles, draft.role) || draft.centers.length === 0) return [];
+  const same = (a: readonly string[], b: readonly string[]) => a.length === b.length && a.every((c) => b.includes(c));
+  return activeGrants(existing, now).filter((g) => g.role !== draft.role && needsCenter(roles, g.role) && !same(g.centers, draft.centers));
+}
+
 /** 끝나지 않은 권한(유효하거나 시작 전) — 회수된 줄은 validUntil = 회수 시각이라 자연히 빠진다 */
 export const activeGrants = (grants: readonly EmployeeGrant[], now: number): EmployeeGrant[] =>
   grants.filter((g) => !g.revokedAt && (!g.validUntil || Date.parse(g.validUntil) > now));
@@ -81,6 +105,9 @@ export function parseConflict(reason: string): { existingGrantId?: string; exten
   const id = kv.get('existingGrantId');
   return { ...(id ? { existingGrantId: id } : {}), extension: kv.get('extension') === 'true' };
 }
+
+/** Problem code(오류 분기는 code 로만) */
+export const failureCodeOf = (failure: unknown): string | undefined => (failure instanceof ProblemFailure ? failure.problem.code : undefined);
 
 /** 서버가 준 사람이 읽는 문장(있으면 그대로 보인다 — 요청서 §5) */
 export const problemDetail = (failure: unknown): string | null =>
