@@ -238,6 +238,26 @@ export const inquiryHandlers = [
     return HttpResponse.json({ ...rest, requesterType: kindOf(found), ...(r.admin && satisfaction ? { satisfaction } : {}) });
   }),
 
+  // case 0.19.0 문의 닫기 — 답변 역할 직원만(관리자 403), 사유 2~500자, 이미 닫힘 409
+  http.post(`${API_BASE}/inquiries/:inquiryId/closures`, async ({ request, params }) => {
+    const who = operator(request);
+    if (!who) return unauthorized();
+    const key = request.headers.get('Idempotency-Key') ?? '';
+    const saved = replied.get(key);
+    if (saved) return HttpResponse.json(saved);
+    const index = inquiries.findIndex((i) => i.inquiryId === params.inquiryId);
+    const found = inquiries[index];
+    if (!found) return problem(404, 'NOT_FOUND');
+    if (!who.roles.includes(kindOf(found) === 'RIDER' ? 'RIDER_OPS' : 'CS_AGENT')) return problem(403, 'FORBIDDEN');
+    if (found.status === 'CLOSED') return problem(409, 'INQUIRY_CLOSED');
+    const { reason } = (await request.json()) as { reason?: string };
+    if (!reason || reason.trim().length < 2 || reason.length > 500) return problem(400, 'VALIDATION_FAILED', [{ field: 'reason', reason: 'INVALID_FORMAT' }]);
+    const next: Inquiry = { ...found, status: 'CLOSED', closedAt: new Date().toISOString(), closedByType: 'STAFF', closeReason: reason.trim(), version: found.version + 1 };
+    inquiries[index] = next;
+    replied.set(key, next);
+    return HttpResponse.json({ ...next, requesterType: kindOf(next) });
+  }),
+
   // case 0.14.0 사진 본문 — 토큰 필요, 그 문의를 볼 수 있는 직원만(못 보면 404, 역할 없음 403)
   http.get(`${API_BASE}/inquiry-photos/:photoId`, ({ request, params }) => {
     const r = reader(request);

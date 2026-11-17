@@ -201,6 +201,67 @@ function ReplyForm({ inquiry }: { readonly inquiry: Inquiry }) {
   );
 }
 
+/**
+ * 문의 닫기(case 0.19.0 — 백엔드 요청 all/2026-11-17-request-inquiry-close, 사용자 "다시 열기는 빼고").
+ * 답변 역할 직원만(고객 문의 CS_AGENT, 라이더 문의 RIDER_OPS — 관리자는 보기만 403). 사유 필수 2~500자, 직원에게만 보인다.
+ * 다시 열기·자동 닫기 없음, 상담 종료는 거래 종결이 아니다(주문·클레임 그대로). 닫으면 답변·사진 보완이 막힌다(409 INQUIRY_CLOSED).
+ */
+function CloseForm({ inquiry }: { readonly inquiry: Inquiry }) {
+  const api = useApi();
+  const queryClient = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [reason, setReason] = useState('');
+  const close = useCommand(async (r: string, key) => {
+    try {
+      const updated = await request(
+        'POST',
+        api.cases.POST('/inquiries/{inquiryId}/closures', { ...commandParams(key, { path: { inquiryId: inquiry.inquiryId } }), body: { reason: r } }),
+      );
+      queryClient.setQueryData(['inquiries', 'detail', inquiry.inquiryId], updated);
+      return updated;
+    } finally {
+      void queryClient.invalidateQueries({ queryKey: ['inquiries'] });
+    }
+  });
+  const ok = reason.trim().length >= 2 && reason.trim().length <= 500;
+  if (!open)
+    return (
+      <button type="button" className="btn btn-outline btn-sm" onClick={() => setOpen(true)}>
+        {m.inquiries.close}
+      </button>
+    );
+  return (
+    <form
+      className="space-y-2 rounded-box bg-base-100 p-4"
+      aria-label={m.inquiries.close}
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (!ok || close.busy) return;
+        if (close.phase.kind === 'rejected') close.reset();
+        void close.run(reason.trim());
+      }}
+    >
+      <p role="note" className="text-xs text-warning">
+        {m.inquiries.closeWarn}
+      </p>
+      <label className="flex flex-col gap-1 text-sm">
+        {m.inquiries.closeReason}
+        <textarea className="textarea textarea-sm w-full" maxLength={500} value={reason} disabled={close.busy} onChange={(e) => setReason(e.target.value)} />
+      </label>
+      <p className="text-xs opacity-70">{m.inquiries.closeReasonHint}</p>
+      <div className="flex gap-2">
+        <button type="submit" className="btn btn-warning btn-sm" disabled={!ok || close.busy}>
+          {m.inquiries.closeSubmit}
+        </button>
+        <button type="button" className="btn btn-ghost btn-sm" disabled={close.busy} onClick={() => setOpen(false)}>
+          {m.inquiries.closeCancel}
+        </button>
+      </div>
+      <CommandFeedback command={close}>{() => <p role="status" className="text-sm text-success">{m.inquiries.closed}</p>}</CommandFeedback>
+    </form>
+  );
+}
+
 /** 문의 상세 + 답변. */
 export function InquiryDetailPage({ kind = 'CUSTOMER' }: { readonly kind?: RequesterType }) {
   const { inquiryId = '' } = useParams();
@@ -283,6 +344,16 @@ export function InquiryDetailPage({ kind = 'CUSTOMER' }: { readonly kind?: Reque
               )}
               <dt>{m.inquiries.createdAt}</dt>
               <dd>{formatSeoul(q.createdAt)}</dd>
+              {/* 닫힘(case 0.19.0) — 닫은 쪽·시각, 직원이 닫았으면 사유(직원에게만 온다) */}
+              {q.status === 'CLOSED' && (
+                <>
+                  <dt>{m.inquiries.closedLabel}</dt>
+                  <dd data-testid="inquiry-closed">
+                    {`${label(m.inquiries.closedByName, q.closedByType)}${q.closedAt ? ` · ${formatSeoul(q.closedAt)}` : ''}`}
+                    {q.closeReason && <span className="block whitespace-pre-wrap opacity-80">{q.closeReason}</span>}
+                  </dd>
+                </>
+              )}
               {/* 만족도(case 0.15.0) — 서버가 관리자에게만 준다. 상담원 화면에는 없다 */}
               {q.satisfaction && (
                 <>
@@ -327,6 +398,7 @@ export function InquiryDetailPage({ kind = 'CUSTOMER' }: { readonly kind?: Reque
               </ul>
             )}
 
+            {canReplyTo(q) && q.status !== 'CLOSED' && <CloseForm key={`close-${q.inquiryId}`} inquiry={q} />}
             {canReplyTo(q) ? (
               <ReplyForm key={q.inquiryId} inquiry={q} />
             ) : (
