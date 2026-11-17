@@ -161,6 +161,21 @@ describe('처리 대기', () => {
     expect(within(row).getByRole('button', { name: '다시 시도' })).toBeInTheDocument();
   });
 
+  it('MFC 목록이 1,000건을 넘으면(truncated, bff 0.9.1) 목록 위에 "더 있음" 안내', async () => {
+    server.use(
+      http.get(`${BFF_BASE}/views/pending-work`, () =>
+        HttpResponse.json({
+          sources: [{ system: 'mfc-fulfillment-service', confidence: 'DIRECT', asOf: { asOf: '2026-11-17T00:00:00Z', freshness: 'CURRENT' } }],
+          unavailableSources: [],
+          truncated: true,
+          items: [{ kind: 'MFC_STOP_FAILED', refId: 'STOP-1', orderId: 'ORD-1', state: 'PENDING', since: '2026-11-17T00:00:00Z', allowedActions: ['RETRY'] }],
+        }),
+      ),
+    );
+    renderAt('/pending', as.admin);
+    expect(await screen.findByTestId('pending-truncated')).toHaveTextContent('오래된 것부터 처리하거나 센터로 나눠 보세요');
+  });
+
   it('MFC 원천이 sources 에 없으면(서버 설정으로 꺼짐) 안내 — 장애로 보이지 않는다', async () => {
     server.use(
       http.get(`${BFF_BASE}/views/pending-work`, () =>

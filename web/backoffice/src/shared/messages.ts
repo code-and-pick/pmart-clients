@@ -536,6 +536,7 @@ export const messages = {
     retry: '다시 시도',
     retryReason: '다시 시도 사유(필수)',
     retryHint: '1~500자. 개인정보는 적지 마세요. 누가·사유가 MFC 재시도 기록으로 남아요.',
+    truncated: 'MFC 항목이 더 있어요(1,000건까지만 읽었어요) — 오래된 것부터 처리하거나 센터로 나눠 보세요.',
     lastRetry: (who: string, at: string, reason: string) => `최근 재시도: ${who} · ${at} · ${reason}`,
     retryRejected: '다시 실패했어요. 원인을 고친 뒤 다시 시도해 주세요.',
     handoverRetryGuide: '먼저 실물을 확인하고 재고를 정정한 뒤 다시 시도해 주세요.',

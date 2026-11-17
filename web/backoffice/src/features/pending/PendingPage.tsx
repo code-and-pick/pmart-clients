@@ -25,7 +25,7 @@ import { label, text, when } from '../../shared/ops';
 import { SourceStamps } from '../../shared/SourceStamps';
 
 type Item = components['schemas']['PendingWorkItem'];
-type View = components['schemas']['ComposedView'] & { items?: Item[] };
+type View = components['schemas']['ComposedView'] & { items?: Item[]; truncated?: boolean };
 type Action = 'REQUERY_RESULT' | 'MARK_RESOLVED' | 'ACKNOWLEDGE' | 'RETRY';
 
 const ORCHESTRATION = 'order-orchestration-service';
@@ -186,6 +186,12 @@ export function PendingPage() {
         {(view) => (
           <>
             <SourceStamps sources={view.sources} unavailableSources={view.unavailableSources} />
+            {/* bff 0.9.1 — MFC 목록이 1,000건을 넘어 뒤를 못 읽었다 */}
+            {view.truncated && (
+              <p role="alert" className="alert alert-warning text-sm" data-testid="pending-truncated">
+                {m.pending.truncated}
+              </p>
+            )}
             <table className="table table-sm rounded-box bg-base-100">
               <thead>
                 <tr>
