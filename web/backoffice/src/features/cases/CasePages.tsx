@@ -34,6 +34,7 @@ import { label, text, when } from '../../shared/ops';
 import { SourceStamps } from '../../shared/SourceStamps';
 import { canSeeIntakes, CsIntakeLog } from '../csIntakes/CsIntakePages';
 import { CaseNotes } from './CaseNotes';
+import { ActionRequests } from './ActionRequests';
 import { HelpChat } from './HelpChat';
 import { FollowUps, isOpenObligation } from './FollowUps';
 
@@ -624,6 +625,9 @@ export function CaseDetailPage() {
                   </p>
                 </>
               )}
+
+              {/* 행위 요청 기록(case 0.17.0) — 맡을 수 있는 사람만 남김, 처리 끝난 건은 새 요청 없음 */}
+              <ActionRequests c={c} canAct={!closed && (admin || teamCan)} />
 
               <CaseNotes caseId={c.caseId ?? caseId} />
 

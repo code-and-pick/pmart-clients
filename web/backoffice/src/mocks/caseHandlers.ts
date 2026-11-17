@@ -321,6 +321,67 @@ export const caseHandlers = [
     });
   }),
 
+  // case 0.17.0 행위 요청 기록 — 맡을 수 있는 사람(배송 건 지원센터·관리자, 관리자 팀·주문 건은 관리자), 처리 끝난 건 409, 보상 실행은 승인 번호(422)
+  http.post(`${API_BASE}/cases/:caseId/action-requests`, async ({ request, params }) => {
+    const v = viewer(request);
+    if ('denied' in v) return v.denied;
+    const body = (await request.clone().json()) as { actionType?: string; targetService?: string; command?: string; targetRef?: string; approvalRef?: string };
+    return idempotent(request, () => {
+      const c = cases.find((x) => x.caseId === params['caseId']);
+      if (!c || !v.sees(c)) return problem(404, 'NOT_FOUND');
+      if (!v.admin && (!v.team || c.assigneeGroup === 'ORDER_OPS')) return problem(403, 'FORBIDDEN');
+      if (c.state === 'CLOSED') return problem(409, 'INVALID_STATE');
+      const types = ['REQUERY_RESULT', 'RESEND_UNDELIVERED', 'EXECUTE_APPROVED_COMPENSATION', 'REQUEST_DOMAIN_REVIEW'];
+      if (!types.includes(body.actionType ?? '')) return problem(422, 'UNSUPPORTED_ACTION');
+      if (!body.targetService || !body.command) return problem(400, 'VALIDATION_FAILED');
+      if (body.actionType === 'EXECUTE_APPROVED_COMPENSATION' && !body.approvalRef) return problem(422, 'APPROVAL_REQUIRED');
+      const now = new Date().toISOString();
+      const ar = {
+        actionRequestId: `AR-MOCK-${(c.actionRequests?.length ?? 0) + 1}`,
+        caseId: c.caseId ?? '',
+        actionType: body.actionType as 'REQUERY_RESULT',
+        targetService: body.targetService,
+        command: body.command,
+        ...(body.targetRef ? { targetRef: body.targetRef } : {}),
+        ...(body.approvalRef ? { approvalRef: body.approvalRef } : {}),
+        state: 'REQUESTED' as const,
+        requestedBy: v.who.subject,
+        requestedAt: now,
+        resultAt: null,
+        resultBy: null,
+        resultNote: null,
+        version: 1,
+      };
+      c.actionRequests = [...(c.actionRequests ?? []), ar];
+      log(c, 'ACTION_REQUESTED', v.who.subject, c.state ?? 'OPEN', `${ar.actionType} ${ar.targetService}`);
+      return { status: 201, body: ar };
+    });
+  }),
+  http.post(`${API_BASE}/cases/:caseId/action-requests/:arId/results`, async ({ request, params }) => {
+    const v = viewer(request);
+    if ('denied' in v) return v.denied;
+    const body = (await request.clone().json()) as { state?: string; resultSystem?: string; resultRef?: string; resultKind?: string; note?: string };
+    return idempotent(request, () => {
+      const c = cases.find((x) => x.caseId === params['caseId']);
+      const ar = c?.actionRequests?.find((x) => x.actionRequestId === params['arId']);
+      if (!c || !ar || !v.sees(c)) return problem(404, 'NOT_FOUND');
+      if (!v.admin && (!v.team || c.assigneeGroup === 'ORDER_OPS')) return problem(403, 'FORBIDDEN');
+      if (ar.state === 'APPLIED' || ar.state === 'REJECTED') return problem(409, 'INVALID_STATE');
+      if (Boolean(body.resultSystem) !== Boolean(body.resultRef)) return problem(400, 'VALIDATION_FAILED');
+      const now = new Date().toISOString();
+      Object.assign(ar, {
+        state: body.state,
+        resultAt: now,
+        resultBy: v.who.subject,
+        resultNote: body.note ?? null,
+        ...(body.resultSystem ? { resultRef: { system: body.resultSystem, ref: body.resultRef, ...(body.resultKind ? { kind: body.resultKind } : {}), asOf: now } } : {}),
+        version: (ar.version ?? 1) + 1,
+      });
+      log(c, 'ACTION_RESULT_RECORDED', v.who.subject, c.state ?? 'OPEN', `${ar.actionRequestId} ${body.state ?? ''}`);
+      return { status: 200, body: ar };
+    });
+  }),
+
   http.post(`${API_BASE}/cases/:caseId/closures`, async ({ request, params }) => {
     const v = viewer(request);
     if ('denied' in v) return v.denied;

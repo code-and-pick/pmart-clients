@@ -77,6 +77,8 @@ export const navGroups: readonly NavGroup[] = [
     items: [
       { to: '/inquiries', label: m.nav.inquiries },
       { to: '/cs-intakes/new', label: m.nav.csIntake }, // case 0.12.0 — 전화·채팅·메일로 받은 연락 기록
+      // 문의 만족도(case 0.15.0) — 관리자만(상담원 평가에 쓰지 않음)
+      { to: '/inquiry-satisfaction', label: m.nav.satisfaction, visibleTo: oneOf('OPERATOR_ADMIN') },
       { to: '/claims', label: m.nav.claims },
       // 후속 처리(case 0.8.0 의무, owner=CS) — 상담원이 고객 연락 등의 결과를 남긴다
       { to: '/follow-ups/cs', label: m.nav.csFollowUps },

@@ -25,6 +25,7 @@ import { CsFollowUpPage } from '../features/cases/FollowUps';
 import { HandoverPage } from '../features/cases/HandoverPages';
 import { DeliveryDetailPage, DeliveryOpenPage } from '../features/deliveries/DeliveryPages';
 import { InquiryDetailPage, InquiryListPage } from '../features/inquiries/InquiryPages';
+import { SatisfactionPage } from '../features/inquiries/SatisfactionPage';
 import { NewCsIntakePage } from '../features/csIntakes/CsIntakePages';
 import { OrderDetailPage, OrderLookupPage } from '../features/orders/OrderLookupPages';
 import { NewRiderComplaintPage, RiderComplaintDetailPage, RiderComplaintListPage } from '../features/riderComplaints/RiderComplaintPages';
@@ -141,6 +142,7 @@ const routes = [
       { path: 'prices/import/:batchId', element: guarded(<PriceImportPage />) },
       { path: 'handlings', element: guarded(<SkuHandlingPage />) },
       { path: 'inquiries', element: guarded(<InquiryListPage />) },
+      { path: 'inquiry-satisfaction', element: guarded(<SatisfactionPage />) },
       { path: 'inquiries/:inquiryId', element: guarded(<InquiryDetailPage />) },
       { path: 'rider-inquiries', element: guarded(<InquiryListPage kind="RIDER" />) },
       { path: 'rider-inquiries/:inquiryId', element: guarded(<InquiryDetailPage kind="RIDER" />) },

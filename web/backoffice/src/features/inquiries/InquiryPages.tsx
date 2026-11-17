@@ -112,6 +112,9 @@ export function InquiryListPage({ kind = 'CUSTOMER' }: { readonly kind?: Request
                       <span className="badge badge-ghost badge-sm ml-1" data-testid="inquiry-channel">{`${m.inquiries.fromStaff} · ${label(m.csIntake.channelName, i.channel)}`}</span>
                     )}
                     {i.callerRelation === 'PROXY' && <span className="badge badge-warning badge-sm ml-1">{m.inquiries.proxy}</span>}
+                    {i.deliveryIssue && (
+                      <span className="badge badge-error badge-outline badge-sm ml-1" data-testid="inquiry-delivery-issue">{`${m.inquiries.deliveryIssue} · ${label(m.inquiries.deliveryIssueName, i.deliveryIssue)}`}</span>
+                    )}
                   </td>
                   <td>{label(m.inquiries.status, i.status)}</td>
                   <td>{formatSeoul(i.createdAt)}</td>
@@ -243,6 +246,23 @@ export function InquiryDetailPage({ kind = 'CUSTOMER' }: { readonly kind?: Reque
                   <dd>{q.customerId ?? m.none}</dd>
                   <dt>{m.inquiries.order}</dt>
                   <dd>{q.orderId ?? m.none}</dd>
+                  {/* 배송 신고(case 0.16.0) — 고객 배송 분류 + 주문 문의에만 */}
+                  {q.deliveryIssue && (
+                    <>
+                      <dt>{m.inquiries.deliveryIssue}</dt>
+                      <dd data-testid="inquiry-delivery-issue">
+                        {label(m.inquiries.deliveryIssueName, q.deliveryIssue)}
+                        {q.deliveryId && (
+                          <>
+                            {` · ${m.inquiries.delivery} `}
+                            <Link className="link" to={`/deliveries/${encodeURIComponent(q.deliveryId)}`}>
+                              {q.deliveryId}
+                            </Link>
+                          </>
+                        )}
+                      </dd>
+                    </>
+                  )}
                 </>
               )}
               <dt>{m.inquiries.origin}</dt>
@@ -263,6 +283,16 @@ export function InquiryDetailPage({ kind = 'CUSTOMER' }: { readonly kind?: Reque
               )}
               <dt>{m.inquiries.createdAt}</dt>
               <dd>{formatSeoul(q.createdAt)}</dd>
+              {/* 만족도(case 0.15.0) — 서버가 관리자에게만 준다. 상담원 화면에는 없다 */}
+              {q.satisfaction && (
+                <>
+                  <dt>{m.inquiries.satisfaction}</dt>
+                  <dd data-testid="inquiry-satisfaction">
+                    {m.inquiries.satisfactionLine(q.satisfaction.score, formatSeoul(q.satisfaction.ratedAt))}
+                    {q.satisfaction.comment && <span className="block whitespace-pre-wrap opacity-80">{q.satisfaction.comment}</span>}
+                  </dd>
+                </>
+              )}
               <dt>{m.inquiries.caseId}</dt>
               <dd>{q.caseId}</dd>
             </dl>

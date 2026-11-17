@@ -28,6 +28,8 @@ const seed = (): Inquiry[] => [
     caseId: 'CASE-MOCK-3',
     customerId: 'CUS-MOCK-1',
     body: '[목] 배송 완료라고 뜨는데 아직 못 받았어요.',
+    deliveryIssue: 'NOT_RECEIVED',
+    deliveryId: 'DLV-MOCK-1',
     photos: [photo('IPH-MOCK-1'), photo('IPH-MOCK-2')],
     replies: [],
   },
@@ -59,6 +61,7 @@ const seed = (): Inquiry[] => [
     caseId: 'CASE-MOCK-1',
     customerId: 'CUS-MOCK-3',
     body: '[목] 우유 소비기한이 얼마나 남은 상품이 오나요?',
+    satisfaction: { score: 4, comment: '[목] 빨리 답해 줘서 좋았어요', ratedAt: '2026-11-13T05:00:00Z' },
     replies: [{ replyId: 'REP-MOCK-1', authorType: 'AGENT', body: '[목] 남은 기한을 확인하고 보내 드립니다.', createdAt: '2026-11-13T03:00:00Z' }],
   },
   {
@@ -150,14 +153,40 @@ export function resetMockInquiries(): void {
 const PAGE = 20;
 
 /** 조회 — 상담원(고객 문의) + 지원센터(라이더 문의, 0.13.0) + 본사 관리자(전부, 보기만). 돌려주는 kinds = 볼 수 있는 종류. */
-const reader = (request: Request): { denied: Response } | { kinds: string[] } => {
+const reader = (request: Request): { denied: Response } | { kinds: string[]; admin: boolean } => {
   const who = operator(request);
   if (!who) return { denied: unauthorized() };
   const kinds = kindsFor(who.roles);
-  return kinds.length ? { kinds } : { denied: problem(403, 'FORBIDDEN') };
+  return kinds.length ? { kinds, admin: who.roles.includes('OPERATOR_ADMIN') } : { denied: problem(403, 'FORBIDDEN') };
 };
 
 export const inquiryHandlers = [
+  // 만족도 모아 보기는 /inquiries/:inquiryId 보다 먼저(같은 모양 경로)
+  // case 0.15.0 만족도 모아 보기 — 관리자만, 답변 시각 기준 92일까지. 상담원별 값 없음
+  http.get(`${API_BASE}/inquiries/satisfaction-summary`, ({ request }) => {
+    const who = operator(request);
+    if (!who) return unauthorized();
+    if (!who.roles.includes('OPERATOR_ADMIN')) return problem(403, 'FORBIDDEN');
+    const q = new URL(request.url).searchParams;
+    const from = Date.parse(q.get('answeredFrom') ?? '');
+    const to = Date.parse(q.get('answeredTo') ?? '');
+    if (Number.isNaN(from) || Number.isNaN(to) || to < from || to - from > 92 * 86_400_000) return problem(400, 'VALIDATION_FAILED');
+    const answered = inquiries.filter((i) => i.answeredAt && Date.parse(i.answeredAt) >= from && Date.parse(i.answeredAt) <= to);
+    const rated = answered.filter((i) => i.satisfaction);
+    const byScore: Record<string, number> = { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0 };
+    for (const i of rated) byScore[String(i.satisfaction?.score)] = (byScore[String(i.satisfaction?.score)] ?? 0) + 1;
+    const scoreSum = rated.reduce((s, i) => s + (i.satisfaction?.score ?? 0), 0);
+    return HttpResponse.json({
+      answeredFrom: q.get('answeredFrom'),
+      answeredTo: q.get('answeredTo'),
+      answeredCount: answered.length,
+      ratedCount: rated.length,
+      scoreSum,
+      averageScore: rated.length ? scoreSum / rated.length : null,
+      byScore,
+    });
+  }),
+
   http.get(`${API_BASE}/inquiries`, ({ request }) => {
     const r = reader(request);
     if ('denied' in r) return r.denied;
@@ -180,6 +209,7 @@ export const inquiryHandlers = [
         origin: i.origin,
         channel: i.channel ?? null,
         callerRelation: i.callerRelation ?? null,
+        deliveryIssue: i.deliveryIssue ?? null,
         createdAt: i.createdAt,
         answeredAt: i.answeredAt,
         version: i.version,
@@ -192,7 +222,10 @@ export const inquiryHandlers = [
     const r = reader(request);
     if ('denied' in r) return r.denied;
     const found = inquiries.find((i) => i.inquiryId === params.inquiryId && r.kinds.includes(kindOf(i)));
-    return found ? HttpResponse.json({ ...found, requesterType: kindOf(found) }) : problem(404, 'NOT_FOUND');
+    if (!found) return problem(404, 'NOT_FOUND');
+    // 만족도는 관리자에게만(0.15.0) — 상담원·지원센터 응답에는 없다
+    const { satisfaction, ...rest } = found;
+    return HttpResponse.json({ ...rest, requesterType: kindOf(found), ...(r.admin && satisfaction ? { satisfaction } : {}) });
   }),
 
   // case 0.14.0 사진 본문 — 토큰 필요, 그 문의를 볼 수 있는 직원만(못 보면 404, 역할 없음 403)
