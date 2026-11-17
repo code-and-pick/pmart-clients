@@ -21,6 +21,13 @@ describe('권한 관리', () => {
     expect(grant).toHaveTextContent('2026-09-01 ~ 2027-02-28'); // 기간은 서울 날짜만
   });
 
+  it('승인 칸: 승인자 이름(approverName, employee-auth 0.10.0)이 있으면 ID 대신 이름', async () => {
+    renderAt('/permissions/OP-md-1');
+    const approver = within(await screen.findByTestId('grant-row')).getByTestId('grant-approver');
+    expect(approver).toHaveTextContent('한인사');
+    expect(approver).not.toHaveTextContent('OP-hr-1');
+  });
+
   it('계정 발급 전 직원은 "계정 발급 중"(404 EMPLOYEE_NOT_FOUND 를 오류로 보이지 않는다)', async () => {
     renderAt('/permissions/OP-fail-1');
     expect(await screen.findByText(/아직 로그인 계정이 없어요/)).toBeInTheDocument();
@@ -35,6 +42,7 @@ describe('권한 관리', () => {
     await userEvent.type(within(row).getByLabelText('회수 사유'), '센터 이동');
     await userEvent.click(within(row).getByRole('button', { name: '회수하기' }));
     await waitFor(() => expect(screen.getByTestId('grant-row')).toHaveTextContent('회수됨'));
+    expect(screen.getByTestId('grant-row')).toHaveTextContent('회수됨(한인사,'); // revokedByName(employee-auth 0.10.0)
     expect(screen.getByTestId('effective-roles')).toHaveTextContent('-');
     const sent = view.mutations('/grant-revocations');
     expect(sent).toHaveLength(1);
@@ -48,6 +56,7 @@ describe('권한 관리', () => {
     renderAt('/permissions/OP-hr-1'); // 자기 자신 + HR_ADMIN 줄
     const row = await screen.findByTestId('grant-row');
     expect(row).toHaveAttribute('data-role', 'HR_ADMIN');
+    expect(within(row).getByTestId('grant-approver')).toHaveTextContent('OP-admin-1'); // 인사 기록 없는 승인자 — 이름 null 이면 운영자 ID
     expect(within(row).queryByRole('button', { name: '회수' })).not.toBeInTheDocument();
     expect(screen.queryByRole('form', { name: '권한 추가·변경 요청' })).not.toBeInTheDocument(); // 자기 권한 요청도 없음
   });

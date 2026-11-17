@@ -166,17 +166,27 @@ export function resetDb(): void {
   db.seq = 100;
 }
 
+/** employee-auth 0.10.0 approverName·revokedByName 흉내 — hr 인사 기록 이름. 목 관리자 OP-admin-1 은 인사 기록이 없는 예전 계정(null → 화면은 ID). */
+export function mockStaffName(operatorId: string | null | undefined, employees: Map<string, MockEmployee> = db.employees): string | null {
+  if (!operatorId) return null;
+  return [...employees.values()].find((x) => x.employee.operatorId === operatorId)?.employee.name ?? null;
+}
+
+const approverOf = (m: MockEmployee) => (m.employee.operatorId === 'OP-hr-1' ? 'OP-admin-1' : 'OP-hr-1');
+
 function seedAccountGrants(employees: Map<string, MockEmployee>): Array<[string, EmployeeGrant[]]> {
   return [...employees.values()]
     .filter((m) => m.employee.provisioning.step === 'DONE')
     .map((m, i) => [
       m.employee.operatorId,
+      // 인사 담당 자신의 권한은 인사 기록 없는 관리자(OP-admin-1)가 승인 → 이름 null, 그 밖은 인사 담당(OP-hr-1, 한인사)
       (m.employee.requestedGrants ?? [])
         .filter((g) => g.submission === 'APPROVED')
         .map((g, j) => ({
           grantId: `${g.approvalRef ?? `AP-seed-${i}`}:L${j + 1}`,
           approvalId: g.approvalRef ?? `AP-seed-${i}`,
-          approverId: g.role === 'MFC_WORKER' ? 'RULE:center-worker@v1' : 'OP-admin-1',
+          approverId: g.role === 'MFC_WORKER' ? 'RULE:center-worker@v1' : approverOf(m),
+          approverName: g.role === 'MFC_WORKER' ? null : mockStaffName(approverOf(m), employees),
           role: g.role,
           centers: [...g.centers],
           validFrom: `${g.validFrom ?? m.employee.startDate}T00:00:00+09:00`,

@@ -6,7 +6,7 @@ import { http, HttpResponse } from 'msw';
 import { mockOperatorToken } from '@pmart/web-core';
 import { API_BASE } from '../api/client';
 import { EMPLOYEE_APP } from '../api/employeeAuth';
-import { db, nextSeq, timestamp, type MockSession } from './db';
+import { db, mockStaffName, nextSeq, timestamp, type MockSession } from './db';
 import { idempotent, operator, problem, unauthorized } from './support';
 
 /** 목 수치(실서버는 보안 설정값): access 15분, 세션 12시간 */
@@ -96,7 +96,7 @@ export const authHandlers = [
       if (!g.revokedAt) {
         if (g.validUntil && Date.parse(g.validUntil) <= Date.now()) return problem(409, 'INVALID_STATE');
         const now = timestamp();
-        Object.assign(g, { revokedAt: now, revokedBy: who.subject, revokeReason: (body.reason ?? '').trim(), validUntil: now });
+        Object.assign(g, { revokedAt: now, revokedBy: who.subject, revokedByName: mockStaffName(who.subject), revokeReason: (body.reason ?? '').trim(), validUntil: now });
         for (const s of db.sessions.values()) if (s.operatorId === operatorId) s.revoked = true; // 그 직원 세션을 끊는다
       }
       return { status: 200, body: account(operatorId) };

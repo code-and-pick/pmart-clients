@@ -196,10 +196,10 @@ function AccountView({ operatorId, account, roles, self, canRevokeAdmin }: {
                   <td>{roleName(roles, g.role)}</td>
                   <td>{g.centers.join(', ') || m.none}</td>
                   <td>{`${formatSeoulDate(g.validFrom)} ~ ${g.validUntil ? formatSeoulDate(g.validUntil) : m.permissions.untilEmployment}`}</td>
-                  <td>{g.approverId.startsWith('RULE:') ? `${m.permissions.autoApproved} · ${g.approvalId}` : `${g.approvalId} · ${g.approverId}`}</td>
+                  <td data-testid="grant-approver">{g.approverId.startsWith('RULE:') ? `${m.permissions.autoApproved} · ${g.approvalId}` : `${g.approvalId} · ${g.approverName ?? g.approverId}`}</td>
                   <td>
                     {st === 'revoked'
-                      ? m.permissions.revoked(g.revokedBy ?? m.none, g.revokedAt ? formatSeoul(g.revokedAt) : m.none)
+                      ? m.permissions.revoked(g.revokedByName ?? g.revokedBy ?? m.none, g.revokedAt ? formatSeoul(g.revokedAt) : m.none)
                       : st === 'ended'
                         ? m.permissions.ended
                         : m.permissions.live}
