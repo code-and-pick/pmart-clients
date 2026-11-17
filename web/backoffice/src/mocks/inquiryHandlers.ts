@@ -8,6 +8,10 @@ import { API_BASE } from '../api/client';
 import type { components } from '../api/generated/case';
 import { operator, problem, unauthorized } from './support';
 
+/** 1x1 PNG(목 사진 본문) */
+const PIXEL = Uint8Array.from(atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='), (c) => c.charCodeAt(0));
+const photo = (photoId: string) => ({ photoId, url: `/api/v1/inquiry-photos/${photoId}`, contentType: 'image/png' as const, sizeBytes: PIXEL.length, uploadedAt: '2026-11-15T01:09:00Z' });
+
 type Inquiry = components['schemas']['Inquiry'];
 
 const seed = (): Inquiry[] => [
@@ -24,6 +28,7 @@ const seed = (): Inquiry[] => [
     caseId: 'CASE-MOCK-3',
     customerId: 'CUS-MOCK-1',
     body: '[목] 배송 완료라고 뜨는데 아직 못 받았어요.',
+    photos: [photo('IPH-MOCK-1'), photo('IPH-MOCK-2')],
     replies: [],
   },
   {
@@ -70,6 +75,8 @@ const seed = (): Inquiry[] => [
     caseId: 'CASE-MOCK-R1',
     riderId: 'RID-MOCK-1',
     body: '[목] 어제 정산 금액이 앱에 안 보여요.',
+    // 두 번째는 저장소에서 지워진 사진처럼 본문 404
+    photos: [photo('IPH-MOCK-R1'), photo('IPH-MOCK-GONE')],
     replies: [],
   },
   {
@@ -186,6 +193,16 @@ export const inquiryHandlers = [
     if ('denied' in r) return r.denied;
     const found = inquiries.find((i) => i.inquiryId === params.inquiryId && r.kinds.includes(kindOf(i)));
     return found ? HttpResponse.json({ ...found, requesterType: kindOf(found) }) : problem(404, 'NOT_FOUND');
+  }),
+
+  // case 0.14.0 사진 본문 — 토큰 필요, 그 문의를 볼 수 있는 직원만(못 보면 404, 역할 없음 403)
+  http.get(`${API_BASE}/inquiry-photos/:photoId`, ({ request, params }) => {
+    const r = reader(request);
+    if ('denied' in r) return r.denied;
+    const id = String(params['photoId']);
+    const owner = inquiries.find((i) => (i.photos ?? []).some((p) => p.photoId === id));
+    if (!owner || !r.kinds.includes(kindOf(owner)) || id === 'IPH-MOCK-GONE') return problem(404, 'NOT_FOUND');
+    return new HttpResponse(PIXEL, { headers: { 'content-type': 'image/png' } });
   }),
 
   http.post(`${API_BASE}/inquiries/:inquiryId/replies`, async ({ request, params }) => {

@@ -1338,6 +1338,11 @@ export const messages = {
     riderReplyNote: '라이더는 앱의 문의에서 답변을 봐요. 답변은 고칠 수 없어요.',
     riderReadOnly: '보기만 할 수 있어요. 라이더 문의 답변은 지원센터(RIDER_OPS)가 해요.',
     riderBack: '라이더 문의 목록',
+    photos: (n: number) => `사진 ${n}장`,
+    photoAlt: (i: number) => `문의 사진 ${i}`,
+    photoOpen: (i: number) => `문의 사진 ${i} 크게 보기`,
+    photoClose: '닫기',
+    photoUnavailable: '사진을 불러오지 못했어요(볼 수 없는 사진이거나 사진 저장소가 아직 준비되지 않았어요).',
   },
 
   /** 전화·채팅 접수(case 0.12.0) */

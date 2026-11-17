@@ -17,6 +17,7 @@ import { useApi } from '../../app/ApiContext';
 import { useSession } from '../../app/SessionContext';
 import { CommandFeedback } from '../../shared/Feedback';
 import { canSeeIntakes, CsIntakeLog } from '../csIntakes/CsIntakePages';
+import { InquiryPhotos } from './InquiryPhotos';
 import { messages as m } from '../../shared/messages';
 
 type Inquiry = components['schemas']['Inquiry'];
@@ -279,6 +280,8 @@ export function InquiryDetailPage({ kind = 'CUSTOMER' }: { readonly kind?: Reque
                 {q.body}
               </p>
             </article>
+            {/* 문의 사진(case 0.14.0) — 고객·라이더가 붙인 것. 상담원 접수 문의에는 없다 */}
+            <InquiryPhotos photos={q.photos} />
 
             <h2 className="font-bold">{m.inquiries.replies}</h2>
             {q.replies.length === 0 ? (
