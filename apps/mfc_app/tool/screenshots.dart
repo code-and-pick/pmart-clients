@@ -226,4 +226,77 @@ void main() {
     await shot('23-sup-workers');
     debugDisableShadows = true;
   });
+
+  testWidgets('setup', (t) async {
+    if (_dir.isEmpty) fail('--dart-define=SHOT_DIR=<절대 경로> 가 필요하다');
+    await t.runAsync(_loadFonts);
+    debugDisableShadows = false;
+    t.view
+      ..physicalSize = const Size(1080, 2160)
+      ..devicePixelRatio = 3;
+    addTearDown(t.view.reset);
+    final tasks = MockTaskRepository(latency: Duration.zero);
+    await t.pumpWidget(
+      ProviderScope(
+        retry: (_, _) => null,
+        overrides: [
+          envProvider.overrideWithValue(PmartEnv.mock),
+          authRepositoryProvider.overrideWithValue(
+            MockPasswordAuthRepository(), // 데모 앱과 같은 로그인
+          ),
+          taskRepositoryProvider.overrideWithValue(tasks),
+          workRepositoryProvider.overrideWithValue(
+            MockWorkRepository(tasks: tasks, latency: Duration.zero),
+          ),
+          secureStoreProvider.overrideWithValue(MemoryKeyValueStore()),
+        ],
+        child: const MfcApp(),
+      ),
+    );
+    await t.pumpAndSettle();
+    Future<void> shot(String name) async {
+      await t.pumpAndSettle();
+      await expectLater(
+        find.byType(MfcApp),
+        matchesGoldenFile(File('$_dir/$name.png').uri),
+      );
+    }
+
+    await shot('31-start');
+    await t.tap(find.byKey(const ValueKey('start-setup')));
+    await shot('32-setup');
+    Navigator.of(t.element(find.byType(Scaffold).last)).pop();
+    await t.pumpAndSettle();
+    await t.tap(find.byKey(const ValueKey('start-stock')));
+    await shot('34-login');
+    await t.tap(find.byKey(const ValueKey('employee-login')));
+    await shot('35-mock-signin');
+    await t.enterText(find.byKey(const ValueKey('login-id')), 'mfcw-pp-01');
+    await t.enterText(find.byKey(const ValueKey('login-password')), 'x');
+    await t.pump();
+    await t.tap(find.byKey(const ValueKey('mock-signin-submit')));
+    for (var i = 0; i < 3; i++) {
+      await t.pump(const Duration(seconds: 1));
+      await t.pumpAndSettle();
+    }
+    await t.enterText(
+      find.byKey(const ValueKey('stock-check-scan')),
+      '8801115114154',
+    );
+    await t.testTextInput.receiveAction(TextInputAction.done);
+    await t.pump(const Duration(seconds: 1));
+    await t.pumpAndSettle();
+    await shot('36-stock-check');
+    Navigator.of(t.element(find.byType(Scaffold).last)).pop();
+    for (var i = 0; i < 3; i++) {
+      await t.pump(const Duration(seconds: 1));
+      await t.pumpAndSettle();
+    }
+    await shot('37-home');
+    await t.tap(find.byKey(const ValueKey('my-work-chip')));
+    await t.pump(const Duration(seconds: 1));
+    await t.pumpAndSettle();
+    await shot('38-my-work');
+    debugDisableShadows = true;
+  });
 }

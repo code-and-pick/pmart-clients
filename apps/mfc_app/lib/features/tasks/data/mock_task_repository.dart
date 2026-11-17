@@ -329,6 +329,84 @@ base class MockTaskRepository implements TaskRepository {
     ],
   };
 
+  /// 목 업무 내역 — 오늘 끝낸 피킹·패킹 2건과 어제 1건(오늘만 보이는지 확인용). 시각은 지금 기준.
+  static List<Map<String, Object?>> _historySeed(DateTime now) => [
+    {
+      'taskId': 'task-done-1',
+      'taskType': 'PICK',
+      'state': 'COMPLETED',
+      'mfcId': 'MFC-MOCK-01',
+      'assignment': {'workerId': workerId, 'assignmentVersion': 1},
+      'lineCount': 3,
+      'plannedQty': 4,
+      'completedQty': 4,
+      'remainingQty': 0,
+      'headline': {'productName': '서울우유 1L', 'otherLineCount': 2},
+      'createdAt': now.toUtc().toIso8601String(),
+      'lastActivityAt': now.toUtc().toIso8601String(),
+    },
+    {
+      'taskId': 'task-done-2',
+      'taskType': 'PACK',
+      'state': 'CLOSED_PARTIAL',
+      'mfcId': 'MFC-MOCK-01',
+      'assignment': {'workerId': workerId, 'assignmentVersion': 1},
+      'lineCount': 2,
+      'plannedQty': 3,
+      'completedQty': 2,
+      'remainingQty': 0,
+      'headline': {'productName': '감자칩 오리지널 110g', 'otherLineCount': 1},
+      'createdAt': now.toUtc().toIso8601String(),
+      'lastActivityAt': now.toUtc().toIso8601String(),
+    },
+    {
+      'taskId': 'task-done-yesterday',
+      'taskType': 'PICK',
+      'state': 'COMPLETED',
+      'mfcId': 'MFC-MOCK-01',
+      'assignment': {'workerId': workerId, 'assignmentVersion': 1},
+      'lineCount': 1,
+      'plannedQty': 1,
+      'completedQty': 1,
+      'remainingQty': 0,
+      'headline': {'productName': '그릭요거트 플레인 400g', 'otherLineCount': 0},
+      'createdAt': now
+          .subtract(const Duration(days: 1))
+          .toUtc()
+          .toIso8601String(),
+      'lastActivityAt': now
+          .subtract(const Duration(days: 1))
+          .toUtc()
+          .toIso8601String(),
+    },
+  ];
+
+  @override
+  Future<TaskList> myHistory(String mfcId) async {
+    await _wait();
+    final now = DateTime.now();
+    const shown = {'COMPLETED', 'CLOSED_PARTIAL', 'IN_PROGRESS'};
+    final items = [
+      ..._historySeed(now),
+      for (final t in _tasks.values)
+        if (shown.contains(t['state']))
+          {
+            for (final e in t.entries)
+              if (e.key != 'lines') e.key: e.value,
+            // 목 작업은 실적 시각을 따로 두지 않는다 — 지금으로.
+            'lastActivityAt':
+                t['lastActivityAt'] ?? now.toUtc().toIso8601String(),
+          },
+    ];
+    return taskListFromContract(
+      api.ListTasks200Response.fromJson({
+        'items': items,
+        'page': {'nextCursor': null, 'size': 50},
+        'asOf': {'asOf': now.toUtc().toIso8601String(), 'freshness': 'CURRENT'},
+      }),
+    );
+  }
+
   @override
   Future<TaskList> myTasks(String mfcId, {bool blocked = false}) async {
     await _wait();

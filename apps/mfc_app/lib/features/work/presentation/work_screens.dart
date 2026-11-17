@@ -8,8 +8,10 @@ import 'package:pmart_ui/pmart_ui.dart';
 
 import '../../auth/presentation/auth_controller.dart';
 import '../../../l10n/gen/app_localizations.dart';
+import '../../../shared/menu_tile.dart';
 import '../../../shared/providers.dart';
 import '../../../shared/ui_state_of.dart';
+import '../../my_work/presentation/my_work.dart';
 import '../../tasks/presentation/task_controllers.dart';
 import '../domain/work.dart';
 import 'work_controller.dart';
@@ -175,6 +177,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(l10n.homeTitle),
+        // 오늘 업무 내역 칩(사용자 2026-11-17). 근무 센터가 정해졌을 때만(내역 조회에 센터가 필요).
+        bottom: ref.watch(centerScopeProvider) is SingleCenter
+            ? const MyWorkBar()
+            : null,
         actions: [
           if (mock)
             Padding(
@@ -288,7 +294,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           _MenuButton(
                             key: const ValueKey('menu-printer'),
                             icon: Icons.print_outlined,
-                            label: l10n.printerSettingsTitle,
+                            label: l10n.printerMenu,
                             allowed: me.canUse(PdaMenu.printerSettings),
                             onTap: () => _menu(
                               me,
@@ -296,6 +302,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               l10n.printerSettingsTitle,
                               () => context.push('/settings/printer'),
                             ),
+                          ),
+                          const SizedBox(width: 8),
+                          // 재고 확인 — 시작 메뉴와 같은 화면(사용자 2026-11-17 "홈 아래 메뉴줄에도").
+                          _MenuButton(
+                            key: const ValueKey('menu-stock'),
+                            icon: Icons.manage_search,
+                            label: l10n.stockCheckMenu,
+                            allowed: true,
+                            onTap: () => context.push('/stock-check'),
                           ),
                           const SizedBox(width: 8),
                           _MenuButton(
@@ -431,62 +446,13 @@ class _AreaTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    final fg = allowed ? scheme.onSurface : scheme.onSurface.withAlpha(97);
-    return Material(
+    return MenuTile(
       key: ValueKey('area-${area.name}'),
-      color: scheme.surfaceContainerHigh,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(16),
-        onTap: onTap,
-        // 작은 화면에서는 칸이 낮아 설명 줄을 숨긴다.
-        child: LayoutBuilder(
-          builder: (context, c) {
-            final roomy = c.maxHeight >= 72;
-            return Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                children: [
-                  Icon(workAreaIcon(area), size: roomy ? 36 : 24, color: fg),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          workAreaText(l10n, area),
-                          maxLines: 1,
-                          style:
-                              (roomy
-                                      ? theme.textTheme.headlineSmall
-                                      : theme.textTheme.titleMedium)
-                                  ?.copyWith(color: fg),
-                        ),
-                        if (roomy)
-                          Text(
-                            workAreaHint(l10n, area),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: fg,
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                  Icon(
-                    allowed ? Icons.chevron_right : Icons.lock_outline,
-                    color: fg,
-                  ),
-                ],
-              ),
-            );
-          },
-        ),
-      ),
+      icon: workAreaIcon(area),
+      title: workAreaText(l10n, area),
+      hint: workAreaHint(l10n, area),
+      allowed: allowed,
+      onTap: onTap,
     );
   }
 }
@@ -714,6 +680,7 @@ class WorkSessionScreen extends ConsumerWidget {
       appBar: AppBar(
         title: Text(workAreaText(l10n, area)),
         automaticallyImplyLeading: false,
+        bottom: const MyWorkBar(),
       ),
       body: SafeArea(
         child: Padding(

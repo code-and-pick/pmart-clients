@@ -56,7 +56,17 @@ class TaskItem {
     this.assigneeId,
     this.late = false,
     this.idle = false,
+    this.plannedQty,
+    this.completedQty,
+    this.lastActivityAt,
   });
+
+  /// 지시·처리 수량(서버 값 그대로 — 업무 내역 표시).
+  final int? plannedQty;
+  final int? completedQty;
+
+  /// (fulfillment 0.4.8) 시작 또는 마지막 실적 시각. 업무 내역의 "오늘"은 이 시각으로 고른다.
+  final DateTime? lastActivityAt;
 
   final String taskId;
   final TaskKind kind;

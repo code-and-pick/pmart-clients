@@ -10,6 +10,10 @@ abstract interface class TaskRepository {
   /// 내 작업. [blocked] 면 막힌 작업만(기본 조회에 BLOCKED 가 없다). 실패는 [PmartFailure].
   Future<TaskList> myTasks(String mfcId, {bool blocked = false});
 
+  /// 내 업무 내역(사용자 2026-11-17) — `assignee=me` 의 완료·부분 종결·진행 중. 날짜 거르기는 계약에 없어
+  /// 화면이 `lastActivityAt` 으로 오늘 것만 고른다. fulfillment 작업(피킹·패킹·출고·복귀)만 나온다.
+  Future<TaskList> myHistory(String mfcId);
+
   /// 센터 작업 목록(센터 관리자 — 사용자 2026-11-16 "작업 현황"). `assignee` 없이 그 센터 전체.
   Future<TaskList> centerTasks(String mfcId, {required List<TaskState> states});
 
@@ -45,6 +49,24 @@ final class ApiTaskRepository implements TaskRepository {
         mfcId: mfcId,
         assignee: 'me',
         state: blocked ? [api.TaskState.BLOCKED] : null,
+      ),
+    );
+    final body = res.data;
+    if (body == null) throw const ContractViolationFailure('listTasks 본문 없음');
+    return taskListFromContract(body);
+  }
+
+  @override
+  Future<TaskList> myHistory(String mfcId) async {
+    final res = await pmartGuard(
+      () => _tasks.listTasks(
+        mfcId: mfcId,
+        assignee: 'me',
+        state: const [
+          api.TaskState.COMPLETED,
+          api.TaskState.CLOSED_PARTIAL,
+          api.TaskState.IN_PROGRESS,
+        ],
       ),
     );
     final body = res.data;
@@ -320,6 +342,9 @@ TaskList taskListFromContract(api.ListTasks200Response body) {
           assigneeId: t.assignment?.workerId,
           late: t.late_ ?? false,
           idle: t.idle ?? false,
+          plannedQty: t.plannedQty,
+          completedQty: t.completedQty,
+          lastActivityAt: t.lastActivityAt,
         ),
     ],
   );
