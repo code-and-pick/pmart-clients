@@ -3,10 +3,12 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:pmart_core/pmart_core.dart' show ProblemCode;
 import 'package:pmart_ui/pmart_ui.dart';
 
 import '../../../l10n/gen/app_localizations.dart';
-import '../../../shared/providers.dart' show imageOriginProvider, resolveImageUrl;
+import '../../../shared/providers.dart'
+    show imageOriginProvider, resolveImageUrl;
 import '../../../shared/ui_state_of.dart';
 import '../../address/presentation/address_screens.dart' show LoginRequired;
 import '../../auth/domain/auth.dart';
@@ -322,62 +324,581 @@ class _MyReviewCard extends ConsumerWidget {
     return Card(
       key: ValueKey('review-mine-$id'),
       margin: const EdgeInsets.only(bottom: 12),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        key: ValueKey('review-mine-open-$id'),
+        // 리뷰 하나 화면(수정·삭제). 작성자 ID 가 응답에 없어 "내가 쓴 리뷰"에서만 연다.
+        onTap: () => context.push('/reviews/mine/$id', extra: eligibility),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _ProductName(
+                productId: eligibility.productId,
+                title: eligibility.productName,
+                style: theme.textTheme.titleMedium,
+              ),
+              const SizedBox(height: 4),
+              switch (value) {
+                AsyncData(value: final r) => Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        ReviewStars(rating: r.rating),
+                        const SizedBox(width: 8),
+                        Text(
+                          reviewStateText(l10n, r.state),
+                          style: theme.textTheme.bodySmall,
+                        ),
+                      ],
+                    ),
+                    Text(
+                      l10n.reviewWrittenAt(formatSeoulDateTime(r.createdAt)),
+                      style: theme.textTheme.bodySmall,
+                    ),
+                    if (r.text case final t? when t.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Text(t),
+                      ),
+                    _ReviewPhotos(review: r),
+                  ],
+                ),
+                AsyncError() => Row(
+                  key: ValueKey('review-mine-failed-$id'),
+                  children: [
+                    Expanded(
+                      child: Text(
+                        l10n.reviewLoadFailed,
+                        style: TextStyle(color: theme.colorScheme.error),
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () => ref.invalidate(provider),
+                      child: Text(l10n.reviewRetry),
+                    ),
+                  ],
+                ),
+                _ => const LinearProgressIndicator(),
+              },
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 수정 화면에 넘기는 것: 지금 리뷰(서버 값·version)와 상품 표시.
+@immutable
+class ReviewEditTarget {
+  const ReviewEditTarget({
+    required this.review,
+    this.productId,
+    this.title,
+    this.orderId,
+  });
+
+  final ReviewView review;
+  final String? productId;
+  final String? title;
+  final String? orderId;
+}
+
+/// 수정·삭제 뒤 다시 읽어야 하는 것들.
+void _invalidateAfterChange(
+  WidgetRef ref,
+  String reviewId, {
+  String? productId,
+  String? orderId,
+}) {
+  ref.invalidate(reviewProvider(reviewId));
+  ref.invalidate(myReviewsProvider);
+  ref.invalidate(writableReviewsProvider);
+  if (orderId != null) {
+    ref.invalidate(orderReviewEligibilitiesProvider(orderId));
+  }
+  if (productId != null) ref.invalidate(productReviewsProvider(productId));
+}
+
+/// 내가 쓴 리뷰 하나(`GET /reviews/{id}`) + 수정·삭제(백엔드 요청 2026-11-16 review-edit-delete §1).
+/// - 수정: 서버 상태 PUBLISHED 일 때만. LOCKED 면 막고 안내, 기한은 서버 `editableUntil` 그대로.
+/// - 삭제: 확인 창("다시 쓸 수 없어요") 뒤 보낸다. 결과 불명이면 같은 키로만 "다시 확인".
+class MyReviewScreen extends ConsumerStatefulWidget {
+  const MyReviewScreen({super.key, required this.reviewId, this.eligibility});
+
+  final String reviewId;
+  final ReviewEligibility? eligibility;
+
+  @override
+  ConsumerState<MyReviewScreen> createState() => _MyReviewScreenState();
+}
+
+class _MyReviewScreenState extends ConsumerState<MyReviewScreen> {
+  final _delete = KeptReviewCommand<void>();
+  bool _busy = false;
+  CommandOutcome<void>? _deleteOutcome;
+
+  Future<void> _sendDelete() async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    final repo = ref.read(reviewsRepositoryProvider);
+    final outcome = await _delete.run(
+      (key) => repo.delete(widget.reviewId, key: key),
+    );
+    if (!mounted) return;
+    if (outcome is CommandDone<void>) {
+      _invalidateAfterChange(
+        ref,
+        widget.reviewId,
+        productId: widget.eligibility?.productId,
+        orderId: widget.eligibility?.orderId,
+      );
+    }
+    setState(() {
+      _busy = false;
+      _deleteOutcome = outcome;
+    });
+  }
+
+  Future<void> _confirmDelete() async {
+    final l10n = AppLocalizations.of(context);
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        key: const ValueKey('review-delete-confirm'),
+        title: Text(l10n.reviewDeleteConfirmTitle),
+        content: Text(l10n.reviewDeleteConfirmBody),
+        actions: [
+          TextButton(
+            key: const ValueKey('review-delete-cancel'),
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(l10n.reviewCancel),
+          ),
+          TextButton(
+            key: const ValueKey('review-delete-ok'),
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(l10n.reviewDelete),
+          ),
+        ],
+      ),
+    );
+    if (ok == true && mounted) await _sendDelete();
+  }
+
+  Future<void> _openEdit(ReviewView r) async {
+    final e = widget.eligibility;
+    await context.push(
+      '/reviews/mine/${widget.reviewId}/edit',
+      extra: ReviewEditTarget(
+        review: r,
+        productId: e?.productId ?? r.productId,
+        title: e?.productName,
+        orderId: e?.orderId,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final theme = Theme.of(context);
+    final provider = reviewProvider(widget.reviewId);
+    final outcome = _deleteOutcome;
+    if (outcome is CommandDone<void>) {
+      return Scaffold(
+        appBar: AppBar(title: Text(l10n.reviewMineTitle)),
+        body: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                l10n.reviewDeletedDone,
+                key: const ValueKey('review-delete-done'),
+                style: theme.textTheme.titleMedium,
+              ),
+              const SizedBox(height: 16),
+              FilledButton(
+                key: const ValueKey('review-delete-done-ok'),
+                onPressed: () => context.pop(),
+                child: Text(l10n.reviewDone),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    return Scaffold(
+      appBar: AppBar(title: Text(l10n.reviewMineTitle)),
+      body: UiStateView<ReviewView>(
+        state: uiStateOf(ref.watch(provider)),
+        onRetry: () => ref.invalidate(provider),
+        ready: (context, r) => ListView(
+          padding: const EdgeInsets.all(16),
           children: [
             _ProductName(
-              productId: eligibility.productId,
-              title: eligibility.productName,
+              productId: widget.eligibility?.productId ?? r.productId,
+              title: widget.eligibility?.productName,
               style: theme.textTheme.titleMedium,
             ),
-            const SizedBox(height: 4),
-            switch (value) {
-              AsyncData(value: final r) => Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      ReviewStars(rating: r.rating),
-                      const SizedBox(width: 8),
-                      Text(
-                        reviewStateText(l10n, r.state),
-                        style: theme.textTheme.bodySmall,
-                      ),
-                    ],
-                  ),
-                  Text(
-                    l10n.reviewWrittenAt(formatSeoulDateTime(r.createdAt)),
-                    style: theme.textTheme.bodySmall,
-                  ),
-                  if (r.text case final t? when t.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 4),
-                      child: Text(t),
-                    ),
-                  _ReviewPhotos(review: r),
-                ],
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                ReviewStars(rating: r.rating, size: 20),
+                const SizedBox(width: 8),
+                Text(
+                  reviewStateText(l10n, r.state),
+                  style: theme.textTheme.bodySmall,
+                ),
+              ],
+            ),
+            Text(
+              l10n.reviewWrittenAt(formatSeoulDateTime(r.createdAt)),
+              style: theme.textTheme.bodySmall,
+            ),
+            if (r.text case final t? when t.isNotEmpty)
+              Padding(padding: const EdgeInsets.only(top: 8), child: Text(t)),
+            _ReviewPhotos(review: r),
+            const SizedBox(height: 16),
+            // 수정 기한·잠김은 서버 값(state·editableUntil)으로만. 앱이 날짜를 세지 않는다.
+            if (r.state == ReviewState.deleted)
+              Text(
+                l10n.reviewDeletedNotice,
+                key: const ValueKey('review-deleted-notice'),
+                style: theme.textTheme.bodySmall,
+              )
+            else if (r.editable && r.editableUntil != null)
+              Text(
+                l10n.reviewEditableUntil(formatSeoulDateTime(r.editableUntil!)),
+                key: const ValueKey('review-editable-until'),
+                style: theme.textTheme.bodySmall,
+              )
+            else if (r.state == ReviewState.locked)
+              Text(
+                l10n.reviewLockedNotice,
+                key: const ValueKey('review-locked-notice'),
+                style: theme.textTheme.bodySmall,
               ),
-              AsyncError() => Row(
-                key: ValueKey('review-mine-failed-$id'),
+            const SizedBox(height: 12),
+            switch (outcome) {
+              CommandRejected(:final code) => Text(
+                code == ProblemCode.notFound
+                    ? l10n.reviewRejectedNotFound
+                    : l10n.reviewDeleteRejected,
+                key: const ValueKey('review-delete-rejected'),
+                style: TextStyle(color: theme.colorScheme.error),
+              ),
+              CommandUnknown() => Row(
+                key: const ValueKey('review-delete-unknown'),
                 children: [
-                  Expanded(
-                    child: Text(
-                      l10n.reviewLoadFailed,
-                      style: TextStyle(color: theme.colorScheme.error),
-                    ),
-                  ),
+                  Expanded(child: Text(l10n.reviewDeleteUnknown)),
                   TextButton(
-                    onPressed: () => ref.invalidate(provider),
-                    child: Text(l10n.reviewRetry),
+                    key: const ValueKey('review-delete-recheck'),
+                    onPressed: _busy ? null : _sendDelete,
+                    child: Text(l10n.reviewRecheck),
                   ),
                 ],
               ),
-              _ => const LinearProgressIndicator(),
+              _ => const SizedBox.shrink(),
             },
+            if (_busy)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(l10n.reviewDeleting),
+              ),
+            if (r.deletable)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        key: const ValueKey('review-delete'),
+                        // 결과를 모르는 삭제가 있으면 새로 누르지 않고 "다시 확인"만(같은 키).
+                        onPressed: _busy || _delete.pending
+                            ? null
+                            : _confirmDelete,
+                        child: Text(l10n.reviewDelete),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: FilledButton(
+                        key: const ValueKey('review-edit'),
+                        onPressed: !r.editable || _busy || _delete.pending
+                            ? null
+                            : () => _openEdit(r),
+                        child: Text(l10n.reviewEdit),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// 리뷰 수정(`PATCH /reviews/{id}`, `X-Expected-Version` = 지금 version). 바뀐 것만 보낸다.
+/// - 사진: 붙은 사진은 그대로 칸에 두고, 새 사진은 작성 때처럼 먼저 올린다. 사진이 그대로면 photoIds 를 빼고 보낸다.
+/// - 결과: 고침(응답으로 화면을 바꾼다) / 거절(3일 지남·먼저 고침·사진 확인 불가) / 확인 중(같은 키·같은 본문으로만 다시).
+class ReviewEditScreen extends ConsumerStatefulWidget {
+  const ReviewEditScreen({super.key, required this.target});
+
+  final ReviewEditTarget target;
+
+  @override
+  ConsumerState<ReviewEditScreen> createState() => _ReviewEditScreenState();
+}
+
+class _ReviewEditScreenState extends ConsumerState<ReviewEditScreen>
+    with _ReviewPhotoSlots<ReviewEditScreen> {
+  final _command = KeptReviewCommand<ReviewView>();
+  late final ReviewView _original = widget.target.review;
+  late final _text = TextEditingController(text: _original.text ?? '');
+  late int _rating = _original.rating;
+  bool _busy = false;
+  CommandOutcome<ReviewView>? _outcome;
+
+  @override
+  void initState() {
+    super.initState();
+    _photos = [for (final p in _original.photos) ReviewPhotoSlot.existing(p)];
+    _text.addListener(_onText);
+  }
+
+  void _onText() => setState(() {});
+
+  @override
+  void dispose() {
+    _text
+      ..removeListener(_onText)
+      ..dispose();
+    super.dispose();
+  }
+
+  ReviewChanges? get _changes => reviewChanges(
+    _original,
+    rating: _rating,
+    text: _text.text.trim(),
+    photoIds: [for (final p in _photos) ?p.photoId],
+  );
+
+  Future<void> _save() async {
+    final changes = _changes;
+    final version = _original.version;
+    if (_busy || version == null) return;
+    // "다시 확인"(보관 중)은 처음 본문 그대로 보낸다 — 아래 changes 는 쓰지 않는다.
+    if (!_command.pending && (changes == null || !_photosReady)) return;
+    setState(() => _busy = true);
+    final repo = ref.read(reviewsRepositoryProvider);
+    final outcome = await _command.run(
+      (key) => repo.update(
+        _original.reviewId,
+        expectedVersion: version,
+        rating: changes?.rating,
+        text: changes?.text,
+        photoIds: changes?.photoIds,
+        key: key,
+      ),
+    );
+    if (!mounted) return;
+    final t = widget.target;
+    if (outcome is CommandDone<ReviewView> || _needsReload(outcome)) {
+      // 고쳤거나 서버 상태가 바뀌었다 — 상세를 다시 읽게 한다.
+      _invalidateAfterChange(
+        ref,
+        _original.reviewId,
+        productId: t.productId,
+        orderId: t.orderId,
+      );
+    }
+    setState(() {
+      _busy = false;
+      _outcome = outcome;
+    });
+  }
+
+  /// 서버 상태가 바뀌어(3일 지남·삭제·먼저 고침) 이 입력으로는 더 보낼 수 없다 — 다시 읽어야 한다.
+  static bool _needsReload(CommandOutcome<ReviewView>? o) => switch (o) {
+    CommandRejected(
+      code: ReviewProblemCode.invalidState || ReviewProblemCode.versionConflict,
+    ) =>
+      true,
+    _ => false,
+  };
+
+  String _rejectText(AppLocalizations l10n, String code) => switch (code) {
+    ReviewProblemCode.invalidState => l10n.reviewRejectedLocked,
+    ReviewProblemCode.versionConflict => l10n.reviewRejectedVersion,
+    ReviewProblemCode.photoNotFound => l10n.reviewRejectedPhotoNotFound,
+    ProblemCode.notFound => l10n.reviewRejectedNotFound,
+    _ => l10n.reviewEditRejected,
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final theme = Theme.of(context);
+    final t = widget.target;
+    final outcome = _outcome;
+    if (outcome case CommandDone(value: final r)) {
+      return Scaffold(
+        appBar: AppBar(title: Text(l10n.reviewEditTitle)),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  l10n.reviewSaved,
+                  key: const ValueKey('review-edit-done'),
+                  style: theme.textTheme.titleMedium,
+                ),
+                const SizedBox(height: 8),
+                ReviewStars(rating: r.rating, size: 24),
+                const SizedBox(height: 16),
+                FilledButton(
+                  key: const ValueKey('review-edit-ok'),
+                  onPressed: () => context.pop(),
+                  child: Text(l10n.reviewDone),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+    final locked = _busy || _command.pending;
+    final changes = _changes;
+    final reload = _needsReload(outcome);
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(l10n.reviewEditTitle),
+        leading: IconButton(
+          key: const ValueKey('review-edit-close'),
+          icon: const Icon(Icons.close),
+          tooltip: l10n.reviewCancel,
+          onPressed: () => context.pop(),
+        ),
+      ),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          _ProductName(
+            productId: t.productId,
+            title: t.title,
+            style: theme.textTheme.titleMedium,
+          ),
+          if (_original.editableUntil case final u?)
+            Text(
+              l10n.reviewEditableUntil(formatSeoulDateTime(u)),
+              style: theme.textTheme.bodySmall,
+            ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              for (var i = 1; i <= reviewRatingMax; i++)
+                IconButton(
+                  key: ValueKey('review-star-$i'),
+                  tooltip: l10n.reviewStar(i),
+                  iconSize: 36,
+                  color: theme.colorScheme.primary,
+                  icon: Icon(i <= _rating ? Icons.star : Icons.star_border),
+                  onPressed: locked ? null : () => setState(() => _rating = i),
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            key: const ValueKey('review-text'),
+            controller: _text,
+            enabled: !locked,
+            minLines: 5,
+            maxLines: 10,
+            maxLength: reviewTextMaxLength,
+            decoration: InputDecoration(
+              hintText: l10n.reviewTextHint,
+              border: const OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 4),
+          _photoSection(context, locked: locked),
+          const SizedBox(height: 16),
+          switch (outcome) {
+            CommandRejected(:final code) => Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _rejectText(l10n, code),
+                  key: const ValueKey('review-edit-rejected'),
+                  style: TextStyle(color: theme.colorScheme.error),
+                ),
+                if (reload)
+                  TextButton(
+                    key: const ValueKey('review-edit-reload'),
+                    // 상세로 돌아가 서버 값(상태·version)을 다시 읽는다.
+                    onPressed: () => context.pop(),
+                    child: Text(l10n.reviewReload),
+                  ),
+              ],
+            ),
+            CommandUnknown() => Row(
+              key: const ValueKey('review-edit-unknown'),
+              children: [
+                Expanded(child: Text(l10n.reviewEditUnknown)),
+                TextButton(
+                  key: const ValueKey('review-edit-recheck'),
+                  onPressed: _busy ? null : _save,
+                  child: Text(l10n.reviewRecheck),
+                ),
+              ],
+            ),
+            _ => const SizedBox.shrink(),
+          },
+          if (_busy)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(l10n.reviewSaving),
+            )
+          else if (changes == null && outcome == null)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(
+                l10n.reviewNoChanges,
+                key: const ValueKey('review-edit-no-changes'),
+                style: theme.textTheme.bodySmall,
+              ),
+            ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: _busy ? null : () => context.pop(),
+                  child: Text(l10n.reviewCancel),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: FilledButton(
+                  key: const ValueKey('review-save'),
+                  // 바뀐 것이 없으면 보내지 않는다(서버 400). 사진이 다 올라가기 전·확인 중·먼저 고침/잠김 뒤에도 막는다.
+                  onPressed:
+                      locked || changes == null || !_photosReady || reload
+                      ? null
+                      : _save,
+                  child: Text(l10n.reviewSave),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -396,23 +917,10 @@ class ReviewWriteScreen extends ConsumerStatefulWidget {
   ConsumerState<ReviewWriteScreen> createState() => _ReviewWriteScreenState();
 }
 
-class _ReviewWriteScreenState extends ConsumerState<ReviewWriteScreen> {
-  late final ReviewSubmitter _submitter = ReviewSubmitter(
-    ref.read(reviewsRepositoryProvider),
-    widget.target,
-  );
-  final _text = TextEditingController();
-  late int? _rating = widget.target.initialRating;
-  bool _busy = false;
-  CommandOutcome<ReviewView>? _outcome;
+/// 작성·수정 화면이 같이 쓰는 사진 칸 다루기: 고르면 바로 한 장씩 올리고(칸마다 자기 키), 결과 불명은 같은 키로 다시, 거절은 빼기.
+mixin _ReviewPhotoSlots<W extends ConsumerStatefulWidget> on ConsumerState<W> {
   List<ReviewPhotoSlot> _photos = const [];
   bool _pickFailed = false;
-
-  @override
-  void dispose() {
-    _text.dispose();
-    super.dispose();
-  }
 
   bool get _photosReady =>
       _photos.every((p) => p.status == ReviewPhotoStatus.uploaded);
@@ -468,9 +976,7 @@ class _ReviewWriteScreenState extends ConsumerState<ReviewWriteScreen> {
     );
     if (!mounted) return;
     setState(() {
-      _photos = [
-        for (final p in _photos) identical(p, slot) ? result : p,
-      ];
+      _photos = [for (final p in _photos) identical(p, slot) ? result : p];
     });
   }
 
@@ -489,6 +995,73 @@ class _ReviewWriteScreenState extends ConsumerState<ReviewWriteScreen> {
         if (!identical(p, slot)) p,
     ];
   });
+
+  /// 사진 칸 + 고르기 실패·처리 필요·올리는 중 안내.
+  Widget _photoSection(BuildContext context, {required bool locked}) {
+    final l10n = AppLocalizations.of(context);
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _PhotoRow(
+          photos: _photos,
+          locked: locked,
+          onAdd: _addPhotos,
+          onRetry: _retryPhoto,
+          onRemove: _removePhoto,
+        ),
+        if (_pickFailed)
+          Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: Text(
+              l10n.reviewPhotoPickFailed,
+              key: const ValueKey('review-photo-pick-failed'),
+              style: TextStyle(color: theme.colorScheme.error),
+            ),
+          ),
+        if (_photos.any(
+          (p) =>
+              p.status == ReviewPhotoStatus.unknown ||
+              p.status == ReviewPhotoStatus.rejected,
+        ))
+          Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: Text(
+              l10n.reviewPhotoNeedsAction,
+              key: const ValueKey('review-photo-needs-action'),
+              style: TextStyle(color: theme.colorScheme.error),
+            ),
+          )
+        else if (_photos.any((p) => p.status == ReviewPhotoStatus.uploading))
+          Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: Text(
+              l10n.reviewPhotoUploading,
+              key: const ValueKey('review-photo-uploading'),
+              style: theme.textTheme.bodySmall,
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _ReviewWriteScreenState extends ConsumerState<ReviewWriteScreen>
+    with _ReviewPhotoSlots<ReviewWriteScreen> {
+  late final ReviewSubmitter _submitter = ReviewSubmitter(
+    ref.read(reviewsRepositoryProvider),
+    widget.target,
+  );
+  final _text = TextEditingController();
+  late int? _rating = widget.target.initialRating;
+  bool _busy = false;
+  CommandOutcome<ReviewView>? _outcome;
+
+  @override
+  void dispose() {
+    _text.dispose();
+    super.dispose();
+  }
 
   Future<void> _submit() async {
     final rating = _rating;
@@ -619,44 +1192,7 @@ class _ReviewWriteScreenState extends ConsumerState<ReviewWriteScreen> {
             ),
           ),
           const SizedBox(height: 4),
-          _PhotoRow(
-            photos: _photos,
-            locked: locked,
-            onAdd: _addPhotos,
-            onRetry: _retryPhoto,
-            onRemove: _removePhoto,
-          ),
-          if (_pickFailed)
-            Padding(
-              padding: const EdgeInsets.only(top: 6),
-              child: Text(
-                l10n.reviewPhotoPickFailed,
-                key: const ValueKey('review-photo-pick-failed'),
-                style: TextStyle(color: theme.colorScheme.error),
-              ),
-            ),
-          if (_photos.any(
-            (p) =>
-                p.status == ReviewPhotoStatus.unknown ||
-                p.status == ReviewPhotoStatus.rejected,
-          ))
-            Padding(
-              padding: const EdgeInsets.only(top: 6),
-              child: Text(
-                l10n.reviewPhotoNeedsAction,
-                key: const ValueKey('review-photo-needs-action'),
-                style: TextStyle(color: theme.colorScheme.error),
-              ),
-            )
-          else if (_photos.any((p) => p.status == ReviewPhotoStatus.uploading))
-            Padding(
-              padding: const EdgeInsets.only(top: 6),
-              child: Text(
-                l10n.reviewPhotoUploading,
-                key: const ValueKey('review-photo-uploading'),
-                style: theme.textTheme.bodySmall,
-              ),
-            ),
+          _photoSection(context, locked: locked),
           const SizedBox(height: 16),
           // 정책 문구: Commerce 업무 문서 15장 [확정 정책](품목당 1건, 배송완료 후 14일, 최초 등록 후 3일 수정, 삭제 후 재작성 불가).
           ExpansionTile(
@@ -808,7 +1344,7 @@ class _PhotoRow extends StatelessWidget {
   }
 }
 
-class _PhotoTile extends StatelessWidget {
+class _PhotoTile extends ConsumerWidget {
   const _PhotoTile({
     super.key,
     required this.slot,
@@ -825,13 +1361,19 @@ class _PhotoTile extends StatelessWidget {
   final VoidCallback onRemove;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
     final theme = Theme.of(context);
     final radius = BorderRadius.circular(16);
     final bad =
         slot.status == ReviewPhotoStatus.unknown ||
         slot.status == ReviewPhotoStatus.rejected;
+    Widget blank() =>
+        ColoredBox(color: theme.colorScheme.surfaceContainerHighest);
+    final file = slot.file;
+    final remote = file == null
+        ? resolveImageUrl(slot.url, ref.watch(imageOriginProvider))
+        : null;
     return SizedBox.square(
       dimension: _PhotoRow.tile,
       child: Stack(
@@ -839,14 +1381,22 @@ class _PhotoTile extends StatelessWidget {
           Positioned.fill(
             child: ClipRRect(
               borderRadius: radius,
-              // 미리보기는 기기 원본으로(올린 사진은 공개 리뷰에 붙기 전에는 서버에서 열리지 않는다).
-              child: Image.memory(
-                slot.file.bytes,
-                fit: BoxFit.cover,
-                gaplessPlayback: true,
-                errorBuilder: (_, _, _) =>
-                    ColoredBox(color: theme.colorScheme.surfaceContainerHighest),
-              ),
+              // 새로 고른 사진은 기기 원본으로(올린 사진은 공개 리뷰에 붙기 전에는 서버에서 열리지 않는다).
+              // 이미 붙은 사진은 서버 주소로.
+              child: file != null
+                  ? Image.memory(
+                      file.bytes,
+                      fit: BoxFit.cover,
+                      gaplessPlayback: true,
+                      errorBuilder: (_, _, _) => blank(),
+                    )
+                  : remote == null
+                  ? blank()
+                  : Image.network(
+                      remote,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, _, _) => blank(),
+                    ),
             ),
           ),
           if (slot.status != ReviewPhotoStatus.uploaded)
@@ -920,7 +1470,11 @@ class _PhotoTile extends StatelessWidget {
                       color: Colors.black54,
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.close, size: 14, color: Colors.white),
+                    child: const Icon(
+                      Icons.close,
+                      size: 14,
+                      color: Colors.white,
+                    ),
                   ),
                 ),
               ),

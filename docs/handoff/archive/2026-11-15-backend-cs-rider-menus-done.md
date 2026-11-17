@@ -58,3 +58,7 @@
 - `npm run build:lan -w web/backoffice` 결과. API 는 `https://192.168.0.40:8443/api/v1` 만. 인사팀 백오피스는 바뀌지 않았다.
 - 이 빌드는 `2026-11-15-backend-assistant-connected.md` §2 의 빌드(`index-Bxl0nrwE.js`)를 대신한다(업무 도우미·문의 답변 포함).
 - 올린 뒤 확인: `test-cs-rider@pmart.com` 로그인 → 왼쪽에 고객센터·라이더 운영·업무 도우미 묶음, 주문 조회(기간 7일)가 목록을 받는지, 라이더 찾기·대기 목록은 "서버 API 준비 전" 안내인지. 관리자 시험 계정으로 승인·고객센터·라이더 운영 묶음. 비밀번호는 PC 1 에서 파일로만(채팅·로그에 붙이지 않는다).
+
+## 끝남 (2026-11-16, PC 2 — archive 로 옮김)
+- 백엔드 회신 `…/clients/backoffice/2026-11-15-reply-cs-rider-menus-and-assistant.md` §1(질문 모두 답), `2026-11-15-notice-product-menu-operator-admin.md`(§2 질문 → 관리자에게 상품 묶음, 아래 product-menu 회신). BR-54~56 끝(`2026-11-16-reply-rider-delivery-staff-apis.md`, 화면 반영 2026-11-16 04:00 일지).
+- LAN 확인(2026-11-16 PC 2): test-cs-rider 메뉴 = 고객센터·라이더 운영·지원센터·업무 도우미, 조회 화면 200. 라이더 0건이라 상세·제한은 실서버 미확인 — 일지 미결로 남김.

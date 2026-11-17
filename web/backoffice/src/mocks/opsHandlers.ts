@@ -150,6 +150,8 @@ interface OpsState {
   issues: Issue[];
   /** orchestration 0.2.0 멈춘 사가(bff pending-work 의 STUCK_SAGA) — resolved 면 목록에서 빠진다 */
   sagas: Array<{ sagaId: string; orderId: string; sagaType: string; state: string; step: string; reasonCode: string; reasonMessage: string; since: string; requeryable: boolean; resolved: boolean }>;
+  /** bff 0.4.0 MFC 중지 실패·인계 거절(처리 대기 RETRY). retry = 다시 시도했을 때 결과(목) */
+  mfcPending: Array<{ kind: 'MFC_STOP_FAILED' | 'MFC_HANDOVER_REJECTED'; refId: string; orderId: string; mfcId: string; state: string; reasonCode: string; reasonMessage: string; since: string; retry: 'APPLIED' | 'REJECTED'; done: boolean }>;
   /** bff 명령 결과(짝 조회) */
   bffResults: Map<string, { requestId: string; status: 'APPLIED'; occurredAt: string }>;
 }
@@ -164,6 +166,10 @@ function seed(): OpsState {
       { sagaId: 'SAGA-MOCK-2', orderId: 'ORD-MOCK-1003', sagaType: 'S2_FULFILLMENT', state: 'ESCALATED', step: 'MFC_RESERVE', reasonCode: 'RESERVATION_REJECTED', reasonMessage: '[목] MFC 예약 거절 — 밖에서 처리한 뒤 완료 표시', since: ago(6), requeryable: false, resolved: false },
     ],
     bffResults: new Map(),
+    mfcPending: [
+      { kind: 'MFC_STOP_FAILED', refId: 'STOP-MOCK-1', orderId: 'ORD-MOCK-1002', mfcId: 'MFC-BSN-01', state: 'PENDING', reasonCode: 'PDA_OFFLINE', reasonMessage: '[목] 피킹 PDA 응답 없음 — 중지 확인 못 함', since: ago(4), retry: 'APPLIED', done: false },
+      { kind: 'MFC_HANDOVER_REJECTED', refId: 'HO-MOCK-1', orderId: 'ORD-MOCK-1001', mfcId: 'MFC-BSN-01', state: 'REJECTED', reasonCode: 'STOCK_MISMATCH', reasonMessage: '[목] 재고와 인계 수량이 다름', since: ago(8), retry: 'REJECTED', done: false },
+    ],
     issues: [
       { issueId: 'FI-MOCK-1', orderId: 'ORD-MOCK-1003', mfcId: 'MFC-BSN-01', sku: 'E-00000001', lotId: 'LOT-MOCK-7', blockedQty: 1, reason: 'QUALITY_HOLD', state: 'OPEN', blockedAt: ago(3), reservationId: 'RSV-MOCK-1', note: null, acknowledgedBy: null, acknowledgedAt: null, resolvedAt: null },
       { issueId: 'FI-MOCK-2', orderId: 'ORD-MOCK-1001', mfcId: 'MFC-SEL-01', sku: 'E-00000002', lotId: null, blockedQty: 2, reason: 'COUNT_LOSS', state: 'OPEN', blockedAt: ago(5), reservationId: 'RSV-MOCK-2', note: null, acknowledgedBy: null, acknowledgedAt: null, resolvedAt: null },
@@ -462,16 +468,31 @@ export const opsHandlers = [
           allowedActions: ['ACKNOWLEDGE'],
           source: stamp('order-service'),
         })),
+      ...ops.mfcPending
+        .filter((x) => !x.done)
+        .map((x) => ({ kind: x.kind, refId: x.refId, orderId: x.orderId, mfcId: x.mfcId, state: x.state, reasonCode: x.reasonCode, reasonMessage: x.reasonMessage, since: x.since, allowedActions: ['RETRY'], source: stamp('mfc-fulfillment-service') })),
     ].sort((a, b) => a.since.localeCompare(b.since));
-    return HttpResponse.json({ composedAt: now, sources: [stamp('order-orchestration-service'), stamp('order-service')], unavailableSources: [], items });
+    return HttpResponse.json({ composedAt: now, sources: [stamp('order-orchestration-service'), stamp('order-service'), stamp('mfc-fulfillment-service')], unavailableSources: [], items });
   }),
 
   // bff 명령 프록시: order-orchestration-service saga-requery·saga-resolve(승인 없음, OPERATOR_ADMIN). 이미 바뀐 사가는 422.
   http.post(`${BFF_BASE}/commands/:targetService/:command`, async ({ request, params }) => {
     const { denied } = allow(request, ...ADMIN);
     if (denied) return denied;
-    if (params['targetService'] !== 'order-orchestration-service') return problem(404, 'NOT_FOUND');
     const body = (await request.clone().json()) as { targetRef?: string; reason?: string };
+    // bff 0.4.0 MFC 다시 시도: 사유 필수, APPLIED 면 목록에서 빠지고 REJECTED 면 그대로(nextAction FIX_AND_RETRY)
+    if (params['targetService'] === 'mfc-fulfillment-service') {
+      if (!(body.reason ?? '').trim()) return problem(400, 'VALIDATION_FAILED', [{ field: 'reason', reason: 'REQUIRED' }]);
+      return idempotent(request, () => {
+        const kind = params['command'] === 'stop-retry' ? 'MFC_STOP_FAILED' : params['command'] === 'handover-retry' ? 'MFC_HANDOVER_REJECTED' : null;
+        const item = ops.mfcPending.find((x) => x.kind === kind && x.refId === body.targetRef);
+        if (!item) return problem(404, 'NOT_FOUND');
+        if (item.retry === 'APPLIED') item.done = true;
+        const result = item.retry === 'APPLIED' ? { requestId: keyOf(request), status: 'APPLIED' as const, occurredAt: new Date().toISOString() } : { requestId: keyOf(request), status: 'REJECTED' as const, nextAction: 'FIX_AND_RETRY', occurredAt: new Date().toISOString() };
+        return { status: 200, body: result };
+      });
+    }
+    if (params['targetService'] !== 'order-orchestration-service') return problem(404, 'NOT_FOUND');
     return idempotent(request, () => {
       const saga = ops.sagas.find((s) => s.sagaId === body.targetRef);
       if (!saga) return problem(404, 'NOT_FOUND');
@@ -489,10 +510,8 @@ export const opsHandlers = [
       return { status: 202, body: result };
     });
   }),
-  http.get(`${BFF_BASE}/commands/:targetService/:command/:requestId`, ({ params }) => {
-    const r = ops.bffResults.get(String(params['requestId']));
-    return r ? HttpResponse.json(r) : problem(404, 'NOT_FOUND');
-  }),
+  // 결과 조회는 실서버가 아직 501(백엔드 회신 reply-case-inbox-questions §3) — 화면은 부르지 않는다(목록 다시 읽기). 불리면 501 로 드러나게.
+  http.get(`${BFF_BASE}/commands/:targetService/:command/:requestId`, () => problem(501, 'NOT_IMPLEMENTED')),
 
   // ---- case 0.3.0 rider-complaints ----
   http.post(`${API_BASE}/rider-complaints`, async ({ request }) => {

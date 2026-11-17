@@ -7,7 +7,10 @@ import { catalogHandlers } from './catalogHandlers';
 import { approvalInbox, centerList } from './fixtures';
 import { inquiryHandlers } from './inquiryHandlers';
 import { caseHandlers } from './caseHandlers';
+import { liveDeliveryHandlers } from './liveDeliveryHandlers';
+import { lookupHandlers } from './lookupHandlers';
 import { opsHandlers } from './opsHandlers';
+import { piiAccessLogHandlers } from './piiAccessLogHandlers';
 import { priceImportHandlers } from './priceImportHandlers';
 import { pricingHandlers } from './pricingHandlers';
 import { operator, unauthorized } from './support';
@@ -34,4 +37,7 @@ export const handlers = [
   ...inquiryHandlers,
   ...opsHandlers,
   ...caseHandlers,
+  ...lookupHandlers,
+  ...liveDeliveryHandlers,
+  ...piiAccessLogHandlers,
 ];

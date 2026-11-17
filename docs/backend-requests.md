@@ -65,6 +65,7 @@
 | BR-55 | 중간 | 백오피스 | 전달 실패·도움요청 대기 목록(`GET /delivery-help-requests` 제안 — PC 5 BOD-4), "처리함" 닫기 API 여부 | **DONE(2026-11-16)** — 도움요청은 사건함(case 0.4.0 RIDER_HELP)으로, 전달 실패 확정 대기는 execution 0.4.0 `GET /deliveries?state=FAILURE_REPORTED&sort=OLDEST`. 대기 목록 화면·목(helpQueueMock) 지움 |
 | BR-56 | 중간 | 백오피스 | 직원 주문 조회·문의에서 배송 번호(deliveryId)로 잇기 — 컴플레인 기록·배송 확인에 필요 | **DONE(2026-11-16)** — execution 0.4.0 `GET /deliveries?orderId=` — 주문 상세 "이 주문의 배송" |
 | BR-57 | 낮음 | 인사팀 백오피스 | 요청 권한으로 고를 수 있는 역할 목록 API(employee-auth) — 역할이 늘 때마다 화면 고정 목록을 맞추지 않게 | **DONE(2026-11-16)** — `GET /employee-auth/roles`(employee-auth 0.5.0, 백엔드 알림 `hr-backoffice/2026-11-15-notice-role-list-and-departments.md` §1). 직원 등록의 요청 권한 역할이 이 응답(이름·순서·센터 필요 여부)을 쓴다 |
+| BR-58 | 중간 | 백오피스 | 라이더 도움요청 상담 대화 — 상담원 쪽 대화 읽기·답장·새 메시지 표시·읽음, 상태(처리 중 시점·다시 처리 뒤 대화), 관리자 가림 | **AGREED**(2026-11-16 회신 — 대화는 delivery-execution, 백엔드 PR #60 병합 `5e2455fe` = execution 0.6.0 messages API, LAN 배포는 확인 안 함·DE-2(권한·새 메시지 필드·가림) PR #62 로 PC 5 에 요청). DE-2 반영·배포 뒤 화면을 붙인다. 전화는 보류. 요청 `docs/handoff/backoffice/2026-11-16-backend-rider-help-chat.md` |
 
 ---
 
@@ -373,3 +374,9 @@
 - 역할이 늘 때마다 화면 목록이 서버 목록과 어긋날 수 있다(서버만 늘면 화면에서 못 고르고, 화면만 늘면 `UNKNOWN_ROLE` 행 거절).
 - 요청: employee-auth-service 에 HR_ADMIN 이 부를 수 있는 역할 목록 조회(역할 코드, 표시 이름, 센터를 골라야 하는 역할인지)를 계약에 넣어 줄지 회신. 생기면 고정 목록 대신 그 응답을 쓴다.
 - **끝남(2026-11-16)**: 백엔드가 `GET /employee-auth/roles`(0.5.0, 직원 토큰이면 누구나)를 만들었다. `GRANT_ROLES` 를 지우고 `src/features/employees/roles.ts` 가 이 응답을 쓴다(못 불러오면 오류 — 빈 목록 아님).
+
+## BR-58 라이더 도움요청 상담 대화 (백오피스 지원센터)
+- 계기: 라이더앱(PC 5)의 "도움요청 상담 대화" 요청. 라이더 쪽은 PC 5 요청서 `rider-app/2026-11-16-backend-trip-info-and-signup.md` §11, 상담원 쪽은 PC 2 요청서 `docs/handoff/backoffice/2026-11-16-backend-rider-help-chat.md`(PR #45) — 한 계약으로 맞춰 달라고 했다.
+- 계약(case 0.11.2·execution 0.5.1)에 대화 API 가 없다. 접수 건 메모는 직원끼리만 보는 기록이라 대신 쓸 수 없다.
+- 회신(2026-11-16): 대화는 delivery-execution `GET/POST /deliveries/{deliveryId}/help-requests/{requestId}/messages`(백엔드 PR #60 — 2026-11-16 main `5e2455fe` 에 병합, execution 0.6.0). 답장은 RIDER_OPS·OPERATOR_ADMIN, 새 메시지는 `lastRiderMessageAt`·`lastSupportMessageAt`(직원별 읽음은 화면이 기억), 관리자 가림, 처리 중 = 상담원이 집을 때 — DE-2(PR #62)로 PC 5 에 요청됨.
+- 클라이언트: DE-2 가 반영·배포되기 전에는(권한·필드가 바뀜) 화면을 만들지 않는다(추측 경로 금지). 전화 기능은 보류(사용자 2026-11-16).

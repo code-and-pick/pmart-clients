@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:pmart_core/pmart_core.dart' show ProblemFailure;
 import 'package:pmart_ui/pmart_ui.dart';
 
 import '../../../l10n/gen/app_localizations.dart';
@@ -144,10 +145,13 @@ class _DeliveryBodyState extends ConsumerState<_DeliveryBody> {
         await context.push('/checkout');
       case CheckoutGate.rejected:
         final l10n = AppLocalizations.of(context);
-        final rejection = draftRejection(
-          l10n,
-          ref.read(draftControllerProvider).error,
-        );
+        final error = ref.read(draftControllerProvider).error;
+        final rejection = draftRejection(l10n, error);
+        // 재고 부족(order 0.8.0)은 장바구니에서 고칠 일이라 장바구니로 돌아가 줄마다 보인다.
+        final stock =
+            error is ProblemFailure &&
+            error.problem.code == CheckoutProblemCode.insufficientStock;
+        if (stock) context.go('/cart');
         ScaffoldMessenger.of(context)
           ..hideCurrentSnackBar()
           ..showSnackBar(
@@ -157,6 +161,7 @@ class _DeliveryBodyState extends ConsumerState<_DeliveryBody> {
               key: const ValueKey('delivery-rejected'),
               content: Text(rejection?.text ?? l10n.checkoutRejected),
               action: switch (rejection) {
+                _ when stock => null,
                 (
                   route: final String route,
                   action: final String label,

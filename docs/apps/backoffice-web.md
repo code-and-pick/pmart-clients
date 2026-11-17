@@ -61,7 +61,11 @@ BO §7(≈L1492-1510)의 화면은 "업무 동선 제안"이다. 화면을 BO �
 승인 뒤 정본 반영은 비동기라 승인 상세에서 1초 간격·최대 30회 폴링하고, 끝나지 않으면 "아직 확인되지 않음 + 다시 확인"으로 둔다.
 토큰: access 는 탭 메모리, refresh 는 이 탭의 sessionStorage(새로고침 복원용 — BR-03 전 임시, localStorage 금지). 401 → pmartFetch single-flight 로 `POST /employee-auth/tokens/refresh` 한 번(회전된 refresh 로 즉시 교체) → 원 요청 재전송. 갱신이 거절되면(`TOKEN_INVALID`·`TOKEN_REUSED` 등) 토큰을 지우고 로그인 화면(`/login?from=`). 갱신 결과 불명이면 같은 refresh 를 다시 보내지 않는다(재사용으로 세션이 끊김). `X-Device-Id` 는 탭마다 UUID(로그인 시작·티켓 교환·갱신이 같은 값).
 
-직원 로그인(ADR-0056, 2026-11-12 · 2026-11-13 모든 모드로): employee-auth-service 하나 — `/login` 버튼 → 게이트웨이 `GET /employee-auth/logins`(브라우저 이동, Keycloak 화면) → `/auth/callback?ticket=` → `POST /employee-auth/tokens`. 갱신 `POST /employee-auth/tokens/refresh`, 로그아웃 `POST /employee-auth/logouts` → 200 `idpLogoutUri` 로 브라우저 이동(SSO — Keycloak 세션까지 끝내고 `/login` 으로 돌아옴). 백오피스는 Keycloak 주소를 갖지 않는다. 목 모드에는 Keycloak 이 없어 로그인 화면의 목 계정 버튼이 `mock.<운영자 ID>` 티켓으로 복귀 주소를 연다(티켓 교환부터는 같은 코드 — 인사팀 백오피스와 같은 방식, `src/mocks/authHandlers.ts`). auth-service 의 운영자 로그인·비밀번호 변경·운영자 계정 API 는 백엔드가 2026-11-13 없앴고(`clients-notice-auth-operator-login-removed`), 이 앱의 그 코드(아이디·비밀번호 로그인, 운영자 계정 화면)도 같은 날 지웠다 — 직원 등록·권한은 인사팀 백오피스.
+직원 로그인(ADR-0056, 2026-11-12 · 2026-11-13 모든 모드로): employee-auth-service 하나 — `/login` 버튼 → 게이트웨이 `GET /employee-auth/logins`(브라우저 이동, Keycloak 화면) → `/auth/callback?ticket=` → `POST /employee-auth/tokens`.
+갱신 `POST /employee-auth/tokens/refresh`, 로그아웃 `POST /employee-auth/logouts` → 200 `idpLogoutUri` 로 브라우저 이동(SSO — Keycloak 세션까지 끝내고 `/login` 으로 돌아옴).
+백오피스는 Keycloak 주소를 갖지 않는다.
+목 모드에는 Keycloak 이 없어 로그인 화면의 목 계정 버튼이 `mock.<운영자 ID>` 티켓으로 복귀 주소를 연다(티켓 교환부터는 같은 코드 — 인사팀 백오피스와 같은 방식, `src/mocks/authHandlers.ts`).
+auth-service 의 운영자 로그인·비밀번호 변경·운영자 계정 API 는 백엔드가 2026-11-13 없앴고(`clients-notice-auth-operator-login-removed`), 이 앱의 그 코드(아이디·비밀번호 로그인, 운영자 계정 화면)도 같은 날 지웠다 — 직원 등록·권한은 인사팀 백오피스.
 실행 모드: `dev`(목) / `dev:local`(Vite 프록시 → localhost:8080 — 로컬에는 Keycloak 이 없어 화면 로그인은 안 된다, 직원 토큰은 백엔드 `dev-on-other-pcs.md` §1 의 dev-tokens) / `dev:lan`·`build:lan`(게이트웨이 `https://192.168.0.40:8443/api/v1` 직접, 브라우저는 `https://192.168.0.40` 으로 연다 — HTTP 80 은 2026-11-13 닫혀 HTTPS 로 넘어간다. 이름 `d603-16` 은 다른 PC 에서 IPv6 링크 로컬로 풀려 안 열림 — 2026-11-06). 빌드는 PC 4 에 직접 올리지 않고 백엔드가 `lan.sh publish-backoffice` 로 올린다.
 막힌 것: 이미지 인증(BR-25), 초안 목록(BR-26), 센터 목록(center-master 다음 작업 → 센터 ID 입력).
 
@@ -85,12 +89,40 @@ BO §7(≈L1492-1510)의 화면은 "업무 동선 제안"이다. 화면을 BO �
 - 실서버 확인은 아직 안 함(목: `mocks/inquiryHandlers.ts`, 목 계정 "상담원 최").
 
 ## 2-4. 메뉴 묶음 · 고객센터 · 라이더 운영 (2026-11-15, 백엔드 요청 `backoffice/2026-11-15-clients-request-backoffice-cs-rider-menus.md`)
-- **메뉴 묶음**(`src/app/nav.ts`): 상품 관리(`MD`·`OPERATOR_ADMIN` — 2026-11-15 사용자, 판매 상태 변경만 `MD`: 그 밖 역할은 버튼 대신 "MD 만 바꿀 수 있습니다") / 승인(`*_APPROVER`·`OPERATOR_ADMIN`) / 고객센터(`CS_AGENT`·`OPERATOR_ADMIN`) / 라이더 운영(`RIDER_OPS`·`OPERATOR_ADMIN`) / 업무 도우미(모든 직원). 세션 응답(`sessions/current` 0.6.0) 역할의 합집합, 하위 메뉴가 없으면 묶음도 숨김. 접고 펴는 `<details>` — 지금 화면의 묶음만 펼친 채 시작. 같은 화면(주문 조회·라이더 컴플레인·배송)은 두 묶음에 있다. 메뉴 숨김은 편의 — 주소로 열면 서버 403 이 오류로 보인다. 첫 화면은 보이는 첫 메뉴(없으면 내 세션). MFC 메뉴는 넣지 않는다(MFC 백오피스는 따로 앱, 2026-11-15 사용자 결정).
+- **메뉴 묶음**(`src/app/nav.ts`):
+  - 상품 관리(`MD`·`OPERATOR_ADMIN` — 2026-11-15 사용자, 판매 상태 변경만 `MD`: 그 밖 역할은 버튼 대신 "MD 만 바꿀 수 있습니다")
+  - 승인(`*_APPROVER`·`OPERATOR_ADMIN`)
+  - 조회·현황(`CS_AGENT`·`RIDER_OPS`·`OPERATOR_ADMIN` — 주문 조회·통합 조회·실시간 배송 현황·배송·배차 확인·라이더 컴플레인)
+  - 고객센터(`CS_AGENT`·`OPERATOR_ADMIN` — 문의 답변·클레임 조회)
+  - 라이더 운영(`RIDER_OPS`·`OPERATOR_ADMIN` — 라이더 찾기·계정 제한·제한 검토)
+  - 업무 도우미(모든 직원).
+  - 세션 응답(`sessions/current` 0.6.0) 역할의 합집합, 하위 메뉴가 없으면 묶음도 숨김.
+  - 접고 펴는 `<details>` — 지금 화면의 묶음만 펼친 채 시작.
+  - 같은 화면은 한 묶음에만 — 두 역할이 함께 쓰는 조회는 조회·현황 묶음(2026-11-16 사용자: 두 역할 계정에서 같은 메뉴가 두 번 강조돼 보이던 것, 백엔드 알림 `handoff/archive/2026-11-16-backend-menu-shared-lookup-group.md`).
+  - 메뉴 숨김은 편의 — 주소로 열면 서버 403 이 오류로 보인다.
+  - 첫 화면은 역할 묶음의 첫 화면(상담원 = 주문 조회, 라이더 운영 = 라이더 찾기, 역할 묶음이 없으면 조회·현황, 그것도 없으면 내 세션).
+  - MFC 메뉴는 넣지 않는다(MFC 백오피스는 따로 앱, 2026-11-15 사용자 결정).
 - **주문 조회** `/orders`, `/orders/:orderId` — order 0.3.0 `GET /orders/lookups`(조건은 URL 쿼리, 기본 기간 오늘까지 7일, 주문 ID·고객 ID 없으면 기간 31일 이하 — 보내기 전 안내, 연락처는 숫자만 완전 일치 9~11자리, `page`·`hasNext` 쪽 이동). 목록 연락처는 서버가 가린 값. 상세: 금액 구성·결제 번호·주문 상품·이행 확인 필요 기록·이 주문의 클레임(`GET /claims?orderId=`), 배송지는 서버가 가린 값 + 사유 입력 원문 열람(아래 "주문 상세 배송지 열람"), 이 주문의 배송(execution 0.4.0 `GET /deliveries?orderId=`). 취소 버튼 없음(ADR-0060).
 - **라이더 컴플레인** `/rider-complaints`(목록 — 라이더·배송·종류·기간 필터, 커서), `/rider-complaints/new`(기록 — 배송 번호·종류 필수, 주문·문의·메모 선택, 쿼리로 미리 채움), `/rider-complaints/:id`(상세·메모). case 0.3.0. 라이더는 서버가 채운다(422 `RIDER_NOT_ASSIGNED`·`DELIVERY_NOT_FOUND`·`INQUIRY_NOT_FOUND` 안내). 결과 불명은 같은 키로 확인.
 - **주문 상세 배송지 열람**(2026-11-16, order 0.4.0·0.5.0): 상세는 서버가 가린 값 그대로(이름 첫·끝 글자, 010-****-1234, 상세주소 `***`, 출입 메모·배송 요청사항은 "가림"). 원문은 "원문 열람" — 항목(이름·연락처·상세주소·출입 메모/요청사항) 고르고 사유 2~200자 → `POST /orders/lookups/{orderId}/pii-reveals`(열람 기록이 남은 뒤 고른 항목만 원문). 원문은 화면 메모리에만, "다시 가리기"·화면 이동으로 사라짐. 503·결과 불명은 원문 없이 같은 키 "결과 확인".
-- **처리 대기** `/pending`(2026-11-16, `OPERATOR_ADMIN` 만) — bff 0.2.0 `GET /backoffice/views/pending-work`(멈춘 주문 처리 + 이행 확인 필요, 원천 표시·못 읽은 원천 경고). 버튼은 `allowedActions` 만: 결제 결과 다시 확인(`saga-requery`), 처리 완료(`saga-resolve`, 사유 필수·주문·재고 그대로 경고) — bff 명령 프록시 + 짝 조회, 확인(order-service acknowledgements). 422 `NOT_REQUERYABLE`·`NOT_RESOLVABLE` = 새로고침 안내. MFC 인계 거절·현장 중지 실패는 목록에 아직 없음.
-- **지원센터 사건** `/cases`·`/cases/:caseId`·`/cases/new-misdelivery`(2026-11-16, `RIDER_OPS`·`OPERATOR_ADMIN`, `CS_AGENT` 보기 + 오배송 열기) — case 0.4.0. 탭 안 집은 것·내 것·기한 넘김·닫힌 것(URL), refs 링크, 기한 넘김 빨강. 내가 집기·관리자 배정(`assignments`), 닫기(`closures` 결과·요약 — 개인정보 금지 안내), 오배송 열기(`POST /cases` MISDELIVERY, 409 `CASE_ALREADY_OPEN`).
+- **처리 대기** `/pending`(2026-11-16, `OPERATOR_ADMIN` 만) — bff 0.2.0 `GET /backoffice/views/pending-work`(멈춘 주문 처리 + 이행 확인 필요, 원천 표시·못 읽은 원천 경고).
+  - 버튼은 `allowedActions` 만: 결제 결과 다시 확인(`saga-requery`), 처리 완료(`saga-resolve`, 사유 필수·주문·재고 그대로 경고) — bff 명령 프록시 — 짝 조회 `GET …/commands/…/{requestId}` 는 아직 501 이라 부르지 않고, `ACCEPTED`·`UNKNOWN_RESULT`·시간 초과면 목록을 다시 읽어 "목록에서 확인"(결과 불명, 같은 키 재전송만, 2026-11-16 백엔드 회신 reply-case-inbox-questions §3), 확인(order-service acknowledgements). 422 `NOT_REQUERYABLE`·`NOT_RESOLVABLE` = 새로고침 안내.
+  - **MFC 중지 실패·인계 거절**(bff 0.4.0, 백엔드 알림 `notice-pending-work-mfc-retry`): `allowedActions: [RETRY]` → "다시 시도"(메모 필수) → bff `mfc-fulfillment-service/stop-retry`·`handover-retry`. APPLIED = 목록에서 빠짐, REJECTED = "다시 실패 — 원인 고친 뒤 다시", 그 밖은 위와 같이 목록 다시 읽기. 인계 거절은 "실물 확인 → 재고 정정 → 다시 시도" 안내. 처리 완료 버튼 없음. 메모는 MFC 에 아직 저장 안 됨 — "기록됨"이라 쓰지 않음.
+  - MFC 목록은 PC 3 API(F-4) 전까지 서버 설정으로 꺼짐 — `sources` 에 mfc-fulfillment-service 가 없으면 "아직 이 목록에 나오지 않아요(장애 아님)" 안내.
+  - LAN(2026-11-16, claude-dev): 0건 + 그 안내 확인, 재시도 명령은 대상이 없어 실서버로 보내 보지 않음.
+- **지원센터 사건** `/cases`·`/cases/:caseId`·`/cases/new-misdelivery`(2026-11-16, `RIDER_OPS`·`OPERATOR_ADMIN`, `CS_AGENT` 보기 + 오배송 열기) — case 0.4.0.
+  - 탭 안 집은 것·내 것·기한 넘김·닫힌 것(URL), refs 링크, 기한 넘김 빨강, 요약이 없으면 종류 이름. 도움요청 사건은 `requestId`·`deliveryId` ref(case 0.4.1) 먼저, 없으면 `incidentId` 를 나눠 도움요청 단건.
+  - 내가 집기·관리자 배정(`assignments`), 닫기(`closures` 결과·요약 — 개인정보 금지 안내), 오배송 열기(`POST /cases` MISDELIVERY, 409 `CASE_ALREADY_OPEN`).
+  - **오배송 귀책·고객 선택**(case 0.11.0, ADR-0065, 백엔드 요청 `request-misdelivery-fault-choice` — 2026-11-16): 오배송 접수에 "누구 잘못인가요?"(라이더 실수·지도·시스템 오류·고객 주소 오입력 등) 필수 + "고객이 고른 처리"(재발송 기본·전 품목 환불) → `misdelivery {fault, resolution}` 늘 보냄.
+  - **고객 잘못도 고를 수 있음**(백엔드 #49~#53 배포 — 요청서 다시 씀): 처리 = 다시 배송(기본)·환불(상품값 − 9,000원, 정책 안내만). 고객 잘못 + 다시 배송은 두 단계 — 배송(execution)에서 주문 번호를 읽어 order 0.9.0 `POST /orders/lookups/{orderId}/redelivery-destinations` {deliveryId, roadAddress, detailAddress?, postalCode?, reason} → destinationId → case `misdelivery.redeliveryDestinationId`. 실제 주소는 입력만(기록 뒤 화면에서 지움, 다시 보여 주지 않음), 사유에 주소·전화번호 금지 안내, ①만 되고 ②가 실패하면 주소를 다시 쓰지 않고 접수만 다시. 200m 무료·넘으면 고객 앱 9,000원·30분 미결제면 회수 후 상품값 − 9,000원 환불 안내.
+  - 라이더 실수엔 "라이더 원래 배달료가 지급되지 않습니다" 안내. 상세 refs 의 fault·resolution 은 이름표("귀책 라이더 실수"·"고객 선택 전 품목 환불"). 422 `INVALID_MISDELIVERY_RESOLUTION`·`REDELIVERY_DESTINATION_REQUIRED` 문구. 실서버 접수·주소 기록은 실제 회수 배차·결제 요청이 일어나 보내 보지 않음(목 모드만).
+  - **목록은 bff 0.5.0 `GET /backoffice/views/case-inbox`**(2026-11-16, 백엔드 요청 `request-case-inbox-linked-state`): "연결 상태" 열 — 연결 배송(수행 상태)·주문(주문 상태)을 원천 값 이름표로, `confidence UNKNOWN` → "확인 불가"(장애이거나 그 역할이 못 보는 원천 — 지원센터는 주문을 못 볼 수 있음), `state null`·DIRECT → "원천에 없음". `unavailableSources` 에 case-service 면 목록 조회 실패(빈 목록 아님). 50건씩 `page.nextCursor`(URL `cursor`). 집기·닫기·상세는 case 직접. LAN(claude-dev): 안 집은 것 1건(위치 끊김, 연결 배송 "전달 완료"), 원천 case·delivery-execution 최신.
+  - **다시 열기·넘기기**(case 0.6.0·0.7.0, 백엔드 요청 `request-case-reopen`·`request-case-transfer`): 닫힌 사건 "다시 열기"(사유 필수, 닫기와 같은 사람 — 배송 쪽 지원센터·관리자, 관리자 팀 사건 관리자; 상담원 없음) → `reopenings`, 다시 열림·담당 비움·기한 새로, 지난 종결은 "지난 종결"로 남김. 409 `CASE_ALREADY_OPEN` → 통합 조회 `/lookup?q=<대상>` 로 열린 사건 찾기 안내. refs `previousCaseId` → "이전 사건" 링크. 배송 쪽 열린 사건 "관리자에게 넘기기"(지원센터는 안 집었거나 자기가 집은 것)·"지원센터로 돌려보내기"(관리자만) → `transfers`(사유 필수). 상세에 담당 팀, 관리자 팀으로 간 배송 쪽 사건은 목록·상세에 "관리자 처리 중" + 지원센터·상담원 보기만 안내(집기·닫기·넘기기 숨김). 이력 REOPENED "다시 열림"·TRANSFERRED "넘김"(note 그대로). LAN(claude-dev, 2026-11-16): 백엔드가 시험한 위치 끊김 사건 — 다시 열림·지원센터·담당 없음, 이력 넘김 2·닫힘·다시 열림 표시 확인(명령은 보내지 않음).
+  - **후속 처리**(case 0.8.0 의무, 백엔드 요청 `request-case-obligations` — `features/cases/FollowUps.tsx`): 접수 건 상세 "후속 처리 (N건 남음)" — 종류·담당 팀(비우면 접수 건 팀)·수량·기록 금액·기한·상태·결과 이력. "결과 남기기": 완료(수량·금액 일부 가능)·시도 기록(상태 그대로, 메모 필수)·면제·실패(관리자만, 사유 필수), 근거(어느 곳·번호) 필수 → `POST /obligations/{id}/resolutions`. 버튼은 담당 팀(지원센터 = RIDER_OPS, 고객센터 = CS_AGENT)·관리자에게만. "후속 처리 추가"(지원센터·관리자, 8종) → `POST /cases/{id}/obligations`. 남아 있으면 "처리 끝내기" 비활성 + 안내, 서버 409 `OPEN_OBLIGATIONS` 도 코드 문구. 금액은 "기록 금액" — 환불·보상은 클레임·결제 메뉴 안내. 고객센터 메뉴 "고객센터 후속 처리" `/follow-ups/cs`(`GET /obligations?owner=CS`, 처리 중 / 처리 끝남 = RESOLVED·WAIVED·FAILED 합침). LAN(claude-dev): 목록 0건 200, 상세 칸·추가 폼 표시(명령은 보내지 않음).
+  - **교대 인계**(case 0.9.0 shift-handovers, 백엔드 요청 `request-shift-handover`·PR #42 — 병합·배포 전, `features/cases/HandoverPages.tsx`): 지원센터 › 교대 인계 `/cases/handovers`, 탭 인계서 쓰기·나에게 온 인계·내가 쓴 인계·미인수(관리자). 쓰기 = 내가 맡은 처리 중 접수 건(팀별, 기본 전부 선택) + 건마다 다음 조치(필수)·확인 기한 + 후임 → `POST /shift-handovers`(관리자는 전임을 바꿔 대신 쓰기). 받기 전에는 담당 그대로, 자동으로 넘어가거나 돌아가지 않고 알림 없음 — 화면에 안내. 수락은 후임 본인만(건별 받기/안 받기 → `acceptances` {excludedCaseIds}), 결과 건별(받음·안 받음(미인수)·그사이 바뀌어 건너뜀·권한 없어 건너뜀). 취소는 받기 전 전임·관리자. 이력 HANDOVER_REQUESTED "인계서에 들어감"·HANDED_OVER "인계됨". LAN(claude-dev, 17:20): 내가 쓴 인계에 백엔드 시험 인계서(받음 — 건 ACCEPTED), 접수 건 이력 "인계서에 들어감"·"인계됨", 담당 이동 확인(명령은 보내지 않음).
+  - **메모**(case 0.10.0 — `features/cases/CaseNotes.tsx`): 접수 건 상세 "메모" — 오래된 것부터, 남기기(1~500자, 관리자·지원센터·상담원, 처리 끝난 건에도), "개인정보(전화번호·주소)는 쓰지 마세요" 안내, 고치기·지우기 없음, 가리기는 관리자만(사유) → 가린 메모는 내용 없이 "가린 메모 — 가린 사람 · 사유". LAN: 백엔드 시험 메모 1건 가린 상태로 표시 확인.
+  - **오배송 회수 진행**(case 0.8.1·bff 0.5.1): refs `recoveryDeliveryId` → "회수 배송" 링크, 이력 RECOVERY_CREATED "회수 배송 생김"·RECOVERY_PICKED_UP "회수함"·RECOVERY_RETURNED "매장 반납", "반납돼도 저절로 끝나지 않음" 안내, 사건함 연결 상태에서 회수 배송을 따로 이름. LAN 은 회수 배송이 있는 접수 건이 없어 목 모드만.
+  - **재발송 배송**(case 0.11.2·bff 0.5.2, 백엔드 PR #48): refs `reshipmentDeliveryId` → "재발송 배송" 링크, 이력 RESHIPMENT_CREATED "재발송 배송 생김", 연결 상태에서 원래 배송(subjectRef)·회수 배송(recoveryDeliveryId)·재발송 배송(reshipmentDeliveryId)을 따로 이름, 안내 "회수가 끝나거나 재발송이 생겨도 저절로 끝나지 않음". LAN 에 오배송 접수 건이 없어 목 모드만(2026-11-16).
 - **클레임 조회** `/claims`, `/claims/:id` — claim 0.1.0 목록·상세·환불(`/refunds`). 결정 버튼 없음(서버 501). 환불은 서버 상태 그대로(PG 성공 전 "완료" 아님).
 - **배송 확인** `/deliveries`(배송 번호로 열기 + 찾기: 주문 ID·라이더 ID·상태·오래된 순, "전달 실패 확정 대기" = `state=FAILURE_REPORTED&sort=OLDEST`, cursor 더 보기 — execution 0.4.0, 2026-11-16), `/deliveries/:id` — 배송 수행(execution `GET /deliveries/{id}`)과 배차(dispatch `GET …/dispatch` — 상담원도 조회)를 따로 읽고 따로 보인다(한쪽 403 이어도 다른 쪽은 보인다). `FAILURE_REPORTED` 면 전달 실패 확정·반려(`X-Expected-Version` = 수행 version, `APPLIED`/`ACCEPTED` 문구 구분), 배차 `ASSIGNED` 면 픽업 전 배차 취소(사유 4가지 — 운영자 판단은 승인 번호 필수, 다시 배차 기본 켬, 202 접수 → 짝 조회 `GET …/assignment-cancellations/{requestId}` 로 확정까지, 422 `PICKED_UP_CASE_REQUIRED` 안내). "이 배송으로 라이더 컴플레인 기록" 링크.
 - **라이더 찾기·계정 제한** `/riders`, `/riders/:riderId` — rider 0.4.0(2026-11-16, BR-54 끝): 찾기 = 라이더 ID·전화(숫자 10~11자리) 완전 일치 + 제한·운행·수단·정렬, 쪽 이동(이름 검색 없음). 상세 = 가린 이름·전화 + 사유 입력 원문 열람(`POST /riders/{id}/pii-reveals`, 항목 이름·전화), 운행·배달 지역·배차 방식·제한·마지막 위치. 계정 제한 현재·이력·걸기/바꾸기/풀기(사유 필수·기한·증빙·승인 번호, `X-Expected-Version` = 상세의 라이더 version — BOD-6, RIDER_OPS 도), 이 라이더의 배송·열린 제한 검토·컴플레인.
@@ -99,6 +131,34 @@ BO §7(≈L1492-1510)의 화면은 "업무 동선 제안"이다. 화면을 BO �
 - 권한(서버 판정, 지금 계약): 배차 조회는 `CS_AGENT`·`RIDER_OPS` 가, 계정 제한·제한 검토·배차 취소·실패 결정은 `RIDER_OPS` 가 PC 5 반영 뒤에 열린다 — 그 전에는 403 이 오류로 보인다(목도 같게 흉내).
 - 개인정보: 주문 목록·상세는 서버가 가린 값, 원문은 사유를 적고 `pii-reveals`(2026-11-16 — 위 "주문 상세 배송지 열람"). 라이더 상세의 이름·연락처는 아직 `Masked`(화면 안 가림, "보기"). 검색 조건·연락처·주소·메모·열람 사유를 로그에 남기지 않는다.
 - 목: `mocks/opsHandlers.ts`(주문 3·배송 4·클레임 2·컴플레인 2·라이더 2·검토 1), 목 계정 "라이더 운영 정"(`RIDER_OPS`)·"상담·라이더운영 한"(`CS_AGENT`+`RIDER_OPS`, LAN `test-cs-rider` 와 같은 역할). 실서버 확인은 아직 안 함.
+
+- **화면 용어(사용자 2026-11-16)**: 백엔드 case(사건함)는 화면에서 **"접수 건"**(메뉴 지원센터 › 접수 건, 오배송 접수). 열림/닫힘 대신 처리 단계 — 상태 OPEN 접수됨·CLOSED 처리 끝남·REOPENED 다시 처리 중, 탭·칸 "처리 중"/"처리 끝남", 동작 닫기 → "처리 끝내기", 다시 열기 → "다시 처리하기", 종결 → "처리 결과". 의무(obligation)는 "후속 처리". 계약·백엔드 문서 이름(case·사건함)은 그대로.
+
+## 2-5. 통합 조회 (BO-11, 2026-11-16, bff 0.3.0 — 백엔드 요청 `backoffice/2026-11-16-request-unified-lookup.md`, PR #25)
+- 메뉴 "통합 조회" `/lookup` — 고객센터·라이더 운영 묶음의 **두 번째**(첫 화면 = 묶음 첫 메뉴는 그대로). OPERATOR_ADMIN·CS_AGENT·RIDER_OPS(서버 판정 — 그 밖 403 → 권한 없음 화면).
+- `GET /backoffice/views/unified-lookup?q=&kind=` — 찾는 값·종류는 URL 쿼리. 종류 고르기는 번호로 알아서(ANY, 보내지 않음)·주문·배송·사건·고객(TRANSFER·TRIP 은 원천이 없어 고르기에 없음). 422 `UNSUPPORTED_LOOKUP`(전화번호 등)은 코드 문구, 5xx 는 오류(빈 결과 아님), 없는 대상은 "찾는 대상이 없어요".
+- 결과: 원천 표시(`SourceStamps` — 기준 시각·신선도·조회 못 한 원천), "○로 찾음 → 주문 …", 주문 칸 위 + 배송(수행)·배차·클레임·고객 문의 칸 + 사건 칸(열린 것 / 닫힌 것 최근 20건, `state` 로만 나눔). **실패·권한 없음 원천은 그 칸에 "조회 실패 또는 볼 권한 없음"**(0건과 구분). 원천 이름 ↔ 칸: order-service·delivery-execution-service·delivery-dispatch-service·claim-service·case-service·case-service/inquiries — 계약 설명에 적힌 목록(PR #25 985a2ecd, 질문 handoff 답). 닫힌 사건은 백엔드 PR #26(case 0.5.1) 부터 닫힌 시각 최근 순 — 그 전 LAN 은 오래된 순(화면은 받은 순서대로).
+- `summary` 는 원천 필드 이름 그대로 — 아는 이름만 한국어, 모르는 이름은 그대로, 시각(…At)은 서울 시각, 객체는 한 단계 펼침. 금액·상태를 계산하지 않는다. 개인정보는 오지 않는다(원문은 주문 상세 열람).
+- 각 항목 "상세 보기": 주문 `/orders/{id}`·배송·배차 `/deliveries/{id}`·클레임 `/claims/{id}`·사건 `/cases/{id}`·문의 `/inquiries/{id}`. 고객 번호면 주문 목록만 → "이 주문으로 다시 조회"(q = 주문, kind ORDER).
+- 계약 타입: bff 0.3.0 이 main 에 없어(PR #25) 그 브랜치 계약으로 로컬 생성(생성물은 커밋 안 함) — PR #25 병합 뒤 `gen:api` 로 다시, `contracts.lock` 은 PC 1. 목 `mocks/lookupHandlers.ts`.
+
+## 2-6. 실시간 배송 현황 (2026-11-16, bff 0.3.0 — 백엔드 요청 `backoffice/2026-11-16-request-live-delivery.md`, PR #25, 배송 원문 §10.1)
+- 메뉴 "실시간 배송 현황" `/live-delivery` — 고객센터·라이더 운영 묶음, 통합 조회 다음. OPERATOR_ADMIN·CS_AGENT·RIDER_OPS(서버 판정, 셋 다 모든 센터 — 그 밖 403 → 권한 없음 화면).
+- `GET /backoffice/views/live-delivery?mfcId=&state=&size=50&cursor=` — 센터·상태·쪽은 URL 쿼리. 센터 고르기는 center-master `GET /centers?type=MFC`(못 읽으면 "모든 센터"만 + 안내). 상태 고르기는 진행 중 9개 중 하나(비우면 진행 중 전부).
+- 상태를 비우면 오래된 순 50건, 쪽 넘김 없음 — `truncated` 면 "더 있어요 — 센터나 상태로 좁혀 주세요". 상태를 고르면 `page.nextCursor` 로 "다음 쪽"/"처음 쪽"(상태 없이 cursor 를 보내지 않는다).
+- 표: 배송(→ 배송 상세)·주문(→ 주문 상세)·센터·종류·수행 상태·배차 상태·라이더(없으면 "미배정")·예정 시간대(arrivalWindow 받은 그대로) + "약속 지남"(promisedAt < 응답 composedAt — 화면 시계를 쓰지 않음)·열린 사건(종류·우선순위 → 사건 상세, overdue 면 "기한 넘김").
+- 원천 실패: 배차 `state null` → "모름(조회 실패)", `openCases null` → "조회 실패"(0건과 구분), 원천 줄에 "조회하지 못한 원천". 5xx 는 오류(빈 목록 아님).
+- 1분마다 자동 새로 고침(요청서 — 30초 이상 권장), 수동 "새로 고침". latestEta 는 아직 늘 null 이라 열 없음(안내 문구만). 개인정보 없음.
+- 목 `mocks/liveDeliveryHandlers.ts`(진행 중 8·끝남 1, `mfcId=MFC-MOCK-DOWN` 이면 배차·사건 원천 실패).
+- LAN 확인(2026-11-16 PC 2, `dev:lan` + 게이트웨이 CORS 개발 출처, test-cs-rider): 실시간 배송 1건(미배정·배차 실패·열린 사건 없음), 센터 목록 1곳. 통합 조회 — 주문 번호로 주문·배송(수행)·배차 칸, 원천 6개, 고객 번호로 주문 목록, 전화번호 422 문구 모두 정상. 그 자리에서 고친 것: "○로 찾음" 조사 → "○ 번호로 찾음", 금액 필드 원·천 단위, 실서버 필드 이름 한국어(결품 처리·봉투값·배달팁·시도 번호·실패 사유 등).
+## 2-7. 개인정보 열람 기록 (2026-11-16, audit 0.3.0 — 백엔드 알림 `backoffice/2026-11-16-notice-pii-access-log-api.md`, ADR-0062 결정 9·10)
+- 메뉴 "감사" 묶음 → "개인정보 열람 기록" `/pii-access-logs`(상세 `/pii-access-logs/{id}`). **OPERATOR_ADMIN 만**(메뉴도 관리자에게만, 그 밖 역할이 주소로 열면 서버 403 → "이용할 수 없는 화면").
+- `GET /pii-access-logs?actorId=&subjectType=&subjectRef=&caseRef=&accessType=&from=&to=&size=50&cursor=` — 거르기는 URL 쿼리. 기간은 한국 날짜 → 시작일 0시(+09:00)부터 종료일 다음 날 0시 전까지(to 미포함). 시작일 > 종료일이면 부르지 않고 안내. 열람 시각 새 것부터 50건, `page.nextCursor` 로 다음 쪽.
+- 표: 열람 시각(→ 상세)·열람한 직원(운영자 ID·그때 역할)·정보주체(종류 + ID, 라이더는 라이더 상세로)·열어 본 항목(이름·연락처·주소·출입 메모)·방식·관련 주문·접수 건(`ORDER:` → 주문 상세, `RIDER:` → 라이더 상세)·열람 사유. 상세는 센터 범위·건수·화면·기록한 서비스·기록 시각·기록 ID 까지. 목록으로 돌아가면 거르기 유지.
+- 기록에 원문 개인정보 값은 없다(참조·항목 코드·사유만). 열람 사유는 직원이 쓴 글 — 화면에만, 콘솔·로그에 남기지 않는다. 기록은 2년 뒤 파기(안내 문구).
+- 목 `mocks/piiAccessLogHandlers.ts`(7건 — 직원 3, 고객·라이더). 시험 `features/piiAccess/piiAccess.test.tsx`(8).
+- LAN 확인(2026-11-16 PC 2, `dev:lan`): test-cs-rider(CS_AGENT·RIDER_OPS) → 메뉴 없음, 주소로 열면 403 "이용할 수 없는 화면". claude-dev(OPERATOR_ADMIN) → 감사 묶음·목록 1건(11-15 상담원의 주문 연락처 보기, 주문 참조 → 주문 상세)·상세(화면·기록한 서비스 order-service·기록 ID), 거르기 — 날짜 11-15 1건·11-16 0건("없어요")·라이더 0건·주문 참조 1건·없는 직원 0건 모두 서버 결과대로.
+
 ## 3. 기술 메모
 - 개발: Vite 프록시 `/api → http://localhost:8080` (CORS 없음, BR-04). 목은 MSW.
 - 모든 목록은 커서 페이지(`size`, `cursor`). 표·필터 상태는 URL 쿼리에 둔다(공유·새로고침 복원).

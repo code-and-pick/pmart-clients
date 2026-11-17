@@ -1,5 +1,5 @@
 // MFC 백오피스 기반(handoff mfc-backoffice/2026-11-15-request-mfc-backoffice §1·§2) — 로그인 앱 이름, 센터 고르기, 메뉴 자리, 역할 안내.
-import { screen, waitFor, within } from '@testing-library/react';
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -11,6 +11,7 @@ import { beginEmployeeLogin, browser, LOGIN_SILENT_KEY } from '../api/employeeAu
 import { env } from '../env';
 import { as, renderAt } from '../test/render';
 import { server } from '../test/server';
+import { PreparingPage } from '../features/menus/PreparingPage';
 import { allMenus } from './nav';
 
 afterEach(() => {
@@ -49,7 +50,7 @@ describe('센터', () => {
     const view = renderAt('/');
     expect(await screen.findByRole('heading', { name: '작업자' })).toBeInTheDocument();
     expect(await screen.findByText('부산진구 MFC (MFC-BSN-01)')).toBeInTheDocument();
-    expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
+    expect(screen.queryByRole('combobox', { name: '센터 고르기' })).not.toBeInTheDocument();
     expect(view.gets('/centers')).toHaveLength(0);
   });
 
@@ -82,7 +83,7 @@ describe('센터', () => {
       ),
     );
     renderAt('/c/MFC-BSN-01/workers', as.sup2);
-    const select = await screen.findByRole('combobox');
+    const select = await screen.findByRole('combobox', { name: '센터 고르기' });
     await waitFor(() => expect(within(select).getAllByRole('option').map((o) => o.textContent)).toEqual(['부산진구 MFC (MFC-BSN-01)', 'MFC-SEL-01']));
     expect(screen.getByText('센터 이름을 불러오지 못해 센터 코드로만 보여요.')).toBeInTheDocument();
   });
@@ -126,7 +127,7 @@ describe('세션 응답(sessions/current 0.6.0) — 토큰을 풀지 않는다',
     renderAt('/', null);
     await userEvent.click(await screen.findByRole('button', { name: '센터 관리자(MFC 1곳)' }));
     expect(await screen.findByText('정보를 불러오지 못했어요')).toBeInTheDocument();
-    expect(screen.queryByText('인력')).not.toBeInTheDocument();
+    expect(screen.queryByText('작업자 관리')).not.toBeInTheDocument();
     fail = false;
     await userEvent.click(screen.getByRole('button', { name: '다시 시도' }));
     expect(await screen.findByRole('heading', { name: '작업자' })).toBeInTheDocument();
@@ -137,7 +138,7 @@ describe('역할', () => {
   it('MFC_WORKER 만 있으면 "센터 관리자만 쓰는 화면" — 메뉴 없음', async () => {
     renderAt('/', as.worker);
     expect(await screen.findByRole('alert')).toHaveTextContent('센터 관리자만 쓰는 화면입니다');
-    expect(screen.queryByText('인력')).not.toBeInTheDocument();
+    expect(screen.queryByText('작업자 관리')).not.toBeInTheDocument();
     renderAt('/c/MFC-BSN-01/workers', as.worker);
     expect(screen.queryByRole('heading', { name: '작업자' })).not.toBeInTheDocument();
   });
@@ -145,7 +146,7 @@ describe('역할', () => {
   it('센터가 없는 운영 관리자: 맡은 센터가 없다는 안내 — 메뉴 없음', async () => {
     renderAt('/', as.admin);
     expect(await screen.findByRole('alert')).toHaveTextContent('맡은 센터가 없어요');
-    expect(screen.queryByText('인력')).not.toBeInTheDocument();
+    expect(screen.queryByText('작업자 관리')).not.toBeInTheDocument();
   });
 
   it('센터 관리자가 아닌 역할 + 센터: 막지 않고 안내만(판정은 서버)', async () => {
@@ -156,25 +157,27 @@ describe('역할', () => {
 });
 
 describe('메뉴', () => {
-  it('묶음 4개 · 하위 메뉴 9개가 모두 보이고 센터 주소 아래로 간다', async () => {
+  it('묶음 5개 · 하위 메뉴 11개가 모두 보이고 센터 주소 아래로 간다', async () => {
     renderAt('/');
     await screen.findByRole('heading', { name: '작업자' });
-    for (const group of ['인력', '작업', '재고·품질', '센터']) expect(screen.getByText(group, { selector: 'summary' })).toBeInTheDocument();
-    expect(allMenus).toHaveLength(9);
-    for (const label of ['작업자', '배정', '작업 현황', '이동·보충', '입고', '재고', '품질', '위치(칸)', '운영 제한']) {
+    for (const group of ['작업자 관리', '작업', '배송', '재고·품질', '센터']) expect(screen.getByText(group, { selector: 'summary' })).toBeInTheDocument();
+    expect(allMenus).toHaveLength(11);
+    for (const label of ['작업자', '배정', '작업 현황', '이동·보충', '입고', '재고', '품질', '위치(칸)', '운영 제한', '배송 현황', '배차 실패']) {
       expect(screen.getByRole('link', { name: label }).getAttribute('href')).toMatch(/^\/c\/MFC-BSN-01\//);
     }
   });
 
-  it('아직 만들지 않은 메뉴는 "화면 준비 중" + 서버 API 가 없는 기능 목록', async () => {
-    renderAt('/c/MFC-BSN-01/inventory');
-    expect(await screen.findByText('화면 준비 중')).toBeInTheDocument();
-    expect(within(screen.getByTestId('api-missing')).getByText('센터 전체 재고 목록(상품 코드 없이)')).toBeInTheDocument();
+  it('9개 메뉴가 모두 화면을 가진다(2026-11-16) — "준비 중"이 아니다', () => {
+    expect(allMenus.filter((menu) => !menu.ready).map((menu) => menu.key)).toEqual([]);
   });
 
-  it('API 가 다 있는 메뉴에는 "없는 기능" 목록이 없다', async () => {
-    renderAt('/c/MFC-BSN-01/restrictions');
-    expect(await screen.findByText('화면 준비 중')).toBeInTheDocument();
+  // 메뉴가 모두 만들어져 "준비 중" 화면은 메뉴로 열 수 없다 — 앞으로 생길 메뉴를 위해 부품을 직접 확인한다
+  it('준비 중 화면: 서버 API 가 있는 기능과 없는 기능을 나눠 보인다', () => {
+    render(<PreparingPage menu={{ key: 'quality', segment: 'quality', ready: false, apiReady: ['단건 조회'], apiMissing: ['목록'] }} />);
+    expect(screen.getByText('화면 준비 중')).toBeInTheDocument();
+    expect(within(screen.getByTestId('api-missing')).getByText('목록')).toBeInTheDocument();
+    cleanup();
+    render(<PreparingPage menu={{ key: 'quality', segment: 'quality', ready: false, apiReady: ['단건 조회'], apiMissing: [] }} />);
     expect(screen.queryByTestId('api-missing')).not.toBeInTheDocument();
   });
 

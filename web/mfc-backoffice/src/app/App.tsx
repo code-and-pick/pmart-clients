@@ -4,8 +4,17 @@ import type { ComponentType, ReactNode } from 'react';
 import { createBrowserRouter, createMemoryRouter, Link, Navigate, NavLink, Outlet, RouterProvider, useParams } from 'react-router';
 
 import { env } from '../env';
+import { AssignmentsMenu } from '../features/assignments/AssignmentPages';
 import { CenterSwitcher } from '../features/centers/centers';
+import { CenterDeliveriesMenu, DispatchFailuresMenu } from '../features/delivery/CenterDeliveryPages';
+import { InboundMenu } from '../features/inbound/InboundPages';
+import { InventoryMenu } from '../features/inventory/InventoryPages';
 import { LocationsMenu } from '../features/locations/LocationPages';
+import { MovesMenu } from '../features/moves/MovePages';
+import { QualityMenu } from '../features/quality/QualityPages';
+import { RestrictionsMenu } from '../features/restrictions/RestrictionPages';
+import { TasksMenu } from '../features/tasks/TaskPages';
+import { WorkersMenu } from '../features/workers/WorkerPages';
 import { PreparingPage } from '../features/menus/PreparingPage';
 import { LoginCallbackPage, LoginPage } from '../features/session/LoginPage';
 import { SessionPage } from '../features/session/SessionPage';
@@ -104,6 +113,16 @@ function CenterScope({ menu }: { readonly menu: MenuItem }) {
 /** 만든 메뉴 화면(nav.ts `ready`). 아직이면 "준비 중" */
 const menuPages: Partial<Record<MenuKey, ComponentType<{ readonly mfcId: string }>>> = {
   locations: LocationsMenu,
+  moves: MovesMenu,
+  workers: WorkersMenu,
+  tasks: TasksMenu,
+  assignments: AssignmentsMenu,
+  deliveries: CenterDeliveriesMenu,
+  dispatchFailures: DispatchFailuresMenu,
+  inbound: InboundMenu,
+  inventory: InventoryMenu,
+  quality: QualityMenu,
+  restrictions: RestrictionsMenu,
 };
 
 function MenuPage({ menu, mfcId }: { readonly menu: MenuItem; readonly mfcId: string }) {

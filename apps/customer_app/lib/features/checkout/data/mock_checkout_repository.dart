@@ -37,6 +37,14 @@ const mockShippingAddressJson = <String, Object?>{
   'geo': {'lat': 37.5133, 'lng': 127.1028},
 };
 
+/// 주문 결제가 아닌 결제 시도(예: 오배송 다시 배송비)를 흉내 내는 목. 목 결제 서비스([MockCheckoutRepository])가
+/// 자기 초안에 없는 `orderId`(결제 시도) 를 여기에 넘긴다. 자기 것이 아니면 null/false.
+abstract interface class MockExternalPayments {
+  AuthSubmitResult? submitAuth(PgAuthenticated auth);
+
+  bool reportAuthFailure(String pgOrderId, String errorCode);
+}
+
 base class MockCheckoutRepository
     implements CheckoutRepository, PaymentRepository {
   MockCheckoutRepository({
@@ -69,8 +77,15 @@ base class MockCheckoutRepository
   /// 다음 결제 진입을 가격 변경(RE_QUOTE_REQUIRED)으로 만든다.
   bool priceChangesOnCheckout = false;
 
+  /// 주문 초안이 아닌 결제 시도(다시 배송비 등)를 받는 목.
+  MockExternalPayments? external;
+
   /// 다음 초안 생성을 이 코드로 거절한다(422, MFC_CHANGED 는 409).
   String? rejectNextDraft;
+
+  /// [rejectNextDraft] 에 실을 `details[]`(예: INSUFFICIENT_STOCK — field = sku,
+  /// reason = `requestedQty=2;availableQty=1` 또는 `NOT_HANDLED`, order 0.8.0).
+  List<ProblemDetail> rejectNextDraftDetails = const [];
 
   /// 다음 결제 진입을 이 코드로 거절한다(422, 사가 시작 없음. 예: ACCOUNT_NOT_PURCHASABLE).
   String? rejectNextCheckout;
@@ -261,10 +276,13 @@ base class MockCheckoutRepository
     }
     if (rejectNextDraft case final code?) {
       rejectNextDraft = null;
+      final details = rejectNextDraftDetails;
+      rejectNextDraftDetails = const [];
       throw ProblemFailure(
         Problem(
           status: code == CheckoutProblemCode.mfcChanged ? 409 : 422,
           code: code,
+          details: details,
         ),
       );
     }
@@ -502,6 +520,9 @@ base class MockCheckoutRepository
   }) async {
     await _wait();
     authFailures.add((entry.pgOrderId, errorCode));
+    if (external?.reportAuthFailure(entry.pgOrderId, errorCode) ?? false) {
+      return;
+    }
     final d = _byPgOrder(entry.pgOrderId);
     if (d != null && d.json['nextAction'] == 'PAY') {
       _backToDraft(
@@ -585,6 +606,11 @@ base class MockCheckoutRepository
     final previous = _authResults[key.value];
     if (previous != null) return previous;
     final d = _byPgOrder(auth.pgOrderId);
+    if (d == null) {
+      if (external?.submitAuth(auth) case final r?) {
+        return _authResults[key.value] = r;
+      }
+    }
     final quote = d?.json['quote'] as Map<String, Object?>?;
     if (d == null || quote?['totalAmount'] != auth.amount) {
       // 금액이 다르면 승인하지 않는다(서버 검증 흉내).

@@ -55,6 +55,8 @@ dependencies:
     path: ../../packages/pmart_api/gen/review
   pmart_api_case:
     path: ../../packages/pmart_api/gen/case
+  pmart_api_order_orchestration:
+    path: ../../packages/pmart_api/gen/order-orchestration
   pmart_api_customer_assistant:
     path: ../../packages/pmart_api/gen/customer-assistant
   google_sign_in: ^7.2.0

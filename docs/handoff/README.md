@@ -23,15 +23,11 @@ pmart-clients 와 pmart-backend 는 서로의 저장소에 쓰지 않는다. 각
 | 문서 | 기다리는 것 |
 |---|---|
 | `mfc-app/2026-11-10-backend-pda-work-areas.md` | BR-52·BR-53 회신(R1~R4 일부·R8~R11·R19-1 은 받음 — 나머지. 다음 차례 R12 → R20) |
-| `backoffice/2026-11-15-backend-assistant-connected.md` | 새 백오피스 빌드 올리기, 업무 도우미·문의 답변의 HTTPS 게이트웨이 경로·CORS, 답변 POST 의 같은 키 재전송 |
-| `backoffice/2026-11-15-backend-cs-rider-menus-done.md` | 고객센터·라이더 운영 메뉴 반영 회신 — BR-54~56, 역할·version 질문, PC 5 권한 반영 |
-| `backoffice/2026-11-16-backend-pii-reveal-and-pending-done.md` | 주문 개인정보 열람·처리 대기 반영 확인(빌드는 archive 의 session-roles-centers 표) |
-| `backoffice/2026-11-16-backend-case-inbox-and-pending-work-done.md` | 사건함·처리 대기(bff) 반영 확인, 질문 3개(빌드는 archive 의 session-roles-centers 표) |
-| `hr-backoffice/2026-11-16-backend-departments-and-permissions-done.md` | 본사 부서·권한 관리 반영 확인(빌드는 archive 의 session-roles-centers 표) |
+| `backoffice/2026-11-16-backend-pii-reveal-and-pending-done.md` | 주문 개인정보 열람·처리 대기 — LAN 조회 화면은 확인(2026-11-16 PC 2), 원문 열람은 실서버에서 아직 안 눌러 봄 |
 | `all/2026-11-16-backend-login-code-pc1-only-done.md` | 클라이언트 표(경로 보탬) 확인 |
-| `backoffice/2026-11-16-backend-product-menu-operator-admin-done.md` | 상품 관리 묶음 `OPERATOR_ADMIN` 반영 확인(빌드는 archive 의 session-roles-centers 표) |
-| `hr-backoffice/2026-11-16-backend-role-list-done.md` | 역할 목록 API 반영 확인(BR-57 끝, 빌드는 archive 의 session-roles-centers 표) |
-| `backoffice/2026-11-16-backend-case-order-exceptions-done.md` | 사건함 사가·결제 이상·배차 실패 화면 반영 확인(PR #13) — 실서버는 case 0.5.0 LAN 배포 뒤 |
-| `web-common/2026-11-16-backend-lan-cors-dev-origins.md` | LAN 게이트웨이 CORS 에 개발 서버 출처 `http://localhost:5173·5174·5175` 추가(allowed·credentialed), refresh 쿠키가 실리는지 — PC 2 가 `dev:lan` 으로 실서버 확인용 |
+| `backoffice/2026-11-16-backend-case-order-exceptions-done.md` | 사건함 사가·결제 이상·배차 실패 화면 반영 확인(PR #13) — case 0.5.0 LAN 배포됨(백엔드 알림, 데이터 0건), 사건이 생기면 실서버 확인 |
+| `hr-backoffice/2026-11-16-backend-keycloak-400-provisioning.md` | LAN 직원 계정 발급이 KEYCLOAK_400 으로 실패·되돌림(재현 3명) — PC 1 원인 확인 |
+| `backoffice/2026-11-16-backend-rider-help-chat.md` | 라이더 도움요청 상담 대화 — 답 받음(백엔드 #60 대화 API·#62 DE-2 권한·새 메시지·가림·처리 중 시점), 반영·배포 뒤 화면. 전화 기능 보류 |
 | `customer-app/2026-11-16-backend-review-photos-and-inbox-done.md` | 리뷰 0.2.0(사진)·고객 알림함 0.2.0 반영 확인 — 실서버 확인은 배송 완료·고객 주문 뒤 |
+| `customer-app/2026-11-16-backend-review-edit-delete-done.md` | 리뷰 수정·삭제 화면 반영 확인, 빈 글 수정 질문 1개 — 실서버 확인은 배송 완료 뒤 |
 | `customer-app/2026-11-15-backend-support-chat-inquiry.md` | 고객앱 문의·AI 상담 반영 알림 — LAN 고객 토큰으로 실제 확인, 질문 3개 |

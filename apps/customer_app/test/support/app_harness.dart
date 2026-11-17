@@ -33,6 +33,9 @@ import 'package:customer_app/features/orders/data/orders_repository.dart';
 import 'package:customer_app/features/orders/presentation/orders_providers.dart';
 import 'package:customer_app/features/payment/presentation/payment_controller.dart';
 import 'package:customer_app/features/profile/data/mock_profile_repository.dart';
+import 'package:customer_app/features/redelivery/data/mock_redelivery_payments_repository.dart';
+import 'package:customer_app/features/redelivery/data/redelivery_payments_repository.dart';
+import 'package:customer_app/features/redelivery/presentation/redelivery_controller.dart';
 import 'package:customer_app/features/profile/data/profile_repository.dart';
 import 'package:customer_app/features/profile/presentation/profile_controller.dart';
 import 'package:customer_app/features/reviews/data/mock_reviews_repository.dart';
@@ -55,77 +58,96 @@ Widget testApp(
   FakeAddressPicker? addressPicker,
   MockAddressRepository? address,
 
+  /// 다시 배송비 결제(기본: 결제 건 없는 지연 없는 목). 목 결제 서비스(checkout 목)와 잇는다.
+  RedeliveryPaymentsRepository? redelivery,
+
   /// 수량 ± 모아 보내기 대기. 기본 0(탭 직후 pumpAndSettle 로 반영). 모아 보내기를 시험할 때만 늘린다.
   Duration stepperDelay = Duration.zero,
-}) => ProviderScope(
-  retry: (_, _) => null,
-  overrides: [
-    envProvider.overrideWithValue(PmartEnv.mock),
-    onSessionExpiredProvider.overrideWith(
-      (ref) => ref.read(sessionExpiryHandlerProvider),
-    ),
-    catalogRepositoryProvider.overrideWithValue(
-      catalog ?? MockCatalogRepository(latency: Duration.zero),
-    ),
-    cartRepositoryProvider.overrideWithValue(
-      cart ?? MockCartRepository(latency: Duration.zero),
-    ),
-    cartStepperDelayProvider.overrideWithValue(stepperDelay),
-    authRepositoryProvider.overrideWithValue(
-      auth ?? MockAuthRepository(latency: Duration.zero),
-    ),
-    addressRepositoryProvider.overrideWithValue(
-      address ?? MockAddressRepository(latency: Duration.zero),
-    ),
-    checkoutRepositoryProvider.overrideWithValue(
-      // 슬롯·만료가 실제 시계에 따라 바뀌지 않게 서울 12:00 으로 고정한다.
+}) {
+  final checkoutRepo =
       checkout ??
-          MockCheckoutRepository(
-            latency: Duration.zero,
-            now: () => DateTime.utc(2026, 10, 24, 3),
-          ),
-    ),
-    ordersRepositoryProvider.overrideWithValue(
-      orders ?? MockOrdersRepository(latency: Duration.zero),
-    ),
-    // 주문 상세가 처리 내역(GET /claims?orderId=)을 받으므로 지연 없는 목을 늘 둔다.
-    claimsRepositoryProvider.overrideWithValue(
-      claims ??
-          MockClaimsRepository(
-            latency: Duration.zero,
-            orders: switch (orders) {
-              final MockOrdersRepository m => m,
-              _ => null,
-            },
-          ),
-    ),
-    profileRepositoryProvider.overrideWithValue(
-      profile ?? MockProfileRepository(latency: Duration.zero),
-    ),
-    notificationsRepositoryProvider.overrideWithValue(
-      notifications ?? MockNotificationsRepository(latency: Duration.zero),
-    ),
-    // 상품 상세·주문 상세가 리뷰를 조회하므로 지연 없는 목을 늘 둔다.
-    reviewsRepositoryProvider.overrideWithValue(
-      reviews ?? MockReviewsRepository(latency: Duration.zero),
-    ),
-    noticePollPolicyProvider.overrideWithValue((
-      interval: Duration.zero,
-      attempts: 3,
-    )),
-    // 주소 검색(웹뷰)·카카오 지도는 시험에서 띄울 수 없어 가짜로 바꾼다.
-    ...(addressPicker ?? FakeAddressPicker()).overrides,
-    // 보안 저장소 대신 메모리 저장소(플랫폼 채널 없음).
-    secureStoreProvider.overrideWithValue(MemoryKeyValueStore()),
-    paymentPollPolicyProvider.overrideWithValue((
-      interval: Duration.zero,
-      attempts: 3,
-    )),
-    tokenStoreProvider.overrideWithValue(TokenStore(MemoryKeyValueStore())),
-    ...overrides,
-  ],
-  child: const CustomerApp(),
-);
+      // 슬롯·만료가 실제 시계에 따라 바뀌지 않게 서울 12:00 으로 고정한다.
+      MockCheckoutRepository(
+        latency: Duration.zero,
+        now: () => DateTime.utc(2026, 10, 24, 3),
+      );
+  final redeliveryRepo =
+      redelivery ??
+      MockRedeliveryPaymentsRepository(latency: Duration.zero, seeded: false);
+  if ((checkoutRepo, redeliveryRepo) case (
+    final MockCheckoutRepository c,
+    final MockRedeliveryPaymentsRepository r,
+  )) {
+    c.external = r;
+  }
+  return ProviderScope(
+    retry: (_, _) => null,
+    overrides: [
+      envProvider.overrideWithValue(PmartEnv.mock),
+      onSessionExpiredProvider.overrideWith(
+        (ref) => ref.read(sessionExpiryHandlerProvider),
+      ),
+      catalogRepositoryProvider.overrideWithValue(
+        catalog ?? MockCatalogRepository(latency: Duration.zero),
+      ),
+      cartRepositoryProvider.overrideWithValue(
+        cart ?? MockCartRepository(latency: Duration.zero),
+      ),
+      cartStepperDelayProvider.overrideWithValue(stepperDelay),
+      authRepositoryProvider.overrideWithValue(
+        auth ?? MockAuthRepository(latency: Duration.zero),
+      ),
+      addressRepositoryProvider.overrideWithValue(
+        address ?? MockAddressRepository(latency: Duration.zero),
+      ),
+      checkoutRepositoryProvider.overrideWithValue(checkoutRepo),
+      redeliveryPaymentsRepositoryProvider.overrideWithValue(redeliveryRepo),
+      redeliveryPollPolicyProvider.overrideWithValue((
+        interval: Duration.zero,
+        attempts: 3,
+      )),
+      ordersRepositoryProvider.overrideWithValue(
+        orders ?? MockOrdersRepository(latency: Duration.zero),
+      ),
+      // 주문 상세가 처리 내역(GET /claims?orderId=)을 받으므로 지연 없는 목을 늘 둔다.
+      claimsRepositoryProvider.overrideWithValue(
+        claims ??
+            MockClaimsRepository(
+              latency: Duration.zero,
+              orders: switch (orders) {
+                final MockOrdersRepository m => m,
+                _ => null,
+              },
+            ),
+      ),
+      profileRepositoryProvider.overrideWithValue(
+        profile ?? MockProfileRepository(latency: Duration.zero),
+      ),
+      notificationsRepositoryProvider.overrideWithValue(
+        notifications ?? MockNotificationsRepository(latency: Duration.zero),
+      ),
+      // 상품 상세·주문 상세가 리뷰를 조회하므로 지연 없는 목을 늘 둔다.
+      reviewsRepositoryProvider.overrideWithValue(
+        reviews ?? MockReviewsRepository(latency: Duration.zero),
+      ),
+      noticePollPolicyProvider.overrideWithValue((
+        interval: Duration.zero,
+        attempts: 3,
+      )),
+      // 주소 검색(웹뷰)·카카오 지도는 시험에서 띄울 수 없어 가짜로 바꾼다.
+      ...(addressPicker ?? FakeAddressPicker()).overrides,
+      // 보안 저장소 대신 메모리 저장소(플랫폼 채널 없음).
+      secureStoreProvider.overrideWithValue(MemoryKeyValueStore()),
+      paymentPollPolicyProvider.overrideWithValue((
+        interval: Duration.zero,
+        attempts: 3,
+      )),
+      tokenStoreProvider.overrideWithValue(TokenStore(MemoryKeyValueStore())),
+      ...overrides,
+    ],
+    child: const CustomerApp(),
+  );
+}
 
 /// 주소 검색 결과·지도 핀을 정해 두는 가짜. [road] 를 고르고, 지도는 [pin](없으면 시작 위치)으로 확인한다.
 final class FakeAddressPicker {

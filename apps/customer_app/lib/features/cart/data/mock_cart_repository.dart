@@ -67,6 +67,15 @@ base class MockCartRepository implements CartRepository {
   /// 담당 MFC 가 없는 장바구니(배송지 미정): 재고를 조회하지 않아 가용 UNKNOWN, `mfcId` null.
   bool noMfc = false;
 
+  /// 센터별로 취급하지 않는 SKU(가용 `NOT_CARRIED`). [open] 에 받은 `mfcId` 기준으로 정한다.
+  Map<String, Set<String>> notCarriedAt = const {};
+
+  /// 마지막 [open] 의 담당 센터(null 이면 목 기본 센터).
+  String? _openedMfcId;
+
+  bool _notCarried(String sku) =>
+      notCarriedAt[_openedMfcId ?? 'MFC-MOCK-01']?.contains(sku) ?? false;
+
   /// 받은 변경 명령(재전송 포함) 순서대로. 테스트가 "몇 번 보냈는지"를 본다.
   final changes = <CartChange>[];
 
@@ -120,8 +129,11 @@ base class MockCartRepository implements CartRepository {
     final items = <Map<String, Object?>>[];
     for (final l in _lines) {
       final s = _sku(l.sku)!;
+      final notCarried = !noMfc && _notCarried(l.sku);
       final purchasable =
-          s.saleState == 'ON_SALE' && s.availability != 'SOLD_OUT';
+          s.saleState == 'ON_SALE' &&
+          s.availability != 'SOLD_OUT' &&
+          !notCarried;
       if (l.selected && purchasable) amount += s.price * l.quantity;
       items.add({
         'cartItemId': l.cartItemId,
@@ -135,7 +147,11 @@ base class MockCartRepository implements CartRepository {
           'unitPrice': s.price,
           'priceVersion': 1,
           'saleState': s.saleState,
-          'availability': (inventoryDown || noMfc) ? 'UNKNOWN' : s.availability,
+          'availability': (inventoryDown || noMfc)
+              ? 'UNKNOWN'
+              : notCarried
+              ? 'NOT_CARRIED'
+              : s.availability,
           'availableQty': s.availability == 'LOW' && !inventoryDown && !noMfc
               ? lowStockQty
               : null,
@@ -174,6 +190,7 @@ base class MockCartRepository implements CartRepository {
   @override
   Future<Cart> open({String? mfcId}) async {
     await _wait();
+    _openedMfcId = mfcId;
     return _cart();
   }
 

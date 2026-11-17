@@ -8,6 +8,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart' show ProviderScope;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:pmart_ui/pmart_ui.dart';
@@ -15,10 +16,14 @@ import 'package:pmart_ui/pmart_ui.dart';
 import 'package:customer_app/app.dart';
 import 'package:customer_app/features/checkout/data/mock_checkout_repository.dart';
 import 'package:customer_app/features/checkout/presentation/checkout_controller.dart';
+import 'package:customer_app/features/redelivery/data/mock_redelivery_payments_repository.dart';
 import 'package:customer_app/features/reviews/data/mock_reviews_repository.dart';
 import 'package:customer_app/features/reviews/domain/reviews.dart';
 import 'package:customer_app/features/reviews/presentation/reviews_controller.dart';
-import 'package:pmart_core/pmart_core.dart' show UnknownResultFailure;
+import 'package:customer_app/features/checkout/domain/checkout.dart'
+    show CheckoutProblemCode;
+import 'package:pmart_core/pmart_core.dart'
+    show ProblemDetail, UnknownResultFailure;
 
 import '../test/support/app_harness.dart';
 
@@ -99,16 +104,24 @@ void main() {
       }
     });
     await t.pumpWidget(
-      testApp(checkout: checkout, reviews: reviews, [
-        reviewPhotoPickerProvider.overrideWithValue(
-          (_, max) async => samplePhotos.take(max).toList(),
+      testApp(
+        checkout: checkout,
+        reviews: reviews,
+        redelivery: MockRedeliveryPaymentsRepository(
+          latency: Duration.zero,
+          now: () => now,
         ),
-        clockProvider.overrideWithValue(() => now),
-        draftPollPolicyProvider.overrideWithValue((
-          interval: Duration.zero,
-          attempts: 3,
-        )),
-      ]),
+        [
+          reviewPhotoPickerProvider.overrideWithValue(
+            (_, max) async => samplePhotos.take(max).toList(),
+          ),
+          clockProvider.overrideWithValue(() => now),
+          draftPollPolicyProvider.overrideWithValue((
+            interval: Duration.zero,
+            attempts: 3,
+          )),
+        ],
+      ),
     );
     await t.pumpAndSettle();
 
@@ -165,6 +178,23 @@ void main() {
     await t.tap(find.byKey(const ValueKey('mode-single')));
     await t.pump();
     await shot('delivery-select-picked');
+    // 주문하기가 재고 부족(422 INSUFFICIENT_STOCK, order 0.8.0)으로 막혀 장바구니로 돌아온 모습.
+    checkout
+      ..rejectNextDraft = CheckoutProblemCode.insufficientStock
+      ..rejectNextDraftDetails = const [
+        ProblemDetail(
+          field: 'E-00000001',
+          reason: 'requestedQty=2;availableQty=1',
+        ),
+        ProblemDetail(field: 'E-00000005', reason: 'NOT_HANDLED'),
+      ];
+    await t.tap(find.byKey(const ValueKey('delivery-next')));
+    await t.pumpAndSettle();
+    await shot('cart-stock-shortage');
+    // 테스트 시계는 저절로 흐르지 않아 알림이 다음 캡처까지 남는다 — 지운다.
+    ScaffoldMessenger.of(t.element(find.byType(Scaffold).first))
+        .clearSnackBars();
+    await t.pumpAndSettle();
     unawaited(router().push('/checkout'));
     await t.pumpAndSettle();
     await shot('order-sheet');
@@ -189,6 +219,12 @@ void main() {
     await shot('order-detail');
     await scrollDown(650);
     await shot('order-detail-2');
+    // 오배송 다시 배송비 결제(order-seed-1 에 결제 대기 1건).
+    await go('/orders/order-seed-1');
+    await shot('order-detail-redelivery');
+    await t.tap(find.byKey(const ValueKey('rdp-open-rdp-1')));
+    await t.pumpAndSettle();
+    await shot('redelivery-payment');
     await go('/reviews');
     await shot('reviews');
     // 리뷰 쓰기 + 사진(review 0.2.0). 첫 사진은 결과 불명 → 다시 올리기.
@@ -217,6 +253,41 @@ void main() {
     await shot('review-write-photos-ok');
     await t.tap(find.byKey(const ValueKey('review-close')));
     await t.pumpAndSettle();
+    // 내가 쓴 리뷰 → 리뷰 하나(수정·삭제, 백엔드 요청 2026-11-16 review-edit-delete).
+    await t.tap(find.byKey(const ValueKey('review-tab-mine')));
+    await t.pumpAndSettle();
+    await shot('review-mine');
+    await t.tap(find.byKey(const ValueKey('review-mine-open-rv-mine-1')));
+    await t.pumpAndSettle();
+    await shot('review-mine-detail');
+    await t.tap(find.byKey(const ValueKey('review-edit')));
+    await t.pumpAndSettle();
+    await shot('review-edit');
+    await t.tap(find.byKey(const ValueKey('review-star-3')));
+    await t.pumpAndSettle();
+    await shot('review-edit-changed');
+    await t.tap(find.byKey(const ValueKey('review-edit-close')));
+    await t.pumpAndSettle();
+    await t.tap(find.byKey(const ValueKey('review-delete')));
+    await t.pumpAndSettle();
+    await shot('review-delete-confirm');
+    await t.tap(find.byKey(const ValueKey('review-delete-cancel')));
+    await t.pumpAndSettle();
+    // 등록 후 3일이 지난 리뷰(서버 LOCKED).
+    reviews.reviewJson.firstWhere(
+      (r) => r['reviewId'] == 'rv-mine-1',
+    )['state'] = 'LOCKED';
+    ProviderScope.containerOf(t.element(find.byType(Scaffold).first))
+        .invalidate(reviewProvider('rv-mine-1'));
+    await go('/reviews');
+    await t.tap(find.byKey(const ValueKey('review-tab-mine')));
+    await t.pumpAndSettle();
+    await t.tap(find.byKey(const ValueKey('review-mine-open-rv-mine-1')));
+    await t.pumpAndSettle();
+    await shot('review-mine-locked');
+    reviews.reviewJson.firstWhere(
+      (r) => r['reviewId'] == 'rv-mine-1',
+    )['state'] = 'PUBLISHED';
     await go('/addresses/new');
     await shot('address-new');
     await go('/notifications/settings');

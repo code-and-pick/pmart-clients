@@ -224,6 +224,7 @@ OrderPage orderPageFromContract(api.ListOrders200Response r) => OrderPage(
     for (final o in r.items ?? const <api.OrderSummary>[])
       OrderListItem(
         orderId: _need(o.orderId, 'OrderSummary.orderId'),
+        orderNumber: o.orderNumber,
         status: OrderStatus.fromWire(o.status?.value),
         orderedAt: o.orderedAt,
         totalAmount: o.totalAmount,
@@ -235,6 +236,7 @@ OrderPage orderPageFromContract(api.ListOrders200Response r) => OrderPage(
 
 OrderDetail orderFromContract(api.Order o) => OrderDetail(
   orderId: _need(o.orderId, 'Order.orderId'),
+  orderNumber: o.orderNumber,
   version: o.version ?? 0,
   status: OrderStatus.fromWire(o.status?.value),
   deliveryMode: o.deliveryMode,

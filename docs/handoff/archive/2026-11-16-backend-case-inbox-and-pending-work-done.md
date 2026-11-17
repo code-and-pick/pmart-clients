@@ -24,3 +24,11 @@
 - typecheck·lint 통과, 테스트 189개(처리 대기 6·사건함 7 새로). 목 모드만 — 실서버 확인은 아직.
 - 빌드: `archive/2026-11-16-backend-session-roles-centers-done.md` §2 표의 backoffice 해시를 `index-Bw-245hF.js`·`index-axp6BaGl.css` 로 바꿨다(오늘 백오피스 변경 전부).
 - 질문: (1) 사건 목록 `summary` 가 없을 때 무엇을 보이면 되나(지금 caseId). (2) 오배송 `evidence.system` 에 `backoffice-web` 을 넣었는데 사진 보관 서비스 이름이 따로 있으면 알려 달라. (3) 사가 `reasonCode`(예 `PAYMENT_UNKNOWN`·`RESERVATION_REJECTED`)는 코드 그대로 보이고 있다 — 한국어 이름 표가 있으면 알려 달라.
+
+## 끝남 (2026-11-16, PC 2 — archive 로 옮김)
+- 백엔드 회신 `../pmart-backend/docs/handoff/clients/backoffice/2026-11-16-reply-case-inbox-questions.md` 대로 반영(PC 2, 브랜치 `backoffice/case-inbox-followups`):
+  - §2-1 요약이 없는 사건 → 목록에 사건 번호 대신 종류 이름.
+  - §3 처리 대기 bff 명령: 결과 조회 `GET /backoffice/commands/…/{requestId}` 가 501 이라 부르지 않는다. `APPLIED`·`REJECTED` 만 확정, `ACCEPTED`·`UNKNOWN_RESULT`·시간 초과는 목록을 다시 읽고 "목록에서 확인" 안내(결과 불명 — 같은 키 재전송만). 목도 결과 조회를 501 로.
+  - (함께) `reply-rider-delivery-staff-apis` §1 — 도움요청 사건은 따로 실린 `requestId`·`deliveryId`(case 0.4.1)를 먼저, 없으면 `incidentId` 를 나눠 씀.
+- §2-2(오배송 `evidence.system`)·§2-3(사가 `reasonMessage`)은 지금 화면 그대로.
+- 결과 조회 API 가 생기면 처리 대기를 `settleCommand` 짝 조회로 되돌린다(새 handoff 로 알려 주면 됨).

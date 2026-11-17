@@ -9,12 +9,16 @@ class OrderListItem {
   const OrderListItem({
     required this.orderId,
     required this.status,
+    this.orderNumber,
     this.orderedAt,
     this.totalAmount,
     this.itemCount,
   });
 
   final String orderId;
+
+  /// 화면용 주문번호(숫자 8자리, order 0.11.0). 없으면 [orderId] 를 보인다.
+  final String? orderNumber;
   final OrderStatus status;
   final DateTime? orderedAt;
   final int? totalAmount;
@@ -120,6 +124,7 @@ class OrderDetail {
     required this.lines,
     required this.shipments,
     required this.sources,
+    this.orderNumber,
     this.deliveryMode,
     this.mfcId,
     this.window,
@@ -134,6 +139,13 @@ class OrderDetail {
   });
 
   final String orderId;
+
+  /// 화면용 주문번호(숫자 8자리, order 0.11.0 — 고객·라이더·MFC·상담원이 같은 번호를 본다). 시스템 키는 [orderId].
+  /// 서버가 비워 주면 null — 그때는 [orderId] 를 보인다.
+  final String? orderNumber;
+
+  /// 고객에게 보일 주문번호: [orderNumber], 없으면 [orderId].
+  String get displayNumber => orderNumber ?? orderId;
   final int version;
   final OrderStatus status;
   final String? mfcId;

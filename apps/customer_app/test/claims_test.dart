@@ -296,6 +296,24 @@ void main() {
       expect(find.byKey(const ValueKey('cancel-order')), findsNothing);
     });
 
+    testWidgets('주문 상세는 화면용 주문번호 8자리를 보이고, 없으면(변경 전 주문) orderId 를 보인다', (
+      t,
+    ) async {
+      await openOrder(t, 'order-seed-1');
+      expect(
+        t.widget<Text>(find.byKey(const ValueKey('order-number'))).data,
+        '주문번호 48213907',
+      );
+    });
+
+    testWidgets('주문번호가 없는 주문은 orderId 를 보인다', (t) async {
+      await openOrder(t, 'order-seed-3');
+      expect(
+        t.widget<Text>(find.byKey(const ValueKey('order-number'))).data,
+        '주문번호 order-seed-3',
+      );
+    });
+
     testWidgets('취소 요청 → 처리 내역은 "접수"로 시작하고 완료로 보이지 않는다', (t) async {
       await openOrder(t, 'order-seed-4');
       await t.tap(find.byKey(const ValueKey('cancel-order')));

@@ -52,6 +52,7 @@ base class MockOrdersRepository implements OrdersRepository {
   Map<String, Map<String, Object?>> _seeded() => {
     'order-seed-4': {
       'orderId': 'order-seed-4',
+      'orderNumber': '61842093',
       'version': 2,
       'status': 'CONFIRMED',
       'mfcId': 'MFC-MOCK-01',
@@ -110,6 +111,7 @@ base class MockOrdersRepository implements OrdersRepository {
     },
     'order-seed-1': {
       'orderId': 'order-seed-1',
+      'orderNumber': '48213907',
       'version': 7,
       'status': 'PARTIALLY_DELIVERED',
       'mfcId': 'MFC-MOCK-01',
@@ -182,6 +184,7 @@ base class MockOrdersRepository implements OrdersRepository {
     },
     'order-seed-2': {
       'orderId': 'order-seed-2',
+      'orderNumber': '73015562',
       'version': 9,
       'status': 'COMPLETED',
       'deliveryMode': 'BUNDLED',
@@ -228,6 +231,7 @@ base class MockOrdersRepository implements OrdersRepository {
     },
     'order-seed-3': {
       'orderId': 'order-seed-3',
+      // 주문번호(order 0.11.0)가 생기기 전 주문 — 화면은 orderId 를 보인다.
       'version': 4,
       'status': 'CANCELLED',
       'deliveryMode': 'SCHEDULED',
@@ -295,6 +299,8 @@ base class MockOrdersRepository implements OrdersRepository {
     ];
     return {
       'orderId': orderId,
+      // 서버: 숫자 8자리 무작위(order 0.11.0). 목은 주문 ID 로 정한다.
+      'orderNumber': '${10000000 + orderId.hashCode.abs() % 90000000}',
       'version': 1,
       'status': 'CONFIRMED',
       'mfcId': d.request.expectedMfcId,
@@ -365,6 +371,7 @@ base class MockOrdersRepository implements OrdersRepository {
             if (wire == null || e.value['status'] == wire)
               {
                 'orderId': e.key,
+                'orderNumber': e.value['orderNumber'],
                 'status': e.value['status'],
                 'orderedAt':
                     _orderedAt[e.key] ?? now().toUtc().toIso8601String(),

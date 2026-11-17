@@ -10,6 +10,7 @@ import '../../auth/domain/auth.dart' show MemberSession;
 import '../../auth/presentation/auth_controller.dart';
 import '../data/cart_repository.dart';
 import '../data/mock_cart_repository.dart';
+import '../../checkout/domain/checkout.dart' show StockShortage;
 import '../domain/cart.dart';
 
 final cartRepositoryProvider = Provider<CartRepository>(
@@ -96,6 +97,38 @@ class CartState {
   bool get canChange => sync == CartSync.stable;
 }
 
+/// 마지막 초안 생성이 422 `INSUFFICIENT_STOCK` 으로 거절됐을 때 서버가 짚은 상품(SKU 별, order 0.8.0).
+/// 장바구니가 줄마다 "남은 수량"을 보인다. 다음 초안이 만들어지거나 담당 센터(주소)가 바뀌면 지운다 —
+/// 센터마다 재고·취급이 다르다.
+final stockShortageProvider =
+    NotifierProvider<StockShortageController, Map<String, StockShortage>>(
+      StockShortageController.new,
+    );
+
+class StockShortageController extends Notifier<Map<String, StockShortage>> {
+  @override
+  Map<String, StockShortage> build() {
+    ref.watch(currentMfcIdProvider);
+    return const {};
+  }
+
+  void set(Map<String, StockShortage> next) => state = next;
+
+  void clear() {
+    if (state.isNotEmpty) state = const {};
+  }
+}
+
+/// 지금 주소(담당 센터)로는 배달하지 않는 품목 — 장바구니 목록에서 숨긴다(사용자 2026-11-17).
+/// 서버 장바구니에는 그대로 있어서, 그 상품을 취급하는 주소로 돌아오면 다시 보인다.
+/// 근거는 서버 값만: 장바구니 가용 `NOT_CARRIED` 또는 초안 422 의 `NOT_HANDLED`.
+bool hiddenAtCurrentAddress(
+  CartLine line,
+  Map<String, StockShortage> shortages,
+) =>
+    line.availability == LineAvailability.notCarried ||
+    (shortages[line.sku]?.notHandled ?? false);
+
 final cartControllerProvider = AsyncNotifierProvider<CartController, CartState>(
   CartController.new,
 );
@@ -132,6 +165,8 @@ class CartController extends AsyncNotifier<CartState> {
         .open(mfcId: ref.watch(currentMfcIdProvider));
     _autoTried.clear();
     _autoDeselected = 0;
+    // 초안 422 가 "취급 안 함"을 짚으면 그 품목도 선택에서 뺀다(숨긴 품목이 합계·주문에 남지 않게).
+    ref.listen(stockShortageProvider, (_, _) => _scheduleAutoDeselect());
     _scheduleAutoDeselect();
     return CartState(cart: cart);
   }
@@ -156,11 +191,13 @@ class CartController extends AsyncNotifier<CartState> {
     if (!ref.mounted || _autoRunning || _bulkRunning) return;
     final current = _current;
     if (current == null || !current.canChange) return;
+    final shortages = ref.read(stockShortageProvider);
     final target = current.cart.lines
         .where(
           (l) =>
               l.selected &&
-              l.definitelyUnavailable &&
+              (l.definitelyUnavailable ||
+                  hiddenAtCurrentAddress(l, shortages)) &&
               !_autoTried.contains(l.cartItemId),
         )
         .firstOrNull;
@@ -187,7 +224,11 @@ class CartController extends AsyncNotifier<CartState> {
       final outcome = await submit(
         SetSelected(cartItemId: target.cartItemId, selected: false),
       );
-      if (outcome is CartChangeApplied) _autoDeselected++;
+      // 숨긴 품목(지금 주소로 배달 안 함)은 "선택에서 뺐어요" 안내에 세지 않는다 — 고객에게 보이지 않는 품목이다.
+      if (outcome is CartChangeApplied &&
+          !hiddenAtCurrentAddress(target, shortages)) {
+        _autoDeselected++;
+      }
     } finally {
       _autoRunning = false;
     }
@@ -237,9 +278,11 @@ class CartController extends AsyncNotifier<CartState> {
   Future<CartChangeOutcome?> removeSelected() async {
     final current = _current;
     if (current == null || !current.canChange || _bulkRunning) return null;
+    final shortages = ref.read(stockShortageProvider);
+    // 숨긴 품목(지금 주소로 배달 안 함)은 고객이 볼 수 없으니 선택 삭제에서 지우지 않는다.
     final ids = [
       for (final l in current.cart.lines)
-        if (l.selected) l.cartItemId,
+        if (l.selected && !hiddenAtCurrentAddress(l, shortages)) l.cartItemId,
     ];
     if (ids.isEmpty) return null;
     _bulkRunning = true;

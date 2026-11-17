@@ -27,6 +27,8 @@ import '../data/orders_repository.dart' show OrdersRepository;
 import '../domain/orders.dart';
 import '../domain/tracking.dart';
 import 'orders_providers.dart';
+import '../../redelivery/presentation/redelivery_screens.dart'
+    show RedeliveryPaymentsSection;
 import '../../reviews/presentation/reviews_screens.dart'
     show OrderReviewsSection;
 
@@ -279,11 +281,14 @@ class _OrderBody extends ConsumerWidget {
               ),
             const SizedBox(height: 6),
             Text(
-              l10n.payOrderNumber(o.orderId),
+              l10n.payOrderNumber(o.displayNumber),
+              key: const ValueKey('order-number'),
               style: theme.textTheme.bodySmall,
             ),
           ],
         ),
+        // 오배송 다시 배송비 결제(있을 때만). 알림 "결제 필요"(목적지 ORDER)를 열면 이 주문 상세로 온다.
+        RedeliveryPaymentsSection(orderId: o.orderId),
         for (final s in o.staleSources)
           Padding(
             padding: const EdgeInsets.only(top: 4),

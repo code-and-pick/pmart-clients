@@ -57,11 +57,25 @@ void main() {
       latency: Duration.zero,
       now: () => now,
     );
-    await toPayment(t, checkout);
+    // 확정된 주문을 주문 조회가 돌려주도록 목 주문을 결제 목과 잇는다.
+    await toPayment(
+      t,
+      checkout,
+      orders: MockOrdersRepository(
+        checkout: checkout,
+        latency: Duration.zero,
+        now: () => now,
+      ),
+    );
     await t.pumpAndSettle();
 
     expect(find.text('주문이 완료됐어요'), findsOneWidget);
     expect(find.byKey(const ValueKey('order-id')), findsOneWidget);
+    // 시스템 키(orderId)가 아니라 주문 조회의 화면용 주문번호 8자리(order 0.11.0).
+    expect(
+      t.widget<Text>(find.byKey(const ValueKey('order-id'))).data,
+      matches(RegExp(r'^주문번호 [1-9][0-9]{7}$')),
+    );
     expect(find.byKey(const ValueKey('pay-retry')), findsNothing);
   });
 

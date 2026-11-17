@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pmart_core/pmart_core.dart' show ProblemDetail;
 import 'package:pmart_ui/pmart_ui.dart';
 
 import 'package:customer_app/features/checkout/data/mock_checkout_repository.dart';
@@ -168,5 +169,66 @@ void main() {
     await t.tap(find.text('장바구니 보기'));
     await t.pumpAndSettle();
     expect(find.byKey(const ValueKey('cart-order')), findsOneWidget);
+  });
+
+  testWidgets(
+    '초안이 422 INSUFFICIENT_STOCK 이면 주문서로 가지 않고 장바구니로 돌아가 남은 수량을 보이고, 취급 안 함 상품은 숨긴다',
+    (t) async {
+      final checkout =
+          MockCheckoutRepository(latency: Duration.zero, now: () => now)
+            ..rejectNextDraft = CheckoutProblemCode.insufficientStock
+            ..rejectNextDraftDetails = const [
+              ProblemDetail(
+                field: 'E-00000001',
+                reason: 'requestedQty=2;availableQty=1',
+              ),
+              ProblemDetail(field: 'E-00000005', reason: 'NOT_HANDLED'),
+            ];
+      await t.pumpWidget(app(checkout));
+      await toDelivery(t);
+      await t.tap(find.byKey(const ValueKey('mode-single')));
+      await t.pump();
+      await t.tap(find.byKey(const ValueKey('delivery-next')));
+      await t.pumpAndSettle();
+
+      expect(find.text('주문서'), findsNothing);
+      expect(find.text('배송 방식 선택'), findsNothing);
+      expect(find.byKey(const ValueKey('cart-order')), findsOneWidget);
+      expect(
+        find.text('재고가 부족한 상품이 있어요. 장바구니에서 수량을 줄이거나 빼 주세요'),
+        findsOneWidget,
+      );
+      Finder inLine(String id, String text) => find.descendant(
+        of: find.byKey(ValueKey('cart-line-$id')),
+        matching: find.text(text),
+      );
+      expect(inLine('ci-1', '지금 1개까지 있어요'), findsOneWidget);
+      // 지금 주소로 배달하지 않는 상품은 목록에서 숨긴다(서버 장바구니에는 남음).
+      expect(find.byKey(const ValueKey('cart-line-ci-2')), findsNothing);
+
+      // 수량을 서버가 본 가용(1개)까지 줄이면 그 줄의 안내는 사라진다. 숨긴 상품은 계속 숨김.
+      await t.tap(find.byKey(const ValueKey('cart-dec-ci-1')));
+      await t.pumpAndSettle();
+      expect(inLine('ci-1', '지금 1개까지 있어요'), findsNothing);
+      expect(find.byKey(const ValueKey('cart-line-ci-2')), findsNothing);
+    },
+  );
+
+  test('stockShortagesOf: details 를 SKU 별로 읽고, 모르는 reason 은 수량 없이 둔다', () {
+    final m = stockShortagesOf([
+      (field: 'A', reason: 'requestedQty=3;availableQty=0'),
+      (field: 'B', reason: 'NOT_HANDLED'),
+      (field: 'C', reason: 'SOMETHING_NEW'),
+      (field: null, reason: 'NOT_HANDLED'),
+    ]);
+    expect(m.keys, ['A', 'B', 'C']);
+    expect(m['A']!.availableQty, 0);
+    expect(m['A']!.requestedQty, 3);
+    expect(m['A']!.stillShortAt(1), isTrue);
+    expect(m['A']!.stillShortAt(0), isFalse);
+    expect(m['B']!.notHandled, isTrue);
+    expect(m['B']!.stillShortAt(1), isTrue);
+    expect(m['C']!.availableQty, isNull);
+    expect(m['C']!.stillShortAt(1), isTrue);
   });
 }

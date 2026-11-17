@@ -13,7 +13,8 @@ import '../../catalog/presentation/widgets/product_tile_card.dart'
 import '../domain/cart.dart';
 import '../../auth/domain/auth.dart';
 import '../../auth/presentation/auth_controller.dart';
-import '../../checkout/domain/checkout.dart' show DeliveryOption, TipReason;
+import '../../checkout/domain/checkout.dart'
+    show DeliveryOption, StockShortage, TipReason;
 import '../../checkout/presentation/checkout_controller.dart';
 import 'cart_controller.dart';
 import 'cart_messages.dart';
@@ -54,6 +55,12 @@ class _CartBody extends ConsumerWidget {
     final controller = ref.read(cartControllerProvider.notifier);
     final cart = state.cart;
     final notice = state.notice;
+    final shortages = ref.watch(stockShortageProvider);
+    // 지금 주소로 배달하지 않는 품목은 숨긴다. 서버 장바구니에는 남아 있어 주소를 바꾸면 다시 보인다.
+    final lines = [
+      for (final l in cart.lines)
+        if (!hiddenAtCurrentAddress(l, shortages)) l,
+    ];
     return Column(
       children: [
         if (state.sync == CartSync.unknown)
@@ -84,7 +91,7 @@ class _CartBody extends ConsumerWidget {
             ],
           ),
         Expanded(
-          child: cart.lines.isEmpty
+          child: lines.isEmpty
               ? Center(
                   key: const ValueKey('cart-empty'),
                   child: Column(
@@ -109,7 +116,7 @@ class _CartBody extends ConsumerWidget {
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
                             _CartHeader(state: state),
-                            for (final line in cart.lines) ...[
+                            for (final line in lines) ...[
                               const Divider(),
                               _CartLineTile(
                                 line: line,
@@ -147,7 +154,10 @@ class _CartHeader extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
     final theme = Theme.of(context);
-    final selected = state.cart.lines.where((l) => l.selected).length;
+    final shortages = ref.watch(stockShortageProvider);
+    final selected = state.cart.lines
+        .where((l) => l.selected && !hiddenAtCurrentAddress(l, shortages))
+        .length;
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 10, 10, 10),
       child: Row(
@@ -356,10 +366,23 @@ class _CartLineTileState extends ConsumerState<_CartLineTile> {
     final l10n = AppLocalizations.of(context);
     final theme = Theme.of(context);
     final controller = ref.read(cartControllerProvider.notifier);
+    // 주문하기가 422 INSUFFICIENT_STOCK 으로 막혔을 때 서버가 짚은 상품(order 0.8.0). 수량을 맞추면 사라진다.
+    final shortage = switch (ref.watch(stockShortageProvider)[line.sku]) {
+      final s? when s.stillShortAt(line.quantity) => s,
+      _ => null,
+    };
     final reason = switch ((line.saleState, line.availability)) {
       (SaleState.saleStopped, _) => l10n.cartLineSaleStopped,
       (SaleState.temporarilySoldOut, _) ||
       (_, LineAvailability.soldOut) => l10n.cartLineSoldOut,
+      // 취급 안 함(NOT_HANDLED)은 목록에서 숨기므로 여기 오지 않는다.
+      _ when shortage != null => switch (shortage) {
+        StockShortage(availableQty: 0) => l10n.cartLineSoldOut,
+        StockShortage(availableQty: final int a) => l10n.cartLineAvailableQty(
+          a,
+        ),
+        _ => l10n.cartLineLowStock,
+      },
       (_, LineAvailability.notCarried) => l10n.cartLineNotCarried,
       (SaleState.unknown, _) => l10n.cartLineUnknown,
       // 가용 불명은 "확인 중"이 아니라 왜 모르는지로 나눈다: 배송지 미정(재고 조회 안 함) / 재고 원천 장애.
@@ -544,8 +567,14 @@ class _CartSummaryBar extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
     final theme = Theme.of(context);
+    final shortages = ref.watch(stockShortageProvider);
     final purchasable = cart.lines
-        .where((l) => l.selected && l.purchasable)
+        .where(
+          (l) =>
+              l.selected &&
+              l.purchasable &&
+              !hiddenAtCurrentAddress(l, shortages),
+        )
         .length;
     return Material(
       color: theme.colorScheme.surface,

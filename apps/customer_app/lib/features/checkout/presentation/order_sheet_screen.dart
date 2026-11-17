@@ -111,6 +111,12 @@ String checkoutFailureText(AppLocalizations l10n, String code) =>
       route: '/cart',
       action: l10n.cartGoToCart,
     ),
+    // 초안 생성 422(order 0.8.0). 결제 단계 자원 확보 실패(checkoutFailure)의 같은 코드와는 다른 자리다.
+    CheckoutProblemCode.insufficientStock => (
+      text: l10n.draftInsufficientStock,
+      route: '/cart',
+      action: l10n.cartGoToCart,
+    ),
     CheckoutProblemCode.priceNotSet => (
       text: l10n.draftPriceNotSet,
       route: '/cart',

@@ -254,9 +254,13 @@ class DraftController extends AsyncNotifier<DraftState?> {
       throw const CheckoutBlocked(CheckoutBlockReason.noShoppingAddress);
     }
     final cart = ref.read(cartControllerProvider).value?.cart;
+    final shortages = ref.read(stockShortageProvider);
     final lines = [
       for (final l in cart?.lines ?? const <CartLine>[])
-        if (l.selected && l.purchasable)
+        // 숨긴 품목(지금 주소로 배달 안 함)은 선택이 남아 있어도 보내지 않는다 — 같은 422 가 되풀이된다.
+        if (l.selected &&
+            l.purchasable &&
+            !hiddenAtCurrentAddress(l, shortages))
           DraftLine(cartItemId: l.cartItemId, sku: l.sku, quantity: l.quantity),
     ];
     if (lines.isEmpty) {
@@ -305,6 +309,7 @@ class DraftController extends AsyncNotifier<DraftState?> {
     try {
       final request = _request(setupNow);
       final draft = await _createWithResend(request);
+      if (ref.mounted) ref.read(stockShortageProvider.notifier).clear();
       _set(
         DraftState(
           draft: draft,
@@ -318,7 +323,19 @@ class DraftController extends AsyncNotifier<DraftState?> {
     } on CheckoutBlocked catch (e, st) {
       if (ref.mounted) state = AsyncError(e, st);
     } on PmartFailure catch (e, st) {
-      if (ref.mounted) state = AsyncError(e, st);
+      if (!ref.mounted) return;
+      if (e case ProblemFailure(:final problem)
+          when problem.code == CheckoutProblemCode.insufficientStock) {
+        ref
+            .read(stockShortageProvider.notifier)
+            .set(
+              stockShortagesOf([
+                for (final d in problem.details)
+                  (field: d.field, reason: d.reason),
+              ]),
+            );
+      }
+      state = AsyncError(e, st);
     }
   }
 

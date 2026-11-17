@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:pmart_core/pmart_core.dart' show ProblemCode;
 
 /// 리뷰 상태(계약 `ReviewState`). 작성 가능 여부·수정 가능 여부는 서버가 준 이 값으로만 판단한다.
 enum ReviewState {
@@ -73,7 +74,7 @@ class ReviewView {
     this.sku,
     this.authorMasked,
     this.text,
-    this.photoUrls = const [],
+    this.photos = const [],
     this.version,
     this.editableUntil,
     this.updatedAt,
@@ -87,12 +88,36 @@ class ReviewView {
   final String? authorMasked;
   final int rating;
   final String? text;
-  final List<String> photoUrls;
+
+  /// 붙은 사진(서버 순서). 수정 때 그대로 두거나 바꿀 photoId 의 출처다.
+  final List<ReviewPhotoRef> photos;
   final ReviewState state;
   final int? version;
   final DateTime createdAt;
+
+  /// 수정 기한(서버 `editableUntil` = 등록 + 3일). 앱이 계산하지 않는다.
   final DateTime? editableUntil;
   final DateTime? updatedAt;
+
+  List<String> get photoUrls => [for (final p in photos) ?p.url];
+
+  /// 고칠 수 있다 — 서버 상태 `PUBLISHED` 일 때만(등록 후 3일이 지나면 서버가 `LOCKED` 로 준다).
+  bool get editable => state == ReviewState.published && version != null;
+
+  /// 지울 수 있다(공개 중인 내 리뷰).
+  bool get deletable =>
+      state == ReviewState.published || state == ReviewState.locked;
+}
+
+/// 리뷰에 붙은 사진 하나(`Review.photos[]`).
+@immutable
+class ReviewPhotoRef {
+  const ReviewPhotoRef({required this.photoId, this.url});
+
+  final String photoId;
+
+  /// 사진 본문 경로(`/api/v1/review-photos/{photoId}`).
+  final String? url;
 }
 
 @immutable
@@ -164,6 +189,12 @@ abstract final class ReviewProblemCode {
 
   /// 사진 형식(JPEG·PNG·WEBP)·크기(10MB) 거절 — 서버가 파일 내용으로 판정한다.
   static const photoInvalid = 'PHOTO_INVALID';
+
+  /// 수정 409: 등록 후 3일이 지났거나(LOCKED) 삭제됨.
+  static const invalidState = ProblemCode.invalidState;
+
+  /// 수정 409: 다른 곳에서 먼저 고쳤다(`X-Expected-Version` 불일치).
+  static const versionConflict = ProblemCode.versionConflict;
 }
 
 /// 계약 사진 한도(review 0.2.0, 사용자 결정): 리뷰당 5장, 장당 10MB. 서버가 다시 검사한다.

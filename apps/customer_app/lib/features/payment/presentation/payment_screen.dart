@@ -6,6 +6,8 @@ import '../../../l10n/gen/app_localizations.dart';
 import '../../auth/domain/auth.dart' show MemberSession;
 import '../../auth/presentation/auth_controller.dart' show sessionProvider;
 import '../../checkout/presentation/checkout_controller.dart';
+import '../../orders/presentation/orders_providers.dart'
+    show orderDetailProvider;
 import '../../checkout/presentation/order_sheet_screen.dart'
     show checkoutFailureText;
 import 'pg_widget_session.dart' show pgAmountMismatchCode;
@@ -101,10 +103,18 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
               ],
               const SizedBox(height: 24),
               if (s.phase == PaymentPhase.done) ...[
-                Text(
-                  l10n.payOrderNumber(s.orderId!),
-                  key: const ValueKey('order-id'),
-                ),
+                // 화면용 주문번호(order 0.11.0)는 주문 조회에만 있다. 읽는 동안은 비워 두고, 없거나 못 읽으면 orderId.
+                switch (ref.watch(orderDetailProvider(s.orderId!))) {
+                  AsyncLoading() => const SizedBox.shrink(),
+                  AsyncData(:final value) => Text(
+                    l10n.payOrderNumber(value.displayNumber),
+                    key: const ValueKey('order-id'),
+                  ),
+                  _ => Text(
+                    l10n.payOrderNumber(s.orderId!),
+                    key: const ValueKey('order-id'),
+                  ),
+                },
                 const SizedBox(height: 12),
                 FilledButton(
                   key: const ValueKey('go-order'),

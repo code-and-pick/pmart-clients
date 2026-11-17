@@ -9,20 +9,41 @@
 // - case 0.5.0 배차 실패 DISPATCH_FAILED — 배송 쪽(모든 역할, 집기·닫기 RIDER_OPS·관리자), refs deliveryId·orderId, 뒤 실패는 이력 RECURRED(재발).
 // - case 0.5.0(백엔드 PR #21, R-3): 사가·결제 이상 RECONCILIATION·PAYMENT_UNKNOWN — 관리자만 보이고(종류 필터도 관리자만),
 //   사건은 알림·기록, 조치는 처리 대기(/pending)·각 메뉴. refs 에 orderId(주문 화면 링크)·sagaId·paymentAttemptId·resourceId.
+// - 목록은 bff 0.5.0 `GET /backoffice/views/case-inbox`(백엔드 요청 request-case-inbox-linked-state) — case 목록 값 + 연결 배송·주문의 지금 상태(linked).
+//   linked 칸: confidence UNKNOWN → "확인 불가"(장애이거나 그 역할이 못 보는 원천), state null + DIRECT → "원천에 없음". 원천 값은 기존 상태 이름표로만 옮긴다.
+//   unavailableSources 에 case-service 가 있으면 목록 자체를 못 읽은 것 → 오류(빈 목록 아님). size 최대 50 → page.nextCursor 로 다음 쪽(URL cursor).
+//   집기·닫기·상세는 그대로 case-service 직접.
+// - case 0.6.0 다시 열기 `POST /cases/{id}/reopenings` {reason} — 닫힌 사건, 닫기와 같은 사람(배송 쪽 = 지원센터·관리자, 관리자 팀 사건 = 관리자).
+//   REOPENED 는 열린 사건. 409 CASE_ALREADY_OPEN = 같은 일로 열린 사건이 있음 → 통합 조회로 그 대상의 사건을 찾게 안내. refs previousCaseId → "이전 사건" 링크.
+// - case 0.7.0 넘기기 `POST /cases/{id}/transfers` {toGroup, reason} — 배송 쪽 사건만 지원센터(DELIVERY_OPS) ↔ 관리자 팀(ORDER_OPS). 담당 비움·기한 그대로.
+//   관리자 팀으로 간 배송 쪽 사건은 지원센터·상담원이 보기만 — 목록·상세에 "관리자 처리 중"(해결된 것처럼 보이지 않게, 업무 원문 §5.3).
+//   버튼은 할 수 있어 보일 때만(판정은 서버 — 403·409·422 는 코드 문구).
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState, type FormEvent } from 'react';
+import { useState, type FormEvent, type ReactNode } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 
-import { request } from '@pmart/web-core';
+import { ProblemFailure, request } from '@pmart/web-core';
 import { CommandFeedback, QueryState, toUiState, useCommand } from '@pmart/web-ui';
 import { commandParams } from '../../api/command';
+import type { operations as BffOps } from '../../api/generated/backoffice-bff';
 import type { components } from '../../api/generated/case';
 import { useApi } from '../../app/ApiContext';
 import { useSession } from '../../app/SessionContext';
 import { messages as m } from '../../shared/messages';
 import { label, text, when } from '../../shared/ops';
+import { SourceStamps } from '../../shared/SourceStamps';
+import { CaseNotes } from './CaseNotes';
+import { FollowUps, isOpenObligation } from './FollowUps';
 
 type Case = components['schemas']['Case'];
+type InboxView = BffOps['getCaseInboxView']['responses'][200]['content']['application/json'];
+type InboxItem = NonNullable<InboxView['items']>[number];
+type Linked = NonNullable<InboxItem['linked']>[number];
+
+const CASE_SOURCE = 'case-service';
+
+/** bff 가 case 목록을 못 읽었으면(unavailableSources 에 case-service) 빈 목록이 아니라 조회 실패 */
+class CaseSourceUnavailable extends Error {}
 type Summary = components['schemas']['CaseSummary'];
 type Resolution = keyof typeof m.cases.resolutionName;
 const RESOLUTIONS = Object.keys(m.cases.resolutionName) as Resolution[];
@@ -32,6 +53,9 @@ const DELIVERY_KINDS: readonly Kind[] = ['RIDER_HELP', 'DELIVERY_INCIDENT', 'RID
 /** 사가·결제 이상(0.5.0 — 관리자만) */
 const ORDER_KINDS: readonly Kind[] = ['RECONCILIATION', 'PAYMENT_UNKNOWN'];
 const isOrderKind = (k: Kind | undefined) => k !== undefined && ORDER_KINDS.includes(k);
+/** 관리자 팀으로 넘어간 배송 쪽 사건 — 지원센터·상담원은 보기만(0.7.0) */
+const withAdminTeam = (c: { readonly kind?: string | null; readonly assigneeGroup?: string | null }) =>
+  c.assigneeGroup === 'ORDER_OPS' && !isOrderKind((c.kind ?? undefined) as Kind | undefined);
 type Tab = keyof typeof m.cases.tabs;
 const TABS = Object.keys(m.cases.tabs) as Tab[];
 const isTab = (v: string | null): v is Tab => TABS.some((t) => t === v);
@@ -49,8 +73,17 @@ function useCaseRoles() {
 const refLink = (refType: string | undefined, refId: string | undefined) => {
   if (!refId) return null;
   const to =
-    refType === 'deliveryId' ? `/deliveries/${encodeURIComponent(refId)}` : refType === 'orderId' ? `/orders/${encodeURIComponent(refId)}` : refType === 'riderId' ? `/riders/${encodeURIComponent(refId)}` : null;
-  const name = `${label(m.cases.refName, refType)} ${refId}`;
+    refType === 'deliveryId' || refType === 'recoveryDeliveryId' || refType === 'reshipmentDeliveryId'
+      ? `/deliveries/${encodeURIComponent(refId)}`
+      : refType === 'orderId'
+        ? `/orders/${encodeURIComponent(refId)}`
+        : refType === 'riderId'
+          ? `/riders/${encodeURIComponent(refId)}`
+          : refType === 'previousCaseId'
+            ? `/cases/${encodeURIComponent(refId)}`
+            : null;
+  const value = refType === 'fault' ? label(m.cases.faultName, refId) : refType === 'resolution' ? label(m.cases.resolutionChoiceName, refId) : refId;
+  const name = `${label(m.cases.refName, refType)} ${value}`;
   return to ? (
     <Link key={`${refType}:${refId}`} className="link" to={to}>
       {name}
@@ -60,13 +93,41 @@ const refLink = (refType: string | undefined, refId: string | undefined) => {
   );
 };
 
-function Refs({ c }: { readonly c: Summary }) {
+function Refs({ c }: { readonly c: Pick<Summary, 'refs' | 'subjectRef'> }) {
   const refs = c.refs ?? [];
   if (refs.length === 0) return <span>{text(c.subjectRef)}</span>;
   return <span className="flex flex-wrap gap-x-2">{refs.map((r) => refLink(r.refType, r.refId))}</span>;
 }
 
-function Sla({ c }: { readonly c: Summary }) {
+/** 연결 배송·주문 한 칸 — 원천 값을 기존 상태 이름표로만 옮긴다(합치거나 해석하지 않음) */
+/** 연결 배송의 쓰임 — 원래 배송(subjectRef)·회수(refs recoveryDeliveryId, case 0.8.1)·재발송(refs reshipmentDeliveryId, case 0.11.2) */
+type DeliveryRole = 'recovery' | 'reshipment' | null;
+const deliveryRoleOf = (refs: ReadonlyArray<{ readonly kind?: string; readonly id?: string }> | undefined, id: string | undefined): DeliveryRole =>
+  (refs ?? []).some((x) => x.kind === 'recoveryDeliveryId' && x.id === id)
+    ? 'recovery'
+    : (refs ?? []).some((x) => x.kind === 'reshipmentDeliveryId' && x.id === id)
+      ? 'reshipment'
+      : null;
+
+function LinkedState({ l, role }: { readonly l: Linked; readonly role: DeliveryRole }) {
+  const name =
+    l.kind === 'ORDER' ? m.cases.linkedOrder : role === 'recovery' ? m.cases.linkedRecovery : role === 'reshipment' ? m.cases.linkedReshipment : m.cases.linkedDelivery;
+  const unknown = l.source?.confidence === 'UNKNOWN';
+  const value = unknown ? (
+    <span className="text-warning">{m.cases.linkedUnknown}</span>
+  ) : l.state ? (
+    label(l.kind === 'ORDER' ? m.orders.statusName : m.deliveries.executionState, l.state)
+  ) : (
+    <span className="opacity-70">{m.cases.linkedMissing}</span>
+  );
+  return (
+    <li data-testid="case-linked" data-kind={l.kind} data-id={l.id}>
+      <span className="opacity-70">{name}</span> {value}
+    </li>
+  );
+}
+
+function Sla({ c }: { readonly c: Pick<Summary, 'slaDueAt' | 'overdue'> }) {
   if (!c.slaDueAt) return <span>{m.none}</span>;
   return (
     <span className={c.overdue ? 'font-semibold text-error' : ''} data-overdue={c.overdue ? 'true' : 'false'}>
@@ -84,28 +145,33 @@ export function CaseListPage() {
   const tabParam = params.get('tab');
   const tab: Tab = isTab(tabParam) ? tabParam : 'unassigned';
   const kind = kinds.find((k) => k === params.get('kind'));
-  const setQuery = (next: { tab?: Tab; kind?: Kind | '' }) => {
+  const cursor = params.get('cursor') ?? '';
+  const setQuery = (next: { tab?: Tab; kind?: Kind | ''; cursor?: string }) => {
     const k = next.kind === undefined ? kind : next.kind || undefined;
-    setParams({ tab: next.tab ?? tab, ...(k ? { kind: k } : {}) });
+    setParams({ tab: next.tab ?? tab, ...(k ? { kind: k } : {}), ...(next.cursor ? { cursor: next.cursor } : {}) });
   };
   const query = useQuery({
-    queryKey: ['cases', tab, me, kind ?? ''],
-    queryFn: () =>
-      request(
+    queryKey: ['cases', tab, me, kind ?? '', cursor],
+    queryFn: async (): Promise<InboxView> => {
+      const view = await request(
         'GET',
-        api.cases.GET('/cases', {
+        api.bff.GET('/views/case-inbox', {
           params: {
             query: {
-              size: 100,
+              size: 50,
               ...(kind ? { kind } : {}),
               ...(tab === 'unassigned' ? { unassigned: true } : {}),
-              ...(tab === 'mine' ? { assigneeId: me } : {}),
+              ...(tab === 'mine' ? { assignee: me } : {}),
               ...(tab === 'overdue' ? { overdue: true } : {}),
-              ...(tab === 'closed' ? { state: 'CLOSED' as const } : {}),
+              ...(tab === 'closed' ? { state: 'CLOSED' } : {}),
+              ...(cursor ? { cursor } : {}),
             },
           },
         }),
-      ),
+      );
+      if ((view.unavailableSources ?? []).includes(CASE_SOURCE)) throw new CaseSourceUnavailable(CASE_SOURCE);
+      return view;
+    },
   });
   return (
     <section className="max-w-6xl space-y-4">
@@ -132,6 +198,8 @@ export function CaseListPage() {
       </label>
       <QueryState state={toUiState(query, (r) => (r.items ?? []).length === 0)} onRetry={() => void query.refetch()} emptyText={m.cases.empty}>
         {(r) => (
+          <>
+          <SourceStamps sources={r.sources} unavailableSources={r.unavailableSources} />
           <table className="table table-sm rounded-box bg-base-100">
             <thead>
               <tr>
@@ -139,6 +207,7 @@ export function CaseListPage() {
                 <th>{m.cases.kind}</th>
                 <th>{m.cases.summary}</th>
                 <th>{m.cases.refs}</th>
+                <th>{m.cases.linked}</th>
                 <th>{m.cases.sla}</th>
                 <th>{m.cases.assignee}</th>
                 <th>{m.cases.state}</th>
@@ -153,21 +222,58 @@ export function CaseListPage() {
                   <td>{label(m.cases.kindName, c.kind)}</td>
                   <td>
                     <Link className="link" to={`/cases/${encodeURIComponent(c.caseId ?? '')}`}>
-                      {text(c.summary ?? c.caseId)}
+                      {c.summary ? c.summary : label(m.cases.kindName, c.kind)}
                     </Link>
                   </td>
                   <td>
-                    <Refs c={c} />
+                    <Refs c={{ subjectRef: c.subjectRef ?? '', refs: (c.linkedRefs ?? []).map((x) => ({ refType: x.kind ?? '', refId: x.id ?? '' })) }} />
                   </td>
                   <td>
-                    <Sla c={c} />
+                    {(c.linked ?? []).length === 0 ? (
+                      <span className="opacity-70">{m.none}</span>
+                    ) : (
+                      <ul className="space-y-0.5 text-xs">
+                        {(c.linked ?? []).map((l) => (
+                          <LinkedState
+                            key={`${l.kind ?? ''}:${l.id ?? ''}`}
+                            l={l}
+                            role={l.kind === 'DELIVERY' ? deliveryRoleOf(c.linkedRefs, l.id) : null}
+                          />
+                        ))}
+                      </ul>
+                    )}
                   </td>
-                  <td>{c.assigneeId ?? m.cases.unassigned}</td>
+                  <td>
+                    <Sla c={{ slaDueAt: c.slaDueAt ?? null, overdue: c.overdue ?? false }} />
+                  </td>
+                  <td>
+                    {withAdminTeam(c) && (
+                      <span className="badge badge-warning badge-sm mr-1" data-testid="case-admin-team">
+                        {m.cases.adminHandling}
+                      </span>
+                    )}
+                    {c.assigneeId ?? m.cases.unassigned}
+                  </td>
                   <td>{label(m.cases.stateName, c.state)}</td>
                 </tr>
               ))}
             </tbody>
           </table>
+          {(cursor || r.page?.nextCursor) && (
+            <div className="flex gap-2">
+              {cursor && (
+                <button type="button" className="btn btn-sm" onClick={() => setQuery({})}>
+                  {m.cases.firstPage}
+                </button>
+              )}
+              {r.page?.nextCursor && (
+                <button type="button" className="btn btn-sm" onClick={() => setQuery({ cursor: r.page?.nextCursor ?? '' })}>
+                  {m.cases.nextPage}
+                </button>
+              )}
+            </div>
+          )}
+          </>
         )}
       </QueryState>
     </section>
@@ -190,7 +296,7 @@ function AssignForm({ c, onDone }: { readonly c: Case; readonly onDone: (c: Case
     if (assign.phase.kind === 'rejected' || assign.phase.kind === 'done') assign.reset();
     void assign.run({ assigneeId });
   };
-  const canPick = (team || admin) && !c.assigneeId;
+  const canPick = ((team && !withAdminTeam(c)) || admin) && !c.assigneeId;
   if (!canPick && !admin) return null;
   return (
     <div className="space-y-2 rounded-box bg-base-100 p-3 text-sm">
@@ -222,7 +328,7 @@ function AssignForm({ c, onDone }: { readonly c: Case; readonly onDone: (c: Case
   );
 }
 
-function CloseForm({ c, onDone }: { readonly c: Case; readonly onDone: (c: Case) => void }) {
+function CloseForm({ c, onDone, openFollowUps }: { readonly c: Case; readonly onDone: (c: Case) => void; readonly openFollowUps: number }) {
   const api = useApi();
   const [resolution, setResolution] = useState<Resolution>('RESOLVED');
   const [summary, setSummary] = useState('');
@@ -261,7 +367,12 @@ function CloseForm({ c, onDone }: { readonly c: Case; readonly onDone: (c: Case)
         <textarea className="textarea textarea-sm w-full max-w-lg" maxLength={1000} value={summary} onChange={(e) => setSummary(e.target.value)} />
       </label>
       <p className="text-xs opacity-70">{m.cases.piiHint}</p>
-      <button type="submit" className="btn btn-sm" disabled={!summary.trim() || close.busy}>
+      {openFollowUps > 0 && (
+        <p role="note" className="text-xs text-warning" data-testid="close-blocked">
+          {m.followUps.closeBlocked(openFollowUps)}
+        </p>
+      )}
+      <button type="submit" className="btn btn-sm" disabled={!summary.trim() || close.busy || openFollowUps > 0}>
         {m.cases.close}
       </button>
       <CommandFeedback command={close}>{() => <span className="text-xs text-success">{m.cases.closed}</span>}</CommandFeedback>
@@ -269,16 +380,116 @@ function CloseForm({ c, onDone }: { readonly c: Case; readonly onDone: (c: Case)
   );
 }
 
+/** 사유 하나 받는 명령 폼(다시 열기·넘기기 공통) — 사유 1~500자 필수, 개인정보 금지 안내 */
+function ReasonForm({
+  title,
+  submitLabel,
+  doneText,
+  testId,
+  warn,
+  send,
+  failureHint,
+}: {
+  readonly title: string;
+  readonly submitLabel: string;
+  readonly doneText: string;
+  readonly testId: string;
+  readonly warn?: string;
+  readonly send: (reason: string, key: Parameters<Parameters<typeof useCommand>[0]>[1]) => Promise<Case>;
+  readonly failureHint?: (code: string | undefined) => ReactNode;
+}) {
+  const [reason, setReason] = useState('');
+  const cmd = useCommand(async (v: { reason: string }, key) => send(v.reason, key));
+  const ok = reason.trim().length >= 1 && reason.trim().length <= 500;
+  const code = cmd.phase.kind === 'rejected' && cmd.phase.failure instanceof ProblemFailure ? cmd.phase.failure.problem.code : undefined;
+  return (
+    <form
+      className="space-y-2 rounded-box bg-base-100 p-3 text-sm"
+      aria-label={title}
+      data-testid={testId}
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (!ok) return;
+        if (cmd.phase.kind === 'rejected') cmd.reset();
+        void cmd.run({ reason: reason.trim() });
+      }}
+    >
+      <h2 className="font-semibold">{title}</h2>
+      {warn && <p className="text-xs opacity-70">{warn}</p>}
+      <label className="flex flex-col gap-1">
+        {m.cases.reason}
+        <textarea className="textarea textarea-sm w-full max-w-lg" maxLength={500} value={reason} onChange={(e) => setReason(e.target.value)} />
+      </label>
+      <p className="text-xs opacity-70">{m.cases.piiHint}</p>
+      <button type="submit" className="btn btn-sm" disabled={!ok || cmd.busy}>
+        {submitLabel}
+      </button>
+      <CommandFeedback command={cmd}>{() => <span className="text-xs text-success">{doneText}</span>}</CommandFeedback>
+      {cmd.phase.kind === 'rejected' && failureHint?.(code)}
+    </form>
+  );
+}
+
+/** 이 사건의 대상(배송·주문) 번호 — 통합 조회로 같은 대상의 사건을 찾게 */
+const subjectOf = (c: Case) => (c.refs ?? []).find((r) => r.refType === 'deliveryId' || r.refType === 'orderId')?.refId ?? c.subjectRef ?? '';
+
+function ReopenForm({ c, onDone }: { readonly c: Case; readonly onDone: (c: Case) => void }) {
+  const api = useApi();
+  const target = subjectOf(c);
+  return (
+    <ReasonForm
+      title={m.cases.reopen}
+      submitLabel={m.cases.reopen}
+      doneText={m.cases.reopened}
+      testId="case-reopen"
+      warn={m.cases.reopenNote}
+      send={async (reason, key) => {
+        const r = await request('POST', api.cases.POST('/cases/{caseId}/reopenings', { ...commandParams(key, { path: { caseId: c.caseId ?? '' }, version: c.version }), body: { reason } }));
+        onDone(r);
+        return r;
+      }}
+      failureHint={(code) =>
+        code === 'CASE_ALREADY_OPEN' && target ? (
+          <Link className="link text-xs" to={`/lookup?q=${encodeURIComponent(target)}`} data-testid="case-open-elsewhere">
+            {m.cases.findOpenCase(target)}
+          </Link>
+        ) : null
+      }
+    />
+  );
+}
+
+function TransferForm({ c, toGroup, onDone }: { readonly c: Case; readonly toGroup: 'DELIVERY_OPS' | 'ORDER_OPS'; readonly onDone: (c: Case) => void }) {
+  const api = useApi();
+  const toAdmin = toGroup === 'ORDER_OPS';
+  return (
+    <ReasonForm
+      title={toAdmin ? m.cases.transferToAdmin : m.cases.transferToSupport}
+      submitLabel={toAdmin ? m.cases.transferToAdmin : m.cases.transferToSupport}
+      doneText={m.cases.transferred}
+      testId="case-transfer"
+      warn={toAdmin ? m.cases.transferToAdminNote : m.cases.transferToSupportNote}
+      send={async (reason, key) => {
+        const r = await request('POST', api.cases.POST('/cases/{caseId}/transfers', { ...commandParams(key, { path: { caseId: c.caseId ?? '' }, version: c.version }), body: { toGroup, reason } }));
+        onDone(r);
+        return r;
+      }}
+    />
+  );
+}
+
 /**
- * 라이더 도움요청·전달 실패 사건: refs 의 incidentId(= `<deliveryId>:<requestId>`)로 execution `GET /deliveries/{id}/help-requests/{requestId}`
+ * 라이더 도움요청·전달 실패 사건: refs 의 requestId·deliveryId(case 0.4.1 부터), 없으면(그 전 사건) incidentId(= `<deliveryId>:<requestId>`)를 나눠 execution `GET /deliveries/{id}/help-requests/{requestId}`
  * (라이더가 쓴 내용·사진 참조). 사건 처리는 사건 집기·닫기로(백엔드 알림 2026-11-16 rider-delivery-staff-apis §3).
  */
 function HelpRequestOfCase({ c }: { readonly c: Case }) {
   const api = useApi();
-  const incident = (c.refs ?? []).find((r) => r.refType === 'incidentId')?.refId ?? '';
+  const ref = (t: string) => (c.refs ?? []).find((r) => r.refType === t)?.refId ?? '';
+  const incident = ref('incidentId');
   const sep = incident.lastIndexOf(':');
-  const deliveryId = sep > 0 ? incident.slice(0, sep) : '';
-  const requestId = sep > 0 ? incident.slice(sep + 1) : '';
+  // 따로 실린 requestId(case 0.4.1)를 먼저 — 그 전 사건은 incidentId 에서 `<deliveryId>:` 를 뗀다(백엔드 회신 reply-rider-delivery-staff-apis §1)
+  const deliveryId = ref('deliveryId') || (sep > 0 ? incident.slice(0, sep) : '');
+  const requestId = ref('requestId') || (sep > 0 ? incident.slice(sep + 1) : '');
   const query = useQuery({
     queryKey: ['help-request', deliveryId, requestId],
     enabled: deliveryId !== '' && requestId !== '',
@@ -327,7 +538,14 @@ export function CaseDetailPage() {
       <QueryState state={toUiState(query)} onRetry={() => void query.refetch()}>
         {(c) => {
           const closed = c.state === 'CLOSED';
-          const canClose = !closed && (admin || (team && (!c.assigneeId || c.assigneeId === me)));
+          const adminTeam = withAdminTeam(c);
+          // 지원센터는 자기 팀(배송 쪽, 관리자 팀으로 가지 않은) 사건만 — 관리자 팀 사건·사가 사건은 관리자만(서버 판정)
+          const teamCan = team && !adminTeam && !isOrderKind(c.kind);
+          const canClose = !closed && (admin || (teamCan && (!c.assigneeId || c.assigneeId === me)));
+          const canReopen = closed && (admin || teamCan);
+          const deliverySide = !isOrderKind(c.kind);
+          const canToAdmin = !closed && deliverySide && !adminTeam && (admin || (teamCan && (!c.assigneeId || c.assigneeId === me)));
+          const canToSupport = !closed && deliverySide && adminTeam && admin;
           return (
             <>
               <dl className="grid grid-cols-[8rem_1fr] gap-1 rounded-box bg-base-100 p-4 text-sm" data-testid="case-facts">
@@ -347,6 +565,15 @@ export function CaseDetailPage() {
                 <dd>
                   <Sla c={c} />
                 </dd>
+                <dt>{m.cases.assigneeGroup}</dt>
+                <dd data-testid="case-group">
+                  {label(m.cases.groupName, c.assigneeGroup)}
+                  {adminTeam && (
+                    <span className="badge badge-warning badge-sm ml-1" data-testid="case-admin-team">
+                      {m.cases.adminHandling}
+                    </span>
+                  )}
+                </dd>
                 <dt>{m.cases.assignee}</dt>
                 <dd data-testid="case-assignee">{c.assigneeId ?? m.cases.unassigned}</dd>
                 <dt>{m.cases.openedAt}</dt>
@@ -354,6 +581,12 @@ export function CaseDetailPage() {
               </dl>
 
               {(c.kind === 'RIDER_HELP' || c.kind === 'DELIVERY_INCIDENT') && <HelpRequestOfCase c={c} />}
+
+              {(c.refs ?? []).some((r) => r.refType === 'recoveryDeliveryId' || r.refType === 'reshipmentDeliveryId') && (
+                <p role="note" className="alert alert-info text-sm" data-testid="case-recovery-note">
+                  {m.cases.recoveryNote}
+                </p>
+              )}
 
               {isOrderKind(c.kind) && (
                 <div className="space-y-1 rounded-box bg-base-100 p-3 text-sm" data-testid="case-order-note">
@@ -365,17 +598,28 @@ export function CaseDetailPage() {
               )}
 
               {!admin && !team && <p className="text-sm opacity-70">{m.cases.viewOnly}</p>}
+              {adminTeam && !admin && (
+                <p role="note" className="alert alert-warning text-sm">
+                  {m.cases.adminHandlingNote}
+                </p>
+              )}
               {!closed && <AssignForm c={c} onDone={onDone} />}
-              {canClose && <CloseForm c={c} onDone={onDone} />}
+              <FollowUps c={c} canAdd={!closed && (admin || teamCan)} />
+              {canClose && <CloseForm c={c} onDone={onDone} openFollowUps={(c.obligations ?? []).filter(isOpenObligation).length} />}
+              {canToAdmin && <TransferForm c={c} toGroup="ORDER_OPS" onDone={onDone} />}
+              {canToSupport && <TransferForm c={c} toGroup="DELIVERY_OPS" onDone={onDone} />}
+              {canReopen && <ReopenForm c={c} onDone={onDone} />}
 
               {c.closure && (
                 <>
-                  <h2 className="font-bold">{m.cases.closure}</h2>
+                  <h2 className="font-bold">{closed ? m.cases.closure : m.cases.lastClosure}</h2>
                   <p className="rounded-box bg-base-100 p-3 text-sm" data-testid="case-closure">
                     {`${label(m.cases.resolutionName, c.closure.resolution)} · ${text(c.closure.summary)} · ${text(c.closure.closedBy)} · ${when(c.closure.closedAt)}`}
                   </p>
                 </>
               )}
+
+              <CaseNotes caseId={c.caseId ?? caseId} />
 
               <h2 className="font-bold">{m.cases.history}</h2>
               <ul className="space-y-1 text-sm">
@@ -396,6 +640,29 @@ export function CaseDetailPage() {
   );
 }
 
+/**
+ * 귀책(ADR-0065, case 0.11.0). 고객 잘못(CUSTOMER)은 2026-11-16 백엔드 #49~#53 배포로 쓸 수 있다(요청서 다시 씀):
+ * - 라이더·시스템 잘못 → 재발송(기본)·전 품목 환불. 고객 잘못 → 다시 배송(기본)·환불(상품값 − 9,000원 — 정책 안내만, 화면은 계산하지 않음).
+ * - 고객 잘못 + 다시 배송은 두 단계: ① 배송에서 주문 번호를 읽고 order `POST /orders/lookups/{orderId}/redelivery-destinations`
+ *   {deliveryId, roadAddress, detailAddress?, postalCode?, reason} → destinationId ② case `POST /cases` misdelivery {fault, resolution, redeliveryDestinationId}.
+ *   ①에서 받은 번호는 화면에 들고 있어 ②만 실패하면 주소를 다시 기록하지 않는다. 같은 요청 재전송은 같은 키(서버가 같은 번호를 준다).
+ * - 실제 주소는 입력만 — 다시 보여 주지 않고 로그에 남기지 않는다. 기록 사유에 주소·전화번호 금지 안내.
+ */
+type Fault = 'RIDER' | 'SYSTEM' | 'CUSTOMER';
+type Choice = 'RESHIP' | 'REFUND' | 'REDELIVER';
+const FAULTS: readonly Fault[] = ['RIDER', 'SYSTEM', 'CUSTOMER'];
+const CHOICES_OF: Readonly<Record<Fault, readonly Choice[]>> = { RIDER: ['RESHIP', 'REFUND'], SYSTEM: ['RESHIP', 'REFUND'], CUSTOMER: ['REDELIVER', 'REFUND'] };
+const choiceNote = (f: Fault | '', c: Choice) =>
+  f === 'CUSTOMER' ? (c === 'REDELIVER' ? m.cases.redeliverNote : m.cases.customerRefundNote) : c === 'REFUND' ? m.cases.refundNote : m.cases.reshipNote;
+
+interface Address {
+  readonly road: string;
+  readonly detail: string;
+  readonly postal: string;
+  readonly reason: string;
+}
+const EMPTY_ADDRESS: Address = { road: '', detail: '', postal: '', reason: '' };
+
 export function NewMisdeliveryPage() {
   const api = useApi();
   const navigate = useNavigate();
@@ -403,7 +670,42 @@ export function NewMisdeliveryPage() {
   const [deliveryId, setDeliveryId] = useState(params.get('deliveryId') ?? '');
   const [summary, setSummary] = useState('');
   const [evidence, setEvidence] = useState('');
-  const open = useCommand(async (v: { deliveryId: string; summary: string; evidence: string }, key) => {
+  const [fault, setFault] = useState<Fault | ''>('');
+  const [choice, setChoice] = useState<Choice>('RESHIP');
+  const [address, setAddress] = useState<Address>(EMPTY_ADDRESS);
+  /** ①에서 받은 실제 주소 번호(배송 번호가 같을 때만 다시 쓴다) */
+  const [destination, setDestination] = useState<{ readonly deliveryId: string; readonly id: string } | null>(null);
+  const needsAddress = fault === 'CUSTOMER' && choice === 'REDELIVER';
+  const pickFault = (f: Fault) => {
+    setFault(f);
+    setChoice(CHOICES_OF[f][0] ?? 'RESHIP');
+  };
+  const open = useCommand(async (v: { deliveryId: string; summary: string; evidence: string; fault: Fault; choice: Choice; address: Address }, key) => {
+    let redeliveryDestinationId: string | undefined;
+    if (v.fault === 'CUSTOMER' && v.choice === 'REDELIVER') {
+      if (destination && destination.deliveryId === v.deliveryId) {
+        redeliveryDestinationId = destination.id;
+      } else {
+        const d = await request('GET', api.execution.GET('/deliveries/{deliveryId}', { params: { path: { deliveryId: v.deliveryId } } }));
+        const orderId = d.orderId ?? '';
+        const rec = await request(
+          'POST',
+          api.orders.POST('/orders/lookups/{orderId}/redelivery-destinations', {
+            ...commandParams(key, { path: { orderId } }),
+            body: {
+              deliveryId: v.deliveryId,
+              roadAddress: v.address.road,
+              reason: v.address.reason,
+              ...(v.address.detail ? { detailAddress: v.address.detail } : {}),
+              ...(v.address.postal ? { postalCode: v.address.postal } : {}),
+            },
+          }),
+        );
+        redeliveryDestinationId = rec.destinationId;
+        setDestination({ deliveryId: v.deliveryId, id: rec.destinationId });
+        setAddress(EMPTY_ADDRESS); // 기록했으면 화면에서 지운다(다시 보여 주지 않음)
+      }
+    }
     const c = await request(
       'POST',
       api.cases.POST('/cases', {
@@ -414,13 +716,20 @@ export function NewMisdeliveryPage() {
           subjectRef: v.deliveryId,
           summary: v.summary,
           ...(v.evidence ? { evidence: [{ system: 'backoffice-web', ref: v.evidence, kind: 'PHOTO' as const }] } : {}),
+          misdelivery: { fault: v.fault, resolution: v.choice, ...(redeliveryDestinationId ? { redeliveryDestinationId } : {}) },
         },
       }),
     );
     void navigate(`/cases/${encodeURIComponent(c.caseId ?? '')}`);
     return c;
   });
-  const ok = deliveryId.trim() !== '' && summary.trim() !== '';
+  const recorded = needsAddress && destination !== null && destination.deliveryId === deliveryId.trim();
+  const addressOk =
+    !needsAddress ||
+    recorded ||
+    (address.road.trim().length >= 1 && address.road.trim().length <= 200 && address.reason.trim().length >= 2 && address.reason.trim().length <= 200);
+  const ok = deliveryId.trim() !== '' && summary.trim() !== '' && fault !== '' && addressOk;
+  const setAddr = (k: keyof Address, val: string) => setAddress((a) => ({ ...a, [k]: val }));
   return (
     <section className="max-w-2xl space-y-4">
       <h1 className="text-xl font-bold">{m.cases.newTitle}</h1>
@@ -431,7 +740,14 @@ export function NewMisdeliveryPage() {
           e.preventDefault();
           if (!ok) return;
           if (open.phase.kind === 'rejected') open.reset();
-          void open.run({ deliveryId: deliveryId.trim(), summary: summary.trim(), evidence: evidence.trim() });
+          void open.run({
+            deliveryId: deliveryId.trim(),
+            summary: summary.trim(),
+            evidence: evidence.trim(),
+            fault,
+            choice,
+            address: { road: address.road.trim(), detail: address.detail.trim(), postal: address.postal.trim(), reason: address.reason.trim() },
+          });
         }}
       >
         <label className="flex flex-col gap-1">
@@ -442,6 +758,68 @@ export function NewMisdeliveryPage() {
           {m.cases.summary}
           <textarea className="textarea textarea-sm w-full" maxLength={1000} value={summary} onChange={(e) => setSummary(e.target.value)} />
         </label>
+        <fieldset className="space-y-1" data-testid="misdelivery-fault">
+          <legend className="mb-1">{m.cases.faultQuestion}</legend>
+          {FAULTS.map((f) => (
+            <label key={f} className="flex items-center gap-2">
+              <input type="radio" className="radio radio-sm" name="misdelivery-fault" value={f} checked={fault === f} onChange={() => pickFault(f)} />
+              {m.cases.faultName[f]}
+            </label>
+          ))}
+          {fault === 'RIDER' && (
+            <p role="note" className="text-xs text-warning" data-testid="rider-fee-note">
+              {m.cases.riderFeeNote}
+            </p>
+          )}
+        </fieldset>
+        <label className="flex flex-col gap-1">
+          {m.cases.choiceQuestion}
+          <select className="select select-sm w-56" value={choice} disabled={fault === ''} onChange={(e) => setChoice((CHOICES_OF[fault || 'RIDER'].find((c) => c === e.target.value) ?? 'RESHIP'))}>
+            {CHOICES_OF[fault || 'RIDER'].map((c) => (
+              <option key={c} value={c}>
+                {fault === 'CUSTOMER' && c === 'REFUND' ? m.cases.customerRefundName : m.cases.resolutionChoiceName[c]}
+              </option>
+            ))}
+          </select>
+        </label>
+        {fault !== '' && (
+          <p className={`text-xs ${fault === 'CUSTOMER' ? 'text-warning' : 'opacity-70'}`} data-testid="choice-note">
+            {choiceNote(fault, choice)}
+          </p>
+        )}
+        {needsAddress && (
+          <fieldset className="space-y-2 rounded-box border border-base-300 p-3" data-testid="redelivery-address">
+            <legend className="px-1 font-semibold">{m.cases.addressTitle}</legend>
+            {recorded ? (
+              <p className="text-xs text-success" data-testid="address-recorded">
+                {m.cases.addressRecorded(destination?.id ?? '')}
+              </p>
+            ) : (
+              <>
+                <p className="text-xs opacity-70">{m.cases.addressIntro}</p>
+                <label className="flex flex-col gap-1">
+                  {m.cases.roadAddress}
+                  <input className="input input-sm w-full" maxLength={200} autoComplete="off" value={address.road} onChange={(e) => setAddr('road', e.target.value)} />
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  <label className="flex flex-col gap-1">
+                    {m.cases.detailAddress}
+                    <input className="input input-sm w-64" maxLength={100} autoComplete="off" value={address.detail} onChange={(e) => setAddr('detail', e.target.value)} />
+                  </label>
+                  <label className="flex flex-col gap-1">
+                    {m.cases.postalCode}
+                    <input className="input input-sm w-28" maxLength={10} autoComplete="off" value={address.postal} onChange={(e) => setAddr('postal', e.target.value)} />
+                  </label>
+                </div>
+                <label className="flex flex-col gap-1">
+                  {m.cases.addressReason}
+                  <input className="input input-sm w-full" maxLength={200} value={address.reason} onChange={(e) => setAddr('reason', e.target.value)} />
+                </label>
+                <p className="text-xs text-warning">{m.cases.addressReasonHint}</p>
+              </>
+            )}
+          </fieldset>
+        )}
         <label className="flex flex-col gap-1">
           {m.cases.evidence}
           <input className="input input-sm w-64" value={evidence} onChange={(e) => setEvidence(e.target.value)} />

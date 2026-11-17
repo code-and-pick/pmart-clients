@@ -35,6 +35,8 @@ const services = <String, List<String>>{
   'delivery-serviceability-service': ['customer'],
   'delivery-capacity-service': ['customer'],
   'order-service': ['customer'],
+  // 오배송 다시 배송비 결제(0.3.0 /redelivery-payments — 고객 경로 3개, /internal 은 빼고 생성). 백엔드 요청 2026-11-16
+  'order-orchestration-service': ['customer'],
   'payment-service': ['customer'],
   'claim-service': ['customer'],
   'review-service': ['customer'],

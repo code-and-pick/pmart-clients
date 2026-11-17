@@ -446,5 +446,63 @@ abstract final class CheckoutProblemCode {
     weightUnsplittable,
     configRequired,
     mfcChanged,
+    // order 0.8.0: 담당 센터 가용 < 주문 수량이거나 취급 안 함 — 초안을 만들지 않는다(주문서 진입 금지).
+    insufficientStock,
   };
+}
+
+/// 초안 생성 422 `INSUFFICIENT_STOCK` 의 상품 한 줄(order 0.8.0 `details[]` — field = sku).
+@immutable
+final class StockShortage {
+  const StockShortage({
+    required this.sku,
+    this.requestedQty,
+    this.availableQty,
+    this.notHandled = false,
+  });
+
+  final String sku;
+
+  /// 서버가 본 주문 수량(`requestedQty=<q>`).
+  final int? requestedQty;
+
+  /// 서버가 본 담당 센터 가용(`availableQty=<a>`). 0 이면 품절.
+  final int? availableQty;
+
+  /// `NOT_HANDLED` — 담당 센터가 취급하지 않는다(이 지역에서 살 수 없음).
+  final bool notHandled;
+
+  /// 장바구니 수량이 [quantity] 일 때도 아직 부족한지. 수량을 줄여 맞췄으면 더 표시하지 않는다.
+  bool stillShortAt(int quantity) => switch (availableQty) {
+    _ when notHandled => true,
+    final int a => quantity > a,
+    null => true,
+  };
+}
+
+/// `details[]` 를 SKU 별로 읽는다. 모르는 모양의 reason 은 수량 없이(부족함만) 둔다 — 지어내지 않는다.
+Map<String, StockShortage> stockShortagesOf(
+  Iterable<({String? field, String? reason})> details,
+) {
+  final out = <String, StockShortage>{};
+  for (final d in details) {
+    final sku = d.field;
+    if (sku == null || sku.isEmpty) continue;
+    final reason = d.reason ?? '';
+    if (reason == 'NOT_HANDLED') {
+      out[sku] = StockShortage(sku: sku, notHandled: true);
+      continue;
+    }
+    int? part(String name) =>
+        switch (RegExp('(?:^|;)$name=(\\d+)(?:;|\$)').firstMatch(reason)) {
+          final m? => int.tryParse(m.group(1)!),
+          null => null,
+        };
+    out[sku] = StockShortage(
+      sku: sku,
+      requestedQty: part('requestedQty'),
+      availableQty: part('availableQty'),
+    );
+  }
+  return out;
 }
