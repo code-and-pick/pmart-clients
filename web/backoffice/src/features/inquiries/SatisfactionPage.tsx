@@ -57,15 +57,16 @@ export function SatisfactionPage() {
       >
         <label className="flex flex-col gap-1">
           {m.from}
-          <input type="date" className="input input-sm" value={draft.from} max={today} onChange={(e) => setDraft((d) => ({ ...d, from: e.target.value }))} />
+          <input type="date" className="input input-sm w-40" value={draft.from} max={today} onChange={(e) => setDraft((d) => ({ ...d, from: e.target.value }))} />
         </label>
         <label className="flex flex-col gap-1">
           {m.to}
-          <input type="date" className="input input-sm" value={draft.to} max={today} onChange={(e) => setDraft((d) => ({ ...d, to: e.target.value }))} />
+          <input type="date" className="input input-sm w-40" value={draft.to} max={today} onChange={(e) => setDraft((d) => ({ ...d, to: e.target.value }))} />
         </label>
         <button type="submit" className="btn btn-sm" disabled={draftProblem !== null}>
           {m.show}
         </button>
+        <span className="text-xs opacity-70">{m.periodHint}</span>
         {draftProblem && <span className="text-xs text-error">{draftProblem}</span>}
       </form>
       <QueryState state={toUiState(query)} onRetry={() => void query.refetch()}>

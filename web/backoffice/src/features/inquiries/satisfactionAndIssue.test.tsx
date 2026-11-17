@@ -22,7 +22,7 @@ describe('문의 만족도', () => {
     renderAt('/inquiry-satisfaction?from=2026-10-01&to=2026-10-07', as.admin);
     expect(await screen.findByTestId('satisfaction-response')).toHaveTextContent('이 기간에 답변한 문의가 없어요');
     expect(screen.getByTestId('satisfaction-average')).toHaveTextContent('—');
-    const from = screen.getByLabelText('답변 시작일');
+    const from = screen.getByLabelText('시작일');
     await userEvent.clear(from);
     await userEvent.type(from, '2026-01-01');
     expect(screen.getByText('기간은 92일까지예요.')).toBeInTheDocument();
