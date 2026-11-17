@@ -52,11 +52,11 @@ describe('지원센터 사건', () => {
 
   it('닫기: 결과 + 요약(개인정보 안내) → closures → 닫힘·종결 기록', async () => {
     const view = renderAt('/cases/CASE-MOCK-3', as.riderOps); // 내가 집은 사건
-    const form = await screen.findByRole('form', { name: '처리 끝내기' });
+    const form = await screen.findByRole('form', { name: '완료 처리' });
     expect(within(form).getByText(/고객 주소·연락처 원문은 적지 마세요/)).toBeInTheDocument();
     await userEvent.selectOptions(within(form).getByLabelText('결과'), 'NO_ACTION_REQUIRED');
     await userEvent.type(within(form).getByLabelText('처리 결과 요약'), '위치 다시 들어옴');
-    await userEvent.click(within(form).getByRole('button', { name: '처리 끝내기' }));
+    await userEvent.click(within(form).getByRole('button', { name: '완료 처리' }));
     await waitFor(() => expect(screen.getByTestId('case-state')).toHaveTextContent('처리 끝남'));
     expect(screen.getByTestId('case-closure')).toHaveTextContent('조치 필요 없음');
     expect(await view.mutations('/closures')[0]!.json()).toEqual({ resolution: 'NO_ACTION_REQUIRED', summary: '위치 다시 들어옴' });
@@ -64,9 +64,9 @@ describe('지원센터 사건', () => {
 
   it('상담원은 보기만 — 맡기·닫기 없음', async () => {
     renderAt('/cases/CASE-MOCK-2', as.cs);
-    expect(await screen.findByText('상담원은 접수 건을 보기만 해요(맡기·처리 끝내기는 지원센터 담당).')).toBeInTheDocument();
+    expect(await screen.findByText('상담원은 접수 건을 보기만 해요(맡기·완료 처리는 지원센터 담당).')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '내가 맡기' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('form', { name: '처리 끝내기' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('form', { name: '완료 처리' })).not.toBeInTheDocument();
   });
 
   it('사가·결제 이상(case 0.5.0): 관리자에게만 종류·사건이 보이고, 상세는 처리 대기로 안내', async () => {
@@ -326,7 +326,7 @@ describe('사건 다시 열기(case 0.6.0)·넘기기(0.7.0)', () => {
     expect(screen.getByRole('note')).toHaveTextContent('아직 처리가 끝나지 않았어요');
     // 지원센터에는 맡기·닫기·넘기기가 없다
     expect(screen.queryByRole('button', { name: '맡기' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('form', { name: '처리 끝내기' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('form', { name: '완료 처리' })).not.toBeInTheDocument();
     expect(screen.queryByTestId('case-transfer')).not.toBeInTheDocument();
     expect(await view.mutations('/cases/CASE-MOCK-1/transfers')[0]!.json()).toEqual({ toGroup: 'ORDER_OPS', reason: '환불이 얽힌 오배송' });
     expect(screen.getByText(/넘김 · op-rider-ops-1 → 접수됨 · DELIVERY_OPS → ORDER_OPS: 환불이 얽힌 오배송/)).toBeInTheDocument();

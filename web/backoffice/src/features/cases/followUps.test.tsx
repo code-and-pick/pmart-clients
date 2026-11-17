@@ -8,15 +8,15 @@ import { as, renderAt } from '../../test/render';
 const item = async (kind: string) => (await screen.findAllByTestId('follow-up')).find((r) => r.textContent?.includes(kind))!;
 
 describe('후속 처리', () => {
-  it('접수 건 상세에 남은 건수·종류·담당 팀·수량, 남아 있으면 처리 끝내기 막힘', async () => {
+  it('접수 건 상세에 남은 건수·종류·담당 팀·수량, 남아 있으면 완료 처리 막힘', async () => {
     renderAt('/cases/CASE-MOCK-1', as.admin);
     expect(await screen.findByRole('heading', { name: '후속 처리 (2건 남음)' })).toBeInTheDocument();
     const contact = await item('고객 연락');
     expect(contact).toHaveTextContent('고객센터');
     expect(contact).toHaveTextContent('처리 중');
     expect(await item('회수')).toHaveTextContent('수량 0/1');
-    expect(screen.getByTestId('close-blocked')).toHaveTextContent('후속 처리가 남아 있어 처리를 끝낼 수 없어요(2건)');
-    expect(within(screen.getByRole('form', { name: '처리 끝내기' })).getByRole('button', { name: '처리 끝내기' })).toBeDisabled();
+    expect(screen.getByTestId('close-blocked')).toHaveTextContent('후속 처리가 남아 있어 완료 처리할 수 없어요(2건)');
+    expect(within(screen.getByRole('form', { name: '완료 처리' })).getByRole('button', { name: '완료 처리' })).toBeDisabled();
   });
 
   it('지원센터: 회수 완료(수량·근거) → 처리 끝남, 남은 건수 줄어듦 — 고객센터 몫에는 버튼 없음', async () => {
