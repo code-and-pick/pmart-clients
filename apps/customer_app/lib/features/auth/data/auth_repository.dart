@@ -1,6 +1,5 @@
 import 'package:dio/dio.dart';
 import 'package:pmart_api_auth/pmart_api_auth.dart' as auth;
-import 'package:pmart_api_customer/pmart_api_customer.dart' as customer;
 import 'package:pmart_core/pmart_core.dart';
 
 import '../../../shared/providers.dart' show sourceSystem;
@@ -39,24 +38,26 @@ abstract interface class AuthRepository {
   /// 서버에 닿지 못했으면(연결 오류·타임아웃·결과 불명·5xx) [PmartFailure] 를 던진다 — 세션이 끝난 게 아니다.
   Future<String?> currentAccountId();
 
-  /// 필수 동의 반영 후 인증 완료.
+  /// 동의 대기(AUTH_CONSENT)를 끝낸다 — `POST /auth/social-logins/{id}/completions`(auth 0.2.0, CU-1).
+  /// 토큰이 없는 단계라 [providerToken](로그인한 그 계정의 ID 토큰)으로 서버가 본인을 다시 확인한다.
+  /// [consents] 는 필수(모두 동의)와 선택(고객이 고른 값 — 끈 것도 false)을 모두 담는다.
+  /// 같은 [key] 재전송(응답 유실)은 새 토큰을 준다.
   Future<LoginOutcome> completeWithConsents(
-    String authRequestId,
-    List<String> consents, {
+    String authRequestId, {
+    required String providerToken,
+    required List<ConsentDecision> consents,
     required IdempotencyKey key,
   });
 }
 
-/// 실서버 구현(auth-service, 동의는 customer-service).
+/// 실서버 구현(auth-service).
 final class ApiAuthRepository implements AuthRepository {
   ApiAuthRepository(Dio dio, this._deviceId)
     : _logins = auth.PmartApiAuth(dio: dio).getLoginsApi(),
-      _tokens = auth.PmartApiAuth(dio: dio).getTokensApi(),
-      _consents = customer.PmartApiCustomer(dio: dio).getConsentsApi();
+      _tokens = auth.PmartApiAuth(dio: dio).getTokensApi();
 
   final auth.LoginsApi _logins;
   final auth.TokensApi _tokens;
-  final customer.ConsentsApi _consents;
   final DeviceIdProvider _deviceId;
 
   Map<String, dynamic> _publicCommand(IdempotencyKey key) => {
@@ -121,43 +122,31 @@ final class ApiAuthRepository implements AuthRepository {
 
   @override
   Future<LoginOutcome> completeWithConsents(
-    String authRequestId,
-    List<String> consents, {
+    String authRequestId, {
+    required String providerToken,
+    required List<ConsentDecision> consents,
     required IdempotencyKey key,
-  }) => _guard(() async {
-    // BR-20: AUTH_CONSENT 에는 토큰이 없는데 동의 변경(`/me/consent-changes`)은 인증 경로다.
-    // 회신 전까지 계약 그대로 호출한다(실서버에서는 401 이 날 수 있다). 목에서만 끝까지 동작한다.
-    final consentKey = IdempotencyKey('${key.value}-consent');
-    final change = await _consents.changeMyConsents(
-      idempotencyKey: consentKey.value,
-      xSourceSystem: sourceSystem,
-      changeMyConsentsRequest: customer.ChangeMyConsentsRequest(
-        changes: [
-          for (final c in consents)
-            customer.ChangeMyConsentsRequestChangesInner(
-              consentType: customer.ConsentType.values.firstWhere(
-                (t) => t.value == consentTypeOf(c),
-                orElse: () => throw ContractViolationFailure('동의 항목 $c'),
-              ),
-              version: consentVersionOf(c),
-              agreed: true,
-            ),
-        ],
-      ),
-      extra: commandOptions(consentKey).extra,
-    );
-    final requestId = change.data?.requestId ?? consentKey.value;
-    return (await _logins.completeSocialLogin(
+  }) => _guard(
+    // BR-20 회신(2026-11-17): 동의는 completions 본문으로 보낸다 — customer `/me/consent-changes` 를 먼저 부르지 않는다.
+    () async => (await _logins.completeSocialLogin(
       authRequestId: authRequestId,
       idempotencyKey: key.value,
       xSourceSystem: sourceSystem,
       xDeviceId: await _deviceId.get(),
       completeSocialLoginRequest: auth.CompleteSocialLoginRequest(
-        consentChangeRequestId: requestId,
+        providerToken: providerToken,
+        consents: [
+          for (final c in consents)
+            auth.CompleteSocialLoginRequestConsentsInner(
+              consentType: c.type,
+              version: c.version,
+              agreed: c.agreed,
+            ),
+        ],
       ),
       extra: _publicCommand(key),
-    )).data;
-  });
+    )).data,
+  );
 
   Future<LoginOutcome> _guard(Future<auth.AuthResult?> Function() call) async {
     try {
@@ -170,13 +159,8 @@ final class ApiAuthRepository implements AuthRepository {
   }
 }
 
-/// 동의 항목 문자열 `TYPE[:version]` 에서 유형. 형식은 BR-20 에서 확인 중.
-String consentTypeOf(String item) => item.split(':').first;
-
-String consentVersionOf(String item) {
-  final parts = item.split(':');
-  return parts.length > 1 ? parts.sublist(1).join(':') : '';
-}
+/// 동의 항목 문자열 `TYPE:version`(BR-20 회신)에서 유형.
+String consentTypeOf(String item) => ConsentDecision(item, agreed: true).type;
 
 LoginOutcome authResultToOutcome(auth.AuthResult r) => switch (r.state) {
   auth.AuthState.AUTH_MEMBER => switch ((r.accountId, r.tokens)) {
@@ -196,6 +180,9 @@ LoginOutcome authResultToOutcome(auth.AuthResult r) => switch (r.state) {
   auth.AuthState.AUTH_CONSENT => LoginNeedsConsent(
     authRequestId: r.authRequestId,
     requiredConsents: r.requiredConsents ?? const [],
+    optionalConsents: r.optionalConsents ?? const [],
+    // 계약: 동의 화면에서 나갔던 가입은 다음 로그인도 newAccount=true. 값이 없으면 신규로 본다.
+    newAccount: r.newAccount ?? true,
   ),
   auth.AuthState.AUTH_RESTRICTED => LoginRestricted(
     retryAfterSeconds: r.retryAfterSeconds,

@@ -121,6 +121,52 @@ void main() {
     expect(find.byKey(const ValueKey('login-message')), findsNothing);
   });
 
+  testWidgets('재동의(기존 회원)는 바뀐 약관 안내 + 선택 항목(마케팅)은 기본 해제 — 고른 값이 그대로 간다', (
+    t,
+  ) async {
+    final auth = MockAuthRepository(latency: Duration.zero)
+      ..reconsentNext = true;
+    await t.pumpWidget(testApp(const [], auth: auth));
+    await t.pumpAndSettle();
+    await t.tap(find.text('마이페이지').last);
+    await t.pumpAndSettle();
+    await t.tap(find.byKey(const ValueKey('my-login')));
+    await t.pumpAndSettle();
+    await t.tap(find.byKey(const ValueKey('login-naver')));
+    await t.pumpAndSettle();
+
+    expect(find.text('약관이 바뀌었어요. 계속 이용하려면 다시 동의해 주세요'), findsOneWidget);
+    const marketing = 'MARKETING:2026-11-17';
+    expect(find.text('[선택] 마케팅 정보 수신'), findsOneWidget);
+    expect(
+      t
+          .widget<CheckboxListTile>(
+            find.byKey(const ValueKey('consent-$marketing')),
+          )
+          .value,
+      isFalse,
+    );
+    // 선택만 고르면 시작할 수 없다(필수가 먼저).
+    await t.tap(find.byKey(const ValueKey('consent-$marketing')));
+    await t.pump();
+    expect(
+      t
+          .widget<FilledButton>(find.byKey(const ValueKey('consent-submit')))
+          .onPressed,
+      isNull,
+    );
+    for (final c in MockAuthRepository.requiredConsents) {
+      await t.tap(find.byKey(ValueKey('consent-$c')));
+      await t.pump();
+    }
+    await t.tap(find.byKey(const ValueKey('consent-submit')));
+    await t.pumpAndSettle();
+
+    final sent = auth.completions.single.consents;
+    expect(sent.firstWhere((d) => d.item == marketing).agreed, isTrue);
+    expect(sent.where((d) => d.agreed), hasLength(4));
+  });
+
   testWidgets('필수 동의를 모두 골라야 시작할 수 있다', (t) async {
     await t.pumpWidget(testApp(const []));
     await t.pumpAndSettle();

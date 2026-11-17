@@ -19,6 +19,8 @@
 | 8 | 비회원 장바구니 병합(주문서 로그인 뒤) | cart `POST /carts/{id}/merges`, BR-50(OPEN) | BR-50 질문 회신부터 확인 |
 | 9 | 주소 수정·삭제 | customer `PATCH`·`DELETE /me/addresses/{id}` | 레퍼런스 대비 A 목록에도 있음 |
 | 10 | 회원 탈퇴·탈퇴 철회, 내 동의 목록, AI 상담 답 다시 찾기·다시 보기 | customer `/me/withdrawals`·`GET /me/consents`, customer-assistant `GET /customer-assistant/questions(/{id})` | 화면 위치는 레퍼런스 캡처 먼저 |
+| 25 | **약관 동의(CU-1) — 급함** (1단계 로그인 흐름 끝 2026-11-17, 남은 것 = 주문 전 재동의·설정 마케팅): 로그인 동의 완료 본문 `providerToken`+`consents`(필수 + 선택 MARKETING, 끈 것도 false), `/me/consent-changes` 먼저 부르기 지움, 재동의 안내(`newAccount=false`), 완료 오류 표, 로그인해 있는 고객의 주문 전 재동의(`GET /me/consents` `requiredConsentOutdated`), 설정의 마케팅 켜고 끄기 | auth 0.2.0·customer 0.3.0, `clients/customer-app/2026-11-17-notice-consents.md`(BR-20 회신 포함) | **최신 계약으로 다시 만들면 고객앱이 컴파일되지 않음**(2026-11-17, `consentChangeRequestId` 없어짐). LAN 스위치 2개는 앱 반영 때까지 꺼짐 — 준비되면 백엔드(PC 1 백엔드)와 함께 켬. `contracts.lock`(dart)은 이것과 함께 올림 |
+| 26 | 주소 검색(카카오 우편번호) 스크립트 도메인 `t1.daumcdn.net` → `t1.kakaocdn.net`, 이름 `daum.Postcode` → `kakao.Postcode` — **2026-11-30 종료**, 옛 주소면 검색 창 위에 개발자 공지가 고객에게 보임 | PC 5 알림 `docs/handoff/rider-app/2026-11-17-pc1-postcode-domain.md`(라이더앱은 #63 에서 바꿈) | 고객앱 `postcode_screen.dart` |
 
 ## 2. 백엔드에 회신할 것
 

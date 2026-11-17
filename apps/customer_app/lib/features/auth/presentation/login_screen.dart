@@ -6,7 +6,7 @@ import '../../../l10n/gen/app_localizations.dart';
 import '../data/auth_repository.dart' show consentTypeOf;
 import '../domain/auth.dart';
 
-import 'package:pmart_core/pmart_core.dart' show PmartEnv;
+import 'package:pmart_core/pmart_core.dart' show PmartEnv, ProblemCode;
 
 import '../../../shared/providers.dart' show envProvider;
 import 'auth_controller.dart';
@@ -36,8 +36,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         'TERMS_OF_SERVICE' => l10n.consentTerms,
         'PRIVACY_POLICY' => l10n.consentPrivacy,
         'AGE_OVER_14' => l10n.consentAge14,
-        _ => item,
+        'MARKETING' => l10n.consentMarketing,
+        // 모르는 항목은 서버 코드 그대로(지어내지 않는다)
+        _ => consentTypeOf(item),
       };
+
+  /// 이 동의 대기에 대해 고객이 고른 선택 항목(기본 해제). 동의 대기가 바뀌면 비운다.
+  String? _consentFor;
 
   /// 새로 가입한 계정은 내 정보(이름·휴대폰 번호)부터 받는다(소셜 로그인이 번호를 주지 않음). 끝나면 원래 화면으로.
   Future<void> _afterLogin({required bool newAccount}) async {
@@ -70,36 +75,61 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       _ => null,
     };
 
-    if (outcome case LoginNeedsConsent(
-      :final authRequestId,
-      :final requiredConsents,
-    )) {
-      final allAgreed = requiredConsents.every(_agreed.contains);
+    if (outcome case final LoginNeedsConsent waiting) {
+      if (_consentFor != waiting.authRequestId) {
+        _consentFor = waiting.authRequestId;
+        _agreed.clear();
+      }
+      final allAgreed = waiting.requiredConsents.every(_agreed.contains);
+      Widget box(String c, String title) => CheckboxListTile(
+        key: ValueKey('consent-$c'),
+        value: _agreed.contains(c),
+        title: Text(title),
+        onChanged: busy
+            ? null
+            : (v) => setState(
+                () => (v ?? false) ? _agreed.add(c) : _agreed.remove(c),
+              ),
+      );
+      final error = switch (waiting.lastError) {
+        null => null,
+        AuthProblemCode.requiredConsentMissing => l10n.consentMissing,
+        ProblemCode.unknownResult => l10n.consentUnknown,
+        _ => l10n.loginRejected,
+      };
       return Scaffold(
         appBar: AppBar(title: Text(l10n.consentTitle)),
         body: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            Text(l10n.consentBody),
-            for (final c in requiredConsents)
-              CheckboxListTile(
-                key: ValueKey('consent-$c'),
-                value: _agreed.contains(c),
-                title: Text(l10n.consentRequired(_consentLabel(l10n, c))),
-                onChanged: busy
-                    ? null
-                    : (v) => setState(
-                        () => (v ?? false) ? _agreed.add(c) : _agreed.remove(c),
-                      ),
+            // 기존 회원(newAccount=false)은 약관이 바뀌어 다시 묻는 것이다.
+            Text(
+              waiting.newAccount ? l10n.consentBody : l10n.consentReconsentBody,
+              key: const ValueKey('consent-body'),
+            ),
+            for (final c in waiting.requiredConsents)
+              box(c, l10n.consentRequired(_consentLabel(l10n, c))),
+            for (final c in waiting.optionalConsents)
+              box(c, l10n.consentOptional(_consentLabel(l10n, c))),
+            if (error != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                error,
+                key: const ValueKey('consent-error'),
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
               ),
+            ],
             const SizedBox(height: 16),
             FilledButton(
               key: const ValueKey('consent-submit'),
               onPressed: (allAgreed && !busy)
-                  ? () => controller.submitConsents(
-                      authRequestId,
-                      requiredConsents,
-                    )
+                  ? () => controller.submitConsents(waiting, [
+                      for (final c in waiting.requiredConsents)
+                        ConsentDecision(c, agreed: true),
+                      // 선택 항목은 끈 것도 false 로 보낸다(거부로 기록돼 다시 묻지 않는다)
+                      for (final c in waiting.optionalConsents)
+                        ConsentDecision(c, agreed: _agreed.contains(c)),
+                    ])
                   : null,
               child: Text(l10n.consentSubmit),
             ),
@@ -116,6 +146,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       LoginProviderUnavailable() => l10n.loginProviderDown,
       LoginRejected(:final code) => switch (code) {
         AuthProblemCode.providerRejected => l10n.loginProviderRejected,
+        // 동의 완료가 막혔다(다른 기기·계정, 이미 끝남, 그 사이 약관 버전이 바뀜) — 처음부터
+        AuthProblemCode.forbidden ||
+        AuthProblemCode.invalidState ||
+        AuthProblemCode.consentVersionOutdated => l10n.loginConsentRestart,
         AuthProblemCode.accountNotAvailable ||
         AuthProblemCode.accountNotPurchasable => l10n.loginAccountUnavailable,
         AuthProblemCode.configRequired ||

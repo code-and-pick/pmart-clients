@@ -100,7 +100,11 @@ export const approvalHandlers = [
       // BR-41 회신: 대상 참조 정확히 일치(예 productImportBatch:{batchId})
       .filter((a) => !q.get('targetRef') || a.targetRef === q.get('targetRef'))
       .sort((a, b) => (b.submittedAt ?? '').localeCompare(a.submittedAt ?? ''));
-    return HttpResponse.json({ items, page: { nextCursor: null, size: items.length } });
+    // 커서 쪽 넘김(목: 커서 = 시작 위치)
+    const size = Math.min(Number(q.get('size') ?? '50') || 50, 100);
+    const start = Number(q.get('cursor') ?? '0') || 0;
+    const page = items.slice(start, start + size);
+    return HttpResponse.json({ items: page, page: { nextCursor: start + size < items.length ? String(start + size) : null, size } });
   }),
 
   http.get(`${API_BASE}/approvals/:id`, ({ params }) => {

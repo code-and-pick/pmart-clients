@@ -14,6 +14,7 @@ import 'package:go_router/go_router.dart';
 import 'package:pmart_ui/pmart_ui.dart';
 
 import 'package:customer_app/app.dart';
+import 'package:customer_app/features/auth/data/mock_auth_repository.dart';
 import 'package:customer_app/features/checkout/data/mock_checkout_repository.dart';
 import 'package:customer_app/features/checkout/presentation/checkout_controller.dart';
 import 'package:customer_app/features/orders/data/mock_orders_repository.dart';
@@ -354,6 +355,46 @@ void main() {
     await shot('chat-order-status');
     await ask('포인트는 언제 생기나요? #근거없음');
     await shot('chat-handoff');
+    debugDisableShadows = true;
+  });
+
+  // 약관 동의(CU-1 — auth 0.2.0): 기존 회원 재동의 + 선택 항목(마케팅).
+  testWidgets('consent', (t) async {
+    if (_dir.isEmpty) fail('--dart-define=SHOT_DIR=<절대 경로> 가 필요하다');
+    Directory(_dir).createSync(recursive: true);
+    await t.runAsync(_loadFonts);
+    debugDisableShadows = false;
+    t.view
+      ..physicalSize = const Size(1080, 2180)
+      ..devicePixelRatio = 3;
+    addTearDown(t.view.reset);
+    await t.pumpWidget(
+      testApp(
+        const [],
+        auth: MockAuthRepository(latency: Duration.zero)..reconsentNext = true,
+      ),
+    );
+    await t.pumpAndSettle();
+    Future<void> shot(String name) async {
+      await t.pumpAndSettle();
+      await expectLater(
+        find.byType(CustomerApp),
+        matchesGoldenFile(File('$_dir/c-$name.png').uri),
+      );
+    }
+
+    await t.tap(find.text('마이페이지').last);
+    await t.pumpAndSettle();
+    await t.tap(find.byKey(const ValueKey('my-login')));
+    await t.pumpAndSettle();
+    await t.tap(find.byKey(const ValueKey('login-naver')));
+    await t.pumpAndSettle();
+    await shot('reconsent');
+    for (final c in MockAuthRepository.requiredConsents.take(2)) {
+      await t.tap(find.byKey(ValueKey('consent-$c')));
+      await t.pump();
+    }
+    await shot('reconsent-partial');
     debugDisableShadows = true;
   });
 }

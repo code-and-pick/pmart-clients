@@ -69,20 +69,90 @@ void main() {
       expect(await tokens.readRefreshToken(), 'mock-refresh');
     });
 
-    test('필수 동의 대기면 동의 뒤에야 회원이 된다', () async {
+    List<ConsentDecision> decide(
+      LoginNeedsConsent w, {
+      bool marketing = false,
+    }) => [
+      for (final c in w.requiredConsents) ConsentDecision(c, agreed: true),
+      for (final c in w.optionalConsents) ConsentDecision(c, agreed: marketing),
+    ];
+
+    test('필수 동의 대기면 동의 뒤에야 회원이 된다 — 완료 본문은 로그인 때 ID 토큰 + 서버가 준 TYPE:version 그대로, 선택은 끈 것도 false', () async {
       final c = make();
       await login(c, SocialProvider.naver);
 
       final consent = settled(c)! as LoginNeedsConsent;
       expect(c.read(sessionProvider), isA<GuestSession>());
       expect(consent.requiredConsents, MockAuthRepository.requiredConsents);
+      expect(consent.optionalConsents, MockAuthRepository.optionalConsents);
+      expect(consent.newAccount, isTrue);
 
       await c
           .read(loginFlowProvider(LoginPurpose.general).notifier)
-          .submitConsents(consent.authRequestId, consent.requiredConsents);
+          .submitConsents(consent, decide(consent));
 
       expect(settled(c), isA<LoginMember>());
       expect(c.read(sessionProvider), isA<MemberSession>());
+      final sent = authRepo.completions.single;
+      expect(sent.providerToken, isNotEmpty);
+      expect(
+        {for (final d in sent.consents) '${d.type}:${d.version}': d.agreed},
+        {
+          'TERMS_OF_SERVICE:2026-11-17': true,
+          'PRIVACY_POLICY:2026-11-17': true,
+          'AGE_OVER_14:1': true,
+          'MARKETING:2026-11-17': false,
+        },
+      );
+    });
+
+    test('기존 회원 재동의는 newAccount=false 로 온다', () async {
+      authRepo.reconsentNext = true;
+      final c = make();
+      await login(c, SocialProvider.naver);
+      expect((settled(c)! as LoginNeedsConsent).newAccount, isFalse);
+    });
+
+    test('필수가 빠지면(422) 동의 화면에 머물고 사유를 들고 있다', () async {
+      final c = make();
+      await login(c, SocialProvider.naver);
+      final consent = settled(c)! as LoginNeedsConsent;
+      await c
+          .read(loginFlowProvider(LoginPurpose.general).notifier)
+          .submitConsents(consent, [
+            ConsentDecision(consent.requiredConsents.first, agreed: true),
+          ]);
+      final after = settled(c)! as LoginNeedsConsent;
+      expect(after.lastError, AuthProblemCode.requiredConsentMissing);
+      expect(c.read(sessionProvider), isA<GuestSession>());
+    });
+
+    test('그 사이 약관 버전이 바뀌면(CONSENT_VERSION_OUTDATED) 로그인을 처음부터', () async {
+      final c = make();
+      await login(c, SocialProvider.naver);
+      final consent = settled(c)! as LoginNeedsConsent;
+      authRepo.rejectNextCompletion = AuthProblemCode.consentVersionOutdated;
+      await c
+          .read(loginFlowProvider(LoginPurpose.general).notifier)
+          .submitConsents(consent, decide(consent));
+      expect(
+        (settled(c)! as LoginRejected).code,
+        AuthProblemCode.consentVersionOutdated,
+      );
+      expect(c.read(sessionProvider), isA<GuestSession>());
+    });
+
+    test('ID 토큰이 만료돼 거절(PROVIDER_REJECTED)되면 새 토큰으로 한 번 더 보낸다', () async {
+      final c = make();
+      await login(c, SocialProvider.naver);
+      final consent = settled(c)! as LoginNeedsConsent;
+      authRepo.rejectNextCompletion = AuthProblemCode.providerRejected;
+      await c
+          .read(loginFlowProvider(LoginPurpose.general).notifier)
+          .submitConsents(consent, decide(consent, marketing: true));
+      expect(settled(c), isA<LoginMember>());
+      expect(authRepo.completions, hasLength(2));
+      expect(authRepo.completions.last.consents.last.agreed, isTrue);
     });
 
     test('제한은 서버가 준 남은 시간으로 알려 주고 세션을 바꾸지 않는다', () async {

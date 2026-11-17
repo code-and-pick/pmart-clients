@@ -40,17 +40,52 @@ final class LoginMember extends LoginOutcome {
   final bool cartMergeConfirm;
 }
 
-/// 필수 동의 대기.
+/// 동의 대기(AUTH_CONSENT, auth 0.2.0 — CU-1). 토큰이 없다. 신규 가입이거나, 기존 회원이 필수 약관의
+/// 현행 버전에 동의한 기록이 없을 때(약관이 바뀐 뒤 첫 로그인 — [newAccount] false = 재동의) 온다.
 final class LoginNeedsConsent extends LoginOutcome {
   const LoginNeedsConsent({
     required this.authRequestId,
     required this.requiredConsents,
+    this.optionalConsents = const [],
+    this.newAccount = true,
+    this.lastError,
   });
 
   final String authRequestId;
 
-  /// 서버가 준 필요한 동의 항목(형식은 BR-20 확인 중이라 그대로 보존).
+  /// 필수 항목 `TYPE:version`(BR-20 회신 — 형식 확정). 버전은 서버 값을 그대로 돌려보낸다(앱 상수 금지).
   final List<String> requiredConsents;
+
+  /// 선택 항목 `TYPE:version`(예 MARKETING). 고객이 끈 것도 거부(false)로 보낸다.
+  final List<String> optionalConsents;
+  final bool newAccount;
+
+  /// 직전 동의 완료가 화면에 머무는 사유로 거절됐다(예 REQUIRED_CONSENT_MISSING).
+  final String? lastError;
+
+  LoginNeedsConsent withError(String? code) => LoginNeedsConsent(
+    authRequestId: authRequestId,
+    requiredConsents: requiredConsents,
+    optionalConsents: optionalConsents,
+    newAccount: newAccount,
+    lastError: code,
+  );
+}
+
+/// 동의 항목 하나의 결정. [item] 은 서버가 준 `TYPE:version` 그대로다.
+@immutable
+final class ConsentDecision {
+  const ConsentDecision(this.item, {required this.agreed});
+
+  final String item;
+  final bool agreed;
+
+  String get type => item.split(':').first;
+
+  String get version {
+    final parts = item.split(':');
+    return parts.length > 1 ? parts.sublist(1).join(':') : '';
+  }
 }
 
 /// 실패가 잦아 잠시 제한됨(423 AUTH_RESTRICTED). 남은 시간은 서버 값.
@@ -89,6 +124,12 @@ abstract final class AuthProblemCode {
   static const providerRejected = 'PROVIDER_REJECTED';
   static const providerUnavailable = 'PROVIDER_UNAVAILABLE';
   static const requiredConsentMissing = 'REQUIRED_CONSENT_MISSING';
+
+  /// 동의 완료 거절 — 로그인을 처음부터 다시 해야 하는 것(auth 0.2.0 완료 오류 표).
+  static const forbidden = 'FORBIDDEN';
+  static const invalidState = 'INVALID_STATE';
+  static const consentVersionOutdated = 'CONSENT_VERSION_OUTDATED';
+  static const restartLogin = {forbidden, invalidState, consentVersionOutdated};
   static const accountNotPurchasable = 'ACCOUNT_NOT_PURCHASABLE';
 
   /// 백엔드 안내(403)의 코드. 계약(422 ACCOUNT_NOT_PURCHASABLE)과 달라 확인 중(BR-27).

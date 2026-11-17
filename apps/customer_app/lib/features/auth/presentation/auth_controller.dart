@@ -40,7 +40,8 @@ final loginResolveAttemptsProvider = Provider<int>((_) => 2);
 /// `dioProvider` 의 세션 종료 콜백을 세션 컨트롤러에 연결한다. 앱 루트(`ProviderScope`)에서 이 값으로
 /// `onSessionExpiredProvider` 를 덮는다.
 final sessionExpiryHandlerProvider = Provider<void Function()>(
-  (ref) => () => ref.read(sessionProvider.notifier).expired(),
+  (ref) =>
+      () => ref.read(sessionProvider.notifier).expired(),
 );
 
 /// 앱 시작 때 한 번: 저장된 refresh token 이 있으면 세션을 되살린다. 실패하면 비회원으로 둔다.
@@ -244,6 +245,12 @@ class LoginFlowController extends Notifier<LoginFlow> {
   /// 이번 로그인 시도의 제공자·계정 표시(회원이 되면 세션에 붙인다).
   ({SocialProvider provider, String? label})? _who;
 
+  /// 이번 로그인에서 받은 제공자 ID 토큰 — 동의 완료(auth 0.2.0)에 다시 보낸다. 메모리에만, 로그 금지.
+  String? _providerToken;
+
+  /// 결과를 모르는 동의 완료의 키 — 다시 누르면 같은 키로 보낸다(서버가 새 토큰을 준다, 두 번 가입되지 않음).
+  IdempotencyKey? _completionKey;
+
   @override
   LoginFlow build() => const LoginIdle();
 
@@ -267,6 +274,8 @@ class LoginFlowController extends Notifier<LoginFlow> {
     if (!ref.mounted) return;
     if (credential == null) return _settle(const LoginCancelled());
     _who = (provider: provider, label: credential.accountLabel);
+    _providerToken = credential.token;
+    _completionKey = null;
     final key = IdempotencyKey.generate();
     final outcome = await _repo.login(
       provider,
@@ -312,27 +321,84 @@ class LoginFlowController extends Notifier<LoginFlow> {
     await _settle(outcome);
   }
 
+  /// 동의 완료(auth 0.2.0 completions — CU-1). [consents] 는 필수(모두 true)와 선택(고른 값)을 모두 담는다.
+  ///
+  /// - 결과 불명·503 은 같은 키로 다시 보낸다(서버가 새 토큰을 준다). 끝내 모르면 동의 화면에 남고 다시 누르면 같은 키.
+  /// - 401 PROVIDER_REJECTED(ID 토큰 만료 — 약 1시간)는 제공자에서 새 토큰을 받아 한 번 더(본문이 바뀌어 새 키).
+  /// - FORBIDDEN·INVALID_STATE·CONSENT_VERSION_OUTDATED 는 로그인을 처음부터(로그인 화면에 안내).
+  /// - 그 밖 거절(REQUIRED_CONSENT_MISSING 등)은 동의 화면을 유지하고 사유를 보인다.
   Future<void> submitConsents(
-    String authRequestId,
-    List<String> consents,
+    LoginNeedsConsent waiting,
+    List<ConsentDecision> consents,
   ) async {
     if (busy) return;
-    final previous = state;
-    state = LoginWorking(
-      previous is LoginWorking ? previous.provider : SocialProvider.naver,
-    );
-    final outcome = await _repo.completeWithConsents(
-      authRequestId,
-      consents,
-      key: IdempotencyKey.generate(),
-    );
+    final provider = _who?.provider ?? SocialProvider.google;
+    state = LoginWorking(provider);
+    var token = _providerToken ?? await _freshToken(provider);
     if (!ref.mounted) return;
-    // 동의가 거절되면 동의 화면을 유지한다.
-    if (outcome is LoginRejected && previous is LoginSettled) {
-      state = previous;
+    if (token == null) {
+      // 본인 확인용 토큰을 다시 받지 못했다 — 처음부터 로그인한다.
+      return _settle(const LoginRejected(AuthProblemCode.providerRejected));
+    }
+    var key = _completionKey ?? IdempotencyKey.generate();
+    var outcome = await _complete(waiting.authRequestId, token, consents, key);
+    if (!ref.mounted) return;
+    if (outcome case LoginRejected(code: AuthProblemCode.providerRejected)) {
+      final fresh = await _freshToken(provider);
+      if (!ref.mounted) return;
+      if (fresh != null) {
+        _providerToken = token = fresh;
+        key = IdempotencyKey.generate();
+        outcome = await _complete(waiting.authRequestId, fresh, consents, key);
+        if (!ref.mounted) return;
+      }
+    }
+    if (outcome is LoginUnknown) {
+      _completionKey = key;
+      state = LoginSettled(waiting.withError(ProblemCode.unknownResult));
       return;
     }
+    _completionKey = null;
+    if (outcome case LoginRejected(:final code)
+        when !AuthProblemCode.restartLogin.contains(code) &&
+            code != AuthProblemCode.providerRejected) {
+      state = LoginSettled(waiting.withError(code));
+      return;
+    }
+    if (outcome is! LoginNeedsConsent) _providerToken = null;
     await _settle(outcome);
+  }
+
+  Future<LoginOutcome> _complete(
+    String authRequestId,
+    String token,
+    List<ConsentDecision> consents,
+    IdempotencyKey key,
+  ) async {
+    LoginOutcome outcome = const LoginUnknown();
+    final attempts = ref.read(loginResolveAttemptsProvider);
+    for (var i = 0; i < attempts && outcome is LoginUnknown; i++) {
+      outcome = await _repo.completeWithConsents(
+        authRequestId,
+        providerToken: token,
+        consents: consents,
+        key: key,
+      );
+      if (!ref.mounted) return outcome;
+    }
+    return outcome;
+  }
+
+  /// 제공자 ID 토큰을 다시 받는다(조용히 먼저, 안 되면 화면). 못 받으면 null.
+  Future<String?> _freshToken(SocialProvider provider) async {
+    final source = ref.read(socialTokenSourceProvider);
+    try {
+      final silent = await source.obtainSilently(provider);
+      if (silent != null) return silent.token;
+      return (await source.obtain(provider))?.token;
+    } on Object {
+      return null;
+    }
   }
 
   Future<void> _settle(LoginOutcome outcome) async {

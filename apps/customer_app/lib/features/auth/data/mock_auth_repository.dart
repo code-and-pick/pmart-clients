@@ -75,11 +75,24 @@ base class MockAuthRepository implements AuthRepository {
   }
 
   static const accountId = 'acct-mock-1';
+
+  /// 백엔드 알림(CU-1, 2026-11-17)의 지금 버전과 같다 — 앱은 이 값을 상수로 쓰지 않고 응답 그대로 돌려보낸다.
   static const requiredConsents = [
-    'TERMS_OF_SERVICE:2026-10',
-    'PRIVACY_POLICY:2026-10',
-    'AGE_OVER_14:2026-10',
+    'TERMS_OF_SERVICE:2026-11-17',
+    'PRIVACY_POLICY:2026-11-17',
+    'AGE_OVER_14:1',
   ];
+  static const optionalConsents = ['MARKETING:2026-11-17'];
+
+  /// 다음 동의 대기를 기존 회원의 재동의(newAccount=false)로 만든다.
+  bool reconsentNext = false;
+
+  /// 다음 동의 완료를 이 코드로 거절한다(예 CONSENT_VERSION_OUTDATED·PROVIDER_REJECTED).
+  String? rejectNextCompletion;
+
+  /// 받은 동의 완료(시험용): 보낸 ID 토큰과 결정.
+  final completions =
+      <({String providerToken, List<ConsentDecision> consents})>[];
 
   final _byKey = <String, Map<String, Object?>>{};
   final _byRequest = <String, Map<String, Object?>>{};
@@ -138,12 +151,15 @@ base class MockAuthRepository implements AuthRepository {
       case SocialProvider.kakao:
         return _out(_byKey[key.value] = _member(id, merge: merge));
       case SocialProvider.naver:
+        final reconsent = reconsentNext;
+        reconsentNext = false;
         final json = {
           'authRequestId': id,
           'state': 'AUTH_CONSENT',
           'accountId': accountId,
-          'newAccount': true,
+          'newAccount': !reconsent,
           'requiredConsents': requiredConsents,
+          'optionalConsents': optionalConsents,
           'nextAction': 'COMPLETE_CONSENT',
         };
         _byRequest[id] = json;
@@ -168,16 +184,43 @@ base class MockAuthRepository implements AuthRepository {
 
   @override
   Future<LoginOutcome> completeWithConsents(
-    String authRequestId,
-    List<String> consents, {
+    String authRequestId, {
+    required String providerToken,
+    required List<ConsentDecision> consents,
     required IdempotencyKey key,
   }) async {
     await _wait();
-    final missing = requiredConsents.where((c) => !consents.contains(c));
-    if (missing.isNotEmpty) {
-      return const LoginRejected(AuthProblemCode.requiredConsentMissing);
+    completions.add((providerToken: providerToken, consents: consents));
+    if (rejectNextCompletion case final code?) {
+      rejectNextCompletion = null;
+      return authFailureToOutcome(
+        ProblemFailure(Problem(status: 422, code: code)),
+      );
     }
-    final json = _member(authRequestId, newAccount: true);
+    final waiting = _byRequest[authRequestId];
+    if (waiting == null || waiting['state'] != 'AUTH_CONSENT') {
+      return authFailureToOutcome(
+        const ProblemFailure(
+          Problem(status: 409, code: AuthProblemCode.invalidState),
+        ),
+      );
+    }
+    // 서버 흉내: 필수 항목이 모두 agreed=true 로 와야 한다.
+    final agreed = {
+      for (final c in consents)
+        if (c.agreed) c.item,
+    };
+    if (requiredConsents.any((c) => !agreed.contains(c))) {
+      return authFailureToOutcome(
+        const ProblemFailure(
+          Problem(status: 422, code: AuthProblemCode.requiredConsentMissing),
+        ),
+      );
+    }
+    final json = _member(
+      authRequestId,
+      newAccount: waiting['newAccount'] == true,
+    );
     _byRequest[authRequestId] = json;
     return _out(json);
   }
