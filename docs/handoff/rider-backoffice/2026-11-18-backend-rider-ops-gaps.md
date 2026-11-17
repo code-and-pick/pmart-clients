@@ -3,6 +3,7 @@
 - 보낸 앱: rider-backoffice (PC 5)
 - 받는 백엔드 영역: delivery (rider-service·delivery-execution·delivery-dispatch)
 - 근거: 사용자 2026-11-17 "PMart 라이더 백오피스 — 클라이언트 담당"(A 대시보드 ~ G 정산), main #88(메뉴 11개) + 이 PR(배차 시도·도착 예정·도움요청 사진·처리함·가리기·관제 지도)
+- **회신·반영(2026-11-18)**: 백엔드 `../pmart-backend/docs/handoff/clients/rider-backoffice/2026-11-18-reply-rider-ops-gaps.md` — 1번은 정책 뒤, 2~6번은 rider 0.10.0·dispatch 0.8.0·execution 0.21.1·0.22.0 으로 PR #93 에 반영, 7번은 execution 0.22.1 `Evidence.method` enum(FACE·CONTACTLESS·CUSTOMER_CONFIRMED·AUTO_COMPLETED)으로 반영. **남은 것: 1번(가입 승인·거절)만** — 끝나면 archive 로.
 - 클라이언트 처리: 아래는 모두 **화면에 만들지 않거나 "직원용 API 없음"으로 안내만** 한다(추측 호출·가짜 값 없음). 생기면 붙인다.
 
 | # | 화면 | 필요한 것 | 지금 화면 |

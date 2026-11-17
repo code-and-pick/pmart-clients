@@ -17,6 +17,7 @@ import { useEvidenceLoader } from '../../shared/evidenceLoader';
 type Attempt = NonNullable<DispatchC['schemas']['Delivery']['attempts']>[number];
 type EtaLeg = TrackingC['schemas']['EtaLeg'];
 type Execution = ExecC['schemas']['DeliveryExecution'];
+type CompletionMethod = NonNullable<NonNullable<Execution['evidence']>['method']>;
 
 export const extrasMessages = {
   attempts: '배차 시도',
@@ -49,8 +50,8 @@ export const extrasMessages = {
   proof: '전달 완료 증빙',
   noProof: '증빙이 없어요(아직 전달 전이거나 사진 없는 완료).',
   method: '완료 방법',
-  // FACE·CONTACTLESS = 계약 Evidence, CUSTOMER_CONFIRMED = 계약 설명(0.20.0), AUTO_COMPLETED = 백엔드 알림(2026-11-17 조치 API) — 그 밖 값은 받은 그대로
-  methodName: { FACE: '대면 전달', CONTACTLESS: '비대면(사진)', CUSTOMER_CONFIRMED: '고객이 "받았어요"', AUTO_COMPLETED: '자동 완료(픽업 5시간)' } as Readonly<Record<string, string>>,
+  // 완료 방법 — execution 0.22.1 계약 enum(요청서 #7 회신). 값이 늘면 타입 검사에서 걸린다. 사진은 FACE·CONTACTLESS 만(CUSTOMER_CONFIRMED·AUTO_COMPLETED 는 사진 없음)
+  methodName: { FACE: '대면 전달', CONTACTLESS: '비대면(사진)', CUSTOMER_CONFIRMED: '고객이 "받았어요"', AUTO_COMPLETED: '자동 완료(픽업 5시간)' } satisfies Record<CompletionMethod, string> as Readonly<Record<string, string>>,
   placement: '놓은 곳',
   placementName: { HANDED_TO_CUSTOMER: '고객에게 직접', FRONT_DOOR: '문 앞', SECURITY_OFFICE: '경비실', DELIVERY_BOX: '택배함', OTHER: '기타' } as Readonly<Record<string, string>>,
   takenAt: '찍은 시각',
