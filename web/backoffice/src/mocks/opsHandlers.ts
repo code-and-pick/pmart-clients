@@ -196,6 +196,7 @@ function seed(): OpsState {
       order('ORD-MOCK-1001', 'IN_DELIVERY', ago(1), '01012345678'),
       order('ORD-MOCK-1002', 'IN_DELIVERY', ago(26), '01055556666'),
       order('ORD-MOCK-1003', 'PREPARING', ago(72), '01012345678'),
+      { ...order('ORD-MOCK-1005', 'CONFIRMED', ago(0.5), '01077778888'), lines: [{ orderLineId: 'ORD-MOCK-1005-L1', sku: 'E-00000001', productName: '사과 1.5kg', originalQty: 2, cancelledBeforeShipQty: 0, unfulfilledQty: 2, handedOverQty: 0, deliveredQty: 0, returnedQty: 0, unitPrice: 6000, lineAmount: 12000 }] },
     ],
     executions: new Map([
       ['DLV-MOCK-1', execution('DLV-MOCK-1', 'ORD-MOCK-1001', 'PICKED_UP', 'RID-MOCK-1')],
@@ -343,6 +344,33 @@ const complaintSummary = (c: Complaint) => ({
 });
 
 const CS = ['CS_AGENT', 'OPERATOR_ADMIN'];
+
+/** claim 0.4.0 고객센터 주문 취소(상품준비 전, 주문 전체) */
+function createCancel(body: ClaimC['schemas']['CreateClaimRequest']) {
+  if (!body.identityCheck?.method || (body.identityCheck.method === 'OTHER' && !body.identityCheck.note)) return problem(400, 'VALIDATION_FAILED');
+  if (body.faultCode || body.channel === 'CUSTOMER_APP' || body.reason === 'FULFILLMENT_REJECTED' || body.reason === 'OUT_OF_STOCK') return problem(400, 'VALIDATION_FAILED');
+  const order = ops.orders.find((o) => o.orderId === body.orderId);
+  if (!order) return problem(404, 'ORDER_NOT_FOUND');
+  if (order.status !== 'CONFIRMED')
+    return { status: 422, body: { type: 'about:blank', title: 'ORDER_NOT_CANCELLABLE', status: 422, code: 'ORDER_NOT_CANCELLABLE', traceId: 'mock', detail: '[목] 상품 준비가 시작되어 취소할 수 없습니다 — 받으신 뒤 반품으로 안내해 주세요.' } };
+  const whole = order.lines.every((l) => body.lines.some((x) => x.orderLineId === l.orderLineId && x.qty === (l.unfulfilledQty ?? 0)));
+  if (!whole || body.lines.length !== order.lines.length) return problem(422, 'PARTIAL_CANCEL_NOT_ALLOWED');
+  if (ops.claims.some((c) => c.type === 'CANCEL' && c.orderId === body.orderId && !['CANCELLED', 'CLOSED', 'REJECTED', 'WITHDRAWN'].includes(c.state ?? ''))) return problem(422, 'DUPLICATE_CLAIM');
+  const claim: Claim = {
+    claimId: `CLM-CAN-${ops.claims.length + 1}`,
+    orderId: body.orderId,
+    type: 'CANCEL',
+    channel: body.channel ?? 'CS',
+    state: 'STOP_PENDING',
+    reason: body.reason,
+    ...(body.reasonDetail ? { reasonDetail: body.reasonDetail } : {}),
+    openedAt: new Date().toISOString(),
+    version: 1,
+    lines: body.lines.map((l, i) => ({ claimLineId: `CL-CAN-${i + 1}`, orderLineId: l.orderLineId, requestedQty: l.qty, decision: 'APPROVED' as const })),
+  };
+  ops.claims.unshift(claim);
+  return { status: 201, body: claim };
+}
 const LOOKUP = ['CS_AGENT', 'OPERATOR_ADMIN', 'RIDER_OPS'];
 const ADMIN = ['OPERATOR_ADMIN'];
 /** rider 0.4.0·dispatch 0.3.2·execution 0.4.0(BOD-1): 라이더 운영 역할도 계정 제한·검토·배차 취소·실패 결정 */
@@ -661,6 +689,7 @@ export const opsHandlers = [
     if (denied) return denied;
     const body = (await request.clone().json()) as ClaimC['schemas']['CreateClaimRequest'];
     return idempotent(request, () => {
+      if (body.type === 'CANCEL') return createCancel(body);
       if (body.type !== 'RETURN') return problem(422, 'UNSUPPORTED_ACTION');
       if (!body.identityCheck?.method || (body.identityCheck.method === 'OTHER' && !body.identityCheck.note)) return problem(400, 'VALIDATION_FAILED');
       const order = ops.orders.find((o) => o.orderId === body.orderId);

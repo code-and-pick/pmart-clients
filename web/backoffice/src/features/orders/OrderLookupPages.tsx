@@ -15,6 +15,7 @@ import { ChipGroup, DataTable, DetailHeader, FieldList, Notice, PageHeader, Resu
 import { messages as m } from '../../shared/messages';
 import { addSeoulDays, isSeoulDate, label, seoulDayEnd, seoulDayStart, seoulToday, spanDays, text, when, won } from '../../shared/ops';
 import { ClaimsOfOrder } from '../claims/ClaimPages';
+import { OrderCancelAction, OrderCancelForm } from '../claims/OrderCancel';
 import { ReturnIntakeLink } from '../claims/ReturnClaim';
 import { DeliveriesOf } from '../deliveries/DeliveryPages';
 
@@ -314,6 +315,8 @@ export function OrderDetailPage() {
     queryKey: ['orders', 'lookup', orderId],
     queryFn: () => request('GET', api.orders.GET('/orders/lookups/{orderId}', { params: { path: { orderId } } })),
   });
+  // 고객센터 주문 취소(claim 0.4.0) — 상품준비 전만, 머리 오른쪽 버튼으로 연다
+  const [cancelOpen, setCancelOpen] = useState(false);
 
   const back = { to: '/orders', label: m.orders.back };
   const tabs = [
@@ -341,7 +344,9 @@ export function OrderDetailPage() {
                 </StatusBadge>
               }
               summary={`${when(o.confirmedAt)} · ${o.mfcId} · ${label(m.orders.mode, o.deliveryMode)} · ${won(o.amounts.approvedAmount)}`}
+              actions={<OrderCancelAction order={o} open={cancelOpen} onOpen={() => setCancelOpen(true)} />}
             />
+            {cancelOpen && o.status === 'CONFIRMED' && <OrderCancelForm order={o} onClose={() => setCancelOpen(false)} />}
             <SectionTabs items={tabs} />
             <Section id="order-basic" title={m.orders.sectionBasic}>
               <FieldList
