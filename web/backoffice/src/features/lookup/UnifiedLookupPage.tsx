@@ -17,6 +17,7 @@ import { messages } from '../../shared/messages';
 import { label, when, won } from '../../shared/ops';
 import { SourceStamps } from '../../shared/SourceStamps';
 import { FieldWork } from './FieldSection';
+import { PageHeader } from '../../shared/admin';
 
 const m = messages.lookup;
 
@@ -100,12 +101,12 @@ function SummaryFacts({ summary, skip }: { readonly summary: Record<string, unkn
 
 function SourceLine({ source }: { readonly source: SourceStamp | undefined }) {
   if (!source) return null;
-  return <p className="text-xs opacity-70">{`${source.system} · ${source.asOf.asOf ? when(source.asOf.asOf) : messages.none}`}</p>;
+  return <p className="text-xs text-base-content/60">{`${source.system} · ${source.asOf.asOf ? when(source.asOf.asOf) : messages.none}`}</p>;
 }
 
 function Section({ title, failed, children }: { readonly title: string; readonly failed: boolean; readonly children: ReactNode }) {
   return (
-    <section className="space-y-2 rounded-box bg-base-100 p-4" aria-label={title}>
+    <section className="space-y-2 rounded-box border border-base-300 bg-base-100 p-4" aria-label={title}>
       <h2 className="font-semibold">{title}</h2>
       {failed ? (
         <p role="alert" className="alert alert-warning text-sm" data-state="source-failed">
@@ -141,10 +142,9 @@ export function UnifiedLookupPage() {
 
   return (
     <section className="max-w-5xl space-y-4">
-      <h1 className="text-xl font-bold">{m.title}</h1>
-      <p className="text-sm opacity-70">{m.intro}</p>
+      <PageHeader title={m.title} description={m.intro} />
       <form
-        className="flex flex-wrap items-end gap-2 rounded-box bg-base-100 p-3 text-sm"
+        className="flex flex-wrap items-end gap-2 rounded-box border border-base-300 bg-base-100 p-3 text-sm"
         aria-label={m.search}
         onSubmit={(e) => {
           e.preventDefault();
@@ -168,7 +168,7 @@ export function UnifiedLookupPage() {
         <button type="submit" className="btn btn-sm btn-primary" disabled={!input.trim()}>
           {m.search}
         </button>
-        <p className="w-full text-xs opacity-70">{m.qHint}</p>
+        <p className="w-full text-xs text-base-content/60">{m.qHint}</p>
       </form>
       {q &&
         (codeFailure ? (
@@ -178,8 +178,8 @@ export function UnifiedLookupPage() {
             {(view) => <LookupResult view={view} onOpenOrder={(orderId) => go(orderId, 'ORDER')} />}
           </QueryState>
         ))}
-      <p className="text-xs opacity-70">{m.piiNote}</p>
-      <p className="text-xs opacity-70">{m.notYet}</p>
+      <p className="text-xs text-base-content/60">{m.piiNote}</p>
+      <p className="text-xs text-base-content/60">{m.notYet}</p>
     </section>
   );
 }
@@ -200,7 +200,7 @@ function LookupResult({ view, onOpenOrder }: { readonly view: LookupView; readon
       <SourceStamps sources={view.sources} unavailableSources={view.unavailableSources} />
       {resolvedKind && <p className="text-sm">{m.resolved(label(m.kindName, resolvedKind), view.resolved?.orderId ?? null)}</p>}
       {matches.length === 0 && failed.size === 0 ? (
-        <p data-state="empty" className="p-4 opacity-70">
+        <p data-state="empty" className="p-4 text-base-content/60">
           {m.notFound}
         </p>
       ) : resolvedKind === 'CUSTOMER' ? (

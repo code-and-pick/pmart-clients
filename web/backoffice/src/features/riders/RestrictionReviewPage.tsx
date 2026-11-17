@@ -13,6 +13,7 @@ import { useApi } from '../../app/ApiContext';
 import { CommandFeedback } from '../../shared/Feedback';
 import { messages as m } from '../../shared/messages';
 import { label, text, when } from '../../shared/ops';
+import { DataTable, PageHeader } from '../../shared/admin';
 
 type Review = components['schemas']['RestrictionReview'];
 type ReviewState = 'OPEN' | 'RESTRICTED' | 'DISMISSED';
@@ -82,9 +83,9 @@ export function ReviewTable({ state, riderId }: { readonly state: ReviewState; r
     <QueryState state={toUiState(query)} onRetry={() => void query.refetch()}>
       {(r) =>
         (r.items ?? []).length === 0 ? (
-          <p className="text-sm opacity-70">{m.reviews.empty}</p>
+          <p className="text-sm text-base-content/60">{m.reviews.empty}</p>
         ) : (
-          <table className="table table-sm rounded-box bg-base-100">
+          <DataTable>
             <thead>
               <tr>
                 <th>{m.reviews.rider}</th>
@@ -117,7 +118,7 @@ export function ReviewTable({ state, riderId }: { readonly state: ReviewState; r
                 </tr>
               ))}
             </tbody>
-          </table>
+          </DataTable>
         )
       }
     </QueryState>
@@ -130,8 +131,7 @@ export function RestrictionReviewPage() {
   const state: ReviewState = isState(raw) ? raw : 'OPEN';
   return (
     <section className="space-y-4">
-      <h1 className="text-xl font-bold">{m.reviews.title}</h1>
-      <p className="text-sm opacity-70">{m.reviews.intro}</p>
+      <PageHeader title={m.reviews.title} description={m.reviews.intro} />
       <div role="group" aria-label={m.reviews.title} className="join">
         {STATES.map((s) => (
           <button key={s} type="button" aria-pressed={state === s} className={`btn join-item btn-sm ${state === s ? 'btn-active' : ''}`} onClick={() => setSearch({ state: s })}>

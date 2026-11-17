@@ -15,6 +15,7 @@ import { useApi } from '../../app/ApiContext';
 import { messages } from '../../shared/messages';
 import { label, when } from '../../shared/ops';
 import { SourceStamps } from '../../shared/SourceStamps';
+import { DataTable, PageHeader } from '../../shared/admin';
 
 const m = messages.live;
 const d = messages.deliveries;
@@ -80,7 +81,7 @@ function EtaLine({ it }: { readonly it: LiveItem }) {
     );
   }
   return (
-    <div className="text-xs opacity-70" data-testid="live-eta">
+    <div className="text-xs text-base-content/60" data-testid="live-eta">
       {it.etaStatus === 'LOCATING' || it.etaStatus === 'ETA_PENDING' ? m.etaChecking : m.etaNone}
     </div>
   );
@@ -127,9 +128,8 @@ export function LiveDeliveryPage() {
 
   return (
     <section className="space-y-4">
-      <h1 className="text-xl font-bold">{m.title}</h1>
-      <p className="text-sm opacity-70">{m.intro}</p>
-      <div className="flex flex-wrap items-end gap-2 rounded-box bg-base-100 p-3 text-sm" role="group" aria-label={m.filters}>
+      <PageHeader title={m.title} description={m.intro} />
+      <div className="flex flex-wrap items-end gap-2 rounded-box border border-base-300 bg-base-100 p-3 text-sm" role="group" aria-label={m.filters}>
         <label className="flex flex-col gap-1">
           {m.center}
           <select className="select select-sm w-48" value={mfcId} onChange={(e) => set({ mfcId: e.target.value })}>
@@ -156,7 +156,7 @@ export function LiveDeliveryPage() {
         <button type="button" className="btn btn-sm" onClick={() => void query.refetch()} disabled={query.isFetching}>
           {m.refresh}
         </button>
-        <span className="text-xs opacity-70">{m.autoRefreshNote}</span>
+        <span className="text-xs text-base-content/60">{m.autoRefreshNote}</span>
         {centers.isError && (
           <p role="alert" className="w-full text-xs text-warning">
             {m.centersFailed}
@@ -181,7 +181,7 @@ export function LiveDeliveryPage() {
                 </p>
               )}
               {items.length === 0 ? (
-                <p data-state="empty" className="p-4 opacity-70">
+                <p data-state="empty" className="p-4 text-base-content/60">
                   {m.empty}
                 </p>
               ) : (
@@ -214,7 +214,7 @@ function LiveTable({ items, composedAt, casesTruncated = false }: { readonly ite
   const now = composedAt ? Date.parse(composedAt) : Number.NaN; // 없으면 표시하지 않음
   return (
     <div className="overflow-x-auto">
-      <table className="table table-sm rounded-box bg-base-100">
+      <DataTable>
         <thead>
           <tr>
             <th>{m.col.delivery}</th>
@@ -248,7 +248,7 @@ function LiveTable({ items, composedAt, casesTruncated = false }: { readonly ite
                 <td>
                   {windowText(it.arrivalWindow)}
                   {late && <span className="badge badge-error badge-sm ml-1">{m.late}</span>}
-                  {it.promisedAt && <div className="text-xs opacity-70">{when(it.promisedAt)}</div>}
+                  {it.promisedAt && <div className="text-xs text-base-content/60">{when(it.promisedAt)}</div>}
                   <EtaLine it={it} />
                 </td>
                 <td data-testid="open-cases">
@@ -274,7 +274,7 @@ function LiveTable({ items, composedAt, casesTruncated = false }: { readonly ite
             );
           })}
         </tbody>
-      </table>
+      </DataTable>
     </div>
   );
 }

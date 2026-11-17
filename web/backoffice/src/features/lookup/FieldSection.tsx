@@ -30,7 +30,7 @@ function Task({ t }: { readonly t: Obj }) {
     <li className={`rounded-box border p-2 text-xs ${blocked ? 'border-error text-error' : 'border-base-300'}`} data-testid="field-task" data-type={str(t['taskType']) ?? ''} data-state={state ?? ''}>
       <span className="font-semibold">{label(m.taskName, str(t['taskType']))}</span> {text(state)}
       {planned !== null && <span className="ml-1 opacity-80">{m.qty(done ?? 0, planned, cancelled ?? 0)}</span>}
-      {str(t['workerId']) && <span className="ml-1 font-mono opacity-70">{m.worker(str(t['workerId'])!)}</span>}
+      {str(t['workerId']) && <span className="ml-1 font-mono text-base-content/60">{m.worker(str(t['workerId'])!)}</span>}
       {blocked && str(t['blockReason']) && <span className="block font-bold">{m.blocked(str(t['blockReason'])!)}</span>}
     </li>
   );
@@ -123,7 +123,7 @@ export function FieldWork({ matches }: { readonly matches: ReadonlyArray<{ reado
       {stops.map((s) => (
         <StopCard key={s.id} id={s.id ?? ''} summary={obj(s.summary)} />
       ))}
-      <p className="text-xs opacity-70">{m.note}</p>
+      <p className="text-xs text-base-content/60">{m.note}</p>
     </div>
   );
 }

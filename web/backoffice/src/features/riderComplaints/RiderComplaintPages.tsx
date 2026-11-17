@@ -13,6 +13,7 @@ import { useApi } from '../../app/ApiContext';
 import { CommandFeedback } from '../../shared/Feedback';
 import { messages as m } from '../../shared/messages';
 import { Facts, isSeoulDate, label, seoulDayEnd, seoulDayStart, text, when } from '../../shared/ops';
+import { DataTable, PageHeader } from '../../shared/admin';
 
 type ComplaintType = components['schemas']['RiderComplaintType'];
 type Summary = components['schemas']['RiderComplaintSummary'];
@@ -70,10 +71,10 @@ export function RiderComplaintTable({ riderId, deliveryId, complaintType, from, 
       </QueryState>
     );
   }
-  if (items.length === 0) return <p className="text-sm opacity-70">{m.complaints.empty}</p>;
+  if (items.length === 0) return <p className="text-sm text-base-content/60">{m.complaints.empty}</p>;
   return (
     <>
-      <table className="table table-sm rounded-box bg-base-100">
+      <DataTable>
         <thead>
           <tr>
             <th>ID</th>
@@ -110,7 +111,7 @@ export function RiderComplaintTable({ riderId, deliveryId, complaintType, from, 
             </tr>
           ))}
         </tbody>
-      </table>
+      </DataTable>
       {query.isFetchNextPageError && <p className="text-sm text-error">{m.complaints.moreFailed}</p>}
       {query.hasNextPage && (
         <button type="button" className="btn btn-sm" disabled={query.isFetchingNextPage} onClick={() => void query.fetchNextPage()}>
@@ -140,13 +141,13 @@ export function RiderComplaintListPage() {
   return (
     <section className="space-y-4">
       <div className="flex items-center gap-2">
-        <h1 className="text-xl font-bold">{m.complaints.title}</h1>
+        <PageHeader title={m.complaints.title} />
         <Link className="btn btn-primary btn-sm ml-auto" to="/rider-complaints/new">
           {m.complaints.record}
         </Link>
       </div>
-      <p className="text-sm opacity-70">{m.complaints.intro}</p>
-      <form className="flex flex-wrap items-end gap-2 rounded-box bg-base-100 p-4" onSubmit={submit} aria-label={m.complaints.title}>
+      <p className="text-sm text-base-content/60">{m.complaints.intro}</p>
+      <form className="flex flex-wrap items-end gap-2 rounded-box border border-base-300 bg-base-100 p-4" onSubmit={submit} aria-label={m.complaints.title}>
         <label className="text-sm">
           {m.complaints.riderId}
           <input className="input input-sm mt-1 block" {...field('riderId')} />
@@ -229,9 +230,8 @@ export function NewRiderComplaintPage() {
 
   return (
     <section className="max-w-2xl space-y-4">
-      <h1 className="text-xl font-bold">{m.complaints.newTitle}</h1>
-      <p className="text-sm opacity-70">{m.complaints.newIntro}</p>
-      <form className="space-y-3 rounded-box bg-base-100 p-4" onSubmit={submit} aria-label={m.complaints.newTitle}>
+      <PageHeader title={m.complaints.newTitle} description={m.complaints.newIntro} />
+      <form className="space-y-3 rounded-box border border-base-300 bg-base-100 p-4" onSubmit={submit} aria-label={m.complaints.newTitle}>
         <label className="block text-sm">
           {m.complaints.deliveryId}
           <input className="input input-sm mt-1 w-full" required maxLength={64} {...field('deliveryId')} />

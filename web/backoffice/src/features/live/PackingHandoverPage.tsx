@@ -16,6 +16,7 @@ import { useApi } from '../../app/ApiContext';
 import { messages } from '../../shared/messages';
 import { label, text, when } from '../../shared/ops';
 import { SourceStamps } from '../../shared/SourceStamps';
+import { DataTable, PageHeader } from '../../shared/admin';
 
 const m = messages.packing;
 type View = operations['getPackingHandoverView']['responses'][200]['content']['application/json'];
@@ -34,7 +35,7 @@ function StageCell({ it }: { readonly it: Item }) {
     return (
       <span data-testid="packing-stage">
         {messages.none}
-        <span className="block text-xs opacity-70">{m.rawStates(text(it.shipment?.state), text(it.pick?.state), text(packState))}</span>
+        <span className="block text-xs text-base-content/60">{m.rawStates(text(it.shipment?.state), text(it.pick?.state), text(packState))}</span>
       </span>
     );
   const waiting = it.stage === 'PACKING' && (packState === null || PACK_NOT_STARTED.includes(packState));
@@ -113,9 +114,8 @@ export function PackingHandoverPage() {
 
   return (
     <section className="space-y-4">
-      <h1 className="text-xl font-bold">{m.title}</h1>
-      <p className="text-sm opacity-70">{m.intro}</p>
-      <div className="flex flex-wrap items-end gap-2 rounded-box bg-base-100 p-3 text-sm" role="group" aria-label={m.filters}>
+      <PageHeader title={m.title} description={m.intro} />
+      <div className="flex flex-wrap items-end gap-2 rounded-box border border-base-300 bg-base-100 p-3 text-sm" role="group" aria-label={m.filters}>
         <label className="flex flex-col gap-1">
           {m.center}
           <select className="select select-sm w-56" value={mfcId} onChange={(e) => set({ mfcId: e.target.value })}>
@@ -142,12 +142,12 @@ export function PackingHandoverPage() {
         <button type="button" className="btn btn-sm" disabled={!mfcId || query.isFetching} onClick={() => void query.refetch()}>
           {m.refresh}
         </button>
-        <span className="text-xs opacity-70">{m.refreshNote}</span>
+        <span className="text-xs text-base-content/60">{m.refreshNote}</span>
         {centers.isError && <p className="w-full text-xs text-warning">{m.centersFailed}</p>}
       </div>
 
       {!mfcId ? (
-        <p className="text-sm opacity-70" data-testid="packing-pick-center">
+        <p className="text-sm text-base-content/60" data-testid="packing-pick-center">
           {m.pickCenterFirst}
         </p>
       ) : (
@@ -165,7 +165,7 @@ export function PackingHandoverPage() {
                   {m.mfcFailed}
                 </p>
               ) : (
-                <table className="table table-sm bg-base-100">
+                <DataTable>
                   <thead>
                     <tr>
                       <th>{m.col.order}</th>
@@ -222,7 +222,7 @@ export function PackingHandoverPage() {
                       </tr>
                     ))}
                   </tbody>
-                </table>
+                </DataTable>
               )}
               {query.isFetchNextPageError && <p className="text-sm text-error">{m.moreFailed}</p>}
               {query.hasNextPage && !failed.has(MFC) && (

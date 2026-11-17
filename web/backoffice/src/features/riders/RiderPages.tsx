@@ -20,6 +20,7 @@ import { Facts, label, text, when } from '../../shared/ops';
 import { DeliveriesOf } from '../deliveries/DeliveryPages';
 import { RiderComplaintTable } from '../riderComplaints/RiderComplaintPages';
 import { ReviewTable } from './RestrictionReviewPage';
+import { DataTable, PageHeader } from '../../shared/admin';
 
 
 type Restriction = components['schemas']['AccountRestriction'];
@@ -116,7 +117,7 @@ function RiderSearch() {
   );
   return (
     <>
-      <form className="flex flex-wrap items-end gap-2 rounded-box bg-base-100 p-4" onSubmit={submit} aria-label={m.riders.search}>
+      <form className="flex flex-wrap items-end gap-2 rounded-box border border-base-300 bg-base-100 p-4" onSubmit={submit} aria-label={m.riders.search}>
         <label className="text-sm">
           {m.riders.riderId}
           <input className="input input-sm mt-1 block" autoComplete="off" value={draft.riderId} onChange={(e) => setDraft((d) => ({ ...d, riderId: e.target.value }))} />
@@ -138,7 +139,7 @@ function RiderSearch() {
         <QueryState state={toUiState(query, (r) => (r.items ?? []).length === 0)} onRetry={() => void query.refetch()} emptyText={m.riders.empty}>
           {(r) => (
             <>
-              <table className="table table-sm rounded-box bg-base-100">
+              <DataTable>
                 <thead>
                   <tr>
                     <th>{m.riders.riderId}</th>
@@ -165,12 +166,12 @@ function RiderSearch() {
                       <td>{text(x.operatingMfcId)}</td>
                       <td>
                         {label(m.riders.restrictionName, x.restriction)}
-                        {x.restrictionUntil && <span className="text-xs opacity-70">{` ~ ${when(x.restrictionUntil)}`}</span>}
+                        {x.restrictionUntil && <span className="text-xs text-base-content/60">{` ~ ${when(x.restrictionUntil)}`}</span>}
                       </td>
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </DataTable>
               <div className="join">
                 <button type="button" className="btn join-item btn-sm" disabled={page === 0} onClick={() => go(applied, page - 1)}>
                   {m.riders.prev}
@@ -191,8 +192,7 @@ function RiderSearch() {
 export function RiderSearchPage() {
   return (
     <section className="space-y-4">
-      <h1 className="text-xl font-bold">{m.riders.title}</h1>
-      <p className="text-sm opacity-70">{m.riders.intro}</p>
+      <PageHeader title={m.riders.title} description={m.riders.intro} />
       <RiderSearch />
     </section>
   );
@@ -243,7 +243,7 @@ function RiderBasic({ rider }: { readonly rider: StaffRiderDetail }) {
         </div>
       ) : (
         <form
-          className="space-y-2 rounded-box bg-base-100 p-3 text-sm"
+          className="space-y-2 rounded-box border border-base-300 bg-base-100 p-3 text-sm"
           aria-label={m.riders.pii.title}
           onSubmit={(e) => {
             e.preventDefault();
@@ -254,7 +254,7 @@ function RiderBasic({ rider }: { readonly rider: StaffRiderDetail }) {
         >
           <h3 className="font-semibold">{m.riders.pii.title}</h3>
           <fieldset className="flex flex-wrap gap-3">
-            <legend className="text-xs opacity-70">{m.riders.pii.fields}</legend>
+            <legend className="text-xs text-base-content/60">{m.riders.pii.fields}</legend>
             {PII_FIELDS.map((f) => (
               <label key={f} className="flex items-center gap-1">
                 <input
@@ -309,7 +309,7 @@ function RestrictionForm({ riderId, current, version }: { readonly riderId: stri
 
   return (
     <form
-      className="space-y-2 rounded-box bg-base-100 p-4"
+      className="space-y-2 rounded-box border border-base-300 bg-base-100 p-4"
       aria-label={m.riders.changeTitle}
       onSubmit={(e) => {
         e.preventDefault();
@@ -396,9 +396,9 @@ function Restrictions({ riderId, version }: { readonly riderId: string; readonly
             <RestrictionForm riderId={riderId} current={r.current} version={version} />
             <h2 className="font-bold">{m.riders.history}</h2>
             {items.length === 0 ? (
-              <p className="text-sm opacity-70">{m.riders.noHistory}</p>
+              <p className="text-sm text-base-content/60">{m.riders.noHistory}</p>
             ) : (
-              <table className="table table-sm rounded-box bg-base-100">
+              <DataTable>
                 <thead>
                   <tr>
                     <th>{m.riders.changedAt}</th>
@@ -423,7 +423,7 @@ function Restrictions({ riderId, version }: { readonly riderId: string; readonly
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </DataTable>
             )}
           </>
         );

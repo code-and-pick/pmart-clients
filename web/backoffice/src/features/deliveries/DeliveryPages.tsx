@@ -16,6 +16,7 @@ import { useApi } from '../../app/ApiContext';
 import { CommandFeedback } from '../../shared/Feedback';
 import { messages as m } from '../../shared/messages';
 import { Facts, label, text, when } from '../../shared/ops';
+import { DataTable, PageHeader } from '../../shared/admin';
 
 type DeliveryExecution = Execution['schemas']['DeliveryExecution'];
 type DispatchView = Dispatch['schemas']['Delivery'];
@@ -46,7 +47,7 @@ const EXECUTION_STATES = Object.keys(m.deliveries.executionState) as ExecutionSt
 /** 직원 배송 목록 한 표(ID·상태·시각만 — 개인정보 없음) */
 export function DeliveryTable({ rows }: { readonly rows: readonly StaffDeliverySummary[] }) {
   return (
-    <table className="table table-sm rounded-box bg-base-100">
+    <DataTable>
       <thead>
         <tr>
           <th>{m.deliveries.deliveryId}</th>
@@ -75,7 +76,7 @@ export function DeliveryTable({ rows }: { readonly rows: readonly StaffDeliveryS
           </tr>
         ))}
       </tbody>
-    </table>
+    </DataTable>
   );
 }
 
@@ -166,9 +167,8 @@ export function DeliveryOpenPage() {
   };
   return (
     <section className="max-w-5xl space-y-4">
-      <h1 className="text-xl font-bold">{m.deliveries.title}</h1>
-      <p className="text-sm opacity-70">{m.deliveries.intro}</p>
-      <form className="flex max-w-xl items-end gap-2 rounded-box bg-base-100 p-4" onSubmit={open} aria-label={m.deliveries.open}>
+      <PageHeader title={m.deliveries.title} description={m.deliveries.intro} />
+      <form className="flex max-w-xl items-end gap-2 rounded-box border border-base-300 bg-base-100 p-4" onSubmit={open} aria-label={m.deliveries.open}>
         <label className="flex-1 text-sm">
           {m.deliveries.deliveryId}
           <input className="input input-sm mt-1 w-full" value={id} onChange={(e) => setId(e.target.value)} />
@@ -178,7 +178,7 @@ export function DeliveryOpenPage() {
         </button>
       </form>
       <form
-        className="flex flex-wrap items-end gap-2 rounded-box bg-base-100 p-4"
+        className="flex flex-wrap items-end gap-2 rounded-box border border-base-300 bg-base-100 p-4"
         aria-label={m.deliveries.search}
         onSubmit={(e) => {
           e.preventDefault();
@@ -260,7 +260,7 @@ function FailureDecisionForm({ delivery }: { readonly delivery: DeliveryExecutio
 
   return (
     <form
-      className="space-y-2 rounded-box bg-base-100 p-4"
+      className="space-y-2 rounded-box border border-base-300 bg-base-100 p-4"
       aria-label={m.deliveries.decideTitle}
       onSubmit={(e) => {
         e.preventDefault();
@@ -361,7 +361,7 @@ function CancellationForm({ dispatch }: { readonly dispatch: DispatchView }) {
 
   return (
     <form
-      className="space-y-2 rounded-box bg-base-100 p-4"
+      className="space-y-2 rounded-box border border-base-300 bg-base-100 p-4"
       aria-label={m.deliveries.cancelTitle}
       onSubmit={(e) => {
         e.preventDefault();
@@ -461,7 +461,7 @@ function ExecutionPanel({ deliveryId }: { readonly deliveryId: string }) {
             </StickyWhen>
             <h3 className="text-sm font-bold">{m.deliveries.incidents}</h3>
             {(d.incidents ?? []).length === 0 ? (
-              <p className="text-sm opacity-70">{m.deliveries.noIncidents}</p>
+              <p className="text-sm text-base-content/60">{m.deliveries.noIncidents}</p>
             ) : (
               <ul className="text-sm">
                 {(d.incidents ?? []).map((i, n) => (
@@ -508,7 +508,7 @@ function DispatchPanel({ deliveryId }: { readonly deliveryId: string }) {
             </StickyWhen>
             <h3 className="text-sm font-bold">{m.deliveries.attempts}</h3>
             {(d.attempts ?? []).length === 0 ? (
-              <p className="text-sm opacity-70">{m.deliveries.noAttempts}</p>
+              <p className="text-sm text-base-content/60">{m.deliveries.noAttempts}</p>
             ) : (
               <ul className="text-sm">
                 {(d.attempts ?? []).map((a, n) => (
