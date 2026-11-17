@@ -265,10 +265,6 @@ void main() {
     await shot('31-start');
     await t.tap(find.byKey(const ValueKey('start-setup')));
     await shot('32-setup');
-    await t.tap(find.byKey(const ValueKey('setup-network')));
-    await shot('33-setup-network');
-    Navigator.of(t.element(find.byType(Scaffold).last)).pop();
-    await t.pumpAndSettle();
     Navigator.of(t.element(find.byType(Scaffold).last)).pop();
     await t.pumpAndSettle();
     await t.tap(find.byKey(const ValueKey('start-stock')));

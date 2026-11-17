@@ -81,10 +81,6 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (_, _) => const DeviceSetupScreen(),
         routes: [
           GoRoute(
-            path: 'network',
-            builder: (_, _) => const NetworkSettingsScreen(),
-          ),
-          GoRoute(
             path: 'printer',
             builder: (_, _) => const PrinterSettingsScreen(),
           ),

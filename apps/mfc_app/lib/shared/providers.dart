@@ -5,7 +5,6 @@ import 'package:pmart_core/pmart_core.dart';
 
 import '../features/auth/data/auth_repository.dart';
 import '../features/auth/presentation/auth_controller.dart';
-import '../features/device/data/server_address.dart';
 
 /// `X-Source-System` (값 확정은 BR-08).
 const sourceSystem = 'mfc-app';
@@ -26,20 +25,16 @@ final deviceIdProvider = Provider<DeviceIdProvider>(
 );
 
 /// 실서버(local) 게이트웨이 주소. 목 모드에서는 만들지 않는다.
-/// 기기 설정에서 저장한 주소가 있으면 그것(사용자 2026-11-17), 없으면 빌드 기본값.
 final apiBaseUrlProvider = Provider<String>((ref) {
   final env = ref.watch(envProvider);
   if (env == PmartEnv.mock) {
     throw StateError('목 모드는 네트워크를 쓰지 않는다. Repository 목 구현을 써야 한다.');
   }
-  return ref.watch(serverAddressProvider) ?? defaultApiBaseUrl(env);
+  return apiBaseUrl(
+    env,
+    androidEmulator: const bool.fromEnvironment('PMART_ANDROID_EMULATOR'),
+  );
 });
-
-/// 빌드 때 정한 기준 주소(`PMART_API_BASE_URL`, 없으면 환경 기본값).
-String defaultApiBaseUrl(PmartEnv env) => apiBaseUrl(
-  env,
-  androidEmulator: const bool.fromEnvironment('PMART_ANDROID_EMULATOR'),
-);
 
 /// 갱신이 거절된 이유(로그인 화면 안내용).
 final sessionEndRecorderProvider = Provider<SessionEndRecorder>(

@@ -7,20 +7,18 @@ import 'package:pmart_ui/pmart_ui.dart';
 import 'package:mfc_app/app.dart';
 import 'package:mfc_app/features/auth/data/auth_repository.dart';
 import 'package:mfc_app/features/auth/presentation/auth_controller.dart';
-import 'package:mfc_app/features/device/data/server_address.dart';
 import 'package:mfc_app/shared/providers.dart';
 
-/// 첫 화면은 기기 설정(사용자 2026-11-17) — 네트워크·프린터·스캐너·기기 정보, 아래 로그인.
+/// 첫 화면은 기기 설정(사용자 2026-11-17) — 프린터·스캐너·기기 정보, 아래 로그인.
+/// 서버 주소 바꾸기(네트워크)는 두지 않는다(사용자 2026-11-17 — 주소는 빌드 값만).
 void main() {
   setUpAll(initPmartFormatting);
 
   late MemoryKeyValueStore store;
-  late List<Uri> probed;
 
   Future<ProviderContainer> pump(
     WidgetTester t, {
     PmartEnv env = PmartEnv.mock,
-    ProbeResult probe = ProbeResult.reachable,
     bool openSetup = true,
   }) async {
     t.view
@@ -28,7 +26,6 @@ void main() {
       ..devicePixelRatio = 1;
     addTearDown(t.view.reset);
     store = MemoryKeyValueStore();
-    probed = [];
     await t.pumpWidget(
       ProviderScope(
         retry: (_, _) => null,
@@ -38,10 +35,6 @@ void main() {
             MockAuthRepository(signedIn: false),
           ),
           secureStoreProvider.overrideWithValue(store),
-          serverProbeProvider.overrideWithValue((u) async {
-            probed.add(u);
-            return probe;
-          }),
         ],
         child: const MfcApp(),
       ),
@@ -75,63 +68,9 @@ void main() {
     expect(find.byKey(const ValueKey('start-setup')), findsOneWidget);
 
     await tap(t, 'start-setup');
-    for (final k in [
-      'setup-network',
-      'setup-printer',
-      'setup-scanner',
-      'setup-device',
-    ]) {
+    for (final k in ['setup-printer', 'setup-scanner', 'setup-device']) {
       expect(find.byKey(ValueKey(k)), findsOneWidget, reason: k);
     }
-  });
-
-  testWidgets('네트워크: 주소를 고쳐 저장하면 실서버 요청 주소가 바뀌고, 기본값으로 되돌릴 수 있다', (t) async {
-    final c = await pump(t, env: PmartEnv.local);
-    expect(c.read(apiBaseUrlProvider), defaultApiBaseUrl(PmartEnv.local));
-    await tap(t, 'setup-network');
-
-    await t.enterText(find.byKey(const ValueKey('network-address')), 'a b');
-    await tap(t, 'network-save');
-    expect(find.text('주소 형식이 아니에요'), findsOneWidget);
-
-    await t.enterText(
-      find.byKey(const ValueKey('network-address')),
-      '192.168.0.40:8080',
-    );
-    await tap(t, 'network-save');
-    expect(c.read(apiBaseUrlProvider), 'http://192.168.0.40:8080/api/v1');
-    expect(
-      await t.runAsync(() => store.read(serverAddressStoreKey)),
-      'http://192.168.0.40:8080/api/v1',
-    );
-
-    await tap(t, 'network-check');
-    expect(probed.single.host, '192.168.0.40');
-    expect(probed.single.port, 8080);
-    expect(
-      find.byKey(const ValueKey('network-probe-reachable')),
-      findsOneWidget,
-    );
-
-    await tap(t, 'network-reset');
-    expect(c.read(apiBaseUrlProvider), defaultApiBaseUrl(PmartEnv.local));
-    expect(await t.runAsync(() => store.read(serverAddressStoreKey)), isNull);
-  });
-
-  testWidgets('네트워크: 닿지 않으면 Wi-Fi·주소를 확인하라고 안내', (t) async {
-    await pump(t, env: PmartEnv.local, probe: ProbeResult.unreachable);
-    await tap(t, 'setup-network');
-    await tap(t, 'network-check');
-    expect(
-      find.byKey(const ValueKey('network-probe-unreachable')),
-      findsOneWidget,
-    );
-  });
-
-  testWidgets('목 모드 네트워크 화면은 서버를 쓰지 않는다고 알린다', (t) async {
-    await pump(t);
-    await tap(t, 'setup-network');
-    expect(find.byKey(const ValueKey('network-mock-note')), findsOneWidget);
   });
 
   testWidgets('스캐너 확인: 찍은 값이 그대로 보인다', (t) async {
@@ -156,23 +95,5 @@ void main() {
     await t.pumpAndSettle();
     await tap(t, 'setup-device');
     expect(find.byKey(const ValueKey('device-mode')), findsOneWidget);
-  });
-
-  test('주소 정리: 스킴·경로가 없으면 http·/api/v1, 주소가 아니면 null', () {
-    expect(
-      normalizeServerAddress(' 192.168.0.40:8080 '),
-      'http://192.168.0.40:8080/api/v1',
-    );
-    expect(
-      normalizeServerAddress('https://gw.lan:8443/'),
-      'https://gw.lan:8443/api/v1',
-    );
-    expect(
-      normalizeServerAddress('https://gw.lan/api/v1'),
-      'https://gw.lan/api/v1',
-    );
-    expect(normalizeServerAddress(''), isNull);
-    expect(normalizeServerAddress('ftp://x'), isNull);
-    expect(normalizeServerAddress('a b'), isNull);
   });
 }
