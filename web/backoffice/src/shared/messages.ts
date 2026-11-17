@@ -398,6 +398,8 @@ export const messages = {
     ownerLine: (id: string) => `${id} 가 맡은 처리 중 접수 건`,
     group: '팀',
     to: '후임 운영자 ID',
+    toRoleHint: '후임도 그 팀 역할(지원센터 팀 = 지원센터·관리자, 관리자 팀 = 관리자)이 있어야 받을 수 있어요.',
+    acceptForbidden: '이 팀 인계를 받을 역할이 없어요 — 전임에게 다시 써 달라고 하세요.',
     noCases: '넘길 처리 중 접수 건이 없어요.',
     nextAction: '다음 조치',
     checkDue: '확인 기한(선택)',

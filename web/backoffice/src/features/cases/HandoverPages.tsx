@@ -6,11 +6,13 @@
 // - 수락 `POST /shift-handovers/{id}/acceptances` {excludedCaseIds} — 후임 본인만(관리자도 403). 결과는 건별 outcome 을 그대로(받음·안 받음·바뀌어 건너뜀·권한 없어 건너뜀).
 // - 취소 `…/cancellations` — 수락 전, 전임·관리자. 목록 `GET /shift-handovers?state=&unreceived=` — 관리자는 모두, 그 밖은 내가 전임·후임인 것.
 // - 다음 조치·메모는 직원이 쓴 글 — 화면에만(로그 없음), 개인정보 금지 안내.
+// - case 0.13.1 역할(백엔드 요청 2026-11-17 request-handover-roles, 사용자 "(나)"): 작성은 지원센터 팀 = RIDER_OPS·OPERATOR_ADMIN, 관리자 팀 = OPERATOR_ADMIN.
+//   메뉴·작성 탭은 그 역할에만, 라이더 운영은 팀 고정. 수락은 후임에게 그 팀 역할이 없으면 403 — 인계서는 PENDING 그대로(전임·관리자가 취소 뒤 다시 씀).
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
 
-import { request } from '@pmart/web-core';
+import { ProblemFailure, request } from '@pmart/web-core';
 import { CommandFeedback, QueryState, toUiState, useCommand } from '@pmart/web-ui';
 import { commandParams } from '../../api/command';
 import type { components } from '../../api/generated/case';
@@ -28,15 +30,16 @@ type Tab = 'write' | 'inbox' | 'sent' | 'unreceived';
 function useMe() {
   const { session } = useSession();
   const roles = session?.roles ?? [];
-  return { me: session?.subject ?? '', admin: roles.includes('OPERATOR_ADMIN') };
+  const admin = roles.includes('OPERATOR_ADMIN');
+  return { me: session?.subject ?? '', admin, canWrite: admin || roles.includes('RIDER_OPS') };
 }
 
 export function HandoverPage() {
-  const { admin } = useMe();
+  const { admin, canWrite } = useMe();
   const [params, setParams] = useSearchParams();
-  const tabs: readonly Tab[] = admin ? ['write', 'inbox', 'sent', 'unreceived'] : ['write', 'inbox', 'sent'];
+  const tabs: readonly Tab[] = [...(canWrite ? (['write'] as const) : []), 'inbox', 'sent', ...(admin ? (['unreceived'] as const) : [])];
   const raw = params.get('tab');
-  const tab: Tab = tabs.find((t) => t === raw) ?? 'write';
+  const tab: Tab = tabs.find((t) => t === raw) ?? tabs[0] ?? 'inbox';
   return (
     <section className="max-w-5xl space-y-4">
       <h1 className="text-xl font-bold">{m.title}</h1>
@@ -46,7 +49,7 @@ export function HandoverPage() {
       </p>
       <div role="tablist" className="tabs tabs-box w-fit">
         {tabs.map((t) => (
-          <button key={t} type="button" role="tab" aria-selected={t === tab} className={`tab ${t === tab ? 'tab-active' : ''}`} onClick={() => setParams(t === 'write' ? {} : { tab: t })}>
+          <button key={t} type="button" role="tab" aria-selected={t === tab} className={`tab ${t === tab ? 'tab-active' : ''}`} onClick={() => setParams(t === tabs[0] ? {} : { tab: t })}>
             {m.tabs[t]}
           </button>
         ))}
@@ -130,17 +133,28 @@ function WriteForm() {
             </button>
           </>
         )}
-        <label className="flex flex-col gap-1">
-          {m.group}
-          <select className="select select-sm" value={group} onChange={(e) => setGroup(e.target.value === 'ORDER_OPS' ? 'ORDER_OPS' : 'DELIVERY_OPS')}>
-            <option value="DELIVERY_OPS">{label(messages.cases.groupName, 'DELIVERY_OPS')}</option>
-            {admin && <option value="ORDER_OPS">{label(messages.cases.groupName, 'ORDER_OPS')}</option>}
-          </select>
-        </label>
+        {admin ? (
+          <label className="flex flex-col gap-1">
+            {m.group}
+            <select className="select select-sm" value={group} onChange={(e) => setGroup(e.target.value === 'ORDER_OPS' ? 'ORDER_OPS' : 'DELIVERY_OPS')}>
+              <option value="DELIVERY_OPS">{label(messages.cases.groupName, 'DELIVERY_OPS')}</option>
+              <option value="ORDER_OPS">{label(messages.cases.groupName, 'ORDER_OPS')}</option>
+            </select>
+          </label>
+        ) : (
+          // 라이더 운영은 지원센터 팀만 쓴다(관리자 팀 인계서는 관리자만 — 서버 403)
+          <p className="flex flex-col gap-1" data-testid="handover-group-fixed">
+            {m.group}
+            <span className="font-medium">{label(messages.cases.groupName, 'DELIVERY_OPS')}</span>
+          </p>
+        )}
         <label className="flex flex-col gap-1">
           {m.to}
           <input className="input input-sm w-56 font-mono" value={to} onChange={(e) => setTo(e.target.value)} />
         </label>
+        <p className="max-w-xs text-xs opacity-70" data-testid="handover-to-hint">
+          {m.toRoleHint}
+        </p>
       </div>
       <p className="text-sm">{m.ownerLine(owner)}</p>
       <QueryState state={toUiState(query, () => mine.length === 0)} onRetry={() => void query.refetch()} emptyText={m.noCases}>
@@ -305,7 +319,14 @@ function HandoverCard({ h, mode }: { readonly h: Handover; readonly mode: 'inbox
           <button type="button" className="btn btn-sm btn-primary" disabled={accept.busy} onClick={() => void accept.run(null)}>
             {excluded.size > 0 ? m.acceptSome(excluded.size) : m.acceptAll}
           </button>
-          <CommandFeedback command={accept}>{() => <span className="text-xs text-success">{m.accepted}</span>}</CommandFeedback>
+          {accept.phase.kind === 'rejected' && accept.phase.failure instanceof ProblemFailure && accept.phase.failure.problem.code === 'FORBIDDEN' ? (
+            // 0.13.1: 후임에게 그 팀 역할이 없으면 403 — 인계서는 받기 전 그대로
+            <p role="alert" className="alert alert-warning text-sm" data-testid="handover-accept-forbidden">
+              {m.acceptForbidden}
+            </p>
+          ) : (
+            <CommandFeedback command={accept}>{() => <span className="text-xs text-success">{m.accepted}</span>}</CommandFeedback>
+          )}
         </div>
       )}
       {canCancel && (

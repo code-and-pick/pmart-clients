@@ -101,8 +101,8 @@ export const navGroups: readonly NavGroup[] = [
       // 라이더 문의(case 0.13.0 — 백엔드 요청 2026-11-16 request-rider-inquiries). 지원센터·관리자만(상담원은 403)
       { to: '/rider-inquiries', label: m.nav.riderInquiries, visibleTo: oneOf('RIDER_OPS', 'OPERATOR_ADMIN') },
       { to: '/cases/new-misdelivery', label: m.nav.misdelivery },
-      // 교대 인계(case 0.9.0 — 백엔드 PR #42). 지원센터·관리자(서버 판정)
-      { to: '/cases/handovers', label: m.nav.handovers },
+      // 교대 인계(case 0.9.0 — 백엔드 PR #42). 쓰기·받기 모두 지원센터·관리자(case 0.13.1 — 상담원 403)
+      { to: '/cases/handovers', label: m.nav.handovers, visibleTo: oneOf('RIDER_OPS', 'OPERATOR_ADMIN') },
     ],
   },
   {

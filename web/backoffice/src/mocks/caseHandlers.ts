@@ -483,6 +483,8 @@ export const caseHandlers = [
     return idempotent(request, () => {
       const from = body.fromOperatorId ?? v.who.subject;
       if (from !== v.who.subject && !v.admin) return problem(403, 'FORBIDDEN');
+      // 0.13.1: 지원센터 팀 = RIDER_OPS·관리자, 관리자 팀 = 관리자만
+      if (!v.admin && !(body.group === 'DELIVERY_OPS' && v.who.roles.includes('RIDER_OPS'))) return problem(403, 'FORBIDDEN');
       const items = body.items ?? [];
       const ids = items.map((i) => i.caseId ?? '');
       if (!body.toOperatorId || body.toOperatorId === from || items.length === 0 || items.some((i) => !(i.nextAction ?? '').trim()) || new Set(ids).size !== ids.length) return problem(400, 'VALIDATION_FAILED');
@@ -521,6 +523,8 @@ export const caseHandlers = [
       if (!h) return problem(404, 'NOT_FOUND');
       if (h.toOperatorId !== v.who.subject) return problem(403, 'FORBIDDEN'); // 관리자도 대신 받지 못한다
       if (h.state !== 'PENDING') return problem(409, 'INVALID_STATE');
+      // 0.13.1: 후임에게 그 팀 역할이 없으면 403(인계서는 PENDING 그대로)
+      if (!v.admin && !(h.group === 'DELIVERY_OPS' && v.who.roles.includes('RIDER_OPS'))) return problem(403, 'FORBIDDEN');
       const excluded = new Set(body.excludedCaseIds ?? []);
       h.items = (h.items ?? []).map((it) => {
         const c = cases.find((x) => x.caseId === it.caseId);
