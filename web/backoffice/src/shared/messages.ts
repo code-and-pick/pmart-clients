@@ -1217,6 +1217,7 @@ export const messages = {
   },
 
   products: {
+    quickFind: '바로 찾기',
     draftTitle: '상품 등록(개별)',
     addContent: '콘텐츠·이미지 등록',
     draftDetail: (id: string) => `상품 초안 ${id}`,
