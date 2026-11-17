@@ -36,6 +36,7 @@ import { canSeeIntakes, CsIntakeLog } from '../csIntakes/CsIntakePages';
 import { CaseNotes } from './CaseNotes';
 import { ActionRequests } from './ActionRequests';
 import { HelpChat } from './HelpChat';
+import { hasNewRiderMessage, lastReadAt } from './helpChatRead';
 import { FollowUps, isOpenObligation } from './FollowUps';
 
 type Case = components['schemas']['Case'];
@@ -112,7 +113,32 @@ const deliveryRoleOf = (refs: ReadonlyArray<{ readonly kind?: string; readonly i
       ? 'reshipment'
       : null;
 
+/** 도움요청 칸(bff 0.6.0) — 상태 + 새 메시지 점(라이더가 지원센터 답 뒤에 썼고 이 직원이 아직 안 봄) */
+function LinkedHelp({ l }: { readonly l: Linked }) {
+  const { session } = useSession();
+  const unknown = l.source?.confidence === 'UNKNOWN';
+  const fresh = !unknown && hasNewRiderMessage(l.lastRiderMessageAt, l.lastSupportMessageAt, lastReadAt(session?.subject ?? '', l.id ?? ''));
+  return (
+    <li data-testid="case-linked" data-kind={l.kind} data-id={l.id}>
+      <span className="opacity-70">{m.cases.linkedHelp}</span>{' '}
+      {unknown ? (
+        <span className="text-warning">{m.cases.linkedUnknown}</span>
+      ) : l.state ? (
+        label(m.helpQueue.state, l.state)
+      ) : (
+        <span className="opacity-70">{m.cases.linkedMissing}</span>
+      )}
+      {fresh && (
+        <span className="badge badge-error badge-xs ml-1" data-testid="case-new-message">
+          {m.cases.newMessage}
+        </span>
+      )}
+    </li>
+  );
+}
+
 function LinkedState({ l, role }: { readonly l: Linked; readonly role: DeliveryRole }) {
+  if (l.kind === 'HELP_REQUEST') return <LinkedHelp l={l} />;
   const name =
     l.kind === 'ORDER' ? m.cases.linkedOrder : role === 'recovery' ? m.cases.linkedRecovery : role === 'reshipment' ? m.cases.linkedReshipment : m.cases.linkedDelivery;
   const unknown = l.source?.confidence === 'UNKNOWN';

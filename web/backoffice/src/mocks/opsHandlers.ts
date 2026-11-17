@@ -279,6 +279,16 @@ function seed(): OpsState {
 
 let ops = seed();
 
+/** bff 0.6.0 사건함 HELP_REQUEST 칸(caseHandlers 가 부른다) */
+export function mockHelpLinked(incidentId: string) {
+  if (incidentId !== 'DLV-MOCK-1:HLP-MOCK-1') return null;
+  return {
+    state: ops.helpState,
+    lastRiderMessageAt: ops.helpMessages.filter((x) => x.senderType === 'RIDER').at(-1)?.createdAt ?? null,
+    lastSupportMessageAt: ops.helpMessages.filter((x) => x.senderType === 'SUPPORT').at(-1)?.createdAt ?? null,
+  };
+}
+
 /** execution 0.8.0: 접수 건을 맡으면 도움요청이 처리 중(caseHandlers 가 부른다) */
 export function markMockHelpPicked(incidentId: string): void {
   if (incidentId === 'DLV-MOCK-1:HLP-MOCK-1' && ops.helpState === 'OPEN') ops.helpState = 'IN_PROGRESS';

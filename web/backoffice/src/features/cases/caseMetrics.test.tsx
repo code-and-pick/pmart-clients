@@ -27,7 +27,9 @@ describe('접수 건 현황', () => {
     expect(within(row).getByTestId('metrics-overdue')).toHaveAttribute('href', '/cases?tab=overdue&kind=MISDELIVERY');
     expect(screen.getByTestId('metrics-obligation')).toHaveTextContent('고객센터 · 처리 중 2 · 기한 지남 0 / 2');
     expect(screen.getByTestId('metrics-handovers')).toHaveTextContent('받기 전 인계서 1');
-    const [customer, rider] = screen.getAllByTestId('metrics-inquiry');
+    const inquiries = screen.getAllByTestId('metrics-inquiry');
+    const customer = inquiries[0]!;
+    const rider = inquiries[1]!;
     expect(customer).toHaveTextContent('고객 문의 · 답변 대기 0');
     expect(rider).toHaveTextContent('라이더 문의 · 답변 대기 3');
     expect(within(rider).getByRole('link', { name: '3' })).toHaveAttribute('href', '/rider-inquiries?status=RECEIVED');

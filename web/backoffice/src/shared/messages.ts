@@ -274,6 +274,8 @@ export const messages = {
     linkedOrder: '주문',
     linkedUnknown: '확인 불가',
     linkedMissing: '원천에 없음',
+    linkedHelp: '도움요청',
+    newMessage: '새 메시지',
     nextPage: '다음 쪽',
     firstPage: '처음 쪽',
     refName: {

@@ -234,7 +234,7 @@ describe('지원센터 사건', () => {
     const list = await rows();
     const help = list.find((r) => r.textContent?.includes('라이더 도움요청'))!;
     const linked = within(help).getAllByTestId('case-linked');
-    expect(linked.map((l) => l.textContent)).toEqual(['배송 픽업', '주문 배송 중']);
+    expect(linked.map((l) => l.textContent)).toEqual(['배송 픽업', '주문 배송 중', '도움요청 대기새 메시지'] /* bff 0.6.0 HELP_REQUEST 칸 */);
   });
 
   it('지원센터(RIDER_OPS)는 주문 원천을 못 볼 수 있다 — 주문 칸 "확인 불가"(0건·정상 아님)와 못 읽은 원천 표시', async () => {

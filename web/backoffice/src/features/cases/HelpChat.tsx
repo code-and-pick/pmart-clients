@@ -17,6 +17,7 @@ import { useApi } from '../../app/ApiContext';
 import { useSession } from '../../app/SessionContext';
 import { messages } from '../../shared/messages';
 import { text, when } from '../../shared/ops';
+import { markRead } from './helpChatRead';
 
 const m = messages.helpChat;
 type HelpMessage = components['schemas']['HelpMessage'];
@@ -108,6 +109,9 @@ export function HelpChat({ deliveryId, requestId, adminTeam = false }: { readonl
         if (r.items.length < PAGE) break;
       }
       thread.current = { items, helpState };
+      // 사건함 "새 메시지" 점(bff 0.6.0) — 화면에 받은 마지막 라이더 메시지까지 이 직원이 본 것으로
+      const lastRider = items.filter((x) => x.senderType === 'RIDER').at(-1)?.createdAt;
+      if (lastRider) markRead(session?.subject ?? '', requestId, lastRider);
       return thread.current;
     },
   });
