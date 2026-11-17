@@ -25,7 +25,8 @@ const copies = [
     label: 'web/mfc-backoffice',
     dir: join(repo, 'web/mfc-backoffice/src/api/generated'),
     // backoffice-bff·case: 우리 센터 배송 현황·배차 실패 사건(2026-11-16, bff 0.3.1·case 0.5.2)
-    services: ['backoffice-bff', 'case', 'center-master', 'mfc-capacity', 'mfc-fulfillment', 'mfc-inbound', 'mfc-inventory', 'mfc-location', 'mfc-quality'],
+    // approval: 본사 승인 번호 흐름(AP-1 — 422 APPROVAL_REQUIRED 뒤 change-requests·submissions, PC 3 요청 2026-11-17)
+    services: ['approval', 'backoffice-bff', 'case', 'center-master', 'mfc-capacity', 'mfc-fulfillment', 'mfc-inbound', 'mfc-inventory', 'mfc-location', 'mfc-quality'],
   },
 ];
 const excluded = ['/internal', '/webhooks', '/actuator'];
