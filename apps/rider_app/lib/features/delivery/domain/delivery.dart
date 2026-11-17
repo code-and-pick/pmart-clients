@@ -54,7 +54,19 @@ class DeliveryView {
     this.returnLines = const [],
     this.recoveryOrigin,
     this.mfcPhone,
+    this.failureConfirmed = false,
+    this.goodsWithRider,
+    this.returnDeliveryId,
   });
+
+  /// 지원센터가 전달 불가를 확정했다(`failure.decision` CONFIRM — 배송은 FAILED).
+  final bool failureConfirmed;
+
+  /// 확정 때 상품이 라이더에게 있다(custody RIDER) — 반납 배송이 같은 라이더에게 온다. STORE 면 false.
+  final bool? goodsWithRider;
+
+  /// 확정 뒤 같은 라이더에게 배정된 반납 배송(몇 초 뒤 생긴다).
+  final String? returnDeliveryId;
 
   /// 회수 배송(type RETURN)이면 목적 — 받는 곳(회수지) → 두는 곳(MFC). 일반 배송은 null.
   /// 반품 회수·오배송 회수는 문구만 다르고 단계는 같다(백엔드 요청 2026-11-17 회수 화면 한 벌).
@@ -70,6 +82,9 @@ class DeliveryView {
   final String? mfcPhone;
 
   bool get isRecovery => recovery != null;
+
+  /// 받음 없이 바로 MFC 반납(상품이 이미 라이더 손에 있다).
+  bool get directReturn => recovery == RecoveryPurpose.failedDeliveryReturn;
 
   final String deliveryId;
   final int version;
@@ -91,13 +106,21 @@ class DeliveryView {
 }
 
 /// 회수 배송 목적(문구만 바꾼다).
-enum RecoveryPurpose { claimReturn, misdeliveryRecovery, other }
+enum RecoveryPurpose {
+  claimReturn,
+  misdeliveryRecovery,
+
+  /// 전달 실패 반납(execution 0.15.0): 확정 뒤 같은 라이더에게 바로 배정 — 받음 없이 MFC 반납만.
+  failedDeliveryReturn,
+  other,
+}
 
 RecoveryPurpose? recoveryPurposeFrom({String? type, String? purpose}) {
   if (type != 'RETURN') return null;
   return switch (purpose) {
     'CLAIM_RETURN' => RecoveryPurpose.claimReturn,
     'MISDELIVERY_RECOVERY' => RecoveryPurpose.misdeliveryRecovery,
+    'FAILED_DELIVERY_RETURN' => RecoveryPurpose.failedDeliveryReturn,
     _ => RecoveryPurpose.other,
   };
 }

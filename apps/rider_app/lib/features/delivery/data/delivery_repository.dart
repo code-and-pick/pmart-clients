@@ -722,6 +722,14 @@ DeliveryView deliveryFromContract(ex.DeliveryExecution d) => DeliveryView(
     null => null,
   },
   mfcPhone: d.mfcPhone,
+  failureConfirmed:
+      d.failure?.decision == ex.DeliveryExecutionFailureDecisionEnum.CONFIRM,
+  goodsWithRider: switch (d.failure?.custody) {
+    ex.DeliveryExecutionFailureCustodyEnum.RIDER => true,
+    ex.DeliveryExecutionFailureCustodyEnum.STORE => false,
+    null => null,
+  },
+  returnDeliveryId: d.failure?.returnDeliveryId,
 );
 
 /// 받을 품목. 반품 회수는 `returnLines`(서버가 이름을 채운다 — execution 0.14.3, 짝짓지 않는다),

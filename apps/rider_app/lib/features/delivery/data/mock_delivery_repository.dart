@@ -208,7 +208,11 @@ base class MockDeliveryRepository
             deliveryFromContract(ex.DeliveryExecution.fromJson(d)),
         ]
         .where((d) => isActive(d.state))
-        .where((d) => visible?.call(d.deliveryId) ?? true)
+        .where(
+          (d) =>
+              autoAssigned.contains(d.deliveryId) ||
+              (visible?.call(d.deliveryId) ?? true),
+        )
         .toList();
   }
 
@@ -355,12 +359,22 @@ base class MockDeliveryRepository
         if (refs.isEmpty) {
           reject = HandoverProblemCode.evidenceRequired;
         } else {
-          next = recovery && d['state'] == 'ASSIGNED'
+          // 전달 실패 반납은 받음이 없다(409).
+          next =
+              recovery &&
+                  d['purpose'] != 'FAILED_DELIVERY_RETURN' &&
+                  d['state'] == 'ASSIGNED'
               ? 'RETURN_PICKED_UP'
               : null;
         }
       case DeliveryCommandKind.returnToStore:
-        next = d['state'] == 'RETURN_PICKED_UP' ? 'RETURNED_TO_STORE' : null;
+        // 전달 실패 반납은 받음 없이 배정에서 바로 반납.
+        next =
+            d['state'] == 'RETURN_PICKED_UP' ||
+                (d['purpose'] == 'FAILED_DELIVERY_RETURN' &&
+                    d['state'] == 'ASSIGNED')
+            ? 'RETURNED_TO_STORE'
+            : null;
       case DeliveryCommandKind.storeArrival:
         next = d['state'] == 'ASSIGNED' ? 'ARRIVED_AT_STORE' : null;
       case DeliveryCommandKind.pickup:
@@ -587,12 +601,94 @@ base class MockDeliveryRepository
         at: at,
       );
 
+  /// 목 지원센터: 전달 불가 신고 뒤 [confirmAfter] 동안 재개 요청이 없으면 확정(회수 — 상품은 라이더에게),
+  /// [returnAssignAfter] 뒤 같은 라이더에게 반납 배송(FAILED_DELIVERY_RETURN)을 배정한다(execution 0.15.0).
+  static const confirmAfter = Duration(seconds: 45);
+  static const returnAssignAfter = Duration(seconds: 3);
+
+  /// 제안 없이 배정된 배송(반납) — 진행 목록에 보인다.
+  final autoAssigned = <String>{};
+
+  /// 시험용: 전달 불가 신고가 접수된 상태(실패 등록이 연 대화 [requestId])로 만든다.
+  void seedFailureReport(String deliveryId, String requestId) {
+    _helpAt[requestId] = clock();
+    _helpDelivery[requestId] = deliveryId;
+    _helpCategory[requestId] = HelpCategory.customerUnreachable;
+    final d = _deliveries[deliveryId]!;
+    _beforeFailure[deliveryId] = d['state']! as String;
+    d
+      ..['state'] = 'FAILURE_REPORTED'
+      ..['failure'] = {'reason': 'UNREACHABLE', 'helpRequestId': requestId};
+  }
+
+  void _maybeConfirm(String id, DateTime now, List<SupportMessage> thread) {
+    final deliveryId = _helpDelivery[id];
+    final d = deliveryId == null ? null : _deliveries[deliveryId];
+    final failure = (d?['failure'] as Map?)?.cast<String, Object?>();
+    if (d == null || failure == null || failure['helpRequestId'] != id) return;
+    final at = _helpAt[id]!;
+    if (d['state'] == 'FAILURE_REPORTED' &&
+        failure['resumeRequestedAt'] == null &&
+        !now.isBefore(at.add(confirmAfter))) {
+      _beforeFailure.remove(deliveryId);
+      d
+        ..['state'] = 'FAILED'
+        ..['version'] = (d['version']! as int) + 1
+        ..['failure'] = {
+          ...failure,
+          'decision': 'CONFIRM',
+          'custody': 'RIDER',
+          'decidedAt': at.add(confirmAfter).toUtc().toIso8601String(),
+        };
+      thread.add(
+        _msg(
+          SupportSender.agent,
+          '확인했어요. 전달 불가로 확정할게요. 상품은 MFC에 반납해 주세요 — 반납 배송을 곧 배정해 드릴게요.',
+          at.add(confirmAfter),
+        ),
+      );
+      return;
+    }
+    final decided = DateTime.tryParse(failure['decidedAt'] as String? ?? '');
+    if (d['state'] == 'FAILED' &&
+        failure['decision'] == 'CONFIRM' &&
+        failure['returnDeliveryId'] == null &&
+        decided != null &&
+        !now.isBefore(decided.add(returnAssignAfter))) {
+      final rid = 'ret-$deliveryId';
+      final trip = mockTrip(deliveryId!);
+      _deliveries[rid] = {
+        'deliveryId': rid,
+        'version': 1,
+        'type': 'RETURN',
+        'purpose': 'FAILED_DELIVERY_RETURN',
+        'originDeliveryId': deliveryId,
+        'riderId': riderId,
+        'mfcId': d['mfcId'],
+        'mfcName': trip.store.name,
+        'state': 'ASSIGNED',
+        'packageIds': <String>[],
+        'handoverIds': <String>[],
+        'orderSummary': {
+          'orderNumber': trip.orderNo,
+          'items': [
+            for (final i in trip.items)
+              {'name': i.name, 'qty': i.qty, 'lineAmount': i.amount},
+          ],
+        },
+      };
+      autoAssigned.add(rid);
+      d['failure'] = {...failure, 'returnDeliveryId': rid};
+    }
+  }
+
   /// 시간이 지난 만큼 상담원 쪽 진행을 만든다.
   void _advance(String id) {
     final at = _helpAt[id];
     if (at == null) return;
     final now = clock();
     final thread = _threads.putIfAbsent(id, () => []);
+    _maybeConfirm(id, now, thread);
     if (!_helpCase.containsKey(id) && now.difference(at) >= assignAfter) {
       _helpCase[id] = 'CS-${1001 + _helpCase.length}';
       thread.add(
