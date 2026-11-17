@@ -20,7 +20,7 @@ import { Facts, label, text, when } from '../../shared/ops';
 import { DeliveriesOf } from '../deliveries/DeliveryPages';
 import { RiderComplaintTable } from '../riderComplaints/RiderComplaintPages';
 import { ReviewTable } from './RestrictionReviewPage';
-import { DataTable, PageHeader } from '../../shared/admin';
+import { DataTable, PageHeader, SearchPanel, SearchRow } from '../../shared/admin';
 
 
 type Restriction = components['schemas']['AccountRestriction'];
@@ -103,38 +103,32 @@ function RiderSearch() {
     if (!phoneBad) go(draft, 0);
   };
   const select = (key: keyof Filter, labelText: string, options: readonly string[], names: Readonly<Record<string, string>>, withAny = true) => (
-    <label className="text-sm">
-      {labelText}
-      <select className="select select-sm mt-1 block" value={draft[key]} onChange={(e) => setDraft((d) => ({ ...d, [key]: e.target.value }))}>
-        {withAny && <option value="">{m.riders.any}</option>}
-        {options.map((o) => (
-          <option key={o} value={o}>
-            {names[o] ?? o}
-          </option>
-        ))}
-      </select>
-    </label>
+    <select aria-label={labelText} className="select select-sm w-36" value={draft[key]} onChange={(e) => setDraft((d) => ({ ...d, [key]: e.target.value }))}>
+      {withAny && <option value="">{m.riders.any}</option>}
+      {options.map((o) => (
+        <option key={o} value={o}>
+          {names[o] ?? o}
+        </option>
+      ))}
+    </select>
   );
+  const blank: Filter = { riderId: '', phone: '', restriction: '', operatingStatus: '', vehicleType: '', sort: 'JOINED_DESC' };
   return (
     <>
-      <form className="flex flex-wrap items-end gap-2 rounded-box border border-base-300 bg-base-100 p-4" onSubmit={submit} aria-label={m.riders.search}>
-        <label className="text-sm">
-          {m.riders.riderId}
-          <input className="input input-sm mt-1 block" autoComplete="off" value={draft.riderId} onChange={(e) => setDraft((d) => ({ ...d, riderId: e.target.value }))} />
-        </label>
-        <label className="text-sm">
-          {m.riders.phone}
-          <input className="input input-sm mt-1 block" inputMode="numeric" autoComplete="off" value={draft.phone} onChange={(e) => setDraft((d) => ({ ...d, phone: e.target.value }))} />
-        </label>
-        {select('restriction', m.riders.restriction, RESTRICTIONS, m.riders.restrictionName)}
-        {select('operatingStatus', m.riders.operatingStatus, OPERATING, m.riders.operatingName)}
-        {select('vehicleType', m.riders.vehicle, VEHICLES, m.riders.vehicleName)}
-        {select('sort', m.riders.sort, SORTS, m.riders.sortName, false)}
-        <button type="submit" className="btn btn-sm" disabled={phoneBad}>
-          {m.riders.search}
-        </button>
-        {phoneBad && <p className="w-full text-xs text-error">{m.orders.phoneInvalid}</p>}
-      </form>
+      {/* 관리자 형식(2026-11-18): 검색 조건 상자 — 줄마다 왼쪽 항목명 */}
+      <SearchPanel onSubmit={submit} onReset={() => setDraft(blank)} submitLabel={m.riders.search} resetLabel={m.orders.reset} submitDisabled={phoneBad} label={m.riders.search}>
+        <SearchRow label={m.riders.riderId}>
+          <input aria-label={m.riders.riderId} className="input input-sm w-48" autoComplete="off" value={draft.riderId} onChange={(e) => setDraft((d) => ({ ...d, riderId: e.target.value }))} />
+        </SearchRow>
+        <SearchRow label={m.riders.phoneRow}>
+          <input aria-label={m.riders.phone} placeholder={m.riders.phone} className="input input-sm w-48" inputMode="numeric" autoComplete="off" value={draft.phone} onChange={(e) => setDraft((d) => ({ ...d, phone: e.target.value }))} />
+          {phoneBad && <p className="text-xs text-error">{m.orders.phoneInvalid}</p>}
+        </SearchRow>
+        <SearchRow label={m.riders.restriction}>{select('restriction', m.riders.restriction, RESTRICTIONS, m.riders.restrictionName)}</SearchRow>
+        <SearchRow label={m.riders.operatingStatus}>{select('operatingStatus', m.riders.operatingStatus, OPERATING, m.riders.operatingName)}</SearchRow>
+        <SearchRow label={m.riders.vehicle}>{select('vehicleType', m.riders.vehicle, VEHICLES, m.riders.vehicleName)}</SearchRow>
+        <SearchRow label={m.riders.sort}>{select('sort', m.riders.sort, SORTS, m.riders.sortName, false)}</SearchRow>
+      </SearchPanel>
       {searched && (
         <QueryState state={toUiState(query, (r) => (r.items ?? []).length === 0)} onRetry={() => void query.refetch()} emptyText={m.riders.empty}>
           {(r) => (

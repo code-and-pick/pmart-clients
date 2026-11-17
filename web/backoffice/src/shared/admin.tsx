@@ -52,15 +52,16 @@ export function PageHeader({ title, description, actions, back }: { readonly tit
 }
 
 /** 검색 조건 상자 — 줄마다 왼쪽 항목명 칸 */
-export function SearchPanel({ onSubmit, onReset, children, submitLabel = '조회', resetLabel = '초기화' }: { readonly onSubmit: (e: FormEvent) => void; readonly onReset: () => void; readonly children: ReactNode; readonly submitLabel?: string; readonly resetLabel?: string }) {
+// 기본 백오피스 사본에만 더함(2026-11-18): submitDisabled(입력이 틀리면 조회를 막는 화면), label(화면 안 폼이 여럿일 때 이름)
+export function SearchPanel({ onSubmit, onReset, children, submitLabel = '조회', resetLabel = '초기화', submitDisabled = false, label = '검색 조건' }: { readonly onSubmit: (e: FormEvent) => void; readonly onReset: () => void; readonly children: ReactNode; readonly submitLabel?: string; readonly resetLabel?: string; readonly submitDisabled?: boolean; readonly label?: string }) {
   return (
-    <form className="overflow-hidden rounded-box border border-base-300 bg-base-100" onSubmit={onSubmit} aria-label="검색 조건">
+    <form className="overflow-hidden rounded-box border border-base-300 bg-base-100" onSubmit={onSubmit} aria-label={label}>
       <div className="divide-y divide-base-300">{children}</div>
       <div className="flex justify-center gap-2 border-t border-base-300 bg-base-200/60 px-4 py-3">
         <button type="button" className="btn btn-sm w-24 border-base-300 bg-base-100" onClick={onReset}>
           {resetLabel}
         </button>
-        <button type="submit" className="btn btn-sm btn-primary w-24">
+        <button type="submit" className="btn btn-sm btn-primary w-24" disabled={submitDisabled}>
           {submitLabel}
         </button>
       </div>

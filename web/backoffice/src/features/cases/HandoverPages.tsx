@@ -20,7 +20,7 @@ import { useApi } from '../../app/ApiContext';
 import { useSession } from '../../app/SessionContext';
 import { messages } from '../../shared/messages';
 import { label, text, when } from '../../shared/ops';
-import { PageHeader } from '../../shared/admin';
+import { Notice, PageHeader } from '../../shared/admin';
 
 const m = messages.handovers;
 type Handover = components['schemas']['ShiftHandover'];
@@ -44,12 +44,11 @@ export function HandoverPage() {
   return (
     <section className="max-w-5xl space-y-4">
       <PageHeader title={m.title} description={m.intro} />
-      <p role="note" className="alert alert-info text-sm">
-        {m.noAuto}
-      </p>
-      <div role="tablist" className="tabs tabs-box w-fit">
+      {/* 관리자 형식(2026-11-18): 회색 안내 상자 + 밑줄 탭(접수 건과 같게) */}
+      <Notice>{m.noAuto}</Notice>
+      <div role="tablist" className="flex gap-1 border-b border-base-300">
         {tabs.map((t) => (
-          <button key={t} type="button" role="tab" aria-selected={t === tab} className={`tab ${t === tab ? 'tab-active' : ''}`} onClick={() => setParams(t === tabs[0] ? {} : { tab: t })}>
+          <button key={t} type="button" role="tab" aria-selected={t === tab} className={`-mb-px border-b-2 px-4 py-2 text-sm ${t === tab ? 'border-primary font-semibold text-base-content' : 'border-transparent text-base-content/60 hover:text-base-content'}`} onClick={() => setParams(t === tabs[0] ? {} : { tab: t })}>
             {m.tabs[t]}
           </button>
         ))}

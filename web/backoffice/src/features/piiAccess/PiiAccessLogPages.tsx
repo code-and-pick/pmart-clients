@@ -14,7 +14,7 @@ import type { components } from '../../api/generated/audit';
 import { useApi } from '../../app/ApiContext';
 import { messages } from '../../shared/messages';
 import { Facts, isSeoulDate, label, seoulDayEnd, seoulDayStart, text, when } from '../../shared/ops';
-import { DataTable, PageHeader } from '../../shared/admin';
+import { DataTable, PageHeader, SearchPanel, SearchRow } from '../../shared/admin';
 
 const m = messages.piiLogs;
 type Log = components['schemas']['PiiAccessLog'];
@@ -157,16 +157,24 @@ function FilterForm({ initial, onApply }: { readonly initial: Filters; readonly 
     onApply(Object.fromEntries(KEYS.map((k) => [k, f[k].trim()])) as Filters);
   };
   return (
-    <form className="flex flex-wrap items-end gap-2 rounded-box border border-base-300 bg-base-100 p-3 text-sm" aria-label={m.filters} onSubmit={submit}>
+    <SearchPanel
+      onSubmit={submit}
+      onReset={() => {
+        const blank = Object.fromEntries(KEYS.map((k) => [k, ''])) as Filters;
+        setF(blank);
+        onApply(blank);
+      }}
+      submitLabel={messages.search}
+      resetLabel={m.reset}
+      label={m.filters}
+    >
       {TEXT_KEYS.map((k) => (
-        <label key={k} className="flex flex-col gap-1">
-          {m.filter[k]}
-          <input className="input input-sm w-48 font-mono" maxLength={128} value={f[k]} onChange={(e) => set(k, e.target.value)} />
-        </label>
+        <SearchRow key={k} label={m.filterRow[k]}>
+          <input aria-label={m.filter[k]} placeholder={m.filter[k]} className="input input-sm w-72 max-w-full font-mono" maxLength={128} value={f[k]} onChange={(e) => set(k, e.target.value)} />
+        </SearchRow>
       ))}
-      <label className="flex flex-col gap-1">
-        {m.filter.subjectType}
-        <select className="select select-sm w-32" value={f.subjectType} onChange={(e) => set('subjectType', e.target.value)}>
+      <SearchRow label={m.filter.subjectType}>
+        <select aria-label={m.filter.subjectType} className="select select-sm w-32" value={f.subjectType} onChange={(e) => set('subjectType', e.target.value)}>
           <option value="">{m.all}</option>
           {SUBJECT_TYPES.map((s) => (
             <option key={s} value={s}>
@@ -174,10 +182,9 @@ function FilterForm({ initial, onApply }: { readonly initial: Filters; readonly 
             </option>
           ))}
         </select>
-      </label>
-      <label className="flex flex-col gap-1">
-        {m.filter.accessType}
-        <select className="select select-sm w-32" value={f.accessType} onChange={(e) => set('accessType', e.target.value)}>
+      </SearchRow>
+      <SearchRow label={m.filter.accessType}>
+        <select aria-label={m.filter.accessType} className="select select-sm w-32" value={f.accessType} onChange={(e) => set('accessType', e.target.value)}>
           <option value="">{m.all}</option>
           {ACCESS_TYPES.map((s) => (
             <option key={s} value={s}>
@@ -185,22 +192,13 @@ function FilterForm({ initial, onApply }: { readonly initial: Filters; readonly 
             </option>
           ))}
         </select>
-      </label>
-      <label className="flex flex-col gap-1">
-        {m.filter.from}
-        <input type="date" className="input input-sm" value={f.from} onChange={(e) => set('from', e.target.value)} />
-      </label>
-      <label className="flex flex-col gap-1">
-        {m.filter.to}
-        <input type="date" className="input input-sm" value={f.to} onChange={(e) => set('to', e.target.value)} />
-      </label>
-      <button type="submit" className="btn btn-sm btn-primary">
-        {messages.search}
-      </button>
-      <button type="button" className="btn btn-sm" onClick={() => onApply(Object.fromEntries(KEYS.map((k) => [k, ''])) as Filters)}>
-        {m.reset}
-      </button>
-    </form>
+      </SearchRow>
+      <SearchRow label={m.period}>
+        <input type="date" aria-label={m.filter.from} className="input input-sm w-40" value={f.from} onChange={(e) => set('from', e.target.value)} />
+        <span className="text-base-content/50">~</span>
+        <input type="date" aria-label={m.filter.to} className="input input-sm w-40" value={f.to} onChange={(e) => set('to', e.target.value)} />
+      </SearchRow>
+    </SearchPanel>
   );
 }
 

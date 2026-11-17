@@ -16,7 +16,7 @@ import { messages as m } from '../../shared/messages';
 import { QueryState } from '@pmart/web-ui';
 import { toUiState } from '@pmart/web-ui';
 import { useCommand } from '@pmart/web-ui';
-import { DataTable, PageHeader } from '../../shared/admin';
+import { DataTable, PageHeader, SearchRow } from '../../shared/admin';
 
 type CenterType = 'MFC' | 'CDC';
 
@@ -153,37 +153,41 @@ export function SkuHandlingPage() {
     <section className="space-y-4">
       <PageHeader title={m.handlings.title} />
       <p className="text-xs text-base-content/60">{`${m.handlings.centerIdHint} ${m.handlings.defaultOff} ${m.handlings.saleHint}`}</p>
-      <div className="flex flex-wrap items-end gap-2">
-        <select aria-label={m.handlings.centerType} className="select select-sm w-28" value={type} onChange={(e) => setParam('type', e.target.value)}>
-          <option value="MFC">MFC</option>
-          <option value="CDC">CDC</option>
-        </select>
-        <form
-          className="flex gap-2"
-          onSubmit={(e) => {
-            e.preventDefault();
-            setParam('center', centerInput.trim());
-          }}
-        >
-          <input aria-label={m.handlings.centerId} placeholder="MFC-BSN-01" className="input input-sm" value={centerInput} onChange={(e) => setCenterInput(e.target.value)} />
-          <button type="submit" className="btn btn-sm">
-            {m.search}
-          </button>
-        </form>
-        <select
-          aria-label={m.handlings.filter}
-          className="select select-sm w-32"
-          value={enabledParam ?? ''}
-          onChange={(e) => setParam('enabled', e.target.value)}
-        >
-          <option value="">{`${m.handlings.filter}: ${m.approvals.filterAll}`}</option>
-          <option value="true">{m.handlings.on}</option>
-          <option value="false">{m.handlings.off}</option>
-        </select>
-        <label className="flex flex-col text-sm">
-          {m.reasonLabel}
-          <input className="input input-sm" maxLength={500} value={reason} onChange={(e) => setReason(e.target.value)} />
-        </label>
+      {/* 관리자 형식(2026-11-18): 검색 조건 상자 — 줄마다 왼쪽 항목명 */}
+      <div className="divide-y divide-base-300 overflow-hidden rounded-box border border-base-300 bg-base-100">
+        <SearchRow label={m.handlings.centerId}>
+          <select aria-label={m.handlings.centerType} className="select select-sm w-28" value={type} onChange={(e) => setParam('type', e.target.value)}>
+            <option value="MFC">MFC</option>
+            <option value="CDC">CDC</option>
+          </select>
+          <form
+            className="flex gap-2"
+            onSubmit={(e) => {
+              e.preventDefault();
+              setParam('center', centerInput.trim());
+            }}
+          >
+            <input aria-label={m.handlings.centerId} placeholder="MFC-BSN-01" className="input input-sm" value={centerInput} onChange={(e) => setCenterInput(e.target.value)} />
+            <button type="submit" className="btn btn-sm btn-primary">
+              {m.search}
+            </button>
+          </form>
+        </SearchRow>
+        <SearchRow label={m.handlings.filter}>
+          <select
+            aria-label={m.handlings.filter}
+            className="select select-sm w-32"
+            value={enabledParam ?? ''}
+            onChange={(e) => setParam('enabled', e.target.value)}
+          >
+            <option value="">{`${m.handlings.filter}: ${m.approvals.filterAll}`}</option>
+            <option value="true">{m.handlings.on}</option>
+            <option value="false">{m.handlings.off}</option>
+          </select>
+        </SearchRow>
+        <SearchRow label={m.reasonLabel}>
+          <input aria-label={m.reasonLabel} className="input input-sm w-80 max-w-full" maxLength={500} value={reason} onChange={(e) => setReason(e.target.value)} />
+        </SearchRow>
       </div>
 
       {centerId && (

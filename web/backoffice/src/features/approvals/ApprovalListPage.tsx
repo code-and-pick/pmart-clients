@@ -10,7 +10,7 @@ import { formatSeoul } from '@pmart/web-ui';
 import { messages as m } from '../../shared/messages';
 import { QueryState } from '@pmart/web-ui';
 import { toUiState } from '@pmart/web-ui';
-import { DataTable, PageHeader } from '../../shared/admin';
+import { DataTable, PageHeader, SearchRow } from '../../shared/admin';
 
 const pick = <T extends string>(value: string | null, allowed: readonly T[]): T | undefined =>
   allowed.find((a) => a === value);
@@ -50,7 +50,9 @@ export function ApprovalListPage() {
   return (
     <section className="space-y-4">
       <PageHeader title={m.approvals.title} />
-      <div className="flex flex-wrap gap-2">
+      {/* 관리자 형식(2026-11-18): 검색 조건 상자 — 줄마다 왼쪽 항목명 */}
+      <div className="divide-y divide-base-300 overflow-hidden rounded-box border border-base-300 bg-base-100">
+        <SearchRow label={m.approvals.type}>
         <select
           aria-label={m.approvals.type}
           className="select select-sm w-48"
@@ -64,6 +66,8 @@ export function ApprovalListPage() {
             </option>
           ))}
         </select>
+        </SearchRow>
+        <SearchRow label={m.approvals.review}>
         <select
           aria-label={m.approvals.review}
           className="select select-sm w-56"
@@ -77,6 +81,7 @@ export function ApprovalListPage() {
             </option>
           ))}
         </select>
+        </SearchRow>
       </div>
 
       <QueryState

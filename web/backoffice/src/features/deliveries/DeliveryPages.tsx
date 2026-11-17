@@ -16,7 +16,7 @@ import { useApi } from '../../app/ApiContext';
 import { CommandFeedback } from '../../shared/Feedback';
 import { messages as m } from '../../shared/messages';
 import { Facts, label, text, when } from '../../shared/ops';
-import { DataTable, PageHeader } from '../../shared/admin';
+import { DataTable, PageHeader, SearchPanel, SearchRow } from '../../shared/admin';
 
 type DeliveryExecution = Execution['schemas']['DeliveryExecution'];
 type DispatchView = Dispatch['schemas']['Delivery'];
@@ -168,34 +168,33 @@ export function DeliveryOpenPage() {
   return (
     <section className="max-w-5xl space-y-4">
       <PageHeader title={m.deliveries.title} description={m.deliveries.intro} />
-      <form className="flex max-w-xl items-end gap-2 rounded-box border border-base-300 bg-base-100 p-4" onSubmit={open} aria-label={m.deliveries.open}>
-        <label className="flex-1 text-sm">
-          {m.deliveries.deliveryId}
-          <input className="input input-sm mt-1 w-full" value={id} onChange={(e) => setId(e.target.value)} />
-        </label>
-        <button type="submit" className="btn btn-primary btn-sm" disabled={!id.trim()}>
-          {m.deliveries.open}
-        </button>
-      </form>
-      <form
-        className="flex flex-wrap items-end gap-2 rounded-box border border-base-300 bg-base-100 p-4"
-        aria-label={m.deliveries.search}
+      {/* 관리자 형식(2026-11-18): 검색 조건 상자 — 줄마다 왼쪽 항목명 */}
+      <div className="overflow-hidden rounded-box border border-base-300 bg-base-100">
+        <SearchRow label={m.deliveries.quickOpen}>
+          <form className="flex flex-wrap gap-2" onSubmit={open} aria-label={m.deliveries.open}>
+            <input aria-label={m.deliveries.deliveryId} placeholder={m.deliveries.deliveryId} className="input input-sm w-64" value={id} onChange={(e) => setId(e.target.value)} />
+            <button type="submit" className="btn btn-primary btn-sm" disabled={!id.trim()}>
+              {m.deliveries.open}
+            </button>
+          </form>
+        </SearchRow>
+      </div>
+      <SearchPanel
         onSubmit={(e) => {
           e.preventDefault();
           go(draft);
         }}
+        onReset={() => setDraft({ orderId: '', riderId: '', state: '', oldest: false })}
+        submitLabel={m.deliveries.search}
+        resetLabel={m.deliveries.reset}
+        label={m.deliveries.search}
       >
-        <label className="text-sm">
-          {m.deliveries.orderIdFilter}
-          <input className="input input-sm mt-1 block" value={draft.orderId} onChange={(e) => setDraft((d) => ({ ...d, orderId: e.target.value }))} />
-        </label>
-        <label className="text-sm">
-          {m.deliveries.riderIdFilter}
-          <input className="input input-sm mt-1 block" value={draft.riderId} onChange={(e) => setDraft((d) => ({ ...d, riderId: e.target.value }))} />
-        </label>
-        <label className="text-sm">
-          {m.deliveries.stateFilter}
-          <select className="select select-sm mt-1 block" value={draft.state} onChange={(e) => setDraft((d) => ({ ...d, state: EXECUTION_STATES.find((s) => s === e.target.value) ?? '' }))}>
+        <SearchRow label={m.deliveries.ids}>
+          <input aria-label={m.deliveries.orderIdFilter} placeholder={m.deliveries.orderIdFilter} className="input input-sm w-52" value={draft.orderId} onChange={(e) => setDraft((d) => ({ ...d, orderId: e.target.value }))} />
+          <input aria-label={m.deliveries.riderIdFilter} placeholder={m.deliveries.riderIdFilter} className="input input-sm w-52" value={draft.riderId} onChange={(e) => setDraft((d) => ({ ...d, riderId: e.target.value }))} />
+        </SearchRow>
+        <SearchRow label={m.deliveries.stateFilter}>
+          <select aria-label={m.deliveries.stateFilter} className="select select-sm w-44" value={draft.state} onChange={(e) => setDraft((d) => ({ ...d, state: EXECUTION_STATES.find((s) => s === e.target.value) ?? '' }))}>
             <option value="">{m.deliveries.any}</option>
             {EXECUTION_STATES.map((s) => (
               <option key={s} value={s}>
@@ -203,18 +202,17 @@ export function DeliveryOpenPage() {
               </option>
             ))}
           </select>
-        </label>
-        <label className="flex items-center gap-1 text-sm">
-          <input type="checkbox" className="checkbox checkbox-xs" checked={draft.oldest} onChange={(e) => setDraft((d) => ({ ...d, oldest: e.target.checked }))} />
-          {m.deliveries.sortOldest}
-        </label>
-        <button type="submit" className="btn btn-sm">
-          {m.deliveries.search}
-        </button>
-        <button type="button" className="btn btn-sm btn-outline" onClick={() => go({ orderId: '', riderId: '', state: 'FAILURE_REPORTED', oldest: true })}>
-          {m.deliveries.failureQueue}
-        </button>
-      </form>
+          <button type="button" className="btn btn-sm btn-outline" onClick={() => go({ orderId: '', riderId: '', state: 'FAILURE_REPORTED', oldest: true })}>
+            {m.deliveries.failureQueue}
+          </button>
+        </SearchRow>
+        <SearchRow label={m.deliveries.sort}>
+          <label className="flex items-center gap-1 text-sm">
+            <input type="checkbox" className="checkbox checkbox-xs" checked={draft.oldest} onChange={(e) => setDraft((d) => ({ ...d, oldest: e.target.checked }))} />
+            {m.deliveries.sortOldest}
+          </label>
+        </SearchRow>
+      </SearchPanel>
       {searched && (
         <QueryState state={toUiState(query, (r) => (r.items ?? []).length === 0)} onRetry={() => void query.refetch()} emptyText={m.deliveries.empty}>
           {(r) => (

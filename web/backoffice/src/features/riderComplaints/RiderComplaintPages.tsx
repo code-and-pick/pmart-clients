@@ -13,7 +13,7 @@ import { useApi } from '../../app/ApiContext';
 import { CommandFeedback } from '../../shared/Feedback';
 import { messages as m } from '../../shared/messages';
 import { Facts, isSeoulDate, label, seoulDayEnd, seoulDayStart, text, when } from '../../shared/ops';
-import { DataTable, PageHeader } from '../../shared/admin';
+import { DataTable, PageHeader, SearchPanel, SearchRow } from '../../shared/admin';
 
 type ComplaintType = components['schemas']['RiderComplaintType'];
 type Summary = components['schemas']['RiderComplaintSummary'];
@@ -140,25 +140,29 @@ export function RiderComplaintListPage() {
 
   return (
     <section className="space-y-4">
-      <div className="flex items-center gap-2">
-        <PageHeader title={m.complaints.title} />
-        <Link className="btn btn-primary btn-sm ml-auto" to="/rider-complaints/new">
-          {m.complaints.record}
-        </Link>
-      </div>
-      <p className="text-sm text-base-content/60">{m.complaints.intro}</p>
-      <form className="flex flex-wrap items-end gap-2 rounded-box border border-base-300 bg-base-100 p-4" onSubmit={submit} aria-label={m.complaints.title}>
-        <label className="text-sm">
-          {m.complaints.riderId}
-          <input className="input input-sm mt-1 block" {...field('riderId')} />
-        </label>
-        <label className="text-sm">
-          {m.complaints.deliveryId}
-          <input className="input input-sm mt-1 block" {...field('deliveryId')} />
-        </label>
-        <label className="text-sm">
-          {m.complaints.type}
-          <select className="select select-sm mt-1 block" {...field('complaintType')}>
+      <PageHeader
+        title={m.complaints.title}
+        description={m.complaints.intro}
+        actions={
+          <Link className="btn btn-primary btn-sm" to="/rider-complaints/new">
+            {m.complaints.record}
+          </Link>
+        }
+      />
+      {/* 관리자 형식(2026-11-18): 검색 조건 상자 — 줄마다 왼쪽 항목명 */}
+      <SearchPanel
+        onSubmit={submit}
+        onReset={() => setDraft({ riderId: '', deliveryId: '', complaintType: '', from: '', to: '' })}
+        submitLabel={m.complaints.filter}
+        resetLabel={m.complaints.reset}
+        label={m.complaints.title}
+      >
+        <SearchRow label={m.complaints.ids}>
+          <input aria-label={m.complaints.riderId} placeholder={m.complaints.riderId} className="input input-sm w-48" {...field('riderId')} />
+          <input aria-label={m.complaints.deliveryId} placeholder={m.complaints.deliveryId} className="input input-sm w-48" {...field('deliveryId')} />
+        </SearchRow>
+        <SearchRow label={m.complaints.type}>
+          <select aria-label={m.complaints.type} className="select select-sm w-36" {...field('complaintType')}>
             <option value="">{m.complaints.any}</option>
             {TYPES.map((t) => (
               <option key={t} value={t}>
@@ -166,19 +170,13 @@ export function RiderComplaintListPage() {
               </option>
             ))}
           </select>
-        </label>
-        <label className="text-sm">
-          {m.complaints.from}
-          <input type="date" className="input input-sm mt-1 block" {...field('from')} />
-        </label>
-        <label className="text-sm">
-          {m.complaints.to}
-          <input type="date" className="input input-sm mt-1 block" {...field('to')} />
-        </label>
-        <button type="submit" className="btn btn-sm">
-          {m.complaints.filter}
-        </button>
-      </form>
+        </SearchRow>
+        <SearchRow label={m.complaints.period}>
+          <input type="date" aria-label={m.complaints.from} className="input input-sm w-40" {...field('from')} />
+          <span className="text-base-content/50">~</span>
+          <input type="date" aria-label={m.complaints.to} className="input input-sm w-40" {...field('to')} />
+        </SearchRow>
+      </SearchPanel>
       <RiderComplaintTable
         riderId={get('riderId') || undefined}
         deliveryId={get('deliveryId') || undefined}

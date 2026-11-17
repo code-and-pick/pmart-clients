@@ -132,9 +132,10 @@ export function RestrictionReviewPage() {
   return (
     <section className="space-y-4">
       <PageHeader title={m.reviews.title} description={m.reviews.intro} />
-      <div role="group" aria-label={m.reviews.title} className="join">
+      {/* 관리자 형식(2026-11-18): 밑줄 탭(접수 건과 같게) */}
+      <div role="group" aria-label={m.reviews.title} className="flex gap-1 border-b border-base-300">
         {STATES.map((s) => (
-          <button key={s} type="button" aria-pressed={state === s} className={`btn join-item btn-sm ${state === s ? 'btn-active' : ''}`} onClick={() => setSearch({ state: s })}>
+          <button key={s} type="button" aria-pressed={state === s} className={`-mb-px border-b-2 px-4 py-2 text-sm ${state === s ? 'border-primary font-semibold text-base-content' : 'border-transparent text-base-content/60 hover:text-base-content'}`} onClick={() => setSearch({ state: s })}>
             {m.reviews.state[s]}
           </button>
         ))}
