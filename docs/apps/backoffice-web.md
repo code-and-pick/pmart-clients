@@ -90,6 +90,7 @@ auth-service 의 운영자 로그인·비밀번호 변경·운영자 계정 API 
 - **라이더 문의** `/rider-inquiries`(case 0.13.0, 백엔드 요청 `backoffice/2026-11-16-request-rider-inquiries` — 지원센터 묶음, 메뉴 항목은 `RIDER_OPS`·`OPERATOR_ADMIN` 만): 고객 문의 화면을 같이 쓰고 목록은 `requesterType=RIDER`(고객센터 문의는 `CUSTOMER` — 관리자도 메뉴별로 나뉨). 분류 정산·앱 오류, 상세 "문의한 사람"·라이더 ID(라이더 찾기 링크), 컴플레인·연락 기록 없음. 답변은 `RIDER_OPS` 만(관리자 보기만, 서버도 종류별 403). 못 보는 종류 403 은 오류로. LAN(관리자 세션) 목록·상세 보기 확인(답변은 안 보냄).
 - **문의 사진**(case 0.14.0, 백엔드 요청 `all/2026-11-17-request-inquiry-photos` — `features/inquiries/InquiryPhotos.tsx`): 고객·라이더 문의 상세에 `photos[]` 썸네일(붙인 순서)·누르면 크게 보기. 본문 `GET /inquiry-photos/{photoId}` 는 토큰을 붙여 받아 blob URL(공개 아님). 404·403·503 은 "사진을 불러오지 못했어요" + 다시 시도(빈칸으로 두지 않음). 사진 없는 문의는 칸 없음. 올리기·보완은 고객·라이더 앱 몫. LAN(관리자 세션, 2026-11-17): 라이더 문의 목록 4건·백엔드 시험 문의 사진 1장 보임(읽기만).
 - **문의 만족도** `/inquiry-satisfaction`(case 0.15.0, 백엔드 요청 `all/2026-11-17-request-inquiry-satisfaction` — 고객센터 묶음, 메뉴 항목 `OPERATOR_ADMIN` 만): 답변 시각 기간(최대 92일, URL `from`·`to`) → "답변 N건 중 M건 응답(M/N)", 평균(없으면 "—"), 1~5점 막대. 상담원별 순위·이름 없음(사용자 결정 — 상담원 평가에 쓰지 않음). 문의 상세 고객 점수·한 줄은 서버가 관리자에게만 줄 때만. **배송 신고**(0.16.0): 고객 문의 목록 "배송 신고 · 늦음/못 받음/잘못 배송", 상세에 배송 번호 링크. 목으로만 확인.
+- **문의 닫기**(case 0.19.0 #102, 백엔드 요청 `all/2026-11-17-request-inquiry-close`): 문의 상세 "문의 닫기" — 답변 역할 직원만(고객 문의 상담원, 라이더 문의 지원센터, 관리자 버튼 없음), 경고(다시 열 수 없음·상담 종료일 뿐) + 사유 필수 2~500자(직원에게만 보임) → `POST …/closures`. 닫힌 문의는 "종료 · 고객/라이더/직원이 닫음 · 시각" + 직원 사유, 답변 칸 대신 "새 문의로" 안내. LAN 배포 전이라 목으로만.
 - 답변은 응대일 뿐 주문·환불을 바꾸지 않는다. 고객 알림은 없다(고객은 앱 "내 문의"에서 본다).
 - 실서버 확인은 아직 안 함(목: `mocks/inquiryHandlers.ts`, 목 계정 "상담원 최").
 
@@ -114,6 +115,7 @@ auth-service 의 운영자 로그인·비밀번호 변경·운영자 계정 API 
   - 버튼은 `allowedActions` 만: 결제 결과 다시 확인(`saga-requery`), 처리 완료(`saga-resolve`, 사유 필수·주문·재고 그대로 경고) — bff 명령 프록시 — 짝 조회 `GET …/commands/…/{requestId}` 는 아직 501 이라 부르지 않고, `ACCEPTED`·`UNKNOWN_RESULT`·시간 초과면 목록을 다시 읽어 "목록에서 확인"(결과 불명, 같은 키 재전송만, 2026-11-16 백엔드 회신 reply-case-inbox-questions §3), 확인(order-service acknowledgements). 422 `NOT_REQUERYABLE`·`NOT_RESOLVABLE` = 새로고침 안내.
   - **MFC 중지 실패·인계 거절**(bff 0.4.0, 백엔드 알림 `notice-pending-work-mfc-retry`): `allowedActions: [RETRY]` → "다시 시도"(메모 필수) → bff `mfc-fulfillment-service/stop-retry`·`handover-retry`. APPLIED = 목록에서 빠짐, REJECTED = "다시 실패 — 원인 고친 뒤 다시", 그 밖은 위와 같이 목록 다시 읽기. 인계 거절은 "실물 확인 → 재고 정정 → 다시 시도" 안내. 처리 완료 버튼 없음. 메모는 MFC 에 아직 저장 안 됨 — "기록됨"이라 쓰지 않음.
   - **MFC 묶음 켜짐**(bff 0.8.0 #96, 백엔드 요청 `request-pending-work-mfc`): 항목마다 "최근 재시도: 누가 · 언제 · 사유"(lastRetry, 없으면 줄 없음), 다시 시도 "사유(필수, 500자)" — 누가·사유가 MFC 재시도 기록으로 남는다는 안내. 다시 실패(REJECTED)여도 목록을 다시 읽어 최근 재시도를 갱신. LAN(관리자): 지금 항목 0건, MFC 원천 켜짐("아직 연결 전" 안내 안 보임).
+  - **더 있음**(bff 0.9.1 #100): MFC 목록이 1,000건을 넘어 뒤를 못 읽었으면(truncated) 목록 위 "오래된 것부터 처리하거나 센터로 나눠 보세요". LAN 지금 false·0건이라 목으로만.
   - MFC 목록은 PC 3 API(F-4) 전까지 서버 설정으로 꺼짐 — `sources` 에 mfc-fulfillment-service 가 없으면 "아직 이 목록에 나오지 않아요(장애 아님)" 안내.
   - LAN(2026-11-16, claude-dev): 0건 + 그 안내 확인, 재시도 명령은 대상이 없어 실서버로 보내 보지 않음.
 - **지원센터 사건** `/cases`·`/cases/:caseId`·`/cases/new-misdelivery`(2026-11-16, `RIDER_OPS`·`OPERATOR_ADMIN`, `CS_AGENT` 보기 + 오배송 열기) — case 0.4.0.
@@ -152,6 +154,7 @@ auth-service 의 운영자 로그인·비밀번호 변경·운영자 계정 API 
 - `summary` 는 원천 필드 이름 그대로 — 아는 이름만 한국어, 모르는 이름은 그대로, 시각(…At)은 서울 시각, 객체는 한 단계 펼침. 금액·상태를 계산하지 않는다. 개인정보는 오지 않는다(원문은 주문 상세 열람).
 - 각 항목 "상세 보기": 주문 `/orders/{id}`·배송·배차 `/deliveries/{id}`·클레임 `/claims/{id}`·사건 `/cases/{id}`·문의 `/inquiries/{id}`. 고객 번호면 주문 목록만 → "이 주문으로 다시 조회"(q = 주문, kind ORDER).
 - 계약 타입: bff 0.3.0 이 main 에 없어(PR #25) 그 브랜치 계약으로 로컬 생성(생성물은 커밋 안 함) — PR #25 병합 뒤 `gen:api` 로 다시, `contracts.lock` 은 PC 1. 목 `mocks/lookupHandlers.ts`.
+- **현장(MFC)**(bff 0.9.0 #98, 백엔드 요청 `request-lookup-fulfillment` — `features/lookup/FieldSection.tsx`): 주문 아래 칸. 작업 지시(원래·재발송, 센터 수락·거절 사유) → 출고별 피킹 → 포장 → 인계 순서, 막힘 사유 빨강·수량(완료/계획·취소)·작업자 ID, 점원 결품 보고, 포장 인계 거절 사유. 중지 요청 PENDING + 오류면 관리자에게 처리 대기 링크. 원천 실패는 "조회 실패", 기록 없으면 "현장 기록이 없어요". 옛 "아직 없는 원천: MFC" 안내 뺌. LAN(test-cs-rider): ORD-bd33c14e… 피킹 진행 중·포장 대기 보임.
 
 ## 2-6. 실시간 배송 현황 (2026-11-16, bff 0.3.0 — 백엔드 요청 `backoffice/2026-11-16-request-live-delivery.md`, PR #25, 배송 원문 §10.1)
 - 메뉴 "실시간 배송 현황" `/live-delivery` — 고객센터·라이더 운영 묶음, 통합 조회 다음. OPERATOR_ADMIN·CS_AGENT·RIDER_OPS(서버 판정, 셋 다 모든 센터 — 그 밖 403 → 권한 없음 화면).

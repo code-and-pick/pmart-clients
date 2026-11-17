@@ -16,6 +16,7 @@ import { useApi } from '../../app/ApiContext';
 import { messages } from '../../shared/messages';
 import { label, when, won } from '../../shared/ops';
 import { SourceStamps } from '../../shared/SourceStamps';
+import { FieldWork } from './FieldSection';
 
 const m = messages.lookup;
 
@@ -43,6 +44,8 @@ const SECTION_SYSTEM: Readonly<Record<string, string>> = {
   CASE: 'case-service',
   // 고객 문의는 사건과 같은 서비스지만 원천 이름이 따로(RIDER_OPS 는 권한 없음으로 여기에 온다 — 백엔드 알림 2026-11-16)
   INQUIRY: 'case-service/inquiries',
+  // bff 0.9.0 MFC 현장(작업 지시 FULFILLMENT·중지 요청 MFC_STOP)
+  FIELD: 'mfc-fulfillment-service',
 };
 const SECTIONS = ['DELIVERY', 'DISPATCH', 'CLAIM', 'INQUIRY'] as const;
 
@@ -224,6 +227,10 @@ function LookupResult({ view, onOpenOrder }: { readonly view: LookupView; readon
         <>
           <Section title={m.section.ORDER!} failed={orderFailed}>
             {of('ORDER').length === 0 ? <p className="opacity-70">{m.none}</p> : of('ORDER').map((o) => <MatchCard key={`ORDER-${o.id}`} match={o} />)}
+          </Section>
+          {/* 현장(MFC) — 주문 아래. 실패는 "조회 실패", 기록 없으면 없음 */}
+          <Section title={m.section.FIELD!} failed={failed.has(SECTION_SYSTEM.FIELD!)}>
+            <FieldWork matches={matches} />
           </Section>
           <div className="grid gap-3 md:grid-cols-2">
             {SECTIONS.map((s) => (

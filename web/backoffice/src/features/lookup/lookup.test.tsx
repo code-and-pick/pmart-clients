@@ -55,7 +55,30 @@ describe('통합 조회', () => {
     expect(within(claim).getByRole('alert')).toHaveTextContent('조회 실패 또는 볼 권한 없음');
     expect(within(claim).queryByText('없음')).not.toBeInTheDocument();
     // 원천 표시 줄에도 실패 원천이 따로 보인다
-    expect(within(screen.getByRole('region', { name: '원천' })).getByText('조회하지 못한 원천: claim-service')).toBeInTheDocument();
+    expect(within(screen.getByRole('region', { name: '원천' })).getByText(/조회하지 못한 원천: claim-service/)).toBeInTheDocument();
+    // MFC 현장(bff 0.9.0) 실패도 칸에 조회 실패
+    expect(within(section('현장(MFC)')).getByRole('alert')).toHaveTextContent('조회 실패 또는 볼 권한 없음');
+  });
+
+  it('현장(MFC): 피킹 → 포장 순서, 막힘 사유 빨강·작업자 ID, 결품 보고, 인계 거절, 멈춘 중지는 관리자에게 처리 대기 링크', async () => {
+    renderAt('/lookup?q=ORD-MOCK-1001', as.admin);
+    const field = await waitFor(() => section('현장(MFC)'));
+    const tasks = within(field).getAllByTestId('field-task');
+    expect(tasks.map((t) => t.getAttribute('data-type'))).toEqual(['PICK', 'PACK']);
+    expect(tasks[0]).toHaveTextContent('막힘: SHORTAGE_REPORTED');
+    expect(tasks[0]).toHaveTextContent('작업자 E-1042');
+    expect(tasks[0]).toHaveTextContent('2/3 · 취소 1');
+    expect(within(field).getByTestId('field-shortages')).toHaveTextContent('점원 결품 보고 1건');
+    expect(within(field).getByTestId('field-package')).toHaveTextContent('인계 거절: STOCK_MISMATCH');
+    expect(within(field).getByTestId('match-MFC_STOP')).toHaveTextContent('마지막 오류: PDA_OFFLINE');
+    expect(within(field).getByRole('link', { name: '처리 대기에서 다시 시도' })).toHaveAttribute('href', '/pending');
+  });
+
+  it('현장(MFC): 상담원에게는 처리 대기 링크가 없다', async () => {
+    renderAt('/lookup?q=ORD-MOCK-1001', as.cs);
+    const field = await waitFor(() => section('현장(MFC)'));
+    expect(within(field).getByTestId('match-FULFILLMENT')).toBeInTheDocument();
+    expect(within(field).queryByRole('link', { name: '처리 대기에서 다시 시도' })).not.toBeInTheDocument();
   });
 
   it('고객 번호면 주문 목록만 — 누르면 그 주문으로 다시 조회(주소에 남는다)', async () => {

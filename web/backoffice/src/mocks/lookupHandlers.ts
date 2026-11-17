@@ -9,13 +9,13 @@ import { operator, problem, unauthorized } from './support';
 
 const ROLES = ['OPERATOR_ADMIN', 'CS_AGENT', 'RIDER_OPS'];
 // 고객 문의는 'case-service/inquiries'(사건과 다른 이름 — CS_AGENT·OPERATOR_ADMIN 만, 그 밖은 실패 원천으로)
-const SYSTEMS = ['order-service', 'delivery-execution-service', 'delivery-dispatch-service', 'claim-service', 'case-service', 'case-service/inquiries'] as const;
+const SYSTEMS = ['order-service', 'delivery-execution-service', 'delivery-dispatch-service', 'claim-service', 'case-service', 'case-service/inquiries', 'mfc-fulfillment-service'] as const;
 type System = (typeof SYSTEMS)[number];
 
 const at = '2026-11-16T01:00:00.000Z';
 
 interface MockMatch {
-  readonly kind: 'ORDER' | 'DELIVERY' | 'DISPATCH' | 'CLAIM' | 'CASE' | 'INQUIRY';
+  readonly kind: 'ORDER' | 'DELIVERY' | 'DISPATCH' | 'CLAIM' | 'CASE' | 'INQUIRY' | 'FULFILLMENT' | 'MFC_STOP';
   readonly id: string;
   readonly system: System;
   readonly summary: Record<string, unknown>;
@@ -72,6 +72,43 @@ const order1001: readonly MockMatch[] = [
     system: 'case-service/inquiries',
     summary: { inquiryId: 'INQ-MOCK-1', category: 'DELIVERY', orderId: 'ORD-MOCK-1001', status: 'RECEIVED', origin: 'APP', createdAt: '2026-11-16T00:58:00.000Z', answeredAt: null, version: 1 },
   },
+  // bff 0.9.0 현장(MFC) — 원천 모양 그대로
+  {
+    kind: 'FULFILLMENT',
+    id: 'FUL-MOCK-1',
+    system: 'mfc-fulfillment-service',
+    summary: {
+      kind: 'ORIGINAL',
+      mfcId: 'MFC-BSN-01',
+      workVersion: 3,
+      acceptance: 'ACCEPTED',
+      rejectReason: null,
+      rejectMessage: null,
+      decidedAt: at,
+      preparationStartedAt: at,
+      createdAt: at,
+      shipments: [
+        {
+          shipmentId: 'SHP-MOCK-1',
+          state: 'PREPARING',
+          readyAt: null,
+          dispatchRequestedAt: null,
+          tasks: [
+            { taskType: 'PACK', state: 'READY', workerId: null, startedAt: null, endedAt: null, blockReason: null, plannedQty: 3, completedQty: 0, cancelledQty: 0, remainingQty: 3 },
+            { taskType: 'PICK', state: 'BLOCKED', workerId: 'E-1042', startedAt: at, endedAt: null, blockReason: 'SHORTAGE_REPORTED', plannedQty: 3, completedQty: 2, cancelledQty: 1, remainingQty: 0 },
+          ],
+          shortages: [{ sku: 'E-00000002', qty: 1, reason: 'NOT_ON_SHELF', reportedAt: at, executionState: 'REPORTED' }],
+          packages: [{ state: 'OPEN', sealedAt: null, fenceState: null, handoverAuthorizedAt: null, handoverStatus: 'REJECTED', handoverRejectReason: 'STOCK_MISMATCH', handedOverAt: null }],
+        },
+      ],
+    },
+  },
+  {
+    kind: 'MFC_STOP',
+    id: 'STOP-MOCK-1',
+    system: 'mfc-fulfillment-service',
+    summary: { scope: 'ORDER', state: 'PENDING', lastError: 'PDA_OFFLINE: 피킹 PDA 응답 없음', requestedAt: at, failedAt: at, resolvedAt: null },
+  },
 ];
 
 /** 고객 CU-MOCK-1 의 주문 목록(목록 요약) */
@@ -125,7 +162,7 @@ export const lookupHandlers = [
     const linked = q === 'ORD-MOCK-1001' || q === 'DLV-MOCK-1' || q === 'CASE-MOCK-1';
     if (q === 'ORD-MOCK-FAIL') {
       // 클레임 원천 실패 — 칸에 "조회 실패"가 보여야 한다(0건 아님)
-      return view('ORD-MOCK-FAIL', order1001.map((x) => (x.kind === 'ORDER' ? { ...x, id: 'ORD-MOCK-FAIL', summary: { ...x.summary, orderId: 'ORD-MOCK-FAIL' } } : x)).filter((x) => x.kind === 'ORDER'), ['claim-service']);
+      return view('ORD-MOCK-FAIL', order1001.map((x) => (x.kind === 'ORDER' ? { ...x, id: 'ORD-MOCK-FAIL', summary: { ...x.summary, orderId: 'ORD-MOCK-FAIL' } } : x)).filter((x) => x.kind === 'ORDER'), ['claim-service', 'mfc-fulfillment-service']);
     }
     return linked ? view('ORD-MOCK-1001', order1001) : view(null, []);
   }),
