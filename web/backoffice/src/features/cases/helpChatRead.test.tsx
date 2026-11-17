@@ -1,33 +1,32 @@
-// 사건함 도움요청 "새 메시지" 점(bff 0.6.0) — 두 시각 + 직원별 읽음(이 탭)
+// 사건함 도움요청 "새 메시지" 점(case 0.20.0·bff 0.10.0) — 읽음은 서버(POST /cases/{id}/views → myLastSeenAt)
 import { cleanup, screen, waitFor, within } from '@testing-library/react';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 import { as, renderAt } from '../../test/render';
 import { hasNewRiderMessage } from './helpChatRead';
 
 describe('새 메시지 판단', () => {
-  it('라이더가 지원센터 답 뒤에 썼고(또는 답 없음) 아직 안 봤을 때만', () => {
-    expect(hasNewRiderMessage('2026-11-17T01:00:00Z', null, undefined)).toBe(true);
-    expect(hasNewRiderMessage('2026-11-17T01:00:00Z', '2026-11-17T01:05:00Z', undefined)).toBe(false); // 답이 더 늦음
-    expect(hasNewRiderMessage('2026-11-17T01:10:00Z', '2026-11-17T01:05:00Z', undefined)).toBe(true);
-    expect(hasNewRiderMessage('2026-11-17T01:10:00Z', null, '2026-11-17T01:10:00Z')).toBe(false); // 이미 봄
-    expect(hasNewRiderMessage(null, null, undefined)).toBe(false);
+  it('라이더 마지막 메시지가 있고, 내가 본 적 없거나 그보다 먼저 봤을 때만', () => {
+    expect(hasNewRiderMessage('2026-11-17T01:00:00Z', null)).toBe(true);
+    expect(hasNewRiderMessage('2026-11-17T01:10:00Z', '2026-11-17T01:05:00Z')).toBe(true);
+    expect(hasNewRiderMessage('2026-11-17T01:10:00Z', '2026-11-17T01:10:00Z')).toBe(false); // 이미 봄
+    expect(hasNewRiderMessage(null, null)).toBe(false);
   });
 });
 
 describe('사건함 새 메시지 점', () => {
-  beforeEach(() => sessionStorage.clear());
-
-  it('도움요청 건에 "새 메시지" — 대화를 열어 본 뒤에는 이 직원에게 사라진다', async () => {
+  it('도움요청 건에 "새 메시지" — 접수 건을 열면 서버에 "봤음"을 남기고, 이 직원에게 점이 사라진다', async () => {
     renderAt('/cases', as.riderOps);
     const row = (await screen.findAllByTestId('case-row')).find((r) => within(r).queryByTestId('case-new-message'));
     expect(row).toBeDefined();
-    expect(within(row!).getByTestId('case-new-message')).toHaveTextContent('새 메시지');
     cleanup();
 
-    renderAt('/cases/CASE-MOCK-1', as.riderOps);
+    const view = renderAt('/cases/CASE-MOCK-1', as.riderOps);
     await screen.findAllByTestId('help-message');
-    await waitFor(() => expect(Object.keys(sessionStorage).some((k) => k.endsWith('op-rider-ops-1'))).toBe(true));
+    await waitFor(() => expect(view.sent.some((r) => r.method === 'POST' && new URL(r.url).pathname.endsWith('/cases/CASE-MOCK-1/views'))).toBe(true));
+    const post = view.sent.find((r) => r.method === 'POST' && new URL(r.url).pathname.endsWith('/views'))!;
+    expect(post.headers.get('Idempotency-Key')).toBeNull(); // 멱등 키 필요 없음
+    expect(Object.keys(sessionStorage)).toHaveLength(0); // 탭 저장소는 이제 안 씀
     cleanup();
 
     renderAt('/cases', as.riderOps);
@@ -35,7 +34,7 @@ describe('사건함 새 메시지 점', () => {
     expect(screen.queryByTestId('case-new-message')).not.toBeInTheDocument();
   });
 
-  it('다른 직원은 아직 안 봤으니 그대로 점', async () => {
+  it('다른 직원은 아직 안 봤으니 그대로 점(직원별)', async () => {
     renderAt('/cases/CASE-MOCK-1', as.riderOps);
     await screen.findAllByTestId('help-message');
     cleanup();

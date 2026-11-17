@@ -19,7 +19,7 @@
 //   관리자 팀으로 간 배송 쪽 사건은 지원센터·상담원이 보기만 — 목록·상세에 "관리자 처리 중"(해결된 것처럼 보이지 않게, 업무 원문 §5.3).
 //   버튼은 할 수 있어 보일 때만(판정은 서버 — 403·409·422 는 코드 문구).
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 
 import { ProblemFailure, request } from '@pmart/web-core';
@@ -36,7 +36,8 @@ import { canSeeIntakes, CsIntakeLog } from '../csIntakes/CsIntakePages';
 import { CaseNotes } from './CaseNotes';
 import { ActionRequests } from './ActionRequests';
 import { HelpChat } from './HelpChat';
-import { hasNewRiderMessage, lastReadAt } from './helpChatRead';
+import { useMarkCaseSeen } from './caseSeen';
+import { hasNewRiderMessage } from './helpChatRead';
 import { FollowUps, isOpenObligation } from './FollowUps';
 
 type Case = components['schemas']['Case'];
@@ -113,11 +114,10 @@ const deliveryRoleOf = (refs: ReadonlyArray<{ readonly kind?: string; readonly i
       ? 'reshipment'
       : null;
 
-/** 도움요청 칸(bff 0.6.0) — 상태 + 새 메시지 점(라이더가 지원센터 답 뒤에 썼고 이 직원이 아직 안 봄) */
-function LinkedHelp({ l }: { readonly l: Linked }) {
-  const { session } = useSession();
+/** 도움요청 칸(bff 0.6.0) — 상태 + 새 메시지 점(라이더 마지막 메시지 뒤로 내가 이 건을 안 봄 — bff 0.10.0 myLastSeenAt) */
+function LinkedHelp({ l, seenAt }: { readonly l: Linked; readonly seenAt: string | null | undefined }) {
   const unknown = l.source?.confidence === 'UNKNOWN';
-  const fresh = !unknown && hasNewRiderMessage(l.lastRiderMessageAt, l.lastSupportMessageAt, lastReadAt(session?.subject ?? '', l.id ?? ''));
+  const fresh = !unknown && hasNewRiderMessage(l.lastRiderMessageAt, seenAt);
   return (
     <li data-testid="case-linked" data-kind={l.kind} data-id={l.id}>
       <span className="opacity-70">{m.cases.linkedHelp}</span>{' '}
@@ -137,8 +137,8 @@ function LinkedHelp({ l }: { readonly l: Linked }) {
   );
 }
 
-function LinkedState({ l, role }: { readonly l: Linked; readonly role: DeliveryRole }) {
-  if (l.kind === 'HELP_REQUEST') return <LinkedHelp l={l} />;
+function LinkedState({ l, role, seenAt }: { readonly l: Linked; readonly role: DeliveryRole; readonly seenAt?: string | null | undefined }) {
+  if (l.kind === 'HELP_REQUEST') return <LinkedHelp l={l} seenAt={seenAt} />;
   const name =
     l.kind === 'ORDER' ? m.cases.linkedOrder : role === 'recovery' ? m.cases.linkedRecovery : role === 'reshipment' ? m.cases.linkedReshipment : m.cases.linkedDelivery;
   const unknown = l.source?.confidence === 'UNKNOWN';
@@ -267,6 +267,7 @@ export function CaseListPage() {
                             key={`${l.kind ?? ''}:${l.id ?? ''}`}
                             l={l}
                             role={l.kind === 'DELIVERY' ? deliveryRoleOf(c.linkedRefs, l.id) : null}
+                            seenAt={c.myLastSeenAt}
                           />
                         ))}
                       </ul>
@@ -546,7 +547,7 @@ function HelpRequestOfCase({ c }: { readonly c: Case }) {
           </dl>
         )}
       </QueryState>
-      <HelpChat deliveryId={deliveryId} requestId={requestId} adminTeam={c.assigneeGroup === 'ORDER_OPS'} />
+      <HelpChat caseId={c.caseId ?? ''} deliveryId={deliveryId} requestId={requestId} adminTeam={c.assigneeGroup === 'ORDER_OPS'} />
     </>
   );
 }
@@ -559,6 +560,11 @@ export function CaseDetailPage() {
   const { session } = useSession();
   const key = ['cases', 'detail', caseId];
   const query = useQuery({ queryKey: key, queryFn: () => request('GET', api.cases.GET('/cases/{caseId}', { params: { path: { caseId } } })) });
+  const markSeen = useMarkCaseSeen();
+  // 접수 건을 열면 "봤음"(case 0.20.0) — 사건함 새 메시지 점이 이 직원에게 꺼진다
+  useEffect(() => {
+    if (caseId) markSeen(caseId);
+  }, [caseId, markSeen]);
   const onDone = (c: Case) => {
     queryClient.setQueryData(key, c);
     void queryClient.invalidateQueries({ queryKey: ['cases'], exact: false, predicate: (q) => q.queryKey[1] !== 'detail' });

@@ -7,7 +7,7 @@
 //   새 메시지 표시는 bff 사건함(#88) 뒤.
 // - 대화는 화면에만(로그 없음). 입력란에 개인정보 안내.
 import { useQuery } from '@tanstack/react-query';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { request } from '@pmart/web-core';
 import { CommandFeedback, QueryState, toUiState, useCommand } from '@pmart/web-ui';
@@ -17,7 +17,7 @@ import { useApi } from '../../app/ApiContext';
 import { useSession } from '../../app/SessionContext';
 import { messages } from '../../shared/messages';
 import { text, when } from '../../shared/ops';
-import { markRead } from './helpChatRead';
+import { useMarkCaseSeen } from './caseSeen';
 
 const m = messages.helpChat;
 type HelpMessage = components['schemas']['HelpMessage'];
@@ -80,7 +80,17 @@ function MaskMessage({ deliveryId, requestId, messageId, onDone }: { readonly de
 }
 
 /** 접수 건 상세의 "라이더와 대화" 칸 */
-export function HelpChat({ deliveryId, requestId, adminTeam = false }: { readonly deliveryId: string; readonly requestId: string; readonly adminTeam?: boolean }) {
+export function HelpChat({
+  caseId,
+  deliveryId,
+  requestId,
+  adminTeam = false,
+}: {
+  readonly caseId: string;
+  readonly deliveryId: string;
+  readonly requestId: string;
+  readonly adminTeam?: boolean;
+}) {
   const api = useApi();
   const { session } = useSession();
   const roles = session?.roles ?? [];
@@ -109,12 +119,15 @@ export function HelpChat({ deliveryId, requestId, adminTeam = false }: { readonl
         if (r.items.length < PAGE) break;
       }
       thread.current = { items, helpState };
-      // 사건함 "새 메시지" 점(bff 0.6.0) — 화면에 받은 마지막 라이더 메시지까지 이 직원이 본 것으로
-      const lastRider = items.filter((x) => x.senderType === 'RIDER').at(-1)?.createdAt;
-      if (lastRider) markRead(session?.subject ?? '', requestId, lastRider);
       return thread.current;
     },
   });
+  // 대화를 열어 둔 동안 새 라이더 메시지를 받으면 그때도 "봤음"(case 0.20.0) — 사건함 점이 다시 켜지지 않게
+  const markSeen = useMarkCaseSeen();
+  const lastRider = query.data?.items.filter((x) => x.senderType === 'RIDER').at(-1)?.seq;
+  useEffect(() => {
+    if (caseId && lastRider !== undefined) markSeen(caseId);
+  }, [caseId, lastRider, markSeen]);
   const [draft, setDraft] = useState('');
   const send = useCommand(async (body: string, key) => {
     const r = await request(

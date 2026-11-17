@@ -136,7 +136,12 @@ let handovers: Handover[] = [];
 /** case 0.10.0 접수 건 메모 */
 let notes: Note[] = [];
 
+/** case 0.20.0 직원별 마지막으로 본 시각 — `${subject}|${caseId}` → ISO */
+let seen = new Map<string, string>();
+const seenAt = (subject: string, caseId: string | undefined) => seen.get(`${subject}|${caseId ?? ''}`) ?? null;
+
 export function resetMockCases(): void {
+  seen = new Map();
   cases = seed();
   seq = 100;
   handovers = [];
@@ -231,7 +236,7 @@ export const caseHandlers = [
         const helpLinked = help ? [{ kind: 'HELP_REQUEST' as const, id: incident.split(':')[1] ?? '', state: help.state, version: null, lastRiderMessageAt: help.lastRiderMessageAt, lastSupportMessageAt: help.lastSupportMessageAt, source: stamp('delivery-execution-service') }] : [];
         const rest: Partial<Summary> = { ...c };
         delete rest.refs;
-        return { ...rest, linkedRefs: refs.map((r) => ({ kind: r.refType ?? '', id: r.refId ?? '' })), linked: [...linked, ...helpLinked], source: stamp('case-service') };
+        return { ...rest, myLastSeenAt: seenAt(v.who.subject, c.caseId), linkedRefs: refs.map((r) => ({ kind: r.refType ?? '', id: r.refId ?? '' })), linked: [...linked, ...helpLinked], source: stamp('case-service') };
       });
     const anyOrder = items.some((i) => i.linked.some((l) => l.kind === 'ORDER'));
     return HttpResponse.json({
@@ -247,7 +252,7 @@ export const caseHandlers = [
     const v = viewer(request);
     if ('denied' in v) return v.denied;
     const q = new URL(request.url).searchParams;
-    const items = listCases(v.sees, q);
+    const items = listCases(v.sees, q).map((x) => ({ ...x, myLastSeenAt: seenAt(v.who.subject, x.caseId) }));
     return HttpResponse.json({ items, page: { nextCursor: null, size: items.length } });
   }),
 
@@ -288,7 +293,18 @@ export const caseHandlers = [
     const v = viewer(request);
     if ('denied' in v) return v.denied;
     const c = cases.find((x) => x.caseId === params['caseId']);
-    return c && v.sees(c) ? HttpResponse.json(c) : problem(404, 'NOT_FOUND');
+    return c && v.sees(c) ? HttpResponse.json({ ...c, myLastSeenAt: seenAt(v.who.subject, c.caseId) }) : problem(404, 'NOT_FOUND');
+  }),
+
+  // case 0.20.0 "봤음" — 본문·멱등 키 없음, 늦은 시각만 남김, 못 보는 건 404
+  http.post(`${API_BASE}/cases/:caseId/views`, ({ request, params }) => {
+    const v = viewer(request);
+    if ('denied' in v) return v.denied;
+    const c = cases.find((x) => x.caseId === params['caseId']);
+    if (!c || !v.sees(c)) return problem(404, 'NOT_FOUND');
+    const now = new Date().toISOString();
+    seen.set(`${v.who.subject}|${c.caseId ?? ''}`, now);
+    return HttpResponse.json({ caseId: c.caseId, lastSeenAt: now });
   }),
 
   http.post(`${API_BASE}/cases`, async ({ request }) => {
