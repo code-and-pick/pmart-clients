@@ -4,15 +4,16 @@
 // 검색 조건·배송지·연락처를 로그에 남기지 않는다. 고객센터는 주문을 취소하지 않는다(ADR-0060) — 취소 버튼 없음.
 import { useQuery } from '@tanstack/react-query';
 import { useState, type FormEvent } from 'react';
-import { Link, useParams, useSearchParams } from 'react-router';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 
 import { request } from '@pmart/web-core';
 import { CommandFeedback, QueryState, toUiState, useCommand } from '@pmart/web-ui';
 import { commandParams } from '../../api/command';
 import type { components } from '../../api/generated/order';
 import { useApi } from '../../app/ApiContext';
+import { ChipGroup, DataTable, DetailHeader, FieldList, Notice, PageHeader, ResultBar, SearchPanel, SearchRow, Section, SectionTabs, StatusBadge, type Tone } from '../../shared/admin';
 import { messages as m } from '../../shared/messages';
-import { addSeoulDays, Facts, isSeoulDate, label, seoulDayEnd, seoulDayStart, seoulToday, spanDays, text, when, won } from '../../shared/ops';
+import { addSeoulDays, isSeoulDate, label, seoulDayEnd, seoulDayStart, seoulToday, spanDays, text, when, won } from '../../shared/ops';
 import { ClaimsOfOrder } from '../claims/ClaimPages';
 import { ReturnIntakeLink } from '../claims/ReturnClaim';
 import { DeliveriesOf } from '../deliveries/DeliveryPages';
@@ -26,6 +27,9 @@ const STATUSES = Object.keys(m.orders.statusName) as OrderStatus[];
 const MAX_DAYS = 31;
 const isStatus = (v: string | null): v is OrderStatus => v !== null && (STATUSES as readonly string[]).includes(v);
 const digits = (v: string) => v.replace(/\D/g, '');
+/** 상태 꼬리표 색(표시만 — 판정은 서버 상태 값) */
+const statusTone = (s: string | undefined): Tone =>
+  s === 'DELIVERED' || s === 'COMPLETED' ? 'success' : s === 'CANCELLED' || s === 'PAYMENT_FAILED' ? 'error' : s === 'PAYMENT_PENDING' || s === 'PAYMENT_UNKNOWN' ? 'warning' : 'info';
 
 interface Criteria {
   readonly orderId: string;
@@ -107,65 +111,47 @@ export function OrderLookupPage() {
     onChange: (e: { target: { value: string } }) => setDraft((d) => ({ ...d, [k]: e.target.value })),
   });
 
+  const navigate = useNavigate();
+  const reset = () => setDraft({ orderId: '', customerId: '', status: '', mfcId: '', receiverPhone: '', from: addSeoulDays(seoulToday(), -6), to: seoulToday() });
+  const statusOptions = [{ value: '', label: m.orders.any }, ...STATUSES.map((st) => ({ value: st, label: m.orders.statusName[st] ?? st }))];
+
+  // 관리자 형식(2026-11-18, PC 5 요청 — 모범 화면 rider-backoffice DeliveryPages): 머리말 → 검색 조건 상자 → 결과 줄 → 표 → 쪽
   return (
-    <section className="space-y-4">
-      <h1 className="text-xl font-bold">{m.orders.title}</h1>
-      <p className="text-sm opacity-70">{m.orders.intro}</p>
-      <form className="grid max-w-4xl grid-cols-2 gap-2 rounded-box bg-base-100 p-4 md:grid-cols-4" onSubmit={submit} aria-label={m.orders.title}>
-        <label className="text-sm">
-          {m.orders.orderId}
-          <input className="input input-sm mt-1 w-full" maxLength={64} {...field('orderId')} />
-        </label>
-        <label className="text-sm">
-          {m.orders.customerId}
-          <input className="input input-sm mt-1 w-full" maxLength={64} {...field('customerId')} />
-        </label>
-        <label className="text-sm">
-          {m.orders.receiverPhone}
-          <input className="input input-sm mt-1 w-full" inputMode="numeric" maxLength={20} placeholder={m.orders.receiverPhoneHint} autoComplete="off" {...field('receiverPhone')} />
-        </label>
-        <label className="text-sm">
-          {m.orders.mfcId}
-          <input className="input input-sm mt-1 w-full" maxLength={40} {...field('mfcId')} />
-        </label>
-        <label className="text-sm">
-          {m.orders.status}
-          <select className="select select-sm mt-1 w-full" {...field('status')}>
-            <option value="">{m.orders.any}</option>
-            {STATUSES.map((s) => (
-              <option key={s} value={s}>
-                {m.orders.statusName[s]}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="text-sm">
-          {m.orders.from}
-          <input type="date" className="input input-sm mt-1 w-full" {...field('from')} />
-        </label>
-        <label className="text-sm">
-          {m.orders.to}
-          <input type="date" className="input input-sm mt-1 w-full" {...field('to')} />
-        </label>
-        <div className="flex items-end">
-          <button type="submit" className="btn btn-primary btn-sm">
-            {m.orders.search}
-          </button>
-        </div>
-      </form>
+    <section className="space-y-5">
+      <PageHeader title={m.orders.title} description={m.orders.intro} />
+      <SearchPanel onSubmit={submit} onReset={reset} submitLabel={m.orders.search} resetLabel={m.orders.reset}>
+        <SearchRow label={m.orders.ids}>
+          <input className="input input-sm w-48" aria-label={m.orders.orderId} placeholder={m.orders.orderId} maxLength={64} {...field('orderId')} />
+          <input className="input input-sm w-48" aria-label={m.orders.customerId} placeholder={m.orders.customerId} maxLength={64} {...field('customerId')} />
+          <input className="input input-sm w-40" aria-label={m.orders.mfcId} placeholder={m.orders.mfcId} maxLength={40} {...field('mfcId')} />
+        </SearchRow>
+        <SearchRow label={m.orders.receiverPhone}>
+          <input className="input input-sm w-56" aria-label={m.orders.receiverPhone} inputMode="numeric" maxLength={20} placeholder={m.orders.receiverPhoneHint} autoComplete="off" {...field('receiverPhone')} />
+        </SearchRow>
+        <SearchRow label={m.orders.status}>
+          <ChipGroup label={m.orders.status} value={draft.status} options={statusOptions} onChange={(v) => setDraft((d) => ({ ...d, status: v }))} />
+        </SearchRow>
+        <SearchRow label={m.orders.period}>
+          <input type="date" className="input input-sm w-40" aria-label={m.orders.from} {...field('from')} />
+          <span className="text-base-content/40">~</span>
+          <input type="date" className="input input-sm w-40" aria-label={m.orders.to} {...field('to')} />
+        </SearchRow>
+      </SearchPanel>
 
       {blocked ? (
-        <p role="alert" className="text-sm text-warning" data-testid="order-search-blocked">
-          {blocked}
-        </p>
+        <Notice tone="warning">
+          <span data-testid="order-search-blocked">{blocked}</span>
+        </Notice>
       ) : (
         <QueryState state={toUiState(query)} onRetry={() => void query.refetch()}>
           {(r) =>
             r.items.length === 0 ? (
-              <p className="text-sm opacity-70">{m.orders.empty}</p>
+              <p className="rounded-box border border-base-300 bg-base-100 px-5 py-8 text-center text-sm text-base-content/60">{m.orders.empty}</p>
             ) : (
               <>
-                <table className="table table-sm">
+                {/* 전체 건수는 서버가 세지 않는다(page.hasNext) — 이 쪽 건수만 */}
+                <ResultBar count={r.items.length} more={r.page.hasNext} />
+                <DataTable>
                   <thead>
                     <tr>
                       <th>{m.orders.orderId}</th>
@@ -175,39 +161,41 @@ export function OrderLookupPage() {
                       <th>{m.orders.customerId}</th>
                       <th>{m.orders.phone}</th>
                       <th>{m.orders.items}</th>
-                      <th>{m.orders.total}</th>
+                      <th className="text-right">{m.orders.total}</th>
                       <th>{m.orders.openIssues}</th>
                     </tr>
                   </thead>
                   <tbody>
                     {r.items.map((o) => (
-                      <tr key={o.orderId} data-testid="order-row">
+                      <tr key={o.orderId} data-testid="order-row" className="cursor-pointer" onClick={() => void navigate(`/orders/${encodeURIComponent(o.orderId)}`)}>
                         <td>
-                          <Link className="link" to={`/orders/${encodeURIComponent(o.orderId)}`}>
+                          <Link className="font-mono text-primary hover:underline" to={`/orders/${encodeURIComponent(o.orderId)}`} onClick={(e) => e.stopPropagation()}>
                             {o.orderId}
                           </Link>
                         </td>
-                        <td>{label(m.orders.statusName, o.status)}</td>
+                        <td>
+                          <StatusBadge tone={statusTone(o.status)}>{label(m.orders.statusName, o.status)}</StatusBadge>
+                        </td>
                         <td>{when(o.confirmedAt)}</td>
                         <td>{o.mfcId}</td>
-                        <td>{o.customerId}</td>
+                        <td className="font-mono text-xs">{o.customerId}</td>
                         <td>{text(o.receiverPhoneMasked)}</td>
                         <td>{o.itemCount}</td>
-                        <td>{won(o.approvedAmount)}</td>
-                        <td>{o.openFulfillmentIssues > 0 ? <span className="badge badge-warning badge-sm">{o.openFulfillmentIssues}</span> : 0}</td>
+                        <td className="text-right">{won(o.approvedAmount)}</td>
+                        <td>{o.openFulfillmentIssues > 0 ? <StatusBadge tone="warning">{o.openFulfillmentIssues}</StatusBadge> : 0}</td>
                       </tr>
                     ))}
                   </tbody>
-                </table>
-                <div className="join">
-                  <button type="button" className="btn join-item btn-sm" disabled={page === 0} onClick={() => goPage(page - 1)}>
+                </DataTable>
+                <nav aria-label="쪽" className="flex items-center justify-center gap-2">
+                  <button type="button" className="btn btn-sm border-base-300 bg-base-100" disabled={page === 0} onClick={() => goPage(page - 1)}>
                     {m.orders.prev}
                   </button>
-                  <span className="btn join-item btn-sm btn-disabled">{m.orders.pageLabel(r.page.page)}</span>
-                  <button type="button" className="btn join-item btn-sm" disabled={!r.page.hasNext} onClick={() => goPage(page + 1)}>
+                  <span className="px-2 text-sm text-base-content/60">{m.orders.pageLabel(r.page.page)}</span>
+                  <button type="button" className="btn btn-sm border-base-300 bg-base-100" disabled={!r.page.hasNext} onClick={() => goPage(page + 1)}>
                     {m.orders.next}
                   </button>
-                </div>
+                </nav>
               </>
             )
           }
@@ -253,8 +241,8 @@ function Address({ order }: { readonly order: Detail }) {
 
   return (
     <>
-      {order.shippingAddressMasked && <p className="text-xs opacity-60">{m.orders.pii.maskedNote}</p>}
-      <Facts
+      {order.shippingAddressMasked && <p className="mb-3 text-xs text-base-content/60">{m.orders.pii.maskedNote}</p>}
+      <FieldList
         testId="order-address"
         rows={[
           [m.orders.receiverName, shown('NAME', a.receiverName, raw?.receiverName, 'order-receiver-name')],
@@ -272,7 +260,7 @@ function Address({ order }: { readonly order: Detail }) {
         ]}
       />
       {opened ? (
-        <div role="status" className="flex flex-wrap items-center gap-2 text-xs">
+        <div role="status" className="mt-3 flex flex-wrap items-center gap-2 text-xs">
           <span>{m.orders.pii.opened(opened.piiAccessLogId, when(opened.recordedAt))}</span>
           <button type="button" className="btn btn-xs" onClick={() => reveal.reset()}>
             {m.orders.pii.hide}
@@ -280,7 +268,7 @@ function Address({ order }: { readonly order: Detail }) {
         </div>
       ) : (
         <form
-          className="space-y-2 rounded-box bg-base-100 p-3 text-sm"
+          className="mt-4 space-y-2 rounded-box border border-base-300 bg-base-200/50 p-4 text-sm"
           aria-label={m.orders.pii.title}
           onSubmit={(e) => {
             e.preventDefault();
@@ -327,98 +315,128 @@ export function OrderDetailPage() {
     queryFn: () => request('GET', api.orders.GET('/orders/lookups/{orderId}', { params: { path: { orderId } } })),
   });
 
+  const back = { to: '/orders', label: m.orders.back };
+  const tabs = [
+    { id: 'order-basic', label: m.orders.sectionBasic },
+    { id: 'order-amounts', label: m.orders.amounts },
+    { id: 'order-address-section', label: m.orders.address },
+    { id: 'order-lines', label: m.orders.lines },
+    { id: 'order-issues', label: m.orders.issues },
+    { id: 'order-deliveries', label: m.deliveries.ofOrder },
+    { id: 'order-claims', label: m.orders.claims },
+  ];
+
+  // 관리자 형식(2026-11-18): 상세 머리(번호·상태·요약) → 구역 탭 → 구역 상자(항목명/값)
   return (
-    <section className="max-w-4xl space-y-4">
-      <h1 className="text-xl font-bold">{`${m.orders.detailTitle} ${orderId}`}</h1>
+    <section className="max-w-5xl space-y-4">
       <QueryState state={toUiState(query)} onRetry={() => void query.refetch()}>
         {(o) => (
           <>
-            <Facts
-              testId="order-summary"
-              rows={[
-                [m.orders.status, <span key="s" data-testid="order-status">{label(m.orders.statusName, o.status)}</span>],
-                [m.orders.confirmedAt, when(o.confirmedAt)],
-                [m.orders.customerId, o.customerId],
-                [m.orders.mfcId, o.mfcId],
-                [m.orders.deliveryMode, label(m.orders.mode, o.deliveryMode)],
-                [m.orders.arrival, o.arrivalWindow ? `${o.arrivalWindow.date} ${o.arrivalWindow.start}~${o.arrivalWindow.end}` : m.none],
-                [m.orders.shipments, text(o.plannedShipments)],
-                [m.orders.oosPreference, label(m.orders.oos, o.outOfStockPreference)],
-                [m.orders.weight, o.weightG === undefined ? m.none : `${o.weightG}g`],
-                [m.orders.version, o.version],
-              ]}
+            <DetailHeader
+              back={back}
+              title={`${m.orders.detailTitle} ${orderId}`}
+              badges={
+                <StatusBadge tone={statusTone(o.status)} testId="order-status">
+                  {label(m.orders.statusName, o.status)}
+                </StatusBadge>
+              }
+              summary={`${when(o.confirmedAt)} · ${o.mfcId} · ${label(m.orders.mode, o.deliveryMode)} · ${won(o.amounts.approvedAmount)}`}
             />
-            <p className="text-xs opacity-60">{`${m.orders.noCancel} ${m.orders.noDeliveryNote}`}</p>
+            <SectionTabs items={tabs} />
+            <Section id="order-basic" title={m.orders.sectionBasic}>
+              <FieldList
+                testId="order-summary"
+                rows={[
+                  [m.orders.status, label(m.orders.statusName, o.status)],
+                  [m.orders.confirmedAt, when(o.confirmedAt)],
+                  [m.orders.customerId, o.customerId],
+                  [m.orders.mfcId, o.mfcId],
+                  [m.orders.deliveryMode, label(m.orders.mode, o.deliveryMode)],
+                  [m.orders.arrival, o.arrivalWindow ? `${o.arrivalWindow.date} ${o.arrivalWindow.start}~${o.arrivalWindow.end}` : m.none],
+                  [m.orders.shipments, text(o.plannedShipments)],
+                  [m.orders.oosPreference, label(m.orders.oos, o.outOfStockPreference)],
+                  [m.orders.weight, o.weightG === undefined ? m.none : `${o.weightG}g`],
+                  [m.orders.version, o.version],
+                ]}
+              />
+              <p className="mt-3 text-xs text-base-content/55">{`${m.orders.noCancel} ${m.orders.noDeliveryNote}`}</p>
+            </Section>
 
-            <h2 className="font-bold">{m.orders.amounts}</h2>
-            <Facts
-              rows={[
-                [m.orders.itemAmount, won(o.amounts.itemAmount)],
-                [m.orders.deliveryTip, won(o.amounts.deliveryTip)],
-                [m.orders.deliveryTipBase, won(o.amounts.deliveryTipBase)],
-                [m.orders.deliveryTipReason, o.amounts.deliveryTipReason],
-                [m.orders.firstPurchase, o.amounts.firstPurchaseApplied ? 'O' : 'X'],
-                [m.orders.bagFee, won(o.amounts.bagFee)],
-                [m.orders.totalAmount, won(o.amounts.totalAmount)],
-                [m.orders.approvedAmount, won(o.amounts.approvedAmount)],
-                [m.orders.paymentAttemptId, o.payment.paymentAttemptId],
-                [m.orders.pgTransactionId, text(o.payment.pgTransactionId)],
-              ]}
-            />
+            <Section id="order-amounts" title={m.orders.amounts}>
+              <FieldList
+                rows={[
+                  [m.orders.itemAmount, won(o.amounts.itemAmount)],
+                  [m.orders.deliveryTip, won(o.amounts.deliveryTip)],
+                  [m.orders.deliveryTipBase, won(o.amounts.deliveryTipBase)],
+                  [m.orders.deliveryTipReason, o.amounts.deliveryTipReason],
+                  [m.orders.firstPurchase, o.amounts.firstPurchaseApplied ? 'O' : 'X'],
+                  [m.orders.bagFee, won(o.amounts.bagFee)],
+                  [m.orders.totalAmount, won(o.amounts.totalAmount)],
+                  [m.orders.approvedAmount, won(o.amounts.approvedAmount)],
+                  [m.orders.paymentAttemptId, o.payment.paymentAttemptId],
+                  [m.orders.pgTransactionId, text(o.payment.pgTransactionId)],
+                ]}
+              />
+            </Section>
 
-            <h2 className="font-bold">{m.orders.address}</h2>
-            <Address order={o} />
+            <Section id="order-address-section" title={m.orders.address}>
+              <Address order={o} />
+            </Section>
 
-            <h2 className="font-bold">{m.orders.lines}</h2>
-            <table className="table table-sm rounded-box bg-base-100">
-              <thead>
-                <tr>
-                  <th>{m.orders.product}</th>
-                  <th>SKU</th>
-                  <th>{m.orders.qty}</th>
-                  <th>{m.orders.lineAmount}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {o.lines.map((l, i) => (
-                  <tr key={l.orderLineId ?? `line-${i}`} data-testid="order-line">
-                    <td>
-                      {text(l.productName)}
-                      {l.optionLabel && <span className="ml-1 opacity-60">{l.optionLabel}</span>}
-                    </td>
-                    <td>{text(l.sku)}</td>
-                    <td>{[l.originalQty, l.cancelledBeforeShipQty, l.handedOverQty, l.deliveredQty, l.returnedQty].map((q) => text(q)).join(' / ')}</td>
-                    <td>{won(l.lineAmount)}</td>
+            <Section id="order-lines" title={m.orders.lines}>
+              <DataTable>
+                <thead>
+                  <tr>
+                    <th>{m.orders.product}</th>
+                    <th>SKU</th>
+                    <th>{m.orders.qty}</th>
+                    <th className="text-right">{m.orders.lineAmount}</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {o.lines.map((l, i) => (
+                    <tr key={l.orderLineId ?? `line-${i}`} data-testid="order-line">
+                      <td>
+                        {text(l.productName)}
+                        {l.optionLabel && <span className="ml-1 text-base-content/60">{l.optionLabel}</span>}
+                      </td>
+                      <td className="font-mono text-xs">{text(l.sku)}</td>
+                      <td>{[l.originalQty, l.cancelledBeforeShipQty, l.handedOverQty, l.deliveredQty, l.returnedQty].map((q) => text(q)).join(' / ')}</td>
+                      <td className="text-right">{won(l.lineAmount)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </DataTable>
+            </Section>
 
-            <h2 className="font-bold">{m.orders.issues}</h2>
-            {o.fulfillmentIssues.length === 0 ? (
-              <p className="text-sm opacity-70">{m.orders.noIssues}</p>
-            ) : (
-              <ul className="space-y-1 text-sm">
-                {o.fulfillmentIssues.map((f, i) => (
-                  <li key={f.issueId ?? `issue-${i}`} className="rounded-box bg-base-100 p-2" data-testid="order-issue">
-                    {`${label(m.orders.issueState, f.state)} · ${text(f.reason)} · ${text(f.sku)} × ${text(f.blockedQty)} · ${when(f.blockedAt)}`}
-                  </li>
-                ))}
-              </ul>
-            )}
+            <Section id="order-issues" title={m.orders.issues}>
+              {o.fulfillmentIssues.length === 0 ? (
+                <p className="text-sm text-base-content/60">{m.orders.noIssues}</p>
+              ) : (
+                <ul className="space-y-1 text-sm">
+                  {o.fulfillmentIssues.map((f, i) => (
+                    <li key={f.issueId ?? `issue-${i}`} className="rounded-box bg-base-200/60 px-3 py-2" data-testid="order-issue">
+                      {`${label(m.orders.issueState, f.state)} · ${text(f.reason)} · ${text(f.sku)} × ${text(f.blockedQty)} · ${when(f.blockedAt)}`}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </Section>
 
-            <h2 className="font-bold">{m.deliveries.ofOrder}</h2>
-            <DeliveriesOf orderId={o.orderId} />
+            <Section id="order-deliveries" title={m.deliveries.ofOrder}>
+              <DeliveriesOf orderId={o.orderId} />
+            </Section>
 
-            <h2 className="font-bold">{m.orders.claims}</h2>
-            <ClaimsOfOrder orderId={o.orderId} />
-            {o.lines.some((l) => (l.handedOverQty ?? 0) > (l.returnedQty ?? 0)) && <ReturnIntakeLink orderId={o.orderId} />}
+            <Section
+              id="order-claims"
+              title={m.orders.claims}
+              aside={o.lines.some((l) => (l.handedOverQty ?? 0) > (l.returnedQty ?? 0)) ? <ReturnIntakeLink orderId={o.orderId} /> : undefined}
+            >
+              <ClaimsOfOrder orderId={o.orderId} />
+            </Section>
           </>
         )}
       </QueryState>
-      <Link className="link text-sm" to="/orders">
-        {m.orders.back}
-      </Link>
     </section>
   );
 }

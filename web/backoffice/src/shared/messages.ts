@@ -619,6 +619,10 @@ export const messages = {
   },
   orders: {
     title: '주문 조회',
+    ids: '번호',
+    period: '기간',
+    reset: '지우기',
+    sectionBasic: '주문 정보',
     intro: '주문 ID·고객 ID 는 완전 일치로 찾아요. 둘 다 없으면 기간(최대 31일)이 꼭 필요해요. 연락처는 숫자만 완전 일치예요(부분 검색 없음).',
     orderId: '주문 ID',
     customerId: '고객 ID',

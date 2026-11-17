@@ -54,29 +54,44 @@ import { CaseNavBadges } from '../features/cases/CaseBadges';
 const defaultAssistantPort = (api: Api): AssistantPort =>
   import.meta.env.VITE_PMART_ENV === 'mock' ? createDraftAssistantMock({ delayMs: 400 }) : createHttpAssistant(api);
 
-/** 접고 펴는 메뉴 묶음. 지금 화면이 든 묶음은 펼친 채로 시작한다(사용자가 접으면 그대로 둔다). */
+/**
+ * 접고 펴는 메뉴 묶음 — 진한 메뉴의 작은 회색 묶음 제목, 선택된 메뉴는 민트 왼쪽 막대
+ * (사본: web/rider-backoffice/src/app/App.tsx Layout, PR #93 461ff31 — 이 앱에서 따로 고친다).
+ * 기본 백오피스는 묶음·메뉴가 많아 접고 펴기는 그대로 둔다. 지금 화면이 든 묶음은 펼친 채로 시작한다(사용자가 접으면 그대로 둔다).
+ */
 function NavGroupMenu({ group, pathname }: { readonly group: NavGroup; readonly pathname: string }) {
   const active = group.items.some((i) => covers(i, pathname));
   const [manual, setManual] = useState<boolean | null>(null);
   const open = manual ?? active;
   return (
-    <li>
-      <details open={open} onToggle={(e) => setManual(e.currentTarget.open)} data-testid={`nav-group-${group.id}`}>
-        <summary className="font-bold">{group.label}</summary>
-        <ul>
-          {group.items.map((item) => (
-            <li key={item.to}>
-              <NavLink to={item.to} end>
-                {item.label}
-                {/* 접수 건 알림 배지(1분마다 개수 — 지원센터·관리자) */}
-                {item.to === '/cases' && <CaseNavBadges />}
-              </NavLink>
-            </li>
-          ))}
-        </ul>
-      </details>
-    </li>
+    <details open={open} onToggle={(e) => setManual(e.currentTarget.open)} data-testid={`nav-group-${group.id}`} className="mb-2">
+      <summary className="cursor-pointer list-none px-5 py-1 text-xs font-semibold text-neutral-content/45 hover:text-neutral-content/70">{group.label}</summary>
+      <ul>
+        {group.items.map((item) => (
+          <li key={item.to}>
+            <NavLink
+              to={item.to}
+              end
+              className={({ isActive }) =>
+                `flex items-center gap-1 border-l-[3px] px-5 py-2 text-sm ${isActive ? 'border-accent bg-neutral-content/10 font-semibold text-neutral-content' : 'border-transparent text-neutral-content/75 hover:bg-neutral-content/5 hover:text-neutral-content'}`
+              }
+            >
+              {item.label}
+              {/* 접수 건 알림 배지(1분마다 개수 — 지원센터·관리자) */}
+              {item.to === '/cases' && <CaseNavBadges />}
+            </NavLink>
+          </li>
+        ))}
+      </ul>
+    </details>
   );
+}
+
+/** 지금 주소의 메뉴(머리줄 "묶음 › 메뉴") — 하위 경로는 가장 긴 메뉴 경로로 */
+function currentMenu(groups: readonly NavGroup[], pathname: string): { readonly group: string; readonly menu: string } | null {
+  let best: { group: string; menu: string; len: number } | null = null;
+  for (const g of groups) for (const i of g.items) if (covers(i, pathname) && (!best || i.to.length > best.len)) best = { group: g.label, menu: i.label, len: i.to.length };
+  return best ? { group: best.group, menu: best.menu } : null;
 }
 
 /**
@@ -91,40 +106,61 @@ function ScrollToTopOnNavigate() {
   return null;
 }
 
+// 화면 틀(2026-11-18 — PC 5 요청 "관리자 형식", 배민 관리자 화면 참고): 진한 왼쪽 메뉴(묶음 제목 + 메뉴), 흰 머리줄(위치 · 로그인 직원·역할), 연회색 본문.
 function Layout() {
   const { session } = useSession();
   const { pathname } = useLocation();
   const groups = session ? visibleGroups(session.roles) : [];
+  const current = currentMenu(groups, pathname);
   return (
     <div className="flex min-h-screen bg-base-200">
-      {/* 메뉴는 화면 높이에 고정하고 길면 메뉴만 따로 스크롤(오른쪽 화면을 내려도 메뉴는 그 자리) */}
       <ScrollToTopOnNavigate />
-      <aside className="sticky top-0 h-screen w-56 shrink-0 self-start overflow-y-auto bg-base-100 shadow-sm" data-testid="side-menu">
-        <div className="flex items-start justify-between gap-1 p-4">
-          <div>
-            <Link to="/" className="text-lg font-bold" aria-label={m.goHome}>
-              {m.appTitle}
-            </Link>
-            {env.isMock && <span className="badge badge-outline ml-2">{m.mockBadge}</span>}
-          </div>
+      {/* 메뉴는 화면 높이에 고정하고 길면 메뉴만 따로 스크롤(오른쪽 화면을 내려도 메뉴는 그 자리) */}
+      <aside className="sticky top-0 flex h-screen w-60 shrink-0 flex-col self-start overflow-y-auto bg-neutral text-neutral-content" data-testid="side-menu">
+        <div className="flex h-14 shrink-0 items-center justify-between gap-1 border-b border-neutral-content/10 pl-5 pr-2">
+          <Link to="/" className="truncate text-base font-bold text-neutral-content" aria-label={m.goHome}>
+            {m.appTitle}
+          </Link>
           {/* 직원 웹 앱 바꾸기(백엔드 요청 all/2026-11-17-request-app-launcher, web-ui #92) — 링크만, 세션을 읽지 않는다 */}
-          <AppLauncher current="backoffice" />
+          <AppLauncher current="backoffice" className="text-base-content [&>button]:text-neutral-content [&>button:hover]:bg-neutral-content/10" />
         </div>
-        <ul className="menu w-full" aria-label="메뉴">
-          <li>
-            <NavLink to={session ? '/session' : '/login'}>
-              {session ? `${m.nav.session}: ${session.subject}` : m.nav.login}
-            </NavLink>
-          </li>
+        <nav aria-label="메뉴" className="flex-1 py-3">
           {groups.map((g) => (
             <NavGroupMenu key={g.id} group={g} pathname={pathname} />
           ))}
-        </ul>
-        {session && groups.every((g) => g.id === 'assistant') && <p className="px-4 text-xs opacity-60">{m.nav.noMenu}</p>}
+          {session && groups.every((g) => g.id === 'assistant') && <p className="px-5 text-xs text-neutral-content/60">{m.nav.noMenu}</p>}
+        </nav>
       </aside>
-      <main className="min-w-0 flex-1 p-6">
-        <Outlet />
-      </main>
+      <div className="flex min-w-0 flex-1 flex-col">
+        <header className="flex h-14 shrink-0 items-center justify-between gap-3 border-b border-base-300 bg-base-100 px-6">
+          <p className="truncate text-sm text-base-content/60" data-testid="page-title">
+            {current ? (
+              <>
+                {current.group} <span className="px-1 text-base-content/30">›</span>
+                <span className="font-semibold text-base-content">{current.menu}</span>
+              </>
+            ) : null}
+          </p>
+          <div className="flex items-center gap-2 text-sm">
+            {env.isMock && <span className="badge badge-accent badge-sm">{m.mockBadge}</span>}
+            {session ? (
+              <>
+                {/* 로그인 직원 — "내 세션: 직원 ID" 링크(로그인 시험이 이 이름으로 찾는다). 역할은 내 세션 화면에서 본다(머리줄에 두 번 보이지 않게) */}
+                <NavLink to="/session" className="btn btn-ghost btn-xs font-normal" data-testid="operator">
+                  {`${m.nav.session}: ${session.subject}`}
+                </NavLink>
+              </>
+            ) : (
+              <NavLink to="/login" className="btn btn-primary btn-xs">
+                {m.nav.login}
+              </NavLink>
+            )}
+          </div>
+        </header>
+        <main className="min-w-0 flex-1 p-6">
+          <Outlet />
+        </main>
+      </div>
     </div>
   );
 }
