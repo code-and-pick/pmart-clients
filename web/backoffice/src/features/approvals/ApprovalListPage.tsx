@@ -1,5 +1,6 @@
-// 승인함(approval-service GET /approvals). 필터·커서는 URL 쿼리에 둔다.
-import { useQuery } from '@tanstack/react-query';
+// 승인함(approval-service GET /approvals). 필터는 URL 쿼리에 둔다. "더 보기"는 다음 쪽(page.nextCursor)을 이어 붙인다(받은 줄은 그대로).
+// 예전에는 더 보기가 커서를 URL 에 넣자마자 필터 함수가 지워 버려 아무 일도 없었다(2026-11-17 사용자 신고).
+import { useInfiniteQuery } from '@tanstack/react-query';
 import { Link, useSearchParams } from 'react-router';
 
 import { APPROVAL_TYPES, REVIEW_STATES, type ApprovalType, type ReviewState } from '../../api/models';
@@ -18,11 +19,9 @@ export function ApprovalListPage() {
   const [params, setParams] = useSearchParams();
   const type = pick<ApprovalType>(params.get('type'), APPROVAL_TYPES);
   const reviewState = pick<ReviewState>(params.get('reviewState'), REVIEW_STATES);
-  const cursor = params.get('cursor') ?? undefined;
-
-  const query = useQuery({
-    queryKey: ['approval', 'list', type, reviewState, cursor],
-    queryFn: () =>
+  const query = useInfiniteQuery({
+    queryKey: ['approval', 'list', type, reviewState],
+    queryFn: ({ pageParam: cursor }) =>
       request(
         'GET',
         api.approval.GET('/approvals', {
@@ -36,13 +35,14 @@ export function ApprovalListPage() {
           },
         }),
       ),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (last) => last.page?.nextCursor ?? undefined,
   });
 
   const setFilter = (key: string, value: string) => {
     const next = new URLSearchParams(params);
     if (value) next.set(key, value);
     else next.delete(key);
-    next.delete('cursor');
     setParams(next);
   };
 
@@ -79,7 +79,14 @@ export function ApprovalListPage() {
       </div>
 
       <QueryState
-        state={toUiState(query, (d) => (d.items?.length ?? 0) === 0)}
+        // 다음 쪽 실패는 이미 받은 줄을 가리지 않는다 — 첫 쪽이 있으면 그 데이터로(경고는 아래 줄)
+        state={
+          query.data
+            ? query.data.pages.every((p) => (p.items?.length ?? 0) === 0)
+              ? { kind: 'empty' }
+              : { kind: 'ready', data: query.data }
+            : toUiState(query)
+        }
         onRetry={() => void query.refetch()}
         emptyText={m.approvals.empty}
       >
@@ -98,7 +105,7 @@ export function ApprovalListPage() {
                 </tr>
               </thead>
               <tbody>
-                {(data.items ?? []).map((a, i) => (
+                {data.pages.flatMap((p) => p.items ?? []).map((a, i) => (
                   <tr key={a.approvalId ?? `row-${i}`}>
                     <td>
                       {a.approvalId ? (
@@ -119,8 +126,10 @@ export function ApprovalListPage() {
                 ))}
               </tbody>
             </table>
-            {data.page?.nextCursor && (
-              <button type="button" className="btn btn-sm" onClick={() => setFilter('cursor', data.page?.nextCursor ?? '')}>
+            {/* 다음 쪽을 못 읽으면 받은 줄은 두고 경고만(0건·끝으로 보이지 않게) */}
+            {query.isFetchNextPageError && <p className="text-sm text-error">{m.approvals.moreFailed}</p>}
+            {query.hasNextPage && (
+              <button type="button" className="btn btn-sm" disabled={query.isFetchingNextPage} onClick={() => void query.fetchNextPage()}>
                 {m.more}
               </button>
             )}

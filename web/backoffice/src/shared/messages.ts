@@ -949,6 +949,7 @@ export const messages = {
     execution: '반영',
     delivery: '전달',
     submittedAt: '상신 시각',
+    moreFailed: '이전 기록을 더 불러오지 못했어요 — 위 목록은 그대로예요. 다시 눌러 주세요.',
     empty: '심사할 건이 없어요',
     requester: '요청자',
     summary: '요약',
