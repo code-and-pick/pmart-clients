@@ -161,6 +161,8 @@ auth-service 의 운영자 로그인·비밀번호 변경·운영자 계정 API 
 - 1분마다 자동 새로 고침(요청서 — 30초 이상 권장), 수동 "새로 고침". latestEta 는 아직 늘 null 이라 열 없음(안내 문구만). 개인정보 없음.
 - 목 `mocks/liveDeliveryHandlers.ts`(진행 중 8·끝남 1, `mfcId=MFC-MOCK-DOWN` 이면 배차·사건 원천 실패).
 - LAN 확인(2026-11-16 PC 2, `dev:lan` + 게이트웨이 CORS 개발 출처, test-cs-rider): 실시간 배송 1건(미배정·배차 실패·열린 사건 없음), 센터 목록 1곳. 통합 조회 — 주문 번호로 주문·배송(수행)·배차 칸, 원천 6개, 고객 번호로 주문 목록, 전화번호 422 문구 모두 정상. 그 자리에서 고친 것: "○로 찾음" 조사 → "○ 번호로 찾음", 금액 필드 원·천 단위, 실서버 필드 이름 한국어(결품 처리·봉투값·배달팁·시도 번호·실패 사유 등).
+- **도착 예정**(bff 0.7.0 #90, 백엔드 요청 `request-live-delivery-eta`): 약속 시각 아래 "도착 예정 시각"(tracking AVAILABLE 일 때만)·"N분 늦음"(빨강), 위치 확인·계산 전은 "확인 중", tracking 장애는 "확인 불가", 그 밖은 "—" — 숫자를 지어내지 않음. 옛 "도착 예상 시각은 아직 없어요" 안내 뺌. LAN 진행 중 배송 0건이라 목으로만 확인.
+
 ## 2-7. 개인정보 열람 기록 (2026-11-16, audit 0.3.0 — 백엔드 알림 `backoffice/2026-11-16-notice-pii-access-log-api.md`, ADR-0062 결정 9·10)
 - 메뉴 "감사" 묶음 → "개인정보 열람 기록" `/pii-access-logs`(상세 `/pii-access-logs/{id}`). **OPERATOR_ADMIN 만**(메뉴도 관리자에게만, 그 밖 역할이 주소로 열면 서버 403 → "이용할 수 없는 화면").
 - `GET /pii-access-logs?actorId=&subjectType=&subjectRef=&caseRef=&accessType=&from=&to=&size=50&cursor=` — 거르기는 URL 쿼리. 기간은 한국 날짜 → 시작일 0시(+09:00)부터 종료일 다음 날 0시 전까지(to 미포함). 시작일 > 종료일이면 부르지 않고 안내. 열람 시각 새 것부터 50건, `page.nextCursor` 로 다음 쪽.

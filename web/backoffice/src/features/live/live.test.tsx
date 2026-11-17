@@ -114,4 +114,23 @@ describe('실시간 배송 현황', () => {
     renderAt('/live-delivery', as.md);
     await waitFor(() => expect(document.querySelector('[data-state="forbidden"]')).not.toBeNull());
   });
+
+  it('도착 예정(bff 0.7.0): 값이면 "도착 예정 시각"·"N분 늦음", 위치 확인·계산 전은 "확인 중", tracking 에 없으면 "—"', async () => {
+    renderAt('/live-delivery', as.cs);
+    const rows = await screen.findAllByTestId('live-row');
+    const eta = (id: string) => within(rows.find((r) => r.textContent?.includes(id))!).getByTestId('live-eta');
+    expect(eta('DLV-LIVE-1')).toHaveTextContent(/도착 예정 .*10:12/);
+    expect(eta('DLV-LIVE-1')).toHaveTextContent('12분 늦음');
+    expect(eta('DLV-LIVE-2')).toHaveTextContent('도착 예정 확인 중');
+    expect(eta('DLV-LIVE-3')).toHaveTextContent('도착 예정 확인 중');
+    // tracking 에 없는 배송(목 DLV-LIVE-5~9 미배정)은 '—'
+    expect(rows.filter((r) => within(r).getByTestId('live-eta').textContent === '도착 예정 —').length).toBeGreaterThan(0);
+  });
+
+  it('tracking 장애면 도착 예정 "확인 불가" — 숫자를 만들지 않는다', async () => {
+    renderAt('/live-delivery?mfcId=MFC-MOCK-DOWN', as.admin);
+    const rows = await screen.findAllByTestId('live-row');
+    expect(within(rows[0]!).getByTestId('live-eta')).toHaveTextContent('도착 예정 확인 불가');
+    expect(within(rows[0]!).getByTestId('live-eta')).not.toHaveTextContent('늦음');
+  });
 });

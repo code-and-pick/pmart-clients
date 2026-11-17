@@ -52,6 +52,38 @@ interface LiveItem {
   readonly arrivalWindow?: Record<string, unknown> | null;
   readonly promisedAt?: string | null;
   readonly openCases?: readonly OpenCase[] | null;
+  /** bff 0.7.0 — tracking 고객 도착 예정(AVAILABLE 일 때만 값) */
+  readonly latestEta?: string | null;
+  readonly etaStatus?: string | null;
+  readonly delayedBySeconds?: number | null;
+  readonly etaSource?: { readonly confidence?: string } | null;
+}
+
+/**
+ * 도착 예정(bff 0.7.0 — 백엔드 요청 backoffice/2026-11-17-request-live-delivery-eta). 숫자를 지어내지 않는다:
+ * AVAILABLE + 값 → "도착 예정 HH:mm"(늦으면 "N분 늦음"), LOCATING·ETA_PENDING → "확인 중", tracking 장애 → "확인 불가", 그 밖(null·FINAL) → "—".
+ */
+function EtaLine({ it }: { readonly it: LiveItem }) {
+  if (it.etaSource?.confidence === 'UNKNOWN')
+    return (
+      <div className="text-xs text-warning" data-testid="live-eta">
+        {m.etaUnknown}
+      </div>
+    );
+  if (it.etaStatus === 'AVAILABLE' && it.latestEta) {
+    const late = (it.delayedBySeconds ?? 0) > 0 ? Math.ceil((it.delayedBySeconds ?? 0) / 60) : 0;
+    return (
+      <div className="text-xs" data-testid="live-eta">
+        {m.eta(when(it.latestEta))}
+        {late > 0 && <span className="ml-1 font-bold text-error">{m.etaLate(late)}</span>}
+      </div>
+    );
+  }
+  return (
+    <div className="text-xs opacity-70" data-testid="live-eta">
+      {it.etaStatus === 'LOCATING' || it.etaStatus === 'ETA_PENDING' ? m.etaChecking : m.etaNone}
+    </div>
+  );
 }
 
 /** arrivalWindow(date·start·end, 한국 시각 그대로) — 받은 값을 이어 붙이기만 */
@@ -169,7 +201,6 @@ export function LiveDeliveryPage() {
                   )}
                 </div>
               )}
-              <p className="text-xs opacity-70">{m.etaNote}</p>
             </div>
           );
         }}
@@ -218,6 +249,7 @@ function LiveTable({ items, composedAt, casesTruncated = false }: { readonly ite
                   {windowText(it.arrivalWindow)}
                   {late && <span className="badge badge-error badge-sm ml-1">{m.late}</span>}
                   {it.promisedAt && <div className="text-xs opacity-70">{when(it.promisedAt)}</div>}
+                  <EtaLine it={it} />
                 </td>
                 <td data-testid="open-cases">
                   {it.openCases === null || it.openCases === undefined ? (

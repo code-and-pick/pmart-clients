@@ -187,12 +187,16 @@ export const messages = {
     },
     unknown: '모름(조회 실패)',
     late: '약속 지남',
+    eta: (t: string) => `도착 예정 ${t}`,
+    etaLate: (min: number) => `${min}분 늦음`,
+    etaChecking: '도착 예정 확인 중',
+    etaNone: '도착 예정 —',
+    etaUnknown: '도착 예정 확인 불가',
     casesFailed: '조회 실패',
     casesUnknown: '확인 불가',
     casesTruncated: '처리 중인 접수 건이 많아(1,000건까지만 읽음) 일부 배송은 접수 건을 확인하지 못했어요 — "확인 불가"는 0건이 아니에요.',
     overdue: '기한 넘김',
     noRider: '미배정',
-    etaNote: '도착 예상 시각은 아직 없어요(위치 추적 연결 전).',
   },
 
   /** 개인정보 열람 기록(audit 0.3.0, OPERATOR_ADMIN) */

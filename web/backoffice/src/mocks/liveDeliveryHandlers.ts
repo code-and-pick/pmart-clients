@@ -24,6 +24,8 @@ interface Row {
   readonly window: { date: string; start: string; end: string } | null;
   readonly promisedAt: string | null;
   readonly openCases: ReadonlyArray<{ caseId: string; kind: string; priority: string; overdue: boolean }>;
+  /** bff 0.7.0 tracking 도착 예정(없으면 tracking 에 없는 배송) */
+  readonly eta?: { status: string; at: string | null; delay: number | null };
 }
 
 const row = (n: number, extra: Partial<Row>): Row => ({
@@ -43,9 +45,9 @@ const row = (n: number, extra: Partial<Row>): Row => ({
 
 /** 진행 중 4 + 끝난 1, 다른 센터 1. 미배정 5건(쪽 넘김 시험용 — 상태 UNASSIGNED, 2건씩) */
 const rows: readonly Row[] = [
-  row(1, { execution: 'PICKED_UP', dispatch: 'PICKED_UP', promisedAt: '2026-11-16T01:00:00.000Z', openCases: [{ caseId: 'CASE-MOCK-1', kind: 'RIDER_HELP', priority: 'P1', overdue: true }] }),
-  row(2, { execution: 'FAILURE_REPORTED', type: 'RESHIPMENT' }),
-  row(3, { mfcId: 'MFC-SEL-01', execution: 'ARRIVED_AT_STORE' }),
+  row(1, { execution: 'PICKED_UP', dispatch: 'PICKED_UP', promisedAt: '2026-11-16T01:00:00.000Z', openCases: [{ caseId: 'CASE-MOCK-1', kind: 'RIDER_HELP', priority: 'P1', overdue: true }], eta: { status: 'AVAILABLE', at: '2026-11-16T01:12:00.000Z', delay: 720 } }),
+  row(2, { execution: 'FAILURE_REPORTED', type: 'RESHIPMENT', eta: { status: 'LOCATING', at: null, delay: null } }),
+  row(3, { mfcId: 'MFC-SEL-01', execution: 'ARRIVED_AT_STORE', eta: { status: 'ETA_PENDING', at: null, delay: null } }),
   row(4, { execution: 'COMPLETED', dispatch: 'CLOSED' }),
   ...[5, 6, 7, 8, 9].map((n) => row(n, { execution: 'UNASSIGNED', dispatch: 'DISPATCHING', riderId: null, window: null, promisedAt: null })),
 ];
@@ -78,7 +80,7 @@ export const liveDeliveryHandlers = [
       confidence: ok ? ('DIRECT' as const) : ('UNKNOWN' as const),
       asOf: { asOf: composedAt, freshness: ok ? ('CURRENT' as const) : ('UNAVAILABLE' as const) },
     });
-    const failed = down ? ['delivery-dispatch-service', 'case-service'] : [];
+    const failed = down ? ['delivery-dispatch-service', 'case-service', 'delivery-tracking-service'] : [];
     const ok = (s: string) => !failed.includes(s);
     return HttpResponse.json({
       sources: ['delivery-execution-service', 'delivery-dispatch-service', 'case-service'].map((s) => stamp(s, ok(s))),
@@ -99,7 +101,10 @@ export const liveDeliveryHandlers = [
         dispatch: ok('delivery-dispatch-service') ? { state: r.dispatch, version: 2, source: stamp('delivery-dispatch-service', true) } : { state: null, version: null, source: stamp('delivery-dispatch-service', false) },
         arrivalWindow: r.window,
         promisedAt: r.promisedAt,
-        latestEta: null,
+        latestEta: ok('delivery-tracking-service') && r.eta?.status === 'AVAILABLE' ? r.eta.at : null,
+        etaStatus: ok('delivery-tracking-service') ? (r.eta?.status ?? null) : null,
+        delayedBySeconds: ok('delivery-tracking-service') ? (r.eta?.delay ?? null) : null,
+        etaSource: stamp('delivery-tracking-service', ok('delivery-tracking-service')),
         openCases: ok('case-service') ? r.openCases : null,
       })),
     });
