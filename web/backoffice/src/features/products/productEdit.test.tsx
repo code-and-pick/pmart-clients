@@ -3,6 +3,10 @@ import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 
+import { http, HttpResponse } from 'msw';
+
+import { API_BASE } from '../../api/client';
+import { server } from '../../test/server';
 import { as, renderAt } from '../../test/render';
 import { gs1CheckDigitProblem } from './barcode';
 
@@ -84,5 +88,16 @@ describe('상품 정보 수정', () => {
     renderAt('/products/P-00000001', as.admin);
     expect(await screen.findByText('상품 정보 수정은 MD 만 시작할 수 있어요.')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '상품 정보 수정 시작' })).not.toBeInTheDocument();
+  });
+
+  it('서버가 MD 아님 403 이면 일반 권한 문구 대신 "MD 만" 안내(세션 역할이 바뀐 경우)', async () => {
+    server.use(
+      http.post(`${API_BASE}/products/:id/edit-drafts`, () =>
+        HttpResponse.json({ type: 'about:blank', title: 'x', status: 403, code: 'FORBIDDEN' }, { status: 403, headers: { 'content-type': 'application/problem+json' } }),
+      ),
+    );
+    renderAt('/products/P-00000001', as.md);
+    await userEvent.click(await screen.findByRole('button', { name: '상품 정보 수정 시작' }));
+    expect(await screen.findByTestId('product-edit-not-md')).toHaveTextContent('MD 만 수정을 시작할 수 있어요');
   });
 });

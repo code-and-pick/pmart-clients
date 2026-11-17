@@ -149,6 +149,8 @@ function EditStart({ productId }: { readonly productId: string }) {
     failure instanceof ProblemFailure && failure.problem.code === 'EDIT_DRAFT_EXISTS'
       ? failure.problem.details.find((x) => x.field === 'existingDraftId')?.reason
       : undefined;
+  // 0.3.2: MD 가 아니면 403 — 일반 권한 문구 대신 'MD 만' 안내(백엔드 알림 2026-11-17 notice-product-edit-md-only)
+  const notMd = failure instanceof ProblemFailure && failure.problem.code === 'FORBIDDEN';
   return (
     <div className="space-y-2 rounded-box bg-base-100 p-4">
       <div className="flex flex-wrap items-center gap-3">
@@ -163,6 +165,10 @@ function EditStart({ productId }: { readonly productId: string }) {
           <Link className="link" to={`/products/drafts/${encodeURIComponent(existing)}`}>
             {m.products.editDraftOpen(existing)}
           </Link>
+        </div>
+      ) : notMd ? (
+        <div role="alert" className="alert alert-warning text-sm" data-testid="product-edit-not-md">
+          {m.products.editForbidden}
         </div>
       ) : (
         <CommandFeedback command={start} />

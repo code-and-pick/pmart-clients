@@ -1298,6 +1298,7 @@ export const messages = {
     editStart: '상품 정보 수정 시작',
     editStartHint: '지금 승인된 값으로 채운 수정 초안을 만들어요. 고친 뒤 제출하면 상품 승인을 거쳐 새 버전이 돼요.',
     editMdOnly: '상품 정보 수정은 MD 만 시작할 수 있어요.',
+    editForbidden: 'MD 만 수정을 시작할 수 있어요. 세션의 역할이 바뀌었으면 다시 로그인해 주세요.',
     editDraftExists: '이 상품에는 이미 수정 중인 초안이 있어요.',
     editDraftOpen: (draftId: string) => `그 초안 열기(${draftId})`,
     editOf: '기존 상품 수정',
