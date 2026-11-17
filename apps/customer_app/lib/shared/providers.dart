@@ -90,6 +90,12 @@ final dioProvider = Provider<Dio>((ref) {
 /// 세션 종료 때 할 일. 앱은 세션 컨트롤러를 연결한다(`auth_controller.dart`). 순환 의존을 피하려고 간접 호출한다.
 final onSessionExpiredProvider = Provider<void Function()>((_) => () {});
 
+/// 로그아웃 직전(회원 토큰이 아직 있을 때) 할 일 — 앱은 푸시 토큰 해제를 연결한다(`main.dart`).
+/// 순환 의존을 피하려고 간접 호출한다. 실패해도 로그아웃을 막지 않는다.
+final beforeSignOutProvider = Provider<Future<void> Function()>(
+  (_) => () async {},
+);
+
 /// `POST /auth/tokens` 로 토큰을 회전한다.
 ///
 /// 인증 인터셉터를 거치지 않는 별도 Dio 를 쓴다(갱신 요청이 다시 갱신을 부르지 않게).

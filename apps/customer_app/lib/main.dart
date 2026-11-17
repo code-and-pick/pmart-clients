@@ -9,7 +9,10 @@ import 'app.dart';
 import 'features/address/presentation/map_pick_screen.dart' show kakaoNativeAppKey;
 import 'features/auth/presentation/auth_controller.dart'
     show sessionExpiryHandlerProvider;
-import 'shared/providers.dart' show onSessionExpiredProvider;
+import 'features/push/presentation/push_controller.dart'
+    show pushRegistrationProvider;
+import 'shared/providers.dart'
+    show beforeSignOutProvider, onSessionExpiredProvider;
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -28,6 +31,13 @@ Future<void> main() async {
         // 세션 종료(갱신 거절) → 조용한 재로그인 → 안 되면 비회원 + 안내
         onSessionExpiredProvider.overrideWith(
           (ref) => ref.read(sessionExpiryHandlerProvider),
+        ),
+        // 로그아웃 직전 서버에서 이 단말의 푸시 토큰을 지운다
+        beforeSignOutProvider.overrideWith(
+          (ref) =>
+              () => ref
+                  .read(pushRegistrationProvider.notifier)
+                  .unregisterBeforeSignOut(),
         ),
       ],
       child: const CustomerApp(),
