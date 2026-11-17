@@ -88,7 +88,7 @@ const seed = (): Inquiry[] => [
     category: 'APP_ERROR',
     orderId: null,
     title: null,
-    status: 'ANSWERED',
+    status: 'RECEIVED',
     origin: 'INQUIRY_PAGE',
     createdAt: '2026-11-14T03:00:00Z',
     answeredAt: '2026-11-14T04:00:00Z',
@@ -96,7 +96,11 @@ const seed = (): Inquiry[] => [
     caseId: 'CASE-MOCK-R2',
     riderId: 'RID-MOCK-2',
     body: '[목] 배송 완료 버튼이 안 눌려요.',
-    replies: [{ replyId: 'REP-MOCK-R1', authorType: 'AGENT', body: '[목] 앱을 다시 켜 주세요.', createdAt: '2026-11-14T04:00:00Z' }],
+    // case 0.21.0: 라이더가 답변 뒤에 이어 씀 → 다시 RECEIVED
+    replies: [
+      { replyId: 'REP-MOCK-R1', authorType: 'AGENT', body: '[목] 앱을 다시 켜 주세요.', createdAt: '2026-11-14T04:00:00Z' },
+      { replyId: 'REP-MOCK-R2', authorType: 'RIDER', body: '[목] 다시 켜도 안 눌려요.', createdAt: '2026-11-14T05:00:00Z' },
+    ],
   },
 ];
 

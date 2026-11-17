@@ -384,18 +384,33 @@ export function InquiryDetailPage({ kind = 'CUSTOMER' }: { readonly kind?: Reque
             {/* 문의 사진(case 0.14.0) — 고객·라이더가 붙인 것. 상담원 접수 문의에는 없다 */}
             <InquiryPhotos photos={q.photos} />
 
-            <h2 className="font-bold">{m.inquiries.replies}</h2>
+            {/* case 0.21.0: 라이더 문의는 대화 — replies 에 라이더가 이어 쓴 줄(authorType RIDER)이 섞인다. 보낸 쪽으로 나눠 그린다(라이더 메시지를 답변처럼 보이지 않게) */}
+            <h2 className="font-bold">{q.requesterType === 'RIDER' ? m.inquiries.conversation : m.inquiries.replies}</h2>
             {q.replies.length === 0 ? (
               <p className="text-sm opacity-70">{m.inquiries.noReplies}</p>
             ) : (
               <ul className="space-y-2">
-                {q.replies.map((r, i) => (
-                  <li key={r.replyId ?? `reply-${i}`} className="rounded-box bg-base-200 p-3 text-sm" data-testid="inquiry-reply">
-                    <p className="whitespace-pre-wrap break-words">{r.body ?? ''}</p>
-                    <p className="mt-1 text-xs opacity-60">{r.createdAt ? formatSeoul(r.createdAt) : m.none}</p>
-                  </li>
-                ))}
+                {q.replies.map((r, i) => {
+                  const fromRider = r.authorType === 'RIDER';
+                  return (
+                    <li
+                      key={r.replyId ?? `reply-${i}`}
+                      className={`rounded-box p-3 text-sm ${fromRider ? 'mr-12 border border-base-300 bg-base-100' : 'ml-12 bg-base-200'}`}
+                      data-testid="inquiry-reply"
+                      data-author={r.authorType ?? 'AGENT'}
+                    >
+                      <p className="mb-1 text-xs font-semibold opacity-70">{fromRider ? m.inquiries.fromRider : m.inquiries.fromStaffReply}</p>
+                      <p className="whitespace-pre-wrap break-words">{r.body ?? ''}</p>
+                      <p className="mt-1 text-xs opacity-60">{r.createdAt ? formatSeoul(r.createdAt) : m.none}</p>
+                    </li>
+                  );
+                })}
               </ul>
+            )}
+            {q.status === 'RECEIVED' && q.replies.at(-1)?.authorType === 'RIDER' && (
+              <p role="status" className="text-sm text-warning" data-testid="inquiry-rider-followup">
+                {m.inquiries.riderFollowUp}
+              </p>
             )}
 
             {canReplyTo(q) && q.status !== 'CLOSED' && <CloseForm key={`close-${q.inquiryId}`} inquiry={q} />}

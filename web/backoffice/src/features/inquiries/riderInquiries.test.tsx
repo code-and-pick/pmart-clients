@@ -67,4 +67,17 @@ describe('라이더 문의', () => {
     expect(await screen.findByText('이용할 수 없는 화면이에요')).toBeInTheDocument();
     expect(screen.queryByText('이 조건의 문의가 없어요.')).not.toBeInTheDocument();
   });
+
+  it('라이더 문의 대화(case 0.21.0): 라이더가 이어 쓴 줄은 답변이 아니라 "라이더"로, 이어 쓰면 다시 답변 대기 안내', async () => {
+    renderAt('/rider-inquiries/INQ-MOCK-R2', as.riderOps);
+    expect(await screen.findByRole('heading', { name: '대화' })).toBeInTheDocument();
+    const lines = screen.getAllByTestId('inquiry-reply');
+    expect(lines.map((l) => l.getAttribute('data-author'))).toEqual(['AGENT', 'RIDER']);
+    expect(lines[0]).toHaveTextContent('답변');
+    expect(lines[1]).toHaveTextContent('라이더');
+    expect(lines[1]).toHaveTextContent('다시 켜도 안 눌려요');
+    expect(screen.getByTestId('inquiry-rider-followup')).toHaveTextContent('다시 답변을 기다려요');
+    expect(screen.getByTestId('inquiry-status')).toHaveTextContent('접수');
+    expect(screen.getByLabelText('답변 쓰기')).toBeInTheDocument(); // 답변은 지금처럼
+  });
 });
