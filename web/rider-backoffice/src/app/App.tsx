@@ -2,7 +2,7 @@
 import { UiTextProvider } from '@pmart/web-ui';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
-import { createBrowserRouter, createMemoryRouter, Link, Navigate, NavLink, Outlet, RouterProvider } from 'react-router';
+import { createBrowserRouter, createMemoryRouter, Link, Navigate, NavLink, Outlet, RouterProvider, useLocation } from 'react-router';
 
 import { env } from '../env';
 import { CasesMenu } from '../features/cases/CasePages';
@@ -19,41 +19,87 @@ import { messages as m } from '../shared/messages';
 import { allMenus, hasRiderAppRole, menuPath, navGroups, type MenuItem } from './nav';
 import { RequireSession, SessionProvider, useSession } from './SessionContext';
 
+/** 지금 주소의 메뉴(머리줄 "묶음 › 메뉴") */
+function useCurrentMenu() {
+  const { pathname } = useLocation();
+  const seg = pathname.split('/')[1] ?? '';
+  const group = navGroups.find((g) => g.items.some((i) => i.segment === seg));
+  const item = group?.items.find((i) => i.segment === seg);
+  return group && item ? { group: m.groups[group.key], menu: m.menus[item.key] } : null;
+}
+
+// 화면 틀(2026-11-18 — 배민 관리자 화면 참고): 진한 왼쪽 메뉴(묶음 제목 + 메뉴), 흰 머리줄(위치 · 로그인 직원·역할), 연회색 본문.
 function Layout() {
   const { session } = useSession();
+  const current = useCurrentMenu();
   return (
     <div className="flex min-h-screen bg-base-200">
-      <aside className="w-52 shrink-0 bg-base-100 shadow-sm">
-        <div className="p-4">
-          <Link to="/" className="text-lg font-bold" aria-label={m.goHome}>
+      <aside className="flex w-56 shrink-0 flex-col bg-neutral text-neutral-content">
+        <div className="flex h-14 items-center gap-2 border-b border-neutral-content/10 px-5">
+          <Link to="/" className="text-base font-bold text-neutral-content" aria-label={m.goHome}>
             {m.appTitle}
           </Link>
-          {env.isMock && <span className="badge badge-outline ml-2">{m.mockBadge}</span>}
+          {env.isMock && <span className="badge badge-accent badge-sm">{m.mockBadge}</span>}
         </div>
-        <ul className="menu w-full">
-          <li>
-            <NavLink to={session ? '/session' : '/login'}>{session ? m.nav.session : m.nav.login}</NavLink>
-          </li>
+        <nav aria-label="메뉴" className="flex-1 overflow-y-auto py-3">
           {session &&
             navGroups.map((g) => (
-              <li key={g.key}>
-                <details open>
-                  <summary>{m.groups[g.key]}</summary>
-                  <ul>
-                    {g.items.map((item) => (
-                      <li key={item.key}>
-                        <NavLink to={menuPath(item.segment)}>{m.menus[item.key]}</NavLink>
-                      </li>
-                    ))}
-                  </ul>
-                </details>
-              </li>
+              <div key={g.key} className="mb-3">
+                <p className="px-5 pb-1 text-xs font-semibold text-neutral-content/45">{m.groups[g.key]}</p>
+                <ul>
+                  {g.items.map((item) => (
+                    <li key={item.key}>
+                      <NavLink
+                        to={menuPath(item.segment)}
+                        className={({ isActive }) =>
+                          `flex items-center border-l-[3px] px-5 py-2 text-sm ${isActive ? 'border-accent bg-neutral-content/10 font-semibold text-neutral-content' : 'border-transparent text-neutral-content/75 hover:bg-neutral-content/5 hover:text-neutral-content'}`
+                        }
+                      >
+                        {m.menus[item.key]}
+                      </NavLink>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             ))}
-        </ul>
+        </nav>
       </aside>
-      <main className="min-w-0 flex-1 space-y-4 p-6">
-        <Outlet />
-      </main>
+      <div className="flex min-w-0 flex-1 flex-col">
+        <header className="flex h-14 shrink-0 items-center justify-between gap-3 border-b border-base-300 bg-base-100 px-6">
+          <p className="truncate text-sm text-base-content/60" data-testid="page-title">
+            {current ? (
+              <>
+                {current.group} <span className="px-1 text-base-content/30">›</span>
+                <span className="font-semibold text-base-content">{current.menu}</span>
+              </>
+            ) : null}
+          </p>
+          <div className="flex items-center gap-3 text-sm">
+            {session ? (
+              <>
+                <span className="font-mono text-xs" data-testid="operator">
+                  {session.subject}
+                </span>
+                {session.roles.map((r) => (
+                  <span key={r} className="badge badge-outline badge-sm">
+                    {r}
+                  </span>
+                ))}
+                <NavLink to="/session" className="btn btn-ghost btn-xs">
+                  {m.nav.session}
+                </NavLink>
+              </>
+            ) : (
+              <NavLink to="/login" className="btn btn-primary btn-xs">
+                {m.nav.login}
+              </NavLink>
+            )}
+          </div>
+        </header>
+        <main className="min-w-0 flex-1 space-y-5 p-6">
+          <Outlet />
+        </main>
+      </div>
     </div>
   );
 }
@@ -65,7 +111,7 @@ function MenuScope({ menu }: { readonly menu: MenuItem }) {
   return (
     <>
       {!hasRiderAppRole(session.roles) && (
-        <p role="note" className="alert alert-warning text-sm">
+        <p role="note" className="alert alert-warning text-sm" data-testid="no-rider-role">
           {m.noRiderRole}
         </p>
       )}

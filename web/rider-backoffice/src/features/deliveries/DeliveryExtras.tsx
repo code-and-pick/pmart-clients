@@ -68,7 +68,7 @@ export const extrasMessages = {
 } as const;
 
 const m = extrasMessages;
-const DL = 'grid grid-cols-[8rem_1fr] gap-x-4 gap-y-1 rounded-box bg-base-100 p-4 text-sm';
+const DL = 'grid grid-cols-[8rem_1fr] gap-x-4 gap-y-2.5 text-sm';
 
 function Row({ k, children }: { readonly k: string; readonly children: ReactNode }) {
   return (
@@ -82,12 +82,11 @@ function Row({ k, children }: { readonly k: string; readonly children: ReactNode
 export function DispatchAttempts({ attempts }: { readonly attempts: readonly Attempt[] }) {
   return (
     <div className="space-y-1">
-      <h3 className="font-semibold">{m.attempts}</h3>
       {attempts.length === 0 ? (
         <p className="text-sm opacity-70">{m.noAttempts}</p>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="table table-xs rounded-box bg-base-100" data-testid="dispatch-attempts">
+        <div className="overflow-x-auto rounded-box border border-base-300">
+          <table className="table table-xs [&_thead_th]:bg-base-200/70" data-testid="dispatch-attempts">
             <thead>
               <tr>
                 <th>{m.attemptCol.started}</th>
@@ -102,7 +101,7 @@ export function DispatchAttempts({ attempts }: { readonly attempts: readonly Att
             <tbody>
               {attempts.map((t, i) => (
                 <tr key={t.attemptId ?? `a-${i}`} data-testid="dispatch-attempt">
-                  <td>{when(t.startedAt)}</td>
+                  <td className="whitespace-nowrap">{when(t.startedAt)}</td>
                   <td>{label(m.attemptTrigger, t.trigger)}</td>
                   <td>{label(m.attemptState, t.state)}</td>
                   <td>{t.currentRadiusKm === undefined ? none : m.km(t.currentRadiusKm)}</td>
@@ -114,7 +113,7 @@ export function DispatchAttempts({ attempts }: { readonly attempts: readonly Att
                     ) : (
                       <ul>
                         {(t.offers ?? []).map((o, j) => (
-                          <li key={o.offerId ?? `o-${j}`} className="font-mono">{`${o.riderId ?? none} · ${label(m.offerState, o.state)} · ${when(o.sentAt)}`}</li>
+                          <li key={o.offerId ?? `o-${j}`} className="whitespace-nowrap font-mono">{`${o.riderId ?? none} · ${label(m.offerState, o.state)} · ${when(o.sentAt)}`}</li>
                         ))}
                       </ul>
                     )}
@@ -151,7 +150,6 @@ export function EtaPanel({ deliveryId }: { readonly deliveryId: string }) {
   });
   return (
     <div className="space-y-2">
-      <h2 className="font-bold">{m.eta}</h2>
       <QueryState state={toUiState(eta)} onRetry={() => void eta.refetch()}>
         {(e) => (
           <dl className={DL} data-testid="eta-detail">
@@ -181,7 +179,6 @@ export function DeliveryProof({ delivery }: { readonly delivery: Execution }) {
   const isReturn = delivery.returnPickupRequired !== undefined && delivery.returnPickupRequired !== null;
   return (
     <div className="space-y-2" data-testid="delivery-proof">
-      <h2 className="font-bold">{m.proof}</h2>
       {isReturn && (
         <dl className={DL} data-testid="return-flow">
           <Row k={m.returnFlow}>{m.returnPickup(delivery.returnPickupRequired === true)}</Row>
@@ -209,7 +206,6 @@ export function DeliveryEarning({ delivery }: { readonly delivery: Execution }) 
   const e = delivery.earning;
   return (
     <div className="space-y-2" data-testid="delivery-earning">
-      <h2 className="font-bold">{m.earning}</h2>
       {!e ? (
         <p className="text-sm opacity-70">{m.earningNone}</p>
       ) : (

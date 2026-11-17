@@ -5,6 +5,8 @@ import { authHandlers } from './authHandlers';
 import { caseHandlers } from './caseHandlers';
 import { deliveryHandlers } from './deliveryHandlers';
 import { opsHandlers } from './opsHandlers';
+import { staffEvidenceHandlers } from './staffEvidenceHandlers';
+import { supportPlusHandlers } from './supportPlusHandlers';
 import { operator, unauthorized } from './support';
 
 /** 게이트웨이 공개 경로(계약 security: []) */
@@ -17,4 +19,4 @@ const gateway = http.all(`${API_BASE}/*`, ({ request }) => {
   return operator(request) ? undefined : unauthorized();
 });
 
-export const handlers = [gateway, ...authHandlers, ...caseHandlers, ...deliveryHandlers, ...opsHandlers];
+export const handlers = [gateway, ...authHandlers, ...caseHandlers, ...deliveryHandlers, ...staffEvidenceHandlers, ...supportPlusHandlers, ...opsHandlers];

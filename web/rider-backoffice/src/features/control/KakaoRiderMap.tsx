@@ -129,10 +129,10 @@ export function KakaoRiderMap({
 
   if (state === 'failed') {
     return (
-      <p role="note" className="alert alert-info text-sm" data-testid="map-unavailable">
+      <p role="note" className="rounded-box bg-base-300/50 px-4 py-3 text-sm text-base-content/75" data-testid="map-unavailable">
         {KEY ? m.map.failed : m.map.noKey}
       </p>
     );
   }
-  return <div ref={el} aria-label={m.map.label} className="h-96 w-full rounded-box bg-base-300" data-testid="rider-map" />;
+  return <div ref={el} aria-label={m.map.label} className="h-96 w-full rounded-box border border-base-300 bg-base-200" data-testid="rider-map" />;
 }

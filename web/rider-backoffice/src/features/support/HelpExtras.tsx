@@ -45,19 +45,19 @@ export const helpExtrasMessages = {
 const m = helpExtrasMessages;
 const NOTE_MAX = 300;
 
-export function EvidencePhotos({ deliveryId, refs }: { readonly deliveryId: string; readonly refs: readonly string[] }) {
+export function EvidencePhotos({ deliveryId, refs, heading = true }: { readonly deliveryId: string; readonly refs: readonly string[]; readonly heading?: boolean }) {
   const load = useEvidenceLoader(deliveryId);
-  return <AuthedPhotos refs={refs} load={load} label={m.photos.label} />;
+  return <AuthedPhotos refs={refs} load={load} label={m.photos.label} heading={heading} />;
 }
 
 /** 라이더 문의 사진(case 0.14.0) — `GET /inquiry-photos/{photoId}`(RIDER_OPS·OPERATOR_ADMIN 은 라이더 문의 사진을 본다, 공유 캐시 금지) */
-export function InquiryPhotos({ photoIds }: { readonly photoIds: readonly string[] }) {
+export function InquiryPhotos({ photoIds, heading = true }: { readonly photoIds: readonly string[]; readonly heading?: boolean }) {
   const api = useApi();
   const load = useCallback(
     (photoId: string) => request('GET', api.cases.GET('/inquiry-photos/{photoId}', { params: { path: { photoId } }, parseAs: 'blob' })),
     [api],
   );
-  return <AuthedPhotos refs={photoIds} load={load} label={m.photos.inquiryLabel} />;
+  return <AuthedPhotos refs={photoIds} load={load} label={m.photos.inquiryLabel} heading={heading} />;
 }
 
 export function ResolvePanel({ help, deliveryId, requestId }: { readonly help: HelpRequest; readonly deliveryId: string; readonly requestId: string }) {
@@ -81,24 +81,24 @@ export function ResolvePanel({ help, deliveryId, requestId }: { readonly help: H
   });
   const done = resolve.phase.kind === 'done';
   return (
-    <section className="space-y-2" aria-label={m.resolve.title}>
-      <h2 className="font-bold">{m.resolve.title}</h2>
+    // 제목은 감싸는 구역 상자(Section '처리')가 단다 — 여기는 내용만
+    <div className="space-y-3" role="group" aria-label={m.resolve.title}>
       {help.caseId ? (
-        <p className="text-sm opacity-70" data-testid="resolve-has-case">
+        <p className="rounded-box bg-base-200/60 px-4 py-3 text-sm text-base-content/75" data-testid="resolve-has-case">
           {m.resolve.hasCase}{' '}
-          <Link className="link font-mono" to={`/cases/${encodeURIComponent(help.caseId)}`}>
+          <Link className="link link-primary font-mono" to={`/cases/${encodeURIComponent(help.caseId)}`}>
             {help.caseId}
           </Link>
         </p>
       ) : help.state === 'RESOLVED' && !done ? (
-        <p className="text-sm opacity-70" data-testid="resolve-already">
+        <p className="rounded-box bg-base-200/60 px-4 py-3 text-sm text-base-content/75" data-testid="resolve-already">
           {m.resolve.resolved}
         </p>
       ) : (
         !done && (
           <button
             type="button"
-            className="btn btn-sm btn-primary"
+            className="btn btn-primary btn-sm w-full sm:w-auto"
             disabled={resolve.busy}
             onClick={() => {
               if (resolve.phase.kind === 'rejected') resolve.reset();
@@ -125,13 +125,13 @@ export function ResolvePanel({ help, deliveryId, requestId }: { readonly help: H
               void resolve.run(note.trim());
             }}
           >
-            <h3 className="font-bold">{m.resolve.confirmTitle}</h3>
+            <h3 className="text-lg font-bold">{m.resolve.confirmTitle}</h3>
             <p className="text-sm">{m.resolve.confirmBody}</p>
             <label className="flex flex-col gap-1 text-sm">
               {m.resolve.noteLabel}
               <textarea className="textarea textarea-sm w-full" maxLength={NOTE_MAX} value={note} onChange={(e) => setNote(e.target.value)} />
             </label>
-            <p className="text-xs text-warning">{m.resolve.piiHint}</p>
+            <p className="rounded-box bg-warning/15 px-3 py-2 text-xs">{m.resolve.piiHint}</p>
             <div className="modal-action">
               <button type="button" className="btn btn-sm btn-ghost" onClick={() => setOpen(false)}>
                 {m.resolve.cancel}
@@ -143,7 +143,7 @@ export function ResolvePanel({ help, deliveryId, requestId }: { readonly help: H
           </form>
         </div>
       )}
-    </section>
+    </div>
   );
 }
 
@@ -166,13 +166,13 @@ export function MaskMessage({ deliveryId, requestId, messageId }: { readonly del
   const ok = reason.trim().length >= 2 && reason.trim().length <= 500;
   if (!open)
     return (
-      <button type="button" className="btn btn-ghost btn-xs" onClick={() => setOpen(true)}>
+      <button type="button" className="btn btn-ghost btn-xs text-base-content/60" onClick={() => setOpen(true)}>
         {m.mask.button}
       </button>
     );
   return (
     <form
-      className="flex flex-wrap items-end gap-1"
+      className="flex flex-wrap items-end gap-1 rounded-box border border-base-300 bg-base-100 p-2"
       aria-label={m.mask.button}
       onSubmit={(e) => {
         e.preventDefault();

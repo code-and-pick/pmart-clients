@@ -46,6 +46,7 @@ export const mockDeliveries: Execution[] = [
   {
     deliveryId: 'DLV-3',
     orderId: 'ORD-3',
+    orderNumber: '48213110',
     type: 'FORWARD',
     purpose: 'DELIVERY',
     state: 'COMPLETED',
@@ -60,6 +61,7 @@ export const mockDeliveries: Execution[] = [
   {
     deliveryId: 'DLV-4',
     orderId: 'ORD-1',
+    orderNumber: '48213075',
     type: 'RETURN',
     purpose: 'FAILED_DELIVERY_RETURN',
     returnPickupRequired: true,
@@ -75,6 +77,7 @@ const created = (d: Execution) => d.assignedAt ?? '2026-11-17T00:00:00.000Z';
 const summary = (d: Execution): ExecC['schemas']['StaffDeliverySummary'] => ({
   deliveryId: d.deliveryId ?? '',
   orderId: d.orderId ?? null,
+  orderNumber: d.riderId ? (d.orderNumber ?? d.orderSummary?.orderNumber ?? null) : null,
   ...(d.type ? { type: d.type } : {}),
   state: d.state ?? 'UNASSIGNED',
   riderId: d.riderId ?? null,

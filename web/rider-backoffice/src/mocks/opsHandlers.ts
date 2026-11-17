@@ -1,10 +1,12 @@
-// ⚠ 화면 개발·시험용 목 — 라이더 운영 화면(2026-11-17, PC 5): 대시보드 수·라이더 찾기/상세/제한/원문/제한 검토·관제 위치·
+// ⚠ 화면 개발·시험용 목 — 라이더 운영 화면(2026-11-17, PC 5): 대시보드 수·라이더 찾기/상세(정산계좌 여부·동의 — 2026-11-18)/제한/원문/제한 검토·
+// 라이더 배정 이력(dispatch `GET /rider-assignments`, 2026-11-18)·관제 위치·
 // 직원용 수행료/운행시간·상태 정정·실패 결정·배차 취소·도움요청 대화·라이더 문의 대화·수행료 조정·추가 배달료·센터 목록.
 // 실제 서버 동작이 아니다(권한·상태 규칙은 흉내만). 상태는 resetOps() 로 되돌린다.
 import { http, HttpResponse } from 'msw';
 
 import { API_BASE } from '../api/client';
 import { nextSeq, timestamp } from './db';
+import { isStaffPhotoOf } from './staffEvidenceHandlers';
 import { idempotent, operator, problem, unauthorized } from './support';
 
 const OPS_ROLES = ['RIDER_OPS', 'OPERATOR_ADMIN'];
@@ -65,8 +67,30 @@ function guard(request: Request, act = false) {
   return { who } as const;
 }
 
+// 목 사진 — 96×96 바둑판 PNG(화면에 그림이 그려지는지 보려고). 실제 사진 아님.
+const MOCK_PNG = 'iVBORw0KGgoAAAANSUhEUgAAAGAAAABgCAIAAABt+uBvAAAAyklEQVR4nO3YsQmAMBRF0ew/j7VDuIGNtSM4Qgg2N3Dg1ZfklH/cz7u047yWtnt/7P4BQIDafUCAAAECFO4DAgQIEKBwHxCgn0C1B9X6gAABAgQo3AcECBAgQOE+IECAAAEK9x3MJgMECBAgQOE+IECAAAEK9wEBAgQIULjvYDYZIECAAAEK9wEBAgQIULgPCBAgQIDCfQezyQABAgQIULgPCBAgQIDCfUCAAAECFO47mE0GCBAgQIDCfUCAAAECFO4DAgQIEKBw/wMWQ6s4ffbY6QAAAABJRU5ErkJggg==';
+const mockPhoto = () => Uint8Array.from(atob(MOCK_PNG), (c) => c.charCodeAt(0));
 const IQP_1 = { photoId: 'IQP-1', url: '/api/v1/inquiry-photos/IQP-1', contentType: 'image/jpeg' as const, sizeBytes: 4, uploadedAt: '2026-11-17T00:29:00.000Z' };
 const SUR_DONE = { requestId: 'SUR-0', deliveryId: 'DLV-3', riderId: 'RD-8', reason: 'ELEVATOR_OUT_OF_ORDER', floor: 18, amount: 500, evidenceRefs: [], state: 'APPROVED', requestedAt: '2026-11-16T05:00:00.000Z', decidedAt: '2026-11-16T06:00:00.000Z', decidedBy: 'OP-rops-1', decisionNote: null };
+
+const RIDER_ASSIGNMENTS = [
+  { offerId: 'OF-3', deliveryId: 'DLV-1', orderId: 'ORD-1', mfcId: 'MFC-BSJ-01', type: 'FORWARD', purpose: 'DELIVERY', source: 'AI_RECOMMENDED', fee: 3900, assignedAt: '2026-11-17T02:00:00.000Z', deliveryState: 'PICKED_UP', outcome: 'CURRENT', cancellation: null },
+  { offerId: 'OF-2', deliveryId: 'DLV-3', orderId: 'ORD-3', mfcId: 'MFC-BSJ-01', type: 'FORWARD', purpose: 'DELIVERY', source: 'DELIVERY_LIST', fee: 3500, assignedAt: '2026-11-16T05:00:00.000Z', deliveryState: 'CLOSED', outcome: 'DONE', cancellation: null },
+  {
+    offerId: 'OF-1',
+    deliveryId: 'DLV-5',
+    orderId: 'ORD-5',
+    mfcId: 'MFC-BSJ-01',
+    type: 'FORWARD',
+    purpose: 'DELIVERY',
+    source: 'AI_RECOMMENDED',
+    fee: null,
+    assignedAt: '2026-11-15T03:00:00.000Z',
+    deliveryState: 'ASSIGNED',
+    outcome: 'CANCELLED',
+    cancellation: { requestedBy: 'OPERATOR', reason: 'NO_SHOW', reasonDetail: '20분 넘게 가게에 안 옴', at: '2026-11-15T03:30:00.000Z' },
+  },
+];
 
 export const opsHandlers = [
   http.get(`${API_BASE}/centers`, () => HttpResponse.json({ items: [{ centerId: 'MFC-BSJ-01', name: 'PMart 부산진구지점', type: 'MFC' }] })),
@@ -163,7 +187,30 @@ export const opsHandlers = [
       deliveryAreas: [{ mfcId: 'MFC-BSJ-01' }],
       operating: { status: r.operatingStatus, newDispatchEnabled: r.operatingStatus === 'ON_DUTY' },
       restriction: { state: r.restriction },
+      // rider 0.10.0 — 계좌는 등록 여부·은행 이름만(번호·예금주 없음), 동의는 항목마다 마지막만
+      ...(r.riderId === 'RD-7'
+        ? {
+            bankAccountRegistered: true,
+            bankName: '국민은행',
+            consents: [
+              { consentType: 'TERMS_OF_SERVICE', version: '2026-10', agreedAt: '2026-11-17T01:00:00.000Z' },
+              { consentType: 'PRIVACY', version: '2026-11', agreedAt: '2026-11-17T01:00:00.000Z' },
+            ],
+          }
+        : { bankAccountRegistered: false, bankName: null, consents: [] }),
     });
+  }),
+  // dispatch 0.8.0 — 라이더 배정 이력(배정 최신순, cursor). RIDER_OPS·OPERATOR_ADMIN·CS_AGENT
+  http.get(`${API_BASE}/rider-assignments`, ({ request }) => {
+    const g = guard(request);
+    if ('error' in g) return g.error;
+    if (!g.who.roles.some((x) => ['RIDER_OPS', 'OPERATOR_ADMIN', 'CS_AGENT'].includes(x))) return problem(403, 'FORBIDDEN');
+    const q = new URL(request.url).searchParams;
+    const all = q.get('riderId') === 'RD-7' ? RIDER_ASSIGNMENTS : [];
+    const size = Number(q.get('size') ?? '20') || 20;
+    const from = Number(q.get('cursor') ?? '0') || 0;
+    const items = all.slice(from, from + size);
+    return HttpResponse.json({ items, page: { size: items.length, nextCursor: from + size < all.length ? String(from + size) : null } });
   }),
 
   http.get(`${API_BASE}/rider-earnings/adjustment-queue`, ({ request }) => {
@@ -236,9 +283,13 @@ export const opsHandlers = [
     });
   }),
 
-  http.post(`${API_BASE}/deliveries/:deliveryId/status-corrections`, ({ request }) => {
+  // 0.22.0: evidenceRefs(선택)는 이 배송에 직원이 올린 사진만(staff-evidence-photos 목) — 아니면 422 PHOTO_NOT_FOUND
+  http.post(`${API_BASE}/deliveries/:deliveryId/status-corrections`, async ({ request, params }) => {
     const g = guard(request, true);
     if ('error' in g) return g.error;
+    const body = (await request.json()) as { evidenceRefs?: string[] };
+    const deliveryId = String(params['deliveryId']);
+    if ((body.evidenceRefs ?? []).some((ref) => !isStaffPhotoOf(deliveryId, ref))) return problem(422, 'PHOTO_NOT_FOUND', [{ field: 'evidenceRefs', reason: 'NOT_ALLOWED' }]);
     return idempotent(request, () => applied(`COR-${nextSeq()}`));
   }),
   http.post(`${API_BASE}/deliveries/:deliveryId/failure-decisions`, async ({ request }) => {
@@ -325,7 +376,7 @@ export const opsHandlers = [
     const g = guard(request);
     if ('error' in g) return g.error;
     if (params.photoRef === 'EVP-H2') return problem(404, 'NOT_FOUND');
-    return new HttpResponse(new Uint8Array([0xff, 0xd8, 0xff, 0xd9]), { headers: { 'content-type': 'image/jpeg', 'cache-control': 'no-store' } });
+    return new HttpResponse(mockPhoto(), { headers: { 'content-type': 'image/png', 'cache-control': 'no-store' } });
   }),
 
   http.get(`${API_BASE}/inquiries`, ({ request }) => {
@@ -363,7 +414,7 @@ export const opsHandlers = [
     const g = guard(request);
     if ('error' in g) return g.error;
     if (params.photoId !== IQP_1.photoId) return problem(404, 'NOT_FOUND');
-    return new HttpResponse(new Uint8Array([0xff, 0xd8, 0xff, 0xd9]), { headers: { 'content-type': 'image/jpeg', 'cache-control': 'private, no-store' } });
+    return new HttpResponse(mockPhoto(), { headers: { 'content-type': 'image/png', 'cache-control': 'private, no-store' } });
   }),
   http.get(`${API_BASE}/inquiries/:inquiryId`, ({ request, params }) => {
     const g = guard(request);

@@ -132,11 +132,15 @@ export const messages = {
     } as Readonly<Record<string, string>>,
     complaintType: { REPORT: '신고', MISDELIVERY: '오배송', DAMAGE: '파손' } as Readonly<Record<string, string>>,
     helpCategory: {
+      // 계약 execution HelpCategory 10종 그대로(2026-11-18 — 계약에 없던 CUSTOMER_CONTACT·STORE_DELAY·PRODUCT_ISSUE 지움)
+      CUSTOMER_UNREACHABLE: '고객 연락 안 됨',
       ADDRESS_ISSUE: '주소 문제',
-      CUSTOMER_CONTACT: '고객 연락',
-      STORE_DELAY: '가게 지연',
-      PRODUCT_ISSUE: '상품 문제',
+      GOODS_ISSUE: '상품 문제',
+      PHOTO_UPLOAD_FAILED: '사진 올리기 실패',
       ACCIDENT: '사고',
+      APP_ERROR: '앱 오류',
+      STORE_WAITING: '점포 대기',
+      STATUS_CORRECTION: '상태 정정',
       DELIVERY_FAILURE: '전달 불가',
       OTHER: '기타',
     } as Readonly<Record<string, string>>,

@@ -24,11 +24,11 @@ describe('관제 — 거르기·지도', () => {
     server.use(http.get(`${API_BASE}/rider-locations`, () => HttpResponse.json(board)));
     renderAt('/control?mfcId=MFC-BSJ-01', as.riderOps);
     expect(await screen.findAllByTestId('control-row')).toHaveLength(4);
-    await userEvent.click(screen.getByRole('tab', { name: '배송 중' }));
+    await userEvent.click(screen.getByRole('radio', { name: '배송 중' }));
     expect(screen.getAllByTestId('control-row').map((r) => r.id)).toEqual(['control-RD-7']);
-    await userEvent.click(screen.getByRole('tab', { name: '위치 끊김·없음' }));
+    await userEvent.click(screen.getByRole('radio', { name: '위치 끊김·없음' }));
     expect(screen.getAllByTestId('control-row').map((r) => r.id)).toEqual(['control-RD-8', 'control-RD-9']);
-    expect(screen.getByRole('tab', { name: '위치 끊김·없음' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('radio', { name: '위치 끊김·없음' })).toHaveAttribute('aria-checked', 'true');
   });
 
   it('주소의 filter 로 바로 열리고, 맞는 라이더가 없으면 "없어요"', async () => {

@@ -4,16 +4,17 @@
 // 1차(2026-11-17, PC 5): 보기만 — 배차 취소·전달 실패 확정은 다음 차례. 필터·쪽은 주소 쿼리에 둔다.
 import { useQuery } from '@tanstack/react-query';
 import { useState, type FormEvent } from 'react';
-import { Link, Route, Routes, useParams, useSearchParams } from 'react-router';
+import { Link, Route, Routes, useNavigate, useParams, useSearchParams } from 'react-router';
 
 import { request } from '@pmart/web-core';
 import { formatSeoul, QueryState, toUiState } from '@pmart/web-ui';
 import type { components } from '../../api/generated/delivery-execution';
 import { useApi } from '../../app/ApiContext';
 import { messages } from '../../shared/messages';
+import { ChipGroup, CursorPager, DataTable, DetailHeader, FieldList, PageHeader, ResultBar, SearchPanel, SearchRow, Section, SectionTabs, StatusBadge, type Tone } from '../../shared/admin';
 import { ops } from '../../shared/opsMessages';
 import { DeliveryActions } from './DeliveryActions';
-import { DeliveryEarning, DeliveryProof, DispatchAttempts, EtaPanel } from './DeliveryExtras';
+import { DeliveryEarning, DeliveryProof, DispatchAttempts, EtaPanel, extrasMessages } from './DeliveryExtras';
 
 const m = messages.deliveries;
 const n = messages.names;
@@ -49,6 +50,7 @@ function DeliverySearchPage() {
   const oldest = params.get('sort') === 'OLDEST';
   const cursor = params.get('cursor') ?? '';
   const [draft, setDraft] = useState({ orderId, orderNumber, riderId });
+  const navigate = useNavigate();
 
   const set = (next: Partial<{ orderId: string; orderNumber: string; riderId: string; state: string; type: string; oldest: boolean; cursor: string }>) => {
     const v = { orderId, orderNumber, riderId, state: state ?? '', type: type ?? '', oldest, cursor: '', ...next };
@@ -89,122 +91,93 @@ function DeliverySearchPage() {
       ),
   });
 
+  const reset = () => {
+    setDraft({ orderId: '', orderNumber: '', riderId: '' });
+    setParams({});
+  };
+  const stateTone = (s: string | undefined): Tone =>
+    s === 'COMPLETED' ? 'success' : s === 'FAILURE_REPORTED' || s === 'FAILED' ? 'error' : s === 'UNASSIGNED' ? 'warning' : s === 'CANCELLED' ? 'ghost' : 'info';
+
   return (
     <section className="space-y-4">
-      <h1 className="text-xl font-bold">{m.title}</h1>
-      <p className="text-sm opacity-70">{m.intro}</p>
-      <form className="flex flex-wrap items-end gap-3 rounded-box bg-base-100 p-3 text-sm" onSubmit={submit}>
-        <label className="flex flex-col gap-1">
-          {m.orderId}
-          <input className="input input-sm w-44" value={draft.orderId} maxLength={64} onChange={(e) => setDraft({ ...draft, orderId: e.target.value })} />
-        </label>
-        <label className="flex flex-col gap-1">
-          {ops.actions.orderNumber}
-          <input className="input input-sm w-32" value={draft.orderNumber} maxLength={8} inputMode="numeric" onChange={(e) => setDraft({ ...draft, orderNumber: e.target.value })} />
-        </label>
-        <label className="flex flex-col gap-1">
-          {m.riderId}
-          <input className="input input-sm w-44" value={draft.riderId} maxLength={64} onChange={(e) => setDraft({ ...draft, riderId: e.target.value })} />
-        </label>
-        <button type="submit" className="btn btn-sm btn-primary">
-          {m.search}
-        </button>
-        <button
-          type="button"
-          className="btn btn-sm"
-          onClick={() => {
-            setDraft({ orderId: '', orderNumber: '', riderId: '' });
-            setParams({});
-          }}
-        >
-          {m.reset}
-        </button>
-        <label className="flex flex-col gap-1">
-          {m.state}
-          <select className="select select-sm w-40" value={state ?? ''} onChange={(e) => set({ state: e.target.value })}>
-            <option value="">{m.allStates}</option>
-            {STATES.map((s) => (
-              <option key={s} value={s}>
-                {name(n.executionState, s)}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="flex flex-col gap-1">
-          {m.type}
-          <select className="select select-sm w-32" value={type ?? ''} onChange={(e) => set({ type: e.target.value })}>
-            <option value="">{m.allTypes}</option>
-            {TYPES.map((t) => (
-              <option key={t} value={t}>
-                {name(n.deliveryType, t)}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="flex flex-col gap-1">
-          {m.sort}
-          <select className="select select-sm w-36" value={oldest ? 'OLDEST' : 'NEWEST'} onChange={(e) => set({ oldest: e.target.value === 'OLDEST' })}>
-            <option value="NEWEST">{m.newest}</option>
-            <option value="OLDEST">{m.oldest}</option>
-          </select>
-        </label>
-      </form>
+      <PageHeader title={m.title} description={m.intro} />
+      <SearchPanel onSubmit={submit} onReset={reset} submitLabel={m.search} resetLabel={m.reset}>
+        <SearchRow label="번호로 찾기">
+          <label className="flex items-center gap-2 text-sm">
+            <span className="text-base-content/60">{m.orderId}</span>
+            <input className="input input-sm w-44" value={draft.orderId} maxLength={64} onChange={(e) => setDraft({ ...draft, orderId: e.target.value })} />
+          </label>
+          <label className="flex items-center gap-2 text-sm">
+            <span className="text-base-content/60">{ops.actions.orderNumber}</span>
+            <input className="input input-sm w-32" value={draft.orderNumber} maxLength={8} inputMode="numeric" placeholder="8자리" onChange={(e) => setDraft({ ...draft, orderNumber: e.target.value })} />
+          </label>
+          <label className="flex items-center gap-2 text-sm">
+            <span className="text-base-content/60">{m.riderId}</span>
+            <input className="input input-sm w-40" value={draft.riderId} maxLength={64} onChange={(e) => setDraft({ ...draft, riderId: e.target.value })} />
+          </label>
+        </SearchRow>
+        <SearchRow label={m.state}>
+          <ChipGroup
+            label={m.state}
+            value={state ?? ''}
+            options={[{ value: '', label: m.allStates }, ...STATES.map((s) => ({ value: s, label: name(n.executionState, s) }))]}
+            onChange={(v) => set({ state: v })}
+          />
+        </SearchRow>
+        <SearchRow label={m.type}>
+          <ChipGroup
+            label={m.type}
+            value={type ?? ''}
+            options={[{ value: '', label: m.allTypes }, ...TYPES.map((x) => ({ value: x, label: name(n.deliveryType, x) }))]}
+            onChange={(v) => set({ type: v })}
+          />
+        </SearchRow>
+      </SearchPanel>
       <QueryState state={toUiState(query, (r) => (r.items ?? []).length === 0)} onRetry={() => void query.refetch()} emptyText={m.empty}>
         {(r) => {
           const nextCursor = r.page?.nextCursor ?? null;
+          const items = r.items ?? [];
           return (
             <div className="space-y-3">
-              <div className="overflow-x-auto">
-                <table className="table table-sm rounded-box bg-base-100">
-                  <thead>
-                    <tr>
-                      <th>{m.col.delivery}</th>
-                      <th>{m.col.order}</th>
-                      <th>{m.col.type}</th>
-                      <th>{m.col.state}</th>
-                      <th>{m.col.rider}</th>
-                      <th>{m.col.mfc}</th>
-                      <th>{m.col.createdAt}</th>
-                      <th>{m.col.completedAt}</th>
+              <ResultBar count={items.length} more={!!nextCursor} sort={{ oldest, onChange: (o) => set({ oldest: o }) }} />
+              <DataTable>
+                <thead>
+                  <tr>
+                    <th>{m.col.delivery}</th>
+                    <th>{ops.actions.orderNumber}</th>
+                    <th>{m.col.type}</th>
+                    <th>{m.col.state}</th>
+                    <th>{m.col.rider}</th>
+                    <th>{m.col.mfc}</th>
+                    <th>{m.col.createdAt}</th>
+                    <th>{m.col.completedAt}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {items.map((d, i) => (
+                    <tr key={d.deliveryId ?? `d-${i}`} data-testid="delivery-row" className="cursor-pointer" onClick={() => void navigate(`/deliveries/${encodeURIComponent(d.deliveryId ?? '')}`)}>
+                      <td className="font-mono font-semibold">
+                        <Link className="hover:underline" to={`/deliveries/${encodeURIComponent(d.deliveryId ?? '')}`} onClick={(e) => e.stopPropagation()}>
+                          {d.deliveryId ?? none}
+                        </Link>
+                      </td>
+                      <td className="font-mono">{d.orderNumber ?? <span className="text-base-content/40">{d.orderId ?? none}</span>}</td>
+                      <td>{name(n.deliveryType, d.type)}</td>
+                      <td>
+                        <span className="flex flex-wrap items-center gap-1">
+                          <StatusBadge tone={stateTone(d.state)}>{name(n.executionState, d.state)}</StatusBadge>
+                          {d.resumeRequestedAt && <StatusBadge tone="warning">{m.resumeRequested}</StatusBadge>}
+                        </span>
+                      </td>
+                      <td className="font-mono">{d.riderId ?? <span className="text-base-content/40">{m.noRider}</span>}</td>
+                      <td className="font-mono">{d.mfcId ?? none}</td>
+                      <td className="whitespace-nowrap">{when(d.createdAt)}</td>
+                      <td className="whitespace-nowrap">{when(d.completedAt)}</td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {(r.items ?? []).map((d, i) => (
-                      <tr key={d.deliveryId ?? `d-${i}`} data-testid="delivery-row">
-                        <td className="font-mono">
-                          <Link className="link" to={`/deliveries/${encodeURIComponent(d.deliveryId ?? '')}`}>
-                            {d.deliveryId ?? none}
-                          </Link>
-                        </td>
-                        <td className="font-mono">{d.orderId ?? none}</td>
-                        <td>{name(n.deliveryType, d.type)}</td>
-                        <td>
-                          {name(n.executionState, d.state)}
-                          {d.resumeRequestedAt && <span className="badge badge-warning badge-sm ml-1">{m.resumeRequested}</span>}
-                        </td>
-                        <td className="font-mono">{d.riderId ?? <span className="opacity-70">{m.noRider}</span>}</td>
-                        <td className="font-mono">{d.mfcId ?? none}</td>
-                        <td>{when(d.createdAt)}</td>
-                        <td>{when(d.completedAt)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              {(cursor || nextCursor) && (
-                <div className="flex gap-2">
-                  {cursor && (
-                    <button type="button" className="btn btn-sm" onClick={() => set({})}>
-                      {m.first}
-                    </button>
-                  )}
-                  {nextCursor && (
-                    <button type="button" className="btn btn-sm" onClick={() => set({ cursor: nextCursor })}>
-                      {m.next}
-                    </button>
-                  )}
-                </div>
-              )}
+                  ))}
+                </tbody>
+              </DataTable>
+              <CursorPager hasPrev={!!cursor} nextCursor={nextCursor} onFirst={() => set({})} onNext={(c) => set({ cursor: c })} />
             </div>
           );
         }}
@@ -212,7 +185,11 @@ function DeliverySearchPage() {
     </section>
   );
 }
+const executionTone = (s: string | undefined): Tone =>
+  s === 'COMPLETED' ? 'success' : s === 'FAILURE_REPORTED' || s === 'FAILED' ? 'error' : s === 'UNASSIGNED' ? 'warning' : s === 'CANCELLED' ? 'ghost' : 'info';
 
+// 상세(2026-11-18 — 배민 주문내역 상세 참고): 머리(번호·상태·요약) → 구역 이동 탭 → 구역 상자(항목명/값).
+// 수행(execution)·배차(dispatch)·도착 예정(tracking)은 서로 다른 서비스 값이라 구역도 따로, 못 읽은 구역만 오류.
 function DeliveryDetailPage() {
   const api = useApi();
   const { deliveryId = '' } = useParams();
@@ -224,110 +201,135 @@ function DeliveryDetailPage() {
     queryKey: ['delivery-dispatch', deliveryId],
     queryFn: () => request('GET', api.dispatch.GET('/deliveries/{deliveryId}/dispatch', { params: { path: { deliveryId } } })),
   });
+  const d = execution.data;
+  const tabs = [
+    { id: 'sec-execution', label: '수행 정보' },
+    { id: 'sec-dispatch', label: '배차' },
+    { id: 'sec-eta', label: '도착 예정' },
+    { id: 'sec-proof', label: '완료 증빙' },
+    { id: 'sec-earning', label: '수행료' },
+    { id: 'sec-history', label: '이력' },
+    { id: 'sec-actions', label: '운영 조치' },
+  ];
   return (
-    <section className="max-w-4xl space-y-4">
-      <Link className="link text-sm" to="/deliveries">
-        {m.back}
-      </Link>
-      <h1 className="text-xl font-bold">{m.detailTitle(deliveryId)}</h1>
+    <section className="max-w-6xl space-y-4">
+      <DetailHeader
+        back={{ to: '/deliveries', label: m.back }}
+        title={m.detailTitle(deliveryId)}
+        badges={
+          d && (
+            <>
+              <StatusBadge tone={executionTone(d.state)}>{name(n.executionState, d.state)}</StatusBadge>
+              <StatusBadge tone="accent">{name(n.deliveryType, d.type)}</StatusBadge>
+              {d.purpose && d.purpose !== 'DELIVERY' && <StatusBadge>{name(n.purpose, d.purpose)}</StatusBadge>}
+            </>
+          )
+        }
+        summary={d && [d.orderNumber ? `주문번호 ${d.orderNumber}` : d.orderId, d.mfcName ?? d.mfcId, d.riderId ? `라이더 ${d.riderId}` : m.noRider].filter(Boolean).join(' · ')}
+      />
+      <SectionTabs items={tabs} />
       <div className="grid gap-4 lg:grid-cols-2">
-        <div className="space-y-2">
-          <h2 className="font-bold">{m.execution}</h2>
+        <Section id="sec-execution" title={m.execution}>
           <QueryState state={toUiState(execution)} onRetry={() => void execution.refetch()}>
-            {(d) => (
-              <div className="space-y-3">
-                <dl className="grid grid-cols-[8rem_1fr] gap-x-4 gap-y-1 rounded-box bg-base-100 p-4 text-sm" data-testid="execution-detail">
-                  <dt className="opacity-70">{m.col.state}</dt>
-                  <dd>{name(n.executionState, d.state)}</dd>
-                  <dt className="opacity-70">{m.col.type}</dt>
-                  <dd>{name(n.deliveryType, d.type)}</dd>
-                  <dt className="opacity-70">{m.purpose}</dt>
-                  <dd>{name(n.purpose, d.purpose)}</dd>
-                  <dt className="opacity-70">{m.orderNumber}</dt>
-                  <dd className="font-mono">{d.orderNumber ?? d.orderId ?? none}</dd>
-                  <dt className="opacity-70">{m.col.mfc}</dt>
-                  <dd>{d.mfcName ?? d.mfcId ?? none}</dd>
-                  <dt className="opacity-70">{m.col.rider}</dt>
-                  <dd className="font-mono">{d.riderId ?? m.noRider}</dd>
-                  <dt className="opacity-70">{m.col.assignedAt}</dt>
-                  <dd>{when(d.assignedAt)}</dd>
-                  <dt className="opacity-70">{m.col.completedAt}</dt>
-                  <dd>{when(d.completedAt)}</dd>
-                </dl>
-                {d.failure && (
-                  <dl className="grid grid-cols-[8rem_1fr] gap-x-4 gap-y-1 rounded-box bg-base-100 p-4 text-sm" data-testid="failure-detail">
-                    <dt className="col-span-2 font-semibold">{m.failure}</dt>
-                    <dt className="opacity-70">{m.failureReason}</dt>
-                    <dd>{name(n.failureReason, d.failure.reason)}</dd>
-                    <dt className="opacity-70">{m.decision}</dt>
-                    <dd>{d.failure.decision ? `${name(n.decision, d.failure.decision)} (${when(d.failure.decidedAt)})` : none}</dd>
-                    <dt className="opacity-70">{m.custody}</dt>
-                    <dd>{name(n.custody, d.failure.custody)}</dd>
-                    {d.failure.returnDeliveryId && (
-                      <>
-                        <dt className="opacity-70">{m.returnDelivery}</dt>
-                        <dd className="font-mono">
-                          <Link className="link" to={`/deliveries/${encodeURIComponent(d.failure.returnDeliveryId)}`}>
-                            {d.failure.returnDeliveryId}
-                          </Link>
-                        </dd>
-                      </>
-                    )}
-                  </dl>
+            {(x) => (
+              <div className="space-y-4">
+                <FieldList
+                  testId="execution-detail"
+                  rows={[
+                    [m.col.state, name(n.executionState, x.state)],
+                    [m.col.type, name(n.deliveryType, x.type)],
+                    [m.purpose, name(n.purpose, x.purpose)],
+                    [m.orderNumber, <span className="font-mono">{x.orderNumber ?? x.orderId ?? none}</span>],
+                    [m.col.mfc, x.mfcName ?? x.mfcId ?? none],
+                    [m.col.rider, <span className="font-mono">{x.riderId ?? m.noRider}</span>],
+                    [m.col.assignedAt, when(x.assignedAt)],
+                    [m.col.completedAt, when(x.completedAt)],
+                  ]}
+                />
+                {x.failure && (
+                  <div className="rounded-box bg-error/5 p-4">
+                    <p className="mb-2 text-sm font-semibold text-error">{m.failure}</p>
+                    <FieldList
+                      testId="failure-detail"
+                      rows={[
+                        [m.failureReason, name(n.failureReason, x.failure.reason)],
+                        [m.decision, x.failure.decision ? `${name(n.decision, x.failure.decision)} (${when(x.failure.decidedAt)})` : none],
+                        [m.custody, name(n.custody, x.failure.custody)],
+                        x.failure.returnDeliveryId
+                          ? [
+                              m.returnDelivery,
+                              <Link className="link font-mono" to={`/deliveries/${encodeURIComponent(x.failure.returnDeliveryId)}`}>
+                                {x.failure.returnDeliveryId}
+                              </Link>,
+                            ]
+                          : null,
+                      ]}
+                    />
+                  </div>
                 )}
-                {(d.orderSummary?.items ?? []).length > 0 && (
-                  <div className="rounded-box bg-base-100 p-4 text-sm">
-                    <h3 className="mb-1 font-semibold">{m.items}</h3>
-                    <ul className="list-disc pl-5" data-testid="order-items">
-                      {(d.orderSummary?.items ?? []).map((it, i) => (
-                        <li key={`${it.name ?? ''}-${i}`}>{`${[it.name, it.optionLabel].filter(Boolean).join(' ')} × ${it.qty ?? 0}`}</li>
+                {(x.orderSummary?.items ?? []).length > 0 && (
+                  <div>
+                    <p className="mb-2 text-sm font-semibold">{m.items}</p>
+                    <ul className="divide-y divide-base-200 rounded-box border border-base-300 text-sm" data-testid="order-items">
+                      {(x.orderSummary?.items ?? []).map((it, i) => (
+                        <li key={`${it.name ?? ''}-${i}`} className="flex justify-between gap-3 px-3 py-2">
+                          <span>{[it.name, it.optionLabel].filter(Boolean).join(' ')}</span>
+                          <span className="tabular-nums">{it.qty ?? 0}</span>
+                        </li>
                       ))}
                     </ul>
                   </div>
                 )}
-                <div>
-                  <h3 className="font-semibold">{m.history}</h3>
-                  {(d.history ?? []).length === 0 ? (
-                    <p className="text-sm opacity-70">{none}</p>
-                  ) : (
-                    <ol className="space-y-1 text-sm" data-testid="execution-history">
-                      {(d.history ?? []).map((h, i) => (
-                        <li key={`${h.occurredAt ?? ''}-${i}`}>{`${when(h.occurredAt)} · ${name(n.executionState, h.state)} · ${name(n.actor, h.actor)}`}</li>
-                      ))}
-                    </ol>
-                  )}
-                </div>
               </div>
             )}
           </QueryState>
-        </div>
-        <div className="space-y-2">
-          <h2 className="font-bold">{m.dispatch}</h2>
+        </Section>
+        <Section id="sec-dispatch" title={m.dispatch}>
           <QueryState state={toUiState(dispatch)} onRetry={() => void dispatch.refetch()}>
             {(p) => (
-              <div className="space-y-3">
-              <dl className="grid grid-cols-[8rem_1fr] gap-x-4 gap-y-1 rounded-box bg-base-100 p-4 text-sm" data-testid="dispatch-detail">
-                <dt className="opacity-70">{m.col.state}</dt>
-                <dd>{name(n.dispatchState, p.state)}</dd>
-                <dt className="opacity-70">{m.col.rider}</dt>
-                <dd className="font-mono">{p.assignment?.riderId ?? m.noRider}</dd>
-                <dt className="opacity-70">{m.attempts}</dt>
-                <dd>{m.attemptsCount((p.attempts ?? []).length)}</dd>
-                <dt className="opacity-70">{m.arrivalWindow}</dt>
-                <dd>{p.arrivalWindow ? [p.arrivalWindow.date, [p.arrivalWindow.start, p.arrivalWindow.end].filter(Boolean).join('~')].filter(Boolean).join(' ') || none : none}</dd>
-              </dl>
-              <DispatchAttempts attempts={p.attempts ?? []} />
+              <div className="space-y-4">
+                <FieldList
+                  testId="dispatch-detail"
+                  rows={[
+                    ['배차 상태', name(n.dispatchState, p.state)],
+                    [m.col.rider, <span className="font-mono">{p.assignment?.riderId ?? m.noRider}</span>],
+                    [m.attempts, m.attemptsCount((p.attempts ?? []).length)],
+                    [m.arrivalWindow, p.arrivalWindow ? [p.arrivalWindow.date, [p.arrivalWindow.start, p.arrivalWindow.end].filter(Boolean).join('~')].filter(Boolean).join(' ') || none : none],
+                  ]}
+                />
+                <DispatchAttempts attempts={p.attempts ?? []} />
               </div>
             )}
           </QueryState>
-        </div>
+        </Section>
+        <Section id="sec-eta" title={extrasMessages.eta}>
+          <EtaPanel deliveryId={deliveryId} />
+        </Section>
+        <Section id="sec-proof" title={extrasMessages.proof}>
+          {d ? <DeliveryProof delivery={d} /> : <QueryState state={toUiState(execution)} onRetry={() => void execution.refetch()}>{() => null}</QueryState>}
+        </Section>
+        <Section id="sec-earning" title={extrasMessages.earning}>
+          {d ? <DeliveryEarning delivery={d} /> : <QueryState state={toUiState(execution)} onRetry={() => void execution.refetch()}>{() => null}</QueryState>}
+        </Section>
+        <Section id="sec-history" title={m.history}>
+          {d && ((d.history ?? []).length === 0 ? (
+            <p className="text-sm text-base-content/50">{none}</p>
+          ) : (
+            <ol className="relative space-y-3 border-l-2 border-base-300 pl-4 text-sm" data-testid="execution-history">
+              {(d.history ?? []).map((h, i) => (
+                <li key={`${h.occurredAt ?? ''}-${i}`} className="relative">
+                  <span className="absolute -left-[1.4rem] top-1 size-2.5 rounded-full bg-accent" aria-hidden />
+                  <span className="font-medium">{name(n.executionState, h.state)}</span>
+                  <span className="ml-2 text-base-content/55">{`${when(h.occurredAt)} · ${name(n.actor, h.actor)}`}</span>
+                </li>
+              ))}
+            </ol>
+          ))}
+        </Section>
       </div>
-      <div className="grid gap-4 lg:grid-cols-3">
-        <EtaPanel deliveryId={deliveryId} />
-        {execution.data && <DeliveryProof delivery={execution.data} />}
-        {execution.data && <DeliveryEarning delivery={execution.data} />}
-      </div>
-      {execution.data && <DeliveryActions delivery={execution.data} dispatch={dispatch.data} />}
+      <Section id="sec-actions" title="운영 조치" aside={<span className="text-xs text-base-content/50">지금 상태에서 계약이 허락하는 조치만 보여요</span>}>
+        {d ? <DeliveryActions delivery={d} dispatch={dispatch.data} /> : null}
+      </Section>
     </section>
   );
 }

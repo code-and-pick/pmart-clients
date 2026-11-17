@@ -24,11 +24,12 @@ describe('접수 건 목록', () => {
   it('다음 쪽은 nextCursor 로, 거르기·탭은 주소에 남는다', async () => {
     const view = renderAt('/cases', as.riderOps);
     await screen.findAllByTestId('case-row');
-    await userEvent.click(screen.getByRole('button', { name: '다음' }));
+    await userEvent.click(screen.getByRole('button', { name: /^다음/ }));
     expect(await screen.findByText('위치 3분 끊김')).toBeInTheDocument();
     expect(caseCalls(view.sent).at(-1)!.get('cursor')).toBe('2');
 
-    await userEvent.selectOptions(screen.getByLabelText('종류'), 'DISPATCH_FAILED');
+    // 종류는 칩(라디오)으로 고른다(2026-11-18 화면 개편)
+    await userEvent.click(within(screen.getByRole('radiogroup', { name: '종류' })).getByRole('radio', { name: '배차 실패' }));
     expect(await screen.findByText('응답 만료 — 배차 실패')).toBeInTheDocument();
     const q = caseCalls(view.sent).at(-1)!;
     expect([q.get('kind'), q.get('cursor')]).toEqual(['DISPATCH_FAILED', null]);

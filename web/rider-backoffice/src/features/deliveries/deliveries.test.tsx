@@ -29,7 +29,7 @@ describe('배송 찾기', () => {
     expect(await screen.findAllByTestId('delivery-row')).toHaveLength(2); // 원래 배송 + 반납 배송
     expect(searchCalls(view.sent).at(-1)!.get('orderId')).toBe('ORD-1');
 
-    await userEvent.selectOptions(screen.getByLabelText('수행 상태'), 'COMPLETED');
+    await userEvent.click(within(screen.getByRole('radiogroup', { name: '수행 상태' })).getByRole('radio', { name: '전달 완료' }));
     expect(await screen.findByText('조건에 맞는 배송이 없어요.')).toBeInTheDocument();
     const q = searchCalls(view.sent).at(-1)!;
     expect([q.get('orderId'), q.get('state')]).toEqual(['ORD-1', 'COMPLETED']);
@@ -44,8 +44,8 @@ describe('배송 상세', () => {
     expect(exec).toHaveTextContent('48213075');
     expect(exec).toHaveTextContent('PMart 부산진구지점');
     expect(screen.getByTestId('failure-detail')).toHaveTextContent('연락 안 됨');
-    expect(screen.getByTestId('order-items')).toHaveTextContent('그릭요거트 플레인 400g × 3');
-    expect(screen.getByTestId('execution-history')).toHaveTextContent('픽업 · 라이더');
+    expect(screen.getByTestId('order-items')).toHaveTextContent(/그릭요거트 플레인 400g\s*3/);
+    expect(screen.getByTestId('execution-history')).toHaveTextContent(/픽업.*· 라이더/);
     const dispatch = await screen.findByTestId('dispatch-detail');
     expect(dispatch).toHaveTextContent('배정');
     expect(dispatch).toHaveTextContent('RD-7');

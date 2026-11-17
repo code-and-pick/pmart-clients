@@ -51,13 +51,13 @@ describe('추가 배달료 거르기', () => {
     expect(await screen.findAllByTestId('surcharge-row')).toHaveLength(1);
     expect(surchargeQuery(view.sent).at(-1)!.get('state')).toBe('REQUESTED');
 
-    await userEvent.click(screen.getByRole('tab', { name: '승인' }));
+    await userEvent.click(screen.getByRole('radio', { name: '승인' }));
     const decided = await screen.findByTestId('surcharge-decided');
     expect(decided).toHaveTextContent('승인');
     expect(decided).toHaveTextContent('OP-rops-1');
     expect(screen.queryByRole('button', { name: /승인$/ })).toBeNull();
 
-    await userEvent.click(screen.getByRole('tab', { name: '전체' }));
+    await userEvent.click(screen.getByRole('radio', { name: '전체' }));
     expect(await screen.findAllByTestId('surcharge-row')).toHaveLength(2);
     expect(surchargeQuery(view.sent).at(-1)!.has('state')).toBe(false);
 

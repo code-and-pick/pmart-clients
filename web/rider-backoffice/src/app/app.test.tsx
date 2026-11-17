@@ -1,5 +1,5 @@
 // 라이더 백오피스 뼈대(2026-11-17, PC 1) — 로그인 앱 이름·복귀 주소, 세션 응답, 역할 안내, 메뉴 자리.
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -80,7 +80,7 @@ describe('세션 응답(sessions/current) — 토큰을 풀지 않는다', () =>
       ),
     );
     renderAt('/control', as.riderOps);
-    expect(await screen.findByRole('note')).toHaveTextContent('라이더 운영(RIDER_OPS) 권한이 없어요');
+    expect(await screen.findByTestId('no-rider-role')).toHaveTextContent('라이더 운영(RIDER_OPS) 권한이 없어요');
   });
 
   it('처음 받기가 실패하면 메뉴를 그리지 않고 오류 + 다시 시도', async () => {
@@ -105,14 +105,14 @@ describe('역할', () => {
     for (const token of [as.riderOps, as.admin]) {
       const view = renderAt('/control', token);
       expect(await screen.findByRole('heading', { name: '라이더 관제' })).toBeInTheDocument();
-      expect(screen.queryByRole('note')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('no-rider-role')).not.toBeInTheDocument();
       view.unmount();
     }
   });
 
   it('그 밖 역할(CS_AGENT)은 막지 않고 안내만 — 판정은 서버', async () => {
     renderAt('/control', as.cs);
-    expect(await screen.findByRole('note')).toHaveTextContent('라이더 운영(RIDER_OPS) 권한이 없어요');
+    expect(await screen.findByTestId('no-rider-role')).toHaveTextContent('라이더 운영(RIDER_OPS) 권한이 없어요');
     expect(screen.getByRole('heading', { name: '라이더 관제' })).toBeInTheDocument();
   });
 });
@@ -120,7 +120,8 @@ describe('역할', () => {
 describe('메뉴 자리', () => {
   it(`묶음 ${navGroups.length}개 · 메뉴 ${allMenus.length}개 — 모두 화면이 있다(2026-11-17 PC 5)`, async () => {
     renderAt('/');
-    for (const g of ['현황', '관제', '배송·배차', '지원센터', '수행료']) expect(await screen.findByText(g)).toBeInTheDocument();
+    const nav = await screen.findByRole('navigation', { name: '메뉴' });
+    for (const g of ['현황', '관제', '배송·배차', '지원센터', '수행료']) expect(within(nav).getByText(g)).toBeInTheDocument();
     expect(screen.getAllByText('라이더').length).toBeGreaterThan(0);
     for (const name of ['대시보드', '라이더 관제', '라이더 찾기', '가입 승인', '제한 검토', '배송 찾기', '접수 건', '도움요청', '라이더 문의', '수행료 조정', '추가 배달료']) {
       await userEvent.click(screen.getByRole('link', { name }));

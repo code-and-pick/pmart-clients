@@ -1,6 +1,7 @@
 // 라이더 관제(2026-11-17, PC 5 — ADR-0068): tracking `GET /rider-locations?mfcId=` — 운행 중 라이더의 지금 위치·끊김·진행 중 배송.
 // RIDER_OPS·OPERATOR_ADMIN 만(서버 403), 10초마다 다시 불러오기, 이동 이력 없음. 지도는 VITE_KAKAO_JS_KEY 가 있을 때만(없으면 안내 + 표).
 // 거르기(전체·배송 중·위치 끊김)는 주소 쿼리 filter.
+// 2026-11-18: 관리자 화면 모양 — 머리말, 조건 상자(센터 + 보기 칩), 요약 카드(누르면 그 거르기), 지도 구역, 표(위치 상태 꼬리표).
 import { useQuery } from '@tanstack/react-query';
 import { useCallback } from 'react';
 import { Link, useSearchParams } from 'react-router';
@@ -9,6 +10,7 @@ import { request } from '@pmart/web-core';
 import { QueryState, toUiState } from '@pmart/web-ui';
 import type { components } from '../../api/generated/delivery-tracking';
 import { useApi } from '../../app/ApiContext';
+import { ChipGroup, DataTable, PageHeader, Section, StatCard, StatusBadge } from '../../shared/admin';
 import { messages } from '../../shared/messages';
 import { ops } from '../../shared/opsMessages';
 import { CenterPicker, label, none, when } from '../../shared/opsUi';
@@ -18,12 +20,32 @@ const c = ops.control;
 const n = messages.names;
 export const CONTROL_REFRESH_MS = 10_000;
 
+/** 이 화면에서만 쓰는 문구 */
+const cx = {
+  view: '보기',
+  onDuty: '운행 중',
+  delivering: '배송 중',
+  staleOrNone: '위치 끊김·없음',
+  people: (k: number) => `${k}명`,
+  map: '위치 지도',
+  list: '라이더 목록',
+  receiving: '수신 중',
+  legend: { ok: '대기', delivering: '배송 중', stale: '끊김' },
+  refresh: '10초마다 새로 불러와요',
+} as const;
+
 type Filter = 'all' | 'delivering' | 'stale';
 type Rider = components['schemas']['ControlRider'];
 
 // 거르기·지도 색은 서버 값으로만: stale(서버 3분 기준) 또는 위치 없음 = 끊김, 진행 중 배송 있음 = 배송 중.
 const isStale = (r: Rider) => r.stale || !r.location;
 const isDelivering = (r: Rider) => r.activeDeliveries.length > 0;
+
+function LocationBadge({ r }: { readonly r: Rider }) {
+  if (!r.location) return <StatusBadge tone="error">{c.noLocation}</StatusBadge>;
+  if (r.stale) return <StatusBadge tone="error">{c.stale}</StatusBadge>;
+  return <StatusBadge tone="success">{cx.receiving}</StatusBadge>;
+}
 
 export function ControlPage() {
   const api = useApi();
@@ -37,6 +59,7 @@ export function ControlPage() {
     else p.set('filter', f);
     setParams(p);
   };
+  const filterLink = (f: Filter) => `/control?mfcId=${encodeURIComponent(mfcId)}${f === 'all' ? '' : `&filter=${f}`}`;
   const board = useQuery({
     queryKey: ['rider-locations', mfcId],
     enabled: mfcId !== '',
@@ -55,25 +78,29 @@ export function ControlPage() {
   }, []);
   return (
     <section className="space-y-4">
-      <h1 className="text-xl font-bold">{c.title}</h1>
-      <p className="text-sm opacity-70">{c.intro}</p>
-      <div className="flex flex-wrap items-end gap-3">
+      <PageHeader title={c.title} description={c.intro} />
+      <div className="flex flex-wrap items-end gap-x-8 gap-y-3 rounded-box border border-base-300 bg-base-100 px-5 py-4" aria-label="관제 조건" role="group">
         <CenterPicker value={mfcId} onChange={(v) => setParams(v ? { mfcId: v } : {})} />
-        <div role="tablist" className="tabs tabs-box w-fit">
-          {(['all', 'delivering', 'stale'] as const).map((f) => (
-            <button key={f} type="button" role="tab" aria-selected={f === filter} className={`tab ${f === filter ? 'tab-active' : ''}`} onClick={() => setFilter(f)}>
-              {c.filter[f]}
-            </button>
-          ))}
+        <div className="flex flex-col gap-1 text-sm">
+          <span>{cx.view}</span>
+          <ChipGroup
+            label={cx.view}
+            value={filter}
+            options={(['all', 'delivering', 'stale'] as const).map((f) => ({ value: f, label: c.filter[f] }))}
+            onChange={setFilter}
+          />
         </div>
       </div>
       {mfcId === '' ? (
-        <p className="text-sm opacity-70">{c.pickCenter}</p>
+        <p role="note" className="rounded-box bg-base-300/50 px-4 py-3 text-sm text-base-content/75">
+          {c.pickCenter}
+        </p>
       ) : (
         <QueryState state={toUiState(board, (b) => (b.items ?? []).length === 0)} onRetry={() => void board.refetch()} emptyText={c.empty}>
           {(b) => {
             const all = b.items ?? [];
-            const stale = all.filter((r) => r.stale).length;
+            const staleFlag = all.filter((r) => r.stale).length;
+            const staleOrNone = all.filter(isStale).length;
             const items = all.filter((r) => (filter === 'delivering' ? isDelivering(r) : filter === 'stale' ? isStale(r) : true));
             const mapRiders: MapRider[] = items.flatMap((r) =>
               r.location?.lat != null && r.location.lng != null
@@ -81,20 +108,39 @@ export function ControlPage() {
                 : [],
             );
             return (
-              <div className="space-y-2">
-                <p className="text-sm">
-                  {`${all.length}명`}
-                  {stale > 0 && <span className="badge badge-error ml-2">{c.staleCount(stale)}</span>}
-                  <span className="ml-2 text-xs opacity-60">{ops.dashboard.asOf(when(b.asOf))}</span>
-                </p>
-                <KakaoRiderMap center={centerPoint} riders={mapRiders} onSelect={onSelect} />
-                {items.length === 0 && (
-                  <p data-state="empty" className="p-4 opacity-70">
+              <div className="space-y-4">
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <StatCard label={cx.onDuty} value={cx.people(all.length)} to={filterLink('all')} hint={ops.dashboard.asOf(when(b.asOf))} testId="control-stat-all" />
+                  <StatCard label={cx.delivering} value={cx.people(all.filter(isDelivering).length)} to={filterLink('delivering')} testId="control-stat-delivering" />
+                  <StatCard label={cx.staleOrNone} value={cx.people(staleOrNone)} to={filterLink('stale')} {...(staleOrNone > 0 ? { tone: 'error' as const } : {})} testId="control-stat-stale" />
+                </div>
+                <Section
+                  title={cx.map}
+                  aside={
+                    <span className="flex flex-wrap items-center gap-1">
+                      <StatusBadge tone="success">{cx.legend.ok}</StatusBadge>
+                      <StatusBadge tone="info">{cx.legend.delivering}</StatusBadge>
+                      <StatusBadge tone="warning">{cx.legend.stale}</StatusBadge>
+                    </span>
+                  }
+                >
+                  <KakaoRiderMap center={centerPoint} riders={mapRiders} onSelect={onSelect} />
+                </Section>
+                <div className="flex flex-wrap items-center justify-between gap-2 px-1">
+                  <p className="flex items-center gap-2 text-sm">
+                    <span>
+                      <span className="font-semibold text-primary">{items.length}</span>명
+                    </span>
+                    {staleFlag > 0 && <StatusBadge tone="error">{c.staleCount(staleFlag)}</StatusBadge>}
+                  </p>
+                  <span className="text-xs text-base-content/50">{cx.refresh}</span>
+                </div>
+                {items.length === 0 ? (
+                  <p data-state="empty" className="rounded-box border border-base-300 bg-base-100 p-6 text-center text-sm text-base-content/60">
                     {c.emptyFiltered}
                   </p>
-                )}
-                <div className="overflow-x-auto">
-                  <table className="table table-sm rounded-box bg-base-100">
+                ) : (
+                  <DataTable>
                     <thead>
                       <tr>
                         <th>{c.col.rider}</th>
@@ -107,41 +153,47 @@ export function ControlPage() {
                     </thead>
                     <tbody>
                       {items.map((r) => (
-                        <tr key={r.riderId} id={`control-${r.riderId}`} data-testid="control-row" className={r.stale ? 'bg-error/10' : undefined}>
+                        <tr key={r.riderId} id={`control-${r.riderId}`} data-testid="control-row" className={isStale(r) ? 'bg-error/5' : undefined}>
                           <td>
-                            <Link className="link font-mono" to={`/riders/${encodeURIComponent(r.riderId)}`}>
-                              {r.riderId}
-                            </Link>
-                            {r.nameMasked && <span className="ml-1 text-xs opacity-70">{r.nameMasked}</span>}
-                            {r.restriction && r.restriction !== 'NORMAL' && <span className="badge badge-warning badge-sm ml-1">{label(n.restriction, r.restriction)}</span>}
+                            <span className="flex flex-wrap items-center gap-1">
+                              <Link className="font-mono font-semibold hover:underline" to={`/riders/${encodeURIComponent(r.riderId)}`}>
+                                {r.riderId}
+                              </Link>
+                              {r.nameMasked && <span className="text-xs text-base-content/60">{r.nameMasked}</span>}
+                              {r.restriction && r.restriction !== 'NORMAL' && <StatusBadge tone="warning">{label(n.restriction, r.restriction)}</StatusBadge>}
+                            </span>
                           </td>
                           <td>{label(n.vehicle, r.vehicleType)}</td>
-                          <td>{r.newDispatchEnabled ? c.on : c.off}</td>
-                          <td className="font-mono text-xs">
-                            {r.location ? `${Number(r.location.lat).toFixed(5)}, ${Number(r.location.lng).toFixed(5)}` : c.noLocation}
-                          </td>
+                          <td>{r.newDispatchEnabled ? <StatusBadge tone="success">{c.on}</StatusBadge> : <StatusBadge>{c.off}</StatusBadge>}</td>
                           <td>
-                            {r.staleSinceSeconds === null || r.staleSinceSeconds === undefined ? none : c.seconds(r.staleSinceSeconds)}
-                            {r.stale && <span className="badge badge-error badge-sm ml-1">{c.stale}</span>}
+                            <span className="flex flex-wrap items-center gap-2">
+                              <LocationBadge r={r} />
+                              {r.location && <span className="font-mono text-xs text-base-content/70">{`${Number(r.location.lat).toFixed(5)}, ${Number(r.location.lng).toFixed(5)}`}</span>}
+                            </span>
                           </td>
+                          <td className="whitespace-nowrap">{r.staleSinceSeconds === null || r.staleSinceSeconds === undefined ? none : c.seconds(r.staleSinceSeconds)}</td>
                           <td>
-                            {r.activeDeliveries.length === 0
-                              ? none
-                              : r.activeDeliveries.map((a) => (
-                                  <div key={a.deliveryId}>
-                                    <Link className="link font-mono text-xs" to={`/deliveries/${encodeURIComponent(a.deliveryId)}`}>
-                                      {a.deliveryId}
+                            {r.activeDeliveries.length === 0 ? (
+                              <span className="text-base-content/40">{none}</span>
+                            ) : (
+                              <ul className="space-y-0.5">
+                                {r.activeDeliveries.map((x) => (
+                                  <li key={x.deliveryId} className="flex flex-wrap items-center gap-1">
+                                    <Link className="font-mono text-xs font-semibold hover:underline" to={`/deliveries/${encodeURIComponent(x.deliveryId)}`}>
+                                      {x.deliveryId}
                                     </Link>
-                                    <span className="ml-1 text-xs">{label(n.stage, a.stage)}</span>
-                                    {a.etaDrop && <span className="ml-1 text-xs opacity-70">{c.eta(when(a.etaDrop))}</span>}
-                                  </div>
+                                    <StatusBadge tone="info">{label(n.stage, x.stage)}</StatusBadge>
+                                    {x.etaDrop && <span className="text-xs text-base-content/60">{c.eta(when(x.etaDrop))}</span>}
+                                  </li>
                                 ))}
+                              </ul>
+                            )}
                           </td>
                         </tr>
                       ))}
                     </tbody>
-                  </table>
-                </div>
+                  </DataTable>
+                )}
               </div>
             );
           }}
