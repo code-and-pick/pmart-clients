@@ -53,7 +53,7 @@ function order(orderId: string, status: StaffOrder['status'], confirmedAt: strin
     },
     payment: { paymentAttemptId: `PAY-${orderId}`, pgTransactionId: `PG-${orderId}` },
     lines: [
-      { orderLineId: `${orderId}-L1`, sku: 'E-00000001', productName: '사과 1.5kg', originalQty: 1, cancelledBeforeShipQty: 0, handedOverQty: 1, deliveredQty: 0, returnedQty: 0, unitPrice: 12000, lineAmount: 12000 },
+      { orderLineId: `${orderId}-L1`, sku: 'E-00000001', productName: '사과 1.5kg', originalQty: 1, cancelledBeforeShipQty: 0, handedOverQty: 1, deliveredQty: 1, returnedQty: 0, unitPrice: 12000, lineAmount: 12000 },
     ],
     fulfillmentIssues: [],
     // 목 원장은 원문을 둔다 — 상세 응답은 maskedDetail() 로 가리고(0.4.0·0.5.0), 원문은 POST …/pii-reveals 로만 준다.
@@ -247,7 +247,8 @@ function seed(): OpsState {
         version: 5,
         feePayment: { amount: 9000, orderName: '반품 회수비', state: 'PAID', paidAt: ago(19), paymentAttemptId: 'PAY-RET-1' },
         fees: { returnPickupFee: 9000 },
-        pickup: { addressFixedToOrder: true, state: 'FAILED', attempts: 2, failedAttempts: 2, deliveryId: 'DLV-MOCK-RET-2' },
+        returnDeadlineAt: ago(-148),
+        pickup: { addressFixedToOrder: true, state: 'FAILED', attempts: 2, failedAttempts: 2, countedFailures: 2, retryAllowed: true, deliveryId: 'DLV-MOCK-RET-2' },
         lines: [{ claimLineId: 'CL-RF-1', orderLineId: 'ORD-MOCK-1002-L1', sku: 'E-00000001', requestedQty: 1, decision: 'APPROVED', pickedUpQty: 0 }],
       },
     ],
@@ -671,8 +672,9 @@ export const opsHandlers = [
           .flatMap((c) => c.lines ?? [])
           .filter((x) => x.orderLineId === l.orderLineId)
           .reduce((n, x) => n + (x.requestedQty ?? 0), 0);
-        if (!line || (line.handedOverQty ?? 0) === 0) return problem(422, 'NOT_HANDED_OVER');
-        if (l.qty > (line.handedOverQty ?? 0) - (line.returnedQty ?? 0) - taken) return problem(422, 'QUANTITY_EXCEEDS_AVAILABLE');
+        // claim 0.3.0: 전달 완료 수량 기준
+        if (!line || (line.deliveredQty ?? 0) === 0) return problem(422, 'NOT_DELIVERED_YET');
+        if (l.qty > (line.deliveredQty ?? 0) - (line.returnedQty ?? 0) - taken) return problem(422, 'QUANTITY_EXCEEDS_AVAILABLE');
       }
       const fee = !body.faultCode;
       const claim: Claim = {
@@ -685,6 +687,7 @@ export const opsHandlers = [
         ...(body.reasonDetail ? { reasonDetail: body.reasonDetail } : {}),
         ...(body.faultCode ? { faultCode: body.faultCode } : {}),
         openedAt: new Date().toISOString(),
+        returnDeadlineAt: new Date(Date.now() + 7 * 86_400_000).toISOString(),
         version: 1,
         fees: { returnPickupFee: fee ? 9000 : 0 },
         ...(fee ? { feePayment: { amount: 9000, orderName: '반품 회수비', state: 'WAITING' as const, paymentAttemptId: 'PAY-RET-NEW', deadlineAt: new Date(Date.now() + 86_400_000).toISOString() } } : {}),
@@ -707,12 +710,28 @@ export const opsHandlers = [
       if (!body.note?.trim()) return problem(400, 'VALIDATION_FAILED');
       const expected = expectedVersion(request);
       if (expected !== undefined && expected !== found.version) return problem(409, 'VERSION_CONFLICT');
-      const ok = found.state === 'RECOVERY_FAILED' || (found.state === 'FEE_PENDING' && body.action === 'CANCEL');
-      if (!ok) return problem(409, 'INVALID_STATE');
-      const next: Claim =
-        body.action === 'CANCEL'
-          ? { ...found, state: 'CANCELLED', version: (found.version ?? 0) + 1, closedAt: new Date().toISOString() }
-          : { ...found, state: 'IN_PROGRESS', version: (found.version ?? 0) + 1, pickup: { ...found.pickup, addressFixedToOrder: true, state: 'REQUESTED', attempts: (found.pickup?.attempts ?? 0) + 1 } };
+      if (body.feeRefund !== undefined && body.action !== 'CANCEL') return problem(400, 'VALIDATION_FAILED');
+      const version = (found.version ?? 0) + 1;
+      let next: Claim;
+      if (body.action === 'CANCEL') {
+        if (found.state !== 'RECOVERY_FAILED' && found.state !== 'FEE_PENDING') return problem(409, 'INVALID_STATE');
+        // 0.3.0 회수비: 낸 것이 없는데 돌려주기는 422. (목은 회수 실패 사유를 따로 두지 않아 그 밖은 받는다)
+        const paid = found.feePayment?.state === 'PAID';
+        if (body.feeRefund && !paid) return problem(422, 'FEE_REFUND_NOT_ALLOWED');
+        const fee = found.feePayment && paid ? { ...found.feePayment, refundDecision: body.feeRefund ? ('REFUND' as const) : ('KEEP' as const), ...(body.feeRefund ? { refundIntentId: `RF-FEE-${found.claimId ?? ''}` } : {}) } : found.feePayment;
+        if (body.feeRefund) ops.refunds.set(found.claimId ?? '', [...(ops.refunds.get(found.claimId ?? '') ?? []), { refundIntentId: `RF-FEE-${found.claimId ?? ''}`, claimId: found.claimId ?? '', kind: 'RETURN_FEE', amount: found.feePayment?.amount ?? 0, state: 'PENDING_EXECUTION', requestedAt: new Date().toISOString() }]);
+        next = { ...found, state: 'CANCELLED', version, closedAt: new Date().toISOString(), ...(fee ? { feePayment: fee } : {}) };
+      } else if (body.action === 'RETRY_PICKUP') {
+        if (found.state !== 'RECOVERY_FAILED') return problem(409, 'INVALID_STATE');
+        if (found.pickup?.retryAllowed === false) return problem(409, 'PICKUP_ATTEMPTS_EXHAUSTED');
+        next = { ...found, state: 'IN_PROGRESS', version, pickup: { ...found.pickup, addressFixedToOrder: true, state: 'REQUESTED', attempts: (found.pickup?.attempts ?? 0) + 1 } };
+      } else {
+        if (found.state !== 'IN_PROGRESS' && found.state !== 'RECOVERY_FAILED') return problem(409, 'INVALID_STATE');
+        const lines = found.lines ?? [];
+        if (!lines.some((l) => (l.receivedQty ?? 0) > 0)) return problem(409, 'NOTHING_RECEIVED');
+        if (lines.every((l) => (l.receivedQty ?? 0) >= (l.approvedQty ?? l.requestedQty ?? 0))) return problem(409, 'NOT_SHORT');
+        next = { ...found, state: 'IN_PROGRESS', version, lines: lines.map((l) => ({ ...l, approvedQty: l.receivedQty ?? 0 })) };
+      }
       ops.claims[index] = next;
       return { status: 200, body: next };
     });

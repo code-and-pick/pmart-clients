@@ -187,7 +187,11 @@ function Refunds({ claimId }: { readonly claimId: string }) {
             <tbody>
               {(r.items ?? []).map((f, i) => (
                 <tr key={f.refundIntentId ?? `refund-${i}`} data-testid="refund-row">
-                  <td>{label(m.claims.refundState, f.state)}</td>
+                  <td>
+                    {label(m.claims.refundState, f.state)}
+                    {/* claim 0.3.0 — 상품 환불(ITEMS)과 반품 회수비 돌려주기(RETURN_FEE)를 나눠 보인다 */}
+                    {f.kind === 'RETURN_FEE' && <span className="badge badge-ghost badge-sm ml-1">{m.claims.refundKindFee}</span>}
+                  </td>
                   <td>{won(f.amount)}</td>
                   <td>{when(f.requestedAt)}</td>
                   <td>{when(f.completedAt)}</td>

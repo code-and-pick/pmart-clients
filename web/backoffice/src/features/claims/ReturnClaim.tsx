@@ -4,6 +4,14 @@
 //   반품 가능 수량은 서버가 판정(422 QUANTITY_EXCEEDS_AVAILABLE·NOT_HANDED_OVER) — 화면은 인계·반품 완료 수량을 보여 주고 입력 최대만 건다.
 // - 회수 조치: `POST /claims/{id}/recovery-actions` {action RETRY_PICKUP|CANCEL, note} — RECOVERY_FAILED 에서 둘 다, FEE_PENDING 에서는 취소만(그 밖 409).
 // - 고객이 말한 번호·주소는 받지 않는다(본인 확인은 방법만).
+// claim 0.3.0(CL-1 추가 결정 1~9):
+// - 반품 가능 수량은 **전달 완료(deliveredQty)** − 반품 완료 기준(배달 중·전달 전 반품 불가 — 422 NOT_DELIVERED_YET).
+// - 반품 기한(returnDeadlineAt, 접수 + 7일)·횟수에 드는 실패(pickup.countedFailures)·다시 회수 가능(pickup.retryAllowed)은 서버 값만 보인다.
+//   다시 회수 버튼은 retryAllowed 가 false 가 아닐 때만(기한 지남은 서버 409 RETURN_DEADLINE_PASSED — 화면이 시각을 비교해 막지 않는다).
+// - 반품 취소 때 낸 회수비(feePayment PAID)를 돌려줄지 feeRefund — 고객 사유는 안 돌려줌·우리 잘못은 돌려줌으로 정해져 있고 파손·기타만 상담원 판단.
+//   계약에 회수 실패 사유가 없어 화면은 파손·기타인지 모른다 → 낸 회수비가 있으면 고르게 두고 고를 때만 true, 규칙과 다르면 서버 422 FEE_REFUND_NOT_ALLOWED 안내.
+// - 라이더가 수거했거나 센터가 받은 회수품이 있으면 취소 버튼 없음(서버 409) — 받은 만큼만 끝내기. 결과는 feePayment.refundDecision·환불(kind RETURN_FEE).
+// - 받은 만큼만 끝내기(CLOSE_AS_RECEIVED): IN_PROGRESS·RECOVERY_FAILED 에서 센터가 받은 수량이 요청보다 적을 때 — 남은 수량은 환불 없음·다시 반품 접수 불가.
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
@@ -31,6 +39,7 @@ const METHODS: readonly Method[] = ['ORDER_DETAILS_MATCH', 'APP_SIGNED_IN_CHAT',
 const REJECT_TEXT: Readonly<Record<string, string>> = {
   QUANTITY_EXCEEDS_AVAILABLE: m.qtyExceeded,
   NOT_HANDED_OVER: m.notHandedOver,
+  NOT_DELIVERED_YET: m.notDelivered,
   CONFIG_REQUIRED: m.configRequired,
 };
 
@@ -96,19 +105,20 @@ function ReturnForm({ orderId }: { readonly orderId: string }) {
               <thead>
                 <tr>
                   <th>{m.product}</th>
-                  <th>{m.handedOver}</th>
+                  <th>{m.delivered}</th>
                   <th>{m.returned}</th>
                   <th>{m.qty}</th>
                 </tr>
               </thead>
               <tbody>
                 {o.lines.map((l) => {
-                  const max = Math.max(0, (l.handedOverQty ?? 0) - (l.returnedQty ?? 0));
+                  // claim 0.3.0: 전달 완료 수량 기준(모르면 0 — 서버가 최종 판정)
+                  const max = Math.max(0, (l.deliveredQty ?? 0) - (l.returnedQty ?? 0));
                   const id = l.orderLineId ?? '';
                   return (
                     <tr key={id} data-testid="return-line">
                       <td>{`${text(l.productName ?? l.sku)}${l.optionLabel ? ` · ${l.optionLabel}` : ''}`}</td>
-                      <td>{text(l.handedOverQty)}</td>
+                      <td>{text(l.deliveredQty)}</td>
                       <td>{text(l.returnedQty)}</td>
                       <td>
                         <input
@@ -235,7 +245,7 @@ export function ReturnIntakePage() {
   );
 }
 
-/** 반품 진행(0.2.0 필드) — 회사 잘못·회수비 결제·회수 횟수 */
+/** 반품 진행 — 회사 잘못·회수비 결제(돌려주기 결정)·반품 기한·회수 횟수(0.3.0 횟수에 드는 실패·다시 회수 가능) */
 export function ReturnProgress({ claim }: { readonly claim: Claim }) {
   if (claim.type !== 'RETURN') return null;
   const fee = claim.feePayment;
@@ -244,18 +254,58 @@ export function ReturnProgress({ claim }: { readonly claim: Claim }) {
       <dt>{m.fault}</dt>
       <dd>{claim.faultCode ? m.faultName[claim.faultCode] : m.customerFault}</dd>
       <dt>{m.feePayment}</dt>
-      <dd data-testid="return-fee">{fee ? `${won(fee.amount)} · ${label(m.feeState, fee.state)} · ${m.feeDeadline} ${when(fee.deadlineAt)}` : m.noFee}</dd>
+      <dd data-testid="return-fee">
+        {fee ? `${won(fee.amount)} · ${label(m.feeState, fee.state)} · ${m.feeDeadline} ${when(fee.deadlineAt)}${fee.refundDecision ? ` · ${label(m.refundDecision, fee.refundDecision)}` : ''}` : m.noFee}
+      </dd>
+      <dt>{m.returnDeadline}</dt>
+      <dd data-testid="return-deadline">{when(claim.returnDeadlineAt)}</dd>
       <dt>{m.pickupAttempts}</dt>
-      <dd>{m.attempts(text(claim.pickup?.attempts), text(claim.pickup?.failedAttempts))}</dd>
+      <dd data-testid="return-attempts">
+        {m.attempts(text(claim.pickup?.attempts), text(claim.pickup?.failedAttempts))}
+        {claim.pickup?.countedFailures !== undefined && ` · ${m.countedFailures(text(claim.pickup.countedFailures))}`}
+        {claim.pickup?.retryAllowed === false && <span className="text-warning">{` · ${m.noMoreRetry}`}</span>}
+      </dd>
     </dl>
   );
 }
 
-/** 회수 조치 — RECOVERY_FAILED 는 다시 회수·취소, FEE_PENDING 은 취소만. 고객과 다시 연락한 뒤 사유와 함께 */
+type RecoveryAction = components['schemas']['RecoveryActionRequest']['action'];
+
+/** 조치 거절 코드 → 안내(0.3.0) */
+const ACTION_REJECT_TEXT: Readonly<Record<string, string>> = {
+  PICKUP_ATTEMPTS_EXHAUSTED: m.attemptsExhausted,
+  RETURN_DEADLINE_PASSED: m.deadlinePassed,
+  NOTHING_RECEIVED: m.nothingReceived,
+  NOT_SHORT: m.notShort,
+  PICKUP_IN_PROGRESS: m.pickupInProgress,
+  FEE_REFUND_NOT_ALLOWED: m.feeRefundNotAllowed,
+};
+
+/** 서버 값으로 본 지금 할 수 있는 조치(최종 판정은 서버) */
+function availableActions(claim: Claim): Set<RecoveryAction> {
+  const out = new Set<RecoveryAction>();
+  if (claim.type !== 'RETURN') return out;
+  const lines = claim.lines ?? [];
+  // 백엔드 요청 §5: 다시 회수는 RECOVERY_FAILED·retryAllowed·기한 전일 때만(기한 판정은 서버 — 지나면 409 RETURN_DEADLINE_PASSED)
+  const beforeDeadline = !claim.returnDeadlineAt || Date.now() < Date.parse(claim.returnDeadlineAt);
+  if (claim.state === 'RECOVERY_FAILED' && claim.pickup?.retryAllowed !== false && beforeDeadline) out.add('RETRY_PICKUP');
+  // 라이더가 이미 수거했거나 센터가 받은 회수품이 있으면 취소는 409 — 받은 만큼만 끝내기를 쓴다
+  const pickedUp = lines.some((l) => (l.pickedUpQty ?? 0) > 0 || (l.receivedQty ?? 0) > 0);
+  if ((claim.state === 'RECOVERY_FAILED' || claim.state === 'FEE_PENDING') && !pickedUp) out.add('CANCEL');
+  const received = lines.some((l) => (l.receivedQty ?? 0) > 0);
+  const short = lines.some((l) => (l.receivedQty ?? 0) < (l.approvedQty ?? l.requestedQty ?? 0));
+  if ((claim.state === 'IN_PROGRESS' || claim.state === 'RECOVERY_FAILED') && received && short) out.add('CLOSE_AS_RECEIVED');
+  return out;
+}
+
+/** 회수 조치 — 다시 회수(RECOVERY_FAILED·시도 남음)·반품 취소(RECOVERY_FAILED·FEE_PENDING)·받은 만큼만 끝내기(덜 받았을 때). 고객과 다시 연락한 뒤 사유와 함께 */
 export function RecoveryActions({ claim }: { readonly claim: Claim }) {
   const api = useApi();
   const queryClient = useQueryClient();
   const [note, setNote] = useState('');
+  const [feeRefund, setFeeRefund] = useState(false);
+  // 보낸 조치 — 성공하면 상태가 바뀌어 버튼 조건이 사라지므로, 결과를 보이도록 보낸 버튼은 남긴다
+  const [sent, setSent] = useState<RecoveryAction | null>(null);
   const claimId = claim.claimId ?? '';
   const act = useCommand(async (body: components['schemas']['RecoveryActionRequest'], key) => {
     try {
@@ -267,34 +317,77 @@ export function RecoveryActions({ claim }: { readonly claim: Claim }) {
       return next;
     } finally {
       void queryClient.invalidateQueries({ queryKey: ['claims', 'list'] });
+      // 0.3.0 회수비 돌려주기는 환불(kind RETURN_FEE)로 생긴다
+      void queryClient.invalidateQueries({ queryKey: ['claims', 'refunds', claimId] });
     }
   });
+  const can = availableActions(claim);
+  if (sent !== null) can.add(sent);
   // 조치가 성공하면 상태가 바뀌어 이 칸이 사라진다 — 결과를 보이도록 명령을 한 번이라도 보냈으면 남긴다
-  if ((claim.type !== 'RETURN' || (claim.state !== 'RECOVERY_FAILED' && claim.state !== 'FEE_PENDING')) && act.phase.kind === 'idle') return null;
+  if (can.size === 0 && act.phase.kind === 'idle') return null;
   const locked = act.busy || act.phase.kind === 'done';
   const ok = note.trim().length > 0;
-  const run = (action: 'RETRY_PICKUP' | 'CANCEL') => void act.run({ action, note: note.trim() });
+  // 낸 회수비가 있을 때만 돌려주기를 고를 수 있다. 고르면 true 만 보내고, 안 고르면 보내지 않는다(서버가 규칙대로 — 고객 사유 안 돌려줌·우리 잘못 돌려줌·파손·기타 기본 안 돌려줌).
+  // 회수 실패 사유가 계약에 없어 화면이 파손·기타인지 모른다 — 규칙과 다르면 422 FEE_REFUND_NOT_ALLOWED 안내
+  const paidFee = claim.feePayment?.state === 'PAID';
+  const run = (action: RecoveryAction) => {
+    setSent(action);
+    void act.run({ action, note: note.trim(), ...(action === 'CANCEL' && paidFee && feeRefund ? { feeRefund: true } : {}) });
+  };
   const code = act.phase.kind === 'rejected' ? failureCode(act.phase.failure) : undefined;
   return (
     <div className="space-y-2 rounded-box border border-warning bg-base-100 p-4" data-testid="recovery-actions">
       <h2 className="font-bold">{m.actionsTitle}</h2>
-      {act.phase.kind !== 'done' && <p className="text-sm">{claim.state === 'RECOVERY_FAILED' ? m.recoveryFailedNote : m.feePendingNote}</p>}
+      {act.phase.kind !== 'done' && (
+        <p className="text-sm">{claim.state === 'RECOVERY_FAILED' ? m.recoveryFailedNote : claim.state === 'FEE_PENDING' ? m.feePendingNote : m.shortNote}</p>
+      )}
+      {claim.state === 'RECOVERY_FAILED' && claim.pickup?.retryAllowed === false && act.phase.kind === 'idle' && (
+        <p className="text-sm text-warning" data-testid="no-more-retry">
+          {m.attemptsExhausted}
+        </p>
+      )}
       <label className="flex flex-col gap-1 text-sm">
         {m.actionNote}
         <input className="input input-sm w-full" maxLength={500} value={note} disabled={locked} onChange={(e) => setNote(e.target.value)} />
       </label>
       <div className="flex flex-wrap gap-2">
-        {(claim.state === 'RECOVERY_FAILED' || act.phase.kind !== 'idle') && (
+        {can.has('RETRY_PICKUP') && (
           <button type="button" className="btn btn-sm btn-primary" disabled={locked || !ok} onClick={() => run('RETRY_PICKUP')}>
             {m.retryPickup}
           </button>
         )}
-        <button type="button" className="btn btn-sm" disabled={locked || !ok} onClick={() => run('CANCEL')}>
-          {m.cancelReturn}
-        </button>
+        {can.has('CANCEL') && (
+          <button type="button" className="btn btn-sm" disabled={locked || !ok} onClick={() => run('CANCEL')}>
+            {m.cancelReturn}
+          </button>
+        )}
+        {can.has('CLOSE_AS_RECEIVED') && (
+          <button type="button" className="btn btn-sm btn-outline btn-warning" disabled={locked || !ok} onClick={() => run('CLOSE_AS_RECEIVED')}>
+            {m.closeAsReceived}
+          </button>
+        )}
       </div>
-      <p className="text-xs opacity-70">{m.cancelHint}</p>
+      {can.has('CANCEL') && paidFee && (
+        <label className="flex items-start gap-2 text-sm">
+          <input type="checkbox" className="checkbox checkbox-sm" checked={feeRefund} disabled={locked} onChange={(e) => setFeeRefund(e.target.checked)} />
+          <span>
+            {m.feeRefund}
+            <span className="block text-xs opacity-70">{m.feeRefundHint}</span>
+          </span>
+        </label>
+      )}
+      {can.has('CANCEL') && <p className="text-xs opacity-70">{m.cancelHint}</p>}
+      {can.has('CLOSE_AS_RECEIVED') && (
+        <p className="text-xs text-warning" data-testid="close-as-received-hint">
+          {m.closeAsReceivedHint}
+        </p>
+      )}
       {(code === 'INVALID_STATE' || code === 'VERSION_CONFLICT' || code === 'CONFLICT') && <p className="text-sm text-warning">{m.actionConflict}</p>}
+      {code !== undefined && ACTION_REJECT_TEXT[code] && (
+        <p className="text-sm text-warning" data-testid="recovery-rejected">
+          {ACTION_REJECT_TEXT[code]}
+        </p>
+      )}
       <CommandFeedback command={act} unknown={{ body: m.unknown }}>
         {(c) => (
           <p role="status" className="text-sm text-success" data-testid="recovery-done">
@@ -327,7 +420,7 @@ export function ClaimOfCase({ claimId }: { readonly claimId: string }) {
         {(c) => (
           <>
             <p data-testid="case-claim-state">{label(messages.claims.stateName, c.state)}</p>
-            <p className="text-xs opacity-70">{c.state === 'RECOVERY_FAILED' || c.state === 'FEE_PENDING' ? m.caseClaimNote : m.caseClaimDone}</p>
+            <p className="text-xs opacity-70">{availableActions(c).size > 0 ? m.caseClaimNote : m.caseClaimDone}</p>
             <ReturnProgress claim={c} />
             <RecoveryActions claim={c} />
           </>
