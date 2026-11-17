@@ -11,6 +11,8 @@ import { useApi } from '../../app/ApiContext';
 import { messages } from '../../shared/messages';
 import { ops } from '../../shared/opsMessages';
 import { label, none, when } from '../../shared/opsUi';
+import { useSession } from '../../app/SessionContext';
+import { EvidencePhotos, MaskMessage, ResolvePanel } from './HelpExtras';
 
 const h = ops.help;
 const q = ops.inquiries;
@@ -101,6 +103,8 @@ function HelpChatPage() {
     }
   });
   const closed = chat.data?.helpState === 'RESOLVED';
+  const { session } = useSession();
+  const isAdmin = (session?.roles ?? []).includes('OPERATOR_ADMIN');
   return (
     <section className="max-w-3xl space-y-4">
       <Link className="link text-sm" to="/help-requests">
@@ -115,6 +119,12 @@ function HelpChatPage() {
           </p>
         )}
       </QueryState>
+      {detail.data && (
+        <div className="grid gap-4 md:grid-cols-2">
+          <EvidencePhotos deliveryId={deliveryId} refs={detail.data.evidenceRefs ?? []} />
+          <ResolvePanel help={detail.data} deliveryId={deliveryId} requestId={requestId} />
+        </div>
+      )}
       <QueryState state={toUiState(chat)} onRetry={() => void chat.refetch()}>
         {(c) => (
           <ol className="space-y-2" data-testid="help-messages">
@@ -122,6 +132,11 @@ function HelpChatPage() {
               <li key={msg.messageId} className={msg.senderType === 'SUPPORT' ? 'chat chat-end' : 'chat chat-start'}>
                 <div className="chat-header text-xs opacity-70">{`${msg.senderType === 'SUPPORT' ? h.support : h.rider} · ${when(msg.createdAt)}`}</div>
                 <div className="chat-bubble whitespace-pre-wrap">{msg.masked ? h.masked : (msg.body ?? none)}</div>
+                {isAdmin && !msg.masked && msg.messageId && (
+                  <div className="chat-footer">
+                    <MaskMessage deliveryId={deliveryId} requestId={requestId} messageId={msg.messageId} />
+                  </div>
+                )}
               </li>
             ))}
           </ol>

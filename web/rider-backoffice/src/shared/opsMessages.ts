@@ -85,7 +85,7 @@ export const ops = {
   },
   control: {
     title: '라이더 관제',
-    intro: '운행 중인 라이더의 지금 위치예요(이동 이력은 보이지 않아요). 10초마다 새로 불러와요. 지도는 카카오 지도 키가 준비되면 붙여요.',
+    intro: '운행 중인 라이더의 지금 위치예요(이동 이력은 보이지 않아요). 10초마다 새로 불러와요. 지도는 카카오 지도 키가 있을 때만 보여요.',
     pickCenter: '센터를 고르면 그 센터의 운행 중 라이더가 보여요.',
     empty: '운행 중인 라이더가 없어요.',
     col: { rider: '라이더', vehicle: '수단', dispatch: '신규배차', location: '위치', updated: '마지막 수신', deliveries: '진행 중 배송' },
@@ -96,6 +96,8 @@ export const ops = {
     seconds: (s: number) => (s < 60 ? `${s}초 전` : `${Math.floor(s / 60)}분 전`),
     staleCount: (n: number) => `위치 끊김 ${n}명`,
     eta: (t: string) => `도착 예정 ${t}`,
+    filter: { all: '전체', delivering: '배송 중', stale: '위치 끊김·없음' },
+    emptyFiltered: '조건에 맞는 라이더가 없어요.',
   },
   actions: {
     correction: '상태 정정',

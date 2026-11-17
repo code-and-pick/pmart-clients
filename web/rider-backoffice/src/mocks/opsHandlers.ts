@@ -31,7 +31,8 @@ function seedRiders(): MockRider[] {
 export const ops = {
   riders: seedRiders(),
   restrictionHistory: [] as Array<Record<string, unknown>>,
-  helpMessages: [] as Array<{ messageId: string; seq: number; senderType: 'RIDER' | 'SUPPORT'; body: string; createdAt: string }>,
+  helpMessages: [] as Array<{ messageId: string; seq: number; senderType: 'RIDER' | 'SUPPORT'; body: string | null; masked?: boolean; createdAt: string }>,
+  help: { state: 'OPEN' as 'OPEN' | 'IN_PROGRESS' | 'RESOLVED', resolvedAt: null as string | null },
   inquiryMessages: [] as Array<{ messageId: string; seq: number; senderType: 'RIDER' | 'SUPPORT'; body: string; createdAt: string }>,
   inquiryStatus: 'RECEIVED' as 'RECEIVED' | 'ANSWERED' | 'CLOSED',
   adjustments: [{ earningId: 'ERN-1', deliveryId: 'DLV-1', riderId: 'RD-7', calculable: false, settlementState: 'ESTIMATED', recordedAt: '2026-11-17T02:00:00.000Z', note: '자동 완료(픽업 5시간)' }],
@@ -44,6 +45,7 @@ export function resetOps(): void {
   ops.riders = seedRiders();
   ops.restrictionHistory = [];
   ops.helpMessages = [{ messageId: 'HM-1', seq: 1, senderType: 'RIDER', body: '공동현관 비밀번호가 틀려요', createdAt: '2026-11-17T01:00:00.000Z' }];
+  ops.help = { state: 'OPEN', resolvedAt: null };
   ops.inquiryMessages = [];
   ops.inquiryStatus = 'RECEIVED';
   ops.adjustments = [{ earningId: 'ERN-1', deliveryId: 'DLV-1', riderId: 'RD-7', calculable: false, settlementState: 'ESTIMATED', recordedAt: '2026-11-17T02:00:00.000Z', note: '자동 완료(픽업 5시간)' }];
@@ -256,7 +258,7 @@ export const opsHandlers = [
   http.get(`${API_BASE}/deliveries/:deliveryId/help-requests/:requestId/messages`, ({ request }) => {
     const g = guard(request);
     if ('error' in g) return g.error;
-    return HttpResponse.json({ items: ops.helpMessages, helpState: 'OPEN' });
+    return HttpResponse.json({ items: ops.helpMessages, helpState: ops.help.state });
   }),
   http.post(`${API_BASE}/deliveries/:deliveryId/help-requests/:requestId/messages`, async ({ request }) => {
     const g = guard(request, true);
@@ -271,7 +273,53 @@ export const opsHandlers = [
   http.get(`${API_BASE}/deliveries/:deliveryId/help-requests/:requestId`, ({ request, params }) => {
     const g = guard(request);
     if ('error' in g) return g.error;
-    return HttpResponse.json({ requestId: params.requestId, deliveryId: params.deliveryId, category: 'ADDRESS_ISSUE', state: 'OPEN', detail: '공동현관', createdAt: '2026-11-17T01:00:00.000Z' });
+    // 목 전용: HR-CASE 는 접수 건이 붙은 도움요청(처리함 409 HELP_REQUEST_HAS_CASE), 사진 EVP-H2 는 못 받는 사진(404)
+    const withCase = params.requestId === 'HR-CASE';
+    return HttpResponse.json({
+      requestId: params.requestId,
+      deliveryId: params.deliveryId,
+      category: 'ADDRESS_ISSUE',
+      state: withCase ? 'IN_PROGRESS' : ops.help.state,
+      detail: '공동현관',
+      evidenceRefs: ['EVP-H1', 'EVP-H2'],
+      caseId: withCase ? 'CASE-9' : null,
+      resolvedAt: ops.help.resolvedAt,
+      createdAt: '2026-11-17T01:00:00.000Z',
+    });
+  }),
+  // 도움요청 처리함(0.4.0) — OPEN·IN_PROGRESS → RESOLVED, 이미 RESOLVED 면 409 INVALID_STATE, 접수 건이 붙었으면 409 HELP_REQUEST_HAS_CASE
+  http.post(`${API_BASE}/deliveries/:deliveryId/help-requests/:requestId/resolutions`, ({ request, params }) => {
+    const g = guard(request);
+    if ('error' in g) return g.error;
+    return idempotent(request, () => {
+      if (params.requestId === 'HR-CASE') return problem(409, 'HELP_REQUEST_HAS_CASE');
+      if (ops.help.state === 'RESOLVED') return problem(409, 'INVALID_STATE');
+      ops.help = { state: 'RESOLVED', resolvedAt: timestamp() };
+      return { status: 200, body: { requestId: params.requestId, deliveryId: params.deliveryId, state: 'RESOLVED', resolvedAt: ops.help.resolvedAt, resolvedBy: g.who.subject } };
+    });
+  }),
+  // 대화 가리기(0.8.0) — OPERATOR_ADMIN 만, 사유 2~500자
+  http.post(`${API_BASE}/deliveries/:deliveryId/help-requests/:requestId/messages/:messageId/maskings`, async ({ request, params }) => {
+    const g = guard(request);
+    if ('error' in g) return g.error;
+    if (!g.who.roles.includes('OPERATOR_ADMIN')) return problem(403, 'FORBIDDEN');
+    const body = (await request.json()) as { reason?: string };
+    const reason = (body.reason ?? '').trim();
+    if (reason.length < 2 || reason.length > 500) return problem(400, 'VALIDATION_FAILED', [{ field: 'reason', reason: 'LENGTH' }]);
+    const msg = ops.helpMessages.find((x) => x.messageId === params.messageId);
+    if (!msg) return problem(404, 'NOT_FOUND');
+    return idempotent(request, () => {
+      msg.body = null;
+      msg.masked = true;
+      return { status: 200, body: msg };
+    });
+  }),
+  // 증빙 사진(0.20.0) — 원본 이미지. 목 전용: EVP-H2 는 404(못 받는 사진)
+  http.get(`${API_BASE}/deliveries/:deliveryId/evidence-photos/:photoRef`, ({ request, params }) => {
+    const g = guard(request);
+    if ('error' in g) return g.error;
+    if (params.photoRef === 'EVP-H2') return problem(404, 'NOT_FOUND');
+    return new HttpResponse(new Uint8Array([0xff, 0xd8, 0xff, 0xd9]), { headers: { 'content-type': 'image/jpeg', 'cache-control': 'no-store' } });
   }),
 
   http.get(`${API_BASE}/inquiries`, ({ request }) => {

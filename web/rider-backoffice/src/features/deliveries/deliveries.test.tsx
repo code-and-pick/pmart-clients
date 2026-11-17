@@ -60,4 +60,23 @@ describe('배송 상세', () => {
     expect(await screen.findByRole('alert')).toBeInTheDocument();
     expect(screen.queryByTestId('dispatch-detail')).not.toBeInTheDocument();
   });
+  it('배차 시도 표(계기·상태·제안별 라이더 응답)와 도착 예정(tracking eta — 남은 분·지연은 서버 값)', async () => {
+    renderAt('/deliveries/DLV-1', as.riderOps);
+    const attempts = await screen.findAllByTestId('dispatch-attempt');
+    expect(attempts).toHaveLength(1);
+    expect(within(attempts[0]!).getByText(/RD-9 · 거절/)).toBeInTheDocument();
+    expect(within(attempts[0]!).getByText(/RD-7 · 수락/)).toBeInTheDocument();
+    const eta = await screen.findByTestId('eta-detail');
+    expect(within(eta).getByText('고객 도착')).toBeInTheDocument();
+    expect(within(eta).getByText(/35분 남음 · 5.4km/)).toBeInTheDocument();
+    expect(within(eta).getByText('약속보다 5분 늦음')).toBeInTheDocument();
+  });
+
+  it('배차 실패한 배송은 시도마다 실패 사유', async () => {
+    renderAt('/deliveries/DLV-2', as.riderOps);
+    const attempts = await screen.findAllByTestId('dispatch-attempt');
+    expect(attempts).toHaveLength(3);
+    expect(within(attempts[2]!).getByText('라이더 없음')).toBeInTheDocument();
+    expect(within(await screen.findByTestId('eta-detail')).getAllByText('도착 예정 확인 중')).toHaveLength(2);
+  });
 });

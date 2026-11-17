@@ -13,6 +13,7 @@ import { useApi } from '../../app/ApiContext';
 import { messages } from '../../shared/messages';
 import { ops } from '../../shared/opsMessages';
 import { DeliveryActions } from './DeliveryActions';
+import { DispatchAttempts, EtaPanel } from './DeliveryExtras';
 
 const m = messages.deliveries;
 const n = messages.names;
@@ -229,9 +230,6 @@ function DeliveryDetailPage() {
         {m.back}
       </Link>
       <h1 className="text-xl font-bold">{m.detailTitle(deliveryId)}</h1>
-      <p role="note" className="alert alert-info text-sm">
-        {m.viewOnlyNote}
-      </p>
       <div className="grid gap-4 lg:grid-cols-2">
         <div className="space-y-2">
           <h2 className="font-bold">{m.execution}</h2>
@@ -307,6 +305,7 @@ function DeliveryDetailPage() {
           <h2 className="font-bold">{m.dispatch}</h2>
           <QueryState state={toUiState(dispatch)} onRetry={() => void dispatch.refetch()}>
             {(p) => (
+              <div className="space-y-3">
               <dl className="grid grid-cols-[8rem_1fr] gap-x-4 gap-y-1 rounded-box bg-base-100 p-4 text-sm" data-testid="dispatch-detail">
                 <dt className="opacity-70">{m.col.state}</dt>
                 <dd>{name(n.dispatchState, p.state)}</dd>
@@ -317,10 +316,13 @@ function DeliveryDetailPage() {
                 <dt className="opacity-70">{m.arrivalWindow}</dt>
                 <dd>{p.arrivalWindow ? [p.arrivalWindow.date, [p.arrivalWindow.start, p.arrivalWindow.end].filter(Boolean).join('~')].filter(Boolean).join(' ') || none : none}</dd>
               </dl>
+              <DispatchAttempts attempts={p.attempts ?? []} />
+              </div>
             )}
           </QueryState>
         </div>
       </div>
+      <EtaPanel deliveryId={deliveryId} />
       {execution.data && <DeliveryActions delivery={execution.data} dispatch={dispatch.data} />}
     </section>
   );
