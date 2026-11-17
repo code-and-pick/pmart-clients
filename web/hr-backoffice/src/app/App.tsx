@@ -1,7 +1,7 @@
 import { UiTextProvider } from '@pmart/web-ui';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import type { ReactNode } from 'react';
-import { createBrowserRouter, createMemoryRouter, Link, Navigate, NavLink, Outlet, RouterProvider } from 'react-router';
+import { useEffect, type ReactNode } from 'react';
+import { createBrowserRouter, createMemoryRouter, Link, Navigate, NavLink, Outlet, RouterProvider, useLocation } from 'react-router';
 
 import { env } from '../env';
 import { DepartmentsPage } from '../features/departments/departments';
@@ -22,6 +22,18 @@ const nav: ReadonlyArray<readonly [string, string]> = [
   ['/permissions', m.nav.permissions],
 ];
 
+/**
+ * 메뉴로 다른 화면에 가면 새 화면을 맨 위부터 보인다(사용자 2026-11-17 — 아래쪽 메뉴를 누르면 스크롤을 다시 올려야 했다).
+ * 같은 화면에서 거르기·탭(쿼리)만 바뀔 때는 그대로 둔다(경로가 바뀔 때만).
+ */
+function ScrollToTopOnNavigate() {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    (document.scrollingElement ?? document.documentElement).scrollTop = 0;
+  }, [pathname]);
+  return null;
+}
+
 function Layout() {
   const { session } = useSession();
   // 메뉴에는 이름을 보인다(운영자 ID 는 길다). 이름을 아직 못 받았거나 인사 기록이 없으면 "내 세션"만.
@@ -29,7 +41,9 @@ function Layout() {
   const myName = me.data?.name;
   return (
     <div className="flex min-h-screen bg-base-200">
-      <aside className="w-52 shrink-0 bg-base-100 shadow-sm">
+      {/* 메뉴는 화면 높이에 고정하고 길면 메뉴만 따로 스크롤(오른쪽 화면을 내려도 메뉴는 그 자리) */}
+      <ScrollToTopOnNavigate />
+      <aside className="sticky top-0 h-screen w-52 shrink-0 self-start overflow-y-auto bg-base-100 shadow-sm" data-testid="side-menu">
         <div className="p-4">
           <Link to="/" className="text-lg font-bold" aria-label={m.goHome}>
             {m.appTitle}
