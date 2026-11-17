@@ -11,6 +11,8 @@ import { formatSeoul, QueryState, toUiState } from '@pmart/web-ui';
 import type { components } from '../../api/generated/delivery-execution';
 import { useApi } from '../../app/ApiContext';
 import { messages } from '../../shared/messages';
+import { ops } from '../../shared/opsMessages';
+import { DeliveryActions } from './DeliveryActions';
 
 const m = messages.deliveries;
 const n = messages.names;
@@ -37,6 +39,7 @@ function DeliverySearchPage() {
   const api = useApi();
   const [params, setParams] = useSearchParams();
   const orderId = params.get('orderId') ?? '';
+  const orderNumber = params.get('orderNumber') ?? '';
   const riderId = params.get('riderId') ?? '';
   const rawState = params.get('state') ?? '';
   const state = (STATES as readonly string[]).includes(rawState) ? (rawState as ExecutionState) : undefined;
@@ -44,12 +47,13 @@ function DeliverySearchPage() {
   const type = (TYPES as readonly string[]).includes(rawType) ? (rawType as DeliveryType) : undefined;
   const oldest = params.get('sort') === 'OLDEST';
   const cursor = params.get('cursor') ?? '';
-  const [draft, setDraft] = useState({ orderId, riderId });
+  const [draft, setDraft] = useState({ orderId, orderNumber, riderId });
 
-  const set = (next: Partial<{ orderId: string; riderId: string; state: string; type: string; oldest: boolean; cursor: string }>) => {
-    const v = { orderId, riderId, state: state ?? '', type: type ?? '', oldest, cursor: '', ...next };
+  const set = (next: Partial<{ orderId: string; orderNumber: string; riderId: string; state: string; type: string; oldest: boolean; cursor: string }>) => {
+    const v = { orderId, orderNumber, riderId, state: state ?? '', type: type ?? '', oldest, cursor: '', ...next };
     setParams({
       ...(v.orderId ? { orderId: v.orderId } : {}),
+      ...(v.orderNumber ? { orderNumber: v.orderNumber } : {}),
       ...(v.riderId ? { riderId: v.riderId } : {}),
       ...(v.state ? { state: v.state } : {}),
       ...(v.type ? { type: v.type } : {}),
@@ -59,11 +63,11 @@ function DeliverySearchPage() {
   };
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    set({ orderId: draft.orderId.trim(), riderId: draft.riderId.trim() });
+    set({ orderId: draft.orderId.trim(), orderNumber: draft.orderNumber.trim(), riderId: draft.riderId.trim() });
   };
 
   const query = useQuery({
-    queryKey: ['deliveries', orderId, riderId, state, type, oldest, cursor],
+    queryKey: ['deliveries', orderId, orderNumber, riderId, state, type, oldest, cursor],
     queryFn: () =>
       request(
         'GET',
@@ -72,6 +76,7 @@ function DeliverySearchPage() {
             query: {
               size: PAGE_SIZE,
               ...(orderId ? { orderId } : {}),
+              ...(orderNumber ? { orderNumber } : {}),
               ...(riderId ? { riderId } : {}),
               ...(state ? { state } : {}),
               ...(type ? { type } : {}),
@@ -93,6 +98,10 @@ function DeliverySearchPage() {
           <input className="input input-sm w-44" value={draft.orderId} maxLength={64} onChange={(e) => setDraft({ ...draft, orderId: e.target.value })} />
         </label>
         <label className="flex flex-col gap-1">
+          {ops.actions.orderNumber}
+          <input className="input input-sm w-32" value={draft.orderNumber} maxLength={8} inputMode="numeric" onChange={(e) => setDraft({ ...draft, orderNumber: e.target.value })} />
+        </label>
+        <label className="flex flex-col gap-1">
           {m.riderId}
           <input className="input input-sm w-44" value={draft.riderId} maxLength={64} onChange={(e) => setDraft({ ...draft, riderId: e.target.value })} />
         </label>
@@ -103,7 +112,7 @@ function DeliverySearchPage() {
           type="button"
           className="btn btn-sm"
           onClick={() => {
-            setDraft({ orderId: '', riderId: '' });
+            setDraft({ orderId: '', orderNumber: '', riderId: '' });
             setParams({});
           }}
         >
@@ -312,6 +321,7 @@ function DeliveryDetailPage() {
           </QueryState>
         </div>
       </div>
+      {execution.data && <DeliveryActions delivery={execution.data} dispatch={dispatch.data} />}
     </section>
   );
 }

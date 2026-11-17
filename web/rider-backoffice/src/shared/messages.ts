@@ -14,16 +14,25 @@ export const messages = {
 
   /** 메뉴 묶음·하위 메뉴(뼈대 — 이름·순서는 PC 5 가 정해도 된다) */
   groups: {
+    overview: '현황',
     control: '관제',
     riders: '라이더',
     deliveries: '배송·배차',
     support: '지원센터',
+    earnings: '수행료',
   },
   menus: {
+    dashboard: '대시보드',
     riderMap: '라이더 관제',
     riders: '라이더 찾기',
+    signups: '가입 승인',
+    restrictionReviews: '제한 검토',
     deliveries: '배송 찾기',
     cases: '접수 건',
+    helpRequests: '도움요청',
+    inquiries: '라이더 문의',
+    adjustments: '수행료 조정',
+    surcharges: '추가 배달료',
   },
 
   /** RIDER_OPS·OPERATOR_ADMIN 이 아닌 역할 — 막지 않고 안내만(판정은 서버, API 마다 403) */
@@ -75,7 +84,7 @@ export const messages = {
       MISDELIVERY_REDELIVERY: '다시 배송',
       FAILED_DELIVERY_RETURN: '전달 실패 반납',
     } as Readonly<Record<string, string>>,
-    actor: { RIDER: '라이더', SYSTEM_EVENT: '시스템', OPERATOR: '운영자' } as Readonly<Record<string, string>>,
+    actor: { RIDER: '라이더', SYSTEM_EVENT: '시스템', OPERATOR: '운영자', CUSTOMER: '고객' } as Readonly<Record<string, string>>,
     failureReason: {
       CUSTOMER_ABSENT: '고객 부재',
       ADDRESS_ERROR: '주소 오류',
@@ -107,6 +116,32 @@ export const messages = {
     caseAction: { OPENED: '접수', RECURRED: '재발', ASSIGNED: '맡음', CLOSED: '처리 끝냄', REOPENED: '다시 처리', TRANSFERRED: '넘김' } as Readonly<Record<string, string>>,
     resolution: { RESOLVED: '해결', NOT_REPRODUCIBLE: '재현 안 됨', DUPLICATE: '중복', NO_ACTION_REQUIRED: '조치 필요 없음', ESCALATED_EXTERNAL: '외부로 넘김' } as Readonly<Record<string, string>>,
     refType: { deliveryId: '배송', orderId: '주문', riderId: '라이더' } as Readonly<Record<string, string>>,
+    restriction: { NORMAL: '정상', DISPATCH_RESTRICTED: '신규배차 제한', SUSPENDED: '일시 중지', TERMINATED: '계약 종료' } as Readonly<Record<string, string>>,
+    vehicle: { MOTORCYCLE: '오토바이', BICYCLE: '자전거', E_BIKE: '전기자전거', KICKBOARD: '전동킥보드', CAR: '자동차', WALK: '도보' } as Readonly<Record<string, string>>,
+    operatingStatus: { ON_DUTY: '운행 중', OFF_DUTY: '운행 끝' } as Readonly<Record<string, string>>,
+    signupStatus: { PENDING: '승인 대기', APPROVED: '승인', REJECTED: '거절' } as Readonly<Record<string, string>>,
+    stage: { UNASSIGNED: '배정 전', TO_STORE: '가게로', AT_STORE: '가게 도착', TO_CUSTOMER: '고객에게', AT_CUSTOMER: '고객 도착', DONE: '끝' } as Readonly<Record<string, string>>,
+    settlementState: {
+      ESTIMATED: '예상',
+      PENDING_CONFIRMATION: '확정 대기',
+      CONFIRMED: '확정',
+      PAYING: '지급 중',
+      PAID: '지급 완료',
+      PAYMENT_FAILED: '지급 실패',
+      ADJUSTED: '조정(미지급)',
+    } as Readonly<Record<string, string>>,
+    complaintType: { REPORT: '신고', MISDELIVERY: '오배송', DAMAGE: '파손' } as Readonly<Record<string, string>>,
+    helpCategory: {
+      ADDRESS_ISSUE: '주소 문제',
+      CUSTOMER_CONTACT: '고객 연락',
+      STORE_DELAY: '가게 지연',
+      PRODUCT_ISSUE: '상품 문제',
+      ACCIDENT: '사고',
+      DELIVERY_FAILURE: '전달 불가',
+      OTHER: '기타',
+    } as Readonly<Record<string, string>>,
+    helpState: { OPEN: '열림', IN_PROGRESS: '처리 중', RESOLVED: '처리 끝' } as Readonly<Record<string, string>>,
+    inquiryCategory: { SETTLEMENT: '정산', ACCOUNT: '계정', APP_ERROR: '앱 오류', OTHER: '기타' } as Readonly<Record<string, string>>,
   },
 
   /** 접수 건(case — RIDER_OPS 는 배송 쪽 사건만, 서버가 거른다) */
@@ -172,7 +207,7 @@ export const messages = {
     attemptsCount: (n: number) => `${n}번`,
     arrivalWindow: '도착 약속',
     history: '수행 이력',
-    viewOnlyNote: '지금은 보기만 할 수 있어요. 배차 취소·전달 실패 확정은 다음 차례에 붙여요.',
+    viewOnlyNote: '조치(상태 정정·전달 실패 확정·배차 취소)는 상세 아래에 있어요. 권한은 서버가 판정해요.',
   },
 
   login: {
@@ -205,6 +240,14 @@ export const messages = {
     TOKEN_INVALID: '세션이 끝났어요. 다시 로그인해 주세요.',
     TOKEN_REUSED: '세션이 끝났어요. 다시 로그인해 주세요.',
     DEPENDENCY_UNAVAILABLE: '다른 서비스 응답을 받지 못해 처리하지 않았어요. 잠시 후 다시 해 주세요.',
+    CORRECTION_NOT_ALLOWED: '이 정정은 할 수 없어요(픽업 전 배정↔가게 도착, 픽업 뒤 픽업↔고객 도착만).',
+    EARNING_NOT_OPEN: '지급 중·지급됨이거나 산정 불가 수행료라 더할 수 없어요.',
+    NOT_DECIDABLE: '이미 처리한 신청이에요.',
+    NOT_ADJUSTABLE: '조정할 수행료가 아니에요(이미 조정·산정됨).',
+    FEE_UNKNOWN: '수락 당시 금액을 몰라 지급으로 조정할 수 없어요.',
+    INQUIRY_CLOSED: '닫힌 문의예요.',
+    HELP_REQUEST_CLOSED: '처리 끝난 도움요청이에요.',
+    PICKED_UP_CASE_REQUIRED: '픽업한 배송은 배차 취소할 수 없어요 — 전달 실패로 처리해 주세요.',
   } as Readonly<Record<string, string>>,
 
   /** 검증 사유 code → 문구(없는 code 는 code 그대로) */

@@ -49,7 +49,8 @@ describe('배송 상세', () => {
     const dispatch = await screen.findByTestId('dispatch-detail');
     expect(dispatch).toHaveTextContent('배정');
     expect(dispatch).toHaveTextContent('RD-7');
-    expect(screen.queryByRole('button', { name: /배차 취소|확정|반려/ })).not.toBeInTheDocument();
+    // 전달 실패 등록 상태 — 확정·반려 폼이 있다(2026-11-17 조치 붙임)
+    expect(await screen.findByRole('form', { name: '전달 실패 확정·반려' })).toBeInTheDocument();
   });
 
   it('배차를 못 읽어도 수행은 보이고, 배차 칸만 오류(0·빈 값으로 바꾸지 않음)', async () => {

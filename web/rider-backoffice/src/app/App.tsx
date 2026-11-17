@@ -6,6 +6,11 @@ import { createBrowserRouter, createMemoryRouter, Link, Navigate, NavLink, Outle
 
 import { env } from '../env';
 import { CasesMenu } from '../features/cases/CasePages';
+import { ControlPage } from '../features/control/ControlPage';
+import { DashboardPage } from '../features/dashboard/DashboardPage';
+import { AdjustmentsMenu, SurchargesMenu } from '../features/earnings/EarningPages';
+import { RestrictionReviewsMenu, RidersMenu, SignupsMenu } from '../features/riders/RiderPages';
+import { HelpRequestsMenu, InquiriesMenu } from '../features/support/SupportPages';
 import { DeliveriesMenu } from '../features/deliveries/DeliveryPages';
 import { PreparingPage } from '../features/menus/PreparingPage';
 import { LoginCallbackPage, LoginPage } from '../features/session/LoginPage';
@@ -77,6 +82,24 @@ function MenuPage({ menu }: { readonly menu: MenuItem }) {
       return <CasesMenu />;
     case 'deliveries':
       return <DeliveriesMenu />;
+    case 'dashboard':
+      return <DashboardPage />;
+    case 'riderMap':
+      return <ControlPage />;
+    case 'riders':
+      return <RidersMenu />;
+    case 'signups':
+      return <SignupsMenu />;
+    case 'restrictionReviews':
+      return <RestrictionReviewsMenu />;
+    case 'helpRequests':
+      return <HelpRequestsMenu />;
+    case 'inquiries':
+      return <InquiriesMenu />;
+    case 'adjustments':
+      return <AdjustmentsMenu />;
+    case 'surcharges':
+      return <SurchargesMenu />;
     default:
       return <PreparingPage menu={menu} />;
   }

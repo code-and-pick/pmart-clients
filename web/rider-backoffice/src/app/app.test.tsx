@@ -46,10 +46,10 @@ describe('로그인', () => {
     expect(url.searchParams.get('silent')).toBe('true');
   });
 
-  it('목 모드: 목 계정 버튼 → 티켓 교환 → 첫 메뉴(관제)', async () => {
+  it('목 모드: 목 계정 버튼 → 티켓 교환 → 첫 메뉴(대시보드)', async () => {
     renderAt('/', null);
     await userEvent.click(await screen.findByRole('button', { name: '라이더 운영(RIDER_OPS)' }));
-    expect(await screen.findByRole('heading', { name: '라이더 관제' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: '대시보드' })).toBeInTheDocument();
   });
 
   it('세션이 없으면 로그인으로(돌아올 경로를 들고) — 로그인 뒤 그 메뉴', async () => {
@@ -96,7 +96,7 @@ describe('세션 응답(sessions/current) — 토큰을 풀지 않는다', () =>
     expect(screen.queryByText('관제')).not.toBeInTheDocument();
     fail = false;
     await userEvent.click(screen.getByRole('button', { name: '다시 시도' }));
-    expect(await screen.findByRole('heading', { name: '라이더 관제' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: '대시보드' })).toBeInTheDocument();
   });
 });
 
@@ -118,16 +118,15 @@ describe('역할', () => {
 });
 
 describe('메뉴 자리', () => {
-  it(`묶음 ${navGroups.length}개 · 메뉴 ${allMenus.length}개 — 만든 메뉴(배송 찾기·접수 건)는 화면, 나머지는 "화면 준비 중"`, async () => {
+  it(`묶음 ${navGroups.length}개 · 메뉴 ${allMenus.length}개 — 모두 화면이 있다(2026-11-17 PC 5)`, async () => {
     renderAt('/');
-    for (const g of ['관제', '라이더', '배송·배차', '지원센터']) expect(await screen.findByText(g)).toBeInTheDocument();
-    for (const name of ['라이더 관제', '라이더 찾기', '배송 찾기', '접수 건']) {
+    for (const g of ['현황', '관제', '배송·배차', '지원센터', '수행료']) expect(await screen.findByText(g)).toBeInTheDocument();
+    expect(screen.getAllByText('라이더').length).toBeGreaterThan(0);
+    for (const name of ['대시보드', '라이더 관제', '라이더 찾기', '가입 승인', '제한 검토', '배송 찾기', '접수 건', '도움요청', '라이더 문의', '수행료 조정', '추가 배달료']) {
       await userEvent.click(screen.getByRole('link', { name }));
       expect(await screen.findByRole('heading', { name })).toBeInTheDocument();
-      const ready = allMenus.find((menu) => menu.segment === (name === '배송 찾기' ? 'deliveries' : name === '접수 건' ? 'cases' : ''))?.ready ?? false;
-      if (ready) expect(screen.queryByText('화면 준비 중')).not.toBeInTheDocument();
-      else expect(screen.getByText('화면 준비 중')).toBeInTheDocument();
+      expect(screen.queryByText('화면 준비 중')).not.toBeInTheDocument();
     }
-    expect(allMenus.filter((menu) => menu.ready).map((menu) => menu.segment)).toEqual(['deliveries', 'cases']);
+    expect(allMenus.every((menu) => menu.ready)).toBe(true);
   });
 });

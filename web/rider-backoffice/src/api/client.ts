@@ -6,6 +6,9 @@ import { refreshEmployeeTokens } from './employeeAuth';
 import type { paths as CasePaths } from './generated/case';
 import type { paths as DispatchPaths } from './generated/delivery-dispatch';
 import type { paths as ExecutionPaths } from './generated/delivery-execution';
+import type { paths as CenterPaths } from './generated/center-master';
+import type { paths as RiderPaths } from './generated/rider';
+import type { paths as TrackingPaths } from './generated/delivery-tracking';
 
 export { SOURCE_SYSTEM };
 
@@ -26,6 +29,10 @@ export function createApi(pmartFetch: PmartFetch, baseUrl = API_BASE) {
     cases: createClient<CasePaths>(options),
     execution: createClient<ExecutionPaths>(options),
     dispatch: createClient<DispatchPaths>(options),
+    // 라이더 찾기·상세·제한·대시보드 수(2026-11-17), 관제 위치(tracking), 센터 목록(center-master)
+    riders: createClient<RiderPaths>(options),
+    tracking: createClient<TrackingPaths>(options),
+    center: createClient<CenterPaths>(options),
   };
 }
 

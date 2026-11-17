@@ -22,39 +22,16 @@ export interface MenuGroup {
   readonly items: readonly MenuItem[];
 }
 
+const done = (key: MenuKey, segment: string): MenuItem => ({ key, segment, ready: true, apiReady: [], apiMissing: [] });
+
+// 2026-11-17(PC 5): 사용자 "추천대로 1~6번" — 대시보드·관제·라이더(찾기·가입 승인·제한 검토)·배송·지원센터(접수 건·도움요청·라이더 문의)·수행료(조정·추가 배달료).
 export const navGroups: readonly MenuGroup[] = [
-  {
-    key: 'control',
-    items: [
-      {
-        key: 'riderMap',
-        segment: 'control',
-        ready: false,
-        apiReady: ['진행 중 배송·배차·라이더·열린 사건(bff /views/live-delivery)', '배송 한 건 도착 예정(delivery-tracking /deliveries/{id}/eta·stream)'],
-        apiMissing: ['직원용 라이더 위치 목록(delivery-tracking — 아직 없음)', '운행 중 라이더 목록(운행 상태·신규배차·제한 — rider-service, 아직 없음)'],
-      },
-    ],
-  },
-  {
-    key: 'riders',
-    items: [
-      {
-        key: 'riders',
-        segment: 'riders',
-        ready: false,
-        apiReady: ['라이더 찾기(ID·전화 완전 일치)·상세(가림)·원문 열람(사유)', '계정 제한 걸기·이력, 제한 검토', '산정 불가 수행료 조정', '라이더 컴플레인'],
-        apiMissing: ['이름·상태로 찾기, 라이더 목록 넘기기'],
-      },
-    ],
-  },
-  {
-    key: 'deliveries',
-    items: [{ key: 'deliveries', segment: 'deliveries', ready: true, apiReady: [], apiMissing: [] }],
-  },
-  {
-    key: 'support',
-    items: [{ key: 'cases', segment: 'cases', ready: true, apiReady: [], apiMissing: [] }],
-  },
+  { key: 'overview', items: [done('dashboard', 'dashboard')] },
+  { key: 'control', items: [done('riderMap', 'control')] },
+  { key: 'riders', items: [done('riders', 'riders'), done('signups', 'signups'), done('restrictionReviews', 'restriction-reviews')] },
+  { key: 'deliveries', items: [done('deliveries', 'deliveries')] },
+  { key: 'support', items: [done('cases', 'cases'), done('helpRequests', 'help-requests'), done('inquiries', 'inquiries')] },
+  { key: 'earnings', items: [done('adjustments', 'adjustments'), done('surcharges', 'surcharges')] },
 ];
 export const allMenus: readonly MenuItem[] = navGroups.flatMap((g) => g.items);
 
