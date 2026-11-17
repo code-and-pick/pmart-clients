@@ -18,6 +18,7 @@ import { QueryState } from '@pmart/web-ui';
 import { toUiState } from '@pmart/web-ui';
 import { useCommand } from '@pmart/web-ui';
 import { ContentRegistration } from '../contents/ContentRegistration';
+import { DataTable, PageHeader } from '../../shared/admin';
 
 const OPEN_REVIEW: readonly ReviewState[] = ['REVIEW_PENDING', 'EVIDENCE_REQUIRED'];
 const FINAL_EXECUTION: readonly ExecutionState[] = ['APPLIED', 'PARTIAL', 'REJECTED'];
@@ -168,7 +169,7 @@ export function ApprovalDetailPage() {
 
   return (
     <section className="space-y-4" data-fetched-at={lastFetchedAt}>
-      <h1 className="text-xl font-bold">{`${m.approvals.detailTitle} ${approvalId}`}</h1>
+      <PageHeader title={`${m.approvals.detailTitle} ${approvalId}`} />
       <QueryState state={toUiState(query)} onRetry={() => void query.refetch()}>
         {(a) => {
           const open = OPEN_REVIEW.includes(a.reviewState ?? 'REVIEW_PENDING');
@@ -181,7 +182,7 @@ export function ApprovalDetailPage() {
           const watchedOut = watching && updatesSinceDecision >= pollConfig.maxAttempts;
           return (
             <>
-              <dl className="grid grid-cols-[8rem_1fr] gap-1 rounded-box bg-base-100 p-4 text-sm">
+              <dl className="grid grid-cols-[8rem_1fr] gap-1 rounded-box border border-base-300 bg-base-100 p-4 text-sm">
                 <dt>{m.approvals.type}</dt>
                 <dd>{a.type ?? m.none}</dd>
                 <dt>{m.approvals.target}</dt>
@@ -218,7 +219,7 @@ export function ApprovalDetailPage() {
               )}
 
               <h2 className="font-bold">{m.approvals.lines}</h2>
-              <table className="table table-sm bg-base-100">
+              <DataTable>
                 <thead>
                   <tr>
                     <th>{m.approvals.lineHead.key}</th>
@@ -258,10 +259,10 @@ export function ApprovalDetailPage() {
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </DataTable>
 
               {open && (
-                <div className="space-y-2 rounded-box bg-base-100 p-4">
+                <div className="space-y-2 rounded-box border border-base-300 bg-base-100 p-4">
                   {own && <p className="text-warning text-sm">{m.approvals.selfApproval}</p>}
                   {grantToSelf && (
                     <p role="note" className="text-warning text-sm" data-testid="grant-to-self">

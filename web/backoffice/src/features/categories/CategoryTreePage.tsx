@@ -15,6 +15,7 @@ import { toUiState } from '@pmart/web-ui';
 import { useCommand } from '@pmart/web-ui';
 import { RequestApproval } from '../approvals/RequestApproval';
 import { multipart } from '../products/ProductImportPage';
+import { PageHeader } from '../../shared/admin';
 
 const NOT_EFFECTIVE = 'CATEGORY_TREE_NOT_EFFECTIVE';
 
@@ -67,8 +68,8 @@ function TreeView() {
     <QueryState state={toUiState(tree)} onRetry={() => void tree.refetch()}>
       {(t) => (
         <div className="grid gap-4 md:grid-cols-2">
-          <div className="rounded-box bg-base-100 p-3">
-            <p className="mb-2 text-sm opacity-70">
+          <div className="rounded-box border border-base-300 bg-base-100 p-3">
+            <p className="mb-2 text-sm text-base-content/60">
               {`${t.version === undefined ? '' : m.categories.version(t.version)}${t.effectiveFrom ? ` · ${formatSeoul(t.effectiveFrom)}` : ''}`}
             </p>
             <ul className="max-h-[60vh] overflow-auto text-sm">
@@ -86,10 +87,10 @@ function TreeView() {
               ))}
             </ul>
           </div>
-          <div className="rounded-box bg-base-100 p-3">
+          <div className="rounded-box border border-base-300 bg-base-100 p-3">
             <h2 className="mb-2 font-bold">{m.categories.filters}</h2>
             {selected === null ? (
-              <p className="text-sm opacity-70">{m.categories.pickNode}</p>
+              <p className="text-sm text-base-content/60">{m.categories.pickNode}</p>
             ) : (
               <QueryState state={toUiState(filters, (d) => (d.groups?.length ?? 0) === 0)} onRetry={() => void filters.refetch()}>
                 {(f) => (
@@ -152,7 +153,7 @@ function DraftUpload() {
   };
 
   return (
-    <div className="space-y-3 rounded-box bg-base-100 p-4">
+    <div className="space-y-3 rounded-box border border-base-300 bg-base-100 p-4">
       <h2 className="font-bold">{m.categories.upload}</h2>
       <div className="flex flex-wrap gap-3">
         <label className="flex flex-col text-sm">
@@ -257,7 +258,7 @@ function AdditionUpload() {
   };
 
   return (
-    <div className="space-y-3 rounded-box bg-base-100 p-4">
+    <div className="space-y-3 rounded-box border border-base-300 bg-base-100 p-4">
       <h2 className="font-bold">{m.categories.additionTitle}</h2>
       <p className="text-sm opacity-80">{m.categories.additionHint}</p>
       <label className="flex flex-col text-sm">
@@ -300,7 +301,7 @@ function AdditionUpload() {
                 <p role="status">{m.categories.additionCreated(v.version, v.baseVersion ?? null)}</p>
                 <p>
                   {m.categories.additionAdded(v.addedCategoryIds?.length ?? 0)}
-                  {(v.addedCategoryIds?.length ?? 0) > 0 && <span className="ml-2 opacity-70">{(v.addedCategoryIds ?? []).join(', ')}</span>}
+                  {(v.addedCategoryIds?.length ?? 0) > 0 && <span className="ml-2 text-base-content/60">{(v.addedCategoryIds ?? []).join(', ')}</span>}
                 </p>
                 {(v.skippedPaths?.length ?? 0) > 0 && (
                   <p className="text-warning">{`${m.categories.additionSkipped(v.skippedPaths?.length ?? 0)}: ${(v.skippedPaths ?? []).join(' / ')}`}</p>
@@ -327,7 +328,7 @@ function AdditionUpload() {
 export function CategoryTreePage() {
   return (
     <section className="space-y-4">
-      <h1 className="text-xl font-bold">{m.categories.title}</h1>
+      <PageHeader title={m.categories.title} />
       <TreeView />
       <AdditionUpload />
       <DraftUpload />

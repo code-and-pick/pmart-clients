@@ -264,7 +264,7 @@ export function ProductDraftForm({
 
   return (
     <form
-      className="space-y-4 rounded-box bg-base-100 p-4"
+      className="space-y-4 rounded-box border border-base-300 bg-base-100 p-4"
       onSubmit={(e) => {
         e.preventDefault();
         if (v.internalName.trim()) onSubmit(toInput(v, initial));
@@ -296,7 +296,7 @@ export function ProductDraftForm({
         </div>
         )}
       </div>
-      {!edit && <p className="text-xs opacity-70">{m.products.jsonHint}</p>}
+      {!edit && <p className="text-xs text-base-content/60">{m.products.jsonHint}</p>}
       {note && (
         <p role="status" className={`text-sm ${note.ok ? 'text-success' : 'text-error'}`}>
           {note.text}
@@ -340,7 +340,7 @@ export function ProductDraftForm({
             selectedText={m.products.categoriesSelected}
             disabled={tree.isPending}
           />
-          <span className="text-xs opacity-70">{m.products.categoriesHint}</span>
+          <span className="text-xs text-base-content/60">{m.products.categoriesHint}</span>
         </div>
         {tree.error instanceof PmartFailure && (
           <div className="md:col-span-2">
@@ -374,9 +374,9 @@ export function ProductDraftForm({
       {v.primaryCategoryId !== '' && (
         <fieldset className="space-y-2 rounded-box border border-base-300 p-3">
           <legend className="px-1 text-sm font-bold">{m.products.filters}</legend>
-          {filters.isPending && <p className="text-sm opacity-70">{m.loading}</p>}
+          {filters.isPending && <p className="text-sm text-base-content/60">{m.loading}</p>}
           {filters.error instanceof PmartFailure && <FailureAlert failure={filters.error} />}
-          {filters.isSuccess && groups.length === 0 && <p className="text-sm opacity-70">{m.products.filtersNone}</p>}
+          {filters.isSuccess && groups.length === 0 && <p className="text-sm text-base-content/60">{m.products.filtersNone}</p>}
           {groups.map((g) => (
             <div key={g.filterGroupId} className="flex flex-wrap items-center gap-3 text-sm">
               <span className="font-medium">{g.name}</span>
@@ -463,7 +463,7 @@ export function ProductDraftForm({
                     }}
                   />
                 </label>
-                <span className="text-xs opacity-70">{m.products.barcodeEnterHint}</span>
+                <span className="text-xs text-base-content/60">{m.products.barcodeEnterHint}</span>
                 {list(s.barcodes).flatMap((b) => {
                   const digit = gs1CheckDigitProblem(b);
                   return digit === null
@@ -480,7 +480,7 @@ export function ProductDraftForm({
                 {m.products.alcohol}
               </label>
             </div>
-            {edit && <p className="text-xs opacity-70">{m.products.editFixedSku}</p>}
+            {edit && <p className="text-xs text-base-content/60">{m.products.editFixedSku}</p>}
             <details className="text-sm" open={edit || undefined}>
               <summary className="cursor-pointer opacity-80">{m.products.extra}</summary>
               <div className="mt-2 grid gap-3 md:grid-cols-3">

@@ -530,7 +530,7 @@ export function DeliveryDetailPage() {
   return (
     <section className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <h1 className="text-xl font-bold">{`${m.deliveries.deliveryId} ${deliveryId}`}</h1>
+        <PageHeader title={`${m.deliveries.deliveryId} ${deliveryId}`} />
         <Link className="btn btn-sm ml-auto" to={`/rider-complaints/new?deliveryId=${encodeURIComponent(deliveryId)}`}>
           {m.deliveries.recordComplaint}
         </Link>

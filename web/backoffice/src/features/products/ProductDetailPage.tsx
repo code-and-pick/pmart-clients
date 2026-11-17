@@ -16,6 +16,7 @@ import { QueryState } from '@pmart/web-ui';
 import { toUiState } from '@pmart/web-ui';
 import { useCommand } from '@pmart/web-ui';
 import { RequestApproval } from '../approvals/RequestApproval';
+import { DataTable, PageHeader } from '../../shared/admin';
 
 /** handoff 2026-10-30 §4.3 판매중지 변경 요청 본문 */
 export function saleStopApprovalBody(productId: string, reason: string): ChangeRequestBody {
@@ -65,7 +66,7 @@ function SaleStateChange({ product }: { readonly product: ProductDetail }) {
 
   const stop = saleState === 'SALE_STOPPED';
   return (
-    <div className="space-y-3 rounded-box bg-base-100 p-4">
+    <div className="space-y-3 rounded-box border border-base-300 bg-base-100 p-4">
       <h2 className="font-bold">{m.products.changeSaleState}</h2>
       <div className="flex flex-wrap items-end gap-2">
         <label className="flex flex-col text-sm">
@@ -152,12 +153,12 @@ function EditStart({ productId }: { readonly productId: string }) {
   // 0.3.2: MD 가 아니면 403 — 일반 권한 문구 대신 'MD 만' 안내(백엔드 알림 2026-11-17 notice-product-edit-md-only)
   const notMd = failure instanceof ProblemFailure && failure.problem.code === 'FORBIDDEN';
   return (
-    <div className="space-y-2 rounded-box bg-base-100 p-4">
+    <div className="space-y-2 rounded-box border border-base-300 bg-base-100 p-4">
       <div className="flex flex-wrap items-center gap-3">
         <button type="button" className="btn btn-sm" disabled={start.busy} onClick={() => void start.run(null)}>
           {m.products.editStart}
         </button>
-        <span className="text-xs opacity-70">{m.products.editStartHint}</span>
+        <span className="text-xs text-base-content/60">{m.products.editStartHint}</span>
       </div>
       {existing ? (
         <div role="alert" className="alert alert-warning text-sm" data-testid="product-edit-exists">
@@ -189,11 +190,11 @@ export function ProductDetailPage() {
 
   return (
     <section className="space-y-4">
-      <h1 className="text-xl font-bold">{m.products.detailTitle(productId)}</h1>
+      <PageHeader title={m.products.detailTitle(productId)} />
       <QueryState state={toUiState(query)} onRetry={() => void query.refetch()}>
         {(p) => (
           <>
-            <dl className="grid grid-cols-[10rem_1fr] gap-1 rounded-box bg-base-100 p-4 text-sm">
+            <dl className="grid grid-cols-[10rem_1fr] gap-1 rounded-box border border-base-300 bg-base-100 p-4 text-sm">
               <dt>{m.products.internalName}</dt>
               <dd>{p.internalName ?? m.none}</dd>
               <dt>{m.products.saleState}</dt>
@@ -224,10 +225,10 @@ export function ProductDetailPage() {
             {canChangeSaleState ? (
               <EditStart productId={productId} />
             ) : (
-              <p className="rounded-box bg-base-100 p-4 text-sm opacity-70">{m.products.editMdOnly}</p>
+              <p className="rounded-box border border-base-300 bg-base-100 p-4 text-sm text-base-content/60">{m.products.editMdOnly}</p>
             )}
             <h2 className="font-bold">{m.products.skus}</h2>
-            <table className="table table-sm bg-base-100">
+            <DataTable>
               <thead>
                 <tr>
                   <th>SKU</th>
@@ -256,11 +257,11 @@ export function ProductDetailPage() {
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </DataTable>
             {canChangeSaleState ? (
               <SaleStateChange key={p.productId} product={p} />
             ) : (
-              <p className="rounded-box bg-base-100 p-4 text-sm opacity-70">{m.products.saleStateMdOnly}</p>
+              <p className="rounded-box border border-base-300 bg-base-100 p-4 text-sm text-base-content/60">{m.products.saleStateMdOnly}</p>
             )}
           </>
         )}

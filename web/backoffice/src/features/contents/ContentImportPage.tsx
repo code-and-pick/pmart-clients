@@ -13,6 +13,7 @@ import { useCommand } from '@pmart/web-ui';
 import { BatchApprovals, multipart, ZipUpload } from '../products/ProductImportPage';
 import { ContentRegistration } from './ContentRegistration';
 import { type ImportItem, rowStatus, type RowStatus, rowSummary } from './importRowStatus';
+import { DataTable, PageHeader } from '../../shared/admin';
 
 export function NewContentImportPage() {
   const api = useApi();
@@ -28,7 +29,7 @@ export function NewContentImportPage() {
   );
   return (
     <section className="space-y-4">
-      <h1 className="text-xl font-bold">{m.contents.importTitle}</h1>
+      <PageHeader title={m.contents.importTitle} />
       <ZipUpload
         busy={upload.busy}
         onUpload={(file) => void upload.run(file)}
@@ -58,7 +59,7 @@ export function ContentImportPage() {
 
   return (
     <section className="space-y-4">
-      <h1 className="text-xl font-bold">{m.products.batch(batchId)}</h1>
+      <PageHeader title={m.products.batch(batchId)} />
       <QueryState state={toUiState(query)} onRetry={() => void query.refetch()}>
         {(b) => (
           <>
@@ -66,7 +67,7 @@ export function ContentImportPage() {
             <p role="status" data-testid="row-summary" className="text-sm">
               {rowSummary(b.items ?? [])}
             </p>
-            <table className="table table-sm bg-base-100">
+            <DataTable>
               <thead>
                 <tr>
                   <th>{m.contents.rowHead.draft}</th>
@@ -104,7 +105,7 @@ export function ContentImportPage() {
                   );
                 })}
               </tbody>
-            </table>
+            </DataTable>
             {b.state === 'UPLOADED' && (
               <button
                 type="button"

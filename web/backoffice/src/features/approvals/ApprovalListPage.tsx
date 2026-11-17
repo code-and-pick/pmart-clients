@@ -10,6 +10,7 @@ import { formatSeoul } from '@pmart/web-ui';
 import { messages as m } from '../../shared/messages';
 import { QueryState } from '@pmart/web-ui';
 import { toUiState } from '@pmart/web-ui';
+import { DataTable, PageHeader } from '../../shared/admin';
 
 const pick = <T extends string>(value: string | null, allowed: readonly T[]): T | undefined =>
   allowed.find((a) => a === value);
@@ -48,7 +49,7 @@ export function ApprovalListPage() {
 
   return (
     <section className="space-y-4">
-      <h1 className="text-xl font-bold">{m.approvals.title}</h1>
+      <PageHeader title={m.approvals.title} />
       <div className="flex flex-wrap gap-2">
         <select
           aria-label={m.approvals.type}
@@ -92,7 +93,7 @@ export function ApprovalListPage() {
       >
         {(data) => (
           <>
-            <table className="table table-sm bg-base-100">
+            <DataTable>
               <thead>
                 <tr>
                   <th>{m.approvals.dossier}</th>
@@ -125,7 +126,7 @@ export function ApprovalListPage() {
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </DataTable>
             {/* 다음 쪽을 못 읽으면 받은 줄은 두고 경고만(0건·끝으로 보이지 않게) */}
             {query.isFetchNextPageError && <p className="text-sm text-error">{m.approvals.moreFailed}</p>}
             {query.hasNextPage && (

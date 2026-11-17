@@ -14,6 +14,7 @@ import { toUiState } from '@pmart/web-ui';
 import { useCommand } from '@pmart/web-ui';
 import { RequestApproval } from '../approvals/RequestApproval';
 import { ProductDraftForm } from './ProductDraftForm';
+import { PageHeader } from '../../shared/admin';
 
 export function DraftProblems({ draft }: { readonly draft: ProductDraft }) {
   return (
@@ -46,7 +47,7 @@ export function NewProductDraftPage() {
 
   return (
     <section className="space-y-4">
-      <h1 className="text-xl font-bold">{m.products.draftTitle}</h1>
+      <PageHeader title={m.products.draftTitle} />
       <form
         className="flex gap-2"
         onSubmit={(e) => {
@@ -105,13 +106,13 @@ export function ProductDraftPage() {
 
   return (
     <section className="space-y-4">
-      <h1 className="text-xl font-bold">{m.products.draftDetail(draftId)}</h1>
+      <PageHeader title={m.products.draftDetail(draftId)} />
       <QueryState state={toUiState(query)} onRetry={() => void query.refetch()}>
         {(d) => (
           <>
             {/* product 0.3.0 수정 초안(edit-drafts): input.targetProductId = 고칠 상품 */}
             {d.input?.targetProductId && (
-              <div className="space-y-1 rounded-box bg-base-100 p-3 text-sm" data-testid="product-edit-note">
+              <div className="space-y-1 rounded-box border border-base-300 bg-base-100 p-3 text-sm" data-testid="product-edit-note">
                 <p className="font-bold">
                   {`${m.products.editOf} — `}
                   <Link className="link" to={`/products/${encodeURIComponent(d.input.targetProductId)}`}>
@@ -160,7 +161,7 @@ export function ProductDraftPage() {
                 </Link>
               </p>
             )}
-            <div className="rounded-box bg-base-100 p-3 text-sm">
+            <div className="rounded-box border border-base-300 bg-base-100 p-3 text-sm">
               <h2 className="font-bold">{m.products.result}</h2>
               {d.state === 'APPLIED' && d.resultProductId ? (
                 <p>

@@ -441,7 +441,7 @@ export function RiderDetailPage() {
   });
   return (
     <section className="max-w-5xl space-y-4">
-      <h1 className="text-xl font-bold">{`${m.riders.detailTitle} ${riderId}`}</h1>
+      <PageHeader title={`${m.riders.detailTitle} ${riderId}`} />
       <h2 className="font-bold">{m.riders.basic}</h2>
       <QueryState state={toUiState(detail)} onRetry={() => void detail.refetch()}>
         {(r) => <RiderBasic key={r.riderId} rider={r} />}

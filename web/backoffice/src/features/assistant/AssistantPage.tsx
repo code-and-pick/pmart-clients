@@ -16,6 +16,7 @@ import { useCommand } from '@pmart/web-ui';
 import { assistantQueryKey, useAssistant } from './AssistantContext';
 import { AnswerView } from './AnswerView';
 import type { AssistantAnswer, HistoryItem } from './model';
+import { PageHeader } from '../../shared/admin';
 
 const MAX_QUESTION = 2000; // 계약 PolicyQuestion.question maxLength
 
@@ -32,11 +33,15 @@ function Header() {
   const { port } = useAssistant();
   return (
     <>
-      <h1 className="text-xl font-bold">
-        {m.assistant.title}
-        {port.mock && <span className="badge badge-warning ml-2 align-middle">{m.assistant.mockBadge}</span>}
-      </h1>
-      <p className="text-sm opacity-70">{m.assistant.intro}</p>
+      <PageHeader
+        title={
+          <>
+            {m.assistant.title}
+            {port.mock && <span className="badge badge-warning ml-2 align-middle">{m.assistant.mockBadge}</span>}
+          </>
+        }
+        description={m.assistant.intro}
+      />
     </>
   );
 }
@@ -77,7 +82,7 @@ function History() {
       ) : query.isPending ? (
         <QueryState state={{ kind: 'loading' }}>{() => null}</QueryState>
       ) : items.length === 0 ? (
-        <p className="text-sm opacity-70">{m.assistant.historyEmpty}</p>
+        <p className="text-sm text-base-content/60">{m.assistant.historyEmpty}</p>
       ) : (
         <>
           <ul className="space-y-2 text-sm">
@@ -126,7 +131,7 @@ function AskView() {
       {port.mockHints && <p className="text-xs opacity-60">{m.assistant.mockTags(port.mockHints.join(' '))}</p>}
 
       <form
-        className="space-y-2 rounded-box bg-base-100 p-4"
+        className="space-y-2 rounded-box border border-base-300 bg-base-100 p-4"
         onSubmit={(e) => {
           e.preventDefault();
           if (canSend) void ask.run({ q: trimmed });

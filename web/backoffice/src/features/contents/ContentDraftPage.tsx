@@ -20,6 +20,7 @@ import { ImagePicker, type PendingImage } from './ImagePicker';
 import { uploadPendingImages, type UploadOutcome } from './imageUpload';
 import { NoticesJsonError, parseNoticesJson } from './noticesJson';
 import { ProductPicker } from './ProductPicker';
+import { PageHeader } from '../../shared/admin';
 
 function ContentForm({
   initial,
@@ -116,7 +117,7 @@ function ContentForm({
 
   return (
     <form
-      className="grid gap-3 rounded-box bg-base-100 p-4 md:grid-cols-2"
+      className="grid gap-3 rounded-box border border-base-300 bg-base-100 p-4 md:grid-cols-2"
       onSubmit={(e) => {
         e.preventDefault();
         const notices = v.notices
@@ -161,7 +162,7 @@ function ContentForm({
             }}
           />
         </label>
-        <span className="text-xs opacity-70">{m.contents.noticesJsonHint}</span>
+        <span className="text-xs text-base-content/60">{m.contents.noticesJsonHint}</span>
         {jsonNote && (
           <span role="status" className={jsonNote.ok ? 'text-success' : 'text-error'}>
             {jsonNote.text}
@@ -202,7 +203,7 @@ export function NewContentDraftPage() {
   });
   return (
     <section className="space-y-4">
-      <h1 className="text-xl font-bold">{m.contents.draftTitle}</h1>
+      <PageHeader title={m.contents.draftTitle} />
       <form
         className="flex gap-2"
         onSubmit={(e) => {
@@ -228,7 +229,7 @@ export function NewContentDraftPage() {
         busy={create.busy}
         onSubmit={(input) => void create.run(input)}
       />
-      <div className="space-y-2 rounded-box bg-base-100 p-4">
+      <div className="space-y-2 rounded-box border border-base-300 bg-base-100 p-4">
         <h2 className="font-bold">{m.contents.images}</h2>
         <p className="text-sm opacity-80">{m.contents.imageAfterSave}</p>
         <ImagePicker pending={pending} onChange={setPending} disabled={create.busy} />
@@ -321,7 +322,7 @@ export function ContentDraftPage() {
 
   return (
     <section className="space-y-4">
-      <h1 className="text-xl font-bold">{m.contents.draftDetail(draftId)}</h1>
+      <PageHeader title={m.contents.draftDetail(draftId)} />
       <QueryState state={toUiState(query)} onRetry={() => void query.refetch()}>
         {(d) => (
           <>
@@ -349,7 +350,7 @@ export function ContentDraftPage() {
             )}
             <CommandFeedback command={update} />
 
-            <div className="space-y-2 rounded-box bg-base-100 p-4">
+            <div className="space-y-2 rounded-box border border-base-300 bg-base-100 p-4">
               <h2 className="font-bold">{m.contents.images}</h2>
               {d.state === 'DRAFT' ? (
                 <DraftImages key={d.images?.length ?? 0} draft={d} />

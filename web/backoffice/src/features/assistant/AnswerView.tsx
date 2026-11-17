@@ -135,7 +135,7 @@ export function AnswerView({
   }
 
   return (
-    <article data-state="answered" className="space-y-3 rounded-box bg-base-100 p-4">
+    <article data-state="answered" className="space-y-3 rounded-box border border-base-300 bg-base-100 p-4">
       {question && <p className="text-sm opacity-70 whitespace-pre-wrap">{`Q. ${question}`}</p>}
       {isBaseline(answer) && (
         <p role="note" data-testid="baseline" className="alert alert-warning text-xs">
@@ -150,7 +150,7 @@ export function AnswerView({
       <p className="whitespace-pre-wrap break-words" data-testid="answer-text">
         {answer.answer}
       </p>
-      <div className="flex flex-wrap gap-3 text-xs opacity-70">
+      <div className="flex flex-wrap gap-3 text-xs text-base-content/60">
         {idLine}
         <span>{formatSeoul(answer.askedAt)}</span>
         {answer.indexSnapshotId && <span>{m.assistant.indexSnapshot(answer.indexSnapshotId)}</span>}

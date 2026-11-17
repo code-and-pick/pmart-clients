@@ -27,6 +27,7 @@ import { useApi } from '../../app/ApiContext';
 import { messages as m } from '../../shared/messages';
 import { label, text, when } from '../../shared/ops';
 import { SourceStamps } from '../../shared/SourceStamps';
+import { DataTable, PageHeader } from '../../shared/admin';
 
 type Item = components['schemas']['PendingWorkItem'];
 type View = components['schemas']['ComposedView'] & { items?: Item[]; truncated?: boolean };
@@ -220,7 +221,7 @@ function ActionForm({ item, action, onClose, onRestart }: { readonly item: Item;
         {action === 'ACKNOWLEDGE' ? m.pending.note : action === 'MARK_RESOLVED' ? m.pending.resolveReason : action === 'RETRY' ? m.pending.retryReason : m.pending.requeryReason}
         <textarea className="textarea textarea-xs w-64" maxLength={500} value={text_} onChange={(e) => setText(e.target.value)} />
       </label>
-      <p className="text-xs opacity-70">{action === 'ACKNOWLEDGE' ? m.pending.noteHint : action === 'RETRY' ? m.pending.retryHint : m.pending.reasonHint}</p>
+      <p className="text-xs text-base-content/60">{action === 'ACKNOWLEDGE' ? m.pending.noteHint : action === 'RETRY' ? m.pending.retryHint : m.pending.reasonHint}</p>
       <div className="flex gap-1">
         <button type="submit" className="btn btn-xs btn-primary" disabled={!ok || cmd.busy}>
           {m.pending.confirm}
@@ -291,8 +292,7 @@ export function PendingPage() {
 
   return (
     <section className="max-w-6xl space-y-4">
-      <h1 className="text-xl font-bold">{m.pending.title}</h1>
-      <p className="text-sm opacity-70">{m.pending.intro}</p>
+      <PageHeader title={m.pending.title} description={m.pending.intro} />
       <QueryState state={state} onRetry={() => void query.refetch()} emptyText={m.pending.empty}>
         {(view) => (
           <>
@@ -303,7 +303,7 @@ export function PendingPage() {
                 {m.pending.truncated}
               </p>
             )}
-            <table className="table table-sm rounded-box bg-base-100">
+            <DataTable>
               <thead>
                 <tr>
                   <th>{m.pending.since}</th>
@@ -320,22 +320,22 @@ export function PendingPage() {
                     <td>{when(i.since)}</td>
                     <td>
                       {label(m.pending.kindName, i.kind)}
-                      {i.sagaType && <p className="text-xs opacity-70">{`${label(m.pending.sagaTypeName, i.sagaType)}${i.step ? ` · ${i.step}` : ''}`}</p>}
-                      {i.mfcId && <p className="text-xs opacity-70">{i.mfcId}</p>}
+                      {i.sagaType && <p className="text-xs text-base-content/60">{`${label(m.pending.sagaTypeName, i.sagaType)}${i.step ? ` · ${i.step}` : ''}`}</p>}
+                      {i.mfcId && <p className="text-xs text-base-content/60">{i.mfcId}</p>}
                     </td>
                     <td>
                       <OrderCell orderId={i.orderId} />
                     </td>
                     <td>
                       {i.reasonCode ? label(i.kind === 'FULFILLMENT_ISSUE' ? m.pending.reasonName : {}, i.reasonCode) : m.none}
-                      {i.reasonMessage && <p className="text-xs opacity-70">{i.reasonMessage}</p>}
+                      {i.reasonMessage && <p className="text-xs text-base-content/60">{i.reasonMessage}</p>}
                     </td>
                     <td>{text(i.state)}</td>
                     <td>
                       <Actions item={i} />
                       {/* bff 0.8.0 — 최근 운영자 재시도(MFC 에 남은 기록). 없으면 줄 없음 */}
                       {i.lastRetry && (
-                        <p className="mt-1 text-xs opacity-70" data-testid="pending-last-retry">
+                        <p className="mt-1 text-xs text-base-content/60" data-testid="pending-last-retry">
                           {m.pending.lastRetry(text(i.lastRetry.operatorId), when(i.lastRetry.retriedAt), text(i.lastRetry.reason))}
                         </p>
                       )}
@@ -343,12 +343,12 @@ export function PendingPage() {
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </DataTable>
           </>
         )}
       </QueryState>
       {query.isSuccess && !(query.data.sources ?? []).some((s) => s.system === MFC) && !(query.data.unavailableSources ?? []).includes(MFC) && (
-        <p className="text-xs opacity-70" data-testid="pending-not-yet">
+        <p className="text-xs text-base-content/60" data-testid="pending-not-yet">
           {m.pending.notYet}
         </p>
       )}

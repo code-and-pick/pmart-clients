@@ -14,6 +14,7 @@ import type { components } from '../../api/generated/audit';
 import { useApi } from '../../app/ApiContext';
 import { messages } from '../../shared/messages';
 import { Facts, isSeoulDate, label, seoulDayEnd, seoulDayStart, text, when } from '../../shared/ops';
+import { DataTable, PageHeader } from '../../shared/admin';
 
 const m = messages.piiLogs;
 type Log = components['schemas']['PiiAccessLog'];
@@ -104,8 +105,7 @@ export function PiiAccessLogListPage() {
 
   return (
     <section className="space-y-4">
-      <h1 className="text-xl font-bold">{m.title}</h1>
-      <p className="text-sm opacity-70">{m.intro}</p>
+      <PageHeader title={m.title} description={m.intro} />
       <FilterForm key={params.toString()} initial={filters} onApply={(f) => apply(f)} />
       {badRange ? (
         <p role="alert" className="alert alert-warning text-sm">
@@ -119,7 +119,7 @@ export function PiiAccessLogListPage() {
             return (
               <div className="space-y-3">
                 {items.length === 0 ? (
-                  <p data-state="empty" className="p-4 opacity-70">
+                  <p data-state="empty" className="p-4 text-base-content/60">
                     {m.empty}
                   </p>
                 ) : (
@@ -144,7 +144,7 @@ export function PiiAccessLogListPage() {
           }}
         </QueryState>
       )}
-      <p className="text-xs opacity-70">{m.retention}</p>
+      <p className="text-xs text-base-content/60">{m.retention}</p>
     </section>
   );
 }
@@ -157,7 +157,7 @@ function FilterForm({ initial, onApply }: { readonly initial: Filters; readonly 
     onApply(Object.fromEntries(KEYS.map((k) => [k, f[k].trim()])) as Filters);
   };
   return (
-    <form className="flex flex-wrap items-end gap-2 rounded-box bg-base-100 p-3 text-sm" aria-label={m.filters} onSubmit={submit}>
+    <form className="flex flex-wrap items-end gap-2 rounded-box border border-base-300 bg-base-100 p-3 text-sm" aria-label={m.filters} onSubmit={submit}>
       {TEXT_KEYS.map((k) => (
         <label key={k} className="flex flex-col gap-1">
           {m.filter[k]}
@@ -207,7 +207,7 @@ function FilterForm({ initial, onApply }: { readonly initial: Filters; readonly 
 function LogTable({ items, search }: { readonly items: readonly Log[]; readonly search: string }) {
   return (
     <div className="overflow-x-auto">
-      <table className="table table-sm rounded-box bg-base-100">
+      <DataTable>
         <thead>
           <tr>
             <th>{m.col.occurredAt}</th>
@@ -229,7 +229,7 @@ function LogTable({ items, search }: { readonly items: readonly Log[]; readonly 
               </td>
               <td>
                 <span className="font-mono">{log.actor.actorId}</span>
-                {(log.actor.roles?.length ?? 0) > 0 && <div className="text-xs opacity-70">{log.actor.roles?.join(', ')}</div>}
+                {(log.actor.roles?.length ?? 0) > 0 && <div className="text-xs text-base-content/60">{log.actor.roles?.join(', ')}</div>}
               </td>
               <td>{subject(log)}</td>
               <td>{fieldsText(log.fields)}</td>
@@ -241,7 +241,7 @@ function LogTable({ items, search }: { readonly items: readonly Log[]; readonly 
             </tr>
           ))}
         </tbody>
-      </table>
+      </DataTable>
     </div>
   );
 }
@@ -260,7 +260,7 @@ export function PiiAccessLogDetailPage() {
       <Link className="link text-sm" to={`/pii-access-logs${back ? `?${back}` : ''}`}>
         {m.back}
       </Link>
-      <h1 className="text-xl font-bold">{m.detailTitle}</h1>
+      <PageHeader title={m.detailTitle} />
       <QueryState state={toUiState(query)} onRetry={() => void query.refetch()}>
         {(log) => (
           <>
@@ -283,7 +283,7 @@ export function PiiAccessLogDetailPage() {
                 [m.logId, <span className="font-mono">{log.piiAccessLogId}</span>],
               ]}
             />
-            <p className="text-xs opacity-70">{m.purposeNote}</p>
+            <p className="text-xs text-base-content/60">{m.purposeNote}</p>
           </>
         )}
       </QueryState>

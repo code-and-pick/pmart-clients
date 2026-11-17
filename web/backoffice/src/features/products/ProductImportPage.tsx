@@ -15,6 +15,7 @@ import { toUiState } from '@pmart/web-ui';
 import { useCommand } from '@pmart/web-ui';
 import { RequestApproval } from '../approvals/RequestApproval';
 import { DraftProblems } from './ProductDraftPage';
+import { DataTable, PageHeader } from '../../shared/admin';
 
 /**
  * 제출한 배치의 승인 요청 현황(BR-41 회신 2026-11-03). 승인 목록을 `GET /approvals?targetRef=` 로 정확히 찾아 링크·심사 상태를 보이고,
@@ -35,7 +36,7 @@ export function BatchApprovals({ targetRef, pending }: { readonly targetRef: str
   const showRequest = !!pending && list.isSuccess && (found.length === 0 || requested !== null);
 
   return (
-    <div className="space-y-2 rounded-box bg-base-100 p-4" aria-label={m.products.approvals}>
+    <div className="space-y-2 rounded-box border border-base-300 bg-base-100 p-4" aria-label={m.products.approvals}>
       <h2 className="font-bold">{m.products.approvals}</h2>
       {ids.length > 0 && (
         <ul className="space-y-1 text-sm">
@@ -52,7 +53,7 @@ export function BatchApprovals({ targetRef, pending }: { readonly targetRef: str
           })}
         </ul>
       )}
-      {list.isPending && <p className="text-sm opacity-70">{m.loading}</p>}
+      {list.isPending && <p className="text-sm text-base-content/60">{m.loading}</p>}
       {list.error instanceof PmartFailure && (
         <div>
           <FailureAlert failure={list.error} />
@@ -91,7 +92,7 @@ export function ZipUpload({
 }) {
   const [file, setFile] = useState<File | null>(null);
   return (
-    <div className="flex flex-wrap items-end gap-2 rounded-box bg-base-100 p-4">
+    <div className="flex flex-wrap items-end gap-2 rounded-box border border-base-300 bg-base-100 p-4">
       <label className="flex flex-col text-sm">
         {m.products.zipFile}
         <input
@@ -127,7 +128,7 @@ export function NewProductImportPage() {
   const upload = useImportUpload();
   return (
     <section className="space-y-4">
-      <h1 className="text-xl font-bold">{m.products.importTitle}</h1>
+      <PageHeader title={m.products.importTitle} />
       <ZipUpload busy={upload.busy} onUpload={(file) => void upload.run(file)} />
       <CommandFeedback command={upload} />
     </section>
@@ -248,7 +249,7 @@ export function ProductImportPage() {
 
   return (
     <section className="space-y-4">
-      <h1 className="text-xl font-bold">{m.products.batch(batchId)}</h1>
+      <PageHeader title={m.products.batch(batchId)} />
       <QueryState state={toUiState(query)} onRetry={() => void query.refetch()}>
         {(b) => {
           const counts = batchCounts(b);
@@ -266,7 +267,7 @@ export function ProductImportPage() {
                 </p>
               ) : null;
             })()}
-            <table className="table table-sm bg-base-100">
+            <DataTable>
               <tbody>
                 {(b.drafts ?? []).map((d) => (
                   <tr key={d.draftId}>
@@ -308,7 +309,7 @@ export function ProductImportPage() {
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </DataTable>
             <div className="flex gap-2">
               {b.state === 'VALIDATED' && (
                 <button

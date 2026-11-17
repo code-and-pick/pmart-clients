@@ -290,7 +290,7 @@ export function RiderComplaintDetailPage() {
   });
   return (
     <section className="max-w-3xl space-y-4">
-      <h1 className="text-xl font-bold">{`${m.complaints.detailTitle} ${complaintId}`}</h1>
+      <PageHeader title={`${m.complaints.detailTitle} ${complaintId}`} />
       <QueryState state={toUiState(query)} onRetry={() => void query.refetch()}>
         {(c) => (
           <Facts

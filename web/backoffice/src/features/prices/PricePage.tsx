@@ -18,6 +18,7 @@ import { QueryState } from '@pmart/web-ui';
 import { toUiState } from '@pmart/web-ui';
 import { useCommand } from '@pmart/web-ui';
 import { RequestApproval } from '../approvals/RequestApproval';
+import { DataTable, PageHeader } from '../../shared/admin';
 
 const SKU_PATTERN = /^[EB]-\d{8}$/;
 const PRICE_NOT_SET = 'PRICE_NOT_SET';
@@ -39,7 +40,7 @@ function PriceLookup({ sku }: { readonly sku: string }) {
 
   return (
     <div className="grid gap-4 md:grid-cols-2">
-      <div className="rounded-box bg-base-100 p-4 text-sm">
+      <div className="rounded-box border border-base-300 bg-base-100 p-4 text-sm">
         <h2 className="mb-2 font-bold">{`${m.prices.current} · ${sku}`}</h2>
         {notSet ? (
           <p role="status" data-state="not-set" className="text-warning">
@@ -64,11 +65,11 @@ function PriceLookup({ sku }: { readonly sku: string }) {
           </QueryState>
         )}
       </div>
-      <div className="rounded-box bg-base-100 p-4 text-sm">
+      <div className="rounded-box border border-base-300 bg-base-100 p-4 text-sm">
         <h2 className="mb-2 font-bold">{m.prices.history}</h2>
         <QueryState state={toUiState(history, (d) => (d.items?.length ?? 0) === 0)} onRetry={() => void history.refetch()}>
           {(h) => (
-            <table className="table table-xs">
+            <DataTable>
               <tbody>
                 {(h.items ?? []).map((v, i) => (
                   <tr key={v.priceVersion ?? i}>
@@ -79,7 +80,7 @@ function PriceLookup({ sku }: { readonly sku: string }) {
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </DataTable>
           )}
         </QueryState>
       </div>
@@ -151,14 +152,14 @@ function PriceChange({ initialSku }: { readonly initialSku: string }) {
   );
 
   return (
-    <div className="space-y-3 rounded-box bg-base-100 p-4">
+    <div className="space-y-3 rounded-box border border-base-300 bg-base-100 p-4">
       <h2 className="font-bold">{m.prices.changeTitle}</h2>
-      <p className="text-xs opacity-70">{m.prices.effectiveHint}</p>
+      <p className="text-xs text-base-content/60">{m.prices.effectiveHint}</p>
       <label className="flex w-fit flex-col text-sm">
         {m.prices.requestedEffectiveFrom}
         <input type="datetime-local" className="input input-sm" disabled={body !== null} value={common} onChange={(e) => setCommon(e.target.value)} />
       </label>
-      <table className="table table-sm">
+      <DataTable>
         <thead>
           <tr>
             <th>{m.prices.sku}</th>
@@ -189,7 +190,7 @@ function PriceChange({ initialSku }: { readonly initialSku: string }) {
             </tr>
           ))}
         </tbody>
-      </table>
+      </DataTable>
       {body === null ? (
         <div className="flex gap-2">
           <button type="button" className="btn btn-sm" onClick={() => setLines([...lines, emptyLine()])}>
@@ -240,7 +241,7 @@ export function PricePage() {
   const [input, setInput] = useState(sku);
   return (
     <section className="space-y-4">
-      <h1 className="text-xl font-bold">{m.prices.title}</h1>
+      <PageHeader title={m.prices.title} />
       <form
         className="flex gap-2"
         onSubmit={(e) => {

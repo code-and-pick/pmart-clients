@@ -16,6 +16,7 @@ import { messages as m } from '../../shared/messages';
 import { QueryState } from '@pmart/web-ui';
 import { toUiState } from '@pmart/web-ui';
 import { useCommand } from '@pmart/web-ui';
+import { DataTable, PageHeader } from '../../shared/admin';
 
 type CenterType = 'MFC' | 'CDC';
 
@@ -150,8 +151,8 @@ export function SkuHandlingPage() {
   const rows = query.data?.items ?? [];
   return (
     <section className="space-y-4">
-      <h1 className="text-xl font-bold">{m.handlings.title}</h1>
-      <p className="text-xs opacity-70">{`${m.handlings.centerIdHint} ${m.handlings.defaultOff} ${m.handlings.saleHint}`}</p>
+      <PageHeader title={m.handlings.title} />
+      <p className="text-xs text-base-content/60">{`${m.handlings.centerIdHint} ${m.handlings.defaultOff} ${m.handlings.saleHint}`}</p>
       <div className="flex flex-wrap items-end gap-2">
         <select aria-label={m.handlings.centerType} className="select select-sm w-28" value={type} onChange={(e) => setParam('type', e.target.value)}>
           <option value="MFC">MFC</option>
@@ -189,7 +190,7 @@ export function SkuHandlingPage() {
         <QueryState state={toUiState(query, (d) => (d.items?.length ?? 0) === 0)} onRetry={() => void query.refetch()}>
           {(d) => (
             <>
-              <table className="table table-sm bg-base-100">
+              <DataTable>
                 <thead>
                   <tr>
                     <th />
@@ -220,7 +221,7 @@ export function SkuHandlingPage() {
                     />
                   ))}
                 </tbody>
-              </table>
+              </DataTable>
               {d.page?.nextCursor && (
                 <button type="button" className="btn btn-sm" onClick={() => setParam('cursor', d.page?.nextCursor ?? '')}>
                   {m.more}
@@ -232,7 +233,7 @@ export function SkuHandlingPage() {
       )}
 
       {selected.size > 0 && (
-        <div className="space-y-2 rounded-box bg-base-100 p-4">
+        <div className="space-y-2 rounded-box border border-base-300 bg-base-100 p-4">
           <p className="text-sm">{`${m.handlings.batch} (${selected.size}) · ${m.handlings.batchAllOrNothing}`}</p>
           <div className="flex gap-2">
             <select aria-label={m.handlings.batch} className="select select-sm w-28" value={batchEnabled ? 'true' : 'false'} onChange={(e) => setBatchEnabled(e.target.value === 'true')}>

@@ -18,6 +18,7 @@ import { toUiState } from '@pmart/web-ui';
 import { useCommand } from '@pmart/web-ui';
 import { BatchApprovals, multipart, ZipUpload } from '../products/ProductImportPage';
 import { seoulInputToIso } from './PricePage';
+import { DataTable, PageHeader } from '../../shared/admin';
 
 const batchKey = (batchId: string) => ['pricing', 'import-batch', batchId] as const;
 
@@ -41,7 +42,7 @@ export function NewPriceImportPage() {
   const upload = useImportUpload();
   return (
     <section className="space-y-4">
-      <h1 className="text-xl font-bold">{m.prices.importTitle}</h1>
+      <PageHeader title={m.prices.importTitle} />
       <p className="text-sm opacity-80">{m.prices.importHint}</p>
       <ZipUpload busy={upload.busy} onUpload={(file) => void upload.run(file)} />
       <CommandFeedback command={upload} />
@@ -208,7 +209,7 @@ export function PriceImportPage() {
 
   return (
     <section className="space-y-4">
-      <h1 className="text-xl font-bold">{`${m.prices.importTitle} · ${m.products.batch(batchId)}`}</h1>
+      <PageHeader title={`${m.prices.importTitle} · ${m.products.batch(batchId)}`} />
       <QueryState state={toUiState(query)} onRetry={() => void query.refetch()}>
         {(b) => (
           <>
@@ -224,7 +225,7 @@ export function PriceImportPage() {
             )}
             {b.state !== 'DRAFT' && <p className="text-sm opacity-80">{m.prices.lockedHint}</p>}
             <div className="overflow-x-auto">
-              <table className="table table-sm bg-base-100">
+              <DataTable>
                 <thead>
                   <tr>
                     <th>{m.prices.productName}</th>
@@ -243,16 +244,16 @@ export function PriceImportPage() {
                     <LineRow key={`${l.seedProductId}:${l.basePrice ?? ''}:${l.excluded}`} batch={b} line={l} />
                   ))}
                 </tbody>
-              </table>
+              </DataTable>
             </div>
 
             {b.state === 'DRAFT' && (
-              <div className="space-y-3 rounded-box bg-base-100 p-4">
+              <div className="space-y-3 rounded-box border border-base-300 bg-base-100 p-4">
                 <div className="flex flex-wrap items-center gap-2">
                   <button type="button" className="btn btn-sm" disabled={refresh.busy || submit.busy} onClick={() => void refresh.run(b.version)}>
                     {m.prices.refresh}
                   </button>
-                  <span className="text-xs opacity-70">{m.prices.refreshHint}</span>
+                  <span className="text-xs text-base-content/60">{m.prices.refreshHint}</span>
                 </div>
                 <CommandFeedback command={refresh} />
                 <div className="flex flex-wrap items-end gap-2">
@@ -268,7 +269,7 @@ export function PriceImportPage() {
                   >
                     {m.prices.submitBatch}
                   </button>
-                  <span className="text-xs opacity-70">{m.prices.submitHint}</span>
+                  <span className="text-xs text-base-content/60">{m.prices.submitHint}</span>
                 </div>
               </div>
             )}

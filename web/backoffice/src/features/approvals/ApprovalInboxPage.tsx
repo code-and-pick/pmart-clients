@@ -8,6 +8,7 @@ import { messages as m } from '../../shared/messages';
 import { QueryState, uiStateFromError, type UiState } from '@pmart/web-ui';
 import { SourceStamps } from '../../shared/SourceStamps';
 import type { ApprovalInboxView } from '../../api/views';
+import { DataTable, PageHeader } from '../../shared/admin';
 
 /** 승인함(BO-10). 명령 버튼은 C3 에서 bff 명령 프록시로 붙인다. */
 export function ApprovalInboxPage() {
@@ -29,12 +30,12 @@ export function ApprovalInboxPage() {
 
   return (
     <section className="space-y-4">
-      <h1 className="text-xl font-bold">{m.approvals.title}</h1>
+      <PageHeader title={m.approvals.title} />
       <QueryState state={state} onRetry={() => void query.refetch()} emptyText={m.approvals.empty}>
         {(view) => (
           <>
             <SourceStamps sources={view.sources} unavailableSources={view.unavailableSources} />
-            <table className="table">
+            <DataTable>
               <thead>
                 <tr>
                   <th>{m.approvals.dossier}</th>
@@ -64,7 +65,7 @@ export function ApprovalInboxPage() {
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </DataTable>
           </>
         )}
       </QueryState>

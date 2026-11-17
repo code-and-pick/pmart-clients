@@ -11,6 +11,7 @@ import { FailureAlert } from '../../shared/Feedback';
 import { messages as m } from '../../shared/messages';
 import { QueryState } from '@pmart/web-ui';
 import { toUiState } from '@pmart/web-ui';
+import { DataTable, PageHeader } from '../../shared/admin';
 
 function Lookup() {
   const api = useApi();
@@ -96,7 +97,7 @@ export function ProductListPage() {
 
   return (
     <section className="space-y-4">
-      <h1 className="text-xl font-bold">{m.products.listTitle}</h1>
+      <PageHeader title={m.products.listTitle} />
       <Lookup />
       <div className="flex flex-wrap gap-2">
         <select
@@ -134,7 +135,7 @@ export function ProductListPage() {
       <QueryState state={toUiState(query, (d) => (d.items?.length ?? 0) === 0)} onRetry={() => void query.refetch()}>
         {(d) => (
           <>
-            <table className="table table-sm bg-base-100">
+            <DataTable>
               <thead>
                 <tr>
                   <th>{m.products.productId}</th>
@@ -163,7 +164,7 @@ export function ProductListPage() {
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </DataTable>
             {d.page?.nextCursor && (
               <button type="button" className="btn btn-sm" onClick={() => setParam('cursor', d.page?.nextCursor ?? '')}>
                 {m.more}
