@@ -11,7 +11,7 @@ import { useApi } from '../../app/ApiContext';
 import { useSession } from '../../app/SessionContext';
 import { messages as m } from '../../shared/messages';
 import { affiliationText } from './labels';
-import { DataTable, PageHeader } from '../../shared/admin';
+import { DataTable, PageHeader, SearchPanel, SearchRow } from '../../shared/admin';
 
 const PAGE_SIZE = 50;
 
@@ -60,14 +60,19 @@ export function EmployeeListPage() {
 
   return (
     <section className="space-y-4">
-      <div className="flex items-center justify-between">
-        <PageHeader title={m.list.title} />
-        <Link to="/employees/new" className="btn btn-primary btn-sm">
-          {m.list.register}
-        </Link>
-      </div>
-      <form
-        className="flex flex-wrap items-end gap-3 rounded-box border border-base-300 bg-base-100 p-4"
+      <PageHeader
+        title={m.list.title}
+        actions={
+          <Link to="/employees/new" className="btn btn-primary btn-sm">
+            {m.list.register}
+          </Link>
+        }
+      />
+      {/* 관리자 형식(2026-11-18): 검색 조건 상자 — 줄마다 왼쪽 항목명 */}
+      <SearchPanel
+        submitLabel={m.search}
+        resetLabel={m.list.reset}
+        onReset={() => setDraft({ status: '', affiliationCode: '', q: '' })}
         onSubmit={(e) => {
           e.preventDefault();
           const next = new URLSearchParams();
@@ -77,19 +82,18 @@ export function EmployeeListPage() {
           setParams(next);
         }}
       >
-        <label className="flex flex-col gap-1 text-sm">
-          {m.list.q}
+        <SearchRow label={m.list.q}>
           <input
-            className="input input-sm w-56"
+            aria-label={m.list.q}
+            className="input input-sm w-64"
             maxLength={60}
             placeholder={m.list.qHint}
             value={draft.q}
             onChange={(e) => setDraft((d) => ({ ...d, q: e.target.value }))}
           />
-        </label>
-        <label className="flex flex-col gap-1 text-sm">
-          {m.fields.status}
-          <select className="select select-sm" value={draft.status} onChange={(e) => setDraft((d) => ({ ...d, status: e.target.value }))}>
+        </SearchRow>
+        <SearchRow label={m.fields.status}>
+          <select aria-label={m.fields.status} className="select select-sm w-40" value={draft.status} onChange={(e) => setDraft((d) => ({ ...d, status: e.target.value }))}>
             <option value="">{m.list.allStatuses}</option>
             {EMPLOYMENT_STATUSES.map((s) => (
               <option key={s} value={s}>
@@ -97,27 +101,23 @@ export function EmployeeListPage() {
               </option>
             ))}
           </select>
-        </label>
-        <label className="flex flex-col gap-1 text-sm">
-          {m.fields.affiliationCode}
+        </SearchRow>
+        <SearchRow label={m.fields.affiliationCode}>
           <input
-            className="input input-sm w-44"
+            aria-label={m.fields.affiliationCode}
+            className="input input-sm w-48"
             maxLength={64}
             placeholder={m.list.affiliationCodeHint}
             value={draft.affiliationCode}
             onChange={(e) => setDraft((d) => ({ ...d, affiliationCode: e.target.value }))}
           />
-        </label>
-        <button type="submit" className="btn btn-sm">
-          {m.search}
-        </button>
-      </form>
+        </SearchRow>
+      </SearchPanel>
 
       <QueryState state={state} onRetry={() => void query.refetch()} emptyText={m.list.empty}>
         {(rows) => (
           <div className="space-y-3">
-            <div className="overflow-x-auto rounded-box border border-base-300 bg-base-100">
-              <DataTable>
+            <DataTable>
                 <thead>
                   <tr>
                     <th>{m.fields.employeeNo}</th>
@@ -146,8 +146,7 @@ export function EmployeeListPage() {
                     </tr>
                   ))}
                 </tbody>
-              </DataTable>
-            </div>
+            </DataTable>
             <div className="flex items-center gap-3 text-sm">
               <span className="opacity-70">{m.list.count(rows.length)}</span>
               {query.hasNextPage && (

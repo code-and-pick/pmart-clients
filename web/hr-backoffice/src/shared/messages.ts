@@ -127,6 +127,7 @@ export const messages = {
     q: '검색어',
     qHint: '이름·메일 ID·사번 앞부분',
     allStatuses: '모든 상태',
+    reset: '지우기',
     affiliationCodeHint: '부서·센터 코드',
     empty: '조건에 맞는 직원이 없어요.',
     register: '직원 등록',

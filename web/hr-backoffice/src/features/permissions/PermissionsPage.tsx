@@ -20,7 +20,7 @@ import { messages as m } from '../../shared/messages';
 import { CenterMultiSelect, useCenters } from '../employees/centers';
 import { activeGrants, lastDayOf, lineProblems, needsCenter, overlappingGrants, parseConflict, problemDetail } from '../employees/grantRules';
 import { roleLabel, useEmployeeRoles } from '../employees/roles';
-import { DataTable, PageHeader } from '../../shared/admin';
+import { DataTable, PageHeader, SearchPanel, SearchRow } from '../../shared/admin';
 
 const ADMIN_ROLES = ['OPERATOR_ADMIN', 'HR_ADMIN'];
 
@@ -41,15 +41,12 @@ export function PermissionsPage() {
   return (
     <section className="max-w-4xl space-y-4">
       <PageHeader title={m.permissions.title} description={m.permissions.intro} />
-      <form className="flex flex-wrap items-end gap-2" onSubmit={onSubmit}>
-        <label className="flex flex-col gap-1 text-sm">
-          {m.list.q}
-          <input className="input input-sm w-64" placeholder={m.list.qHint} value={draft} onChange={(e) => setDraft(e.target.value)} />
-        </label>
-        <button type="submit" className="btn btn-sm">
-          {m.permissions.search}
-        </button>
-      </form>
+      {/* 관리자 형식(2026-11-18): 검색 조건 상자 — 줄마다 왼쪽 항목명 */}
+      <SearchPanel onSubmit={onSubmit} onReset={() => setDraft('')} submitLabel={m.permissions.search} resetLabel={m.list.reset}>
+        <SearchRow label={m.list.q}>
+          <input aria-label={m.list.q} className="input input-sm w-64" placeholder={m.list.qHint} value={draft} onChange={(e) => setDraft(e.target.value)} />
+        </SearchRow>
+      </SearchPanel>
       {q !== '' && (
         <QueryState state={toUiState(list, (p) => p.items.length === 0)} onRetry={() => void list.refetch()} emptyText={m.permissions.noResult}>
           {(page) => (
