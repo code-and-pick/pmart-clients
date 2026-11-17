@@ -140,9 +140,13 @@ interface HelpMessageMock {
   seq: number;
   senderType: 'RIDER' | 'SUPPORT';
   senderId: string | null;
-  body: string;
+  body: string | null;
   photoRefs: string[];
   createdAt: string;
+  masked?: boolean;
+  maskedAt?: string | null;
+  maskedBy?: string | null;
+  maskReason?: string | null;
 }
 
 interface OpsState {
@@ -269,11 +273,16 @@ function seed(): OpsState {
     helpMessages: [
       { messageId: 'HMSG-MOCK-1', seq: 1, senderType: 'RIDER', senderId: 'RID-MOCK-1', body: '[목] 호출해도 응답이 없어요. 문 앞에 두고 가도 될까요?', photoRefs: ['PHOTO-MOCK-1'], createdAt: ago(1) },
     ],
-    helpState: 'IN_PROGRESS',
+    helpState: 'OPEN',
   };
 }
 
 let ops = seed();
+
+/** execution 0.8.0: 접수 건을 맡으면 도움요청이 처리 중(caseHandlers 가 부른다) */
+export function markMockHelpPicked(incidentId: string): void {
+  if (incidentId === 'DLV-MOCK-1:HLP-MOCK-1' && ops.helpState === 'OPEN') ops.helpState = 'IN_PROGRESS';
+}
 
 /** 시험 사이에 목 상태를 처음으로 돌린다. */
 export function resetMockOps(): void {
@@ -844,7 +853,9 @@ export const opsHandlers = [
       incidentId: 'DLV-MOCK-1:HLP-MOCK-1',
       category: 'ADDRESS',
       stage: 'PICKED_UP',
-      state: 'OPEN',
+      state: ops.helpState,
+      lastRiderMessageAt: ops.helpMessages.filter((x) => x.senderType === 'RIDER').at(-1)?.createdAt ?? null,
+      lastSupportMessageAt: ops.helpMessages.filter((x) => x.senderType === 'SUPPORT').at(-1)?.createdAt ?? null,
       detail: '[목] 공동현관이 잠겨 있고 호출해도 응답이 없어요.',
       evidenceRefs: ['PHOTO-MOCK-1'],
       createdAt: ago(1),
@@ -860,7 +871,8 @@ export const opsHandlers = [
     return HttpResponse.json({ items: ops.helpMessages.filter((x) => x.seq > after).slice(0, 200), helpState: ops.helpState });
   }),
   http.post(`${API_BASE}/deliveries/:deliveryId/help-requests/:requestId/messages`, async ({ request, params }) => {
-    const { denied, who } = allow(request, ...LOOKUP);
+    // 0.8.0 DE-2: 지원센터·관리자만(상담원 403)
+    const { denied, who } = allow(request, 'RIDER_OPS', 'OPERATOR_ADMIN');
     if (denied) return denied;
     if (params['deliveryId'] !== 'DLV-MOCK-1' || params['requestId'] !== 'HLP-MOCK-1') return problem(404, 'NOT_FOUND');
     const body = ((await request.clone().json()) as { body?: string }).body ?? '';
@@ -871,6 +883,19 @@ export const opsHandlers = [
       const msg: HelpMessageMock = { messageId: `HMSG-MOCK-${seq}`, seq, senderType: 'SUPPORT', senderId: who?.subject ?? null, body, photoRefs: [], createdAt: new Date().toISOString() };
       ops.helpMessages.push(msg);
       return { status: 201, body: msg };
+    });
+  }),
+  // 0.8.0 DE-2 관리자 가림 — body null·masked, 이미 가렸으면 그대로 200
+  http.post(`${API_BASE}/deliveries/:deliveryId/help-requests/:requestId/messages/:messageId/maskings`, async ({ request, params }) => {
+    const { denied, who } = allow(request, 'OPERATOR_ADMIN');
+    if (denied) return denied;
+    const reason = ((await request.clone().json()) as { reason?: string }).reason ?? '';
+    return idempotent(request, () => {
+      const msg = ops.helpMessages.find((x) => x.messageId === params['messageId']);
+      if (params['requestId'] !== 'HLP-MOCK-1' || !msg) return problem(404, 'NOT_FOUND');
+      if (reason.trim().length < 2 || reason.length > 500) return problem(400, 'VALIDATION_FAILED', [{ field: 'reason', reason: 'INVALID_FORMAT' }]);
+      if (!msg.masked) Object.assign(msg, { body: null, masked: true, maskedAt: new Date().toISOString(), maskedBy: who?.subject ?? null, maskReason: reason.trim() });
+      return { status: 200, body: msg };
     });
   }),
 ];

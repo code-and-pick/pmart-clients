@@ -6,6 +6,7 @@ import { http, HttpResponse } from 'msw';
 
 import { API_BASE, BFF_BASE } from '../api/client';
 import type { components as CaseC } from '../api/generated/case';
+import { markMockHelpPicked } from './opsHandlers';
 import { idempotent, operator, problem, unauthorized } from './support';
 
 type Case = CaseC['schemas']['Case'];
@@ -315,6 +316,7 @@ export const caseHandlers = [
       }
       c.assigneeId = body.assigneeId;
       log(c, 'ASSIGNED', v.who.subject, 'ASSIGNED', body.assigneeId);
+      markMockHelpPicked((c.refs ?? []).find((r) => r.refType === 'incidentId')?.refId ?? '');
       return { status: 200, body: c };
     });
   }),

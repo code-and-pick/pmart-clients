@@ -2,7 +2,9 @@
 // - 접수 건(RIDER_HELP 등) refs 의 deliveryId·requestId 로 `GET …/help-requests/{requestId}/messages?after=<seq>` — 오래된 것부터, 한 번에 200개.
 //   상세를 열어 둔 동안 5초마다 마지막 seq 뒤만 다시 읽는다(새 메시지 알림은 아직 없음).
 // - 답장 `POST …/messages` {body 1~1000} — 같은 키 재전송 = 같은 메시지. 처리 끝난 도움요청은 409 HELP_REQUEST_CLOSED(다시 처리하면 이어 씀).
-// - 답장 권한·새 메시지 시각·대화 가림·처리 중 시점은 백엔드 DE-2(PC 5) 반영 뒤 바뀐다 — 지금은 계약 0.6.0 대로(볼 수 있는 본사 직원 모두 답장, 403 이면 서버 문구).
+// - execution 0.8.0 DE-2(백엔드 회신 backoffice/2026-11-17-reply-help-chat-de2): 답장은 지원센터(RIDER_OPS)·관리자만, 접수 건이 관리자 팀이면 관리자만(상담원은 보기만).
+//   관리자는 메시지를 사유(2~500자)와 함께 가린다(`…/messages/{messageId}/maskings`) — body null·masked, 라이더에게도 가려 보인다. 가리면 받은 대화를 처음부터 다시 읽는다(after 로는 옛 메시지가 안 바뀜).
+//   새 메시지 표시는 bff 사건함(#88) 뒤.
 // - 대화는 화면에만(로그 없음). 입력란에 개인정보 안내.
 import { useQuery } from '@tanstack/react-query';
 import { useRef, useState } from 'react';
@@ -27,12 +29,63 @@ interface Thread {
   readonly helpState: string | undefined;
 }
 
+/** 관리자 가리기(0.8.0) — 사유 2~500자. 사유는 화면에만(로그 없음). */
+function MaskMessage({ deliveryId, requestId, messageId, onDone }: { readonly deliveryId: string; readonly requestId: string; readonly messageId: string; readonly onDone: () => void }) {
+  const api = useApi();
+  const [open, setOpen] = useState(false);
+  const [reason, setReason] = useState('');
+  const mask = useCommand(async (r: string, key) => {
+    const res = await request(
+      'POST',
+      api.execution.POST('/deliveries/{deliveryId}/help-requests/{requestId}/messages/{messageId}/maskings', {
+        ...commandParams(key, { path: { deliveryId, requestId, messageId } }),
+        body: { reason: r },
+      }),
+    );
+    onDone();
+    return res;
+  });
+  const ok = reason.trim().length >= 2 && reason.trim().length <= 500;
+  if (!open)
+    return (
+      <button type="button" className="btn btn-ghost btn-xs" onClick={() => setOpen(true)}>
+        {m.mask}
+      </button>
+    );
+  return (
+    <form
+      className="flex flex-wrap items-end gap-1"
+      aria-label={m.mask}
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (!ok) return;
+        if (mask.phase.kind === 'rejected') mask.reset();
+        void mask.run(reason.trim());
+      }}
+    >
+      <label className="flex flex-col gap-1 text-xs">
+        {m.maskReason}
+        <input className="input input-xs w-56" maxLength={500} value={reason} onChange={(e) => setReason(e.target.value)} />
+      </label>
+      <button type="submit" className="btn btn-xs btn-warning" disabled={!ok || mask.busy}>
+        {m.mask}
+      </button>
+      <button type="button" className="btn btn-ghost btn-xs" onClick={() => setOpen(false)}>
+        {m.cancel}
+      </button>
+      <CommandFeedback command={mask}>{() => <span className="text-xs text-success">{m.maskedDone}</span>}</CommandFeedback>
+    </form>
+  );
+}
+
 /** 접수 건 상세의 "라이더와 대화" 칸 */
-export function HelpChat({ deliveryId, requestId }: { readonly deliveryId: string; readonly requestId: string }) {
+export function HelpChat({ deliveryId, requestId, adminTeam = false }: { readonly deliveryId: string; readonly requestId: string; readonly adminTeam?: boolean }) {
   const api = useApi();
   const { session } = useSession();
   const roles = session?.roles ?? [];
-  const canWrite = roles.includes('OPERATOR_ADMIN') || roles.includes('RIDER_OPS') || roles.includes('CS_AGENT');
+  const admin = roles.includes('OPERATOR_ADMIN');
+  // 0.8.0: 지원센터·관리자만, 관리자 팀으로 넘긴 건은 관리자만(판정은 서버 403)
+  const canWrite = admin || (!adminTeam && roles.includes('RIDER_OPS'));
   /** 지금까지 받은 메시지 — 다음 조회는 마지막 seq 뒤만 */
   const thread = useRef<Thread>({ items: [], helpState: undefined });
   const query = useQuery({
@@ -68,6 +121,11 @@ export function HelpChat({ deliveryId, requestId }: { readonly deliveryId: strin
     void query.refetch();
     return r;
   });
+  /** 가린 뒤에는 옛 메시지가 바뀌므로 처음부터 다시 읽는다 */
+  const reload = () => {
+    thread.current = { items: [], helpState: undefined };
+    void query.refetch();
+  };
   const closed = query.data?.helpState === 'RESOLVED';
   const ok = draft.trim().length >= 1 && draft.trim().length <= MAX_BODY;
   return (
@@ -93,8 +151,15 @@ export function HelpChat({ deliveryId, requestId }: { readonly deliveryId: strin
                       <span className="font-mono">{text(x.senderId)}</span>
                       <span>{when(x.createdAt)}</span>
                     </div>
-                    <p className="whitespace-pre-wrap">{x.body}</p>
+                    {x.masked ? (
+                      <p className="text-xs italic opacity-70" data-testid="help-message-masked">
+                        {m.maskedLine(text(x.maskedBy), text(x.maskReason))}
+                      </p>
+                    ) : (
+                      <p className="whitespace-pre-wrap">{x.body}</p>
+                    )}
                     {(x.photoRefs ?? []).length > 0 && <p className="text-xs opacity-70">{m.photos((x.photoRefs ?? []).join(', '))}</p>}
+                    {admin && !x.masked && <MaskMessage deliveryId={deliveryId} requestId={requestId} messageId={x.messageId} onDone={reload} />}
                   </div>
                 </li>
               );
@@ -129,6 +194,11 @@ export function HelpChat({ deliveryId, requestId }: { readonly deliveryId: strin
             <CommandFeedback command={send}>{() => <span className="text-xs text-success">{m.sent}</span>}</CommandFeedback>
           </form>
         ))}
+      {!canWrite && (
+        <p className="text-xs opacity-70" data-testid="help-chat-read-only">
+          {adminTeam ? m.readOnlyAdminTeam : m.readOnly}
+        </p>
+      )}
     </section>
   );
 }

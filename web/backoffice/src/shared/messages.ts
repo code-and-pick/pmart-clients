@@ -370,6 +370,13 @@ export const messages = {
     piiHint: '고객 전화번호·출입 비밀번호 같은 개인정보는 쓰지 마세요.',
     closed: '처리가 끝난 접수 건이라 대화가 닫혔어요. 다시 처리하면 이어서 쓸 수 있어요.',
     pollFailed: '새 메시지를 확인하지 못했어요 — 아래는 마지막으로 받은 대화예요.',
+    readOnly: '보기만 할 수 있어요. 라이더 답장은 지원센터(RIDER_OPS)·관리자가 해요.',
+    readOnlyAdminTeam: '관리자 팀으로 넘긴 접수 건이라 답장은 관리자만 해요.',
+    mask: '가리기',
+    maskReason: '가리는 사유(2~500자)',
+    maskedDone: '가렸어요. 라이더에게도 가려 보여요.',
+    maskedLine: (by: string, reason: string) => `관리자가 가린 메시지 — ${by} · ${reason}`,
+    cancel: '취소',
   },
   /** 접수 건 메모(case 0.10.0) — 덧붙이기만, 가림은 관리자 */
   caseNotes: {

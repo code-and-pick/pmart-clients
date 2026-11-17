@@ -519,7 +519,7 @@ function HelpRequestOfCase({ c }: { readonly c: Case }) {
           </dl>
         )}
       </QueryState>
-      <HelpChat deliveryId={deliveryId} requestId={requestId} />
+      <HelpChat deliveryId={deliveryId} requestId={requestId} adminTeam={c.assigneeGroup === 'ORDER_OPS'} />
     </>
   );
 }
@@ -535,6 +535,8 @@ export function CaseDetailPage() {
   const onDone = (c: Case) => {
     queryClient.setQueryData(key, c);
     void queryClient.invalidateQueries({ queryKey: ['cases'], exact: false, predicate: (q) => q.queryKey[1] !== 'detail' });
+    // execution 0.8.0: 맡으면 도움요청이 처리 중, 다시 열기·넘기기(담당 비움)는 접수로 — 도움요청 상태를 다시 읽는다
+    void queryClient.invalidateQueries({ queryKey: ['help-request'] });
   };
   return (
     <section className="max-w-4xl space-y-4">

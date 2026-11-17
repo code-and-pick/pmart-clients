@@ -66,3 +66,40 @@ describe('라이더 도움요청 대화', () => {
     expect(within(section).queryByRole('button', { name: '답장 보내기' })).toBeDisabled();
   });
 });
+
+describe('도움요청 대화 보완(execution 0.8.0 DE-2)', () => {
+  it('상담원은 대화를 보기만 — 답장 칸 없이 안내', async () => {
+    renderAt('/cases/CASE-MOCK-1', as.cs);
+    const chat = await screen.findByTestId('help-chat');
+    expect(within(chat).getByTestId('help-message')).toHaveTextContent('문 앞에 두고 가도 될까요?');
+    expect(screen.queryByLabelText('라이더에게 답장(1~1,000자)')).not.toBeInTheDocument();
+    expect(screen.getByTestId('help-chat-read-only')).toHaveTextContent('지원센터(RIDER_OPS)·관리자가 해요');
+  });
+
+  it('관리자 가리기: 사유와 함께 → 그 메시지는 "관리자가 가린 메시지"(처음부터 다시 읽음)', async () => {
+    const view = renderAt('/cases/CASE-MOCK-1', as.admin);
+    const chat = await screen.findByTestId('help-chat');
+    await userEvent.click(within(chat).getByRole('button', { name: '가리기' }));
+    const form = within(chat).getByRole('form', { name: '가리기' });
+    const submit = within(form).getByRole('button', { name: '가리기' });
+    await userEvent.type(within(form).getByLabelText('가리는 사유(2~500자)'), '가');
+    expect(submit).toBeDisabled(); // 2자 이상
+    await userEvent.type(within(form).getByLabelText('가리는 사유(2~500자)'), '족 전화번호');
+    await userEvent.click(submit);
+    const masked = await screen.findByTestId('help-message-masked');
+    expect(masked).toHaveTextContent('관리자가 가린 메시지 — op-admin-1 · 가족 전화번호');
+    expect(screen.queryByText(/문 앞에 두고 가도 될까요/)).not.toBeInTheDocument();
+    const sent = view.mutations('/maskings');
+    expect(sent).toHaveLength(1);
+    expect(sent[0]!.headers.get('Idempotency-Key')).toBeTruthy();
+    expect(await sent[0]!.json()).toEqual({ reason: '가족 전화번호' });
+  });
+
+  it('접수 건을 맡으면 도움요청 상태를 다시 읽는다(대기 → 처리 중)', async () => {
+    renderAt('/cases/CASE-MOCK-1', as.riderOps);
+    const help = await screen.findByTestId('case-help-request');
+    expect(help).toHaveTextContent('대기');
+    await userEvent.click(screen.getByRole('button', { name: '내가 맡기' }));
+    await waitFor(() => expect(screen.getByTestId('case-help-request')).toHaveTextContent('처리 중'));
+  });
+});
