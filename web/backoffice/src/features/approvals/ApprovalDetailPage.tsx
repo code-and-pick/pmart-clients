@@ -62,6 +62,14 @@ function PriceLineAttributes({ attributes }: { readonly attributes: Record<strin
  * 직원 권한 요청(GRANT) 행 attributes {role, centers, validFrom, validTo, reason, employee{operatorId, employeeNo, mailAddress, affiliation{type, code}}}
  * — 백엔드 handoff 2026-11-13 reply-hr-backoffice-questions Q6. 이름은 오지 않는다. 없는 값은 "-"(무기한·전체로 바꾸지 않는다).
  */
+/** GRANT 행이 권한을 줄 직원 ID(attributes.employee.operatorId) — 없으면 null */
+function grantEmployeeId(attributes: Record<string, unknown> | undefined): string | null {
+  const emp = attributes?.['employee'];
+  if (typeof emp !== 'object' || emp === null) return null;
+  const id = (emp as Record<string, unknown>)['operatorId'];
+  return typeof id === 'string' ? id : null;
+}
+
 function GrantLineAttributes({ attributes }: { readonly attributes: Record<string, unknown> | undefined }) {
   if (!attributes || typeof attributes['role'] !== 'string') return null;
   const text = (v: unknown) => (typeof v === 'string' && v ? v : m.none);
@@ -165,6 +173,8 @@ export function ApprovalDetailPage() {
         {(a) => {
           const open = OPEN_REVIEW.includes(a.reviewState ?? 'REVIEW_PENDING');
           const own = session !== null && a.requesterId === session.subject;
+          // approval-service 2026-11-17 "자기 자신은 안 됨"(백엔드 알림 hr-backoffice/2026-11-17-notice-self-action-rules §2): 권한을 받을 직원 = 나 → 승인·반려 모두 403. 판정은 서버, 화면은 버튼을 끄고 안내
+          const grantToSelf = session !== null && a.type === 'GRANT' && (a.lines ?? []).some((l) => grantEmployeeId(l.attributes) === session.subject);
           const watching = watchCount !== null && isWatching(a);
           const updatesSinceDecision =
             (queryClient.getQueryState(['approval', 'detail', approvalId])?.dataUpdateCount ?? 0) - (watchCount ?? 0);
@@ -253,6 +263,11 @@ export function ApprovalDetailPage() {
               {open && (
                 <div className="space-y-2 rounded-box bg-base-100 p-4">
                   {own && <p className="text-warning text-sm">{m.approvals.selfApproval}</p>}
+                  {grantToSelf && (
+                    <p role="note" className="text-warning text-sm" data-testid="grant-to-self">
+                      {m.approvals.grantToSelf}
+                    </p>
+                  )}
                   <label className="floating-label block">
                     <span>{m.approvals.commentLabel}</span>
                     <input
@@ -266,7 +281,7 @@ export function ApprovalDetailPage() {
                     <button
                       type="button"
                       className="btn btn-primary btn-sm"
-                      disabled={decide.busy}
+                      disabled={decide.busy || grantToSelf}
                       onClick={() => void decide.run({ decision: 'APPROVE', version: a.version })}
                     >
                       {m.approvals.approve}
@@ -274,7 +289,7 @@ export function ApprovalDetailPage() {
                     <button
                       type="button"
                       className="btn btn-sm"
-                      disabled={decide.busy}
+                      disabled={decide.busy || grantToSelf}
                       onClick={() => void decide.run({ decision: 'REJECT', version: a.version })}
                     >
                       {m.approvals.reject}

@@ -142,3 +142,18 @@ describe('직원 권한 요청(GRANT) 승인 상세 — 백엔드 회신 2026-11
     expect(await screen.findByRole('option', { name: 'GRANT' })).toBeInTheDocument();
   });
 });
+
+describe('자기 권한 요청(approval-service 2026-11-17 — 권한을 받을 직원 = 승인자면 403)', () => {
+  it('내 권한을 주는 GRANT 는 승인·반려 버튼을 끄고 안내', async () => {
+    render(<App memory initialPath="/approvals/apv-seed-grant-self" initialToken={as.admin} />);
+    expect(await screen.findByTestId('grant-to-self')).toHaveTextContent('다른 관리자가 처리해요');
+    expect(screen.getByRole('button', { name: '승인' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '반려' })).toBeDisabled();
+  });
+
+  it('다른 직원의 GRANT 는 그대로', async () => {
+    render(<App memory initialPath="/approvals/apv-seed-grant-1" initialToken={as.admin} />);
+    expect(await screen.findByRole('button', { name: '승인' })).toBeEnabled();
+    expect(screen.queryByTestId('grant-to-self')).not.toBeInTheDocument();
+  });
+});

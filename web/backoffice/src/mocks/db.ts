@@ -197,6 +197,16 @@ export function createDb(): MockDb {
     receipts: [],
   });
 
+  // 관리자 본인(op-admin-1)에게 권한을 주는 요청 — 자기 권한 요청 승인 금지(approval-service 2026-11-17)
+  approvals.set('apv-seed-grant-self', {
+    ...approvals.get('apv-seed-grant-1')!,
+    approvalId: 'apv-seed-grant-self',
+    changeRequestId: 'cr-seed-grant-self',
+    targetRef: 'op-admin-1',
+    summary: '직원 권한 요청 관리자 본인 (hr-service GR-seed-2)',
+    lines: [{ lineKey: 'MD', attributes: { role: 'MD', centers: [], validFrom: '2026-11-17', reason: '겸직', employee: { operatorId: 'op-admin-1', employeeNo: 'P2026-00001', mailAddress: 'admin@pmart.com', affiliation: { type: 'HQ_DEPARTMENT', code: 'HQ' } } } }],
+  });
+
   return {
     seq: 100,
     grants: new Map<string, MockGrant>(mockAccounts.map((a) => [a.operatorId, { roles: [...a.roles], centers: [...a.centers] }])),
