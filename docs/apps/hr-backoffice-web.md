@@ -19,6 +19,7 @@
 | 로그인 | employee-auth-service, 백오피스와 같은 흐름·같은 코드(`@pmart/web-core` `createEmployeeAuth`). 앱 이름 `hr-backoffice` |
 | SSO | 백오피스에 로그인돼 있으면 비밀번호 없이 들어온다. 로그아웃(`idpLogoutUri`)은 두 앱의 Keycloak 세션을 같이 끝낸다 |
 | 주소 | 개발 `http://localhost:5174`, LAN `https://192.168.0.40:8444`(복귀 `…/auth/callback`, API `https://192.168.0.40:8443/api/v1`). 빌드는 백엔드가 `lan.sh publish-hr-backoffice` 로 올린다 |
+| 앱 바꾸기 | 왼쪽 메뉴 위 ⋮⋮⋮(`@pmart/web-ui` `AppLauncher`, 백엔드 요청 `all/2026-11-17-request-app-launcher`) — 직원용 백오피스 4개를 모두에게, 같은 탭 링크, 인사팀은 강조만. 주소 = 지금 호스트 + 앱 포트(LAN https 443·8444·8445·8446, 개발 5173~5176) |
 | `X-Source-System` | `hr-backoffice-web` |
 | 보관 | access token 메모리, refresh token·기기 ID 는 탭 sessionStorage(`pmart.hr-backoffice.session`) |
 | 빌드 모드 | `mock`(MSW, 목 계정 버튼 — Keycloak 없음, 티켓 교환부터는 실제 코드) / `local`(게이트웨이 프록시) / `lan` |

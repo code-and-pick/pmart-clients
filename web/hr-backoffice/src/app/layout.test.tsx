@@ -6,6 +6,15 @@ import { describe, expect, it } from 'vitest';
 import { renderAt } from '../test/render';
 
 describe('메뉴 레이아웃', () => {
+  it('메뉴 위 앱 바꾸기(⋮⋮⋮): 4개, 인사팀은 지금 앱으로 강조', async () => {
+    renderAt('/employees');
+    await userEvent.click(await screen.findByRole('button', { name: '앱 바꾸기' }));
+    const panel = screen.getByRole('navigation', { name: '앱 바꾸기' });
+    expect(panel).toHaveTextContent('백오피스');
+    expect(screen.getByText('인사팀', { selector: '[aria-current="page"]' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '백오피스' })).toHaveAttribute('href', 'http://localhost:5173/');
+  });
+
   it('메뉴는 화면 높이에 붙어 따로 스크롤된다', async () => {
     renderAt('/employees');
     const menu = await screen.findByTestId('side-menu');

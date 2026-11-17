@@ -2,6 +2,9 @@
 // 앱 고유 문구와 Problem code → 문구 표는 앱의 shared/messages.ts 에 둔다(표는 UiTextProvider 로 넘긴다).
 export const uiMessages = {
   loading: '불러오는 중이에요',
+  /** 앱 바꾸기 메뉴(AppLauncher) */
+  appLauncher: '앱 바꾸기',
+  appNames: { backoffice: '백오피스', 'hr-backoffice': '인사팀', 'mfc-backoffice': 'MFC 센터', 'rider-backoffice': '라이더 운영' },
   empty: '표시할 내용이 없어요',
   errorTitle: '정보를 불러오지 못했어요',
   errorBody: '잠시 후 다시 시도해 주세요. 지금 보이는 내용은 최신이 아닐 수 있어요.',
