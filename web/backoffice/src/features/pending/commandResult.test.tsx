@@ -1,5 +1,5 @@
 // 처리 대기 "결과 확인"(bff 0.12.0 GET /commands/{ts}/{cmd}/{requestId}?targetRef=, 백엔드 알림 notice-command-result)
-// - 결과 불명일 때만, 누를 때만. 200 APPLIED·REJECTED 만 확정. ACCEPTED·UNKNOWN_RESULT·503 = 모름(잠시 뒤 다시).
+// - 결과 불명일 때만, 누를 때만. 200 APPLIED·REJECTED(사가 FAILED) 만 확정 — 중지 REJECTED + FIX_AND_RETRY 는 원인 고친 뒤 새 요청. ACCEPTED·UNKNOWN_RESULT·503 = 모름(잠시 뒤 다시).
 // - 404 = 명령이 원천에 닿지 않음 → 같은 키로 다시 보내기 안내. handover-retry 는 버튼 없음(422).
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -48,20 +48,50 @@ describe('처리 대기 — 결과 확인', () => {
     expect(within(row).getByRole('button', { name: '취소' })).toBeEnabled();
   });
 
-  it('REJECTED 면 "원인을 고친 뒤 다시"(성공 아님)', async () => {
+  it('중지 REJECTED + FIX_AND_RETRY(원천 아직 PENDING + lastError)는 실패 확정 아님 — 마지막 오류와 "원인 고친 뒤 다시 보내기"(새 키)', async () => {
     unknownStop();
     server.use(
       http.get(`${BFF_BASE}/commands/mfc-fulfillment-service/stop-retry/:requestId`, () =>
         HttpResponse.json({ requestId: 'RQ-1', status: 'REJECTED', resultId: 'STOP-MOCK-1', nextAction: 'FIX_AND_RETRY', source: source('DIRECT'), detail: { state: 'PENDING', lastError: 'PDA_OFFLINE' } }),
       ),
     );
-    renderAt('/pending', as.admin);
+    const view = renderAt('/pending', as.admin);
     const row = await retryStop();
     await userEvent.click(within(row).getByRole('button', { name: '결과 확인' }));
     const out = await within(row).findByTestId('result-check-outcome');
-    expect(out).toHaveAttribute('data-outcome', 'rejected');
-    expect(out).toHaveTextContent('원인을 고친 뒤');
+    expect(out).toHaveAttribute('data-outcome', 'fixAndRetry');
+    expect(out).toHaveTextContent('실패 확정 아님');
+    expect(within(row).getByTestId('result-check-last-error')).toHaveTextContent('PDA_OFFLINE');
     expect(within(row).queryByText(/반영됐어요/)).not.toBeInTheDocument();
+    // 다시 보내기 = 새 폼(새 키)
+    await userEvent.click(within(row).getByRole('button', { name: '원인 고친 뒤 다시 보내기' }));
+    expect(within(row).queryByTestId('result-check')).not.toBeInTheDocument();
+    await userEvent.type(within(row).getByLabelText('다시 시도 사유(필수)'), 'PDA 교체함');
+    await userEvent.click(within(row).getByRole('button', { name: '보내기' }));
+    await waitFor(() => expect(view.mutations('/stop-retry')).toHaveLength(2));
+    const [first, second] = view.mutations('/stop-retry');
+    expect(second!.headers.get('Idempotency-Key')).not.toBe(first!.headers.get('Idempotency-Key'));
+  });
+
+  it('사가 REJECTED(nextAction 없음 — 원천 FAILED)는 실패 확정, 다시 보내기 버튼 없음', async () => {
+    server.use(
+      http.post(`${BFF_BASE}/commands/:ts/:cmd`, ({ request }) =>
+        HttpResponse.json({ status: 'ACCEPTED', requestId: request.headers.get('Idempotency-Key'), occurredAt: '2026-11-17T01:00:00.000Z' }, { status: 202 }),
+      ),
+      http.get(`${BFF_BASE}/commands/order-orchestration-service/saga-requery/:requestId`, ({ params }) =>
+        HttpResponse.json({ requestId: params['requestId'], status: 'REJECTED', resultId: 'SAGA-1', nextAction: null, source: { ...source('DIRECT'), system: 'order-orchestration-service' }, detail: { state: 'FAILED' } }),
+      ),
+    );
+    renderAt('/pending', as.admin);
+    const row = (await screen.findAllByTestId('pending-item')).find((r) => r.textContent?.includes('PG 승인 결과'))!;
+    await userEvent.click(within(row).getByRole('button', { name: '결제 결과 다시 확인' }));
+    await userEvent.click(within(row).getByRole('button', { name: '보내기' }));
+    await userEvent.click(await within(row).findByRole('button', { name: '결과 확인' }));
+    const out = await within(row).findByTestId('result-check-outcome');
+    expect(out).toHaveAttribute('data-outcome', 'rejected');
+    expect(out).toHaveTextContent('실패로 확인');
+    expect(within(row).queryByRole('button', { name: '원인 고친 뒤 다시 보내기' })).not.toBeInTheDocument();
+    expect(within(row).getByRole('button', { name: '취소' })).toBeEnabled();
   });
 
   it('200 UNKNOWN_RESULT(원천 시간 초과 — confidence UNKNOWN)·ACCEPTED·503 은 모름 — 버튼이 남아 다시 확인', async () => {

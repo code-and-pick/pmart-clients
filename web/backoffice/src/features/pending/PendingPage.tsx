@@ -10,7 +10,8 @@
 //   bff 명령 응답은 CommandResponse(ACCEPTED ≠ 성공). APPLIED·REJECTED 만 확정하고, ACCEPTED·UNKNOWN_RESULT·시간 초과는 목록을 다시 읽어 "목록에서 확인" 안내(결과 불명 — 같은 키 재전송).
 //   bff 0.12.0(백엔드 알림 notice-command-result): 결과 불명이면 "결과 확인" → `GET …/commands/{ts}/{cmd}/{requestId}?targetRef=`(관리자만, 누를 때만 — 자동 반복 없음).
 //     saga-requery·saga-resolve·stop-retry 만. handover-retry 는 422(원천 단건 조회 없음)라 버튼 없이 같은 키 재전송만.
-//     200 APPLIED → 반영, REJECTED → 거절(FIX_AND_RETRY), ACCEPTED → 아직 처리 중, UNKNOWN_RESULT(원천 시간 초과·5xx, confidence UNKNOWN) → 모름·잠시 뒤 다시.
+//     200 APPLIED → 반영, REJECTED(nextAction 없음 — 사가 FAILED) → 실패 확정,
+//     REJECTED + FIX_AND_RETRY(중지 요청 아직 PENDING + lastError) → 실패 확정 아님: 원인(detail.lastError)을 고친 뒤 새 요청으로 다시 보내기 버튼, ACCEPTED → 아직 처리 중, UNKNOWN_RESULT(원천 시간 초과·5xx, confidence UNKNOWN) → 모름·잠시 뒤 다시.
 //     404 = 명령이 원천에 닿지 않음 → "같은 요청으로 다시 보내기"(같은 키) 안내. 503·연결 끊김 = 모름·잠시 뒤 다시 확인. 어느 것도 성공으로 보이지 않는다.
 //   422 NOT_REQUERYABLE·NOT_RESOLVABLE = 이미 바뀜(새로고침).
 // - 사유·메모에 개인정보를 적지 않게 안내하고, 로그에 남기지 않는다.
@@ -70,12 +71,13 @@ const CHECKABLE = new Set(['saga-requery', 'saga-resolve', 'stop-retry']);
 type Check =
   | { readonly kind: 'idle' }
   | { readonly kind: 'checking' }
-  | { readonly kind: 'applied' | 'rejected' | 'accepted' | 'unknown'; readonly result: CheckResult }
+  | { readonly kind: 'applied' | 'rejected' | 'fixAndRetry' | 'accepted' | 'unknown'; readonly result: CheckResult }
   | { readonly kind: 'notReached' | 'unavailable' | 'forbidden' | 'failed' };
 
 const CHECK_TEXT: Readonly<Record<Exclude<Check['kind'], 'idle' | 'checking'>, string>> = {
   applied: m.pending.checkApplied,
   rejected: m.pending.checkRejected,
+  fixAndRetry: m.pending.checkFixAndRetry,
   accepted: m.pending.checkAccepted,
   unknown: m.pending.checkUnknown,
   notReached: m.pending.checkNotReached,
@@ -85,7 +87,22 @@ const CHECK_TEXT: Readonly<Record<Exclude<Check['kind'], 'idle' | 'checking'>, s
 };
 
 /** 결과 불명 → 원천을 다시 읽어 결과 확인(누를 때만). 반영·거절이 확정되면 onSettled */
-function ResultCheck({ targetService, command, requestId, targetRef, onSettled }: { readonly targetService: string; readonly command: string; readonly requestId: string; readonly targetRef: string; readonly onSettled: () => void }) {
+function ResultCheck({
+  targetService,
+  command,
+  requestId,
+  targetRef,
+  onSettled,
+  onRetry,
+}: {
+  readonly targetService: string;
+  readonly command: string;
+  readonly requestId: string;
+  readonly targetRef: string;
+  readonly onSettled: () => void;
+  /** 원인을 고친 뒤 새 요청(새 키)으로 다시 보내기 */
+  readonly onRetry: () => void;
+}) {
   const api = useApi();
   const queryClient = useQueryClient();
   const [check, setCheck] = useState<Check>({ kind: 'idle' });
@@ -98,7 +115,7 @@ function ResultCheck({ targetService, command, requestId, targetRef, onSettled }
         r.status === 'APPLIED'
           ? { kind: 'applied', result: r }
           : r.status === 'REJECTED'
-            ? { kind: 'rejected', result: r }
+            ? { kind: r.nextAction === 'FIX_AND_RETRY' ? 'fixAndRetry' : 'rejected', result: r }
             : r.status === 'ACCEPTED'
               ? { kind: 'accepted', result: r }
               : { kind: 'unknown', result: r };
@@ -107,12 +124,13 @@ function ResultCheck({ targetService, command, requestId, targetRef, onSettled }
       next = status === 404 ? { kind: 'notReached' } : status === 403 ? { kind: 'forbidden' } : status === 503 || status === 0 ? { kind: 'unavailable' } : { kind: 'failed' };
     }
     setCheck(next);
-    if (next.kind === 'applied' || next.kind === 'rejected') {
+    if (next.kind === 'applied' || next.kind === 'rejected' || next.kind === 'fixAndRetry') {
       onSettled();
       await queryClient.invalidateQueries({ queryKey: ['bff', 'pending-work'] });
     }
   };
-  const settled = check.kind === 'applied' || check.kind === 'rejected';
+  const settled = check.kind === 'applied' || check.kind === 'rejected' || check.kind === 'fixAndRetry';
+  const lastError = check.kind === 'fixAndRetry' ? check.result.detail?.['lastError'] : undefined;
   return (
     <div className="space-y-1" data-testid="result-check">
       {!settled && (
@@ -125,12 +143,24 @@ function ResultCheck({ targetService, command, requestId, targetRef, onSettled }
           {CHECK_TEXT[check.kind]}
         </p>
       )}
+      {check.kind === 'fixAndRetry' && (
+        <>
+          {typeof lastError === 'string' && lastError !== '' && (
+            <p className="text-xs" data-testid="result-check-last-error">
+              {m.pending.checkLastError(lastError)}
+            </p>
+          )}
+          <button type="button" className="btn btn-xs btn-primary" onClick={onRetry}>
+            {m.pending.retryAgain}
+          </button>
+        </>
+      )}
       {'result' in check && check.result.source && <SourceStamps sources={[check.result.source]} />}
     </div>
   );
 }
 
-function ActionForm({ item, action, onClose }: { readonly item: Item; readonly action: Action; readonly onClose: () => void }) {
+function ActionForm({ item, action, onClose, onRestart }: { readonly item: Item; readonly action: Action; readonly onClose: () => void; readonly onRestart: () => void }) {
   const api = useApi();
   const queryClient = useQueryClient();
   const [text_, setText] = useState('');
@@ -210,7 +240,7 @@ function ActionForm({ item, action, onClose }: { readonly item: Item; readonly a
         </CommandFeedback>
       )}
       {cmd.phase.kind === 'unknown' && CHECKABLE.has(command) && (
-        <ResultCheck targetService={targetService} command={command} requestId={cmd.phase.failure.requestId ?? ''} targetRef={item.refId} onSettled={() => setSettled(true)} />
+        <ResultCheck targetService={targetService} command={command} requestId={cmd.phase.failure.requestId ?? ''} targetRef={item.refId} onSettled={() => setSettled(true)} onRetry={onRestart} />
       )}
     </form>
   );
@@ -228,8 +258,10 @@ function OrderCell({ orderId }: { readonly orderId: string | null | undefined })
 
 function Actions({ item }: { readonly item: Item }) {
   const [open, setOpen] = useState<Action | null>(null);
+  // 새로 열 때마다 새 폼 = 새 요청(새 키). 결과 확인에서 "원인 고친 뒤 다시"를 누르면 다시 연다
+  const [round, setRound] = useState(0);
   const actions = actionsOf(item);
-  if (open) return <ActionForm item={item} action={open} onClose={() => setOpen(null)} />;
+  if (open) return <ActionForm key={round} item={item} action={open} onClose={() => setOpen(null)} onRestart={() => setRound((n) => n + 1)} />;
   return (
     <div className="flex flex-wrap gap-1">
       {actions.map((a) => (
