@@ -11,6 +11,7 @@ import { CommandFeedback, formatSeoul, QueryState, toUiState, useCommand } from 
 import { commandParams } from '../../api/command';
 import { PROVISIONING_IN_PROGRESS, PROVISIONING_RETRYABLE, type Employee } from '../../api/models';
 import { useApi } from '../../app/ApiContext';
+import { useSession } from '../../app/SessionContext';
 import { messages as m } from '../../shared/messages';
 import { AffiliationFields, toAffiliation, type AffiliationDraft } from './AffiliationFields';
 import { useCenters } from './centers';
@@ -105,7 +106,11 @@ function ReasonAction({
   );
 }
 
-function Actions({ employee, onChanged }: { readonly employee: Employee; readonly onChanged: (e: Employee) => void }) {
+/**
+ * 인사 처리 — 본인이면 버튼 대신 안내(hr-service 2026-11-17 "자기 자신은 안 됨": 소속 변경·정지·정지 해제·퇴사는 본인에게 403, 판정은 서버).
+ * 백엔드 알림 clients/hr-backoffice/2026-11-17-notice-self-action-rules §1.
+ */
+function Actions({ employee, onChanged, self }: { readonly employee: Employee; readonly onChanged: (e: Employee) => void; readonly self: boolean }) {
   const api = useApi();
   const centers = useCenters();
   const [open, setOpen] = useState<Action | null>(null);
@@ -127,7 +132,12 @@ function Actions({ employee, onChanged }: { readonly employee: Employee; readonl
   return (
     <div className="space-y-3 rounded-box bg-base-100 p-4">
       <h2 className="font-bold">{m.detail.actions}</h2>
-      <div className="flex flex-wrap gap-2">
+      {self && (
+        <p role="note" className="text-sm opacity-70" data-testid="self-action-note">
+          {m.detail.selfNote}
+        </p>
+      )}
+      <div className="flex flex-wrap gap-2" hidden={self}>
         {buttons
           .filter(([, , show]) => show)
           .map(([action, label]) => (
@@ -289,6 +299,7 @@ function ProvisioningCard({ employee, onChanged }: { readonly employee: Employee
 }
 
 export function EmployeeDetailPage() {
+  const { session } = useSession();
   const api = useApi();
   const queryClient = useQueryClient();
   const { operatorId = '' } = useParams();
@@ -379,7 +390,7 @@ export function EmployeeDetailPage() {
             </div>
 
             {/* version 이 바뀌면 열린 입력을 버린다(예전 version 으로 보내지 않게) */}
-            <Actions key={e.version} employee={e} onChanged={onChanged} />
+            <Actions key={e.version} employee={e} onChanged={onChanged} self={session?.subject === e.operatorId} />
           </>
         )}
       </QueryState>

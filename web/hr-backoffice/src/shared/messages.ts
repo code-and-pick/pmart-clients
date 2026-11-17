@@ -186,6 +186,7 @@ export const messages = {
     grantReason: '근거',
     grantApproval: '승인 ID',
     actions: '인사 처리',
+    selfNote: '내 계정이에요 — 소속 변경·정지·정지 해제·퇴사는 자기 자신에게 할 수 없어요. 다른 인사 담당자가 처리해요.',
     changeAffiliation: '소속 변경',
     /** hr 0.4.0(BO-01): 이전 소속이 센터면 그 센터 권한은 바뀐 날 다음 날 00:00(서울) 자동 종료, 새 센터 권한은 따로 요청 */
     affiliationNote: '소속을 바꾸면 이전 센터 권한은 내일 00:00 에 자동으로 끝나요(오늘 안에 하던 일을 넘겨 주세요). 새 센터 권한은 자동으로 생기지 않으니 권한 관리에서 따로 요청해 주세요.',
@@ -236,6 +237,7 @@ export const messages = {
   /** 권한 관리(BO-01 — hr 0.3.0 grant-requests, employee-auth 0.7.0 조회·0.8.0 회수) */
   permissions: {
     title: '권한 관리',
+    selfNote: '내 계정이에요 — 자기 권한은 요청할 수 없어요. 다른 인사 담당자가 요청해요.',
     intro: '직원을 찾아 지금 권한을 보고, 권한 추가·변경을 요청하거나 회수해요. 추가·변경은 승인을 거치고, 회수는 승인 없이 바로 적용돼요.',
     search: '찾기',
     pick: '권한 보기',
