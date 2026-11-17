@@ -49,3 +49,9 @@ kotlin {
 flutter {
     source = "../.."
 }
+
+// 휴대폰 푸시(FCM). google-services.json 은 git 제외(.gitignore)라 그 파일이 없는 PC 에서도 빌드되게
+// 파일이 있을 때만 플러그인을 건다. 없이 빌드한 앱은 Firebase 초기화가 실패하고 푸시 없이 돈다.
+if (file("google-services.json").exists()) {
+    apply(plugin = "com.google.gms.google-services")
+}

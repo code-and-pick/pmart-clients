@@ -192,6 +192,12 @@ class SessionController extends Notifier<Session> {
   }
 
   Future<void> signOut() async {
+    // 회원 토큰을 지우기 전에 서버에서 이 단말의 푸시 토큰을 지운다(지운 뒤에는 부를 수 없다).
+    try {
+      await ref.read(beforeSignOutProvider)();
+    } on Object {
+      // 못 지워도 로그아웃은 끝낸다.
+    }
     await ref.read(tokenStoreProvider).clear();
     final source = ref.read(socialTokenSourceProvider);
     if (source is GoogleSocialTokenSource) {

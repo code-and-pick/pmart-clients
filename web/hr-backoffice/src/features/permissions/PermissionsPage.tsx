@@ -439,6 +439,12 @@ export function PermissionDetailPage() {
                 </ul>
               )}
 
+              {/* 본인 권한 요청은 서버가 403(hr-service) — 폼 대신 안내 */}
+              {self && (
+                <p role="note" className="text-sm opacity-70" data-testid="self-grant-note">
+                  {m.permissions.selfNote}
+                </p>
+              )}
               {!self &&
                 (pending ? (
                   <p className="text-sm opacity-70">{m.permissions.pendingNote}</p>
