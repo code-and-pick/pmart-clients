@@ -133,6 +133,16 @@ function ActionForm({ item, action, onClose }: { readonly item: Item; readonly a
   );
 }
 
+/** 주문 칸 — MFC 거절 인계는 주문 번호가 없을 수 있다(bff 0.9.2). 없으면 "—"(빈 링크를 만들지 않는다) */
+function OrderCell({ orderId }: { readonly orderId: string | null | undefined }) {
+  if (!orderId) return <span className="opacity-70">{m.none}</span>;
+  return (
+    <Link className="link" to={`/orders/${encodeURIComponent(orderId)}`}>
+      {orderId}
+    </Link>
+  );
+}
+
 function Actions({ item }: { readonly item: Item }) {
   const [open, setOpen] = useState<Action | null>(null);
   const actions = actionsOf(item);
@@ -193,9 +203,7 @@ export function PendingPage() {
                       {i.mfcId && <p className="text-xs opacity-70">{i.mfcId}</p>}
                     </td>
                     <td>
-                      <Link className="link" to={`/orders/${encodeURIComponent(i.orderId)}`}>
-                        {i.orderId}
-                      </Link>
+                      <OrderCell orderId={i.orderId} />
                     </td>
                     <td>
                       {i.reasonCode ? label(i.kind === 'FULFILLMENT_ISSUE' ? m.pending.reasonName : {}, i.reasonCode) : m.none}

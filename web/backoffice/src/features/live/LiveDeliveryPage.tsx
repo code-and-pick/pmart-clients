@@ -138,6 +138,11 @@ export function LiveDeliveryPage() {
           return (
             <div className="space-y-3">
               <SourceStamps sources={view.sources} unavailableSources={view.unavailableSources} />
+              {view.casesTruncated && (
+                <p role="status" className="alert alert-warning text-sm" data-state="cases-truncated">
+                  {m.casesTruncated}
+                </p>
+              )}
               {view.truncated && (
                 <p role="status" className="alert alert-info text-sm" data-state="truncated">
                   {m.truncated}
@@ -148,7 +153,7 @@ export function LiveDeliveryPage() {
                   {m.empty}
                 </p>
               ) : (
-                <LiveTable items={items} composedAt={view.composedAt} />
+                <LiveTable items={items} composedAt={view.composedAt} casesTruncated={view.casesTruncated ?? false} />
               )}
               {state && (cursor || nextCursor) && (
                 <div className="flex gap-2">
@@ -173,7 +178,7 @@ export function LiveDeliveryPage() {
   );
 }
 
-function LiveTable({ items, composedAt }: { readonly items: readonly LiveItem[]; readonly composedAt: string | undefined }) {
+function LiveTable({ items, composedAt, casesTruncated = false }: { readonly items: readonly LiveItem[]; readonly composedAt: string | undefined; readonly casesTruncated?: boolean }) {
   // "약속 지남" 기준은 서버가 조립한 시각(composedAt) — 화면 시계로 판정하지 않는다
   const now = composedAt ? Date.parse(composedAt) : Number.NaN; // 없으면 표시하지 않음
   return (
@@ -216,7 +221,8 @@ function LiveTable({ items, composedAt }: { readonly items: readonly LiveItem[];
                 </td>
                 <td data-testid="open-cases">
                   {it.openCases === null || it.openCases === undefined ? (
-                    <span className="text-warning">{m.casesFailed}</span>
+                    // bff 0.9.2: 열린 사건을 1,000건까지만 읽었으면(casesTruncated) null = 모름 — 실패가 아니라 확인 불가
+                    <span className="text-warning">{casesTruncated ? m.casesUnknown : m.casesFailed}</span>
                   ) : it.openCases.length === 0 ? (
                     <span className="opacity-70">{messages.none}</span>
                   ) : (

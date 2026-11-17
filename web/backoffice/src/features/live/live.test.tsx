@@ -84,6 +84,25 @@ describe('실시간 배송 현황', () => {
     expect(within(screen.getByRole('region', { name: '원천' })).getByText(/조회하지 못한 원천: .*delivery-dispatch-service/)).toBeInTheDocument();
   });
 
+  it('열린 접수 건을 1,000건까지만 읽었으면(casesTruncated, bff 0.9.2) null 칸은 "조회 실패"가 아니라 "확인 불가" + 안내', async () => {
+    server.use(
+      http.get(`${BFF_BASE}/views/live-delivery`, () =>
+        HttpResponse.json({
+          sources: [{ system: 'delivery-execution-service', confidence: 'DIRECT', asOf: { asOf: '2026-11-17T00:00:00Z', freshness: 'CURRENT' } }],
+          unavailableSources: [],
+          composedAt: '2026-11-17T00:00:00Z',
+          casesTruncated: true,
+          page: { nextCursor: null },
+          items: [{ deliveryId: 'DLV-T-1', orderId: 'ORD-T-1', mfcId: 'MFC-BSN-01', type: 'FORWARD', riderId: 'RD-1', delivery: { state: 'ASSIGNED' }, dispatch: { state: 'ASSIGNED' }, promisedAt: null, openCases: null }],
+        }),
+      ),
+    );
+    renderAt('/live-delivery', as.cs);
+    const row = (await screen.findAllByTestId('live-row'))[0]!;
+    expect(within(row).getByTestId('open-cases')).toHaveTextContent('확인 불가');
+    expect(document.querySelector('[data-state="cases-truncated"]')).not.toBeNull();
+  });
+
   it('조회 실패(5xx)는 빈 목록이 아니라 오류', async () => {
     server.use(http.get(`${BFF_BASE}/views/live-delivery`, () => new HttpResponse(null, { status: 500 })));
     renderAt('/live-delivery', as.cs);

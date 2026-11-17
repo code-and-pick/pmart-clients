@@ -133,6 +133,22 @@ describe('처리 대기', () => {
     expect(view.mutations('/commands/mfc-fulfillment-service/handover-retry')).toHaveLength(1);
   });
 
+  it('주문 번호가 없는 항목(MFC 거절 인계 — bff 0.9.2)은 /orders/null 링크 대신 "—"', async () => {
+    server.use(
+      http.get(`${BFF_BASE}/views/pending-work`, () =>
+        HttpResponse.json({
+          sources: [{ system: 'mfc-fulfillment-service', confidence: 'DIRECT', asOf: { asOf: '2026-11-17T00:00:00Z', freshness: 'CURRENT' } }],
+          unavailableSources: [],
+          items: [{ kind: 'MFC_HANDOVER_REJECTED', refId: 'HO-1', orderId: null, state: 'REJECTED', since: '2026-11-17T00:00:00Z', allowedActions: ['RETRY'] }],
+        }),
+      ),
+    );
+    renderAt('/pending', as.admin);
+    const row = (await screen.findAllByTestId('pending-item'))[0]!;
+    expect(row.querySelector('a[href^="/orders/"]')).toBeNull();
+    expect(within(row).getByRole('button', { name: '다시 시도' })).toBeInTheDocument();
+  });
+
   it('MFC 원천이 sources 에 없으면(서버 설정으로 꺼짐) 안내 — 장애로 보이지 않는다', async () => {
     server.use(
       http.get(`${BFF_BASE}/views/pending-work`, () =>
