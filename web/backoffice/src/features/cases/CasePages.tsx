@@ -39,6 +39,7 @@ import { HelpChat } from './HelpChat';
 import { useMarkCaseSeen } from './caseSeen';
 import { hasNewRiderMessage } from './helpChatRead';
 import { FollowUps, isOpenObligation } from './FollowUps';
+import { ClaimOfCase } from '../claims/ReturnClaim';
 
 type Case = components['schemas']['Case'];
 type InboxView = BffOps['getCaseInboxView']['responses'][200]['content']['application/json'];
@@ -55,6 +56,10 @@ const RESOLUTIONS = Object.keys(m.cases.resolutionName) as Resolution[];
 type Kind = components['schemas']['CaseKind'];
 /** 배송 쪽(0.4.0 넷 + 0.5.0 배차 실패 — RIDER_OPS·CS_AGENT·관리자) */
 const DELIVERY_KINDS: readonly Kind[] = ['RIDER_HELP', 'DELIVERY_INCIDENT', 'RIDER_LOCATION_STALE', 'MISDELIVERY', 'DISPATCH_FAILED'];
+/** 고객센터 팀(CS) 사건 — case 0.22.0 반품 회수 실패(R-8): 상담원이 맡고 완료 처리하는 첫 종류, 지원센터에는 안 보임 */
+const CS_KINDS: readonly Kind[] = ['RETURN_RECOVERY_FAILED'];
+const isCsCase = (c: { readonly kind?: string | null; readonly assigneeGroup?: string | null }) =>
+  c.assigneeGroup === 'CS' || (c.kind !== undefined && c.kind !== null && (CS_KINDS as readonly string[]).includes(c.kind));
 /** 사가·결제 이상(0.5.0 — 관리자만) */
 const ORDER_KINDS: readonly Kind[] = ['RECONCILIATION', 'PAYMENT_UNKNOWN'];
 const isOrderKind = (k: Kind | undefined) => k !== undefined && ORDER_KINDS.includes(k);
@@ -72,6 +77,7 @@ function useCaseRoles() {
     me: session?.subject ?? '',
     admin: roles.includes('OPERATOR_ADMIN'),
     team: roles.includes('RIDER_OPS'),
+    agent: roles.includes('CS_AGENT'),
   };
 }
 
@@ -86,7 +92,11 @@ const refLink = (refType: string | undefined, refId: string | undefined) => {
           ? `/riders/${encodeURIComponent(refId)}`
           : refType === 'previousCaseId'
             ? `/cases/${encodeURIComponent(refId)}`
-            : null;
+            : refType === 'claimId'
+              ? `/claims/${encodeURIComponent(refId)}`
+              : refType === 'lastDeliveryId'
+                ? `/deliveries/${encodeURIComponent(refId)}`
+                : null;
   const value = refType === 'fault' ? label(m.cases.faultName, refId) : refType === 'resolution' ? label(m.cases.resolutionChoiceName, refId) : refId;
   const name = `${label(m.cases.refName, refType)} ${value}`;
   return to ? (
@@ -168,8 +178,9 @@ function Sla({ c }: { readonly c: Pick<Summary, 'slaDueAt' | 'overdue'> }) {
 
 export function CaseListPage() {
   const api = useApi();
-  const { me, admin } = useCaseRoles();
-  const kinds = admin ? [...DELIVERY_KINDS, ...ORDER_KINDS] : DELIVERY_KINDS;
+  const { me, admin, agent } = useCaseRoles();
+  // 반품 회수 실패(CS 팀)는 상담원·관리자만 — 지원센터에는 안 보인다(서버도 목록에서 뺀다)
+  const kinds = admin ? [...DELIVERY_KINDS, ...CS_KINDS, ...ORDER_KINDS] : agent ? [...DELIVERY_KINDS, ...CS_KINDS] : DELIVERY_KINDS;
   const [params, setParams] = useSearchParams();
   const tabParam = params.get('tab');
   const tab: Tab = isTab(tabParam) ? tabParam : 'unassigned';
@@ -312,7 +323,7 @@ export function CaseListPage() {
 
 function AssignForm({ c, onDone }: { readonly c: Case; readonly onDone: (c: Case) => void }) {
   const api = useApi();
-  const { me, admin, team } = useCaseRoles();
+  const { me, admin, team, agent } = useCaseRoles();
   const [other, setOther] = useState('');
   const assign = useCommand(async (v: { assigneeId: string }, key) => {
     const r = await request(
@@ -326,7 +337,7 @@ function AssignForm({ c, onDone }: { readonly c: Case; readonly onDone: (c: Case
     if (assign.phase.kind === 'rejected' || assign.phase.kind === 'done') assign.reset();
     void assign.run({ assigneeId });
   };
-  const canPick = ((team && !withAdminTeam(c)) || admin) && !c.assigneeId;
+  const canPick = ((isCsCase(c) ? agent : team && !withAdminTeam(c)) || admin) && !c.assigneeId;
   if (!canPick && !admin) return null;
   return (
     <div className="space-y-2 rounded-box bg-base-100 p-3 text-sm">
@@ -556,7 +567,7 @@ export function CaseDetailPage() {
   const { caseId = '' } = useParams();
   const api = useApi();
   const queryClient = useQueryClient();
-  const { me, admin, team } = useCaseRoles();
+  const { me, admin, team, agent } = useCaseRoles();
   const { session } = useSession();
   const key = ['cases', 'detail', caseId];
   const query = useQuery({ queryKey: key, queryFn: () => request('GET', api.cases.GET('/cases/{caseId}', { params: { path: { caseId } } })) });
@@ -579,10 +590,13 @@ export function CaseDetailPage() {
           const closed = c.state === 'CLOSED';
           const adminTeam = withAdminTeam(c);
           // 지원센터는 자기 팀(배송 쪽, 관리자 팀으로 가지 않은) 사건만 — 관리자 팀 사건·사가 사건은 관리자만(서버 판정)
-          const teamCan = team && !adminTeam && !isOrderKind(c.kind);
+          // 반품 회수 실패(CS 팀)는 상담원이 맡고 완료 처리(case 0.22.0)
+          const csCase = isCsCase(c);
+          const teamCan = csCase ? agent : team && !adminTeam && !isOrderKind(c.kind);
           const canClose = !closed && (admin || (teamCan && (!c.assigneeId || c.assigneeId === me)));
           const canReopen = closed && (admin || teamCan);
-          const deliverySide = !isOrderKind(c.kind);
+          // 넘기기(지원센터 ↔ 관리자 팀)에는 CS 팀이 없다 — CS 사건은 넘기기 없음
+          const deliverySide = !isOrderKind(c.kind) && !csCase;
           const canToAdmin = !closed && deliverySide && !adminTeam && (admin || (teamCan && (!c.assigneeId || c.assigneeId === me)));
           const canToSupport = !closed && deliverySide && adminTeam && admin;
           return (
@@ -620,6 +634,7 @@ export function CaseDetailPage() {
               </dl>
 
               {(c.kind === 'RIDER_HELP' || c.kind === 'DELIVERY_INCIDENT') && <HelpRequestOfCase c={c} />}
+              {c.kind === 'RETURN_RECOVERY_FAILED' && <ClaimOfCase claimId={c.subjectType === 'CLAIM' && c.subjectRef ? c.subjectRef : ((c.refs ?? []).find((r) => r.refType === 'claimId')?.refId ?? '')} />}
 
               {(c.refs ?? []).some((r) => r.refType === 'recoveryDeliveryId' || r.refType === 'reshipmentDeliveryId') && (
                 <p role="note" className="alert alert-info text-sm" data-testid="case-recovery-note">
@@ -636,7 +651,7 @@ export function CaseDetailPage() {
                 </div>
               )}
 
-              {!admin && !team && <p className="text-sm opacity-70">{m.cases.viewOnly}</p>}
+              {!admin && !team && !(agent && csCase) && <p className="text-sm opacity-70">{m.cases.viewOnly}</p>}
               {adminTeam && !admin && (
                 <p role="note" className="alert alert-warning text-sm">
                   {m.cases.adminHandlingNote}

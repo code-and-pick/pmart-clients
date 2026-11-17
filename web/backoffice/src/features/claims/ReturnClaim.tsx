@@ -306,6 +306,37 @@ export function RecoveryActions({ claim }: { readonly claim: Claim }) {
   );
 }
 
+/** 접수 건(RETURN_RECOVERY_FAILED, case 0.22.0) → 클레임 상태·회수 조치. 조치해도 접수 건은 사람이 완료 처리한다 */
+export function ClaimOfCase({ claimId }: { readonly claimId: string }) {
+  const api = useApi();
+  const query = useQuery({
+    queryKey: ['claims', 'detail', claimId],
+    enabled: claimId !== '',
+    queryFn: () => request('GET', api.claims.GET('/claims/{claimId}', { params: { path: { claimId } } })),
+  });
+  if (!claimId) return null;
+  return (
+    <div className="space-y-2 rounded-box bg-base-100 p-4 text-sm" data-testid="case-claim">
+      <h2 className="font-bold">
+        {m.caseClaim}{' '}
+        <Link className="link font-mono" to={`/claims/${encodeURIComponent(claimId)}`}>
+          {claimId}
+        </Link>
+      </h2>
+      <QueryState state={toUiState(query)} onRetry={() => void query.refetch()}>
+        {(c) => (
+          <>
+            <p data-testid="case-claim-state">{label(messages.claims.stateName, c.state)}</p>
+            <p className="text-xs opacity-70">{c.state === 'RECOVERY_FAILED' || c.state === 'FEE_PENDING' ? m.caseClaimNote : m.caseClaimDone}</p>
+            <ReturnProgress claim={c} />
+            <RecoveryActions claim={c} />
+          </>
+        )}
+      </QueryState>
+    </div>
+  );
+}
+
 /** 주문 상세 → 반품 접수(인계된 품목이 있을 때) */
 export function ReturnIntakeLink({ orderId }: { readonly orderId: string }) {
   return (

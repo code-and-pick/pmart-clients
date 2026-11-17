@@ -124,6 +124,24 @@ function seed(): Case[] {
         { action: 'RECURRED', at: at(-0.1), actorId: 'SYSTEM', note: '3번째 — NO_RIDER' },
       ],
     }),
+    // case 0.22.0 반품 회수 실패(R-8) — CS 팀(상담원이 맡고 완료 처리), 지원센터에는 안 보임. 클레임 CLM-MOCK-RF(claim 목)
+    base({
+      caseId: 'CASE-MOCK-R8',
+      kind: 'RETURN_RECOVERY_FAILED',
+      priority: 'P2',
+      summary: '[목] 반품 회수 두 번 실패 — 고객에게 다시 연락',
+      subjectType: 'CLAIM',
+      subjectRef: 'CLM-MOCK-RF',
+      assigneeGroup: 'CS',
+      refs: [
+        { refType: 'claimId', refId: 'CLM-MOCK-RF' },
+        { refType: 'orderId', refId: 'ORD-MOCK-1002' },
+        { refType: 'customerId', refId: 'CUS-MOCK-2' },
+        { refType: 'lastDeliveryId', refId: 'DLV-MOCK-RET-2' },
+      ],
+      slaDueAt: at(1),
+      history: [{ action: 'OPENED', at: at(-0.2), toState: 'OPEN', actorId: 'SYSTEM' }],
+    }),
   ];
 }
 
@@ -163,7 +181,17 @@ function viewer(request: Request) {
   const team = who.roles.includes('RIDER_OPS');
   const cs = who.roles.includes('CS_AGENT');
   if (!admin && !team && !cs) return { denied: problem(403, 'FORBIDDEN') } as const;
-  return { who, admin, team, cs, sees: (c: Case) => admin || DELIVERY_KINDS.includes(c.kind ?? 'OTHER') } as const;
+  // case 0.22.0: CS 팀(반품 회수 실패)은 상담원·관리자만 보고(지원센터 목록에 없음·단건 404), 상담원이 맡고 닫는다
+  const csCase = (c: Case) => c.assigneeGroup === 'CS';
+  return {
+    who,
+    admin,
+    team,
+    cs,
+    sees: (c: Case) => admin || (csCase(c) ? cs : DELIVERY_KINDS.includes(c.kind ?? 'OTHER')),
+    /** 맡기·닫기·행위 요청을 할 수 있는 팀인지(관리자 제외) */
+    acts: (c: Case) => (csCase(c) ? cs : team && c.assigneeGroup !== 'ORDER_OPS'),
+  } as const;
 }
 
 const OPEN_STATES = ['OPEN', 'PARTIALLY_RESOLVED'];
@@ -360,8 +388,7 @@ export const caseHandlers = [
     return idempotent(request, () => {
       const c = cases.find((x) => x.caseId === params['caseId']);
       if (!c || !v.sees(c)) return problem(404, 'NOT_FOUND');
-      if (!v.admin && !v.team) return problem(403, 'FORBIDDEN');
-      if (!v.admin && c.assigneeGroup === 'ORDER_OPS') return problem(403, 'FORBIDDEN');
+      if (!v.admin && !v.acts(c)) return problem(403, 'FORBIDDEN');
       if (c.state === 'CLOSED') return problem(409, 'INVALID_STATE');
       if (!body.assigneeId) return problem(400, 'VALIDATION_FAILED');
       if (!v.admin) {
@@ -383,7 +410,7 @@ export const caseHandlers = [
     return idempotent(request, () => {
       const c = cases.find((x) => x.caseId === params['caseId']);
       if (!c || !v.sees(c)) return problem(404, 'NOT_FOUND');
-      if (!v.admin && (!v.team || c.assigneeGroup === 'ORDER_OPS')) return problem(403, 'FORBIDDEN');
+      if (!v.admin && !v.acts(c)) return problem(403, 'FORBIDDEN');
       if (c.state === 'CLOSED') return problem(409, 'INVALID_STATE');
       const types = ['REQUERY_RESULT', 'RESEND_UNDELIVERED', 'EXECUTE_APPROVED_COMPENSATION', 'REQUEST_DOMAIN_REVIEW'];
       if (!types.includes(body.actionType ?? '')) return problem(422, 'UNSUPPORTED_ACTION');
@@ -419,7 +446,7 @@ export const caseHandlers = [
       const c = cases.find((x) => x.caseId === params['caseId']);
       const ar = c?.actionRequests?.find((x) => x.actionRequestId === params['arId']);
       if (!c || !ar || !v.sees(c)) return problem(404, 'NOT_FOUND');
-      if (!v.admin && (!v.team || c.assigneeGroup === 'ORDER_OPS')) return problem(403, 'FORBIDDEN');
+      if (!v.admin && !v.acts(c)) return problem(403, 'FORBIDDEN');
       if (ar.state === 'APPLIED' || ar.state === 'REJECTED') return problem(409, 'INVALID_STATE');
       if (Boolean(body.resultSystem) !== Boolean(body.resultRef)) return problem(400, 'VALIDATION_FAILED');
       const now = new Date().toISOString();
@@ -443,9 +470,8 @@ export const caseHandlers = [
     return idempotent(request, () => {
       const c = cases.find((x) => x.caseId === params['caseId']);
       if (!c || !v.sees(c)) return problem(404, 'NOT_FOUND');
-      if (!v.admin && !v.team) return problem(403, 'FORBIDDEN');
+      if (!v.admin && !v.acts(c)) return problem(403, 'FORBIDDEN');
       if (!v.admin && c.assigneeId && c.assigneeId !== v.who.subject) return problem(403, 'FORBIDDEN');
-      if (!v.admin && c.assigneeGroup === 'ORDER_OPS') return problem(403, 'FORBIDDEN');
       if (c.state === 'CLOSED') return problem(409, 'INVALID_STATE');
       if (!body.resolution || !(body.summary ?? '').trim()) return problem(400, 'VALIDATION_FAILED');
       if ((c.obligations ?? []).some(isOpen)) return problem(409, 'OPEN_OBLIGATIONS');

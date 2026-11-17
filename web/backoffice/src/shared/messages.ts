@@ -319,6 +319,7 @@ export const messages = {
       DISPATCH_FAILED: '배차 실패',
       RECONCILIATION: '대사 필요',
       PAYMENT_UNKNOWN: '결제 결과 불명',
+      RETURN_RECOVERY_FAILED: '반품 회수 실패',
     } as Readonly<Record<string, string>>,
     /** 이력 동작 이름 — 모르는 코드는 그대로 */
     actionName: { RECURRED: '재발', REOPENED: '다시 처리', TRANSFERRED: '넘김', OPENED: '접수', ASSIGNED: '맡음', CLOSED: '처리 끝냄', HANDOVER_REQUESTED: '인계서에 들어감', HANDED_OVER: '인계됨', RECOVERY_CREATED: '회수 배송 생김', RECOVERY_PICKED_UP: '회수함', RECOVERY_RETURNED: '매장 반납', RESHIPMENT_CREATED: '재발송 배송 생김', ACTION_REQUESTED: '행위 요청', ACTION_RESULT_RECORDED: '행위 결과' } as Readonly<Record<string, string>>,
@@ -354,6 +355,9 @@ export const messages = {
       fault: '귀책',
       resolution: '고객 선택',
       redeliveryDestinationId: '다시 배송 주소',
+      claimId: '클레임',
+      customerId: '고객 계정',
+      lastDeliveryId: '마지막 회수 배송',
     } as Readonly<Record<string, string>>,
     sla: '처리 기한',
     overdue: '기한 넘김',
@@ -853,6 +857,9 @@ export const messages = {
     cancelReturn: '반품 취소',
     cancelHint: '취소는 센터가 받은 회수품이 없을 때만 돼요.',
     actionConflict: '그사이 클레임 상태가 바뀌었어요 — 화면을 다시 읽어 확인해 주세요.',
+    caseClaim: '반품 클레임',
+    caseClaimNote: '고객에게 다시 연락한 뒤 아래에서 다시 회수하거나 반품을 취소해요. 조치해도 이 접수 건은 저절로 끝나지 않아요 — 끝나면 완료 처리해 주세요.',
+    caseClaimDone: '이 클레임은 지금 회수 조치를 기다리지 않아요. 고객 연락이 끝났으면 완료 처리해 주세요.',
     actionDone: (state: string) => `조치했어요 — 지금 상태: ${state}`,
   },
   deliveries: {
