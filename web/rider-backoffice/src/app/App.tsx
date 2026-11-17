@@ -16,6 +16,7 @@ import { PreparingPage } from '../features/menus/PreparingPage';
 import { LoginCallbackPage, LoginPage } from '../features/session/LoginPage';
 import { SessionPage } from '../features/session/SessionPage';
 import { messages as m } from '../shared/messages';
+import { SimulatorLink } from '../shared/sim';
 import { allMenus, hasRiderAppRole, menuPath, navGroups, type MenuItem } from './nav';
 import { RequireSession, SessionProvider, useSession } from './SessionContext';
 
@@ -75,6 +76,7 @@ function Layout() {
             ) : null}
           </p>
           <div className="flex items-center gap-3 text-sm">
+            <SimulatorLink />
             {session ? (
               <>
                 <span className="font-mono text-xs" data-testid="operator">

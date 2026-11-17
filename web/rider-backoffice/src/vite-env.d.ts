@@ -7,4 +7,6 @@ interface ImportMetaEnv {
   readonly VITE_PMART_API_BASE?: string;
   /** 카카오 지도 JavaScript 키(관제 지도). `.env.local` 등 git 밖 — 없으면 지도 없이 표로만. */
   readonly VITE_KAKAO_JS_KEY?: string;
+  /** 시뮬레이션 웹 주소(머리줄 '시뮬레이터' 버튼). 없으면 목·local 은 localhost:5181, LAN 빌드는 숨김 */
+  readonly VITE_SIM_URL?: string;
 }

@@ -12,6 +12,7 @@ import type { components } from '../../api/generated/delivery-execution';
 import { useApi } from '../../app/ApiContext';
 import { messages } from '../../shared/messages';
 import { ChipGroup, CursorPager, DataTable, DetailHeader, FieldList, PageHeader, ResultBar, SearchPanel, SearchRow, Section, SectionTabs, StatusBadge, type Tone } from '../../shared/admin';
+import { SimBadge } from '../../shared/sim';
 import { ops } from '../../shared/opsMessages';
 import { DeliveryActions } from './DeliveryActions';
 import { DeliveryEarning, DeliveryProof, DispatchAttempts, EtaPanel, extrasMessages } from './DeliveryExtras';
@@ -169,7 +170,7 @@ function DeliverySearchPage() {
                           {d.resumeRequestedAt && <StatusBadge tone="warning">{m.resumeRequested}</StatusBadge>}
                         </span>
                       </td>
-                      <td className="font-mono">{d.riderId ?? <span className="text-base-content/40">{m.noRider}</span>}</td>
+                      <td className="font-mono">{d.riderId ?? <span className="text-base-content/40">{m.noRider}</span>}{d.riderId && <span className="ml-1 align-middle font-sans"><SimBadge riderId={d.riderId} /></span>}</td>
                       <td className="font-mono">{d.mfcId ?? none}</td>
                       <td className="whitespace-nowrap">{when(d.createdAt)}</td>
                       <td className="whitespace-nowrap">{when(d.completedAt)}</td>

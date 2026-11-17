@@ -14,6 +14,7 @@ import { commandParams } from '../../api/command';
 import type { components } from '../../api/generated/rider';
 import { useApi } from '../../app/ApiContext';
 import { ChipGroup, CursorPager, DataTable, DetailHeader, FieldList, Notice, PageHeader, ResultBar, SearchPanel, SearchRow, Section, SectionTabs, StatusBadge, type Tone } from '../../shared/admin';
+import { SimBadge } from '../../shared/sim';
 import { messages } from '../../shared/messages';
 import { ops } from '../../shared/opsMessages';
 import { label, none, when, won } from '../../shared/opsUi';
@@ -154,6 +155,9 @@ function RiderSearchPage({ signups = false }: { readonly signups?: boolean }) {
                         <Link className="hover:underline" to={`/riders/${encodeURIComponent(row.riderId ?? '')}`} onClick={(e) => e.stopPropagation()}>
                           {row.riderId}
                         </Link>
+                        <span className="ml-1 align-middle font-sans">
+                          <SimBadge riderId={row.riderId} />
+                        </span>
                       </td>
                       <td>{row.nameMasked ?? none}</td>
                       <td className="font-mono">{row.phoneMasked ?? none}</td>
@@ -230,6 +234,7 @@ function RiderDetailPage() {
         badges={
           d && (
             <>
+              <SimBadge riderId={riderId} />
               <StatusBadge tone={restrictionTone(d.restriction?.state)}>{label(n.restriction, d.restriction?.state)}</StatusBadge>
               <StatusBadge tone={operatingTone(d.operating?.status)}>{label(n.operatingStatus, d.operating?.status)}</StatusBadge>
               <StatusBadge tone={signupTone(d.signupStatus)}>{signupText(d.signupStatus, d.signupDecidedBy ?? null)}</StatusBadge>

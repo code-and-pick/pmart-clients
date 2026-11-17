@@ -96,7 +96,7 @@ export const ops = {
     seconds: (s: number) => (s < 60 ? `${s}초 전` : `${Math.floor(s / 60)}분 전`),
     staleCount: (n: number) => `위치 끊김 ${n}명`,
     eta: (t: string) => `도착 예정 ${t}`,
-    filter: { all: '전체', delivering: '배송 중', stale: '위치 끊김·없음' },
+    filter: { all: '전체', delivering: '배송 중', stale: '위치 끊김·없음', sim: '시뮬 라이더만' },
     emptyFiltered: '조건에 맞는 라이더가 없어요.',
   },
   actions: {

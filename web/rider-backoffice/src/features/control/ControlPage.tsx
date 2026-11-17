@@ -11,6 +11,7 @@ import { QueryState, toUiState } from '@pmart/web-ui';
 import type { components } from '../../api/generated/delivery-tracking';
 import { useApi } from '../../app/ApiContext';
 import { ChipGroup, DataTable, PageHeader, Section, StatCard, StatusBadge } from '../../shared/admin';
+import { isSimRider, SimBadge } from '../../shared/sim';
 import { messages } from '../../shared/messages';
 import { ops } from '../../shared/opsMessages';
 import { CenterPicker, label, none, when } from '../../shared/opsUi';
@@ -34,7 +35,7 @@ const cx = {
   refresh: '10초마다 새로 불러와요',
 } as const;
 
-type Filter = 'all' | 'delivering' | 'stale';
+type Filter = 'all' | 'delivering' | 'stale' | 'sim';
 type Rider = components['schemas']['ControlRider'];
 
 // 거르기·지도 색은 서버 값으로만: stale(서버 3분 기준) 또는 위치 없음 = 끊김, 진행 중 배송 있음 = 배송 중.
@@ -52,7 +53,7 @@ export function ControlPage() {
   const [params, setParams] = useSearchParams();
   const mfcId = params.get('mfcId') ?? '';
   const rawFilter = params.get('filter');
-  const filter: Filter = rawFilter === 'delivering' || rawFilter === 'stale' ? rawFilter : 'all';
+  const filter: Filter = rawFilter === 'delivering' || rawFilter === 'stale' || rawFilter === 'sim' ? rawFilter : 'all';
   const setFilter = (f: Filter) => {
     const p = new URLSearchParams(params);
     if (f === 'all') p.delete('filter');
@@ -86,7 +87,7 @@ export function ControlPage() {
           <ChipGroup
             label={cx.view}
             value={filter}
-            options={(['all', 'delivering', 'stale'] as const).map((f) => ({ value: f, label: c.filter[f] }))}
+            options={(['all', 'delivering', 'stale', 'sim'] as const).map((f) => ({ value: f, label: c.filter[f] }))}
             onChange={setFilter}
           />
         </div>
@@ -101,7 +102,7 @@ export function ControlPage() {
             const all = b.items ?? [];
             const staleFlag = all.filter((r) => r.stale).length;
             const staleOrNone = all.filter(isStale).length;
-            const items = all.filter((r) => (filter === 'delivering' ? isDelivering(r) : filter === 'stale' ? isStale(r) : true));
+            const items = all.filter((r) => (filter === 'delivering' ? isDelivering(r) : filter === 'stale' ? isStale(r) : filter === 'sim' ? isSimRider(r.riderId) : true));
             const mapRiders: MapRider[] = items.flatMap((r) =>
               r.location?.lat != null && r.location.lng != null
                 ? [{ riderId: r.riderId, lat: r.location.lat, lng: r.location.lng, tone: isStale(r) ? 'stale' : isDelivering(r) ? 'delivering' : 'ok', label: r.nameMasked ?? r.riderId }]
@@ -160,6 +161,7 @@ export function ControlPage() {
                                 {r.riderId}
                               </Link>
                               {r.nameMasked && <span className="text-xs text-base-content/60">{r.nameMasked}</span>}
+                          <SimBadge riderId={r.riderId} />
                               {r.restriction && r.restriction !== 'NORMAL' && <StatusBadge tone="warning">{label(n.restriction, r.restriction)}</StatusBadge>}
                             </span>
                           </td>
