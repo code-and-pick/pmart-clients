@@ -20,6 +20,7 @@
 | SSO | 백오피스에 로그인돼 있으면 비밀번호 없이 들어온다. 로그아웃(`idpLogoutUri`)은 두 앱의 Keycloak 세션을 같이 끝낸다 |
 | 주소 | 개발 `http://localhost:5174`, LAN `https://192.168.0.40:8444`(복귀 `…/auth/callback`, API `https://192.168.0.40:8443/api/v1`). 빌드는 백엔드가 `lan.sh publish-hr-backoffice` 로 올린다 |
 | 앱 바꾸기 | 왼쪽 메뉴 위 ⋮⋮⋮(`@pmart/web-ui` `AppLauncher`, 백엔드 요청 `all/2026-11-17-request-app-launcher`) — 직원용 백오피스 4개를 모두에게, 같은 탭 링크, 인사팀은 강조만. 주소 = 지금 호스트 + 앱 포트(LAN https 443·8444·8445·8446, 개발 5173~5176) |
+| 화면 형식 | 관리자 형식(2026-11-18, PC 5 요청 방법 B — 라이더 백오피스 `shared/admin.tsx`·테마·화면 틀 사본, 이 앱에서 따로 고친다): 진한 남색 왼쪽 메뉴(민트 막대), 흰 머리줄(인사 › 메뉴·목 표시·내 세션), 머리말·테두리 상자·표 부품. 모양만 — 동작 그대로 |
 | `X-Source-System` | `hr-backoffice-web` |
 | 보관 | access token 메모리, refresh token·기기 ID 는 탭 sessionStorage(`pmart.hr-backoffice.session`) |
 | 빌드 모드 | `mock`(MSW, 목 계정 버튼 — Keycloak 없음, 티켓 교환부터는 실제 코드) / `local`(게이트웨이 프록시) / `lan` |

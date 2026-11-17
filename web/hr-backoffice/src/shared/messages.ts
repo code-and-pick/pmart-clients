@@ -16,6 +16,7 @@ export const messages = {
   reasonHint: '필수, 500자까지',
 
   nav: {
+    group: '인사',
     session: '내 세션',
     login: '로그인',
     employees: '직원 목록',

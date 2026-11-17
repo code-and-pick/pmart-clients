@@ -12,6 +12,7 @@ import type { components } from '../../api/generated/hr';
 import { CODE_PATTERN } from '../../api/models';
 import { useApi } from '../../app/ApiContext';
 import { messages as m } from '../../shared/messages';
+import { DataTable, PageHeader } from '../../shared/admin';
 
 export type Department = components['schemas']['Department'];
 
@@ -52,8 +53,8 @@ export function DepartmentInput({ value, onChange }: { readonly value: string; r
         ))}
       </datalist>
       {departments.isError && <span className="text-warning text-xs">{m.departments.loadFailed}</span>}
-      {known?.name && <span className="text-xs opacity-70" data-testid="department-name">{known.name}</span>}
-      {departments.isSuccess && value !== '' && !known && CODE_PATTERN.test(value) && <span className="text-xs opacity-70">{m.departments.newCode}</span>}
+      {known?.name && <span className="text-xs text-base-content/60" data-testid="department-name">{known.name}</span>}
+      {departments.isSuccess && value !== '' && !known && CODE_PATTERN.test(value) && <span className="text-xs text-base-content/60">{m.departments.newCode}</span>}
     </div>
   );
 }
@@ -102,7 +103,7 @@ function AddDepartment() {
   const ok = CODE_PATTERN.test(code);
   return (
     <form
-      className="flex flex-wrap items-end gap-2 rounded-box bg-base-100 p-3 text-sm"
+      className="flex flex-wrap items-end gap-2 rounded-box border border-base-300 bg-base-100 p-3 text-sm"
       aria-label={m.departments.add}
       onSubmit={(e) => {
         e.preventDefault();
@@ -132,11 +133,10 @@ export function DepartmentsPage() {
   const departments = useDepartments();
   return (
     <section className="max-w-3xl space-y-4">
-      <h1 className="text-xl font-bold">{m.departments.title}</h1>
-      <p className="text-sm opacity-70">{m.departments.intro}</p>
+      <PageHeader title={m.departments.title} description={m.departments.intro} />
       <QueryState state={toUiState(departments, (d) => d.length === 0)} onRetry={() => void departments.refetch()} emptyText={m.departments.empty}>
         {(items) => (
-          <table className="table table-sm rounded-box bg-base-100">
+          <DataTable>
             <thead>
               <tr>
                 <th>{m.departments.code}</th>
@@ -155,7 +155,7 @@ export function DepartmentsPage() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </DataTable>
         )}
       </QueryState>
       <AddDepartment />

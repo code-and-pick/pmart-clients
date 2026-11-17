@@ -17,6 +17,7 @@ import { AffiliationFields, toAffiliation, type AffiliationDraft } from './Affil
 import { useCenters } from './centers';
 import { affiliationText, periodText } from './labels';
 import { MailboxPassword } from './MailboxPassword';
+import { DataTable, PageHeader } from '../../shared/admin';
 
 /** 발급 진행 중 다시 조회 간격. 테스트가 줄여 쓴다 */
 export const provisioningPoll = { intervalMs: 3000 };
@@ -74,7 +75,7 @@ function ReasonAction({
           {warning}
         </p>
       )}
-      {note && <p className="text-sm opacity-70">{note}</p>}
+      {note && <p className="text-sm text-base-content/60">{note}</p>}
       {!done && (
         <>
           {children}
@@ -130,10 +131,10 @@ function Actions({ employee, onChanged, self }: { readonly employee: Employee; r
   ];
 
   return (
-    <div className="space-y-3 rounded-box bg-base-100 p-4">
+    <div className="space-y-3 rounded-box border border-base-300 bg-base-100 p-4">
       <h2 className="font-bold">{m.detail.actions}</h2>
       {self && (
-        <p role="note" className="text-sm opacity-70" data-testid="self-action-note">
+        <p role="note" className="text-sm text-base-content/60" data-testid="self-action-note">
           {m.detail.selfNote}
         </p>
       )}
@@ -241,7 +242,7 @@ function ProvisioningCard({ employee, onChanged }: { readonly employee: Employee
   });
 
   return (
-    <div className="space-y-3 rounded-box bg-base-100 p-4">
+    <div className="space-y-3 rounded-box border border-base-300 bg-base-100 p-4">
       <h2 className="font-bold">{m.detail.provisioning}</h2>
       <dl className="grid grid-cols-[8rem_1fr] gap-1 text-sm">
         <dt>{m.detail.step}</dt>
@@ -329,8 +330,8 @@ export function EmployeeDetailPage() {
       <QueryState state={toUiState(query)} onRetry={() => void query.refetch()}>
         {(e) => (
           <>
-            <h1 className="text-xl font-bold">{`${e.name} (${e.employeeNo})`}</h1>
-            <div className="rounded-box bg-base-100 p-4">
+            <PageHeader title={`${e.name} (${e.employeeNo})`} />
+            <div className="rounded-box border border-base-300 bg-base-100 p-4">
               <h2 className="mb-2 font-bold">{m.detail.info}</h2>
               <dl className="grid grid-cols-[8rem_1fr] gap-1 text-sm">
                 <dt>{m.fields.status}</dt>
@@ -356,13 +357,13 @@ export function EmployeeDetailPage() {
 
             <ProvisioningCard employee={e} onChanged={onChanged} />
 
-            <div className="space-y-2 rounded-box bg-base-100 p-4">
+            <div className="space-y-2 rounded-box border border-base-300 bg-base-100 p-4">
               <h2 className="font-bold">{m.detail.grants}</h2>
-              <p className="text-xs opacity-70">{m.detail.grantsNote}</p>
+              <p className="text-xs text-base-content/60">{m.detail.grantsNote}</p>
               {(e.requestedGrants ?? []).length === 0 ? (
-                <p className="text-sm opacity-70">{m.detail.grantsEmpty}</p>
+                <p className="text-sm text-base-content/60">{m.detail.grantsEmpty}</p>
               ) : (
-                <table className="table table-sm">
+                <DataTable>
                   <thead>
                     <tr>
                       <th>{m.register.grantRole}</th>
@@ -385,7 +386,7 @@ export function EmployeeDetailPage() {
                       </tr>
                     ))}
                   </tbody>
-                </table>
+                </DataTable>
               )}
             </div>
 

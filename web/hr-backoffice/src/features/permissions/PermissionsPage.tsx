@@ -20,6 +20,7 @@ import { messages as m } from '../../shared/messages';
 import { CenterMultiSelect, useCenters } from '../employees/centers';
 import { activeGrants, lastDayOf, lineProblems, needsCenter, overlappingGrants, parseConflict, problemDetail } from '../employees/grantRules';
 import { roleLabel, useEmployeeRoles } from '../employees/roles';
+import { DataTable, PageHeader } from '../../shared/admin';
 
 const ADMIN_ROLES = ['OPERATOR_ADMIN', 'HR_ADMIN'];
 
@@ -39,8 +40,7 @@ export function PermissionsPage() {
   };
   return (
     <section className="max-w-4xl space-y-4">
-      <h1 className="text-xl font-bold">{m.permissions.title}</h1>
-      <p className="text-sm opacity-70">{m.permissions.intro}</p>
+      <PageHeader title={m.permissions.title} description={m.permissions.intro} />
       <form className="flex flex-wrap items-end gap-2" onSubmit={onSubmit}>
         <label className="flex flex-col gap-1 text-sm">
           {m.list.q}
@@ -53,7 +53,7 @@ export function PermissionsPage() {
       {q !== '' && (
         <QueryState state={toUiState(list, (p) => p.items.length === 0)} onRetry={() => void list.refetch()} emptyText={m.permissions.noResult}>
           {(page) => (
-            <table className="table table-sm rounded-box bg-base-100">
+            <DataTable>
               <thead>
                 <tr>
                   <th>{m.fields.employeeNo}</th>
@@ -78,7 +78,7 @@ export function PermissionsPage() {
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </DataTable>
           )}
         </QueryState>
       )}
@@ -163,7 +163,7 @@ function AccountView({ operatorId, account, roles, self, canRevokeAdmin }: {
   const onRevoked = (a: EmployeeAccount) => queryClient.setQueryData(['employee-auth', 'employee', operatorId], a);
   return (
     <div className="space-y-3">
-      <dl className="grid grid-cols-[9rem_1fr] gap-1 rounded-box bg-base-100 p-4 text-sm">
+      <dl className="grid grid-cols-[9rem_1fr] gap-1 rounded-box border border-base-300 bg-base-100 p-4 text-sm">
         <dt>{m.permissions.state}</dt>
         <dd data-testid="account-state">{m.permissions.stateName[account.state] ?? account.state}</dd>
         <dt>{m.permissions.effectiveRoles}</dt>
@@ -175,9 +175,9 @@ function AccountView({ operatorId, account, roles, self, canRevokeAdmin }: {
       </dl>
       <h2 className="font-bold">{m.permissions.grants}</h2>
       {grants.length === 0 ? (
-        <p className="text-sm opacity-70">{m.permissions.noGrants}</p>
+        <p className="text-sm text-base-content/60">{m.permissions.noGrants}</p>
       ) : (
-        <table className="table table-sm rounded-box bg-base-100">
+        <DataTable>
           <thead>
             <tr>
               <th>{m.permissions.role}</th>
@@ -205,14 +205,14 @@ function AccountView({ operatorId, account, roles, self, canRevokeAdmin }: {
                       : st === 'ended'
                         ? m.permissions.ended
                         : m.permissions.live}
-                    {st === 'revoked' && g.revokeReason && <p className="text-xs opacity-70">{g.revokeReason}</p>}
+                    {st === 'revoked' && g.revokeReason && <p className="text-xs text-base-content/60">{g.revokeReason}</p>}
                   </td>
                   <td>{canRevoke && <RevokeRow operatorId={operatorId} grant={g} onDone={onRevoked} />}</td>
                 </tr>
               );
             })}
           </tbody>
-        </table>
+        </DataTable>
       )}
       {direct.length > 0 && (
         <p className="text-sm">
@@ -273,7 +273,7 @@ function GrantRequestForm({
   const extension = conflicts.some((c) => c.extension);
   return (
     <form
-      className="space-y-3 rounded-box bg-base-100 p-4 text-sm"
+      className="space-y-3 rounded-box border border-base-300 bg-base-100 p-4 text-sm"
       aria-label={m.permissions.newRequest}
       onSubmit={(e) => {
         e.preventDefault();
@@ -292,11 +292,11 @@ function GrantRequestForm({
       }}
     >
       <h2 className="font-bold">{m.permissions.newRequest}</h2>
-      <p className="text-xs opacity-70">{m.permissions.requestNote}</p>
+      <p className="text-xs text-base-content/60">{m.permissions.requestNote}</p>
       <div className="space-y-1" data-testid="current-grants">
         <h3 className="text-xs font-bold">{m.permissions.current}</h3>
         {current.length === 0 ? (
-          <p className="text-xs opacity-70">{m.permissions.noCurrent}</p>
+          <p className="text-xs text-base-content/60">{m.permissions.noCurrent}</p>
         ) : (
           <ul className="space-y-0.5 text-xs">
             {current.map((g) => (
@@ -336,7 +336,7 @@ function GrantRequestForm({
               {draft.centers.length === 0 && <span className="text-xs text-warning">{m.register.roleNeedsCenter}</span>}
             </>
           ) : (
-            <p className="mt-6 text-xs opacity-70" data-testid="grant-no-center">
+            <p className="mt-6 text-xs text-base-content/60" data-testid="grant-no-center">
               {draft.role ? m.register.noCenterNeeded : m.register.pickRoleFirst}
             </p>
           )}
@@ -406,8 +406,8 @@ export function PermissionDetailPage() {
           const pending = (e.requestedGrants ?? []).some((g) => g.submission === 'PENDING' || g.submission === 'SUBMITTED');
           return (
             <>
-              <h1 className="text-xl font-bold">{`${m.permissions.title} — ${e.name} (${e.employeeNo})`}</h1>
-              <p className="text-sm opacity-70">{`${e.mailAddress} · ${m.employmentStatus[e.status]}`}</p>
+              <PageHeader title={`${m.permissions.title} — ${e.name} (${e.employeeNo})`} />
+              <p className="text-sm text-base-content/60">{`${e.mailAddress} · ${m.employmentStatus[e.status]}`}</p>
 
               <h2 className="font-bold">{m.permissions.account}</h2>
               {accountPending ? (
@@ -426,11 +426,11 @@ export function PermissionDetailPage() {
 
               <h2 className="font-bold">{m.permissions.requests}</h2>
               {(e.requestedGrants ?? []).length === 0 ? (
-                <p className="text-sm opacity-70">{m.permissions.noRequests}</p>
+                <p className="text-sm text-base-content/60">{m.permissions.noRequests}</p>
               ) : (
                 <ul className="space-y-1 text-sm">
                   {(e.requestedGrants ?? []).map((g, i) => (
-                    <li key={`${g.role}-${i}`} className="rounded-box bg-base-100 p-2" data-testid="grant-request">
+                    <li key={`${g.role}-${i}`} className="rounded-box border border-base-300 bg-base-100 p-2" data-testid="grant-request">
                       {`${roleName(roles.data, g.role)} · ${g.centers.join(', ') || m.none} · `}
                       <span data-submission={g.submission}>{m.grantSubmission[g.submission]}</span>
                       {g.approvalRef ? ` · ${g.approvalRef}` : ''}
@@ -441,13 +441,13 @@ export function PermissionDetailPage() {
 
               {/* 본인 권한 요청은 서버가 403(hr-service) — 폼 대신 안내 */}
               {self && (
-                <p role="note" className="text-sm opacity-70" data-testid="self-grant-note">
+                <p role="note" className="text-sm text-base-content/60" data-testid="self-grant-note">
                   {m.permissions.selfNote}
                 </p>
               )}
               {!self &&
                 (pending ? (
-                  <p className="text-sm opacity-70">{m.permissions.pendingNote}</p>
+                  <p className="text-sm text-base-content/60">{m.permissions.pendingNote}</p>
                 ) : roles.isSuccess ? (
                   <GrantRequestForm operatorId={operatorId} version={e.version} roles={roles.data} grants={account.data?.grants ?? []} />
                 ) : (

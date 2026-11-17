@@ -11,6 +11,7 @@ import { useApi } from '../../app/ApiContext';
 import { useSession } from '../../app/SessionContext';
 import { messages as m } from '../../shared/messages';
 import { affiliationText } from './labels';
+import { DataTable, PageHeader } from '../../shared/admin';
 
 const PAGE_SIZE = 50;
 
@@ -60,13 +61,13 @@ export function EmployeeListPage() {
   return (
     <section className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold">{m.list.title}</h1>
+        <PageHeader title={m.list.title} />
         <Link to="/employees/new" className="btn btn-primary btn-sm">
           {m.list.register}
         </Link>
       </div>
       <form
-        className="flex flex-wrap items-end gap-3 rounded-box bg-base-100 p-4"
+        className="flex flex-wrap items-end gap-3 rounded-box border border-base-300 bg-base-100 p-4"
         onSubmit={(e) => {
           e.preventDefault();
           const next = new URLSearchParams();
@@ -115,8 +116,8 @@ export function EmployeeListPage() {
       <QueryState state={state} onRetry={() => void query.refetch()} emptyText={m.list.empty}>
         {(rows) => (
           <div className="space-y-3">
-            <div className="overflow-x-auto rounded-box bg-base-100">
-              <table className="table table-sm">
+            <div className="overflow-x-auto rounded-box border border-base-300 bg-base-100">
+              <DataTable>
                 <thead>
                   <tr>
                     <th>{m.fields.employeeNo}</th>
@@ -145,7 +146,7 @@ export function EmployeeListPage() {
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </DataTable>
             </div>
             <div className="flex items-center gap-3 text-sm">
               <span className="opacity-70">{m.list.count(rows.length)}</span>

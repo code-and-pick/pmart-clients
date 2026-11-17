@@ -20,6 +20,7 @@ import { AffiliationFields, toAffiliation, type AffiliationDraft } from './Affil
 import { CenterMultiSelect, useCenters } from './centers';
 import { lineProblems, needsCenter, problemDetail } from './grantRules';
 import { roleLabel, useEmployeeRoles } from './roles';
+import { PageHeader } from '../../shared/admin';
 
 interface GrantDraft {
   readonly id: number;
@@ -77,7 +78,7 @@ export function EmployeeRegisterPage() {
 
   return (
     <section className="max-w-3xl space-y-4">
-      <h1 className="text-xl font-bold">{m.register.title}</h1>
+      <PageHeader title={m.register.title} />
       <form
         className="space-y-4"
         onSubmit={(e) => {
@@ -95,7 +96,7 @@ export function EmployeeRegisterPage() {
           });
         }}
       >
-        <div className="space-y-3 rounded-box bg-base-100 p-4">
+        <div className="space-y-3 rounded-box border border-base-300 bg-base-100 p-4">
           <label className="flex flex-col gap-1 text-sm">
             {m.fields.name}
             <input className="input input-sm w-full max-w-xs" maxLength={60} value={name} onChange={(e) => setName(e.target.value)} />
@@ -146,12 +147,12 @@ export function EmployeeRegisterPage() {
               <input type="date" className="input input-sm" disabled={regular} value={endDate} onChange={(e) => setEndDate(e.target.value)} />
             </label>
           </div>
-          <p className="text-xs opacity-70">{regular ? m.register.endDateRegular : m.register.endDateRequired}</p>
+          <p className="text-xs text-base-content/60">{regular ? m.register.endDateRegular : m.register.endDateRequired}</p>
         </div>
 
-        <div className="space-y-3 rounded-box bg-base-100 p-4">
+        <div className="space-y-3 rounded-box border border-base-300 bg-base-100 p-4">
           <h2 className="font-bold">{m.register.grants}</h2>
-          <p className="text-xs opacity-70">{m.register.grantsNote}</p>
+          <p className="text-xs text-base-content/60">{m.register.grantsNote}</p>
           {/* 역할 목록을 못 받으면 고를 수 없다 — 빈 목록이 아니라 오류 + 다시 시도(권한 추가 버튼도 막는다) */}
           {!roles.isSuccess && (
             <QueryState state={toUiState(roles)} onRetry={() => void roles.refetch()}>
@@ -184,7 +185,7 @@ export function EmployeeRegisterPage() {
               {needsCenter(roles.data, g.role) ? (
                 <CenterMultiSelect centers={centers} label={m.register.grantCenters} value={g.centers} onChange={(next) => patchGrant(g.id, { centers: next })} />
               ) : (
-                <p className="self-end text-xs opacity-70" data-testid="grant-no-center">
+                <p className="self-end text-xs text-base-content/60" data-testid="grant-no-center">
                   {g.role ? m.register.noCenterNeeded : m.register.pickRoleFirst}
                 </p>
               )}
@@ -208,7 +209,7 @@ export function EmployeeRegisterPage() {
                 <input className="input input-sm w-full" maxLength={500} value={g.reason} onChange={(e) => patchGrant(g.id, { reason: e.target.value })} />
               </label>
               <div className="flex items-center justify-between sm:col-span-2">
-                <span className="text-xs opacity-70">{m.register.grantPeriodHint}</span>
+                <span className="text-xs text-base-content/60">{m.register.grantPeriodHint}</span>
                 <button type="button" className="btn btn-xs" onClick={() => setGrants((gs) => gs.filter((x) => x.id !== g.id))}>
                   {m.register.removeGrant}
                 </button>
@@ -233,7 +234,7 @@ export function EmployeeRegisterPage() {
           </button>
         </div>
 
-        <p className="text-xs opacity-70">{m.register.after}</p>
+        <p className="text-xs text-base-content/60">{m.register.after}</p>
         <button type="submit" className="btn btn-primary" disabled={!ready || cmd.busy}>
           {m.register.submit}
         </button>

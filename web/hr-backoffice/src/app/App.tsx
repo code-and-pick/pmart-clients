@@ -39,43 +39,69 @@ function Layout() {
   // 메뉴에는 이름을 보인다(운영자 ID 는 길다). 이름을 아직 못 받았거나 인사 기록이 없으면 "내 세션"만.
   const me = useMe();
   const myName = me.data?.name;
+  const { pathname } = useLocation();
+  // 머리줄 위치(가장 긴 메뉴 경로 — /employees/new 는 직원 등록, /employees/xxx 는 직원 목록)
+  const current = [...nav].sort((x, y) => y[0].length - x[0].length).find(([to]) => pathname === to || pathname.startsWith(`${to}/`));
+  // 화면 틀(2026-11-18 — PC 5 요청 "관리자 형식", 사본: rider-backoffice App.tsx Layout PR #93 461ff31 — 이 앱에서 따로 고친다)
   return (
     <div className="flex min-h-screen bg-base-200">
-      {/* 메뉴는 화면 높이에 고정하고 길면 메뉴만 따로 스크롤(오른쪽 화면을 내려도 메뉴는 그 자리) */}
       <ScrollToTopOnNavigate />
-      <aside className="sticky top-0 h-screen w-52 shrink-0 self-start overflow-y-auto bg-base-100 shadow-sm" data-testid="side-menu">
-        <div className="flex items-start justify-between gap-1 p-4">
-          <div>
-            <Link to="/" className="text-lg font-bold" aria-label={m.goHome}>
-              {m.appTitle}
-            </Link>
-            {env.isMock && <span className="badge badge-outline ml-2">{m.mockBadge}</span>}
-          </div>
+      {/* 메뉴는 화면 높이에 고정하고 길면 메뉴만 따로 스크롤(오른쪽 화면을 내려도 메뉴는 그 자리) */}
+      <aside className="sticky top-0 flex h-screen w-56 shrink-0 flex-col self-start overflow-y-auto bg-neutral text-neutral-content" data-testid="side-menu">
+        <div className="flex h-14 shrink-0 items-center justify-between gap-1 border-b border-neutral-content/10 pl-5 pr-2">
+          <Link to="/" className="truncate text-base font-bold text-neutral-content" aria-label={m.goHome}>
+            {m.appTitle}
+          </Link>
           {/* 직원 웹 앱 바꾸기(백엔드 요청 all/2026-11-17-request-app-launcher) — 링크만, 세션을 읽지 않는다 */}
-          <AppLauncher current="hr-backoffice" />
+          <AppLauncher current="hr-backoffice" className="text-base-content [&>button]:text-neutral-content [&>button:hover]:bg-neutral-content/10" />
         </div>
-        <ul className="menu w-full">
-          <li>
-            <NavLink to={session ? '/session' : '/login'}>{session ? (myName ? `${m.nav.session}: ${myName}` : m.nav.session) : m.nav.login}</NavLink>
-          </li>
-          {nav.map(([to, label]) => (
-            <li key={to}>
-              <NavLink to={to} end>
-                {label}
-              </NavLink>
-            </li>
-          ))}
-        </ul>
+        <nav aria-label="메뉴" className="flex-1 py-3">
+          <p className="px-5 pb-1 text-xs font-semibold text-neutral-content/45">{m.nav.group}</p>
+          <ul>
+            {nav.map(([to, label]) => (
+              <li key={to}>
+                <NavLink
+                  to={to}
+                  end
+                  className={({ isActive }) =>
+                    `flex items-center border-l-[3px] px-5 py-2 text-sm ${isActive ? 'border-accent bg-neutral-content/10 font-semibold text-neutral-content' : 'border-transparent text-neutral-content/75 hover:bg-neutral-content/5 hover:text-neutral-content'}`
+                  }
+                >
+                  {label}
+                </NavLink>
+              </li>
+            ))}
+          </ul>
+        </nav>
       </aside>
-      <main className="min-w-0 flex-1 space-y-4 p-6">
-        {/* 안내만 한다 — 화면을 막지 않고, 판정은 서버(403 → 이용할 수 없는 화면) */}
-        {session && !session.roles.includes('HR_ADMIN') && (
-          <p role="note" className="alert alert-warning text-sm">
-            {m.noHrRole}
+      <div className="flex min-w-0 flex-1 flex-col">
+        <header className="flex h-14 shrink-0 items-center justify-between gap-3 border-b border-base-300 bg-base-100 px-6">
+          <p className="truncate text-sm text-base-content/60" data-testid="page-title">
+            {current ? (
+              <>
+                {m.nav.group} <span className="px-1 text-base-content/30">›</span>
+                <span className="font-semibold text-base-content">{current[1]}</span>
+              </>
+            ) : null}
           </p>
-        )}
-        <Outlet />
-      </main>
+          <div className="flex items-center gap-2 text-sm">
+            {env.isMock && <span className="badge badge-accent badge-sm">{m.mockBadge}</span>}
+            {/* 로그인 직원 — 이름(없으면 "내 세션"). 로그인 시험이 이 링크 이름으로 찾는다 */}
+            <NavLink to={session ? '/session' : '/login'} className={session ? 'btn btn-ghost btn-xs font-normal' : 'btn btn-primary btn-xs'}>
+              {session ? (myName ? `${m.nav.session}: ${myName}` : m.nav.session) : m.nav.login}
+            </NavLink>
+          </div>
+        </header>
+        <main className="min-w-0 flex-1 space-y-4 p-6">
+          {/* 안내만 한다 — 화면을 막지 않고, 판정은 서버(403 → 이용할 수 없는 화면) */}
+          {session && !session.roles.includes('HR_ADMIN') && (
+            <p role="note" className="alert alert-warning text-sm">
+              {m.noHrRole}
+            </p>
+          )}
+          <Outlet />
+        </main>
+      </div>
     </div>
   );
 }
