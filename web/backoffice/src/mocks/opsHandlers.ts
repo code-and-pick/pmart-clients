@@ -565,8 +565,25 @@ export const opsHandlers = [
       return { status: 202, body: result };
     });
   }),
-  // 결과 조회는 실서버가 아직 501(백엔드 회신 reply-case-inbox-questions §3) — 화면은 부르지 않는다(목록 다시 읽기). 불리면 501 로 드러나게.
-  http.get(`${BFF_BASE}/commands/:targetService/:command/:requestId`, () => problem(501, 'NOT_IMPLEMENTED')),
+  // bff 0.12.0 결과 조회 — 관리자만, targetRef 필수, handover-retry·그 밖 422, 기록 없음 404(명령이 닿지 않음)
+  http.get(`${BFF_BASE}/commands/:targetService/:command/:requestId`, ({ request, params }) => {
+    const { denied } = allow(request, ...ADMIN);
+    if (denied) return denied;
+    const targetRef = new URL(request.url).searchParams.get('targetRef');
+    if (!targetRef) return problem(400, 'VALIDATION_FAILED', [{ field: 'targetRef', reason: 'REQUIRED' }]);
+    const key = `${String(params['targetService'])}/${String(params['command'])}`;
+    if (!['order-orchestration-service/saga-requery', 'order-orchestration-service/saga-resolve', 'mfc-fulfillment-service/stop-retry'].includes(key)) return problem(422, 'UNSUPPORTED_ACTION');
+    const requestId = String(params['requestId']);
+    const source = { system: String(params['targetService']), asOf: { asOf: new Date().toISOString(), freshness: 'CURRENT' }, confidence: 'DIRECT' };
+    if (key.startsWith('mfc-')) {
+      const item = ops.mfcPending.find((x) => x.kind === 'MFC_STOP_FAILED' && x.refId === targetRef);
+      if (!item) return problem(404, 'NOT_FOUND');
+      return HttpResponse.json(item.done ? { requestId, status: 'APPLIED', resultId: targetRef, nextAction: null, source, detail: { state: 'RESOLVED' } } : { requestId, status: 'ACCEPTED', resultId: targetRef, nextAction: 'QUERY_RESULT', source, detail: { state: 'PENDING' } });
+    }
+    const saved = ops.bffResults.get(requestId);
+    if (!saved) return problem(404, 'NOT_FOUND');
+    return HttpResponse.json({ requestId, status: saved.status, resultId: targetRef, nextAction: null, source, detail: { state: 'SUCCEEDED' } });
+  }),
 
   // ---- case 0.3.0 rider-complaints ----
   http.post(`${API_BASE}/rider-complaints`, async ({ request }) => {

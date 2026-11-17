@@ -602,6 +602,17 @@ export const messages = {
     lastRetry: (who: string, at: string, reason: string) => `최근 재시도: ${who} · ${at} · ${reason}`,
     retryRejected: '다시 실패했어요. 원인을 고친 뒤 다시 시도해 주세요.',
     handoverRetryGuide: '먼저 실물을 확인하고 재고를 정정한 뒤 다시 시도해 주세요.',
+    /** bff 0.12.0 결과 확인 */
+    unknownCheck: '반영됐는지 아직 확인하지 못했어요. 목록을 다시 읽었으니 이 항목이 바뀌었는지 보세요. 그대로면 "결과 확인"으로 원천을 다시 읽어 보세요.',
+    check: '결과 확인',
+    checkApplied: '반영됐어요(원천에서 확인). 목록을 새로 불러와요.',
+    checkRejected: '반영되지 않았어요. 원인을 고친 뒤 다시 시도해 주세요.',
+    checkAccepted: '아직 처리 중이에요. 잠시 뒤 다시 확인해 주세요.',
+    checkUnknown: '원천이 답하지 않아 아직 몰라요. 잠시 뒤 다시 확인해 주세요.',
+    checkNotReached: '명령이 원천에 닿지 않았어요. "같은 요청으로 결과 확인"을 눌러 같은 요청으로 다시 보내 주세요(같은 요청이라 두 번 반영되지 않아요).',
+    checkUnavailable: '원천에 연결하지 못해 아직 몰라요. 잠시 뒤 다시 확인해 주세요.',
+    checkForbidden: '결과 확인은 관리자만 할 수 있어요.',
+    checkFailed: '결과를 확인하지 못했어요. 잠시 뒤 다시 확인해 주세요.',
   },
   orders: {
     title: '주문 조회',

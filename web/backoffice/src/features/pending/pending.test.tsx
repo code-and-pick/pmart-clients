@@ -1,4 +1,4 @@
-// 처리 대기(bff 0.2.0 pending-work, BO-12) — 멈춘 주문 처리·이행 확인 필요 한 목록, allowedActions 버튼만, 명령은 bff 프록시(짝 조회는 501 이라 목록 다시 읽기).
+// 처리 대기(bff 0.2.0 pending-work, BO-12) — 멈춘 주문 처리·이행 확인 필요 한 목록, allowedActions 버튼만, 명령은 bff 프록시(결과 불명이면 목록 다시 읽기 — "결과 확인"은 commandResult.test.tsx).
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
@@ -50,7 +50,7 @@ describe('처리 대기', () => {
     expect(await view.mutations('/saga-requery')[0]!.json()).toEqual({ targetRef: 'SAGA-MOCK-1', payload: {} });
   });
 
-  it('ACCEPTED 면 결과 조회(501) 대신 목록을 다시 읽고 "목록에서 확인" — 다시 확인은 같은 키', async () => {
+  it('ACCEPTED 면 목록을 다시 읽고 "목록에서 확인" — 결과 조회는 누를 때만, 다시 확인은 같은 키', async () => {
     let n = 0;
     server.use(
       http.post(`${BFF_BASE}/commands/:ts/:cmd`, ({ request }) => {
@@ -66,7 +66,7 @@ describe('처리 대기', () => {
     await userEvent.click(within(row).getByRole('button', { name: '보내기' }));
     expect(await within(row).findByText(/목록을 다시 읽었으니 이 항목이 바뀌었는지 보세요/)).toBeInTheDocument();
     expect(listReads()).toBeGreaterThan(before);
-    // 501 인 결과 조회는 부르지 않는다
+    // 결과 조회는 자동으로 부르지 않는다(누를 때만)
     expect(view.sent.some((r) => /\/commands\/[^/]+\/[^/]+\/[^/]+$/.test(new URL(r.url).pathname))).toBe(false);
     // 성공 문구가 아니다
     expect(within(row).queryByText('반영됐어요. 목록을 새로 불러와요.')).not.toBeInTheDocument();
