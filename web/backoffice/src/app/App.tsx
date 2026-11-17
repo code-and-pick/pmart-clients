@@ -24,6 +24,7 @@ import { CaseDetailPage, CaseListPage, NewMisdeliveryPage } from '../features/ca
 import { CsFollowUpPage } from '../features/cases/FollowUps';
 import { HandoverPage } from '../features/cases/HandoverPages';
 import { DeliveryDetailPage, DeliveryOpenPage } from '../features/deliveries/DeliveryPages';
+import { CaseMetricsPage } from '../features/cases/CaseMetricsPage';
 import { InquiryDetailPage, InquiryListPage } from '../features/inquiries/InquiryPages';
 import { SatisfactionPage } from '../features/inquiries/SatisfactionPage';
 import { NewCsIntakePage } from '../features/csIntakes/CsIntakePages';
@@ -158,6 +159,7 @@ const routes = [
       { path: 'lookup', element: guarded(<UnifiedLookupPage />) },
       { path: 'live-delivery', element: guarded(<LiveDeliveryPage />) },
       { path: 'cases', element: guarded(<CaseListPage />) },
+      { path: 'case-metrics', element: guarded(<CaseMetricsPage />) },
       { path: 'cases/new-misdelivery', element: guarded(<NewMisdeliveryPage />) },
       { path: 'cases/:caseId', element: guarded(<CaseDetailPage />) },
       { path: 'rider-complaints', element: guarded(<RiderComplaintListPage />) },

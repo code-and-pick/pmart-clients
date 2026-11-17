@@ -42,6 +42,7 @@ export const messages = {
     claims: '클레임 조회',
     deliveries: '배송·배차 확인',
     pendingWork: '처리 대기',
+    caseMetrics: '접수 건 현황',
     cases: '접수 건',
     misdelivery: '오배송 접수',
     csFollowUps: '고객센터 후속 처리',
@@ -1360,6 +1361,30 @@ export const messages = {
     photoUnavailable: '사진을 불러오지 못했어요(볼 수 없는 사진이거나 사진 저장소가 아직 준비되지 않았어요).',
   },
 
+  /** 접수 건 현황 건수(case 0.18.0, 관리자만) — 건수만, 비율·목표 없음, 개인별 없음 */
+  caseMetrics: {
+    title: '접수 건 현황',
+    intro: '지금 가진 접수 건·후속 처리·교대 인계·문의의 건수예요. 비율·목표는 정해진 정의가 없어 보여 주지 않고, 직원별로 나누지 않아요. 1분마다 다시 읽어요.',
+    refresh: '새로고침',
+    asOf: (t: string) => `기준 ${t}`,
+    cases: '처리 중인 접수 건(종류별)',
+    kind: '종류',
+    open: '처리 중',
+    unassigned: '아무도 안 맡음',
+    overdue: '기한 지남',
+    ofOpen: (n: number, total: number) => `${total}건 중 ${n}건`,
+    total: '합계',
+    noOpenCases: '처리 중인 접수 건이 없어요.',
+    obligations: '후속 처리(팀별)',
+    noObligations: '남은 후속 처리가 없어요.',
+    handoversTitle: '교대 인계',
+    pendingHandovers: '받기 전 인계서',
+    inquiries: '답변 기다리는 문의',
+    inquiryName: { CUSTOMER: '고객 문의', RIDER: '라이더 문의' } as const,
+    awaiting: '답변 대기',
+    oldest: (t: string) => `가장 오래된 것 ${t}`,
+    noRates: '숫자는 건수예요 — 응답률·달성률 같은 비율은 정의가 승인되면 따로 보여 줘요.',
+  },
   /** 문의 만족도 모아 보기(case 0.15.0, 관리자만 — 상담원 평가에 쓰지 않음) */
   satisfaction: {
     title: '문의 만족도',

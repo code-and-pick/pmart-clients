@@ -144,6 +144,16 @@ export function addStaffInquiry(x: {
   return inquiryId;
 }
 
+/** case 0.18.0 현황 건수 목 — 종류별 답변 대기(RECEIVED). 0건이면 줄 없음 */
+export function mockAwaitingInquiries(): Array<{ requesterType: 'CUSTOMER' | 'RIDER'; awaitingAnswer: number; oldestReceivedAt: string | null }> {
+  return (['CUSTOMER', 'RIDER'] as const).flatMap((t) => {
+    const waiting = inquiries.filter((i) => kindOf(i) === t && i.status === 'RECEIVED');
+    if (waiting.length === 0) return [];
+    const oldest = waiting.map((i) => i.createdAt).sort()[0] ?? null;
+    return [{ requesterType: t, awaitingAnswer: waiting.length, oldestReceivedAt: oldest }];
+  });
+}
+
 /** 시험 사이에 목 상태를 처음으로 돌린다. */
 export function resetMockInquiries(): void {
   inquiries = seed();

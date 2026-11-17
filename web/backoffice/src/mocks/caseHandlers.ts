@@ -6,6 +6,7 @@ import { http, HttpResponse } from 'msw';
 
 import { API_BASE, BFF_BASE } from '../api/client';
 import type { components as CaseC } from '../api/generated/case';
+import { mockAwaitingInquiries } from './inquiryHandlers';
 import { markMockHelpPicked } from './opsHandlers';
 import { idempotent, operator, problem, unauthorized } from './support';
 
@@ -244,6 +245,39 @@ export const caseHandlers = [
     const q = new URL(request.url).searchParams;
     const items = listCases(v.sees, q);
     return HttpResponse.json({ items, page: { nextCursor: null, size: items.length } });
+  }),
+
+  // case 0.18.0 현황 건수 — 관리자만. 0건 종류·팀은 줄 없음. :caseId 보다 먼저(같은 모양 경로)
+  http.get(`${API_BASE}/cases/metrics`, ({ request }) => {
+    const v = viewer(request);
+    if ('denied' in v) return v.denied;
+    if (!v.admin) return problem(403, 'FORBIDDEN');
+    const open = cases.filter((c) => c.state !== 'CLOSED');
+    const byKind = new Map<string, { kind: string; open: number; unassigned: number; overdue: number }>();
+    for (const c of open) {
+      const k = c.kind ?? 'OTHER';
+      const row = byKind.get(k) ?? { kind: k, open: 0, unassigned: 0, overdue: 0 };
+      row.open += 1;
+      if (!c.assigneeId) row.unassigned += 1;
+      if (c.overdue) row.overdue += 1;
+      byKind.set(k, row);
+    }
+    const byOwner = new Map<string, { owner: string; open: number; overdue: number }>();
+    for (const c of open)
+      for (const o of (c.obligations ?? []).filter(isOpen)) {
+        const owner = ownerOf(o, c);
+        const row = byOwner.get(owner) ?? { owner, open: 0, overdue: 0 };
+        row.open += 1;
+        if (o.dueAt && Date.parse(o.dueAt) < Date.now()) row.overdue += 1;
+        byOwner.set(owner, row);
+      }
+    return HttpResponse.json({
+      asOf: new Date().toISOString(),
+      cases: [...byKind.values()],
+      obligations: [...byOwner.values()],
+      pendingHandovers: handovers.filter((h) => h.state === 'PENDING').length,
+      inquiries: mockAwaitingInquiries(),
+    });
   }),
 
   http.get(`${API_BASE}/cases/:caseId`, ({ request, params }) => {

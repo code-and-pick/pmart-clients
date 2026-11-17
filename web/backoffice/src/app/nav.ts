@@ -112,7 +112,11 @@ export const navGroups: readonly NavGroup[] = [
     label: m.nav.group.pending,
     // 본사 관리자(OPERATOR_ADMIN)만 — 모든 센터를 본다(사용자 2026-11-15). 센터 관리자는 MFC 백오피스.
     visibleTo: oneOf('OPERATOR_ADMIN'),
-    items: [{ to: '/pending', label: m.nav.pendingWork }],
+    // 접수 건 현황 건수(case 0.18.0) — 관리자만
+    items: [
+      { to: '/pending', label: m.nav.pendingWork },
+      { to: '/case-metrics', label: m.nav.caseMetrics },
+    ],
   },
   {
     id: 'audit',
