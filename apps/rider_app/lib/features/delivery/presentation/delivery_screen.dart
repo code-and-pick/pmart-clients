@@ -392,37 +392,39 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
     final origin = d.recoveryOrigin;
     final calls = ref.watch(deliveryFlowProvider(_id)).contacts.length;
     return [
-      PlaceSection(
-        key: const ValueKey('recovery-place'),
-        label: l10n.recoveryPlaceLabel,
-        title: _recoveryPlaceTitle(l10n, contactAsync),
-        lines: [
-          if (contact?.receiverName case final n?) l10n.recoveryReceiver(n),
-          ?contact?.entranceNote,
-          if (origin != null)
-            l10n.recoveryOrigin(
-              [
-                placementText(l10n, origin.placement),
-                ?origin.detail,
-              ].join(' · '),
-            ),
-          if (calls > 0) l10n.recoveryCalls(calls),
-        ],
-        // 회수지 전화(고객 또는 받는 분). 걸면 연락 기록이 남는다(받기 전 실패 등록에 쓴다).
-        linkKey: const ValueKey('call-recovery'),
-        linkText: l10n.recoveryCall,
-        onLink: contact == null
-            ? null
-            : () => callCustomerAndRecord(
-                context,
-                ref,
-                _id,
-                contact.receiverPhone,
+      if (!d.directReturn) ...[
+        PlaceSection(
+          key: const ValueKey('recovery-place'),
+          label: l10n.recoveryPlaceLabel,
+          title: _recoveryPlaceTitle(l10n, contactAsync),
+          lines: [
+            if (contact?.receiverName case final n?) l10n.recoveryReceiver(n),
+            ?contact?.entranceNote,
+            if (origin != null)
+              l10n.recoveryOrigin(
+                [
+                  placementText(l10n, origin.placement),
+                  ?origin.detail,
+                ].join(' · '),
               ),
-        routeKey: const ValueKey('route-recovery'),
-        onRoute: collect ? onRouteRecovery : null,
-      ),
-      const Divider(indent: 16, endIndent: 16, height: 1),
+            if (calls > 0) l10n.recoveryCalls(calls),
+          ],
+          // 회수지 전화(고객 또는 받는 분). 걸면 연락 기록이 남는다(받기 전 실패 등록에 쓴다).
+          linkKey: const ValueKey('call-recovery'),
+          linkText: l10n.recoveryCall,
+          onLink: contact == null
+              ? null
+              : () => callCustomerAndRecord(
+                  context,
+                  ref,
+                  _id,
+                  contact.receiverPhone,
+                ),
+          routeKey: const ValueKey('route-recovery'),
+          onRoute: collect ? onRouteRecovery : null,
+        ),
+        const Divider(indent: 16, endIndent: 16, height: 1),
+      ],
       TripSection(
         icon: Icons.inventory_2_outlined,
         title: l10n.recoveryItems,
@@ -448,7 +450,7 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
         ],
       ),
       // 받기 전: 받은 상품 사진을 올려야 "회수했어요"를 누를 수 있다(QR 없음 — 사진이 증빙).
-      if (d.state == ExecutionState.assigned)
+      if (d.state == ExecutionState.assigned && !d.directReturn)
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
           child: Column(
@@ -515,7 +517,13 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
     final provider = deliveryProvider(_id);
     // 전달 불가 대기 중에는 운영자 결정을 확인하고, 반려되면(원래 단계로) 알린다.
     ref.listen(provider.select((a) => a.value?.state), (prev, next) {
-      _watchFailure(next == ExecutionState.failureReported);
+      if (prev == ExecutionState.failureReported &&
+          next == ExecutionState.failed) {
+        showRiderToast(
+          context,
+          AppLocalizations.of(context).failureConfirmedTitle,
+        );
+      }
       if (prev == ExecutionState.failureReported &&
           (next == ExecutionState.pickedUp ||
               next == ExecutionState.arrivedAtCustomer ||
@@ -524,9 +532,23 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
         showRiderToast(context, AppLocalizations.of(context).failureRejected);
       }
     });
-    _watchFailure(
-      ref.read(provider).value?.state == ExecutionState.failureReported,
-    );
+    // 확정 뒤 반납 배송이 생기면(같은 라이더, 몇 초 뒤) 그 회수 화면으로 넘어간다.
+    ref.listen(provider.select((a) => a.value?.returnDeliveryId), (prev, next) {
+      if (prev == null && next != null) {
+        showRiderToast(context, AppLocalizations.of(context).goReturnToast);
+        context.go('/deliveries/$next');
+      }
+    });
+    // 결정 대기·반납 배송 준비 중에는 몇 초마다 다시 읽는다.
+    _watchFailure(switch (ref.watch(provider).value) {
+      final v? =>
+        v.state == ExecutionState.failureReported ||
+            (v.state == ExecutionState.failed &&
+                v.failureConfirmed &&
+                v.goodsWithRider == true &&
+                v.returnDeliveryId == null),
+      null => false,
+    });
     // 서버가 거절한 수행 명령은 코드 대신 알기 쉬운 말로 한 번 알리고 목록에서 지운다.
     ref.listen(deliveryQueueProvider(_id), (_, next) {
       final rejected = (next.value ?? const <QueueItem>[]).where(
@@ -596,12 +618,19 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
     // 회수 배송(반품·오배송 회수 한 벌): 회수지에서 받음(사진) → MFC 반납. 일반 단계는 쓰지 않는다.
     final rec = d.recovery;
     final isRec = rec != null;
+    // 전달 실패 반납은 받음이 없다 — 배정부터 MFC 로(회수지·연락처도 없다).
     final recCollect =
         isRec &&
+        !d.directReturn &&
         (d.state == ExecutionState.assigned ||
             d.state == ExecutionState.failureReported);
-    final recReturning = isRec && d.state == ExecutionState.returnPickedUp;
-    final contactAsync = isRec ? ref.watch(recoveryContactProvider(_id)) : null;
+    final recReturning =
+        isRec &&
+        (d.state == ExecutionState.returnPickedUp ||
+            (d.directReturn && d.state == ExecutionState.assigned));
+    final contactAsync = isRec && !d.directReturn
+        ? ref.watch(recoveryContactProvider(_id))
+        : null;
     final contact = contactAsync?.value;
     final GeoPoint? recoveryPoint = switch (contact) {
       RecoveryContactView(:final lat?, :final lng?) => (lat: lat, lng: lng),
@@ -744,7 +773,9 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
                       child: Text(
                         due ??
                             (isRec
-                                ? recoveryStageText(l10n, d.state)
+                                ? (recReturning
+                                      ? l10n.recGoReturn
+                                      : recoveryStageText(l10n, d.state))
                                 : executionText(l10n, d.state)),
                         key: ValueKey(
                           due == null ? 'execution-state' : 'due-time',
@@ -1021,6 +1052,12 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
     // 진행 버튼(가게 도착·픽업·전달 완료). 레퍼런스처럼 시트를 펼쳤을 때 아래에 뜬다.
     final Widget? action = switch (d.state) {
       // 회수: 사진을 올린 뒤 "회수했어요" → MFC 에서 "반납했어요".
+      // 전달 실패 반납: 받음 없이 바로 MFC 반납.
+      ExecutionState.assigned when isRec && d.directReturn => RiderButton(
+        key: const ValueKey('return-store'),
+        label: l10n.returnStoreButton,
+        onPressed: busy ? null : _returnToStore,
+      ),
       ExecutionState.assigned when isRec => RiderButton(
         key: const ValueKey('return-pickup'),
         label: l10n.returnPickupButton,
@@ -1132,6 +1169,40 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
         ],
       ),
       ExecutionState.completed => null,
+      // 지원센터가 전달 불가를 확정했다: 상품이 라이더에게 있으면 반납 배송(같은 라이더, 몇 초 뒤),
+      // 매장에 있으면 할 일 없이 끝.
+      ExecutionState.failed when d.failureConfirmed => Column(
+        key: const ValueKey('failure-confirmed'),
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            l10n.failureConfirmedTitle,
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 4),
+          Text(switch ((d.goodsWithRider, d.returnDeliveryId)) {
+            (_, _?) => l10n.failureConfirmedReturn,
+            (true, null) => l10n.failureConfirmedPreparing,
+            _ => l10n.failureConfirmedStore,
+          }, style: const TextStyle(fontSize: 14, color: RiderColors.sub)),
+          const SizedBox(height: 10),
+          if (d.returnDeliveryId case final rid?)
+            RiderButton(
+              key: const ValueKey('go-return'),
+              label: l10n.goReturn,
+              onPressed: () => context.go('/deliveries/$rid'),
+            )
+          else if (d.goodsWithRider == true)
+            const LinearProgressIndicator()
+          else
+            RiderButton(
+              key: const ValueKey('gone-ok'),
+              label: l10n.ok,
+              onPressed: _finish,
+            ),
+        ],
+      ),
       _ when gone => RiderButton(
         key: const ValueKey('gone-ok'),
         label: l10n.ok,
@@ -1140,7 +1211,10 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
       _ => Text(l10n.contactSupport),
     };
     // 취소·전달 불가처럼 할 일이 정해진 상태는 접혀 있어도 보인다.
-    final actionAlways = gone || d.state == ExecutionState.failureReported;
+    final actionAlways =
+        gone ||
+        d.state == ExecutionState.failureReported ||
+        d.state == ExecutionState.failed;
     final showAction = action != null && (_sheetRaised || actionAlways);
 
     // 접힌 높이는 기본 화면 내용(_peekKey)을 잰 값으로 맞춘다.

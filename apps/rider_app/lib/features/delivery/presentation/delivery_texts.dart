@@ -36,6 +36,7 @@ String recoveryPurposeText(AppLocalizations l10n, RecoveryPurpose p) =>
     switch (p) {
       RecoveryPurpose.claimReturn => l10n.recClaimReturn,
       RecoveryPurpose.misdeliveryRecovery => l10n.recMisdelivery,
+      RecoveryPurpose.failedDeliveryReturn => l10n.recFailedReturn,
       RecoveryPurpose.other => l10n.recOther,
     };
 

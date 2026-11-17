@@ -175,4 +175,109 @@ void main() {
     expect(find.byKey(const ValueKey('delivery-done')), findsOneWidget);
     expect(find.text('반납완료'), findsOneWidget);
   });
+
+  test('확정 필드: decision CONFIRM·custody·returnDeliveryId, purpose FAILED_DELIVERY_RETURN 은 바로 반납', () {
+    final failed = deliveryFromContract(
+      ex.DeliveryExecution.fromJson({
+        'deliveryId': 'dlv-1',
+        'state': 'FAILED',
+        'failure': {'decision': 'CONFIRM', 'custody': 'STORE'},
+      }),
+    );
+    expect(failed.failureConfirmed, isTrue);
+    expect(failed.goodsWithRider, isFalse);
+    expect(failed.returnDeliveryId, isNull);
+    final ret = deliveryFromContract(
+      ex.DeliveryExecution.fromJson({
+        'deliveryId': 'ret-1',
+        'type': 'RETURN',
+        'purpose': 'FAILED_DELIVERY_RETURN',
+        'state': 'ASSIGNED',
+        'orderSummary': {
+          'items': [
+            {'name': '요거트', 'qty': 3},
+          ],
+        },
+      }),
+    );
+    expect(ret.directReturn, isTrue);
+    expect(ret.returnLines.single, (name: '요거트', qty: 3));
+  });
+
+  testWidgets('전달 불가 확정(상품은 라이더) → 같은 라이더에게 반납 배송 → 받음 없이 MFC 반납', (t) async {
+    t.view
+      ..physicalSize = const Size(800, 2400)
+      ..devicePixelRatio = 1;
+    addTearDown(t.view.reset);
+    var now = DateTime.utc(2026, 11, 17, 10);
+    final repo = MockDeliveryRepository(
+      latency: Duration.zero,
+      clock: () => now,
+    );
+    // 전달 불가 신고가 접수된 상태(실패 등록이 연 대화 req-f1).
+    repo.seedFailureReport('dlv-1', 'req-f1');
+    final offers = MockOfferRepository(latency: Duration.zero);
+    await t.pumpWidget(
+      ProviderScope(
+        retry: (_, _) => null,
+        overrides: [
+          envProvider.overrideWithValue(PmartEnv.mock),
+          secureStoreProvider.overrideWithValue(MemoryKeyValueStore()),
+          initialSessionProvider.overrideWithValue(
+            const RiderSession(riderId: 'rider-mock-1'),
+          ),
+          deliveryRepositoryProvider.overrideWithValue(repo),
+          handoverRepositoryProvider.overrideWithValue(repo),
+          evidenceUploaderProvider.overrideWithValue(repo),
+          supportThreadRepositoryProvider.overrideWithValue(repo),
+          mockOfferRepositoryProvider.overrideWithValue(offers),
+          offerRepositoryProvider.overrideWithValue(offers),
+          dutyRepositoryProvider.overrideWithValue(offers),
+        ],
+        child: const RiderApp(),
+      ),
+    );
+    Future<void> settle() async {
+      for (var i = 0; i < 12; i++) {
+        await t.pump(const Duration(milliseconds: 25));
+      }
+    }
+
+    Future<void> waitToast() async {
+      // 안내(SnackBar)가 사라질 때까지 — 한 번에 크게 넘기면 애니메이션이 안 끝난다.
+      for (var i = 0; i < 30; i++) {
+        await t.pump(const Duration(milliseconds: 250));
+      }
+    }
+
+    await settle();
+    await t.tap(find.byKey(const ValueKey('delivery-dlv-1')));
+    await settle();
+    expect(find.byKey(const ValueKey('failure-waiting')), findsOneWidget);
+
+    // 지원센터 확정(목: 45초 동안 재개 요청 없음) → 배송 화면이 다시 읽어 안다.
+    now = now.add(MockDeliveryRepository.confirmAfter);
+    await t.pump(const Duration(seconds: 8));
+    await settle();
+    expect(repo.deliveryJson('dlv-1')['state'], 'FAILED');
+    expect(find.byKey(const ValueKey('failure-confirmed')), findsOneWidget);
+
+    // 몇 초 뒤 반납 배송이 같은 라이더에게 → 그 회수 화면으로 넘어간다.
+    now = now.add(MockDeliveryRepository.returnAssignAfter);
+    await t.pump(const Duration(seconds: 8));
+    await settle();
+    expect(find.text('MFC로 반납하러 가주세요'), findsOneWidget);
+    expect(find.byKey(const ValueKey('recovery-purpose')), findsOneWidget);
+    expect(find.byKey(const ValueKey('return-pickup')), findsNothing);
+
+    await waitToast();
+    await t.tap(find.byKey(const ValueKey('sheet-handle')));
+    await settle();
+    await t.tap(find.byKey(const ValueKey('return-store')));
+    await settle();
+    await t.tap(find.byKey(const ValueKey('return-store-confirm')));
+    await settle();
+    expect(repo.deliveryJson('ret-dlv-1')['state'], 'RETURNED_TO_STORE');
+    expect(find.text('반납완료'), findsOneWidget);
+  });
 }
