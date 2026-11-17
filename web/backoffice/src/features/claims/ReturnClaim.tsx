@@ -24,6 +24,7 @@ import { useApi } from '../../app/ApiContext';
 import { CommandFeedback } from '../../shared/Feedback';
 import { messages } from '../../shared/messages';
 import { label, text, when, won } from '../../shared/ops';
+import { DataTable, PageHeader } from '../../shared/admin';
 
 const m = messages.returns;
 type Claim = components['schemas']['Claim'];
@@ -98,10 +99,10 @@ function ReturnForm({ orderId }: { readonly orderId: string }) {
             submit();
           }}
         >
-          <fieldset className="space-y-2 rounded-box bg-base-100 p-4" disabled={locked}>
+          <fieldset className="space-y-2 rounded-box border border-base-300 bg-base-100 p-4" disabled={locked}>
             <legend className="font-bold">{m.lines}</legend>
-            <p className="text-xs opacity-70">{m.linesHint}</p>
-            <table className="table table-sm">
+            <p className="text-xs text-base-content/60">{m.linesHint}</p>
+            <DataTable>
               <thead>
                 <tr>
                   <th>{m.product}</th>
@@ -136,10 +137,10 @@ function ReturnForm({ orderId }: { readonly orderId: string }) {
                   );
                 })}
               </tbody>
-            </table>
+            </DataTable>
           </fieldset>
 
-          <fieldset className="space-y-2 rounded-box bg-base-100 p-4" disabled={locked}>
+          <fieldset className="space-y-2 rounded-box border border-base-300 bg-base-100 p-4" disabled={locked}>
             <legend className="font-bold">{m.why}</legend>
             <label className="flex flex-col gap-1 text-sm">
               {m.reason}
@@ -172,9 +173,9 @@ function ReturnForm({ orderId }: { readonly orderId: string }) {
             </p>
           </fieldset>
 
-          <fieldset className="space-y-2 rounded-box bg-base-100 p-4" disabled={locked}>
+          <fieldset className="space-y-2 rounded-box border border-base-300 bg-base-100 p-4" disabled={locked}>
             <legend className="font-bold">{messages.csIntake.method}</legend>
-            <p className="text-xs opacity-70">{messages.csIntake.identityHint}</p>
+            <p className="text-xs text-base-content/60">{messages.csIntake.identityHint}</p>
             <div className="flex flex-wrap gap-3">
               {METHODS.map((v) => (
                 <label key={v} className="flex items-center gap-1 text-sm">
@@ -222,10 +223,9 @@ export function ReturnIntakePage() {
   const [draft, setDraft] = useState(orderId);
   return (
     <section className="max-w-4xl space-y-4">
-      <h1 className="text-xl font-bold">{m.title}</h1>
-      <p className="text-sm opacity-70">{m.intro}</p>
+      <PageHeader title={m.title} description={m.intro} />
       <form
-        className="flex flex-wrap items-end gap-2 rounded-box bg-base-100 p-3 text-sm"
+        className="flex flex-wrap items-end gap-2 rounded-box border border-base-300 bg-base-100 p-3 text-sm"
         onSubmit={(e) => {
           e.preventDefault();
           const v = draft.trim();
@@ -240,7 +240,7 @@ export function ReturnIntakePage() {
           {m.loadOrder}
         </button>
       </form>
-      {orderId ? <ReturnForm key={orderId} orderId={orderId} /> : <p className="text-sm opacity-70">{m.enterOrder}</p>}
+      {orderId ? <ReturnForm key={orderId} orderId={orderId} /> : <p className="text-sm text-base-content/60">{m.enterOrder}</p>}
     </section>
   );
 }
@@ -250,7 +250,7 @@ export function ReturnProgress({ claim }: { readonly claim: Claim }) {
   if (claim.type !== 'RETURN') return null;
   const fee = claim.feePayment;
   return (
-    <dl className="grid grid-cols-[9rem_1fr] gap-1 rounded-box bg-base-100 p-4 text-sm" data-testid="return-progress">
+    <dl className="grid grid-cols-[8rem_1fr] gap-x-4 gap-y-2.5 text-sm [&_dt]:text-base-content/55" data-testid="return-progress">
       <dt>{m.fault}</dt>
       <dd>{claim.faultCode ? m.faultName[claim.faultCode] : m.customerFault}</dd>
       <dt>{m.feePayment}</dt>
@@ -336,7 +336,7 @@ export function RecoveryActions({ claim }: { readonly claim: Claim }) {
   };
   const code = act.phase.kind === 'rejected' ? failureCode(act.phase.failure) : undefined;
   return (
-    <div className="space-y-2 rounded-box border border-warning bg-base-100 p-4" data-testid="recovery-actions">
+    <div className="space-y-2 rounded-box border border-warning bg-base-100 px-5 py-4" data-testid="recovery-actions">
       <h2 className="font-bold">{m.actionsTitle}</h2>
       {act.phase.kind !== 'done' && (
         <p className="text-sm">{claim.state === 'RECOVERY_FAILED' ? m.recoveryFailedNote : claim.state === 'FEE_PENDING' ? m.feePendingNote : m.shortNote}</p>
@@ -372,11 +372,11 @@ export function RecoveryActions({ claim }: { readonly claim: Claim }) {
           <input type="checkbox" className="checkbox checkbox-sm" checked={feeRefund} disabled={locked} onChange={(e) => setFeeRefund(e.target.checked)} />
           <span>
             {m.feeRefund}
-            <span className="block text-xs opacity-70">{m.feeRefundHint}</span>
+            <span className="block text-xs text-base-content/60">{m.feeRefundHint}</span>
           </span>
         </label>
       )}
-      {can.has('CANCEL') && <p className="text-xs opacity-70">{m.cancelHint}</p>}
+      {can.has('CANCEL') && <p className="text-xs text-base-content/60">{m.cancelHint}</p>}
       {can.has('CLOSE_AS_RECEIVED') && (
         <p className="text-xs text-warning" data-testid="close-as-received-hint">
           {m.closeAsReceivedHint}
@@ -409,7 +409,7 @@ export function ClaimOfCase({ claimId }: { readonly claimId: string }) {
   });
   if (!claimId) return null;
   return (
-    <div className="space-y-2 rounded-box bg-base-100 p-4 text-sm" data-testid="case-claim">
+    <div className="space-y-2 rounded-box border border-base-300 bg-base-100 p-4 text-sm" data-testid="case-claim">
       <h2 className="font-bold">
         {m.caseClaim}{' '}
         <Link className="link font-mono" to={`/claims/${encodeURIComponent(claimId)}`}>
@@ -420,7 +420,7 @@ export function ClaimOfCase({ claimId }: { readonly claimId: string }) {
         {(c) => (
           <>
             <p data-testid="case-claim-state">{label(messages.claims.stateName, c.state)}</p>
-            <p className="text-xs opacity-70">{availableActions(c).size > 0 ? m.caseClaimNote : m.caseClaimDone}</p>
+            <p className="text-xs text-base-content/60">{availableActions(c).size > 0 ? m.caseClaimNote : m.caseClaimDone}</p>
             <ReturnProgress claim={c} />
             <RecoveryActions claim={c} />
           </>

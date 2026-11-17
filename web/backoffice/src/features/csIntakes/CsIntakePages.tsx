@@ -17,6 +17,7 @@ import { useSession } from '../../app/SessionContext';
 import { CommandFeedback } from '../../shared/Feedback';
 import { messages } from '../../shared/messages';
 import { label, text, when } from '../../shared/ops';
+import { PageHeader } from '../../shared/admin';
 
 const m = messages.csIntake;
 type Intake = components['schemas']['Intake'];
@@ -130,9 +131,8 @@ export function NewCsIntakePage() {
 
   return (
     <section className="max-w-2xl space-y-4">
-      <h1 className="text-xl font-bold">{m.title}</h1>
-      <p className="text-sm opacity-70">{m.intro}</p>
-      <form className="space-y-3 rounded-box bg-base-100 p-4 text-sm" onSubmit={submit} aria-label={m.title}>
+      <PageHeader title={m.title} description={m.intro} />
+      <form className="space-y-3 rounded-box border border-base-300 bg-base-100 p-4 text-sm" onSubmit={submit} aria-label={m.title}>
         <fieldset disabled={locked}>
           <legend className="font-semibold">{m.channel}</legend>
           {radio('channel', CHANNELS, m.channelName, d.channel, (v) =>
@@ -156,7 +156,7 @@ export function NewCsIntakePage() {
         <fieldset disabled={locked}>
           <legend className="font-semibold">{m.method}</legend>
           {radio('method', METHODS, m.methodName, d.method, (v) => set('method', v), (v) => v === 'APP_SIGNED_IN_CHAT' && d.channel !== 'CHAT')}
-          {d.method === 'ORDER_DETAILS_MATCH' && <p className="mt-1 text-xs opacity-70">{m.methodHint.ORDER_DETAILS_MATCH}</p>}
+          {d.method === 'ORDER_DETAILS_MATCH' && <p className="mt-1 text-xs text-base-content/60">{m.methodHint.ORDER_DETAILS_MATCH}</p>}
           {d.method === 'OTHER' && (
             <label className="mt-2 block">
               {m.note}
@@ -226,7 +226,7 @@ export function NewCsIntakePage() {
         </label>
         <p className="text-xs opacity-60">{m.linkHint}</p>
         {missing.length > 0 && (
-          <ul className="list-inside list-disc text-xs opacity-70" data-testid="cs-intake-missing">
+          <ul className="list-inside list-disc text-xs text-base-content/60" data-testid="cs-intake-missing">
             {missing.map((x) => (
               <li key={x}>{x}</li>
             ))}
@@ -289,13 +289,13 @@ export function CsIntakeLog({ caseId, customerRef, subjectRef, title }: {
           {() => null}
         </QueryState>
       ) : items.length === 0 ? (
-        <p className="text-sm opacity-70">{m.logEmpty}</p>
+        <p className="text-sm text-base-content/60">{m.logEmpty}</p>
       ) : (
         <>
           <ul className="space-y-1 text-sm">
             {items.map((x) => (
-              <li key={x.intakeId} className="rounded-box bg-base-100 p-2" data-testid="cs-intake-row">
-                <div className="flex flex-wrap items-center gap-2 text-xs opacity-70">
+              <li key={x.intakeId} className="rounded-box border border-base-300 bg-base-100 p-2" data-testid="cs-intake-row">
+                <div className="flex flex-wrap items-center gap-2 text-xs text-base-content/60">
                   <span className="badge badge-ghost badge-sm">{label(m.channelName, x.channel)}</span>
                   {x.callerRelation === 'PROXY' && <span className="badge badge-warning badge-sm">{m.relationName.PROXY}</span>}
                   <span>{label(m.methodName, x.identityCheck?.method)}</span>
@@ -306,7 +306,7 @@ export function CsIntakeLog({ caseId, customerRef, subjectRef, title }: {
                   {x.linked && <span>{m.linkedMark}</span>}
                 </div>
                 <p className="whitespace-pre-wrap break-words">{x.summary}</p>
-                {x.consent && <p className="text-xs opacity-70">{m.consentLine(x.consent.consentType ?? '', x.consent.given === true)}</p>}
+                {x.consent && <p className="text-xs text-base-content/60">{m.consentLine(x.consent.consentType ?? '', x.consent.given === true)}</p>}
               </li>
             ))}
           </ul>

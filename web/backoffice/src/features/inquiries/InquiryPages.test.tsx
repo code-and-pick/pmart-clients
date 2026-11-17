@@ -17,7 +17,7 @@ describe('고객센터 문의 목록', () => {
     expect(screen.getByRole('link', { name: 'INQ-MOCK-3' })).toBeInTheDocument();
     expect(screen.getByText('AI 상담에서 넘어옴')).toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole('button', { name: '접수' }));
+    await userEvent.click(within(screen.getByRole('radiogroup', { name: '상태' })).getByRole('radio', { name: '접수' }));
     await waitFor(() => expect(screen.getAllByTestId('inquiry-row')).toHaveLength(2));
     const last = view.sent.filter((r) => new URL(r.url).pathname.endsWith('/inquiries')).at(-1)!;
     expect(new URL(last.url).searchParams.get('status')).toBe('RECEIVED');

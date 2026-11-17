@@ -18,6 +18,7 @@ import { useApi } from '../../app/ApiContext';
 import { useSession } from '../../app/SessionContext';
 import { messages } from '../../shared/messages';
 import { label, text, when, won } from '../../shared/ops';
+import { PageHeader } from '../../shared/admin';
 
 const m = messages.followUps;
 type Case = components['schemas']['Case'];
@@ -50,7 +51,7 @@ function ObligationItem({ o, caseGroup, onChanged }: { readonly o: Obligation; r
   const roles = useRoles();
   const [open, setOpen] = useState(false);
   return (
-    <li className="space-y-1 rounded-box bg-base-100 p-3 text-sm" data-testid="follow-up" data-state={o.state}>
+    <li className="space-y-1 rounded-box border border-base-300 bg-base-100 p-3 text-sm" data-testid="follow-up" data-state={o.state}>
       <div className="flex flex-wrap items-center gap-2">
         <span className="font-semibold">{label(m.kindName, o.kind)}</span>
         <span className="badge badge-ghost badge-sm">{label(messages.cases.groupName, o.owner ?? caseGroup)}</span>
@@ -175,7 +176,7 @@ function ResolveForm({ o, admin, onClose, onDone }: { readonly o: Obligation; re
         {noteRequired ? m.noteRequired : m.noteOptional}
         <textarea className="textarea textarea-sm w-full max-w-lg" maxLength={500} value={note} onChange={(e) => setNote(e.target.value)} />
       </label>
-      <p className="text-xs opacity-70">{fulfilled && o.amount !== undefined ? m.amountRecordOnly : m.piiHint}</p>
+      <p className="text-xs text-base-content/60">{fulfilled && o.amount !== undefined ? m.amountRecordOnly : m.piiHint}</p>
       <div className="flex gap-1">
         <button type="submit" className="btn btn-sm btn-primary" disabled={!ok || cmd.busy}>
           {m.save}
@@ -219,7 +220,7 @@ function AddForm({ c, onDone }: { readonly c: Case; readonly onDone: () => void 
   });
   return (
     <form
-      className="space-y-2 rounded-box bg-base-100 p-3 text-sm"
+      className="space-y-2 rounded-box border border-base-300 bg-base-100 p-3 text-sm"
       aria-label={m.add}
       data-testid="follow-up-add"
       onSubmit={(e) => {
@@ -268,7 +269,7 @@ function AddForm({ c, onDone }: { readonly c: Case; readonly onDone: () => void 
         {m.noteOptional}
         <textarea className="textarea textarea-sm w-full max-w-lg" maxLength={500} value={note} onChange={(e) => setNote(e.target.value)} />
       </label>
-      <p className="text-xs opacity-70">{m.amountRecordOnly}</p>
+      <p className="text-xs text-base-content/60">{m.amountRecordOnly}</p>
       <button type="submit" className="btn btn-sm" disabled={cmd.busy}>
         {m.add}
       </button>
@@ -290,7 +291,7 @@ export function FollowUps({ c, canAdd }: { readonly c: Case; readonly canAdd: bo
     <section className="space-y-2" aria-label={m.title}>
       <h2 className="font-bold">{openCount > 0 ? m.titleOpen(openCount) : m.title}</h2>
       {list.length === 0 ? (
-        <p className="text-sm opacity-70">{m.none}</p>
+        <p className="text-sm text-base-content/60">{m.none}</p>
       ) : (
         <ul className="space-y-2">
           {list.map((o) => (
@@ -322,8 +323,7 @@ export function CsFollowUpPage() {
   });
   return (
     <section className="max-w-5xl space-y-4">
-      <h1 className="text-xl font-bold">{m.csTitle}</h1>
-      <p className="text-sm opacity-70">{m.csIntro}</p>
+      <PageHeader title={m.csTitle} description={m.csIntro} />
       <div role="tablist" className="tabs tabs-box w-fit">
         {([false, true] as const).map((d) => (
           <button key={String(d)} type="button" role="tab" aria-selected={d === done} className={`tab ${d === done ? 'tab-active' : ''}`} onClick={() => setParams(d ? { tab: 'done' } : {})}>

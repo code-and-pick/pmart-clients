@@ -7,7 +7,7 @@
 // 문의·답변 본문은 고객이 쓴 신뢰할 수 없는 텍스트 — 일반 텍스트로만 그린다. 로그에 남기지 않는다.
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { Link, useParams, useSearchParams } from 'react-router';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 
 import { request } from '@pmart/web-core';
 import { formatSeoul, QueryState, toUiState, uiStateFromError, useCommand } from '@pmart/web-ui';
@@ -18,6 +18,7 @@ import { useSession } from '../../app/SessionContext';
 import { CommandFeedback } from '../../shared/Feedback';
 import { canSeeIntakes, CsIntakeLog } from '../csIntakes/CsIntakePages';
 import { InquiryPhotos } from './InquiryPhotos';
+import { ChipGroup, DataTable, DetailHeader, PageHeader, ResultBar, SearchRow, Section, StatusBadge, type Tone } from '../../shared/admin';
 import { messages as m } from '../../shared/messages';
 
 type Inquiry = components['schemas']['Inquiry'];
@@ -33,6 +34,8 @@ const MAX_REPLY = 4000; // 계약 replyInquiry body maxLength
 const isStatus = (v: string | null): v is InquiryStatus => v !== null && (STATUSES as readonly string[]).includes(v);
 /** 계약 밖 값은 지어내지 않고 원문 그대로 보인다. */
 const label = (map: Readonly<Record<string, string>>, v: string | null | undefined) => (v ? (map[v] ?? v) : m.none);
+/** 상태 꼬리표 색(표시만) */
+const statusTone = (s: string | undefined): Tone => (s === 'RECEIVED' ? 'warning' : s === 'ANSWERED' ? 'info' : 'ghost');
 
 /** 문의 목록(최근 접수 순). 상태 필터는 URL 쿼리(`?status=`)에 둔다 — 서버에 그대로 묻는다(화면에서 거르지 않는다). */
 export function InquiryListPage({ kind = 'CUSTOMER' }: { readonly kind?: RequesterType }) {
@@ -55,23 +58,21 @@ export function InquiryListPage({ kind = 'CUSTOMER' }: { readonly kind?: Request
     getNextPageParam: (last) => last.page?.nextCursor ?? undefined,
   });
   const items: InquirySummary[] = query.data?.pages.flatMap((p) => p.items ?? []) ?? [];
+  const navigate = useNavigate();
 
   return (
-    <section className="space-y-4">
-      <h1 className="text-xl font-bold">{rider ? m.inquiries.riderTitle : m.inquiries.title}</h1>
-      <p className="text-sm opacity-70">{rider ? m.inquiries.riderIntro : m.inquiries.intro}</p>
-      <div role="group" aria-label={m.inquiries.statusFilter} className="join">
-        {([undefined, ...STATUSES] as const).map((s) => (
-          <button
-            key={s ?? 'ALL'}
-            type="button"
-            aria-pressed={status === s}
-            className={`btn join-item btn-sm ${status === s ? 'btn-active' : ''}`}
-            onClick={() => setSearch(s ? { status: s } : {})}
-          >
-            {s ? m.inquiries.status[s] : m.inquiries.all}
-          </button>
-        ))}
+    <section className="space-y-5">
+      {/* 관리자 형식(2026-11-18): 머리말 → 거르기 상자(상태 칩 — 누르면 바로 서버에 묻는다) → 결과 줄·표 */}
+      <PageHeader title={rider ? m.inquiries.riderTitle : m.inquiries.title} description={rider ? m.inquiries.riderIntro : m.inquiries.intro} />
+      <div className="overflow-hidden rounded-box border border-base-300 bg-base-100">
+        <SearchRow label={m.inquiries.statusLabel}>
+          <ChipGroup
+            label={m.inquiries.statusFilter}
+            value={status ?? ''}
+            options={[{ value: '', label: m.inquiries.all }, ...STATUSES.map((st) => ({ value: st, label: m.inquiries.status[st] ?? st }))]}
+            onChange={(v) => setSearch(v ? { status: v } : {})}
+          />
+        </SearchRow>
       </div>
 
       {query.isPending ? (
@@ -82,10 +83,11 @@ export function InquiryListPage({ kind = 'CUSTOMER' }: { readonly kind?: Request
           {() => null}
         </QueryState>
       ) : items.length === 0 ? (
-        <p className="text-sm opacity-70">{m.inquiries.empty}</p>
+        <p className="text-sm text-base-content/60">{m.inquiries.empty}</p>
       ) : (
         <>
-          <table className="table">
+          <ResultBar count={items.length} more={query.hasNextPage} />
+          <DataTable>
             <thead>
               <tr>
                 <th>{m.inquiries.id}</th>
@@ -98,9 +100,9 @@ export function InquiryListPage({ kind = 'CUSTOMER' }: { readonly kind?: Request
             </thead>
             <tbody>
               {items.map((i) => (
-                <tr key={i.inquiryId} data-testid="inquiry-row">
+                <tr key={i.inquiryId} data-testid="inquiry-row" className="cursor-pointer" onClick={() => void navigate(`${basePath(kind)}/${encodeURIComponent(i.inquiryId)}`)}>
                   <td>
-                    <Link className="link" to={`${basePath(kind)}/${encodeURIComponent(i.inquiryId)}`}>
+                    <Link className="font-mono text-primary hover:underline" to={`${basePath(kind)}/${encodeURIComponent(i.inquiryId)}`} onClick={(e) => e.stopPropagation()}>
                       {i.inquiryId}
                     </Link>
                   </td>
@@ -116,16 +118,18 @@ export function InquiryListPage({ kind = 'CUSTOMER' }: { readonly kind?: Request
                       <span className="badge badge-error badge-outline badge-sm ml-1" data-testid="inquiry-delivery-issue">{`${m.inquiries.deliveryIssue} · ${label(m.inquiries.deliveryIssueName, i.deliveryIssue)}`}</span>
                     )}
                   </td>
-                  <td>{label(m.inquiries.status, i.status)}</td>
+                  <td>
+                    <StatusBadge tone={statusTone(i.status)}>{label(m.inquiries.status, i.status)}</StatusBadge>
+                  </td>
                   <td>{formatSeoul(i.createdAt)}</td>
                   <td>{i.answeredAt ? formatSeoul(i.answeredAt) : m.none}</td>
                 </tr>
               ))}
             </tbody>
-          </table>
+          </DataTable>
           {query.isFetchNextPageError && <p className="text-sm text-error">{m.inquiries.moreFailed}</p>}
           {query.hasNextPage && (
-            <button type="button" className="btn btn-sm" disabled={query.isFetchingNextPage} onClick={() => void query.fetchNextPage()}>
+            <button type="button" className="btn btn-sm mx-auto block border-base-300 bg-base-100" disabled={query.isFetchingNextPage} onClick={() => void query.fetchNextPage()}>
               {m.inquiries.more}
             </button>
           )}
@@ -164,7 +168,7 @@ function ReplyForm({ inquiry }: { readonly inquiry: Inquiry }) {
 
   return (
     <form
-      className="space-y-2 rounded-box bg-base-100 p-4"
+      className="space-y-2"
       onSubmit={(e) => {
         e.preventDefault();
         if (trimmed && !locked) void reply.run({ text: trimmed, version: inquiry.version });
@@ -276,12 +280,19 @@ export function InquiryDetailPage({ kind = 'CUSTOMER' }: { readonly kind?: Reque
   });
 
   return (
-    <section className="max-w-3xl space-y-4">
-      <h1 className="text-xl font-bold">{`${m.inquiries.detailTitle} ${inquiryId}`}</h1>
+    <section className="max-w-4xl space-y-4">
+      {/* 관리자 형식(2026-11-18): 상세 머리 → 문의 정보 → 내용 → 답변·대화 → 맨 아래 운영 조치 */}
       <QueryState state={toUiState(query)} onRetry={() => void query.refetch()}>
         {(q) => (
           <>
-            <dl className="grid grid-cols-[8rem_1fr] gap-1 rounded-box bg-base-100 p-4 text-sm">
+            <DetailHeader
+              back={{ to: basePath(kind), label: kind === 'RIDER' ? m.inquiries.riderBack : m.inquiries.back }}
+              title={`${m.inquiries.detailTitle} ${inquiryId}`}
+              badges={<StatusBadge tone={statusTone(q.status)}>{label(m.inquiries.status, q.status)}</StatusBadge>}
+              summary={`${label(m.inquiries.categoryName, q.category)} · ${formatSeoul(q.createdAt)}`}
+            />
+            <Section title={m.inquiries.sectionInfo}>
+            <dl className="grid grid-cols-[8rem_1fr] gap-x-4 gap-y-2.5 text-sm [&_dt]:text-base-content/55">
               <dt>{m.inquiries.statusLabel}</dt>
               <dd data-testid="inquiry-status">{label(m.inquiries.status, q.status)}</dd>
               <dt>{m.inquiries.category}</dt>
@@ -367,6 +378,7 @@ export function InquiryDetailPage({ kind = 'CUSTOMER' }: { readonly kind?: Reque
               <dt>{m.inquiries.caseId}</dt>
               <dd>{q.caseId}</dd>
             </dl>
+            </Section>
 
             {q.callerRelation === 'PROXY' && (
               <p role="alert" className="alert alert-warning text-sm" data-testid="inquiry-proxy-warning">
@@ -375,17 +387,16 @@ export function InquiryDetailPage({ kind = 'CUSTOMER' }: { readonly kind?: Reque
             )}
             {q.origin === 'STAFF_INTAKE' && <p className="text-sm opacity-70">{m.inquiries.staffNote}</p>}
 
-            <article className="rounded-box bg-base-100 p-4">
-              {q.title && <h2 className="mb-2 font-bold">{q.title}</h2>}
+            <Section title={q.title ?? m.inquiries.sectionBody}>
               <p className="whitespace-pre-wrap break-words" data-testid="inquiry-body">
                 {q.body}
               </p>
-            </article>
-            {/* 문의 사진(case 0.14.0) — 고객·라이더가 붙인 것. 상담원 접수 문의에는 없다 */}
-            <InquiryPhotos photos={q.photos} />
+              {/* 문의 사진(case 0.14.0) — 고객·라이더가 붙인 것. 상담원 접수 문의에는 없다 */}
+              <InquiryPhotos photos={q.photos} />
+            </Section>
 
             {/* case 0.21.0: 라이더 문의는 대화 — replies 에 라이더가 이어 쓴 줄(authorType RIDER)이 섞인다. 보낸 쪽으로 나눠 그린다(라이더 메시지를 답변처럼 보이지 않게) */}
-            <h2 className="font-bold">{q.requesterType === 'RIDER' ? m.inquiries.conversation : m.inquiries.replies}</h2>
+            <Section title={q.requesterType === 'RIDER' ? m.inquiries.conversation : m.inquiries.replies}>
             {q.replies.length === 0 ? (
               <p className="text-sm opacity-70">{m.inquiries.noReplies}</p>
             ) : (
@@ -412,7 +423,10 @@ export function InquiryDetailPage({ kind = 'CUSTOMER' }: { readonly kind?: Reque
                 {m.inquiries.riderFollowUp}
               </p>
             )}
+            </Section>
 
+            <Section title={m.inquiries.sectionActions}>
+            <div className="space-y-4">
             {canReplyTo(q) && q.status !== 'CLOSED' && <CloseForm key={`close-${q.inquiryId}`} inquiry={q} />}
             {canReplyTo(q) ? (
               <ReplyForm key={q.inquiryId} inquiry={q} />
@@ -441,12 +455,11 @@ export function InquiryDetailPage({ kind = 'CUSTOMER' }: { readonly kind?: Reque
                 <CsIntakeLog caseId={q.caseId} title={m.inquiries.contactLog} />
               </>
             )}
+            </div>
+            </Section>
           </>
         )}
       </QueryState>
-      <Link className="link text-sm" to={basePath(kind)}>
-        {kind === 'RIDER' ? m.inquiries.riderBack : m.inquiries.back}
-      </Link>
     </section>
   );
 }

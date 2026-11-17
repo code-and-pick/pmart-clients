@@ -759,6 +759,9 @@ export const messages = {
     state: '상태',
     any: '전체',
     filter: '거르기',
+    reset: '지우기',
+    sectionBasic: '클레임 정보',
+    sectionReturn: '반품 진행',
     openedAt: '접수 시각',
     empty: '클레임이 없어요.',
     more: '더 보기',
@@ -1487,6 +1490,9 @@ export const messages = {
   },
 
   inquiries: {
+    sectionInfo: '문의 정보',
+    sectionBody: '문의 내용',
+    sectionActions: '운영 조치',
     title: '고객센터 문의',
     intro: '고객이 앱에서 남긴 문의에 답해요(답변은 상담원, 본사 관리자는 보기만). 답변은 응대일 뿐 주문·환불을 바꾸지 않아요.',
     statusFilter: '상태',

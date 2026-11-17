@@ -10,6 +10,7 @@ import { request } from '@pmart/web-core';
 import { QueryState, toUiState } from '@pmart/web-ui';
 import { useApi } from '../../app/ApiContext';
 import { messages } from '../../shared/messages';
+import { PageHeader } from '../../shared/admin';
 
 const m = messages.satisfaction;
 const MAX_DAYS = 92;
@@ -45,10 +46,9 @@ export function SatisfactionPage() {
 
   return (
     <section className="max-w-3xl space-y-4">
-      <h1 className="text-xl font-bold">{m.title}</h1>
-      <p className="text-sm opacity-70">{m.intro}</p>
+      <PageHeader title={m.title} description={m.intro} />
       <form
-        className="flex flex-wrap items-end gap-2 rounded-box bg-base-100 p-3 text-sm"
+        className="flex flex-wrap items-end gap-2 rounded-box border border-base-300 bg-base-100 p-3 text-sm"
         aria-label={m.period}
         onSubmit={(e) => {
           e.preventDefault();
@@ -66,7 +66,7 @@ export function SatisfactionPage() {
         <button type="submit" className="btn btn-sm" disabled={draftProblem !== null}>
           {m.show}
         </button>
-        <span className="text-xs opacity-70">{m.periodHint}</span>
+        <span className="text-xs text-base-content/60">{m.periodHint}</span>
         {draftProblem && <span className="text-xs text-error">{draftProblem}</span>}
       </form>
       <QueryState state={toUiState(query)} onRetry={() => void query.refetch()}>
@@ -75,7 +75,7 @@ export function SatisfactionPage() {
           const answered = s.answeredCount;
           return (
             <div className="space-y-3">
-              <dl className="grid grid-cols-[10rem_1fr] gap-1 rounded-box bg-base-100 p-4 text-sm" data-testid="satisfaction-summary">
+              <dl className="grid grid-cols-[10rem_1fr] gap-1 rounded-box border border-base-300 bg-base-100 p-4 text-sm" data-testid="satisfaction-summary">
                 <dt>{m.periodLine}</dt>
                 <dd>{`${from} ~ ${to}`}</dd>
                 <dt>{m.response}</dt>
@@ -83,7 +83,7 @@ export function SatisfactionPage() {
                 <dt>{m.average}</dt>
                 <dd data-testid="satisfaction-average">{s.averageScore === null || s.averageScore === undefined ? m.none : m.averageLine(s.averageScore)}</dd>
               </dl>
-              <ul className="space-y-1 rounded-box bg-base-100 p-4 text-sm" aria-label={m.byScore}>
+              <ul className="space-y-1 rounded-box border border-base-300 bg-base-100 p-4 text-sm" aria-label={m.byScore}>
                 {(['5', '4', '3', '2', '1'] as const).map((k) => {
                   const n = s.byScore[k] ?? 0;
                   return (
@@ -95,7 +95,7 @@ export function SatisfactionPage() {
                   );
                 })}
               </ul>
-              <p className="text-xs opacity-70">{m.notForAgents}</p>
+              <p className="text-xs text-base-content/60">{m.notForAgents}</p>
             </div>
           );
         }}
