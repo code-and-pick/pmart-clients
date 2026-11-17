@@ -176,6 +176,24 @@ describe('처리 대기', () => {
     expect(await screen.findByTestId('pending-truncated')).toHaveTextContent('오래된 것부터 처리하거나 센터로 나눠 보세요');
   });
 
+it('다시 시도 결과를 모르면(202 UNKNOWN_RESULT) 성공·실패로 단정하지 않고 "확인하지 못했어요" + 목록 다시 읽기', async () => {
+    server.use(
+      http.post(`${BFF_BASE}/commands/mfc-fulfillment-service/stop-retry`, () =>
+        HttpResponse.json({ requestId: 'RQ-1', status: 'UNKNOWN_RESULT', nextAction: 'QUERY_RESULT', occurredAt: '2026-11-17T00:00:00Z' }, { status: 202 }),
+      ),
+    );
+    const view = renderAt('/pending', as.admin);
+    const row = await rowOf('PDA 응답 없음');
+    await userEvent.click(within(row).getByRole('button', { name: '다시 시도' }));
+    await userEvent.type(within(row).getByLabelText('다시 시도 사유(필수)'), 'PDA 재부팅 확인');
+    await userEvent.click(within(row).getByRole('button', { name: '보내기' }));
+    expect(await within(row).findByText(/반영됐는지 아직 확인하지 못했어요/)).toBeInTheDocument();
+    expect(within(row).queryByText(/반영됐어요. 목록을/)).not.toBeInTheDocument();
+    expect(within(row).queryByTestId('retry-rejected')).not.toBeInTheDocument();
+    const reads = view.sent.filter((r) => r.method === 'GET' && new URL(r.url).pathname.endsWith('/views/pending-work'));
+    expect(reads.length).toBeGreaterThan(1); // 처음 + 결과 모름 뒤 다시 읽기
+  });
+
   it('MFC 원천이 sources 에 없으면(서버 설정으로 꺼짐) 안내 — 장애로 보이지 않는다', async () => {
     server.use(
       http.get(`${BFF_BASE}/views/pending-work`, () =>
