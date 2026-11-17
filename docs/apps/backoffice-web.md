@@ -59,6 +59,7 @@ BO §7(≈L1492-1510)의 화면은 "업무 동선 제안"이다. 화면을 BO �
 
 공통 흐름: 정본 "제출 준비" 응답의 `approvalRequest` → approval `POST /change-requests` → `…/submissions`(approvalId). 두 요청 키는 사용자 행위 키 하나에서 만든다(`{key}:cr`, `{key}:submit`). 판매중지·가격은 화면이 변경 요청 본문을 직접 만든다(handoff §4.3·§4.5).
 승인 뒤 정본 반영은 비동기라 승인 상세에서 1초 간격·최대 30회 폴링하고, 끝나지 않으면 "아직 확인되지 않음 + 다시 확인"으로 둔다.
+자기 권한 요청(approval-service 2026-11-17, 백엔드 알림 `hr-backoffice/2026-11-17-notice-self-action-rules` §2): 권한 부여(GRANT) 요청에서 권한을 받을 직원이 나면 승인·반려 버튼을 끄고 "다른 관리자가 처리해요" — 판정은 서버(403).
 토큰: access 는 탭 메모리, refresh 는 이 탭의 sessionStorage(새로고침 복원용 — BR-03 전 임시, localStorage 금지). 401 → pmartFetch single-flight 로 `POST /employee-auth/tokens/refresh` 한 번(회전된 refresh 로 즉시 교체) → 원 요청 재전송. 갱신이 거절되면(`TOKEN_INVALID`·`TOKEN_REUSED` 등) 토큰을 지우고 로그인 화면(`/login?from=`). 갱신 결과 불명이면 같은 refresh 를 다시 보내지 않는다(재사용으로 세션이 끊김). `X-Device-Id` 는 탭마다 UUID(로그인 시작·티켓 교환·갱신이 같은 값).
 
 직원 로그인(ADR-0056, 2026-11-12 · 2026-11-13 모든 모드로): employee-auth-service 하나 — `/login` 버튼 → 게이트웨이 `GET /employee-auth/logins`(브라우저 이동, Keycloak 화면) → `/auth/callback?ticket=` → `POST /employee-auth/tokens`.
