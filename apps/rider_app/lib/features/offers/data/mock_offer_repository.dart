@@ -10,7 +10,44 @@ import 'offer_repository.dart';
 ///
 /// 운행 중·신규배차 허용일 때만 제안을 주고 `pollAfterSec` 5 를 준다. 아니면 빈 목록 + null(폴링 중지).
 base class MockOfferRepository implements OfferRepository, DutyRepository {
-  MockOfferRepository({this.latency = const Duration(milliseconds: 300)});
+  /// [startOnDuty] 가 false 면 운행 종료에서 시작한다(앱을 켰을 때 "운행시작" 화면).
+  MockOfferRepository({
+    this.latency = const Duration(milliseconds: 300),
+    bool startOnDuty = true,
+    DispatchMode mode = DispatchMode.normal,
+    bool demoBundle = false,
+  }) {
+    if (demoBundle) {
+      // 시연: 첫 제안 다음에 알뜰배달 묶음(2건)이 온다.
+      for (final (i, area) in [(1, '부산진구 부전동'), (2, '부산진구 범천동')]) {
+        _offers.add({
+          ...(fixture['items']! as List).first as Map<String, Object?>,
+          'offerId': 'offer-bundle-$i',
+          'deliveryId': 'dlv-b$i',
+          'remainingSec': 60,
+          'bundleId': 'bundle-1',
+          'bundleSize': 2,
+          'stopSequence': i,
+          'summary': <String, Object?>{
+            ...((fixture['items']! as List).first as Map)['summary']
+                as Map<String, Object?>,
+            'dropAreaLabel': area,
+            'estimatedFee': 3000,
+            'deliveryMode': 'BUNDLED',
+          },
+        });
+      }
+    }
+    if (!startOnDuty) {
+      _duty = {..._duty, 'status': 'OFF_DUTY', 'newDispatchEnabled': false};
+    }
+    _settings = {
+      ..._settings,
+      'dispatchMode': mode == DispatchMode.aiRecommended
+          ? 'AI_RECOMMENDED'
+          : 'NORMAL',
+    };
+  }
 
   final Duration latency;
 
@@ -26,12 +63,17 @@ base class MockOfferRepository implements OfferRepository, DutyRepository {
         'remainingSec': 42,
         'state': 'SENT',
         'summary': {
-          'mfcId': 'MFC-MOCK-01',
-          'dropAreaLabel': '목동 1단지',
+          'mfcId': 'MFC-BSJ-01',
+          'dropAreaLabel': '부산진구 전포동',
           'distanceKm': 1.8,
           'weightG': 3200,
           'containsAlcohol': false,
           'estimatedFee': 3500,
+          'pickupDistanceKm': 0.6,
+          'pickupEtaSeconds': 180,
+          'bagCount': 2,
+          // 고객앱 목의 진행 중 주문(예약배송 18~19시)과 같은 배송.
+          'deliveryMode': 'SCHEDULED',
         },
       },
     ],
@@ -44,7 +86,7 @@ base class MockOfferRepository implements OfferRepository, DutyRepository {
   var _duty = <String, Object?>{
     'status': 'ON_DUTY',
     'newDispatchEnabled': true,
-    'mfcId': 'MFC-MOCK-01',
+    'mfcId': 'MFC-BSJ-01',
     'activeDeliveryCount': 0,
     'version': 1,
   };
@@ -53,6 +95,11 @@ base class MockOfferRepository implements OfferRepository, DutyRepository {
       Map<String, Object?>.from(o as Map),
   ];
   final _responses = <String, Map<String, Object?>>{};
+  var _settings = <String, Object?>{
+    'oneAtATime': false,
+    'dispatchMode': 'NORMAL',
+    'version': 1,
+  };
 
   /// 조회 횟수(폴링 간격 확인용).
   int fetches = 0;
@@ -69,6 +116,9 @@ base class MockOfferRepository implements OfferRepository, DutyRepository {
   /// 수락된 배송(배송 수행 단계가 읽는다).
   final assignedDeliveries = <String>[];
   final respondKeys = <String>[];
+
+  /// 상세를 연 제안(서버가 처음 연 시각을 기록한다).
+  final openedOffers = <String>[];
 
   Future<void> _wait() => Future<void>.delayed(latency);
 
@@ -137,7 +187,15 @@ base class MockOfferRepository implements OfferRepository, DutyRepository {
         'deliveryId': offer['deliveryId'],
         'assignmentId': 'asg-$offerId',
       };
-      assignedDeliveries.add(offer['deliveryId']! as String);
+      // 묶음은 하나에만 응답해도 묶음 전체에 적용된다.
+      final bundle = offer['bundleId'];
+      for (final o in _offers.where(
+        (o) =>
+            o['offerId'] == offerId ||
+            (bundle != null && o['bundleId'] == bundle),
+      )) {
+        assignedDeliveries.add(o['deliveryId']! as String);
+      }
       _duty = {..._duty, 'activeDeliveryCount': assignedDeliveries.length};
     } else {
       result = {
@@ -146,13 +204,24 @@ base class MockOfferRepository implements OfferRepository, DutyRepository {
         'consecutiveRejections': 1,
       };
     }
-    _offers.removeWhere((o) => o['offerId'] == offerId);
+    final bundleOf = offer?['bundleId'];
+    _offers.removeWhere(
+      (o) =>
+          o['offerId'] == offerId ||
+          (bundleOf != null && o['bundleId'] == bundleOf),
+    );
     _responses[key.value] = result;
     if (loseNextResponse) {
       loseNextResponse = false;
       return const OfferUnknown();
     }
     return offerOutcomeFromContract(OfferResponseResult.fromJson(result));
+  }
+
+  @override
+  Future<void> openDetail(String offerId) async {
+    await _wait();
+    openedOffers.add(offerId);
   }
 
   @override
@@ -191,5 +260,38 @@ base class MockOfferRepository implements OfferRepository, DutyRepository {
   }
 
   @override
-  Future<DispatchMode> dispatchMode() async => DispatchMode.normal;
+  Future<DispatchMode> dispatchMode() async => (await settings()).mode;
+
+  @override
+  Future<DispatchSettingsView> settings() async {
+    await _wait();
+    return dispatchSettingsFromContract(
+      rd.DispatchSettings.fromJson(_settings),
+    );
+  }
+
+  @override
+  Future<DispatchSettingsView> setSettings({
+    required DispatchMode mode,
+    required bool oneAtATime,
+    required int expectedVersion,
+    required IdempotencyKey key,
+  }) async {
+    await _wait();
+    if (expectedVersion != _settings['version']) {
+      throw const ProblemFailure(
+        Problem(status: 409, code: ProblemCode.versionConflict),
+      );
+    }
+    _settings = {
+      'oneAtATime': oneAtATime,
+      'dispatchMode': mode == DispatchMode.aiRecommended
+          ? 'AI_RECOMMENDED'
+          : 'NORMAL',
+      'version': (_settings['version']! as int) + 1,
+    };
+    return dispatchSettingsFromContract(
+      rd.DispatchSettings.fromJson(_settings),
+    );
+  }
 }

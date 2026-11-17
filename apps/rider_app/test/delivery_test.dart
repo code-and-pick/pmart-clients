@@ -6,6 +6,7 @@ import 'package:pmart_core/pmart_core.dart';
 import 'package:pmart_ui/pmart_ui.dart';
 
 import 'package:rider_app/app.dart';
+import 'package:rider_app/features/auth/data/session.dart';
 import 'package:rider_app/features/delivery/data/delivery_repository.dart';
 import 'package:rider_app/features/delivery/data/mock_delivery_repository.dart';
 import 'package:rider_app/features/delivery/domain/delivery.dart';
@@ -13,6 +14,7 @@ import 'package:rider_app/features/delivery/presentation/delivery_controller.dar
 import 'package:rider_app/features/offers/data/mock_offer_repository.dart';
 import 'package:rider_app/features/offers/presentation/offer_controllers.dart';
 import 'package:rider_app/shared/providers.dart';
+import 'package:rider_app/shared/rider_widgets.dart';
 
 void main() {
   setUpAll(initPmartFormatting);
@@ -26,6 +28,7 @@ void main() {
     handoverRepositoryProvider.overrideWithValue(repo),
     evidenceUploaderProvider.overrideWithValue(repo),
     secureStoreProvider.overrideWithValue(store),
+    fieldQueueStoreProvider.overrideWithValue(store),
   ];
 
   setUp(() {
@@ -192,6 +195,9 @@ void main() {
         retry: (_, _) => null,
         overrides: [
           ...overrides(),
+          initialSessionProvider.overrideWithValue(
+            const RiderSession(riderId: 'rider-mock-1'),
+          ),
           offerRepositoryProvider.overrideWithValue(offers),
           dutyRepositoryProvider.overrideWithValue(offers),
         ],
@@ -207,44 +213,145 @@ void main() {
     await settle();
     await t.tap(find.byKey(const ValueKey('delivery-dlv-1')));
     await settle();
-    expect(find.text('배정됨 · 가게로 이동'), findsOneWidget);
+    expect(find.text('픽업지로 이동해주세요'), findsOneWidget);
 
     await t.tap(find.byKey(const ValueKey('arrive-store')));
     await settle();
     expect(find.text('포장 인계 0 / 2'), findsOneWidget);
 
-    Future<void> scan(String code) async {
-      await t.enterText(find.byKey(const ValueKey('qr-scan')), code);
-      await t.testTextInput.receiveAction(TextInputAction.done);
+    // 주문정보: 8자리 주문번호 · 한글 지점명 · 품목 · 요청사항. 거절 코드·전송확인 버튼은 없다.
+    expect(find.byKey(const ValueKey('order-info')), findsOneWidget);
+    expect(find.text('PMart 부산진구지점'), findsWidgets);
+    // 고객앱 목의 진행 중 주문과 같은 품목.
+    expect(find.textContaining('그릭요거트 플레인 400g'), findsOneWidget);
+    expect(find.textContaining('INVALID_STATE'), findsNothing);
+    expect(find.byKey(const ValueKey('sync')), findsNothing);
+
+    // QR코드 픽업 화면(시험에는 카메라가 없어 숫자 입력 칸이 바로 보인다)
+    await t.tap(find.byKey(const ValueKey('qr-pickup')));
+    await settle();
+
+    Future<void> enterNumber(String digits) async {
+      await t.enterText(find.byKey(const ValueKey('qr-number')), digits);
+      await t.tap(find.byKey(const ValueKey('qr-number-submit')));
       await settle();
     }
 
     final pickup = find.byKey(const ValueKey('pickup'));
-    await scan(MockDeliveryRepository.qrFor('pkg-1'));
+    await enterNumber('9999');
+    expect(find.text('이 배달의 포장 숫자가 아니에요. 다시 확인해 주세요'), findsOneWidget);
+    await enterNumber(MockDeliveryRepository.labelNumbers['pkg-1']!);
     expect(find.text('포장 인계 1 / 2'), findsOneWidget);
     expect(find.byKey(const ValueKey('partial-handover')), findsOneWidget);
-    expect(t.widget<FilledButton>(pickup).onPressed, isNull);
+    expect(t.widget<RiderButton>(pickup).onPressed, isNull);
 
-    await scan(MockDeliveryRepository.qrFor('pkg-2'));
-    expect(t.widget<FilledButton>(pickup).onPressed, isNotNull);
+    await enterNumber(MockDeliveryRepository.labelNumbers['pkg-2']!);
+    expect(t.widget<RiderButton>(pickup).onPressed, isNotNull);
     await t.tap(pickup);
     await settle();
-    expect(find.text('픽업 완료 · 고객에게 이동'), findsOneWidget);
-    expect(find.text('목동 1단지 101동'), findsOneWidget);
+    expect(find.text('전달지로 이동해주세요'), findsOneWidget);
+    expect(find.text('부산 부산진구 전포대로 210'), findsWidgets);
+    expect(find.byKey(const ValueKey('drop-card')), findsOneWidget);
+    expect(find.byKey(const ValueKey('request-notes')), findsOneWidget);
+    expect(find.byKey(const ValueKey('due-time')), findsOneWidget);
+    // 고객도착 단계 버튼 없이 바로 전달완료.
+    expect(find.byKey(const ValueKey('arrive-customer')), findsNothing);
 
-    await t.tap(find.byKey(const ValueKey('arrive-customer')));
-    await settle();
+    // 사진을 올리기 전에는 전달완료를 누를 수 없다.
     final complete = find.byKey(const ValueKey('complete'));
-    expect(
-      t.widget<FilledButton>(complete).onPressed,
-      isNull,
-      reason: '사진 업로드 전',
-    );
+    expect(t.widget<RiderButton>(complete).onPressed, isNull);
+
+    // "'여기에 두었어요' 알리기" → 촬영하기 창(열 때 고객 도착을 앱이 대신 보낸다) → 올리면 닫힌다.
+    expect(find.text('‘여기에 두었어요’ 알리기'), findsOneWidget);
+    await t.tap(find.byKey(const ValueKey('photo')));
+    await settle();
+    expect(repo.deliveryJson('dlv-1')['state'], 'ARRIVED_AT_CUSTOMER');
     await t.tap(find.byKey(const ValueKey('upload-photo')));
     await settle();
-    await t.tap(complete);
+    await settle();
+    expect(find.byKey(const ValueKey('upload-photo')), findsNothing);
+    expect(find.text('사진 올리기 완료 (다시 찍기)'), findsOneWidget);
+
+    // 다시 찍으러 들어가면 이전 사진이 크게 보인다.
+    await t.tap(find.byKey(const ValueKey('photo')));
+    await settle();
+    expect(find.byKey(const ValueKey('photo-preview')), findsOneWidget);
+    expect(find.text('다시 찍기'), findsOneWidget);
+    await t.tap(find.byType(BackButton));
     await settle();
 
+    // 전달완료 → "고객님께 어떻게 전달하셨나요?" → 다음.
+    expect(t.widget<RiderButton>(complete).onPressed, isNotNull);
+    await t.tap(complete);
+    await settle();
+    expect(find.text('고객님께 어떻게\n전달하셨나요?'), findsOneWidget);
+    await t.tap(find.byKey(const ValueKey('complete-confirm')));
+    await settle();
     expect(find.byKey(const ValueKey('delivery-done')), findsOneWidget);
+  });
+
+  group('배차취소', () {
+    test('픽업 전에는 접수되고 진행 목록에서 빠진다', () async {
+      expect(
+        await repo.cancel('dlv-1', key: IdempotencyKey.generate()),
+        CancelOutcome.accepted,
+      );
+      expect(await repo.myActive(), isEmpty);
+    });
+
+    test('픽업 뒤에는 배차취소가 아니라 지원센터 안내다', () async {
+      repo.deliveryJson('dlv-1')['state'] = 'PICKED_UP';
+      expect(
+        await repo.cancel('dlv-1', key: IdempotencyKey.generate()),
+        CancelOutcome.pickedUpCaseRequired,
+      );
+      expect((await repo.get('dlv-1')).state, ExecutionState.pickedUp);
+    });
+  });
+
+  testWidgets('수행 화면에서 배차취소를 접수하면 홈으로 돌아간다', (t) async {
+    t.view
+      ..physicalSize = const Size(800, 2000)
+      ..devicePixelRatio = 1;
+    addTearDown(t.view.reset);
+    final offers = MockOfferRepository(latency: Duration.zero);
+    await t.pumpWidget(
+      ProviderScope(
+        retry: (_, _) => null,
+        overrides: [
+          ...overrides(),
+          assignmentCancelRepositoryProvider.overrideWithValue(repo),
+          initialSessionProvider.overrideWithValue(
+            const RiderSession(riderId: 'rider-mock-1'),
+          ),
+          offerRepositoryProvider.overrideWithValue(offers),
+          dutyRepositoryProvider.overrideWithValue(offers),
+        ],
+        child: const RiderApp(),
+      ),
+    );
+    Future<void> settle() async {
+      for (var i = 0; i < 6; i++) {
+        await t.pump(const Duration(milliseconds: 20));
+      }
+    }
+
+    await settle();
+    await t.tap(find.byKey(const ValueKey('delivery-dlv-1')));
+    await settle();
+    // 배차취소는 도움요청 메뉴 안에 있다.
+    await t.tap(find.byKey(const ValueKey('help')));
+    await settle();
+    await t.tap(find.byKey(const ValueKey('cancel-assignment')));
+    await settle();
+    // 반복 배차취소 안내는 취소를 고르는 창에 보인다.
+    expect(find.byKey(const ValueKey('cancel-penalty-notice')), findsOneWidget);
+    expect(find.textContaining('제안 순서가 뒤로 밀리고'), findsOneWidget);
+    await t.tap(find.byKey(const ValueKey('cancel-assignment-confirm')));
+    await settle();
+
+    expect(repo.cancelKeys, hasLength(1));
+    expect(find.text('배차취소를 접수했어요'), findsOneWidget);
+    expect(find.byKey(const ValueKey('delivery-dlv-1')), findsNothing);
   });
 }

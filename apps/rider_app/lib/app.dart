@@ -5,6 +5,7 @@ import 'package:pmart_ui/pmart_ui.dart';
 
 import 'l10n/gen/app_localizations.dart';
 import 'router.dart';
+import 'shared/rider_style.dart';
 
 class RiderApp extends ConsumerWidget {
   const RiderApp({super.key});
@@ -12,8 +13,9 @@ class RiderApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) => MaterialApp.router(
     onGenerateTitle: (context) => AppLocalizations.of(context).appTitle,
-    theme: PmartTheme.light(),
-    darkTheme: PmartTheme.dark(),
+    // 레퍼런스가 밝은 화면 기준이라(일부 화면만 어두운 머리띠) 어두운 테마는 두지 않는다.
+    theme: RiderTheme.light(),
+    debugShowCheckedModeBanner: false,
     locale: const Locale('ko'),
     supportedLocales: AppLocalizations.supportedLocales,
     localizationsDelegates: const [

@@ -3,12 +3,19 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pmart_core/pmart_core.dart';
 
 import '../../../shared/providers.dart';
+import '../../offers/presentation/offer_controllers.dart'
+    show mockOfferRepositoryProvider;
 import '../data/delivery_repository.dart';
 import '../data/mock_delivery_repository.dart';
 import '../domain/delivery.dart';
 
+/// 앱 목 모드: 제안을 수락한 배송만 진행 목록에 보인다.
 final _mockDelivery = Provider<MockDeliveryRepository>(
-  (_) => MockDeliveryRepository(),
+  (ref) => MockDeliveryRepository(
+    demoBundle: true,
+    visible: (id) =>
+        ref.read(mockOfferRepositoryProvider).assignedDeliveries.contains(id),
+  ),
 );
 
 final deliveryRepositoryProvider = Provider<DeliveryRepository>(
@@ -25,10 +32,25 @@ final handoverRepositoryProvider = Provider<HandoverRepository>(
   },
 );
 
+final assignmentCancelRepositoryProvider = Provider<AssignmentCancelRepository>(
+  (ref) => switch (ref.watch(envProvider)) {
+    PmartEnv.mock => ref.watch(_mockDelivery),
+    PmartEnv.local => ApiAssignmentCancelRepository(ref.watch(dioProvider)),
+  },
+);
+
+/// 지원센터 상담 대화. 실서버는 계약이 없어 "준비 중"(백엔드 요청 §11).
+final supportThreadRepositoryProvider = Provider<SupportThreadRepository>(
+  (ref) => switch (ref.watch(envProvider)) {
+    PmartEnv.mock => ref.watch(_mockDelivery),
+    PmartEnv.local => const ApiSupportThreadRepository(),
+  },
+);
+
 final evidenceUploaderProvider = Provider<EvidenceUploader>(
   (ref) => switch (ref.watch(envProvider)) {
     PmartEnv.mock => ref.watch(_mockDelivery),
-    PmartEnv.local => const UnavailableEvidenceUploader(),
+    PmartEnv.local => ApiEvidenceUploader(ref.watch(dioProvider)),
   },
 );
 
@@ -37,9 +59,19 @@ final currentRiderIdProvider = Provider<String>(
   (_) => MockDeliveryRepository.riderId,
 );
 
-/// 라이더 현장 큐(수행 명령). 앱이 꺼져도 남고 같은 키로 다시 보낸다.
+/// 현장 큐 저장소. 실서버는 기기 보안 저장소(앱이 꺼져도 남는다).
+/// 목 모드는 메모리 — 목 배송 데이터가 실행마다 새로 시작하므로, 지난 실행의 명령이
+/// 새 목 데이터에 다시 보내져 거절(INVALID_STATE)되지 않게 한다.
+final fieldQueueStoreProvider = Provider<SecureKeyValueStore>(
+  (ref) => switch (ref.watch(envProvider)) {
+    PmartEnv.mock => MemoryKeyValueStore(),
+    PmartEnv.local => ref.watch(secureStoreProvider),
+  },
+);
+
+/// 라이더 현장 큐(수행 명령). 같은 키로 다시 보낸다.
 final riderQueueProvider = Provider<FieldQueue>(
-  (ref) => FieldQueue(ref.watch(secureStoreProvider), name: 'rider'),
+  (ref) => FieldQueue(ref.watch(fieldQueueStoreProvider), name: 'rider'),
 );
 
 final deliveryProvider = FutureProvider.autoDispose
@@ -52,7 +84,8 @@ final myActiveDeliveriesProvider =
       (ref) => ref.watch(deliveryRepositoryProvider).myActive(),
     );
 
-final dropInfoProvider = FutureProvider.autoDispose.family<DropInfo?, String>(
+/// 전달지(개인정보). autoDispose — 화면을 나가면 메모리에서 지운다.
+final dropInfoProvider = FutureProvider.autoDispose.family<DropInfo, String>(
   (ref, id) => ref.watch(deliveryRepositoryProvider).dropInfo(id),
 );
 
@@ -73,7 +106,12 @@ class DeliveryFlowState {
     this.photoRef,
     this.uploading = false,
     this.uploadFailed = false,
+    this.contacts = const [],
+    this.photo,
   });
+
+  /// 마지막으로 찍은 사진(메모리에만 — 기사가 다시 찍기 전에 확인한다).
+  final LocalPhoto? photo;
 
   final Map<String, PackageHandover> packages;
   final ScanVerdict? lastScan;
@@ -83,6 +121,9 @@ class DeliveryFlowState {
   final String? photoRef;
   final bool uploading;
   final bool uploadFailed;
+
+  /// 고객 연락 기록(전달 실패 등록에 쓴다).
+  final List<ContactAttempt> contacts;
 
   PackageHandover phaseOf(String packageId) =>
       packages[packageId] ??
@@ -101,15 +142,20 @@ class DeliveryFlowState {
     String? photoRef,
     bool? uploading,
     bool? uploadFailed,
+    List<ContactAttempt>? contacts,
+    LocalPhoto? photo,
+    bool clearPhotoRef = false,
   }) => DeliveryFlowState(
+    photo: photo ?? this.photo,
     packages: packages ?? this.packages,
     lastScan: lastScan ?? this.lastScan,
     lastRejectCode: lastRejectCode != null
         ? lastRejectCode()
         : this.lastRejectCode,
-    photoRef: photoRef ?? this.photoRef,
+    photoRef: clearPhotoRef ? null : (photoRef ?? this.photoRef),
     uploading: uploading ?? this.uploading,
     uploadFailed: uploadFailed ?? this.uploadFailed,
+    contacts: contacts ?? this.contacts,
   );
 }
 
@@ -317,9 +363,11 @@ class DeliveryFlowController extends Notifier<DeliveryFlowState> {
       DeliveryCommandKind.pickup => ExecutionState.pickedUp,
       DeliveryCommandKind.customerArrival => ExecutionState.arrivedAtCustomer,
       DeliveryCommandKind.completion => ExecutionState.completed,
-      _ => ExecutionState.failed,
+      _ => ExecutionState.failureReported,
     };
-    if (target == ExecutionState.failed) return s == ExecutionState.failed;
+    if (target == ExecutionState.failureReported) {
+      return s == ExecutionState.failureReported || s == ExecutionState.failed;
+    }
     final i = order.indexOf(s);
     return i >= 0 && i >= order.indexOf(target);
   }
@@ -334,19 +382,46 @@ class DeliveryFlowController extends Notifier<DeliveryFlowState> {
   Future<void> arriveAtCustomer() =>
       _send(DeliveryCommandKind.customerArrival, const {});
 
-  /// 사진 업로드(BR-07 목). 성공해야 전달 완료가 열린다.
-  Future<void> uploadPhoto() async {
-    state = state.copyWith(uploading: true, uploadFailed: false);
+  /// 사진 올리기 키. 같은 사진을 다시 올릴 때만 같은 키다(새로 찍으면 새 키).
+  IdempotencyKey? _photoKey;
+  LocalPhoto? _photo;
+
+  /// 증빙 사진 올리기. 성공해야 전달 완료·전달 실패를 보낼 수 있다.
+  /// [photo] 가 null 이면 마지막으로 찍은 사진을 같은 키로 다시 올린다.
+  Future<void> uploadPhoto([LocalPhoto? photo]) async {
+    if (photo != null) {
+      _photo = photo;
+      _photoKey = IdempotencyKey.generate();
+    }
+    final current = _photo ?? (bytes: Uint8List(0), filename: 'evidence.jpg');
+    final key = _photoKey ??= IdempotencyKey.generate();
+    // 새로 찍었으면 이전 사진 참조는 더 쓰지 않는다(미리보기와 올린 사진이 달라지지 않게).
+    state = state.copyWith(
+      uploading: true,
+      uploadFailed: false,
+      photo: photo,
+      clearPhotoRef: photo != null,
+    );
     try {
       final ref0 = await ref
           .read(evidenceUploaderProvider)
-          .upload('local-photo');
+          .upload(deliveryId, current, key: key);
       if (ref.mounted) state = state.copyWith(uploading: false, photoRef: ref0);
     } on PmartFailure {
       if (ref.mounted) {
         state = state.copyWith(uploading: false, uploadFailed: true);
       }
     }
+  }
+
+  /// 고객 연락 한 번을 기록한다(전화를 걸고 결과를 고른다).
+  void recordContact({required bool answered}) {
+    state = state.copyWith(
+      contacts: [
+        ...state.contacts,
+        ContactAttempt(attemptedAt: DateTime.now().toUtc(), answered: answered),
+      ],
+    );
   }
 
   Future<void> complete(CompletionMethod method, Placement placement) {
@@ -366,7 +441,9 @@ class DeliveryFlowController extends Notifier<DeliveryFlowState> {
     });
   }
 
-  Future<void> reportFailure(FailureReason reason) =>
+  /// 전달 실패 알리기. 사진과(고객 사유면) 연락 기록 2회 이상이 필요하다 — 서버가 최종 판정한다.
+  /// 운영자가 확정하기 전까지 배송은 진행 중(FAILURE_REPORTED)이다.
+  Future<void> reportFailure(FailureReason reason, {String? detail}) =>
       _send(DeliveryCommandKind.failure, {
         'reason': switch (reason) {
           FailureReason.customerAbsent => 'CUSTOMER_ABSENT',
@@ -377,23 +454,88 @@ class DeliveryFlowController extends Notifier<DeliveryFlowState> {
           FailureReason.riderIncident => 'RIDER_INCIDENT',
           FailureReason.other => 'OTHER',
         },
+        'detail': ?detail,
+        'evidenceRefs': [?state.photoRef],
+        'contactAttempts': [
+          for (final c in state.contacts)
+            {
+              'attemptedAt': c.attemptedAt.toIso8601String(),
+              'answered': c.answered,
+            },
+        ],
       });
+}
+
+/// 연락 기록이 2회 이상 필요한 고객 사유(백엔드 안내 2026-11-13 §3).
+bool needsContactAttempts(FailureReason r) => switch (r) {
+  FailureReason.customerAbsent ||
+  FailureReason.unreachable ||
+  FailureReason.addressError ||
+  FailureReason.refused => true,
+  _ => false,
+};
+
+/// 지원센터에 보낸 도움요청 한 건.
+@immutable
+class HelpTicket {
+  const HelpTicket({
+    required this.key,
+    required this.category,
+    required this.sentAt,
+    this.detail,
+    this.state,
+    this.caseId,
+  });
+
+  /// 요청 ID(= 멱등 키). 같은 요청을 다시 보낼 때만 같은 키다.
+  final IdempotencyKey key;
+  final HelpCategory category;
+  final String? detail;
+  final DateTime sentAt;
+
+  /// 처리 상태. null 이면 아직 접수 확인 전.
+  final HelpState? state;
+
+  /// 지원센터(사건함) 접수번호 — 사건이 열린 뒤에만.
+  final String? caseId;
+
+  HelpTicket withStatus(HelpStatusView s) => HelpTicket(
+    key: key,
+    category: category,
+    sentAt: sentAt,
+    detail: detail,
+    state: s.state,
+    caseId: s.caseId ?? caseId,
+  );
 }
 
 @immutable
 class HelpFlowState {
-  const HelpFlowState({this.state, this.sending = false, this.key});
+  const HelpFlowState({this.tickets = const [], this.sending = false});
 
-  /// 접수 뒤 처리 상태. null 이면 아직 보내지 않았다.
-  final HelpState? state;
+  /// 이 배송에서 보낸 도움요청(오래된 것부터).
+  final List<HelpTicket> tickets;
   final bool sending;
-  final IdempotencyKey? key;
+
+  HelpTicket? get last => tickets.lastOrNull;
+
+  /// 마지막 도움요청의 처리 상태. null 이면 아직 보내지 않았다.
+  HelpState? get state => last?.state;
+  IdempotencyKey? get key => last?.key;
+  HelpCategory? get category => last?.category;
+  int get sentCount => tickets.length;
 }
 
-final helpFlowProvider = NotifierProvider.autoDispose
-    .family<HelpFlowController, HelpFlowState, String>(HelpFlowController.new);
+/// 배송별 도움요청 기록. 배송 화면·지원센터 화면을 오가도 남는다(앱을 끄면 지워진다 —
+/// 라이더용 도움요청 목록 API 가 없다, 백엔드 요청 중).
+final helpFlowProvider =
+    NotifierProvider.family<HelpFlowController, HelpFlowState, String>(
+      HelpFlowController.new,
+    );
 
-/// 도움요청. 접수 결과를 모르면 같은 키로 다시 보낸다(사건이 두 번 생기지 않게).
+/// 도움요청 → 지원센터(delivery-execution 기록 → case-service RIDER_HELP 사건 → 백오피스 사건함).
+/// 새로 보낼 때마다 새 요청(새 키)이다. 접수 결과를 모르는 같은 내용만 같은 키로 다시 보낸다
+/// (사건이 두 번 생기지 않게). 처리된 뒤에도 다른 도움요청을 보낼 수 있다.
 class HelpFlowController extends Notifier<HelpFlowState> {
   HelpFlowController(this.deliveryId);
 
@@ -404,13 +546,36 @@ class HelpFlowController extends Notifier<HelpFlowState> {
 
   Future<void> send(HelpCategory category, {String? detail}) async {
     if (state.sending) return;
-    final key = state.key ?? IdempotencyKey.generate();
-    state = HelpFlowState(sending: true, key: key);
+    final text = detail?.trim();
+    final note = text == null || text.isEmpty ? null : text;
+    final last = state.last;
+    final retry =
+        last != null &&
+        last.state == HelpState.unknown &&
+        last.category == category &&
+        last.detail == note;
+    final ticket = retry
+        ? last
+        : HelpTicket(
+            key: IdempotencyKey.generate(),
+            category: category,
+            detail: note,
+            sentAt: DateTime.now(),
+          );
+    final others = retry
+        ? state.tickets.sublist(0, state.tickets.length - 1)
+        : state.tickets;
+    state = HelpFlowState(tickets: [...others, ticket], sending: true);
     final repo = ref.read(deliveryRepositoryProvider);
     var sent = false;
     for (var i = 0; i < 3 && !sent; i++) {
       try {
-        await repo.requestHelp(deliveryId, category, detail: detail, key: key);
+        await repo.requestHelp(
+          deliveryId,
+          category,
+          detail: note,
+          key: ticket.key,
+        );
         sent = true;
       } on UnknownResultFailure {
         continue;
@@ -420,16 +585,130 @@ class HelpFlowController extends Notifier<HelpFlowState> {
     }
     if (!ref.mounted) return;
     // 접수 응답을 끝내 못 받았어도 상태 조회로 확인한다(새 요청을 만들지 않는다).
-    final s = await repo.helpStatus(deliveryId, key);
-    if (ref.mounted) state = HelpFlowState(state: s, key: key);
+    final s = await repo.helpStatus(deliveryId, ticket.key);
+    if (ref.mounted) _replace(ticket.withStatus(s), sending: false);
   }
 
+  /// 아직 처리되지 않은 도움요청의 상태를 다시 조회한다.
   Future<void> refresh() async {
-    final key = state.key;
-    if (key == null) return;
-    final s = await ref
-        .read(deliveryRepositoryProvider)
-        .helpStatus(deliveryId, key);
-    if (ref.mounted) state = HelpFlowState(state: s, key: key);
+    final repo = ref.read(deliveryRepositoryProvider);
+    for (final t in state.tickets) {
+      if (t.state == HelpState.resolved) continue;
+      final s = await repo.helpStatus(deliveryId, t.key);
+      if (!ref.mounted) return;
+      _replace(t.withStatus(s));
+    }
+  }
+
+  void _replace(HelpTicket t, {bool? sending}) {
+    state = HelpFlowState(
+      tickets: [
+        for (final x in state.tickets) x.key.value == t.key.value ? t : x,
+      ],
+      sending: sending ?? state.sending,
+    );
+  }
+}
+
+/// 대화 한 줄기 = 도움요청 한 건.
+typedef SupportThreadId = ({String deliveryId, String requestId});
+
+@immutable
+class SupportThreadState {
+  const SupportThreadState({
+    this.messages = const [],
+    this.loaded = false,
+    this.unavailable = false,
+    this.failed = false,
+    this.sending = false,
+  });
+
+  final List<SupportMessage> messages;
+  final bool loaded;
+
+  /// 실서버: 대화 API 가 없다.
+  final bool unavailable;
+
+  /// 마지막 조회·보내기가 실패했다(빈 대화로 보이지 않게 구분한다).
+  final bool failed;
+  final bool sending;
+
+  SupportThreadState copyWith({
+    List<SupportMessage>? messages,
+    bool? loaded,
+    bool? unavailable,
+    bool? failed,
+    bool? sending,
+  }) => SupportThreadState(
+    messages: messages ?? this.messages,
+    loaded: loaded ?? this.loaded,
+    unavailable: unavailable ?? this.unavailable,
+    failed: failed ?? this.failed,
+    sending: sending ?? this.sending,
+  );
+}
+
+final supportThreadProvider = NotifierProvider.autoDispose
+    .family<SupportThreadController, SupportThreadState, SupportThreadId>(
+      SupportThreadController.new,
+    );
+
+/// 지원센터 상담 대화. 보내지 못한 같은 글을 다시 보낼 때만 같은 키다.
+class SupportThreadController extends Notifier<SupportThreadState> {
+  SupportThreadController(this.id);
+
+  final SupportThreadId id;
+  IdempotencyKey? _pendingKey;
+  String? _pendingText;
+
+  @override
+  SupportThreadState build() => const SupportThreadState();
+
+  SupportThreadRepository get _repo =>
+      ref.read(supportThreadRepositoryProvider);
+
+  /// 대화와 처리 상태를 새로 받는다.
+  Future<void> load() async {
+    try {
+      final messages = await _repo.threadMessages(id.deliveryId, id.requestId);
+      if (!ref.mounted) return;
+      state = state.copyWith(messages: messages, loaded: true, failed: false);
+    } on SupportThreadUnavailable {
+      if (ref.mounted) state = state.copyWith(loaded: true, unavailable: true);
+    } on PmartFailure {
+      if (ref.mounted) state = state.copyWith(loaded: true, failed: true);
+    }
+    if (ref.mounted) {
+      await ref.read(helpFlowProvider(id.deliveryId).notifier).refresh();
+    }
+  }
+
+  /// 보냈으면 true.
+  Future<bool> send(String text) async {
+    final t = text.trim();
+    if (t.isEmpty || state.sending) return false;
+    final key = t == _pendingText && _pendingKey != null
+        ? _pendingKey!
+        : IdempotencyKey.generate();
+    _pendingKey = key;
+    _pendingText = t;
+    state = state.copyWith(sending: true);
+    try {
+      await _repo.sendMessage(id.deliveryId, id.requestId, t, key: key);
+      _pendingKey = null;
+      _pendingText = null;
+      if (!ref.mounted) return true;
+      state = state.copyWith(sending: false);
+      await load();
+      return true;
+    } on SupportThreadUnavailable {
+      if (ref.mounted) {
+        state = state.copyWith(sending: false, unavailable: true);
+      }
+      return false;
+    } on PmartFailure {
+      if (ref.mounted) state = state.copyWith(sending: false, failed: true);
+      return false;
+    }
   }
 }

@@ -1,6 +1,10 @@
+import 'dart:typed_data';
+
 import 'package:dio/dio.dart';
 import 'package:pmart_api_delivery_execution/pmart_api_delivery_execution.dart'
     as ex;
+import 'package:pmart_api_delivery_dispatch/pmart_api_delivery_dispatch.dart'
+    as dp;
 import 'package:pmart_api_mfc_fulfillment/pmart_api_mfc_fulfillment.dart' as mf;
 import 'package:pmart_core/pmart_core.dart';
 
@@ -16,19 +20,112 @@ abstract interface class DeliveryRepository {
   /// 큐에 저장된 수행 명령(가게 도착·픽업·고객 도착·전달 완료·실패)을 같은 키로 보낸다.
   Future<SendResult> send(QueueItem item);
 
-  /// BR-24: 전달지 정보 경로가 없다. 목만 값을 준다.
-  Future<DropInfo?> dropInfo(String deliveryId);
+  /// `GET /deliveries/{id}/drop-info`(BR-24). 볼 수 없는 단계면 [DropInfoUnavailableFailure].
+  Future<DropInfo> dropInfo(String deliveryId);
 
   /// `POST /deliveries/{id}/help-requests`(202). 같은 키 재전송은 같은 접수다. 결과 불명이면 [UnknownResultFailure].
   Future<void> requestHelp(
     String deliveryId,
     HelpCategory category, {
     String? detail,
+    List<String>? evidenceRefs,
     required IdempotencyKey key,
   });
 
-  /// 도움요청 상태(requestId = 멱등 키). 아직 모르면 [HelpState.unknown].
-  Future<HelpState> helpStatus(String deliveryId, IdempotencyKey key);
+  /// 도움요청 상태·지원센터 접수번호(requestId = 멱등 키). 아직 모르면 [HelpState.unknown].
+  Future<HelpStatusView> helpStatus(String deliveryId, IdempotencyKey key);
+}
+
+/// 지원센터 상담 대화(도움요청 한 건 = 대화 한 줄기). 라이더용 대화 API 가 계약에 없다 —
+/// 목에서만 쓰고, 실서버는 [SupportThreadUnavailable](백엔드 요청 §11).
+abstract interface class SupportThreadRepository {
+  /// 오래된 것부터.
+  Future<List<SupportMessage>> threadMessages(
+    String deliveryId,
+    String requestId,
+  );
+
+  /// 라이더가 한 마디 보낸다. 같은 키 재전송은 같은 메시지다.
+  Future<void> sendMessage(
+    String deliveryId,
+    String requestId,
+    String text, {
+    required IdempotencyKey key,
+  });
+}
+
+/// 실서버: 계약이 없어 부르지 않는다.
+final class ApiSupportThreadRepository implements SupportThreadRepository {
+  const ApiSupportThreadRepository();
+
+  @override
+  Future<List<SupportMessage>> threadMessages(
+    String deliveryId,
+    String requestId,
+  ) => Future.error(const SupportThreadUnavailable());
+
+  @override
+  Future<void> sendMessage(
+    String deliveryId,
+    String requestId,
+    String text, {
+    required IdempotencyKey key,
+  }) => Future.error(const SupportThreadUnavailable());
+}
+
+/// 배차취소(delivery-dispatch `POST /deliveries/{id}/assignment-cancellations`). 수락 전 "거절"과 다른 행위다.
+abstract interface class AssignmentCancelRepository {
+  /// 같은 키 재전송은 같은 요청이다.
+  Future<CancelOutcome> cancel(
+    String deliveryId, {
+    required IdempotencyKey key,
+  });
+}
+
+abstract final class DispatchProblemCode {
+  static const pickedUpCaseRequired = 'PICKED_UP_CASE_REQUIRED';
+}
+
+final class ApiAssignmentCancelRepository
+    implements AssignmentCancelRepository {
+  ApiAssignmentCancelRepository(Dio dio)
+    : _deliveries = dp.PmartApiDeliveryDispatch(dio: dio).getDeliveriesApi();
+
+  final dp.DeliveriesApi _deliveries;
+
+  @override
+  Future<CancelOutcome> cancel(
+    String deliveryId, {
+    required IdempotencyKey key,
+  }) async {
+    try {
+      await pmartGuard(
+        () => _deliveries.createAssignmentCancellation(
+          deliveryId: deliveryId,
+          idempotencyKey: key.value,
+          xSourceSystem: sourceSystem,
+          createAssignmentCancellationRequest:
+              dp.CreateAssignmentCancellationRequest(
+                requestedBy:
+                    dp.CreateAssignmentCancellationRequestRequestedByEnum.RIDER,
+                reason: dp
+                    .CreateAssignmentCancellationRequestReasonEnum
+                    .RIDER_UNABLE,
+              ),
+          extra: commandOptions(key).extra,
+        ),
+      );
+      return CancelOutcome.accepted;
+    } on ProblemFailure catch (f) {
+      return f.problem.code == DispatchProblemCode.pickedUpCaseRequired
+          ? CancelOutcome.pickedUpCaseRequired
+          : CancelOutcome.rejected;
+    } on UnknownResultFailure {
+      return CancelOutcome.unknown;
+    } on NetworkFailure {
+      return CancelOutcome.unknown;
+    }
+  }
 }
 
 /// 포장 QR 인계(mfc-fulfillment).
@@ -52,21 +149,55 @@ abstract interface class HandoverRepository {
   Future<HandoverResolutionView> resolution(String packageId);
 }
 
-/// 전달 사진 업로드. BR-07(업로드 API 없음) — 목만 참조를 돌려준다.
+/// 찍은 사진(메모리). 파일로 남기지 않는다.
+typedef LocalPhoto = ({Uint8List bytes, String filename});
+
+/// 증빙 사진 올리기(`POST /deliveries/{id}/evidence-photos`, multipart). 같은 사진을 다시 올릴 때는 같은 키.
 abstract interface class EvidenceUploader {
-  /// 업로드 성공 시 참조. 실패는 [PmartFailure].
-  Future<String> upload(String localPhotoId);
+  /// 성공하면 `photoRef`. 실패는 [PmartFailure](422 PHOTO_INVALID, 503 저장소 장애 등).
+  Future<String> upload(
+    String deliveryId,
+    LocalPhoto photo, {
+    required IdempotencyKey key,
+  });
 }
 
-/// 포장 QR 원문에서 packageId 를 꺼낸다. BR-23: QR 형식이 계약에 없어 목 형식(`PMART-PKG:{id}:v{n}`)을 가정한다.
-String? packageIdFromQr(String code) {
-  final parts = code.trim().split(':');
-  if (parts.length != 3 ||
-      parts[0] != 'PMART-PKG' ||
-      !parts[2].startsWith('v')) {
-    return null;
+final class ApiEvidenceUploader implements EvidenceUploader {
+  ApiEvidenceUploader(Dio dio)
+    : _exec = ex.PmartApiDeliveryExecution(dio: dio).getExecutionApi();
+
+  final ex.ExecutionApi _exec;
+
+  @override
+  Future<String> upload(
+    String deliveryId,
+    LocalPhoto photo, {
+    required IdempotencyKey key,
+  }) async {
+    final res = await pmartGuard(
+      () => _exec.uploadEvidencePhoto(
+        deliveryId: deliveryId,
+        idempotencyKey: key.value,
+        xSourceSystem: sourceSystem,
+        file: MultipartFile.fromBytes(photo.bytes, filename: photo.filename),
+        extra: commandOptions(key).extra,
+      ),
+    );
+    return res.data?.photoRef ??
+        (throw const ContractViolationFailure('EvidencePhoto 본문 없음'));
   }
-  return parts[1];
+}
+
+/// 포장 QR 원문에서 packageId 를 꺼낸다. 형식은 MFC 의 `PKG:<packageId>:<packageVersion>`(BR-23 회신 2026-11-14).
+/// 마지막 `:` 로 나눠 앞은 packageId, 뒤는 정수 버전이다. 서버에는 원문 그대로 보낸다.
+String? packageIdFromQr(String code) {
+  final s = code.trim();
+  if (!s.startsWith('PKG:')) return null;
+  final cut = s.lastIndexOf(':');
+  if (cut <= 4) return null;
+  final id = s.substring(4, cut);
+  if (id.isEmpty || int.tryParse(s.substring(cut + 1)) == null) return null;
+  return id;
 }
 
 final class ApiDeliveryRepository implements DeliveryRepository {
@@ -142,14 +273,7 @@ final class ApiDeliveryRepository implements DeliveryRepository {
             deliveryId: id,
             idempotencyKey: key,
             xSourceSystem: sourceSystem,
-            reportFailureRequest: ex.ReportFailureRequest(
-              occurredAt: occurredAt,
-              reason: ex.ReportFailureRequestReasonEnum.values.firstWhere(
-                (r) => r.value == p['reason'],
-                orElse: () => ex.ReportFailureRequestReasonEnum.OTHER,
-              ),
-              detail: p['detail'] as String?,
-            ),
+            reportFailureRequest: failureRequestFromPayload(p, occurredAt),
             extra: extra,
           ),
           _ => throw ArgumentError(item.kind),
@@ -169,15 +293,47 @@ final class ApiDeliveryRepository implements DeliveryRepository {
   }
 
   @override
-  Future<DropInfo?> dropInfo(String deliveryId) async =>
-      // BR-24: 계약에 라이더용 전달지 조회가 없다.
-      null;
+  Future<DropInfo> dropInfo(String deliveryId) async {
+    try {
+      final res = await pmartGuard(
+        () => _exec.getDeliveryDropInfo(deliveryId: deliveryId),
+      );
+      final d =
+          res.data ?? (throw const ContractViolationFailure('DropInfo 본문 없음'));
+      return DropInfo(
+        roadAddress: d.roadAddress,
+        detailAddress: d.detailAddress,
+        receiverName: d.receiverName,
+        receiverPhone: d.receiverPhone,
+        entranceMethod: switch (d.entranceMethod?.value) {
+          'FREE' => EntranceMethod.free,
+          'PASSWORD' => EntranceMethod.password,
+          'CALL' => EntranceMethod.call,
+          'OTHER' => EntranceMethod.other,
+          _ => null,
+        },
+        entranceNote: d.entranceNote,
+        deliveryNote: d.deliveryNote,
+        lat: d.lat?.toDouble(),
+        lng: d.lng?.toDouble(),
+      );
+    } on ProblemFailure catch (f) {
+      if (f.problem.code == 'DROP_INFO_CLOSED') {
+        throw const DropInfoUnavailableFailure(DropInfoUnavailable.closed);
+      }
+      if (f.problem.code == 'DROP_INFO_NOT_FOUND') {
+        throw const DropInfoUnavailableFailure(DropInfoUnavailable.notFound);
+      }
+      rethrow;
+    }
+  }
 
   @override
   Future<void> requestHelp(
     String deliveryId,
     HelpCategory category, {
     String? detail,
+    List<String>? evidenceRefs,
     required IdempotencyKey key,
   }) async {
     await pmartGuard(
@@ -188,6 +344,7 @@ final class ApiDeliveryRepository implements DeliveryRepository {
         createHelpRequestRequest: ex.CreateHelpRequestRequest(
           category: helpCategoryToContract(category),
           detail: detail,
+          evidenceRefs: evidenceRefs,
         ),
         extra: commandOptions(key).extra,
       ),
@@ -195,15 +352,21 @@ final class ApiDeliveryRepository implements DeliveryRepository {
   }
 
   @override
-  Future<HelpState> helpStatus(String deliveryId, IdempotencyKey key) async {
+  Future<HelpStatusView> helpStatus(
+    String deliveryId,
+    IdempotencyKey key,
+  ) async {
     try {
       final res = await pmartGuard(
         () =>
             _exec.getHelpRequest(deliveryId: deliveryId, requestId: key.value),
       );
-      return helpStateFromWire(res.data?.state?.value);
+      return (
+        state: helpStateFromWire(res.data?.state?.value),
+        caseId: res.data?.caseId,
+      );
     } on PmartFailure {
-      return HelpState.unknown;
+      return (state: HelpState.unknown, caseId: null);
     }
   }
 }
@@ -308,16 +471,8 @@ final class ApiHandoverRepository implements HandoverRepository {
   }
 }
 
-final class UnavailableEvidenceUploader implements EvidenceUploader {
-  const UnavailableEvidenceUploader();
-
-  @override
-  Future<String> upload(String localPhotoId) async =>
-      // BR-07: 파일 업로드 API 가 없다.
-      throw const ContractViolationFailure('BR-07 업로드 경로 없음');
-}
-
 bool isActive(ExecutionState s) => switch (s) {
+  ExecutionState.unassigned ||
   ExecutionState.completed ||
   ExecutionState.failed ||
   ExecutionState.cancelled ||
@@ -368,21 +523,46 @@ DeliveryView deliveryFromContract(ex.DeliveryExecution d) => DeliveryView(
   handoverIds: d.handoverIds ?? const [],
 );
 
-ex.CreateHelpRequestRequestCategoryEnum helpCategoryToContract(
-  HelpCategory c,
-) => switch (c) {
-  HelpCategory.customerUnreachable =>
-    ex.CreateHelpRequestRequestCategoryEnum.CUSTOMER_UNREACHABLE,
-  HelpCategory.addressIssue =>
-    ex.CreateHelpRequestRequestCategoryEnum.ADDRESS_ISSUE,
-  HelpCategory.goodsIssue =>
-    ex.CreateHelpRequestRequestCategoryEnum.GOODS_ISSUE,
-  HelpCategory.photoUploadFailed =>
-    ex.CreateHelpRequestRequestCategoryEnum.PHOTO_UPLOAD_FAILED,
-  HelpCategory.accident => ex.CreateHelpRequestRequestCategoryEnum.ACCIDENT,
-  HelpCategory.appError => ex.CreateHelpRequestRequestCategoryEnum.APP_ERROR,
-  HelpCategory.other => ex.CreateHelpRequestRequestCategoryEnum.OTHER,
+ex.HelpCategory helpCategoryToContract(HelpCategory c) => switch (c) {
+  HelpCategory.customerUnreachable => ex.HelpCategory.CUSTOMER_UNREACHABLE,
+  HelpCategory.addressIssue => ex.HelpCategory.ADDRESS_ISSUE,
+  HelpCategory.goodsIssue => ex.HelpCategory.GOODS_ISSUE,
+  HelpCategory.photoUploadFailed => ex.HelpCategory.PHOTO_UPLOAD_FAILED,
+  HelpCategory.accident => ex.HelpCategory.ACCIDENT,
+  HelpCategory.appError => ex.HelpCategory.APP_ERROR,
+  HelpCategory.storeWaiting => ex.HelpCategory.STORE_WAITING,
+  HelpCategory.statusCorrection => ex.HelpCategory.STATUS_CORRECTION,
+  HelpCategory.other => ex.HelpCategory.OTHER,
 };
+
+/// 큐에 저장된 전달 실패 → 계약 본문. 사진(evidenceRefs)·연락 기록(contactAttempts)을 함께 보낸다.
+ex.ReportFailureRequest failureRequestFromPayload(
+  Map<String, Object?> p,
+  DateTime? occurredAt,
+) => ex.ReportFailureRequest(
+  occurredAt: occurredAt,
+  reason: ex.ReportFailureRequestReasonEnum.values.firstWhere(
+    (r) => r.value == p['reason'],
+    orElse: () => ex.ReportFailureRequestReasonEnum.OTHER,
+  ),
+  detail: p['detail'] as String?,
+  evidenceRefs: ((p['evidenceRefs'] as List?) ?? const []).cast<String>(),
+  goodsLocation: ex.ReportFailureRequestGoodsLocationEnum.WITH_RIDER,
+  contactAttempts: [
+    for (final a in (p['contactAttempts'] as List?) ?? const [])
+      ex.ReportFailureRequestAllOfContactAttemptsInner(
+        attemptedAt: DateTime.parse((a as Map)['attemptedAt']! as String),
+        // 방법은 선택 항목이다. 계약 값(안심번호·앱 메시지)에 일반 전화가 없어 비운다.
+        result: a['answered'] == true
+            ? ex
+                  .ReportFailureRequestAllOfContactAttemptsInnerResultEnum
+                  .ANSWERED
+            : ex
+                  .ReportFailureRequestAllOfContactAttemptsInnerResultEnum
+                  .NO_ANSWER,
+      ),
+  ],
+);
 
 HelpState helpStateFromWire(String? w) => switch (w) {
   'OPEN' => HelpState.open,

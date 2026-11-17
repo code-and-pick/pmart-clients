@@ -30,6 +30,14 @@ class OfferItem {
     this.distanceKm,
     this.weightG,
     this.containsAlcohol,
+    this.mfcId,
+    this.pickupDistanceKm,
+    this.pickupEtaSeconds,
+    this.bagCount,
+    this.mode,
+    this.bundleId,
+    this.bundleSize,
+    this.stopSequence,
   });
 
   final String offerId;
@@ -45,6 +53,36 @@ class OfferItem {
   final num? distanceKm;
   final int? weightG;
   final bool? containsAlcohol;
+  final String? mfcId;
+
+  /// 라이더 → 픽업지(MFC) 도로 거리·예상 시간.
+  final num? pickupDistanceKm;
+  final int? pickupEtaSeconds;
+  final int? bagCount;
+  final DeliveryMode? mode;
+
+  /// 알뜰배달 묶음. 같은 묶음의 제안은 한 화면에 보이고 하나에만 응답해도 묶음 전체에 적용된다.
+  final String? bundleId;
+  final int? bundleSize;
+
+  /// 묶음 안 고객 방문 순서(1부터).
+  final int? stopSequence;
+}
+
+/// 한집·알뜰(묶음)·예약.
+enum DeliveryMode { single, bundled, scheduled }
+
+/// 같은 묶음끼리 모은다(방문 순서대로). 묶음이 아닌 제안은 한 개짜리 묶음이다.
+List<List<OfferItem>> groupOffers(List<OfferItem> offers) {
+  final groups = <String, List<OfferItem>>{};
+  for (final o in offers) {
+    (groups[o.bundleId ?? o.offerId] ??= []).add(o);
+  }
+  return [
+    for (final g in groups.values)
+      [...g]
+        ..sort((a, b) => (a.stopSequence ?? 0).compareTo(b.stopSequence ?? 0)),
+  ];
 }
 
 /// 늦은 수락 안내 4종(D 188~).
@@ -113,3 +151,19 @@ class OperatingState {
 }
 
 enum DispatchMode { normal, aiRecommended }
+
+/// 배차 설정(`/riders/me/settings`).
+@immutable
+class DispatchSettingsView {
+  const DispatchSettingsView({
+    required this.mode,
+    required this.oneAtATime,
+    required this.version,
+  });
+
+  final DispatchMode mode;
+
+  /// 하나씩 배달하기.
+  final bool oneAtATime;
+  final int version;
+}

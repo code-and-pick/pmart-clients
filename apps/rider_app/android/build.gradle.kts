@@ -2,6 +2,8 @@ allprojects {
     repositories {
         google()
         mavenCentral()
+        // 카카오내비 SDK(KNSDK) 공개 저장소 — 앱 안 음성 길안내(사용자 요청 2026-11-16).
+        maven { url = uri("https://devrepo.kakaomobility.com/repository/kakao-mobility-android-knsdk-public/") }
     }
 }
 

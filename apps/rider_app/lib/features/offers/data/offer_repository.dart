@@ -17,6 +17,10 @@ abstract interface class OfferRepository {
     RejectReason? reason,
     required IdempotencyKey key,
   });
+
+  /// `GET /offers/{id}` — 상세를 열었음을 서버가 기록한다. 상세를 연 뒤 응답 없이 만료되면
+  /// 거절 횟수에 들어간다(백엔드 안내 2026-11-13 §3).
+  Future<void> openDetail(String offerId);
 }
 
 /// 운행 상태·배차 설정(rider-service).
@@ -33,6 +37,16 @@ abstract interface class DutyRepository {
   });
 
   Future<DispatchMode> dispatchMode();
+
+  /// 배차 설정(모드·하나씩 배달하기).
+  Future<DispatchSettingsView> settings();
+
+  Future<DispatchSettingsView> setSettings({
+    required DispatchMode mode,
+    required bool oneAtATime,
+    required int expectedVersion,
+    required IdempotencyKey key,
+  });
 }
 
 /// 실서버 구현(`GET /offers`, listMyOffers).
@@ -97,6 +111,11 @@ final class ApiOfferRepository implements OfferRepository {
       rethrow;
     }
   }
+
+  @override
+  Future<void> openDetail(String offerId) async {
+    await pmartGuard(() => _offers.getOffer(offerId: offerId));
+  }
 }
 
 final class ApiDutyRepository implements DutyRepository {
@@ -149,7 +168,51 @@ final class ApiDutyRepository implements DutyRepository {
         ? DispatchMode.aiRecommended
         : DispatchMode.normal;
   }
+
+  @override
+  Future<DispatchSettingsView> settings() async {
+    final res = await pmartGuard(() => _me.getMyDispatchSettings());
+    return dispatchSettingsFromContract(
+      res.data ??
+          (throw const ContractViolationFailure('DispatchSettings 본문 없음')),
+    );
+  }
+
+  @override
+  Future<DispatchSettingsView> setSettings({
+    required DispatchMode mode,
+    required bool oneAtATime,
+    required int expectedVersion,
+    required IdempotencyKey key,
+  }) async {
+    final res = await pmartGuard(
+      () => _me.setMyDispatchSettings(
+        idempotencyKey: key.value,
+        xSourceSystem: sourceSystem,
+        xExpectedVersion: expectedVersion,
+        dispatchSettings: rd.DispatchSettings(
+          oneAtATime: oneAtATime,
+          dispatchMode: mode == DispatchMode.aiRecommended
+              ? rd.DispatchSettingsDispatchModeEnum.AI_RECOMMENDED
+              : rd.DispatchSettingsDispatchModeEnum.NORMAL,
+        ),
+        extra: commandOptions(key, expectedVersion: expectedVersion).extra,
+      ),
+    );
+    return dispatchSettingsFromContract(
+      res.data ?? (throw UnknownResultFailure(requestId: key.value)),
+    );
+  }
 }
+
+DispatchSettingsView dispatchSettingsFromContract(rd.DispatchSettings s) =>
+    DispatchSettingsView(
+      mode: s.dispatchMode == rd.DispatchSettingsDispatchModeEnum.AI_RECOMMENDED
+          ? DispatchMode.aiRecommended
+          : DispatchMode.normal,
+      oneAtATime: s.oneAtATime ?? false,
+      version: s.version ?? 0,
+    );
 
 OperatingState operatingStateFromContract(rd.OperatingState s) =>
     OperatingState(
@@ -202,6 +265,14 @@ OfferList offerListFromContract(ListMyOffers200Response body) {
           distanceKm: o.summary?.distanceKm,
           weightG: o.summary?.weightG,
           containsAlcohol: o.summary?.containsAlcohol,
+          mfcId: o.summary?.mfcId,
+          pickupDistanceKm: o.summary?.pickupDistanceKm,
+          pickupEtaSeconds: o.summary?.pickupEtaSeconds,
+          bagCount: o.summary?.bagCount,
+          mode: deliveryModeFromWire(o.summary?.deliveryMode?.value),
+          bundleId: o.bundleId,
+          bundleSize: o.bundleSize,
+          stopSequence: o.stopSequence,
         ),
     ],
     pollAfter: switch (body.pollAfterSec) {
@@ -211,3 +282,10 @@ OfferList offerListFromContract(ListMyOffers200Response body) {
     serverTime: body.serverTime,
   );
 }
+
+DeliveryMode? deliveryModeFromWire(String? w) => switch (w) {
+  'SINGLE' => DeliveryMode.single,
+  'BUNDLED' => DeliveryMode.bundled,
+  'SCHEDULED' => DeliveryMode.scheduled,
+  _ => null,
+};

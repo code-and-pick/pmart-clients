@@ -17,6 +17,9 @@ dependencies:
   flutter_riverpod: ^3.4.3
   go_router: ^18.1.1
   intl: ^0.20.3
+  # 지도(고객앱과 같은 판) · QR 카메라(MFC 앱과 같은 판)
+  kakao_map_sdk: ^1.3.1
+  mobile_scanner: ^7.5.0
   pmart_core:
     path: ../../packages/pmart_core
   pmart_ui:
@@ -29,6 +32,14 @@ dependencies:
     path: ../../packages/pmart_api/gen/delivery-execution
   pmart_api_mfc_fulfillment:
     path: ../../packages/pmart_api/gen/mfc-fulfillment
+  pmart_api_delivery_tracking:
+    path: ../../packages/pmart_api/gen/delivery-tracking
+  geolocator: ^14.1.2
+  # 전달 증빙 사진(고객앱과 같은 판) · 고객·가게 전화(tel:)
+  image_picker: ^1.2.4
+  url_launcher: ^6.3.3
+  kakao_flutter_sdk_navi: 2.1.0
+  flutter_inappwebview: 6.1.5
 
 dev_dependencies:
   flutter_test:

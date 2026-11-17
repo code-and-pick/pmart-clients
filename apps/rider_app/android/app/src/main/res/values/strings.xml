@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 카카오내비 길안내 출발·도착 이름(고객 이름·주소를 넣지 않는다). -->
+    <string name="knnavi_start">현재 위치</string>
+    <string name="knnavi_goal">목적지</string>
+</resources>

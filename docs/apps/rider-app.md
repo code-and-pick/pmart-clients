@@ -17,7 +17,7 @@
 | 배차 취소 | `POST /deliveries/{id}/assignment-cancellations` (+짝 조회) | 픽업 전/후 다름 |
 | 도움요청 | `POST /deliveries/{id}/help-requests` (+짝 조회) | case-service 로 연결 |
 | 회수 | `POST /deliveries/{id}/returns/pickups`, `…/returns/store-deliveries` | |
-| 위치 전송 | `POST /riders/me/locations`(배치), `GET /riders/me/locations/latest` | 주기 `[결정 필요]` |
+| 위치 전송 | `POST /riders/me/locations`(배치), `GET /riders/me/locations/latest` | 5초마다 위치를 받아 10초마다 묶어 보냄(백엔드 안내 예시). 운행·배달 중에는 Android 상시 알림(위치 포그라운드 서비스)으로 앱을 내려도 보내고, 위치 권한 "항상 허용"을 안내한다 `[사용자 결정 2026-11-16]` |
 | 내역·수익 | `GET /riders/me/deliveries`, `GET /riders/me/earnings` | 요율 미등록 = "산정 불가" |
 | 탈퇴 | `POST /riders/me/withdrawals` (+짝 조회) | 진행 배송·미정산 없을 때만 |
 | 전달 사진 | 업로드 API 없음 | BR-07 |
@@ -67,6 +67,7 @@
 **도움요청·실패·회수** (D 339-589)
 - 유형: 배차취소, 점포 대기, 상품 이상, 전달 불가, 사고·고장, 상태 정정(배송번호·단계·사유·사진).
 - 픽업 전 배차취소 → 재배차. 픽업 후 → 지원센터 처리(임의 인계 불가).
+- 배차취소 확인 창에 반복 취소 영향을 안내한다: 최근 7일 배차취소 1건마다 AI 추천 제안 순서가 뒤로, 배달리스트 새 배송이 1분 늦게(제재 없음, 건수는 API 에 없어 표시하지 않음) `[사용자 결정 2026-11-16]`.
 - 고객 부재: 연락 2회 이상 후 도움요청 또는 승인된 장소 비대면 전달. 배송 중 주소 변경 불가. 전달 실패는 자동 환불 없음.
 - 회수: 고객 수거 → 점포 반납 → (점원 수령 확인은 MFC앱).
 

@@ -8,6 +8,7 @@ import 'package:pmart_core/testing.dart';
 import 'package:pmart_ui/pmart_ui.dart';
 
 import 'package:rider_app/app.dart';
+import 'package:rider_app/features/auth/data/session.dart';
 import 'package:rider_app/features/delivery/data/mock_delivery_repository.dart';
 import 'package:rider_app/features/delivery/presentation/delivery_controller.dart';
 import 'package:rider_app/features/offers/data/mock_offer_repository.dart';
@@ -17,7 +18,13 @@ import 'package:rider_app/shared/providers.dart';
 
 Widget _app(List<Override> overrides) => ProviderScope(
   retry: (_, _) => null,
-  overrides: [envProvider.overrideWithValue(PmartEnv.mock), ...overrides],
+  overrides: [
+    envProvider.overrideWithValue(PmartEnv.mock),
+    initialSessionProvider.overrideWithValue(
+      const RiderSession(riderId: 'rider-mock-1'),
+    ),
+    ...overrides,
+  ],
   child: const RiderApp(),
 );
 
@@ -38,7 +45,7 @@ void main() {
     await t.pumpAndSettle();
 
     expect(find.byKey(const ValueKey('offer-offer-mock-1')), findsOneWidget);
-    expect(find.text('응답 42초 남음'), findsOneWidget);
+    expect(find.text('42초 남음'), findsOneWidget);
     expect(find.textContaining('3,500원'), findsOneWidget);
     expect(find.text('지금은 새 제안을 받을 수 없는 상태예요'), findsNothing);
   });

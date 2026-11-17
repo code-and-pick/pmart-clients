@@ -7,21 +7,41 @@ import 'package:pmart_core/pmart_core.dart';
 
 import '../../../shared/providers.dart';
 import '../data/mock_offer_repository.dart';
+import '../data/delivery_list_repository.dart';
 import '../data/offer_repository.dart';
 import '../domain/offer_list.dart';
 
-final _mockRepo = Provider<MockOfferRepository>((_) => MockOfferRepository());
+/// 앱 목 모드의 서버 흉내. 운행 종료에서 시작하고, 첫 가입 기본값(AI 추천 배차)을 쓴다.
+final mockOfferRepositoryProvider = Provider<MockOfferRepository>(
+  (_) =>
+      MockOfferRepository(startOnDuty: false, mode: DispatchMode.aiRecommended),
+);
 
 final offerRepositoryProvider = Provider<OfferRepository>(
   (ref) => switch (ref.watch(envProvider)) {
-    PmartEnv.mock => ref.watch(_mockRepo),
+    PmartEnv.mock => ref.watch(mockOfferRepositoryProvider),
     PmartEnv.local => ApiOfferRepository(ref.watch(dioProvider)),
   },
 );
 
+/// 배달리스트(일반 배차모드).
+final deliveryListRepositoryProvider = Provider<DeliveryListRepository>(
+  (ref) => switch (ref.watch(envProvider)) {
+    PmartEnv.mock => MockDeliveryListRepository(
+      onAssigned: (id) =>
+          ref.read(mockOfferRepositoryProvider).assignedDeliveries.add(id),
+    ),
+    PmartEnv.local => ApiDeliveryListRepository(ref.watch(dioProvider)),
+  },
+);
+
+final waitingListProvider = FutureProvider.autoDispose<WaitingList>(
+  (ref) => ref.watch(deliveryListRepositoryProvider).list(),
+);
+
 final dutyRepositoryProvider = Provider<DutyRepository>(
   (ref) => switch (ref.watch(envProvider)) {
-    PmartEnv.mock => ref.watch(_mockRepo),
+    PmartEnv.mock => ref.watch(mockOfferRepositoryProvider),
     PmartEnv.local => ApiDutyRepository(ref.watch(dioProvider)),
   },
 );
@@ -126,6 +146,9 @@ final dutyProvider = AsyncNotifierProvider<DutyController, OperatingState>(
   DutyController.new,
 );
 
+/// [DutyController.change] 가 계정 제한(403)일 때 돌려주는 값.
+const restrictedCode = 'RIDER_RESTRICTED';
+
 class DutyController extends AsyncNotifier<OperatingState> {
   @override
   Future<OperatingState> build() => ref.watch(dutyRepositoryProvider).state();
@@ -153,6 +176,8 @@ class DutyController extends AsyncNotifier<OperatingState> {
       return null;
     } on ProblemFailure catch (f) {
       ref.invalidateSelf();
+      // 403 = 계정 제한(신규배차 제한이면 신규배차 ON, 일시 중지·계약 종료면 운행 시작이 막힌다).
+      if (f.problem.status == 403) return restrictedCode;
       return f.problem.code;
     } on PmartFailure {
       ref.invalidateSelf();
@@ -164,6 +189,41 @@ class DutyController extends AsyncNotifier<OperatingState> {
 final dispatchModeProvider = FutureProvider<DispatchMode>(
   (ref) => ref.watch(dutyRepositoryProvider).dispatchMode(),
 );
+
+final dispatchSettingsProvider =
+    AsyncNotifierProvider<DispatchSettingsController, DispatchSettingsView>(
+      DispatchSettingsController.new,
+    );
+
+/// 배차 설정(모드·하나씩 배달하기). 서버가 돌려준 값만 화면에 반영한다.
+class DispatchSettingsController extends AsyncNotifier<DispatchSettingsView> {
+  @override
+  Future<DispatchSettingsView> build() =>
+      ref.watch(dutyRepositoryProvider).settings();
+
+  /// 실패하면 false(서버 값으로 다시 맞춘다).
+  Future<bool> change({DispatchMode? mode, bool? oneAtATime}) async {
+    final current = state.value;
+    if (current == null) return false;
+    try {
+      final next = await ref
+          .read(dutyRepositoryProvider)
+          .setSettings(
+            mode: mode ?? current.mode,
+            oneAtATime: oneAtATime ?? current.oneAtATime,
+            expectedVersion: current.version,
+            key: IdempotencyKey.generate(),
+          );
+      if (!ref.mounted) return true;
+      state = AsyncData(next);
+      ref.invalidate(dispatchModeProvider);
+      return true;
+    } on PmartFailure {
+      ref.invalidateSelf();
+      return false;
+    }
+  }
+}
 
 // ---------------------------------------------------------------------------
 // 제안 응답
@@ -210,7 +270,19 @@ class OfferResponder {
     }
     if (outcome is! OfferUnknown) _pendingKeys.remove(offer.offerId);
     if (outcome case OfferAssigned(:final deliveryId?)) {
-      _ref.read(assignedDeliveriesProvider.notifier).add(deliveryId);
+      final assigned = _ref.read(assignedDeliveriesProvider.notifier)
+        ..add(deliveryId);
+      // 묶음은 하나에만 응답해도 묶음 전체가 배정된다.
+      final bundle = offer.bundleId;
+      if (bundle != null) {
+        for (final o
+            in _ref.read(offerPollerProvider).list?.offers ??
+                const <OfferItem>[]) {
+          if (o.bundleId == bundle && o.deliveryId != null) {
+            assigned.add(o.deliveryId!);
+          }
+        }
+      }
     }
     if (outcome is! OfferUnknown) {
       unawaited(_ref.read(offerPollerProvider.notifier).refreshNow());
