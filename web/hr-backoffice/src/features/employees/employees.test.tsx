@@ -182,7 +182,7 @@ describe('직원 등록', () => {
     expect(options[1]).toBe('운영 관리자 (OPERATOR_ADMIN)');
     expect(options).toContain('라이더 운영 (RIDER_OPS)');
     await userEvent.selectOptions(screen.getByLabelText('역할'), 'MFC_SUPERVISOR');
-    expect(screen.getByText('이 역할은 권한 센터를 함께 골라야 해요.')).toBeInTheDocument();
+    expect(screen.getByText('이 역할은 권한 센터를 1개 이상 골라야 해요.')).toBeInTheDocument();
   });
 
   it('역할 목록을 못 불러오면 빈 목록이 아니라 오류 — 권한을 추가할 수 없다', async () => {

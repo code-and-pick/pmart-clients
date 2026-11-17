@@ -63,7 +63,7 @@ function advance(m: MockEmployee): void {
           role: g.role,
           centers: [...g.centers],
           validFrom: `${g.validFrom ?? e.startDate}T00:00:00+09:00`,
-          validUntil: g.validTo ? `${g.validTo}T00:00:00+09:00` : null,
+          validUntil: g.validTo ? new Date(Date.parse(`${g.validTo}T00:00:00+09:00`) + 86_400_000).toISOString() : null, // 마지막 날 다음 날 0시(서울)부터 무효
           appliedAt: timestamp(),
         });
         db.accountGrants.set(e.operatorId, list);
@@ -105,6 +105,25 @@ function reasonCommand(
   });
 }
 
+/** hr 0.6.0 센터 지정 역할(목 — 실제는 employee-auth 역할 목록 centerScoped) */
+const CENTER_SCOPED = ['MFC_SUPERVISOR', 'MFC_WORKER'];
+const KNOWN_ROLES = ['OPERATOR_ADMIN', 'HR_ADMIN', 'MD', 'CS_AGENT', 'RIDER_OPS', 'MFC_SUPERVISOR', 'MFC_WORKER', 'PRODUCT_APPROVER', 'DISPLAY_APPROVER', 'PRICE_APPROVER', 'SCM', 'FINANCE', 'QUALITY'];
+
+/** hr 0.6.0(HR-2) 400 규칙 — 같은 역할 두 줄(목록), 모르는 역할, 센터 규칙 */
+function grantRuleProblems(grants: ReadonlyArray<{ role?: string; centers?: string[] }>, list: 'grants' | 'requestedGrants'): Array<{ field: string; reason: string }> {
+  const out: Array<{ field: string; reason: string }> = [];
+  const roles = grants.map((g) => g.role ?? '');
+  if (new Set(roles).size !== roles.length) out.push({ field: list, reason: 'DUPLICATE_ROLE' });
+  grants.forEach((g, i) => {
+    if (!KNOWN_ROLES.includes(g.role ?? '')) out.push({ field: `${list}[${i}].role`, reason: 'UNKNOWN_ROLE' });
+    else if (CENTER_SCOPED.includes(g.role ?? '') !== (g.centers ?? []).length > 0) out.push({ field: `${list}[${i}].centers`, reason: 'CENTER_RULE' });
+  });
+  return out;
+}
+
+/** 계정의 끝나지 않은 권한(목 db.accountGrants) */
+const activeAccountGrants = (operatorId: string) => (db.accountGrants.get(operatorId) ?? []).filter((g) => !g.revokedAt && (!g.validUntil || Date.parse(g.validUntil) > Date.now()));
+
 export const hrHandlers = [
   // hr 0.3.0 권한 추가·변경 요청(BO-01): 재직 중·발급 끝난 직원만(409 INVALID_STATE), 결정 안 된 요청이 있으면 409 GRANT_REQUEST_PENDING, 자기 권한 403.
   // 목 규칙: SUBMITTED 로 붙고, 다음 직원 조회에서 소속 센터 MFC_WORKER 만 자동 승인(등록 때와 같은 advance 규칙).
@@ -119,6 +138,19 @@ export const hrHandlers = [
       if (stale(request, found)) return problem(409, 'VERSION_CONFLICT');
       if (found.employee.status !== 'ACTIVE' || found.employee.provisioning.step !== 'DONE') return problem(409, 'INVALID_STATE');
       if ((found.employee.requestedGrants ?? []).some((g) => g.submission === 'PENDING' || g.submission === 'SUBMITTED')) return problem(409, 'GRANT_REQUEST_PENDING');
+      // hr 0.6.0(HR-2): 같은 역할 두 줄·모르는 역할·센터 규칙 400, 이미 가진 권한 409 GRANT_ALREADY_ACTIVE(details[i].reason 기계 형식)
+      const ruleProblems = grantRuleProblems(body.grants, 'grants');
+      if (ruleProblems.length > 0) return problem(400, 'VALIDATION_FAILED', ruleProblems);
+      const conflicts = body.grants.flatMap((g, i) =>
+        activeAccountGrants(found.employee.operatorId)
+          .filter((x) => x.role === g.role && (!CENTER_SCOPED.includes(g.role) || x.centers.some((c) => (g.centers ?? []).includes(c))))
+          .filter((x) => !g.validFrom || !x.validUntil || Date.parse(`${g.validFrom}T00:00:00+09:00`) < Date.parse(x.validUntil))
+          .map((x) => ({
+            field: `grants[${i}]`,
+            reason: `existingGrantId=${x.grantId};role=${x.role};centers=${x.centers.join(',')};validFrom=${x.validFrom};validUntil=${x.validUntil ?? 'none'};extension=${Boolean(g.validTo && x.validUntil)}`,
+          })),
+      );
+      if (conflicts.length > 0) return problem(409, 'GRANT_ALREADY_ACTIVE', conflicts, '이미 유효하거나 시작 전인 같은 권한이 있습니다(목). 그 권한이 끝난 다음 날부터로 요청하거나, 필요 없으면 먼저 회수하세요.');
       const added: GrantRequestState[] = body.grants.map((g) => ({
         role: g.role,
         centers: g.centers ?? [],
@@ -195,6 +227,7 @@ export const hrHandlers = [
     if (!body.startDate) details.push({ field: 'startDate', reason: 'REQUIRED' });
     if (body.employmentType !== 'REGULAR' && !body.endDate) details.push({ field: 'endDate', reason: 'REQUIRED' });
     if (body.employmentType === 'REGULAR' && body.endDate) details.push({ field: 'endDate', reason: 'NOT_ALLOWED' });
+    details.push(...grantRuleProblems(body.requestedGrants ?? [], 'requestedGrants'));
     if (details.length > 0) return problem(400, 'VALIDATION_FAILED', details);
     const reg = body as EmployeeRegistration;
     return idempotent(request, () => {

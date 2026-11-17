@@ -18,6 +18,7 @@ import { useApi } from '../../app/ApiContext';
 import { useSession } from '../../app/SessionContext';
 import { messages as m } from '../../shared/messages';
 import { CenterMultiSelect, useCenters } from '../employees/centers';
+import { activeGrants, lastDayOf, lineProblems, needsCenter, overlappingGrants, parseConflict, problemDetail } from '../employees/grantRules';
 import { roleLabel, useEmployeeRoles } from '../employees/roles';
 
 const ADMIN_ROLES = ['OPERATOR_ADMIN', 'HR_ADMIN'];
@@ -195,7 +196,8 @@ function AccountView({ operatorId, account, roles, self, canRevokeAdmin }: {
                 <tr key={g.grantId} data-testid="grant-row" data-role={g.role}>
                   <td>{roleName(roles, g.role)}</td>
                   <td>{g.centers.join(', ') || m.none}</td>
-                  <td>{`${formatSeoulDate(g.validFrom)} ~ ${g.validUntil ? formatSeoulDate(g.validUntil) : m.permissions.untilEmployment}`}</td>
+                  {/* validUntil = 이 시각부터 무효 → 마지막 날은 그 전날(HR-2 §3) */}
+                  <td>{`${formatSeoulDate(g.validFrom)} ~ ${lastDayOf(g.validUntil) ?? m.permissions.untilEmployment}`}</td>
                   <td data-testid="grant-approver">{g.approverId.startsWith('RULE:') ? `${m.permissions.autoApproved} · ${g.approvalId}` : `${g.approvalId} · ${g.approverName ?? g.approverId}`}</td>
                   <td>
                     {st === 'revoked'
@@ -229,7 +231,21 @@ interface Draft {
   readonly validTo: string;
 }
 
-function GrantRequestForm({ operatorId, version, roles }: { readonly operatorId: string; readonly version: number; readonly roles: readonly EmployeeRole[] }) {
+/** 기간 표시 — 시작 ~ 마지막 날(validUntil 전날, 없으면 "기한 없음") */
+const periodText = (g: EmployeeGrant) => `${formatSeoulDate(g.validFrom)} ~ ${lastDayOf(g.validUntil) ?? m.permissions.noEnd}`;
+
+function GrantRequestForm({
+  operatorId,
+  version,
+  roles,
+  grants,
+}: {
+  readonly operatorId: string;
+  readonly version: number;
+  readonly roles: readonly EmployeeRole[];
+  /** 이 직원의 승인된 권한(계정 발급 전이면 빈 목록) — 지금 가진·예정된 권한 표시와 겹침 경고(HR-2 §3) */
+  readonly grants: readonly EmployeeGrant[];
+}) {
   const api = useApi();
   const queryClient = useQueryClient();
   const centers = useCenters();
@@ -243,8 +259,18 @@ function GrantRequestForm({ operatorId, version, roles }: { readonly operatorId:
     await queryClient.invalidateQueries({ queryKey: ['hr', 'employee', operatorId] });
     return e;
   });
-  const chosen = roles.find((r) => r.code === draft.role);
-  const ready = draft.role !== '' && reason.trim() !== '';
+  const [now] = useState(() => Date.now());
+  const scoped = needsCenter(roles, draft.role);
+  const current = activeGrants(grants, now);
+  const overlap = overlappingGrants(grants, draft, scoped, now);
+  // HR-2: 센터 지정 역할은 센터 1개 이상, 그 밖 역할은 센터를 보내지 않는다
+  const ready = draft.role !== '' && reason.trim() !== '' && (!scoped || draft.centers.length > 0);
+  const rejected = submit.phase.kind === 'rejected' ? submit.phase.failure : null;
+  const problems = lineProblems(rejected, 'grants');
+  // 409 GRANT_ALREADY_ACTIVE — details[].reason 의 existingGrantId 로 그 줄을 강조, extension=true 면 연장이라 거절
+  const conflicts = problems.filter((p) => p.part === 'line').map((p) => parseConflict(p.reason));
+  const conflictIds = new Set(conflicts.flatMap((c) => (c.existingGrantId ? [c.existingGrantId] : [])));
+  const extension = conflicts.some((c) => c.extension);
   return (
     <form
       className="space-y-3 rounded-box bg-base-100 p-4 text-sm"
@@ -267,10 +293,34 @@ function GrantRequestForm({ operatorId, version, roles }: { readonly operatorId:
     >
       <h2 className="font-bold">{m.permissions.newRequest}</h2>
       <p className="text-xs opacity-70">{m.permissions.requestNote}</p>
+      <div className="space-y-1" data-testid="current-grants">
+        <h3 className="text-xs font-bold">{m.permissions.current}</h3>
+        {current.length === 0 ? (
+          <p className="text-xs opacity-70">{m.permissions.noCurrent}</p>
+        ) : (
+          <ul className="space-y-0.5 text-xs">
+            {current.map((g) => (
+              <li
+                key={g.grantId}
+                data-testid="current-grant"
+                data-conflict={conflictIds.has(g.grantId) || overlap.includes(g) ? 'true' : 'false'}
+                className={conflictIds.has(g.grantId) ? 'font-bold text-error' : overlap.includes(g) ? 'text-warning' : ''}
+              >
+                {`${roleName(roles, g.role)} · ${g.centers.join(', ') || m.none} · ${periodText(g)}`}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="flex flex-col gap-1">
           {m.register.grantRole}
-          <select className="select select-sm w-full" value={draft.role} onChange={(e) => setDraft({ ...draft, role: e.target.value })}>
+          <select
+            className="select select-sm w-full"
+            value={draft.role}
+            // 센터가 필요 없는 역할로 바꾸면 고른 센터를 비운다
+            onChange={(e) => setDraft({ ...draft, role: e.target.value, ...(needsCenter(roles, e.target.value) ? {} : { centers: [] }) })}
+          >
             <option value="">{m.register.chooseRole}</option>
             {roles.map((r) => (
               <option key={r.code} value={r.code}>
@@ -280,8 +330,16 @@ function GrantRequestForm({ operatorId, version, roles }: { readonly operatorId:
           </select>
         </label>
         <div className="flex flex-col gap-1">
-          <CenterMultiSelect centers={centers} label={m.register.grantCenters} value={draft.centers} onChange={(next) => setDraft({ ...draft, centers: next })} />
-          {chosen?.centerScoped && draft.centers.length === 0 && <span className="text-xs text-warning">{m.register.roleNeedsCenter}</span>}
+          {scoped ? (
+            <>
+              <CenterMultiSelect centers={centers} label={m.register.grantCenters} value={draft.centers} onChange={(next) => setDraft({ ...draft, centers: next })} />
+              {draft.centers.length === 0 && <span className="text-xs text-warning">{m.register.roleNeedsCenter}</span>}
+            </>
+          ) : (
+            <p className="mt-6 text-xs opacity-70" data-testid="grant-no-center">
+              {draft.role ? m.register.noCenterNeeded : m.register.pickRoleFirst}
+            </p>
+          )}
         </div>
         <label className="flex flex-col gap-1">
           {m.register.grantFrom}
@@ -292,6 +350,11 @@ function GrantRequestForm({ operatorId, version, roles }: { readonly operatorId:
           <input type="date" className="input input-sm" value={draft.validTo} onChange={(e) => setDraft({ ...draft, validTo: e.target.value })} />
         </label>
       </div>
+      {overlap.length > 0 && (
+        <p role="alert" className="text-xs text-warning" data-testid="grant-overlap">
+          {m.permissions.overlapWarn(lastDayOf(overlap[0]?.validUntil) ?? m.permissions.noEnd)}
+        </p>
+      )}
       <label className="flex flex-col gap-1">
         {m.permissions.requestReason}
         <input className="input input-sm w-full" maxLength={500} value={reason} onChange={(e) => setReason(e.target.value)} />
@@ -299,6 +362,20 @@ function GrantRequestForm({ operatorId, version, roles }: { readonly operatorId:
       <button type="submit" className="btn btn-primary btn-sm" disabled={!ready || submit.busy}>
         {m.permissions.submit}
       </button>
+      {problems
+        .filter((p) => p.part === 'role' || p.part === 'centers' || p.part === 'list')
+        .map((p, k) => (
+          <p key={k} role="alert" className="text-xs text-error" data-testid="grant-line-problem">
+            {m.register.lineProblem[p.part]}
+          </p>
+        ))}
+      {/* 서버 문장(400·409 detail)은 그대로, 연장 거절이면 연장은 아직 없다는 안내(HR-2 §4 — 연장 버튼은 만들지 않는다) */}
+      {problemDetail(rejected) && (
+        <p className="text-xs text-error" data-testid="grant-problem-detail">
+          {problemDetail(rejected)}
+        </p>
+      )}
+      {extension && <p className="text-xs opacity-80">{m.permissions.noExtension}</p>}
       <CommandFeedback command={submit}>{() => <p className="text-xs text-success">{m.permissions.submitted}</p>}</CommandFeedback>
     </form>
   );
@@ -366,7 +443,7 @@ export function PermissionDetailPage() {
                 (pending ? (
                   <p className="text-sm opacity-70">{m.permissions.pendingNote}</p>
                 ) : roles.isSuccess ? (
-                  <GrantRequestForm operatorId={operatorId} version={e.version} roles={roles.data} />
+                  <GrantRequestForm operatorId={operatorId} version={e.version} roles={roles.data} grants={account.data?.grants ?? []} />
                 ) : (
                   <QueryState state={toUiState(roles)} onRetry={() => void roles.refetch()}>
                     {() => null}

@@ -18,6 +18,7 @@ import { useApi } from '../../app/ApiContext';
 import { messages as m } from '../../shared/messages';
 import { AffiliationFields, toAffiliation, type AffiliationDraft } from './AffiliationFields';
 import { CenterMultiSelect, useCenters } from './centers';
+import { lineProblems, needsCenter, problemDetail } from './grantRules';
 import { roleLabel, useEmployeeRoles } from './roles';
 
 interface GrantDraft {
@@ -65,8 +66,12 @@ export function EmployeeRegisterPage() {
   const regular = employmentType === 'REGULAR';
   const mailIdBad = mailId !== '' && !MAIL_ID_PATTERN.test(mailId);
   const aff = toAffiliation(affiliation);
-  const ready =
-    name.trim() !== '' && MAIL_ID_PATTERN.test(mailId) && aff !== null && startDate !== '' && (regular || endDate !== '') && grants.every((g) => g.role !== '');
+  const roleList = roles.data ?? [];
+  // HR-2: 센터 지정 역할은 센터 1개 이상(그 밖 역할은 센터를 보내지 않는다), 한 요청에 역할은 한 번
+  const grantsOk = grants.every((g) => g.role !== '' && (!needsCenter(roleList, g.role) || g.centers.length > 0));
+  const ready = name.trim() !== '' && MAIL_ID_PATTERN.test(mailId) && aff !== null && startDate !== '' && (regular || endDate !== '') && grantsOk;
+  const rejected = cmd.phase.kind === 'rejected' ? cmd.phase.failure : null;
+  const problems = lineProblems(rejected, 'requestedGrants');
 
   const patchGrant = (id: number, patch: Partial<GrantDraft>) => setGrants((gs) => gs.map((g) => (g.id === id ? { ...g, ...patch } : g)));
 
@@ -158,19 +163,38 @@ export function EmployeeRegisterPage() {
               <legend className="px-1 text-sm">{`${m.register.grants} ${i + 1}`}</legend>
               <label className="flex flex-col gap-1 text-sm">
                 {m.register.grantRole}
-                <select className="select select-sm w-full" value={g.role} onChange={(e) => patchGrant(g.id, { role: e.target.value })}>
+                <select
+                  className="select select-sm w-full"
+                  value={g.role}
+                  // 센터가 필요 없는 역할로 바꾸면 고른 센터를 비운다(보내지 않는다)
+                  onChange={(e) => patchGrant(g.id, { role: e.target.value, ...(needsCenter(roles.data, e.target.value) ? {} : { centers: [] }) })}
+                >
                   <option value="">{m.register.chooseRole}</option>
-                  {roles.data.map((r) => (
-                    <option key={r.code} value={r.code}>
-                      {roleLabel(r)}
-                    </option>
-                  ))}
+                  {roles.data.map((r) => {
+                    const taken = grants.some((o) => o.id !== g.id && o.role === r.code);
+                    return (
+                      <option key={r.code} value={r.code} disabled={taken}>
+                        {taken ? m.register.roleTaken(roleLabel(r)) : roleLabel(r)}
+                      </option>
+                    );
+                  })}
                 </select>
-                {roles.data.find((r) => r.code === g.role)?.centerScoped && g.centers.length === 0 && (
-                  <span className="text-xs text-warning">{m.register.roleNeedsCenter}</span>
-                )}
+                {needsCenter(roles.data, g.role) && g.centers.length === 0 && <span className="text-xs text-warning">{m.register.roleNeedsCenter}</span>}
               </label>
-              <CenterMultiSelect centers={centers} label={m.register.grantCenters} value={g.centers} onChange={(next) => patchGrant(g.id, { centers: next })} />
+              {needsCenter(roles.data, g.role) ? (
+                <CenterMultiSelect centers={centers} label={m.register.grantCenters} value={g.centers} onChange={(next) => patchGrant(g.id, { centers: next })} />
+              ) : (
+                <p className="self-end text-xs opacity-70" data-testid="grant-no-center">
+                  {g.role ? m.register.noCenterNeeded : m.register.pickRoleFirst}
+                </p>
+              )}
+              {problems
+                .filter((p) => p.index === i)
+                .map((p, k) => (
+                  <p key={k} role="alert" className="text-xs text-error sm:col-span-2" data-testid="grant-line-problem">
+                    {m.register.lineProblem[p.part]}
+                  </p>
+                ))}
               <label className="flex flex-col gap-1 text-sm">
                 {m.register.grantFrom}
                 <input type="date" className="input input-sm" value={g.validFrom} onChange={(e) => patchGrant(g.id, { validFrom: e.target.value })} />
@@ -191,6 +215,11 @@ export function EmployeeRegisterPage() {
               </div>
             </fieldset>
           ))}
+          {problems.some((p) => p.index === -1) && (
+            <p role="alert" className="text-xs text-error" data-testid="grant-list-problem">
+              {m.register.lineProblem.list}
+            </p>
+          )}
           <button
             type="button"
             className="btn btn-sm"
@@ -208,6 +237,8 @@ export function EmployeeRegisterPage() {
         <button type="submit" className="btn btn-primary" disabled={!ready || cmd.busy}>
           {m.register.submit}
         </button>
+        {/* 서버가 준 문장(400·409 detail)은 그대로 보인다 */}
+        {problemDetail(rejected) && <p className="text-xs text-error">{problemDetail(rejected)}</p>}
         <CommandFeedback command={cmd} />
       </form>
     </section>

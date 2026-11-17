@@ -190,7 +190,7 @@ function seedAccountGrants(employees: Map<string, MockEmployee>): Array<[string,
           role: g.role,
           centers: [...g.centers],
           validFrom: `${g.validFrom ?? m.employee.startDate}T00:00:00+09:00`,
-          validUntil: g.validTo ? `${g.validTo}T00:00:00+09:00` : null,
+          validUntil: g.validTo ? new Date(Date.parse(`${g.validTo}T00:00:00+09:00`) + 86_400_000).toISOString() : null, // 마지막 날 다음 날 0시(서울)부터 무효
           appliedAt: m.employee.createdAt,
         })),
     ]);

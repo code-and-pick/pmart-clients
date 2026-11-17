@@ -8,9 +8,10 @@ export function problem(
   status: number,
   code: string,
   details: ReadonlyArray<{ field?: string; reason?: string }> = [],
+  detail?: string,
 ): HttpResponse<Record<string, unknown>> {
   return HttpResponse.json(
-    { type: 'about:blank', title: code, status, code, traceId: 'mock-trace', details },
+    { type: 'about:blank', title: code, status, code, traceId: 'mock-trace', details, ...(detail ? { detail } : {}) },
     { status, headers: { 'content-type': 'application/problem+json', 'x-request-id': `mock-${status}-${code}` } },
   );
 }
