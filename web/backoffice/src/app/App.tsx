@@ -46,6 +46,7 @@ import { messages as m } from '../shared/messages';
 import { useApi } from './ApiContext';
 import { covers, homePath, visibleGroups, type NavGroup } from './nav';
 import { RequireSession, SessionProvider, useSession } from './SessionContext';
+import { CaseNavBadges } from '../features/cases/CaseBadges';
 
 /** 업무 도우미: 목 모드는 draftMock(계약 모양), 실서버 모드(local·lan)는 게이트웨이의 ai-assistant-service(2026-11-09 LAN 배포). */
 const defaultAssistantPort = (api: Api): AssistantPort =>
@@ -65,6 +66,8 @@ function NavGroupMenu({ group, pathname }: { readonly group: NavGroup; readonly 
             <li key={item.to}>
               <NavLink to={item.to} end>
                 {item.label}
+                {/* 접수 건 알림 배지(1분마다 개수 — 지원센터·관리자) */}
+                {item.to === '/cases' && <CaseNavBadges />}
               </NavLink>
             </li>
           ))}

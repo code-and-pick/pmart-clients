@@ -1399,6 +1399,11 @@ export const messages = {
     photoUnavailable: '사진을 불러오지 못했어요(볼 수 없는 사진이거나 사진 저장소가 아직 준비되지 않았어요).',
   },
 
+  /** 접수 건 알림 배지(메뉴) — 1분마다 개수, 소리·브라우저 알림 없음 */
+  caseBadges: {
+    title: { unassigned: '아무도 안 맡은 접수 건', overdue: '기한 지난 접수 건' } as const,
+    failed: '접수 건 수를 읽지 못했어요',
+  },
   /** 접수 건 현황 건수(case 0.18.0, 관리자만) — 건수만, 비율·목표 없음, 개인별 없음 */
   caseMetrics: {
     title: '접수 건 현황',
