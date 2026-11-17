@@ -34,7 +34,7 @@ describe('배송 현황(우리 센터)', () => {
 });
 
 describe('배차 실패(우리 센터, 보기만)', () => {
-  it('처리 중: 우리 센터 DISPATCH_FAILED 만, 기한 넘김 표시, 처리는 지원센터 안내 — 집기·닫기 버튼 없음', async () => {
+  it('처리 중: 우리 센터 DISPATCH_FAILED 만, 기한 넘김 표시, 처리는 지원센터 안내 — 맡기·닫기 버튼 없음', async () => {
     const view = renderAt('/c/MFC-BSN-01/dispatch-failures');
     const rows = await screen.findAllByTestId('dispatch-failure-row');
     expect(rows).toHaveLength(1);
@@ -42,7 +42,7 @@ describe('배차 실패(우리 센터, 보기만)', () => {
     expect(rows[0]).toHaveTextContent('배송 DLV-C-1 · 주문 ORD-C-1');
     expect(within(rows[0]!).getByText(/기한 넘김/)).toHaveAttribute('data-overdue', 'true');
     expect(screen.getByRole('note')).toHaveTextContent('지원센터');
-    expect(screen.queryByRole('button', { name: /집기|닫기/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /맡기|닫기/ })).not.toBeInTheDocument();
     const q = caseCalls(view.sent)[0]!;
     expect([q.get('kind'), q.get('centerId'), q.get('state')]).toEqual(['DISPATCH_FAILED', 'MFC-BSN-01', null]);
   });
@@ -59,7 +59,7 @@ describe('배차 실패(우리 센터, 보기만)', () => {
     renderAt('/c/MFC-BSN-01/dispatch-failures/CASE-DF-1');
     const detail = await screen.findByTestId('dispatch-failure-detail');
     expect(detail).toHaveTextContent('배차 실패 2번째');
-    expect(detail).toHaveTextContent('아직 안 집음');
+    expect(detail).toHaveTextContent('아직 아무도 안 맡음');
     expect(screen.getByTestId('dispatch-failure-history')).toHaveTextContent('재발');
     expect(screen.queryByRole('button')).toBeNull();
   });

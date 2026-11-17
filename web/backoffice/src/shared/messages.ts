@@ -236,8 +236,8 @@ export const messages = {
   /** 사건함(case 0.4.0, 백엔드 요청 backoffice/2026-11-16-request-case-inbox-and-pending-work §1) — RIDER_OPS·OPERATOR_ADMIN, CS_AGENT 는 보기 + 오배송 열기. 0.5.0 사가·결제 이상은 관리자만 */
   cases: {
     title: '접수 건',
-    intro: '유형별 팀이 공용 목록에서 접수 건을 집어 가요. 긴급(P1)·기한 이른 것이 먼저예요. 처리 기한은 표시만 해요(알림 없음).',
-    tabs: { unassigned: '안 집은 것', mine: '내 것', overdue: '기한 넘김', closed: '처리 끝남' } as const,
+    intro: '유형별 팀이 공용 목록에서 접수 건을 맡아 가요. 긴급(P1)·기한 이른 것이 먼저예요. 처리 기한은 표시만 해요(알림 없음).',
+    tabs: { unassigned: '아무도 안 맡은 것', mine: '내 것', overdue: '기한 넘김', closed: '처리 끝남' } as const,
     empty: '접수 건이 없어요.',
     caseId: '접수 건',
     kind: '종류',
@@ -254,7 +254,7 @@ export const messages = {
       PAYMENT_UNKNOWN: '결제 결과 불명',
     } as Readonly<Record<string, string>>,
     /** 이력 동작 이름 — 모르는 코드는 그대로 */
-    actionName: { RECURRED: '재발', REOPENED: '다시 처리', TRANSFERRED: '넘김', OPENED: '접수', ASSIGNED: '집음', CLOSED: '처리 끝냄', HANDOVER_REQUESTED: '인계서에 들어감', HANDED_OVER: '인계됨', RECOVERY_CREATED: '회수 배송 생김', RECOVERY_PICKED_UP: '회수함', RECOVERY_RETURNED: '매장 반납', RESHIPMENT_CREATED: '재발송 배송 생김' } as Readonly<Record<string, string>>,
+    actionName: { RECURRED: '재발', REOPENED: '다시 처리', TRANSFERRED: '넘김', OPENED: '접수', ASSIGNED: '맡음', CLOSED: '처리 끝냄', HANDOVER_REQUESTED: '인계서에 들어감', HANDED_OVER: '인계됨', RECOVERY_CREATED: '회수 배송 생김', RECOVERY_PICKED_UP: '회수함', RECOVERY_RETURNED: '매장 반납', RESHIPMENT_CREATED: '재발송 배송 생김' } as Readonly<Record<string, string>>,
     /** case 0.5.0 사가·결제 이상(관리자만) — 사건은 알림·기록, 조치는 처리 대기 */
     orderNote: '대사 필요·결제 결과 불명은 본사 관리자만 봐요. 이 접수 건은 알림·기록이고, 조치는 처리 대기와 각 메뉴(환불·재고 정정)에서 해요.',
     orderAction: '처리 대기에서 조치하기',
@@ -306,18 +306,18 @@ export const messages = {
     transferToSupportNote: '지원센터 팀 목록으로 돌려보내요. 담당이 비워지고 처리 기한은 그대로예요.',
     transferred: '넘겼어요.',
     state: '상태',
-    stateName: { OPEN: '접수됨', ASSIGNED: '집음', ACTION_PENDING: '조치 대기', MONITORING: '지켜보는 중', RESOLUTION_REVIEW: '결과 검토', CLOSED: '처리 끝남', REOPENED: '다시 처리 중' } as Readonly<Record<string, string>>,
+    stateName: { OPEN: '접수됨', ASSIGNED: '맡음', ACTION_PENDING: '조치 대기', MONITORING: '지켜보는 중', RESOLUTION_REVIEW: '결과 검토', CLOSED: '처리 끝남', REOPENED: '다시 처리 중' } as Readonly<Record<string, string>>,
     openedAt: '접수 시각',
     detailTitle: (id: string) => `접수 건 ${id}`,
     history: '이력',
     closure: '처리 결과',
     back: '접수 건 목록',
-    viewOnly: '상담원은 접수 건을 보기만 해요(집기·처리 끝내기는 지원센터 담당).',
-    pick: '내가 집기',
+    viewOnly: '상담원은 접수 건을 보기만 해요(맡기·처리 끝내기는 지원센터 담당).',
+    pick: '내가 맡기',
     assignTo: '다른 사람에게 배정(관리자)',
     assignee_: '운영자 ID',
     assign: '배정',
-    picked: '집었어요.',
+    picked: '맡았어요.',
     close: '처리 끝내기',
     resolution: '결과',
     resolutionName: {

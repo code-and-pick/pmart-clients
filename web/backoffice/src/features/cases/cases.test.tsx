@@ -1,4 +1,4 @@
-// 지원센터 사건함(case 0.4.0) — 탭(안 집은·내 것·기한 넘김·닫힌), 집기·닫기, 역할별 버튼, 오배송 열기.
+// 지원센터 사건함(case 0.4.0) — 탭(아무도 안 맡은·내 것·기한 넘김·닫힌), 맡기·닫기, 역할별 버튼, 오배송 열기.
 import { cleanup, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
@@ -14,7 +14,7 @@ const rows = () => screen.findAllByTestId('case-row');
 const inboxCalls = (sent: readonly Request[]) => sent.filter((r) => new URL(r.url).pathname.endsWith('/views/case-inbox')).map((r) => new URL(r.url).searchParams);
 
 describe('지원센터 사건', () => {
-  it('안 집은 것: 긴급 먼저, 기한 넘김 빨간 표시, 관련 배송·주문·라이더 링크', async () => {
+  it('아무도 안 맡은 것: 긴급 먼저, 기한 넘김 빨간 표시, 관련 배송·주문·라이더 링크', async () => {
     const view = renderAt('/cases', as.riderOps);
     const list = await rows();
     // 미배정 배송 쪽 사건 3건(도움요청 P1·위치 끊김·배차 실패 0.5.0)
@@ -39,15 +39,15 @@ describe('지원센터 사건', () => {
     await waitFor(() => expect(screen.getByTestId('case-row')).toHaveTextContent('오배송'));
   });
 
-  it('집기: 내 운영자 ID 로 assignments → 담당이 나로 바뀌고 닫기 폼이 보인다', async () => {
+  it('맡기: 내 운영자 ID 로 assignments → 담당이 나로 바뀌고 닫기 폼이 보인다', async () => {
     const view = renderAt('/cases/CASE-MOCK-2', as.riderOps);
-    await userEvent.click(await screen.findByRole('button', { name: '내가 집기' }));
+    await userEvent.click(await screen.findByRole('button', { name: '내가 맡기' }));
     await waitFor(() => expect(screen.getByTestId('case-assignee')).toHaveTextContent('op-rider-ops-1'));
     const sent = view.mutations('/cases/CASE-MOCK-2/assignments')[0]!;
     expect(sent.headers.get('Idempotency-Key')).toBeTruthy();
     expect(sent.headers.get('X-Source-System')).toBe('backoffice-web');
     expect(await sent.json()).toEqual({ assigneeId: 'op-rider-ops-1' });
-    expect(screen.queryByRole('button', { name: '내가 집기' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '내가 맡기' })).not.toBeInTheDocument();
   });
 
   it('닫기: 결과 + 요약(개인정보 안내) → closures → 닫힘·종결 기록', async () => {
@@ -62,10 +62,10 @@ describe('지원센터 사건', () => {
     expect(await view.mutations('/closures')[0]!.json()).toEqual({ resolution: 'NO_ACTION_REQUIRED', summary: '위치 다시 들어옴' });
   });
 
-  it('상담원은 보기만 — 집기·닫기 없음', async () => {
+  it('상담원은 보기만 — 맡기·닫기 없음', async () => {
     renderAt('/cases/CASE-MOCK-2', as.cs);
-    expect(await screen.findByText('상담원은 접수 건을 보기만 해요(집기·처리 끝내기는 지원센터 담당).')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: '내가 집기' })).not.toBeInTheDocument();
+    expect(await screen.findByText('상담원은 접수 건을 보기만 해요(맡기·처리 끝내기는 지원센터 담당).')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '내가 맡기' })).not.toBeInTheDocument();
     expect(screen.queryByRole('form', { name: '처리 끝내기' })).not.toBeInTheDocument();
   });
 
@@ -324,8 +324,8 @@ describe('사건 다시 열기(case 0.6.0)·넘기기(0.7.0)', () => {
     await waitFor(() => expect(screen.getByTestId('case-group')).toHaveTextContent('관리자 팀'));
     expect(screen.getByTestId('case-group')).toHaveTextContent('관리자 처리 중');
     expect(screen.getByRole('note')).toHaveTextContent('아직 처리가 끝나지 않았어요');
-    // 지원센터에는 집기·닫기·넘기기가 없다
-    expect(screen.queryByRole('button', { name: '집기' })).not.toBeInTheDocument();
+    // 지원센터에는 맡기·닫기·넘기기가 없다
+    expect(screen.queryByRole('button', { name: '맡기' })).not.toBeInTheDocument();
     expect(screen.queryByRole('form', { name: '처리 끝내기' })).not.toBeInTheDocument();
     expect(screen.queryByTestId('case-transfer')).not.toBeInTheDocument();
     expect(await view.mutations('/cases/CASE-MOCK-1/transfers')[0]!.json()).toEqual({ toGroup: 'ORDER_OPS', reason: '환불이 얽힌 오배송' });
