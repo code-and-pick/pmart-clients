@@ -12,6 +12,7 @@ import type {
   ProductDraftInput,
   SaleState,
 } from '../api/models';
+import { gs1CheckDigitProblem } from '../features/products/barcode';
 import { db, nextId, timestamp } from './db';
 import { expectedVersion, hash, idempotent, keyOf, operator, problem, unauthorized } from './support';
 
@@ -53,13 +54,24 @@ function validate(input: ProductDraftInput): Pick<ProductDraft, 'validationState
   }
   for (const id of ids) if (!known.has(id)) problems.push({ code: 'CATEGORY_NOT_FOUND', field: 'product.categoryIds', detail: id });
   if (ids.length === 0 && !(input.product.categoryPaths?.length)) problems.push({ code: 'CATEGORY_NOT_MAPPED', field: 'product.primaryCategoryId' });
+  // 수정 초안(product 0.3.0)은 고칠 상품 자기 SKU 의 바코드를 충돌로 보지 않는다.
+  const own = new Set((db.products.get(input.targetProductId ?? '')?.skus ?? []).map((x) => x.sku));
   const used = allBarcodes();
-  for (const b of s?.barcodes ?? []) if (used.has(b)) problems.push({ code: 'BARCODE_CONFLICT', field: 'skus[0].barcodes', detail: b });
+  const seen = new Set<string>();
+  for (const b of s?.barcodes ?? []) {
+    if (!b.trim()) problems.push({ code: 'BARCODE_EMPTY', field: 'skus[0].barcodes' });
+    else if (seen.has(b)) problems.push({ code: 'BARCODE_DUPLICATED_IN_DRAFT', field: 'skus[0].barcodes', detail: b });
+    else if (gs1CheckDigitProblem(b) !== null) problems.push({ code: 'BARCODE_CHECK_DIGIT_INVALID', field: 'skus[0].barcodes', detail: gs1CheckDigitProblem(b) ?? '' });
+    else if (used.has(b) && !own.has(used.get(b) ?? '')) problems.push({ code: 'BARCODE_CONFLICT', field: 'skus[0].barcodes', detail: used.get(b) ?? '' });
+    seen.add(b);
+  }
   return { validationState: problems.length ? 'INVALID' : 'VALID', problems, resolvedCategoryIds: ids.filter((id) => known.has(id)) };
 }
 
 /** 같은 원천 키로 이미 등록된 상품(반영된 초안). 있으면 재업로드 = 그 상품의 새 버전(BR-39 회신 2026-11-03). */
 function registrationOf(input: ProductDraftInput): Pick<ProductDraft, 'registration' | 'existingProductId' | 'existingSkus'> {
+  const target = input.targetProductId ? db.products.get(input.targetProductId) : undefined;
+  if (target) return { registration: 'UPDATE', existingProductId: target.productId ?? null, existingSkus: (target.skus ?? []).map((x) => x.sku) };
   const applied = input.sourceKey
     ? [...db.productDrafts.values()].find((p) => p.sourceSystem === (input.sourceSystem ?? null) && p.sourceKey === input.sourceKey && p.resultProductId)
     : undefined;
@@ -279,6 +291,46 @@ export const catalogHandlers = [
       };
     }),
   ),
+
+  // 상품 정보 수정 시작(product 0.3.0~0.3.2): MD 만, 현재 승인 값으로 채운 수정 초안. 열린(DRAFT·SUBMITTED) 수정 초안이 있으면 409.
+  http.post(`${API_BASE}/products/:id/edit-drafts`, ({ request, params }) => {
+    const who = operator(request);
+    if (!who) return unauthorized();
+    return idempotent(request, () => {
+      if (!who.roles.includes('MD')) return problem(403, 'FORBIDDEN');
+      const p = db.products.get(String(params['id']));
+      if (!p?.productId) return problem(404, 'PRODUCT_NOT_FOUND');
+      const open = [...db.productDrafts.values()].find((d) => d.input?.targetProductId === p.productId && (d.state === 'DRAFT' || d.state === 'SUBMITTED'));
+      if (open) return problem(409, 'EDIT_DRAFT_EXISTS', [{ field: 'existingDraftId', reason: open.draftId }]);
+      const s = p.skus?.[0];
+      const input: ProductDraftInput = {
+        targetProductId: p.productId,
+        product: {
+          internalName: p.internalName ?? '',
+          ...(p.baseProductId ? { baseProductId: p.baseProductId } : {}),
+          ...(p.primaryCategoryId ? { primaryCategoryId: p.primaryCategoryId } : {}),
+          categoryIds: (p.categoryIds ?? []).filter((id) => id !== p.primaryCategoryId),
+        },
+        skus: s
+          ? [
+              {
+                unitType: s.unitType,
+                unitsPerSku: s.unitsPerSku,
+                ...(s.weightG === undefined ? {} : { weightG: s.weightG }),
+                ...(s.volumeMl == null ? {} : { volumeMl: s.volumeMl }),
+                ...(s.logistics?.storageType ? { storageType: s.logistics.storageType } : {}),
+                alcohol: s.alcohol ?? false,
+                ...(s.shelfLifeGuarantee ? { shelfLifeGuarantee: s.shelfLifeGuarantee } : {}),
+                ...(s.dimensions ? { dimensions: s.dimensions } : {}),
+                ...(s.dimensionsSource ? { dimensionsSource: s.dimensionsSource } : {}),
+                barcodes: s.barcodes ?? [],
+              },
+            ]
+          : [],
+      };
+      return { status: 201, body: newProductDraft(input) };
+    });
+  }),
 
   // ---------- 상품 일괄(seed-v1) — 목은 zip 을 읽지 않고 고정 3건을 만든다 ----------
   http.post(`${API_BASE}/product-import-batches`, ({ request }) => {

@@ -5,9 +5,44 @@ import { settlePriceImportBatch } from './priceImportHandlers';
 
 const draftIdsOf = (a: ApprovalDetail) => (a.lines ?? []).map((l) => l.lineKey);
 
+function updateProduct(d: ProductDraft, productId: string): ProductDraft {
+  const input = d.input;
+  const p = db.products.get(productId);
+  const s = input?.skus[0];
+  const cur = p?.skus?.[0];
+  if (!input || !p || !s || !cur) return { ...d, state: 'REJECTED', problems: [{ code: 'PRODUCT_NOT_FOUND' }] };
+  if (s.unitType !== cur.unitType || s.unitsPerSku !== cur.unitsPerSku) return { ...d, state: 'REJECTED', problems: [{ code: 'SKU_IDENTITY_CHANGED' }] };
+  const version = (p.version ?? 0) + 1;
+  db.products.set(productId, {
+    ...p,
+    internalName: input.product.internalName,
+    primaryCategoryId: d.resolvedCategoryIds?.[0] ?? input.product.primaryCategoryId ?? p.primaryCategoryId ?? '',
+    categoryIds: d.resolvedCategoryIds ?? p.categoryIds ?? [],
+    version,
+    approvalId: d.approvalId ?? p.approvalId ?? '',
+    publishedAt: timestamp(),
+    skus: [
+      {
+        ...cur,
+        ...(s.weightG === undefined ? {} : { weightG: s.weightG }),
+        volumeMl: s.volumeMl ?? null,
+        alcohol: s.alcohol ?? false,
+        barcodes: s.barcodes ?? [],
+        logistics: { ...(s.storageType ? { storageType: s.storageType } : {}) },
+        ...(s.shelfLifeGuarantee ? { shelfLifeGuarantee: s.shelfLifeGuarantee } : {}),
+        ...(s.dimensions ? { dimensions: s.dimensions } : {}),
+        version: cur.version + 1,
+        publishedAt: timestamp(),
+      },
+    ],
+  });
+  return { ...d, state: 'APPLIED', resultProductId: productId, resultSkus: [cur.sku] };
+}
+
 function issueProduct(d: ProductDraft): ProductDraft {
   const input = d.input;
   if (!input) return d;
+  if (input.targetProductId) return updateProduct(d, input.targetProductId);
   const n = ++db.seq;
   const productId = `P-${String(n).padStart(8, '0')}`;
   const s = input.skus[0];

@@ -10,7 +10,11 @@ import { useApi } from '../../app/ApiContext';
 import { FailureAlert } from '../../shared/Feedback';
 import { messages as m } from '../../shared/messages';
 import { MultiSelectDropdown } from '@pmart/web-ui';
+import { gs1CheckDigitProblem } from './barcode';
 import { parseProductJson, ProductJsonError, type SkuJson } from './productJson';
+
+type DraftSku = ProductDraftInput['skus'][number];
+type DimensionsSource = NonNullable<DraftSku['dimensionsSource']>;
 
 interface SkuRow {
   unitType: SaleUnitType;
@@ -24,6 +28,13 @@ interface SkuRow {
   ti: string;
   hi: string;
   boxesPerPallet: string;
+  // 소비기한 보장·실물 치수 — 수정 초안(product 0.3.0)은 현재 값이 들어 있고, 빠뜨리면 승인 때 지워진다.
+  minRemainingDays: string;
+  maxDaysSinceManufacture: string;
+  widthMm: string;
+  depthMm: string;
+  heightMm: string;
+  dimensionsSource: DimensionsSource | '';
 }
 
 interface FormValues {
@@ -57,6 +68,12 @@ const emptySku = (): SkuRow => ({
   ti: '',
   hi: '',
   boxesPerPallet: '',
+  minRemainingDays: '',
+  maxDaysSinceManufacture: '',
+  widthMm: '',
+  depthMm: '',
+  heightMm: '',
+  dimensionsSource: '',
 });
 
 const emptyValues = (): FormValues => ({
@@ -68,9 +85,10 @@ const emptyValues = (): FormValues => ({
   skus: [emptySku()],
 });
 
-function skuRowOf(s: ProductDraftInput['skus'][number] | SkuJson): SkuRow {
+function skuRowOf(s: DraftSku | SkuJson): SkuRow {
   const l = 'logistics' in s ? s.logistics : undefined;
   const j = s as Partial<SkuJson>;
+  const d = s as Partial<DraftSku>;
   return {
     unitType: s.unitType,
     unitsPerSku: String(s.unitsPerSku),
@@ -83,6 +101,12 @@ function skuRowOf(s: ProductDraftInput['skus'][number] | SkuJson): SkuRow {
     ti: numText(l?.ti ?? j.ti),
     hi: numText(l?.hi ?? j.hi),
     boxesPerPallet: numText(l?.boxesPerPallet ?? j.boxesPerPallet),
+    minRemainingDays: numText(d.shelfLifeGuarantee?.minRemainingDays),
+    maxDaysSinceManufacture: numText(d.shelfLifeGuarantee?.maxDaysSinceManufacture),
+    widthMm: numText(d.dimensions?.widthMm),
+    depthMm: numText(d.dimensions?.depthMm),
+    heightMm: numText(d.dimensions?.heightMm),
+    dimensionsSource: d.dimensionsSource ?? '',
   };
 }
 
@@ -109,6 +133,7 @@ function toInput(v: FormValues, base: ProductDraftInput | undefined): ProductDra
   delete baseProduct.categoryIds;
   delete baseProduct.categoryPaths;
   return {
+    ...(base?.targetProductId ? { targetProductId: base.targetProductId } : {}),
     ...(base?.sourceSystem ? { sourceSystem: base.sourceSystem } : {}),
     ...(base?.sourceKey ? { sourceKey: base.sourceKey } : {}),
     ...(base?.derivedFields ? { derivedFields: base.derivedFields } : {}),
@@ -129,6 +154,14 @@ function toInput(v: FormValues, base: ProductDraftInput | undefined): ProductDra
         const n = int(s[k]);
         if (n !== undefined) logistics[k] = n;
       }
+      const minRemainingDays = int(s.minRemainingDays);
+      const maxDaysSinceManufacture = int(s.maxDaysSinceManufacture);
+      const shelfLifeGuarantee = {
+        ...(minRemainingDays === undefined ? {} : { minRemainingDays }),
+        ...(maxDaysSinceManufacture === undefined ? {} : { maxDaysSinceManufacture }),
+      };
+      const [widthMm, depthMm, heightMm] = [int(s.widthMm), int(s.depthMm), int(s.heightMm)];
+      const dimensions = widthMm !== undefined && depthMm !== undefined && heightMm !== undefined ? { widthMm, depthMm, heightMm } : undefined;
       return {
         unitType: s.unitType,
         unitsPerSku: int(s.unitsPerSku) ?? 1,
@@ -138,6 +171,8 @@ function toInput(v: FormValues, base: ProductDraftInput | undefined): ProductDra
         alcohol: s.alcohol,
         ...(barcodes.length > 0 ? { barcodes } : {}),
         ...(Object.keys(logistics).length > 0 ? { logistics } : {}),
+        ...(Object.keys(shelfLifeGuarantee).length > 0 ? { shelfLifeGuarantee } : {}),
+        ...(dimensions ? { dimensions, ...(s.dimensionsSource ? { dimensionsSource: s.dimensionsSource } : {}) } : {}),
       };
     }),
     ...(filterOptions.length > 0 ? { filterOptions } : {}),
@@ -148,11 +183,14 @@ const byPath = (a: CategoryNode, b: CategoryNode) => (a.path ?? a.name).localeCo
 
 export function ProductDraftForm({
   initial,
+  edit = false,
   submitLabel,
   busy,
   onSubmit,
 }: {
   readonly initial?: ProductDraftInput;
+  /** 기존 상품 수정 초안(product 0.3.0): SKU 1개 고정, 판매 단위·입수 고정, JSON 채우기 없음 */
+  readonly edit?: boolean;
   readonly submitLabel: string;
   readonly busy: boolean;
   readonly onSubmit: (input: ProductDraftInput) => void;
@@ -216,10 +254,11 @@ export function ProductDraftForm({
     setNote(null);
   };
 
-  const numField = (i: number, k: 'unitsPerSku' | 'weightG' | 'volumeMl' | 'unitsPerBox' | 'ti' | 'hi' | 'boxesPerPallet', text: string) => (
+  type NumKey = 'unitsPerSku' | 'weightG' | 'volumeMl' | 'unitsPerBox' | 'ti' | 'hi' | 'boxesPerPallet' | 'minRemainingDays' | 'maxDaysSinceManufacture' | 'widthMm' | 'depthMm' | 'heightMm';
+  const numField = (i: number, k: NumKey, text: string, disabled = false) => (
     <label className="flex flex-col gap-1 text-sm">
       {text}
-      <input className="input input-sm w-full" inputMode="numeric" value={v.skus[i]![k]} onChange={(e) => setSku(i, { [k]: e.target.value })} />
+      <input className="input input-sm w-full" inputMode="numeric" disabled={disabled} value={v.skus[i]![k]} onChange={(e) => setSku(i, { [k]: e.target.value })} />
     </label>
   );
 
@@ -236,6 +275,7 @@ export function ProductDraftForm({
           {m.products.internalName}
           <input className="input input-sm w-full" value={v.internalName} onChange={(e) => set('internalName', e.target.value)} />
         </label>
+        {!edit && (
         <div className="flex items-center gap-2">
           <label className="flex items-center gap-2 text-sm">
             {m.products.jsonFill}
@@ -254,8 +294,9 @@ export function ProductDraftForm({
             ✕ {m.products.clearAll}
           </button>
         </div>
+        )}
       </div>
-      <p className="text-xs opacity-70">{m.products.jsonHint}</p>
+      {!edit && <p className="text-xs opacity-70">{m.products.jsonHint}</p>}
       {note && (
         <p role="status" className={`text-sm ${note.ok ? 'text-success' : 'text-error'}`}>
           {note.text}
@@ -360,15 +401,17 @@ export function ProductDraftForm({
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-bold">{m.products.skus}</h2>
-          <button type="button" className="btn btn-outline btn-xs" onClick={() => set('skus', [...v.skus, emptySku()])}>
-            {m.products.addSku}
-          </button>
+          {!edit && (
+            <button type="button" className="btn btn-outline btn-xs" onClick={() => set('skus', [...v.skus, emptySku()])}>
+              {m.products.addSku}
+            </button>
+          )}
         </div>
         {v.skus.map((s, i) => (
           <section key={i} className="space-y-2 rounded-box border border-base-300 p-3" aria-label={m.products.skuTitle(i + 1)}>
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-medium">{m.products.skuTitle(i + 1)}</h3>
-              {v.skus.length > 1 && (
+              {v.skus.length > 1 && !edit && (
                 <button
                   type="button"
                   className="btn btn-ghost btn-xs"
@@ -382,12 +425,12 @@ export function ProductDraftForm({
             <div className="grid gap-3 md:grid-cols-3">
               <label className="flex flex-col gap-1 text-sm">
                 {m.products.unitType}
-                <select className="select select-sm" value={s.unitType} onChange={(e) => setSku(i, { unitType: e.target.value === 'B' ? 'B' : 'E' })}>
+                <select className="select select-sm" disabled={edit} value={s.unitType} onChange={(e) => setSku(i, { unitType: e.target.value === 'B' ? 'B' : 'E' })}>
                   <option value="E">{m.products.unitName.E}</option>
                   <option value="B">{m.products.unitName.B}</option>
                 </select>
               </label>
-              {numField(i, 'unitsPerSku', m.products.unitsPerSku)}
+              {numField(i, 'unitsPerSku', m.products.unitsPerSku, edit)}
               {numField(i, 'weightG', m.products.weightG)}
               {numField(i, 'volumeMl', m.products.volumeMl)}
               <label className="flex flex-col gap-1 text-sm">
@@ -405,16 +448,64 @@ export function ProductDraftForm({
                   ))}
                 </select>
               </label>
-              <label className="flex flex-col gap-1 text-sm">
-                {m.products.barcodes}
-                <input className="input input-sm w-full" value={s.barcodes} onChange={(e) => setSku(i, { barcodes: e.target.value })} />
-              </label>
+              <div className="flex flex-col gap-1">
+                <label className="flex flex-col gap-1 text-sm">
+                  {m.products.barcodes}
+                  <input
+                    className="input input-sm w-full"
+                    value={s.barcodes}
+                    onChange={(e) => setSku(i, { barcodes: e.target.value })}
+                    // 스캐너는 끝에 Enter 를 보낸다 — 폼을 저장하지 않고 다음 바코드 자리를 만든다.
+                    onKeyDown={(e) => {
+                      if (e.key !== 'Enter') return;
+                      e.preventDefault();
+                      if (s.barcodes.trim() && !s.barcodes.trim().endsWith(',')) setSku(i, { barcodes: `${s.barcodes.trim()}, ` });
+                    }}
+                  />
+                </label>
+                <span className="text-xs opacity-70">{m.products.barcodeEnterHint}</span>
+                {list(s.barcodes).flatMap((b) => {
+                  const digit = gs1CheckDigitProblem(b);
+                  return digit === null
+                    ? []
+                    : [
+                        <span key={b} className="text-xs text-warning" data-testid="barcode-check-digit">
+                          {m.products.barcodeCheckDigit(b, digit)}
+                        </span>,
+                      ];
+                })}
+              </div>
               <label className="flex items-center gap-2 text-sm">
                 <input type="checkbox" className="checkbox checkbox-sm" checked={s.alcohol} onChange={(e) => setSku(i, { alcohol: e.target.checked })} />
                 {m.products.alcohol}
               </label>
             </div>
-            <details className="text-sm">
+            {edit && <p className="text-xs opacity-70">{m.products.editFixedSku}</p>}
+            <details className="text-sm" open={edit || undefined}>
+              <summary className="cursor-pointer opacity-80">{m.products.extra}</summary>
+              <div className="mt-2 grid gap-3 md:grid-cols-3">
+                {numField(i, 'minRemainingDays', m.products.minRemainingDays)}
+                {numField(i, 'maxDaysSinceManufacture', m.products.maxDaysSinceManufacture)}
+                <span />
+                {numField(i, 'widthMm', m.products.widthMm)}
+                {numField(i, 'depthMm', m.products.depthMm)}
+                {numField(i, 'heightMm', m.products.heightMm)}
+                <label className="flex flex-col gap-1 text-sm">
+                  {m.products.dimensionsSource}
+                  <select
+                    className="select select-sm"
+                    value={s.dimensionsSource}
+                    onChange={(e) => setSku(i, { dimensionsSource: e.target.value === 'MEASURED' || e.target.value === 'ESTIMATED' ? e.target.value : '' })}
+                  >
+                    <option value="">{m.none}</option>
+                    <option value="MEASURED">{m.products.dimensionsSourceName.MEASURED}</option>
+                    <option value="ESTIMATED">{m.products.dimensionsSourceName.ESTIMATED}</option>
+                  </select>
+                </label>
+                <span className="text-xs opacity-70 md:col-span-2">{m.products.dimensionsHint}</span>
+              </div>
+            </details>
+            <details className="text-sm" open={edit || undefined}>
               <summary className="cursor-pointer opacity-80">{m.products.logistics}</summary>
               <div className="mt-2 grid gap-3 md:grid-cols-4">
                 {numField(i, 'unitsPerBox', m.products.unitsPerBox)}

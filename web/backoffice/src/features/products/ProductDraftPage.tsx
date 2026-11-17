@@ -25,7 +25,7 @@ export function DraftProblems({ draft }: { readonly draft: ProductDraft }) {
       {(draft.problems?.length ?? 0) > 0 && (
         <ul className="list-disc pl-5" aria-label={m.products.problems}>
           {(draft.problems ?? []).map((p, i) => (
-            <li key={`${p.code}-${i}`}>{`${reasonText(p.code)}${p.field ? ` (${p.field})` : ''}`}</li>
+            <li key={`${p.code}-${i}`}>{`${reasonText(p.code)}${p.field ? ` (${p.field})` : ''}${p.detail ? ` — ${p.detail}` : ''}`}</li>
           ))}
         </ul>
       )}
@@ -109,11 +109,24 @@ export function ProductDraftPage() {
       <QueryState state={toUiState(query)} onRetry={() => void query.refetch()}>
         {(d) => (
           <>
+            {/* product 0.3.0 수정 초안(edit-drafts): input.targetProductId = 고칠 상품 */}
+            {d.input?.targetProductId && (
+              <div className="space-y-1 rounded-box bg-base-100 p-3 text-sm" data-testid="product-edit-note">
+                <p className="font-bold">
+                  {`${m.products.editOf} — `}
+                  <Link className="link" to={`/products/${encodeURIComponent(d.input.targetProductId)}`}>
+                    {d.input.targetProductId}
+                  </Link>
+                </p>
+                <p className="opacity-80">{m.products.editNote}</p>
+              </div>
+            )}
             <DraftProblems draft={d} />
             {d.state === 'DRAFT' && d.input && (
               <ProductDraftForm
                 key={d.version}
                 initial={d.input}
+                edit={Boolean(d.input.targetProductId)}
                 submitLabel={m.products.update}
                 busy={update.busy}
                 onSubmit={(body) => void update.run({ body, version: d.version })}

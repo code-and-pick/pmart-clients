@@ -1,11 +1,11 @@
 // 상품 상세·SKU·판매 상태 변경. 일시품절·판매 재개는 바로, 판매중지는 PRODUCT 승인 뒤 approvalId 와 함께(2026-10-30 결정).
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { Link, useParams } from 'react-router';
+import { Link, useNavigate, useParams } from 'react-router';
 
 import { commandParams } from '../../api/command';
 import { SALE_STATES, type ChangeRequestBody, type ProductDetail, type SaleState } from '../../api/models';
-import { request } from '@pmart/web-core';
+import { ProblemFailure, request } from '@pmart/web-core';
 import { settleCommand } from '@pmart/web-core';
 import { useApi } from '../../app/ApiContext';
 import { useSession } from '../../app/SessionContext';
@@ -131,10 +131,50 @@ function SaleStateChange({ product }: { readonly product: ProductDetail }) {
   );
 }
 
+/**
+ * 상품 정보 수정 시작(product 0.3.0 `POST /products/{productId}/edit-drafts`, 백엔드 요청 2026-11-17 request-product-edit).
+ * 서버가 현재 승인 값으로 채운 수정 초안을 만들면 그 초안 화면으로 간다. 이미 열린 수정 초안이 있으면(409 EDIT_DRAFT_EXISTS) 그 초안으로 안내.
+ */
+function EditStart({ productId }: { readonly productId: string }) {
+  const api = useApi();
+  const navigate = useNavigate();
+  const start = useCommand((_: null, key) =>
+    request('POST', api.product.POST('/products/{productId}/edit-drafts', { ...commandParams(key, { path: { productId } }) })).then((d) => {
+      void navigate(`/products/drafts/${encodeURIComponent(d.draftId)}`);
+      return d;
+    }),
+  );
+  const failure = start.phase.kind === 'rejected' ? start.phase.failure : null;
+  const existing =
+    failure instanceof ProblemFailure && failure.problem.code === 'EDIT_DRAFT_EXISTS'
+      ? failure.problem.details.find((x) => x.field === 'existingDraftId')?.reason
+      : undefined;
+  return (
+    <div className="space-y-2 rounded-box bg-base-100 p-4">
+      <div className="flex flex-wrap items-center gap-3">
+        <button type="button" className="btn btn-sm" disabled={start.busy} onClick={() => void start.run(null)}>
+          {m.products.editStart}
+        </button>
+        <span className="text-xs opacity-70">{m.products.editStartHint}</span>
+      </div>
+      {existing ? (
+        <div role="alert" className="alert alert-warning text-sm" data-testid="product-edit-exists">
+          <span>{m.products.editDraftExists}</span>
+          <Link className="link" to={`/products/drafts/${encodeURIComponent(existing)}`}>
+            {m.products.editDraftOpen(existing)}
+          </Link>
+        </div>
+      ) : (
+        <CommandFeedback command={start} />
+      )}
+    </div>
+  );
+}
+
 export function ProductDetailPage() {
   const { productId = '' } = useParams();
   const api = useApi();
-  // 판매 상태 변경은 MD 만(백엔드 알림 2026-11-15 product-menu-operator-admin) — 그 밖 역할(OPERATOR_ADMIN)에는 버튼을 숨긴다. 판정은 서버(403).
+  // 판매 상태 변경·상품 정보 수정 시작(product 0.3.2)은 MD 만(백엔드 알림 2026-11-15 product-menu-operator-admin) — 그 밖 역할(OPERATOR_ADMIN)에는 버튼을 숨긴다. 판정은 서버(403).
   const canChangeSaleState = useSession().session?.roles.includes('MD') ?? false;
   const query = useQuery({
     queryKey: ['product', 'detail', productId],
@@ -175,6 +215,11 @@ export function ProductDetailPage() {
             <Link className="btn btn-sm" to={`/contents/drafts/new?productId=${encodeURIComponent(productId)}`}>
               {m.products.addContent}
             </Link>
+            {canChangeSaleState ? (
+              <EditStart productId={productId} />
+            ) : (
+              <p className="rounded-box bg-base-100 p-4 text-sm opacity-70">{m.products.editMdOnly}</p>
+            )}
             <h2 className="font-bold">{m.products.skus}</h2>
             <table className="table table-sm bg-base-100">
               <thead>
