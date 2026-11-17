@@ -235,6 +235,21 @@ function seed(): OpsState {
         version: 1,
         lines: [{ claimLineId: 'CL-2', sku: 'E-00000001', requestedQty: 1, decision: 'PENDING' }],
       },
+      // claim 0.2.0 반품 — 회수 두 번 실패(상담원 재연락)
+      {
+        claimId: 'CLM-MOCK-RF',
+        orderId: 'ORD-MOCK-1002',
+        type: 'RETURN',
+        state: 'RECOVERY_FAILED',
+        channel: 'CS',
+        reason: 'CHANGE_OF_MIND',
+        openedAt: ago(20),
+        version: 5,
+        feePayment: { amount: 9000, orderName: '반품 회수비', state: 'PAID', paidAt: ago(19), paymentAttemptId: 'PAY-RET-1' },
+        fees: { returnPickupFee: 9000 },
+        pickup: { addressFixedToOrder: true, state: 'FAILED', attempts: 2, failedAttempts: 2, deliveryId: 'DLV-MOCK-RET-2' },
+        lines: [{ claimLineId: 'CL-RF-1', orderLineId: 'ORD-MOCK-1002-L1', sku: 'E-00000001', requestedQty: 1, decision: 'APPROVED', pickedUpQty: 0 }],
+      },
     ],
     refunds: new Map([
       ['CLM-MOCK-1', [{ refundIntentId: 'RF-MOCK-1', claimId: 'CLM-MOCK-1', amount: 15100, state: 'COMPLETED', pgResult: 'SUCCESS', requestedAt: ago(25), completedAt: ago(24) }]],
@@ -621,6 +636,69 @@ export const opsHandlers = [
     if (denied) return denied;
     const found = ops.claims.find((c) => c.claimId === params['claimId']);
     return found ? HttpResponse.json(found) : problem(404, 'NOT_FOUND');
+  }),
+  // ---- claim 0.2.0 반품(고객센터만) ----
+  http.post(`${API_BASE}/claims`, async ({ request }) => {
+    const { denied } = allow(request, ...CS);
+    if (denied) return denied;
+    const body = (await request.clone().json()) as ClaimC['schemas']['CreateClaimRequest'];
+    return idempotent(request, () => {
+      if (body.type !== 'RETURN') return problem(422, 'UNSUPPORTED_ACTION');
+      if (!body.identityCheck?.method || (body.identityCheck.method === 'OTHER' && !body.identityCheck.note)) return problem(400, 'VALIDATION_FAILED');
+      const order = ops.orders.find((o) => o.orderId === body.orderId);
+      if (!order) return problem(404, 'ORDER_NOT_FOUND');
+      for (const l of body.lines) {
+        const line = order.lines.find((x) => x.orderLineId === l.orderLineId);
+        const taken = ops.claims
+          .filter((c) => c.type === 'RETURN' && c.orderId === body.orderId && !['CANCELLED', 'CLOSED'].includes(c.state ?? ''))
+          .flatMap((c) => c.lines ?? [])
+          .filter((x) => x.orderLineId === l.orderLineId)
+          .reduce((n, x) => n + (x.requestedQty ?? 0), 0);
+        if (!line || (line.handedOverQty ?? 0) === 0) return problem(422, 'NOT_HANDED_OVER');
+        if (l.qty > (line.handedOverQty ?? 0) - (line.returnedQty ?? 0) - taken) return problem(422, 'QUANTITY_EXCEEDS_AVAILABLE');
+      }
+      const fee = !body.faultCode;
+      const claim: Claim = {
+        claimId: `CLM-RET-${ops.claims.length + 1}`,
+        orderId: body.orderId,
+        type: 'RETURN',
+        channel: 'CS',
+        state: fee ? 'FEE_PENDING' : 'IN_PROGRESS',
+        reason: body.reason,
+        ...(body.reasonDetail ? { reasonDetail: body.reasonDetail } : {}),
+        ...(body.faultCode ? { faultCode: body.faultCode } : {}),
+        openedAt: new Date().toISOString(),
+        version: 1,
+        fees: { returnPickupFee: fee ? 9000 : 0 },
+        ...(fee ? { feePayment: { amount: 9000, orderName: '반품 회수비', state: 'WAITING' as const, paymentAttemptId: 'PAY-RET-NEW', deadlineAt: new Date(Date.now() + 86_400_000).toISOString() } } : {}),
+        pickup: { addressFixedToOrder: true, state: fee ? 'NOT_REQUIRED' : 'REQUESTED', attempts: fee ? 0 : 1, failedAttempts: 0 },
+        lines: body.lines.map((l, i) => ({ claimLineId: `CL-RET-${i + 1}`, orderLineId: l.orderLineId, requestedQty: l.qty, decision: 'APPROVED' as const })),
+      };
+      ops.claims.unshift(claim);
+      return { status: 201, body: claim };
+    });
+  }),
+  http.post(`${API_BASE}/claims/:claimId/recovery-actions`, async ({ request, params }) => {
+    const { denied } = allow(request, ...CS);
+    if (denied) return denied;
+    const body = (await request.clone().json()) as ClaimC['schemas']['RecoveryActionRequest'];
+    return idempotent(request, () => {
+      const index = ops.claims.findIndex((c) => c.claimId === params['claimId']);
+      const found = ops.claims[index];
+      if (!found) return problem(404, 'NOT_FOUND');
+      if (found.type !== 'RETURN') return problem(422, 'UNSUPPORTED_ACTION');
+      if (!body.note?.trim()) return problem(400, 'VALIDATION_FAILED');
+      const expected = expectedVersion(request);
+      if (expected !== undefined && expected !== found.version) return problem(409, 'VERSION_CONFLICT');
+      const ok = found.state === 'RECOVERY_FAILED' || (found.state === 'FEE_PENDING' && body.action === 'CANCEL');
+      if (!ok) return problem(409, 'INVALID_STATE');
+      const next: Claim =
+        body.action === 'CANCEL'
+          ? { ...found, state: 'CANCELLED', version: (found.version ?? 0) + 1, closedAt: new Date().toISOString() }
+          : { ...found, state: 'IN_PROGRESS', version: (found.version ?? 0) + 1, pickup: { ...found.pickup, addressFixedToOrder: true, state: 'REQUESTED', attempts: (found.pickup?.attempts ?? 0) + 1 } };
+      ops.claims[index] = next;
+      return { status: 200, body: next };
+    });
   }),
   http.get(`${API_BASE}/claims/:claimId/refunds`, ({ request, params }) => {
     const { denied } = allow(request, ...CS);

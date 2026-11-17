@@ -82,6 +82,8 @@ export const navGroups: readonly NavGroup[] = [
       // 문의 만족도(case 0.15.0) — 관리자만(상담원 평가에 쓰지 않음)
       { to: '/inquiry-satisfaction', label: m.nav.satisfaction, visibleTo: oneOf('OPERATOR_ADMIN') },
       { to: '/claims', label: m.nav.claims },
+      // 반품 접수(claim 0.2.0 — 백엔드 요청 2026-11-17 request-return-recovery §2). 상담원·관리자
+      { to: '/return-intake', label: m.nav.returnIntake },
       // 후속 처리(case 0.8.0 의무, owner=CS) — 상담원이 고객 연락 등의 결과를 남긴다
       { to: '/follow-ups/cs', label: m.nav.csFollowUps },
     ],

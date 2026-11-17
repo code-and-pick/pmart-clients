@@ -10,6 +10,7 @@ import type { components } from '../../api/generated/claim';
 import { useApi } from '../../app/ApiContext';
 import { messages as m } from '../../shared/messages';
 import { Facts, label, text, when, won } from '../../shared/ops';
+import { RecoveryActions, ReturnProgress } from './ReturnClaim';
 
 type ClaimType = components['schemas']['ClaimType'];
 type ClaimState = components['schemas']['ClaimState'];
@@ -220,7 +221,7 @@ export function ClaimDetailPage() {
                 [m.claims.type, label(m.claims.typeName, c.type)],
                 [m.claims.state, <span key="s" data-testid="claim-state">{label(m.claims.stateName, c.state)}</span>],
                 [m.claims.orderId, c.orderId ? <Link key="o" className="link" to={`/orders/${encodeURIComponent(c.orderId)}`}>{c.orderId}</Link> : m.none],
-                [m.claims.reason, text(c.reason)],
+                [m.claims.reason, label(m.claims.reasonName, c.reason)],
                 [m.claims.reasonDetail, text(c.reasonDetail)],
                 [m.claims.openedAt, when(c.openedAt)],
                 [m.claims.decidedAt, when(c.decidedAt)],
@@ -231,6 +232,8 @@ export function ClaimDetailPage() {
               ]}
             />
             <p className="text-xs opacity-60">{m.claims.noDecision}</p>
+            <ReturnProgress claim={c} />
+            <RecoveryActions claim={c} />
 
             <h2 className="font-bold">{m.claims.lines}</h2>
             <table className="table table-sm rounded-box bg-base-100">

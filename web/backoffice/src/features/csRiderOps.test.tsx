@@ -47,7 +47,7 @@ describe('메뉴 묶음 — 역할로 보이고(합집합) 접고 편다', () =>
     renderAt('/session', as.admin);
     await screen.findByTestId('nav-group-lookup');
     expect(links('lookup')).toEqual(['주문 조회', '통합 조회', '실시간 배송 현황', '포장 인계 현황', '배송·배차 확인', '라이더 컴플레인']);
-    expect(links('cs')).toEqual(['문의 답변', '전화·채팅 접수', '문의 만족도', '클레임 조회', '고객센터 후속 처리']);
+    expect(links('cs')).toEqual(['문의 답변', '전화·채팅 접수', '문의 만족도', '클레임 조회', '반품 접수', '고객센터 후속 처리']);
     expect(links('riderOps')).toEqual(['라이더 찾기·계정 제한', '제한 검토']);
     const all = [...document.querySelectorAll('[data-testid^="nav-group-"] a')].map((a) => a.getAttribute('href'));
     expect(new Set(all).size).toBe(all.length);
@@ -241,7 +241,7 @@ describe('클레임 조회', () => {
   it('목록 → 상세·환불. 결정 버튼 없음, PG 성공 전 환불은 완료로 보이지 않는다', async () => {
     const user = userEvent.setup();
     renderAt('/claims', as.cs);
-    expect(await screen.findAllByTestId('claim-row')).toHaveLength(2);
+    expect(await screen.findAllByTestId('claim-row')).toHaveLength(3);
     await user.click(screen.getByRole('link', { name: 'CLM-MOCK-2' }));
     expect(await screen.findByTestId('claim-state')).toHaveTextContent('출고 중지 대기');
     expect(await screen.findByTestId('refund-row')).toHaveTextContent('실행 대기');

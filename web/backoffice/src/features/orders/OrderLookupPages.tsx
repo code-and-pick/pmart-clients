@@ -14,6 +14,7 @@ import { useApi } from '../../app/ApiContext';
 import { messages as m } from '../../shared/messages';
 import { addSeoulDays, Facts, isSeoulDate, label, seoulDayEnd, seoulDayStart, seoulToday, spanDays, text, when, won } from '../../shared/ops';
 import { ClaimsOfOrder } from '../claims/ClaimPages';
+import { ReturnIntakeLink } from '../claims/ReturnClaim';
 import { DeliveriesOf } from '../deliveries/DeliveryPages';
 
 type OrderStatus = components['schemas']['OrderStatus'];
@@ -411,6 +412,7 @@ export function OrderDetailPage() {
 
             <h2 className="font-bold">{m.orders.claims}</h2>
             <ClaimsOfOrder orderId={o.orderId} />
+            {o.lines.some((l) => (l.handedOverQty ?? 0) > (l.returnedQty ?? 0)) && <ReturnIntakeLink orderId={o.orderId} />}
           </>
         )}
       </QueryState>

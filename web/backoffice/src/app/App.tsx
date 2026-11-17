@@ -16,6 +16,7 @@ import { ContentDraftPage, NewContentDraftPage } from '../features/contents/Cont
 import { ContentImportPage, NewContentImportPage } from '../features/contents/ContentImportPage';
 import { SkuHandlingPage } from '../features/handlings/SkuHandlingPage';
 import { ClaimDetailPage, ClaimListPage } from '../features/claims/ClaimPages';
+import { ReturnIntakePage } from '../features/claims/ReturnClaim';
 import { PendingPage } from '../features/pending/PendingPage';
 import { PiiAccessLogDetailPage, PiiAccessLogListPage } from '../features/piiAccess/PiiAccessLogPages';
 import { UnifiedLookupPage } from '../features/lookup/UnifiedLookupPage';
@@ -186,6 +187,7 @@ const routes = [
       { path: 'rider-complaints/:complaintId', element: guarded(<RiderComplaintDetailPage />) },
       { path: 'claims', element: guarded(<ClaimListPage />) },
       { path: 'claims/:claimId', element: guarded(<ClaimDetailPage />) },
+      { path: 'return-intake', element: guarded(<ReturnIntakePage />) },
       { path: 'deliveries', element: guarded(<DeliveryOpenPage />) },
       { path: 'deliveries/:deliveryId', element: guarded(<DeliveryDetailPage />) },
       { path: 'riders', element: guarded(<RiderSearchPage />) },
