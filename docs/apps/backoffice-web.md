@@ -98,6 +98,7 @@ auth-service 의 운영자 로그인·비밀번호 변경·운영자 계정 API 
 - 실서버 확인은 아직 안 함(목: `mocks/inquiryHandlers.ts`, 목 계정 "상담원 최").
 
 ## 2-4. 메뉴 묶음 · 고객센터 · 라이더 운영 (2026-11-15, 백엔드 요청 `backoffice/2026-11-15-clients-request-backoffice-cs-rider-menus.md`)
+- **앱 바꾸기**(⋮⋮⋮, `@pmart/web-ui` `AppLauncher` #92, 백엔드 요청 `all/2026-11-17-request-app-launcher`): 왼쪽 메뉴 제목 옆 — 직원용 백오피스 4개를 모두에게, 같은 탭 링크, 백오피스는 강조만.
 - **메뉴 묶음**(`src/app/nav.ts`):
   - 상품 관리(`MD`·`OPERATOR_ADMIN` — 2026-11-15 사용자, 판매 상태 변경만 `MD`: 그 밖 역할은 버튼 대신 "MD 만 바꿀 수 있습니다")
   - 승인(`*_APPROVER`·`OPERATOR_ADMIN`)

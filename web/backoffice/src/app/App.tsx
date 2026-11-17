@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { UiTextProvider } from '@pmart/web-ui';
+import { AppLauncher, UiTextProvider } from '@pmart/web-ui';
 import { useEffect, useState, type ReactNode } from 'react';
 import { createBrowserRouter, createMemoryRouter, Link, Navigate, NavLink, Outlet, RouterProvider, useLocation } from 'react-router';
 
@@ -100,11 +100,15 @@ function Layout() {
       {/* 메뉴는 화면 높이에 고정하고 길면 메뉴만 따로 스크롤(오른쪽 화면을 내려도 메뉴는 그 자리) */}
       <ScrollToTopOnNavigate />
       <aside className="sticky top-0 h-screen w-56 shrink-0 self-start overflow-y-auto bg-base-100 shadow-sm" data-testid="side-menu">
-        <div className="p-4">
-          <Link to="/" className="text-lg font-bold" aria-label={m.goHome}>
-            {m.appTitle}
-          </Link>
-          {env.isMock && <span className="badge badge-outline ml-2">{m.mockBadge}</span>}
+        <div className="flex items-start justify-between gap-1 p-4">
+          <div>
+            <Link to="/" className="text-lg font-bold" aria-label={m.goHome}>
+              {m.appTitle}
+            </Link>
+            {env.isMock && <span className="badge badge-outline ml-2">{m.mockBadge}</span>}
+          </div>
+          {/* 직원 웹 앱 바꾸기(백엔드 요청 all/2026-11-17-request-app-launcher, web-ui #92) — 링크만, 세션을 읽지 않는다 */}
+          <AppLauncher current="backoffice" />
         </div>
         <ul className="menu w-full" aria-label="메뉴">
           <li>
