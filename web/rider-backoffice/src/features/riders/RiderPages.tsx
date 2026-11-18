@@ -16,6 +16,7 @@ import type { components } from '../../api/generated/rider';
 import { useApi } from '../../app/ApiContext';
 import { ChipGroup, CursorPager, DataTable, DetailHeader, FieldList, Notice, PageHeader, ResultBar, SearchPanel, SearchRow, Section, SectionTabs, StatusBadge, type Tone } from '../../shared/admin';
 import { SimBadge } from '../../shared/sim';
+import { LIVE } from '../../shared/liveRefresh';
 import { messages } from '../../shared/messages';
 import { ops } from '../../shared/opsMessages';
 import { label, none, when, won } from '../../shared/opsUi';
@@ -231,10 +232,13 @@ function thisWeek(): { from: string; to: string } {
 function RiderDetailPage() {
   const api = useApi();
   const { riderId = '' } = useParams();
+  // 진행 중 배송이 있으면 15초마다(배정·완료가 바로 보이게) — rider 운행 상태의 진행 중 배송 수(execution 사본) 기준
   const detail = useQuery({
     queryKey: ['rider', riderId],
+    refetchInterval: (q) => ((q.state.data?.operating?.activeDeliveryCount ?? 0) > 0 ? LIVE.rider : false),
     queryFn: () => request('GET', api.riders.GET('/riders/{riderId}', { params: { path: { riderId } } })),
   });
+  const riderLive = (detail.data?.operating?.activeDeliveryCount ?? 0) > 0;
   const week = thisWeek();
   const earnings = useQuery({
     queryKey: ['rider-earnings', riderId],
@@ -351,7 +355,7 @@ function RiderDetailPage() {
         </Section>
       </div>
       <Section id="sec-assignments" title={rm.assignments.title} aside={<span className="text-xs text-base-content/50">{rm.assignments.intro}</span>}>
-        <AssignmentHistory riderId={riderId} />
+        <AssignmentHistory riderId={riderId} live={riderLive} />
       </Section>
       <Section id="sec-reviews" title={rm.tabs.reviews} aside={<span className="text-xs text-base-content/50">{rm.detailReviews.intro}</span>}>
         <ReviewTable state="OPEN" riderId={riderId} />
@@ -416,13 +420,15 @@ function AccountAndConsents({ detail }: { readonly detail: components['schemas']
 }
 
 /** 배정 이력 — dispatch `GET /rider-assignments`(배정 최신순, cursor). 결과(outcome)·취소 기록은 서버 값 그대로 */
-function AssignmentHistory({ riderId }: { readonly riderId: string }) {
+function AssignmentHistory({ riderId, live = false }: { readonly riderId: string; readonly live?: boolean }) {
   const api = useApi();
   const [cursor, setCursor] = useState('');
   const [pageNo, setPageNo] = useState(1);
   const a = rm.assignments;
   const query = useQuery({
     queryKey: ['rider-assignments', riderId, cursor],
+    // 진행 중 배송이 있을 때 첫 쪽(최신 배정)만 15초마다 — 넘긴 쪽은 그대로
+    refetchInterval: live && !cursor ? LIVE.rider : false,
     queryFn: () =>
       request('GET', api.dispatch.GET('/rider-assignments', { params: { query: { riderId, size: PAGE_SIZE, ...(cursor ? { cursor } : {}) } } })),
   });

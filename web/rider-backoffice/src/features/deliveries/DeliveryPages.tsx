@@ -2,7 +2,7 @@
 // - 찾기: delivery-execution `GET /deliveries`(주문 ID·라이더 ID 완전 일치, 상태·종류, 정렬, cursor — execution 0.4.0 BOD-5). 개인정보 없음.
 // - 상세: 수행 `GET /deliveries/{id}`(execution) + 배차 `GET /deliveries/{id}/dispatch`(dispatch) — 서로 다른 서비스의 값이라 따로 보인다.
 // 1차(2026-11-17, PC 5): 보기만 — 배차 취소·전달 실패 확정은 다음 차례. 필터·쪽은 주소 쿼리에 둔다.
-import { useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useState, type FormEvent } from 'react';
 import { Link, Route, Routes, useNavigate, useParams, useSearchParams } from 'react-router';
 
@@ -10,6 +10,7 @@ import { request } from '@pmart/web-core';
 import { formatSeoul, QueryState, toUiState } from '@pmart/web-ui';
 import type { components } from '../../api/generated/delivery-execution';
 import { useApi } from '../../app/ApiContext';
+import { isLiveDelivery, LIVE } from '../../shared/liveRefresh';
 import { messages } from '../../shared/messages';
 import { ChipGroup, CursorPager, DataTable, DetailHeader, FieldList, PageHeader, ResultBar, SearchPanel, SearchRow, Section, SectionTabs, StatusBadge, type Tone } from '../../shared/admin';
 import { SimBadge } from '../../shared/sim';
@@ -72,6 +73,9 @@ function DeliverySearchPage() {
 
   const query = useQuery({
     queryKey: ['deliveries', orderId, orderNumber, riderId, state, type, oldest, cursor],
+    // 20초마다 다시 — 새로 받는 동안 이전 목록을 그대로 둬 깜빡이지 않게
+    refetchInterval: LIVE.deliveryList,
+    placeholderData: keepPreviousData,
     queryFn: () =>
       request(
         'GET',
@@ -194,12 +198,16 @@ const executionTone = (s: string | undefined): Tone =>
 function DeliveryDetailPage() {
   const api = useApi();
   const { deliveryId = '' } = useParams();
+  // 진행 중 배송이면 10초마다(배정·픽업이 바로 보이게), 끝난 배송은 새로 고치지 않는다.
   const execution = useQuery({
     queryKey: ['delivery', deliveryId],
+    refetchInterval: (q) => (isLiveDelivery(q.state.data?.state) ? LIVE.delivery : false),
     queryFn: () => request('GET', api.execution.GET('/deliveries/{deliveryId}', { params: { path: { deliveryId } } })),
   });
+  const live = isLiveDelivery(execution.data?.state);
   const dispatch = useQuery({
     queryKey: ['delivery-dispatch', deliveryId],
+    refetchInterval: live ? LIVE.delivery : false,
     queryFn: () => request('GET', api.dispatch.GET('/deliveries/{deliveryId}/dispatch', { params: { path: { deliveryId } } })),
   });
   const d = execution.data;

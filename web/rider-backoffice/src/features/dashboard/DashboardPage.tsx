@@ -9,6 +9,7 @@ import { request } from '@pmart/web-core';
 import { QueryState, toUiState } from '@pmart/web-ui';
 import { useApi } from '../../app/ApiContext';
 import { PageHeader, Section, StatCard, StatusBadge } from '../../shared/admin';
+import { LIVE } from '../../shared/liveRefresh';
 import { messages } from '../../shared/messages';
 import { ops } from '../../shared/opsMessages';
 import { CenterPicker, label, when } from '../../shared/opsUi';
@@ -31,12 +32,15 @@ export function DashboardPage() {
   const [params, setParams] = useSearchParams();
   const mfcId = params.get('mfcId') ?? '';
   const q = mfcId ? { mfcId } : {};
+  // 30초마다 다시(탭이 안 보이면 멈춤)
   const riders = useQuery({
     queryKey: ['rider-stats', mfcId],
+    refetchInterval: LIVE.dashboard,
     queryFn: () => request('GET', api.riders.GET('/riders/stats', { params: { query: q } })),
   });
   const deliveries = useQuery({
     queryKey: ['delivery-stats', mfcId],
+    refetchInterval: LIVE.dashboard,
     queryFn: () => request('GET', api.execution.GET('/delivery-stats', { params: { query: q } })),
   });
   const controlLink = mfcId ? `/control?mfcId=${encodeURIComponent(mfcId)}` : '/control';
