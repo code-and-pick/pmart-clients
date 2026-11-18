@@ -290,7 +290,7 @@ describe('사건 다시 열기(case 0.6.0)·넘기기(0.7.0)', () => {
     await userEvent.type(within(form).getByLabelText('사유'), '고객이 다시 다른 집이라고 연락');
     await userEvent.click(within(form).getByRole('button', { name: '다시 처리하기' }));
     await waitFor(() => expect(screen.getByTestId('case-state')).toHaveTextContent('다시 처리 중'));
-    expect(screen.getByTestId('case-assignee')).toHaveTextContent('아무도 안 집음');
+    expect(screen.getByTestId('case-assignee')).toHaveTextContent('아무도 안 맡음');
     expect(screen.getByText(/다시 처리 · op-rider-ops-1 → 다시 처리 중 · 고객이 다시 다른 집이라고 연락/)).toBeInTheDocument();
     const sent = view.mutations('/cases/CASE-MOCK-4/reopenings')[0]!;
     expect(sent.headers.get('Idempotency-Key')).toBeTruthy();

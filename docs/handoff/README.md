@@ -33,7 +33,6 @@ pmart-clients 와 pmart-backend 는 서로의 저장소에 쓰지 않는다. 각
 | `mfc-backoffice/2026-11-17-backend-lists-and-roles.md` | MFC 센터 관리자 웹 — 목록 API 전부(MB-1, 품질 대기 → 실사 → 입고 → 센터 재고·지난 추천 순), 품질 사고 구현(MB-2), 권한 결정(MB-3: 확인 필요 포장 관리자 허용, 정정·칸 변경 관리자만, 상품 취급 관리자+MD) |
 | `backoffice/2026-11-16-backend-pii-reveal-and-pending-done.md` | 주문 개인정보 열람·처리 대기 — LAN 조회 화면은 확인(2026-11-16 PC 2), 원문 열람은 실서버에서 아직 안 눌러 봄 |
 | `all/2026-11-16-backend-login-code-pc1-only-done.md` | 클라이언트 표(경로 보탬) 확인 |
-| `backoffice/2026-11-16-backend-case-order-exceptions-done.md` | 사건함 사가·결제 이상·배차 실패 화면 반영 확인(PR #13) — case 0.5.0 LAN 배포됨(백엔드 알림, 데이터 0건), 사건이 생기면 실서버 확인 |
 | `customer-app/2026-11-16-backend-review-photos-and-inbox-done.md` | 리뷰 0.2.0(사진)·고객 알림함 0.2.0 반영 확인 — 실서버 확인은 배송 완료·고객 주문 뒤 |
 | `customer-app/2026-11-16-backend-review-edit-delete-done.md` | 리뷰 수정·삭제 화면 반영 확인, 빈 글 수정 질문 1개 — 실서버 확인은 배송 완료 뒤 |
 | `rider-backoffice/2026-11-17-backend-rider-backoffice-base-done.md` | 라이더 백오피스 뼈대·로그인 회신 — 들어간 커밋 `756db67` 을 그대로 받음(사용자 2026-11-17), 검토·시험 11개·LAN 빌드 이름 확인. **남은 것: 실서버(8446) 로그인을 브라우저로 눌러 보기** |

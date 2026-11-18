@@ -365,7 +365,7 @@ export const messages = {
     sla: '처리 기한',
     overdue: '기한 넘김',
     assignee: '담당',
-    unassigned: '아무도 안 집음',
+    unassigned: '아무도 안 맡음',
     assigneeGroup: '담당 팀',
     groupName: { DELIVERY_OPS: '지원센터', ORDER_OPS: '관리자 팀', CS: '고객센터', MFC_OPS: '센터', SCM: '공급망', FINANCE: '재무', QUALITY: '품질', SECURITY: '보안' } as Readonly<Record<string, string>>,
     adminHandling: '관리자 처리 중',
