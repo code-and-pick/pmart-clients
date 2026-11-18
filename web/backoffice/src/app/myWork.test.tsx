@@ -6,14 +6,14 @@ import { describe, expect, it } from 'vitest';
 import { as, renderAt } from '../test/render';
 
 describe('내 할 일(첫 화면)', () => {
-  it('상담원: 내 할 일이 현황보다 먼저 — 답변 대기 문의를 누르면 "접수" 탭이 골라진 목록', async () => {
+  it('상담원: 통계(한눈에 카드)가 위, 내 할 일은 그 아래(사용자 2026-11-18) — 답변 대기 문의를 누르면 "접수" 탭이 골라진 목록', async () => {
     const user = userEvent.setup();
     renderAt('/', as.cs);
     const work = await screen.findByTestId('dash-my-work');
     expect(within(work).getByRole('heading', { name: '내 할 일' })).toBeInTheDocument();
-    // 내 할 일이 주문 현황보다 위
+    // 통계를 위로(사용자 2026-11-18): 오늘 주문 카드가 내 할 일보다 앞
     const orders = screen.queryByTestId('dash-kpi-orders');
-    if (orders) expect(work.compareDocumentPosition(orders) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    if (orders) expect(work.compareDocumentPosition(orders) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy();
     // 상담원은 접수 건을 맡지 않으므로 접수 건 할 일은 없다
     expect(within(work).queryByTestId('dash-kpi-casesOverdue')).not.toBeInTheDocument();
     await user.click(within(work).getByTestId('dash-kpi-inquiries'));

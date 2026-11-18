@@ -19,10 +19,11 @@ describe('대시보드 2판', () => {
     expect(await within(screen.getByTestId('dash-stat-risk')).findByText(/결제 결과 불명 1건/)).toBeInTheDocument();
   });
 
-  it('내 할 일이 한눈에 카드보다 먼저(화면 읽는 순서)', async () => {
+  it('통계가 위 — 한눈에 카드·7일 막대가 내 할 일보다 먼저(사용자 2026-11-18 "그래프 같은 통계를 위쪽으로")', async () => {
     renderAt('/', as.admin);
     const work = await screen.findByTestId('dash-my-work');
-    expect(work.compareDocumentPosition(screen.getByTestId('dash-glance')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(work.compareDocumentPosition(screen.getByTestId('dash-glance')) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy();
+    expect(work.compareDocumentPosition(screen.getByTestId('dash-orders-week')) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy();
   });
 
   it('오늘 주문 상태 — 상태별 이름과 개수, 합은 오늘 주문 수', async () => {

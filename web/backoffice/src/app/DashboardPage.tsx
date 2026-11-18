@@ -1,8 +1,8 @@
 // 첫 화면 대시보드. 숫자는 이미 있는 서버 조회에서만 — 매출처럼 서버에 없는 값은 만들지 않는다(백엔드 요청 2026-11-18-backend-dashboard-metrics).
 // 역할로 보이는 메뉴의 칸만 그린다(판정은 서버, 403 이면 "?").
 // 2판(2026-11-18 사용자 "대시보드가 아직 약하다 — Eum·추천 사이트 조합"): 짜임
-//   머리(인사·자동 갱신) → [내 할 일 | 한눈에 숫자 카드(오늘 주문 증감·추세선, 진행 중 배송, 처리 기한 지킴, 처리 대기)]
-//   → [7일 주문 막대 | 오늘 주문 상태 도넛] → 운영 위험 → [지금 배송 | 심사 대기 유형별] → [최근 주문 | 최근 활동] → 처리 기한 지킴 날짜별.
+//   머리(인사·자동 갱신) → 한눈에 숫자 카드 넷(가로) → [7일 주문 막대 | 오늘 주문 상태 도넛] → [내 할 일 | 최근 활동]
+//   → 운영 위험 → [지금 배송 | 심사 대기 유형별] → 최근 주문 → 처리 기한 지킴 날짜별. (통계를 위로 — 사용자 2026-11-18)
 // 개인정보: 주문 목록은 서버가 가린 값만(연락처 열은 보이지 않는다).
 import { useQuery } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
@@ -192,25 +192,10 @@ export function DashboardPage() {
         <RefreshBar />
       </header>
 
-      {/* 1줄: 내 할 일 | 한눈에 */}
-      {(tasks.length > 0 || stats.length > 0) && (
-        <div className={`grid items-start gap-4 ${tasks.length > 0 && stats.length > 0 ? 'lg:grid-cols-3' : ''}`}>
-          {tasks.length > 0 && (
-            <section aria-labelledby="dash-my-work" className={`overflow-hidden rounded-box border border-base-300 bg-base-100 shadow-sm ${stats.length > 0 ? 'lg:col-span-2' : ''}`} data-testid="dash-my-work">
-              <div className="flex items-baseline justify-between gap-2 border-b border-base-300 px-5 py-3">
-                <h2 id="dash-my-work" className="text-lg font-bold">
-                  {m.myWork}
-                </h2>
-                <span className="text-xs text-base-content/50">{m.myWorkHint}</span>
-              </div>
-              <div className="divide-y divide-base-300">{tasks}</div>
-            </section>
-          )}
-          {stats.length > 0 && (
-            <div className={`grid gap-3 ${tasks.length > 0 ? '' : 'sm:grid-cols-2 xl:grid-cols-4'}`} aria-label={m.glance} data-testid="dash-glance">
-              {stats}
-            </div>
-          )}
+      {/* 1줄: 한눈에 숫자 카드(가로) — 통계는 위로(2026-11-18 사용자 "그래프 같은 통계를 위쪽으로") */}
+      {stats.length > 0 && (
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label={m.glance} data-testid="dash-glance">
+          {stats}
         </div>
       )}
 
@@ -221,6 +206,28 @@ export function DashboardPage() {
             <OrdersWeekChart days={days} />
           </div>
           <StatusDonut today={today} toneOf={(s) => statusTone(s)} />
+        </div>
+      )}
+
+      {/* 3줄: 내 할 일 | 최근 활동 */}
+      {(tasks.length > 0 || hasActivity) && (
+        <div className="grid items-start gap-4 lg:grid-cols-3">
+          {tasks.length > 0 && (
+            <section aria-labelledby="dash-my-work" className={`overflow-hidden rounded-box border border-base-300 bg-base-100 shadow-sm ${hasActivity ? 'lg:col-span-2' : 'lg:col-span-3'}`} data-testid="dash-my-work">
+              <div className="flex items-baseline justify-between gap-2 border-b border-base-300 px-5 py-3">
+                <h2 id="dash-my-work" className="text-lg font-bold">
+                  {m.myWork}
+                </h2>
+                <span className="text-xs text-base-content/50">{m.myWorkHint}</span>
+              </div>
+              <div className="divide-y divide-base-300">{tasks}</div>
+            </section>
+          )}
+          {hasActivity && (
+            <div className={tasks.length > 0 ? '' : 'lg:col-span-3'}>
+              <ActivityFeed {...activity} />
+            </div>
+          )}
         </div>
       )}
 
@@ -239,17 +246,8 @@ export function DashboardPage() {
         </div>
       )}
 
-      {/* 최근 주문 | 최근 활동 */}
-      {(can('/orders') || hasActivity) && (
-        <div className="grid items-start gap-4 lg:grid-cols-3">
-          {can('/orders') && (
-            <div className={hasActivity ? 'lg:col-span-2' : 'lg:col-span-3'}>
-              <RecentOrders from={weekFrom} to={today} />
-            </div>
-          )}
-          {hasActivity && <ActivityFeed {...activity} />}
-        </div>
-      )}
+      {/* 최근 주문 */}
+      {can('/orders') && <RecentOrders from={weekFrom} to={today} />}
 
       {can('/case-sla') && <SlaCard from={weekFrom} to={today} days={days} />}
 
