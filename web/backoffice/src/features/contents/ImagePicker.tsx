@@ -2,11 +2,12 @@
 // 고른 파일은 미리보기와 함께 목록에 두고(제거 가능), 올리는 시점은 부모가 정한다:
 //  - 새 초안: "만들기" 뒤 초안 ID 가 생기면 차례로 올린다(계약상 이미지는 초안에 붙는다).
 //  - 기존 초안: 고르는 즉시 올린다.
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { IMAGE_ROLES, type ContentImage, type ImageRole } from '../../api/models';
 import { messages as m } from '../../shared/messages';
 import { AuthedImage } from './AuthedImage';
+import { DEFAULT_SLICE_HEIGHT, SLICE_HEIGHTS, sliceImage, type SliceResult } from './sliceImage';
 
 export interface PendingImage {
   readonly id: string;
@@ -40,12 +41,15 @@ export function ImagePicker({
   onChange,
   existing = [],
   disabled = false,
+  slicer = sliceImage,
 }: {
   readonly pending: readonly PendingImage[];
   readonly onChange: (next: readonly PendingImage[]) => void;
   /** 이미 올라간 이미지(기존 초안). 역할별로 함께 보인다. */
   readonly existing?: readonly ContentImage[];
   readonly disabled?: boolean;
+  /** 긴 이미지 자르기(시험에서 바꿔 끼운다 — jsdom 엔 canvas 가 없다) */
+  readonly slicer?: (file: File, pieceHeight: number) => Promise<SliceResult>;
 }) {
   // 화면을 떠나면 미리보기 URL 을 놓아 준다.
   const latest = useRef<readonly PendingImage[]>([]);
@@ -65,13 +69,25 @@ export function ImagePicker({
     }
     onChange([...pending, ...added]);
   };
+  // 긴 상세 이미지 → 상세설명 조각들(고른 순서 뒤에 이어 붙는다 — 올릴 때 sortOrder 가 차례로 매겨진다)
+  const latestPending = useRef(pending);
+  useEffect(() => {
+    latestPending.current = pending;
+  }, [pending]);
+  const sliceAndAdd = async (file: File, pieceHeight: number): Promise<SliceResult> => {
+    const r = await slicer(file, pieceHeight);
+    onChange([...latestPending.current, ...toPending(r.pieces, 'DESCRIPTION')]);
+    return r;
+  };
   const remove = (id: string) => {
     pending.filter((p) => p.id === id).forEach((p) => revoke(p.preview));
     onChange(pending.filter((p) => p.id !== id));
   };
 
   return (
-    <div className="grid gap-3 md:grid-cols-3">
+    // 놓인 칸 폭에 맞춰(좁은 오른쪽 열이면 한 줄씩, 넓으면 세 칸) — 화면 폭이 아니라 칸 폭 기준(2026-11-18)
+    <div className="@container">
+    <div className="grid gap-3 @xl:grid-cols-2 @3xl:grid-cols-3">
       {IMAGE_ROLES.map((role) => (
         <RoleSection
           key={role}
@@ -81,8 +97,10 @@ export function ImagePicker({
           disabled={disabled}
           onAdd={(files) => add(files, role)}
           onRemove={remove}
+          {...(role === 'DESCRIPTION' ? { onSlice: sliceAndAdd } : {})}
         />
       ))}
+    </div>
     </div>
   );
 }
@@ -94,6 +112,7 @@ function RoleSection({
   disabled,
   onAdd,
   onRemove,
+  onSlice,
 }: {
   readonly role: ImageRole;
   readonly existing: readonly ContentImage[];
@@ -101,6 +120,7 @@ function RoleSection({
   readonly disabled: boolean;
   readonly onAdd: (files: FileList | null) => void;
   readonly onRemove: (id: string) => void;
+  readonly onSlice?: (file: File, pieceHeight: number) => Promise<SliceResult>;
 }) {
   const input = useRef<HTMLInputElement>(null);
   const label = m.contents.imageRole[role];
@@ -135,6 +155,7 @@ function RoleSection({
           e.target.value = '';
         }}
       />
+      {onSlice && <SliceBox disabled={disabled} onSlice={onSlice} />}
       {empty ? (
         <button
           type="button"
@@ -182,5 +203,69 @@ function RoleSection({
         </ul>
       )}
     </section>
+  );
+}
+
+/** 긴 상세 이미지 잘라 넣기 — 조각 높이를 고르고 파일 한 장을 고르면 바로 잘라 목록 끝에 붙인다 */
+function SliceBox({ disabled, onSlice }: { readonly disabled: boolean; readonly onSlice: (file: File, pieceHeight: number) => Promise<SliceResult> }) {
+  const input = useRef<HTMLInputElement>(null);
+  const [pieceHeight, setPieceHeight] = useState<number>(DEFAULT_SLICE_HEIGHT);
+  const [status, setStatus] = useState<{ readonly kind: 'idle' } | { readonly kind: 'working'; readonly name: string } | { readonly kind: 'done'; readonly text: string } | { readonly kind: 'failed' }>({ kind: 'idle' });
+  const run = async (file: File | undefined) => {
+    if (!file) return;
+    setStatus({ kind: 'working', name: file.name });
+    try {
+      const r = await onSlice(file, pieceHeight);
+      setStatus({ kind: 'done', text: r.pieces.length > 1 ? m.contents.slice.done(r.pieces.length, r.width, r.height) : m.contents.slice.single(r.height) });
+    } catch {
+      setStatus({ kind: 'failed' });
+    }
+  };
+  return (
+    <div className="space-y-2 rounded-lg border border-dashed border-primary/40 bg-primary/5 p-2.5" data-testid="slice-box">
+      <p className="text-xs text-base-content/65">{m.contents.slice.hint}</p>
+      <div className="flex flex-wrap items-center gap-2">
+        <label className="flex items-center gap-1.5 text-xs">
+          {m.contents.slice.height}
+          <select className="select select-xs w-24" value={pieceHeight} disabled={disabled} onChange={(e) => setPieceHeight(Number(e.target.value))} aria-label={m.contents.slice.height}>
+            {SLICE_HEIGHTS.map((h) => (
+              <option key={h} value={h}>
+                {m.contents.slice.heightOption(h)}
+              </option>
+            ))}
+          </select>
+        </label>
+        <button type="button" className="btn btn-primary btn-xs" disabled={disabled || status.kind === 'working'} onClick={() => input.current?.click()}>
+          {m.contents.slice.button}
+        </button>
+        <input
+          ref={input}
+          type="file"
+          accept={ACCEPT}
+          aria-label={m.contents.slice.file}
+          className="hidden"
+          disabled={disabled}
+          onChange={(e) => {
+            void run(e.target.files?.[0]);
+            e.target.value = '';
+          }}
+        />
+      </div>
+      {status.kind === 'working' && (
+        <p role="status" className="text-xs text-base-content/60">
+          {m.contents.slice.working(status.name)}
+        </p>
+      )}
+      {status.kind === 'done' && (
+        <p role="status" className="text-xs text-success" data-testid="slice-done">
+          {status.text}
+        </p>
+      )}
+      {status.kind === 'failed' && (
+        <p role="alert" className="text-xs text-error">
+          {m.contents.slice.failed}
+        </p>
+      )}
+    </div>
   );
 }

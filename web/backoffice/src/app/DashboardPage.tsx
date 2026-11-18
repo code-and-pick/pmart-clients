@@ -12,6 +12,7 @@ import { Link } from 'react-router';
 import { request } from '@pmart/web-core';
 import { useApi } from './ApiContext';
 import { ALERT_SIZE, useAlertCount, type AlertKey } from './MenuAlerts';
+import { ApprovalTypes, LiveSummary, RiskPanel, SlaTrend } from './DashboardSections';
 import { GroupIcon } from './groupIcons';
 import { visibleGroups } from './nav';
 import { useSession } from './SessionContext';
@@ -126,7 +127,7 @@ function OrdersWeek({ days }: { readonly days: readonly string[] }) {
   );
 }
 
-function SlaCard({ from, to }: { readonly from: string; readonly to: string }) {
+function SlaCard({ from, to, days }: { readonly from: string; readonly to: string; readonly days: readonly string[] }) {
   const api = useApi();
   const q = useQuery({
     queryKey: ['dashboard', 'sla', from, to],
@@ -150,6 +151,7 @@ function SlaCard({ from, to }: { readonly from: string; readonly to: string }) {
           <p className="text-3xl font-bold tabular-nums" data-testid="dash-sla-ratio">{t.ratio}</p>
           <p className="text-xs text-base-content/55">{t.count}</p>
         </div>
+        <SlaTrend days={days} totals={q.data.totals ?? []} />
         <div className="h-2 overflow-hidden rounded-full bg-base-200">
           <div className="h-full rounded-full bg-accent" style={{ width: denominator === 0 ? '0%' : `${Math.round((numerator / denominator) * 100)}%` }} />
         </div>
@@ -268,6 +270,19 @@ export function DashboardPage() {
         </section>
       )}
 
+      {/* 운영 위험·지금 배송·심사 대기 유형별(2026-11-18 대시보드 보강) — 보이는 메뉴만 */}
+      {can('/pending') && <RiskPanel />}
+      {(can('/live-delivery') || can('/approvals')) && (
+        <div className="grid gap-4 lg:grid-cols-3">
+          {can('/live-delivery') && (
+            <div className="lg:col-span-2">
+              <LiveSummary />
+            </div>
+          )}
+          {can('/approvals') && <ApprovalTypes />}
+        </div>
+      )}
+
       {(kpis.length > 0 || can('/case-sla')) && <h2 className="pt-2 text-sm font-semibold text-base-content/60">{m.status}</h2>}
       {kpis.length > 0 && <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{kpis}</div>}
 
@@ -278,7 +293,7 @@ export function DashboardPage() {
               <OrdersWeek days={days} />
             </div>
           )}
-          {can('/case-sla') && <SlaCard from={weekFrom} to={today} />}
+          {can('/case-sla') && <SlaCard from={weekFrom} to={today} days={days} />}
         </div>
       )}
 
