@@ -24,6 +24,7 @@
 | 화면 형식 다듬기 | 직원 목록·권한 관리 검색칸도 검색 조건 상자 줄(왼쪽 항목명 + [지우기][조회]), 직원 목록 표 테두리 한 겹(2026-11-18). 모양만 — 동작·이름표(aria-label) 그대로. |
 | 권한 연장 | 승인된 권한 줄(끝나는 날 있는 유효·예정)의 "연장" → 같은 역할·센터, 시작일 = validUntil 서울 날짜로 새 요청. 이어지는 같은 권한은 줄 표시·회수 안내(2026-11-18). |
 | CENTER_ROLE_MIX | hr-service 0.7.0 — 409 면 서버 detail 그대로 + 섞이는 기존 권한 줄 강조, 다른 센터의 다른 MFC 역할을 고르면 미리 경고(2026-11-18). |
+| 이름 금지 문자 | hr-service 0.5.1 — 직원 등록 이름에 Keycloak 금지 문자(대괄호 등)를 쓰면 칸 아래 바로 알리고 등록을 막음, 서버 400 field name 은 서버 문장을 칸 아래 그대로(2026-11-18). |
 | `X-Source-System` | `hr-backoffice-web` |
 | 보관 | access token 메모리, refresh token·기기 ID 는 탭 sessionStorage(`pmart.hr-backoffice.session`) |
 | 빌드 모드 | `mock`(MSW, 목 계정 버튼 — Keycloak 없음, 티켓 교환부터는 실제 코드) / `local`(게이트웨이 프록시) / `lan` |

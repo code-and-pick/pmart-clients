@@ -146,6 +146,8 @@ export const messages = {
     addGrant: '권한 추가',
     removeGrant: '빼기',
     grantRole: '역할',
+    nameProhibited: (chars: string) => `이름에 쓸 수 없는 문자가 있어요(${chars}). 이 문자가 있으면 로그인 계정을 만들 수 없어요 — 빼고 적어 주세요.`,
+    nameRejected: '서버가 이름을 받지 않았어요. 쓸 수 없는 문자가 있는지 확인해 주세요.',
     grantCenters: '센터',
     grantFrom: '시작일',
     grantTo: '종료일',

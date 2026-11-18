@@ -106,6 +106,18 @@ export function parseConflict(reason: string): { existingGrantId?: string; exten
   return { ...(id ? { existingGrantId: id } : {}), extension: kv.get('extension') === 'true' };
 }
 
+/**
+ * 직원 이름에 쓸 수 없는 문자(hr-service 0.5.1 — Keycloak 사용자 프로필 person-name-prohibited-characters).
+ * 백엔드 회신 hr-backoffice/2026-11-17-reply-keycloak-400-provisioning: 이 문자가 있으면 계정 발급이 400 으로 실패했다 → 이제 등록에서 400 field name.
+ * 화면은 입력 도움으로 미리 알린다(판정은 서버).
+ */
+export const NAME_PROHIBITED = ['<', '>', '&', '"', '$', '%', '!', '#', '?', '§', ';', '*', '~', '/', '\\', '|', '^', '=', '[', ']', '{', '}', '(', ')'] as const;
+/** 이름에 든 쓸 수 없는 문자(겹치지 않게, 나온 순서) */
+export const prohibitedInName = (name: string): string[] => [...new Set([...name].filter((c) => (NAME_PROHIBITED as readonly string[]).includes(c)))];
+
+/** 400 의 칸 문제 — details[].field 가 그 칸이면 true */
+export const fieldRejected = (failure: unknown, field: string): boolean => failure instanceof ProblemFailure && failure.problem.details.some((d) => d.field === field);
+
 /** Problem code(오류 분기는 code 로만) */
 export const failureCodeOf = (failure: unknown): string | undefined => (failure instanceof ProblemFailure ? failure.problem.code : undefined);
 

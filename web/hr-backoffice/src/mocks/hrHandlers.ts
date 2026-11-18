@@ -234,13 +234,16 @@ export const hrHandlers = [
     const body = (await request.json()) as Partial<EmployeeRegistration>;
     const details: Array<{ field: string; reason: string }> = [];
     if (!body.name?.trim()) details.push({ field: 'name', reason: 'REQUIRED' });
+    // hr 0.5.1: Keycloak 이름 규칙에 걸리는 문자(대괄호 등) — 발급까지 가지 않고 400
+    const prohibitedName = /[<>&"$%!#?§;*~/\\|^=[\]{}()]/.test(body.name ?? '');
+    if (prohibitedName) details.push({ field: 'name', reason: 'INVALID_FORMAT' });
     if (!body.mailId || !/^[a-z0-9][a-z0-9._-]{1,30}[a-z0-9]$/.test(body.mailId)) details.push({ field: 'mailId', reason: 'INVALID_FORMAT' });
     if (!validAffiliation(body.affiliation)) details.push({ field: 'affiliation', reason: 'REQUIRED' });
     if (!body.startDate) details.push({ field: 'startDate', reason: 'REQUIRED' });
     if (body.employmentType !== 'REGULAR' && !body.endDate) details.push({ field: 'endDate', reason: 'REQUIRED' });
     if (body.employmentType === 'REGULAR' && body.endDate) details.push({ field: 'endDate', reason: 'NOT_ALLOWED' });
     details.push(...grantRuleProblems(body.requestedGrants ?? [], 'requestedGrants'));
-    if (details.length > 0) return problem(400, 'VALIDATION_FAILED', details);
+    if (details.length > 0) return problem(400, 'VALIDATION_FAILED', details, prohibitedName ? '[목] 이름에 쓸 수 없는 문자가 있습니다(< > & " $ % ! # ? § ; * ~ / \\ | ^ = [ ] { } ( )).' : undefined);
     const reg = body as EmployeeRegistration;
     return idempotent(request, () => {
       const mailAddress = `${reg.mailId}@pmart.com`;

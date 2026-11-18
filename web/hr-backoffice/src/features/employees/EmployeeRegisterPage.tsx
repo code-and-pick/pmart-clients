@@ -18,7 +18,7 @@ import { useApi } from '../../app/ApiContext';
 import { messages as m } from '../../shared/messages';
 import { AffiliationFields, toAffiliation, type AffiliationDraft } from './AffiliationFields';
 import { CenterMultiSelect, useCenters } from './centers';
-import { lineProblems, needsCenter, problemDetail } from './grantRules';
+import { fieldRejected, lineProblems, needsCenter, problemDetail, prohibitedInName } from './grantRules';
 import { roleLabel, useEmployeeRoles } from './roles';
 import { PageHeader } from '../../shared/admin';
 
@@ -70,9 +70,12 @@ export function EmployeeRegisterPage() {
   const roleList = roles.data ?? [];
   // HR-2: 센터 지정 역할은 센터 1개 이상(그 밖 역할은 센터를 보내지 않는다), 한 요청에 역할은 한 번
   const grantsOk = grants.every((g) => g.role !== '' && (!needsCenter(roleList, g.role) || g.centers.length > 0));
-  const ready = name.trim() !== '' && MAIL_ID_PATTERN.test(mailId) && aff !== null && startDate !== '' && (regular || endDate !== '') && grantsOk;
+  // hr 0.5.1: 이름에 쓸 수 없는 문자(대괄호 등) — 미리 알리고 등록을 막는다(판정은 서버 400 field name)
+  const badChars = prohibitedInName(name);
+  const ready = name.trim() !== '' && badChars.length === 0 && MAIL_ID_PATTERN.test(mailId) && aff !== null && startDate !== '' && (regular || endDate !== '') && grantsOk;
   const rejected = cmd.phase.kind === 'rejected' ? cmd.phase.failure : null;
   const problems = lineProblems(rejected, 'requestedGrants');
+  const nameRejected = fieldRejected(rejected, 'name');
 
   const patchGrant = (id: number, patch: Partial<GrantDraft>) => setGrants((gs) => gs.map((g) => (g.id === id ? { ...g, ...patch } : g)));
 
@@ -97,10 +100,29 @@ export function EmployeeRegisterPage() {
         }}
       >
         <div className="space-y-3 rounded-box border border-base-300 bg-base-100 p-4">
-          <label className="flex flex-col gap-1 text-sm">
-            {m.fields.name}
-            <input className="input input-sm w-full max-w-xs" maxLength={60} value={name} onChange={(e) => setName(e.target.value)} />
-          </label>
+          <div className="flex flex-col gap-1 text-sm">
+            <label className="flex flex-col gap-1">
+              {m.fields.name}
+              <input
+                className={`input input-sm w-full max-w-xs ${badChars.length > 0 || nameRejected ? 'input-error' : ''}`}
+                maxLength={60}
+                aria-invalid={badChars.length > 0 || nameRejected}
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+              />
+            </label>
+            {badChars.length > 0 && (
+              <span role="alert" className="text-xs text-error" data-testid="name-prohibited">
+                {m.register.nameProhibited(badChars.join(' '))}
+              </span>
+            )}
+            {/* 서버가 이름 칸을 거절하면(400 field name) 서버 문장을 칸 아래에 그대로 */}
+            {nameRejected && badChars.length === 0 && (
+              <span role="alert" className="text-xs text-error" data-testid="name-rejected">
+                {problemDetail(rejected) ?? m.register.nameRejected}
+              </span>
+            )}
+          </div>
           <div className="flex flex-col gap-1 text-sm">
             <label className="flex flex-col gap-1">
               {m.fields.mailId}
