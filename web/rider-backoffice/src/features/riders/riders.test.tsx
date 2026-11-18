@@ -8,13 +8,34 @@ import { API_BASE } from '../../api/client';
 import { as, renderAt } from '../../test/render';
 import { server } from '../../test/server';
 
+describe('라이더 찾기 — 라이더 번호(ADR-0070)', () => {
+  it('목록은 라이더 번호로 보이고, 6자리 번호로 찾는다(긴 시스템 ID 칸 없음)', async () => {
+    const view = renderAt('/riders', as.riderOps);
+    const rows = await screen.findAllByTestId('rider-row');
+    expect(rows[0]!.textContent).toMatch(/482913|730115/);
+    expect(screen.queryByText('RD-7')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('라이더 ID')).not.toBeInTheDocument();
+    await userEvent.type(screen.getByLabelText('라이더 번호(6자리)'), '73-0115x');
+    await userEvent.click(screen.getByRole('button', { name: '찾기' }));
+    expect(await screen.findAllByTestId('rider-row')).toHaveLength(1);
+    expect(screen.getByTestId('rider-row')).toHaveTextContent('730115');
+    expect(view.sent.some((r) => new URL(r.url).searchParams.get('riderNumber') === '730115')).toBe(true);
+  });
+
+  it('상세 제목은 라이더 번호, 시스템 ID 는 접힌 칸에', async () => {
+    renderAt('/riders/RD-7', as.riderOps);
+    expect(await screen.findByRole('heading', { name: /482913/ })).toBeInTheDocument();
+    expect(screen.getByTestId('system-ids')).toHaveTextContent('RD-7');
+  });
+});
+
 describe('라이더 찾기 — 거르기', () => {
   it('계정 제한 칩을 누르면 그 값으로 다시 찾는다', async () => {
     const view = renderAt('/riders', as.riderOps);
     expect(await screen.findAllByTestId('rider-row')).toHaveLength(2);
     await userEvent.click(within(screen.getByRole('radiogroup', { name: '계정 제한' })).getByRole('radio', { name: '일시 중지' }));
     expect(await screen.findAllByTestId('rider-row')).toHaveLength(1);
-    expect(screen.getByTestId('rider-row')).toHaveTextContent('RD-8');
+    expect(screen.getByTestId('rider-row')).toHaveTextContent('730115');
     expect(view.sent.some((r) => new URL(r.url).searchParams.get('restriction') === 'SUSPENDED')).toBe(true);
   });
 
@@ -26,7 +47,7 @@ describe('라이더 찾기 — 거르기', () => {
 
     await userEvent.click(within(screen.getByRole('radiogroup', { name: '수단' })).getByRole('radio', { name: '자전거' }));
     expect(await screen.findAllByTestId('rider-row')).toHaveLength(1);
-    expect(screen.getByTestId('rider-row')).toHaveTextContent('RD-8');
+    expect(screen.getByTestId('rider-row')).toHaveTextContent('730115');
     expect(view.sent.some((r) => new URL(r.url).searchParams.get('vehicleType') === 'BICYCLE')).toBe(true);
 
     await userEvent.click(within(screen.getByRole('radiogroup', { name: '정렬' })).getByRole('radio', { name: '상태 바뀐 최근 순' }));

@@ -2,6 +2,9 @@
 // 공통 문구(opsMessages·messages)는 다른 화면과 함께 쓰므로 여기에는 이 화면만의 말만 둔다.
 export const riderMessages = {
   findByNumber: '번호로 찾기',
+  riderNumber: '라이더 번호(6자리)',
+  noNumber: '번호 없음',
+  systemRiderId: '라이더 시스템 ID',
   bank: {
     title: '정산계좌·동의',
     registered: '정산계좌',
