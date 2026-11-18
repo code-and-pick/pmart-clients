@@ -117,6 +117,8 @@ describe('카테고리 트리', () => {
     const user = userEvent.setup();
     renderAt('/categories');
     await user.click(await screen.findByRole('button', { name: '과일 (p01-c01)' }));
-    expect(await screen.findByText('원산지 · MULTIPLE')).toBeInTheDocument();
+    const group = await screen.findByTestId('filter-group');
+    expect(group).toHaveTextContent('원산지');
+    expect(group).toHaveTextContent('여러 개 선택'); // selectionMode MULTIPLE
   });
 });
