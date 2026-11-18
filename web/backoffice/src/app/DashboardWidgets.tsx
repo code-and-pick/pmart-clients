@@ -422,8 +422,6 @@ export function MetricsPanel({ from, to }: { readonly from: string; readonly to:
     })),
   });
   const planned: MetricCell[] = [
-    { key: 'sales', label: m.metrics.sales, note: m.metrics.salesNote },
-    { key: 'top', label: m.metrics.topProducts, note: m.metrics.topNote },
     { key: 'soldOut', label: m.metrics.soldOut, note: m.metrics.soldOutNote },
   ];
   return (
@@ -572,5 +570,99 @@ export function WorkCountsPanel() {
         </div>
       </Section>
     </div>
+  );
+}
+
+// ───────────────────────── 매출·환불·상품별 판매(D2·D3 — 관리자) ─────────────────────────
+// 백엔드 알림 2026-11-18(AP-3·O-8·CL-3 배포): order `/orders/metrics/summary`(주문 확정일 기준 상태별 건수·결제 승인 합),
+// claim `/claims/metrics/refunds`(환불 완료일 기준 사유 묶음별 합), order `/orders/metrics/top-products`(주문 확정 기준).
+// 사용자 결정: 승인 합과 환불 합은 나란히만 — 서로 빼서 순매출을 만들지 않는다(기준 날짜가 다르다). 금액은 서버 정수 KRW 그대로.
+
+const krw = (n: number) => `${n.toLocaleString('ko-KR')}원`;
+const REFUND_NAME: Readonly<Record<string, string>> = { CANCEL: '취소', SHORTAGE: '결품', RETURN: '반품', RETURN_FEE: '회수비', OTHER: '기타' };
+
+function MoneyCard({ title, amount, sub, testId, failed, children }: { readonly title: string; readonly amount: number | undefined; readonly sub: ReactNode; readonly testId: string; readonly failed: boolean; readonly children?: ReactNode }) {
+  return (
+    <div className="rounded-lg border border-base-300 px-4 py-3" data-testid={testId}>
+      <p className="text-xs text-base-content/60">{title}</p>
+      <p className={`mt-0.5 text-2xl font-extrabold tabular-nums ${failed ? 'text-base-content/40' : ''}`} title={failed ? m.failed : undefined}>
+        {amount === undefined ? (failed ? '?' : '…') : krw(amount)}
+      </p>
+      <p className="text-xs text-base-content/55">{sub}</p>
+      {children}
+    </div>
+  );
+}
+
+export function SalesPanel({ from, to }: { readonly from: string; readonly to: string }) {
+  const api = useApi();
+  const summary = useQuery({ queryKey: ['dashboard', 'sales', 'summary', from, to], refetchInterval: REFRESH_MS, retry: false, queryFn: () => request('GET', api.orders.GET('/orders/metrics/summary', { params: { query: { from, to } } })) });
+  const refunds = useQuery({ queryKey: ['dashboard', 'sales', 'refunds', from, to], refetchInterval: REFRESH_MS, retry: false, queryFn: () => request('GET', api.claims.GET('/claims/metrics/refunds', { params: { query: { from, to } } })) });
+  const top = useQuery({ queryKey: ['dashboard', 'sales', 'top', from, to], refetchInterval: REFRESH_MS, retry: false, queryFn: () => request('GET', api.orders.GET('/orders/metrics/top-products', { params: { query: { from, to, limit: 5 } } })) });
+  // 상품 이름 — 상품 상세와 같은 조회(queryKey 공유)
+  const ids = [...new Set((top.data?.items ?? []).map((i) => i.productId).filter((x): x is string => Boolean(x)))];
+  const names = useQueries({ queries: ids.map((id) => ({ queryKey: ['product', 'detail', id], queryFn: () => request('GET', api.product.GET('/products/{productId}', { params: { path: { productId: id } } })) })) });
+  const nameOf = (id: string | null | undefined) => (id ? names[ids.indexOf(id)]?.data?.internalName : undefined);
+  const maxQty = Math.max(1, ...(top.data?.items ?? []).map((i) => i.qty));
+  return (
+    <Section title={m.sales.title} aside={<span className="text-xs text-base-content/50">{m.sales.hint(from, to)}</span>} testId="dash-sales">
+      <div className="grid gap-4 lg:grid-cols-3">
+        <div className="space-y-3">
+          <MoneyCard title={m.sales.approved} amount={summary.data?.approvedAmount} failed={summary.isError} testId="dash-sales-approved" sub={summary.data ? m.sales.approvedSub(summary.data.approvedOrderCount) : m.sales.approvedBasis} />
+          <MoneyCard title={m.sales.refunded} amount={refunds.data?.totalAmount} failed={refunds.isError} testId="dash-sales-refunded" sub={refunds.data ? m.sales.refundedSub(refunds.data.totalCount) : m.sales.refundedBasis}>
+            {refunds.data && (
+              <ul className="mt-2 flex flex-wrap gap-1.5 text-[11px]">
+                {refunds.data.byReason
+                  .filter((r) => r.count > 0)
+                  .map((r) => (
+                    <li key={r.reason} className="rounded-full bg-base-200 px-2 py-0.5" title={r.reason}>
+                      {`${REFUND_NAME[r.reason] ?? r.reason} ${krw(r.amount)} · ${r.count}건`}
+                    </li>
+                  ))}
+              </ul>
+            )}
+          </MoneyCard>
+          <p className="text-[11px] text-base-content/45">{m.sales.noNet}</p>
+        </div>
+        <div className="lg:col-span-2">
+          <p className="mb-2 flex items-baseline justify-between text-sm font-semibold">
+            {m.sales.top}
+            <span className="text-xs font-normal text-base-content/50">{m.sales.topBasis}</span>
+          </p>
+          {top.isPending ? (
+            <p className="text-sm text-base-content/50">…</p>
+          ) : top.isError ? (
+            <p className="text-sm text-warning">{m.sales.topFailed}</p>
+          ) : top.data.items.length === 0 ? (
+            <p className="py-6 text-center text-sm text-base-content/55">{m.sales.topNone}</p>
+          ) : (
+            <ol className="space-y-2" data-testid="dash-sales-top">
+              {top.data.items.map((it, i) => (
+                <li key={it.sku} className="grid grid-cols-[1.5rem_minmax(0,12rem)_1fr_auto] items-center gap-3 text-sm" data-testid="dash-sales-top-row">
+                  <span className="text-center text-xs font-bold text-base-content/45">{i + 1}</span>
+                  <span className="min-w-0">
+                    {it.productId ? (
+                      <Link to={`/products/${encodeURIComponent(it.productId)}`} className="block truncate font-medium hover:text-primary hover:underline">
+                        {nameOf(it.productId) ?? it.sku}
+                      </Link>
+                    ) : (
+                      <span className="block truncate font-medium">{it.sku}</span>
+                    )}
+                    <span className="block font-mono text-[11px] text-base-content/45">{it.sku}</span>
+                  </span>
+                  <span className="h-2 overflow-hidden rounded-full bg-base-200" aria-hidden="true">
+                    <span className="block h-full rounded-full bg-primary/60" style={{ width: `${Math.max(4, Math.round((it.qty / maxQty) * 100))}%` }} />
+                  </span>
+                  <span className="whitespace-nowrap text-right tabular-nums">
+                    <span className="font-semibold">{m.sales.qty(it.qty)}</span>
+                    <span className="ml-2 text-xs text-base-content/55">{krw(it.amount)}</span>
+                  </span>
+                </li>
+              ))}
+            </ol>
+          )}
+        </div>
+      </div>
+    </Section>
   );
 }

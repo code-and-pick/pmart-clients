@@ -12,6 +12,8 @@ import { commandParams } from '../../api/command';
 import type { components } from '../../api/generated/order';
 import { useApi } from '../../app/ApiContext';
 import { ChipGroup, CodeLabel, DataTable, DetailHeader, NextAction, Notice, PageHeader, ResultBar, SearchPanel, SearchRow, Section, StatusBadge, type Tone } from '../../shared/admin';
+import { SavedViews } from '../../shared/SavedViews';
+import { OrderProgress } from './OrderProgress';
 import { messages as m } from '../../shared/messages';
 import { addSeoulDays, isSeoulDate, label, seoulDayEnd, seoulDayStart, seoulToday, spanDays, text, when, won } from '../../shared/ops';
 import { ClaimsOfOrder } from '../claims/ClaimPages';
@@ -121,6 +123,8 @@ export function OrderLookupPage() {
   return (
     <section className="space-y-5">
       <PageHeader title={m.orders.title} description={m.orders.intro} />
+      {/* 내 보기(2026-11-18 Saleor 참고) — 지금 주소 조건을 이름 붙여 저장 */}
+      <SavedViews listKey="orders" />
       <SearchPanel onSubmit={submit} onReset={reset} submitLabel={m.orders.search} resetLabel={m.orders.reset}>
         <SearchRow label={m.orders.ids}>
           <input className="input input-sm w-48" aria-label={m.orders.orderId} placeholder={m.orders.orderId} maxLength={64} {...field('orderId')} />
@@ -411,6 +415,8 @@ export function OrderDetailPage() {
               summary={`${when(o.confirmedAt)} · ${o.mfcId} · ${won(o.amounts.approvedAmount)}`}
               actions={<OrderCancelAction order={o} open={cancelOpen} onOpen={() => setCancelOpen(true)} />}
             />
+            {/* 주문 진행 단계(2026-11-18 Refine 참고) — 서버 상태를 계약 상태표 순서대로 */}
+            <OrderProgress status={o.status} />
             {cancelOpen && o.status === 'CONFIRMED' && <OrderCancelForm order={o} onClose={() => setCancelOpen(false)} />}
             {/* 다음 할 일 — 서버 값만으로: 확인 필요(OPEN) 이행 기록이 있으면 그 기록으로, 결제 결과 불명이면 안내만 */}
             {openIssues > 0 ? (

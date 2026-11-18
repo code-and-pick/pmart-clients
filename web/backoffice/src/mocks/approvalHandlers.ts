@@ -11,7 +11,38 @@ const approverRole: Partial<Record<ApprovalType, string>> = {
   PRODUCT: 'PRODUCT_APPROVER',
   DISPLAY: 'DISPLAY_APPROVER',
   PRICE: 'PRICE_APPROVER',
+  // 직원 권한 요청 수동 심사 = 운영 관리자(pmart-backend approval-service approver-roles.GRANT, 2026-11-13)
+  GRANT: 'OPERATOR_ADMIN',
 };
+
+/** GRANT 행이 권한을 줄 직원 ID(attributes.employee.operatorId) */
+function grantEmployee(a: { lines?: ReadonlyArray<{ attributes?: Record<string, unknown> }> }): string[] {
+  return (a.lines ?? []).flatMap((l) => {
+    const emp = l.attributes?.['employee'];
+    const id = typeof emp === 'object' && emp !== null ? (emp as Record<string, unknown>)['operatorId'] : null;
+    return typeof id === 'string' ? [id] : [];
+  });
+}
+
+/**
+ * AP-3(approval 0.4.0): 보는 사람이 지금 결정할 수 있나 — 결정 API 와 같은 검사를 같은 순서로(심사 중 → 자기 요청 → 역할 설정 → 역할 → 자기 권한 요청).
+ */
+function viewerDecide(a: { type?: ApprovalType; reviewState?: string; requesterId?: string; lines?: ReadonlyArray<{ attributes?: Record<string, unknown> }> }, who: { subject: string; roles: readonly string[] } | null) {
+  if (!who) return {};
+  const reason =
+    a.reviewState !== 'REVIEW_PENDING'
+      ? 'NOT_PENDING'
+      : a.requesterId === who.subject
+        ? 'SELF_APPROVAL'
+        : !a.type || !approverRole[a.type]
+          ? 'CONFIG_REQUIRED'
+          : !who.roles.includes(approverRole[a.type]!)
+            ? 'NO_ROLE'
+            : a.type === 'GRANT' && grantEmployee(a).includes(who.subject)
+              ? 'GRANT_TO_SELF'
+              : null;
+  return reason ? { viewerCanDecide: false, viewerDecideBlockedReason: reason } : { viewerCanDecide: true, viewerDecideBlockedReason: null };
+}
 
 export const approvalHandlers = [
   http.post(`${API_BASE}/change-requests`, async ({ request }) => {
@@ -92,9 +123,13 @@ export const approvalHandlers = [
   }),
 
   http.get(`${API_BASE}/approvals`, ({ request }) => {
-    if (!operator(request)) return unauthorized();
+    const who = operator(request);
+    if (!who) return unauthorized();
     const q = new URL(request.url).searchParams;
     const items = [...db.approvals.values()]
+      .map((a) => ({ ...a, ...viewerDecide(a, who) }))
+      // AP-3: decidableByMe=true 면 지금 결정할 수 있는 것만
+      .filter((a) => q.get('decidableByMe') !== 'true' || a.viewerCanDecide === true)
       .filter((a) => !q.get('type') || a.type === q.get('type'))
       .filter((a) => !q.get('reviewState') || a.reviewState === q.get('reviewState'))
       // BR-41 회신: 대상 참조 정확히 일치(예 productImportBatch:{batchId})
@@ -107,11 +142,11 @@ export const approvalHandlers = [
     return HttpResponse.json({ items: page, page: { nextCursor: start + size < items.length ? String(start + size) : null, size } });
   }),
 
-  http.get(`${API_BASE}/approvals/:id`, ({ params }) => {
+  http.get(`${API_BASE}/approvals/:id`, ({ request, params }) => {
     const id = String(params['id']);
     const before = db.approvals.get(id);
     if (!before) return problem(404, 'NOT_FOUND');
-    const shown = before;
+    const shown = { ...before, ...viewerDecide(before, operator(request)) };
     settle(id); // 이번 응답은 반영 전 상태, 다음 조회부터 반영 완료
     return HttpResponse.json(shown);
   }),
@@ -125,7 +160,7 @@ export const approvalHandlers = [
       const a = db.approvals.get(id);
       if (!a) return problem(404, 'NOT_FOUND');
       const role = a.type ? approverRole[a.type] : undefined;
-      if (!role || !who.roles.includes(role) || a.requesterId === who.subject) return problem(403, 'FORBIDDEN');
+      if (!role || !who.roles.includes(role) || a.requesterId === who.subject || (a.type === 'GRANT' && grantEmployee(a).includes(who.subject))) return problem(403, 'FORBIDDEN');
       if (body.decision !== 'APPROVE' && body.decision !== 'REJECT') return problem(422, 'UNSUPPORTED_ACTION');
       if (a.reviewState !== 'REVIEW_PENDING' && a.reviewState !== 'EVIDENCE_REQUIRED') return problem(409, 'INVALID_STATE');
       const v = expectedVersion(request);

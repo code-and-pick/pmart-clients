@@ -9,6 +9,7 @@ import { APPROVAL_TYPES, REVIEW_STATES, type ApprovalType, type ReviewState } fr
 import { request } from '@pmart/web-core';
 import { useApi } from '../../app/ApiContext';
 import { formatSeoul } from '@pmart/web-ui';
+import { SavedViews } from '../../shared/SavedViews';
 import { messages as m } from '../../shared/messages';
 import { QueryState } from '@pmart/web-ui';
 import { toUiState } from '@pmart/web-ui';
@@ -55,6 +56,8 @@ export function ApprovalListPage() {
   return (
     <section className="space-y-4">
       <PageHeader title={m.approvals.title} description={m.approvals.intro} />
+      {/* 내 보기(2026-11-18 Saleor 참고) — 지금 주소 조건을 이름 붙여 저장 */}
+      <SavedViews listKey="approvals" />
       <div className="overflow-hidden rounded-box border border-base-300 bg-base-100 shadow-sm" data-testid="approval-list-card">
         {/* 심사 상태 탭(밑줄) — URL 의 reviewState 그대로 */}
         <div role="tablist" aria-label={m.approvals.review} className="flex gap-1 overflow-x-auto overflow-y-hidden border-b border-base-300 px-3">

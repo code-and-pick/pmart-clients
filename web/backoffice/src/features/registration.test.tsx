@@ -49,10 +49,21 @@ describe('상품 등록 → 승인 요청 → 승인 → 반영', () => {
     expect(draft?.resultSkus?.[0]).toMatch(/^E-\d{8}$/);
   });
 
-  it('자기 요청 승인은 서버 FORBIDDEN 을 그대로 보여 준다', async () => {
+  it('자기 요청 — 서버가 결정 못 함(SELF_APPROVAL)이라 하면 버튼을 끄고 안내(AP-3, 2026-11-18)', async () => {
+    const seeded = db.approvals.get('apv-seed-price-1');
+    db.approvals.set('apv-seed-price-1', { ...seeded, requesterId: 'op-approver-1' });
+    renderAt('/approvals/apv-seed-price-1', as.approver);
+
+    expect(await screen.findByText('자기 요청은 승인할 수 없어요')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '승인' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '반려' })).toBeDisabled();
+  });
+
+  it('옛 서버(판정 값 없음)면 자기 요청도 누를 수 있고, 서버 FORBIDDEN 을 그대로 보여 준다', async () => {
     const user = userEvent.setup();
     const seeded = db.approvals.get('apv-seed-price-1');
     db.approvals.set('apv-seed-price-1', { ...seeded, requesterId: 'op-approver-1' });
+    server.use(http.get(`${API_BASE}/approvals/:id`, () => HttpResponse.json(db.approvals.get('apv-seed-price-1')))); // viewerCanDecide 없음
     renderAt('/approvals/apv-seed-price-1', as.approver);
 
     expect(await screen.findByText('자기 요청은 승인할 수 없어요')).toBeInTheDocument();

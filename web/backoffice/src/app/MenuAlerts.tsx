@@ -69,7 +69,7 @@ function alertQuery(api: Api, key: AlertKey) {
           return { n, more: Boolean(r.page?.nextCursor) || n > size };
         }
         case 'approvals': {
-          const r = await request('GET', api.approval.GET('/approvals', { params: { query: { reviewState: 'REVIEW_PENDING', size } } }));
+          const r = await request('GET', api.approval.GET('/approvals', { params: { query: { reviewState: 'REVIEW_PENDING', decidableByMe: true, size } } }) /* AP-3: 내가 지금 심사할 수 있는 것만 */);
           const n = (r.items ?? []).length;
           return { n, more: Boolean(r.page?.nextCursor) || n > size };
         }

@@ -897,6 +897,15 @@ export const messages = {
     issueReasonName: { QUALITY_HOLD: '품질 격리', COUNT_LOSS: '실사 손실', SHORT: '피킹 결품', DAMAGED: '피킹 파손' } as Readonly<Record<string, string>>,
     /** 상세 제목 — 첫 상품 이름 + 외 N건(번호는 옆에 작게) */
     titleOf: (first: string, more: number) => (more > 0 ? `${first} 외 ${more}건` : first),
+    // 주문 진행 단계(2026-11-18, Refine 참고) — 계약 상태표 순서
+    progress: {
+      title: '주문 진행 단계',
+      steps: ['결제', '주문 확정', '상품 준비', '배송 중', '전달 완료'] as const,
+      note: { resource: '재고·시간대 확보 중', paying: '결제 진행 중', paymentUnknown: '결제 결과 확인 중', partialHandover: '일부만 인계', partialDelivered: '일부만 전달' },
+      cancelled: '취소됨',
+      expired: '만료됨',
+      unknown: (s: string) => `단계에 없는 상태예요: ${s}`,
+    },
     nextStep: {
       issueTitle: '이행 확인이 필요한 상품이 있어요',
       issueBody: (n: number) => `확인 필요 ${n}건 — 센터 보류분이에요.`,
@@ -1454,6 +1463,9 @@ export const messages = {
       ownBody: '내가 올린 요청은 내가 승인·반려할 수 없어요.',
       grantSelfTitle: '다른 관리자가 처리해요',
       grantSelfBody: '내 권한을 주는 요청은 승인·반려할 수 없어요.',
+      otherRoleTitle: '다른 승인자가 심사해요',
+      otherRoleBody: '이 종류를 심사할 승인 역할이 내 계정에 없어요(서버 판정). 보기만 할 수 있어요.',
+      configBody: '이 종류의 승인 역할이 아직 정해지지 않았어요(서버 설정 필요). 지금은 누구도 결정할 수 없어요.',
       noneTitle: '할 일 없음',
       noneBody: '심사가 끝났어요. 반영 결과는 해당 등록 화면에서 확인해요.',
     },
@@ -2040,6 +2052,18 @@ export const messages = {
 
   /** 접수 건 알림 배지(메뉴) — 1분마다 개수, 소리·브라우저 알림 없음 */
   /** 첫 화면 대시보드(2026-11-18) */
+  /** 목록 "내 보기"(2026-11-18 Saleor 참고) — 이 브라우저에만 저장 */
+  savedViews: {
+    title: '내 보기',
+    empty: '저장한 보기가 없어요',
+    add: '+ 지금 조건 저장',
+    noFilter: '조건을 먼저 고르세요',
+    nameLabel: '보기 이름',
+    namePlaceholder: '예: 기한 넘김 우리 센터',
+    save: '저장',
+    cancel: '취소',
+    remove: (n: string) => `${n} 보기 지우기`,
+  },
   dashboard: {
     title: '대시보드',
     hello: (hour: number) => (hour < 12 ? '좋은 아침이에요' : hour < 18 ? '오늘도 수고 많아요' : '오늘 하루 고생 많았어요'),
@@ -2064,6 +2088,22 @@ export const messages = {
     paymentUnknownCount: (n: number) => `결제 결과 불명 ${n}건`,
     noPaymentUnknown: '결제 결과 불명 없음',
     glance: '한눈에',
+    sales: {
+      title: '매출·환불·상품별 판매',
+      hint: (from: string, to: string) => `${from} ~ ${to}`,
+      approved: '결제 승인 금액',
+      approvedSub: (n: number) => `주문 확정일 기준 · ${n.toLocaleString('ko-KR')}건`,
+      approvedBasis: '주문 확정일 기준',
+      refunded: '완료 환불',
+      refundedSub: (n: number) => `환불 완료일 기준 · ${n.toLocaleString('ko-KR')}건`,
+      refundedBasis: '환불 완료일 기준',
+      noNet: '두 금액은 기준 날짜가 달라 서로 빼지 않아요(순매출 아님).',
+      top: '상품별 판매 상위 5',
+      topBasis: '주문 확정 기준(출고 전 취소만 뺌, 반품은 빼지 않음)',
+      topFailed: '상품별 판매를 불러오지 못했어요 — 없는 것이 아니에요.',
+      topNone: '이 기간 확정된 주문이 없어요.',
+      qty: (n: number) => `${n.toLocaleString('ko-KR')}개`,
+    },
     work: {
       title: '지금 일 전체',
       exact: '서버가 센 지금 건수',
