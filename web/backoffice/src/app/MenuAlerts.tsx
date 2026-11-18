@@ -153,16 +153,19 @@ function GroupSum({ keys }: { readonly keys: readonly AlertKey[] }) {
   const api = useApi();
   const qs = useQueries({ queries: keys.map((k) => alertQuery(api, k)) });
   const results = keys.map((k, i) => ({ k, q: qs[i]! }));
+  // PC 1 검토(#119): 실패한 메뉴를 0 으로 더하지 않는다 — 하나라도 못 읽었으면 "N+?"(모르는 부분이 있음), 읽는 중이면 합계를 숨긴다.
   const failed = results.some((r) => r.q.isError && !r.q.data);
+  const loading = results.some((r) => !r.q.data && !r.q.isError);
+  if (loading) return null;
   // 합계는 "할 일" 수 — 접수 건은 안 맡음만 더한다(기한 지남은 안 맡음과 겹칠 수 있어 색으로만)
   const todo = results.filter((r) => r.k !== 'casesOverdue');
   const sum = todo.reduce((n, r) => n + (r.q.data?.n ?? 0), 0);
   const more = todo.some((r) => r.q.data?.more);
   const urgent = results.some((r) => URGENT.has(r.k) && (r.q.data?.n ?? 0) > 0);
-  if (failed && sum === 0)
+  if (failed)
     return (
-      <span className="badge badge-ghost badge-xs" title={m.failed} data-testid="menu-alert-group">
-        ?
+      <span className={`badge badge-xs ${urgent ? 'badge-error' : 'badge-ghost'}`} title={m.failed} data-testid="menu-alert-group">
+        {sum > 0 || more ? `${sum}${more ? '+' : ''}+?` : '?'}
       </span>
     );
   if (sum === 0 && !urgent) return null;

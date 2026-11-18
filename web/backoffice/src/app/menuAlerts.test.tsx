@@ -86,6 +86,33 @@ describe('왼쪽 메뉴 업무 알림', () => {
   });
 });
 
+describe('묶음 합계 — 일부 실패·읽는 중(PC 1 검토 #119)', () => {
+  it('묶음 안 한 메뉴가 실패하고 다른 메뉴에 숫자가 있으면 "4+?" — 실패를 0 으로 더하지 않는다', async () => {
+    busy();
+    server.use(
+      http.get(`${API_BASE}/inquiries`, ({ request }) =>
+        new URL(request.url).searchParams.get('requesterType') === 'RIDER' ? fail() : HttpResponse.json(page(2)),
+      ),
+    );
+    renderAt('/session', as.admin);
+    // 지원센터 = 접수 건 안 맡음 4 + 라이더 문의(실패)
+    const badge = await within(screen.getByTestId('nav-group-support')).findByText('4+?');
+    expect(badge).toHaveAttribute('title', '개수를 읽지 못했어요(0 이 아니에요)');
+    expect(within(screen.getByTestId('nav-group-support').querySelector('summary')!).getByTestId('menu-alert-group').textContent).toBe('4+?'); // "4" 만 보이지 않는다
+  });
+
+  it('아직 읽는 중인 메뉴가 있으면 합계를 숨긴다(일부만 더한 작은 숫자를 보이지 않는다)', async () => {
+    busy();
+    server.use(http.get(`${API_BASE}/inquiries`, () => new Promise(() => {})) /* 끝나지 않는 조회 */);
+    renderAt('/session', as.admin);
+    // 승인 묶음(문의와 상관없음)은 보이고
+    expect(await within(screen.getByTestId('nav-group-approval')).findByTestId('menu-alert-group')).toHaveTextContent('3');
+    // 문의가 끝나지 않은 고객센터·지원센터는 합계 없음
+    expect(within(screen.getByTestId('nav-group-cs')).queryByTestId('menu-alert-group')).not.toBeInTheDocument();
+    expect(within(screen.getByTestId('nav-group-support')).queryByTestId('menu-alert-group')).not.toBeInTheDocument();
+  });
+});
+
 describe('앱 바꾸기 — 이 앱 메뉴 칸(알림과 함께)', () => {
   it('앱 4개 아래 역할로 보이는 묶음 칸, 칸마다 그 묶음 할 일 개수, 지금 묶음은 강조, 누르면 같은 앱 안 이동', async () => {
     busy();
