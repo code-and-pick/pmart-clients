@@ -242,7 +242,8 @@ describe('지원센터 사건', () => {
     const list = await rows();
     const order = within(list[0]!).getAllByTestId('case-linked').find((l) => l.getAttribute('data-kind') === 'ORDER')!;
     expect(order).toHaveTextContent('확인 불가');
-    expect(screen.getByLabelText('원천')).toHaveTextContent(/order-service/);
+    expect(screen.getByLabelText('원천')).toHaveTextContent(/못 읽음: 주문/); // 업무 이름(2026-11-18)
+    expect(screen.getByTitle(/조회하지 못한 원천: order-service/)).toBeInTheDocument(); // 원래 이름은 마우스를 올리면
   });
 
   it('case-service 를 못 읽었으면(unavailableSources) 빈 목록이 아니라 조회 실패', async () => {

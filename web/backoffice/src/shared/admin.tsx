@@ -63,7 +63,12 @@ export function PageHeader({ title, description, actions, back }: { readonly tit
           )}
           <div className="min-w-0 space-y-1">
             <h1 className="text-xl font-bold tracking-tight">{title}</h1>
-            {description && <p className="text-sm text-base-content/60">{description}</p>}
+            {/* 설명은 한 줄만 — 누르면 다 보인다(2026-11-18 사용자 "설명이 많아 값이 묻힌다") */}
+            {description && (
+              <details className="group max-w-3xl text-sm text-base-content/60">
+                <summary className="line-clamp-1 cursor-pointer list-none group-open:line-clamp-none hover:text-base-content/80">{description}</summary>
+              </details>
+            )}
           </div>
         </div>
         {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
@@ -256,6 +261,36 @@ export function StatCard({ label, value, hint, to, tone, testId }: { readonly la
       {body}
     </div>
   );
+}
+
+/**
+ * 다음 할 일 — 상세 화면 맨 위에 하나만(2026-11-18 사용자 "지금 뭘 해야 하는지 안 보인다").
+ * 무엇을 보일지는 화면이 서버 상태로만 고른다(클라이언트가 판정을 새로 만들지 않는다). 할 일이 없으면 그리지 않는다.
+ */
+export function NextAction({ tone = 'info', title, body, children, testId = 'next-action' }: { readonly tone?: 'info' | 'warning' | 'error' | 'success'; readonly title: ReactNode; readonly body?: ReactNode; readonly children?: ReactNode; readonly testId?: string }) {
+  const bar = { info: 'border-l-info', warning: 'border-l-warning', error: 'border-l-error', success: 'border-l-success' }[tone];
+  const dot = { info: 'bg-info/15 text-info', warning: 'bg-warning/15 text-warning', error: 'bg-error/15 text-error', success: 'bg-success/15 text-success' }[tone];
+  return (
+    <section aria-label="다음 할 일" className={`flex flex-wrap items-center gap-4 rounded-box border border-l-4 border-base-300 ${bar} bg-base-100 px-5 py-4 shadow-sm`} data-testid={testId}>
+      <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${dot}`} aria-hidden="true">
+        <svg viewBox="0 0 24 24" className="h-5 w-5 fill-none stroke-current" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+          <path d="M5 12h14m-5-5 5 5-5 5" />
+        </svg>
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="text-xs font-medium text-base-content/50">다음 할 일</p>
+        <p className="font-semibold">{title}</p>
+        {body && <p className="text-sm text-base-content/65">{body}</p>}
+      </div>
+      {children && <div className="flex flex-wrap items-center gap-2">{children}</div>}
+    </section>
+  );
+}
+
+/** 코드 값 — 한국어 이름을 보이고 원래 코드는 마우스를 올리면(이름이 없으면 코드 그대로) */
+export function CodeLabel({ code, names }: { readonly code: string; readonly names: Readonly<Record<string, string>> }) {
+  const name = names[code];
+  return name ? <span title={code}>{name}</span> : <span className="font-mono text-xs">{code}</span>;
 }
 
 /** 안내 상자(회색) — 화면 맨 위 설명·서버 대기 안내 */

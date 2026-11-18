@@ -55,7 +55,7 @@ describe('통합 조회', () => {
     expect(within(claim).getByRole('alert')).toHaveTextContent('조회 실패 또는 볼 권한 없음');
     expect(within(claim).queryByText('없음')).not.toBeInTheDocument();
     // 원천 표시 줄에도 실패 원천이 따로 보인다
-    expect(within(screen.getByRole('region', { name: '원천' })).getByText(/조회하지 못한 원천: claim-service/)).toBeInTheDocument();
+    expect(within(screen.getByRole('region', { name: '원천' })).getByText(/못 읽음: 클레임/)).toHaveAttribute('title', expect.stringMatching(/조회하지 못한 원천: claim-service/));
     // MFC 현장(bff 0.9.0) 실패도 칸에 조회 실패
     expect(within(section('현장(MFC)')).getByRole('alert')).toHaveTextContent('조회 실패 또는 볼 권한 없음');
   });
