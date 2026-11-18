@@ -72,11 +72,11 @@ describe('지원센터 사건', () => {
   it('사가·결제 이상(case 0.5.0): 관리자에게만 종류·사건이 보이고, 상세는 처리 대기로 안내', async () => {
     const view = renderAt('/cases', as.admin);
     const list = await rows();
-    const order = list.find((r) => r.textContent?.includes('대사 필요'))!;
+    const order = list.find((r) => r.textContent?.includes('맞춰 보기 필요'))!;
     expect(order).toBeTruthy();
     expect(within(order).getByRole('link', { name: '주문 74939259' })).toHaveAttribute('href', '/orders/ORD-MOCK-1004');
     expect(within(order).getByText('주문 처리 SAGA-MOCK-1')).toBeInTheDocument();
-    expect(screen.getByText(/대사 필요·결제 결과 불명은 본사 관리자만 봐요/)).toBeInTheDocument();
+    expect(screen.getByText(/맞춰 보기 필요·결제 결과 불명은 본사 관리자만 봐요/)).toBeInTheDocument();
     await userEvent.selectOptions(screen.getByLabelText('종류'), 'PAYMENT_UNKNOWN');
     await waitFor(() => expect(view.sent.some((r) => new URL(r.url).searchParams.get('kind') === 'PAYMENT_UNKNOWN')).toBe(true));
     view.unmount();
@@ -242,7 +242,7 @@ describe('지원센터 사건', () => {
     const list = await rows();
     const order = within(list[0]!).getAllByTestId('case-linked').find((l) => l.getAttribute('data-kind') === 'ORDER')!;
     expect(order).toHaveTextContent('확인 불가');
-    expect(screen.getByLabelText('원천')).toHaveTextContent(/못 읽음: 주문/); // 업무 이름(2026-11-18)
+    expect(screen.getByLabelText('가져온 곳')).toHaveTextContent(/못 불러온 정보: 주문/); // 업무 이름(2026-11-18)
     expect(screen.getByTitle(/조회하지 못한 원천: order-service/)).toBeInTheDocument(); // 원래 이름은 마우스를 올리면
   });
 
@@ -279,7 +279,7 @@ describe('지원센터 사건', () => {
       ),
     );
     renderAt('/cases', as.riderOps);
-    expect(await screen.findByTestId('case-linked')).toHaveTextContent('배송 원천에 없음');
+    expect(await screen.findByTestId('case-linked')).toHaveTextContent('배송 정보를 찾지 못함');
   });
 });
 
@@ -331,7 +331,7 @@ describe('접수 건 목록 — 화면 번호(bff 0.14.0, ADR-0070)', () => {
     expect(within(row).getByRole('link', { name: '배송 12345678 번호 없음' })).toHaveAttribute('href', '/deliveries/DLV-OLD-12345678');
     expect(within(row).getByRole('link', { name: '라이더 ABCDEFGH 번호 확인 불가' })).toHaveAttribute('href', '/riders/RID-ABCDEFGH');
     expect(row).not.toHaveTextContent('DLV-OLD-12345678');
-    expect(screen.getByText(/못 읽음: .*라이더/)).toHaveAttribute('title', expect.stringMatching(/조회하지 못한 원천: .*rider-service/)); // 원천 표시 한 줄(2026-11-18) — 업무 이름, 원래 이름은 마우스
+    expect(screen.getByText(/못 불러온 정보: .*라이더/)).toHaveAttribute('title', expect.stringMatching(/조회하지 못한 원천: .*rider-service/)); // 원천 표시 한 줄(2026-11-18) — 업무 이름, 원래 이름은 마우스
   });
 });
 

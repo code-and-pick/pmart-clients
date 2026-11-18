@@ -89,6 +89,6 @@ describe('포장 인계 현황 — 화면 번호(bff 0.14.0, ADR-0070)', () => {
     expect(within(row).getByTestId('packing-delivery')).toHaveTextContent('25111704-1');
     await userEvent.click(within(row).getByRole('button', { name: '포장 3개 보기' }));
     expect(within(row).getByTestId('packing-packages')).toHaveTextContent('라이더 D-MOCK-2 번호 확인 불가');
-    expect(screen.getByText(/못 읽음: .*라이더/)).toHaveAttribute('title', expect.stringMatching(/조회하지 못한 원천: .*rider-service/)); // 원천 표시 한 줄(2026-11-18) — 업무 이름, 원래 이름은 마우스
+    expect(screen.getByText(/못 불러온 정보: .*라이더/)).toHaveAttribute('title', expect.stringMatching(/조회하지 못한 원천: .*rider-service/)); // 원천 표시 한 줄(2026-11-18) — 업무 이름, 원래 이름은 마우스
   });
 });

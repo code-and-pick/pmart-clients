@@ -113,7 +113,7 @@ describe('대시보드 지표(백엔드 회신 2026-11-18)', () => {
   it('처리 기한 지킴 503 은 0건이 아니라 원천에 닿지 않음', async () => {
     server.use(http.get(`${BFF_BASE}/views/metrics`, () => HttpResponse.json({ type: 'about:blank', title: 'x', status: 503, code: 'DEPENDENCY_UNAVAILABLE' }, { status: 503, headers: { 'content-type': 'application/problem+json' } })));
     renderAt('/?tab=ops', as.admin);
-    expect(await screen.findByTestId('dash-sla-failed', {}, { timeout: 8000 })).toHaveTextContent('접수 건 원천에 닿지 않았어요');
+    expect(await screen.findByTestId('dash-sla-failed', {}, { timeout: 8000 })).toHaveTextContent('접수 건 정보를 가져오지 못했어요');
   }, 15000);
 });
 

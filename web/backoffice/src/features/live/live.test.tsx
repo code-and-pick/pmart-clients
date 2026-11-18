@@ -81,7 +81,7 @@ describe('실시간 배송 현황', () => {
     const rows = await screen.findAllByTestId('live-row');
     expect(within(rows[0]!).getByTestId('dispatch-state')).toHaveTextContent('모름(조회 실패)');
     expect(within(rows[0]!).getByTestId('open-cases')).toHaveTextContent('조회 실패');
-    expect(within(screen.getByRole('region', { name: '원천' })).getByText(/못 읽음: .*배차/)).toHaveAttribute('title', expect.stringMatching(/조회하지 못한 원천: .*delivery-dispatch-service/));
+    expect(within(screen.getByRole('region', { name: '가져온 곳' })).getByText(/못 불러온 정보: .*배차/)).toHaveAttribute('title', expect.stringMatching(/조회하지 못한 원천: .*delivery-dispatch-service/));
   });
 
   it('열린 접수 건을 1,000건까지만 읽었으면(casesTruncated, bff 0.9.2) null 칸은 "조회 실패"가 아니라 "확인 불가" + 안내', async () => {
@@ -171,7 +171,7 @@ describe('실시간 배송 현황 — 화면 번호(bff 0.14.0, ADR-0070)', () =
     const rider = within(row).getByTestId('live-rider');
     expect(rider).toHaveTextContent('RD-1 번호 확인 불가');
     expect(rider).not.toHaveTextContent('번호 없음');
-    expect(within(screen.getByRole('region', { name: '원천' })).getByText(/못 읽음: .*라이더/, { selector: '.badge-error' })).toHaveAttribute('title', expect.stringMatching(/rider-service/));
+    expect(within(screen.getByRole('region', { name: '가져온 곳' })).getByText(/못 불러온 정보: .*라이더/, { selector: '.badge-error' })).toHaveAttribute('title', expect.stringMatching(/rider-service/));
     expect(within(row).getByTestId('live-order')).toHaveTextContent('74939251');
   });
 });

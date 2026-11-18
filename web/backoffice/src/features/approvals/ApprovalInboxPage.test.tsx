@@ -16,8 +16,8 @@ describe('승인함 (목 모드, MSW)', () => {
 
     // 건 ID 는 승인 상세(승인·반려 버튼이 있는 화면)로 가는 링크다.
     expect(await screen.findByRole('link', { name: 'dos-mock-1' })).toHaveAttribute('href', '/approvals/dos-mock-1');
-    expect(screen.getByText(/approval-service · 정본 · 최신/)).toBeInTheDocument();
-    expect(screen.getByText(/order-service · 사본 · 지연/)).toBeInTheDocument();
+    expect(screen.getByText(/approval-service · 원래 정보 · 최신/)).toBeInTheDocument();
+    expect(screen.getByText(/order-service · 옮겨 온 정보 · 지연/)).toBeInTheDocument();
     expect(screen.getByText('목 데이터')).toBeInTheDocument();
   });
 

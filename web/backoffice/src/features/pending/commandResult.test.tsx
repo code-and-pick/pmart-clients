@@ -25,7 +25,7 @@ async function retryStop() {
   await userEvent.click(within(row).getByRole('button', { name: '다시 시도' }));
   await userEvent.type(within(row).getByLabelText('다시 시도 사유(필수)'), 'PDA 재부팅 확인');
   await userEvent.click(within(row).getByRole('button', { name: '보내기' }));
-  expect(await within(row).findByText(/"결과 확인"으로 원천을 다시 읽어/)).toBeInTheDocument();
+  expect(await within(row).findByText(/"결과 확인"으로 가져온 곳을 다시 읽어/)).toBeInTheDocument();
   return row;
 }
 
@@ -106,9 +106,9 @@ describe('처리 대기 — 결과 확인', () => {
     renderAt('/pending', as.admin);
     const row = await retryStop();
     for (const [outcome, text] of [
-      ['unknown', '원천이 답하지 않아 아직 몰라요'],
+      ['unknown', '가져온 곳이 답하지 않아 아직 몰라요'],
       ['accepted', '아직 처리 중이에요'],
-      ['unavailable', '원천에 연결하지 못해 아직 몰라요'],
+      ['unavailable', '가져온 곳에 연결하지 못해 아직 몰라요'],
     ] as const) {
       await userEvent.click(within(row).getByRole('button', { name: '결과 확인' }));
       await waitFor(() => expect(within(row).getByTestId('result-check-outcome')).toHaveAttribute('data-outcome', outcome));
@@ -133,7 +133,7 @@ describe('처리 대기 — 결과 확인', () => {
     await userEvent.click(await within(row).findByRole('button', { name: '결과 확인' }));
     const out = await within(row).findByTestId('result-check-outcome');
     expect(out).toHaveAttribute('data-outcome', 'notReached');
-    expect(out).toHaveTextContent('명령이 원천에 닿지 않았어요');
+    expect(out).toHaveTextContent('요청이 가져온 곳에 닿지 않았어요');
     const [post] = view.mutations('/saga-requery');
     const get = view.sent.find((r) => r.method === 'GET' && /\/commands\/order-orchestration-service\/saga-requery\/[^/]+$/.test(new URL(r.url).pathname))!;
     expect(new URL(get.url).pathname.endsWith(`/${post!.headers.get('Idempotency-Key')}`)).toBe(true);
