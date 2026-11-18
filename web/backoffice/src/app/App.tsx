@@ -48,7 +48,7 @@ import { messages as m } from '../shared/messages';
 import { useApi } from './ApiContext';
 import { covers, homePath, visibleGroups, type NavGroup } from './nav';
 import { RequireSession, SessionProvider, useSession } from './SessionContext';
-import { CaseNavBadges } from '../features/cases/CaseBadges';
+import { MenuGroupAlert, MenuItemAlerts } from './MenuAlerts';
 
 /** 업무 도우미: 목 모드는 draftMock(계약 모양), 실서버 모드(local·lan)는 게이트웨이의 ai-assistant-service(2026-11-09 LAN 배포). */
 const defaultAssistantPort = (api: Api): AssistantPort =>
@@ -65,7 +65,13 @@ function NavGroupMenu({ group, pathname }: { readonly group: NavGroup; readonly 
   const open = manual ?? active;
   return (
     <details open={open} onToggle={(e) => setManual(e.currentTarget.open)} data-testid={`nav-group-${group.id}`} className="mb-2">
-      <summary className="cursor-pointer list-none px-5 py-1 text-xs font-semibold text-neutral-content/45 hover:text-neutral-content/70">{group.label}</summary>
+      <summary className="flex cursor-pointer list-none items-center gap-2 px-5 py-1 text-xs font-semibold text-neutral-content/45 hover:text-neutral-content/70">
+        <span>{group.label}</span>
+        {/* 업무 알림 합계 — 접혀 있을 때만(2026-11-18 사용자 "메뉴에 업무 알람") */}
+        <span className="ml-auto" aria-hidden="true">
+          <MenuGroupAlert items={group.items} open={open} />
+        </span>
+      </summary>
       <ul>
         {group.items.map((item) => (
           <li key={item.to}>
@@ -77,8 +83,8 @@ function NavGroupMenu({ group, pathname }: { readonly group: NavGroup; readonly 
               }
             >
               {item.label}
-              {/* 접수 건 알림 배지(1분마다 개수 — 지원센터·관리자) */}
-              {item.to === '/cases' && <CaseNavBadges />}
+              {/* 업무 알림(1분마다 개수 — 접수 건·승인함·문의 답변·라이더 문의·처리 대기) */}
+              <MenuItemAlerts to={item.to} />
             </NavLink>
           </li>
         ))}

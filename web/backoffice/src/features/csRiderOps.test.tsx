@@ -8,7 +8,8 @@ import { API_BASE } from '../api/client';
 import { as, renderAt } from '../test/render';
 import { server } from '../test/server';
 
-const groupLabels = () => [...document.querySelectorAll('[data-testid^="nav-group-"] > summary')].map((s) => s.textContent);
+// 묶음 이름만(옆 업무 알림 숫자 빼고)
+const groupLabels = () => [...document.querySelectorAll('[data-testid^="nav-group-"] > summary > span:first-child')].map((s) => s.textContent);
 
 describe('메뉴 묶음 — 역할로 보이고(합집합) 접고 편다', () => {
   it('역할마다 보이는 묶음', async () => {
@@ -44,7 +45,7 @@ describe('메뉴 묶음 — 역할로 보이고(합집합) 접고 편다', () =>
   });
 
   it('같은 화면은 메뉴에 한 번만 — 함께 쓰는 조회는 조회·현황 묶음에', async () => {
-    const links = (g: string) => within(screen.getByTestId(`nav-group-${g}`)).getAllByRole('link', { hidden: true }).map((a) => a.textContent);
+    const links = (g: string) => within(screen.getByTestId(`nav-group-${g}`)).getAllByRole('link', { hidden: true }).map((a) => a.childNodes[0]?.textContent); // 메뉴 이름만(업무 알림 숫자 빼고)
     renderAt('/session', as.admin);
     await screen.findByTestId('nav-group-lookup');
     expect(links('lookup')).toEqual(['주문 조회', '통합 조회', '실시간 배송 현황', '포장 인계 현황', '배송·배차 확인', '라이더 컴플레인']);

@@ -25,37 +25,37 @@ describe('접수 건 알림 배지', () => {
   it('지원센터: 메뉴 "접수 건" 옆에 안 맡음·기한 지남 개수, 다음 쪽이 있으면 "50+"', async () => {
     server.use(counts({ unassigned: 3, overdue: 50, moreOverdue: true }));
     renderAt('/session', as.riderOps);
-    expect(await screen.findByTestId('case-badge-unassigned')).toHaveTextContent('3');
-    expect(screen.getByTestId('case-badge-overdue')).toHaveTextContent('50+');
-    expect(screen.getByTestId('case-badge-unassigned')).toHaveAttribute('title', '아무도 안 맡은 접수 건');
+    expect(await screen.findByTestId('menu-alert-casesUnassigned')).toHaveTextContent('3');
+    expect(screen.getByTestId('menu-alert-casesOverdue')).toHaveTextContent('50+');
+    expect(screen.getByTestId('menu-alert-casesUnassigned')).toHaveAttribute('title', '아무도 안 맡은 접수 건');
   });
 
   it('0건이면 배지가 없고, 상담원(보기만)에게는 묻지도 않는다', async () => {
     server.use(counts({ unassigned: 0, overdue: 0 }));
     const view = renderAt('/session', as.cs);
     await screen.findByTestId('nav-group-support');
-    expect(screen.queryByTestId('case-badge-unassigned')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('menu-alert-casesUnassigned')).not.toBeInTheDocument();
     expect(view.sent.some((r) => new URL(r.url).searchParams.get('unassigned') === 'true')).toBe(false);
   });
 
   it('읽지 못하면 0 이 아니라 "?"', async () => {
     server.use(counts({ unassigned: 'fail', overdue: 1 }));
     renderAt('/session', as.admin);
-    await waitFor(() => expect(screen.getByTestId('case-badge-unassigned')).toHaveTextContent('?'), { timeout: 5000 });
-    expect(screen.getByTestId('case-badge-overdue')).toHaveTextContent('1');
+    await waitFor(() => expect(screen.getByTestId('menu-alert-casesUnassigned')).toHaveTextContent('?'), { timeout: 5000 });
+    expect(screen.getByTestId('menu-alert-casesOverdue')).toHaveTextContent('1');
   });
 
   it('1분 뒤 다시 세어 늘었으면 잠깐 강조(소리·알림 없음)', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     server.use(counts({ unassigned: 1, overdue: 0 }));
     renderAt('/session', as.riderOps);
-    const badge = await screen.findByTestId('case-badge-unassigned');
+    const badge = await screen.findByTestId('menu-alert-casesUnassigned');
     expect(badge).toHaveAttribute('data-flash', 'false');
     server.use(counts({ unassigned: 2, overdue: 0 }));
     await act(async () => {
       await vi.advanceTimersByTimeAsync(61_000);
     });
-    await waitFor(() => expect(screen.getByTestId('case-badge-unassigned')).toHaveTextContent('2'));
-    expect(screen.getByTestId('case-badge-unassigned')).toHaveAttribute('data-flash', 'true');
+    await waitFor(() => expect(screen.getByTestId('menu-alert-casesUnassigned')).toHaveTextContent('2'));
+    expect(screen.getByTestId('menu-alert-casesUnassigned')).toHaveAttribute('data-flash', 'true');
   });
 });

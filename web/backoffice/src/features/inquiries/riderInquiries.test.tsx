@@ -8,7 +8,7 @@ import { as, renderAt } from '../../test/render';
 const navLinks = (group: string) =>
   within(screen.getByTestId(`nav-group-${group}`))
     .getAllByRole('link', { hidden: true })
-    .map((a) => a.textContent);
+    .map((a) => a.childNodes[0]?.textContent); // 메뉴 이름만(업무 알림 숫자 빼고)
 
 describe('라이더 문의', () => {
   it('메뉴: 지원센터에 "라이더 문의" — 라이더 운영에게는 보이고 상담원에게는 없다', async () => {

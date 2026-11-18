@@ -1549,6 +1549,19 @@ export const messages = {
   },
 
   /** 접수 건 알림 배지(메뉴) — 1분마다 개수, 소리·브라우저 알림 없음 */
+  /** 왼쪽 메뉴 업무 알림(2026-11-18) */
+  menuAlerts: {
+    failed: '개수를 읽지 못했어요(0 이 아니에요)',
+    groupTitle: '이 묶음의 할 일',
+    title: {
+      casesUnassigned: '아무도 안 맡은 접수 건',
+      casesOverdue: '처리 기한이 지난 접수 건',
+      approvals: '심사 대기 승인',
+      inquiries: '답변 대기 고객 문의',
+      riderInquiries: '답변 대기 라이더 문의',
+      pending: '처리 대기',
+    } as Readonly<Record<string, string>>,
+  },
   caseBadges: {
     title: { unassigned: '아무도 안 맡은 접수 건', overdue: '기한 지난 접수 건' } as const,
     failed: '접수 건 수를 읽지 못했어요',
