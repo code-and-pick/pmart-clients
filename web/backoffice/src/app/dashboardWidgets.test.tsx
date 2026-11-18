@@ -3,7 +3,7 @@ import { screen, waitFor, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 
-import { API_BASE } from '../api/client';
+import { API_BASE, BFF_BASE } from '../api/client';
 import { as, renderAt } from '../test/render';
 import { server } from '../test/server';
 
@@ -62,4 +62,36 @@ describe('대시보드 2판', () => {
     expect(screen.queryByTestId('dash-glance')).not.toBeInTheDocument();
     expect(screen.queryByTestId('dash-status-donut')).not.toBeInTheDocument();
   });
+});
+
+describe('대시보드 지표(백엔드 회신 2026-11-18)', () => {
+  it('결품률·정시 배송률은 서버가 501 이면 "준비 중", 매출·상품별 판매·품절은 자리만', async () => {
+    renderAt('/', as.admin);
+    for (const id of ['SHORTAGE_RATE', 'ON_TIME_DELIVERY']) expect(await within(await screen.findByTestId(`dash-metric-${id}`)).findByText('준비 중')).toBeInTheDocument();
+    for (const id of ['sales', 'top', 'soldOut']) expect(within(screen.getByTestId(`dash-metric-${id}`)).getByText('준비 중')).toBeInTheDocument();
+  });
+
+  it('지표가 구현되면(200) 숫자와 "N건 중 M건"', async () => {
+    server.use(
+      http.get(`${BFF_BASE}/views/metrics`, ({ request }) =>
+        new URL(request.url).searchParams.get('metric') === 'SHORTAGE_RATE'
+          ? HttpResponse.json({ metric: 'SHORTAGE_RATE', timeZone: 'Asia/Seoul', sources: [], unavailableSources: [], points: [], totals: [{ bucket: '2026-11-18', numerator: 3, denominator: 4, ratio: 0.75, unjudged: 0 }], currentOverdue: null })
+          : HttpResponse.json({ type: 'about:blank', title: 'x', status: 501, code: 'NOT_IMPLEMENTED' }, { status: 501, headers: { 'content-type': 'application/problem+json' } }),
+      ),
+    );
+    renderAt('/', as.admin);
+    const cell = await screen.findByTestId('dash-metric-SHORTAGE_RATE');
+    expect(await within(cell).findByText('75%')).toBeInTheDocument();
+  });
+
+  it('처리 기한 지킴 — 종류별로 나눠 보이고, 503 이면 "원천에 닿지 않았어요"', async () => {
+    renderAt('/', as.admin);
+    expect(await screen.findByTestId('dash-sla-kinds')).toBeInTheDocument();
+  });
+
+  it('처리 기한 지킴 503 은 0건이 아니라 원천에 닿지 않음', async () => {
+    server.use(http.get(`${BFF_BASE}/views/metrics`, () => HttpResponse.json({ type: 'about:blank', title: 'x', status: 503, code: 'DEPENDENCY_UNAVAILABLE' }, { status: 503, headers: { 'content-type': 'application/problem+json' } })));
+    renderAt('/', as.admin);
+    expect(await screen.findByTestId('dash-sla-failed', {}, { timeout: 8000 })).toHaveTextContent('접수 건 원천에 닿지 않았어요');
+  }, 15000);
 });

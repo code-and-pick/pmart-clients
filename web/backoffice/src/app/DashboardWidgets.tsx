@@ -6,7 +6,7 @@ import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState, type ReactNode } from 'react';
 import { Link } from 'react-router';
 
-import { request } from '@pmart/web-core';
+import { ProblemFailure, request } from '@pmart/web-core';
 import { useApi } from './ApiContext';
 import { liveQuery } from './DashboardSections';
 import { slaText } from '../features/cases/CaseSlaPage';
@@ -396,3 +396,75 @@ export function ActivityFeed({ approvals, cases, inquiries }: { readonly approva
   );
 }
 
+
+// ───────────────────────── 지표(준비 중 포함) ─────────────────────────
+// 백엔드 회신 2026-11-18(reply-dashboard-approval·notice-metrics-case-sla):
+// - 결품률(SHORTAGE_RATE)·정시 배송률(ON_TIME_DELIVERY)은 bff 지표 조회에 있지만 아직 501 — 물어서 501 이면 "준비 중", 구현되면 저절로 숫자.
+// - 매출(결제 승인 금액 — 환불은 따로 나란히)·상품별 판매 상위(주문 확정 기준)·센터별 품절 SKU 는 원천 API 작업 중(O-8·CL-3·IV-5) — 부를 곳이 없어 자리만.
+
+type MetricCell = { readonly key: string; readonly label: string; readonly note: string };
+
+function isNotImplemented(e: unknown): boolean {
+  return e instanceof ProblemFailure && (e.problem.status === 501 || e.problem.code === 'NOT_IMPLEMENTED');
+}
+
+export function MetricsPanel({ from, to }: { readonly from: string; readonly to: string }) {
+  const api = useApi();
+  const live: MetricCell[] = [
+    { key: 'SHORTAGE_RATE', label: m.metrics.shortage, note: m.metrics.shortageNote },
+    { key: 'ON_TIME_DELIVERY', label: m.metrics.onTime, note: m.metrics.onTimeNote },
+  ];
+  const qs = useQueries({
+    queries: live.map((c) => ({
+      queryKey: ['dashboard', 'metric', c.key, from, to],
+      retry: false,
+      queryFn: () => request('GET', api.bff.GET('/views/metrics', { params: { query: { metric: c.key as 'SHORTAGE_RATE' | 'ON_TIME_DELIVERY', from, to, granularity: 'DAY' } } })),
+    })),
+  });
+  const planned: MetricCell[] = [
+    { key: 'sales', label: m.metrics.sales, note: m.metrics.salesNote },
+    { key: 'top', label: m.metrics.topProducts, note: m.metrics.topNote },
+    { key: 'soldOut', label: m.metrics.soldOut, note: m.metrics.soldOutNote },
+  ];
+  return (
+    <Section title={m.metrics.title} aside={<span className="text-xs text-base-content/50">{m.metrics.hint}</span>} testId="dash-metrics">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+        {live.map((c, i) => {
+          const q = qs[i]!;
+          let value: ReactNode = '…';
+          let sub: ReactNode = c.note;
+          let ready = false;
+          if (q.data) {
+            let n = 0;
+            let d = 0;
+            for (const t of q.data.totals ?? []) {
+              n += t.numerator;
+              d += t.denominator;
+            }
+            const t = slaText({ numerator: n, denominator: d });
+            value = t.ratio;
+            sub = t.count;
+            ready = true;
+          } else if (q.isError) {
+            value = isNotImplemented(q.error) ? m.metrics.soon : '?';
+            if (!isNotImplemented(q.error)) sub = m.failed;
+          }
+          return (
+            <div key={c.key} className={`rounded-lg border px-4 py-3 ${ready ? 'border-base-300' : 'border-dashed border-base-300 bg-base-200/30'}`} data-testid={`dash-metric-${c.key}`}>
+              <p className="text-xs text-base-content/60">{c.label}</p>
+              <p className={`mt-0.5 text-xl font-bold ${ready ? '' : 'text-base-content/40'}`}>{value}</p>
+              <p className="text-[11px] text-base-content/45">{sub}</p>
+            </div>
+          );
+        })}
+        {planned.map((c) => (
+          <div key={c.key} className="rounded-lg border border-dashed border-base-300 bg-base-200/30 px-4 py-3" data-testid={`dash-metric-${c.key}`}>
+            <p className="text-xs text-base-content/60">{c.label}</p>
+            <p className="mt-0.5 text-xl font-bold text-base-content/40">{m.metrics.soon}</p>
+            <p className="text-[11px] text-base-content/45">{c.note}</p>
+          </div>
+        ))}
+      </div>
+    </Section>
+  );
+}

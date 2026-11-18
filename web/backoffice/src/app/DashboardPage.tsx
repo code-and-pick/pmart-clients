@@ -8,11 +8,11 @@ import { useQuery } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { Link } from 'react-router';
 
-import { request } from '@pmart/web-core';
+import { ProblemFailure, request } from '@pmart/web-core';
 import { useApi } from './ApiContext';
 import { ALERT_SIZE, useAlertCount, type AlertKey } from './MenuAlerts';
 import { ApprovalTypes, LiveSummary, RiskPanel, SlaTrend } from './DashboardSections';
-import { ActivityFeed, LiveStat, OrdersWeekChart, RefreshBar, RiskStat, SlaStat, StatusDonut, TodayOrdersStat, slaQuery } from './DashboardWidgets';
+import { ActivityFeed, LiveStat, MetricsPanel, OrdersWeekChart, RefreshBar, RiskStat, SlaStat, StatusDonut, TodayOrdersStat, slaQuery } from './DashboardWidgets';
 import { GroupIcon } from './groupIcons';
 import { visibleGroups } from './nav';
 import { useSession } from './SessionContext';
@@ -69,31 +69,71 @@ function SlaCard({ from, to, days }: { readonly from: string; readonly to: strin
   const q = useQuery(slaQuery(api, from, to));
   let body: ReactNode;
   if (q.isPending) body = <p className="text-sm text-base-content/50">…</p>;
-  else if (q.isError) body = <p className="text-sm text-warning" data-testid="dash-sla-failed">{m.slaFailed}</p>;
+  else if (q.isError)
+    // 503 은 "원천에 닿지 않음"(0건 아님) — 백엔드 알림 2026-11-18 notice-metrics-case-sla §2
+    body = (
+      <p className="text-sm text-warning" data-testid="dash-sla-failed">
+        {q.error instanceof ProblemFailure && q.error.problem.status === 503 ? m.slaUnreachable : m.slaFailed}
+      </p>
+    );
   else {
     let numerator = 0;
     let denominator = 0;
+    let unjudged = 0;
     for (const t of q.data.totals ?? []) {
       numerator += t.numerator;
       denominator += t.denominator;
+      unjudged += t.unjudged ?? 0;
     }
     const t = slaText({ numerator, denominator });
     const overdue = q.data.currentOverdue ? q.data.currentOverdue.reduce((n, o) => n + o.overdue, 0) : null;
+    // 종류별(기한이 종류마다 달라 한 숫자로만 보이지 않는다 — 같은 알림 §2). 서버 분자·분모를 종류로 묶어 더한 값, 분모 큰 순 4개.
+    const byKind = new Map<string, { n: number; d: number }>();
+    for (const p of q.data.points ?? []) {
+      const k = p.segment?.kind ?? '';
+      const cur = byKind.get(k) ?? { n: 0, d: 0 };
+      byKind.set(k, { n: cur.n + p.numerator, d: cur.d + p.denominator });
+    }
+    const kinds = [...byKind.entries()].sort((a, b) => b[1].d - a[1].d).slice(0, 4);
     body = (
-      <div className="grid items-end gap-5 sm:grid-cols-[auto_1fr]">
-        <div className="space-y-2">
-          <div>
-            <p className="text-3xl font-bold tabular-nums" data-testid="dash-sla-ratio">{t.ratio}</p>
-            <p className="text-xs text-base-content/55">{t.count}</p>
+      <div className="space-y-4">
+        <div className="grid items-end gap-5 sm:grid-cols-[auto_1fr]">
+          <div className="space-y-2">
+            <div>
+              <p className="text-3xl font-bold tabular-nums" data-testid="dash-sla-ratio">{t.ratio}</p>
+              <p className="text-xs text-base-content/55">{t.count}</p>
+              {unjudged > 0 && <p className="text-xs text-base-content/55" data-testid="dash-sla-unjudged">{m.slaUnjudged(unjudged)}</p>}
+            </div>
+            <p className="text-sm">
+              {m.overdueNow}{' '}
+              <span className={`font-semibold ${overdue && overdue > 0 ? 'text-error' : ''}`} data-testid="dash-sla-overdue">
+                {overdue === null ? m.unknown : `${overdue}건`}
+              </span>
+            </p>
           </div>
-          <p className="text-sm">
-            {m.overdueNow}{' '}
-            <span className={`font-semibold ${overdue && overdue > 0 ? 'text-error' : ''}`} data-testid="dash-sla-overdue">
-              {overdue === null ? m.unknown : `${overdue}건`}
-            </span>
-          </p>
+          <SlaTrend days={days} totals={q.data.totals ?? []} />
         </div>
-        <SlaTrend days={days} totals={q.data.totals ?? []} />
+        {kinds.length > 0 && (
+          <div className="space-y-1.5" data-testid="dash-sla-kinds">
+            <p className="text-xs font-medium text-base-content/55">{m.slaByKind}</p>
+            {kinds.map(([k, v]) => {
+              const kt = slaText({ numerator: v.n, denominator: v.d });
+              const pct = v.d === 0 ? null : Math.round((v.n / v.d) * 100);
+              return (
+                <div key={k} className="grid grid-cols-[8rem_1fr_auto] items-center gap-3 text-sm">
+                  <span className="truncate" title={k}>
+                    {label(messages.cases.kindName, k || null)}
+                  </span>
+                  <span className="h-1.5 overflow-hidden rounded-full bg-base-200" aria-hidden="true">
+                    {pct !== null && <span className={`block h-full rounded-full ${pct >= 90 ? 'bg-success' : pct >= 70 ? 'bg-warning' : 'bg-error'}`} style={{ width: `${pct}%` }} />}
+                  </span>
+                  <span className="whitespace-nowrap text-xs tabular-nums text-base-content/65">{`${kt.ratio} · ${kt.count}`}</span>
+                </div>
+              );
+            })}
+          </div>
+        )}
+        {import.meta.env.VITE_PMART_ENV !== 'mock' && <p className="text-[11px] text-base-content/45">{m.slaLanNote}</p>}
       </div>
     );
   }
@@ -250,6 +290,9 @@ export function DashboardPage() {
       {can('/orders') && <RecentOrders from={weekFrom} to={today} />}
 
       {can('/case-sla') && <SlaCard from={weekFrom} to={today} days={days} />}
+
+      {/* 지표 — 결품률·정시 배송률(501 이면 준비 중)·매출·상품별 판매·품절(원천 작업 중) — 백엔드 회신 2026-11-18 */}
+      {can('/case-sla') && <MetricsPanel from={weekFrom} to={today} />}
 
       {tasks.length === 0 && stats.length === 0 && !can('/orders') && <p className="text-sm text-base-content/60">{m.nothing}</p>}
     </section>
