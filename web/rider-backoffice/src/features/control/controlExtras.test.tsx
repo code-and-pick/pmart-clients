@@ -67,7 +67,7 @@ describe('관제 — 라이더 한눈에', () => {
     await userEvent.click(within(row).getByText('김*수'));
 
     const panel = await screen.findByTestId('control-panel');
-    expect(panel).toHaveTextContent('RD-7');
+    expect(panel).toHaveTextContent('482913'); // 화면 번호(ADR-0070) — 시스템 ID 가 아니라 라이더 번호
     expect(within(panel).getByTestId('tile-location')).toHaveTextContent('수신 중 · 5초 전');
     expect(within(panel).getByTestId('tile-delivery')).toHaveTextContent('배송 중 1건');
     // 세 시간은 따로: 운행시간(수락~완료 5400초) · 접속(운행 켬 9000초, 운행 시작 2시간 5분째) · 대기(1800초)
@@ -90,6 +90,9 @@ describe('관제 — 라이더 한눈에', () => {
     // 화면 배송 번호(ADR-0070) — 내부 ID(DLV-1) 대신
     expect(within(panel).getByText('48213075-1')).toBeInTheDocument();
     expect(within(panel).getByTestId('rider-name')).toHaveTextContent('김*수');
+    // 라이더 정보 줄(2026-11-18): 가린 전화·가입일(라이더 조회)
+    expect(await within(panel).findByText('010****5678')).toBeInTheDocument();
+    expect(within(panel).getByTestId('panel-rider-info')).toHaveTextContent('가입');
     expect(await within(panel).findByTestId('panel-eta')).toHaveTextContent('5분 늦음');
     expect(row).toHaveAttribute('aria-selected', 'true');
   });

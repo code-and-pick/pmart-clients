@@ -32,7 +32,8 @@ const c = ops.control;
 
 export const panelMessages = {
   title: '라이더 한눈에',
-  pick: '주문번호나 라이더 ID 로 찾거나, 지도·아래 표에서 라이더를 고르면 위치·전달 상황·운행 시간이 여기에 보여요.',
+  pick: '주문번호나 라이더 번호로 찾거나, 지도·아래 표에서 라이더를 고르면 위치·전달 상황·운행 시간이 여기에 보여요.',
+  joined: (d: string) => `가입 ${d}`,
   gone: '이 라이더는 지금 이 센터의 운행 목록에 없어요(운행 종료·다른 센터).',
   close: '닫기',
   tile: { location: '위치', delivery: '전달 상황', connected: '접속 시간', waiting: '대기 시간', operating: '오늘 운행시간' },
@@ -104,8 +105,9 @@ export function ControlRiderPanel({
   /** 관제 목록의 서버 기준 시각 — "N분째" 계산 기준 */
   readonly asOf?: string | undefined;
 }) {
-  // 운행 목록에 없는 라이더(주문번호·최근 배송으로 고름)만 라이더 조회로 이름·번호를 받는다
-  const looked = useRiderSummaries(selectedId && !rider ? [selectedId] : []).get(selectedId);
+  // 라이더 조회(직원 목록 한 줄) — 운행 목록에 없는 라이더의 이름·번호, 그리고 가린 전화·계정 제한·가입일(2026-11-18 사용자 "라이더 정보 보는 칸")
+  const looked = useRiderSummaries(selectedId ? [selectedId] : []).get(selectedId);
+  const restriction = rider?.restriction ?? looked?.restriction ?? null;
   if (!selectedId) {
     return (
       <aside className="rounded-box border border-dashed border-base-300 bg-base-100 p-5 text-sm text-base-content/60" data-testid="control-panel-empty">
@@ -133,6 +135,13 @@ export function ControlRiderPanel({
               {[label(n.vehicle, rider.vehicleType), `신규배차 ${rider.newDispatchEnabled ? c.on : c.off}`].join(' · ')}
             </p>
           )}
+          <p className="mt-1 flex flex-wrap items-center gap-1 text-xs text-base-content/60" data-testid="panel-rider-info">
+            {restriction && (
+              <StatusBadge tone={restriction === 'NORMAL' ? 'ghost' : 'error'}>{label(n.restriction, restriction)}</StatusBadge>
+            )}
+            {looked?.phoneMasked && <span className="font-mono">{looked.phoneMasked}</span>}
+            {looked?.joinedAt && <span>{p.joined(when(looked.joinedAt))}</span>}
+          </p>
         </div>
         <button type="button" className="btn btn-ghost btn-xs" onClick={onClose}>
           {p.close}
