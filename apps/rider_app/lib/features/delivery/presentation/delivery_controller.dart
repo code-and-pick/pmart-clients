@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pmart_core/pmart_core.dart';
 
 import '../../../shared/providers.dart';
+import '../../auth/data/session.dart';
 import '../../offers/presentation/offer_controllers.dart'
     show mockOfferRepositoryProvider;
 import '../data/delivery_repository.dart';
@@ -77,9 +78,10 @@ final evidenceUploaderProvider = Provider<EvidenceUploader>(
   },
 );
 
-/// 라이더 ID. BR-02(라이더 로그인) 전에는 목 라이더다.
+/// 라이더 ID — 로그인 세션의 라이더(2026-11-18: 예전에는 BR-02 전 목 라이더로 고정이라 실서버 포장 인계가
+/// MFC 에서 403 RIDER_MISMATCH 로 막혔다). 목 모드는 세션이 목 라이더라 그대로, 세션이 없으면 목 라이더.
 final currentRiderIdProvider = Provider<String>(
-  (_) => MockDeliveryRepository.riderId,
+  (ref) => ref.watch(sessionProvider)?.riderId ?? MockDeliveryRepository.riderId,
 );
 
 /// 현장 큐 저장소. 실서버는 기기 보안 저장소(앱이 꺼져도 남는다).
