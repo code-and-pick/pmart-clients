@@ -29,6 +29,7 @@ const order1001: readonly MockMatch[] = [
     system: 'order-service',
     summary: {
       orderId: 'ORD-MOCK-1001',
+      orderNumber: '74939255', // bff 0.14.0 화면 주문번호(ADR-0070)
       customerId: 'CU-MOCK-1',
       status: 'IN_DELIVERY',
       mfcId: 'MFC-BSN-01',
@@ -45,7 +46,7 @@ const order1001: readonly MockMatch[] = [
     kind: 'DELIVERY',
     id: 'DLV-MOCK-1',
     system: 'delivery-execution-service',
-    summary: { deliveryId: 'DLV-MOCK-1', type: 'ORDER', state: 'IN_TRANSIT', riderId: 'RID-MOCK-1', mfcId: 'MFC-BSN-01', assignedAt: '2026-11-16T00:40:00.000Z', pickedUpAt: '2026-11-16T00:50:00.000Z', completedAt: null },
+    summary: { deliveryId: 'DLV-MOCK-1', deliveryNumber: '74939255-1', orderNumber: '74939255', type: 'ORDER', state: 'IN_TRANSIT', riderId: 'RID-MOCK-1', mfcId: 'MFC-BSN-01', assignedAt: '2026-11-16T00:40:00.000Z', pickedUpAt: '2026-11-16T00:50:00.000Z', completedAt: null },
   },
   {
     kind: 'DISPATCH',
@@ -113,8 +114,8 @@ const order1001: readonly MockMatch[] = [
 
 /** 고객 CU-MOCK-1 의 주문 목록(목록 요약) */
 const customerOrders: readonly MockMatch[] = [
-  { kind: 'ORDER', id: 'ORD-MOCK-1001', system: 'order-service', summary: { orderId: 'ORD-MOCK-1001', status: 'IN_DELIVERY', totalAmount: 24800, itemCount: 3, confirmedAt: '2026-11-16T00:30:00.000Z' } },
-  { kind: 'ORDER', id: 'ORD-MOCK-0990', system: 'order-service', summary: { orderId: 'ORD-MOCK-0990', status: 'DELIVERED', totalAmount: 12000, itemCount: 1, confirmedAt: '2026-11-10T03:00:00.000Z' } },
+  { kind: 'ORDER', id: 'ORD-MOCK-1001', system: 'order-service', summary: { orderId: 'ORD-MOCK-1001', orderNumber: '74939255', status: 'IN_DELIVERY', totalAmount: 24800, itemCount: 3, confirmedAt: '2026-11-16T00:30:00.000Z' } },
+  { kind: 'ORDER', id: 'ORD-MOCK-0990', system: 'order-service', summary: { orderId: 'ORD-MOCK-0990', orderNumber: null, status: 'DELIVERED', totalAmount: 12000, itemCount: 1, confirmedAt: '2026-11-10T03:00:00.000Z' } },
 ];
 
 const KINDS = ['ORDER', 'DELIVERY', 'TRANSFER', 'TRIP', 'CUSTOMER', 'CASE', 'ANY'];

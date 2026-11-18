@@ -24,7 +24,7 @@ describe('라이더', () => {
     const rows = await screen.findAllByTestId('rider-row');
     expect(rows).toHaveLength(2);
     expect(within(rows[0]!).getByText('자동 승인')).toBeInTheDocument();
-    await userEvent.click(within(rows[0]!).getByRole('link', { name: 'RD-7' }));
+    await userEvent.click(within(rows[0]!).getByRole('link', { name: '482913' }));
     expect(await screen.findByTestId('rider-detail')).toHaveTextContent('자동 승인');
     expect(await screen.findByTestId('operating-time')).toHaveTextContent('1시간 30분');
     expect(await screen.findByTestId('rider-earnings')).toHaveTextContent('DLV-3');

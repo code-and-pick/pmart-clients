@@ -129,17 +129,32 @@ class WorkSessionController extends Notifier<SessionState> {
   }
 }
 
-/// 휴게 시작·끝. 끝나면 본인 정보를 다시 읽는다.
-Future<void> setOnBreak(WidgetRef ref, {required bool on}) async {
-  final repo = ref.read(workRepositoryProvider);
-  final mfc = ref.read(currentMfcIdProvider);
-  final me = ref.read(currentWorkerIdProvider);
-  final key = IdempotencyKey.generate();
-  if (on) {
-    await repo.startBreak(mfc, me, key: key);
-  } else {
-    await repo.endBreak(mfc, me, key: key);
-  }
+/// 휴게 시작 — 센터 관리자 번호와 함께. 시작되면 본인 정보를 다시 읽는다.
+Future<BreakStartOutcome> startBreak(
+  WidgetRef ref,
+  String supervisorPin,
+) async {
+  final outcome = await ref
+      .read(workRepositoryProvider)
+      .startBreak(
+        ref.read(currentMfcIdProvider),
+        ref.read(currentWorkerIdProvider),
+        supervisorPin: supervisorPin,
+        key: IdempotencyKey.generate(),
+      );
+  if (outcome is BreakStarted) ref.invalidate(meProvider);
+  return outcome;
+}
+
+/// 휴게 끝 — 번호 없이(사용자 2026-11-18: 번호는 휴게를 켤 때만).
+Future<void> endBreak(WidgetRef ref) async {
+  await ref
+      .read(workRepositoryProvider)
+      .endBreak(
+        ref.read(currentMfcIdProvider),
+        ref.read(currentWorkerIdProvider),
+        key: IdempotencyKey.generate(),
+      );
   ref.invalidate(meProvider);
 }
 

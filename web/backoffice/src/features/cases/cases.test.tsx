@@ -21,9 +21,9 @@ describe('지원센터 사건', () => {
     expect(list).toHaveLength(3);
     expect(list[0]).toHaveTextContent('라이더 도움요청');
     expect(within(list[0]!).getByText(/기한 넘김/)).toHaveAttribute('data-overdue', 'true');
-    expect(within(list[0]!).getByRole('link', { name: '배송 DLV-MOCK-1' })).toHaveAttribute('href', '/deliveries/DLV-MOCK-1');
-    expect(within(list[0]!).getByRole('link', { name: '주문 ORD-MOCK-1001' })).toHaveAttribute('href', '/orders/ORD-MOCK-1001');
-    expect(within(list[0]!).getByRole('link', { name: '라이더 RID-MOCK-1' })).toHaveAttribute('href', '/riders/RID-MOCK-1');
+    expect(within(list[0]!).getByRole('link', { name: '배송 74939255-1' })).toHaveAttribute('href', '/deliveries/DLV-MOCK-1');
+    expect(within(list[0]!).getByRole('link', { name: '주문 OCK-1001 번호 확인 불가' })).toHaveAttribute('href', '/orders/ORD-MOCK-1001');
+    expect(within(list[0]!).getByRole('link', { name: '라이더 김*수 · 482913' })).toHaveAttribute('href', '/riders/RID-MOCK-1');
     const q = inboxCalls(view.sent)[0]!;
     expect([q.get('unassigned'), q.get('size')]).toEqual(['true', '50']);
   });
@@ -74,7 +74,7 @@ describe('지원센터 사건', () => {
     const list = await rows();
     const order = list.find((r) => r.textContent?.includes('대사 필요'))!;
     expect(order).toBeTruthy();
-    expect(within(order).getByRole('link', { name: '주문 ORD-MOCK-1004' })).toHaveAttribute('href', '/orders/ORD-MOCK-1004');
+    expect(within(order).getByRole('link', { name: '주문 74939259' })).toHaveAttribute('href', '/orders/ORD-MOCK-1004');
     expect(within(order).getByText('주문 처리 SAGA-MOCK-1')).toBeInTheDocument();
     expect(screen.getByText(/대사 필요·결제 결과 불명은 본사 관리자만 봐요/)).toBeInTheDocument();
     await userEvent.selectOptions(screen.getByLabelText('종류'), 'PAYMENT_UNKNOWN');
@@ -280,6 +280,58 @@ describe('지원센터 사건', () => {
     );
     renderAt('/cases', as.riderOps);
     expect(await screen.findByTestId('case-linked')).toHaveTextContent('배송 원천에 없음');
+  });
+});
+
+describe('접수 건 목록 — 화면 번호(bff 0.14.0, ADR-0070)', () => {
+  it('관련 칸은 linked 화면 번호·riders 표시만 — 시스템 ID 는 링크 대상으로만, 번호 없는 라이더는 끝 8자리 + 번호 없음', async () => {
+    renderAt('/cases', as.cs);
+    const list = await rows();
+    const help = list.find((r) => r.textContent?.includes('라이더 도움요청'))!;
+    expect(within(help).getByRole('link', { name: '주문 74939255' })).toHaveAttribute('href', '/orders/ORD-MOCK-1001');
+    // 배송 링크 글자는 화면 번호만(사고 refs incidentId 는 화면 번호 대상이 아니라 그대로)
+    expect(within(help).getByRole('link', { name: '배송 74939255-1' })).not.toHaveTextContent('DLV-MOCK-1');
+    expect(help).not.toHaveTextContent('ORD-MOCK-1001');
+    expect(help).not.toHaveTextContent('RID-MOCK-1');
+    // RID-MOCK-2 는 rider-service 에서 못 찾음(탈퇴 등) — 번호를 지어내지 않는다
+    const failed = list.find((r) => r.textContent?.includes('전달 실패'));
+    expect(failed).toBeDefined();
+    expect(within(failed!).getByRole('link', { name: '라이더 D-MOCK-2 번호 없음' })).toHaveAttribute('href', '/riders/RID-MOCK-2');
+  });
+
+  it('번호가 null 이면 ID 끝 8자리 + "번호 없음", rider-service 를 못 읽으면 라이더 "번호 확인 불가" + 실패 원천', async () => {
+    const stamp = { system: 'case-service', confidence: 'DIRECT', asOf: { asOf: '2026-11-18T00:00:00Z', freshness: 'CURRENT' } };
+    server.use(
+      http.get(`${BFF_BASE}/views/case-inbox`, () =>
+        HttpResponse.json({
+          sources: [stamp],
+          unavailableSources: ['rider-service'],
+          items: [
+            {
+              caseId: 'CASE-NUM',
+              kind: 'MISDELIVERY',
+              priority: 'P2',
+              state: 'OPEN',
+              summary: '번호 없는 옛 배송',
+              overdue: false,
+              linkedRefs: [
+                { kind: 'deliveryId', id: 'DLV-OLD-12345678' },
+                { kind: 'riderId', id: 'RID-ABCDEFGH' },
+              ],
+              linked: [{ kind: 'DELIVERY', id: 'DLV-OLD-12345678', displayNumber: null, orderNumber: null, state: 'COMPLETED', version: 1, source: { ...stamp, system: 'delivery-execution-service' } }],
+              riders: [{ riderId: 'RID-ABCDEFGH', riderNumber: null, nameMasked: null }],
+            },
+          ],
+          page: { nextCursor: null, size: 1 },
+        }),
+      ),
+    );
+    renderAt('/cases', as.riderOps);
+    const row = (await rows())[0]!;
+    expect(within(row).getByRole('link', { name: '배송 12345678 번호 없음' })).toHaveAttribute('href', '/deliveries/DLV-OLD-12345678');
+    expect(within(row).getByRole('link', { name: '라이더 ABCDEFGH 번호 확인 불가' })).toHaveAttribute('href', '/riders/RID-ABCDEFGH');
+    expect(row).not.toHaveTextContent('DLV-OLD-12345678');
+    expect(screen.getByText(/못 읽음: .*라이더/)).toHaveAttribute('title', expect.stringMatching(/조회하지 못한 원천: .*rider-service/)); // 원천 표시 한 줄(2026-11-18) — 업무 이름, 원래 이름은 마우스
   });
 });
 

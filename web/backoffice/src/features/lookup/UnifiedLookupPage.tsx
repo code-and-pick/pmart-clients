@@ -5,6 +5,8 @@
 // - summary 는 원천 필드 이름 그대로(개인정보 없음) — 아는 이름만 한국어로, 모르는 이름은 그대로. 금액·상태를 화면에서 계산하지 않는다.
 // - 고객 번호로 찾으면 주문 목록만 → 누르면 그 주문으로 다시 조회. 각 항목에서 기존 상세로(주문·배송·클레임·사건).
 // - 422 UNSUPPORTED_LOOKUP(TRANSFER·TRIP·모르는 접두어)은 코드 문구로.
+// - 화면 번호(bff 0.14.0, ADR-0070): 주문·배송 항목 머리는 summary.orderNumber·deliveryNumber. 시스템 ID(orderId·deliveryId·riderId)는
+//   요약 칸에서 빼고 접힌 "시스템 번호" 칸에. 번호가 null 이면 ID 끝 8자리 회색 + "번호 없음". 고객의 주문 목록도 주문번호로.
 import { useQuery } from '@tanstack/react-query';
 import { useState, type ReactNode } from 'react';
 import { Link, useSearchParams } from 'react-router';
@@ -18,6 +20,7 @@ import { label, when, won } from '../../shared/ops';
 import { SourceStamps } from '../../shared/SourceStamps';
 import { FieldWork } from './FieldSection';
 import { ChipGroup, CodeLabel, Notice, PageHeader } from '../../shared/admin';
+import { DisplayNumber, SystemNumbers } from '../../shared/displayNumber';
 import { EmptyBox, Icon, type IconName } from './parts';
 
 const m = messages.lookup;
@@ -64,6 +67,14 @@ const detailPath = (kind: string | undefined, id: string) =>
           : kind === 'INQUIRY'
             ? `/inquiries/${encodeURIComponent(id)}`
             : null;
+
+/** 화면 번호를 쓰는 항목(주문·배송) — 시스템 ID 는 접힌 칸으로, 화면 번호는 머리로 */
+const NUMBERED = new Set(['ORDER', 'DELIVERY']);
+const SYSTEM_ID_KEYS = ['orderId', 'deliveryId', 'riderId'] as const;
+const NUMBER_KEYS = ['orderNumber', 'deliveryNumber'];
+const strOf = (v: unknown): string | null => (typeof v === 'string' && v !== '' ? v : null);
+/** 주문 항목은 orderNumber, 배송 항목은 deliveryNumber */
+const numberOf = (match: Match) => strOf(match.summary?.[match.kind === 'DELIVERY' ? 'deliveryNumber' : 'orderNumber']);
 
 /** 금액 필드(원천 값 그대로 원·천 단위 표시만 — 계산하지 않음) */
 const MONEY = new Set(['approvedAmount', 'totalAmount', 'total', 'itemAmount', 'bagFee', 'deliveryTip', 'deliveryTipBase', 'deliveryFee', 'itemsTotal']);
@@ -255,12 +266,15 @@ function LookupResult({ view, onOpenOrder }: { readonly view: LookupView; readon
               {of('ORDER').map((o) => (
                 <li key={o.id} data-testid="customer-order" className="space-y-2 py-3 first:pt-0 last:pb-0">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-mono font-semibold">{o.id}</span>
+                    <span className="font-semibold">
+                      <DisplayNumber number={numberOf(o)} systemId={o.id} />
+                    </span>
                     <button type="button" className="btn btn-xs btn-outline btn-primary ml-auto" onClick={() => onOpenOrder(o.id ?? '')}>
                       {m.openOrder}
                     </button>
                   </div>
-                  <SummaryFacts summary={o.summary} skip={['orderId']} kind="ORDER" />
+                  <SummaryFacts summary={o.summary} skip={['orderId', ...NUMBER_KEYS]} kind="ORDER" />
+                  <SystemNumbers ids={[{ label: messages.displayNumber.system.orderId, id: o.id }]} />
                 </li>
               ))}
             </ul>
@@ -309,17 +323,32 @@ function LookupResult({ view, onOpenOrder }: { readonly view: LookupView; readon
 
 function MatchCard({ match }: { readonly match: Match }) {
   const path = match.id ? detailPath(match.kind, match.id) : null;
+  const numbered = NUMBERED.has(match.kind ?? '');
   return (
     <div className="space-y-2 rounded-box border border-base-300/70 bg-base-200/30 p-3" data-testid={`match-${match.kind ?? ''}`}>
       <div className="flex flex-wrap items-center gap-2">
-        <span className="font-mono font-semibold">{match.id}</span>
+        {numbered ? (
+          <span className="font-semibold">
+            <DisplayNumber number={numberOf(match)} systemId={match.id} />
+          </span>
+        ) : (
+          <span className="font-mono font-semibold">{match.id}</span>
+        )}
         {path && (
           <Link className="ml-auto text-sm text-primary hover:underline" to={path}>
             {m.detail}
           </Link>
         )}
       </div>
-      <SummaryFacts summary={match.summary} kind={match.kind} />
+      <SummaryFacts summary={match.summary} skip={numbered ? [...SYSTEM_ID_KEYS, ...NUMBER_KEYS] : []} kind={match.kind} />
+      {numbered && (
+        <SystemNumbers
+          ids={[
+            { label: messages.displayNumber.system[match.kind === 'DELIVERY' ? 'deliveryId' : 'orderId'], id: match.id },
+            ...SYSTEM_ID_KEYS.filter((k) => strOf(match.summary?.[k]) !== match.id).map((k) => ({ label: messages.displayNumber.system[k], id: strOf(match.summary?.[k]) })),
+          ]}
+        />
+      )}
       <SourceLine source={match.source} />
     </div>
   );

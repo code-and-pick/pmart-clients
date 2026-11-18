@@ -1,11 +1,11 @@
 {
   "dart": {
-    "backendCommit": "0cb69a5ad09a45c756a5f8803114c3c68a19ec6a",
+    "backendCommit": "4547935c3a1ee25ca5367679c4f43e8e7392eb48",
     "backendContractsDirty": false,
-    "generatedAt": "2026-11-18T08:33:16.256528Z",
+    "generatedAt": "2026-11-18T09:26:31.692435Z",
     "generator": "openapi-generator-cli 7.26.0 (dart-dio, json_serializable)",
     "regenerated": [
-      "mfc-inbound-service"
+      "mfc-capacity-service"
     ],
     "services": {
       "auth-service": [
@@ -109,9 +109,9 @@
     }
   },
   "web": {
-    "backendCommit": "3fa9d2b045e112e56815ad3839573e9500e41754",
+    "backendCommit": "81ec304d695031f89507fdf736149c0efe365af8",
     "backendContractsDirty": false,
-    "generatedAt": "2026-11-18T06:56:28.920Z",
+    "generatedAt": "2026-11-18T09:21:23.807Z",
     "generator": "openapi-typescript 7.13.0 (TS 5.9)",
     "services": [
       "_internal-dead-letters",

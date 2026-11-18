@@ -18,6 +18,8 @@
 // - case 0.7.0 넘기기 `POST /cases/{id}/transfers` {toGroup, reason} — 배송 쪽 사건만 지원센터(DELIVERY_OPS) ↔ 관리자 팀(ORDER_OPS). 담당 비움·기한 그대로.
 //   관리자 팀으로 간 배송 쪽 사건은 지원센터·상담원이 보기만 — 목록·상세에 "관리자 처리 중"(해결된 것처럼 보이지 않게, 업무 원문 §5.3).
 //   버튼은 할 수 있어 보일 때만(판정은 서버 — 403·409·422 는 코드 문구).
+// - bff 0.14.0 화면 번호(ADR-0070): 목록 관련 칸은 배송·주문 번호(linked[].displayNumber)·라이더(riders[]) — 링크는 시스템 ID.
+//   상세는 case-service 직접(화면 번호 없음)이라 지금 모양 그대로.
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
@@ -33,6 +35,7 @@ import { CodeLabel, NextAction, PageHeader, StatusBadge, type Tone } from '../..
 import { messages as m } from '../../shared/messages';
 import { label, text, when } from '../../shared/ops';
 import { SourceStamps } from '../../shared/SourceStamps';
+import { DisplayNumber, RiderLabel, riderSourceFailed } from '../../shared/displayNumber';
 import { canSeeIntakes, CsIntakeLog } from '../csIntakes/CsIntakePages';
 import { CaseNotes } from './CaseNotes';
 import { ActionRequests } from './ActionRequests';
@@ -113,6 +116,48 @@ function Refs({ c }: { readonly c: Pick<Summary, 'refs' | 'subjectRef'> }) {
   const refs = c.refs ?? [];
   if (refs.length === 0) return <span>{text(c.subjectRef)}</span>;
   return <span className="flex flex-wrap gap-x-2">{refs.map((r) => refLink(r.refType, r.refId))}</span>;
+}
+
+/** bff case-inbox 가 linked 로 잇는 배송 refs(그 밖 refs 는 번호가 오지 않아 그대로) */
+const DELIVERY_REF_TYPES = ['deliveryId', 'recoveryDeliveryId', 'reshipmentDeliveryId'];
+
+/**
+ * 목록의 관련 칸(bff 0.14.0, ADR-0070) — 배송·주문은 linked[].displayNumber, 라이더는 riders[](가린 이름 + 번호). 링크는 시스템 ID 로.
+ * 번호가 없으면 ID 끝 8자리 + "번호 없음". 연결 원천을 못 읽었으면(UNKNOWN) 또는 rider-service 실패면 "번호 확인 불가". 그 밖 refs 는 그대로.
+ */
+function ListRefs({ c, riderFailed }: { readonly c: InboxItem; readonly riderFailed: boolean }) {
+  const refs = c.linkedRefs ?? [];
+  if (refs.length === 0) return <span>{text(c.subjectRef)}</span>;
+  const linkedOf = (kind: 'DELIVERY' | 'ORDER', id: string) => (c.linked ?? []).find((l) => l.kind === kind && l.id === id);
+  return (
+    <span className="flex flex-wrap gap-x-2">
+      {refs.map((r) => {
+        const refType = r.kind ?? '';
+        const refId = r.id ?? '';
+        if (!refId) return null;
+        const key = `${refType}:${refId}`;
+        const name = `${label(m.cases.refName, refType)} `;
+        if (DELIVERY_REF_TYPES.includes(refType) || refType === 'orderId') {
+          const delivery = refType !== 'orderId';
+          const l = linkedOf(delivery ? 'DELIVERY' : 'ORDER', refId);
+          return (
+            <Link key={key} className="link" to={delivery ? `/deliveries/${encodeURIComponent(refId)}` : `/orders/${encodeURIComponent(refId)}`}>
+              {name}
+              <DisplayNumber number={l?.displayNumber} systemId={refId} failed={l?.source?.confidence === 'UNKNOWN'} />
+            </Link>
+          );
+        }
+        if (refType === 'riderId')
+          return (
+            <Link key={key} className="link" to={`/riders/${encodeURIComponent(refId)}`}>
+              {name}
+              <RiderLabel rider={(c.riders ?? []).find((x) => x?.riderId === refId) ?? undefined} riderId={refId} failed={riderFailed} />
+            </Link>
+          );
+        return refLink(refType, refId);
+      })}
+    </span>
+  );
 }
 
 /** 연결 배송·주문 한 칸 — 원천 값을 기존 상태 이름표로만 옮긴다(합치거나 해석하지 않음) */
@@ -416,7 +461,7 @@ export function CaseListPage() {
                           <KindBadge kind={c.kind} />
                         </td>
                         <td className="text-xs">
-                          <Refs c={{ subjectRef: c.subjectRef ?? '', refs: (c.linkedRefs ?? []).map((x) => ({ refType: x.kind ?? '', refId: x.id ?? '' })) }} />
+                          {/* 화면 번호(bff 0.14.0, ADR-0070 — main #137) */}<ListRefs c={c} riderFailed={riderSourceFailed(r.unavailableSources)} />
                         </td>
                         <td>
                           {(c.linked ?? []).length === 0 ? (

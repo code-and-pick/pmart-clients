@@ -352,6 +352,14 @@ export const messages = {
     recordSection: '기록',
   },
 
+  /** 화면 번호(ADR-0070, bff 0.14.0) — 주문 8자리·배송 "주문번호-순번"·라이더 가린 이름 + 번호 */
+  displayNumber: {
+    missing: '번호 없음',
+    failed: '번호 확인 불가',
+    systemNumbers: '시스템 번호',
+    system: { orderId: '주문', deliveryId: '배송', riderId: '라이더' },
+  },
+
   /** 개인정보 기본 가림 */
   masked: {
     reveal: '보기',

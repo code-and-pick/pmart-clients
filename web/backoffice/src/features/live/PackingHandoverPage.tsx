@@ -3,6 +3,8 @@
 // - 단계(stage)는 bff 가 정한다 — 화면에서 다시 계산하지 않는다. null 이면 "—" + 원천 값(출고·피킹·패킹 상태)을 작게.
 //   PACKING 인데 패킹이 아직 시작 전(WAITING·READY·ASSIGNED·없음)이면 "패킹 대기", BLOCKED 면 막힌 이유(백엔드 알림 — 사용자 "(가)", bff 0.11.1 #140).
 // - 수량은 "포장 N · 인계 M · 남음 K"(§3.7). 펼치면 포장별 상태·인계 허가·스캔·인계 시각·받은 라이더.
+// - 화면 번호(bff 0.14.0, ADR-0070): 주문 orderNumber·배송 deliveryNumber·라이더(가린 이름 + 번호, 배정 라이더 rider·포장 받은 라이더 packages[].rider).
+//   링크는 시스템 ID 로. 번호가 null 이면 ID 끝 8자리 회색 + "번호 없음", rider-service 실패면 라이더 "번호 확인 불가".
 // - unavailableSources: mfc-fulfillment-service = 목록 전체를 못 읽음(0건 아님), delivery-execution-service = 배송 칸만 "—".
 // - 새로고침은 30초(한 번 부를 때 MFC 1회 + 출고 수만큼 배송 조회 — 백엔드 권고). 개인정보·QR 없음.
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
@@ -19,6 +21,7 @@ import { SourceStamps } from '../../shared/SourceStamps';
 import { CodeLabel, DataTable, NextAction, PageHeader, StatusBadge } from '../../shared/admin';
 import { executionTone } from '../deliveries/DeliveryPages';
 import { EmptyBox, Icon, IdLink, KindChip, Kpi, UnderlineTabs } from '../lookup/parts';
+import { DisplayNumber, RiderLabel, riderSourceFailed } from '../../shared/displayNumber';
 
 const m = messages.packing;
 type View = operations['getPackingHandoverView']['responses'][200]['content']['application/json'];
@@ -67,7 +70,7 @@ function StageCell({ it }: { readonly it: Item }) {
   );
 }
 
-function Packages({ it }: { readonly it: Item }) {
+function Packages({ it, riderFailed }: { readonly it: Item; readonly riderFailed: boolean }) {
   const [open, setOpen] = useState(false);
   const list = it.packages ?? [];
   if (list.length === 0) return null;
@@ -84,7 +87,8 @@ function Packages({ it }: { readonly it: Item }) {
               <Code code={p.state} names={m.packageStateName} />
               {` · ${m.fence} `}
               <Code code={p.fenceState} names={m.fenceStateName} />
-              {` · ${m.scanned} ${when(p.handoverAuthorizedAt)} · ${m.handedOver} ${when(p.handedOverAt)} · ${m.rider} ${text(p.riderId)}`}
+              {` · ${m.scanned} ${when(p.handoverAuthorizedAt)} · ${m.handedOver} ${when(p.handedOverAt)} · ${m.rider} `}
+              {p.rider?.riderId || p.riderId ? <RiderLabel rider={p.rider} riderId={p.riderId} failed={riderFailed} /> : messages.none}
             </li>
           ))}
         </ul>
@@ -124,6 +128,7 @@ export function PackingHandoverPage() {
   const failed = new Set(first?.unavailableSources ?? []);
   const items = query.data?.pages.flatMap((p) => p.items ?? []) ?? [];
   const deliveryFailed = failed.has(DELIVERY);
+  const riderFailed = riderSourceFailed(first?.unavailableSources);
   const pageState: UiState<View> = first
     ? failed.has(MFC) || items.length > 0
       ? { kind: 'ready', data: first }
@@ -225,10 +230,10 @@ export function PackingHandoverPage() {
                               <td>
                                 {it.orderId ? (
                                   <Link className="font-mono font-semibold text-base-content hover:text-primary hover:underline" to={`/orders/${encodeURIComponent(it.orderId)}`}>
-                                    {it.orderNumber ?? it.orderId}
+                                    <DisplayNumber number={it.orderNumber} systemId={it.orderId} />
                                   </Link>
                                 ) : (
-                                  text(it.orderNumber)
+                                  <DisplayNumber number={it.orderNumber} />
                                 )}
                                 {it.workOrderKind === 'RESHIPMENT' && (
                                   <span className="ml-1.5">
@@ -259,7 +264,7 @@ export function PackingHandoverPage() {
                               </td>
                               <td data-testid="packing-qty">
                                 <span className="font-medium">{m.qty(text(it.packageCount), text(it.handedOverQty?.qty), text(it.remainingPackages))}</span>
-                                <Packages it={it} />
+                                <Packages it={it} riderFailed={riderFailed} />
                               </td>
                               <td className="text-xs">
                                 <div>
@@ -277,10 +282,13 @@ export function PackingHandoverPage() {
                                 ) : it.deliveryId ? (
                                   <span className="flex flex-col items-start gap-1">
                                     <Link className="font-mono font-medium text-primary hover:underline" to={`/deliveries/${encodeURIComponent(it.deliveryId)}`}>
-                                      {it.deliveryId}
+                                      <DisplayNumber number={it.deliveryNumber} systemId={it.deliveryId} />
                                     </Link>
                                     <StatusBadge tone={executionTone(it.delivery?.state)}>{it.delivery?.state ? <CodeLabel code={it.delivery.state} names={messages.deliveries.executionState} /> : messages.none}</StatusBadge>
-                                    <span className="text-base-content/60">{`${m.rider} ${text(it.riderId)}`}</span>
+                                    <span className="text-base-content/60">
+                                      {`${m.rider} `}
+                                      {it.rider?.riderId || it.riderId ? <RiderLabel rider={it.rider} riderId={it.riderId} failed={riderFailed} /> : messages.none}
+                                    </span>
                                   </span>
                                 ) : (
                                   <span className="opacity-70">{m.noDelivery}</span>

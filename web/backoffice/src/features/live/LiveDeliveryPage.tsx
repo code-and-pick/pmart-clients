@@ -4,6 +4,8 @@
 // - 상태를 비우면 끝나지 않은 배송 전부를 오래된 순 50건까지(쪽 넘김 없음, 넘으면 truncated). 상태를 주면 page.nextCursor 로 다음 쪽.
 // - 수행 상태·배차 상태·열린 사건을 원천마다 따로 — 배차 원천 실패면 "모름", 사건 원천 실패(openCases null)면 "조회 실패"(0건과 구분).
 // - "약속 지남"은 서버 promisedAt 이 서버 composedAt 보다 앞일 때 표시만(화면 시계를 쓰지 않음).
+// - 화면 번호(bff 0.14.0, ADR-0070): 배송·주문 칸은 deliveryNumber·orderNumber, 라이더는 가린 이름 + 라이더 번호. 링크는 시스템 ID 로.
+//   번호가 null 이면 시스템 ID 끝 8자리 회색 + "번호 없음", rider-service 를 못 읽었으면 라이더 칸 "번호 확인 불가"(원천 줄에도 보인다).
 // - 자동 새로 고침 1분(요청서: 서버 부담 — 30초 이상 권장). 화면이 숨겨지면 멈춘다(TanStack Query 기본).
 import { useQuery } from '@tanstack/react-query';
 import { Link, useSearchParams } from 'react-router';
@@ -17,7 +19,8 @@ import { label, when } from '../../shared/ops';
 import { SourceStamps } from '../../shared/SourceStamps';
 import { CodeLabel, DataTable, NextAction, PageHeader, StatusBadge, useRowLink } from '../../shared/admin';
 import { executionTone } from '../deliveries/DeliveryPages';
-import { EmptyBox, Icon, IdLink, KindChip, Kpi, Person, UnderlineTabs } from '../lookup/parts';
+import { EmptyBox, Icon, KindChip, Kpi, UnderlineTabs } from '../lookup/parts';
+import { DisplayNumber, RiderLabel, riderSourceFailed, type RiderDisplay } from '../../shared/displayNumber';
 
 const m = messages.live;
 const d = messages.deliveries;
@@ -52,6 +55,10 @@ interface LiveItem {
   readonly delivery?: StampedState;
   readonly dispatch?: StampedState;
   readonly riderId?: string | null;
+  /** bff 0.14.0 화면 번호(ADR-0070) — 원천 값 그대로, 없으면 null */
+  readonly deliveryNumber?: string | null;
+  readonly orderNumber?: string | null;
+  readonly rider?: RiderDisplay;
   readonly arrivalWindow?: Record<string, unknown> | null;
   readonly promisedAt?: string | null;
   readonly openCases?: readonly OpenCase[] | null;
@@ -198,7 +205,7 @@ export function LiveDeliveryPage() {
                       <EmptyBox icon="truck">{m.empty}</EmptyBox>
                     </div>
                   ) : (
-                    <LiveTable items={items} composedAt={view.composedAt} casesTruncated={view.casesTruncated ?? false} />
+                    <LiveTable items={items} composedAt={view.composedAt} casesTruncated={view.casesTruncated ?? false} riderFailed={riderSourceFailed(view.unavailableSources)} />
                   )}
                   {state && (cursor || nextCursor) && (
                     <div className="flex justify-end gap-2">
@@ -263,7 +270,7 @@ function LiveNext({ items }: { readonly items: readonly LiveItem[] }) {
   );
 }
 
-function LiveTable({ items, composedAt, casesTruncated = false }: { readonly items: readonly LiveItem[]; readonly composedAt: string | undefined; readonly casesTruncated?: boolean }) {
+function LiveTable({ items, composedAt, casesTruncated = false, riderFailed = false }: { readonly items: readonly LiveItem[]; readonly composedAt: string | undefined; readonly casesTruncated?: boolean; readonly riderFailed?: boolean }) {
   const rowLink = useRowLink();
   return (
     <DataTable>
@@ -284,17 +291,25 @@ function LiveTable({ items, composedAt, casesTruncated = false }: { readonly ite
           const dispatchState = it.dispatch?.state ?? null;
           return (
             <tr key={it.deliveryId} data-testid="live-row" {...(it.deliveryId ? rowLink(`/deliveries/${encodeURIComponent(it.deliveryId)}`) : {})} className={`cursor-pointer ${late ? 'bg-error/5' : ''}`}>
-              {/* 첫 칸: 배송 번호 굵게 + 주문 번호 작게 */}
+              {/* 첫 칸: 배송 번호 굵게 + 주문 번호 작게 — 화면 번호(bff 0.14.0, ADR-0070), 링크는 시스템 ID */}
               <td>
-                {it.deliveryId ? (
-                  <Link className="font-mono font-semibold text-base-content hover:text-primary hover:underline" to={`/deliveries/${encodeURIComponent(it.deliveryId)}`}>
-                    {it.deliveryId}
-                  </Link>
-                ) : (
-                  messages.none
-                )}
-                <span className="mt-0.5 block font-normal">
-                  {it.orderId ? <IdLink id={it.orderId} to={`/orders/${encodeURIComponent(it.orderId)}`} /> : <IdLink id={null} />}
+                <span className="block font-semibold" data-testid="live-delivery">
+                  {it.deliveryId ? (
+                    <Link className="text-base-content hover:text-primary hover:underline" to={`/deliveries/${encodeURIComponent(it.deliveryId)}`}>
+                      <DisplayNumber number={it.deliveryNumber} systemId={it.deliveryId} />
+                    </Link>
+                  ) : (
+                    <DisplayNumber number={it.deliveryNumber} />
+                  )}
+                </span>
+                <span className="mt-0.5 block text-xs font-normal text-base-content/60" data-testid="live-order">
+                  {it.orderId ? (
+                    <Link className="hover:text-primary hover:underline" to={`/orders/${encodeURIComponent(it.orderId)}`}>
+                      <DisplayNumber number={it.orderNumber} systemId={it.orderId} />
+                    </Link>
+                  ) : (
+                    <DisplayNumber number={it.orderNumber} />
+                  )}
                 </span>
               </td>
               <td>
@@ -308,7 +323,7 @@ function LiveTable({ items, composedAt, casesTruncated = false }: { readonly ite
               </td>
               <td>{it.delivery?.state ? <StatusBadge tone={executionTone(it.delivery.state)}><CodeLabel code={it.delivery.state} names={d.executionState} /></StatusBadge> : <span className="text-warning">{m.unknown}</span>}</td>
               <td data-testid="dispatch-state">{dispatchState ? <StatusBadge tone="neutral"><CodeLabel code={dispatchState} names={d.dispatchState} /></StatusBadge> : <span className="text-warning">{m.unknown}</span>}</td>
-              <td>{it.riderId ? <Person id={it.riderId} /> : <StatusBadge tone="warning">{m.noRider}</StatusBadge>}</td>
+              <td data-testid="live-rider">{it.rider?.riderId || it.riderId ? <RiderLabel rider={it.rider} riderId={it.riderId} failed={riderFailed} /> : <StatusBadge tone="warning">{m.noRider}</StatusBadge>}</td>
               <td className="min-w-40">
                 <span className="flex flex-wrap items-center gap-1">
                   {windowText(it.arrivalWindow)}

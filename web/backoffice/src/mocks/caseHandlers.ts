@@ -237,6 +237,24 @@ const LINKED_STATE: Readonly<Record<string, string>> = {
   'ORD-MOCK-1004': 'PAYMENT_PENDING',
 };
 
+/** bff 0.14.0 화면 번호 목(ADR-0070): 배송 "주문번호-순번"·주문 8자리. 표에 없는 ID 는 번호 전(null). */
+const DISPLAY_NUMBER: Readonly<Record<string, string>> = {
+  'DLV-MOCK-1': '74939255-1',
+  'DLV-MOCK-2': '74939256-1',
+  'DLV-MOCK-3': '74939257-1',
+  'DLV-MOCK-4': '74939258-1',
+  'DLV-MOCK-R1': '74939258-2',
+  'DLV-MOCK-S1': '74939258-3',
+  'ORD-MOCK-1001': '74939255',
+  'ORD-MOCK-1002': '74939256',
+  'ORD-MOCK-1003': '74939258',
+  'ORD-MOCK-1004': '74939259',
+};
+/** 배송의 주문번호(execution orderSummary.orderNumber) */
+const ORDER_NUMBER_OF_DELIVERY = (id: string) => DISPLAY_NUMBER[id]?.split('-')[0] ?? null;
+/** rider-service 목 — RID-MOCK-2 는 탈퇴처럼 못 찾음(번호·이름 null) */
+const RIDER_DISPLAY: Readonly<Record<string, { riderNumber: string; nameMasked: string }>> = { 'RID-MOCK-1': { riderNumber: '482913', nameMasked: '김*수' } };
+
 export const caseHandlers = [
   // bff 0.5.0 사건함 — case 목록 + 연결 배송·주문의 지금 상태. 주문을 못 보는 역할(RIDER_OPS 만)은 주문 칸 UNKNOWN + unavailableSources order-service.
   http.get(`${BFF_BASE}/views/case-inbox`, ({ request }) => {
@@ -255,21 +273,33 @@ export const caseHandlers = [
           .map((r) => {
             const delivery = r.refType === 'deliveryId' || r.refType === 'recoveryDeliveryId' || r.refType === 'reshipmentDeliveryId';
             const id = r.refId ?? '';
-            if (!delivery && !seesOrders) return { kind: 'ORDER' as const, id, state: null, version: null, source: stamp('order-service', 'UNKNOWN') };
-            return { kind: delivery ? ('DELIVERY' as const) : ('ORDER' as const), id, state: LINKED_STATE[id] ?? null, version: LINKED_STATE[id] ? 3 : null, source: stamp(delivery ? 'delivery-execution-service' : 'order-service') };
+            if (!delivery && !seesOrders) return { kind: 'ORDER' as const, id, displayNumber: null, orderNumber: null, state: null, version: null, source: stamp('order-service', 'UNKNOWN') };
+            return {
+              kind: delivery ? ('DELIVERY' as const) : ('ORDER' as const),
+              id,
+              displayNumber: DISPLAY_NUMBER[id] ?? null,
+              orderNumber: delivery ? ORDER_NUMBER_OF_DELIVERY(id) : (DISPLAY_NUMBER[id] ?? null),
+              state: LINKED_STATE[id] ?? null,
+              version: LINKED_STATE[id] ? 3 : null,
+              source: stamp(delivery ? 'delivery-execution-service' : 'order-service'),
+            };
           });
         // bff 0.6.0: 라이더 도움요청 건에 HELP_REQUEST 칸(상태·라이더/지원센터 마지막 메시지 시각)
         const incident = refs.find((r) => r.refType === 'incidentId')?.refId ?? '';
         const help = c.kind === 'RIDER_HELP' ? mockHelpLinked(incident) : null;
-        const helpLinked = help ? [{ kind: 'HELP_REQUEST' as const, id: incident.split(':')[1] ?? '', state: help.state, version: null, lastRiderMessageAt: help.lastRiderMessageAt, lastSupportMessageAt: help.lastSupportMessageAt, source: stamp('delivery-execution-service') }] : [];
+        const helpLinked = help ? [{ kind: 'HELP_REQUEST' as const, id: incident.split(':')[1] ?? '', displayNumber: null, orderNumber: null, state: help.state, version: null, lastRiderMessageAt: help.lastRiderMessageAt, lastSupportMessageAt: help.lastSupportMessageAt, source: stamp('delivery-execution-service') }] : [];
         const rest: Partial<Summary> = { ...c };
         delete rest.refs;
-        return { ...rest, myLastSeenAt: seenAt(v.who.subject, c.caseId), linkedRefs: refs.map((r) => ({ kind: r.refType ?? '', id: r.refId ?? '' })), linked: [...linked, ...helpLinked], source: stamp('case-service') };
+        // bff 0.14.0 riders[] — 사건이 가리키는 라이더(refs riderId), 번호·가린 이름은 rider-service 값(못 찾으면 null)
+        const riders = refs
+          .filter((r) => r.refType === 'riderId' && r.refId)
+          .map((r) => ({ riderId: r.refId ?? '', riderNumber: RIDER_DISPLAY[r.refId ?? '']?.riderNumber ?? null, nameMasked: RIDER_DISPLAY[r.refId ?? '']?.nameMasked ?? null }));
+        return { ...rest, myLastSeenAt: seenAt(v.who.subject, c.caseId), linkedRefs: refs.map((r) => ({ kind: r.refType ?? '', id: r.refId ?? '' })), linked: [...linked, ...helpLinked], riders, source: stamp('case-service') };
       });
     const anyOrder = items.some((i) => i.linked.some((l) => l.kind === 'ORDER'));
     return HttpResponse.json({
       composedAt: now,
-      sources: [stamp('case-service'), stamp('delivery-execution-service'), ...(seesOrders ? [stamp('order-service')] : [])],
+      sources: [stamp('case-service'), stamp('delivery-execution-service'), ...(seesOrders ? [stamp('order-service')] : []), stamp('rider-service')],
       unavailableSources: !seesOrders && anyOrder ? ['order-service'] : [],
       items,
       page: { nextCursor: null, size: items.length },

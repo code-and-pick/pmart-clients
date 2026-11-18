@@ -185,6 +185,7 @@ export const opsHandlers = [
     const order = q.get('sort') === 'STATE_CHANGED_DESC' ? (a: MockRider, b: MockRider) => b.version - a.version : (a: MockRider, b: MockRider) => b.joinedAt.localeCompare(a.joinedAt);
     const items = ops.riders
       .filter((r) => !q.get('riderId') || r.riderId === q.get('riderId'))
+      .filter((r) => !q.get('riderNumber') || r.riderNumber === q.get('riderNumber'))
       // rider 0.12.0 riderIds(쉼표, 50개까지) — 목록에 라이더 번호·가린 이름을 한 번에 붙일 때
       .filter((r) => !q.get('riderIds') || (q.get('riderIds') ?? '').split(',').includes(r.riderId))
       .filter((r) => !q.get('restriction') || r.restriction === q.get('restriction'))

@@ -15,6 +15,7 @@ import { commandParams } from '../../api/command';
 import type { components } from '../../api/generated/rider';
 import { useApi } from '../../app/ApiContext';
 import { ChipGroup, CursorPager, DataTable, DetailHeader, FieldList, Notice, PageHeader, ResultBar, SearchPanel, SearchRow, Section, SectionTabs, StatusBadge, type Tone } from '../../shared/admin';
+import { RiderName, SystemIds } from '../../shared/displayNumbers';
 import { SimBadge } from '../../shared/sim';
 import { LIVE } from '../../shared/liveRefresh';
 import { messages } from '../../shared/messages';
@@ -63,6 +64,9 @@ function RiderSearchPage({ signups = false }: { readonly signups?: boolean }) {
   const api = useApi();
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
+  // 화면 번호 규칙(ADR-0070, 2026-11-18 사용자 "설마 저 긴 ID를 다 쳐야 한다는 건 아니지?"): 라이더 번호 6자리로 찾는다.
+  // 옛 링크 ?riderId=RD-… 는 그대로 받아 그 라이더를 찾는다(화면 칸에는 없음).
+  const riderNumber = params.get('riderNumber') ?? '';
   const riderId = params.get('riderId') ?? '';
   const phone = params.get('phone') ?? '';
   const rawR = params.get('restriction') ?? '';
@@ -73,22 +77,22 @@ function RiderSearchPage({ signups = false }: { readonly signups?: boolean }) {
   const vehicleType = (VEHICLES as readonly string[]).includes(rawV) ? (rawV as VehicleType) : undefined;
   const sort: Sort = SORTS.find((s) => s === params.get('sort')) ?? 'JOINED_DESC';
   const page = Number(params.get('page') ?? '0') || 0;
-  const [draft, setDraft] = useState({ riderId, phone });
+  const [draft, setDraft] = useState({ riderNumber, phone });
 
-  const set = (next: Partial<Record<'riderId' | 'phone' | 'restriction' | 'operatingStatus' | 'vehicleType' | 'sort' | 'page', string>>) => {
-    const v = { riderId, phone, restriction: restriction ?? '', operatingStatus: operatingStatus ?? '', vehicleType: vehicleType ?? '', sort: sort === 'JOINED_DESC' ? '' : sort, page: '', ...next };
+  const set = (next: Partial<Record<'riderNumber' | 'riderId' | 'phone' | 'restriction' | 'operatingStatus' | 'vehicleType' | 'sort' | 'page', string>>) => {
+    const v = { riderNumber, riderId, phone, restriction: restriction ?? '', operatingStatus: operatingStatus ?? '', vehicleType: vehicleType ?? '', sort: sort === 'JOINED_DESC' ? '' : sort, page: '', ...next };
     setParams(Object.fromEntries(Object.entries(v).filter(([k, x]) => x !== '' && x !== '0' && !(k === 'sort' && x === 'JOINED_DESC'))));
   };
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    set({ riderId: draft.riderId.trim(), phone: draft.phone.trim() });
+    set({ riderNumber: draft.riderNumber.replace(/\D/g, ''), riderId: '', phone: draft.phone.trim() });
   };
   const reset = () => {
-    setDraft({ riderId: '', phone: '' });
+    setDraft({ riderNumber: '', phone: '' });
     setParams({});
   };
   const query = useQuery({
-    queryKey: ['riders', riderId, phone, restriction, operatingStatus, vehicleType, sort, page],
+    queryKey: ['riders', riderNumber, riderId, phone, restriction, operatingStatus, vehicleType, sort, page],
     queryFn: () =>
       request(
         'GET',
@@ -99,6 +103,7 @@ function RiderSearchPage({ signups = false }: { readonly signups?: boolean }) {
               page,
               // 가입 승인 화면은 늘 최근 가입 순
               sort: signups ? 'JOINED_DESC' : sort,
+              ...(riderNumber ? { riderNumber } : {}),
               ...(riderId ? { riderId } : {}),
               ...(phone ? { phone } : {}),
               ...(restriction ? { restriction } : {}),
@@ -118,8 +123,16 @@ function RiderSearchPage({ signups = false }: { readonly signups?: boolean }) {
         <SearchPanel onSubmit={submit} onReset={reset} submitLabel={r.search} resetLabel={r.reset}>
           <SearchRow label={rm.findByNumber}>
             <label className="flex items-center gap-2 text-sm">
-              <span className="text-base-content/60">{r.riderId}</span>
-              <input className="input input-sm w-44" value={draft.riderId} maxLength={64} onChange={(e) => setDraft({ ...draft, riderId: e.target.value })} />
+              <span className="text-base-content/60">{rm.riderNumber}</span>
+              <input
+                className="input input-sm w-32 font-mono"
+                value={draft.riderNumber}
+                maxLength={6}
+                inputMode="numeric"
+                placeholder="482913"
+                aria-label={rm.riderNumber}
+                onChange={(e) => setDraft({ ...draft, riderNumber: e.target.value.replace(/\D/g, '').slice(0, 6) })}
+              />
             </label>
             <label className="flex items-center gap-2 text-sm">
               <span className="text-base-content/60">{r.phone}</span>
@@ -181,11 +194,8 @@ function RiderSearchPage({ signups = false }: { readonly signups?: boolean }) {
                     <tr key={row.riderId} data-testid="rider-row" className="cursor-pointer" onClick={() => open(row.riderId)}>
                       <td className="font-mono font-semibold">
                         <Link className="hover:underline" to={`/riders/${encodeURIComponent(row.riderId ?? '')}`} onClick={(e) => e.stopPropagation()}>
-                          {row.riderId}
+                          <RiderName riderId={row.riderId} riderNumber={row.riderNumber} />
                         </Link>
-                        <span className="ml-1 align-middle font-sans">
-                          <SimBadge riderId={row.riderId} />
-                        </span>
                       </td>
                       <td>{row.nameMasked ?? none}</td>
                       <td className="font-mono">{row.phoneMasked ?? none}</td>
@@ -264,7 +274,7 @@ function RiderDetailPage() {
     <section className="max-w-6xl space-y-4">
       <DetailHeader
         back={{ to: '/riders', label: r.back }}
-        title={r.detailTitle(riderId)}
+        title={d?.riderNumber ? r.detailTitle(d.riderNumber) : r.detailTitle(rm.noNumber)}
         badges={
           d && (
             <>
@@ -282,6 +292,7 @@ function RiderDetailPage() {
           </Link>
         }
       />
+      <SystemIds ids={[[rm.systemRiderId, riderId]]} />
       <SectionTabs items={tabs} />
       <div className="grid gap-4 lg:grid-cols-2">
         <Section id="sec-info" title={r.info}>

@@ -6,6 +6,7 @@ import 'package:pmart_api_delivery_tracking/pmart_api_delivery_tracking.dart'
     as tr;
 import 'package:pmart_core/pmart_core.dart';
 
+import 'background_location.dart';
 import 'location.dart';
 import 'providers.dart';
 
@@ -92,9 +93,11 @@ final locationReporterProvider = NotifierProvider<LocationReporter, bool>(
 /// 운행 중·배달 중에 위치를 모아 일정 간격으로 올린다. 상태 = 보내는 중인지.
 ///
 /// 보내는 동안은 Android 상시 알림(위치 포그라운드 서비스)을 띄워 앱을 내려도 계속 보낸다
-/// (사용자 결정 2026-11-16). 좌표는 로그에 남기지 않는다.
+/// (사용자 결정 2026-11-16). 실서버 Android 에서는 앱 화면이 없어지면 위치 전송 서비스가 넘겨받는다
+/// ([BackgroundLocation], 2026-11-18). 좌표는 로그에 남기지 않는다.
 class LocationReporter extends Notifier<bool> {
   LocationSource? _source;
+  BackgroundLocation? _background;
   StreamSubscription<GeoPoint>? _sub;
   Timer? _timer;
   final _buffer = <LocationSample>[];
@@ -118,7 +121,18 @@ class LocationReporter extends Notifier<bool> {
     final source = ref.read(locationSourceProvider);
     if (source == null) return;
     _source = source;
-    unawaited(source.keepAlive(notice));
+    // 실서버 Android: 상시 알림은 위치 전송 서비스가 띄운다(앱 화면이 없어지면 넘겨받아 보낸다).
+    // 그 밖(목 모드 등): geolocator 상시 알림으로 앱을 내려도 받는다.
+    final background = notice == null
+        ? null
+        : ref.read(backgroundLocationProvider);
+    _background = background;
+    if (background != null && notice != null) {
+      unawaited(source.keepAlive(null));
+      unawaited(background.start(notice));
+    } else {
+      unawaited(source.keepAlive(notice));
+    }
     _sub = source.watch().listen(
       (p) => _buffer.add((
         lat: p.lat,
@@ -134,6 +148,8 @@ class LocationReporter extends Notifier<bool> {
 
   void _stop() {
     unawaited(_source?.keepAlive(null));
+    unawaited(_background?.stop());
+    _background = null;
     _source = null;
     _sub?.cancel();
     _timer?.cancel();
@@ -155,6 +171,8 @@ class LocationReporter extends Notifier<bool> {
           .upload(_pending!, key: _pendingKey!);
       _pending = null;
       _pendingKey = null;
+      // 갱신된 토큰을 서비스에 건넨다(앱을 닫으면 이 토큰으로 이어 보낸다)
+      unawaited(_background?.syncToken());
     } on PmartFailure {
       // 다음 간격에 같은 키로 다시 보낸다.
     }

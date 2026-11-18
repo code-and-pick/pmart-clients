@@ -2,7 +2,9 @@
 // 규칙(계약 설명 그대로 흉내): OPERATOR_ADMIN·CS_AGENT·RIDER_OPS(그 밖 403), mfcId 비우면 모든 센터.
 // state 비우면 진행 중 전부를 생긴 순(오래된 것 먼저) size 건 — cursor 없음, 넘으면 truncated. state 주면 그 상태만 + page.nextCursor.
 // 상태 없이 cursor → 400, 모르는 상태 → 400. 배차 원천 실패면 dispatch.state null·UNKNOWN, 사건 원천 실패면 openCases null.
-// 목 전용 스위치: mfcId=MFC-MOCK-DOWN 이면 배차·사건 원천 실패.
+// 목 전용 스위치: mfcId=MFC-MOCK-DOWN 이면 배차·사건·라이더(rider-service) 원천 실패.
+// bff 0.14.0 화면 번호(ADR-0070): deliveryNumber·orderNumber(3번은 번호 전 — null), rider(RiderDisplay — 2번은 탈퇴 라이더처럼 번호·이름 null).
+//   rider-service 실패면 riderId 만 두고 번호·이름 null + unavailableSources 에 rider-service.
 import { http, HttpResponse } from 'msw';
 
 import { BFF_BASE } from '../api/client';
@@ -26,6 +28,12 @@ interface Row {
   readonly openCases: ReadonlyArray<{ caseId: string; kind: string; priority: string; overdue: boolean }>;
   /** bff 0.7.0 tracking 도착 예정(없으면 tracking 에 없는 배송) */
   readonly eta?: { status: string; at: string | null; delay: number | null };
+  /** bff 0.14.0 화면 번호 — null 이면 번호 전 */
+  readonly orderNumber: string | null;
+  readonly deliveryNumber: string | null;
+  /** rider-service 에서 읽은 번호·가린 이름(null = 탈퇴 등으로 못 찾음) */
+  readonly riderNumber: string | null;
+  readonly riderName: string | null;
 }
 
 const row = (n: number, extra: Partial<Row>): Row => ({
@@ -40,14 +48,18 @@ const row = (n: number, extra: Partial<Row>): Row => ({
   window: { date: '2026-11-16', start: '10:00', end: '11:00' },
   promisedAt: '2099-01-01T02:00:00.000Z',
   openCases: [],
+  orderNumber: `7493925${n}`,
+  deliveryNumber: `7493925${n}-1`,
+  riderNumber: `48291${n}`,
+  riderName: '김*수',
   ...extra,
 });
 
 /** 진행 중 4 + 끝난 1, 다른 센터 1. 미배정 5건(쪽 넘김 시험용 — 상태 UNASSIGNED, 2건씩) */
 const rows: readonly Row[] = [
   row(1, { execution: 'PICKED_UP', dispatch: 'PICKED_UP', promisedAt: '2026-11-16T01:00:00.000Z', openCases: [{ caseId: 'CASE-MOCK-1', kind: 'RIDER_HELP', priority: 'P1', overdue: true }], eta: { status: 'AVAILABLE', at: '2026-11-16T01:12:00.000Z', delay: 720 } }),
-  row(2, { execution: 'FAILURE_REPORTED', type: 'RESHIPMENT', eta: { status: 'LOCATING', at: null, delay: null } }),
-  row(3, { mfcId: 'MFC-SEL-01', execution: 'ARRIVED_AT_STORE', eta: { status: 'ETA_PENDING', at: null, delay: null } }),
+  row(2, { execution: 'FAILURE_REPORTED', type: 'RESHIPMENT', eta: { status: 'LOCATING', at: null, delay: null }, riderNumber: null, riderName: null }),
+  row(3, { mfcId: 'MFC-SEL-01', execution: 'ARRIVED_AT_STORE', eta: { status: 'ETA_PENDING', at: null, delay: null }, orderNumber: null, deliveryNumber: null }),
   row(4, { execution: 'COMPLETED', dispatch: 'CLOSED' }),
   ...[5, 6, 7, 8, 9].map((n) => row(n, { execution: 'UNASSIGNED', dispatch: 'DISPATCHING', riderId: null, window: null, promisedAt: null })),
 ];
@@ -80,10 +92,10 @@ export const liveDeliveryHandlers = [
       confidence: ok ? ('DIRECT' as const) : ('UNKNOWN' as const),
       asOf: { asOf: composedAt, freshness: ok ? ('CURRENT' as const) : ('UNAVAILABLE' as const) },
     });
-    const failed = down ? ['delivery-dispatch-service', 'case-service', 'delivery-tracking-service'] : [];
+    const failed = down ? ['delivery-dispatch-service', 'case-service', 'delivery-tracking-service', 'rider-service'] : [];
     const ok = (s: string) => !failed.includes(s);
     return HttpResponse.json({
-      sources: ['delivery-execution-service', 'delivery-dispatch-service', 'case-service'].map((s) => stamp(s, ok(s))),
+      sources: ['delivery-execution-service', 'delivery-dispatch-service', 'case-service', 'rider-service'].map((s) => stamp(s, ok(s))),
       unavailableSources: failed,
       composedAt,
       truncated: !state && rest,
@@ -94,6 +106,9 @@ export const liveDeliveryHandlers = [
         mfcId: r.mfcId,
         type: r.type,
         riderId: r.riderId,
+        deliveryNumber: r.deliveryNumber,
+        orderNumber: r.orderNumber,
+        rider: r.riderId ? { riderId: r.riderId, riderNumber: ok('rider-service') ? r.riderNumber : null, nameMasked: ok('rider-service') ? r.riderName : null } : null,
         createdAt: r.createdAt,
         assignedAt: r.riderId ? r.createdAt : null,
         pickedUpAt: r.execution === 'PICKED_UP' ? r.createdAt : null,

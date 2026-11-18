@@ -23,9 +23,11 @@ abstract interface class WorkRepository {
     required IdempotencyKey key,
   });
 
-  Future<void> startBreak(
+  /// 휴게 시작 — 센터 관리자 4자리 번호(서버가 확인).
+  Future<BreakStartOutcome> startBreak(
     String mfcId,
     String workerId, {
+    required String supervisorPin,
     required IdempotencyKey key,
   });
 
@@ -122,20 +124,49 @@ final class ApiWorkRepository implements WorkRepository {
     }
   }
 
+  /// 휴게 시작(mfc-capacity 0.20.0) — 작업자 본인은 `supervisorPin` 필수. 422 세 코드는 거절 확정.
+  /// 같은 키면 같은 판정이라, 번호를 다시 받을 때마다 부르는 쪽이 새 키를 만든다.
   @override
-  Future<void> startBreak(
+  Future<BreakStartOutcome> startBreak(
     String mfcId,
     String workerId, {
+    required String supervisorPin,
     required IdempotencyKey key,
-  }) => pmartGuard(
-    () => _workers.startWorkerBreak(
-      mfcId: mfcId,
-      workerId: workerId,
-      idempotencyKey: key.value,
-      xSourceSystem: sourceSystem,
-      extra: commandOptions(key).extra,
-    ),
-  );
+  }) async {
+    try {
+      await pmartGuard(
+        () => _workers.startWorkerBreak(
+          mfcId: mfcId,
+          workerId: workerId,
+          idempotencyKey: key.value,
+          xSourceSystem: sourceSystem,
+          startWorkerBreakRequest: cap.StartWorkerBreakRequest(
+            supervisorPin: supervisorPin,
+          ),
+          extra: commandOptions(key).extra,
+        ),
+      );
+      return const BreakStarted();
+    } on ProblemFailure catch (f) {
+      final p = f.problem;
+      String? detail(String field) => [
+        for (final d in p.details)
+          if (d.field == field) d.reason,
+      ].firstOrNull;
+      return switch (p.code) {
+        BreakProblemCode.pinInvalid => BreakRejected(
+          p.code,
+          remainingAttempts: int.tryParse(detail('remainingAttempts') ?? ''),
+        ),
+        BreakProblemCode.pinLocked => BreakRejected(
+          p.code,
+          lockedUntil: DateTime.tryParse(detail('lockedUntil') ?? ''),
+        ),
+        BreakProblemCode.pinNotSet => BreakRejected(p.code),
+        _ => throw f,
+      };
+    }
+  }
 
   @override
   Future<void> endBreak(

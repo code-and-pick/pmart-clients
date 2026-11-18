@@ -1,7 +1,8 @@
 // ⚠ 화면 개발·시험용 목 — 포장 인계 현황(bff 0.11.0 `GET /backoffice/views/packing-handover`). 실제 서버 동작이 아니다.
 // 규칙(계약 설명 흉내): 본사 역할(OPERATOR_ADMIN·CS_AGENT·RIDER_OPS) — mfcId 필수(400), 그 밖 403.
 // state 비우면 끝나지 않은 출고(PREPARING·READY·PARTIALLY_HANDED_OVER), 만든 순, size·cursor.
-// 시험용: mfcId=MFC-MOCK-DOWN 이면 MFC 원천 실패, MFC-MOCK-NODLV 면 배송 원천만 실패.
+// 시험용: mfcId=MFC-MOCK-DOWN 이면 MFC 원천 실패, MFC-MOCK-NODLV 면 배송 원천만 실패, MFC-MOCK-NORIDER 면 rider-service 만 실패(0.14.0).
+// bff 0.14.0 화면 번호: deliveryNumber(DLV-MOCK-21 은 번호 전 — null), rider·packages[].rider(RiderDisplay).
 import { http, HttpResponse } from 'msw';
 
 import { BFF_BASE } from '../api/client';
@@ -31,6 +32,14 @@ interface Row {
   riderId: string | null;
   createdAt: string;
 }
+
+/** bff 0.14.0 화면 배송 번호(execution 값 흉내) — 표에 없는 배송은 null(번호 전) */
+const DELIVERY_NUMBER: Readonly<Record<string, string>> = { 'DLV-MOCK-24': '25111704-1' };
+/** rider-service 에서 읽는 라이더 번호·가린 이름(목) */
+const RIDERS: Readonly<Record<string, { riderNumber: string; nameMasked: string }>> = {
+  'RID-MOCK-1': { riderNumber: '482913', nameMasked: '김*수' },
+  'RID-MOCK-2': { riderNumber: '517204', nameMasked: '이*영' },
+};
 
 const rows: readonly Row[] = [
   { shipmentId: 'SHP-1', orderId: 'ORD-MOCK-2001', orderNumber: '25111701', workOrderKind: 'ORIGINAL', shipmentState: 'PREPARING', stage: 'PICKING', pick: { state: 'IN_PROGRESS', startedAt: at(1) }, pack: { state: 'WAITING' }, packageCount: null, handed: null, remaining: null, packages: [], readyAt: null, dispatchRequestedAt: at(0), deliveryId: 'DLV-MOCK-21', deliveryState: 'ASSIGNED', riderId: 'RID-MOCK-1', createdAt: at(0) },
@@ -63,12 +72,15 @@ export const packingHandlers = [
     const stamp = (system: string, ok: boolean) => ({ system, confidence: ok ? ('DIRECT' as const) : ('UNKNOWN' as const), asOf: { asOf: composedAt, freshness: ok ? ('CURRENT' as const) : ('UNAVAILABLE' as const) } });
     const mfcDown = mfcId === 'MFC-MOCK-DOWN';
     const dlvDown = mfcId === 'MFC-MOCK-NODLV';
-    const unavailable = [...(mfcDown ? ['mfc-fulfillment-service'] : []), ...(dlvDown ? ['delivery-execution-service'] : [])];
+    const riderDown = mfcId === 'MFC-MOCK-NORIDER';
+    const unavailable = [...(mfcDown ? ['mfc-fulfillment-service'] : []), ...(dlvDown ? ['delivery-execution-service'] : []), ...(riderDown ? ['rider-service'] : [])];
+    // RiderDisplay — riderId 없으면 null, rider-service 실패·없는 라이더면 번호·이름 null(riderId 는 그대로)
+    const riderOf = (riderId: string | null) => (riderId ? { riderId, riderNumber: riderDown ? null : (RIDERS[riderId]?.riderNumber ?? null), nameMasked: riderDown ? null : (RIDERS[riderId]?.nameMasked ?? null) } : null);
     const all = mfcDown ? [] : rows.filter((r) => (states.length ? states.includes(r.shipmentState) : OPEN.includes(r.shipmentState)));
     const page = all.slice(start, start + size);
     return HttpResponse.json({
       composedAt,
-      sources: [stamp('mfc-fulfillment-service', !mfcDown), stamp('delivery-execution-service', !dlvDown)],
+      sources: [stamp('mfc-fulfillment-service', !mfcDown), stamp('delivery-execution-service', !dlvDown), stamp('rider-service', !riderDown)],
       unavailableSources: unavailable,
       items: page.map((r) => ({
         shipmentId: r.shipmentId,
@@ -85,10 +97,12 @@ export const packingHandlers = [
         sealedPackages: null,
         handedOverQty: { qty: r.handed, source: stamp('mfc-fulfillment-service', true) },
         remainingPackages: r.remaining,
-        packages: r.packages,
+        packages: r.packages.map((p) => ({ ...p, rider: riderOf(p.riderId) })),
         readyAt: r.readyAt,
         dispatchRequestedAt: r.dispatchRequestedAt,
         deliveryId: r.deliveryId,
+        deliveryNumber: r.deliveryId && !dlvDown ? (DELIVERY_NUMBER[r.deliveryId] ?? null) : null,
+        rider: riderOf(r.riderId),
         delivery: r.deliveryId ? { state: dlvDown ? null : r.deliveryState, source: stamp('delivery-execution-service', !dlvDown) } : null,
         riderId: r.riderId,
         createdAt: r.createdAt,
