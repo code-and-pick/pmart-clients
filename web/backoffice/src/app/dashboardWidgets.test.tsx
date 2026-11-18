@@ -116,3 +116,22 @@ describe('대시보드 지표(백엔드 회신 2026-11-18)', () => {
     expect(await screen.findByTestId('dash-sla-failed', {}, { timeout: 8000 })).toHaveTextContent('접수 건 원천에 닿지 않았어요');
   }, 15000);
 });
+
+describe('처리 기한 지킴 — 지난 7일 대비(2026-11-18 "숫자만 보고 좋은지 나쁜지")', () => {
+  const sla = (n: number, d: number) => HttpResponse.json({ metric: 'CASE_SLA', totals: [{ numerator: n, denominator: d }], series: [] });
+  it('이번 7일 80% · 앞 7일 50% → "지난 7일보다 30%p ▲"', async () => {
+    const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul' }).format(new Date());
+    server.use(http.get(`${BFF_BASE}/views/metrics`, ({ request }) => (new URL(request.url).searchParams.get('to') === today ? sla(8, 10) : sla(5, 10))));
+    renderAt('/', as.admin);
+    expect(await within(await screen.findByTestId('dash-stat-sla')).findByTestId('dash-sla-vs-prev')).toHaveTextContent('지난 7일보다 30%p ▲');
+  });
+
+  it('앞 7일을 못 읽으면 비교를 보이지 않는다(0 과 비교하지 않는다)', async () => {
+    const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul' }).format(new Date());
+    server.use(http.get(`${BFF_BASE}/views/metrics`, ({ request }) => (new URL(request.url).searchParams.get('to') === today ? sla(8, 10) : forbidden())));
+    renderAt('/', as.admin);
+    const card = await screen.findByTestId('dash-stat-sla');
+    await within(card).findByText('80%');
+    expect(within(card).queryByTestId('dash-sla-vs-prev')).not.toBeInTheDocument();
+  });
+});

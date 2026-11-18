@@ -11,7 +11,7 @@ import { useApi } from './ApiContext';
 import { liveQuery } from './DashboardSections';
 import { slaText } from '../features/cases/CaseSlaPage';
 import { messages } from '../shared/messages';
-import { label, seoulDayEnd, seoulDayStart } from '../shared/ops';
+import { addSeoulDays, label, seoulDayEnd, seoulDayStart } from '../shared/ops';
 import { Section } from '../shared/admin';
 
 const m = messages.dashboard;
@@ -165,24 +165,43 @@ export function LiveStat() {
 }
 
 /** 처리 기한 지킴(7일) — 서버 분자·분모 */
-export function SlaStat({ from, to }: { readonly from: string; readonly to: string }) {
-  const api = useApi();
-  const q = useQuery(slaQuery(api, from, to));
+const ratioOf = (totals: ReadonlyArray<{ readonly numerator: number; readonly denominator: number }> | undefined) => {
   let numerator = 0;
   let denominator = 0;
-  for (const t of q.data?.totals ?? []) {
+  for (const t of totals ?? []) {
     numerator += t.numerator;
     denominator += t.denominator;
   }
+  return { numerator, denominator, ratio: denominator === 0 ? null : numerator / denominator };
+};
+
+export function SlaStat({ from, to }: { readonly from: string; readonly to: string }) {
+  const api = useApi();
+  const q = useQuery(slaQuery(api, from, to));
+  // 지난 7일과 비교(2026-11-18 사용자 "숫자만 보고 좋은지 나쁜지 알게") — 같은 서버 지표를 바로 앞 7일로 한 번 더 읽어 %p 차이만 보인다.
+  // 목표치는 서버에 없어 만들지 않는다. 앞 기간을 못 읽었거나 판정된 건이 없으면 비교를 보이지 않는다(0 과 비교하지 않는다).
+  const prev = useQuery(slaQuery(api, addSeoulDays(from, -7), addSeoulDays(from, -1)));
+  const { numerator, denominator, ratio } = ratioOf(q.data?.totals);
   const t = slaText({ numerator, denominator });
-  const ratio = denominator === 0 ? null : numerator / denominator;
+  const before = prev.data ? ratioOf(prev.data.totals).ratio : null;
+  const diff = ratio !== null && before !== null ? Math.round((ratio - before) * 1000) / 10 : null;
+  const sub = q.data ? (
+    <>
+      {t.count}
+      {diff !== null && (
+        <span className={`ml-1.5 ${diff > 0 ? 'text-success' : diff < 0 ? 'text-error' : ''}`} data-testid="dash-sla-vs-prev">
+          {m.vsPrevWeek(diff)}
+        </span>
+      )}
+    </>
+  ) : undefined;
   return (
     <StatCard
       icon="clock"
       tone={ratio === null ? 'info' : ratio >= 0.9 ? 'success' : ratio >= 0.7 ? 'warning' : 'error'}
       label={m.slaShort}
       value={q.data ? t.ratio : q.isError ? '?' : '…'}
-      sub={q.data ? t.count : undefined}
+      sub={sub}
       to="/case-sla"
       testId="dash-stat-sla"
       failed={q.isError}

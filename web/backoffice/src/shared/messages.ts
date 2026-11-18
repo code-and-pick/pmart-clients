@@ -957,6 +957,9 @@ export const messages = {
     /** RiderComplaint.source(지금 CS_AGENT) */
     sourceName: { CS_AGENT: '고객센터 상담원' } as Readonly<Record<string, string>>,
     titleOf: (type: string, rider: string) => `${type} 컴플레인 · ${rider}`,
+    colRider: '라이더',
+    colDelivery: '배송',
+    colOrder: '주문',
     riderUnknown: '라이더 번호 확인 중',
     riderFailed: '라이더 번호 확인 불가',
     nextStep: {
@@ -2134,6 +2137,7 @@ export const messages = {
     refreshedNow: '방금 갱신 · 1분마다 자동',
     refreshedAgo: (n: number) => `${n}분 전 갱신 · 1분마다 자동`,
     refresh: '지금 새로 고침',
+    vsPrevWeek: (p: number) => (p === 0 ? '지난 7일과 같아요' : p > 0 ? `지난 7일보다 ${p}%p ▲` : `지난 7일보다 ${-p}%p ▼`),
     vsYesterday: (d: number) => (d === 0 ? '어제와 같아요' : d > 0 ? `어제보다 ${d}건 많아요 ▲` : `어제보다 ${-d}건 적어요 ▼`),
     liveNow: '진행 중 배송',
     lateCount: (n: number) => `약속 시간 지남 ${n}건`,

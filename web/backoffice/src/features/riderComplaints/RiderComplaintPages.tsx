@@ -93,9 +93,9 @@ export function RiderComplaintTable({ riderId, deliveryId, complaintType, from, 
         <thead>
           <tr>
             <th>{m.complaints.detailTitle}</th>
-            <th>{m.complaints.riderId}</th>
-            <th>{m.complaints.deliveryId}</th>
-            <th>{m.complaints.orderId}</th>
+            <th>{m.complaints.colRider}</th>
+            <th>{m.complaints.colDelivery}</th>
+            <th>{m.complaints.colOrder}</th>
             <th>{m.complaints.recordedBy}</th>
             <th className="text-right">{m.complaints.recordedAt}</th>
           </tr>
