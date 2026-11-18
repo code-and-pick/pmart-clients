@@ -14,6 +14,8 @@ import { SessionPage } from '../features/session/SessionPage';
 import { useMe } from '../features/session/useMe';
 import { messages as m } from '../shared/messages';
 import { RequireSession, SessionProvider, useSession } from './SessionContext';
+import { ThemeToggle } from './ThemeToggle';
+import { Toasts } from './Toasts';
 
 const nav: ReadonlyArray<readonly [string, string]> = [
   ['/employees', m.nav.employees],
@@ -84,6 +86,8 @@ function Layout() {
           </p>
           <div className="flex items-center gap-2 text-sm">
             {env.isMock && <span className="badge badge-accent badge-sm">{m.mockBadge}</span>}
+            {/* 밝은/어두운 테마(2026-11-18, 백오피스와 같음) */}
+            <ThemeToggle />
             {/* 로그인 직원 — 이름(없으면 "내 세션"). 로그인 시험이 이 링크 이름으로 찾는다 */}
             <NavLink to={session ? '/session' : '/login'} className={session ? 'btn btn-ghost btn-xs font-normal' : 'btn btn-primary btn-xs'}>
               {session ? (myName ? `${m.nav.session}: ${myName}` : m.nav.session) : m.nav.login}
@@ -101,6 +105,8 @@ function Layout() {
           )}
           <Outlet />
         </main>
+        {/* 처리 결과 알림(2026-11-18, 백오피스와 같음) */}
+        <Toasts />
       </div>
     </div>
   );

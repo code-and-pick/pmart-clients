@@ -1,4 +1,5 @@
-// 사본: web/rider-backoffice/src/shared/admin.tsx (PR #93, 461ff31) — 이 앱에서 따로 고친다(PC 5 요청 2026-11-18 방법 B: 공용 web/ui 로 올리지 않음).
+// 사본: web/backoffice/src/shared/admin.tsx (2026-11-18 인사팀 백오피스에 같은 화면 규칙 — 사용자 "인사 쪽도 적용") — 이 앱에서 따로 고친다.
+// 다른 점: 메뉴 묶음이 하나(인사)라 쪽 제목 아이콘은 늘 사람 모양.
 // 운영 관리자 화면 공통 부품(2026-11-18, PC 5 — 사용자 "배민 장보기·쇼핑 관리자 가이드의 화면 구성 참고").
 // 참고한 구성: 배민 주문접수 주문내역(목록 카드 + 상세 구역 상자), 셀프서비스 가게관리(밑줄 탭 + 구역 상자, 제목 오른쪽 안내).
 // - 쪽 머리말: 제목 + 한 줄 설명 + 오른쪽 동작
@@ -7,27 +8,43 @@
 // - 표: 회색 머리줄, 줄 전체 누르면 상세
 // - 상세: 제목·표시·요약 + 오른쪽 동작 버튼, 그 아래 구역 상자(제목 줄 + 항목명/값 줄), 구역으로 가는 밑줄 탭
 import type { FormEvent, ReactNode } from 'react';
-import { Link } from 'react-router';
+import { Link, useNavigate } from 'react-router';
 
 export type Tone = 'neutral' | 'info' | 'success' | 'warning' | 'error' | 'accent' | 'ghost';
 
 const toneClass: Record<Tone, string> = {
-  neutral: 'badge-neutral',
-  info: 'badge-info',
-  success: 'badge-success',
-  warning: 'badge-warning',
-  error: 'badge-error',
-  accent: 'badge-accent',
+  neutral: 'badge-neutral badge-soft',
+  info: 'badge-info badge-soft',
+  success: 'badge-success badge-soft',
+  warning: 'badge-warning badge-soft',
+  error: 'badge-error badge-soft',
+  accent: 'badge-accent badge-soft',
   ghost: 'badge-ghost',
 };
 
 /** 상태 표시(작은 둥근 꼬리표) */
 export function StatusBadge({ tone = 'ghost', children, testId }: { readonly tone?: Tone; readonly children: ReactNode; readonly testId?: string }) {
   return (
-    <span className={`badge badge-sm whitespace-nowrap font-medium ${toneClass[tone]}`} data-testid={testId}>
+    <span className={`badge badge-sm gap-1.5 whitespace-nowrap font-medium ${toneClass[tone]}`} data-testid={testId}>
+      <span className="h-1.5 w-1.5 rounded-full bg-current opacity-80" aria-hidden="true" />
       {children}
     </span>
   );
+}
+
+/**
+ * 목록 줄 전체를 누르면 상세로(2026-11-18 사용자 작업 따라 해 보기 — "굵은 제목은 안 눌리고 작은 번호만 눌린다").
+ * 줄 안의 링크·버튼·입력·체크박스를 누르면 그쪽 동작만. 키보드는 줄 안의 링크(번호)로 그대로 간다.
+ */
+export function useRowLink() {
+  const navigate = useNavigate();
+  return (to: string) => ({
+    className: 'cursor-pointer',
+    onClick: (e: { readonly target: EventTarget | null }) => {
+      if (e.target instanceof Element && e.target.closest('a,button,input,select,textarea,label,summary')) return;
+      void navigate(to);
+    },
+  });
 }
 
 /** 쪽 머리말 — h1 은 화면마다 하나 */
@@ -41,9 +58,23 @@ export function PageHeader({ title, description, actions, back }: { readonly tit
         </Link>
       )}
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0 space-y-1">
-          <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
-          {description && <p className="text-sm text-base-content/60">{description}</p>}
+        <div className="flex min-w-0 items-start gap-3">
+          {/* 쪽 제목 아이콘 — 왼쪽 메뉴 묶음과 같은 아이콘(2026-11-18 화면 다듬기) */}
+          <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary" aria-hidden="true">
+            <svg viewBox="0 0 24 24" className="h-5 w-5 fill-none stroke-current" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="9" cy="8" r="3.5" />
+              <path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M18 20a6.5 6.5 0 0 0-2.5-5.1" />
+            </svg>
+          </span>
+          <div className="min-w-0 space-y-1">
+            <h1 className="text-xl font-bold tracking-tight">{title}</h1>
+            {/* 설명은 한 줄만 — 누르면 다 보인다(2026-11-18 사용자 "설명이 많아 값이 묻힌다") */}
+            {description && (
+              <details className="group max-w-3xl text-sm text-base-content/60">
+                <summary className="line-clamp-1 cursor-pointer list-none group-open:line-clamp-none hover:text-base-content/80">{description}</summary>
+              </details>
+            )}
+          </div>
         </div>
         {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
       </div>
@@ -51,16 +82,17 @@ export function PageHeader({ title, description, actions, back }: { readonly tit
   );
 }
 
-/** 검색 조건 상자 — 줄마다 왼쪽 항목명 칸 */
-export function SearchPanel({ onSubmit, onReset, children, submitLabel = '조회', resetLabel = '초기화' }: { readonly onSubmit: (e: FormEvent) => void; readonly onReset: () => void; readonly children: ReactNode; readonly submitLabel?: string; readonly resetLabel?: string }) {
+/** 검색 조건 — 목록 카드 맨 위 필터 줄(2026-11-18 Shopify·Medusa 목록처럼: 항목명은 칸 위에 작게, 버튼은 오른쪽).
+ * 바로 뒤의 결과 줄(ResultBar)·표(DataTable)와 한 카드로 붙는다(index.css 의 data-list-part). */
+export function SearchPanel({ onSubmit, onReset, children, submitLabel = '조회', resetLabel = '초기화', submitDisabled = false, label = '검색 조건' }: { readonly onSubmit: (e: FormEvent) => void; readonly onReset: () => void; readonly children: ReactNode; readonly submitLabel?: string; readonly resetLabel?: string; readonly submitDisabled?: boolean; readonly label?: string }) {
   return (
-    <form className="overflow-hidden rounded-box border border-base-300 bg-base-100" onSubmit={onSubmit} aria-label="검색 조건">
-      <div className="divide-y divide-base-300">{children}</div>
-      <div className="flex justify-center gap-2 border-t border-base-300 bg-base-200/60 px-4 py-3">
-        <button type="button" className="btn btn-sm w-24 border-base-300 bg-base-100" onClick={onReset}>
+    <form className="flex flex-wrap items-end gap-x-5 gap-y-3 rounded-box border border-base-300 bg-base-100 px-4 py-3.5 shadow-sm" onSubmit={onSubmit} aria-label={label} data-list-part="top">
+      {children}
+      <div className="ml-auto flex gap-2">
+        <button type="button" className="btn btn-sm btn-ghost" onClick={onReset}>
           {resetLabel}
         </button>
-        <button type="submit" className="btn btn-sm btn-primary w-24">
+        <button type="submit" className="btn btn-sm btn-primary min-w-20" disabled={submitDisabled}>
           {submitLabel}
         </button>
       </div>
@@ -71,9 +103,9 @@ export function SearchPanel({ onSubmit, onReset, children, submitLabel = '조회
 /** 검색 조건 한 줄 */
 export function SearchRow({ label, children }: { readonly label: ReactNode; readonly children: ReactNode }) {
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-[9rem_1fr]">
-      <div className="flex items-center bg-base-200/60 px-4 py-2 text-sm font-medium">{label}</div>
-      <div className="flex flex-wrap items-center gap-2 px-4 py-2">{children}</div>
+    <div className="flex min-w-0 flex-col gap-1">
+      <div className="text-xs font-medium text-base-content/55">{label}</div>
+      <div className="flex flex-wrap items-center gap-2">{children}</div>
     </div>
   );
 }
@@ -101,7 +133,7 @@ export function ChipGroup<T extends string>({ value, options, onChange, label }:
 /** 결과 줄: 건수 + 정렬 토글 */
 export function ResultBar({ count, more, sort, extra }: { readonly count: number; readonly more?: boolean; readonly sort?: { readonly oldest: boolean; readonly onChange: (oldest: boolean) => void; readonly newest?: string; readonly oldestLabel?: string }; readonly extra?: ReactNode }) {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-2 px-1">
+    <div className="flex flex-wrap items-center justify-between gap-2 rounded-box border border-base-300 bg-base-100 px-4 py-2.5 shadow-sm" data-list-part="mid">
       <p className="text-sm" data-testid="result-count">
         <span className="font-semibold text-primary">{count}</span>
         {more ? '건 이상' : '건'}
@@ -124,11 +156,11 @@ export function ResultBar({ count, more, sort, extra }: { readonly count: number
   );
 }
 
-/** 표 상자 — thead 는 회색, 줄은 테두리로 나눈다 */
+/** 표 상자 — 머리줄은 옅은 작은 글씨, 줄은 넉넉히, 첫 칸은 굵게(목록의 주인공), 링크는 밑줄 없이 */
 export function DataTable({ children, testId }: { readonly children: ReactNode; readonly testId?: string }) {
   return (
-    <div className="overflow-x-auto rounded-box border border-base-300 bg-base-100" data-testid={testId}>
-      <table className="table table-sm [&_thead_th]:bg-base-200/70 [&_thead_th]:font-semibold [&_thead_th]:text-base-content/80 [&_tbody_tr]:border-base-200 [&_tbody_tr:hover]:bg-base-200/40">{children}</table>
+    <div className="overflow-x-auto rounded-box border border-base-300 bg-base-100 shadow-sm" data-testid={testId} data-list-part="table">
+      <table className="table [&_tbody_td:first-child]:font-medium [&_tbody_td]:py-3 [&_tbody_tr:hover]:bg-base-200/60 [&_tbody_tr]:border-base-300/70 [&_td_a.link]:no-underline [&_td_a.link]:text-primary [&_td_a.link:hover]:underline [&_thead_th]:bg-base-200/50 [&_thead_th]:text-xs [&_thead_th]:font-medium [&_thead_th]:text-base-content/50">{children}</table>
     </div>
   );
 }
@@ -157,10 +189,10 @@ export function DetailHeader({ back, title, badges, summary, actions }: { readon
         <span aria-hidden>‹</span>
         {back.label}
       </Link>
-      <div className="flex flex-wrap items-start justify-between gap-3 rounded-box border border-base-300 bg-base-100 px-5 py-4">
+      <div className="flex flex-wrap items-start justify-between gap-3 rounded-box border border-base-300 bg-base-100 px-5 py-4 shadow-sm">
         <div className="min-w-0 space-y-1">
           <div className="flex flex-wrap items-center gap-2">
-            <h1 className="text-xl font-bold">{title}</h1>
+            <h1 className="text-xl font-semibold">{title}</h1>
             {badges}
           </div>
           {summary && <p className="text-sm text-base-content/70">{summary}</p>}
@@ -187,8 +219,8 @@ export function SectionTabs({ items }: { readonly items: ReadonlyArray<{ readonl
 /** 구역 상자 — 제목 줄(오른쪽 덧붙임) + 내용 */
 export function Section({ id, title, aside, children, testId }: { readonly id?: string; readonly title: ReactNode; readonly aside?: ReactNode; readonly children: ReactNode; readonly testId?: string }) {
   return (
-    <section id={id} className="scroll-mt-12 overflow-hidden rounded-box border border-base-300 bg-base-100" data-testid={testId}>
-      <div className="flex items-center justify-between gap-2 border-b border-base-300 px-5 py-3">
+    <section id={id} className="scroll-mt-12 overflow-hidden rounded-box border border-base-300 bg-base-100 shadow-sm" data-testid={testId}>
+      <div className="flex items-center justify-between gap-2 border-b border-base-300 bg-base-200/40 px-5 py-3">
         <h2 className="font-bold">{title}</h2>
         {aside && <div className="flex items-center gap-2 text-sm">{aside}</div>}
       </div>
@@ -200,12 +232,13 @@ export function Section({ id, title, aside, children, testId }: { readonly id?: 
 /** 항목명/값 줄 묶음 */
 export function FieldList({ rows, testId }: { readonly rows: ReadonlyArray<readonly [ReactNode, ReactNode] | false | null | undefined>; readonly testId?: string }) {
   return (
-    <dl className="grid grid-cols-[8rem_1fr] gap-x-4 gap-y-2.5 text-sm" data-testid={testId}>
+    // 상세 항목(2026-11-18): 이름은 위에 작게, 값은 아래 굵게 — 넓으면 2~3칸으로(Shopify 상세처럼)
+    <dl className="grid gap-x-8 gap-y-4 text-sm sm:grid-cols-2 xl:grid-cols-3" data-testid={testId}>
       {rows.map((r, i) =>
         r ? (
-          <div key={i} className="contents">
-            <dt className="text-base-content/55">{r[0]}</dt>
-            <dd className="min-w-0 break-words">{r[1]}</dd>
+          <div key={i} className="min-w-0 space-y-0.5">
+            <dt className="text-xs text-base-content/50">{r[0]}</dt>
+            <dd className="min-w-0 break-words font-medium">{r[1]}</dd>
           </div>
         ) : null,
       )}
@@ -222,7 +255,7 @@ export function StatCard({ label, value, hint, to, tone, testId }: { readonly la
       {hint && <p className="mt-1 text-xs text-base-content/50">{hint}</p>}
     </>
   );
-  const cls = 'block rounded-box border border-base-300 bg-base-100 px-5 py-4';
+  const cls = 'block rounded-box border border-base-300 bg-base-100 px-5 py-4 shadow-sm';
   return to ? (
     <Link to={to} className={`${cls} hover:border-primary`} data-testid={testId}>
       {body}
@@ -232,6 +265,36 @@ export function StatCard({ label, value, hint, to, tone, testId }: { readonly la
       {body}
     </div>
   );
+}
+
+/**
+ * 다음 할 일 — 상세 화면 맨 위에 하나만(2026-11-18 사용자 "지금 뭘 해야 하는지 안 보인다").
+ * 무엇을 보일지는 화면이 서버 상태로만 고른다(클라이언트가 판정을 새로 만들지 않는다). 할 일이 없으면 그리지 않는다.
+ */
+export function NextAction({ tone = 'info', title, body, children, testId = 'next-action' }: { readonly tone?: 'info' | 'warning' | 'error' | 'success'; readonly title: ReactNode; readonly body?: ReactNode; readonly children?: ReactNode; readonly testId?: string }) {
+  const bar = { info: 'border-l-info', warning: 'border-l-warning', error: 'border-l-error', success: 'border-l-success' }[tone];
+  const dot = { info: 'bg-info/15 text-info', warning: 'bg-warning/15 text-warning', error: 'bg-error/15 text-error', success: 'bg-success/15 text-success' }[tone];
+  return (
+    <section aria-label="다음 할 일" className={`flex flex-wrap items-center gap-4 rounded-box border border-l-4 border-base-300 ${bar} bg-base-100 px-5 py-4 shadow-sm`} data-testid={testId}>
+      <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${dot}`} aria-hidden="true">
+        <svg viewBox="0 0 24 24" className="h-5 w-5 fill-none stroke-current" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+          <path d="M5 12h14m-5-5 5 5-5 5" />
+        </svg>
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="text-xs font-medium text-base-content/50">다음 할 일</p>
+        <p className="font-semibold">{title}</p>
+        {body && <p className="text-sm text-base-content/65">{body}</p>}
+      </div>
+      {children && <div className="flex flex-wrap items-center gap-2">{children}</div>}
+    </section>
+  );
+}
+
+/** 코드 값 — 한국어 이름을 보이고 원래 코드는 마우스를 올리면(이름이 없으면 코드 그대로) */
+export function CodeLabel({ code, names }: { readonly code: string; readonly names: Readonly<Record<string, string>> }) {
+  const name = names[code];
+  return name ? <span title={code}>{name}</span> : <span className="font-mono text-xs">{code}</span>;
 }
 
 /** 안내 상자(회색) — 화면 맨 위 설명·서버 대기 안내 */

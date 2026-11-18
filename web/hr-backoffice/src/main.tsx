@@ -3,6 +3,10 @@ import { createRoot } from 'react-dom/client';
 
 import { App } from './app/App';
 import './index.css';
+import { applyTheme, readTheme } from './shared/theme';
+
+// 고른 테마를 그리기 전에 붙인다(깜빡임 없이)
+applyTheme(readTheme());
 
 async function start() {
   if (import.meta.env.VITE_PMART_ENV !== 'local') {

@@ -12,6 +12,15 @@ export const messages = {
   more: '더 보기',
   cancel: '취소',
   close: '닫기',
+  none: '-',
+  /** 처리 결과 알림(2026-11-18, 백오피스와 같은 말) */
+  toast: { applied: '반영됐어요', accepted: '접수됐어요 — 결과를 확인하고 있어요', rejected: '반영되지 않았어요', unknown: '결과를 아직 몰라요 — 화면의 안내를 봐 주세요', close: '알림 닫기' },
+  /** 밝은/어두운 테마(2026-11-18) */
+  theme: { toDark: '어두운 화면으로', toLight: '밝은 화면으로' },
+  /** 번호 복사(2026-11-18) */
+  copy: { copy: '복사', done: '복사했어요', failed: '복사하지 못했어요', aria: (what: string) => `${what} 복사` },
+  /** 입력 중 떠날 때 경고(2026-11-18) */
+  leaveGuard: { title: '작성한 내용이 사라져요', body: '저장하지 않고 나가면 지금까지 넣은 내용은 남지 않아요.', stay: '계속 작성', leave: '나가기' },
   reasonLabel: '사유',
   reasonHint: '필수, 500자까지',
 

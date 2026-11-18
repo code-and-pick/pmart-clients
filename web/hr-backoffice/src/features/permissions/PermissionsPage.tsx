@@ -11,7 +11,8 @@ import { useState, type FormEvent } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router';
 
 import { ProblemFailure, request, type EmployeeAccount, type EmployeeGrant, type EmployeeRole } from '@pmart/web-core';
-import { CommandFeedback, formatSeoul, formatSeoulDate, QueryState, toUiState, uiStateFromError, useCommand } from '@pmart/web-ui';
+import { formatSeoul, formatSeoulDate, QueryState, toUiState, uiStateFromError, useCommand } from '@pmart/web-ui';
+import { CommandFeedback } from '../../shared/Feedback';
 import { commandParams } from '../../api/command';
 import type { RequestedGrant } from '../../api/models';
 import { useApi } from '../../app/ApiContext';

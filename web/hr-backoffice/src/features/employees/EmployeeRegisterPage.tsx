@@ -5,7 +5,8 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router';
 
 import { request } from '@pmart/web-core';
-import { CommandFeedback, QueryState, toUiState, useCommand } from '@pmart/web-ui';
+import { QueryState, toUiState, useCommand } from '@pmart/web-ui';
+import { CommandFeedback } from '../../shared/Feedback';
 import { commandParams } from '../../api/command';
 import {
   EMPLOYMENT_TYPES,

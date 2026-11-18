@@ -7,7 +7,8 @@ import { useState, type ReactNode } from 'react';
 import { Link, useParams } from 'react-router';
 
 import { request, requestNoContent, type IdempotencyKey } from '@pmart/web-core';
-import { CommandFeedback, formatSeoul, QueryState, toUiState, useCommand } from '@pmart/web-ui';
+import { formatSeoul, QueryState, toUiState, useCommand } from '@pmart/web-ui';
+import { CommandFeedback } from '../../shared/Feedback';
 import { commandParams } from '../../api/command';
 import { PROVISIONING_IN_PROGRESS, PROVISIONING_RETRYABLE, type Employee } from '../../api/models';
 import { useApi } from '../../app/ApiContext';

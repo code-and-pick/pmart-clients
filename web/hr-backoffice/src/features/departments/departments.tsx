@@ -6,7 +6,8 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 
 import { request } from '@pmart/web-core';
-import { CommandFeedback, QueryState, toUiState, useCommand } from '@pmart/web-ui';
+import { QueryState, toUiState, useCommand } from '@pmart/web-ui';
+import { CommandFeedback } from '../../shared/Feedback';
 import { commandParams } from '../../api/command';
 import type { components } from '../../api/generated/hr';
 import { CODE_PATTERN } from '../../api/models';
