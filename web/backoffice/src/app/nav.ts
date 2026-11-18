@@ -120,6 +120,8 @@ export const navGroups: readonly NavGroup[] = [
     items: [
       { to: '/pending', label: m.nav.pendingWork },
       { to: '/case-metrics', label: m.nav.caseMetrics },
+      // 처리 기한 지킴(bff 0.13.0 CASE_SLA) — 다른 지표는 501 이라 메뉴에 두지 않는다
+      { to: '/case-sla', label: m.nav.caseSla },
     ],
   },
   {

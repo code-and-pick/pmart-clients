@@ -27,6 +27,7 @@ import { CsFollowUpPage } from '../features/cases/FollowUps';
 import { HandoverPage } from '../features/cases/HandoverPages';
 import { DeliveryDetailPage, DeliveryOpenPage } from '../features/deliveries/DeliveryPages';
 import { CaseMetricsPage } from '../features/cases/CaseMetricsPage';
+import { CaseSlaPage } from '../features/cases/CaseSlaPage';
 import { InquiryDetailPage, InquiryListPage } from '../features/inquiries/InquiryPages';
 import { SatisfactionPage } from '../features/inquiries/SatisfactionPage';
 import { NewCsIntakePage } from '../features/csIntakes/CsIntakePages';
@@ -220,6 +221,8 @@ const routes = [
       { path: 'packing-handover', element: guarded(<PackingHandoverPage />) },
       { path: 'cases', element: guarded(<CaseListPage />) },
       { path: 'case-metrics', element: guarded(<CaseMetricsPage />) },
+      // 처리 기한 지킴(bff 0.13.0 CASE_SLA — 백엔드 PR #164 병합 전, 목으로만)
+      { path: 'case-sla', element: guarded(<CaseSlaPage />) },
       { path: 'cases/new-misdelivery', element: guarded(<NewMisdeliveryPage />) },
       { path: 'cases/:caseId', element: guarded(<CaseDetailPage />) },
       { path: 'rider-complaints', element: guarded(<RiderComplaintListPage />) },

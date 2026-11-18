@@ -285,6 +285,49 @@ export const caseHandlers = [
   }),
 
   // case 0.18.0 현황 건수 — 관리자만. 0건 종류·팀은 줄 없음. :caseId 보다 먼저(같은 모양 경로)
+  // bff 0.13.0 지표 — CASE_SLA 만(그 밖 501). 관리자만. 기간 DAY 93일·HOUR 7일(넘으면 400 detail). 묶음은 서울 날짜(·시).
+  http.get(`${BFF_BASE}/views/metrics`, ({ request }) => {
+    const v = viewer(request);
+    if ('denied' in v) return v.denied;
+    if (!v.admin) return problem(403, 'FORBIDDEN');
+    const q = new URL(request.url).searchParams;
+    if (q.get('metric') !== 'CASE_SLA') return problem(501, 'NOT_IMPLEMENTED');
+    const from = q.get('from') ?? '';
+    const to = q.get('to') ?? '';
+    const hour = q.get('granularity') === 'HOUR';
+    const days = (Date.parse(to) - Date.parse(from)) / 86_400_000 + 1;
+    const bad = (detail: string) =>
+      HttpResponse.json({ type: 'about:blank', title: 'VALIDATION_FAILED', status: 400, code: 'VALIDATION_FAILED', traceId: 'mock-trace', details: [{ field: 'to' }], detail }, { status: 400, headers: { 'content-type': 'application/problem+json' } });
+    if (!(days >= 1)) return bad('[목] 시작일이 종료일보다 늦어요.');
+    if (!hour && days > 93) return bad('[목] 하루 묶음은 93일까지 볼 수 있어요.');
+    if (hour && days > 7) return bad('[목] 한 시간 묶음은 7일까지 볼 수 있어요.');
+    // 종료일부터 거꾸로 사흘에만 끝난 건이 있다(0건 묶음은 줄이 없다)
+    const day = (back: number) => new Date(Date.parse(`${to}T00:00:00+09:00`) - back * 86_400_000 + 9 * 3_600_000).toISOString().slice(0, 10);
+    const bucket = (back: number, h: string) => (hour ? `${day(back)}T${h}:00` : day(back));
+    const seeds = [
+      { back: 0, h: '10', kind: 'DISPATCH_FAILED', group: 'DELIVERY_OPS', n: 4, d: 5, u: 0 },
+      { back: 0, h: '14', kind: 'PAYMENT_UNKNOWN', group: 'ORDER_OPS', n: 1, d: 2, u: 1 },
+      { back: 1, h: '09', kind: 'RIDER_HELP', group: 'DELIVERY_OPS', n: 0, d: 0, u: 2 },
+      { back: 1, h: '16', kind: 'DISPATCH_FAILED', group: 'DELIVERY_OPS', n: 3, d: 3, u: 0 },
+      { back: 2, h: '11', kind: 'MISDELIVERY', group: 'CS', n: 2, d: 4, u: 0 },
+    ].filter((x) => x.back < days);
+    const ratio = (n: number, d: number) => (d === 0 ? null : n / d);
+    const stamp = { system: 'case-service', confidence: 'DIRECT' as const, asOf: { asOf: new Date().toISOString(), freshness: 'CURRENT' as const } };
+    const points = seeds.map((x) => ({ bucket: bucket(x.back, x.h), segment: { kind: x.kind, assigneeGroup: x.group }, numerator: x.n, denominator: x.d, ratio: ratio(x.n, x.d), unjudged: x.u, source: stamp }));
+    const byBucket = new Map<string, { numerator: number; denominator: number; unjudged: number }>();
+    for (const p of points) {
+      const t = byBucket.get(p.bucket) ?? { numerator: 0, denominator: 0, unjudged: 0 };
+      byBucket.set(p.bucket, { numerator: t.numerator + p.numerator, denominator: t.denominator + p.denominator, unjudged: t.unjudged + p.unjudged });
+    }
+    const totals = [...byBucket.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([b, t]) => ({ bucket: b, ...t, ratio: ratio(t.numerator, t.denominator) }));
+    const open = cases.filter((c) => c.state !== 'CLOSED');
+    const kinds = new Map<string, { kind: string; open: number; overdue: number }>();
+    for (const c of open) {
+      const row = kinds.get(c.kind ?? 'OTHER') ?? { kind: c.kind ?? 'OTHER', open: 0, overdue: 0 };
+      kinds.set(row.kind, { ...row, open: row.open + 1, overdue: row.overdue + (c.overdue ? 1 : 0) });
+    }
+    return HttpResponse.json({ metric: 'CASE_SLA', timeZone: 'Asia/Seoul', sources: [stamp], unavailableSources: [], points, totals, currentOverdue: [...kinds.values()] });
+  }),
   http.get(`${API_BASE}/cases/metrics`, ({ request }) => {
     const v = viewer(request);
     if ('denied' in v) return v.denied;
