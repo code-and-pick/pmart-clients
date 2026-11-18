@@ -20,6 +20,7 @@ import io.flutter.plugin.common.MethodChannel
  * - `pmart.rider/notifications`: 위치 전송 상시 알림을 보이려면 Android 13+ 에서 알림 권한이 필요하다.
  * - `pmart.rider/battery`: 배터리 최적화 예외 — `isExempt` → 예외인지, `request` → 시스템 창(없으면 설정 목록)을 연다.
  *   운행·배달 중 제조사 절전이 앱을 종료해 위치 전송이 끊기는 일을 줄인다.
+ * - `pmart.rider/location`: 운행 중 위치 전송 서비스([RiderLocationService]) — `start`·`token`·`stop`. 화면이 없어지면 서비스가 넘겨받는다.
  * - `pmart.rider/knnavi`: 카카오내비 SDK 앱 안 음성 길안내([KnNaviActivity]).
  *   `probe`(appKey) → SDK 인증만 확인, `start`(appKey, goal…, start…) → 길안내 화면.
  *   결과: null = 성공, 문자열 = KNError 코드(예: C103 인증 실패).
@@ -112,6 +113,58 @@ class MainActivity : FlutterActivity() {
                     else -> result.notImplemented()
                 }
             }
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, LOCATION_CHANNEL)
+            .setMethodCallHandler { call, result ->
+                val service = Intent(this, RiderLocationService::class.java)
+                try {
+                    when (call.method) {
+                        "start" -> {
+                            service.action = RiderLocationService.ACTION_START
+                            for (k in listOf(
+                                RiderLocationService.EXTRA_BASE_URL,
+                                RiderLocationService.EXTRA_TOKEN,
+                                RiderLocationService.EXTRA_DEVICE_ID,
+                                RiderLocationService.EXTRA_SOURCE,
+                                RiderLocationService.EXTRA_TITLE,
+                                RiderLocationService.EXTRA_TEXT,
+                                RiderLocationService.EXTRA_CHANNEL,
+                            )) {
+                                call.argument<String>(k)?.let { service.putExtra(k, it) }
+                            }
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                startForegroundService(service)
+                            } else {
+                                startService(service)
+                            }
+                        }
+                        "token" -> {
+                            if (!RiderLocationService.running) {
+                                result.success(false)
+                                return@setMethodCallHandler
+                            }
+                            service.action = RiderLocationService.ACTION_TOKEN
+                            service.putExtra(RiderLocationService.EXTRA_TOKEN, call.argument<String>("accessToken"))
+                            startService(service)
+                        }
+                        "stop" -> {
+                            if (!RiderLocationService.running) {
+                                result.success(true)
+                                return@setMethodCallHandler
+                            }
+                            service.action = RiderLocationService.ACTION_STOP
+                            startService(service)
+                        }
+                        else -> {
+                            result.notImplemented()
+                            return@setMethodCallHandler
+                        }
+                    }
+                    result.success(true)
+                } catch (_: Exception) {
+                    // 백그라운드 시작 제한 등 — 보낼 수 없다는 것만 알린다(토큰 값은 남기지 않는다)
+                    result.success(false)
+                }
+            }
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, NAVI_CHANNEL)
             .setMethodCallHandler { call, result ->
                 val appKey = call.argument<String>("appKey")
@@ -157,6 +210,26 @@ class MainActivity : FlutterActivity() {
         pendingNavi = null
     }
 
+
+
+    /**
+     * 화면이 없어진다(최근 앱에서 밀어 닫기·뒤로 가기로 끝내기) — Flutter 엔진도 함께 없어져 Dart 가 위치를 못 보낸다.
+     * 운행 중이면 위치 전송을 [RiderLocationService] 에 넘긴다(회전 등 화면 다시 만들기는 제외).
+     */
+    override fun onDestroy() {
+        if (!isChangingConfigurations && RiderLocationService.running) {
+            try {
+                startService(
+                    Intent(this, RiderLocationService::class.java)
+                        .setAction(RiderLocationService.ACTION_TAKEOVER),
+                )
+            } catch (_: Exception) {
+                // 넘기지 못하면 상시 알림만 남는다(다시 열면 Dart 가 이어 보낸다).
+            }
+        }
+        super.onDestroy()
+    }
+
     override fun onRequestPermissionsResult(
         requestCode: Int,
         permissions: Array<out String>,
@@ -174,6 +247,7 @@ class MainActivity : FlutterActivity() {
         const val CHANNEL = "pmart.rider/notifications"
         const val NAVI_CHANNEL = "pmart.rider/knnavi"
         const val BATTERY_CHANNEL = "pmart.rider/battery"
+        const val LOCATION_CHANNEL = "pmart.rider/location"
         const val REQUEST_CODE = 7301
         const val NAVI_REQUEST_CODE = 7302
     }
