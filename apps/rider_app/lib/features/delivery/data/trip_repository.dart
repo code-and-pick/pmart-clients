@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pmart_api_center_master/pmart_api_center_master.dart' as cm;
 import 'package:pmart_api_delivery_dispatch/pmart_api_delivery_dispatch.dart'
     as dp;
 import 'package:pmart_api_delivery_execution/pmart_api_delivery_execution.dart'
@@ -8,6 +9,7 @@ import 'package:pmart_api_delivery_tracking/pmart_api_delivery_tracking.dart'
     as tk;
 import 'package:pmart_core/pmart_core.dart';
 
+import '../../../shared/location.dart';
 import '../../../shared/mfc_directory.dart';
 import '../../../shared/providers.dart';
 import '../domain/delivery.dart';
@@ -42,7 +44,10 @@ void rememberOfferTrip(String deliveryId, dp.OfferSummary s, {DateTime? now}) {
       s.mfcId,
       name: order?.mfcName,
       address: order?.mfcAddress,
-      point: s.pickupPoint,
+      point: switch (s.pickupPoint) {
+        final p? => (lat: p.lat.toDouble(), lng: p.lng.toDouble()),
+        null => null,
+      },
       phone: order?.mfcPhone,
     ),
     items: [
@@ -72,7 +77,7 @@ MfcBranch _serverStore(
   String? mfcId, {
   String? name,
   String? address,
-  dp.LatLng? point,
+  GeoPoint? point,
   String? phone,
 }) {
   final known = mfcById(mfcId);
@@ -82,8 +87,9 @@ MfcBranch _serverStore(
     region: known?.region ?? MfcRegion.gyeongsang,
     address: address ?? known?.address ?? '',
     phone: phone,
-    lat: point?.lat ?? known?.lat ?? 0,
-    lng: point?.lng ?? known?.lng ?? 0,
+    // 좌표는 서버 값 → 앱 지점표. 둘 다 없으면 null(모름) — 지어내지 않는다.
+    lat: point?.lat ?? known?.lat,
+    lng: point?.lng ?? known?.lng,
   );
 }
 
@@ -92,10 +98,61 @@ MfcBranch _serverStore(
 final class ApiTripRepository implements TripRepository {
   ApiTripRepository(Dio dio)
     : _exec = ex.PmartApiDeliveryExecution(dio: dio).getExecutionApi(),
-      _eta = tk.PmartApiDeliveryTracking(dio: dio).getEtaApi();
+      _eta = tk.PmartApiDeliveryTracking(dio: dio).getEtaApi(),
+      _offers = dp.PmartApiDeliveryDispatch(dio: dio).getOffersApi(),
+      _centers = cm.PmartApiCenterMaster(dio: dio).getCentersApi();
 
   final ex.ExecutionApi _exec;
   final tk.EtaApi _eta;
+  final dp.OffersApi _offers;
+  final cm.CentersApi _centers;
+
+  /// 서버 픽업지 좌표(center-master `GET /mfc-pickup-points`) — 한 번 읽어 둔다. 못 읽으면 다음에 다시.
+  Map<String, GeoPoint>? _pickupPoints;
+
+  Future<GeoPoint?> _pickupPointOf(String? mfcId) async {
+    if (mfcId == null) return null;
+    if (_pickupPoints == null) {
+      try {
+        final items =
+            (await pmartGuard(() => _centers.listMfcPickupPoints()))
+                .data
+                ?.items ??
+            const <cm.PickupPoint>[];
+        _pickupPoints = {
+          for (final p in items)
+            if ((p.coordinates?.lat, p.coordinates?.lng) case (
+              final a?,
+              final b?,
+            ))
+              p.centerId: (lat: a.toDouble(), lng: b.toDouble()),
+        };
+      } on PmartFailure {
+        return null;
+      }
+    }
+    return _pickupPoints![mfcId];
+  }
+
+  /// 앱을 새로 켜면 제안 때 받은 좌표(메모리)가 없다 — 수락한 내 제안(dispatch `GET /offers?state=ACCEPTED`)을
+  /// 다시 읽어 같은 요약(픽업지 좌표·전달지 대략 좌표·소요)을 되살린다. 못 읽으면 없이 간다(지어내지 않는다).
+  Future<void> _recoverOffer(String deliveryId) async {
+    try {
+      final items =
+          (await pmartGuard(() => _offers.listMyOffers(state: 'ACCEPTED')))
+              .data
+              ?.items ??
+          const <dp.Offer>[];
+      for (final o in items) {
+        if (o.deliveryId == deliveryId && o.summary != null) {
+          rememberOfferTrip(deliveryId, o.summary!);
+          return;
+        }
+      }
+    } on PmartFailure {
+      // 복구 못 함 — 배송 조회 값만으로 보인다.
+    }
+  }
 
   /// 수락 뒤 예정 시각(delivery-tracking 0.7.0 `GET /deliveries/{id}/eta` — 라이더 본인 배송, 백엔드 회신
   /// 2026-11-17 reply-rider-eta). 계산 전·위치 끊김(ETA_PENDING·LOCATING)·못 읽음이면 null —
@@ -116,6 +173,7 @@ final class ApiTripRepository implements TripRepository {
 
   @override
   Future<TripInfo?> forDelivery(String deliveryId) async {
+    if (!_offerTrips.containsKey(deliveryId)) await _recoverOffer(deliveryId);
     final hint = _offerTrips[deliveryId];
     ex.DeliveryExecution? d;
     try {
@@ -144,24 +202,25 @@ final class ApiTripRepository implements TripRepository {
           amount: i.lineAmount ?? 0,
         ),
     ];
+    final base =
+        hint?.store ??
+        _serverStore(d?.mfcId, name: d?.mfcName, phone: d?.mfcPhone);
+    // 픽업지 좌표: 제안 때 받은 값 → 앱 지점표 → 서버 픽업지 목록. 모두 없으면 null(핀을 안 그린다).
+    final point = base.point ?? await _pickupPointOf(d?.mfcId ?? base.id);
     return TripInfo(
       orderNo:
           summary.orderNumber ??
           (hint?.orderNo.isNotEmpty == true ? hint!.orderNo : d?.orderId ?? ''),
-      store: switch (hint?.store) {
-        // 배송 조회의 지점 전화가 더 새 값이다.
-        final s? when d?.mfcPhone != null => MfcBranch(
-          id: s.id,
-          name: s.name,
-          region: s.region,
-          address: s.address,
-          phone: d!.mfcPhone,
-          lat: s.lat,
-          lng: s.lng,
-        ),
-        final s? => s,
-        null => _serverStore(d?.mfcId, name: d?.mfcName, phone: d?.mfcPhone),
-      },
+      // 배송 조회의 지점 전화가 더 새 값이다.
+      store: MfcBranch(
+        id: base.id,
+        name: base.name,
+        region: base.region,
+        address: base.address,
+        phone: d?.mfcPhone ?? base.phone,
+        lat: point?.lat,
+        lng: point?.lng,
+      ),
       items: items.isEmpty ? hint?.items ?? const [] : items,
       menuTotal: summary.itemAmount ?? hint?.menuTotal,
       deliveryRequest: summary.deliveryNote ?? hint?.deliveryRequest,

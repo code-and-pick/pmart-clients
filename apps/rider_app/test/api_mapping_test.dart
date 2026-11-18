@@ -18,6 +18,7 @@ import 'package:rider_app/features/my/data/records.dart';
 import 'package:rider_app/features/my/data/withdrawal.dart';
 import 'package:rider_app/features/notifications/data/notifications.dart';
 import 'package:rider_app/shared/mfc_directory.dart';
+import 'package:rider_app/shared/rider_map.dart';
 import 'package:rider_app/features/delivery/data/delivery_repository.dart';
 import 'package:rider_app/features/delivery/data/trip_repository.dart';
 import 'package:rider_app/features/delivery/domain/delivery.dart';
@@ -159,6 +160,90 @@ void main() {
     expect(records.single.category, HelpCategory.customerUnreachable);
     expect(records.single.state, HelpState.inProgress);
     expect(records.single.caseId, 'CS-1');
+  });
+
+  // 2026-11-18 실서버: 앱을 다시 설치한 뒤 시험 MFC(앱 지점표에 없음) 배송을 열자 픽업지가 0,0 으로 지어져
+  // "전달지가 해외로" 그려졌다. 좌표는 서버 값으로만 — 수락한 제안·서버 픽업지 목록에서 되살리고, 없으면 null.
+  group('좌표는 서버 값으로만(0,0 으로 지어내지 않음)', () {
+    Map<String, (int, Object?)> delivery(String id) => {
+      'GET /api/v1/deliveries/$id': (
+        200,
+        {
+          'deliveryId': id,
+          'orderId': 'ord-x',
+          'mfcId': 'MFC-TEST-BSJ',
+          'mfcName': 'PMart [시험] 부산진구 MFC',
+          'state': 'PICKED_UP',
+          'version': 3,
+          'orderSummary': {'orderNumber': '74089765', 'items': <Object>[]},
+        },
+      ),
+    };
+
+    test('앱을 새로 켜면 수락한 제안을 다시 읽어 픽업지·전달지 좌표를 되살린다', () async {
+      final a = _FakeAdapter({
+        ...delivery('dx1'),
+        'GET /api/v1/offers': (
+          200,
+          {
+            'items': [
+              {
+                'offerId': 'of-1',
+                'deliveryId': 'dx1',
+                'state': 'ACCEPTED',
+                'summary': {
+                  'mfcId': 'MFC-TEST-BSJ',
+                  'pickupPoint': {'lat': 35.1585, 'lng': 129.062},
+                  'dropAreaPoint': {'lat': 35.15, 'lng': 129.06},
+                },
+              },
+            ],
+          },
+        ),
+      });
+      final t = await ApiTripRepository(_dio(a)).forDelivery('dx1');
+      expect(t!.store.point, (lat: 35.1585, lng: 129.062));
+      expect(t.drop, (lat: 35.15, lng: 129.06));
+      expect(a.calls, contains('GET /api/v1/offers'));
+    });
+
+    test('제안을 못 찾으면 서버 픽업지 목록 좌표, 그것도 없으면 null — 0,0 아님', () async {
+      final withPoints = _FakeAdapter({
+        ...delivery('dx2'),
+        'GET /api/v1/offers': (200, {'items': <Object>[]}),
+        'GET /api/v1/mfc-pickup-points': (
+          200,
+          {
+            'items': [
+              {
+                'centerId': 'MFC-TEST-BSJ',
+                'name': 'PMart [시험] 부산진구 MFC',
+                'coordinates': {'lat': 35.1585, 'lng': 129.062},
+              },
+            ],
+          },
+        ),
+      });
+      final t = await ApiTripRepository(_dio(withPoints)).forDelivery('dx2');
+      expect(t!.store.point, (lat: 35.1585, lng: 129.062));
+      expect(t.drop, isNull, reason: '전달지 대략 좌표는 제안에만 — 없으면 모름');
+
+      final nothing = _FakeAdapter({
+        ...delivery('dx3'),
+        'GET /api/v1/offers': (200, {'items': <Object>[]}),
+        'GET /api/v1/mfc-pickup-points': (200, {'items': <Object>[]}),
+      });
+      final u = await ApiTripRepository(_dio(nothing)).forDelivery('dx3');
+      expect(u!.store.point, isNull);
+      expect(u.store.lat, isNull);
+    });
+
+    test('지도 경로: 픽업 뒤 전달지를 모르면 선을 픽업지로 대신 긋지 않는다', () {
+      const r = MapRoute(pickup: (lat: 35.1, lng: 129.0), toDrop: true);
+      expect(r.target, isNull);
+      const before = MapRoute(pickup: (lat: 35.1, lng: 129.0));
+      expect(before.target, (lat: 35.1, lng: 129.0));
+    });
   });
 
   test('주문정보: 제안 요약(좌표·소요) + 수락 뒤 배송 조회(orderSummary)', () async {

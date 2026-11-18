@@ -30,14 +30,15 @@ final mapAvailableProvider = Provider<bool>(
 @immutable
 class MapRoute {
   const MapRoute({
-    required this.pickup,
+    this.pickup,
     this.drop,
     this.pickupTime,
     this.dropTime,
     this.toDrop = false,
   });
 
-  final GeoPoint pickup;
+  /// 서버 좌표가 없으면 null — 그 핀·선은 그리지 않는다(지어낸 좌표로 그리지 않는다).
+  final GeoPoint? pickup;
   final GeoPoint? drop;
   final String? pickupTime;
   final String? dropTime;
@@ -45,8 +46,8 @@ class MapRoute {
   /// 직선의 목적지. false = 내 위치 → 픽업지(제안·픽업 전), true = 내 위치 → 전달지(픽업 뒤).
   final bool toDrop;
 
-  /// 내 위치에서 이어 그을 목적지.
-  GeoPoint get target => toDrop ? (drop ?? pickup) : pickup;
+  /// 내 위치에서 이어 그을 목적지. 픽업 뒤 전달지를 모르면 null(픽업지로 대신 긋지 않는다).
+  GeoPoint? get target => toDrop ? drop : pickup;
 
   @override
   bool operator ==(Object other) =>
@@ -204,8 +205,14 @@ class _LiveMapState extends ConsumerState<_LiveMap> {
     final map = _map;
     final route = widget.route;
     final me = _last;
+    final target = route?.target;
     if (map == null || route == null || me == null || !mounted) return;
-    final points = [_at(me), _at(route.target)];
+    if (target == null) {
+      if (_line case final line?) await map.routeLayer.removeRoute(line);
+      _line = null;
+      return;
+    }
+    final points = [_at(me), _at(target)];
     if (_line case final line?) {
       await line.changePoint(points);
     } else {
@@ -227,7 +234,14 @@ class _LiveMapState extends ConsumerState<_LiveMap> {
     final route = widget.route;
     if (route == null || !mounted) return;
     final l10n = AppLocalizations.of(context);
-    final points = [_at(route.pickup), if (route.drop case final d?) _at(d)];
+    final pickupAt = switch (route.pickup) {
+      final p? => _at(p),
+      null => null,
+    };
+    final dropAt = switch (route.drop) {
+      final d? => _at(d),
+      null => null,
+    };
     await _drawLineNow();
     Future<kakao.Poi> pin(
       kakao.LatLng at,
@@ -250,20 +264,23 @@ class _LiveMapState extends ConsumerState<_LiveMap> {
       );
     }
 
-    _routePois.add(
-      await pin(
-        points.first,
-        l10n.pinPickup,
-        RiderColors.pickup,
-        route.pickupTime,
-      ),
-    );
-    if (points.length == 2) {
+    if (pickupAt != null) {
       _routePois.add(
-        await pin(points.last, l10n.pinDrop, RiderColors.drop, route.dropTime),
+        await pin(
+          pickupAt,
+          l10n.pinPickup,
+          RiderColors.pickup,
+          route.pickupTime,
+        ),
       );
     }
-    final fit = [...points, if (_last case final me?) _at(me)];
+    if (dropAt != null) {
+      _routePois.add(
+        await pin(dropAt, l10n.pinDrop, RiderColors.drop, route.dropTime),
+      );
+    }
+    final fit = [?pickupAt, ?dropAt, if (_last case final me?) _at(me)];
+    if (fit.isEmpty) return;
     await map.moveCamera(
       fit.length >= 2
           // 핀 위 "도착예상" 두 줄이 위쪽 가장자리에서 잘리지 않을 만큼 여백을 둔다.

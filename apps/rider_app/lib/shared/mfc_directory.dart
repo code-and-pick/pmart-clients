@@ -28,11 +28,15 @@ class MfcBranch {
   /// 가게 전화. 목 지점은 가짜 번호, 서버 지점은 아직 없다(center-master 에 칸 없음 — null).
   final String? phone;
 
-  /// 주소를 카카오 주소 검색으로 찾은 좌표(2026-11-17). 정본은 center-master.
-  final double lat;
-  final double lng;
+  /// 좌표 — 서버 지점은 center-master·dispatch 값, 앱 지점표는 카카오 주소 검색으로 찾은 값(2026-11-17).
+  /// 모르면 null — 0,0 등으로 지어내지 않는다(2026-11-18 사용자: 시험 MFC 가 0,0 으로 찍혀 전달지가 해외로 보임).
+  final double? lat;
+  final double? lng;
 
-  GeoPoint get point => (lat: lat, lng: lng);
+  GeoPoint? get point => switch ((lat, lng)) {
+    (final a?, final b?) => (lat: a, lng: b),
+    _ => null,
+  };
 }
 
 MfcBranch _b(

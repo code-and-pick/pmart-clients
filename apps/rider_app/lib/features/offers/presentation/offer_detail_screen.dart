@@ -217,12 +217,13 @@ class _OfferDetailScreenState extends ConsumerState<OfferDetailScreen> {
                             l10n.storePhoneUnavailable,
                           ),
                           routeKey: const ValueKey('route-pickup'),
-                          onRoute: switch (trip?.store) {
-                            final s? => () => _navigate(
+                          // 좌표를 모르면 길찾기를 막는다(지어낸 좌표로 안내하지 않는다).
+                          onRoute: switch ((trip?.store, trip?.store.point)) {
+                            (final s?, final p?) => () => _navigate(
                               l10n.storeLabel(s.name),
-                              s.point,
+                              p,
                             ),
-                            null => null,
+                            _ => null,
                           },
                         ),
                         const Divider(indent: 16, endIndent: 16, height: 1),
