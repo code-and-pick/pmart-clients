@@ -33,8 +33,7 @@ import { SatisfactionPage } from '../features/inquiries/SatisfactionPage';
 import { NewCsIntakePage } from '../features/csIntakes/CsIntakePages';
 import { OrderDetailPage, OrderLookupPage } from '../features/orders/OrderLookupPages';
 import { NewRiderComplaintPage, RiderComplaintDetailPage, RiderComplaintListPage } from '../features/riderComplaints/RiderComplaintPages';
-import { RestrictionReviewPage } from '../features/riders/RestrictionReviewPage';
-import { RiderDetailPage, RiderSearchPage } from '../features/riders/RiderPages';
+import { RiderDetailPage, RiderOpsMovedPage } from '../features/riders/RiderPages';
 import { NewPriceImportPage, PriceImportPage } from '../features/prices/PriceImportPage';
 import { PricePage } from '../features/prices/PricePage';
 import { ProductDetailPage } from '../features/products/ProductDetailPage';
@@ -233,8 +232,9 @@ const routes = [
       { path: 'return-intake', element: guarded(<ReturnIntakePage />) },
       { path: 'deliveries', element: guarded(<DeliveryOpenPage />) },
       { path: 'deliveries/:deliveryId', element: guarded(<DeliveryDetailPage />) },
-      { path: 'riders', element: guarded(<RiderSearchPage />) },
-      { path: 'riders/restriction-reviews', element: guarded(<RestrictionReviewPage />) },
+      // 라이더 찾기·제한 검토는 라이더 백오피스로(2026-11-18, ADR-0068) — 옛 주소는 안내, 상세만 보기로 남김(다른 화면이 여기로 연결)
+      { path: 'riders', element: guarded(<RiderOpsMovedPage path="riders" />) },
+      { path: 'riders/restriction-reviews', element: guarded(<RiderOpsMovedPage path="restriction-reviews" />) },
       { path: 'riders/:riderId', element: guarded(<RiderDetailPage />) },
       { path: 'delivery-help-requests', element: <Navigate to="/cases?kind=RIDER_HELP" replace /> }, // 도움요청 대기는 사건함으로(백엔드 알림 2026-11-16 §3)
       { path: 'assistant', element: guarded(<AssistantPage />) },

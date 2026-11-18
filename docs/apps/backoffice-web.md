@@ -108,7 +108,7 @@ auth-service 의 운영자 로그인·비밀번호 변경·운영자 계정 API 
   - 승인(`*_APPROVER`·`OPERATOR_ADMIN`)
   - 조회·현황(`CS_AGENT`·`RIDER_OPS`·`OPERATOR_ADMIN` — 주문 조회·통합 조회·실시간 배송 현황·배송·배차 확인·라이더 컴플레인)
   - 고객센터(`CS_AGENT`·`OPERATOR_ADMIN` — 문의 답변·클레임 조회)
-  - 라이더 운영(`RIDER_OPS`·`OPERATOR_ADMIN` — 라이더 찾기·계정 제한·제한 검토)
+  - ~~라이더 운영~~ — **2026-11-18 라이더 백오피스로 옮겨 내림**(ADR-0068, 라이더 백오피스 PR #115 뒤). 라이더 상세 `/riders/:riderId` 만 보기로 남김.
   - 업무 도우미(모든 직원).
   - 세션 응답(`sessions/current` 0.6.0) 역할의 합집합, 하위 메뉴가 없으면 묶음도 숨김.
   - 접고 펴는 `<details>` — 지금 화면의 묶음만 펼친 채 시작.
@@ -150,6 +150,7 @@ auth-service 의 운영자 로그인·비밀번호 변경·운영자 계정 API 
 - **클레임 조회** `/claims`, `/claims/:id` — claim 0.1.0 목록·상세·환불(`/refunds`). 결정 버튼 없음(서버 501). 환불은 서버 상태 그대로(PG 성공 전 "완료" 아님).
 - **반품 접수·회수 조치**(claim 0.2.0, 백엔드 요청 `all/2026-11-17-request-return-recovery` §2 — `features/claims/ReturnClaim.tsx`, 고객센터만): 주문 상세 "이 주문 반품 접수" → `/return-intake?orderId=`(품목 수량은 인계−반품 이내·사유·회사 잘못·본인 확인 → `POST /claims` RETURN·CS). 클레임 상세에 회수 진행(회수비 결제·회수 시도)과 회수 실패 조치(다시 회수·반품 취소, 사유 필수·버전). 회수비·환불액은 서버 값만, 결과는 서버 응답대로. **claim 0.3.0**(요청서 §5): 반품 가능 수량은 전달 완료 기준(422 NOT_DELIVERED_YET), 반품 기한·횟수에 드는 실패 표시, 다시 회수는 시도 남음·기한 전만, 수거·반입 뒤 취소 없음, 낸 회수비 돌려주기(고를 때만 feeRefund — 회수 실패 사유가 계약에 없어 PAID 면 보임, 백엔드 CL-2 #161), 덜 받았으면 "받은 만큼만 끝내기", 환불 목록에 회수비 돌려주기 표시.
 - **배송 확인** `/deliveries`(배송 번호로 열기 + 찾기: 주문 ID·라이더 ID·상태·오래된 순, "전달 실패 확정 대기" = `state=FAILURE_REPORTED&sort=OLDEST`, cursor 더 보기 — execution 0.4.0, 2026-11-16), `/deliveries/:id` — 배송 수행(execution `GET /deliveries/{id}`)과 배차(dispatch `GET …/dispatch` — 상담원도 조회)를 따로 읽고 따로 보인다(한쪽 403 이어도 다른 쪽은 보인다). `FAILURE_REPORTED` 면 전달 실패 확정·반려(`X-Expected-Version` = 수행 version, `APPLIED`/`ACCEPTED` 문구 구분), 배차 `ASSIGNED` 면 픽업 전 배차 취소(사유 4가지 — 운영자 판단은 승인 번호 필수, 다시 배차 기본 켬, 202 접수 → 짝 조회 `GET …/assignment-cancellations/{requestId}` 로 확정까지, 422 `PICKED_UP_CASE_REQUIRED` 안내). "이 배송으로 라이더 컴플레인 기록" 링크.
+- **2026-11-18 라이더 운영 내림**: 라이더 찾기·계정 제한 걸기/풀기·제한 검토는 라이더 백오피스(8446)에서. 이 앱은 라이더 상세 `/riders/:riderId` 를 보기로만 남김(기본 정보·개인정보 보기 — 서버가 CS_AGENT 허용·이 라이더 배송·컴플레인 + "라이더 백오피스에서 이 라이더 열기" 링크). 옛 주소 `/riders`·`/riders/restriction-reviews` 는 옮겼다는 안내. 아래 두 줄은 옛 기록.
 - **라이더 찾기·계정 제한** `/riders`, `/riders/:riderId` — rider 0.4.0(2026-11-16, BR-54 끝): 찾기 = 라이더 ID·전화(숫자 10~11자리) 완전 일치 + 제한·운행·수단·정렬, 쪽 이동(이름 검색 없음). 상세 = 가린 이름·전화 + 사유 입력 원문 열람(`POST /riders/{id}/pii-reveals`, 항목 이름·전화), 운행·배달 지역·배차 방식·제한·마지막 위치. 계정 제한 현재·이력·걸기/바꾸기/풀기(사유 필수·기한·증빙·승인 번호, `X-Expected-Version` = 상세의 라이더 version — BOD-6, RIDER_OPS 도), 이 라이더의 배송·열린 제한 검토·컴플레인.
 - **제한 검토** `/riders/restriction-reviews` — 열림·제한함·기각 탭, 묶인 컴플레인, 열린 검토는 행마다 "제한함으로 닫기"·"기각"(메모), 닫으면 그 자리에서 결과 표시.
 - **도움요청 대기**는 지원센터 사건함으로 옮겼다(2026-11-16, BR-55 끝) — `/delivery-help-requests` 는 `/cases?kind=RIDER_HELP` 로 넘기고, 라이더 도움요청 사건 상세에 도움요청 단건(`GET /deliveries/{id}/help-requests/{requestId}` — 라이더가 쓴 내용·사진 참조). 전달 실패 확정 대기는 배송 확인의 찾기.

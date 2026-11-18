@@ -16,9 +16,10 @@ describe('메뉴 묶음 — 역할로 보이고(합집합) 접고 편다', () =>
       [as.md, ['상품 관리', '업무 도우미']],
       [as.approver, ['승인', '업무 도우미']],
       [as.cs, ['조회·현황', '고객센터', '지원센터', '업무 도우미']],
-      [as.riderOps, ['조회·현황', '라이더 운영', '지원센터', '업무 도우미']],
-      [as.csRider, ['조회·현황', '고객센터', '라이더 운영', '지원센터', '업무 도우미']],
-      [as.admin, ['상품 관리', '승인', '조회·현황', '고객센터', '라이더 운영', '지원센터', '처리 대기', '감사', '업무 도우미']], // 상품 관리는 2026-11-15 부터 OPERATOR_ADMIN 도
+      // 라이더 운영 묶음은 2026-11-18 라이더 백오피스로 옮겨 내렸다(ADR-0068)
+      [as.riderOps, ['조회·현황', '지원센터', '업무 도우미']],
+      [as.csRider, ['조회·현황', '고객센터', '지원센터', '업무 도우미']],
+      [as.admin, ['상품 관리', '승인', '조회·현황', '고객센터', '지원센터', '처리 대기', '감사', '업무 도우미']], // 상품 관리는 2026-11-15 부터 OPERATOR_ADMIN 도
       [as.center, ['업무 도우미']],
     ];
     for (const [token, expected] of cases) {
@@ -33,11 +34,11 @@ describe('메뉴 묶음 — 역할로 보이고(합집합) 접고 편다', () =>
     const user = userEvent.setup();
     renderAt('/inquiries', as.csRider);
     const cs = await screen.findByTestId('nav-group-cs');
-    const riderOps = screen.getByTestId('nav-group-riderOps');
+    const support = screen.getByTestId('nav-group-support');
     expect(cs).toHaveAttribute('open');
-    expect(riderOps).not.toHaveAttribute('open');
-    await user.click(within(riderOps).getByText('라이더 운영'));
-    expect(riderOps).toHaveAttribute('open');
+    expect(support).not.toHaveAttribute('open');
+    await user.click(within(support).getByText('지원센터'));
+    expect(support).toHaveAttribute('open');
     await user.click(within(cs).getByText('고객센터'));
     expect(cs).not.toHaveAttribute('open');
   });
@@ -48,17 +49,17 @@ describe('메뉴 묶음 — 역할로 보이고(합집합) 접고 편다', () =>
     await screen.findByTestId('nav-group-lookup');
     expect(links('lookup')).toEqual(['주문 조회', '통합 조회', '실시간 배송 현황', '포장 인계 현황', '배송·배차 확인', '라이더 컴플레인']);
     expect(links('cs')).toEqual(['문의 답변', '전화·채팅 접수', '문의 만족도', '클레임 조회', '반품 접수', '고객센터 후속 처리']);
-    expect(links('riderOps')).toEqual(['라이더 찾기·계정 제한', '제한 검토']);
+    expect(screen.queryByTestId('nav-group-riderOps')).not.toBeInTheDocument(); // 라이더 백오피스로 옮김(2026-11-18)
     const all = [...document.querySelectorAll('[data-testid^="nav-group-"] a')].map((a) => a.getAttribute('href'));
     expect(new Set(all).size).toBe(all.length);
   });
 
-  it('첫 화면은 역할로 보이는 첫 메뉴 — 상담원은 주문 조회, 라이더 운영은 라이더 찾기', async () => {
+  it('첫 화면은 역할로 보이는 첫 메뉴 — 상담원은 주문 조회, 라이더 운영은 접수 건(라이더 찾기는 라이더 백오피스로 옮김)', async () => {
     renderAt('/', as.cs);
     expect(await screen.findByRole('heading', { name: '주문 조회' })).toBeInTheDocument();
     cleanup();
     renderAt('/', as.riderOps);
-    expect(await screen.findByRole('heading', { name: '라이더 찾기·계정 제한' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: '접수 건' })).toBeInTheDocument();
   });
 });
 
@@ -303,67 +304,23 @@ describe('배송 확인', () => {
   });
 });
 
-describe('라이더 운영', () => {
-  it('계정 제한 걸기: X-Expected-Version = 라이더 version, 이력과 현재 제한이 바뀐다', async () => {
-    const user = userEvent.setup();
-    const view = renderAt('/riders/RID-MOCK-2', as.admin);
-    expect(await screen.findByTestId('rider-current-restriction')).toHaveTextContent('정상');
-    expect(screen.getAllByTestId('restriction-row')).toHaveLength(2);
-    await user.selectOptions(screen.getByLabelText('바꿀 제한'), 'DISPATCH_RESTRICTED');
-    await user.type(screen.getByLabelText('사유', { selector: 'textarea' }), '오배송 3건 확인');
-    await user.type(screen.getByLabelText('증빙'), 'RCP-MOCK-1, RCP-MOCK-2');
-    await user.click(screen.getByRole('button', { name: '제한 보내기' }));
-    expect(await screen.findByTestId('restriction-result')).toHaveTextContent('배차 제한');
-    await waitFor(() => expect(screen.getByTestId('rider-current-restriction')).toHaveTextContent('배차 제한'));
-    expect(screen.getAllByTestId('restriction-row')).toHaveLength(3);
-    const [post] = view.mutations('/restrictions');
-    expect(post?.headers.get('X-Expected-Version')).toBe('3');
-    expect(await post?.json()).toEqual({ restriction: 'DISPATCH_RESTRICTED', reason: '오배송 3건 확인', evidenceRefs: ['RCP-MOCK-1', 'RCP-MOCK-2'] });
-    view.stop();
-  });
-
-  it('라이더 운영 역할도 계정 제한을 보고 건다(rider 0.4.0, BOD-1)', async () => {
-    renderAt('/riders/RID-MOCK-2', as.riderOps);
-    expect(await screen.findByTestId('rider-current-restriction')).toHaveTextContent('정상');
-    expect(screen.getByRole('button', { name: '제한 보내기' })).toBeInTheDocument();
-    expect(screen.queryByRole('heading', { name: '이용할 수 없는 화면이에요' })).not.toBeInTheDocument();
-  });
-
-  it('제한 검토: 제한 없이 "제한함"은 거절, 기각은 그 자리에서 닫힌다', async () => {
-    const user = userEvent.setup();
-    renderAt('/riders/restriction-reviews', as.admin);
-    const row = await screen.findByTestId('review-row');
-    await user.click(within(row).getByRole('button', { name: '제한함으로 결정' }));
-    expect(await within(row).findByRole('alert')).toHaveAttribute('data-code', 'INVALID_STATE');
-    cleanup();
-
-    renderAt('/riders/restriction-reviews', as.admin);
-    const again = await screen.findByTestId('review-row');
-    await user.type(within(again).getByLabelText('메모'), '같은 주소 착오');
-    await user.click(within(again).getByRole('button', { name: '기각' }));
-    await waitFor(() => expect(screen.getByTestId('review-row')).toHaveTextContent('기각'));
-  });
-
-  it('라이더 찾기(rider 0.4.0): 전화번호 완전 일치(숫자만) → 이름·전화는 가린 값, 쪽 이동', async () => {
-    const user = userEvent.setup();
-    const view = renderAt('/riders', as.riderOps);
-    await user.type(screen.getByLabelText('전화번호(완전 일치)'), '010-1111-2222');
-    await user.click(screen.getByRole('button', { name: '찾기' }));
-    const rows = await screen.findAllByTestId('rider-row');
-    expect(rows).toHaveLength(1);
-    expect(rows[0]).toHaveTextContent('010****2222');
-    expect(rows[0]).not.toHaveTextContent('김라이더'); // 이름은 가린 값
-    expect(rows[0]).not.toHaveTextContent('01011112222');
-    const get = view.sent.find((r) => r.method === 'GET' && new URL(r.url).pathname.endsWith('/riders'))!;
-    expect(new URL(get.url).searchParams.get('phone')).toBe('01011112222');
-    expect(screen.queryByLabelText('이름')).not.toBeInTheDocument(); // 이름 검색 없음
-  });
-
-  it('전화번호가 10~11자리가 아니면 보내기 전에 막는다', async () => {
-    const user = userEvent.setup();
+describe('라이더 상세(보기만 — 라이더 운영 묶음은 2026-11-18 라이더 백오피스로)', () => {
+  it('옛 찾기·제한 검토 주소는 라이더 백오피스 안내, 메뉴에는 없다', async () => {
     renderAt('/riders', as.riderOps);
-    await user.type(screen.getByLabelText('전화번호(완전 일치)'), '1234');
-    expect(screen.getByRole('button', { name: '찾기' })).toBeDisabled();
+    expect(await screen.findByRole('heading', { name: '라이더 운영은 라이더 백오피스로 옮겼어요' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '라이더 백오피스 열기' })).toHaveAttribute('href', 'http://localhost:5176/riders');
+    expect(screen.queryByRole('link', { name: '라이더 찾기·계정 제한', hidden: true })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: '제한 검토', hidden: true })).not.toBeInTheDocument();
+  });
+
+  it('상세는 보기만 — 제한 걸기·풀기·제한 검토 없이 "라이더 백오피스에서" 안내와 그 앱 같은 라이더 링크, 상담원도 연다', async () => {
+    renderAt('/riders/RID-MOCK-2', as.cs);
+    expect(await screen.findByTestId('rider-basic')).toHaveTextContent('정상');
+    expect(screen.getByTestId('rider-ops-moved')).toHaveTextContent('라이더 백오피스에서');
+    expect(screen.getByRole('link', { name: '라이더 백오피스에서 이 라이더 열기' })).toHaveAttribute('href', 'http://localhost:5176/riders/RID-MOCK-2');
+    expect(screen.queryByRole('button', { name: '제한 보내기' })).not.toBeInTheDocument();
+    expect(screen.queryByText('이 라이더의 제한 검토')).not.toBeInTheDocument();
+    expect(screen.getByRole('form', { name: '원문 열람' })).toBeInTheDocument(); // 개인정보 보기는 남김(서버가 CS_AGENT 허용)
   });
 
   it('라이더 상세: 가린 이름·전화 → 사유 + pii-reveals(전화만) → 전화만 원문, 다시 가리기', async () => {

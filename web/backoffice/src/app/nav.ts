@@ -4,6 +4,7 @@
 // 같은 화면은 한 묶음에만 둔다: 상담원·라이더 운영이 함께 쓰는 조회 화면은 "조회·현황" 묶음으로(2026-11-16 사용자 — 두 역할 계정에서
 // 같은 메뉴가 두 번 보이고 함께 강조되던 것). 정본 표는 역할→화면이 그대로이고 묶는 방법만 다르다(백엔드 알림 handoff 2026-11-16-backend-menu-shared-lookup-group).
 // MFC 메뉴는 넣지 않는다(2026-11-15 사용자 결정 — MFC 백오피스는 따로 앱).
+// 라이더 운영 묶음(라이더 찾기·계정 제한·제한 검토)은 2026-11-18 라이더 백오피스로 옮겨 내렸다(ADR-0068). 라이더 상세(/riders/:id)는 보기만 남김.
 import { messages as m } from '../shared/messages';
 
 export interface NavItem {
@@ -86,15 +87,6 @@ export const navGroups: readonly NavGroup[] = [
       { to: '/return-intake', label: m.nav.returnIntake },
       // 후속 처리(case 0.8.0 의무, owner=CS) — 상담원이 고객 연락 등의 결과를 남긴다
       { to: '/follow-ups/cs', label: m.nav.csFollowUps },
-    ],
-  },
-  {
-    id: 'riderOps',
-    label: m.nav.group.riderOps,
-    visibleTo: oneOf('RIDER_OPS', 'OPERATOR_ADMIN'),
-    items: [
-      { to: '/riders', label: m.nav.riders },
-      { to: '/riders/restriction-reviews', label: m.nav.restrictionReviews },
     ],
   },
   {
