@@ -74,10 +74,29 @@ export function ImagePicker({
   useEffect(() => {
     latestPending.current = pending;
   }, [pending]);
-  const sliceAndAdd = async (file: File, pieceHeight: number): Promise<SliceResult> => {
+  /**
+   * 잘라 넣기. replaceIds 가 있으면(조각 높이를 바꿔 다시 자를 때 — 2026-11-18 사용자 "높이를 바꾸면 바로 적용이 안 된다")
+   * 그 조각들을 같은 자리에서 새 조각으로 바꾼다. 남은 게 하나도 없으면(사용자가 다 지움) 다시 넣지 않는다.
+   * 반환: 결과와 이번에 넣은 조각 id(다음 다시 자르기에 쓴다), 넣지 않았으면 null.
+   */
+  const sliceAndAdd = async (file: File, pieceHeight: number, replaceIds?: readonly string[]): Promise<{ readonly result: SliceResult; readonly ids: readonly string[] } | null> => {
     const r = await slicer(file, pieceHeight);
-    onChange([...latestPending.current, ...toPending(r.pieces, 'DESCRIPTION')]);
-    return r;
+    const cur = latestPending.current;
+    const added = toPending(r.pieces, 'DESCRIPTION');
+    if (replaceIds) {
+      const at = cur.findIndex((p) => replaceIds.includes(p.id));
+      if (at < 0) {
+        added.forEach((p) => revoke(p.preview));
+        return null;
+      }
+      cur.filter((p) => replaceIds.includes(p.id)).forEach((p) => revoke(p.preview));
+      const rest = cur.filter((p) => !replaceIds.includes(p.id));
+      const insertAt = cur.slice(0, at).filter((p) => !replaceIds.includes(p.id)).length;
+      onChange([...rest.slice(0, insertAt), ...added, ...rest.slice(insertAt)]);
+    } else {
+      onChange([...cur, ...added]);
+    }
+    return { result: r, ids: added.map((p) => p.id) };
   };
   const remove = (id: string) => {
     pending.filter((p) => p.id === id).forEach((p) => revoke(p.preview));
@@ -120,7 +139,7 @@ function RoleSection({
   readonly disabled: boolean;
   readonly onAdd: (files: FileList | null) => void;
   readonly onRemove: (id: string) => void;
-  readonly onSlice?: (file: File, pieceHeight: number) => Promise<SliceResult>;
+  readonly onSlice?: (file: File, pieceHeight: number, replaceIds?: readonly string[]) => Promise<{ readonly result: SliceResult; readonly ids: readonly string[] } | null>;
 }) {
   const input = useRef<HTMLInputElement>(null);
   const label = m.contents.imageRole[role];
@@ -207,19 +226,33 @@ function RoleSection({
 }
 
 /** 긴 상세 이미지 잘라 넣기 — 조각 높이를 고르고 파일 한 장을 고르면 바로 잘라 목록 끝에 붙인다 */
-function SliceBox({ disabled, onSlice }: { readonly disabled: boolean; readonly onSlice: (file: File, pieceHeight: number) => Promise<SliceResult> }) {
+function SliceBox({ disabled, onSlice }: { readonly disabled: boolean; readonly onSlice: (file: File, pieceHeight: number, replaceIds?: readonly string[]) => Promise<{ readonly result: SliceResult; readonly ids: readonly string[] } | null> }) {
   const input = useRef<HTMLInputElement>(null);
   const [pieceHeight, setPieceHeight] = useState<number>(DEFAULT_SLICE_HEIGHT);
   const [status, setStatus] = useState<{ readonly kind: 'idle' } | { readonly kind: 'working'; readonly name: string } | { readonly kind: 'done'; readonly text: string } | { readonly kind: 'failed' }>({ kind: 'idle' });
-  const run = async (file: File | undefined) => {
+  // 마지막으로 자른 원본과 그때 넣은 조각 — 조각 높이를 바꾸면 이 조각들을 새 높이로 바로 다시 자른다
+  const last = useRef<{ file: File; ids: readonly string[] } | null>(null);
+  const run = async (file: File | undefined, height: number, replace: boolean) => {
     if (!file) return;
     setStatus({ kind: 'working', name: file.name });
     try {
-      const r = await onSlice(file, pieceHeight);
+      const out = await onSlice(file, height, replace ? last.current?.ids : undefined);
+      if (!out) {
+        // 사용자가 그 조각을 다 지웠다 — 다시 넣지 않고, 다음 높이 바꿈도 하지 않는다
+        last.current = null;
+        setStatus({ kind: 'idle' });
+        return;
+      }
+      last.current = { file, ids: out.ids };
+      const r = out.result;
       setStatus({ kind: 'done', text: r.pieces.length > 1 ? m.contents.slice.done(r.pieces.length, r.width, r.height) : m.contents.slice.single(r.height) });
     } catch {
       setStatus({ kind: 'failed' });
     }
+  };
+  const changeHeight = (h: number) => {
+    setPieceHeight(h);
+    if (last.current) void run(last.current.file, h, true);
   };
   return (
     <div className="space-y-2 rounded-lg border border-dashed border-primary/40 bg-primary/5 p-2.5" data-testid="slice-box">
@@ -227,7 +260,7 @@ function SliceBox({ disabled, onSlice }: { readonly disabled: boolean; readonly 
       <div className="flex flex-wrap items-center gap-2">
         <label className="flex items-center gap-1.5 text-xs">
           {m.contents.slice.height}
-          <select className="select select-xs w-24" value={pieceHeight} disabled={disabled} onChange={(e) => setPieceHeight(Number(e.target.value))} aria-label={m.contents.slice.height}>
+          <select className="select select-xs w-24" value={pieceHeight} disabled={disabled} onChange={(e) => changeHeight(Number(e.target.value))} aria-label={m.contents.slice.height}>
             {SLICE_HEIGHTS.map((h) => (
               <option key={h} value={h}>
                 {m.contents.slice.heightOption(h)}
@@ -246,7 +279,7 @@ function SliceBox({ disabled, onSlice }: { readonly disabled: boolean; readonly 
           className="hidden"
           disabled={disabled}
           onChange={(e) => {
-            void run(e.target.files?.[0]);
+            void run(e.target.files?.[0], pieceHeight, false);
             e.target.value = '';
           }}
         />

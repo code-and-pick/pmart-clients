@@ -55,6 +55,42 @@ describe('긴 이미지 잘라 넣기', () => {
     expect(names).toEqual(['올릴 이미지 first.png', '올릴 이미지 long_01.png', '올릴 이미지 long_02.png', '올릴 이미지 long_03.png']);
   });
 
+  it('조각 높이를 바꾸면 이미 넣은 조각을 같은 자리에서 새 높이로 바로 다시 자른다(2026-11-18)', async () => {
+    const user = userEvent.setup();
+    const slicer = vi.fn<(f: File, h: number) => Promise<SliceResult>>(async (_f, h) =>
+      h === 1000
+        ? { pieces: [png('long_01.png'), png('long_02.png'), png('long_03.png'), png('long_04.png')], width: 860, height: 4000 }
+        : { pieces: [png('long_01.png'), png('long_02.png')], width: 860, height: 4000 },
+    );
+    render(<Harness slicer={slicer} />);
+    const desc = screen.getByRole('region', { name: '상세설명' });
+    fireEvent.change(within(desc).getByLabelText('상세설명 이미지 추가'), { target: { files: [png('first.png'), png('last.png')] } });
+    fireEvent.change(within(desc).getByLabelText('잘라 넣을 긴 상세 이미지'), { target: { files: [png('long.png')] } });
+    await within(desc).findByText(/2조각으로/);
+    const names = () => within(within(desc).getByRole('list', { name: '상세설명 이미지 목록' })).getAllByRole('listitem').map((li) => li.getAttribute('aria-label'));
+    expect(names()).toHaveLength(4);
+
+    await user.selectOptions(within(desc).getByLabelText('조각 높이'), '1000');
+    expect(await within(desc).findByText(/4조각으로/)).toBeInTheDocument();
+    expect(slicer).toHaveBeenLastCalledWith(expect.any(File), 1000);
+    // 앞뒤로 고른 사진은 그대로, 조각만 4장으로 바뀜(늘어나지 않고 바뀜)
+    expect(names()).toEqual(['올릴 이미지 first.png', '올릴 이미지 last.png', '올릴 이미지 long_01.png', '올릴 이미지 long_02.png', '올릴 이미지 long_03.png', '올릴 이미지 long_04.png']);
+  });
+
+  it('조각을 다 지운 뒤 높이를 바꾸면 다시 넣지 않는다', async () => {
+    const user = userEvent.setup();
+    const slicer = vi.fn<(f: File, h: number) => Promise<SliceResult>>(async () => ({ pieces: [png('long_01.png'), png('long_02.png')], width: 860, height: 3000 }));
+    render(<Harness slicer={slicer} />);
+    const desc = screen.getByRole('region', { name: '상세설명' });
+    fireEvent.change(within(desc).getByLabelText('잘라 넣을 긴 상세 이미지'), { target: { files: [png('long.png')] } });
+    await within(desc).findByText(/2조각으로/);
+    await user.click(within(desc).getByRole('button', { name: 'long_01.png 제거' }));
+    await user.click(within(desc).getByRole('button', { name: 'long_02.png 제거' }));
+    await user.selectOptions(within(desc).getByLabelText('조각 높이'), '1000');
+    await new Promise((r) => setTimeout(r, 50));
+    expect(within(desc).queryByRole('list', { name: '상세설명 이미지 목록' })).not.toBeInTheDocument();
+  });
+
   it('못 읽으면 안내하고 목록은 그대로', async () => {
     const slicer = vi.fn(async (): Promise<SliceResult> => {
       throw new Error('decode');
