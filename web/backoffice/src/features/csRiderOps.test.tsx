@@ -9,7 +9,7 @@ import { as, renderAt } from '../test/render';
 import { server } from '../test/server';
 
 // 묶음 이름만(옆 업무 알림 숫자 빼고)
-const groupLabels = () => [...document.querySelectorAll('[data-testid^="nav-group-"] > summary > span:first-child')].map((s) => s.textContent);
+const groupLabels = () => [...document.querySelectorAll('[data-testid^="nav-group-"] > summary [data-group-label]')].map((s) => s.textContent);
 
 describe('메뉴 묶음 — 역할로 보이고(합집합) 접고 편다', () => {
   it('역할마다 보이는 묶음', async () => {

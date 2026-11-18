@@ -65,22 +65,30 @@ function NavGroupMenu({ group, pathname }: { readonly group: NavGroup; readonly 
   const [manual, setManual] = useState<boolean | null>(null);
   const open = manual ?? active;
   return (
-    <details open={open} onToggle={(e) => setManual(e.currentTarget.open)} data-testid={`nav-group-${group.id}`} className="mb-2">
-      <summary className={`flex cursor-pointer list-none items-center gap-2 px-5 py-1 text-xs font-semibold ${active ? 'text-accent' : 'text-neutral-content/45 hover:text-neutral-content/70'}`}>
-        <span>{group.label}</span>
+    // 묶음 이름(2026-11-18 사용자 — "큰 항목이 하위보다 글자가 작다, 눌렀을 때 직관적이지 않다"):
+    // 하위 메뉴보다 크고 굵게 + 묶음 아이콘 + 펼침 화살표(▸/▾), 펼친 묶음은 바탕을 살짝 밝게, 지금 묶음은 민트.
+    <details open={open} onToggle={(e) => setManual(e.currentTarget.open)} data-testid={`nav-group-${group.id}`} className={`mx-2 mb-1 rounded-lg ${open ? 'bg-neutral-content/5' : ''}`}>
+      <summary
+        className={`flex cursor-pointer list-none items-center gap-2.5 rounded-lg px-3 py-2.5 text-[15px] font-bold transition-colors hover:bg-neutral-content/10 active:scale-[0.99] ${active ? 'text-accent' : open ? 'text-neutral-content' : 'text-neutral-content/85'}`}
+      >
+        <GroupIcon id={group.id} className="h-5 w-5 shrink-0" />
+        <span data-group-label>{group.label}</span>
         {/* 업무 알림 합계 — 접혀 있을 때만(2026-11-18 사용자 "메뉴에 업무 알람") */}
-        <span className="ml-auto" aria-hidden="true">
+        <span className="ml-auto flex items-center gap-2" aria-hidden="true">
           <MenuGroupAlert items={group.items} open={open} />
+          <svg viewBox="0 0 24 24" className={`h-4 w-4 fill-none stroke-current opacity-60 transition-transform ${open ? 'rotate-90' : ''}`} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" data-testid="nav-group-chevron">
+            <path d="m9 6 6 6-6 6" />
+          </svg>
         </span>
       </summary>
-      <ul>
+      <ul className="pb-2">
         {group.items.map((item) => (
           <li key={item.to}>
             <NavLink
               to={item.to}
               end
               className={({ isActive }) =>
-                `mr-2 flex items-center gap-1 rounded-r-lg border-l-4 px-5 py-2 text-sm transition-colors active:scale-[0.98] ${isActive ? 'border-accent bg-accent/20 font-bold text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.06)]' : 'border-transparent text-neutral-content/75 hover:bg-neutral-content/10 hover:text-neutral-content'}`
+                `my-0.5 ml-5 mr-1 flex items-center gap-1 rounded-r-lg border-l-4 py-2 pl-4 pr-3 text-[13px] transition-colors active:scale-[0.98] ${isActive ? 'border-accent bg-accent/20 font-bold text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.06)]' : 'border-neutral-content/10 text-neutral-content/70 hover:bg-neutral-content/10 hover:text-neutral-content'}`
               }
             >
               {item.label}
