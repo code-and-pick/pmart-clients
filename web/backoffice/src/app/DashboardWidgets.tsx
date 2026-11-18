@@ -468,3 +468,109 @@ export function MetricsPanel({ from, to }: { readonly from: string; readonly to:
     </Section>
   );
 }
+
+// ───────────────────────── 지금 일 건수(bff 0.15.0 work-counts — 관리자만) ─────────────────────────
+// 백엔드 알림 2026-11-18 notice-bff-work-counts: 원천에서 센 정확한 지금 건수. complete=false 면 "N건 이상".
+// 0건 묶음은 줄이 없을 수 있다 — 원천이 unavailableSources 에 없으면 0, 있으면 "확인 못 함"(null).
+
+type WorkGroup = 'CASES' | 'OBLIGATIONS' | 'SHIFT_HANDOVERS' | 'INQUIRIES' | 'PENDING_WORK' | 'APPROVALS' | 'DELIVERIES';
+const GROUP_SOURCES: Record<WorkGroup, readonly string[]> = {
+  CASES: ['case-service'],
+  OBLIGATIONS: ['case-service'],
+  SHIFT_HANDOVERS: ['case-service'],
+  INQUIRIES: ['case-service'],
+  PENDING_WORK: ['order-orchestration-service', 'order-service', 'mfc-fulfillment-service'],
+  APPROVALS: ['approval-service'],
+  DELIVERIES: ['delivery-execution-service'],
+};
+
+export interface WorkSum {
+  readonly value: number;
+  readonly complete: boolean;
+}
+
+export function workCountsQuery(api: Api) {
+  return {
+    queryKey: ['dashboard', 'work-counts'],
+    refetchInterval: REFRESH_MS,
+    retry: false,
+    queryFn: () => request('GET', api.bff.GET('/views/work-counts', {})),
+  };
+}
+
+/** 관리자만 부른다(그 밖 403). 반환: 묶음·셈(·나눔)의 합 — 읽는 중 undefined, 원천 실패 null */
+export function useWorkCounts(enabled: boolean) {
+  const api = useApi();
+  const q = useQuery({ ...workCountsQuery(api), enabled });
+  const sum = (group: WorkGroup, key: string, segment?: string): WorkSum | null | undefined => {
+    if (!enabled || q.isPending) return undefined;
+    if (q.isError) return null;
+    const missing = q.data.unavailableSources ?? [];
+    if (GROUP_SOURCES[group].some((s) => missing.includes(s)) && !q.data.counts.some((c) => c.group === group)) return null;
+    const rows = q.data.counts.filter((c) => c.group === group && c.key === key && (segment === undefined || c.segment === segment));
+    return { value: rows.reduce((n, c) => n + c.value, 0), complete: rows.every((c) => c.complete) };
+  };
+  const segments = (group: WorkGroup, key: string) => (q.data ? q.data.counts.filter((c) => c.group === group && c.key === key) : []);
+  return { q, sum, segments };
+}
+
+export const workText = (s: WorkSum) => (s.complete ? String(s.value) : m.work.atLeast(s.value));
+
+function WorkTile({ label: title, sum, to, tone, testId }: { readonly label: string; readonly sum: WorkSum | null | undefined; readonly to: string; readonly tone: 'error' | 'warning' | 'info'; readonly testId: string }) {
+  const has = !!sum && sum.value > 0;
+  const color = { error: 'text-error border-l-error', warning: 'text-warning border-l-warning', info: 'text-info border-l-info' }[tone];
+  return (
+    <Link to={to} data-testid={testId} className={`block rounded-lg border border-l-4 border-base-300 px-4 py-3 transition hover:bg-base-200/60 ${has ? color.split(' ')[1] : 'border-l-base-300'}`}>
+      <p className="text-xs text-base-content/60">{title}</p>
+      <p className={`mt-0.5 text-2xl font-bold tabular-nums ${sum === null ? 'text-base-content/40' : has ? color.split(' ')[0] : 'text-base-content/70'}`} title={sum === null ? m.failed : undefined}>
+        {sum === undefined ? '…' : sum === null ? m.work.unknown : workText(sum)}
+      </p>
+    </Link>
+  );
+}
+
+/** 지금 일 전체 — 진행 중 배송 상태별 막대 + 후속 처리·교대 인계·처리 중 접수 건·증빙 요청 */
+export function WorkCountsPanel() {
+  const { q, sum, segments } = useWorkCounts(true);
+  const deliveries = segments('DELIVERIES', 'ACTIVE').slice().sort((a, b) => b.value - a.value);
+  const dSum = sum('DELIVERIES', 'ACTIVE');
+  const max = Math.max(1, ...deliveries.map((d) => d.value));
+  return (
+    <div className="grid gap-4 lg:grid-cols-3" data-testid="dash-work">
+      <div className="lg:col-span-2">
+        <Section title={m.work.deliveriesTitle} aside={<span className="text-xs text-base-content/50">{dSum ? m.work.deliveriesTotal(workText(dSum)) : ''}</span>} testId="dash-work-deliveries">
+          {q.isPending ? (
+            <p className="text-sm text-base-content/50">…</p>
+          ) : dSum === null || q.isError ? (
+            <p className="text-sm text-warning">{m.work.deliveriesFailed}</p>
+          ) : deliveries.length === 0 ? (
+            <p className="py-6 text-center text-sm text-base-content/55">{m.work.noDeliveries}</p>
+          ) : (
+            <ul className="space-y-2">
+              {deliveries.map((d) => (
+                <li key={d.segment ?? 'x'} className="grid grid-cols-[8rem_1fr_auto] items-center gap-3 text-sm" data-testid="dash-work-delivery-row">
+                  <span className="truncate" title={d.segment ?? ''}>
+                    {label(messages.deliveries.executionState, d.segment ?? null)}
+                  </span>
+                  <span className="h-3 overflow-hidden rounded bg-base-200" aria-hidden="true">
+                    <span className={`block h-full rounded ${d.segment === 'FAILURE_REPORTED' ? 'bg-error/70' : d.segment === 'UNASSIGNED' ? 'bg-warning/70' : 'bg-primary/60'}`} style={{ width: `${Math.max(4, Math.round((d.value / max) * 100))}%` }} />
+                  </span>
+                  <span className="whitespace-nowrap font-semibold tabular-nums">{workText(d)}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Section>
+      </div>
+      <Section title={m.work.title} aside={<span className="text-xs text-base-content/50">{m.work.exact}</span>} testId="dash-work-tiles">
+        <div className="grid grid-cols-2 gap-3">
+          <WorkTile label={m.work.casesOpen} sum={sum('CASES', 'OPEN')} to="/cases" tone="info" testId="dash-work-cases-open" />
+          <WorkTile label={m.work.handovers} sum={sum('SHIFT_HANDOVERS', 'PENDING')} to="/cases/handovers" tone="warning" testId="dash-work-handovers" />
+          <WorkTile label={m.work.obligationsOpen} sum={sum('OBLIGATIONS', 'OPEN')} to="/cases" tone="info" testId="dash-work-obligations" />
+          <WorkTile label={m.work.obligationsOverdue} sum={sum('OBLIGATIONS', 'OVERDUE')} to="/cases?tab=overdue" tone="error" testId="dash-work-obligations-overdue" />
+          <WorkTile label={m.work.evidence} sum={sum('APPROVALS', 'EVIDENCE_REQUIRED')} to="/approvals?reviewState=EVIDENCE_REQUIRED" tone="warning" testId="dash-work-evidence" />
+        </div>
+      </Section>
+    </div>
+  );
+}

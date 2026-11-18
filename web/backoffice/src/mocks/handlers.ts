@@ -12,6 +12,7 @@ import { liveDeliveryHandlers } from './liveDeliveryHandlers';
 import { packingHandlers } from './packingHandlers';
 import { lookupHandlers } from './lookupHandlers';
 import { opsHandlers } from './opsHandlers';
+import { workCountsHandlers } from './workCountsHandlers';
 import { piiAccessLogHandlers } from './piiAccessLogHandlers';
 import { priceImportHandlers } from './priceImportHandlers';
 import { pricingHandlers } from './pricingHandlers';
@@ -38,6 +39,7 @@ export const handlers = [
   ...priceImportHandlers,
   ...inquiryHandlers,
   ...opsHandlers,
+  ...workCountsHandlers,
   ...caseHandlers,
   ...csIntakeHandlers,
   ...lookupHandlers,

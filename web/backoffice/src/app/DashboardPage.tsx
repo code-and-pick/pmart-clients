@@ -12,7 +12,7 @@ import { ProblemFailure, request } from '@pmart/web-core';
 import { useApi } from './ApiContext';
 import { ALERT_SIZE, useAlertCount, type AlertKey } from './MenuAlerts';
 import { ApprovalTypes, LiveSummary, RiskPanel, SlaTrend } from './DashboardSections';
-import { ActivityFeed, LiveStat, MetricsPanel, OrdersWeekChart, RefreshBar, RiskStat, SlaStat, StatusDonut, TodayOrdersStat, slaQuery } from './DashboardWidgets';
+import { ActivityFeed, LiveStat, MetricsPanel, OrdersWeekChart, WorkCountsPanel, useWorkCounts, workText, type WorkSum, RefreshBar, RiskStat, SlaStat, StatusDonut, TodayOrdersStat, slaQuery } from './DashboardWidgets';
 import { GroupIcon } from './groupIcons';
 import { visibleGroups } from './nav';
 import { useSession } from './SessionContext';
@@ -31,11 +31,16 @@ const countText = (n: number, more: boolean, size: number) => (more ? `${size}+`
  * 내 할 일 한 줄(2026-11-18 사용자 작업 따라 해 보기 — "첫 화면에서 내가 할 일이 안 보인다", BO-28 "로그인·내 할 일").
  * 개수는 메뉴 알림과 같은 서버 조회(캐시 공유) — 0 이면 "없음", 못 읽으면 "?"(0 이 아님). 누르면 그 일만 걸러 둔 목록으로.
  */
-function TaskRow({ alert, title, to, tone, group }: { readonly alert: AlertKey; readonly title: string; readonly to: string; readonly tone: 'error' | 'warning' | 'info'; readonly group: string }) {
-  const q = useAlertCount(alert);
-  const n = q.data?.n ?? null;
+function TaskRow({ alert, title, to, tone, group, exact }: { readonly alert: AlertKey; readonly title: string; readonly to: string; readonly tone: 'error' | 'warning' | 'info'; readonly group: string; readonly exact?: { readonly sum: WorkSum | null | undefined } }) {
+  const alertQ = useAlertCount(alert);
+  // exact 가 있으면(관리자) bff work-counts 의 정확한 지금 건수 — 쪽 상한에 걸리면 "N건 이상", 원천 실패 "?".
+  // 없으면 메뉴 알림과 같은 첫 쪽 셈(50 넘으면 "50+").
+  const sum = exact?.sum;
+  const n = exact ? (sum ? sum.value : null) : (alertQ.data?.n ?? null);
+  const failed = exact ? sum === null : alertQ.isError;
   const has = n !== null && n > 0;
-  const text = q.data ? countText(q.data.n, q.data.more, ALERT_SIZE) : q.isError ? '?' : '…';
+  const text = exact ? (sum ? workText(sum) : sum === null ? '?' : '…') : alertQ.data ? countText(alertQ.data.n, alertQ.data.more, ALERT_SIZE) : alertQ.isError ? '?' : '…';
+  const q = { isError: failed };
   const color = { error: 'bg-error text-error-content', warning: 'bg-warning text-warning-content', info: 'bg-info text-info-content' }[tone];
   return (
     <Link to={to} data-testid={`dash-kpi-${alert}`} className={`group flex items-center gap-4 px-5 py-3.5 transition-colors hover:bg-base-200/60 ${has ? '' : 'opacity-70'}`}>
@@ -198,18 +203,22 @@ export function DashboardPage() {
   const paths = new Set(visibleGroups(roles).flatMap((g) => g.items.map((i) => i.to)));
   const can = (p: string) => paths.has(p);
   const claimsCases = roles.includes('RIDER_OPS') || roles.includes('OPERATOR_ADMIN');
+  // 지금 일 건수(bff 0.15.0 work-counts) — 관리자만(그 밖 403이라 부르지 않는다)
+  const admin = roles.includes('OPERATOR_ADMIN');
+  const wc = useWorkCounts(admin);
+  const exact = (sum: WorkSum | null | undefined) => (admin ? { sum } : undefined);
   const today = seoulToday();
   const days = Array.from({ length: DAYS }, (_, i) => addSeoulDays(today, i - (DAYS - 1)));
   const weekFrom = days[0]!;
 
   // 내 할 일 — 급한 것부터(기한 넘김 → 아무도 안 맡음 → 처리 대기 → 답변 대기 → 심사 대기). 역할로 보이는 메뉴만.
   const tasks: ReactNode[] = [];
-  if (can('/cases') && claimsCases) tasks.push(<TaskRow key="overdue" alert="casesOverdue" title={m.casesOverdue} to="/cases?tab=overdue" tone="error" group="support" />);
-  if (can('/cases') && claimsCases) tasks.push(<TaskRow key="unassigned" alert="casesUnassigned" title={m.casesUnassigned} to="/cases?tab=unassigned" tone="warning" group="support" />);
-  if (can('/pending')) tasks.push(<TaskRow key="pending" alert="pending" title={m.pending} to="/pending" tone="warning" group="pending" />);
-  if (can('/inquiries')) tasks.push(<TaskRow key="inq" alert="inquiries" title={m.inquiries} to="/inquiries?status=RECEIVED" tone="info" group="cs" />);
-  if (can('/rider-inquiries')) tasks.push(<TaskRow key="rinq" alert="riderInquiries" title={m.riderInquiries} to="/rider-inquiries?status=RECEIVED" tone="info" group="support" />);
-  if (can('/approvals')) tasks.push(<TaskRow key="apv" alert="approvals" title={m.approvals} to="/approvals?reviewState=REVIEW_PENDING" tone="info" group="approval" />);
+  if (can('/cases') && claimsCases) tasks.push(<TaskRow key="overdue" alert="casesOverdue" title={m.casesOverdue} to="/cases?tab=overdue" tone="error" group="support" {...(exact(wc.sum('CASES', 'OVERDUE')) ? { exact: exact(wc.sum('CASES', 'OVERDUE'))! } : {})} />);
+  if (can('/cases') && claimsCases) tasks.push(<TaskRow key="unassigned" alert="casesUnassigned" title={m.casesUnassigned} to="/cases?tab=unassigned" tone="warning" group="support" {...(exact(wc.sum('CASES', 'UNASSIGNED')) ? { exact: exact(wc.sum('CASES', 'UNASSIGNED'))! } : {})} />);
+  if (can('/pending')) tasks.push(<TaskRow key="pending" alert="pending" title={m.pending} to="/pending" tone="warning" group="pending" {...(exact(wc.sum('PENDING_WORK', 'COUNT')) ? { exact: exact(wc.sum('PENDING_WORK', 'COUNT'))! } : {})} />);
+  if (can('/inquiries')) tasks.push(<TaskRow key="inq" alert="inquiries" title={m.inquiries} to="/inquiries?status=RECEIVED" tone="info" group="cs" {...(exact(wc.sum('INQUIRIES', 'AWAITING_ANSWER', 'CUSTOMER')) ? { exact: exact(wc.sum('INQUIRIES', 'AWAITING_ANSWER', 'CUSTOMER'))! } : {})} />);
+  if (can('/rider-inquiries')) tasks.push(<TaskRow key="rinq" alert="riderInquiries" title={m.riderInquiries} to="/rider-inquiries?status=RECEIVED" tone="info" group="support" {...(exact(wc.sum('INQUIRIES', 'AWAITING_ANSWER', 'RIDER')) ? { exact: exact(wc.sum('INQUIRIES', 'AWAITING_ANSWER', 'RIDER'))! } : {})} />);
+  if (can('/approvals')) tasks.push(<TaskRow key="apv" alert="approvals" title={m.approvals} to="/approvals?reviewState=REVIEW_PENDING" tone="info" group="approval" {...(exact(wc.sum('APPROVALS', 'REVIEW_PENDING')) ? { exact: exact(wc.sum('APPROVALS', 'REVIEW_PENDING'))! } : {})} />);
 
   // 한눈에 숫자 카드(오른쪽 세로) — Eum 숫자 카드 + 오늘 주문은 어제 대비·7일 추세선
   const stats: ReactNode[] = [];
@@ -248,6 +257,9 @@ export function DashboardPage() {
           <StatusDonut today={today} toneOf={(s) => statusTone(s)} />
         </div>
       )}
+
+      {/* 지금 일 전체(관리자) — 진행 중 배송 상태별·후속 처리·교대 인계 등 서버가 센 지금 건수 */}
+      {admin && <WorkCountsPanel />}
 
       {/* 3줄: 내 할 일 | 최근 활동 */}
       {(tasks.length > 0 || hasActivity) && (
