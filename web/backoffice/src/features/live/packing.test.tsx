@@ -16,10 +16,10 @@ describe('포장 인계 현황', () => {
     expect(within(lookup).getAllByRole('link', { hidden: true }).map((a) => a.textContent)).toContain('포장 인계 현황');
   });
 
-  it('단계는 서버 값 — 패킹 시작 전이면 "패킹 대기", 막히면 이유, null 이면 "—"+원천 값. 주문번호 없으면 주문 ID, 재발송 표시', async () => {
+  it('단계는 서버 값 — 패킹 시작 전이면 "패킹 대기", 막히면 이유, null 이면 "—"+원천 값. 주문번호 없으면 주문 ID 끝 8자리 + 번호 없음, 재발송 표시', async () => {
     const view = renderAt('/packing-handover?mfcId=MFC-BSN-01&state=PREPARING', as.cs);
     expect(within(await rowOf(/25111701/)).getByTestId('packing-stage')).toHaveTextContent('피킹중');
-    const waiting = await rowOf(/ORD-MOCK-2002/);
+    const waiting = await rowOf(/OCK-2002 번호 없음/);
     expect(within(waiting).getByTestId('packing-stage')).toHaveTextContent('패킹 대기');
     expect(waiting).toHaveTextContent('재발송');
     expect(within(await rowOf(/25111703/)).getByTestId('packing-stage')).toHaveTextContent('막힘: PACKAGE_MISMATCH');
@@ -34,8 +34,8 @@ describe('포장 인계 현황', () => {
     expect(within(row).getByTestId('packing-qty')).toHaveTextContent('포장 3 · 인계 1 · 남음 2');
     await userEvent.click(within(row).getByRole('button', { name: '포장 3개 보기' }));
     expect(within(row).getByTestId('packing-packages')).toHaveTextContent('PKG-4-1 · HANDED_OVER');
-    expect(within(row).getByTestId('packing-packages')).toHaveTextContent('라이더 RID-MOCK-2');
-    expect(within(row).getByTestId('packing-delivery')).toHaveTextContent('DLV-MOCK-24');
+    expect(within(row).getByTestId('packing-packages')).toHaveTextContent('라이더 이*영 · 517204');
+    expect(within(row).getByTestId('packing-delivery')).toHaveTextContent('25111704-1');
   });
 
   it('취소 출고는 단계 null — "—" 와 원천 값', async () => {
@@ -53,6 +53,39 @@ describe('포장 인계 현황', () => {
     renderAt('/packing-handover?mfcId=MFC-MOCK-NODLV', as.admin);
     const row = await rowOf(/25111704/);
     expect(within(row).getByTestId('packing-delivery')).toHaveTextContent('-');
+    expect(within(row).getByTestId('packing-delivery')).not.toHaveTextContent('25111704-1');
     expect(within(row).getByTestId('packing-delivery')).not.toHaveTextContent('DLV-MOCK-24');
+  });
+});
+
+describe('포장 인계 현황 — 화면 번호(bff 0.14.0, ADR-0070)', () => {
+  it('주문·배송 번호와 배정 라이더(가린 이름 · 번호) — 시스템 ID 는 링크 대상으로만', async () => {
+    renderAt('/packing-handover?mfcId=MFC-BSN-01', as.riderOps);
+    const row = await rowOf(/25111704/);
+    const delivery = within(row).getByTestId('packing-delivery');
+    expect(within(delivery).getByRole('link', { name: '25111704-1' })).toHaveAttribute('href', '/deliveries/DLV-MOCK-24');
+    expect(delivery).toHaveTextContent('라이더 이*영 · 517204');
+    expect(within(row).getByRole('link', { name: '25111704' })).toHaveAttribute('href', '/orders/ORD-MOCK-2004');
+    expect(row).not.toHaveTextContent('DLV-MOCK-24');
+    expect(row).not.toHaveTextContent('ORD-MOCK-2004');
+    expect(row).not.toHaveTextContent('RID-MOCK-2');
+  });
+
+  it('배송 번호가 null 이면 배송 ID 끝 8자리 + "번호 없음"', async () => {
+    renderAt('/packing-handover?mfcId=MFC-BSN-01&state=PREPARING', as.cs);
+    const delivery = within(await rowOf(/25111701/)).getByTestId('packing-delivery');
+    expect(delivery).toHaveTextContent('MOCK-21 번호 없음');
+    expect(delivery).not.toHaveTextContent('DLV-MOCK-21');
+    expect(delivery).toHaveTextContent('김*수 · 482913');
+  });
+
+  it('rider-service 를 못 읽으면 라이더는 "번호 확인 불가"(없음과 구분) — 실패 원천으로 보이고 번호는 그대로', async () => {
+    renderAt('/packing-handover?mfcId=MFC-MOCK-NORIDER', as.admin);
+    const row = await rowOf(/25111704/);
+    expect(within(row).getByTestId('packing-delivery')).toHaveTextContent('D-MOCK-2 번호 확인 불가');
+    expect(within(row).getByTestId('packing-delivery')).toHaveTextContent('25111704-1');
+    await userEvent.click(within(row).getByRole('button', { name: '포장 3개 보기' }));
+    expect(within(row).getByTestId('packing-packages')).toHaveTextContent('라이더 D-MOCK-2 번호 확인 불가');
+    expect(screen.getByText(/조회하지 못한 원천: rider-service/)).toBeInTheDocument();
   });
 });

@@ -92,6 +92,31 @@ describe('통합 조회', () => {
     expect([new URL(last.url).searchParams.get('q'), new URL(last.url).searchParams.get('kind')]).toEqual(['ORD-MOCK-1001', 'ORDER']);
   });
 
+  it('화면 번호(bff 0.14.0, ADR-0070): 주문·배송 항목은 주문번호·배송 번호, 시스템 ID 는 접힌 "시스템 번호" 칸에만', async () => {
+    renderAt('/lookup?q=ORD-MOCK-1001', as.cs);
+    const order = await waitFor(() => within(section('주문')).getByTestId('match-ORDER'));
+    expect(within(order).getAllByTestId('display-number')[0]).toHaveTextContent('74939255');
+    const orderIds = within(order).getByTestId('system-numbers');
+    expect(orderIds.tagName).toBe('DETAILS');
+    expect(orderIds).not.toHaveAttribute('open');
+    expect(orderIds).toHaveTextContent('ORD-MOCK-1001');
+    // 요약 칸에는 시스템 ID 가 없다(접힌 칸에만)
+    expect(within(order).getAllByText('ORD-MOCK-1001')).toHaveLength(1);
+    const delivery = within(section('배송(수행)')).getByTestId('match-DELIVERY');
+    expect(within(delivery).getAllByTestId('display-number')[0]).toHaveTextContent('74939255-1');
+    expect(within(delivery).getByTestId('system-numbers')).toHaveTextContent(/DLV-MOCK-1.*RID-MOCK-1/);
+    expect(within(delivery).getAllByText('DLV-MOCK-1')).toHaveLength(1);
+    expect(within(delivery).getAllByText('RID-MOCK-1')).toHaveLength(1);
+    expect(within(section('주문')).getByRole('link', { name: '상세 보기' })).toHaveAttribute('href', '/orders/ORD-MOCK-1001');
+  });
+
+  it('고객의 주문 목록: 주문번호, 없으면 주문 ID 끝 8자리 + "번호 없음"', async () => {
+    renderAt('/lookup?q=CU-MOCK-1', as.cs);
+    const orders = await screen.findAllByTestId('customer-order');
+    expect(within(orders[0]!).getAllByTestId('display-number')[0]).toHaveTextContent('74939255');
+    expect(within(orders[1]!).getAllByTestId('display-number')[0]).toHaveTextContent('OCK-0990 번호 없음');
+  });
+
   it('없는 대상은 "찾는 대상이 없어요"(오류 아님)', async () => {
     renderAt('/lookup?q=ORD-NONE', as.cs);
     expect(await screen.findByText('찾는 대상이 없어요.')).toBeInTheDocument();
