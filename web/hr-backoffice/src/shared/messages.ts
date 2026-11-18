@@ -13,6 +13,12 @@ export const messages = {
   cancel: '취소',
   close: '닫기',
   none: '-',
+  /** 목록 내 보기(2026-11-19, 백오피스와 같은 말) — 검색어(이름)는 저장하지 않는다 */
+  savedViews: { title: '내 보기', empty: '저장한 보기가 없어요', add: '+ 지금 조건 저장', noFilter: '조건을 먼저 고르세요', nameLabel: '보기 이름', namePlaceholder: '예: 정지된 센터 직원', save: '저장', cancel: '취소', remove: (n: string) => `${n} 보기 지우기` },
+  /** 목록 미리보기 칸(2026-11-19, 백오피스와 같은 말) */
+  preview: { label: '미리보기', prev: '앞 줄', next: '다음 줄', close: '닫기', openDetail: '상세 열기', position: (n: number, total: number) => `${total}줄 중 ${n}번째 · ↑↓ 로 넘기기` },
+  /** 머리줄 직원 바로 찾기(2026-11-19) */
+  quickFind: { label: '직원 바로 찾기', placeholder: '이름·메일 ID·사번' },
   /** 처리 결과 알림(2026-11-18, 백오피스와 같은 말) */
   toast: { applied: '반영됐어요', accepted: '접수됐어요 — 결과를 확인하고 있어요', rejected: '반영되지 않았어요', unknown: '결과를 아직 몰라요 — 화면의 안내를 봐 주세요', close: '알림 닫기' },
   /** 밝은/어두운 테마(2026-11-18) */

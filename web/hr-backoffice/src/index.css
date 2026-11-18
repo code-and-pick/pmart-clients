@@ -141,3 +141,10 @@ main .rounded-box.border.p-4 > h2:first-child {
   border-top-left-radius: var(--radius-box);
   border-top-right-radius: var(--radius-box);
 }
+
+/* 미리보기 칸이 열리면 넓은 화면에서는 본문을 그 폭만큼 비켜 목록 오른쪽 칸이 가리지 않게(2026-11-19, 백오피스와 같음) */
+@media (min-width: 1280px) {
+  main:has([data-testid='preview-drawer']) {
+    padding-right: calc(26rem + 1.5rem);
+  }
+}

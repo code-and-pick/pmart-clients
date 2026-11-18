@@ -1,17 +1,19 @@
 // 직원 목록(GET /hr/employees?status&affiliationCode&q&size&cursor). 필터는 URL 쿼리에 둔다.
 // 조회 실패를 빈 목록으로 보이지 않는다(QueryState). 권한이 없으면 서버 403 → "이용할 수 없는 화면".
-import { useInfiniteQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
 
 import { request } from '@pmart/web-core';
-import { QueryState, uiStateFromError, type UiState } from '@pmart/web-ui';
+import { QueryState, toUiState, uiStateFromError, type UiState } from '@pmart/web-ui';
 import { EMPLOYMENT_STATUSES, type Employee, type EmploymentStatus } from '../../api/models';
 import { useApi } from '../../app/ApiContext';
 import { useSession } from '../../app/SessionContext';
 import { messages as m } from '../../shared/messages';
 import { affiliationText } from './labels';
-import { DataTable, PageHeader, ResultBar, SearchPanel, SearchRow, StatusBadge, useRowLink } from '../../shared/admin';
+import { DataTable, PageHeader, ResultBar, SearchPanel, SearchRow, StatusBadge } from '../../shared/admin';
+import { PreviewDrawer, PreviewFacts, usePreview } from '../../shared/Preview';
+import { SavedViews } from '../../shared/SavedViews';
 import { provisioningTone, statusTone } from './labels';
 
 const PAGE_SIZE = 50;
@@ -51,7 +53,8 @@ export function EmployeeListPage() {
   });
 
   const items = query.data?.pages.flatMap((p) => p.items) ?? [];
-  const rowLink = useRowLink();
+  // 미리보기 칸(2026-11-19 — 백오피스 목록과 같음): 줄을 누르면 목록을 떠나지 않고 오른쪽에 요약, 사번 링크는 그대로 상세로
+  const pv = usePreview();
   const state: UiState<readonly Employee[]> = query.isPending
     ? { kind: 'loading' }
     : query.isError && !query.data
@@ -71,7 +74,8 @@ export function EmployeeListPage() {
           </Link>
         }
       />
-      {/* 관리자 형식(2026-11-18): 검색 조건 상자 — 줄마다 왼쪽 항목명 */}
+      {/* 내 보기(2026-11-19 — 백오피스와 같음): 상태·소속 조건만 이 브라우저에 저장(검색어 = 이름은 저장하지 않는다) */}
+      <SavedViews listKey="employees" />
       <SearchPanel
         submitLabel={m.search}
         resetLabel={m.list.reset}
@@ -136,7 +140,7 @@ export function EmployeeListPage() {
                 </thead>
                 <tbody>
                   {rows.map((e) => (
-                    <tr key={e.operatorId} data-testid="employee-row" {...rowLink(`/employees/${encodeURIComponent(e.operatorId)}`)}>
+                    <tr key={e.operatorId} data-testid="employee-row" {...pv.row(e.operatorId)}>
                       <td>
                         <div className="flex items-center gap-2.5">
                           <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary" aria-hidden="true">
@@ -164,6 +168,18 @@ export function EmployeeListPage() {
                 </tbody>
             </DataTable>
             </div>
+            {pv.id && (
+              <PreviewDrawer
+                id={pv.id}
+                ids={rows.map((e) => e.operatorId)}
+                onMove={pv.open}
+                onClose={pv.close}
+                title={rows.find((e) => e.operatorId === pv.id)?.name ?? pv.id}
+                detailTo={`/employees/${encodeURIComponent(pv.id)}`}
+              >
+                <EmployeePreview operatorId={pv.id} />
+              </PreviewDrawer>
+            )}
             <div className="flex items-center gap-3 text-sm">
               {query.hasNextPage && (
                 <button type="button" className="btn btn-sm" disabled={query.isFetchingNextPage} onClick={() => void query.fetchNextPage()}>
@@ -181,5 +197,36 @@ export function EmployeeListPage() {
         )}
       </QueryState>
     </section>
+  );
+}
+
+/** 직원 미리보기 — 상세와 같은 조회 키(['hr','employee',id], 상세로 가도 다시 읽지 않는다). 인사 처리·발급 다시 시도는 상세에서 */
+function EmployeePreview({ operatorId }: { readonly operatorId: string }) {
+  const api = useApi();
+  const q = useQuery({
+    queryKey: ['hr', 'employee', operatorId],
+    queryFn: () => request('GET', api.hr.GET('/hr/employees/{operatorId}', { params: { path: { operatorId } } })),
+  });
+  return (
+    <QueryState state={toUiState(q)} onRetry={() => void q.refetch()}>
+      {(e) => (
+        <div className="space-y-4" data-testid="employee-preview">
+          <div className="flex flex-wrap items-center gap-2">
+            <StatusBadge tone={statusTone(e.status)}>{m.employmentStatus[e.status]}</StatusBadge>
+            <StatusBadge tone={provisioningTone(e.provisioning.step)}>{m.provisioningStep[e.provisioning.step]}</StatusBadge>
+            <span className="font-mono text-xs text-base-content/55">{e.employeeNo}</span>
+          </div>
+          <PreviewFacts
+            rows={[
+              [m.fields.mailAddress, e.mailAddress],
+              [m.fields.employmentType, m.employmentType[e.employmentType]],
+              [m.fields.affiliation, affiliationText(e.affiliation)],
+              [m.fields.startDate, e.startDate],
+              [m.fields.endDate, e.endDate ?? m.none],
+            ]}
+          />
+        </div>
+      )}
+    </QueryState>
   );
 }

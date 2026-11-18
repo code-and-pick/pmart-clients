@@ -14,6 +14,7 @@ import { SessionPage } from '../features/session/SessionPage';
 import { useMe } from '../features/session/useMe';
 import { messages as m } from '../shared/messages';
 import { RequireSession, SessionProvider, useSession } from './SessionContext';
+import { QuickFind } from './QuickFind';
 import { ThemeToggle } from './ThemeToggle';
 import { Toasts } from './Toasts';
 
@@ -49,29 +50,38 @@ function Layout() {
     <div className="flex min-h-screen bg-base-200">
       <ScrollToTopOnNavigate />
       {/* 메뉴는 화면 높이에 고정하고 길면 메뉴만 따로 스크롤(오른쪽 화면을 내려도 메뉴는 그 자리) */}
-      <aside className="sticky top-0 flex h-screen w-56 shrink-0 flex-col self-start overflow-y-auto bg-neutral text-neutral-content" data-testid="side-menu">
+      <aside className="sticky top-0 flex h-screen w-60 shrink-0 flex-col self-start overflow-y-auto bg-neutral text-neutral-content" data-testid="side-menu">
         <div className="flex h-14 shrink-0 items-center justify-between gap-1 border-b border-neutral-content/10 pl-5 pr-2">
           <Link to="/" className="truncate text-base font-bold text-neutral-content" aria-label={m.goHome}>
             {m.appTitle}
           </Link>
         </div>
+        {/* 메뉴(2026-11-19 사용자 "백오피스 화면이랑 같게"): 백오피스 묶음 모양 — 굵은 묶음 이름 + 아이콘, 들여 쓴 하위 메뉴, 선택은 민트 막대. 묶음이 하나라 늘 펼침 */}
         <nav aria-label="메뉴" className="flex-1 py-3">
-          <p className="px-5 pb-1 text-xs font-semibold text-neutral-content/45">{m.nav.group}</p>
-          <ul>
-            {nav.map(([to, label]) => (
-              <li key={to}>
-                <NavLink
-                  to={to}
-                  end
-                  className={({ isActive }) =>
-                    `flex items-center border-l-[3px] px-5 py-2 text-sm ${isActive ? 'border-accent bg-neutral-content/10 font-semibold text-neutral-content' : 'border-transparent text-neutral-content/75 hover:bg-neutral-content/5 hover:text-neutral-content'}`
-                  }
-                >
-                  {label}
-                </NavLink>
-              </li>
-            ))}
-          </ul>
+          <div className="mx-2 mb-1 rounded-lg bg-neutral-content/5" data-testid="nav-group-hr">
+            <p className={`flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-[15px] font-bold ${current ? 'text-accent' : 'text-neutral-content'}`}>
+              <svg viewBox="0 0 24 24" className="h-5 w-5 shrink-0 fill-none stroke-current" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <circle cx="9" cy="8" r="3.5" />
+                <path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M18 20a6.5 6.5 0 0 0-2.5-5.1" />
+              </svg>
+              <span>{m.nav.group}</span>
+            </p>
+            <ul className="pb-2">
+              {nav.map(([to, label]) => (
+                <li key={to}>
+                  <NavLink
+                    to={to}
+                    end
+                    className={({ isActive }) =>
+                      `my-0.5 ml-5 mr-1 flex items-center gap-1 rounded-r-lg border-l-4 py-2 pl-4 pr-3 text-[13px] transition-colors active:scale-[0.98] ${isActive ? 'border-accent bg-accent/20 font-bold text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.06)]' : 'border-neutral-content/10 text-neutral-content/70 hover:bg-neutral-content/10 hover:text-neutral-content'}`
+                    }
+                  >
+                    {label}
+                  </NavLink>
+                </li>
+              ))}
+            </ul>
+          </div>
         </nav>
       </aside>
       <div className="flex min-w-0 flex-1 flex-col">
@@ -85,6 +95,8 @@ function Layout() {
             ) : null}
           </p>
           <div className="flex items-center gap-2 text-sm">
+            {/* 직원 바로 찾기(Ctrl+K, 2026-11-19 — 백오피스 번호 찾기 자리) — 로그인했을 때만 */}
+            {session && <QuickFind />}
             {env.isMock && <span className="badge badge-accent badge-sm">{m.mockBadge}</span>}
             {/* 밝은/어두운 테마(2026-11-18, 백오피스와 같음) */}
             <ThemeToggle />
