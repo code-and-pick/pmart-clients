@@ -47,6 +47,7 @@ import type { Api } from '../api/client';
 import { env } from '../env';
 import { useMenuCollapsed } from '../shared/sideMenu';
 import { QuickJump } from './QuickJump';
+import { ShortcutHelp } from './ShortcutHelp';
 import { ThemeToggle } from './ThemeToggle';
 import { Toasts } from './Toasts';
 import { messages as m } from '../shared/messages';
@@ -219,6 +220,8 @@ function Layout() {
             {/* 번호로 바로 찾기(Ctrl+K, 2026-11-18) — 로그인했을 때만 */}
             {session && <QuickJump />}
             {env.isMock && <span className="badge badge-accent badge-sm">{m.mockBadge}</span>}
+            {/* 단축키 안내(2026-11-19) */}
+            <ShortcutHelp />
             <ThemeToggle />
             {session ? (
               <>
