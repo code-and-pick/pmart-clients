@@ -4,8 +4,9 @@
 // - 대리(PROXY)는 서버가 막지 않는다 — 화면이 "본인 확인 전에는 취소·환불을 요청하지 마세요" 경고.
 // - 기존 건 연결(linkCaseId)이 없으면 서버가 상담원 문의(STAFF_INTAKE — 고객 앱에 안 보임, 답변 알림 없음)를 만든다.
 // - 연락 기록 `GET /cs-intakes?caseId|customerRef|subjectRef` — 접수 건·문의 상세에 붙인다. 요약·메모는 화면에만(로그 없음).
+// 화면(2026-11-18 사용자 "밋밋하다"): 접수 폼은 번호 단계 카드 4개(다 채우면 체크) + 오른쪽 "남기기 전에 확인" 카드(빈칸 목록·남기기 버튼), 연락 기록은 시간 순 줄(타임라인). 동작은 그대로.
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
-import { useState, type FormEvent } from 'react';
+import { useState, type FormEvent, type ReactNode } from 'react';
 import { Link, useSearchParams } from 'react-router';
 
 import { request } from '@pmart/web-core';
@@ -18,6 +19,7 @@ import { CommandFeedback } from '../../shared/Feedback';
 import { messages } from '../../shared/messages';
 import { label, text, when } from '../../shared/ops';
 import { PageHeader } from '../../shared/admin';
+import { Icon, ICON } from '../inquiries/HelpdeskParts';
 
 const m = messages.csIntake;
 type Intake = components['schemas']['Intake'];
@@ -118,148 +120,230 @@ export function NewCsIntakePage() {
     });
   };
 
+  // 고르기(라디오) — 테두리 있는 칸 모양, 고르면 테두리·바탕이 브랜드색
   const radio = <T extends string>(name: string, values: readonly T[], names: Readonly<Record<string, string>>, value: T | '', onPick: (v: T) => void, off?: (v: T) => boolean) => (
-    <div className="mt-1 flex flex-wrap gap-4">
+    <div className="mt-2 flex flex-wrap gap-2">
       {values.map((v) => (
-        <label key={v} className={`flex items-center gap-1 ${off?.(v) ? 'opacity-50' : ''}`}>
-          <input type="radio" className="radio radio-sm" name={name} value={v} checked={value === v} disabled={off?.(v)} onChange={() => onPick(v)} />
+        <label
+          key={v}
+          className={`flex cursor-pointer items-center gap-2 rounded-field border px-3 py-2 transition-colors ${value === v ? 'border-primary bg-primary/5 font-medium' : 'border-base-300 hover:border-base-content/30'} ${off?.(v) ? 'cursor-not-allowed opacity-50' : ''}`}
+        >
+          <input type="radio" className="radio radio-sm radio-primary" name={name} value={v} checked={value === v} disabled={off?.(v)} onChange={() => onPick(v)} />
           {names[v] ?? v}
         </label>
       ))}
     </div>
   );
+  // 단계 표시 — 그 단계에 남은 빈칸이 없으면 체크(보기만, 막는 것은 아래 확인 목록)
+  const stepDone = (keys: readonly string[]) => !missing.some((x) => keys.includes(x));
+  const field = 'mt-1 w-full';
 
   return (
-    <section className="max-w-2xl space-y-4">
+    <section className="max-w-6xl space-y-4">
       <PageHeader title={m.title} description={m.intro} />
-      <form className="space-y-3 rounded-box border border-base-300 bg-base-100 shadow-sm p-4 text-sm" onSubmit={submit} aria-label={m.title}>
-        <fieldset disabled={locked}>
-          <legend className="font-semibold">{m.channel}</legend>
-          {radio('channel', CHANNELS, m.channelName, d.channel, (v) =>
-            setD((x) => ({ ...x, channel: v, method: v !== 'CHAT' && x.method === 'APP_SIGNED_IN_CHAT' ? '' : x.method })),
-          )}
-        </fieldset>
-        <label className="block">
-          {m.customerRef}
-          <input className="input input-sm mt-1 w-full" maxLength={64} value={d.customerRef} disabled={locked} onChange={(e) => set('customerRef', e.target.value)} />
-        </label>
-        <p className="text-xs opacity-60">{m.customerHint}</p>
-        <label className="block">
-          {m.subjectRef}
-          <input className="input input-sm mt-1 w-full" maxLength={64} value={d.subjectRef} disabled={locked} onChange={(e) => set('subjectRef', e.target.value)} />
-        </label>
-        {d.subjectRef.trim() && (
-          <Link className="link text-xs" to={`/orders/${encodeURIComponent(d.subjectRef.trim())}`} target="_blank" rel="noreferrer">
-            {m.openOrder}
-          </Link>
-        )}
-        <fieldset disabled={locked}>
-          <legend className="font-semibold">{m.method}</legend>
-          {radio('method', METHODS, m.methodName, d.method, (v) => set('method', v), (v) => v === 'APP_SIGNED_IN_CHAT' && d.channel !== 'CHAT')}
-          {d.method === 'ORDER_DETAILS_MATCH' && <p className="mt-1 text-xs text-base-content/60">{m.methodHint.ORDER_DETAILS_MATCH}</p>}
-          {d.method === 'OTHER' && (
-            <label className="mt-2 block">
-              {m.note}
-              <input className="input input-sm mt-1 w-full" maxLength={MAX_NOTE} value={d.note} onChange={(e) => set('note', e.target.value)} />
-            </label>
-          )}
-          <p className="mt-1 text-xs text-warning">{m.identityHint}</p>
-        </fieldset>
-        <fieldset disabled={locked}>
-          <legend className="font-semibold">{m.relation}</legend>
-          {radio('relation', ['SELF', 'PROXY'] as const, m.relationName, d.relation, (v) => set('relation', v))}
-        </fieldset>
-        {d.relation === 'PROXY' && (
-          <p role="alert" className="alert alert-warning alert-soft text-sm" data-testid="cs-intake-proxy-warning">
-            {m.proxyWarning}
-          </p>
-        )}
-        <label className="block">
-          {m.category}
-          <select className="select select-sm mt-1 w-full" value={d.category} disabled={locked} onChange={(e) => set('category', e.target.value as Category | '')}>
-            <option value="">{m.pick}</option>
-            {CATEGORIES.map((c) => (
-              <option key={c} value={c}>
-                {messages.inquiries.categoryName[c] ?? c}
-              </option>
-            ))}
-          </select>
-        </label>
-        <p className="text-xs opacity-60">
-          {m.riderHint}{' '}
-          <Link className="link" to="/rider-complaints/new">
-            {messages.nav.riderComplaints}
-          </Link>
-        </p>
-        <label className="block">
-          {m.summary}
-          <textarea className="textarea mt-1 w-full" rows={4} maxLength={MAX_SUMMARY} value={d.summary} disabled={locked} onChange={(e) => set('summary', e.target.value)} />
-        </label>
-        <p className="text-xs opacity-60">{`${m.summaryHint} ${d.summary.length} / ${MAX_SUMMARY}`}</p>
-        <details className="rounded-box bg-base-200 p-2" open={d.consentOn}>
-          <summary className="cursor-pointer">{m.consent}</summary>
-          <label className="mt-2 flex items-center gap-2">
-            <input type="checkbox" className="checkbox checkbox-sm" checked={d.consentOn} disabled={locked} onChange={(e) => set('consentOn', e.target.checked)} />
-            {m.consentOn}
-          </label>
-          {d.consentOn && (
-            <div className="mt-2 space-y-2">
-              <label className="block">
-                {m.consentType}
-                <input className="input input-sm mt-1 w-full" maxLength={50} placeholder={m.consentTypePlaceholder} value={d.consentType} disabled={locked} onChange={(e) => set('consentType', e.target.value)} />
-              </label>
-              <label className="flex items-center gap-2">
-                <input type="checkbox" className="checkbox checkbox-sm" checked={d.consentGiven} disabled={locked} onChange={(e) => set('consentGiven', e.target.checked)} />
-                {m.consentGiven}
-              </label>
-              <label className="block">
-                {m.consentDetail}
-                <input className="input input-sm mt-1 w-full" maxLength={MAX_CONSENT} value={d.consentDetail} disabled={locked} onChange={(e) => set('consentDetail', e.target.value)} />
-              </label>
-              <p className="text-xs opacity-60">{m.consentHint}</p>
+      <form className="grid items-start gap-4 text-sm lg:grid-cols-3" onSubmit={submit} aria-label={m.title}>
+        <div className="space-y-4 lg:col-span-2">
+          <Step n={1} title={m.step.who.title} hint={m.step.who.hint} done={stepDone([m.need.channel, m.need.customer, m.need.relation])}>
+            <fieldset disabled={locked}>
+              <legend className="text-xs font-medium text-base-content/60">{m.channel}</legend>
+              {radio('channel', CHANNELS, m.channelName, d.channel, (v) =>
+                setD((x) => ({ ...x, channel: v, method: v !== 'CHAT' && x.method === 'APP_SIGNED_IN_CHAT' ? '' : x.method })),
+              )}
+            </fieldset>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label className="block text-xs font-medium text-base-content/60">
+                  {m.customerRef}
+                  <input className={`input input-sm font-mono text-base-content ${field}`} maxLength={64} value={d.customerRef} disabled={locked} onChange={(e) => set('customerRef', e.target.value)} />
+                </label>
+                <p className="mt-1 text-xs text-base-content/50">{m.customerHint}</p>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-base-content/60">
+                  {m.subjectRef}
+                  <input className={`input input-sm font-mono text-base-content ${field}`} maxLength={64} value={d.subjectRef} disabled={locked} onChange={(e) => set('subjectRef', e.target.value)} />
+                </label>
+                {d.subjectRef.trim() && (
+                  <Link className="link link-primary mt-1 inline-block text-xs" to={`/orders/${encodeURIComponent(d.subjectRef.trim())}`} target="_blank" rel="noreferrer">
+                    {m.openOrder}
+                  </Link>
+                )}
+              </div>
             </div>
-          )}
-        </details>
-        <label className="block">
-          {m.linkCaseId}
-          <input className="input input-sm mt-1 w-full" maxLength={64} value={d.linkCaseId} disabled={locked} onChange={(e) => set('linkCaseId', e.target.value)} />
-        </label>
-        <p className="text-xs opacity-60">{m.linkHint}</p>
-        {missing.length > 0 && (
-          <ul className="list-inside list-disc text-xs text-base-content/60" data-testid="cs-intake-missing">
-            {missing.map((x) => (
-              <li key={x}>{x}</li>
-            ))}
-          </ul>
-        )}
-        <button type="submit" className="btn btn-primary btn-sm" disabled={missing.length > 0 || locked}>
-          {m.submit}
-        </button>
-        <CommandFeedback command={save} unknown={{ body: m.unknown }}>
-          {(r: Intake) => (
-            <div role="status" className="space-y-1 text-success" data-testid="cs-intake-saved">
-              <p>{r.linked ? m.savedLinked : m.savedNew}</p>
-              <p className="flex flex-wrap gap-3">
-                {r.caseId && (
-                  <Link className="link" to={`/cases/${encodeURIComponent(r.caseId)}`}>
-                    {m.openCase(r.caseId)}
-                  </Link>
-                )}
-                {r.inquiryId && (
-                  <Link className="link" to={`/inquiries/${encodeURIComponent(r.inquiryId)}`}>
-                    {m.openInquiry(r.inquiryId)}
-                  </Link>
-                )}
+            <fieldset disabled={locked}>
+              <legend className="text-xs font-medium text-base-content/60">{m.relation}</legend>
+              {radio('relation', ['SELF', 'PROXY'] as const, m.relationName, d.relation, (v) => set('relation', v))}
+            </fieldset>
+            {d.relation === 'PROXY' && (
+              <p role="alert" className="alert alert-warning alert-soft text-sm" data-testid="cs-intake-proxy-warning">
+                {m.proxyWarning}
+              </p>
+            )}
+          </Step>
+
+          <Step n={2} title={m.step.identity.title} hint={m.step.identity.hint} done={stepDone([m.need.method, m.need.orderForMatch, m.need.chatOnly, m.need.note])}>
+            <fieldset disabled={locked}>
+              <legend className="text-xs font-medium text-base-content/60">{m.method}</legend>
+              {radio('method', METHODS, m.methodName, d.method, (v) => set('method', v), (v) => v === 'APP_SIGNED_IN_CHAT' && d.channel !== 'CHAT')}
+              {d.method === 'ORDER_DETAILS_MATCH' && <p className="mt-2 text-xs text-base-content/60">{m.methodHint.ORDER_DETAILS_MATCH}</p>}
+              {d.method === 'OTHER' && (
+                <label className="mt-3 block text-xs font-medium text-base-content/60">
+                  {m.note}
+                  <input className={`input input-sm text-base-content ${field}`} maxLength={MAX_NOTE} value={d.note} onChange={(e) => set('note', e.target.value)} />
+                </label>
+              )}
+              <p className="mt-2 text-xs text-warning">{m.identityHint}</p>
+            </fieldset>
+          </Step>
+
+          <Step n={3} title={m.step.content.title} hint={m.step.content.hint} done={stepDone([m.need.category, m.need.summary])}>
+            <div>
+              <label className="block text-xs font-medium text-base-content/60">
+                {m.category}
+                <select className={`select select-sm text-base-content ${field} sm:max-w-xs`} value={d.category} disabled={locked} onChange={(e) => set('category', e.target.value as Category | '')}>
+                  <option value="">{m.pick}</option>
+                  {CATEGORIES.map((c) => (
+                    <option key={c} value={c}>
+                      {messages.inquiries.categoryName[c] ?? c}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <p className="mt-1 text-xs text-base-content/50">
+                {m.riderHint}{' '}
+                <Link className="link link-primary" to="/rider-complaints/new">
+                  {messages.nav.riderComplaints}
+                </Link>
               </p>
             </div>
-          )}
-        </CommandFeedback>
+            <div>
+              <label className="block text-xs font-medium text-base-content/60">
+                {m.summary}
+                <textarea className={`textarea text-sm text-base-content ${field}`} rows={5} maxLength={MAX_SUMMARY} value={d.summary} disabled={locked} onChange={(e) => set('summary', e.target.value)} />
+              </label>
+              <p className="mt-1 flex justify-between gap-2 text-xs text-base-content/50">
+                <span>{m.summaryHint}</span>
+                <span className="tabular-nums">{`${d.summary.length} / ${MAX_SUMMARY}`}</span>
+              </p>
+            </div>
+          </Step>
+
+          <Step n={4} title={m.step.extra.title} hint={m.step.extra.hint} done={stepDone([m.need.consentType])} optional>
+            <details className="rounded-box border border-base-300" open={d.consentOn}>
+              <summary className="cursor-pointer px-3 py-2 font-medium">{m.consent}</summary>
+              <div className="space-y-3 border-t border-base-300 px-3 py-3">
+                <label className="flex items-center gap-2">
+                  <input type="checkbox" className="checkbox checkbox-sm" checked={d.consentOn} disabled={locked} onChange={(e) => set('consentOn', e.target.checked)} />
+                  {m.consentOn}
+                </label>
+                {d.consentOn && (
+                  <div className="space-y-3">
+                    <label className="block text-xs font-medium text-base-content/60">
+                      {m.consentType}
+                      <input className={`input input-sm text-base-content ${field}`} maxLength={50} placeholder={m.consentTypePlaceholder} value={d.consentType} disabled={locked} onChange={(e) => set('consentType', e.target.value)} />
+                    </label>
+                    <label className="flex items-center gap-2">
+                      <input type="checkbox" className="checkbox checkbox-sm" checked={d.consentGiven} disabled={locked} onChange={(e) => set('consentGiven', e.target.checked)} />
+                      {m.consentGiven}
+                    </label>
+                    <label className="block text-xs font-medium text-base-content/60">
+                      {m.consentDetail}
+                      <input className={`input input-sm text-base-content ${field}`} maxLength={MAX_CONSENT} value={d.consentDetail} disabled={locked} onChange={(e) => set('consentDetail', e.target.value)} />
+                    </label>
+                    <p className="text-xs text-base-content/50">{m.consentHint}</p>
+                  </div>
+                )}
+              </div>
+            </details>
+            <div>
+              <label className="block text-xs font-medium text-base-content/60">
+                {m.linkCaseId}
+                <input className={`input input-sm font-mono text-base-content ${field}`} maxLength={64} value={d.linkCaseId} disabled={locked} onChange={(e) => set('linkCaseId', e.target.value)} />
+              </label>
+              <p className="mt-1 text-xs text-base-content/50">{m.linkHint}</p>
+            </div>
+          </Step>
+        </div>
+
+        {/* 오른쪽: 남기기 전 확인 + 남기기 버튼(넓은 화면에서는 따라 내려온다) */}
+        <aside className="space-y-3 lg:sticky lg:top-4">
+          <div className="overflow-hidden rounded-box border border-base-300 bg-base-100 shadow-sm">
+            <h2 className="flex items-center gap-2 border-b border-base-300 px-4 py-3 text-sm font-semibold">
+              <Icon d={ICON.task} className="h-4 w-4 text-base-content/50" />
+              {m.checkTitle}
+            </h2>
+            <div className="space-y-3 px-4 py-3.5">
+              {missing.length > 0 ? (
+                <ul className="space-y-1.5 text-xs text-base-content/70" data-testid="cs-intake-missing">
+                  {missing.map((x) => (
+                    <li key={x} className="flex items-start gap-2">
+                      <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-warning" aria-hidden="true" />
+                      {x}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="flex items-center gap-2 text-xs text-success">
+                  <Icon d={ICON.check} />
+                  {m.ready}
+                </p>
+              )}
+              <div className="flex justify-end border-t border-base-200 pt-3">
+                <button type="submit" className="btn btn-primary btn-sm min-w-28" disabled={missing.length > 0 || locked}>
+                  {m.submit}
+                </button>
+              </div>
+              <CommandFeedback command={save} unknown={{ body: m.unknown }}>
+                {(r: Intake) => (
+                  <div role="status" className="space-y-1 rounded-box bg-success/10 px-3 py-2 text-success" data-testid="cs-intake-saved">
+                    <p className="font-medium">{r.linked ? m.savedLinked : m.savedNew}</p>
+                    <p className="flex flex-wrap gap-3">
+                      {r.caseId && (
+                        <Link className="link" to={`/cases/${encodeURIComponent(r.caseId)}`}>
+                          {m.openCase(r.caseId)}
+                        </Link>
+                      )}
+                      {r.inquiryId && (
+                        <Link className="link" to={`/inquiries/${encodeURIComponent(r.inquiryId)}`}>
+                          {m.openInquiry(r.inquiryId)}
+                        </Link>
+                      )}
+                    </p>
+                  </div>
+                )}
+              </CommandFeedback>
+            </div>
+          </div>
+        </aside>
       </form>
     </section>
   );
 }
 
-/** "이 건/고객/주문의 연락 기록" — 조건 하나로 서버에 묻는다(최근 순). */
+/** 단계 카드 — 왼쪽 번호(다 채우면 체크), 제목·도움말, 내용 */
+function Step({ n, title, hint, done, optional, children }: { readonly n: number; readonly title: string; readonly hint: string; readonly done: boolean; readonly optional?: boolean; readonly children: ReactNode }) {
+  return (
+    <section className="overflow-hidden rounded-box border border-base-300 bg-base-100 shadow-sm">
+      <div className="flex items-start gap-3 border-b border-base-300 px-4 py-3">
+        <span
+          className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold ${done && !optional ? 'bg-success text-success-content' : 'bg-base-200 text-base-content/60'}`}
+          aria-hidden="true"
+        >
+          {done && !optional ? <Icon d={ICON.check} className="h-3.5 w-3.5" /> : n}
+        </span>
+        <div className="min-w-0">
+          <h2 className="font-semibold">{title}</h2>
+          <p className="text-xs text-base-content/55">{hint}</p>
+        </div>
+      </div>
+      <div className="space-y-4 px-4 py-4">{children}</div>
+    </section>
+  );
+}
+
+const CHANNEL_ICON: Readonly<Record<string, string>> = { PHONE: ICON.phone, CHAT: ICON.chat, EMAIL: ICON.mail, APP: ICON.inbox };
+
+/** "이 건/고객/주문의 연락 기록" — 조건 하나로 서버에 묻는다(최근 순). 시간 순 줄(타임라인)로 그린다. */
 export function CsIntakeLog({ caseId, customerRef, subjectRef, title }: {
   readonly caseId?: string;
   readonly customerRef?: string;
@@ -280,44 +364,56 @@ export function CsIntakeLog({ caseId, customerRef, subjectRef, title }: {
   if (!enabled) return null;
   const items: Intake[] = query.data?.pages.flatMap((p) => p.items ?? []) ?? [];
   return (
-    <section className="space-y-2" aria-label={title}>
-      <h2 className="font-bold">{title}</h2>
-      {query.isPending ? (
-        <QueryState state={{ kind: 'loading' }}>{() => null}</QueryState>
-      ) : query.isError && items.length === 0 ? (
-        <QueryState state={uiStateFromError(query.error)} onRetry={() => void query.refetch()}>
-          {() => null}
-        </QueryState>
-      ) : items.length === 0 ? (
-        <p className="text-sm text-base-content/60">{m.logEmpty}</p>
-      ) : (
-        <>
-          <ul className="space-y-1 text-sm">
-            {items.map((x) => (
-              <li key={x.intakeId} className="rounded-box border border-base-300 bg-base-100 shadow-sm p-2" data-testid="cs-intake-row">
-                <div className="flex flex-wrap items-center gap-2 text-xs text-base-content/60">
-                  <span className="badge badge-ghost badge-sm">{label(m.channelName, x.channel)}</span>
-                  {x.callerRelation === 'PROXY' && <span className="badge badge-warning badge-sm">{m.relationName.PROXY}</span>}
-                  <span>{label(m.methodName, x.identityCheck?.method)}</span>
-                  <span>{label(messages.inquiries.categoryName, x.category)}</span>
-                  {x.subjectRef && <span className="font-mono">{x.subjectRef}</span>}
-                  <span>{text(x.receivedBy)}</span>
-                  <span>{when(x.receivedAt)}</span>
-                  {x.linked && <span>{m.linkedMark}</span>}
-                </div>
-                <p className="whitespace-pre-wrap break-words">{x.summary}</p>
-                {x.consent && <p className="text-xs text-base-content/60">{m.consentLine(x.consent.consentType ?? '', x.consent.given === true)}</p>}
-              </li>
-            ))}
-          </ul>
-          {query.isFetchNextPageError && <p className="text-sm text-error">{m.moreFailed}</p>}
-          {query.hasNextPage && (
-            <button type="button" className="btn btn-sm" disabled={query.isFetchingNextPage} onClick={() => void query.fetchNextPage()}>
-              {m.more}
-            </button>
-          )}
-        </>
-      )}
+    <section className="overflow-hidden rounded-box border border-base-300 bg-base-100 shadow-sm" aria-label={title}>
+      <h2 className="flex items-center gap-2 border-b border-base-300 px-4 py-3 text-sm font-semibold">
+        <Icon d={ICON.phone} className="h-4 w-4 text-base-content/50" />
+        {title}
+      </h2>
+      <div className="px-4 py-3.5">
+        {query.isPending ? (
+          <QueryState state={{ kind: 'loading' }}>{() => null}</QueryState>
+        ) : query.isError && items.length === 0 ? (
+          <QueryState state={uiStateFromError(query.error)} onRetry={() => void query.refetch()}>
+            {() => null}
+          </QueryState>
+        ) : items.length === 0 ? (
+          <p className="py-3 text-center text-sm text-base-content/55">{m.logEmpty}</p>
+        ) : (
+          <>
+            <ol className="relative space-y-4 text-sm before:absolute before:bottom-2 before:left-[0.9rem] before:top-2 before:w-px before:bg-base-300">
+              {items.map((x) => (
+                <li key={x.intakeId} className="relative flex gap-3" data-testid="cs-intake-row">
+                  <span className="relative z-[1] flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-base-300 bg-base-100 text-base-content/60" aria-hidden="true">
+                    <Icon d={CHANNEL_ICON[x.channel ?? ''] ?? ICON.note} className="h-3.5 w-3.5" />
+                  </span>
+                  <div className="min-w-0 flex-1 space-y-1">
+                    <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                      <span className="badge badge-ghost badge-sm">{label(m.channelName, x.channel)}</span>
+                      {x.callerRelation === 'PROXY' && <span className="badge badge-warning badge-soft badge-sm">{m.relationName.PROXY}</span>}
+                      <span className="font-medium">{label(messages.inquiries.categoryName, x.category)}</span>
+                      <span className="ml-auto whitespace-nowrap text-base-content/50">{when(x.receivedAt)}</span>
+                    </div>
+                    <p className="whitespace-pre-wrap break-words">{x.summary}</p>
+                    <p className="flex flex-wrap gap-x-2 text-xs text-base-content/55">
+                      <span>{label(m.methodName, x.identityCheck?.method)}</span>
+                      {x.subjectRef && <span className="font-mono">{x.subjectRef}</span>}
+                      <span>{text(x.receivedBy)}</span>
+                      {x.linked && <span>{m.linkedMark}</span>}
+                    </p>
+                    {x.consent && <p className="text-xs text-base-content/60">{m.consentLine(x.consent.consentType ?? '', x.consent.given === true)}</p>}
+                  </div>
+                </li>
+              ))}
+            </ol>
+            {query.isFetchNextPageError && <p className="mt-3 text-sm text-error">{m.moreFailed}</p>}
+            {query.hasNextPage && (
+              <button type="button" className="btn btn-sm mt-3 w-full" disabled={query.isFetchingNextPage} onClick={() => void query.fetchNextPage()}>
+                {m.more}
+              </button>
+            )}
+          </>
+        )}
+      </div>
     </section>
   );
 }

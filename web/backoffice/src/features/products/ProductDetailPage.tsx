@@ -1,6 +1,8 @@
 // 상품 상세·SKU·판매 상태 변경. 일시품절·판매 재개는 바로, 판매중지는 PRODUCT 승인 뒤 approvalId 와 함께(2026-10-30 결정).
+// 화면(2026-11-18 사용자 "밋밋하다 — Shopify 상품 상세처럼"): 머리(제목·판매 상태 배지·관리용 명칭) 아래 넓은 화면 두 칸 —
+// 왼쪽(2/3) SKU 표 카드·판매 상태 변경 카드, 오른쪽(1/3) 상품 요약 카드·작업 카드(콘텐츠 등록·정보 수정 시작). 동작은 그대로.
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 
 import { commandParams } from '../../api/command';
@@ -16,7 +18,9 @@ import { QueryState } from '@pmart/web-ui';
 import { toUiState } from '@pmart/web-ui';
 import { useCommand } from '@pmart/web-ui';
 import { RequestApproval } from '../approvals/RequestApproval';
-import { DataTable, PageHeader } from '../../shared/admin';
+import { DetailHeader, StatusBadge } from '../../shared/admin';
+import { Card, EmptyState, tableClass } from './parts';
+import { SALE_TONE } from './ProductListPage';
 
 /** handoff 2026-10-30 §4.3 판매중지 변경 요청 본문 */
 export function saleStopApprovalBody(productId: string, reason: string): ChangeRequestBody {
@@ -29,6 +33,8 @@ export function saleStopApprovalBody(productId: string, reason: string): ChangeR
     lines: [{ lineKey: productId, attributes: { saleState: 'SALE_STOPPED' } }],
   };
 }
+
+const fieldLabel = 'text-xs font-medium text-base-content/60';
 
 function SaleStateChange({ product }: { readonly product: ProductDetail }) {
   const api = useApi();
@@ -66,33 +72,9 @@ function SaleStateChange({ product }: { readonly product: ProductDetail }) {
 
   const stop = saleState === 'SALE_STOPPED';
   return (
-    <div className="space-y-3 rounded-box border border-base-300 bg-base-100 shadow-sm p-4">
-      <h2 className="font-bold">{m.products.changeSaleState}</h2>
-      <div className="flex flex-wrap items-end gap-2">
-        <label className="flex flex-col text-sm">
-          {m.products.saleState}
-          <select
-            className="select select-sm"
-            value={saleState}
-            onChange={(e) => setSaleState(SALE_STATES.find((s) => s === e.target.value) ?? 'ON_SALE')}
-          >
-            {SALE_STATES.map((s) => (
-              <option key={s} value={s}>
-                {m.products.saleStateName[s]}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="flex flex-col text-sm">
-          {m.reasonLabel}
-          <input className="input input-sm" maxLength={200} value={reason} onChange={(e) => setReason(e.target.value)} />
-        </label>
-        {stop && (
-          <label className="flex flex-col text-sm">
-            {m.products.approvalIdLabel}
-            <input className="input input-sm" value={approvalId} onChange={(e) => setApprovalId(e.target.value)} />
-          </label>
-        )}
+    <Card
+      title={m.products.changeSaleState}
+      footer={
         <button
           type="button"
           className="btn btn-primary btn-sm"
@@ -103,10 +85,35 @@ function SaleStateChange({ product }: { readonly product: ProductDetail }) {
         >
           {m.products.applyChange}
         </button>
+      }
+    >
+      <div className="grid gap-3 sm:grid-cols-2">
+        <label className="flex flex-col gap-1 text-sm">
+          <span className={fieldLabel}>{m.products.saleState}</span>
+          <select
+            className="select select-sm w-full"
+            value={saleState}
+            onChange={(e) => setSaleState(SALE_STATES.find((s) => s === e.target.value) ?? 'ON_SALE')}
+          >
+            {SALE_STATES.map((s) => (
+              <option key={s} value={s}>
+                {m.products.saleStateName[s]}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="flex flex-col gap-1 text-sm">
+          <span className={fieldLabel}>{m.reasonLabel}</span>
+          <input className="input input-sm w-full" maxLength={200} value={reason} onChange={(e) => setReason(e.target.value)} />
+        </label>
       </div>
       {stop && (
-        <div className="space-y-2">
+        <div className="space-y-3 rounded-lg border border-warning/40 bg-warning/10 px-4 py-3">
           <p className="text-sm">{m.products.stopNeedsApproval}</p>
+          <label className="flex flex-col gap-1 text-sm">
+            <span className={fieldLabel}>{m.products.approvalIdLabel}</span>
+            <input className="input input-sm w-full max-w-sm" value={approvalId} onChange={(e) => setApprovalId(e.target.value)} />
+          </label>
           {approvalBody ? (
             <RequestApproval body={approvalBody} onRequested={(r) => r.approvalId && setApprovalId(r.approvalId)} />
           ) : (
@@ -128,7 +135,7 @@ function SaleStateChange({ product }: { readonly product: ProductDetail }) {
           </div>
         )}
       </CommandFeedback>
-    </div>
+    </Card>
   );
 }
 
@@ -153,15 +160,13 @@ function EditStart({ productId }: { readonly productId: string }) {
   // 0.3.2: MD 가 아니면 403 — 일반 권한 문구 대신 'MD 만' 안내(백엔드 알림 2026-11-17 notice-product-edit-md-only)
   const notMd = failure instanceof ProblemFailure && failure.problem.code === 'FORBIDDEN';
   return (
-    <div className="space-y-2 rounded-box border border-base-300 bg-base-100 shadow-sm p-4">
-      <div className="flex flex-wrap items-center gap-3">
-        <button type="button" className="btn btn-sm" disabled={start.busy} onClick={() => void start.run(null)}>
-          {m.products.editStart}
-        </button>
-        <span className="text-xs text-base-content/60">{m.products.editStartHint}</span>
-      </div>
+    <div className="space-y-2">
+      <button type="button" className="btn btn-sm btn-block" disabled={start.busy} onClick={() => void start.run(null)}>
+        {m.products.editStart}
+      </button>
+      <p className="text-xs text-base-content/55">{m.products.editStartHint}</p>
       {existing ? (
-        <div role="alert" className="alert alert-warning alert-soft text-sm" data-testid="product-edit-exists">
+        <div role="alert" className="alert alert-warning alert-soft flex-col items-start text-sm" data-testid="product-edit-exists">
           <span>{m.products.editDraftExists}</span>
           <Link className="link" to={`/products/drafts/${encodeURIComponent(existing)}`}>
             {m.products.editDraftOpen(existing)}
@@ -178,6 +183,18 @@ function EditStart({ productId }: { readonly productId: string }) {
   );
 }
 
+/** 오른쪽 요약 카드의 한 줄(이름 위·값 아래) */
+function Fact({ label, children, testId }: { readonly label: string; readonly children: ReactNode; readonly testId?: string }) {
+  return (
+    <div className="space-y-0.5">
+      <dt className="text-xs text-base-content/50">{label}</dt>
+      <dd className="break-words text-sm font-medium" data-testid={testId}>
+        {children}
+      </dd>
+    </div>
+  );
+}
+
 export function ProductDetailPage() {
   const { productId = '' } = useParams();
   const api = useApi();
@@ -187,83 +204,135 @@ export function ProductDetailPage() {
     queryKey: ['product', 'detail', productId],
     queryFn: () => request('GET', api.product.GET('/products/{productId}', { params: { path: { productId } } })),
   });
+  const p0 = query.data;
 
   return (
     <section className="space-y-4">
-      <PageHeader title={m.products.detailTitle(productId)} />
+      <DetailHeader
+        back={{ to: '/products', label: m.products.listTitle }}
+        title={m.products.detailTitle(productId)}
+        badges={
+          p0 ? (
+            <>
+              {p0.saleState && <StatusBadge tone={SALE_TONE[p0.saleState]}>{m.products.saleStateName[p0.saleState]}</StatusBadge>}
+              {p0.version !== undefined && <span className="badge badge-ghost badge-sm font-mono">{`v${p0.version}`}</span>}
+            </>
+          ) : null
+        }
+        summary={p0?.internalName ?? undefined}
+        actions={
+          <Link className="btn btn-sm btn-primary" to={`/contents/drafts/new?productId=${encodeURIComponent(productId)}`}>
+            {m.products.addContent}
+          </Link>
+        }
+      />
       <QueryState state={toUiState(query)} onRetry={() => void query.refetch()}>
         {(p) => (
-          <>
-            <dl className="grid grid-cols-[10rem_1fr] gap-1 rounded-box border border-base-300 bg-base-100 shadow-sm p-4 text-sm">
-              <dt>{m.products.internalName}</dt>
-              <dd>{p.internalName ?? m.none}</dd>
-              <dt>{m.products.saleState}</dt>
-              <dd data-testid="sale-state">{p.saleState ? m.products.saleStateName[p.saleState] : m.none}</dd>
-              <dt>{m.products.version}</dt>
-              <dd>{p.version ?? m.none}</dd>
-              <dt>{m.products.primaryCategoryId}</dt>
-              <dd>{p.primaryCategoryId ?? m.none}</dd>
-              <dt>{m.products.categoryIds}</dt>
-              <dd>{(p.categoryIds ?? []).join(', ') || m.none}</dd>
-              <dt>{m.approvals.dossier}</dt>
-              <dd>
-                {p.approvalId ? (
-                  <Link className="link" to={`/approvals/${encodeURIComponent(p.approvalId)}`}>
-                    {p.approvalId}
-                  </Link>
+          <div className="grid items-start gap-4 lg:grid-cols-3">
+            <div className="space-y-4 lg:col-span-2">
+              <Card title={m.products.skus} aside={<span className="text-xs text-base-content/55">{m.products.skuCount(p.skus?.length ?? 0)}</span>}>
+                {(p.skus?.length ?? 0) === 0 ? (
+                  <EmptyState icon="tag">{m.products.noSkus}</EmptyState>
                 ) : (
-                  m.none
+                  <div className="-mx-5 -my-4 overflow-x-auto">
+                    <table className={tableClass}>
+                      <thead>
+                        <tr>
+                          <th>SKU</th>
+                          <th>{m.products.unitType}</th>
+                          <th>{m.products.weightG}</th>
+                          <th>{m.products.storageType}</th>
+                          <th>{m.products.barcodes}</th>
+                          <th>{m.products.saleState}</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(p.skus ?? []).map((s) => (
+                          <tr key={s.sku}>
+                            <td>
+                              <Link className="font-mono font-medium text-primary hover:underline" to={`/prices?sku=${encodeURIComponent(s.sku)}`}>
+                                {s.sku}
+                              </Link>
+                            </td>
+                            <td>
+                              <p>{m.products.unitName[s.unitType]}</p>
+                              <p className="text-xs text-base-content/50">{`${m.products.unitsPerSku} ${s.unitsPerSku}`}</p>
+                            </td>
+                            <td>{s.weightG ?? m.notSet}</td>
+                            <td>{s.logistics?.storageType ? <span className="badge badge-sm badge-info badge-soft">{m.products.storageName[s.logistics.storageType]}</span> : m.none}</td>
+                            <td>
+                              {(s.barcodes ?? []).length === 0 ? (
+                                m.none
+                              ) : (
+                                <div className="flex flex-wrap gap-1">
+                                  {(s.barcodes ?? []).map((b) => (
+                                    <span key={b} className="rounded bg-base-200 px-1.5 py-0.5 font-mono text-xs">
+                                      {b}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                            </td>
+                            <td>
+                              <StatusBadge tone={SALE_TONE[s.saleState]}>{m.products.saleStateName[s.saleState]}</StatusBadge>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 )}
-              </dd>
-              <dt>{m.products.publishedAt}</dt>
-              <dd>{p.publishedAt ? formatSeoul(p.publishedAt) : m.none}</dd>
-            </dl>
-            {/* 고객용 상품명·설명·이미지는 콘텐츠(product-content-service, DISPLAY 승인)로 따로 등록한다. */}
-            <Link className="btn btn-sm" to={`/contents/drafts/new?productId=${encodeURIComponent(productId)}`}>
-              {m.products.addContent}
-            </Link>
-            {canChangeSaleState ? (
-              <EditStart productId={productId} />
-            ) : (
-              <p className="rounded-box border border-base-300 bg-base-100 shadow-sm p-4 text-sm text-base-content/60">{m.products.editMdOnly}</p>
-            )}
-            <h2 className="font-bold">{m.products.skus}</h2>
-            <DataTable>
-              <thead>
-                <tr>
-                  <th>SKU</th>
-                  <th>{m.products.unitType}</th>
-                  <th>{m.products.unitsPerSku}</th>
-                  <th>{m.products.weightG}</th>
-                  <th>{m.products.storageType}</th>
-                  <th>{m.products.barcodes}</th>
-                  <th>{m.products.saleState}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {(p.skus ?? []).map((s) => (
-                  <tr key={s.sku}>
-                    <td>
-                      <Link className="link" to={`/prices?sku=${encodeURIComponent(s.sku)}`}>
-                        {s.sku}
+              </Card>
+              {canChangeSaleState ? (
+                <SaleStateChange key={p.productId} product={p} />
+              ) : (
+                <p className="rounded-box border border-dashed border-base-300 bg-base-100 p-4 text-sm text-base-content/60">{m.products.saleStateMdOnly}</p>
+              )}
+            </div>
+
+            <div className="space-y-4">
+              <Card title={m.products.summaryTitle}>
+                <dl className="space-y-3">
+                  <Fact label={m.products.internalName}>{p.internalName ?? m.none}</Fact>
+                  <Fact label={m.products.saleState} testId="sale-state">
+                    {p.saleState ? m.products.saleStateName[p.saleState] : m.none}
+                  </Fact>
+                  <Fact label={m.products.version}>{p.version ?? m.none}</Fact>
+                  <Fact label={m.products.primaryCategoryId}>
+                    {p.primaryCategoryId ? <span className="rounded bg-base-200 px-1.5 py-0.5 font-mono text-xs">{p.primaryCategoryId}</span> : m.none}
+                  </Fact>
+                  <Fact label={m.products.categoryIds}>
+                    {(p.categoryIds ?? []).length === 0 ? (
+                      m.none
+                    ) : (
+                      <span className="flex flex-wrap gap-1">
+                        {(p.categoryIds ?? []).map((c) => (
+                          <span key={c} className="rounded bg-base-200 px-1.5 py-0.5 font-mono text-xs font-normal">
+                            {c}
+                          </span>
+                        ))}
+                      </span>
+                    )}
+                  </Fact>
+                  <Fact label={m.approvals.dossier}>
+                    {p.approvalId ? (
+                      <Link className="link link-primary font-mono text-xs" to={`/approvals/${encodeURIComponent(p.approvalId)}`}>
+                        {p.approvalId}
                       </Link>
-                    </td>
-                    <td>{m.products.unitName[s.unitType]}</td>
-                    <td>{s.unitsPerSku}</td>
-                    <td>{s.weightG ?? m.notSet}</td>
-                    <td>{s.logistics?.storageType ? m.products.storageName[s.logistics.storageType] : m.none}</td>
-                    <td>{(s.barcodes ?? []).join(', ') || m.none}</td>
-                    <td>{m.products.saleStateName[s.saleState]}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </DataTable>
-            {canChangeSaleState ? (
-              <SaleStateChange key={p.productId} product={p} />
-            ) : (
-              <p className="rounded-box border border-base-300 bg-base-100 shadow-sm p-4 text-sm text-base-content/60">{m.products.saleStateMdOnly}</p>
-            )}
-          </>
+                    ) : (
+                      m.none
+                    )}
+                  </Fact>
+                  <Fact label={m.products.publishedAt}>{p.publishedAt ? formatSeoul(p.publishedAt) : m.none}</Fact>
+                </dl>
+              </Card>
+              <Card title={m.products.actionsTitle}>
+                {/* 고객용 상품명·설명·이미지는 콘텐츠(product-content-service, DISPLAY 승인)로 따로 등록한다(머리 오른쪽 버튼). */}
+                <p className="text-xs text-base-content/55">{m.products.contentHint}</p>
+                {canChangeSaleState ? <EditStart productId={productId} /> : <p className="text-sm text-base-content/60">{m.products.editMdOnly}</p>}
+              </Card>
+            </div>
+          </div>
         )}
       </QueryState>
     </section>

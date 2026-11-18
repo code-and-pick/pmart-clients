@@ -27,7 +27,7 @@ import { useApi } from '../../app/ApiContext';
 import { messages as m } from '../../shared/messages';
 import { label, text, when } from '../../shared/ops';
 import { SourceStamps } from '../../shared/SourceStamps';
-import { DataTable, PageHeader } from '../../shared/admin';
+import { PageHeader } from '../../shared/admin';
 
 type Item = components['schemas']['PendingWorkItem'];
 type View = components['schemas']['ComposedView'] & { items?: Item[]; truncated?: boolean };
@@ -303,47 +303,8 @@ export function PendingPage() {
                 {m.pending.truncated}
               </p>
             )}
-            <DataTable>
-              <thead>
-                <tr>
-                  <th>{m.pending.since}</th>
-                  <th>{m.pending.kind}</th>
-                  <th>{m.pending.orderId}</th>
-                  <th>{m.pending.reason}</th>
-                  <th>{m.pending.state}</th>
-                  <th>{m.pending.actions}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {(view.items ?? []).map((i) => (
-                  <tr key={`${i.kind}:${i.refId}`} data-testid="pending-item" data-kind={i.kind}>
-                    <td>{when(i.since)}</td>
-                    <td>
-                      {label(m.pending.kindName, i.kind)}
-                      {i.sagaType && <p className="text-xs text-base-content/60">{`${label(m.pending.sagaTypeName, i.sagaType)}${i.step ? ` · ${i.step}` : ''}`}</p>}
-                      {i.mfcId && <p className="text-xs text-base-content/60">{i.mfcId}</p>}
-                    </td>
-                    <td>
-                      <OrderCell orderId={i.orderId} />
-                    </td>
-                    <td>
-                      {i.reasonCode ? label(i.kind === 'FULFILLMENT_ISSUE' ? m.pending.reasonName : {}, i.reasonCode) : m.none}
-                      {i.reasonMessage && <p className="text-xs text-base-content/60">{i.reasonMessage}</p>}
-                    </td>
-                    <td>{text(i.state)}</td>
-                    <td>
-                      <Actions item={i} />
-                      {/* bff 0.8.0 — 최근 운영자 재시도(MFC 에 남은 기록). 없으면 줄 없음 */}
-                      {i.lastRetry && (
-                        <p className="mt-1 text-xs text-base-content/60" data-testid="pending-last-retry">
-                          {m.pending.lastRetry(text(i.lastRetry.operatorId), when(i.lastRetry.retriedAt), text(i.lastRetry.reason))}
-                        </p>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </DataTable>
+            {/* 종류별 묶음(2026-11-18): 위 숫자 카드(누르면 그 묶음으로) → 묶음 카드마다 항목 줄 */}
+            <PendingGroups items={view.items ?? []} />
           </>
         )}
       </QueryState>
@@ -353,5 +314,109 @@ export function PendingPage() {
         </p>
       )}
     </section>
+  );
+}
+
+/** 종류 색 — 이름이 있는 종류만 색을 준다. 모르는 종류는 회색 */
+const KIND_STYLE: Readonly<Record<string, { readonly chip: string; readonly bar: string; readonly icon: string }>> = {
+  STUCK_SAGA: { chip: 'bg-error/10 text-error', bar: 'border-l-error', icon: 'M12 7v5l3 2m6-2a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z' },
+  FULFILLMENT_ISSUE: { chip: 'bg-warning/15 text-warning', bar: 'border-l-warning', icon: 'M4 8l8-4 8 4-8 4-8-4Zm0 0v8l8 4 8-4V8' },
+  MFC_STOP_FAILED: { chip: 'bg-accent/15 text-accent', bar: 'border-l-accent', icon: 'M6 6h12v12H6z' },
+  MFC_HANDOVER_REJECTED: { chip: 'bg-info/10 text-info', bar: 'border-l-info', icon: 'M7 17 17 7M17 7H9m8 0v8' },
+};
+const OTHER_STYLE = { chip: 'bg-base-200 text-base-content/70', bar: 'border-l-base-300', icon: 'M12 8v4m0 4h.01' };
+
+function KindIcon({ d }: { readonly d: string }) {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4 fill-none stroke-current" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+      <path d={d} />
+    </svg>
+  );
+}
+
+function PendingGroups({ items }: { readonly items: readonly Item[] }) {
+  // 묶음 차례 = 서버 순서(오래된 것부터)에서 처음 나온 차례, 묶음 안도 서버 순서 그대로
+  const kinds = [...new Set(items.map((i) => i.kind))];
+  const groups = kinds.map((k) => ({ kind: k, items: items.filter((i) => i.kind === k) }));
+  return (
+    <>
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {groups.map((g) => {
+          const st = KIND_STYLE[g.kind] ?? OTHER_STYLE;
+          return (
+            <a key={g.kind} href={`#pending-${g.kind}`} className="flex items-center gap-3 rounded-box border border-base-300 bg-base-100 px-4 py-3 shadow-sm hover:border-primary" data-testid="pending-kind-count">
+              <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${st.chip}`}>
+                <KindIcon d={st.icon} />
+              </span>
+              <span className="min-w-0">
+                <span className="block truncate text-xs text-base-content/60">{label(m.pending.kindName, g.kind)}</span>
+                <span className="text-xl font-bold">{m.pending.count(g.items.length)}</span>
+              </span>
+            </a>
+          );
+        })}
+      </div>
+      {groups.map((g) => {
+        const st = KIND_STYLE[g.kind] ?? OTHER_STYLE;
+        return (
+          <section key={g.kind} id={`pending-${g.kind}`} className="scroll-mt-4 overflow-hidden rounded-box border border-base-300 bg-base-100 shadow-sm" aria-label={label(m.pending.kindName, g.kind)}>
+            <div className="flex items-center gap-2 border-b border-base-300 px-5 py-3">
+              <span className={`flex h-7 w-7 items-center justify-center rounded-lg ${st.chip}`}>
+                <KindIcon d={st.icon} />
+              </span>
+              <h2 className="font-semibold">{label(m.pending.kindName, g.kind)}</h2>
+              <span className="badge badge-ghost badge-sm">{g.items.length}</span>
+            </div>
+            <ul className="divide-y divide-base-300/70">
+              {g.items.map((i) => (
+                <li key={`${i.kind}:${i.refId}`} className={`grid gap-x-6 gap-y-3 border-l-4 px-5 py-4 text-sm md:grid-cols-[minmax(0,1fr)_minmax(16rem,auto)] ${st.bar}`} data-testid="pending-item" data-kind={i.kind}>
+                  <div className="min-w-0 space-y-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-semibold">{i.reasonCode ? label(i.kind === 'FULFILLMENT_ISSUE' ? m.pending.reasonName : {}, i.reasonCode) : m.none}</span>
+                      {i.state && <span className="badge badge-sm badge-ghost font-mono">{text(i.state)}</span>}
+                    </div>
+                    {i.reasonMessage && <p className="text-xs text-base-content/65">{i.reasonMessage}</p>}
+                    <dl className="flex flex-wrap gap-x-6 gap-y-1 text-xs [&_dt]:text-base-content/50">
+                      <div className="flex gap-1.5">
+                        <dt>{m.pending.since}</dt>
+                        <dd>{when(i.since)}</dd>
+                      </div>
+                      <div className="flex gap-1.5">
+                        <dt>{m.pending.orderId}</dt>
+                        <dd>
+                          <OrderCell orderId={i.orderId} />
+                        </dd>
+                      </div>
+                      {i.sagaType && (
+                        <div className="flex gap-1.5">
+                          <dt>{m.pending.saga}</dt>
+                          <dd>{`${label(m.pending.sagaTypeName, i.sagaType)}${i.step ? ` · ${i.step}` : ''}`}</dd>
+                        </div>
+                      )}
+                      {i.mfcId && (
+                        <div className="flex gap-1.5">
+                          <dt>{m.pending.mfc}</dt>
+                          <dd className="font-mono">{i.mfcId}</dd>
+                        </div>
+                      )}
+                    </dl>
+                  </div>
+                  <div className="min-w-0 space-y-1 md:border-l md:border-base-300/70 md:pl-6">
+                    <p className="text-xs font-medium text-base-content/50">{m.pending.actions}</p>
+                    <Actions item={i} />
+                    {/* bff 0.8.0 — 최근 운영자 재시도(MFC 에 남은 기록). 없으면 줄 없음 */}
+                    {i.lastRetry && (
+                      <p className="mt-1 text-xs text-base-content/60" data-testid="pending-last-retry">
+                        {m.pending.lastRetry(text(i.lastRetry.operatorId), when(i.lastRetry.retriedAt), text(i.lastRetry.reason))}
+                      </p>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </section>
+        );
+      })}
+    </>
   );
 }

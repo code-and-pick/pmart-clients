@@ -1,0 +1,114 @@
+// 상품·가격·콘텐츠·취급 화면이 같이 쓰는 작은 화면 부품(2026-11-18 사용자 "밋밋하다 — Shopify·Medusa 관리자처럼").
+// 동작은 없고 모양만 — 카드(제목·안내·오른쪽 덧붙임), 단계 표시, 빈 상태, 상대 시각.
+import type { ReactNode } from 'react';
+
+import { messages as m } from '../../shared/messages';
+
+/** 제목 줄이 있는 카드. 폼 묶음·오른쪽 요약 카드에 쓴다. */
+export function Card({ title, hint, aside, children, footer, testId, label, className = '' }: { readonly title?: ReactNode; readonly hint?: ReactNode; readonly aside?: ReactNode; readonly children: ReactNode; readonly footer?: ReactNode; readonly testId?: string; readonly label?: string; readonly className?: string }) {
+  return (
+    <section className={`overflow-hidden rounded-box border border-base-300 bg-base-100 shadow-sm ${className}`} data-testid={testId} aria-label={label}>
+      {(title || aside) && (
+        <div className="flex flex-wrap items-start justify-between gap-2 border-b border-base-300 px-5 py-3">
+          <div className="min-w-0 space-y-0.5">
+            {title && <h2 className="font-bold">{title}</h2>}
+            {hint && <p className="text-xs text-base-content/55">{hint}</p>}
+          </div>
+          {aside && <div className="flex flex-wrap items-center gap-2 text-sm">{aside}</div>}
+        </div>
+      )}
+      <div className="space-y-3 px-5 py-4">{children}</div>
+      {footer && <div className="flex flex-wrap items-center justify-end gap-2 border-t border-base-300 bg-base-200/40 px-5 py-3">{footer}</div>}
+    </section>
+  );
+}
+
+/** 단계 표시(① → ② → ③) — now = 지금 단계(0부터) */
+export function Steps({ steps, now, label = m.products.stepsLabel }: { readonly steps: readonly string[]; readonly now: number; readonly label?: string }) {
+  return (
+    <ol className="flex flex-wrap items-center gap-1 text-xs" aria-label={label}>
+      {steps.map((st, i) => (
+        <li key={st} className="flex items-center gap-1">
+          <span className={`flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-bold ${i < now ? 'bg-success text-success-content' : i === now ? 'bg-primary text-primary-content' : 'bg-base-200 text-base-content/50'}`}>{i < now ? '✓' : i + 1}</span>
+          <span className={i <= now ? 'font-medium' : 'text-base-content/50'}>{st}</span>
+          {i < steps.length - 1 && <span className="px-1 text-base-content/30">→</span>}
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+const ICON: Readonly<Record<'box' | 'tag' | 'store' | 'image' | 'search', string>> = {
+  box: 'M4 8l8-4 8 4-8 4-8-4Zm0 0v8l8 4 8-4V8m-8 4v8',
+  tag: 'M4 12l8-8h8v8l-8 8-8-8Zm11-4h.01',
+  store: 'M4 9l1.5-5h13L20 9M4 9h16M4 9v11h16V9M9 20v-6h6v6',
+  image: 'M4 5h16v14H4zM4 15l4-4 4 4 3-3 5 5M15 9h.01',
+  search: 'M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14Zm9 2-4-4',
+};
+
+export function LineIcon({ name, className = 'h-5 w-5' }: { readonly name: keyof typeof ICON; readonly className?: string }) {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" className={`${className} fill-none stroke-current`} strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round">
+      <path d={ICON[name]} />
+    </svg>
+  );
+}
+
+/** 빈 상태·처음 상태 — 아이콘 + 한 줄 안내 */
+export function EmptyState({ icon, children }: { readonly icon: keyof typeof ICON; readonly children: ReactNode }) {
+  return (
+    <div className="flex min-h-40 flex-col items-center justify-center gap-3 px-4 py-8 text-center text-sm text-base-content/55">
+      <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-base-200 text-base-content/40">
+        <LineIcon name={icon} className="h-6 w-6" />
+      </span>
+      {children}
+    </div>
+  );
+}
+
+/** 숫자 카드(작은) */
+export function MiniStat({ label, value, tone, testId }: { readonly label: ReactNode; readonly value: ReactNode; readonly tone?: 'success' | 'error' | 'warning' | 'muted'; readonly testId?: string }) {
+  const color = tone === 'success' ? 'text-success' : tone === 'error' ? 'text-error' : tone === 'warning' ? 'text-warning' : tone === 'muted' ? 'text-base-content/50' : '';
+  return (
+    <div className="rounded-box border border-base-300 bg-base-100 px-4 py-3 shadow-sm" data-testid={testId}>
+      <p className="text-xs text-base-content/55">{label}</p>
+      <p className={`text-2xl font-bold tabular-nums ${color}`}>{value}</p>
+    </div>
+  );
+}
+
+/** 시각을 "방금·N분 전·N시간 전·N일 전"으로(보기용 — 정확한 시각은 함께 보인다) */
+export function ago(iso: string): string {
+  const min = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
+  if (!Number.isFinite(min) || min < 1) return m.approvals.ago.now;
+  if (min < 60) return m.approvals.ago.min(min);
+  if (min < 60 * 24) return m.approvals.ago.hour(Math.floor(min / 60));
+  return m.approvals.ago.day(Math.floor(min / (60 * 24)));
+}
+
+/** 밑줄 탭 한 줄(URL 필터용) */
+export function UnderlineTabs<T extends string>({ value, options, onChange, label }: { readonly value: T; readonly options: ReadonlyArray<{ readonly value: T; readonly label: string }>; readonly onChange: (v: T) => void; readonly label: string }) {
+  return (
+    <div role="tablist" aria-label={label} className="flex gap-1 overflow-x-auto overflow-y-hidden border-b border-base-300 px-3">
+      {options.map((o) => {
+        const on = o.value === value;
+        return (
+          <button
+            key={o.value || 'all'}
+            type="button"
+            role="tab"
+            aria-selected={on}
+            onClick={() => onChange(o.value)}
+            className={`-mb-px whitespace-nowrap border-b-2 px-3 py-3 text-sm transition-colors ${on ? 'border-primary font-semibold text-base-content' : 'border-transparent text-base-content/55 hover:text-base-content'}`}
+          >
+            {o.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/** 표 공통 클래스(카드 안 표 — 바깥 테두리 없음) */
+export const tableClass =
+  'table [&_tbody_tr:hover]:bg-base-200/60 [&_tbody_tr]:border-base-300/70 [&_tbody_td]:py-3 [&_thead_th]:bg-base-200/50 [&_thead_th]:text-xs [&_thead_th]:font-medium [&_thead_th]:text-base-content/50';

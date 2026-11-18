@@ -27,7 +27,7 @@ function Task({ t }: { readonly t: Obj }) {
   const done = num(t['completedQty']);
   const cancelled = num(t['cancelledQty']);
   return (
-    <li className={`rounded-box border p-2 text-xs ${blocked ? 'border-error text-error' : 'border-base-300'}`} data-testid="field-task" data-type={str(t['taskType']) ?? ''} data-state={state ?? ''}>
+    <li className={`rounded-lg border px-2.5 py-1.5 text-xs ${blocked ? 'border-error bg-error/5 text-error' : 'border-base-300 bg-base-100'}`} data-testid="field-task" data-type={str(t['taskType']) ?? ''} data-state={state ?? ''}>
       <span className="font-semibold">{label(m.taskName, str(t['taskType']))}</span> {text(state)}
       {planned !== null && <span className="ml-1 opacity-80">{m.qty(done ?? 0, planned, cancelled ?? 0)}</span>}
       {str(t['workerId']) && <span className="ml-1 font-mono text-base-content/60">{m.worker(str(t['workerId'])!)}</span>}
@@ -75,7 +75,7 @@ function Shipment({ s }: { readonly s: Obj }) {
 function FulfillmentCard({ id, summary }: { readonly id: string; readonly summary: Obj }) {
   const rejected = str(summary['acceptance']) === 'REJECTED';
   return (
-    <div className="space-y-2" data-testid="match-FULFILLMENT">
+    <div className="space-y-2 rounded-box border border-base-300/70 bg-base-200/30 p-3" data-testid="match-FULFILLMENT">
       <p className="text-sm">
         <span className="font-mono">{id}</span> · {label(m.workKind, str(summary['kind']))} · {text(str(summary['mfcId']))}
         {str(summary['preparationStartedAt']) && <span className="opacity-70">{` · ${m.preparationStartedAt} ${when(str(summary['preparationStartedAt']))}`}</span>}
@@ -96,7 +96,7 @@ function StopCard({ id, summary }: { readonly id: string; readonly summary: Obj 
   const error = str(summary['lastError']);
   const stuck = str(summary['state']) === 'PENDING' && error !== null;
   return (
-    <div className="space-y-1 text-sm" data-testid="match-MFC_STOP">
+    <div className="space-y-1 rounded-box border border-base-300/70 bg-base-200/30 p-3 text-sm" data-testid="match-MFC_STOP">
       <p>
         <span className="font-mono">{id}</span> · {m.stop} {text(str(summary['scope']))} · {text(str(summary['state']))}
         {str(summary['requestedAt']) && <span className="opacity-70">{` · ${when(str(summary['requestedAt']))}`}</span>}

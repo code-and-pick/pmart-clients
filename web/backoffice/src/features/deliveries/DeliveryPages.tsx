@@ -15,8 +15,9 @@ import type { components as Execution } from '../../api/generated/delivery-execu
 import { useApi } from '../../app/ApiContext';
 import { CommandFeedback } from '../../shared/Feedback';
 import { messages as m } from '../../shared/messages';
-import { Facts, label, text, when } from '../../shared/ops';
-import { DataTable, PageHeader, SearchPanel, SearchRow } from '../../shared/admin';
+import { label, text, when } from '../../shared/ops';
+import { ChipGroup, DataTable, DetailHeader, FieldList, PageHeader, ResultBar, SearchPanel, SearchRow, Section, StatusBadge, type Tone } from '../../shared/admin';
+import { EmptyBox, Icon, IdLink, KindChip, ListFoot, Person, Timeline, When } from '../lookup/parts';
 
 type DeliveryExecution = Execution['schemas']['DeliveryExecution'];
 type DispatchView = Dispatch['schemas']['Delivery'];
@@ -44,6 +45,22 @@ type StaffDeliverySummary = Execution['schemas']['StaffDeliverySummary'];
 type ExecutionState = Execution['schemas']['ExecutionState'];
 const EXECUTION_STATES = Object.keys(m.deliveries.executionState) as ExecutionState[];
 
+/** 수행 상태 꼬리표 색(표시만 — 판정은 서버 상태 값) */
+export const executionTone = (s: string | null | undefined): Tone =>
+  s === 'COMPLETED' || s === 'RETURNED_TO_STORE'
+    ? 'success'
+    : s === 'FAILED'
+      ? 'error'
+      : s === 'FAILURE_REPORTED' || s === 'SUSPENDED' || s === 'UNASSIGNED'
+        ? 'warning'
+        : s === 'CANCELLED'
+          ? 'ghost'
+          : 'info';
+/** 배차 상태 꼬리표 색 */
+const dispatchTone = (s: string | null | undefined): Tone =>
+  s === 'PICKED_UP' || s === 'CLOSED' ? 'success' : s === 'DISPATCH_FAILED' || s === 'BLOCKED' ? 'error' : s === 'CANCELLED_BEFORE_PICKUP' ? 'ghost' : s === 'DISPATCHING' || s === 'CREATED' ? 'warning' : 'info';
+const TYPE_TONE: Readonly<Record<string, Tone>> = { FORWARD: 'info', RETURN: 'warning', RESHIPMENT: 'accent' };
+
 /** 직원 배송 목록 한 표(ID·상태·시각만 — 개인정보 없음) */
 export function DeliveryTable({ rows }: { readonly rows: readonly StaffDeliverySummary[] }) {
   return (
@@ -62,17 +79,28 @@ export function DeliveryTable({ rows }: { readonly rows: readonly StaffDeliveryS
       <tbody>
         {rows.map((d, i) => (
           <tr key={d.deliveryId ?? `dlv-${i}`} data-testid="delivery-row">
+            {/* 첫 칸: 배송 번호 굵게(링크) — 상세로 가는 첫 링크 */}
             <td>
-              <Link className="link" to={`/deliveries/${encodeURIComponent(d.deliveryId ?? '')}`}>
+              <Link className="font-mono font-semibold text-base-content hover:text-primary hover:underline" to={`/deliveries/${encodeURIComponent(d.deliveryId ?? '')}`}>
                 {text(d.deliveryId)}
               </Link>
             </td>
-            <td>{label(m.deliveries.executionState, d.state)}</td>
-            <td>{label(m.deliveries.typeName, d.type)}</td>
-            <td>{d.orderId ? <Link className="link" to={`/orders/${encodeURIComponent(d.orderId)}`}>{d.orderId}</Link> : m.none}</td>
-            <td>{d.riderId ? <Link className="link" to={`/riders/${encodeURIComponent(d.riderId)}`}>{d.riderId}</Link> : m.none}</td>
-            <td>{text(d.mfcId)}</td>
-            <td>{when(d.createdAt)}</td>
+            <td>
+              <StatusBadge tone={executionTone(d.state)}>{label(m.deliveries.executionState, d.state)}</StatusBadge>
+            </td>
+            <td>
+              <KindChip tone={TYPE_TONE[d.type ?? ''] ?? 'ghost'} icon={d.type === 'FORWARD' ? 'truck' : 'return'}>
+                {label(m.deliveries.typeName, d.type)}
+              </KindChip>
+            </td>
+            <td>{d.orderId ? <IdLink id={d.orderId} to={`/orders/${encodeURIComponent(d.orderId)}`} /> : m.none}</td>
+            <td>
+              <Person id={d.riderId} {...(d.riderId ? { to: `/riders/${encodeURIComponent(d.riderId)}` } : {})} />
+            </td>
+            <td className="text-sm">{text(d.mfcId)}</td>
+            <td>
+              <When iso={d.createdAt} />
+            </td>
           </tr>
         ))}
       </tbody>
@@ -166,18 +194,34 @@ export function DeliveryOpenPage() {
     if (id.trim()) void navigate(`/deliveries/${encodeURIComponent(id.trim())}`);
   };
   return (
-    <section className="max-w-5xl space-y-4">
-      <PageHeader title={m.deliveries.title} description={m.deliveries.intro} />
-      {/* 관리자 형식(2026-11-18): 검색 조건 상자 — 줄마다 왼쪽 항목명 */}
-      <div className="overflow-hidden rounded-box border border-base-300 bg-base-100 shadow-sm">
-        <SearchRow label={m.deliveries.quickOpen}>
-          <form className="flex flex-wrap gap-2" onSubmit={open} aria-label={m.deliveries.open}>
-            <input aria-label={m.deliveries.deliveryId} placeholder={m.deliveries.deliveryId} className="input input-sm w-64" value={id} onChange={(e) => setId(e.target.value)} />
-            <button type="submit" className="btn btn-primary btn-sm" disabled={!id.trim()}>
+    <section className="space-y-5">
+      {/* 화면(2026-11-18 Shopify 목록처럼): 머리 오른쪽 "바로 열기" → 한 카드(빠른 보기 → 검색 조건 → 결과 줄·표 → 더 보기) */}
+      <PageHeader
+        title={m.deliveries.title}
+        description={m.deliveries.intro}
+        actions={
+          <form className="join" onSubmit={open} aria-label={m.deliveries.open}>
+            <label className="input input-sm join-item w-60">
+              <Icon name="search" className="h-4 w-4 text-base-content/40" />
+              <input aria-label={m.deliveries.deliveryId} placeholder={`${m.deliveries.quickOpen} — ${m.deliveries.deliveryId}`} className="font-mono" value={id} onChange={(e) => setId(e.target.value)} />
+            </label>
+            <button type="submit" className="btn btn-primary btn-sm join-item" disabled={!id.trim()}>
               {m.deliveries.open}
             </button>
           </form>
-        </SearchRow>
+        }
+      />
+      <div className="flex flex-wrap items-center gap-2" role="group" aria-label={m.deliveries.quickViews}>
+        <span className="text-xs font-medium text-base-content/55">{m.deliveries.quickViews}</span>
+        <button
+          type="button"
+          aria-pressed={applied.state === 'FAILURE_REPORTED' && applied.oldest && !applied.orderId && !applied.riderId}
+          className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs transition-colors ${applied.state === 'FAILURE_REPORTED' && applied.oldest && !applied.orderId && !applied.riderId ? 'border-warning bg-warning/15 font-semibold text-warning' : 'border-base-300 bg-base-100 hover:border-warning/60'}`}
+          onClick={() => go({ orderId: '', riderId: '', state: 'FAILURE_REPORTED', oldest: true })}
+        >
+          <Icon name="alert" className="h-3.5 w-3.5" />
+          {m.deliveries.failureQueue}
+        </button>
       </div>
       <SearchPanel
         onSubmit={(e) => {
@@ -193,39 +237,45 @@ export function DeliveryOpenPage() {
           <input aria-label={m.deliveries.orderIdFilter} placeholder={m.deliveries.orderIdFilter} className="input input-sm w-52" value={draft.orderId} onChange={(e) => setDraft((d) => ({ ...d, orderId: e.target.value }))} />
           <input aria-label={m.deliveries.riderIdFilter} placeholder={m.deliveries.riderIdFilter} className="input input-sm w-52" value={draft.riderId} onChange={(e) => setDraft((d) => ({ ...d, riderId: e.target.value }))} />
         </SearchRow>
-        <SearchRow label={m.deliveries.stateFilter}>
-          <select aria-label={m.deliveries.stateFilter} className="select select-sm w-44" value={draft.state} onChange={(e) => setDraft((d) => ({ ...d, state: EXECUTION_STATES.find((s) => s === e.target.value) ?? '' }))}>
-            <option value="">{m.deliveries.any}</option>
-            {EXECUTION_STATES.map((s) => (
-              <option key={s} value={s}>
-                {label(m.deliveries.executionState, s)}
-              </option>
-            ))}
-          </select>
-          <button type="button" className="btn btn-sm btn-outline" onClick={() => go({ orderId: '', riderId: '', state: 'FAILURE_REPORTED', oldest: true })}>
-            {m.deliveries.failureQueue}
-          </button>
-        </SearchRow>
         <SearchRow label={m.deliveries.sort}>
-          <label className="flex items-center gap-1 text-sm">
+          <label className="flex h-8 items-center gap-1 text-sm">
             <input type="checkbox" className="checkbox checkbox-xs" checked={draft.oldest} onChange={(e) => setDraft((d) => ({ ...d, oldest: e.target.checked }))} />
             {m.deliveries.sortOldest}
           </label>
         </SearchRow>
+        <div className="basis-full">
+          <SearchRow label={m.deliveries.stateFilter}>
+            <ChipGroup
+              label={m.deliveries.stateFilter}
+              value={draft.state}
+              options={[{ value: '', label: m.deliveries.any }, ...EXECUTION_STATES.map((s) => ({ value: s, label: label(m.deliveries.executionState, s) }))]}
+              onChange={(v) => setDraft((d) => ({ ...d, state: v }))}
+            />
+          </SearchRow>
+        </div>
       </SearchPanel>
-      {searched && (
+      {searched ? (
         <QueryState state={toUiState(query, (r) => (r.items ?? []).length === 0)} onRetry={() => void query.refetch()} emptyText={m.deliveries.empty}>
-          {(r) => (
-            <>
-              <DeliveryTable rows={[...(r.items ?? []), ...more.rows]} />
-              {nextCursor && (
-                <button type="button" className="btn btn-sm" onClick={() => void loadMore()}>
-                  {m.deliveries.more}
-                </button>
-              )}
-            </>
-          )}
+          {(r) => {
+            const rows = [...(r.items ?? []), ...more.rows];
+            return (
+              <>
+                <ResultBar count={rows.length} more={!!nextCursor} />
+                <DeliveryTable rows={rows} />
+                {nextCursor && (
+                  <ListFoot>
+                    <span className="text-base-content/55">{m.approvals.shown(rows.length, true)}</span>
+                    <button type="button" className="btn btn-sm" onClick={() => void loadMore()}>
+                      {m.deliveries.more}
+                    </button>
+                  </ListFoot>
+                )}
+              </>
+            );
+          }}
         </QueryState>
+      ) : (
+        <EmptyBox icon="truck">{m.deliveries.startHint}</EmptyBox>
       )}
     </section>
   );
@@ -258,7 +308,7 @@ function FailureDecisionForm({ delivery }: { readonly delivery: DeliveryExecutio
 
   return (
     <form
-      className="space-y-2 rounded-box border border-base-300 bg-base-100 shadow-sm p-4"
+      className="space-y-3 rounded-box border border-warning/40 bg-warning/5 p-4"
       aria-label={m.deliveries.decideTitle}
       onSubmit={(e) => {
         e.preventDefault();
@@ -359,7 +409,7 @@ function CancellationForm({ dispatch }: { readonly dispatch: DispatchView }) {
 
   return (
     <form
-      className="space-y-2 rounded-box border border-base-300 bg-base-100 shadow-sm p-4"
+      className="space-y-3 rounded-box border border-warning/40 bg-warning/5 p-4"
       aria-label={m.deliveries.cancelTitle}
       onSubmit={(e) => {
         e.preventDefault();
@@ -415,6 +465,19 @@ function CancellationForm({ dispatch }: { readonly dispatch: DispatchView }) {
   );
 }
 
+/** 원천 칸 머리(그림 + 이름 + 원천 이름) — 수행·배차를 따로 읽는다는 것을 칸마다 보인다 */
+function PanelTitle({ icon, title, source }: { readonly icon: 'truck' | 'user'; readonly title: string; readonly source: string }) {
+  return (
+    <span className="flex items-center gap-2">
+      <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary">
+        <Icon name={icon} className="h-4 w-4" />
+      </span>
+      {title}
+      <span className="font-mono text-xs font-normal text-base-content/45">{source}</span>
+    </span>
+  );
+}
+
 function ExecutionPanel({ deliveryId }: { readonly deliveryId: string }) {
   const api = useApi();
   const query = useQuery({
@@ -422,61 +485,79 @@ function ExecutionPanel({ deliveryId }: { readonly deliveryId: string }) {
     queryFn: () => request('GET', api.execution.GET('/deliveries/{deliveryId}', { params: { path: { deliveryId } } })),
   });
   return (
-    <div className="space-y-2" data-testid="execution-panel">
-      <h2 className="font-bold">{m.deliveries.execution}</h2>
+    <Section title={<PanelTitle icon="truck" title={m.deliveries.execution} source="delivery-execution" />} testId="execution-panel">
       <QueryState state={toUiState(query)} onRetry={() => void query.refetch()}>
         {(d) => (
-          <>
-            <Facts
+          <div className="space-y-5">
+            {/* 지금 상태 — 크게 */}
+            <div className="flex flex-wrap items-center gap-2">
+              <StatusBadge tone={executionTone(d.state)} testId="execution-state">
+                {label(m.deliveries.executionState, d.state)}
+              </StatusBadge>
+              <KindChip tone={TYPE_TONE[d.type ?? ''] ?? 'ghost'} icon={d.type === 'FORWARD' ? 'truck' : 'return'}>
+                {label(m.deliveries.typeName, d.type)}
+              </KindChip>
+            </div>
+            <FieldList
               rows={[
-                [m.deliveries.state, <span key="s" data-testid="execution-state">{label(m.deliveries.executionState, d.state)}</span>],
-                [m.deliveries.type, label(m.deliveries.typeName, d.type)],
-                [m.deliveries.rider, d.riderId ? <Link key="r" className="link" to={`/riders/${encodeURIComponent(d.riderId)}`}>{d.riderId}</Link> : m.none],
-                [m.deliveries.order, d.orderId ? <Link key="o" className="link" to={`/orders/${encodeURIComponent(d.orderId)}`}>{d.orderId}</Link> : m.none],
+                [m.deliveries.rider, <Person key="r" id={d.riderId} {...(d.riderId ? { to: `/riders/${encodeURIComponent(d.riderId)}` } : {})} />],
+                [m.deliveries.order, d.orderId ? <Link key="o" className="font-mono text-primary hover:underline" to={`/orders/${encodeURIComponent(d.orderId)}`}>{d.orderId}</Link> : m.none],
                 [m.deliveries.mfc, text(d.mfcId)],
                 [m.deliveries.assignedAt, when(d.assignedAt)],
                 [m.deliveries.completedAt, when(d.completedAt)],
               ]}
             />
             {d.failure && (
-              <>
-                <h3 className="text-sm font-bold">{m.deliveries.failure}</h3>
-                <Facts
+              <div className="space-y-3 rounded-box border border-error/30 bg-error/5 p-4">
+                <h3 className="flex items-center gap-2 text-sm font-bold text-error">
+                  <Icon name="alert" className="h-4 w-4" />
+                  {m.deliveries.failure}
+                </h3>
+                <FieldList
                   testId="delivery-failure"
                   rows={[
                     [m.deliveries.failureReason, text(d.failure.reason)],
-                    [m.deliveries.failureDetail, <p key="d" className="whitespace-pre-wrap">{text(d.failure.detail)}</p>],
                     [m.deliveries.goodsLocation, text(d.failure.goodsLocation)],
                     [m.deliveries.contactAttempts, text(d.failure.contactAttempts)],
                     [m.deliveries.reportedAt, when(d.failure.reportedAt)],
                     [m.deliveries.decided, d.failure.decision ? `${label(m.deliveries.decisionName, d.failure.decision)} · ${when(d.failure.decidedAt)}` : m.none],
+                    [m.deliveries.failureDetail, <p key="d" className="whitespace-pre-wrap font-normal">{text(d.failure.detail)}</p>],
                   ]}
                 />
-              </>
+              </div>
             )}
             <StickyWhen show={d.state === 'FAILURE_REPORTED'}>
               <FailureDecisionForm delivery={d} />
             </StickyWhen>
-            <h3 className="text-sm font-bold">{m.deliveries.incidents}</h3>
-            {(d.incidents ?? []).length === 0 ? (
-              <p className="text-sm text-base-content/60">{m.deliveries.noIncidents}</p>
-            ) : (
-              <ul className="text-sm">
-                {(d.incidents ?? []).map((i, n) => (
-                  <li key={i.incidentId ?? `incident-${n}`}>{`${text(i.category)} · ${when(i.raisedAt)}`}</li>
-                ))}
-              </ul>
-            )}
-            <h3 className="text-sm font-bold">{m.deliveries.history}</h3>
-            <ol className="text-sm">
-              {(d.history ?? []).map((h, n) => (
-                <li key={`${h.state ?? ''}-${n}`}>{`${when(h.occurredAt)} · ${label(m.deliveries.executionState, h.state)} · ${text(h.actor)}`}</li>
-              ))}
-            </ol>
-          </>
+            <div className="grid gap-5 sm:grid-cols-2">
+              <div className="space-y-3">
+                <h3 className="text-sm font-bold">{m.deliveries.history}</h3>
+                {(d.history ?? []).length === 0 ? (
+                  <p className="text-sm text-base-content/60">{m.none}</p>
+                ) : (
+                  <Timeline
+                    items={(d.history ?? []).map((h, n) => ({
+                      key: `${h.state ?? ''}-${n}`,
+                      tone: executionTone(h.state),
+                      title: label(m.deliveries.executionState, h.state),
+                      meta: `${when(h.occurredAt)} · ${text(h.actor)}`,
+                    }))}
+                  />
+                )}
+              </div>
+              <div className="space-y-3">
+                <h3 className="text-sm font-bold">{m.deliveries.incidents}</h3>
+                {(d.incidents ?? []).length === 0 ? (
+                  <p className="text-sm text-base-content/60">{m.deliveries.noIncidents}</p>
+                ) : (
+                  <Timeline items={(d.incidents ?? []).map((i, n) => ({ key: i.incidentId ?? `incident-${n}`, tone: 'warning', title: text(i.category), meta: when(i.raisedAt) }))} />
+                )}
+              </div>
+            </div>
+          </div>
         )}
       </QueryState>
-    </div>
+    </Section>
   );
 }
 
@@ -487,15 +568,18 @@ function DispatchPanel({ deliveryId }: { readonly deliveryId: string }) {
     queryFn: () => request('GET', api.dispatch.GET('/deliveries/{deliveryId}/dispatch', { params: { path: { deliveryId } } })),
   });
   return (
-    <div className="space-y-2" data-testid="dispatch-panel">
-      <h2 className="font-bold">{m.deliveries.dispatch}</h2>
+    <Section title={<PanelTitle icon="user" title={m.deliveries.dispatch} source="delivery-dispatch" />} testId="dispatch-panel">
       <QueryState state={toUiState(query)} onRetry={() => void query.refetch()}>
         {(d) => (
-          <>
-            <Facts
+          <div className="space-y-5">
+            <div className="flex flex-wrap items-center gap-2">
+              <StatusBadge tone={dispatchTone(d.state)} testId="dispatch-state">
+                {label(m.deliveries.dispatchState, d.state)}
+              </StatusBadge>
+            </div>
+            <FieldList
               rows={[
-                [m.deliveries.state, <span key="s" data-testid="dispatch-state">{label(m.deliveries.dispatchState, d.state)}</span>],
-                [m.deliveries.rider, d.assignment?.riderId ? <Link key="r" className="link" to={`/riders/${encodeURIComponent(d.assignment.riderId)}`}>{d.assignment.riderId}</Link> : m.deliveries.noAssignment],
+                [m.deliveries.rider, d.assignment?.riderId ? <Person key="r" id={d.assignment.riderId} to={`/riders/${encodeURIComponent(d.assignment.riderId)}`} /> : m.deliveries.noAssignment],
                 [m.deliveries.assignedAt, when(d.assignment?.assignedAt)],
                 [m.deliveries.pickedUpAt, when(d.assignment?.pickedUpAt)],
                 [m.deliveries.mfc, text(d.mfcId)],
@@ -504,42 +588,48 @@ function DispatchPanel({ deliveryId }: { readonly deliveryId: string }) {
             <StickyWhen show={d.state === 'ASSIGNED'}>
               <CancellationForm dispatch={d} />
             </StickyWhen>
-            <h3 className="text-sm font-bold">{m.deliveries.attempts}</h3>
-            {(d.attempts ?? []).length === 0 ? (
-              <p className="text-sm text-base-content/60">{m.deliveries.noAttempts}</p>
-            ) : (
-              <ul className="text-sm">
-                {(d.attempts ?? []).map((a, n) => (
-                  <li key={a.attemptId ?? `attempt-${n}`}>
-                    {`${when(a.startedAt)} · ${text(a.state)}${a.failureReason ? ` · ${label(m.deliveries.failureReasonName, a.failureReason)}` : ''}`}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </>
+            <div className="space-y-3">
+              <h3 className="text-sm font-bold">{m.deliveries.attempts}</h3>
+              {(d.attempts ?? []).length === 0 ? (
+                <p className="text-sm text-base-content/60">{m.deliveries.noAttempts}</p>
+              ) : (
+                <Timeline
+                  items={(d.attempts ?? []).map((a, n) => ({
+                    key: a.attemptId ?? `attempt-${n}`,
+                    tone: a.failureReason ? 'error' : 'info',
+                    title: `${text(a.state)}${a.failureReason ? ` · ${label(m.deliveries.failureReasonName, a.failureReason)}` : ''}`,
+                    meta: when(a.startedAt),
+                  }))}
+                />
+              )}
+            </div>
+          </div>
         )}
       </QueryState>
-    </div>
+    </Section>
   );
 }
 
 export function DeliveryDetailPage() {
   const { deliveryId = '' } = useParams();
+  // 상세(2026-11-18): 상세 머리(번호 + 컴플레인 기록) → 원천 두 칸(배송 수행 | 배차) — 상태는 원천마다 따로, 합치지 않는다
   return (
-    <section className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <PageHeader title={`${m.deliveries.deliveryId} ${deliveryId}`} />
-        <Link className="btn btn-sm ml-auto" to={`/rider-complaints/new?deliveryId=${encodeURIComponent(deliveryId)}`}>
-          {m.deliveries.recordComplaint}
-        </Link>
-      </div>
-      <div className="grid gap-4 lg:grid-cols-2">
+    <section className="max-w-7xl space-y-4">
+      <DetailHeader
+        back={{ to: '/deliveries', label: m.deliveries.back }}
+        title={`${m.deliveries.deliveryId} ${deliveryId}`}
+        summary={m.deliveries.detailSummary}
+        actions={
+          <Link className="btn btn-sm" to={`/rider-complaints/new?deliveryId=${encodeURIComponent(deliveryId)}`}>
+            <Icon name="flag" className="h-4 w-4" />
+            {m.deliveries.recordComplaint}
+          </Link>
+        }
+      />
+      <div className="grid items-start gap-4 xl:grid-cols-2">
         <ExecutionPanel deliveryId={deliveryId} />
         <DispatchPanel deliveryId={deliveryId} />
       </div>
-      <Link className="link text-sm" to="/deliveries">
-        {m.deliveries.back}
-      </Link>
     </section>
   );
 }

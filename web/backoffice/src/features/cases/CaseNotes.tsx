@@ -82,51 +82,67 @@ export function CaseNotes({ caseId }: { readonly caseId: string }) {
   });
   const ok = draft.trim().length >= 1 && draft.trim().length <= 500;
   return (
-    <section className="space-y-2" aria-label={m.title}>
-      <h2 className="font-bold">{m.title}</h2>
-      <QueryState state={toUiState(query, (r) => (r.items ?? []).length === 0)} onRetry={() => void query.refetch()} emptyText={m.empty}>
-        {(r) => (
-          <ul className="space-y-1 text-sm">
-            {(r.items ?? []).map((n) => (
-              <li key={n.noteId} className="space-y-1 rounded-box border border-base-300 bg-base-100 shadow-sm p-2" data-testid="case-note" data-masked={n.masked ? 'true' : 'false'}>
-                <div className="flex flex-wrap items-center gap-2 text-xs text-base-content/60">
-                  <span>{when(n.createdAt)}</span>
-                  <span className="font-mono">{text(n.authorId)}</span>
-                </div>
-                {n.masked ? (
-                  <p className="italic text-base-content/60">{m.maskedLine(text(n.maskedBy), text(n.maskReason))}</p>
-                ) : (
-                  <p className="whitespace-pre-wrap">{n.text}</p>
-                )}
-                {admin && !n.masked && <MaskForm caseId={caseId} note={n} onDone={refresh} />}
-              </li>
-            ))}
-          </ul>
+    // 대화 줄처럼(2026-11-18): 머리글자 동그라미 + 말풍선, 맨 아래 입력 상자
+    <section className="overflow-hidden rounded-box border border-base-300 bg-base-100 shadow-sm" aria-label={m.title}>
+      <div className="flex items-center gap-2 border-b border-base-300 px-5 py-3">
+        <h2 className="font-semibold">{m.title}</h2>
+        {query.data && <span className="badge badge-ghost badge-sm">{(query.data.items ?? []).length}</span>}
+      </div>
+      <div className="space-y-4 px-5 py-4">
+        <QueryState state={toUiState(query, (r) => (r.items ?? []).length === 0)} onRetry={() => void query.refetch()} emptyText={m.empty}>
+          {(r) => (
+            <ul className="space-y-4 text-sm">
+              {(r.items ?? []).map((n) => (
+                <li key={n.noteId} className="flex gap-3" data-testid="case-note" data-masked={n.masked ? 'true' : 'false'}>
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-base-300 text-xs font-bold text-base-content/70" aria-hidden="true">
+                    {initial(n.authorId)}
+                  </span>
+                  <div className="min-w-0 flex-1 space-y-1">
+                    <div className="flex flex-wrap items-baseline gap-2 text-xs">
+                      <span className="font-mono font-semibold text-base-content/80">{text(n.authorId)}</span>
+                      <span className="text-base-content/50">{when(n.createdAt)}</span>
+                    </div>
+                    {n.masked ? (
+                      <p className="rounded-box border border-dashed border-base-300 px-3 py-2 italic text-base-content/60">{m.maskedLine(text(n.maskedBy), text(n.maskReason))}</p>
+                    ) : (
+                      <p className="whitespace-pre-wrap rounded-box rounded-tl-none bg-base-200/70 px-3 py-2">{n.text}</p>
+                    )}
+                    {admin && !n.masked && <MaskForm caseId={caseId} note={n} onDone={refresh} />}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </QueryState>
+        {canWrite && (
+          <form
+            className="space-y-2 border-t border-base-300 pt-4"
+            aria-label={m.add}
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!ok) return;
+              if (add.phase.kind === 'rejected' || add.phase.kind === 'done') add.reset();
+              void add.run(null);
+            }}
+          >
+            <label className="flex flex-col gap-1 text-xs text-base-content/60">
+              {m.newNote}
+              <textarea className="textarea textarea-sm w-full" rows={3} maxLength={500} value={draft} onChange={(e) => setDraft(e.target.value)} />
+            </label>
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+              <p className="text-xs text-warning">{m.piiHint}</p>
+              <p className="text-xs text-base-content/55">{m.noEdit}</p>
+              <button type="submit" className="btn btn-sm btn-primary ml-auto" disabled={!ok || add.busy}>
+                {m.add}
+              </button>
+            </div>
+            <CommandFeedback command={add}>{() => <span className="text-xs text-success">{m.added}</span>}</CommandFeedback>
+          </form>
         )}
-      </QueryState>
-      {canWrite && (
-        <form
-          className="space-y-1"
-          aria-label={m.add}
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (!ok) return;
-            if (add.phase.kind === 'rejected' || add.phase.kind === 'done') add.reset();
-            void add.run(null);
-          }}
-        >
-          <label className="flex flex-col gap-1 text-sm">
-            {m.newNote}
-            <textarea className="textarea textarea-sm w-full max-w-lg" maxLength={500} value={draft} onChange={(e) => setDraft(e.target.value)} />
-          </label>
-          <p className="text-xs text-warning">{m.piiHint}</p>
-          <p className="text-xs text-base-content/60">{m.noEdit}</p>
-          <button type="submit" className="btn btn-sm" disabled={!ok || add.busy}>
-            {m.add}
-          </button>
-          <CommandFeedback command={add}>{() => <span className="text-xs text-success">{m.added}</span>}</CommandFeedback>
-        </form>
-      )}
+      </div>
     </section>
   );
 }
+
+/** 운영자 ID 머리글자(op- 앞머리는 뺀다) */
+const initial = (id: string | null | undefined) => (id ?? '').replace(/^op-/i, '').charAt(0).toUpperCase() || '?';

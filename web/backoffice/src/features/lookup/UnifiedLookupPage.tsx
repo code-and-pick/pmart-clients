@@ -17,7 +17,8 @@ import { messages } from '../../shared/messages';
 import { label, when, won } from '../../shared/ops';
 import { SourceStamps } from '../../shared/SourceStamps';
 import { FieldWork } from './FieldSection';
-import { PageHeader } from '../../shared/admin';
+import { ChipGroup, Notice, PageHeader } from '../../shared/admin';
+import { EmptyBox, Icon, type IconName } from './parts';
 
 const m = messages.lookup;
 
@@ -87,12 +88,13 @@ function show(key: string, v: unknown): string {
 
 function SummaryFacts({ summary, skip }: { readonly summary: Record<string, unknown> | undefined; readonly skip?: readonly string[] }) {
   const entries = Object.entries(summary ?? {}).filter(([k]) => !skip?.includes(k));
+  // 이름은 위에 작게, 값은 아래(Shopify 상세처럼) — 넓으면 두 칸
   return (
-    <dl className="grid grid-cols-[9rem_1fr] gap-x-4 gap-y-1 text-sm">
+    <dl className="grid gap-x-6 gap-y-2.5 text-sm sm:grid-cols-2">
       {entries.map(([k, v]) => (
-        <div key={k} className="contents">
-          <dt className="opacity-70">{m.field[k] ?? k}</dt>
-          <dd className="break-all">{show(k, v)}</dd>
+        <div key={k} className="min-w-0 space-y-0.5">
+          <dt className="text-xs text-base-content/50">{m.field[k] ?? k}</dt>
+          <dd className="break-all font-medium">{show(k, v)}</dd>
         </div>
       ))}
     </dl>
@@ -101,23 +103,36 @@ function SummaryFacts({ summary, skip }: { readonly summary: Record<string, unkn
 
 function SourceLine({ source }: { readonly source: SourceStamp | undefined }) {
   if (!source) return null;
-  return <p className="text-xs text-base-content/60">{`${source.system} · ${source.asOf.asOf ? when(source.asOf.asOf) : messages.none}`}</p>;
+  return <p className="text-xs text-base-content/45">{`${source.system} · ${source.asOf.asOf ? when(source.asOf.asOf) : messages.none}`}</p>;
 }
 
-function Section({ title, failed, children }: { readonly title: string; readonly failed: boolean; readonly children: ReactNode }) {
+const SECTION_ICON: Readonly<Record<string, IconName>> = { ORDER: 'box', FIELD: 'store', DELIVERY: 'truck', DISPATCH: 'user', CLAIM: 'return', INQUIRY: 'doc', CASE: 'flag', CUSTOMER: 'user' };
+
+/** 원천 칸 — 머리(그림·이름·건수) + 내용. 실패·권한 없음이면 건수 없이 "조회 실패"(0건처럼 보이지 않게) */
+function Section({ title, icon, failed, count, children }: { readonly title: string; readonly icon: IconName; readonly failed: boolean; readonly count?: number; readonly children: ReactNode }) {
   return (
-    <section className="space-y-2 rounded-box border border-base-300 bg-base-100 shadow-sm p-4" aria-label={title}>
-      <h2 className="font-semibold">{title}</h2>
-      {failed ? (
-        <p role="alert" className="alert alert-warning alert-soft text-sm" data-state="source-failed">
-          {m.sourceFailed}
-        </p>
-      ) : (
-        children
-      )}
+    <section className="overflow-hidden rounded-box border border-base-300 bg-base-100 shadow-sm" aria-label={title}>
+      <div className="flex items-center gap-2 border-b border-base-300 bg-base-200/40 px-4 py-2.5">
+        <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary" aria-hidden="true">
+          <Icon name={icon} className="h-4 w-4" />
+        </span>
+        <h2 className="font-semibold">{title}</h2>
+        {!failed && count !== undefined && <span className="badge badge-sm badge-ghost ml-auto tabular-nums">{count}</span>}
+      </div>
+      <div className="space-y-3 px-4 py-3">
+        {failed ? (
+          <p role="alert" className="alert alert-warning alert-soft text-sm" data-state="source-failed">
+            {m.sourceFailed}
+          </p>
+        ) : (
+          children
+        )}
+      </div>
     </section>
   );
 }
+
+const Nothing = () => <p className="text-sm text-base-content/50">{m.none}</p>;
 
 export function UnifiedLookupPage() {
   const api = useApi();
@@ -140,46 +155,47 @@ export function UnifiedLookupPage() {
   // 422(못 찾는 종류)·400 은 코드 문구로 — 그 밖 실패는 QueryState(오류·권한 없음)
   const codeFailure = query.error instanceof ProblemFailure && (query.error.problem.code === 'UNSUPPORTED_LOOKUP' || query.error.problem.code === 'VALIDATION_FAILED') ? query.error : null;
 
+  // 화면(2026-11-18): 큰 검색 상자(종류 칩 + 번호) → 찾은 대상 띠 → 두 칸(왼쪽 주문·현장·접수 건, 오른쪽 배송·배차·클레임·문의)
   return (
-    <section className="max-w-5xl space-y-4">
+    <section className="max-w-7xl space-y-4">
       <PageHeader title={m.title} description={m.intro} />
       <form
-        className="flex flex-wrap items-end gap-2 rounded-box border border-base-300 bg-base-100 shadow-sm p-3 text-sm"
+        className="space-y-3 rounded-box border border-base-300 bg-base-100 px-4 py-4 shadow-sm"
         aria-label={m.search}
         onSubmit={(e) => {
           e.preventDefault();
           go(input.trim(), kindInput);
         }}
       >
-        <label className="flex flex-col gap-1">
-          {m.q}
-          <input className="input input-sm w-64 font-mono" maxLength={128} value={input} onChange={(e) => setInput(e.target.value)} />
-        </label>
-        <label className="flex flex-col gap-1">
-          {m.kind}
-          <select className="select select-sm w-36" value={kindInput} onChange={(e) => setKindInput(e.target.value as Kind)}>
-            {KINDS.map((k) => (
-              <option key={k} value={k}>
-                {m.kindName[k]}
-              </option>
-            ))}
-          </select>
-        </label>
-        <button type="submit" className="btn btn-sm btn-primary" disabled={!input.trim()}>
-          {m.search}
-        </button>
-        <p className="w-full text-xs text-base-content/60">{m.qHint}</p>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs font-medium text-base-content/55">{m.kind}</span>
+          <ChipGroup label={m.kind} value={kindInput} options={KINDS.map((k) => ({ value: k, label: m.kindName[k] ?? k }))} onChange={setKindInput} />
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <label className="input input-md min-w-0 flex-1">
+            <Icon name="search" className="h-5 w-5 text-base-content/40" />
+            <input aria-label={m.q} placeholder={m.q} className="font-mono" maxLength={128} value={input} onChange={(e) => setInput(e.target.value)} />
+          </label>
+          <button type="submit" className="btn btn-primary" disabled={!input.trim()}>
+            {m.search}
+          </button>
+        </div>
+        <p className="text-xs text-base-content/55">{m.qHint}</p>
       </form>
-      {q &&
-        (codeFailure ? (
+      {q ? (
+        codeFailure ? (
           <FailureAlert failure={codeFailure} />
         ) : (
           <QueryState state={toUiState(query)} onRetry={() => void query.refetch()}>
             {(view) => <LookupResult view={view} onOpenOrder={(orderId) => go(orderId, 'ORDER')} />}
           </QueryState>
-        ))}
-      <p className="text-xs text-base-content/60">{m.piiNote}</p>
-      <p className="text-xs text-base-content/60">{m.notYet}</p>
+        )
+      ) : (
+        <EmptyBox icon="search">{m.startHint}</EmptyBox>
+      )}
+      <Notice>
+        {m.piiNote} {m.notYet}
+      </Notice>
     </section>
   );
 }
@@ -195,25 +211,33 @@ function LookupResult({ view, onOpenOrder }: { readonly view: LookupView; readon
   const of = (k: string) => matches.filter((x) => x.kind === k);
   const resolvedKind = view.resolved?.kind;
   const orderFailed = failed.has(SECTION_SYSTEM.ORDER!);
+  const fieldCount = matches.filter((x) => x.kind === 'FULFILLMENT' || x.kind === 'MFC_STOP').length;
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       <SourceStamps sources={view.sources} unavailableSources={view.unavailableSources} />
-      {resolvedKind && <p className="text-sm">{m.resolved(label(m.kindName, resolvedKind), view.resolved?.orderId ?? null)}</p>}
+      {resolvedKind && (
+        <div className="flex items-center gap-3 rounded-box border border-primary/30 bg-primary/5 px-4 py-3">
+          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary" aria-hidden="true">
+            <Icon name={SECTION_ICON[resolvedKind] ?? 'search'} className="h-5 w-5" />
+          </span>
+          <p className="text-sm font-medium">{m.resolved(label(m.kindName, resolvedKind), view.resolved?.orderId ?? null)}</p>
+        </div>
+      )}
       {matches.length === 0 && failed.size === 0 ? (
-        <p data-state="empty" className="p-4 text-base-content/60">
-          {m.notFound}
-        </p>
+        <div data-state="empty">
+          <EmptyBox icon="search">{m.notFound}</EmptyBox>
+        </div>
       ) : resolvedKind === 'CUSTOMER' ? (
-        <Section title={m.customerOrders} failed={orderFailed}>
+        <Section title={m.customerOrders} icon="user" failed={orderFailed} count={of('ORDER').length}>
           {of('ORDER').length === 0 ? (
-            <p className="opacity-70">{m.none}</p>
+            <Nothing />
           ) : (
-            <ul className="space-y-2">
+            <ul className="divide-y divide-base-300/70">
               {of('ORDER').map((o) => (
-                <li key={o.id} data-testid="customer-order" className="space-y-1 border-b border-base-200 pb-2">
+                <li key={o.id} data-testid="customer-order" className="space-y-2 py-3 first:pt-0 last:pb-0">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-mono">{o.id}</span>
-                    <button type="button" className="btn btn-xs" onClick={() => onOpenOrder(o.id ?? '')}>
+                    <span className="font-mono font-semibold">{o.id}</span>
+                    <button type="button" className="btn btn-xs btn-outline btn-primary ml-auto" onClick={() => onOpenOrder(o.id ?? '')}>
                       {m.openOrder}
                     </button>
                   </div>
@@ -224,34 +248,41 @@ function LookupResult({ view, onOpenOrder }: { readonly view: LookupView; readon
           )}
         </Section>
       ) : (
-        <>
-          <Section title={m.section.ORDER!} failed={orderFailed}>
-            {of('ORDER').length === 0 ? <p className="opacity-70">{m.none}</p> : of('ORDER').map((o) => <MatchCard key={`ORDER-${o.id}`} match={o} />)}
-          </Section>
-          {/* 현장(MFC) — 주문 아래. 실패는 "조회 실패", 기록 없으면 없음 */}
-          <Section title={m.section.FIELD!} failed={failed.has(SECTION_SYSTEM.FIELD!)}>
-            <FieldWork matches={matches} />
-          </Section>
-          <div className="grid gap-3 md:grid-cols-2">
+        <div className="grid items-start gap-4 lg:grid-cols-3">
+          <div className="min-w-0 space-y-4 lg:col-span-2">
+            <Section title={m.section.ORDER!} icon="box" failed={orderFailed} count={of('ORDER').length}>
+              {of('ORDER').length === 0 ? <Nothing /> : of('ORDER').map((o) => <MatchCard key={`ORDER-${o.id}`} match={o} />)}
+            </Section>
+            {/* 현장(MFC) — 주문 아래. 실패는 "조회 실패", 기록 없으면 없음 */}
+            <Section title={m.section.FIELD!} icon="store" failed={failed.has(SECTION_SYSTEM.FIELD!)} count={fieldCount}>
+              <FieldWork matches={matches} />
+            </Section>
+            {/* 사건은 열린 것과 닫힌 것(최근 20건)을 나눠 — 상태로만 가른다 */}
+            <Section title={m.section.CASE!} icon="flag" failed={failed.has(SECTION_SYSTEM.CASE!)} count={of('CASE').length}>
+              <div className="grid gap-4 md:grid-cols-2">
+                {(['open', 'closed'] as const).map((part) => {
+                  const list = of('CASE').filter((c) => (c.summary?.state === 'CLOSED') === (part === 'closed'));
+                  return (
+                    <div key={part} className="space-y-2" data-testid={`cases-${part}`}>
+                      <h3 className="flex items-center gap-2 text-sm font-semibold">
+                        <span className={`h-2 w-2 rounded-full ${part === 'open' ? 'bg-warning' : 'bg-base-300'}`} aria-hidden="true" />
+                        {m.caseParts[part]}
+                      </h3>
+                      {list.length === 0 ? <Nothing /> : list.map((x) => <MatchCard key={`CASE-${x.id}`} match={x} />)}
+                    </div>
+                  );
+                })}
+              </div>
+            </Section>
+          </div>
+          <div className="min-w-0 space-y-4">
             {SECTIONS.map((s) => (
-              <Section key={s} title={m.section[s]!} failed={failed.has(SECTION_SYSTEM[s]!)}>
-                {of(s).length === 0 ? <p className="opacity-70">{m.none}</p> : of(s).map((x) => <MatchCard key={`${s}-${x.id}`} match={x} />)}
+              <Section key={s} title={m.section[s]!} icon={SECTION_ICON[s] ?? 'doc'} failed={failed.has(SECTION_SYSTEM[s]!)} count={of(s).length}>
+                {of(s).length === 0 ? <Nothing /> : of(s).map((x) => <MatchCard key={`${s}-${x.id}`} match={x} />)}
               </Section>
             ))}
           </div>
-          {/* 사건은 열린 것과 닫힌 것(최근 20건)을 나눠 — 상태로만 가른다 */}
-          <Section title={m.section.CASE!} failed={failed.has(SECTION_SYSTEM.CASE!)}>
-            {(['open', 'closed'] as const).map((part) => {
-              const list = of('CASE').filter((c) => (c.summary?.state === 'CLOSED') === (part === 'closed'));
-              return (
-                <div key={part} className="space-y-2" data-testid={`cases-${part}`}>
-                  <h3 className="text-sm font-semibold">{m.caseParts[part]}</h3>
-                  {list.length === 0 ? <p className="opacity-70">{m.none}</p> : list.map((x) => <MatchCard key={`CASE-${x.id}`} match={x} />)}
-                </div>
-              );
-            })}
-          </Section>
-        </>
+        </div>
       )}
     </div>
   );
@@ -260,11 +291,11 @@ function LookupResult({ view, onOpenOrder }: { readonly view: LookupView; readon
 function MatchCard({ match }: { readonly match: Match }) {
   const path = match.id ? detailPath(match.kind, match.id) : null;
   return (
-    <div className="space-y-1" data-testid={`match-${match.kind ?? ''}`}>
+    <div className="space-y-2 rounded-box border border-base-300/70 bg-base-200/30 p-3" data-testid={`match-${match.kind ?? ''}`}>
       <div className="flex flex-wrap items-center gap-2">
-        <span className="font-mono">{match.id}</span>
+        <span className="font-mono font-semibold">{match.id}</span>
         {path && (
-          <Link className="link text-sm" to={path}>
+          <Link className="ml-auto text-sm text-primary hover:underline" to={path}>
             {m.detail}
           </Link>
         )}

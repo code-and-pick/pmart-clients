@@ -14,7 +14,7 @@ export function ContentRegistration({ value }: { readonly value: ContentRegistra
   if (r !== 'NEW' && r !== 'UPDATE') return <span data-registration="none">{m.none}</span>;
   if (r === 'NEW') {
     return (
-      <span className="badge badge-ghost badge-sm" data-registration="NEW">
+      <span className="badge badge-info badge-soft badge-sm" data-registration="NEW">
         {m.contents.registrationName.NEW}
       </span>
     );
@@ -23,7 +23,7 @@ export function ContentRegistration({ value }: { readonly value: ContentRegistra
   const at = typeof value.publishedAt === 'string' && value.publishedAt ? formatSeoul(value.publishedAt) : '';
   return (
     <span className="inline-flex flex-wrap items-center gap-1" data-registration="UPDATE">
-      <span className="badge badge-warning badge-sm">{m.contents.registrationName.UPDATE}</span>
+      <span className="badge badge-warning badge-soft badge-sm">{m.contents.registrationName.UPDATE}</span>
       <span className="text-xs opacity-80">{m.contents.publishedNow(v, at)}</span>
     </span>
   );

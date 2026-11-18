@@ -10,7 +10,7 @@ import type { components } from '../../api/generated/case';
 import { useApi } from '../../app/ApiContext';
 import { messages } from '../../shared/messages';
 import { label, when } from '../../shared/ops';
-import { DataTable, PageHeader } from '../../shared/admin';
+import { DataTable, PageHeader, Section, StatCard } from '../../shared/admin';
 
 const m = messages.caseMetrics;
 type Kind = components['schemas']['CaseKind'];
@@ -39,108 +39,143 @@ export function CaseMetricsPage() {
     queryFn: () => request('GET', api.cases.GET('/cases/metrics', {})),
   });
   return (
-    <section className="max-w-4xl space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <PageHeader title={m.title} />
-        <button type="button" className="btn btn-ghost btn-sm" disabled={query.isFetching} onClick={() => void query.refetch()}>
-          {m.refresh}
-        </button>
-      </div>
-      <p className="text-sm text-base-content/60">{m.intro}</p>
+    <section className="max-w-6xl space-y-4">
+      <PageHeader
+        title={m.title}
+        description={m.intro}
+        actions={
+          <button type="button" className="btn btn-sm border-base-300 bg-base-100" disabled={query.isFetching} onClick={() => void query.refetch()}>
+            {m.refresh}
+          </button>
+        }
+      />
       <QueryState state={toUiState(query)} onRetry={() => void query.refetch()}>
         {(r) => {
           const total = r.cases.reduce((s, c) => s + c.open, 0);
+          const overdueTotal = r.cases.reduce((s, c) => s + c.overdue, 0);
+          const awaitingTotal = r.inquiries.reduce((s, i) => s + (i.awaitingAnswer ?? 0), 0);
           return (
             <div className="space-y-4">
               <p className="text-xs text-base-content/60" data-testid="metrics-as-of">
                 {m.asOf(when(r.asOf))}
               </p>
+              {/* 위 숫자 카드(2026-11-18) — 서버 건수를 더한 것만 */}
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                <StatCard label={m.cardOpen} value={total} />
+                <StatCard label={m.cardOverdue} value={overdueTotal} {...(overdueTotal > 0 ? { tone: 'error' as const, to: '/cases?tab=overdue' } : {})} />
+                <StatCard label={m.pendingHandovers} value={r.pendingHandovers} {...(r.pendingHandovers > 0 ? { tone: 'warning' as const } : {})} />
+                <StatCard label={m.inquiries} value={awaitingTotal} />
+              </div>
 
-              <h2 className="font-bold">{m.cases}</h2>
-              {r.cases.length === 0 ? (
-                <p className="text-sm text-base-content/60">{m.noOpenCases}</p>
-              ) : (
-                <DataTable>
-                  <thead>
-                    <tr>
-                      <th>{m.kind}</th>
-                      <th>{m.open}</th>
-                      <th>{m.unassigned}</th>
-                      <th>{m.overdue}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {r.cases.map((c) => {
-                      const listable = LISTABLE.includes(c.kind);
-                      const to = (tab: string) => (listable ? `/cases?${new URLSearchParams({ tab, kind: c.kind }).toString()}` : undefined);
-                      return (
-                        <tr key={c.kind} data-testid="metrics-case" data-kind={c.kind}>
-                          <td>{label(messages.cases.kindName, c.kind)}</td>
-                          <td>
-                            <Count n={c.open} />
-                          </td>
-                          <td>{m.ofOpen(c.unassigned, c.open)}</td>
-                          <td>
-                            <Count n={c.overdue} danger to={to('overdue')} testId="metrics-overdue" />
-                            <span className="opacity-60">{` / ${c.open}`}</span>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                  <tfoot>
-                    <tr>
-                      <td>{m.total}</td>
-                      <td>{total}</td>
-                      <td />
-                      <td />
-                    </tr>
-                  </tfoot>
-                </DataTable>
-              )}
+              <div className="grid items-start gap-4 lg:grid-cols-3">
+                <div className="min-w-0 lg:col-span-2">
+                  <Section title={m.cases}>
+                    {r.cases.length === 0 ? (
+                      <p className="text-sm text-base-content/60">{m.noOpenCases}</p>
+                    ) : (
+                      <DataTable>
+                        <thead>
+                          <tr>
+                            <th>{m.kind}</th>
+                            <th className="text-right">{m.open}</th>
+                            <th>{m.unassigned}</th>
+                            <th>{m.overdue}</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {r.cases.map((c) => {
+                            const listable = LISTABLE.includes(c.kind);
+                            const to = (tab: string) => (listable ? `/cases?${new URLSearchParams({ tab, kind: c.kind }).toString()}` : undefined);
+                            return (
+                              <tr key={c.kind} data-testid="metrics-case" data-kind={c.kind}>
+                                <td>{label(messages.cases.kindName, c.kind)}</td>
+                                <td className="text-right">
+                                  <Count n={c.open} />
+                                </td>
+                                <td>
+                                  <span className="text-sm">{m.ofOpen(c.unassigned, c.open)}</span>
+                                  <Bar n={c.unassigned} of={c.open} tone="bg-info" />
+                                </td>
+                                <td>
+                                  <Count n={c.overdue} danger to={to('overdue')} testId="metrics-overdue" />
+                                  <span className="opacity-60">{` / ${c.open}`}</span>
+                                  <Bar n={c.overdue} of={c.open} tone="bg-error" />
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                        <tfoot>
+                          <tr>
+                            <td>{m.total}</td>
+                            <td className="text-right">{total}</td>
+                            <td />
+                            <td />
+                          </tr>
+                        </tfoot>
+                      </DataTable>
+                    )}
+                  </Section>
+                </div>
 
-              <h2 className="font-bold">{m.obligations}</h2>
-              {r.obligations.length === 0 ? (
-                <p className="text-sm text-base-content/60">{m.noObligations}</p>
-              ) : (
-                <ul className="space-y-1 text-sm">
-                  {r.obligations.map((o) => (
-                    <li key={o.owner} className="rounded-box border border-base-300 bg-base-100 shadow-sm p-2" data-testid="metrics-obligation">
-                      {`${label(messages.cases.groupName, o.owner)} · ${m.open} `}
-                      <Count n={o.open} />
-                      {` · ${m.overdue} `}
-                      <Count n={o.overdue} danger />
-                      <span className="opacity-60">{` / ${o.open}`}</span>
-                    </li>
-                  ))}
-                </ul>
-              )}
+                <div className="min-w-0 space-y-4">
+                  <Section title={m.obligations}>
+                    {r.obligations.length === 0 ? (
+                      <p className="text-sm text-base-content/60">{m.noObligations}</p>
+                    ) : (
+                      <ul className="space-y-3 text-sm">
+                        {r.obligations.map((o) => (
+                          <li key={o.owner} data-testid="metrics-obligation">
+                            {`${label(messages.cases.groupName, o.owner)} · ${m.open} `}
+                            <Count n={o.open} />
+                            {` · ${m.overdue} `}
+                            <Count n={o.overdue} danger />
+                            <span className="opacity-60">{` / ${o.open}`}</span>
+                            <Bar n={o.overdue} of={o.open} tone="bg-error" />
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </Section>
 
-              <h2 className="font-bold">{m.handoversTitle}</h2>
-              <p className="rounded-box border border-base-300 bg-base-100 shadow-sm p-2 text-sm" data-testid="metrics-handovers">
-                {m.pendingHandovers}{' '}
-                <Count n={r.pendingHandovers} to="/cases/handovers?tab=unreceived" />
-              </p>
+                  <Section title={m.handoversTitle}>
+                    <p className="text-sm" data-testid="metrics-handovers">
+                      {m.pendingHandovers} <Count n={r.pendingHandovers} to="/cases/handovers?tab=unreceived" />
+                    </p>
+                  </Section>
 
-              <h2 className="font-bold">{m.inquiries}</h2>
-              <ul className="space-y-1 text-sm">
-                {(['CUSTOMER', 'RIDER'] as const).map((t) => {
-                  const row = r.inquiries.find((i) => i.requesterType === t);
-                  const n = row?.awaitingAnswer ?? 0;
-                  return (
-                    <li key={t} className="rounded-box border border-base-300 bg-base-100 shadow-sm p-2" data-testid="metrics-inquiry" data-type={t}>
-                      {`${m.inquiryName[t]} · ${m.awaiting} `}
-                      <Count n={n} to={`${t === 'RIDER' ? '/rider-inquiries' : '/inquiries'}?status=RECEIVED`} />
-                      {row?.oldestReceivedAt && <span className="opacity-70">{` · ${m.oldest(when(row.oldestReceivedAt))}`}</span>}
-                    </li>
-                  );
-                })}
-              </ul>
+                  <Section title={m.inquiries}>
+                    <ul className="divide-y divide-base-300/70 text-sm">
+                      {(['CUSTOMER', 'RIDER'] as const).map((t) => {
+                        const row = r.inquiries.find((i) => i.requesterType === t);
+                        const n = row?.awaitingAnswer ?? 0;
+                        return (
+                          <li key={t} className="py-2 first:pt-0 last:pb-0" data-testid="metrics-inquiry" data-type={t}>
+                            {`${m.inquiryName[t]} · ${m.awaiting} `}
+                            <Count n={n} to={`${t === 'RIDER' ? '/rider-inquiries' : '/inquiries'}?status=RECEIVED`} />
+                            {row?.oldestReceivedAt && <span className="block text-xs opacity-70">{` · ${m.oldest(when(row.oldestReceivedAt))}`}</span>}
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </Section>
+                </div>
+              </div>
               <p className="text-xs text-base-content/60">{m.noRates}</p>
             </div>
           );
         }}
       </QueryState>
     </section>
+  );
+}
+
+/** 건수 막대(전체 중 몇 건) — 전체가 0 이면 그리지 않는다 */
+function Bar({ n, of, tone }: { readonly n: number; readonly of: number; readonly tone: string }) {
+  if (of <= 0) return null;
+  return (
+    <span className="mt-1 block h-1.5 w-full max-w-40 overflow-hidden rounded-full bg-base-200" aria-hidden="true">
+      <span className={`block h-full rounded-full ${tone}`} style={{ width: `${Math.min(100, (n / of) * 100)}%` }} />
+    </span>
   );
 }

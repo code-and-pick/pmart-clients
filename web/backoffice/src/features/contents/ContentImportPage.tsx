@@ -1,4 +1,5 @@
 // 콘텐츠 일괄 등록(seed-v1 zip) → 상품별 결과 → 제출 가능한 초안 제출 준비 → DISPLAY 승인.
+// 화면(2026-11-18 사용자 "밋밋하다"): 올리기는 단계 표시 + 점선 파일 상자, 배치는 머리(상태 배지)·단계·요약 카드 → 한 카드 안 행 표(상품명 굵게·초안 ID 작게, 결과·제출 여부 색 배지) + 아래 제출 줄.
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useParams } from 'react-router';
 
@@ -10,10 +11,11 @@ import { messages as m } from '../../shared/messages';
 import { QueryState } from '@pmart/web-ui';
 import { toUiState } from '@pmart/web-ui';
 import { useCommand } from '@pmart/web-ui';
-import { BatchApprovals, multipart, ZipUpload } from '../products/ProductImportPage';
+import { BATCH_TONE, BatchApprovals, multipart, UploadLayout, ZipUpload } from '../products/ProductImportPage';
 import { ContentRegistration } from './ContentRegistration';
 import { type ImportItem, rowStatus, type RowStatus, rowSummary } from './importRowStatus';
-import { DataTable, PageHeader } from '../../shared/admin';
+import { PageHeader, StatusBadge, type Tone } from '../../shared/admin';
+import { MiniStat, Steps, tableClass } from '../products/parts';
 
 export function NewContentImportPage() {
   const api = useApi();
@@ -30,11 +32,10 @@ export function NewContentImportPage() {
   return (
     <section className="space-y-4">
       <PageHeader title={m.contents.importTitle} />
-      <ZipUpload
-        busy={upload.busy}
-        onUpload={(file) => void upload.run(file)}
-      />
-      <CommandFeedback command={upload} />
+      <UploadLayout steps={m.contents.importSteps} intro={m.contents.importIntro}>
+        <ZipUpload busy={upload.busy} onUpload={(file) => void upload.run(file)} />
+        <CommandFeedback command={upload} />
+      </UploadLayout>
     </section>
   );
 }
@@ -59,63 +60,77 @@ export function ContentImportPage() {
 
   return (
     <section className="space-y-4">
-      <PageHeader title={m.products.batch(batchId)} />
+      <PageHeader
+        back={{ to: '/contents/import', label: m.contents.importTitle }}
+        title={m.products.batch(batchId)}
+        actions={query.data ? <StatusBadge tone={BATCH_TONE[query.data.state] ?? 'ghost'}>{m.contents.batchStateName[query.data.state] ?? query.data.state}</StatusBadge> : null}
+      />
       <QueryState state={toUiState(query)} onRetry={() => void query.refetch()}>
         {(b) => (
           <>
-            <p className="text-sm">{`${b.state} · ${b.productCount}`}</p>
-            <p role="status" data-testid="row-summary" className="text-sm">
-              {rowSummary(b.items ?? [])}
-            </p>
-            <DataTable>
-              <thead>
-                <tr>
-                  <th>{m.contents.rowHead.draft}</th>
-                  <th>{m.contents.rowHead.sourceKey}</th>
-                  <th>{m.contents.rowHead.outcome}</th>
-                  <th>{m.contents.rowHead.registration}</th>
-                  <th>{m.contents.rowHead.name}</th>
-                  <th>{m.contents.rowHead.status}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {(b.items ?? []).map((it, i) => {
-                  const st = rowStatus(it);
-                  return (
-                    <tr key={it.draftId ?? i} data-row-kind={st.kind}>
-                      <td>
-                        {it.draftId ? (
-                          <Link className="link" to={`/contents/drafts/${encodeURIComponent(it.draftId)}`}>
-                            {it.draftId}
-                          </Link>
-                        ) : (
-                          m.none
-                        )}
-                      </td>
-                      <td>{it.sourceKey ?? m.none}</td>
-                      <td>{it.outcome ? m.contents.outcome[it.outcome] : m.none}</td>
-                      <td>
-                        <ContentRegistration value={it.draft ?? {}} />
-                      </td>
-                      <td>{it.draft?.input?.name ?? m.none}</td>
-                      <td>
-                        <RowStatusView status={st} />
-                      </td>
+            <Steps steps={m.contents.importSteps} now={b.state === 'UPLOADED' ? 1 : 3} />
+            <div className="grid gap-3 sm:grid-cols-4">
+              <MiniStat label={m.contents.statProducts} value={b.productCount} />
+              <div className="flex items-center rounded-box border border-base-300 bg-base-100 px-4 py-3 shadow-sm sm:col-span-3">
+                <p role="status" data-testid="row-summary" className="text-sm">
+                  {rowSummary(b.items ?? [])}
+                </p>
+              </div>
+            </div>
+            <div className="overflow-hidden rounded-box border border-base-300 bg-base-100 shadow-sm">
+              <div className="overflow-x-auto">
+                <table className={tableClass}>
+                  <thead>
+                    <tr>
+                      <th>{m.contents.rowHead.name}</th>
+                      <th>{m.contents.rowHead.sourceKey}</th>
+                      <th>{m.contents.rowHead.outcome}</th>
+                      <th>{m.contents.rowHead.registration}</th>
+                      <th>{m.contents.rowHead.status}</th>
                     </tr>
-                  );
-                })}
-              </tbody>
-            </DataTable>
-            {b.state === 'UPLOADED' && (
-              <button
-                type="button"
-                className="btn btn-sm"
-                disabled={submit.busy || submit.phase.kind === 'done'}
-                onClick={() => void submit.run(null)}
-              >
-                {m.products.submitBatch}
-              </button>
-            )}
+                  </thead>
+                  <tbody>
+                    {(b.items ?? []).map((it, i) => {
+                      const st = rowStatus(it);
+                      return (
+                        <tr key={it.draftId ?? i} data-row-kind={st.kind} className="align-top">
+                          <td className="min-w-48">
+                            <p className="font-medium">{it.draft?.input?.name ?? m.none}</p>
+                            {it.draftId ? (
+                              <Link className="font-mono text-xs text-base-content/50 hover:text-primary hover:underline" to={`/contents/drafts/${encodeURIComponent(it.draftId)}`}>
+                                {it.draftId}
+                              </Link>
+                            ) : (
+                              <span className="text-xs text-base-content/40">{m.none}</span>
+                            )}
+                          </td>
+                          <td className="font-mono text-xs">{it.sourceKey ?? m.none}</td>
+                          <td>{it.outcome ? <span className={`badge badge-sm badge-soft ${OUTCOME_CLASS[it.outcome] ?? ''}`}>{m.contents.outcome[it.outcome]}</span> : m.none}</td>
+                          <td>
+                            <ContentRegistration value={it.draft ?? {}} />
+                          </td>
+                          <td>
+                            <RowStatusView status={st} />
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              {b.state === 'UPLOADED' && (
+                <div className="flex justify-end border-t border-base-300 bg-base-200/40 px-5 py-3">
+                  <button
+                    type="button"
+                    className="btn btn-primary btn-sm"
+                    disabled={submit.busy || submit.phase.kind === 'done'}
+                    onClick={() => void submit.run(null)}
+                  >
+                    {m.products.submitBatch}
+                  </button>
+                </div>
+              )}
+            </div>
             <CommandFeedback command={submit}>
               {(r) => <ExcludedList ids={r.excludedDraftIds ?? []} items={b.items ?? []} />}
             </CommandFeedback>
@@ -129,21 +144,22 @@ export function ContentImportPage() {
   );
 }
 
-const KIND_CLASS: Record<RowStatus['kind'], string> = {
-  ready: 'text-success',
-  problems: 'text-error',
-  rejected: 'text-error',
-  none: 'text-error',
-  published: 'opacity-70',
-  locked: 'text-warning',
+const KIND_TONE: Record<RowStatus['kind'], Tone> = {
+  ready: 'success',
+  problems: 'error',
+  rejected: 'error',
+  none: 'error',
+  published: 'ghost',
+  locked: 'warning',
 };
+const OUTCOME_CLASS: Readonly<Record<string, string>> = { CREATED: 'badge-info', UPDATED: 'badge-warning', UNCHANGED: 'badge-ghost', LOCKED: 'badge-neutral' };
 
 function RowStatusView({ status }: { readonly status: RowStatus }) {
   return (
-    <div className="text-sm">
-      <span className={KIND_CLASS[status.kind]}>{status.text}</span>
+    <div className="space-y-1 text-sm">
+      <StatusBadge tone={KIND_TONE[status.kind]}>{status.text}</StatusBadge>
       {status.reasons.length > 0 && (
-        <ul className="list-disc pl-5">
+        <ul className="list-disc pl-5 text-xs text-error">
           {status.reasons.map((r, i) => (
             <li key={`${r}-${i}`}>{r}</li>
           ))}
@@ -157,7 +173,7 @@ function RowStatusView({ status }: { readonly status: RowStatus }) {
 function ExcludedList({ ids, items }: { readonly ids: readonly string[]; readonly items: readonly ImportItem[] }) {
   if (ids.length === 0) return null;
   return (
-    <div className="space-y-1 text-sm" aria-label={m.contents.excludedTitle(ids.length)}>
+    <div className="space-y-1 rounded-box border border-warning/40 bg-warning/5 px-4 py-3 text-sm" aria-label={m.contents.excludedTitle(ids.length)}>
       <p className="font-bold">{m.contents.excludedTitle(ids.length)}</p>
       <ul className="list-disc pl-5">
         {ids.map((id) => {

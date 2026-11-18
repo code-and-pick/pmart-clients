@@ -12,8 +12,9 @@ import type { components } from '../../api/generated/case';
 import { useApi } from '../../app/ApiContext';
 import { CommandFeedback } from '../../shared/Feedback';
 import { messages as m } from '../../shared/messages';
-import { Facts, isSeoulDate, label, seoulDayEnd, seoulDayStart, text, when } from '../../shared/ops';
-import { DataTable, PageHeader, SearchPanel, SearchRow } from '../../shared/admin';
+import { isSeoulDate, label, seoulDayEnd, seoulDayStart, text, when } from '../../shared/ops';
+import { ChipGroup, DataTable, DetailHeader, FieldList, PageHeader, SearchPanel, SearchRow, Section, type Tone } from '../../shared/admin';
+import { EmptyBox, Icon, IdLink, KindChip, ListFoot, Person, SideFields, When, type IconName } from '../lookup/parts';
 
 type ComplaintType = components['schemas']['RiderComplaintType'];
 type Summary = components['schemas']['RiderComplaintSummary'];
@@ -71,53 +72,63 @@ export function RiderComplaintTable({ riderId, deliveryId, complaintType, from, 
       </QueryState>
     );
   }
-  if (items.length === 0) return <p className="text-sm text-base-content/60">{m.complaints.empty}</p>;
+  if (items.length === 0)
+    return (
+      <EmptyBox icon="flag" listPart>
+        {m.complaints.empty}
+      </EmptyBox>
+    );
+  // 목록(2026-11-18 Shopify·Medusa 목록처럼): 첫 칸 종류(색 꼬리표) + 컴플레인 ID 작게, 라이더·기록자 머리글자, "N일 전"
   return (
     <>
       <DataTable>
         <thead>
           <tr>
-            <th>ID</th>
-            <th>{m.complaints.type}</th>
+            <th>{m.complaints.detailTitle}</th>
             <th>{m.complaints.riderId}</th>
             <th>{m.complaints.deliveryId}</th>
             <th>{m.complaints.orderId}</th>
-            <th>{m.complaints.recordedAt}</th>
             <th>{m.complaints.recordedBy}</th>
+            <th className="text-right">{m.complaints.recordedAt}</th>
           </tr>
         </thead>
         <tbody>
           {items.map((c) => (
             <tr key={c.complaintId} data-testid="complaint-row">
               <td>
-                <Link className="link" to={`/rider-complaints/${encodeURIComponent(c.complaintId)}`}>
-                  {c.complaintId}
-                </Link>
-              </td>
-              <td>{label(m.complaints.typeName, c.complaintType)}</td>
-              <td>
-                <Link className="link" to={`/riders/${encodeURIComponent(c.riderId)}`}>
-                  {c.riderId}
-                </Link>
+                <span className="block">
+                  <ComplaintType type={c.complaintType} />
+                </span>
+                <span className="mt-1 block font-normal">
+                  <IdLink id={c.complaintId} to={`/rider-complaints/${encodeURIComponent(c.complaintId)}`} />
+                </span>
               </td>
               <td>
-                <Link className="link" to={`/deliveries/${encodeURIComponent(c.deliveryId)}`}>
-                  {c.deliveryId}
-                </Link>
+                <Person id={c.riderId} to={`/riders/${encodeURIComponent(c.riderId)}`} />
               </td>
-              <td>{c.orderId ? <Link className="link" to={`/orders/${encodeURIComponent(c.orderId)}`}>{c.orderId}</Link> : m.none}</td>
-              <td>{when(c.recordedAt)}</td>
-              <td>{c.recordedBy}</td>
+              <td>
+                <IdLink id={c.deliveryId} to={`/deliveries/${encodeURIComponent(c.deliveryId)}`} />
+              </td>
+              <td>{c.orderId ? <IdLink id={c.orderId} to={`/orders/${encodeURIComponent(c.orderId)}`} /> : <span className="text-base-content/40">{m.none}</span>}</td>
+              <td>
+                <Person id={c.recordedBy} />
+              </td>
+              <td>
+                <When iso={c.recordedAt} align="right" />
+              </td>
             </tr>
           ))}
         </tbody>
       </DataTable>
-      {query.isFetchNextPageError && <p className="text-sm text-error">{m.complaints.moreFailed}</p>}
-      {query.hasNextPage && (
-        <button type="button" className="btn btn-sm" disabled={query.isFetchingNextPage} onClick={() => void query.fetchNextPage()}>
-          {m.complaints.more}
-        </button>
-      )}
+      <ListFoot>
+        <span className="text-base-content/55">{m.approvals.shown(items.length, !!query.hasNextPage)}</span>
+        {query.isFetchNextPageError && <span className="text-error">{m.complaints.moreFailed}</span>}
+        {query.hasNextPage && (
+          <button type="button" className="btn btn-sm" disabled={query.isFetchingNextPage} onClick={() => void query.fetchNextPage()}>
+            {m.complaints.more}
+          </button>
+        )}
+      </ListFoot>
     </>
   );
 }
@@ -162,14 +173,12 @@ export function RiderComplaintListPage() {
           <input aria-label={m.complaints.deliveryId} placeholder={m.complaints.deliveryId} className="input input-sm w-48" {...field('deliveryId')} />
         </SearchRow>
         <SearchRow label={m.complaints.type}>
-          <select aria-label={m.complaints.type} className="select select-sm w-36" {...field('complaintType')}>
-            <option value="">{m.complaints.any}</option>
-            {TYPES.map((t) => (
-              <option key={t} value={t}>
-                {m.complaints.typeName[t]}
-              </option>
-            ))}
-          </select>
+          <ChipGroup
+            label={m.complaints.type}
+            value={draft.complaintType}
+            options={[{ value: '', label: m.complaints.any }, ...TYPES.map((t) => ({ value: t, label: m.complaints.typeName[t] ?? t }))]}
+            onChange={(v) => setDraft((d) => ({ ...d, complaintType: v }))}
+          />
         </SearchRow>
         <SearchRow label={m.complaints.period}>
           <input type="date" aria-label={m.complaints.from} className="input input-sm w-40" {...field('from')} />
@@ -226,55 +235,76 @@ export function NewRiderComplaintPage() {
     onChange: (e: { target: { value: string } }) => setForm((f) => ({ ...f, [k]: e.target.value })),
   });
 
+  // 화면(2026-11-18): 두 칸 — 왼쪽 기록 카드(배송 → 종류 큰 선택 칸 → 연결 번호 → 메모), 오른쪽 안내 카드(서버가 정하는 것)
   return (
-    <section className="max-w-2xl space-y-4">
-      <PageHeader title={m.complaints.newTitle} description={m.complaints.newIntro} />
-      <form className="space-y-3 rounded-box border border-base-300 bg-base-100 shadow-sm p-4" onSubmit={submit} aria-label={m.complaints.newTitle}>
-        <label className="block text-sm">
-          {m.complaints.deliveryId}
-          <input className="input input-sm mt-1 w-full" required maxLength={64} {...field('deliveryId')} />
-        </label>
-        <fieldset className="text-sm" disabled={locked}>
-          <legend>{m.complaints.type}</legend>
-          <div className="mt-1 flex gap-4">
-            {TYPES.map((t) => (
-              <label key={t} className="flex items-center gap-1">
-                <input type="radio" className="radio radio-sm" name="complaintType" value={t} checked={form.complaintType === t} onChange={() => setForm((f) => ({ ...f, complaintType: t }))} />
-                {m.complaints.typeName[t]}
-              </label>
-            ))}
+    <section className="max-w-6xl space-y-4">
+      <PageHeader title={m.complaints.newTitle} description={m.complaints.newIntro} back={{ to: '/rider-complaints', label: m.complaints.back }} />
+      <div className="grid items-start gap-4 lg:grid-cols-3">
+        <form className="space-y-5 rounded-box border border-base-300 bg-base-100 p-5 shadow-sm lg:col-span-2" onSubmit={submit} aria-label={m.complaints.newTitle}>
+          <label className="block space-y-1 text-sm">
+            <span className="font-medium">{m.complaints.deliveryId}</span>
+            <input className="input input-sm w-full font-mono" required maxLength={64} {...field('deliveryId')} />
+          </label>
+          <fieldset className="space-y-2 text-sm" disabled={locked}>
+            <legend className="mb-2 font-medium">{m.complaints.type}</legend>
+            <div className="grid gap-2 sm:grid-cols-3">
+              {TYPES.map((t) => (
+                <label
+                  key={t}
+                  className={`flex cursor-pointer items-center gap-2 rounded-box border px-3 py-3 transition-colors ${form.complaintType === t ? 'border-primary bg-primary/5' : 'border-base-300 hover:border-base-content/30'}`}
+                >
+                  <input type="radio" className="radio radio-sm radio-primary" name="complaintType" value={t} checked={form.complaintType === t} onChange={() => setForm((f) => ({ ...f, complaintType: t }))} />
+                  <Icon name={TYPE_ICON[t] ?? 'flag'} className="h-4 w-4 text-base-content/60" />
+                  {m.complaints.typeName[t]}
+                </label>
+              ))}
+            </div>
+          </fieldset>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="block space-y-1 text-sm">
+              <span className="font-medium">{m.complaints.orderId}</span>
+              <input className="input input-sm w-full font-mono" maxLength={64} {...field('orderId')} />
+            </label>
+            <label className="block space-y-1 text-sm">
+              <span className="font-medium">{m.complaints.inquiryId}</span>
+              <input className="input input-sm w-full font-mono" maxLength={64} {...field('inquiryId')} />
+            </label>
           </div>
-        </fieldset>
-        <label className="block text-sm">
-          {m.complaints.orderId}
-          <input className="input input-sm mt-1 w-full" maxLength={64} {...field('orderId')} />
-        </label>
-        <label className="block text-sm">
-          {m.complaints.inquiryId}
-          <input className="input input-sm mt-1 w-full" maxLength={64} {...field('inquiryId')} />
-        </label>
-        <label className="block text-sm">
-          {m.complaints.note}
-          <textarea className="textarea mt-1 w-full" rows={3} maxLength={MAX_NOTE} value={form.note} disabled={locked} onChange={(e) => setForm((f) => ({ ...f, note: e.target.value }))} />
-        </label>
-        <p className="text-xs opacity-60">{`${m.complaints.noteHint} ${form.note.length} / ${MAX_NOTE}`}</p>
-        <button type="submit" className="btn btn-primary btn-sm" disabled={!ready || locked}>
-          {m.complaints.submit}
-        </button>
-        <CommandFeedback command={record} unknown={{ body: m.complaints.unknown }}>
-          {(c) => (
-            <p role="status" className="text-sm text-success">
-              {`${m.complaints.recorded} `}
-              <Link className="link" to={`/rider-complaints/${encodeURIComponent(c.complaintId)}`}>
-                {m.complaints.openDetail}
-              </Link>
-            </p>
-          )}
-        </CommandFeedback>
-      </form>
-      <Link className="link text-sm" to="/rider-complaints">
-        {m.complaints.back}
-      </Link>
+          <label className="block space-y-1 text-sm">
+            <span className="font-medium">{m.complaints.note}</span>
+            <textarea className="textarea w-full" rows={4} maxLength={MAX_NOTE} value={form.note} disabled={locked} onChange={(e) => setForm((f) => ({ ...f, note: e.target.value }))} />
+          </label>
+          <p className="flex justify-between gap-2 text-xs text-base-content/55">
+            <span>{m.complaints.noteHint}</span>
+            <span className="tabular-nums">{`${form.note.length} / ${MAX_NOTE}`}</span>
+          </p>
+          <div className="flex items-center justify-end gap-2 border-t border-base-300 pt-4">
+            <button type="submit" className="btn btn-primary btn-sm" disabled={!ready || locked}>
+              {m.complaints.submit}
+            </button>
+          </div>
+          <CommandFeedback command={record} unknown={{ body: m.complaints.unknown }}>
+            {(c) => (
+              <p role="status" className="alert alert-success alert-soft text-sm">
+                {`${m.complaints.recorded} `}
+                <Link className="link" to={`/rider-complaints/${encodeURIComponent(c.complaintId)}`}>
+                  {m.complaints.openDetail}
+                </Link>
+              </p>
+            )}
+          </CommandFeedback>
+        </form>
+        <aside className="space-y-3 rounded-box border border-base-300 bg-base-100 p-5 text-sm shadow-sm">
+          <h2 className="flex items-center gap-2 font-semibold">
+            <Icon name="doc" className="h-4 w-4 text-primary" />
+            {m.complaints.guideTitle}
+          </h2>
+          <ul className="space-y-2 text-base-content/70">
+            <li>{m.complaints.newIntro}</li>
+            <li>{m.complaints.intro}</li>
+          </ul>
+        </aside>
+      </div>
     </section>
   );
 }
@@ -286,31 +316,66 @@ export function RiderComplaintDetailPage() {
     queryKey: ['rider-complaints', 'detail', complaintId],
     queryFn: () => request('GET', api.cases.GET('/rider-complaints/{complaintId}', { params: { path: { complaintId } } })),
   });
+  // 상세(2026-11-18): 상세 머리(번호·종류·기록 시각) → 두 칸(왼쪽 내부 메모·연결된 것, 오른쪽 기록 정보)
   return (
-    <section className="max-w-3xl space-y-4">
-      <PageHeader title={`${m.complaints.detailTitle} ${complaintId}`} />
+    <section className="max-w-6xl space-y-4">
       <QueryState state={toUiState(query)} onRetry={() => void query.refetch()}>
         {(c) => (
-          <Facts
-            testId="complaint-detail"
-            rows={[
-              [m.complaints.type, label(m.complaints.typeName, c.complaintType)],
-              [m.complaints.riderId, <Link key="r" className="link" to={`/riders/${encodeURIComponent(c.riderId)}`}>{c.riderId}</Link>],
-              [m.complaints.deliveryId, <Link key="d" className="link" to={`/deliveries/${encodeURIComponent(c.deliveryId)}`}>{c.deliveryId}</Link>],
-              [m.complaints.orderId, c.orderId ? <Link key="o" className="link" to={`/orders/${encodeURIComponent(c.orderId)}`}>{c.orderId}</Link> : m.none],
-              [m.complaints.inquiryId, c.inquiryId ? <Link key="i" className="link" to={`/inquiries/${encodeURIComponent(c.inquiryId)}`}>{c.inquiryId}</Link> : m.none],
-              [m.complaints.caseId, text(c.caseId)],
-              [m.complaints.recordedAt, when(c.recordedAt)],
-              [m.complaints.recordedBy, c.recordedBy],
-              [m.complaints.source, c.source],
-              [m.complaints.note, <p key="n" className="whitespace-pre-wrap" data-testid="complaint-note">{text(c.note)}</p>],
-            ]}
-          />
+          <>
+            <DetailHeader
+              back={{ to: '/rider-complaints', label: m.complaints.back }}
+              title={`${m.complaints.detailTitle} ${complaintId}`}
+              badges={<ComplaintType type={c.complaintType} />}
+              summary={`${when(c.recordedAt)} · ${c.recordedBy}`}
+            />
+            <div className="grid items-start gap-4 lg:grid-cols-3" data-testid="complaint-detail">
+              <div className="min-w-0 space-y-4 lg:col-span-2">
+                <Section title={m.complaints.note}>
+                  <p className="whitespace-pre-wrap text-sm" data-testid="complaint-note">
+                    {text(c.note)}
+                  </p>
+                </Section>
+                <Section title={m.complaints.linked}>
+                  <FieldList
+                    rows={[
+                      [m.complaints.riderId, <Person key="r" id={c.riderId} to={`/riders/${encodeURIComponent(c.riderId)}`} />],
+                      [m.complaints.deliveryId, <Link key="d" className="font-mono text-primary hover:underline" to={`/deliveries/${encodeURIComponent(c.deliveryId)}`}>{c.deliveryId}</Link>],
+                      [m.complaints.orderId, c.orderId ? <Link key="o" className="font-mono text-primary hover:underline" to={`/orders/${encodeURIComponent(c.orderId)}`}>{c.orderId}</Link> : m.none],
+                      [m.complaints.inquiryId, c.inquiryId ? <Link key="i" className="font-mono text-primary hover:underline" to={`/inquiries/${encodeURIComponent(c.inquiryId)}`}>{c.inquiryId}</Link> : m.none],
+                      [m.complaints.caseId, text(c.caseId)],
+                    ]}
+                  />
+                </Section>
+              </div>
+              <aside className="min-w-0">
+                <Section title={m.complaints.recordInfo}>
+                  <SideFields
+                    rows={[
+                      [m.complaints.type, label(m.complaints.typeName, c.complaintType)],
+                      [m.complaints.recordedAt, <When key="t" iso={c.recordedAt} />],
+                      [m.complaints.recordedBy, <Person key="b" id={c.recordedBy} />],
+                      [m.complaints.source, c.source],
+                    ]}
+                  />
+                </Section>
+              </aside>
+            </div>
+          </>
         )}
       </QueryState>
-      <Link className="link text-sm" to="/rider-complaints">
-        {m.complaints.back}
-      </Link>
     </section>
+  );
+}
+
+const TYPE_TONE: Readonly<Record<string, Tone>> = { REPORT: 'warning', MISDELIVERY: 'info', DAMAGE: 'error' };
+const TYPE_ICON: Readonly<Record<string, IconName>> = { REPORT: 'flag', MISDELIVERY: 'truck', DAMAGE: 'box' };
+
+/** 컴플레인 종류 꼬리표(색 + 그림) */
+function ComplaintType({ type }: { readonly type: string | null | undefined }) {
+  if (!type) return <span className="text-base-content/40">{m.none}</span>;
+  return (
+    <KindChip tone={TYPE_TONE[type] ?? 'ghost'} icon={TYPE_ICON[type] ?? 'flag'}>
+      {label(m.complaints.typeName, type)}
+    </KindChip>
   );
 }

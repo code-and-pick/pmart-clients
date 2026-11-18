@@ -18,7 +18,8 @@ import { QueryState } from '@pmart/web-ui';
 import { toUiState } from '@pmart/web-ui';
 import { useCommand } from '@pmart/web-ui';
 import { ContentRegistration } from '../contents/ContentRegistration';
-import { DataTable, PageHeader } from '../../shared/admin';
+import { DataTable, DetailHeader, Section, StatusBadge, type Tone } from '../../shared/admin';
+import { KindChip, Person, SideFields, Timeline, When } from '../lookup/parts';
 
 const OPEN_REVIEW: readonly ReviewState[] = ['REVIEW_PENDING', 'EVIDENCE_REQUIRED'];
 const FINAL_EXECUTION: readonly ExecutionState[] = ['APPLIED', 'PARTIAL', 'REJECTED'];
@@ -167,9 +168,10 @@ export function ApprovalDetailPage() {
   // dataUpdatedAt 은 응답마다 바뀌므로 읽어 두면(관찰 대상) 매 응답 뒤 다시 그려 횟수 초과를 화면에 보인다.
   const lastFetchedAt = query.dataUpdatedAt;
 
+  // 화면(2026-11-18 Shopify 상세처럼): 상세 머리(번호·유형·심사·반영 꼬리표·요약) → 두 칸
+  // 왼쪽(넓게) = 승인 행·결정 이력·반영 확인, 오른쪽 = 심사(승인·반려)·요청 정보. 5축은 꼬리표를 따로 두고 합치지 않는다.
   return (
-    <section className="space-y-4" data-fetched-at={lastFetchedAt}>
-      <PageHeader title={`${m.approvals.detailTitle} ${approvalId}`} />
+    <section className="max-w-7xl space-y-4" data-fetched-at={lastFetchedAt}>
       <QueryState state={toUiState(query)} onRetry={() => void query.refetch()}>
         {(a) => {
           const open = OPEN_REVIEW.includes(a.reviewState ?? 'REVIEW_PENDING');
@@ -182,29 +184,25 @@ export function ApprovalDetailPage() {
           const watchedOut = watching && updatesSinceDecision >= pollConfig.maxAttempts;
           return (
             <>
-              <dl className="grid grid-cols-[8rem_1fr] gap-1 rounded-box border border-base-300 bg-base-100 shadow-sm p-4 text-sm">
-                <dt>{m.approvals.type}</dt>
-                <dd>{a.type ?? m.none}</dd>
-                <dt>{m.approvals.target}</dt>
-                <dd>{`${a.targetService ?? m.none} · ${a.targetRef ?? m.none}`}</dd>
-                <dt>{m.approvals.summary}</dt>
-                <dd>{a.summary ?? m.none}</dd>
-                <dt>{m.approvals.requester}</dt>
-                <dd>{a.requesterId ?? m.none}</dd>
-                <dt>{m.approvals.review}</dt>
-                <dd data-testid="review-state">{a.reviewState ? m.approvals.reviewState[a.reviewState] : m.none}</dd>
-                <dt>{m.approvals.execution}</dt>
-                <dd data-testid="execution-state">
-                  {a.executionState ? m.approvals.executionState[a.executionState] : m.none}
-                </dd>
-                <dt>{m.approvals.delivery}</dt>
-                <dd>{a.deliveryState ?? m.none}</dd>
-                <dt>{m.approvals.submittedAt}</dt>
-                <dd>{a.submittedAt ? formatSeoul(a.submittedAt) : m.none}</dd>
-              </dl>
+              <DetailHeader
+                back={{ to: '/approvals', label: m.approvals.title }}
+                title={`${m.approvals.detailTitle} ${approvalId}`}
+                badges={
+                  <>
+                    {a.type && <KindChip tone={TYPE_TONE[a.type] ?? 'ghost'}>{m.approvals.typeName[a.type] ?? a.type}</KindChip>}
+                    <StatusBadge tone={a.reviewState ? (REVIEW_TONE[a.reviewState] ?? 'ghost') : 'ghost'} testId="review-state">
+                      {`${m.approvals.review} · ${a.reviewState ? m.approvals.reviewState[a.reviewState] : m.none}`}
+                    </StatusBadge>
+                    <StatusBadge tone={a.executionState ? (EXEC_TONE[a.executionState] ?? 'ghost') : 'ghost'} testId="execution-state">
+                      {`${m.approvals.execution} · ${a.executionState ? m.approvals.executionState[a.executionState] : m.none}`}
+                    </StatusBadge>
+                  </>
+                }
+                summary={a.summary ?? m.none}
+              />
 
               {watching && !watchedOut && (
-                <div role="status" className="flex items-center gap-2 text-sm">
+                <div role="status" className="flex items-center gap-2 rounded-box bg-info/10 px-4 py-2.5 text-sm text-info">
                   <span className="loading loading-spinner loading-sm" />
                   {m.approvals.executionWaiting}
                 </div>
@@ -217,87 +215,6 @@ export function ApprovalDetailPage() {
                   </button>
                 </div>
               )}
-
-              <h2 className="font-bold">{m.approvals.lines}</h2>
-              <DataTable>
-                <thead>
-                  <tr>
-                    <th>{m.approvals.lineHead.key}</th>
-                    <th>{m.approvals.lineHead.qty}</th>
-                    <th>{m.approvals.lineHead.amount}</th>
-                    <th>{m.approvals.lineHead.detail}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(a.lines ?? []).map((l) => (
-                    <tr key={l.lineKey}>
-                      <td>{l.lineKey}</td>
-                      <td data-testid="line-qty">{lineQtyText(l)}</td>
-                      <td data-testid="line-amount">{lineAmountText(a.type, l)}</td>
-                      <td>
-                        {/* 가격 일괄 등록 행(백엔드 안내 2026-11-03 §1-5): 승인자가 이전 → 새 가격·구분·상품명을 바로 본다 */}
-                        <PriceLineAttributes attributes={l.attributes} />
-                        {a.type === 'GRANT' && <GrantLineAttributes attributes={l.attributes} />}
-                        {/* 상품 등록 행(BR-39 회신): 재업로드면 "기존 상품 갱신"을 먼저 보인다 */}
-                        {/* 콘텐츠 게시 행(BR-44 회신): 이미 게시된 콘텐츠를 바꾸는 건이면 "기존 게시 갱신" + 지금 게시본 버전 */}
-                        {a.targetService === 'product-content-service' ? (
-                          l.attributes && 'registration' in l.attributes && (
-                            <p className="text-sm" data-testid="content-registration">
-                              <ContentRegistration
-                                value={{
-                                  registration: typeof l.attributes['registration'] === 'string' ? l.attributes['registration'] : null,
-                                  publishedContentVersion: l.attributes['publishedContentVersion'],
-                                }}
-                              />
-                            </p>
-                          )
-                        ) : (
-                          <ProductLineAttributes attributes={l.attributes} />
-                        )}
-                        <code className="text-xs break-all">{l.attributes ? JSON.stringify(l.attributes) : ''}</code>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </DataTable>
-
-              {open && (
-                <div className="space-y-2 rounded-box border border-base-300 bg-base-100 shadow-sm p-4">
-                  {own && <p className="text-warning text-sm">{m.approvals.selfApproval}</p>}
-                  {grantToSelf && (
-                    <p role="note" className="text-warning text-sm" data-testid="grant-to-self">
-                      {m.approvals.grantToSelf}
-                    </p>
-                  )}
-                  <label className="floating-label block">
-                    <span>{m.approvals.commentLabel}</span>
-                    <input
-                      className="input input-sm w-full"
-                      maxLength={1000}
-                      value={comment}
-                      onChange={(e) => setComment(e.target.value)}
-                    />
-                  </label>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      className="btn btn-primary btn-sm"
-                      disabled={decide.busy || grantToSelf}
-                      onClick={() => void decide.run({ decision: 'APPROVE', version: a.version })}
-                    >
-                      {m.approvals.approve}
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn-sm"
-                      disabled={decide.busy || grantToSelf}
-                      onClick={() => void decide.run({ decision: 'REJECT', version: a.version })}
-                    >
-                      {m.approvals.reject}
-                    </button>
-                  </div>
-                </div>
-              )}
               <CommandFeedback command={decide}>
                 {() => (
                   <div role="status" className="alert alert-success alert-soft">
@@ -306,28 +223,132 @@ export function ApprovalDetailPage() {
                 )}
               </CommandFeedback>
 
-              {(a.decisions?.length ?? 0) > 0 && (
-                <>
-                  <h2 className="font-bold">{m.approvals.decisions}</h2>
-                  <ul className="text-sm">
-                    {(a.decisions ?? []).map((d, i) => (
-                      <li key={d.decisionId ?? i}>
-                        {`${d.decision} · ${d.approverId ?? m.none} · ${d.decidedAt ? formatSeoul(d.decidedAt) : m.none}${d.comment ? ` · ${d.comment}` : ''}`}
-                      </li>
-                    ))}
-                  </ul>
-                </>
-              )}
-              {(a.receipts?.length ?? 0) > 0 && (
-                <>
-                  <h2 className="font-bold">{m.approvals.receipts}</h2>
-                  <ul className="text-sm">
-                    {(a.receipts ?? []).map((r, i) => (
-                      <li key={r.receiptId ?? i}>{`${r.receiverService} · ${r.result}${r.reason ? ` · ${r.reason}` : ''}`}</li>
-                    ))}
-                  </ul>
-                </>
-              )}
+              <div className="grid items-start gap-4 lg:grid-cols-3">
+                <div className="min-w-0 space-y-4 lg:col-span-2">
+                  <Section title={m.approvals.lines} aside={<span className="text-base-content/55">{m.approvals.lineCount((a.lines ?? []).length)}</span>}>
+                    <DataTable>
+                      <thead>
+                        <tr>
+                          <th>{m.approvals.lineHead.key}</th>
+                          <th className="text-right">{m.approvals.lineHead.qty}</th>
+                          <th className="text-right">{m.approvals.lineHead.amount}</th>
+                          <th>{m.approvals.lineHead.detail}</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(a.lines ?? []).map((l) => (
+                          <tr key={l.lineKey}>
+                            <td className="font-mono">{l.lineKey}</td>
+                            <td className="text-right tabular-nums" data-testid="line-qty">{lineQtyText(l)}</td>
+                            <td className="text-right font-semibold tabular-nums" data-testid="line-amount">{lineAmountText(a.type, l)}</td>
+                            <td className="space-y-1">
+                              {/* 가격 일괄 등록 행(백엔드 안내 2026-11-03 §1-5): 승인자가 이전 → 새 가격·구분·상품명을 바로 본다 */}
+                              <PriceLineAttributes attributes={l.attributes} />
+                              {a.type === 'GRANT' && <GrantLineAttributes attributes={l.attributes} />}
+                              {/* 상품 등록 행(BR-39 회신): 재업로드면 "기존 상품 갱신"을 먼저 보인다 */}
+                              {/* 콘텐츠 게시 행(BR-44 회신): 이미 게시된 콘텐츠를 바꾸는 건이면 "기존 게시 갱신" + 지금 게시본 버전 */}
+                              {a.targetService === 'product-content-service' ? (
+                                l.attributes && 'registration' in l.attributes && (
+                                  <p className="text-sm" data-testid="content-registration">
+                                    <ContentRegistration
+                                      value={{
+                                        registration: typeof l.attributes['registration'] === 'string' ? l.attributes['registration'] : null,
+                                        publishedContentVersion: l.attributes['publishedContentVersion'],
+                                      }}
+                                    />
+                                  </p>
+                                )
+                              ) : (
+                                <ProductLineAttributes attributes={l.attributes} />
+                              )}
+                              {l.attributes && (
+                                <details className="text-xs">
+                                  <summary className="cursor-pointer text-base-content/50">{m.approvals.rawAttributes}</summary>
+                                  <code className="mt-1 block break-all rounded bg-base-200 p-2">{JSON.stringify(l.attributes)}</code>
+                                </details>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </DataTable>
+                  </Section>
+
+                  {(a.decisions?.length ?? 0) > 0 && (
+                    <Section title={m.approvals.decisions}>
+                      <Timeline
+                        items={(a.decisions ?? []).map((d, i) => ({
+                          key: d.decisionId ?? String(i),
+                          tone: d.decision === 'APPROVE' ? 'success' : d.decision === 'REJECT' ? 'error' : 'neutral',
+                          title: `${DECISION_NAME[d.decision ?? ''] ?? d.decision ?? m.none} · ${d.approverId ?? m.none}`,
+                          meta: d.decidedAt ? formatSeoul(d.decidedAt) : m.none,
+                          body: d.comment || undefined,
+                        }))}
+                      />
+                    </Section>
+                  )}
+                  {(a.receipts?.length ?? 0) > 0 && (
+                    <Section title={m.approvals.receipts}>
+                      <Timeline
+                        items={(a.receipts ?? []).map((r, i) => ({
+                          key: r.receiptId ?? String(i),
+                          tone: 'info',
+                          title: `${r.receiverService} · ${r.result}`,
+                          body: r.reason || undefined,
+                        }))}
+                      />
+                    </Section>
+                  )}
+                </div>
+
+                <aside className="min-w-0 space-y-4">
+                  {open && (
+                    <Section title={m.approvals.decideTitle}>
+                      <div className="space-y-3">
+                        {own && <p className="text-sm text-warning">{m.approvals.selfApproval}</p>}
+                        {grantToSelf && (
+                          <p role="note" className="text-sm text-warning" data-testid="grant-to-self">
+                            {m.approvals.grantToSelf}
+                          </p>
+                        )}
+                        <label className="floating-label block">
+                          <span>{m.approvals.commentLabel}</span>
+                          <textarea className="textarea textarea-sm w-full" rows={3} maxLength={1000} placeholder={m.approvals.commentLabel} value={comment} onChange={(e) => setComment(e.target.value)} />
+                        </label>
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            type="button"
+                            className="btn btn-primary btn-sm"
+                            disabled={decide.busy || grantToSelf}
+                            onClick={() => void decide.run({ decision: 'APPROVE', version: a.version })}
+                          >
+                            {m.approvals.approve}
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-outline btn-error"
+                            disabled={decide.busy || grantToSelf}
+                            onClick={() => void decide.run({ decision: 'REJECT', version: a.version })}
+                          >
+                            {m.approvals.reject}
+                          </button>
+                        </div>
+                      </div>
+                    </Section>
+                  )}
+                  <Section title={m.approvals.requestInfo}>
+                    <SideFields
+                      rows={[
+                        [m.approvals.type, a.type ?? m.none],
+                        [m.approvals.target, <span key="t" className="break-all font-mono text-xs">{`${a.targetService ?? m.none} · ${a.targetRef ?? m.none}`}</span>],
+                        [m.approvals.requester, <Person key="r" id={a.requesterId} />],
+                        [m.approvals.delivery, a.deliveryState ?? m.none],
+                        [m.approvals.submittedAt, <When key="s" iso={a.submittedAt} />],
+                      ]}
+                    />
+                  </Section>
+                </aside>
+              </div>
             </>
           );
         }}
@@ -335,3 +356,9 @@ export function ApprovalDetailPage() {
     </section>
   );
 }
+
+const TYPE_TONE: Readonly<Record<string, Tone>> = { PRODUCT: 'info', DISPLAY: 'accent', PRICE: 'warning', GRANT: 'neutral' };
+const REVIEW_TONE: Readonly<Record<string, Tone>> = { REVIEW_PENDING: 'warning', EVIDENCE_REQUIRED: 'warning', APPROVED: 'success', PARTIALLY_APPROVED: 'info', REJECTED: 'error' };
+const EXEC_TONE: Readonly<Record<string, Tone>> = { VALIDATING: 'info', ACCEPTED: 'info', IN_PROGRESS: 'info', PARTIAL: 'warning', APPLIED: 'success', REJECTED: 'error', UNKNOWN_RESULT: 'warning' };
+/** 결정 이력 표시 이름(승인·반려 버튼과 같은 말). 모르는 값은 그대로 */
+const DECISION_NAME: Readonly<Record<string, string>> = { APPROVE: m.approvals.approve, REJECT: m.approvals.reject };

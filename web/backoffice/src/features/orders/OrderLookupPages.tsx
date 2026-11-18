@@ -11,13 +11,14 @@ import { CommandFeedback, QueryState, toUiState, useCommand } from '@pmart/web-u
 import { commandParams } from '../../api/command';
 import type { components } from '../../api/generated/order';
 import { useApi } from '../../app/ApiContext';
-import { ChipGroup, DataTable, DetailHeader, FieldList, Notice, PageHeader, ResultBar, SearchPanel, SearchRow, Section, SectionTabs, StatusBadge, type Tone } from '../../shared/admin';
+import { ChipGroup, DataTable, DetailHeader, Notice, PageHeader, ResultBar, SearchPanel, SearchRow, Section, StatusBadge, type Tone } from '../../shared/admin';
 import { messages as m } from '../../shared/messages';
 import { addSeoulDays, isSeoulDate, label, seoulDayEnd, seoulDayStart, seoulToday, spanDays, text, when, won } from '../../shared/ops';
 import { ClaimsOfOrder } from '../claims/ClaimPages';
 import { OrderCancelAction, OrderCancelForm } from '../claims/OrderCancel';
 import { ReturnIntakeLink } from '../claims/ReturnClaim';
 import { DeliveriesOf } from '../deliveries/DeliveryPages';
+import { EmptyBox, Icon, KindChip, ListFoot, SideFields, Timeline, When } from '../lookup/parts';
 
 type OrderStatus = components['schemas']['OrderStatus'];
 type Detail = components['schemas']['StaffOrderDetail'];
@@ -147,21 +148,23 @@ export function OrderLookupPage() {
         <QueryState state={toUiState(query)} onRetry={() => void query.refetch()}>
           {(r) =>
             r.items.length === 0 ? (
-              <p className="rounded-box border border-base-300 bg-base-100 shadow-sm px-5 py-8 text-center text-sm text-base-content/60">{m.orders.empty}</p>
+              <EmptyBox icon="box" listPart>
+                {m.orders.empty}
+              </EmptyBox>
             ) : (
               <>
                 {/* 전체 건수는 서버가 세지 않는다(page.hasNext) — 이 쪽 건수만 */}
                 <ResultBar count={r.items.length} more={r.page.hasNext} />
+                {/* 목록(2026-11-18 Shopify 주문 목록처럼): 첫 칸 주문 번호 굵게 + 고객 ID 작게, 상태 점 꼬리표, "N일 전", 금액 오른쪽 굵게 */}
                 <DataTable>
                   <thead>
                     <tr>
-                      <th>{m.orders.orderId}</th>
+                      <th>{m.orders.detailTitle}</th>
                       <th>{m.orders.status}</th>
                       <th>{m.orders.confirmedAt}</th>
                       <th>{m.orders.mfcId}</th>
-                      <th>{m.orders.customerId}</th>
                       <th>{m.orders.phone}</th>
-                      <th>{m.orders.items}</th>
+                      <th className="text-right">{m.orders.items}</th>
                       <th className="text-right">{m.orders.total}</th>
                       <th>{m.orders.openIssues}</th>
                     </tr>
@@ -170,33 +173,50 @@ export function OrderLookupPage() {
                     {r.items.map((o) => (
                       <tr key={o.orderId} data-testid="order-row" className="cursor-pointer" onClick={() => void navigate(`/orders/${encodeURIComponent(o.orderId)}`)}>
                         <td>
-                          <Link className="font-mono text-primary hover:underline" to={`/orders/${encodeURIComponent(o.orderId)}`} onClick={(e) => e.stopPropagation()}>
+                          <Link className="font-mono font-semibold text-base-content hover:text-primary hover:underline" to={`/orders/${encodeURIComponent(o.orderId)}`} onClick={(e) => e.stopPropagation()}>
                             {o.orderId}
                           </Link>
+                          <span className="mt-0.5 flex items-center gap-1 text-xs font-normal text-base-content/50" title={o.customerId}>
+                            <Icon name="user" className="h-3 w-3" />
+                            <span className="max-w-[12rem] truncate font-mono">{o.customerId}</span>
+                          </span>
                         </td>
                         <td>
                           <StatusBadge tone={statusTone(o.status)}>{label(m.orders.statusName, o.status)}</StatusBadge>
                         </td>
-                        <td>{when(o.confirmedAt)}</td>
-                        <td>{o.mfcId}</td>
-                        <td className="font-mono text-xs">{o.customerId}</td>
-                        <td>{text(o.receiverPhoneMasked)}</td>
-                        <td>{o.itemCount}</td>
-                        <td className="text-right">{won(o.approvedAmount)}</td>
-                        <td>{o.openFulfillmentIssues > 0 ? <StatusBadge tone="warning">{o.openFulfillmentIssues}</StatusBadge> : 0}</td>
+                        <td>
+                          <When iso={o.confirmedAt} />
+                        </td>
+                        <td>
+                          <KindChip icon="store">{o.mfcId}</KindChip>
+                        </td>
+                        <td className="whitespace-nowrap text-sm">{text(o.receiverPhoneMasked)}</td>
+                        <td className="text-right tabular-nums">{o.itemCount}</td>
+                        <td className="whitespace-nowrap text-right font-semibold tabular-nums">{won(o.approvedAmount)}</td>
+                        <td>
+                          {o.openFulfillmentIssues > 0 ? (
+                            <KindChip tone="warning" icon="alert">
+                              {o.openFulfillmentIssues}
+                            </KindChip>
+                          ) : (
+                            <span className="text-base-content/40">0</span>
+                          )}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
                 </DataTable>
-                <nav aria-label="쪽" className="flex items-center justify-center gap-2">
-                  <button type="button" className="btn btn-sm border-base-300 bg-base-100" disabled={page === 0} onClick={() => goPage(page - 1)}>
-                    {m.orders.prev}
-                  </button>
-                  <span className="px-2 text-sm text-base-content/60">{m.orders.pageLabel(r.page.page)}</span>
-                  <button type="button" className="btn btn-sm border-base-300 bg-base-100" disabled={!r.page.hasNext} onClick={() => goPage(page + 1)}>
-                    {m.orders.next}
-                  </button>
-                </nav>
+                <ListFoot>
+                  <span className="text-base-content/55">{m.orders.pageLabel(r.page.page)}</span>
+                  <nav aria-label="쪽" className="flex items-center gap-2">
+                    <button type="button" className="btn btn-sm border-base-300 bg-base-100" disabled={page === 0} onClick={() => goPage(page - 1)}>
+                      {m.orders.prev}
+                    </button>
+                    <button type="button" className="btn btn-sm border-base-300 bg-base-100" disabled={!r.page.hasNext} onClick={() => goPage(page + 1)}>
+                      {m.orders.next}
+                    </button>
+                  </nav>
+                </ListFoot>
               </>
             )
           }
@@ -243,7 +263,7 @@ function Address({ order }: { readonly order: Detail }) {
   return (
     <>
       {order.shippingAddressMasked && <p className="mb-3 text-xs text-base-content/60">{m.orders.pii.maskedNote}</p>}
-      <FieldList
+      <SideFields
         testId="order-address"
         rows={[
           [m.orders.receiverName, shown('NAME', a.receiverName, raw?.receiverName, 'order-receiver-name')],
@@ -308,6 +328,42 @@ function Address({ order }: { readonly order: Detail }) {
   );
 }
 
+
+const ISSUE_TONE: Readonly<Record<string, Tone>> = { OPEN: 'warning', ACKNOWLEDGED: 'info', RESOLVED: 'success' };
+
+/** 수량 한 줄(원/취소/인계/전달/반품) — 서버 값 그대로 작은 알약으로(계산 없음) */
+function QtyPills({ line }: { readonly line: Detail['lines'][number] }) {
+  const parts: ReadonlyArray<readonly [string, number | null | undefined]> = [
+    [m.orders.qtyPart.original, line.originalQty],
+    [m.orders.qtyPart.cancelled, line.cancelledBeforeShipQty],
+    [m.orders.qtyPart.handedOver, line.handedOverQty],
+    [m.orders.qtyPart.delivered, line.deliveredQty],
+    [m.orders.qtyPart.returned, line.returnedQty],
+  ];
+  return (
+    <span className="flex flex-wrap gap-1" title={m.orders.qty}>
+      {parts.map(([k, v]) => (
+        <span key={k} className="whitespace-nowrap rounded bg-base-200 px-1.5 py-0.5 text-xs text-base-content/70">
+          {`${k} ${text(v)}`}
+        </span>
+      ))}
+    </span>
+  );
+}
+
+/** 금액 줄(왼쪽 이름, 오른쪽 값) — Shopify 결제 요약처럼. 값은 서버 금액 그대로 */
+function AmountRow({ name, value, sub, strong = false }: { readonly name: string; readonly value: string; readonly sub?: string | null; readonly strong?: boolean }) {
+  return (
+    <div className={`flex items-start justify-between gap-4 py-1.5 ${strong ? 'font-semibold' : ''}`}>
+      <div className="min-w-0">
+        <p>{name}</p>
+        {sub && <p className="text-xs font-normal text-base-content/50">{sub}</p>}
+      </div>
+      <p className="whitespace-nowrap tabular-nums">{value}</p>
+    </div>
+  );
+}
+
 export function OrderDetailPage() {
   const { orderId = '' } = useParams();
   const api = useApi();
@@ -319,19 +375,11 @@ export function OrderDetailPage() {
   const [cancelOpen, setCancelOpen] = useState(false);
 
   const back = { to: '/orders', label: m.orders.back };
-  const tabs = [
-    { id: 'order-basic', label: m.orders.sectionBasic },
-    { id: 'order-amounts', label: m.orders.amounts },
-    { id: 'order-address-section', label: m.orders.address },
-    { id: 'order-lines', label: m.orders.lines },
-    { id: 'order-issues', label: m.orders.issues },
-    { id: 'order-deliveries', label: m.deliveries.ofOrder },
-    { id: 'order-claims', label: m.orders.claims },
-  ];
 
-  // 관리자 형식(2026-11-18): 상세 머리(번호·상태·요약) → 구역 탭 → 구역 상자(항목명/값)
+  // 상세(2026-11-18 Shopify 주문 상세처럼): 머리(번호·상태·요약) → 넓은 화면 두 칸
+  // 왼쪽(넓게) = 주문 상품·금액·이행 확인·배송·클레임, 오른쪽 = 주문 정보·배송지(가림·원문 열람)
   return (
-    <section className="max-w-5xl space-y-4">
+    <section className="max-w-7xl space-y-4">
       <QueryState state={toUiState(query)} onRetry={() => void query.refetch()}>
         {(o) => (
           <>
@@ -339,106 +387,123 @@ export function OrderDetailPage() {
               back={back}
               title={`${m.orders.detailTitle} ${orderId}`}
               badges={
-                <StatusBadge tone={statusTone(o.status)} testId="order-status">
-                  {label(m.orders.statusName, o.status)}
-                </StatusBadge>
+                <>
+                  <StatusBadge tone={statusTone(o.status)} testId="order-status">
+                    {label(m.orders.statusName, o.status)}
+                  </StatusBadge>
+                  <KindChip icon="truck">{label(m.orders.mode, o.deliveryMode)}</KindChip>
+                  {o.fulfillmentIssues.some((f) => f.state === 'OPEN') && (
+                    <KindChip tone="warning" icon="alert">
+                      {m.orders.issueState.OPEN}
+                    </KindChip>
+                  )}
+                </>
               }
-              summary={`${when(o.confirmedAt)} · ${o.mfcId} · ${label(m.orders.mode, o.deliveryMode)} · ${won(o.amounts.approvedAmount)}`}
+              summary={`${when(o.confirmedAt)} · ${o.mfcId} · ${won(o.amounts.approvedAmount)}`}
               actions={<OrderCancelAction order={o} open={cancelOpen} onOpen={() => setCancelOpen(true)} />}
             />
             {cancelOpen && o.status === 'CONFIRMED' && <OrderCancelForm order={o} onClose={() => setCancelOpen(false)} />}
-            <SectionTabs items={tabs} />
-            <Section id="order-basic" title={m.orders.sectionBasic}>
-              <FieldList
-                testId="order-summary"
-                rows={[
-                  [m.orders.status, label(m.orders.statusName, o.status)],
-                  [m.orders.confirmedAt, when(o.confirmedAt)],
-                  [m.orders.customerId, o.customerId],
-                  [m.orders.mfcId, o.mfcId],
-                  [m.orders.deliveryMode, label(m.orders.mode, o.deliveryMode)],
-                  [m.orders.arrival, o.arrivalWindow ? `${o.arrivalWindow.date} ${o.arrivalWindow.start}~${o.arrivalWindow.end}` : m.none],
-                  [m.orders.shipments, text(o.plannedShipments)],
-                  [m.orders.oosPreference, label(m.orders.oos, o.outOfStockPreference)],
-                  [m.orders.weight, o.weightG === undefined ? m.none : `${o.weightG}g`],
-                  [m.orders.version, o.version],
-                ]}
-              />
-              <p className="mt-3 text-xs text-base-content/55">{`${m.orders.noCancel} ${m.orders.noDeliveryNote}`}</p>
-            </Section>
 
-            <Section id="order-amounts" title={m.orders.amounts}>
-              <FieldList
-                rows={[
-                  [m.orders.itemAmount, won(o.amounts.itemAmount)],
-                  [m.orders.deliveryTip, won(o.amounts.deliveryTip)],
-                  [m.orders.deliveryTipBase, won(o.amounts.deliveryTipBase)],
-                  [m.orders.deliveryTipReason, o.amounts.deliveryTipReason],
-                  [m.orders.firstPurchase, o.amounts.firstPurchaseApplied ? 'O' : 'X'],
-                  [m.orders.bagFee, won(o.amounts.bagFee)],
-                  [m.orders.totalAmount, won(o.amounts.totalAmount)],
-                  [m.orders.approvedAmount, won(o.amounts.approvedAmount)],
-                  [m.orders.paymentAttemptId, o.payment.paymentAttemptId],
-                  [m.orders.pgTransactionId, text(o.payment.pgTransactionId)],
-                ]}
-              />
-            </Section>
+            <div className="grid items-start gap-4 lg:grid-cols-3">
+              <div className="min-w-0 space-y-4 lg:col-span-2">
+                <Section id="order-lines" title={m.orders.lines} aside={<span className="text-base-content/55">{m.orders.lineCount(o.lines.length)}</span>}>
+                  <ul className="-my-2 divide-y divide-base-300/70">
+                    {o.lines.map((l, i) => (
+                      <li key={l.orderLineId ?? `line-${i}`} data-testid="order-line" className="flex items-start gap-3 py-3">
+                        <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-base-200 text-base-content/40" aria-hidden="true">
+                          <Icon name="box" className="h-5 w-5" />
+                        </span>
+                        <div className="min-w-0 flex-1 space-y-1">
+                          <p className="font-medium">
+                            {text(l.productName)}
+                            {l.optionLabel && <span className="ml-1 font-normal text-base-content/60">{l.optionLabel}</span>}
+                          </p>
+                          <p className="font-mono text-xs text-base-content/50">{`SKU ${text(l.sku)}`}</p>
+                          <QtyPills line={l} />
+                        </div>
+                        <p className="whitespace-nowrap font-semibold tabular-nums">{won(l.lineAmount)}</p>
+                      </li>
+                    ))}
+                  </ul>
+                </Section>
 
-            <Section id="order-address-section" title={m.orders.address}>
-              <Address order={o} />
-            </Section>
+                <Section id="order-amounts" title={m.orders.amounts}>
+                  <div className="text-sm">
+                    <AmountRow name={m.orders.itemAmount} value={won(o.amounts.itemAmount)} />
+                    <AmountRow name={m.orders.deliveryTip} value={won(o.amounts.deliveryTip)} sub={`${m.orders.deliveryTipBase} ${won(o.amounts.deliveryTipBase)} · ${text(o.amounts.deliveryTipReason)}`} />
+                    <AmountRow name={m.orders.bagFee} value={won(o.amounts.bagFee)} />
+                    <AmountRow name={m.orders.firstPurchase} value={o.amounts.firstPurchaseApplied ? 'O' : 'X'} />
+                    <div className="my-1.5 border-t border-base-300" />
+                    <AmountRow name={m.orders.totalAmount} value={won(o.amounts.totalAmount)} strong />
+                    <AmountRow name={m.orders.approvedAmount} value={won(o.amounts.approvedAmount)} strong />
+                    <div className="mt-3 grid gap-2 rounded-box bg-base-200/60 px-3 py-2 text-xs sm:grid-cols-2">
+                      <p>
+                        <span className="text-base-content/50">{`${m.orders.paymentAttemptId} `}</span>
+                        <span className="break-all font-mono">{o.payment.paymentAttemptId}</span>
+                      </p>
+                      <p>
+                        <span className="text-base-content/50">{`${m.orders.pgTransactionId} `}</span>
+                        <span className="break-all font-mono">{text(o.payment.pgTransactionId)}</span>
+                      </p>
+                    </div>
+                  </div>
+                </Section>
 
-            <Section id="order-lines" title={m.orders.lines}>
-              <DataTable>
-                <thead>
-                  <tr>
-                    <th>{m.orders.product}</th>
-                    <th>SKU</th>
-                    <th>{m.orders.qty}</th>
-                    <th className="text-right">{m.orders.lineAmount}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {o.lines.map((l, i) => (
-                    <tr key={l.orderLineId ?? `line-${i}`} data-testid="order-line">
-                      <td>
-                        {text(l.productName)}
-                        {l.optionLabel && <span className="ml-1 text-base-content/60">{l.optionLabel}</span>}
-                      </td>
-                      <td className="font-mono text-xs">{text(l.sku)}</td>
-                      <td>{[l.originalQty, l.cancelledBeforeShipQty, l.handedOverQty, l.deliveredQty, l.returnedQty].map((q) => text(q)).join(' / ')}</td>
-                      <td className="text-right">{won(l.lineAmount)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </DataTable>
-            </Section>
+                <Section id="order-issues" title={m.orders.issues}>
+                  {o.fulfillmentIssues.length === 0 ? (
+                    <p className="flex items-center gap-2 text-sm text-base-content/60">
+                      <Icon name="check" className="h-4 w-4 text-success" />
+                      {m.orders.noIssues}
+                    </p>
+                  ) : (
+                    <Timeline
+                      items={o.fulfillmentIssues.map((f, i) => ({
+                        key: f.issueId ?? `issue-${i}`,
+                        tone: ISSUE_TONE[f.state ?? ''] ?? 'neutral',
+                        title: <span data-testid="order-issue">{`${label(m.orders.issueState, f.state)} · ${text(f.reason)} · ${text(f.sku)} × ${text(f.blockedQty)}`}</span>,
+                        meta: when(f.blockedAt),
+                      }))}
+                    />
+                  )}
+                </Section>
 
-            <Section id="order-issues" title={m.orders.issues}>
-              {o.fulfillmentIssues.length === 0 ? (
-                <p className="text-sm text-base-content/60">{m.orders.noIssues}</p>
-              ) : (
-                <ul className="space-y-1 text-sm">
-                  {o.fulfillmentIssues.map((f, i) => (
-                    <li key={f.issueId ?? `issue-${i}`} className="rounded-box bg-base-200/60 px-3 py-2" data-testid="order-issue">
-                      {`${label(m.orders.issueState, f.state)} · ${text(f.reason)} · ${text(f.sku)} × ${text(f.blockedQty)} · ${when(f.blockedAt)}`}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </Section>
+                <Section id="order-deliveries" title={m.deliveries.ofOrder}>
+                  <DeliveriesOf orderId={o.orderId} />
+                </Section>
 
-            <Section id="order-deliveries" title={m.deliveries.ofOrder}>
-              <DeliveriesOf orderId={o.orderId} />
-            </Section>
+                <Section
+                  id="order-claims"
+                  title={m.orders.claims}
+                  aside={o.lines.some((l) => (l.handedOverQty ?? 0) > (l.returnedQty ?? 0)) ? <ReturnIntakeLink orderId={o.orderId} /> : undefined}
+                >
+                  <ClaimsOfOrder orderId={o.orderId} />
+                </Section>
+              </div>
 
-            <Section
-              id="order-claims"
-              title={m.orders.claims}
-              aside={o.lines.some((l) => (l.handedOverQty ?? 0) > (l.returnedQty ?? 0)) ? <ReturnIntakeLink orderId={o.orderId} /> : undefined}
-            >
-              <ClaimsOfOrder orderId={o.orderId} />
-            </Section>
+              <aside className="min-w-0 space-y-4">
+                <Section id="order-basic" title={m.orders.sectionBasic}>
+                  <SideFields
+                    testId="order-summary"
+                    rows={[
+                      [m.orders.confirmedAt, <When key="c" iso={o.confirmedAt} />],
+                      [m.orders.customerId, <span key="u" className="font-mono">{o.customerId}</span>],
+                      [m.orders.mfcId, o.mfcId],
+                      [m.orders.deliveryMode, label(m.orders.mode, o.deliveryMode)],
+                      [m.orders.arrival, o.arrivalWindow ? `${o.arrivalWindow.date} ${o.arrivalWindow.start}~${o.arrivalWindow.end}` : m.none],
+                      [m.orders.shipments, text(o.plannedShipments)],
+                      [m.orders.oosPreference, label(m.orders.oos, o.outOfStockPreference)],
+                      [m.orders.weight, o.weightG === undefined ? m.none : `${o.weightG}g`],
+                      [m.orders.version, o.version],
+                    ]}
+                  />
+                  <p className="mt-4 border-t border-base-300 pt-3 text-xs text-base-content/55">{`${m.orders.noCancel} ${m.orders.noDeliveryNote}`}</p>
+                </Section>
+
+                <Section id="order-address-section" title={m.orders.address}>
+                  <Address order={o} />
+                </Section>
+              </aside>
+            </div>
           </>
         )}
       </QueryState>

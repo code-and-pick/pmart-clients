@@ -1,5 +1,6 @@
 // 가격 일괄 등록(백엔드 안내 2026-11-03): seed-v1 zip 업로드 → 서버가 묶음 가격으로 행을 미리 채움 → 운영자가 행마다 고치거나 뺌
 // → 공통 효력 시각으로 제출(잠김) → PRICE 승인 요청 한 건 → 승인 뒤 행별 반영 결과.
+// 화면(2026-11-18 사용자 "밋밋하다"): 머리(상태 배지)·단계 표시·숫자 카드 → 한 카드 안 가격 행 표 → 제출 카드(대조·효력 시각·제출 버튼 오른쪽 아래).
 // 화면은 zip 을 풀지 않고 가격을 미리 채우지 않는다. 금액·구분·상태는 서버 값을 표시만 한다.
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
@@ -16,9 +17,10 @@ import { messages as m } from '../../shared/messages';
 import { QueryState } from '@pmart/web-ui';
 import { toUiState } from '@pmart/web-ui';
 import { useCommand } from '@pmart/web-ui';
-import { BatchApprovals, multipart, ZipUpload } from '../products/ProductImportPage';
+import { BATCH_TONE, BatchApprovals, multipart, UploadLayout, ZipUpload } from '../products/ProductImportPage';
 import { seoulInputToIso } from './PricePage';
-import { DataTable, PageHeader } from '../../shared/admin';
+import { PageHeader, StatusBadge } from '../../shared/admin';
+import { Card, MiniStat, Steps, tableClass } from '../products/parts';
 
 const batchKey = (batchId: string) => ['pricing', 'import-batch', batchId] as const;
 
@@ -43,9 +45,10 @@ export function NewPriceImportPage() {
   return (
     <section className="space-y-4">
       <PageHeader title={m.prices.importTitle} />
-      <p className="text-sm opacity-80">{m.prices.importHint}</p>
-      <ZipUpload busy={upload.busy} onUpload={(file) => void upload.run(file)} />
-      <CommandFeedback command={upload} />
+      <UploadLayout steps={m.prices.importSteps} intro={m.prices.importHint}>
+        <ZipUpload busy={upload.busy} onUpload={(file) => void upload.run(file)} />
+        <CommandFeedback command={upload} />
+      </UploadLayout>
     </section>
   );
 }
@@ -75,6 +78,16 @@ function useLineUpdate(batch: PriceImportBatch) {
   return cmd;
 }
 
+const CHANGE_CLASS: Readonly<Record<string, string>> = { NEW: 'badge-info', CHANGE: 'badge-warning', UNCHANGED: 'badge-ghost' };
+const STATUS_TONE: Readonly<Record<string, 'success' | 'warning' | 'error' | 'ghost'>> = {
+  READY: 'success',
+  EXCLUDED: 'ghost',
+  UNCHANGED: 'ghost',
+  SKU_NOT_FOUND: 'warning',
+  PRICE_REQUIRED: 'error',
+  DUPLICATE_SKU: 'error',
+};
+
 function LineRow({ batch, line }: { readonly batch: PriceImportBatch; readonly line: PriceImportLine }) {
   const editable = batch.state === 'DRAFT';
   const name = line.productName ?? line.seedProductId;
@@ -87,10 +100,10 @@ function LineRow({ batch, line }: { readonly batch: PriceImportBatch; readonly l
 
   return (
     <tr data-status={line.status} className={line.excluded ? 'opacity-60' : ''}>
-      <td>{name}</td>
-      <td>{line.sku ?? m.none}</td>
-      <td>{money(line.currentPrice)}</td>
-      <td>{money(line.bundlePrice)}</td>
+      <td className="font-medium">{name}</td>
+      <td className="font-mono text-xs">{line.sku ?? m.none}</td>
+      <td className="tabular-nums text-base-content/70">{money(line.currentPrice)}</td>
+      <td className="tabular-nums">{money(line.bundlePrice)}</td>
       <td>
         {editable && !line.excluded ? (
           <div className="flex items-center gap-1">
@@ -128,9 +141,11 @@ function LineRow({ batch, line }: { readonly batch: PriceImportBatch; readonly l
         )}
         {line.edited && <span className="badge badge-outline badge-xs ml-1">{m.prices.edited}</span>}
       </td>
-      <td>{line.changeType ? m.prices.changeTypeName[line.changeType] : m.none}</td>
+      <td>{line.changeType ? <span className={`badge badge-sm badge-soft ${CHANGE_CLASS[line.changeType] ?? ''}`}>{m.prices.changeTypeName[line.changeType]}</span> : m.none}</td>
       <td>
-        <span data-testid={`status-${line.seedProductId}`}>{m.prices.lineStatusName[line.status]}</span>
+        <StatusBadge tone={STATUS_TONE[line.status] ?? 'ghost'} testId={`status-${line.seedProductId}`}>
+          {m.prices.lineStatusName[line.status]}
+        </StatusBadge>
         {update.phase.kind === 'rejected' && <CommandFeedback command={update} />}
         {update.phase.kind === 'unknown' && <CommandFeedback command={update} />}
       </td>
@@ -209,58 +224,68 @@ export function PriceImportPage() {
 
   return (
     <section className="space-y-4">
-      <PageHeader title={`${m.prices.importTitle} · ${m.products.batch(batchId)}`} />
+      <PageHeader
+        back={{ to: '/prices/import', label: m.prices.importTitle }}
+        title={`${m.prices.importTitle} · ${m.products.batch(batchId)}`}
+        actions={query.data ? <StatusBadge tone={BATCH_TONE[query.data.state] ?? 'ghost'}>{m.prices.batchStateName[query.data.state]}</StatusBadge> : null}
+      />
       <QueryState state={toUiState(query)} onRetry={() => void query.refetch()}>
         {(b) => (
           <>
-            <p className="text-sm" data-testid="batch-summary">
-              {`${m.prices.batchStateName[b.state]} · ${m.prices.batchSummary(b.lineCount, b.submittableCount)}`}
-              {b.checkedAt && ` · ${m.prices.checkedAt} ${formatSeoul(b.checkedAt)}`}
-              {b.effectiveFrom && ` · ${m.prices.effectiveFrom} ${formatSeoul(b.effectiveFrom)}`}
-            </p>
-            {b.approvalId && (
-              <Link className="link text-sm" to={`/approvals/${encodeURIComponent(b.approvalId)}`}>
-                {m.prices.approvalOf(b.approvalId)}
-              </Link>
-            )}
-            {b.state !== 'DRAFT' && <p className="text-sm opacity-80">{m.prices.lockedHint}</p>}
-            <div className="overflow-x-auto">
-              <DataTable>
-                <thead>
-                  <tr>
-                    <th>{m.prices.productName}</th>
-                    <th>{m.prices.sku}</th>
-                    <th>{m.prices.currentPrice}</th>
-                    <th>{m.prices.bundlePrice}</th>
-                    <th>{m.prices.basePriceInput}</th>
-                    <th>{m.prices.changeType}</th>
-                    <th>{m.prices.lineStatus}</th>
-                    <th>{m.prices.exclude}</th>
-                    <th>{m.prices.lineResult}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {b.lines.map((l) => (
-                    <LineRow key={`${l.seedProductId}:${l.basePrice ?? ''}:${l.excluded}`} batch={b} line={l} />
-                  ))}
-                </tbody>
-              </DataTable>
+            <Steps steps={m.prices.importSteps} now={b.state === 'DRAFT' ? 1 : 3} label={m.prices.stepsLabel} />
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+              <MiniStat label={m.prices.statLines} value={b.lineCount} />
+              <MiniStat label={m.prices.statSubmittable} value={b.submittableCount} tone={b.submittableCount > 0 ? 'success' : 'muted'} />
+              <div className="col-span-2 rounded-box border border-base-300 bg-base-100 px-4 py-3 text-sm shadow-sm">
+                <p data-testid="batch-summary">
+                  {`${m.prices.batchStateName[b.state]} · ${m.prices.batchSummary(b.lineCount, b.submittableCount)}`}
+                  {b.checkedAt && ` · ${m.prices.checkedAt} ${formatSeoul(b.checkedAt)}`}
+                  {b.effectiveFrom && ` · ${m.prices.effectiveFrom} ${formatSeoul(b.effectiveFrom)}`}
+                </p>
+                {b.approvalId && (
+                  <Link className="link link-primary text-sm" to={`/approvals/${encodeURIComponent(b.approvalId)}`}>
+                    {m.prices.approvalOf(b.approvalId)}
+                  </Link>
+                )}
+              </div>
+            </div>
+            {b.state !== 'DRAFT' && <p className="rounded-box bg-base-300/50 px-4 py-3 text-sm text-base-content/75">{m.prices.lockedHint}</p>}
+            <div className="overflow-hidden rounded-box border border-base-300 bg-base-100 shadow-sm">
+              <div className="flex items-center justify-between gap-2 border-b border-base-300 px-5 py-3">
+                <h2 className="font-bold">{m.prices.linesCard}</h2>
+                <button type="button" className="btn btn-ghost btn-xs" onClick={() => void query.refetch()}>
+                  {m.checkAgain}
+                </button>
+              </div>
+              <div className="overflow-x-auto">
+                <table className={tableClass}>
+                  <thead>
+                    <tr>
+                      <th>{m.prices.productName}</th>
+                      <th>{m.prices.sku}</th>
+                      <th>{m.prices.currentPrice}</th>
+                      <th>{m.prices.bundlePrice}</th>
+                      <th>{m.prices.basePriceInput}</th>
+                      <th>{m.prices.changeType}</th>
+                      <th>{m.prices.lineStatus}</th>
+                      <th>{m.prices.exclude}</th>
+                      <th>{m.prices.lineResult}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {b.lines.map((l) => (
+                      <LineRow key={`${l.seedProductId}:${l.basePrice ?? ''}:${l.excluded}`} batch={b} line={l} />
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
 
             {b.state === 'DRAFT' && (
-              <div className="space-y-3 rounded-box border border-base-300 bg-base-100 shadow-sm p-4">
-                <div className="flex flex-wrap items-center gap-2">
-                  <button type="button" className="btn btn-sm" disabled={refresh.busy || submit.busy} onClick={() => void refresh.run(b.version)}>
-                    {m.prices.refresh}
-                  </button>
-                  <span className="text-xs text-base-content/60">{m.prices.refreshHint}</span>
-                </div>
-                <CommandFeedback command={refresh} />
-                <div className="flex flex-wrap items-end gap-2">
-                  <label className="flex flex-col text-sm">
-                    {m.prices.submitEffectiveFrom}
-                    <input type="datetime-local" className="input input-sm" value={effectiveFrom} disabled={submit.busy} onChange={(e) => setEffectiveFrom(e.target.value)} />
-                  </label>
+              <Card
+                title={m.prices.submitTitle}
+                hint={m.prices.submitHint}
+                footer={
                   <button
                     type="button"
                     className="btn btn-primary btn-sm"
@@ -269,15 +294,21 @@ export function PriceImportPage() {
                   >
                     {m.prices.submitBatch}
                   </button>
-                  <span className="text-xs text-base-content/60">{m.prices.submitHint}</span>
+                }
+              >
+                <div className="flex flex-wrap items-center gap-2">
+                  <button type="button" className="btn btn-sm" disabled={refresh.busy || submit.busy} onClick={() => void refresh.run(b.version)}>
+                    {m.prices.refresh}
+                  </button>
+                  <span className="text-xs text-base-content/60">{m.prices.refreshHint}</span>
                 </div>
-              </div>
+                <CommandFeedback command={refresh} />
+                <label className="flex w-fit flex-col gap-1 text-sm">
+                  <span className="text-xs font-medium text-base-content/60">{m.prices.submitEffectiveFrom}</span>
+                  <input type="datetime-local" className="input input-sm" value={effectiveFrom} disabled={submit.busy} onChange={(e) => setEffectiveFrom(e.target.value)} />
+                </label>
+              </Card>
             )}
-            <div className="flex gap-2">
-              <button type="button" className="btn btn-ghost btn-sm" onClick={() => void query.refetch()}>
-                {m.checkAgain}
-              </button>
-            </div>
             <CommandFeedback command={submit}>
               {(r) => (
                 <p role="status" className="text-sm">

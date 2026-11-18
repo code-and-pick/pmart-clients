@@ -18,7 +18,7 @@ const AUTHORITY_TONE: Record<Authority, string> = {
 function CitationItem({ c }: { readonly c: Citation }) {
   const shown = isDisplayablePath(c.path);
   return (
-    <li className="rounded-box bg-base-200 p-3 text-sm" data-testid="citation">
+    <li className="rounded-box border border-base-300 bg-base-100 p-3 text-sm shadow-sm" data-testid="citation">
       <div className="flex flex-wrap items-center gap-2">
         <span className={`badge badge-sm ${AUTHORITY_TONE[c.authority]}`} data-authority={c.authority}>
           {m.assistant.authority[c.authority]}
@@ -135,38 +135,64 @@ export function AnswerView({
   }
 
   return (
-    <article data-state="answered" className="space-y-3 rounded-box border border-base-300 bg-base-100 shadow-sm p-4">
-      {question && <p className="text-sm opacity-70 whitespace-pre-wrap">{`Q. ${question}`}</p>}
-      {isBaseline(answer) && (
-        <p role="note" data-testid="baseline" className="alert alert-warning alert-soft text-xs">
-          {m.assistant.baseline}
-        </p>
+    // 대화 말풍선(2026-11-18): 오른쪽 = 이 화면에서 보낸 질문, 왼쪽 = 도우미 머리글자 + 답변 상자, 그 아래 근거 문서 카드
+    <article data-state="answered" className="space-y-4">
+      {question && (
+        <div className="flex justify-end">
+          <p className="max-w-[85%] whitespace-pre-wrap rounded-box rounded-br-none bg-primary px-4 py-2.5 text-sm text-primary-content shadow-sm">{`Q. ${question}`}</p>
+        </div>
       )}
-      {answer.answerMode === 'GENERATIVE' && (
-        <p role="note" data-testid="generative" className="alert alert-info alert-soft text-xs">
-          {m.assistant.generative}
-        </p>
-      )}
-      <p className="whitespace-pre-wrap break-words" data-testid="answer-text">
-        {answer.answer}
-      </p>
-      <div className="flex flex-wrap gap-3 text-xs text-base-content/60">
-        {idLine}
-        <span>{formatSeoul(answer.askedAt)}</span>
-        {answer.indexSnapshotId && <span>{m.assistant.indexSnapshot(answer.indexSnapshotId)}</span>}
+      <div className="flex items-start gap-3">
+        <BotAvatar />
+        <div className="min-w-0 flex-1 space-y-3 rounded-box rounded-tl-none border border-base-300 bg-base-100 p-4 shadow-sm">
+          {isBaseline(answer) && (
+            <p role="note" data-testid="baseline" className="alert alert-warning alert-soft text-xs">
+              {m.assistant.baseline}
+            </p>
+          )}
+          {answer.answerMode === 'GENERATIVE' && (
+            <p role="note" data-testid="generative" className="alert alert-info alert-soft text-xs">
+              {m.assistant.generative}
+            </p>
+          )}
+          <p className="whitespace-pre-wrap break-words leading-relaxed" data-testid="answer-text">
+            {answer.answer}
+          </p>
+          <div className="flex flex-wrap gap-3 border-t border-base-300 pt-2 text-xs text-base-content/60">
+            {idLine}
+            <span>{formatSeoul(answer.askedAt)}</span>
+            {answer.indexSnapshotId && <span>{m.assistant.indexSnapshot(answer.indexSnapshotId)}</span>}
+          </div>
+        </div>
       </div>
-      <h2 className="font-bold">{m.assistant.citations}</h2>
-      {answer.citations.length === 0 ? (
-        <p role="alert" className="alert alert-warning alert-soft text-sm">
-          {m.assistant.ungroundedAnswer}
-        </p>
-      ) : (
-        <ul className="space-y-2">
-          {answer.citations.map((c) => (
-            <CitationItem key={c.chunkId} c={c} />
-          ))}
-        </ul>
-      )}
+      <div className="space-y-2 pl-11">
+        <h2 className="flex items-center gap-2 text-sm font-semibold">
+          {m.assistant.citations}
+          <span className="badge badge-ghost badge-sm">{answer.citations.length}</span>
+        </h2>
+        {answer.citations.length === 0 ? (
+          <p role="alert" className="alert alert-warning alert-soft text-sm">
+            {m.assistant.ungroundedAnswer}
+          </p>
+        ) : (
+          <ul className="grid gap-2">
+            {answer.citations.map((c) => (
+              <CitationItem key={c.chunkId} c={c} />
+            ))}
+          </ul>
+        )}
+      </div>
     </article>
+  );
+}
+
+/** 도우미 동그라미(대화 말풍선 왼쪽) */
+export function BotAvatar() {
+  return (
+    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-primary-content" aria-hidden="true">
+      <svg viewBox="0 0 24 24" className="h-4 w-4 fill-none stroke-current" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12 3v3m-6 4h12a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-6a2 2 0 0 1 2-2Zm3 4h.01M15 14h.01" />
+      </svg>
+    </span>
   );
 }

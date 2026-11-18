@@ -46,17 +46,22 @@ export function HandoverPage() {
       <PageHeader title={m.title} description={m.intro} />
       {/* 관리자 형식(2026-11-18): 회색 안내 상자 + 밑줄 탭(접수 건과 같게) */}
       <Notice>{m.noAuto}</Notice>
-      <div role="tablist" className="flex gap-1 border-b border-base-300">
-        {tabs.map((t) => (
-          <button key={t} type="button" role="tab" aria-selected={t === tab} className={`-mb-px border-b-2 px-4 py-2 text-sm ${t === tab ? 'border-primary font-semibold text-base-content' : 'border-transparent text-base-content/60 hover:text-base-content'}`} onClick={() => setParams(t === tabs[0] ? {} : { tab: t })}>
-            {m.tabs[t]}
-          </button>
-        ))}
+      {/* 탭 + 내용을 한 카드에(2026-11-18) */}
+      <div className="overflow-hidden rounded-box border border-base-300 bg-base-100 shadow-sm">
+        <div role="tablist" className="flex gap-1 overflow-x-auto overflow-y-hidden border-b border-base-300 px-3">
+          {tabs.map((t) => (
+            <button key={t} type="button" role="tab" aria-selected={t === tab} className={`-mb-px whitespace-nowrap border-b-2 px-3 py-3 text-sm transition-colors ${t === tab ? 'border-primary font-semibold text-base-content' : 'border-transparent text-base-content/55 hover:text-base-content'}`} onClick={() => setParams(t === tabs[0] ? {} : { tab: t })}>
+              {m.tabs[t]}
+            </button>
+          ))}
+        </div>
+        <div className="bg-base-200/30 p-4">
+          {tab === 'write' && <WriteForm />}
+          {tab === 'inbox' && <HandoverList mode="inbox" />}
+          {tab === 'sent' && <HandoverList mode="sent" />}
+          {tab === 'unreceived' && <HandoverList mode="unreceived" />}
+        </div>
       </div>
-      {tab === 'write' && <WriteForm />}
-      {tab === 'inbox' && <HandoverList mode="inbox" />}
-      {tab === 'sent' && <HandoverList mode="sent" />}
-      {tab === 'unreceived' && <HandoverList mode="unreceived" />}
     </section>
   );
 }
@@ -110,8 +115,9 @@ function WriteForm() {
     return r;
   });
   return (
+    // 두 칸(2026-11-18): 왼쪽 = 넘길 접수 건 체크 목록(건마다 다음 조치), 오른쪽 = 후임·팀·메모·쓰기
     <form
-      className="space-y-3"
+      className="grid items-start gap-4 lg:grid-cols-3"
       aria-label={m.write}
       onSubmit={(e) => {
         e.preventDefault();
@@ -120,86 +126,96 @@ function WriteForm() {
         void cmd.run(null);
       }}
     >
-      <div className="flex flex-wrap items-end gap-2 rounded-box border border-base-300 bg-base-100 shadow-sm p-3 text-sm">
+      <div className="min-w-0 space-y-3 lg:col-span-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="text-sm font-semibold">{m.ownerLine(owner)}</p>
+          {query.isSuccess && mine.length > 0 && <span className="badge badge-ghost badge-sm">{`${picked.length} / ${mine.length}`}</span>}
+        </div>
+        <QueryState state={toUiState(query, () => mine.length === 0)} onRetry={() => void query.refetch()} emptyText={m.noCases}>
+          {() => (
+            <ul className="space-y-2">
+              {mine.map((c) => {
+                const id = c.caseId ?? '';
+                const row = rowOf(id);
+                return (
+                  <li
+                    key={id}
+                    className={`space-y-2 rounded-box border bg-base-100 p-3 text-sm shadow-sm transition-colors ${row.picked ? 'border-primary/40' : 'border-base-300 opacity-70'}`}
+                    data-testid="handover-case"
+                  >
+                    <label className="flex flex-wrap items-center gap-2">
+                      <input type="checkbox" className="checkbox checkbox-sm checkbox-primary" checked={row.picked} onChange={(e) => setRow(id, { picked: e.target.checked })} />
+                      <span className={`badge badge-sm font-mono ${c.priority === 'P1' ? 'badge-error' : 'badge-ghost'}`}>{text(c.priority)}</span>
+                      <span className="text-base-content/60">{label(messages.cases.kindName, c.kind)}</span>
+                      <Link className="font-medium hover:text-primary hover:underline" to={`/cases/${encodeURIComponent(id)}`}>
+                        {c.summary || id}
+                      </Link>
+                      {(c.openObligationCount ?? 0) > 0 && <span className="badge badge-warning badge-soft badge-sm">{m.followUpsLeft(c.openObligationCount ?? 0)}</span>}
+                    </label>
+                    {row.picked && (
+                      <div className="grid gap-2 pl-6 sm:grid-cols-[1fr_auto]">
+                        <label className="flex flex-col gap-1 text-xs text-base-content/60">
+                          {m.nextAction}
+                          <input className="input input-sm w-full" maxLength={500} value={row.nextAction} onChange={(e) => setRow(id, { nextAction: e.target.value })} />
+                        </label>
+                        <label className="flex flex-col gap-1 text-xs text-base-content/60">
+                          {m.checkDue}
+                          <input type="datetime-local" className="input input-sm" value={row.checkDue} onChange={(e) => setRow(id, { checkDue: e.target.value })} />
+                        </label>
+                      </div>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </QueryState>
+      </div>
+
+      <aside className="min-w-0 space-y-3 rounded-box border border-base-300 bg-base-100 p-4 text-sm shadow-sm lg:sticky lg:top-4">
         {admin && (
-          <>
-            <label className="flex flex-col gap-1">
+          <div className="flex items-end gap-2">
+            <label className="flex min-w-0 flex-1 flex-col gap-1 text-xs text-base-content/60">
               {m.fromOther}
-              <input className="input input-sm w-56 font-mono" placeholder={me} value={from} onChange={(e) => setFrom(e.target.value)} />
+              <input className="input input-sm w-full font-mono" placeholder={me} value={from} onChange={(e) => setFrom(e.target.value)} />
             </label>
             <button type="button" className="btn btn-sm" onClick={() => setFromApplied(from.trim() === me ? '' : from.trim())}>
               {m.loadCases}
             </button>
-          </>
+          </div>
         )}
         {admin ? (
-          <label className="flex flex-col gap-1">
+          <label className="flex flex-col gap-1 text-xs text-base-content/60">
             {m.group}
-            <select className="select select-sm" value={group} onChange={(e) => setGroup(e.target.value === 'ORDER_OPS' ? 'ORDER_OPS' : 'DELIVERY_OPS')}>
+            <select className="select select-sm w-full" value={group} onChange={(e) => setGroup(e.target.value === 'ORDER_OPS' ? 'ORDER_OPS' : 'DELIVERY_OPS')}>
               <option value="DELIVERY_OPS">{label(messages.cases.groupName, 'DELIVERY_OPS')}</option>
               <option value="ORDER_OPS">{label(messages.cases.groupName, 'ORDER_OPS')}</option>
             </select>
           </label>
         ) : (
           // 라이더 운영은 지원센터 팀만 쓴다(관리자 팀 인계서는 관리자만 — 서버 403)
-          <p className="flex flex-col gap-1" data-testid="handover-group-fixed">
+          <p className="flex flex-col gap-1 text-xs text-base-content/60" data-testid="handover-group-fixed">
             {m.group}
-            <span className="font-medium">{label(messages.cases.groupName, 'DELIVERY_OPS')}</span>
+            <span className="text-sm font-medium text-base-content">{label(messages.cases.groupName, 'DELIVERY_OPS')}</span>
           </p>
         )}
-        <label className="flex flex-col gap-1">
+        <label className="flex flex-col gap-1 text-xs text-base-content/60">
           {m.to}
-          <input className="input input-sm w-56 font-mono" value={to} onChange={(e) => setTo(e.target.value)} />
+          <input className="input input-sm w-full font-mono" value={to} onChange={(e) => setTo(e.target.value)} />
         </label>
-        <p className="max-w-xs text-xs text-base-content/60" data-testid="handover-to-hint">
+        <p className="text-xs text-base-content/60" data-testid="handover-to-hint">
           {m.toRoleHint}
         </p>
-      </div>
-      <p className="text-sm">{m.ownerLine(owner)}</p>
-      <QueryState state={toUiState(query, () => mine.length === 0)} onRetry={() => void query.refetch()} emptyText={m.noCases}>
-        {() => (
-          <ul className="space-y-2">
-            {mine.map((c) => {
-              const id = c.caseId ?? '';
-              const row = rowOf(id);
-              return (
-                <li key={id} className="space-y-1 rounded-box border border-base-300 bg-base-100 shadow-sm p-3 text-sm" data-testid="handover-case">
-                  <label className="flex items-center gap-2">
-                    <input type="checkbox" className="checkbox checkbox-sm" checked={row.picked} onChange={(e) => setRow(id, { picked: e.target.checked })} />
-                    <span className="badge badge-ghost badge-sm">{text(c.priority)}</span>
-                    <span>{label(messages.cases.kindName, c.kind)}</span>
-                    <Link className="link" to={`/cases/${encodeURIComponent(id)}`}>
-                      {c.summary || id}
-                    </Link>
-                    {(c.openObligationCount ?? 0) > 0 && <span className="badge badge-warning badge-sm">{m.followUpsLeft(c.openObligationCount ?? 0)}</span>}
-                  </label>
-                  {row.picked && (
-                    <div className="flex flex-wrap items-end gap-2 pl-6">
-                      <label className="flex flex-col gap-1">
-                        {m.nextAction}
-                        <input className="input input-sm w-96" maxLength={500} value={row.nextAction} onChange={(e) => setRow(id, { nextAction: e.target.value })} />
-                      </label>
-                      <label className="flex flex-col gap-1">
-                        {m.checkDue}
-                        <input type="datetime-local" className="input input-sm" value={row.checkDue} onChange={(e) => setRow(id, { checkDue: e.target.value })} />
-                      </label>
-                    </div>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </QueryState>
-      <label className="flex flex-col gap-1 text-sm">
-        {m.note}
-        <textarea className="textarea textarea-sm w-full max-w-lg" maxLength={1000} value={note} onChange={(e) => setNote(e.target.value)} />
-      </label>
-      <p className="text-xs text-base-content/60">{m.piiHint}</p>
-      <button type="submit" className="btn btn-sm btn-primary" disabled={!ok || cmd.busy}>
-        {m.write}
-      </button>
-      <CommandFeedback command={cmd}>{(h) => <span className="text-xs text-success">{m.written(h.shiftHandoverId ?? '')}</span>}</CommandFeedback>
+        <label className="flex flex-col gap-1 text-xs text-base-content/60">
+          {m.note}
+          <textarea className="textarea textarea-sm w-full" maxLength={1000} value={note} onChange={(e) => setNote(e.target.value)} />
+        </label>
+        <p className="text-xs text-base-content/60">{m.piiHint}</p>
+        <button type="submit" className="btn btn-sm btn-primary w-full" disabled={!ok || cmd.busy}>
+          {m.write}
+        </button>
+        <CommandFeedback command={cmd}>{(h) => <span className="text-xs text-success">{m.written(h.shiftHandoverId ?? '')}</span>}</CommandFeedback>
+      </aside>
     </form>
   );
 }
@@ -269,73 +285,105 @@ function HandoverCard({ h, mode }: { readonly h: Handover; readonly mode: 'inbox
   const canAccept = pending && h.toOperatorId === me && mode === 'inbox';
   const canCancel = pending && (h.fromOperatorId === me || h.createdBy === me || admin) && mode !== 'inbox';
   return (
-    <li className="space-y-2 rounded-box border border-base-300 bg-base-100 shadow-sm p-3 text-sm" data-testid="handover" data-state={h.state}>
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="font-mono">{h.shiftHandoverId}</span>
-        <span className="badge badge-sm">{label(m.stateName, h.state)}</span>
+    // 카드(2026-11-18): 머리 = 전임 → 후임(머리글자)·상태·팀·시각, 몸통 = 건별 줄, 아래 = 받기·취소
+    <li className={`overflow-hidden rounded-box border bg-base-100 text-sm shadow-sm ${h.unreceived ? 'border-warning/50' : 'border-base-300'}`} data-testid="handover" data-state={h.state}>
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-base-300 px-4 py-3">
+        <span className="flex items-center gap-2">
+          <Initial id={h.fromOperatorId} />
+          <span className="text-base-content/40" aria-hidden="true">
+            →
+          </span>
+          <Initial id={h.toOperatorId} />
+        </span>
+        <span className="font-medium">{m.fromTo(text(h.fromOperatorId), text(h.toOperatorId))}</span>
+        <span className={`badge badge-sm badge-soft ${STATE_TONE[h.state ?? ''] ?? ''}`}>{label(m.stateName, h.state)}</span>
         {h.unreceived && <span className="badge badge-warning badge-sm">{m.unreceived}</span>}
-        <span>{m.fromTo(text(h.fromOperatorId), text(h.toOperatorId))}</span>
-        <span className="opacity-70">{label(messages.cases.groupName, h.group)}</span>
-        <span className="opacity-70">{when(h.createdAt)}</span>
+        <span className="ml-auto flex flex-wrap items-center gap-2 text-xs text-base-content/55">
+          <span>{label(messages.cases.groupName, h.group)}</span>
+          <span>{when(h.createdAt)}</span>
+          <span className="font-mono">{h.shiftHandoverId}</span>
+        </span>
       </div>
-      {pending && <p className="text-xs text-base-content/60">{m.pendingNote}</p>}
-      {h.note && <p className="whitespace-pre-wrap opacity-80">{h.note}</p>}
-      <ul className="space-y-1">
-        {(h.items ?? []).map((it) => {
-          const id = it.caseId ?? '';
-          return (
-            <li key={id} className="flex flex-wrap items-center gap-2" data-testid="handover-item" data-outcome={it.outcome}>
-              {canAccept && (
-                <input
-                  type="checkbox"
-                  className="checkbox checkbox-sm"
-                  aria-label={m.receive(id)}
-                  checked={!excluded.has(id)}
-                  onChange={(e) =>
-                    setExcluded((s) => {
-                      const n = new Set(s);
-                      if (e.target.checked) n.delete(id);
-                      else n.add(id);
-                      return n;
-                    })
-                  }
-                />
+      <div className="space-y-3 px-4 py-3">
+        {pending && <p className="text-xs text-base-content/60">{m.pendingNote}</p>}
+        {h.note && <p className="whitespace-pre-wrap rounded-box bg-base-200/60 px-3 py-2">{h.note}</p>}
+        <ul className="divide-y divide-base-300/70 rounded-box border border-base-300">
+          {(h.items ?? []).map((it) => {
+            const id = it.caseId ?? '';
+            return (
+              <li key={id} className="flex flex-wrap items-start gap-x-3 gap-y-1 px-3 py-2" data-testid="handover-item" data-outcome={it.outcome}>
+                {canAccept && (
+                  <input
+                    type="checkbox"
+                    className="checkbox checkbox-sm checkbox-primary mt-0.5"
+                    aria-label={m.receive(id)}
+                    checked={!excluded.has(id)}
+                    onChange={(e) =>
+                      setExcluded((s) => {
+                        const n = new Set(s);
+                        if (e.target.checked) n.delete(id);
+                        else n.add(id);
+                        return n;
+                      })
+                    }
+                  />
+                )}
+                <div className="min-w-0 flex-1 space-y-0.5">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Link className="font-mono text-xs text-primary hover:underline" to={`/cases/${encodeURIComponent(id)}`}>
+                      {id}
+                    </Link>
+                    <span className={`badge badge-sm ${outcomeTone[it.outcome ?? 'PENDING'] ?? ''}`}>{label(m.outcomeName, it.outcome)}</span>
+                    {(it.openObligationsAt ?? 0) > 0 && <span className="badge badge-warning badge-soft badge-sm">{m.followUpsLeft(it.openObligationsAt ?? 0)}</span>}
+                  </div>
+                  <p>{`${m.nextAction}: ${text(it.nextAction)}`}</p>
+                  {it.checkDueAt && <p className="text-xs text-base-content/55">{`${m.checkDue} ${when(it.checkDueAt)}`}</p>}
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+        {(h.teamSnapshot?.length ?? 0) > 0 && <p className="text-xs text-base-content/60">{m.snapshot(h.teamSnapshot?.length ?? 0)}</p>}
+      </div>
+      {(canAccept || canCancel) && (
+        <div className="space-y-2 border-t border-base-300 bg-base-200/40 px-4 py-3">
+          {canAccept && (
+            <div className="space-y-1">
+              <button type="button" className="btn btn-sm btn-primary" disabled={accept.busy} onClick={() => void accept.run(null)}>
+                {excluded.size > 0 ? m.acceptSome(excluded.size) : m.acceptAll}
+              </button>
+              {accept.phase.kind === 'rejected' && accept.phase.failure instanceof ProblemFailure && accept.phase.failure.problem.code === 'FORBIDDEN' ? (
+                // 0.13.1: 후임에게 그 팀 역할이 없으면 403 — 인계서는 받기 전 그대로
+                <p role="alert" className="alert alert-warning alert-soft text-sm" data-testid="handover-accept-forbidden">
+                  {m.acceptForbidden}
+                </p>
+              ) : (
+                <CommandFeedback command={accept}>{() => <span className="text-xs text-success">{m.accepted}</span>}</CommandFeedback>
               )}
-              <Link className="link font-mono" to={`/cases/${encodeURIComponent(id)}`}>
-                {id}
-              </Link>
-              <span className={`badge badge-sm ${outcomeTone[it.outcome ?? 'PENDING'] ?? ''}`}>{label(m.outcomeName, it.outcome)}</span>
-              <span>{`${m.nextAction}: ${text(it.nextAction)}`}</span>
-              {it.checkDueAt && <span className="opacity-70">{`${m.checkDue} ${when(it.checkDueAt)}`}</span>}
-              {(it.openObligationsAt ?? 0) > 0 && <span className="opacity-70">{m.followUpsLeft(it.openObligationsAt ?? 0)}</span>}
-            </li>
-          );
-        })}
-      </ul>
-      {(h.teamSnapshot?.length ?? 0) > 0 && <p className="text-xs text-base-content/60">{m.snapshot(h.teamSnapshot?.length ?? 0)}</p>}
-      {canAccept && (
-        <div className="space-y-1">
-          <button type="button" className="btn btn-sm btn-primary" disabled={accept.busy} onClick={() => void accept.run(null)}>
-            {excluded.size > 0 ? m.acceptSome(excluded.size) : m.acceptAll}
-          </button>
-          {accept.phase.kind === 'rejected' && accept.phase.failure instanceof ProblemFailure && accept.phase.failure.problem.code === 'FORBIDDEN' ? (
-            // 0.13.1: 후임에게 그 팀 역할이 없으면 403 — 인계서는 받기 전 그대로
-            <p role="alert" className="alert alert-warning alert-soft text-sm" data-testid="handover-accept-forbidden">
-              {m.acceptForbidden}
-            </p>
-          ) : (
-            <CommandFeedback command={accept}>{() => <span className="text-xs text-success">{m.accepted}</span>}</CommandFeedback>
+            </div>
+          )}
+          {canCancel && (
+            <div className="space-y-1">
+              <button type="button" className="btn btn-sm btn-outline" disabled={cancel.busy} onClick={() => void cancel.run(null)}>
+                {m.cancel}
+              </button>
+              <CommandFeedback command={cancel}>{() => <span className="text-xs text-success">{m.cancelled}</span>}</CommandFeedback>
+            </div>
           )}
         </div>
       )}
-      {canCancel && (
-        <div className="space-y-1">
-          <button type="button" className="btn btn-sm btn-outline" disabled={cancel.busy} onClick={() => void cancel.run(null)}>
-            {m.cancel}
-          </button>
-          <CommandFeedback command={cancel}>{() => <span className="text-xs text-success">{m.cancelled}</span>}</CommandFeedback>
-        </div>
-      )}
     </li>
+  );
+}
+
+const STATE_TONE: Readonly<Record<string, string>> = { PENDING: 'badge-info', COMPLETED: 'badge-success', CANCELLED: 'badge-ghost' };
+
+/** 운영자 머리글자 동그라미(ID 는 옆 글자로 읽힌다) */
+function Initial({ id }: { readonly id: string | null | undefined }) {
+  const letter = (id ?? '').replace(/^op-/i, '').charAt(0).toUpperCase() || '?';
+  return (
+    <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary" aria-hidden="true" title={id ?? undefined}>
+      {letter}
+    </span>
   );
 }

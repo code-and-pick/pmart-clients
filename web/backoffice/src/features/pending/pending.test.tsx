@@ -15,7 +15,8 @@ describe('처리 대기', () => {
   it('멈춘 주문·이행 확인 필요를 오래된 것부터 한 목록으로, 버튼은 allowedActions 만', async () => {
     renderAt('/pending', as.admin);
     const rows = await screen.findAllByTestId('pending-item');
-    expect(rows.map((r) => r.getAttribute('data-kind'))).toEqual(['MFC_HANDOVER_REJECTED', 'STUCK_SAGA', 'FULFILLMENT_ISSUE', 'MFC_STOP_FAILED', 'FULFILLMENT_ISSUE', 'STUCK_SAGA']);
+    // 종류별 묶음(2026-11-18) — 묶음은 서버 순서(오래된 것부터)에서 처음 나온 차례, 묶음 안도 서버 순서 그대로
+    expect(rows.map((r) => r.getAttribute('data-kind'))).toEqual(['MFC_HANDOVER_REJECTED', 'STUCK_SAGA', 'STUCK_SAGA', 'FULFILLMENT_ISSUE', 'FULFILLMENT_ISSUE', 'MFC_STOP_FAILED']);
     const payment = await rowOf('ORD-MOCK-1001');
     const saga1 = (await screen.findAllByTestId('pending-item')).find((r) => r.textContent?.includes('PG 승인 결과'))!;
     expect(within(saga1).getByRole('button', { name: '결제 결과 다시 확인' })).toBeInTheDocument();
@@ -107,7 +108,7 @@ describe('처리 대기', () => {
   it('MFC 중지 실패: 다시 시도(메모 필수) → bff mfc-fulfillment-service/stop-retry → 목록에서 빠진다, 처리 완료 버튼은 없다', async () => {
     const view = renderAt('/pending', as.admin);
     const row = await rowOf('PDA 응답 없음');
-    expect(within(row).getByText('MFC 중지 실패(취소 멈춤)')).toBeInTheDocument();
+    expect(within(row.closest('section')!).getByRole('heading', { name: 'MFC 중지 실패(취소 멈춤)' })).toBeInTheDocument(); // 종류는 묶음 머리에
     expect(within(row).queryByRole('button', { name: '처리 완료(밖에서 해결)' })).not.toBeInTheDocument();
     await userEvent.click(within(row).getByRole('button', { name: '다시 시도' }));
     expect(within(row).getByText(/누가·사유가 MFC 재시도 기록으로 남아요/)).toBeInTheDocument();
@@ -132,8 +133,8 @@ describe('처리 대기', () => {
     expect(screen.getByText(/재고와 인계 수량이 다름/)).toBeInTheDocument();
     expect(view.mutations('/commands/mfc-fulfillment-service/handover-retry')).toHaveLength(1);
     // bff 0.8.0: 다시 읽은 목록의 최근 재시도 = 방금 보낸 운영자·사유
-    await waitFor(() => expect(within(screen.getByText(/재고와 인계 수량이 다름/).closest('tr')!).getByTestId('pending-last-retry')).toHaveTextContent('op-admin-1'));
-    expect(within(screen.getByText(/재고와 인계 수량이 다름/).closest('tr')!).getByTestId('pending-last-retry')).toHaveTextContent('재고 정정함');
+    await waitFor(() => expect(within(screen.getByText(/재고와 인계 수량이 다름/).closest('[data-testid="pending-item"]')!).getByTestId('pending-last-retry')).toHaveTextContent('op-admin-1'));
+    expect(within(screen.getByText(/재고와 인계 수량이 다름/).closest('[data-testid="pending-item"]')!).getByTestId('pending-last-retry')).toHaveTextContent('재고 정정함');
   });
 
   it('최근 재시도(bff 0.8.0): 누가·언제·사유, 없으면 줄 없음', async () => {

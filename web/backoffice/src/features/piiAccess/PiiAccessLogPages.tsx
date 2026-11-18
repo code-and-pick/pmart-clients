@@ -13,8 +13,8 @@ import { QueryState, toUiState } from '@pmart/web-ui';
 import type { components } from '../../api/generated/audit';
 import { useApi } from '../../app/ApiContext';
 import { messages } from '../../shared/messages';
-import { Facts, isSeoulDate, label, seoulDayEnd, seoulDayStart, text, when } from '../../shared/ops';
-import { DataTable, PageHeader, SearchPanel, SearchRow } from '../../shared/admin';
+import { isSeoulDate, label, seoulDayEnd, seoulDayStart, text, when } from '../../shared/ops';
+import { FieldList, PageHeader, SearchPanel, SearchRow, Section, StatusBadge, type Tone } from '../../shared/admin';
 
 const m = messages.piiLogs;
 type Log = components['schemas']['PiiAccessLog'];
@@ -117,28 +117,35 @@ export function PiiAccessLogListPage() {
             const items = data.items;
             const nextCursor = data.page.nextCursor ?? null;
             return (
-              <div className="space-y-3">
+              // 감사 기록 카드(2026-11-18) — 위 거르기 상자와 한 카드로 붙는다(data-list-part)
+              <div className="overflow-hidden rounded-box border border-base-300 bg-base-100 shadow-sm" data-list-part="table">
                 {items.length === 0 ? (
-                  <p data-state="empty" className="p-4 text-base-content/60">
+                  <p data-state="empty" className="flex flex-col items-center gap-2 px-6 py-10 text-center text-sm text-base-content/60">
+                    <svg aria-hidden="true" viewBox="0 0 24 24" className="h-8 w-8 fill-none stroke-current text-base-content/30" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M12 3 4 6v6c0 4.5 3.4 8.3 8 9 4.6-.7 8-4.5 8-9V6l-8-3Zm-3 9 2 2 4-4" />
+                    </svg>
                     {m.empty}
                   </p>
                 ) : (
-                  <LogTable items={items} search={params.toString()} />
+                  <LogList items={items} search={params.toString()} />
                 )}
-                {(cursor || nextCursor) && (
-                  <div className="flex gap-2">
-                    {cursor && (
-                      <button type="button" className="btn btn-sm" onClick={() => apply(filters)}>
-                        {m.first}
-                      </button>
-                    )}
-                    {nextCursor && (
-                      <button type="button" className="btn btn-sm" onClick={() => apply(filters, nextCursor)}>
-                        {m.next}
-                      </button>
-                    )}
-                  </div>
-                )}
+                <div className="flex flex-wrap items-center justify-between gap-2 border-t border-base-300 px-4 py-3 text-sm">
+                  <span className="text-base-content/55">{m.shown(items.length)}</span>
+                  {(cursor || nextCursor) && (
+                    <div className="flex gap-2">
+                      {cursor && (
+                        <button type="button" className="btn btn-sm border-base-300 bg-base-100" onClick={() => apply(filters)}>
+                          {m.first}
+                        </button>
+                      )}
+                      {nextCursor && (
+                        <button type="button" className="btn btn-sm border-base-300 bg-base-100" onClick={() => apply(filters, nextCursor)}>
+                          {m.next}
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
             );
           }}
@@ -202,45 +209,53 @@ function FilterForm({ initial, onApply }: { readonly initial: Filters; readonly 
   );
 }
 
-function LogTable({ items, search }: { readonly items: readonly Log[]; readonly search: string }) {
+/** 방식 색 — 보기(파랑)·검색(회색)·내려받기(노랑)·내보내기(빨강): 밖으로 나가는 것일수록 진하게 */
+const ACCESS_TONE: Readonly<Record<string, Tone>> = { VIEW: 'info', SEARCH: 'neutral', DOWNLOAD: 'warning', EXPORT: 'error' };
+
+/** 감사 기록 줄(2026-11-18): 직원 머리글자 + "누가 · 방식 · 누구의" + 열어 본 항목 + 사유, 오른쪽 시각(상세로) */
+function LogList({ items, search }: { readonly items: readonly Log[]; readonly search: string }) {
   return (
-    <div className="overflow-x-auto">
-      <DataTable>
-        <thead>
-          <tr>
-            <th>{m.col.occurredAt}</th>
-            <th>{m.col.actor}</th>
-            <th>{m.col.subject}</th>
-            <th>{m.col.fields}</th>
-            <th>{m.col.accessType}</th>
-            <th>{m.col.caseRef}</th>
-            <th>{m.col.purpose}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {items.map((log) => (
-            <tr key={log.piiAccessLogId} data-testid="pii-log-row">
-              <td>
-                <Link className="link" to={`/pii-access-logs/${encodeURIComponent(log.piiAccessLogId)}`} state={{ search }}>
-                  {when(log.occurredAt)}
-                </Link>
-              </td>
-              <td>
-                <span className="font-mono">{log.actor.actorId}</span>
-                {(log.actor.roles?.length ?? 0) > 0 && <div className="text-xs text-base-content/60">{log.actor.roles?.join(', ')}</div>}
-              </td>
-              <td>{subject(log)}</td>
-              <td>{fieldsText(log.fields)}</td>
-              <td>{label(m.accessTypeName, log.accessType)}</td>
-              <td>{refLink(log.caseRef)}</td>
-              <td className="max-w-xs truncate" title={log.purpose}>
-                {log.purpose}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </DataTable>
-    </div>
+    <ul className="divide-y divide-base-300/70">
+      {items.map((log) => (
+        <li key={log.piiAccessLogId} className="grid gap-x-4 gap-y-2 px-4 py-3 text-sm hover:bg-base-200/50 sm:grid-cols-[2.25rem_minmax(0,1fr)_auto]" data-testid="pii-log-row">
+          {/* 첫 링크 = 상세(시각) — 넓은 화면에서는 오른쪽 끝에 */}
+          <div className="text-xs sm:order-last sm:text-right">
+            <Link className="font-medium text-primary hover:underline" to={`/pii-access-logs/${encodeURIComponent(log.piiAccessLogId)}`} state={{ search }}>
+              {when(log.occurredAt)}
+            </Link>
+          </div>
+          <span className="hidden h-9 w-9 items-center justify-center rounded-full bg-base-300 text-xs font-bold text-base-content/70 sm:flex" aria-hidden="true">
+            {(log.actor.actorId.replace(/^op-/i, '').charAt(0) || '?').toUpperCase()}
+          </span>
+          <div className="min-w-0 space-y-1.5">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+              <span className="font-mono font-semibold">{log.actor.actorId}</span>
+              <StatusBadge tone={ACCESS_TONE[log.accessType] ?? 'ghost'}>{label(m.accessTypeName, log.accessType)}</StatusBadge>
+              <span className="text-base-content/40" aria-hidden="true">
+                →
+              </span>
+              <span className="inline-flex items-center">{subject(log)}</span>
+            </div>
+            {(log.actor.roles?.length ?? 0) > 0 && <div className="text-xs text-base-content/50">{log.actor.roles?.join(', ')}</div>}
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
+              <span className="inline-flex items-center gap-1.5">
+                <span className="text-base-content/50">{m.col.fields}</span>
+                <span className="rounded-md bg-warning/10 px-1.5 py-0.5 font-medium">{fieldsText(log.fields)}</span>
+              </span>
+              {log.caseRef && (
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="text-base-content/50">{m.col.caseRef}</span>
+                  {refLink(log.caseRef)}
+                </span>
+              )}
+            </div>
+            <p className="truncate border-l-2 border-base-300 pl-2 text-xs italic text-base-content/70" title={log.purpose}>
+              {log.purpose}
+            </p>
+          </div>
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -254,35 +269,71 @@ export function PiiAccessLogDetailPage() {
     queryFn: () => request('GET', api.audit.GET('/pii-access-logs/{piiAccessLogId}', { params: { path: { piiAccessLogId } } })),
   });
   return (
-    <section className="max-w-3xl space-y-4">
-      <Link className="link text-sm" to={`/pii-access-logs${back ? `?${back}` : ''}`}>
-        {m.back}
-      </Link>
-      <PageHeader title={m.detailTitle} />
+    <section className="max-w-6xl space-y-4">
+      <PageHeader title={m.detailTitle} back={{ to: `/pii-access-logs${back ? `?${back}` : ''}`, label: m.back }} />
       <QueryState state={toUiState(query)} onRetry={() => void query.refetch()}>
         {(log) => (
-          <>
-            <Facts
-              testId="pii-log-detail"
-              rows={[
-                [m.col.occurredAt, when(log.occurredAt)],
-                [m.col.actor, <span className="font-mono">{log.actor.actorId}</span>],
-                [m.roles, text(log.actor.roles?.join(', '))],
-                [m.centerScope, text(log.actor.centerScope?.join(', '))],
-                [m.col.subject, subject(log)],
-                [m.col.fields, fieldsText(log.fields)],
-                [m.col.accessType, label(m.accessTypeName, log.accessType)],
-                [m.recordCount, text(log.recordCount ?? 1)],
-                [m.col.caseRef, refLink(log.caseRef)],
-                [m.screen, text(log.screen)],
-                [m.col.purpose, <span className="whitespace-pre-wrap">{log.purpose}</span>],
-                [m.sourceSystem, <span className="font-mono">{log.sourceSystem}</span>],
-                [m.recordedAt, when(log.recordedAt)],
-                [m.logId, <span className="font-mono">{log.piiAccessLogId}</span>],
-              ]}
-            />
-            <p className="text-xs text-base-content/60">{m.purposeNote}</p>
-          </>
+          // 감사 기록 한 건(2026-11-18): 왼쪽 = 누가·무엇을·왜(큰 상자), 오른쪽 = 기록 정보
+          <div className="grid items-start gap-4 lg:grid-cols-3" data-testid="pii-log-detail">
+            <div className="min-w-0 space-y-4 lg:col-span-2">
+              <div className="rounded-box border border-base-300 bg-base-100 px-5 py-4 shadow-sm">
+                <div className="flex items-start gap-3">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-base-300 text-sm font-bold text-base-content/70" aria-hidden="true">
+                    {(log.actor.actorId.replace(/^op-/i, '').charAt(0) || '?').toUpperCase()}
+                  </span>
+                  <div className="min-w-0 space-y-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-mono font-semibold">{log.actor.actorId}</span>
+                      <StatusBadge tone={ACCESS_TONE[log.accessType] ?? 'ghost'}>{label(m.accessTypeName, log.accessType)}</StatusBadge>
+                      <span className="text-base-content/40" aria-hidden="true">
+                        →
+                      </span>
+                      <span className="inline-flex items-center">{subject(log)}</span>
+                    </div>
+                    <p className="text-xs text-base-content/55">{when(log.occurredAt)}</p>
+                  </div>
+                </div>
+                <div className="mt-4 space-y-1">
+                  <p className="text-xs text-base-content/50">{m.col.purpose}</p>
+                  <blockquote className="whitespace-pre-wrap rounded-box border-l-4 border-primary/50 bg-base-200/50 px-4 py-3 text-sm">{log.purpose}</blockquote>
+                  <p className="text-xs text-base-content/55">{m.purposeNote}</p>
+                </div>
+              </div>
+              <Section title={m.accessSection}>
+                <FieldList
+                  rows={[
+                    [m.col.fields, <span className="rounded-md bg-warning/10 px-1.5 py-0.5">{fieldsText(log.fields)}</span>],
+                    [m.col.accessType, label(m.accessTypeName, log.accessType)],
+                    [m.recordCount, text(log.recordCount ?? 1)],
+                    [m.col.subject, subject(log)],
+                    [m.col.caseRef, refLink(log.caseRef)],
+                    [m.screen, text(log.screen)],
+                  ]}
+                />
+              </Section>
+            </div>
+            <aside className="min-w-0 space-y-4">
+              <Section title={m.actorSection}>
+                <FieldList
+                  rows={[
+                    [m.col.actor, <span className="font-mono">{log.actor.actorId}</span>],
+                    [m.roles, text(log.actor.roles?.join(', '))],
+                    [m.centerScope, text(log.actor.centerScope?.join(', '))],
+                  ]}
+                />
+              </Section>
+              <Section title={m.recordSection}>
+                <FieldList
+                  rows={[
+                    [m.col.occurredAt, when(log.occurredAt)],
+                    [m.recordedAt, when(log.recordedAt)],
+                    [m.sourceSystem, <span className="font-mono">{log.sourceSystem}</span>],
+                    [m.logId, <span className="break-all font-mono">{log.piiAccessLogId}</span>],
+                  ]}
+                />
+              </Section>
+            </aside>
+          </div>
         )}
       </QueryState>
     </section>

@@ -11,7 +11,10 @@ import { FailureAlert } from '../../shared/Feedback';
 import { messages as m } from '../../shared/messages';
 import { MultiSelectDropdown } from '@pmart/web-ui';
 import { gs1CheckDigitProblem } from './barcode';
+import { Card } from './parts';
 import { parseProductJson, ProductJsonError, type SkuJson } from './productJson';
+
+const fieldLabel = 'text-xs font-medium text-base-content/60';
 
 type DraftSku = ProductDraftInput['skus'][number];
 type DimensionsSource = NonNullable<DraftSku['dimensionsSource']>;
@@ -257,160 +260,173 @@ export function ProductDraftForm({
   type NumKey = 'unitsPerSku' | 'weightG' | 'volumeMl' | 'unitsPerBox' | 'ti' | 'hi' | 'boxesPerPallet' | 'minRemainingDays' | 'maxDaysSinceManufacture' | 'widthMm' | 'depthMm' | 'heightMm';
   const numField = (i: number, k: NumKey, text: string, disabled = false) => (
     <label className="flex flex-col gap-1 text-sm">
-      {text}
+      <span className={fieldLabel}>{text}</span>
       <input className="input input-sm w-full" inputMode="numeric" disabled={disabled} value={v.skus[i]![k]} onChange={(e) => setSku(i, { [k]: e.target.value })} />
     </label>
   );
 
+  // 화면(2026-11-18 사용자 "밋밋하다"): 제목 있는 카드로 묶는다 — 기본 정보 → 카테고리 → 필터 옵션 → SKU, 저장 버튼은 아래 오른쪽.
   return (
     <form
-      className="space-y-4 rounded-box border border-base-300 bg-base-100 shadow-sm p-4"
+      className="space-y-4"
       onSubmit={(e) => {
         e.preventDefault();
         if (v.internalName.trim()) onSubmit(toInput(v, initial));
       }}
     >
-      <div className="flex flex-wrap items-end justify-between gap-2">
-        <label className="flex flex-col gap-1 text-sm md:w-1/2">
-          {m.products.internalName}
-          <input className="input input-sm w-full" value={v.internalName} onChange={(e) => set('internalName', e.target.value)} />
+      <Card
+        title={m.products.formBasic}
+        hint={m.products.formBasicHint}
+        aside={
+          !edit && (
+            <button type="button" className="btn btn-ghost btn-sm" onClick={clearAll}>
+              ✕ {m.products.clearAll}
+            </button>
+          )
+        }
+      >
+        <label className="flex flex-col gap-1 text-sm">
+          <span className={fieldLabel}>{m.products.internalName}</span>
+          <input className="input input-sm w-full md:w-2/3" value={v.internalName} onChange={(e) => set('internalName', e.target.value)} />
         </label>
         {!edit && (
-        <div className="flex items-center gap-2">
-          <label className="flex items-center gap-2 text-sm">
-            {m.products.jsonFill}
+          <label className="flex cursor-pointer flex-col gap-2 rounded-lg border-2 border-dashed border-base-300 px-4 py-3 text-sm transition-colors hover:border-primary/40 hover:bg-base-200/60">
+            <span className="font-medium">{m.products.jsonFill}</span>
             <input
               type="file"
               accept="application/json,.json"
               aria-label={m.products.jsonFill}
-              className="file-input file-input-sm"
+              className="file-input file-input-sm w-full max-w-sm"
               onChange={(e) => {
                 void fillFromJson(e.target.files?.[0]);
                 e.target.value = '';
               }}
             />
+            <span className="text-xs text-base-content/55">{m.products.jsonHint}</span>
           </label>
-          <button type="button" className="btn btn-ghost btn-sm" onClick={clearAll}>
-            ✕ {m.products.clearAll}
-          </button>
-        </div>
         )}
-      </div>
-      {!edit && <p className="text-xs text-base-content/60">{m.products.jsonHint}</p>}
-      {note && (
-        <p role="status" className={`text-sm ${note.ok ? 'text-success' : 'text-error'}`}>
-          {note.text}
-        </p>
-      )}
+        {note && (
+          <p role="status" className={`text-sm ${note.ok ? 'text-success' : 'text-error'}`}>
+            {note.text}
+          </p>
+        )}
+      </Card>
 
-      {/* 카테고리 */}
-      <div className="grid gap-3 md:grid-cols-2">
-        <label className="flex flex-col gap-1 text-sm">
-          {m.products.primaryCategory}
-          <select
-            className="select select-sm w-full"
-            value={v.primaryCategoryId}
-            disabled={tree.isPending}
-            // 대표 카테고리는 노출 카테고리에 자동으로 들어간다(서버도 categoryIds 맨 앞에 대표를 둔다). 따로 고른 목록에서는 뺀다.
-            onChange={(e) =>
-              setV((prev) => ({ ...prev, primaryCategoryId: e.target.value, categoryIds: prev.categoryIds.filter((id) => id !== e.target.value) }))
-            }
-          >
-            <option value="">{tree.isPending ? m.loading : m.products.categoryPick}</option>
-            {v.primaryCategoryId && !nodeById.has(v.primaryCategoryId) && <option value={v.primaryCategoryId}>{v.primaryCategoryId}</option>}
-            {nodes.map((n) => (
-              <option key={n.categoryId} value={n.categoryId}>
-                {n.path ?? n.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <div className="flex flex-col gap-1">
-          <MultiSelectDropdown
-            label={m.products.categories}
-            options={nodes.map((n) => ({
-              value: n.categoryId,
-              label: n.categoryId === v.primaryCategoryId ? `${n.path ?? n.name} (${m.products.primaryTag})` : (n.path ?? n.name),
-              // 대표 카테고리는 자동으로 들어가므로 따로 고르지 않는다
-              disabled: n.categoryId === v.primaryCategoryId,
-            }))}
-            value={v.categoryIds}
-            onChange={(next) => set('categoryIds', next)}
-            placeholder={tree.isPending ? m.loading : m.products.categoriesPick}
-            selectedText={m.products.categoriesSelected}
-            disabled={tree.isPending}
-          />
-          <span className="text-xs text-base-content/60">{m.products.categoriesHint}</span>
-        </div>
-        {tree.error instanceof PmartFailure && (
-          <div className="md:col-span-2">
-            <FailureAlert failure={tree.error} />
-            <button type="button" className="btn btn-xs mt-1" onClick={() => void tree.refetch()}>
-              {m.retry}
-            </button>
-          </div>
-        )}
-        {(v.primaryCategoryId !== '' || v.categoryIds.length > 0) && (
-          <ul className="flex flex-wrap gap-1 md:col-span-2" aria-label={m.products.selectedCategories}>
-            {v.primaryCategoryId !== '' && (
-              <li className="badge badge-primary badge-outline gap-1">{`${label(v.primaryCategoryId)} · ${m.products.primaryTag}`}</li>
-            )}
-            {v.categoryIds.map((id) => (
-              <li key={id} className="badge badge-outline gap-1">
-                {label(id)}
-                <button type="button" aria-label={m.products.removeCategory(label(id))} onClick={() => set('categoryIds', v.categoryIds.filter((x) => x !== id))}>
-                  ✕
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-        {v.categoryPaths.length > 0 && (
-          <p className="text-warning text-xs md:col-span-2">{`${m.products.categoryPathsPending(v.categoryPaths.length)}: ${v.categoryPaths.join(' / ')}`}</p>
-        )}
-      </div>
-
-      {/* 필터 옵션 */}
-      {v.primaryCategoryId !== '' && (
-        <fieldset className="space-y-2 rounded-box border border-base-300 p-3">
-          <legend className="px-1 text-sm font-bold">{m.products.filters}</legend>
-          {filters.isPending && <p className="text-sm text-base-content/60">{m.loading}</p>}
-          {filters.error instanceof PmartFailure && <FailureAlert failure={filters.error} />}
-          {filters.isSuccess && groups.length === 0 && <p className="text-sm text-base-content/60">{m.products.filtersNone}</p>}
-          {groups.map((g) => (
-            <div key={g.filterGroupId} className="flex flex-wrap items-center gap-3 text-sm">
-              <span className="font-medium">{g.name}</span>
-              {g.options.map((opt) => (
-                <label key={opt} className="flex items-center gap-1">
-                  <input
-                    type="checkbox"
-                    className="checkbox checkbox-xs"
-                    aria-label={m.products.filterOption(g.name, opt)}
-                    checked={(v.filterOptions[g.filterGroupId] ?? []).includes(opt)}
-                    onChange={(e) => toggleFilter(g.filterGroupId, opt, e.target.checked)}
-                  />
-                  {opt}
-                </label>
+      <Card title={m.products.formCategory} hint={m.products.formCategoryHint}>
+        <div className="grid gap-3 md:grid-cols-2">
+          <label className="flex flex-col gap-1 text-sm">
+            <span className={fieldLabel}>{m.products.primaryCategory}</span>
+            <select
+              className="select select-sm w-full"
+              value={v.primaryCategoryId}
+              disabled={tree.isPending}
+              // 대표 카테고리는 노출 카테고리에 자동으로 들어간다(서버도 categoryIds 맨 앞에 대표를 둔다). 따로 고른 목록에서는 뺀다.
+              onChange={(e) =>
+                setV((prev) => ({ ...prev, primaryCategoryId: e.target.value, categoryIds: prev.categoryIds.filter((id) => id !== e.target.value) }))
+              }
+            >
+              <option value="">{tree.isPending ? m.loading : m.products.categoryPick}</option>
+              {v.primaryCategoryId && !nodeById.has(v.primaryCategoryId) && <option value={v.primaryCategoryId}>{v.primaryCategoryId}</option>}
+              {nodes.map((n) => (
+                <option key={n.categoryId} value={n.categoryId}>
+                  {n.path ?? n.name}
+                </option>
               ))}
+            </select>
+          </label>
+          <div className="flex flex-col gap-1">
+            <MultiSelectDropdown
+              label={m.products.categories}
+              options={nodes.map((n) => ({
+                value: n.categoryId,
+                label: n.categoryId === v.primaryCategoryId ? `${n.path ?? n.name} (${m.products.primaryTag})` : (n.path ?? n.name),
+                // 대표 카테고리는 자동으로 들어가므로 따로 고르지 않는다
+                disabled: n.categoryId === v.primaryCategoryId,
+              }))}
+              value={v.categoryIds}
+              onChange={(next) => set('categoryIds', next)}
+              placeholder={tree.isPending ? m.loading : m.products.categoriesPick}
+              selectedText={m.products.categoriesSelected}
+              disabled={tree.isPending}
+            />
+            <span className="text-xs text-base-content/60">{m.products.categoriesHint}</span>
+          </div>
+          {tree.error instanceof PmartFailure && (
+            <div className="md:col-span-2">
+              <FailureAlert failure={tree.error} />
+              <button type="button" className="btn btn-xs mt-1" onClick={() => void tree.refetch()}>
+                {m.retry}
+              </button>
             </div>
-          ))}
-        </fieldset>
-      )}
+          )}
+          {(v.primaryCategoryId !== '' || v.categoryIds.length > 0) && (
+            <ul className="flex flex-wrap gap-1.5 md:col-span-2" aria-label={m.products.selectedCategories}>
+              {v.primaryCategoryId !== '' && (
+                <li className="badge badge-primary badge-soft gap-1">{`${label(v.primaryCategoryId)} · ${m.products.primaryTag}`}</li>
+              )}
+              {v.categoryIds.map((id) => (
+                <li key={id} className="badge badge-outline gap-1">
+                  {label(id)}
+                  <button type="button" aria-label={m.products.removeCategory(label(id))} onClick={() => set('categoryIds', v.categoryIds.filter((x) => x !== id))}>
+                    ✕
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          {v.categoryPaths.length > 0 && (
+            <p className="text-warning text-xs md:col-span-2">{`${m.products.categoryPathsPending(v.categoryPaths.length)}: ${v.categoryPaths.join(' / ')}`}</p>
+          )}
+        </div>
 
-      {/* SKU */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-bold">{m.products.skus}</h2>
-          {!edit && (
+        {/* 필터 옵션 — 대표 카테고리를 고른 뒤 */}
+        {v.primaryCategoryId !== '' && (
+          <fieldset className="space-y-2 rounded-lg border border-base-300 bg-base-200/30 p-3">
+            <legend className="px-1 text-sm font-bold">{m.products.filters}</legend>
+            {filters.isPending && <p className="text-sm text-base-content/60">{m.loading}</p>}
+            {filters.error instanceof PmartFailure && <FailureAlert failure={filters.error} />}
+            {filters.isSuccess && groups.length === 0 && <p className="text-sm text-base-content/60">{m.products.filtersNone}</p>}
+            {groups.map((g) => (
+              <div key={g.filterGroupId} className="flex flex-wrap items-center gap-2 text-sm">
+                <span className="w-24 shrink-0 font-medium">{g.name}</span>
+                {g.options.map((opt) => (
+                  <label key={opt} className="flex cursor-pointer items-center gap-1 rounded-full border border-base-300 bg-base-100 px-2.5 py-0.5 has-[:checked]:border-primary has-[:checked]:bg-primary/10">
+                    <input
+                      type="checkbox"
+                      className="checkbox checkbox-xs"
+                      aria-label={m.products.filterOption(g.name, opt)}
+                      checked={(v.filterOptions[g.filterGroupId] ?? []).includes(opt)}
+                      onChange={(e) => toggleFilter(g.filterGroupId, opt, e.target.checked)}
+                    />
+                    {opt}
+                  </label>
+                ))}
+              </div>
+            ))}
+          </fieldset>
+        )}
+      </Card>
+
+      <Card
+        title={m.products.skus}
+        hint={m.products.formSkuHint}
+        aside={
+          !edit && (
             <button type="button" className="btn btn-outline btn-xs" onClick={() => set('skus', [...v.skus, emptySku()])}>
               {m.products.addSku}
             </button>
-          )}
-        </div>
+          )
+        }
+      >
         {v.skus.map((s, i) => (
-          <section key={i} className="space-y-2 rounded-box border border-base-300 p-3" aria-label={m.products.skuTitle(i + 1)}>
+          <section key={i} className="space-y-3 rounded-lg border border-base-300 p-4" aria-label={m.products.skuTitle(i + 1)}>
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-medium">{m.products.skuTitle(i + 1)}</h3>
+              <h3 className="flex items-center gap-2 text-sm font-semibold">
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary" aria-hidden="true">
+                  {i + 1}
+                </span>
+                {m.products.skuTitle(i + 1)}
+              </h3>
               {v.skus.length > 1 && !edit && (
                 <button
                   type="button"
@@ -424,7 +440,7 @@ export function ProductDraftForm({
             </div>
             <div className="grid gap-3 md:grid-cols-3">
               <label className="flex flex-col gap-1 text-sm">
-                {m.products.unitType}
+                <span className={fieldLabel}>{m.products.unitType}</span>
                 <select className="select select-sm" disabled={edit} value={s.unitType} onChange={(e) => setSku(i, { unitType: e.target.value === 'B' ? 'B' : 'E' })}>
                   <option value="E">{m.products.unitName.E}</option>
                   <option value="B">{m.products.unitName.B}</option>
@@ -434,7 +450,7 @@ export function ProductDraftForm({
               {numField(i, 'weightG', m.products.weightG)}
               {numField(i, 'volumeMl', m.products.volumeMl)}
               <label className="flex flex-col gap-1 text-sm">
-                {m.products.storageType}
+                <span className={fieldLabel}>{m.products.storageType}</span>
                 <select
                   className="select select-sm"
                   value={s.storageType}
@@ -448,11 +464,15 @@ export function ProductDraftForm({
                   ))}
                 </select>
               </label>
-              <div className="flex flex-col gap-1">
+              <label className="flex items-center gap-2 self-end pb-1.5 text-sm">
+                <input type="checkbox" className="checkbox checkbox-sm" checked={s.alcohol} onChange={(e) => setSku(i, { alcohol: e.target.checked })} />
+                {m.products.alcohol}
+              </label>
+              <div className="flex flex-col gap-1 md:col-span-3">
                 <label className="flex flex-col gap-1 text-sm">
-                  {m.products.barcodes}
+                  <span className={fieldLabel}>{m.products.barcodes}</span>
                   <input
-                    className="input input-sm w-full"
+                    className="input input-sm w-full font-mono"
                     value={s.barcodes}
                     onChange={(e) => setSku(i, { barcodes: e.target.value })}
                     // 스캐너는 끝에 Enter 를 보낸다 — 폼을 저장하지 않고 다음 바코드 자리를 만든다.
@@ -475,14 +495,10 @@ export function ProductDraftForm({
                       ];
                 })}
               </div>
-              <label className="flex items-center gap-2 text-sm">
-                <input type="checkbox" className="checkbox checkbox-sm" checked={s.alcohol} onChange={(e) => setSku(i, { alcohol: e.target.checked })} />
-                {m.products.alcohol}
-              </label>
             </div>
             {edit && <p className="text-xs text-base-content/60">{m.products.editFixedSku}</p>}
-            <details className="text-sm" open={edit || undefined}>
-              <summary className="cursor-pointer opacity-80">{m.products.extra}</summary>
+            <details className="rounded-lg bg-base-200/40 px-3 py-2 text-sm" open={edit || undefined}>
+              <summary className="cursor-pointer font-medium text-base-content/75">{m.products.extra}</summary>
               <div className="mt-2 grid gap-3 md:grid-cols-3">
                 {numField(i, 'minRemainingDays', m.products.minRemainingDays)}
                 {numField(i, 'maxDaysSinceManufacture', m.products.maxDaysSinceManufacture)}
@@ -491,7 +507,7 @@ export function ProductDraftForm({
                 {numField(i, 'depthMm', m.products.depthMm)}
                 {numField(i, 'heightMm', m.products.heightMm)}
                 <label className="flex flex-col gap-1 text-sm">
-                  {m.products.dimensionsSource}
+                  <span className={fieldLabel}>{m.products.dimensionsSource}</span>
                   <select
                     className="select select-sm"
                     value={s.dimensionsSource}
@@ -505,8 +521,8 @@ export function ProductDraftForm({
                 <span className="text-xs opacity-70 md:col-span-2">{m.products.dimensionsHint}</span>
               </div>
             </details>
-            <details className="text-sm" open={edit || undefined}>
-              <summary className="cursor-pointer opacity-80">{m.products.logistics}</summary>
+            <details className="rounded-lg bg-base-200/40 px-3 py-2 text-sm" open={edit || undefined}>
+              <summary className="cursor-pointer font-medium text-base-content/75">{m.products.logistics}</summary>
               <div className="mt-2 grid gap-3 md:grid-cols-4">
                 {numField(i, 'unitsPerBox', m.products.unitsPerBox)}
                 {numField(i, 'ti', m.products.ti)}
@@ -516,11 +532,14 @@ export function ProductDraftForm({
             </details>
           </section>
         ))}
-      </div>
+      </Card>
 
-      <button type="submit" className="btn btn-primary btn-sm" disabled={busy || !v.internalName.trim()}>
-        {submitLabel}
-      </button>
+      {/* 저장은 아래 오른쪽(Shopify 저장 줄처럼) */}
+      <div className="flex justify-end rounded-box border border-base-300 bg-base-100 px-5 py-3 shadow-sm">
+        <button type="submit" className="btn btn-primary btn-sm min-w-28" disabled={busy || !v.internalName.trim()}>
+          {submitLabel}
+        </button>
+      </div>
     </form>
   );
 }

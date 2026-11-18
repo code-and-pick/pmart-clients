@@ -105,7 +105,7 @@ export function OrderCancelForm({ order, caseRef: initialCaseRef = '', onClose }
         }}
       >
         <Notice tone="warning">{m.whole}</Notice>
-        <fieldset className="space-y-3" disabled={locked}>
+        <fieldset className="grid gap-4 md:grid-cols-2" disabled={locked}>
           <label className="flex flex-col gap-1 text-sm">
             {m.reason}
             <select className="select select-sm w-64" value={reason} onChange={(e) => setReason(e.target.value as Reason | '')}>

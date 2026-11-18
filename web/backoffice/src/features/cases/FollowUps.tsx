@@ -6,8 +6,9 @@
 //   완료 FULFILLED(수량·금액은 일부도) · 시도 기록 ATTEMPTED(상태 그대로, 메모 필수) · 면제 WAIVED·실패 FAILED(관리자만, 사유 필수). 근거 필수(서버는 확인하지 않음).
 // - 금액은 기록만 — 환불·보상 실행은 클레임·결제 메뉴. 이 화면에서 환불되는 것처럼 보이지 않게 "기록 금액"으로만.
 // - 메모·사유는 직원이 쓴 글 — 화면에만, 로그에 남기지 않는다. 판정은 서버(403·409·422 는 코드 문구).
+// 화면(2026-11-18 사용자 "밋밋하다"): 한 카드 안 항목 줄(종류 아이콘·담당 팀·상태 점 꼬리표·기한, 수량·기록 금액 막대, 결과 이력 줄), 아래 추가 칸. 고객센터 메뉴는 밑줄 탭 + 같은 줄. 동작은 그대로.
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Link, useSearchParams } from 'react-router';
 
 import { request } from '@pmart/web-core';
@@ -18,7 +19,8 @@ import { useApi } from '../../app/ApiContext';
 import { useSession } from '../../app/SessionContext';
 import { messages } from '../../shared/messages';
 import { label, text, when, won } from '../../shared/ops';
-import { PageHeader } from '../../shared/admin';
+import { PageHeader, StatusBadge, type Tone } from '../../shared/admin';
+import { EmptyBox, Icon, ICON } from '../inquiries/HelpdeskParts';
 
 const m = messages.followUps;
 type Case = components['schemas']['Case'];
@@ -47,50 +49,104 @@ function canResolve(o: Obligation, caseGroup: string | null | undefined, r: Retu
   return r.admin || (owner === 'DELIVERY_OPS' && r.team) || (owner === 'CS' && r.cs);
 }
 
-function ObligationItem({ o, caseGroup, onChanged }: { readonly o: Obligation; readonly caseGroup: string | null | undefined; readonly onChanged: () => void }) {
+/** 상태 꼬리표 색(보기만) */
+const STATE_TONE: Readonly<Record<string, Tone>> = { OPEN: 'warning', PARTIALLY_RESOLVED: 'info', RESOLVED: 'success', WAIVED: 'ghost', FAILED: 'error' };
+/** 종류 아이콘(보기만 — 모르는 종류는 목록 아이콘) */
+const KIND_ICON: Readonly<Record<string, string>> = {
+  REFUND: 'M4 7h16v10H4zM4 11h16M8 15h2',
+  RETURN_PICKUP: 'M3 7h11v9H3zM14 10h4l3 3v3h-7M7 19a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Zm10 0a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z',
+  REDELIVERY: 'M4 12a8 8 0 0 1 14-5.3M20 12a8 8 0 0 1-14 5.3M18 3v4h-4M6 21v-4h4',
+  CUSTOMER_CONTACT: ICON.phone,
+  EVIDENCE_COLLECTION: ICON.note,
+  COMPENSATION: ICON.star,
+};
+
+/** 진행 막대 — 서버가 준 처리량/전체를 그대로(막대 길이는 보기용) */
+function Progress({ done, all, children }: { readonly done: number; readonly all: number; readonly children: ReactNode }) {
+  const pct = all > 0 ? Math.min(100, (done / all) * 100) : 0;
+  return (
+    <div className="min-w-40 flex-1 space-y-1">
+      <span className="text-xs text-base-content/70">{children}</span>
+      <span className="block h-1.5 overflow-hidden rounded-full bg-base-200" aria-hidden="true">
+        <span className="block h-full rounded-full bg-primary" style={{ width: `${pct}%` }} />
+      </span>
+    </div>
+  );
+}
+
+function ObligationItem({ o, caseGroup, onChanged, caseLink }: { readonly o: Obligation; readonly caseGroup: string | null | undefined; readonly onChanged: () => void; readonly caseLink?: ReactNode }) {
   const roles = useRoles();
   const [open, setOpen] = useState(false);
+  const live = isOpenObligation(o);
   return (
-    <li className="space-y-1 rounded-box border border-base-300 bg-base-100 shadow-sm p-3 text-sm" data-testid="follow-up" data-state={o.state}>
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="font-semibold">{label(m.kindName, o.kind)}</span>
-        <span className="badge badge-ghost badge-sm">{label(messages.cases.groupName, o.owner ?? caseGroup)}</span>
-        <span className={`badge badge-sm ${isOpenObligation(o) ? 'badge-warning' : 'badge-success'}`}>{label(m.stateName, o.state)}</span>
-        {o.qty !== undefined && <span>{m.qtyText(o.resolvedQty ?? 0, o.qty)}</span>}
-        {o.amount !== undefined && <span>{m.amountText(won(o.resolvedAmount ?? 0), won(o.amount))}</span>}
-        {o.dueAt && <span className="opacity-70">{`${m.due} ${when(o.dueAt)}`}</span>}
-      </div>
-      {o.note && <p className="whitespace-pre-wrap opacity-80">{o.note}</p>}
-      {(o.resolutions ?? []).length > 0 && (
-        <ul className="space-y-0.5 text-xs opacity-80" data-testid="follow-up-results">
-          {(o.resolutions ?? []).map((r, i) => (
-            <li key={`${r.resolvedAt ?? ''}-${i}`}>
-              {[
-                when(r.resolvedAt),
-                label(m.outcomeName, r.outcome),
-                r.qty !== undefined ? m.qtyDone(r.qty) : null,
-                r.amount !== undefined ? m.amountDone(won(r.amount)) : null,
-                r.evidence ? `${m.evidence} ${r.evidence.system}:${r.evidence.ref}` : null,
-                text(r.resolvedBy),
-                r.note ?? null,
-              ]
-                .filter(Boolean)
-                .join(' · ')}
-            </li>
+    <li className="flex gap-3 px-4 py-3.5 text-sm" data-testid="follow-up" data-state={o.state}>
+      <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${live ? 'bg-warning/15 text-warning' : 'bg-success/10 text-success'}`} aria-hidden="true">
+        <Icon d={KIND_ICON[o.kind ?? ''] ?? ICON.task} className="h-4.5 w-4.5" />
+      </span>
+      <div className="min-w-0 flex-1 space-y-2">
+        {caseLink}
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="font-semibold">{label(m.kindName, o.kind)}</span>
+          <span className="badge badge-ghost badge-sm">{label(messages.cases.groupName, o.owner ?? caseGroup)}</span>
+          <StatusBadge tone={STATE_TONE[o.state ?? 'OPEN'] ?? 'ghost'}>{label(m.stateName, o.state)}</StatusBadge>
+          {o.dueAt && (
+            <span className="ml-auto inline-flex items-center gap-1 whitespace-nowrap text-xs text-base-content/60">
+              <Icon d={ICON.clock} className="h-3.5 w-3.5" />
+              {`${m.due} ${when(o.dueAt)}`}
+            </span>
+          )}
+        </div>
+        {(o.qty !== undefined || o.amount !== undefined) && (
+          <div className="flex flex-wrap gap-x-6 gap-y-2">
+            {o.qty !== undefined && (
+              <Progress done={o.resolvedQty ?? 0} all={o.qty}>
+                {m.qtyText(o.resolvedQty ?? 0, o.qty)}
+              </Progress>
+            )}
+            {o.amount !== undefined && (
+              <Progress done={o.resolvedAmount ?? 0} all={o.amount}>
+                {m.amountText(won(o.resolvedAmount ?? 0), won(o.amount))}
+              </Progress>
+            )}
+          </div>
+        )}
+        {o.note && <p className="whitespace-pre-wrap rounded-box bg-base-200/60 px-3 py-2 text-base-content/80">{o.note}</p>}
+        {(o.resolutions ?? []).length > 0 && (
+          <div className="space-y-1">
+            <p className="text-xs font-medium text-base-content/50">{m.results}</p>
+            <ul className="space-y-1 border-l-2 border-base-300 pl-3 text-xs text-base-content/75" data-testid="follow-up-results">
+              {(o.resolutions ?? []).map((r, i) => (
+                <li key={`${r.resolvedAt ?? ''}-${i}`}>
+                  {[
+                    when(r.resolvedAt),
+                    label(m.outcomeName, r.outcome),
+                    r.qty !== undefined ? m.qtyDone(r.qty) : null,
+                    r.amount !== undefined ? m.amountDone(won(r.amount)) : null,
+                    r.evidence ? `${m.evidence} ${r.evidence.system}:${r.evidence.ref}` : null,
+                    text(r.resolvedBy),
+                    r.note ?? null,
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {canResolve(o, caseGroup, roles) &&
+          (open ? (
+            <ResolveForm o={o} admin={roles.admin} onClose={() => setOpen(false)} onDone={onChanged} />
+          ) : (
+            <button type="button" className="btn btn-xs btn-outline btn-primary" onClick={() => setOpen(true)}>
+              {m.resolve}
+            </button>
           ))}
-        </ul>
-      )}
-      {canResolve(o, caseGroup, roles) &&
-        (open ? (
-          <ResolveForm o={o} admin={roles.admin} onClose={() => setOpen(false)} onDone={onChanged} />
-        ) : (
-          <button type="button" className="btn btn-xs" onClick={() => setOpen(true)}>
-            {m.resolve}
-          </button>
-        ))}
+      </div>
     </li>
   );
 }
+
+const fieldLabel = 'flex flex-col gap-1 text-xs font-medium text-base-content/60';
 
 function ResolveForm({ o, admin, onClose, onDone }: { readonly o: Obligation; readonly admin: boolean; readonly onClose: () => void; readonly onDone: () => void }) {
   const api = useApi();
@@ -125,7 +181,7 @@ function ResolveForm({ o, admin, onClose, onDone }: { readonly o: Obligation; re
   });
   return (
     <form
-      className="space-y-2 border-t border-base-200 pt-2"
+      className="space-y-3 rounded-box border border-primary/30 bg-primary/5 p-3"
       aria-label={m.resolve}
       onSubmit={(e) => {
         e.preventDefault();
@@ -134,10 +190,10 @@ function ResolveForm({ o, admin, onClose, onDone }: { readonly o: Obligation; re
         void cmd.run(null);
       }}
     >
-      <div className="flex flex-wrap items-end gap-2">
-        <label className="flex flex-col gap-1">
+      <div className="flex flex-wrap items-end gap-3">
+        <label className={fieldLabel}>
           {m.outcome}
-          <select className="select select-sm" value={outcome} onChange={(e) => setOutcome(outcomes.find((x) => x === e.target.value) ?? 'FULFILLED')}>
+          <select className="select select-sm text-sm text-base-content" value={outcome} onChange={(e) => setOutcome(outcomes.find((x) => x === e.target.value) ?? 'FULFILLED')}>
             {outcomes.map((x) => (
               <option key={x} value={x}>
                 {m.outcomeName[x]}
@@ -146,20 +202,20 @@ function ResolveForm({ o, admin, onClose, onDone }: { readonly o: Obligation; re
           </select>
         </label>
         {fulfilled && o.qty !== undefined && (
-          <label className="flex flex-col gap-1">
+          <label className={fieldLabel}>
             {m.doneQty}
-            <input type="number" min={1} className="input input-sm w-24" value={qty} onChange={(e) => setQty(e.target.value)} />
+            <input type="number" min={1} className="input input-sm w-24 text-sm text-base-content" value={qty} onChange={(e) => setQty(e.target.value)} />
           </label>
         )}
         {fulfilled && o.amount !== undefined && (
-          <label className="flex flex-col gap-1">
+          <label className={fieldLabel}>
             {m.doneAmount}
-            <input type="number" min={0} className="input input-sm w-32" value={amount} onChange={(e) => setAmount(e.target.value)} />
+            <input type="number" min={0} className="input input-sm w-32 text-sm text-base-content" value={amount} onChange={(e) => setAmount(e.target.value)} />
           </label>
         )}
-        <label className="flex flex-col gap-1">
+        <label className={fieldLabel}>
           {m.evidenceSystem}
-          <select className="select select-sm" value={system} onChange={(e) => setSystem(e.target.value)}>
+          <select className="select select-sm text-sm text-base-content" value={system} onChange={(e) => setSystem(e.target.value)}>
             {EVIDENCE_SYSTEMS.map((s) => (
               <option key={s} value={s}>
                 {label(m.systemName, s)}
@@ -167,22 +223,22 @@ function ResolveForm({ o, admin, onClose, onDone }: { readonly o: Obligation; re
             ))}
           </select>
         </label>
-        <label className="flex flex-col gap-1">
+        <label className={fieldLabel}>
           {m.evidenceRef}
-          <input className="input input-sm w-48 font-mono" maxLength={120} value={ref} onChange={(e) => setRef(e.target.value)} />
+          <input className="input input-sm w-48 font-mono text-sm text-base-content" maxLength={120} value={ref} onChange={(e) => setRef(e.target.value)} />
         </label>
       </div>
-      <label className="flex flex-col gap-1">
+      <label className={fieldLabel}>
         {noteRequired ? m.noteRequired : m.noteOptional}
-        <textarea className="textarea textarea-sm w-full max-w-lg" maxLength={500} value={note} onChange={(e) => setNote(e.target.value)} />
+        <textarea className="textarea textarea-sm w-full text-sm text-base-content" maxLength={500} value={note} onChange={(e) => setNote(e.target.value)} />
       </label>
-      <p className="text-xs text-base-content/60">{fulfilled && o.amount !== undefined ? m.amountRecordOnly : m.piiHint}</p>
-      <div className="flex gap-1">
+      <div className="flex flex-wrap items-center gap-2">
+        <p className="min-w-0 flex-1 text-xs text-base-content/60">{fulfilled && o.amount !== undefined ? m.amountRecordOnly : m.piiHint}</p>
+        <button type="button" className="btn btn-sm btn-ghost" disabled={cmd.busy} onClick={onClose}>
+          {m.cancel}
+        </button>
         <button type="submit" className="btn btn-sm btn-primary" disabled={!ok || cmd.busy}>
           {m.save}
-        </button>
-        <button type="button" className="btn btn-sm" disabled={cmd.busy} onClick={onClose}>
-          {m.cancel}
         </button>
       </div>
       <CommandFeedback command={cmd}>{() => <span className="text-xs text-success">{m.saved}</span>}</CommandFeedback>
@@ -220,7 +276,7 @@ function AddForm({ c, onDone }: { readonly c: Case; readonly onDone: () => void 
   });
   return (
     <form
-      className="space-y-2 rounded-box border border-base-300 bg-base-100 shadow-sm p-3 text-sm"
+      className="space-y-3 border-t border-base-300 bg-base-200/40 px-4 py-4 text-sm"
       aria-label={m.add}
       data-testid="follow-up-add"
       onSubmit={(e) => {
@@ -229,11 +285,19 @@ function AddForm({ c, onDone }: { readonly c: Case; readonly onDone: () => void 
         void cmd.run(null);
       }}
     >
-      <h3 className="font-semibold">{m.add}</h3>
-      <div className="flex flex-wrap items-end gap-2">
-        <label className="flex flex-col gap-1">
+      <div>
+        <h3 className="flex items-center gap-2 font-semibold">
+          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/10 text-primary" aria-hidden="true">
+            +
+          </span>
+          {m.add}
+        </h3>
+        <p className="mt-0.5 text-xs text-base-content/55">{m.addHint}</p>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        <label className={fieldLabel}>
           {m.kind}
-          <select className="select select-sm" value={kind} onChange={(e) => setKind(KINDS.find((k) => k === e.target.value) ?? 'OTHER')}>
+          <select className="select select-sm w-full text-sm text-base-content" value={kind} onChange={(e) => setKind(KINDS.find((k) => k === e.target.value) ?? 'OTHER')}>
             {KINDS.map((k) => (
               <option key={k} value={k}>
                 {label(m.kindName, k)}
@@ -241,9 +305,9 @@ function AddForm({ c, onDone }: { readonly c: Case; readonly onDone: () => void 
             ))}
           </select>
         </label>
-        <label className="flex flex-col gap-1">
+        <label className={fieldLabel}>
           {m.owner}
-          <select className="select select-sm" value={owner} onChange={(e) => setOwner(owners.find((x) => x === e.target.value) ?? '')}>
+          <select className="select select-sm w-full text-sm text-base-content" value={owner} onChange={(e) => setOwner(owners.find((x) => x === e.target.value) ?? '')}>
             <option value="">{m.ownerDefault}</option>
             {owners.map((x) => (
               <option key={x} value={x}>
@@ -252,33 +316,35 @@ function AddForm({ c, onDone }: { readonly c: Case; readonly onDone: () => void 
             ))}
           </select>
         </label>
-        <label className="flex flex-col gap-1">
-          {m.qty}
-          <input type="number" min={1} className="input input-sm w-24" value={qty} onChange={(e) => setQty(e.target.value)} />
-        </label>
-        <label className="flex flex-col gap-1">
-          {m.amount}
-          <input type="number" min={0} className="input input-sm w-32" value={amount} onChange={(e) => setAmount(e.target.value)} />
-        </label>
-        <label className="flex flex-col gap-1">
+        <label className={fieldLabel}>
           {m.dueAt}
-          <input type="datetime-local" className="input input-sm" value={due} onChange={(e) => setDue(e.target.value)} />
+          <input type="datetime-local" className="input input-sm w-full text-sm text-base-content" value={due} onChange={(e) => setDue(e.target.value)} />
+        </label>
+        <label className={fieldLabel}>
+          {m.qty}
+          <input type="number" min={1} className="input input-sm w-full text-sm text-base-content" value={qty} onChange={(e) => setQty(e.target.value)} />
+        </label>
+        <label className={fieldLabel}>
+          {m.amount}
+          <input type="number" min={0} className="input input-sm w-full text-sm text-base-content" value={amount} onChange={(e) => setAmount(e.target.value)} />
         </label>
       </div>
-      <label className="flex flex-col gap-1">
+      <label className={fieldLabel}>
         {m.noteOptional}
-        <textarea className="textarea textarea-sm w-full max-w-lg" maxLength={500} value={note} onChange={(e) => setNote(e.target.value)} />
+        <textarea className="textarea textarea-sm w-full text-sm text-base-content" maxLength={500} value={note} onChange={(e) => setNote(e.target.value)} />
       </label>
-      <p className="text-xs text-base-content/60">{m.amountRecordOnly}</p>
-      <button type="submit" className="btn btn-sm" disabled={cmd.busy}>
-        {m.add}
-      </button>
+      <div className="flex flex-wrap items-center gap-2">
+        <p className="min-w-0 flex-1 text-xs text-base-content/60">{m.amountRecordOnly}</p>
+        <button type="submit" className="btn btn-sm btn-primary" disabled={cmd.busy}>
+          {m.add}
+        </button>
+      </div>
       <CommandFeedback command={cmd}>{() => <span className="text-xs text-success">{m.added}</span>}</CommandFeedback>
     </form>
   );
 }
 
-/** 접수 건 상세의 "후속 처리" 칸 */
+/** 접수 건 상세의 "후속 처리" 칸 — 한 카드: 제목 줄 → 항목 줄들 → 아래 추가 */
 export function FollowUps({ c, canAdd }: { readonly c: Case; readonly canAdd: boolean }) {
   const queryClient = useQueryClient();
   const refresh = () => {
@@ -288,12 +354,15 @@ export function FollowUps({ c, canAdd }: { readonly c: Case; readonly canAdd: bo
   const list = c.obligations ?? [];
   const openCount = list.filter(isOpenObligation).length;
   return (
-    <section className="space-y-2" aria-label={m.title}>
-      <h2 className="font-bold">{openCount > 0 ? m.titleOpen(openCount) : m.title}</h2>
+    <section className="overflow-hidden rounded-box border border-base-300 bg-base-100 shadow-sm" aria-label={m.title}>
+      <div className="flex items-center gap-2 border-b border-base-300 px-4 py-3">
+        <Icon d={ICON.task} className="h-4 w-4 text-base-content/50" />
+        <h2 className="font-semibold">{openCount > 0 ? m.titleOpen(openCount) : m.title}</h2>
+      </div>
       {list.length === 0 ? (
-        <p className="text-sm text-base-content/60">{m.none}</p>
+        <p className="px-4 py-5 text-center text-sm text-base-content/55">{m.none}</p>
       ) : (
-        <ul className="space-y-2">
+        <ul className="divide-y divide-base-200">
           {list.map((o) => (
             <ObligationItem key={o.obligationId} o={o} caseGroup={c.assigneeGroup} onChanged={refresh} />
           ))}
@@ -304,7 +373,7 @@ export function FollowUps({ c, canAdd }: { readonly c: Case; readonly canAdd: bo
   );
 }
 
-/** 고객센터 메뉴 "고객센터 후속 처리" — owner=CS */
+/** 고객센터 메뉴 "고객센터 후속 처리" — owner=CS. 한 카드 안 밑줄 탭 → 항목 줄(위에 접수 건 번호) */
 export function CsFollowUpPage() {
   const api = useApi();
   const [params, setParams] = useSearchParams();
@@ -321,32 +390,52 @@ export function CsFollowUpPage() {
       return { items: parts.flatMap((p) => p.items ?? []) };
     },
   });
+  const state = toUiState(query, (r) => (r.items ?? []).length === 0);
   return (
     <section className="max-w-5xl space-y-4">
       <PageHeader title={m.csTitle} description={m.csIntro} />
-      <div role="tablist" className="tabs tabs-box w-fit">
-        {([false, true] as const).map((d) => (
-          <button key={String(d)} type="button" role="tab" aria-selected={d === done} className={`tab ${d === done ? 'tab-active' : ''}`} onClick={() => setParams(d ? { tab: 'done' } : {})}>
-            {d ? m.tabDone : m.tabOpen}
-          </button>
-        ))}
-      </div>
-      <QueryState state={toUiState(query, (r) => (r.items ?? []).length === 0)} onRetry={() => void query.refetch()} emptyText={done ? m.csEmptyDone : m.csEmpty}>
-        {(r) => (
-          <ul className="space-y-2">
-            {(r.items ?? []).map((o) => (
-              <li key={o.obligationId} className="space-y-1">
-                <Link className="link text-xs" to={`/cases/${encodeURIComponent(o.caseId ?? '')}`}>
-                  {m.ofCase(o.caseId ?? '')}
-                </Link>
-                <ul>
-                  <ObligationItem o={o} caseGroup="CS" onChanged={() => void queryClient.invalidateQueries({ queryKey: ['obligations'] })} />
-                </ul>
-              </li>
+      <div className="overflow-hidden rounded-box border border-base-300 bg-base-100 shadow-sm">
+        <div role="tablist" className="flex gap-1 overflow-x-auto overflow-y-hidden border-b border-base-300 px-3">
+          {([false, true] as const).map((d) => (
+            <button
+              key={String(d)}
+              type="button"
+              role="tab"
+              aria-selected={d === done}
+              className={`-mb-px whitespace-nowrap border-b-2 px-3 py-3 text-sm transition-colors ${d === done ? 'border-primary font-semibold text-base-content' : 'border-transparent text-base-content/55 hover:text-base-content'}`}
+              onClick={() => setParams(d ? { tab: 'done' } : {})}
+            >
+              {d ? m.tabDone : m.tabOpen}
+            </button>
+          ))}
+        </div>
+        {state.kind === 'empty' ? (
+          <EmptyBox icon={done ? ICON.check : ICON.task}>{done ? m.csEmptyDone : m.csEmpty}</EmptyBox>
+        ) : state.kind === 'ready' ? (
+          <ul className="divide-y divide-base-200">
+            {(state.data.items ?? []).map((o) => (
+              <ObligationItem
+                key={o.obligationId}
+                o={o}
+                caseGroup="CS"
+                onChanged={() => void queryClient.invalidateQueries({ queryKey: ['obligations'] })}
+                caseLink={
+                  <Link className="font-mono text-xs text-base-content/50 hover:text-primary hover:underline" to={`/cases/${encodeURIComponent(o.caseId ?? '')}`}>
+                    {m.ofCase(o.caseId ?? '')}
+                  </Link>
+                }
+              />
             ))}
           </ul>
+        ) : (
+          // 읽는 중·실패(403 포함)는 빈 목록이 아니라 그 상태로
+          <div className="p-4">
+            <QueryState state={state} onRetry={() => void query.refetch()}>
+              {() => null}
+            </QueryState>
+          </div>
         )}
-      </QueryState>
+      </div>
     </section>
   );
 }

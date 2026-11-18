@@ -1,5 +1,6 @@
 // 콘텐츠 초안 1건(고객용 상품명·설명·안내) + 이미지 → 제출 준비 → DISPLAY 승인 요청.
 // 상품 승인으로 productId 가 생긴 뒤에만 제출할 수 있다(PRODUCT_NOT_LINKED).
+// 화면(2026-11-18 사용자 "밋밋하다"): 머리·단계 표시 아래 두 칸 — 왼쪽 폼(카드 묶음)·이미지, 오른쪽 상태 카드·다음 단계 카드.
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
@@ -20,7 +21,9 @@ import { ImagePicker, type PendingImage } from './ImagePicker';
 import { uploadPendingImages, type UploadOutcome } from './imageUpload';
 import { NoticesJsonError, parseNoticesJson } from './noticesJson';
 import { ProductPicker } from './ProductPicker';
-import { PageHeader } from '../../shared/admin';
+import { PageHeader, StatusBadge, type Tone } from '../../shared/admin';
+import { Card, EmptyState, Steps } from '../products/parts';
+import { OpenById } from '../products/ProductDraftPage';
 
 function ContentForm({
   initial,
@@ -44,7 +47,7 @@ function ContentForm({
   type Key = keyof typeof v;
   const field = (k: Key, label: string, multiline = false) => (
     <label className="flex flex-col gap-1 text-sm">
-      {label}
+      <span className="text-xs font-medium text-base-content/60">{label}</span>
       {multiline ? (
         <textarea className="textarea textarea-sm w-full" rows={3} value={v[k]} onChange={(e) => setV({ ...v, [k]: e.target.value })} />
       ) : (
@@ -115,9 +118,10 @@ function ContentForm({
     }
   };
 
+  // 화면(2026-11-18 사용자 "밋밋하다"): 제목 있는 카드로 묶는다 — 연결 상품 → 고객에게 보이는 정보 → 고시 정보·안내, 저장은 아래 오른쪽.
   return (
     <form
-      className="grid gap-3 rounded-box border border-base-300 bg-base-100 shadow-sm p-4 md:grid-cols-2"
+      className="space-y-4"
       onSubmit={(e) => {
         e.preventDefault();
         const notices = v.notices
@@ -137,42 +141,46 @@ function ContentForm({
         });
       }}
     >
-      <div className="flex flex-col gap-1 md:col-span-2">
+      <Card title={m.contents.formProduct} hint={m.contents.formProductHint}>
         <ProductPicker label={m.contents.productId} value={v.productId} onChange={(id, product) => void pickProduct(id, product)} onClear={clearAll} />
         {pickNote && (
           <span role="status" className={`text-sm ${pickNote.ok ? 'text-success' : 'text-error'}`}>
             {pickNote.text}
           </span>
         )}
-      </div>
-      {field('name', m.contents.name)}
-      {field('description', m.contents.description, true)}
-      {field('notices', m.contents.notices, true)}
-      <div className="flex flex-col gap-1 text-sm md:col-span-2">
-        <label className="flex flex-wrap items-center gap-2">
-          {m.contents.noticesJson}
+      </Card>
+      <Card title={m.contents.formCustomer} hint={m.contents.formCustomerHint}>
+        {field('name', m.contents.name)}
+        {field('description', m.contents.description, true)}
+      </Card>
+      <Card title={m.contents.formGuide} hint={m.contents.formGuideHint}>
+        {field('notices', m.contents.notices, true)}
+        <label className="flex cursor-pointer flex-col gap-2 rounded-lg border-2 border-dashed border-base-300 px-4 py-3 text-sm transition-colors hover:border-primary/40 hover:bg-base-200/60">
+          <span className="font-medium">{m.contents.noticesJson}</span>
           <input
             type="file"
             accept="application/json,.json"
             aria-label={m.contents.noticesJson}
-            className="file-input file-input-sm"
+            className="file-input file-input-sm w-full max-w-sm"
             onChange={(e) => {
               void fillFromJson(e.target.files?.[0]);
               e.target.value = '';
             }}
           />
+          <span className="text-xs text-base-content/60">{m.contents.noticesJsonHint}</span>
         </label>
-        <span className="text-xs text-base-content/60">{m.contents.noticesJsonHint}</span>
         {jsonNote && (
-          <span role="status" className={jsonNote.ok ? 'text-success' : 'text-error'}>
+          <span role="status" className={`text-sm ${jsonNote.ok ? 'text-success' : 'text-error'}`}>
             {jsonNote.text}
           </span>
         )}
-      </div>
-      {field('storageGuide', m.contents.storageGuide)}
-      {field('returnGuide', m.contents.returnGuide)}
-      <div className="md:col-span-2">
-        <button type="submit" className="btn btn-primary btn-sm" disabled={busy}>
+        <div className="grid gap-3 md:grid-cols-2">
+          {field('storageGuide', m.contents.storageGuide)}
+          {field('returnGuide', m.contents.returnGuide)}
+        </div>
+      </Card>
+      <div className="flex justify-end rounded-box border border-base-300 bg-base-100 px-5 py-3 shadow-sm">
+        <button type="submit" className="btn btn-primary btn-sm min-w-28" disabled={busy}>
           {submitLabel}
         </button>
       </div>
@@ -185,7 +193,6 @@ export function NewContentDraftPage() {
   const navigate = useNavigate();
   // 상품 상세의 "콘텐츠·이미지 등록"에서 오면 상품 ID 를 채운다.
   const productId = useSearchParams()[0].get('productId') ?? '';
-  const [openId, setOpenId] = useState('');
   // 폼에서 고른 이미지. 초안이 만들어진 뒤(ID 가 생긴 뒤) 차례로 올린다(계약: 이미지는 초안에 붙는다).
   const [pending, setPending] = useState<readonly PendingImage[]>([]);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
@@ -203,55 +210,39 @@ export function NewContentDraftPage() {
   });
   return (
     <section className="space-y-4">
-      <PageHeader title={m.contents.draftTitle} />
-      <form
-        className="flex gap-2"
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (openId.trim()) void navigate(`/contents/drafts/${encodeURIComponent(openId.trim())}`);
-        }}
-      >
-        {/* BR-26: 초안 목록 API 가 없어 ID 로 연다 */}
-        <input
-          aria-label={m.products.openDraft}
-          placeholder={m.products.openDraft}
-          className="input input-sm"
-          value={openId}
-          onChange={(e) => setOpenId(e.target.value)}
-        />
-        <button type="submit" className="btn btn-sm">
-          {m.search}
-        </button>
-      </form>
-      <ContentForm
-        {...(productId ? { initial: { productId } } : {})}
-        submitLabel={m.products.create}
-        busy={create.busy}
-        onSubmit={(input) => void create.run(input)}
-      />
-      <div className="space-y-2 rounded-box border border-base-300 bg-base-100 shadow-sm p-4">
-        <h2 className="font-bold">{m.contents.images}</h2>
-        <p className="text-sm opacity-80">{m.contents.imageAfterSave}</p>
-        <ImagePicker pending={pending} onChange={setPending} disabled={create.busy} />
-        {pending.length > 0 && !create.busy && <p className="text-sm">{m.contents.imagesPending(pending.length)}</p>}
-        {progress && (
-          <p role="status" className="text-sm">
-            {m.contents.imageUploading(progress.done, progress.total)}
-          </p>
-        )}
-      </div>
-      <CommandFeedback command={create}>
-        {(r) =>
-          r.failed.length > 0 ? (
-            <p role="status" className="text-warning text-sm">
-              {m.contents.imageUploadPartial(r.uploaded.length, r.failed.length)}{' '}
-              <Link className="link" to={`/contents/drafts/${encodeURIComponent(r.draft.draftId)}`}>
-                {m.contents.openDraft}
-              </Link>
+      <PageHeader title={m.contents.draftTitle} actions={<OpenById base="/contents/drafts" />} />
+      <Steps steps={m.contents.draftSteps} now={0} />
+      <div className="grid items-start gap-4 lg:grid-cols-3">
+        <div className="space-y-4 lg:col-span-2">
+          <ContentForm
+            {...(productId ? { initial: { productId } } : {})}
+            submitLabel={m.products.create}
+            busy={create.busy}
+            onSubmit={(input) => void create.run(input)}
+          />
+          <CommandFeedback command={create}>
+            {(r) =>
+              r.failed.length > 0 ? (
+                <p role="status" className="text-warning text-sm">
+                  {m.contents.imageUploadPartial(r.uploaded.length, r.failed.length)}{' '}
+                  <Link className="link" to={`/contents/drafts/${encodeURIComponent(r.draft.draftId)}`}>
+                    {m.contents.openDraft}
+                  </Link>
+                </p>
+              ) : null
+            }
+          </CommandFeedback>
+        </div>
+        <Card title={m.contents.images} hint={m.contents.imageAfterSave}>
+          <ImagePicker pending={pending} onChange={setPending} disabled={create.busy} />
+          {pending.length > 0 && !create.busy && <p className="text-sm">{m.contents.imagesPending(pending.length)}</p>}
+          {progress && (
+            <p role="status" className="text-sm">
+              {m.contents.imageUploading(progress.done, progress.total)}
             </p>
-          ) : null
-        }
-      </CommandFeedback>
+          )}
+        </Card>
+      </div>
     </section>
   );
 }
@@ -294,6 +285,8 @@ function DraftImages({ draft }: { readonly draft: ContentDraft }) {
   );
 }
 
+const CONTENT_TONE: Readonly<Record<ContentDraft['state'], Tone>> = { DRAFT: 'neutral', SUBMITTED: 'warning', PUBLISHED: 'success', REJECTED: 'error' };
+
 export function ContentDraftPage() {
   const { draftId = '' } = useParams();
   const api = useApi();
@@ -322,66 +315,94 @@ export function ContentDraftPage() {
 
   return (
     <section className="space-y-4">
-      <PageHeader title={m.contents.draftDetail(draftId)} />
+      <PageHeader title={m.contents.draftDetail(draftId)} actions={<OpenById base="/contents/drafts" />} />
       <QueryState state={toUiState(query)} onRetry={() => void query.refetch()}>
         {(d) => (
           <>
-            <p className="text-sm">
-              {`${m.products.state}: ${d.state} · ${d.productId ? `${m.products.productId} ${d.productId}` : m.reason.PRODUCT_NOT_LINKED} · `}
-              <span className={d.submittable ? 'text-success' : 'text-warning'}>
-                {d.submittable ? m.contents.submittable : m.contents.notSubmittable}
-              </span>
-            </p>
-            {(d.problems?.length ?? 0) > 0 && (
-              <ul className="list-disc pl-5 text-sm" aria-label={m.products.problems}>
-                {(d.problems ?? []).map((p, i) => (
-                  <li key={`${p.code}-${i}`}>{reasonText(p.code)}</li>
-                ))}
-              </ul>
-            )}
-            {d.state === 'DRAFT' && (
-              <ContentForm
-                key={d.version}
-                {...(d.input ? { initial: d.input } : {})}
-                submitLabel={m.products.update}
-                busy={update.busy}
-                onSubmit={(body) => void update.run({ body, version: d.version })}
-              />
-            )}
-            <CommandFeedback command={update} />
+            <Steps steps={m.contents.draftSteps} now={d.state === 'PUBLISHED' ? 4 : d.state === 'SUBMITTED' ? 3 : d.submittable ? 2 : 1} />
+            <div className="grid items-start gap-4 lg:grid-cols-3">
+              <div className="space-y-4 lg:col-span-2">
+                {d.state === 'DRAFT' && (
+                  <ContentForm
+                    key={d.version}
+                    {...(d.input ? { initial: d.input } : {})}
+                    submitLabel={m.products.update}
+                    busy={update.busy}
+                    onSubmit={(body) => void update.run({ body, version: d.version })}
+                  />
+                )}
+                <CommandFeedback command={update} />
 
-            <div className="space-y-2 rounded-box border border-base-300 bg-base-100 shadow-sm p-4">
-              <h2 className="font-bold">{m.contents.images}</h2>
-              {d.state === 'DRAFT' ? (
-                <DraftImages key={d.images?.length ?? 0} draft={d} />
-              ) : (
-                <div className="flex flex-wrap gap-3">
-                  {(d.images ?? []).map((img) => (
-                    <figure key={img.imageId} className="w-32 text-xs">
-                      <AuthedImage imageId={img.imageId} alt={`${m.contents.imageRole[img.role]} ${img.sortOrder}`} className="h-32 w-32 object-contain" />
-                      <figcaption>{`${m.contents.imageRole[img.role]} · ${img.sortOrder}`}</figcaption>
-                    </figure>
-                  ))}
-                </div>
-              )}
+                <Card title={m.contents.images}>
+                  {d.state === 'DRAFT' ? (
+                    <DraftImages key={d.images?.length ?? 0} draft={d} />
+                  ) : (d.images ?? []).length === 0 ? (
+                    <EmptyState icon="image">{m.contents.noImages}</EmptyState>
+                  ) : (
+                    <div className="flex flex-wrap gap-3">
+                      {(d.images ?? []).map((img) => (
+                        <figure key={img.imageId} className="w-32 overflow-hidden rounded-lg border border-base-300 text-xs">
+                          <AuthedImage imageId={img.imageId} alt={`${m.contents.imageRole[img.role]} ${img.sortOrder}`} className="h-32 w-32 bg-base-200 object-contain" />
+                          <figcaption className="px-2 py-1">{`${m.contents.imageRole[img.role]} · ${img.sortOrder}`}</figcaption>
+                        </figure>
+                      ))}
+                    </div>
+                  )}
+                </Card>
+              </div>
+
+              <div className="space-y-4">
+                <Card title={m.products.state}>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <StatusBadge tone={CONTENT_TONE[d.state] ?? 'ghost'}>
+                      <span title={d.state}>{m.contents.draftStateName[d.state] ?? d.state}</span>
+                    </StatusBadge>
+                    <span className={`badge badge-sm badge-soft ${d.submittable ? 'badge-success' : 'badge-warning'}`}>
+                      {d.submittable ? m.contents.submittable : m.contents.notSubmittable}
+                    </span>
+                  </div>
+                  <div className="space-y-0.5 text-sm">
+                    <p className="text-xs text-base-content/50">{m.products.productId}</p>
+                    {d.productId ? (
+                      <Link className="link link-primary font-mono" to={`/products/${encodeURIComponent(d.productId)}`}>
+                        {d.productId}
+                      </Link>
+                    ) : (
+                      <p className="text-warning">{m.reason.PRODUCT_NOT_LINKED}</p>
+                    )}
+                  </div>
+                  {(d.problems?.length ?? 0) > 0 && (
+                    <ul className="space-y-1 rounded-lg bg-error/5 px-3 py-2 text-sm text-error" aria-label={m.products.problems}>
+                      {(d.problems ?? []).map((p, i) => (
+                        <li key={`${p.code}-${i}`} className="flex gap-1.5">
+                          <span aria-hidden="true">•</span>
+                          <span>{reasonText(p.code)}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  {d.state === 'PUBLISHED' && (
+                    <p className="text-success text-sm">{`${m.contents.published} v${d.contentVersion ?? m.none}`}</p>
+                  )}
+                </Card>
+                <Card title={m.products.nextTitle}>
+                  {d.state === 'DRAFT' && (
+                    <button type="button" className="btn btn-primary btn-sm btn-block" disabled={submit.busy || !d.submittable} onClick={() => void submit.run(null)}>
+                      {m.products.submit}
+                    </button>
+                  )}
+                  <CommandFeedback command={submit}>
+                    {(r) => <RequestApproval body={r.approvalRequest} />}
+                  </CommandFeedback>
+                  {d.approvalId && (
+                    <Link className="link link-primary text-sm" to={`/approvals/${encodeURIComponent(d.approvalId)}`}>
+                      {`${m.approvals.open} (${d.approvalId})`}
+                    </Link>
+                  )}
+                  {d.state !== 'DRAFT' && !d.approvalId && <p className="text-sm text-base-content/55">{m.none}</p>}
+                </Card>
+              </div>
             </div>
-
-            {d.state === 'DRAFT' && (
-              <button type="button" className="btn btn-sm" disabled={submit.busy || !d.submittable} onClick={() => void submit.run(null)}>
-                {m.products.submit}
-              </button>
-            )}
-            <CommandFeedback command={submit}>
-              {(r) => <RequestApproval body={r.approvalRequest} />}
-            </CommandFeedback>
-            {d.approvalId && (
-              <Link className="link text-sm" to={`/approvals/${encodeURIComponent(d.approvalId)}`}>
-                {`${m.approvals.open} (${d.approvalId})`}
-              </Link>
-            )}
-            {d.state === 'PUBLISHED' && (
-              <p className="text-success text-sm">{`${m.contents.published} v${d.contentVersion ?? m.none}`}</p>
-            )}
           </>
         )}
       </QueryState>

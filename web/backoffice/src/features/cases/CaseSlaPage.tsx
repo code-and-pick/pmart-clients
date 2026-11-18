@@ -87,7 +87,10 @@ function Breakdown({ points }: { readonly points: readonly Point[] }) {
               return (
                 <tr key={r.name} data-testid="case-sla-split-row">
                   <td>{r.name}</td>
-                  <td>{t.count}</td>
+                  <td>
+                    <span>{t.count}</span>
+                    <RatioBar n={r.numerator} of={r.denominator} />
+                  </td>
                   <td className="text-right font-semibold">{t.ratio}</td>
                   <td className="text-right">{r.unjudged > 0 ? m.countOf(r.unjudged) : m.zero}</td>
                 </tr>
@@ -97,6 +100,17 @@ function Breakdown({ points }: { readonly points: readonly Point[] }) {
         </DataTable>
       )}
     </Section>
+  );
+}
+
+/** 기한 안에 끝낸 몫 막대(2026-11-18) — 분모 0 이면 그리지 않는다(0%로 보이지 않게) */
+function RatioBar({ n, of }: { readonly n: number; readonly of: number }) {
+  if (of <= 0) return null;
+  const pct = Math.min(100, (n / of) * 100);
+  return (
+    <span className="mt-1 block h-1.5 w-full max-w-48 overflow-hidden rounded-full bg-error/20" aria-hidden="true">
+      <span className="block h-full rounded-full bg-success" style={{ width: pct + "%" }} />
+    </span>
   );
 }
 
@@ -207,7 +221,10 @@ export function CaseSlaPage() {
                         {(v.totals ?? []).map((b) => (
                           <tr key={b.bucket} data-testid="case-sla-bucket">
                             <td className="font-mono text-xs">{b.bucket}</td>
-                            <td>{m.ofDue(b.numerator, b.denominator)}</td>
+                            <td>
+                              <span>{m.ofDue(b.numerator, b.denominator)}</span>
+                              <RatioBar n={b.numerator} of={b.denominator} />
+                            </td>
                             <td className="text-right font-semibold">{ratioOf(b)}</td>
                             <td className="text-right">{(b.unjudged ?? 0) > 0 ? m.countOf(b.unjudged ?? 0) : m.zero}</td>
                           </tr>

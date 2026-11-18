@@ -62,7 +62,7 @@ function NewActionRequest({ c }: { readonly c: Case }) {
   });
   return (
     <form
-      className="space-y-2 rounded-box border border-base-300 bg-base-100 shadow-sm p-3 text-sm"
+      className="space-y-2 text-sm"
       aria-label={m.newTitle}
       onSubmit={(e) => {
         e.preventDefault();
@@ -142,7 +142,7 @@ function ResultForm({ caseId, ar }: { readonly caseId: string; readonly ar: Acti
   });
   if (!open)
     return (
-      <button type="button" className="btn btn-ghost btn-xs" onClick={() => setOpen(true)}>
+      <button type="button" className="btn btn-outline btn-xs" onClick={() => setOpen(true)}>
         {m.recordResult}
       </button>
     );
@@ -202,34 +202,64 @@ function ResultForm({ caseId, ar }: { readonly caseId: string; readonly ar: Acti
   );
 }
 
+/** 상태 동그라미 — 반영(체크)·거절(엑스)·모름(물음표)·그 밖(시계) */
+const STATE_MARK: Readonly<Record<string, { readonly cls: string; readonly d: string }>> = {
+  APPLIED: { cls: 'bg-success/15 text-success', d: 'M5 12l5 5L20 7' },
+  REJECTED: { cls: 'bg-error/15 text-error', d: 'M6 6l12 12M18 6 6 18' },
+  UNKNOWN_RESULT: { cls: 'bg-warning/15 text-warning', d: 'M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6V14m0 3h.01' },
+};
+const PENDING_MARK = { cls: 'bg-info/10 text-info', d: 'M12 7v5l3 2m6-2a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z' };
+
 /** 접수 건 상세의 "행위 요청" 칸. canAct = 그 건을 맡을 수 있는 사람(처리 끝난 건 아님) */
 export function ActionRequests({ c, canAct }: { readonly c: Case; readonly canAct: boolean }) {
   const items = c.actionRequests ?? [];
   const caseId = c.caseId ?? '';
   if (items.length === 0 && !canAct) return null;
   return (
-    <section className="space-y-2" aria-label={m.title}>
-      <h2 className="font-bold">{m.title}</h2>
-      <p className="text-xs text-base-content/60">{m.intro}</p>
+    // 할 일 목록처럼(2026-11-18): 상태 동그라미 + 종류 굵게 + 대상 한 줄, 맨 아래 새 요청 기록
+    <section className="overflow-hidden rounded-box border border-base-300 bg-base-100 shadow-sm" aria-label={m.title}>
+      <div className="space-y-0.5 border-b border-base-300 px-5 py-3">
+        <h2 className="flex items-center gap-2 font-semibold">
+          {m.title}
+          {items.length > 0 && <span className="badge badge-ghost badge-sm">{items.length}</span>}
+        </h2>
+        <p className="text-xs text-base-content/60">{m.intro}</p>
+      </div>
       {items.length === 0 ? (
-        <p className="text-sm text-base-content/60">{m.empty}</p>
+        <p className="px-5 py-4 text-sm text-base-content/60">{m.empty}</p>
       ) : (
-        <ul className="space-y-1 text-sm">
-          {items.map((ar) => (
-            <li key={ar.actionRequestId} className="flex flex-wrap items-center gap-2 rounded-box border border-base-300 bg-base-100 shadow-sm p-2" data-testid="action-request" data-state={ar.state}>
-              <span className="badge badge-sm">{label(m.stateName, ar.state)}</span>
-              <span className="font-medium">{label(m.typeName, ar.actionType)}</span>
-              <span className="font-mono text-xs">{`${ar.targetService} · ${ar.command}${ar.targetRef ? ` · ${ar.targetRef}` : ''}`}</span>
-              {ar.approvalRef && <span className="text-xs">{`${m.approvalRef} ${ar.approvalRef}`}</span>}
-              {ar.resultRef && <span className="font-mono text-xs" data-testid="action-request-result">{`${m.resultLine} ${ar.resultRef.system} · ${ar.resultRef.ref}${ar.resultRef.kind ? ` (${ar.resultRef.kind})` : ''}`}</span>}
-              {ar.resultNote && <span className="text-xs opacity-80">{ar.resultNote}</span>}
-              <span className="text-xs opacity-60">{`${text(ar.requestedBy)} · ${when(ar.requestedAt)}`}</span>
-              {canAct && !FINAL.includes(ar.state ?? '') && <ResultForm caseId={caseId} ar={ar} />}
-            </li>
-          ))}
+        <ul className="divide-y divide-base-300/70 text-sm">
+          {items.map((ar) => {
+            const mark = STATE_MARK[ar.state ?? ''] ?? PENDING_MARK;
+            return (
+              <li key={ar.actionRequestId} className="flex gap-3 px-5 py-3" data-testid="action-request" data-state={ar.state}>
+                <span className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${mark.cls}`} aria-hidden="true">
+                  <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 fill-none stroke-current" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                    <path d={mark.d} />
+                  </svg>
+                </span>
+                <div className="min-w-0 flex-1 space-y-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-medium">{label(m.typeName, ar.actionType)}</span>
+                    <span className="badge badge-sm badge-soft">{label(m.stateName, ar.state)}</span>
+                  </div>
+                  <p className="break-all font-mono text-xs text-base-content/70">{`${ar.targetService} · ${ar.command}${ar.targetRef ? ` · ${ar.targetRef}` : ''}`}</p>
+                  {ar.approvalRef && <p className="text-xs">{`${m.approvalRef} ${ar.approvalRef}`}</p>}
+                  {ar.resultRef && <p className="break-all font-mono text-xs text-success" data-testid="action-request-result">{`${m.resultLine} ${ar.resultRef.system} · ${ar.resultRef.ref}${ar.resultRef.kind ? ` (${ar.resultRef.kind})` : ''}`}</p>}
+                  {ar.resultNote && <p className="text-xs opacity-80">{ar.resultNote}</p>}
+                  <p className="text-xs text-base-content/50">{`${text(ar.requestedBy)} · ${when(ar.requestedAt)}`}</p>
+                  {canAct && !FINAL.includes(ar.state ?? '') && <ResultForm caseId={caseId} ar={ar} />}
+                </div>
+              </li>
+            );
+          })}
         </ul>
       )}
-      {canAct && <NewActionRequest c={c} />}
+      {canAct && (
+        <div className="border-t border-base-300 bg-base-200/30 px-5 py-4">
+          <NewActionRequest c={c} />
+        </div>
+      )}
     </section>
   );
 }

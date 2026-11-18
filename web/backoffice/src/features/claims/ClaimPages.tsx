@@ -8,7 +8,8 @@ import { request } from '@pmart/web-core';
 import { QueryState, toUiState, uiStateFromError } from '@pmart/web-ui';
 import type { components } from '../../api/generated/claim';
 import { useApi } from '../../app/ApiContext';
-import { ChipGroup, DataTable, DetailHeader, FieldList, Notice, PageHeader, ResultBar, SearchPanel, SearchRow, Section, StatusBadge, type Tone } from '../../shared/admin';
+import { ChipGroup, DataTable, DetailHeader, Notice, PageHeader, ResultBar, SearchPanel, SearchRow, Section, StatusBadge, type Tone } from '../../shared/admin';
+import { EmptyBox, KindChip, ListFoot, SideFields, When } from '../lookup/parts';
 import { messages as m } from '../../shared/messages';
 import { label, text, when, won } from '../../shared/ops';
 import { RecoveryActions, ReturnProgress } from './ReturnClaim';
@@ -59,18 +60,23 @@ function ClaimTable({ query, withCount = false }: { readonly query: ReturnType<t
       </QueryState>
     );
   }
-  if (items.length === 0) return <p className="text-sm text-base-content/60">{m.claims.empty}</p>;
+  if (items.length === 0)
+    return (
+      <EmptyBox icon="return" listPart={withCount}>
+        {m.claims.empty}
+      </EmptyBox>
+    );
+  // 목록(2026-11-18 Shopify·Medusa 목록처럼): 첫 칸 종류 색 꼬리표 + 클레임 번호, 상태 점 꼬리표, 주문 번호 작게, "N일 전" → 아래 건수·더 보기
   return (
     <>
       {withCount && <ResultBar count={items.length} more={query.hasNextPage} />}
       <DataTable>
         <thead>
           <tr>
-            <th>ID</th>
-            <th>{m.claims.type}</th>
+            <th>{m.claims.detailTitle}</th>
             <th>{m.claims.state}</th>
             <th>{m.claims.orderId}</th>
-            <th>{m.claims.openedAt}</th>
+            <th className="text-right">{m.claims.openedAt}</th>
           </tr>
         </thead>
         <tbody>
@@ -82,37 +88,46 @@ function ClaimTable({ query, withCount = false }: { readonly query: ReturnType<t
               onClick={() => c.claimId && void navigate(`/claims/${encodeURIComponent(c.claimId)}`)}
             >
               <td>
-                {c.claimId ? (
-                  <Link className="font-mono text-primary hover:underline" to={`/claims/${encodeURIComponent(c.claimId)}`} onClick={(e) => e.stopPropagation()}>
-                    {c.claimId}
-                  </Link>
-                ) : (
-                  m.none
-                )}
+                <span className="flex flex-wrap items-center gap-2">
+                  <ClaimTypeChip type={c.type} />
+                  {c.claimId ? (
+                    <Link className="font-mono font-semibold text-base-content hover:text-primary hover:underline" to={`/claims/${encodeURIComponent(c.claimId)}`} onClick={(e) => e.stopPropagation()}>
+                      {c.claimId}
+                    </Link>
+                  ) : (
+                    m.none
+                  )}
+                </span>
               </td>
-              <td>{label(m.claims.typeName, c.type)}</td>
               <td>
                 <StatusBadge tone={claimTone(c.state)}>{label(m.claims.stateName, c.state)}</StatusBadge>
               </td>
               <td>
                 {c.orderId ? (
-                  <Link className="font-mono text-primary hover:underline" to={`/orders/${encodeURIComponent(c.orderId)}`} onClick={(e) => e.stopPropagation()}>
+                  <Link className="font-mono text-xs text-base-content/55 hover:text-primary hover:underline" to={`/orders/${encodeURIComponent(c.orderId)}`} onClick={(e) => e.stopPropagation()}>
                     {c.orderId}
                   </Link>
                 ) : (
                   m.none
                 )}
               </td>
-              <td>{when(c.openedAt)}</td>
+              <td>
+                <When iso={c.openedAt} align="right" />
+              </td>
             </tr>
           ))}
         </tbody>
       </DataTable>
-      {query.isFetchNextPageError && <p className="text-sm text-error">{m.claims.moreFailed}</p>}
-      {query.hasNextPage && (
-        <button type="button" className="btn btn-sm mx-auto block border-base-300 bg-base-100" disabled={query.isFetchingNextPage} onClick={() => void query.fetchNextPage()}>
-          {m.claims.more}
-        </button>
+      {(query.hasNextPage || query.isFetchNextPageError) && (
+        <ListFoot>
+          <span className="text-base-content/55">{m.approvals.shown(items.length, !!query.hasNextPage)}</span>
+          {query.isFetchNextPageError && <span className="text-error">{m.claims.moreFailed}</span>}
+          {query.hasNextPage && (
+            <button type="button" className="btn btn-sm" disabled={query.isFetchingNextPage} onClick={() => void query.fetchNextPage()}>
+              {m.claims.more}
+            </button>
+          )}
+        </ListFoot>
       )}
     </>
   );
@@ -217,9 +232,10 @@ export function ClaimDetailPage() {
     queryFn: () => request('GET', api.claims.GET('/claims/{claimId}', { params: { path: { claimId } } })),
   });
 
-  // 관리자 형식(2026-11-18): 상세 머리 → 구역 상자 → 맨 아래 운영 조치(회수 조치)
+  // 상세(2026-11-18 Shopify 상세처럼): 상세 머리 → 두 칸
+  // 왼쪽(넓게) = 품목·반품 진행·환불·회수 조치, 오른쪽 = 클레임 정보·회수/재배송/비용
   return (
-    <section className="max-w-5xl space-y-4">
+    <section className="max-w-7xl space-y-4">
       <QueryState state={toUiState(query)} onRetry={() => void query.refetch()}>
         {(c) => (
           <>
@@ -228,7 +244,7 @@ export function ClaimDetailPage() {
               title={`${m.claims.detailTitle} ${claimId}`}
               badges={
                 <>
-                  <StatusBadge tone="neutral">{label(m.claims.typeName, c.type)}</StatusBadge>
+                  <ClaimTypeChip type={c.type} />
                   <StatusBadge tone={claimTone(c.state)} testId="claim-state">
                     {label(m.claims.stateName, c.state)}
                   </StatusBadge>
@@ -236,70 +252,95 @@ export function ClaimDetailPage() {
               }
               summary={`${label(m.claims.reasonName, c.reason)} · ${when(c.openedAt)}`}
             />
-            <Section title={m.claims.sectionBasic}>
-              <FieldList
-                testId="claim-summary"
-                rows={[
-                  [m.claims.type, label(m.claims.typeName, c.type)],
-                  [m.claims.state, label(m.claims.stateName, c.state)],
-                  [m.claims.orderId, c.orderId ? <Link key="o" className="font-mono text-primary hover:underline" to={`/orders/${encodeURIComponent(c.orderId)}`}>{c.orderId}</Link> : m.none],
-                  [m.claims.reason, label(m.claims.reasonName, c.reason)],
-                  [m.claims.reasonDetail, text(c.reasonDetail)],
-                  [m.claims.openedAt, when(c.openedAt)],
-                  [m.claims.decidedAt, when(c.decidedAt)],
-                  [m.claims.closedAt, when(c.closedAt)],
-                  [m.claims.pickup, c.pickup ? `${text(c.pickup.state)}${c.pickup.deliveryId ? ` · ${c.pickup.deliveryId}` : ''}` : m.none],
-                  [m.claims.reshipment, text(c.reshipment?.state)],
-                  [m.claims.fees, c.fees ? [won(c.fees.exchangeRoundTripFee), won(c.fees.returnPickupFee)].join(' / ') : m.none],
-                ]}
-              />
-              <p className="mt-3 text-xs text-base-content/55">{m.claims.noDecision}</p>
-            </Section>
-            {c.type === 'RETURN' && (
-              <Section title={m.claims.sectionReturn}>
-                <ReturnProgress claim={c} />
-              </Section>
-            )}
+            <div className="grid items-start gap-4 lg:grid-cols-3">
+              <div className="min-w-0 space-y-4 lg:col-span-2">
+                {/* 맨 위 운영 조치 — 반품 회수 조치(조건이 안 맞으면 칸이 없다) */}
+                <RecoveryActions claim={c} />
 
-            <Section title={m.claims.lines}>
-              <DataTable>
-                <thead>
-                  <tr>
-                    <th>{m.claims.sku}</th>
-                    <th>{m.claims.requested}</th>
-                    <th>{m.claims.approved}</th>
-                    <th>{m.claims.decision}</th>
-                    <th className="text-right">{m.claims.refundAmount}</th>
-                    <th>{m.claims.deadline}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(c.lines ?? []).map((l, i) => (
-                    <tr key={l.claimLineId ?? `line-${i}`} data-testid="claim-line">
-                      <td className="font-mono text-xs">{text(l.sku)}</td>
-                      <td>{text(l.requestedQty)}</td>
-                      <td>{text(l.approvedQty)}</td>
-                      <td>{label(m.claims.decisionName, l.decision)}</td>
-                      <td className="text-right">{won(l.refundAmount)}</td>
-                      <td>{when(l.windowDeadline)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </DataTable>
-            </Section>
+                <Section title={m.claims.lines} aside={<span className="text-base-content/55">{m.orders.lineCount((c.lines ?? []).length)}</span>}>
+                  <DataTable>
+                    <thead>
+                      <tr>
+                        <th>{m.claims.sku}</th>
+                        <th className="text-right">{m.claims.requested}</th>
+                        <th className="text-right">{m.claims.approved}</th>
+                        <th>{m.claims.decision}</th>
+                        <th className="text-right">{m.claims.refundAmount}</th>
+                        <th>{m.claims.deadline}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(c.lines ?? []).map((l, i) => (
+                        <tr key={l.claimLineId ?? `line-${i}`} data-testid="claim-line">
+                          <td className="font-mono text-xs">{text(l.sku)}</td>
+                          <td className="text-right tabular-nums">{text(l.requestedQty)}</td>
+                          <td className="text-right tabular-nums">{text(l.approvedQty)}</td>
+                          <td>
+                            <StatusBadge tone={l.decision === 'APPROVED' ? 'success' : l.decision === 'REJECTED' ? 'error' : 'ghost'}>{label(m.claims.decisionName, l.decision)}</StatusBadge>
+                          </td>
+                          <td className="text-right font-semibold tabular-nums">{won(l.refundAmount)}</td>
+                          <td className="whitespace-nowrap text-xs">{when(l.windowDeadline)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </DataTable>
+                </Section>
 
-            <Section title={m.claims.refunds}>
-              <Notice>{m.claims.refundsNote}</Notice>
-              <div className="mt-3">
-                <Refunds claimId={claimId} />
+                {c.type === 'RETURN' && (
+                  <Section title={m.claims.sectionReturn}>
+                    <ReturnProgress claim={c} />
+                  </Section>
+                )}
+
+                <Section title={m.claims.refunds}>
+                  <Notice>{m.claims.refundsNote}</Notice>
+                  <div className="mt-3">
+                    <Refunds claimId={claimId} />
+                  </div>
+                </Section>
               </div>
-            </Section>
 
-            {/* 맨 아래 운영 조치 — 반품 회수 조치(조건이 안 맞으면 칸이 없다) */}
-            <RecoveryActions claim={c} />
+              <aside className="min-w-0 space-y-4">
+                <Section title={m.claims.sectionBasic}>
+                  <SideFields
+                    testId="claim-summary"
+                    rows={[
+                      [m.claims.orderId, c.orderId ? <Link key="o" className="font-mono text-primary hover:underline" to={`/orders/${encodeURIComponent(c.orderId)}`}>{c.orderId}</Link> : m.none],
+                      [m.claims.reason, label(m.claims.reasonName, c.reason)],
+                      [m.claims.reasonDetail, text(c.reasonDetail)],
+                      [m.claims.openedAt, <When key="o" iso={c.openedAt} />],
+                      [m.claims.decidedAt, when(c.decidedAt)],
+                      [m.claims.closedAt, when(c.closedAt)],
+                    ]}
+                  />
+                  <p className="mt-4 border-t border-base-300 pt-3 text-xs text-base-content/55">{m.claims.noDecision}</p>
+                </Section>
+                <Section title={m.claims.sectionLogistics}>
+                  <SideFields
+                    rows={[
+                      [m.claims.pickup, c.pickup ? `${text(c.pickup.state)}${c.pickup.deliveryId ? ` · ${c.pickup.deliveryId}` : ''}` : m.none],
+                      [m.claims.reshipment, text(c.reshipment?.state)],
+                      [m.claims.fees, c.fees ? [won(c.fees.exchangeRoundTripFee), won(c.fees.returnPickupFee)].join(' / ') : m.none],
+                    ]}
+                  />
+                </Section>
+              </aside>
+            </div>
           </>
         )}
       </QueryState>
     </section>
+  );
+}
+
+const TYPE_TONE: Readonly<Record<string, Tone>> = { CANCEL: 'error', RETURN: 'warning', EXCHANGE: 'info' };
+
+/** 클레임 종류 꼬리표(색 + 그림) */
+function ClaimTypeChip({ type }: { readonly type: string | null | undefined }) {
+  if (!type) return null;
+  return (
+    <KindChip tone={TYPE_TONE[type] ?? 'ghost'} icon={type === 'CANCEL' ? 'alert' : 'return'}>
+      {label(m.claims.typeName, type)}
+    </KindChip>
   );
 }

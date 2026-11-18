@@ -17,10 +17,10 @@ import type { components } from '../../api/generated/rider';
 import { useApi } from '../../app/ApiContext';
 import { CommandFeedback } from '../../shared/Feedback';
 import { messages as m } from '../../shared/messages';
-import { Facts, label, text, when } from '../../shared/ops';
+import { label, text, when } from '../../shared/ops';
 import { DeliveriesOf } from '../deliveries/DeliveryPages';
 import { RiderComplaintTable } from '../riderComplaints/RiderComplaintPages';
-import { Notice, PageHeader } from '../../shared/admin';
+import { FieldList, Notice, PageHeader, Section, StatusBadge, type Tone } from '../../shared/admin';
 
 type PiiField = components['schemas']['RiderPiiField'];
 type StaffRiderDetail = components['schemas']['StaffRiderDetail'];
@@ -43,70 +43,97 @@ function RiderBasic({ rider }: { readonly rider: StaffRiderDetail }) {
   const reasonOk = reason.trim().length >= 2 && reason.trim().length <= 200;
   const op = rider.operating;
   return (
-    <>
-      <p className="text-xs opacity-60">{m.riders.pii.note}</p>
-      <Facts
-        testId="rider-basic"
-        rows={[
-          [m.riders.name, <span key="n" data-testid="rider-name" data-masked={!isOpen('NAME')}>{isOpen('NAME') ? text(opened?.name) : text(rider.nameMasked)}</span>],
-          [m.orders.phone, <span key="p" data-testid="rider-phone" data-masked={!isOpen('PHONE')}>{isOpen('PHONE') ? text(opened?.phone) : text(rider.phoneMasked)}</span>],
-          [m.riders.vehicle, label(m.riders.vehicleName, rider.vehicleType)],
-          [m.riders.operating, `${label(m.riders.operatingName, op?.status)}${op?.mfcId ? ` · ${op.mfcId}` : ''}`],
-          [m.riders.newDispatch, op?.newDispatchEnabled === undefined ? m.none : op.newDispatchEnabled ? 'O' : 'X'],
-          [m.riders.activeDeliveries, text(op?.activeDeliveryCount)],
-          [m.riders.areas, (rider.deliveryAreas ?? []).map((a) => `${a.mfcId ?? ''}${a.zoneId ? `/${a.zoneId}` : ''}`).join(', ') || m.none],
-          [m.riders.dispatchMode, label(m.riders.dispatchModeName, rider.settings?.dispatchMode)],
-          [m.riders.restriction, `${label(m.riders.restrictionName, rider.restriction?.state)}${rider.restriction?.until ? ` ~ ${when(rider.restriction.until)}` : ''}`],
-          [m.riders.lastHeartbeat, when(rider.lastHeartbeatAt)],
-          [m.riders.joinedAt, when(rider.joinedAt)],
-        ]}
-      />
-      {opened ? (
-        <div role="status" className="flex flex-wrap items-center gap-2 text-xs">
-          <span>{m.riders.pii.opened(text(opened.piiAccessLogId), when(opened.recordedAt))}</span>
-          <button type="button" className="btn btn-xs" onClick={() => reveal.reset()}>
-            {m.riders.pii.hide}
-          </button>
+    // 보기 전용 상세 카드(2026-11-18): 왼쪽 = 기본 정보, 오른쪽 = 지금 상태 요약 + 원문 열람
+    <div className="grid items-start gap-4 lg:grid-cols-3">
+      <div className="min-w-0 lg:col-span-2">
+        <Section title={m.riders.basic} aside={<span className="text-xs text-base-content/55">{m.riders.pii.note}</span>}>
+          <FieldList
+            testId="rider-basic"
+            rows={[
+              [m.riders.name, <span key="n" data-testid="rider-name" data-masked={!isOpen('NAME')}>{isOpen('NAME') ? text(opened?.name) : text(rider.nameMasked)}</span>],
+              [m.orders.phone, <span key="p" className="font-mono" data-testid="rider-phone" data-masked={!isOpen('PHONE')}>{isOpen('PHONE') ? text(opened?.phone) : text(rider.phoneMasked)}</span>],
+              [m.riders.vehicle, label(m.riders.vehicleName, rider.vehicleType)],
+              [m.riders.operating, `${label(m.riders.operatingName, op?.status)}${op?.mfcId ? ` · ${op.mfcId}` : ''}`],
+              [m.riders.newDispatch, op?.newDispatchEnabled === undefined ? m.none : op.newDispatchEnabled ? 'O' : 'X'],
+              [m.riders.activeDeliveries, text(op?.activeDeliveryCount)],
+              [m.riders.areas, (rider.deliveryAreas ?? []).map((a) => `${a.mfcId ?? ''}${a.zoneId ? `/${a.zoneId}` : ''}`).join(', ') || m.none],
+              [m.riders.dispatchMode, label(m.riders.dispatchModeName, rider.settings?.dispatchMode)],
+              [m.riders.restriction, `${label(m.riders.restrictionName, rider.restriction?.state)}${rider.restriction?.until ? ` ~ ${when(rider.restriction.until)}` : ''}`],
+              [m.riders.lastHeartbeat, when(rider.lastHeartbeatAt)],
+              [m.riders.joinedAt, when(rider.joinedAt)],
+            ]}
+          />
+        </Section>
+      </div>
+
+      <aside className="min-w-0 space-y-4">
+        {/* 지금 상태 — 서버 값 그대로(제한·운행 이름표가 있을 때만 색) */}
+        <div className="rounded-box border border-base-300 bg-base-100 px-5 py-4 shadow-sm">
+          <p className="text-xs text-base-content/55">{m.riders.statusNow}</p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {rider.restriction?.state && m.riders.restrictionName[rider.restriction.state] ? (
+              <StatusBadge tone={RESTRICTION_TONE[rider.restriction.state] ?? 'ghost'}>{label(m.riders.restrictionName, rider.restriction.state)}</StatusBadge>
+            ) : null}
+            {op?.status && m.riders.operatingName[op.status] ? <StatusBadge tone={op.status === 'ON_DUTY' ? 'success' : 'ghost'}>{label(m.riders.operatingName, op.status)}</StatusBadge> : null}
+          </div>
+          <p className="mt-3 text-xs text-base-content/55">{m.riders.activeDeliveries}</p>
+          <p className="text-2xl font-bold">{text(op?.activeDeliveryCount)}</p>
         </div>
-      ) : (
-        <form
-          className="space-y-2 rounded-box border border-base-300 bg-base-100 shadow-sm p-3 text-sm"
-          aria-label={m.riders.pii.title}
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (!reasonOk || fields.length === 0) return;
-            if (reveal.phase.kind === 'rejected') reveal.reset();
-            void reveal.run({ reason: reason.trim(), fields });
-          }}
-        >
-          <h3 className="font-semibold">{m.riders.pii.title}</h3>
-          <fieldset className="flex flex-wrap gap-3">
-            <legend className="text-xs text-base-content/60">{m.riders.pii.fields}</legend>
-            {PII_FIELDS.map((f) => (
-              <label key={f} className="flex items-center gap-1">
-                <input
-                  type="checkbox"
-                  className="checkbox checkbox-xs"
-                  checked={fields.includes(f)}
-                  onChange={(e) => setFields((cur) => (e.target.checked ? PII_FIELDS.filter((x) => x === f || cur.includes(x)) : cur.filter((x) => x !== f)))}
-                />
-                {m.riders.pii.fieldName[f]}
-              </label>
-            ))}
-          </fieldset>
-          <label className="flex flex-col gap-1">
-            {m.riders.pii.reason}
-            <input className="input input-sm w-full max-w-md" maxLength={200} autoComplete="off" placeholder={m.riders.pii.reasonHint} value={reason} onChange={(e) => setReason(e.target.value)} />
-          </label>
-          <button type="submit" className="btn btn-sm" disabled={!reasonOk || fields.length === 0 || reveal.busy}>
-            {m.riders.pii.open}
-          </button>
-          <CommandFeedback command={reveal} />
-        </form>
-      )}
-    </>
+
+        {opened ? (
+          <div role="status" className="space-y-2 rounded-box border border-warning/40 bg-warning/5 p-4 text-xs">
+            <p>{m.riders.pii.opened(text(opened.piiAccessLogId), when(opened.recordedAt))}</p>
+            <button type="button" className="btn btn-xs" onClick={() => reveal.reset()}>
+              {m.riders.pii.hide}
+            </button>
+          </div>
+        ) : (
+          <form
+            className="space-y-3 rounded-box border border-base-300 bg-base-100 p-4 text-sm shadow-sm"
+            aria-label={m.riders.pii.title}
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!reasonOk || fields.length === 0) return;
+              if (reveal.phase.kind === 'rejected') reveal.reset();
+              void reveal.run({ reason: reason.trim(), fields });
+            }}
+          >
+            <h3 className="flex items-center gap-2 font-semibold">
+              <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4 fill-none stroke-current text-warning" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+                <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Zm10 3a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" />
+              </svg>
+              {m.riders.pii.title}
+            </h3>
+            <fieldset className="flex flex-wrap gap-3">
+              <legend className="mb-1 text-xs text-base-content/60">{m.riders.pii.fields}</legend>
+              {PII_FIELDS.map((f) => (
+                <label key={f} className="flex items-center gap-1">
+                  <input
+                    type="checkbox"
+                    className="checkbox checkbox-xs"
+                    checked={fields.includes(f)}
+                    onChange={(e) => setFields((cur) => (e.target.checked ? PII_FIELDS.filter((x) => x === f || cur.includes(x)) : cur.filter((x) => x !== f)))}
+                  />
+                  {m.riders.pii.fieldName[f]}
+                </label>
+              ))}
+            </fieldset>
+            <label className="flex flex-col gap-1 text-xs text-base-content/60">
+              {m.riders.pii.reason}
+              <input className="input input-sm w-full" maxLength={200} autoComplete="off" placeholder={m.riders.pii.reasonHint} value={reason} onChange={(e) => setReason(e.target.value)} />
+            </label>
+            <button type="submit" className="btn btn-sm btn-warning btn-outline w-full" disabled={!reasonOk || fields.length === 0 || reveal.busy}>
+              {m.riders.pii.open}
+            </button>
+            <CommandFeedback command={reveal} />
+          </form>
+        )}
+      </aside>
+    </div>
   );
 }
+
+const RESTRICTION_TONE: Readonly<Record<string, Tone>> = { NORMAL: 'success', DISPATCH_RESTRICTED: 'warning', SUSPENDED: 'error', TERMINATED: 'ghost' };
 
 /** 라이더 백오피스의 같은 라이더 상세(지금 페이지 호스트 기준 — 앱 바꾸기와 같은 주소 규칙) */
 const riderOpsUrl = (riderId: string) => `${staffAppUrl('rider-backoffice', globalThis.location)}riders/${encodeURIComponent(riderId)}`;
@@ -119,22 +146,27 @@ export function RiderDetailPage() {
     queryFn: () => request('GET', api.riders.GET('/riders/{riderId}', { params: { path: { riderId } } })),
   });
   return (
-    <section className="max-w-5xl space-y-4">
-      <PageHeader title={`${m.riders.detailTitle} ${riderId}`} />
+    <section className="max-w-6xl space-y-4">
+      <PageHeader
+        title={`${m.riders.detailTitle} ${riderId}`}
+        actions={
+          <a className="btn btn-sm border-base-300 bg-base-100" href={riderOpsUrl(riderId)}>
+            {m.riders.openInRiderOps}
+          </a>
+        }
+      />
       <Notice>
-        <span data-testid="rider-ops-moved">{m.riders.moved}</span>{' '}
-        <a className="link" href={riderOpsUrl(riderId)}>
-          {m.riders.openInRiderOps}
-        </a>
+        <span data-testid="rider-ops-moved">{m.riders.moved}</span>
       </Notice>
-      <h2 className="font-bold">{m.riders.basic}</h2>
       <QueryState state={toUiState(detail)} onRetry={() => void detail.refetch()}>
         {(r) => <RiderBasic key={r.riderId} rider={r} />}
       </QueryState>
-      <h2 className="font-bold">{m.riders.deliveries}</h2>
-      <DeliveriesOf riderId={riderId} />
-      <h2 className="font-bold">{m.riders.complaints}</h2>
-      <RiderComplaintTable riderId={riderId} />
+      <Section title={m.riders.deliveries}>
+        <DeliveriesOf riderId={riderId} />
+      </Section>
+      <Section title={m.riders.complaints}>
+        <RiderComplaintTable riderId={riderId} />
+      </Section>
     </section>
   );
 }
@@ -144,10 +176,18 @@ export function RiderOpsMovedPage({ path }: { readonly path: 'riders' | 'restric
   return (
     <section className="max-w-3xl space-y-4" data-testid="rider-ops-moved-page">
       <PageHeader title={m.riders.movedTitle} />
-      <Notice>{m.riders.moved}</Notice>
-      <a className="btn btn-primary btn-sm" href={`${staffAppUrl('rider-backoffice', globalThis.location)}${path}`}>
-        {m.riders.openRiderOps}
-      </a>
+      {/* 옮겨 간 곳 안내 상자(2026-11-18) — 그림 + 한 줄 + 버튼 */}
+      <div className="flex flex-col items-center gap-3 rounded-box border border-dashed border-base-300 bg-base-100 px-6 py-12 text-center">
+        <span className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary" aria-hidden="true">
+          <svg viewBox="0 0 24 24" className="h-6 w-6 fill-none stroke-current" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+            <path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5" />
+          </svg>
+        </span>
+        <p className="max-w-md text-sm text-base-content/70">{m.riders.moved}</p>
+        <a className="btn btn-primary btn-sm" href={`${staffAppUrl('rider-backoffice', globalThis.location)}${path}`}>
+          {m.riders.openRiderOps}
+        </a>
+      </div>
     </section>
   );
 }

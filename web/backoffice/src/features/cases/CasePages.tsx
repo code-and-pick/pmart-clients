@@ -29,7 +29,7 @@ import type { operations as BffOps } from '../../api/generated/backoffice-bff';
 import type { components } from '../../api/generated/case';
 import { useApi } from '../../app/ApiContext';
 import { useSession } from '../../app/SessionContext';
-import { DataTable, PageHeader, SearchRow, StatusBadge } from '../../shared/admin';
+import { PageHeader, StatusBadge, type Tone } from '../../shared/admin';
 import { messages as m } from '../../shared/messages';
 import { label, text, when } from '../../shared/ops';
 import { SourceStamps } from '../../shared/SourceStamps';
@@ -170,10 +170,100 @@ function LinkedState({ l, role, seenAt }: { readonly l: Linked; readonly role: D
 function Sla({ c }: { readonly c: Pick<Summary, 'slaDueAt' | 'overdue'> }) {
   if (!c.slaDueAt) return <span>{m.none}</span>;
   return (
-    <span className={c.overdue ? 'font-semibold text-error' : ''} data-overdue={c.overdue ? 'true' : 'false'}>
+    <span className={`inline-flex items-center gap-1 ${c.overdue ? 'font-semibold text-error' : ''}`} data-overdue={c.overdue ? 'true' : 'false'}>
+      {c.overdue && <Icon d={ICON.alert} className="h-3.5 w-3.5 shrink-0" />}
       {when(c.slaDueAt)}
       {c.overdue && ` · ${m.cases.overdue}`}
     </span>
+  );
+}
+
+// ---------------------------------------------------------------- 보기 부품(2026-11-18 사용자 "밋밋하다" — 이슈 트래커처럼)
+
+const ICON = {
+  alert: 'M12 9v4m0 4h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z',
+  clock: 'M12 7v5l3 2m6-2a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z',
+  inbox: 'M4 13h4l1.5 2.5h5L16 13h4M4 13l2.5-7h11L20 13v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-5Z',
+  chat: 'M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.4A8 8 0 1 1 21 12Z',
+  check: 'M5 12l5 5L20 7',
+  history: 'M3 12a9 9 0 1 0 3-6.7L3 8m0-5v5h5m4-1v5l3 2',
+  link: 'M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1',
+} as const;
+
+function Icon({ d, className = 'h-4 w-4' }: { readonly d: string; readonly className?: string }) {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" className={`fill-none stroke-current ${className}`} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+      <path d={d} />
+    </svg>
+  );
+}
+
+/** 종류 색 — 한국어 이름이 있는 종류만 색을 준다 */
+const KIND_TONE: Readonly<Record<string, Tone>> = {
+  RIDER_HELP: 'info',
+  DELIVERY_INCIDENT: 'warning',
+  RIDER_LOCATION_STALE: 'neutral',
+  MISDELIVERY: 'error',
+  DISPATCH_FAILED: 'warning',
+  RECONCILIATION: 'accent',
+  PAYMENT_UNKNOWN: 'accent',
+  RETURN_RECOVERY_FAILED: 'info',
+};
+
+function KindBadge({ kind }: { readonly kind: string | null | undefined }) {
+  if (!kind) return <span>{m.none}</span>;
+  const named = m.cases.kindName[kind] !== undefined;
+  return named ? <StatusBadge tone={KIND_TONE[kind] ?? 'ghost'}>{label(m.cases.kindName, kind)}</StatusBadge> : <span className="font-mono text-xs">{kind}</span>;
+}
+
+function PriorityBadge({ p }: { readonly p: string | null | undefined }) {
+  if (!p) return <span>{m.none}</span>;
+  const cls = p === 'P1' ? 'badge-error' : p === 'P2' ? 'badge-warning badge-soft' : 'badge-ghost';
+  return <span className={`badge badge-sm font-mono font-semibold ${cls}`}>{p}</span>;
+}
+
+const stateTone = (c: { readonly state?: string | null; readonly overdue?: boolean | null }): Tone =>
+  c.state === 'CLOSED' ? 'ghost' : c.overdue ? 'error' : c.state === 'REOPENED' ? 'warning' : 'info';
+
+/** 운영자 — 머리글자 동그라미 + ID. 비었으면 "아무도 안 맡음"(흐리게) */
+function Person({ id }: { readonly id: string | null | undefined }) {
+  if (!id) return <span className="text-base-content/50">{m.cases.unassigned}</span>;
+  const letter = id.replace(/^op-/i, '').charAt(0).toUpperCase() || '?';
+  return (
+    <span className="inline-flex min-w-0 items-center gap-2" title={id}>
+      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[11px] font-bold text-primary" aria-hidden="true">
+        {letter}
+      </span>
+      <span className="truncate">{id}</span>
+    </span>
+  );
+}
+
+/** 상세 본문 칸 — 제목 줄(아이콘) + 내용 */
+function Panel({ title, icon, aside, children, testId }: { readonly title: ReactNode; readonly icon?: string; readonly aside?: ReactNode; readonly children: ReactNode; readonly testId?: string }) {
+  return (
+    <section className="overflow-hidden rounded-box border border-base-300 bg-base-100 shadow-sm" data-testid={testId}>
+      <div className="flex items-center justify-between gap-2 border-b border-base-300 px-5 py-3">
+        <h2 className="flex items-center gap-2 font-semibold">
+          {icon && <Icon d={icon} className="h-4 w-4 text-base-content/50" />}
+          {title}
+        </h2>
+        {aside}
+      </div>
+      <div className="px-5 py-4">{children}</div>
+    </section>
+  );
+}
+
+/** 오른쪽 속성 한 줄(이름 왼쪽 작게, 값 오른쪽) */
+function Prop({ name, children, testId }: { readonly name: ReactNode; readonly children: ReactNode; readonly testId?: string }) {
+  return (
+    <div className="grid grid-cols-[6.5rem_1fr] items-start gap-2 py-2">
+      <dt className="pt-0.5 text-xs text-base-content/55">{name}</dt>
+      <dd className="min-w-0 break-words text-sm" data-testid={testId}>
+        {children}
+      </dd>
+    </div>
   );
 }
 
@@ -216,127 +306,141 @@ export function CaseListPage() {
     },
   });
   return (
-    <section className="max-w-6xl space-y-4">
+    <section className="max-w-7xl space-y-4">
       <PageHeader title={m.cases.title} description={m.cases.intro} />
       {admin && <p className="text-sm text-base-content/60">{m.cases.orderNote}</p>}
-      {/* 관리자 형식(2026-11-18): 밑줄 탭 + 거르기 상자 */}
-      <div role="tablist" className="flex gap-1 border-b border-base-300">
-        {TABS.map((t) => (
-          <button
-            key={t}
-            type="button"
-            role="tab"
-            aria-selected={t === tab}
-            className={`-mb-px border-b-2 px-4 py-2 text-sm ${t === tab ? 'border-primary font-semibold text-base-content' : 'border-transparent text-base-content/60 hover:text-base-content'}`}
-            onClick={() => setQuery({ tab: t })}
-          >
-            {m.cases.tabs[t]}
-          </button>
-        ))}
-      </div>
-      <div className="overflow-hidden rounded-box border border-base-300 bg-base-100 shadow-sm">
-      <SearchRow label={m.cases.kind}>
-      <label className="flex w-fit items-center gap-2 text-sm">
-        <span className="sr-only">{m.cases.kind}</span>
-        <select className="select select-sm" value={kind ?? ''} onChange={(e) => setQuery({ kind: kinds.find((k) => k === e.target.value) ?? '' })}>
-          <option value="">{m.cases.anyKind}</option>
-          {kinds.map((k) => (
-            <option key={k} value={k}>
-              {label(m.cases.kindName, k)}
-            </option>
+      {/* 한 카드(2026-11-18 이슈 트래커 목록처럼): 밑줄 탭 → 종류 거르기 줄 → 표 → 아래 쪽 넘기기 */}
+      <div className="overflow-hidden rounded-box border border-base-300 bg-base-100 shadow-sm" data-testid="case-list-card">
+        <div role="tablist" className="flex gap-1 overflow-x-auto overflow-y-hidden border-b border-base-300 px-3">
+          {TABS.map((t) => (
+            <button
+              key={t}
+              type="button"
+              role="tab"
+              aria-selected={t === tab}
+              className={`-mb-px flex items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-3 text-sm transition-colors ${t === tab ? 'border-primary font-semibold text-base-content' : 'border-transparent text-base-content/55 hover:text-base-content'}`}
+              onClick={() => setQuery({ tab: t })}
+            >
+              {t === 'overdue' && <Icon d={ICON.alert} className={`h-3.5 w-3.5 ${t === tab ? 'text-error' : ''}`} />}
+              {m.cases.tabs[t]}
+            </button>
           ))}
-        </select>
-      </label>
-      </SearchRow>
-      </div>
-      <QueryState state={toUiState(query, (r) => (r.items ?? []).length === 0)} onRetry={() => void query.refetch()} emptyText={m.cases.empty}>
-        {(r) => (
-          <>
-          <SourceStamps sources={r.sources} unavailableSources={r.unavailableSources} />
-          <DataTable>
-            <thead>
-              <tr>
-                <th>{m.cases.priority}</th>
-                <th>{m.cases.kind}</th>
-                <th>{m.cases.summary}</th>
-                <th>{m.cases.refs}</th>
-                <th>{m.cases.linked}</th>
-                <th>{m.cases.sla}</th>
-                <th>{m.cases.assignee}</th>
-                <th>{m.cases.state}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(r.items ?? []).map((c, i) => (
-                <tr
-                  key={c.caseId ?? `case-${i}`}
-                  data-testid="case-row"
-                  className={`cursor-pointer ${c.overdue ? 'bg-error/5' : ''}`}
-                  onClick={() => c.caseId && void navigate(`/cases/${encodeURIComponent(c.caseId)}`)}
-                >
-                  <td>
-                    <span className={`badge badge-sm ${c.priority === 'P1' ? 'badge-error' : 'badge-ghost'}`}>{text(c.priority)}</span>
-                  </td>
-                  <td>{label(m.cases.kindName, c.kind)}</td>
-                  <td>
-                    <Link className="text-primary hover:underline" to={`/cases/${encodeURIComponent(c.caseId ?? '')}`} onClick={(e) => e.stopPropagation()}>
-                      {c.summary ? c.summary : label(m.cases.kindName, c.kind)}
-                    </Link>
-                  </td>
-                  <td>
-                    <Refs c={{ subjectRef: c.subjectRef ?? '', refs: (c.linkedRefs ?? []).map((x) => ({ refType: x.kind ?? '', refId: x.id ?? '' })) }} />
-                  </td>
-                  <td>
-                    {(c.linked ?? []).length === 0 ? (
-                      <span className="opacity-70">{m.none}</span>
-                    ) : (
-                      <ul className="space-y-0.5 text-xs">
-                        {(c.linked ?? []).map((l) => (
-                          <LinkedState
-                            key={`${l.kind ?? ''}:${l.id ?? ''}`}
-                            l={l}
-                            role={l.kind === 'DELIVERY' ? deliveryRoleOf(c.linkedRefs, l.id) : null}
-                            seenAt={c.myLastSeenAt}
-                          />
-                        ))}
-                      </ul>
-                    )}
-                  </td>
-                  <td>
-                    <Sla c={{ slaDueAt: c.slaDueAt ?? null, overdue: c.overdue ?? false }} />
-                  </td>
-                  <td>
-                    {withAdminTeam(c) && (
-                      <span className="badge badge-warning badge-sm mr-1" data-testid="case-admin-team">
-                        {m.cases.adminHandling}
-                      </span>
-                    )}
-                    {c.assigneeId ?? m.cases.unassigned}
-                  </td>
-                  <td>
-                    <StatusBadge tone={c.state === 'CLOSED' ? 'ghost' : c.overdue ? 'error' : 'info'}>{label(m.cases.stateName, c.state)}</StatusBadge>
-                  </td>
-                </tr>
+        </div>
+        <div className="flex flex-wrap items-center gap-3 border-b border-base-300 bg-base-200/40 px-4 py-2.5">
+          <label className="flex items-center gap-2 text-sm">
+            <span className="text-xs font-medium text-base-content/55">{m.cases.kind}</span>
+            <select className="select select-sm w-48 bg-base-100" value={kind ?? ''} onChange={(e) => setQuery({ kind: kinds.find((k) => k === e.target.value) ?? '' })}>
+              <option value="">{m.cases.anyKind}</option>
+              {kinds.map((k) => (
+                <option key={k} value={k}>
+                  {label(m.cases.kindName, k)}
+                </option>
               ))}
-            </tbody>
-          </DataTable>
-          {(cursor || r.page?.nextCursor) && (
-            <div className="flex justify-center gap-2">
-              {cursor && (
-                <button type="button" className="btn btn-sm" onClick={() => setQuery({})}>
-                  {m.cases.firstPage}
-                </button>
+            </select>
+          </label>
+        </div>
+        <QueryState state={toUiState(query, (r) => (r.items ?? []).length === 0)} onRetry={() => void query.refetch()} emptyText={m.cases.empty}>
+          {(r) => (
+            <>
+              {((r.sources ?? []).length > 0 || (r.unavailableSources ?? []).length > 0) && (
+                <div className="border-b border-base-300 px-4 py-2">
+                  <SourceStamps sources={r.sources} unavailableSources={r.unavailableSources} />
+                </div>
               )}
-              {r.page?.nextCursor && (
-                <button type="button" className="btn btn-sm" onClick={() => setQuery({ cursor: r.page?.nextCursor ?? '' })}>
-                  {m.cases.nextPage}
-                </button>
-              )}
-            </div>
+              <div className="overflow-x-auto">
+                <table className="table [&_tbody_td]:py-3 [&_tbody_tr:hover]:bg-base-200/60 [&_tbody_tr]:border-base-300/70 [&_thead_th]:text-xs [&_thead_th]:font-medium [&_thead_th]:text-base-content/50">
+                  <thead>
+                    <tr>
+                      <th className="w-12">{m.cases.priority}</th>
+                      <th>{m.cases.summary}</th>
+                      <th>{m.cases.kind}</th>
+                      <th>{m.cases.refs}</th>
+                      <th>{m.cases.linked}</th>
+                      <th>{m.cases.sla}</th>
+                      <th>{m.cases.assignee}</th>
+                      <th>{m.cases.state}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(r.items ?? []).map((c, i) => (
+                      <tr
+                        key={c.caseId ?? `case-${i}`}
+                        data-testid="case-row"
+                        className={`cursor-pointer ${c.overdue ? 'bg-error/5 shadow-[inset_3px_0_0_var(--color-error)]' : ''}`}
+                        onClick={() => c.caseId && void navigate(`/cases/${encodeURIComponent(c.caseId)}`)}
+                      >
+                        <td>
+                          <PriorityBadge p={c.priority} />
+                        </td>
+                        <td className="max-w-md">
+                          <Link className="block truncate font-medium hover:text-primary hover:underline" to={`/cases/${encodeURIComponent(c.caseId ?? '')}`} onClick={(e) => e.stopPropagation()}>
+                            {c.summary ? c.summary : label(m.cases.kindName, c.kind)}
+                          </Link>
+                          {/* 접수 건 번호는 목록에 보이지 않는다(요약 없으면 종류 이름 — 백엔드 회신 reply-case-inbox-questions §2-1) */}
+                        </td>
+                        <td>
+                          <KindBadge kind={c.kind} />
+                        </td>
+                        <td className="text-xs">
+                          <Refs c={{ subjectRef: c.subjectRef ?? '', refs: (c.linkedRefs ?? []).map((x) => ({ refType: x.kind ?? '', refId: x.id ?? '' })) }} />
+                        </td>
+                        <td>
+                          {(c.linked ?? []).length === 0 ? (
+                            <span className="opacity-70">{m.none}</span>
+                          ) : (
+                            <ul className="space-y-0.5 text-xs">
+                              {(c.linked ?? []).map((l) => (
+                                <LinkedState
+                                  key={`${l.kind ?? ''}:${l.id ?? ''}`}
+                                  l={l}
+                                  role={l.kind === 'DELIVERY' ? deliveryRoleOf(c.linkedRefs, l.id) : null}
+                                  seenAt={c.myLastSeenAt}
+                                />
+                              ))}
+                            </ul>
+                          )}
+                        </td>
+                        <td className="whitespace-nowrap text-sm">
+                          <Sla c={{ slaDueAt: c.slaDueAt ?? null, overdue: c.overdue ?? false }} />
+                        </td>
+                        <td className="text-sm">
+                          {withAdminTeam(c) && (
+                            <span className="badge badge-warning badge-sm mb-1" data-testid="case-admin-team">
+                              {m.cases.adminHandling}
+                            </span>
+                          )}
+                          <Person id={c.assigneeId} />
+                        </td>
+                        <td>
+                          <StatusBadge tone={stateTone(c)}>{label(m.cases.stateName, c.state)}</StatusBadge>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {/* 아래: 이 쪽 건수 · 쪽 넘기기 */}
+              <div className="flex flex-wrap items-center justify-between gap-2 border-t border-base-300 px-4 py-3 text-sm">
+                <span className="text-base-content/55">{m.cases.shown((r.items ?? []).length)}</span>
+                {(cursor || r.page?.nextCursor) && (
+                  <div className="flex gap-2">
+                    {cursor && (
+                      <button type="button" className="btn btn-sm border-base-300 bg-base-100" onClick={() => setQuery({})}>
+                        {m.cases.firstPage}
+                      </button>
+                    )}
+                    {r.page?.nextCursor && (
+                      <button type="button" className="btn btn-sm border-base-300 bg-base-100" onClick={() => setQuery({ cursor: r.page?.nextCursor ?? '' })}>
+                        {m.cases.nextPage}
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            </>
           )}
-          </>
-        )}
-      </QueryState>
+        </QueryState>
+      </div>
     </section>
   );
 }
@@ -360,24 +464,24 @@ function AssignForm({ c, onDone }: { readonly c: Case; readonly onDone: (c: Case
   const canPick = ((isCsCase(c) ? agent : team && !withAdminTeam(c)) || admin) && !c.assigneeId;
   if (!canPick && !admin) return null;
   return (
-    <div className="space-y-2 rounded-box border border-base-300 bg-base-100 shadow-sm p-3 text-sm">
+    <div className="space-y-2 border-t border-base-300 pt-3 text-sm">
       {canPick && (
-        <button type="button" className="btn btn-sm btn-primary" disabled={assign.busy} onClick={() => run(me)}>
+        <button type="button" className="btn btn-sm btn-primary w-full" disabled={assign.busy} onClick={() => run(me)}>
           {m.cases.pick}
         </button>
       )}
       {admin && (
         <form
-          className="flex flex-wrap items-end gap-2"
+          className="flex items-end gap-2"
           aria-label={m.cases.assignTo}
           onSubmit={(e: FormEvent) => {
             e.preventDefault();
             if (other.trim()) run(other.trim());
           }}
         >
-          <label className="flex flex-col gap-1">
+          <label className="flex min-w-0 flex-1 flex-col gap-1 text-xs text-base-content/60">
             {m.cases.assignTo}
-            <input className="input input-sm w-48" placeholder={m.cases.assignee_} value={other} onChange={(e) => setOther(e.target.value)} />
+            <input className="input input-sm w-full" placeholder={m.cases.assignee_} value={other} onChange={(e) => setOther(e.target.value)} />
           </label>
           <button type="submit" className="btn btn-sm" disabled={!other.trim() || assign.busy}>
             {m.cases.assign}
@@ -403,7 +507,7 @@ function CloseForm({ c, onDone, openFollowUps }: { readonly c: Case; readonly on
   });
   return (
     <form
-      className="space-y-2 rounded-box border border-base-300 bg-base-100 shadow-sm p-3 text-sm"
+      className="space-y-3 rounded-box border border-base-300 bg-base-100 p-4 text-sm shadow-sm"
       aria-label={m.cases.close}
       onSubmit={(e) => {
         e.preventDefault();
@@ -412,10 +516,15 @@ function CloseForm({ c, onDone, openFollowUps }: { readonly c: Case; readonly on
         void close.run({ resolution, summary: summary.trim() });
       }}
     >
-      <h2 className="font-semibold">{m.cases.close}</h2>
-      <label className="flex flex-col gap-1">
+      <h2 className="flex items-center gap-2 font-semibold">
+        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-success/15 text-success">
+          <Icon d={ICON.check} className="h-3.5 w-3.5" />
+        </span>
+        {m.cases.close}
+      </h2>
+      <label className="flex flex-col gap-1 text-xs text-base-content/60">
         {m.cases.resolution}
-        <select className="select select-sm w-56" value={resolution} onChange={(e) => setResolution(RESOLUTIONS.find((r) => r === e.target.value) ?? 'RESOLVED')}>
+        <select className="select select-sm w-full" value={resolution} onChange={(e) => setResolution(RESOLUTIONS.find((r) => r === e.target.value) ?? 'RESOLVED')}>
           {RESOLUTIONS.map((r) => (
             <option key={r} value={r}>
               {m.cases.resolutionName[r]}
@@ -423,9 +532,9 @@ function CloseForm({ c, onDone, openFollowUps }: { readonly c: Case; readonly on
           ))}
         </select>
       </label>
-      <label className="flex flex-col gap-1">
+      <label className="flex flex-col gap-1 text-xs text-base-content/60">
         {m.cases.closeSummary}
-        <textarea className="textarea textarea-sm w-full max-w-lg" maxLength={1000} value={summary} onChange={(e) => setSummary(e.target.value)} />
+        <textarea className="textarea textarea-sm w-full" maxLength={1000} value={summary} onChange={(e) => setSummary(e.target.value)} />
       </label>
       <p className="text-xs text-base-content/60">{m.cases.piiHint}</p>
       {openFollowUps > 0 && (
@@ -433,7 +542,7 @@ function CloseForm({ c, onDone, openFollowUps }: { readonly c: Case; readonly on
           {m.followUps.closeBlocked(openFollowUps)}
         </p>
       )}
-      <button type="submit" className="btn btn-sm" disabled={!summary.trim() || close.busy || openFollowUps > 0}>
+      <button type="submit" className="btn btn-sm btn-success w-full" disabled={!summary.trim() || close.busy || openFollowUps > 0}>
         {m.cases.close}
       </button>
       <CommandFeedback command={close}>{() => <span className="text-xs text-success">{m.cases.closed}</span>}</CommandFeedback>
@@ -465,7 +574,7 @@ function ReasonForm({
   const code = cmd.phase.kind === 'rejected' && cmd.phase.failure instanceof ProblemFailure ? cmd.phase.failure.problem.code : undefined;
   return (
     <form
-      className="space-y-2 rounded-box border border-base-300 bg-base-100 shadow-sm p-3 text-sm"
+      className="space-y-3 rounded-box border border-base-300 bg-base-100 p-4 text-sm shadow-sm"
       aria-label={title}
       data-testid={testId}
       onSubmit={(e) => {
@@ -477,12 +586,12 @@ function ReasonForm({
     >
       <h2 className="font-semibold">{title}</h2>
       {warn && <p className="text-xs text-base-content/60">{warn}</p>}
-      <label className="flex flex-col gap-1">
+      <label className="flex flex-col gap-1 text-xs text-base-content/60">
         {m.cases.reason}
-        <textarea className="textarea textarea-sm w-full max-w-lg" maxLength={500} value={reason} onChange={(e) => setReason(e.target.value)} />
+        <textarea className="textarea textarea-sm w-full" maxLength={500} value={reason} onChange={(e) => setReason(e.target.value)} />
       </label>
       <p className="text-xs text-base-content/60">{m.cases.piiHint}</p>
-      <button type="submit" className="btn btn-sm" disabled={!ok || cmd.busy}>
+      <button type="submit" className="btn btn-sm btn-outline w-full" disabled={!ok || cmd.busy}>
         {submitLabel}
       </button>
       <CommandFeedback command={cmd}>{() => <span className="text-xs text-success">{doneText}</span>}</CommandFeedback>
@@ -558,28 +667,44 @@ function HelpRequestOfCase({ c }: { readonly c: Case }) {
   });
   if (!deliveryId || !requestId) return null;
   return (
-    <>
-      <h2 className="font-bold">{m.cases.helpRequest}</h2>
-      <QueryState state={toUiState(query)} onRetry={() => void query.refetch()}>
-        {(h) => (
-          <dl className="grid grid-cols-[8rem_1fr] gap-x-4 gap-y-2.5 rounded-box border border-base-300 bg-base-100 shadow-sm px-5 py-4 text-sm [&_dt]:text-base-content/55" data-testid="case-help-request">
-            <dt>{m.helpQueue.category}</dt>
-            <dd>{label(m.helpQueue.categoryName, h.category)}</dd>
-            <dt>{m.helpQueue.stage}</dt>
-            <dd>{label(m.deliveries.executionState, h.stage)}</dd>
-            <dt>{m.cases.helpDetail}</dt>
-            <dd className="whitespace-pre-wrap">{text(h.detail)}</dd>
-            <dt>{m.helpQueue.photos}</dt>
-            <dd>{(h.evidenceRefs ?? []).join(', ') || m.none}</dd>
-            <dt>{m.cases.state}</dt>
-            <dd>{label(m.helpQueue.state, h.state)}</dd>
-            <dt>{m.helpQueue.createdAt}</dt>
-            <dd>{when(h.createdAt)}</dd>
-          </dl>
-        )}
-      </QueryState>
-      <HelpChat caseId={c.caseId ?? ''} deliveryId={deliveryId} requestId={requestId} adminTeam={c.assigneeGroup === 'ORDER_OPS'} />
-    </>
+    <Panel title={m.cases.helpRequest} icon={ICON.chat}>
+      <div className="space-y-4">
+        <QueryState state={toUiState(query)} onRetry={() => void query.refetch()}>
+          {(h) => (
+            <div className="space-y-3" data-testid="case-help-request">
+              {/* 라이더가 쓴 내용을 인용 상자로 — 그 아래 분류·단계·사진·상태 */}
+              <div className="space-y-1">
+                <p className="text-xs text-base-content/50">{m.cases.helpDetail}</p>
+                <blockquote className="whitespace-pre-wrap rounded-box border-l-4 border-info bg-info/5 px-4 py-3 text-sm">{text(h.detail)}</blockquote>
+              </div>
+              <dl className="grid gap-x-6 gap-y-3 text-sm sm:grid-cols-3 [&_dt]:text-xs [&_dt]:text-base-content/50 [&_dd]:font-medium">
+                <div>
+                  <dt>{m.helpQueue.category}</dt>
+                  <dd>{label(m.helpQueue.categoryName, h.category)}</dd>
+                </div>
+                <div>
+                  <dt>{m.helpQueue.stage}</dt>
+                  <dd>{label(m.deliveries.executionState, h.stage)}</dd>
+                </div>
+                <div>
+                  <dt>{m.cases.state}</dt>
+                  <dd>{label(m.helpQueue.state, h.state)}</dd>
+                </div>
+                <div>
+                  <dt>{m.helpQueue.createdAt}</dt>
+                  <dd>{when(h.createdAt)}</dd>
+                </div>
+                <div className="sm:col-span-2">
+                  <dt>{m.helpQueue.photos}</dt>
+                  <dd className="break-all">{(h.evidenceRefs ?? []).join(', ') || m.none}</dd>
+                </div>
+              </dl>
+            </div>
+          )}
+        </QueryState>
+        <HelpChat caseId={c.caseId ?? ''} deliveryId={deliveryId} requestId={requestId} adminTeam={c.assigneeGroup === 'ORDER_OPS'} />
+      </div>
+    </Panel>
   );
 }
 
@@ -603,8 +728,8 @@ export function CaseDetailPage() {
     void queryClient.invalidateQueries({ queryKey: ['help-request'] });
   };
   return (
-    <section className="max-w-4xl space-y-4">
-      <PageHeader title={m.cases.detailTitle(caseId)} />
+    <section className="max-w-7xl space-y-4">
+      <PageHeader title={m.cases.detailTitle(caseId)} back={{ to: '/cases', label: m.cases.back }} />
       <QueryState state={toUiState(query)} onRetry={() => void query.refetch()}>
         {(c) => {
           const closed = c.state === 'CLOSED';
@@ -619,111 +744,163 @@ export function CaseDetailPage() {
           const deliverySide = !isOrderKind(c.kind) && !csCase;
           const canToAdmin = !closed && deliverySide && !adminTeam && (admin || (teamCan && (!c.assigneeId || c.assigneeId === me)));
           const canToSupport = !closed && deliverySide && adminTeam && admin;
+          const history = c.history ?? [];
           return (
-            <>
-              <dl className="grid grid-cols-[8rem_1fr] gap-x-4 gap-y-2.5 rounded-box border border-base-300 bg-base-100 shadow-sm px-5 py-4 text-sm [&_dt]:text-base-content/55" data-testid="case-facts">
-                <dt>{m.cases.kind}</dt>
-                <dd>{label(m.cases.kindName, c.kind)}</dd>
-                <dt>{m.cases.priority}</dt>
-                <dd>{text(c.priority)}</dd>
-                <dt>{m.cases.state}</dt>
-                <dd data-testid="case-state">{label(m.cases.stateName, c.state)}</dd>
-                <dt>{m.cases.summary}</dt>
-                <dd>{text(c.summary)}</dd>
-                <dt>{m.cases.refs}</dt>
-                <dd>
-                  <Refs c={c} />
-                </dd>
-                <dt>{m.cases.sla}</dt>
-                <dd>
-                  <Sla c={c} />
-                </dd>
-                <dt>{m.cases.assigneeGroup}</dt>
-                <dd data-testid="case-group">
-                  {label(m.cases.groupName, c.assigneeGroup)}
-                  {adminTeam && (
-                    <span className="badge badge-warning badge-sm ml-1" data-testid="case-admin-team">
-                      {m.cases.adminHandling}
-                    </span>
-                  )}
-                </dd>
-                <dt>{m.cases.assignee}</dt>
-                <dd data-testid="case-assignee">{c.assigneeId ?? m.cases.unassigned}</dd>
-                <dt>{m.cases.openedAt}</dt>
-                <dd>{when(c.openedAt)}</dd>
-              </dl>
-
-              {(c.kind === 'RIDER_HELP' || c.kind === 'DELIVERY_INCIDENT') && <HelpRequestOfCase c={c} />}
-              {c.kind === 'RETURN_RECOVERY_FAILED' && <ClaimOfCase claimId={c.subjectType === 'CLAIM' && c.subjectRef ? c.subjectRef : ((c.refs ?? []).find((r) => r.refType === 'claimId')?.refId ?? '')} />}
-
-              {(c.refs ?? []).some((r) => r.refType === 'recoveryDeliveryId' || r.refType === 'reshipmentDeliveryId') && (
-                <p role="note" className="alert alert-info alert-soft text-sm" data-testid="case-recovery-note">
-                  {m.cases.recoveryNote}
-                </p>
-              )}
-
-              {isOrderKind(c.kind) && (
-                <div className="space-y-1 rounded-box border border-base-300 bg-base-100 shadow-sm p-3 text-sm" data-testid="case-order-note">
-                  <p className="opacity-70">{m.cases.orderNote}</p>
-                  <Link className="link" to="/pending">
-                    {m.cases.orderAction}
-                  </Link>
+            // 이슈 트래커처럼 두 칸(2026-11-18): 왼쪽 = 내용·후속 처리·행위 요청·메모·연락·이력, 오른쪽 = 속성·명령
+            <div className="grid items-start gap-4 lg:grid-cols-3">
+              <div className="min-w-0 space-y-4 lg:col-span-2">
+                {/* 개요 — 종류·우선순위 배지, 요약을 크게 */}
+                <div className="rounded-box border border-base-300 bg-base-100 px-5 py-4 shadow-sm empty:hidden">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <KindBadge kind={c.kind} />
+                    <PriorityBadge p={c.priority} />
+                    {c.overdue && !closed && (
+                      <span className="badge badge-error badge-sm gap-1">
+                        <Icon d={ICON.alert} className="h-3 w-3" />
+                        {m.cases.overdue}
+                      </span>
+                    )}
+                    <span className="ml-auto font-mono text-xs text-base-content/45">{c.caseId}</span>
+                  </div>
+                  <p className="mt-3 whitespace-pre-wrap text-lg font-semibold leading-snug">{text(c.summary)}</p>
+                  <p className="mt-1 text-xs text-base-content/55">{`${m.cases.openedAt} ${when(c.openedAt)}`}</p>
                 </div>
-              )}
 
-              {!admin && !team && !(agent && csCase) && <p className="text-sm text-base-content/60">{m.cases.viewOnly}</p>}
-              {adminTeam && !admin && (
-                <p role="note" className="alert alert-warning alert-soft text-sm">
-                  {m.cases.adminHandlingNote}
-                </p>
-              )}
-              {!closed && <AssignForm c={c} onDone={onDone} />}
-              <FollowUps c={c} canAdd={!closed && (admin || teamCan)} />
-              {canClose && <CloseForm c={c} onDone={onDone} openFollowUps={(c.obligations ?? []).filter(isOpenObligation).length} />}
-              {canToAdmin && <TransferForm c={c} toGroup="ORDER_OPS" onDone={onDone} />}
-              {canToSupport && <TransferForm c={c} toGroup="DELIVERY_OPS" onDone={onDone} />}
-              {canReopen && <ReopenForm c={c} onDone={onDone} />}
-
-              {c.closure && (
-                <>
-                  <h2 className="font-bold">{closed ? m.cases.closure : m.cases.lastClosure}</h2>
-                  <p className="rounded-box border border-base-300 bg-base-100 shadow-sm p-3 text-sm" data-testid="case-closure">
-                    {`${label(m.cases.resolutionName, c.closure.resolution)} · ${text(c.closure.summary)} · ${text(c.closure.closedBy)} · ${when(c.closure.closedAt)}`}
+                {(c.refs ?? []).some((r) => r.refType === 'recoveryDeliveryId' || r.refType === 'reshipmentDeliveryId') && (
+                  <p role="note" className="alert alert-info alert-soft text-sm" data-testid="case-recovery-note">
+                    {m.cases.recoveryNote}
                   </p>
-                </>
-              )}
+                )}
+                {isOrderKind(c.kind) && (
+                  <div className="flex flex-wrap items-center justify-between gap-2 rounded-box border border-accent/30 bg-accent/5 px-4 py-3 text-sm" data-testid="case-order-note">
+                    <p className="text-base-content/75">{m.cases.orderNote}</p>
+                    <Link className="btn btn-sm btn-accent btn-outline" to="/pending">
+                      {m.cases.orderAction}
+                    </Link>
+                  </div>
+                )}
+                {adminTeam && !admin && (
+                  <p role="note" className="alert alert-warning alert-soft text-sm">
+                    {m.cases.adminHandlingNote}
+                  </p>
+                )}
 
-              {/* 행위 요청 기록(case 0.17.0) — 맡을 수 있는 사람만 남김, 처리 끝난 건은 새 요청 없음 */}
-              <ActionRequests c={c} canAct={!closed && (admin || teamCan)} />
+                {(c.kind === 'RIDER_HELP' || c.kind === 'DELIVERY_INCIDENT') && <HelpRequestOfCase c={c} />}
+                {c.kind === 'RETURN_RECOVERY_FAILED' && <ClaimOfCase claimId={c.subjectType === 'CLAIM' && c.subjectRef ? c.subjectRef : ((c.refs ?? []).find((r) => r.refType === 'claimId')?.refId ?? '')} />}
 
-              <CaseNotes caseId={c.caseId ?? caseId} />
+                <div className="rounded-box border border-base-300 bg-base-100 px-5 py-4 shadow-sm empty:hidden">
+                  <FollowUps c={c} canAdd={!closed && (admin || teamCan)} />
+                </div>
 
-              {/* 고객 연락 기록(case 0.12.0) — 상담원·관리자만(그 밖 역할은 서버 403이라 그리지 않는다) */}
-              {canSeeIntakes(session?.roles ?? []) && (
-                <Link className="btn btn-sm" to={`/cs-intakes/new?${new URLSearchParams({ linkCaseId: c.caseId ?? caseId }).toString()}`}>
-                  {m.csIntake.caseRecord}
-                </Link>
-              )}
-              <CsIntakeLog caseId={c.caseId ?? caseId} title={m.csIntake.caseLog} />
+                {c.closure && (
+                  <Panel title={closed ? m.cases.closure : m.cases.lastClosure} icon={ICON.check}>
+                    <div className={`space-y-1 rounded-box border-l-4 px-4 py-3 text-sm ${closed ? 'border-success bg-success/5' : 'border-base-300 bg-base-200/50'}`} data-testid="case-closure">
+                      <StatusBadge tone={closed ? 'success' : 'ghost'}>{label(m.cases.resolutionName, c.closure.resolution)}</StatusBadge>
+                      <p className="whitespace-pre-wrap">{text(c.closure.summary)}</p>
+                      <p className="text-xs text-base-content/55">{`${text(c.closure.closedBy)} · ${when(c.closure.closedAt)}`}</p>
+                    </div>
+                  </Panel>
+                )}
 
-              <h2 className="font-bold">{m.cases.history}</h2>
-              <ul className="space-y-1 text-sm">
-                {(c.history ?? []).map((h, i) => (
-                  <li key={`${h.at ?? ''}-${i}`} className="rounded-box border border-base-300 bg-base-100 shadow-sm p-2">
-                    {`${when(h.at)} · ${h.action ? label(m.cases.actionName, h.action) : text(h.action)} · ${text(h.actorId)}${h.toState ? ` → ${label(m.cases.stateName, h.toState)}` : ''}${h.note ? ` · ${h.note}` : ''}`}
-                  </li>
-                ))}
-              </ul>
-            </>
+                {/* 행위 요청 기록(case 0.17.0) — 맡을 수 있는 사람만 남김, 처리 끝난 건은 새 요청 없음 */}
+                <ActionRequests c={c} canAct={!closed && (admin || teamCan)} />
+
+                <CaseNotes caseId={c.caseId ?? caseId} />
+
+                {/* 고객 연락 기록(case 0.12.0) — 상담원·관리자만(그 밖 역할은 서버 403이라 그리지 않는다) */}
+                <div className="space-y-3 rounded-box border border-base-300 bg-base-100 px-5 py-4 shadow-sm empty:hidden">
+                  <CsIntakeLog caseId={c.caseId ?? caseId} title={m.csIntake.caseLog} />
+                  {canSeeIntakes(session?.roles ?? []) && (
+                    <Link className="btn btn-sm" to={`/cs-intakes/new?${new URLSearchParams({ linkCaseId: c.caseId ?? caseId }).toString()}`}>
+                      {m.csIntake.caseRecord}
+                    </Link>
+                  )}
+                </div>
+
+                {/* 이력 — 세로 시간 줄 */}
+                <Panel title={m.cases.history} icon={ICON.history}>
+                  {history.length === 0 ? (
+                    <p className="text-sm text-base-content/55">{m.cases.noHistory}</p>
+                  ) : (
+                    <ol className="relative ml-2 space-y-4 border-l border-base-300 pl-5 text-sm" data-testid="case-history">
+                      {history.map((h, i) => (
+                        <li key={`${h.at ?? ''}-${i}`} className="relative">
+                          <span className={`absolute -left-[1.6rem] top-1 h-3 w-3 rounded-full ring-4 ring-base-100 ${HISTORY_DOT[h.action ?? ''] ?? 'bg-base-300'}`} aria-hidden="true" />
+                          <p>{`${h.action ? label(m.cases.actionName, h.action) : text(h.action)} · ${text(h.actorId)}${h.toState ? ` → ${label(m.cases.stateName, h.toState)}` : ''}${h.note ? ` · ${h.note}` : ''}`}</p>
+                          <p className="text-xs text-base-content/50">{when(h.at)}</p>
+                        </li>
+                      ))}
+                    </ol>
+                  )}
+                </Panel>
+              </div>
+
+              {/* 오른쪽 — 속성(상태·우선순위·기한·담당·관련) + 할 수 있는 명령만 */}
+              <aside className="min-w-0 space-y-4 lg:sticky lg:top-4">
+                <div className="rounded-box border border-base-300 bg-base-100 px-5 py-3 shadow-sm">
+                  <dl className="divide-y divide-base-300/70" data-testid="case-facts">
+                    <Prop name={m.cases.state}>
+                      <StatusBadge tone={stateTone(c)} testId="case-state">
+                        {label(m.cases.stateName, c.state)}
+                      </StatusBadge>
+                    </Prop>
+                    <Prop name={m.cases.priority}>
+                      <PriorityBadge p={c.priority} />
+                    </Prop>
+                    <Prop name={m.cases.kind}>{label(m.cases.kindName, c.kind)}</Prop>
+                    <Prop name={m.cases.sla}>
+                      <span className={c.overdue ? 'rounded-md bg-error/10 px-1.5 py-0.5' : ''}>
+                        <Sla c={c} />
+                      </span>
+                    </Prop>
+                    <Prop name={m.cases.assigneeGroup} testId="case-group">
+                      {label(m.cases.groupName, c.assigneeGroup)}
+                      {adminTeam && (
+                        <span className="badge badge-warning badge-sm ml-1" data-testid="case-admin-team">
+                          {m.cases.adminHandling}
+                        </span>
+                      )}
+                    </Prop>
+                    <Prop name={m.cases.assignee} testId="case-assignee">
+                      <Person id={c.assigneeId} />
+                    </Prop>
+                    <Prop name={m.cases.openedAt}>{when(c.openedAt)}</Prop>
+                    <Prop name={m.cases.refs}>
+                      <span className="text-sm [&_.flex]:flex-col [&_.flex]:gap-y-1">
+                        <Refs c={c} />
+                      </span>
+                    </Prop>
+                  </dl>
+                  {!closed && (
+                    <div className="pb-2">
+                      <AssignForm c={c} onDone={onDone} />
+                    </div>
+                  )}
+                </div>
+                {!admin && !team && !(agent && csCase) && <p className="px-1 text-sm text-base-content/60">{m.cases.viewOnly}</p>}
+                {canClose && <CloseForm c={c} onDone={onDone} openFollowUps={(c.obligations ?? []).filter(isOpenObligation).length} />}
+                {canToAdmin && <TransferForm c={c} toGroup="ORDER_OPS" onDone={onDone} />}
+                {canToSupport && <TransferForm c={c} toGroup="DELIVERY_OPS" onDone={onDone} />}
+                {canReopen && <ReopenForm c={c} onDone={onDone} />}
+              </aside>
+            </div>
           );
         }}
       </QueryState>
-      <Link className="link text-sm" to="/cases">
-        {m.cases.back}
-      </Link>
     </section>
   );
 }
+
+/** 이력 점 색 — 동작 이름이 있는 것만 */
+const HISTORY_DOT: Readonly<Record<string, string>> = {
+  OPENED: 'bg-info',
+  ASSIGNED: 'bg-primary',
+  CLOSED: 'bg-success',
+  REOPENED: 'bg-warning',
+  TRANSFERRED: 'bg-accent',
+  RECURRED: 'bg-error',
+  HANDED_OVER: 'bg-primary',
+};
 
 /**
  * 귀책(ADR-0065, case 0.11.0). 고객 잘못(CUSTOMER)은 2026-11-16 백엔드 #49~#53 배포로 쓸 수 있다(요청서 다시 씀):
@@ -816,10 +993,11 @@ export function NewMisdeliveryPage() {
   const ok = deliveryId.trim() !== '' && summary.trim() !== '' && fault !== '' && addressOk;
   const setAddr = (k: keyof Address, val: string) => setAddress((a) => ({ ...a, [k]: val }));
   return (
-    <section className="max-w-2xl space-y-4">
-      <PageHeader title={m.cases.newTitle} description={m.cases.newIntro} />
+    <section className="max-w-5xl space-y-4">
+      <PageHeader title={m.cases.newTitle} description={m.cases.newIntro} back={{ to: '/cases', label: m.cases.back }} />
+      {/* 단계 상자(2026-11-18): ① 배송·요약 ② 누구 잘못 ③ 고객이 고른 처리(+실제 주소) ④ 근거 — 오른쪽은 고른 처리 안내 */}
       <form
-        className="space-y-3 rounded-box border border-base-300 bg-base-100 shadow-sm p-4 text-sm"
+        className="grid items-start gap-4 lg:grid-cols-3"
         onSubmit={(e) => {
           e.preventDefault();
           if (!ok) return;
@@ -834,86 +1012,126 @@ export function NewMisdeliveryPage() {
           });
         }}
       >
-        <label className="flex flex-col gap-1">
-          {m.cases.deliveryId}
-          <input className="input input-sm w-64" value={deliveryId} onChange={(e) => setDeliveryId(e.target.value)} />
-        </label>
-        <label className="flex flex-col gap-1">
-          {m.cases.summary}
-          <textarea className="textarea textarea-sm w-full" maxLength={1000} value={summary} onChange={(e) => setSummary(e.target.value)} />
-        </label>
-        <fieldset className="space-y-1" data-testid="misdelivery-fault">
-          <legend className="mb-1">{m.cases.faultQuestion}</legend>
-          {FAULTS.map((f) => (
-            <label key={f} className="flex items-center gap-2">
-              <input type="radio" className="radio radio-sm" name="misdelivery-fault" value={f} checked={fault === f} onChange={() => pickFault(f)} />
-              {m.cases.faultName[f]}
+        <div className="min-w-0 space-y-4 text-sm lg:col-span-2">
+          <Step n={1} title={m.cases.newStepWhat} done={deliveryId.trim() !== '' && summary.trim() !== ''}>
+            <label className="flex flex-col gap-1">
+              {m.cases.deliveryId}
+              <input className="input input-sm w-64 font-mono" value={deliveryId} onChange={(e) => setDeliveryId(e.target.value)} />
             </label>
-          ))}
-          {fault === 'RIDER' && (
-            <p role="note" className="text-xs text-warning" data-testid="rider-fee-note">
-              {m.cases.riderFeeNote}
-            </p>
-          )}
-        </fieldset>
-        <label className="flex flex-col gap-1">
-          {m.cases.choiceQuestion}
-          <select className="select select-sm w-56" value={choice} disabled={fault === ''} onChange={(e) => setChoice((CHOICES_OF[fault || 'RIDER'].find((c) => c === e.target.value) ?? 'RESHIP'))}>
-            {CHOICES_OF[fault || 'RIDER'].map((c) => (
-              <option key={c} value={c}>
-                {fault === 'CUSTOMER' && c === 'REFUND' ? m.cases.customerRefundName : m.cases.resolutionChoiceName[c]}
-              </option>
-            ))}
-          </select>
-        </label>
-        {fault !== '' && (
-          <p className={`text-xs ${fault === 'CUSTOMER' ? 'text-warning' : 'opacity-70'}`} data-testid="choice-note">
-            {choiceNote(fault, choice)}
-          </p>
-        )}
-        {needsAddress && (
-          <fieldset className="space-y-2 rounded-box border border-base-300 p-3" data-testid="redelivery-address">
-            <legend className="px-1 font-semibold">{m.cases.addressTitle}</legend>
-            {recorded ? (
-              <p className="text-xs text-success" data-testid="address-recorded">
-                {m.cases.addressRecorded(destination?.id ?? '')}
-              </p>
-            ) : (
-              <>
-                <p className="text-xs text-base-content/60">{m.cases.addressIntro}</p>
-                <label className="flex flex-col gap-1">
-                  {m.cases.roadAddress}
-                  <input className="input input-sm w-full" maxLength={200} autoComplete="off" value={address.road} onChange={(e) => setAddr('road', e.target.value)} />
-                </label>
-                <div className="flex flex-wrap gap-2">
-                  <label className="flex flex-col gap-1">
-                    {m.cases.detailAddress}
-                    <input className="input input-sm w-64" maxLength={100} autoComplete="off" value={address.detail} onChange={(e) => setAddr('detail', e.target.value)} />
+            <label className="flex flex-col gap-1">
+              {m.cases.summary}
+              <textarea className="textarea textarea-sm w-full" rows={3} maxLength={1000} value={summary} onChange={(e) => setSummary(e.target.value)} />
+            </label>
+          </Step>
+          <Step n={2} title={m.cases.faultQuestion} done={fault !== ''}>
+            <fieldset className="space-y-2" data-testid="misdelivery-fault">
+              <legend className="sr-only">{m.cases.faultQuestion}</legend>
+              <div className="grid gap-2 sm:grid-cols-3">
+                {FAULTS.map((f) => (
+                  <label
+                    key={f}
+                    className={`flex cursor-pointer items-center gap-2 rounded-box border px-3 py-3 transition-colors ${fault === f ? 'border-primary bg-primary/5 font-medium' : 'border-base-300 hover:border-base-content/30'}`}
+                  >
+                    <input type="radio" className="radio radio-sm radio-primary" name="misdelivery-fault" value={f} checked={fault === f} onChange={() => pickFault(f)} />
+                    {m.cases.faultName[f]}
                   </label>
-                  <label className="flex flex-col gap-1">
-                    {m.cases.postalCode}
-                    <input className="input input-sm w-28" maxLength={10} autoComplete="off" value={address.postal} onChange={(e) => setAddr('postal', e.target.value)} />
-                  </label>
-                </div>
-                <label className="flex flex-col gap-1">
-                  {m.cases.addressReason}
-                  <input className="input input-sm w-full" maxLength={200} value={address.reason} onChange={(e) => setAddr('reason', e.target.value)} />
-                </label>
-                <p className="text-xs text-warning">{m.cases.addressReasonHint}</p>
-              </>
+                ))}
+              </div>
+              {fault === 'RIDER' && (
+                <p role="note" className="text-xs text-warning" data-testid="rider-fee-note">
+                  {m.cases.riderFeeNote}
+                </p>
+              )}
+            </fieldset>
+          </Step>
+          <Step n={3} title={m.cases.choiceQuestion} done={fault !== '' && addressOk}>
+            <label className="flex flex-col gap-1">
+              {m.cases.choiceQuestion}
+              <select className="select select-sm w-56" value={choice} disabled={fault === ''} onChange={(e) => setChoice((CHOICES_OF[fault || 'RIDER'].find((c) => c === e.target.value) ?? 'RESHIP'))}>
+                {CHOICES_OF[fault || 'RIDER'].map((c) => (
+                  <option key={c} value={c}>
+                    {fault === 'CUSTOMER' && c === 'REFUND' ? m.cases.customerRefundName : m.cases.resolutionChoiceName[c]}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {needsAddress && (
+              <fieldset className="space-y-2 rounded-box border border-base-300 bg-base-200/30 p-3" data-testid="redelivery-address">
+                <legend className="px-1 font-semibold">{m.cases.addressTitle}</legend>
+                {recorded ? (
+                  <p className="text-xs text-success" data-testid="address-recorded">
+                    {m.cases.addressRecorded(destination?.id ?? '')}
+                  </p>
+                ) : (
+                  <>
+                    <p className="text-xs text-base-content/60">{m.cases.addressIntro}</p>
+                    <label className="flex flex-col gap-1">
+                      {m.cases.roadAddress}
+                      <input className="input input-sm w-full" maxLength={200} autoComplete="off" value={address.road} onChange={(e) => setAddr('road', e.target.value)} />
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      <label className="flex flex-col gap-1">
+                        {m.cases.detailAddress}
+                        <input className="input input-sm w-64" maxLength={100} autoComplete="off" value={address.detail} onChange={(e) => setAddr('detail', e.target.value)} />
+                      </label>
+                      <label className="flex flex-col gap-1">
+                        {m.cases.postalCode}
+                        <input className="input input-sm w-28" maxLength={10} autoComplete="off" value={address.postal} onChange={(e) => setAddr('postal', e.target.value)} />
+                      </label>
+                    </div>
+                    <label className="flex flex-col gap-1">
+                      {m.cases.addressReason}
+                      <input className="input input-sm w-full" maxLength={200} value={address.reason} onChange={(e) => setAddr('reason', e.target.value)} />
+                    </label>
+                    <p className="text-xs text-warning">{m.cases.addressReasonHint}</p>
+                  </>
+                )}
+              </fieldset>
             )}
-          </fieldset>
-        )}
-        <label className="flex flex-col gap-1">
-          {m.cases.evidence}
-          <input className="input input-sm w-64" value={evidence} onChange={(e) => setEvidence(e.target.value)} />
-        </label>
-        <p className="text-xs text-base-content/60">{m.cases.piiHint}</p>
-        <button type="submit" className="btn btn-primary btn-sm" disabled={!ok || open.busy}>
-          {m.cases.open}
-        </button>
-        <CommandFeedback command={open} />
+          </Step>
+          <Step n={4} title={m.cases.newStepEvidence} done={evidence.trim() !== ''}>
+            <label className="flex flex-col gap-1">
+              {m.cases.evidence}
+              <input className="input input-sm w-64" value={evidence} onChange={(e) => setEvidence(e.target.value)} />
+            </label>
+          </Step>
+        </div>
+
+        {/* 오른쪽 — 고른 처리의 안내 + 접수 버튼 */}
+        <aside className="min-w-0 space-y-3 rounded-box border border-base-300 bg-base-100 p-4 text-sm shadow-sm lg:sticky lg:top-4">
+          <h2 className="font-semibold">{m.cases.newSideTitle}</h2>
+          {fault !== '' ? (
+            <p className={`rounded-box px-3 py-2 text-xs ${fault === 'CUSTOMER' ? 'bg-warning/10 text-warning' : 'bg-base-200/60 text-base-content/75'}`} data-testid="choice-note">
+              {choiceNote(fault, choice)}
+            </p>
+          ) : (
+            <p className="text-xs text-base-content/55">{m.cases.newSidePick}</p>
+          )}
+          <p className="text-xs text-base-content/60">{m.cases.piiHint}</p>
+          <button type="submit" className="btn btn-primary btn-sm w-full" disabled={!ok || open.busy}>
+            {m.cases.open}
+          </button>
+          <CommandFeedback command={open} />
+        </aside>
       </form>
     </section>
+  );
+}
+
+/** 접수 단계 상자 — 번호 동그라미(채우면 체크) + 제목 + 입력 */
+function Step({ n, title, done, children }: { readonly n: number; readonly title: string; readonly done: boolean; readonly children: ReactNode }) {
+  return (
+    <div className="rounded-box border border-base-300 bg-base-100 shadow-sm">
+      <div className="flex items-center gap-3 border-b border-base-300 px-5 py-3">
+        <span
+          className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${done ? 'bg-success text-success-content' : 'bg-base-200 text-base-content/60'}`}
+          aria-hidden="true"
+        >
+          {done ? <Icon d={ICON.check} className="h-3.5 w-3.5" /> : n}
+        </span>
+        <h2 className="font-semibold">{title}</h2>
+      </div>
+      <div className="space-y-3 px-5 py-4">{children}</div>
+    </div>
   );
 }

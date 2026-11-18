@@ -77,6 +77,7 @@ export const messages = {
     search: '찾기',
     resolved: (kind: string, orderId: string | null) => (orderId ? `${kind} 번호로 찾음 → 주문 ${orderId}` : `${kind} 번호로 찾음`),
     notFound: '찾는 대상이 없어요.',
+    startHint: '번호 하나를 넣으면 주문·배송·배차·클레임·접수 건을 원천별로 한 번에 보여 줘요.',
     customerOrders: '이 고객의 주문(최근 50건)',
     openOrder: '이 주문으로 다시 조회',
     section: { ORDER: '주문', FIELD: '현장(MFC)', DELIVERY: '배송(수행)', DISPATCH: '배차', CLAIM: '클레임', INQUIRY: '고객 문의', CASE: '접수 건' } as Readonly<Record<string, string>>,
@@ -214,6 +215,7 @@ export const messages = {
     dispatchRequestedAt: '배차 요청',
     noDelivery: '배송 없음(배차 전)',
     col: { order: '주문번호', stage: '단계', work: '피킹·패킹', qty: '포장', times: '시각', delivery: '배송' },
+    kpi: { shown: '지금 보이는 출고', shownHint: '이 화면에 읽은 줄 기준', ready: '출고대기(인계 전)', blocked: '막힌 출고', handed: '인계 완료' },
   },
   live: {
     title: '실시간 배송 현황',
@@ -253,6 +255,14 @@ export const messages = {
     casesTruncated: '처리 중인 접수 건이 많아(1,000건까지만 읽음) 일부 배송은 접수 건을 확인하지 못했어요 — "확인 불가"는 0건이 아니에요.',
     overdue: '기한 넘김',
     noRider: '미배정',
+    kpi: {
+      shown: '지금 보이는 배송',
+      shownHint: '이 화면에 읽은 줄 기준',
+      late: '약속 시간 지남',
+      noRider: '라이더 미배정',
+      withCases: '처리 중인 접수 건 있음',
+      casesUnknown: (n: number) => `${n}건은 접수 건 확인 못 함`,
+    },
   },
 
   /** 개인정보 열람 기록(audit 0.3.0, OPERATOR_ADMIN) */
@@ -284,6 +294,11 @@ export const messages = {
     subjectTypeName: { CUSTOMER: '고객', RIDER: '라이더', DRIVER: '간선 기사', OPERATOR: '운영자' } as const,
     accessTypeName: { VIEW: '보기', DOWNLOAD: '내려받기', EXPORT: '내보내기', SEARCH: '검색' } as const,
     fieldName: { NAME: '이름', PHONE: '연락처', ADDRESS: '주소', ENTRANCE: '출입 메모·배송 요청사항' } as const,
+    /** 화면 짜임(2026-11-18) */
+    shown: (n: number) => `이 쪽 ${n}건`,
+    accessSection: '열어 본 것',
+    actorSection: '열람한 직원',
+    recordSection: '기록',
   },
 
   /** 개인정보 기본 가림 */
@@ -427,6 +442,13 @@ export const messages = {
     addressReason: '기록 사유(필수, 2~200자)',
     addressReasonHint: '사유에는 주소·전화번호를 적지 마세요(예: 고객 통화 — 동 호수 잘못 입력).',
     addressRecorded: (id: string) => `실제 주소를 기록했어요(번호 ${id}). 접수만 다시 보내면 돼요.`,
+    /** 화면 짜임(2026-11-18) */
+    shown: (n: number) => `이 쪽 ${n}건`,
+    noHistory: '이력이 없어요.',
+    newStepWhat: '어떤 배송인가요?',
+    newStepEvidence: '확인 근거',
+    newSideTitle: '처리 안내',
+    newSidePick: '누구 잘못인지 고르면 진행될 처리를 보여 줘요.',
   },
   /** 라이더 도움요청 대화(execution 0.6.0) — 라이더 ↔ 지원센터 */
   helpChat: {
@@ -565,6 +587,9 @@ export const messages = {
     csEmpty: '고객센터가 처리할 후속 처리가 없어요.',
     csEmptyDone: '처리가 끝난 후속 처리가 없어요.',
     ofCase: (id: string) => `접수 건 ${id}`,
+    // 화면 짜임(2026-11-18)
+    results: '결과 이력',
+    addHint: '종류만 골라도 추가돼요. 나머지는 필요할 때만 적어요.',
   },
   /** 처리 대기(BO-12, 백엔드 요청 backoffice/2026-11-16-request-case-inbox-and-pending-work §2 — bff 0.2.0) — OPERATOR_ADMIN */
   pending: {
@@ -616,6 +641,10 @@ export const messages = {
     checkUnavailable: '원천에 연결하지 못해 아직 몰라요. 잠시 뒤 다시 확인해 주세요.',
     checkForbidden: '결과 확인은 관리자만 할 수 있어요.',
     checkFailed: '결과를 확인하지 못했어요. 잠시 뒤 다시 확인해 주세요.',
+    /** 종류별 묶음(2026-11-18) */
+    count: (n: number) => `${n}건`,
+    saga: '주문 처리',
+    mfc: 'MFC',
   },
   orders: {
     title: '주문 조회',
@@ -693,6 +722,8 @@ export const messages = {
     lines: '주문 상품',
     product: '상품',
     qty: '수량(원/취소/인계/전달/반품)',
+    qtyPart: { original: '주문', cancelled: '취소', handedOver: '인계', delivered: '전달', returned: '반품' },
+    lineCount: (n: number) => `${n}개 품목`,
     lineAmount: '금액',
     issues: '이행 확인 필요 기록',
     noIssues: '없음',
@@ -752,6 +783,9 @@ export const messages = {
     detailTitle: '컴플레인',
     openDetail: '기록한 컴플레인 보기',
     back: '컴플레인 목록',
+    guideTitle: '기록 전에',
+    linked: '연결된 배송·주문',
+    recordInfo: '기록 정보',
   },
 
   claims: {
@@ -765,6 +799,7 @@ export const messages = {
     reset: '지우기',
     sectionBasic: '클레임 정보',
     sectionReturn: '반품 진행',
+    sectionLogistics: '회수·재배송·비용',
     openedAt: '접수 시각',
     empty: '클레임이 없어요.',
     more: '더 보기',
@@ -927,6 +962,9 @@ export const messages = {
     stateFilter: '상태',
     any: '전체',
     failureQueue: '전달 실패 확정 대기',
+    quickViews: '빠른 보기',
+    startHint: '주문 ID·라이더 ID·상태로 찾거나, 위에서 배송 번호로 바로 열어요.',
+    detailSummary: '배송 수행과 배차는 원천이 달라 따로 읽어요 — 상태를 하나로 합치지 않아요.',
     quickOpen: '바로 열기',
     ids: '번호',
     sort: '정렬',
@@ -1054,6 +1092,7 @@ export const messages = {
     },
     deliveries: '이 라이더의 배송',
     complaints: '이 라이더의 컴플레인',
+    statusNow: '지금 상태',
   },
 
 
@@ -1111,6 +1150,10 @@ export const messages = {
     filterAll: '전체',
     detailTitle: '승인 상세',
     lines: '승인 행',
+    lineCount: (n: number) => `${n}개 행`,
+    rawAttributes: '원본 값 보기',
+    decideTitle: '심사',
+    requestInfo: '요청 정보',
     lineHead: { key: '행', qty: '수량', amount: '금액', detail: '내용' } as const,
     grant: {
       role: '역할',
@@ -1331,6 +1374,33 @@ export const messages = {
     saleStateName: { ON_SALE: '판매중', TEMPORARILY_SOLD_OUT: '일시품절', SALE_STOPPED: '판매중지' } as const,
     storageName: { AMBIENT: '상온', CHILLED: '냉장', FROZEN: '냉동' } as const,
     unitName: { E: '낱개(E)', B: '묶음(B)' } as const,
+    // 화면 다듬기(2026-11-18 사용자 "밋밋하다 — Shopify·Medusa 관리자처럼"): 카드 제목·안내·상태 이름
+    listIntro: '판매 상태·카테고리로 상품을 찾고, SKU·바코드로 바로 열어요.',
+    listShown: (n: number, more: boolean) => `${n}개 표시${more ? ' · 다음 쪽 있음' : ''}`,
+    listEmpty: '조건에 맞는 상품이 없어요',
+    skuCount: (n: number) => `SKU ${n}개`,
+    summaryTitle: '상품 요약',
+    actionsTitle: '작업',
+    contentHint: '고객용 상품명·설명·이미지는 콘텐츠로 따로 등록해요(DISPLAY 승인).',
+    noSkus: '이 상품에는 SKU 가 없어요',
+    draftStateName: { DRAFT: '작성 중', SUBMITTED: '승인 대기(잠김)', APPLIED: '반영됨', REJECTED: '반려' } as const,
+    batchStateName: { VALIDATED: '검증 끝남', SUBMITTED: '승인 대기', APPLIED: '반영됨', PARTIALLY_APPLIED: '일부 반영', REJECTED: '반려' } as const,
+    stepsLabel: '진행 단계',
+    draftSteps: ['초안 저장', '검증', '제출 준비', '승인·반영'] as const,
+    importSteps: ['파일 올리기', '검증·고치기', '제출 준비', '승인 요청'] as const,
+    importIntro: 'seed-v1.zip 을 올리면 서버가 상품마다 검증해요. 오류 행은 고친 뒤 유효 행만 제출해요.',
+    statTotal: '전체 상품',
+    statValid: '유효',
+    statInvalid: '오류',
+    rowsTitle: '상품 행',
+    batchActions: '배치 작업',
+    formBasic: '기본 정보',
+    formBasicHint: '관리용 명칭은 내부에서만 보여요. 고객용 이름은 콘텐츠에서 정해요.',
+    formCategory: '카테고리',
+    formCategoryHint: '발효된 트리에서 대표 카테고리 1개와 노출 카테고리를 골라요.',
+    formSkuHint: '판매 단위마다 SKU 하나예요. 승인되면 SKU 번호가 발급돼요.',
+    nextTitle: '다음 단계',
+    openDraftHint: '초안 목록이 아직 없어 초안 ID 로 열어요.',
   },
 
   contents: {
@@ -1399,6 +1469,20 @@ export const messages = {
     rowSummary: (ready: number, published: number, locked: number, problems: number) =>
       `제출 가능 ${ready} · 이미 게시됨 ${published} · 승인 대기 ${locked} · 고칠 것 있음 ${problems}`,
     excludedTitle: (n: number) => `제출에서 빠진 초안 ${n}개`,
+    // 화면 다듬기(2026-11-18)
+    formProduct: '연결 상품',
+    formProductHint: '승인된 상품을 고르면 게시된 콘텐츠로 칸을 채워요.',
+    formCustomer: '고객에게 보이는 정보',
+    formCustomerHint: '고객 앱 상품 카드·상세에 그대로 나가요.',
+    formGuide: '고시 정보·안내',
+    formGuideHint: '고시 정보는 줄마다 "항목: 값" 하나예요.',
+    draftStateName: { DRAFT: '작성 중', SUBMITTED: '승인 대기', PUBLISHED: '게시됨', REJECTED: '반려' } as const,
+    batchStateName: { UPLOADED: '업로드됨', SUBMITTED: '승인 대기', PUBLISHED: '게시됨', PARTIALLY_PUBLISHED: '일부 게시', REJECTED: '반려' } as const,
+    draftSteps: ['초안 저장', '이미지', '제출 준비', '승인·게시'] as const,
+    importSteps: ['파일 올리기', '결과 확인', '제출 준비', '승인 요청'] as const,
+    importIntro: 'seed-v1.zip 을 올리면 서버가 상품마다 콘텐츠 초안을 만들거나 갱신해요.',
+    noImages: '이미지가 없어요',
+    statProducts: '전체 상품',
   },
 
   prices: {
@@ -1469,6 +1553,18 @@ export const messages = {
     lineResultName: { APPLIED: '반영', REJECTED: '거절' } as const,
     approvalOf: (id: string) => `승인 ${id}`,
     lockedHint: '제출된 배치라 고칠 수 없어요. 승인 결과는 "다시 확인"으로 봐요.',
+    // 화면 다듬기(2026-11-18)
+    intro: 'SKU 의 현재 기본가·예약·이력을 보고, 변경은 PRICE 승인을 거쳐 반영해요.',
+    pickSku: 'SKU 를 넣고 가격 조회를 누르면 현재 기본가와 이력을 보여 줘요',
+    noHistory: '가격 이력이 없어요',
+    changeSteps: ['행 입력', '승인 요청', '반영 확인'] as const,
+    stepsLabel: '진행 단계',
+    linesTitle: '변경할 행',
+    importSteps: ['파일 올리기', '행 고치기·빼기', '제출', '승인 요청'] as const,
+    statLines: '전체 행',
+    statSubmittable: '지금 제출 대상',
+    linesCard: '가격 행',
+    submitTitle: '제출',
   },
 
   handlings: {
@@ -1488,6 +1584,14 @@ export const messages = {
     changed: (n: number) => `${n}건 바뀌었어요.`,
     applied: '반영됐어요.',
     saleHint: '고객에게 팔리려면 전사 판매 상태 ON_SALE + MFC 취급 ON + 현물 재고가 모두 필요해요.',
+    // 화면 다듬기(2026-11-18)
+    intro: '센터마다 SKU 를 취급(ON)할지 말지(OFF) 정해요.',
+    pickCenter: '센터 종류를 고르고 센터 ID 를 넣어 조회하세요',
+    selected: (n: number) => `${n}개 선택`,
+    shown: (n: number, more: boolean) => `${n}개 표시${more ? ' · 다음 쪽 있음' : ''}`,
+    skuStateName: { ACTIVE: '활성', INACTIVE: '비활성' } as const,
+    updatedAt: '바뀐 시각',
+    reasonHint: '켜기·끄기·일괄 변경에 함께 보내요(선택)',
   },
 
   inquiries: {
@@ -1576,6 +1680,14 @@ export const messages = {
     satisfaction: '고객 만족도(관리자만)',
     satisfactionLine: (score: number, at: string) => `${score}/5점 · ${at}`,
     photoUnavailable: '사진을 불러오지 못했어요(볼 수 없는 사진이거나 사진 저장소가 아직 준비되지 않았어요).',
+    // 화면 짜임(2026-11-18 사용자 "밋밋하다" — 헬프데스크처럼 목록 카드·대화·오른쪽 정보 카드)
+    shown: (n: number, more: boolean) => (more ? `${n}건 보는 중 · 더 있어요` : `${n}건`),
+    ago: { now: '방금', min: (n: number) => `${n}분 전`, hour: (n: number) => `${n}시간 전`, day: (n: number) => `${n}일 전` },
+    emptyHint: '상태를 바꾸면 다른 문의를 볼 수 있어요.',
+    sectionCustomer: '고객·주문',
+    sectionRider: '라이더',
+    sectionLinks: '이어서 할 일',
+    composerHint: '보낸 답변은 고칠 수 없어요.',
   },
 
   /** 접수 건 알림 배지(메뉴) — 1분마다 개수, 소리·브라우저 알림 없음 */
@@ -1651,6 +1763,8 @@ export const messages = {
     awaiting: '답변 대기',
     oldest: (t: string) => `가장 오래된 것 ${t}`,
     noRates: '숫자는 건수예요 — 응답률·달성률 같은 비율은 정의가 승인되면 따로 보여 줘요.',
+    cardOpen: '처리 중인 접수 건',
+    cardOverdue: '기한 지난 접수 건',
   },
   /** 처리 기한 지킴(bff 0.13.0 CASE_SLA, 관리자만) */
   caseSla: {
@@ -1724,6 +1838,9 @@ export const messages = {
     scoreLabel: (k: string) => `${k}점`,
     count: (n: number) => `${n}건`,
     notForAgents: '상담원별 순위·이름은 보여 주지 않아요(사용자 결정 2026-11-17).',
+    // 화면 짜임(2026-11-18) — 숫자 카드 + 점수별 막대(서버 값만)
+    outOf: '5점 만점',
+    byScoreHint: '응답한 건 기준',
   },
   /** 접수 건 행위 요청 기록(case 0.17.0) — 기록만, 대신 실행하지 않음 */
   actionRequests: {
@@ -1814,6 +1931,15 @@ export const messages = {
     consentLine: (type: string, given: boolean) => `동의 기록: ${type} · ${given ? '동의' : '거절'}`,
     more: '더 보기',
     moreFailed: '연락 기록을 더 불러오지 못했어요.',
+    // 화면 짜임(2026-11-18) — 단계 카드 + 오른쪽 확인 카드
+    step: {
+      who: { title: '누가·어떻게 연락했나요', hint: '연락 경로와 고객 계정, 본인·대리를 남겨요.' },
+      identity: { title: '본인 확인', hint: '어떤 방법으로 본인인지 확인했는지만 남겨요.' },
+      content: { title: '연락 내용', hint: '분류와 고객이 말한 내용을 요약해요.' },
+      extra: { title: '덧붙이기(선택)', hint: '동의 기록이나 기존 접수 건 연결이 필요할 때만.' },
+    },
+    checkTitle: '남기기 전에 확인',
+    ready: '필요한 칸을 모두 채웠어요.',
   },
 
   assistant: {
@@ -1887,6 +2013,7 @@ export const messages = {
     },
     detailTitle: '업무 도우미 답변',
     back: '질문 화면으로',
+    emptyThread: '아래에 질문을 쓰면 여기에 답변과 근거 문서가 보여요.',
   },
 
   /** Problem code → 문구. 분기는 code 로만 한다. 없는 code 는 일반 문구 + code 표시. */

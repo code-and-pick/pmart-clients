@@ -1,5 +1,6 @@
 // 센터 SKU 취급 ON/OFF(MFC·CDC). 기본 OFF(레코드 없음 = OFF, version 0). 자기 센터만(세션 centers — 서버는 토큰 centers 로 판정) — 판정은 서버.
 // 센터 목록 API(center-master)가 아직 없어 센터 ID 를 입력한다. 필터·센터·커서는 URL 쿼리.
+// 화면(2026-11-18 사용자 "밋밋하다"): 안내 띠 → 센터 고르기 줄(종류 칩·ID·사유) → 한 카드(센터 이름·ON/OFF 밑줄 탭·고르면 나오는 일괄 변경 줄·표·아래 건수). 센터 전에는 빈 상태 안내.
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useSearchParams } from 'react-router';
@@ -16,7 +17,8 @@ import { messages as m } from '../../shared/messages';
 import { QueryState } from '@pmart/web-ui';
 import { toUiState } from '@pmart/web-ui';
 import { useCommand } from '@pmart/web-ui';
-import { DataTable, PageHeader, SearchRow } from '../../shared/admin';
+import { ChipGroup, PageHeader, StatusBadge } from '../../shared/admin';
+import { ago, EmptyState, LineIcon, tableClass, UnderlineTabs } from '../products/parts';
 
 type CenterType = 'MFC' | 'CDC';
 
@@ -90,20 +92,30 @@ function HandlingRow({
   });
 
   return (
-    <tr>
+    <tr className={checked ? 'bg-primary/5' : ''}>
       <td>
         <input type="checkbox" aria-label={`select ${row.sku}`} className="checkbox checkbox-sm" checked={checked} onChange={(e) => onCheck(e.target.checked)} />
       </td>
-      <td>{row.sku}</td>
-      <td>{row.productId ?? m.none}</td>
-      <td>{row.skuState ?? m.none}</td>
-      <td data-testid={`handling-${row.sku}`}>
-        <span className={`badge ${row.handlingEnabled ? 'badge-success' : 'badge-ghost'}`}>{row.handlingEnabled ? m.handlings.on : m.handlings.off}</span>
+      <td>
+        <p className="font-mono font-medium">{row.sku}</p>
+        <p className="font-mono text-xs text-base-content/50">{row.productId ?? m.none}</p>
       </td>
-      <td>{`v${row.version}`}</td>
-      <td>{row.updatedAt ? formatSeoul(row.updatedAt) : m.none}</td>
-      <td className="space-y-1">
-        <button type="button" className="btn btn-xs" disabled={toggle.busy} onClick={() => void toggle.run(!row.handlingEnabled)}>
+      <td>{row.skuState ? <StatusBadge tone={row.skuState === 'ACTIVE' ? 'success' : 'ghost'}>{m.handlings.skuStateName[row.skuState] ?? row.skuState}</StatusBadge> : m.none}</td>
+      <td data-testid={`handling-${row.sku}`}>
+        <span className={`badge badge-sm font-semibold ${row.handlingEnabled ? 'badge-success' : 'badge-ghost'}`}>{row.handlingEnabled ? m.handlings.on : m.handlings.off}</span>
+      </td>
+      <td className="whitespace-nowrap">
+        {row.updatedAt ? (
+          <>
+            <p className="text-sm">{ago(row.updatedAt)}</p>
+            <p className="text-xs text-base-content/45">{`${formatSeoul(row.updatedAt)} · v${row.version}`}</p>
+          </>
+        ) : (
+          <p className="font-mono text-xs text-base-content/50">{`v${row.version}`}</p>
+        )}
+      </td>
+      <td className="space-y-1 text-right">
+        <button type="button" className={`btn btn-xs ${row.handlingEnabled ? 'btn-ghost border-base-300' : 'btn-success btn-soft'}`} disabled={toggle.busy} onClick={() => void toggle.run(!row.handlingEnabled)}>
           {row.handlingEnabled ? m.handlings.turnOff : m.handlings.turnOn}
         </button>
         <CommandFeedback command={toggle}>{(r) => (r.changed === false ? <p className="text-xs">{m.handlings.noChange}</p> : null)}</CommandFeedback>
@@ -151,113 +163,141 @@ export function SkuHandlingPage() {
   const rows = query.data?.items ?? [];
   return (
     <section className="space-y-4">
-      <PageHeader title={m.handlings.title} />
-      <p className="text-xs text-base-content/60">{`${m.handlings.centerIdHint} ${m.handlings.defaultOff} ${m.handlings.saleHint}`}</p>
-      {/* 관리자 형식(2026-11-18): 검색 조건 상자 — 줄마다 왼쪽 항목명 */}
-      <div className="divide-y divide-base-300 overflow-hidden rounded-box border border-base-300 bg-base-100 shadow-sm">
-        <SearchRow label={m.handlings.centerId}>
-          <select aria-label={m.handlings.centerType} className="select select-sm w-28" value={type} onChange={(e) => setParam('type', e.target.value)}>
-            <option value="MFC">MFC</option>
-            <option value="CDC">CDC</option>
-          </select>
-          <form
-            className="flex gap-2"
-            onSubmit={(e) => {
-              e.preventDefault();
-              setParam('center', centerInput.trim());
-            }}
-          >
-            <input aria-label={m.handlings.centerId} placeholder="MFC-BSN-01" className="input input-sm" value={centerInput} onChange={(e) => setCenterInput(e.target.value)} />
-            <button type="submit" className="btn btn-sm btn-primary">
-              {m.search}
-            </button>
-          </form>
-        </SearchRow>
-        <SearchRow label={m.handlings.filter}>
-          <select
-            aria-label={m.handlings.filter}
-            className="select select-sm w-32"
-            value={enabledParam ?? ''}
-            onChange={(e) => setParam('enabled', e.target.value)}
-          >
-            <option value="">{`${m.handlings.filter}: ${m.approvals.filterAll}`}</option>
-            <option value="true">{m.handlings.on}</option>
-            <option value="false">{m.handlings.off}</option>
-          </select>
-        </SearchRow>
-        <SearchRow label={m.reasonLabel}>
-          <input aria-label={m.reasonLabel} className="input input-sm w-80 max-w-full" maxLength={500} value={reason} onChange={(e) => setReason(e.target.value)} />
-        </SearchRow>
+      <PageHeader title={m.handlings.title} description={m.handlings.intro} />
+      {/* 안내(센터 목록 API 없음·기본 OFF·판매 조건) */}
+      <div role="note" className="flex gap-3 rounded-box border border-info/30 bg-info/5 px-4 py-3 text-xs text-base-content/75">
+        <LineIcon name="store" className="h-5 w-5 shrink-0 text-info" />
+        <p>{`${m.handlings.centerIdHint} ${m.handlings.defaultOff} ${m.handlings.saleHint}`}</p>
       </div>
 
-      {centerId && (
-        <QueryState state={toUiState(query, (d) => (d.items?.length ?? 0) === 0)} onRetry={() => void query.refetch()}>
-          {(d) => (
-            <>
-              <DataTable>
-                <thead>
-                  <tr>
-                    <th />
-                    <th>SKU</th>
-                    <th>{m.products.productId}</th>
-                    <th>{m.categories.state}</th>
-                    <th>{m.handlings.filter}</th>
-                    <th>{m.products.version}</th>
-                    <th />
-                    <th />
-                  </tr>
-                </thead>
-                <tbody>
-                  {(d.items ?? []).map((row) => (
-                    <HandlingRow
-                      key={`${row.sku}-${row.version}`}
-                      type={type}
-                      centerId={centerId}
-                      row={row}
-                      reason={reason.trim()}
-                      checked={selected.has(row.sku)}
-                      onCheck={(v) => {
-                        const next = new Set(selected);
-                        if (v) next.add(row.sku);
-                        else next.delete(row.sku);
-                        setSelected(next);
-                      }}
-                    />
-                  ))}
-                </tbody>
-              </DataTable>
-              {d.page?.nextCursor && (
-                <button type="button" className="btn btn-sm" onClick={() => setParam('cursor', d.page?.nextCursor ?? '')}>
-                  {m.more}
-                </button>
-              )}
-            </>
-          )}
-        </QueryState>
-      )}
-
-      {selected.size > 0 && (
-        <div className="space-y-2 rounded-box border border-base-300 bg-base-100 shadow-sm p-4">
-          <p className="text-sm">{`${m.handlings.batch} (${selected.size}) · ${m.handlings.batchAllOrNothing}`}</p>
-          <div className="flex gap-2">
-            <select aria-label={m.handlings.batch} className="select select-sm w-28" value={batchEnabled ? 'true' : 'false'} onChange={(e) => setBatchEnabled(e.target.value === 'true')}>
-              <option value="true">{m.handlings.turnOn}</option>
-              <option value="false">{m.handlings.turnOff}</option>
-            </select>
-            <button
-              type="button"
-              className="btn btn-primary btn-sm"
-              disabled={batch.busy}
-              onClick={() =>
-                void batch.run({
-                  ...(reason.trim() ? { reason: reason.trim() } : {}),
-                  items: rows.filter((r) => selected.has(r.sku)).map((r) => ({ sku: r.sku, enabled: batchEnabled, expectedVersion: r.version })),
-                })
-              }
-            >
-              {m.handlings.batch}
+      {/* 센터 고르기 줄 */}
+      <div className="flex flex-wrap items-end gap-x-6 gap-y-3 rounded-box border border-base-300 bg-base-100 px-4 py-3 shadow-sm">
+        <div className="space-y-1">
+          <div className="text-xs font-medium text-base-content/55">{m.handlings.centerType}</div>
+          <ChipGroup<CenterType>
+            label={m.handlings.centerType}
+            value={type}
+            onChange={(v) => setParam('type', v)}
+            options={[
+              { value: 'MFC', label: 'MFC' },
+              { value: 'CDC', label: 'CDC' },
+            ]}
+          />
+        </div>
+        <form
+          className="space-y-1"
+          onSubmit={(e) => {
+            e.preventDefault();
+            setParam('center', centerInput.trim());
+          }}
+        >
+          <div className="text-xs font-medium text-base-content/55">{m.handlings.centerId}</div>
+          <div className="join">
+            <input aria-label={m.handlings.centerId} placeholder="MFC-BSN-01" className="input input-sm join-item font-mono" value={centerInput} onChange={(e) => setCenterInput(e.target.value)} />
+            <button type="submit" className="btn btn-sm btn-primary join-item">
+              {m.search}
             </button>
           </div>
+        </form>
+        <label className="min-w-64 flex-1 space-y-1">
+          <span className="block text-xs font-medium text-base-content/55">{`${m.reasonLabel} · ${m.handlings.reasonHint}`}</span>
+          <input aria-label={m.reasonLabel} className="input input-sm w-full" maxLength={500} value={reason} onChange={(e) => setReason(e.target.value)} />
+        </label>
+      </div>
+
+      {!centerId ? (
+        <div className="rounded-box border border-dashed border-base-300 bg-base-100">
+          <EmptyState icon="store">{m.handlings.pickCenter}</EmptyState>
+        </div>
+      ) : (
+        <div className="overflow-hidden rounded-box border border-base-300 bg-base-100 shadow-sm">
+          {/* 센터 이름 줄 + 취급 탭(밑줄) */}
+          <div className="flex items-center gap-2 border-b border-base-300 px-5 py-3">
+            <span className="badge badge-neutral badge-sm">{type}</span>
+            <h2 className="font-mono font-bold">{centerId}</h2>
+          </div>
+          <UnderlineTabs<'' | 'true' | 'false'>
+            label={m.handlings.filter}
+            value={enabledParam === 'true' || enabledParam === 'false' ? enabledParam : ''}
+            onChange={(v) => setParam('enabled', v)}
+            options={[
+              { value: '', label: m.approvals.filterAll },
+              { value: 'true', label: m.handlings.on },
+              { value: 'false', label: m.handlings.off },
+            ]}
+          />
+          {/* 고른 SKU 일괄 변경 줄(고르면 나타난다 — Shopify 일괄 작업 줄처럼) */}
+          {selected.size > 0 && (
+            <div className="flex flex-wrap items-center gap-3 border-b border-base-300 bg-primary/5 px-5 py-2.5 text-sm">
+              <span className="font-semibold text-primary">{m.handlings.selected(selected.size)}</span>
+              <span className="text-xs text-base-content/60">{`${m.handlings.batch} (${selected.size}) · ${m.handlings.batchAllOrNothing}`}</span>
+              <div className="ml-auto flex gap-2">
+                <select aria-label={m.handlings.batch} className="select select-sm w-28" value={batchEnabled ? 'true' : 'false'} onChange={(e) => setBatchEnabled(e.target.value === 'true')}>
+                  <option value="true">{m.handlings.turnOn}</option>
+                  <option value="false">{m.handlings.turnOff}</option>
+                </select>
+                <button
+                  type="button"
+                  className="btn btn-primary btn-sm"
+                  disabled={batch.busy}
+                  onClick={() =>
+                    void batch.run({
+                      ...(reason.trim() ? { reason: reason.trim() } : {}),
+                      items: rows.filter((r) => selected.has(r.sku)).map((r) => ({ sku: r.sku, enabled: batchEnabled, expectedVersion: r.version })),
+                    })
+                  }
+                >
+                  {m.handlings.batch}
+                </button>
+              </div>
+            </div>
+          )}
+          <QueryState state={toUiState(query, (d) => (d.items?.length ?? 0) === 0)} onRetry={() => void query.refetch()}>
+            {(d) => (
+              <>
+                <div className="overflow-x-auto">
+                  <table className={tableClass}>
+                    <thead>
+                      <tr>
+                        <th className="w-10" />
+                        <th>SKU · {m.products.productId}</th>
+                        <th>{m.categories.state}</th>
+                        <th>{m.handlings.filter}</th>
+                        <th>{m.handlings.updatedAt}</th>
+                        <th />
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(d.items ?? []).map((row) => (
+                        <HandlingRow
+                          key={`${row.sku}-${row.version}`}
+                          type={type}
+                          centerId={centerId}
+                          row={row}
+                          reason={reason.trim()}
+                          checked={selected.has(row.sku)}
+                          onCheck={(v) => {
+                            const next = new Set(selected);
+                            if (v) next.add(row.sku);
+                            else next.delete(row.sku);
+                            setSelected(next);
+                          }}
+                        />
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="flex flex-wrap items-center justify-between gap-2 border-t border-base-300 px-4 py-3 text-sm">
+                  <span className="text-base-content/55">{m.handlings.shown(d.items?.length ?? 0, Boolean(d.page?.nextCursor))}</span>
+                  {d.page?.nextCursor && (
+                    <button type="button" className="btn btn-sm" onClick={() => setParam('cursor', d.page?.nextCursor ?? '')}>
+                      {m.more}
+                    </button>
+                  )}
+                </div>
+              </>
+            )}
+          </QueryState>
         </div>
       )}
       <CommandFeedback command={batch}>

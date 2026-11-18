@@ -39,8 +39,8 @@ function Thumb({ photo, index, onOpen }: { readonly photo: Photo; readonly index
       </span>
     );
   return (
-    <button type="button" className="rounded-box border border-base-300" aria-label={m.inquiries.photoOpen(index + 1)} onClick={onOpen}>
-      <img src={q.data} alt={m.inquiries.photoAlt(index + 1)} className="h-24 w-24 rounded-box object-cover" />
+    <button type="button" className="overflow-hidden rounded-lg border border-base-300 transition hover:ring-2 hover:ring-primary/40" aria-label={m.inquiries.photoOpen(index + 1)} onClick={onOpen}>
+      <img src={q.data} alt={m.inquiries.photoAlt(index + 1)} className="h-20 w-20 object-cover" />
     </button>
   );
 }
@@ -48,7 +48,7 @@ function Thumb({ photo, index, onOpen }: { readonly photo: Photo; readonly index
 function Large({ photo, index, onClose }: { readonly photo: Photo; readonly index: number; readonly onClose: () => void }) {
   const q = usePhoto(photo.photoId);
   return (
-    <figure className="space-y-2 rounded-box bg-base-200 p-3" data-testid="inquiry-photo-large">
+    <figure className="space-y-2 rounded-box border border-base-300 bg-base-100 p-3" data-testid="inquiry-photo-large">
       {q.data && <img src={q.data} alt={m.inquiries.photoAlt(index + 1)} className="max-h-[70vh] max-w-full object-contain" />}
       <figcaption className="flex items-center gap-2 text-xs opacity-70">
         {m.inquiries.photoAlt(index + 1)}
@@ -65,8 +65,8 @@ export function InquiryPhotos({ photos }: { readonly photos: readonly Photo[] | 
   if (!photos || photos.length === 0) return null;
   const big = open === null ? undefined : photos[open];
   return (
-    <section className="space-y-2" aria-label={m.inquiries.photos(photos.length)}>
-      <h2 className="font-bold">{m.inquiries.photos(photos.length)}</h2>
+    <section className="mt-3 space-y-2 border-t border-base-300/70 pt-3" aria-label={m.inquiries.photos(photos.length)}>
+      <h3 className="text-xs font-semibold text-base-content/60">{m.inquiries.photos(photos.length)}</h3>
       <ul className="flex flex-wrap gap-2">
         {photos.map((p, i) => (
           <li key={p.photoId} data-testid="inquiry-photo">

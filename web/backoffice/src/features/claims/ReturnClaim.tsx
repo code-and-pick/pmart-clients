@@ -25,6 +25,7 @@ import { CommandFeedback } from '../../shared/Feedback';
 import { messages } from '../../shared/messages';
 import { label, text, when, won } from '../../shared/ops';
 import { DataTable, PageHeader } from '../../shared/admin';
+import { EmptyBox, Icon } from '../lookup/parts';
 
 const m = messages.returns;
 type Claim = components['schemas']['Claim'];
@@ -43,6 +44,20 @@ const REJECT_TEXT: Readonly<Record<string, string>> = {
   NOT_DELIVERED_YET: m.notDelivered,
   CONFIG_REQUIRED: m.configRequired,
 };
+
+const CARD = 'min-w-0 space-y-3 rounded-box border border-base-300 bg-base-100 p-5 shadow-sm';
+
+/** 단계 머리(번호 동그라미 + 이름) */
+function StepTitle({ n, title }: { readonly n: number; readonly title: string }) {
+  return (
+    <h2 className="flex items-center gap-2 font-semibold">
+      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-content" aria-hidden="true">
+        {n}
+      </span>
+      {title}
+    </h2>
+  );
+}
 
 function ReturnForm({ orderId }: { readonly orderId: string }) {
   const api = useApi();
@@ -92,15 +107,18 @@ function ReturnForm({ orderId }: { readonly orderId: string }) {
     <QueryState state={toUiState(order)} onRetry={() => void order.refetch()}>
       {(o) => (
         <form
-          className="space-y-4"
+          className="grid items-start gap-4 lg:grid-cols-3"
           aria-label={m.formLabel}
           onSubmit={(e) => {
             e.preventDefault();
             submit();
           }}
         >
-          <fieldset className="space-y-2 rounded-box border border-base-300 bg-base-100 shadow-sm p-4" disabled={locked}>
-            <legend className="font-bold">{m.lines}</legend>
+          {/* 두 칸(2026-11-18): 왼쪽 = ① 품목 ② 사유, 오른쪽 = ③ 본인 확인 + 접수 버튼 */}
+          <div className="min-w-0 space-y-4 lg:col-span-2">
+          <fieldset className={CARD} disabled={locked}>
+            <legend className="sr-only">{m.lines}</legend>
+            <StepTitle n={1} title={m.lines} />
             <p className="text-xs text-base-content/60">{m.linesHint}</p>
             <DataTable>
               <thead>
@@ -140,8 +158,9 @@ function ReturnForm({ orderId }: { readonly orderId: string }) {
             </DataTable>
           </fieldset>
 
-          <fieldset className="space-y-2 rounded-box border border-base-300 bg-base-100 shadow-sm p-4" disabled={locked}>
-            <legend className="font-bold">{m.why}</legend>
+          <fieldset className={CARD} disabled={locked}>
+            <legend className="sr-only">{m.why}</legend>
+            <StepTitle n={2} title={m.why} />
             <label className="flex flex-col gap-1 text-sm">
               {m.reason}
               <select className="select select-sm w-64" value={reason} onChange={(e) => setReason(e.target.value as Reason | '')}>
@@ -172,9 +191,12 @@ function ReturnForm({ orderId }: { readonly orderId: string }) {
               {fault ? m.feeWaived : m.feeCustomer}
             </p>
           </fieldset>
+          </div>
 
-          <fieldset className="space-y-2 rounded-box border border-base-300 bg-base-100 shadow-sm p-4" disabled={locked}>
-            <legend className="font-bold">{messages.csIntake.method}</legend>
+          <div className="min-w-0 space-y-4 lg:sticky lg:top-4">
+          <fieldset className={CARD} disabled={locked}>
+            <legend className="sr-only">{messages.csIntake.method}</legend>
+            <StepTitle n={3} title={messages.csIntake.method} />
             <p className="text-xs text-base-content/60">{messages.csIntake.identityHint}</p>
             <div className="flex flex-wrap gap-3">
               {METHODS.map((v) => (
@@ -194,7 +216,8 @@ function ReturnForm({ orderId }: { readonly orderId: string }) {
             </label>
           </fieldset>
 
-          <button type="submit" className="btn btn-primary btn-sm" disabled={locked || !valid}>
+          <div className={CARD}>
+          <button type="submit" className="btn btn-primary btn-block" disabled={locked || !valid}>
             {m.submit}
           </button>
           {code && REJECT_TEXT[code] && <p className="text-sm text-warning">{REJECT_TEXT[code]}</p>}
@@ -210,6 +233,8 @@ function ReturnForm({ orderId }: { readonly orderId: string }) {
               </div>
             )}
           </CommandFeedback>
+          </div>
+          </div>
         </form>
       )}
     </QueryState>
@@ -222,25 +247,28 @@ export function ReturnIntakePage() {
   const orderId = params.get('orderId') ?? '';
   const [draft, setDraft] = useState(orderId);
   return (
-    <section className="max-w-4xl space-y-4">
+    <section className="max-w-7xl space-y-4">
       <PageHeader title={m.title} description={m.intro} />
+      {/* 화면(2026-11-18): 주문 불러오기 띠 → 두 칸 접수 양식(① 품목 ② 사유 | ③ 본인 확인·접수) */}
       <form
-        className="flex flex-wrap items-end gap-2 rounded-box border border-base-300 bg-base-100 shadow-sm p-3 text-sm"
+        className="flex flex-wrap items-center gap-3 rounded-box border border-base-300 bg-base-100 px-4 py-3 text-sm shadow-sm"
         onSubmit={(e) => {
           e.preventDefault();
           const v = draft.trim();
           setParams(v ? { orderId: v } : {});
         }}
       >
-        <label className="flex flex-col gap-1">
-          {messages.claims.orderId}
-          <input className="input input-sm w-64" value={draft} maxLength={64} onChange={(e) => setDraft(e.target.value)} />
+        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary" aria-hidden="true">
+          <Icon name="box" className="h-4 w-4" />
+        </span>
+        <label className="flex items-center gap-2">
+          <span className="text-xs font-medium text-base-content/55">{messages.claims.orderId}</span>
+          <input className="input input-sm w-64 font-mono" value={draft} maxLength={64} onChange={(e) => setDraft(e.target.value)} />
         </label>
-        <button type="submit" className="btn btn-sm">
+        <button type="submit" className="btn btn-sm btn-primary">
           {m.loadOrder}
-        </button>
-      </form>
-      {orderId ? <ReturnForm key={orderId} orderId={orderId} /> : <p className="text-sm text-base-content/60">{m.enterOrder}</p>}
+        </button>      </form>
+      {orderId ? <ReturnForm key={orderId} orderId={orderId} /> : <EmptyBox icon="return">{m.enterOrder}</EmptyBox>}
     </section>
   );
 }
@@ -250,21 +278,30 @@ export function ReturnProgress({ claim }: { readonly claim: Claim }) {
   if (claim.type !== 'RETURN') return null;
   const fee = claim.feePayment;
   return (
-    <dl className="grid grid-cols-[8rem_1fr] gap-x-4 gap-y-2.5 text-sm [&_dt]:text-base-content/55" data-testid="return-progress">
-      <dt>{m.fault}</dt>
-      <dd>{claim.faultCode ? m.faultName[claim.faultCode] : m.customerFault}</dd>
-      <dt>{m.feePayment}</dt>
-      <dd data-testid="return-fee">
-        {fee ? `${won(fee.amount)} · ${label(m.feeState, fee.state)} · ${m.feeDeadline} ${when(fee.deadlineAt)}${fee.refundDecision ? ` · ${label(m.refundDecision, fee.refundDecision)}` : ''}` : m.noFee}
-      </dd>
-      <dt>{m.returnDeadline}</dt>
-      <dd data-testid="return-deadline">{when(claim.returnDeadlineAt)}</dd>
-      <dt>{m.pickupAttempts}</dt>
-      <dd data-testid="return-attempts">
-        {m.attempts(text(claim.pickup?.attempts), text(claim.pickup?.failedAttempts))}
-        {claim.pickup?.countedFailures !== undefined && ` · ${m.countedFailures(text(claim.pickup.countedFailures))}`}
-        {claim.pickup?.retryAllowed === false && <span className="text-warning">{` · ${m.noMoreRetry}`}</span>}
-      </dd>
+    // 이름은 위에 작게, 값은 아래(2026-11-18) — 넓으면 두 칸
+    <dl className="grid gap-x-6 gap-y-4 text-sm sm:grid-cols-2 [&_dd]:font-medium [&_dt]:text-xs [&_dt]:text-base-content/50" data-testid="return-progress">
+      <div className="space-y-0.5">
+        <dt>{m.fault}</dt>
+        <dd>{claim.faultCode ? m.faultName[claim.faultCode] : m.customerFault}</dd>
+      </div>
+      <div className="space-y-0.5">
+        <dt>{m.returnDeadline}</dt>
+        <dd data-testid="return-deadline">{when(claim.returnDeadlineAt)}</dd>
+      </div>
+      <div className="space-y-0.5">
+        <dt>{m.feePayment}</dt>
+        <dd data-testid="return-fee">
+          {fee ? `${won(fee.amount)} · ${label(m.feeState, fee.state)} · ${m.feeDeadline} ${when(fee.deadlineAt)}${fee.refundDecision ? ` · ${label(m.refundDecision, fee.refundDecision)}` : ''}` : m.noFee}
+        </dd>
+      </div>
+      <div className="space-y-0.5">
+        <dt>{m.pickupAttempts}</dt>
+        <dd data-testid="return-attempts">
+          {m.attempts(text(claim.pickup?.attempts), text(claim.pickup?.failedAttempts))}
+          {claim.pickup?.countedFailures !== undefined && ` · ${m.countedFailures(text(claim.pickup.countedFailures))}`}
+          {claim.pickup?.retryAllowed === false && <span className="text-warning">{` · ${m.noMoreRetry}`}</span>}
+        </dd>
+      </div>
     </dl>
   );
 }
@@ -336,8 +373,11 @@ export function RecoveryActions({ claim }: { readonly claim: Claim }) {
   };
   const code = act.phase.kind === 'rejected' ? failureCode(act.phase.failure) : undefined;
   return (
-    <div className="space-y-2 rounded-box border border-warning bg-base-100 px-5 py-4" data-testid="recovery-actions">
-      <h2 className="font-bold">{m.actionsTitle}</h2>
+    <div className="space-y-3 overflow-hidden rounded-box border border-warning/50 bg-base-100 px-5 py-4 shadow-sm" data-testid="recovery-actions">
+      <h2 className="-mx-5 -mt-4 mb-1 flex items-center gap-2 border-b border-warning/30 bg-warning/10 px-5 py-3 font-bold">
+        <Icon name="alert" className="h-4 w-4 text-warning" />
+        {m.actionsTitle}
+      </h2>
       {act.phase.kind !== 'done' && (
         <p className="text-sm">{claim.state === 'RECOVERY_FAILED' ? m.recoveryFailedNote : claim.state === 'FEE_PENDING' ? m.feePendingNote : m.shortNote}</p>
       )}

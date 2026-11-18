@@ -1,4 +1,6 @@
 // 상품 목록(카테고리·판매 상태 필터, 커서는 URL) + SKU·바코드로 찾기.
+// 화면(2026-11-18 사용자 "밋밋하다 — Shopify·Medusa 상품 목록처럼"): 한 카드 안에 판매 상태 탭 → 찾기 줄(바로 찾기·카테고리) →
+// 표(관리용 명칭 굵게·상품 ID 작게, 판매 상태 점 배지, 버전) → 아래 표시 수·더 보기. 머리말 오른쪽에 등록 버튼.
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
@@ -11,7 +13,14 @@ import { FailureAlert } from '../../shared/Feedback';
 import { messages as m } from '../../shared/messages';
 import { QueryState } from '@pmart/web-ui';
 import { toUiState } from '@pmart/web-ui';
-import { DataTable, PageHeader, SearchRow } from '../../shared/admin';
+import { PageHeader, StatusBadge, type Tone } from '../../shared/admin';
+import { LineIcon, tableClass, UnderlineTabs } from './parts';
+
+export const SALE_TONE: Readonly<Record<SaleState, Tone>> = {
+  ON_SALE: 'success',
+  TEMPORARILY_SOLD_OUT: 'warning',
+  SALE_STOPPED: 'error',
+};
 
 function Lookup() {
   const api = useApi();
@@ -40,19 +49,17 @@ function Lookup() {
   };
 
   return (
-    <div className="space-y-2">
-      <div className="flex flex-wrap gap-2">
-        <input
-          aria-label={m.products.skuLookup}
-          className="input input-sm"
-          placeholder="E-00000001 / 8801234567890"
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-        />
-        <button type="button" className="btn btn-sm" disabled={busy} onClick={() => void find('sku')}>
+    <div className="min-w-0 space-y-2">
+      <div className="text-xs font-medium text-base-content/55">{m.products.quickFind}</div>
+      <div className="join">
+        <label className="input input-sm join-item flex items-center gap-2">
+          <LineIcon name="search" className="h-4 w-4 text-base-content/40" />
+          <input aria-label={m.products.skuLookup} className="grow" placeholder="E-00000001 / 8801234567890" value={value} onChange={(e) => setValue(e.target.value)} />
+        </label>
+        <button type="button" className="btn btn-sm join-item" disabled={busy} onClick={() => void find('sku')}>
           {m.products.skuLookup}
         </button>
-        <button type="button" className="btn btn-sm" disabled={busy} onClick={() => void find('barcode')}>
+        <button type="button" className="btn btn-sm join-item" disabled={busy} onClick={() => void find('barcode')}>
           {m.products.barcodeLookup}
         </button>
       </div>
@@ -97,89 +104,103 @@ export function ProductListPage() {
 
   return (
     <section className="space-y-4">
-      <PageHeader title={m.products.listTitle} />
-      {/* 관리자 형식(2026-11-18): 검색 조건 상자 — 줄마다 왼쪽 항목명 */}
-      <div className="overflow-hidden rounded-box border border-base-300 bg-base-100 shadow-sm divide-y divide-base-300">
-      <SearchRow label={m.products.quickFind}>
-        <Lookup />
-      </SearchRow>
-      <SearchRow label={m.products.saleState}>
-        <select
-          aria-label={m.products.saleState}
-          className="select select-sm w-40"
-          value={saleState ?? ''}
-          onChange={(e) => setParam('saleState', e.target.value)}
-        >
-          <option value="">{`${m.products.saleState}: ${m.approvals.filterAll}`}</option>
-          {SALE_STATES.map((s) => (
-            <option key={s} value={s}>
-              {m.products.saleStateName[s]}
-            </option>
-          ))}
-        </select>
-      </SearchRow>
-      <SearchRow label={m.products.categoryFilter}>
-        <form
-          className="flex gap-2"
-          onSubmit={(e) => {
-            e.preventDefault();
-            setParam('categoryId', categoryInput.trim());
-          }}
-        >
-          <input
-            aria-label={m.products.categoryFilter}
-            placeholder={m.products.categoryFilter}
-            className="input input-sm"
-            value={categoryInput}
-            onChange={(e) => setCategoryInput(e.target.value)}
-          />
-          <button type="submit" className="btn btn-sm">
-            {m.search}
-          </button>
-        </form>
-      </SearchRow>
-      </div>
-      <QueryState state={toUiState(query, (d) => (d.items?.length ?? 0) === 0)} onRetry={() => void query.refetch()}>
-        {(d) => (
+      <PageHeader
+        title={m.products.listTitle}
+        description={m.products.listIntro}
+        actions={
           <>
-            <DataTable>
-              <thead>
-                <tr>
-                  <th>{m.products.productId}</th>
-                  <th>{m.products.internalName}</th>
-                  <th>{m.products.primaryCategoryId}</th>
-                  <th>{m.products.saleState}</th>
-                  <th>{m.products.version}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {(d.items ?? []).map((p, i) => (
-                  <tr key={p.productId ?? i}>
-                    <td>
-                      {p.productId ? (
-                        <Link className="link" to={`/products/${encodeURIComponent(p.productId)}`}>
-                          {p.productId}
-                        </Link>
-                      ) : (
-                        m.none
-                      )}
-                    </td>
-                    <td>{p.internalName ?? m.none}</td>
-                    <td>{p.primaryCategoryId ?? m.none}</td>
-                    <td>{p.saleState ? m.products.saleStateName[p.saleState] : m.none}</td>
-                    <td>{p.version ?? m.none}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </DataTable>
-            {d.page?.nextCursor && (
-              <button type="button" className="btn btn-sm" onClick={() => setParam('cursor', d.page?.nextCursor ?? '')}>
-                {m.more}
-              </button>
-            )}
+            <Link className="btn btn-sm" to="/products/import">
+              {m.products.importTitle}
+            </Link>
+            <Link className="btn btn-sm btn-primary" to="/products/drafts/new">
+              {m.products.draftTitle}
+            </Link>
           </>
-        )}
-      </QueryState>
+        }
+      />
+      <div className="overflow-hidden rounded-box border border-base-300 bg-base-100 shadow-sm" data-testid="product-list-card">
+        {/* 판매 상태 탭(밑줄) — URL 의 saleState 그대로 */}
+        <UnderlineTabs<SaleState | ''>
+          label={m.products.saleState}
+          value={saleState ?? ''}
+          onChange={(v) => setParam('saleState', v)}
+          options={[{ value: '', label: m.approvals.filterAll }, ...SALE_STATES.map((s) => ({ value: s, label: m.products.saleStateName[s] }))]}
+        />
+        {/* 찾기 줄: 바로 찾기(SKU·바코드) · 카테고리 ID */}
+        <div className="flex flex-wrap items-end gap-x-6 gap-y-3 border-b border-base-300 bg-base-200/40 px-4 py-3">
+          <Lookup />
+          <form
+            className="min-w-0 space-y-2"
+            onSubmit={(e) => {
+              e.preventDefault();
+              setParam('categoryId', categoryInput.trim());
+            }}
+          >
+            <div className="text-xs font-medium text-base-content/55">{m.products.categoryFilter}</div>
+            <div className="join">
+              <input aria-label={m.products.categoryFilter} placeholder={m.products.categoryFilter} className="input input-sm join-item" value={categoryInput} onChange={(e) => setCategoryInput(e.target.value)} />
+              <button type="submit" className="btn btn-sm join-item">
+                {m.search}
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <QueryState state={toUiState(query, (d) => (d.items?.length ?? 0) === 0)} onRetry={() => void query.refetch()} emptyText={m.products.listEmpty}>
+          {(d) => (
+            <>
+              <div className="overflow-x-auto">
+                <table className={tableClass}>
+                  <thead>
+                    <tr>
+                      <th>{m.products.internalName}</th>
+                      <th>{m.products.primaryCategoryId}</th>
+                      <th>{m.products.saleState}</th>
+                      <th className="text-right">{m.products.version}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(d.items ?? []).map((p, i) => (
+                      <tr key={p.productId ?? i} data-testid="product-row">
+                        <td className="max-w-xl">
+                          <div className="flex items-center gap-3">
+                            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-base-200 text-base-content/45" aria-hidden="true">
+                              <LineIcon name="box" className="h-4 w-4" />
+                            </span>
+                            <div className="min-w-0">
+                              <p className="truncate font-medium" title={p.internalName ?? undefined}>
+                                {p.internalName ?? m.none}
+                              </p>
+                              {p.productId ? (
+                                <Link className="font-mono text-xs text-base-content/50 hover:text-primary hover:underline" to={`/products/${encodeURIComponent(p.productId)}`}>
+                                  {p.productId}
+                                </Link>
+                              ) : (
+                                <span className="text-xs text-base-content/40">{m.none}</span>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+                        <td>{p.primaryCategoryId ? <span className="rounded-md bg-base-200 px-2 py-0.5 font-mono text-xs">{p.primaryCategoryId}</span> : m.none}</td>
+                        <td>{p.saleState ? <StatusBadge tone={SALE_TONE[p.saleState]}>{m.products.saleStateName[p.saleState]}</StatusBadge> : m.none}</td>
+                        <td className="text-right font-mono text-xs text-base-content/60">{p.version === undefined ? m.none : `v${p.version}`}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="flex flex-wrap items-center justify-between gap-2 border-t border-base-300 px-4 py-3 text-sm">
+                <span className="text-base-content/55">{m.products.listShown(d.items?.length ?? 0, Boolean(d.page?.nextCursor))}</span>
+                {d.page?.nextCursor && (
+                  <button type="button" className="btn btn-sm" onClick={() => setParam('cursor', d.page?.nextCursor ?? '')}>
+                    {m.more}
+                  </button>
+                )}
+              </div>
+            </>
+          )}
+        </QueryState>
+      </div>
     </section>
   );
 }

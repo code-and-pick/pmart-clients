@@ -1,8 +1,9 @@
 // 기본 판매가격: 조회(현재·예약·이력), 변경 요청(approval PRICE 변경 요청을 화면에서 직접 만든다), 승인 반영 확인.
+// 화면(2026-11-18 사용자 "밋밋하다"): SKU 찾기 줄 → 두 칸(현재 기본가 큰 숫자·예약 / 가격 이력 세로 줄) → 변경 요청 카드(단계 표시·행 표·반영 확인).
 // 금액은 서버 값을 표시만 한다. PRICE_NOT_SET 은 0원이 아니라 "미설정(판매 불가)".
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
-import { useSearchParams } from 'react-router';
+import { Link, useSearchParams } from 'react-router';
 
 import { commandParams } from '../../api/command';
 import { ProblemFailure } from '@pmart/web-core';
@@ -18,13 +19,16 @@ import { QueryState } from '@pmart/web-ui';
 import { toUiState } from '@pmart/web-ui';
 import { useCommand } from '@pmart/web-ui';
 import { RequestApproval } from '../approvals/RequestApproval';
-import { DataTable, PageHeader } from '../../shared/admin';
+import { PageHeader, StatusBadge, type Tone } from '../../shared/admin';
+import { Card, EmptyState, LineIcon, Steps, tableClass } from '../products/parts';
 
 const SKU_PATTERN = /^[EB]-\d{8}$/;
 const PRICE_NOT_SET = 'PRICE_NOT_SET';
 
 /** datetime-local(서울 기준 입력) → ISO-8601 +09:00 */
 export const seoulInputToIso = (v: string) => (v ? `${v.length === 16 ? `${v}:00` : v}+09:00` : '');
+
+const VERSION_TONE: Readonly<Record<string, Tone>> = { SCHEDULED: 'info', EFFECTIVE: 'success', SUPERSEDED: 'ghost', REJECTED: 'error' };
 
 function PriceLookup({ sku }: { readonly sku: string }) {
   const api = useApi();
@@ -38,52 +42,63 @@ function PriceLookup({ sku }: { readonly sku: string }) {
   });
   const notSet = price.error instanceof ProblemFailure && price.error.problem.code === PRICE_NOT_SET;
 
+  // 왼쪽(2/3): 현재 기본가 큰 숫자 + 예약된 다음 가격, 오른쪽(1/3): 가격 이력 세로 줄(최신 위)
   return (
-    <div className="grid gap-4 md:grid-cols-2">
-      <div className="rounded-box border border-base-300 bg-base-100 shadow-sm p-4 text-sm">
-        <h2 className="mb-2 font-bold">{`${m.prices.current} · ${sku}`}</h2>
+    <div className="grid items-start gap-4 lg:grid-cols-3">
+      <Card title={m.prices.current} aside={<span className="rounded bg-base-200 px-2 py-0.5 font-mono text-xs">{sku}</span>} className="lg:col-span-2">
         {notSet ? (
-          <p role="status" data-state="not-set" className="text-warning">
-            {m.prices.notSet}
-          </p>
+          <div role="status" data-state="not-set" className="flex items-center gap-3 rounded-lg border border-warning/40 bg-warning/10 px-4 py-4 text-warning">
+            <LineIcon name="tag" className="h-6 w-6 shrink-0" />
+            <span className="font-medium">{m.prices.notSet}</span>
+          </div>
         ) : (
           <QueryState state={toUiState(price)} onRetry={() => void price.refetch()}>
             {(p) => (
-              <dl className="grid grid-cols-[8rem_1fr] gap-1">
-                <dt>{m.prices.current}</dt>
-                <dd data-testid="base-price">{formatKrw(p.basePrice)}</dd>
-                <dt>{m.prices.effectiveFrom}</dt>
-                <dd>{`${formatSeoul(p.effectiveFrom)} (v${p.priceVersion})`}</dd>
-                {p.nextChange?.basePrice !== undefined && (
-                  <>
-                    <dt>{m.prices.next}</dt>
-                    <dd>{`${formatKrw(p.nextChange.basePrice)}${p.nextChange.effectiveFrom ? ` · ${formatSeoul(p.nextChange.effectiveFrom)}` : ''}`}</dd>
-                  </>
-                )}
-              </dl>
+              <div className="space-y-4">
+                <div className="flex flex-wrap items-end gap-x-4 gap-y-1">
+                  <p className="text-4xl font-bold tracking-tight tabular-nums" data-testid="base-price">
+                    {formatKrw(p.basePrice)}
+                  </p>
+                  <span className="pb-1.5 font-mono text-sm text-base-content/50">{`v${p.priceVersion}`}</span>
+                </div>
+                <dl className="grid gap-4 text-sm sm:grid-cols-2">
+                  <div className="space-y-0.5">
+                    <dt className="text-xs text-base-content/50">{m.prices.effectiveFrom}</dt>
+                    <dd className="font-medium">{formatSeoul(p.effectiveFrom)}</dd>
+                  </div>
+                  {p.nextChange?.basePrice !== undefined && (
+                    <div className="space-y-0.5 rounded-lg border border-info/30 bg-info/5 px-3 py-2">
+                      <dt className="text-xs text-info">{m.prices.next}</dt>
+                      <dd className="font-medium">{`${formatKrw(p.nextChange.basePrice)}${p.nextChange.effectiveFrom ? ` · ${formatSeoul(p.nextChange.effectiveFrom)}` : ''}`}</dd>
+                    </div>
+                  )}
+                </dl>
+              </div>
             )}
           </QueryState>
         )}
-      </div>
-      <div className="rounded-box border border-base-300 bg-base-100 shadow-sm p-4 text-sm">
-        <h2 className="mb-2 font-bold">{m.prices.history}</h2>
-        <QueryState state={toUiState(history, (d) => (d.items?.length ?? 0) === 0)} onRetry={() => void history.refetch()}>
+      </Card>
+      <Card title={m.prices.history}>
+        <QueryState state={toUiState(history, (d) => (d.items?.length ?? 0) === 0)} onRetry={() => void history.refetch()} emptyText={m.prices.noHistory}>
           {(h) => (
-            <DataTable>
-              <tbody>
-                {(h.items ?? []).map((v, i) => (
-                  <tr key={v.priceVersion ?? i}>
-                    <td>{`v${v.priceVersion ?? m.none}`}</td>
-                    <td>{v.basePrice === undefined ? m.none : formatKrw(v.basePrice)}</td>
-                    <td>{v.effectiveFrom ? formatSeoul(v.effectiveFrom) : m.none}</td>
-                    <td>{v.state ? m.prices.versionState[v.state] : m.none}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </DataTable>
+            <ol className="relative space-y-4 border-l border-base-300 pl-4">
+              {(h.items ?? []).map((v, i) => (
+                <li key={v.priceVersion ?? i} className="relative">
+                  <span className={`absolute -left-[1.3rem] top-1.5 h-2.5 w-2.5 rounded-full ring-4 ring-base-100 ${v.state === 'EFFECTIVE' ? 'bg-success' : v.state === 'SCHEDULED' ? 'bg-info' : 'bg-base-300'}`} aria-hidden="true" />
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="font-semibold tabular-nums">{v.basePrice === undefined ? m.none : formatKrw(v.basePrice)}</span>
+                    {v.state ? <StatusBadge tone={VERSION_TONE[v.state] ?? 'ghost'}>{m.prices.versionState[v.state]}</StatusBadge> : m.none}
+                  </div>
+                  <p className="text-xs text-base-content/50">
+                    <span className="font-mono">{`v${v.priceVersion ?? m.none}`}</span>
+                    {` · ${v.effectiveFrom ? formatSeoul(v.effectiveFrom) : m.none}`}
+                  </p>
+                </li>
+              ))}
+            </ol>
           )}
         </QueryState>
-      </div>
+      </Card>
     </div>
   );
 }
@@ -151,50 +166,58 @@ function PriceChange({ initialSku }: { readonly initialSku: string }) {
     ),
   );
 
+  // 단계: ① 행 입력 → ② 승인 요청 → ③ 반영 확인(보기용 — 화면 상태로만 고른다)
+  const step = body === null ? 0 : approvalId.trim() ? 2 : 1;
+  const label = 'text-xs font-medium text-base-content/60';
   return (
-    <div className="space-y-3 rounded-box border border-base-300 bg-base-100 shadow-sm p-4">
-      <h2 className="font-bold">{m.prices.changeTitle}</h2>
-      <p className="text-xs text-base-content/60">{m.prices.effectiveHint}</p>
-      <label className="flex w-fit flex-col text-sm">
-        {m.prices.requestedEffectiveFrom}
+    <Card title={m.prices.changeTitle} hint={m.prices.effectiveHint} aside={<Steps steps={m.prices.changeSteps} now={step} label={m.prices.stepsLabel} />}>
+      <label className="flex w-fit flex-col gap-1 text-sm">
+        <span className={label}>{m.prices.requestedEffectiveFrom}</span>
         <input type="datetime-local" className="input input-sm" disabled={body !== null} value={common} onChange={(e) => setCommon(e.target.value)} />
       </label>
-      <DataTable>
-        <thead>
-          <tr>
-            <th>{m.prices.sku}</th>
-            <th>{m.prices.basePrice}</th>
-            <th>{m.prices.lineEffectiveFrom}</th>
-            <th />
-          </tr>
-        </thead>
-        <tbody>
-          {lines.map((l, i) => (
-            <tr key={i}>
-              <td>
-                <input aria-label={`${m.prices.sku} ${i + 1}`} className="input input-sm w-36" disabled={body !== null} value={l.sku} onChange={(e) => setLine(i, { sku: e.target.value.trim() })} />
-              </td>
-              <td>
-                <input aria-label={`${m.prices.basePrice} ${i + 1}`} className="input input-sm w-28" inputMode="numeric" disabled={body !== null} value={l.basePrice} onChange={(e) => setLine(i, { basePrice: e.target.value.trim() })} />
-              </td>
-              <td>
-                <input type="datetime-local" className="input input-sm" disabled={body !== null} value={l.effectiveFrom} onChange={(e) => setLine(i, { effectiveFrom: e.target.value })} />
-              </td>
-              <td>
-                {body === null && lines.length > 1 && (
-                  <button type="button" className="btn btn-ghost btn-xs" onClick={() => setLines(lines.filter((_, j) => j !== i))}>
-                    {m.prices.removeLine}
-                  </button>
-                )}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </DataTable>
+      <div className="overflow-hidden rounded-lg border border-base-300">
+        <div className="border-b border-base-300 bg-base-200/40 px-4 py-2 text-xs font-medium text-base-content/60">{m.prices.linesTitle}</div>
+        <div className="overflow-x-auto">
+          <table className={tableClass}>
+            <thead>
+              <tr>
+                <th className="w-10">#</th>
+                <th>{m.prices.sku}</th>
+                <th>{m.prices.basePrice}</th>
+                <th>{m.prices.lineEffectiveFrom}</th>
+                <th />
+              </tr>
+            </thead>
+            <tbody>
+              {lines.map((l, i) => (
+                <tr key={i}>
+                  <td className="text-xs text-base-content/45">{i + 1}</td>
+                  <td>
+                    <input aria-label={`${m.prices.sku} ${i + 1}`} className="input input-sm w-36 font-mono" disabled={body !== null} value={l.sku} onChange={(e) => setLine(i, { sku: e.target.value.trim() })} />
+                  </td>
+                  <td>
+                    <input aria-label={`${m.prices.basePrice} ${i + 1}`} className="input input-sm w-28 text-right tabular-nums" inputMode="numeric" disabled={body !== null} value={l.basePrice} onChange={(e) => setLine(i, { basePrice: e.target.value.trim() })} />
+                  </td>
+                  <td>
+                    <input type="datetime-local" className="input input-sm" disabled={body !== null} value={l.effectiveFrom} onChange={(e) => setLine(i, { effectiveFrom: e.target.value })} />
+                  </td>
+                  <td className="text-right">
+                    {body === null && lines.length > 1 && (
+                      <button type="button" className="btn btn-ghost btn-xs" onClick={() => setLines(lines.filter((_, j) => j !== i))}>
+                        {m.prices.removeLine}
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
       {body === null ? (
-        <div className="flex gap-2">
-          <button type="button" className="btn btn-sm" onClick={() => setLines([...lines, emptyLine()])}>
-            {m.prices.addLine}
+        <div className="flex flex-wrap justify-between gap-2">
+          <button type="button" className="btn btn-sm btn-ghost" onClick={() => setLines([...lines, emptyLine()])}>
+            + {m.prices.addLine}
           </button>
           <button type="button" className="btn btn-primary btn-sm" disabled={!ok} onClick={() => setBody(priceChangeBody(lines, common, randomUuid()))}>
             {m.approvals.requestApproval}
@@ -204,11 +227,11 @@ function PriceChange({ initialSku }: { readonly initialSku: string }) {
         <RequestApproval body={body} onRequested={(r) => r.approvalId && setApprovalId(r.approvalId)} />
       )}
 
-      <div className="space-y-2 border-t border-base-300 pt-3">
+      <div className="space-y-2 rounded-lg border border-base-300 bg-base-200/30 px-4 py-3">
         <h3 className="font-semibold">{m.prices.confirmTitle}</h3>
         <div className="flex flex-wrap items-end gap-2">
-          <label className="flex flex-col text-sm">
-            {m.prices.approvalId}
+          <label className="flex flex-col gap-1 text-sm">
+            <span className={label}>{m.prices.approvalId}</span>
             <input className="input input-sm" value={approvalId} onChange={(e) => setApprovalId(e.target.value)} />
           </label>
           <button
@@ -231,7 +254,7 @@ function PriceChange({ initialSku }: { readonly initialSku: string }) {
           )}
         </CommandFeedback>
       </div>
-    </div>
+    </Card>
   );
 }
 
@@ -239,23 +262,42 @@ export function PricePage() {
   const [params, setParams] = useSearchParams();
   const sku = params.get('sku') ?? '';
   const [input, setInput] = useState(sku);
+  const valid = SKU_PATTERN.test(sku);
   return (
     <section className="space-y-4">
-      <PageHeader title={m.prices.title} />
+      <PageHeader
+        title={m.prices.title}
+        description={m.prices.intro}
+        actions={
+          <Link className="btn btn-sm" to="/prices/import">
+            {m.prices.importTitle}
+          </Link>
+        }
+      />
+      {/* SKU 찾기 줄 */}
       <form
-        className="flex gap-2"
+        className="flex flex-wrap items-center gap-2 rounded-box border border-base-300 bg-base-100 px-4 py-3 shadow-sm"
         onSubmit={(e) => {
           e.preventDefault();
           if (SKU_PATTERN.test(input.trim())) setParams({ sku: input.trim() });
         }}
       >
-        <input aria-label={m.prices.sku} placeholder="E-00000001" className="input input-sm" value={input} onChange={(e) => setInput(e.target.value)} />
-        <button type="submit" className="btn btn-sm" disabled={!SKU_PATTERN.test(input.trim())}>
+        <label className="input input-sm flex w-64 items-center gap-2">
+          <LineIcon name="search" className="h-4 w-4 text-base-content/40" />
+          <input aria-label={m.prices.sku} placeholder="E-00000001" className="grow font-mono" value={input} onChange={(e) => setInput(e.target.value)} />
+        </label>
+        <button type="submit" className="btn btn-sm btn-primary" disabled={!SKU_PATTERN.test(input.trim())}>
           {m.prices.lookup}
         </button>
       </form>
-      {sku && SKU_PATTERN.test(sku) && <PriceLookup key={sku} sku={sku} />}
-      <PriceChange key={sku} initialSku={SKU_PATTERN.test(sku) ? sku : ''} />
+      {sku && valid ? (
+        <PriceLookup key={sku} sku={sku} />
+      ) : (
+        <div className="rounded-box border border-dashed border-base-300 bg-base-100">
+          <EmptyState icon="tag">{m.prices.pickSku}</EmptyState>
+        </div>
+      )}
+      <PriceChange key={sku} initialSku={valid ? sku : ''} />
     </section>
   );
 }
