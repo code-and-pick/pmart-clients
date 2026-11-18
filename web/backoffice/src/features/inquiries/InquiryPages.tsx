@@ -25,6 +25,7 @@ import { CodeLabel, DetailHeader, NextAction, PageHeader, StatusBadge, type Tone
 import { DisplayNumber, RiderLabel } from '../../shared/displayNumber';
 import { useDeliveryNumber, useOrderNumbers, useRiderLabels } from '../../shared/numberLookups';
 import { SavedViews } from '../../shared/SavedViews';
+import { LeaveGuard } from '../../shared/LeaveGuard';
 import { messages as m } from '../../shared/messages';
 
 type Inquiry = components['schemas']['Inquiry'];
@@ -259,6 +260,8 @@ function ReplyForm({ inquiry }: { readonly inquiry: Inquiry }) {
         if (trimmed && !locked) void reply.run({ text: trimmed, version: inquiry.version });
       }}
     >
+      {/* 떠날 때 경고(2026-11-18): 답변을 쓰다 만 채로 나갈 때 — 보내면 칸이 비워져 풀린다 */}
+      <LeaveGuard when={trimmed !== ''} />
       <div className="overflow-hidden rounded-box border border-base-300 bg-base-100 focus-within:border-primary">
         <label className="block">
           <span className="flex items-center gap-2 border-b border-base-200 px-3 py-2 text-xs font-semibold text-base-content/60">

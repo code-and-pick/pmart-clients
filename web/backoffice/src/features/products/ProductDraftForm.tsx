@@ -8,6 +8,7 @@ import { STORAGE_TYPES, type CategoryNode, type ProductDraftInput, type SaleUnit
 import { request } from '@pmart/web-core';
 import { useApi } from '../../app/ApiContext';
 import { FailureAlert } from '../../shared/Feedback';
+import { LeaveGuard } from '../../shared/LeaveGuard';
 import { messages as m } from '../../shared/messages';
 import { MultiSelectDropdown } from '@pmart/web-ui';
 import { gs1CheckDigitProblem } from './barcode';
@@ -200,6 +201,9 @@ export function ProductDraftForm({
 }) {
   const api = useApi();
   const [v, setV] = useState<FormValues>(() => toValues(initial));
+  // 떠날 때 경고(2026-11-18): 연 값과 다르면 "작성 중" — 저장을 누르면 그 값이 새 기준(저장 뒤 이동은 막지 않는다)
+  const [baseline, setBaseline] = useState(() => JSON.stringify(toValues(initial)));
+  const dirty = JSON.stringify(v) !== baseline;
   const [note, setNote] = useState<{ ok: boolean; text: string } | null>(null);
   const set = <K extends keyof FormValues>(k: K, value: FormValues[K]) => setV((prev) => ({ ...prev, [k]: value }));
   const setSku = (i: number, patch: Partial<SkuRow>) =>
@@ -271,9 +275,12 @@ export function ProductDraftForm({
       className="space-y-4"
       onSubmit={(e) => {
         e.preventDefault();
-        if (v.internalName.trim()) onSubmit(toInput(v, initial));
+        if (!v.internalName.trim()) return;
+        setBaseline(JSON.stringify(v));
+        onSubmit(toInput(v, initial));
       }}
     >
+      <LeaveGuard when={dirty} />
       <Card
         title={m.products.formBasic}
         hint={m.products.formBasicHint}

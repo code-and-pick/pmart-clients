@@ -11,6 +11,7 @@ import type { ContentDraft, ContentDraftInput, ProductSummary } from '../../api/
 import { request } from '@pmart/web-core';
 import { useApi } from '../../app/ApiContext';
 import { CommandFeedback, reasonText } from '../../shared/Feedback';
+import { LeaveGuard } from '../../shared/LeaveGuard';
 import { messages as m } from '../../shared/messages';
 import { QueryState } from '@pmart/web-ui';
 import { toUiState } from '@pmart/web-ui';
@@ -44,8 +45,11 @@ function ContentForm({
     returnGuide: initial?.returnGuide ?? '',
     notices: (initial?.notices ?? []).join('\n'),
   });
+  // 떠날 때 경고(2026-11-18): 연 값과 다르면 "작성 중" — 저장을 누르면 그 값이 새 기준
+  const [baseline, setBaseline] = useState(() => JSON.stringify(v));
+  const dirty = JSON.stringify(v) !== baseline;
   type Key = keyof typeof v;
-  const field = (k: Key, label: string, multiline = false) => (
+  const field =(k: Key, label: string, multiline = false) => (
     <label className="flex flex-col gap-1 text-sm">
       <span className="text-xs font-medium text-base-content/60">{label}</span>
       {multiline ? (
@@ -128,6 +132,7 @@ function ContentForm({
           .split('\n')
           .map((x) => x.trim())
           .filter(Boolean);
+        setBaseline(JSON.stringify(v));
         onSubmit({
           ...(initial?.sourceSystem ? { sourceSystem: initial.sourceSystem } : {}),
           ...(initial?.sourceKey ? { sourceKey: initial.sourceKey } : {}),
@@ -141,6 +146,7 @@ function ContentForm({
         });
       }}
     >
+      <LeaveGuard when={dirty} />
       <Card title={m.contents.formProduct} hint={m.contents.formProductHint}>
         <ProductPicker label={m.contents.productId} value={v.productId} onChange={(id, product) => void pickProduct(id, product)} onClear={clearAll} />
         {pickNote && (

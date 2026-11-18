@@ -16,6 +16,7 @@ import type { components, paths } from '../../api/generated/case';
 import { useApi } from '../../app/ApiContext';
 import { useSession } from '../../app/SessionContext';
 import { CommandFeedback } from '../../shared/Feedback';
+import { LeaveGuard } from '../../shared/LeaveGuard';
 import { messages } from '../../shared/messages';
 import { text, when } from '../../shared/ops';
 import { CodeLabel, PageHeader } from '../../shared/admin';
@@ -94,6 +95,9 @@ export function NewCsIntakePage() {
     linkCaseId: search.get('linkCaseId') ?? '',
   });
   const set = <K extends keyof Draft>(k: K, v: Draft[K]) => setD((x) => ({ ...x, [k]: v }));
+  // 떠날 때 경고(2026-11-18): 연 값과 다르면 "작성 중" — 저장을 누르면 그 값이 새 기준(저장 뒤 폼은 잠긴다)
+  const [baseline, setBaseline] = useState(() => JSON.stringify(d));
+  const dirty = JSON.stringify(d) !== baseline;
 
   const save = useCommand(async (body: NewIntake, key) => {
     const r = await request('POST', api.cases.POST('/cs-intakes', { ...commandParams(key), body }));
@@ -108,6 +112,7 @@ export function NewCsIntakePage() {
     e.preventDefault();
     if (missing.length > 0 || locked || !d.channel || !d.category || !d.method || !d.relation) return;
     if (save.phase.kind === 'rejected') save.reset();
+    setBaseline(JSON.stringify(d));
     void save.run({
       channel: d.channel,
       category: d.category,
@@ -145,6 +150,7 @@ export function NewCsIntakePage() {
     <section className="max-w-6xl space-y-4">
       <PageHeader title={m.title} description={m.intro} />
       <form className="grid items-start gap-4 text-sm lg:grid-cols-3" onSubmit={submit} aria-label={m.title}>
+        <LeaveGuard when={dirty} />
         <div className="space-y-4 lg:col-span-2">
           <Step n={1} title={m.step.who.title} done={stepDone([m.need.channel, m.need.customer, m.need.relation])}>
             <fieldset disabled={locked}>

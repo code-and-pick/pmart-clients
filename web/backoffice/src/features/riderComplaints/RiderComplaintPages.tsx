@@ -11,6 +11,7 @@ import { commandParams } from '../../api/command';
 import type { components } from '../../api/generated/case';
 import { useApi } from '../../app/ApiContext';
 import { CommandFeedback } from '../../shared/Feedback';
+import { LeaveGuard } from '../../shared/LeaveGuard';
 import { messages as m } from '../../shared/messages';
 import { isSeoulDate, label, seoulDayEnd, seoulDayStart, text, when } from '../../shared/ops';
 import { ChipGroup, CodeLabel, DataTable, DetailHeader, FieldList, NextAction, PageHeader, SearchPanel, SearchRow, Section, type Tone } from '../../shared/admin';
@@ -209,6 +210,9 @@ export function NewRiderComplaintPage() {
     inquiryId: search.get('inquiryId') ?? '',
     note: '',
   });
+  // 떠날 때 경고(2026-11-18): 연 값과 다르면 "작성 중" — 기록을 누르면 그 값이 새 기준(기록 뒤 폼은 잠긴다)
+  const [baseline, setBaseline] = useState(() => JSON.stringify(form));
+  const dirty = JSON.stringify(form) !== baseline;
 
   const record = useCommand(async (body: NewComplaint, key) => {
     const saved = await request('POST', api.cases.POST('/rider-complaints', { ...commandParams(key), body }));
@@ -221,6 +225,7 @@ export function NewRiderComplaintPage() {
   const submit = (e: FormEvent) => {
     e.preventDefault();
     if (!ready || locked || form.complaintType === '') return;
+    setBaseline(JSON.stringify(form));
     void record.run({
       deliveryId: form.deliveryId.trim(),
       complaintType: form.complaintType,
@@ -242,6 +247,7 @@ export function NewRiderComplaintPage() {
       <PageHeader title={m.complaints.newTitle} back={{ to: '/rider-complaints', label: m.complaints.back }} />
       <div className="grid items-start gap-4 lg:grid-cols-3">
         <form className="space-y-5 rounded-box border border-base-300 bg-base-100 p-5 shadow-sm lg:col-span-2" onSubmit={submit} aria-label={m.complaints.newTitle}>
+          <LeaveGuard when={dirty} />
           <label className="block space-y-1 text-sm">
             <span className="font-medium">{m.complaints.deliveryId}</span>
             <input className="input input-sm w-full font-mono" required maxLength={64} {...field('deliveryId')} />
