@@ -30,6 +30,8 @@
 | 라이더 | 라이더 찾기 | `/riders` | |
 | 배송·배차 | 배송 찾기 | `/deliveries` | |
 | 지원센터 | 접수 건 | `/cases` | |
+| 수행료 | 지급 관리 | `/payouts` | 2026-11-19 — execution 0.29.0 `GET /rider-payouts`(라이더×지급 예정일 묶음, RIDER_OPS·OPERATOR_ADMIN 보기), 결과 표시 `POST …/results`(PAYING·PAID·FAILED+사유, **관리자만**). 지급 실행은 외부 회계 |
+| 지원센터 | 소명·이의 | `/appeals` | 2026-11-19 — rider 0.15.0 `GET /rider-appeals`(기본 결정 대기)·`POST …/decisions`(유지·인정 + 메모). 제한 소명 인정 = 서버가 제한 풀기, 수행료 이의 인정 = 조정 화면(`/adjustments?deliveryId=`)으로 가는 버튼 |
 | 운영 | 공지 보내기 | `/notices` | 2026-11-18 — notification 0.5.0 `POST·GET /rider-notices`(전체·한 센터, 보내기 전 확인, 받은 수는 서버 응답). RIDER_OPS·OPERATOR_ADMIN |
 | 운영 | 조치 이력 | `/staff-actions` | 2026-11-18 — **관리자(OPERATOR_ADMIN)만 메뉴에 보임**. rider·execution·dispatch `*-staff-actions` 셋을 시각순 한 표로(원천마다 실패 따로 알림, 덜 불러온 원천보다 오래된 줄은 숨김). 직원은 HR 이름 조회가 없어 actorId 그대로 |
 

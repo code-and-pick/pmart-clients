@@ -9,6 +9,8 @@ import { CasesMenu } from '../features/cases/CasePages';
 import { ControlPage } from '../features/control/ControlPage';
 import { DashboardPage } from '../features/dashboard/DashboardPage';
 import { AdjustmentsMenu, SurchargesMenu } from '../features/earnings/EarningPages';
+import { PayoutsMenu } from '../features/earnings/PayoutPages';
+import { AppealsMenu } from '../features/support/AppealPages';
 import { NoticesMenu } from '../features/ops/NoticePages';
 import { StaffActionsMenu } from '../features/ops/StaffActionsPage';
 import { RestrictionReviewsMenu, RidersMenu, SignupsMenu } from '../features/riders/RiderPages';
@@ -156,6 +158,10 @@ function MenuPage({ menu }: { readonly menu: MenuItem }) {
       return <AdjustmentsMenu />;
     case 'surcharges':
       return <SurchargesMenu />;
+    case 'payouts':
+      return <PayoutsMenu />;
+    case 'appeals':
+      return <AppealsMenu />;
     case 'notices':
       return <NoticesMenu />;
     case 'staffActions':

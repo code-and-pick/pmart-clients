@@ -41,6 +41,9 @@ const idLink = (to: string, text: string | undefined) => (
 export function AdjustmentsMenu() {
   const api = useApi();
   const queryClient = useQueryClient();
+  // 소명·이의에서 수행료 이의를 인정하고 넘어오면 그 배송만(?deliveryId=). 조정 대기 목록에 없으면 이유를 알린다.
+  const [params, setParams] = useSearchParams();
+  const onlyDelivery = params.get('deliveryId') ?? '';
   const queue = useQuery({
     queryKey: ['adjustment-queue'],
     queryFn: () => request('GET', api.execution.GET('/rider-earnings/adjustment-queue', { params: { query: { size: 50 } } })),
@@ -48,8 +51,22 @@ export function AdjustmentsMenu() {
   return (
     <section className="max-w-6xl space-y-4">
       <PageHeader title={e.adjustTitle} description={e.adjustIntro} />
-      <QueryState state={toUiState(queue, (x) => (x.items ?? []).length === 0)} onRetry={() => void queue.refetch()} emptyText={e.empty}>
-        {(x) => (
+      {onlyDelivery && (
+        <p role="note" className="alert flex flex-wrap justify-between text-sm" data-testid="adjust-only">
+          <span>{e.onlyDelivery(onlyDelivery)}</span>
+          <button type="button" className="btn btn-xs" onClick={() => setParams({})}>
+            {e.showAll}
+          </button>
+        </p>
+      )}
+      <QueryState
+        state={toUiState(queue, (x) => (x.items ?? []).filter((it) => !onlyDelivery || it.deliveryId === onlyDelivery).length === 0)}
+        onRetry={() => void queue.refetch()}
+        emptyText={onlyDelivery ? e.notInQueue : e.empty}
+      >
+        {(all) => {
+          const x = { ...all, items: (all.items ?? []).filter((it) => !onlyDelivery || it.deliveryId === onlyDelivery) };
+          return (
           <div className="space-y-3">
             <ResultBar count={(x.items ?? []).length} more={!!x.page?.nextCursor} />
             <ul className="space-y-3">
@@ -77,7 +94,8 @@ export function AdjustmentsMenu() {
               ))}
             </ul>
           </div>
-        )}
+          );
+        }}
       </QueryState>
     </section>
   );

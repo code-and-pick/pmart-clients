@@ -163,6 +163,9 @@ export const ops = {
   },
   earnings: {
     adjustTitle: '수행료 조정',
+    onlyDelivery: (id: string) => `소명·이의에서 넘어온 배송 ${id} 의 수행료만 보여요.`,
+    showAll: '전체 보기',
+    notInQueue: '이 배송 수행료는 조정 대기 목록에 없어요(이미 조정·산정됐거나 추가 배달료 건). 금액을 바꿔야 하면 백엔드·회계와 따로 처리해 주세요.',
     adjustIntro: '산정 불가 수행료(전달 실패·자동 완료 등)예요. 귀책을 고르면 — 라이더 귀책은 미지급, 그 밖은 수락 당시 금액으로 바로 확정돼요.',
     empty: '조정할 수행료가 없어요.',
     col: { earning: '수행료', delivery: '배송', rider: '라이더', performedOn: '수행일', note: '메모' },

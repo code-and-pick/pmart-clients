@@ -32,8 +32,9 @@ export const navGroups: readonly MenuGroup[] = [
   { key: 'control', items: [done('riderMap', 'control')] },
   { key: 'riders', items: [done('riders', 'riders'), done('signups', 'signups'), done('restrictionReviews', 'restriction-reviews')] },
   { key: 'deliveries', items: [done('deliveries', 'deliveries')] },
-  { key: 'support', items: [done('cases', 'cases'), done('helpRequests', 'help-requests'), done('inquiries', 'inquiries')] },
-  { key: 'earnings', items: [done('adjustments', 'adjustments'), done('surcharges', 'surcharges')] },
+  { key: 'support', items: [done('cases', 'cases'), done('helpRequests', 'help-requests'), done('inquiries', 'inquiries'), done('appeals', 'appeals')] },
+  // 2026-11-19: 지급 관리(execution 0.29.0)·소명·이의(rider 0.15.0)
+  { key: 'earnings', items: [done('adjustments', 'adjustments'), done('surcharges', 'surcharges'), done('payouts', 'payouts')] },
   // 2026-11-18(PC 5, 백엔드 notification 0.5.0·rider 0.14.0·execution 0.28.0·dispatch 0.11.0): 라이더 공지·직원 조치 이력(관리자만).
   { key: 'ops', items: [done('notices', 'notices'), { ...done('staffActions', 'staff-actions'), adminOnly: true }] },
 ];

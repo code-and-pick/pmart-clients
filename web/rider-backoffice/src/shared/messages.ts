@@ -36,6 +36,8 @@ export const messages = {
     surcharges: '추가 배달료',
     notices: '공지 보내기',
     staffActions: '조치 이력',
+    payouts: '지급 관리',
+    appeals: '소명·이의',
   },
 
   /** 관리자 전용 메뉴(조치 이력)를 관리자가 아닌 직원이 주소로 열었을 때 */
@@ -258,6 +260,8 @@ export const messages = {
     INQUIRY_CLOSED: '닫힌 문의예요.',
     HELP_REQUEST_CLOSED: '처리 끝난 도움요청이에요.',
     PICKED_UP_CASE_REQUIRED: '픽업한 배송은 배차 취소할 수 없어요 — 전달 실패로 처리해 주세요.',
+    PAYOUT_NOT_DUE: '지급 예정일이 아직 안 됐어요 — 지급 중·지급 완료는 예정일부터 표시할 수 있어요.',
+    APPEAL_EXISTS: '이 대상에는 이미 신청이 있어요.',
   } as Readonly<Record<string, string>>,
 
   /** 검증 사유 code → 문구(없는 code 는 code 그대로) */

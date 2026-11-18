@@ -4,6 +4,7 @@ import { afterAll, afterEach, beforeAll } from 'vitest';
 
 import { resetDb } from '../mocks/db';
 import { resetNotices } from '../mocks/noticeHandlers';
+import { resetPayoutAppeals } from '../mocks/payoutAppealHandlers';
 import { resetOps } from '../mocks/opsHandlers';
 import { server } from './server';
 
@@ -14,6 +15,7 @@ afterEach(() => {
   resetDb();
   resetOps();
   resetNotices();
+  resetPayoutAppeals();
   cleanup();
   // 세션 복원 보관(refresh token)·로그인 시작 기록이 다음 테스트로 새지 않게
   sessionStorage.clear();

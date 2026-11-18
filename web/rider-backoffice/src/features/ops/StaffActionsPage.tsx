@@ -17,7 +17,7 @@ import { when } from '../../shared/opsUi';
 
 export const actionText = {
   title: '조치 이력',
-  intro: '직원이 라이더·배송에 한 조치를 시각순으로 모아 봐요(계정 제한, 상태 바로잡기, 실패 확정, 수행료, 배차 취소). 기간을 비우면 최근 7일, 최대 31일이에요.',
+  intro: '직원이 라이더·배송에 한 조치를 시각순으로 모아 봐요(계정 제한, 상태 바로잡기, 실패 확정, 수행료·지급, 소명·이의 결정, 배차 취소). 기간을 비우면 최근 7일, 최대 31일이에요.',
   from: '시작일',
   to: '끝일',
   period: '기간',
@@ -48,6 +48,10 @@ export const actionText = {
     SURCHARGE_APPROVED: '추가 배달료 승인',
     SURCHARGE_REJECTED: '추가 배달료 반려',
     ASSIGNMENT_CANCELLED: '배차 취소',
+    PAYOUT_PAYING: '지급 중 표시',
+    PAYOUT_PAID: '지급 완료 표시',
+    PAYOUT_FAILED: '지급 실패 표시',
+    APPEAL_DECIDED: '소명·이의 결정',
   } as Readonly<Record<string, string>>,
 } as const;
 
