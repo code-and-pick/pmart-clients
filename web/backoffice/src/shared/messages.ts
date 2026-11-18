@@ -465,6 +465,8 @@ export const messages = {
     state: '상태',
     stateName: { OPEN: '접수됨', ASSIGNED: '맡음', ACTION_PENDING: '조치 대기', MONITORING: '지켜보는 중', RESOLUTION_REVIEW: '결과 검토', CLOSED: '처리 끝남', REOPENED: '다시 처리 중' } as Readonly<Record<string, string>>,
     openedAt: '접수 시각',
+    previewGroup: '팀',
+    previewObligations: '열린 후속 처리',
     detailTitle: (id: string) => `접수 건 ${id}`,
     history: '이력',
     closure: '처리 결과',
@@ -977,6 +979,17 @@ export const messages = {
     title: '최근 본 항목',
     clear: '지우기',
     kind: { order: '주문', delivery: '배송', claim: '클레임', case: '접수 건', inquiry: '고객 문의', riderInquiry: '라이더 문의', product: '상품', approval: '승인' } as const,
+  },
+  /** 목록 미리보기 칸(2026-11-18) */
+  preview: {
+    label: '미리보기',
+    prev: '앞 줄',
+    next: '다음 줄',
+    close: '닫기',
+    openDetail: '상세 열기',
+    position: (n: number, total: number) => `${total}줄 중 ${n}번째 · ↑↓ 로 넘기기`,
+    lines: '품목',
+    moreLines: (n: number) => `외 ${n}개`,
   },
   /** 번호 복사(2026-11-18) */
   copy: {
@@ -2093,6 +2106,8 @@ export const messages = {
     composerHint: '보낸 답변은 고칠 수 없어요.',
     // 쉽게 보기(2026-11-18 사용자 "직관적이지 않다") — 제목·들어온 곳 이름·다음 할 일
     untitled: '제목 없는 문의',
+    previewReplies: (n: number) => (n === 0 ? '답변' : `답변 ${n}개 · 마지막`),
+    previewNoReply: '아직 답변이 없어요.',
     originName: { INQUIRY_PAGE: '문의 페이지', ASSISTANT_HANDOFF: 'AI 상담에서 넘어옴', STAFF_INTAKE: '상담원 접수' } as Readonly<Record<string, string>>,
     next: {
       readOnly: '보기만 할 수 있어요',

@@ -45,7 +45,7 @@ function saveViews(listKey: string, views: readonly SavedView[]): void {
 /** 저장할 주소 조건 — 쪽(cursor·page)과 개인정보 조건은 뺀다. 남는 게 없으면 빈 문자열 */
 export function cleanSearch(search: string): string {
   const p = new URLSearchParams(search);
-  for (const k of ['cursor', 'page', ...PII_PARAMS]) p.delete(k);
+  for (const k of ['cursor', 'page', 'preview', ...PII_PARAMS]) p.delete(k);
   p.sort();
   const s = p.toString();
   return s ? `?${s}` : '';

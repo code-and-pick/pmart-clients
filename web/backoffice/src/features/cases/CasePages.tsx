@@ -34,6 +34,7 @@ import { useSession } from '../../app/SessionContext';
 import { CodeLabel, NextAction, PageHeader, StatusBadge, type Tone } from '../../shared/admin';
 import { SavedViews } from '../../shared/SavedViews';
 import { useRecordRecent } from '../../shared/recentViews';
+import { PreviewDrawer, PreviewFacts, usePreview } from '../../shared/Preview';
 import { messages as m } from '../../shared/messages';
 import { label, text, when } from '../../shared/ops';
 import { SourceStamps } from '../../shared/SourceStamps';
@@ -351,7 +352,8 @@ function Prop({ name, children, testId }: { readonly name: ReactNode; readonly c
 export function CaseListPage() {
   const api = useApi();
   const { me, admin, agent } = useCaseRoles();
-  const navigate = useNavigate();
+  // 미리보기 칸(2026-11-18) — 줄을 누르면 목록을 떠나지 않고 오른쪽에 요약
+  const pv = usePreview();
   // 반품 회수 실패(CS 팀)는 상담원·관리자만 — 지원센터에는 안 보인다(서버도 목록에서 뺀다)
   const kinds = admin ? [...DELIVERY_KINDS, ...CS_KINDS, ...ORDER_KINDS] : agent ? [...DELIVERY_KINDS, ...CS_KINDS] : DELIVERY_KINDS;
   const [params, setParams] = useSearchParams();
@@ -449,8 +451,8 @@ export function CaseListPage() {
                       <tr
                         key={c.caseId ?? `case-${i}`}
                         data-testid="case-row"
-                        className={`cursor-pointer ${c.overdue ? 'bg-error/5 shadow-[inset_3px_0_0_var(--color-error)]' : ''}`}
-                        onClick={() => c.caseId && void navigate(`/cases/${encodeURIComponent(c.caseId)}`)}
+                        {...pv.row(c.caseId)}
+                        className={`${pv.row(c.caseId).className ?? ''} ${c.overdue && pv.id !== c.caseId ? 'bg-error/5 shadow-[inset_3px_0_0_var(--color-error)]' : ''}`}
                       >
                         <td>
                           <PriorityBadge p={c.priority} />
@@ -502,6 +504,18 @@ export function CaseListPage() {
                   </tbody>
                 </table>
               </div>
+              {pv.id && (
+                <PreviewDrawer
+                  id={pv.id}
+                  ids={(r.items ?? []).map((c) => c.caseId ?? '').filter(Boolean)}
+                  onMove={pv.open}
+                  onClose={pv.close}
+                  title={label(m.cases.kindName, (r.items ?? []).find((c) => c.caseId === pv.id)?.kind)}
+                  detailTo={`/cases/${encodeURIComponent(pv.id)}`}
+                >
+                  <CasePreview caseId={pv.id} />
+                </PreviewDrawer>
+              )}
               {/* 아래: 이 쪽 건수 · 쪽 넘기기 */}
               <div className="flex flex-wrap items-center justify-between gap-2 border-t border-base-300 px-4 py-3 text-sm">
                 <span className="text-base-content/55">{m.cases.shown((r.items ?? []).length)}</span>
@@ -525,6 +539,36 @@ export function CaseListPage() {
         </QueryState>
       </div>
     </section>
+  );
+}
+
+/** 접수 건 미리보기 — 상세와 같은 조회 키(상세로 가도 다시 읽지 않는다). 맡기·완료 처리 같은 조치는 상세에서 */
+function CasePreview({ caseId }: { readonly caseId: string }) {
+  const api = useApi();
+  const q = useQuery({ queryKey: ['cases', 'detail', caseId], queryFn: () => request('GET', api.cases.GET('/cases/{caseId}', { params: { path: { caseId } } })) });
+  return (
+    <QueryState state={toUiState(q)} onRetry={() => void q.refetch()}>
+      {(c) => (
+        <div className="space-y-4" data-testid="case-preview">
+          <div className="flex flex-wrap items-center gap-2">
+            <PriorityBadge p={c.priority} />
+            <KindBadge kind={c.kind} />
+            <StatusBadge tone={stateTone(c)}>{c.state ? <CodeLabel code={c.state} names={m.cases.stateName} /> : m.none}</StatusBadge>
+          </div>
+          {c.summary && <p className="rounded-box bg-base-200/60 px-3 py-2 text-sm">{c.summary}</p>}
+          <PreviewFacts
+            rows={[
+              [m.cases.sla, <Sla key="s" c={{ slaDueAt: c.slaDueAt ?? null, overdue: c.overdue ?? false }} />],
+              [m.cases.previewGroup, label(m.cases.groupName, c.assigneeGroup)],
+              [m.cases.assignee, <Person key="a" id={c.assigneeId} />],
+              [m.cases.openedAt, when(c.openedAt)],
+              (c.openObligationCount ?? 0) > 0 && [m.cases.previewObligations, <span key="o" className="font-semibold text-warning">{c.openObligationCount}</span>],
+            ]}
+          />
+          <Refs c={c} />
+        </div>
+      )}
+    </QueryState>
   );
 }
 

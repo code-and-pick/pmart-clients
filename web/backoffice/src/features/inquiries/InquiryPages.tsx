@@ -9,7 +9,7 @@
 // 상세는 왼쪽 대화(고객/라이더 말풍선 ↔ 답변 말풍선, 아래 답변 쓰기 카드), 오른쪽 정보 카드(문의 정보·고객/라이더·이어서 할 일·연락 기록). 동작은 그대로.
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, type ReactNode } from 'react';
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
+import { Link, useParams, useSearchParams } from 'react-router';
 
 import { request } from '@pmart/web-core';
 import { formatSeoul, QueryState, toUiState, uiStateFromError, useCommand } from '@pmart/web-ui';
@@ -27,6 +27,7 @@ import { useDeliveryNumber, useOrderNumbers, useRiderLabels } from '../../shared
 import { SavedViews } from '../../shared/SavedViews';
 import { LeaveGuard } from '../../shared/LeaveGuard';
 import { useRecordRecent } from '../../shared/recentViews';
+import { PreviewDrawer, usePreview } from '../../shared/Preview';
 import { messages as m } from '../../shared/messages';
 
 type Inquiry = components['schemas']['Inquiry'];
@@ -81,6 +82,8 @@ function Time({ iso }: { readonly iso: string | null | undefined }) {
 /** 문의 목록(최근 접수 순). 상태 필터는 URL 쿼리(`?status=`)에 둔다 — 서버에 그대로 묻는다(화면에서 거르지 않는다). */
 export function InquiryListPage({ kind = 'CUSTOMER' }: { readonly kind?: RequesterType }) {
   const api = useApi();
+  // 미리보기 칸(2026-11-18) — 줄을 누르면 목록을 떠나지 않고 오른쪽에 문의·마지막 답변
+  const pv = usePreview();
   const rider = kind === 'RIDER';
   const [search, setSearch] = useSearchParams();
   const raw = search.get('status');
@@ -99,7 +102,6 @@ export function InquiryListPage({ kind = 'CUSTOMER' }: { readonly kind?: Request
     getNextPageParam: (last) => last.page?.nextCursor ?? undefined,
   });
   const items: InquirySummary[] = query.data?.pages.flatMap((p) => p.items ?? []) ?? [];
-  const navigate = useNavigate();
   const tabs: ReadonlyArray<{ readonly value: InquiryStatus | ''; readonly label: string }> = [
     { value: '', label: m.inquiries.all },
     ...STATUSES.map((st) => ({ value: st, label: m.inquiries.status[st] ?? st })),
@@ -160,7 +162,7 @@ export function InquiryListPage({ kind = 'CUSTOMER' }: { readonly kind?: Request
                 </thead>
                 <tbody>
                   {items.map((i) => (
-                    <tr key={i.inquiryId} data-testid="inquiry-row" className="cursor-pointer" onClick={() => void navigate(`${basePath(kind)}/${encodeURIComponent(i.inquiryId)}`)}>
+                    <tr key={i.inquiryId} data-testid="inquiry-row" {...pv.row(i.inquiryId)}>
                       <td className="max-w-xl">
                         <p className="truncate font-medium" title={i.title ?? undefined}>
                           {i.title ?? m.none}
@@ -200,6 +202,18 @@ export function InquiryListPage({ kind = 'CUSTOMER' }: { readonly kind?: Request
                 </tbody>
               </table>
             </div>
+            {pv.id && (
+              <PreviewDrawer
+                id={pv.id}
+                ids={items.map((i) => i.inquiryId)}
+                onMove={pv.open}
+                onClose={pv.close}
+                title={items.find((i) => i.inquiryId === pv.id)?.title ?? m.inquiries.untitled}
+                detailTo={`${basePath(kind)}/${encodeURIComponent(pv.id)}`}
+              >
+                <InquiryPreview inquiryId={pv.id} />
+              </PreviewDrawer>
+            )}
             {/* 아래: 받은 건수 · 더 보기. 다음 쪽을 못 읽으면 받은 줄은 두고 경고만 */}
             <div className="flex flex-wrap items-center justify-between gap-2 border-t border-base-300 px-4 py-3 text-sm">
               <span className="text-base-content/55" data-testid="result-count">
@@ -216,6 +230,43 @@ export function InquiryListPage({ kind = 'CUSTOMER' }: { readonly kind?: Request
         )}
       </div>
     </section>
+  );
+}
+
+/** 문의 미리보기 — 상세와 같은 조회 키. 답변 쓰기·닫기는 상세에서 */
+function InquiryPreview({ inquiryId }: { readonly inquiryId: string }) {
+  const api = useApi();
+  const q = useQuery({
+    queryKey: ['inquiries', 'detail', inquiryId],
+    queryFn: () => request('GET', api.cases.GET('/inquiries/{inquiryId}', { params: { path: { inquiryId } } })),
+  });
+  return (
+    <QueryState state={toUiState(q)} onRetry={() => void q.refetch()}>
+      {(d) => {
+        const last = d.replies.at(-1);
+        return (
+          <div className="space-y-4" data-testid="inquiry-preview">
+            <div className="flex flex-wrap items-center gap-2">
+              <StatusBadge tone={statusTone(d.status)}>{codeOf(m.inquiries.status, d.status)}</StatusBadge>
+              <CategoryTag value={d.category} />
+            </div>
+            <p className="text-xs text-base-content/55">{`${m.inquiries.requesterName[d.requesterType ?? 'CUSTOMER'] ?? ''} · ${formatSeoul(d.createdAt)}`}</p>
+            <p className="line-clamp-6 whitespace-pre-wrap rounded-box bg-base-200/60 px-3 py-2 text-sm">{d.body}</p>
+            <div className="text-sm">
+              <p className="mb-1 text-xs font-semibold text-base-content/60">{m.inquiries.previewReplies(d.replies.length)}</p>
+              {last ? (
+                <div className="rounded-box border border-base-300 px-3 py-2">
+                  <p className="text-xs text-base-content/50">{`${last.authorType === 'RIDER' ? m.inquiries.fromRider : m.inquiries.fromStaffReply} · ${last.createdAt ? formatSeoul(last.createdAt) : ''}`}</p>
+                  <p className="line-clamp-4 whitespace-pre-wrap">{last.body}</p>
+                </div>
+              ) : (
+                <p className="text-base-content/50">{m.inquiries.previewNoReply}</p>
+              )}
+            </div>
+          </div>
+        );
+      }}
+    </QueryState>
   );
 }
 

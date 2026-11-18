@@ -4,7 +4,7 @@
 // 검색 조건·배송지·연락처를 로그에 남기지 않는다. 고객센터는 주문을 취소하지 않는다(ADR-0060) — 취소 버튼 없음.
 import { useQuery } from '@tanstack/react-query';
 import { useState, type FormEvent, type ReactNode } from 'react';
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
+import { Link, useParams, useSearchParams } from 'react-router';
 
 import { request } from '@pmart/web-core';
 import { CommandFeedback, QueryState, toUiState, useCommand } from '@pmart/web-ui';
@@ -18,6 +18,7 @@ import { CopyButton } from '../../shared/CopyButton';
 import { useRecordRecent } from '../../shared/recentViews';
 import { DisplayNumber, SystemNumbers } from '../../shared/displayNumber';
 import { isOrderNumber } from '../../shared/numberLookups';
+import { PreviewDrawer, PreviewFacts, usePreview } from '../../shared/Preview';
 import { messages as m } from '../../shared/messages';
 import { addSeoulDays, isSeoulDate, label, seoulDayEnd, seoulDayStart, seoulToday, spanDays, text, when, won } from '../../shared/ops';
 import { ClaimsOfOrder } from '../claims/ClaimPages';
@@ -120,7 +121,8 @@ export function OrderLookupPage() {
     onChange: (e: { target: { value: string } }) => setDraft((d) => ({ ...d, [k]: e.target.value })),
   });
 
-  const navigate = useNavigate();
+  // 미리보기 칸(2026-11-18) — 줄을 누르면 목록을 떠나지 않고 오른쪽에 요약, 번호 링크는 그대로 상세로
+  const pv = usePreview();
   const reset = () => setDraft({ orderId: '', customerId: '', status: '', mfcId: '', receiverPhone: '', from: addSeoulDays(seoulToday(), -6), to: seoulToday() });
   const statusOptions = [{ value: '', label: m.orders.any }, ...STATUSES.map((st) => ({ value: st, label: m.orders.statusName[st] ?? st }))];
 
@@ -180,7 +182,7 @@ export function OrderLookupPage() {
                   </thead>
                   <tbody>
                     {r.items.map((o) => (
-                      <tr key={o.orderId} data-testid="order-row" className="cursor-pointer" onClick={() => void navigate(`/orders/${encodeURIComponent(o.orderId)}`)}>
+                      <tr key={o.orderId} data-testid="order-row" {...pv.row(o.orderId)}>
                         <td>
                           <Link className="font-semibold text-base-content hover:text-primary hover:underline" to={`/orders/${encodeURIComponent(o.orderId)}`} onClick={(e) => e.stopPropagation()} data-testid="order-number">
                             <DisplayNumber number={o.orderNumber} systemId={o.orderId} />
@@ -226,6 +228,18 @@ export function OrderLookupPage() {
                     </button>
                   </nav>
                 </ListFoot>
+                {pv.id && (
+                  <PreviewDrawer
+                    id={pv.id}
+                    ids={r.items.map((o) => o.orderId)}
+                    onMove={pv.open}
+                    onClose={pv.close}
+                    title={<DisplayNumber number={r.items.find((o) => o.orderId === pv.id)?.orderNumber} systemId={pv.id} />}
+                    detailTo={`/orders/${encodeURIComponent(pv.id)}`}
+                  >
+                    <OrderPreview orderId={pv.id} />
+                  </PreviewDrawer>
+                )}
               </>
             )
           }
@@ -370,6 +384,47 @@ function AmountRow({ name, value, sub, strong = false }: { readonly name: string
       </div>
       <p className="whitespace-nowrap tabular-nums">{value}</p>
     </div>
+  );
+}
+
+/** 주문 미리보기 — 상세와 같은 조회 키(상세로 가도 다시 읽지 않는다) */
+function OrderPreview({ orderId }: { readonly orderId: string }) {
+  const api = useApi();
+  const q = useQuery({
+    queryKey: ['orders', 'lookup', orderId],
+    queryFn: () => request('GET', api.orders.GET('/orders/lookups/{orderId}', { params: { path: { orderId } } })),
+  });
+  return (
+    <QueryState state={toUiState(q)} onRetry={() => void q.refetch()}>
+      {(o) => (
+        <div className="space-y-4" data-testid="order-preview">
+          <div className="flex flex-wrap items-center gap-2">
+            <StatusBadge tone={statusTone(o.status)}>{o.status ? <CodeLabel code={o.status} names={m.orders.statusName} /> : m.none}</StatusBadge>
+            <KindChip icon="truck">{label(m.orders.mode, o.deliveryMode)}</KindChip>
+          </div>
+          <OrderProgress status={o.status} />
+          <PreviewFacts
+            rows={[
+              [m.orders.confirmedAt, when(o.confirmedAt)],
+              [m.orders.mfcId, o.mfcId],
+              [m.orders.total, <span key="t" className="font-semibold">{won(o.amounts.approvedAmount)}</span>],
+              [
+                m.preview.lines,
+                <ul key="l" className="space-y-0.5">
+                  {o.lines.slice(0, 3).map((l) => (
+                    <li key={l.orderLineId} className="flex justify-between gap-2">
+                      <span className="truncate">{l.productName ?? l.sku}</span>
+                      <span className="shrink-0 tabular-nums text-base-content/60">×{l.originalQty}</span>
+                    </li>
+                  ))}
+                  {o.lines.length > 3 && <li className="text-xs text-base-content/50">{m.preview.moreLines(o.lines.length - 3)}</li>}
+                </ul>,
+              ],
+            ]}
+          />
+        </div>
+      )}
+    </QueryState>
   );
 }
 

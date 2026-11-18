@@ -124,3 +124,10 @@ main [data-state='loading']::after {
     animation: none;
   }
 }
+
+/* 미리보기 칸이 열리면 넓은 화면에서는 본문을 그 폭만큼 비켜 목록 오른쪽 칸이 가리지 않게(2026-11-18) — 좁은 화면은 칸이 위에 덮는다 */
+@media (min-width: 1280px) {
+  main:has([data-testid='preview-drawer']) {
+    padding-right: calc(26rem + 1.5rem);
+  }
+}

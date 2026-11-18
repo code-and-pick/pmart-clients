@@ -16,6 +16,7 @@ import { useApi } from '../../app/ApiContext';
 import { CommandFeedback } from '../../shared/Feedback';
 import { DisplayNumber, RiderLabel, SystemNumbers } from '../../shared/displayNumber';
 import { RiderCard } from '../riders/RiderCard';
+import { PreviewDrawer, PreviewFacts, usePreview } from '../../shared/Preview';
 import { isOrderNumber, isRiderNumber, riderIdOfNumber, useRiderLabels } from '../../shared/numberLookups';
 import { SavedViews } from '../../shared/SavedViews';
 import { CopyButton } from '../../shared/CopyButton';
@@ -68,7 +69,8 @@ const dispatchTone = (s: string | null | undefined): Tone =>
 const TYPE_TONE: Readonly<Record<string, Tone>> = { FORWARD: 'info', RETURN: 'warning', RESHIPMENT: 'accent' };
 
 /** 직원 배송 목록 한 표(ID·상태·시각만 — 개인정보 없음) */
-export function DeliveryTable({ rows }: { readonly rows: readonly StaffDeliverySummary[] }) {
+/** preview 를 주면 줄을 눌렀을 때 미리보기 칸(배송 확인 화면만 — 주문·라이더 상세 안의 표는 상세로) */
+export function DeliveryTable({ rows, preview }: { readonly rows: readonly StaffDeliverySummary[]; readonly preview?: ReturnType<typeof usePreview> }) {
   const rowLink = useRowLink();
   // 화면 번호(ADR-0070, 2026-11-18): 배송·주문은 응답의 deliveryNumber·orderNumber, 라이더는 rider 일괄 조회(riderIds)
   const riders = useRiderLabels(rows.map((d) => d.riderId));
@@ -87,7 +89,7 @@ export function DeliveryTable({ rows }: { readonly rows: readonly StaffDeliveryS
       </thead>
       <tbody>
         {rows.map((d, i) => (
-          <tr key={d.deliveryId ?? `dlv-${i}`} data-testid="delivery-row" {...(d.deliveryId ? rowLink(`/deliveries/${encodeURIComponent(d.deliveryId)}`) : {})}>
+          <tr key={d.deliveryId ?? `dlv-${i}`} data-testid="delivery-row" {...(d.deliveryId ? (preview ? preview.row(d.deliveryId) : rowLink(`/deliveries/${encodeURIComponent(d.deliveryId)}`)) : {})}>
             {/* 첫 칸: 배송 번호 굵게(링크) — 상세로 가는 첫 링크 */}
             <td>
               <Link className="font-semibold text-base-content hover:text-primary hover:underline" to={`/deliveries/${encodeURIComponent(d.deliveryId ?? '')}`} data-testid="delivery-number">
@@ -151,6 +153,8 @@ export function DeliveriesOf({ riderId, orderId }: { readonly riderId?: string; 
  */
 export function DeliveryOpenPage() {
   const api = useApi();
+  // 미리보기 칸(2026-11-18)
+  const pv = usePreview();
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const [id, setId] = useState('');
@@ -284,7 +288,19 @@ export function DeliveryOpenPage() {
             return (
               <>
                 <ResultBar count={rows.length} more={!!nextCursor} />
-                <DeliveryTable rows={rows} />
+                <DeliveryTable rows={rows} preview={pv} />
+                {pv.id && (
+                  <PreviewDrawer
+                    id={pv.id}
+                    ids={rows.map((d) => d.deliveryId ?? '').filter(Boolean)}
+                    onMove={pv.open}
+                    onClose={pv.close}
+                    title={<DisplayNumber number={rows.find((d) => d.deliveryId === pv.id)?.deliveryNumber} systemId={pv.id} />}
+                    detailTo={`/deliveries/${encodeURIComponent(pv.id)}`}
+                  >
+                    <DeliveryPreview deliveryId={pv.id} />
+                  </PreviewDrawer>
+                )}
                 {nextCursor && (
                   <ListFoot>
                     <span className="text-base-content/55">{m.approvals.shown(rows.length, true)}</span>
@@ -498,6 +514,42 @@ function PanelTitle({ icon, title, source }: { readonly icon: 'truck' | 'user'; 
       </span>
       {title}
     </span>
+  );
+}
+
+/** 배송 미리보기 — 배송 수행 칸과 같은 조회 키(상세로 가도 다시 읽지 않는다). 배차는 상세에서 */
+function DeliveryPreview({ deliveryId }: { readonly deliveryId: string }) {
+  const api = useApi();
+  const q = useQuery({
+    queryKey: ['deliveries', deliveryId, 'execution'],
+    queryFn: () => request('GET', api.execution.GET('/deliveries/{deliveryId}', { params: { path: { deliveryId } } })),
+  });
+  const riders = useRiderLabels([q.data?.riderId]);
+  return (
+    <QueryState state={toUiState(q)} onRetry={() => void q.refetch()}>
+      {(d) => (
+        <div className="space-y-4" data-testid="delivery-preview">
+          <div className="flex flex-wrap items-center gap-2">
+            <StatusBadge tone={executionTone(d.state)}>{d.state ? <CodeLabel code={d.state} names={m.deliveries.executionState} /> : m.none}</StatusBadge>
+            <KindChip tone={TYPE_TONE[d.type ?? ''] ?? 'ghost'} icon={d.type === 'FORWARD' ? 'truck' : 'return'}>
+              {label(m.deliveries.typeName, d.type)}
+            </KindChip>
+          </div>
+          <PreviewFacts
+            rows={[
+              [m.deliveries.order, d.orderId ? <DisplayNumber key="o" number={d.orderNumber} systemId={d.orderId} /> : m.none],
+              [m.deliveries.rider, d.riderId ? <RiderLabel key="r" rider={riders.get(d.riderId)} riderId={d.riderId} failed={riders.failed} /> : m.deliveries.noAssignment],
+              [m.deliveries.mfc, text(d.mfcId)],
+              [m.deliveries.assignedAt, when(d.assignedAt)],
+              [m.deliveries.completedAt, when(d.completedAt)],
+            ]}
+          />
+          {(d.history?.length ?? 0) > 0 && (
+            <Timeline items={(d.history ?? []).slice(-3).reverse().map((h, n) => ({ key: `${h.state}-${n}`, tone: 'info', title: label(m.deliveries.executionState, h.state), meta: when(h.occurredAt) }))} />
+          )}
+        </div>
+      )}
+    </QueryState>
   );
 }
 
