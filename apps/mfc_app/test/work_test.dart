@@ -12,6 +12,7 @@ import 'package:mfc_app/app.dart';
 import 'package:mfc_app/features/packing/data/mock_packing_repository.dart';
 import 'package:mfc_app/features/packing/presentation/packing_controller.dart';
 import 'package:mfc_app/features/tasks/data/mock_task_repository.dart';
+import 'package:mfc_app/features/tasks/domain/task_list.dart';
 import 'package:mfc_app/features/tasks/presentation/task_controllers.dart';
 import 'package:mfc_app/features/work/data/mock_work_repository.dart';
 import 'package:mfc_app/features/work/data/work_repository.dart';
@@ -231,7 +232,9 @@ void main() {
     expect(t.takeException(), isNull);
   });
 
-  testWidgets('피킹 끝 → 패킹 배정 직후 작업이 아직 READY 여도 시작해서 패킹이 열린다(배정 사건 늦음)', (t) async {
+  testWidgets('피킹 끝 → 패킹 배정 직후 작업이 아직 READY 여도 시작해서 패킹이 열린다(배정 사건 늦음)', (
+    t,
+  ) async {
     tasks.packReadyBeforeAssignmentEvent = true;
     await pumpApp(t);
     await tapKey(t, 'area-pickPack');
@@ -256,12 +259,68 @@ void main() {
       await scanTo('scan-field', code);
     }
     expect(tasks.taskJson('shp-1-PACK')['state'], 'READY');
+    // capacity 는 새 배정(버전 2), 상세는 옛 버전 1 — 다음 작업 받기 버전으로 시작해야 한다.
+    expect(tasks.capacityAssignmentVersions['shp-1-PACK'], 2);
+    expect(
+      (tasks.taskJson('shp-1-PACK')['assignment']! as Map)['assignmentVersion'],
+      1,
+    );
 
     await tapKey(t, 'to-pack');
     expect(find.byKey(const ValueKey('start-message')), findsNothing);
     expect(find.text('주문 order-seed-1 · 상품 4종 5개'), findsOneWidget);
     expect(tasks.taskJson('shp-1-PACK')['state'], 'IN_PROGRESS');
     expect(t.takeException(), isNull);
+  });
+
+  testWidgets(
+    '시작이 VERSION_CONFLICT 면 상세를 다시 읽어 내 배정의 새 버전으로 한 번 더 — "배정이 바뀌었어요" 안 뜸',
+    (t) async {
+      await pumpApp(t);
+      final c = ProviderScope.containerOf(t.element(find.byType(MfcApp)));
+      // 화면이 들고 있던 상세는 배정 버전 1, 서버(capacity)는 2.
+      const stale = TaskDetailView(
+        taskId: 'task-mock-1',
+        kind: TaskKind.pick,
+        state: TaskState.assigned,
+        version: 1,
+        lines: [],
+        assignedWorkerId: MockTaskRepository.workerId,
+        assignmentVersion: 1,
+      );
+      final sub = c.listen(startFlowProvider('task-mock-1'), (_, _) {});
+      await t.runAsync(
+        () => c.read(startFlowProvider('task-mock-1').notifier).start(stale),
+      );
+      expect(sub.read().phase, StartPhase.applied);
+      expect(tasks.taskJson('task-mock-1')['state'], 'IN_PROGRESS');
+      sub.close();
+    },
+  );
+
+  testWidgets('다른 사람 배정으로 바뀌었으면 다시 보내지 않고 거절 안내 그대로', (t) async {
+    await pumpApp(t);
+    final c = ProviderScope.containerOf(t.element(find.byType(MfcApp)));
+    (tasks.taskJson('task-mock-1')['assignment']! as Map)
+      ..['workerId'] = 'OP-other'
+      ..['assignmentVersion'] = 3;
+    tasks.capacityAssignmentVersions['task-mock-1'] = 3;
+    const stale = TaskDetailView(
+      taskId: 'task-mock-1',
+      kind: TaskKind.pick,
+      state: TaskState.assigned,
+      version: 1,
+      lines: [],
+      assignedWorkerId: MockTaskRepository.workerId,
+      assignmentVersion: 2,
+    );
+    final sub = c.listen(startFlowProvider('task-mock-1'), (_, _) {});
+    await t.runAsync(
+      () => c.read(startFlowProvider('task-mock-1').notifier).start(stale),
+    );
+    expect(sub.read().phase, StartPhase.rejected);
+    expect(tasks.taskJson('task-mock-1')['state'], 'ASSIGNED');
+    sub.close();
   });
 
   testWidgets('검수: 줄 작업이 없으면 "지금 할 작업이 없어요" + 다시 받기', (t) async {

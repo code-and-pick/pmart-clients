@@ -105,6 +105,23 @@ final taskQueueProvider = FutureProvider.autoDispose
 // ---------------------------------------------------------------------------
 // 작업 시작(§3-1)
 
+/// 다음 작업 받기로 받은 배정 버전(작업 ID → capacity assignmentVersion). 시작 때 작업 상세 값보다 먼저 쓴다 —
+/// 배정 직후 fulfillment 상세에는 아직 배정 버전이 없다(서버 시작 판정은 capacity 배정과 비교, TaskRules.startRejection).
+final knownAssignmentVersionsProvider =
+    NotifierProvider<KnownAssignmentVersions, Map<String, int>>(
+      KnownAssignmentVersions.new,
+    );
+
+class KnownAssignmentVersions extends Notifier<Map<String, int>> {
+  @override
+  Map<String, int> build() => const {};
+
+  void put(String taskId, int? version) {
+    if (version == null || state[taskId] == version) return;
+    state = {...state, taskId: version};
+  }
+}
+
 enum StartPhase {
   idle,
   starting,
@@ -144,10 +161,16 @@ class StartController extends Notifier<StartFlow> {
     final repo = ref.read(taskRepositoryProvider);
     final worker = ref.read(currentWorkerIdProvider);
     final device = await ref.read(deviceIdProvider).get();
+    // 배정 버전은 늘기만 한다 — 다음 작업 받기 값과 상세 값 중 큰 쪽.
+    final known = ref.read(knownAssignmentVersionsProvider)[taskId];
+    var version = [
+      task.assignmentVersion ?? 0,
+      known ?? 0,
+    ].reduce((a, b) => a > b ? a : b);
     var outcome = await repo.start(
       taskId,
       workerId: worker,
-      assignmentVersion: task.assignmentVersion ?? 0,
+      assignmentVersion: version,
       deviceId: device,
       key: key,
     );
@@ -157,10 +180,34 @@ class StartController extends Notifier<StartFlow> {
       outcome = await repo.start(
         taskId,
         workerId: worker,
-        assignmentVersion: task.assignmentVersion ?? 0,
+        assignmentVersion: version,
         deviceId: device,
         key: key,
       );
+    }
+    // 그래도 VERSION_CONFLICT 면 상세를 다시 읽어 내 배정의 새 버전으로 한 번만 다시 보낸다(새 키 — 앞 요청은 거절 확정).
+    // 다른 사람 배정이면 다시 보내지 않는다(거절 안내 그대로).
+    if (outcome case StartRejected(code: TaskProblemCode.versionConflict)) {
+      if (!ref.mounted) return;
+      try {
+        final fresh = await repo.task(taskId);
+        final v = fresh.assignmentVersion;
+        if (v != null &&
+            v != version &&
+            fresh.assignedWorkerId == worker &&
+            ref.mounted) {
+          version = v;
+          outcome = await repo.start(
+            taskId,
+            workerId: worker,
+            assignmentVersion: version,
+            deviceId: device,
+            key: IdempotencyKey.generate(),
+          );
+        }
+      } on PmartFailure {
+        // 다시 읽지 못하면 처음 거절을 보인다.
+      }
     }
     if (!ref.mounted) return;
     switch (outcome) {

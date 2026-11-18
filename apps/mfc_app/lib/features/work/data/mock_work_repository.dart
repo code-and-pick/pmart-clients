@@ -158,6 +158,9 @@ final class MockWorkRepository implements WorkRepository {
       AssignedTask(
         taskId: t['taskId']! as String,
         taskType: t['taskType']! as String,
+        assignmentVersion:
+            tasks.capacityAssignmentVersions[t['taskId']] ??
+            (t['assignment'] as Map?)?['assignmentVersion'] as int?,
         promisedReadyAt: switch (t['promisedReadyAt']) {
           final String s => DateTime.parse(s),
           _ => null,

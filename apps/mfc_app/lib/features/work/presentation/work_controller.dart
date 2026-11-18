@@ -108,6 +108,9 @@ class WorkSessionController extends Notifier<SessionState> {
     switch (outcome) {
       case NextAssigned(:final task):
         _pending = null;
+        ref
+            .read(knownAssignmentVersionsProvider.notifier)
+            .put(task.taskId, task.assignmentVersion);
         state = state.copyWith(
           phase: SessionPhase.assigned,
           task: () => task,
@@ -151,6 +154,11 @@ Future<void> continueToPack(BuildContext context, WidgetRef ref) async {
         WorkArea.pickPack,
         key: IdempotencyKey.generate(),
       );
+  if (outcome case NextAssigned(:final task)) {
+    ref
+        .read(knownAssignmentVersionsProvider.notifier)
+        .put(task.taskId, task.assignmentVersion);
+  }
   if (!context.mounted) return;
   ref.invalidate(workSessionProvider(WorkArea.pickPack));
   if (outcome case NextAssigned(:final task) when task.taskType == 'PACK') {

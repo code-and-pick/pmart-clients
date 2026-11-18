@@ -110,9 +110,14 @@ class AssignedTask {
     this.urgent = false,
     this.lines = const [],
     this.detailAvailable = true,
+    this.assignmentVersion,
   });
 
   final String taskId;
+
+  /// capacity 배정 버전(다음 작업 받기 응답) — 작업 시작에 보낸다. fulfillment 작업 상세는 배정 사건을 받기 전이라
+  /// 비어 있거나 옛 값일 수 있다(2026-11-18 실서버 — 패킹 시작이 VERSION_CONFLICT).
+  final int? assignmentVersion;
 
   /// 계약 TaskType 값(PICK·PACK·RETURN·REPLENISH·MOVE·RECEIVE·INSPECT·PUTAWAY).
   final String taskType;

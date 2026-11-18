@@ -177,6 +177,7 @@ AssignedTask assignedTaskFromContract(cap.Assignment a) {
     taskType:
         a.taskType ?? (throw const ContractViolationFailure('taskType 없음')),
     detailAvailable: d?.available ?? false,
+    assignmentVersion: a.assignmentVersion,
     promisedReadyAt: d?.promisedReadyAt,
     urgent: d?.urgent ?? false,
     lines: [

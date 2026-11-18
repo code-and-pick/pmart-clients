@@ -171,6 +171,10 @@ base class MockTaskRepository implements TaskRepository {
   /// 피킹이 끝나 열린 패킹을 READY 로 둔다 — 실서버에서 배정 사건이 fulfillment 에 닿기 전(배정은 capacity 에 있다).
   bool packReadyBeforeAssignmentEvent = false;
 
+  /// capacity 쪽 배정 버전(작업 ID → 버전). 있으면 시작 판정은 이 값과 비교한다 — 작업 상세의 배정 버전은
+  /// 배정 사건이 닿기 전이라 옛 값이다(실서버 TaskRules.startRejection 은 capacity 배정과 비교).
+  final Map<String, int> capacityAssignmentVersions = {};
+
   /// 실행이 재고 반영까지 몇 번 조회해야 하는지.
   int confirmPolls = 1;
 
@@ -438,7 +442,9 @@ base class MockTaskRepository implements TaskRepository {
       reject = TaskProblemCode.invalidState;
     } else if (assignment['workerId'] != workerId) {
       reject = TaskProblemCode.notAssignee;
-    } else if (assignment['assignmentVersion'] != assignmentVersion) {
+    } else if ((capacityAssignmentVersions[taskId] ??
+            assignment['assignmentVersion']) !=
+        assignmentVersion) {
       reject = TaskProblemCode.versionConflict;
     } else {
       reject = null;
@@ -591,6 +597,12 @@ base class MockTaskRepository implements TaskRepository {
               x['shipmentId'] == t['shipmentId'] &&
               x['state'] == 'WAITING') {
             x['state'] = packReadyBeforeAssignmentEvent ? 'READY' : 'ASSIGNED';
+            if (packReadyBeforeAssignmentEvent) {
+              // capacity 는 피커에게 새 배정(버전 +1) — 상세는 아직 옛 버전.
+              final a = x['assignment'] as Map?;
+              capacityAssignmentVersions[x['taskId']! as String] =
+                  ((a?['assignmentVersion'] as int?) ?? 0) + 1;
+            }
           }
         }
       }
