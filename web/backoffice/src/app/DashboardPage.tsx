@@ -218,7 +218,7 @@ export function DashboardPage() {
   if (can('/pending')) tasks.push(<TaskRow key="pending" alert="pending" title={m.pending} to="/pending" tone="warning" group="pending" {...(exact(wc.sum('PENDING_WORK', 'COUNT')) ? { exact: exact(wc.sum('PENDING_WORK', 'COUNT'))! } : {})} />);
   if (can('/inquiries')) tasks.push(<TaskRow key="inq" alert="inquiries" title={m.inquiries} to="/inquiries?status=RECEIVED" tone="info" group="cs" {...(exact(wc.sum('INQUIRIES', 'AWAITING_ANSWER', 'CUSTOMER')) ? { exact: exact(wc.sum('INQUIRIES', 'AWAITING_ANSWER', 'CUSTOMER'))! } : {})} />);
   if (can('/rider-inquiries')) tasks.push(<TaskRow key="rinq" alert="riderInquiries" title={m.riderInquiries} to="/rider-inquiries?status=RECEIVED" tone="info" group="support" {...(exact(wc.sum('INQUIRIES', 'AWAITING_ANSWER', 'RIDER')) ? { exact: exact(wc.sum('INQUIRIES', 'AWAITING_ANSWER', 'RIDER'))! } : {})} />);
-  if (can('/approvals')) tasks.push(<TaskRow key="apv" alert="approvals" title={m.approvals} to="/approvals?reviewState=REVIEW_PENDING" tone="info" group="approval" {...(exact(wc.sum('APPROVALS', 'REVIEW_PENDING')) ? { exact: exact(wc.sum('APPROVALS', 'REVIEW_PENDING'))! } : {})} />);
+  if (can('/approvals')) tasks.push(<TaskRow key="apv" alert="approvals" title={m.approvals} to="/approvals?reviewState=REVIEW_PENDING" tone="info" group="approval" {...(exact(wc.sum('APPROVALS', 'DECIDABLE_BY_ME')) ? { exact: exact(wc.sum('APPROVALS', 'DECIDABLE_BY_ME'))! } : {})} />);
 
   // 한눈에 숫자 카드(오른쪽 세로) — Eum 숫자 카드 + 오늘 주문은 어제 대비·7일 추세선
   const stats: ReactNode[] = [];

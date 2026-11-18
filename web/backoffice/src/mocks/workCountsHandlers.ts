@@ -77,6 +77,14 @@ export const workCountsHandlers = [
       for (const a of r.items ?? []) byType.set(a.type ?? 'UNKNOWN', (byType.get(a.type ?? 'UNKNOWN') ?? 0) + 1);
       for (const [t, v] of byType) counts.push({ group: 'APPROVALS', key: st, segment: t, value: v, complete: true, source: 'approval-service' });
     }
+    // bff 0.16.0: 보는 사람이 지금 결정할 수 있는 것(AP-3 decidableByMe) — 종류별
+    const mine = (await getJson(request, `${API_BASE}/approvals?reviewState=REVIEW_PENDING&decidableByMe=true&size=200`)) as { items?: Array<{ type?: string }> } | null;
+    if (!mine) approvalsOk = false;
+    else {
+      const byType = new Map<string, number>();
+      for (const a of mine.items ?? []) byType.set(a.type ?? 'UNKNOWN', (byType.get(a.type ?? 'UNKNOWN') ?? 0) + 1);
+      for (const [t, v] of byType) counts.push({ group: 'APPROVALS', key: 'DECIDABLE_BY_ME', segment: t, value: v, complete: true, source: 'approval-service' });
+    }
     if (approvalsOk) sources.push(stamp('approval-service'));
     else unavailable.push('approval-service');
 
