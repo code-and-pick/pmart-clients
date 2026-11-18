@@ -222,9 +222,15 @@ export function ProductDetailPage() {
         }
         summary={p0?.skus ? m.products.skuCount(p0.skus.length) : undefined}
         actions={
-          <Link className="btn btn-sm btn-primary" to={`/contents/drafts/new?productId=${encodeURIComponent(productId)}`}>
-            {m.products.addContent}
-          </Link>
+          <>
+            {/* 옵션 = 같은 기초상품의 다른 판매 단위(E 낱개/B 묶음) — 조합 생성기 대신(2026-11-18 사용자 결정, sameBase.ts) */}
+            <Link className="btn btn-sm" to={`/products/drafts/new?sameBaseAs=${encodeURIComponent(productId)}`} title={m.products.sameBase.hint}>
+              {m.products.sameBase.action}
+            </Link>
+            <Link className="btn btn-sm btn-primary" to={`/contents/drafts/new?productId=${encodeURIComponent(productId)}`}>
+              {m.products.addContent}
+            </Link>
+          </>
         }
       />
       <QueryState state={toUiState(query)} onRetry={() => void query.refetch()}>

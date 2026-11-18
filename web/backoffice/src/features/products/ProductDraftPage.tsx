@@ -3,7 +3,7 @@
 // 왼쪽(2/3) 입력 폼(제목 있는 카드 묶음), 오른쪽(1/3) 검증 카드·다음 단계 카드(제출 준비·승인 요청)·발급 결과 카드. 동작은 그대로.
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 
 import { commandParams } from '../../api/command';
 import type { ProductDraft, ProductDraftInput } from '../../api/models';
@@ -16,6 +16,7 @@ import { toUiState } from '@pmart/web-ui';
 import { useCommand } from '@pmart/web-ui';
 import { RequestApproval } from '../approvals/RequestApproval';
 import { ProductDraftForm } from './ProductDraftForm';
+import { sameBaseInput } from './sameBase';
 import { CodeLabel, NextAction, PageHeader, StatusBadge, type Tone } from '../../shared/admin';
 import { Card, JumpLink, Steps, TitleWithId } from './parts';
 
@@ -79,6 +80,13 @@ export function OpenById({ base }: { readonly base: string }) {
 export function NewProductDraftPage() {
   const api = useApi();
   const navigate = useNavigate();
+  // ?sameBaseAs=<상품 ID>: 그 상품의 기초상품에 붙는 새 상품(다른 판매 단위) — 공통 칸만 채워 연다(sameBase.ts)
+  const sameBaseAs = useSearchParams()[0].get('sameBaseAs') ?? '';
+  const source = useQuery({
+    queryKey: ['product', 'detail', sameBaseAs],
+    enabled: sameBaseAs !== '',
+    queryFn: () => request('GET', api.product.GET('/products/{productId}', { params: { path: { productId: sameBaseAs } } })),
+  });
   const create = useCommand((body: ProductDraftInput, key) =>
     request('POST', api.product.POST('/product-drafts', { ...commandParams(key), body })).then((d) => {
       void navigate(`/products/drafts/${encodeURIComponent(d.draftId)}`);
@@ -91,7 +99,26 @@ export function NewProductDraftPage() {
       <PageHeader title={m.products.draftTitle} actions={<OpenById base="/products/drafts" />} />
       <Steps steps={m.products.draftSteps} now={0} />
       <div className="mx-auto max-w-5xl space-y-4">
-        <ProductDraftForm submitLabel={m.products.create} busy={create.busy} onSubmit={(input) => void create.run(input)} />
+        {sameBaseAs === '' ? (
+          <ProductDraftForm submitLabel={m.products.create} busy={create.busy} onSubmit={(input) => void create.run(input)} />
+        ) : (
+          // 원본 상품을 못 읽으면 빈 폼으로 바꾸지 않는다(기초상품 연결이 빠진 채 새 기초상품이 생기지 않게)
+          <QueryState state={toUiState(source)} onRetry={() => void source.refetch()}>
+            {(p) => (
+              <div className="space-y-4">
+                <NextAction title={m.products.sameBase.title(p.internalName ?? sameBaseAs)} body={m.products.sameBase.body}>
+                  <Link className="btn btn-sm" to={`/products/${encodeURIComponent(sameBaseAs)}`}>
+                    {m.products.sameBase.back}
+                  </Link>
+                </NextAction>
+                <p className="text-xs text-base-content/60" data-testid="same-base-id">
+                  {m.products.sameBase.baseId(p.baseProductId ?? m.none)}
+                </p>
+                <ProductDraftForm key={sameBaseAs} initial={sameBaseInput(p)} submitLabel={m.products.create} busy={create.busy} onSubmit={(input) => void create.run(input)} />
+              </div>
+            )}
+          </QueryState>
+        )}
         <CommandFeedback command={create} />
       </div>
     </section>
@@ -183,6 +210,12 @@ export function ProductDraftPage() {
           <>
             <Steps steps={m.products.draftSteps} now={stepOf(d)} />
             <DraftNextAction draft={d} />
+            {/* 같은 기초상품에 붙는 새 상품(2026-11-18) — 심사하는 사람이 어느 기초상품의 다른 판매 단위인지 본다 */}
+            {!d.input?.targetProductId && d.input?.product.baseProductId && (
+              <p className="rounded-box border border-base-300 bg-base-200/40 px-4 py-2 text-sm" data-testid="draft-base-product">
+                {m.products.sameBase.baseId(d.input.product.baseProductId)}
+              </p>
+            )}
             {/* product 0.3.0 수정 초안(edit-drafts): input.targetProductId = 고칠 상품 */}
             {d.input?.targetProductId && (
               <div className="space-y-1 rounded-box border border-info/30 bg-info/5 px-4 py-3 text-sm" data-testid="product-edit-note">
