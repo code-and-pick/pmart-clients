@@ -43,7 +43,7 @@ import java.util.concurrent.Executors
  *
  * 토큰(사용자 결정 2026-11-18 "앱이 준 토큰으로만"): Dart 가 넘겨 준 access token 만 쓴다(메모리에만, 디스크·로그에 안 남김).
  * refresh 는 하지 않는다 — 회전·재사용 감지라 앱과 엇갈리면 세션이 폐기된다. 넘겨받은 뒤 토큰이 끝나 401 이 오면 받기를 멈추고
- * 상시 알림을 "앱을 열어 주세요"로 바꾼다(닫은 뒤 최대 약 30분 이어짐).
+ * "신규배차가 켜져 있어요" 알림을 울린다(닫은 뒤 최대 약 30분 이어짐).
  *
  * 위치는 약 5초마다 받고 10초마다 묶어 보낸다. 실패한 묶음은 같은 Idempotency-Key 로 다음에 다시. 좌표는 로그에 남기지 않는다.
  */
@@ -142,7 +142,7 @@ class RiderLocationService : Service() {
         }
     }
 
-    private fun notification(title: String, text: String): Notification {
+    private fun notification(title: String, text: String, channel: String = CHANNEL_ID): Notification {
         val open = PendingIntent.getActivity(
             this,
             0,
@@ -151,7 +151,7 @@ class RiderLocationService : Service() {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
         val builder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            Notification.Builder(this, CHANNEL_ID)
+            Notification.Builder(this, channel)
         } else {
             @Suppress("DEPRECATION")
             Notification.Builder(this)
@@ -248,7 +248,11 @@ class RiderLocationService : Service() {
         -1
     }
 
-    /** 넘겨받은 뒤 토큰이 끝났다 — 받기를 멈추고 앱을 열어 달라고 알린다(다시 열면 Dart 가 START 해 이어진다). */
+    /**
+     * 넘겨받은 뒤 토큰이 끝났다(앱을 닫은 지 약 30분) — 위치 받기는 멈추고, 신규배차가 아직 켜져 있다고 알린다
+     * (사용자 지시 2026-11-18 "앱을 열어주세요가 아니라 신규배차가 켜져있다는 알림"). 누르면 앱이 열리고 Dart 가 START 해 이어 보낸다.
+     * 상시 알림을 같은 번호로 바꿔 띄우되, 조용한 위치 채널이 아니라 소리 나는 채널로 한 번 울린다.
+     */
     private fun tokenExpired() {
         stoppedForToken = true
         accessToken = null
@@ -256,9 +260,15 @@ class RiderLocationService : Service() {
         synchronized(buffer) { buffer.clear() }
         pending = null
         pendingKey = null
-        getSystemService(NotificationManager::class.java)?.notify(
+        val manager = getSystemService(NotificationManager::class.java) ?: return
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            manager.createNotificationChannel(
+                NotificationChannel(DUTY_CHANNEL_ID, "신규배차 켜짐 알림", NotificationManager.IMPORTANCE_DEFAULT),
+            )
+        }
+        manager.notify(
             NOTIFICATION_ID,
-            notification("위치 전송이 멈췄어요", "배차를 계속 받으려면 PMart 라이더 앱을 열어 주세요"),
+            notification("신규배차가 켜져 있어요", "눌러서 PMart 라이더 앱으로 가기", DUTY_CHANNEL_ID),
         )
     }
 
@@ -307,6 +317,9 @@ class RiderLocationService : Service() {
 
 
         private const val CHANNEL_ID = "rider_location"
+
+        /** 토큰이 끝나 위치 전송이 멈췄을 때 "신규배차가 켜져 있어요" — 소리·진동이 나게 기본 중요도. */
+        private const val DUTY_CHANNEL_ID = "rider_duty_on"
         private const val NOTIFICATION_ID = 7310
         private const val LOCATION_MS = 5_000L
         private const val FLUSH_MS = 10_000L
