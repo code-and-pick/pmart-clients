@@ -1092,6 +1092,11 @@ export const messages = {
 
   approvals: {
     title: '승인함',
+    intro: '상품·전시·가격 등록과 직원 권한 요청이 여기로 모여요. 자기 요청은 다른 승인자가 심사해요.',
+    request: '요청',
+    typeName: { PRODUCT: '상품', DISPLAY: '전시', PRICE: '가격', GRANT: '직원 권한' } as Readonly<Record<string, string>>,
+    shown: (n: number, more: boolean) => `${n.toLocaleString('ko-KR')}건 표시${more ? ' · 더 있어요' : ''}`,
+    ago: { now: '방금', min: (n: number) => `${n}분 전`, hour: (n: number) => `${n}시간 전`, day: (n: number) => `${n}일 전` },
     dossier: '건',
     type: '유형',
     review: '심사',

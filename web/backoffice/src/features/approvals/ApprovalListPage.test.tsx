@@ -44,3 +44,25 @@ describe('승인함 목록 — 더 보기', () => {
     expect(screen.getByRole('link', { name: 'APV-1' })).toBeInTheDocument();
   });
 });
+
+describe('승인함 목록 — 탭·칩 필터(2026-11-18 화면)', () => {
+  it('심사 상태 탭·유형 칩을 누르면 그 값으로 묻고, 줄은 요약·유형 이름·상태 배지로 보인다', async () => {
+    server.use(http.get(`${API_BASE}/approvals`, () => HttpResponse.json({ items: [row(1)], page: { nextCursor: null, size: 50 } })));
+    const view = renderAt('/approvals', as.admin);
+    const first = await screen.findByTestId('approval-row');
+    expect(first).toHaveTextContent('요청 1');
+    expect(first).toHaveTextContent('상품'); // PRODUCT
+    expect(first).toHaveTextContent('심사 완료(승인)');
+    expect(screen.getByText('1건 표시')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('tab', { name: '심사 대기' }));
+    await waitFor(() => expect(view.sent.some((r) => new URL(r.url).searchParams.get('reviewState') === 'REVIEW_PENDING')).toBe(true));
+    expect(screen.getByRole('tab', { name: '심사 대기' })).toHaveAttribute('aria-selected', 'true');
+
+    await userEvent.click(screen.getByRole('button', { name: '가격' }));
+    await waitFor(() =>
+      expect(view.sent.some((r) => { const p = new URL(r.url).searchParams; return p.get('type') === 'PRICE' && p.get('reviewState') === 'REVIEW_PENDING'; })).toBe(true),
+    );
+    expect(screen.getByRole('button', { name: '가격' })).toHaveAttribute('aria-pressed', 'true');
+  });
+});

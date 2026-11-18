@@ -139,7 +139,7 @@ describe('직원 권한 요청(GRANT) 승인 상세 — 백엔드 회신 2026-11
 
   it('승인 목록의 유형 필터에 GRANT 가 있다', async () => {
     render(<App memory initialPath="/approvals" initialToken={as.admin} />);
-    expect(await screen.findByRole('option', { name: 'GRANT' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: '직원 권한' })).toBeInTheDocument(); // 유형 칩(GRANT, 2026-11-18 칩으로)
   });
 });
 
