@@ -90,7 +90,7 @@ describe('주문 조회', () => {
     expect(await screen.findByTestId('order-search-blocked')).toHaveTextContent('기간을 31일 안으로');
     expect(view.sent.filter((r) => r.url.includes('/orders/lookups'))).toHaveLength(0);
 
-    await user.type(screen.getByLabelText('주문 ID'), 'ORD-MOCK-1002');
+    await user.type(screen.getByLabelText('주문번호 또는 주문 ID'), 'ORD-MOCK-1002');
     await user.click(screen.getByRole('button', { name: '찾기' }));
     expect(await screen.findAllByTestId('order-row')).toHaveLength(1);
 

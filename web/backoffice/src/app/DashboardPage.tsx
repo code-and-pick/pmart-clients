@@ -13,6 +13,7 @@ import { useApi } from './ApiContext';
 import { ALERT_SIZE, useAlertCount, type AlertKey } from './MenuAlerts';
 import { ApprovalTypes, LiveSummary, RiskPanel, SlaTrend } from './DashboardSections';
 import { RecentViews } from './RecentViews';
+import { DisplayNumber } from '../shared/displayNumber';
 import { ActivityFeed, LiveStat, MetricsPanel, OrdersWeekChart, SalesPanel, WorkCountsPanel, useWorkCounts, workText, type WorkSum, RefreshBar, RiskStat, SlaStat, StatusDonut, TodayOrdersStat, slaQuery } from './DashboardWidgets';
 import { GroupIcon } from './groupIcons';
 import { visibleGroups } from './nav';
@@ -168,7 +169,7 @@ function RecentOrders({ from, to }: { readonly from: string; readonly to: string
         <DataTable>
           <thead>
             <tr>
-              <th>{messages.orders.orderId}</th>
+              <th>{messages.orders.orderNumberCol}</th>
               <th>{messages.orders.status}</th>
               <th>{messages.orders.confirmedAt}</th>
               <th>{messages.orders.mfcId}</th>
@@ -179,8 +180,8 @@ function RecentOrders({ from, to }: { readonly from: string; readonly to: string
             {q.data.items.map((o) => (
               <tr key={o.orderId} data-testid="dash-order-row">
                 <td>
-                  <Link className="link font-mono text-xs" to={`/orders/${encodeURIComponent(o.orderId)}`}>
-                    {o.orderId}
+                  <Link className="link text-sm" to={`/orders/${encodeURIComponent(o.orderId)}`}>
+                    <DisplayNumber number={o.orderNumber} systemId={o.orderId} />
                   </Link>
                 </td>
                 <td>

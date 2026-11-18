@@ -16,6 +16,8 @@ import { SavedViews } from '../../shared/SavedViews';
 import { OrderProgress } from './OrderProgress';
 import { CopyButton } from '../../shared/CopyButton';
 import { useRecordRecent } from '../../shared/recentViews';
+import { DisplayNumber, SystemNumbers } from '../../shared/displayNumber';
+import { isOrderNumber } from '../../shared/numberLookups';
 import { messages as m } from '../../shared/messages';
 import { addSeoulDays, isSeoulDate, label, seoulDayEnd, seoulDayStart, seoulToday, spanDays, text, when, won } from '../../shared/ops';
 import { ClaimsOfOrder } from '../claims/ClaimPages';
@@ -74,7 +76,8 @@ function problemOf(c: Criteria): string | null {
 function queryOf(c: Criteria, page: number) {
   const usePeriod = isSeoulDate(c.from) && isSeoulDate(c.to);
   return {
-    ...(c.orderId ? { orderId: c.orderId.trim() } : {}),
+    // 화면 주문번호(8자리, ADR-0070)면 orderNumber 로, 그 밖은 시스템 ID 로(2026-11-18)
+    ...(c.orderId ? (isOrderNumber(c.orderId) ? { orderNumber: c.orderId.replace(/[s-]/g, '') } : { orderId: c.orderId.trim() }) : {}),
     ...(c.customerId ? { customerId: c.customerId.trim() } : {}),
     ...(isStatus(c.status) ? { status: c.status } : {}),
     ...(c.mfcId ? { mfcId: c.mfcId.trim() } : {}),
@@ -179,8 +182,8 @@ export function OrderLookupPage() {
                     {r.items.map((o) => (
                       <tr key={o.orderId} data-testid="order-row" className="cursor-pointer" onClick={() => void navigate(`/orders/${encodeURIComponent(o.orderId)}`)}>
                         <td>
-                          <Link className="font-mono font-semibold text-base-content hover:text-primary hover:underline" to={`/orders/${encodeURIComponent(o.orderId)}`} onClick={(e) => e.stopPropagation()}>
-                            {o.orderId}
+                          <Link className="font-semibold text-base-content hover:text-primary hover:underline" to={`/orders/${encodeURIComponent(o.orderId)}`} onClick={(e) => e.stopPropagation()} data-testid="order-number">
+                            <DisplayNumber number={o.orderNumber} systemId={o.orderId} />
                           </Link>
                           <span className="mt-0.5 flex items-center gap-1 text-xs font-normal text-base-content/50" title={o.customerId}>
                             <Icon name="user" className="h-3 w-3" />
@@ -400,8 +403,11 @@ export function OrderDetailPage() {
               title={
                 <>
                   {firstName ? m.orders.titleOf(firstName, o.lines.length - 1) : m.orders.detailTitle}
-                  <span className="ml-2 font-mono text-sm font-normal text-base-content/50">{orderId}</span>
-                  <CopyButton value={orderId} />
+                  {/* 화면 주문번호(ADR-0070, 2026-11-18) — 시스템 ID 는 아래 "시스템 번호" 칸 */}
+                  <span className="ml-2 text-sm font-normal text-base-content/50" data-testid="order-head-number">
+                    <DisplayNumber number={o.orderNumber} systemId={orderId} />
+                  </span>
+                  <CopyButton value={o.orderNumber ?? orderId} />
                 </>
               }
               badges={
@@ -420,6 +426,7 @@ export function OrderDetailPage() {
               summary={`${when(o.confirmedAt)} · ${o.mfcId} · ${won(o.amounts.approvedAmount)}`}
               actions={<OrderCancelAction order={o} open={cancelOpen} onOpen={() => setCancelOpen(true)} />}
             />
+            <SystemNumbers ids={[{ label: m.displayNumber.system.orderId, id: orderId }]} />
             {/* 주문 진행 단계(2026-11-18 Refine 참고) — 서버 상태를 계약 상태표 순서대로 */}
             <OrderProgress status={o.status} />
             {cancelOpen && o.status === 'CONFIRMED' && <OrderCancelForm order={o} onClose={() => setCancelOpen(false)} />}

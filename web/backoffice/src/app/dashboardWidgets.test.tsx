@@ -2,11 +2,14 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { API_BASE, BFF_BASE } from '../api/client';
 import { as, renderAt } from '../test/render';
 import { server } from '../test/server';
+import { resetMockOps } from '../mocks/opsHandlers';
+
+afterEach(() => vi.useRealTimers());
 
 const forbidden = () => HttpResponse.json({ type: 'about:blank', title: 'x', status: 403, code: 'FORBIDDEN', traceId: 't' }, { status: 403, headers: { 'content-type': 'application/problem+json' } });
 
@@ -40,6 +43,9 @@ describe('대시보드 2판', () => {
   });
 
   it('오늘 주문 상태 — 상태별 이름과 개수, 합은 오늘 주문 수', async () => {
+    // 목 주문은 "지금부터 N시간 전" — 자정 직후엔 오늘 주문이 없어 깨졌다(2026-11-19 00:02). 서울 정오로 시계를 고정하고 목을 다시 만든다(Date 만, 기다림 타이머는 진짜)
+    vi.useFakeTimers({ toFake: ['Date'], now: new Date('2026-11-18T03:00:00Z') });
+    resetMockOps();
     renderAt('/?tab=sales', as.admin);
     const legend = await screen.findByTestId('dash-status-legend');
     const counts = within(legend).getAllByRole('listitem').map((li) => Number(li.lastElementChild?.textContent));
