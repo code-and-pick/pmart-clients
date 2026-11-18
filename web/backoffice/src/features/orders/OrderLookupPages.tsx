@@ -12,6 +12,7 @@ import { commandParams } from '../../api/command';
 import type { components } from '../../api/generated/order';
 import { useApi } from '../../app/ApiContext';
 import { ChipGroup, CodeLabel, DataTable, DetailHeader, NextAction, Notice, PageHeader, ResultBar, SearchPanel, SearchRow, Section, StatusBadge, type Tone } from '../../shared/admin';
+import { SavedViews } from '../../shared/SavedViews';
 import { messages as m } from '../../shared/messages';
 import { addSeoulDays, isSeoulDate, label, seoulDayEnd, seoulDayStart, seoulToday, spanDays, text, when, won } from '../../shared/ops';
 import { ClaimsOfOrder } from '../claims/ClaimPages';
@@ -121,6 +122,8 @@ export function OrderLookupPage() {
   return (
     <section className="space-y-5">
       <PageHeader title={m.orders.title} description={m.orders.intro} />
+      {/* 내 보기(2026-11-18 Saleor 참고) — 지금 주소 조건을 이름 붙여 저장 */}
+      <SavedViews listKey="orders" />
       <SearchPanel onSubmit={submit} onReset={reset} submitLabel={m.orders.search} resetLabel={m.orders.reset}>
         <SearchRow label={m.orders.ids}>
           <input className="input input-sm w-48" aria-label={m.orders.orderId} placeholder={m.orders.orderId} maxLength={64} {...field('orderId')} />

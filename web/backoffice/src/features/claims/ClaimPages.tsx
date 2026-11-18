@@ -10,6 +10,7 @@ import type { components } from '../../api/generated/claim';
 import { useApi } from '../../app/ApiContext';
 import { ChipGroup, CodeLabel, DataTable, DetailHeader, NextAction, Notice, PageHeader, ResultBar, SearchPanel, SearchRow, Section, StatusBadge, type Tone } from '../../shared/admin';
 import { EmptyBox, KindChip, ListFoot, SideFields, When } from '../lookup/parts';
+import { SavedViews } from '../../shared/SavedViews';
 import { messages as m } from '../../shared/messages';
 import { label, text, when, won } from '../../shared/ops';
 import { availableActions, RecoveryActions, ReturnProgress } from './ReturnClaim';
@@ -166,6 +167,8 @@ export function ClaimListPage() {
   return (
     <section className="space-y-5">
       <PageHeader title={m.claims.title} description={m.claims.intro} />
+      {/* 내 보기(2026-11-18 Saleor 참고) — 지금 주소 조건을 이름 붙여 저장 */}
+      <SavedViews listKey="claims" />
       <SearchPanel onSubmit={submit} onReset={() => setDraft({ orderId: '', type: '', state: '' })} submitLabel={m.claims.filter} resetLabel={m.claims.reset}>
         <SearchRow label={m.claims.orderId}>
           <input className="input input-sm w-56" aria-label={m.claims.orderId} value={draft.orderId} onChange={(e) => setDraft((d) => ({ ...d, orderId: e.target.value }))} />

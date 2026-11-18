@@ -2037,6 +2037,18 @@ export const messages = {
 
   /** 접수 건 알림 배지(메뉴) — 1분마다 개수, 소리·브라우저 알림 없음 */
   /** 첫 화면 대시보드(2026-11-18) */
+  /** 목록 "내 보기"(2026-11-18 Saleor 참고) — 이 브라우저에만 저장 */
+  savedViews: {
+    title: '내 보기',
+    empty: '저장한 보기가 없어요',
+    add: '+ 지금 조건 저장',
+    noFilter: '조건을 먼저 고르세요',
+    nameLabel: '보기 이름',
+    namePlaceholder: '예: 기한 넘김 우리 센터',
+    save: '저장',
+    cancel: '취소',
+    remove: (n: string) => `${n} 보기 지우기`,
+  },
   dashboard: {
     title: '대시보드',
     hello: (hour: number) => (hour < 12 ? '좋은 아침이에요' : hour < 18 ? '오늘도 수고 많아요' : '오늘 하루 고생 많았어요'),

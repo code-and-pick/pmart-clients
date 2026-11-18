@@ -22,6 +22,7 @@ import { canSeeIntakes, CsIntakeLog } from '../csIntakes/CsIntakePages';
 import { InquiryPhotos } from './InquiryPhotos';
 import { ago, Avatar, Card, EmptyBox, Icon, ICON, MetaList } from './HelpdeskParts';
 import { CodeLabel, DetailHeader, NextAction, PageHeader, StatusBadge, type Tone } from '../../shared/admin';
+import { SavedViews } from '../../shared/SavedViews';
 import { messages as m } from '../../shared/messages';
 
 type Inquiry = components['schemas']['Inquiry'];
@@ -103,6 +104,8 @@ export function InquiryListPage({ kind = 'CUSTOMER' }: { readonly kind?: Request
   return (
     <section className="space-y-4">
       <PageHeader title={rider ? m.inquiries.riderTitle : m.inquiries.title} description={rider ? m.inquiries.riderIntro : m.inquiries.intro} />
+      {/* 내 보기(2026-11-18 Saleor 참고) — 지금 주소 조건을 이름 붙여 저장 */}
+      <SavedViews listKey={rider ? 'rider-inquiries' : 'inquiries'} />
       <div className="overflow-hidden rounded-box border border-base-300 bg-base-100 shadow-sm" data-testid="inquiry-list-card">
         {/* 상태 탭(밑줄) — 누르면 바로 서버에 묻는다(URL ?status=) */}
         <div role="radiogroup" aria-label={m.inquiries.statusFilter} className="flex gap-1 overflow-x-auto overflow-y-hidden border-b border-base-300 px-3">

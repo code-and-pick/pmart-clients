@@ -32,6 +32,7 @@ import type { components } from '../../api/generated/case';
 import { useApi } from '../../app/ApiContext';
 import { useSession } from '../../app/SessionContext';
 import { CodeLabel, NextAction, PageHeader, StatusBadge, type Tone } from '../../shared/admin';
+import { SavedViews } from '../../shared/SavedViews';
 import { messages as m } from '../../shared/messages';
 import { label, text, when } from '../../shared/ops';
 import { SourceStamps } from '../../shared/SourceStamps';
@@ -387,6 +388,8 @@ export function CaseListPage() {
   return (
     <section className="max-w-7xl space-y-4">
       <PageHeader title={m.cases.title} description={m.cases.intro} />
+      {/* 내 보기(2026-11-18 Saleor 참고) — 지금 주소 조건을 이름 붙여 저장 */}
+      <SavedViews listKey="cases" />
       {admin && <p className="text-sm text-base-content/60">{m.cases.orderNote}</p>}
       {/* 한 카드(2026-11-18 이슈 트래커 목록처럼): 밑줄 탭 → 종류 거르기 줄 → 표 → 아래 쪽 넘기기 */}
       <div className="overflow-hidden rounded-box border border-base-300 bg-base-100 shadow-sm" data-testid="case-list-card">

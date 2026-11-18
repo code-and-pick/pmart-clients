@@ -14,6 +14,7 @@ import type { components as Dispatch } from '../../api/generated/delivery-dispat
 import type { components as Execution } from '../../api/generated/delivery-execution';
 import { useApi } from '../../app/ApiContext';
 import { CommandFeedback } from '../../shared/Feedback';
+import { SavedViews } from '../../shared/SavedViews';
 import { messages as m } from '../../shared/messages';
 import { label, text, when } from '../../shared/ops';
 import { ChipGroup, CodeLabel, DataTable, DetailHeader, FieldList, NextAction, PageHeader, ResultBar, SearchPanel, SearchRow, Section, StatusBadge, type Tone, useRowLink } from '../../shared/admin';
@@ -212,6 +213,8 @@ export function DeliveryOpenPage() {
           </form>
         }
       />
+      {/* 내 보기(2026-11-18 Saleor 참고) — 지금 주소 조건을 이름 붙여 저장 */}
+      <SavedViews listKey="deliveries" />
       <div className="flex flex-wrap items-center gap-2" role="group" aria-label={m.deliveries.quickViews}>
         <span className="text-xs font-medium text-base-content/55">{m.deliveries.quickViews}</span>
         <button
