@@ -12,7 +12,7 @@ export const LIVE = {
   deliveryList: 20_000,
   /** 대시보드 숫자 */
   dashboard: 30_000,
-  /** 진행 중 배송이 있는 라이더 상세 */
+  /** 운행 중(ON_DUTY)인 라이더 상세 */
   rider: 15_000,
 } as const;
 

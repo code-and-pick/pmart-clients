@@ -50,7 +50,8 @@ describe('자동 새로 고침', () => {
     await waitFor(() => expect(count(dash, '/delivery-stats')).toBeGreaterThan(s0));
   });
 
-  it('라이더 상세는 진행 중 배송이 있을 때만 15초마다(RD-7 있음 / RD-8 없음)', async () => {
+  // activeDeliveryCount 는 서버가 아직 채우지 않아 운행 상태로 판정(백엔드 확인 2026-11-18)
+  it('라이더 상세는 운행 중(ON_DUTY)일 때만 15초마다(RD-7 운행 중 / RD-8 운행 끝)', async () => {
     const busy = renderAt('/riders/RD-7', as.riderOps);
     await waitFor(() => expect(count(busy, '/riders/RD-7')).toBeGreaterThan(0));
     const b0 = count(busy, '/riders/RD-7');

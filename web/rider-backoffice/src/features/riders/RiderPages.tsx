@@ -232,13 +232,14 @@ function thisWeek(): { from: string; to: string } {
 function RiderDetailPage() {
   const api = useApi();
   const { riderId = '' } = useParams();
-  // 진행 중 배송이 있으면 15초마다(배정·완료가 바로 보이게) — rider 운행 상태의 진행 중 배송 수(execution 사본) 기준
+  // 운행 중(ON_DUTY)이면 15초마다(배정·완료가 바로 보이게), 운행 중이 아니면 멈춤.
+  // operating.activeDeliveryCount 는 계약에 있지만 rider-service 가 아직 채우지 않아(백엔드 확인 2026-11-18) 쓰지 않는다.
   const detail = useQuery({
     queryKey: ['rider', riderId],
-    refetchInterval: (q) => ((q.state.data?.operating?.activeDeliveryCount ?? 0) > 0 ? LIVE.rider : false),
+    refetchInterval: (q) => (q.state.data?.operating?.status === 'ON_DUTY' ? LIVE.rider : false),
     queryFn: () => request('GET', api.riders.GET('/riders/{riderId}', { params: { path: { riderId } } })),
   });
-  const riderLive = (detail.data?.operating?.activeDeliveryCount ?? 0) > 0;
+  const riderLive = detail.data?.operating?.status === 'ON_DUTY';
   const week = thisWeek();
   const earnings = useQuery({
     queryKey: ['rider-earnings', riderId],
@@ -427,7 +428,7 @@ function AssignmentHistory({ riderId, live = false }: { readonly riderId: string
   const a = rm.assignments;
   const query = useQuery({
     queryKey: ['rider-assignments', riderId, cursor],
-    // 진행 중 배송이 있을 때 첫 쪽(최신 배정)만 15초마다 — 넘긴 쪽은 그대로
+    // 라이더가 운행 중일 때 첫 쪽(최신 배정)만 15초마다 — 넘긴 쪽은 그대로
     refetchInterval: live && !cursor ? LIVE.rider : false,
     queryFn: () =>
       request('GET', api.dispatch.GET('/rider-assignments', { params: { query: { riderId, size: PAGE_SIZE, ...(cursor ? { cursor } : {}) } } })),
