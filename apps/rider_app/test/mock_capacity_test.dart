@@ -83,7 +83,7 @@ void main() {
     expect(again.offers.map((o) => o.offerId), contains('offer-single-3'));
     expect(again.pollAfter, isNotNull);
   });
-  test('한집은 혼자만(하나씩 배달하기 꺼도): 한집 1건 맡으면 끝날 때까지 새 배차 없음', () async {
+  test('한집은 단독(하나씩 배달하기 꺼도): 한집 1건 맡으면 끝날 때까지 고객 배송 제안 없음', () async {
     final repo = MockOfferRepository(
       latency: Duration.zero,
       demoBundle: true,
@@ -98,8 +98,9 @@ void main() {
       key: IdempotencyKey.generate(),
     );
     final busy = await repo.activeOffers();
-    expect(busy.offers, isEmpty, reason: '한집 진행 중 — 한집·알뜰 모두 없음');
-    expect(busy.pollAfter, isNull);
+    // 서버와 같게: 고객 배송 제안은 없고 회수만 남는다, 폴링은 멈추지 않는다(pollAfterSec 그대로).
+    expect(busy.offers.map((o) => o.offerId), ['offer-return-1']);
+    expect(busy.pollAfter, isNotNull);
     final second = await repo.respond(
       'offer-single-2',
       accept: true,

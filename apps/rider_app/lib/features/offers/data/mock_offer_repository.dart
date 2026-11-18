@@ -190,26 +190,31 @@ base class MockOfferRepository implements OfferRepository, DutyRepository {
 
   bool get _oneBusy => _settings['oneAtATime'] == true && activeCount > 0;
 
-  /// 한집배달은 혼자만(사용자 결정 2026-11-18 "한집은 혼자만" — 백엔드 요청 handoff
-  /// 2026-11-18-backend-single-delivery-exclusive): 한집을 맡고 있으면 끝날 때까지 새 배차 없음,
-  /// 한집 제안은 맡은 배송이 없을 때만. **백엔드 반영 전에는 목에서만** 이렇게 동작한다.
+  /// 한집배달은 단독 — 서버에 이미 있다(백엔드 PR #190, LAN 배포 — 회신 2026-11-18-reply-single-delivery-exclusive,
+  /// `AcceptRules`·`OfferService`·`DispatchEngine`). 목은 서버와 같게:
+  /// - 한집(고객 배송 SINGLE)을 맡으면 새 고객 배송 제안 없음·수락 INELIGIBLE. **pollAfterSec 은 null 이 아니다**(폴링해도 안 올 뿐).
+  /// - 다른 배송을 맡고 있으면 한집 제안은 빠진다. 알뜰은 묶음 포함 3건.
+  /// - 예약(SCHEDULED)·회수(RETURN)는 한집으로 치지 않는다. 회수는 한집을 든 라이더도 받는다.
   final _singleDeliveries = <String>{};
 
   bool get _singleBusy => assignedDeliveries.any(
     (id) => _singleDeliveries.contains(id) && !(finished?.call(id) ?? false),
   );
 
-  /// 제안을 받을 수 없는 상태(계약 pollAfterSec null — 상태가 바뀔 때까지 폴링 멈춤).
-  bool get _cannotReceive => _oneBusy || _singleBusy;
+  /// 제안을 받을 수 없는 상태(계약 pollAfterSec null) — 하나씩 배달 진행 중.
+  bool get _cannotReceive => _oneBusy;
 
-  /// 고객에게 가는 한집배달만(회수 RETURN 은 지금 규칙 그대로 — 백엔드에 함께 물음).
+  static bool _isReturn(Map<String, Object?> offer) =>
+      offer['deliveryType'] == 'RETURN';
+
+  /// 고객에게 가는 한집배달만.
   static bool _isSingle(Map<String, Object?> offer) =>
-      offer['deliveryType'] != 'RETURN' &&
+      !_isReturn(offer) &&
       (offer['summary'] as Map?)?['deliveryMode'] == 'SINGLE';
 
-  /// 이 제안을 지금 받을 수 있는지(최대 건수·하나씩 배달·한집은 혼자만).
+  /// 이 제안을 지금 받을 수 있는지(최대 건수·하나씩 배달·한집은 단독).
   bool _fits(Map<String, Object?> offer) {
-    if (_singleBusy) return false;
+    if (_singleBusy && !_isReturn(offer)) return false;
     if (_isSingle(offer)) return activeCount == 0 && _capacity >= 1;
     return _sizeOf(offer) <= _capacity;
   }

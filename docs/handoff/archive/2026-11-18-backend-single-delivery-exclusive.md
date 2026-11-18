@@ -1,5 +1,10 @@
 # [pmart-clients → pmart-backend] 요청: 한집배달은 혼자만 — 한집을 맡은 라이더에게 전달 완료까지 새 배차 없음 (2026-11-18)
 
+> **끝남(2026-11-18)** — 백엔드 회신 `pmart-backend/docs/handoff/clients/rider-app/2026-11-18-reply-single-delivery-exclusive.md`(PR #204): **이미 백엔드 PR #190 으로 구현·LAN 배포돼 있었음**(`AcceptRules`·`OfferService`·`DispatchEngine` "한집은 단독"). 아래 "지금 (서버)"의 "배송 방식을 보지 않음"은 **잘못 본 것**(한도 줄만 보고 판단) — 바로잡음.
+> - 한집(SINGLE, 회수·반납 아님)을 맡으면 새 고객 배송 제안 없음·배달리스트 빈 목록·수락 INELIGIBLE. `pollAfterSec` 은 null 이 아님(폴링해도 안 올 뿐).
+> - 다른 배송을 맡고 있으면 한집은 후보·목록에서 빠짐(수락 INELIGIBLE). 알뜰 최대 3건 그대로.
+> - 예약(SCHEDULED)·회수(RETURN)는 한집으로 치지 않음 — 예약은 3건 한도 안에서 함께, 회수(반납)는 한집을 든 라이더도 받음. **예약을 단독으로 할지는 사용자 결정 필요**(열린 질문).
+> - 클라이언트: 목을 서버와 같게 맞춤(PR #150).
 - 보낸 앱: rider-app (PC 5)
 - 받는 백엔드 영역: delivery (delivery-dispatch 배차 — 제안 후보·`POST /offers/{id}/responses`·`POST /delivery-list/{id}/acceptances`)
 - 근거: 사용자 2026-11-18 목업 시험 "하나씩 배달하기 안 키고 하니까 한집배달짜리가 2개 수락됐어." → 질문 "한집배달을 맡고 있는 라이더에게 다른 배송을 더 줄까요?" → 답 **"한집은 혼자만"**.
