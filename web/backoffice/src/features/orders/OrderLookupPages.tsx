@@ -29,7 +29,7 @@ const MAX_DAYS = 31;
 const isStatus = (v: string | null): v is OrderStatus => v !== null && (STATUSES as readonly string[]).includes(v);
 const digits = (v: string) => v.replace(/\D/g, '');
 /** 상태 꼬리표 색(표시만 — 판정은 서버 상태 값) */
-const statusTone = (s: string | undefined): Tone =>
+export const statusTone = (s: string | undefined): Tone =>
   s === 'DELIVERED' || s === 'COMPLETED' ? 'success' : s === 'CANCELLED' || s === 'PAYMENT_FAILED' ? 'error' : s === 'PAYMENT_PENDING' || s === 'PAYMENT_UNKNOWN' ? 'warning' : 'info';
 
 interface Criteria {

@@ -1549,6 +1549,37 @@ export const messages = {
   },
 
   /** 접수 건 알림 배지(메뉴) — 1분마다 개수, 소리·브라우저 알림 없음 */
+  /** 첫 화면 대시보드(2026-11-18) */
+  dashboard: {
+    title: '대시보드',
+    hello: (hour: number) => (hour < 12 ? '좋은 아침이에요' : hour < 18 ? '오늘도 수고 많아요' : '오늘 하루 고생 많았어요'),
+    intro: (today: string) => `${today} 기준 · 숫자를 누르면 그 화면으로 가요. 1분마다 다시 읽어요.`,
+    todayOrders: '오늘 주문',
+    toOrders: '주문 조회',
+    pending: '처리 대기',
+    toPending: '처리 대기',
+    casesOverdue: '기한 지난 접수 건',
+    toCases: '접수 건',
+    inquiries: '답변 대기 고객 문의',
+    toInquiries: '문의 답변',
+    riderInquiries: '답변 대기 라이더 문의',
+    toRiderInquiries: '라이더 문의',
+    approvals: '심사 대기 승인',
+    toApprovals: '승인함',
+    ordersWeek: '최근 7일 주문',
+    ordersWeekHint: '확정 시각 기준 · 날마다 100 건 넘으면 "100+"',
+    today: '오늘',
+    sla: '처리 기한 지킴(최근 7일)',
+    slaFailed: '처리 기한 지킴을 불러오지 못했어요 — 0 이 아니에요.',
+    overdueNow: '지금 기한 지난 처리 중 건',
+    unknown: '모름',
+    recentOrders: '최근 주문',
+    ordersFailed: '주문을 불러오지 못했어요 — 0 건이 아니에요.',
+    noOrders: '최근 7일 주문이 없어요.',
+    more: '더 보기',
+    failed: '불러오지 못했어요(0 이 아니에요)',
+    nothing: '이 계정의 역할로 볼 수 있는 숫자가 없어요. 왼쪽 메뉴에서 시작해 주세요.',
+  },
   /** 왼쪽 메뉴 업무 알림(2026-11-18) */
   menuAlerts: {
     failed: '개수를 읽지 못했어요(0 이 아니에요)',

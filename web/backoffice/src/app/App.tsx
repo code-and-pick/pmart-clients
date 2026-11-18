@@ -28,6 +28,7 @@ import { HandoverPage } from '../features/cases/HandoverPages';
 import { DeliveryDetailPage, DeliveryOpenPage } from '../features/deliveries/DeliveryPages';
 import { CaseMetricsPage } from '../features/cases/CaseMetricsPage';
 import { CaseSlaPage } from '../features/cases/CaseSlaPage';
+import { DashboardPage } from './DashboardPage';
 import { InquiryDetailPage, InquiryListPage } from '../features/inquiries/InquiryPages';
 import { SatisfactionPage } from '../features/inquiries/SatisfactionPage';
 import { NewCsIntakePage } from '../features/csIntakes/CsIntakePages';
@@ -46,7 +47,7 @@ import type { Api } from '../api/client';
 import { env } from '../env';
 import { messages as m } from '../shared/messages';
 import { useApi } from './ApiContext';
-import { covers, homePath, visibleGroups, type NavGroup } from './nav';
+import { covers, visibleGroups, type NavGroup } from './nav';
 import { RequireSession, SessionProvider, useSession } from './SessionContext';
 import { GroupIcon } from './groupIcons';
 import { GroupAlertBadge, MenuGroupAlert, MenuItemAlerts } from './MenuAlerts';
@@ -67,9 +68,9 @@ function NavGroupMenu({ group, pathname }: { readonly group: NavGroup; readonly 
   return (
     // 묶음 이름(2026-11-18 사용자 — "큰 항목이 하위보다 글자가 작다, 눌렀을 때 직관적이지 않다"):
     // 하위 메뉴보다 크고 굵게 + 묶음 아이콘 + 펼침 화살표(▸/▾), 펼친 묶음은 바탕을 살짝 밝게, 지금 묶음은 민트.
-    <details open={open} onToggle={(e) => setManual(e.currentTarget.open)} data-testid={`nav-group-${group.id}`} data-open={open ? 'true' : 'false'} className="mx-2 mb-0.5 rounded-lg">
+    <details open={open} onToggle={(e) => setManual(e.currentTarget.open)} data-testid={`nav-group-${group.id}`} className={`mx-2 mb-1 rounded-lg ${open ? 'bg-neutral-content/5' : ''}`}>
       <summary
-        className={`flex cursor-pointer list-none items-center gap-2.5 rounded-lg px-3 py-2 text-[14px] font-semibold transition-colors hover:bg-base-300/60 active:scale-[0.99] ${active ? 'text-base-content [&>svg:first-child]:text-accent' : open ? 'text-base-content' : 'text-base-content/70'}`}
+        className={`flex cursor-pointer list-none items-center gap-2.5 rounded-lg px-3 py-2.5 text-[15px] font-bold transition-colors hover:bg-neutral-content/10 active:scale-[0.99] ${active ? 'text-accent' : open ? 'text-neutral-content' : 'text-neutral-content/85'}`}
       >
         <GroupIcon id={group.id} className="h-5 w-5 shrink-0" />
         <span data-group-label>{group.label}</span>
@@ -88,7 +89,7 @@ function NavGroupMenu({ group, pathname }: { readonly group: NavGroup; readonly 
               to={item.to}
               end
               className={({ isActive }) =>
-                `my-0.5 ml-[1.35rem] mr-1 flex items-center gap-1 rounded-r-lg border-l-2 py-1.5 pl-4 pr-2 text-[13px] transition-colors active:scale-[0.98] ${isActive ? 'border-accent bg-base-100 font-semibold text-base-content shadow-sm ring-1 ring-base-300' : 'border-base-300 text-base-content/65 hover:bg-base-300/50 hover:text-base-content'}`
+                `my-0.5 ml-5 mr-1 flex items-center gap-1 rounded-r-lg border-l-4 py-2 pl-4 pr-3 text-[13px] transition-colors active:scale-[0.98] ${isActive ? 'border-accent bg-accent/20 font-bold text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.06)]' : 'border-neutral-content/10 text-neutral-content/70 hover:bg-neutral-content/10 hover:text-neutral-content'}`
               }
             >
               {item.label}
@@ -132,18 +133,30 @@ function Layout() {
     <div className="flex min-h-screen bg-base-200">
       <ScrollToTopOnNavigate />
       {/* 메뉴는 화면 높이에 고정하고 길면 메뉴만 따로 스크롤(오른쪽 화면을 내려도 메뉴는 그 자리) */}
-      <aside className="sticky top-0 flex h-screen w-60 shrink-0 flex-col self-start overflow-y-auto border-r border-base-300 bg-base-200 text-base-content" data-testid="side-menu">
-        <div className="flex h-14 shrink-0 items-center justify-between gap-1 border-b border-base-300 pl-5 pr-2">
-          <Link to="/" className="flex items-center gap-2 truncate text-[15px] font-semibold text-base-content" aria-label={m.goHome}>
-            <span className="flex h-6 w-6 items-center justify-center rounded-md bg-primary text-xs font-bold text-primary-content" aria-hidden="true">P</span>
+      <aside className="sticky top-0 flex h-screen w-60 shrink-0 flex-col self-start overflow-y-auto bg-neutral text-neutral-content" data-testid="side-menu">
+        <div className="flex h-14 shrink-0 items-center justify-between gap-1 border-b border-neutral-content/10 pl-5 pr-2">
+          <Link to="/" className="truncate text-base font-bold text-neutral-content" aria-label={m.goHome}>
             {m.appTitle}
           </Link>
         </div>
         <nav aria-label="메뉴" className="flex-1 py-3">
+          {session && (
+            <NavLink
+              to="/"
+              end
+              className={({ isActive }) =>
+                `mx-2 mb-2 flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-[15px] font-bold transition-colors ${isActive ? 'bg-accent/20 text-accent' : 'text-neutral-content/85 hover:bg-neutral-content/10'}`
+              }
+              data-testid="nav-dashboard"
+            >
+              <GroupIcon id="dashboard" className="h-5 w-5 shrink-0" />
+              {m.dashboard.title}
+            </NavLink>
+          )}
           {groups.map((g) => (
             <NavGroupMenu key={g.id} group={g} pathname={pathname} />
           ))}
-          {session && groups.every((g) => g.id === 'assistant') && <p className="px-5 text-xs text-base-content/60">{m.nav.noMenu}</p>}
+          {session && groups.every((g) => g.id === 'assistant') && <p className="px-5 text-xs text-neutral-content/60">{m.nav.noMenu}</p>}
         </nav>
       </aside>
       <div className="flex min-w-0 flex-1 flex-col">
@@ -202,11 +215,6 @@ function Layout() {
 
 const guarded = (element: ReactNode) => <RequireSession>{element}</RequireSession>;
 
-/** 첫 화면: 역할로 보이는 첫 메뉴(없으면 내 세션). */
-function Home() {
-  const { session } = useSession();
-  return <Navigate to={homePath(session?.roles ?? [])} replace />;
-}
 
 const routes = [
   { path: '/login', element: <LoginPage /> },
@@ -216,7 +224,8 @@ const routes = [
     path: '/',
     element: <Layout />,
     children: [
-      { index: true, element: guarded(<Home />) },
+      // 첫 화면 = 대시보드(2026-11-18 사용자 — 참고 관리자 화면의 메인처럼; 예전엔 역할 첫 메뉴로 바로 갔다)
+      { index: true, element: guarded(<DashboardPage />) },
       { path: 'session', element: guarded(<SessionPage />) },
       { path: 'approvals', element: guarded(<ApprovalListPage />) },
       { path: 'approvals/:approvalId', element: guarded(<ApprovalDetailPage />) },

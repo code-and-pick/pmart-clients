@@ -134,27 +134,27 @@ describe('앱 바꾸기 — 이 앱 메뉴 칸(알림과 함께)', () => {
     renderAt('/approvals', as.admin);
     const link = await screen.findByRole('link', { name: '승인함' });
     expect(link.className).toContain('border-accent');
-    expect(link.className).toContain('bg-base-100'); // 회색 메뉴 위 흰 카드처럼
-    expect(link.className).toContain('font-semibold');
-    expect(screen.getByTestId('nav-group-approval').querySelector('summary')!.className).toContain('[&>svg:first-child]:text-accent'); // 지금 묶음 아이콘 민트
+    expect(link.className).toContain('bg-accent/20');
+    expect(link.className).toContain('font-bold');
+    expect(screen.getByTestId('nav-group-approval').querySelector('summary')!.className).toContain('text-accent');
     expect(screen.getByTestId('nav-group-catalog').querySelector('summary')!.className).not.toContain('text-accent');
   });
 });
 
 describe('묶음 이름(2026-11-18 — 하위보다 크게, 눌렀을 때 펼침이 보이게)', () => {
-  it('묶음 이름은 하위 메뉴보다 큰 글씨·아이콘, 누르면 화살표가 돈다', async () => {
+  it('묶음 이름은 하위 메뉴보다 큰 글씨·아이콘, 누르면 화살표가 돌고 바탕이 밝아진다', async () => {
     const user = userEvent.setup();
     renderAt('/approvals', as.admin);
     const support = await screen.findByTestId('nav-group-support');
     const summary = support.querySelector('summary')!;
-    expect(summary.className).toContain('text-[14px]');
+    expect(summary.className).toContain('text-[15px]');
     expect(screen.getByRole('link', { name: '승인함' }).className).toContain('text-[13px]');
     expect(summary.querySelector('svg')).not.toBeNull(); // 묶음 아이콘
     const chevron = within(support).getByTestId('nav-group-chevron');
     expect(chevron.getAttribute('class')).not.toContain('rotate-90');
-    expect(support).toHaveAttribute('data-open', 'false');
+    expect(support.className).not.toContain('bg-neutral-content/5');
     await user.click(within(support).getByText('지원센터'));
     expect(within(support).getByTestId('nav-group-chevron').getAttribute('class')).toContain('rotate-90');
-    expect(support).toHaveAttribute('data-open', 'true');
+    expect(support.className).toContain('bg-neutral-content/5');
   });
 });

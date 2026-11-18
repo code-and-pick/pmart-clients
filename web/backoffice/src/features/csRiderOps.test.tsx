@@ -55,12 +55,18 @@ describe('메뉴 묶음 — 역할로 보이고(합집합) 접고 편다', () =>
     expect(new Set(all).size).toBe(all.length);
   });
 
-  it('첫 화면은 역할로 보이는 첫 메뉴 — 상담원은 주문 조회, 라이더 운영은 접수 건(라이더 찾기는 라이더 백오피스로 옮김)', async () => {
+  // 2026-11-18 사용자: 첫 화면 = 대시보드(예전엔 역할 첫 메뉴로 바로 갔다). 숫자 카드는 역할로 보이는 메뉴의 것만.
+  it('첫 화면은 대시보드 — 상담원은 오늘 주문·답변 대기 고객 문의, 라이더 운영은 기한 지난 접수 건·답변 대기 라이더 문의', async () => {
     renderAt('/', as.cs);
-    expect(await screen.findByRole('heading', { name: '주문 조회' })).toBeInTheDocument();
+    expect(await screen.findByTestId('dashboard')).toBeInTheDocument();
+    expect(screen.getByTestId('dash-kpi-orders')).toBeInTheDocument();
+    expect(screen.getByTestId('dash-kpi-inquiries')).toBeInTheDocument();
+    expect(screen.queryByTestId('dash-kpi-casesOverdue')).not.toBeInTheDocument(); // 상담원은 접수 건을 맡지 않는다
     cleanup();
     renderAt('/', as.riderOps);
-    expect(await screen.findByRole('heading', { name: '접수 건' })).toBeInTheDocument();
+    expect(await screen.findByTestId('dash-kpi-casesOverdue')).toBeInTheDocument();
+    expect(screen.getByTestId('dash-kpi-riderInquiries')).toBeInTheDocument();
+    expect(screen.queryByTestId('dash-kpi-inquiries')).not.toBeInTheDocument();
   });
 });
 

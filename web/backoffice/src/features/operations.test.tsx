@@ -1,4 +1,4 @@
-import { cleanup, screen, waitFor } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 
@@ -75,16 +75,14 @@ describe('센터 취급', () => {
 
 
 describe('이동', () => {
-  it('상단 PMart 로고를 누르면 홈(역할로 보이는 첫 메뉴)으로 간다 — MD 는 상품 조회, 승인자는 승인함', async () => {
+  // 2026-11-18: 홈 = 대시보드(예전엔 역할 첫 메뉴로 바로 갔다)
+  it('상단 PMart 로고를 누르면 대시보드 — 승인자는 심사 대기 승인 카드, 주문 카드는 없다', async () => {
     const user = userEvent.setup();
-    renderAt('/prices');
-    await user.click(screen.getByRole('link', { name: 'PMart 백오피스 홈으로' }));
-    expect(await screen.findByRole('heading', { name: '상품 조회' })).toBeInTheDocument();
-    cleanup();
-
     renderAt('/prices', as.approver);
     await user.click(screen.getByRole('link', { name: 'PMart 백오피스 홈으로' }));
-    expect(await screen.findByRole('heading', { name: '승인함' })).toBeInTheDocument();
+    expect(await screen.findByTestId('dashboard')).toBeInTheDocument();
+    expect(screen.getByTestId('dash-kpi-approvals')).toBeInTheDocument();
+    expect(screen.queryByTestId('dash-kpi-orders')).not.toBeInTheDocument();
   });
 
   it('상품 상세의 "콘텐츠·이미지 등록"은 상품 ID 를 채운 콘텐츠 등록으로 가고 이미지 안내를 보인다', async () => {
