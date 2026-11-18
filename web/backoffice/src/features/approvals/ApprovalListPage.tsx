@@ -12,13 +12,14 @@ import { formatSeoul } from '@pmart/web-ui';
 import { messages as m } from '../../shared/messages';
 import { QueryState } from '@pmart/web-ui';
 import { toUiState } from '@pmart/web-ui';
-import { CodeLabel, PageHeader, StatusBadge, type Tone } from '../../shared/admin';
+import { CodeLabel, PageHeader, StatusBadge, type Tone, useRowLink } from '../../shared/admin';
 
 const pick = <T extends string>(value: string | null, allowed: readonly T[]): T | undefined =>
   allowed.find((a) => a === value);
 
 export function ApprovalListPage() {
   const api = useApi();
+  const rowLink = useRowLink();
   const [params, setParams] = useSearchParams();
   const type = pick<ApprovalType>(params.get('type'), APPROVAL_TYPES);
   const reviewState = pick<ReviewState>(params.get('reviewState'), REVIEW_STATES);
@@ -114,7 +115,7 @@ export function ApprovalListPage() {
                   </thead>
                   <tbody>
                     {rows.map((a, i) => (
-                      <tr key={a.approvalId ?? `row-${i}`} data-testid="approval-row">
+                      <tr key={a.approvalId ?? `row-${i}`} data-testid="approval-row" {...(a.approvalId ? rowLink(`/approvals/${encodeURIComponent(a.approvalId)}`) : {})}>
                         <td className="max-w-xl">
                           <p className="truncate font-medium" title={a.summary ?? undefined}>
                             {a.summary ?? m.none}

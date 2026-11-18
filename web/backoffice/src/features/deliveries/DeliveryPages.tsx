@@ -16,7 +16,7 @@ import { useApi } from '../../app/ApiContext';
 import { CommandFeedback } from '../../shared/Feedback';
 import { messages as m } from '../../shared/messages';
 import { label, text, when } from '../../shared/ops';
-import { ChipGroup, CodeLabel, DataTable, DetailHeader, FieldList, NextAction, PageHeader, ResultBar, SearchPanel, SearchRow, Section, StatusBadge, type Tone } from '../../shared/admin';
+import { ChipGroup, CodeLabel, DataTable, DetailHeader, FieldList, NextAction, PageHeader, ResultBar, SearchPanel, SearchRow, Section, StatusBadge, type Tone, useRowLink } from '../../shared/admin';
 import { EmptyBox, Icon, IdLink, KindChip, ListFoot, Person, Timeline, When } from '../lookup/parts';
 
 type DeliveryExecution = Execution['schemas']['DeliveryExecution'];
@@ -63,6 +63,7 @@ const TYPE_TONE: Readonly<Record<string, Tone>> = { FORWARD: 'info', RETURN: 'wa
 
 /** 직원 배송 목록 한 표(ID·상태·시각만 — 개인정보 없음) */
 export function DeliveryTable({ rows }: { readonly rows: readonly StaffDeliverySummary[] }) {
+  const rowLink = useRowLink();
   return (
     <DataTable>
       <thead>
@@ -78,7 +79,7 @@ export function DeliveryTable({ rows }: { readonly rows: readonly StaffDeliveryS
       </thead>
       <tbody>
         {rows.map((d, i) => (
-          <tr key={d.deliveryId ?? `dlv-${i}`} data-testid="delivery-row">
+          <tr key={d.deliveryId ?? `dlv-${i}`} data-testid="delivery-row" {...(d.deliveryId ? rowLink(`/deliveries/${encodeURIComponent(d.deliveryId)}`) : {})}>
             {/* 첫 칸: 배송 번호 굵게(링크) — 상세로 가는 첫 링크 */}
             <td>
               <Link className="font-mono font-semibold text-base-content hover:text-primary hover:underline" to={`/deliveries/${encodeURIComponent(d.deliveryId ?? '')}`}>

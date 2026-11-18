@@ -15,7 +15,7 @@ import { useApi } from '../../app/ApiContext';
 import { messages } from '../../shared/messages';
 import { label, when } from '../../shared/ops';
 import { SourceStamps } from '../../shared/SourceStamps';
-import { CodeLabel, DataTable, NextAction, PageHeader, StatusBadge } from '../../shared/admin';
+import { CodeLabel, DataTable, NextAction, PageHeader, StatusBadge, useRowLink } from '../../shared/admin';
 import { executionTone } from '../deliveries/DeliveryPages';
 import { EmptyBox, Icon, IdLink, KindChip, Kpi, Person, UnderlineTabs } from '../lookup/parts';
 
@@ -264,6 +264,7 @@ function LiveNext({ items }: { readonly items: readonly LiveItem[] }) {
 }
 
 function LiveTable({ items, composedAt, casesTruncated = false }: { readonly items: readonly LiveItem[]; readonly composedAt: string | undefined; readonly casesTruncated?: boolean }) {
+  const rowLink = useRowLink();
   return (
     <DataTable>
       <thead>
@@ -282,7 +283,7 @@ function LiveTable({ items, composedAt, casesTruncated = false }: { readonly ite
           const late = isLate(it, composedAt);
           const dispatchState = it.dispatch?.state ?? null;
           return (
-            <tr key={it.deliveryId} data-testid="live-row" className={late ? 'bg-error/5' : undefined}>
+            <tr key={it.deliveryId} data-testid="live-row" {...(it.deliveryId ? rowLink(`/deliveries/${encodeURIComponent(it.deliveryId)}`) : {})} className={`cursor-pointer ${late ? 'bg-error/5' : ''}`}>
               {/* 첫 칸: 배송 번호 굵게 + 주문 번호 작게 */}
               <td>
                 {it.deliveryId ? (

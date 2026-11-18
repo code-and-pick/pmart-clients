@@ -12,6 +12,7 @@ import { Link } from 'react-router';
 import { request } from '@pmart/web-core';
 import { useApi } from './ApiContext';
 import { ALERT_SIZE, useAlertCount, type AlertKey } from './MenuAlerts';
+import { GroupIcon } from './groupIcons';
 import { visibleGroups } from './nav';
 import { useSession } from './SessionContext';
 import { slaText } from '../features/cases/CaseSlaPage';
@@ -41,10 +42,45 @@ function Kpi({ title, value, hint, to, tone, testId }: { readonly title: string;
   );
 }
 
-function AlertKpi({ alert, title, hint, to, tone }: { readonly alert: AlertKey; readonly title: string; readonly hint: string; readonly to: string; readonly tone?: 'error' | 'warning' }) {
+/**
+ * 내 할 일 한 줄(2026-11-18 사용자 작업 따라 해 보기 — "첫 화면에서 내가 할 일이 안 보인다", BO-28 "로그인·내 할 일").
+ * 개수는 메뉴 알림과 같은 서버 조회(캐시 공유) — 0 이면 "없음", 못 읽으면 "?"(0 이 아님). 누르면 그 일만 걸러 둔 목록으로.
+ */
+function TaskRow({ alert, title, to, tone, group }: { readonly alert: AlertKey; readonly title: string; readonly to: string; readonly tone: 'error' | 'warning' | 'info'; readonly group: string }) {
   const q = useAlertCount(alert);
-  const value: Count = q.data ? { text: countText(q.data.n, q.data.more, ALERT_SIZE), n: q.data.n, failed: false } : q.isError ? { text: '?', n: null, failed: true } : { text: '…', n: null, failed: false };
-  return <Kpi title={title} value={value} hint={hint} to={to} {...(tone ? { tone } : {})} testId={`dash-kpi-${alert}`} />;
+  const n = q.data?.n ?? null;
+  const has = n !== null && n > 0;
+  const text = q.data ? countText(q.data.n, q.data.more, ALERT_SIZE) : q.isError ? '?' : '…';
+  const color = { error: 'bg-error text-error-content', warning: 'bg-warning text-warning-content', info: 'bg-info text-info-content' }[tone];
+  return (
+    <Link
+      to={to}
+      data-testid={`dash-kpi-${alert}`}
+      className={`group flex items-center gap-4 px-5 py-3.5 transition-colors hover:bg-base-200/60 ${has ? '' : 'opacity-70'}`}
+    >
+      <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${has ? 'bg-primary/10 text-primary' : 'bg-base-200 text-base-content/40'}`} aria-hidden="true">
+        <GroupIcon id={group} className="h-5 w-5" />
+      </span>
+      <span className={`min-w-0 flex-1 ${has ? 'font-semibold' : 'text-base-content/60'}`}>{title}</span>
+      {q.isError ? (
+        <span className="text-sm text-base-content/50" title={m.failed}>
+          {text}
+        </span>
+      ) : has ? (
+        <span className={`min-w-8 rounded-full px-2.5 py-0.5 text-center text-sm font-bold tabular-nums ${color}`}>{text}</span>
+      ) : n === 0 ? (
+        <span className="text-sm text-base-content/45">
+          <span className="sr-only">0</span>
+          {m.noneLeft}
+        </span>
+      ) : (
+        <span className="text-sm text-base-content/40">{text}</span>
+      )}
+      <span className={`w-24 whitespace-nowrap text-right text-sm ${has ? 'font-medium text-primary' : 'text-base-content/30'} group-hover:underline`} aria-hidden="true">
+        {m.go} →
+      </span>
+    </Link>
+  );
 }
 
 /** 하루 주문 수(오늘 카드·7일 막대가 같은 queryKey) */
@@ -198,13 +234,17 @@ export function DashboardPage() {
   const days = Array.from({ length: DAYS }, (_, i) => addSeoulDays(today, i - (DAYS - 1)));
   const weekFrom = days[0]!;
 
+  // 내 할 일 — 급한 것부터(기한 넘김 → 아무도 안 맡음 → 처리 대기 → 답변 대기 → 심사 대기). 역할로 보이는 메뉴만.
+  const tasks: ReactNode[] = [];
+  if (can('/cases') && claimsCases) tasks.push(<TaskRow key="overdue" alert="casesOverdue" title={m.casesOverdue} to="/cases?tab=overdue" tone="error" group="support" />);
+  if (can('/cases') && claimsCases) tasks.push(<TaskRow key="unassigned" alert="casesUnassigned" title={m.casesUnassigned} to="/cases?tab=unassigned" tone="warning" group="support" />);
+  if (can('/pending')) tasks.push(<TaskRow key="pending" alert="pending" title={m.pending} to="/pending" tone="warning" group="pending" />);
+  if (can('/inquiries')) tasks.push(<TaskRow key="inq" alert="inquiries" title={m.inquiries} to="/inquiries?status=RECEIVED" tone="info" group="cs" />);
+  if (can('/rider-inquiries')) tasks.push(<TaskRow key="rinq" alert="riderInquiries" title={m.riderInquiries} to="/rider-inquiries?status=RECEIVED" tone="info" group="support" />);
+  if (can('/approvals')) tasks.push(<TaskRow key="apv" alert="approvals" title={m.approvals} to="/approvals?reviewState=REVIEW_PENDING" tone="info" group="approval" />);
+
   const kpis: ReactNode[] = [];
   if (can('/orders')) kpis.push(<TodayOrdersKpi key="orders" today={today} />);
-  if (can('/pending')) kpis.push(<AlertKpi key="pending" alert="pending" title={m.pending} hint={m.toPending} to="/pending" tone="warning" />);
-  if (can('/cases') && claimsCases) kpis.push(<AlertKpi key="overdue" alert="casesOverdue" title={m.casesOverdue} hint={m.toCases} to="/cases?tab=overdue" tone="error" />);
-  if (can('/inquiries')) kpis.push(<AlertKpi key="inq" alert="inquiries" title={m.inquiries} hint={m.toInquiries} to="/inquiries" />);
-  if (can('/rider-inquiries')) kpis.push(<AlertKpi key="rinq" alert="riderInquiries" title={m.riderInquiries} hint={m.toRiderInquiries} to="/rider-inquiries" />);
-  if (can('/approvals')) kpis.push(<AlertKpi key="apv" alert="approvals" title={m.approvals} hint={m.toApprovals} to="/approvals" />);
 
   const hour = Number(new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Seoul', hour: 'numeric', hourCycle: 'h23' }).format(new Date()));
   return (
@@ -216,7 +256,20 @@ export function DashboardPage() {
         </div>
       </header>
 
-      {kpis.length > 0 && <div className="grid grid-cols-[repeat(auto-fit,minmax(10.5rem,1fr))] gap-3">{kpis}</div>}
+      {tasks.length > 0 && (
+        <section aria-labelledby="dash-my-work" className="overflow-hidden rounded-box border border-base-300 bg-base-100 shadow-sm" data-testid="dash-my-work">
+          <div className="flex items-baseline justify-between gap-2 border-b border-base-300 px-5 py-3">
+            <h2 id="dash-my-work" className="text-lg font-bold">
+              {m.myWork}
+            </h2>
+            <span className="text-xs text-base-content/50">{m.myWorkHint}</span>
+          </div>
+          <div className="divide-y divide-base-300">{tasks}</div>
+        </section>
+      )}
+
+      {(kpis.length > 0 || can('/case-sla')) && <h2 className="pt-2 text-sm font-semibold text-base-content/60">{m.status}</h2>}
+      {kpis.length > 0 && <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{kpis}</div>}
 
       {(can('/orders') || can('/case-sla')) && (
         <div className="grid gap-4 lg:grid-cols-3">
@@ -231,7 +284,7 @@ export function DashboardPage() {
 
       {can('/orders') && <RecentOrders from={weekFrom} to={today} />}
 
-      {kpis.length === 0 && !can('/orders') && <p className="text-sm text-base-content/60">{m.nothing}</p>}
+      {tasks.length === 0 && kpis.length === 0 && !can('/orders') && <p className="text-sm text-base-content/60">{m.nothing}</p>}
     </section>
   );
 }

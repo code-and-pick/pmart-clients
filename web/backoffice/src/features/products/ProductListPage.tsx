@@ -13,7 +13,7 @@ import { FailureAlert } from '../../shared/Feedback';
 import { messages as m } from '../../shared/messages';
 import { QueryState } from '@pmart/web-ui';
 import { toUiState } from '@pmart/web-ui';
-import { PageHeader, StatusBadge, type Tone } from '../../shared/admin';
+import { PageHeader, StatusBadge, type Tone, useRowLink } from '../../shared/admin';
 import { LineIcon, tableClass, UnderlineTabs } from './parts';
 
 export const SALE_TONE: Readonly<Record<SaleState, Tone>> = {
@@ -70,6 +70,7 @@ function Lookup() {
 
 export function ProductListPage() {
   const api = useApi();
+  const rowLink = useRowLink();
   const [params, setParams] = useSearchParams();
   const saleState: SaleState | undefined = SALE_STATES.find((s) => s === params.get('saleState'));
   const categoryId = params.get('categoryId') ?? '';
@@ -161,7 +162,7 @@ export function ProductListPage() {
                   </thead>
                   <tbody>
                     {(d.items ?? []).map((p, i) => (
-                      <tr key={p.productId ?? i} data-testid="product-row">
+                      <tr key={p.productId ?? i} data-testid="product-row" {...(p.productId ? rowLink(`/products/${encodeURIComponent(p.productId)}`) : {})}>
                         <td className="max-w-xl">
                           <div className="flex items-center gap-3">
                             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-base-200 text-base-content/45" aria-hidden="true">

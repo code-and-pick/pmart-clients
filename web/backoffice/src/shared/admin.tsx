@@ -7,7 +7,7 @@
 // - 표: 회색 머리줄, 줄 전체 누르면 상세
 // - 상세: 제목·표시·요약 + 오른쪽 동작 버튼, 그 아래 구역 상자(제목 줄 + 항목명/값 줄), 구역으로 가는 밑줄 탭
 import type { FormEvent, ReactNode } from 'react';
-import { Link, useLocation } from 'react-router';
+import { Link, useLocation, useNavigate } from 'react-router';
 
 import { GroupIcon } from '../app/groupIcons';
 import { covers, navGroups } from '../app/nav';
@@ -32,6 +32,21 @@ export function StatusBadge({ tone = 'ghost', children, testId }: { readonly ton
       {children}
     </span>
   );
+}
+
+/**
+ * 목록 줄 전체를 누르면 상세로(2026-11-18 사용자 작업 따라 해 보기 — "굵은 제목은 안 눌리고 작은 번호만 눌린다").
+ * 줄 안의 링크·버튼·입력·체크박스를 누르면 그쪽 동작만. 키보드는 줄 안의 링크(번호)로 그대로 간다.
+ */
+export function useRowLink() {
+  const navigate = useNavigate();
+  return (to: string) => ({
+    className: 'cursor-pointer',
+    onClick: (e: { readonly target: EventTarget | null }) => {
+      if (e.target instanceof Element && e.target.closest('a,button,input,select,textarea,label,summary')) return;
+      void navigate(to);
+    },
+  });
 }
 
 /** 쪽 머리말 — h1 은 화면마다 하나 */

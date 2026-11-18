@@ -401,7 +401,15 @@ function InquiryNextAction({ q, canReply }: { readonly q: Inquiry; readonly canR
         {toReply}
       </NextAction>
     );
-  if (q.status === 'ANSWERED') return <NextAction tone="info" title={n.waiting[rider ? 'RIDER' : 'CUSTOMER']} body={n.waitingBody} />;
+  // 답한 뒤에는 다음 답변 대기 문의로 바로(2026-11-18 작업 따라 해 보기 — 목록으로 돌아가 다시 찾아야 했다)
+  if (q.status === 'ANSWERED')
+    return (
+      <NextAction tone="info" title={n.waiting[rider ? 'RIDER' : 'CUSTOMER']} body={n.waitingBody}>
+        <Link className="btn btn-primary btn-sm" to={`${rider ? '/rider-inquiries' : '/inquiries'}?status=RECEIVED`}>
+          {n.nextOne}
+        </Link>
+      </NextAction>
+    );
   return null;
 }
 
