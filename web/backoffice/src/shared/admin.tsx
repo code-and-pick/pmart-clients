@@ -72,17 +72,18 @@ export function PageHeader({ title, description, actions, back }: { readonly tit
   );
 }
 
-/** 검색 조건 상자 — 줄마다 왼쪽 항목명 칸 */
+/** 검색 조건 — 목록 카드 맨 위 필터 줄(2026-11-18 Shopify·Medusa 목록처럼: 항목명은 칸 위에 작게, 버튼은 오른쪽).
+ * 바로 뒤의 결과 줄(ResultBar)·표(DataTable)와 한 카드로 붙는다(index.css 의 data-list-part). */
 // 기본 백오피스 사본에만 더함(2026-11-18): submitDisabled(입력이 틀리면 조회를 막는 화면), label(화면 안 폼이 여럿일 때 이름)
 export function SearchPanel({ onSubmit, onReset, children, submitLabel = '조회', resetLabel = '초기화', submitDisabled = false, label = '검색 조건' }: { readonly onSubmit: (e: FormEvent) => void; readonly onReset: () => void; readonly children: ReactNode; readonly submitLabel?: string; readonly resetLabel?: string; readonly submitDisabled?: boolean; readonly label?: string }) {
   return (
-    <form className="overflow-hidden rounded-box border border-base-300 bg-base-100 shadow-sm" onSubmit={onSubmit} aria-label={label}>
-      <div className="divide-y divide-base-300">{children}</div>
-      <div className="flex justify-center gap-2 border-t border-base-300 bg-base-200/60 px-4 py-3">
-        <button type="button" className="btn btn-sm w-24 border-base-300 bg-base-100" onClick={onReset}>
+    <form className="flex flex-wrap items-end gap-x-5 gap-y-3 rounded-box border border-base-300 bg-base-100 px-4 py-3.5 shadow-sm" onSubmit={onSubmit} aria-label={label} data-list-part="top">
+      {children}
+      <div className="ml-auto flex gap-2">
+        <button type="button" className="btn btn-sm btn-ghost" onClick={onReset}>
           {resetLabel}
         </button>
-        <button type="submit" className="btn btn-sm btn-primary w-24" disabled={submitDisabled}>
+        <button type="submit" className="btn btn-sm btn-primary min-w-20" disabled={submitDisabled}>
           {submitLabel}
         </button>
       </div>
@@ -93,9 +94,9 @@ export function SearchPanel({ onSubmit, onReset, children, submitLabel = '조회
 /** 검색 조건 한 줄 */
 export function SearchRow({ label, children }: { readonly label: ReactNode; readonly children: ReactNode }) {
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-[9rem_1fr]">
-      <div className="flex items-center bg-base-200 px-4 py-2 text-[13px] font-medium text-base-content/70">{label}</div>
-      <div className="flex flex-wrap items-center gap-2 px-4 py-2">{children}</div>
+    <div className="flex min-w-0 flex-col gap-1">
+      <div className="text-xs font-medium text-base-content/55">{label}</div>
+      <div className="flex flex-wrap items-center gap-2">{children}</div>
     </div>
   );
 }
@@ -123,7 +124,7 @@ export function ChipGroup<T extends string>({ value, options, onChange, label }:
 /** 결과 줄: 건수 + 정렬 토글 */
 export function ResultBar({ count, more, sort, extra }: { readonly count: number; readonly more?: boolean; readonly sort?: { readonly oldest: boolean; readonly onChange: (oldest: boolean) => void; readonly newest?: string; readonly oldestLabel?: string }; readonly extra?: ReactNode }) {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-2 px-1">
+    <div className="flex flex-wrap items-center justify-between gap-2 rounded-box border border-base-300 bg-base-100 px-4 py-2.5 shadow-sm" data-list-part="mid">
       <p className="text-sm" data-testid="result-count">
         <span className="font-semibold text-primary">{count}</span>
         {more ? '건 이상' : '건'}
@@ -146,11 +147,11 @@ export function ResultBar({ count, more, sort, extra }: { readonly count: number
   );
 }
 
-/** 표 상자 — thead 는 회색, 줄은 테두리로 나눈다 */
+/** 표 상자 — 머리줄은 옅은 작은 글씨, 줄은 넉넉히, 첫 칸은 굵게(목록의 주인공), 링크는 밑줄 없이 */
 export function DataTable({ children, testId }: { readonly children: ReactNode; readonly testId?: string }) {
   return (
-    <div className="overflow-x-auto rounded-box border border-base-300 bg-base-100 shadow-sm" data-testid={testId}>
-      <table className="table table-sm [&_thead_th]:bg-base-200 [&_thead_th]:text-xs [&_thead_th]:font-medium [&_thead_th]:text-base-content/55 [&_tbody_tr]:border-base-300/70 [&_tbody_tr:hover]:bg-base-200/70">{children}</table>
+    <div className="overflow-x-auto rounded-box border border-base-300 bg-base-100 shadow-sm" data-testid={testId} data-list-part="table">
+      <table className="table [&_tbody_td:first-child]:font-medium [&_tbody_td]:py-3 [&_tbody_tr:hover]:bg-base-200/60 [&_tbody_tr]:border-base-300/70 [&_td_a.link]:no-underline [&_td_a.link]:text-primary [&_td_a.link:hover]:underline [&_thead_th]:bg-base-200/50 [&_thead_th]:text-xs [&_thead_th]:font-medium [&_thead_th]:text-base-content/50">{children}</table>
     </div>
   );
 }
@@ -210,7 +211,7 @@ export function SectionTabs({ items }: { readonly items: ReadonlyArray<{ readonl
 export function Section({ id, title, aside, children, testId }: { readonly id?: string; readonly title: ReactNode; readonly aside?: ReactNode; readonly children: ReactNode; readonly testId?: string }) {
   return (
     <section id={id} className="scroll-mt-12 overflow-hidden rounded-box border border-base-300 bg-base-100 shadow-sm" data-testid={testId}>
-      <div className="flex items-center justify-between gap-2 border-b border-base-300 px-5 py-3">
+      <div className="flex items-center justify-between gap-2 border-b border-base-300 bg-base-200/40 px-5 py-3">
         <h2 className="font-bold">{title}</h2>
         {aside && <div className="flex items-center gap-2 text-sm">{aside}</div>}
       </div>
@@ -222,12 +223,13 @@ export function Section({ id, title, aside, children, testId }: { readonly id?: 
 /** 항목명/값 줄 묶음 */
 export function FieldList({ rows, testId }: { readonly rows: ReadonlyArray<readonly [ReactNode, ReactNode] | false | null | undefined>; readonly testId?: string }) {
   return (
-    <dl className="grid grid-cols-[8rem_1fr] gap-x-4 gap-y-2.5 text-sm" data-testid={testId}>
+    // 상세 항목(2026-11-18): 이름은 위에 작게, 값은 아래 굵게 — 넓으면 2~3칸으로(Shopify 상세처럼)
+    <dl className="grid gap-x-8 gap-y-4 text-sm sm:grid-cols-2 xl:grid-cols-3" data-testid={testId}>
       {rows.map((r, i) =>
         r ? (
-          <div key={i} className="contents">
-            <dt className="text-base-content/55">{r[0]}</dt>
-            <dd className="min-w-0 break-words">{r[1]}</dd>
+          <div key={i} className="min-w-0 space-y-0.5">
+            <dt className="text-xs text-base-content/50">{r[0]}</dt>
+            <dd className="min-w-0 break-words font-medium">{r[1]}</dd>
           </div>
         ) : null,
       )}
