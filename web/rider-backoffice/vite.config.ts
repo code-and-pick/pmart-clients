@@ -14,6 +14,10 @@ export default defineConfig(({ mode }) => {
       'import.meta.env.VITE_PMART_ENV': JSON.stringify(mode === 'mock' || mode === 'test' ? 'mock' : 'local'),
       // 비밀값이 아니라 주소라 여기 둔다(다른 백오피스와 같은 게이트웨이). 화면이 HTTPS 라 HTTPS 게이트웨이(8443).
       ...(lan ? { 'import.meta.env.VITE_PMART_API_BASE': JSON.stringify('https://192.168.0.40:8443/api/v1') } : {}),
+      // 머리줄 "시뮬레이터" 버튼(2026-11-18 사용자 "라이더 백오피스에서 시뮬레이션 서버 볼 수 있게"): 라이더 시뮬레이터는 PC 5(192.168.0.101)
+      // 개발 서버 5181 에서 돈다 — 다른 기기에서는 읽기 전용(시뮬레이터 server/lanPolicy.ts). 실서버 모드(?mode=http)로 연다.
+      // 주소가 바뀌면 빌드할 때 VITE_SIM_URL 로 덮어쓴다.
+      ...(lan ? { 'import.meta.env.VITE_SIM_URL': JSON.stringify(process.env.VITE_SIM_URL ?? 'http://192.168.0.101:5181/?mode=http') } : {}),
     },
     server: {
       port: 5176,
