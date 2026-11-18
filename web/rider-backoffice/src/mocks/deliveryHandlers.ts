@@ -152,6 +152,8 @@ export const deliveryHandlers = [
     const skip = Number(q.get('cursor') ?? '0') || 0;
     const rows = mockDeliveries
       .filter((d) => !q.get('orderId') || d.orderId === q.get('orderId'))
+      // 주문번호는 배정된 배송만 갖는다(계약 — 배정 사건이 실어 준 값)
+      .filter((d) => !q.get('orderNumber') || (d.riderId != null && d.orderNumber === q.get('orderNumber')))
       .filter((d) => !q.get('riderId') || d.riderId === q.get('riderId'))
       .filter((d) => !q.get('state') || d.state === q.get('state'))
       .filter((d) => !q.get('type') || d.type === q.get('type'))
@@ -159,6 +161,20 @@ export const deliveryHandlers = [
     const items = rows.slice(skip, skip + size).map(summary);
     const nextCursor = skip + size < rows.length ? String(skip + size) : null;
     return HttpResponse.json({ items, page: { nextCursor, size } });
+  }),
+  // execution 0.24.0 직원용 전달지 — RIDER_OPS·OPERATOR_ADMIN, 배정 ~ 전달 전. 목 주소는 가짜(실제 고객 아님).
+  http.get(`${API_BASE}/deliveries/:deliveryId/drop-location`, ({ request, params }) => {
+    const who = operator(request);
+    if (!who) return unauthorized();
+    if (!who.roles.some((r) => r === 'RIDER_OPS' || r === 'OPERATOR_ADMIN')) return problem(403, 'FORBIDDEN');
+    const d = mockDeliveries.find((x) => x.deliveryId === params['deliveryId']);
+    if (!d) return problem(404, 'NOT_FOUND');
+    if (d.purpose === 'MISDELIVERY_RECOVERY' || d.purpose === 'FAILED_DELIVERY_RETURN') return problem(409, 'NO_CUSTOMER_DROP');
+    if (!['ASSIGNED', 'ARRIVED_AT_STORE', 'PICKED_UP', 'ARRIVED_AT_CUSTOMER', 'FAILURE_REPORTED'].includes(d.state ?? '')) return problem(409, 'DROP_LOCATION_CLOSED');
+    return HttpResponse.json(
+      { deliveryId: d.deliveryId, kind: 'DELIVERY_DROP', roadAddress: '부산 부산진구 서면로 00(목 주소)', detailAddress: '101동 1001호', postalCode: '47290', lat: 35.1556, lng: 129.0598, piiAccessLogId: `PAL-${d.deliveryId}` },
+      { headers: { 'Cache-Control': 'no-store' } },
+    );
   }),
   http.get(`${API_BASE}/deliveries/:deliveryId/dispatch`, ({ request, params }) => {
     if (!operator(request)) return unauthorized();

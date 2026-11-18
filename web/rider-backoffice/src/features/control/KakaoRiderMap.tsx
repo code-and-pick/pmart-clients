@@ -8,8 +8,15 @@ const m = {
     failed: '카카오 지도를 불러오지 못해 표로만 보여요.',
     label: '라이더 위치 지도',
     center: '픽업 센터',
+    drop: '전달지',
   },
 } as const;
+
+/** 고른 라이더 배송의 길 — 픽업(센터) → 라이더 → 전달지. 전달지는 직원용 drop-location 좌표(열람 기록 뒤). */
+export interface MapRoute {
+  readonly deliveryId: string;
+  readonly drop: { readonly lat: number; readonly lng: number };
+}
 
 export interface MapRider {
   readonly riderId: string;
@@ -25,6 +32,7 @@ interface KakaoNs {
     LatLng: new (lat: number, lng: number) => unknown;
     Map: new (el: HTMLElement, opts: { center: unknown; level: number }) => { setCenter(p: unknown): void };
     CustomOverlay: new (opts: { position: unknown; content: HTMLElement; yAnchor?: number }) => { setMap(m: unknown): void };
+    Polyline: new (opts: { path: unknown[]; strokeWeight?: number; strokeColor?: string; strokeOpacity?: number; strokeStyle?: string }) => { setMap(m: unknown): void };
   };
 }
 
@@ -63,7 +71,9 @@ export function KakaoRiderMap({
   riders,
   onSelect,
   selectedId = '',
+  routes = [],
 }: {
+  readonly routes?: readonly MapRoute[];
   readonly center: { readonly lat: number; readonly lng: number } | null;
   readonly riders: readonly MapRider[];
   readonly onSelect: (riderId: string) => void;
@@ -130,6 +140,28 @@ export function KakaoRiderMap({
       centerMark?.setMap(null);
     };
   }, [kakao, riders, center, onSelect, selectedId]);
+
+  // 고른 라이더의 길: 센터 → 라이더 → 전달지 점선 + 전달지 핀. 색은 테마 변수에서 읽는다(하드코딩 안 함).
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!kakao || !map || routes.length === 0) return;
+    const me = riders.find((r) => r.riderId === selectedId);
+    const color = getComputedStyle(document.documentElement).getPropertyValue('--color-primary').trim() || undefined;
+    const drawn = routes.flatMap((rt) => {
+      const pts = [center, me, rt.drop].filter((x): x is { lat: number; lng: number } => !!x).map((x) => new kakao.maps.LatLng(x.lat, x.lng));
+      const line = new kakao.maps.Polyline({ path: pts, strokeWeight: 4, strokeOpacity: 0.8, strokeStyle: 'shortdash', ...(color ? { strokeColor: color } : {}) });
+      line.setMap(map);
+      const pin = document.createElement('span');
+      pin.className = 'badge badge-primary badge-sm shadow';
+      pin.textContent = m.map.drop;
+      const o = new kakao.maps.CustomOverlay({ position: new kakao.maps.LatLng(rt.drop.lat, rt.drop.lng), content: pin, yAnchor: 1 });
+      o.setMap(map);
+      return [line, o];
+    });
+    return () => {
+      for (const x of drawn) x.setMap(null);
+    };
+  }, [kakao, routes, riders, selectedId, center]);
 
   // 라이더를 고르면 그 위치로 한 번 옮긴다(10초마다 새 목록이 와도 다시 옮기지 않는다 — 운영자가 끌어 둔 곳을 지킨다).
   const focused = useRef('');

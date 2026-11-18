@@ -1,8 +1,9 @@
-// 관제 오른쪽 상세 칸(2026-11-18, 사용자 "시뮬레이션 서버로 따로 넘어가니까 실시간 현황이랑 주문 내역(픽업지·전달지)을 같이 보기 힘들다").
-// 지도·표에서 라이더를 고르면 그 라이더의 진행 중 배송마다: 단계·도착 예정(tracking eta)·픽업지(execution mfcName·mfcPhone + 센터 주소)·
-// 주문번호·품목·배송 요청사항(execution orderSummary).
-// 전달지(고객 주소·좌표)는 직원용 API 가 없다 — drop-info 는 배정 라이더 본인만. 백엔드 요청 중(handoff 2026-11-18-backend-staff-drop-info)
-// 이라 "백엔드 대기"로만 보인다. 추측해 부르지 않는다.
+// 관제 오른쪽 "라이더 한눈에"(2026-11-18 사용자: "주문번호에 해당하는 라이더를 바로 볼 수 있고, 그 라이더의 위치와 전달 상황과
+// 대기 및 운영 시간을 바로 볼 수 있게 — 직관적으로").
+// - 맨 위 네 칸: 위치(관제) · 전달 상황(관제 진행 중 배송) · 오늘 운행시간(execution 직원용 운행시간 — 배차 수락~전달 완료 합계) ·
+//   대기 시간(서버 값 없음 — 화면에서 계산해 지어내지 않고 백엔드 요청 중).
+// - 배송마다: 단계 진행 줄, 도착 예정·지연(tracking eta), 픽업지 → 전달지(drop-location — 열 때 한 번), 주문번호·품목·요청사항(execution).
+// - 관제 값·배송·도착 예정은 10초마다 새로, 전달지는 열람 기록이 남아 한 번만(dropLocation.ts).
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router';
 
@@ -10,54 +11,81 @@ import { request } from '@pmart/web-core';
 import { QueryState, toUiState } from '@pmart/web-ui';
 import type { components } from '../../api/generated/delivery-tracking';
 import { useApi } from '../../app/ApiContext';
-import { FieldList, StatusBadge } from '../../shared/admin';
+import { StatusBadge } from '../../shared/admin';
 import { messages } from '../../shared/messages';
 import { ops } from '../../shared/opsMessages';
 import { label, none, when, won } from '../../shared/opsUi';
 import { SimBadge } from '../../shared/sim';
-import { EtaPanel } from '../deliveries/DeliveryExtras';
+import { extrasMessages } from '../deliveries/DeliveryExtras';
+import { dropFailureText, dropMessages, useDropLocation } from './dropLocation';
 import { CONTROL_REFRESH_MS } from './refresh';
 
 type Rider = components['schemas']['ControlRider'];
 type ActiveDelivery = Rider['activeDeliveries'][number];
+type EtaLeg = components['schemas']['EtaLeg'];
 
 const n = messages.names;
 const c = ops.control;
 
 export const panelMessages = {
-  title: '라이더 상세',
-  pick: '지도나 아래 표에서 라이더를 고르면 진행 중 배송의 픽업지·주문 내역·도착 예정이 여기에 보여요.',
-  gone: '고른 라이더가 지금 목록에 없어요(운행 종료 등).',
+  title: '라이더 한눈에',
+  pick: '주문번호나 라이더 ID 로 찾거나, 지도·아래 표에서 라이더를 고르면 위치·전달 상황·운행 시간이 여기에 보여요.',
+  gone: '이 라이더는 지금 이 센터의 운행 목록에 없어요(운행 종료·다른 센터).',
   close: '닫기',
-  noDelivery: '진행 중 배송이 없어요.',
-  delivery: '배송',
+  tile: { location: '위치', delivery: '전달 상황', operating: '오늘 운행시간', waiting: '대기 시간' },
+  receiving: (s: string) => `수신 중 · ${s}`,
+  delivering: (k: number) => `배송 중 ${k}건`,
+  idle: '대기 중',
+  idleHint: '진행 중 배송 없음',
+  operatingHint: '배차 수락 ~ 전달 완료 합계',
+  waitingNone: '서버 값 없음',
+  waitingHint: '백엔드 요청 중',
+  dutyChanged: (t: string) => `상태 바뀐 때 ${t}`,
+  hm: (sec: number) => `${Math.floor(sec / 3600)}시간 ${Math.floor((sec % 3600) / 60)}분`,
+  steps: ['TO_STORE', 'AT_STORE', 'TO_CUSTOMER', 'AT_CUSTOMER'] as const,
   order: '주문번호',
   purpose: '목적',
-  pickup: '픽업지',
-  drop: '전달지',
-  dropPending: '백엔드 대기 — 직원용 전달지 API 가 아직 없어요(라이더 본인만 볼 수 있음).',
+  pickup: '픽업',
   items: '품목',
   itemLine: (name: string, opt: string | null | undefined, qty: number | undefined) => `${name}${opt ? ` (${opt})` : ''} × ${qty ?? '?'}`,
   itemAmount: '상품 합계',
   note: '요청사항',
-  open: '배송 상세',
-  pickupShort: '픽업',
+  pickupEta: '가게 도착',
+  dropEta: '고객 도착',
+  eta: (t: string, min: number | null) => `${t}${min === null ? '' : ` · ${min}분 남음`}`,
+  late: (min: number) => `${min}분 늦음`,
+  delayAlert: '지연 알림',
+  open: '배송 상세 · 조치',
   orderFailed: '주문 정보 못 불러옴',
-  live: '10초마다 새로 불러와요',
-  location: '위치',
-  updated: '마지막 수신',
+  pickupShort: '픽업',
+  loadFailed: '못 불러옴',
 } as const;
 const p = panelMessages;
+
+const seoulToday = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10);
+const minutes = (s: number | undefined | null) => (s == null ? null : Math.max(0, Math.round(s / 60)));
+
+function Tile({ label: l, value, hint, tone, testId }: { readonly label: string; readonly value: React.ReactNode; readonly hint?: React.ReactNode; readonly tone?: 'error' | 'info' | 'success'; readonly testId: string }) {
+  const color = tone === 'error' ? 'text-error' : tone === 'info' ? 'text-info' : tone === 'success' ? 'text-success' : '';
+  return (
+    <div className="rounded-box border border-base-300 px-3 py-2" data-testid={testId}>
+      <p className="text-xs text-base-content/60">{l}</p>
+      <p className={`text-base font-bold ${color}`}>{value}</p>
+      {hint && <p className="text-[11px] leading-tight text-base-content/50">{hint}</p>}
+    </div>
+  );
+}
 
 export function ControlRiderPanel({
   rider,
   selectedId,
-  centerAddress,
+  focusDeliveryId,
   onClose,
 }: {
   readonly rider: Rider | undefined;
   readonly selectedId: string;
-  readonly centerAddress: string | null;
+  /** 주문번호로 찾았으면 그 배송(라이더가 운행 목록에 없어도 보인다) */
+  readonly focusDeliveryId: string;
   readonly onClose: () => void;
 }) {
   if (!selectedId) {
@@ -67,20 +95,25 @@ export function ControlRiderPanel({
       </aside>
     );
   }
+  const deliveries: readonly ActiveDelivery[] = rider?.activeDeliveries.length
+    ? rider.activeDeliveries
+    : focusDeliveryId
+      ? [{ deliveryId: focusDeliveryId }]
+      : [];
   return (
     <aside className="space-y-3 rounded-box border border-base-300 bg-base-100 p-4" aria-label={p.title} data-testid="control-panel">
       <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0 space-y-1">
+        <div className="min-w-0">
           <p className="flex flex-wrap items-center gap-1">
-            <Link className="font-mono font-semibold hover:underline" to={`/riders/${encodeURIComponent(selectedId)}`}>
+            <Link className="font-mono text-lg font-bold hover:underline" to={`/riders/${encodeURIComponent(selectedId)}`}>
               {selectedId}
             </Link>
-            {rider?.nameMasked && <span className="text-xs text-base-content/60">{rider.nameMasked}</span>}
+            {rider?.nameMasked && <span className="text-sm text-base-content/60">{rider.nameMasked}</span>}
             <SimBadge riderId={selectedId} />
           </p>
           {rider && (
             <p className="text-xs text-base-content/60">
-              {[label(n.vehicle, rider.vehicleType), rider.newDispatchEnabled ? `신규배차 ${c.on}` : `신규배차 ${c.off}`, p.live].join(' · ')}
+              {[label(n.vehicle, rider.vehicleType), `신규배차 ${rider.newDispatchEnabled ? c.on : c.off}`].join(' · ')}
             </p>
           )}
         </div>
@@ -88,43 +121,68 @@ export function ControlRiderPanel({
           {p.close}
         </button>
       </div>
-      {!rider ? (
-        <p className="text-sm text-base-content/60">{p.gone}</p>
-      ) : (
-        <>
-          <FieldList
-            rows={[
-              [
-                p.location,
-                !rider.location ? (
-                  <StatusBadge tone="error">{c.noLocation}</StatusBadge>
-                ) : rider.stale ? (
-                  <StatusBadge tone="error">{c.stale}</StatusBadge>
-                ) : (
-                  <span className="font-mono text-xs">{`${Number(rider.location.lat).toFixed(5)}, ${Number(rider.location.lng).toFixed(5)}`}</span>
-                ),
-              ],
-              [p.updated, rider.staleSinceSeconds == null ? none : c.seconds(rider.staleSinceSeconds)],
-            ]}
-          />
-          {rider.activeDeliveries.length === 0 ? (
-            <p className="text-sm text-base-content/60">{p.noDelivery}</p>
-          ) : (
-            <ul className="space-y-3">
-              {rider.activeDeliveries.map((d) => (
-                <li key={d.deliveryId}>
-                  <DeliveryCard active={d} centerAddress={centerAddress} />
-                </li>
-              ))}
-            </ul>
-          )}
-        </>
+      {!rider && <p className="rounded-box bg-warning/15 px-3 py-2 text-sm">{p.gone}</p>}
+      <SummaryTiles rider={rider} riderId={selectedId} />
+      {deliveries.length > 0 && (
+        <ul className="space-y-3">
+          {deliveries.map((d) => (
+            <li key={d.deliveryId}>
+              <DeliveryCard active={d} focused={d.deliveryId === focusDeliveryId} />
+            </li>
+          ))}
+        </ul>
       )}
     </aside>
   );
 }
 
-/** 배송 수행 조회 — 관제에서는 위치 목록과 같은 간격으로 다시 불러온다(상세 칸·표가 같은 캐시를 나눠 씀). */
+function SummaryTiles({ rider, riderId }: { readonly rider: Rider | undefined; readonly riderId: string }) {
+  const api = useApi();
+  const today = seoulToday();
+  const time = useQuery({
+    queryKey: ['rider-operating-time', riderId, today, today],
+    refetchInterval: CONTROL_REFRESH_MS * 6,
+    queryFn: () => request('GET', api.execution.GET('/rider-operating-time', { params: { query: { riderId, from: today, to: today } } })),
+  });
+  const detail = useQuery({
+    queryKey: ['rider', riderId],
+    queryFn: () => request('GET', api.riders.GET('/riders/{riderId}', { params: { path: { riderId } } })),
+  });
+  const changedAt = detail.data?.operating?.changedAt;
+  const active = rider?.activeDeliveries ?? [];
+  const location = !rider ? (
+    <Tile label={p.tile.location} value={none} testId="tile-location" />
+  ) : !rider.location ? (
+    <Tile label={p.tile.location} value={c.noLocation} tone="error" testId="tile-location" />
+  ) : rider.stale ? (
+    <Tile label={p.tile.location} value={c.stale} tone="error" hint={rider.staleSinceSeconds == null ? undefined : c.seconds(rider.staleSinceSeconds)} testId="tile-location" />
+  ) : (
+    <Tile label={p.tile.location} value={p.receiving(rider.staleSinceSeconds == null ? none : c.seconds(rider.staleSinceSeconds))} tone="success" testId="tile-location" />
+  );
+  return (
+    <div className="grid grid-cols-2 gap-2">
+      {location}
+      {rider ? (
+        active.length > 0 ? (
+          <Tile label={p.tile.delivery} value={p.delivering(active.length)} tone="info" hint={active.map((a) => label(n.stage, a.stage)).join(' · ')} testId="tile-delivery" />
+        ) : (
+          <Tile label={p.tile.delivery} value={p.idle} hint={p.idleHint} testId="tile-delivery" />
+        )
+      ) : (
+        <Tile label={p.tile.delivery} value={none} testId="tile-delivery" />
+      )}
+      <Tile
+        label={p.tile.operating}
+        value={time.isSuccess ? p.hm(time.data.totalSeconds) : time.isError ? <span className="text-sm text-error">{p.loadFailed}</span> : '…'}
+        hint={p.operatingHint}
+        testId="tile-operating"
+      />
+      <Tile label={p.tile.waiting} value={<span className="text-sm font-medium text-base-content/50">{p.waitingNone}</span>} hint={[p.waitingHint, changedAt ? p.dutyChanged(when(changedAt)) : null].filter(Boolean).join(' · ')} testId="tile-waiting" />
+    </div>
+  );
+}
+
+/** 배송 수행 조회 — 위치 목록과 같은 간격으로 다시(상세 칸·표가 같은 캐시를 나눠 씀). */
 function useLiveDelivery(deliveryId: string) {
   const api = useApi();
   return useQuery({
@@ -134,82 +192,152 @@ function useLiveDelivery(deliveryId: string) {
   });
 }
 
-/**
- * 표의 "진행 중 배송" 칸 한 줄 — 배송·단계·도착 예정(관제 값) + 주문번호·픽업 지점(배송 조회).
- * 배송 조회를 못 읽으면 관제 값만 보이고 "주문 정보 못 불러옴" 표시(빈 값으로 숨기지 않는다).
- */
+function useLiveEta(deliveryId: string) {
+  const api = useApi();
+  return useQuery({
+    queryKey: ['delivery', deliveryId, 'eta'],
+    refetchInterval: CONTROL_REFRESH_MS,
+    queryFn: () => request('GET', api.tracking.GET('/deliveries/{deliveryId}/eta', { params: { path: { deliveryId } } })),
+  });
+}
+
+/** 표의 "진행 중 배송" 칸 한 줄 — 배송·단계·도착 예정(관제 값) + 주문번호·픽업 지점(배송 조회). 못 읽으면 "주문 정보 못 불러옴". */
 export function ActiveDeliverySummary({ active }: { readonly active: ActiveDelivery }) {
   const detail = useLiveDelivery(active.deliveryId);
   const x = detail.data;
+  const orderNo = x?.orderNumber ?? x?.orderSummary?.orderNumber;
   return (
     <span className="flex flex-wrap items-center gap-1" data-testid="row-delivery">
       <Link className="font-mono text-xs font-semibold hover:underline" to={`/deliveries/${encodeURIComponent(active.deliveryId)}`} onClick={(e) => e.stopPropagation()}>
         {active.deliveryId}
       </Link>
       <StatusBadge tone="info">{label(n.stage, active.stage)}</StatusBadge>
-      {x && (
-        <span className="text-xs text-base-content/70">
-          {[x.orderNumber ?? x.orderSummary?.orderNumber ? `#${x.orderNumber ?? x.orderSummary?.orderNumber}` : null, x.mfcName ? `${p.pickupShort} ${x.mfcName}` : null].filter(Boolean).join(' · ')}
-        </span>
-      )}
+      {x && <span className="text-xs text-base-content/70">{[orderNo ? `#${orderNo}` : null, x.mfcName ? `${p.pickupShort} ${x.mfcName}` : null].filter(Boolean).join(' · ')}</span>}
       {detail.isError && !x && <span className="text-xs text-error">{p.orderFailed}</span>}
       {active.etaDrop && <span className="text-xs text-base-content/60">{c.eta(when(active.etaDrop))}</span>}
     </span>
   );
 }
 
-function DeliveryCard({ active, centerAddress }: { readonly active: ActiveDelivery; readonly centerAddress: string | null }) {
+function Steps({ stage }: { readonly stage: string | null | undefined }) {
+  const at = p.steps.findIndex((s) => s === stage);
+  return (
+    <ol className="flex items-center gap-1 text-[11px]" aria-label="진행 단계" data-testid="stage-steps">
+      {p.steps.map((s, i) => (
+        <li key={s} className="flex items-center gap-1" aria-current={i === at ? 'step' : undefined}>
+          <span className={`rounded-full px-2 py-0.5 ${i === at ? 'bg-primary font-bold text-primary-content' : i < at ? 'bg-primary/15 text-primary' : 'bg-base-200 text-base-content/50'}`}>{label(n.stage, s)}</span>
+          {i < p.steps.length - 1 && <span className="text-base-content/30">›</span>}
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+function Leg({ name, leg }: { readonly name: string; readonly leg: EtaLeg | undefined }) {
+  if (!leg) return null;
+  const late = leg.delayedBySeconds !== undefined && leg.delayedBySeconds > 0 ? minutes(leg.delayedBySeconds) : null;
+  return (
+    <p className="flex flex-wrap items-center gap-1 text-sm">
+      <span className="w-16 shrink-0 text-base-content/55">{name}</span>
+      {leg.status === 'AVAILABLE' ? <span>{p.eta(when(leg.etaAt), minutes(leg.remainingSeconds))}</span> : <span className="text-base-content/60">{label(extrasMessages.etaStatus, leg.status)}</span>}
+      {late !== null && <StatusBadge tone="warning">{p.late(late)}</StatusBadge>}
+    </p>
+  );
+}
+
+function DropLine({ deliveryId }: { readonly deliveryId: string }) {
+  const drop = useDropLocation(deliveryId);
+  if (drop.isPending) return <span className="loading loading-dots loading-xs" />;
+  if (drop.isError) {
+    const f = dropFailureText(drop.error);
+    if (!f)
+      return (
+        <QueryState state={toUiState(drop)} onRetry={() => void drop.refetch()}>
+          {() => null}
+        </QueryState>
+      );
+    return (
+      <span className="flex flex-wrap items-center gap-2 text-xs text-base-content/60" data-testid="drop-unavailable">
+        {f.text}
+        {f.retry && (
+          <button type="button" className="btn btn-ghost btn-xs" onClick={() => void drop.refetch()}>
+            {dropMessages.retry}
+          </button>
+        )}
+      </span>
+    );
+  }
+  const d = drop.data;
+  return (
+    <span className="flex flex-col" data-testid="drop-address">
+      <span className="font-medium">{`${d.roadAddress} ${d.detailAddress}`.trim()}</span>
+      <span className="text-[11px] text-base-content/50">
+        {[label(dropMessages.kind, d.kind), d.postalCode, d.lat == null ? dropMessages.noPoint : null, dropMessages.logged].filter(Boolean).join(' · ')}
+      </span>
+    </span>
+  );
+}
+
+function DeliveryCard({ active, focused }: { readonly active: ActiveDelivery; readonly focused: boolean }) {
   const deliveryId = active.deliveryId;
   const detail = useLiveDelivery(deliveryId);
+  const eta = useLiveEta(deliveryId);
+  // 단계는 관제 값(표·위 칸과 같은 원천)으로 — 관제 목록에 없는 배송(주문번호로 찾음)만 도착 예정의 단계로
+  const stage = active.stage ?? eta.data?.stage;
   return (
-    <div className="space-y-3 rounded-box border border-base-300 p-3" data-testid="panel-delivery">
-      <div className="flex flex-wrap items-center gap-1">
-        <Link className="font-mono text-sm font-semibold hover:underline" to={`/deliveries/${encodeURIComponent(deliveryId)}`}>
-          {deliveryId}
-        </Link>
-        <StatusBadge tone="info">{label(n.stage, active.stage)}</StatusBadge>
+    <div className={`space-y-3 rounded-box border p-3 ${focused ? 'border-primary ring-1 ring-primary' : 'border-base-300'}`} data-testid="panel-delivery">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="flex flex-wrap items-center gap-1">
+          <Link className="font-mono text-sm font-semibold hover:underline" to={`/deliveries/${encodeURIComponent(deliveryId)}`}>
+            {deliveryId}
+          </Link>
+          {detail.data && (detail.data.orderNumber ?? detail.data.orderSummary?.orderNumber) && (
+            <span className="font-mono text-sm">{`#${detail.data.orderNumber ?? detail.data.orderSummary?.orderNumber}`}</span>
+          )}
+          {eta.data?.delayAlertTriggered && <StatusBadge tone="error">{p.delayAlert}</StatusBadge>}
+        </span>
       </div>
+      <Steps stage={stage} />
+      {eta.isError ? (
+        <QueryState state={toUiState(eta)} onRetry={() => void eta.refetch()}>
+          {() => null}
+        </QueryState>
+      ) : (
+        eta.data && (
+          <div className="space-y-1" data-testid="panel-eta">
+            <Leg name={p.pickupEta} leg={eta.data.pickupEta} />
+            <Leg name={p.dropEta} leg={eta.data.dropEta} />
+          </div>
+        )
+      )}
       <QueryState state={toUiState(detail)} onRetry={() => void detail.refetch()}>
         {(x) => {
           const s = x.orderSummary;
           const items = s?.items ?? [];
           return (
-            <div className="space-y-3">
-              <FieldList
-                testId="panel-order"
-                rows={[
-                  [p.order, <span className="font-mono">{x.orderNumber ?? s?.orderNumber ?? none}</span>],
-                  x.purpose && x.purpose !== 'DELIVERY' ? [p.purpose, label(n.purpose, x.purpose)] : null,
-                  [
-                    p.pickup,
-                    <span className="flex flex-col">
-                      <span className="font-medium">{x.mfcName ?? x.mfcId ?? none}</span>
-                      {centerAddress && <span className="text-xs text-base-content/60">{centerAddress}</span>}
-                      {x.mfcPhone && <span className="font-mono text-xs text-base-content/60">{x.mfcPhone}</span>}
-                    </span>,
-                  ],
-                  [p.drop, <span className="text-xs text-base-content/60" data-testid="panel-drop-pending">{p.dropPending}</span>],
-                  [
-                    p.items,
-                    items.length === 0 ? (
-                      none
-                    ) : (
-                      <ul className="space-y-0.5 text-sm">
-                        {items.map((it, i) => (
-                          <li key={it.orderLineId ?? i}>{p.itemLine(it.name ?? none, it.optionLabel, it.qty)}</li>
-                        ))}
-                      </ul>
-                    ),
-                  ],
-                  s?.itemAmount !== undefined ? [p.itemAmount, won(s.itemAmount)] : null,
-                  s?.deliveryNote ? [p.note, s.deliveryNote] : null,
-                ]}
-              />
+            <div className="space-y-2 text-sm" data-testid="panel-order">
+              {/* 픽업 → 전달지 */}
+              <div className="grid grid-cols-[auto_1fr] gap-x-2 gap-y-1">
+                <span className="mt-1 size-2 rounded-full bg-neutral" aria-hidden />
+                <span className="flex flex-col">
+                  <span className="font-medium">{`${p.pickup} · ${x.mfcName ?? x.mfcId ?? none}`}</span>
+                  {x.mfcPhone && <span className="font-mono text-[11px] text-base-content/55">{x.mfcPhone}</span>}
+                </span>
+                <span className="mt-1 size-2 rounded-full bg-primary" aria-hidden />
+                <DropLine deliveryId={deliveryId} />
+              </div>
+              {x.purpose && x.purpose !== 'DELIVERY' && <p className="text-xs">{`${p.purpose}: ${label(n.purpose, x.purpose)}`}</p>}
+              {items.length > 0 && (
+                <p className="text-xs text-base-content/70">
+                  {items.map((it) => p.itemLine(it.name ?? none, it.optionLabel, it.qty)).join(', ')}
+                  {s?.itemAmount !== undefined && ` · ${won(s.itemAmount)}`}
+                </p>
+              )}
+              {s?.deliveryNote && <p className="rounded bg-base-200 px-2 py-1 text-xs">{`${p.note}: ${s.deliveryNote}`}</p>}
             </div>
           );
         }}
       </QueryState>
-      <EtaPanel deliveryId={deliveryId} refreshMs={CONTROL_REFRESH_MS} />
       <div className="flex justify-end">
         <Link className="btn btn-xs border-base-300 bg-base-100" to={`/deliveries/${encodeURIComponent(deliveryId)}`}>
           {p.open}

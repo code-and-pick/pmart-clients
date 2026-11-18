@@ -16,8 +16,10 @@ import { messages } from '../../shared/messages';
 import { ops } from '../../shared/opsMessages';
 import { CenterPicker, label, none, when } from '../../shared/opsUi';
 import { ActiveDeliverySummary, ControlRiderPanel } from './ControlRiderPanel';
+import { ControlSearch } from './ControlSearch';
+import { useDropLocations } from './dropLocation';
 import { CONTROL_REFRESH_MS } from './refresh';
-import { KakaoRiderMap, type MapRider } from './KakaoRiderMap';
+import { KakaoRiderMap, type MapRider, type MapRoute } from './KakaoRiderMap';
 
 const c = ops.control;
 const n = messages.names;
@@ -91,22 +93,43 @@ export function ControlPage() {
   const center = (centers.data?.items ?? []).find((x) => x.centerId === mfcId);
   const coords = center?.coordinates;
   const centerPoint = coords?.lat != null && coords.lng != null ? { lat: coords.lat, lng: coords.lng } : null;
-  // 고른 라이더(오른쪽 상세 칸) — URL ?rider= 로 둬서 새로 고침·공유해도 그대로
+  // 고른 라이더(오른쪽 "라이더 한눈에") — URL ?rider= (주문번호로 찾았으면 ?delivery= 도) 로 둬서 새로 고침·공유해도 그대로
   const selectedId = params.get('rider') ?? '';
+  const focusDeliveryId = params.get('delivery') ?? '';
   const select = useCallback(
     (riderId: string) =>
       setParams((prev) => {
         const p = new URLSearchParams(prev);
         if (riderId) p.set('rider', riderId);
         else p.delete('rider');
+        p.delete('delivery');
         return p;
       }),
     [setParams],
   );
+  const found = useCallback(
+    (hit: { readonly riderId: string; readonly mfcId?: string | null; readonly deliveryId?: string }) =>
+      setParams((prev) => {
+        const p = new URLSearchParams(prev);
+        if (hit.mfcId) p.set('mfcId', hit.mfcId);
+        p.set('rider', hit.riderId);
+        if (hit.deliveryId) p.set('delivery', hit.deliveryId);
+        else p.delete('delivery');
+        p.delete('filter');
+        return p;
+      }),
+    [setParams],
+  );
+  // 고른 라이더 배송의 전달지 — 상세 칸과 같은 캐시(배송마다 한 번, 열람 기록)
+  const selectedRider = (board.data?.items ?? []).find((r) => r.riderId === selectedId);
+  const routeIds = selectedRider?.activeDeliveries.length ? selectedRider.activeDeliveries.map((d) => d.deliveryId) : focusDeliveryId && selectedId ? [focusDeliveryId] : [];
+  const drops = useDropLocations(routeIds);
+  const routes: MapRoute[] = drops.flatMap((q, i) => (q.data?.lat != null && q.data.lng != null ? [{ deliveryId: routeIds[i] ?? '', drop: { lat: q.data.lat, lng: q.data.lng } }] : []));
   return (
     <section className="space-y-4">
       <PageHeader title={c.title} description={c.intro} />
       <div className="flex flex-wrap items-end gap-x-8 gap-y-3 rounded-box border border-base-300 bg-base-100 px-5 py-4" aria-label="관제 조건" role="group">
+        <ControlSearch onFound={found} />
         <CenterPicker value={mfcId} onChange={(v) => setParams(v ? { mfcId: v } : {})} />
         <div className="flex flex-col gap-1 text-sm">
           <span>{cx.view}</span>
@@ -153,8 +176,8 @@ export function ControlPage() {
                 >
                   {/* 지도 + 오른쪽 상세 칸: 실시간 위치와 고른 라이더의 픽업지·주문 내역·도착 예정을 한 화면에서 */}
                   <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_24rem]">
-                    <KakaoRiderMap center={centerPoint} riders={mapRiders} onSelect={select} selectedId={selectedId} />
-                    <ControlRiderPanel rider={all.find((r) => r.riderId === selectedId)} selectedId={selectedId} centerAddress={center?.address ?? null} onClose={() => select('')} />
+                    <KakaoRiderMap center={centerPoint} riders={mapRiders} onSelect={select} selectedId={selectedId} routes={routes} />
+                    <ControlRiderPanel rider={all.find((r) => r.riderId === selectedId)} selectedId={selectedId} focusDeliveryId={focusDeliveryId} onClose={() => select('')} />
                   </div>
                 </Section>
                 <div className="flex flex-wrap items-center justify-between gap-2 px-1">

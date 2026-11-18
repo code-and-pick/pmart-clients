@@ -53,61 +53,83 @@ describe('관제 — 처음 열 때', () => {
   });
 });
 
-describe('관제 — 오른쪽 상세 칸', () => {
-  it('라이더 줄을 누르면 그 라이더의 진행 중 배송: 픽업지·주문번호·품목·요청사항·도착 예정, 전달지는 백엔드 대기', async () => {
+const sentTo = (view: ReturnType<typeof renderAt>, suffix: string) => view.sent.filter((r) => new URL(r.url).pathname.endsWith(suffix));
+
+describe('관제 — 라이더 한눈에', () => {
+  it('라이더 줄을 누르면 위치·전달 상황·오늘 운행시간·대기 + 배송: 단계·도착 예정·픽업 → 전달지·주문', async () => {
     server.use(http.get(`${API_BASE}/rider-locations`, () => HttpResponse.json(board)));
-    const view = renderAt('/control?mfcId=MFC-BSJ-01', as.riderOps);
+    renderAt('/control?mfcId=MFC-BSJ-01', as.riderOps);
     expect(await screen.findByTestId('control-panel-empty')).toBeInTheDocument();
     const row = (await screen.findAllByTestId('control-row'))[0]!;
     await userEvent.click(within(row).getByText('김*수'));
 
     const panel = await screen.findByTestId('control-panel');
     expect(panel).toHaveTextContent('RD-7');
+    expect(within(panel).getByTestId('tile-location')).toHaveTextContent('수신 중 · 5초 전');
+    expect(within(panel).getByTestId('tile-delivery')).toHaveTextContent('배송 중 1건');
+    expect(await within(panel).findByText('1시간 30분')).toBeInTheDocument(); // 목 운행시간 5400초
+    expect(within(panel).getByTestId('tile-waiting')).toHaveTextContent('서버 값 없음');
+    // 단계는 관제 값(TO_CUSTOMER) — 위 칸·표와 같은 원천
+    expect(within(panel).getByTestId('stage-steps').querySelector('[aria-current="step"]')).toHaveTextContent('고객에게');
     const order = await within(panel).findByTestId('panel-order');
-    expect(order).toHaveTextContent('48213075');
     expect(order).toHaveTextContent('PMart 부산진구지점');
-    expect(order).toHaveTextContent('부산 부산진구 중앙대로');
     expect(order).toHaveTextContent('051-000-0000');
+    expect(await within(order).findByTestId('drop-address')).toHaveTextContent('부산 부산진구 서면로 00(목 주소) 101동 1001호');
+    expect(order).toHaveTextContent('열람 기록이 남아요');
     expect(order).toHaveTextContent('그릭요거트 플레인 400g × 3');
     expect(order).toHaveTextContent('문 앞에 두고 벨 눌러 주세요');
-    expect(within(panel).getByTestId('panel-drop-pending')).toHaveTextContent('백엔드 대기');
-    expect(await within(panel).findByTestId('eta-detail')).toBeInTheDocument();
+    expect(within(panel).getByText('#48213075')).toBeInTheDocument();
+    expect(await within(panel).findByTestId('panel-eta')).toHaveTextContent('5분 늦음');
     expect(row).toHaveAttribute('aria-selected', 'true');
-    // 전달지를 추측해 부르지 않는다(drop-info 는 라이더 본인만)
-    expect(view.sent.some((r) => new URL(r.url).pathname.endsWith('/drop-info'))).toBe(false);
   });
 
-  it('주소의 rider 로 바로 열리고, 진행 중 배송이 없으면 없다고·닫기', async () => {
-    server.use(http.get(`${API_BASE}/rider-locations`, () => HttpResponse.json(board)));
-    renderAt('/control?mfcId=MFC-BSJ-01&rider=RD-10', as.riderOps);
-    const panel = await screen.findByTestId('control-panel');
-    expect(panel).toHaveTextContent('진행 중 배송이 없어요.');
-    await userEvent.click(within(panel).getByRole('button', { name: '닫기' }));
-    expect(await screen.findByTestId('control-panel-empty')).toBeInTheDocument();
-  });
-
-  it('표의 진행 중 배송 칸에 주문번호·픽업 지점·도착 예정이 한눈에', async () => {
-    server.use(http.get(`${API_BASE}/rider-locations`, () => HttpResponse.json({ asOf: at, items: [{ ...board.items[0], activeDeliveries: [{ deliveryId: 'DLV-1', stage: 'TO_CUSTOMER', etaDrop: at }] }] })));
-    renderAt('/control?mfcId=MFC-BSJ-01', as.riderOps);
-    const cell = await screen.findByTestId('row-delivery');
-    expect(await within(cell).findByText(/#48213075/)).toHaveTextContent('픽업 PMart 부산진구지점');
-    expect(cell).toHaveTextContent('도착 예정');
-  });
-
-  it('상세 칸의 배송·도착 예정은 10초마다 다시 불러온다', async () => {
+  it('전달지는 열 때 한 번만 — 10초 새로 고침에도 다시 부르지 않는다(배송·도착 예정은 다시)', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     try {
       server.use(http.get(`${API_BASE}/rider-locations`, () => HttpResponse.json(board)));
       const view = renderAt('/control?mfcId=MFC-BSJ-01&rider=RD-7', as.riderOps);
-      await screen.findByTestId('panel-order');
-      const count = (suffix: string) => view.sent.filter((r) => new URL(r.url).pathname.endsWith(suffix)).length;
-      const [d0, e0] = [count('/deliveries/DLV-1'), count('/deliveries/DLV-1/eta')];
-      await vi.advanceTimersByTimeAsync(10_500);
-      await waitFor(() => expect(count('/deliveries/DLV-1')).toBeGreaterThan(d0));
-      expect(count('/deliveries/DLV-1/eta')).toBeGreaterThan(e0);
+      await screen.findByTestId('drop-address');
+      const [d0, e0] = [sentTo(view, '/deliveries/DLV-1').length, sentTo(view, '/deliveries/DLV-1/eta').length];
+      expect(sentTo(view, '/drop-location')).toHaveLength(1); // 지도 경로와 상세 칸이 같은 요청을 나눠 씀
+      await vi.advanceTimersByTimeAsync(21_000);
+      await waitFor(() => expect(sentTo(view, '/deliveries/DLV-1').length).toBeGreaterThan(d0));
+      expect(sentTo(view, '/deliveries/DLV-1/eta').length).toBeGreaterThan(e0);
+      expect(sentTo(view, '/drop-location')).toHaveLength(1);
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it('전달지를 못 주는 이유를 그대로: 고객 전달지 없음(409) / 열람 기록 실패(503)는 다시 불러오기', async () => {
+    let code: 'NO_CUSTOMER_DROP' | 'UNAVAILABLE' = 'NO_CUSTOMER_DROP';
+    server.use(
+      http.get(`${API_BASE}/rider-locations`, () => HttpResponse.json(board)),
+      http.get(`${API_BASE}/deliveries/:deliveryId/drop-location`, () =>
+        code === 'NO_CUSTOMER_DROP'
+          ? HttpResponse.json({ code, status: 409, title: 'x', traceId: 't' }, { status: 409 })
+          : HttpResponse.json({ code: 'DEPENDENCY_UNAVAILABLE', status: 503, title: 'x', traceId: 't' }, { status: 503 }),
+      ),
+    );
+    const first = renderAt('/control?mfcId=MFC-BSJ-01&rider=RD-7', as.riderOps);
+    expect(await screen.findByTestId('drop-unavailable')).toHaveTextContent('고객 전달지가 없는 배송이에요');
+    expect(within(screen.getByTestId('drop-unavailable')).queryByRole('button')).not.toBeInTheDocument();
+    first.unmount();
+
+    code = 'UNAVAILABLE';
+    renderAt('/control?mfcId=MFC-BSJ-01&rider=RD-7', as.riderOps);
+    const note = await screen.findByTestId('drop-unavailable');
+    expect(note).toHaveTextContent('열람 기록을 남기지 못해');
+    expect(within(note).getByRole('button', { name: '다시 불러오기' })).toBeInTheDocument();
+  });
+
+  it('대기 중인 라이더: 진행 중 배송 없음, 전달지는 부르지 않는다 · 닫기', async () => {
+    server.use(http.get(`${API_BASE}/rider-locations`, () => HttpResponse.json(board)));
+    const view = renderAt('/control?mfcId=MFC-BSJ-01&rider=RD-10', as.riderOps);
+    const panel = await screen.findByTestId('control-panel');
+    expect(within(panel).getByTestId('tile-delivery')).toHaveTextContent('대기 중');
+    expect(sentTo(view, '/drop-location')).toHaveLength(0);
+    await userEvent.click(within(panel).getByRole('button', { name: '닫기' }));
+    expect(await screen.findByTestId('control-panel-empty')).toBeInTheDocument();
   });
 
   it('배송 내역을 못 읽으면 그 칸만 오류(다시 시도), 빈 값으로 보이지 않는다', async () => {
@@ -120,4 +142,45 @@ describe('관제 — 오른쪽 상세 칸', () => {
     expect(await within(card).findAllByRole('button', { name: /다시/ })).not.toHaveLength(0);
     expect(within(card).queryByTestId('panel-order')).not.toBeInTheDocument();
   });
+
+  it('표의 진행 중 배송 칸에 주문번호·픽업 지점·도착 예정이 한눈에', async () => {
+    server.use(http.get(`${API_BASE}/rider-locations`, () => HttpResponse.json({ asOf: at, items: [{ ...board.items[0], activeDeliveries: [{ deliveryId: 'DLV-1', stage: 'TO_CUSTOMER', etaDrop: at }] }] })));
+    renderAt('/control?mfcId=MFC-BSJ-01', as.riderOps);
+    const cell = await screen.findByTestId('row-delivery');
+    expect(await within(cell).findByText(/#48213075/)).toHaveTextContent('픽업 PMart 부산진구지점');
+    expect(cell).toHaveTextContent('도착 예정');
+  });
 });
+
+describe('관제 — 주문번호·라이더 찾기', () => {
+  it('주문번호 8자리면 그 배송의 라이더·센터를 바로 연다(그 배송을 강조)', async () => {
+    server.use(http.get(`${API_BASE}/rider-locations`, () => HttpResponse.json(board)));
+    const view = renderAt('/control?mfcId=MFC-BSJ-01', as.riderOps);
+    await screen.findAllByTestId('control-row');
+    await userEvent.type(screen.getByRole('textbox', { name: '주문번호·라이더 찾기' }), '48213075');
+    await userEvent.click(screen.getByRole('button', { name: '찾기' }));
+    expect(await screen.findByTestId('control-search-note')).toHaveTextContent('주문 48213075 → 라이더 RD-7');
+    const panel = await screen.findByTestId('control-panel');
+    expect(panel).toHaveTextContent('RD-7');
+    const search = sentTo(view, '/deliveries').find((r) => new URL(r.url).searchParams.get('orderNumber'));
+    expect(new URL(search!.url).searchParams.get('orderNumber')).toBe('48213075');
+    expect((await within(panel).findAllByTestId('panel-delivery'))[0]).toHaveClass('ring-1');
+  });
+
+  it('없는 주문번호는 그렇다고, 라이더 ID 는 그 라이더를 연다', async () => {
+    server.use(http.get(`${API_BASE}/rider-locations`, () => HttpResponse.json(board)));
+    renderAt('/control?mfcId=MFC-BSJ-01', as.riderOps);
+    await screen.findAllByTestId('control-row');
+    const box = screen.getByRole('textbox', { name: '주문번호·라이더 찾기' });
+    await userEvent.type(box, '99999999');
+    await userEvent.click(screen.getByRole('button', { name: '찾기' }));
+    expect(await screen.findByTestId('control-search-note')).toHaveTextContent('주문번호 99999999 로 배정된 배송이 없어요');
+    expect(screen.queryByTestId('control-panel')).not.toBeInTheDocument();
+
+    await userEvent.clear(box);
+    await userEvent.type(box, 'RD-10');
+    await userEvent.click(screen.getByRole('button', { name: '찾기' }));
+    expect(await screen.findByTestId('control-panel')).toHaveTextContent('RD-10');
+  });
+});
+

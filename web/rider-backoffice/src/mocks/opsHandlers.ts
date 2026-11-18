@@ -228,7 +228,7 @@ export const opsHandlers = [
       signupStatus: 'APPROVED',
       signupDecidedBy: 'AUTO',
       deliveryAreas: [{ mfcId: 'MFC-BSJ-01' }],
-      operating: { status: r.operatingStatus, newDispatchEnabled: r.operatingStatus === 'ON_DUTY' },
+      operating: { status: r.operatingStatus, newDispatchEnabled: r.operatingStatus === 'ON_DUTY', changedAt: '2026-11-17T00:30:00.000Z' },
       restriction: { state: r.restriction },
       // rider 0.10.0 — 계좌는 등록 여부·은행 이름만(번호·예금주 없음), 동의는 항목마다 마지막만
       ...(r.riderId === 'RD-7'
