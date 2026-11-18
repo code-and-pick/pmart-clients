@@ -13,6 +13,8 @@ import { useApi } from '../../app/ApiContext';
 import { CommandFeedback } from '../../shared/Feedback';
 import { CopyButton } from '../../shared/CopyButton';
 import { LeaveGuard } from '../../shared/LeaveGuard';
+import { DisplayNumber, RiderLabel } from '../../shared/displayNumber';
+import { useDeliveryNumbers, useOrderNumbers, useRiderLabels } from '../../shared/numberLookups';
 import { messages as m } from '../../shared/messages';
 import { isSeoulDate, label, seoulDayEnd, seoulDayStart, text, when } from '../../shared/ops';
 import { ChipGroup, CodeLabel, DataTable, DetailHeader, FieldList, NextAction, PageHeader, SearchPanel, SearchRow, Section, type Tone } from '../../shared/admin';
@@ -65,6 +67,10 @@ export function RiderComplaintTable({ riderId, deliveryId, complaintType, from, 
     getNextPageParam: (last) => last.page?.nextCursor ?? undefined,
   });
   const items: Summary[] = query.data?.pages.flatMap((p) => p.items ?? []) ?? [];
+  // 화면 번호(ADR-0070, 2026-11-18): 컴플레인 응답엔 번호가 없어 라이더 일괄·배송·주문 조회로 붙인다(같은 값은 캐시)
+  const riders = useRiderLabels(items.map((c) => c.riderId));
+  const deliveries = useDeliveryNumbers(items.map((c) => c.deliveryId));
+  const orders = useOrderNumbers(items.map((c) => c.orderId));
 
   if (query.isPending) return <QueryState state={{ kind: 'loading' }}>{() => null}</QueryState>;
   if (query.isError && items.length === 0) {
@@ -105,13 +111,25 @@ export function RiderComplaintTable({ riderId, deliveryId, complaintType, from, 
                   <IdLink id={c.complaintId} to={`/rider-complaints/${encodeURIComponent(c.complaintId)}`} />
                 </span>
               </td>
-              <td>
-                <Person id={c.riderId} to={`/riders/${encodeURIComponent(c.riderId)}`} />
+              <td data-testid="complaint-rider">
+                <Link className="text-sm hover:text-primary hover:underline" to={`/riders/${encodeURIComponent(c.riderId)}`}>
+                  <RiderLabel rider={riders.get(c.riderId)} riderId={c.riderId} failed={riders.failed} />
+                </Link>
+              </td>
+              <td data-testid="complaint-delivery">
+                <Link className="text-sm hover:text-primary hover:underline" to={`/deliveries/${encodeURIComponent(c.deliveryId)}`}>
+                  <DisplayNumber number={deliveries.get(c.deliveryId)} systemId={c.deliveryId} failed={deliveries.failed(c.deliveryId)} />
+                </Link>
               </td>
               <td>
-                <IdLink id={c.deliveryId} to={`/deliveries/${encodeURIComponent(c.deliveryId)}`} />
+                {c.orderId ? (
+                  <Link className="text-sm hover:text-primary hover:underline" to={`/orders/${encodeURIComponent(c.orderId)}`}>
+                    <DisplayNumber number={orders.get(c.orderId)} systemId={c.orderId} failed={orders.failed(c.orderId)} />
+                  </Link>
+                ) : (
+                  <span className="text-base-content/40">{m.none}</span>
+                )}
               </td>
-              <td>{c.orderId ? <IdLink id={c.orderId} to={`/orders/${encodeURIComponent(c.orderId)}`} /> : <span className="text-base-content/40">{m.none}</span>}</td>
               <td>
                 <Person id={c.recordedBy} />
               </td>
@@ -324,6 +342,15 @@ export function RiderComplaintDetailPage() {
     queryKey: ['rider-complaints', 'detail', complaintId],
     queryFn: () => request('GET', api.cases.GET('/rider-complaints/{complaintId}', { params: { path: { complaintId } } })),
   });
+  const detailRiders = useRiderLabels([query.data?.riderId]);
+  const detailDeliveries = useDeliveryNumbers([query.data?.deliveryId]);
+  const detailOrders = useOrderNumbers([query.data?.orderId]);
+  const riderText = (id: string) => {
+    const r = detailRiders.get(id);
+    if (r?.riderNumber) return `${r.nameMasked ?? ''} · ${r.riderNumber}`;
+    // 못 읽음 ≠ 읽는 중 ≠ 번호 없음
+    return detailRiders.failed ? m.complaints.riderFailed : r ? m.displayNumber.missing : m.complaints.riderUnknown;
+  };
   // 상세(2026-11-18): 상세 머리(번호·종류·기록 시각) → 두 칸(왼쪽 내부 메모·연결된 것, 오른쪽 기록 정보)
   return (
     <section className="max-w-6xl space-y-4">
@@ -335,7 +362,7 @@ export function RiderComplaintDetailPage() {
               // 제목(2026-11-18 사용자 "직관적이지 않다"): 종류·라이더를 앞에, 컴플레인 번호는 옆에 작게
               title={
                 <>
-                  {m.complaints.titleOf(label(m.complaints.typeName, c.complaintType), c.riderId)}
+                  {m.complaints.titleOf(label(m.complaints.typeName, c.complaintType), riderText(c.riderId))}
                   <span className="ml-2 font-mono text-sm font-normal text-base-content/50">{complaintId}</span>
                   <CopyButton value={complaintId} />
                 </>
@@ -363,9 +390,9 @@ export function RiderComplaintDetailPage() {
                 <Section title={m.complaints.linked}>
                   <FieldList
                     rows={[
-                      [m.complaints.riderId, <Person key="r" id={c.riderId} to={`/riders/${encodeURIComponent(c.riderId)}`} />],
-                      [m.complaints.deliveryId, <Link key="d" className="font-mono text-primary hover:underline" to={`/deliveries/${encodeURIComponent(c.deliveryId)}`}>{c.deliveryId}</Link>],
-                      [m.complaints.orderId, c.orderId ? <Link key="o" className="font-mono text-primary hover:underline" to={`/orders/${encodeURIComponent(c.orderId)}`}>{c.orderId}</Link> : m.none],
+                      [m.complaints.riderId, <Link key="r" className="text-primary hover:underline" to={`/riders/${encodeURIComponent(c.riderId)}`}><RiderLabel rider={detailRiders.get(c.riderId)} riderId={c.riderId} failed={detailRiders.failed} /></Link>],
+                      [m.complaints.deliveryId, <Link key="d" className="text-primary hover:underline" to={`/deliveries/${encodeURIComponent(c.deliveryId)}`}><DisplayNumber number={detailDeliveries.get(c.deliveryId)} systemId={c.deliveryId} failed={detailDeliveries.failed(c.deliveryId)} /></Link>],
+                      [m.complaints.orderId, c.orderId ? <Link key="o" className="text-primary hover:underline" to={`/orders/${encodeURIComponent(c.orderId)}`}><DisplayNumber number={detailOrders.get(c.orderId)} systemId={c.orderId} failed={detailOrders.failed(c.orderId)} /></Link> : m.none],
                       [m.complaints.inquiryId, c.inquiryId ? <Link key="i" className="font-mono text-primary hover:underline" to={`/inquiries/${encodeURIComponent(c.inquiryId)}`}>{c.inquiryId}</Link> : m.none],
                       [m.complaints.caseId, text(c.caseId)],
                     ]}

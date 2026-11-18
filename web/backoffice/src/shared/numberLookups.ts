@@ -55,6 +55,22 @@ export function useDeliveryNumber(deliveryId: string | null | undefined) {
   return { number: q.data, failed: q.isError };
 }
 
+/** 배송 ID 여러 개 → 화면 배송 번호(한 건씩 execution 배송 상세 — 같은 ID 는 useDeliveryNumber 와 같은 캐시) */
+export function useDeliveryNumbers(deliveryIds: ReadonlyArray<string | null | undefined>) {
+  const api = useApi();
+  const ids = [...new Set(deliveryIds.filter((x): x is string => Boolean(x)))];
+  const qs = useQueries({
+    queries: ids.map((deliveryId) => ({
+      queryKey: ['deliveries', 'number', deliveryId],
+      queryFn: async () => (await request('GET', api.execution.GET('/deliveries/{deliveryId}', { params: { path: { deliveryId } } }))).deliveryNumber ?? null,
+    })),
+  });
+  return {
+    get: (id: string | null | undefined) => (id ? qs[ids.indexOf(id)]?.data : undefined),
+    failed: (id: string | null | undefined) => (id ? Boolean(qs[ids.indexOf(id)]?.isError) : false),
+  };
+}
+
 /** 화면 주문번호(8자리) → 주문 ID. 없으면 null(찾기 결과 없음) */
 export async function orderIdOfNumber(api: ReturnType<typeof useApi>, orderNumber: string): Promise<string | null> {
   const r = await request('GET', api.orders.GET('/orders/lookups', { params: { query: { orderNumber, page: 0, size: 1 } } }));

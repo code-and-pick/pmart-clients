@@ -956,7 +956,9 @@ export const messages = {
     recordInfo: '기록 정보',
     /** RiderComplaint.source(지금 CS_AGENT) */
     sourceName: { CS_AGENT: '고객센터 상담원' } as Readonly<Record<string, string>>,
-    titleOf: (type: string, riderId: string) => `${type} 컴플레인 · ${riderId}`,
+    titleOf: (type: string, rider: string) => `${type} 컴플레인 · ${rider}`,
+    riderUnknown: '라이더 번호 확인 중',
+    riderFailed: '라이더 번호 확인 불가',
     nextStep: {
       caseTitle: '연결된 접수 건에서 이어서 처리해요',
       caseGo: '접수 건 열기',

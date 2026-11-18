@@ -187,7 +187,8 @@ describe('라이더 컴플레인', () => {
     await user.type(screen.getByLabelText('내부 메모'), '상자가 찌그러짐');
     await user.click(screen.getByRole('button', { name: '기록하기' }));
     await user.click(await screen.findByRole('link', { name: '기록한 컴플레인 보기' }));
-    expect(await screen.findByTestId('complaint-detail')).toHaveTextContent('RID-MOCK-1');
+    // 라이더는 화면 번호(ADR-0070) — 시스템 ID RID-MOCK-1 은 링크에만
+    expect(await within(await screen.findByTestId('complaint-detail')).findAllByText(/482913/)).not.toHaveLength(0);
     expect(screen.getByTestId('complaint-note')).toHaveTextContent('상자가 찌그러짐');
 
     const [post] = view.mutations('/rider-complaints');
