@@ -68,7 +68,7 @@ class HomeScreen extends ConsumerStatefulWidget {
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   late final AppLifecycleListener _lifecycle;
-  bool _askedBackground = false;
+  bool _askedLocation = false;
 
   @override
   void initState() {
@@ -91,34 +91,58 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     super.dispose();
   }
 
-  /// 위치가 "항상 허용"이 아니면 이번 실행에 한 번 안내하고, 원하면 권한을 묻는다.
-  Future<void> _askBackgroundLocation() async {
-    if (_askedBackground) return;
-    _askedBackground = true;
-    final permission = ref.read(backgroundLocationPermissionProvider);
-    if (permission == null) return;
-    if (await permission.check() == LocationAccess.always || !mounted) return;
+  /// 위치 전송이 켜질 때 이번 실행에 한 번:
+  /// 1) 위치 권한이 없으면 안내하고 묻는다. "앱 사용 중에만 허용"·"항상 허용" 어느 쪽이든 있으면 묻지 않는다(라이더가 고른다).
+  /// 2) 배터리 최적화 예외가 아니면 안내하고 묻는다 — 절전이 앱을 종료해 위치가 끊기는 일을 줄인다.
+  Future<void> _askLocation() async {
+    if (_askedLocation) return;
+    _askedLocation = true;
+    final permission = ref.read(locationPermissionProvider);
+    if (permission != null &&
+        await permission.check() == LocationAccess.denied &&
+        mounted) {
+      final l10n = AppLocalizations.of(context);
+      final go = await _confirm(
+        'location',
+        l10n.locationAskTitle,
+        l10n.locationAskBody,
+      );
+      if (go) await permission.request();
+    }
+    final battery = ref.read(batteryOptimizationProvider);
+    if (battery == null || await battery.isExempt() || !mounted) return;
+    final l10n = AppLocalizations.of(context);
+    final go = await _confirm(
+      'battery',
+      l10n.batteryAskTitle,
+      l10n.batteryAskBody,
+    );
+    if (go) await battery.request();
+  }
+
+  /// [나중에] / [설정하기] 안내창. 키: `<id>-ask`, `<id>-allow`.
+  Future<bool> _confirm(String id, String title, String body) async {
     final l10n = AppLocalizations.of(context);
     final go = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        key: const ValueKey('background-location-ask'),
-        title: Text(l10n.backgroundLocationTitle),
-        content: Text(l10n.backgroundLocationBody),
+        key: ValueKey('$id-ask'),
+        title: Text(title),
+        content: Text(body),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
             child: Text(l10n.later),
           ),
           TextButton(
-            key: const ValueKey('background-location-allow'),
+            key: ValueKey('$id-allow'),
             onPressed: () => Navigator.of(context).pop(true),
-            child: Text(l10n.backgroundLocationAllow),
+            child: Text(l10n.locationAskAllow),
           ),
         ],
       ),
     );
-    if (go == true) await permission.request();
+    return go ?? false;
   }
 
   @override
@@ -156,7 +180,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               channel: l10n.locationNoticeChannel,
             ),
           );
-      if (reportLocation && !wasActive) unawaited(_askBackgroundLocation());
+      if (reportLocation && !wasActive) unawaited(_askLocation());
     });
     // 제한이 풀리면 한 번 알린다(신규배차는 라이더가 다시 켠다).
     ref.listen(profileProvider.select((p) => p.value?.restriction), (

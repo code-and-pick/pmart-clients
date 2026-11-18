@@ -2,18 +2,24 @@ package com.pmart.rider_app
 
 import android.Manifest
 import android.app.Activity
+import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.PowerManager
+import android.provider.Settings
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 
 /**
  * - `pmart.rider/notifications`: 위치 전송 상시 알림을 보이려면 Android 13+ 에서 알림 권한이 필요하다.
+ * - `pmart.rider/battery`: 배터리 최적화 예외 — `isExempt` → 예외인지, `request` → 시스템 창(없으면 설정 목록)을 연다.
+ *   운행·배달 중 제조사 절전이 앱을 종료해 위치 전송이 끊기는 일을 줄인다.
  * - `pmart.rider/knnavi`: 카카오내비 SDK 앱 안 음성 길안내([KnNaviActivity]).
  *   `probe`(appKey) → SDK 인증만 확인, `start`(appKey, goal…, start…) → 길안내 화면.
  *   결과: null = 성공, 문자열 = KNError 코드(예: C103 인증 실패).
@@ -74,6 +80,33 @@ class MainActivity : FlutterActivity() {
                     arrayOf(Manifest.permission.POST_NOTIFICATIONS), REQUEST_CODE
                 )
             }
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, BATTERY_CHANNEL)
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "isExempt" -> result.success(isBatteryExempt())
+                    "request" -> {
+                        if (isBatteryExempt()) {
+                            result.success(true)
+                            return@setMethodCallHandler
+                        }
+                        // 시스템 창("배터리 최적화를 중지할까요?")을 띄운다. 못 띄우는 기기는 배터리 최적화 목록 설정을 연다.
+                        val ask = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
+                            .setData(Uri.parse("package:$packageName"))
+                        try {
+                            startActivity(ask)
+                        } catch (_: ActivityNotFoundException) {
+                            try {
+                                startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
+                            } catch (_: ActivityNotFoundException) {
+                                // 설정 화면이 없는 기기 — 할 수 있는 것이 없다.
+                            }
+                        }
+                        // 결과는 창을 닫은 뒤 isExempt 로 다시 확인한다.
+                        result.success(false)
+                    }
+                    else -> result.notImplemented()
+                }
+            }
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, NAVI_CHANNEL)
             .setMethodCallHandler { call, result ->
                 val appKey = call.argument<String>("appKey")
@@ -97,6 +130,11 @@ class MainActivity : FlutterActivity() {
                 pendingNavi = result
                 startActivityForResult(intent, NAVI_REQUEST_CODE)
             }
+    }
+
+    private fun isBatteryExempt(): Boolean {
+        val power = getSystemService(PowerManager::class.java) ?: return false
+        return power.isIgnoringBatteryOptimizations(packageName)
     }
 
     @Deprecated("FlutterActivity 는 Activity Result API 대신 이것을 쓴다")
@@ -130,6 +168,7 @@ class MainActivity : FlutterActivity() {
     private companion object {
         const val CHANNEL = "pmart.rider/notifications"
         const val NAVI_CHANNEL = "pmart.rider/knnavi"
+        const val BATTERY_CHANNEL = "pmart.rider/battery"
         const val REQUEST_CODE = 7301
         const val NAVI_REQUEST_CODE = 7302
     }
