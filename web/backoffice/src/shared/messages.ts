@@ -506,6 +506,7 @@ export const messages = {
     /** 화면 짜임(2026-11-18) */
     shown: (n: number) => `이 쪽 ${n}건`,
     noHistory: '이력이 없어요.',
+    recordTabs: { label: '기록', notes: '메모', actions: '행위 요청', log: '고객 연락 기록', history: '이력' },
     newStepWhat: '어떤 배송인가요?',
     newStepEvidence: '확인 근거',
     newSideTitle: '처리 안내',
@@ -1784,6 +1785,8 @@ export const messages = {
     sku: 'SKU',
     lookup: '가격 조회',
     current: '현재 기본가',
+    productUnknown: '이 SKU 의 상품을 확인하지 못했어요(가격은 아래 그대로).',
+    openProduct: '상품 보기',
     effectiveFrom: '효력 시각',
     next: '예약된 다음 가격',
     notSet: '가격 미설정(판매 불가). 0원이 아니에요.',

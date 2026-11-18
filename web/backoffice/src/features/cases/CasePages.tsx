@@ -261,6 +261,34 @@ function Panel({ title, icon, aside, children, testId }: { readonly title: React
   );
 }
 
+/** 기록 탭 — 고른 하나만 보인다(나머지는 숨김, 내용·조회는 그대로) */
+function RecordTabs({ tabs }: { readonly tabs: ReadonlyArray<{ readonly id: string; readonly label: string; readonly body: ReactNode }> }) {
+  const [on, setOn] = useState(tabs[0]?.id ?? '');
+  return (
+    <div className="space-y-3" data-testid="case-record-tabs">
+      <div role="tablist" aria-label={m.cases.recordTabs.label} className="flex gap-1 overflow-x-auto overflow-y-hidden border-b border-base-300">
+        {tabs.map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            role="tab"
+            aria-selected={on === t.id}
+            onClick={() => setOn(t.id)}
+            className={`-mb-px whitespace-nowrap border-b-2 px-3 py-2 text-sm transition-colors ${on === t.id ? 'border-primary font-semibold' : 'border-transparent text-base-content/55 hover:text-base-content'}`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+      {tabs.map((t) => (
+        <div key={t.id} role="tabpanel" className={on === t.id ? 'space-y-4' : 'hidden'}>
+          {t.body}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 /** 오른쪽 속성 한 줄(이름 왼쪽 작게, 값 오른쪽) */
 function Prop({ name, children, testId }: { readonly name: ReactNode; readonly children: ReactNode; readonly testId?: string }) {
   return (
@@ -822,11 +850,26 @@ export function CaseDetailPage() {
                     </Panel>
                   )}
   
+                  {/* 기록 탭(2026-11-18 작업 따라 해 보기 — "접수 건 화면이 너무 길다"): 메모·행위 요청·연락 기록·이력을 한 번에 하나만 */}
+                  <RecordTabs
+                    tabs={[
+                      { id: 'notes', label: m.cases.recordTabs.notes, body: (
+                        <>
+                  <CaseNotes caseId={c.caseId ?? caseId} />
+  
+                        </>
+                      ) },
+                      { id: 'actions', label: m.cases.recordTabs.actions, body: (
+                        <>
                   {/* 행위 요청 기록(case 0.17.0) — 맡을 수 있는 사람만 남김, 처리 끝난 건은 새 요청 없음 */}
                   <ActionRequests c={c} canAct={!closed && (admin || teamCan)} />
   
-                  <CaseNotes caseId={c.caseId ?? caseId} />
-  
+                        </>
+                      ) },
+                      // 고객 연락 기록은 볼 수 있는 역할만(그 밖은 서버 403 — 빈 탭을 만들지 않는다)
+                      ...(canSeeIntakes(session?.roles ?? []) ? [
+                      { id: 'log', label: m.cases.recordTabs.log, body: (
+                        <>
                   {/* 고객 연락 기록(case 0.12.0) — 상담원·관리자만(그 밖 역할은 서버 403이라 그리지 않는다) */}
                   <div className="space-y-3 rounded-box border border-base-300 bg-base-100 px-5 py-4 shadow-sm empty:hidden">
                     <CsIntakeLog caseId={c.caseId ?? caseId} title={m.csIntake.caseLog} />
@@ -837,6 +880,11 @@ export function CaseDetailPage() {
                     )}
                   </div>
   
+                        </>
+                      ) }]
+                        : []),
+                      { id: 'history', label: m.cases.recordTabs.history, body: (
+                        <>
                   {/* 이력 — 세로 시간 줄 */}
                   <Panel title={m.cases.history} icon={ICON.history}>
                     {history.length === 0 ? (
@@ -853,6 +901,10 @@ export function CaseDetailPage() {
                       </ol>
                     )}
                   </Panel>
+                        </>
+                      ) },
+                    ]}
+                  />
                 </div>
   
                 {/* 오른쪽 — 속성(상태·우선순위·기한·담당·관련) + 할 수 있는 명령만 */}

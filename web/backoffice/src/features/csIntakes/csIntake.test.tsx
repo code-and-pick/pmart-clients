@@ -107,7 +107,8 @@ describe('전화·채팅 접수', () => {
 
   it('라이더 운영에게는 연락 기록을 묻지 않는다(서버 403 역할)', async () => {
     const view = renderAt('/cases/CASE-MOCK-1', as.riderOps);
-    await screen.findByText('메모');
+    await screen.findByRole('tab', { name: '메모' }); // 기록 탭(2026-11-18)이 그려질 때까지
+    expect(screen.queryByRole('tab', { name: '고객 연락 기록' })).not.toBeInTheDocument(); // 볼 수 없는 역할엔 탭도 없다
     expect(screen.queryByRole('region', { name: '이 건의 연락 기록' })).not.toBeInTheDocument();
     expect(view.sent.some((r) => new URL(r.url).pathname.endsWith('/cs-intakes'))).toBe(false);
   });

@@ -30,6 +30,32 @@ export const seoulInputToIso = (v: string) => (v ? `${v.length === 16 ? `${v}:00
 
 const VERSION_TONE: Readonly<Record<string, Tone>> = { SCHEDULED: 'info', EFFECTIVE: 'success', SUPERSEDED: 'ghost', REJECTED: 'error' };
 
+/**
+ * 이 SKU 가 어떤 상품인지(2026-11-18 작업 따라 해 보기 — 가격 화면에 상품명이 없어 무엇의 가격인지 모른다).
+ * 상품 조회 화면과 같은 계약 조회: GET /skus/{sku} → GET /products/{productId}(상품 상세와 같은 queryKey). 못 읽으면 숨기지 않고 "상품을 확인하지 못했어요".
+ */
+function SkuProduct({ sku }: { readonly sku: string }) {
+  const api = useApi();
+  const skuQ = useQuery({ queryKey: ['product', 'sku', sku], queryFn: () => request('GET', api.product.GET('/skus/{sku}', { params: { path: { sku } } })) });
+  const productId = skuQ.data?.productId;
+  const productQ = useQuery({
+    queryKey: ['product', 'detail', productId ?? ''],
+    enabled: Boolean(productId),
+    queryFn: () => request('GET', api.product.GET('/products/{productId}', { params: { path: { productId: productId ?? '' } } })),
+  });
+  if (skuQ.isError || productQ.isError)
+    return <p className="text-sm text-base-content/55" data-testid="sku-product">{m.prices.productUnknown}</p>;
+  if (!productId) return null;
+  return (
+    <Link to={`/products/${encodeURIComponent(productId)}`} className="group inline-flex items-center gap-2 rounded-box border border-base-300 bg-base-100 px-4 py-2.5 shadow-sm hover:border-primary/40" data-testid="sku-product">
+      <LineIcon name="box" className="h-4 w-4 text-base-content/50" />
+      <span className="font-semibold">{productQ.data?.internalName ?? '…'}</span>
+      <span className="font-mono text-xs text-base-content/50">{productId}</span>
+      <span className="text-sm text-primary group-hover:underline">{m.prices.openProduct} →</span>
+    </Link>
+  );
+}
+
 function PriceLookup({ sku }: { readonly sku: string }) {
   const api = useApi();
   const price = useQuery({
@@ -45,6 +71,7 @@ function PriceLookup({ sku }: { readonly sku: string }) {
   // 왼쪽(2/3): 현재 기본가 큰 숫자 + 예약된 다음 가격, 오른쪽(1/3): 가격 이력 세로 줄(최신 위)
   return (
     <div className="space-y-4">
+    <SkuProduct sku={sku} />
     {/* 다음 할 일(2026-11-18): 서버가 PRICE_NOT_SET 이라 답했을 때만 — 아래 변경 요청 카드로 */}
     {notSet && (
       <NextAction tone="warning" title={m.prices.nextAction.notSet} body={m.prices.nextAction.notSetBody}>

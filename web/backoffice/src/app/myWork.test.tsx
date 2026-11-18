@@ -38,3 +38,24 @@ describe('목록 줄 전체 누르기', () => {
     expect(await screen.findByTestId('next-action')).toBeInTheDocument(); // 승인 상세의 다음 할 일
   });
 });
+
+describe('가격 화면 — 무엇의 가격인지', () => {
+  it('SKU 로 조회하면 그 상품 이름이 위에(누르면 상품 상세)', async () => {
+    renderAt('/prices?sku=E-00000001', as.md);
+    const product = await screen.findByTestId('sku-product');
+    expect(await within(product).findByText('사과 1.5kg')).toBeInTheDocument();
+    expect(product).toHaveAttribute('href', '/products/P-00000001');
+  });
+});
+
+describe('접수 건 상세 — 기록은 탭 하나로', () => {
+  it('메모·행위 요청·고객 연락 기록·이력 탭, 처음은 메모, 누르면 그 탭', async () => {
+    const user = userEvent.setup();
+    renderAt('/cases/CASE-MOCK-1', as.admin);
+    const tabs = await screen.findByTestId('case-record-tabs');
+    expect(within(tabs).getAllByRole('tab').map((t) => t.textContent)).toEqual(['메모', '행위 요청', '고객 연락 기록', '이력']);
+    expect(within(tabs).getByRole('tab', { name: '메모' })).toHaveAttribute('aria-selected', 'true');
+    await user.click(within(tabs).getByRole('tab', { name: '이력' }));
+    expect(within(tabs).getByRole('tab', { name: '이력' })).toHaveAttribute('aria-selected', 'true');
+  });
+});
