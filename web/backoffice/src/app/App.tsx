@@ -59,17 +59,21 @@ const defaultAssistantPort = (api: Api): AssistantPort =>
 /**
  * 접고 펴는 메뉴 묶음 — 진한 메뉴의 작은 회색 묶음 제목, 선택된 메뉴는 민트 왼쪽 막대
  * (사본: web/rider-backoffice/src/app/App.tsx Layout, PR #93 461ff31 — 이 앱에서 따로 고친다).
- * 기본 백오피스는 묶음·메뉴가 많아 접고 펴기는 그대로 둔다. 지금 화면이 든 묶음은 펼친 채로 시작한다(사용자가 접으면 그대로 둔다).
+ * 기본 백오피스는 묶음·메뉴가 많아 접고 펴기는 그대로 둔다.
+ * 한 번에 한 묶음만 펼친다(2026-11-18 사용자 "다른 묶음 열면 전 묶음이 안 닫혀 밑으로 줄줄 흐른다"):
+ * 묶음 이름을 누르면 그 묶음만 열리고 나머지는 닫힌다. 다른 묶음의 화면으로 옮기면 그 묶음이 열린다. 열린 묶음을 다시 누르면 닫힌다.
  */
-function NavGroupMenu({ group, pathname }: { readonly group: NavGroup; readonly pathname: string }) {
+function NavGroupMenu({ group, pathname, open, onToggle }: { readonly group: NavGroup; readonly pathname: string; readonly open: boolean; readonly onToggle: () => void }) {
   const active = group.items.some((i) => covers(i, pathname));
-  const [manual, setManual] = useState<boolean | null>(null);
-  const open = manual ?? active;
   return (
     // 묶음 이름(2026-11-18 사용자 — "큰 항목이 하위보다 글자가 작다, 눌렀을 때 직관적이지 않다"):
     // 하위 메뉴보다 크고 굵게 + 묶음 아이콘 + 펼침 화살표(▸/▾), 펼친 묶음은 바탕을 살짝 밝게, 지금 묶음은 민트.
-    <details open={open} onToggle={(e) => setManual(e.currentTarget.open)} data-testid={`nav-group-${group.id}`} className={`mx-2 mb-1 rounded-lg ${open ? 'bg-neutral-content/5' : ''}`}>
+    <details open={open} data-testid={`nav-group-${group.id}`} className={`mx-2 mb-1 rounded-lg ${open ? 'bg-neutral-content/5' : ''}`}>
       <summary
+        onClick={(e) => {
+          e.preventDefault(); // 브라우저가 따로 열고 닫지 않게 — 열림은 위(한 묶음만)에서 정한다
+          onToggle();
+        }}
         className={`flex cursor-pointer list-none items-center gap-2.5 rounded-lg px-3 py-2.5 text-[15px] font-bold transition-colors hover:bg-neutral-content/10 active:scale-[0.99] ${active ? 'text-accent' : open ? 'text-neutral-content' : 'text-neutral-content/85'}`}
       >
         <GroupIcon id={group.id} className="h-5 w-5 shrink-0" />
@@ -127,6 +131,14 @@ function Layout() {
   const { session } = useSession();
   const { pathname } = useLocation();
   const groups = session ? visibleGroups(session.roles) : [];
+  // 한 번에 한 묶음만 펼침 — 지금 화면의 묶음이 바뀌면 그 묶음을 연다(대시보드처럼 묶음 밖이면 그대로)
+  const activeGroup = groups.find((g) => g.items.some((i) => covers(i, pathname)))?.id ?? null;
+  const [openGroup, setOpenGroup] = useState<string | null>(activeGroup);
+  const [seenActive, setSeenActive] = useState(activeGroup);
+  if (activeGroup !== seenActive) {
+    setSeenActive(activeGroup);
+    if (activeGroup) setOpenGroup(activeGroup);
+  }
   const current = currentMenu(groups, pathname);
   const navigate = useNavigate();
   return (
@@ -154,7 +166,7 @@ function Layout() {
             </NavLink>
           )}
           {groups.map((g) => (
-            <NavGroupMenu key={g.id} group={g} pathname={pathname} />
+            <NavGroupMenu key={g.id} group={g} pathname={pathname} open={openGroup === g.id} onToggle={() => setOpenGroup((cur) => (cur === g.id ? null : g.id))} />
           ))}
           {session && groups.every((g) => g.id === 'assistant') && <p className="px-5 text-xs text-neutral-content/60">{m.nav.noMenu}</p>}
         </nav>

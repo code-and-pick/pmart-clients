@@ -31,7 +31,7 @@ describe('메뉴 묶음 — 역할로 보이고(합집합) 접고 편다', () =>
     }
   });
 
-  it('지금 화면의 묶음만 펼친 채로 시작하고, 묶음 이름을 누르면 접고 편다', async () => {
+  it('지금 화면의 묶음만 펼친 채로 시작하고, 다른 묶음 이름을 누르면 그것만 펼친다(한 묶음만, 2026-11-18)', async () => {
     const user = userEvent.setup();
     renderAt('/inquiries', as.csRider);
     const cs = await screen.findByTestId('nav-group-cs');
@@ -40,8 +40,9 @@ describe('메뉴 묶음 — 역할로 보이고(합집합) 접고 편다', () =>
     expect(support).not.toHaveAttribute('open');
     await user.click(within(support).getByText('지원센터'));
     expect(support).toHaveAttribute('open');
-    await user.click(within(cs).getByText('고객센터'));
-    expect(cs).not.toHaveAttribute('open');
+    expect(cs).not.toHaveAttribute('open'); // 전 묶음은 닫힘
+    await user.click(within(support).getByText('지원센터'));
+    expect(support).not.toHaveAttribute('open'); // 다시 누르면 닫힘
   });
 
   it('같은 화면은 메뉴에 한 번만 — 함께 쓰는 조회는 조회·현황 묶음에', async () => {
