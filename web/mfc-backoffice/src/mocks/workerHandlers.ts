@@ -278,7 +278,7 @@ export const workerHandlers = [
     if (!operator(request)) return unauthorized();
     const w = found(request, params, 'manage');
     if (w instanceof Response) return w;
-    const body = (await request.json()) as { startAt: string; endAt: string; note?: string };
+    const body = (await request.json()) as { startAt: string; endAt: string; note?: string; breakStartAt?: string; breakEndAt?: string };
     return idempotent(request, () => {
       const start = Date.parse(body.startAt);
       const end = Date.parse(body.endAt);
@@ -287,6 +287,12 @@ export const workerHandlers = [
         (s) => s.workerId === w.workerId && s.mfcId === w.mfcId && s.state === 'PLANNED' && Date.parse(s.startAt) < end && start < Date.parse(s.endAt),
       );
       if (overlap) return problem(409, 'SHIFT_OVERLAP');
+      // (0.20.0) 휴게 구간 — 둘 다 또는 둘 다 없음, 근무 안
+      const bs = body.breakStartAt ? Date.parse(body.breakStartAt) : null;
+      const be = body.breakEndAt ? Date.parse(body.breakEndAt) : null;
+      if ((bs === null) !== (be === null) || (bs !== null && be !== null && !(start <= bs && bs < be && be <= end))) {
+        return problem(400, 'VALIDATION_FAILED', [{ field: 'breakStartAt', reason: 'INVALID_FORMAT' }]);
+      }
       const shift: MockShift = {
         shiftId: `SHIFT-${nextSeq()}`,
         mfcId: w.mfcId,
@@ -297,6 +303,8 @@ export const workerHandlers = [
         note: body.note ?? null,
         createdBy: actor(request),
         cancelReason: null,
+        breakStartAt: bs === null ? null : new Date(bs).toISOString(),
+        breakEndAt: be === null ? null : new Date(be).toISOString(),
       };
       db.shifts.set(shift.shiftId, shift);
       return { status: 201, body: shift };
@@ -314,6 +322,28 @@ export const workerHandlers = [
       const next: MockShift = shift.state === 'CANCELLED' ? shift : { ...shift, state: 'CANCELLED', cancelReason: body.reason };
       db.shifts.set(next.shiftId, next);
       return { status: 200, body: next };
+    });
+  }),
+
+  // (0.20.0) 센터 휴게 번호 — 조회는 그 센터 운영자, 정하기는 MFC_SUPERVISOR. 번호는 응답에 없다.
+  http.get(`${API_BASE}/mfcs/:mfcId/break-pin`, ({ request, params }) => {
+    if (!operator(request)) return unauthorized();
+    const mfcId = String(params.mfcId);
+    if (!canAccess(request, mfcId)) return problem(403, 'FORBIDDEN');
+    const p = db.breakPins.get(mfcId);
+    return HttpResponse.json({ mfcId, set: !!p, updatedAt: p?.updatedAt ?? null, updatedBy: p?.updatedBy ?? null });
+  }),
+
+  http.put(`${API_BASE}/mfcs/:mfcId/break-pin`, async ({ request, params }) => {
+    if (!operator(request)) return unauthorized();
+    const mfcId = String(params.mfcId);
+    if (!canAccess(request, mfcId) || !isSupervisor(request)) return problem(403, 'FORBIDDEN');
+    const body = (await request.json()) as { pin?: string };
+    return idempotent(request, () => {
+      if (!/^\d{4}$/.test(body.pin ?? '')) return problem(400, 'VALIDATION_FAILED', [{ field: 'pin', reason: 'INVALID_FORMAT' }]);
+      const p = { pin: body.pin!, updatedAt: timestamp(), updatedBy: actor(request) };
+      db.breakPins.set(mfcId, p);
+      return { status: 200, body: { mfcId, set: true, updatedAt: p.updatedAt, updatedBy: p.updatedBy } };
     });
   }),
 ];

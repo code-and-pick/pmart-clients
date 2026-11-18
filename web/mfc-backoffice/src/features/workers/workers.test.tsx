@@ -167,6 +167,42 @@ describe('작업자 상세', () => {
     expect(await screen.findByText('이 사람의 다른 예정 근무와 겹쳐요.')).toBeInTheDocument();
   });
 
+  it('근무 휴게 구간(0.20.0): 둘 다 적어야 보내고(한쪽만이면 막음), 목록에 휴게 표시', async () => {
+    const view = renderAt('/c/MFC-BSN-01/workers/OP-wkr-1');
+    await heading();
+    await waitFor(() => expect(screen.getAllByTestId('shift-row')).toHaveLength(1));
+    const form = screen.getByRole('form', { name: '근무 등록' });
+    fireEvent.change(within(form).getByLabelText('시작'), { target: { value: '2026-11-18T09:00' } });
+    fireEvent.change(within(form).getByLabelText('끝'), { target: { value: '2026-11-18T18:00' } });
+    fireEvent.change(within(form).getByLabelText('휴게 시작(선택)'), { target: { value: '2026-11-18T12:00' } });
+    expect(within(form).getByText('휴게 시작과 끝을 둘 다 적거나 둘 다 비워 주세요.')).toBeInTheDocument();
+    expect(within(form).getByRole('button', { name: '근무 등록' })).toBeDisabled();
+    fireEvent.change(within(form).getByLabelText('휴게 끝(선택)'), { target: { value: '2026-11-18T13:00' } });
+    await userEvent.click(within(form).getByRole('button', { name: '근무 등록' }));
+    expect(await screen.findByText('근무를 등록했어요.')).toBeInTheDocument();
+    expect(await sentBody(posts(view.sent, '/shifts')[0]!)).toEqual({
+      startAt: '2026-11-18T09:00:00+09:00',
+      endAt: '2026-11-18T18:00:00+09:00',
+      breakStartAt: '2026-11-18T12:00:00+09:00',
+      breakEndAt: '2026-11-18T13:00:00+09:00',
+    });
+    await waitFor(() => expect(screen.getAllByTestId('shift-row')).toHaveLength(2));
+    expect(within(screen.getAllByTestId('shift-row')[1]!).getByText(/^휴게 /)).toBeInTheDocument();
+  });
+
+  it('근무 밖 휴게 구간은 서버 400 — 등록되지 않음', async () => {
+    renderAt('/c/MFC-BSN-01/workers/OP-wkr-1');
+    await heading();
+    const form = screen.getByRole('form', { name: '근무 등록' });
+    fireEvent.change(within(form).getByLabelText('시작'), { target: { value: '2026-11-18T09:00' } });
+    fireEvent.change(within(form).getByLabelText('끝'), { target: { value: '2026-11-18T18:00' } });
+    fireEvent.change(within(form).getByLabelText('휴게 시작(선택)'), { target: { value: '2026-11-18T19:00' } });
+    fireEvent.change(within(form).getByLabelText('휴게 끝(선택)'), { target: { value: '2026-11-18T20:00' } });
+    await userEvent.click(within(form).getByRole('button', { name: '근무 등록' }));
+    expect(await within(form).findByRole('alert')).toHaveAttribute('data-code', 'VALIDATION_FAILED');
+    expect([...db.shifts.values()]).toHaveLength(1);
+  });
+
   it('근무 취소: 사유를 적어야 보내고, 목록에서 빠진다', async () => {
     renderAt('/c/MFC-BSN-01/workers/OP-wkr-1');
     await heading();
@@ -240,5 +276,40 @@ describe('작업자 업무 내역(capacity 0.17.0)', () => {
     await within(box).findAllByTestId('activity-row');
     fireEvent.change(within(box).getByLabelText('날짜'), { target: { value: '2026-01-01' } });
     expect(await within(box).findByRole('alert')).toHaveTextContent('mfc-quality');
+  });
+});
+
+describe('센터 휴게 번호(capacity 0.20.0)', () => {
+  it('처음엔 미설정 → 두 번 같게 넣어야 정함(숫자 4자리만) → 번호는 다시 보이지 않고 "정해 둠"', async () => {
+    const view = renderAt('/c/MFC-BSN-01/workers');
+    const card = await screen.findByTestId('break-pin');
+    expect(await within(card).findByText('아직 정하지 않았어요 — 작업자가 PDA 로 휴게를 켤 수 없어요.')).toBeInTheDocument();
+    const pin = within(card).getByLabelText('새 번호(숫자 4자리)');
+    const again = within(card).getByLabelText('한 번 더');
+    await userEvent.type(pin, '12a34');
+    expect(pin).toHaveValue('1234');
+    await userEvent.type(again, '1235');
+    expect(within(card).getByText('두 번호가 같지 않아요.')).toBeInTheDocument();
+    expect(within(card).getByRole('button', { name: '번호 정하기' })).toBeDisabled();
+    await userEvent.clear(again);
+    await userEvent.type(again, '1234');
+    await userEvent.click(within(card).getByRole('button', { name: '번호 정하기' }));
+    expect(await within(card).findByText('휴게 번호를 정했어요. 5번 틀려 잠긴 작업자도 바로 풀려요.')).toBeInTheDocument();
+    expect(await within(card).findByText(/^정해 둠 · OP-sup-1/)).toBeInTheDocument();
+    expect(pin).toHaveValue('');
+    const put = view.sent.find((r) => r.method === 'PUT' && new URL(r.url).pathname.endsWith('/break-pin'))!;
+    expect(await sentBody(put)).toEqual({ pin: '1234' });
+    expect(put.headers.get('Idempotency-Key')).toBeTruthy();
+    expect(db.breakPins.get('MFC-BSN-01')!.pin).toBe('1234');
+  });
+
+  it('센터 관리자가 아니면 서버 403 — 정해지지 않음', async () => {
+    renderAt('/c/MFC-BSN-01/workers', as.adminWithCenter);
+    const card = await screen.findByTestId('break-pin');
+    await userEvent.type(within(card).getByLabelText('새 번호(숫자 4자리)'), '1234');
+    await userEvent.type(within(card).getByLabelText('한 번 더'), '1234');
+    await userEvent.click(within(card).getByRole('button', { name: '번호 정하기' }));
+    expect(await within(card).findByText('이 센터 권한이 없습니다.')).toBeInTheDocument();
+    expect(db.breakPins.has('MFC-BSN-01')).toBe(false);
   });
 });

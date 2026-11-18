@@ -45,6 +45,11 @@
             android:theme="@style/KnNaviTheme"
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|screenLayout|density|uiMode"
             android:hardwareAccelerated="true" />
+        <!-- 운행 중 위치 전송(앱 화면이 없어진 뒤 넘겨받아 보낸다) — RiderLocationService -->
+        <service
+            android:name=".RiderLocationService"
+            android:exported="false"
+            android:foregroundServiceType="location" />
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data

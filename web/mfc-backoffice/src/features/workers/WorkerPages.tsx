@@ -6,6 +6,8 @@
 //   상태 `state-changes`(사유 필수) / 속도 `speed-changes`(0.5~2.0, 사유 필수) — 업무·상태 응답의 affectedAssignments(맞지 않는 배정)를 보인다(지우지 않음).
 //   휴게 `breaks`·`breaks/current/end`, 일일크루 오늘 출근 `day-enrollments`(날짜 생략 = 오늘, 서버가 정함).
 //   근무 `shifts`(목록·등록·취소) — 시각 입력은 한국 시간(+09:00)으로 보낸다.
+//   (0.20.0) 근무의 휴게 구간 `breakStartAt`·`breakEndAt`(둘 다 또는 둘 다 없음, 근무 안 — 서버가 400) → 그 시간에 자동 휴게.
+// - (0.20.0) 센터 휴게 번호 `GET·PUT /mfcs/{mfcId}/break-pin` — 작업자가 PDA 로 휴게를 켤 때 넣는 4자리. 서버는 번호를 돌려주지 않는다.
 // - 지금 배정 조건(effectiveTaskTypes)·PDA 업무(workAreas)는 서버 값을 보이기만 한다(계산하지 않음).
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, type ReactNode } from 'react';
@@ -80,6 +82,7 @@ function WorkerListPage({ mfcId }: { readonly mfcId: string }) {
         </Link>
       </div>
       <p className="text-sm opacity-70">{m.intro}</p>
+      <BreakPinCard mfcId={mfcId} />
       <label className="flex w-fit flex-col gap-1 rounded-box bg-base-100 p-3 text-sm">
         {m.stateFilter}
         <select
@@ -693,19 +696,30 @@ function Shifts({ mfcId, workerId, notify }: { readonly mfcId: string; readonly 
   const [startAt, setStartAt] = useState('');
   const [endAt, setEndAt] = useState('');
   const [note, setNote] = useState('');
+  const [breakStartAt, setBreakStartAt] = useState('');
+  const [breakEndAt, setBreakEndAt] = useState('');
+  // 휴게 구간은 둘 다 적거나 둘 다 비운다(근무 안인지는 서버가 판정 — 400).
+  const breakHalf = !!breakStartAt !== !!breakEndAt;
   const add = useCommand(async (_: null, key) => {
     notify(null);
     const r = await request(
       'POST',
       api.capacity.POST('/mfcs/{mfcId}/workers/{workerId}/shifts', {
         ...commandParams(key, { path }),
-        body: { startAt: seoulInput(startAt), endAt: seoulInput(endAt), ...(note.trim() ? { note: note.trim() } : {}) },
+        body: {
+          startAt: seoulInput(startAt),
+          endAt: seoulInput(endAt),
+          ...(note.trim() ? { note: note.trim() } : {}),
+          ...(breakStartAt && breakEndAt ? { breakStartAt: seoulInput(breakStartAt), breakEndAt: seoulInput(breakEndAt) } : {}),
+        },
       }),
     );
     notify(m.shiftAdded);
     setStartAt('');
     setEndAt('');
     setNote('');
+    setBreakStartAt('');
+    setBreakEndAt('');
     await refresh();
     return r;
   });
@@ -718,6 +732,9 @@ function Shifts({ mfcId, workerId, notify }: { readonly mfcId: string; readonly 
             {rows.map((s) => (
               <li key={s.shiftId} data-testid="shift-row" className="flex flex-wrap items-center gap-2">
                 <span>{`${s.startAt ? formatSeoul(s.startAt) : ''} ~ ${s.endAt ? formatSeoul(s.endAt) : ''}`}</span>
+                {s.breakStartAt && s.breakEndAt && (
+                  <span className="badge badge-sm badge-info">{m.shiftBreak(formatSeoul(s.breakStartAt), formatSeoul(s.breakEndAt))}</span>
+                )}
                 {s.note && <span className="opacity-70">{s.note}</span>}
                 <CancelShift mfcId={mfcId} workerId={workerId} shiftId={s.shiftId ?? ''} label={s.startAt ? formatSeoul(s.startAt) : ''} notify={notify} onDone={refresh} />
               </li>
@@ -730,7 +747,7 @@ function Shifts({ mfcId, workerId, notify }: { readonly mfcId: string; readonly 
         aria-label={m.addShift}
         onSubmit={(e) => {
           e.preventDefault();
-          if (!startAt || !endAt) return;
+          if (!startAt || !endAt || breakHalf) return;
           if (add.phase.kind === 'rejected' || add.phase.kind === 'done') add.reset();
           void add.run(null);
         }}
@@ -744,13 +761,27 @@ function Shifts({ mfcId, workerId, notify }: { readonly mfcId: string; readonly 
           <input className="input input-sm w-56" type="datetime-local" value={endAt} onChange={(e) => setEndAt(e.target.value)} />
         </label>
         <label className="flex flex-col gap-1">
+          {m.shiftBreakStart}
+          <input className="input input-sm w-56" type="datetime-local" value={breakStartAt} onChange={(e) => setBreakStartAt(e.target.value)} />
+        </label>
+        <label className="flex flex-col gap-1">
+          {m.shiftBreakEnd}
+          <input className="input input-sm w-56" type="datetime-local" value={breakEndAt} onChange={(e) => setBreakEndAt(e.target.value)} />
+        </label>
+        <label className="flex flex-col gap-1">
           {m.shiftNote}
           <input className="input input-sm w-48" maxLength={200} value={note} onChange={(e) => setNote(e.target.value)} />
         </label>
-        <button type="submit" className="btn btn-sm" disabled={!startAt || !endAt || add.busy}>
+        <button type="submit" className="btn btn-sm" disabled={!startAt || !endAt || breakHalf || add.busy}>
           {m.addShift}
         </button>
+        {breakHalf && (
+          <p role="alert" className="w-full text-xs text-error">
+            {m.shiftBreakBoth}
+          </p>
+        )}
         <p className="w-full text-xs opacity-70">{m.shiftHint}</p>
+        <p className="w-full text-xs opacity-70">{m.shiftBreakHint}</p>
         <div className="w-full">
           <CommandFeedback command={add} />
         </div>
@@ -935,6 +966,88 @@ function Histories({ worker: w }: { readonly worker: WorkerDetail }) {
           ))}
         </ul>
       </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------- 센터 휴게 번호(capacity 0.20.0)
+
+/** 작업자가 PDA 로 휴게를 켤 때 넣는 4자리. 서버는 정했는지·언제만 준다 — 번호는 화면에도 다시 보이지 않는다. */
+function BreakPinCard({ mfcId }: { readonly mfcId: string }) {
+  const api = useApi();
+  const queryClient = useQueryClient();
+  const bp = m.breakPin;
+  const query = useQuery({
+    queryKey: ['break-pin', mfcId],
+    queryFn: () => request('GET', api.capacity.GET('/mfcs/{mfcId}/break-pin', { params: { path: { mfcId } } })),
+  });
+  const [pin, setPin] = useState('');
+  const [again, setAgain] = useState('');
+  const digits = (v: string) => v.replace(/\D/g, '').slice(0, 4);
+  const valid = /^\d{4}$/.test(pin) && pin === again;
+  const save = useCommand(async (value: string, key) => {
+    const r = await request('PUT', api.capacity.PUT('/mfcs/{mfcId}/break-pin', { ...commandParams(key, { path: { mfcId } }), body: { pin: value } }));
+    setPin('');
+    setAgain('');
+    await queryClient.invalidateQueries({ queryKey: ['break-pin', mfcId] });
+    return r;
+  });
+  return (
+    <div className="space-y-2 rounded-box bg-base-100 p-3 text-sm" data-testid="break-pin">
+      <h2 className="font-bold">{bp.title}</h2>
+      <p className="text-xs opacity-70">{bp.intro}</p>
+      <QueryState state={toUiState(query)} onRetry={() => void query.refetch()}>
+        {(s) => (
+          <p data-testid="break-pin-status">
+            {s.set ? bp.set(s.updatedBy ?? messages.none, s.updatedAt ? formatSeoul(s.updatedAt) : messages.none) : bp.notSet}
+          </p>
+        )}
+      </QueryState>
+      <form
+        className="flex flex-wrap items-end gap-2"
+        aria-label={bp.save}
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (!valid) return;
+          if (save.phase.kind === 'rejected' || save.phase.kind === 'done') save.reset();
+          void save.run(pin);
+        }}
+      >
+        <label className="flex flex-col gap-1">
+          {bp.newPin}
+          <input
+            className="input input-sm w-28 text-center tracking-widest"
+            type="password"
+            inputMode="numeric"
+            autoComplete="off"
+            maxLength={4}
+            value={pin}
+            onChange={(e) => setPin(digits(e.target.value))}
+          />
+        </label>
+        <label className="flex flex-col gap-1">
+          {bp.confirmPin}
+          <input
+            className="input input-sm w-28 text-center tracking-widest"
+            type="password"
+            inputMode="numeric"
+            autoComplete="off"
+            maxLength={4}
+            value={again}
+            onChange={(e) => setAgain(digits(e.target.value))}
+          />
+        </label>
+        <button type="submit" className="btn btn-sm btn-primary" disabled={!valid || save.busy}>
+          {bp.save}
+        </button>
+        {pin.length === 4 && again.length === 4 && pin !== again && (
+          <p role="alert" className="w-full text-xs text-error">
+            {bp.mismatch}
+          </p>
+        )}
+      </form>
+      <p className="text-xs opacity-70">{bp.lockNote}</p>
+      <CommandFeedback command={save}>{() => <p role="status">{bp.saved}</p>}</CommandFeedback>
     </div>
   );
 }

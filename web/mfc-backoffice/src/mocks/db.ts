@@ -168,7 +168,7 @@ function seedWorkers(): Array<[string, MockWorker]> {
 
 function seedShifts(): Array<[string, MockShift]> {
   return [
-    ['SHIFT-1', { shiftId: 'SHIFT-1', mfcId: 'MFC-BSN-01', workerId: 'OP-wkr-1', startAt: '2026-11-17T00:00:00.000Z', endAt: '2026-11-17T09:00:00.000Z', state: 'PLANNED', note: '오전 근무', createdBy: 'OP-sup-1', cancelReason: null }],
+    ['SHIFT-1', { shiftId: 'SHIFT-1', mfcId: 'MFC-BSN-01', workerId: 'OP-wkr-1', startAt: '2026-11-17T00:00:00.000Z', endAt: '2026-11-17T09:00:00.000Z', state: 'PLANNED', note: '오전 근무', createdBy: 'OP-sup-1', cancelReason: null, breakStartAt: null, breakEndAt: null }],
   ];
 }
 
@@ -629,6 +629,8 @@ export const db = {
   /** 키 = `${mfcId}/${workerId}` */
   workers: new Map<string, MockWorker>(),
   shifts: new Map<string, MockShift>(),
+  /** 센터 휴게 번호(목 — 실서버는 해시만 저장). 키 = mfcId */
+  breakPins: new Map<string, { pin: string; updatedAt: string; updatedBy: string }>(),
   assignments: [] as MockAssignment[],
   plans: new Map<string, MockPlan>(),
   moves: new Map<string, MockMove>(),
@@ -660,6 +662,7 @@ export function resetDb(): void {
   db.stockUnits = seedStock();
   db.workers = new Map(seedWorkers());
   db.shifts = new Map(seedShifts());
+  db.breakPins = new Map();
   db.assignments = seedAssignments();
   db.plans = new Map();
   db.tasks = new Map(seedTasks());

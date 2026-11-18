@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  debug(LAN) 빌드에서만: 위치 전송 서비스(RiderLocationService, 네이티브 HTTPS)가 LAN 게이트웨이(사설 CA, 백엔드 ADR-0057)를 믿게 한다.
+  Dart HTTP 는 pmart_core trustPmartLanRootCa 로 따로 믿는다. 운영(release) 빌드에는 들어가지 않는다(ADR-0057 T6).
+  인증서 원본: pmart-backend/deploy/lan/tls/pmart-lan-root-ca.crt (공개 인증서 — 비밀값 아님).
+-->
+<network-security-config>
+    <base-config>
+        <trust-anchors>
+            <certificates src="system" />
+            <certificates src="@raw/pmart_lan_root_ca" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

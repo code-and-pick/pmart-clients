@@ -82,9 +82,10 @@
 | 자격 바꾸기 | `POST …/qualification-changes` + `X-Expected-Version` = qualificationVersion | 만료는 선택(한국 시간 입력 → +09:00) |
 | 상태 바꾸기 | `POST …/state-changes` | 재직·정지·퇴사, 사유 필수, `affectedAssignments` 경고. 로그인·센터 권한은 인사팀 소관(안내만) |
 | 속도 배율 | `POST …/speed-changes` | 0.5~2.0 밖이면 보내지 않음, 사유 필수 |
-| 휴게 | `POST …/breaks`, `…/breaks/current/end` | 지금 휴게 여부로 단추 하나 |
+| 휴게 | `POST …/breaks`, `…/breaks/current/end` | 지금 휴게 여부로 단추 하나. 센터 관리자는 번호 없이 켜고, 근무에 정한 자동 휴게도 일찍 끝낼 수 있다(작업자 본인은 409 `AUTO_BREAK_SUPERVISOR_ONLY`, capacity 0.20.0) |
+| 휴게 번호(목록 위 칸, 0.20.0) | `GET/PUT /mfcs/{mfcId}/break-pin` | 작업자가 PDA 로 휴게를 켤 때 넣는 4자리. 두 번 같게 넣어야 정함(숫자만, 가림). 서버는 정했는지·누가·언제만 준다 — 번호는 다시 보이지 않음. 새로 정하면 5번 틀려 잠긴(15분) 작업자도 풀린다 |
 | 일일크루 오늘 출근 | `POST …/day-enrollments` 본문 `{}` | 일일크루이고 아직 출근 전일 때만. 날짜를 보내지 않는다(생략 = 오늘, 서버가 정함) |
-| 근무 일정 | `GET/POST …/shifts`, `POST …/shifts/{id}/cancellations` | 시각 입력은 한국 시간으로 `…+09:00` 을 붙여 보낸다. 16시간·겹침(409 `SHIFT_OVERLAP`)은 서버 판정. 취소는 사유 필수 |
+| 근무 일정 | `GET/POST …/shifts`, `POST …/shifts/{id}/cancellations` | 시각 입력은 한국 시간으로 `…+09:00` 을 붙여 보낸다. 16시간·겹침(409 `SHIFT_OVERLAP`)은 서버 판정. 취소는 사유 필수. (0.20.0) 휴게 구간 `breakStartAt`·`breakEndAt`(둘 다 또는 둘 다 없음 — 화면이 막고, 근무 안인지는 서버 400) → 그 시간에 서버가 자동 휴게 |
 | 업무 내역(2026-11-17 PC 3) | `GET …/workers/{id}/activities?date=`(capacity 0.17.0, F-7 R3·R4) | 펼칠 때만 부른다. 날짜를 비우면 서버의 오늘(Asia/Seoul). 시각 순 내역(종류·대상·상품·수량·결과, 거절은 빨강)과 종류별 합계(거절은 건수만 — 서버 값). 못 읽은 원장(`unavailableSources`)은 빈 내역으로 두지 않고 경고 |
 - 바꾼 뒤 완료 문구·맞지 않는 배정은 상세 화면 위에(양식은 새 버전으로 다시 그려진다).
 - 다음 작업 받기(`next-tasks`)는 PDA 전용 — 넣지 않는다.

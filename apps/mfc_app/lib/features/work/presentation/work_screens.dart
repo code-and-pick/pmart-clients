@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:pmart_core/pmart_core.dart';
@@ -97,15 +98,33 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   bool _breakBusy = false;
 
   Future<void> _toggleBreak(WorkerProfile me) async {
+    if (!me.onBreak) {
+      // 휴게 시작은 센터 관리자 번호가 있어야 한다 — 번호 창이 서버 확인까지 맡는다.
+      await showDialog<void>(
+        context: context,
+        builder: (_) => BreakPinDialog(onSubmit: (pin) => startBreak(ref, pin)),
+      );
+      return;
+    }
     final l10n = AppLocalizations.of(context);
     setState(() => _breakBusy = true);
     try {
-      await setOnBreak(ref, on: !me.onBreak);
-    } on PmartFailure {
+      await endBreak(ref);
+    } on PmartFailure catch (f) {
+      // 근무에 정해진 자동 휴게는 센터 관리자만 일찍 끝낸다(409 AUTO_BREAK_SUPERVISOR_ONLY).
+      final auto =
+          f is ProblemFailure &&
+          f.problem.code == BreakProblemCode.autoBreakSupervisorOnly;
       if (mounted) {
         ScaffoldMessenger.of(context)
           ..hideCurrentSnackBar()
-          ..showSnackBar(SnackBar(content: Text(l10n.breakFailed)));
+          ..showSnackBar(
+            SnackBar(
+              content: Text(
+                auto ? l10n.breakAutoSupervisorOnly : l10n.breakFailed,
+              ),
+            ),
+          );
       }
     } finally {
       if (mounted) setState(() => _breakBusy = false);
@@ -869,6 +888,137 @@ class _GuideStep extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// 휴게 시작 — 센터 관리자 4자리 번호(로그인 비밀번호 아님). 서버가 받아야 닫힌다.
+/// 번호는 이 창 안에만 두고 저장·기록하지 않는다. 틀리면 지우고 다시 입력.
+class BreakPinDialog extends StatefulWidget {
+  const BreakPinDialog({required this.onSubmit, super.key});
+
+  final Future<BreakStartOutcome> Function(String pin) onSubmit;
+
+  @override
+  State<BreakPinDialog> createState() => _BreakPinDialogState();
+}
+
+class _BreakPinDialogState extends State<BreakPinDialog> {
+  final _pin = TextEditingController();
+  bool _busy = false;
+  String? _error;
+
+  /// 잠김·미설정·서버 미지원 — 더 받지 않는다.
+  bool _closed = false;
+
+  @override
+  void dispose() {
+    _pin.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    final l10n = AppLocalizations.of(context);
+    if (_pin.text.length != 4 || _busy || _closed) return;
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    BreakStartOutcome? outcome;
+    try {
+      outcome = await widget.onSubmit(_pin.text);
+    } on PmartFailure {
+      outcome = null;
+    }
+    if (!mounted) return;
+    _pin.clear();
+    switch (outcome) {
+      case BreakStarted():
+        Navigator.of(context).pop();
+      case BreakRejected(
+        :final code,
+        :final remainingAttempts,
+        :final lockedUntil,
+      ):
+        setState(() {
+          _busy = false;
+          _closed =
+              code == BreakProblemCode.pinLocked ||
+              code == BreakProblemCode.pinNotSet;
+          _error = switch (code) {
+            BreakProblemCode.pinInvalid => switch (remainingAttempts) {
+              final n? => l10n.breakPinWrongLeft(n),
+              null => l10n.breakPinWrong,
+            },
+            BreakProblemCode.pinLocked => switch (lockedUntil) {
+              final u? => l10n.breakPinLockedUntil(formatSeoulTime(u)),
+              null => l10n.breakPinLocked,
+            },
+            BreakProblemCode.pinNotSet => l10n.breakPinNotSet,
+            _ => l10n.breakFailed,
+          };
+        });
+      case null:
+        setState(() {
+          _busy = false;
+          _error = l10n.breakFailed;
+        });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final ready = _pin.text.length == 4 && !_busy && !_closed;
+    return AlertDialog(
+      key: const ValueKey('break-pin-dialog'),
+      icon: const Icon(Icons.lock_outline),
+      title: Text(l10n.breakPinTitle),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(l10n.breakPinHelp),
+          const SizedBox(height: 12),
+          TextField(
+            key: const ValueKey('break-pin'),
+            controller: _pin,
+            enabled: !_busy && !_closed,
+            autofocus: true,
+            obscureText: true,
+            enableSuggestions: false,
+            autocorrect: false,
+            keyboardType: TextInputType.number,
+            textAlign: TextAlign.center,
+            maxLength: 4,
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            style: Theme.of(context).textTheme.headlineSmall,
+            decoration: const InputDecoration(counterText: ''),
+            onChanged: (_) => setState(() => _error = null),
+            onSubmitted: (_) => _submit(),
+          ),
+          if (_error case final e?) ...[
+            const SizedBox(height: 8),
+            Text(
+              e,
+              key: const ValueKey('break-pin-error'),
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
+            ),
+          ],
+        ],
+      ),
+      actions: [
+        TextButton(
+          key: const ValueKey('break-pin-cancel'),
+          onPressed: _busy ? null : () => Navigator.of(context).pop(),
+          child: Text(l10n.cancel),
+        ),
+        FilledButton(
+          key: const ValueKey('break-pin-ok'),
+          onPressed: ready ? _submit : null,
+          child: Text(l10n.breakPinOk),
+        ),
+      ],
     );
   }
 }
