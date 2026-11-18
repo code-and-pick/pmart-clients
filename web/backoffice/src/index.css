@@ -144,3 +144,17 @@ main [data-state='loading']::after {
   color: var(--color-error);
   background: color-mix(in oklab, var(--color-error) 10%, transparent);
 }
+
+/* 긴 표 머리 고정(2026-11-19 — 목록을 내리면 칸 이름이 사라져 헷갈렸다). 표를 감싼 가로 스크롤 상자가 있으면 sticky 가 듣지 않아,
+   넓은 화면(1024px 이상)에서는 그 상자의 가로 스크롤을 풀고 머리 칸을 화면 위에 붙인다. 좁은 화면은 지금처럼 가로 스크롤. */
+@media (min-width: 1024px) {
+  main .overflow-x-auto:has(> table) {
+    overflow: visible;
+  }
+  main table > thead th {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    background-color: color-mix(in oklab, var(--color-base-200) 92%, var(--color-base-100));
+  }
+}
