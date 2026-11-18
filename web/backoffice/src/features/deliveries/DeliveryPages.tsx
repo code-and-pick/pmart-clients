@@ -15,6 +15,7 @@ import type { components as Execution } from '../../api/generated/delivery-execu
 import { useApi } from '../../app/ApiContext';
 import { CommandFeedback } from '../../shared/Feedback';
 import { DisplayNumber, RiderLabel, SystemNumbers } from '../../shared/displayNumber';
+import { RiderCard } from '../riders/RiderCard';
 import { isOrderNumber, isRiderNumber, riderIdOfNumber, useRiderLabels } from '../../shared/numberLookups';
 import { SavedViews } from '../../shared/SavedViews';
 import { messages as m } from '../../shared/messages';
@@ -693,6 +694,8 @@ export function DeliveryDetailPage() {
         <ExecutionPanel deliveryId={deliveryId} />
         <DispatchPanel deliveryId={deliveryId} />
       </div>
+      {/* 배정 라이더 카드(2026-11-18 Refine 참고) — 배송 수행의 riderId 가 있을 때만. 미배정은 배차 칸이 말한다 */}
+      {d?.riderId && <RiderCard riderId={d.riderId} />}
     </section>
   );
 }

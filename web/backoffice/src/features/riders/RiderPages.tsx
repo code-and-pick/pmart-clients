@@ -20,7 +20,8 @@ import { messages as m } from '../../shared/messages';
 import { label, text, when } from '../../shared/ops';
 import { DeliveriesOf } from '../deliveries/DeliveryPages';
 import { RiderComplaintTable } from '../riderComplaints/RiderComplaintPages';
-import { CodeLabel, FieldList, Notice, PageHeader, Section, StatusBadge, type Tone } from '../../shared/admin';
+import { RESTRICTION_TONE } from './RiderCard';
+import { CodeLabel, FieldList, Notice, PageHeader, Section, StatusBadge } from '../../shared/admin';
 
 type PiiField = components['schemas']['RiderPiiField'];
 type StaffRiderDetail = components['schemas']['StaffRiderDetail'];
@@ -137,7 +138,6 @@ function RiderBasic({ rider }: { readonly rider: StaffRiderDetail }) {
   );
 }
 
-const RESTRICTION_TONE: Readonly<Record<string, Tone>> = { NORMAL: 'success', DISPATCH_RESTRICTED: 'warning', SUSPENDED: 'error', TERMINATED: 'ghost' };
 
 /** 라이더 백오피스의 같은 라이더 상세(지금 페이지 호스트 기준 — 앱 바꾸기와 같은 주소 규칙) */
 const riderOpsUrl = (riderId: string) => `${staffAppUrl('rider-backoffice', globalThis.location)}riders/${encodeURIComponent(riderId)}`;

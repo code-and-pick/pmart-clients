@@ -399,7 +399,8 @@ function riderSummary(r: (typeof RIDER_PROFILES)[number]) {
     riderId: r.riderId,
     riderNumber: r.riderNumber, // rider 0.12.0 화면 번호(ADR-0070) — RID-MOCK-2 는 null(번호 없음 대체 표시용)
     version: state?.version ?? 1,
-    nameMasked: maskName(r.name) ?? null,
+    // "[목] " 머리말은 떼고 가린다("김*더") — 원문 열람(pii-reveals)은 머리말까지 그대로
+    nameMasked: maskName(r.name.replace(/^\[목\] /, '')) ?? null,
     phoneMasked: `${r.phone.slice(0, 3)}****${r.phone.slice(-4)}`,
     vehicleType: r.vehicleType,
     operatingStatus: r.operatingStatus,
@@ -952,6 +953,7 @@ export const opsHandlers = [
     const s = riderSummary(r);
     return HttpResponse.json({
       riderId: r.riderId,
+      riderNumber: s.riderNumber,
       version: s.version,
       nameMasked: s.nameMasked,
       phoneMasked: s.phoneMasked,

@@ -1157,6 +1157,14 @@ export const messages = {
     created: (state: string) => `취소를 접수했어요 — 지금 상태: ${state}`,
   },
   deliveries: {
+    /** 배송 상세 라이더 카드(2026-11-18 Refine 참고) */
+    riderCard: {
+      title: '배정 라이더',
+      mfc: '운행 센터',
+      piiNote: '이름·전화번호는 가려서 보여요. 연락이 꼭 필요하면 라이더 상세에서 사유를 적고 열어 주세요(열람 기록이 남아요).',
+      open: '라이더 상세',
+      deliveries: '이 라이더의 배송',
+    },
     title: '배송 확인',
     intro: '주문 ID·라이더 ID·상태로 배송을 찾거나 배송 번호로 바로 열어요. 상세는 배송 수행과 배차를 따로 읽어요(각각 원천이 달라요).',
     search: '찾기',
