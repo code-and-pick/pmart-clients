@@ -4,7 +4,7 @@
 // - 주소 = 지금 페이지의 프로토콜·호스트 이름 + 앱 포트. https(LAN)는 443·8444·8445·8446(443 은 포트 없음), 그 밖(개발·목 http)은 5173~5176.
 //   코드에 IP 를 적지 않는다 — 192.168.0.40 으로 열었든 d603-16 으로 열었든 같은 호스트로 간다.
 // - 모양(2026-11-18 사용자 — Google 앱 런처처럼): 머리줄 오른쪽 격자 단추 → 앱마다 둥근 회색 칸 안 선 아이콘 + 아래 이름, 격자로.
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react';
 
 import { uiMessages as m } from './messages';
 
@@ -53,7 +53,16 @@ function AppIcon({ app }: { readonly app: StaffApp }) {
   );
 }
 
-export function AppLauncher({ current, className = '' }: { readonly current: StaffApp; readonly className?: string }) {
+/**
+ * 이 앱 안 메뉴 칸(선택 — 2026-11-18 사용자 "메뉴도 런처에, 왼쪽 메뉴처럼 알림이 보이게"). 앱이 역할로 거른 것만 넘긴다.
+ * onSelect 가 있으면 같은 앱 안 이동(새로 읽지 않음). badge 는 아이콘 칸 오른쪽 위(할 일 개수 — 앱이 그린다).
+ */
+export interface LauncherMenu {
+  readonly title: string;
+  readonly items: ReadonlyArray<{ readonly id: string; readonly label: string; readonly icon: ReactNode; readonly href: string; readonly onSelect?: (href: string) => void; readonly badge?: ReactNode; readonly active?: boolean }>;
+}
+
+export function AppLauncher({ current, className = '', menu }: { readonly current: StaffApp; readonly className?: string; readonly menu?: LauncherMenu | undefined }) {
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
   const button = useRef<HTMLButtonElement>(null);
@@ -93,7 +102,7 @@ export function AppLauncher({ current, className = '' }: { readonly current: Sta
         <GridIcon />
       </button>
       {open && (
-        <nav id={panelId} aria-label={m.appLauncher} className="absolute right-0 top-full z-50 mt-2 w-72 rounded-box border border-base-300 bg-base-100 p-4 text-base-content shadow-xl">
+        <nav id={panelId} aria-label={m.appLauncher} className={`absolute right-0 top-full z-50 mt-2 rounded-box border border-base-300 bg-base-100 p-4 text-base-content shadow-xl ${menu ? 'w-80' : 'w-72'}`}>
           {/* 앱이 4개라 2칸 격자(3칸이면 한 칸이 혼자 남는다). 늘면 3칸 */}
           <ul className={`grid gap-2 ${STAFF_APPS.length > 4 ? 'grid-cols-3' : 'grid-cols-2'}`}>
             {STAFF_APPS.map((a) => {
@@ -124,6 +133,35 @@ export function AppLauncher({ current, className = '' }: { readonly current: Sta
               );
             })}
           </ul>
+          {menu && menu.items.length > 0 && (
+            <div className="mt-3 border-t border-base-300 pt-3" data-testid="app-launcher-menu">
+              <p className="px-1 pb-2 text-xs font-semibold text-base-content/50">{menu.title}</p>
+              <div className="grid grid-cols-3 gap-1">
+                {menu.items.map((i) => (
+                  <a
+                    key={i.id}
+                    href={i.href}
+                    className={`flex flex-col items-center gap-1.5 rounded-box px-1 py-2 text-center hover:bg-base-200 ${i.active ? 'bg-primary/10 text-primary' : ''}`}
+                    {...(i.active ? { 'aria-current': 'page' as const } : {})}
+                    data-menu={i.id}
+                    onClick={(e: ReactMouseEvent<HTMLAnchorElement>) => {
+                      // Ctrl·휠 클릭은 브라우저에 맡긴다(새 탭)
+                      if (!i.onSelect || e.ctrlKey || e.metaKey || e.shiftKey || e.button !== 0) return;
+                      e.preventDefault();
+                      setOpen(false);
+                      i.onSelect(i.href);
+                    }}
+                  >
+                    <span className={`relative flex h-10 w-10 items-center justify-center rounded-xl ${i.active ? 'bg-primary/15 text-primary' : 'bg-base-200 text-base-content/80'}`}>
+                      {i.icon}
+                      {i.badge && <span className="absolute -right-2 -top-1.5">{i.badge}</span>}
+                    </span>
+                    <span className={`text-xs leading-tight ${i.active ? 'font-semibold' : ''}`}>{i.label}</span>
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
         </nav>
       )}
     </div>

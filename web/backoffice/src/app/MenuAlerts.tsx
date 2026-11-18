@@ -173,6 +173,13 @@ function GroupSum({ keys }: { readonly keys: readonly AlertKey[] }) {
   );
 }
 
+/** 묶음 합계(늘 — 앱 바꾸기 "이 앱 메뉴" 칸) */
+export function GroupAlertBadge({ items }: { readonly items: ReadonlyArray<{ readonly to: string }> }) {
+  const keys = useAllowed(items.flatMap((i) => MENU_ALERTS[i.to] ?? []));
+  if (keys.length === 0) return null;
+  return <GroupSum keys={keys} />;
+}
+
 /** 묶음 이름 옆 합계 — 묶음이 접혀 있을 때만(펼치면 항목 배지가 보인다) */
 export function MenuGroupAlert({ items, open }: { readonly items: ReadonlyArray<{ readonly to: string }>; readonly open: boolean }) {
   const keys = useAllowed(items.flatMap((i) => MENU_ALERTS[i.to] ?? []));

@@ -85,3 +85,31 @@ describe('왼쪽 메뉴 업무 알림', () => {
     expect(await within(screen.getByTestId('nav-group-approval')).findByTestId('menu-alert-group')).toHaveTextContent('?');
   });
 });
+
+describe('앱 바꾸기 — 이 앱 메뉴 칸(알림과 함께)', () => {
+  it('앱 4개 아래 역할로 보이는 묶음 칸, 칸마다 그 묶음 할 일 개수, 지금 묶음은 강조, 누르면 같은 앱 안 이동', async () => {
+    busy();
+    const user = userEvent.setup();
+    renderAt('/approvals', as.admin);
+    await user.click(await screen.findByRole('button', { name: '앱 바꾸기' }));
+    const menu = screen.getByTestId('app-launcher-menu');
+    const tile = (id: string) => menu.querySelector(`[data-menu="${id}"]`)!;
+    expect(await within(tile('support') as HTMLElement).findByTestId('menu-alert-group')).toHaveTextContent('5');
+    expect(within(tile('approval') as HTMLElement).getByTestId('menu-alert-group')).toHaveTextContent('3');
+    expect(within(tile('catalog') as HTMLElement).queryByTestId('menu-alert-group')).not.toBeInTheDocument();
+    expect(tile('approval')).toHaveAttribute('aria-current', 'page'); // 지금 승인함 화면
+    await user.click(within(menu).getByRole('link', { name: /고객센터/ }));
+    expect(await screen.findByRole('heading', { name: '주문 조회' })).toBeInTheDocument();
+    expect(screen.queryByTestId('app-launcher-menu')).not.toBeInTheDocument();
+  });
+
+  it('지금 메뉴는 또렷하게 — 민트 막대·밝은 바탕·굵은 글씨, 지금 묶음 이름도 민트', async () => {
+    renderAt('/approvals', as.admin);
+    const link = await screen.findByRole('link', { name: '승인함' });
+    expect(link.className).toContain('border-accent');
+    expect(link.className).toContain('bg-accent/20');
+    expect(link.className).toContain('font-bold');
+    expect(screen.getByTestId('nav-group-approval').querySelector('summary')!.className).toContain('text-accent');
+    expect(screen.getByTestId('nav-group-catalog').querySelector('summary')!.className).not.toContain('text-accent');
+  });
+});

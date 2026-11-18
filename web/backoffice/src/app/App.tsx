@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AppLauncher, UiTextProvider } from '@pmart/web-ui';
 import { useEffect, useState, type ReactNode } from 'react';
-import { createBrowserRouter, createMemoryRouter, Link, Navigate, NavLink, Outlet, RouterProvider, useLocation } from 'react-router';
+import { createBrowserRouter, createMemoryRouter, Link, Navigate, NavLink, Outlet, RouterProvider, useLocation, useNavigate } from 'react-router';
 
 import { ApprovalDetailPage } from '../features/approvals/ApprovalDetailPage';
 import { ApprovalInboxPage } from '../features/approvals/ApprovalInboxPage';
@@ -48,7 +48,8 @@ import { messages as m } from '../shared/messages';
 import { useApi } from './ApiContext';
 import { covers, homePath, visibleGroups, type NavGroup } from './nav';
 import { RequireSession, SessionProvider, useSession } from './SessionContext';
-import { MenuGroupAlert, MenuItemAlerts } from './MenuAlerts';
+import { GroupIcon } from './groupIcons';
+import { GroupAlertBadge, MenuGroupAlert, MenuItemAlerts } from './MenuAlerts';
 
 /** 업무 도우미: 목 모드는 draftMock(계약 모양), 실서버 모드(local·lan)는 게이트웨이의 ai-assistant-service(2026-11-09 LAN 배포). */
 const defaultAssistantPort = (api: Api): AssistantPort =>
@@ -65,7 +66,7 @@ function NavGroupMenu({ group, pathname }: { readonly group: NavGroup; readonly 
   const open = manual ?? active;
   return (
     <details open={open} onToggle={(e) => setManual(e.currentTarget.open)} data-testid={`nav-group-${group.id}`} className="mb-2">
-      <summary className="flex cursor-pointer list-none items-center gap-2 px-5 py-1 text-xs font-semibold text-neutral-content/45 hover:text-neutral-content/70">
+      <summary className={`flex cursor-pointer list-none items-center gap-2 px-5 py-1 text-xs font-semibold ${active ? 'text-accent' : 'text-neutral-content/45 hover:text-neutral-content/70'}`}>
         <span>{group.label}</span>
         {/* 업무 알림 합계 — 접혀 있을 때만(2026-11-18 사용자 "메뉴에 업무 알람") */}
         <span className="ml-auto" aria-hidden="true">
@@ -79,7 +80,7 @@ function NavGroupMenu({ group, pathname }: { readonly group: NavGroup; readonly 
               to={item.to}
               end
               className={({ isActive }) =>
-                `flex items-center gap-1 border-l-[3px] px-5 py-2 text-sm ${isActive ? 'border-accent bg-neutral-content/10 font-semibold text-neutral-content' : 'border-transparent text-neutral-content/75 hover:bg-neutral-content/5 hover:text-neutral-content'}`
+                `mr-2 flex items-center gap-1 rounded-r-lg border-l-4 px-5 py-2 text-sm transition-colors active:scale-[0.98] ${isActive ? 'border-accent bg-accent/20 font-bold text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.06)]' : 'border-transparent text-neutral-content/75 hover:bg-neutral-content/10 hover:text-neutral-content'}`
               }
             >
               {item.label}
@@ -118,6 +119,7 @@ function Layout() {
   const { pathname } = useLocation();
   const groups = session ? visibleGroups(session.roles) : [];
   const current = currentMenu(groups, pathname);
+  const navigate = useNavigate();
   return (
     <div className="flex min-h-screen bg-base-200">
       <ScrollToTopOnNavigate />
@@ -148,7 +150,25 @@ function Layout() {
           <div className="flex items-center gap-2 text-sm">
             {env.isMock && <span className="badge badge-accent badge-sm">{m.mockBadge}</span>}
             {/* 직원 웹 앱 바꾸기(백엔드 요청 all/2026-11-17-request-app-launcher) — 2026-11-18 사용자: Google 앱 런처처럼 머리줄 오른쪽. 링크만, 세션을 읽지 않는다 */}
-            <AppLauncher current="backoffice" />
+            {/* 이 앱 메뉴 칸 — 칸마다 그 묶음 할 일 개수(왼쪽 메뉴와 같은 조회, 2026-11-18 사용자) */}
+            <AppLauncher
+              current="backoffice"
+              menu={{
+                title: m.menuAlerts.launcherMenu,
+                items: groups.map((g) => {
+                  const href = g.home ?? g.items[0]?.to ?? '/';
+                  return {
+                    id: g.id,
+                    label: g.label,
+                    icon: <GroupIcon id={g.id} className="h-5 w-5" />,
+                    href,
+                    onSelect: (to: string) => void navigate(to),
+                    badge: <GroupAlertBadge items={g.items} />,
+                    active: g.items.some((i) => covers(i, pathname)),
+                  };
+                }),
+              }}
+            />
             {session ? (
               <>
                 {/* 로그인 직원 — "내 세션: 직원 ID" 링크(로그인 시험이 이 이름으로 찾는다). 역할은 내 세션 화면에서 본다(머리줄에 두 번 보이지 않게) */}
