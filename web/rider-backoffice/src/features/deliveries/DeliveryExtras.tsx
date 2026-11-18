@@ -11,6 +11,7 @@ import type { components as TrackingC } from '../../api/generated/delivery-track
 import { useApi } from '../../app/ApiContext';
 import { AuthedPhotos } from '../../shared/AuthedPhotos';
 import { messages } from '../../shared/messages';
+import { RiderName, useRiderSummaries } from '../../shared/displayNumbers';
 import { label, none, when, won } from '../../shared/opsUi';
 import { useEvidenceLoader } from '../../shared/evidenceLoader';
 
@@ -81,6 +82,8 @@ function Row({ k, children }: { readonly k: string; readonly children: ReactNode
 }
 
 export function DispatchAttempts({ attempts }: { readonly attempts: readonly Attempt[] }) {
+  // 제안받은 라이더: 가린 이름 · 라이더 번호(ADR-0070, 한 번에 조회)
+  const riders = useRiderSummaries(attempts.flatMap((t) => (t.offers ?? []).map((o) => o.riderId)));
   return (
     <div className="space-y-1">
       {attempts.length === 0 ? (
@@ -114,7 +117,10 @@ export function DispatchAttempts({ attempts }: { readonly attempts: readonly Att
                     ) : (
                       <ul>
                         {(t.offers ?? []).map((o, j) => (
-                          <li key={o.offerId ?? `o-${j}`} className="whitespace-nowrap font-mono">{`${o.riderId ?? none} · ${label(m.offerState, o.state)} · ${when(o.sentAt)}`}</li>
+                          <li key={o.offerId ?? `o-${j}`} className="flex flex-wrap items-center gap-1 whitespace-nowrap">
+                            <RiderName riderId={o.riderId} nameMasked={o.riderId ? riders.get(o.riderId)?.nameMasked : undefined} riderNumber={o.riderId ? riders.get(o.riderId)?.riderNumber : undefined} />
+                            <span>{`· ${label(m.offerState, o.state)} · ${when(o.sentAt)}`}</span>
+                          </li>
                         ))}
                       </ul>
                     )}

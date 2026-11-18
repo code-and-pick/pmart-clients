@@ -14,6 +14,8 @@ const canAct = (roles: readonly string[]) => roles.some((r) => OPS_ROLES.include
 
 interface MockRider {
   riderId: string;
+  /** rider 0.12.0 화면 라이더 번호 6자리(ADR-0070) */
+  riderNumber: string;
   nameMasked: string;
   phoneMasked: string;
   vehicleType: string;
@@ -25,8 +27,8 @@ interface MockRider {
 
 function seedRiders(): MockRider[] {
   return [
-    { riderId: 'RD-7', nameMasked: '김*수', phoneMasked: '010****5678', vehicleType: 'MOTORCYCLE', operatingStatus: 'ON_DUTY', restriction: 'NORMAL', joinedAt: '2026-11-17T01:00:00.000Z', version: 2 },
-    { riderId: 'RD-8', nameMasked: '이*', phoneMasked: '010****1234', vehicleType: 'BICYCLE', operatingStatus: 'OFF_DUTY', restriction: 'SUSPENDED', joinedAt: '2026-11-16T03:00:00.000Z', version: 1 },
+    { riderId: 'RD-7', riderNumber: '482913', nameMasked: '김*수', phoneMasked: '010****5678', vehicleType: 'MOTORCYCLE', operatingStatus: 'ON_DUTY', restriction: 'NORMAL', joinedAt: '2026-11-17T01:00:00.000Z', version: 2 },
+    { riderId: 'RD-8', riderNumber: '730115', nameMasked: '이*', phoneMasked: '010****1234', vehicleType: 'BICYCLE', operatingStatus: 'OFF_DUTY', restriction: 'SUSPENDED', joinedAt: '2026-11-16T03:00:00.000Z', version: 1 },
   ];
 }
 
@@ -183,6 +185,8 @@ export const opsHandlers = [
     const order = q.get('sort') === 'STATE_CHANGED_DESC' ? (a: MockRider, b: MockRider) => b.version - a.version : (a: MockRider, b: MockRider) => b.joinedAt.localeCompare(a.joinedAt);
     const items = ops.riders
       .filter((r) => !q.get('riderId') || r.riderId === q.get('riderId'))
+      // rider 0.12.0 riderIds(쉼표, 50개까지) — 목록에 라이더 번호·가린 이름을 한 번에 붙일 때
+      .filter((r) => !q.get('riderIds') || (q.get('riderIds') ?? '').split(',').includes(r.riderId))
       .filter((r) => !q.get('restriction') || r.restriction === q.get('restriction'))
       .filter((r) => !q.get('operatingStatus') || r.operatingStatus === q.get('operatingStatus'))
       .filter((r) => !q.get('vehicleType') || r.vehicleType === q.get('vehicleType'))
@@ -313,6 +317,7 @@ export const opsHandlers = [
       items: [
         {
           riderId: 'RD-7',
+          riderNumber: '482913',
           nameMasked: '김*수',
           vehicleType: 'MOTORCYCLE',
           newDispatchEnabled: true,

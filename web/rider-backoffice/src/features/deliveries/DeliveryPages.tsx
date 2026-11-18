@@ -13,7 +13,7 @@ import { useApi } from '../../app/ApiContext';
 import { isLiveDelivery, LIVE } from '../../shared/liveRefresh';
 import { messages } from '../../shared/messages';
 import { ChipGroup, CursorPager, DataTable, DetailHeader, FieldList, PageHeader, ResultBar, SearchPanel, SearchRow, Section, SectionTabs, StatusBadge, type Tone } from '../../shared/admin';
-import { SimBadge } from '../../shared/sim';
+import { DeliveryNo, RiderName, SystemIds, useRiderSummaries } from '../../shared/displayNumbers';
 import { ops } from '../../shared/opsMessages';
 import { DeliveryActions } from './DeliveryActions';
 import { DeliveryEarning, DeliveryProof, DispatchAttempts, EtaPanel, extrasMessages } from './DeliveryExtras';
@@ -96,6 +96,9 @@ function DeliverySearchPage() {
       ),
   });
 
+  // 라이더 칸: 가린 이름 · 라이더 번호(GET /riders?riderIds= 한 번에 — ADR-0070)
+  const riders = useRiderSummaries((query.data?.items ?? []).map((d) => d.riderId));
+
   const reset = () => {
     setDraft({ orderId: '', orderNumber: '', riderId: '' });
     setParams({});
@@ -161,9 +164,9 @@ function DeliverySearchPage() {
                 <tbody>
                   {items.map((d, i) => (
                     <tr key={d.deliveryId ?? `d-${i}`} data-testid="delivery-row" className="cursor-pointer" onClick={() => void navigate(`/deliveries/${encodeURIComponent(d.deliveryId ?? '')}`)}>
-                      <td className="font-mono font-semibold">
+                      <td>
                         <Link className="hover:underline" to={`/deliveries/${encodeURIComponent(d.deliveryId ?? '')}`} onClick={(e) => e.stopPropagation()}>
-                          {d.deliveryId ?? none}
+                          <DeliveryNo deliveryId={d.deliveryId ?? ''} deliveryNumber={d.deliveryNumber} orderNumber={d.orderNumber} />
                         </Link>
                       </td>
                       <td className="font-mono">{d.orderNumber ?? <span className="text-base-content/40">{d.orderId ?? none}</span>}</td>
@@ -174,7 +177,13 @@ function DeliverySearchPage() {
                           {d.resumeRequestedAt && <StatusBadge tone="warning">{m.resumeRequested}</StatusBadge>}
                         </span>
                       </td>
-                      <td className="font-mono">{d.riderId ?? <span className="text-base-content/40">{m.noRider}</span>}{d.riderId && <span className="ml-1 align-middle font-sans"><SimBadge riderId={d.riderId} /></span>}</td>
+                      <td>
+                        {d.riderId ? (
+                          <RiderName riderId={d.riderId} nameMasked={riders.get(d.riderId)?.nameMasked} riderNumber={riders.get(d.riderId)?.riderNumber} />
+                        ) : (
+                          <span className="text-base-content/40">{m.noRider}</span>
+                        )}
+                      </td>
                       <td className="font-mono">{d.mfcId ?? none}</td>
                       <td className="whitespace-nowrap">{when(d.createdAt)}</td>
                       <td className="whitespace-nowrap">{when(d.completedAt)}</td>
@@ -211,6 +220,8 @@ function DeliveryDetailPage() {
     queryFn: () => request('GET', api.dispatch.GET('/deliveries/{deliveryId}/dispatch', { params: { path: { deliveryId } } })),
   });
   const d = execution.data;
+  // 라이더 표시: 가린 이름 · 라이더 번호(수행·배차 라이더를 한 번에)
+  const riders = useRiderSummaries([d?.riderId, dispatch.data?.assignment?.riderId]);
   const tabs = [
     { id: 'sec-execution', label: '수행 정보' },
     { id: 'sec-dispatch', label: '배차' },
@@ -224,7 +235,11 @@ function DeliveryDetailPage() {
     <section className="max-w-6xl space-y-4">
       <DetailHeader
         back={{ to: '/deliveries', label: m.back }}
-        title={m.detailTitle(deliveryId)}
+        title={
+          <>
+            배송 <DeliveryNo deliveryId={deliveryId} deliveryNumber={d?.deliveryNumber} orderNumber={d?.orderNumber ?? d?.orderSummary?.orderNumber} />
+          </>
+        }
         badges={
           d && (
             <>
@@ -234,8 +249,31 @@ function DeliveryDetailPage() {
             </>
           )
         }
-        summary={d && [d.orderNumber ? `주문번호 ${d.orderNumber}` : d.orderId, d.mfcName ?? d.mfcId, d.riderId ? `라이더 ${d.riderId}` : m.noRider].filter(Boolean).join(' · ')}
+        summary={
+          d && (
+            <span className="inline-flex flex-wrap items-center gap-1">
+              {[d.orderNumber ? `주문번호 ${d.orderNumber}` : null, d.mfcName ?? d.mfcId].filter(Boolean).join(' · ')}
+              <span className="text-base-content/30">·</span>
+              {d.riderId ? (
+                <>
+                  라이더 <RiderName riderId={d.riderId} nameMasked={riders.get(d.riderId)?.nameMasked} riderNumber={riders.get(d.riderId)?.riderNumber} />
+                </>
+              ) : (
+                m.noRider
+              )}
+            </span>
+          )
+        }
       />
+      {d && (
+        <SystemIds
+          ids={[
+            ['배송 ID', deliveryId],
+            ['주문 ID', d.orderId],
+            ['라이더 ID', d.riderId],
+          ]}
+        />
+      )}
       <SectionTabs items={tabs} />
       <div className="grid gap-4 lg:grid-cols-2">
         <Section id="sec-execution" title={m.execution}>
@@ -250,7 +288,7 @@ function DeliveryDetailPage() {
                     [m.purpose, name(n.purpose, x.purpose)],
                     [m.orderNumber, <span className="font-mono">{x.orderNumber ?? x.orderId ?? none}</span>],
                     [m.col.mfc, x.mfcName ?? x.mfcId ?? none],
-                    [m.col.rider, <span className="font-mono">{x.riderId ?? m.noRider}</span>],
+                    [m.col.rider, x.riderId ? <RiderName riderId={x.riderId} nameMasked={riders.get(x.riderId)?.nameMasked} riderNumber={riders.get(x.riderId)?.riderNumber} /> : m.noRider],
                     [m.col.assignedAt, when(x.assignedAt)],
                     [m.col.completedAt, when(x.completedAt)],
                   ]}
@@ -301,7 +339,14 @@ function DeliveryDetailPage() {
                   testId="dispatch-detail"
                   rows={[
                     ['배차 상태', name(n.dispatchState, p.state)],
-                    [m.col.rider, <span className="font-mono">{p.assignment?.riderId ?? m.noRider}</span>],
+                    [
+                      m.col.rider,
+                      p.assignment?.riderId ? (
+                        <RiderName riderId={p.assignment.riderId} nameMasked={riders.get(p.assignment.riderId)?.nameMasked} riderNumber={riders.get(p.assignment.riderId)?.riderNumber} />
+                      ) : (
+                        m.noRider
+                      ),
+                    ],
                     [m.attempts, m.attemptsCount((p.attempts ?? []).length)],
                     [m.arrivalWindow, p.arrivalWindow ? [p.arrivalWindow.date, [p.arrivalWindow.start, p.arrivalWindow.end].filter(Boolean).join('~')].filter(Boolean).join(' ') || none : none],
                   ]}

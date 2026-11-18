@@ -12,11 +12,14 @@ describe('배송 찾기', () => {
     const view = renderAt('/deliveries', as.riderOps);
     const rows = await screen.findAllByTestId('delivery-row');
     expect(rows).toHaveLength(4);
-    const failed = rows.find((r) => r.textContent?.includes('DLV-1'))!;
+    // 화면 배송 번호(ADR-0070) "48213075-1" 로 보이고 링크는 내부 ID 로
+    const failed = rows.find((r) => r.textContent?.includes('48213075-1'))!;
     expect(within(failed).getByText('전달 실패 등록')).toBeInTheDocument();
-    expect(within(failed).getByRole('link', { name: 'DLV-1' })).toHaveAttribute('href', '/deliveries/DLV-1');
+    expect(within(failed).getByRole('link', { name: '48213075-1' })).toHaveAttribute('href', '/deliveries/DLV-1');
+    // 번호가 없으면(배정 전) ID 끝 8자리 + "번호 없음"
     const unassigned = rows.find((r) => r.textContent?.includes('DLV-2'))!;
     expect(within(unassigned).getByText('배정 전')).toBeInTheDocument();
+    expect(unassigned).toHaveTextContent('번호 없음');
     const q = searchCalls(view.sent)[0]!;
     expect([q.get('orderId'), q.get('state'), q.get('sort'), q.get('size')]).toEqual([null, null, null, '20']);
   });
@@ -48,7 +51,11 @@ describe('배송 상세', () => {
     expect(screen.getByTestId('execution-history')).toHaveTextContent(/픽업.*· 라이더/);
     const dispatch = await screen.findByTestId('dispatch-detail');
     expect(dispatch).toHaveTextContent('배정');
-    expect(dispatch).toHaveTextContent('RD-7');
+    // 라이더는 화면 번호(ADR-0070) "김*수 · 482913" — 내부 ID 는 접힌 "시스템 번호"에만
+    expect(await within(dispatch).findByText('482913')).toBeInTheDocument();
+    expect(dispatch).toHaveTextContent('김*수');
+    expect(dispatch).not.toHaveTextContent('RD-7');
+    expect(screen.getByTestId('system-ids')).toHaveTextContent('RD-7');
     // 전달 실패 등록 상태 — 확정·반려 폼이 있다(2026-11-17 조치 붙임)
     expect(await screen.findByRole('form', { name: '전달 실패 확정·반려' })).toBeInTheDocument();
   });
@@ -64,8 +71,12 @@ describe('배송 상세', () => {
     renderAt('/deliveries/DLV-1', as.riderOps);
     const attempts = await screen.findAllByTestId('dispatch-attempt');
     expect(attempts).toHaveLength(1);
-    expect(within(attempts[0]!).getByText(/RD-9 · 거절/)).toBeInTheDocument();
-    expect(within(attempts[0]!).getByText(/RD-7 · 수락/)).toBeInTheDocument();
+    // 제안받은 라이더는 화면 번호(ADR-0070) — RD-7 은 "김*수 · 482913", 조회에 없는 RD-9 는 ID 끝 + "번호 없음"
+    const offers = within(attempts[0]!).getAllByRole('listitem');
+    expect(offers.find((o) => o.textContent?.includes('거절'))).toHaveTextContent('번호 없음');
+    const accepted = offers.find((o) => o.textContent?.includes('수락'))!;
+    expect(await within(accepted).findByText('482913')).toBeInTheDocument();
+    expect(accepted).toHaveTextContent('김*수');
     const eta = await screen.findByTestId('eta-detail');
     expect(within(eta).getByText('고객 도착')).toBeInTheDocument();
     expect(within(eta).getByText(/35분 남음 · 5.4km/)).toBeInTheDocument();

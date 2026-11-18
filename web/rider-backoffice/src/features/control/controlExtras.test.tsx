@@ -87,7 +87,9 @@ describe('관제 — 라이더 한눈에', () => {
     expect(order).toHaveTextContent('열람 기록이 남아요');
     expect(order).toHaveTextContent('그릭요거트 플레인 400g × 3');
     expect(order).toHaveTextContent('문 앞에 두고 벨 눌러 주세요');
-    expect(within(panel).getByText('#48213075')).toBeInTheDocument();
+    // 화면 배송 번호(ADR-0070) — 내부 ID(DLV-1) 대신
+    expect(within(panel).getByText('48213075-1')).toBeInTheDocument();
+    expect(within(panel).getByTestId('rider-name')).toHaveTextContent('김*수');
     expect(await within(panel).findByTestId('panel-eta')).toHaveTextContent('5분 늦음');
     expect(row).toHaveAttribute('aria-selected', 'true');
   });
@@ -173,6 +175,29 @@ describe('관제 — 라이더 한눈에', () => {
     const cell = await screen.findByTestId('row-delivery');
     expect(await within(cell).findByText(/#48213075/)).toHaveTextContent('픽업 PMart 부산진구지점');
     expect(cell).toHaveTextContent('도착 예정');
+  });
+});
+
+describe('관제 — 최근 배송(끝난 것까지)', () => {
+  it('센터의 최근 배송을 화면 번호·상태·라이더(가린 이름 · 번호)로 — 줄을 누르면 그 라이더·배송이 열린다', async () => {
+    server.use(http.get(`${API_BASE}/rider-locations`, () => HttpResponse.json(board)));
+    const view = renderAt('/control?mfcId=MFC-BSJ-01', as.riderOps);
+    const recent = await screen.findByTestId('recent-deliveries');
+    const rows = await within(recent).findAllByTestId('recent-row');
+    expect(rows.length).toBeGreaterThanOrEqual(3);
+    const done = rows.find((r) => r.textContent?.includes('48213110-1'))!;
+    expect(done).toHaveTextContent('전달 완료'); // 끝난 배송도 남는다
+    const live = rows.find((r) => r.textContent?.includes('48213075-1'))!;
+    expect(await within(live).findByText('482913')).toBeInTheDocument(); // GET /riders?riderIds= 로 붙인 번호
+    expect(live).toHaveTextContent('김*수');
+    expect(live).not.toHaveTextContent('RD-7'); // 내부 ID 를 보이지 않는다
+    const q = view.sent.find((r) => new URL(r.url).pathname.endsWith('/riders') && new URL(r.url).searchParams.get('riderIds'));
+    expect(q).toBeTruthy();
+
+    await userEvent.click(live);
+    const panel = await screen.findByTestId('control-panel');
+    expect(panel).toHaveTextContent('김*수');
+    expect((await within(panel).findAllByTestId('panel-delivery'))[0]).toHaveClass('ring-1');
   });
 });
 

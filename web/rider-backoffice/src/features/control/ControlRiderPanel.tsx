@@ -18,7 +18,7 @@ import { StatusBadge } from '../../shared/admin';
 import { messages } from '../../shared/messages';
 import { ops } from '../../shared/opsMessages';
 import { label, none, when, won } from '../../shared/opsUi';
-import { SimBadge } from '../../shared/sim';
+import { DeliveryNo, RiderName, useRiderSummaries } from '../../shared/displayNumbers';
 import { extrasMessages } from '../deliveries/DeliveryExtras';
 import { dropFailureText, dropMessages, useDropLocation } from './dropLocation';
 import { CONTROL_REFRESH_MS } from './refresh';
@@ -104,6 +104,8 @@ export function ControlRiderPanel({
   /** 관제 목록의 서버 기준 시각 — "N분째" 계산 기준 */
   readonly asOf?: string | undefined;
 }) {
+  // 운행 목록에 없는 라이더(주문번호·최근 배송으로 고름)만 라이더 조회로 이름·번호를 받는다
+  const looked = useRiderSummaries(selectedId && !rider ? [selectedId] : []).get(selectedId);
   if (!selectedId) {
     return (
       <aside className="rounded-box border border-dashed border-base-300 bg-base-100 p-5 text-sm text-base-content/60" data-testid="control-panel-empty">
@@ -120,12 +122,11 @@ export function ControlRiderPanel({
     <aside className="space-y-3 rounded-box border border-base-300 bg-base-100 p-4" aria-label={p.title} data-testid="control-panel">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="flex flex-wrap items-center gap-1">
-            <Link className="font-mono text-lg font-bold hover:underline" to={`/riders/${encodeURIComponent(selectedId)}`}>
-              {selectedId}
+          <p className="flex flex-wrap items-center gap-1 text-lg">
+            {/* "이* · 482913" — 운행 목록에 없으면(주문번호로 찾음) 라이더 조회로 이름·번호 */}
+            <Link className="hover:underline" to={`/riders/${encodeURIComponent(selectedId)}`}>
+              <RiderName riderId={selectedId} nameMasked={rider?.nameMasked ?? looked?.nameMasked} riderNumber={rider?.riderNumber ?? looked?.riderNumber} />
             </Link>
-            {rider?.nameMasked && <span className="text-sm text-base-content/60">{rider.nameMasked}</span>}
-            <SimBadge riderId={selectedId} />
           </p>
           {rider && (
             <p className="text-xs text-base-content/60">
@@ -314,12 +315,10 @@ function DeliveryCard({ active, focused }: { readonly active: ActiveDelivery; re
     <div className={`space-y-3 rounded-box border p-3 ${focused ? 'border-primary ring-1 ring-primary' : 'border-base-300'}`} data-testid="panel-delivery">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="flex flex-wrap items-center gap-1">
-          <Link className="font-mono text-sm font-semibold hover:underline" to={`/deliveries/${encodeURIComponent(deliveryId)}`}>
-            {deliveryId}
+          {/* 화면 배송 번호 "74939255-1"(execution deliveryNumber) — 내부 ID 는 배송 상세의 시스템 번호로 */}
+          <Link className="text-sm hover:underline" to={`/deliveries/${encodeURIComponent(deliveryId)}`}>
+            <DeliveryNo deliveryId={deliveryId} deliveryNumber={detail.data?.deliveryNumber} orderNumber={detail.data?.orderNumber ?? detail.data?.orderSummary?.orderNumber} />
           </Link>
-          {detail.data && (detail.data.orderNumber ?? detail.data.orderSummary?.orderNumber) && (
-            <span className="font-mono text-sm">{`#${detail.data.orderNumber ?? detail.data.orderSummary?.orderNumber}`}</span>
-          )}
           {eta.data?.delayAlertTriggered && <StatusBadge tone="error">{p.delayAlert}</StatusBadge>}
         </span>
       </div>

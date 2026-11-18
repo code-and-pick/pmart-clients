@@ -4,19 +4,21 @@
 // 2026-11-18: 관리자 화면 모양 — 머리말, 조건 상자(센터 + 보기 칩), 요약 카드(누르면 그 거르기), 지도 구역, 표(위치 상태 꼬리표).
 import { useQuery } from '@tanstack/react-query';
 import { useCallback, useEffect } from 'react';
-import { Link, useSearchParams } from 'react-router';
+import { useSearchParams } from 'react-router';
 
 import { request } from '@pmart/web-core';
 import { QueryState, toUiState } from '@pmart/web-ui';
 import type { components } from '../../api/generated/delivery-tracking';
 import { useApi } from '../../app/ApiContext';
 import { ChipGroup, DataTable, PageHeader, Section, StatCard, StatusBadge } from '../../shared/admin';
-import { isSimRider, SimBadge } from '../../shared/sim';
+import { RiderName } from '../../shared/displayNumbers';
+import { isSimRider } from '../../shared/sim';
 import { messages } from '../../shared/messages';
 import { ops } from '../../shared/opsMessages';
 import { CenterPicker, label, none, when } from '../../shared/opsUi';
 import { ActiveDeliverySummary, ControlRiderPanel } from './ControlRiderPanel';
 import { ControlSearch } from './ControlSearch';
+import { RecentDeliveries } from './RecentDeliveries';
 import { useDropLocations } from './dropLocation';
 import { CONTROL_REFRESH_MS } from './refresh';
 import { KakaoRiderMap, type MapRider, type MapRoute } from './KakaoRiderMap';
@@ -154,7 +156,7 @@ export function ControlPage() {
             const items = all.filter((r) => (filter === 'delivering' ? isDelivering(r) : filter === 'stale' ? isStale(r) : filter === 'sim' ? isSimRider(r.riderId) : true));
             const mapRiders: MapRider[] = items.flatMap((r) =>
               r.location?.lat != null && r.location.lng != null
-                ? [{ riderId: r.riderId, lat: r.location.lat, lng: r.location.lng, tone: isStale(r) ? 'stale' : isDelivering(r) ? 'delivering' : 'ok', label: r.nameMasked ?? r.riderId }]
+                ? [{ riderId: r.riderId, lat: r.location.lat, lng: r.location.lng, tone: isStale(r) ? 'stale' : isDelivering(r) ? 'delivering' : 'ok', label: [r.nameMasked, r.riderNumber ?? r.riderId.slice(-8)].filter(Boolean).join(' ') }]
                 : [],
             );
             return (
@@ -180,6 +182,8 @@ export function ControlPage() {
                     <ControlRiderPanel rider={all.find((r) => r.riderId === selectedId)} selectedId={selectedId} focusDeliveryId={focusDeliveryId} onClose={() => select('')} asOf={b.asOf} />
                   </div>
                 </Section>
+                {/* 최근 배송(끝난 것까지) — 짧은 배송도 놓치지 않게. 줄을 누르면 위 "라이더 한눈에"로 */}
+                <RecentDeliveries mfcId={mfcId} selectedDeliveryId={focusDeliveryId} onPick={(hit) => found({ ...hit, mfcId })} />
                 <div className="flex flex-wrap items-center justify-between gap-2 px-1">
                   <p className="flex items-center gap-2 text-sm">
                     <span>
@@ -217,11 +221,8 @@ export function ControlPage() {
                         >
                           <td>
                             <span className="flex flex-wrap items-center gap-1">
-                              <Link className="font-mono font-semibold hover:underline" to={`/riders/${encodeURIComponent(r.riderId)}`}>
-                                {r.riderId}
-                              </Link>
-                              {r.nameMasked && <span className="text-xs text-base-content/60">{r.nameMasked}</span>}
-                          <SimBadge riderId={r.riderId} />
+                              {/* 화면 번호(ADR-0070): "이* · 482913". 줄을 누르면 오른쪽 칸 — 라이더 상세 링크는 그 칸에 */}
+                              <RiderName riderId={r.riderId} nameMasked={r.nameMasked} riderNumber={r.riderNumber} />
                               {r.restriction && r.restriction !== 'NORMAL' && <StatusBadge tone="warning">{label(n.restriction, r.restriction)}</StatusBadge>}
                             </span>
                           </td>
