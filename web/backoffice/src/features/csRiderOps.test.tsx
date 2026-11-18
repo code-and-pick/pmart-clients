@@ -362,7 +362,8 @@ describe('라이더 상세(보기만 — 라이더 운영 묶음은 2026-11-18 �
     await user.click(screen.getByRole('button', { name: '전달 실패 확정 대기' }));
     const rows = await screen.findAllByTestId('delivery-row');
     expect(rows).toHaveLength(1);
-    expect(rows[0]).toHaveTextContent('DLV-MOCK-2');
+    expect(rows[0]).toHaveTextContent('74939002-1'); // 화면 배송 번호(ADR-0070) — 시스템 ID DLV-MOCK-2 는 링크에만
+    expect(within(rows[0]!).getAllByRole('link')[0]).toHaveAttribute('href', '/deliveries/DLV-MOCK-2');
     const get = view.sent.find((r) => new URL(r.url).pathname.endsWith('/deliveries'))!;
     expect(new URL(get.url).searchParams.get('state')).toBe('FAILURE_REPORTED');
     expect(new URL(get.url).searchParams.get('sort')).toBe('OLDEST');
@@ -371,7 +372,8 @@ describe('라이더 상세(보기만 — 라이더 운영 묶음은 2026-11-18 �
   it('주문 상세의 "이 주문의 배송"(BR-56 끝)', async () => {
     renderAt('/orders/ORD-MOCK-1003', as.cs);
     const rows = await screen.findAllByTestId('delivery-row');
-    expect(rows.map((r) => within(r).getAllByRole('link')[0]!.textContent)).toEqual(expect.arrayContaining(['DLV-MOCK-3', 'DLV-MOCK-4']));
+    // 화면 배송 번호, 번호가 없으면 ID 끝 8자리 + "번호 없음"(ADR-0070)
+    expect(rows.map((r) => within(r).getAllByRole('link')[0]!.textContent)).toEqual(expect.arrayContaining(['74939003-1', 'V-MOCK-4 번호 없음']));
   });
 
   it('도움요청 대기는 사건함으로 — 라이더 도움요청 사건 상세에 라이더가 쓴 내용', async () => {

@@ -10,7 +10,9 @@ import type { components } from '../../api/generated/claim';
 import { useApi } from '../../app/ApiContext';
 import { ChipGroup, CodeLabel, DataTable, DetailHeader, NextAction, Notice, PageHeader, ResultBar, SearchPanel, SearchRow, Section, StatusBadge, type Tone } from '../../shared/admin';
 import { EmptyBox, KindChip, ListFoot, SideFields, When } from '../lookup/parts';
+import { DisplayNumber } from '../../shared/displayNumber';
 import { messages as m } from '../../shared/messages';
+import { isOrderNumber, orderIdOfNumber, useOrderNumbers } from '../../shared/numberLookups';
 import { label, text, when, won } from '../../shared/ops';
 import { availableActions, RecoveryActions, ReturnProgress } from './ReturnClaim';
 
@@ -52,6 +54,8 @@ function useClaimList(filter: { orderId?: string | undefined; type?: ClaimType |
 function ClaimTable({ query, withCount = false }: { readonly query: ReturnType<typeof useClaimList>; readonly withCount?: boolean }) {
   const navigate = useNavigate();
   const items: ClaimSummary[] = query.data?.pages.flatMap((p) => p.items ?? []) ?? [];
+  // 화면 주문번호(ADR-0070) — 클레임 응답엔 번호가 없어 주문 조회로 붙인다(같은 주문은 캐시)
+  const orders = useOrderNumbers(items.map((c) => c.orderId));
   if (query.isPending) return <QueryState state={{ kind: 'loading' }}>{() => null}</QueryState>;
   if (query.isError && items.length === 0) {
     return (
@@ -105,7 +109,7 @@ function ClaimTable({ query, withCount = false }: { readonly query: ReturnType<t
               <td>
                 {c.orderId ? (
                   <Link className="font-mono text-xs text-base-content/55 hover:text-primary hover:underline" to={`/orders/${encodeURIComponent(c.orderId)}`} onClick={(e) => e.stopPropagation()}>
-                    {c.orderId}
+                    <DisplayNumber number={orders.get(c.orderId)} systemId={c.orderId} failed={orders.failed(c.orderId)} />
                   </Link>
                 ) : (
                   m.none
@@ -139,7 +143,9 @@ export function ClaimsOfOrder({ orderId }: { readonly orderId: string }) {
 }
 
 export function ClaimListPage() {
+  const api = useApi();
   const [search, setSearch] = useSearchParams();
+  const [notFound, setNotFound] = useState<string | null>(null);
   const orderId = search.get('orderId') ?? '';
   const type = search.get('type');
   const state = search.get('state');
@@ -150,10 +156,20 @@ export function ClaimListPage() {
     state: isState(state) ? state : undefined,
   });
 
-  const submit = (e: FormEvent) => {
+  const submit = async (e: FormEvent) => {
     e.preventDefault();
+    setNotFound(null);
     const next = new URLSearchParams();
-    if (draft.orderId.trim()) next.set('orderId', draft.orderId.trim());
+    const order = draft.orderId.trim();
+    // 화면 주문번호(8자리)를 넣으면 주문 조회로 주문 ID 를 찾아 그 ID 로 거른다(클레임 목록은 주문 ID 로만 거른다)
+    if (order && isOrderNumber(order)) {
+      const id = await orderIdOfNumber(api, order.replace(/[s-]/g, '')).catch(() => undefined);
+      if (!id) {
+        setNotFound(order);
+        return;
+      }
+      next.set('orderId', id);
+    } else if (order) next.set('orderId', order);
     if (draft.type) next.set('type', draft.type);
     if (draft.state) next.set('state', draft.state);
     setSearch(next);
@@ -166,9 +182,14 @@ export function ClaimListPage() {
   return (
     <section className="space-y-5">
       <PageHeader title={m.claims.title} description={m.claims.intro} />
-      <SearchPanel onSubmit={submit} onReset={() => setDraft({ orderId: '', type: '', state: '' })} submitLabel={m.claims.filter} resetLabel={m.claims.reset}>
+      <SearchPanel onSubmit={(e) => void submit(e)} onReset={() => setDraft({ orderId: '', type: '', state: '' })} submitLabel={m.claims.filter} resetLabel={m.claims.reset}>
         <SearchRow label={m.claims.orderId}>
-          <input className="input input-sm w-56" aria-label={m.claims.orderId} value={draft.orderId} onChange={(e) => setDraft((d) => ({ ...d, orderId: e.target.value }))} />
+          <input className="input input-sm w-56" aria-label={m.claims.orderId} placeholder={m.claims.orderFilterHint} value={draft.orderId} onChange={(e) => setDraft((d) => ({ ...d, orderId: e.target.value }))} />
+          {notFound && (
+            <span role="alert" className="text-xs text-warning">
+              {m.claims.orderNumberNotFound(notFound)}
+            </span>
+          )}
         </SearchRow>
         <SearchRow label={m.claims.type}>
           <ChipGroup label={m.claims.type} value={draft.type} options={typeOptions} onChange={(v) => setDraft((d) => ({ ...d, type: v }))} />
@@ -231,6 +252,7 @@ export function ClaimDetailPage() {
     queryKey: ['claims', 'detail', claimId],
     queryFn: () => request('GET', api.claims.GET('/claims/{claimId}', { params: { path: { claimId } } })),
   });
+  const detailOrders = useOrderNumbers([query.data?.orderId]);
 
   // 상세(2026-11-18 Shopify 상세처럼): 상세 머리 → 두 칸
   // 왼쪽(넓게) = 품목·반품 진행·환불·회수 조치, 오른쪽 = 클레임 정보·회수/재배송/비용
@@ -267,7 +289,7 @@ export function ClaimDetailPage() {
                   </StatusBadge>
                 </>
               }
-              summary={`${m.claims.orderId} ${text(c.orderId)} · ${when(c.openedAt)}`}
+              summary={`${m.claims.orderId} ${detailOrders.get(c.orderId) ?? (c.orderId ? m.claims.orderNumberUnknown : m.none)} · ${when(c.openedAt)}`}
             />
             {next && (
               <NextAction tone={next.tone} title={next.title} body={next.body}>
@@ -331,7 +353,7 @@ export function ClaimDetailPage() {
                   <SideFields
                     testId="claim-summary"
                     rows={[
-                      [m.claims.orderId, c.orderId ? <Link key="o" className="font-mono text-primary hover:underline" to={`/orders/${encodeURIComponent(c.orderId)}`}>{c.orderId}</Link> : m.none],
+                      [m.claims.orderId, c.orderId ? <Link key="o" className="text-primary hover:underline" to={`/orders/${encodeURIComponent(c.orderId)}`}><DisplayNumber number={detailOrders.get(c.orderId)} systemId={c.orderId} failed={detailOrders.failed(c.orderId)} /></Link> : m.none],
                       [m.claims.reason, c.reason ? <CodeLabel key="r" code={c.reason} names={m.claims.reasonName} /> : m.none],
                       [m.claims.reasonDetail, text(c.reasonDetail)],
                       [m.claims.openedAt, <When key="o" iso={c.openedAt} />],

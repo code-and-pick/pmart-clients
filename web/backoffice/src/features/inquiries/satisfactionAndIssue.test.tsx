@@ -53,7 +53,9 @@ describe('배송 신고(case 0.16.0)', () => {
     expect(within(row).getByTestId('inquiry-delivery-issue')).toHaveTextContent('배송 신고 · 못 받음');
     await userEvent.click(within(row).getByRole('link', { name: 'INQ-MOCK-3' }));
     const issue = await screen.findByTestId('inquiry-delivery-issue');
-    expect(issue).toHaveTextContent('못 받음 · 배송 DLV-MOCK-1');
-    expect(within(issue).getByRole('link', { name: 'DLV-MOCK-1' })).toHaveAttribute('href', '/deliveries/DLV-MOCK-1');
+    expect(issue).toHaveTextContent('못 받음 · 배송');
+    // 화면 배송 번호(ADR-0070) — 링크는 시스템 ID
+    expect(within(issue).getByTestId('inquiry-delivery')).toHaveAttribute('href', '/deliveries/DLV-MOCK-1');
+    expect(await within(issue).findByText('74939001-1')).toBeInTheDocument();
   });
 });

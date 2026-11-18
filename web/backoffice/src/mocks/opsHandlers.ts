@@ -27,9 +27,13 @@ type Review = RiderC['schemas']['RestrictionReview'];
 const HOUR = 3_600_000;
 const ago = (hours: number) => new Date(Date.now() - hours * HOUR).toISOString();
 
+/** 목 화면 주문번호(8자리, ADR-0070) — 다른 목(실시간 배송 등)과 따로 정한 값 */
+const ORDER_NUMBERS: Readonly<Record<string, string>> = { 'ORD-MOCK-1001': '74939001', 'ORD-MOCK-1002': '74939002', 'ORD-MOCK-1003': '74939003', 'ORD-MOCK-1005': '74939005' };
+
 function order(orderId: string, status: StaffOrder['status'], confirmedAt: string, phone: string): StaffOrder {
   return {
     orderId,
+    orderNumber: ORDER_NUMBERS[orderId] ?? null,
     status,
     confirmedAt,
     customerId: `CUS-${orderId.slice(-4)}`,
@@ -105,10 +109,16 @@ function maskedDetail(o: StaffOrder): StaffOrder {
   };
 }
 
+/** 목 배송 번호 — DLV-MOCK-4 는 null("번호 없음" 대체 표시 확인용) */
+const DELIVERY_SEQ: Readonly<Record<string, number>> = { 'DLV-MOCK-1': 1, 'DLV-MOCK-2': 1, 'DLV-MOCK-3': 1 };
+
 function execution(deliveryId: string, orderId: string, state: ExecutionC['schemas']['ExecutionState'], riderId: string | undefined): Execution {
+  const orderNumber = ORDER_NUMBERS[orderId] ?? null;
   return {
     deliveryId,
     orderId,
+    orderNumber,
+    deliveryNumber: orderNumber && DELIVERY_SEQ[deliveryId] ? `${orderNumber}-${DELIVERY_SEQ[deliveryId]}` : null,
     mfcId: 'MFC-BSN-01',
     type: 'FORWARD',
     state,
@@ -379,14 +389,15 @@ const MAX_DAYS = 31;
 
 /** rider 0.4.0 목 라이더(직원 찾기·상세·원문 열람). 계정 제한 상태·version 은 ops.riders 와 같은 값 */
 const RIDER_PROFILES = [
-  { riderId: 'RID-MOCK-1', name: '[목] 김라이더', phone: '01011112222', vehicleType: 'MOTORCYCLE' as const, operatingStatus: 'ON_DUTY' as const, newDispatchEnabled: true, operatingMfcId: 'MFC-BSN-01', joinedAt: '2026-10-01T00:00:00Z', lastHeartbeatAt: '2026-11-15T01:00:00Z' },
-  { riderId: 'RID-MOCK-2', name: '[목] 이라이더', phone: '01033334444', vehicleType: 'BICYCLE' as const, operatingStatus: 'OFF_DUTY' as const, newDispatchEnabled: false, operatingMfcId: null, joinedAt: '2026-10-10T00:00:00Z', lastHeartbeatAt: null },
+  { riderId: 'RID-MOCK-1', riderNumber: '482913', name: '[목] 김라이더', phone: '01011112222', vehicleType: 'MOTORCYCLE' as const, operatingStatus: 'ON_DUTY' as const, newDispatchEnabled: true, operatingMfcId: 'MFC-BSN-01', joinedAt: '2026-10-01T00:00:00Z', lastHeartbeatAt: '2026-11-15T01:00:00Z' },
+  { riderId: 'RID-MOCK-2', riderNumber: null as string | null, name: '[목] 이라이더', phone: '01033334444', vehicleType: 'BICYCLE' as const, operatingStatus: 'OFF_DUTY' as const, newDispatchEnabled: false, operatingMfcId: null, joinedAt: '2026-10-10T00:00:00Z', lastHeartbeatAt: null },
 ];
 
 function riderSummary(r: (typeof RIDER_PROFILES)[number]) {
   const state = ops.riders.get(r.riderId);
   return {
     riderId: r.riderId,
+    riderNumber: r.riderNumber, // rider 0.12.0 화면 번호(ADR-0070) — RID-MOCK-2 는 null(번호 없음 대체 표시용)
     version: state?.version ?? 1,
     nameMasked: maskName(r.name) ?? null,
     phoneMasked: `${r.phone.slice(0, 3)}****${r.phone.slice(-4)}`,
@@ -406,10 +417,11 @@ export const opsHandlers = [
     if (denied) return denied;
     const q = new URL(request.url).searchParams;
     const orderId = q.get('orderId');
+    const orderNumber = q.get('orderNumber');
     const customerId = q.get('customerId');
     const from = q.get('createdFrom');
     const to = q.get('createdTo');
-    if (!orderId && !customerId) {
+    if (!orderId && !orderNumber && !customerId) {
       if (!from || !to) return problem(400, 'VALIDATION_FAILED', [{ field: 'createdFrom', reason: 'REQUIRED' }]);
       const span = Date.parse(to) - Date.parse(from);
       if (span <= 0 || span > MAX_DAYS * 24 * HOUR) return problem(400, 'VALIDATION_FAILED', [{ field: 'createdTo', reason: 'RANGE' }]);
@@ -420,6 +432,7 @@ export const opsHandlers = [
       .filter(
         (o) =>
           (!orderId || o.orderId === orderId) &&
+          (!orderNumber || o.orderNumber === orderNumber) &&
           (!customerId || o.customerId === customerId) &&
           (!q.get('status') || o.status === q.get('status')) &&
           (!q.get('mfcId') || o.mfcId === q.get('mfcId')) &&
@@ -433,6 +446,7 @@ export const opsHandlers = [
     return HttpResponse.json({
       items: slice.map((o) => ({
         orderId: o.orderId,
+        orderNumber: o.orderNumber ?? null,
         status: o.status,
         confirmedAt: o.confirmedAt,
         customerId: o.customerId,
@@ -920,6 +934,9 @@ export const opsHandlers = [
     const items = RIDER_PROFILES.filter(
       (r) =>
         (!q.get('riderId') || r.riderId === q.get('riderId')) &&
+        // rider 0.12.0: 번호 완전 일치, 여러 ID(쉼표 50개까지)
+        (!q.get('riderNumber') || r.riderNumber === q.get('riderNumber')) &&
+        (!q.get('riderIds') || (q.get('riderIds') ?? '').split(',').includes(r.riderId)) &&
         (!phone || r.phone === phone) &&
         (!q.get('restriction') || (ops.riders.get(r.riderId)?.current ?? 'NORMAL') === q.get('restriction')) &&
         (!q.get('operatingStatus') || r.operatingStatus === q.get('operatingStatus')) &&
@@ -980,13 +997,17 @@ export const opsHandlers = [
       .filter(
         (e) =>
           (!q.get('orderId') || e.orderId === q.get('orderId')) &&
+          // execution 0.11.0: 화면 주문번호 8자리 완전 일치
+          (!q.get('orderNumber') || e.orderNumber === q.get('orderNumber')) &&
           (!q.get('riderId') || e.riderId === q.get('riderId')) &&
           (!q.get('state') || e.state === q.get('state')) &&
           (!q.get('mfcId') || e.mfcId === q.get('mfcId')),
       )
       .map((e, i) => ({
         deliveryId: e.deliveryId,
+        deliveryNumber: e.deliveryNumber ?? null,
         orderId: e.orderId ?? null,
+        orderNumber: e.orderNumber ?? null,
         mfcId: e.mfcId ?? null,
         riderId: e.riderId ?? null,
         state: e.state,
