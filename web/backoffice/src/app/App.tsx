@@ -149,7 +149,19 @@ function Layout() {
           </p>
           <div className="flex items-center gap-2 text-sm">
             {env.isMock && <span className="badge badge-accent badge-sm">{m.mockBadge}</span>}
-            {/* 직원 웹 앱 바꾸기(백엔드 요청 all/2026-11-17-request-app-launcher) — 2026-11-18 사용자: Google 앱 런처처럼 머리줄 오른쪽. 링크만, 세션을 읽지 않는다 */}
+            {session ? (
+              <>
+                {/* 로그인 직원 — "내 세션: 직원 ID" 링크(로그인 시험이 이 이름으로 찾는다). 역할은 내 세션 화면에서 본다(머리줄에 두 번 보이지 않게) */}
+                <NavLink to="/session" className="btn btn-ghost btn-xs font-normal" data-testid="operator">
+                  {`${m.nav.session}: ${session.subject}`}
+                </NavLink>
+              </>
+            ) : (
+              <NavLink to="/login" className="btn btn-primary btn-xs">
+                {m.nav.login}
+              </NavLink>
+            )}
+            {/* 직원 웹 앱 바꾸기(백엔드 요청 all/2026-11-17-request-app-launcher) — 2026-11-18 사용자: Google 앱 런처처럼 머리줄 맨 오른쪽("내 세션" 오른쪽, 사용자 2026-11-18). 링크만, 세션을 읽지 않는다 */}
             {/* 이 앱 메뉴 칸 — 칸마다 그 묶음 할 일 개수(왼쪽 메뉴와 같은 조회, 2026-11-18 사용자) */}
             <AppLauncher
               current="backoffice"
@@ -169,18 +181,6 @@ function Layout() {
                 }),
               }}
             />
-            {session ? (
-              <>
-                {/* 로그인 직원 — "내 세션: 직원 ID" 링크(로그인 시험이 이 이름으로 찾는다). 역할은 내 세션 화면에서 본다(머리줄에 두 번 보이지 않게) */}
-                <NavLink to="/session" className="btn btn-ghost btn-xs font-normal" data-testid="operator">
-                  {`${m.nav.session}: ${session.subject}`}
-                </NavLink>
-              </>
-            ) : (
-              <NavLink to="/login" className="btn btn-primary btn-xs">
-                {m.nav.login}
-              </NavLink>
-            )}
           </div>
         </header>
         <main className="min-w-0 flex-1 p-6">
