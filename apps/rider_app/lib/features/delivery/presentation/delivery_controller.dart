@@ -21,6 +21,7 @@ final _mockDelivery = Provider<MockDeliveryRepository>((ref) {
   final repo = MockDeliveryRepository(
     demoBundle: true,
     visible: (id) => offers.assignedDeliveries.contains(id),
+    returnAttempts: ref.read(returnAttemptsProvider),
   );
   // 끝난 배송은 최대 3건 계산에서 빠진다.
   offers.finished = repo.isFinished;
@@ -30,7 +31,10 @@ final _mockDelivery = Provider<MockDeliveryRepository>((ref) {
 final deliveryRepositoryProvider = Provider<DeliveryRepository>(
   (ref) => switch (ref.watch(envProvider)) {
     PmartEnv.mock => ref.watch(_mockDelivery),
-    PmartEnv.local => ApiDeliveryRepository(ref.watch(dioProvider)),
+    PmartEnv.local => ApiDeliveryRepository(
+      ref.watch(dioProvider),
+      returnAttempts: ref.watch(returnAttemptsProvider),
+    ),
   },
 );
 
@@ -484,7 +488,7 @@ class DeliveryFlowController extends Notifier<DeliveryFlowState> {
   }
 
   /// 회수: MFC 에 반납했다(배송 끝 — 수행료).
-  /// [code] = MFC 직원 PDA 에 뜬 인증번호(목에서만 — [returnHandoverCodeRequiredProvider]).
+  /// [code] = MFC 직원 화면에 뜬 반납 인증번호(execution 0.27.0 `handoverCode`).
   Future<void> returnToStore({String? code}) => _send(
     DeliveryCommandKind.returnToStore,
     code == null ? const {} : {'handoverCode': code},
@@ -879,9 +883,7 @@ class SupportThreadController extends Notifier<SupportThreadState> {
   }
 }
 
-/// MFC 반납 때 직원 인증번호를 받아야 하는지(사용자 2026-11-18 "직원이나 어딘가에 뜨는 인증코드(번호)를 입력해야 전달완료가
-/// 되도록"). 계약에 아직 없어(백엔드 요청 handoff 2026-11-18-backend-return-handover-code) **목에서만** 켠다.
-/// 실서버는 계약이 생기기 전까지 지금처럼 확인 창만 띄운다(추측한 필드를 보내지 않는다).
-final returnHandoverCodeRequiredProvider = Provider<bool>(
-  (ref) => ref.watch(envProvider) == PmartEnv.mock,
+/// 반납 인증번호를 틀렸을 때 남은 횟수(배송별) — 저장소가 기록하고 배송 화면이 거절 알림에 쓴다.
+final returnAttemptsProvider = Provider<ReturnAttempts>(
+  (_) => ReturnAttempts(),
 );

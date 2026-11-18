@@ -29,6 +29,7 @@ base class MockDeliveryRepository
     bool seeded = true,
     this.visible,
     bool demoBundle = false,
+    this.returnAttempts,
     DateTime Function()? clock,
   }) : clock = clock ?? DateTime.now {
     if (!seeded) _deliveries.clear();
@@ -155,7 +156,13 @@ base class MockDeliveryRepository
         _ => false,
       };
 
-  /// 목 MFC 반납 인증번호(직원 PDA 에 뜬다고 가정 — 백엔드 요청 중).
+  /// 반납 인증번호를 틀린 남은 횟수를 알릴 곳(앱이 연결 — 실서버 저장소와 같다).
+  final ReturnAttempts? returnAttempts;
+
+  /// 배송별 틀린 횟수(목).
+  final _returnFails = <String, int>{};
+
+  /// 목 MFC 반납 인증번호(직원 화면에 뜬다고 가정).
   static const returnHandoverCode = ReturnHandoverCode.mockCode;
 
   final _deliveries = <String, Map<String, Object?>>{
@@ -388,12 +395,30 @@ base class MockDeliveryRepository
               : null;
         }
       case DeliveryCommandKind.returnToStore:
-        // 인증번호(백엔드 요청 중 — 목만): 보냈으면 맞아야 반납.
+        // 반납 인증번호(execution 0.27.0, 서버와 같게): 틀리면 MISMATCH(남은 횟수), 5번이면 잠김(맞는 번호도 거절).
         final code = item.payload['handoverCode'];
-        if (code != null && code != returnHandoverCode) {
-          reject = ReturnHandoverCode.mismatch;
+        final fails = _returnFails[item.targetId] ?? 0;
+        if (fails >= ReturnHandoverCode.maxAttempts) {
+          returnAttempts?.record(item.targetId, null);
+          reject = ReturnHandoverCode.locked;
           break;
         }
+        if (code != null && code != returnHandoverCode) {
+          final now = fails + 1;
+          _returnFails[item.targetId] = now;
+          if (now >= ReturnHandoverCode.maxAttempts) {
+            returnAttempts?.record(item.targetId, null);
+            reject = ReturnHandoverCode.locked;
+          } else {
+            returnAttempts?.record(
+              item.targetId,
+              ReturnHandoverCode.maxAttempts - now,
+            );
+            reject = ReturnHandoverCode.mismatch;
+          }
+          break;
+        }
+        returnAttempts?.record(item.targetId, null);
         // 전달 실패 반납은 받음 없이 배정에서 바로 반납.
         next =
             d['state'] == 'RETURN_PICKED_UP' ||

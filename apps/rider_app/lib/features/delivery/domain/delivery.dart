@@ -337,17 +337,46 @@ abstract final class DeliveryCommandKind {
   static const returnToStore = 'return-store-delivery';
 }
 
-/// MFC 반납 인증번호 — **백엔드에 요청 중(계약에 아직 없음, handoff 2026-11-18-backend-return-handover-code)**. 목에서만 쓴다.
-/// 이름은 요청서의 제안 값이다(백엔드가 정하면 맞춘다).
+/// MFC 반납 인증번호(execution 0.27.0 — 백엔드 회신 2026-11-18-reply-return-handover-code).
+/// 그 센터 직원 화면(`GET /return-handovers`)에 뜨는 숫자 4자리를 라이더가 `returns/store-deliveries` 의 `handoverCode` 로 보낸다.
+/// 라이더 응답에는 번호가 없다. 반납이 끝날 때까지 유효(시간 제한 없음), 5번 틀리면 잠김 — 직원이 새 번호를 내면 풀린다.
 abstract final class ReturnHandoverCode {
-  /// 인증번호 자릿수(제안 4자리).
+  /// 인증번호 자릿수(계약 pattern `^[0-9]{4}$`).
   static const length = 4;
 
-  /// 인증번호가 틀림(제안 422 코드).
+  /// 잠기기까지 틀릴 수 있는 횟수.
+  static const maxAttempts = 5;
+
+  /// 422 — 틀림(상태 그대로, details field `attemptsLeft` = 남은 횟수).
   static const mismatch = 'RETURN_HANDOVER_CODE_MISMATCH';
+
+  /// 422 — 5번 틀려 잠김(맞는 번호도 거절, 직원이 새 번호를 내면 풀림).
+  static const locked = 'RETURN_HANDOVER_LOCKED';
+
+  /// 422 — 번호 없이 보냄(서버 설정이 켜진 뒤).
+  static const required = 'RETURN_HANDOVER_CODE_REQUIRED';
+
+  /// details 의 남은 횟수 필드 이름.
+  static const attemptsLeftField = 'attemptsLeft';
 
   /// 목 모드 인증번호(직원 PDA 에 뜬다고 가정). 목 화면에 함께 보여 시험할 수 있게 한다.
   static const mockCode = '4827';
+}
+
+/// 반납 인증번호를 틀렸을 때 서버가 알려 준 남은 횟수(배송별). 현장 큐는 거절 코드만 남기므로
+/// (`pmart_core` FieldQueue) 저장소가 Problem details 에서 읽어 여기에 둔다. 번호 자체는 두지 않는다.
+final class ReturnAttempts {
+  final _left = <String, int>{};
+
+  int? left(String deliveryId) => _left[deliveryId];
+
+  void record(String deliveryId, int? left) {
+    if (left == null) {
+      _left.remove(deliveryId);
+    } else {
+      _left[deliveryId] = left;
+    }
+  }
 }
 
 abstract final class HandoverProblemCode {

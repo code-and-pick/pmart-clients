@@ -489,40 +489,16 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
     ];
   }
 
-  /// MFC 반납: 직원에게 넘겼는지 한 번 더 묻고 보낸다(배송 끝 — 수행료).
+  /// MFC 반납: 직원 화면의 인증번호 4자리를 받아 보낸다(execution 0.27.0 — 맞는지는 서버가 판정, 배송 끝 — 수행료).
   Future<void> _returnToStore() async {
-    final l10n = AppLocalizations.of(context);
-    if (ref.read(returnHandoverCodeRequiredProvider)) {
-      final code = await showDialog<String>(
-        context: context,
-        builder: (_) => const _ReturnCodeDialog(),
-      );
-      if (code == null || !mounted) return;
-      await ref
-          .read(deliveryFlowProvider(_id).notifier)
-          .returnToStore(code: code);
-      return;
-    }
-    final sure = await showDialog<bool>(
+    final code = await showDialog<String>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(l10n.returnStoreButton),
-        content: Text(l10n.returnStoreAsk),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: Text(l10n.wdCancel),
-          ),
-          TextButton(
-            key: const ValueKey('return-store-confirm'),
-            onPressed: () => Navigator.of(context).pop(true),
-            child: Text(l10n.returnStoreConfirm),
-          ),
-        ],
-      ),
+      builder: (_) => const _ReturnCodeDialog(),
     );
-    if (sure != true || !mounted) return;
-    await ref.read(deliveryFlowProvider(_id).notifier).returnToStore();
+    if (code == null || !mounted) return;
+    await ref
+        .read(deliveryFlowProvider(_id).notifier)
+        .returnToStore(code: code);
   }
 
   @override
@@ -569,9 +545,16 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
       );
       if (rejected.isEmpty) return;
       final l10n = AppLocalizations.of(context);
+      final code = rejected.last.rejectCode;
+      // 반납 인증번호가 틀렸으면 서버가 알려 준 남은 횟수와 함께.
+      final left = code == ReturnHandoverCode.mismatch
+          ? ref.read(returnAttemptsProvider).left(_id)
+          : null;
       showRiderToast(
         context,
-        commandRejectText(l10n, rejected.last.rejectCode),
+        left == null
+            ? commandRejectText(l10n, code)
+            : l10n.rejReturnCodeLeft(left),
         aboveActions: true,
       );
       unawaited(
@@ -1635,8 +1618,8 @@ class _CompleteDialogState extends State<_CompleteDialog> {
   }
 }
 
-/// MFC 반납 인증번호 입력(사용자 2026-11-18). 직원 PDA 에 뜬 번호를 받아 넣는다 — 맞는지는 서버(목)가 판정한다.
-/// 계약에 아직 없어 목에서만 뜬다([returnHandoverCodeRequiredProvider]).
+/// MFC 반납 인증번호 입력(사용자 2026-11-18). 직원 화면에 뜬 번호를 받아 넣는다 — 맞는지는 서버가 판정한다.
+/// 틀리면 서버가 남은 횟수를 알려 준다([returnAttemptsProvider]), 5번 틀리면 잠겨 직원이 새 번호를 내야 한다.
 class _ReturnCodeDialog extends ConsumerStatefulWidget {
   const _ReturnCodeDialog();
 

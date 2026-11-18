@@ -292,12 +292,14 @@ String? packageIdFromQr(String code) {
 }
 
 final class ApiDeliveryRepository implements DeliveryRepository {
-  ApiDeliveryRepository(Dio dio)
-    : _exec = ex.PmartApiDeliveryExecution(dio: dio).getExecutionApi(),
+  ApiDeliveryRepository(Dio dio, {ReturnAttempts? returnAttempts})
+    : _returnAttempts = returnAttempts ?? ReturnAttempts(),
+      _exec = ex.PmartApiDeliveryExecution(dio: dio).getExecutionApi(),
       _me = ex.PmartApiDeliveryExecution(dio: dio).getMeApi(),
       _returns = ex.PmartApiDeliveryExecution(dio: dio).getReturnsApi(),
       _dispatch = dp.PmartApiDeliveryDispatch(dio: dio).getDeliveriesApi();
 
+  final ReturnAttempts _returnAttempts;
   final ex.ExecutionApi _exec;
   final ex.MeApi _me;
   final ex.ReturnsApi _returns;
@@ -411,7 +413,11 @@ final class ApiDeliveryRepository implements DeliveryRepository {
               idempotencyKey: key,
               xSourceSystem: sourceSystem,
               reportReturnStoreDeliveryRequest:
-                  ex.ReportReturnStoreDeliveryRequest(occurredAt: occurredAt),
+                  ex.ReportReturnStoreDeliveryRequest(
+                    occurredAt: occurredAt,
+                    // MFC 직원 화면의 반납 인증번호(0.27.0)
+                    handoverCode: p['handoverCode'] as String?,
+                  ),
               extra: extra,
             ),
           DeliveryCommandKind.failure => _exec.reportFailure(
@@ -433,6 +439,9 @@ final class ApiDeliveryRepository implements DeliveryRepository {
         _ => const SendUnknown(),
       };
     } on PmartFailure catch (f) {
+      if (item.kind == DeliveryCommandKind.returnToStore) {
+        _returnAttempts.record(id, returnAttemptsLeftOf(f));
+      }
       return transitionFailureToSend(f);
     }
   }
@@ -806,4 +815,16 @@ HelpState helpStateFromWire(String? w) => switch (w) {
   'IN_PROGRESS' => HelpState.inProgress,
   'RESOLVED' => HelpState.resolved,
   _ => HelpState.unknown,
+};
+
+/// 반납 인증번호가 틀렸을 때 남은 횟수(422 RETURN_HANDOVER_CODE_MISMATCH 의 details `attemptsLeft`). 없으면 null.
+int? returnAttemptsLeftOf(PmartFailure f) => switch (f) {
+  ProblemFailure(:final problem)
+      when problem.code == ReturnHandoverCode.mismatch =>
+    problem.details
+        .where((d) => d.field == ReturnHandoverCode.attemptsLeftField)
+        .map((d) => int.tryParse(d.reason ?? ''))
+        .nonNulls
+        .firstOrNull,
+  _ => null,
 };
