@@ -166,8 +166,22 @@ void main() {
     expect(repo.deliveryJson('dlv-r1')['state'], 'RETURN_PICKED_UP');
     expect(find.text('MFC로 반납하러 가주세요'), findsOneWidget);
 
-    // MFC 반납 → 한 번 더 묻고 → 반납완료.
+    // MFC 반납 → 직원 인증번호(목, 백엔드 요청 중). 틀리면 반납되지 않고 알린다.
     await t.tap(find.byKey(const ValueKey('return-store')));
+    await settle();
+    await t.enterText(find.byKey(const ValueKey('return-code')), '1111');
+    await settle();
+    await t.tap(find.byKey(const ValueKey('return-store-confirm')));
+    await settle();
+    expect(repo.deliveryJson('dlv-r1')['state'], 'RETURN_PICKED_UP');
+    expect(find.text('인증번호가 맞지 않아요. MFC 직원에게 번호를 다시 확인해 주세요'), findsOneWidget);
+    // 알림이 아래 버튼 위에 떠서 바로 다시 누를 수 있다(가리지 않음).
+    await t.tap(find.byKey(const ValueKey('return-store')));
+    await settle();
+    await t.enterText(
+      find.byKey(const ValueKey('return-code')),
+      ReturnHandoverCode.mockCode,
+    );
     await settle();
     await t.tap(find.byKey(const ValueKey('return-store-confirm')));
     await settle();
@@ -274,6 +288,11 @@ void main() {
     await t.tap(find.byKey(const ValueKey('sheet-handle')));
     await settle();
     await t.tap(find.byKey(const ValueKey('return-store')));
+    await settle();
+    await t.enterText(
+      find.byKey(const ValueKey('return-code')),
+      ReturnHandoverCode.mockCode,
+    );
     await settle();
     await t.tap(find.byKey(const ValueKey('return-store-confirm')));
     await settle();

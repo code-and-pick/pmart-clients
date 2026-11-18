@@ -7,7 +7,10 @@ import 'package:pmart_core/pmart_core.dart';
 import '../../../shared/providers.dart';
 import '../../auth/data/session.dart';
 import '../../offers/presentation/offer_controllers.dart'
-    show assignedDeliveriesProvider, mockOfferRepositoryProvider;
+    show
+        assignedDeliveriesProvider,
+        mockOfferRepositoryProvider,
+        offerPollerProvider;
 import '../data/delivery_repository.dart';
 import '../data/mock_delivery_repository.dart';
 import '../domain/delivery.dart';
@@ -405,12 +408,17 @@ class DeliveryFlowController extends Notifier<DeliveryFlowState> {
     final repo = ref.read(deliveryRepositoryProvider);
     final queue = ref.read(riderQueueProvider);
     await queue.flush(repo.send);
+    var finishedOne = false;
     await queue.confirm((item) async {
       try {
         final d = await repo.get(item.targetId);
-        return _reached(item.kind, d.state)
-            ? ConfirmResult.applied
-            : ConfirmResult.pending;
+        final reached = _reached(item.kind, d.state);
+        if (reached &&
+            (item.kind == DeliveryCommandKind.completion ||
+                item.kind == DeliveryCommandKind.returnToStore)) {
+          finishedOne = true;
+        }
+        return reached ? ConfirmResult.applied : ConfirmResult.pending;
       } on PmartFailure {
         return ConfirmResult.unknown;
       }
@@ -419,6 +427,11 @@ class DeliveryFlowController extends Notifier<DeliveryFlowState> {
     ref
       ..invalidate(deliveryProvider(deliveryId))
       ..invalidate(deliveryQueueProvider(deliveryId));
+    // 배송이 끝났다(서버 확정) — 제안을 바로 다시 본다. 하나씩 배달하기·최대 3건이 차 있던 동안 서버는
+    // 폴링을 멈추게(pollAfterSec null) 하므로, 끝난 뒤 다시 묻지 않으면 새 제안이 앱을 다시 열 때까지 안 보인다.
+    if (finishedOne) {
+      unawaited(ref.read(offerPollerProvider.notifier).refreshNow());
+    }
   }
 
   static bool _reached(String kind, ExecutionState s) {
@@ -471,8 +484,11 @@ class DeliveryFlowController extends Notifier<DeliveryFlowState> {
   }
 
   /// 회수: MFC 에 반납했다(배송 끝 — 수행료).
-  Future<void> returnToStore() =>
-      _send(DeliveryCommandKind.returnToStore, const {});
+  /// [code] = MFC 직원 PDA 에 뜬 인증번호(목에서만 — [returnHandoverCodeRequiredProvider]).
+  Future<void> returnToStore({String? code}) => _send(
+    DeliveryCommandKind.returnToStore,
+    code == null ? const {} : {'handoverCode': code},
+  );
 
   /// 사진 올리기 키. 같은 사진을 다시 올릴 때만 같은 키다(새로 찍으면 새 키).
   IdempotencyKey? _photoKey;
@@ -862,3 +878,10 @@ class SupportThreadController extends Notifier<SupportThreadState> {
     }
   }
 }
+
+/// MFC 반납 때 직원 인증번호를 받아야 하는지(사용자 2026-11-18 "직원이나 어딘가에 뜨는 인증코드(번호)를 입력해야 전달완료가
+/// 되도록"). 계약에 아직 없어(백엔드 요청 handoff 2026-11-18-backend-return-handover-code) **목에서만** 켠다.
+/// 실서버는 계약이 생기기 전까지 지금처럼 확인 창만 띄운다(추측한 필드를 보내지 않는다).
+final returnHandoverCodeRequiredProvider = Provider<bool>(
+  (ref) => ref.watch(envProvider) == PmartEnv.mock,
+);

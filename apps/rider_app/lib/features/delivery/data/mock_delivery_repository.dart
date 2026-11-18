@@ -45,6 +45,10 @@ base class MockDeliveryRepository
         ('b5', 'pkg-9'),
         ('b6', 'pkg-10'),
         ('b7', 'pkg-11'),
+        // 한집배달 시연(목 제안 offer-single-1~3)
+        ('s1', 'pkg-12'),
+        ('s2', 'pkg-13'),
+        ('s3', 'pkg-14'),
       ]) {
         final n = id;
         _deliveries['dlv-$n'] = {
@@ -150,6 +154,9 @@ base class MockDeliveryRepository
         'COMPLETED' || 'RETURNED_TO_STORE' || 'CANCELLED' => true,
         _ => false,
       };
+
+  /// 목 MFC 반납 인증번호(직원 PDA 에 뜬다고 가정 — 백엔드 요청 중).
+  static const returnHandoverCode = ReturnHandoverCode.mockCode;
 
   final _deliveries = <String, Map<String, Object?>>{
     'dlv-1': {
@@ -381,6 +388,12 @@ base class MockDeliveryRepository
               : null;
         }
       case DeliveryCommandKind.returnToStore:
+        // 인증번호(백엔드 요청 중 — 목만): 보냈으면 맞아야 반납.
+        final code = item.payload['handoverCode'];
+        if (code != null && code != returnHandoverCode) {
+          reject = ReturnHandoverCode.mismatch;
+          break;
+        }
         // 전달 실패 반납은 받음 없이 배정에서 바로 반납.
         next =
             d['state'] == 'RETURN_PICKED_UP' ||

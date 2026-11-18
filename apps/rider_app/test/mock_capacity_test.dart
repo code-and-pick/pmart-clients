@@ -46,4 +46,41 @@ void main() {
     final offers = (await repo.activeOffers()).offers;
     expect(offers.map((o) => o.offerId), ['offer-return-1']);
   });
+  test('하나씩 배달하기: 1건 맡으면 제안 없음·폴링 멈춤, 끝나면 다시', () async {
+    final repo = MockOfferRepository(latency: Duration.zero, demoSingles: true);
+    final done = <String>{};
+    repo.finished = done.contains;
+    final settings = await repo.settings();
+    await repo.setSettings(
+      mode: settings.mode,
+      oneAtATime: true,
+      expectedVersion: settings.version,
+      key: IdempotencyKey.generate(),
+    );
+
+    final first = await repo.activeOffers();
+    expect(
+      first.offers.map((o) => o.offerId),
+      containsAll(['offer-single-1', 'offer-single-2', 'offer-single-3']),
+    );
+    await repo.respond(
+      'offer-single-1',
+      accept: true,
+      key: IdempotencyKey.generate(),
+    );
+    final busy = await repo.activeOffers();
+    expect(busy.offers, isEmpty);
+    expect(busy.pollAfter, isNull, reason: '하나씩 배달 진행 중 — 폴링 멈춤');
+    final over = await repo.respond(
+      'offer-single-2',
+      accept: true,
+      key: IdempotencyKey.generate(),
+    );
+    expect((over as OfferLate).reason, LateReason.ineligible);
+
+    done.add('dlv-s1');
+    final again = await repo.activeOffers();
+    expect(again.offers.map((o) => o.offerId), contains('offer-single-3'));
+    expect(again.pollAfter, isNotNull);
+  });
 }

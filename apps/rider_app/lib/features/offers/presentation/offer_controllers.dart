@@ -18,6 +18,7 @@ final mockOfferRepositoryProvider = Provider<MockOfferRepository>(
     mode: DispatchMode.aiRecommended,
     demoBundle: true,
     demoManyBundles: true,
+    demoSingles: true,
   ),
 );
 

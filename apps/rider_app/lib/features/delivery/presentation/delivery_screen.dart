@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:pmart_core/pmart_core.dart';
@@ -10,6 +11,7 @@ import '../../../l10n/gen/app_localizations.dart';
 import '../../../shared/kakao_navi.dart';
 import '../../../shared/location.dart';
 import '../../../shared/mfc_directory.dart';
+import '../../../shared/providers.dart';
 import '../../../shared/rider_map.dart';
 import '../../../shared/rider_style.dart';
 import '../../../shared/rider_widgets.dart';
@@ -490,6 +492,17 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
   /// MFC 반납: 직원에게 넘겼는지 한 번 더 묻고 보낸다(배송 끝 — 수행료).
   Future<void> _returnToStore() async {
     final l10n = AppLocalizations.of(context);
+    if (ref.read(returnHandoverCodeRequiredProvider)) {
+      final code = await showDialog<String>(
+        context: context,
+        builder: (_) => const _ReturnCodeDialog(),
+      );
+      if (code == null || !mounted) return;
+      await ref
+          .read(deliveryFlowProvider(_id).notifier)
+          .returnToStore(code: code);
+      return;
+    }
     final sure = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -559,6 +572,7 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
       showRiderToast(
         context,
         commandRejectText(l10n, rejected.last.rejectCode),
+        aboveActions: true,
       );
       unawaited(
         ref.read(riderQueueProvider).clearSettled().then((_) {
@@ -1033,7 +1047,9 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
           packageCount: d.packageIds.length,
         ),
       ],
-      if (dropStage)
+      // 요청사항은 주황 칸 한 곳에만(주문정보 안의 같은 내용은 뺐다 — 사용자 2026-11-18 "겹쳐서").
+      // 픽업 단계에도 가게 요청사항이 보여야 하므로 모든 단계에 둔다(회수 배송은 주문정보가 없어 뺀다).
+      if (!isRec)
         RequestNotes(
           storeRequest: trip?.storeRequest,
           deliveryRequest: drop?.deliveryNote ?? trip?.deliveryRequest,
@@ -1615,6 +1631,83 @@ class _CompleteDialogState extends State<_CompleteDialog> {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// MFC 반납 인증번호 입력(사용자 2026-11-18). 직원 PDA 에 뜬 번호를 받아 넣는다 — 맞는지는 서버(목)가 판정한다.
+/// 계약에 아직 없어 목에서만 뜬다([returnHandoverCodeRequiredProvider]).
+class _ReturnCodeDialog extends ConsumerStatefulWidget {
+  const _ReturnCodeDialog();
+
+  @override
+  ConsumerState<_ReturnCodeDialog> createState() => _ReturnCodeDialogState();
+}
+
+class _ReturnCodeDialogState extends ConsumerState<_ReturnCodeDialog> {
+  final _code = TextEditingController();
+
+  @override
+  void dispose() {
+    _code.dispose();
+    super.dispose();
+  }
+
+  bool get _complete => _code.text.length == ReturnHandoverCode.length;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final mock = ref.watch(envProvider) == PmartEnv.mock;
+    return AlertDialog(
+      title: Text(l10n.returnStoreButton),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(l10n.returnCodeBody(ReturnHandoverCode.length)),
+          const SizedBox(height: 16),
+          TextField(
+            key: const ValueKey('return-code'),
+            controller: _code,
+            autofocus: true,
+            keyboardType: TextInputType.number,
+            maxLength: ReturnHandoverCode.length,
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 28,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 12,
+            ),
+            decoration: InputDecoration(
+              labelText: l10n.returnCodeLabel,
+              counterText: '',
+            ),
+            onChanged: (_) => setState(() {}),
+          ),
+          if (mock) ...[
+            const SizedBox(height: 8),
+            Text(
+              l10n.returnCodeMockHint(ReturnHandoverCode.mockCode),
+              style: const TextStyle(fontSize: 13, color: RiderColors.sub),
+            ),
+          ],
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(l10n.wdCancel),
+        ),
+        TextButton(
+          key: const ValueKey('return-store-confirm'),
+          onPressed: _complete
+              ? () => Navigator.of(context).pop(_code.text)
+              : null,
+          child: Text(l10n.returnStoreConfirm),
+        ),
+      ],
     );
   }
 }

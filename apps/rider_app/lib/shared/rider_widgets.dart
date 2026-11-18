@@ -285,10 +285,24 @@ class MapCircleButton extends StatelessWidget {
   );
 }
 
-void showRiderToast(BuildContext context, String text) =>
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(text)));
+/// 짧은 알림. [aboveActions] 면 화면 아래 큰 버튼(반납·전달 완료 등)을 가리지 않게 그 위에 띄운다
+/// (사용자 2026-11-18 — 틀린 인증번호 알림이 "MFC에 반납했어요" 버튼을 몇 초 가렸다).
+void showRiderToast(
+  BuildContext context,
+  String text, {
+  bool aboveActions = false,
+}) => ScaffoldMessenger.of(context)
+  ..hideCurrentSnackBar()
+  ..showSnackBar(
+    aboveActions
+        ? SnackBar(
+            content: Text(text),
+            behavior: SnackBarBehavior.floating,
+            margin: const EdgeInsets.fromLTRB(16, 0, 16, 150),
+            duration: const Duration(seconds: 3),
+          )
+        : SnackBar(content: Text(text)),
+  );
 
 /// 메뉴 한 줄(마이페이지·환경설정).
 class MenuRow extends StatelessWidget {

@@ -120,6 +120,33 @@ class OrderInfoSection extends StatelessWidget {
           code: t?.orderNo ?? orderId ?? '-',
           size: 26,
         ),
+        // 메뉴 금액은 주문번호 바로 밑에 굵게(사용자 2026-11-18). 서버(주문) 값을 그대로 보인다.
+        if (t?.menuTotal case final total?)
+          Padding(
+            key: const ValueKey('menu-total'),
+            padding: const EdgeInsets.only(top: 4),
+            child: Text.rich(
+              TextSpan(
+                children: [
+                  TextSpan(
+                    text: '${l10n.menuAmount}  ',
+                    style: const TextStyle(
+                      fontSize: 15,
+                      color: RiderColors.sub,
+                    ),
+                  ),
+                  TextSpan(
+                    text: formatKrw(total),
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                      color: RiderColors.ink,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
         const SizedBox(height: 10),
         TripLine(
           l10n.orderPlace,
@@ -146,27 +173,13 @@ class OrderInfoSection extends StatelessWidget {
               l10n.itemLine(line.name, line.qty),
               formatKrw(line.amount),
             ),
-          if (t.menuTotal case final total?) ...[
-            const Divider(height: 14),
-            TripLine(l10n.menuAmount, formatKrw(total), bold: true),
-          ],
-          const SizedBox(height: 10),
-          Text(
-            l10n.customerRequest,
-            style: const TextStyle(fontSize: 13, color: RiderColors.hint),
-          ),
-          Text(
-            t.storeRequest ?? l10n.noRequest,
-            key: const ValueKey('store-request'),
-            style: const TextStyle(fontSize: 15, color: RiderColors.ink),
-          ),
         ],
       ],
     );
   }
 }
 
-/// 가게·배달 고객요청사항(전달 단계 — 주문정보 아래).
+/// 가게·배달 고객요청사항(주문정보 아래 주황 칸 — 요청사항은 여기 한 곳에만).
 class RequestNotes extends StatelessWidget {
   const RequestNotes({
     super.key,
@@ -193,15 +206,46 @@ class RequestNotes extends StatelessWidget {
             style: const TextStyle(fontSize: 14, color: RiderColors.pickup),
           ),
           const SizedBox(height: 8),
-          TripLine(l10n.storeRequestLabel, storeRequest ?? l10n.noRequest),
-          TripLine(
-            l10n.deliveryRequestLabel,
-            deliveryRequest ?? l10n.noRequest,
+          // 라벨을 위, 내용을 아래에 — 긴 요청이면 한 줄 배치에서 라벨이 "가게/요청사/항"으로 쪼개졌다.
+          _Note(
+            key: const ValueKey('store-request'),
+            label: l10n.storeRequestLabel,
+            text: storeRequest ?? l10n.noRequest,
+          ),
+          const SizedBox(height: 10),
+          _Note(
+            key: const ValueKey('delivery-request'),
+            label: l10n.deliveryRequestLabel,
+            text: deliveryRequest ?? l10n.noRequest,
           ),
         ],
       ),
     );
   }
+}
+
+class _Note extends StatelessWidget {
+  const _Note({super.key, required this.label, required this.text});
+
+  final String label;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(label, style: const TextStyle(fontSize: 13, color: RiderColors.sub)),
+      const SizedBox(height: 2),
+      Text(
+        text,
+        style: const TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.w600,
+          color: RiderColors.ink,
+        ),
+      ),
+    ],
+  );
 }
 
 /// 픽업지·전달지 칸(레퍼런스 image 12): 라벨 · 이름 · 주소 · 그 밑에 전화연결 글자 버튼,

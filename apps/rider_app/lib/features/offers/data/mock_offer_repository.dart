@@ -18,6 +18,7 @@ base class MockOfferRepository implements OfferRepository, DutyRepository {
     DispatchMode mode = DispatchMode.aiRecommended,
     bool demoBundle = false,
     bool demoManyBundles = false,
+    bool demoSingles = false,
   }) {
     if (demoBundle) {
       // 시연: 첫 제안 다음에 알뜰배달 묶음(2건)이 온다.
@@ -85,6 +86,31 @@ base class MockOfferRepository implements OfferRepository, DutyRepository {
           });
         }
       }
+    }
+    if (demoSingles) {
+      // 시연(사용자 2026-11-18 "한집배달로 여러개 보내봐"): 한집배달 제안 3건(dlv-s1~s3)을 맨 앞에(하나씩 배달하기 시험).
+      _offers.insertAll(0, [
+        for (final (i, area) in [
+          (1, '부산진구 양정동'),
+          (2, '부산진구 연지동'),
+          (3, '부산진구 초읍동'),
+        ])
+          {
+            ...(fixture['items']! as List).first as Map<String, Object?>,
+            'offerId': 'offer-single-$i',
+            'deliveryId': 'dlv-s$i',
+            'remainingSec': 60,
+            'summary': <String, Object?>{
+              ...((fixture['items']! as List).first as Map)['summary']
+                  as Map<String, Object?>,
+              'dropAreaLabel': area,
+              'distanceKm': 0.9 + i * 0.6,
+              'estimatedFee': 4000,
+              'bagCount': 1,
+              'deliveryMode': 'SINGLE',
+            },
+          },
+      ]);
     }
     if (!startOnDuty) {
       _duty = {..._duty, 'status': 'OFF_DUTY', 'newDispatchEnabled': false};
@@ -162,6 +188,8 @@ base class MockOfferRepository implements OfferRepository, DutyRepository {
   int get _capacity =>
       (_settings['oneAtATime'] == true ? 1 : maxActiveDeliveries) - activeCount;
 
+  bool get _oneBusy => _settings['oneAtATime'] == true && activeCount > 0;
+
   int _sizeOf(Map<String, Object?> offer) => (offer['bundleSize'] as int?) ?? 1;
 
   /// 조회 횟수(폴링 간격 확인용).
@@ -218,7 +246,8 @@ base class MockOfferRepository implements OfferRepository, DutyRepository {
                   if (_sizeOf(o) <= _capacity) o,
               ]
             : const <Object?>[],
-        'pollAfterSec': receiving ? 5 : null,
+        // 계약: 하나씩 배달 진행 중이면 제안을 받을 수 없어 null(폴링 멈춤).
+        'pollAfterSec': receiving && !_oneBusy ? 5 : null,
       }),
     );
   }

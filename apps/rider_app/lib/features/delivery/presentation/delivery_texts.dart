@@ -106,6 +106,7 @@ String naviErrorText(AppLocalizations l10n, String code) => switch (code) {
 /// 서버가 거절한 수행 명령을 알기 쉬운 말로(코드는 보이지 않는다).
 String commandRejectText(AppLocalizations l10n, String? code) => switch (code) {
   HandoverProblemCode.handoverNotConfirmed => l10n.rejHandover,
+  ReturnHandoverCode.mismatch => l10n.rejReturnCode,
   HandoverProblemCode.evidenceRequired => l10n.failureNeedsPhoto,
   HandoverProblemCode.contactAttemptsRequired => l10n.rejContacts,
   ProblemCode.invalidState => l10n.rejState,

@@ -337,6 +337,19 @@ abstract final class DeliveryCommandKind {
   static const returnToStore = 'return-store-delivery';
 }
 
+/// MFC 반납 인증번호 — **백엔드에 요청 중(계약에 아직 없음, handoff 2026-11-18-backend-return-handover-code)**. 목에서만 쓴다.
+/// 이름은 요청서의 제안 값이다(백엔드가 정하면 맞춘다).
+abstract final class ReturnHandoverCode {
+  /// 인증번호 자릿수(제안 4자리).
+  static const length = 4;
+
+  /// 인증번호가 틀림(제안 422 코드).
+  static const mismatch = 'RETURN_HANDOVER_CODE_MISMATCH';
+
+  /// 목 모드 인증번호(직원 PDA 에 뜬다고 가정). 목 화면에 함께 보여 시험할 수 있게 한다.
+  static const mockCode = '4827';
+}
+
 abstract final class HandoverProblemCode {
   static const alreadyHandedOver = 'ALREADY_HANDED_OVER';
   static const packageInvalidated = 'PACKAGE_INVALIDATED';
