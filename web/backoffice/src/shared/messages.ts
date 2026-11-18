@@ -897,6 +897,15 @@ export const messages = {
     issueReasonName: { QUALITY_HOLD: '품질 격리', COUNT_LOSS: '실사 손실', SHORT: '피킹 결품', DAMAGED: '피킹 파손' } as Readonly<Record<string, string>>,
     /** 상세 제목 — 첫 상품 이름 + 외 N건(번호는 옆에 작게) */
     titleOf: (first: string, more: number) => (more > 0 ? `${first} 외 ${more}건` : first),
+    // 주문 진행 단계(2026-11-18, Refine 참고) — 계약 상태표 순서
+    progress: {
+      title: '주문 진행 단계',
+      steps: ['결제', '주문 확정', '상품 준비', '배송 중', '전달 완료'] as const,
+      note: { resource: '재고·시간대 확보 중', paying: '결제 진행 중', paymentUnknown: '결제 결과 확인 중', partialHandover: '일부만 인계', partialDelivered: '일부만 전달' },
+      cancelled: '취소됨',
+      expired: '만료됨',
+      unknown: (s: string) => `단계에 없는 상태예요: ${s}`,
+    },
     nextStep: {
       issueTitle: '이행 확인이 필요한 상품이 있어요',
       issueBody: (n: number) => `확인 필요 ${n}건 — 센터 보류분이에요.`,
