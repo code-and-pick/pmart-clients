@@ -33,7 +33,7 @@ describe('행위 요청 기록', () => {
     const res = view.mutations('/results')[0]!;
     expect(res.headers.get('Idempotency-Key')).toBeTruthy();
     expect(await res.json()).toEqual({ state: 'APPLIED', resultSystem: 'delivery-execution-service', resultRef: 'EVT-1' });
-  });
+  }, 15_000); // 입력이 많아 혼자 2초 — 전체 실행 때 5초 기본 제한을 넘어 늘림(2026-11-18)
 
   it('승인된 보상 실행은 승인 번호가 있어야 남긴다', async () => {
     renderAt('/cases/CASE-MOCK-1', as.riderOps);
