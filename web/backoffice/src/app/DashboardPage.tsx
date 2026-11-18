@@ -12,7 +12,7 @@ import { ProblemFailure, request } from '@pmart/web-core';
 import { useApi } from './ApiContext';
 import { ALERT_SIZE, useAlertCount, type AlertKey } from './MenuAlerts';
 import { ApprovalTypes, LiveSummary, RiskPanel, SlaTrend } from './DashboardSections';
-import { ActivityFeed, LiveStat, MetricsPanel, OrdersWeekChart, WorkCountsPanel, useWorkCounts, workText, type WorkSum, RefreshBar, RiskStat, SlaStat, StatusDonut, TodayOrdersStat, slaQuery } from './DashboardWidgets';
+import { ActivityFeed, LiveStat, MetricsPanel, OrdersWeekChart, SalesPanel, WorkCountsPanel, useWorkCounts, workText, type WorkSum, RefreshBar, RiskStat, SlaStat, StatusDonut, TodayOrdersStat, slaQuery } from './DashboardWidgets';
 import { GroupIcon } from './groupIcons';
 import { visibleGroups } from './nav';
 import { useSession } from './SessionContext';
@@ -257,6 +257,9 @@ export function DashboardPage() {
           <StatusDonut today={today} toneOf={(s) => statusTone(s)} />
         </div>
       )}
+
+      {/* 매출·환불·상품별 판매(관리자, D2·D3 — 최근 7일) */}
+      {admin && <SalesPanel from={weekFrom} to={today} />}
 
       {/* 지금 일 전체(관리자) — 진행 중 배송 상태별·후속 처리·교대 인계 등 서버가 센 지금 건수 */}
       {admin && <WorkCountsPanel />}

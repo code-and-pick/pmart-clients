@@ -175,9 +175,16 @@ export function ApprovalDetailPage() {
       <QueryState state={toUiState(query)} onRetry={() => void query.refetch()}>
         {(a) => {
           const open = OPEN_REVIEW.includes(a.reviewState ?? 'REVIEW_PENDING');
-          const own = session !== null && a.requesterId === session.subject;
+          // AP-3(approval 0.4.0, 2026-11-18): 서버가 "지금 이 사람이 결정할 수 있나"를 판정해 준다(viewerCanDecide·viewerDecideBlockedReason).
+          // 값이 있으면 그것만 따르고, 없으면(옛 서버) 예전처럼 화면이 아는 두 경우(내 요청·내 권한 요청)만 안내한다.
+          const serverSays = typeof a.viewerCanDecide === 'boolean';
+          const blocked = a.viewerCanDecide === false ? (a.viewerDecideBlockedReason ?? null) : null;
+          const own = serverSays ? blocked === 'SELF_APPROVAL' : session !== null && a.requesterId === session.subject;
           // approval-service 2026-11-17 "자기 자신은 안 됨"(백엔드 알림 hr-backoffice/2026-11-17-notice-self-action-rules §2): 권한을 받을 직원 = 나 → 승인·반려 모두 403. 판정은 서버, 화면은 버튼을 끄고 안내
-          const grantToSelf = session !== null && a.type === 'GRANT' && (a.lines ?? []).some((l) => grantEmployeeId(l.attributes) === session.subject);
+          const grantToSelf = serverSays ? blocked === 'GRANT_TO_SELF' : session !== null && a.type === 'GRANT' && (a.lines ?? []).some((l) => grantEmployeeId(l.attributes) === session.subject);
+          // 승인 역할이 없음·설정 없음 — 다른 승인자가 심사(서버 판정일 때만)
+          const otherRole = blocked === 'NO_ROLE' || blocked === 'CONFIG_REQUIRED';
+          const cannotDecide = serverSays ? a.viewerCanDecide === false : grantToSelf;
           const watching = watchCount !== null && isWatching(a);
           const updatesSinceDecision =
             (queryClient.getQueryState(['approval', 'detail', approvalId])?.dataUpdateCount ?? 0) - (watchCount ?? 0);
@@ -214,6 +221,8 @@ export function ApprovalDetailPage() {
               {open &&
                 (grantToSelf ? (
                   <NextAction tone="info" title={m.approvals.nextStep.grantSelfTitle} body={m.approvals.nextStep.grantSelfBody} />
+                ) : otherRole ? (
+                  <NextAction tone="info" title={m.approvals.nextStep.otherRoleTitle} body={blocked === 'CONFIG_REQUIRED' ? m.approvals.nextStep.configBody : m.approvals.nextStep.otherRoleBody} />
                 ) : own ? (
                   <NextAction tone="info" title={m.approvals.nextStep.ownTitle} body={m.approvals.nextStep.ownBody} />
                 ) : (
@@ -340,6 +349,11 @@ export function ApprovalDetailPage() {
                             {m.approvals.grantToSelf}
                           </p>
                         )}
+                        {otherRole && (
+                          <p role="note" className="text-sm text-warning" data-testid="decide-blocked">
+                            {blocked === 'CONFIG_REQUIRED' ? m.approvals.nextStep.configBody : m.approvals.nextStep.otherRoleBody}
+                          </p>
+                        )}
                         <label className="floating-label block">
                           <span>{m.approvals.commentLabel}</span>
                           <textarea className="textarea textarea-sm w-full" rows={3} maxLength={1000} placeholder={m.approvals.commentLabel} value={comment} onChange={(e) => setComment(e.target.value)} />
@@ -348,7 +362,7 @@ export function ApprovalDetailPage() {
                           <button
                             type="button"
                             className="btn btn-primary btn-sm"
-                            disabled={decide.busy || grantToSelf}
+                            disabled={decide.busy || cannotDecide}
                             onClick={() => void decide.run({ decision: 'APPROVE', version: a.version })}
                           >
                             {m.approvals.approve}
@@ -356,7 +370,7 @@ export function ApprovalDetailPage() {
                           <button
                             type="button"
                             className="btn btn-sm btn-outline btn-error"
-                            disabled={decide.busy || grantToSelf}
+                            disabled={decide.busy || cannotDecide}
                             onClick={() => void decide.run({ decision: 'REJECT', version: a.version })}
                           >
                             {m.approvals.reject}

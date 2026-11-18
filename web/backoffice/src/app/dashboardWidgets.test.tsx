@@ -65,10 +65,12 @@ describe('대시보드 2판', () => {
 });
 
 describe('대시보드 지표(백엔드 회신 2026-11-18)', () => {
-  it('결품률·정시 배송률은 서버가 501 이면 "준비 중", 매출·상품별 판매·품절은 자리만', async () => {
+  it('결품률·정시 배송률은 서버가 501 이면 "준비 중", 품절은 자리만(매출·상품별 판매는 D2·D3 배포로 진짜 칸)', async () => {
     renderAt('/', as.admin);
     for (const id of ['SHORTAGE_RATE', 'ON_TIME_DELIVERY']) expect(await within(await screen.findByTestId(`dash-metric-${id}`)).findByText('준비 중')).toBeInTheDocument();
-    for (const id of ['sales', 'top', 'soldOut']) expect(within(screen.getByTestId(`dash-metric-${id}`)).getByText('준비 중')).toBeInTheDocument();
+    expect(within(screen.getByTestId('dash-metric-soldOut')).getByText('준비 중')).toBeInTheDocument();
+    expect(screen.queryByTestId('dash-metric-sales')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('dash-metric-top')).not.toBeInTheDocument();
   });
 
   it('지표가 구현되면(200) 숫자와 "N건 중 M건"', async () => {
