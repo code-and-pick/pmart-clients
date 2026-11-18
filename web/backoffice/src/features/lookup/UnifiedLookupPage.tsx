@@ -15,6 +15,7 @@ import { ProblemFailure, request } from '@pmart/web-core';
 import { FailureAlert, QueryState, toUiState } from '@pmart/web-ui';
 import type { components } from '../../api/generated/backoffice-bff';
 import { useApi } from '../../app/ApiContext';
+import { StartGuide } from '../../shared/StartGuide';
 import { messages } from '../../shared/messages';
 import { label, when, won } from '../../shared/ops';
 import { SourceStamps } from '../../shared/SourceStamps';
@@ -221,7 +222,8 @@ export function UnifiedLookupPage() {
           </QueryState>
         )
       ) : (
-        <EmptyBox icon="search">{m.startHint}</EmptyBox>
+        // 찾기 전(2026-11-18): 넣을 번호 모양 + 최근 본 주문·배송·접수 건
+        <StartGuide hint={m.startHint} formats={messages.startGuide.lookupFormats} recentKinds={['order', 'delivery', 'case']} />
       )}
       <Notice>
         {m.piiNote} {m.notYet}

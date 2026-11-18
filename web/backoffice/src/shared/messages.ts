@@ -988,6 +988,23 @@ export const messages = {
     unknown: '결과를 아직 몰라요 — 화면의 안내를 봐 주세요',
     close: '알림 닫기',
   },
+  /** 찾기 전 안내(2026-11-18) — 예시는 모양만 */
+  startGuide: {
+    formats: '넣을 수 있는 번호',
+    recent: '최근 본 것 바로 열기',
+    deliveryFormats: [
+      { what: '주문번호', shape: '숫자 8자리' },
+      { what: '라이더 번호', shape: '숫자 6자리' },
+      { what: '주문·라이더 ID', shape: 'ORD-… / RID-…' },
+      { what: '배송 번호로 바로 열기', shape: '숫자 8자리-순번' },
+    ] as const,
+    lookupFormats: [
+      { what: '주문번호', shape: '숫자 8자리' },
+      { what: '배송 번호', shape: '숫자 8자리-순번' },
+      { what: '접수 건·고객', shape: 'CASE-… / CUS-…' },
+      { what: '그 밖의 ID', shape: '그대로 붙여 넣기' },
+    ] as const,
+  },
   /** 목록 미리보기 칸(2026-11-18) */
   preview: {
     label: '미리보기',
@@ -1234,7 +1251,7 @@ export const messages = {
     any: '전체',
     failureQueue: '전달 실패 확정 대기',
     quickViews: '빠른 보기',
-    startHint: '주문 ID·라이더 ID·상태로 찾거나, 위에서 배송 번호로 바로 열어요.',
+    startHint: '주문번호·라이더 번호·상태로 찾거나, 위에서 배송 번호로 바로 열어요.',
     detailSummary: '배송 수행과 배차는 가져온 곳이 달라 따로 읽어요 — 상태를 하나로 합치지 않아요.',
     quickOpen: '바로 열기',
     ids: '번호',

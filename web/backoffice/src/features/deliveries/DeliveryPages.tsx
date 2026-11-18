@@ -17,6 +17,7 @@ import { CommandFeedback } from '../../shared/Feedback';
 import { DisplayNumber, RiderLabel, SystemNumbers } from '../../shared/displayNumber';
 import { RiderCard } from '../riders/RiderCard';
 import { PreviewDrawer, PreviewFacts, usePreview } from '../../shared/Preview';
+import { StartGuide } from '../../shared/StartGuide';
 import { useWorkCounts, workText } from '../../app/DashboardWidgets';
 import { useSession } from '../../app/SessionContext';
 import { isOrderNumber, isRiderNumber, riderIdOfNumber, useRiderLabels } from '../../shared/numberLookups';
@@ -26,7 +27,7 @@ import { useRecordRecent } from '../../shared/recentViews';
 import { messages as m } from '../../shared/messages';
 import { label, text, when } from '../../shared/ops';
 import { ChipGroup, CodeLabel, DataTable, DetailHeader, FieldList, NextAction, PageHeader, ResultBar, SearchPanel, SearchRow, Section, StatusBadge, type Tone, useRowLink } from '../../shared/admin';
-import { EmptyBox, Icon, KindChip, ListFoot, Timeline, When } from '../lookup/parts';
+import { Icon, KindChip, ListFoot, Timeline, When } from '../lookup/parts';
 
 type DeliveryExecution = Execution['schemas']['DeliveryExecution'];
 type DispatchView = Dispatch['schemas']['Delivery'];
@@ -324,7 +325,8 @@ export function DeliveryOpenPage() {
           }}
         </QueryState>
       ) : (
-        <EmptyBox icon="truck">{m.deliveries.startHint}</EmptyBox>
+        // 찾기 전(2026-11-18): 넣을 번호 모양 + 최근 본 배송
+        <StartGuide hint={m.deliveries.startHint} formats={m.startGuide.deliveryFormats} recentKinds={['delivery']} />
       )}
     </section>
   );
