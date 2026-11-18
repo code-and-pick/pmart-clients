@@ -2,9 +2,10 @@
 // - 찾기: rider `GET /riders`(ID·전화 완전 일치, 제한·운행 거르기, 가입·상태 바뀐 순 — 이름·전화 가림). 가입 승인 = 같은 목록 최근 가입 순 + 승인 상태(지금은 늘 자동 승인).
 // - 상세: rider 상세(정산계좌 등록 여부·은행 이름, 지금 동의한 버전 — rider 0.10.0)·원문 열람(사유 → audit 기록)·계정 제한 바꾸기·이력,
 //   execution 직원용 수행료·운행시간, dispatch 배정 이력(`GET /rider-assignments` — dispatch 0.8.0), 이 라이더 배송 찾기로 가기.
-// - 제한 검토: rider `GET /riders/restriction-reviews`·`POST …/decisions`.
+// - 제한 검토: rider `GET /riders/restriction-reviews`·`POST …/decisions` — 상태 탭(검토 중·제한함·제한 안 함), 결정한 줄은 그 자리에 결과로 남김.
+// - 2026-11-18 기본 백오피스에서 마저 옮김(ADR-0068, PC 2 요청): 찾기의 수단 거르기·정렬, 상세의 열린 제한 검토·컴플레인 기록(case `GET /rider-complaints`).
 // 꾸밈(2026-11-18): 배민 관리자 구성 — 목록은 검색 조건 상자 → 결과 줄 → 표, 상세는 머리 → 구역 탭 → 구역 상자(DeliveryPages 와 같은 틀).
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, type FormEvent } from 'react';
 import { Link, Route, Routes, useNavigate, useParams, useSearchParams } from 'react-router';
 
@@ -24,8 +25,16 @@ const r = ops.riders;
 const n = messages.names;
 type Restriction = components['schemas']['AccountRestriction'];
 type OperatingStatus = components['schemas']['OperatingStatus'];
+type VehicleType = components['schemas']['VehicleType'];
+type Sort = keyof typeof rm.search.sortName;
+type Review = components['schemas']['RestrictionReview'];
+type ReviewState = NonNullable<Review['state']>;
 const RESTRICTIONS: readonly Restriction[] = ['NORMAL', 'DISPATCH_RESTRICTED', 'SUSPENDED', 'TERMINATED'];
 const OPERATING: readonly OperatingStatus[] = ['ON_DUTY', 'OFF_DUTY'];
+const VEHICLES = ['MOTORCYCLE', 'BICYCLE', 'E_BIKE', 'KICKBOARD', 'CAR', 'WALK'] as const satisfies readonly VehicleType[];
+const SORTS = Object.keys(rm.search.sortName) as Sort[];
+const REVIEW_STATES = Object.keys(rm.reviews.state) as ReviewState[];
+const reviewTone = (s: string | null | undefined): Tone => (s === 'OPEN' ? 'warning' : s === 'RESTRICTED' ? 'error' : 'ghost');
 const PAGE_SIZE = 20;
 
 const restrictionTone = (s: string | null | undefined): Tone =>
@@ -59,12 +68,15 @@ function RiderSearchPage({ signups = false }: { readonly signups?: boolean }) {
   const restriction = (RESTRICTIONS as readonly string[]).includes(rawR) ? (rawR as Restriction) : undefined;
   const rawO = params.get('operatingStatus') ?? '';
   const operatingStatus = (OPERATING as readonly string[]).includes(rawO) ? (rawO as OperatingStatus) : undefined;
+  const rawV = params.get('vehicleType') ?? '';
+  const vehicleType = (VEHICLES as readonly string[]).includes(rawV) ? (rawV as VehicleType) : undefined;
+  const sort: Sort = SORTS.find((s) => s === params.get('sort')) ?? 'JOINED_DESC';
   const page = Number(params.get('page') ?? '0') || 0;
   const [draft, setDraft] = useState({ riderId, phone });
 
-  const set = (next: Partial<Record<'riderId' | 'phone' | 'restriction' | 'operatingStatus' | 'page', string>>) => {
-    const v = { riderId, phone, restriction: restriction ?? '', operatingStatus: operatingStatus ?? '', page: '', ...next };
-    setParams(Object.fromEntries(Object.entries(v).filter(([, x]) => x !== '' && x !== '0')));
+  const set = (next: Partial<Record<'riderId' | 'phone' | 'restriction' | 'operatingStatus' | 'vehicleType' | 'sort' | 'page', string>>) => {
+    const v = { riderId, phone, restriction: restriction ?? '', operatingStatus: operatingStatus ?? '', vehicleType: vehicleType ?? '', sort: sort === 'JOINED_DESC' ? '' : sort, page: '', ...next };
+    setParams(Object.fromEntries(Object.entries(v).filter(([k, x]) => x !== '' && x !== '0' && !(k === 'sort' && x === 'JOINED_DESC'))));
   };
   const submit = (e: FormEvent) => {
     e.preventDefault();
@@ -75,7 +87,7 @@ function RiderSearchPage({ signups = false }: { readonly signups?: boolean }) {
     setParams({});
   };
   const query = useQuery({
-    queryKey: ['riders', riderId, phone, restriction, operatingStatus, page],
+    queryKey: ['riders', riderId, phone, restriction, operatingStatus, vehicleType, sort, page],
     queryFn: () =>
       request(
         'GET',
@@ -84,11 +96,13 @@ function RiderSearchPage({ signups = false }: { readonly signups?: boolean }) {
             query: {
               size: PAGE_SIZE,
               page,
-              sort: 'JOINED_DESC',
+              // 가입 승인 화면은 늘 최근 가입 순
+              sort: signups ? 'JOINED_DESC' : sort,
               ...(riderId ? { riderId } : {}),
               ...(phone ? { phone } : {}),
               ...(restriction ? { restriction } : {}),
               ...(operatingStatus ? { operatingStatus } : {}),
+              ...(vehicleType ? { vehicleType } : {}),
             },
           },
         }),
@@ -127,7 +141,20 @@ function RiderSearchPage({ signups = false }: { readonly signups?: boolean }) {
               onChange={(v) => set({ operatingStatus: v })}
             />
           </SearchRow>
+          <SearchRow label={rm.search.vehicle}>
+            <ChipGroup
+              label={rm.search.vehicle}
+              value={vehicleType ?? ''}
+              options={[{ value: '', label: rm.search.allVehicles }, ...VEHICLES.map((x) => ({ value: x, label: label(n.vehicle, x) }))]}
+              onChange={(v) => set({ vehicleType: v })}
+            />
+          </SearchRow>
         </SearchPanel>
+      )}
+      {!signups && (
+        <div className="flex justify-end">
+          <ChipGroup label={rm.search.sort} value={sort} options={SORTS.map((s) => ({ value: s, label: rm.search.sortName[s] }))} onChange={(v) => set({ sort: v })} />
+        </div>
       )}
       <QueryState state={toUiState(query, (x) => (x.items ?? []).length === 0)} onRetry={() => void query.refetch()} emptyText={r.empty}>
         {(x) => {
@@ -224,6 +251,8 @@ function RiderDetailPage() {
     { id: 'sec-time', label: rm.tabs.time },
     { id: 'sec-earnings', label: rm.tabs.earnings },
     { id: 'sec-assignments', label: rm.tabs.assignments },
+    { id: 'sec-reviews', label: rm.tabs.reviews },
+    { id: 'sec-complaints', label: rm.tabs.complaints },
     { id: 'sec-restriction', label: rm.tabs.restriction },
   ];
   return (
@@ -323,6 +352,12 @@ function RiderDetailPage() {
       </div>
       <Section id="sec-assignments" title={rm.assignments.title} aside={<span className="text-xs text-base-content/50">{rm.assignments.intro}</span>}>
         <AssignmentHistory riderId={riderId} />
+      </Section>
+      <Section id="sec-reviews" title={rm.tabs.reviews} aside={<span className="text-xs text-base-content/50">{rm.detailReviews.intro}</span>}>
+        <ReviewTable state="OPEN" riderId={riderId} />
+      </Section>
+      <Section id="sec-complaints" title={rm.tabs.complaints} aside={<span className="text-xs text-base-content/50">{rm.complaints.intro}</span>}>
+        <ComplaintHistory riderId={riderId} />
       </Section>
       <Section id="sec-restriction" title={rm.tabs.restriction} aside={<span className="text-xs text-base-content/50">{rm.restrictionAside}</span>}>
         <RestrictionPanel riderId={riderId} />
@@ -595,90 +630,222 @@ function RestrictionPanel({ riderId }: { readonly riderId: string }) {
   );
 }
 
+// 제한 검토 — 상태 탭(검토 중·제한함·제한 안 함, URL ?state=). 기본 백오피스에서 옮김(2026-11-18, ADR-0068).
 export function RestrictionReviewsMenu() {
-  const api = useApi();
-  const queryClient = useQueryClient();
-  const reviews = useQuery({
-    queryKey: ['restriction-reviews'],
-    queryFn: () => request('GET', api.riders.GET('/riders/restriction-reviews', { params: { query: { state: 'OPEN' } } })),
-  });
+  const [params, setParams] = useSearchParams();
+  const raw = params.get('state');
+  const state: ReviewState = REVIEW_STATES.find((s) => s === raw) ?? 'OPEN';
   const v = ops.reviews;
   return (
     <section className="space-y-4">
       <PageHeader title={v.title} description={v.intro} />
-      <QueryState state={toUiState(reviews, (x) => (x.items ?? []).length === 0)} onRetry={() => void reviews.refetch()} emptyText={v.empty}>
-        {(x) => {
-          const items = x.items ?? [];
-          return (
-            <div className="space-y-3">
-              <ResultBar count={items.length} />
-              <DataTable>
-                <thead>
-                  <tr>
-                    <th>{v.col.rider}</th>
-                    <th>{v.col.kind}</th>
-                    <th>{v.col.count}</th>
-                    <th>{v.col.openedAt}</th>
-                    <th>{v.decide}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {items.map((it) => (
-                    <tr key={it.reviewId} data-testid="review-row">
-                      <td className="font-mono font-semibold">
-                        <Link className="hover:underline" to={`/riders/${encodeURIComponent(it.riderId ?? '')}`}>
-                          {it.riderId}
-                        </Link>
-                      </td>
-                      <td>
-                        <StatusBadge tone="warning">{label(n.complaintType, it.complaintType)}</StatusBadge>
-                      </td>
-                      <td className="tabular-nums">{rm.reviewsCount((it.complaints ?? []).length)}</td>
-                      <td className="whitespace-nowrap">{when(it.openedAt)}</td>
-                      <td>
-                        <ReviewDecision reviewId={it.reviewId ?? ''} onDone={() => void queryClient.invalidateQueries({ queryKey: ['restriction-reviews'] })} />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </DataTable>
-            </div>
-          );
-        }}
-      </QueryState>
+      <ChipGroup
+        label={v.title}
+        value={state}
+        options={REVIEW_STATES.map((s) => ({ value: s, label: rm.reviews.state[s] }))}
+        onChange={(s) => setParams(s === 'OPEN' ? {} : { state: s })}
+      />
+      <ReviewTable state={state} />
     </section>
   );
 }
 
-function ReviewDecision({ reviewId, onDone }: { readonly reviewId: string; readonly onDone: () => void }) {
+/** 검토 표 — 제한 검토 메뉴와 라이더 상세(riderId, 열린 것만)가 함께 쓴다. */
+function ReviewTable({ state, riderId }: { readonly state: ReviewState; readonly riderId?: string }) {
   const api = useApi();
+  const query = useQuery({
+    queryKey: ['restriction-reviews', state, riderId ?? ''],
+    queryFn: () => request('GET', api.riders.GET('/riders/restriction-reviews', { params: { query: { state, ...(riderId ? { riderId } : {}) } } })),
+  });
+  const v = ops.reviews;
+  return (
+    <QueryState state={toUiState(query, (x) => (x.items ?? []).length === 0)} onRetry={() => void query.refetch()} emptyText={riderId ? rm.detailReviews.empty : v.empty}>
+      {(x) => {
+        const items = x.items ?? [];
+        return (
+          <div className="space-y-3">
+            {!riderId && <ResultBar count={items.length} />}
+            <DataTable {...(riderId ? { testId: 'rider-reviews' } : {})}>
+              <thead>
+                <tr>
+                  {!riderId && <th>{v.col.rider}</th>}
+                  <th>{v.col.kind}</th>
+                  <th>{rm.reviews.complaints}</th>
+                  <th>{v.col.openedAt}</th>
+                  <th>{state === 'OPEN' ? v.decide : rm.reviews.closedCol}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {items.map((it, i) => (
+                  // 결정 뒤에도 같은 줄로 남게 reviewId 를 키로
+                  <tr key={it.reviewId ?? `review-${i}`} data-testid="review-row">
+                    {!riderId && (
+                      <td className="font-mono font-semibold">
+                        <Link className="hover:underline" to={`/riders/${encodeURIComponent(it.riderId ?? '')}`}>
+                          {it.riderId}
+                        </Link>
+                        <span className="ml-1 align-middle font-sans">
+                          <SimBadge riderId={it.riderId} />
+                        </span>
+                      </td>
+                    )}
+                    <td>
+                      <StatusBadge tone="warning">{label(n.complaintType, it.complaintType)}</StatusBadge>
+                    </td>
+                    <td className="text-xs">
+                      <span className="font-semibold tabular-nums">{rm.reviewsCount((it.complaints ?? []).length)}</span>
+                      <ul className="mt-1 space-y-0.5 text-base-content/60">
+                        {(it.complaints ?? []).map((c, k) => (
+                          <li key={c.complaintId ?? `c-${k}`}>
+                            {[c.complaintId, c.deliveryId, c.recordedAt ? when(c.recordedAt) : null].filter(Boolean).join(' · ')}
+                          </li>
+                        ))}
+                      </ul>
+                    </td>
+                    <td className="whitespace-nowrap">{when(it.openedAt)}</td>
+                    <td className="min-w-72">
+                      {it.state === 'OPEN' ? (
+                        <ReviewDecision review={it} />
+                      ) : (
+                        <span className="flex flex-col gap-1 text-sm">
+                          <StatusBadge tone={reviewTone(it.state)}>{label(rm.reviews.state, it.state)}</StatusBadge>
+                          <span className="text-xs text-base-content/60">{rm.reviews.closed(when(it.decidedAt), it.decidedBy ?? none, it.note)}</span>
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </DataTable>
+          </div>
+        );
+      }}
+    </QueryState>
+  );
+}
+
+function ReviewDecision({ review }: { readonly review: Review }) {
+  const api = useApi();
+  const queryClient = useQueryClient();
+  const reviewId = review.reviewId ?? '';
   const [note, setNote] = useState('');
   const v = ops.reviews;
   const decide = useCommand(async (body: { decision: 'RESTRICTED' | 'DISMISSED'; note?: string }, key) => {
     try {
-      return await request('POST', api.riders.POST('/riders/restriction-reviews/{reviewId}/decisions', { ...commandParams(key, { path: { reviewId } }), body }));
-    } finally {
-      onDone();
+      const closed = await request('POST', api.riders.POST('/riders/restriction-reviews/{reviewId}/decisions', { ...commandParams(key, { path: { reviewId } }), body }));
+      // 닫힌 검토를 그 줄에 그대로 둔다(다시 읽으면 열린 목록에서 사라져 결과를 못 본다). 다른 상태 목록은 다음에 열 때 새로 읽는다.
+      queryClient.setQueriesData<{ items?: Review[] }>({ queryKey: ['restriction-reviews'] }, (old) =>
+        old ? { ...old, items: (old.items ?? []).map((x) => (x.reviewId === closed.reviewId ? { ...x, ...closed } : x)) } : old,
+      );
+      void queryClient.invalidateQueries({ queryKey: ['restriction-reviews'], refetchType: 'none' });
+      return closed;
+    } catch (e) {
+      void queryClient.invalidateQueries({ queryKey: ['restriction-reviews'] });
+      throw e;
     }
   });
+  const locked = decide.busy || decide.phase.kind === 'done';
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      <label className="flex items-center gap-2 text-sm">
-        <span className="text-base-content/60">{v.note}</span>
-        <input className="input input-sm w-56" maxLength={300} value={note} onChange={(e) => setNote(e.target.value)} />
-      </label>
-      {(['RESTRICTED', 'DISMISSED'] as const).map((d) => (
-        <button
-          key={d}
-          type="button"
-          className={`btn btn-sm ${d === 'RESTRICTED' ? 'btn-warning' : 'border-base-300 bg-base-100'}`}
-          disabled={decide.busy}
-          onClick={() => void decide.run({ decision: d, ...(note.trim() ? { note: note.trim() } : {}) })}
-        >
-          {d === 'RESTRICTED' ? v.restricted : v.dismissed}
-        </button>
-      ))}
-      <CommandFeedback command={decide}>{() => <span className="text-success">{v.done}</span>}</CommandFeedback>
+    <div className="space-y-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <label className="flex items-center gap-2 text-sm">
+          <span className="text-base-content/60">{v.note}</span>
+          <input className="input input-sm w-48" maxLength={300} value={note} disabled={locked} onChange={(e) => setNote(e.target.value)} />
+        </label>
+        {(['RESTRICTED', 'DISMISSED'] as const).map((d) => (
+          <button
+            key={d}
+            type="button"
+            className={`btn btn-sm ${d === 'RESTRICTED' ? 'btn-warning' : 'border-base-300 bg-base-100'}`}
+            disabled={locked}
+            onClick={() => void decide.run({ decision: d, ...(note.trim() ? { note: note.trim() } : {}) })}
+          >
+            {d === 'RESTRICTED' ? v.restricted : v.dismissed}
+          </button>
+        ))}
+        {review.riderId && (
+          <Link className="btn btn-ghost btn-xs" to={`/riders/${encodeURIComponent(review.riderId)}#sec-restriction`}>
+            {rm.reviews.goRestrict}
+          </Link>
+        )}
+      </div>
+      {/* 성공하면 이 줄이 닫힌 기록으로 바뀐다(setQueriesData) — 여기는 실패·결과 모름만 보인다 */}
+      <CommandFeedback command={decide}>
+        {(x) => (
+          <p role="status" className="text-sm text-success">
+            {rm.reviews.resultNow(label(rm.reviews.state, x.state))}
+          </p>
+        )}
+      </CommandFeedback>
     </div>
   );
 }
+
+/** 이 라이더 컴플레인 기록 — case `GET /rider-complaints?riderId=`(최근 기록 순, cursor). 상세 글(note)은 목록에 오지 않는다. */
+function ComplaintHistory({ riderId }: { readonly riderId: string }) {
+  const api = useApi();
+  const c = rm.complaints;
+  const query = useInfiniteQuery({
+    queryKey: ['rider-complaints', riderId],
+    queryFn: ({ pageParam }) =>
+      request('GET', api.cases.GET('/rider-complaints', { params: { query: { riderId, size: PAGE_SIZE, ...(pageParam ? { cursor: pageParam } : {}) } } })),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (last) => last.page?.nextCursor ?? undefined,
+  });
+  const items = query.data?.pages.flatMap((p) => p.items ?? []) ?? [];
+  if (query.isPending) return <QueryState state={{ kind: 'loading' }}>{() => null}</QueryState>;
+  if (query.isError && items.length === 0) {
+    return (
+      <QueryState state={toUiState(query)} onRetry={() => void query.refetch()}>
+        {() => null}
+      </QueryState>
+    );
+  }
+  if (items.length === 0) return <p className="text-sm text-base-content/60">{c.empty}</p>;
+  return (
+    <div className="space-y-3">
+      <ResultBar count={items.length} more={query.hasNextPage} />
+      <DataTable testId="rider-complaints">
+        <thead>
+          <tr>
+            <th>{c.col.id}</th>
+            <th>{c.col.type}</th>
+            <th>{c.col.delivery}</th>
+            <th>{c.col.order}</th>
+            <th>{c.col.recordedAt}</th>
+            <th>{c.col.recordedBy}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {items.map((it) => (
+            <tr key={it.complaintId} data-testid="complaint-row">
+              <td className="font-mono text-xs">{it.complaintId}</td>
+              <td>
+                <StatusBadge tone="warning">{label(n.complaintType, it.complaintType)}</StatusBadge>
+              </td>
+              <td className="font-mono text-xs">
+                <Link className="hover:underline" to={`/deliveries/${encodeURIComponent(it.deliveryId)}`}>
+                  {it.deliveryId}
+                </Link>
+              </td>
+              <td className="font-mono text-xs">{it.orderId ?? none}</td>
+              <td className="whitespace-nowrap">{when(it.recordedAt)}</td>
+              <td className="font-mono text-xs">{it.recordedBy}</td>
+            </tr>
+          ))}
+        </tbody>
+      </DataTable>
+      {query.isError && (
+        <Notice tone="warning">{c.moreFailed}</Notice>
+      )}
+      {query.hasNextPage && (
+        <div className="flex justify-center">
+          <button type="button" className="btn btn-sm border-base-300 bg-base-100" disabled={query.isFetchingNextPage} onClick={() => void query.fetchNextPage()}>
+            {c.more}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+

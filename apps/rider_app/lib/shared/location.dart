@@ -130,25 +130,28 @@ final class DeviceLocationSource implements LocationSource {
 /// 위치 권한 단계.
 enum LocationAccess { denied, whileInUse, always }
 
-/// "항상 허용" 위치 권한과 알림 권한(Android 13+). 앱을 내려도 위치를 보내는 데 쓴다.
-abstract interface class BackgroundLocationPermission {
+/// 위치 권한과 알림 권한(Android 13+) 묻기.
+///
+/// 허용 범위는 라이더가 Android 설정 창에서 직접 고른다 — "앱 사용 중에만 허용"이든 "항상 허용"이든 둘 다 된다
+/// (사용자 결정 2026-11-18). 운행·배달 중에는 위치 포그라운드 서비스(상시 알림)를 앱이 화면에 있을 때 켜므로,
+/// "앱 사용 중에만 허용"이어도 다른 앱으로 넘어가도 위치를 계속 보낸다. 앱이 "항상 허용"을 요구하지 않는다.
+/// Manifest 의 `ACCESS_BACKGROUND_LOCATION` 은 설정 창에 "항상 허용" 고르기가 보이도록 남겨 둔다.
+abstract interface class RiderLocationPermission {
   Future<LocationAccess> check();
 
-  /// 알림 권한을 묻고, 위치를 "항상 허용"으로 올려 달라고 한다.
-  /// 시스템 창으로 안 되면 앱 설정 화면을 연다. 끝난 뒤의 권한을 돌려준다.
+  /// 알림 권한을 묻고, 위치 권한 시스템 창을 띄운다.
+  /// 시스템 창이 더는 뜨지 않으면(두 번 거절 등) 앱 설정 화면을 연다. 끝난 뒤의 권한을 돌려준다.
   Future<LocationAccess> request();
 }
 
-final backgroundLocationPermissionProvider =
-    Provider<BackgroundLocationPermission?>(
-      (_) => Platform.environment.containsKey('FLUTTER_TEST')
-          ? null
-          : const DeviceBackgroundLocationPermission(),
-    );
+final locationPermissionProvider = Provider<RiderLocationPermission?>(
+  (_) => Platform.environment.containsKey('FLUTTER_TEST')
+      ? null
+      : const DeviceRiderLocationPermission(),
+);
 
-final class DeviceBackgroundLocationPermission
-    implements BackgroundLocationPermission {
-  const DeviceBackgroundLocationPermission();
+final class DeviceRiderLocationPermission implements RiderLocationPermission {
+  const DeviceRiderLocationPermission();
 
   static const _notifications = MethodChannel('pmart.rider/notifications');
 
@@ -163,13 +166,17 @@ final class DeviceBackgroundLocationPermission
     } on PlatformException {
       // 알림을 못 띄워도 위치 전송은 된다(알림만 안 보인다).
     }
-    var access = await check();
-    if (access == LocationAccess.always) return access;
-    access = _map(await Geolocator.requestPermission());
-    if (access != LocationAccess.always) {
+    final now = await Geolocator.checkPermission();
+    if (now == LocationPermission.deniedForever) {
+      await Geolocator.openAppSettings();
+      return check();
+    }
+    if (_map(now) != LocationAccess.denied) return _map(now);
+    final asked = await Geolocator.requestPermission();
+    if (asked == LocationPermission.deniedForever) {
       await Geolocator.openAppSettings();
     }
-    return access;
+    return _map(asked);
   }
 
   static LocationAccess _map(LocationPermission p) => switch (p) {
@@ -177,4 +184,48 @@ final class DeviceBackgroundLocationPermission
     LocationPermission.whileInUse => LocationAccess.whileInUse,
     _ => LocationAccess.denied,
   };
+}
+
+/// 배터리 최적화 예외(사용자 결정 2026-11-18). 제조사 절전이 운행·배달 중 앱을 종료하면
+/// 상시 알림도 사라져 위치 전송이 끊긴다 — 예외로 두면 그런 일이 줄어든다. 고를지는 라이더가 정한다.
+abstract interface class BatteryOptimization {
+  /// 이미 예외인지. 확인하지 못하면 true(묻지 않는다).
+  Future<bool> isExempt();
+
+  /// 시스템 창("배터리 최적화를 중지할까요?")을 연다.
+  Future<void> request();
+}
+
+final batteryOptimizationProvider = Provider<BatteryOptimization?>(
+  (_) => Platform.environment.containsKey('FLUTTER_TEST')
+      ? null
+      : const DeviceBatteryOptimization(),
+);
+
+final class DeviceBatteryOptimization implements BatteryOptimization {
+  const DeviceBatteryOptimization();
+
+  static const _channel = MethodChannel('pmart.rider/battery');
+
+  @override
+  Future<bool> isExempt() async {
+    try {
+      return await _channel.invokeMethod<bool>('isExempt') ?? true;
+    } on PlatformException {
+      return true;
+    } on MissingPluginException {
+      return true;
+    }
+  }
+
+  @override
+  Future<void> request() async {
+    try {
+      await _channel.invokeMethod<bool>('request');
+    } on PlatformException {
+      // 창을 못 띄워도 위치 전송은 된다(종료될 가능성만 남는다).
+    } on MissingPluginException {
+      // 위와 같다.
+    }
+  }
 }

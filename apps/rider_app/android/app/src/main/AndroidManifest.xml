@@ -10,6 +10,8 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION"/>
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <uses-permission android:name="android.permission.WAKE_LOCK"/>
+    <!-- 배터리 최적화 예외 요청 — 운행·배달 중 제조사 절전이 앱을 종료해 위치가 끊기는 일을 줄인다(사용자 결정 2026-11-18) -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"/>
     <application
         android:label="PMart 라이더"
         android:name="${applicationName}"

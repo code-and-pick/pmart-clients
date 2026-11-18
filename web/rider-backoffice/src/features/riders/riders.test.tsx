@@ -17,6 +17,78 @@ describe('라이더 찾기 — 거르기', () => {
     expect(screen.getByTestId('rider-row')).toHaveTextContent('RD-8');
     expect(view.sent.some((r) => new URL(r.url).searchParams.get('restriction') === 'SUSPENDED')).toBe(true);
   });
+
+  it('수단으로 거르고, 정렬을 바꾸면 sort 를 보낸다(기본 가입 최근 순)', async () => {
+    const view = renderAt('/riders', as.riderOps);
+    expect(await screen.findAllByTestId('rider-row')).toHaveLength(2);
+    const sorts = () => view.sent.filter((r) => new URL(r.url).pathname.endsWith('/riders')).map((r) => new URL(r.url).searchParams.get('sort'));
+    expect(sorts()[0]).toBe('JOINED_DESC');
+
+    await userEvent.click(within(screen.getByRole('radiogroup', { name: '수단' })).getByRole('radio', { name: '자전거' }));
+    expect(await screen.findAllByTestId('rider-row')).toHaveLength(1);
+    expect(screen.getByTestId('rider-row')).toHaveTextContent('RD-8');
+    expect(view.sent.some((r) => new URL(r.url).searchParams.get('vehicleType') === 'BICYCLE')).toBe(true);
+
+    await userEvent.click(within(screen.getByRole('radiogroup', { name: '정렬' })).getByRole('radio', { name: '상태 바뀐 최근 순' }));
+    await screen.findAllByTestId('rider-row');
+    expect(sorts()).toContain('STATE_CHANGED_DESC');
+  });
+});
+
+describe('제한 검토 — 상태 탭·결정', () => {
+  it('결정하면 목록을 다시 읽지 않고 그 줄에 결과가 남는다', async () => {
+    const view = renderAt('/restriction-reviews', as.riderOps);
+    const row = await screen.findByTestId('review-row');
+    expect(row).toHaveTextContent('RD-8');
+    expect(row).toHaveTextContent('RC-4');
+    const gets = () => view.sent.filter((r) => r.method === 'GET' && new URL(r.url).pathname.endsWith('/restriction-reviews')).length;
+    const before = gets();
+    await userEvent.click(within(row).getByRole('button', { name: '제한 안 함' }));
+    // 같은 줄이 닫힌 기록(상태·언제·누가)으로 바뀐다 — 결정 버튼은 사라진다
+    await within(screen.getByTestId('review-row')).findByText('제한 안 함');
+    const closed = screen.getByTestId('review-row');
+    expect(closed).toHaveTextContent('RD-8');
+    expect(closed).toHaveTextContent('OP-rops-1');
+    expect(within(closed).queryByRole('button', { name: '제한함' })).not.toBeInTheDocument();
+    expect(gets()).toBe(before);
+  });
+
+  it('닫힌 검토 탭에서 결정 기록(언제·누가·메모)을 본다', async () => {
+    const view = renderAt('/restriction-reviews', as.riderOps);
+    await screen.findByTestId('review-row');
+    await userEvent.click(within(screen.getByRole('radiogroup', { name: '제한 검토' })).getByRole('radio', { name: '제한 안 함' }));
+    const row = await screen.findByText('RD-7');
+    const tr = row.closest('tr')!;
+    expect(tr).toHaveTextContent('OP-rops-1');
+    expect(tr).toHaveTextContent('고객 오해 — 통화 확인');
+    expect(within(tr).queryByRole('button', { name: '제한함' })).not.toBeInTheDocument();
+    expect(view.sent.some((r) => new URL(r.url).searchParams.get('state') === 'DISMISSED')).toBe(true);
+  });
+});
+
+describe('라이더 상세 — 열린 제한 검토·컴플레인', () => {
+  it('그 라이더의 열린 검토와 컴플레인 기록을 보인다', async () => {
+    const view = renderAt('/riders/RD-8', as.riderOps);
+    const reviews = await screen.findByTestId('rider-reviews');
+    expect(within(reviews).getByText('파손')).toBeInTheDocument();
+    const complaints = await screen.findAllByTestId('complaint-row');
+    expect(complaints).toHaveLength(3);
+    expect(complaints[0]).toHaveTextContent('RC-6');
+    expect(within(complaints[0]!).getByRole('link', { name: 'DLV-6' })).toHaveAttribute('href', '/deliveries/DLV-6');
+    const rv = view.sent.find((r) => new URL(r.url).pathname.endsWith('/restriction-reviews'))!;
+    expect([new URL(rv.url).searchParams.get('riderId'), new URL(rv.url).searchParams.get('state')]).toEqual(['RD-8', 'OPEN']);
+    const rc = view.sent.find((r) => new URL(r.url).pathname.endsWith('/rider-complaints'))!;
+    expect(new URL(rc.url).searchParams.get('riderId')).toBe('RD-8');
+  });
+
+  it('없으면 없다고, 컴플레인을 못 읽으면 빈 기록이 아니라 오류로 보인다', async () => {
+    server.use(http.get(`${API_BASE}/rider-complaints`, () => HttpResponse.json({ code: 'INTERNAL_ERROR', status: 500, title: 'x', traceId: 't' }, { status: 500 })));
+    renderAt('/riders/RD-7', as.riderOps);
+    expect(await screen.findByText('열린 검토가 없어요.')).toBeInTheDocument();
+    const section = screen.getByRole('heading', { name: '컴플레인' }).closest('section')!;
+    expect(await within(section).findByRole('button', { name: /다시/ })).toBeInTheDocument();
+    expect(within(section).queryByText('컴플레인 기록이 없어요.')).not.toBeInTheDocument();
+  });
 });
 
 describe('라이더 상세 — 정산계좌·동의', () => {

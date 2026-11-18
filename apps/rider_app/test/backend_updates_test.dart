@@ -201,29 +201,70 @@ void main() {
     expect(find.text('계정 제한이 해제되었습니다'), findsOneWidget);
   });
 
-  testWidgets('운행 중인데 위치가 항상 허용이 아니면 한 번 안내하고 권한을 묻는다', (t) async {
+  Future<void> pumpOnDuty(
+    WidgetTester t,
+    _FakePermission permission, {
+    _FakeBattery? battery,
+  }) async {
     final offers = MockOfferRepository(latency: Duration.zero);
-    final permission = _FakePermission();
     await t.pumpWidget(
       _app([
         offerRepositoryProvider.overrideWithValue(offers),
         dutyRepositoryProvider.overrideWithValue(offers),
-        backgroundLocationPermissionProvider.overrideWithValue(permission),
+        locationPermissionProvider.overrideWithValue(permission),
+        if (battery != null)
+          batteryOptimizationProvider.overrideWithValue(battery),
         deliveryRepositoryProvider.overrideWithValue(
           MockDeliveryRepository(latency: Duration.zero, seeded: false),
         ),
       ]),
     );
     await _settle(t);
-    expect(
-      find.byKey(const ValueKey('background-location-ask')),
-      findsOneWidget,
-    );
+  }
 
-    await t.tap(find.byKey(const ValueKey('background-location-allow')));
+  testWidgets('운행 중인데 위치 권한이 없으면 한 번 안내하고 권한을 묻는다', (t) async {
+    final permission = _FakePermission(LocationAccess.denied);
+    await pumpOnDuty(t, permission);
+    expect(find.byKey(const ValueKey('location-ask')), findsOneWidget);
+    expect(find.textContaining("'앱 사용 중에만 허용'이나 '항상 허용'"), findsOneWidget);
+
+    await t.tap(find.byKey(const ValueKey('location-allow')));
     await _settle(t);
     expect(permission.requests, 1);
-    expect(find.byKey(const ValueKey('background-location-ask')), findsNothing);
+    expect(find.byKey(const ValueKey('location-ask')), findsNothing);
+  });
+
+  testWidgets('"앱 사용 중에만 허용"이면 항상 허용을 다시 요구하지 않는다', (t) async {
+    final permission = _FakePermission(LocationAccess.whileInUse);
+    await pumpOnDuty(t, permission);
+    expect(find.byKey(const ValueKey('location-ask')), findsNothing);
+    expect(permission.requests, 0);
+  });
+
+  testWidgets('배터리 최적화 예외가 아니면 위치 안내 뒤 한 번 묻는다', (t) async {
+    final permission = _FakePermission(LocationAccess.denied);
+    final battery = _FakeBattery(exempt: false);
+    await pumpOnDuty(t, permission, battery: battery);
+    await t.tap(find.byKey(const ValueKey('location-allow')));
+    await _settle(t);
+
+    expect(find.byKey(const ValueKey('battery-ask')), findsOneWidget);
+    await t.tap(find.byKey(const ValueKey('battery-allow')));
+    await _settle(t);
+    await t.pump(const Duration(milliseconds: 300)); // 창 닫힘 애니메이션
+    expect(battery.requests, 1);
+    expect(find.byKey(const ValueKey('battery-ask')), findsNothing);
+  });
+
+  testWidgets('이미 배터리 최적화 예외면 묻지 않는다', (t) async {
+    final battery = _FakeBattery(exempt: true);
+    await pumpOnDuty(
+      t,
+      _FakePermission(LocationAccess.whileInUse),
+      battery: battery,
+    );
+    expect(find.byKey(const ValueKey('battery-ask')), findsNothing);
+    expect(battery.requests, 0);
   });
 
   test('운전면허는 오토바이·자동차·킥보드만 필수다', () {
@@ -281,16 +322,35 @@ Future<void> _settle(WidgetTester t) async {
   }
 }
 
-final class _FakePermission implements BackgroundLocationPermission {
+final class _FakePermission implements RiderLocationPermission {
+  _FakePermission(this.access);
+
+  LocationAccess access;
   int requests = 0;
 
   @override
-  Future<LocationAccess> check() async => LocationAccess.whileInUse;
+  Future<LocationAccess> check() async => access;
 
   @override
   Future<LocationAccess> request() async {
     requests++;
-    return LocationAccess.always;
+    return access = LocationAccess.whileInUse;
+  }
+}
+
+final class _FakeBattery implements BatteryOptimization {
+  _FakeBattery({required this.exempt});
+
+  bool exempt;
+  int requests = 0;
+
+  @override
+  Future<bool> isExempt() async => exempt;
+
+  @override
+  Future<void> request() async {
+    requests++;
+    exempt = true;
   }
 }
 
