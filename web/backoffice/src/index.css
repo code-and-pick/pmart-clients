@@ -53,3 +53,48 @@ main dl.grid {
 [data-list-part='top'] + [data-list-part] {
   border-top-width: 1px;
 }
+
+/* 불러오는 동안 뼈대(2026-11-18 사용자 "UI 보충 — 추천 다", Shopify·Medusa 처럼).
+   공유 QueryState(@pmart/web-ui)는 그대로 두고 이 앱에서만 모양을 바꾼다(PC 3·PC 5 앱에 번지지 않게) —
+   빙글이·"불러오는 중" 글자는 화면에서만 숨기고 읽기 도구에는 그대로(role=status). 표 머리 1줄 + 줄 5개. */
+main [data-state='loading'] {
+  position: relative;
+  min-height: 15rem;
+  overflow: hidden;
+  color: transparent;
+  --sk: color-mix(in oklab, var(--color-base-content) 8%, transparent);
+  background-color: var(--color-base-100);
+  background-image:
+    linear-gradient(var(--sk), var(--sk)), linear-gradient(var(--sk), var(--sk)), linear-gradient(var(--sk), var(--sk)),
+    linear-gradient(var(--sk), var(--sk)), linear-gradient(var(--sk), var(--sk)), linear-gradient(var(--sk), var(--sk));
+  background-repeat: no-repeat;
+  background-size:
+    calc(100% - 2.5rem) 0.75rem, calc(70% - 2.5rem) 0.9rem, calc(90% - 2.5rem) 0.9rem,
+    calc(60% - 2.5rem) 0.9rem, calc(80% - 2.5rem) 0.9rem, calc(50% - 2.5rem) 0.9rem;
+  background-position: 1.25rem 1.5rem, 1.25rem 4rem, 1.25rem 6.25rem, 1.25rem 8.5rem, 1.25rem 10.75rem, 1.25rem 13rem;
+}
+main [data-state='loading'] > * {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+main [data-state='loading']::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, color-mix(in oklab, var(--color-base-100) 70%, transparent), transparent);
+  transform: translateX(-100%);
+  animation: pmart-shimmer 1.4s ease-in-out infinite;
+}
+@keyframes pmart-shimmer {
+  to {
+    transform: translateX(100%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  main [data-state='loading']::after {
+    animation: none;
+  }
+}
