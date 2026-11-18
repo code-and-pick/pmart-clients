@@ -10,12 +10,16 @@ class RiderButton extends StatelessWidget {
     required this.onPressed,
     this.icon,
     this.height = 56,
+    this.color = RiderColors.primary,
   });
 
   final String label;
   final VoidCallback? onPressed;
   final IconData? icon;
   final double height;
+
+  /// 바탕색 — 기본은 주 색. 같은 모양의 보조 버튼(예: 배달리스트 "취소")은 회색.
+  final Color color;
 
   @override
   Widget build(BuildContext context) => SizedBox(
@@ -24,7 +28,7 @@ class RiderButton extends StatelessWidget {
     child: FilledButton(
       onPressed: onPressed,
       style: FilledButton.styleFrom(
-        backgroundColor: RiderColors.primary,
+        backgroundColor: color,
         disabledBackgroundColor: RiderColors.disabled,
         disabledForegroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),

@@ -495,12 +495,14 @@ class _WaitingState extends ConsumerState<_Waiting> {
                   const SizedBox(height: 10),
                   Row(
                     children: [
-                      // 취소 = 이 목록에서 숨기기(서버에 보내지 않음 — 거절 API 없음)
-                      SizedBox(
-                        width: 96,
-                        height: 46,
-                        child: OutlinedButton(
+                      // 취소 = 이 목록에서 숨기기(서버에 보내지 않음 — 거절 API 없음).
+                      // 배차 수락과 같은 사각형·높이·글씨, 바탕만 회색(사용자 2026-11-18 "같은 사각형으로").
+                      Expanded(
+                        child: RiderButton(
                           key: ValueKey('waiting-hide-${w.deliveryId}'),
+                          height: 46,
+                          color: RiderColors.sub,
+                          label: l10n.waitingHide,
                           onPressed: _busy.contains(w.deliveryId)
                               ? null
                               : () {
@@ -509,13 +511,6 @@ class _WaitingState extends ConsumerState<_Waiting> {
                                       .hide(w.deliveryId);
                                   showRiderToast(context, l10n.waitingHidden);
                                 },
-                          child: Text(
-                            l10n.waitingHide,
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
                         ),
                       ),
                       const SizedBox(width: 8),
