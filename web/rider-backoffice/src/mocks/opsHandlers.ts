@@ -30,8 +30,28 @@ function seedRiders(): MockRider[] {
   ];
 }
 
+type MockReview = { reviewId: string; riderId: string; complaintType: string; state: string; complaints: Array<{ complaintId: string; deliveryId: string; recordedAt: string }>; openedAt: string; decidedAt?: string; decidedBy?: string; note?: string };
+
+function seedReviews(): MockReview[] {
+  const c = (n: number) => ({ complaintId: `RC-${n}`, deliveryId: `DLV-${n}`, recordedAt: `2026-11-1${n}T02:00:00.000Z` });
+  return [
+    { reviewId: 'RV-1', riderId: 'RD-8', complaintType: 'DAMAGE', state: 'OPEN', complaints: [c(4), c(5), c(6)], openedAt: '2026-11-17T00:00:00.000Z' },
+    { reviewId: 'RV-0', riderId: 'RD-7', complaintType: 'REPORT', state: 'DISMISSED', complaints: [c(1), c(2), c(3)], openedAt: '2026-11-14T00:00:00.000Z', decidedAt: '2026-11-14T05:00:00.000Z', decidedBy: 'OP-rops-1', note: '고객 오해 — 통화 확인' },
+  ];
+}
+
+function seedComplaints() {
+  return [
+    { complaintId: 'RC-6', complaintType: 'DAMAGE', riderId: 'RD-8', deliveryId: 'DLV-6', orderId: 'ORD-6', recordedAt: '2026-11-16T02:00:00.000Z', recordedBy: 'OP-cs-1', source: 'CS_AGENT' },
+    { complaintId: 'RC-5', complaintType: 'DAMAGE', riderId: 'RD-8', deliveryId: 'DLV-5', orderId: 'ORD-5', recordedAt: '2026-11-15T02:00:00.000Z', recordedBy: 'OP-cs-1', source: 'CS_AGENT' },
+    { complaintId: 'RC-4', complaintType: 'DAMAGE', riderId: 'RD-8', deliveryId: 'DLV-4', orderId: null, recordedAt: '2026-11-14T02:00:00.000Z', recordedBy: 'OP-cs-2', source: 'CS_AGENT' },
+  ];
+}
+
 export const ops = {
   riders: seedRiders(),
+  reviews: seedReviews(),
+  complaints: seedComplaints(),
   restrictionHistory: [] as Array<Record<string, unknown>>,
   helpMessages: [] as Array<{ messageId: string; seq: number; senderType: 'RIDER' | 'SUPPORT'; body: string | null; masked?: boolean; createdAt: string }>,
   help: { state: 'OPEN' as 'OPEN' | 'IN_PROGRESS' | 'RESOLVED', resolvedAt: null as string | null },
@@ -45,6 +65,8 @@ export const ops = {
 
 export function resetOps(): void {
   ops.riders = seedRiders();
+  ops.reviews = seedReviews();
+  ops.complaints = seedComplaints();
   ops.restrictionHistory = [];
   ops.helpMessages = [{ messageId: 'HM-1', seq: 1, senderType: 'RIDER', body: '공동현관 비밀번호가 틀려요', createdAt: '2026-11-17T01:00:00.000Z' }];
   ops.help = { state: 'OPEN', resolvedAt: null };
@@ -126,24 +148,43 @@ export const opsHandlers = [
   http.get(`${API_BASE}/riders/restriction-reviews`, ({ request }) => {
     const g = guard(request);
     if ('error' in g) return g.error;
-    return HttpResponse.json({
-      items: [{ reviewId: 'RV-1', riderId: 'RD-8', complaintType: 'DAMAGE', state: 'OPEN', complaints: [{}, {}, {}], openedAt: '2026-11-17T00:00:00.000Z' }],
-    });
+    const q = new URL(request.url).searchParams;
+    const state = q.get('state') ?? 'OPEN';
+    const items = ops.reviews.filter((v) => v.state === state && (!q.get('riderId') || v.riderId === q.get('riderId')));
+    return HttpResponse.json({ items });
   }),
   http.post(`${API_BASE}/riders/restriction-reviews/:reviewId/decisions`, async ({ request, params }) => {
     const g = guard(request, true);
     if ('error' in g) return g.error;
-    const body = (await request.json()) as { decision: string };
-    return idempotent(request, () => ({ status: 200, body: { reviewId: params.reviewId, state: body.decision } }));
+    const v = ops.reviews.find((x) => x.reviewId === params.reviewId);
+    if (!v) return problem(404, 'NOT_FOUND');
+    const body = (await request.json()) as { decision: string; note?: string };
+    return idempotent(request, () => {
+      if (v.state !== 'OPEN') return problem(409, 'INVALID_STATE');
+      Object.assign(v, { state: body.decision, decidedAt: timestamp(), decidedBy: g.who.subject, ...(body.note ? { note: body.note } : {}) });
+      return { status: 200, body: { ...v } };
+    });
+  }),
+  // case 0.x `GET /rider-complaints`(역할 CS_AGENT·OPERATOR_ADMIN·RIDER_OPS) — 최근 기록 순
+  http.get(`${API_BASE}/rider-complaints`, ({ request }) => {
+    const g = guard(request);
+    if ('error' in g) return g.error;
+    const q = new URL(request.url).searchParams;
+    const items = ops.complaints.filter((c) => !q.get('riderId') || c.riderId === q.get('riderId'));
+    return HttpResponse.json({ items, page: { nextCursor: null } });
   }),
   http.get(`${API_BASE}/riders`, ({ request }) => {
     const g = guard(request);
     if ('error' in g) return g.error;
     const q = new URL(request.url).searchParams;
+    // 정렬은 흉내만: 상태 바뀐 순은 버전 높은 순으로 본다
+    const order = q.get('sort') === 'STATE_CHANGED_DESC' ? (a: MockRider, b: MockRider) => b.version - a.version : (a: MockRider, b: MockRider) => b.joinedAt.localeCompare(a.joinedAt);
     const items = ops.riders
       .filter((r) => !q.get('riderId') || r.riderId === q.get('riderId'))
       .filter((r) => !q.get('restriction') || r.restriction === q.get('restriction'))
       .filter((r) => !q.get('operatingStatus') || r.operatingStatus === q.get('operatingStatus'))
+      .filter((r) => !q.get('vehicleType') || r.vehicleType === q.get('vehicleType'))
+      .sort(order)
       .map((r) => ({ ...r, signupStatus: 'APPROVED' }));
     return HttpResponse.json({ items, page: 0, size: items.length, hasNext: false });
   }),

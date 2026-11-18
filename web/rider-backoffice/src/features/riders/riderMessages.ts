@@ -26,7 +26,33 @@ export const riderMessages = {
     requestedBy: { RIDER: '라이더', STORE_STAFF: '매장', OPERATOR: '운영자', ORCHESTRATION: '주문 처리' } as Readonly<Record<string, string>>,
     cancelReason: { RIDER_UNABLE: '라이더 사정', STORE_REQUEST: '매장 요청', ORDER_CANCELLED: '주문 취소', NO_SHOW: '라이더 미도착', OPERATOR: '운영 판단' } as Readonly<Record<string, string>>,
   },
-  tabs: { info: '기본 정보', account: '정산계좌·동의', time: '운행시간', earnings: '수행료', assignments: '배정 이력', restriction: '계정 제한' },
+  tabs: { info: '기본 정보', account: '정산계좌·동의', time: '운행시간', earnings: '수행료', assignments: '배정 이력', restriction: '계정 제한', reviews: '제한 검토', complaints: '컴플레인' },
   restrictionAside: '바꾸면 이력이 남아요',
   reviewsCount: (n: number) => `${n}건`,
+  // 기본 백오피스에서 옮겨 온 것(2026-11-18, ADR-0068 — PC 2 요청): 수단 거르기·정렬, 제한 검토 상태 탭, 상세의 열린 검토·컴플레인
+  search: {
+    vehicle: '수단',
+    allVehicles: '모두',
+    sort: '정렬',
+    sortName: { JOINED_DESC: '가입 최근 순', STATE_CHANGED_DESC: '상태 바뀐 최근 순' } as const,
+  },
+  reviews: {
+    state: { OPEN: '검토 중', RESTRICTED: '제한함', DISMISSED: '제한 안 함' } as const,
+    closedCol: '처리',
+    closed: (at: string, by: string, note?: string) => [at, by, note].filter(Boolean).join(' · '),
+    resultNow: (state: string) => `닫았어요 — ${state}`,
+    goRestrict: '계정 제한 걸러 가기',
+    complaints: '쌓인 컴플레인',
+  },
+  detailReviews: {
+    intro: '이 라이더의 열린 검토예요. 제한하려면 아래 "계정 제한"에서 먼저 건 뒤 "제한함"으로 닫아요.',
+    empty: '열린 검토가 없어요.',
+  },
+  complaints: {
+    intro: '상담원이 기록한 이 라이더 컴플레인이에요(최근 기록 순, case-service).',
+    empty: '컴플레인 기록이 없어요.',
+    col: { id: '컴플레인', type: '종류', delivery: '배송', order: '주문', recordedAt: '기록한 때', recordedBy: '기록한 직원' },
+    more: '더 보기',
+    moreFailed: '다음 기록을 불러오지 못했어요 — 더 보기를 다시 눌러 주세요.',
+  },
 } as const;
