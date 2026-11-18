@@ -39,6 +39,8 @@
   },
   "containsAlcohol": "주류 포함",
   "accept": "배차 수락",
+  "waitingHide": "취소",
+  "waitingHidden": "이 배송을 목록에서 뺐어요",
   "reject": "거절",
   "ok": "확인",
   "retry": "다시 시도",

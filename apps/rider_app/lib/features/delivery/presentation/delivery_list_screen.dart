@@ -86,7 +86,14 @@ class _DeliveryListScreenState extends ConsumerState<DeliveryListScreen> {
             _Tabs(
               tab: _tab,
               active: ids.length,
-              waiting: waiting?.value?.items.length,
+              // 숨긴 배송은 세지 않는다
+              waiting: waiting?.value?.items
+                  .where(
+                    (w) => !ref
+                        .watch(hiddenWaitingProvider)
+                        .contains(w.deliveryId),
+                  )
+                  .length,
               onTab: (i) {
                 setState(() => _picked = i);
                 if (i == 1) ref.invalidate(waitingListProvider);
@@ -335,6 +342,19 @@ class _Tabs extends StatelessWidget {
 }
 
 /// 배차 대기 배송(일반 배차모드). 목록에서 고르는 것 ≠ 확정 — 수락 판정은 서버가 한다.
+/// 배달리스트(대기)에서 라이더가 "취소"로 숨긴 배송(사용자 요청 2026-11-18 — "배차수락 옆에 취소 버튼").
+/// 서버에 거절 API 가 없어 이 앱 실행 동안 이 화면에서만 숨긴다(서버 판정·배차는 그대로 — 다시 켜면 다시 보인다).
+final hiddenWaitingProvider = NotifierProvider<HiddenWaiting, Set<String>>(
+  HiddenWaiting.new,
+);
+
+class HiddenWaiting extends Notifier<Set<String>> {
+  @override
+  Set<String> build() => const {};
+
+  void hide(String deliveryId) => state = {...state, deliveryId};
+}
+
 class _Waiting extends ConsumerStatefulWidget {
   const _Waiting({required this.state, required this.onAssigned});
 
@@ -391,8 +411,14 @@ class _WaitingState extends ConsumerState<_Waiting> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+    final hidden = ref.watch(hiddenWaitingProvider);
+    final shown = switch (widget.state) {
+      AsyncData(:final value) =>
+        value.items.where((w) => !hidden.contains(w.deliveryId)).toList(),
+      _ => const <WaitingDelivery>[],
+    };
     return switch (widget.state) {
-      AsyncData(:final value) when value.items.isEmpty => Center(
+      AsyncData() when shown.isEmpty => Center(
         key: const ValueKey('waiting-empty'),
         child: Padding(
           padding: const EdgeInsets.all(24),
@@ -404,9 +430,9 @@ class _WaitingState extends ConsumerState<_Waiting> {
           ),
         ),
       ),
-      AsyncData(:final value) => ListView(
+      AsyncData() => ListView(
         children: [
-          for (final w in value.items)
+          for (final w in shown)
             Container(
               key: ValueKey('waiting-${w.deliveryId}'),
               color: Colors.white,
@@ -467,13 +493,43 @@ class _WaitingState extends ConsumerState<_Waiting> {
                     ),
                   ),
                   const SizedBox(height: 10),
-                  RiderButton(
-                    key: ValueKey('waiting-accept-${w.deliveryId}'),
-                    height: 46,
-                    label: l10n.accept,
-                    onPressed: _busy.contains(w.deliveryId)
-                        ? null
-                        : () => _accept(w),
+                  Row(
+                    children: [
+                      // 취소 = 이 목록에서 숨기기(서버에 보내지 않음 — 거절 API 없음)
+                      SizedBox(
+                        width: 96,
+                        height: 46,
+                        child: OutlinedButton(
+                          key: ValueKey('waiting-hide-${w.deliveryId}'),
+                          onPressed: _busy.contains(w.deliveryId)
+                              ? null
+                              : () {
+                                  ref
+                                      .read(hiddenWaitingProvider.notifier)
+                                      .hide(w.deliveryId);
+                                  showRiderToast(context, l10n.waitingHidden);
+                                },
+                          child: Text(
+                            l10n.waitingHide,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: RiderButton(
+                          key: ValueKey('waiting-accept-${w.deliveryId}'),
+                          height: 46,
+                          label: l10n.accept,
+                          onPressed: _busy.contains(w.deliveryId)
+                              ? null
+                              : () => _accept(w),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),

@@ -101,6 +101,37 @@ void main() {
     await t.pump(const Duration(seconds: 2));
   });
 
+  // 2026-11-18 사용자 "배차수락 옆에 취소 버튼" → 고름: 이 배송을 목록에서 숨기기(서버 거절 API 없음 — 앱 안에서만)
+  testWidgets('대기 배송의 "취소"는 목록에서만 빼고 서버에 수락을 보내지 않는다', (t) async {
+    await open(t, DispatchMode.normal);
+    final waitingTab = find.byKey(const ValueKey('list-tab-1'));
+    String? tabLabel() => t
+        .widget<Text>(
+          find.descendant(of: waitingTab, matching: find.byType(Text)),
+        )
+        .data;
+    final before = tabLabel();
+    expect(find.byKey(const ValueKey('waiting-hide-dlv-l1')), findsOneWidget);
+
+    await t.tap(find.byKey(const ValueKey('waiting-hide-dlv-l1')));
+    for (var i = 0; i < 6; i++) {
+      await t.pump(const Duration(milliseconds: 20));
+    }
+    expect(find.byKey(const ValueKey('waiting-dlv-l1')), findsNothing);
+    expect(find.byKey(const ValueKey('waiting-accept-dlv-l2')), findsOneWidget);
+    expect(tabLabel(), isNot(before), reason: '대기 수에서도 빠진다');
+    expect(find.text('이 배송을 목록에서 뺐어요'), findsOneWidget);
+
+    // 다시 읽어도(서버 목록에 그대로 있어도) 이 실행 동안은 숨긴 채로
+    final waitingRefetch = find.byKey(const ValueKey('list-tab-1'));
+    await t.tap(waitingRefetch);
+    for (var i = 0; i < 6; i++) {
+      await t.pump(const Duration(milliseconds: 20));
+    }
+    expect(find.byKey(const ValueKey('waiting-dlv-l1')), findsNothing);
+    await t.pump(const Duration(seconds: 3));
+  });
+
   testWidgets('AI 추천 배차모드: 대기 탭 없이 진행 목록', (t) async {
     await open(t, DispatchMode.aiRecommended);
     expect(find.byKey(const ValueKey('list-tab-1')), findsNothing);
