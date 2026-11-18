@@ -143,9 +143,11 @@ function Leg({ leg }: { readonly leg: EtaLeg | undefined }) {
   );
 }
 
-export function EtaPanel({ deliveryId }: { readonly deliveryId: string }) {
+/** `refreshMs` 를 주면 그 간격으로 다시 불러온다(관제 상세 칸 — 실시간). 배송 상세는 한 번. */
+export function EtaPanel({ deliveryId, refreshMs }: { readonly deliveryId: string; readonly refreshMs?: number }) {
   const api = useApi();
   const eta = useQuery({
+    ...(refreshMs ? { refetchInterval: refreshMs } : {}),
     queryKey: ['delivery', deliveryId, 'eta'],
     queryFn: () => request('GET', api.tracking.GET('/deliveries/{deliveryId}/eta', { params: { path: { deliveryId } } })),
   });

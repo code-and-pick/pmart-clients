@@ -115,7 +115,9 @@ const RIDER_ASSIGNMENTS = [
 ];
 
 export const opsHandlers = [
-  http.get(`${API_BASE}/centers`, () => HttpResponse.json({ items: [{ centerId: 'MFC-BSJ-01', name: 'PMart 부산진구지점', type: 'MFC' }] })),
+  http.get(`${API_BASE}/centers`, () =>
+    HttpResponse.json({ items: [{ centerId: 'MFC-BSJ-01', name: 'PMart 부산진구지점', type: 'MFC', address: '부산 부산진구 중앙대로 000(목 주소)', coordinates: { lat: 35.1585, lng: 129.062 } }] }),
+  ),
 
   http.get(`${API_BASE}/riders/stats`, ({ request }) => {
     const g = guard(request);

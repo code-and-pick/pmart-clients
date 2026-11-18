@@ -7,7 +7,7 @@ const m = {
     noKey: '카카오 지도 키가 없어 표로만 보여요. 키는 PC 1 설정(VITE_KAKAO_JS_KEY)이고, 카카오 개발자 콘솔에 이 주소를 웹 도메인으로 등록해야 해요.',
     failed: '카카오 지도를 불러오지 못해 표로만 보여요.',
     label: '라이더 위치 지도',
-    center: '센터',
+    center: '픽업 센터',
   },
 } as const;
 
@@ -62,10 +62,13 @@ export function KakaoRiderMap({
   center,
   riders,
   onSelect,
+  selectedId = '',
 }: {
   readonly center: { readonly lat: number; readonly lng: number } | null;
   readonly riders: readonly MapRider[];
   readonly onSelect: (riderId: string) => void;
+  /** 고른 라이더 — 크게 표시하고 그 위치로 지도를 옮긴다(고를 때 한 번) */
+  readonly selectedId?: string;
 }) {
   const el = useRef<HTMLDivElement>(null);
   const [state, setState] = useState<'loading' | 'ready' | 'failed'>(KEY ? 'loading' : 'failed');
@@ -105,7 +108,8 @@ export function KakaoRiderMap({
     const overlays = riders.map((r) => {
       const dot = document.createElement('button');
       dot.type = 'button';
-      dot.className = `badge ${toneClass[r.tone]} badge-sm cursor-pointer shadow`;
+      dot.className = `badge ${toneClass[r.tone]} cursor-pointer shadow ${r.riderId === selectedId ? 'badge-md ring-2 ring-primary ring-offset-1 font-bold' : 'badge-sm'}`;
+      dot.setAttribute('aria-pressed', String(r.riderId === selectedId));
       dot.textContent = r.label;
       dot.onclick = () => onSelect(r.riderId);
       const o = new kakao.maps.CustomOverlay({ position: new kakao.maps.LatLng(r.lat, r.lng), content: dot, yAnchor: 1 });
@@ -125,7 +129,18 @@ export function KakaoRiderMap({
       for (const o of overlays) o.setMap(null);
       centerMark?.setMap(null);
     };
-  }, [kakao, riders, center, onSelect]);
+  }, [kakao, riders, center, onSelect, selectedId]);
+
+  // 라이더를 고르면 그 위치로 한 번 옮긴다(10초마다 새 목록이 와도 다시 옮기지 않는다 — 운영자가 끌어 둔 곳을 지킨다).
+  const focused = useRef('');
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!kakao || !map || !selectedId || focused.current === selectedId) return;
+    const r = riders.find((x) => x.riderId === selectedId);
+    if (!r) return;
+    focused.current = selectedId;
+    map.setCenter(new kakao.maps.LatLng(r.lat, r.lng));
+  }, [kakao, riders, selectedId]);
 
   if (state === 'failed') {
     return (

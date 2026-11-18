@@ -3,7 +3,7 @@
 // 거르기(전체·배송 중·위치 끊김)는 주소 쿼리 filter.
 // 2026-11-18: 관리자 화면 모양 — 머리말, 조건 상자(센터 + 보기 칩), 요약 카드(누르면 그 거르기), 지도 구역, 표(위치 상태 꼬리표).
 import { useQuery } from '@tanstack/react-query';
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router';
 
 import { request } from '@pmart/web-core';
@@ -15,11 +15,13 @@ import { isSimRider, SimBadge } from '../../shared/sim';
 import { messages } from '../../shared/messages';
 import { ops } from '../../shared/opsMessages';
 import { CenterPicker, label, none, when } from '../../shared/opsUi';
+import { ActiveDeliverySummary, ControlRiderPanel } from './ControlRiderPanel';
+import { CONTROL_REFRESH_MS } from './refresh';
 import { KakaoRiderMap, type MapRider } from './KakaoRiderMap';
 
 const c = ops.control;
 const n = messages.names;
-export const CONTROL_REFRESH_MS = 10_000;
+export { CONTROL_REFRESH_MS };
 
 /** 이 화면에서만 쓰는 문구 */
 const cx = {
@@ -72,11 +74,35 @@ export function ControlPage() {
     queryKey: ['centers', 'MFC'],
     queryFn: () => request('GET', api.center.GET('/centers', { params: { query: { type: 'MFC' } } })),
   });
-  const coords = (centers.data?.items ?? []).find((x) => x.centerId === mfcId)?.coordinates;
+  // 센터를 아직 안 골랐으면 첫 센터로 연다(빈 화면에서 드롭다운을 찾아야 하지 않게 — 2026-11-18 사용자). 고른 뒤 바꾸는 건 그대로.
+  const firstCenter = centers.data?.items?.[0]?.centerId;
+  useEffect(() => {
+    if (!mfcId && firstCenter) {
+      setParams(
+        (prev) => {
+          const p = new URLSearchParams(prev);
+          p.set('mfcId', firstCenter);
+          return p;
+        },
+        { replace: true },
+      );
+    }
+  }, [mfcId, firstCenter, setParams]);
+  const center = (centers.data?.items ?? []).find((x) => x.centerId === mfcId);
+  const coords = center?.coordinates;
   const centerPoint = coords?.lat != null && coords.lng != null ? { lat: coords.lat, lng: coords.lng } : null;
-  const onSelect = useCallback((riderId: string) => {
-    document.getElementById(`control-${riderId}`)?.scrollIntoView({ block: 'center' });
-  }, []);
+  // 고른 라이더(오른쪽 상세 칸) — URL ?rider= 로 둬서 새로 고침·공유해도 그대로
+  const selectedId = params.get('rider') ?? '';
+  const select = useCallback(
+    (riderId: string) =>
+      setParams((prev) => {
+        const p = new URLSearchParams(prev);
+        if (riderId) p.set('rider', riderId);
+        else p.delete('rider');
+        return p;
+      }),
+    [setParams],
+  );
   return (
     <section className="space-y-4">
       <PageHeader title={c.title} description={c.intro} />
@@ -125,7 +151,11 @@ export function ControlPage() {
                     </span>
                   }
                 >
-                  <KakaoRiderMap center={centerPoint} riders={mapRiders} onSelect={onSelect} />
+                  {/* 지도 + 오른쪽 상세 칸: 실시간 위치와 고른 라이더의 픽업지·주문 내역·도착 예정을 한 화면에서 */}
+                  <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_24rem]">
+                    <KakaoRiderMap center={centerPoint} riders={mapRiders} onSelect={select} selectedId={selectedId} />
+                    <ControlRiderPanel rider={all.find((r) => r.riderId === selectedId)} selectedId={selectedId} centerAddress={center?.address ?? null} onClose={() => select('')} />
+                  </div>
                 </Section>
                 <div className="flex flex-wrap items-center justify-between gap-2 px-1">
                   <p className="flex items-center gap-2 text-sm">
@@ -154,7 +184,14 @@ export function ControlPage() {
                     </thead>
                     <tbody>
                       {items.map((r) => (
-                        <tr key={r.riderId} id={`control-${r.riderId}`} data-testid="control-row" className={isStale(r) ? 'bg-error/5' : undefined}>
+                        <tr
+                          key={r.riderId}
+                          id={`control-${r.riderId}`}
+                          data-testid="control-row"
+                          aria-selected={r.riderId === selectedId}
+                          className={`cursor-pointer ${r.riderId === selectedId ? 'bg-primary/10' : isStale(r) ? 'bg-error/5' : ''}`}
+                          onClick={() => select(r.riderId)}
+                        >
                           <td>
                             <span className="flex flex-wrap items-center gap-1">
                               <Link className="font-mono font-semibold hover:underline" to={`/riders/${encodeURIComponent(r.riderId)}`}>
@@ -180,12 +217,8 @@ export function ControlPage() {
                             ) : (
                               <ul className="space-y-0.5">
                                 {r.activeDeliveries.map((x) => (
-                                  <li key={x.deliveryId} className="flex flex-wrap items-center gap-1">
-                                    <Link className="font-mono text-xs font-semibold hover:underline" to={`/deliveries/${encodeURIComponent(x.deliveryId)}`}>
-                                      {x.deliveryId}
-                                    </Link>
-                                    <StatusBadge tone="info">{label(n.stage, x.stage)}</StatusBadge>
-                                    {x.etaDrop && <span className="text-xs text-base-content/60">{c.eta(when(x.etaDrop))}</span>}
+                                  <li key={x.deliveryId}>
+                                    <ActiveDeliverySummary active={x} />
                                   </li>
                                 ))}
                               </ul>

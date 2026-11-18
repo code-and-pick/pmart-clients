@@ -23,9 +23,10 @@ export const mockDeliveries: Execution[] = [
     riderId: 'RD-7',
     mfcId: 'MFC-BSJ-01',
     mfcName: 'PMart 부산진구지점',
+    mfcPhone: '051-000-0000',
     assignedAt: '2026-11-17T00:40:00.000Z',
     failure: { reason: 'UNREACHABLE', reportedAt: '2026-11-17T01:00:00.000Z' },
-    orderSummary: { orderNumber: '48213075', items: [{ name: '그릭요거트 플레인 400g', qty: 3, lineAmount: 17940 }] },
+    orderSummary: { orderNumber: '48213075', itemAmount: 17940, deliveryNote: '문 앞에 두고 벨 눌러 주세요', items: [{ orderLineId: 'OL-1', name: '그릭요거트 플레인 400g', qty: 3, lineAmount: 17940 }] },
     history: [
       { state: 'ASSIGNED', actor: 'SYSTEM_EVENT', occurredAt: '2026-11-17T00:40:00.000Z' },
       { state: 'PICKED_UP', actor: 'RIDER', occurredAt: '2026-11-17T00:50:00.000Z' },
