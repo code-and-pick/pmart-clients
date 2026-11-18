@@ -107,6 +107,7 @@ export function EmployeeRegisterPage() {
         }}
       >
         <div className="space-y-3 rounded-box border border-base-300 bg-base-100 p-4">
+          <h2 className="font-bold">{m.register.basic}</h2>
           <div className="flex flex-col gap-1 text-sm">
             <label className="flex flex-col gap-1">
               {m.fields.name}
