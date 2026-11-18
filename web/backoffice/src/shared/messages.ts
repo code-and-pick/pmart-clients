@@ -964,6 +964,17 @@ export const messages = {
     },
   },
 
+  /** 머리줄 번호로 바로 찾기(2026-11-18) */
+  quickJump: {
+    label: '번호로 바로 찾기',
+    placeholder: '주문·배송·라이더 번호, ID',
+    busy: '찾는 중',
+    kindOrder: '주문',
+    kindDelivery: '배송',
+    kindRider: '라이더',
+    notFound: (what: string) => `${what} 번호로 찾은 결과가 없어요. 번호를 다시 확인해 주세요.`,
+    failed: '지금은 확인하지 못했어요. 잠시 뒤 다시 찾아 주세요(없다는 뜻이 아니에요).',
+  },
   claims: {
     title: '클레임 조회',
     intro: '조회만 해요. 클레임 결정은 서버가 아직 열지 않아 이 화면에 없어요.',

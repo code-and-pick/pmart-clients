@@ -45,6 +45,7 @@ import { LoginCallbackPage, LoginPage } from '../features/session/LoginPage';
 import { SessionPage } from '../features/session/SessionPage';
 import type { Api } from '../api/client';
 import { env } from '../env';
+import { QuickJump } from './QuickJump';
 import { messages as m } from '../shared/messages';
 import { useApi } from './ApiContext';
 import { covers, visibleGroups, type NavGroup } from './nav';
@@ -182,6 +183,8 @@ function Layout() {
             ) : null}
           </p>
           <div className="flex items-center gap-2 text-sm">
+            {/* 번호로 바로 찾기(Ctrl+K, 2026-11-18) — 로그인했을 때만 */}
+            {session && <QuickJump />}
             {env.isMock && <span className="badge badge-accent badge-sm">{m.mockBadge}</span>}
             {session ? (
               <>
