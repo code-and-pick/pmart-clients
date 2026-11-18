@@ -964,6 +964,8 @@ export const messages = {
     },
   },
 
+  /** 밝은/어두운 테마(2026-11-18) */
+  theme: { toDark: '어두운 화면으로', toLight: '밝은 화면으로' },
   /** 대시보드 최근 본 항목(2026-11-18) */
   recent: {
     title: '최근 본 항목',

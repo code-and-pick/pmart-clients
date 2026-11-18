@@ -46,6 +46,7 @@ import { SessionPage } from '../features/session/SessionPage';
 import type { Api } from '../api/client';
 import { env } from '../env';
 import { QuickJump } from './QuickJump';
+import { ThemeToggle } from './ThemeToggle';
 import { messages as m } from '../shared/messages';
 import { useApi } from './ApiContext';
 import { covers, visibleGroups, type NavGroup } from './nav';
@@ -186,6 +187,7 @@ function Layout() {
             {/* 번호로 바로 찾기(Ctrl+K, 2026-11-18) — 로그인했을 때만 */}
             {session && <QuickJump />}
             {env.isMock && <span className="badge badge-accent badge-sm">{m.mockBadge}</span>}
+            <ThemeToggle />
             {session ? (
               <>
                 {/* 로그인 직원 — "내 세션: 직원 ID" 링크(로그인 시험이 이 이름으로 찾는다). 역할은 내 세션 화면에서 본다(머리줄에 두 번 보이지 않게) */}
