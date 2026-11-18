@@ -45,6 +45,7 @@ import { LoginCallbackPage, LoginPage } from '../features/session/LoginPage';
 import { SessionPage } from '../features/session/SessionPage';
 import type { Api } from '../api/client';
 import { env } from '../env';
+import { useMenuCollapsed } from '../shared/sideMenu';
 import { QuickJump } from './QuickJump';
 import { ThemeToggle } from './ThemeToggle';
 import { Toasts } from './Toasts';
@@ -143,17 +144,46 @@ function Layout() {
     if (activeGroup) setOpenGroup(activeGroup);
   }
   const current = currentMenu(groups, pathname);
+  // 메뉴 접기(2026-11-19) — 접으면 묶음 아이콘만(마우스를 올리면 이름, 누르면 그 묶음 첫 화면), 업무 알림 개수는 그대로
+  const [collapsed, toggleMenu] = useMenuCollapsed();
   const navigate = useNavigate();
   return (
     <div className="flex min-h-screen bg-base-200">
       <ScrollToTopOnNavigate />
       {/* 메뉴는 화면 높이에 고정하고 길면 메뉴만 따로 스크롤(오른쪽 화면을 내려도 메뉴는 그 자리) */}
-      <aside className="sticky top-0 flex h-screen w-60 shrink-0 flex-col self-start overflow-y-auto bg-neutral text-neutral-content" data-testid="side-menu">
-        <div className="flex h-14 shrink-0 items-center justify-between gap-1 border-b border-neutral-content/10 pl-5 pr-2">
-          <Link to="/" className="truncate text-base font-bold text-neutral-content" aria-label={m.goHome}>
-            {m.appTitle}
-          </Link>
+      <aside className={`sticky top-0 flex h-screen shrink-0 flex-col self-start overflow-y-auto bg-neutral text-neutral-content transition-[width] ${collapsed ? 'w-16' : 'w-60'}`} data-testid="side-menu" data-collapsed={collapsed}>
+        <div className={`flex h-14 shrink-0 items-center gap-1 border-b border-neutral-content/10 ${collapsed ? 'justify-center px-1' : 'justify-between pl-5 pr-2'}`}>
+          {!collapsed && (
+            <Link to="/" className="truncate text-base font-bold text-neutral-content" aria-label={m.goHome}>
+              {m.appTitle}
+            </Link>
+          )}
+          <button type="button" className="btn btn-ghost btn-sm h-8 w-8 p-0 text-neutral-content/70 hover:bg-neutral-content/10" onClick={toggleMenu} aria-label={collapsed ? m.nav.expand : m.nav.collapse} title={collapsed ? m.nav.expand : m.nav.collapse} data-testid="menu-toggle">
+            <svg viewBox="0 0 24 24" className="h-4 w-4 fill-none stroke-current" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              {collapsed ? <path d="m9 6 6 6-6 6M4 4v16" /> : <path d="m15 6-6 6 6 6M20 4v16" />}
+            </svg>
+          </button>
         </div>
+        {collapsed ? (
+          <nav aria-label="메뉴" className="flex flex-1 flex-col items-center gap-1 py-3">
+            {session && (
+              <NavLink to="/" end aria-label={m.dashboard.title} title={m.dashboard.title} className={({ isActive }) => `flex h-10 w-10 items-center justify-center rounded-lg ${isActive ? 'bg-accent/20 text-accent' : 'text-neutral-content/80 hover:bg-neutral-content/10'}`} data-testid="nav-dashboard">
+                <GroupIcon id="dashboard" className="h-5 w-5" />
+              </NavLink>
+            )}
+            {groups.map((g) => {
+              const active = g.items.some((i) => covers(i, pathname));
+              return (
+                <Link key={g.id} to={g.home ?? g.items[0]?.to ?? '/'} aria-label={g.label} title={g.label} className={`relative flex h-10 w-10 items-center justify-center rounded-lg ${active ? 'bg-accent/20 text-accent' : 'text-neutral-content/80 hover:bg-neutral-content/10'}`} data-testid={`nav-rail-${g.id}`}>
+                  <GroupIcon id={g.id} className="h-5 w-5" />
+                  <span className="absolute -right-1 -top-1">
+                    <GroupAlertBadge items={g.items} />
+                  </span>
+                </Link>
+              );
+            })}
+          </nav>
+        ) : (
         <nav aria-label="메뉴" className="flex-1 py-3">
           {session && (
             <NavLink
@@ -173,6 +203,7 @@ function Layout() {
           ))}
           {session && groups.every((g) => g.id === 'assistant') && <p className="px-5 text-xs text-neutral-content/60">{m.nav.noMenu}</p>}
         </nav>
+        )}
       </aside>
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex h-14 shrink-0 items-center justify-between gap-3 border-b border-base-300 bg-base-100 px-6">

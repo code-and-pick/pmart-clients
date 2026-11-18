@@ -89,6 +89,8 @@ export const messages = {
       audit: '감사',
       assistant: '업무 도우미',
     },
+    collapse: '메뉴 접기',
+    expand: '메뉴 펴기',
     noMenu: '이 계정의 역할로 열 수 있는 메뉴가 없어요. 필요한 권한은 인사팀에 요청해 주세요.',
   },
 

@@ -16,6 +16,9 @@ pollConfig.sleep = () => Promise.resolve();
 pollConfig.maxAttempts = 3;
 pollConfig.intervalMs = 5;
 
+// 시험 화면은 사무실 모니터 폭(1440px)으로 — 좁은 화면(메뉴 접힘)은 그 시험에서 따로 바꾼다(2026-11-19 메뉴 접기)
+Object.defineProperty(window, 'innerWidth', { value: 1440, writable: true, configurable: true });
+
 // 목에 없는 요청은 테스트 실패로 본다(네트워크로 새지 않게).
 beforeAll(() => server.listen({ onUnhandledFrame: 'error' }));
 afterEach(() => {
