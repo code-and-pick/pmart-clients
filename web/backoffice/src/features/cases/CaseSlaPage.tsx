@@ -1,5 +1,5 @@
 // 처리 기한 지킴(접수 건) — bff 0.13.0 `GET /backoffice/views/metrics?metric=CASE_SLA&from&to[&granularity][&centerId]`(원천 case 0.24.0 `GET /cases/metrics/sla`).
-// 백엔드 알림 backoffice/2026-11-18-notice-metrics-case-sla(백엔드 PR #164 — **병합 전, 목으로만**). 본사 관리자(OPERATOR_ADMIN)만.
+// 백엔드 알림 backoffice/2026-11-18-notice-metrics-case-sla(백엔드 #164 — main 에 들어감, LAN 배포 전이라 지금은 목으로 확인). 본사 관리자(OPERATOR_ADMIN)만.
 // 업무 원문 BO-28: 분모를 줄여 비율을 올리지 않는다, 분모 0 은 N/A, 승인된 정의만.
 // - 비율만 보이지 않고 "N건 중 M건"을 같이. ratio null 은 "—"(0%·100% 로 그리지 않는다). 기한 없던 건(unjudged)은 따로.
 // - 종류마다 기한이 달라 한 숫자로만 보이지 않고 종류·팀으로 나눠 본다.
@@ -22,21 +22,11 @@ import { ChipGroup, DataTable, Notice, PageHeader, SearchPanel, SearchRow, Secti
 const m = messages.caseSla;
 
 type MetricsView = paths['/views/metrics']['get']['responses'][200]['content']['application/json'];
-// bff 0.13.0(백엔드 PR #164) 에서 더해지는 칸 — 병합되어 생성 타입에 들어오면 이 덧붙임을 지운다.
-interface Counts {
-  readonly numerator: number;
-  readonly denominator: number;
-  readonly ratio?: number | null;
-  readonly unjudged?: number | null;
-}
-type Point = NonNullable<MetricsView['points']>[number] & Counts & { readonly segment?: { readonly kind?: string; readonly assigneeGroup?: string | null } | null };
-type Total = Counts & { readonly bucket: string };
-interface Overdue {
-  readonly kind: string;
-  readonly open: number;
-  readonly overdue: number;
-}
-type CaseSlaView = Omit<MetricsView, 'points'> & { readonly points?: readonly Point[]; readonly totals?: readonly Total[]; readonly timeZone?: string; readonly currentOverdue?: readonly Overdue[] | null };
+type CaseSlaView = MetricsView;
+type Point = NonNullable<MetricsView['points']>[number];
+type Total = NonNullable<MetricsView['totals']>[number];
+/** 분자·분모·비율·판정 불가 — 줄·묶음 합 공통 */
+type Counts = Pick<Total, 'numerator' | 'denominator' | 'ratio' | 'unjudged'>;
 
 type Granularity = 'DAY' | 'HOUR';
 type SplitBy = 'kind' | 'group' | 'both';
