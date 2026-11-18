@@ -4,27 +4,27 @@
 @source "../../ui/src";
 
 /* 사본: web/rider-backoffice/src/index.css 테마 블록 (PR #93, 461ff31) — 이 앱에서 따로 고친다. */
-/* 운영 관리자 테마(2026-11-18 — 사용자 "배민 장보기·쇼핑 관리자 화면 참고"): 흰 구역 상자 + 연회색 바탕,
-   진한 남색 왼쪽 메뉴(neutral), 동작은 파랑(primary), 표시·강조는 민트(accent). 색은 테마 변수로만(컴포넌트에 색 하드코딩 금지). */
+/* 운영 관리자 테마(2026-11-18 — 사용자 "배민 장보기·쇼핑 관리자 화면 참고") → 같은 날 Medusa Admin 풍으로 다듬음(사용자가 ChatGPT 추천 "UI 디자인은 Medusa" 공유):
+   무채색(아연) 바탕·밝은 왼쪽 메뉴·흰 카드(옅은 그림자), 주 버튼은 검정에 가까운 색(primary), "지금 위치" 표시는 민트(accent). 색은 테마 변수로만. */
 @plugin "daisyui/theme" {
   name: 'pmart';
   default: true;
   color-scheme: light;
-  --color-primary: oklch(56% 0.2 262);
+  --color-primary: oklch(27% 0.006 286);
   --color-primary-content: oklch(99% 0 0);
-  --color-accent: oklch(74% 0.12 188);
+  --color-accent: oklch(70% 0.13 180);
   --color-accent-content: oklch(99% 0 0);
-  --color-neutral: oklch(26% 0.03 262);
-  --color-neutral-content: oklch(92% 0.01 262);
+  --color-neutral: oklch(27% 0.006 286);
+  --color-neutral-content: oklch(98% 0 0);
   --color-base-100: oklch(100% 0 0);
-  --color-base-200: oklch(96.5% 0.004 262);
-  --color-base-300: oklch(90% 0.008 262);
-  --color-base-content: oklch(24% 0.02 262);
+  --color-base-200: oklch(98% 0.001 286);
+  --color-base-300: oklch(92% 0.004 286);
+  --color-base-content: oklch(21% 0.006 286);
   --color-info: oklch(62% 0.15 240);
   --color-success: oklch(64% 0.15 160);
   --color-warning: oklch(78% 0.15 75);
   --color-error: oklch(60% 0.21 25);
-  --radius-box: 0.5rem;
+  --radius-box: 0.75rem;
   --radius-field: 0.375rem;
   --radius-selector: 1rem;
 }

@@ -12,19 +12,20 @@ import { Link } from 'react-router';
 export type Tone = 'neutral' | 'info' | 'success' | 'warning' | 'error' | 'accent' | 'ghost';
 
 const toneClass: Record<Tone, string> = {
-  neutral: 'badge-neutral',
-  info: 'badge-info',
-  success: 'badge-success',
-  warning: 'badge-warning',
-  error: 'badge-error',
-  accent: 'badge-accent',
+  neutral: 'badge-neutral badge-soft',
+  info: 'badge-info badge-soft',
+  success: 'badge-success badge-soft',
+  warning: 'badge-warning badge-soft',
+  error: 'badge-error badge-soft',
+  accent: 'badge-accent badge-soft',
   ghost: 'badge-ghost',
 };
 
 /** 상태 표시(작은 둥근 꼬리표) */
 export function StatusBadge({ tone = 'ghost', children, testId }: { readonly tone?: Tone; readonly children: ReactNode; readonly testId?: string }) {
   return (
-    <span className={`badge badge-sm whitespace-nowrap font-medium ${toneClass[tone]}`} data-testid={testId}>
+    <span className={`badge badge-sm gap-1.5 whitespace-nowrap font-medium ${toneClass[tone]}`} data-testid={testId}>
+      <span className="h-1.5 w-1.5 rounded-full bg-current opacity-80" aria-hidden="true" />
       {children}
     </span>
   );
@@ -42,7 +43,7 @@ export function PageHeader({ title, description, actions, back }: { readonly tit
       )}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 space-y-1">
-          <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
+          <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
           {description && <p className="text-sm text-base-content/60">{description}</p>}
         </div>
         {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
@@ -55,7 +56,7 @@ export function PageHeader({ title, description, actions, back }: { readonly tit
 // 기본 백오피스 사본에만 더함(2026-11-18): submitDisabled(입력이 틀리면 조회를 막는 화면), label(화면 안 폼이 여럿일 때 이름)
 export function SearchPanel({ onSubmit, onReset, children, submitLabel = '조회', resetLabel = '초기화', submitDisabled = false, label = '검색 조건' }: { readonly onSubmit: (e: FormEvent) => void; readonly onReset: () => void; readonly children: ReactNode; readonly submitLabel?: string; readonly resetLabel?: string; readonly submitDisabled?: boolean; readonly label?: string }) {
   return (
-    <form className="overflow-hidden rounded-box border border-base-300 bg-base-100" onSubmit={onSubmit} aria-label={label}>
+    <form className="overflow-hidden rounded-box border border-base-300 bg-base-100 shadow-sm" onSubmit={onSubmit} aria-label={label}>
       <div className="divide-y divide-base-300">{children}</div>
       <div className="flex justify-center gap-2 border-t border-base-300 bg-base-200/60 px-4 py-3">
         <button type="button" className="btn btn-sm w-24 border-base-300 bg-base-100" onClick={onReset}>
@@ -73,7 +74,7 @@ export function SearchPanel({ onSubmit, onReset, children, submitLabel = '조회
 export function SearchRow({ label, children }: { readonly label: ReactNode; readonly children: ReactNode }) {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-[9rem_1fr]">
-      <div className="flex items-center bg-base-200/60 px-4 py-2 text-sm font-medium">{label}</div>
+      <div className="flex items-center bg-base-200 px-4 py-2 text-[13px] font-medium text-base-content/70">{label}</div>
       <div className="flex flex-wrap items-center gap-2 px-4 py-2">{children}</div>
     </div>
   );
@@ -128,8 +129,8 @@ export function ResultBar({ count, more, sort, extra }: { readonly count: number
 /** 표 상자 — thead 는 회색, 줄은 테두리로 나눈다 */
 export function DataTable({ children, testId }: { readonly children: ReactNode; readonly testId?: string }) {
   return (
-    <div className="overflow-x-auto rounded-box border border-base-300 bg-base-100" data-testid={testId}>
-      <table className="table table-sm [&_thead_th]:bg-base-200/70 [&_thead_th]:font-semibold [&_thead_th]:text-base-content/80 [&_tbody_tr]:border-base-200 [&_tbody_tr:hover]:bg-base-200/40">{children}</table>
+    <div className="overflow-x-auto rounded-box border border-base-300 bg-base-100 shadow-sm" data-testid={testId}>
+      <table className="table table-sm [&_thead_th]:bg-base-200 [&_thead_th]:text-xs [&_thead_th]:font-medium [&_thead_th]:text-base-content/55 [&_tbody_tr]:border-base-300/70 [&_tbody_tr:hover]:bg-base-200/70">{children}</table>
     </div>
   );
 }
@@ -158,10 +159,10 @@ export function DetailHeader({ back, title, badges, summary, actions }: { readon
         <span aria-hidden>‹</span>
         {back.label}
       </Link>
-      <div className="flex flex-wrap items-start justify-between gap-3 rounded-box border border-base-300 bg-base-100 px-5 py-4">
+      <div className="flex flex-wrap items-start justify-between gap-3 rounded-box border border-base-300 bg-base-100 px-5 py-4 shadow-sm">
         <div className="min-w-0 space-y-1">
           <div className="flex flex-wrap items-center gap-2">
-            <h1 className="text-xl font-bold">{title}</h1>
+            <h1 className="text-xl font-semibold">{title}</h1>
             {badges}
           </div>
           {summary && <p className="text-sm text-base-content/70">{summary}</p>}
@@ -188,7 +189,7 @@ export function SectionTabs({ items }: { readonly items: ReadonlyArray<{ readonl
 /** 구역 상자 — 제목 줄(오른쪽 덧붙임) + 내용 */
 export function Section({ id, title, aside, children, testId }: { readonly id?: string; readonly title: ReactNode; readonly aside?: ReactNode; readonly children: ReactNode; readonly testId?: string }) {
   return (
-    <section id={id} className="scroll-mt-12 overflow-hidden rounded-box border border-base-300 bg-base-100" data-testid={testId}>
+    <section id={id} className="scroll-mt-12 overflow-hidden rounded-box border border-base-300 bg-base-100 shadow-sm" data-testid={testId}>
       <div className="flex items-center justify-between gap-2 border-b border-base-300 px-5 py-3">
         <h2 className="font-bold">{title}</h2>
         {aside && <div className="flex items-center gap-2 text-sm">{aside}</div>}
@@ -223,7 +224,7 @@ export function StatCard({ label, value, hint, to, tone, testId }: { readonly la
       {hint && <p className="mt-1 text-xs text-base-content/50">{hint}</p>}
     </>
   );
-  const cls = 'block rounded-box border border-base-300 bg-base-100 px-5 py-4';
+  const cls = 'block rounded-box border border-base-300 bg-base-100 px-5 py-4 shadow-sm';
   return to ? (
     <Link to={to} className={`${cls} hover:border-primary`} data-testid={testId}>
       {body}
