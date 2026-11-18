@@ -262,12 +262,20 @@ export function ProductDraftForm({
   };
 
   type NumKey = 'unitsPerSku' | 'weightG' | 'volumeMl' | 'unitsPerBox' | 'ti' | 'hi' | 'boxesPerPallet' | 'minRemainingDays' | 'maxDaysSinceManufacture' | 'widthMm' | 'depthMm' | 'heightMm';
-  const numField = (i: number, k: NumKey, text: string, disabled = false) => (
+  // 계약상 필수(product-service DraftProblem: WEIGHT_REQUIRED·STORAGE_TYPE_REQUIRED·CATEGORY_NOT_MAPPED, 관리용 명칭) — 표시만, 판정은 서버
+  const numField = (i: number, k: NumKey, text: string, disabled = false, required = false) => (
     <label className="flex flex-col gap-1 text-sm">
-      <span className={fieldLabel}>{text}</span>
+      <span className={`${fieldLabel} ${required ? 'field-required' : ''}`}>{text}</span>
       <input className="input input-sm w-full" inputMode="numeric" disabled={disabled} value={v.skus[i]![k]} onChange={(e) => setSku(i, { [k]: e.target.value })} />
     </label>
   );
+
+  const missing: string[] = [
+    !v.internalName.trim() && m.products.internalName,
+    !v.primaryCategoryId && v.categoryPaths.length === 0 && m.products.primaryCategory,
+    v.skus.some((sk) => !sk.weightG.trim()) && m.products.weightG,
+    v.skus.some((sk) => !sk.storageType) && m.products.storageType,
+  ].flatMap((x) => (x ? [x] : []));
 
   // 화면(2026-11-18 사용자 "밋밋하다"): 제목 있는 카드로 묶는다 — 기본 정보 → 카테고리 → 필터 옵션 → SKU, 저장 버튼은 아래 오른쪽.
   return (
@@ -293,7 +301,7 @@ export function ProductDraftForm({
         }
       >
         <label className="flex flex-col gap-1 text-sm">
-          <span className={fieldLabel}>{m.products.internalName}</span>
+          <span className={`${fieldLabel} field-required`}>{m.products.internalName}</span>
           <input className="input input-sm w-full md:w-2/3" value={v.internalName} onChange={(e) => set('internalName', e.target.value)} />
         </label>
         {!edit && (
@@ -322,7 +330,7 @@ export function ProductDraftForm({
       <Card title={m.products.formCategory} hint={m.products.formCategoryHint}>
         <div className="grid gap-3 md:grid-cols-2">
           <label className="flex flex-col gap-1 text-sm">
-            <span className={fieldLabel}>{m.products.primaryCategory}</span>
+            <span className={`${fieldLabel} field-required`}>{m.products.primaryCategory}</span>
             <select
               className="select select-sm w-full"
               value={v.primaryCategoryId}
@@ -454,10 +462,10 @@ export function ProductDraftForm({
                 </select>
               </label>
               {numField(i, 'unitsPerSku', m.products.unitsPerSku, edit)}
-              {numField(i, 'weightG', m.products.weightG)}
+              {numField(i, 'weightG', m.products.weightG, false, true)}
               {numField(i, 'volumeMl', m.products.volumeMl)}
               <label className="flex flex-col gap-1 text-sm">
-                <span className={fieldLabel}>{m.products.storageType}</span>
+                <span className={`${fieldLabel} field-required`}>{m.products.storageType}</span>
                 <select
                   className="select select-sm"
                   value={s.storageType}
@@ -542,7 +550,13 @@ export function ProductDraftForm({
       </Card>
 
       {/* 저장은 아래 오른쪽(Shopify 저장 줄처럼) */}
-      <div className="flex justify-end rounded-box border border-base-300 bg-base-100 px-5 py-3 shadow-sm">
+      <div className="flex flex-wrap items-center justify-end gap-3 rounded-box border border-base-300 bg-base-100 px-5 py-3 shadow-sm">
+        {/* 저장 전 안내(2026-11-19): 비어 있는 필수 칸 — 초안은 비어도 저장되고(검증 오류로), 제출 준비 전에 채워야 한다 */}
+        {missing.length > 0 && (
+          <p className="mr-auto text-xs text-warning" data-testid="draft-missing">
+            {m.products.missingRequired(missing.join(', '))}
+          </p>
+        )}
         <button type="submit" className="btn btn-primary btn-sm min-w-28" disabled={busy || !v.internalName.trim()}>
           {submitLabel}
         </button>

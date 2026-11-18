@@ -1648,6 +1648,7 @@ export const messages = {
     },
     draftDetail: (id: string) => `상품 초안 ${id}`,
     internalName: '관리용 명칭',
+    missingRequired: (names: string) => `비어 있는 필수 칸: ${names} — 초안은 저장되지만 제출 전에 채워야 해요.`,
     primaryCategory: '대표 카테고리',
     categories: '노출 카테고리',
     categoriesPick: '노출 카테고리를 고르세요(여러 개 가능)',

@@ -131,3 +131,16 @@ main [data-state='loading']::after {
     padding-right: calc(26rem + 1.5rem);
   }
 }
+
+/* 필수 칸 표시(2026-11-19 — 저장해야 서버가 "중량이 필요해요"를 알려 줘서 미리 보이게). 글자는 CSS 로만 그려
+   칸 이름(읽기 도구·시험이 찾는 이름)은 그대로다. 판정은 서버. */
+.field-required::after {
+  content: '필수';
+  margin-left: 0.375rem;
+  padding: 0 0.3rem;
+  border-radius: 0.25rem;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--color-error);
+  background: color-mix(in oklab, var(--color-error) 10%, transparent);
+}
