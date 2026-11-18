@@ -47,6 +47,7 @@ import type { Api } from '../api/client';
 import { env } from '../env';
 import { QuickJump } from './QuickJump';
 import { ThemeToggle } from './ThemeToggle';
+import { Toasts } from './Toasts';
 import { messages as m } from '../shared/messages';
 import { useApi } from './ApiContext';
 import { covers, visibleGroups, type NavGroup } from './nav';
@@ -225,6 +226,8 @@ function Layout() {
         <main className="min-w-0 flex-1 p-6">
           <Outlet />
         </main>
+        {/* 처리 결과 알림(2026-11-18) */}
+        <Toasts />
       </div>
     </div>
   );

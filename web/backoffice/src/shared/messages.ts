@@ -980,6 +980,14 @@ export const messages = {
     clear: '지우기',
     kind: { order: '주문', delivery: '배송', claim: '클레임', case: '접수 건', inquiry: '고객 문의', riderInquiry: '라이더 문의', product: '상품', approval: '승인' } as const,
   },
+  /** 처리 결과 알림(2026-11-18) — 아래 칸의 결과 글과 겹치지 않는 짧은 말 */
+  toast: {
+    applied: '반영됐어요',
+    accepted: '접수됐어요 — 결과를 확인하고 있어요',
+    rejected: '반영되지 않았어요',
+    unknown: '결과를 아직 몰라요 — 화면의 안내를 봐 주세요',
+    close: '알림 닫기',
+  },
   /** 목록 미리보기 칸(2026-11-18) */
   preview: {
     label: '미리보기',
