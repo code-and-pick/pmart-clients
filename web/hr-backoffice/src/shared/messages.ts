@@ -133,6 +133,8 @@ export const messages = {
 
   list: {
     title: '직원 목록',
+    intro: '이름·메일 ID·사번 앞부분으로 찾고, 상태·소속으로 걸러요. 줄을 누르면 직원 상세로 가요.',
+    person: '직원',
     q: '검색어',
     qHint: '이름·메일 ID·사번 앞부분',
     allStatuses: '모든 상태',
@@ -144,6 +146,7 @@ export const messages = {
   },
 
   register: {
+    intro: '이름·메일 ID·고용 형태·소속·근무 기간을 넣으면 계정이 발급돼요. 권한은 요청만 하고, 승인되면 붙어요.',
     title: '직원 등록',
     mailIdHint: '소문자·숫자·._- 3~32자. 메일 주소와 로그인 아이디가 돼요. 퇴사자가 쓰던 ID 는 다시 쓸 수 없어요.',
     mailIdInvalid: '메일 ID 형식을 확인해 주세요(소문자·숫자·._- 3~32자, 처음과 끝은 소문자·숫자).',

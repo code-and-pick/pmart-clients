@@ -4,7 +4,7 @@
 // - 요청 권한은 상태만 보인다(승인 버튼 없음 — 인사와 권한 분리).
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, type ReactNode } from 'react';
-import { Link, useParams } from 'react-router';
+import { useParams } from 'react-router';
 
 import { request, requestNoContent, type IdempotencyKey } from '@pmart/web-core';
 import { formatSeoul, QueryState, toUiState, useCommand } from '@pmart/web-ui';
@@ -18,7 +18,9 @@ import { AffiliationFields, toAffiliation, type AffiliationDraft } from './Affil
 import { useCenters } from './centers';
 import { affiliationText, periodText } from './labels';
 import { MailboxPassword } from './MailboxPassword';
-import { DataTable, PageHeader } from '../../shared/admin';
+import { DataTable, DetailHeader, FieldList, Section, StatusBadge } from '../../shared/admin';
+import { CopyButton } from '../../shared/CopyButton';
+import { provisioningTone, statusTone } from './labels';
 
 /** 발급 진행 중 다시 조회 간격. 테스트가 줄여 쓴다 */
 export const provisioningPoll = { intervalMs: 3000 };
@@ -324,37 +326,48 @@ export function EmployeeDetailPage() {
   };
 
   return (
-    <section className="max-w-3xl space-y-4">
-      <Link to="/employees" className="link text-sm">
-        {m.detail.back}
-      </Link>
+    <section className="max-w-4xl space-y-4">
       <QueryState state={toUiState(query)} onRetry={() => void query.refetch()}>
         {(e) => (
           <>
-            <PageHeader title={`${e.name} (${e.employeeNo})`} />
-            <div className="rounded-box border border-base-300 bg-base-100 p-4">
-              <h2 className="mb-2 font-bold">{m.detail.info}</h2>
-              <dl className="grid grid-cols-[8rem_1fr] gap-1 text-sm">
-                <dt>{m.fields.status}</dt>
-                <dd data-status={e.status}>{m.employmentStatus[e.status]}</dd>
-                <dt>{m.fields.mailAddress}</dt>
-                <dd>{e.mailAddress}</dd>
-                <dt>{m.fields.employmentType}</dt>
-                <dd>{m.employmentType[e.employmentType]}</dd>
-                <dt>{m.fields.affiliation}</dt>
-                <dd>{affiliationText(e.affiliation)}</dd>
-                <dt>{m.fields.startDate}</dt>
-                <dd>{e.startDate}</dd>
-                <dt>{m.fields.endDate}</dt>
-                <dd>{e.endDate ?? m.none}</dd>
-                <dt>{m.fields.operatorId}</dt>
-                <dd className="text-xs select-all">{e.operatorId}</dd>
-                <dt>{m.fields.createdAt}</dt>
-                <dd>{formatSeoul(e.createdAt)}</dd>
-                <dt>{m.fields.updatedAt}</dt>
-                <dd>{formatSeoul(e.updatedAt)}</dd>
-              </dl>
-            </div>
+            {/* 상세 머리(2026-11-18 백오피스와 같은 모양): 이름 + 상태·계정 꼬리표, 아래 사번·메일(복사) */}
+            <DetailHeader
+              back={{ to: '/employees', label: m.detail.back }}
+              title={
+                <>
+                  {e.name}
+                  <span className="ml-2 font-mono text-sm font-normal text-base-content/50">{e.employeeNo}</span>
+                  <CopyButton value={e.employeeNo} label={`${m.fields.employeeNo} ${e.employeeNo}`} />
+                </>
+              }
+              badges={
+                <>
+                  <StatusBadge tone={statusTone(e.status)}>{m.employmentStatus[e.status]}</StatusBadge>
+                  <StatusBadge tone={provisioningTone(e.provisioning.step)}>{m.provisioningStep[e.provisioning.step]}</StatusBadge>
+                </>
+              }
+              summary={
+                <span className="inline-flex items-center gap-1">
+                  {`${affiliationText(e.affiliation)} · ${m.employmentType[e.employmentType]} · ${e.mailAddress}`}
+                  <CopyButton value={e.mailAddress} label={`${m.fields.mailAddress} ${e.mailAddress}`} />
+                </span>
+              }
+            />
+            <Section title={m.detail.info}>
+              <FieldList
+                rows={[
+                  [m.fields.status, <span key="s" data-status={e.status}>{m.employmentStatus[e.status]}</span>],
+                  [m.fields.mailAddress, e.mailAddress],
+                  [m.fields.employmentType, m.employmentType[e.employmentType]],
+                  [m.fields.affiliation, affiliationText(e.affiliation)],
+                  [m.fields.startDate, e.startDate],
+                  [m.fields.endDate, e.endDate ?? m.none],
+                  [m.fields.operatorId, <span key="o" className="font-mono text-xs select-all">{e.operatorId}</span>],
+                  [m.fields.createdAt, formatSeoul(e.createdAt)],
+                  [m.fields.updatedAt, formatSeoul(e.updatedAt)],
+                ]}
+              />
+            </Section>
 
             <ProvisioningCard employee={e} onChanged={onChanged} />
 

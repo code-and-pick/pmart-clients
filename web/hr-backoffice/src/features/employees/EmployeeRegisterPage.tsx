@@ -16,6 +16,7 @@ import {
   type RequestedGrant,
 } from '../../api/models';
 import { useApi } from '../../app/ApiContext';
+import { LeaveGuard } from '../../shared/LeaveGuard';
 import { messages as m } from '../../shared/messages';
 import { AffiliationFields, toAffiliation, type AffiliationDraft } from './AffiliationFields';
 import { CenterMultiSelect, useCenters } from './centers';
@@ -78,11 +79,16 @@ export function EmployeeRegisterPage() {
   const problems = lineProblems(rejected, 'requestedGrants');
   const nameRejected = fieldRejected(rejected, 'name');
 
+  // 떠날 때 경고(2026-11-18 백오피스와 같음): 하나라도 넣었으면 묻는다 — 저장 중·저장 뒤(상세로 이동)는 묻지 않는다
+  const dirty = name !== '' || mailId !== '' || affiliation.code !== '' || startDate !== '' || endDate !== '' || grants.length > 0;
+  const leaving = cmd.phase.kind === 'running' || cmd.phase.kind === 'done';
+
   const patchGrant = (id: number, patch: Partial<GrantDraft>) => setGrants((gs) => gs.map((g) => (g.id === id ? { ...g, ...patch } : g)));
 
   return (
     <section className="max-w-3xl space-y-4">
-      <PageHeader title={m.register.title} />
+      <PageHeader title={m.register.title} description={m.register.intro} />
+      <LeaveGuard when={dirty && !leaving} />
       <form
         className="space-y-4"
         onSubmit={(e) => {

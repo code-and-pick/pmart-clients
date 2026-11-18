@@ -11,7 +11,8 @@ import { useApi } from '../../app/ApiContext';
 import { useSession } from '../../app/SessionContext';
 import { messages as m } from '../../shared/messages';
 import { affiliationText } from './labels';
-import { DataTable, PageHeader, SearchPanel, SearchRow } from '../../shared/admin';
+import { DataTable, PageHeader, ResultBar, SearchPanel, SearchRow, StatusBadge, useRowLink } from '../../shared/admin';
+import { provisioningTone, statusTone } from './labels';
 
 const PAGE_SIZE = 50;
 
@@ -50,6 +51,7 @@ export function EmployeeListPage() {
   });
 
   const items = query.data?.pages.flatMap((p) => p.items) ?? [];
+  const rowLink = useRowLink();
   const state: UiState<readonly Employee[]> = query.isPending
     ? { kind: 'loading' }
     : query.isError && !query.data
@@ -62,6 +64,7 @@ export function EmployeeListPage() {
     <section className="space-y-4">
       <PageHeader
         title={m.list.title}
+        description={m.list.intro}
         actions={
           <Link to="/employees/new" className="btn btn-primary btn-sm">
             {m.list.register}
@@ -117,11 +120,13 @@ export function EmployeeListPage() {
       <QueryState state={state} onRetry={() => void query.refetch()} emptyText={m.list.empty}>
         {(rows) => (
           <div className="space-y-3">
+            {/* 목록(2026-11-18 백오피스와 같은 모양): 검색 → 건수 줄 → 표가 한 카드, 첫 칸은 이름(머리글자) + 사번 작게, 상태는 색 꼬리표, 줄 전체를 누르면 상세 */}
+            <div>
+            <ResultBar count={rows.length} more={query.hasNextPage} unit="명" />
             <DataTable>
                 <thead>
                   <tr>
-                    <th>{m.fields.employeeNo}</th>
-                    <th>{m.fields.name}</th>
+                    <th>{m.list.person}</th>
                     <th>{m.fields.mailAddress}</th>
                     <th>{m.fields.employmentType}</th>
                     <th>{m.fields.affiliation}</th>
@@ -131,24 +136,35 @@ export function EmployeeListPage() {
                 </thead>
                 <tbody>
                   {rows.map((e) => (
-                    <tr key={e.operatorId}>
+                    <tr key={e.operatorId} data-testid="employee-row" {...rowLink(`/employees/${encodeURIComponent(e.operatorId)}`)}>
                       <td>
-                        <Link className="link" to={`/employees/${encodeURIComponent(e.operatorId)}`}>
-                          {e.employeeNo}
-                        </Link>
+                        <div className="flex items-center gap-2.5">
+                          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary" aria-hidden="true">
+                            {e.name.slice(0, 1)}
+                          </span>
+                          <div className="min-w-0">
+                            <p className="font-semibold">{e.name}</p>
+                            <Link className="font-mono text-xs font-normal text-base-content/55 hover:text-primary hover:underline" to={`/employees/${encodeURIComponent(e.operatorId)}`}>
+                              {e.employeeNo}
+                            </Link>
+                          </div>
+                        </div>
                       </td>
-                      <td>{e.name}</td>
-                      <td>{e.mailAddress}</td>
-                      <td>{m.employmentType[e.employmentType]}</td>
-                      <td>{affiliationText(e.affiliation)}</td>
-                      <td>{m.employmentStatus[e.status]}</td>
-                      <td>{m.provisioningStep[e.provisioning.step]}</td>
+                      <td className="text-sm">{e.mailAddress}</td>
+                      <td className="text-sm">{m.employmentType[e.employmentType]}</td>
+                      <td className="text-sm">{affiliationText(e.affiliation)}</td>
+                      <td>
+                        <StatusBadge tone={statusTone(e.status)}>{m.employmentStatus[e.status]}</StatusBadge>
+                      </td>
+                      <td>
+                        <StatusBadge tone={provisioningTone(e.provisioning.step)}>{m.provisioningStep[e.provisioning.step]}</StatusBadge>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
             </DataTable>
+            </div>
             <div className="flex items-center gap-3 text-sm">
-              <span className="opacity-70">{m.list.count(rows.length)}</span>
               {query.hasNextPage && (
                 <button type="button" className="btn btn-sm" disabled={query.isFetchingNextPage} onClick={() => void query.fetchNextPage()}>
                   {m.more}

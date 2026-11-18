@@ -56,9 +56,9 @@ describe('직원 목록', () => {
       }),
     );
     renderAt('/employees');
-    expect(await screen.findByText('3명 표시')).toBeInTheDocument();
+    expect(await screen.findByTestId('result-count')).toHaveTextContent('3명 이상'); // 건수 줄(2026-11-18 백오피스와 같은 모양)
     await userEvent.click(screen.getByRole('button', { name: '더 보기' }));
-    expect(await screen.findByText('6명 표시')).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByTestId('result-count')).toHaveTextContent('6명'));
     expect(screen.queryByRole('button', { name: '더 보기' })).not.toBeInTheDocument();
   });
 });
@@ -77,9 +77,10 @@ describe('직원 등록', () => {
     await fillBasics();
     await userEvent.click(screen.getByRole('button', { name: '등록' }));
 
-    expect(await screen.findByRole('heading', { name: /김신입 \(P2026-/ })).toBeInTheDocument();
+    // 상세 머리(2026-11-18): 이름 + 사번(작게)
+    expect(await screen.findByRole('heading', { name: /김신입.*P2026-/ })).toBeInTheDocument();
     expect(screen.getByText('new.kim@pmart.com')).toBeInTheDocument();
-    await waitFor(() => expect(screen.getByText(/^완료/)).toHaveAttribute('data-step', 'DONE'), { timeout: 3000 });
+    await waitFor(() => expect(screen.getByText(/^완료/, { selector: '[data-step]' })).toHaveAttribute('data-step', 'DONE'), { timeout: 3000 });
 
     const post = view.mutations('/hr/employees')[0]!;
     expect(post.headers.get('Idempotency-Key')).toBeTruthy();
@@ -204,7 +205,7 @@ describe('직원 상세', () => {
     await userEvent.type(dialog.getByLabelText('사유'), '계약 위반');
     await userEvent.click(dialog.getByRole('button', { name: '확인' }));
 
-    await waitFor(() => expect(screen.getByText('정지', { selector: 'dd' })).toHaveAttribute('data-status', 'SUSPENDED'));
+    await waitFor(() => expect(screen.getByText('정지', { selector: '[data-status]' })).toHaveAttribute('data-status', 'SUSPENDED'));
     const sent = view.mutations('/suspensions')[0]!;
     expect(sent.headers.get('X-Expected-Version')).toBe('3');
     expect(sent.headers.get('Idempotency-Key')).toBeTruthy();
@@ -225,7 +226,7 @@ describe('직원 상세', () => {
     await userEvent.type(dialog.getByLabelText('사유'), '사유');
     await userEvent.click(dialog.getByRole('button', { name: '확인' }));
     expect(await dialog.findByRole('alert')).toHaveAttribute('data-code', 'VERSION_CONFLICT');
-    expect(screen.getByText('재직', { selector: 'dd' })).toBeInTheDocument();
+    expect(screen.getByText('재직', { selector: '[data-status]' })).toBeInTheDocument();
   });
 
   it('소속 변경: 이전 센터 권한은 내일 00:00 자동 종료·새 권한은 따로 요청이라는 안내(hr 0.4.0)와 함께 새 소속·사유를 보낸다', async () => {
@@ -251,7 +252,7 @@ describe('직원 상세', () => {
     await screen.findByRole('heading', { name: /정실패/ });
     expect(screen.getByText('IAM_USERNAME_TAKEN')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: '발급 다시 시도' }));
-    await waitFor(() => expect(screen.getByText(/^완료/)).toHaveAttribute('data-step', 'DONE'), { timeout: 3000 });
+    await waitFor(() => expect(screen.getByText(/^완료/, { selector: '[data-step]' })).toHaveAttribute('data-step', 'DONE'), { timeout: 3000 });
     expect(screen.queryByRole('button', { name: '발급 다시 시도' })).not.toBeInTheDocument();
   });
 
@@ -338,7 +339,7 @@ describe('백엔드 회신 2026-11-13 반영', () => {
 
     fireEvent.change(dialog.getByLabelText('계약 종료일'), { target: { value: '2099-12-31' } });
     await userEvent.click(dialog.getByRole('button', { name: '확인' }));
-    await waitFor(() => expect(screen.getByText('재직', { selector: 'dd' })).toHaveAttribute('data-status', 'ACTIVE'));
+    await waitFor(() => expect(screen.getByText('재직', { selector: '[data-status]' })).toHaveAttribute('data-status', 'ACTIVE'));
     expect(await view.mutations('/reinstatements').at(-1)!.json()).toEqual({ reason: '재계약', endDate: '2099-12-31' });
   });
 });

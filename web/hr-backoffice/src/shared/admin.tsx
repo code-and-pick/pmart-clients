@@ -131,12 +131,13 @@ export function ChipGroup<T extends string>({ value, options, onChange, label }:
 }
 
 /** 결과 줄: 건수 + 정렬 토글 */
-export function ResultBar({ count, more, sort, extra }: { readonly count: number; readonly more?: boolean; readonly sort?: { readonly oldest: boolean; readonly onChange: (oldest: boolean) => void; readonly newest?: string; readonly oldestLabel?: string }; readonly extra?: ReactNode }) {
+/** unit: 세는 말(직원은 "명") */
+export function ResultBar({ count, more, sort, extra, unit = '건' }: { readonly count: number; readonly more?: boolean; readonly unit?: string; readonly sort?: { readonly oldest: boolean; readonly onChange: (oldest: boolean) => void; readonly newest?: string; readonly oldestLabel?: string }; readonly extra?: ReactNode }) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-2 rounded-box border border-base-300 bg-base-100 px-4 py-2.5 shadow-sm" data-list-part="mid">
       <p className="text-sm" data-testid="result-count">
         <span className="font-semibold text-primary">{count}</span>
-        {more ? '건 이상' : '건'}
+        {more ? `${unit} 이상` : unit}
       </p>
       <div className="flex items-center gap-3">
         {extra}
