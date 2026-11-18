@@ -47,8 +47,8 @@ export function QueryState<T>({ state, children, onRetry, onCheckAgain, emptyTex
   switch (state.kind) {
     case 'loading':
       return (
-        <div role="status" data-state="loading" className="flex items-center gap-3 p-8">
-          <span className="loading loading-spinner" />
+        <div role="status" data-state="loading" className="flex items-center justify-center gap-3 rounded-box border border-base-300 bg-base-100 p-10 text-sm text-base-content/60">
+          <span className="loading loading-spinner loading-sm" />
           {m.loading}
         </div>
       );
@@ -56,7 +56,11 @@ export function QueryState<T>({ state, children, onRetry, onCheckAgain, emptyTex
       return <>{children(state.data)}</>;
     case 'empty':
       return (
-        <p data-state="empty" className="p-8 opacity-70">
+        <p data-state="empty" className="flex flex-col items-center justify-center gap-2 rounded-box border border-dashed border-base-300 bg-base-100 px-6 py-10 text-center text-sm text-base-content/60">
+          {/* 빈 상자 그림(2026-11-18 화면 다듬기) */}
+          <svg aria-hidden="true" viewBox="0 0 24 24" className="h-8 w-8 fill-none stroke-current text-base-content/30" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+            <path d="M4 13h4l1.5 2.5h5L16 13h4M4 13l2.5-7h11L20 13v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-5Z" />
+          </svg>
           {emptyText ?? m.empty}
         </p>
       );

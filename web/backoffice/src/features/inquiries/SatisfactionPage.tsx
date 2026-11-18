@@ -48,7 +48,7 @@ export function SatisfactionPage() {
     <section className="max-w-3xl space-y-4">
       <PageHeader title={m.title} description={m.intro} />
       <form
-        className="flex flex-wrap items-end gap-2 rounded-box border border-base-300 bg-base-100 p-3 text-sm"
+        className="flex flex-wrap items-end gap-2 rounded-box border border-base-300 bg-base-100 shadow-sm p-3 text-sm"
         aria-label={m.period}
         onSubmit={(e) => {
           e.preventDefault();
@@ -75,7 +75,7 @@ export function SatisfactionPage() {
           const answered = s.answeredCount;
           return (
             <div className="space-y-3">
-              <dl className="grid grid-cols-[10rem_1fr] gap-1 rounded-box border border-base-300 bg-base-100 p-4 text-sm" data-testid="satisfaction-summary">
+              <dl className="grid grid-cols-[10rem_1fr] gap-1 rounded-box border border-base-300 bg-base-100 shadow-sm p-4 text-sm" data-testid="satisfaction-summary">
                 <dt>{m.periodLine}</dt>
                 <dd>{`${from} ~ ${to}`}</dd>
                 <dt>{m.response}</dt>
@@ -83,7 +83,7 @@ export function SatisfactionPage() {
                 <dt>{m.average}</dt>
                 <dd data-testid="satisfaction-average">{s.averageScore === null || s.averageScore === undefined ? m.none : m.averageLine(s.averageScore)}</dd>
               </dl>
-              <ul className="space-y-1 rounded-box border border-base-300 bg-base-100 p-4 text-sm" aria-label={m.byScore}>
+              <ul className="space-y-1 rounded-box border border-base-300 bg-base-100 shadow-sm p-4 text-sm" aria-label={m.byScore}>
                 {(['5', '4', '3', '2', '1'] as const).map((k) => {
                   const n = s.byScore[k] ?? 0;
                   return (

@@ -40,7 +40,7 @@ function PriceLookup({ sku }: { readonly sku: string }) {
 
   return (
     <div className="grid gap-4 md:grid-cols-2">
-      <div className="rounded-box border border-base-300 bg-base-100 p-4 text-sm">
+      <div className="rounded-box border border-base-300 bg-base-100 shadow-sm p-4 text-sm">
         <h2 className="mb-2 font-bold">{`${m.prices.current} · ${sku}`}</h2>
         {notSet ? (
           <p role="status" data-state="not-set" className="text-warning">
@@ -65,7 +65,7 @@ function PriceLookup({ sku }: { readonly sku: string }) {
           </QueryState>
         )}
       </div>
-      <div className="rounded-box border border-base-300 bg-base-100 p-4 text-sm">
+      <div className="rounded-box border border-base-300 bg-base-100 shadow-sm p-4 text-sm">
         <h2 className="mb-2 font-bold">{m.prices.history}</h2>
         <QueryState state={toUiState(history, (d) => (d.items?.length ?? 0) === 0)} onRetry={() => void history.refetch()}>
           {(h) => (
@@ -152,7 +152,7 @@ function PriceChange({ initialSku }: { readonly initialSku: string }) {
   );
 
   return (
-    <div className="space-y-3 rounded-box border border-base-300 bg-base-100 p-4">
+    <div className="space-y-3 rounded-box border border-base-300 bg-base-100 shadow-sm p-4">
       <h2 className="font-bold">{m.prices.changeTitle}</h2>
       <p className="text-xs text-base-content/60">{m.prices.effectiveHint}</p>
       <label className="flex w-fit flex-col text-sm">

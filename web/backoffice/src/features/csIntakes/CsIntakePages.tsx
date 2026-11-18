@@ -132,7 +132,7 @@ export function NewCsIntakePage() {
   return (
     <section className="max-w-2xl space-y-4">
       <PageHeader title={m.title} description={m.intro} />
-      <form className="space-y-3 rounded-box border border-base-300 bg-base-100 p-4 text-sm" onSubmit={submit} aria-label={m.title}>
+      <form className="space-y-3 rounded-box border border-base-300 bg-base-100 shadow-sm p-4 text-sm" onSubmit={submit} aria-label={m.title}>
         <fieldset disabled={locked}>
           <legend className="font-semibold">{m.channel}</legend>
           {radio('channel', CHANNELS, m.channelName, d.channel, (v) =>
@@ -170,7 +170,7 @@ export function NewCsIntakePage() {
           {radio('relation', ['SELF', 'PROXY'] as const, m.relationName, d.relation, (v) => set('relation', v))}
         </fieldset>
         {d.relation === 'PROXY' && (
-          <p role="alert" className="alert alert-warning text-sm" data-testid="cs-intake-proxy-warning">
+          <p role="alert" className="alert alert-warning alert-soft text-sm" data-testid="cs-intake-proxy-warning">
             {m.proxyWarning}
           </p>
         )}
@@ -294,7 +294,7 @@ export function CsIntakeLog({ caseId, customerRef, subjectRef, title }: {
         <>
           <ul className="space-y-1 text-sm">
             {items.map((x) => (
-              <li key={x.intakeId} className="rounded-box border border-base-300 bg-base-100 p-2" data-testid="cs-intake-row">
+              <li key={x.intakeId} className="rounded-box border border-base-300 bg-base-100 shadow-sm p-2" data-testid="cs-intake-row">
                 <div className="flex flex-wrap items-center gap-2 text-xs text-base-content/60">
                   <span className="badge badge-ghost badge-sm">{label(m.channelName, x.channel)}</span>
                   {x.callerRelation === 'PROXY' && <span className="badge badge-warning badge-sm">{m.relationName.PROXY}</span>}

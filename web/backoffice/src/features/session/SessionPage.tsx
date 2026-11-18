@@ -35,7 +35,7 @@ export function SessionPage() {
                 <dd>{session.centers.map((c) => centerDisplayName(session, c)).join(', ') || m.none}</dd>
               </dl>
               {session.roles.length === 0 && (
-                <p role="alert" className="alert alert-warning text-sm">
+                <p role="alert" className="alert alert-warning alert-soft text-sm">
                   {m.employeeLogin.noRoles}
                 </p>
               )}

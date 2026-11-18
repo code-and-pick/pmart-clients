@@ -99,7 +99,7 @@ function ReturnForm({ orderId }: { readonly orderId: string }) {
             submit();
           }}
         >
-          <fieldset className="space-y-2 rounded-box border border-base-300 bg-base-100 p-4" disabled={locked}>
+          <fieldset className="space-y-2 rounded-box border border-base-300 bg-base-100 shadow-sm p-4" disabled={locked}>
             <legend className="font-bold">{m.lines}</legend>
             <p className="text-xs text-base-content/60">{m.linesHint}</p>
             <DataTable>
@@ -140,7 +140,7 @@ function ReturnForm({ orderId }: { readonly orderId: string }) {
             </DataTable>
           </fieldset>
 
-          <fieldset className="space-y-2 rounded-box border border-base-300 bg-base-100 p-4" disabled={locked}>
+          <fieldset className="space-y-2 rounded-box border border-base-300 bg-base-100 shadow-sm p-4" disabled={locked}>
             <legend className="font-bold">{m.why}</legend>
             <label className="flex flex-col gap-1 text-sm">
               {m.reason}
@@ -173,7 +173,7 @@ function ReturnForm({ orderId }: { readonly orderId: string }) {
             </p>
           </fieldset>
 
-          <fieldset className="space-y-2 rounded-box border border-base-300 bg-base-100 p-4" disabled={locked}>
+          <fieldset className="space-y-2 rounded-box border border-base-300 bg-base-100 shadow-sm p-4" disabled={locked}>
             <legend className="font-bold">{messages.csIntake.method}</legend>
             <p className="text-xs text-base-content/60">{messages.csIntake.identityHint}</p>
             <div className="flex flex-wrap gap-3">
@@ -200,7 +200,7 @@ function ReturnForm({ orderId }: { readonly orderId: string }) {
           {code && REJECT_TEXT[code] && <p className="text-sm text-warning">{REJECT_TEXT[code]}</p>}
           <CommandFeedback command={create} unknown={{ body: m.unknown }}>
             {(c) => (
-              <div role="status" className="alert alert-success text-sm" data-testid="return-created">
+              <div role="status" className="alert alert-success alert-soft text-sm" data-testid="return-created">
                 <span>{m.created(label(messages.claims.stateName, c.state))}</span>
                 {c.claimId && (
                   <button type="button" className="btn btn-xs" onClick={() => void navigate(`/claims/${encodeURIComponent(c.claimId ?? '')}`)}>
@@ -225,7 +225,7 @@ export function ReturnIntakePage() {
     <section className="max-w-4xl space-y-4">
       <PageHeader title={m.title} description={m.intro} />
       <form
-        className="flex flex-wrap items-end gap-2 rounded-box border border-base-300 bg-base-100 p-3 text-sm"
+        className="flex flex-wrap items-end gap-2 rounded-box border border-base-300 bg-base-100 shadow-sm p-3 text-sm"
         onSubmit={(e) => {
           e.preventDefault();
           const v = draft.trim();
@@ -409,7 +409,7 @@ export function ClaimOfCase({ claimId }: { readonly claimId: string }) {
   });
   if (!claimId) return null;
   return (
-    <div className="space-y-2 rounded-box border border-base-300 bg-base-100 p-4 text-sm" data-testid="case-claim">
+    <div className="space-y-2 rounded-box border border-base-300 bg-base-100 shadow-sm p-4 text-sm" data-testid="case-claim">
       <h2 className="font-bold">
         {m.caseClaim}{' '}
         <Link className="link font-mono" to={`/claims/${encodeURIComponent(claimId)}`}>

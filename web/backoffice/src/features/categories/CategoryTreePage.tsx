@@ -102,7 +102,7 @@ function TreeView() {
 
   if (tree.error instanceof ProblemFailure && tree.error.problem.code === NOT_EFFECTIVE) {
     return (
-      <div role="status" data-state="not-effective" className="alert alert-warning">
+      <div role="status" data-state="not-effective" className="alert alert-warning alert-soft">
         {m.categories.notEffective}
       </div>
     );
@@ -448,7 +448,7 @@ function AdditionUpload() {
         {m.categories.additionSubmit}
       </button>
       {nothingToAdd ? (
-        <p role="status" className="alert alert-info text-sm">
+        <p role="status" className="alert alert-info alert-soft text-sm">
           {m.categories.additionNothing}
         </p>
       ) : conflict ? (
@@ -456,7 +456,7 @@ function AdditionUpload() {
           {m.categories.additionConflict}
         </p>
       ) : serverError ? (
-        <div role="alert" data-code="INTERNAL_ERROR" className="alert alert-warning flex-col items-start text-sm">
+        <div role="alert" data-code="INTERNAL_ERROR" className="alert alert-warning alert-soft flex-col items-start text-sm">
           <span>{m.categories.additionServerError}</span>
           {serverError.requestId && <span className="text-xs opacity-70 select-all">{m.requestId(serverError.requestId)}</span>}
         </div>

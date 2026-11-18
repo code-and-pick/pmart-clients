@@ -229,7 +229,7 @@ export function NewRiderComplaintPage() {
   return (
     <section className="max-w-2xl space-y-4">
       <PageHeader title={m.complaints.newTitle} description={m.complaints.newIntro} />
-      <form className="space-y-3 rounded-box border border-base-300 bg-base-100 p-4" onSubmit={submit} aria-label={m.complaints.newTitle}>
+      <form className="space-y-3 rounded-box border border-base-300 bg-base-100 shadow-sm p-4" onSubmit={submit} aria-label={m.complaints.newTitle}>
         <label className="block text-sm">
           {m.complaints.deliveryId}
           <input className="input input-sm mt-1 w-full" required maxLength={64} {...field('deliveryId')} />

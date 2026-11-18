@@ -154,7 +154,7 @@ export function SkuHandlingPage() {
       <PageHeader title={m.handlings.title} />
       <p className="text-xs text-base-content/60">{`${m.handlings.centerIdHint} ${m.handlings.defaultOff} ${m.handlings.saleHint}`}</p>
       {/* 관리자 형식(2026-11-18): 검색 조건 상자 — 줄마다 왼쪽 항목명 */}
-      <div className="divide-y divide-base-300 overflow-hidden rounded-box border border-base-300 bg-base-100">
+      <div className="divide-y divide-base-300 overflow-hidden rounded-box border border-base-300 bg-base-100 shadow-sm">
         <SearchRow label={m.handlings.centerId}>
           <select aria-label={m.handlings.centerType} className="select select-sm w-28" value={type} onChange={(e) => setParam('type', e.target.value)}>
             <option value="MFC">MFC</option>
@@ -237,7 +237,7 @@ export function SkuHandlingPage() {
       )}
 
       {selected.size > 0 && (
-        <div className="space-y-2 rounded-box border border-base-300 bg-base-100 p-4">
+        <div className="space-y-2 rounded-box border border-base-300 bg-base-100 shadow-sm p-4">
           <p className="text-sm">{`${m.handlings.batch} (${selected.size}) · ${m.handlings.batchAllOrNothing}`}</p>
           <div className="flex gap-2">
             <select aria-label={m.handlings.batch} className="select select-sm w-28" value={batchEnabled ? 'true' : 'false'} onChange={(e) => setBatchEnabled(e.target.value === 'true')}>

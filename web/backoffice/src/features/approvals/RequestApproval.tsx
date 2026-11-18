@@ -34,14 +34,14 @@ export function RequestApproval({
       <CommandFeedback command={cmd}>
         {(r) =>
           r.approvalId ? (
-            <div role="status" className="alert alert-success">
+            <div role="status" className="alert alert-success alert-soft">
               <span>{m.approvals.requested(r.approvalId)}</span>
               <Link className="link" to={`/approvals/${encodeURIComponent(r.approvalId)}`}>
                 {m.approvals.open}
               </Link>
             </div>
           ) : (
-            <div role="status" className="alert alert-info">
+            <div role="status" className="alert alert-info alert-soft">
               {m.approvals.requestedNoId}
             </div>
           )

@@ -234,7 +234,7 @@ export function CaseListPage() {
           </button>
         ))}
       </div>
-      <div className="overflow-hidden rounded-box border border-base-300 bg-base-100">
+      <div className="overflow-hidden rounded-box border border-base-300 bg-base-100 shadow-sm">
       <SearchRow label={m.cases.kind}>
       <label className="flex w-fit items-center gap-2 text-sm">
         <span className="sr-only">{m.cases.kind}</span>
@@ -360,7 +360,7 @@ function AssignForm({ c, onDone }: { readonly c: Case; readonly onDone: (c: Case
   const canPick = ((isCsCase(c) ? agent : team && !withAdminTeam(c)) || admin) && !c.assigneeId;
   if (!canPick && !admin) return null;
   return (
-    <div className="space-y-2 rounded-box border border-base-300 bg-base-100 p-3 text-sm">
+    <div className="space-y-2 rounded-box border border-base-300 bg-base-100 shadow-sm p-3 text-sm">
       {canPick && (
         <button type="button" className="btn btn-sm btn-primary" disabled={assign.busy} onClick={() => run(me)}>
           {m.cases.pick}
@@ -403,7 +403,7 @@ function CloseForm({ c, onDone, openFollowUps }: { readonly c: Case; readonly on
   });
   return (
     <form
-      className="space-y-2 rounded-box border border-base-300 bg-base-100 p-3 text-sm"
+      className="space-y-2 rounded-box border border-base-300 bg-base-100 shadow-sm p-3 text-sm"
       aria-label={m.cases.close}
       onSubmit={(e) => {
         e.preventDefault();
@@ -465,7 +465,7 @@ function ReasonForm({
   const code = cmd.phase.kind === 'rejected' && cmd.phase.failure instanceof ProblemFailure ? cmd.phase.failure.problem.code : undefined;
   return (
     <form
-      className="space-y-2 rounded-box border border-base-300 bg-base-100 p-3 text-sm"
+      className="space-y-2 rounded-box border border-base-300 bg-base-100 shadow-sm p-3 text-sm"
       aria-label={title}
       data-testid={testId}
       onSubmit={(e) => {
@@ -562,7 +562,7 @@ function HelpRequestOfCase({ c }: { readonly c: Case }) {
       <h2 className="font-bold">{m.cases.helpRequest}</h2>
       <QueryState state={toUiState(query)} onRetry={() => void query.refetch()}>
         {(h) => (
-          <dl className="grid grid-cols-[8rem_1fr] gap-x-4 gap-y-2.5 rounded-box border border-base-300 bg-base-100 px-5 py-4 text-sm [&_dt]:text-base-content/55" data-testid="case-help-request">
+          <dl className="grid grid-cols-[8rem_1fr] gap-x-4 gap-y-2.5 rounded-box border border-base-300 bg-base-100 shadow-sm px-5 py-4 text-sm [&_dt]:text-base-content/55" data-testid="case-help-request">
             <dt>{m.helpQueue.category}</dt>
             <dd>{label(m.helpQueue.categoryName, h.category)}</dd>
             <dt>{m.helpQueue.stage}</dt>
@@ -621,7 +621,7 @@ export function CaseDetailPage() {
           const canToSupport = !closed && deliverySide && adminTeam && admin;
           return (
             <>
-              <dl className="grid grid-cols-[8rem_1fr] gap-x-4 gap-y-2.5 rounded-box border border-base-300 bg-base-100 px-5 py-4 text-sm [&_dt]:text-base-content/55" data-testid="case-facts">
+              <dl className="grid grid-cols-[8rem_1fr] gap-x-4 gap-y-2.5 rounded-box border border-base-300 bg-base-100 shadow-sm px-5 py-4 text-sm [&_dt]:text-base-content/55" data-testid="case-facts">
                 <dt>{m.cases.kind}</dt>
                 <dd>{label(m.cases.kindName, c.kind)}</dd>
                 <dt>{m.cases.priority}</dt>
@@ -657,13 +657,13 @@ export function CaseDetailPage() {
               {c.kind === 'RETURN_RECOVERY_FAILED' && <ClaimOfCase claimId={c.subjectType === 'CLAIM' && c.subjectRef ? c.subjectRef : ((c.refs ?? []).find((r) => r.refType === 'claimId')?.refId ?? '')} />}
 
               {(c.refs ?? []).some((r) => r.refType === 'recoveryDeliveryId' || r.refType === 'reshipmentDeliveryId') && (
-                <p role="note" className="alert alert-info text-sm" data-testid="case-recovery-note">
+                <p role="note" className="alert alert-info alert-soft text-sm" data-testid="case-recovery-note">
                   {m.cases.recoveryNote}
                 </p>
               )}
 
               {isOrderKind(c.kind) && (
-                <div className="space-y-1 rounded-box border border-base-300 bg-base-100 p-3 text-sm" data-testid="case-order-note">
+                <div className="space-y-1 rounded-box border border-base-300 bg-base-100 shadow-sm p-3 text-sm" data-testid="case-order-note">
                   <p className="opacity-70">{m.cases.orderNote}</p>
                   <Link className="link" to="/pending">
                     {m.cases.orderAction}
@@ -673,7 +673,7 @@ export function CaseDetailPage() {
 
               {!admin && !team && !(agent && csCase) && <p className="text-sm text-base-content/60">{m.cases.viewOnly}</p>}
               {adminTeam && !admin && (
-                <p role="note" className="alert alert-warning text-sm">
+                <p role="note" className="alert alert-warning alert-soft text-sm">
                   {m.cases.adminHandlingNote}
                 </p>
               )}
@@ -687,7 +687,7 @@ export function CaseDetailPage() {
               {c.closure && (
                 <>
                   <h2 className="font-bold">{closed ? m.cases.closure : m.cases.lastClosure}</h2>
-                  <p className="rounded-box border border-base-300 bg-base-100 p-3 text-sm" data-testid="case-closure">
+                  <p className="rounded-box border border-base-300 bg-base-100 shadow-sm p-3 text-sm" data-testid="case-closure">
                     {`${label(m.cases.resolutionName, c.closure.resolution)} · ${text(c.closure.summary)} · ${text(c.closure.closedBy)} · ${when(c.closure.closedAt)}`}
                   </p>
                 </>
@@ -709,7 +709,7 @@ export function CaseDetailPage() {
               <h2 className="font-bold">{m.cases.history}</h2>
               <ul className="space-y-1 text-sm">
                 {(c.history ?? []).map((h, i) => (
-                  <li key={`${h.at ?? ''}-${i}`} className="rounded-box border border-base-300 bg-base-100 p-2">
+                  <li key={`${h.at ?? ''}-${i}`} className="rounded-box border border-base-300 bg-base-100 shadow-sm p-2">
                     {`${when(h.at)} · ${h.action ? label(m.cases.actionName, h.action) : text(h.action)} · ${text(h.actorId)}${h.toState ? ` → ${label(m.cases.stateName, h.toState)}` : ''}${h.note ? ` · ${h.note}` : ''}`}
                   </li>
                 ))}
@@ -819,7 +819,7 @@ export function NewMisdeliveryPage() {
     <section className="max-w-2xl space-y-4">
       <PageHeader title={m.cases.newTitle} description={m.cases.newIntro} />
       <form
-        className="space-y-3 rounded-box border border-base-300 bg-base-100 p-4 text-sm"
+        className="space-y-3 rounded-box border border-base-300 bg-base-100 shadow-sm p-4 text-sm"
         onSubmit={(e) => {
           e.preventDefault();
           if (!ok) return;

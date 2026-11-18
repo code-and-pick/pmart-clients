@@ -157,7 +157,7 @@ export function CaseSlaPage() {
       </SearchPanel>
 
       {badRequest ? (
-        <p role="alert" className="alert alert-warning text-sm" data-testid="case-sla-bad-range">
+        <p role="alert" className="alert alert-warning alert-soft text-sm" data-testid="case-sla-bad-range">
           {badRequest}
         </p>
       ) : unreachable ? (

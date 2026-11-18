@@ -99,7 +99,7 @@ export function ProductListPage() {
     <section className="space-y-4">
       <PageHeader title={m.products.listTitle} />
       {/* 관리자 형식(2026-11-18): 검색 조건 상자 — 줄마다 왼쪽 항목명 */}
-      <div className="overflow-hidden rounded-box border border-base-300 bg-base-100 divide-y divide-base-300">
+      <div className="overflow-hidden rounded-box border border-base-300 bg-base-100 shadow-sm divide-y divide-base-300">
       <SearchRow label={m.products.quickFind}>
         <Lookup />
       </SearchRow>

@@ -70,7 +70,7 @@ function RiderBasic({ rider }: { readonly rider: StaffRiderDetail }) {
         </div>
       ) : (
         <form
-          className="space-y-2 rounded-box border border-base-300 bg-base-100 p-3 text-sm"
+          className="space-y-2 rounded-box border border-base-300 bg-base-100 shadow-sm p-3 text-sm"
           aria-label={m.riders.pii.title}
           onSubmit={(e) => {
             e.preventDefault();

@@ -120,7 +120,7 @@ function WriteForm() {
         void cmd.run(null);
       }}
     >
-      <div className="flex flex-wrap items-end gap-2 rounded-box border border-base-300 bg-base-100 p-3 text-sm">
+      <div className="flex flex-wrap items-end gap-2 rounded-box border border-base-300 bg-base-100 shadow-sm p-3 text-sm">
         {admin && (
           <>
             <label className="flex flex-col gap-1">
@@ -163,7 +163,7 @@ function WriteForm() {
               const id = c.caseId ?? '';
               const row = rowOf(id);
               return (
-                <li key={id} className="space-y-1 rounded-box border border-base-300 bg-base-100 p-3 text-sm" data-testid="handover-case">
+                <li key={id} className="space-y-1 rounded-box border border-base-300 bg-base-100 shadow-sm p-3 text-sm" data-testid="handover-case">
                   <label className="flex items-center gap-2">
                     <input type="checkbox" className="checkbox checkbox-sm" checked={row.picked} onChange={(e) => setRow(id, { picked: e.target.checked })} />
                     <span className="badge badge-ghost badge-sm">{text(c.priority)}</span>
@@ -269,7 +269,7 @@ function HandoverCard({ h, mode }: { readonly h: Handover; readonly mode: 'inbox
   const canAccept = pending && h.toOperatorId === me && mode === 'inbox';
   const canCancel = pending && (h.fromOperatorId === me || h.createdBy === me || admin) && mode !== 'inbox';
   return (
-    <li className="space-y-2 rounded-box border border-base-300 bg-base-100 p-3 text-sm" data-testid="handover" data-state={h.state}>
+    <li className="space-y-2 rounded-box border border-base-300 bg-base-100 shadow-sm p-3 text-sm" data-testid="handover" data-state={h.state}>
       <div className="flex flex-wrap items-center gap-2">
         <span className="font-mono">{h.shiftHandoverId}</span>
         <span className="badge badge-sm">{label(m.stateName, h.state)}</span>
@@ -320,7 +320,7 @@ function HandoverCard({ h, mode }: { readonly h: Handover; readonly mode: 'inbox
           </button>
           {accept.phase.kind === 'rejected' && accept.phase.failure instanceof ProblemFailure && accept.phase.failure.problem.code === 'FORBIDDEN' ? (
             // 0.13.1: 후임에게 그 팀 역할이 없으면 403 — 인계서는 받기 전 그대로
-            <p role="alert" className="alert alert-warning text-sm" data-testid="handover-accept-forbidden">
+            <p role="alert" className="alert alert-warning alert-soft text-sm" data-testid="handover-accept-forbidden">
               {m.acceptForbidden}
             </p>
           ) : (

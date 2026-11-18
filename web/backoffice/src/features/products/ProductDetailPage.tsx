@@ -66,7 +66,7 @@ function SaleStateChange({ product }: { readonly product: ProductDetail }) {
 
   const stop = saleState === 'SALE_STOPPED';
   return (
-    <div className="space-y-3 rounded-box border border-base-300 bg-base-100 p-4">
+    <div className="space-y-3 rounded-box border border-base-300 bg-base-100 shadow-sm p-4">
       <h2 className="font-bold">{m.products.changeSaleState}</h2>
       <div className="flex flex-wrap items-end gap-2">
         <label className="flex flex-col text-sm">
@@ -123,7 +123,7 @@ function SaleStateChange({ product }: { readonly product: ProductDetail }) {
       )}
       <CommandFeedback command={change}>
         {() => (
-          <div role="status" className="alert alert-success">
+          <div role="status" className="alert alert-success alert-soft">
             {m.products.changeApplied}
           </div>
         )}
@@ -153,7 +153,7 @@ function EditStart({ productId }: { readonly productId: string }) {
   // 0.3.2: MD 가 아니면 403 — 일반 권한 문구 대신 'MD 만' 안내(백엔드 알림 2026-11-17 notice-product-edit-md-only)
   const notMd = failure instanceof ProblemFailure && failure.problem.code === 'FORBIDDEN';
   return (
-    <div className="space-y-2 rounded-box border border-base-300 bg-base-100 p-4">
+    <div className="space-y-2 rounded-box border border-base-300 bg-base-100 shadow-sm p-4">
       <div className="flex flex-wrap items-center gap-3">
         <button type="button" className="btn btn-sm" disabled={start.busy} onClick={() => void start.run(null)}>
           {m.products.editStart}
@@ -161,14 +161,14 @@ function EditStart({ productId }: { readonly productId: string }) {
         <span className="text-xs text-base-content/60">{m.products.editStartHint}</span>
       </div>
       {existing ? (
-        <div role="alert" className="alert alert-warning text-sm" data-testid="product-edit-exists">
+        <div role="alert" className="alert alert-warning alert-soft text-sm" data-testid="product-edit-exists">
           <span>{m.products.editDraftExists}</span>
           <Link className="link" to={`/products/drafts/${encodeURIComponent(existing)}`}>
             {m.products.editDraftOpen(existing)}
           </Link>
         </div>
       ) : notMd ? (
-        <div role="alert" className="alert alert-warning text-sm" data-testid="product-edit-not-md">
+        <div role="alert" className="alert alert-warning alert-soft text-sm" data-testid="product-edit-not-md">
           {m.products.editForbidden}
         </div>
       ) : (
@@ -194,7 +194,7 @@ export function ProductDetailPage() {
       <QueryState state={toUiState(query)} onRetry={() => void query.refetch()}>
         {(p) => (
           <>
-            <dl className="grid grid-cols-[10rem_1fr] gap-1 rounded-box border border-base-300 bg-base-100 p-4 text-sm">
+            <dl className="grid grid-cols-[10rem_1fr] gap-1 rounded-box border border-base-300 bg-base-100 shadow-sm p-4 text-sm">
               <dt>{m.products.internalName}</dt>
               <dd>{p.internalName ?? m.none}</dd>
               <dt>{m.products.saleState}</dt>
@@ -225,7 +225,7 @@ export function ProductDetailPage() {
             {canChangeSaleState ? (
               <EditStart productId={productId} />
             ) : (
-              <p className="rounded-box border border-base-300 bg-base-100 p-4 text-sm text-base-content/60">{m.products.editMdOnly}</p>
+              <p className="rounded-box border border-base-300 bg-base-100 shadow-sm p-4 text-sm text-base-content/60">{m.products.editMdOnly}</p>
             )}
             <h2 className="font-bold">{m.products.skus}</h2>
             <DataTable>
@@ -261,7 +261,7 @@ export function ProductDetailPage() {
             {canChangeSaleState ? (
               <SaleStateChange key={p.productId} product={p} />
             ) : (
-              <p className="rounded-box border border-base-300 bg-base-100 p-4 text-sm text-base-content/60">{m.products.saleStateMdOnly}</p>
+              <p className="rounded-box border border-base-300 bg-base-100 shadow-sm p-4 text-sm text-base-content/60">{m.products.saleStateMdOnly}</p>
             )}
           </>
         )}

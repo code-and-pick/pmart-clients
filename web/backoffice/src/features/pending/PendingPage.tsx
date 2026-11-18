@@ -299,7 +299,7 @@ export function PendingPage() {
             <SourceStamps sources={view.sources} unavailableSources={view.unavailableSources} />
             {/* bff 0.9.1 — MFC 목록이 1,000건을 넘어 뒤를 못 읽었다 */}
             {view.truncated && (
-              <p role="alert" className="alert alert-warning text-sm" data-testid="pending-truncated">
+              <p role="alert" className="alert alert-warning alert-soft text-sm" data-testid="pending-truncated">
                 {m.pending.truncated}
               </p>
             )}

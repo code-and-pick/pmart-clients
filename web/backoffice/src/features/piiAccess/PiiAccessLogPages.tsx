@@ -108,7 +108,7 @@ export function PiiAccessLogListPage() {
       <PageHeader title={m.title} description={m.intro} />
       <FilterForm key={params.toString()} initial={filters} onApply={(f) => apply(f)} />
       {badRange ? (
-        <p role="alert" className="alert alert-warning text-sm">
+        <p role="alert" className="alert alert-warning alert-soft text-sm">
           {m.badRange}
         </p>
       ) : (

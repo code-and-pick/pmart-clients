@@ -154,7 +154,7 @@ export function OrderCancelForm({ order, caseRef: initialCaseRef = '', onClose }
         {code === 'DUPLICATE_CLAIM' && <p className="text-sm text-warning">{m.duplicate}</p>}
         <CommandFeedback command={create} unknown={{ body: m.unknown }}>
           {(c) => (
-            <div role="status" className="alert alert-success text-sm" data-testid="order-cancel-created">
+            <div role="status" className="alert alert-success alert-soft text-sm" data-testid="order-cancel-created">
               <span>{m.created(label(messages.claims.stateName, c.state))}</span>
               {c.claimId && (
                 <button type="button" className="btn btn-xs" onClick={() => void navigate(`/claims/${encodeURIComponent(c.claimId ?? '')}`)}>

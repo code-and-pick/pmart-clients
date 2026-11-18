@@ -106,10 +106,10 @@ function SourceLine({ source }: { readonly source: SourceStamp | undefined }) {
 
 function Section({ title, failed, children }: { readonly title: string; readonly failed: boolean; readonly children: ReactNode }) {
   return (
-    <section className="space-y-2 rounded-box border border-base-300 bg-base-100 p-4" aria-label={title}>
+    <section className="space-y-2 rounded-box border border-base-300 bg-base-100 shadow-sm p-4" aria-label={title}>
       <h2 className="font-semibold">{title}</h2>
       {failed ? (
-        <p role="alert" className="alert alert-warning text-sm" data-state="source-failed">
+        <p role="alert" className="alert alert-warning alert-soft text-sm" data-state="source-failed">
           {m.sourceFailed}
         </p>
       ) : (
@@ -144,7 +144,7 @@ export function UnifiedLookupPage() {
     <section className="max-w-5xl space-y-4">
       <PageHeader title={m.title} description={m.intro} />
       <form
-        className="flex flex-wrap items-end gap-2 rounded-box border border-base-300 bg-base-100 p-3 text-sm"
+        className="flex flex-wrap items-end gap-2 rounded-box border border-base-300 bg-base-100 shadow-sm p-3 text-sm"
         aria-label={m.search}
         onSubmit={(e) => {
           e.preventDefault();

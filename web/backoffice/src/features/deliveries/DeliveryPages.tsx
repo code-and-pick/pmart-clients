@@ -169,7 +169,7 @@ export function DeliveryOpenPage() {
     <section className="max-w-5xl space-y-4">
       <PageHeader title={m.deliveries.title} description={m.deliveries.intro} />
       {/* 관리자 형식(2026-11-18): 검색 조건 상자 — 줄마다 왼쪽 항목명 */}
-      <div className="overflow-hidden rounded-box border border-base-300 bg-base-100">
+      <div className="overflow-hidden rounded-box border border-base-300 bg-base-100 shadow-sm">
         <SearchRow label={m.deliveries.quickOpen}>
           <form className="flex flex-wrap gap-2" onSubmit={open} aria-label={m.deliveries.open}>
             <input aria-label={m.deliveries.deliveryId} placeholder={m.deliveries.deliveryId} className="input input-sm w-64" value={id} onChange={(e) => setId(e.target.value)} />
@@ -258,7 +258,7 @@ function FailureDecisionForm({ delivery }: { readonly delivery: DeliveryExecutio
 
   return (
     <form
-      className="space-y-2 rounded-box border border-base-300 bg-base-100 p-4"
+      className="space-y-2 rounded-box border border-base-300 bg-base-100 shadow-sm p-4"
       aria-label={m.deliveries.decideTitle}
       onSubmit={(e) => {
         e.preventDefault();
@@ -359,7 +359,7 @@ function CancellationForm({ dispatch }: { readonly dispatch: DispatchView }) {
 
   return (
     <form
-      className="space-y-2 rounded-box border border-base-300 bg-base-100 p-4"
+      className="space-y-2 rounded-box border border-base-300 bg-base-100 shadow-sm p-4"
       aria-label={m.deliveries.cancelTitle}
       onSubmit={(e) => {
         e.preventDefault();

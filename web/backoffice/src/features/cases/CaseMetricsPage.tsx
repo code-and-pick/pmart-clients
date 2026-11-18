@@ -105,7 +105,7 @@ export function CaseMetricsPage() {
               ) : (
                 <ul className="space-y-1 text-sm">
                   {r.obligations.map((o) => (
-                    <li key={o.owner} className="rounded-box border border-base-300 bg-base-100 p-2" data-testid="metrics-obligation">
+                    <li key={o.owner} className="rounded-box border border-base-300 bg-base-100 shadow-sm p-2" data-testid="metrics-obligation">
                       {`${label(messages.cases.groupName, o.owner)} · ${m.open} `}
                       <Count n={o.open} />
                       {` · ${m.overdue} `}
@@ -117,7 +117,7 @@ export function CaseMetricsPage() {
               )}
 
               <h2 className="font-bold">{m.handoversTitle}</h2>
-              <p className="rounded-box border border-base-300 bg-base-100 p-2 text-sm" data-testid="metrics-handovers">
+              <p className="rounded-box border border-base-300 bg-base-100 shadow-sm p-2 text-sm" data-testid="metrics-handovers">
                 {m.pendingHandovers}{' '}
                 <Count n={r.pendingHandovers} to="/cases/handovers?tab=unreceived" />
               </p>
@@ -128,7 +128,7 @@ export function CaseMetricsPage() {
                   const row = r.inquiries.find((i) => i.requesterType === t);
                   const n = row?.awaitingAnswer ?? 0;
                   return (
-                    <li key={t} className="rounded-box border border-base-300 bg-base-100 p-2" data-testid="metrics-inquiry" data-type={t}>
+                    <li key={t} className="rounded-box border border-base-300 bg-base-100 shadow-sm p-2" data-testid="metrics-inquiry" data-type={t}>
                       {`${m.inquiryName[t]} · ${m.awaiting} `}
                       <Count n={n} to={`${t === 'RIDER' ? '/rider-inquiries' : '/inquiries'}?status=RECEIVED`} />
                       {row?.oldestReceivedAt && <span className="opacity-70">{` · ${m.oldest(when(row.oldestReceivedAt))}`}</span>}

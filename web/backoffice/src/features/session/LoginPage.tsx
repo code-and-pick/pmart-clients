@@ -85,7 +85,7 @@ export function LoginPage() {
           </p>
         )}
         {signOutUnconfirmed && (
-          <p role="alert" className="alert alert-warning text-sm">
+          <p role="alert" className="alert alert-warning alert-soft text-sm">
             {m.employeeLogin.signOutUnconfirmed}
           </p>
         )}

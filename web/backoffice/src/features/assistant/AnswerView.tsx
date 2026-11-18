@@ -135,15 +135,15 @@ export function AnswerView({
   }
 
   return (
-    <article data-state="answered" className="space-y-3 rounded-box border border-base-300 bg-base-100 p-4">
+    <article data-state="answered" className="space-y-3 rounded-box border border-base-300 bg-base-100 shadow-sm p-4">
       {question && <p className="text-sm opacity-70 whitespace-pre-wrap">{`Q. ${question}`}</p>}
       {isBaseline(answer) && (
-        <p role="note" data-testid="baseline" className="alert alert-warning text-xs">
+        <p role="note" data-testid="baseline" className="alert alert-warning alert-soft text-xs">
           {m.assistant.baseline}
         </p>
       )}
       {answer.answerMode === 'GENERATIVE' && (
-        <p role="note" data-testid="generative" className="alert alert-info text-xs">
+        <p role="note" data-testid="generative" className="alert alert-info alert-soft text-xs">
           {m.assistant.generative}
         </p>
       )}
@@ -157,7 +157,7 @@ export function AnswerView({
       </div>
       <h2 className="font-bold">{m.assistant.citations}</h2>
       {answer.citations.length === 0 ? (
-        <p role="alert" className="alert alert-warning text-sm">
+        <p role="alert" className="alert alert-warning alert-soft text-sm">
           {m.assistant.ungroundedAnswer}
         </p>
       ) : (

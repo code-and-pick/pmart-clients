@@ -264,7 +264,7 @@ export function ProductDraftForm({
 
   return (
     <form
-      className="space-y-4 rounded-box border border-base-300 bg-base-100 p-4"
+      className="space-y-4 rounded-box border border-base-300 bg-base-100 shadow-sm p-4"
       onSubmit={(e) => {
         e.preventDefault();
         if (v.internalName.trim()) onSubmit(toInput(v, initial));

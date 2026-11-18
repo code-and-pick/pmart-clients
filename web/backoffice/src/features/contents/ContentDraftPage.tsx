@@ -117,7 +117,7 @@ function ContentForm({
 
   return (
     <form
-      className="grid gap-3 rounded-box border border-base-300 bg-base-100 p-4 md:grid-cols-2"
+      className="grid gap-3 rounded-box border border-base-300 bg-base-100 shadow-sm p-4 md:grid-cols-2"
       onSubmit={(e) => {
         e.preventDefault();
         const notices = v.notices
@@ -229,7 +229,7 @@ export function NewContentDraftPage() {
         busy={create.busy}
         onSubmit={(input) => void create.run(input)}
       />
-      <div className="space-y-2 rounded-box border border-base-300 bg-base-100 p-4">
+      <div className="space-y-2 rounded-box border border-base-300 bg-base-100 shadow-sm p-4">
         <h2 className="font-bold">{m.contents.images}</h2>
         <p className="text-sm opacity-80">{m.contents.imageAfterSave}</p>
         <ImagePicker pending={pending} onChange={setPending} disabled={create.busy} />
@@ -350,7 +350,7 @@ export function ContentDraftPage() {
             )}
             <CommandFeedback command={update} />
 
-            <div className="space-y-2 rounded-box border border-base-300 bg-base-100 p-4">
+            <div className="space-y-2 rounded-box border border-base-300 bg-base-100 shadow-sm p-4">
               <h2 className="font-bold">{m.contents.images}</h2>
               {d.state === 'DRAFT' ? (
                 <DraftImages key={d.images?.length ?? 0} draft={d} />

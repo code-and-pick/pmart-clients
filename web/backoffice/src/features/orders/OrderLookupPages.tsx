@@ -147,7 +147,7 @@ export function OrderLookupPage() {
         <QueryState state={toUiState(query)} onRetry={() => void query.refetch()}>
           {(r) =>
             r.items.length === 0 ? (
-              <p className="rounded-box border border-base-300 bg-base-100 px-5 py-8 text-center text-sm text-base-content/60">{m.orders.empty}</p>
+              <p className="rounded-box border border-base-300 bg-base-100 shadow-sm px-5 py-8 text-center text-sm text-base-content/60">{m.orders.empty}</p>
             ) : (
               <>
                 {/* 전체 건수는 서버가 세지 않는다(page.hasNext) — 이 쪽 건수만 */}

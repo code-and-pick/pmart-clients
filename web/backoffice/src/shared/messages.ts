@@ -1264,6 +1264,8 @@ export const messages = {
     openDraft: '초안 ID로 열기',
     importTitle: '상품 일괄 등록(seed-v1)',
     zipFile: 'seed-v1.zip',
+    zipHint: '눌러서 seed-v1.zip 을 고르세요. 올리면 서버가 검사하고 배치 화면으로 넘어가요.',
+    zipChosen: (name: string, kb: number) => `고른 파일: ${name} (${kb.toLocaleString('ko-KR')}KB)`,
     upload: '업로드·검증',
     uploadAnother: '다른 파일 올리기',
     batch: (id: string) => `배치 ${id}`,

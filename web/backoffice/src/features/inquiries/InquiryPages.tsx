@@ -64,7 +64,7 @@ export function InquiryListPage({ kind = 'CUSTOMER' }: { readonly kind?: Request
     <section className="space-y-5">
       {/* 관리자 형식(2026-11-18): 머리말 → 거르기 상자(상태 칩 — 누르면 바로 서버에 묻는다) → 결과 줄·표 */}
       <PageHeader title={rider ? m.inquiries.riderTitle : m.inquiries.title} description={rider ? m.inquiries.riderIntro : m.inquiries.intro} />
-      <div className="overflow-hidden rounded-box border border-base-300 bg-base-100">
+      <div className="overflow-hidden rounded-box border border-base-300 bg-base-100 shadow-sm">
         <SearchRow label={m.inquiries.statusLabel}>
           <ChipGroup
             label={m.inquiries.statusFilter}
@@ -381,7 +381,7 @@ export function InquiryDetailPage({ kind = 'CUSTOMER' }: { readonly kind?: Reque
             </Section>
 
             {q.callerRelation === 'PROXY' && (
-              <p role="alert" className="alert alert-warning text-sm" data-testid="inquiry-proxy-warning">
+              <p role="alert" className="alert alert-warning alert-soft text-sm" data-testid="inquiry-proxy-warning">
                 {m.inquiries.proxyWarning}
               </p>
             )}

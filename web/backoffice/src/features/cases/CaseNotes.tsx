@@ -88,7 +88,7 @@ export function CaseNotes({ caseId }: { readonly caseId: string }) {
         {(r) => (
           <ul className="space-y-1 text-sm">
             {(r.items ?? []).map((n) => (
-              <li key={n.noteId} className="space-y-1 rounded-box border border-base-300 bg-base-100 p-2" data-testid="case-note" data-masked={n.masked ? 'true' : 'false'}>
+              <li key={n.noteId} className="space-y-1 rounded-box border border-base-300 bg-base-100 shadow-sm p-2" data-testid="case-note" data-masked={n.masked ? 'true' : 'false'}>
                 <div className="flex flex-wrap items-center gap-2 text-xs text-base-content/60">
                   <span>{when(n.createdAt)}</span>
                   <span className="font-mono">{text(n.authorId)}</span>

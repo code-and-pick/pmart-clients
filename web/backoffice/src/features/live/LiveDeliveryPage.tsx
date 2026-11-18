@@ -129,7 +129,7 @@ export function LiveDeliveryPage() {
   return (
     <section className="space-y-4">
       <PageHeader title={m.title} description={m.intro} />
-      <div className="flex flex-wrap items-end gap-2 rounded-box border border-base-300 bg-base-100 p-3 text-sm" role="group" aria-label={m.filters}>
+      <div className="flex flex-wrap items-end gap-2 rounded-box border border-base-300 bg-base-100 shadow-sm p-3 text-sm" role="group" aria-label={m.filters}>
         <label className="flex flex-col gap-1">
           {m.center}
           <select className="select select-sm w-48" value={mfcId} onChange={(e) => set({ mfcId: e.target.value })}>
@@ -171,12 +171,12 @@ export function LiveDeliveryPage() {
             <div className="space-y-3">
               <SourceStamps sources={view.sources} unavailableSources={view.unavailableSources} />
               {view.casesTruncated && (
-                <p role="status" className="alert alert-warning text-sm" data-state="cases-truncated">
+                <p role="status" className="alert alert-warning alert-soft text-sm" data-state="cases-truncated">
                   {m.casesTruncated}
                 </p>
               )}
               {view.truncated && (
-                <p role="status" className="alert alert-info text-sm" data-state="truncated">
+                <p role="status" className="alert alert-info alert-soft text-sm" data-state="truncated">
                   {m.truncated}
                 </p>
               )}

@@ -28,3 +28,11 @@
   --radius-field: 0.375rem;
   --radius-selector: 1rem;
 }
+
+/* 상세 화면의 항목 목록(dl): 이름은 옅게, 줄 사이를 넓게(2026-11-18 화면 다듬기 — FieldList 와 같은 모양) */
+main dl.grid > dt {
+  color: color-mix(in oklab, var(--color-base-content) 55%, transparent);
+}
+main dl.grid {
+  row-gap: 0.55rem;
+}

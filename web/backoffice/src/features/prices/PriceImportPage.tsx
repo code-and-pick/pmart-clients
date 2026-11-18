@@ -248,7 +248,7 @@ export function PriceImportPage() {
             </div>
 
             {b.state === 'DRAFT' && (
-              <div className="space-y-3 rounded-box border border-base-300 bg-base-100 p-4">
+              <div className="space-y-3 rounded-box border border-base-300 bg-base-100 shadow-sm p-4">
                 <div className="flex flex-wrap items-center gap-2">
                   <button type="button" className="btn btn-sm" disabled={refresh.busy || submit.busy} onClick={() => void refresh.run(b.version)}>
                     {m.prices.refresh}

@@ -22,7 +22,7 @@ const MAX_QUESTION = 2000; // 계약 PolicyQuestion.question maxLength
 
 function NotConnected() {
   return (
-    <div role="status" data-state="not-connected" className="alert alert-info flex-col items-start">
+    <div role="status" data-state="not-connected" className="alert alert-info alert-soft flex-col items-start">
       <span className="font-bold">{m.assistant.notConnectedTitle}</span>
       <span>{m.assistant.notConnectedBody}</span>
     </div>
@@ -131,7 +131,7 @@ function AskView() {
       {port.mockHints && <p className="text-xs opacity-60">{m.assistant.mockTags(port.mockHints.join(' '))}</p>}
 
       <form
-        className="space-y-2 rounded-box border border-base-300 bg-base-100 p-4"
+        className="space-y-2 rounded-box border border-base-300 bg-base-100 shadow-sm p-4"
         onSubmit={(e) => {
           e.preventDefault();
           if (canSend) void ask.run({ q: trimmed });

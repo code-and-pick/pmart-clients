@@ -51,7 +51,7 @@ function ObligationItem({ o, caseGroup, onChanged }: { readonly o: Obligation; r
   const roles = useRoles();
   const [open, setOpen] = useState(false);
   return (
-    <li className="space-y-1 rounded-box border border-base-300 bg-base-100 p-3 text-sm" data-testid="follow-up" data-state={o.state}>
+    <li className="space-y-1 rounded-box border border-base-300 bg-base-100 shadow-sm p-3 text-sm" data-testid="follow-up" data-state={o.state}>
       <div className="flex flex-wrap items-center gap-2">
         <span className="font-semibold">{label(m.kindName, o.kind)}</span>
         <span className="badge badge-ghost badge-sm">{label(messages.cases.groupName, o.owner ?? caseGroup)}</span>
@@ -220,7 +220,7 @@ function AddForm({ c, onDone }: { readonly c: Case; readonly onDone: () => void 
   });
   return (
     <form
-      className="space-y-2 rounded-box border border-base-300 bg-base-100 p-3 text-sm"
+      className="space-y-2 rounded-box border border-base-300 bg-base-100 shadow-sm p-3 text-sm"
       aria-label={m.add}
       data-testid="follow-up-add"
       onSubmit={(e) => {

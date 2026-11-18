@@ -7,7 +7,10 @@
 // - 표: 회색 머리줄, 줄 전체 누르면 상세
 // - 상세: 제목·표시·요약 + 오른쪽 동작 버튼, 그 아래 구역 상자(제목 줄 + 항목명/값 줄), 구역으로 가는 밑줄 탭
 import type { FormEvent, ReactNode } from 'react';
-import { Link } from 'react-router';
+import { Link, useLocation } from 'react-router';
+
+import { GroupIcon } from '../app/groupIcons';
+import { covers, navGroups } from '../app/nav';
 
 export type Tone = 'neutral' | 'info' | 'success' | 'warning' | 'error' | 'accent' | 'ghost';
 
@@ -32,7 +35,16 @@ export function StatusBadge({ tone = 'ghost', children, testId }: { readonly ton
 }
 
 /** 쪽 머리말 — h1 은 화면마다 하나 */
+/** 지금 주소가 속한 메뉴 묶음(쪽 제목 아이콘용 — 가장 긴 메뉴 경로) */
+function useGroupId(): string | null {
+  const { pathname } = useLocation();
+  let best: { id: string; len: number } | null = null;
+  for (const g of navGroups) for (const i of g.items) if (covers(i, pathname) && (!best || i.to.length > best.len)) best = { id: g.id, len: i.to.length };
+  return best?.id ?? null;
+}
+
 export function PageHeader({ title, description, actions, back }: { readonly title: ReactNode; readonly description?: ReactNode; readonly actions?: ReactNode; readonly back?: { readonly to: string; readonly label: string } }) {
+  const group = useGroupId();
   return (
     <header className="space-y-1">
       {back && (
@@ -42,9 +54,17 @@ export function PageHeader({ title, description, actions, back }: { readonly tit
         </Link>
       )}
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0 space-y-1">
-          <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
-          {description && <p className="text-sm text-base-content/60">{description}</p>}
+        <div className="flex min-w-0 items-start gap-3">
+          {/* 쪽 제목 아이콘 — 왼쪽 메뉴 묶음과 같은 아이콘(2026-11-18 화면 다듬기) */}
+          {group && (
+            <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary" aria-hidden="true">
+              <GroupIcon id={group} className="h-5 w-5" />
+            </span>
+          )}
+          <div className="min-w-0 space-y-1">
+            <h1 className="text-xl font-bold tracking-tight">{title}</h1>
+            {description && <p className="text-sm text-base-content/60">{description}</p>}
+          </div>
         </div>
         {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
       </div>

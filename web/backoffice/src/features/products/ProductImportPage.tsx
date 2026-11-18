@@ -36,7 +36,7 @@ export function BatchApprovals({ targetRef, pending }: { readonly targetRef: str
   const showRequest = !!pending && list.isSuccess && (found.length === 0 || requested !== null);
 
   return (
-    <div className="space-y-2 rounded-box border border-base-300 bg-base-100 p-4" aria-label={m.products.approvals}>
+    <div className="space-y-2 rounded-box border border-base-300 bg-base-100 shadow-sm p-4" aria-label={m.products.approvals}>
       <h2 className="font-bold">{m.products.approvals}</h2>
       {ids.length > 0 && (
         <ul className="space-y-1 text-sm">
@@ -91,20 +91,32 @@ export function ZipUpload({
   readonly onUpload: (file: File) => void;
 }) {
   const [file, setFile] = useState<File | null>(null);
+  // 점선 파일 상자(2026-11-18 화면 다듬기) — 이름표·버튼 이름은 그대로
   return (
-    <div className="flex flex-wrap items-end gap-2 rounded-box border border-base-300 bg-base-100 p-4">
-      <label className="flex flex-col text-sm">
-        {m.products.zipFile}
+    <div className="space-y-4 rounded-box border border-base-300 bg-base-100 p-5 shadow-sm" data-testid="zip-upload">
+      <label
+        className={`flex cursor-pointer flex-col items-center gap-3 rounded-lg border-2 border-dashed px-6 py-8 text-center transition-colors ${file ? 'border-primary/40 bg-primary/5' : 'border-base-300 hover:border-primary/40 hover:bg-base-200/60'}`}
+      >
+        <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary" aria-hidden="true">
+          <svg viewBox="0 0 24 24" className="h-6 w-6 fill-none stroke-current" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 15V4m0 0-4 4m4-4 4 4M5 15v3a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-3" />
+          </svg>
+        </span>
+        <span className="font-semibold">{m.products.zipFile}</span>
         <input
           type="file"
           accept=".zip,application/zip"
-          className="file-input file-input-sm"
+          aria-label={m.products.zipFile}
+          className="file-input file-input-sm w-full max-w-sm"
           onChange={(e) => setFile(e.target.files?.[0] ?? null)}
         />
+        <span className="text-xs text-base-content/55">{file ? m.products.zipChosen(file.name, Math.max(1, Math.round(file.size / 1024))) : m.products.zipHint}</span>
       </label>
-      <button type="button" className="btn btn-primary btn-sm" disabled={!file || busy} onClick={() => file && onUpload(file)}>
-        {m.products.upload}
-      </button>
+      <div className="flex justify-end">
+        <button type="button" className="btn btn-primary btn-sm" disabled={!file || busy} onClick={() => file && onUpload(file)}>
+          {m.products.upload}
+        </button>
+      </div>
     </div>
   );
 }
@@ -262,7 +274,7 @@ export function ProductImportPage() {
             {(() => {
               const updates = (b.drafts ?? []).filter((d) => d.state === 'DRAFT' && d.registration === 'UPDATE').length;
               return updates > 0 ? (
-                <p role="status" className="alert alert-warning text-sm">
+                <p role="status" className="alert alert-warning alert-soft text-sm">
                   {m.products.updateNotice(updates)}
                 </p>
               ) : null;

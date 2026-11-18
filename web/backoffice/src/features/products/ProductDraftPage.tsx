@@ -112,7 +112,7 @@ export function ProductDraftPage() {
           <>
             {/* product 0.3.0 수정 초안(edit-drafts): input.targetProductId = 고칠 상품 */}
             {d.input?.targetProductId && (
-              <div className="space-y-1 rounded-box border border-base-300 bg-base-100 p-3 text-sm" data-testid="product-edit-note">
+              <div className="space-y-1 rounded-box border border-base-300 bg-base-100 shadow-sm p-3 text-sm" data-testid="product-edit-note">
                 <p className="font-bold">
                   {`${m.products.editOf} — `}
                   <Link className="link" to={`/products/${encodeURIComponent(d.input.targetProductId)}`}>
@@ -161,7 +161,7 @@ export function ProductDraftPage() {
                 </Link>
               </p>
             )}
-            <div className="rounded-box border border-base-300 bg-base-100 p-3 text-sm">
+            <div className="rounded-box border border-base-300 bg-base-100 shadow-sm p-3 text-sm">
               <h2 className="font-bold">{m.products.result}</h2>
               {d.state === 'APPLIED' && d.resultProductId ? (
                 <p>

@@ -182,7 +182,7 @@ export function ApprovalDetailPage() {
           const watchedOut = watching && updatesSinceDecision >= pollConfig.maxAttempts;
           return (
             <>
-              <dl className="grid grid-cols-[8rem_1fr] gap-1 rounded-box border border-base-300 bg-base-100 p-4 text-sm">
+              <dl className="grid grid-cols-[8rem_1fr] gap-1 rounded-box border border-base-300 bg-base-100 shadow-sm p-4 text-sm">
                 <dt>{m.approvals.type}</dt>
                 <dd>{a.type ?? m.none}</dd>
                 <dt>{m.approvals.target}</dt>
@@ -210,7 +210,7 @@ export function ApprovalDetailPage() {
                 </div>
               )}
               {watchedOut && (
-                <div role="status" className="alert alert-info">
+                <div role="status" className="alert alert-info alert-soft">
                   <span>{m.approvals.executionTimeout}</span>
                   <button type="button" className="btn btn-sm" onClick={() => void query.refetch()}>
                     {m.checkAgain}
@@ -262,7 +262,7 @@ export function ApprovalDetailPage() {
               </DataTable>
 
               {open && (
-                <div className="space-y-2 rounded-box border border-base-300 bg-base-100 p-4">
+                <div className="space-y-2 rounded-box border border-base-300 bg-base-100 shadow-sm p-4">
                   {own && <p className="text-warning text-sm">{m.approvals.selfApproval}</p>}
                   {grantToSelf && (
                     <p role="note" className="text-warning text-sm" data-testid="grant-to-self">
@@ -300,7 +300,7 @@ export function ApprovalDetailPage() {
               )}
               <CommandFeedback command={decide}>
                 {() => (
-                  <div role="status" className="alert alert-success">
+                  <div role="status" className="alert alert-success alert-soft">
                     {m.approvals.decided}
                   </div>
                 )}
