@@ -14,6 +14,8 @@ import 'push_tokens.dart';
 ///
 /// - 알림함 알림: data `notificationId`·`templateKey`·`type`·`ref`(HELP_REQUEST · INQUIRY · NONE).
 /// - 새 배차 제안: data `type: DISPATCH_OFFER`·`offerId`·`deliveryId`·`expiresAt`(알림함에는 없음).
+/// - 일반 배차모드 새 배달: data `type: DELIVERY_LIST`·`newCount`·`sentAt`(백엔드 PR #192 — 라이더마다 1분에 한 번까지,
+///   알림함에는 없음, 요청 2026-11-18 request-background-location-and-list-push §3). 누르면 배달리스트를 열고 다시 읽는다.
 /// 푸시 내용으로 상태를 확정하지 않는다 — 화면을 열 때 서버에서 다시 읽는다.
 @immutable
 class PushMessage {
@@ -46,6 +48,7 @@ class PushMessage {
   }
 
   static const dispatchOffer = 'DISPATCH_OFFER';
+  static const deliveryList = 'DELIVERY_LIST';
 
   final String? type;
   final String? ref;
@@ -55,12 +58,17 @@ class PushMessage {
   final String? body;
 
   bool get isOffer => type == dispatchOffer;
+  bool get isDeliveryList => type == deliveryList;
 }
+
+/// 배달리스트 화면 경로(일반 배차모드 대기 목록).
+const deliveryListRoute = '/deliveries';
 
 /// 누르면 갈 곳. 배차 제안은 홈(제안 카드 — 다시 읽는다), 알림함 알림은 알림함과 같은 곳,
 /// 목적지가 없으면 알림함. 모르는 것은 null(그대로 둔다).
 String? pushRoute(PushMessage m) {
   if (m.isOffer) return '/';
+  if (m.isDeliveryList) return deliveryListRoute;
   return switch (notificationTarget(m.type, m.ref)) {
     HelpRequestTarget(:final deliveryId, :final requestId) =>
       '/deliveries/$deliveryId/support/$requestId',
@@ -99,6 +107,9 @@ class PushHandler {
   void _refresh(PushMessage m) {
     if (m.isOffer) {
       unawaited(_ref.read(offerPollerProvider.notifier).refreshNow());
+    } else if (m.isDeliveryList) {
+      // 서버 목록을 다시 읽는다(푸시의 newCount 로 목록을 만들지 않는다)
+      _ref.invalidate(waitingListProvider);
     } else {
       _ref.invalidate(notificationInboxProvider);
     }
@@ -109,7 +120,7 @@ class PushHandler {
     _refresh(m);
     // 알림함 알림은 눌렀으니 읽음(실패해도 이동은 한다).
     final id = m.notificationId;
-    if (id != null && !m.isOffer) {
+    if (id != null && !m.isOffer && !m.isDeliveryList) {
       unawaited(
         _ref
             .read(notificationRepositoryProvider)
@@ -120,6 +131,8 @@ class PushHandler {
     final route = pushRoute(m);
     if (route == null) return;
     final router = _ref.read(routerProvider);
+    // 이미 배달리스트를 보고 있으면 옮기지 않는다(위에서 다시 읽음)
+    if (m.isDeliveryList && _currentPath() == deliveryListRoute) return;
     if (route == '/') {
       router.go(route);
     } else {
@@ -130,6 +143,8 @@ class PushHandler {
   /// 앱을 보고 있을 때 받았다.
   void foreground(PushMessage m) {
     _refresh(m);
+    // 배달리스트를 보고 있으면 알림 없이 목록만 새로(요청 §3)
+    if (m.isDeliveryList && _currentPath() == deliveryListRoute) return;
     final messenger = _ref.read(riderMessengerKeyProvider).currentState;
     final title = m.title;
     if (messenger == null || title == null) return;
@@ -155,8 +170,16 @@ class PushHandler {
       );
   }
 
-  bool _onHome() =>
-      _ref.read(routerProvider).routeInformationProvider.value.uri.path == '/';
+  /// 지금 맨 위 화면 경로 — push 로 연 화면도(routeInformationProvider 는 push 를 반영하지 않는다)
+  String _currentPath() {
+    final config = _ref
+        .read(routerProvider)
+        .routerDelegate
+        .currentConfiguration;
+    return config.isEmpty ? '/' : config.last.matchedLocation;
+  }
+
+  bool _onHome() => _currentPath() == '/';
 
   void dispose() {
     for (final s in _subs) {

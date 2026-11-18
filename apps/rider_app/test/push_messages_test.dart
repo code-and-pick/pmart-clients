@@ -79,6 +79,14 @@ void main() {
       '/notifications',
     );
     expect(pushRoute(PushMessage.fromData({})), isNull);
+    // 일반 배차모드 새 배달(백엔드 PR #192) → 배달리스트
+    final list = PushMessage.fromData({
+      'type': 'DELIVERY_LIST',
+      'newCount': '2',
+      'sentAt': '2026-11-18T08:00:00Z',
+    });
+    expect(list.isDeliveryList, isTrue);
+    expect(pushRoute(list), '/deliveries');
   });
 
   testWidgets('앱을 보고 있으면 배너, 알림을 누르면 그 화면으로', (t) async {
@@ -136,5 +144,28 @@ void main() {
     source.opened.add(const PushMessage(notificationId: 'n1', type: 'NONE'));
     await settle();
     expect(find.byType(NotificationScreen), findsOneWidget);
+
+    // 새 배달 알림(DELIVERY_LIST)을 누르면 배달리스트
+    source.opened.add(
+      const PushMessage(type: 'DELIVERY_LIST', title: '새 배달이 있어요'),
+    );
+    await settle();
+    expect(find.byKey(const ValueKey('history')), findsOneWidget);
+
+    // 배달리스트를 보고 있을 때 또 오면 배너 없이 목록만 새로
+    t.widget<ScaffoldMessenger>(find.byType(ScaffoldMessenger).first);
+    ScaffoldMessenger.of(t.element(find.byKey(const ValueKey('history'))))
+        .hideCurrentSnackBar();
+    await settle();
+    source.fg.add(
+      const PushMessage(
+        type: 'DELIVERY_LIST',
+        title: '새 배달이 있어요',
+        body: '배달 목록에 새 배달 1건이 올라왔어요.',
+      ),
+    );
+    await settle();
+    expect(find.text('새 배달이 있어요\n배달 목록에 새 배달 1건이 올라왔어요.'), findsNothing);
+    await t.pump(const Duration(seconds: 3));
   });
 }

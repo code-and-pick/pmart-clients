@@ -14,6 +14,7 @@ import android.os.PowerManager
 import android.provider.Settings
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
+import io.flutter.embedding.engine.FlutterEngineCache
 import io.flutter.plugin.common.MethodChannel
 
 /**
@@ -27,6 +28,23 @@ import io.flutter.plugin.common.MethodChannel
 class MainActivity : FlutterActivity() {
     private var pending: MethodChannel.Result? = null
     private var pendingNavi: MethodChannel.Result? = null
+
+    /**
+     * 앱 화면을 닫아도(최근 앱에서 밀어 닫기) Flutter 엔진은 살려 둔다 — 운행 중 위치 전송을 이어가기 위해
+     * (백엔드 요청 2026-11-18 request-background-location-and-list-push §1, 사용자 "신규배차 켜놓고 앱 닫으면 배차알림이 안 뜨네").
+     *
+     * 위치를 모아 `POST /riders/me/locations` 로 보내는 일은 Dart(LocationReporter)가 한다. 엔진이 화면과 함께 없어지면 위치 서비스
+     * (geolocator 상시 알림)만 남고 전송은 멈췄다. 엔진을 프로세스에 하나 두고([ENGINE_ID]) 화면이 닫혀도 지우지 않으면,
+     * 운행 중에는 위치 포그라운드 서비스가 프로세스를 살려 두므로 전송이 이어진다. 앱을 다시 열면 같은 엔진에 붙어 상태가 그대로다.
+     * 운행을 끄면 상시 알림이 내려가고, 그 뒤 프로세스는 시스템이 정리한다(엔진도 함께).
+     */
+    override fun provideFlutterEngine(context: android.content.Context): FlutterEngine =
+        FlutterEngineCache.getInstance().get(ENGINE_ID)
+            ?: FlutterEngine(context.applicationContext).also {
+                FlutterEngineCache.getInstance().put(ENGINE_ID, it)
+            }
+
+    override fun shouldDestroyEngineWithHost(): Boolean = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -169,6 +187,7 @@ class MainActivity : FlutterActivity() {
         const val CHANNEL = "pmart.rider/notifications"
         const val NAVI_CHANNEL = "pmart.rider/knnavi"
         const val BATTERY_CHANNEL = "pmart.rider/battery"
+        const val ENGINE_ID = "pmart.rider/main"
         const val REQUEST_CODE = 7301
         const val NAVI_REQUEST_CODE = 7302
     }
