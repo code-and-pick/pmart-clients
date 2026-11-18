@@ -140,7 +140,21 @@ class _LiveMap extends ConsumerStatefulWidget {
   ConsumerState<_LiveMap> createState() => _LiveMapState();
 }
 
+/// 마지막으로 안 내 위치 — 지도는 화면마다 새로 생기므로, 새 지도를 이 자리에서 열어
+/// 기본 위치(서울)에서 내 위치로 튀는 깜빡임을 없앤다.
+GeoPoint? _lastKnownSpot;
+
 class _LiveMapState extends ConsumerState<_LiveMap> {
+  /// 지도가 처음 자리(내 위치·경로)를 잡을 때까지 지도 바탕색 덮개를 둔다 — 새 지도의 빈 흰 화면과
+  /// 카메라 튐을 가린다(사용자 2026-11-18 "화면 전환 할 때마다 지도가 깜빡 깜빡"). 위치가 늦어도 오래 가리지 않게 상한을 둔다.
+  bool _ready = false;
+  Timer? _readyCap;
+
+  void _reveal() {
+    _readyCap?.cancel();
+    if (mounted && !_ready) setState(() => _ready = true);
+  }
+
   kakao.KakaoMapController? _map;
   kakao.Poi? _me;
   GeoPoint? _last;
@@ -150,6 +164,7 @@ class _LiveMapState extends ConsumerState<_LiveMap> {
 
   @override
   void dispose() {
+    _readyCap?.cancel();
     _sub?.cancel();
     super.dispose();
   }
@@ -162,7 +177,15 @@ class _LiveMapState extends ConsumerState<_LiveMap> {
 
   Future<void> _onReady(kakao.KakaoMapController controller) async {
     _map = controller;
+    _readyCap = Timer(const Duration(milliseconds: 700), _reveal);
     final source = ref.read(locationSourceProvider);
+    // 마지막으로 안 위치가 있으면 그것으로 먼저 그린다(지금 위치는 늦게 올 수 있다).
+    if (_lastKnownSpot case final known?) {
+      await _show(known);
+      await _drawRoute();
+      if (widget.route == null) await _center();
+      _reveal();
+    }
     // 직선은 내 위치에서 시작하므로 위치를 먼저 잡고 경로를 그린다.
     final here = await source?.current();
     if (!mounted) return;
@@ -170,6 +193,7 @@ class _LiveMapState extends ConsumerState<_LiveMap> {
     await _drawRoute();
     // 경로가 있으면 경로가 다 보이게 둔다(내 위치로 옮기지 않는다).
     if (widget.route == null) await _center();
+    _reveal();
     if (source != null) _sub = source.watch().listen(_show);
   }
 
@@ -295,6 +319,7 @@ class _LiveMapState extends ConsumerState<_LiveMap> {
     final map = _map;
     if (map == null || !mounted) return;
     _last = p;
+    _lastKnownSpot = p;
     final position = kakao.LatLng(p.lat, p.lng);
     // 위치가 오면 직선 시작점을 옮긴다(그리기 줄에 넣어 경로 그리기와 겹치지 않게).
     unawaited(_drawLine());
@@ -346,12 +371,24 @@ class _LiveMapState extends ConsumerState<_LiveMap> {
     children: [
       Positioned.fill(
         child: kakao.KakaoMap(
-          option: const kakao.KakaoMapOption(
-            // 위치를 받기 전 기본 위치(서울 시청)
-            position: kakao.LatLng(37.5665, 126.9780),
-            zoomLevel: 15,
+          option: kakao.KakaoMapOption(
+            // 마지막으로 안 내 위치에서 연다(처음이면 기본 위치 — 서울 시청).
+            position: _lastKnownSpot == null
+                ? const kakao.LatLng(37.5665, 126.9780)
+                : _at(_lastKnownSpot!),
+            zoomLevel: 16,
           ),
           onMapReady: _onReady,
+        ),
+      ),
+      // 지도가 자리를 잡을 때까지 지도 바탕색 덮개(새 지도의 흰 화면·카메라 튐을 가림).
+      Positioned.fill(
+        child: IgnorePointer(
+          child: AnimatedOpacity(
+            opacity: _ready ? 0 : 1,
+            duration: const Duration(milliseconds: 160),
+            child: const ColoredBox(color: Color(0xFFF2F1EC)),
+          ),
         ),
       ),
       Align(

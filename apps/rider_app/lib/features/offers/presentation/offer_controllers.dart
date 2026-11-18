@@ -13,8 +13,12 @@ import '../domain/offer_list.dart';
 
 /// 앱 목 모드의 서버 흉내. 운행 종료에서 시작하고, 첫 가입 기본값(AI 추천 배차)을 쓴다.
 final mockOfferRepositoryProvider = Provider<MockOfferRepository>(
-  (_) =>
-      MockOfferRepository(startOnDuty: false, mode: DispatchMode.aiRecommended),
+  (_) => MockOfferRepository(
+    startOnDuty: false,
+    mode: DispatchMode.aiRecommended,
+    demoBundle: true,
+    demoManyBundles: true,
+  ),
 );
 
 final offerRepositoryProvider = Provider<OfferRepository>(

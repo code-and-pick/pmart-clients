@@ -13,13 +13,16 @@ import '../data/mock_delivery_repository.dart';
 import '../domain/delivery.dart';
 
 /// 앱 목 모드: 제안을 수락한 배송만 진행 목록에 보인다.
-final _mockDelivery = Provider<MockDeliveryRepository>(
-  (ref) => MockDeliveryRepository(
+final _mockDelivery = Provider<MockDeliveryRepository>((ref) {
+  final offers = ref.read(mockOfferRepositoryProvider);
+  final repo = MockDeliveryRepository(
     demoBundle: true,
-    visible: (id) =>
-        ref.read(mockOfferRepositoryProvider).assignedDeliveries.contains(id),
-  ),
-);
+    visible: (id) => offers.assignedDeliveries.contains(id),
+  );
+  // 끝난 배송은 최대 3건 계산에서 빠진다.
+  offers.finished = repo.isFinished;
+  return repo;
+});
 
 final deliveryRepositoryProvider = Provider<DeliveryRepository>(
   (ref) => switch (ref.watch(envProvider)) {

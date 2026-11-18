@@ -1,0 +1,49 @@
+import 'package:flutter_test/flutter_test.dart';
+import 'package:pmart_core/pmart_core.dart';
+
+import 'package:rider_app/features/offers/data/mock_offer_repository.dart';
+import 'package:rider_app/features/offers/domain/offer_list.dart';
+
+/// 목 제안도 서버 규칙을 따른다: 동시에 맡는 배송 최대 3건(계약 acceptances "최대 3건 — 넘으면 LATE·INELIGIBLE").
+/// 사용자 2026-11-18 "알뜰 6건이 받아졌어. 최대 3건까지 받아져야 하는데".
+void main() {
+  test('3건을 맡으면 더 제안하지 않고, 끝나면 다시 제안한다', () async {
+    final repo = MockOfferRepository(
+      latency: Duration.zero,
+      demoBundle: true,
+      demoManyBundles: true,
+    );
+    final done = <String>{};
+    repo.finished = done.contains;
+
+    // 예약 1건 + 알뜰 2건 = 3건
+    await repo.respond(
+      'offer-mock-1',
+      accept: true,
+      key: IdempotencyKey.generate(),
+    );
+    final bundle = await repo.respond(
+      'offer-bundle-1',
+      accept: true,
+      key: IdempotencyKey.generate(),
+    );
+    expect(bundle, isA<OfferAssigned>());
+    expect(repo.activeCount, 3);
+    expect((await repo.activeOffers()).offers, isEmpty, reason: '꽉 차면 제안 없음');
+
+    // 넘게 수락하면 늦은 수락(INELIGIBLE)
+    final over = await repo.respond(
+      'offer-bundle-6',
+      accept: true,
+      key: IdempotencyKey.generate(),
+    );
+    expect(over, isA<OfferLate>());
+    expect((over as OfferLate).reason, LateReason.ineligible);
+    expect(repo.activeCount, 3);
+
+    // 하나 끝내면 1건짜리 제안(반품 회수)만 다시 보인다 — 2·3건 묶음은 아직 안 들어간다
+    done.add('dlv-1');
+    final offers = (await repo.activeOffers()).offers;
+    expect(offers.map((o) => o.offerId), ['offer-return-1']);
+  });
+}

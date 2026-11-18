@@ -41,6 +41,11 @@ abstract final class RiderTheme {
       colorScheme: scheme,
       useMaterial3: true,
       scaffoldBackgroundColor: Colors.white,
+      // 화면 전환: 아래 화면(카카오 지도 — 안드로이드가 직접 그림)을 확대·축소하지 않는 짧은 페이드.
+      // 기본(줌) 전환은 지도를 함께 움직여 깜빡였다(사용자 2026-11-18 "화면 전환 할 때마다 지도가 깜빡 깜빡").
+      pageTransitionsTheme: const PageTransitionsTheme(
+        builders: {TargetPlatform.android: _MapSafeTransitions()},
+      ),
       appBarTheme: AppBarTheme(
         backgroundColor: Colors.white,
         foregroundColor: RiderColors.ink,
@@ -93,4 +98,24 @@ abstract final class RiderTheme {
       ),
     );
   }
+}
+
+/// 새 화면만 짧게 페이드로 들어오고 아래 화면은 움직이지 않는다(지도 위 전환 — `router.dart` `_overMap` 과 같은 방식).
+class _MapSafeTransitions extends PageTransitionsBuilder {
+  const _MapSafeTransitions();
+
+  @override
+  Duration get transitionDuration => const Duration(milliseconds: 180);
+
+  @override
+  Duration get reverseTransitionDuration => const Duration(milliseconds: 140);
+
+  @override
+  Widget buildTransitions<T>(
+    PageRoute<T> route,
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) => FadeTransition(opacity: animation, child: child);
 }

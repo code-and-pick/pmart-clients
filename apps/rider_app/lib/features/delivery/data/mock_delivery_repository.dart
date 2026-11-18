@@ -39,6 +39,12 @@ base class MockDeliveryRepository
         ('b2', 'pkg-4'),
         ('l1', 'pkg-5'),
         ('l2', 'pkg-6'),
+        // 알뜰 묶음 더(목 제안 bundle-2·3)
+        ('b3', 'pkg-7'),
+        ('b4', 'pkg-8'),
+        ('b5', 'pkg-9'),
+        ('b6', 'pkg-10'),
+        ('b7', 'pkg-11'),
       ]) {
         final n = id;
         _deliveries['dlv-$n'] = {
@@ -137,6 +143,13 @@ base class MockDeliveryRepository
         ?.key;
     return pkg == null ? null : qrFor(pkg);
   }
+
+  /// 끝난 배송(라이더가 더 맡고 있지 않음) — 목 제안의 최대 3건 계산에 쓴다.
+  bool isFinished(String deliveryId) =>
+      switch (_deliveries[deliveryId]?['state']) {
+        'COMPLETED' || 'RETURNED_TO_STORE' || 'CANCELLED' => true,
+        _ => false,
+      };
 
   final _deliveries = <String, Map<String, Object?>>{
     'dlv-1': {

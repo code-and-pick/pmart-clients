@@ -17,6 +17,7 @@ base class MockOfferRepository implements OfferRepository, DutyRepository {
     // 첫 가입 기본값(원문 §2.2).
     DispatchMode mode = DispatchMode.aiRecommended,
     bool demoBundle = false,
+    bool demoManyBundles = false,
   }) {
     if (demoBundle) {
       // 시연: 첫 제안 다음에 알뜰배달 묶음(2건)이 온다.
@@ -56,6 +57,34 @@ base class MockOfferRepository implements OfferRepository, DutyRepository {
           'deliveryMode': 'SINGLE',
         },
       });
+    }
+    if (demoManyBundles) {
+      // 시연(사용자 2026-11-18 "알뜰배달로 주문 여러개"): 알뜰 묶음 두 개 더 — 3건 묶음(dlv-b3~b5)·2건 묶음(dlv-b6·b7).
+      for (final (bundle, ids, areas) in [
+        ('bundle-2', [3, 4, 5], ['부산진구 전포동', '부산진구 부암동', '부산진구 당감동']),
+        ('bundle-3', [6, 7], ['부산진구 개금동', '부산진구 가야동']),
+      ]) {
+        for (final (i, id) in ids.indexed) {
+          _offers.add({
+            ...(fixture['items']! as List).first as Map<String, Object?>,
+            'offerId': 'offer-bundle-$id',
+            'deliveryId': 'dlv-b$id',
+            'remainingSec': 60,
+            'bundleId': bundle,
+            'bundleSize': ids.length,
+            'stopSequence': i + 1,
+            'summary': <String, Object?>{
+              ...((fixture['items']! as List).first as Map)['summary']
+                  as Map<String, Object?>,
+              'dropAreaLabel': areas[i],
+              'distanceKm': 1.1 + i * 0.7,
+              'estimatedFee': 3000,
+              'bagCount': 1,
+              'deliveryMode': 'BUNDLED',
+            },
+          });
+        }
+      }
     }
     if (!startOnDuty) {
       _duty = {..._duty, 'status': 'OFF_DUTY', 'newDispatchEnabled': false};
@@ -120,6 +149,21 @@ base class MockOfferRepository implements OfferRepository, DutyRepository {
     'version': 1,
   };
 
+  /// 서버 규칙(계약 delivery-dispatch acceptances·DispatchProperties.maxActiveDeliveries): 동시에 맡는 배송은 최대 3건,
+  /// 하나씩 배달하기면 1건. 넘는 제안은 보내지 않고, 넘게 수락하면 늦은 수락(INELIGIBLE).
+  /// 목은 끝난 배송을 모르므로 앱이 [finished] 를 연결한다(없으면 수락한 것 전부를 진행 중으로 본다).
+  static const maxActiveDeliveries = 3;
+
+  bool Function(String deliveryId)? finished;
+
+  int get activeCount =>
+      assignedDeliveries.where((id) => !(finished?.call(id) ?? false)).length;
+
+  int get _capacity =>
+      (_settings['oneAtATime'] == true ? 1 : maxActiveDeliveries) - activeCount;
+
+  int _sizeOf(Map<String, Object?> offer) => (offer['bundleSize'] as int?) ?? 1;
+
   /// 조회 횟수(폴링 간격 확인용).
   int fetches = 0;
 
@@ -168,7 +212,12 @@ base class MockOfferRepository implements OfferRepository, DutyRepository {
     return offerListFromContract(
       ListMyOffers200Response.fromJson({
         ...fixture,
-        'items': receiving && aiMode ? _offers : const <Object?>[],
+        'items': receiving && aiMode
+            ? [
+                for (final o in _offers)
+                  if (_sizeOf(o) <= _capacity) o,
+              ]
+            : const <Object?>[],
         'pollAfterSec': receiving ? 5 : null,
       }),
     );
@@ -201,6 +250,12 @@ base class MockOfferRepository implements OfferRepository, DutyRepository {
         },
       };
       lateNext = null;
+    } else if (accept && _sizeOf(offer) > _capacity) {
+      result = {
+        'offerId': offerId,
+        'outcome': 'LATE',
+        'lateReason': 'INELIGIBLE',
+      };
     } else if (accept) {
       result = {
         'offerId': offerId,
@@ -217,7 +272,7 @@ base class MockOfferRepository implements OfferRepository, DutyRepository {
       )) {
         assignedDeliveries.add(o['deliveryId']! as String);
       }
-      _duty = {..._duty, 'activeDeliveryCount': assignedDeliveries.length};
+      _duty = {..._duty, 'activeDeliveryCount': activeCount};
     } else {
       result = {
         'offerId': offerId,
