@@ -20,6 +20,7 @@ export const messages = {
     deliveries: '배송·배차',
     support: '지원센터',
     earnings: '수행료',
+    ops: '운영',
   },
   menus: {
     dashboard: '대시보드',
@@ -33,7 +34,12 @@ export const messages = {
     inquiries: '라이더 문의',
     adjustments: '수행료 조정',
     surcharges: '추가 배달료',
+    notices: '공지 보내기',
+    staffActions: '조치 이력',
   },
+
+  /** 관리자 전용 메뉴(조치 이력)를 관리자가 아닌 직원이 주소로 열었을 때 */
+  adminOnly: '운영 관리자(OPERATOR_ADMIN)만 볼 수 있는 메뉴예요.',
 
   /** RIDER_OPS·OPERATOR_ADMIN 이 아닌 역할 — 막지 않고 안내만(판정은 서버, API 마다 403) */
   noRiderRole: '라이더 운영(RIDER_OPS) 권한이 없어요. 서버가 허락하지 않는 화면은 "권한이 없습니다"로 보여요.',

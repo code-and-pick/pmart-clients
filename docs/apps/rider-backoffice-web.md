@@ -30,5 +30,7 @@
 | 라이더 | 라이더 찾기 | `/riders` | |
 | 배송·배차 | 배송 찾기 | `/deliveries` | |
 | 지원센터 | 접수 건 | `/cases` | |
+| 운영 | 공지 보내기 | `/notices` | 2026-11-18 — notification 0.5.0 `POST·GET /rider-notices`(전체·한 센터, 보내기 전 확인, 받은 수는 서버 응답). RIDER_OPS·OPERATOR_ADMIN |
+| 운영 | 조치 이력 | `/staff-actions` | 2026-11-18 — **관리자(OPERATOR_ADMIN)만 메뉴에 보임**. rider·execution·dispatch `*-staff-actions` 셋을 시각순 한 표로(원천마다 실패 따로 알림, 덜 불러온 원천보다 오래된 줄은 숨김). 직원은 HR 이름 조회가 없어 actorId 그대로 |
 
 이름·순서·묶음은 PC 5 가 바꿔도 된다. 화면을 만들면 그 메뉴의 `ready` 를 true 로.

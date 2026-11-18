@@ -9,6 +9,7 @@ import type { paths as ExecutionPaths } from './generated/delivery-execution';
 import type { paths as CenterPaths } from './generated/center-master';
 import type { paths as RiderPaths } from './generated/rider';
 import type { paths as TrackingPaths } from './generated/delivery-tracking';
+import type { paths as NotificationPaths } from './generated/notification';
 
 export { SOURCE_SYSTEM };
 
@@ -33,6 +34,8 @@ export function createApi(pmartFetch: PmartFetch, baseUrl = API_BASE) {
     riders: createClient<RiderPaths>(options),
     tracking: createClient<TrackingPaths>(options),
     center: createClient<CenterPaths>(options),
+    // 라이더 공지 보내기·보낸 목록(notification 0.5.0, 2026-11-18)
+    notification: createClient<NotificationPaths>(options),
   };
 }
 

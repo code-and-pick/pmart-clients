@@ -15,6 +15,8 @@ export interface MenuItem {
   readonly apiReady: readonly string[];
   /** 서버 API 가 아직 없거나 계약만 있는 기능 */
   readonly apiMissing: readonly string[];
+  /** 관리자(OPERATOR_ADMIN)에게만 메뉴에 보인다(판정은 서버 — 다른 역할은 403) */
+  readonly adminOnly?: boolean;
 }
 
 export interface MenuGroup {
@@ -32,6 +34,8 @@ export const navGroups: readonly MenuGroup[] = [
   { key: 'deliveries', items: [done('deliveries', 'deliveries')] },
   { key: 'support', items: [done('cases', 'cases'), done('helpRequests', 'help-requests'), done('inquiries', 'inquiries')] },
   { key: 'earnings', items: [done('adjustments', 'adjustments'), done('surcharges', 'surcharges')] },
+  // 2026-11-18(PC 5, 백엔드 notification 0.5.0·rider 0.14.0·execution 0.28.0·dispatch 0.11.0): 라이더 공지·직원 조치 이력(관리자만).
+  { key: 'ops', items: [done('notices', 'notices'), { ...done('staffActions', 'staff-actions'), adminOnly: true }] },
 ];
 export const allMenus: readonly MenuItem[] = navGroups.flatMap((g) => g.items);
 
@@ -40,3 +44,12 @@ export const menuPath = (segment = allMenus[0]!.segment) => `/${segment}`;
 /** 이 앱의 주 역할. 없으면 막지 않고 안내만(판정은 서버, API 마다 403) */
 export const RIDER_APP_ROLES: readonly string[] = ['RIDER_OPS', 'OPERATOR_ADMIN'];
 export const hasRiderAppRole = (roles: readonly string[]) => roles.some((r) => RIDER_APP_ROLES.includes(r));
+
+/** 운영 관리자 */
+export const isOperatorAdmin = (roles: readonly string[]) => roles.includes('OPERATOR_ADMIN');
+
+/** 이 직원에게 보일 메뉴 묶음(관리자 전용 메뉴는 관리자에게만 — 비면 묶음도 뺀다) */
+export const visibleGroups = (roles: readonly string[]): readonly MenuGroup[] =>
+  navGroups
+    .map((g) => ({ ...g, items: g.items.filter((i) => !i.adminOnly || isOperatorAdmin(roles)) }))
+    .filter((g) => g.items.length > 0);

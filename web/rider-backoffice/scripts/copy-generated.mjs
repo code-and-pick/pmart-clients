@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 const here = dirname(fileURLToPath(import.meta.url));
 const from = resolve(here, '../../backoffice/src/api/generated');
 const to = resolve(here, '../src/api/generated');
-const services = ['rider', 'delivery-execution', 'delivery-dispatch', 'delivery-tracking', 'case', 'backoffice-bff', 'center-master'];
+const services = ['rider', 'delivery-execution', 'delivery-dispatch', 'delivery-tracking', 'case', 'backoffice-bff', 'center-master', 'notification', 'audit'];
 
 mkdirSync(to, { recursive: true });
 const missing = services.filter((s) => !existsSync(join(from, `${s}.ts`)));

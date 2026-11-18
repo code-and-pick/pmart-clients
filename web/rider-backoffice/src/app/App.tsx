@@ -9,6 +9,8 @@ import { CasesMenu } from '../features/cases/CasePages';
 import { ControlPage } from '../features/control/ControlPage';
 import { DashboardPage } from '../features/dashboard/DashboardPage';
 import { AdjustmentsMenu, SurchargesMenu } from '../features/earnings/EarningPages';
+import { NoticesMenu } from '../features/ops/NoticePages';
+import { StaffActionsMenu } from '../features/ops/StaffActionsPage';
 import { RestrictionReviewsMenu, RidersMenu, SignupsMenu } from '../features/riders/RiderPages';
 import { HelpRequestsMenu, InquiriesMenu } from '../features/support/SupportPages';
 import { DeliveriesMenu } from '../features/deliveries/DeliveryPages';
@@ -17,7 +19,7 @@ import { LoginCallbackPage, LoginPage } from '../features/session/LoginPage';
 import { SessionPage } from '../features/session/SessionPage';
 import { messages as m } from '../shared/messages';
 import { SimulatorLink } from '../shared/sim';
-import { allMenus, hasRiderAppRole, menuPath, navGroups, type MenuItem } from './nav';
+import { allMenus, hasRiderAppRole, isOperatorAdmin, menuPath, navGroups, visibleGroups, type MenuItem } from './nav';
 import { RequireSession, SessionProvider, useSession } from './SessionContext';
 
 /** 지금 주소의 메뉴(머리줄 "묶음 › 메뉴") */
@@ -44,7 +46,7 @@ function Layout() {
         </div>
         <nav aria-label="메뉴" className="flex-1 overflow-y-auto py-3">
           {session &&
-            navGroups.map((g) => (
+            visibleGroups(session.roles).map((g) => (
               <div key={g.key} className="mb-3">
                 <p className="px-5 pb-1 text-xs font-semibold text-neutral-content/45">{m.groups[g.key]}</p>
                 <ul>
@@ -117,7 +119,13 @@ function MenuScope({ menu }: { readonly menu: MenuItem }) {
           {m.noRiderRole}
         </p>
       )}
-      <MenuPage menu={menu} />
+      {menu.adminOnly && !isOperatorAdmin(session.roles) ? (
+        <p role="note" className="alert alert-warning text-sm" data-testid="admin-only">
+          {m.adminOnly}
+        </p>
+      ) : (
+        <MenuPage menu={menu} />
+      )}
     </>
   );
 }
@@ -148,6 +156,10 @@ function MenuPage({ menu }: { readonly menu: MenuItem }) {
       return <AdjustmentsMenu />;
     case 'surcharges':
       return <SurchargesMenu />;
+    case 'notices':
+      return <NoticesMenu />;
+    case 'staffActions':
+      return <StaffActionsMenu />;
     default:
       return <PreparingPage menu={menu} />;
   }
