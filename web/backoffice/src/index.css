@@ -88,7 +88,7 @@ main [data-state='loading'] {
   min-height: 15rem;
   overflow: hidden;
   color: transparent;
-  --sk: color-mix(in oklab, var(--color-base-content) 8%, transparent);
+  --sk: color-mix(in oklab, var(--color-base-content) 13%, transparent);
   background-color: var(--color-base-100);
   background-image:
     linear-gradient(var(--sk), var(--sk)), linear-gradient(var(--sk), var(--sk)), linear-gradient(var(--sk), var(--sk)),
