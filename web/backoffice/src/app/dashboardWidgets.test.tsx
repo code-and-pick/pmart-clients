@@ -1,5 +1,6 @@
 // 대시보드 2판(2026-11-18): 한눈에 숫자 카드(어제 대비·추세선)·오늘 주문 상태 도넛·최근 활동 — 서버 값만, 못 읽으면 숨기지 않고 알린다
 import { screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 
@@ -19,15 +20,27 @@ describe('대시보드 2판', () => {
     expect(await within(screen.getByTestId('dash-stat-risk')).findByText(/결제 결과 불명 1건/)).toBeInTheDocument();
   });
 
-  it('통계가 위 — 한눈에 카드·7일 막대가 내 할 일보다 먼저(사용자 2026-11-18 "그래프 같은 통계를 위쪽으로")', async () => {
+  it('탭(사용자 2026-11-18 "스크롤을 내려야 할 만큼 많다"): 첫 화면 = 숫자 카드 → 내 할 일, 7일 막대는 매출·통계 탭 — 고른 탭은 주소에', async () => {
+    const user = userEvent.setup();
     renderAt('/', as.admin);
     const work = await screen.findByTestId('dash-my-work');
     expect(work.compareDocumentPosition(screen.getByTestId('dash-glance')) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy();
-    expect(work.compareDocumentPosition(screen.getByTestId('dash-orders-week')) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy();
+    expect(screen.queryByTestId('dash-orders-week')).not.toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: '한눈에' })).toHaveAttribute('aria-selected', 'true');
+
+    await user.click(screen.getByRole('tab', { name: '매출·통계' }));
+    expect(await screen.findByTestId('dash-orders-week')).toBeInTheDocument();
+    expect(screen.queryByTestId('dash-my-work')).not.toBeInTheDocument();
+  });
+
+  it('볼 것이 없는 탭은 숨긴다 — 승인자에게 매출·통계 탭 없음, 없는 탭 주소는 한눈에', async () => {
+    renderAt('/?tab=sales', as.approver);
+    expect(await screen.findByRole('tab', { name: '한눈에' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.queryByRole('tab', { name: '매출·통계' })).not.toBeInTheDocument();
   });
 
   it('오늘 주문 상태 — 상태별 이름과 개수, 합은 오늘 주문 수', async () => {
-    renderAt('/', as.admin);
+    renderAt('/?tab=sales', as.admin);
     const legend = await screen.findByTestId('dash-status-legend');
     const counts = within(legend).getAllByRole('listitem').map((li) => Number(li.lastElementChild?.textContent));
     const total = counts.reduce((a, b) => a + b, 0);
@@ -66,7 +79,7 @@ describe('대시보드 2판', () => {
 
 describe('대시보드 지표(백엔드 회신 2026-11-18)', () => {
   it('결품률·정시 배송률은 서버가 501 이면 "준비 중", 품절은 자리만(매출·상품별 판매는 D2·D3 배포로 진짜 칸)', async () => {
-    renderAt('/', as.admin);
+    renderAt('/?tab=sales', as.admin);
     for (const id of ['SHORTAGE_RATE', 'ON_TIME_DELIVERY']) expect(await within(await screen.findByTestId(`dash-metric-${id}`)).findByText('준비 중')).toBeInTheDocument();
     expect(within(screen.getByTestId('dash-metric-soldOut')).getByText('준비 중')).toBeInTheDocument();
     expect(screen.queryByTestId('dash-metric-sales')).not.toBeInTheDocument();
@@ -81,19 +94,19 @@ describe('대시보드 지표(백엔드 회신 2026-11-18)', () => {
           : HttpResponse.json({ type: 'about:blank', title: 'x', status: 501, code: 'NOT_IMPLEMENTED' }, { status: 501, headers: { 'content-type': 'application/problem+json' } }),
       ),
     );
-    renderAt('/', as.admin);
+    renderAt('/?tab=sales', as.admin);
     const cell = await screen.findByTestId('dash-metric-SHORTAGE_RATE');
     expect(await within(cell).findByText('75%')).toBeInTheDocument();
   });
 
   it('처리 기한 지킴 — 종류별로 나눠 보이고, 503 이면 "원천에 닿지 않았어요"', async () => {
-    renderAt('/', as.admin);
+    renderAt('/?tab=ops', as.admin);
     expect(await screen.findByTestId('dash-sla-kinds')).toBeInTheDocument();
   });
 
   it('처리 기한 지킴 503 은 0건이 아니라 원천에 닿지 않음', async () => {
     server.use(http.get(`${BFF_BASE}/views/metrics`, () => HttpResponse.json({ type: 'about:blank', title: 'x', status: 503, code: 'DEPENDENCY_UNAVAILABLE' }, { status: 503, headers: { 'content-type': 'application/problem+json' } })));
-    renderAt('/', as.admin);
+    renderAt('/?tab=ops', as.admin);
     expect(await screen.findByTestId('dash-sla-failed', {}, { timeout: 8000 })).toHaveTextContent('접수 건 원천에 닿지 않았어요');
   }, 15000);
 });

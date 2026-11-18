@@ -2115,6 +2115,8 @@ export const messages = {
     remove: (n: string) => `${n} 보기 지우기`,
   },
   dashboard: {
+    /** 탭(2026-11-18 — 첫 화면은 지금 할 일, 통계는 따로) */
+    tabs: { label: '대시보드 보기', overview: '한눈에', ops: '운영', sales: '매출·통계' },
     title: '대시보드',
     hello: (hour: number) => (hour < 12 ? '좋은 아침이에요' : hour < 18 ? '오늘도 수고 많아요' : '오늘 하루 고생 많았어요'),
     intro: (today: string) => `${today} 기준 · 숫자를 누르면 그 화면으로 가요. 1분마다 다시 읽어요.`,

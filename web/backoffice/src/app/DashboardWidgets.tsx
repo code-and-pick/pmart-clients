@@ -426,7 +426,9 @@ export function MetricsPanel({ from, to }: { readonly from: string; readonly to:
   ];
   return (
     <Section title={m.metrics.title} aside={<span className="text-xs text-base-content/50">{m.metrics.hint}</span>} testId="dash-metrics">
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+      {/* 칸 수는 이 상자 폭으로(2026-11-18 — 매출·통계 탭에서 최근 주문 옆 좁은 칸에 들어간다) */}
+      <div className="@container">
+      <div className="grid gap-3 @md:grid-cols-2 @4xl:grid-cols-5">
         {live.map((c, i) => {
           const q = qs[i]!;
           let value: ReactNode = '…';
@@ -462,6 +464,7 @@ export function MetricsPanel({ from, to }: { readonly from: string; readonly to:
             <p className="text-[11px] text-base-content/45">{c.note}</p>
           </div>
         ))}
+      </div>
       </div>
     </Section>
   );
@@ -528,14 +531,13 @@ function WorkTile({ label: title, sum, to, tone, testId }: { readonly label: str
 }
 
 /** 지금 일 전체 — 진행 중 배송 상태별 막대 + 후속 처리·교대 인계·처리 중 접수 건·증빙 요청 */
-export function WorkCountsPanel() {
+// part 를 주면 그 칸만 — 대시보드 운영 탭이 왼쪽·오른쪽 기둥에 나눠 쌓는다(2026-11-18, 같은 조회 하나)
+export function WorkCountsPanel({ part }: { readonly part?: 'deliveries' | 'tiles' } = {}) {
   const { q, sum, segments } = useWorkCounts(true);
   const deliveries = segments('DELIVERIES', 'ACTIVE').slice().sort((a, b) => b.value - a.value);
   const dSum = sum('DELIVERIES', 'ACTIVE');
   const max = Math.max(1, ...deliveries.map((d) => d.value));
-  return (
-    <div className="grid gap-4 lg:grid-cols-3" data-testid="dash-work">
-      <div className="lg:col-span-2">
+  const deliveriesPart = (
         <Section title={m.work.deliveriesTitle} aside={<span className="text-xs text-base-content/50">{dSum ? m.work.deliveriesTotal(workText(dSum)) : ''}</span>} testId="dash-work-deliveries">
           {q.isPending ? (
             <p className="text-sm text-base-content/50">…</p>
@@ -559,7 +561,8 @@ export function WorkCountsPanel() {
             </ul>
           )}
         </Section>
-      </div>
+  );
+  const tilesPart = (
       <Section title={m.work.title} aside={<span className="text-xs text-base-content/50">{m.work.exact}</span>} testId="dash-work-tiles">
         <div className="grid grid-cols-2 gap-3">
           <WorkTile label={m.work.casesOpen} sum={sum('CASES', 'OPEN')} to="/cases" tone="info" testId="dash-work-cases-open" />
@@ -569,6 +572,13 @@ export function WorkCountsPanel() {
           <WorkTile label={m.work.evidence} sum={sum('APPROVALS', 'EVIDENCE_REQUIRED')} to="/approvals?reviewState=EVIDENCE_REQUIRED" tone="warning" testId="dash-work-evidence" />
         </div>
       </Section>
+  );
+  if (part === 'deliveries') return deliveriesPart;
+  if (part === 'tiles') return tilesPart;
+  return (
+    <div className="grid gap-4 lg:grid-cols-3" data-testid="dash-work">
+      <div className="lg:col-span-2">{deliveriesPart}</div>
+      {tilesPart}
     </div>
   );
 }

@@ -1,5 +1,6 @@
 // 지금 일 건수(bff 0.15.0 work-counts, 2026-11-18) — 관리자 대시보드: 정확한 건수, complete=false "N건 이상", 원천 실패 "확인 못 함"
 import { screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 
@@ -11,7 +12,7 @@ const view = (counts: unknown[], unavailableSources: string[] = []) => HttpRespo
 
 describe('지금 일 건수(관리자)', () => {
   it('진행 중 배송 상태별 막대와 지금 일 칸(목 조회에서 센 값)', async () => {
-    renderAt('/', as.admin);
+    renderAt('/?tab=ops', as.admin);
     expect((await screen.findAllByTestId('dash-work-delivery-row')).length).toBeGreaterThan(0);
     expect(await within(screen.getByTestId('dash-work-cases-open')).findByText(/^\d+$/)).toBeInTheDocument();
   });
@@ -33,10 +34,12 @@ describe('지금 일 건수(관리자)', () => {
 
   it('원천이 실패한 묶음은 "확인 못 함"/"?" — 0 으로 보이지 않는다(줄 없는 묶음은 0)', async () => {
     server.use(http.get(`${BFF_BASE}/views/work-counts`, () => view([{ group: 'CASES', key: 'OPEN', segment: 'OTHER', value: 2, complete: true, source: 'case-service' }], ['approval-service'])));
-    renderAt('/', as.admin);
+    renderAt('/?tab=ops', as.admin);
     expect(await within(await screen.findByTestId('dash-work-evidence')).findByText('확인 못 함')).toBeInTheDocument();
-    expect(within(screen.getByTestId('dash-kpi-approvals')).getByText('?')).toBeInTheDocument();
     expect(within(screen.getByTestId('dash-work-handovers')).getByText('0')).toBeInTheDocument(); // case-service 는 읽었고 줄이 없음 = 0
+    // 한눈에 탭의 심사 대기 숫자도 0 이 아니라 "?"
+    await userEvent.setup().click(screen.getByRole('tab', { name: '한눈에' }));
+    expect(await within(await screen.findByTestId('dash-kpi-approvals')).findByText('?')).toBeInTheDocument();
   });
 
   it('관리자가 아니면 부르지 않는다(403 역할)', async () => {

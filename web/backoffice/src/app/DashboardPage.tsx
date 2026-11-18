@@ -6,7 +6,7 @@
 // 개인정보: 주문 목록은 서버가 가린 값만(연락처 열은 보이지 않는다).
 import { useQuery } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
-import { Link } from 'react-router';
+import { Link, useSearchParams } from 'react-router';
 
 import { ProblemFailure, request } from '@pmart/web-core';
 import { useApi } from './ApiContext';
@@ -232,6 +232,16 @@ export function DashboardPage() {
   const hasActivity = activity.approvals || activity.cases || activity.inquiries;
 
   const hour = Number(new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Seoul', hour: 'numeric', hourCycle: 'h23' }).format(new Date()));
+
+  // 탭(2026-11-18 사용자 "스크롤을 내려서 봐야 할 정도로 양이 많다" — Shopify·Medusa 처럼 첫 화면은 지금 할 일, 통계는 따로).
+  // 한눈에(기본) = 숫자 카드 · 최근 본 · 내 할 일 | 최근 활동 / 운영 = 지금 배송·심사 유형·지금 일 전체·운영 위험·기한 지킴 / 매출·통계 = 주문 추세·매출·최근 주문·지표.
+  // 볼 것이 없는 탭은 숨긴다. 고른 탭은 주소(?tab=)에 — 안 보이는 탭 주소면 한눈에. 고른 탭의 덩어리만 그려서 그 조회만 부른다.
+  const showOps = can('/live-delivery') || can('/approvals') || can('/pending') || can('/case-sla') || admin;
+  const showSales = can('/orders') || admin;
+  const tabs = [{ id: 'overview', label: m.tabs.overview }, ...(showOps ? [{ id: 'ops', label: m.tabs.ops }] : []), ...(showSales ? [{ id: 'sales', label: m.tabs.sales }] : [])] as const;
+  const [params, setParams] = useSearchParams();
+  const tab = tabs.find((t) => t.id === params.get('tab'))?.id ?? 'overview';
+
   return (
     <section className="space-y-5" data-testid="dashboard">
       <header className="flex flex-wrap items-end justify-between gap-3">
@@ -242,78 +252,124 @@ export function DashboardPage() {
         <RefreshBar />
       </header>
 
-      {/* 1줄: 한눈에 숫자 카드(가로) — 통계는 위로(2026-11-18 사용자 "그래프 같은 통계를 위쪽으로") */}
-      {stats.length > 0 && (
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label={m.glance} data-testid="dash-glance">
-          {stats}
+      {tabs.length > 1 && (
+        <div role="tablist" aria-label={m.tabs.label} className="flex gap-1 border-b border-base-300" data-testid="dash-tabs">
+          {tabs.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              role="tab"
+              aria-selected={tab === t.id}
+              className={`-mb-px border-b-2 px-4 py-2 text-sm transition-colors ${tab === t.id ? 'border-primary font-bold text-primary' : 'border-transparent text-base-content/60 hover:text-base-content'}`}
+              onClick={() => setParams(t.id === 'overview' ? {} : { tab: t.id }, { replace: true })}
+            >
+              {t.label}
+            </button>
+          ))}
         </div>
       )}
 
-      {/* 2줄: 7일 주문 | 오늘 주문 상태 */}
-      {can('/orders') && (
-        <div className="grid gap-4 lg:grid-cols-3">
-          <div className="lg:col-span-2">
-            <OrdersWeekChart days={days} />
-          </div>
-          <StatusDonut today={today} toneOf={(s) => statusTone(s)} />
+      {tab === 'overview' && (
+        <div role="tabpanel" aria-label={m.tabs.overview} className="space-y-5">
+          {/* 숫자 카드(가로) — 누르면 그 화면으로 */}
+          {stats.length > 0 && (
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label={m.glance} data-testid="dash-glance">
+              {stats}
+            </div>
+          )}
+
+          {/* 최근 본 항목 — 이 브라우저·이 직원 것, 없으면 안 보임 */}
+          <RecentViews />
+
+          {/* 내 할 일 | 최근 활동 */}
+          {(tasks.length > 0 || hasActivity) && (
+            <div className="grid items-start gap-4 lg:grid-cols-3">
+              {tasks.length > 0 && (
+                <section aria-labelledby="dash-my-work" className={`overflow-hidden rounded-box border border-base-300 bg-base-100 shadow-sm ${hasActivity ? 'lg:col-span-2' : 'lg:col-span-3'}`} data-testid="dash-my-work">
+                  <div className="flex items-baseline justify-between gap-2 border-b border-base-300 px-5 py-3">
+                    <h2 id="dash-my-work" className="text-lg font-bold">
+                      {m.myWork}
+                    </h2>
+                    <span className="text-xs text-base-content/50">{m.myWorkHint}</span>
+                  </div>
+                  <div className="divide-y divide-base-300">{tasks}</div>
+                </section>
+              )}
+              {hasActivity && (
+                <div className={tasks.length > 0 ? '' : 'lg:col-span-3'}>
+                  <ActivityFeed {...activity} />
+                </div>
+              )}
+            </div>
+          )}
+
+          {tasks.length === 0 && stats.length === 0 && !hasActivity && <p className="text-sm text-base-content/60">{m.nothing}</p>}
         </div>
       )}
 
-      {/* 매출·환불·상품별 판매(관리자, D2·D3 — 최근 7일) */}
-      {admin && <SalesPanel from={weekFrom} to={today} />}
+      {tab === 'ops' && (
+        <div role="tabpanel" aria-label={m.tabs.ops} className="space-y-5">
+          {/* 두 기둥을 따로 쌓는다(높이가 달라도 빈 틈 없이) —
+              왼쪽: 지금 배송(늦음·라이더 없음·전달 실패) → 진행 중 배송 상태별(관리자), 오른쪽: 심사 대기 유형별 → 지금 일 전체(관리자) */}
+          {(can('/live-delivery') || can('/approvals') || admin) && (
+            <div className="grid items-start gap-4 lg:grid-cols-3">
+              {(can('/live-delivery') || admin) && (
+                <div className={`space-y-4 ${can('/approvals') || admin ? 'lg:col-span-2' : 'lg:col-span-3'}`}>
+                  {can('/live-delivery') && <LiveSummary />}
+                  {admin && <WorkCountsPanel part="deliveries" />}
+                  {/* 운영 위험도 왼쪽 기둥 아래 — 오른쪽(심사 대기 + 지금 일 전체)과 높이가 비슷해진다 */}
+                  {can('/pending') && <RiskPanel />}
+                </div>
+              )}
+              {(can('/approvals') || admin) && (
+                <div className="space-y-4">
+                  {can('/approvals') && <ApprovalTypes />}
+                  {admin && <WorkCountsPanel part="tiles" />}
+                </div>
+              )}
+            </div>
+          )}
 
-      {/* 지금 일 전체(관리자) — 진행 중 배송 상태별·후속 처리·교대 인계 등 서버가 센 지금 건수 */}
-      {admin && <WorkCountsPanel />}
+          {/* 운영 위험만 볼 수 있고 왼쪽 기둥이 없는 역할(처리 대기 메뉴만)일 때 */}
+          {can('/pending') && !(can('/live-delivery') || admin) && <RiskPanel />}
 
-      {/* 최근 본 항목(2026-11-18) — 이 브라우저·이 직원 것, 없으면 안 보임 */}
-      <RecentViews />
+          {/* 처리 기한 지킴(최근 7일) — 아래 한 줄 */}
+          {can('/case-sla') && <SlaCard from={weekFrom} to={today} days={days} />}
+        </div>
+      )}
 
-      {/* 3줄: 내 할 일 | 최근 활동 */}
-      {(tasks.length > 0 || hasActivity) && (
-        <div className="grid items-start gap-4 lg:grid-cols-3">
-          {tasks.length > 0 && (
-            <section aria-labelledby="dash-my-work" className={`overflow-hidden rounded-box border border-base-300 bg-base-100 shadow-sm ${hasActivity ? 'lg:col-span-2' : 'lg:col-span-3'}`} data-testid="dash-my-work">
-              <div className="flex items-baseline justify-between gap-2 border-b border-base-300 px-5 py-3">
-                <h2 id="dash-my-work" className="text-lg font-bold">
-                  {m.myWork}
-                </h2>
-                <span className="text-xs text-base-content/50">{m.myWorkHint}</span>
+      {tab === 'sales' && (
+        <div role="tabpanel" aria-label={m.tabs.sales} className="space-y-5">
+          {/* 7일 주문 | 오늘 주문 상태 */}
+          {can('/orders') && (
+            <div className="grid gap-4 lg:grid-cols-3">
+              <div className="lg:col-span-2">
+                <OrdersWeekChart days={days} />
               </div>
-              <div className="divide-y divide-base-300">{tasks}</div>
-            </section>
+              <StatusDonut today={today} toneOf={(s) => statusTone(s)} />
+            </div>
           )}
-          {hasActivity && (
-            <div className={tasks.length > 0 ? '' : 'lg:col-span-3'}>
-              <ActivityFeed {...activity} />
+
+          {/* 매출·환불·상품별 판매(관리자, D2·D3 — 최근 7일) */}
+          {admin && <SalesPanel from={weekFrom} to={today} />}
+
+          {/* 최근 주문 | 지표(결품률·정시 배송률 — 501 이면 준비 중) — 나란히 */}
+          {(can('/orders') || can('/case-sla')) && (
+            <div className="grid items-start gap-4 xl:grid-cols-3">
+              {can('/orders') && (
+                <div className={can('/case-sla') ? 'xl:col-span-2' : 'xl:col-span-3'}>
+                  <RecentOrders from={weekFrom} to={today} />
+                </div>
+              )}
+              {can('/case-sla') && (
+                <div className={can('/orders') ? '' : 'xl:col-span-3'}>
+                  <MetricsPanel from={weekFrom} to={today} />
+                </div>
+              )}
             </div>
           )}
         </div>
       )}
-
-      {/* 운영 위험 */}
-      {can('/pending') && <RiskPanel />}
-
-      {/* 지금 배송 | 심사 대기 유형별 */}
-      {(can('/live-delivery') || can('/approvals')) && (
-        <div className="grid gap-4 lg:grid-cols-3">
-          {can('/live-delivery') && (
-            <div className="lg:col-span-2">
-              <LiveSummary />
-            </div>
-          )}
-          {can('/approvals') && <ApprovalTypes />}
-        </div>
-      )}
-
-      {/* 최근 주문 */}
-      {can('/orders') && <RecentOrders from={weekFrom} to={today} />}
-
-      {can('/case-sla') && <SlaCard from={weekFrom} to={today} days={days} />}
-
-      {/* 지표 — 결품률·정시 배송률(501 이면 준비 중)·매출·상품별 판매·품절(원천 작업 중) — 백엔드 회신 2026-11-18 */}
-      {can('/case-sla') && <MetricsPanel from={weekFrom} to={today} />}
-
-      {tasks.length === 0 && stats.length === 0 && !can('/orders') && <p className="text-sm text-base-content/60">{m.nothing}</p>}
     </section>
   );
 }

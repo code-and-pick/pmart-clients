@@ -11,7 +11,7 @@ const forbidden = () => HttpResponse.json({ type: 'about:blank', title: 'x', sta
 
 describe('매출·환불·상품별 판매(관리자)', () => {
   it('결제 승인 금액(주문 확정일)과 완료 환불(환불 완료일)을 나란히 — 빼지 않는다', async () => {
-    renderAt('/', as.admin);
+    renderAt('/?tab=sales', as.admin);
     const approved = await screen.findByTestId('dash-sales-approved');
     expect(await within(approved).findByText(/원$/)).toBeInTheDocument();
     expect(approved).toHaveTextContent('주문 확정일 기준');
@@ -22,7 +22,7 @@ describe('매출·환불·상품별 판매(관리자)', () => {
   });
 
   it('상품별 판매 상위 — 상품 이름·수량·금액, "주문 확정 기준" 표시, 누르면 상품', async () => {
-    renderAt('/', as.admin);
+    renderAt('/?tab=sales', as.admin);
     const rows = await screen.findAllByTestId('dash-sales-top-row');
     expect(rows.length).toBeGreaterThan(0);
     expect(screen.getByTestId('dash-sales')).toHaveTextContent('주문 확정 기준');
@@ -31,7 +31,7 @@ describe('매출·환불·상품별 판매(관리자)', () => {
 
   it('못 읽으면 "?"·"불러오지 못했어요"(0원 아님)', async () => {
     server.use(http.get(`${API_BASE}/orders/metrics/summary`, () => forbidden()), http.get(`${API_BASE}/orders/metrics/top-products`, () => forbidden()));
-    renderAt('/', as.admin);
+    renderAt('/?tab=sales', as.admin);
     expect(await within(await screen.findByTestId('dash-sales-approved')).findByText('?')).toBeInTheDocument();
     expect(await screen.findByText(/상품별 판매를 불러오지 못했어요/)).toBeInTheDocument();
   });
