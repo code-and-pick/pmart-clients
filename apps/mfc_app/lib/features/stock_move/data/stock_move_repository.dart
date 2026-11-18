@@ -173,7 +173,7 @@ final class ApiStockMoveRepository implements StockMoveRepository {
       claimId: r.claimId,
       lines: [
         for (final l
-            in r.lines ?? const <ib.GetReturnReceipt200ResponseLinesInner>[])
+            in r.lines ?? const <ib.ReturnReceiptLinesInner>[])
           ReturnedLine(
             sku: l.sku ?? (throw const ContractViolationFailure('sku 없음')),
             qty: l.qty ?? (throw const ContractViolationFailure('qty 없음')),
