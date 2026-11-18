@@ -190,6 +190,30 @@ base class MockOfferRepository implements OfferRepository, DutyRepository {
 
   bool get _oneBusy => _settings['oneAtATime'] == true && activeCount > 0;
 
+  /// 한집배달은 혼자만(사용자 결정 2026-11-18 "한집은 혼자만" — 백엔드 요청 handoff
+  /// 2026-11-18-backend-single-delivery-exclusive): 한집을 맡고 있으면 끝날 때까지 새 배차 없음,
+  /// 한집 제안은 맡은 배송이 없을 때만. **백엔드 반영 전에는 목에서만** 이렇게 동작한다.
+  final _singleDeliveries = <String>{};
+
+  bool get _singleBusy => assignedDeliveries.any(
+    (id) => _singleDeliveries.contains(id) && !(finished?.call(id) ?? false),
+  );
+
+  /// 제안을 받을 수 없는 상태(계약 pollAfterSec null — 상태가 바뀔 때까지 폴링 멈춤).
+  bool get _cannotReceive => _oneBusy || _singleBusy;
+
+  /// 고객에게 가는 한집배달만(회수 RETURN 은 지금 규칙 그대로 — 백엔드에 함께 물음).
+  static bool _isSingle(Map<String, Object?> offer) =>
+      offer['deliveryType'] != 'RETURN' &&
+      (offer['summary'] as Map?)?['deliveryMode'] == 'SINGLE';
+
+  /// 이 제안을 지금 받을 수 있는지(최대 건수·하나씩 배달·한집은 혼자만).
+  bool _fits(Map<String, Object?> offer) {
+    if (_singleBusy) return false;
+    if (_isSingle(offer)) return activeCount == 0 && _capacity >= 1;
+    return _sizeOf(offer) <= _capacity;
+  }
+
   int _sizeOf(Map<String, Object?> offer) => (offer['bundleSize'] as int?) ?? 1;
 
   /// 조회 횟수(폴링 간격 확인용).
@@ -243,11 +267,11 @@ base class MockOfferRepository implements OfferRepository, DutyRepository {
         'items': receiving && aiMode
             ? [
                 for (final o in _offers)
-                  if (_sizeOf(o) <= _capacity) o,
+                  if (_fits(o)) o,
               ]
             : const <Object?>[],
         // 계약: 하나씩 배달 진행 중이면 제안을 받을 수 없어 null(폴링 멈춤).
-        'pollAfterSec': receiving && !_oneBusy ? 5 : null,
+        'pollAfterSec': receiving && !_cannotReceive ? 5 : null,
       }),
     );
   }
@@ -279,7 +303,7 @@ base class MockOfferRepository implements OfferRepository, DutyRepository {
         },
       };
       lateNext = null;
-    } else if (accept && _sizeOf(offer) > _capacity) {
+    } else if (accept && !_fits(offer)) {
       result = {
         'offerId': offerId,
         'outcome': 'LATE',
@@ -300,6 +324,7 @@ base class MockOfferRepository implements OfferRepository, DutyRepository {
             (bundle != null && o['bundleId'] == bundle),
       )) {
         assignedDeliveries.add(o['deliveryId']! as String);
+        if (_isSingle(o)) _singleDeliveries.add(o['deliveryId']! as String);
       }
       _duty = {..._duty, 'activeDeliveryCount': activeCount};
     } else {

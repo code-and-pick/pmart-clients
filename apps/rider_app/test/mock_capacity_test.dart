@@ -83,4 +83,52 @@ void main() {
     expect(again.offers.map((o) => o.offerId), contains('offer-single-3'));
     expect(again.pollAfter, isNotNull);
   });
+  test('한집은 혼자만(하나씩 배달하기 꺼도): 한집 1건 맡으면 끝날 때까지 새 배차 없음', () async {
+    final repo = MockOfferRepository(
+      latency: Duration.zero,
+      demoBundle: true,
+      demoSingles: true,
+    );
+    final done = <String>{};
+    repo.finished = done.contains;
+
+    await repo.respond(
+      'offer-single-1',
+      accept: true,
+      key: IdempotencyKey.generate(),
+    );
+    final busy = await repo.activeOffers();
+    expect(busy.offers, isEmpty, reason: '한집 진행 중 — 한집·알뜰 모두 없음');
+    expect(busy.pollAfter, isNull);
+    final second = await repo.respond(
+      'offer-single-2',
+      accept: true,
+      key: IdempotencyKey.generate(),
+    );
+    expect((second as OfferLate).reason, LateReason.ineligible);
+    expect(repo.activeCount, 1);
+
+    done.add('dlv-s1');
+    final again = await repo.activeOffers();
+    expect(again.offers, isNotEmpty);
+    expect(again.pollAfter, isNotNull);
+  });
+
+  test('다른 배송을 맡고 있으면 한집 제안은 오지 않는다(알뜰은 3건까지)', () async {
+    final repo = MockOfferRepository(
+      latency: Duration.zero,
+      demoBundle: true,
+      demoSingles: true,
+    );
+    repo.finished = (_) => false;
+    // 예약 1건을 맡는다
+    await repo.respond(
+      'offer-mock-1',
+      accept: true,
+      key: IdempotencyKey.generate(),
+    );
+    final ids = (await repo.activeOffers()).offers.map((o) => o.offerId);
+    expect(ids.where((id) => id.startsWith('offer-single')), isEmpty);
+    expect(ids, contains('offer-bundle-1'));
+  });
 }
