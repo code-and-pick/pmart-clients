@@ -52,8 +52,6 @@ function Layout() {
           <Link to="/" className="truncate text-base font-bold text-neutral-content" aria-label={m.goHome}>
             {m.appTitle}
           </Link>
-          {/* 직원 웹 앱 바꾸기(백엔드 요청 all/2026-11-17-request-app-launcher) — 링크만, 세션을 읽지 않는다 */}
-          <AppLauncher current="hr-backoffice" className="text-base-content [&>button]:text-neutral-content [&>button:hover]:bg-neutral-content/10" />
         </div>
         <nav aria-label="메뉴" className="flex-1 py-3">
           <p className="px-5 pb-1 text-xs font-semibold text-neutral-content/45">{m.nav.group}</p>
@@ -86,6 +84,8 @@ function Layout() {
           </p>
           <div className="flex items-center gap-2 text-sm">
             {env.isMock && <span className="badge badge-accent badge-sm">{m.mockBadge}</span>}
+            {/* 직원 웹 앱 바꾸기(백엔드 요청 all/2026-11-17-request-app-launcher) — 2026-11-18 사용자: Google 앱 런처처럼 머리줄 오른쪽. 링크만, 세션을 읽지 않는다 */}
+            <AppLauncher current="hr-backoffice" />
             {/* 로그인 직원 — 이름(없으면 "내 세션"). 로그인 시험이 이 링크 이름으로 찾는다 */}
             <NavLink to={session ? '/session' : '/login'} className={session ? 'btn btn-ghost btn-xs font-normal' : 'btn btn-primary btn-xs'}>
               {session ? (myName ? `${m.nav.session}: ${myName}` : m.nav.session) : m.nav.login}

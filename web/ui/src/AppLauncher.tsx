@@ -3,6 +3,7 @@
 // - 같은 탭으로 연다: 보통 <a href>(휠클릭·Ctrl+클릭으로 새 탭은 브라우저에 맡긴다). 지금 앱은 강조만.
 // - 주소 = 지금 페이지의 프로토콜·호스트 이름 + 앱 포트. https(LAN)는 443·8444·8445·8446(443 은 포트 없음), 그 밖(개발·목 http)은 5173~5176.
 //   코드에 IP 를 적지 않는다 — 192.168.0.40 으로 열었든 d603-16 으로 열었든 같은 호스트로 간다.
+// - 모양(2026-11-18 사용자 — Google 앱 런처처럼): 머리줄 오른쪽 격자 단추 → 앱마다 둥근 회색 칸 안 선 아이콘 + 아래 이름, 격자로.
 import { useEffect, useId, useRef, useState } from 'react';
 
 import { uiMessages as m } from './messages';
@@ -27,10 +28,27 @@ export function staffAppUrl(app: StaffApp, here: { readonly protocol: string; re
   return `${https ? 'https' : 'http'}://${host}${https && port === 443 ? '' : `:${port}`}/`;
 }
 
-function DotsIcon() {
+/** 격자 단추(3×3 작은 칸) */
+function GridIcon() {
   return (
-    <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5 fill-current">
-      {[5, 12, 19].flatMap((y) => [5, 12, 19].map((x) => <circle key={`${x}-${y}`} cx={x} cy={y} r={2} />))}
+    <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5 fill-none stroke-current" strokeWidth={1.6}>
+      {[3.5, 10, 16.5].flatMap((y) => [3.5, 10, 16.5].map((x) => <rect key={`${x}-${y}`} x={x} y={y} width={4} height={4} rx={1} />))}
+    </svg>
+  );
+}
+
+/** 앱마다 선 아이콘(24 격자, 굵기 1.6) — 본사 백오피스 = 상자, 인사팀 = 사람들, MFC 센터 = 창고, 라이더 운영 = 배송 트럭 */
+const APP_ICON: Readonly<Record<StaffApp, string>> = {
+  backoffice: 'M12 3 20 7.5v9L12 21l-8-4.5v-9L12 3Zm0 0v0M4 7.5l8 4.5 8-4.5M12 12v9',
+  'hr-backoffice': 'M9 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Zm-6 9c0-3.3 2.7-6 6-6s6 2.7 6 6M16 4.5a3.5 3.5 0 0 1 0 6.5M18 14.5c1.8.8 3 2.7 3 5.5',
+  'mfc-backoffice': 'M3 9.5 12 4l9 5.5V20H3V9.5ZM7 20v-7h10v7M7 16h10',
+  'rider-backoffice': 'M2.5 6.5h11v10h-11zM13.5 10h4l3 3.5v3h-7M6 19a2 2 0 1 0 0-4 2 2 0 0 0 0 4Zm11 0a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z',
+};
+
+function AppIcon({ app }: { readonly app: StaffApp }) {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" className="h-6 w-6 fill-none stroke-current" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round">
+      <path d={APP_ICON[app]} />
     </svg>
   );
 }
@@ -72,25 +90,39 @@ export function AppLauncher({ current, className = '' }: { readonly current: Sta
         aria-controls={panelId}
         onClick={() => setOpen((o) => !o)}
       >
-        <DotsIcon />
+        <GridIcon />
       </button>
       {open && (
-        <nav id={panelId} aria-label={m.appLauncher} className="absolute right-0 top-full z-50 mt-1 w-44 rounded-box bg-base-100 p-2 shadow-lg">
-          <ul className="menu menu-sm w-full p-0">
-            {STAFF_APPS.map((a) => (
-              <li key={a.app}>
-                {a.app === current ? (
-                  // 지금 앱은 강조만(눌러도 이동하지 않는다)
-                  <span className="menu-active" aria-current="page" data-app={a.app}>
+        <nav id={panelId} aria-label={m.appLauncher} className="absolute right-0 top-full z-50 mt-2 w-72 rounded-box border border-base-300 bg-base-100 p-4 text-base-content shadow-xl">
+          {/* 앱이 4개라 2칸 격자(3칸이면 한 칸이 혼자 남는다). 늘면 3칸 */}
+          <ul className={`grid gap-2 ${STAFF_APPS.length > 4 ? 'grid-cols-3' : 'grid-cols-2'}`}>
+            {STAFF_APPS.map((a) => {
+              const tile = (here: boolean) => (
+                <>
+                  <span className={`flex h-12 w-12 items-center justify-center rounded-2xl ${here ? 'bg-primary/15 text-primary' : 'bg-base-200 text-base-content/80'}`}>
+                    <AppIcon app={a.app} />
+                  </span>
+                  <span className={`text-sm ${here ? 'font-semibold text-primary' : ''}`} {...(here ? { 'aria-current': 'page' as const } : {})}>
                     {a.name}
                   </span>
-                ) : (
-                  <a href={staffAppUrl(a.app, here)} data-app={a.app}>
-                    {a.name}
-                  </a>
-                )}
-              </li>
-            ))}
+                </>
+              );
+              const cls = 'flex flex-col items-center gap-2 rounded-box px-2 py-3';
+              return (
+                <li key={a.app}>
+                  {a.app === current ? (
+                    // 지금 앱은 강조만(눌러도 이동하지 않는다)
+                    <span className={`${cls} bg-base-200/60`} data-app={a.app}>
+                      {tile(true)}
+                    </span>
+                  ) : (
+                    <a href={staffAppUrl(a.app, here)} className={`${cls} hover:bg-base-200`} data-app={a.app}>
+                      {tile(false)}
+                    </a>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         </nav>
       )}
