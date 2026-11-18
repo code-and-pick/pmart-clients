@@ -14,6 +14,7 @@ import { useSession } from '../../app/SessionContext';
 import { CommandFeedback } from '../../shared/Feedback';
 import { formatKrw, formatSeoul } from '@pmart/web-ui';
 import { CopyButton } from '../../shared/CopyButton';
+import { useRecordRecent } from '../../shared/recentViews';
 import { messages as m } from '../../shared/messages';
 import { QueryState } from '@pmart/web-ui';
 import { toUiState } from '@pmart/web-ui';
@@ -171,6 +172,8 @@ export function ApprovalDetailPage() {
 
   // 화면(2026-11-18 Shopify 상세처럼): 상세 머리(번호·유형·심사·반영 꼬리표·요약) → 두 칸
   // 왼쪽(넓게) = 승인 행·결정 이력·반영 확인, 오른쪽 = 심사(승인·반려)·요청 정보. 5축은 꼬리표를 따로 두고 합치지 않는다.
+  // 최근 본 항목(2026-11-18) — 서버 응답을 받은 뒤에만 남긴다
+  useRecordRecent('approval', approvalId, query.data ? approvalId : null);
   return (
     <section className="max-w-7xl space-y-4" data-fetched-at={lastFetchedAt}>
       <QueryState state={toUiState(query)} onRetry={() => void query.refetch()}>

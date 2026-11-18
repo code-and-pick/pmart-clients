@@ -13,6 +13,7 @@ import { EmptyBox, KindChip, ListFoot, SideFields, When } from '../lookup/parts'
 import { DisplayNumber } from '../../shared/displayNumber';
 import { SavedViews } from '../../shared/SavedViews';
 import { CopyButton } from '../../shared/CopyButton';
+import { useRecordRecent } from '../../shared/recentViews';
 import { messages as m } from '../../shared/messages';
 import { isOrderNumber, orderIdOfNumber, useOrderNumbers } from '../../shared/numberLookups';
 import { label, text, when, won } from '../../shared/ops';
@@ -260,6 +261,8 @@ export function ClaimDetailPage() {
 
   // 상세(2026-11-18 Shopify 상세처럼): 상세 머리 → 두 칸
   // 왼쪽(넓게) = 품목·반품 진행·환불·회수 조치, 오른쪽 = 클레임 정보·회수/재배송/비용
+  // 최근 본 항목(2026-11-18) — 서버 응답을 받은 뒤에만 남긴다
+  useRecordRecent('claim', claimId, query.data ? claimId : null);
   return (
     <section className="max-w-7xl space-y-4">
       <QueryState state={toUiState(query)} onRetry={() => void query.refetch()}>

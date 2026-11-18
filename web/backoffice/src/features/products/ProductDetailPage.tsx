@@ -13,6 +13,7 @@ import { useApi } from '../../app/ApiContext';
 import { useSession } from '../../app/SessionContext';
 import { CommandFeedback } from '../../shared/Feedback';
 import { formatSeoul } from '@pmart/web-ui';
+import { useRecordRecent } from '../../shared/recentViews';
 import { messages as m } from '../../shared/messages';
 import { QueryState } from '@pmart/web-ui';
 import { toUiState } from '@pmart/web-ui';
@@ -207,6 +208,8 @@ export function ProductDetailPage() {
   });
   const p0 = query.data;
 
+  // 최근 본 항목(2026-11-18) — 서버 응답을 받은 뒤에만 남긴다
+  useRecordRecent('product', productId, p0?.internalName ?? null);
   return (
     <section className="space-y-4">
       <DetailHeader

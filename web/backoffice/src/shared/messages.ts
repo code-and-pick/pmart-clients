@@ -964,6 +964,12 @@ export const messages = {
     },
   },
 
+  /** 대시보드 최근 본 항목(2026-11-18) */
+  recent: {
+    title: '최근 본 항목',
+    clear: '지우기',
+    kind: { order: '주문', delivery: '배송', claim: '클레임', case: '접수 건', inquiry: '고객 문의', riderInquiry: '라이더 문의', product: '상품', approval: '승인' } as const,
+  },
   /** 번호 복사(2026-11-18) */
   copy: {
     copy: '복사',

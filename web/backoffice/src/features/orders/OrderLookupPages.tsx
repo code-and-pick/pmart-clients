@@ -15,6 +15,7 @@ import { ChipGroup, CodeLabel, DataTable, DetailHeader, NextAction, Notice, Page
 import { SavedViews } from '../../shared/SavedViews';
 import { OrderProgress } from './OrderProgress';
 import { CopyButton } from '../../shared/CopyButton';
+import { useRecordRecent } from '../../shared/recentViews';
 import { messages as m } from '../../shared/messages';
 import { addSeoulDays, isSeoulDate, label, seoulDayEnd, seoulDayStart, seoulToday, spanDays, text, when, won } from '../../shared/ops';
 import { ClaimsOfOrder } from '../claims/ClaimPages';
@@ -383,6 +384,8 @@ export function OrderDetailPage() {
 
   // 상세(2026-11-18 Shopify 주문 상세처럼): 머리(번호·상태·요약) → 넓은 화면 두 칸
   // 왼쪽(넓게) = 주문 상품·금액·이행 확인·배송·클레임, 오른쪽 = 주문 정보·배송지(가림·원문 열람)
+  // 최근 본 항목(2026-11-18) — 서버 응답을 받은 뒤에만 남긴다
+  useRecordRecent('order', orderId, query.data ? (query.data.orderNumber ?? orderId) : null);
   return (
     <section className="max-w-7xl space-y-4">
       <QueryState state={toUiState(query)} onRetry={() => void query.refetch()}>

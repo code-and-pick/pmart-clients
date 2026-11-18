@@ -12,6 +12,7 @@ import { ProblemFailure, request } from '@pmart/web-core';
 import { useApi } from './ApiContext';
 import { ALERT_SIZE, useAlertCount, type AlertKey } from './MenuAlerts';
 import { ApprovalTypes, LiveSummary, RiskPanel, SlaTrend } from './DashboardSections';
+import { RecentViews } from './RecentViews';
 import { ActivityFeed, LiveStat, MetricsPanel, OrdersWeekChart, SalesPanel, WorkCountsPanel, useWorkCounts, workText, type WorkSum, RefreshBar, RiskStat, SlaStat, StatusDonut, TodayOrdersStat, slaQuery } from './DashboardWidgets';
 import { GroupIcon } from './groupIcons';
 import { visibleGroups } from './nav';
@@ -263,6 +264,9 @@ export function DashboardPage() {
 
       {/* 지금 일 전체(관리자) — 진행 중 배송 상태별·후속 처리·교대 인계 등 서버가 센 지금 건수 */}
       {admin && <WorkCountsPanel />}
+
+      {/* 최근 본 항목(2026-11-18) — 이 브라우저·이 직원 것, 없으면 안 보임 */}
+      <RecentViews />
 
       {/* 3줄: 내 할 일 | 최근 활동 */}
       {(tasks.length > 0 || hasActivity) && (

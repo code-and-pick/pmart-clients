@@ -26,6 +26,7 @@ import { DisplayNumber, RiderLabel } from '../../shared/displayNumber';
 import { useDeliveryNumber, useOrderNumbers, useRiderLabels } from '../../shared/numberLookups';
 import { SavedViews } from '../../shared/SavedViews';
 import { LeaveGuard } from '../../shared/LeaveGuard';
+import { useRecordRecent } from '../../shared/recentViews';
 import { messages as m } from '../../shared/messages';
 
 type Inquiry = components['schemas']['Inquiry'];
@@ -438,6 +439,8 @@ export function InquiryDetailPage({ kind = 'CUSTOMER' }: { readonly kind?: Reque
   const orders = useOrderNumbers([query.data?.orderId]);
   const delivery = useDeliveryNumber(query.data?.deliveryId);
 
+  // 최근 본 항목(2026-11-18) — 서버 응답을 받은 뒤에만 남긴다
+  useRecordRecent(kind === 'RIDER' ? 'riderInquiry' : 'inquiry', inquiryId, query.data ? inquiryId : null);
   return (
     <section className="space-y-4">
       <QueryState state={toUiState(query)} onRetry={() => void query.refetch()}>

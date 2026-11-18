@@ -33,6 +33,7 @@ import { useApi } from '../../app/ApiContext';
 import { useSession } from '../../app/SessionContext';
 import { CodeLabel, NextAction, PageHeader, StatusBadge, type Tone } from '../../shared/admin';
 import { SavedViews } from '../../shared/SavedViews';
+import { useRecordRecent } from '../../shared/recentViews';
 import { messages as m } from '../../shared/messages';
 import { label, text, when } from '../../shared/ops';
 import { SourceStamps } from '../../shared/SourceStamps';
@@ -818,6 +819,8 @@ export function CaseDetailPage() {
     // execution 0.8.0: 맡으면 도움요청이 처리 중, 다시 열기·넘기기(담당 비움)는 접수로 — 도움요청 상태를 다시 읽는다
     void queryClient.invalidateQueries({ queryKey: ['help-request'] });
   };
+  // 최근 본 항목(2026-11-18) — 서버 응답을 받은 뒤에만 남긴다
+  useRecordRecent('case', caseId, query.data ? caseId : null);
   return (
     <section className="max-w-7xl space-y-4">
       {/* 제목은 종류 이름 먼저, 번호는 작게(2026-11-18 "제목이 번호뿐") — 읽기 전에는 "접수 건" */}

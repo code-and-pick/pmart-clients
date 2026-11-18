@@ -19,6 +19,7 @@ import { RiderCard } from '../riders/RiderCard';
 import { isOrderNumber, isRiderNumber, riderIdOfNumber, useRiderLabels } from '../../shared/numberLookups';
 import { SavedViews } from '../../shared/SavedViews';
 import { CopyButton } from '../../shared/CopyButton';
+import { useRecordRecent } from '../../shared/recentViews';
 import { messages as m } from '../../shared/messages';
 import { label, text, when } from '../../shared/ops';
 import { ChipGroup, CodeLabel, DataTable, DetailHeader, FieldList, NextAction, PageHeader, ResultBar, SearchPanel, SearchRow, Section, StatusBadge, type Tone, useRowLink } from '../../shared/admin';
@@ -662,6 +663,8 @@ export function DeliveryDetailPage() {
   const headRiders = useRiderLabels([d?.riderId]);
   const rl = headRiders.get(d?.riderId);
   // 상세(2026-11-18): 상세 머리(종류·수행 상태가 먼저, 번호는 옆에 작게 + 컴플레인 기록) → 다음 할 일 → 원천 두 칸(배송 수행 | 배차) — 상태는 원천마다 따로, 합치지 않는다
+  // 최근 본 항목(2026-11-18) — 서버 응답을 받은 뒤에만 남긴다
+  useRecordRecent('delivery', deliveryId, d ? (d.deliveryNumber ?? deliveryId) : null);
   return (
     <section className="max-w-7xl space-y-4">
       <DetailHeader
