@@ -189,3 +189,19 @@ export function MenuGroupAlert({ items, open }: { readonly items: ReadonlyArray<
   if (open || keys.length === 0) return null;
   return <GroupSum keys={keys} />;
 }
+
+/**
+ * 목록 탭 옆 개수(2026-11-18 — 네이버 스마트스토어 "신규주문 3"·Shopify 목록 탭 참고). 메뉴 알림과 같은 조회(같은 쿼리 키라 한 번만 읽음).
+ * 읽는 중·못 읽음이면 아무것도 보이지 않는다(0 으로 보이지 않게). 50개를 넘으면 "50+".
+ */
+export function TabCount({ alert, tone = 'neutral' }: { readonly alert: AlertKey; readonly tone?: 'neutral' | 'error' | 'warning' }) {
+  const q = useAlertCount(alert);
+  if (!q.data) return null;
+  const n = q.data.more ? `${ALERT_SIZE}+` : String(q.data.n);
+  const color = q.data.n === 0 ? 'bg-base-200 text-base-content/45' : tone === 'error' ? 'bg-error/15 text-error' : tone === 'warning' ? 'bg-warning/20 text-warning' : 'bg-primary/10 text-primary';
+  return (
+    <span className={`rounded-full px-1.5 py-px text-[11px] font-semibold tabular-nums ${color}`} data-testid={`tab-count-${alert}`} aria-hidden="true">
+      {n}
+    </span>
+  );
+}

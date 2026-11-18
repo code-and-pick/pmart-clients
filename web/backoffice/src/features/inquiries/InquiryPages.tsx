@@ -27,6 +27,7 @@ import { useDeliveryNumber, useOrderNumbers, useRiderLabels } from '../../shared
 import { SavedViews } from '../../shared/SavedViews';
 import { LeaveGuard } from '../../shared/LeaveGuard';
 import { useRecordRecent } from '../../shared/recentViews';
+import { TabCount } from '../../app/MenuAlerts';
 import { PreviewDrawer, usePreview } from '../../shared/Preview';
 import { messages as m } from '../../shared/messages';
 
@@ -127,6 +128,8 @@ export function InquiryListPage({ kind = 'CUSTOMER' }: { readonly kind?: Request
                 className={`-mb-px whitespace-nowrap border-b-2 px-3 py-3 text-sm transition-colors ${on ? 'border-primary font-semibold text-base-content' : 'border-transparent text-base-content/55 hover:text-base-content'}`}
               >
                 {t.label}
+                {/* 접수 탭 옆 개수(2026-11-18) — 메뉴 알림과 같은 조회 */}
+                {t.value === 'RECEIVED' && <span className="ml-1.5"><TabCount alert={rider ? 'riderInquiries' : 'inquiries'} /></span>}
               </button>
             );
           })}

@@ -17,6 +17,8 @@ import { CommandFeedback } from '../../shared/Feedback';
 import { DisplayNumber, RiderLabel, SystemNumbers } from '../../shared/displayNumber';
 import { RiderCard } from '../riders/RiderCard';
 import { PreviewDrawer, PreviewFacts, usePreview } from '../../shared/Preview';
+import { useWorkCounts, workText } from '../../app/DashboardWidgets';
+import { useSession } from '../../app/SessionContext';
 import { isOrderNumber, isRiderNumber, riderIdOfNumber, useRiderLabels } from '../../shared/numberLookups';
 import { SavedViews } from '../../shared/SavedViews';
 import { CopyButton } from '../../shared/CopyButton';
@@ -155,6 +157,13 @@ export function DeliveryOpenPage() {
   const api = useApi();
   // 미리보기 칸(2026-11-18)
   const pv = usePreview();
+  const admin = useSession().session?.roles.includes('OPERATOR_ADMIN') ?? false;
+  const wc = useWorkCounts(admin);
+  const stateCount = (st: string) => {
+    const rows = wc.segments('DELIVERIES', 'ACTIVE').filter((c) => c.segment === st);
+    if (rows.length === 0) return undefined;
+    return workText({ value: rows.reduce((n, c) => n + c.value, 0), complete: rows.every((c) => c.complete) });
+  };
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const [id, setId] = useState('');
@@ -275,7 +284,8 @@ export function DeliveryOpenPage() {
             <ChipGroup
               label={m.deliveries.stateFilter}
               value={draft.state}
-              options={[{ value: '', label: m.deliveries.any }, ...EXECUTION_STATES.map((s) => ({ value: s, label: label(m.deliveries.executionState, s) }))]}
+              // 관리자는 상태 옆에 진행 중 건수(bff work-counts DELIVERIES·ACTIVE, 2026-11-18) — 서버가 그 상태 줄을 준 것만, 끝난 상태·못 읽음은 빈칸
+              options={[{ value: '', label: m.deliveries.any }, ...EXECUTION_STATES.map((s) => ({ value: s, label: label(m.deliveries.executionState, s), count: stateCount(s) }))]}
               onChange={(v) => setDraft((d) => ({ ...d, state: v }))}
             />
           </SearchRow>

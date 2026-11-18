@@ -34,6 +34,7 @@ import { useSession } from '../../app/SessionContext';
 import { CodeLabel, NextAction, PageHeader, StatusBadge, type Tone } from '../../shared/admin';
 import { SavedViews } from '../../shared/SavedViews';
 import { useRecordRecent } from '../../shared/recentViews';
+import { TabCount } from '../../app/MenuAlerts';
 import { PreviewDrawer, PreviewFacts, usePreview } from '../../shared/Preview';
 import { messages as m } from '../../shared/messages';
 import { label, text, when } from '../../shared/ops';
@@ -408,6 +409,9 @@ export function CaseListPage() {
             >
               {t === 'overdue' && <Icon d={ICON.alert} className={`h-3.5 w-3.5 ${t === tab ? 'text-error' : ''}`} />}
               {m.cases.tabs[t]}
+              {/* 탭 옆 개수(2026-11-18) — 메뉴 알림과 같은 조회, 종류를 골랐으면 그 개수와 달라 숨긴다 */}
+              {!kind && t === 'unassigned' && <TabCount alert="casesUnassigned" tone="warning" />}
+              {!kind && t === 'overdue' && <TabCount alert="casesOverdue" tone="error" />}
             </button>
           ))}
         </div>

@@ -122,7 +122,8 @@ export function SearchRow({ label, children }: { readonly label: ReactNode; read
 }
 
 /** 칩 모양 하나 고르기(상태·종류 등) */
-export function ChipGroup<T extends string>({ value, options, onChange, label }: { readonly value: T; readonly options: ReadonlyArray<{ readonly value: T; readonly label: string }>; readonly onChange: (v: T) => void; readonly label: string }) {
+/** count 를 주면 이름 옆에 작게(2026-11-18 — 서버가 센 값만, 읽기 도구에는 이름만) */
+export function ChipGroup<T extends string>({ value, options, onChange, label }: { readonly value: T; readonly options: ReadonlyArray<{ readonly value: T; readonly label: string; readonly count?: string | undefined }>; readonly onChange: (v: T) => void; readonly label: string }) {
   return (
     <div role="radiogroup" aria-label={label} className="flex flex-wrap gap-1">
       {options.map((o) => (
@@ -135,6 +136,11 @@ export function ChipGroup<T extends string>({ value, options, onChange, label }:
           onClick={() => onChange(o.value)}
         >
           {o.label}
+          {o.count !== undefined && (
+            <span className={`ml-1 tabular-nums ${o.value === value ? 'opacity-70' : 'text-base-content/50'}`} aria-hidden="true" data-testid={`chip-count-${o.value}`}>
+              {o.count}
+            </span>
+          )}
         </button>
       ))}
     </div>
