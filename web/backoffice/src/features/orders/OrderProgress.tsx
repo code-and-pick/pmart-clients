@@ -5,16 +5,11 @@
 // - 취소(CANCELLED)·만료(EXPIRED)는 갈래 — 단계를 회색으로 두고 끝에 빨간 표시(어느 단계에서 끝났는지는 상태만으로 알 수 없어 칠하지 않는다).
 // - 모르는 상태는 단계를 칠하지 않고 코드 그대로.
 import { messages } from '../../shared/messages';
+import { ProgressSteps, type StepPlace } from '../../shared/ProgressSteps';
 
 const m = messages.orders.progress;
 
-type Step = 0 | 1 | 2 | 3 | 4;
-interface Place {
-  readonly step: Step;
-  readonly done: boolean;
-  readonly note?: string;
-  readonly warn?: boolean;
-}
+type Place = StepPlace;
 
 /** 상태 → 단계 자리(계약 상태표 순서). 없으면 null(갈래·모름) */
 export function placeOf(status: string | null | undefined): Place | null {
@@ -44,44 +39,16 @@ export function placeOf(status: string | null | undefined): Place | null {
 }
 
 export function OrderProgress({ status }: { readonly status: string | null | undefined }) {
-  const place = placeOf(status);
-  const ended = status === 'CANCELLED' || status === 'EXPIRED';
+  const ended = status === 'CANCELLED' ? m.cancelled : status === 'EXPIRED' ? m.expired : undefined;
   return (
-    <section aria-label={m.title} className="rounded-box border border-base-300 bg-base-100 px-5 py-4 shadow-sm" data-testid="order-progress">
-      <ol className="flex items-start">
-        {m.steps.map((name, i) => {
-          const state = !place ? 'todo' : i < place.step || (i === place.step && place.done) ? 'done' : i === place.step ? 'now' : 'todo';
-          const circle =
-            state === 'done'
-              ? 'bg-success text-success-content'
-              : state === 'now'
-                ? place?.warn
-                  ? 'bg-warning text-warning-content ring-4 ring-warning/20'
-                  : 'bg-primary text-primary-content ring-4 ring-primary/20'
-                : 'bg-base-200 text-base-content/40';
-          const line = place && i < place.step ? 'bg-success' : 'bg-base-300';
-          return (
-            <li key={name} className="relative flex flex-1 flex-col items-center text-center" aria-current={state === 'now' ? 'step' : undefined} data-step-state={state}>
-              {i > 0 && <span className={`absolute left-0 right-1/2 top-4 -z-0 h-0.5 -translate-y-1/2 ${line}`} aria-hidden="true" />}
-              {i < m.steps.length - 1 && <span className={`absolute left-1/2 right-0 top-4 -z-0 h-0.5 -translate-y-1/2 ${place && i < place.step ? 'bg-success' : 'bg-base-300'}`} aria-hidden="true" />}
-              <span className={`relative z-10 flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold ${circle}`} aria-hidden="true">
-                {state === 'done' ? '✓' : i + 1}
-              </span>
-              <span className={`mt-2 text-xs ${state === 'now' ? 'font-bold' : state === 'done' ? 'text-base-content/80' : 'text-base-content/45'}`}>{name}</span>
-              {state === 'now' && place?.note && <span className={`mt-0.5 text-[11px] ${place.warn ? 'text-warning' : 'text-base-content/55'}`}>{place.note}</span>}
-            </li>
-          );
-        })}
-        {ended && (
-          <li className="flex flex-col items-center pl-3 text-center" data-testid="order-progress-ended">
-            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-error text-sm font-bold text-error-content" aria-hidden="true">
-              ✕
-            </span>
-            <span className="mt-2 text-xs font-bold text-error">{status === 'CANCELLED' ? m.cancelled : m.expired}</span>
-          </li>
-        )}
-      </ol>
-      {!place && !ended && status && <p className="mt-2 text-center text-xs text-base-content/50">{m.unknown(status)}</p>}
-    </section>
+    <ProgressSteps
+      steps={m.steps}
+      place={placeOf(status)}
+      ended={ended}
+      unknownText={status ? m.unknown(status) : undefined}
+      label={m.title}
+      testId="order-progress"
+      endedTestId="order-progress-ended"
+    />
   );
 }

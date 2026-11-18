@@ -1433,6 +1433,23 @@ export const messages = {
   employeeLogin: employeeLoginMessages,
 
   approvals: {
+    /** 진행 단계(2026-11-18) */
+    progress: {
+      title: '승인 진행',
+      steps: ['요청', '심사', '결정', '반영'] as readonly string[],
+      evidence: '자료를 더 달라고 함',
+      withdrawRequested: '철회 요청 중',
+      applying: '반영하는 중',
+      partialApproved: '일부 승인 — 반영하는 중',
+      partialApplied: '일부만 반영됨',
+      applyRejected: '반영이 거절됨',
+      applyUnknown: '반영 결과 확인 중',
+      rejected: '반려됨',
+      expired: '기한 지남',
+      superseded: '새 요청으로 바뀜',
+      withdrawn: '철회됨',
+      unknown: (s: string) => `이 상태(${s})는 단계로 나타내지 않았어요.`,
+    },
     title: '승인함',
     intro: '상품·전시·가격 등록과 직원 권한 요청이 여기로 모여요. 자기 요청은 다른 승인자가 심사해요.',
     request: '요청',
