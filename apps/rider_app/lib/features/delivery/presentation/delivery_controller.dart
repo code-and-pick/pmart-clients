@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pmart_core/pmart_core.dart';
@@ -5,7 +7,7 @@ import 'package:pmart_core/pmart_core.dart';
 import '../../../shared/providers.dart';
 import '../../auth/data/session.dart';
 import '../../offers/presentation/offer_controllers.dart'
-    show mockOfferRepositoryProvider;
+    show assignedDeliveriesProvider, mockOfferRepositoryProvider;
 import '../data/delivery_repository.dart';
 import '../data/mock_delivery_repository.dart';
 import '../domain/delivery.dart';
@@ -81,7 +83,8 @@ final evidenceUploaderProvider = Provider<EvidenceUploader>(
 /// 라이더 ID — 로그인 세션의 라이더(2026-11-18: 예전에는 BR-02 전 목 라이더로 고정이라 실서버 포장 인계가
 /// MFC 에서 403 RIDER_MISMATCH 로 막혔다). 목 모드는 세션이 목 라이더라 그대로, 세션이 없으면 목 라이더.
 final currentRiderIdProvider = Provider<String>(
-  (ref) => ref.watch(sessionProvider)?.riderId ?? MockDeliveryRepository.riderId,
+  (ref) =>
+      ref.watch(sessionProvider)?.riderId ?? MockDeliveryRepository.riderId,
 );
 
 /// 현장 큐 저장소. 실서버는 기기 보안 저장소(앱이 꺼져도 남는다).
@@ -99,10 +102,44 @@ final riderQueueProvider = Provider<FieldQueue>(
   (ref) => FieldQueue(ref.watch(fieldQueueStoreProvider), name: 'rider'),
 );
 
+/// 방금 수락한 배송을 배송 서버가 아직 모를 때 다시 묻는 간격(합 8초).
+///
+/// 배차 수락(dispatch)이 배송 수행(execution)에 배정으로 반영되기까지 0.2~0.7초 걸린다(백엔드 LAN 확인
+/// 2026-11-18). 그 사이 `GET /deliveries/{id}` 는 "볼 수 없으면 404"(계약)라, 바로 부르면 실패로 보였다
+/// (사용자: "배차 수락하면 배송 정보를 불러오지 못했어요 — 다시 시도를 눌러야 픽업지가 뜬다").
+final acceptCatchUpDelaysProvider = Provider<List<Duration>>(
+  (_) => const [
+    Duration(milliseconds: 500),
+    Duration(seconds: 1),
+    Duration(milliseconds: 1500),
+    Duration(seconds: 2),
+    Duration(seconds: 3),
+  ],
+);
+
 final deliveryProvider = FutureProvider.autoDispose
-    .family<DeliveryView, String>(
-      (ref, id) => ref.watch(deliveryRepositoryProvider).get(id),
-    );
+    .family<DeliveryView, String>((ref, id) async {
+      final repo = ref.watch(deliveryRepositoryProvider);
+      // 이번 실행에서 내가 수락한 배송만: 404 는 "아직 반영 전"으로 보고 잠깐씩 다시 묻는다(그동안은 불러오는 중).
+      // 그 밖 배송·다른 실패는 바로 실패로(지어내지 않는다). 끝까지 404 면 그대로 실패.
+      final justAccepted = ref.read(assignedDeliveriesProvider).contains(id);
+      final delays = justAccepted
+          ? ref.read(acceptCatchUpDelaysProvider)
+          : const <Duration>[];
+      // 화면을 나가 조회가 버려지면 기다리던 타이머도 끈다(남은 타이머가 다시 부르지 않게).
+      Timer? waiting;
+      ref.onDispose(() => waiting?.cancel());
+      for (var i = 0; ; i++) {
+        try {
+          return await repo.get(id);
+        } on ProblemFailure catch (e) {
+          if (e.problem.status != 404 || i >= delays.length) rethrow;
+          final done = Completer<void>();
+          waiting = Timer(delays[i], done.complete);
+          await done.future;
+        }
+      }
+    });
 
 final myActiveDeliveriesProvider =
     FutureProvider.autoDispose<List<DeliveryView>>(
