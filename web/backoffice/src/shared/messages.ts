@@ -964,6 +964,13 @@ export const messages = {
     },
   },
 
+  /** 번호 복사(2026-11-18) */
+  copy: {
+    copy: '복사',
+    done: '복사했어요',
+    failed: '복사하지 못했어요',
+    aria: (what: string) => `${what} 복사`,
+  },
   /** 입력 중 떠날 때 경고(2026-11-18) */
   leaveGuard: {
     title: '작성한 내용이 사라져요',

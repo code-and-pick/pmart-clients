@@ -13,6 +13,7 @@ import { useApi } from '../../app/ApiContext';
 import { useSession } from '../../app/SessionContext';
 import { CommandFeedback } from '../../shared/Feedback';
 import { formatKrw, formatSeoul } from '@pmart/web-ui';
+import { CopyButton } from '../../shared/CopyButton';
 import { messages as m } from '../../shared/messages';
 import { QueryState } from '@pmart/web-ui';
 import { toUiState } from '@pmart/web-ui';
@@ -198,6 +199,7 @@ export function ApprovalDetailPage() {
                   <>
                     {a.summary ?? m.approvals.detailTitle}
                     <span className="ml-2 font-mono text-sm font-normal text-base-content/50">{approvalId}</span>
+                  <CopyButton value={approvalId} />
                   </>
                 }
                 badges={

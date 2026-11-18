@@ -11,6 +11,7 @@ import { commandParams } from '../../api/command';
 import type { components } from '../../api/generated/case';
 import { useApi } from '../../app/ApiContext';
 import { CommandFeedback } from '../../shared/Feedback';
+import { CopyButton } from '../../shared/CopyButton';
 import { LeaveGuard } from '../../shared/LeaveGuard';
 import { messages as m } from '../../shared/messages';
 import { isSeoulDate, label, seoulDayEnd, seoulDayStart, text, when } from '../../shared/ops';
@@ -336,6 +337,7 @@ export function RiderComplaintDetailPage() {
                 <>
                   {m.complaints.titleOf(label(m.complaints.typeName, c.complaintType), c.riderId)}
                   <span className="ml-2 font-mono text-sm font-normal text-base-content/50">{complaintId}</span>
+                  <CopyButton value={complaintId} />
                 </>
               }
               badges={<ComplaintType type={c.complaintType} />}

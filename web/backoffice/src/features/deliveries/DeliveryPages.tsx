@@ -18,6 +18,7 @@ import { DisplayNumber, RiderLabel, SystemNumbers } from '../../shared/displayNu
 import { RiderCard } from '../riders/RiderCard';
 import { isOrderNumber, isRiderNumber, riderIdOfNumber, useRiderLabels } from '../../shared/numberLookups';
 import { SavedViews } from '../../shared/SavedViews';
+import { CopyButton } from '../../shared/CopyButton';
 import { messages as m } from '../../shared/messages';
 import { label, text, when } from '../../shared/ops';
 import { ChipGroup, CodeLabel, DataTable, DetailHeader, FieldList, NextAction, PageHeader, ResultBar, SearchPanel, SearchRow, Section, StatusBadge, type Tone, useRowLink } from '../../shared/admin';
@@ -671,6 +672,8 @@ export function DeliveryDetailPage() {
             <span className="ml-2 text-sm font-normal text-base-content/50">
               <DisplayNumber number={d?.deliveryNumber} systemId={deliveryId} />
             </span>
+            {/* 복사(2026-11-18): 화면 번호가 있으면 그 번호, 없으면 시스템 ID */}
+            <CopyButton value={d?.deliveryNumber ?? deliveryId} />
           </>
         }
         summary={d ? m.deliveries.summaryOf(d.orderNumber ?? m.none, d.riderId ? (rl?.riderNumber ? `${rl.nameMasked ?? ''} · ${rl.riderNumber}` : m.none) : m.deliveries.noAssignment, text(d.mfcId)) : undefined}

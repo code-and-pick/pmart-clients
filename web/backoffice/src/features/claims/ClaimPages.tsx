@@ -12,6 +12,7 @@ import { ChipGroup, CodeLabel, DataTable, DetailHeader, NextAction, Notice, Page
 import { EmptyBox, KindChip, ListFoot, SideFields, When } from '../lookup/parts';
 import { DisplayNumber } from '../../shared/displayNumber';
 import { SavedViews } from '../../shared/SavedViews';
+import { CopyButton } from '../../shared/CopyButton';
 import { messages as m } from '../../shared/messages';
 import { isOrderNumber, orderIdOfNumber, useOrderNumbers } from '../../shared/numberLookups';
 import { label, text, when, won } from '../../shared/ops';
@@ -282,6 +283,7 @@ export function ClaimDetailPage() {
                 <>
                   {c.type ? m.claims.titleOf(label(m.claims.typeName, c.type), label(m.claims.reasonName, c.reason)) : m.claims.detailTitle}
                   <span className="ml-2 font-mono text-sm font-normal text-base-content/50">{claimId}</span>
+                  <CopyButton value={claimId} />
                 </>
               }
               badges={

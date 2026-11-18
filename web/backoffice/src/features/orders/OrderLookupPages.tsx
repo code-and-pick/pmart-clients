@@ -14,6 +14,7 @@ import { useApi } from '../../app/ApiContext';
 import { ChipGroup, CodeLabel, DataTable, DetailHeader, NextAction, Notice, PageHeader, ResultBar, SearchPanel, SearchRow, Section, StatusBadge, type Tone } from '../../shared/admin';
 import { SavedViews } from '../../shared/SavedViews';
 import { OrderProgress } from './OrderProgress';
+import { CopyButton } from '../../shared/CopyButton';
 import { messages as m } from '../../shared/messages';
 import { addSeoulDays, isSeoulDate, label, seoulDayEnd, seoulDayStart, seoulToday, spanDays, text, when, won } from '../../shared/ops';
 import { ClaimsOfOrder } from '../claims/ClaimPages';
@@ -397,6 +398,7 @@ export function OrderDetailPage() {
                 <>
                   {firstName ? m.orders.titleOf(firstName, o.lines.length - 1) : m.orders.detailTitle}
                   <span className="ml-2 font-mono text-sm font-normal text-base-content/50">{orderId}</span>
+                  <CopyButton value={orderId} />
                 </>
               }
               badges={

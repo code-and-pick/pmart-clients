@@ -5,6 +5,7 @@
 // - 원천을 못 읽어 번호가 null 이면(라이더 = unavailableSources 에 rider-service, 연결 주문 = 원천 UNKNOWN) "번호 없음"이 아니라 "번호 확인 불가"
 //   — 없는 것과 못 읽은 것을 섞지 않는다. 번호를 화면에서 만들지 않는다.
 import type { components } from '../api/generated/backoffice-bff';
+import { CopyButton } from './CopyButton';
 import { messages } from './messages';
 
 const m = messages.displayNumber;
@@ -70,7 +71,10 @@ export function SystemNumbers({ ids }: { readonly ids: ReadonlyArray<{ readonly 
         {shown.map((x) => (
           <div key={`${x.label}:${x.id}`} className="contents">
             <dt className="text-base-content/60">{x.label}</dt>
-            <dd className="break-all font-mono">{x.id}</dd>
+            <dd className="flex items-center gap-1 break-all font-mono">
+              {x.id}
+              <CopyButton value={x.id} label={`${x.label} ${x.id}`} />
+            </dd>
           </div>
         ))}
       </dl>
