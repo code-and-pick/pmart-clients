@@ -21,7 +21,7 @@ import { CommandFeedback } from '../../shared/Feedback';
 import { canSeeIntakes, CsIntakeLog } from '../csIntakes/CsIntakePages';
 import { InquiryPhotos } from './InquiryPhotos';
 import { ago, Avatar, Card, EmptyBox, Icon, ICON, MetaList } from './HelpdeskParts';
-import { DetailHeader, PageHeader, StatusBadge, type Tone } from '../../shared/admin';
+import { CodeLabel, DetailHeader, NextAction, PageHeader, StatusBadge, type Tone } from '../../shared/admin';
 import { messages as m } from '../../shared/messages';
 
 type Inquiry = components['schemas']['Inquiry'];
@@ -37,6 +37,8 @@ const MAX_REPLY = 4000; // 계약 replyInquiry body maxLength
 const isStatus = (v: string | null): v is InquiryStatus => v !== null && (STATUSES as readonly string[]).includes(v);
 /** 계약 밖 값은 지어내지 않고 원문 그대로 보인다. */
 const label = (map: Readonly<Record<string, string>>, v: string | null | undefined) => (v ? (map[v] ?? v) : m.none);
+/** 화면에 그리는 코드 값 — 한국어 이름(원래 코드는 마우스를 올리면), 값이 없으면 "—" */
+const codeOf = (map: Readonly<Record<string, string>>, v: string | null | undefined) => (v ? <CodeLabel code={v} names={map} /> : m.none);
 /** 상태 꼬리표 색(표시만) */
 const statusTone = (s: string | undefined): Tone => (s === 'RECEIVED' ? 'warning' : s === 'ANSWERED' ? 'info' : 'ghost');
 
@@ -55,7 +57,7 @@ const CATEGORY_STYLE: Readonly<Record<string, string>> = {
 function CategoryTag({ value }: { readonly value: string | null | undefined }) {
   return (
     <span className={`inline-flex whitespace-nowrap rounded-md px-2 py-0.5 text-xs font-medium ${(value && CATEGORY_STYLE[value]) || 'bg-base-200 text-base-content/70'}`}>
-      {label(m.inquiries.categoryName, value)}
+      {codeOf(m.inquiries.categoryName, value)}
     </span>
   );
 }
@@ -166,11 +168,11 @@ export function InquiryListPage({ kind = 'CUSTOMER' }: { readonly kind?: Request
                           </Link>
                           {i.origin === 'ASSISTANT_HANDOFF' && <span className="badge badge-ghost badge-xs">{m.inquiries.fromAssistant}</span>}
                           {i.origin === 'STAFF_INTAKE' && (
-                            <span className="badge badge-ghost badge-xs" data-testid="inquiry-channel">{`${m.inquiries.fromStaff} · ${label(m.csIntake.channelName, i.channel)}`}</span>
+                            <span className="badge badge-ghost badge-xs" data-testid="inquiry-channel">{m.inquiries.fromStaff} · {codeOf(m.csIntake.channelName, i.channel)}</span>
                           )}
                           {i.callerRelation === 'PROXY' && <span className="badge badge-warning badge-soft badge-xs">{m.inquiries.proxy}</span>}
                           {i.deliveryIssue && (
-                            <span className="badge badge-error badge-soft badge-xs" data-testid="inquiry-delivery-issue">{`${m.inquiries.deliveryIssue} · ${label(m.inquiries.deliveryIssueName, i.deliveryIssue)}`}</span>
+                            <span className="badge badge-error badge-soft badge-xs" data-testid="inquiry-delivery-issue">{m.inquiries.deliveryIssue} · {codeOf(m.inquiries.deliveryIssueName, i.deliveryIssue)}</span>
                           )}
                         </div>
                       </td>
@@ -178,7 +180,7 @@ export function InquiryListPage({ kind = 'CUSTOMER' }: { readonly kind?: Request
                         <CategoryTag value={i.category} />
                       </td>
                       <td>
-                        <StatusBadge tone={statusTone(i.status)}>{label(m.inquiries.status, i.status)}</StatusBadge>
+                        <StatusBadge tone={statusTone(i.status)}>{codeOf(m.inquiries.status, i.status)}</StatusBadge>
                       </td>
                       <td className="whitespace-nowrap text-right">
                         <Time iso={i.createdAt} />
@@ -373,6 +375,36 @@ function Bubble({ mine, who, at, children, testId, author }: {
   );
 }
 
+/**
+ * 맨 위 "다음 할 일" 하나 — 화면이 이미 읽은 문의 상태·마지막 대화·역할로만 고른다(새 규칙·새 조회 없음, 판정은 서버).
+ * 종료 → 없음 / 답변 역할 아님 → 보기만 / 접수(라이더가 이어 씀) → 다시 답변 / 접수 → 답변 쓰기 / 답변 완료 → 확인 기다림.
+ */
+function InquiryNextAction({ q, canReply }: { readonly q: Inquiry; readonly canReply: boolean }) {
+  const n = m.inquiries.next;
+  const rider = q.requesterType === 'RIDER';
+  if (q.status === 'CLOSED') return null;
+  if (!canReply) return <NextAction tone="info" title={n.readOnly} body={rider ? m.inquiries.riderReadOnly : m.inquiries.readOnly} testId="inquiry-read-only" />;
+  const toReply = (
+    <a href="#inquiry-reply-box" className="btn btn-primary btn-sm">
+      {n.toReply}
+    </a>
+  );
+  if (q.status === 'RECEIVED' && q.replies.at(-1)?.authorType === 'RIDER')
+    return (
+      <NextAction tone="warning" title={n.riderAgain} body={m.inquiries.riderFollowUp} testId="inquiry-rider-followup">
+        {toReply}
+      </NextAction>
+    );
+  if (q.status === 'RECEIVED')
+    return (
+      <NextAction tone="warning" title={n.reply} body={n.replyBody[q.origin === 'STAFF_INTAKE' ? 'STAFF' : rider ? 'RIDER' : 'CUSTOMER']}>
+        {toReply}
+      </NextAction>
+    );
+  if (q.status === 'ANSWERED') return <NextAction tone="info" title={n.waiting[rider ? 'RIDER' : 'CUSTOMER']} body={n.waitingBody} />;
+  return null;
+}
+
 /** 문의 상세 + 답변. */
 export function InquiryDetailPage({ kind = 'CUSTOMER' }: { readonly kind?: RequesterType }) {
   const { inquiryId = '' } = useParams();
@@ -396,15 +428,25 @@ export function InquiryDetailPage({ kind = 'CUSTOMER' }: { readonly kind?: Reque
             <>
               <DetailHeader
                 back={{ to: basePath(kind), label: kind === 'RIDER' ? m.inquiries.riderBack : m.inquiries.back }}
-                title={`${m.inquiries.detailTitle} ${inquiryId}`}
+                // 제목은 문의 제목(번호는 아래 줄에 작게) — 2026-11-18 "직관적이지 않다"
+                title={q.title ?? m.inquiries.untitled}
                 badges={
                   <>
-                    <StatusBadge tone={statusTone(q.status)}>{label(m.inquiries.status, q.status)}</StatusBadge>
+                    <StatusBadge tone={statusTone(q.status)}>{codeOf(m.inquiries.status, q.status)}</StatusBadge>
                     <CategoryTag value={q.category} />
                   </>
                 }
-                summary={`${asker} · ${formatSeoul(q.createdAt)}`}
+                summary={
+                  <>
+                    <span className="font-mono text-xs text-base-content/55" title={m.inquiries.id}>
+                      {inquiryId}
+                    </span>
+                    {` · ${asker} · ${formatSeoul(q.createdAt)}`}
+                  </>
+                }
               />
+
+              <InquiryNextAction q={q} canReply={canReplyTo(q)} />
 
               <div className="grid items-start gap-4 lg:grid-cols-3">
                 {/* 왼쪽: 대화 + 답변 쓰기 */}
@@ -456,22 +498,12 @@ export function InquiryDetailPage({ kind = 'CUSTOMER' }: { readonly kind?: Reque
                         <span className="h-px flex-1 bg-base-300" />
                       </p>
                     )}
-                    {q.status === 'RECEIVED' && q.replies.at(-1)?.authorType === 'RIDER' && (
-                      <p role="status" className="rounded-box bg-warning/10 px-3 py-2 text-sm text-warning" data-testid="inquiry-rider-followup">
-                        {m.inquiries.riderFollowUp}
-                      </p>
-                    )}
-                    {/* 답변 쓰기 — 답변 역할만(보기만이면 안내) */}
-                    <div className="border-t border-base-200 pt-4">
-                      {canReplyTo(q) ? (
+                    {/* 답변 쓰기 — 답변 역할만(보기만·라이더 이어 쓰기 안내는 맨 위 "다음 할 일") */}
+                    {canReplyTo(q) && (
+                      <div className="scroll-mt-4 border-t border-base-200 pt-4" id="inquiry-reply-box">
                         <ReplyForm key={q.inquiryId} inquiry={q} />
-                      ) : (
-                        <p className="flex items-center gap-2 rounded-box bg-base-200 px-4 py-3 text-sm text-base-content/70" data-testid="inquiry-read-only">
-                          <Icon d={ICON.shield} />
-                          {riderAsk ? m.inquiries.riderReadOnly : m.inquiries.readOnly}
-                        </p>
-                      )}
-                    </div>
+                      </div>
+                    )}
                   </Card>
                 </div>
 
@@ -480,27 +512,27 @@ export function InquiryDetailPage({ kind = 'CUSTOMER' }: { readonly kind?: Reque
                   <Card title={m.inquiries.sectionInfo} icon={ICON.note}>
                     <MetaList
                       rows={[
-                        [m.inquiries.statusLabel, label(m.inquiries.status, q.status), 'inquiry-status'],
-                        [m.inquiries.category, label(m.inquiries.categoryName, q.category)],
+                        [m.inquiries.statusLabel, codeOf(m.inquiries.status, q.status), 'inquiry-status'],
+                        [m.inquiries.category, codeOf(m.inquiries.categoryName, q.category)],
                         [m.inquiries.requester, asker, 'inquiry-requester'],
-                        [
-                          m.inquiries.origin,
-                          q.origin === 'ASSISTANT_HANDOFF'
-                            ? m.inquiries.fromAssistant
-                            : q.origin === 'INQUIRY_PAGE'
-                              ? m.inquiries.fromPage
-                              : q.origin === 'STAFF_INTAKE'
-                                ? m.inquiries.fromStaff
-                                : (q.origin ?? m.none),
-                        ],
-                        q.channel ? [m.inquiries.channel, `${label(m.csIntake.channelName, q.channel)}${q.callerRelation ? ` · ${label(m.csIntake.relationName, q.callerRelation)}` : ''}`] : null,
+                        [m.inquiries.origin, codeOf(m.inquiries.originName, q.origin)],
+                        q.channel
+                          ? [
+                              m.inquiries.channel,
+                              <>
+                                {codeOf(m.csIntake.channelName, q.channel)}
+                                {q.callerRelation && <> · {codeOf(m.csIntake.relationName, q.callerRelation)}</>}
+                              </>,
+                            ]
+                          : null,
                         [m.inquiries.createdAt, formatSeoul(q.createdAt)],
                         // 닫힘(case 0.19.0) — 닫은 쪽·시각, 직원이 닫았으면 사유(직원에게만 온다)
                         q.status === 'CLOSED'
                           ? [
                               m.inquiries.closedLabel,
                               <>
-                                {`${label(m.inquiries.closedByName, q.closedByType)}${q.closedAt ? ` · ${formatSeoul(q.closedAt)}` : ''}`}
+                                {codeOf(m.inquiries.closedByName, q.closedByType)}
+                                {q.closedAt && ` · ${formatSeoul(q.closedAt)}`}
                                 {q.closeReason && <span className="block whitespace-pre-wrap text-base-content/70">{q.closeReason}</span>}
                               </>,
                               'inquiry-closed',
@@ -550,7 +582,7 @@ export function InquiryDetailPage({ kind = 'CUSTOMER' }: { readonly kind?: Reque
                             ? [
                                 m.inquiries.deliveryIssue,
                                 <>
-                                  {label(m.inquiries.deliveryIssueName, q.deliveryIssue)}
+                                  {codeOf(m.inquiries.deliveryIssueName, q.deliveryIssue)}
                                   {q.deliveryId && (
                                     <>
                                       {` · ${m.inquiries.delivery} `}

@@ -265,6 +265,9 @@ describe('배송 확인', () => {
     const view = renderAt('/deliveries/DLV-MOCK-2', as.cs);
     expect(await screen.findByTestId('execution-state')).toHaveTextContent('전달 실패 등록');
     expect(screen.getByTestId('delivery-failure')).toHaveTextContent('세 번 전화했지만');
+    // 다음 할 일(2026-11-18): 전달 실패 등록이면 확정·반려 칸으로
+    expect(await screen.findByTestId('next-action')).toHaveTextContent('전달 실패를 확정하거나 반려해 주세요');
+    expect(screen.getByRole('link', { name: '결정 칸으로' })).toHaveAttribute('href', '#failure-decision');
     await user.click(screen.getByLabelText('실패 확정'));
     await user.click(screen.getByRole('button', { name: '결정 보내기' }));
     expect(await screen.findByTestId('decision-result')).toHaveTextContent('반영됐어요.');

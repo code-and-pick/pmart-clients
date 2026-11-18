@@ -51,7 +51,7 @@ describe('상품 일괄 등록', () => {
     await user.selectOptions(within(fill).getByLabelText('보관 방식'), 'CHILLED');
     await user.click(within(fill).getByRole('button', { name: '저장·재검증' }));
 
-    await waitFor(() => expect(screen.getByText('VALID')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByTitle('VALID')).toHaveTextContent('검증 통과'));
     expect(screen.queryByLabelText('빠진 값 채우기 부사 사과 1kg')).not.toBeInTheDocument();
     const put = view.mutations('/product-drafts/pd-seed-invalid')[0]!;
     expect(put.method).toBe('PUT');
@@ -76,7 +76,7 @@ describe('상품 일괄 등록', () => {
     db.importBatches.set(batch.batchId, batch);
     renderAt('/products/import/pib-seed-1');
 
-    expect(await screen.findByRole('heading', { name: '배치 pib-seed-1' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: /배치 pib-seed-1/ })).toBeInTheDocument();
     const another = screen.getByRole('heading', { name: '다른 파일 올리기' }).parentElement!;
     expect(within(another).getByLabelText('seed-v1.zip')).toBeInTheDocument();
     // 파일을 고르기 전에는 올릴 수 없다

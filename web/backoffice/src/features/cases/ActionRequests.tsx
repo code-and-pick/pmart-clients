@@ -12,7 +12,8 @@ import { commandParams } from '../../api/command';
 import type { components } from '../../api/generated/case';
 import { useApi } from '../../app/ApiContext';
 import { messages } from '../../shared/messages';
-import { label, text, when } from '../../shared/ops';
+import { CodeLabel } from '../../shared/admin';
+import { text, when } from '../../shared/ops';
 
 const m = messages.actionRequests;
 type Case = components['schemas']['Case'];
@@ -181,7 +182,7 @@ function ResultForm({ caseId, ar }: { readonly caseId: string; readonly ar: Acti
           <option value="">{messages.none}</option>
           {RESULT_KINDS.map((k) => (
             <option key={k} value={k}>
-              {k}
+              {m.resultKindName[k]}
             </option>
           ))}
         </select>
@@ -223,7 +224,8 @@ export function ActionRequests({ c, canAct }: { readonly c: Case; readonly canAc
           {m.title}
           {items.length > 0 && <span className="badge badge-ghost badge-sm">{items.length}</span>}
         </h2>
-        <p className="text-xs text-base-content/60">{m.intro}</p>
+        {/* 기록만 한다는 안내는 기록 버튼 옆 한 줄로(2026-11-18 도움말 줄이기) — 보기만 하는 사람에게는 위 한 줄 */}
+        {!canAct && <p className="text-xs text-base-content/60">{m.intro}</p>}
       </div>
       {items.length === 0 ? (
         <p className="px-5 py-4 text-sm text-base-content/60">{m.empty}</p>
@@ -240,12 +242,28 @@ export function ActionRequests({ c, canAct }: { readonly c: Case; readonly canAc
                 </span>
                 <div className="min-w-0 flex-1 space-y-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-medium">{label(m.typeName, ar.actionType)}</span>
-                    <span className="badge badge-sm badge-soft">{label(m.stateName, ar.state)}</span>
+                    <span className="font-medium">{ar.actionType ? <CodeLabel code={ar.actionType} names={m.typeName} /> : messages.none}</span>
+                    <span className="badge badge-sm badge-soft">{ar.state ? <CodeLabel code={ar.state} names={m.stateName} /> : messages.none}</span>
                   </div>
-                  <p className="break-all font-mono text-xs text-base-content/70">{`${ar.targetService} · ${ar.command}${ar.targetRef ? ` · ${ar.targetRef}` : ''}`}</p>
+                  <p className="break-all text-xs text-base-content/70">
+                    <CodeLabel code={ar.targetService} names={messages.systemName} />
+                    <span className="font-mono">{` · ${ar.command}${ar.targetRef ? ` · ${ar.targetRef}` : ''}`}</span>
+                  </p>
                   {ar.approvalRef && <p className="text-xs">{`${m.approvalRef} ${ar.approvalRef}`}</p>}
-                  {ar.resultRef && <p className="break-all font-mono text-xs text-success" data-testid="action-request-result">{`${m.resultLine} ${ar.resultRef.system} · ${ar.resultRef.ref}${ar.resultRef.kind ? ` (${ar.resultRef.kind})` : ''}`}</p>}
+                  {ar.resultRef && (
+                    <p className="break-all text-xs text-success" data-testid="action-request-result">
+                      {`${m.resultLine} `}
+                      <CodeLabel code={ar.resultRef.system} names={messages.systemName} />
+                      <span className="font-mono">{` · ${ar.resultRef.ref}`}</span>
+                      {ar.resultRef.kind && (
+                        <>
+                          {' ('}
+                          <CodeLabel code={ar.resultRef.kind} names={m.resultKindName} />
+                          {')'}
+                        </>
+                      )}
+                    </p>
+                  )}
                   {ar.resultNote && <p className="text-xs opacity-80">{ar.resultNote}</p>}
                   <p className="text-xs text-base-content/50">{`${text(ar.requestedBy)} · ${when(ar.requestedAt)}`}</p>
                   {canAct && !FINAL.includes(ar.state ?? '') && <ResultForm caseId={caseId} ar={ar} />}

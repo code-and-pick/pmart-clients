@@ -29,7 +29,7 @@ import type { operations as BffOps } from '../../api/generated/backoffice-bff';
 import type { components } from '../../api/generated/case';
 import { useApi } from '../../app/ApiContext';
 import { useSession } from '../../app/SessionContext';
-import { PageHeader, StatusBadge, type Tone } from '../../shared/admin';
+import { CodeLabel, NextAction, PageHeader, StatusBadge, type Tone } from '../../shared/admin';
 import { messages as m } from '../../shared/messages';
 import { label, text, when } from '../../shared/ops';
 import { SourceStamps } from '../../shared/SourceStamps';
@@ -213,7 +213,13 @@ const KIND_TONE: Readonly<Record<string, Tone>> = {
 function KindBadge({ kind }: { readonly kind: string | null | undefined }) {
   if (!kind) return <span>{m.none}</span>;
   const named = m.cases.kindName[kind] !== undefined;
-  return named ? <StatusBadge tone={KIND_TONE[kind] ?? 'ghost'}>{label(m.cases.kindName, kind)}</StatusBadge> : <span className="font-mono text-xs">{kind}</span>;
+  return named ? (
+    <StatusBadge tone={KIND_TONE[kind] ?? 'ghost'}>
+      <CodeLabel code={kind} names={m.cases.kindName} />
+    </StatusBadge>
+  ) : (
+    <CodeLabel code={kind} names={m.cases.kindName} />
+  );
 }
 
 function PriorityBadge({ p }: { readonly p: string | null | undefined }) {
@@ -412,7 +418,7 @@ export function CaseListPage() {
                           <Person id={c.assigneeId} />
                         </td>
                         <td>
-                          <StatusBadge tone={stateTone(c)}>{label(m.cases.stateName, c.state)}</StatusBadge>
+                          <StatusBadge tone={stateTone(c)}>{c.state ? <CodeLabel code={c.state} names={m.cases.stateName} /> : m.none}</StatusBadge>
                         </td>
                       </tr>
                     ))}
@@ -445,7 +451,12 @@ export function CaseListPage() {
   );
 }
 
-function AssignForm({ c, onDone }: { readonly c: Case; readonly onDone: (c: Case) => void }) {
+/** 내가 맡을 수 있나(버튼을 보일지만 — 판정은 서버) */
+const canPickCase = (c: Case, r: { readonly admin: boolean; readonly team: boolean; readonly agent: boolean }) =>
+  ((isCsCase(c) ? r.agent : r.team && !withAdminTeam(c)) || r.admin) && !c.assigneeId;
+
+/** 맡기 — part 'pick' = 내가 맡기 버튼(다음 할 일 카드 안), 'other' = 다른 사람에게 배정(관리자, 오른쪽 칸) */
+function AssignForm({ c, onDone, part }: { readonly c: Case; readonly onDone: (c: Case) => void; readonly part: 'pick' | 'other' }) {
   const api = useApi();
   const { me, admin, team, agent } = useCaseRoles();
   const [other, setOther] = useState('');
@@ -461,33 +472,36 @@ function AssignForm({ c, onDone }: { readonly c: Case; readonly onDone: (c: Case
     if (assign.phase.kind === 'rejected' || assign.phase.kind === 'done') assign.reset();
     void assign.run({ assigneeId });
   };
-  const canPick = ((isCsCase(c) ? agent : team && !withAdminTeam(c)) || admin) && !c.assigneeId;
-  if (!canPick && !admin) return null;
-  return (
-    <div className="space-y-2 border-t border-base-300 pt-3 text-sm">
-      {canPick && (
-        <button type="button" className="btn btn-sm btn-primary w-full" disabled={assign.busy} onClick={() => run(me)}>
+  if (part === 'pick') {
+    if (!canPickCase(c, { admin, team, agent })) return null;
+    return (
+      <div className="space-y-1">
+        <button type="button" className="btn btn-sm btn-primary" disabled={assign.busy} onClick={() => run(me)}>
           {m.cases.pick}
         </button>
-      )}
-      {admin && (
-        <form
-          className="flex items-end gap-2"
-          aria-label={m.cases.assignTo}
-          onSubmit={(e: FormEvent) => {
-            e.preventDefault();
-            if (other.trim()) run(other.trim());
-          }}
-        >
-          <label className="flex min-w-0 flex-1 flex-col gap-1 text-xs text-base-content/60">
-            {m.cases.assignTo}
-            <input className="input input-sm w-full" placeholder={m.cases.assignee_} value={other} onChange={(e) => setOther(e.target.value)} />
-          </label>
-          <button type="submit" className="btn btn-sm" disabled={!other.trim() || assign.busy}>
-            {m.cases.assign}
-          </button>
-        </form>
-      )}
+        <CommandFeedback command={assign}>{() => <span className="text-xs text-success">{m.cases.picked}</span>}</CommandFeedback>
+      </div>
+    );
+  }
+  if (!admin) return null;
+  return (
+    <div className="space-y-2 border-t border-base-300 pt-3 text-sm">
+      <form
+        className="flex items-end gap-2"
+        aria-label={m.cases.assignTo}
+        onSubmit={(e: FormEvent) => {
+          e.preventDefault();
+          if (other.trim()) run(other.trim());
+        }}
+      >
+        <label className="flex min-w-0 flex-1 flex-col gap-1 text-xs text-base-content/60">
+          {m.cases.assignTo}
+          <input className="input input-sm w-full" placeholder={m.cases.assignee_} value={other} onChange={(e) => setOther(e.target.value)} />
+        </label>
+        <button type="submit" className="btn btn-sm" disabled={!other.trim() || assign.busy}>
+          {m.cases.assign}
+        </button>
+      </form>
       <CommandFeedback command={assign}>{() => <span className="text-xs text-success">{m.cases.picked}</span>}</CommandFeedback>
     </div>
   );
@@ -507,7 +521,8 @@ function CloseForm({ c, onDone, openFollowUps }: { readonly c: Case; readonly on
   });
   return (
     <form
-      className="space-y-3 rounded-box border border-base-300 bg-base-100 p-4 text-sm shadow-sm"
+      id="case-close"
+      className="scroll-mt-4 space-y-3 rounded-box border border-base-300 bg-base-100 p-4 text-sm shadow-sm"
       aria-label={m.cases.close}
       onSubmit={(e) => {
         e.preventDefault();
@@ -729,7 +744,16 @@ export function CaseDetailPage() {
   };
   return (
     <section className="max-w-7xl space-y-4">
-      <PageHeader title={m.cases.detailTitle(caseId)} back={{ to: '/cases', label: m.cases.back }} />
+      {/* 제목은 종류 이름 먼저, 번호는 작게(2026-11-18 "제목이 번호뿐") — 읽기 전에는 "접수 건" */}
+      <PageHeader
+        title={
+          <>
+            {query.data?.kind ? <CodeLabel code={query.data.kind} names={m.cases.kindName} /> : m.cases.title}
+            <span className="ml-2 font-mono text-xs font-normal text-base-content/45">{m.cases.detailTitle(caseId)}</span>
+          </>
+        }
+        back={{ to: '/cases', label: m.cases.back }}
+      />
       <QueryState state={toUiState(query)} onRetry={() => void query.refetch()}>
         {(c) => {
           const closed = c.state === 'CLOSED';
@@ -745,149 +769,188 @@ export function CaseDetailPage() {
           const canToAdmin = !closed && deliverySide && !adminTeam && (admin || (teamCan && (!c.assigneeId || c.assigneeId === me)));
           const canToSupport = !closed && deliverySide && adminTeam && admin;
           const history = c.history ?? [];
+          const openFollowUps = (c.obligations ?? []).filter(isOpenObligation).length;
           return (
-            // 이슈 트래커처럼 두 칸(2026-11-18): 왼쪽 = 내용·후속 처리·행위 요청·메모·연락·이력, 오른쪽 = 속성·명령
-            <div className="grid items-start gap-4 lg:grid-cols-3">
-              <div className="min-w-0 space-y-4 lg:col-span-2">
-                {/* 개요 — 종류·우선순위 배지, 요약을 크게 */}
-                <div className="rounded-box border border-base-300 bg-base-100 px-5 py-4 shadow-sm empty:hidden">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <KindBadge kind={c.kind} />
-                    <PriorityBadge p={c.priority} />
-                    {c.overdue && !closed && (
-                      <span className="badge badge-error badge-sm gap-1">
-                        <Icon d={ICON.alert} className="h-3 w-3" />
-                        {m.cases.overdue}
-                      </span>
-                    )}
-                    <span className="ml-auto font-mono text-xs text-base-content/45">{c.caseId}</span>
-                  </div>
-                  <p className="mt-3 whitespace-pre-wrap text-lg font-semibold leading-snug">{text(c.summary)}</p>
-                  <p className="mt-1 text-xs text-base-content/55">{`${m.cases.openedAt} ${when(c.openedAt)}`}</p>
-                </div>
-
-                {(c.refs ?? []).some((r) => r.refType === 'recoveryDeliveryId' || r.refType === 'reshipmentDeliveryId') && (
-                  <p role="note" className="alert alert-info alert-soft text-sm" data-testid="case-recovery-note">
-                    {m.cases.recoveryNote}
-                  </p>
-                )}
-                {isOrderKind(c.kind) && (
-                  <div className="flex flex-wrap items-center justify-between gap-2 rounded-box border border-accent/30 bg-accent/5 px-4 py-3 text-sm" data-testid="case-order-note">
-                    <p className="text-base-content/75">{m.cases.orderNote}</p>
-                    <Link className="btn btn-sm btn-accent btn-outline" to="/pending">
-                      {m.cases.orderAction}
-                    </Link>
-                  </div>
-                )}
-                {adminTeam && !admin && (
-                  <p role="note" className="alert alert-warning alert-soft text-sm">
-                    {m.cases.adminHandlingNote}
-                  </p>
-                )}
-
-                {(c.kind === 'RIDER_HELP' || c.kind === 'DELIVERY_INCIDENT') && <HelpRequestOfCase c={c} />}
-                {c.kind === 'RETURN_RECOVERY_FAILED' && <ClaimOfCase claimId={c.subjectType === 'CLAIM' && c.subjectRef ? c.subjectRef : ((c.refs ?? []).find((r) => r.refType === 'claimId')?.refId ?? '')} />}
-
-                <div className="rounded-box border border-base-300 bg-base-100 px-5 py-4 shadow-sm empty:hidden">
-                  <FollowUps c={c} canAdd={!closed && (admin || teamCan)} />
-                </div>
-
-                {c.closure && (
-                  <Panel title={closed ? m.cases.closure : m.cases.lastClosure} icon={ICON.check}>
-                    <div className={`space-y-1 rounded-box border-l-4 px-4 py-3 text-sm ${closed ? 'border-success bg-success/5' : 'border-base-300 bg-base-200/50'}`} data-testid="case-closure">
-                      <StatusBadge tone={closed ? 'success' : 'ghost'}>{label(m.cases.resolutionName, c.closure.resolution)}</StatusBadge>
-                      <p className="whitespace-pre-wrap">{text(c.closure.summary)}</p>
-                      <p className="text-xs text-base-content/55">{`${text(c.closure.closedBy)} · ${when(c.closure.closedAt)}`}</p>
-                    </div>
-                  </Panel>
-                )}
-
-                {/* 행위 요청 기록(case 0.17.0) — 맡을 수 있는 사람만 남김, 처리 끝난 건은 새 요청 없음 */}
-                <ActionRequests c={c} canAct={!closed && (admin || teamCan)} />
-
-                <CaseNotes caseId={c.caseId ?? caseId} />
-
-                {/* 고객 연락 기록(case 0.12.0) — 상담원·관리자만(그 밖 역할은 서버 403이라 그리지 않는다) */}
-                <div className="space-y-3 rounded-box border border-base-300 bg-base-100 px-5 py-4 shadow-sm empty:hidden">
-                  <CsIntakeLog caseId={c.caseId ?? caseId} title={m.csIntake.caseLog} />
-                  {canSeeIntakes(session?.roles ?? []) && (
-                    <Link className="btn btn-sm" to={`/cs-intakes/new?${new URLSearchParams({ linkCaseId: c.caseId ?? caseId }).toString()}`}>
-                      {m.csIntake.caseRecord}
-                    </Link>
-                  )}
-                </div>
-
-                {/* 이력 — 세로 시간 줄 */}
-                <Panel title={m.cases.history} icon={ICON.history}>
-                  {history.length === 0 ? (
-                    <p className="text-sm text-base-content/55">{m.cases.noHistory}</p>
-                  ) : (
-                    <ol className="relative ml-2 space-y-4 border-l border-base-300 pl-5 text-sm" data-testid="case-history">
-                      {history.map((h, i) => (
-                        <li key={`${h.at ?? ''}-${i}`} className="relative">
-                          <span className={`absolute -left-[1.6rem] top-1 h-3 w-3 rounded-full ring-4 ring-base-100 ${HISTORY_DOT[h.action ?? ''] ?? 'bg-base-300'}`} aria-hidden="true" />
-                          <p>{`${h.action ? label(m.cases.actionName, h.action) : text(h.action)} · ${text(h.actorId)}${h.toState ? ` → ${label(m.cases.stateName, h.toState)}` : ''}${h.note ? ` · ${h.note}` : ''}`}</p>
-                          <p className="text-xs text-base-content/50">{when(h.at)}</p>
-                        </li>
-                      ))}
-                    </ol>
-                  )}
-                </Panel>
-              </div>
-
-              {/* 오른쪽 — 속성(상태·우선순위·기한·담당·관련) + 할 수 있는 명령만 */}
-              <aside className="min-w-0 space-y-4 lg:sticky lg:top-4">
-                <div className="rounded-box border border-base-300 bg-base-100 px-5 py-3 shadow-sm">
-                  <dl className="divide-y divide-base-300/70" data-testid="case-facts">
-                    <Prop name={m.cases.state}>
-                      <StatusBadge tone={stateTone(c)} testId="case-state">
-                        {label(m.cases.stateName, c.state)}
-                      </StatusBadge>
-                    </Prop>
-                    <Prop name={m.cases.priority}>
+            <>
+              <CaseNext c={c} me={me} viewer={!admin && !teamCan} canPick={!closed && canPickCase(c, { admin, team, agent })} canClose={canClose} openFollowUps={openFollowUps} onDone={onDone} />
+              {/* 이슈 트래커처럼 두 칸(2026-11-18): 왼쪽 = 내용·후속 처리·행위 요청·메모·연락·이력, 오른쪽 = 속성·명령 */}
+              <div className="grid items-start gap-4 lg:grid-cols-3">
+                <div className="min-w-0 space-y-4 lg:col-span-2">
+                  {/* 개요 — 종류·우선순위 배지, 요약을 크게 */}
+                  <div className="rounded-box border border-base-300 bg-base-100 px-5 py-4 shadow-sm empty:hidden">
+                    <div className="flex flex-wrap items-center gap-2">
                       <PriorityBadge p={c.priority} />
-                    </Prop>
-                    <Prop name={m.cases.kind}>{label(m.cases.kindName, c.kind)}</Prop>
-                    <Prop name={m.cases.sla}>
-                      <span className={c.overdue ? 'rounded-md bg-error/10 px-1.5 py-0.5' : ''}>
-                        <Sla c={c} />
-                      </span>
-                    </Prop>
-                    <Prop name={m.cases.assigneeGroup} testId="case-group">
-                      {label(m.cases.groupName, c.assigneeGroup)}
-                      {adminTeam && (
-                        <span className="badge badge-warning badge-sm ml-1" data-testid="case-admin-team">
-                          {m.cases.adminHandling}
+                      {c.overdue && !closed && (
+                        <span className="badge badge-error badge-sm gap-1">
+                          <Icon d={ICON.alert} className="h-3 w-3" />
+                          {m.cases.overdue}
                         </span>
                       )}
-                    </Prop>
-                    <Prop name={m.cases.assignee} testId="case-assignee">
-                      <Person id={c.assigneeId} />
-                    </Prop>
-                    <Prop name={m.cases.openedAt}>{when(c.openedAt)}</Prop>
-                    <Prop name={m.cases.refs}>
-                      <span className="text-sm [&_.flex]:flex-col [&_.flex]:gap-y-1">
-                        <Refs c={c} />
-                      </span>
-                    </Prop>
-                  </dl>
-                  {!closed && (
-                    <div className="pb-2">
-                      <AssignForm c={c} onDone={onDone} />
+                    </div>
+                    <p className="mt-3 whitespace-pre-wrap text-lg font-semibold leading-snug">{text(c.summary)}</p>
+                    <p className="mt-1 text-xs text-base-content/55">{`${m.cases.openedAt} ${when(c.openedAt)}`}</p>
+                  </div>
+  
+                  {(c.refs ?? []).some((r) => r.refType === 'recoveryDeliveryId' || r.refType === 'reshipmentDeliveryId') && (
+                    <p role="note" className="alert alert-info alert-soft text-sm" data-testid="case-recovery-note">
+                      {m.cases.recoveryNote}
+                    </p>
+                  )}
+                  {isOrderKind(c.kind) && (
+                    <div className="flex flex-wrap items-center justify-between gap-2 rounded-box border border-accent/30 bg-accent/5 px-4 py-3 text-sm" data-testid="case-order-note">
+                      <p className="text-base-content/75">{m.cases.orderNote}</p>
+                      <Link className="btn btn-sm btn-accent btn-outline" to="/pending">
+                        {m.cases.orderAction}
+                      </Link>
                     </div>
                   )}
+  
+                  {(c.kind === 'RIDER_HELP' || c.kind === 'DELIVERY_INCIDENT') && <HelpRequestOfCase c={c} />}
+                  {c.kind === 'RETURN_RECOVERY_FAILED' && <ClaimOfCase claimId={c.subjectType === 'CLAIM' && c.subjectRef ? c.subjectRef : ((c.refs ?? []).find((r) => r.refType === 'claimId')?.refId ?? '')} />}
+  
+                  <div id="case-follow-ups" className="scroll-mt-4 rounded-box border border-base-300 bg-base-100 px-5 py-4 shadow-sm empty:hidden">
+                    <FollowUps c={c} canAdd={!closed && (admin || teamCan)} />
+                  </div>
+  
+                  {c.closure && (
+                    <Panel title={closed ? m.cases.closure : m.cases.lastClosure} icon={ICON.check}>
+                      <div className={`space-y-1 rounded-box border-l-4 px-4 py-3 text-sm ${closed ? 'border-success bg-success/5' : 'border-base-300 bg-base-200/50'}`} data-testid="case-closure">
+                        <StatusBadge tone={closed ? 'success' : 'ghost'}>{label(m.cases.resolutionName, c.closure.resolution)}</StatusBadge>
+                        <p className="whitespace-pre-wrap">{text(c.closure.summary)}</p>
+                        <p className="text-xs text-base-content/55">{`${text(c.closure.closedBy)} · ${when(c.closure.closedAt)}`}</p>
+                      </div>
+                    </Panel>
+                  )}
+  
+                  {/* 행위 요청 기록(case 0.17.0) — 맡을 수 있는 사람만 남김, 처리 끝난 건은 새 요청 없음 */}
+                  <ActionRequests c={c} canAct={!closed && (admin || teamCan)} />
+  
+                  <CaseNotes caseId={c.caseId ?? caseId} />
+  
+                  {/* 고객 연락 기록(case 0.12.0) — 상담원·관리자만(그 밖 역할은 서버 403이라 그리지 않는다) */}
+                  <div className="space-y-3 rounded-box border border-base-300 bg-base-100 px-5 py-4 shadow-sm empty:hidden">
+                    <CsIntakeLog caseId={c.caseId ?? caseId} title={m.csIntake.caseLog} />
+                    {canSeeIntakes(session?.roles ?? []) && (
+                      <Link className="btn btn-sm" to={`/cs-intakes/new?${new URLSearchParams({ linkCaseId: c.caseId ?? caseId }).toString()}`}>
+                        {m.csIntake.caseRecord}
+                      </Link>
+                    )}
+                  </div>
+  
+                  {/* 이력 — 세로 시간 줄 */}
+                  <Panel title={m.cases.history} icon={ICON.history}>
+                    {history.length === 0 ? (
+                      <p className="text-sm text-base-content/55">{m.cases.noHistory}</p>
+                    ) : (
+                      <ol className="relative ml-2 space-y-4 border-l border-base-300 pl-5 text-sm" data-testid="case-history">
+                        {history.map((h, i) => (
+                          <li key={`${h.at ?? ''}-${i}`} className="relative">
+                            <span className={`absolute -left-[1.6rem] top-1 h-3 w-3 rounded-full ring-4 ring-base-100 ${HISTORY_DOT[h.action ?? ''] ?? 'bg-base-300'}`} aria-hidden="true" />
+                            <p>{`${h.action ? label(m.cases.actionName, h.action) : text(h.action)} · ${text(h.actorId)}${h.toState ? ` → ${label(m.cases.stateName, h.toState)}` : ''}${h.note ? ` · ${h.note}` : ''}`}</p>
+                            <p className="text-xs text-base-content/50">{when(h.at)}</p>
+                          </li>
+                        ))}
+                      </ol>
+                    )}
+                  </Panel>
                 </div>
-                {!admin && !team && !(agent && csCase) && <p className="px-1 text-sm text-base-content/60">{m.cases.viewOnly}</p>}
-                {canClose && <CloseForm c={c} onDone={onDone} openFollowUps={(c.obligations ?? []).filter(isOpenObligation).length} />}
-                {canToAdmin && <TransferForm c={c} toGroup="ORDER_OPS" onDone={onDone} />}
-                {canToSupport && <TransferForm c={c} toGroup="DELIVERY_OPS" onDone={onDone} />}
-                {canReopen && <ReopenForm c={c} onDone={onDone} />}
-              </aside>
-            </div>
+  
+                {/* 오른쪽 — 속성(상태·우선순위·기한·담당·관련) + 할 수 있는 명령만 */}
+                <aside className="min-w-0 space-y-4 lg:sticky lg:top-4">
+                  <div className="rounded-box border border-base-300 bg-base-100 px-5 py-3 shadow-sm">
+                    <dl className="divide-y divide-base-300/70" data-testid="case-facts">
+                      <Prop name={m.cases.state}>
+                        <StatusBadge tone={stateTone(c)} testId="case-state">
+                          {c.state ? <CodeLabel code={c.state} names={m.cases.stateName} /> : m.none}
+                        </StatusBadge>
+                      </Prop>
+                      <Prop name={m.cases.priority}>
+                        <PriorityBadge p={c.priority} />
+                      </Prop>
+                      <Prop name={m.cases.kind}>{c.kind ? <CodeLabel code={c.kind} names={m.cases.kindName} /> : m.none}</Prop>
+                      <Prop name={m.cases.sla}>
+                        <span className={c.overdue ? 'rounded-md bg-error/10 px-1.5 py-0.5' : ''}>
+                          <Sla c={c} />
+                        </span>
+                      </Prop>
+                      <Prop name={m.cases.assigneeGroup} testId="case-group">
+                        {c.assigneeGroup ? <CodeLabel code={c.assigneeGroup} names={m.cases.groupName} /> : m.none}
+                        {adminTeam && (
+                          <span className="badge badge-warning badge-sm ml-1" data-testid="case-admin-team">
+                            {m.cases.adminHandling}
+                          </span>
+                        )}
+                      </Prop>
+                      <Prop name={m.cases.assignee} testId="case-assignee">
+                        <Person id={c.assigneeId} />
+                      </Prop>
+                      <Prop name={m.cases.openedAt}>{when(c.openedAt)}</Prop>
+                      <Prop name={m.cases.refs}>
+                        <span className="text-sm [&_.flex]:flex-col [&_.flex]:gap-y-1">
+                          <Refs c={c} />
+                        </span>
+                      </Prop>
+                    </dl>
+                    {!closed && (
+                      <div className="pb-2">
+                        <AssignForm c={c} onDone={onDone} part="other" />
+                      </div>
+                    )}
+                  </div>
+                  {canClose && <CloseForm c={c} onDone={onDone} openFollowUps={openFollowUps} />}
+                  {canToAdmin && <TransferForm c={c} toGroup="ORDER_OPS" onDone={onDone} />}
+                  {canToSupport && <TransferForm c={c} toGroup="DELIVERY_OPS" onDone={onDone} />}
+                  {canReopen && <ReopenForm c={c} onDone={onDone} />}
+                </aside>
+              </div>
+            </>
           );
         }}
       </QueryState>
     </section>
+  );
+}
+
+/**
+ * 다음 할 일 하나(2026-11-18 "지금 뭘 해야 하는지 안 보인다") — 이미 읽은 서버 상태로만 고른다(새 판정·새 호출 없음).
+ * 처리 끝남 → 성공 한 줄 · 보기만 하는 역할 → 안내 · 아무도 안 맡음(맡을 수 있음) → 내가 맡기 ·
+ * 내가 맡음 → 후속 처리 남음이면 후속 처리로, 아니면 완료 처리로(기한 넘김이면 빨강) · 다른 사람이 맡음 → 안내만
+ */
+function CaseNext({ c, me, viewer, canPick, canClose, openFollowUps, onDone }: { readonly c: Case; readonly me: string; readonly viewer: boolean; readonly canPick: boolean; readonly canClose: boolean; readonly openFollowUps: number; readonly onDone: (c: Case) => void }) {
+  const n = m.cases.next;
+  const overdue = c.overdue === true;
+  if (c.state === 'CLOSED') {
+    const how = c.closure?.resolution ? label(m.cases.resolutionName, c.closure.resolution) : label(m.cases.stateName, c.state);
+    return <NextAction tone="success" title={n.closed(how)} />;
+  }
+  if (viewer) {
+    const adminTeam = withAdminTeam(c);
+    return <NextAction tone="info" title={adminTeam ? n.adminTeam : n.viewOnly} body={adminTeam ? m.cases.adminHandlingNote : m.cases.viewOnly} />;
+  }
+  if (canPick) {
+    return (
+      <NextAction tone={overdue ? 'error' : 'warning'} title={overdue ? n.unassignedOverdue : n.unassigned}>
+        <AssignForm c={c} onDone={onDone} part="pick" />
+      </NextAction>
+    );
+  }
+  if (c.assigneeId && c.assigneeId !== me) return <NextAction tone={overdue ? 'warning' : 'info'} title={overdue ? n.otherAssigneeOverdue(c.assigneeId) : n.otherAssignee(c.assigneeId)} />;
+  if (openFollowUps > 0) {
+    return (
+      <NextAction tone={overdue ? 'error' : 'warning'} title={n.followUps(openFollowUps)} body={n.followUpsBody}>
+        <a href="#case-follow-ups" className="btn btn-sm btn-primary">
+          {n.goFollowUps}
+        </a>
+      </NextAction>
+    );
+  }
+  if (!canClose) return null;
+  return (
+    <NextAction tone={overdue ? 'error' : 'info'} title={overdue ? n.overdue : n.close} body={isOrderKind(c.kind) ? n.orderBody : undefined}>
+      <a href="#case-close" className="btn btn-sm btn-primary">
+        {n.goClose}
+      </a>
+    </NextAction>
   );
 }
 

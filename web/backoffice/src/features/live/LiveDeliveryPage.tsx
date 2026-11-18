@@ -15,7 +15,7 @@ import { useApi } from '../../app/ApiContext';
 import { messages } from '../../shared/messages';
 import { label, when } from '../../shared/ops';
 import { SourceStamps } from '../../shared/SourceStamps';
-import { DataTable, PageHeader, StatusBadge } from '../../shared/admin';
+import { CodeLabel, DataTable, NextAction, PageHeader, StatusBadge } from '../../shared/admin';
 import { executionTone } from '../deliveries/DeliveryPages';
 import { EmptyBox, Icon, IdLink, KindChip, Kpi, Person, UnderlineTabs } from '../lookup/parts';
 
@@ -148,6 +148,7 @@ export function LiveDeliveryPage() {
         }
       />
       {loaded && <LiveKpis items={(loaded.items ?? [])} composedAt={loaded.composedAt} />}
+      {loaded && <LiveNext items={loaded.items ?? []} />}
       <div className="overflow-hidden rounded-box border border-base-300 bg-base-100 shadow-sm">
         <UnderlineTabs
           label={m.state}
@@ -246,6 +247,22 @@ function LiveKpis({ items, composedAt }: { readonly items: readonly LiveItem[]; 
   );
 }
 
+/**
+ * 다음 할 일(2026-11-18 "지금 뭘 해야 하는지 안 보인다") — 읽어 온 줄 중 서버 수행 상태가 전달 실패 등록(FAILURE_REPORTED)인 것이 있으면
+ * 배송 확인의 "전달 실패 확정 대기" 빠른 보기로. 건수는 이 화면에 읽은 줄 기준(숫자 카드와 같음). 없으면 그리지 않는다.
+ */
+function LiveNext({ items }: { readonly items: readonly LiveItem[] }) {
+  const n = items.filter((it) => it.delivery?.state === 'FAILURE_REPORTED').length;
+  if (n === 0) return null;
+  return (
+    <NextAction tone="warning" title={m.nextStep.failureTitle(n)} body={m.nextStep.failureBody}>
+      <Link className="btn btn-sm btn-warning" to="/deliveries?q=1&state=FAILURE_REPORTED&sort=OLDEST">
+        {m.nextStep.failureGo}
+      </Link>
+    </NextAction>
+  );
+}
+
 function LiveTable({ items, composedAt, casesTruncated = false }: { readonly items: readonly LiveItem[]; readonly composedAt: string | undefined; readonly casesTruncated?: boolean }) {
   return (
     <DataTable>
@@ -281,15 +298,15 @@ function LiveTable({ items, composedAt, casesTruncated = false }: { readonly ite
               </td>
               <td>
                 <span className="flex flex-col items-start gap-1">
-                  {it.type ? <KindChip icon={it.type === 'FORWARD' ? 'truck' : 'return'}>{label(d.typeName, it.type)}</KindChip> : messages.none}
+                  {it.type ? <KindChip icon={it.type === 'FORWARD' ? 'truck' : 'return'}><CodeLabel code={it.type} names={d.typeName} /></KindChip> : messages.none}
                   <span className="flex items-center gap-1 text-xs text-base-content/55">
                     <Icon name="store" className="h-3 w-3" />
                     {it.mfcId ?? messages.none}
                   </span>
                 </span>
               </td>
-              <td>{it.delivery?.state ? <StatusBadge tone={executionTone(it.delivery.state)}>{label(d.executionState, it.delivery.state)}</StatusBadge> : <span className="text-warning">{m.unknown}</span>}</td>
-              <td data-testid="dispatch-state">{dispatchState ? <StatusBadge tone="neutral">{label(d.dispatchState, dispatchState)}</StatusBadge> : <span className="text-warning">{m.unknown}</span>}</td>
+              <td>{it.delivery?.state ? <StatusBadge tone={executionTone(it.delivery.state)}><CodeLabel code={it.delivery.state} names={d.executionState} /></StatusBadge> : <span className="text-warning">{m.unknown}</span>}</td>
+              <td data-testid="dispatch-state">{dispatchState ? <StatusBadge tone="neutral"><CodeLabel code={dispatchState} names={d.dispatchState} /></StatusBadge> : <span className="text-warning">{m.unknown}</span>}</td>
               <td>{it.riderId ? <Person id={it.riderId} /> : <StatusBadge tone="warning">{m.noRider}</StatusBadge>}</td>
               <td className="min-w-40">
                 <span className="flex flex-wrap items-center gap-1">

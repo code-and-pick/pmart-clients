@@ -20,7 +20,7 @@ import { messages as m } from '../../shared/messages';
 import { label, text, when } from '../../shared/ops';
 import { DeliveriesOf } from '../deliveries/DeliveryPages';
 import { RiderComplaintTable } from '../riderComplaints/RiderComplaintPages';
-import { FieldList, Notice, PageHeader, Section, StatusBadge, type Tone } from '../../shared/admin';
+import { CodeLabel, FieldList, Notice, PageHeader, Section, StatusBadge, type Tone } from '../../shared/admin';
 
 type PiiField = components['schemas']['RiderPiiField'];
 type StaffRiderDetail = components['schemas']['StaffRiderDetail'];
@@ -52,12 +52,12 @@ function RiderBasic({ rider }: { readonly rider: StaffRiderDetail }) {
             rows={[
               [m.riders.name, <span key="n" data-testid="rider-name" data-masked={!isOpen('NAME')}>{isOpen('NAME') ? text(opened?.name) : text(rider.nameMasked)}</span>],
               [m.orders.phone, <span key="p" className="font-mono" data-testid="rider-phone" data-masked={!isOpen('PHONE')}>{isOpen('PHONE') ? text(opened?.phone) : text(rider.phoneMasked)}</span>],
-              [m.riders.vehicle, label(m.riders.vehicleName, rider.vehicleType)],
+              [m.riders.vehicle, rider.vehicleType ? <CodeLabel key="v" code={rider.vehicleType} names={m.riders.vehicleName} /> : m.none],
               [m.riders.operating, `${label(m.riders.operatingName, op?.status)}${op?.mfcId ? ` · ${op.mfcId}` : ''}`],
-              [m.riders.newDispatch, op?.newDispatchEnabled === undefined ? m.none : op.newDispatchEnabled ? 'O' : 'X'],
+              [m.riders.newDispatch, op?.newDispatchEnabled === undefined ? m.none : op.newDispatchEnabled ? m.riders.newDispatchOn : m.riders.newDispatchOff],
               [m.riders.activeDeliveries, text(op?.activeDeliveryCount)],
               [m.riders.areas, (rider.deliveryAreas ?? []).map((a) => `${a.mfcId ?? ''}${a.zoneId ? `/${a.zoneId}` : ''}`).join(', ') || m.none],
-              [m.riders.dispatchMode, label(m.riders.dispatchModeName, rider.settings?.dispatchMode)],
+              [m.riders.dispatchMode, rider.settings?.dispatchMode ? <CodeLabel key="d" code={rider.settings.dispatchMode} names={m.riders.dispatchModeName} /> : m.none],
               [m.riders.restriction, `${label(m.riders.restrictionName, rider.restriction?.state)}${rider.restriction?.until ? ` ~ ${when(rider.restriction.until)}` : ''}`],
               [m.riders.lastHeartbeat, when(rider.lastHeartbeatAt)],
               [m.riders.joinedAt, when(rider.joinedAt)],
@@ -72,9 +72,13 @@ function RiderBasic({ rider }: { readonly rider: StaffRiderDetail }) {
           <p className="text-xs text-base-content/55">{m.riders.statusNow}</p>
           <div className="mt-2 flex flex-wrap gap-2">
             {rider.restriction?.state && m.riders.restrictionName[rider.restriction.state] ? (
-              <StatusBadge tone={RESTRICTION_TONE[rider.restriction.state] ?? 'ghost'}>{label(m.riders.restrictionName, rider.restriction.state)}</StatusBadge>
+              <StatusBadge tone={RESTRICTION_TONE[rider.restriction.state] ?? 'ghost'}>
+                <CodeLabel code={rider.restriction.state} names={m.riders.restrictionName} />
+              </StatusBadge>
             ) : null}
-            {op?.status && m.riders.operatingName[op.status] ? <StatusBadge tone={op.status === 'ON_DUTY' ? 'success' : 'ghost'}>{label(m.riders.operatingName, op.status)}</StatusBadge> : null}
+            {op?.status && m.riders.operatingName[op.status] ? <StatusBadge tone={op.status === 'ON_DUTY' ? 'success' : 'ghost'}>
+                <CodeLabel code={op.status} names={m.riders.operatingName} />
+              </StatusBadge> : null}
           </div>
           <p className="mt-3 text-xs text-base-content/55">{m.riders.activeDeliveries}</p>
           <p className="text-2xl font-bold">{text(op?.activeDeliveryCount)}</p>
@@ -148,7 +152,13 @@ export function RiderDetailPage() {
   return (
     <section className="max-w-6xl space-y-4">
       <PageHeader
-        title={`${m.riders.detailTitle} ${riderId}`}
+        // 제목은 (서버가 가린) 이름 먼저, 번호는 작게(2026-11-18 "제목이 번호뿐") — 원문 이름은 제목에 쓰지 않는다
+        title={
+          <>
+            {detail.data?.nameMasked ? detail.data.nameMasked : m.riders.detailTitle}
+            <span className="ml-2 font-mono text-xs font-normal text-base-content/45">{`${m.riders.detailTitle} ${riderId}`}</span>
+          </>
+        }
         actions={
           <a className="btn btn-sm border-base-300 bg-base-100" href={riderOpsUrl(riderId)}>
             {m.riders.openInRiderOps}

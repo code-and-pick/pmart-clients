@@ -19,8 +19,8 @@ import { toUiState } from '@pmart/web-ui';
 import { useCommand } from '@pmart/web-ui';
 import { BATCH_TONE, BatchApprovals, multipart, UploadLayout, ZipUpload } from '../products/ProductImportPage';
 import { seoulInputToIso } from './PricePage';
-import { PageHeader, StatusBadge } from '../../shared/admin';
-import { Card, MiniStat, Steps, tableClass } from '../products/parts';
+import { NextAction, PageHeader, StatusBadge } from '../../shared/admin';
+import { Card, JumpLink, MiniStat, Steps, tableClass, TitleWithId } from '../products/parts';
 
 const batchKey = (batchId: string) => ['pricing', 'import-batch', batchId] as const;
 
@@ -178,10 +178,49 @@ function LineRow({ batch, line }: { readonly batch: PriceImportBatch; readonly l
   );
 }
 
+/**
+ * 다음 할 일(2026-11-18 사용자 "직관적이지 않다") — 서버 배치 state·submittableCount 만으로 하나를 고른다.
+ * 버튼은 이 쪽의 구역(제출 카드·행 표·승인 현황·다른 파일 올리기)으로 내려가기만 한다.
+ */
+function PriceBatchNextAction({ state, submittable }: { readonly state: PriceImportBatch['state']; readonly submittable: number }) {
+  switch (state) {
+    case 'DRAFT':
+      return submittable > 0 ? (
+        <NextAction title={m.prices.nextAction.batchSubmit(submittable)} body={m.prices.nextAction.batchSubmitBody}>
+          <JumpLink to="batch-submit">{m.products.go.submit}</JumpLink>
+        </NextAction>
+      ) : (
+        <NextAction tone="warning" title={m.prices.nextAction.batchNone} body={m.prices.nextAction.batchNoneBody}>
+          <JumpLink to="batch-submit">{m.products.go.submit}</JumpLink>
+        </NextAction>
+      );
+    case 'SUBMITTED':
+      return (
+        <NextAction title={m.products.next.batchApproval}>
+          <JumpLink to="batch-approvals">{m.products.go.approvals}</JumpLink>
+        </NextAction>
+      );
+    case 'APPLIED':
+      return <NextAction tone="success" title={m.products.next.batchApplied} />;
+    case 'PARTIALLY_APPLIED':
+      return (
+        <NextAction tone="warning" title={m.products.next.batchPartial} body={m.prices.nextAction.batchPartialBody}>
+          <JumpLink to="batch-rows">{m.products.go.rows}</JumpLink>
+        </NextAction>
+      );
+    default:
+      return (
+        <NextAction tone="error" title={m.products.next.batchRejected}>
+          <JumpLink to="another-upload">{m.products.go.upload}</JumpLink>
+        </NextAction>
+      );
+  }
+}
+
 function AnotherUpload() {
   const upload = useImportUpload();
   return (
-    <div className="space-y-2">
+    <div id="another-upload" className="scroll-mt-4 space-y-2">
       <h2 className="font-bold">{m.products.uploadAnother}</h2>
       <ZipUpload busy={upload.busy} onUpload={(file) => void upload.run(file)} />
       <CommandFeedback command={upload} />
@@ -226,13 +265,14 @@ export function PriceImportPage() {
     <section className="space-y-4">
       <PageHeader
         back={{ to: '/prices/import', label: m.prices.importTitle }}
-        title={`${m.prices.importTitle} · ${m.products.batch(batchId)}`}
+        title={query.data ? <TitleWithId title={m.prices.batchHeading(query.data.lineCount)} id={m.products.batch(batchId)} /> : m.products.batch(batchId)}
         actions={query.data ? <StatusBadge tone={BATCH_TONE[query.data.state] ?? 'ghost'}>{m.prices.batchStateName[query.data.state]}</StatusBadge> : null}
       />
       <QueryState state={toUiState(query)} onRetry={() => void query.refetch()}>
         {(b) => (
           <>
             <Steps steps={m.prices.importSteps} now={b.state === 'DRAFT' ? 1 : 3} label={m.prices.stepsLabel} />
+            <PriceBatchNextAction state={b.state} submittable={b.submittableCount} />
             <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
               <MiniStat label={m.prices.statLines} value={b.lineCount} />
               <MiniStat label={m.prices.statSubmittable} value={b.submittableCount} tone={b.submittableCount > 0 ? 'success' : 'muted'} />
@@ -250,7 +290,7 @@ export function PriceImportPage() {
               </div>
             </div>
             {b.state !== 'DRAFT' && <p className="rounded-box bg-base-300/50 px-4 py-3 text-sm text-base-content/75">{m.prices.lockedHint}</p>}
-            <div className="overflow-hidden rounded-box border border-base-300 bg-base-100 shadow-sm">
+            <div id="batch-rows" className="scroll-mt-4 overflow-hidden rounded-box border border-base-300 bg-base-100 shadow-sm">
               <div className="flex items-center justify-between gap-2 border-b border-base-300 px-5 py-3">
                 <h2 className="font-bold">{m.prices.linesCard}</h2>
                 <button type="button" className="btn btn-ghost btn-xs" onClick={() => void query.refetch()}>
@@ -283,6 +323,7 @@ export function PriceImportPage() {
 
             {b.state === 'DRAFT' && (
               <Card
+                id="batch-submit"
                 title={m.prices.submitTitle}
                 hint={m.prices.submitHint}
                 footer={

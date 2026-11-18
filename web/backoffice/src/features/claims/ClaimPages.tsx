@@ -8,11 +8,11 @@ import { request } from '@pmart/web-core';
 import { QueryState, toUiState, uiStateFromError } from '@pmart/web-ui';
 import type { components } from '../../api/generated/claim';
 import { useApi } from '../../app/ApiContext';
-import { ChipGroup, DataTable, DetailHeader, Notice, PageHeader, ResultBar, SearchPanel, SearchRow, Section, StatusBadge, type Tone } from '../../shared/admin';
+import { ChipGroup, CodeLabel, DataTable, DetailHeader, NextAction, Notice, PageHeader, ResultBar, SearchPanel, SearchRow, Section, StatusBadge, type Tone } from '../../shared/admin';
 import { EmptyBox, KindChip, ListFoot, SideFields, When } from '../lookup/parts';
 import { messages as m } from '../../shared/messages';
 import { label, text, when, won } from '../../shared/ops';
-import { RecoveryActions, ReturnProgress } from './ReturnClaim';
+import { availableActions, RecoveryActions, ReturnProgress } from './ReturnClaim';
 
 type ClaimType = components['schemas']['ClaimType'];
 type ClaimState = components['schemas']['ClaimState'];
@@ -100,7 +100,7 @@ function ClaimTable({ query, withCount = false }: { readonly query: ReturnType<t
                 </span>
               </td>
               <td>
-                <StatusBadge tone={claimTone(c.state)}>{label(m.claims.stateName, c.state)}</StatusBadge>
+                <StatusBadge tone={claimTone(c.state)}>{c.state ? <CodeLabel code={c.state} names={m.claims.stateName} /> : m.none}</StatusBadge>
               </td>
               <td>
                 {c.orderId ? (
@@ -207,7 +207,7 @@ function Refunds({ claimId }: { readonly claimId: string }) {
               {(r.items ?? []).map((f, i) => (
                 <tr key={f.refundIntentId ?? `refund-${i}`} data-testid="refund-row">
                   <td>
-                    {label(m.claims.refundState, f.state)}
+                    {f.state ? <CodeLabel code={f.state} names={m.claims.refundState} /> : m.none}
                     {/* claim 0.3.0 — 상품 환불(ITEMS)과 반품 회수비 돌려주기(RETURN_FEE)를 나눠 보인다 */}
                     {f.kind === 'RETURN_FEE' && <span className="badge badge-ghost badge-sm ml-1">{m.claims.refundKindFee}</span>}
                   </td>
@@ -237,25 +237,51 @@ export function ClaimDetailPage() {
   return (
     <section className="max-w-7xl space-y-4">
       <QueryState state={toUiState(query)} onRetry={() => void query.refetch()}>
-        {(c) => (
+        {(c) => {
+          // 다음 할 일 — 회수 조치 칸(RecoveryActions)이 열리는 서버 상태와 같은 판정(availableActions)만 쓴다
+          const can = availableActions(c);
+          const next =
+            can.size === 0
+              ? null
+              : c.state === 'FEE_PENDING'
+                ? { tone: 'info' as const, title: m.claims.nextStep.feeTitle, body: m.claims.nextStep.feeBody }
+                : c.state === 'RECOVERY_FAILED'
+                  ? { tone: 'warning' as const, title: m.claims.nextStep.recoveryTitle, body: m.claims.nextStep.recoveryBody }
+                  : { tone: 'warning' as const, title: m.claims.nextStep.shortTitle, body: m.claims.nextStep.shortBody };
+          return (
           <>
             <DetailHeader
               back={{ to: '/claims', label: m.claims.back }}
-              title={`${m.claims.detailTitle} ${claimId}`}
+              // 제목(2026-11-18 사용자 "직관적이지 않다"): 종류 · 사유를 앞에, 클레임 번호는 옆에 작게
+              title={
+                <>
+                  {c.type ? m.claims.titleOf(label(m.claims.typeName, c.type), label(m.claims.reasonName, c.reason)) : m.claims.detailTitle}
+                  <span className="ml-2 font-mono text-sm font-normal text-base-content/50">{claimId}</span>
+                </>
+              }
               badges={
                 <>
                   <ClaimTypeChip type={c.type} />
                   <StatusBadge tone={claimTone(c.state)} testId="claim-state">
-                    {label(m.claims.stateName, c.state)}
+                    {c.state ? <CodeLabel code={c.state} names={m.claims.stateName} /> : m.none}
                   </StatusBadge>
                 </>
               }
-              summary={`${label(m.claims.reasonName, c.reason)} · ${when(c.openedAt)}`}
+              summary={`${m.claims.orderId} ${text(c.orderId)} · ${when(c.openedAt)}`}
             />
+            {next && (
+              <NextAction tone={next.tone} title={next.title} body={next.body}>
+                <a className="btn btn-sm" href="#recovery-actions">
+                  {m.claims.nextStep.go}
+                </a>
+              </NextAction>
+            )}
             <div className="grid items-start gap-4 lg:grid-cols-3">
               <div className="min-w-0 space-y-4 lg:col-span-2">
                 {/* 맨 위 운영 조치 — 반품 회수 조치(조건이 안 맞으면 칸이 없다) */}
-                <RecoveryActions claim={c} />
+                <div id="recovery-actions" className="scroll-mt-12 empty:hidden">
+                  <RecoveryActions claim={c} />
+                </div>
 
                 <Section title={m.claims.lines} aside={<span className="text-base-content/55">{m.orders.lineCount((c.lines ?? []).length)}</span>}>
                   <DataTable>
@@ -276,7 +302,7 @@ export function ClaimDetailPage() {
                           <td className="text-right tabular-nums">{text(l.requestedQty)}</td>
                           <td className="text-right tabular-nums">{text(l.approvedQty)}</td>
                           <td>
-                            <StatusBadge tone={l.decision === 'APPROVED' ? 'success' : l.decision === 'REJECTED' ? 'error' : 'ghost'}>{label(m.claims.decisionName, l.decision)}</StatusBadge>
+                            <StatusBadge tone={l.decision === 'APPROVED' ? 'success' : l.decision === 'REJECTED' ? 'error' : 'ghost'}>{l.decision ? <CodeLabel code={l.decision} names={m.claims.decisionName} /> : m.none}</StatusBadge>
                           </td>
                           <td className="text-right font-semibold tabular-nums">{won(l.refundAmount)}</td>
                           <td className="whitespace-nowrap text-xs">{when(l.windowDeadline)}</td>
@@ -306,7 +332,7 @@ export function ClaimDetailPage() {
                     testId="claim-summary"
                     rows={[
                       [m.claims.orderId, c.orderId ? <Link key="o" className="font-mono text-primary hover:underline" to={`/orders/${encodeURIComponent(c.orderId)}`}>{c.orderId}</Link> : m.none],
-                      [m.claims.reason, label(m.claims.reasonName, c.reason)],
+                      [m.claims.reason, c.reason ? <CodeLabel key="r" code={c.reason} names={m.claims.reasonName} /> : m.none],
                       [m.claims.reasonDetail, text(c.reasonDetail)],
                       [m.claims.openedAt, <When key="o" iso={c.openedAt} />],
                       [m.claims.decidedAt, when(c.decidedAt)],
@@ -318,8 +344,18 @@ export function ClaimDetailPage() {
                 <Section title={m.claims.sectionLogistics}>
                   <SideFields
                     rows={[
-                      [m.claims.pickup, c.pickup ? `${text(c.pickup.state)}${c.pickup.deliveryId ? ` · ${c.pickup.deliveryId}` : ''}` : m.none],
-                      [m.claims.reshipment, text(c.reshipment?.state)],
+                      [
+                        m.claims.pickup,
+                        c.pickup ? (
+                          <span key="p">
+                            {c.pickup.state ? <CodeLabel code={c.pickup.state} names={m.claims.pickupStateName} /> : m.none}
+                            {c.pickup.deliveryId ? ` · ${c.pickup.deliveryId}` : ''}
+                          </span>
+                        ) : (
+                          m.none
+                        ),
+                      ],
+                      [m.claims.reshipment, c.reshipment?.state ? <CodeLabel key="s" code={c.reshipment.state} names={m.claims.reshipmentStateName} /> : m.none],
                       [m.claims.fees, c.fees ? [won(c.fees.exchangeRoundTripFee), won(c.fees.returnPickupFee)].join(' / ') : m.none],
                     ]}
                   />
@@ -327,7 +363,8 @@ export function ClaimDetailPage() {
               </aside>
             </div>
           </>
-        )}
+          );
+        }}
       </QueryState>
     </section>
   );
@@ -340,7 +377,7 @@ function ClaimTypeChip({ type }: { readonly type: string | null | undefined }) {
   if (!type) return null;
   return (
     <KindChip tone={TYPE_TONE[type] ?? 'ghost'} icon={type === 'CANCEL' ? 'alert' : 'return'}>
-      {label(m.claims.typeName, type)}
+      <CodeLabel code={type} names={m.claims.typeName} />
     </KindChip>
   );
 }

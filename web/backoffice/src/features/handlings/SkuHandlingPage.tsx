@@ -17,7 +17,7 @@ import { messages as m } from '../../shared/messages';
 import { QueryState } from '@pmart/web-ui';
 import { toUiState } from '@pmart/web-ui';
 import { useCommand } from '@pmart/web-ui';
-import { ChipGroup, PageHeader, StatusBadge } from '../../shared/admin';
+import { ChipGroup, CodeLabel, PageHeader, StatusBadge } from '../../shared/admin';
 import { ago, EmptyState, LineIcon, tableClass, UnderlineTabs } from '../products/parts';
 
 type CenterType = 'MFC' | 'CDC';
@@ -100,7 +100,7 @@ function HandlingRow({
         <p className="font-mono font-medium">{row.sku}</p>
         <p className="font-mono text-xs text-base-content/50">{row.productId ?? m.none}</p>
       </td>
-      <td>{row.skuState ? <StatusBadge tone={row.skuState === 'ACTIVE' ? 'success' : 'ghost'}>{m.handlings.skuStateName[row.skuState] ?? row.skuState}</StatusBadge> : m.none}</td>
+      <td>{row.skuState ? <StatusBadge tone={row.skuState === 'ACTIVE' ? 'success' : 'ghost'}><CodeLabel code={row.skuState} names={m.handlings.skuStateName} /></StatusBadge> : m.none}</td>
       <td data-testid={`handling-${row.sku}`}>
         <span className={`badge badge-sm font-semibold ${row.handlingEnabled ? 'badge-success' : 'badge-ghost'}`}>{row.handlingEnabled ? m.handlings.on : m.handlings.off}</span>
       </td>
@@ -261,7 +261,7 @@ export function SkuHandlingPage() {
                       <tr>
                         <th className="w-10" />
                         <th>SKU · {m.products.productId}</th>
-                        <th>{m.categories.state}</th>
+                        <th>{m.handlings.skuState}</th>
                         <th>{m.handlings.filter}</th>
                         <th>{m.handlings.updatedAt}</th>
                         <th />

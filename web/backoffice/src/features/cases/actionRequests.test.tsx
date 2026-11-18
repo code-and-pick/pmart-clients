@@ -28,7 +28,8 @@ describe('행위 요청 기록', () => {
     await userEvent.type(within(result).getByLabelText('결과 ID'), 'EVT-1');
     await userEvent.click(within(result).getByRole('button', { name: '결과 남기기' }));
     await waitFor(() => expect(within(section).getByTestId('action-request')).toHaveAttribute('data-state', 'APPLIED'));
-    expect(within(section).getByTestId('action-request-result')).toHaveTextContent('delivery-execution-service · EVT-1');
+    expect(within(section).getByTestId('action-request-result')).toHaveTextContent('배송 수행 · EVT-1'); // 서비스는 업무 이름 + 원래 이름(title)(2026-11-18)
+    expect(within(within(section).getByTestId('action-request-result')).getByTitle('delivery-execution-service')).toBeInTheDocument();
     expect(within(section).queryByRole('button', { name: '결과 기록' })).not.toBeInTheDocument();
     const res = view.mutations('/results')[0]!;
     expect(res.headers.get('Idempotency-Key')).toBeTruthy();

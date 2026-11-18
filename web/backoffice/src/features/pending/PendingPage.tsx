@@ -27,7 +27,7 @@ import { useApi } from '../../app/ApiContext';
 import { messages as m } from '../../shared/messages';
 import { label, text, when } from '../../shared/ops';
 import { SourceStamps } from '../../shared/SourceStamps';
-import { PageHeader } from '../../shared/admin';
+import { CodeLabel, NextAction, PageHeader } from '../../shared/admin';
 
 type Item = components['schemas']['PendingWorkItem'];
 type View = components['schemas']['ComposedView'] & { items?: Item[]; truncated?: boolean };
@@ -303,6 +303,7 @@ export function PendingPage() {
                 {m.pending.truncated}
               </p>
             )}
+            <PendingNext items={view.items ?? []} />
             {/* 종류별 묶음(2026-11-18): 위 숫자 카드(누르면 그 묶음으로) → 묶음 카드마다 항목 줄 */}
             <PendingGroups items={view.items ?? []} />
           </>
@@ -331,6 +332,19 @@ function KindIcon({ d }: { readonly d: string }) {
     <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4 fill-none stroke-current" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
       <path d={d} />
     </svg>
+  );
+}
+
+/** 다음 할 일 — 서버 순서(오래된 것부터)의 첫 항목 묶음으로. 판정은 하지 않는다(서버가 준 목록·순서 그대로) */
+function PendingNext({ items }: { readonly items: readonly Item[] }) {
+  const first = items[0];
+  if (!first) return null;
+  return (
+    <NextAction tone="warning" title={m.pending.nextTitle(items.length)} body={m.pending.nextBody(label(m.pending.kindName, first.kind), when(first.since))}>
+      <a href={`#pending-${first.kind}`} className="btn btn-sm btn-primary">
+        {m.pending.nextGo}
+      </a>
+    </NextAction>
   );
 }
 
@@ -372,8 +386,12 @@ function PendingGroups({ items }: { readonly items: readonly Item[] }) {
                 <li key={`${i.kind}:${i.refId}`} className={`grid gap-x-6 gap-y-3 border-l-4 px-5 py-4 text-sm md:grid-cols-[minmax(0,1fr)_minmax(16rem,auto)] ${st.bar}`} data-testid="pending-item" data-kind={i.kind}>
                   <div className="min-w-0 space-y-2">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-semibold">{i.reasonCode ? label(i.kind === 'FULFILLMENT_ISSUE' ? m.pending.reasonName : {}, i.reasonCode) : m.none}</span>
-                      {i.state && <span className="badge badge-sm badge-ghost font-mono">{text(i.state)}</span>}
+                      <span className="font-semibold">{i.reasonCode ? <CodeLabel code={i.reasonCode} names={i.kind === 'FULFILLMENT_ISSUE' ? m.pending.reasonName : m.pending.errorName} /> : m.none}</span>
+                      {i.state && (
+                        <span className="badge badge-sm badge-ghost" data-testid="pending-state">
+                          <CodeLabel code={i.state} names={m.pending.stateNameByKind[i.kind] ?? {}} />
+                        </span>
+                      )}
                     </div>
                     {i.reasonMessage && <p className="text-xs text-base-content/65">{i.reasonMessage}</p>}
                     <dl className="flex flex-wrap gap-x-6 gap-y-1 text-xs [&_dt]:text-base-content/50">
@@ -390,7 +408,15 @@ function PendingGroups({ items }: { readonly items: readonly Item[] }) {
                       {i.sagaType && (
                         <div className="flex gap-1.5">
                           <dt>{m.pending.saga}</dt>
-                          <dd>{`${label(m.pending.sagaTypeName, i.sagaType)}${i.step ? ` · ${i.step}` : ''}`}</dd>
+                          <dd>
+                            {label(m.pending.sagaTypeName, i.sagaType)}
+                            {i.step && (
+                              <>
+                                {' · '}
+                                <CodeLabel code={i.step} names={m.pending.stepName} />
+                              </>
+                            )}
+                          </dd>
                         </div>
                       )}
                       {i.mfcId && (

@@ -18,8 +18,8 @@ import { QueryState } from '@pmart/web-ui';
 import { toUiState } from '@pmart/web-ui';
 import { useCommand } from '@pmart/web-ui';
 import { RequestApproval } from '../approvals/RequestApproval';
-import { DetailHeader, StatusBadge } from '../../shared/admin';
-import { Card, EmptyState, tableClass } from './parts';
+import { DetailHeader, NextAction, StatusBadge } from '../../shared/admin';
+import { Card, EmptyState, JumpLink, tableClass, TitleWithId } from './parts';
 import { SALE_TONE } from './ProductListPage';
 
 /** handoff 2026-10-30 §4.3 판매중지 변경 요청 본문 */
@@ -73,6 +73,7 @@ function SaleStateChange({ product }: { readonly product: ProductDetail }) {
   const stop = saleState === 'SALE_STOPPED';
   return (
     <Card
+      id="sale-state-change"
       title={m.products.changeSaleState}
       footer={
         <button
@@ -210,7 +211,7 @@ export function ProductDetailPage() {
     <section className="space-y-4">
       <DetailHeader
         back={{ to: '/products', label: m.products.listTitle }}
-        title={m.products.detailTitle(productId)}
+        title={p0?.internalName ? <TitleWithId title={p0.internalName} id={m.products.detailTitle(productId)} /> : m.products.detailTitle(productId)}
         badges={
           p0 ? (
             <>
@@ -219,7 +220,7 @@ export function ProductDetailPage() {
             </>
           ) : null
         }
-        summary={p0?.internalName ?? undefined}
+        summary={p0?.skus ? m.products.skuCount(p0.skus.length) : undefined}
         actions={
           <Link className="btn btn-sm btn-primary" to={`/contents/drafts/new?productId=${encodeURIComponent(productId)}`}>
             {m.products.addContent}
@@ -228,6 +229,13 @@ export function ProductDetailPage() {
       />
       <QueryState state={toUiState(query)} onRetry={() => void query.refetch()}>
         {(p) => (
+          <div className="space-y-4">
+          {/* 다음 할 일(2026-11-18): 서버 판매 상태가 판매중이 아니고 바꿀 수 있는 사람(MD)일 때만 — 그 밖에는 없음 */}
+          {canChangeSaleState && p.saleState && p.saleState !== 'ON_SALE' && (
+            <NextAction tone="warning" title={m.products.next.saleNotOn(m.products.saleStateName[p.saleState])} body={m.products.next.saleNotOnBody}>
+              <JumpLink to="sale-state-change">{m.products.go.saleState}</JumpLink>
+            </NextAction>
+          )}
           <div className="grid items-start gap-4 lg:grid-cols-3">
             <div className="space-y-4 lg:col-span-2">
               <Card title={m.products.skus} aside={<span className="text-xs text-base-content/55">{m.products.skuCount(p.skus?.length ?? 0)}</span>}>
@@ -332,6 +340,7 @@ export function ProductDetailPage() {
                 {canChangeSaleState ? <EditStart productId={productId} /> : <p className="text-sm text-base-content/60">{m.products.editMdOnly}</p>}
               </Card>
             </div>
+          </div>
           </div>
         )}
       </QueryState>

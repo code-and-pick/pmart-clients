@@ -17,7 +17,7 @@ import { messages } from '../../shared/messages';
 import { label, when, won } from '../../shared/ops';
 import { SourceStamps } from '../../shared/SourceStamps';
 import { FieldWork } from './FieldSection';
-import { ChipGroup, Notice, PageHeader } from '../../shared/admin';
+import { ChipGroup, CodeLabel, Notice, PageHeader } from '../../shared/admin';
 import { EmptyBox, Icon, type IconName } from './parts';
 
 const m = messages.lookup;
@@ -86,15 +86,29 @@ function show(key: string, v: unknown): string {
   return typeof v === 'string' ? v : typeof v === 'number' ? String(v) : JSON.stringify(v);
 }
 
-function SummaryFacts({ summary, skip }: { readonly summary: Record<string, unknown> | undefined; readonly skip?: readonly string[] }) {
+/**
+ * 원천 코드 값 → 업무 이름 표(2026-11-18 사용자 "직관적이지 않다"). 원천(kind)마다 같은 필드 이름이 다른 상태를 뜻하므로 원천별로.
+ * 이미 화면들이 쓰는 이름표를 그대로 쓴다. 표에 없는 값은 코드 그대로(CodeLabel).
+ */
+const CODE_NAMES: Readonly<Record<string, Readonly<Record<string, Readonly<Record<string, string>>>>>> = {
+  ORDER: { status: messages.orders.statusName, deliveryMode: messages.orders.mode, outOfStockPreference: messages.orders.oos, deliveryTipReason: messages.orders.tipReasonName },
+  DELIVERY: { state: messages.deliveries.executionState, type: messages.deliveries.typeName },
+  DISPATCH: { state: messages.deliveries.dispatchState, failureReason: messages.deliveries.failureReasonName },
+  CLAIM: { state: messages.claims.stateName, type: messages.claims.typeName, reason: messages.claims.reasonName },
+  CASE: { kind: messages.cases.kindName, state: messages.cases.stateName },
+  INQUIRY: { status: messages.inquiries.status, category: messages.inquiries.categoryName },
+};
+
+function SummaryFacts({ summary, skip, kind }: { readonly summary: Record<string, unknown> | undefined; readonly skip?: readonly string[]; readonly kind?: string | undefined }) {
   const entries = Object.entries(summary ?? {}).filter(([k]) => !skip?.includes(k));
+  const names = CODE_NAMES[kind ?? ''] ?? {};
   // 이름은 위에 작게, 값은 아래(Shopify 상세처럼) — 넓으면 두 칸
   return (
     <dl className="grid gap-x-6 gap-y-2.5 text-sm sm:grid-cols-2">
       {entries.map(([k, v]) => (
         <div key={k} className="min-w-0 space-y-0.5">
           <dt className="text-xs text-base-content/50">{m.field[k] ?? k}</dt>
-          <dd className="break-all font-medium">{show(k, v)}</dd>
+          <dd className="break-all font-medium">{names[k] && typeof v === 'string' && v ? <CodeLabel code={v} names={names[k]} /> : show(k, v)}</dd>
         </div>
       ))}
     </dl>
@@ -103,7 +117,12 @@ function SummaryFacts({ summary, skip }: { readonly summary: Record<string, unkn
 
 function SourceLine({ source }: { readonly source: SourceStamp | undefined }) {
   if (!source) return null;
-  return <p className="text-xs text-base-content/45">{`${source.system} · ${source.asOf.asOf ? when(source.asOf.asOf) : messages.none}`}</p>;
+  return (
+    <p className="text-xs text-base-content/45">
+      <CodeLabel code={source.system} names={messages.systemName} />
+      {` · ${source.asOf.asOf ? when(source.asOf.asOf) : messages.none}`}
+    </p>
+  );
 }
 
 const SECTION_ICON: Readonly<Record<string, IconName>> = { ORDER: 'box', FIELD: 'store', DELIVERY: 'truck', DISPATCH: 'user', CLAIM: 'return', INQUIRY: 'doc', CASE: 'flag', CUSTOMER: 'user' };
@@ -241,7 +260,7 @@ function LookupResult({ view, onOpenOrder }: { readonly view: LookupView; readon
                       {m.openOrder}
                     </button>
                   </div>
-                  <SummaryFacts summary={o.summary} skip={['orderId']} />
+                  <SummaryFacts summary={o.summary} skip={['orderId']} kind="ORDER" />
                 </li>
               ))}
             </ul>
@@ -300,7 +319,7 @@ function MatchCard({ match }: { readonly match: Match }) {
           </Link>
         )}
       </div>
-      <SummaryFacts summary={match.summary} />
+      <SummaryFacts summary={match.summary} kind={match.kind} />
       <SourceLine source={match.source} />
     </div>
   );

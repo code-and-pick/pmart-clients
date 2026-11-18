@@ -17,7 +17,7 @@ import { toUiState } from '@pmart/web-ui';
 import { useCommand } from '@pmart/web-ui';
 import { RequestApproval } from '../approvals/RequestApproval';
 import { multipart } from '../products/ProductImportPage';
-import { PageHeader, StatusBadge } from '../../shared/admin';
+import { CodeLabel, PageHeader, StatusBadge } from '../../shared/admin';
 
 const NOT_EFFECTIVE = 'CATEGORY_TREE_NOT_EFFECTIVE';
 
@@ -81,7 +81,6 @@ function Empty({ children }: { readonly children: ReactNode }) {
   );
 }
 
-const modeName = (mode: string) => m.categories.selectionModeName[mode] ?? mode;
 
 function TreeView() {
   const api = useApi();
@@ -226,7 +225,7 @@ function TreeView() {
                               <li key={g.filterGroupId} className="space-y-2 rounded-lg border border-base-300 p-3" data-testid="filter-group">
                                 <div className="flex items-center justify-between gap-2">
                                   <span className="font-semibold">{g.name}</span>
-                                  <span className="badge badge-sm badge-soft badge-info">{modeName(g.selectionMode)}</span>
+                                  <span className="badge badge-sm badge-soft badge-info"><CodeLabel code={g.selectionMode} names={m.categories.selectionModeName} /></span>
                                 </div>
                                 <div className="flex flex-wrap gap-1">
                                   {g.options.map((o) => (
@@ -356,7 +355,8 @@ function DraftUpload() {
             </p>
             {status.data && (
               <p className="text-sm">
-                {`${m.categories.state}: ${status.data.state}`}
+                {`${m.categories.state}: `}
+                    <CodeLabel code={status.data.state} names={m.categories.treeStateName} />
                 <button type="button" className="btn btn-ghost btn-xs" onClick={() => void status.refetch()}>
                   {m.checkAgain}
                 </button>
@@ -478,7 +478,8 @@ function AdditionUpload() {
                 {stale && <p className="text-warning">{m.categories.additionStale(v.baseVersion ?? 0, current ?? 0)}</p>}
                 {status.data && (
                   <p>
-                    {`${m.categories.state}: ${status.data.state}`}
+                    {`${m.categories.state}: `}
+                    <CodeLabel code={status.data.state} names={m.categories.treeStateName} />
                     <button type="button" className="btn btn-ghost btn-xs" onClick={() => void status.refetch()}>
                       {m.checkAgain}
                     </button>

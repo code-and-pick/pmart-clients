@@ -20,7 +20,7 @@ import { useApi } from '../../app/ApiContext';
 import { useSession } from '../../app/SessionContext';
 import { messages } from '../../shared/messages';
 import { label, text, when } from '../../shared/ops';
-import { Notice, PageHeader } from '../../shared/admin';
+import { CodeLabel, NextAction, Notice, PageHeader } from '../../shared/admin';
 
 const m = messages.handovers;
 type Handover = components['schemas']['ShiftHandover'];
@@ -146,7 +146,7 @@ function WriteForm() {
                     <label className="flex flex-wrap items-center gap-2">
                       <input type="checkbox" className="checkbox checkbox-sm checkbox-primary" checked={row.picked} onChange={(e) => setRow(id, { picked: e.target.checked })} />
                       <span className={`badge badge-sm font-mono ${c.priority === 'P1' ? 'badge-error' : 'badge-ghost'}`}>{text(c.priority)}</span>
-                      <span className="text-base-content/60">{label(messages.cases.kindName, c.kind)}</span>
+                      <span className="text-base-content/60">{c.kind ? <CodeLabel code={c.kind} names={messages.cases.kindName} /> : messages.none}</span>
                       <Link className="font-medium hover:text-primary hover:underline" to={`/cases/${encodeURIComponent(id)}`}>
                         {c.summary || id}
                       </Link>
@@ -237,13 +237,34 @@ function HandoverList({ mode }: { readonly mode: 'inbox' | 'sent' | 'unreceived'
   return (
     <QueryState state={toUiState(query, () => items.length === 0)} onRetry={() => void query.refetch()} emptyText={empty}>
       {() => (
-        <ul className="space-y-3">
-          {items.map((h) => (
-            <HandoverCard key={h.shiftHandoverId} h={h} mode={mode} />
-          ))}
-        </ul>
+        <div className="space-y-3">
+          <HandoverNext items={items} mode={mode} />
+          <ul className="space-y-3">
+            {items.map((h) => (
+              <HandoverCard key={h.shiftHandoverId} h={h} mode={mode} />
+            ))}
+          </ul>
+        </div>
       )}
     </QueryState>
+  );
+}
+
+/**
+ * 다음 할 일(2026-11-18) — 이미 읽은 목록의 받기 전(PENDING) 인계만 센다(새 판정 없음).
+ * 나에게 온 인계: 받을 것이 있으면 첫 인계서로. 내가 쓴 인계: 아직 안 받은 것이 있으면 담당은 그대로라는 안내만.
+ */
+function HandoverNext({ items, mode }: { readonly items: readonly Handover[]; readonly mode: 'inbox' | 'sent' | 'unreceived' }) {
+  const pending = items.filter((h) => h.state === 'PENDING');
+  const first = pending[0];
+  if (!first || mode === 'unreceived') return null;
+  if (mode === 'sent') return <NextAction tone="info" title={m.nextSent(pending.length)} />;
+  return (
+    <NextAction tone="warning" title={m.nextInbox(pending.length)} body={m.nextInboxBody}>
+      <a href={`#handover-${first.shiftHandoverId ?? ''}`} className="btn btn-sm btn-primary">
+        {m.nextGo}
+      </a>
+    </NextAction>
   );
 }
 
@@ -286,7 +307,7 @@ function HandoverCard({ h, mode }: { readonly h: Handover; readonly mode: 'inbox
   const canCancel = pending && (h.fromOperatorId === me || h.createdBy === me || admin) && mode !== 'inbox';
   return (
     // 카드(2026-11-18): 머리 = 전임 → 후임(머리글자)·상태·팀·시각, 몸통 = 건별 줄, 아래 = 받기·취소
-    <li className={`overflow-hidden rounded-box border bg-base-100 text-sm shadow-sm ${h.unreceived ? 'border-warning/50' : 'border-base-300'}`} data-testid="handover" data-state={h.state}>
+    <li id={`handover-${h.shiftHandoverId ?? ''}`} className={`scroll-mt-4 overflow-hidden rounded-box border bg-base-100 text-sm shadow-sm ${h.unreceived ? 'border-warning/50' : 'border-base-300'}`} data-testid="handover" data-state={h.state}>
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-base-300 px-4 py-3">
         <span className="flex items-center gap-2">
           <Initial id={h.fromOperatorId} />
@@ -296,10 +317,10 @@ function HandoverCard({ h, mode }: { readonly h: Handover; readonly mode: 'inbox
           <Initial id={h.toOperatorId} />
         </span>
         <span className="font-medium">{m.fromTo(text(h.fromOperatorId), text(h.toOperatorId))}</span>
-        <span className={`badge badge-sm badge-soft ${STATE_TONE[h.state ?? ''] ?? ''}`}>{label(m.stateName, h.state)}</span>
+        <span className={`badge badge-sm badge-soft ${STATE_TONE[h.state ?? ''] ?? ''}`}>{h.state ? <CodeLabel code={h.state} names={m.stateName} /> : messages.none}</span>
         {h.unreceived && <span className="badge badge-warning badge-sm">{m.unreceived}</span>}
         <span className="ml-auto flex flex-wrap items-center gap-2 text-xs text-base-content/55">
-          <span>{label(messages.cases.groupName, h.group)}</span>
+          <span>{h.group ? <CodeLabel code={h.group} names={messages.cases.groupName} /> : messages.none}</span>
           <span>{when(h.createdAt)}</span>
           <span className="font-mono">{h.shiftHandoverId}</span>
         </span>
@@ -310,6 +331,8 @@ function HandoverCard({ h, mode }: { readonly h: Handover; readonly mode: 'inbox
         <ul className="divide-y divide-base-300/70 rounded-box border border-base-300">
           {(h.items ?? []).map((it) => {
             const id = it.caseId ?? '';
+            // 건 이름 — 작성 때 팀 기록(teamSnapshot)에 있는 종류를 먼저, 번호는 작게(2026-11-18 "제목이 번호뿐")
+            const kind = (h.teamSnapshot ?? []).find((s) => s.caseId === id)?.kind;
             return (
               <li key={id} className="flex flex-wrap items-start gap-x-3 gap-y-1 px-3 py-2" data-testid="handover-item" data-outcome={it.outcome}>
                 {canAccept && (
@@ -330,10 +353,15 @@ function HandoverCard({ h, mode }: { readonly h: Handover; readonly mode: 'inbox
                 )}
                 <div className="min-w-0 flex-1 space-y-0.5">
                   <div className="flex flex-wrap items-center gap-2">
-                    <Link className="font-mono text-xs text-primary hover:underline" to={`/cases/${encodeURIComponent(id)}`}>
-                      {id}
+                    <Link className="text-primary hover:underline" to={`/cases/${encodeURIComponent(id)}`}>
+                      {kind && (
+                        <span className="mr-1.5 font-medium">
+                          <CodeLabel code={kind} names={messages.cases.kindName} />
+                        </span>
+                      )}
+                      <span className="font-mono text-xs">{id}</span>
                     </Link>
-                    <span className={`badge badge-sm ${outcomeTone[it.outcome ?? 'PENDING'] ?? ''}`}>{label(m.outcomeName, it.outcome)}</span>
+                    <span className={`badge badge-sm ${outcomeTone[it.outcome ?? 'PENDING'] ?? ''}`}>{it.outcome ? <CodeLabel code={it.outcome} names={m.outcomeName} /> : messages.none}</span>
                     {(it.openObligationsAt ?? 0) > 0 && <span className="badge badge-warning badge-soft badge-sm">{m.followUpsLeft(it.openObligationsAt ?? 0)}</span>}
                   </div>
                   <p>{`${m.nextAction}: ${text(it.nextAction)}`}</p>

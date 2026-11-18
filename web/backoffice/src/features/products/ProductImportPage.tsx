@@ -17,8 +17,8 @@ import { toUiState } from '@pmart/web-ui';
 import { useCommand } from '@pmart/web-ui';
 import { RequestApproval } from '../approvals/RequestApproval';
 import { DraftProblems } from './ProductDraftPage';
-import { PageHeader, StatusBadge, type Tone } from '../../shared/admin';
-import { Card, MiniStat, Steps, tableClass } from './parts';
+import { NextAction, PageHeader, StatusBadge, type Tone } from '../../shared/admin';
+import { Card, JumpLink, MiniStat, Steps, tableClass, TitleWithId } from './parts';
 
 const REVIEW_TONE: Readonly<Record<string, Tone>> = {
   REVIEW_PENDING: 'warning',
@@ -60,7 +60,7 @@ export function BatchApprovals({ targetRef, pending }: { readonly targetRef: str
   const showRequest = !!pending && list.isSuccess && (found.length === 0 || requested !== null);
 
   return (
-    <Card title={m.products.approvals} label={m.products.approvals}>
+    <Card id="batch-approvals" title={m.products.approvals} label={m.products.approvals}>
       {ids.length > 0 && (
         <ul className="divide-y divide-base-300 text-sm">
           {ids.map((id) => {
@@ -246,7 +246,7 @@ function FillMissing({ draft, batchId }: { readonly draft: ProductDraft; readonl
 function AnotherUpload() {
   const upload = useImportUpload();
   return (
-    <div className="space-y-2">
+    <div id="another-upload" className="scroll-mt-4 space-y-2">
       <h2 className="font-bold">{m.products.uploadAnother}</h2>
       <ZipUpload busy={upload.busy} onUpload={(file) => void upload.run(file)} />
       <CommandFeedback command={upload} />
@@ -272,6 +272,50 @@ export function batchCounts(b: Pick<ImportBatch, 'validCount' | 'invalidCount' |
   if (!drafts) return { valid: b.validCount, invalid: b.invalidCount };
   const valid = drafts.filter((d) => d.validationState === 'VALID').length;
   return { valid, invalid: drafts.length - valid };
+}
+
+/**
+ * 다음 할 일(2026-11-18 사용자 "직관적이지 않다") — 서버 배치 state 와 행의 검증 결과 수만으로 하나를 고른다.
+ * 버튼은 이 쪽의 구역(행 표·승인 현황·다른 파일 올리기)으로 내려가기만 한다.
+ */
+function BatchNextAction({ state, valid, invalid }: { readonly state: ImportBatch['state']; readonly valid: number; readonly invalid: number }) {
+  switch (state) {
+    case 'VALIDATED':
+      if (invalid > 0) {
+        return (
+          <NextAction tone="warning" title={m.products.next.batchFix(invalid)} body={m.products.next.batchFixBody(valid)}>
+            <JumpLink to="batch-rows">{m.products.go.rows}</JumpLink>
+          </NextAction>
+        );
+      }
+      return valid > 0 ? (
+        <NextAction title={m.products.next.batchSubmit(valid)}>
+          <JumpLink to="batch-rows">{m.products.go.rows}</JumpLink>
+        </NextAction>
+      ) : (
+        <NextAction tone="warning" title={m.products.next.batchNone} />
+      );
+    case 'SUBMITTED':
+      return (
+        <NextAction title={m.products.next.batchApproval}>
+          <JumpLink to="batch-approvals">{m.products.go.approvals}</JumpLink>
+        </NextAction>
+      );
+    case 'APPLIED':
+      return <NextAction tone="success" title={m.products.next.batchApplied} />;
+    case 'PARTIALLY_APPLIED':
+      return (
+        <NextAction tone="warning" title={m.products.next.batchPartial}>
+          <JumpLink to="batch-approvals">{m.products.go.approvals}</JumpLink>
+        </NextAction>
+      );
+    default:
+      return (
+        <NextAction tone="error" title={m.products.next.batchRejected}>
+          <JumpLink to="another-upload">{m.products.go.upload}</JumpLink>
+        </NextAction>
+      );
+  }
 }
 
 const importStep = (state: ImportBatch['state']) => (state === 'VALIDATED' ? 1 : state === 'SUBMITTED' ? 3 : 4);
@@ -306,7 +350,7 @@ export function ProductImportPage() {
     <section className="space-y-4">
       <PageHeader
         back={{ to: '/products/import', label: m.products.importTitle }}
-        title={m.products.batch(batchId)}
+        title={query.data ? <TitleWithId title={m.products.batchHeading(query.data.productCount)} id={m.products.batch(batchId)} /> : m.products.batch(batchId)}
         actions={
           query.data ? <StatusBadge tone={BATCH_TONE[query.data.state] ?? 'ghost'} testId="batch-state">{m.products.batchStateName[query.data.state] ?? query.data.state}</StatusBadge> : null
         }
@@ -314,10 +358,12 @@ export function ProductImportPage() {
       <QueryState state={toUiState(query)} onRetry={() => void query.refetch()}>
         {(b) => {
           const counts = batchCounts(b);
+          // 다음 할 일은 아래 BatchNextAction(서버 state·행 검증 결과만)
           const updates = (b.drafts ?? []).filter((d) => d.state === 'DRAFT' && d.registration === 'UPDATE').length;
           return (
             <>
               <Steps steps={m.products.importSteps} now={importStep(b.state)} />
+              <BatchNextAction state={b.state} valid={counts.valid} invalid={counts.invalid} />
               <div className="grid grid-cols-3 gap-3" data-testid="batch-counts">
                 <MiniStat label={m.products.statTotal} value={b.productCount} testId="batch-total" />
                 <MiniStat label={m.products.statValid} value={counts.valid} tone="success" testId="batch-valid" />
@@ -328,7 +374,7 @@ export function ProductImportPage() {
                   {m.products.updateNotice(updates)}
                 </p>
               )}
-              <div className="overflow-hidden rounded-box border border-base-300 bg-base-100 shadow-sm">
+              <div id="batch-rows" className="scroll-mt-4 overflow-hidden rounded-box border border-base-300 bg-base-100 shadow-sm">
                 <div className="flex flex-wrap items-center justify-between gap-2 border-b border-base-300 px-5 py-3">
                   <h2 className="font-bold">{m.products.rowsTitle}</h2>
                   {(b.drafts ?? []).some((d) => d.state === 'DRAFT' && d.validationState !== 'VALID') && (
@@ -432,7 +478,7 @@ export function ProductImportPage() {
                         {(r.excludedDraftIds ?? []).map((id) => {
                           const d = (b.drafts ?? []).find((x) => x.draftId === id);
                           const why = d
-                            ? [`${d.state} · ${d.validationState}`, ...(d.problems ?? []).map((p) => `${reasonText(p.code)}${p.field ? ` (${p.field})` : ''}`)].join(' · ')
+                            ? [`${m.products.draftStateName[d.state] ?? d.state} · ${m.products.validationName[d.validationState] ?? d.validationState}`, ...(d.problems ?? []).map((p) => `${reasonText(p.code)}${p.field ? ` (${p.field})` : ''}`)].join(' · ')
                             : m.none;
                           return <li key={id}>{`${id}${d?.sourceKey ? ` (${d.sourceKey})` : ''}: ${why}`}</li>;
                         })}

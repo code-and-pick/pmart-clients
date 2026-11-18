@@ -17,8 +17,8 @@ import { useApi } from '../../app/ApiContext';
 import { useSession } from '../../app/SessionContext';
 import { CommandFeedback } from '../../shared/Feedback';
 import { messages } from '../../shared/messages';
-import { label, text, when } from '../../shared/ops';
-import { PageHeader } from '../../shared/admin';
+import { text, when } from '../../shared/ops';
+import { CodeLabel, PageHeader } from '../../shared/admin';
 import { Icon, ICON } from '../inquiries/HelpdeskParts';
 
 const m = messages.csIntake;
@@ -35,6 +35,9 @@ const CATEGORIES: readonly Category[] = ['ORDER', 'DELIVERY', 'PAYMENT', 'REFUND
 const MAX_SUMMARY = 2000;
 const MAX_NOTE = 200;
 const MAX_CONSENT = 500;
+
+/** 코드 값 → 한국어 이름(원래 코드는 마우스를 올리면), 값이 없으면 "—" */
+const codeOf = (names: Readonly<Record<string, string>>, v: string | null | undefined) => (v ? <CodeLabel code={v} names={names} /> : messages.none);
 
 /** 연락 기록을 볼 수 있는 역할(그 밖은 서버 403 — 칸을 그리지 않는다) */
 export const canSeeIntakes = (roles: readonly string[]) => roles.includes('CS_AGENT') || roles.includes('OPERATOR_ADMIN');
@@ -143,7 +146,7 @@ export function NewCsIntakePage() {
       <PageHeader title={m.title} description={m.intro} />
       <form className="grid items-start gap-4 text-sm lg:grid-cols-3" onSubmit={submit} aria-label={m.title}>
         <div className="space-y-4 lg:col-span-2">
-          <Step n={1} title={m.step.who.title} hint={m.step.who.hint} done={stepDone([m.need.channel, m.need.customer, m.need.relation])}>
+          <Step n={1} title={m.step.who.title} done={stepDone([m.need.channel, m.need.customer, m.need.relation])}>
             <fieldset disabled={locked}>
               <legend className="text-xs font-medium text-base-content/60">{m.channel}</legend>
               {radio('channel', CHANNELS, m.channelName, d.channel, (v) =>
@@ -181,7 +184,7 @@ export function NewCsIntakePage() {
             )}
           </Step>
 
-          <Step n={2} title={m.step.identity.title} hint={m.step.identity.hint} done={stepDone([m.need.method, m.need.orderForMatch, m.need.chatOnly, m.need.note])}>
+          <Step n={2} title={m.step.identity.title} done={stepDone([m.need.method, m.need.orderForMatch, m.need.chatOnly, m.need.note])}>
             <fieldset disabled={locked}>
               <legend className="text-xs font-medium text-base-content/60">{m.method}</legend>
               {radio('method', METHODS, m.methodName, d.method, (v) => set('method', v), (v) => v === 'APP_SIGNED_IN_CHAT' && d.channel !== 'CHAT')}
@@ -196,7 +199,7 @@ export function NewCsIntakePage() {
             </fieldset>
           </Step>
 
-          <Step n={3} title={m.step.content.title} hint={m.step.content.hint} done={stepDone([m.need.category, m.need.summary])}>
+          <Step n={3} title={m.step.content.title} done={stepDone([m.need.category, m.need.summary])}>
             <div>
               <label className="block text-xs font-medium text-base-content/60">
                 {m.category}
@@ -321,10 +324,10 @@ export function NewCsIntakePage() {
 }
 
 /** 단계 카드 — 왼쪽 번호(다 채우면 체크), 제목·도움말, 내용 */
-function Step({ n, title, hint, done, optional, children }: { readonly n: number; readonly title: string; readonly hint: string; readonly done: boolean; readonly optional?: boolean; readonly children: ReactNode }) {
+function Step({ n, title, hint, done, optional, children }: { readonly n: number; readonly title: string; readonly hint?: string; readonly done: boolean; readonly optional?: boolean; readonly children: ReactNode }) {
   return (
     <section className="overflow-hidden rounded-box border border-base-300 bg-base-100 shadow-sm">
-      <div className="flex items-start gap-3 border-b border-base-300 px-4 py-3">
+      <div className="flex items-center gap-3 border-b border-base-300 px-4 py-3">
         <span
           className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold ${done && !optional ? 'bg-success text-success-content' : 'bg-base-200 text-base-content/60'}`}
           aria-hidden="true"
@@ -333,7 +336,7 @@ function Step({ n, title, hint, done, optional, children }: { readonly n: number
         </span>
         <div className="min-w-0">
           <h2 className="font-semibold">{title}</h2>
-          <p className="text-xs text-base-content/55">{hint}</p>
+          {hint && <p className="text-xs text-base-content/55">{hint}</p>}
         </div>
       </div>
       <div className="space-y-4 px-4 py-4">{children}</div>
@@ -388,14 +391,14 @@ export function CsIntakeLog({ caseId, customerRef, subjectRef, title }: {
                   </span>
                   <div className="min-w-0 flex-1 space-y-1">
                     <div className="flex flex-wrap items-center gap-1.5 text-xs">
-                      <span className="badge badge-ghost badge-sm">{label(m.channelName, x.channel)}</span>
+                      <span className="badge badge-ghost badge-sm">{codeOf(m.channelName, x.channel)}</span>
                       {x.callerRelation === 'PROXY' && <span className="badge badge-warning badge-soft badge-sm">{m.relationName.PROXY}</span>}
-                      <span className="font-medium">{label(messages.inquiries.categoryName, x.category)}</span>
+                      <span className="font-medium">{codeOf(messages.inquiries.categoryName, x.category)}</span>
                       <span className="ml-auto whitespace-nowrap text-base-content/50">{when(x.receivedAt)}</span>
                     </div>
                     <p className="whitespace-pre-wrap break-words">{x.summary}</p>
                     <p className="flex flex-wrap gap-x-2 text-xs text-base-content/55">
-                      <span>{label(m.methodName, x.identityCheck?.method)}</span>
+                      <span>{codeOf(m.methodName, x.identityCheck?.method)}</span>
                       {x.subjectRef && <span className="font-mono">{x.subjectRef}</span>}
                       <span>{text(x.receivedBy)}</span>
                       {x.linked && <span>{m.linkedMark}</span>}

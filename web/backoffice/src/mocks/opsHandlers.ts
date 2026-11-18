@@ -179,13 +179,13 @@ function seed(): OpsState {
   return {
     seq: 100,
     sagas: [
-      { sagaId: 'SAGA-MOCK-1', orderId: 'ORD-MOCK-1001', sagaType: 'S1_CHECKOUT', state: 'ESCALATED', step: 'PAYMENT_CONFIRM', reasonCode: 'PAYMENT_UNKNOWN', reasonMessage: '[목] PG 승인 결과를 모름 — 결제 결과 다시 확인 필요', since: ago(2), requeryable: true, resolved: false },
-      { sagaId: 'SAGA-MOCK-2', orderId: 'ORD-MOCK-1003', sagaType: 'S2_FULFILLMENT', state: 'ESCALATED', step: 'MFC_RESERVE', reasonCode: 'RESERVATION_REJECTED', reasonMessage: '[목] MFC 예약 거절 — 밖에서 처리한 뒤 완료 표시', since: ago(6), requeryable: false, resolved: false },
+      { sagaId: 'SAGA-MOCK-1', orderId: 'ORD-MOCK-1001', sagaType: 'S1_CHECKOUT', state: 'ESCALATED', step: 'AWAIT_PAYMENT_RESULT', reasonCode: 'PAYMENT_UNKNOWN', reasonMessage: '[목] PG 승인 결과를 모름 — 결제 결과 다시 확인 필요', since: ago(2), requeryable: true, resolved: false },
+      { sagaId: 'SAGA-MOCK-2', orderId: 'ORD-MOCK-1003', sagaType: 'S2_FULFILLMENT', state: 'ESCALATED', step: 'REQUEST_FULFILLMENT', reasonCode: 'INSUFFICIENT_STOCK', reasonMessage: '[목] MFC 예약 거절 — 밖에서 처리한 뒤 완료 표시', since: ago(6), requeryable: false, resolved: false },
     ],
     bffResults: new Map(),
     mfcPending: [
       { kind: 'MFC_STOP_FAILED', refId: 'STOP-MOCK-1', orderId: 'ORD-MOCK-1002', mfcId: 'MFC-BSN-01', state: 'PENDING', reasonCode: 'PDA_OFFLINE', reasonMessage: '[목] 피킹 PDA 응답 없음 — 중지 확인 못 함', since: ago(4), retry: 'APPLIED', done: false, lastRetry: null },
-      { kind: 'MFC_HANDOVER_REJECTED', refId: 'HO-MOCK-1', orderId: 'ORD-MOCK-1001', mfcId: 'MFC-BSN-01', state: 'REJECTED', reasonCode: 'STOCK_MISMATCH', reasonMessage: '[목] 재고와 인계 수량이 다름', since: ago(8), retry: 'REJECTED', done: false, lastRetry: { operatorId: 'op-admin-1', reason: '[목] 실물 확인 전 재시도', retriedAt: ago(2) } },
+      { kind: 'MFC_HANDOVER_REJECTED', refId: 'HO-MOCK-1', orderId: 'ORD-MOCK-1001', mfcId: 'MFC-BSN-01', state: 'REJECTED', reasonCode: 'RECORD_MISMATCH', reasonMessage: '[목] 재고와 인계 수량이 다름', since: ago(8), retry: 'REJECTED', done: false, lastRetry: { operatorId: 'op-admin-1', reason: '[목] 실물 확인 전 재시도', retriedAt: ago(2) } },
     ],
     issues: [
       { issueId: 'FI-MOCK-1', orderId: 'ORD-MOCK-1003', mfcId: 'MFC-BSN-01', sku: 'E-00000001', lotId: 'LOT-MOCK-7', blockedQty: 1, reason: 'QUALITY_HOLD', state: 'OPEN', blockedAt: ago(3), reservationId: 'RSV-MOCK-1', note: null, acknowledgedBy: null, acknowledgedAt: null, resolvedAt: null },

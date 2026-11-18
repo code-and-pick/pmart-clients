@@ -30,12 +30,13 @@ describe('개인정보 열람 기록', () => {
     const rows = await screen.findAllByTestId('pii-log-row');
     expect(rows).toHaveLength(mockPiiLogs.length);
     const order = rows.find((r) => r.textContent?.includes('오배송 확인 — 수령지 대조'))!;
-    expect(within(order).getByText('이름, 주소, 출입 메모·배송 요청사항')).toBeInTheDocument();
+    expect(order).toHaveTextContent('이름, 주소, 출입 메모·배송 요청사항'); // 항목마다 이름 + 원래 코드(title)(2026-11-18)
+    expect(within(order).getByTitle('ENTRANCE')).toHaveTextContent('출입 메모·배송 요청사항');
     expect(within(order).getByRole('link', { name: 'ORDER:ORD-MOCK-1001' })).toHaveAttribute('href', '/orders/ORD-MOCK-1001');
     const rider = rows.find((r) => r.textContent?.includes('라이더 연락 두절 확인'))!;
     expect(within(rider).getByText('라이더')).toBeInTheDocument();
     expect(within(rider).getByRole('link', { name: 'RD-1' })).toHaveAttribute('href', '/riders/RD-1');
-    expect(within(rider).getByText('RIDER_OPS')).toBeInTheDocument();
+    expect(within(rider).getByTitle('RIDER_OPS')).toHaveTextContent('라이더 운영'); // 역할 이름 + 원래 코드(title)
     const sent = listCalls(view.sent)[0]!;
     expect([sent.get('size'), sent.get('cursor'), sent.get('from')]).toEqual(['50', null, null]);
   });
@@ -95,8 +96,8 @@ describe('개인정보 열람 기록', () => {
     await userEvent.click(within(row).getAllByRole('link')[0]!);
     const detail = await screen.findByTestId('pii-log-detail');
     expect(detail).toHaveTextContent(target.purpose);
-    expect(detail).toHaveTextContent('rider-service');
-    expect(detail).toHaveTextContent('RIDER_OPS');
+    expect(within(detail).getByTitle('rider-service')).toHaveTextContent('라이더'); // 기록한 서비스 = 업무 이름 + 원래 이름(title)
+    expect(within(detail).getByTitle('RIDER_OPS')).toHaveTextContent('라이더 운영');
     expect(detail).toHaveTextContent(target.piiAccessLogId);
     await userEvent.click(screen.getByRole('link', { name: '목록으로' }));
     expect(await screen.findByLabelText('정보주체 종류')).toHaveValue('RIDER');

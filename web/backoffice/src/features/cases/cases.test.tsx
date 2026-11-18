@@ -324,7 +324,7 @@ describe('사건 다시 열기(case 0.6.0)·넘기기(0.7.0)', () => {
     await userEvent.click(within(form).getByRole('button', { name: '관리자에게 넘기기' }));
     await waitFor(() => expect(screen.getByTestId('case-group')).toHaveTextContent('관리자 팀'));
     expect(screen.getByTestId('case-group')).toHaveTextContent('관리자 처리 중');
-    expect(screen.getByRole('note')).toHaveTextContent('아직 처리가 끝나지 않았어요');
+    expect(screen.getByTestId('next-action')).toHaveTextContent('아직 처리가 끝나지 않았어요'); // 관리자 처리 중 안내는 다음 할 일 카드로(2026-11-18)
     // 지원센터에는 맡기·닫기·넘기기가 없다
     expect(screen.queryByRole('button', { name: '맡기' })).not.toBeInTheDocument();
     expect(screen.queryByRole('form', { name: '완료 처리' })).not.toBeInTheDocument();

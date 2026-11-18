@@ -13,7 +13,7 @@ import { useApi } from '../../app/ApiContext';
 import { CommandFeedback } from '../../shared/Feedback';
 import { messages as m } from '../../shared/messages';
 import { isSeoulDate, label, seoulDayEnd, seoulDayStart, text, when } from '../../shared/ops';
-import { ChipGroup, DataTable, DetailHeader, FieldList, PageHeader, SearchPanel, SearchRow, Section, type Tone } from '../../shared/admin';
+import { ChipGroup, CodeLabel, DataTable, DetailHeader, FieldList, NextAction, PageHeader, SearchPanel, SearchRow, Section, type Tone } from '../../shared/admin';
 import { EmptyBox, Icon, IdLink, KindChip, ListFoot, Person, SideFields, When, type IconName } from '../lookup/parts';
 
 type ComplaintType = components['schemas']['RiderComplaintType'];
@@ -238,7 +238,8 @@ export function NewRiderComplaintPage() {
   // 화면(2026-11-18): 두 칸 — 왼쪽 기록 카드(배송 → 종류 큰 선택 칸 → 연결 번호 → 메모), 오른쪽 안내 카드(서버가 정하는 것)
   return (
     <section className="max-w-6xl space-y-4">
-      <PageHeader title={m.complaints.newTitle} description={m.complaints.newIntro} back={{ to: '/rider-complaints', label: m.complaints.back }} />
+      {/* 설명은 오른쪽 "기록 전에" 카드에 있다 — 머리말에 되풀이하지 않는다(2026-11-18) */}
+      <PageHeader title={m.complaints.newTitle} back={{ to: '/rider-complaints', label: m.complaints.back }} />
       <div className="grid items-start gap-4 lg:grid-cols-3">
         <form className="space-y-5 rounded-box border border-base-300 bg-base-100 p-5 shadow-sm lg:col-span-2" onSubmit={submit} aria-label={m.complaints.newTitle}>
           <label className="block space-y-1 text-sm">
@@ -324,10 +325,26 @@ export function RiderComplaintDetailPage() {
           <>
             <DetailHeader
               back={{ to: '/rider-complaints', label: m.complaints.back }}
-              title={`${m.complaints.detailTitle} ${complaintId}`}
+              // 제목(2026-11-18 사용자 "직관적이지 않다"): 종류·라이더를 앞에, 컴플레인 번호는 옆에 작게
+              title={
+                <>
+                  {m.complaints.titleOf(label(m.complaints.typeName, c.complaintType), c.riderId)}
+                  <span className="ml-2 font-mono text-sm font-normal text-base-content/50">{complaintId}</span>
+                </>
+              }
               badges={<ComplaintType type={c.complaintType} />}
               summary={`${when(c.recordedAt)} · ${c.recordedBy}`}
             />
+            {/* 다음 할 일 — 서버가 준 접수 건이 있으면 거기서 이어서, 없으면 할 일 없음(제한 검토는 서버) */}
+            {c.caseId ? (
+              <NextAction tone="info" title={m.complaints.nextStep.caseTitle}>
+                <Link className="btn btn-sm" to={`/cases/${encodeURIComponent(c.caseId)}`}>
+                  {m.complaints.nextStep.caseGo}
+                </Link>
+              </NextAction>
+            ) : (
+              <NextAction tone="success" title={m.complaints.nextStep.noneTitle} body={m.complaints.nextStep.noneBody} />
+            )}
             <div className="grid items-start gap-4 lg:grid-cols-3" data-testid="complaint-detail">
               <div className="min-w-0 space-y-4 lg:col-span-2">
                 <Section title={m.complaints.note}>
@@ -351,10 +368,10 @@ export function RiderComplaintDetailPage() {
                 <Section title={m.complaints.recordInfo}>
                   <SideFields
                     rows={[
-                      [m.complaints.type, label(m.complaints.typeName, c.complaintType)],
+                      [m.complaints.type, c.complaintType ? <CodeLabel key="k" code={c.complaintType} names={m.complaints.typeName} /> : m.none],
                       [m.complaints.recordedAt, <When key="t" iso={c.recordedAt} />],
                       [m.complaints.recordedBy, <Person key="b" id={c.recordedBy} />],
-                      [m.complaints.source, c.source],
+                      [m.complaints.source, c.source ? <CodeLabel key="s" code={c.source} names={m.complaints.sourceName} /> : m.none],
                     ]}
                   />
                 </Section>

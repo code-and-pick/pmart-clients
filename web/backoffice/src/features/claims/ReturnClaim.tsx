@@ -319,7 +319,7 @@ const ACTION_REJECT_TEXT: Readonly<Record<string, string>> = {
 };
 
 /** 서버 값으로 본 지금 할 수 있는 조치(최종 판정은 서버) */
-function availableActions(claim: Claim): Set<RecoveryAction> {
+export function availableActions(claim: Claim): Set<RecoveryAction> {
   const out = new Set<RecoveryAction>();
   if (claim.type !== 'RETURN') return out;
   const lines = claim.lines ?? [];

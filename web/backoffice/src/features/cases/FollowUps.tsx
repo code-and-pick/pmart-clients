@@ -8,7 +8,7 @@
 // - 메모·사유는 직원이 쓴 글 — 화면에만, 로그에 남기지 않는다. 판정은 서버(403·409·422 는 코드 문구).
 // 화면(2026-11-18 사용자 "밋밋하다"): 한 카드 안 항목 줄(종류 아이콘·담당 팀·상태 점 꼬리표·기한, 수량·기록 금액 막대, 결과 이력 줄), 아래 추가 칸. 고객센터 메뉴는 밑줄 탭 + 같은 줄. 동작은 그대로.
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState, type ReactNode } from 'react';
+import { Fragment, useState, type ReactNode } from 'react';
 import { Link, useSearchParams } from 'react-router';
 
 import { request } from '@pmart/web-core';
@@ -19,10 +19,12 @@ import { useApi } from '../../app/ApiContext';
 import { useSession } from '../../app/SessionContext';
 import { messages } from '../../shared/messages';
 import { label, text, when, won } from '../../shared/ops';
-import { PageHeader, StatusBadge, type Tone } from '../../shared/admin';
+import { CodeLabel, NextAction, PageHeader, StatusBadge, type Tone } from '../../shared/admin';
 import { EmptyBox, Icon, ICON } from '../inquiries/HelpdeskParts';
 
 const m = messages.followUps;
+/** 코드 값 → 한국어 이름(원래 코드는 마우스를 올리면), 값이 없으면 "—" */
+const codeOf = (names: Readonly<Record<string, string>>, v: string | null | undefined) => (v ? <CodeLabel code={v} names={names} /> : messages.none);
 type Case = components['schemas']['Case'];
 type Obligation = components['schemas']['Obligation'];
 type Kind = components['schemas']['ObligationBody']['kind'];
@@ -86,9 +88,9 @@ function ObligationItem({ o, caseGroup, onChanged, caseLink }: { readonly o: Obl
       <div className="min-w-0 flex-1 space-y-2">
         {caseLink}
         <div className="flex flex-wrap items-center gap-2">
-          <span className="font-semibold">{label(m.kindName, o.kind)}</span>
-          <span className="badge badge-ghost badge-sm">{label(messages.cases.groupName, o.owner ?? caseGroup)}</span>
-          <StatusBadge tone={STATE_TONE[o.state ?? 'OPEN'] ?? 'ghost'}>{label(m.stateName, o.state)}</StatusBadge>
+          <span className="font-semibold">{codeOf(m.kindName, o.kind)}</span>
+          <span className="badge badge-ghost badge-sm">{codeOf(messages.cases.groupName, o.owner ?? caseGroup)}</span>
+          <StatusBadge tone={STATE_TONE[o.state ?? 'OPEN'] ?? 'ghost'}>{codeOf(m.stateName, o.state)}</StatusBadge>
           {o.dueAt && (
             <span className="ml-auto inline-flex items-center gap-1 whitespace-nowrap text-xs text-base-content/60">
               <Icon d={ICON.clock} className="h-3.5 w-3.5" />
@@ -117,17 +119,29 @@ function ObligationItem({ o, caseGroup, onChanged, caseLink }: { readonly o: Obl
             <ul className="space-y-1 border-l-2 border-base-300 pl-3 text-xs text-base-content/75" data-testid="follow-up-results">
               {(o.resolutions ?? []).map((r, i) => (
                 <li key={`${r.resolvedAt ?? ''}-${i}`}>
+                  {/* 근거가 있는 곳은 업무 이름(원래 서비스 이름은 마우스를 올리면) */}
                   {[
                     when(r.resolvedAt),
-                    label(m.outcomeName, r.outcome),
+                    codeOf(m.outcomeName, r.outcome),
                     r.qty !== undefined ? m.qtyDone(r.qty) : null,
                     r.amount !== undefined ? m.amountDone(won(r.amount)) : null,
-                    r.evidence ? `${m.evidence} ${r.evidence.system}:${r.evidence.ref}` : null,
+                    r.evidence ? (
+                      <>
+                        {`${m.evidence} `}
+                        {codeOf(m.systemName, r.evidence.system)}
+                        {` ${r.evidence.ref}`}
+                      </>
+                    ) : null,
                     text(r.resolvedBy),
                     r.note ?? null,
                   ]
                     .filter(Boolean)
-                    .join(' · ')}
+                    .map((part, j) => (
+                      <Fragment key={j}>
+                        {j > 0 && ' · '}
+                        {part}
+                      </Fragment>
+                    ))}
                 </li>
               ))}
             </ul>
@@ -391,9 +405,18 @@ export function CsFollowUpPage() {
     },
   });
   const state = toUiState(query, (r) => (r.items ?? []).length === 0);
+  const roles = useRoles();
+  // 다음 할 일 — 처리 중 탭을 읽었을 때만, 서버가 준 목록·역할로(결과 남기기 버튼이 보이는 건수). 판정은 서버
+  const resolvable = !done && state.kind === 'ready' ? (state.data.items ?? []).filter((o) => canResolve(o, 'CS', roles)).length : null;
   return (
     <section className="max-w-5xl space-y-4">
       <PageHeader title={m.csTitle} description={m.csIntro} />
+      {resolvable !== null &&
+        (resolvable > 0 ? (
+          <NextAction tone="warning" title={m.nextResolve(resolvable)} body={m.nextResolveBody} />
+        ) : (
+          <NextAction tone="info" title={m.nextReadOnly} body={m.nextReadOnlyBody} />
+        ))}
       <div className="overflow-hidden rounded-box border border-base-300 bg-base-100 shadow-sm">
         <div role="tablist" className="flex gap-1 overflow-x-auto overflow-y-hidden border-b border-base-300 px-3">
           {([false, true] as const).map((d) => (

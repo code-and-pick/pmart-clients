@@ -33,14 +33,17 @@ describe('포장 인계 현황', () => {
     const row = await rowOf(/25111704/);
     expect(within(row).getByTestId('packing-qty')).toHaveTextContent('포장 3 · 인계 1 · 남음 2');
     await userEvent.click(within(row).getByRole('button', { name: '포장 3개 보기' }));
-    expect(within(row).getByTestId('packing-packages')).toHaveTextContent('PKG-4-1 · HANDED_OVER');
+    expect(within(row).getByTestId('packing-packages')).toHaveTextContent('PKG-4-1 · 인계됨'); // 원천 코드는 이름으로, 코드는 마우스를 올리면(2026-11-18)
+    expect(within(within(row).getByTestId('packing-packages')).getAllByTitle('HANDED_OVER')[0]).toHaveTextContent('인계됨');
     expect(within(row).getByTestId('packing-packages')).toHaveTextContent('라이더 RID-MOCK-2');
     expect(within(row).getByTestId('packing-delivery')).toHaveTextContent('DLV-MOCK-24');
   });
 
   it('취소 출고는 단계 null — "—" 와 원천 값', async () => {
     renderAt('/packing-handover?mfcId=MFC-BSN-01&state=CANCELLED', as.admin);
-    expect(within(await rowOf(/25111705/)).getByTestId('packing-stage')).toHaveTextContent('출고 CANCELLED · 피킹 CANCELLED · 패킹 -');
+    const stage = within(await rowOf(/25111705/)).getByTestId('packing-stage');
+    expect(stage).toHaveTextContent('출고 취소 · 피킹 취소 · 패킹 -'); // 원천 값은 이름으로(2026-11-18), 코드는 title
+    expect(within(stage).getAllByTitle('CANCELLED')).toHaveLength(2);
   });
 
   it('MFC 원천을 못 읽으면 0건이 아니라 실패, 배송 원천만 못 읽으면 배송 칸만 "—"', async () => {

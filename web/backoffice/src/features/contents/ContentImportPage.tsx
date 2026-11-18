@@ -14,8 +14,8 @@ import { useCommand } from '@pmart/web-ui';
 import { BATCH_TONE, BatchApprovals, multipart, UploadLayout, ZipUpload } from '../products/ProductImportPage';
 import { ContentRegistration } from './ContentRegistration';
 import { type ImportItem, rowStatus, type RowStatus, rowSummary } from './importRowStatus';
-import { PageHeader, StatusBadge, type Tone } from '../../shared/admin';
-import { MiniStat, Steps, tableClass } from '../products/parts';
+import { NextAction, PageHeader, StatusBadge, type Tone } from '../../shared/admin';
+import { JumpLink, MiniStat, Steps, tableClass, TitleWithId } from '../products/parts';
 
 export function NewContentImportPage() {
   const api = useApi();
@@ -62,13 +62,14 @@ export function ContentImportPage() {
     <section className="space-y-4">
       <PageHeader
         back={{ to: '/contents/import', label: m.contents.importTitle }}
-        title={m.products.batch(batchId)}
+        title={query.data ? <TitleWithId title={m.contents.batchHeading(query.data.productCount)} id={m.products.batch(batchId)} /> : m.products.batch(batchId)}
         actions={query.data ? <StatusBadge tone={BATCH_TONE[query.data.state] ?? 'ghost'}>{m.contents.batchStateName[query.data.state] ?? query.data.state}</StatusBadge> : null}
       />
       <QueryState state={toUiState(query)} onRetry={() => void query.refetch()}>
         {(b) => (
           <>
             <Steps steps={m.contents.importSteps} now={b.state === 'UPLOADED' ? 1 : 3} />
+            <ContentBatchNextAction state={b.state} ready={(b.items ?? []).filter((it) => rowStatus(it).kind === 'ready').length} />
             <div className="grid gap-3 sm:grid-cols-4">
               <MiniStat label={m.contents.statProducts} value={b.productCount} />
               <div className="flex items-center rounded-box border border-base-300 bg-base-100 px-4 py-3 shadow-sm sm:col-span-3">
@@ -77,7 +78,7 @@ export function ContentImportPage() {
                 </p>
               </div>
             </div>
-            <div className="overflow-hidden rounded-box border border-base-300 bg-base-100 shadow-sm">
+            <div id="batch-rows" className="scroll-mt-4 overflow-hidden rounded-box border border-base-300 bg-base-100 shadow-sm">
               <div className="overflow-x-auto">
                 <table className={tableClass}>
                   <thead>
@@ -142,6 +143,43 @@ export function ContentImportPage() {
       </QueryState>
     </section>
   );
+}
+
+/**
+ * 다음 할 일(2026-11-18 사용자 "직관적이지 않다") — 서버 배치 state 와 행의 제출 여부(서버 값으로 푼 rowStatus) 수만으로 하나를 고른다.
+ * 버튼은 이 쪽의 구역(행 표·승인 현황)으로 내려가기만 한다.
+ */
+function ContentBatchNextAction({ state, ready }: { readonly state: string; readonly ready: number }) {
+  switch (state) {
+    case 'UPLOADED':
+      return ready > 0 ? (
+        <NextAction title={m.contents.next.batchSubmit(ready)}>
+          <JumpLink to="batch-rows">{m.products.go.rows}</JumpLink>
+        </NextAction>
+      ) : (
+        <NextAction tone="warning" title={m.products.next.batchNone}>
+          <JumpLink to="batch-rows">{m.products.go.rows}</JumpLink>
+        </NextAction>
+      );
+    case 'SUBMITTED':
+      return (
+        <NextAction title={m.products.next.batchApproval}>
+          <JumpLink to="batch-approvals">{m.products.go.approvals}</JumpLink>
+        </NextAction>
+      );
+    case 'PUBLISHED':
+      return <NextAction tone="success" title={m.contents.next.batchPublished} />;
+    case 'PARTIALLY_PUBLISHED':
+      return (
+        <NextAction tone="warning" title={m.contents.next.batchPartial}>
+          <JumpLink to="batch-approvals">{m.products.go.approvals}</JumpLink>
+        </NextAction>
+      );
+    case 'REJECTED':
+      return <NextAction tone="error" title={m.contents.next.batchRejected} />;
+    default:
+      return null;
+  }
 }
 
 const KIND_TONE: Record<RowStatus['kind'], Tone> = {

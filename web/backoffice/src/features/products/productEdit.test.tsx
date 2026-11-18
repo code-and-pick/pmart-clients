@@ -76,7 +76,8 @@ describe('상품 정보 수정', () => {
     renderAt('/products/P-00000002', as.md);
     await userEvent.click(await screen.findByRole('button', { name: '상품 정보 수정 시작' }));
     await screen.findByTestId('product-edit-note');
-    const draftId = (await screen.findByRole('heading', { level: 1 })).textContent.replace('상품 초안 ', '');
+    await screen.findByRole('heading', { level: 1 });
+    const draftId = screen.getByTestId('title-id').textContent.replace('상품 초안 ', '');
     await userEvent.click(screen.getByRole('link', { name: 'P-00000002' }));
     await userEvent.click(await screen.findByRole('button', { name: '상품 정보 수정 시작' }));
     const exists = await screen.findByTestId('product-edit-exists');

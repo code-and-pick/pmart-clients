@@ -5,9 +5,9 @@ import type { ReactNode } from 'react';
 import { messages as m } from '../../shared/messages';
 
 /** 제목 줄이 있는 카드. 폼 묶음·오른쪽 요약 카드에 쓴다. */
-export function Card({ title, hint, aside, children, footer, testId, label, className = '' }: { readonly title?: ReactNode; readonly hint?: ReactNode; readonly aside?: ReactNode; readonly children: ReactNode; readonly footer?: ReactNode; readonly testId?: string; readonly label?: string; readonly className?: string }) {
+export function Card({ title, hint, aside, children, footer, testId, label, id, className = '' }: { readonly title?: ReactNode; readonly hint?: ReactNode; readonly aside?: ReactNode; readonly children: ReactNode; readonly footer?: ReactNode; readonly testId?: string; readonly label?: string; readonly id?: string; readonly className?: string }) {
   return (
-    <section className={`overflow-hidden rounded-box border border-base-300 bg-base-100 shadow-sm ${className}`} data-testid={testId} aria-label={label}>
+    <section id={id} className={`scroll-mt-4 overflow-hidden rounded-box border border-base-300 bg-base-100 shadow-sm ${className}`} data-testid={testId} aria-label={label}>
       {(title || aside) && (
         <div className="flex flex-wrap items-start justify-between gap-2 border-b border-base-300 px-5 py-3">
           <div className="min-w-0 space-y-0.5">
@@ -106,6 +106,27 @@ export function UnderlineTabs<T extends string>({ value, options, onChange, labe
         );
       })}
     </div>
+  );
+}
+
+/** 제목 = 사람이 읽는 이름 + 옆에 작은 ID(2026-11-18 사용자 "직관적이지 않다" — 제목이 ID 뿐이면 무엇인지 모른다) */
+export function TitleWithId({ title, id, testId = 'title-id' }: { readonly title: ReactNode; readonly id: string; readonly testId?: string }) {
+  return (
+    <span className="inline-flex flex-wrap items-baseline gap-x-2">
+      <span>{title}</span>{' '}
+      <span className="font-mono text-sm font-normal text-base-content/50" data-testid={testId}>
+        {id}
+      </span>
+    </span>
+  );
+}
+
+/** 다음 할 일 카드의 바로 가기 — 같은 쪽 안 구역으로 내려간다(새 동작 없음) */
+export function JumpLink({ to, children }: { readonly to: string; readonly children: ReactNode }) {
+  return (
+    <a href={`#${to}`} className="btn btn-sm btn-primary">
+      {children}
+    </a>
   );
 }
 

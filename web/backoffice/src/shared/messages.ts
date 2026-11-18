@@ -97,7 +97,7 @@ export const messages = {
     title: '통합 조회',
     intro: '주문·배송·접수 건·고객 번호 하나로 주문·배송·배차·클레임·접수 건을 원천별로 한 번에 봐요. 상태를 하나로 합치지 않고, 원천마다 기준 시각을 보여요.',
     q: '찾을 번호',
-    qHint: '주문(ORD-)·배송(DLV-)·접수 건(CASE-)·고객(CU-) 번호를 그대로 넣어요. 전화번호로는 찾지 않아요 — 주문 조회 화면의 연락처 찾기를 써 주세요.',
+    qHint: '주문(ORD-)·배송(DLV-)·접수 건(CASE-)·고객(CU-) 번호. 전화번호는 주문 조회에서 찾아요.',
     kind: '종류',
     kindName: { ANY: '번호로 알아서', ORDER: '주문', DELIVERY: '배송', CASE: '접수 건', CUSTOMER: '고객' } as Readonly<Record<string, string>>,
     search: '찾기',
@@ -126,6 +126,9 @@ export const messages = {
       lastError: (e: string) => `마지막 오류: ${e}`,
       toPending: '처리 대기에서 다시 시도',
       note: '센터 현장 기록을 그대로 보여 줘요. 작업자는 ID 만 보여요(이름 없음).',
+      /** FulfillmentLookupStop scope·state */
+      stopScopeName: { FULL: '전체', PARTIAL: '일부' } as Readonly<Record<string, string>>,
+      stopStateName: { PENDING: '처리 중', RESOLVED: '해결됨' } as Readonly<Record<string, string>>,
     },
     caseParts: { open: '처리 중', closed: '처리 끝남(최근 20건)' },
     none: '없음',
@@ -242,6 +245,19 @@ export const messages = {
     noDelivery: '배송 없음(배차 전)',
     col: { order: '주문번호', stage: '단계', work: '피킹·패킹', qty: '포장', times: '시각', delivery: '배송' },
     kpi: { shown: '지금 보이는 출고', shownHint: '이 화면에 읽은 줄 기준', ready: '출고대기(인계 전)', blocked: '막힌 출고', handed: '인계 완료' },
+    // 2026-11-18 사용자 "직관적이지 않다" — 원천 코드 대신 업무 이름(원래 코드는 마우스를 올리면)
+    /** mfc TaskState(피킹·패킹 작업) */
+    taskStateName: { WAITING: '대기', READY: '준비됨', ASSIGNED: '배정됨', IN_PROGRESS: '진행 중', COMPLETED: '끝남', BLOCKED: '막힘', FAILED: '실패', CANCELLED: '취소', CLOSED_PARTIAL: '부분 종료' } as Readonly<Record<string, string>>,
+    /** PackageState(OPEN·SEALED·HANDED_OVER) */
+    packageStateName: { OPEN: '포장 중', SEALED: '밀봉', HANDED_OVER: '인계됨' } as Readonly<Record<string, string>>,
+    /** 인계 허가 상태(NONE·HANDOVER_IN_PROGRESS·COMMITTED·EXPIRED) */
+    fenceStateName: { NONE: '없음', HANDOVER_IN_PROGRESS: '인계 진행 중', COMMITTED: '인계 확정', EXPIRED: '만료' } as Readonly<Record<string, string>>,
+    shipmentLabel: '출고',
+    nextStep: {
+      blockedTitle: (n: number) => `막힌 출고 ${n}건을 확인해 주세요`,
+      blockedBody: '피킹·패킹이 막혀 센터 조치가 필요해요.',
+      blockedGo: '막힌 출고 보기',
+    },
   },
   live: {
     title: '실시간 배송 현황',
@@ -289,6 +305,11 @@ export const messages = {
       withCases: '처리 중인 접수 건 있음',
       casesUnknown: (n: number) => `${n}건은 접수 건 확인 못 함`,
     },
+    nextStep: {
+      failureTitle: (n: number) => `전달 실패 확정 대기 ${n}건`,
+      failureBody: '라이더가 등록한 전달 실패를 확정하거나 반려해 주세요.',
+      failureGo: '확정 대기 목록',
+    },
   },
 
   /** 개인정보 열람 기록(audit 0.3.0, OPERATOR_ADMIN) */
@@ -323,6 +344,10 @@ export const messages = {
     /** 화면 짜임(2026-11-18) */
     shown: (n: number) => `이 쪽 ${n}건`,
     accessSection: '열어 본 것',
+    /** 상세 제목 — 누가·무엇을 먼저(2026-11-18) */
+    detailHeadline: (actor: string, fields: string, access: string) => `${actor} — ${fields} ${access}`,
+    /** 그때 역할 이름(2026-11-18 코드 이름 — 원래 코드는 마우스를 올리면) */
+    roleName: { OPERATOR_ADMIN: '운영 관리자', RIDER_OPS: '라이더 운영', CS_AGENT: '상담원', MFC_SUPERVISOR: '센터 관리자', HR_ADMIN: '인사팀' } as Readonly<Record<string, string>>,
     actorSection: '열람한 직원',
     recordSection: '기록',
   },
@@ -361,6 +386,16 @@ export const messages = {
       RECONCILIATION: '대사 필요',
       PAYMENT_UNKNOWN: '결제 결과 불명',
       RETURN_RECOVERY_FAILED: '반품 회수 실패',
+      // 계약 CaseKind 의 나머지(2026-11-18 코드 이름 — 지금 열리지 않아도 이름만)
+      TRANSPORT_INCIDENT: '간선 운송 사고',
+      LINE_SHORTAGE: '품목 결품',
+      RECEIPT_DISCREPANCY: '입고 차이',
+      OUTBOUND_DISCREPANCY: '출고 차이',
+      QUALITY_RECALL: '품질 회수',
+      CS_INTAKE: '고객센터 접수',
+      MFC_ISSUE: '센터 문제',
+      SECURITY: '보안',
+      OTHER: '기타',
     } as Readonly<Record<string, string>>,
     /** 이력 동작 이름 — 모르는 코드는 그대로 */
     actionName: { RECURRED: '재발', REOPENED: '다시 처리', TRANSFERRED: '넘김', OPENED: '접수', ASSIGNED: '맡음', CLOSED: '처리 끝냄', HANDOVER_REQUESTED: '인계서에 들어감', HANDED_OVER: '인계됨', RECOVERY_CREATED: '회수 배송 생김', RECOVERY_PICKED_UP: '회수함', RECOVERY_RETURNED: '매장 반납', RESHIPMENT_CREATED: '재발송 배송 생김', ACTION_REQUESTED: '행위 요청', ACTION_RESULT_RECORDED: '행위 결과', CLAIM_CLOSED: '반품 끝남' } as Readonly<Record<string, string>>,
@@ -475,6 +510,23 @@ export const messages = {
     newStepEvidence: '확인 근거',
     newSideTitle: '처리 안내',
     newSidePick: '누구 잘못인지 고르면 진행될 처리를 보여 줘요.',
+    /** 다음 할 일(2026-11-18 "지금 뭘 해야 하는지 안 보인다") — 서버가 준 상태로만 고른다 */
+    next: {
+      closed: (resolution: string) => `처리 끝남 — ${resolution}`,
+      unassigned: '아무도 안 맡음 — 맡아 주세요',
+      unassignedOverdue: '아무도 안 맡음 · 처리 기한 넘김 — 맡아 주세요',
+      followUps: (n: number) => `후속 처리 ${n}건 남음 — 결과를 남겨 주세요`,
+      followUpsBody: '후속 처리가 모두 끝나야 완료 처리할 수 있어요.',
+      goFollowUps: '후속 처리로',
+      overdue: '처리 기한 넘김 — 완료 처리',
+      close: '일이 끝났으면 완료 처리',
+      goClose: '완료 처리로',
+      orderBody: '조치는 처리 대기·각 메뉴에서 하고, 끝나면 여기서 완료 처리해요.',
+      otherAssignee: (id: string) => `${id} 님이 맡고 있어요`,
+      otherAssigneeOverdue: (id: string) => `${id} 님이 맡고 있어요 · 처리 기한 넘김`,
+      adminTeam: '관리자 팀이 처리 중',
+      viewOnly: '보기만 할 수 있어요',
+    },
   },
   /** 라이더 도움요청 대화(execution 0.6.0) — 라이더 ↔ 지원센터 */
   helpChat: {
@@ -549,6 +601,11 @@ export const messages = {
     emptyInbox: '받을 인계가 없어요.',
     emptySent: '내가 쓴 인계가 없어요.',
     emptyUnreceived: '미인수 인계가 없어요.',
+    /** 다음 할 일(2026-11-18) */
+    nextInbox: (n: number) => `받을 인계 ${n}건 — 받아 주세요`,
+    nextInboxBody: '건마다 다음 조치를 읽고, 받을 건만 남긴 뒤 받기를 눌러요. 받기 전에는 담당이 전임 그대로예요.',
+    nextSent: (n: number) => `후임이 아직 안 받은 인계 ${n}건 — 그때까지 담당은 전임 그대로예요`,
+    nextGo: '인계서로',
   },
   /** 후속 처리(case 0.8.0 의무 — 화면 용어 사용자 2026-11-16). 금액은 기록만(환불·보상 실행은 클레임·결제 메뉴) */
   followUps: {
@@ -608,6 +665,11 @@ export const messages = {
     closeBlocked: (n: number) => `후속 처리가 남아 있어 완료 처리할 수 없어요(${n}건). 먼저 결과를 남겨 주세요.`,
     csTitle: '고객센터 후속 처리',
     csIntro: '접수 건에서 고객센터가 맡은 후속 처리(고객 연락 등)예요. 결과(완료·시도 기록)를 남겨요. 접수 건 자체는 보기만 해요.',
+    // 다음 할 일(2026-11-18 사용자 "직관적이지 않다") — 화면이 이미 읽은 목록·역할로만
+    nextResolve: (n: number) => `후속 처리 ${n}건에 결과를 남겨 주세요`,
+    nextResolveBody: '줄마다 "결과 남기기"를 눌러요. 연락이 안 됐으면 "시도 기록"으로 남겨요.',
+    nextReadOnly: '보기만 할 수 있어요',
+    nextReadOnlyBody: '결과는 고객센터 상담원이나 관리자가 남겨요.',
     tabOpen: '처리 중',
     tabDone: '처리 끝남',
     csEmpty: '고객센터가 처리할 후속 처리가 없어요.',
@@ -620,11 +682,11 @@ export const messages = {
   /** 처리 대기(BO-12, 백엔드 요청 backoffice/2026-11-16-request-case-inbox-and-pending-work §2 — bff 0.2.0) — OPERATOR_ADMIN */
   pending: {
     title: '처리 대기',
-    intro: '멈춘 주문 처리·이행 확인 필요·MFC 중지 실패·인계 거절을 한 목록으로 보여요. 버튼은 서버가 허락한 조치만 보여요. 처리 완료·확인은 주문·재고를 바꾸지 않아요 — 실제 환불·재고 정정은 각 메뉴에서 먼저 해 주세요.',
+    intro: '사람 손이 필요한 멈춘 일이에요. 처리 완료·확인은 주문·재고를 바꾸지 않아요 — 환불·재고 정정은 각 메뉴에서 먼저 해 주세요.',
     empty: '처리할 일이 없어요.',
     kind: '종류',
     kindName: { STUCK_SAGA: '멈춘 주문 처리', FULFILLMENT_ISSUE: '이행 확인 필요', MFC_STOP_FAILED: 'MFC 중지 실패(취소 멈춤)', MFC_HANDOVER_REJECTED: 'MFC 인계 거절' } as Readonly<Record<string, string>>,
-    sagaTypeName: { S1_CHECKOUT: '주문·결제', S2_FULFILLMENT: '이행', S3_CANCELLATION: '취소', SHORTAGE: '결품' } as Readonly<Record<string, string>>,
+    sagaTypeName: { S1_CHECKOUT: '주문·결제', S2_FULFILLMENT: '이행', S3_CANCELLATION: '취소', S4_RESERVATION_TIME_CHANGE: '예약 시간 변경', SHORTAGE: '결품', RESHIPMENT: '오배송 재발송' } as Readonly<Record<string, string>>,
     orderId: '주문',
     state: '상태',
     reason: '사유',
@@ -671,6 +733,52 @@ export const messages = {
     count: (n: number) => `${n}건`,
     saga: '주문 처리',
     mfc: 'MFC',
+    /** 코드 이름(2026-11-18 "직관적이지 않다") — 계약 뜻을 그대로 옮김. 상태 값은 종류마다 뜻이 달라 종류별로 */
+    stateNameByKind: {
+      // order-orchestration StuckSaga.state
+      STUCK_SAGA: { ESCALATED: '사람 확인 대기', RECONCILIATION_REQUIRED: '대사 필요', UNKNOWN_TRACKING: '결과 확인 중' },
+      // order-service FulfillmentIssue.state
+      FULFILLMENT_ISSUE: { OPEN: '확인 전', ACKNOWLEDGED: '확인함', RESOLVED: '해소됨' },
+      // mfc-fulfillment FailedStopRequest.state·RejectedHandover.status
+      MFC_STOP_FAILED: { PENDING: '중지 안 끝남' },
+      MFC_HANDOVER_REJECTED: { REJECTED: '인계 거절됨' },
+    } as Readonly<Record<string, Readonly<Record<string, string>>>>,
+    /** order-orchestration StepName */
+    stepName: {
+      VALIDATE_QUOTE: '견적 확인',
+      RESERVE_INVENTORY: '재고 예약',
+      HOLD_CAPACITY: '처리량 잡기',
+      HOLD_SLOT: '배송 시간 잡기',
+      START_PAYMENT: '결제 시작',
+      AWAIT_PAYMENT_RESULT: '결제 결과 기다림',
+      RECONCILE_PAYMENT: '결제 대사',
+      CONFIRM_ORDER: '주문 확정',
+      CONFIRM_RESOURCES: '자원 확정',
+      REQUEST_FULFILLMENT: 'MFC 작업 요청',
+      STOP_WORK: '작업 중지',
+      CANCEL_ASSIGNMENT: '배차 취소',
+      RELEASE_INVENTORY: '재고 풀기',
+      APPLY_LINE_QUANTITY: '품목 수량 반영',
+      NOTIFY_CLAIM: '클레임 알림',
+      AWAIT_RECOVERY: '회수 기다림',
+      REQUEST_SYSTEM_CANCEL: '시스템 취소 요청',
+      HOLD_NEW_SLOT: '새 배송 시간 잡기',
+      RELEASE_OLD_SLOT: '이전 배송 시간 풀기',
+    } as Readonly<Record<string, string>>,
+    /** 멈춘 주문 처리·MFC 사유 코드 — 계약에 뜻이 적힌 것만(order-states PAYMENT_UNKNOWN, mfc-fulfillment 중지·인계 거절) */
+    errorName: {
+      PAYMENT_UNKNOWN: '결제 결과 불명',
+      RETURN_MISMATCH: '취소 복귀 수량 안 맞음',
+      RECORD_MISMATCH: '집품·포장 기록 안 맞음',
+      INSUFFICIENT_STOCK: '재고 부족',
+      FENCE_VERSION_MISMATCH: '인계 잠금 버전 안 맞음',
+      VERSION_CONFLICT: '그사이 바뀜',
+      INVALID_STATE: '지금 상태로는 안 됨',
+    } as Readonly<Record<string, string>>,
+    /** 다음 할 일(2026-11-18) — 서버 순서(오래된 것부터)의 첫 항목 */
+    nextTitle: (n: number) => `사람 손이 필요한 일 ${n}건 — 가장 오래된 것부터`,
+    nextBody: (kind: string, since: string) => `${kind} · ${since}부터 멈춤`,
+    nextGo: '그 묶음으로',
   },
   orders: {
     title: '주문 조회',
@@ -733,7 +841,7 @@ export const messages = {
     noAddress: '주문 당시 배송지 사본이 없어요(2026-11-02 이전 주문).',
     /** order 0.4.0·0.5.0 — 상세는 서버가 가려서 주고, 원문은 사유를 적고 열람(열람 기록이 남는다, BO-25) */
     pii: {
-      maskedNote: '배송지는 가려서 보여요. 고객 응대에 꼭 필요할 때만 사유를 적고 열어 주세요 — 열람 기록이 남아요.',
+      maskedNote: '가려서 보여요. 꼭 필요할 때만 사유를 적고 열어요 — 열람 기록이 남아요.',
       maskedValue: '가림',
       title: '원문 열람',
       fields: '열 항목',
@@ -773,6 +881,21 @@ export const messages = {
       CANCELLED: '취소',
       EXPIRED: '만료',
     } as Readonly<Record<string, string>>,
+    // 2026-11-18 사용자 "직관적이지 않다" — 코드 대신 업무 이름(원래 코드는 마우스를 올리면)
+    /** order deliveryTipReason(STANDARD·OVER_30000·FIRST_PURCHASE·NONE) */
+    tipReasonName: { STANDARD: '기본 배달팁', OVER_30000: '3만 원 이상 무료', FIRST_PURCHASE: '첫 구매 무료', NONE: '배달팁 없음' } as Readonly<Record<string, string>>,
+    /** FulfillmentIssue.reason — 계약 설명에 적힌 것만(그 밖은 코드 그대로) */
+    issueReasonName: { QUALITY_HOLD: '품질 격리', COUNT_LOSS: '실사 손실', SHORT: '피킹 결품', DAMAGED: '피킹 파손' } as Readonly<Record<string, string>>,
+    /** 상세 제목 — 첫 상품 이름 + 외 N건(번호는 옆에 작게) */
+    titleOf: (first: string, more: number) => (more > 0 ? `${first} 외 ${more}건` : first),
+    nextStep: {
+      issueTitle: '이행 확인이 필요한 상품이 있어요',
+      issueBody: (n: number) => `확인 필요 ${n}건 — 센터 보류분이에요.`,
+      issueGo: '확인 기록 보기',
+      paymentTitle: '결제 결과를 서버가 확인하고 있어요',
+      paymentBody: '확정될 때까지 결제 완료로 안내하지 마세요.',
+    },
+    noCancelShort: '상품 준비가 시작되면 고객센터는 취소하지 않아요 — 받으신 뒤 반품으로 안내해요.',
   },
 
   complaints: {
@@ -812,6 +935,15 @@ export const messages = {
     guideTitle: '기록 전에',
     linked: '연결된 배송·주문',
     recordInfo: '기록 정보',
+    /** RiderComplaint.source(지금 CS_AGENT) */
+    sourceName: { CS_AGENT: '고객센터 상담원' } as Readonly<Record<string, string>>,
+    titleOf: (type: string, riderId: string) => `${type} 컴플레인 · ${riderId}`,
+    nextStep: {
+      caseTitle: '연결된 접수 건에서 이어서 처리해요',
+      caseGo: '접수 건 열기',
+      noneTitle: '할 일 없음',
+      noneBody: '기록만 남아요. 제한 검토 대상인지는 서버가 정해요.',
+    },
   },
 
   claims: {
@@ -893,6 +1025,30 @@ export const messages = {
     completedAt: '완료 시각',
     noDecision: '클레임 결정(승인·거절)은 서버 준비 전이에요.',
     back: '클레임 목록',
+    /** claim PickupState */
+    pickupStateName: {
+      NOT_REQUIRED: '회수 필요 없음',
+      REQUESTED: '회수 요청',
+      DISPATCHED: '회수 배차',
+      PICKED_UP: '수거함',
+      DELIVERED_TO_STORE: '센터 도착',
+      RECEIVED: '센터 입고',
+      INSPECTED: '검수 끝',
+      FAILED: '회수 실패',
+    } as Readonly<Record<string, string>>,
+    /** claim reshipment.state(교환 이행) */
+    reshipmentStateName: { NOT_APPLICABLE: '해당 없음', APPROVED: '승인', FULFILLMENT_CREATED: '출고 생성', IN_PROGRESS: '진행 중', DELIVERED: '전달', OUT_OF_STOCK: '품절' } as Readonly<Record<string, string>>,
+    /** 상세 제목 — 종류 · 사유(번호는 옆에 작게) */
+    titleOf: (type: string, reason: string) => `${type} · ${reason}`,
+    nextStep: {
+      recoveryTitle: '회수 조치가 필요해요',
+      recoveryBody: '고객과 다시 연락한 뒤 아래에서 조치해요.',
+      feeTitle: '고객의 회수비 결제를 기다리고 있어요',
+      feeBody: '고객이 반품을 그만두면 아래에서 취소해요.',
+      shortTitle: '센터가 요청보다 적게 받았어요',
+      shortBody: '더 회수할 수 없으면 받은 만큼만 끝내요.',
+      go: '회수 조치로',
+    },
   },
 
   /** 인계 뒤 반품(회수) — claim 0.2.0, 고객센터만 접수 */
@@ -904,7 +1060,7 @@ export const messages = {
     loadOrder: '주문 불러오기',
     startFromOrder: '이 주문 반품 접수',
     lines: '반품할 품목',
-    linesHint: '전달 완료된 수량에서 이미 반품된 수량을 뺀 만큼까지 넣을 수 있어요(배달 중·전달 전에는 반품할 수 없어요). 진행 중인 다른 반품까지 따져 최종 판정은 서버가 해요.',
+    linesHint: '전달 완료 − 반품 완료 수량까지 넣을 수 있어요(전달 전 반품 불가). 최종 판정은 서버가 해요.',
     product: '상품',
     delivered: '전달 완료',
     returned: '반품 완료',
@@ -1082,6 +1238,36 @@ export const messages = {
     } as Readonly<Record<string, string>>,
     cancelUnknown: '취소됐는지 확인하지 못했어요. 같은 요청으로 결과를 확인해 주세요(새로 보내지 않아요).',
     back: '배송 번호 다시 넣기',
+    // 2026-11-18 사용자 "직관적이지 않다" — 코드 대신 업무 이름(원래 코드는 마우스를 올리면)
+    /** execution 전달 실패 등록 reason */
+    deliveryFailureReasonName: { CUSTOMER_ABSENT: '고객 부재', ADDRESS_ERROR: '주소 오류', UNREACHABLE: '연락 안 됨', REFUSED: '수령 거부', DAMAGED: '상품 파손', RIDER_INCIDENT: '라이더 사고', OTHER: '기타' } as Readonly<Record<string, string>>,
+    /** execution 전달 실패 goodsLocation */
+    goodsLocationName: { WITH_RIDER: '라이더가 가지고 있음', RETURNED_TO_STORE: '점포에 돌려놓음', LEFT_AT_DOOR: '문 앞에 둠', UNKNOWN: '모름' } as Readonly<Record<string, string>>,
+    /** execution HelpCategory(도움요청 종류) */
+    helpCategoryName: {
+      CUSTOMER_UNREACHABLE: '고객 연락 안 됨',
+      ADDRESS_ISSUE: '주소 문제',
+      GOODS_ISSUE: '상품 문제',
+      PHOTO_UPLOAD_FAILED: '사진 올리기 실패',
+      ACCIDENT: '사고',
+      APP_ERROR: '앱 오류',
+      STORE_WAITING: '점포 대기',
+      STATUS_CORRECTION: '상태 정정',
+      OTHER: '기타',
+      DELIVERY_FAILURE: '전달 실패',
+    } as Readonly<Record<string, string>>,
+    /** execution 상태 이력 actor */
+    actorName: { RIDER: '라이더', SYSTEM_EVENT: '시스템', OPERATOR: '운영자', CUSTOMER: '고객' } as Readonly<Record<string, string>>,
+    /** dispatch DispatchAttempt.state */
+    attemptStateName: { SEARCHING: '라이더 찾는 중', OFFERING: '제안 중', ASSIGNED: '배정', FAILED: '실패', CANCELLED: '취소' } as Readonly<Record<string, string>>,
+    /** 상세 제목 — 종류 + 지금 수행 상태(번호는 옆에 작게), 요약 줄 = 주문·라이더·센터 */
+    titleOf: (type: string, state: string) => `${type} · ${state}`,
+    summaryOf: (orderId: string, riderId: string, mfcId: string) => `주문 ${orderId} · 라이더 ${riderId} · 센터 ${mfcId}`,
+    nextStep: {
+      failureTitle: '전달 실패를 확정하거나 반려해 주세요',
+      failureBody: '라이더가 전달 실패를 등록했어요.',
+      failureGo: '결정 칸으로',
+    },
   },
 
   riders: {
@@ -1099,6 +1285,8 @@ export const messages = {
     vehicleName: { MOTORCYCLE: '오토바이', BICYCLE: '자전거', CAR: '자동차', WALK: '도보' } as Readonly<Record<string, string>>,
     operatingName: { OFF_DUTY: '운행 안 함', ON_DUTY: '운행 중' } as Readonly<Record<string, string>>,
     newDispatch: '새 배차 받기',
+    newDispatchOn: '받음',
+    newDispatchOff: '안 받음',
     activeDeliveries: '진행 중 배송',
     areas: '배달 지역',
     dispatchMode: '배차 방식',
@@ -1224,15 +1412,48 @@ export const messages = {
       REJECTED: '반영 거절',
       UNKNOWN_RESULT: '반영 결과 확인 중',
     } as const,
+    // 2026-11-18 사용자 "직관적이지 않다" — 코드 대신 업무 이름(원래 코드는 마우스를 올리면)
+    /** 거르기 칩에 없는 승인 유형(ApprovalType) — 화면 표시용만. 뜻이 분명한 것만, 그 밖은 코드 그대로 */
+    otherTypeName: {
+      CENTER_MASTER: '센터 정보',
+      SERVICEABILITY: '배송 가능 지역',
+      INITIAL_STOCK: '초기 재고',
+      OPERATION_RESTRICTION: '운영 제한',
+      OPERATION_RESUME: '운영 재개',
+      POLICY: '정책',
+      REFUND_CLAIM: '환불 클레임',
+      QUALITY_RECALL: '품질 회수',
+      INVENTORY_ADJUSTMENT: '재고 조정',
+      INVENTORY_LOSS: '재고 손실',
+      CENTER_CLOSURE: '센터 폐쇄',
+      BATCH: '일괄',
+      MFC_STOCK_ADJUSTMENT: '센터 재고 조정',
+      MFC_OPERATION_RESTRICTION: '센터 운영 제한 해제',
+    } as Readonly<Record<string, string>>,
+    /** approval DeliveryState(정본에 전달) */
+    deliveryStateName: { PENDING: '전달 대기', DELIVERED: '전달됨', ACKNOWLEDGED: '수신 확인', RETRY_PENDING: '다시 보내기 대기', FAILED: '전달 실패' } as Readonly<Record<string, string>>,
+    nextStep: {
+      reviewTitle: '심사해 주세요',
+      reviewBody: '내용을 보고 승인하거나 반려해요.',
+      reviewGo: '심사 칸으로',
+      evidenceTitle: '증빙을 기다리고 있어요',
+      evidenceBody: '요청자가 증빙을 내면 다시 심사해요.',
+      ownTitle: '다른 승인자가 심사해요',
+      ownBody: '내가 올린 요청은 내가 승인·반려할 수 없어요.',
+      grantSelfTitle: '다른 관리자가 처리해요',
+      grantSelfBody: '내 권한을 주는 요청은 승인·반려할 수 없어요.',
+      noneTitle: '할 일 없음',
+      noneBody: '심사가 끝났어요. 반영 결과는 해당 등록 화면에서 확인해요.',
+    },
   },
 
   categories: {
     title: '카테고리 트리',
-    notEffective: '발효된 카테고리 트리가 없어요. 트리 초안을 등록하고 PRODUCT 승인을 받아야 상품을 등록할 수 있어요.',
+    notEffective: '발효된 카테고리 트리가 없어요. 트리 초안을 올리고 상품 승인을 받아야 상품을 등록할 수 있어요.',
     version: (v: number) => `발효 버전 ${v}`,
     filters: '필터 패널',
     pickNode: '왼쪽 트리에서 분류를 고르면 경로·하위 분류·필터 패널을 보여 줘요.',
-    intro: '발효된 상품 분류 트리와 분류마다의 필터 패널이에요. 트리를 바꾸려면 아래에서 초안을 만들어 PRODUCT 승인을 받아요.',
+    intro: '발효된 상품 분류 트리와 분류마다의 필터 패널이에요.',
     treeTitle: '분류 트리',
     find: '분류 찾기',
     findHint: '이름·ID 로 찾기',
@@ -1248,7 +1469,9 @@ export const messages = {
     noFilters: '이 분류에는 필터 패널이 없어요.',
     selectionModeName: { MULTIPLE: '여러 개 선택', TOGGLE: '켜고 끄기', MIXED: '섞어 쓰기' } as Readonly<Record<string, string>>,
     changeTitle: '트리 바꾸기',
-    changeIntro: '어느 쪽이든 새 트리 초안을 만들고, 승인 요청 → PRODUCT 승인 → 발효 순서로 반영돼요. 발효 전까지 지금 트리는 그대로예요.',
+    changeIntro: '새 트리 초안 → 승인 요청 → 상품 승인 → 발효 순서예요. 발효 전까지 지금 트리는 그대로예요.',
+    // 트리 버전 상태(product CategoryTreeVersion.state) — 마우스를 올리면 원래 코드
+    treeStateName: { DRAFT: '초안', SUBMITTED: '승인 대기', EFFECTIVE: '발효', SUPERSEDED: '대체됨', REJECTED: '반려' } as Readonly<Record<string, string>>,
     steps: ['파일 올리기', '초안 만들기', '승인 요청', '발효'] as const,
     stepsLabel: '진행 단계',
     recommended: '보통 이것',
@@ -1266,8 +1489,7 @@ export const messages = {
     exposed: '노출',
     hidden: '숨김',
     additionTitle: '기준파일(seed-v1) 카테고리 추가',
-    additionHint:
-      '묶음의 categories.json 을 고르거나 상품·콘텐츠·가격 일괄 등록에 쓰는 seed-v1 zip 을 그대로 올리면, 발효 트리에 없는 카테고리만 더한 새 트리 초안을 만들어요. 기존 노드·필터는 그대로예요. 승인·발효 뒤 상품 일괄 등록으로 넘어가요.',
+    additionHint: 'categories.json 이나 seed-v1 zip 을 올리면 발효 트리에 없는 카테고리만 더한 초안을 만들어요. 기존 노드·필터는 그대로예요.',
     additionFile: 'categories.json 또는 seed-v1 zip',
     additionSubmit: '없는 카테고리만 추가',
     additionInvalid: '파일 형식이 맞지 않아요. seed-v1 categories.json 의 categories 배열이 필요해요.',
@@ -1314,7 +1536,7 @@ export const messages = {
     hi: 'HI(단 수)',
     boxesPerPallet: '팔레트당 박스 수',
     jsonFill: '상품 JSON 파일로 채우기',
-    jsonHint: 'seed-v1 product.json(product·skus 블록) 또는 계약 ProductDraftInput 모양을 받아요',
+    jsonHint: 'seed-v1 product.json 이나 상품 초안 JSON 을 받아요',
     jsonFilled: (skus: number, matched: number, pending: number) =>
       `채웠어요: SKU ${skus}개, 카테고리 ${matched}개 매핑${pending > 0 ? `, 이름 경로 ${pending}개는 서버 매핑` : ''}`,
     jsonInvalid: (reason: string) => `JSON 을 읽지 못했어요: ${reason}`,
@@ -1346,7 +1568,7 @@ export const messages = {
     counts: (total: number, valid: number, invalid: number) => `전체 ${total} · 유효 ${valid} · 오류 ${invalid}`,
     submitBatch: '유효 행 제출 준비',
     fillInvalid: '빠진 값 채우기',
-    fillInvalidHint: '묶음에는 중량(g)·보관 방식이 대부분 없어요. 상품명·용량을 보고 운영자가 채운 뒤 저장하면 다시 검증해요(미리 채워 넣지 않아요).',
+    fillInvalidHint: '빠진 중량(g)·보관 방식은 상품명·용량을 보고 직접 채워요. 저장하면 다시 검증해요.',
     fillSave: '저장·재검증',
     fillSaved: (name: string) => `${name} 저장했어요`,
     volumeHint: (ml: number | undefined) => (ml === undefined ? '용량 -' : `용량 ${ml}mL`),
@@ -1373,13 +1595,13 @@ export const messages = {
     /** 판매 상태 변경은 MD 만(서버 설정 sale-state-change-role) — OPERATOR_ADMIN 은 상품 관리 묶음을 보지만 이 버튼은 없다 */
     saleStateMdOnly: '판매 상태는 MD 만 바꿀 수 있습니다.',
     editStart: '상품 정보 수정 시작',
-    editStartHint: '지금 승인된 값으로 채운 수정 초안을 만들어요. 고친 뒤 제출하면 상품 승인을 거쳐 새 버전이 돼요.',
+    editStartHint: '승인된 값으로 수정 초안을 만들어요. 제출하면 상품 승인을 거쳐 새 버전이 돼요.',
     editMdOnly: '상품 정보 수정은 MD 만 시작할 수 있어요.',
     editForbidden: 'MD 만 수정을 시작할 수 있어요. 세션의 역할이 바뀌었으면 다시 로그인해 주세요.',
     editDraftExists: '이 상품에는 이미 수정 중인 초안이 있어요.',
     editDraftOpen: (draftId: string) => `그 초안 열기(${draftId})`,
     editOf: '기존 상품 수정',
-    editNote: '저장은 폼 값 전체로 바꿔요 — 비운 값은 승인 때 지워져요. 바코드를 목록에서 빼면 그 SKU 에서 해제되고, 새로 넣은 것은 연결돼요. 판매 상태는 여기서 바꾸지 않아요.',
+    editNote: '저장하면 폼 값 전체로 바꿔요 — 비운 값은 승인 때 지워지고, 목록에서 뺀 바코드는 해제돼요. 판매 상태는 여기서 바꾸지 않아요.',
     editFixedSku: '판매 단위·입수는 바꿀 수 없어요(바뀌면 승인 때 반영하지 못해요).',
     barcodeCheckDigit: (code: string, digit: string) => `${code}: 검사 숫자가 틀려요(끝자리가 ${digit} 이어야 해요)`,
     barcodeEnterHint: '스캔하거나 입력한 뒤 Enter 를 누르면 다음 바코드를 이어서 넣어요.',
@@ -1392,7 +1614,7 @@ export const messages = {
     dimensionsSource: '치수 출처',
     dimensionsSourceName: { MEASURED: '실측', ESTIMATED: '추정' } as const,
     dimensionsHint: '가로·세로·높이를 모두 넣어야 치수를 보내요.',
-    stopNeedsApproval: '판매중지는 PRODUCT 승인이 먼저 있어야 해요. 승인 요청을 올리고, 승인되면 승인 번호와 함께 변경해요.',
+    stopNeedsApproval: '판매중지는 상품 승인이 먼저예요. 승인 요청을 올리고, 승인되면 승인 번호와 함께 변경해요.',
     approvalIdLabel: '승인 번호(판매중지)',
     applyChange: '변경 요청',
     changeApplied: '판매 상태가 바뀌었어요.',
@@ -1407,7 +1629,7 @@ export const messages = {
     skuCount: (n: number) => `SKU ${n}개`,
     summaryTitle: '상품 요약',
     actionsTitle: '작업',
-    contentHint: '고객용 상품명·설명·이미지는 콘텐츠로 따로 등록해요(DISPLAY 승인).',
+    contentHint: '고객용 상품명·설명·이미지는 콘텐츠로 따로 등록해요(전시 승인).',
     noSkus: '이 상품에는 SKU 가 없어요',
     draftStateName: { DRAFT: '작성 중', SUBMITTED: '승인 대기(잠김)', APPLIED: '반영됨', REJECTED: '반려' } as const,
     batchStateName: { VALIDATED: '검증 끝남', SUBMITTED: '승인 대기', APPLIED: '반영됨', PARTIALLY_APPLIED: '일부 반영', REJECTED: '반려' } as const,
@@ -1427,6 +1649,41 @@ export const messages = {
     formSkuHint: '판매 단위마다 SKU 하나예요. 승인되면 SKU 번호가 발급돼요.',
     nextTitle: '다음 단계',
     openDraftHint: '초안 목록이 아직 없어 초안 ID 로 열어요.',
+    // 2026-11-18 사용자 "직관적이지 않다": 코드 이름·제목·다음 할 일
+    validationName: { VALID: '검증 통과', INVALID: '검증 오류' } as Readonly<Record<string, string>>,
+    unnamed: '이름 없음',
+    batchHeading: (n: number) => `상품 ${n}개 일괄 등록`,
+    go: {
+      form: '고칠 곳으로',
+      next: '다음 단계로',
+      rows: '행 목록으로',
+      approvals: '승인 현황으로',
+      saleState: '판매 상태 변경으로',
+      upload: '새 파일 올리기로',
+      submit: '제출 칸으로',
+    } as const,
+    openApproval: '승인 보기',
+    openResult: '만든 상품 보기',
+    next: {
+      saleNotOn: (state: string) => `지금 ${state} 상태예요`,
+      saleNotOnBody: '판매 상태 변경에서 바꿀 수 있어요.',
+      fix: (n: number) => (n > 0 ? `검증 문제 ${n}건을 고쳐 주세요` : '검증을 통과하지 못했어요'),
+      fixBody: '고친 뒤 "초안 수정"을 누르면 서버가 다시 검증해요.',
+      submit: '검증을 통과했어요 — 제출 준비(잠그기)를 해 주세요',
+      submitBody: '잠근 뒤 승인 요청을 올려요.',
+      waitApproval: '승인 심사를 기다리고 있어요',
+      requestApproval: '승인 요청을 올려 주세요',
+      applied: '승인돼 반영됐어요',
+      rejected: '반려됐어요',
+      batchFix: (n: number) => `오류 행 ${n}개를 고쳐 주세요`,
+      batchFixBody: (valid: number) => `고치지 않으면 유효 행 ${valid}개만 제출돼요.`,
+      batchSubmit: (n: number) => `유효 행 ${n}개를 제출 준비해 주세요`,
+      batchNone: '제출할 수 있는 행이 없어요',
+      batchApproval: '승인 요청·심사 결과를 확인해 주세요',
+      batchApplied: '모두 반영됐어요',
+      batchPartial: '일부만 반영됐어요',
+      batchRejected: '반려됐어요 — 고치려면 새로 올려요',
+    },
   },
 
   contents: {
@@ -1439,7 +1696,7 @@ export const messages = {
     returnGuide: '반품 안내',
     notices: '고시 정보("항목: 값", 줄마다 하나)',
     noticesJson: '고시 정보 JSON 파일로 채우기',
-    noticesJsonHint: 'seed-v1 product.json, {"notices": [...]}, ["항목: 값"], [{"label","value"}], {"항목": "값"} 를 받아요',
+    noticesJsonHint: 'seed-v1 product.json 이나 고시 정보 JSON 을 받아요',
     noticesJsonFilled: (n: number, extra: number) =>
       extra > 0 ? `고시 정보 ${n}개를 채웠어요(다른 빈 칸 ${extra}개도 채움)` : `고시 정보 ${n}개를 채웠어요`,
     noticesJsonInvalid: (reason: string) => `JSON 을 읽지 못했어요: ${reason}`,
@@ -1509,6 +1766,17 @@ export const messages = {
     importIntro: 'seed-v1.zip 을 올리면 서버가 상품마다 콘텐츠 초안을 만들거나 갱신해요.',
     noImages: '이미지가 없어요',
     statProducts: '전체 상품',
+    // 2026-11-18 사용자 "직관적이지 않다": 제목·다음 할 일
+    batchHeading: (n: number) => `상품 ${n}개 콘텐츠 일괄 등록`,
+    next: {
+      fix: '고쳐야 제출할 수 있어요',
+      submit: '제출할 수 있어요 — 제출 준비(잠그기)를 해 주세요',
+      published: (v: string) => `게시됐어요(${v})`,
+      batchSubmit: (n: number) => `제출 가능한 ${n}개를 제출 준비해 주세요`,
+      batchPublished: '모두 게시됐어요',
+      batchPartial: '일부만 게시됐어요',
+      batchRejected: '반려됐어요',
+    },
   },
 
   prices: {
@@ -1535,7 +1803,7 @@ export const messages = {
     // 가격 일괄 등록(백엔드 안내 2026-11-03). 가격은 서버가 묶음 값으로 미리 채운다 — 화면은 zip 을 풀지 않는다.
     importTitle: '가격 일괄 등록(seed-v1)',
     importHint:
-      '상품·콘텐츠 일괄 등록과 같은 seed-v1.zip 을 올려요. 서버가 묶음 가격으로 행을 미리 채우고, 운영자가 행마다 고치거나 뺀 뒤 PRICE 승인 요청 한 건으로 올려요. 상품 일괄 등록이 승인돼 SKU 가 나온 뒤에 올려야 해요(그 전이면 "상품 승인 전").',
+      '상품·콘텐츠와 같은 seed-v1.zip 을 올려요. 서버가 묶음 가격으로 행을 채우면, 고치거나 뺀 뒤 가격 승인 요청 한 건으로 올려요. 상품 승인으로 SKU 가 나온 뒤에 올려요.',
     batchSummary: (lines: number, submittable: number) => `전체 ${lines}행 · 지금 제출하면 ${submittable}행`,
     checkedAt: '마지막 대조',
     productName: '상품명',
@@ -1563,7 +1831,7 @@ export const messages = {
     revertLine: '묶음 값으로',
     revertLineFor: (name: string) => `묶음 값으로 ${name}`,
     refresh: '다시 대조',
-    refreshHint: '상품 승인 뒤 "상품 승인 전" 행을 풀거나 현재 가격을 새로 볼 때 눌러요. 고친 가격·뺀 행은 그대로예요.',
+    refreshHint: '상품 승인 뒤 "상품 승인 전" 행을 풀 때 눌러요. 고친 가격·뺀 행은 그대로예요.',
     submitEffectiveFrom: '효력 시각(비우면 승인 즉시)',
     submitBatch: '제출·승인 요청 만들기',
     submitHint: '제출하면 배치가 잠겨요. 고치려면 승인을 반려하고 새로 올려야 해요.',
@@ -1580,7 +1848,7 @@ export const messages = {
     approvalOf: (id: string) => `승인 ${id}`,
     lockedHint: '제출된 배치라 고칠 수 없어요. 승인 결과는 "다시 확인"으로 봐요.',
     // 화면 다듬기(2026-11-18)
-    intro: 'SKU 의 현재 기본가·예약·이력을 보고, 변경은 PRICE 승인을 거쳐 반영해요.',
+    intro: 'SKU 의 현재 기본가·예약·이력을 보고, 변경은 가격 승인을 거쳐 반영해요.',
     pickSku: 'SKU 를 넣고 가격 조회를 누르면 현재 기본가와 이력을 보여 줘요',
     noHistory: '가격 이력이 없어요',
     changeSteps: ['행 입력', '승인 요청', '반영 확인'] as const,
@@ -1591,13 +1859,27 @@ export const messages = {
     statSubmittable: '지금 제출 대상',
     linesCard: '가격 행',
     submitTitle: '제출',
+    // 2026-11-18 사용자 "직관적이지 않다": 코드 이름·제목·다음 할 일
+    // 반영 확인 결과(_common CommandStatus: ACCEPTED 접수됨(성공 아님)·APPLIED 반영 완료·REJECTED 거절·UNKNOWN_RESULT 결과 불명)
+    commandStatusName: { ACCEPTED: '접수됨(완료 아님)', APPLIED: '실행 완료', REJECTED: '거절', UNKNOWN_RESULT: '결과 확인 중' } as Readonly<Record<string, string>>,
+    batchHeading: (n: number) => `가격 ${n}행 일괄 등록`,
+    goChange: '변경 요청으로',
+    nextAction: {
+      notSet: '가격이 없어 팔 수 없어요',
+      notSetBody: '아래 기본가 변경 요청으로 가격을 정해요.',
+      batchSubmit: (n: number) => `${n}행을 제출해 주세요`,
+      batchSubmitBody: '제출하면 배치가 잠겨요.',
+      batchNone: '지금 제출할 행이 없어요',
+      batchNoneBody: '상품 승인 뒤 다시 대조하거나 행을 고쳐요.',
+      batchPartialBody: '거절된 행은 반영 결과 열에서 봐요.',
+    },
   },
 
   handlings: {
     title: '센터 SKU 취급',
     centerType: '센터 종류',
     centerId: '센터 ID',
-    centerIdHint: '센터 목록 API 가 아직 없어 센터 ID 를 직접 입력해요(center-master 다음 작업).',
+    centerIdHint: '센터 목록이 아직 없어 센터 ID 를 직접 넣어요.',
     filter: '취급',
     on: 'ON',
     off: 'OFF',
@@ -1609,13 +1891,14 @@ export const messages = {
     noChange: '이미 같은 값이라 바뀐 것이 없어요.',
     changed: (n: number) => `${n}건 바뀌었어요.`,
     applied: '반영됐어요.',
-    saleHint: '고객에게 팔리려면 전사 판매 상태 ON_SALE + MFC 취급 ON + 현물 재고가 모두 필요해요.',
+    saleHint: '고객에게 팔리려면 전사 판매 상태 판매중 + MFC 취급 ON + 현물 재고가 모두 필요해요.',
+    skuState: 'SKU 상태',
     // 화면 다듬기(2026-11-18)
     intro: '센터마다 SKU 를 취급(ON)할지 말지(OFF) 정해요.',
     pickCenter: '센터 종류를 고르고 센터 ID 를 넣어 조회하세요',
     selected: (n: number) => `${n}개 선택`,
     shown: (n: number, more: boolean) => `${n}개 표시${more ? ' · 다음 쪽 있음' : ''}`,
-    skuStateName: { ACTIVE: '활성', INACTIVE: '비활성' } as const,
+    skuStateName: { ACTIVE: '활성', INACTIVE: '비활성' } as Readonly<Record<string, string>>,
     updatedAt: '바뀐 시각',
     reasonHint: '켜기·끄기·일괄 변경에 함께 보내요(선택)',
   },
@@ -1673,15 +1956,15 @@ export const messages = {
     closed: '문의를 닫았어요.',
     closedLabel: '종료',
     closedByName: { CUSTOMER: '고객이 닫음', RIDER: '라이더가 닫음', STAFF: '직원이 닫음' } as Readonly<Record<string, string>>,
-    readOnly: '보기만 할 수 있어요. 답변은 고객센터 상담원(CS_AGENT)이 해요.',
+    readOnly: '답변은 고객센터 상담원이 해요.',
     recordComplaint: '이 문의로 라이더 컴플레인 기록',
     back: '문의 목록',
     channel: '경로',
     fromStaff: '상담원 접수',
     proxy: '대리',
     proxyWarning: '대리(가족 등) 연락으로 남긴 문의예요. 본인 확인 전에는 취소·환불을 요청하지 마세요.',
-    replyNoteStaff: '고객 앱에 없는 문의라 답변은 고객에게 가지 않아요(통화·채팅 기록용). 답변은 고칠 수 없어요.',
-    staffNote: '상담원이 전화·채팅·메일로 받아 남긴 문의예요. 고객 앱에는 보이지 않고, 답변을 달아도 고객에게 알림이 가지 않아요(통화·채팅 기록용).',
+    replyNoteStaff: '답변은 고객에게 가지 않아요(기록용). 보낸 답변은 고칠 수 없어요.',
+    staffNote: '상담원이 전화·채팅·메일로 받아 남긴 문의예요. 고객 앱에는 보이지 않아요.',
     contactLog: '이 문의의 연락 기록',
     recordContact: '이 문의로 고객 연락 남기기',
     requester: '문의한 사람',
@@ -1690,12 +1973,12 @@ export const messages = {
     riderTitle: '라이더 문의',
     riderIntro: '라이더가 앱에서 남긴 정산·계정·앱 오류 등의 문의에 답해요(답변은 지원센터, 본사 관리자는 보기만). 답변은 응대일 뿐 정산·계정을 바꾸지 않아요.',
     riderReplyNote: '라이더는 앱의 문의에서 답변을 봐요. 답변은 고칠 수 없어요.',
-    riderReadOnly: '보기만 할 수 있어요. 라이더 문의 답변은 지원센터(RIDER_OPS)가 해요.',
+    riderReadOnly: '라이더 문의 답변은 지원센터가 해요.',
     riderBack: '라이더 문의 목록',
     conversation: '대화',
     fromRider: '라이더',
     fromStaffReply: '답변',
-    riderFollowUp: '라이더가 답변 뒤에 이어 썼어요 — 다시 답변을 기다려요(접수 상태로 돌아왔어요).',
+    riderFollowUp: '라이더가 답변 뒤에 이어 썼어요 — 다시 답변을 기다려요.',
     photos: (n: number) => `사진 ${n}장`,
     photoAlt: (i: number) => `문의 사진 ${i}`,
     photoOpen: (i: number) => `문의 사진 ${i} 크게 보기`,
@@ -1714,6 +1997,18 @@ export const messages = {
     sectionRider: '라이더',
     sectionLinks: '이어서 할 일',
     composerHint: '보낸 답변은 고칠 수 없어요.',
+    // 쉽게 보기(2026-11-18 사용자 "직관적이지 않다") — 제목·들어온 곳 이름·다음 할 일
+    untitled: '제목 없는 문의',
+    originName: { INQUIRY_PAGE: '문의 페이지', ASSISTANT_HANDOFF: 'AI 상담에서 넘어옴', STAFF_INTAKE: '상담원 접수' } as Readonly<Record<string, string>>,
+    next: {
+      readOnly: '보기만 할 수 있어요',
+      reply: '답변을 써 주세요',
+      replyBody: { CUSTOMER: '고객이 답변을 기다리고 있어요.', RIDER: '라이더가 답변을 기다리고 있어요.', STAFF: '상담원이 받은 문의예요. 답변은 기록으로만 남아요.' },
+      riderAgain: '라이더가 이어 쓴 글에 다시 답변해 주세요',
+      toReply: '답변 쓰러 가기',
+      waiting: { CUSTOMER: '고객의 확인을 기다려요', RIDER: '라이더의 확인을 기다려요' } as Readonly<Record<string, string>>,
+      waitingBody: '더 답할 것이 없으면 오른쪽 "문의 닫기"로 마칠 수 있어요.',
+    },
   },
 
   /** 접수 건 알림 배지(메뉴) — 1분마다 개수, 소리·브라우저 알림 없음 */
@@ -1863,7 +2158,7 @@ export const messages = {
     byScore: '점수별',
     scoreLabel: (k: string) => `${k}점`,
     count: (n: number) => `${n}건`,
-    notForAgents: '상담원별 순위·이름은 보여 주지 않아요(사용자 결정 2026-11-17).',
+    notForAgents: '상담원별 순위·이름은 보여 주지 않아요.',
     // 화면 짜임(2026-11-18) — 숫자 카드 + 점수별 막대(서버 값만)
     outOf: '5점 만점',
     byScoreHint: '응답한 건 기준',
@@ -1899,6 +2194,8 @@ export const messages = {
     cancel: '취소',
     pairNeeded: '결과 보유 서비스와 결과 ID 는 같이 넣어요.',
     resultLine: '결과',
+    /** case EvidenceReference.kind(2026-11-18 코드 이름) */
+    resultKindName: { COMMIT: '반영 기록', TRANSACTION: '거래', EVENT: '이벤트', DOCUMENT: '문서', PHOTO: '사진', LOG: '로그' } as Readonly<Record<string, string>>,
   },
   /** 전화·채팅 접수(case 0.12.0) */
   csIntake: {
@@ -1907,7 +2204,7 @@ export const messages = {
     channel: '연락 경로',
     channelName: { PHONE: '전화', CHAT: '채팅', EMAIL: '메일', APP: '앱 문의' } as Readonly<Record<string, string>>,
     customerRef: '고객 계정 ID',
-    customerHint: '고객 계정 ID 만 넣어요. 고객이 말한 전화번호·주소는 넣지 마세요.',
+    customerHint: '전화번호·주소는 넣지 마세요.',
     subjectRef: '주문 번호(선택)',
     openOrder: '주문 상세를 새 창으로 열어 맞춰 보기(가린 값 그대로)',
     method: '본인 확인 방법(필수)',
@@ -1931,7 +2228,7 @@ export const messages = {
     consentDetail: '무엇을·얼마만큼(품목·수량·금액)',
     consentHint: '기록만 해요. 동의한 일을 실행하지 않아요.',
     linkCaseId: '기존 접수 건에 연결(선택)',
-    linkHint: '비우면 상담원 문의가 새로 생겨요(고객 앱에 안 보이고 답변 알림 없음). 이미 있는 접수 건·문의 건 번호를 넣으면 그 건에 이어 붙어요.',
+    linkHint: '비우면 상담원 문의가 새로 생겨요(고객 앱에 안 보임). 번호를 넣으면 그 건에 이어 붙어요.',
     need: {
       channel: '연락 경로를 고르세요.',
       category: '분류를 고르세요.',
@@ -1958,10 +2255,11 @@ export const messages = {
     more: '더 보기',
     moreFailed: '연락 기록을 더 불러오지 못했어요.',
     // 화면 짜임(2026-11-18) — 단계 카드 + 오른쪽 확인 카드
+    // 단계 도움말은 빼고(빈칸은 오른쪽 "남기기 전에 확인"이 알려 준다 — 2026-11-18 "직관적이지 않다") 선택 단계만 한 줄
     step: {
-      who: { title: '누가·어떻게 연락했나요', hint: '연락 경로와 고객 계정, 본인·대리를 남겨요.' },
-      identity: { title: '본인 확인', hint: '어떤 방법으로 본인인지 확인했는지만 남겨요.' },
-      content: { title: '연락 내용', hint: '분류와 고객이 말한 내용을 요약해요.' },
+      who: { title: '누가·어떻게 연락했나요' },
+      identity: { title: '본인 확인' },
+      content: { title: '연락 내용' },
       extra: { title: '덧붙이기(선택)', hint: '동의 기록이나 기존 접수 건 연결이 필요할 때만.' },
     },
     checkTitle: '남기기 전에 확인',
@@ -2008,6 +2306,7 @@ export const messages = {
     asOf: '색인 시점',
     sourceDirty: '커밋 안 된 변경 포함',
     excerpt: '근거 본문',
+    docInfo: '문서 버전·색인 정보',
     authority: {
       CONFIRMED: '확정 정책',
       ADOPTED_DESIGN: '채택 설계',

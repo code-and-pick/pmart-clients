@@ -7,7 +7,7 @@ import { messages as m } from '../../shared/messages';
 import { QueryState, uiStateFromError, type UiState } from '@pmart/web-ui';
 import { SourceStamps } from '../../shared/SourceStamps';
 import type { ApprovalInboxView } from '../../api/views';
-import { DataTable, PageHeader, StatusBadge, type Tone } from '../../shared/admin';
+import { CodeLabel, DataTable, PageHeader, StatusBadge, type Tone } from '../../shared/admin';
 import { KindChip, ListFoot, When } from '../lookup/parts';
 
 const REVIEW_TONE: Readonly<Record<string, Tone>> = {
@@ -21,6 +21,7 @@ const EXEC_TONE: Readonly<Record<string, Tone>> = { VALIDATING: 'info', ACCEPTED
 const TYPE_TONE: Readonly<Record<string, Tone>> = { PRODUCT: 'info', DISPLAY: 'accent', PRICE: 'warning', GRANT: 'neutral' };
 const reviewName = m.approvals.reviewState as Readonly<Record<string, string>>;
 const execName = m.approvals.executionState as Readonly<Record<string, string>>;
+const TYPE_NAME: Readonly<Record<string, string>> = { ...m.approvals.typeName, ...m.approvals.otherTypeName };
 
 /** 승인함(BO-10). 명령 버튼은 C3 에서 bff 명령 프록시로 붙인다. */
 export function ApprovalInboxPage() {
@@ -74,9 +75,9 @@ export function ApprovalInboxPage() {
                             '-'
                           )}
                         </td>
-                        <td>{item.approvalType ? <KindChip tone={TYPE_TONE[item.approvalType] ?? 'ghost'}>{m.approvals.typeName[item.approvalType] ?? item.approvalType}</KindChip> : '-'}</td>
-                        <td>{item.reviewState ? <StatusBadge tone={REVIEW_TONE[item.reviewState] ?? 'ghost'}>{reviewName[item.reviewState] ?? item.reviewState}</StatusBadge> : '-'}</td>
-                        <td>{item.executionState ? <StatusBadge tone={EXEC_TONE[item.executionState] ?? 'ghost'}>{execName[item.executionState] ?? item.executionState}</StatusBadge> : '-'}</td>
+                        <td>{item.approvalType ? <KindChip tone={TYPE_TONE[item.approvalType] ?? 'ghost'}><CodeLabel code={item.approvalType} names={TYPE_NAME} /></KindChip> : '-'}</td>
+                        <td>{item.reviewState ? <StatusBadge tone={REVIEW_TONE[item.reviewState] ?? 'ghost'}><CodeLabel code={item.reviewState} names={reviewName} /></StatusBadge> : '-'}</td>
+                        <td>{item.executionState ? <StatusBadge tone={EXEC_TONE[item.executionState] ?? 'ghost'}><CodeLabel code={item.executionState} names={execName} /></StatusBadge> : '-'}</td>
                         <td>
                           <When iso={item.submittedAt} align="right" />
                         </td>

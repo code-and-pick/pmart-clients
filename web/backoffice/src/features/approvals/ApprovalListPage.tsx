@@ -12,7 +12,7 @@ import { formatSeoul } from '@pmart/web-ui';
 import { messages as m } from '../../shared/messages';
 import { QueryState } from '@pmart/web-ui';
 import { toUiState } from '@pmart/web-ui';
-import { PageHeader, StatusBadge, type Tone } from '../../shared/admin';
+import { CodeLabel, PageHeader, StatusBadge, type Tone } from '../../shared/admin';
 
 const pick = <T extends string>(value: string | null, allowed: readonly T[]): T | undefined =>
   allowed.find((a) => a === value);
@@ -186,7 +186,7 @@ function TypeBadge({ type }: { readonly type: string }) {
           <path d={icon} />
         </svg>
       )}
-      {m.approvals.typeName[type] ?? type}
+      <CodeLabel code={type} names={TYPE_NAME} />
     </span>
   );
 }
@@ -232,3 +232,6 @@ function ago(iso: string): string {
   if (min < 60 * 24) return m.approvals.ago.hour(Math.floor(min / 60));
   return m.approvals.ago.day(Math.floor(min / (60 * 24)));
 }
+
+/** 승인 유형 이름 — 거르기 칩 유형 + 그 밖 유형(표시만, 2026-11-18 "직관적이지 않다") */
+const TYPE_NAME: Readonly<Record<string, string>> = { ...m.approvals.typeName, ...m.approvals.otherTypeName };

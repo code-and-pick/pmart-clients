@@ -14,7 +14,7 @@ import type { components } from '../../api/generated/audit';
 import { useApi } from '../../app/ApiContext';
 import { messages } from '../../shared/messages';
 import { isSeoulDate, label, seoulDayEnd, seoulDayStart, text, when } from '../../shared/ops';
-import { FieldList, PageHeader, SearchPanel, SearchRow, Section, StatusBadge, type Tone } from '../../shared/admin';
+import { CodeLabel, FieldList, PageHeader, SearchPanel, SearchRow, Section, StatusBadge, type Tone } from '../../shared/admin';
 
 const m = messages.piiLogs;
 type Log = components['schemas']['PiiAccessLog'];
@@ -51,7 +51,9 @@ function subject(log: Pick<Log, 'subjectType' | 'subjectRef'>) {
   const type = log.subjectType ?? 'CUSTOMER'; // 계약 기본값
   return (
     <>
-      <span className="badge badge-ghost badge-sm mr-1">{label(m.subjectTypeName, type)}</span>
+      <span className="badge badge-ghost badge-sm mr-1">
+        <CodeLabel code={type} names={m.subjectTypeName} />
+      </span>
       {type === 'RIDER' ? (
         <Link className="link font-mono" to={`/riders/${encodeURIComponent(log.subjectRef)}`}>
           {log.subjectRef}
@@ -64,6 +66,35 @@ function subject(log: Pick<Log, 'subjectType' | 'subjectRef'>) {
 }
 
 const fieldsText = (fields: readonly string[]) => fields.map((f) => label(m.fieldName, f)).join(', ');
+
+/** 열어 본 항목 — 이름(원래 코드는 마우스를 올리면). 모르는 코드는 그대로 */
+function Fields({ fields }: { readonly fields: readonly string[] }) {
+  return (
+    <>
+      {fields.map((f, i) => (
+        <span key={f}>
+          {i > 0 && ', '}
+          <CodeLabel code={f} names={m.fieldName} />
+        </span>
+      ))}
+    </>
+  );
+}
+
+/** 그때 역할 — 이름(원래 코드는 마우스를 올리면) */
+function Roles({ roles }: { readonly roles: readonly string[] | null | undefined }) {
+  if (!roles || roles.length === 0) return <>{messages.none}</>;
+  return (
+    <>
+      {roles.map((r, i) => (
+        <span key={r}>
+          {i > 0 && ', '}
+          <CodeLabel code={r} names={m.roleName} />
+        </span>
+      ))}
+    </>
+  );
+}
 
 export function PiiAccessLogListPage() {
   const api = useApi();
@@ -230,17 +261,25 @@ function LogList({ items, search }: { readonly items: readonly Log[]; readonly s
           <div className="min-w-0 space-y-1.5">
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
               <span className="font-mono font-semibold">{log.actor.actorId}</span>
-              <StatusBadge tone={ACCESS_TONE[log.accessType] ?? 'ghost'}>{label(m.accessTypeName, log.accessType)}</StatusBadge>
+              <StatusBadge tone={ACCESS_TONE[log.accessType] ?? 'ghost'}>
+                <CodeLabel code={log.accessType} names={m.accessTypeName} />
+              </StatusBadge>
               <span className="text-base-content/40" aria-hidden="true">
                 →
               </span>
               <span className="inline-flex items-center">{subject(log)}</span>
             </div>
-            {(log.actor.roles?.length ?? 0) > 0 && <div className="text-xs text-base-content/50">{log.actor.roles?.join(', ')}</div>}
+            {(log.actor.roles?.length ?? 0) > 0 && (
+              <div className="text-xs text-base-content/50">
+                <Roles roles={log.actor.roles} />
+              </div>
+            )}
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
               <span className="inline-flex items-center gap-1.5">
                 <span className="text-base-content/50">{m.col.fields}</span>
-                <span className="rounded-md bg-warning/10 px-1.5 py-0.5 font-medium">{fieldsText(log.fields)}</span>
+                <span className="rounded-md bg-warning/10 px-1.5 py-0.5 font-medium">
+                  <Fields fields={log.fields} />
+                </span>
               </span>
               {log.caseRef && (
                 <span className="inline-flex items-center gap-1.5">
@@ -270,7 +309,11 @@ export function PiiAccessLogDetailPage() {
   });
   return (
     <section className="max-w-6xl space-y-4">
-      <PageHeader title={m.detailTitle} back={{ to: `/pii-access-logs${back ? `?${back}` : ''}`, label: m.back }} />
+      {/* 제목은 누가·무엇을 먼저(2026-11-18 "제목이 번호뿐") — 읽기 전에는 "열람 기록 한 건" */}
+      <PageHeader
+        title={query.data ? m.detailHeadline(query.data.actor.actorId, fieldsText(query.data.fields), label(m.accessTypeName, query.data.accessType)) : m.detailTitle}
+        back={{ to: `/pii-access-logs${back ? `?${back}` : ''}`, label: m.back }}
+      />
       <QueryState state={toUiState(query)} onRetry={() => void query.refetch()}>
         {(log) => (
           // 감사 기록 한 건(2026-11-18): 왼쪽 = 누가·무엇을·왜(큰 상자), 오른쪽 = 기록 정보
@@ -284,7 +327,9 @@ export function PiiAccessLogDetailPage() {
                   <div className="min-w-0 space-y-2">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-mono font-semibold">{log.actor.actorId}</span>
-                      <StatusBadge tone={ACCESS_TONE[log.accessType] ?? 'ghost'}>{label(m.accessTypeName, log.accessType)}</StatusBadge>
+                      <StatusBadge tone={ACCESS_TONE[log.accessType] ?? 'ghost'}>
+                        <CodeLabel code={log.accessType} names={m.accessTypeName} />
+                      </StatusBadge>
                       <span className="text-base-content/40" aria-hidden="true">
                         →
                       </span>
@@ -302,8 +347,13 @@ export function PiiAccessLogDetailPage() {
               <Section title={m.accessSection}>
                 <FieldList
                   rows={[
-                    [m.col.fields, <span className="rounded-md bg-warning/10 px-1.5 py-0.5">{fieldsText(log.fields)}</span>],
-                    [m.col.accessType, label(m.accessTypeName, log.accessType)],
+                    [
+                      m.col.fields,
+                      <span className="rounded-md bg-warning/10 px-1.5 py-0.5">
+                        <Fields fields={log.fields} />
+                      </span>,
+                    ],
+                    [m.col.accessType, <CodeLabel code={log.accessType} names={m.accessTypeName} />],
                     [m.recordCount, text(log.recordCount ?? 1)],
                     [m.col.subject, subject(log)],
                     [m.col.caseRef, refLink(log.caseRef)],
@@ -317,7 +367,7 @@ export function PiiAccessLogDetailPage() {
                 <FieldList
                   rows={[
                     [m.col.actor, <span className="font-mono">{log.actor.actorId}</span>],
-                    [m.roles, text(log.actor.roles?.join(', '))],
+                    [m.roles, <Roles roles={log.actor.roles} />],
                     [m.centerScope, text(log.actor.centerScope?.join(', '))],
                   ]}
                 />
@@ -327,7 +377,7 @@ export function PiiAccessLogDetailPage() {
                   rows={[
                     [m.col.occurredAt, when(log.occurredAt)],
                     [m.recordedAt, when(log.recordedAt)],
-                    [m.sourceSystem, <span className="font-mono">{log.sourceSystem}</span>],
+                    [m.sourceSystem, <CodeLabel code={log.sourceSystem} names={messages.systemName} />],
                     [m.logId, <span className="break-all font-mono">{log.piiAccessLogId}</span>],
                   ]}
                 />

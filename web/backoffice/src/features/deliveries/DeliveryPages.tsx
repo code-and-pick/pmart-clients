@@ -16,7 +16,7 @@ import { useApi } from '../../app/ApiContext';
 import { CommandFeedback } from '../../shared/Feedback';
 import { messages as m } from '../../shared/messages';
 import { label, text, when } from '../../shared/ops';
-import { ChipGroup, DataTable, DetailHeader, FieldList, PageHeader, ResultBar, SearchPanel, SearchRow, Section, StatusBadge, type Tone } from '../../shared/admin';
+import { ChipGroup, CodeLabel, DataTable, DetailHeader, FieldList, NextAction, PageHeader, ResultBar, SearchPanel, SearchRow, Section, StatusBadge, type Tone } from '../../shared/admin';
 import { EmptyBox, Icon, IdLink, KindChip, ListFoot, Person, Timeline, When } from '../lookup/parts';
 
 type DeliveryExecution = Execution['schemas']['DeliveryExecution'];
@@ -86,7 +86,7 @@ export function DeliveryTable({ rows }: { readonly rows: readonly StaffDeliveryS
               </Link>
             </td>
             <td>
-              <StatusBadge tone={executionTone(d.state)}>{label(m.deliveries.executionState, d.state)}</StatusBadge>
+              <StatusBadge tone={executionTone(d.state)}>{d.state ? <CodeLabel code={d.state} names={m.deliveries.executionState} /> : m.none}</StatusBadge>
             </td>
             <td>
               <KindChip tone={TYPE_TONE[d.type ?? ''] ?? 'ghost'} icon={d.type === 'FORWARD' ? 'truck' : 'return'}>
@@ -308,7 +308,8 @@ function FailureDecisionForm({ delivery }: { readonly delivery: DeliveryExecutio
 
   return (
     <form
-      className="space-y-3 rounded-box border border-warning/40 bg-warning/5 p-4"
+      id="failure-decision"
+      className="scroll-mt-12 space-y-3 rounded-box border border-warning/40 bg-warning/5 p-4"
       aria-label={m.deliveries.decideTitle}
       onSubmit={(e) => {
         e.preventDefault();
@@ -465,15 +466,14 @@ function CancellationForm({ dispatch }: { readonly dispatch: DispatchView }) {
   );
 }
 
-/** 원천 칸 머리(그림 + 이름 + 원천 이름) — 수행·배차를 따로 읽는다는 것을 칸마다 보인다 */
+/** 원천 칸 머리(그림 + 이름) — 수행·배차를 따로 읽는다는 것을 칸마다 보인다. 서비스 이름은 마우스를 올리면(2026-11-18 "직관적이지 않다") */
 function PanelTitle({ icon, title, source }: { readonly icon: 'truck' | 'user'; readonly title: string; readonly source: string }) {
   return (
-    <span className="flex items-center gap-2">
+    <span className="flex items-center gap-2" title={source}>
       <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary">
         <Icon name={icon} className="h-4 w-4" />
       </span>
       {title}
-      <span className="font-mono text-xs font-normal text-base-content/45">{source}</span>
     </span>
   );
 }
@@ -492,7 +492,7 @@ function ExecutionPanel({ deliveryId }: { readonly deliveryId: string }) {
             {/* 지금 상태 — 크게 */}
             <div className="flex flex-wrap items-center gap-2">
               <StatusBadge tone={executionTone(d.state)} testId="execution-state">
-                {label(m.deliveries.executionState, d.state)}
+                {d.state ? <CodeLabel code={d.state} names={m.deliveries.executionState} /> : m.none}
               </StatusBadge>
               <KindChip tone={TYPE_TONE[d.type ?? ''] ?? 'ghost'} icon={d.type === 'FORWARD' ? 'truck' : 'return'}>
                 {label(m.deliveries.typeName, d.type)}
@@ -516,8 +516,8 @@ function ExecutionPanel({ deliveryId }: { readonly deliveryId: string }) {
                 <FieldList
                   testId="delivery-failure"
                   rows={[
-                    [m.deliveries.failureReason, text(d.failure.reason)],
-                    [m.deliveries.goodsLocation, text(d.failure.goodsLocation)],
+                    [m.deliveries.failureReason, d.failure.reason ? <CodeLabel key="r" code={d.failure.reason} names={m.deliveries.deliveryFailureReasonName} /> : m.none],
+                    [m.deliveries.goodsLocation, d.failure.goodsLocation ? <CodeLabel key="g" code={d.failure.goodsLocation} names={m.deliveries.goodsLocationName} /> : m.none],
                     [m.deliveries.contactAttempts, text(d.failure.contactAttempts)],
                     [m.deliveries.reportedAt, when(d.failure.reportedAt)],
                     [m.deliveries.decided, d.failure.decision ? `${label(m.deliveries.decisionName, d.failure.decision)} · ${when(d.failure.decidedAt)}` : m.none],
@@ -539,8 +539,13 @@ function ExecutionPanel({ deliveryId }: { readonly deliveryId: string }) {
                     items={(d.history ?? []).map((h, n) => ({
                       key: `${h.state ?? ''}-${n}`,
                       tone: executionTone(h.state),
-                      title: label(m.deliveries.executionState, h.state),
-                      meta: `${when(h.occurredAt)} · ${text(h.actor)}`,
+                      title: h.state ? <CodeLabel code={h.state} names={m.deliveries.executionState} /> : m.none,
+                      meta: (
+                        <>
+                          {`${when(h.occurredAt)} · `}
+                          {h.actor ? <CodeLabel code={h.actor} names={m.deliveries.actorName} /> : m.none}
+                        </>
+                      ),
                     }))}
                   />
                 )}
@@ -550,7 +555,7 @@ function ExecutionPanel({ deliveryId }: { readonly deliveryId: string }) {
                 {(d.incidents ?? []).length === 0 ? (
                   <p className="text-sm text-base-content/60">{m.deliveries.noIncidents}</p>
                 ) : (
-                  <Timeline items={(d.incidents ?? []).map((i, n) => ({ key: i.incidentId ?? `incident-${n}`, tone: 'warning', title: text(i.category), meta: when(i.raisedAt) }))} />
+                  <Timeline items={(d.incidents ?? []).map((i, n) => ({ key: i.incidentId ?? `incident-${n}`, tone: 'warning', title: i.category ? <CodeLabel code={i.category} names={m.deliveries.helpCategoryName} /> : m.none, meta: when(i.raisedAt) }))} />
                 )}
               </div>
             </div>
@@ -574,7 +579,7 @@ function DispatchPanel({ deliveryId }: { readonly deliveryId: string }) {
           <div className="space-y-5">
             <div className="flex flex-wrap items-center gap-2">
               <StatusBadge tone={dispatchTone(d.state)} testId="dispatch-state">
-                {label(m.deliveries.dispatchState, d.state)}
+                {d.state ? <CodeLabel code={d.state} names={m.deliveries.dispatchState} /> : m.none}
               </StatusBadge>
             </div>
             <FieldList
@@ -597,7 +602,17 @@ function DispatchPanel({ deliveryId }: { readonly deliveryId: string }) {
                   items={(d.attempts ?? []).map((a, n) => ({
                     key: a.attemptId ?? `attempt-${n}`,
                     tone: a.failureReason ? 'error' : 'info',
-                    title: `${text(a.state)}${a.failureReason ? ` · ${label(m.deliveries.failureReasonName, a.failureReason)}` : ''}`,
+                    title: (
+                      <>
+                        {a.state ? <CodeLabel code={a.state} names={m.deliveries.attemptStateName} /> : m.none}
+                        {a.failureReason && (
+                          <>
+                            {' · '}
+                            <CodeLabel code={a.failureReason} names={m.deliveries.failureReasonName} />
+                          </>
+                        )}
+                      </>
+                    ),
                     meta: when(a.startedAt),
                   }))}
                 />
@@ -612,13 +627,25 @@ function DispatchPanel({ deliveryId }: { readonly deliveryId: string }) {
 
 export function DeliveryDetailPage() {
   const { deliveryId = '' } = useParams();
-  // 상세(2026-11-18): 상세 머리(번호 + 컴플레인 기록) → 원천 두 칸(배송 수행 | 배차) — 상태는 원천마다 따로, 합치지 않는다
+  const api = useApi();
+  // 제목·다음 할 일용 — 배송 수행 칸(ExecutionPanel)과 같은 쿼리 키·요청이라 한 번만 읽는다(새 요청 없음)
+  const execution = useQuery({
+    queryKey: ['deliveries', deliveryId, 'execution'],
+    queryFn: () => request('GET', api.execution.GET('/deliveries/{deliveryId}', { params: { path: { deliveryId } } })),
+  });
+  const d = execution.data;
+  // 상세(2026-11-18): 상세 머리(종류·수행 상태가 먼저, 번호는 옆에 작게 + 컴플레인 기록) → 다음 할 일 → 원천 두 칸(배송 수행 | 배차) — 상태는 원천마다 따로, 합치지 않는다
   return (
     <section className="max-w-7xl space-y-4">
       <DetailHeader
         back={{ to: '/deliveries', label: m.deliveries.back }}
-        title={`${m.deliveries.deliveryId} ${deliveryId}`}
-        summary={m.deliveries.detailSummary}
+        title={
+          <>
+            {d?.type && d.state ? m.deliveries.titleOf(label(m.deliveries.typeName, d.type), label(m.deliveries.executionState, d.state)) : m.deliveries.deliveryId}
+            <span className="ml-2 font-mono text-sm font-normal text-base-content/50">{deliveryId}</span>
+          </>
+        }
+        summary={d ? m.deliveries.summaryOf(text(d.orderId), text(d.riderId), text(d.mfcId)) : undefined}
         actions={
           <Link className="btn btn-sm" to={`/rider-complaints/new?deliveryId=${encodeURIComponent(deliveryId)}`}>
             <Icon name="flag" className="h-4 w-4" />
@@ -626,6 +653,14 @@ export function DeliveryDetailPage() {
           </Link>
         }
       />
+      {/* 다음 할 일 — 서버 수행 상태가 전달 실패 등록(FAILURE_REPORTED)일 때만: 확정·반려 칸으로 */}
+      {d?.state === 'FAILURE_REPORTED' && (
+        <NextAction tone="warning" title={m.deliveries.nextStep.failureTitle} body={m.deliveries.nextStep.failureBody}>
+          <a className="btn btn-sm btn-warning" href="#failure-decision">
+            {m.deliveries.nextStep.failureGo}
+          </a>
+        </NextAction>
+      )}
       <div className="grid items-start gap-4 xl:grid-cols-2">
         <ExecutionPanel deliveryId={deliveryId} />
         <DispatchPanel deliveryId={deliveryId} />

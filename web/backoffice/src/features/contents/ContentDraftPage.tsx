@@ -21,8 +21,8 @@ import { ImagePicker, type PendingImage } from './ImagePicker';
 import { uploadPendingImages, type UploadOutcome } from './imageUpload';
 import { NoticesJsonError, parseNoticesJson } from './noticesJson';
 import { ProductPicker } from './ProductPicker';
-import { PageHeader, StatusBadge, type Tone } from '../../shared/admin';
-import { Card, EmptyState, Steps } from '../products/parts';
+import { CodeLabel, NextAction, PageHeader, StatusBadge, type Tone } from '../../shared/admin';
+import { Card, EmptyState, JumpLink, Steps, TitleWithId } from '../products/parts';
 import { OpenById } from '../products/ProductDraftPage';
 
 function ContentForm({
@@ -287,6 +287,46 @@ function DraftImages({ draft }: { readonly draft: ContentDraft }) {
 
 const CONTENT_TONE: Readonly<Record<ContentDraft['state'], Tone>> = { DRAFT: 'neutral', SUBMITTED: 'warning', PUBLISHED: 'success', REJECTED: 'error' };
 
+/**
+ * 다음 할 일(2026-11-18 사용자 "직관적이지 않다") — 서버 초안 state·submittable·productId·approvalId 만으로 하나를 고른다.
+ * 버튼은 이 쪽의 구역(폼·다음 단계 카드)이나 승인 링크로만 간다.
+ */
+function ContentNextAction({ draft: d }: { readonly draft: ContentDraft }) {
+  const approval = d.approvalId ? (
+    <Link className="btn btn-sm" to={`/approvals/${encodeURIComponent(d.approvalId)}`}>
+      {m.products.openApproval}
+    </Link>
+  ) : null;
+  switch (d.state) {
+    case 'DRAFT':
+      return d.submittable ? (
+        <NextAction title={m.contents.next.submit} body={m.products.next.submitBody}>
+          <JumpLink to="draft-next">{m.products.go.next}</JumpLink>
+        </NextAction>
+      ) : (
+        <NextAction tone="warning" title={m.contents.next.fix} body={d.productId ? undefined : m.reason.PRODUCT_NOT_LINKED}>
+          <JumpLink to="draft-form">{m.products.go.form}</JumpLink>
+        </NextAction>
+      );
+    case 'SUBMITTED':
+      return approval ? (
+        <NextAction title={m.products.next.waitApproval}>{approval}</NextAction>
+      ) : (
+        <NextAction title={m.products.next.requestApproval}>
+          <JumpLink to="draft-next">{m.products.go.next}</JumpLink>
+        </NextAction>
+      );
+    case 'PUBLISHED':
+      return <NextAction tone="success" title={m.contents.next.published(`v${d.contentVersion ?? m.none}`)} />;
+    default:
+      return (
+        <NextAction tone="error" title={m.products.next.rejected}>
+          {approval}
+        </NextAction>
+      );
+  }
+}
+
 export function ContentDraftPage() {
   const { draftId = '' } = useParams();
   const api = useApi();
@@ -315,13 +355,14 @@ export function ContentDraftPage() {
 
   return (
     <section className="space-y-4">
-      <PageHeader title={m.contents.draftDetail(draftId)} actions={<OpenById base="/contents/drafts" />} />
+      <PageHeader title={<TitleWithId title={query.data ? query.data.input?.name || m.products.unnamed : ''} id={m.contents.draftDetail(draftId)} />} actions={<OpenById base="/contents/drafts" />} />
       <QueryState state={toUiState(query)} onRetry={() => void query.refetch()}>
         {(d) => (
           <>
             <Steps steps={m.contents.draftSteps} now={d.state === 'PUBLISHED' ? 4 : d.state === 'SUBMITTED' ? 3 : d.submittable ? 2 : 1} />
+            <ContentNextAction draft={d} />
             <div className="grid items-start gap-4 lg:grid-cols-3">
-              <div className="space-y-4 lg:col-span-2">
+              <div id="draft-form" className="scroll-mt-4 space-y-4 lg:col-span-2">
                 {d.state === 'DRAFT' && (
                   <ContentForm
                     key={d.version}
@@ -355,7 +396,7 @@ export function ContentDraftPage() {
                 <Card title={m.products.state}>
                   <div className="flex flex-wrap items-center gap-2">
                     <StatusBadge tone={CONTENT_TONE[d.state] ?? 'ghost'}>
-                      <span title={d.state}>{m.contents.draftStateName[d.state] ?? d.state}</span>
+                      <CodeLabel code={d.state} names={m.contents.draftStateName} />
                     </StatusBadge>
                     <span className={`badge badge-sm badge-soft ${d.submittable ? 'badge-success' : 'badge-warning'}`}>
                       {d.submittable ? m.contents.submittable : m.contents.notSubmittable}
@@ -385,7 +426,7 @@ export function ContentDraftPage() {
                     <p className="text-success text-sm">{`${m.contents.published} v${d.contentVersion ?? m.none}`}</p>
                   )}
                 </Card>
-                <Card title={m.products.nextTitle}>
+                <Card id="draft-next" title={m.products.nextTitle}>
                   {d.state === 'DRAFT' && (
                     <button type="button" className="btn btn-primary btn-sm btn-block" disabled={submit.busy || !d.submittable} onClick={() => void submit.run(null)}>
                       {m.products.submit}

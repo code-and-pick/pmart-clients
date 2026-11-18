@@ -19,8 +19,8 @@ import { QueryState } from '@pmart/web-ui';
 import { toUiState } from '@pmart/web-ui';
 import { useCommand } from '@pmart/web-ui';
 import { RequestApproval } from '../approvals/RequestApproval';
-import { PageHeader, StatusBadge, type Tone } from '../../shared/admin';
-import { Card, EmptyState, LineIcon, Steps, tableClass } from '../products/parts';
+import { CodeLabel, NextAction, PageHeader, StatusBadge, type Tone } from '../../shared/admin';
+import { Card, EmptyState, JumpLink, LineIcon, Steps, tableClass } from '../products/parts';
 
 const SKU_PATTERN = /^[EB]-\d{8}$/;
 const PRICE_NOT_SET = 'PRICE_NOT_SET';
@@ -44,6 +44,13 @@ function PriceLookup({ sku }: { readonly sku: string }) {
 
   // 왼쪽(2/3): 현재 기본가 큰 숫자 + 예약된 다음 가격, 오른쪽(1/3): 가격 이력 세로 줄(최신 위)
   return (
+    <div className="space-y-4">
+    {/* 다음 할 일(2026-11-18): 서버가 PRICE_NOT_SET 이라 답했을 때만 — 아래 변경 요청 카드로 */}
+    {notSet && (
+      <NextAction tone="warning" title={m.prices.nextAction.notSet} body={m.prices.nextAction.notSetBody}>
+        <JumpLink to="price-change">{m.prices.goChange}</JumpLink>
+      </NextAction>
+    )}
     <div className="grid items-start gap-4 lg:grid-cols-3">
       <Card title={m.prices.current} aside={<span className="rounded bg-base-200 px-2 py-0.5 font-mono text-xs">{sku}</span>} className="lg:col-span-2">
         {notSet ? (
@@ -99,6 +106,7 @@ function PriceLookup({ sku }: { readonly sku: string }) {
           )}
         </QueryState>
       </Card>
+    </div>
     </div>
   );
 }
@@ -170,7 +178,7 @@ function PriceChange({ initialSku }: { readonly initialSku: string }) {
   const step = body === null ? 0 : approvalId.trim() ? 2 : 1;
   const label = 'text-xs font-medium text-base-content/60';
   return (
-    <Card title={m.prices.changeTitle} hint={m.prices.effectiveHint} aside={<Steps steps={m.prices.changeSteps} now={step} label={m.prices.stepsLabel} />}>
+    <Card id="price-change" title={m.prices.changeTitle} hint={m.prices.effectiveHint} aside={<Steps steps={m.prices.changeSteps} now={step} label={m.prices.stepsLabel} />}>
       <label className="flex w-fit flex-col gap-1 text-sm">
         <span className={label}>{m.prices.requestedEffectiveFrom}</span>
         <input type="datetime-local" className="input input-sm" disabled={body !== null} value={common} onChange={(e) => setCommon(e.target.value)} />
@@ -249,7 +257,9 @@ function PriceChange({ initialSku }: { readonly initialSku: string }) {
               {('items' in r ? (r.items ?? []) : []).map((it, i) => (
                 <li key={it.sku ?? i}>{`${it.sku ?? m.none} · v${it.priceVersion ?? m.none} · ${it.state ? m.prices.versionState[it.state] : m.none}`}</li>
               ))}
-              <li>{r.status === 'APPLIED' ? m.approvals.executionState.APPLIED : r.status}</li>
+              <li>
+                {r.status && <CodeLabel code={r.status} names={m.prices.commandStatusName} />}
+              </li>
             </ul>
           )}
         </CommandFeedback>

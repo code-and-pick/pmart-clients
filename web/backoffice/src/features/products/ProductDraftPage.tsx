@@ -16,8 +16,8 @@ import { toUiState } from '@pmart/web-ui';
 import { useCommand } from '@pmart/web-ui';
 import { RequestApproval } from '../approvals/RequestApproval';
 import { ProductDraftForm } from './ProductDraftForm';
-import { PageHeader, StatusBadge, type Tone } from '../../shared/admin';
-import { Card, Steps } from './parts';
+import { CodeLabel, NextAction, PageHeader, StatusBadge, type Tone } from '../../shared/admin';
+import { Card, JumpLink, Steps, TitleWithId } from './parts';
 
 const DRAFT_TONE: Readonly<Record<ProductDraft['state'], Tone>> = { DRAFT: 'neutral', SUBMITTED: 'warning', APPLIED: 'success', REJECTED: 'error' };
 
@@ -30,14 +30,16 @@ export function DraftStateBadge({ state }: { readonly state: ProductDraft['state
   );
 }
 
-/** 초안 상태·검증 결과·검증 문제(서버 값 그대로). 검증 값(VALID/INVALID)은 서버 코드 그대로 보인다. */
+/** 초안 상태·검증 결과·검증 문제(서버 값 그대로). 검증 값은 한국어 이름(마우스를 올리면 VALID/INVALID 코드). */
 export function DraftProblems({ draft }: { readonly draft: ProductDraft }) {
   return (
     <div className="space-y-2 text-sm">
       <div className="flex flex-wrap items-center gap-2">
         <DraftStateBadge state={draft.state} />
         <span className="text-xs text-base-content/55">{m.products.validation}</span>
-        <span className={`badge badge-sm font-mono ${draft.validationState === 'VALID' ? 'badge-success badge-soft' : 'badge-error badge-soft'}`}>{draft.validationState}</span>
+        <span className={`badge badge-sm font-mono ${draft.validationState === 'VALID' ? 'badge-success badge-soft' : 'badge-error badge-soft'}`}>
+          <CodeLabel code={draft.validationState} names={m.products.validationName} />
+        </span>
       </div>
       {(draft.problems?.length ?? 0) > 0 && (
         <ul className="space-y-1 rounded-lg bg-error/5 px-3 py-2 text-error" aria-label={m.products.problems}>
@@ -96,6 +98,54 @@ export function NewProductDraftPage() {
   );
 }
 
+/**
+ * 다음 할 일(2026-11-18 사용자 "직관적이지 않다") — 서버 초안 state·validationState·approvalId 만으로 하나를 고른다.
+ * 버튼은 이 쪽에 이미 있는 구역(폼·다음 단계 카드)이나 링크(승인·만든 상품)로만 간다.
+ */
+function DraftNextAction({ draft: d }: { readonly draft: ProductDraft }) {
+  const approval = d.approvalId ? (
+    <Link className="btn btn-sm" to={`/approvals/${encodeURIComponent(d.approvalId)}`}>
+      {m.products.openApproval}
+    </Link>
+  ) : null;
+  if (d.state === 'DRAFT') {
+    return d.validationState === 'VALID' ? (
+      <NextAction title={m.products.next.submit} body={m.products.next.submitBody}>
+        <JumpLink to="draft-next">{m.products.go.next}</JumpLink>
+      </NextAction>
+    ) : (
+      <NextAction tone="warning" title={m.products.next.fix(d.problems?.length ?? 0)} body={d.input ? m.products.next.fixBody : undefined}>
+        {d.input && <JumpLink to="draft-form">{m.products.go.form}</JumpLink>}
+      </NextAction>
+    );
+  }
+  if (d.state === 'SUBMITTED') {
+    return approval ? (
+      <NextAction title={m.products.next.waitApproval}>{approval}</NextAction>
+    ) : (
+      <NextAction title={m.products.next.requestApproval}>
+        <JumpLink to="draft-next">{m.products.go.next}</JumpLink>
+      </NextAction>
+    );
+  }
+  if (d.state === 'APPLIED') {
+    return (
+      <NextAction tone="success" title={m.products.next.applied}>
+        {d.resultProductId && (
+          <Link className="btn btn-sm" to={`/products/${encodeURIComponent(d.resultProductId)}`}>
+            {m.products.openResult}
+          </Link>
+        )}
+      </NextAction>
+    );
+  }
+  return (
+    <NextAction tone="error" title={m.products.next.rejected}>
+      {approval}
+    </NextAction>
+  );
+}
+
 const stepOf = (d: ProductDraft) => (d.state === 'APPLIED' ? 4 : d.state === 'SUBMITTED' ? 3 : d.validationState === 'VALID' ? 2 : 1);
 
 export function ProductDraftPage() {
@@ -127,11 +177,12 @@ export function ProductDraftPage() {
 
   return (
     <section className="space-y-4">
-      <PageHeader title={m.products.draftDetail(draftId)} actions={<OpenById base="/products/drafts" />} />
+      <PageHeader title={<TitleWithId title={query.data ? query.data.input?.product.internalName || m.products.unnamed : ''} id={m.products.draftDetail(draftId)} />} actions={<OpenById base="/products/drafts" />} />
       <QueryState state={toUiState(query)} onRetry={() => void query.refetch()}>
         {(d) => (
           <>
             <Steps steps={m.products.draftSteps} now={stepOf(d)} />
+            <DraftNextAction draft={d} />
             {/* product 0.3.0 수정 초안(edit-drafts): input.targetProductId = 고칠 상품 */}
             {d.input?.targetProductId && (
               <div className="space-y-1 rounded-box border border-info/30 bg-info/5 px-4 py-3 text-sm" data-testid="product-edit-note">
@@ -145,7 +196,7 @@ export function ProductDraftPage() {
               </div>
             )}
             <div className="grid items-start gap-4 lg:grid-cols-3">
-              <div className="space-y-4 lg:col-span-2">
+              <div id="draft-form" className="scroll-mt-4 space-y-4 lg:col-span-2">
                 {d.state === 'DRAFT' && d.input ? (
                   <ProductDraftForm
                     key={d.version}
@@ -168,7 +219,7 @@ export function ProductDraftPage() {
                 <Card title={m.products.state}>
                   <DraftProblems draft={d} />
                 </Card>
-                <Card title={m.products.nextTitle}>
+                <Card id="draft-next" title={m.products.nextTitle}>
                   {d.state === 'DRAFT' && (
                     <button
                       type="button"

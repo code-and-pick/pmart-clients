@@ -27,6 +27,9 @@ describe('승인 상세 (목 모드, MSW)', () => {
 
     expect(await screen.findByText('P-1')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '승인' })).toBeInTheDocument();
+    // 다음 할 일(2026-11-18): 심사 대기 + 남의 요청이면 심사 칸으로
+    expect(screen.getByTestId('next-action')).toHaveTextContent('심사해 주세요');
+    expect(screen.getByRole('link', { name: '심사 칸으로' })).toHaveAttribute('href', '#approval-decide');
   });
 
   it('재고 승인 행의 숫자는 "원"이 아니라 수량(개)으로, 가격 승인만 원으로 보인다', async () => {
@@ -147,6 +150,8 @@ describe('자기 권한 요청(approval-service 2026-11-17 — 권한을 받을 
   it('내 권한을 주는 GRANT 는 승인·반려 버튼을 끄고 안내', async () => {
     render(<App memory initialPath="/approvals/apv-seed-grant-self" initialToken={as.admin} />);
     expect(await screen.findByTestId('grant-to-self')).toHaveTextContent('다른 관리자가 처리해요');
+    expect(screen.getByTestId('next-action')).toHaveTextContent('다른 관리자가 처리해요'); // 다음 할 일은 버튼 없이 안내만
+    expect(screen.queryByRole('link', { name: '심사 칸으로' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: '승인' })).toBeDisabled();
     expect(screen.getByRole('button', { name: '반려' })).toBeDisabled();
   });

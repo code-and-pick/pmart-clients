@@ -7,6 +7,10 @@ import { useApi } from '../../app/ApiContext';
 import { CommandFeedback } from '../../shared/Feedback';
 import { messages as m } from '../../shared/messages';
 import { useCommand } from '@pmart/web-ui';
+import { CodeLabel } from '../../shared/admin';
+
+/** 승인 유형 이름 — 코드는 마우스를 올리면(2026-11-18 "직관적이지 않다") */
+const TYPE_NAME: Readonly<Record<string, string>> = { ...m.approvals.typeName, ...m.approvals.otherTypeName };
 
 export function RequestApproval({
   body,
@@ -25,7 +29,10 @@ export function RequestApproval({
 
   return (
     <div className="space-y-2 rounded-box border border-base-300 p-3">
-      <p className="text-sm">{`${body.type} · ${body.summary}`}</p>
+      <p className="text-sm">
+        <CodeLabel code={body.type} names={TYPE_NAME} />
+        {` · ${body.summary}`}
+      </p>
       {!done && (
         <button type="button" className="btn btn-primary btn-sm" disabled={cmd.busy} onClick={() => void cmd.run(body)}>
           {m.approvals.requestApproval}

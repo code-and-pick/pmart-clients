@@ -58,7 +58,7 @@ describe('라이더 문의', () => {
 
   it('관리자는 라이더 문의를 보기만(답변 칸 없음)', async () => {
     renderAt('/rider-inquiries/INQ-MOCK-R1', as.admin);
-    expect(await screen.findByTestId('inquiry-read-only')).toHaveTextContent('라이더 문의 답변은 지원센터(RIDER_OPS)가 해요');
+    expect(await screen.findByTestId('inquiry-read-only')).toHaveTextContent('라이더 문의 답변은 지원센터가 해요');
     expect(screen.queryByLabelText('답변 쓰기')).not.toBeInTheDocument();
   });
 

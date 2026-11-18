@@ -18,7 +18,7 @@ import { QueryState } from '@pmart/web-ui';
 import { toUiState } from '@pmart/web-ui';
 import { useCommand } from '@pmart/web-ui';
 import { ContentRegistration } from '../contents/ContentRegistration';
-import { DataTable, DetailHeader, Section, StatusBadge, type Tone } from '../../shared/admin';
+import { CodeLabel, DataTable, DetailHeader, NextAction, Section, StatusBadge, type Tone } from '../../shared/admin';
 import { KindChip, Person, SideFields, Timeline, When } from '../lookup/parts';
 
 const OPEN_REVIEW: readonly ReviewState[] = ['REVIEW_PENDING', 'EVIDENCE_REQUIRED'];
@@ -186,10 +186,20 @@ export function ApprovalDetailPage() {
             <>
               <DetailHeader
                 back={{ to: '/approvals', label: m.approvals.title }}
-                title={`${m.approvals.detailTitle} ${approvalId}`}
+                // 제목(2026-11-18 사용자 "직관적이지 않다"): 서버 요약을 앞에, 승인 번호는 옆에 작게. 요약 줄 = 요청자·상신 시각
+                title={
+                  <>
+                    {a.summary ?? m.approvals.detailTitle}
+                    <span className="ml-2 font-mono text-sm font-normal text-base-content/50">{approvalId}</span>
+                  </>
+                }
                 badges={
                   <>
-                    {a.type && <KindChip tone={TYPE_TONE[a.type] ?? 'ghost'}>{m.approvals.typeName[a.type] ?? a.type}</KindChip>}
+                    {a.type && (
+                      <KindChip tone={TYPE_TONE[a.type] ?? 'ghost'}>
+                        <CodeLabel code={a.type} names={TYPE_NAME} />
+                      </KindChip>
+                    )}
                     <StatusBadge tone={a.reviewState ? (REVIEW_TONE[a.reviewState] ?? 'ghost') : 'ghost'} testId="review-state">
                       {`${m.approvals.review} · ${a.reviewState ? m.approvals.reviewState[a.reviewState] : m.none}`}
                     </StatusBadge>
@@ -198,8 +208,21 @@ export function ApprovalDetailPage() {
                     </StatusBadge>
                   </>
                 }
-                summary={a.summary ?? m.none}
+                summary={`${m.approvals.requester} ${a.requesterId ?? m.none} · ${m.approvals.submittedAt} ${a.submittedAt ? formatSeoul(a.submittedAt) : m.none}`}
               />
+              {/* 다음 할 일 — 심사 칸이 열린 서버 상태(REVIEW_PENDING·EVIDENCE_REQUIRED)일 때만. 내 요청·내 권한 요청은 버튼 없이 안내 */}
+              {open &&
+                (grantToSelf ? (
+                  <NextAction tone="info" title={m.approvals.nextStep.grantSelfTitle} body={m.approvals.nextStep.grantSelfBody} />
+                ) : own ? (
+                  <NextAction tone="info" title={m.approvals.nextStep.ownTitle} body={m.approvals.nextStep.ownBody} />
+                ) : (
+                  <NextAction tone="warning" title={m.approvals.nextStep.reviewTitle} body={m.approvals.nextStep.reviewBody}>
+                    <a className="btn btn-sm btn-warning" href="#approval-decide">
+                      {m.approvals.nextStep.reviewGo}
+                    </a>
+                  </NextAction>
+                ))}
 
               {watching && !watchedOut && (
                 <div role="status" className="flex items-center gap-2 rounded-box bg-info/10 px-4 py-2.5 text-sm text-info">
@@ -293,7 +316,13 @@ export function ApprovalDetailPage() {
                         items={(a.receipts ?? []).map((r, i) => ({
                           key: r.receiptId ?? String(i),
                           tone: 'info',
-                          title: `${r.receiverService} · ${r.result}`,
+                          title: (
+                            <>
+                              {r.receiverService ? <CodeLabel code={r.receiverService} names={m.systemName} /> : m.none}
+                              {' · '}
+                              {r.result ? <CodeLabel code={r.result} names={m.approvals.executionState} /> : m.none}
+                            </>
+                          ),
                           body: r.reason || undefined,
                         }))}
                       />
@@ -303,7 +332,7 @@ export function ApprovalDetailPage() {
 
                 <aside className="min-w-0 space-y-4">
                   {open && (
-                    <Section title={m.approvals.decideTitle}>
+                    <Section id="approval-decide" title={m.approvals.decideTitle}>
                       <div className="space-y-3">
                         {own && <p className="text-sm text-warning">{m.approvals.selfApproval}</p>}
                         {grantToSelf && (
@@ -339,10 +368,16 @@ export function ApprovalDetailPage() {
                   <Section title={m.approvals.requestInfo}>
                     <SideFields
                       rows={[
-                        [m.approvals.type, a.type ?? m.none],
-                        [m.approvals.target, <span key="t" className="break-all font-mono text-xs">{`${a.targetService ?? m.none} · ${a.targetRef ?? m.none}`}</span>],
+                        [m.approvals.type, a.type ? <CodeLabel key="y" code={a.type} names={TYPE_NAME} /> : m.none],
+                        [
+                          m.approvals.target,
+                          <span key="t" className="break-all">
+                            {a.targetService ? <CodeLabel code={a.targetService} names={m.systemName} /> : m.none}
+                            <span className="block font-mono text-xs font-normal text-base-content/55">{a.targetRef ?? m.none}</span>
+                          </span>,
+                        ],
                         [m.approvals.requester, <Person key="r" id={a.requesterId} />],
-                        [m.approvals.delivery, a.deliveryState ?? m.none],
+                        [m.approvals.delivery, a.deliveryState ? <CodeLabel key="d" code={a.deliveryState} names={m.approvals.deliveryStateName} /> : m.none],
                         [m.approvals.submittedAt, <When key="s" iso={a.submittedAt} />],
                       ]}
                     />
@@ -358,6 +393,8 @@ export function ApprovalDetailPage() {
 }
 
 const TYPE_TONE: Readonly<Record<string, Tone>> = { PRODUCT: 'info', DISPLAY: 'accent', PRICE: 'warning', GRANT: 'neutral' };
+/** 승인 유형 이름 — 거르기 칩 유형 + 그 밖 유형(표시만) */
+const TYPE_NAME: Readonly<Record<string, string>> = { ...m.approvals.typeName, ...m.approvals.otherTypeName };
 const REVIEW_TONE: Readonly<Record<string, Tone>> = { REVIEW_PENDING: 'warning', EVIDENCE_REQUIRED: 'warning', APPROVED: 'success', PARTIALLY_APPROVED: 'info', REJECTED: 'error' };
 const EXEC_TONE: Readonly<Record<string, Tone>> = { VALIDATING: 'info', ACCEPTED: 'info', IN_PROGRESS: 'info', PARTIAL: 'warning', APPLIED: 'success', REJECTED: 'error', UNKNOWN_RESULT: 'warning' };
 /** 결정 이력 표시 이름(승인·반려 버튼과 같은 말). 모르는 값은 그대로 */

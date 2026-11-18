@@ -15,30 +15,25 @@ const AUTHORITY_TONE: Record<Authority, string> = {
   EXTERNAL_REFERENCE: 'badge-ghost',
 };
 
+/** 근거 문서 카드(2026-11-18 "직관적이지 않다"): 제목 = 절 제목(없으면 경로), 경로는 작게. 문서 버전·색인 시점은 접어 둔다 */
 function CitationItem({ c }: { readonly c: Citation }) {
   const shown = isDisplayablePath(c.path);
+  const path = shown ? <code className="text-xs break-all text-base-content/55">{c.path}</code> : <span className="text-xs text-warning">{m.assistant.hiddenPath}</span>;
   return (
     <li className="rounded-box border border-base-300 bg-base-100 p-3 text-sm shadow-sm" data-testid="citation">
       <div className="flex flex-wrap items-center gap-2">
-        <span className={`badge badge-sm ${AUTHORITY_TONE[c.authority]}`} data-authority={c.authority}>
+        <span className={`badge badge-sm ${AUTHORITY_TONE[c.authority]}`} data-authority={c.authority} title={c.authority}>
           {m.assistant.authority[c.authority]}
         </span>
         {c.lifecycleStatus !== 'ACTIVE' && (
-          <span className="badge badge-sm badge-outline" data-lifecycle={c.lifecycleStatus}>
+          <span className="badge badge-sm badge-outline" data-lifecycle={c.lifecycleStatus} title={c.lifecycleStatus}>
             {m.assistant.lifecycle[c.lifecycleStatus]}
           </span>
         )}
-        {shown ? (
-          <code className="text-xs break-all">{c.path}</code>
-        ) : (
-          <span className="text-xs text-warning">{m.assistant.hiddenPath}</span>
-        )}
+        {c.section ? <span className="font-medium">{c.section}</span> : path}
       </div>
+      {c.section && <div className="mt-0.5">{path}</div>}
       <dl className="mt-1 grid grid-cols-[6rem_1fr] gap-x-2 text-xs opacity-80">
-        <dt>{m.assistant.section}</dt>
-        <dd>{c.section ?? m.none}</dd>
-        <dt>{m.assistant.docVersion}</dt>
-        <dd>{c.documentVersion ?? m.none}</dd>
         <dt>{m.assistant.effectiveDate}</dt>
         <dd>{c.effectiveDate ?? m.none}</dd>
         {c.supersededBy && (
@@ -62,17 +57,28 @@ function CitationItem({ c }: { readonly c: Citation }) {
             </dd>
           </>
         )}
-        <dt>{m.assistant.asOf}</dt>
-        <dd>
-          {`${formatSeoul(c.asOf.indexedAt)} · ${c.asOf.snapshotId}${c.asOf.sourceRevision ? ` · ${c.asOf.sourceRevision}` : ''}`}
-          {c.asOf.sourceDirty && <span className="ml-1 text-warning">{m.assistant.sourceDirty}</span>}
-        </dd>
+        {c.asOf.sourceDirty && (
+          <>
+            <dt>{m.assistant.asOf}</dt>
+            <dd className="text-warning">{m.assistant.sourceDirty}</dd>
+          </>
+        )}
       </dl>
       <details className="mt-2">
         <summary className="cursor-pointer text-xs">{m.assistant.excerpt}</summary>
         <p className="mt-1 whitespace-pre-wrap break-words text-xs" data-testid="excerpt">
           {c.excerpt}
         </p>
+      </details>
+      {/* 문서 버전·색인 시점(스냅숏·리비전)은 확인할 때만 펼친다 */}
+      <details className="mt-1">
+        <summary className="cursor-pointer text-xs text-base-content/55">{m.assistant.docInfo}</summary>
+        <dl className="mt-1 grid grid-cols-[6rem_1fr] gap-x-2 text-xs opacity-80">
+          <dt>{m.assistant.docVersion}</dt>
+          <dd>{c.documentVersion ?? m.none}</dd>
+          <dt>{m.assistant.asOf}</dt>
+          <dd className="break-all">{`${formatSeoul(c.asOf.indexedAt)} · ${c.asOf.snapshotId}${c.asOf.sourceRevision ? ` · ${c.asOf.sourceRevision}` : ''}`}</dd>
+        </dl>
       </details>
     </li>
   );
@@ -160,8 +166,8 @@ export function AnswerView({
           </p>
           <div className="flex flex-wrap gap-3 border-t border-base-300 pt-2 text-xs text-base-content/60">
             {idLine}
-            <span>{formatSeoul(answer.askedAt)}</span>
-            {answer.indexSnapshotId && <span>{m.assistant.indexSnapshot(answer.indexSnapshotId)}</span>}
+            {/* 색인 번호는 마우스를 올리면(2026-11-18 개발 용어 줄이기) */}
+            <span title={answer.indexSnapshotId ? m.assistant.indexSnapshot(answer.indexSnapshotId) : undefined}>{formatSeoul(answer.askedAt)}</span>
           </div>
         </div>
       </div>

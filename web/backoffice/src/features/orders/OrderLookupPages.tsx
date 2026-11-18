@@ -3,7 +3,7 @@
 // 연락처는 숫자만 완전 일치(부분 검색 없음). 목록 연락처·상세 배송지는 서버가 가린 값(0.4.0·0.5.0) — 원문은 사유를 적고 pii-reveals(열람 기록).
 // 검색 조건·배송지·연락처를 로그에 남기지 않는다. 고객센터는 주문을 취소하지 않는다(ADR-0060) — 취소 버튼 없음.
 import { useQuery } from '@tanstack/react-query';
-import { useState, type FormEvent } from 'react';
+import { useState, type FormEvent, type ReactNode } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 
 import { request } from '@pmart/web-core';
@@ -11,7 +11,7 @@ import { CommandFeedback, QueryState, toUiState, useCommand } from '@pmart/web-u
 import { commandParams } from '../../api/command';
 import type { components } from '../../api/generated/order';
 import { useApi } from '../../app/ApiContext';
-import { ChipGroup, DataTable, DetailHeader, Notice, PageHeader, ResultBar, SearchPanel, SearchRow, Section, StatusBadge, type Tone } from '../../shared/admin';
+import { ChipGroup, CodeLabel, DataTable, DetailHeader, NextAction, Notice, PageHeader, ResultBar, SearchPanel, SearchRow, Section, StatusBadge, type Tone } from '../../shared/admin';
 import { messages as m } from '../../shared/messages';
 import { addSeoulDays, isSeoulDate, label, seoulDayEnd, seoulDayStart, seoulToday, spanDays, text, when, won } from '../../shared/ops';
 import { ClaimsOfOrder } from '../claims/ClaimPages';
@@ -182,7 +182,7 @@ export function OrderLookupPage() {
                           </span>
                         </td>
                         <td>
-                          <StatusBadge tone={statusTone(o.status)}>{label(m.orders.statusName, o.status)}</StatusBadge>
+                          <StatusBadge tone={statusTone(o.status)}>{o.status ? <CodeLabel code={o.status} names={m.orders.statusName} /> : m.none}</StatusBadge>
                         </td>
                         <td>
                           <When iso={o.confirmedAt} />
@@ -352,7 +352,7 @@ function QtyPills({ line }: { readonly line: Detail['lines'][number] }) {
 }
 
 /** 금액 줄(왼쪽 이름, 오른쪽 값) — Shopify 결제 요약처럼. 값은 서버 금액 그대로 */
-function AmountRow({ name, value, sub, strong = false }: { readonly name: string; readonly value: string; readonly sub?: string | null; readonly strong?: boolean }) {
+function AmountRow({ name, value, sub, strong = false }: { readonly name: string; readonly value: string; readonly sub?: ReactNode; readonly strong?: boolean }) {
   return (
     <div className={`flex items-start justify-between gap-4 py-1.5 ${strong ? 'font-semibold' : ''}`}>
       <div className="min-w-0">
@@ -381,15 +381,24 @@ export function OrderDetailPage() {
   return (
     <section className="max-w-7xl space-y-4">
       <QueryState state={toUiState(query)} onRetry={() => void query.refetch()}>
-        {(o) => (
+        {(o) => {
+          // 제목(2026-11-18 사용자 "직관적이지 않다"): 첫 상품 이름 + 외 N건을 앞에, 주문 번호는 옆에 작게. 상품 이름이 없으면 "주문"
+          const firstName = o.lines.find((l) => l.productName)?.productName;
+          const openIssues = o.fulfillmentIssues.filter((f) => f.state === 'OPEN').length;
+          return (
           <>
             <DetailHeader
               back={back}
-              title={`${m.orders.detailTitle} ${orderId}`}
+              title={
+                <>
+                  {firstName ? m.orders.titleOf(firstName, o.lines.length - 1) : m.orders.detailTitle}
+                  <span className="ml-2 font-mono text-sm font-normal text-base-content/50">{orderId}</span>
+                </>
+              }
               badges={
                 <>
                   <StatusBadge tone={statusTone(o.status)} testId="order-status">
-                    {label(m.orders.statusName, o.status)}
+                    {o.status ? <CodeLabel code={o.status} names={m.orders.statusName} /> : m.none}
                   </StatusBadge>
                   <KindChip icon="truck">{label(m.orders.mode, o.deliveryMode)}</KindChip>
                   {o.fulfillmentIssues.some((f) => f.state === 'OPEN') && (
@@ -403,6 +412,16 @@ export function OrderDetailPage() {
               actions={<OrderCancelAction order={o} open={cancelOpen} onOpen={() => setCancelOpen(true)} />}
             />
             {cancelOpen && o.status === 'CONFIRMED' && <OrderCancelForm order={o} onClose={() => setCancelOpen(false)} />}
+            {/* 다음 할 일 — 서버 값만으로: 확인 필요(OPEN) 이행 기록이 있으면 그 기록으로, 결제 결과 불명이면 안내만 */}
+            {openIssues > 0 ? (
+              <NextAction tone="warning" title={m.orders.nextStep.issueTitle} body={m.orders.nextStep.issueBody(openIssues)}>
+                <a className="btn btn-sm btn-warning" href="#order-issues">
+                  {m.orders.nextStep.issueGo}
+                </a>
+              </NextAction>
+            ) : o.status === 'PAYMENT_UNKNOWN' ? (
+              <NextAction tone="info" title={m.orders.nextStep.paymentTitle} body={m.orders.nextStep.paymentBody} />
+            ) : null}
 
             <div className="grid items-start gap-4 lg:grid-cols-3">
               <div className="min-w-0 space-y-4 lg:col-span-2">
@@ -430,7 +449,13 @@ export function OrderDetailPage() {
                 <Section id="order-amounts" title={m.orders.amounts}>
                   <div className="text-sm">
                     <AmountRow name={m.orders.itemAmount} value={won(o.amounts.itemAmount)} />
-                    <AmountRow name={m.orders.deliveryTip} value={won(o.amounts.deliveryTip)} sub={`${m.orders.deliveryTipBase} ${won(o.amounts.deliveryTipBase)} · ${text(o.amounts.deliveryTipReason)}`} />
+                    <AmountRow name={m.orders.deliveryTip} value={won(o.amounts.deliveryTip)} sub={
+                        <>
+                          {`${m.orders.deliveryTipBase} ${won(o.amounts.deliveryTipBase)} · `}
+                          {o.amounts.deliveryTipReason ? <CodeLabel code={o.amounts.deliveryTipReason} names={m.orders.tipReasonName} /> : m.none}
+                        </>
+                      }
+                    />
                     <AmountRow name={m.orders.bagFee} value={won(o.amounts.bagFee)} />
                     <AmountRow name={m.orders.firstPurchase} value={o.amounts.firstPurchaseApplied ? 'O' : 'X'} />
                     <div className="my-1.5 border-t border-base-300" />
@@ -460,7 +485,13 @@ export function OrderDetailPage() {
                       items={o.fulfillmentIssues.map((f, i) => ({
                         key: f.issueId ?? `issue-${i}`,
                         tone: ISSUE_TONE[f.state ?? ''] ?? 'neutral',
-                        title: <span data-testid="order-issue">{`${label(m.orders.issueState, f.state)} · ${text(f.reason)} · ${text(f.sku)} × ${text(f.blockedQty)}`}</span>,
+                        title: (
+                          <span data-testid="order-issue">
+                            {`${label(m.orders.issueState, f.state)} · `}
+                            {f.reason ? <CodeLabel code={f.reason} names={m.orders.issueReasonName} /> : m.none}
+                            {` · ${text(f.sku)} × ${text(f.blockedQty)}`}
+                          </span>
+                        ),
                         meta: when(f.blockedAt),
                       }))}
                     />
@@ -496,7 +527,7 @@ export function OrderDetailPage() {
                       [m.orders.version, o.version],
                     ]}
                   />
-                  <p className="mt-4 border-t border-base-300 pt-3 text-xs text-base-content/55">{`${m.orders.noCancel} ${m.orders.noDeliveryNote}`}</p>
+                  <p className="mt-4 border-t border-base-300 pt-3 text-xs text-base-content/55">{m.orders.noCancelShort}</p>
                 </Section>
 
                 <Section id="order-address-section" title={m.orders.address}>
@@ -505,7 +536,8 @@ export function OrderDetailPage() {
               </aside>
             </div>
           </>
-        )}
+          );
+        }}
       </QueryState>
     </section>
   );
