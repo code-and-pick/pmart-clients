@@ -80,14 +80,19 @@ export function RiskPanel() {
   );
 }
 
-/** 지금 배송 — 실시간 배송 현황 첫 쪽을 센 값(전체 아님) */
-export function LiveSummary() {
-  const api = useApi();
-  const q = useQuery({
+/** 실시간 배송 첫 쪽(대시보드 숫자 카드·지금 배송이 같은 queryKey) */
+export function liveQuery(api: ReturnType<typeof useApi>) {
+  return {
     queryKey: ['dashboard', 'live-delivery'],
     refetchInterval: 60_000,
     queryFn: () => request('GET', api.bff.GET('/views/live-delivery', { params: { query: { size: LIVE_SIZE } } })),
-  });
+  };
+}
+
+/** 지금 배송 — 실시간 배송 현황 첫 쪽을 센 값(전체 아님) */
+export function LiveSummary() {
+  const api = useApi();
+  const q = useQuery(liveQuery(api));
   const items = q.data?.items ?? [];
   const now = q.data?.composedAt ? Date.parse(q.data.composedAt) : Number.NaN;
   const count = (pred: (i: (typeof items)[number]) => boolean): number | null | undefined => (q.isError ? null : q.data ? items.filter(pred).length : undefined);

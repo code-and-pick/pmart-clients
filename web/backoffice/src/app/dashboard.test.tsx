@@ -35,7 +35,10 @@ describe('대시보드', () => {
     renderAt('/', as.admin);
     expect(await within(await screen.findByTestId('dash-kpi-orders')).findByText('?')).toBeInTheDocument();
     expect(await within(screen.getAllByTestId('dash-day')[0]!).findByText('?')).toBeInTheDocument();
-    expect(await screen.findByText(/주문을 불러오지 못했어요/)).toBeInTheDocument();
+    // 최근 주문·오늘 주문 상태(2026-11-18 2판) 둘 다 "불러오지 못했어요"(0 건·빈 도넛 아님)
+    expect(await within(screen.getByTestId('dash-recent-orders')).findByText(/주문을 불러오지 못했어요/)).toBeInTheDocument();
+    expect(await within(screen.getByTestId('dash-status-donut')).findByText(/주문을 불러오지 못했어요/)).toBeInTheDocument();
+    expect(within(screen.getByTestId('dash-kpi-orders')).queryByTestId('dash-sparkline')).not.toBeInTheDocument(); // 못 읽은 날을 0 으로 잇지 않는다
   });
 
   it('처리 기한 지킴을 못 읽으면 "불러오지 못했어요"(0% 아님)', async () => {
