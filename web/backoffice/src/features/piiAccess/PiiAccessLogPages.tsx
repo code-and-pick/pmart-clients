@@ -12,6 +12,7 @@ import { request } from '@pmart/web-core';
 import { QueryState, toUiState } from '@pmart/web-ui';
 import type { components } from '../../api/generated/audit';
 import { useApi } from '../../app/ApiContext';
+import { SavedViews } from '../../shared/SavedViews';
 import { messages } from '../../shared/messages';
 import { isSeoulDate, label, seoulDayEnd, seoulDayStart, text, when } from '../../shared/ops';
 import { CodeLabel, FieldList, PageHeader, SearchPanel, SearchRow, Section, StatusBadge, type Tone } from '../../shared/admin';
@@ -137,6 +138,8 @@ export function PiiAccessLogListPage() {
   return (
     <section className="space-y-4">
       <PageHeader title={m.title} description={m.intro} />
+      {/* 내 보기(2026-11-18 Saleor 참고) — 지금 주소 조건을 이름 붙여 저장 */}
+      <SavedViews listKey="pii-access" />
       <FilterForm key={params.toString()} initial={filters} onApply={(f) => apply(f)} />
       {badRange ? (
         <p role="alert" className="alert alert-warning alert-soft text-sm">

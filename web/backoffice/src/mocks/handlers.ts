@@ -13,6 +13,7 @@ import { packingHandlers } from './packingHandlers';
 import { lookupHandlers } from './lookupHandlers';
 import { opsHandlers } from './opsHandlers';
 import { workCountsHandlers } from './workCountsHandlers';
+import { salesMetricsHandlers } from './salesMetricsHandlers';
 import { piiAccessLogHandlers } from './piiAccessLogHandlers';
 import { priceImportHandlers } from './priceImportHandlers';
 import { pricingHandlers } from './pricingHandlers';
@@ -38,6 +39,8 @@ export const handlers = [
   ...pricingHandlers,
   ...priceImportHandlers,
   ...inquiryHandlers,
+  // 지표 경로(/orders/metrics/*·/claims/metrics/*)가 /claims/:claimId 같은 경로에 먼저 잡히지 않게 앞에
+  ...salesMetricsHandlers,
   ...opsHandlers,
   ...workCountsHandlers,
   ...caseHandlers,

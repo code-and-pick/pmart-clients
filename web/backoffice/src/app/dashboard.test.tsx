@@ -15,7 +15,7 @@ describe('대시보드', () => {
     renderAt('/', as.admin);
     expect(await screen.findByRole('heading', { name: /좋은 아침이에요|오늘도 수고 많아요|오늘 하루 고생 많았어요/ })).toBeInTheDocument();
     for (const id of ['orders', 'pending', 'casesOverdue', 'inquiries', 'riderInquiries', 'approvals']) expect(screen.getByTestId(`dash-kpi-${id}`)).toBeInTheDocument();
-    expect(await within(screen.getByTestId('dash-kpi-approvals')).findByText('3')).toBeInTheDocument(); // 목 심사 대기 3
+    expect(await within(screen.getByTestId('dash-kpi-approvals')).findByText('1')).toBeInTheDocument(); // 관리자가 지금 심사할 수 있는 것(bff 0.16.0 DECIDABLE_BY_ME) — 목 심사 대기 3 중 직원 권한 1(자기 권한·가격은 못 함)
     expect(screen.getAllByTestId('dash-day')).toHaveLength(7);
     expect(within(screen.getAllByTestId('dash-day').at(-1)!).getByText('오늘')).toBeInTheDocument();
     expect(await screen.findByTestId('dash-sla-ratio')).toBeInTheDocument();

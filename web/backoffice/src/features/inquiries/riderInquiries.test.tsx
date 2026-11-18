@@ -33,7 +33,9 @@ describe('라이더 문의', () => {
 
     await userEvent.click(within(rows[0]!).getByRole('link', { name: 'INQ-MOCK-R1' }));
     expect(await screen.findByTestId('inquiry-requester')).toHaveTextContent('라이더');
-    expect(screen.getByRole('link', { name: 'RID-MOCK-1' })).toHaveAttribute('href', '/riders/RID-MOCK-1');
+    // 화면 번호(ADR-0070): 라이더 "가린 이름 · 6자리" — 시스템 ID 는 링크에만
+    expect(await screen.findByTestId('inquiry-rider')).toHaveAttribute('href', '/riders/RID-MOCK-1');
+    expect(await within(screen.getByTestId('inquiry-rider')).findByText(/482913/)).toBeInTheDocument();
     expect(screen.queryByText('고객 ID')).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: '이 문의로 라이더 컴플레인 기록' })).not.toBeInTheDocument();
     expect(screen.getByText('라이더는 앱의 문의에서 답변을 봐요. 답변은 고칠 수 없어요.')).toBeInTheDocument();

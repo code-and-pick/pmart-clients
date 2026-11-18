@@ -20,7 +20,7 @@ describe('지금 일 건수(관리자)', () => {
     server.use(
       http.get(`${BFF_BASE}/views/work-counts`, () =>
         view([
-          { group: 'APPROVALS', key: 'REVIEW_PENDING', segment: 'PRICE', value: 2000, complete: false, source: 'approval-service' },
+          { group: 'APPROVALS', key: 'DECIDABLE_BY_ME', segment: 'PRICE', value: 2000, complete: false, source: 'approval-service' },
           { group: 'CASES', key: 'OVERDUE', segment: 'MISDELIVERY', value: 4, complete: true, source: 'case-service' },
           { group: 'CASES', key: 'OVERDUE', segment: 'RIDER_HELP', value: 3, complete: true, source: 'case-service' },
         ]),

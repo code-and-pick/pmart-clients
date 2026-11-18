@@ -22,6 +22,9 @@ import { canSeeIntakes, CsIntakeLog } from '../csIntakes/CsIntakePages';
 import { InquiryPhotos } from './InquiryPhotos';
 import { ago, Avatar, Card, EmptyBox, Icon, ICON, MetaList } from './HelpdeskParts';
 import { CodeLabel, DetailHeader, NextAction, PageHeader, StatusBadge, type Tone } from '../../shared/admin';
+import { DisplayNumber, RiderLabel } from '../../shared/displayNumber';
+import { useDeliveryNumber, useOrderNumbers, useRiderLabels } from '../../shared/numberLookups';
+import { SavedViews } from '../../shared/SavedViews';
 import { messages as m } from '../../shared/messages';
 
 type Inquiry = components['schemas']['Inquiry'];
@@ -103,6 +106,8 @@ export function InquiryListPage({ kind = 'CUSTOMER' }: { readonly kind?: Request
   return (
     <section className="space-y-4">
       <PageHeader title={rider ? m.inquiries.riderTitle : m.inquiries.title} description={rider ? m.inquiries.riderIntro : m.inquiries.intro} />
+      {/* 내 보기(2026-11-18 Saleor 참고) — 지금 주소 조건을 이름 붙여 저장 */}
+      <SavedViews listKey={rider ? 'rider-inquiries' : 'inquiries'} />
       <div className="overflow-hidden rounded-box border border-base-300 bg-base-100 shadow-sm" data-testid="inquiry-list-card">
         {/* 상태 탭(밑줄) — 누르면 바로 서버에 묻는다(URL ?status=) */}
         <div role="radiogroup" aria-label={m.inquiries.statusFilter} className="flex gap-1 overflow-x-auto overflow-y-hidden border-b border-base-300 px-3">
@@ -425,6 +430,10 @@ export function InquiryDetailPage({ kind = 'CUSTOMER' }: { readonly kind?: Reque
     queryKey: ['inquiries', 'detail', inquiryId],
     queryFn: () => request('GET', api.cases.GET('/inquiries/{inquiryId}', { params: { path: { inquiryId } } })),
   });
+  // 화면 번호(ADR-0070, 2026-11-18): 문의 응답엔 번호가 없어 라이더·주문·배송 조회로 붙인다(같은 값은 캐시)
+  const riders = useRiderLabels([query.data?.riderId]);
+  const orders = useOrderNumbers([query.data?.orderId]);
+  const delivery = useDeliveryNumber(query.data?.deliveryId);
 
   return (
     <section className="space-y-4">
@@ -569,8 +578,8 @@ export function InquiryDetailPage({ kind = 'CUSTOMER' }: { readonly kind?: Reque
                           [
                             m.inquiries.rider,
                             q.riderId ? (
-                              <Link className="link link-primary font-mono text-xs" to={`/riders/${encodeURIComponent(q.riderId)}`}>
-                                {q.riderId}
+                              <Link className="link link-primary text-xs" to={`/riders/${encodeURIComponent(q.riderId)}`} data-testid="inquiry-rider">
+                                <RiderLabel rider={riders.get(q.riderId)} riderId={q.riderId} failed={riders.failed} />
                               </Link>
                             ) : (
                               m.none
@@ -584,7 +593,16 @@ export function InquiryDetailPage({ kind = 'CUSTOMER' }: { readonly kind?: Reque
                       <MetaList
                         rows={[
                           [m.inquiries.customer, <span className="font-mono text-xs">{q.customerId ?? m.none}</span>],
-                          [m.inquiries.order, <span className="font-mono text-xs">{q.orderId ?? m.none}</span>],
+                          [
+                            m.inquiries.order,
+                            q.orderId ? (
+                              <Link className="text-xs hover:text-primary hover:underline" to={`/orders/${encodeURIComponent(q.orderId)}`} data-testid="inquiry-order">
+                                <DisplayNumber number={orders.get(q.orderId)} systemId={q.orderId} failed={orders.failed(q.orderId)} />
+                              </Link>
+                            ) : (
+                              m.none
+                            ),
+                          ],
                           // 배송 신고(case 0.16.0) — 고객 배송 분류 + 주문 문의에만
                           q.deliveryIssue
                             ? [
@@ -594,8 +612,8 @@ export function InquiryDetailPage({ kind = 'CUSTOMER' }: { readonly kind?: Reque
                                   {q.deliveryId && (
                                     <>
                                       {` · ${m.inquiries.delivery} `}
-                                      <Link className="link link-primary" to={`/deliveries/${encodeURIComponent(q.deliveryId)}`}>
-                                        {q.deliveryId}
+                                      <Link className="link link-primary" to={`/deliveries/${encodeURIComponent(q.deliveryId)}`} data-testid="inquiry-delivery">
+                                        <DisplayNumber number={delivery.number} systemId={q.deliveryId} failed={delivery.failed} />
                                       </Link>
                                     </>
                                   )}

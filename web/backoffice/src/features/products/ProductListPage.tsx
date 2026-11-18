@@ -10,6 +10,7 @@ import { SALE_STATES, type SaleState } from '../../api/models';
 import { request } from '@pmart/web-core';
 import { useApi } from '../../app/ApiContext';
 import { FailureAlert } from '../../shared/Feedback';
+import { SavedViews } from '../../shared/SavedViews';
 import { messages as m } from '../../shared/messages';
 import { QueryState } from '@pmart/web-ui';
 import { toUiState } from '@pmart/web-ui';
@@ -119,6 +120,8 @@ export function ProductListPage() {
           </>
         }
       />
+      {/* 내 보기(2026-11-18 Saleor 참고) — 지금 주소 조건을 이름 붙여 저장 */}
+      <SavedViews listKey="products" />
       <div className="overflow-hidden rounded-box border border-base-300 bg-base-100 shadow-sm" data-testid="product-list-card">
         {/* 판매 상태 탭(밑줄) — URL 의 saleState 그대로 */}
         <UnderlineTabs<SaleState | ''>

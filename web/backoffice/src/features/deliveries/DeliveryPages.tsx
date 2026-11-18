@@ -14,10 +14,13 @@ import type { components as Dispatch } from '../../api/generated/delivery-dispat
 import type { components as Execution } from '../../api/generated/delivery-execution';
 import { useApi } from '../../app/ApiContext';
 import { CommandFeedback } from '../../shared/Feedback';
+import { DisplayNumber, RiderLabel, SystemNumbers } from '../../shared/displayNumber';
+import { isOrderNumber, isRiderNumber, riderIdOfNumber, useRiderLabels } from '../../shared/numberLookups';
+import { SavedViews } from '../../shared/SavedViews';
 import { messages as m } from '../../shared/messages';
 import { label, text, when } from '../../shared/ops';
 import { ChipGroup, CodeLabel, DataTable, DetailHeader, FieldList, NextAction, PageHeader, ResultBar, SearchPanel, SearchRow, Section, StatusBadge, type Tone, useRowLink } from '../../shared/admin';
-import { EmptyBox, Icon, IdLink, KindChip, ListFoot, Person, Timeline, When } from '../lookup/parts';
+import { EmptyBox, Icon, KindChip, ListFoot, Timeline, When } from '../lookup/parts';
 
 type DeliveryExecution = Execution['schemas']['DeliveryExecution'];
 type DispatchView = Dispatch['schemas']['Delivery'];
@@ -64,6 +67,8 @@ const TYPE_TONE: Readonly<Record<string, Tone>> = { FORWARD: 'info', RETURN: 'wa
 /** 직원 배송 목록 한 표(ID·상태·시각만 — 개인정보 없음) */
 export function DeliveryTable({ rows }: { readonly rows: readonly StaffDeliverySummary[] }) {
   const rowLink = useRowLink();
+  // 화면 번호(ADR-0070, 2026-11-18): 배송·주문은 응답의 deliveryNumber·orderNumber, 라이더는 rider 일괄 조회(riderIds)
+  const riders = useRiderLabels(rows.map((d) => d.riderId));
   return (
     <DataTable>
       <thead>
@@ -82,8 +87,8 @@ export function DeliveryTable({ rows }: { readonly rows: readonly StaffDeliveryS
           <tr key={d.deliveryId ?? `dlv-${i}`} data-testid="delivery-row" {...(d.deliveryId ? rowLink(`/deliveries/${encodeURIComponent(d.deliveryId)}`) : {})}>
             {/* 첫 칸: 배송 번호 굵게(링크) — 상세로 가는 첫 링크 */}
             <td>
-              <Link className="font-mono font-semibold text-base-content hover:text-primary hover:underline" to={`/deliveries/${encodeURIComponent(d.deliveryId ?? '')}`}>
-                {text(d.deliveryId)}
+              <Link className="font-semibold text-base-content hover:text-primary hover:underline" to={`/deliveries/${encodeURIComponent(d.deliveryId ?? '')}`} data-testid="delivery-number">
+                <DisplayNumber number={d.deliveryNumber} systemId={d.deliveryId} />
               </Link>
             </td>
             <td>
@@ -94,9 +99,23 @@ export function DeliveryTable({ rows }: { readonly rows: readonly StaffDeliveryS
                 {label(m.deliveries.typeName, d.type)}
               </KindChip>
             </td>
-            <td>{d.orderId ? <IdLink id={d.orderId} to={`/orders/${encodeURIComponent(d.orderId)}`} /> : m.none}</td>
-            <td>
-              <Person id={d.riderId} {...(d.riderId ? { to: `/riders/${encodeURIComponent(d.riderId)}` } : {})} />
+            <td data-testid="delivery-order">
+              {d.orderId ? (
+                <Link className="text-sm hover:text-primary hover:underline" to={`/orders/${encodeURIComponent(d.orderId)}`}>
+                  <DisplayNumber number={d.orderNumber} systemId={d.orderId} />
+                </Link>
+              ) : (
+                m.none
+              )}
+            </td>
+            <td data-testid="delivery-rider">
+              {d.riderId ? (
+                <Link className="text-sm hover:text-primary hover:underline" to={`/riders/${encodeURIComponent(d.riderId)}`}>
+                  <RiderLabel rider={riders.get(d.riderId)} riderId={d.riderId} failed={riders.failed} />
+                </Link>
+              ) : (
+                <span className="text-sm text-base-content/50">{m.deliveries.noAssignment}</span>
+              )}
             </td>
             <td className="text-sm">{text(d.mfcId)}</td>
             <td>
@@ -132,64 +151,62 @@ export function DeliveryOpenPage() {
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const [id, setId] = useState('');
-  const applied: { orderId: string; riderId: string; state: ExecutionState | ''; oldest: boolean } = {
+  // 화면 번호(ADR-0070, 2026-11-18): 주문번호(8자리)·라이더 번호(6자리)로도 찾는다. 다른 화면 링크의 시스템 ID(?orderId=·?riderId=)도 그대로 받는다.
+  const applied: { orderId: string; riderId: string; orderNumber: string; riderNumber: string; state: ExecutionState | ''; oldest: boolean } = {
     orderId: params.get('orderId') ?? '',
     riderId: params.get('riderId') ?? '',
+    orderNumber: params.get('orderNumber') ?? '',
+    riderNumber: params.get('riderNumber') ?? '',
     state: EXECUTION_STATES.find((s) => s === params.get('state')) ?? '',
     oldest: params.get('sort') === 'OLDEST',
   };
-  const searched = applied.orderId !== '' || applied.riderId !== '' || applied.state !== '' || params.has('q');
-  const [draft, setDraft] = useState(applied);
+  const searched = applied.orderId !== '' || applied.riderId !== '' || applied.orderNumber !== '' || applied.riderNumber !== '' || applied.state !== '' || params.has('q');
+  const [draft, setDraft] = useState({ order: applied.orderNumber || applied.orderId, rider: applied.riderNumber || applied.riderId, state: applied.state, oldest: applied.oldest });
+  /** 찾기 조건 — 라이더 번호는 rider 조회로 라이더 ID 로 바꾼다(없는 번호면 null = 결과 없음) */
+  const baseQuery = async () => {
+    const riderId = applied.riderId || (applied.riderNumber ? await riderIdOfNumber(api, applied.riderNumber) : '');
+    if (riderId === null) return null;
+    return {
+      size: 50,
+      sort: applied.oldest ? ('OLDEST' as const) : ('NEWEST' as const),
+      ...(applied.orderId ? { orderId: applied.orderId } : {}),
+      ...(applied.orderNumber ? { orderNumber: applied.orderNumber } : {}),
+      ...(riderId ? { riderId } : {}),
+      ...(applied.state ? { state: applied.state } : {}),
+    };
+  };
   const [extra, setExtra] = useState<{ key: string; rows: StaffDeliverySummary[]; cursor: string | null }>({ key: '', rows: [], cursor: null });
   const key = JSON.stringify(applied);
   const query = useQuery({
     queryKey: ['deliveries', 'search', applied],
     enabled: searched,
-    queryFn: () =>
-      request(
-        'GET',
-        api.execution.GET('/deliveries', {
-          params: {
-            query: {
-              size: 50,
-              sort: applied.oldest ? 'OLDEST' : 'NEWEST',
-              ...(applied.orderId ? { orderId: applied.orderId } : {}),
-              ...(applied.riderId ? { riderId: applied.riderId } : {}),
-              ...(applied.state ? { state: applied.state } : {}),
-            },
-          },
-        }),
-      ),
+    queryFn: async () => {
+      const q = await baseQuery();
+      // 없는 라이더 번호 — 서버에 물을 것이 없다(그 번호의 배송 없음)
+      if (!q) return { items: [], page: { nextCursor: null, size: 0 } };
+      return request('GET', api.execution.GET('/deliveries', { params: { query: q } }));
+    },
   });
   const more = extra.key === key ? extra : { key, rows: [], cursor: null };
   const nextCursor = more.cursor ?? query.data?.page?.nextCursor ?? null;
   const loadMore = async () => {
     if (!nextCursor) return;
-    const r = await request(
-      'GET',
-      api.execution.GET('/deliveries', {
-        params: {
-          query: {
-            size: 50,
-            cursor: nextCursor,
-            sort: applied.oldest ? 'OLDEST' : 'NEWEST',
-            ...(applied.orderId ? { orderId: applied.orderId } : {}),
-            ...(applied.riderId ? { riderId: applied.riderId } : {}),
-            ...(applied.state ? { state: applied.state } : {}),
-          },
-        },
-      }),
-    );
+    const q = await baseQuery();
+    if (!q) return;
+    const r = await request('GET', api.execution.GET('/deliveries', { params: { query: { ...q, cursor: nextCursor } } }));
     setExtra({ key, rows: [...more.rows, ...(r.items ?? [])], cursor: r.page?.nextCursor ?? null });
   };
-  const go = (f: typeof applied) =>
+  const go = (f: { order: string; rider: string; state: ExecutionState | ''; oldest: boolean }) => {
+    const order = f.order.trim();
+    const rider = f.rider.trim();
     setParams({
       q: '1',
-      ...(f.orderId.trim() ? { orderId: f.orderId.trim() } : {}),
-      ...(f.riderId.trim() ? { riderId: f.riderId.trim() } : {}),
+      ...(order ? (isOrderNumber(order) ? { orderNumber: order.replace(/[s-]/g, '') } : { orderId: order }) : {}),
+      ...(rider ? (isRiderNumber(rider) ? { riderNumber: rider } : { riderId: rider }) : {}),
       ...(f.state ? { state: f.state } : {}),
       ...(f.oldest ? { sort: 'OLDEST' } : {}),
     });
+  };
   const open = (e: FormEvent) => {
     e.preventDefault();
     if (id.trim()) void navigate(`/deliveries/${encodeURIComponent(id.trim())}`);
@@ -212,13 +229,15 @@ export function DeliveryOpenPage() {
           </form>
         }
       />
+      {/* 내 보기(2026-11-18 Saleor 참고) — 지금 주소 조건을 이름 붙여 저장 */}
+      <SavedViews listKey="deliveries" />
       <div className="flex flex-wrap items-center gap-2" role="group" aria-label={m.deliveries.quickViews}>
         <span className="text-xs font-medium text-base-content/55">{m.deliveries.quickViews}</span>
         <button
           type="button"
-          aria-pressed={applied.state === 'FAILURE_REPORTED' && applied.oldest && !applied.orderId && !applied.riderId}
-          className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs transition-colors ${applied.state === 'FAILURE_REPORTED' && applied.oldest && !applied.orderId && !applied.riderId ? 'border-warning bg-warning/15 font-semibold text-warning' : 'border-base-300 bg-base-100 hover:border-warning/60'}`}
-          onClick={() => go({ orderId: '', riderId: '', state: 'FAILURE_REPORTED', oldest: true })}
+          aria-pressed={applied.state === 'FAILURE_REPORTED' && applied.oldest && !applied.orderId && !applied.riderId && !applied.orderNumber && !applied.riderNumber}
+          className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs transition-colors ${applied.state === 'FAILURE_REPORTED' && applied.oldest && !applied.orderId && !applied.riderId && !applied.orderNumber && !applied.riderNumber ? 'border-warning bg-warning/15 font-semibold text-warning' : 'border-base-300 bg-base-100 hover:border-warning/60'}`}
+          onClick={() => go({ order: '', rider: '', state: 'FAILURE_REPORTED', oldest: true })}
         >
           <Icon name="alert" className="h-3.5 w-3.5" />
           {m.deliveries.failureQueue}
@@ -229,14 +248,14 @@ export function DeliveryOpenPage() {
           e.preventDefault();
           go(draft);
         }}
-        onReset={() => setDraft({ orderId: '', riderId: '', state: '', oldest: false })}
+        onReset={() => setDraft({ order: '', rider: '', state: '', oldest: false })}
         submitLabel={m.deliveries.search}
         resetLabel={m.deliveries.reset}
         label={m.deliveries.search}
       >
         <SearchRow label={m.deliveries.ids}>
-          <input aria-label={m.deliveries.orderIdFilter} placeholder={m.deliveries.orderIdFilter} className="input input-sm w-52" value={draft.orderId} onChange={(e) => setDraft((d) => ({ ...d, orderId: e.target.value }))} />
-          <input aria-label={m.deliveries.riderIdFilter} placeholder={m.deliveries.riderIdFilter} className="input input-sm w-52" value={draft.riderId} onChange={(e) => setDraft((d) => ({ ...d, riderId: e.target.value }))} />
+          <input aria-label={m.deliveries.orderIdFilter} placeholder={m.deliveries.orderIdFilter} className="input input-sm w-52" value={draft.order} onChange={(e) => setDraft((d) => ({ ...d, order: e.target.value }))} />
+          <input aria-label={m.deliveries.riderIdFilter} placeholder={m.deliveries.riderIdFilter} className="input input-sm w-52" value={draft.rider} onChange={(e) => setDraft((d) => ({ ...d, rider: e.target.value }))} />
         </SearchRow>
         <SearchRow label={m.deliveries.sort}>
           <label className="flex h-8 items-center gap-1 text-sm">
@@ -485,6 +504,7 @@ function ExecutionPanel({ deliveryId }: { readonly deliveryId: string }) {
     queryKey: ['deliveries', deliveryId, 'execution'],
     queryFn: () => request('GET', api.execution.GET('/deliveries/{deliveryId}', { params: { path: { deliveryId } } })),
   });
+  const riders = useRiderLabels([query.data?.riderId]);
   return (
     <Section title={<PanelTitle icon="truck" title={m.deliveries.execution} source="delivery-execution" />} testId="execution-panel">
       <QueryState state={toUiState(query)} onRetry={() => void query.refetch()}>
@@ -501,8 +521,9 @@ function ExecutionPanel({ deliveryId }: { readonly deliveryId: string }) {
             </div>
             <FieldList
               rows={[
-                [m.deliveries.rider, <Person key="r" id={d.riderId} {...(d.riderId ? { to: `/riders/${encodeURIComponent(d.riderId)}` } : {})} />],
-                [m.deliveries.order, d.orderId ? <Link key="o" className="font-mono text-primary hover:underline" to={`/orders/${encodeURIComponent(d.orderId)}`}>{d.orderId}</Link> : m.none],
+                // 화면 번호(ADR-0070): 라이더 "가린 이름 · 번호", 주문 8자리 — 시스템 ID 는 링크와 머리의 "시스템 번호"에만
+                [m.deliveries.rider, d.riderId ? <Link key="r" className="hover:text-primary hover:underline" to={`/riders/${encodeURIComponent(d.riderId)}`}><RiderLabel rider={riders.get(d.riderId)} riderId={d.riderId} failed={riders.failed} /></Link> : m.deliveries.noAssignment],
+                [m.deliveries.order, d.orderId ? <Link key="o" className="text-primary hover:underline" to={`/orders/${encodeURIComponent(d.orderId)}`}><DisplayNumber number={d.orderNumber} systemId={d.orderId} /></Link> : m.none],
                 [m.deliveries.mfc, text(d.mfcId)],
                 [m.deliveries.assignedAt, when(d.assignedAt)],
                 [m.deliveries.completedAt, when(d.completedAt)],
@@ -573,6 +594,7 @@ function DispatchPanel({ deliveryId }: { readonly deliveryId: string }) {
     queryKey: ['deliveries', deliveryId, 'dispatch'],
     queryFn: () => request('GET', api.dispatch.GET('/deliveries/{deliveryId}/dispatch', { params: { path: { deliveryId } } })),
   });
+  const dispatchRiders = useRiderLabels([query.data?.assignment?.riderId]);
   return (
     <Section title={<PanelTitle icon="user" title={m.deliveries.dispatch} source="delivery-dispatch" />} testId="dispatch-panel">
       <QueryState state={toUiState(query)} onRetry={() => void query.refetch()}>
@@ -585,7 +607,7 @@ function DispatchPanel({ deliveryId }: { readonly deliveryId: string }) {
             </div>
             <FieldList
               rows={[
-                [m.deliveries.rider, d.assignment?.riderId ? <Person key="r" id={d.assignment.riderId} to={`/riders/${encodeURIComponent(d.assignment.riderId)}`} /> : m.deliveries.noAssignment],
+                [m.deliveries.rider, d.assignment?.riderId ? <Link key="r" className="hover:text-primary hover:underline" to={`/riders/${encodeURIComponent(d.assignment.riderId)}`}><RiderLabel rider={dispatchRiders.get(d.assignment.riderId)} riderId={d.assignment.riderId} failed={dispatchRiders.failed} /></Link> : m.deliveries.noAssignment],
                 [m.deliveries.assignedAt, when(d.assignment?.assignedAt)],
                 [m.deliveries.pickedUpAt, when(d.assignment?.pickedUpAt)],
                 [m.deliveries.mfc, text(d.mfcId)],
@@ -635,6 +657,8 @@ export function DeliveryDetailPage() {
     queryFn: () => request('GET', api.execution.GET('/deliveries/{deliveryId}', { params: { path: { deliveryId } } })),
   });
   const d = execution.data;
+  const headRiders = useRiderLabels([d?.riderId]);
+  const rl = headRiders.get(d?.riderId);
   // 상세(2026-11-18): 상세 머리(종류·수행 상태가 먼저, 번호는 옆에 작게 + 컴플레인 기록) → 다음 할 일 → 원천 두 칸(배송 수행 | 배차) — 상태는 원천마다 따로, 합치지 않는다
   return (
     <section className="max-w-7xl space-y-4">
@@ -643,10 +667,12 @@ export function DeliveryDetailPage() {
         title={
           <>
             {d?.type && d.state ? m.deliveries.titleOf(label(m.deliveries.typeName, d.type), label(m.deliveries.executionState, d.state)) : m.deliveries.deliveryId}
-            <span className="ml-2 font-mono text-sm font-normal text-base-content/50">{deliveryId}</span>
+            <span className="ml-2 text-sm font-normal text-base-content/50">
+              <DisplayNumber number={d?.deliveryNumber} systemId={deliveryId} />
+            </span>
           </>
         }
-        summary={d ? m.deliveries.summaryOf(text(d.orderId), text(d.riderId), text(d.mfcId)) : undefined}
+        summary={d ? m.deliveries.summaryOf(d.orderNumber ?? m.none, d.riderId ? (rl?.riderNumber ? `${rl.nameMasked ?? ''} · ${rl.riderNumber}` : m.none) : m.deliveries.noAssignment, text(d.mfcId)) : undefined}
         actions={
           <Link className="btn btn-sm" to={`/rider-complaints/new?deliveryId=${encodeURIComponent(deliveryId)}`}>
             <Icon name="flag" className="h-4 w-4" />
@@ -654,6 +680,7 @@ export function DeliveryDetailPage() {
           </Link>
         }
       />
+      <SystemNumbers ids={[{ label: m.displayNumber.system.deliveryId, id: deliveryId }, { label: m.displayNumber.system.orderId, id: d?.orderId }, { label: m.displayNumber.system.riderId, id: d?.riderId }]} />
       {/* 다음 할 일 — 서버 수행 상태가 전달 실패 등록(FAILURE_REPORTED)일 때만: 확정·반려 칸으로 */}
       {d?.state === 'FAILURE_REPORTED' && (
         <NextAction tone="warning" title={m.deliveries.nextStep.failureTitle} body={m.deliveries.nextStep.failureBody}>
