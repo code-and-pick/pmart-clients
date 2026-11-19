@@ -3,7 +3,7 @@
 //   라이더가 MFC 에 오면 이 번호를 알려 주고, 라이더가 앱에 넣으면 반납이 끝난다(그러면 목록에서 빠진다). 30초마다 다시 읽는다.
 // - 5번 틀리면 잠김 → `POST /return-handovers/{deliveryId}/code-reissues`(새 번호·틀린 횟수 0·잠김 풀림, 앞 번호는 더 안 맞음). 한 번 더 묻는다.
 //   같은 Idempotency-Key 는 같은 결과, 409 = 반납을 기다리는 배송이 아님(이미 끝남). 결과 불명은 같은 키로 다시.
-// - 번호는 화면에만 — 로그·주소·저장소에 남기지 않는다. 라이더는 ID 만 오고 센터 관리자는 라이더 번호를 못 봐(bff 0.15.0 과 같음) ID 끝 + 비공개.
+// - 번호는 화면에만 — 로그·주소·저장소에 남기지 않는다. 라이더는 ID 만 온다 — RiderLabel 이 화면의 라이더를 모아 rider display-names(0.18.0) 한 번으로 "김*수 · 482913"(ID 는 보이지 않음).
 // - 현장 PDA(mfc_app 반납 인증번호 화면)와 같은 API·같은 번호다.
 // - 아래 "도착한 회수품(반입 대기)": mfc-inbound 0.13.0 `GET /return-arrivals?mfcId=&state=WAITING`(백엔드 요청 clients/mfc-app/2026-11-19-request-return-arrivals —
 //   백오피스는 보기만, 반입은 PDA). 종류·도착 시각·상품 × 수량·라이더 표기, 시스템 ID 없음(ADR-0070).

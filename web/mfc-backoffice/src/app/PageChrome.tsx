@@ -36,7 +36,7 @@ export function useSlashToSearch() {
       const t = e.target;
       if (t instanceof HTMLElement && (t.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(t.tagName))) return;
       if (e.key !== '/' || e.ctrlKey || e.metaKey || e.altKey) return;
-      const form = document.querySelector<HTMLFormElement>('main form[data-search]');
+      const form = document.querySelector<HTMLFormElement>('main form[data-list-part="top"]');
       if (!form) return;
       e.preventDefault();
       const focus = () => form.querySelector<HTMLElement>(FIELD)?.focus();

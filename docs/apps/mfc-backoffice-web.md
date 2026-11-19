@@ -224,7 +224,7 @@
 
 ### 4-13. 통합 백오피스와 같은 겉모습·목록·상세 부품(2026-11-19 PC 3 — 지침 `docs/handoff/all/2026-11-19-request-ui-ux-align.md`)
 - 겉모습: `main[data-skin=wing]`(index.css) — 연회색 바탕·흰 상자, 파랑 `#346aff` 하나, 그림자 없는 얇은 테두리, 큰 제목, 넉넉한 표, 흰 단추. 왼쪽 메뉴는 P 배지 로고·고른 메뉴 파란 채움·흰 글자(민트 안 씀).
-- 부품(사본 — web-ui 로 올라오면 바꿔 낀다): `shared/listParts.tsx`(StatCard 가로형·StatStrip·countCell·GuideBox·AllDone·SearchBar 칩 접기), `motion.tsx`, `ProgressSteps.tsx`, `StickyTitle.tsx`, `Preview.tsx`, `SavedViews.tsx`, `SearchSelect.tsx`(초성), `SeenMark.tsx`. 앱 것: `recentViews.ts`·`workQueue.tsx`(센터·종류마다), `app/PageChrome.tsx`(탭 제목·끊김 띠·'/' 키), `features/ops/opsQueries.ts`(운영판·탭 제목이 같은 조회).
+- 부품: **공용 `@pmart/web-ui`(2026-11-20 바꿔 낌)** — `StatStrip`·`GuideBox`·`AllDone`(`shared/listParts.tsx` 가 다시 내보냄, testId·제목 기본값만 앱), `motion.tsx`·`ProgressSteps.tsx`·`SearchSelect.tsx`(다시 내보내기만), `index.css` 의 `@import motion.css·wing.css`(앱 덧붙임: 왼쪽 메뉴 파랑, 고른 카드 `aria-pressed`, 색 단추 유지). **앱 사본**: `StatCard`·`countCell`(거르기 함수 onClick), `SearchBar`(조회 단추 없음·startOpen — 공용 SearchPanel 에 없어 PC 2 에 부탁), `StickyTitle.tsx`, `Preview.tsx`, `SavedViews.tsx`, `SeenMark.tsx`. '/' 키는 공용과 같은 `main form[data-list-part="top"]`. 앱 것: `recentViews.ts`·`workQueue.tsx`(센터·종류마다), `app/PageChrome.tsx`(탭 제목·끊김 띠·'/' 키), `features/ops/opsQueries.ts`(운영판·탭 제목이 같은 조회).
 - 화면:
   - 작업 현황: 상태 카드 4(대기·담당 정해짐·진행 중·막힘 — 상태마다 `GET /tasks?state=&size=50`, 넘치면 "50건 이상", 실패 "?", 누르면 거르기), 넷 다 서버 0건이면 "수고하셨어요", 안내 상자, 검색 칩, 내 보기, 새 줄 강조, 준비 약속 15분 안 숨쉬기·남은 분, 최근 봄, 줄 누르면 미리보기(↑↓·Enter 상세). 상세: 이전·n/N·다음([ ]), 제목 띠, 진행 단계(대기 → 배정 → 진행 → 완료, 막힘은 진행에서 주의, 실패·취소·일부 끝남은 ✕), 시스템 번호(작업·출고). 담당 바꾸기 작업자 고르기는 쳐서 찾기(초성).
   - 작업자: 숫자 카드(재직·정지·휴게 중·일일크루 출근 전 — 서버 기본 목록 전부에서 셈), 안내·칩·내 보기·최근 봄, 상세 이전·다음·제목 띠·시스템 번호(운영자 ID).

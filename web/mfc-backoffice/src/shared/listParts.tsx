@@ -1,10 +1,14 @@
-// 목록 공통 부품 — web/backoffice/src/shared/admin.tsx 의 StatCard·StatStrip·countCell·GuideBox·AllDone·SearchPanel(칩 접기)을 이 앱에 맞게 옮김
-// (2026-11-19 PC 2 요청 "통합 백오피스 UI·UX 를 MFC 백오피스에도", 쿠팡 윙 참고).
+// 목록 공통 부품(2026-11-19 PC 2 요청 "통합 백오피스 UI·UX 를 MFC 백오피스에도", 쿠팡 윙 참고).
+// 2026-11-20: StatStrip·GuideBox·AllDone 은 공용 @pmart/web-ui 를 쓴다(알림 handoff/all/2026-11-19-notice-web-ui-shared-parts).
+// 이 앱에 남긴 것: StatCard·countCell(공용 알림대로 앱 사본 — 이 앱은 주소 쿼리 대신 거르기 함수 onClick),
+// SearchBar(이 앱 목록은 고르는 즉시 거른다 — 공용 SearchPanel 은 조회·초기화 단추가 늘 붙어 회신에서 "단추 없음"·startOpen 을 부탁함).
 // - 숫자 카드: 서버가 센 수만. 읽는 중 "…", 못 읽으면 "?"(0 이 아님), 한 쪽에 다 못 세면 "N건 이상".
 // - 안내 상자: 화면이 이미 쓰는 업무 문구만(새 규칙을 만들지 않는다). 접은 것은 이 브라우저에 기억.
 // - 다 끝났어요 띠: 서버가 0건이라고 확인했을 때만(읽는 중·실패에는 그리지 않는다 — 부르는 쪽이 성공일 때만).
 // - 검색 조건: 조건을 건 뒤에는 한 줄 칩으로 접고 "검색 열기"로 펼친다. '/' 키는 이 칸의 첫 입력으로 간다(app/PageChrome).
-import { type ReactNode, useState } from 'react';
+import { type ComponentProps, type ReactNode, useState } from 'react';
+
+import { AllDone as UiAllDone, GuideBox as UiGuideBox } from '@pmart/web-ui';
 
 import { messages } from './messages';
 import { useStatChange } from './motion';
@@ -60,73 +64,17 @@ export function StatCard({
   );
 }
 
-/** 숫자 띠(목록 맨 위 카드 한 줄) */
-export function StatStrip({ children, label, testId }: { readonly children: ReactNode; readonly label: string; readonly testId?: string }) {
-  return (
-    <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5" role="group" aria-label={label} data-testid={testId}>
-      {children}
-    </div>
-  );
+/** 숫자 띠 — 공용(@pmart/web-ui StatStrip) 그대로 */
+export { StatStrip } from '@pmart/web-ui';
+
+/** 안내 상자 — 공용(@pmart/web-ui GuideBox, tone info·warning). 이 앱 시험이 찾는 testId 기본값만 둔다 */
+export function GuideBox(props: ComponentProps<typeof UiGuideBox>) {
+  return <UiGuideBox testId="guide-box" {...props} />;
 }
 
-/** 안내 상자 — ⓘ 제목 + 글머리 몇 줄, 접기(화면마다 storeKey 로 기억) */
-export function GuideBox({ title, items, storeKey, testId = 'guide-box' }: { readonly title: string; readonly items: readonly ReactNode[]; readonly storeKey: string; readonly testId?: string }) {
-  const k = `pmart.mfc-backoffice.guide.${storeKey}`;
-  const [open, setOpen] = useState(() => {
-    try {
-      return window.localStorage.getItem(k) !== 'closed';
-    } catch {
-      return true;
-    }
-  });
-  const toggle = () => {
-    const next = !open;
-    setOpen(next);
-    try {
-      window.localStorage.setItem(k, next ? 'open' : 'closed');
-    } catch {
-      // 저장이 막힌 브라우저 — 이번 화면에서만
-    }
-  };
-  return (
-    <div className="rounded-box border border-base-300 bg-base-200/50 px-5 py-3" data-testid={testId}>
-      <button type="button" className="flex w-full items-center justify-between gap-2 text-left text-sm font-semibold" aria-expanded={open} onClick={toggle}>
-        <span className="inline-flex items-center gap-2">
-          <span className="flex h-5 w-5 items-center justify-center rounded-full border border-base-content/40 text-[11px] font-bold" aria-hidden="true">
-            i
-          </span>
-          {title}
-        </span>
-        <span className="text-xs text-base-content/50" aria-hidden="true">
-          {open ? '▴' : '▾'}
-        </span>
-      </button>
-      {open && (
-        <ul className="mt-2 list-inside list-disc space-y-1 text-sm text-base-content/70">
-          {items.map((t, i) => (
-            <li key={i}>{t}</li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
-}
-
-/** 다 끝났어요 띠 — 서버가 0건이라고 확인했을 때만 */
-export function AllDone({ title = m.allDone, body, testId = 'all-done' }: { readonly title?: string; readonly body?: string; readonly testId?: string }) {
-  return (
-    <div role="status" className="flex items-center gap-3 rounded-box border border-success/30 bg-success/10 px-5 py-3.5" data-testid={testId}>
-      <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-success text-white" aria-hidden="true">
-        <svg viewBox="0 0 24 24" className="h-4 w-4 fill-none stroke-current" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round">
-          <path d="M5 12.5l4.5 4.5L19 7.5" />
-        </svg>
-      </span>
-      <span>
-        <span className="block font-bold">{title}</span>
-        {body && <span className="block text-sm text-base-content/65">{body}</span>}
-      </span>
-    </div>
-  );
+/** 다 끝났어요 띠 — 공용(@pmart/web-ui AllDone). 서버가 0건이라고 확인했을 때만 부른다. 제목 기본값만 이 앱 문구 */
+export function AllDone({ title = m.allDone, ...rest }: Omit<ComponentProps<typeof UiAllDone>, 'title'> & { readonly title?: string }) {
+  return <UiAllDone title={title} {...rest} />;
 }
 
 /**
@@ -182,7 +130,7 @@ export function SearchBar({
         className="flex flex-wrap items-end gap-x-5 gap-y-3 rounded-box rounded-t-none border border-t-0 border-base-300 bg-base-100 px-4 py-3.5 text-sm"
         onSubmit={(e) => e.preventDefault()}
         aria-label={label}
-        data-search=""
+        data-list-part="top"
         hidden={!open}
       >
         {children}

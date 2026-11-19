@@ -8,6 +8,8 @@ import '../../../shared/pda_theme.dart';
 import '../../../shared/ui_state_of.dart';
 import '../domain/return_handover.dart';
 import '../../handover/presentation/handover_controller.dart';
+import '../../handover/presentation/handover_screens.dart'
+    show riderDisplayText;
 import 'return_handover_controller.dart';
 
 String returnPurposeText(AppLocalizations l10n, ReturnPurpose p) => switch (p) {
@@ -83,17 +85,25 @@ class ReturnHandoversScreen extends ConsumerWidget {
             ),
           ),
         ]),
-        ready: (context, items) =>
-            list([for (final h in items) _ReturnCard(item: h)]),
+        // 화면의 라이더를 모아 한 번에 묻는다(rider display-names, 50개까지).
+        ready: (context, items) {
+          final riderIds = riderKey(items.map((h) => h.riderId));
+          return list([
+            for (final h in items) _ReturnCard(item: h, riderIds: riderIds),
+          ]);
+        },
       ),
     );
   }
 }
 
 class _ReturnCard extends ConsumerWidget {
-  const _ReturnCard({required this.item});
+  const _ReturnCard({required this.item, required this.riderIds});
 
   final ReturnHandoverView item;
+
+  /// 화면 라이더 전체 키([riderKey]).
+  final String riderIds;
 
   Future<bool> _confirm(BuildContext context) async {
     final l10n = AppLocalizations.of(context);
@@ -161,17 +171,7 @@ class _ReturnCard extends ConsumerWidget {
             ),
             // 라이더 ID 대신 "김*수 · 482913"(rider 0.18.0, ADR-0070). 모르면 "라이더", 실패면 "라이더(이름 못 읽음)".
             Text(
-              l10n.rhRider(switch (item.riderId) {
-                null => l10n.riderUnknown,
-                final rid => switch (ref.watch(
-                  riderLabelsProvider(riderKey([rid])),
-                )) {
-                  AsyncData(:final value) =>
-                    value[rid]?.text ?? l10n.riderUnknown,
-                  AsyncError() => l10n.riderUnreadable,
-                  _ => '…',
-                },
-              }),
+              l10n.rhRider(riderDisplayText(l10n, ref, item.riderId, riderIds)),
               key: ValueKey('rh-rider-$id'),
               style: const TextStyle(color: PdaColors.body),
             ),

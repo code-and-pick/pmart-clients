@@ -18,7 +18,6 @@ export const messages = {
   displayNumber: {
     missing: '번호 없음',
     failed: '번호 확인 불가',
-    riderHidden: '라이더 정보 비공개',
     /** 라이더 표기 조회(rider display-names)에 없는 ID */
     riderUnknown: '라이더',
     /** 라이더 표기 조회 실패 — 없는 것과 못 읽은 것을 섞지 않는다 */

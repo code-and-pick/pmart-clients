@@ -72,9 +72,12 @@ String? checkFlowMessage(AppLocalizations l10n, CheckFlow f) =>
 
 /// 확인 버튼 두 개. "포장대에 없음"은 재고가 빠지는 확정이라 한 번 더 묻는다.
 class HandoverCheckButtons extends ConsumerWidget {
-  const HandoverCheckButtons({super.key, required this.item});
+  const HandoverCheckButtons({super.key, required this.item, this.riderIds});
 
   final HandoverView item;
+
+  /// 같은 화면 라이더를 한 번에 묻는 키([riderKey]) — 목록이면 목록 전체 키를 넘겨 조회를 한 번으로.
+  final String? riderIds;
 
   Future<bool> _confirm(BuildContext context, String title, String body) async {
     final l10n = AppLocalizations.of(context);
@@ -133,6 +136,13 @@ class HandoverCheckButtons extends ConsumerWidget {
     final id = item.packageId;
     final flow = ref.watch(checkFlowProvider(id));
     final message = checkFlowMessage(l10n, flow);
+    // 확인 창의 라이더도 표기로("김*수 · 482913") — 라이더 ID 는 글자로 내지 않는다(ADR-0070).
+    final rider = riderDisplayText(
+      l10n,
+      ref,
+      item.riderId,
+      riderIds ?? riderKey([item.riderId]),
+    );
     final unknown = flow.phase == CheckPhase.unknown;
     final busy = flow.phase == CheckPhase.sending;
     final clientError =
@@ -201,7 +211,7 @@ class HandoverCheckButtons extends ConsumerWidget {
                           if (await _confirm(
                             context,
                             l10n.confirmTakenTitle,
-                            l10n.confirmTakenBody(item.riderId ?? '-'),
+                            l10n.confirmTakenBody(rider),
                           )) {
                             if (!context.mounted) return;
                             await _send(
@@ -326,7 +336,7 @@ class HandoverChecksScreen extends ConsumerWidget {
                               warning: true,
                             ),
                           const SizedBox(height: 8),
-                          HandoverCheckButtons(item: h),
+                          HandoverCheckButtons(item: h, riderIds: riderIds),
                           Align(
                             alignment: Alignment.centerRight,
                             child: TextButton(
@@ -617,14 +627,27 @@ class RiderLabelText extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
-    final id = riderId;
-    if (id == null) return Text(l10n.hoRider(l10n.riderUnknown));
-    final q = ref.watch(riderLabelsProvider(ids));
-    final text = switch (q) {
-      AsyncData(:final value) => value[id]?.text ?? l10n.riderUnknown,
-      AsyncError() => l10n.riderUnreadable,
-      _ => '…',
-    };
-    return Text(l10n.hoRider(text), key: ValueKey('ho-rider-$id'));
+    final text = riderDisplayText(l10n, ref, riderId, ids);
+    return Text(
+      l10n.hoRider(text),
+      key: riderId == null ? null : ValueKey('ho-rider-$riderId'),
+    );
   }
+}
+
+/// 라이더 한 명의 화면 표기 — "김*수 · 482913", 탈퇴는 번호만, 모르면 "라이더", 조회 실패면 "라이더(이름 못 읽음)".
+/// [ids] 는 같은 화면 라이더 전체 키([riderKey]) — 같은 키면 조회는 한 번이다.
+String riderDisplayText(
+  AppLocalizations l10n,
+  WidgetRef ref,
+  String? riderId,
+  String ids,
+) {
+  final id = riderId;
+  if (id == null) return l10n.riderUnknown;
+  return switch (ref.watch(riderLabelsProvider(ids))) {
+    AsyncData(:final value) => value[id]?.text ?? l10n.riderUnknown,
+    AsyncError() => l10n.riderUnreadable,
+    _ => '…',
+  };
 }

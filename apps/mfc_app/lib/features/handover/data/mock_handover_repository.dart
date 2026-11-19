@@ -48,8 +48,12 @@ base class MockHandoverRepository implements HandoverRepository {
   /// 라이더 표기 조회를 실패시킨다.
   bool failRiderLabels = false;
 
+  /// 라이더 표기 조회에 넘어온 ID 묶음(시험이 "한 화면 한 번"을 확인).
+  final riderLabelRequests = <List<String>>[];
+
   @override
   Future<Map<String, RiderLabel>> riderLabels(List<String> riderIds) async {
+    riderLabelRequests.add(List.of(riderIds));
     await _wait();
     if (failRiderLabels) {
       throw const ProblemFailure(Problem(status: 503, code: 'UNAVAILABLE'));

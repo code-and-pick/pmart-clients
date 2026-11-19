@@ -8,6 +8,8 @@ import 'package:pmart_core/testing.dart';
 import 'package:pmart_ui/pmart_ui.dart';
 
 import 'package:mfc_app/app.dart';
+import 'package:mfc_app/features/handover/data/mock_handover_repository.dart';
+import 'package:mfc_app/features/handover/presentation/handover_controller.dart';
 import 'package:mfc_app/features/return_handover/data/mock_return_handover_repository.dart';
 import 'package:mfc_app/features/return_handover/data/return_handover_repository.dart';
 import 'package:mfc_app/features/return_handover/domain/return_handover.dart';
@@ -20,6 +22,7 @@ void main() {
   setUpAll(initPmartFormatting);
 
   late MockReturnHandoverRepository returns;
+  late MockHandoverRepository handovers;
 
   List<Override> overrides() => [
     envProvider.overrideWithValue(PmartEnv.mock),
@@ -27,10 +30,14 @@ void main() {
       MockTaskRepository(latency: Duration.zero),
     ),
     returnHandoverRepositoryProvider.overrideWithValue(returns),
+    handoverRepositoryProvider.overrideWithValue(handovers),
     secureStoreProvider.overrideWithValue(MemoryKeyValueStore()),
   ];
 
-  setUp(() => returns = MockReturnHandoverRepository(latency: Duration.zero));
+  setUp(() {
+    returns = MockReturnHandoverRepository(latency: Duration.zero);
+    handovers = MockHandoverRepository(latency: Duration.zero);
+  });
 
   group('새 번호', () {
     late ProviderContainer c;
@@ -130,6 +137,11 @@ void main() {
     // 라이더 ID(r-7) 대신 가린 이름·라이더 번호(ADR-0070).
     expect(find.text('라이더: 김*수 · 482913'), findsOneWidget);
     expect(find.textContaining('r-7'), findsNothing);
+    // 화면의 라이더(r-7·r-9)를 모아 한 번에 묻는다 — 줄마다 묻지 않는다.
+    expect(find.text('라이더: 이*진 · 377102'), findsOneWidget);
+    expect(handovers.riderLabelRequests, [
+      ['r-7', 'r-9'],
+    ]);
     expect(find.text('라이더가 1번 틀렸어요'), findsOneWidget);
     // 잠긴 배송은 번호 대신 잠김 안내.
     expect(find.byKey(const ValueKey('rh-locked-dlv-ret-2')), findsOneWidget);

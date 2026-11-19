@@ -256,10 +256,10 @@
     }
   },
   "hoLocationUnknown": "놓인 위치 정보 없음",
-  "hoRider": "허가받은 라이더: {riderId}",
+  "hoRider": "허가받은 라이더: {rider}",
   "@hoRider": {
     "placeholders": {
-      "riderId": {
+      "rider": {
         "type": "String"
       }
     }
@@ -277,10 +277,10 @@
   "confirmAtStationTitle": "포장대에 있는 것으로 확인할까요?",
   "confirmAtStationBody": "인계 허가가 풀려 다른 라이더가 다시 찍을 수 있어요.",
   "confirmTakenTitle": "라이더에게 인계된 것으로 확정할까요?",
-  "confirmTakenBody": "포장대에 이 포장이 정말 없을 때만 누르세요. 허가받은 라이더({riderId})에게 인계로 처리되고 재고가 빠져요. 되돌릴 수 없어요.",
+  "confirmTakenBody": "포장대에 이 포장이 정말 없을 때만 누르세요. 허가받은 라이더({rider})에게 인계로 처리되고 재고가 빠져요. 되돌릴 수 없어요.",
   "@confirmTakenBody": {
     "placeholders": {
-      "riderId": {
+      "rider": {
         "type": "String"
       }
     }
@@ -1298,8 +1298,8 @@
   "rhPurposeOther": "회수·반납",
   "rhDelivery": "배송 번호: {number}",
   "@rhDelivery": {"placeholders": {"number": {"type": "String"}}},
-  "rhRider": "라이더: {riderId}",
-  "@rhRider": {"placeholders": {"riderId": {"type": "String"}}},
+  "rhRider": "라이더: {rider}",
+  "@rhRider": {"placeholders": {"rider": {"type": "String"}}},
   "rhLocked": "잠겼어요 · 번호를 재발급해 주세요",
   "rhIssuedAt": "{time} 발급",
   "@rhIssuedAt": {"placeholders": {"time": {"type": "String"}}},

@@ -45,18 +45,23 @@ final class ApiHandoverRepository implements HandoverRepository {
   @override
   Future<Map<String, RiderLabel>> riderLabels(List<String> riderIds) async {
     if (riderIds.isEmpty) return const {};
-    final res = await pmartGuard(
-      () => _riders.getRiderDisplayNames(riderIds: riderIds.take(50).join(',')),
-    );
-    final items =
-        res.data?.items ?? (throw const ContractViolationFailure('items 없음'));
-    return {
-      for (final i in items)
-        i.riderId: RiderLabel(
-          riderNumber: i.riderNumber,
-          nameMasked: i.nameMasked,
-        ),
-    };
+    // 서버는 한 번에 50개까지 — 넘으면 50개씩 나눠 묻는다(목록 뒤쪽 라이더가 "라이더"로만 보이지 않게).
+    final out = <String, RiderLabel>{};
+    for (var i = 0; i < riderIds.length; i += 50) {
+      final chunk = riderIds.skip(i).take(50).join(',');
+      final res = await pmartGuard(
+        () => _riders.getRiderDisplayNames(riderIds: chunk),
+      );
+      final items =
+          res.data?.items ?? (throw const ContractViolationFailure('items 없음'));
+      for (final r in items) {
+        out[r.riderId] = RiderLabel(
+          riderNumber: r.riderNumber,
+          nameMasked: r.nameMasked,
+        );
+      }
+    }
+    return out;
   }
 
   @override

@@ -1,4 +1,7 @@
 @import 'tailwindcss';
+/* 공용 움직임·겉모습(@pmart/web-ui, 2026-11-19 PC 2 — 2026-11-20 사본에서 바꿔 낌) */
+@import '../../ui/src/motion.css';
+@import '../../ui/src/wing.css';
 @plugin "daisyui";
 /* 공유 패키지(@pmart/web-ui)의 컴포넌트가 쓰는 클래스도 읽는다 */
 @source "../../ui/src";
@@ -62,94 +65,20 @@ main .rounded-box.bg-base-100 {
   border: 1px solid var(--color-base-300);
 }
 
-/* ---- 쿠팡 윙 느낌(2026-11-19 PC 2 요청 "통합 백오피스 UI·UX 를 MFC 백오피스에도" — web/backoffice/src/index.css data-skin=wing 사본) ----
-   본문(main[data-skin=wing])만: 바탕은 연회색(통합 백오피스 06afd68 "배경 전처럼 회색"), 상자·카드는 흰색 · 선명한 파랑 강조 하나 ·
-   그림자 없이 얇은 회색 테두리 · 모서리 덜 둥글게 · 큰 제목 · 넉넉한 표. 왼쪽 메뉴·머리줄은 테마 그대로. */
-[data-skin='wing'] {
-  --color-primary: #346aff;
-  --color-primary-content: #fff;
-  --color-info: #346aff;
-  --color-base-200: #f5f6f8;
-  --color-base-300: #e3e6ea;
-  --radius-box: 0.375rem;
-  --radius-field: 0.25rem;
-  --radius-selector: 0.25rem;
-  font-size: 14px;
-}
-/* 왼쪽 메뉴의 고른 메뉴·홈도 같은 파랑 */
+/* ---- 쿠팡 윙 겉모습은 공용 wing.css(위 @import). 아래는 이 앱에만 있는 덧붙임 ---- */
+/* 왼쪽 메뉴의 고른 메뉴·홈도 본문과 같은 파랑(지침 1-3) — wing.css 는 본문(main)에만 걸린다 */
 aside[data-testid='side-menu'] {
   --color-primary: #346aff;
   --color-primary-content: #fff;
 }
-[data-skin='wing'] :is(.shadow-sm, .shadow, .shadow-md, .shadow-lg) {
-  box-shadow: none;
-}
-[data-skin='wing'] h1 {
-  font-size: 1.5rem;
-  font-weight: 700;
-}
-[data-skin='wing'] table th {
-  background: #f5f6f8;
-  font-size: 0.8125rem;
-  color: #555;
-}
-[data-skin='wing'] table td {
-  font-size: 0.875rem;
-  padding-block: 0.8rem;
-}
-[data-skin='wing'] .btn:not(.btn-primary):not(.btn-ghost):not(.btn-warning):not(.btn-error):not(.btn-success) {
-  background: #fff;
-  border-color: #c9ced6;
-  box-shadow: none;
-  font-weight: 500;
-}
-/* 고른 카드·칩: 파랑 테두리 + 옅은 파랑(지침 1-1) */
-[data-skin='wing'] [aria-pressed='true']:is(.rounded-box, .rounded-lg) {
+/* 고른 숫자 카드·칩: 파랑 테두리 + 옅은 파랑(지침 1-1). 이 앱 숫자 카드는 거르기 단추라 aria-pressed 로 표시한다(공용은 aria-current) */
+:root:not([data-theme='pmart-dark']) [data-skin='wing'] [aria-pressed='true']:is(.rounded-box, .rounded-lg) {
   border-color: #346aff;
   background: #f0f5ff;
   --tw-ring-color: transparent;
 }
-[data-skin='wing'] .text-xs {
-  font-size: 0.78rem;
-}
-
-/* ---- 움직임 효과(통합 백오피스와 같게) — 지금 일이 벌어지거나 방금 바뀐 곳에만. "움직임 줄이기"를 켜면 모두 끈다 ---- */
-/* 진행 단계: 지금 단계 동그라미에서만 고리가 천천히 퍼진다 */
-@keyframes pmart-step-pulse {
-  0% { transform: scale(1); opacity: 0.55; }
-  70%, 100% { transform: scale(1.75); opacity: 0; }
-}
-.step-pulse {
-  position: absolute;
-  inset: 0;
-  border-radius: 9999px;
-  border: 2px solid currentColor;
-  pointer-events: none;
-}
-@media (prefers-reduced-motion: no-preference) {
-  .step-pulse { animation: pmart-step-pulse 2s ease-out infinite; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .step-pulse { display: none; }
-}
-/* 숫자 카드: 방금 바뀐 칸만 잠깐 빛남 */
-@keyframes pmart-changed {
-  0% { box-shadow: 0 0 0 0 color-mix(in oklab, var(--color-primary) 50%, transparent); }
-  100% { box-shadow: 0 0 0 12px transparent; }
-}
-.stat-changed { animation: pmart-changed 1.4s ease-out 2; }
-/* 저절로 새로 읽는 목록: 새로 들어온 줄 */
-@keyframes pmart-row-new {
-  0% { background-color: color-mix(in oklab, var(--color-info) 22%, transparent); }
-  100% { background-color: transparent; }
-}
-.row-new > td { animation: pmart-row-new 5s ease-out; }
-/* 기한 임박: 천천히 숨쉬기 */
-@keyframes pmart-breathe {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.35; }
-}
-.breathe { animation: pmart-breathe 2s ease-in-out infinite; }
-@media (prefers-reduced-motion: reduce) {
-  .stat-changed, .row-new > td, .breathe, .animate-ping { animation: none !important; }
+/* 색 단추(경고·위험·확인)는 흰 바탕으로 바꾸지 않는다 — 공용 wing.css 는 파랑·ghost 만 빼서, 격리·취소 같은 단추가 흰색이 된다 */
+:root:not([data-theme='pmart-dark']) [data-skin='wing'] .btn:is(.btn-warning, .btn-error, .btn-success):not(.btn-ghost):not(.btn-link) {
+  background-color: var(--btn-bg);
+  border-color: var(--btn-border);
 }

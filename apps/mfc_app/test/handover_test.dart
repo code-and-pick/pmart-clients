@@ -203,6 +203,35 @@ void main() {
       expect(body['result'], 'TAKEN_BY_RIDER');
     });
 
+    test('라이더 표기: 50개씩 나눠 묻고 합친다(없는 ID 는 빠짐)', () async {
+      final adapter = FakeAdapter((o, _) async {
+        final ids = (o.uri.queryParameters['riderIds'] ?? '').split(',');
+        return FakeReply(
+          200,
+          body: {
+            'items': [
+              for (final id in ids)
+                if (id != 'r-missing')
+                  {'riderId': id, 'riderNumber': '100000', 'nameMasked': '김*수'},
+            ],
+          },
+        );
+      });
+      final ids = [for (var i = 0; i < 120; i++) 'r-$i', 'r-missing'];
+      final labels = await repo(adapter).riderLabels(ids);
+      expect(adapter.requests, hasLength(3));
+      for (final r in adapter.requests) {
+        expect(r.uri.path, '/api/v1/riders/display-names');
+        expect(
+          r.uri.queryParameters['riderIds']!.split(',').length,
+          lessThanOrEqualTo(50),
+        );
+      }
+      expect(labels, hasLength(120));
+      expect(labels['r-119']?.text, '김*수 · 100000');
+      expect(labels.containsKey('r-missing'), isFalse);
+    });
+
     test('재고 반영 상태가 없거나 모르는 값이면 확인 중으로 본다', () async {
       final adapter = FakeAdapter(
         (_, _) async => const FakeReply(
@@ -306,6 +335,20 @@ void main() {
 
     await t.tap(find.byKey(const ValueKey('check-taken-pkg-chk-1')));
     await t.pumpAndSettle();
+    // 확인 창도 라이더 ID 대신 표기(ADR-0070) — 목록과 같은 조회 한 번을 쓴다.
+    final dialog = find.byType(AlertDialog);
+    expect(
+      find.descendant(
+        of: dialog,
+        matching: find.textContaining(RegExp(r'허가받은 라이더\(\S+ · \d{6}\)')),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: dialog, matching: find.textContaining('rider-mock')),
+      findsNothing,
+    );
+    expect(handovers.riderLabelRequests, hasLength(1));
     await t.tap(find.byKey(const ValueKey('confirm-ok')));
     await t.pumpAndSettle();
     expect(handovers.checkCalls, 1);
