@@ -53,6 +53,8 @@ class Settlement {
     required this.to,
     required this.amount,
     required this.status,
+    this.deliveryId,
+    this.note,
   });
 
   final DateTime from;
@@ -61,6 +63,17 @@ class Settlement {
   /// null 이면 산정 불가.
   final int? amount;
   final SettlementStatus status;
+
+  /// 배송마다 한 줄인 실서버 수행료의 배송 ID(목의 주 단위 묶음은 null) — 수행료 이의 신청 대상.
+  final String? deliveryId;
+
+  /// 조정·추가 배달료 결과 안내(서버 `note`).
+  final String? note;
+
+  /// 이의 신청을 보일 줄(rider 0.15.0 — 산정 불가·조정·결과 안내가 있는 줄. 맞는지는 직원이 판단한다).
+  bool get appealable =>
+      deliveryId != null &&
+      (amount == null || status == SettlementStatus.adjusted || note != null);
 }
 
 @immutable
@@ -164,6 +177,8 @@ final class MockRecordsRepository implements RecordsRepository {
         to: DateTime(2026, 10, 18),
         amount: null,
         status: SettlementStatus.awaitingConfirm,
+        // 목: 산정 불가 한 줄은 이의 신청을 시험할 수 있게 배송 ID 를 둔다
+        deliveryId: 'dlv-1',
       ),
     ];
   }
@@ -282,6 +297,8 @@ final class ApiRecordsRepository implements RecordsRepository {
           from: (e.recordedAt ?? DateTime.now()).toLocal(),
           to: (e.recordedAt ?? DateTime.now()).toLocal(),
           amount: (e.calculable ?? false) ? e.total : null,
+          deliveryId: e.deliveryId,
+          note: e.note,
           status: switch (e.settlementState?.value) {
             'PENDING_CONFIRMATION' => SettlementStatus.awaitingConfirm,
             'CONFIRMED' => SettlementStatus.confirmed,

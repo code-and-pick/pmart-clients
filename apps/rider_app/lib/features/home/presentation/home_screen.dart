@@ -12,6 +12,8 @@ import '../../../shared/location_reporter.dart';
 import '../../../shared/rider_map.dart';
 import '../../../shared/rider_style.dart';
 import '../../../shared/rider_widgets.dart';
+import '../../appeals/data/appeals.dart';
+import '../../appeals/presentation/appeal_screens.dart';
 import '../../auth/data/pickup_points.dart';
 import '../../delivery/data/trip_repository.dart';
 import '../../delivery/presentation/delivery_controller.dart';
@@ -797,6 +799,26 @@ class _RestrictionBanner extends StatelessWidget {
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            // 계정 제한 소명(rider 0.15.0) — 결정은 라이더 운영, 결과는 알림함
+            TextButton(
+              key: const ValueKey('appeal-restriction'),
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.white,
+                side: const BorderSide(color: Colors.white70),
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                minimumSize: const Size(0, 32),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              onPressed: () =>
+                  context.push(appealNewRoute(AppealTarget.restriction)),
+              child: Text(
+                l10n.appealRestrictionButton,
+                style: const TextStyle(
+                  fontSize: 13,
                   fontWeight: FontWeight.w700,
                 ),
               ),

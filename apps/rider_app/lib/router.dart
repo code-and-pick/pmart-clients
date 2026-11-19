@@ -2,6 +2,8 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'features/appeals/data/appeals.dart';
+import 'features/appeals/presentation/appeal_screens.dart';
 import 'features/auth/data/session.dart';
 import 'features/auth/presentation/fee_guide_screen.dart';
 import 'features/auth/presentation/login_screen.dart';
@@ -128,6 +130,17 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (_, _) => const SettlementsScreen(),
       ),
       GoRoute(path: '/my/history', builder: (_, _) => const HistoryScreen()),
+      // 소명·이의 신청(rider 0.15.0) — ?type=restriction|earning&deliveryId=
+      GoRoute(path: '/my/appeals', builder: (_, _) => const MyAppealsScreen()),
+      GoRoute(
+        path: '/my/appeals/new',
+        builder: (_, s) => AppealNewScreen(
+          target: s.uri.queryParameters['type'] == 'earning'
+              ? AppealTarget.earning
+              : AppealTarget.restriction,
+          deliveryId: s.uri.queryParameters['deliveryId'],
+        ),
+      ),
       // 배송 밖 문의(case-service, 라이더 토큰)·알림함(notification).
       GoRoute(
         path: '/my/inquiries',

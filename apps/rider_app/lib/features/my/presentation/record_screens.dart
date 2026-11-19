@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:pmart_ui/pmart_ui.dart';
 
 import '../../../l10n/gen/app_localizations.dart';
 import '../../../shared/rider_style.dart';
 import '../../../shared/rider_widgets.dart';
 import '../../../shared/ui_state_of.dart';
+import '../../appeals/data/appeals.dart';
+import '../../appeals/presentation/appeal_screens.dart';
 import '../data/records.dart';
 
 String _day(AppLocalizations l10n, DateTime d) => l10n.monthDay(d.month, d.day);
@@ -196,17 +199,46 @@ class SettlementsScreen extends ConsumerWidget {
                         ],
                       ),
                     ),
-                    Text(
-                      settlementText(l10n, s.status),
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: s.status == SettlementStatus.paid
-                            ? RiderColors.gold
-                            : s.status == SettlementStatus.payFailed
-                            ? RiderColors.danger
-                            : Colors.white,
-                      ),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          settlementText(l10n, s.status),
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: s.status == SettlementStatus.paid
+                                ? RiderColors.gold
+                                : s.status == SettlementStatus.payFailed
+                                ? RiderColors.danger
+                                : Colors.white,
+                          ),
+                        ),
+                        // 수행료 이의 신청(rider 0.15.0) — 산정 불가·조정·결과 안내가 있는 줄
+                        if (s.appealable)
+                          TextButton(
+                            key: ValueKey('appeal-earning-$i'),
+                            style: TextButton.styleFrom(
+                              foregroundColor: Colors.white70,
+                              padding: const EdgeInsets.only(top: 4),
+                              minimumSize: Size.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
+                            onPressed: () => context.push(
+                              appealNewRoute(
+                                AppealTarget.earning,
+                                deliveryId: s.deliveryId,
+                              ),
+                            ),
+                            child: Text(
+                              l10n.appealButton,
+                              style: const TextStyle(
+                                fontSize: 14,
+                                decoration: TextDecoration.underline,
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
                   ],
                 ),
