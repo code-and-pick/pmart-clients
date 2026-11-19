@@ -73,6 +73,7 @@ export const messages = {
     prices: '가격',
     priceImport: '가격 일괄 등록',
     handlings: '센터 취급',
+    zeroResults: '결과 없는 검색어',
     assistant: '업무 도우미',
     inquiries: '문의 답변',
     csIntake: '전화·채팅 접수',
@@ -2904,6 +2905,22 @@ export const messages = {
     retry: '다시 읽기',
   },
   /** 문의 만족도 모아 보기(case 0.15.0, 관리자만 — 상담원 평가에 쓰지 않음) */
+  /** 결과 0건 검색어(search 0.4.0, ADR-0073) */
+  searchMisses: {
+    title: '결과 없는 검색어',
+    intro: '고객이 검색했는데 상품이 하나도 안 나온 검색어예요. 많이 나온 순서대로 보여요. 상품명을 고치거나 동의어를 정할 때 근거로 써요.',
+    period: '기간',
+    days: (d: number) => (d === 1 ? '최근 하루' : `최근 ${d}일`),
+    periodHint: '고객·비회원이 첫 쪽에서 검색한 것만 세요. 인기 검색어에서 숨긴 말은 빠져요.',
+    count: (days: number, n: number, more: boolean) => `최근 ${days}일 · ${n}개${more ? '+ (많이 나온 50개까지)' : ''}`,
+    empty: (days: number) => `최근 ${days}일 동안 결과 없는 검색어가 없어요.`,
+    asOf: (t: string) => `${t} 기준`,
+    stale: { STALE: '늦은 값', UNAVAILABLE: '기준 시각 모름' },
+    col: { rank: '순위', keyword: '검색어', searches: '검색 횟수', searchers: '검색한 사람(약)', last: '마지막 검색' },
+    times: (n: number) => `${n.toLocaleString('ko-KR')}번`,
+    people: (n: number) => `${n.toLocaleString('ko-KR')}명`,
+    next: '동의어 등록(상품팀 요청 → 관리자 승인)은 준비 중이에요. 지금은 상품명·설명에 고객이 쓰는 말을 넣어 주세요.',
+  },
   satisfaction: {
     title: '문의 만족도',
     intro: '답변을 받은 고객이 남긴 1~5점이에요. 상담 평가일 뿐 반품·환불 종결이 아니고, 상담원 평가에 쓰지 않아요(상담원별 숫자는 없어요).',

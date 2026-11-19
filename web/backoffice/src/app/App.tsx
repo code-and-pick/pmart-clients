@@ -42,6 +42,7 @@ const ContentDraftPage = lazy(() => import('../features/contents/ContentDraftPag
 const NewContentDraftPage = lazy(() => import('../features/contents/ContentDraftPage').then((x) => ({ default: x.NewContentDraftPage })));
 const ContentImportPage = lazy(() => import('../features/contents/ContentImportPage').then((x) => ({ default: x.ContentImportPage })));
 const NewContentImportPage = lazy(() => import('../features/contents/ContentImportPage').then((x) => ({ default: x.NewContentImportPage })));
+const ZeroResultKeywordsPage = lazy(() => import('../features/search/ZeroResultKeywordsPage').then((x) => ({ default: x.ZeroResultKeywordsPage })));
 const SkuHandlingPage = lazy(() => import('../features/handlings/SkuHandlingPage').then((x) => ({ default: x.SkuHandlingPage })));
 const ClaimDetailPage = lazy(() => import('../features/claims/ClaimPages').then((x) => ({ default: x.ClaimDetailPage })));
 const ClaimListPage = lazy(() => import('../features/claims/ClaimPages').then((x) => ({ default: x.ClaimListPage })));
@@ -332,6 +333,7 @@ const routes = [
       { path: 'prices/import', element: guarded(<NewPriceImportPage />) },
       { path: 'prices/import/:batchId', element: guarded(<PriceImportPage />) },
       { path: 'handlings', element: guarded(<SkuHandlingPage />) },
+      { path: 'search/zero-results', element: guarded(<ZeroResultKeywordsPage />) },
       { path: 'inquiries', element: guarded(<InquiryListPage />) },
       { path: 'inquiry-satisfaction', element: guarded(<SatisfactionPage />) },
       { path: 'inquiries/:inquiryId', element: guarded(<InquiryDetailPage />) },
