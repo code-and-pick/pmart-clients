@@ -261,9 +261,38 @@ describe('클레임 조회', () => {
 });
 
 describe('배송 확인', () => {
-  it('전달 실패 확정: X-Expected-Version = 수행 version, 반영되면 상태가 바뀐다', async () => {
+  // 2026-11-19 사용자 "라이더 백오피스만"(delivery PR #255): 라이더·배송 일 처리는 관리자만, 그 밖은 보기만 + 이 배송의 접수 건
+  it('상담원은 전달 실패를 보기만 — 결정·배차 취소 칸 없음, 이 배송의 접수 건(지원센터 처리 상태)으로 잇는다', async () => {
+    renderAt('/deliveries/DLV-MOCK-2', as.cs);
+    expect(await screen.findByTestId('execution-state')).toHaveTextContent('전달 실패 등록');
+    expect(screen.getByTestId('delivery-failure')).toHaveTextContent('세 번 전화했지만');
+    const box = screen.getByTestId('rider-ops-handoff');
+    expect(box).toHaveTextContent('라이더 백오피스(지원센터)에서');
+    const link = await within(box).findByTestId('rider-ops-case');
+    expect(link).toHaveAttribute('href', '/cases/CASE-MOCK-2');
+    expect(link).toHaveTextContent('전달 실패');
+    expect(link).toHaveTextContent('지원센터 처리 중');
+    expect(screen.queryByRole('button', { name: '결정 보내기' })).toBeNull();
+    expect(screen.queryByTestId('next-action')).toBeNull();
+  });
+
+  it('라이더 운영도 이 앱에서는 배차 취소 칸 없음 — 접수 건이 없으면 안내만', async () => {
+    renderAt('/deliveries/DLV-MOCK-1', as.riderOps);
+    expect(await screen.findByTestId('rider-ops-handoff')).toBeInTheDocument();
+    expect(await within(screen.getByTestId('dispatch-panel')).findByTestId('dispatch-state')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '배차 취소 보내기' })).toBeNull();
+  });
+
+  it('접수 건 목록을 못 읽으면 "확인하지 못했어요" — 없음으로 바꾸지 않는다', async () => {
+    server.use(http.get(`${API_BASE}/cases`, () => HttpResponse.json({ code: 'UNAVAILABLE' }, { status: 503 })));
+    renderAt('/deliveries/DLV-MOCK-2', as.cs);
+    expect(await screen.findByTestId('rider-ops-cases-failed')).toBeInTheDocument();
+    expect(screen.queryByTestId('rider-ops-no-case')).toBeNull();
+  });
+
+  it('전달 실패 확정(관리자): X-Expected-Version = 수행 version, 반영되면 상태가 바뀐다', async () => {
     const user = userEvent.setup();
-    const view = renderAt('/deliveries/DLV-MOCK-2', as.cs);
+    const view = renderAt('/deliveries/DLV-MOCK-2', as.admin);
     expect(await screen.findByTestId('execution-state')).toHaveTextContent('전달 실패 등록');
     expect(screen.getByTestId('delivery-failure')).toHaveTextContent('세 번 전화했지만');
     // 다음 할 일(2026-11-18): 전달 실패 등록이면 확정·반려 칸으로

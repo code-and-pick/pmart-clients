@@ -2,6 +2,9 @@
 // 찾기 = execution 0.4.0 `GET /deliveries`(주문·라이더·상태 — BOD-5, BR-56 끝). 배송 수행 = delivery-execution `GET /deliveries/{id}`, 배차 = delivery-dispatch 0.3.1 `GET /deliveries/{id}/dispatch` — 원천이 달라 따로 읽고 따로 보인다.
 // 전달 실패 확정·반려 `POST /deliveries/{id}/failure-decisions`(FAILURE_REPORTED 일 때만, X-Expected-Version = 수행 version).
 // 픽업 전 배차 취소 `POST /deliveries/{id}/assignment-cancellations`(202 접수 → 짝 조회 `GET …/{requestId}` 로 결과 확인, X-Expected-Version = 배차 version).
+// 2026-11-19 사용자 "라이더 백오피스만"(백엔드 delivery PR #255, execution 0.32.2): 라이더·배송 일의 처리 주인은 라이더 백오피스(지원센터) 하나 —
+//   이 앱에서는 전달 실패 확정·반려와 배차 취소를 관리자(OPERATOR_ADMIN)에게만 보이고, 그 밖 직원은 보기만 + 이 배송의 접수 건(지원센터 처리 상태)으로 잇는다(RiderOpsHandoff).
+//   이관(case transfers)은 상담원이 부를 수 없어(그 사건을 다루는 사람만) 상담원에게 넘기기 단추를 두지 않는다 — 관리자 팀으로 간 건을 돌려보내는 일은 관리자가 접수 건 상세에서.
 // 권한은 서버 판정(PC 5 PR #17 — BOD-1·2 반영): 배차 조회는 CS_AGENT·RIDER_OPS 도, 결정은 RIDER_OPS 도, 취소는 RIDER_OPS·관리자(CS_AGENT 는 취소하지 않음 — ADR-0060).
 import { QueueNav, RememberQueue } from '../../shared/workQueue';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -605,6 +608,7 @@ function DeliveryPreview({ deliveryId }: { readonly deliveryId: string }) {
 
 function ExecutionPanel({ deliveryId }: { readonly deliveryId: string }) {
   const api = useApi();
+  const admin = useIsAdmin();
   const query = useQuery({
     queryKey: ['deliveries', deliveryId, 'execution'],
     queryFn: () => request('GET', api.execution.GET('/deliveries/{deliveryId}', { params: { path: { deliveryId } } })),
@@ -653,9 +657,11 @@ function ExecutionPanel({ deliveryId }: { readonly deliveryId: string }) {
                 />
               </div>
             )}
-            <StickyWhen show={d.state === 'FAILURE_REPORTED'}>
-              <FailureDecisionForm delivery={d} />
-            </StickyWhen>
+            {admin && (
+              <StickyWhen show={d.state === 'FAILURE_REPORTED'}>
+                <FailureDecisionForm delivery={d} />
+              </StickyWhen>
+            )}
             <div className="grid gap-5 sm:grid-cols-2">
               <div className="space-y-3">
                 <h3 className="text-sm font-bold">{m.deliveries.history}</h3>
@@ -695,6 +701,7 @@ function ExecutionPanel({ deliveryId }: { readonly deliveryId: string }) {
 
 function DispatchPanel({ deliveryId }: { readonly deliveryId: string }) {
   const api = useApi();
+  const admin = useIsAdmin();
   const query = useQuery({
     queryKey: ['deliveries', deliveryId, 'dispatch'],
     queryFn: () => request('GET', api.dispatch.GET('/deliveries/{deliveryId}/dispatch', { params: { path: { deliveryId } } })),
@@ -718,9 +725,11 @@ function DispatchPanel({ deliveryId }: { readonly deliveryId: string }) {
                 [m.deliveries.mfc, text(d.mfcId)],
               ]}
             />
-            <StickyWhen show={d.state === 'ASSIGNED'}>
-              <CancellationForm dispatch={d} />
-            </StickyWhen>
+            {admin && (
+              <StickyWhen show={d.state === 'ASSIGNED'}>
+                <CancellationForm dispatch={d} />
+              </StickyWhen>
+            )}
             <div className="space-y-3">
               <h3 className="text-sm font-bold">{m.deliveries.attempts}</h3>
               {(d.attempts ?? []).length === 0 ? (
@@ -753,6 +762,57 @@ function DispatchPanel({ deliveryId }: { readonly deliveryId: string }) {
   );
 }
 
+const useIsAdmin = () => useSession().session?.roles.includes('OPERATOR_ADMIN') ?? false;
+
+/**
+ * 관리자 아닌 직원(상담원·라이더 운영 등)의 배송 상세 — 처리는 라이더 백오피스(지원센터)에서(2026-11-19 사용자 "라이더 백오피스만").
+ * 이 배송의 열린 접수 건(case `GET /cases?subjectRef=<배송>`)을 보여 그 처리 상태(지원센터·관리자 팀, 맡음)로 잇는다.
+ * 못 읽으면 "확인 못 함"(없음으로 바꾸지 않음). 접수 건이 없으면 안내만.
+ */
+function RiderOpsHandoff({ deliveryId, failureReported }: { readonly deliveryId: string; readonly failureReported: boolean }) {
+  const api = useApi();
+  const h = m.deliveries.riderOps;
+  const cases = useQuery({
+    queryKey: ['cases', 'of-delivery', deliveryId],
+    enabled: deliveryId !== '',
+    queryFn: () => request('GET', api.cases.GET('/cases', { params: { query: { subjectRef: deliveryId } } })),
+  });
+  const items = cases.data?.items ?? [];
+  return (
+    <div className="space-y-2 rounded-box border border-info/30 bg-info/5 p-4" role="note" data-testid="rider-ops-handoff">
+      <h2 className="flex items-center gap-2 text-sm font-bold">
+        <Icon name="truck" className="h-4 w-4 text-info" />
+        {h.title}
+      </h2>
+      <p className="text-sm text-base-content/70">{failureReported ? h.bodyFailure : h.body}</p>
+      {cases.isPending ? (
+        <p className="text-xs text-base-content/50">…</p>
+      ) : cases.isError ? (
+        <p className="text-xs text-warning" data-testid="rider-ops-cases-failed">
+          {h.casesFailed}
+        </p>
+      ) : items.length === 0 ? (
+        <p className="text-xs text-base-content/60" data-testid="rider-ops-no-case">
+          {h.noCase}
+        </p>
+      ) : (
+        <ul className="space-y-1">
+          {items.map((c) => (
+            <li key={c.caseId}>
+              <Link className="inline-flex flex-wrap items-center gap-2 text-sm hover:text-primary hover:underline" to={`/cases/${encodeURIComponent(c.caseId ?? '')}`} data-testid="rider-ops-case">
+                <span className="font-mono">{c.caseNumber ?? m.displayNumber.missing}</span>
+                <span>{label(m.cases.kindName, c.kind)}</span>
+                <StatusBadge tone={c.assigneeGroup === 'ORDER_OPS' ? 'warning' : 'info'}>{h.team(label(m.cases.groupName, c.assigneeGroup))}</StatusBadge>
+                <span className="text-xs text-base-content/55">{c.assigneeId ? h.assigned : h.unassigned}</span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 export function DeliveryDetailPage() {
   const { deliveryId = '' } = useParams();
   const api = useApi();
@@ -762,6 +822,7 @@ export function DeliveryDetailPage() {
     queryFn: () => request('GET', api.execution.GET('/deliveries/{deliveryId}', { params: { path: { deliveryId } } })),
   });
   const d = execution.data;
+  const admin = useIsAdmin();
   const headRiders = useRiderLabels([d?.riderId]);
   const rl = headRiders.get(d?.riderId);
   // 상세(2026-11-18): 상세 머리(종류·수행 상태가 먼저, 번호는 옆에 작게 + 컴플레인 기록) → 다음 할 일 → 원천 두 칸(배송 수행 | 배차) — 상태는 원천마다 따로, 합치지 않는다
@@ -788,13 +849,14 @@ export function DeliveryDetailPage() {
       <QueueNav kind="delivery" id={deliveryId} />
       <SystemNumbers ids={[{ label: m.displayNumber.system.deliveryId, id: deliveryId }, { label: m.displayNumber.system.orderId, id: d?.orderId }, { label: m.displayNumber.system.riderId, id: d?.riderId }]} />
       {/* 다음 할 일 — 서버 수행 상태가 전달 실패 등록(FAILURE_REPORTED)일 때만: 확정·반려 칸으로 */}
-      {d?.state === 'FAILURE_REPORTED' && (
+      {admin && d?.state === 'FAILURE_REPORTED' && (
         <NextAction tone="warning" title={m.deliveries.nextStep.failureTitle} body={m.deliveries.nextStep.failureBody}>
           <a className="btn btn-sm btn-warning" href="#failure-decision">
             {m.deliveries.nextStep.failureGo}
           </a>
         </NextAction>
       )}
+      {!admin && <RiderOpsHandoff deliveryId={deliveryId} failureReported={d?.state === 'FAILURE_REPORTED'} />}
       <div className="grid items-start gap-4 xl:grid-cols-2">
         <ExecutionPanel deliveryId={deliveryId} />
         <DispatchPanel deliveryId={deliveryId} />

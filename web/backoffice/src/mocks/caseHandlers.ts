@@ -238,6 +238,7 @@ function listCases(sees: (c: Case) => boolean, q: URLSearchParams): Summary[] {
     .filter((c) => q.get('overdue') !== 'true' || c.overdue)
     .filter((c) => !assignee || c.assigneeId === assignee)
     .filter((c) => !q.get('kind') || c.kind === q.get('kind'))
+    .filter((c) => !q.get('subjectRef') || c.subjectRef === q.get('subjectRef'))
     .sort((a, b) => PRIORITY_ORDER[a.priority ?? 'P4'] - PRIORITY_ORDER[b.priority ?? 'P4'] || (a.slaDueAt ?? '').localeCompare(b.slaDueAt ?? ''))
     .map(summaryOf);
 }
