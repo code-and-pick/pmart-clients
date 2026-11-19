@@ -344,11 +344,13 @@ export function StatusDonut({ today, toneOf }: { readonly today: string; readonl
 
 // ───────────────────────── 최근 활동 ─────────────────────────
 
-type Activity = { readonly at: string; readonly kind: 'approval' | 'case' | 'inquiry'; readonly title: string; readonly to: string; readonly meta: string };
-const ACT_ICON: Record<Activity['kind'], { readonly d: string; readonly cls: string }> = {
-  approval: { d: 'm5 12 4 4 10-10', cls: 'bg-info/15 text-info' },
-  case: { d: 'M12 9v4m0 3h.01M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z', cls: 'bg-warning/15 text-warning' },
-  inquiry: { d: 'M4 5h16v11H8l-4 4V5Z', cls: 'bg-primary/10 text-primary' },
+// 2026-11-20 사용자 "최근 활동이 뭘 말하는 건지 모르겠다·글이 길어 끊긴다" — "새로 들어온 일" 한 줄 목록으로:
+// [종류 꼬리표] 짧은 이름(접수 건 종류·문의 종류·승인 유형) …… 몇 시간 전. 긴 요약 문장은 줄에 마우스를 올리면(title) 보인다.
+type Activity = { readonly at: string; readonly kind: 'approval' | 'case' | 'inquiry'; readonly what: string; readonly full: string; readonly to: string };
+const ACT_CHIP: Record<Activity['kind'], { readonly label: string; readonly cls: string }> = {
+  approval: { label: m.act.chip.approval, cls: 'bg-info/15 text-info' },
+  case: { label: m.act.chip.case, cls: 'bg-warning/15 text-warning' },
+  inquiry: { label: m.act.chip.inquiry, cls: 'bg-primary/10 text-primary' },
 };
 
 function ago(iso: string): string {
@@ -360,7 +362,7 @@ function ago(iso: string): string {
   return a.day(Math.floor(min / (60 * 24)));
 }
 
-/** 최근 활동 — 승인 요청·접수 건·고객 문의 첫 쪽 5건씩을 시각순으로(보이는 메뉴만, 못 읽은 원천은 아래에 밝힘) */
+/** 새로 들어온 일 — 승인 요청·접수 건·고객 문의 첫 쪽 5건씩을 시각순으로(보이는 메뉴만, 못 읽은 원천은 아래에 밝힘) */
 export function ActivityFeed({ approvals, cases, inquiries }: { readonly approvals: boolean; readonly cases: boolean; readonly inquiries: boolean }) {
   const api = useApi();
   const a = useQuery({
@@ -383,11 +385,14 @@ export function ActivityFeed({ approvals, cases, inquiries }: { readonly approva
   });
   const list: Activity[] = [];
   for (const x of a.data?.items ?? [])
-    if (x.submittedAt && x.approvalId) list.push({ at: x.submittedAt, kind: 'approval', title: x.summary ?? x.approvalId, to: `/approvals/${encodeURIComponent(x.approvalId)}`, meta: m.act.approval(messages.approvals.typeName[x.type ?? ''] ?? x.type ?? '') });
+    if (x.submittedAt && x.approvalId) {
+      const type = messages.approvals.typeName[x.type ?? ''] ?? x.type ?? '';
+      list.push({ at: x.submittedAt, kind: 'approval', what: m.act.approvalWhat(type), full: x.summary ?? '', to: `/approvals/${encodeURIComponent(x.approvalId)}` });
+    }
   for (const x of c.data?.items ?? [])
-    if (x.openedAt && x.caseId) list.push({ at: x.openedAt, kind: 'case', title: x.summary ?? label(messages.cases.kindName, x.kind ?? null), to: `/cases/${encodeURIComponent(x.caseId)}`, meta: m.act.case(label(messages.cases.kindName, x.kind ?? null)) });
+    if (x.openedAt && x.caseId) list.push({ at: x.openedAt, kind: 'case', what: label(messages.cases.kindName, x.kind ?? null), full: x.summary ?? '', to: `/cases/${encodeURIComponent(x.caseId)}` });
   for (const x of q.data?.items ?? [])
-    list.push({ at: x.createdAt, kind: 'inquiry', title: x.title ?? messages.inquiries.untitled, to: `/inquiries/${encodeURIComponent(x.inquiryId)}`, meta: m.act.inquiry(label(messages.inquiries.categoryName, x.category)) });
+    list.push({ at: x.createdAt, kind: 'inquiry', what: m.act.inquiryWhat(label(messages.inquiries.categoryName, x.category)), full: x.title ?? '', to: `/inquiries/${encodeURIComponent(x.inquiryId)}` });
   list.sort((p, n) => n.at.localeCompare(p.at));
   const failed = [approvals && a.isError && m.act.sourceApproval, cases && c.isError && m.act.sourceCase, inquiries && q.isError && m.act.sourceInquiry].filter(Boolean) as string[];
   const loading = (approvals && a.isPending) || (cases && c.isPending) || (inquiries && q.isPending);
@@ -396,29 +401,22 @@ export function ActivityFeed({ approvals, cases, inquiries }: { readonly approva
       {list.length === 0 ? (
         <p className="py-6 text-center text-sm text-base-content/55">{loading ? '…' : failed.length > 0 ? m.act.allFailed : m.act.none}</p>
       ) : (
-        <ol className="relative space-y-4 before:absolute before:bottom-2 before:left-[15px] before:top-2 before:w-px before:bg-base-300">
+        <ul className="-mx-2 divide-y divide-base-200">
           {list.slice(0, 8).map((x) => (
-            <li key={`${x.kind}-${x.to}`} className="relative flex gap-3" data-testid="dash-activity-item">
-              <span className={`relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full ring-4 ring-base-100 ${ACT_ICON[x.kind].cls}`} aria-hidden="true">
-                <svg viewBox="0 0 24 24" className="h-4 w-4 fill-none stroke-current" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                  <path d={ACT_ICON[x.kind].d} />
-                </svg>
-              </span>
-              <div className="min-w-0 flex-1">
-                <Link to={x.to} className="block truncate text-sm font-medium hover:text-primary hover:underline" title={x.title}>
-                  {x.title}
-                </Link>
-                <p className="text-xs text-base-content/50">{`${x.meta} · ${ago(x.at)}`}</p>
-              </div>
+            <li key={`${x.kind}-${x.to}`} data-testid="dash-activity-item">
+              <Link to={x.to} title={x.full || undefined} className="flex items-center gap-2 rounded-md px-2 py-2 text-sm hover:bg-base-200/60">
+                <span className={`shrink-0 rounded px-1.5 py-0.5 text-[11px] font-semibold ${ACT_CHIP[x.kind].cls}`}>{ACT_CHIP[x.kind].label}</span>
+                <span className="min-w-0 flex-1 truncate font-medium">{x.what}</span>
+                <span className="shrink-0 text-xs tabular-nums text-base-content/50">{ago(x.at)}</span>
+              </Link>
             </li>
           ))}
-        </ol>
+        </ul>
       )}
       {failed.length > 0 && list.length > 0 && <p className="mt-3 text-xs text-warning" data-testid="dash-activity-failed">{m.act.failed(failed.join(', '))}</p>}
     </Section>
   );
 }
-
 
 // ───────────────────────── 지표(준비 중 포함) ─────────────────────────
 // 백엔드 회신 2026-11-18(reply-dashboard-approval·notice-metrics-case-sla):
