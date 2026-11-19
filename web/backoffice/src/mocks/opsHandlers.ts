@@ -364,11 +364,13 @@ const CS = ['CS_AGENT', 'OPERATOR_ADMIN'];
 
 /** claim 0.4.0 고객센터 주문 취소(상품준비 전, 주문 전체) */
 function createCancel(body: ClaimC['schemas']['CreateClaimRequest']) {
-  if (!body.identityCheck?.method || (body.identityCheck.method === 'OTHER' && !body.identityCheck.note)) return problem(400, 'VALIDATION_FAILED');
+  // claim 0.7.0 CL-5 배차 불가 취소 — 회사 사유라 본인 확인 없음, 인계 전(CONFIRMED·PREPARING)이면 된다
+  const dispatch = body.reason === 'DISPATCH_UNAVAILABLE';
+  if (!dispatch && (!body.identityCheck?.method || (body.identityCheck.method === 'OTHER' && !body.identityCheck.note))) return problem(400, 'VALIDATION_FAILED');
   if (body.faultCode || body.channel === 'CUSTOMER_APP' || body.reason === 'FULFILLMENT_REJECTED' || body.reason === 'OUT_OF_STOCK') return problem(400, 'VALIDATION_FAILED');
   const order = ops.orders.find((o) => o.orderId === body.orderId);
   if (!order) return problem(404, 'ORDER_NOT_FOUND');
-  if (order.status !== 'CONFIRMED')
+  if (dispatch ? !['CONFIRMED', 'PREPARING'].includes(order.status) : order.status !== 'CONFIRMED')
     return { status: 422, body: { type: 'about:blank', title: 'ORDER_NOT_CANCELLABLE', status: 422, code: 'ORDER_NOT_CANCELLABLE', traceId: 'mock', detail: '[목] 상품 준비가 시작되어 취소할 수 없습니다 — 받으신 뒤 반품으로 안내해 주세요.' } };
   const whole = order.lines.every((l) => body.lines.some((x) => x.orderLineId === l.orderLineId && x.qty === (l.unfulfilledQty ?? 0)));
   if (!whole || body.lines.length !== order.lines.length) return problem(422, 'PARTIAL_CANCEL_NOT_ALLOWED');

@@ -127,6 +127,22 @@ function seed(): Case[] {
         { action: 'RECURRED', at: at(-0.1), actorId: 'SYSTEM', note: '3번째 — NO_RIDER' },
       ],
     }),
+    // case 0.27.0 배차 지연(R-9) — 상담원 팀(CS), 지원센터에는 안 보임. 주문 ORD-MOCK-1005(확정 — 배차 불가 취소 가능)
+    base({
+      caseId: 'CASE-MOCK-R9',
+      kind: 'DISPATCH_DELAYED',
+      priority: 'P2',
+      summary: '[목] 배차 지연 — 약속보다 25분 늦음, 라이더 못 찾음',
+      subjectType: 'DELIVERY',
+      subjectRef: 'DLV-MOCK-R9',
+      assigneeGroup: 'CS',
+      centerId: 'MFC-BSN-01',
+      refs: [
+        { refType: 'deliveryId', refId: 'DLV-MOCK-R9' },
+        { refType: 'orderId', refId: 'ORD-MOCK-1005' },
+      ],
+      slaDueAt: at(1),
+    }),
     // case 0.22.0 반품 회수 실패(R-8) — CS 팀(상담원이 맡고 완료 처리), 지원센터에는 안 보임. 클레임 CLM-MOCK-RF(claim 목)
     base({
       caseId: 'CASE-MOCK-R8',

@@ -413,6 +413,7 @@ export const messages = {
       RECONCILIATION: '결과 불일치 확인',
       PAYMENT_UNKNOWN: '결제 결과 불명',
       RETURN_RECOVERY_FAILED: '반품 회수 실패',
+      DISPATCH_DELAYED: '배차 지연',
       // 계약 CaseKind 의 나머지(2026-11-18 코드 이름 — 지금 열리지 않아도 이름만)
       TRANSPORT_INCIDENT: '간선 운송 사고',
       LINE_SHORTAGE: '품목 결품',
@@ -1078,6 +1079,25 @@ export const messages = {
     chosen: (summary: string) => `✓ ${summary}`,
     noSummary: '요약 없음',
     notFound: '그 승인을 찾지 못했어요 — 다시 골라 주세요.',
+  },
+  /** 배차 불가로 취소(claim 0.7.0 CL-5, 2026-11-19) */
+  dispatchCancel: {
+    title: '배차 불가로 취소',
+    intro: '라이더를 찾지 못해 배송할 수 없으면 주문 전체를 취소하고 결제한 금액을 모두 돌려줘요. 회사 사유라 고객 본인 확인은 필요 없어요. 물건을 넘기기 전까지만 돼요.',
+    orderLine: '주문',
+    lineCount: (n: number) => `취소할 품목 ${n}개(남은 수량 전부)`,
+    nothingLeft: '취소할 남은 품목이 없어요(이미 넘겼거나 취소됐어요).',
+    orderFailed: '주문을 읽지 못해 취소할 수 없어요 — 잠시 뒤 다시 열어 주세요.',
+    button: '배차 불가로 취소…',
+    closedNote: '처리 끝난 접수 건이라 취소할 수 없어요.',
+    confirmTitle: '이 주문을 배차 불가로 취소할까요?',
+    confirmPoints: ['주문 전체가 취소되고 결제한 금액을 모두 환불해요.', '보내면 되돌릴 수 없어요.', '환불이 끝났는지는 클레임 상세에서 확인해요.'] as readonly string[],
+    keep: '그만두기',
+    confirm: '취소하고 전액 환불',
+    done: (state: string) => `취소를 접수했어요 — 클레임 상태 ${state}.`,
+    openClaim: '클레임 상세',
+    notCancellable: '이 주문은 지금 취소할 수 없어요(이미 넘겼을 수 있어요).',
+    duplicate: '이미 진행 중인 취소가 있어요 — 클레임 목록에서 확인해 주세요.',
   },
   refField: {
     kind: { delivery: '배송', rider: '라이더', order: '주문', case: '접수 건' } as const,

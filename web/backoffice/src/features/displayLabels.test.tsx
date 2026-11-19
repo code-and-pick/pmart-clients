@@ -60,7 +60,7 @@ describe('ID 칸 → 번호로·골라 넣기', () => {
     const user = userEvent.setup();
     const view = renderAt('/cs-intakes/new', as.cs);
     const link = await screen.findByPlaceholderText(/접수 건 번호/);
-    await user.type(link, 'C-1119-0009');
+    await user.type(link, 'C-1119-0777'); // 목에 없는 번호
     await waitFor(() => expect(screen.getByTestId('ref-status-case')).toHaveAttribute('data-state', 'notFound'));
     expect(screen.getByText(/연결할 접수 건 번호를 확인해 주세요/)).toBeInTheDocument();
     await user.clear(link);

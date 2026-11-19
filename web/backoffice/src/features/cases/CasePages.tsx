@@ -42,6 +42,7 @@ import { label, text, when } from '../../shared/ops';
 import { SourceStamps } from '../../shared/SourceStamps';
 import { DisplayNumber, RiderLabel, riderSourceFailed, SystemNumbers } from '../../shared/displayNumber';
 import { CaseNumber } from '../../shared/CaseNumber';
+import { DispatchUnavailableCancel } from '../claims/DispatchUnavailableCancel';
 import { DeliveryNo, OrderNo, RiderNo } from '../../shared/RefNumber';
 import { useResolvedRef } from '../../shared/numberLookups';
 import { RefStatus } from '../../shared/RefField';
@@ -72,7 +73,8 @@ type Kind = components['schemas']['CaseKind'];
 /** 배송 쪽(0.4.0 넷 + 0.5.0 배차 실패 — RIDER_OPS·CS_AGENT·관리자) */
 const DELIVERY_KINDS: readonly Kind[] = ['RIDER_HELP', 'DELIVERY_INCIDENT', 'RIDER_LOCATION_STALE', 'MISDELIVERY', 'DISPATCH_FAILED'];
 /** 고객센터 팀(CS) 사건 — case 0.22.0 반품 회수 실패(R-8): 상담원이 맡고 완료 처리하는 첫 종류, 지원센터에는 안 보임 */
-const CS_KINDS: readonly Kind[] = ['RETURN_RECOVERY_FAILED'];
+// case 0.27.0 R-9 배차 지연(DISPATCH_DELAYED) — 상담원 팀(상담원이 맡고 닫음, 관리자 모두, 지원센터에는 안 보임 — 서버 판정)
+const CS_KINDS: readonly Kind[] = ['RETURN_RECOVERY_FAILED', 'DISPATCH_DELAYED'];
 const isCsCase = (c: { readonly kind?: string | null; readonly assigneeGroup?: string | null }) =>
   c.assigneeGroup === 'CS' || (c.kind !== undefined && c.kind !== null && (CS_KINDS as readonly string[]).includes(c.kind));
 /** 사가·결제 이상(0.5.0 — 관리자만) */
@@ -290,6 +292,7 @@ const KIND_TONE: Readonly<Record<string, Tone>> = {
   RECONCILIATION: 'accent',
   PAYMENT_UNKNOWN: 'accent',
   RETURN_RECOVERY_FAILED: 'info',
+  DISPATCH_DELAYED: 'warning',
 };
 
 function KindBadge({ kind }: { readonly kind: string | null | undefined }) {
@@ -980,6 +983,8 @@ export function CaseDetailPage() {
                   )}
   
                   {(c.kind === 'RIDER_HELP' || c.kind === 'DELIVERY_INCIDENT') && <HelpRequestOfCase c={c} />}
+                  {/* 배차 지연 → 배차 불가로 취소(claim 0.7.0 CL-5) — 주문 전체 취소·전액 환불, 확인 상자 */}
+                  {c.kind === 'DISPATCH_DELAYED' && <DispatchUnavailableCancel caseId={c.caseId ?? caseId} orderId={(c.refs ?? []).find((r) => r.refType === 'orderId')?.refId} closed={closed} />}
                   {c.kind === 'RETURN_RECOVERY_FAILED' && <ClaimOfCase claimId={c.subjectType === 'CLAIM' && c.subjectRef ? c.subjectRef : ((c.refs ?? []).find((r) => r.refType === 'claimId')?.refId ?? '')} />}
   
                   <div id="case-follow-ups" className="scroll-mt-4 rounded-box border border-base-300 bg-base-100 px-5 py-4 shadow-sm empty:hidden">
