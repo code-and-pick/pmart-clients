@@ -6,6 +6,8 @@ import 'package:pmart_ui/pmart_ui.dart';
 import '../../../l10n/gen/app_localizations.dart';
 import '../../../shared/evidence.dart';
 import '../../../shared/field_widgets.dart';
+import '../../../shared/location_guide.dart';
+import '../../../shared/pda_theme.dart';
 import '../../../shared/printer/reprint.dart';
 import '../../../shared/scanner/scan_input.dart';
 import '../../../shared/scanner/scanner.dart';
@@ -143,25 +145,15 @@ class InspectScreen extends ConsumerWidget {
             LotLabelButtons(taskIds: ids),
         ],
       ),
-      InspectPhase.locate => Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _ProductHeader(task: t!),
-          const SizedBox(height: 12),
-          TargetLine(
-            key: const ValueKey('inspect-target'),
-            label: l10n.inspectGoTo,
-            code: t.locationCode,
-            confirmed: false,
-          ),
-          const SizedBox(height: 8),
+      InspectPhase.locate => StepBody(
+        actions: [
           ScanInput(
             id: 'inspect-loc-scan',
             testValues: [
-              TestScan(l10n.tsLocation, t.locationCode),
+              TestScan(l10n.tsLocation, t!.locationCode),
               TestScan(l10n.tsWrong, 'RCV-C-09'),
             ],
-            label: l10n.inspectScanLocation,
+            label: l10n.scanLocationBtn,
             cameraTitle: l10n.inspectTitle,
             continuous: false,
             autofocus: false,
@@ -169,20 +161,31 @@ class InspectScreen extends ConsumerWidget {
                 ? const ScanFeedback.ok()
                 : ScanFeedback.error(l10n.moveWrongPlace),
           ),
-          if (s.lastScan == InspectScan.wrong)
-            Text(
-              l10n.moveWrongPlace,
-              key: const ValueKey('inspect-scan-error'),
-              style: TextStyle(color: theme.colorScheme.error),
-            ),
         ],
+        child: ListView(
+          children: [
+            LocationGuide(
+              key: const ValueKey('inspect-target'),
+              code: t.locationCode,
+              title: l10n.inspectLocTitle,
+            ),
+            if (s.lastScan == InspectScan.wrong)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(
+                  l10n.moveWrongPlace,
+                  key: const ValueKey('inspect-scan-error'),
+                  style: TextStyle(color: theme.colorScheme.error),
+                ),
+              ),
+            const SizedBox(height: 12),
+            _ProductHeader(task: t),
+          ],
+        ),
       ),
-      InspectPhase.product => Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _ProductHeader(task: t!),
-          const SizedBox(height: 12),
-          if (t.barcode != null) ...[
+      InspectPhase.product => StepBody(
+        actions: [
+          if (t!.barcode != null)
             ScanInput(
               id: 'inspect-product-scan',
               reprint: [
@@ -203,37 +206,46 @@ class InspectScreen extends ConsumerWidget {
               onScan: (code) => ctl.scanProduct(code) == InspectScan.ok
                   ? const ScanFeedback.ok()
                   : ScanFeedback.error(l10n.inspectWrongProduct),
-            ),
-            if (s.lastScan == InspectScan.wrong)
-              Text(
-                l10n.inspectWrongProduct,
-                key: const ValueKey('inspect-scan-error'),
-                style: TextStyle(color: theme.colorScheme.error),
-              ),
-          ] else ...[
-            // 계약에 바코드가 없을 때(BR-52 R18) — SKU 를 눈으로 대조한다.
-            Text(l10n.inspectNoBarcode),
-            const SizedBox(height: 8),
+            )
+          else
             FilledButton(
               key: const ValueKey('inspect-confirm-sku'),
               onPressed: ctl.confirmProductWithoutBarcode,
               child: Text(l10n.inspectConfirmSku(t.sku)),
             ),
-          ],
         ],
+        child: ListView(
+          children: [
+            ScanPrompt(
+              text: l10n.inspectProductTitle,
+              // 계약에 바코드가 없을 때(BR-52 R18) — SKU 를 눈으로 대조한다.
+              detail: t.barcode == null ? l10n.inspectNoBarcode : null,
+            ),
+            _ProductHeader(task: t),
+            if (s.lastScan == InspectScan.wrong)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(
+                  l10n.inspectWrongProduct,
+                  key: const ValueKey('inspect-scan-error'),
+                  style: TextStyle(color: theme.colorScheme.error),
+                ),
+              ),
+          ],
+        ),
       ),
       InspectPhase.judge => _JudgeStep(taskId: taskId),
     };
     return Scaffold(
       appBar: AppBar(title: Text(l10n.inspectTitle)),
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              if (step >= 0)
-                StepHeader(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (step >= 0)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+                child: StepHeader(
                   names: [
                     l10n.inspectStepLocate,
                     l10n.inspectStepProduct,
@@ -241,10 +253,13 @@ class InspectScreen extends ConsumerWidget {
                   ],
                   current: step,
                 ),
-              if (step >= 0) const SizedBox(height: 8),
-              Expanded(child: body),
-            ],
-          ),
+              ),
+            Expanded(
+              child: step >= 0
+                  ? body
+                  : Padding(padding: const EdgeInsets.all(16), child: body),
+            ),
+          ],
         ),
       ),
     );
@@ -264,18 +279,28 @@ class _ProductHeader extends StatelessWidget {
     return Card(
       margin: EdgeInsets.zero,
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(15),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               task.productName ?? task.sku,
-              style: theme.textTheme.titleLarge,
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontSize: 19,
+                fontWeight: FontWeight.w800,
+              ),
             ),
-            Text('${task.sku} · ${l10n.inspectFrom(task.locationCode)}'),
+            Text(
+              '${task.sku} · ${l10n.inspectFrom(task.locationCode)}',
+              style: const TextStyle(color: PdaColors.muted),
+            ),
+            const SizedBox(height: 4),
             Text(
               l10n.inspectTarget(task.remainingQty),
-              style: theme.textTheme.titleMedium,
+              style: theme.textTheme.titleMedium?.copyWith(
+                color: PdaColors.primary,
+                fontWeight: FontWeight.w900,
+              ),
             ),
           ],
         ),
@@ -298,107 +323,8 @@ class _JudgeStep extends ConsumerWidget {
     final t = s.task!;
     final c = s.criteria;
     final issues = ctl.issues();
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Expanded(
-          child: ListView(
-            children: [
-              // 판정 기준(상품 정보).
-              Card(
-                key: const ValueKey('inspect-criteria'),
-                margin: EdgeInsets.zero,
-                color: theme.colorScheme.secondaryContainer,
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        t.productName ?? t.sku,
-                        style: theme.textTheme.titleMedium,
-                      ),
-                      if (!c.known)
-                        Text(
-                          l10n.inspectNoCriteria,
-                          key: const ValueKey('inspect-no-criteria'),
-                          style: TextStyle(color: theme.colorScheme.error),
-                        )
-                      else
-                        Text(l10n.inspectMinDays(c.minRemainingDays!)),
-                      if (c.maxDaysSinceManufacture case final m?)
-                        Text(l10n.inspectMaxMfgDays(m)),
-                      if (c.zone case final z?)
-                        Text(l10n.inspectZone(zoneText(l10n, z))),
-                      Text(l10n.inspectTarget(t.remainingQty)),
-                    ],
-                  ),
-                ),
-              ),
-              if (c.needsTemperature) ...[
-                const SizedBox(height: 8),
-                Text(
-                  l10n.inspectTemperatureQ,
-                  style: theme.textTheme.titleSmall,
-                ),
-                SegmentedButton<bool>(
-                  key: const ValueKey('inspect-temperature'),
-                  emptySelectionAllowed: true,
-                  segments: [
-                    ButtonSegment(value: true, label: Text(l10n.inspectTempOk)),
-                    ButtonSegment(
-                      value: false,
-                      label: Text(l10n.inspectTempBad),
-                    ),
-                  ],
-                  selected: {?s.temperatureOk},
-                  onSelectionChanged: (v) {
-                    if (v.isNotEmpty) ctl.setTemperature(ok: v.first);
-                  },
-                ),
-              ],
-              const SizedBox(height: 8),
-              for (final (i, r) in s.rows.indexed)
-                _JudgeRow(
-                  key: ValueKey('inspect-row-${r.id}'),
-                  taskId: taskId,
-                  index: i,
-                  row: r,
-                ),
-              TextButton.icon(
-                key: const ValueKey('inspect-add-row'),
-                onPressed: s.unknown ? null : ctl.addRow,
-                icon: const Icon(Icons.call_split),
-                label: Text(l10n.inspectAddRow),
-              ),
-            ],
-          ),
-        ),
-        Text(
-          l10n.inspectTotal(s.total, t.remainingQty),
-          key: const ValueKey('inspect-total'),
-          style: theme.textTheme.titleMedium?.copyWith(
-            color: s.total == t.remainingQty ? null : theme.colorScheme.error,
-          ),
-        ),
-        for (final i in issues.intersection({
-          InspectIssue.totalMismatch,
-          InspectIssue.duplicate,
-          InspectIssue.needTemperature,
-        }))
-          Text(
-            inspectIssueText(l10n, i),
-            style: TextStyle(color: theme.colorScheme.error),
-          ),
-        if (s.code case final code?)
-          Text(
-            fieldRejectedText(l10n, code),
-            key: const ValueKey('inspect-rejected'),
-            style: TextStyle(color: theme.colorScheme.error),
-          ),
-        if (s.unknown)
-          Text(l10n.inspectUnknown, key: const ValueKey('inspect-unknown')),
-        const SizedBox(height: 8),
+    return StepBody(
+      actions: [
         CommandButton(
           key: const ValueKey('inspect-submit'),
           busy: s.busy,
@@ -406,6 +332,114 @@ class _JudgeStep extends ConsumerWidget {
           onPressed: s.unknown || issues.isEmpty ? ctl.submit : null,
         ),
       ],
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(
+            child: ListView(
+              children: [
+                ScanPrompt(text: l10n.inspectJudgeTitle),
+                // 판정 기준(상품 정보).
+                Card(
+                  key: const ValueKey('inspect-criteria'),
+                  margin: EdgeInsets.zero,
+                  color: PdaColors.softer,
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          t.productName ?? t.sku,
+                          style: theme.textTheme.titleMedium,
+                        ),
+                        if (!c.known)
+                          Text(
+                            l10n.inspectNoCriteria,
+                            key: const ValueKey('inspect-no-criteria'),
+                            style: TextStyle(color: theme.colorScheme.error),
+                          )
+                        else
+                          Text(l10n.inspectMinDays(c.minRemainingDays!)),
+                        if (c.maxDaysSinceManufacture case final m?)
+                          Text(l10n.inspectMaxMfgDays(m)),
+                        if (c.zone case final z?)
+                          Text(l10n.inspectZone(zoneText(l10n, z))),
+                        Text(l10n.inspectTarget(t.remainingQty)),
+                      ],
+                    ),
+                  ),
+                ),
+                if (c.needsTemperature) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    l10n.inspectTemperatureQ,
+                    style: theme.textTheme.titleSmall,
+                  ),
+                  SegmentedButton<bool>(
+                    key: const ValueKey('inspect-temperature'),
+                    emptySelectionAllowed: true,
+                    segments: [
+                      ButtonSegment(
+                        value: true,
+                        label: Text(l10n.inspectTempOk),
+                      ),
+                      ButtonSegment(
+                        value: false,
+                        label: Text(l10n.inspectTempBad),
+                      ),
+                    ],
+                    selected: {?s.temperatureOk},
+                    onSelectionChanged: (v) {
+                      if (v.isNotEmpty) ctl.setTemperature(ok: v.first);
+                    },
+                  ),
+                ],
+                const SizedBox(height: 8),
+                for (final (i, r) in s.rows.indexed)
+                  _JudgeRow(
+                    key: ValueKey('inspect-row-${r.id}'),
+                    taskId: taskId,
+                    index: i,
+                    row: r,
+                  ),
+                TextButton.icon(
+                  key: const ValueKey('inspect-add-row'),
+                  onPressed: s.unknown ? null : ctl.addRow,
+                  icon: const Icon(Icons.call_split),
+                  label: Text(l10n.inspectAddRow),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            l10n.inspectTotal(s.total, t.remainingQty),
+            key: const ValueKey('inspect-total'),
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w800,
+              color: s.total == t.remainingQty ? null : theme.colorScheme.error,
+            ),
+          ),
+          for (final i in issues.intersection({
+            InspectIssue.totalMismatch,
+            InspectIssue.duplicate,
+            InspectIssue.needTemperature,
+          }))
+            Text(
+              inspectIssueText(l10n, i),
+              style: TextStyle(color: theme.colorScheme.error),
+            ),
+          if (s.code case final code?)
+            Text(
+              fieldRejectedText(l10n, code),
+              key: const ValueKey('inspect-rejected'),
+              style: TextStyle(color: theme.colorScheme.error),
+            ),
+          if (s.unknown)
+            Text(l10n.inspectUnknown, key: const ValueKey('inspect-unknown')),
+        ],
+      ),
     );
   }
 }
@@ -668,48 +702,8 @@ class ReturnInspectScreen extends ConsumerWidget {
         action: l10n.nextTask,
         onAction: () => _next(context),
       ),
-      ReturnPhase.editing => Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            l10n.returnHeader(
-              s.receipt!.returnReceiptId,
-              s.receipt!.claimId ?? '-',
-            ),
-            style: theme.textTheme.titleMedium,
-          ),
-          Text(l10n.returnHelp2, style: theme.textTheme.bodySmall),
-          const SizedBox(height: 8),
-          Expanded(
-            child: ListView(
-              children: [
-                for (final (i, l) in s.receipt!.lines.indexed)
-                  _ReturnLineCard(
-                    index: i,
-                    title: l.productName ?? l.sku,
-                    subtitle: [
-                      l.sku,
-                      l10n.qtyUnit(l.qty),
-                      ?l.conditionNote,
-                    ].join(' · '),
-                    d: s.decisions[i],
-                    locked: s.unknown,
-                    onChanged: (d) => ctl.decide(i, d),
-                  ),
-              ],
-            ),
-          ),
-          if (s.code case final c?)
-            Text(
-              c == QualityProblemCode.resaleNotAllowed
-                  ? l10n.returnResaleNotAllowed
-                  : l10n.inspectRejected(c),
-              key: const ValueKey('return-rejected'),
-              style: TextStyle(color: theme.colorScheme.error),
-            ),
-          if (s.unknown)
-            Text(l10n.inspectUnknown, key: const ValueKey('return-unknown')),
-          const SizedBox(height: 8),
+      ReturnPhase.editing => StepBody(
+        actions: [
           CommandButton(
             key: const ValueKey('return-submit'),
             busy: s.busy,
@@ -717,15 +711,56 @@ class ReturnInspectScreen extends ConsumerWidget {
             onPressed: s.unknown || s.complete ? ctl.submit : null,
           ),
         ],
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const SizedBox(height: 14),
+            StepCaption(
+              l10n.returnHeader(
+                s.receipt!.returnReceiptId,
+                s.receipt!.claimId ?? '-',
+              ),
+            ),
+            ScanPrompt(text: l10n.returnInspectTitle, detail: l10n.returnHelp2),
+            Expanded(
+              child: ListView(
+                children: [
+                  for (final (i, l) in s.receipt!.lines.indexed)
+                    _ReturnLineCard(
+                      index: i,
+                      title: l.productName ?? l.sku,
+                      subtitle: [
+                        l.sku,
+                        l10n.qtyUnit(l.qty),
+                        ?l.conditionNote,
+                      ].join(' · '),
+                      d: s.decisions[i],
+                      locked: s.unknown,
+                      onChanged: (d) => ctl.decide(i, d),
+                    ),
+                ],
+              ),
+            ),
+            if (s.code case final c?)
+              Text(
+                c == QualityProblemCode.resaleNotAllowed
+                    ? l10n.returnResaleNotAllowed
+                    : l10n.inspectRejected(c),
+                key: const ValueKey('return-rejected'),
+                style: TextStyle(color: theme.colorScheme.error),
+              ),
+            if (s.unknown)
+              Text(l10n.inspectUnknown, key: const ValueKey('return-unknown')),
+          ],
+        ),
       ),
     };
     return Scaffold(
       appBar: AppBar(title: Text(l10n.returnTitle)),
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-          child: body,
-        ),
+        child: s.phase == ReturnPhase.editing
+            ? body
+            : Padding(padding: const EdgeInsets.all(16), child: body),
       ),
     );
   }
@@ -760,12 +795,22 @@ class _ReturnLineCard extends StatelessWidget {
     return Card(
       key: ValueKey('return-line-$index'),
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(title, style: theme.textTheme.titleMedium),
-            Text(subtitle, style: theme.textTheme.bodySmall),
+            Text(
+              title,
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            Text(
+              subtitle,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: PdaColors.muted,
+              ),
+            ),
             // 상품 정보 값 — 작업자가 바꾸지 않는다.
             Text(
               d.known

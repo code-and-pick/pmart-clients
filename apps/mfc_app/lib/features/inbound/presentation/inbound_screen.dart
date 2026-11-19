@@ -5,6 +5,7 @@ import 'package:pmart_ui/pmart_ui.dart';
 
 import '../../../l10n/gen/app_localizations.dart';
 import '../../../shared/field_widgets.dart';
+import '../../../shared/pda_theme.dart';
 import '../../../shared/printer/reprint.dart';
 import '../../../shared/scanner/scan_input.dart';
 import '../../../shared/scanner/scanner.dart';
@@ -40,12 +41,15 @@ class InboundReceiveScreen extends ConsumerWidget {
       appBar: AppBar(title: Text(l10n.inboundTitle(trfId))),
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.only(top: 14),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              if (step >= 0) _Steps(current: step, boxes: boxes),
-              const SizedBox(height: 12),
+              if (step >= 0)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: _Steps(current: step, boxes: boxes),
+                ),
               Expanded(
                 child: switch (s.phase) {
                   InboundPhase.loading => const Center(
@@ -109,7 +113,6 @@ class _Steps extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final scheme = Theme.of(context).colorScheme;
     final names = [
       l10n.inboundStepArrival,
       if (boxes) ...[
@@ -120,34 +123,9 @@ class _Steps extends StatelessWidget {
       l10n.inboundStepReview,
       l10n.inboundStepApply,
     ];
-    return Row(
+    return KeyedSubtree(
       key: ValueKey('inbound-step-$current'),
-      children: [
-        for (final (i, n) in names.indexed)
-          Expanded(
-            child: Column(
-              children: [
-                CircleAvatar(
-                  radius: 14,
-                  backgroundColor: i <= current
-                      ? scheme.primary
-                      : scheme.surfaceContainerHighest,
-                  foregroundColor: i <= current
-                      ? scheme.onPrimary
-                      : scheme.onSurfaceVariant,
-                  child: Text('${i + 1}'),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  n,
-                  style: TextStyle(
-                    fontWeight: i == current ? FontWeight.bold : null,
-                  ),
-                ),
-              ],
-            ),
-          ),
-      ],
+      child: StepHeader(names: names, current: current),
     );
   }
 }
@@ -169,21 +147,8 @@ class _Message extends StatelessWidget {
   final bool busy;
 
   @override
-  Widget build(BuildContext context) => Column(
-    mainAxisAlignment: MainAxisAlignment.center,
-    crossAxisAlignment: CrossAxisAlignment.stretch,
-    children: [
-      if (busy)
-        const Center(child: CircularProgressIndicator())
-      else if (icon != null)
-        Icon(icon, size: 64),
-      const SizedBox(height: 16),
-      Text(
-        text,
-        textAlign: TextAlign.center,
-        style: Theme.of(context).textTheme.titleMedium,
-      ),
-      const SizedBox(height: 24),
+  Widget build(BuildContext context) => StepBody(
+    actions: [
       CommandButton(
         key: const ValueKey('inbound-message-action'),
         label: action,
@@ -191,6 +156,23 @@ class _Message extends StatelessWidget {
         onPressed: onAction,
       ),
     ],
+    child: Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (busy)
+          const Center(child: CircularProgressIndicator())
+        else if (icon != null)
+          MarkCircle(icon: icon == Icons.check_circle ? Icons.check : icon!),
+        const SizedBox(height: 16),
+        Text(
+          text,
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.titleMedium
+              ?.copyWith(fontWeight: FontWeight.w800),
+        ),
+      ],
+    ),
   );
 }
 
@@ -206,32 +188,8 @@ class _ArrivalStep extends ConsumerWidget {
     final s = ref.watch(inboundFlowProvider(trfId));
     final ctl = ref.read(inboundFlowProvider(trfId).notifier);
     final p = s.promise!;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(p.trfId, style: theme.textTheme.headlineSmall),
-                if (p.eta ?? p.plannedArrivalAt case final t?)
-                  Text(l10n.inboundPlannedAt(formatSeoulTime(t))),
-                Text(l10n.inboundLinesSummary(p.lines.length, p.expectedTotal)),
-                if (p.boxes case final b?)
-                  Text(
-                    l10n.inboundTruck(p.rollContainers ?? 0, b),
-                    key: const ValueKey('inbound-truck'),
-                    style: theme.textTheme.titleMedium,
-                  ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 12),
-        Text(l10n.inboundArrivalHelp, style: theme.textTheme.titleMedium),
-        const SizedBox(height: 8),
+    return StepBody(
+      actions: [
         ScanInput(
           id: 'trf-scan',
           testValues: [
@@ -251,47 +209,6 @@ class _ArrivalStep extends ConsumerWidget {
             return const ScanFeedback.ok();
           },
         ),
-        if (s.code case final c?)
-          Text(
-            c == 'VERSION_CONFLICT'
-                ? l10n.inboundVersionConflict
-                : l10n.inboundArrivalRejected,
-            key: const ValueKey('inbound-arrival-rejected'),
-            style: TextStyle(color: theme.colorScheme.error),
-          ),
-        if (s.unknown)
-          Text(
-            l10n.inboundArrivalUnknown,
-            key: const ValueKey('inbound-unknown'),
-          ),
-        const SizedBox(height: 8),
-        // 입고 예정 상품 전부(박스 수·입수·수량).
-        Expanded(
-          child: ListView(
-            key: const ValueKey('arrival-lines'),
-            children: [
-              for (final l in p.lines)
-                ListTile(
-                  dense: true,
-                  contentPadding: EdgeInsets.zero,
-                  title: Text(l.productName ?? l.sku),
-                  subtitle: Text(
-                    [
-                      l.sku,
-                      if (l.unitsPerBox case final per?) l10n.boxPer(per),
-                    ].join(' · '),
-                  ),
-                  trailing: Text(
-                    [
-                      if (l.boxCount case final b?) l10n.boxesUnit(b),
-                      l10n.qtyUnit(l.expectedQty),
-                    ].join(' · '),
-                    style: theme.textTheme.titleSmall,
-                  ),
-                ),
-            ],
-          ),
-        ),
         CommandButton(
           key: const ValueKey('inbound-arrive'),
           busy: s.busy,
@@ -299,6 +216,106 @@ class _ArrivalStep extends ConsumerWidget {
           onPressed: ctl.arrive,
         ),
       ],
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          ScanPrompt(
+            text: l10n.inboundArrivalTitle,
+            detail: l10n.inboundArrivalHelp,
+          ),
+          Card(
+            margin: EdgeInsets.zero,
+            child: Padding(
+              padding: const EdgeInsets.all(15),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    p.trfId,
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  if (p.eta ?? p.plannedArrivalAt case final t?)
+                    Text(
+                      l10n.inboundPlannedAt(formatSeoulTime(t)),
+                      style: const TextStyle(color: PdaColors.muted),
+                    ),
+                  Text(
+                    l10n.inboundLinesSummary(p.lines.length, p.expectedTotal),
+                    style: const TextStyle(color: PdaColors.muted),
+                  ),
+                  if (p.boxes case final b?)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 6),
+                      child: Text(
+                        l10n.inboundTruck(p.rollContainers ?? 0, b),
+                        key: const ValueKey('inbound-truck'),
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          color: PdaColors.primary,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+          if (s.code case final c?)
+            Text(
+              c == 'VERSION_CONFLICT'
+                  ? l10n.inboundVersionConflict
+                  : l10n.inboundArrivalRejected,
+              key: const ValueKey('inbound-arrival-rejected'),
+              style: TextStyle(color: theme.colorScheme.error),
+            ),
+          if (s.unknown)
+            Text(
+              l10n.inboundArrivalUnknown,
+              key: const ValueKey('inbound-unknown'),
+            ),
+          const SizedBox(height: 8),
+          // 입고 예정 상품 전부(박스 수·입수·수량).
+          Expanded(
+            child: Card(
+              margin: EdgeInsets.zero,
+              child: ListView.separated(
+                key: const ValueKey('arrival-lines'),
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                itemCount: p.lines.length,
+                separatorBuilder: (_, _) => const Divider(),
+                itemBuilder: (_, i) {
+                  final l = p.lines[i];
+                  return ListTile(
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(
+                      l.productName ?? l.sku,
+                      style: const TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                    subtitle: Text(
+                      [
+                        l.sku,
+                        if (l.unitsPerBox case final per?) l10n.boxPer(per),
+                      ].join(' · '),
+                      style: const TextStyle(color: PdaColors.muted),
+                    ),
+                    trailing: Text(
+                      [
+                        if (l.boxCount case final b?) l10n.boxesUnit(b),
+                        l10n.qtyUnit(l.expectedQty),
+                      ].join(' · '),
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -367,25 +384,9 @@ class _CountStep extends ConsumerWidget {
       ],
     );
 
-    return Column(
+    return StepBody(
       key: ValueKey('count-${l.key}'),
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Text(
-          l10n.inboundLineOf(s.index + 1, p.lines.length),
-          style: theme.textTheme.labelLarge,
-        ),
-        Text(l.productName ?? l.sku, style: theme.textTheme.headlineSmall),
-        Text([l.sku, if (l.lotId case final lot?) l10n.lot(lot)].join(' · ')),
-        Text(switch ((l.boxCount, l.unitsPerBox)) {
-          (final b?, final per?) => l10n.inboundExpectedBoxes(
-            b,
-            per,
-            l.expectedQty,
-          ),
-          _ => l10n.inboundExpected(l.expectedQty),
-        }, style: theme.textTheme.titleMedium),
-        const SizedBox(height: 8),
+      actions: [
         ScanInput(
           id: 'inbound-scan',
           reprint: [
@@ -408,76 +409,6 @@ class _CountStep extends ConsumerWidget {
             ),
           },
         ),
-        if (s.lastScan case final r? when r != InboundScan.counted)
-          Text(
-            r == InboundScan.otherLine
-                ? l10n.inboundOtherLine
-                : l10n.inboundUnknownCode,
-            key: const ValueKey('inbound-scan-error'),
-            style: TextStyle(color: theme.colorScheme.error),
-          ),
-        if (l.unitsPerBox case final per?)
-          Align(
-            alignment: Alignment.centerRight,
-            child: OutlinedButton.icon(
-              key: const ValueKey('box-plus'),
-              onPressed: () => ctl.addBox(l),
-              icon: const Icon(Icons.inventory_2_outlined),
-              label: Text(l10n.inboundAddBox(per)),
-            ),
-          ),
-        counter(
-          'normal',
-          l10n.qtyNormal,
-          c.normal,
-          (v) => c.copyWith(normal: v),
-        ),
-        counter(
-          'quarantined',
-          l10n.qtyQuarantined,
-          c.quarantined,
-          (v) => c.copyWith(quarantined: v),
-        ),
-        counter(
-          'pending',
-          l10n.qtyPending,
-          c.pending,
-          (v) => c.copyWith(pending: v),
-        ),
-        const Divider(),
-        Text(
-          l10n.inboundTotal(c.total, l.expectedQty),
-          key: const ValueKey('inbound-total'),
-          style: theme.textTheme.titleMedium?.copyWith(
-            color: diff ? theme.colorScheme.error : null,
-          ),
-        ),
-        if (diff && reason != null)
-          Text(
-            reasonText(l10n, reason),
-            key: const ValueKey('inbound-diff-reason'),
-            style: TextStyle(color: theme.colorScheme.error),
-          ),
-        if (c.quarantined > 0) ...[
-          Text(l10n.inboundQuarantineReason),
-          Wrap(
-            spacing: 8,
-            children: [
-              for (final r in [
-                DiscrepancyReason.damaged,
-                DiscrepancyReason.temperature,
-              ])
-                ChoiceChip(
-                  key: ValueKey('reason-${r.name}'),
-                  label: Text(reasonText(l10n, r)),
-                  selected: c.quarantineReason == r,
-                  onSelected: (_) =>
-                      ctl.setCount(l, c.copyWith(quarantineReason: () => r)),
-                ),
-            ],
-          ),
-        ],
-        const Spacer(),
         Row(
           children: [
             if (s.index > 0) ...[
@@ -494,9 +425,6 @@ class _CountStep extends ConsumerWidget {
             Expanded(
               child: FilledButton(
                 key: const ValueKey('inbound-next'),
-                style: FilledButton.styleFrom(
-                  minimumSize: const Size.fromHeight(56),
-                ),
                 onPressed: c.complete ? ctl.next : null,
                 child: Text(
                   s.index + 1 < p.lines.length
@@ -508,6 +436,119 @@ class _CountStep extends ConsumerWidget {
           ],
         ),
       ],
+      child: ListView(
+        children: [
+          StepCaption(l10n.inboundLineOf(s.index + 1, p.lines.length)),
+          ScanPrompt(
+            text: l.productName ?? l.sku,
+            detail: [
+              l.sku,
+              if (l.lotId case final lot?) l10n.lot(lot),
+            ].join(' · '),
+          ),
+          Card(
+            margin: EdgeInsets.zero,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(15, 10, 8, 10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    switch ((l.boxCount, l.unitsPerBox)) {
+                      (final b?, final per?) => l10n.inboundExpectedBoxes(
+                        b,
+                        per,
+                        l.expectedQty,
+                      ),
+                      _ => l10n.inboundExpected(l.expectedQty),
+                    },
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      color: PdaColors.primary,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  counter(
+                    'normal',
+                    l10n.qtyNormal,
+                    c.normal,
+                    (v) => c.copyWith(normal: v),
+                  ),
+                  counter(
+                    'quarantined',
+                    l10n.qtyQuarantined,
+                    c.quarantined,
+                    (v) => c.copyWith(quarantined: v),
+                  ),
+                  counter(
+                    'pending',
+                    l10n.qtyPending,
+                    c.pending,
+                    (v) => c.copyWith(pending: v),
+                  ),
+                  const Divider(),
+                  const SizedBox(height: 6),
+                  Text(
+                    l10n.inboundTotal(c.total, l.expectedQty),
+                    key: const ValueKey('inbound-total'),
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w800,
+                      color: diff ? theme.colorScheme.error : null,
+                    ),
+                  ),
+                  if (diff && reason != null)
+                    Text(
+                      reasonText(l10n, reason),
+                      key: const ValueKey('inbound-diff-reason'),
+                      style: TextStyle(color: theme.colorScheme.error),
+                    ),
+                ],
+              ),
+            ),
+          ),
+          if (s.lastScan case final r? when r != InboundScan.counted)
+            Text(
+              r == InboundScan.otherLine
+                  ? l10n.inboundOtherLine
+                  : l10n.inboundUnknownCode,
+              key: const ValueKey('inbound-scan-error'),
+              style: TextStyle(color: theme.colorScheme.error),
+            ),
+          if (l.unitsPerBox case final per?)
+            Align(
+              alignment: Alignment.centerRight,
+              child: OutlinedButton.icon(
+                key: const ValueKey('box-plus'),
+                onPressed: () => ctl.addBox(l),
+                icon: const Icon(Icons.inventory_2_outlined),
+                label: Text(l10n.inboundAddBox(per)),
+              ),
+            ),
+          if (c.quarantined > 0) ...[
+            const SizedBox(height: 8),
+            Text(
+              l10n.inboundQuarantineReason,
+              style: const TextStyle(fontWeight: FontWeight.w800),
+            ),
+            Wrap(
+              spacing: 8,
+              children: [
+                for (final r in [
+                  DiscrepancyReason.damaged,
+                  DiscrepancyReason.temperature,
+                ])
+                  ChoiceChip(
+                    key: ValueKey('reason-${r.name}'),
+                    label: Text(reasonText(l10n, r)),
+                    selected: c.quarantineReason == r,
+                    onSelected: (_) =>
+                        ctl.setCount(l, c.copyWith(quarantineReason: () => r)),
+                  ),
+              ],
+            ),
+          ],
+        ],
+      ),
     );
   }
 }
@@ -532,61 +573,8 @@ class _ReviewStep extends ConsumerWidget {
     final s = ref.watch(inboundFlowProvider(trfId));
     final ctl = ref.read(inboundFlowProvider(trfId).notifier);
     final p = s.promise!;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Text(l10n.inboundReviewTitle, style: theme.textTheme.titleLarge),
-        Expanded(
-          child: ListView(
-            children: [
-              for (final l in p.lines)
-                Builder(
-                  builder: (context) {
-                    final c = s.countOf(l);
-                    final r = c.reasonFor(l.expectedQty);
-                    return ListTile(
-                      key: ValueKey('review-${l.key}'),
-                      contentPadding: EdgeInsets.zero,
-                      title: Text(l.productName ?? l.sku),
-                      subtitle: Text(
-                        [
-                          l10n.inboundReviewLine(
-                            l.expectedQty,
-                            c.normal,
-                            c.quarantined,
-                            c.pending,
-                          ),
-                          if (r != null) reasonText(l10n, r),
-                        ].join('\n'),
-                      ),
-                      trailing: c.total == l.expectedQty
-                          ? const Icon(Icons.check)
-                          : Icon(
-                              Icons.warning_amber,
-                              color: theme.colorScheme.error,
-                            ),
-                    );
-                  },
-                ),
-            ],
-          ),
-        ),
-        if (s.code case final c?)
-          Text(
-            switch (c) {
-              'VERSION_CONFLICT' => l10n.inboundVersionConflict,
-              'INVALID_STATE' => l10n.inboundReceiptInvalidState,
-              _ => l10n.inboundReceiptRejected,
-            },
-            key: const ValueKey('inbound-receipt-rejected'),
-            style: TextStyle(color: theme.colorScheme.error),
-          ),
-        if (s.unknown)
-          Text(
-            l10n.inboundReceiptUnknown,
-            key: const ValueKey('inbound-unknown'),
-          ),
-        const SizedBox(height: 8),
+    return StepBody(
+      actions: [
         Row(
           children: [
             OutlinedButton(
@@ -607,6 +595,71 @@ class _ReviewStep extends ConsumerWidget {
           ],
         ),
       ],
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          ScanPrompt(text: l10n.inboundReviewTitle),
+          Expanded(
+            child: ListView(
+              children: [
+                for (final l in p.lines)
+                  Builder(
+                    builder: (context) {
+                      final c = s.countOf(l);
+                      final r = c.reasonFor(l.expectedQty);
+                      final ok = c.total == l.expectedQty;
+                      return Card(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        child: ListTile(
+                          key: ValueKey('review-${l.key}'),
+                          title: Text(
+                            l.productName ?? l.sku,
+                            style: const TextStyle(fontWeight: FontWeight.w800),
+                          ),
+                          subtitle: Text(
+                            [
+                              l10n.inboundReviewLine(
+                                l.expectedQty,
+                                c.normal,
+                                c.quarantined,
+                                c.pending,
+                              ),
+                              if (r != null) reasonText(l10n, r),
+                            ].join('\n'),
+                          ),
+                          trailing: ok
+                              ? const Icon(
+                                  Icons.check,
+                                  color: PdaColors.primary,
+                                )
+                              : Icon(
+                                  Icons.warning_amber,
+                                  color: theme.colorScheme.error,
+                                ),
+                        ),
+                      );
+                    },
+                  ),
+              ],
+            ),
+          ),
+          if (s.code case final c?)
+            Text(
+              switch (c) {
+                'VERSION_CONFLICT' => l10n.inboundVersionConflict,
+                'INVALID_STATE' => l10n.inboundReceiptInvalidState,
+                _ => l10n.inboundReceiptRejected,
+              },
+              key: const ValueKey('inbound-receipt-rejected'),
+              style: TextStyle(color: theme.colorScheme.error),
+            ),
+          if (s.unknown)
+            Text(
+              l10n.inboundReceiptUnknown,
+              key: const ValueKey('inbound-unknown'),
+            ),
+        ],
+      ),
     );
   }
 }
@@ -680,28 +733,8 @@ class _BoxCheckStep extends ConsumerWidget {
     final p = s.promise!;
     final total = p.boxList.length;
     final last = s.lastBox == null ? null : s.boxById(s.lastBox!);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        // 한 줄에 함께 — 파손 표시로 줄이 늘어 아래 목록이 밀리지 않게.
-        Text.rich(
-          TextSpan(
-            text: l10n.boxCheckProgress(s.arrived.length, total),
-            children: [
-              if (s.damaged.isNotEmpty)
-                TextSpan(
-                  text: '  ${l10n.boxDamagedCount(s.damaged.length)}',
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    color: theme.colorScheme.error,
-                  ),
-                ),
-            ],
-          ),
-          key: const ValueKey('box-progress'),
-          style: theme.textTheme.titleLarge,
-        ),
-        Text(l10n.boxCheckHelp, style: theme.textTheme.bodySmall),
-        const SizedBox(height: 8),
+    return StepBody(
+      actions: [
         ScanInput(
           id: 'box-scan',
           testActions: [
@@ -739,137 +772,161 @@ class _BoxCheckStep extends ConsumerWidget {
             final r => ScanFeedback.error(boxScanText(l10n, r)),
           },
         ),
-        // 안내 줄 자리는 늘 잡아 둔다 — 오류가 나타나도 아래 목록이 밀리지 않게.
-        SizedBox(
-          height: 20,
-          child: switch (s.lastBoxScan) {
-            final r? when r != BoxScan.ok => Text(
-              boxScanText(l10n, r),
-              key: const ValueKey('box-scan-error'),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(color: theme.colorScheme.error),
-            ),
-            _ => null,
-          },
-        ),
-        // 자리를 늘 잡아 둔다 — 박스를 확인할 때 아래 목록이 밀려 잘못 누르지 않게.
-        if (last != null && s.arrived.contains(last.boxId))
-          Card(
-            key: const ValueKey('last-box'),
-            child: ListTile(
-              title: Text(last.boxId),
-              subtitle: Text(
-                l10n.boxOf(
-                  p.lines
-                          .where((l) => l.key == last.lineKey)
-                          .firstOrNull
-                          ?.productName ??
-                      last.lineKey.split('|').first,
-                  last.unitsPerBox,
-                ),
-              ),
-              trailing: FilterChip(
-                key: const ValueKey('box-damaged'),
-                label: Text(l10n.boxDamaged),
-                selected: s.damaged.contains(last.boxId),
-                onSelected: (_) => ctl.toggleDamaged(last.boxId),
-              ),
-            ),
-          )
-        else
-          Card(
-            child: ListTile(
-              title: Text(l10n.boxLastPlaceholder),
-              subtitle: const Text(' '),
-            ),
-          ),
-        Expanded(
-          child: ListView(
-            children: [
-              for (final l in p.lines)
-                Builder(
-                  builder: (context) {
-                    final boxes = p.boxesOf(l);
-                    final got = boxes
-                        .where((b) => s.arrived.contains(b.boxId))
-                        .length;
-                    final bad = boxes
-                        .where((b) => s.damaged.contains(b.boxId))
-                        .length;
-                    final done = got == boxes.length;
-                    final open = s.expandedLine == l.key;
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        ListTile(
-                          key: ValueKey('box-line-${l.key}'),
-                          dense: true,
-                          contentPadding: EdgeInsets.zero,
-                          onTap: () => ctl.toggleLine(l.key),
-                          leading: Icon(
-                            done
-                                ? Icons.check_circle
-                                : Icons.inventory_2_outlined,
-                            color: done ? theme.colorScheme.primary : null,
-                          ),
-                          title: Text(l.productName ?? l.sku),
-                          subtitle: Text(
-                            [
-                              if (l.unitsPerBox case final per?)
-                                l10n.boxPer(per),
-                              if (bad > 0) l10n.boxDamagedCount(bad),
-                            ].join(' · '),
-                          ),
-                          trailing: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                l10n.boxLineProgress(got, boxes.length),
-                                style: theme.textTheme.titleMedium,
-                              ),
-                              Icon(
-                                open ? Icons.expand_less : Icons.expand_more,
-                              ),
-                            ],
-                          ),
-                        ),
-                        if (open)
-                          Wrap(
-                            spacing: 6,
-                            runSpacing: 4,
-                            children: [
-                              for (final b in boxes)
-                                FilterChip(
-                                  key: ValueKey('box-chip-${b.boxId}'),
-                                  label: Text(b.boxId.substring(4)),
-                                  selected: s.arrived.contains(b.boxId),
-                                  // 보기 전용 — 확인은 스캔으로만(안드로이드).
-                                  onSelected: null,
-                                ),
-                            ],
-                          ),
-                      ],
-                    );
-                  },
-                ),
-            ],
-          ),
-        ),
-        if (s.arrived.length < total)
-          Text(
-            l10n.boxMissingWarn(total - s.arrived.length),
-            key: const ValueKey('box-missing'),
-            style: TextStyle(color: theme.colorScheme.error),
-          ),
-        const SizedBox(height: 8),
         FilledButton(
           key: const ValueKey('box-check-done'),
-          style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(56)),
           onPressed: s.arrived.isEmpty ? null : ctl.finishBoxCheck,
           child: Text(l10n.boxCheckDone),
         ),
       ],
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          ScanPrompt(text: l10n.boxCheckTitle, detail: l10n.boxCheckHelp),
+          // 한 줄에 함께 — 파손 표시로 줄이 늘어 아래 목록이 밀리지 않게.
+          Text.rich(
+            TextSpan(
+              text: l10n.boxCheckProgress(s.arrived.length, total),
+              children: [
+                if (s.damaged.isNotEmpty)
+                  TextSpan(
+                    text: '  ${l10n.boxDamagedCount(s.damaged.length)}',
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      color: theme.colorScheme.error,
+                    ),
+                  ),
+              ],
+            ),
+            key: const ValueKey('box-progress'),
+            style: theme.textTheme.titleMedium?.copyWith(
+              color: PdaColors.primary,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          // 안내 줄 자리는 늘 잡아 둔다 — 오류가 나타나도 아래 목록이 밀리지 않게.
+          SizedBox(
+            height: 20,
+            child: switch (s.lastBoxScan) {
+              final r? when r != BoxScan.ok => Text(
+                boxScanText(l10n, r),
+                key: const ValueKey('box-scan-error'),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(color: theme.colorScheme.error),
+              ),
+              _ => null,
+            },
+          ),
+          // 자리를 늘 잡아 둔다 — 박스를 확인할 때 아래 목록이 밀려 잘못 누르지 않게.
+          if (last != null && s.arrived.contains(last.boxId))
+            Card(
+              key: const ValueKey('last-box'),
+              child: ListTile(
+                title: Text(last.boxId),
+                subtitle: Text(
+                  l10n.boxOf(
+                    p.lines
+                            .where((l) => l.key == last.lineKey)
+                            .firstOrNull
+                            ?.productName ??
+                        last.lineKey.split('|').first,
+                    last.unitsPerBox,
+                  ),
+                ),
+                trailing: FilterChip(
+                  key: const ValueKey('box-damaged'),
+                  label: Text(l10n.boxDamaged),
+                  selected: s.damaged.contains(last.boxId),
+                  onSelected: (_) => ctl.toggleDamaged(last.boxId),
+                ),
+              ),
+            )
+          else
+            Card(
+              child: ListTile(
+                title: Text(l10n.boxLastPlaceholder),
+                subtitle: const Text(' '),
+              ),
+            ),
+          Expanded(
+            child: ListView(
+              children: [
+                for (final l in p.lines)
+                  Builder(
+                    builder: (context) {
+                      final boxes = p.boxesOf(l);
+                      final got = boxes
+                          .where((b) => s.arrived.contains(b.boxId))
+                          .length;
+                      final bad = boxes
+                          .where((b) => s.damaged.contains(b.boxId))
+                          .length;
+                      final done = got == boxes.length;
+                      final open = s.expandedLine == l.key;
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          ListTile(
+                            key: ValueKey('box-line-${l.key}'),
+                            dense: true,
+                            contentPadding: EdgeInsets.zero,
+                            onTap: () => ctl.toggleLine(l.key),
+                            leading: Icon(
+                              done
+                                  ? Icons.check_circle
+                                  : Icons.inventory_2_outlined,
+                              color: done ? theme.colorScheme.primary : null,
+                            ),
+                            title: Text(l.productName ?? l.sku),
+                            subtitle: Text(
+                              [
+                                if (l.unitsPerBox case final per?)
+                                  l10n.boxPer(per),
+                                if (bad > 0) l10n.boxDamagedCount(bad),
+                              ].join(' · '),
+                            ),
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  l10n.boxLineProgress(got, boxes.length),
+                                  style: theme.textTheme.titleMedium,
+                                ),
+                                Icon(
+                                  open ? Icons.expand_less : Icons.expand_more,
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (open)
+                            Wrap(
+                              spacing: 6,
+                              runSpacing: 4,
+                              children: [
+                                for (final b in boxes)
+                                  FilterChip(
+                                    key: ValueKey('box-chip-${b.boxId}'),
+                                    label: Text(b.boxId.substring(4)),
+                                    selected: s.arrived.contains(b.boxId),
+                                    // 보기 전용 — 확인은 스캔으로만(안드로이드).
+                                    onSelected: null,
+                                  ),
+                              ],
+                            ),
+                        ],
+                      );
+                    },
+                  ),
+              ],
+            ),
+          ),
+          if (s.arrived.length < total)
+            Text(
+              l10n.boxMissingWarn(total - s.arrived.length),
+              key: const ValueKey('box-missing'),
+              style: TextStyle(color: theme.colorScheme.error),
+            ),
+        ],
+      ),
     );
   }
 }
@@ -895,14 +952,9 @@ class _BoxInspectStep extends ConsumerWidget {
     if (s.selectedBox case final id?) {
       final b = s.boxById(id)!;
       final c = ctl.boxCountOf(id);
-      return Column(
+      return StepBody(
         key: ValueKey('box-open-$id'),
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(id, style: theme.textTheme.titleLarge),
-          Text(l10n.boxOf(nameOf(b), b.unitsPerBox)),
-          Text(l10n.boxCountHelp, style: theme.textTheme.bodySmall),
-          const SizedBox(height: 8),
+        actions: [
           // 낱개는 0부터 — 상품 바코드 1번 = 정상 +1(입고는 수량·겉보기 파손만, 품질 판정은 품질검사).
           ScanInput(
             id: 'box-item-scan',
@@ -924,7 +976,7 @@ class _BoxInspectStep extends ConsumerWidget {
                 ),
               ),
             ],
-            label: l10n.boxItemScan,
+            label: l10n.scanItemBtn,
             cameraTitle: l10n.boxItemScan,
             autofocus: false,
             onScan: (code) {
@@ -936,28 +988,6 @@ class _BoxInspectStep extends ConsumerWidget {
               return const ScanFeedback.ok();
             },
           ),
-          QtyStepper(
-            id: 'box-normal',
-            label: l10n.qtyNormal,
-            value: c.normal,
-            onChanged: (v) => ctl.setBoxCount(id, c.copyWith(normal: v)),
-          ),
-          QtyStepper(
-            id: 'box-damaged-units',
-            label: l10n.boxLooksDamaged,
-            value: c.pending,
-            onChanged: (v) => ctl.setBoxCount(id, c.copyWith(pending: v)),
-          ),
-          Text(
-            l10n.inboundTotal(c.total, b.unitsPerBox),
-            key: const ValueKey('box-total'),
-            style: theme.textTheme.titleMedium?.copyWith(
-              color: c.total == b.unitsPerBox ? null : theme.colorScheme.error,
-            ),
-          ),
-          if (c.total != b.unitsPerBox && c.total > 0)
-            Text(l10n.boxCountDiff, style: theme.textTheme.bodySmall),
-          const Spacer(),
           Row(
             children: [
               OutlinedButton(
@@ -971,9 +1001,6 @@ class _BoxInspectStep extends ConsumerWidget {
               Expanded(
                 child: FilledButton(
                   key: const ValueKey('box-save'),
-                  style: FilledButton.styleFrom(
-                    minimumSize: const Size.fromHeight(56),
-                  ),
                   onPressed: c.total > 0 ? ctl.saveBox : null,
                   child: Text(l10n.boxSave),
                 ),
@@ -981,22 +1008,61 @@ class _BoxInspectStep extends ConsumerWidget {
             ],
           ),
         ],
+        child: ListView(
+          children: [
+            StepCaption(id),
+            ScanPrompt(
+              text: l10n.boxOf(nameOf(b), b.unitsPerBox),
+              detail: l10n.boxCountHelp,
+            ),
+            Card(
+              margin: EdgeInsets.zero,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(15, 6, 8, 10),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    QtyStepper(
+                      id: 'box-normal',
+                      label: l10n.qtyNormal,
+                      value: c.normal,
+                      onChanged: (v) =>
+                          ctl.setBoxCount(id, c.copyWith(normal: v)),
+                    ),
+                    QtyStepper(
+                      id: 'box-damaged-units',
+                      label: l10n.boxLooksDamaged,
+                      value: c.pending,
+                      onChanged: (v) =>
+                          ctl.setBoxCount(id, c.copyWith(pending: v)),
+                    ),
+                    const Divider(),
+                    const SizedBox(height: 6),
+                    Text(
+                      l10n.inboundTotal(c.total, b.unitsPerBox),
+                      key: const ValueKey('box-total'),
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w800,
+                        color: c.total == b.unitsPerBox
+                            ? null
+                            : theme.colorScheme.error,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            if (c.total != b.unitsPerBox && c.total > 0)
+              NoticeBox(text: l10n.boxCountDiff, warning: true),
+          ],
+        ),
       );
     }
 
     final boxes = s.openable;
     final done = boxes.where((b) => s.boxCounts.containsKey(b.boxId)).length;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Text(
-          l10n.boxInspectProgress(done, boxes.length),
-          key: const ValueKey('box-inspect-progress'),
-          style: theme.textTheme.titleLarge,
-        ),
-        if (s.damaged.isNotEmpty)
-          Text(l10n.boxDamagedQuarantined(s.damaged.length)),
-        const SizedBox(height: 8),
+    return StepBody(
+      actions: [
         ScanInput(
           id: 'box-open-scan',
           testActions: [
@@ -1026,33 +1092,6 @@ class _BoxInspectStep extends ConsumerWidget {
               ? const ScanFeedback.ok()
               : ScanFeedback.error(l10n.boxNotThisTruck),
         ),
-        Expanded(
-          child: ListView(
-            children: [
-              for (final b in boxes)
-                ListTile(
-                  key: ValueKey('box-${b.boxId}'),
-                  dense: true,
-                  contentPadding: EdgeInsets.zero,
-                  leading: Icon(
-                    s.boxCounts.containsKey(b.boxId)
-                        ? Icons.check_circle
-                        : Icons.inventory_2_outlined,
-                  ),
-                  title: Text('${b.boxId} · ${nameOf(b)}'),
-                  trailing: Text(switch (s.boxCounts[b.boxId]) {
-                    final c? => l10n.boxInspected(
-                      c.normal,
-                      c.quarantined + c.pending,
-                    ),
-                    null => l10n.boxNotInspected,
-                  }),
-                  onTap: () => ctl.openBox(b.boxId),
-                ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 8),
         Row(
           children: [
             OutlinedButton(
@@ -1064,9 +1103,6 @@ class _BoxInspectStep extends ConsumerWidget {
             Expanded(
               child: FilledButton(
                 key: const ValueKey('box-to-review'),
-                style: FilledButton.styleFrom(
-                  minimumSize: const Size.fromHeight(56),
-                ),
                 onPressed: s.allBoxesInspected ? ctl.boxesToReview : null,
                 child: Text(l10n.inboundToReview),
               ),
@@ -1074,6 +1110,52 @@ class _BoxInspectStep extends ConsumerWidget {
           ],
         ),
       ],
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          ScanPrompt(
+            text: l10n.boxInspectTitle,
+            detail: s.damaged.isEmpty
+                ? null
+                : l10n.boxDamagedQuarantined(s.damaged.length),
+          ),
+          Text(
+            l10n.boxInspectProgress(done, boxes.length),
+            key: const ValueKey('box-inspect-progress'),
+            style: theme.textTheme.titleMedium?.copyWith(
+              color: PdaColors.primary,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Expanded(
+            child: ListView(
+              children: [
+                for (final b in boxes)
+                  ListTile(
+                    key: ValueKey('box-${b.boxId}'),
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(
+                      s.boxCounts.containsKey(b.boxId)
+                          ? Icons.check_circle
+                          : Icons.inventory_2_outlined,
+                    ),
+                    title: Text('${b.boxId} · ${nameOf(b)}'),
+                    trailing: Text(switch (s.boxCounts[b.boxId]) {
+                      final c? => l10n.boxInspected(
+                        c.normal,
+                        c.quarantined + c.pending,
+                      ),
+                      null => l10n.boxNotInspected,
+                    }),
+                    onTap: () => ctl.openBox(b.boxId),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

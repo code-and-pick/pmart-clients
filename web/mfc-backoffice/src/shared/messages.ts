@@ -774,6 +774,35 @@ export const messages = {
 
   /** 작업 현황 — mfc-fulfillment-service 0.4.11 tasks·shipments·packages */
   tasks: {
+    /** 행 조치 — 담당 바꾸기·내려놓기(백엔드 알림 2026-11-19 notice-reassign-release) */
+    actions: {
+      col: '조치',
+      reassign: '담당 바꾸기',
+      assign: '담당 정하기',
+      release: '내려놓기',
+      reassignTitle: '담당 바꾸기 — 다른 작업자에게 넘겨요',
+      releaseTitle: '내려놓기 — 멈추고 대기로 돌려요',
+      releaseHint: '담당이 없어지고 대기로 돌아가요. 끝낸 수량은 그대로고, 다음 작업 받기로 다른 사람에게 가요.',
+      worker: '새 담당',
+      chooseWorker: '작업자 고르기',
+      onBreak: '휴게 중',
+      noWorkers: '이 작업 유형을 맡을 수 있는 재직 중인 다른 작업자가 없어요.',
+      reason: '사유',
+      reasonPlaceholder: '예: 교대, 지연',
+      reassignSubmit: '담당 바꾸기',
+      releaseSubmit: '내려놓기',
+      close: '닫기',
+      assigned: (worker: string) => `${worker} 에게 넘겼어요.`,
+      unchanged: '이미 그 작업자가 담당이에요. 바뀐 것이 없어요.',
+      offShift: '근무 시간 밖 작업자예요(막지 않고 알려만 드려요).',
+      released: '내려놓았어요 — 대기로 돌아갔어요.',
+      inProgressNotes: (taskType: string) => [
+        '새 담당은 PDA 에서 "시작"부터 다시 해요. 이미 집은 수량은 그대로고 남은 양만 이어서 해요.',
+        ...(taskType === 'PICK' ? ['피킹은 한 출고 = 한 장바구니 — 앞 사람이 담던 장바구니를 넘겨받아 이어서 해요(다른 장바구니면 거절돼요).'] : []),
+        ...(taskType === 'PACK' ? ['포장은 원래 피킹한 사람이 받아요 — 장바구니를 넘겨받았는지 현장에서 확인해 주세요.'] : []),
+        '앞 사람 PDA 에는 그 작업이 더 이상 자기 것이 아니라고 나와요.',
+      ],
+    },
     intro: '센터의 피킹·포장·배차 요청·복귀 작업을 지켜봐요. 시작·실적은 현장(PDA) 일이에요. 늦음·멈춤은 표시만 하고 자동으로 빼앗지 않아요.',
     type: '유형',
     state: '상태',

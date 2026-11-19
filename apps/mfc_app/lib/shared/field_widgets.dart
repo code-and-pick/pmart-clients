@@ -6,8 +6,9 @@ import 'package:pmart_ui/pmart_ui.dart';
 
 import '../l10n/gen/app_localizations.dart';
 import 'location_guide.dart';
+import 'pda_theme.dart';
 
-/// 단계 표시(1 → 2 → 3 …). 끝난 단계는 ✓, 지금 단계는 진한 색·굵은 글씨, 단계 사이는 선으로 잇는다.
+/// 단계 표시 — 시안의 알약 칸(지금 단계 진한 보라·흰 글씨, 끝난 단계 "✓ 이름").
 class StepHeader extends StatelessWidget {
   const StepHeader({super.key, required this.names, required this.current});
 
@@ -17,81 +18,87 @@ class StepHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    Widget line(bool done) => Expanded(
-      child: Container(
-        height: 2,
-        color: done ? scheme.primary : scheme.outlineVariant,
-      ),
-    );
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.only(bottom: 14),
       child: Row(
         key: ValueKey('step-$current'),
+        children: [
+          for (final (i, n) in names.indexed) ...[
+            if (i > 0) const SizedBox(width: 5),
+            Expanded(
+              child: Container(
+                height: 32,
+                alignment: Alignment.center,
+                padding: const EdgeInsets.symmetric(horizontal: 2),
+                decoration: BoxDecoration(
+                  color: i == current ? PdaColors.primary : PdaColors.soft,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (i < current)
+                      const Padding(
+                        padding: EdgeInsets.only(right: 2),
+                        child: Icon(
+                          Icons.check,
+                          size: 14,
+                          color: PdaColors.muted,
+                        ),
+                      ),
+                    Flexible(
+                      child: Text(
+                        n,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.labelMedium?.copyWith(
+                          color: i == current ? Colors.white : PdaColors.muted,
+                          fontWeight: i == current ? FontWeight.w800 : null,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// 지금 할 일 — 시안의 큰 제목(예 "장바구니를 스캔하세요") + 회색 한 줄 설명.
+class ScanPrompt extends StatelessWidget {
+  const ScanPrompt({super.key, required this.text, this.detail});
+
+  final String text;
+  final String? detail;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          for (final (i, n) in names.indexed)
-            Expanded(
-              child: Column(
-                children: [
-                  SizedBox(
-                    height: 28,
-                    child: Row(
-                      children: [
-                        if (i == 0) const Spacer() else line(i <= current),
-                        Container(
-                          width: 28,
-                          height: 28,
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: i <= current
-                                ? scheme.primary
-                                : scheme.surface,
-                            border: Border.all(
-                              color: i <= current
-                                  ? scheme.primary
-                                  : scheme.outlineVariant,
-                              width: 2,
-                            ),
-                          ),
-                          child: i < current
-                              ? Icon(
-                                  Icons.check,
-                                  size: 16,
-                                  color: scheme.onPrimary,
-                                )
-                              : Text(
-                                  '${i + 1}',
-                                  style: theme.textTheme.labelLarge?.copyWith(
-                                    color: i == current
-                                        ? scheme.onPrimary
-                                        : scheme.onSurfaceVariant,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                        ),
-                        if (i == names.length - 1)
-                          const Spacer()
-                        else
-                          line(i < current),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    n,
-                    textAlign: TextAlign.center,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.labelLarge?.copyWith(
-                      color: i == current
-                          ? scheme.primary
-                          : scheme.onSurfaceVariant,
-                      fontWeight: i == current ? FontWeight.w800 : null,
-                    ),
-                  ),
-                ],
+          Text(
+            text,
+            style: theme.textTheme.headlineSmall?.copyWith(
+              fontWeight: FontWeight.w800,
+              letterSpacing: -1.2,
+              height: 1.25,
+            ),
+          ),
+          if (detail case final d?)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                d,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: PdaColors.muted,
+                ),
               ),
             ),
         ],
@@ -100,46 +107,233 @@ class StepHeader extends StatelessWidget {
   }
 }
 
-/// 지금 무엇을 찍을지 크게 — 아이콘 + 한 줄(예 "카트 바코드를 찍어 주세요"). 아래에 [ScanInput] 을 둔다.
-class ScanPrompt extends StatelessWidget {
-  const ScanPrompt({super.key, required this.icon, required this.text});
+/// 진행 줄 — "확정 n / 지시 m" + 막대(시안 progress).
+class ProgressLine extends StatelessWidget {
+  const ProgressLine({
+    super.key,
+    required this.text,
+    required this.done,
+    required this.total,
+    this.textKey,
+  });
 
-  final IconData icon;
   final String text;
+  final int done;
+  final int total;
+  final Key? textKey;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: 16),
+    child: Row(
+      children: [
+        Text(
+          text,
+          key: textKey,
+          style: Theme.of(context).textTheme.labelMedium
+              ?.copyWith(color: PdaColors.muted, fontWeight: FontWeight.w800),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: LinearProgressIndicator(
+            value: total == 0 ? 0 : done / total,
+            minHeight: 9,
+            borderRadius: BorderRadius.circular(5),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+/// 화면 아래 고정 버튼 칸(시안 actions) — 흰 바탕, 위 선, 버튼 사이 7.
+/// 스캔 칸·주 버튼·보조 버튼을 넣는다. 비면 아무것도 그리지 않는다.
+class ActionBar extends StatelessWidget {
+  const ActionBar({super.key, required this.children});
+
+  final List<Widget> children;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: scheme.primaryContainer,
-          borderRadius: BorderRadius.circular(16),
-        ),
+    if (children.isEmpty) return const SizedBox.shrink();
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(top: BorderSide(color: PdaColors.line)),
+        boxShadow: [
+          BoxShadow(
+            color: Color(0x0A000000),
+            blurRadius: 20,
+            offset: Offset(0, -5),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        top: false,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-          child: Row(
+          padding: const EdgeInsets.fromLTRB(15, 11, 15, 13),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Icon(icon, size: 40, color: scheme.onPrimaryContainer),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Text(
-                  text,
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontSize: 19,
-                    color: scheme.onPrimaryContainer,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
+              for (final (i, c) in children.indexed) ...[
+                if (i > 0) const SizedBox(height: 7),
+                c,
+              ],
             ],
           ),
         ),
       ),
     );
   }
+}
+
+/// 단계 화면 몸통 — 위 내용(좌우 16) + 아래 고정 버튼 칸([ActionBar]).
+/// [child] 는 남은 높이를 다 받는다(안에서 `Expanded` 목록을 써도 된다).
+class StepBody extends StatelessWidget {
+  const StepBody({super.key, required this.child, this.actions = const []});
+
+  final Widget child;
+  final List<Widget> actions;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      Expanded(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+          child: child,
+        ),
+      ),
+      ActionBar(children: actions),
+    ],
+  );
+}
+
+/// 작은 회색 머리줄(예 "상품 2 / 7", "칸 1 / 3").
+class StepCaption extends StatelessWidget {
+  const StepCaption(this.text, {super.key});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: 2),
+    child: Text(
+      text,
+      style: Theme.of(context).textTheme.labelLarge
+          ?.copyWith(color: PdaColors.muted, fontWeight: FontWeight.w800),
+    ),
+  );
+}
+
+/// 끝 표시(시안 complete) — 옅은 보라 원 안의 ✓ + 큰 제목 + 설명.
+class DoneMark extends StatelessWidget {
+  const DoneMark({
+    super.key,
+    required this.title,
+    this.message,
+    this.messageKey,
+  });
+
+  final String title;
+  final String? message;
+  final Key? messageKey;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 40),
+      child: Column(
+        children: [
+          Container(
+            width: 64,
+            height: 64,
+            decoration: const BoxDecoration(
+              color: PdaColors.lilac,
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.check, size: 36, color: PdaColors.dark),
+          ),
+          const SizedBox(height: 18),
+          Text(
+            title,
+            textAlign: TextAlign.center,
+            style: theme.textTheme.headlineSmall?.copyWith(
+              fontWeight: FontWeight.w800,
+              letterSpacing: -1.2,
+            ),
+          ),
+          if (message case final m?)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Text(
+                m,
+                key: messageKey,
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodyLarge?.copyWith(
+                  color: PdaColors.muted,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 안내 띠 — 보통은 옅은 보라, [warning] 이면 노랑(같은 LOT 다른 칸·입수와 다름처럼
+/// 작업자가 멈춰 확인해야 하는 주의. 사용자 2026-11-19 "주의 안내만 노랑으로").
+class NoticeBox extends StatelessWidget {
+  const NoticeBox({
+    super.key,
+    required this.text,
+    this.textKey,
+    this.warning = false,
+  });
+
+  final String text;
+
+  /// 안의 [Text] 키(시험·화면이 문구를 읽는 자리).
+  final Key? textKey;
+  final bool warning;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: double.infinity,
+    margin: const EdgeInsets.only(top: 10),
+    padding: const EdgeInsets.all(10),
+    decoration: BoxDecoration(
+      color: warning ? PdaColors.warning : PdaColors.notice,
+      borderRadius: BorderRadius.circular(8),
+    ),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (warning)
+          const Padding(
+            padding: EdgeInsets.only(right: 6),
+            child: Icon(
+              Icons.warning_amber_rounded,
+              size: 18,
+              color: PdaColors.onWarning,
+            ),
+          ),
+        Expanded(
+          child: Text(
+            text,
+            key: textKey,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: warning ? PdaColors.onWarning : PdaColors.onNotice,
+              fontWeight: warning ? FontWeight.w700 : null,
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
 }
 
 /// "이동하세요" 안내 — 물건을 실은 뒤 도착 칸으로 가는 동안 보인다.
@@ -269,7 +463,7 @@ class _TaskDoneViewState extends State<TaskDoneView> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const Spacer(),
-        Icon(Icons.check_circle, size: 72, color: scheme.primary),
+        const MarkCircle(icon: Icons.check),
         const SizedBox(height: 12),
         Text(
           widget.title,
@@ -376,7 +570,7 @@ class ResultView extends StatelessWidget {
       if (busy)
         const Center(child: CircularProgressIndicator())
       else
-        Icon(icon, size: 64),
+        MarkCircle(icon: icon == Icons.check_circle ? Icons.check : icon),
       const SizedBox(height: 16),
       Text(
         text,
@@ -661,6 +855,26 @@ class _CountQtyFieldState extends State<CountQtyField> {
           ),
         ),
       ],
+    ),
+  );
+}
+
+/// 옅은 보라 원 안의 그림(시안 complete 의 ✓).
+class MarkCircle extends StatelessWidget {
+  const MarkCircle({super.key, required this.icon});
+
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) => Center(
+    child: Container(
+      width: 64,
+      height: 64,
+      decoration: const BoxDecoration(
+        color: PdaColors.lilac,
+        shape: BoxShape.circle,
+      ),
+      child: Icon(icon, size: 36, color: PdaColors.dark),
     ),
   );
 }

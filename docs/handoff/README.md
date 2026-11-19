@@ -41,6 +41,7 @@ pmart-clients 와 pmart-backend 는 서로의 저장소에 쓰지 않는다. 각
 | `customer-app/2026-11-19-backend-first-run-consents.md` | BR-59 처음 실행 약관 — ①~④ 모두 회신(`clients/customer-app/2026-11-19-reply-br59-first-run-consents.md`, customer 0.6.0~0.6.1) · 고객앱 반영(목 모드). 질문 답은 아래 문서로 보냄. **남은 것: LAN 실서버 확인 뒤 archive** |
 | `customer-app/2026-11-19-backend-br59-location-service-answer.md` | BR-59 질문 답(좌표→주소 카카오 로컬 서버 경유, 지도 카카오맵 SDK, 휴대폰 위치 Android geolocator — 사용자 승인·고객앱 반영) + Q1 역지오코딩 좌표가 URL 쿼리로 추적 기록에 남는 문제 |
 | `customer-app/2026-11-19-backend-address-receiver-to-checkout.md` | BR-60 — 회신(`clients/customer-app/2026-11-19-reply-br60-address-receiver.md`, customer 0.8.0·order 0.14.0 배포) · 고객앱 반영(목 모드). **남은 것: LAN 에서 주소 저장·주문서 내 연락처 확인 뒤 archive** |
+| `customer-app/2026-11-19-backend-social-login-identity.md` | BR-64 가입 즉시 휴대폰 본인 인증(옥토모)·한 번호 한 계정·기존 계정 안내·탈퇴 1달, BR-65 카카오·네이버 로그인 |
 | `customer-app/2026-11-19-backend-rating-null-in-cards.md` | BR-63 홈 진열·상세 응답 평점 null(집계는 480) — 사본 채우기 |
 | `customer-app/2026-11-19-backend-delivery-status-screen.md` | **급함** 배송 현황 — R1(BR-61) 주문 `shipments[].deliveryId`(없어서 라이더가 지도에 안 뜸), R2(BR-62) 주문한 센터 이름 |
 | `customer-app/2026-11-19-backend-order-shipments-empty.md` | **급함** BR-61 고객 주문 조회 `shipments` 가 늘 빈 배열 → 배송 현황·라이더 지도를 열 수 없음(R1 채우기, R2 시점) |

@@ -71,6 +71,8 @@
 | BR-61 | 높음 | 고객 | 고객 주문 조회 `GET /orders/{orderId}` 의 `shipments` 가 늘 빈 배열(`OrdersController` `.shipments(List.of())`) — 고객이 배송 ID 를 알 길이 없어 배송 현황·라이더 지도를 열 수 없음 | OPEN(급함, 요청 `docs/handoff/customer-app/2026-11-19-backend-order-shipments-empty.md` + 묶음 요청 `…/2026-11-19-backend-delivery-status-screen.md` R1) — 이것 때문에 라이더가 지도에 안 뜸 |
 | BR-62 | 중간 | 고객 | 배송 현황 시트의 주문한 센터 이름 — 고객용 센터 이름 경로가 없어 브랜드만 보임(`Order.mfcId` 만) | **RESOLVED**(회신 `clients/customer-app/2026-11-19-reply-br61-br62-shipments-center-name.md`, order 0.15.0 `mfcName` — LAN 배포 전, 앱 반영 `61079e5`). 원 OPEN(요청 `docs/handoff/customer-app/2026-11-19-backend-delivery-status-screen.md` R2 — 주문 응답 `mfcName` 제안) |
 | BR-63 | 중간 | 고객 | 홈 진열·상품 상세 응답의 `rating`·`reviewCount` 가 null — 같은 상품 rating-summary·리뷰 요약은 480개 | OPEN(요청 `docs/handoff/customer-app/2026-11-19-backend-rating-null-in-cards.md`). 상세는 앱이 rating-summary 로 보임, 카드는 서버 반영 대기 |
+| BR-64 | 높음 | 고객 | 가입 즉시 휴대폰 본인 인증(옥토모)·한 번호 한 계정·같은 번호 기존 계정 안내(제공자·가입일·가린 이메일)·탈퇴 1달 재가입 금지 — 인증 상태·API·결과 코드 없음 | OPEN(요청 `docs/handoff/customer-app/2026-11-19-backend-social-login-identity.md` R1~R7, 옥토모 방식은 사용자가 연결 뒤 알림) |
+| BR-65 | 높음 | 고객 | 카카오·네이버 로그인 — auth-service 가 Google 만 검증(501) | OPEN(같은 요청서 BR-65 — 카카오 OIDC ID 토큰, 네이버 Android SDK 액세스 토큰 + 서버 `/v1/nid/me` 확인(콘솔은 Android 만). 앱 SDK 2종 승인됨 2026-11-19, 카카오 콘솔 로그인·OIDC 활성화됨) |
 
 ---
 
@@ -450,3 +452,10 @@
 ## BR-63 홈 진열·상품 상세의 평점이 비어 옴 (고객앱)
 - 계기: 사용자 2026-11-19 "무농약 햇양파 리뷰 480개인데 안 보여". rating-summary·리뷰 요약은 480, 진열 항목·상세 응답 rating 은 null.
 - 요청(`docs/handoff/customer-app/2026-11-19-backend-rating-null-in-cards.md`): 진열·상세 사본을 집계와 같게(기존 리뷰 다시 채우기).
+
+## BR-64 가입 즉시 휴대폰 본인 인증·한 번호 한 계정 (고객앱)
+- 계기·결정: 사용자 2026-11-19 — 옥토모로 휴대폰 인증, 가입하자마자, 처음 가입한 제공자 하나로만 로그인, 같은 번호 기존 계정 안내에 제공자·가입일·가린 이메일 모두, 탈퇴 번호 1달 재가입 금지.
+- 요청(`docs/handoff/customer-app/2026-11-19-backend-social-login-identity.md`): R1 로그인 상태 `AUTH_IDENTITY_REQUIRED`, R2 인증 시작·결과 API, R3 `IDENTITY_ALREADY_REGISTERED`(+제공자·가입일·가린 이메일)·`IDENTITY_REJOIN_BLOCKED`, R4 한 번호 한 계정, R5 제공자 연결 없음, R6 BR-32 번호와의 관계, R7 탈퇴 1달.
+
+## BR-65 카카오·네이버 로그인 (고객앱)
+- auth-service 가 Google 만 검증. 카카오 = OIDC ID 토큰 검증, 네이버 = Android SDK 액세스 토큰을 서버가 `/v1/nid/me` 로 확인(사용자 2026-11-19 — 고객앱은 Android 만, PC 웹·Callback·서버 코드 교환 없음). 앱 `kakao_flutter_sdk_user`·`flutter_naver_login` 추가는 사용자 승인 대기.

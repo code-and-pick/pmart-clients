@@ -154,7 +154,8 @@ void main() {
       await t.pumpAndSettle();
     }
 
-    await t.tap(find.byKey(const ValueKey('scan-field-camera')));
+    // 긴 스캔 칸을 누르면 카메라(카메라 단추는 없다)
+    await t.tap(find.byKey(const ValueKey('scan-field')));
     await t.pumpAndSettle();
     expect(camera.title, '피킹 상품 스캔');
     // 한 번 맞게 인식하면 카메라를 내린다(사용자 2026-11-17). 틀린 인식은 안내만 하고 창을 둔다.
@@ -174,7 +175,7 @@ void main() {
     await t.tap(find.byKey(const ValueKey('menu-handover')));
     await t.pumpAndSettle();
 
-    await t.tap(find.byKey(const ValueKey('package-qr-scan-camera')));
+    await t.tap(find.byKey(const ValueKey('package-qr-scan')));
     await t.pumpAndSettle();
     expect(camera.continuous, isFalse);
     expect(camera.feedback.map((f) => f.ok), [false, true]);
@@ -241,44 +242,50 @@ void main() {
     expect(got, ['BOX-00000001']);
   });
 
-  testWidgets('스캔 받는 자리는 타이핑 칸이 아니다 — 화면 키보드·커서·붙여넣기 없음, 스캐너(글자 + Enter)는 그대로 받는다', (t) async {
-    final got = <String>[];
-    await t.pumpWidget(
-      ProviderScope(
-        overrides: [envProvider.overrideWithValue(PmartEnv.local)],
-        child: MaterialApp(
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          locale: const Locale('ko'),
-          home: Scaffold(
-            body: ScanInput(
-              id: 'x',
-              label: '출발 칸',
-              cameraTitle: 'scan',
-              onScan: (c) {
-                got.add(c);
-                return const ScanFeedback.ok();
-              },
+  testWidgets(
+    '스캔 받는 자리는 타이핑 칸이 아니다 — 화면 키보드·커서·붙여넣기 없음, 스캐너(글자 + Enter)는 그대로 받는다',
+    (t) async {
+      final got = <String>[];
+      await t.pumpWidget(
+        ProviderScope(
+          overrides: [envProvider.overrideWithValue(PmartEnv.local)],
+          child: MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('ko'),
+            home: Scaffold(
+              body: ScanInput(
+                id: 'x',
+                label: '출발 칸',
+                cameraTitle: 'scan',
+                onScan: (c) {
+                  got.add(c);
+                  return const ScanFeedback.ok();
+                },
+              ),
             ),
           ),
         ),
-      ),
-    );
-    await t.pumpAndSettle();
+      );
+      await t.pumpAndSettle();
 
-    final field = t.widget<TextField>(find.byKey(const ValueKey('x')));
-    expect(field.keyboardType, TextInputType.none); // 화면 키보드를 띄우지 않는다
-    expect(field.showCursor, isFalse);
-    expect(field.enableInteractiveSelection, isFalse); // 붙여넣기 메뉴 없음
-    // 안내는 한 줄 — 넘긴 label 만(고정 힌트를 겹쳐 두 줄로 자르지 않는다).
-    expect(find.text('출발 칸'), findsOneWidget);
-    expect(find.byKey(const ValueKey('x-camera')), findsOneWidget);
+      final field = t.widget<TextField>(find.byKey(const ValueKey('x')));
+      expect(field.keyboardType, TextInputType.none); // 화면 키보드를 띄우지 않는다
+      expect(field.showCursor, isFalse);
+      expect(field.enableInteractiveSelection, isFalse); // 붙여넣기 메뉴 없음
+      // 안내는 한 줄 — 넘긴 label 만(고정 힌트를 겹쳐 두 줄로 자르지 않는다).
+      expect(find.text('출발 칸'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('x-camera')),
+        findsNothing,
+      ); // 카메라 단추 없음 — 칸을 누르면 카메라
 
-    // 키보드 웨지: 글자가 들어오고 Enter.
-    await t.enterText(find.byKey(const ValueKey('x')), 'LOC-A-01');
-    await t.testTextInput.receiveAction(TextInputAction.done);
-    await t.pump();
-    expect(got, ['LOC-A-01']);
-    expect(field.controller!.text, isEmpty); // 다음 스캔을 받게 비운다
-  });
+      // 키보드 웨지: 글자가 들어오고 Enter.
+      await t.enterText(find.byKey(const ValueKey('x')), 'LOC-A-01');
+      await t.testTextInput.receiveAction(TextInputAction.done);
+      await t.pump();
+      expect(got, ['LOC-A-01']);
+      expect(field.controller!.text, isEmpty); // 다음 스캔을 받게 비운다
+    },
+  );
 }

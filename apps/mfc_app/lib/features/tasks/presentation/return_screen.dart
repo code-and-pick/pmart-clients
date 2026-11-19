@@ -7,6 +7,8 @@ import '../../../l10n/gen/app_localizations.dart';
 import '../../../shared/codes.dart';
 import '../../../shared/field_widgets.dart';
 import '../../../shared/issue_report.dart';
+import '../../../shared/location_guide.dart';
+import '../../../shared/pda_theme.dart';
 import '../../../shared/product_hints.dart';
 import '../../../shared/printer/reprint.dart';
 import '../../../shared/scanner/scan_input.dart';
@@ -287,7 +289,7 @@ class ReturnShelfScreen extends ConsumerWidget {
       ),
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.only(top: 14),
           child: UiStateView<TaskDetailView>(
             state: uiStateOf(ref.watch(taskDetailProvider(taskId))),
             onRetry: () => ref.invalidate(taskDetailProvider(taskId)),
@@ -295,40 +297,44 @@ class ReturnShelfScreen extends ConsumerWidget {
               final p = nextReturnPiece(t);
               final allDone = t.lines.every((l) => l.done);
               if (s.reported) {
-                return ResultView(
-                  key: const ValueKey('return-reported'),
-                  icon: Icons.report_problem_outlined,
-                  text: l10n.issueReported,
-                  action: l10n.nextTask,
-                  onAction: () async =>
-                      backToSession(context, WorkArea.stockMove),
+                return _padded(
+                  ResultView(
+                    key: const ValueKey('return-reported'),
+                    icon: Icons.report_problem_outlined,
+                    text: l10n.issueReported,
+                    action: l10n.nextTask,
+                    onAction: () async =>
+                        backToSession(context, WorkArea.stockMove),
+                  ),
                 );
               }
               if (p == null) {
-                return allDone
-                    // 서버가 모든 줄을 끝났다고 답한 뒤에만 나온다.
-                    ? TaskDoneView(
-                        key: const ValueKey('return-done'),
-                        title: l10n.returnShelfDoneTitle,
-                        message: l10n.returnShelfDone,
-                        rows: [
-                          for (final l in t.lines)
-                            (l10n.moveDoneProduct, l.productName ?? l.sku),
-                        ],
-                        onNext: () async =>
-                            backToSession(context, WorkArea.stockMove),
-                        autoNext: autoNextAllowed(ref),
-                      )
-                    : ResultView(
-                        key: const ValueKey('return-waiting'),
-                        icon: Icons.hourglass_top,
-                        busy: s.syncing,
-                        text: waiting.isEmpty
-                            ? l10n.returnShelfWaiting
-                            : l10n.doNotRedo,
-                        action: l10n.checkAgain,
-                        onAction: ctl.sync,
-                      );
+                return _padded(
+                  allDone
+                      // 서버가 모든 줄을 끝났다고 답한 뒤에만 나온다.
+                      ? TaskDoneView(
+                          key: const ValueKey('return-done'),
+                          title: l10n.returnShelfDoneTitle,
+                          message: l10n.returnShelfDone,
+                          rows: [
+                            for (final l in t.lines)
+                              (l10n.moveDoneProduct, l.productName ?? l.sku),
+                          ],
+                          onNext: () async =>
+                              backToSession(context, WorkArea.stockMove),
+                          autoNext: autoNextAllowed(ref),
+                        )
+                      : ResultView(
+                          key: const ValueKey('return-waiting'),
+                          icon: Icons.hourglass_top,
+                          busy: s.syncing,
+                          text: waiting.isEmpty
+                              ? l10n.returnShelfWaiting
+                              : l10n.doNotRedo,
+                          action: l10n.checkAgain,
+                          onAction: ctl.sync,
+                        ),
+                );
               }
               final qty = s.qty;
               final bc = ctl.barcodeOf(p.line);
@@ -339,72 +345,8 @@ class ReturnShelfScreen extends ConsumerWidget {
                   : !s.loaded
                   ? 1
                   : 2;
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  StepHeader(
-                    names: [
-                      l10n.moveStepLocate,
-                      l10n.moveStepLoad,
-                      l10n.moveStepDrop,
-                    ],
-                    current: step,
-                  ),
-                  const SizedBox(height: 12),
-                  Card(
-                    margin: EdgeInsets.zero,
-                    child: Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            p.line.productName ?? p.line.sku,
-                            style: theme.textTheme.titleLarge,
-                          ),
-                          Text(l10n.lot(p.lotId)),
-                          Text(l10n.returnShelfLeft(p.left)),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  if (step < 2)
-                    TargetLine(
-                      key: const ValueKey('return-from'),
-                      label: l10n.moveFrom,
-                      code: p.from,
-                      confirmed: s.atFrom,
-                    )
-                  else ...[
-                    if (s.to == null)
-                      GoBanner(
-                        key: const ValueKey('return-go'),
-                        text: l10n.returnShelfGo,
-                      ),
-                    TargetLine(
-                      key: const ValueKey('return-to'),
-                      label: l10n.moveTo,
-                      code: s.to ?? l10n.returnShelfScanShelf,
-                      confirmed: s.to != null,
-                    ),
-                    if (p.suggested.isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 4),
-                        child: Text(
-                          l10n.returnShelfSuggested(p.suggested.join(', ')),
-                          key: const ValueKey('return-suggested'),
-                        ),
-                      ),
-                    if (s.to case final to?
-                        when p.suggested.isNotEmpty &&
-                            !p.suggested.contains(to))
-                      Text(
-                        l10n.returnShelfNotSuggested,
-                        style: TextStyle(color: theme.colorScheme.error),
-                      ),
-                  ],
-                  const SizedBox(height: 8),
+              return StepBody(
+                actions: [
                   ScanInput(
                     id: 'return-scan',
                     reprint: step == 1
@@ -450,116 +392,6 @@ class ReturnShelfScreen extends ConsumerWidget {
                       final r => ScanFeedback.error(locScanText(l10n, r)),
                     },
                   ),
-                  if (s.lastScan case final r? when r != LocScan.ok)
-                    Text(
-                      locScanText(l10n, r),
-                      key: const ValueKey('return-scan-error'),
-                      style: TextStyle(color: theme.colorScheme.error),
-                    ),
-                  if (step == 0)
-                    Text(
-                      l10n.returnShelfLocateFrom,
-                      key: const ValueKey('return-locate-hint'),
-                      style: theme.textTheme.bodyMedium,
-                    )
-                  else if (step == 1) ...[
-                    if (bc == null || qty == 0)
-                      Text(
-                        bc != null ? l10n.moveScanned(qty) : l10n.moveNoBarcode,
-                        key: const ValueKey('product-check'),
-                      ),
-                    if (bc == null)
-                      QtyStepper(
-                        id: 'return-qty',
-                        label: l10n.moveQtyDrop,
-                        value: qty,
-                        max: p.left,
-                        onChanged: ctl.setQty,
-                      )
-                    else if (qty > 0)
-                      CountQtyField(
-                        id: 'return-qty',
-                        label: l10n.moveQtyDrop,
-                        help: l10n.countQtyHelp(p.left),
-                        addLabel: l10n.pickQtyAdd,
-                        value: qty,
-                        max: p.left,
-                        onAdd: () => ctl.scan(p, bc),
-                        onSet: (n) => ctl.setQty(n.clamp(1, p.left)),
-                      ),
-                  ] else
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            l10n.moveLoadedQty(qty),
-                            key: const ValueKey('return-loaded-qty'),
-                            style: theme.textTheme.titleMedium,
-                          ),
-                        ),
-                        TextButton(
-                          key: const ValueKey('return-recount'),
-                          onPressed: s.syncing ? null : ctl.recount,
-                          child: Text(l10n.moveRecount),
-                        ),
-                      ],
-                    ),
-                  // 온도 확인은 내려놓기 직전에 묻는다(복귀 조건).
-                  if (cold && step == 2) ...[
-                    const SizedBox(height: 8),
-                    Text(
-                      l10n.returnColdQuestion,
-                      style: theme.textTheme.titleSmall,
-                    ),
-                    SegmentedButton<bool>(
-                      key: const ValueKey('return-cold'),
-                      emptySelectionAllowed: true,
-                      segments: [
-                        ButtonSegment(
-                          value: true,
-                          label: Text(l10n.returnColdYes),
-                        ),
-                        ButtonSegment(
-                          value: false,
-                          label: Text(l10n.returnColdNo),
-                        ),
-                      ],
-                      selected: {?s.coldOk},
-                      onSelectionChanged: (v) {
-                        if (v.isNotEmpty) ctl.setCold(v.first);
-                      },
-                    ),
-                    if (s.coldOk == false)
-                      Text(
-                        l10n.returnColdNoHelp,
-                        key: const ValueKey('return-cold-no'),
-                        style: TextStyle(color: theme.colorScheme.error),
-                      ),
-                  ],
-                  const Spacer(),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: IssueButton(
-                      id: 'return-issue',
-                      area: 'return',
-                      targetId: taskId,
-                      location: p.from,
-                      qty: p.left,
-                      issues: const [
-                        FieldIssue.temperature,
-                        FieldIssue.damaged,
-                        FieldIssue.sourceEmpty,
-                        FieldIssue.targetUnusable,
-                      ],
-                      onReported: (_) => ctl.reported(),
-                    ),
-                  ),
-                  if (waiting.isNotEmpty)
-                    Text(
-                      l10n.returnShelfPending(waiting.length),
-                      key: const ValueKey('return-pending'),
-                    ),
-                  const SizedBox(height: 8),
                   if (step == 1)
                     // 화면 안의 단계 — 서버에는 돌려놓을 때 한 번만 보낸다.
                     CommandButton(
@@ -578,6 +410,221 @@ class ReturnShelfScreen extends ConsumerWidget {
                           : null,
                     ),
                 ],
+                child: ListView(
+                  children: [
+                    StepHeader(
+                      names: [
+                        l10n.moveStepLocate,
+                        l10n.moveStepLoad,
+                        l10n.moveStepDrop,
+                      ],
+                      current: step,
+                    ),
+                    if (step == 0) ...[
+                      LocationGuide(
+                        key: const ValueKey('return-from'),
+                        code: p.from,
+                        title: l10n.putawayFromTitle,
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Text(
+                          l10n.returnShelfLocateFrom,
+                          key: const ValueKey('return-locate-hint'),
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: PdaColors.muted,
+                          ),
+                        ),
+                      ),
+                    ] else if (step == 1)
+                      ScanPrompt(
+                        text: l10n.moveLoadTitle(p.left),
+                        detail: '${l10n.moveFrom} ${p.from}',
+                      )
+                    else ...[
+                      if (s.to == null)
+                        GoBanner(
+                          key: const ValueKey('return-go'),
+                          text: l10n.returnShelfGo,
+                        ),
+                      ScanPrompt(
+                        text: s.to == null
+                            ? l10n.moveDropTitle
+                            : l10n.moveDropReady,
+                        detail: s.to == null ? null : '${l10n.moveTo} ${s.to}',
+                      ),
+                      if (s.to == null && p.suggested.isNotEmpty)
+                        LocationCard(
+                          key: const ValueKey('return-to'),
+                          code: p.suggested.first,
+                        ),
+                      if (p.suggested.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 6),
+                          child: Text(
+                            l10n.returnShelfSuggested(p.suggested.join(', ')),
+                            key: const ValueKey('return-suggested'),
+                            style: const TextStyle(color: PdaColors.muted),
+                          ),
+                        ),
+                      if (s.to case final to?
+                          when p.suggested.isNotEmpty &&
+                              !p.suggested.contains(to))
+                        NoticeBox(
+                          text: l10n.returnShelfNotSuggested,
+                          warning: true,
+                        ),
+                    ],
+                    Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(15),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              p.line.productName ?? p.line.sku,
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                fontSize: 19,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            Text(
+                              l10n.lot(p.lotId),
+                              style: const TextStyle(color: PdaColors.muted),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              l10n.returnShelfLeft(p.left),
+                              style: theme.textTheme.titleSmall?.copyWith(
+                                color: PdaColors.primary,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    if (s.lastScan case final r? when r != LocScan.ok)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Text(
+                          locScanText(l10n, r),
+                          key: const ValueKey('return-scan-error'),
+                          style: TextStyle(color: theme.colorScheme.error),
+                        ),
+                      ),
+                    if (step == 1) ...[
+                      if (bc == null || qty == 0)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 10),
+                          child: Text(
+                            bc != null
+                                ? l10n.moveScanned(qty)
+                                : l10n.moveNoBarcode,
+                            key: const ValueKey('product-check'),
+                            style: theme.textTheme.titleMedium,
+                          ),
+                        ),
+                      if (bc == null)
+                        QtyStepper(
+                          id: 'return-qty',
+                          label: l10n.moveQtyDrop,
+                          value: qty,
+                          max: p.left,
+                          onChanged: ctl.setQty,
+                        )
+                      else if (qty > 0)
+                        CountQtyField(
+                          id: 'return-qty',
+                          label: l10n.moveQtyDrop,
+                          help: l10n.countQtyHelp(p.left),
+                          addLabel: l10n.pickQtyAdd,
+                          value: qty,
+                          max: p.left,
+                          onAdd: () => ctl.scan(p, bc),
+                          onSet: (n) => ctl.setQty(n.clamp(1, p.left)),
+                        ),
+                    ] else if (step == 2)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 6),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                l10n.moveLoadedQty(qty),
+                                key: const ValueKey('return-loaded-qty'),
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ),
+                            TextButton(
+                              key: const ValueKey('return-recount'),
+                              onPressed: s.syncing ? null : ctl.recount,
+                              child: Text(l10n.moveRecount),
+                            ),
+                          ],
+                        ),
+                      ),
+                    // 온도 확인은 내려놓기 직전에 묻는다(복귀 조건).
+                    if (cold && step == 2) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        l10n.returnColdQuestion,
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      SegmentedButton<bool>(
+                        key: const ValueKey('return-cold'),
+                        emptySelectionAllowed: true,
+                        segments: [
+                          ButtonSegment(
+                            value: true,
+                            label: Text(l10n.returnColdYes),
+                          ),
+                          ButtonSegment(
+                            value: false,
+                            label: Text(l10n.returnColdNo),
+                          ),
+                        ],
+                        selected: {?s.coldOk},
+                        onSelectionChanged: (v) {
+                          if (v.isNotEmpty) ctl.setCold(v.first);
+                        },
+                      ),
+                      if (s.coldOk == false)
+                        Text(
+                          l10n.returnColdNoHelp,
+                          key: const ValueKey('return-cold-no'),
+                          style: TextStyle(color: theme.colorScheme.error),
+                        ),
+                    ],
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: IssueButton(
+                        id: 'return-issue',
+                        area: 'return',
+                        targetId: taskId,
+                        location: p.from,
+                        qty: p.left,
+                        issues: const [
+                          FieldIssue.temperature,
+                          FieldIssue.damaged,
+                          FieldIssue.sourceEmpty,
+                          FieldIssue.targetUnusable,
+                        ],
+                        onReported: (_) => ctl.reported(),
+                      ),
+                    ),
+                    if (waiting.isNotEmpty)
+                      Text(
+                        l10n.returnShelfPending(waiting.length),
+                        key: const ValueKey('return-pending'),
+                      ),
+                  ],
+                ),
               );
             },
           ),
@@ -586,3 +633,7 @@ class ReturnShelfScreen extends ConsumerWidget {
     );
   }
 }
+
+/// 끝·대기 안내는 둘레 여백을 둔다(단계 화면은 [StepBody] 가 여백을 둔다).
+Widget _padded(Widget child) =>
+    Padding(padding: const EdgeInsets.fromLTRB(16, 0, 16, 16), child: child);

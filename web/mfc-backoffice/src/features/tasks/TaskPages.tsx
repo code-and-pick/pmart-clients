@@ -6,7 +6,7 @@
 // - 확인 필요 포장 목록·확인(`GET /packages?checkRequired=true`, `handover-checks`) — 센터 관리자도(MB-3, fulfillment 0.17.0). `HandoverChecks.tsx`.
 // - 늦음·멈춤은 서버 표시값 — 화면이 계산하지 않고, 자동으로 빼앗는 버튼도 없다.
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState, type ReactNode } from 'react';
+import { Fragment, useState, type ReactNode } from 'react';
 import { Link, Route, Routes, useParams, useSearchParams } from 'react-router';
 
 import { request } from '@pmart/web-core';
@@ -19,6 +19,7 @@ import { messages } from '../../shared/messages';
 import { RiderLabel } from '../../shared/displayNumber';
 import { Who } from '../../shared/OperatorLabel';
 import { HandoverChecks } from './HandoverChecks';
+import { ReassignForm, ReleaseForm, TaskActionButtons, type TaskAction } from './TaskActions';
 
 const m = messages.tasks;
 
@@ -101,7 +102,9 @@ function TaskListPage({ mfcId }: { readonly mfcId: string }) {
     else next.delete(key);
     setParams(next, { replace: true });
   };
-  const rows = (query.data?.pages ?? []).flatMap((p) => p.items ?? []);
+  // 늦음·멈춤을 위로(빼앗을 대상을 찾기 쉽게 — 백엔드 알림 2026-11-19 §3), 나머지는 서버 순서 그대로
+  const rows = (query.data?.pages ?? []).flatMap((p) => p.items ?? []).sort((a, b) => Number(!!(b.late || b.idle)) - Number(!!(a.late || a.idle)));
+  const [open, setOpen] = useState<{ readonly taskId: string; readonly action: TaskAction } | null>(null);
   const asOf = query.data?.pages[0]?.asOf?.asOf;
   return (
     <section className="space-y-4">
@@ -147,11 +150,13 @@ function TaskListPage({ mfcId }: { readonly mfcId: string }) {
                   <th>{m.fields.qty}</th>
                   <th>{m.fields.promisedReadyAt}</th>
                   <th>{m.fields.lastActivity}</th>
+                  <th>{m.actions.col}</th>
                 </tr>
               </thead>
               <tbody>
                 {rows.map((t) => (
-                  <tr key={t.taskId} data-testid="task-row">
+                  <Fragment key={t.taskId}>
+                  <tr data-testid="task-row">
                     <td>
                       <Link className="link" to={tasksPath(mfcId, encodeURIComponent(t.taskId ?? ''))}>
                         {m.taskType[t.taskType ?? ''] ?? t.taskType}
@@ -168,7 +173,26 @@ function TaskListPage({ mfcId }: { readonly mfcId: string }) {
                     <td>{m.qty(t.plannedQty ?? 0, t.completedQty ?? 0, t.remainingQty ?? 0)}</td>
                     <td>{t.promisedReadyAt ? formatSeoul(t.promisedReadyAt) : messages.none}</td>
                     <td>{t.lastActivityAt ? formatSeoul(t.lastActivityAt) : messages.none}</td>
+                    <td>
+                      <TaskActionButtons
+                        task={t}
+                        open={open && open.taskId === t.taskId ? open.action : null}
+                        onOpen={(a) => setOpen(a ? { taskId: t.taskId ?? '', action: a } : null)}
+                      />
+                    </td>
                   </tr>
+                  {open && open.taskId === t.taskId && (
+                    <tr data-testid="task-action-row">
+                      <td colSpan={8}>
+                        {open.action === 'reassign' ? (
+                          <ReassignForm key={`${t.taskId}-reassign`} mfcId={mfcId} task={t} onClose={() => setOpen(null)} />
+                        ) : (
+                          <ReleaseForm key={`${t.taskId}-release`} mfcId={mfcId} task={t} onClose={() => setOpen(null)} />
+                        )}
+                      </td>
+                    </tr>
+                  )}
+                  </Fragment>
                 ))}
               </tbody>
             </table>

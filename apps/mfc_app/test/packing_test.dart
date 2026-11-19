@@ -19,6 +19,7 @@ import 'package:mfc_app/features/tasks/domain/task_list.dart';
 import 'package:mfc_app/features/tasks/presentation/task_controllers.dart';
 import 'package:mfc_app/shared/product_hints.dart';
 import 'package:mfc_app/shared/providers.dart';
+import 'package:mfc_app/shared/scanner/scan_input.dart';
 
 import 'support.dart';
 
@@ -424,6 +425,17 @@ void main() {
     // 4. 담기 — 온도대는 상품 정보로, 다른 온도대는 같은 봉투에 안 담는다.
     expect(find.byKey(const ValueKey('zone-select')), findsNothing);
     expect(find.text('봉투 온도대는 처음 담는 상품으로 정해져요'), findsOneWidget);
+    // 피킹처럼 한 번에 하나 — 카메라는 맞게 한 번 찍으면 닫힌다(사용자 2026-11-19)
+    expect(
+      t
+          .widget<ScanInput>(
+            find.byWidgetPredicate(
+              (w) => w is ScanInput && w.id == 'pack-scan',
+            ),
+          )
+          .continuous,
+      isFalse,
+    );
     await scanTo(t, 'pack-scan', MockTaskRepository.yogurtBarcode);
     expect(find.text('지금 봉투: 냉장'), findsOneWidget);
     await scanTo(t, 'pack-scan', MockTaskRepository.dumplingBarcode);

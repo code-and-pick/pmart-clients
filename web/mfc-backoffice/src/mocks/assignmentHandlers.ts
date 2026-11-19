@@ -67,6 +67,9 @@ export const assignmentHandlers = [
         warnings: [...db.shifts.values()].some((s) => s.workerId === body.workerId && s.state === 'PLANNED') ? [] : ['OFF_SHIFT'],
       };
       db.assignments = [...db.assignments, next];
+      // fulfillment 작업 목록의 담당 투영도 맞춘다(실서버는 배정 사건으로 잠깐 뒤에 바뀐다)
+      const task = db.tasks.get(body.taskId);
+      if (task) db.tasks.set(body.taskId, { ...task, state: task.state === 'READY' ? 'ASSIGNED' : task.state, assignment: { workerId: body.workerId, assignmentVersion: next.assignmentVersion } });
       return { status: 201, body: withEligibility(next) };
     });
   }),

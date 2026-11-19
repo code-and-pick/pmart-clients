@@ -5,6 +5,7 @@ import 'package:pmart_core/pmart_core.dart';
 
 import '../../../l10n/gen/app_localizations.dart';
 import '../../../router.dart' show afterLoginProvider;
+import '../../../shared/field_widgets.dart' show StepCaption;
 import '../../../shared/menu_tile.dart';
 import '../../../shared/printer/label_printer.dart';
 import '../../../shared/providers.dart';
@@ -65,11 +66,10 @@ class DeviceSetupScreen extends ConsumerWidget {
                   onTap: () => context.push('/setup/device'),
                 ),
               ])
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: tile,
-                  ),
+                // 시작 메뉴와 같은 높이(96) — 늘려 채우지 않는다.
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: SizedBox(height: StartScreen.tileHeight, child: tile),
                 ),
             ],
           ),
@@ -85,12 +85,11 @@ class DeviceSetupScreen extends ConsumerWidget {
 class StartScreen extends ConsumerWidget {
   const StartScreen({super.key});
 
-  static const _tileHeight = 96.0;
+  static const tileHeight = 96.0;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
-    final theme = Theme.of(context);
     final mock = ref.watch(envProvider) == PmartEnv.mock;
     final tiles = [
       MenuTile(
@@ -136,12 +135,12 @@ class StartScreen extends ConsumerWidget {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
           children: [
-            Text(l10n.startChoose, style: theme.textTheme.titleMedium),
+            StepCaption(l10n.startChoose),
             const SizedBox(height: 8),
             for (final tile in tiles)
               Padding(
                 padding: const EdgeInsets.only(bottom: 8),
-                child: SizedBox(height: _tileHeight, child: tile),
+                child: SizedBox(height: tileHeight, child: tile),
               ),
           ],
         ),

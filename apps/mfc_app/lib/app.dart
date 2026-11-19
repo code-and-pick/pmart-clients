@@ -6,6 +6,7 @@ import 'package:pmart_ui/pmart_ui.dart';
 
 import 'l10n/gen/app_localizations.dart';
 import 'router.dart';
+import 'shared/pda_theme.dart';
 
 class MfcApp extends ConsumerWidget {
   const MfcApp({super.key});
@@ -15,8 +16,9 @@ class MfcApp extends ConsumerWidget {
     onGenerateTitle: (context) => AppLocalizations.of(context).appTitle,
     // LAN 앱도 debug 빌드라 오른쪽 위 "DEBUG" 띠가 앱바 버튼을 가렸다.
     debugShowCheckedModeBanner: false,
-    theme: PmartTheme.light(),
-    darkTheme: PmartTheme.dark(),
+    // PDA 시안(2026-11-19) 보라 테마. 현장은 밝은 화면만 쓴다(어두운 테마 없음).
+    theme: PdaTheme.light(),
+    themeMode: ThemeMode.light,
     locale: const Locale('ko'),
     supportedLocales: AppLocalizations.supportedLocales,
     localizationsDelegates: const [

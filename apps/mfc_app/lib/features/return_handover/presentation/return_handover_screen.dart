@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pmart_ui/pmart_ui.dart';
 
 import '../../../l10n/gen/app_localizations.dart';
+import '../../../shared/pda_theme.dart';
 import '../../../shared/ui_state_of.dart';
 import '../domain/return_handover.dart';
 import 'return_handover_controller.dart';
@@ -39,7 +40,15 @@ class ReturnHandoversScreen extends ConsumerWidget {
       onRefresh: () => ref.refresh(returnHandoversProvider.future),
       child: ListView(
         padding: const EdgeInsets.all(16),
-        children: [Text(l10n.rhIntro), const SizedBox(height: 8), ...children],
+        children: [
+          Text(
+            l10n.rhIntro,
+            style: Theme.of(context).textTheme.bodyMedium
+                ?.copyWith(color: PdaColors.muted),
+          ),
+          const SizedBox(height: 4),
+          ...children,
+        ],
       ),
     );
     return Scaffold(
@@ -118,19 +127,28 @@ class _ReturnCard extends ConsumerWidget {
     final bad = flow.phase == ReissuePhase.rejected || unknown;
     return Card(
       key: ValueKey('rh-item-$id'),
-      margin: const EdgeInsets.symmetric(vertical: 6),
+      margin: const EdgeInsets.only(top: 10),
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(15),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
               returnPurposeText(l10n, item.purpose),
-              style: theme.textTheme.titleMedium,
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontSize: 19,
+                fontWeight: FontWeight.w800,
+              ),
             ),
-            Text(l10n.rhDelivery(item.deliveryNumber ?? id)),
-            Text(l10n.rhRider(item.riderId ?? '-')),
-            const SizedBox(height: 8),
+            Text(
+              l10n.rhDelivery(item.deliveryNumber ?? id),
+              style: const TextStyle(color: PdaColors.muted),
+            ),
+            Text(
+              l10n.rhRider(item.riderId ?? '-'),
+              style: const TextStyle(color: PdaColors.muted),
+            ),
+            const SizedBox(height: 10),
             if (item.locked)
               Text(
                 l10n.rhLocked,
@@ -141,13 +159,23 @@ class _ReturnCard extends ConsumerWidget {
                 ),
               )
             else
-              Text(
-                item.code,
-                key: ValueKey('rh-code-$id'),
-                textAlign: TextAlign.center,
-                style: theme.textTheme.displayLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 12,
+              // 번호는 옅은 보라 칸 안에 크게(보라) — 라이더에게 보여 주는 자리.
+              Container(
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                decoration: BoxDecoration(
+                  color: PdaColors.softer,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  item.code,
+                  key: ValueKey('rh-code-$id'),
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.displayLarge?.copyWith(
+                    color: PdaColors.primary,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 12,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
                 ),
               ),
             const SizedBox(height: 4),

@@ -8,6 +8,7 @@ import '../../work/domain/work.dart';
 import '../../work/presentation/work_screens.dart' show backToSession;
 import '../../../shared/printer/label.dart';
 import '../../../shared/field_widgets.dart';
+import '../../../shared/pda_theme.dart';
 import '../../../shared/product_hints.dart';
 import '../../../shared/printer/printer_ui.dart';
 import '../../../shared/printer/reprint.dart';
@@ -286,6 +287,8 @@ class _PackingScreenState extends ConsumerState<PackingScreen> {
                   : !ready
                   ? 3
                   : 4;
+              // 시안 pda-preview.html: 위 = 단계·주문·큰 제목·카드, 아래 고정 칸(actions) = 스캔·주 버튼.
+              final actions = <Widget>[];
               final children = <Widget>[
                 StepHeader(
                   names: [
@@ -305,24 +308,31 @@ class _PackingScreenState extends ConsumerState<PackingScreen> {
                     task.totalPlanned,
                   ),
                   key: const ValueKey('pack-order'),
-                  style: theme.textTheme.bodyMedium,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: PdaColors.muted,
+                  ),
                 ),
                 if (s.dispatchRequest case final d? when step >= 3)
                   Text(
                     l10n.packDispatchDone(formatSeoulTime(d.estimatedReadyAt)),
                     key: const ValueKey('dispatch-requested'),
-                    style: theme.textTheme.bodySmall,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: PdaColors.muted,
+                    ),
                   ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 14),
               ];
               switch (step) {
                 case 0:
                   children.addAll([
                     ScanPrompt(
                       key: const ValueKey('target-station'),
-                      icon: Icons.countertops_outlined,
-                      text: l10n.packScanStation,
+                      text: l10n.packStationTitle,
+                      detail: l10n.packScanStation,
                     ),
+                    _scanError(l10n, theme, packing),
+                  ]);
+                  actions.add(
                     ScanInput(
                       id: 'station-scan',
                       testValues: [
@@ -330,7 +340,7 @@ class _PackingScreenState extends ConsumerState<PackingScreen> {
                           TestScan(l10n.tsStation, x),
                         TestScan(l10n.tsWrong, 'C-S1-01-1-01'),
                       ],
-                      label: l10n.scanHint,
+                      label: l10n.packScanStationBtn,
                       cameraTitle: l10n.packingTitle,
                       continuous: false,
                       autofocus: false,
@@ -338,35 +348,45 @@ class _PackingScreenState extends ConsumerState<PackingScreen> {
                           ? const ScanFeedback.ok()
                           : ScanFeedback.error(l10n.packNotStation),
                     ),
-                    _scanError(l10n, theme, packing),
-                  ]);
+                  );
                 case 1:
                   children.addAll([
-                    TargetLine(
-                      label: l10n.packStepStation,
-                      code: packing.station!,
-                      confirmed: true,
+                    ScanPrompt(
+                      key: const ValueKey('target-cart'),
+                      text: l10n.packCartTitle,
+                      detail: l10n.packStationConfirmed(packing.station!),
                     ),
                     if (expectedCart != null)
-                      TargetLine(
-                        key: const ValueKey('target-cart'),
-                        label: l10n.moveCart,
-                        code: expectedCart,
-                        confirmed: false,
-                      )
-                    else
-                      ScanPrompt(
-                        key: const ValueKey('target-cart'),
-                        icon: Icons.shopping_cart_outlined,
-                        text: l10n.moveCartScan,
+                      Card(
+                        child: Padding(
+                          padding: const EdgeInsets.all(14),
+                          child: Row(
+                            children: [
+                              const Icon(
+                                Icons.shopping_cart_outlined,
+                                color: PdaColors.primary,
+                              ),
+                              const SizedBox(width: 10),
+                              Text(
+                                expectedCart,
+                                style: theme.textTheme.titleLarge?.copyWith(
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
+                    _scanError(l10n, theme, packing),
+                  ]);
+                  actions.add(
                     ScanInput(
                       id: 'pack-cart-scan',
                       testValues: [
                         TestScan(l10n.tsCart, expectedCart ?? 'CRT-C-01'),
                         TestScan(l10n.tsOtherCart, 'CRT-C-09'),
                       ],
-                      label: l10n.moveCartScan,
+                      label: l10n.packScanCartBtn,
                       cameraTitle: l10n.packingTitle,
                       continuous: false,
                       autofocus: false,
@@ -374,14 +394,13 @@ class _PackingScreenState extends ConsumerState<PackingScreen> {
                           ? const ScanFeedback.ok()
                           : ScanFeedback.error(l10n.packOtherCart),
                     ),
-                    _scanError(l10n, theme, packing),
-                  ]);
+                  );
                 case 2:
                   // D-5: 포장을 시작하면 예상 포장 시간과 함께 배차를 요청한다(직원 요청만).
                   children.addAll([
-                    Text(
-                      l10n.packDispatchFirst,
-                      style: theme.textTheme.titleMedium,
+                    ScanPrompt(
+                      text: l10n.packMinutesTitle,
+                      detail: l10n.packDispatchFirst,
                     ),
                     DispatchSection(taskId: widget.taskId, shipment: s),
                   ]);
@@ -399,26 +418,11 @@ class _PackingScreenState extends ConsumerState<PackingScreen> {
                     Text(
                       l10n.packBagNo(sealedCount + 1),
                       key: const ValueKey('bag-no'),
-                      style: theme.textTheme.titleLarge,
-                    ),
-                    Text(
-                      l10n.packSplitProgress(leftAfter + inBag, inBag),
-                      key: const ValueKey('pack-split-progress'),
-                    ),
-                    if (sealedCount > 0 && inBag == 0 && !packing.sealUnknown)
-                      Text(
-                        l10n.packNextBag(sealedCount, leftAfter),
-                        key: const ValueKey('pack-next-bag'),
-                        style: theme.textTheme.titleSmall?.copyWith(
-                          color: theme.colorScheme.primary,
-                        ),
-                      )
-                    else if (sealedCount == 0 && inBag == 0)
-                      Text(
-                        l10n.packSplitHint,
-                        key: const ValueKey('pack-split-hint'),
-                        style: theme.textTheme.bodySmall,
+                      style: theme.textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -1.2,
                       ),
+                    ),
                     Text(
                       switch (ctl.bagZone(task)) {
                         final z? => l10n.bagZone(storageZoneText(l10n, z)),
@@ -426,43 +430,126 @@ class _PackingScreenState extends ConsumerState<PackingScreen> {
                         null => l10n.zoneUnknownPick,
                       },
                       key: const ValueKey('bag-zone'),
-                      style: theme.textTheme.titleMedium,
-                    ),
-                    if (!ctl.zonesKnown(task))
-                      SegmentedButton<TemperatureZone>(
-                        key: const ValueKey('zone-select'),
-                        segments: [
-                          for (final z in TemperatureZone.values)
-                            ButtonSegment(
-                              value: z,
-                              label: Text(zoneText(l10n, z)),
-                            ),
-                        ],
-                        selected: {packing.zone},
-                        onSelectionChanged: (v) => ctl.setZone(v.first),
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: PdaColors.muted,
                       ),
-                    for (final l in task.lines)
-                      if (ctl.room(l, s) > 0 ||
-                          packing.inBag(l.orderLineId) > 0)
-                        ListTile(
-                          key: ValueKey('pack-line-${l.orderLineId}'),
-                          dense: true,
-                          contentPadding: EdgeInsets.zero,
-                          title: Text(
-                            [
-                              l.productName ?? l.sku,
-                              if (ctl.zoneOf(l) case final z?)
-                                storageZoneText(l10n, z),
-                            ].join(' · '),
-                          ),
-                          trailing: Text(
-                            l10n.packLineLeft(
-                              packing.inBag(l.orderLineId),
-                              ctl.room(l, s) + packing.inBag(l.orderLineId),
-                            ),
-                            style: theme.textTheme.titleMedium,
+                    ),
+                    Text(
+                      l10n.packSplitProgress(leftAfter + inBag, inBag),
+                      key: const ValueKey('pack-split-progress'),
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: PdaColors.muted,
+                      ),
+                    ),
+                    if (sealedCount > 0 && inBag == 0 && !packing.sealUnknown)
+                      NoticeBox(
+                        textKey: const ValueKey('pack-next-bag'),
+                        text: l10n.packNextBag(sealedCount, leftAfter),
+                      )
+                    else if (sealedCount == 0 && inBag == 0)
+                      NoticeBox(
+                        textKey: const ValueKey('pack-split-hint'),
+                        text: l10n.packSplitHint,
+                      ),
+                    if (!ctl.zonesKnown(task))
+                      Padding(
+                        padding: const EdgeInsets.only(top: 10),
+                        child: SegmentedButton<TemperatureZone>(
+                          key: const ValueKey('zone-select'),
+                          segments: [
+                            for (final z in TemperatureZone.values)
+                              ButtonSegment(
+                                value: z,
+                                label: Text(zoneText(l10n, z)),
+                              ),
+                          ],
+                          selected: {packing.zone},
+                          onSelectionChanged: (v) => ctl.setZone(v.first),
+                        ),
+                      ),
+                    Card(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 14),
+                        child: Column(
+                          children: [
+                            for (final (i, l) in [
+                              for (final l in task.lines)
+                                if (ctl.room(l, s) > 0 ||
+                                    packing.inBag(l.orderLineId) > 0)
+                                  l,
+                            ].indexed) ...[
+                              if (i > 0) const Divider(),
+                              Padding(
+                                key: ValueKey('pack-line-${l.orderLineId}'),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 10,
+                                ),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(l.productName ?? l.sku),
+                                          if (ctl.zoneOf(l) case final z?)
+                                            Text(
+                                              storageZoneText(l10n, z),
+                                              style: theme.textTheme.bodySmall
+                                                  ?.copyWith(
+                                                    color: PdaColors.muted,
+                                                  ),
+                                            ),
+                                        ],
+                                      ),
+                                    ),
+                                    Text(
+                                      l10n.packLineLeft(
+                                        packing.inBag(l.orderLineId),
+                                        ctl.room(l, s) +
+                                            packing.inBag(l.orderLineId),
+                                      ),
+                                      style: theme.textTheme.titleMedium
+                                          ?.copyWith(
+                                            fontWeight: FontWeight.w800,
+                                          ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ),
+                    if (packing.lastScan != null &&
+                        packing.lastScan != PackScan.matched)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Text(
+                          packScanText(l10n, packing.lastScan!),
+                          key: const ValueKey('pack-scan-error'),
+                          style: TextStyle(
+                            color: theme.colorScheme.error,
+                            fontWeight: FontWeight.w700,
                           ),
                         ),
+                      ),
+                    if (packing.sealUnknown)
+                      Text(
+                        l10n.sealUnknown,
+                        key: const ValueKey('seal-unknown'),
+                      ),
+                    if (packing.rejectCode case final c?)
+                      Text(
+                        c == PackProblemCode.contentMismatch
+                            ? l10n.sealMismatch
+                            : l10n.sealRejected,
+                        key: const ValueKey('seal-rejected'),
+                        style: TextStyle(color: theme.colorScheme.error),
+                      ),
+                  ]);
+                  actions.addAll([
                     ScanInput(
                       id: 'pack-scan',
                       reprint: [
@@ -479,38 +566,15 @@ class _PackingScreenState extends ConsumerState<PackingScreen> {
                             TestScan(l.productName ?? l.sku, bc),
                         TestScan(l10n.tsWrong, '0000000000000'),
                       ],
-                      label: l10n.scanHint,
+                      label: l10n.pickScanItem,
                       cameraTitle: l10n.packCameraTitle,
+                      // 피킹처럼 한 번에 하나 — 맞게 인식하면 카메라를 내린다(사용자 2026-11-19). 한 번 스캔 = 1개.
+                      continuous: false,
                       onScan: (code) => switch (ctl.scan(task, s, code)) {
                         PackScan.matched => const ScanFeedback.ok(),
                         final r => ScanFeedback.error(packScanText(l10n, r)),
                       },
                     ),
-                    SizedBox(
-                      height: 20,
-                      child:
-                          packing.lastScan != null &&
-                              packing.lastScan != PackScan.matched
-                          ? Text(
-                              packScanText(l10n, packing.lastScan!),
-                              key: const ValueKey('pack-scan-error'),
-                              style: TextStyle(color: theme.colorScheme.error),
-                            )
-                          : null,
-                    ),
-                    if (packing.sealUnknown)
-                      Text(
-                        l10n.sealUnknown,
-                        key: const ValueKey('seal-unknown'),
-                      ),
-                    if (packing.rejectCode case final c?)
-                      Text(
-                        c == PackProblemCode.contentMismatch
-                            ? l10n.sealMismatch
-                            : l10n.sealRejected,
-                        key: const ValueKey('seal-rejected'),
-                        style: TextStyle(color: theme.colorScheme.error),
-                      ),
                     CommandButton(
                       key: const ValueKey('seal'),
                       busy: packing.busy,
@@ -527,52 +591,55 @@ class _PackingScreenState extends ConsumerState<PackingScreen> {
                 default:
                   // 5. 라벨 붙인 봉투를 출하대기 랙에 올리고 랙을 찍는다(업무 문서 §7-6 13단계).
                   children.addAll([
-                    Text(
-                      l10n.shipmentReady,
-                      key: const ValueKey('shipment-state'),
-                      style: theme.textTheme.titleLarge,
-                    ),
-                    Text(
-                      l10n.packToRack(
+                    ScanPrompt(
+                      key: const ValueKey('target-rack'),
+                      text: packing.rack == null
+                          ? l10n.packRackTitle
+                          : l10n.packRackDoneTitle,
+                      detail: l10n.packToRack(
                         s.packages
                             .where((p) => p.state == PackageState.sealed)
                             .length,
                       ),
                     ),
-                    const SizedBox(height: 12),
-                    if (packing.rack case final rack?)
-                      TargetLine(
-                        key: const ValueKey('target-rack'),
-                        label: l10n.packStepRack,
-                        code: rack,
-                        confirmed: true,
-                      )
-                    else
-                      ScanPrompt(
-                        key: const ValueKey('target-rack'),
-                        icon: Icons.shelves,
-                        text: l10n.packScanRack,
+                    Text(
+                      l10n.shipmentReady,
+                      key: const ValueKey('shipment-state'),
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: PdaColors.muted,
                       ),
-                    ScanInput(
-                      id: 'rack-scan',
-                      testValues: [
-                        TestScan(l10n.tsRack, 'DSP-A-01'),
-                        TestScan(l10n.tsWrong, 'PAK-C-01'),
-                      ],
-                      label: l10n.scanHint,
-                      cameraTitle: l10n.packingTitle,
-                      continuous: false,
-                      autofocus: false,
-                      onScan: (c) => ctl.scanRack(c)
-                          ? const ScanFeedback.ok()
-                          : ScanFeedback.error(l10n.packNotRack),
                     ),
+                    if (packing.rack case final rack?)
+                      Card(
+                        child: Padding(
+                          padding: const EdgeInsets.all(14),
+                          child: TargetLine(
+                            label: l10n.packStepRack,
+                            code: rack,
+                            confirmed: true,
+                          ),
+                        ),
+                      ),
                     _scanError(l10n, theme, packing),
+                  ]);
+                  actions.addAll([
+                    if (packing.rack == null)
+                      ScanInput(
+                        id: 'rack-scan',
+                        testValues: [
+                          TestScan(l10n.tsRack, 'DSP-A-01'),
+                          TestScan(l10n.tsWrong, 'PAK-C-01'),
+                        ],
+                        label: l10n.packScanRackBtn,
+                        cameraTitle: l10n.packingTitle,
+                        continuous: false,
+                        autofocus: false,
+                        onScan: (c) => ctl.scanRack(c)
+                            ? const ScanFeedback.ok()
+                            : ScanFeedback.error(l10n.packNotRack),
+                      ),
                     FilledButton(
                       key: const ValueKey('finish-packing'),
-                      style: FilledButton.styleFrom(
-                        minimumSize: const Size.fromHeight(56),
-                      ),
                       onPressed: packing.rack == null || packing.busy
                           ? null
                           : () => ctl.finish(task, s),
@@ -673,9 +740,16 @@ class _PackingScreenState extends ConsumerState<PackingScreen> {
                     ),
                 ]);
               }
-              return ListView(
-                padding: const EdgeInsets.all(16),
-                children: children,
+              return Column(
+                children: [
+                  Expanded(
+                    child: ListView(
+                      padding: const EdgeInsets.all(16),
+                      children: children,
+                    ),
+                  ),
+                  ActionBar(children: actions),
+                ],
               );
             },
           );

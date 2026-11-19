@@ -323,6 +323,141 @@ void main() {
     debugDisableShadows = true;
   });
 
+  // 입고(박스)·품질검사·재고 실사 — 단계마다 한 장. 파일 이름 fx-NN-<단계>.
+  testWidgets('field-flow', (t) async {
+    if (_dir.isEmpty) fail('--dart-define=SHOT_DIR=<절대 경로> 가 필요하다');
+    await t.runAsync(_loadFonts);
+    debugDisableShadows = false;
+    t.view
+      ..physicalSize = const Size(1080, 2160)
+      ..devicePixelRatio = 3;
+    addTearDown(t.view.reset);
+    final stockMove = MockStockMoveRepository(latency: Duration.zero);
+    await t.pumpWidget(
+      ProviderScope(
+        retry: (_, _) => null,
+        overrides: [
+          envProvider.overrideWithValue(PmartEnv.mock),
+          taskRepositoryProvider.overrideWithValue(
+            MockTaskRepository(latency: Duration.zero),
+          ),
+          inboundRepositoryProvider.overrideWithValue(
+            MockInboundRepository(latency: Duration.zero),
+          ),
+          qualityRepositoryProvider.overrideWithValue(
+            MockQualityRepository(latency: Duration.zero, returns: stockMove),
+          ),
+          stockMoveRepositoryProvider.overrideWithValue(stockMove),
+          stockCountRepositoryProvider.overrideWithValue(
+            MockStockCountRepository(latency: Duration.zero),
+          ),
+          secureStoreProvider.overrideWithValue(MemoryKeyValueStore()),
+        ],
+        child: const MfcApp(),
+      ),
+    );
+    await t.pumpAndSettle();
+
+    Future<void> tap(String key) async {
+      await t.ensureVisible(find.byKey(ValueKey(key)));
+      await t.tap(find.byKey(ValueKey(key)));
+      await t.pumpAndSettle();
+    }
+
+    Future<void> scanTo(String id, String code) async {
+      await t.enterText(find.byKey(ValueKey(id)), code);
+      await t.testTextInput.receiveAction(TextInputAction.done);
+      await t.pumpAndSettle();
+    }
+
+    var n = 0;
+    Future<void> shot(String name) async {
+      await t.pumpAndSettle();
+      expect(t.takeException(), isNull, reason: name);
+      n += 1;
+      await expectLater(
+        find.byType(MfcApp),
+        matchesGoldenFile(
+          File('$_dir/fx-${n.toString().padLeft(2, '0')}-$name.png').uri,
+        ),
+      );
+    }
+
+    Future<void> home() async {
+      final nav = Navigator.of(t.element(find.byType(Scaffold).last));
+      nav.popUntil((r) => r.isFirst);
+      await t.pumpAndSettle();
+    }
+
+    // 첫 화면 → 업무 칸이 커지며 안내 화면 위 카드로(중간 세 장 — 그림이 이어서 움직이는지).
+    await shot('home');
+    await t.tap(find.byKey(const ValueKey('area-inbound')));
+    await t.pump();
+    for (final ms in [95, 95, 95]) {
+      await t.pump(Duration(milliseconds: ms));
+      expect(t.takeException(), isNull);
+      n += 1;
+      await expectLater(
+        find.byType(MfcApp),
+        matchesGoldenFile(
+          File('$_dir/fx-${n.toString().padLeft(2, '0')}-hero-mid.png').uri,
+        ),
+      );
+    }
+    await shot('guide');
+
+    // 입고.
+    await tap('guide-ok');
+    await tap('run-task');
+    await shot('inbound-arrival');
+    await tap('inbound-arrive');
+    await shot('inbound-boxes');
+    await scanTo('box-scan', 'BOX-00000001');
+    await shot('inbound-box-scanned');
+    await tap('box-scan-test');
+    await tap('box-scan-action-all');
+    await tap('box-check-done');
+    await shot('inbound-open-list');
+    await scanTo('box-open-scan', 'BOX-00000001');
+    await scanTo('box-item-scan', '8801115114154');
+    await shot('inbound-box-count');
+    await home();
+
+    // 품질검사.
+    await tap('area-inspection');
+    await tap('guide-ok');
+    await tap('run-task');
+    await shot('inspect-location');
+    await scanTo('inspect-loc-scan', 'RCV-C-01');
+    await shot('inspect-product');
+    await scanTo('inspect-product-scan', '8801115220015');
+    await shot('inspect-judge');
+    await home();
+
+    // 재고 실사.
+    await tap('area-stockCount');
+    await tap('guide-ok');
+    await tap('run-task');
+    await shot('count-location');
+    await scanTo('count-loc-scan', 'A-S3-01-1-10');
+    await shot('count-counting');
+    await scanTo('count-item-scan', MockTaskRepository.milkBarcode);
+    await shot('count-counted');
+    await home();
+
+    // 아래 도구 줄 화면들.
+    for (final (key, name) in [
+      ('menu-handover', 'handover-checks'),
+      ('menu-return-handover', 'return-numbers'),
+      ('menu-printer', 'printer'),
+    ]) {
+      await tap(key);
+      await shot(name);
+      await home();
+    }
+    debugDisableShadows = true;
+  });
+
   testWidgets('supervisor', (t) async {
     if (_dir.isEmpty) fail('--dart-define=SHOT_DIR=<절대 경로> 가 필요하다');
     await t.runAsync(_loadFonts);

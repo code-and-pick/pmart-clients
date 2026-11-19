@@ -10,6 +10,7 @@ import '../../work/presentation/work_screens.dart' show backToSession;
 import '../../work/presentation/work_controller.dart' show continueToPack;
 import 'return_screen.dart';
 import '../../../shared/field_widgets.dart';
+import '../../../shared/pda_theme.dart';
 import '../../../shared/location_guide.dart';
 import '../../../shared/printer/reprint.dart';
 import '../../../shared/scanner/scan_input.dart';
@@ -383,317 +384,367 @@ class _PickingScreenState extends ConsumerState<PickingScreen> {
               : picking.at == null
               ? 1
               : 2;
-          return ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              if (stop != null)
-                StepHeader(
-                  names: [
-                    l10n.pickStepCart,
-                    l10n.pickStepLocation,
-                    l10n.pickStepItem,
-                  ],
-                  current: step,
+          // 시안 pda-preview.html: 위 = 단계·진행·큰 제목·카드, 아래 고정 칸 = 스캔·버튼.
+          final body = <Widget>[];
+          final actions = <Widget>[];
+          if (stop != null) {
+            body.add(
+              StepHeader(
+                names: [
+                  l10n.pickStepCart,
+                  l10n.pickStepLocation,
+                  l10n.pickStepItem,
+                ],
+                current: step,
+              ),
+            );
+          }
+          body.add(
+            ProgressLine(
+              textKey: const ValueKey('pick-progress'),
+              text: l10n.taskProgress(task.totalCompleted, task.totalPlanned),
+              done: task.totalCompleted,
+              total: task.totalPlanned,
+            ),
+          );
+          if (checking) {
+            body.add(
+              Card(
+                key: const ValueKey('do-not-redo'),
+                margin: const EdgeInsets.only(bottom: 12),
+                color: theme.colorScheme.errorContainer,
+                child: ListTile(
+                  leading: const Icon(Icons.warning_amber_rounded),
+                  title: Text(l10n.doNotRedo),
                 ),
-              Row(
-                children: [
-                  Text(
-                    l10n.taskProgress(task.totalCompleted, task.totalPlanned),
-                    key: const ValueKey('pick-progress'),
-                    style: theme.textTheme.titleSmall,
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: LinearProgressIndicator(
-                      value: task.totalPlanned == 0
-                          ? 0
-                          : task.totalCompleted / task.totalPlanned,
-                      minHeight: 6,
-                      borderRadius: BorderRadius.circular(3),
+              ),
+            );
+          }
+          if (stop != null && picking.cart == null) {
+            // 1. 장바구니 — 주문과 장바구니를 잇는다(업무 문서 §7-6).
+            body.add(
+              ScanPrompt(
+                key: const ValueKey('target-cart'),
+                text: l10n.pickCartTitle,
+                detail: l10n.pickCartHelp,
+              ),
+            );
+            actions.add(
+              ScanInput(
+                id: 'cart-scan',
+                testValues: [
+                  TestScan(l10n.tsCart, 'CRT-C-01'),
+                  TestScan(l10n.tsWrong, 'C-S1-01-1-01'),
+                ],
+                label: l10n.pickScanCart,
+                cameraTitle: l10n.pickCameraTitle,
+                continuous: false,
+                autofocus: false,
+                onScan: (code) =>
+                    _ctl.scanCart(code, shipmentId: task.shipmentId)
+                    ? const ScanFeedback.ok()
+                    : ScanFeedback.error(l10n.pickNotCart),
+              ),
+            );
+          } else if (stop != null) {
+            if (picking.at == null) {
+              // 2. 칸 — 진한 카드(온도대·구역·랙·단·칸). 같은 상품이 여러 칸·LOT 에 있어도
+              // 지시 LOT 을 집게(IV-07 오로트 차단).
+              body.add(
+                LocationGuide(
+                  code: stop.location,
+                  codeKey: const ValueKey('pick-location'),
+                  detail: picking.cart == null
+                      ? null
+                      : l10n.pickCartDetail(picking.cart!),
+                ),
+              );
+              if (picking.lastLocScan case final r? when r != PickLocScan.ok) {
+                body.add(
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text(
+                      pickLocText(l10n, r),
+                      key: const ValueKey('pick-loc-error'),
+                      style: TextStyle(
+                        color: theme.colorScheme.error,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              if (checking)
-                Card(
-                  key: const ValueKey('do-not-redo'),
-                  color: theme.colorScheme.errorContainer,
-                  child: ListTile(
-                    leading: const Icon(Icons.warning_amber_rounded),
-                    title: Text(l10n.doNotRedo),
-                  ),
-                ),
-              if (stop != null && picking.cart == null) ...[
-                // 1. 장바구니 — 주문과 장바구니를 잇는다(업무 문서 §7-6).
-                ScanPrompt(
-                  key: const ValueKey('target-cart'),
-                  icon: Icons.shopping_cart_outlined,
-                  text: l10n.moveCartScan,
-                ),
+                );
+              }
+              actions.add(
                 ScanInput(
-                  id: 'cart-scan',
+                  id: 'pick-loc-scan',
                   testValues: [
-                    TestScan(l10n.tsCart, 'CRT-C-01'),
-                    TestScan(l10n.tsWrong, 'C-S1-01-1-01'),
+                    TestScan(l10n.tsLocation, stop.location),
+                    for (final o in stop.otherLocations)
+                      TestScan(l10n.tsOtherLocation, o),
+                    TestScan(l10n.tsWrong, 'A-S9-09-9-99'),
                   ],
-                  label: l10n.scanHint,
+                  label: l10n.locScanHint,
                   cameraTitle: l10n.pickCameraTitle,
                   continuous: false,
                   autofocus: false,
-                  onScan: (code) =>
-                      _ctl.scanCart(code, shipmentId: task.shipmentId)
-                      ? const ScanFeedback.ok()
-                      : ScanFeedback.error(l10n.pickNotCart),
+                  onScan: (code) => switch (_ctl.scanLocation(task, code)) {
+                    PickLocScan.ok => const ScanFeedback.ok(),
+                    final r => ScanFeedback.error(pickLocText(l10n, r)),
+                  },
                 ),
-              ] else if (stop != null) ...[
-                if (picking.at == null)
-                  // 2. 칸 — 갈 위치를 크게(조각마다 색 블록 + 구역·랙·단·칸 표).
-                  // 같은 상품이 여러 칸·LOT 에 있어도 지시 LOT 을 집게(IV-07 오로트 차단).
-                  LocationGuide(
-                    code: stop.location,
-                    codeKey: const ValueKey('pick-location'),
-                  )
-                else
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.check_circle,
-                        color: theme.colorScheme.primary,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(l10n.pickStepLocation),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          picking.at!,
-                          key: const ValueKey('pick-location'),
-                          style: theme.textTheme.titleLarge,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                const SizedBox(height: 12),
-                if (picking.at == null) ...[
-                  ScanInput(
-                    id: 'pick-loc-scan',
-                    testValues: [
-                      TestScan(l10n.tsLocation, stop.location),
-                      for (final o in stop.otherLocations)
-                        TestScan(l10n.tsOtherLocation, o),
-                      TestScan(l10n.tsWrong, 'A-S9-09-9-99'),
-                    ],
-                    label: l10n.locScanHint,
-                    cameraTitle: l10n.pickCameraTitle,
-                    continuous: false,
-                    autofocus: false,
-                    onScan: (code) => switch (_ctl.scanLocation(task, code)) {
-                      PickLocScan.ok => const ScanFeedback.ok(),
-                      final r => ScanFeedback.error(pickLocText(l10n, r)),
-                    },
-                  ),
-                  if (picking.lastLocScan case final r?
-                      when r != PickLocScan.ok)
-                    Text(
-                      pickLocText(l10n, r),
-                      key: const ValueKey('pick-loc-error'),
-                      style: TextStyle(color: theme.colorScheme.error),
-                    ),
-                  const SizedBox(height: 12),
-                ],
-                Card(
-                  key: ValueKey('current-${stop.line.orderLineId}'),
-                  child: Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(
-                              child: Text(
-                                stop.line.productName ?? stop.line.sku,
-                                style: picking.at == null
-                                    ? theme.textTheme.titleMedium
-                                    : theme.textTheme.titleLarge?.copyWith(
-                                        fontWeight: FontWeight.w700,
-                                      ),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              l10n.pickFooterQty(stop.qty),
-                              style: theme.textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ],
-                        ),
-                        Text(
-                          [
-                            if (stop.pick?.visitSeq case final n?)
-                              l10n.pickVisit(n),
-                            if (stop.lotId case final lot?) l10n.lot(lot),
-                            if (stop.expiresOn case final e?) l10n.expiresOn(e),
-                          ].join(' · '),
-                        ),
-                        Text(
-                          l10n.pickStopQty(
-                            stop.qty,
-                            picking.capturedFor(stop.line.orderLineId),
-                          ),
-                          key: const ValueKey('pick-counts'),
-                          // 상품 단계에서는 몇 개 집을지가 제일 중요하다 — 크게.
-                          style: picking.at == null
-                              ? theme.textTheme.titleMedium
-                              : theme.textTheme.headlineSmall?.copyWith(
-                                  fontWeight: FontWeight.w800,
-                                  color: theme.colorScheme.primary,
-                                ),
-                        ),
-                        if (stop.pick case final p?) ...[
-                          if (switch (p.status) {
-                                PickStatus.partial => l10n.pickStatusPartial,
-                                PickStatus.notFound => l10n.pickStatusNotFound,
-                                _ => null,
-                              }
-                              case final w?)
-                            Text(
-                              w,
-                              key: const ValueKey('pick-status-warning'),
-                              style: TextStyle(color: theme.colorScheme.error),
-                            ),
-                          if (p.notice case final n?)
-                            Text(n, key: const ValueKey('pick-notice')),
-                        ],
-                        if (stop.otherLocations.isNotEmpty)
-                          Text(
-                            l10n.pickOtherLocations(
-                              stop.otherLocations.join(', '),
-                            ),
-                            key: const ValueKey('pick-other-locations'),
-                            style: theme.textTheme.bodySmall,
-                          ),
-                      ],
-                    ),
-                  ),
+              );
+            } else {
+              // 3. 상품 — 큰 제목 "상품 n개를 담으세요" + 확인한 칸.
+              body.add(
+                ScanPrompt(
+                  text: l10n.pickTakeTitle(stop.qty),
+                  detail: l10n.pickLocConfirmed(picking.at!),
                 ),
-                if (picking.at != null) ...[
-                  const SizedBox(height: 8),
-                  // 3. 상품 — 한 번에 하나씩. 다 차면 바로 보낸다.
-                  ScanInput(
-                    id: 'scan-field',
-                    reprint: [
-                      ReprintTarget(
-                        sku: stop.line.sku,
-                        name: stop.line.productName,
-                        barcode: stop.line.barcode,
-                      ),
-                    ],
-                    testValues: [
-                      for (final l in task.lines)
-                        if (l.barcode case final bc?)
-                          TestScan(l.productName ?? l.sku, bc),
-                      TestScan(l10n.tsWrong, '0000000000000'),
-                    ],
-                    label: l10n.scanHint,
-                    cameraTitle: l10n.pickCameraTitle,
-                    // 한 번 인식하면 카메라를 내린다(사용자 2026-11-17) — 열린 채 연속 인식하면
-                    // 칸 몫을 채운 뒤의 인식이 다음 단계로 넘어가 버렸다.
-                    continuous: false,
-                    onScan: (code) => _onScan(task, code),
+              );
+            }
+            body.add(
+              _PickCard(
+                key: ValueKey('current-${stop.line.orderLineId}'),
+                stop: stop,
+                captured: picking.capturedFor(stop.line.orderLineId),
+                emphasize: picking.at != null,
+              ),
+            );
+            if (picking.at != null) {
+              // 첫 개를 스캔하면 수량 칸 — 스캔마다 +1, + 버튼, 수기(사용자 2026-11-17).
+              if (picking.capturedFor(stop.line.orderLineId) > 0) {
+                body.add(
+                  CountQtyField(
+                    id: 'pick-qty',
+                    label: l10n.pickQtyLabel,
+                    help: l10n.pickQtyHelp(stop.qty),
+                    addLabel: l10n.pickQtyAdd,
+                    value: picking.capturedFor(stop.line.orderLineId),
+                    max: stop.qty,
+                    onAdd: () => _ctl.addOne(task),
+                    onSet: (n) => _ctl.setCount(task, n),
                   ),
-                  // 첫 개를 스캔하면 수량 칸 — 스캔마다 +1, + 버튼, 수기(사용자 2026-11-17).
-                  if (picking.capturedFor(stop.line.orderLineId) > 0)
-                    CountQtyField(
-                      id: 'pick-qty',
-                      label: l10n.pickQtyLabel,
-                      help: l10n.pickQtyHelp(stop.qty),
-                      addLabel: l10n.pickQtyAdd,
-                      value: picking.capturedFor(stop.line.orderLineId),
-                      max: stop.qty,
-                      onAdd: () => _ctl.addOne(task),
-                      onSet: (n) => _ctl.setCount(task, n),
-                    ),
-                  if (picking.lastScan case final s?
-                      when s != ScanResult.matched)
-                    Text(
+                );
+              }
+              if (picking.lastScan case final s? when s != ScanResult.matched) {
+                body.add(
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text(
                       pickScanText(l10n, s),
                       key: const ValueKey('scan-error'),
-                      style: TextStyle(color: theme.colorScheme.error),
+                      style: TextStyle(
+                        color: theme.colorScheme.error,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
-                  const SizedBox(height: 8),
-                  OutlinedButton(
-                    key: const ValueKey('report-shortage'),
-                    style: OutlinedButton.styleFrom(
-                      minimumSize: const Size.fromHeight(48),
+                  ),
+                );
+              }
+              actions.addAll([
+                // 3. 상품 — 한 번에 하나씩. 다 차면 바로 보낸다.
+                ScanInput(
+                  id: 'scan-field',
+                  reprint: [
+                    ReprintTarget(
+                      sku: stop.line.sku,
+                      name: stop.line.productName,
+                      barcode: stop.line.barcode,
                     ),
-                    onPressed: () => _shortage(task, stop),
-                    child: Text(l10n.reportShortage),
-                  ),
-                ],
-              ] else if (task.state == TaskState.blocked) ...[
-                // 결품 보고로 막혔다 — 고객 확인 전에는 패킹하지 않는다(WK-06).
-                Text(
-                  l10n.pickBlocked(task.blockReason ?? '-'),
-                  key: const ValueKey('pick-blocked'),
-                  style: theme.textTheme.titleMedium,
-                ),
-                const SizedBox(height: 16),
-                FilledButton(
-                  key: const ValueKey('next-task'),
-                  style: FilledButton.styleFrom(
-                    minimumSize: const Size.fromHeight(56),
-                  ),
-                  onPressed: () => backToSession(context, WorkArea.pickPack),
-                  child: Text(l10n.nextTask),
-                ),
-              ] else if (task.lines.every((l) => l.done)) ...[
-                // 4. 피킹 끝 — 장바구니를 들고 패킹대로(피킹·패킹 같은 사람, 업무 문서 §7-6).
-                const SizedBox(height: 24),
-                const Icon(Icons.shopping_cart_checkout, size: 64),
-                Text(
-                  l10n.pickToPack,
-                  key: const ValueKey('pick-finished'),
-                  textAlign: TextAlign.center,
-                  style: theme.textTheme.titleLarge,
-                ),
-                const SizedBox(height: 24),
-                FilledButton(
-                  key: const ValueKey('to-pack'),
-                  style: FilledButton.styleFrom(
-                    minimumSize: const Size.fromHeight(56),
-                  ),
-                  onPressed: () => continueToPack(context, ref),
-                  child: Text(l10n.pickStartPacking),
-                ),
-              ] else ...[
-                // 보낸 실적이 아직 확정되지 않았다 — 다시 집지 않는다.
-                Text(
-                  l10n.pickWaitingConfirm,
-                  key: const ValueKey('pick-finished'),
-                ),
-                const SizedBox(height: 8),
-                CommandButton(
-                  key: const ValueKey('check-again'),
-                  busy: picking.syncing,
-                  label: l10n.checkAgain,
-                  onPressed: _ctl.sync,
-                ),
-              ],
-              if (queue.any((q) => q.state == QueueItemState.rejected))
-                _RejectedNotice(
-                  taskId: widget.taskId,
-                  items: [
-                    for (final q in queue)
-                      if (q.state == QueueItemState.rejected) q,
                   ],
+                  testValues: [
+                    for (final l in task.lines)
+                      if (l.barcode case final bc?)
+                        TestScan(l.productName ?? l.sku, bc),
+                    TestScan(l10n.tsWrong, '0000000000000'),
+                  ],
+                  label: l10n.pickScanItem,
+                  cameraTitle: l10n.pickCameraTitle,
+                  // 한 번 인식하면 카메라를 내린다(사용자 2026-11-17) — 열린 채 연속 인식하면
+                  // 칸 몫을 채운 뒤의 인식이 다음 단계로 넘어가 버렸다.
+                  continuous: false,
+                  onScan: (code) => _onScan(task, code),
                 ),
+                OutlinedButton(
+                  key: const ValueKey('report-shortage'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: PdaColors.danger,
+                  ),
+                  onPressed: () => _shortage(task, stop),
+                  child: Text(l10n.reportShortage),
+                ),
+              ]);
+            }
+          } else if (task.state == TaskState.blocked) {
+            // 결품 보고로 막혔다 — 고객 확인 전에는 패킹하지 않는다(WK-06).
+            body.add(
+              Text(
+                l10n.pickBlocked(task.blockReason ?? '-'),
+                key: const ValueKey('pick-blocked'),
+                style: theme.textTheme.titleMedium,
+              ),
+            );
+            actions.add(
+              FilledButton(
+                key: const ValueKey('next-task'),
+                onPressed: () => backToSession(context, WorkArea.pickPack),
+                child: Text(l10n.nextTask),
+              ),
+            );
+          } else if (task.lines.every((l) => l.done)) {
+            // 4. 피킹 끝 — 장바구니를 들고 패킹대로(피킹·패킹 같은 사람, 업무 문서 §7-6).
+            body.add(
+              DoneMark(
+                title: l10n.pickDoneTitle,
+                message: l10n.pickToPack,
+                messageKey: const ValueKey('pick-finished'),
+              ),
+            );
+            actions.add(
+              FilledButton(
+                key: const ValueKey('to-pack'),
+                onPressed: () => continueToPack(context, ref),
+                child: Text(l10n.pickStartPacking),
+              ),
+            );
+          } else {
+            // 보낸 실적이 아직 확정되지 않았다 — 다시 집지 않는다.
+            body.add(
+              Text(
+                l10n.pickWaitingConfirm,
+                key: const ValueKey('pick-finished'),
+              ),
+            );
+            actions.add(
+              CommandButton(
+                key: const ValueKey('check-again'),
+                busy: picking.syncing,
+                label: l10n.checkAgain,
+                onPressed: _ctl.sync,
+              ),
+            );
+          }
+          if (queue.any((q) => q.state == QueueItemState.rejected)) {
+            body.add(
+              _RejectedNotice(
+                taskId: widget.taskId,
+                items: [
+                  for (final q in queue)
+                    if (q.state == QueueItemState.rejected) q,
+                ],
+              ),
+            );
+          }
+          return Column(
+            children: [
+              Expanded(
+                child: ListView(
+                  padding: const EdgeInsets.all(16),
+                  children: body,
+                ),
+              ),
+              ActionBar(children: actions),
             ],
           );
         },
+      ),
+    );
+  }
+}
+
+/// 지금 집을 상품 카드(시안 card): 이름 + 큰 수량, 회색 LOT·유통기한, 담은 수, 칸 경고·같은 LOT 다른 칸.
+class _PickCard extends StatelessWidget {
+  const _PickCard({
+    super.key,
+    required this.stop,
+    required this.captured,
+    required this.emphasize,
+  });
+
+  final PickStop stop;
+  final int captured;
+
+  /// 상품 단계 — 담은 수를 진하게.
+  final bool emphasize;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final theme = Theme.of(context);
+    final meta = [
+      if (stop.pick?.visitSeq case final n?) l10n.pickVisit(n),
+      if (stop.lotId case final lot?) l10n.lot(lot),
+      if (stop.expiresOn case final e?) l10n.expiresOn(e),
+    ].join(' · ');
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Expanded(
+                  child: Text(
+                    stop.line.productName ?? stop.line.sku,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontSize: 19,
+                      fontWeight: FontWeight.w800,
+                      height: 1.35,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  l10n.pickFooterQty(stop.qty),
+                  style: const TextStyle(
+                    fontSize: 30,
+                    fontWeight: FontWeight.w900,
+                    color: PdaColors.primary,
+                  ),
+                ),
+              ],
+            ),
+            if (meta.isNotEmpty)
+              Text(
+                meta,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: PdaColors.muted,
+                ),
+              ),
+            const SizedBox(height: 6),
+            Text(
+              l10n.pickStopQty(stop.qty, captured),
+              key: const ValueKey('pick-counts'),
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: emphasize ? FontWeight.w800 : null,
+                color: emphasize ? PdaColors.dark : PdaColors.muted,
+              ),
+            ),
+            if (stop.pick case final p?) ...[
+              if (switch (p.status) {
+                    PickStatus.partial => l10n.pickStatusPartial,
+                    PickStatus.notFound => l10n.pickStatusNotFound,
+                    _ => null,
+                  }
+                  case final w?)
+                Text(
+                  w,
+                  key: const ValueKey('pick-status-warning'),
+                  style: TextStyle(color: theme.colorScheme.error),
+                ),
+              if (p.notice case final n?)
+                Text(n, key: const ValueKey('pick-notice')),
+            ],
+            if (stop.otherLocations.isNotEmpty)
+              NoticeBox(
+                key: const ValueKey('pick-other-locations'),
+                warning: true,
+                text: l10n.pickOtherLocations(stop.otherLocations.join(', ')),
+              ),
+          ],
+        ),
       ),
     );
   }

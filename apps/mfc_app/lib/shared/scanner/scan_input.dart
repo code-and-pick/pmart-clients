@@ -4,6 +4,7 @@ import 'package:pmart_core/pmart_core.dart';
 
 import '../../l10n/gen/app_localizations.dart';
 import '../printer/reprint.dart';
+import '../pda_theme.dart';
 import '../providers.dart';
 import 'scanner.dart';
 
@@ -26,7 +27,8 @@ class TestScan {
   final String value;
 }
 
-/// 스캔 입력. 스캔 받는 자리는 키보드 웨지(하드웨어 스캐너)의 입력을 받고, 카메라 버튼은 카메라 스캐너를 연다.
+/// 스캔 입력. 스캔 받는 자리는 키보드 웨지(하드웨어 스캐너)의 입력을 받고, 그 긴 보라 칸을 누르면 카메라 스캐너가 열린다
+/// (사용자 2026-11-19 "코드 스캔 바가 버튼 역할, 카메라 아이콘은 빼").
 /// 두 경로 모두 같은 [onScan] 으로 간다. 실제 앱(안드로이드)은 스캔으로만 확인한다 — 화면 키보드가 뜨지 않아
 /// 손으로 칠 수 없다. (PC 브라우저처럼 실제 키보드가 달린 곳에서는 키 입력을 스캐너와 구별하지 못한다 — 개발 확인용.)
 /// 목 모드(`PMART_ENV=mock` — 웹 미리보기·테스트)에서만 [testValues] 드롭다운이 보인다.
@@ -44,7 +46,7 @@ class ScanInput extends ConsumerStatefulWidget {
     this.reprint,
   });
 
-  /// 입력칸 키는 `ValueKey(id)`, 카메라 버튼은 `ValueKey('$id-camera')`.
+  /// 입력칸(누르면 카메라) 키는 `ValueKey(id)`.
   final String id;
   final String label;
   final String cameraTitle;
@@ -95,7 +97,8 @@ class _ScanInputState extends ConsumerState<ScanInput> {
           title: widget.cameraTitle,
           continuous: widget.continuous,
         );
-    if (mounted && widget.autofocus) _focus.requestFocus();
+    // 카메라를 닫으면 스캔 칸으로 돌아온다 — 하드웨어 스캐너 입력도 계속 받는다.
+    if (mounted) _focus.requestFocus();
   }
 
   @override
@@ -133,50 +136,40 @@ class _ScanInputState extends ConsumerState<ScanInput> {
             autocorrect: false,
             enableSuggestions: false,
             style: const TextStyle(color: Colors.transparent),
-            // 한 줄 안내만(무엇을 찍을지) — 라벨·힌트를 겹쳐 두 줄로 자르지 않는다.
-            // 스캐너 입력을 받는 중(포커스)이면 테두리가 굵은 기본색.
+            // 시안의 보라 "○○ 스캔" 버튼 모양 — 한 줄 안내(무엇을 찍을지)와 스캔 표시.
+            // 스캐너 입력을 받는 중(포커스)이면 옅은 보라 굵은 테두리.
             decoration: InputDecoration(
               hintText: widget.label,
               hintMaxLines: 1,
-              hintStyle: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              hintStyle: const TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
               ),
-              prefixIcon: const Icon(Icons.barcode_reader, size: 28),
+              prefixIcon: const Icon(
+                Icons.barcode_reader,
+                size: 26,
+                color: Colors.white,
+              ),
               filled: true,
+              fillColor: PdaColors.primary,
               contentPadding: const EdgeInsets.symmetric(
                 horizontal: 12,
                 vertical: 18,
               ),
               enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(
-                  color: Theme.of(context).colorScheme.outlineVariant,
-                ),
+                borderRadius: BorderRadius.circular(10),
+                borderSide: const BorderSide(color: PdaColors.primary),
               ),
               focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(
-                  color: Theme.of(context).colorScheme.primary,
-                  width: 2.5,
-                ),
+                borderRadius: BorderRadius.circular(10),
+                borderSide: const BorderSide(color: PdaColors.lilac, width: 3),
               ),
             ),
             onSubmitted: _submit,
+            // 칸 자체가 버튼 — 누르면 카메라(하드웨어 스캐너는 누르지 않아도 이 칸으로 들어온다).
+            onTap: _camera,
           ),
-        ),
-        const SizedBox(width: 8),
-        IconButton.filled(
-          key: ValueKey('${widget.id}-camera'),
-          tooltip: l10n.scanWithCamera,
-          iconSize: 32,
-          style: IconButton.styleFrom(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
-          constraints: const BoxConstraints(minWidth: 64, minHeight: 64),
-          icon: const Icon(Icons.qr_code_scanner),
-          onPressed: _camera,
         ),
         if (ref.watch(envProvider) == PmartEnv.mock &&
             (widget.testValues.isNotEmpty || widget.testActions.isNotEmpty))

@@ -168,7 +168,12 @@ class _CenterTaskTile extends StatelessWidget {
                   ),
               ],
             ),
-            Text(headline, style: theme.textTheme.bodyLarge),
+            Text(
+              headline,
+              style: theme.textTheme.bodyLarge?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+            ),
             Text(
               [
                 task.assigneeId == null
@@ -250,7 +255,10 @@ class CenterWorkersScreen extends ConsumerWidget {
               Card(
                 key: ValueKey('worker-${w.workerId}'),
                 child: ListTile(
-                  title: Text(w.displayName ?? w.workerId),
+                  title: Text(
+                    w.displayName ?? w.workerId,
+                    style: const TextStyle(fontWeight: FontWeight.w800),
+                  ),
                   subtitle: Text(switch (w.workAreas) {
                     final a? when a.isNotEmpty => [
                       for (final x in WorkArea.values)

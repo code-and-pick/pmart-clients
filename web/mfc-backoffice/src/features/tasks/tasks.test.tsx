@@ -159,3 +159,73 @@ describe('작업 상세', () => {
     expect(screen.queryByText('아직 포장이 없어요.')).not.toBeInTheDocument();
   });
 });
+
+// 담당 바꾸기·내려놓기(백엔드 알림 2026-11-19 notice-reassign-release — 서버 변경 없음)
+describe('작업 목록 행 조치', () => {
+  const rowOf = (type: string) => rows().find((r) => within(r).getAllByRole('cell')[0]!.textContent === type)!;
+
+  it('늦음·멈춤 행이 위로, 진행 중·배정됨은 담당 바꾸기·내려놓기', async () => {
+    renderAt('/c/MFC-BSN-01/tasks');
+    await waitFor(() => expect(rows()).toHaveLength(3));
+    // 복귀(늦음)·피킹(멈춤)이 포장보다 위
+    expect(firstCells()).toEqual(['복귀', '피킹', '포장']);
+    const pick = rowOf('피킹');
+    expect(within(pick).getByRole('button', { name: '담당 바꾸기' })).toBeInTheDocument();
+    expect(within(pick).getByRole('button', { name: '내려놓기' })).toBeInTheDocument();
+  });
+
+  it('담당 바꾸기: 그 유형을 맡을 수 있는 재직 작업자만(휴게 중 표시), 진행 중이면 현장 주의, 지금 배정 버전·사유를 보낸다', async () => {
+    const view = renderAt('/c/MFC-BSN-01/tasks');
+    await waitFor(() => expect(rows()).toHaveLength(3));
+    await userEvent.click(within(rowOf('피킹')).getByRole('button', { name: '담당 바꾸기' }));
+    const form = await screen.findByRole('form', { name: /담당 바꾸기/ });
+    expect(within(form).getByTestId('reassign-warn')).toHaveTextContent('"시작"부터 다시');
+    expect(within(form).getByTestId('reassign-warn')).toHaveTextContent('장바구니');
+    const select = await within(form).findByRole('combobox', { name: '새 담당' });
+    // 지금 담당(OP-wkr-1)·정지(OP-wkr-3)·피킹 업무 없는 사람은 없다
+    expect(within(select).getAllByRole('option').map((o) => o.textContent)).toEqual(['작업자 고르기', '이알바 (OP-wkr-2) · 휴게 중']);
+    expect(within(form).getByRole('button', { name: '담당 바꾸기' })).toBeDisabled(); // 사유 전
+    await userEvent.selectOptions(select, 'OP-wkr-2');
+    await userEvent.type(within(form).getByRole('textbox', { name: '사유' }), '교대');
+    await userEvent.click(within(form).getByRole('button', { name: '담당 바꾸기' }));
+    expect(await within(form).findByRole('status')).toHaveTextContent('OP-wkr-2 에게 넘겼어요.');
+    const post = view.sent.find((r) => r.method === 'POST' && r.url.endsWith('/assignments'))!;
+    expect(post.headers.get('X-Expected-Version')).toBe('1');
+    expect(post.headers.get('Idempotency-Key')).toBeTruthy();
+    expect(await post.clone().json()).toEqual({ mfcId: 'MFC-BSN-01', taskId: 'TASK-PICK-1', taskType: 'PICK', workerId: 'OP-wkr-2', reason: '교대' });
+    // 목록을 다시 읽어 새 담당이 보인다
+    await waitFor(() => expect(within(rowOf('피킹')).getByText(/이알바|OP-wkr-2/)).toBeInTheDocument());
+  });
+
+  it('담당 바꾸기: 그 사이 다른 배정(409 VERSION_CONFLICT)이면 거절 안내', async () => {
+    server.use(http.post(`${API_BASE}/assignments`, () => problem(409, 'VERSION_CONFLICT')));
+    renderAt('/c/MFC-BSN-01/tasks');
+    await waitFor(() => expect(rows()).toHaveLength(3));
+    await userEvent.click(within(rowOf('피킹')).getByRole('button', { name: '담당 바꾸기' }));
+    const form = await screen.findByRole('form', { name: /담당 바꾸기/ });
+    await userEvent.selectOptions(await within(form).findByRole('combobox', { name: '새 담당' }), 'OP-wkr-2');
+    await userEvent.type(within(form).getByRole('textbox', { name: '사유' }), '지연');
+    await userEvent.click(within(form).getByRole('button', { name: '담당 바꾸기' }));
+    expect(await within(form).findByRole('alert')).toHaveTextContent('다른 사람이 먼저 바꿨어요');
+  });
+
+  it('내려놓기: 사유를 받아 지금 담당으로 보내고 대기로, 실적이 처리 중이면(409 EXECUTION_IN_FLIGHT) 안내', async () => {
+    const view = renderAt('/c/MFC-BSN-01/tasks');
+    await waitFor(() => expect(rows()).toHaveLength(3));
+    await userEvent.click(within(rowOf('피킹')).getByRole('button', { name: '내려놓기' }));
+    const form = await screen.findByRole('form', { name: /내려놓기/ });
+    expect(within(form).getByRole('button', { name: '내려놓기' })).toBeDisabled();
+    await userEvent.type(within(form).getByRole('textbox', { name: '사유' }), '교대');
+    await userEvent.click(within(form).getByRole('button', { name: '내려놓기' }));
+    expect(await within(form).findByRole('status')).toHaveTextContent('내려놓았어요');
+    const post = view.sent.find((r) => r.method === 'POST' && r.url.endsWith('/tasks/TASK-PICK-1/releases'))!;
+    expect(await post.clone().json()).toEqual({ workerId: 'OP-wkr-1', reason: '교대' });
+
+    // 복귀 작업은 확정 대기 실적이 있어 거절
+    await userEvent.click(within(rowOf('복귀')).getByRole('button', { name: '내려놓기' }));
+    const form2 = await screen.findByRole('form', { name: /내려놓기/ });
+    await userEvent.type(within(form2).getByRole('textbox', { name: '사유' }), '교대');
+    await userEvent.click(within(form2).getByRole('button', { name: '내려놓기' }));
+    expect(await within(form2).findByRole('alert')).toHaveTextContent('진행 중인 실적');
+  });
+});

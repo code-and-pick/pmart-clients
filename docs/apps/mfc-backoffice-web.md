@@ -128,6 +128,12 @@
 - 확인 필요 포장 목록·확인(`GET /packages?checkRequired=true`, `handover-checks`)— 센터 관리자도(MB-3, fulfillment 0.17.0, 2026-11-19 반영). 목록 위 "확인 필요 포장" 카드: 놓인 위치·포장·주문·라이더·허가 끝 시각, "포장대에 있음" / "포장대에 없음(라이더가 가져감)"(한 번 더 확인 — 재고가 빠지는 확정). 409 FENCE_ACTIVE·INVALID_STATE 는 거절, 결과 불명은 같은 키. 확인 뒤 목록 다시 읽기.
 - 시작·실적·포장·배차 요청은 현장 일 — 넣지 않는다.
 
+### 4-5b. 작업 현황 행 조치 — 담당 바꾸기·내려놓기 (`features/tasks/TaskActions.tsx`, 2026-11-19 PC 3)
+백엔드 알림 `clients/mfc-backoffice/2026-11-19-notice-reassign-release.md`(서버 변경 없음). 목록에서 늦음·멈춤 행을 위로 올리고, 행마다 단추 → 바로 아래 줄에 폼.
+- **담당 바꾸기**(배정됨·진행 중, 대기면 "담당 정하기"): capacity `POST /assignments` {mfcId, taskId, taskType, workerId, reason} + `X-Expected-Version` = 목록 `assignment.assignmentVersion`(없으면 0). 고를 작업자 = `GET /mfcs/{mfcId}/workers?state=ACTIVE` 중 `effectiveTaskTypes` 에 그 유형이 있고 지금 담당이 아닌 사람(휴게 중 표시). 진행 중이면 현장 주의(시작부터 다시·집은 수량 그대로·피킹은 같은 장바구니·포장은 장바구니 확인·앞 사람 PDA). 200(같은 사람)은 "바뀐 것 없음", `OFF_SHIFT` 는 안내만. 409 VERSION_CONFLICT·422 는 거절 안내.
+- **내려놓기**(배정됨·진행 중): fulfillment `POST /tasks/{id}/releases` {workerId = 지금 담당, reason} → 응답 READY 일 때만 "내려놓았어요". 409 EXECUTION_IN_FLIGHT·INVALID_STATE·NOT_ASSIGNEE 거절, 503 은 결과 불명(같은 키로 다시).
+- 사유 필수(200자). 끝나면 목록·상세를 다시 읽고 1.5초 뒤 한 번 더(배정 반영 지연).
+
 ### 4-6. 배정 — mfc-capacity-service 0.14.0 `/assignments`·`/assignment-plans*` (`features/assignments/AssignmentPages.tsx`)
 | 화면·동작 | API | 규칙 |
 |---|---|---|

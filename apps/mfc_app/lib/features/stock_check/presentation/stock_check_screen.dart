@@ -3,7 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pmart_ui/pmart_ui.dart';
 
 import '../../../l10n/gen/app_localizations.dart';
-import '../../../shared/location_guide.dart';
+import '../../../shared/field_widgets.dart';
+import '../../../shared/pda_theme.dart';
 import '../../../shared/product_hints.dart';
 import '../../../shared/scanner/scan_input.dart';
 import '../../../shared/scanner/scanner.dart';
@@ -73,27 +74,29 @@ class _StockCheckScreenState extends ConsumerState<StockCheckScreen> {
     final code = _code;
     return Scaffold(
       appBar: AppBar(title: Text(l10n.stockCheckTitle)),
+      // 스캔 칸은 아래 고정(다른 현장 화면과 같은 자리).
+      bottomNavigationBar: ActionBar(
+        children: [
+          ScanInput(
+            id: 'stock-check-scan',
+            label: l10n.stockCheckScanHint,
+            cameraTitle: l10n.stockCheckScanHint,
+            testValues: [
+              TestScan(l10n.stockCheckTestMilk, '8801115114154'),
+              TestScan(l10n.stockCheckTestChips, '8801019606557'),
+              TestScan(l10n.tsUnknownProduct, '0000000000000'),
+            ],
+            onScan: (c) {
+              setState(() => _code = c.trim());
+              return const ScanFeedback.ok();
+            },
+          ),
+        ],
+      ),
       body: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-              child: ScanInput(
-                id: 'stock-check-scan',
-                label: l10n.stockCheckScanHint,
-                cameraTitle: l10n.stockCheckScanHint,
-                testValues: [
-                  TestScan(l10n.stockCheckTestMilk, '8801115114154'),
-                  TestScan(l10n.stockCheckTestChips, '8801019606557'),
-                  TestScan(l10n.tsUnknownProduct, '0000000000000'),
-                ],
-                onScan: (c) {
-                  setState(() => _code = c.trim());
-                  return const ScanFeedback.ok();
-                },
-              ),
-            ),
             Expanded(
               child: code == null
                   ? Center(
@@ -152,7 +155,13 @@ class _StockResult extends ConsumerWidget {
       key: const ValueKey('stock-check-result'),
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
       children: [
-        Text(name ?? view.sku, style: theme.textTheme.titleLarge),
+        Text(
+          name ?? view.sku,
+          style: theme.textTheme.headlineSmall?.copyWith(
+            fontWeight: FontWeight.w800,
+            letterSpacing: -1.2,
+          ),
+        ),
         if (name != null)
           Text(
             view.sku,
@@ -172,15 +181,24 @@ class _StockResult extends ConsumerWidget {
             key: ValueKey('stock-lot-${lot.lotId}'),
             margin: const EdgeInsets.only(bottom: 8),
             child: Padding(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(15),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(lot.lotId, style: theme.textTheme.titleMedium),
+                  Text(
+                    lot.lotId,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
                   if (lot.expiryDate != null)
-                    Text(l10n.stockCheckExpiry(lot.expiryDate!)),
+                    Text(
+                      l10n.stockCheckExpiry(lot.expiryDate!),
+                      style: const TextStyle(color: PdaColors.muted),
+                    ),
                   const SizedBox(height: 8),
                   Wrap(
+                    // 수량은 굵게.
                     spacing: 16,
                     runSpacing: 4,
                     children: [
@@ -208,12 +226,17 @@ class _StockResult extends ConsumerWidget {
           ),
         if (view.lines.isNotEmpty) ...[
           const SizedBox(height: 8),
-          Text(l10n.stockCheckByLocation, style: theme.textTheme.titleMedium),
-          const SizedBox(height: 4),
+          StepCaption(l10n.stockCheckByLocation),
           for (final line in view.lines)
-            Padding(
+            Container(
               key: ValueKey('stock-line-${line.locationCode}-${line.lotId}'),
-              padding: const EdgeInsets.symmetric(vertical: 6),
+              margin: const EdgeInsets.only(top: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: PdaColors.line),
+              ),
               child: Row(
                 children: [
                   Expanded(
@@ -222,13 +245,11 @@ class _StockResult extends ConsumerWidget {
                       children: [
                         Text(
                           line.locationCode,
-                          style: theme.textTheme.titleMedium,
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w800,
+                          ),
                         ),
-                        if (ShelfCode.parse(line.locationCode) != null) ...[
-                          const SizedBox(height: 4),
-                          LocationBlocks(code: line.locationCode, height: 32),
-                        ],
-                        const SizedBox(height: 4),
+                        const SizedBox(height: 2),
                         Text(
                           '${line.lotId} · '
                           '${qualityStateText(l10n, line.qualityState)} · '
@@ -245,7 +266,10 @@ class _StockResult extends ConsumerWidget {
                   const SizedBox(width: 12),
                   Text(
                     l10n.qtyUnit(line.qty),
-                    style: theme.textTheme.titleLarge,
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      color: PdaColors.primary,
+                      fontWeight: FontWeight.w900,
+                    ),
                   ),
                 ],
               ),

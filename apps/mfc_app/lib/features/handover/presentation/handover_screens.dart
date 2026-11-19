@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 import 'package:pmart_ui/pmart_ui.dart';
 
 import '../../../l10n/gen/app_localizations.dart';
+import '../../../shared/field_widgets.dart';
+import '../../../shared/pda_theme.dart';
 import '../../../shared/scanner/scan_input.dart';
 import '../../../shared/scanner/scanner.dart';
 import '../../../shared/ui_state_of.dart';
@@ -167,6 +169,7 @@ class HandoverCheckButtons extends ConsumerWidget {
                   key: ValueKey('check-at-station-$id'),
                   style: OutlinedButton.styleFrom(
                     minimumSize: const Size.fromHeight(56),
+                    padding: const EdgeInsets.symmetric(horizontal: 6),
                   ),
                   onPressed: canSend
                       ? () async {
@@ -183,12 +186,13 @@ class HandoverCheckButtons extends ConsumerWidget {
                   child: Text(l10n.checkAtStation),
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 8),
               Expanded(
                 child: FilledButton(
                   key: ValueKey('check-taken-$id'),
                   style: FilledButton.styleFrom(
                     minimumSize: const Size.fromHeight(56),
+                    padding: const EdgeInsets.symmetric(horizontal: 6),
                     backgroundColor: theme.colorScheme.error,
                     foregroundColor: theme.colorScheme.onError,
                   ),
@@ -228,6 +232,8 @@ class HandoverChecksScreen extends ConsumerWidget {
     final theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(title: Text(l10n.handoverChecksTitle)),
+      // 포장 QR 스캔은 늘 아래 같은 자리(다른 현장 화면과 같다).
+      bottomNavigationBar: const ActionBar(children: [_PackageQrScan()]),
       body: UiStateView<HandoverCheckList>(
         state: uiStateOf(
           ref.watch(handoverChecksProvider),
@@ -239,7 +245,6 @@ class HandoverChecksScreen extends ConsumerWidget {
           child: ListView(
             padding: const EdgeInsets.all(16),
             children: [
-              const _PackageQrScan(),
               Padding(
                 padding: const EdgeInsets.all(32),
                 child: Center(
@@ -255,9 +260,12 @@ class HandoverChecksScreen extends ConsumerWidget {
           child: ListView(
             padding: const EdgeInsets.all(16),
             children: [
-              const _PackageQrScan(),
-              const SizedBox(height: 12),
-              Text(l10n.handoverChecksIntro),
+              Text(
+                l10n.handoverChecksIntro,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: PdaColors.muted,
+                ),
+              ),
               if (!list.fresh)
                 ListTile(
                   key: const ValueKey('checks-stale'),
@@ -268,9 +276,9 @@ class HandoverChecksScreen extends ConsumerWidget {
               for (final h in list.items)
                 Card(
                   key: ValueKey('check-item-${h.packageId}'),
-                  margin: const EdgeInsets.symmetric(vertical: 6),
+                  margin: const EdgeInsets.only(top: 10),
                   child: Padding(
-                    padding: const EdgeInsets.all(12),
+                    padding: const EdgeInsets.all(15),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -278,21 +286,34 @@ class HandoverChecksScreen extends ConsumerWidget {
                           h.packingLocation == null
                               ? l10n.hoLocationUnknown
                               : l10n.hoLocation(h.packingLocation!),
-                          style: theme.textTheme.titleLarge,
-                        ),
-                        Text(
-                          l10n.hoPackage(
-                            h.packageId,
-                            '${h.packageVersion ?? '-'}',
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontSize: 19,
+                            fontWeight: FontWeight.w800,
                           ),
                         ),
-                        if (h.orderId != null) Text(l10n.hoOrder(h.orderId!)),
-                        Text(l10n.hoRider(h.riderId ?? '-')),
+                        DefaultTextStyle.merge(
+                          style: const TextStyle(color: PdaColors.muted),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                l10n.hoPackage(
+                                  h.packageId,
+                                  '${h.packageVersion ?? '-'}',
+                                ),
+                              ),
+                              if (h.orderId != null)
+                                Text(l10n.hoOrder(h.orderId!)),
+                              Text(l10n.hoRider(h.riderId ?? '-')),
+                            ],
+                          ),
+                        ),
                         if (h.fenceExpiresAt != null)
-                          Text(
-                            l10n.hoExpiredAt(
+                          NoticeBox(
+                            text: l10n.hoExpiredAt(
                               formatSeoulTime(h.fenceExpiresAt!),
                             ),
+                            warning: true,
                           ),
                         const SizedBox(height: 8),
                         HandoverCheckButtons(item: h),
@@ -354,7 +375,10 @@ class PackageHandoverScreen extends ConsumerWidget {
                 Text(
                   verdictText(l10n, h.verdict),
                   key: const ValueKey('verdict'),
-                  style: theme.textTheme.headlineSmall,
+                  style: theme.textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -1.2,
+                  ),
                 ),
                 if (!h.fresh)
                   ListTile(
@@ -372,26 +396,57 @@ class PackageHandoverScreen extends ConsumerWidget {
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                const SizedBox(height: 8),
-                Text(l10n.hoPackage(h.packageId, '${h.packageVersion ?? '-'}')),
-                Text(packageStateText(l10n, h.packageState)),
-                if (h.orderId != null) Text(l10n.hoOrder(h.orderId!)),
-                if (h.packingLocation != null)
-                  Text(l10n.hoLocation(h.packingLocation!)),
-                if (h.riderId != null) Text(l10n.hoRider(h.riderId!)),
-                const Divider(height: 24),
-                Text(fenceText(l10n, h), key: const ValueKey('fence')),
-                Text(
-                  inventoryText(l10n, h.inventory),
-                  key: const ValueKey('inventory'),
-                  style: warn
-                      ? TextStyle(
-                          color: theme.colorScheme.error,
-                          fontWeight: FontWeight.bold,
-                        )
-                      : null,
+                _InfoCard(
+                  children: [
+                    Text(
+                      h.packingLocation == null
+                          ? l10n.hoLocationUnknown
+                          : l10n.hoLocation(h.packingLocation!),
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontSize: 19,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    Text(
+                      l10n.hoPackage(h.packageId, '${h.packageVersion ?? '-'}'),
+                      style: const TextStyle(color: PdaColors.muted),
+                    ),
+                    Text(
+                      packageStateText(l10n, h.packageState),
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        color: PdaColors.primary,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    if (h.orderId != null)
+                      Text(
+                        l10n.hoOrder(h.orderId!),
+                        style: const TextStyle(color: PdaColors.muted),
+                      ),
+                    if (h.riderId != null)
+                      Text(
+                        l10n.hoRider(h.riderId!),
+                        style: const TextStyle(color: PdaColors.muted),
+                      ),
+                  ],
                 ),
-                if (last != null) Text(last, key: const ValueKey('last-check')),
+                _InfoCard(
+                  children: [
+                    Text(fenceText(l10n, h), key: const ValueKey('fence')),
+                    Text(
+                      inventoryText(l10n, h.inventory),
+                      key: const ValueKey('inventory'),
+                      style: warn
+                          ? TextStyle(
+                              color: theme.colorScheme.error,
+                              fontWeight: FontWeight.bold,
+                            )
+                          : null,
+                    ),
+                    if (last != null)
+                      Text(last, key: const ValueKey('last-check')),
+                  ],
+                ),
                 if (h.checkRequired) ...[
                   const SizedBox(height: 12),
                   Chip(
@@ -402,9 +457,17 @@ class PackageHandoverScreen extends ConsumerWidget {
                 ],
                 if (h.verdict != HandoverVerdict.handedOver &&
                     h.shipmentId != null) ...[
-                  const Divider(height: 24),
-                  Text(l10n.etaTitle, style: theme.textTheme.titleMedium),
-                  _PickupEta(shipmentId: h.shipmentId!),
+                  _InfoCard(
+                    children: [
+                      Text(
+                        l10n.etaTitle,
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      _PickupEta(shipmentId: h.shipmentId!),
+                    ],
+                  ),
                 ],
               ],
             ),
@@ -413,6 +476,24 @@ class PackageHandoverScreen extends ConsumerWidget {
       ),
     );
   }
+}
+
+/// 흰 카드 한 장(여백 15) — 정보 묶음.
+class _InfoCard extends StatelessWidget {
+  const _InfoCard({required this.children});
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) => Card(
+    child: Padding(
+      padding: const EdgeInsets.all(15),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: children,
+      ),
+    ),
+  );
 }
 
 class _PickupEta extends ConsumerWidget {

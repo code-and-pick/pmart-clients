@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:pmart_core/pmart_core.dart';
 import 'package:pmart_ui/pmart_ui.dart';
 
+import 'package:rider_app/shared/location_reporter.dart';
 import 'package:rider_app/app.dart';
 import 'package:rider_app/features/auth/data/session.dart';
 import 'package:rider_app/features/auth/data/signup.dart';
@@ -80,6 +81,24 @@ void main() {
     await settle(t);
     expect(repo.fetches, afterOff + 1, reason: '신규배차 ON 은 즉시 조회');
     expect(find.byKey(const ValueKey('offer-offer-mock-1')), findsOneWidget);
+  });
+  testWidgets('쉬는 중(맡은 배송 없음·신규배차 끔)이면 위치 공유를 멈추고, 켜면 바로 다시(사용자 2026-11-19)', (
+    t,
+  ) async {
+    await start(t);
+    final c = ProviderScope.containerOf(t.element(find.byType(RiderApp)));
+    expect(
+      c.read(locationReporterProvider),
+      isTrue,
+      reason: '운행 중·신규배차 켬 — 공유',
+    );
+    await t.tap(find.byKey(const ValueKey('new-dispatch')));
+    await settle(t);
+    expect(c.read(locationReporterProvider), isFalse, reason: '쉬는 중 — 공유하지 않음');
+    expect(find.textContaining('위치를 공유하지 않아요'), findsOneWidget);
+    await t.tap(find.byKey(const ValueKey('new-dispatch')));
+    await settle(t);
+    expect(c.read(locationReporterProvider), isTrue, reason: '신규배차를 켜면 바로 다시');
   });
 
   testWidgets('조회 실패는 "제안 없음"이 아니라 연결 확인 중이고, 받은 제안을 지우지 않는다', (t) async {
