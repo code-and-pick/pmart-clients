@@ -361,7 +361,7 @@ export function ContentDraftPage() {
 
   return (
     <section className="space-y-4">
-      <PageHeader title={<TitleWithId title={query.data ? query.data.input?.name || m.products.unnamed : ''} id={m.contents.draftDetail(draftId)} />} actions={<OpenById base="/contents/drafts" />} />
+      <PageHeader title={<TitleWithId title={query.data ? query.data.input?.name || m.products.unnamed : ''} id={m.contents.draftDetail} />} actions={<OpenById base="/contents/drafts" />} />
       <QueryState state={toUiState(query)} onRetry={() => void query.refetch()}>
         {(d) => (
           <>

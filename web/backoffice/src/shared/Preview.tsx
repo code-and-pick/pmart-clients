@@ -7,9 +7,15 @@ import { Link, useNavigate, useSearchParams } from 'react-router';
 
 import { messages as m } from './messages';
 
-export function usePreview() {
+/**
+ * direct 를 주면 미리보기 없이 줄을 누르면 바로 그 상세로 간다(2026-11-20 사용자 "상세 열기 오른쪽 탭 필요 없는 곳도 계속 나와서 터치 2번").
+ * 미리보기 안에서 일을 끝낼 수 없는 목록(승인·접수 건·클레임·문의·주문·배송·라이더 컴플레인 — 결정·답변·처리는 상세에서)은 direct.
+ * 미리보기를 남긴 곳: 상품 조회(SKU·바코드 훑기)·가격 관리(서랍에서 바로 바꾸기).
+ */
+export function usePreview(direct?: (rowId: string) => string) {
+  const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
-  const id = params.get('preview');
+  const id = direct ? null : params.get('preview');
   const set = (next: string | null) =>
     setParams(
       (p) => {
@@ -28,7 +34,8 @@ export function usePreview() {
           'aria-selected': id === rowId,
           onClick: (e: { readonly target: EventTarget | null }) => {
             if (e.target instanceof Element && e.target.closest('a,button,input,select,textarea,label,summary')) return;
-            set(rowId);
+            if (direct) void navigate(direct(rowId));
+            else set(rowId);
           },
         }
       : {};

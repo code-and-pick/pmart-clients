@@ -83,7 +83,7 @@ describe('상품 등록 → 승인 요청 → 승인 → 반영', () => {
 
     expect(await screen.findByTitle('INVALID')).toHaveTextContent('검증 오류');
     const problems = screen.getByRole('list', { name: '검증 문제' });
-    expect(within(problems).getByText('중량이 필요해요 (skus[0].weightG)')).toBeInTheDocument();
+    expect(within(problems).getByText('SKU 1 · 중량이 필요해요')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '제출 준비(잠그기)' })).toBeDisabled();
   });
 });
@@ -107,7 +107,7 @@ describe('결과 불명', () => {
     expect(screen.getByRole('button', { name: '초안 저장' })).toBeDisabled();
 
     await user.click(screen.getByRole('button', { name: '같은 요청으로 결과 확인' }));
-    expect(await screen.findByText(/상품 초안 pd-/)).toBeInTheDocument();
+    expect(await screen.findByText('상품 초안')).toBeInTheDocument();
 
     const posts = view.mutations('/product-drafts');
     expect(posts).toHaveLength(2);

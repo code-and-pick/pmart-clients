@@ -268,7 +268,7 @@ export function PriceImportPage() {
     <section className="space-y-4">
       <PageHeader
         back={{ to: '/prices/import', label: m.prices.importTitle }}
-        title={query.data ? <TitleWithId title={m.prices.batchHeading(query.data.lineCount)} id={m.products.batch(batchId)} /> : m.products.batch(batchId)}
+        title={query.data ? <TitleWithId title={m.prices.batchHeading(query.data.lineCount)} id={m.products.batch} /> : m.products.batch}
         actions={query.data ? <StatusBadge tone={BATCH_TONE[query.data.state] ?? 'ghost'}>{m.prices.batchStateName[query.data.state]}</StatusBadge> : null}
       />
       <QueryState state={toUiState(query)} onRetry={() => void query.refetch()}>

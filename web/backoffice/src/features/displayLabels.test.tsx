@@ -29,7 +29,6 @@ describe('화면 표기(ADR-0070 덧붙임)', () => {
     const row = (await screen.findAllByTestId('case-row'))[0]!;
     expect(row).not.toHaveTextContent(/CASE-MOCK/);
     await user.click(within(row).getByTestId('case-summary'));
-    await user.click(await screen.findByRole('link', { name: '상세 열기' }));
     // 상세가 응답을 받은 뒤(받기 전 머리 번호 칸은 비어 있다)
     await waitFor(() => expect(screen.getByTestId('case-number')).toHaveTextContent(/^C-1119-\d{4}$/));
     expect(screen.getByTestId('system-numbers')).toBeInTheDocument();

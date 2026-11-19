@@ -9,6 +9,7 @@ import type { ApprovalType } from '../api/models';
 import { useApi } from '../app/ApiContext';
 import { StaffName } from '../features/lookup/parts';
 import { messages } from './messages';
+import { hideIds } from './hideIds';
 import { when } from './ops';
 
 const m = messages.approvalPicker;
@@ -55,7 +56,7 @@ export function ApprovalPicker({ type, selectedId, onPick }: { readonly type: Ap
                 }}
                 data-testid="approval-picker-row"
               >
-                <span className="min-w-0 flex-1 truncate">{a.summary ?? messages.approvals.typeName[type] ?? type}</span>
+                <span className="min-w-0 flex-1 truncate">{hideIds(a.summary) || messages.approvals.typeName[type] || type}</span>
                 <span className="text-xs text-base-content/55">
                   <StaffName id={a.requesterId} /> · {a.submittedAt ? when(a.submittedAt) : messages.none}
                 </span>
@@ -80,7 +81,7 @@ export function ApprovalChosen({ approvalId }: { readonly approvalId: string }) 
   if (!approvalId.trim()) return null;
   return (
     <span className={`text-xs ${q.isError ? 'text-warning' : 'text-success'}`} role="status" data-testid="approval-chosen">
-      {q.isPending ? '…' : q.isError ? m.notFound : m.chosen(q.data.summary ?? m.noSummary)}
+      {q.isPending ? '…' : q.isError ? m.notFound : m.chosen(hideIds(q.data.summary) || m.noSummary)}
     </span>
   );
 }

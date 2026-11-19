@@ -50,7 +50,7 @@ describe('콘텐츠 등록 — 이미지', () => {
     await user.click(screen.getByRole('button', { name: '초안 저장' }));
 
     // 초안이 먼저 만들어지고(POST /content-drafts), 그 ID 로 고른 순서대로 넘긴다.
-    await screen.findByText(/콘텐츠 초안 cd-/);
+    await screen.findByText('콘텐츠 초안');
     expect(view.mutations('/content-drafts')).toHaveLength(1);
     expect(uploadMock).toHaveBeenCalledTimes(1);
     const [, draftId, pending] = uploadMock.mock.calls[0]! as [unknown, string, readonly PendingImage[]];
@@ -96,7 +96,7 @@ describe('콘텐츠 등록 — 이미지', () => {
     renderAt('/contents/drafts/new');
     await user.type((await screen.findByLabelText('고객용 상품명')), '사과');
     await user.click(screen.getByRole('button', { name: '초안 저장' }));
-    await screen.findByText(/콘텐츠 초안 cd-/);
+    await screen.findByText('콘텐츠 초안');
     expect(uploadMock).not.toHaveBeenCalled();
 
     upload(await screen.findByLabelText('상세정보 표 이미지 추가'), png('info.png'));

@@ -11,6 +11,7 @@ import { ProblemFailure, request } from '@pmart/web-core';
 import { useApi } from './ApiContext';
 import { liveQuery } from './DashboardSections';
 import { slaText } from '../features/cases/CaseSlaPage';
+import { hideIds } from '../shared/hideIds';
 import { messages } from '../shared/messages';
 import { addSeoulDays, label, seoulDayEnd, seoulDayStart } from '../shared/ops';
 import { Section } from '../shared/admin';
@@ -387,7 +388,7 @@ export function ActivityFeed({ approvals, cases, inquiries }: { readonly approva
   for (const x of a.data?.items ?? [])
     if (x.submittedAt && x.approvalId) {
       const type = messages.approvals.typeName[x.type ?? ''] ?? x.type ?? '';
-      list.push({ at: x.submittedAt, kind: 'approval', what: m.act.approvalWhat(type), full: x.summary ?? '', to: `/approvals/${encodeURIComponent(x.approvalId)}` });
+      list.push({ at: x.submittedAt, kind: 'approval', what: m.act.approvalWhat(type), full: hideIds(x.summary), to: `/approvals/${encodeURIComponent(x.approvalId)}` });
     }
   for (const x of c.data?.items ?? [])
     if (x.openedAt && x.caseId) list.push({ at: x.openedAt, kind: 'case', what: label(messages.cases.kindName, x.kind ?? null), full: x.summary ?? '', to: `/cases/${encodeURIComponent(x.caseId)}` });

@@ -253,7 +253,6 @@ describe('클레임 조회', () => {
     renderAt('/claims', as.cs);
     expect(await screen.findAllByTestId('claim-row')).toHaveLength(3);
     await user.click(screen.getByText('74939003 취소'));
-    await user.click(await screen.findByRole('link', { name: '상세 열기' }));
     expect(await screen.findByTestId('claim-state')).toHaveTextContent('출고 중지 대기');
     expect(await screen.findByTestId('refund-row')).toHaveTextContent('실행 대기');
     expect(screen.queryByText('환불 완료')).not.toBeInTheDocument();
@@ -413,7 +412,6 @@ describe('라이더 상세(보기만 — 라이더 운영 묶음은 2026-11-18 �
     const row = await screen.findByTestId('case-row');
     expect(row).toHaveTextContent('라이더 도움요청');
     await user.click(within(row).getByText(/라이더 도움요청 — 건물 출입 불가/));
-    await user.click(await screen.findByRole('link', { name: '상세 열기' }));
     expect(await screen.findByTestId('case-help-request')).toHaveTextContent('공동현관이 잠겨');
   });
 });

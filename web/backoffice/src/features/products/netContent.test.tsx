@@ -33,7 +33,7 @@ describe('상품 등록 — 내용량', () => {
     await user.type(sku.getByRole('textbox', { name: '내용량' }), '1.5');
     await user.selectOptions(sku.getByLabelText('내용량 단위'), 'KG');
     await user.click(screen.getByRole('button', { name: '초안 저장' }));
-    await screen.findByText(/상품 초안 /);
+    await screen.findByText('상품 초안');
     const body = (await view.mutations('/product-drafts')[0]!.json()) as ProductDraftInput;
     expect(body.skus[0]?.netContent).toEqual({ amount: 1500, unit: 'G' });
     expect(body.skus[0]?.weightG).toBe(1600); // 포장 무게와 다른 칸

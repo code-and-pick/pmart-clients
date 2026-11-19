@@ -100,7 +100,7 @@ function RefundCell({ r }: { readonly r: ClaimSummary['refund'] }) {
 function ClaimTable({ query, withCount = false, preview = false, stage }: { readonly query: ReturnType<typeof useClaimList>; readonly withCount?: boolean; readonly preview?: boolean; readonly stage?: Stage | undefined }) {
   const navigate = useNavigate();
   // 오른쪽 미리보기(2026-11-19 관제 형식) — 클레임 목록 화면에서만(주문 상세 안의 표는 전처럼 상세로)
-  const pv = usePreview();
+  const pv = usePreview((id) => `/claims/${encodeURIComponent(id)}`);
   const loaded: ClaimSummary[] = query.data?.pages.flatMap((p) => p.items ?? []) ?? [];
   // 단계 카드로 거르기(2026-11-19) — 불러온 목록 안에서(서버는 상태 하나로만 거른다)
   const items = stage ? loaded.filter((c) => stageOf(c.state) === stage) : loaded;

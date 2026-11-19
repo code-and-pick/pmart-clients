@@ -11,6 +11,7 @@ import { type ApprovalRequestBody, type ImportBatch, STORAGE_TYPES, type Product
 import { request } from '@pmart/web-core';
 import { useApi } from '../../app/ApiContext';
 import { CommandFeedback, FailureAlert, reasonText } from '../../shared/Feedback';
+import { fieldWhere } from '../../shared/hideIds';
 import { messages as m } from '../../shared/messages';
 import { QueryState } from '@pmart/web-ui';
 import { toUiState } from '@pmart/web-ui';
@@ -71,7 +72,6 @@ export function BatchApprovals({ targetRef, pending }: { readonly targetRef: str
                   <Link className="link link-primary font-medium" to={`/approvals/${encodeURIComponent(id)}`}>
                     {m.approvals.open}
                   </Link>
-                  <span className="ml-2 font-mono text-xs text-base-content/50">{id}</span>
                 </span>
                 {a?.reviewState && <StatusBadge tone={REVIEW_TONE[a.reviewState] ?? 'ghost'}>{m.approvals.reviewState[a.reviewState]}</StatusBadge>}
               </li>
@@ -372,7 +372,7 @@ export function ProductImportPage() {
     <section className="space-y-4">
       <PageHeader
         back={{ to: '/products/import', label: m.products.importTitle }}
-        title={query.data ? <TitleWithId title={m.products.batchHeading(query.data.productCount)} id={m.products.batch(batchId)} /> : m.products.batch(batchId)}
+        title={query.data ? <TitleWithId title={m.products.batchHeading(query.data.productCount)} id={m.products.batch} /> : m.products.batch}
         actions={
           query.data ? <StatusBadge tone={BATCH_TONE[query.data.state] ?? 'ghost'} testId="batch-state">{m.products.batchStateName[query.data.state] ?? query.data.state}</StatusBadge> : null
         }
@@ -419,8 +419,8 @@ export function ProductImportPage() {
                         <tr key={d.draftId} className="align-top">
                           <td className="min-w-48">
                             <p className="font-medium">{d.input?.product.internalName ?? m.none}</p>
-                            <Link className="font-mono text-xs text-base-content/50 hover:text-primary hover:underline" to={`/products/drafts/${encodeURIComponent(d.draftId)}`}>
-                              {d.draftId}
+                            <Link className="text-xs text-primary hover:underline" to={`/products/drafts/${encodeURIComponent(d.draftId)}`}>
+                              {m.products.openDraftShort}
                             </Link>
                           </td>
                           <td className="font-mono text-xs">{d.sourceKey ?? m.none}</td>
@@ -500,9 +500,9 @@ export function ProductImportPage() {
                         {(r.excludedDraftIds ?? []).map((id) => {
                           const d = (b.drafts ?? []).find((x) => x.draftId === id);
                           const why = d
-                            ? [`${m.products.draftStateName[d.state] ?? d.state} · ${m.products.validationName[d.validationState] ?? d.validationState}`, ...(d.problems ?? []).map((p) => `${reasonText(p.code)}${p.field ? ` (${p.field})` : ''}`)].join(' · ')
+                            ? [`${m.products.draftStateName[d.state] ?? d.state} · ${m.products.validationName[d.validationState] ?? d.validationState}`, ...(d.problems ?? []).map((p) => `${fieldWhere(p.field) ? `${fieldWhere(p.field)} ` : ''}${reasonText(p.code)}`)].join(' · ')
                             : m.none;
-                          return <li key={id}>{`${id}${d?.sourceKey ? ` (${d.sourceKey})` : ''}: ${why}`}</li>;
+                          return <li key={id}>{`${d?.input?.product.internalName || d?.sourceKey || m.products.unnamed}: ${why}`}</li>;
                         })}
                       </ul>
                     </div>

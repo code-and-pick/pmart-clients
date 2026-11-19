@@ -30,14 +30,11 @@ describe('내 할 일(첫 화면)', () => {
 });
 
 describe('목록 줄 전체 누르기', () => {
-  it('승인함: 굵은 요약(번호 아닌 곳)을 누르면 오른쪽 미리보기 → 상세 열기로 상세(2026-11-19 관제 형식)', async () => {
+  it('승인함: 줄(굵은 요약)을 누르면 바로 승인 상세(미리보기 없음 — 2026-11-20 "터치 2번")', async () => {
     const user = userEvent.setup();
     renderAt('/approvals', as.admin);
     const row = (await screen.findAllByTestId('approval-row')).find((r) => r.textContent?.includes('기본가 변경 1건'))!;
     await user.click(within(row).getByText('기본가 변경 1건'));
-    const drawer = await screen.findByTestId('preview-drawer');
-    expect(within(drawer).getByTestId('approval-preview')).toHaveTextContent('가격');
-    await user.click(within(drawer).getByRole('link', { name: /상세 열기/ }));
     expect(await screen.findByTestId('next-action')).toBeInTheDocument(); // 승인 상세의 다음 할 일
   });
 });

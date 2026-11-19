@@ -3,6 +3,7 @@ import { Link } from 'react-router';
 
 import { useApi } from '../../app/ApiContext';
 import { request } from '@pmart/web-core';
+import { hideIds } from '../../shared/hideIds';
 import { messages as m } from '../../shared/messages';
 import { QueryState, uiStateFromError, type UiState } from '@pmart/web-ui';
 import { SourceStamps } from '../../shared/SourceStamps';
@@ -72,7 +73,7 @@ export function ApprovalInboxPage() {
                           {(item.approvalId ?? item.dossierId) ? (
                             // 첫 칸은 요약(승인함 목록과 같게) — 시스템 ID(dossierId)는 보이지 않는다(ADR-0070). 요약이 없으면 "승인 건"
                             <Link className="font-semibold text-base-content hover:text-primary hover:underline" to={`/approvals/${encodeURIComponent(item.approvalId ?? item.dossierId ?? '')}`}>
-                              {item.summary?.trim() || m.approvals.untitled}
+                              {hideIds(item.summary) || m.approvals.untitled}
                             </Link>
                           ) : (
                             '-'

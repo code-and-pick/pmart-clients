@@ -13,6 +13,7 @@ import { request } from '@pmart/web-core';
 import { useApi } from '../../app/ApiContext';
 import { formatSeoul } from '@pmart/web-ui';
 import { SavedViews } from '../../shared/SavedViews';
+import { hideIds } from '../../shared/hideIds';
 import { messages as m } from '../../shared/messages';
 import { QueryState } from '@pmart/web-ui';
 import { toUiState } from '@pmart/web-ui';
@@ -27,7 +28,7 @@ const pick = <T extends string>(value: string | null, allowed: readonly T[]): T 
 export function ApprovalListPage() {
   const api = useApi();
   // 오른쪽 미리보기(2026-11-19 관제 형식 — 줄을 누르면 목록을 떠나지 않고 옆에서, 번호 링크는 상세로)
-  const pv = usePreview();
+  const pv = usePreview((id) => `/approvals/${encodeURIComponent(id)}`);
   const seen = useSeenIds('approval'); // 최근 열어 본 승인(2026-11-19)
   const [params, setParams] = useSearchParams();
   const type = pick<ApprovalType>(params.get('type'), APPROVAL_TYPES);
@@ -139,8 +140,8 @@ export function ApprovalListPage() {
                     {rows.map((a, i) => (
                       <tr key={a.approvalId ?? `row-${i}`} data-testid="approval-row" {...pv.row(a.approvalId)}>
                         <td className="max-w-xl">
-                          <p className="truncate font-medium" title={a.summary ?? undefined}>
-                            {a.summary ?? m.none}
+                          <p className="truncate font-medium" title={hideIds(a.summary) || undefined}>
+                            {hideIds(a.summary) || m.none}
                           </p>
                           {/* 승인은 번호 없이 종류 · 요청자 · 시각(ADR-0070 덧붙임) — 요청자·시각은 옆 칸, 여기는 종류만 */}
                           <span className="text-xs text-base-content/50">

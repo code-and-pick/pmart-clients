@@ -13,9 +13,6 @@ describe('주문 화면 번호', () => {
     await user.click(screen.getByRole('button', { name: '찾기' }));
     const row = (await screen.findAllByTestId('order-row'))[0]!;
     expect(within(row).getByTestId('order-number')).toHaveTextContent('74939003');
-    // 줄을 누르면 미리보기, 상세는 서랍의 "상세 열기"(시스템 ID 주소) — 2026-11-20
-    await user.click(row);
-    expect(await screen.findByRole('link', { name: '상세 열기' })).toHaveAttribute('href', '/orders/ORD-MOCK-1003');
     // 화면을 열면 기간 목록을 먼저 묻는다 — 찾기를 누른 뒤 마지막 요청을 본다
     const get = view.sent.filter((r) => new URL(r.url).pathname.endsWith('/orders/lookups')).at(-1)!;
     expect(new URL(get.url).searchParams.get('orderNumber')).toBe('74939003');

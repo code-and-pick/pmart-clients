@@ -1,5 +1,5 @@
 // 오른쪽 미리보기를 더 붙인 목록(2026-11-19 관제 형식) — 상품·클레임·라이더 컴플레인. 줄을 누르면 옆에, ↓ 로 다음 줄, Esc 로 닫기
-import { screen, within } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 
@@ -22,19 +22,21 @@ describe('목록 오른쪽 미리보기', () => {
     expect(screen.queryByTestId('preview-drawer')).not.toBeInTheDocument();
   });
 
-  it('클레임: 줄 → 미리보기(상태·주문), 주문 상세 안의 클레임 표는 미리보기 없이 그대로', async () => {
+  it('클레임: 줄을 누르면 바로 클레임 상세(미리보기 없음 — 2026-11-20)', async () => {
     const user = userEvent.setup();
     renderAt('/claims', as.admin);
     const row = (await screen.findAllByTestId('claim-row'))[0]!;
     await user.click(row.querySelector('td:nth-child(4)')!);
-    expect(within(await screen.findByTestId('preview-drawer')).getByTestId('claim-preview')).toBeInTheDocument();
+    expect(await screen.findByTestId('claim-state')).toBeInTheDocument();
+    expect(screen.queryByTestId('preview-drawer')).not.toBeInTheDocument();
   });
 
-  it('라이더 컴플레인: 줄 → 미리보기(라이더·배송·기록한 사람)', async () => {
+  it('라이더 컴플레인: 줄을 누르면 바로 상세(미리보기 없음 — 2026-11-20)', async () => {
     const user = userEvent.setup();
     renderAt('/rider-complaints', as.riderOps);
     const row = (await screen.findAllByTestId('complaint-row'))[0]!;
     await user.click(row.querySelector('td:last-child')!);
-    expect(within(await screen.findByTestId('preview-drawer')).getByTestId('complaint-preview')).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByTestId('complaint-row')).not.toBeInTheDocument());
+    expect(screen.queryByTestId('preview-drawer')).not.toBeInTheDocument();
   });
 });

@@ -76,7 +76,7 @@ describe('상품 일괄 등록', () => {
     db.importBatches.set(batch.batchId, batch);
     renderAt('/products/import/pib-seed-1');
 
-    expect(await screen.findByRole('heading', { name: /배치 pib-seed-1/ })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: /배치/ })).not.toHaveTextContent('pib-seed-1'); // 제목에 배치 ID 없음(ADR-0070)
     const another = screen.getByRole('heading', { name: '다른 파일 올리기' }).parentElement!;
     expect(within(another).getByLabelText('seed-v1.zip')).toBeInTheDocument();
     // 파일을 고르기 전에는 올릴 수 없다
@@ -167,7 +167,7 @@ describe('상품 일괄 등록', () => {
     await user.click(await screen.findByRole('button', { name: '유효 행 제출 준비' }));
     // 배치가 SUBMITTED 로 바뀌고 승인 요청 현황 영역에 "승인 요청" 버튼이 보인다.
     await user.click(await screen.findByRole('button', { name: '승인 요청' }));
-    expect(await screen.findByText(/승인 요청을 올렸어요\. 승인 번호 /)).toBeInTheDocument();
+    expect(await screen.findByText('승인 요청을 올렸어요.')).toBeInTheDocument();
     expect(screen.getAllByRole('link', { name: '승인 상세 보기' })).toHaveLength(1);
     first.stop();
     first.unmount();

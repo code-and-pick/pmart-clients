@@ -51,7 +51,7 @@ export function RiderComplaintTable({ riderId, deliveryId, complaintType, from, 
   readonly to?: string | undefined;
 }) {
   const api = useApi();
-  const pv = usePreview();
+  const pv = usePreview((id) => `/rider-complaints/${encodeURIComponent(id)}`);
   const filter = { riderId, deliveryId, complaintType, from, to };
   const query = useInfiniteQuery({
     queryKey: ['rider-complaints', 'list', filter],

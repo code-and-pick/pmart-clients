@@ -27,7 +27,7 @@ describe('상품 정보 수정', () => {
     await userEvent.click(await screen.findByRole('button', { name: '상품 정보 수정 시작' }));
 
     const note = await screen.findByTestId('product-edit-note');
-    expect(note).toHaveTextContent('기존 상품 수정 — P-00000001');
+    expect(note).toHaveTextContent('기존 상품 수정 — 사과 1.5kg'); // 시스템 ID 대신 상품 이름(ADR-0070)
     const sent = view.mutations('/edit-drafts');
     expect(sent).toHaveLength(1);
     expect(sent[0]!.headers.get('Idempotency-Key')).toBeTruthy();
@@ -77,12 +77,11 @@ describe('상품 정보 수정', () => {
     await userEvent.click(await screen.findByRole('button', { name: '상품 정보 수정 시작' }));
     await screen.findByTestId('product-edit-note');
     await screen.findByRole('heading', { level: 1 });
-    const draftId = screen.getByTestId('title-id').textContent.replace('상품 초안 ', '');
-    await userEvent.click(screen.getByRole('link', { name: 'P-00000002' }));
+    await userEvent.click(within(screen.getByTestId('product-edit-note')).getByRole('link', { name: '소고기 미역국 500g' })); // 고칠 상품은 이름으로(ADR-0070)
     await userEvent.click(await screen.findByRole('button', { name: '상품 정보 수정 시작' }));
     const exists = await screen.findByTestId('product-edit-exists');
     expect(exists).toHaveTextContent('이미 수정 중인 초안이 있어요');
-    expect(within(exists).getByRole('link')).toHaveAttribute('href', `/products/drafts/${draftId}`);
+    expect(within(exists).getByRole('link').getAttribute('href')).toMatch(/^\/products\/drafts\/pd-/);
   });
 
   it('MD 가 아니면 수정 시작 버튼이 없다(서버 403 역할)', async () => {

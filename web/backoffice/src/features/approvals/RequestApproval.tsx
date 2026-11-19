@@ -5,6 +5,7 @@ import { requestApproval, type ApprovalRequested } from '../../api/approvalFlow'
 import type { ApprovalRequestBody } from '../../api/models';
 import { useApi } from '../../app/ApiContext';
 import { CommandFeedback } from '../../shared/Feedback';
+import { hideIds } from '../../shared/hideIds';
 import { messages as m } from '../../shared/messages';
 import { useCommand } from '@pmart/web-ui';
 import { CodeLabel } from '../../shared/admin';
@@ -31,7 +32,7 @@ export function RequestApproval({
     <div className="space-y-2 rounded-box border border-base-300 p-3">
       <p className="text-sm">
         <CodeLabel code={body.type} names={TYPE_NAME} />
-        {` · ${body.summary}`}
+        {` · ${hideIds(body.summary)}`}
       </p>
       {!done && (
         <button type="button" className="btn btn-primary btn-sm" disabled={cmd.busy} onClick={() => void cmd.run(body)}>
@@ -42,7 +43,7 @@ export function RequestApproval({
         {(r) =>
           r.approvalId ? (
             <div role="status" className="alert alert-success alert-soft">
-              <span>{m.approvals.requested(r.approvalId)}</span>
+              <span>{m.approvals.requested}</span>
               <Link className="link" to={`/approvals/${encodeURIComponent(r.approvalId)}`}>
                 {m.approvals.open}
               </Link>

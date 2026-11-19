@@ -112,7 +112,7 @@ function Time({ iso }: { readonly iso: string | null | undefined }) {
 export function InquiryListPage({ kind = 'CUSTOMER' }: { readonly kind?: RequesterType }) {
   const api = useApi();
   // 미리보기 칸(2026-11-18) — 줄을 누르면 목록을 떠나지 않고 오른쪽에 문의·마지막 답변
-  const pv = usePreview();
+  const pv = usePreview((id) => `${basePath(kind)}/${encodeURIComponent(id)}`);
   const rider = kind === 'RIDER';
   const [search, setSearch] = useSearchParams();
   const raw = search.get('status');

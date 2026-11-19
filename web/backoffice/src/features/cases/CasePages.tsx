@@ -413,7 +413,7 @@ export function CaseListPage() {
   const api = useApi();
   const { me, admin, team, agent } = useCaseRoles();
   // 미리보기 칸(2026-11-18) — 줄을 누르면 목록을 떠나지 않고 오른쪽에 요약
-  const pv = usePreview();
+  const pv = usePreview((id) => `/cases/${encodeURIComponent(id)}`);
   // 반품 회수 실패(CS 팀)는 상담원·관리자만 — 지원센터에는 안 보인다(서버도 목록에서 뺀다)
   const kinds = admin ? [...DELIVERY_KINDS, ...CS_KINDS, ...ORDER_KINDS] : agent ? [...DELIVERY_KINDS, ...CS_KINDS] : DELIVERY_KINDS;
   const [params, setParams] = useSearchParams();

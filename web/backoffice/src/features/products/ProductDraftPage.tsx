@@ -11,6 +11,7 @@ import type { ProductDraft, ProductDraftInput } from '../../api/models';
 import { request } from '@pmart/web-core';
 import { useApi } from '../../app/ApiContext';
 import { CommandFeedback, reasonText } from '../../shared/Feedback';
+import { fieldWhere, hideIds } from '../../shared/hideIds';
 import { messages as m } from '../../shared/messages';
 import { QueryState } from '@pmart/web-ui';
 import { toUiState } from '@pmart/web-ui';
@@ -48,7 +49,7 @@ export function DraftProblems({ draft }: { readonly draft: ProductDraft }) {
           {(draft.problems ?? []).map((p, i) => (
             <li key={`${p.code}-${i}`} className="flex gap-1.5">
               <span aria-hidden="true">•</span>
-              <span>{`${reasonText(p.code)}${p.field ? ` (${p.field})` : ''}${p.detail ? ` — ${p.detail}` : ''}`}</span>
+              <span>{`${fieldWhere(p.field) ? `${fieldWhere(p.field)} · ` : ''}${reasonText(p.code)}${p.detail ? ` — ${hideIds(p.detail)}` : ''}`}</span>
             </li>
           ))}
         </ul>
@@ -170,7 +171,7 @@ export function NewProductDraftPage() {
                   </Link>
                 </NextAction>
                 <p className="text-xs text-base-content/60" data-testid="same-base-id">
-                  {m.products.sameBase.baseId(p.baseProductId ?? m.none)}
+                  {m.products.sameBase.baseId}
                 </p>
                 <ProductDraftForm key={sameBaseAs} initial={sameBaseInput(p)} submitLabel={m.products.create} busy={create.busy} onSubmit={(input) => void create.run(input)} />
               </div>
@@ -274,7 +275,7 @@ export function ProductDraftPage() {
 
   return (
     <section className="space-y-4">
-      <PageHeader title={<TitleWithId title={query.data ? query.data.input?.product.internalName || m.products.unnamed : ''} id={m.products.draftDetail(draftId)} />} actions={<OpenById base="/products/drafts" />} />
+      <PageHeader title={<TitleWithId title={query.data ? query.data.input?.product.internalName || m.products.unnamed : ''} id={m.products.draftDetail} />} actions={<OpenById base="/products/drafts" />} />
       <QueryState state={toUiState(query)} onRetry={() => void query.refetch()}>
         {(d) => (
           <>
@@ -283,7 +284,7 @@ export function ProductDraftPage() {
             {/* 같은 기초상품에 붙는 새 상품(2026-11-18) — 심사하는 사람이 어느 기초상품의 다른 판매 단위인지 본다 */}
             {!d.input?.targetProductId && d.input?.product.baseProductId && (
               <p className="rounded-box border border-base-300 bg-base-200/40 px-4 py-2 text-sm" data-testid="draft-base-product">
-                {m.products.sameBase.baseId(d.input.product.baseProductId)}
+                {m.products.sameBase.baseId}
               </p>
             )}
             {/* product 0.3.0 수정 초안(edit-drafts): input.targetProductId = 고칠 상품 */}
@@ -291,8 +292,9 @@ export function ProductDraftPage() {
               <div className="space-y-1 rounded-box border border-info/30 bg-info/5 px-4 py-3 text-sm" data-testid="product-edit-note">
                 <p className="font-bold">
                   {`${m.products.editOf} — `}
+                  {/* 고칠 상품 — 시스템 ID 대신 상품 이름(2026-11-20, ADR-0070) */}
                   <Link className="link" to={`/products/${encodeURIComponent(d.input.targetProductId)}`}>
-                    {d.input.targetProductId}
+                    {d.input.product.internalName || m.products.unnamed}
                   </Link>
                 </p>
                 <p className="opacity-80">{m.products.editNote}</p>
@@ -354,8 +356,8 @@ export function ProductDraftPage() {
                 <Card title={m.products.result}>
                   {d.state === 'APPLIED' && d.resultProductId ? (
                     <div className="space-y-2 text-sm">
-                      <Link className="link link-primary font-mono" to={`/products/${encodeURIComponent(d.resultProductId)}`}>
-                        {d.resultProductId}
+                      <Link className="link link-primary" to={`/products/${encodeURIComponent(d.resultProductId)}`}>
+                        {d.input?.product.internalName || m.products.unnamed}
                       </Link>
                       <div className="flex flex-wrap gap-1">
                         {(d.resultSkus ?? []).map((s) => (

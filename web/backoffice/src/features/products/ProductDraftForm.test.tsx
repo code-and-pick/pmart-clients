@@ -34,7 +34,7 @@ describe('상품 등록 폼', () => {
     await user.type(screen.getByLabelText('관리용 명칭'), '사과');
     await user.type(screen.getByLabelText('중량(g)'), '1000');
     await user.click(screen.getByRole('button', { name: '초안 저장' }));
-    await screen.findByText(/상품 초안 /);
+    await screen.findByText('상품 초안');
 
     const body = (await view.mutations('/product-drafts')[0]!.json()) as ProductDraftInput;
     expect(body.product.primaryCategoryId).toBe('p01-c01');
@@ -66,7 +66,7 @@ describe('상품 등록 폼', () => {
     expect(screen.queryByRole('region', { name: 'SKU 3' })).not.toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: '초안 저장' }));
-    await screen.findByText(/상품 초안 /);
+    await screen.findByText('상품 초안');
 
     const body = (await view.mutations('/product-drafts')[0]!.json()) as ProductDraftInput;
     expect(body.skus).toEqual([
@@ -104,7 +104,7 @@ describe('상품 등록 폼', () => {
     expect(screen.getByText(/과일·채소 > 열대과일/)).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: '초안 저장' }));
-    await screen.findByText(/상품 초안 /);
+    await screen.findByText('상품 초안');
     const body = (await view.mutations('/product-drafts')[0]!.json()) as ProductDraftInput;
     expect(body.product.primaryCategoryId).toBe('p01-c01-l01');
     expect(body.product.categoryIds).toEqual(['p03-c01']);

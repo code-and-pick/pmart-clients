@@ -15,7 +15,6 @@ describe('목록 순서대로 이전·다음', () => {
     const rows = await screen.findAllByTestId('case-row');
     expect(rows.length).toBeGreaterThan(1);
     await user.click(within(rows[0]!).getByTestId('case-summary'));
-    await user.click(await screen.findByRole('link', { name: '상세 열기' }));
     expect(await screen.findByTestId('queue-pos')).toHaveTextContent(`1 / ${rows.length}`);
     expect(screen.queryByTestId('queue-prev')).not.toBeInTheDocument();
     fireEvent.keyDown(window, { key: ']' });
@@ -37,19 +36,16 @@ describe('목록 순서대로 이전·다음', () => {
     expect(rows.length).toBeGreaterThan(1);
     // 승인함 줄을 누르면 미리보기 — 거기서 '상세 열기'
     await user.click(rows[1]!);
-    await user.click(await screen.findByRole('link', { name: '상세 열기' }));
     expect(await screen.findByTestId('queue-pos')).toHaveTextContent(`2 / ${rows.length}`);
   });
 });
 
 describe('미리보기에서 Enter · 기억하는 주소', () => {
-  it('승인함 줄을 눌러 미리보기 → Enter 로 그 건 상세(이전·다음 띠도)', async () => {
+  it('승인함 줄을 누르면 바로 그 건 상세(이전·다음 띠도)', async () => {
     const user = userEvent.setup();
     renderAt('/approvals', as.admin);
     const rows = await screen.findAllByTestId('approval-row');
     await user.click(rows[0]!);
-    await screen.findByRole('link', { name: '상세 열기' });
-    fireEvent.keyDown(document.body, { key: 'Enter' });
     expect(await screen.findByTestId('queue-pos')).toHaveTextContent(`1 / ${rows.length}`);
   });
 

@@ -123,7 +123,7 @@ export function OrderLookupPage() {
   });
 
   // 미리보기 칸(2026-11-18) — 줄을 누르면 목록을 떠나지 않고 오른쪽에 요약, 번호 링크는 그대로 상세로
-  const pv = usePreview();
+  const pv = usePreview((id) => `/orders/${encodeURIComponent(id)}`);
   const reset = () => setDraft({ orderId: '', customerId: '', status: '', mfcId: '', receiverPhone: '', from: addSeoulDays(seoulToday(), -6), to: seoulToday() });
   const statusOptions = [{ value: '', label: m.orders.any }, ...STATUSES.map((st) => ({ value: st, label: m.orders.statusName[st] ?? st }))];
 

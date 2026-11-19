@@ -37,7 +37,7 @@ describe('입력 중 떠날 때 경고', () => {
     renderAt('/products/drafts/new', as.md);
     await user.type(await screen.findByLabelText('관리용 명칭'), '사과');
     await user.click(screen.getByRole('button', { name: '초안 저장' }));
-    expect(await screen.findByText(/상품 초안 pd-/)).toBeInTheDocument();
+    expect(await screen.findByText('상품 초안')).toBeInTheDocument();
     expect(screen.queryByTestId('leave-guard')).not.toBeInTheDocument();
   });
 

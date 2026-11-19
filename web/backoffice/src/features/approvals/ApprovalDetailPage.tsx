@@ -19,6 +19,7 @@ import { useRecordRecent } from '../../shared/recentViews';
 import { ApprovalProgress } from './ApprovalProgress';
 import { messages as m } from '../../shared/messages';
 import { SystemNumbers } from '../../shared/displayNumber';
+import { hideIds, isSystemId } from '../../shared/hideIds';
 import { QueryState } from '@pmart/web-ui';
 import { toUiState } from '@pmart/web-ui';
 import { useCommand } from '@pmart/web-ui';
@@ -204,7 +205,7 @@ export function ApprovalDetailPage() {
                 // 제목(2026-11-18 사용자 "직관적이지 않다"): 서버 요약을 앞에, 승인 번호는 옆에 작게. 요약 줄 = 요청자·상신 시각
                 title={
                   <>
-                    {a.summary ?? m.approvals.detailTitle}
+                    {hideIds(a.summary) || m.approvals.detailTitle}
                   </>
                 }
                 badges={
@@ -233,7 +234,7 @@ export function ApprovalDetailPage() {
               {/* 시스템 번호(ADR-0070 덧붙임 — 승인은 화면 번호가 없고 시스템 ID 는 상세에서만) */}
               {/* 보던 목록 순서대로 이전·다음(2026-11-19) */}
               <QueueNav kind="approval" id={approvalId} />
-              <SystemNumbers ids={[{ label: m.approvals.detailTitle, id: approvalId }]} />
+              <SystemNumbers ids={[{ label: m.approvals.detailTitle, id: approvalId }, { label: m.approvals.target, id: a.targetRef }]} />
               {/* 진행 단계(2026-11-18) — 요청·심사·결정·반영 */}
               <ApprovalProgress approval={a} />
               {/* 다음 할 일 — 심사 칸이 열린 서버 상태(REVIEW_PENDING·EVIDENCE_REQUIRED)일 때만. 내 요청·내 권한 요청은 버튼 없이 안내 */}
@@ -291,9 +292,10 @@ export function ApprovalDetailPage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {(a.lines ?? []).map((l) => (
+                        {(a.lines ?? []).map((l, i) => (
                           <tr key={l.lineKey}>
-                            <td className="font-mono">{l.lineKey}</td>
+                            {/* 항목 키가 시스템 ID(PD-… 초안 등)면 순번만 — 무엇인지는 오른쪽 내용 칸(상품명 등) */}
+                            <td className="font-mono" title={l.lineKey}>{isSystemId(l.lineKey) ? String(i + 1) : l.lineKey}</td>
                             <td className="text-right tabular-nums" data-testid="line-qty">{lineQtyText(l)}</td>
                             <td className="text-right font-semibold tabular-nums" data-testid="line-amount">{lineAmountText(a.type, l)}</td>
                             <td className="space-y-1">
@@ -408,10 +410,8 @@ export function ApprovalDetailPage() {
                         [m.approvals.type, a.type ? <CodeLabel key="y" code={a.type} names={TYPE_NAME} /> : m.none],
                         [
                           m.approvals.target,
-                          <span key="t" className="break-all">
-                            {a.targetService ? <CodeLabel code={a.targetService} names={m.systemName} /> : m.none}
-                            <span className="block font-mono text-xs font-normal text-base-content/55">{a.targetRef ?? m.none}</span>
-                          </span>,
+                          // 대상 참조(productDraft:PD-… 등)는 아래 접힌 "시스템 번호"에만(2026-11-20, ADR-0070)
+                          <span key="t">{a.targetService ? <CodeLabel code={a.targetService} names={m.systemName} /> : m.none}</span>,
                         ],
                         [m.approvals.requester, <Person key="r" id={a.requesterId} />],
                         [m.approvals.delivery, a.deliveryState ? <CodeLabel key="d" code={a.deliveryState} names={m.approvals.deliveryStateName} /> : m.none],

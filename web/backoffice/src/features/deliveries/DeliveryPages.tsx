@@ -162,7 +162,7 @@ export function DeliveriesOf({ riderId, orderId }: { readonly riderId?: string; 
 export function DeliveryOpenPage() {
   const api = useApi();
   // 미리보기 칸(2026-11-18)
-  const pv = usePreview();
+  const pv = usePreview((id) => `/deliveries/${encodeURIComponent(id)}`);
   const admin = useSession().session?.roles.includes('OPERATOR_ADMIN') ?? false;
   const wc = useWorkCounts(admin);
   const stateCount = (st: string) => {

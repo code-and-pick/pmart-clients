@@ -32,7 +32,6 @@ describe('라이더 문의', () => {
     expect(new URL(list.url).searchParams.get('requesterType')).toBe('RIDER');
 
     await userEvent.click(within(rows[0]!).getByTestId('inquiry-number'));
-    await userEvent.click(await screen.findByRole('link', { name: '상세 열기' }));
     expect(await screen.findByTestId('inquiry-requester')).toHaveTextContent('라이더');
     // 화면 번호(ADR-0070): 라이더 "가린 이름 · 6자리" — 시스템 ID 는 링크에만
     expect(await screen.findByTestId('inquiry-rider')).toHaveAttribute('href', '/riders/RID-MOCK-1');

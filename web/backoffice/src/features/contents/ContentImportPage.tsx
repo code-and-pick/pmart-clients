@@ -62,7 +62,7 @@ export function ContentImportPage() {
     <section className="space-y-4">
       <PageHeader
         back={{ to: '/contents/import', label: m.contents.importTitle }}
-        title={query.data ? <TitleWithId title={m.contents.batchHeading(query.data.productCount)} id={m.products.batch(batchId)} /> : m.products.batch(batchId)}
+        title={query.data ? <TitleWithId title={m.contents.batchHeading(query.data.productCount)} id={m.products.batch} /> : m.products.batch}
         actions={query.data ? <StatusBadge tone={BATCH_TONE[query.data.state] ?? 'ghost'}>{m.contents.batchStateName[query.data.state] ?? query.data.state}</StatusBadge> : null}
       />
       <QueryState state={toUiState(query)} onRetry={() => void query.refetch()}>
@@ -98,8 +98,8 @@ export function ContentImportPage() {
                           <td className="min-w-48">
                             <p className="font-medium">{it.draft?.input?.name ?? m.none}</p>
                             {it.draftId ? (
-                              <Link className="font-mono text-xs text-base-content/50 hover:text-primary hover:underline" to={`/contents/drafts/${encodeURIComponent(it.draftId)}`}>
-                                {it.draftId}
+                              <Link className="text-xs text-primary hover:underline" to={`/contents/drafts/${encodeURIComponent(it.draftId)}`}>
+                                {m.products.openDraftShort}
                               </Link>
                             ) : (
                               <span className="text-xs text-base-content/40">{m.none}</span>
