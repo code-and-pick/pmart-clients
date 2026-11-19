@@ -18,9 +18,10 @@ import { AffiliationFields, toAffiliation, type AffiliationDraft } from './Affil
 import { useCenters } from './centers';
 import { affiliationText, periodText } from './labels';
 import { MailboxPassword } from './MailboxPassword';
-import { DataTable, DetailHeader, FieldList, Section, StatusBadge } from '../../shared/admin';
+import { DataTable, DetailHeader, FieldList, NextAction, Section, StatusBadge } from '../../shared/admin';
 import { CopyButton } from '../../shared/CopyButton';
 import { provisioningTone, statusTone } from './labels';
+import { ProvisioningProgress } from './ProvisioningProgress';
 
 /** 발급 진행 중 다시 조회 간격. 테스트가 줄여 쓴다 */
 export const provisioningPoll = { intervalMs: 3000 };
@@ -134,7 +135,7 @@ function Actions({ employee, onChanged, self }: { readonly employee: Employee; r
   ];
 
   return (
-    <div className="space-y-3 rounded-box border border-base-300 bg-base-100 p-4">
+    <div id="hr-actions" className="space-y-3 rounded-box border border-base-300 bg-base-100 p-4">
       <h2 className="font-bold">{m.detail.actions}</h2>
       {self && (
         <p role="note" className="text-sm text-base-content/60" data-testid="self-action-note">
@@ -245,8 +246,10 @@ function ProvisioningCard({ employee, onChanged }: { readonly employee: Employee
   });
 
   return (
-    <div className="space-y-3 rounded-box border border-base-300 bg-base-100 p-4">
+    <div id="provisioning" className="space-y-3 rounded-box border border-base-300 bg-base-100 p-4">
       <h2 className="font-bold">{m.detail.provisioning}</h2>
+      {/* 진행 단계(2026-11-19) — 요청·사서함·로그인 계정·안내 메일·완료 */}
+      <ProvisioningProgress step={p.step} />
       <dl className="grid grid-cols-[8rem_1fr] gap-1 text-sm">
         <dt>{m.detail.step}</dt>
         <dd data-step={p.step}>{`${m.provisioningStep[p.step]} (${m.provisioningDetail[p.step]})`}</dd>
@@ -353,6 +356,8 @@ export function EmployeeDetailPage() {
                 </span>
               }
             />
+            {/* 다음 할 일(2026-11-19 — 백오피스 상세와 같은 자리): 서버 상태로 하나만 */}
+            <EmployeeNextAction employee={e} />
             <Section title={m.detail.info}>
               <FieldList
                 rows={[
@@ -411,4 +416,22 @@ export function EmployeeDetailPage() {
       </QueryState>
     </section>
   );
+}
+
+/**
+ * 다음 할 일 — 서버 값만으로 하나: 발급 실패 → 정지 중 → 발급 중 → 권한 승인 대기. 없으면 그리지 않는다.
+ * 단추는 이 쪽에 이미 있는 구역(계정 발급·인사 처리)으로 옮겨 갈 뿐 — 명령은 그 구역의 단추로.
+ */
+function EmployeeNextAction({ employee: e }: { readonly employee: Employee }) {
+  const go = (id: string, label: string) => (
+    <a className="btn btn-sm" href={`#${id}`}>
+      {label}
+    </a>
+  );
+  const n = m.detail.next;
+  if (PROVISIONING_RETRYABLE.includes(e.provisioning.step)) return <NextAction tone="error" title={n.failedTitle} body={n.failedBody}>{go('provisioning', n.goProvisioning)}</NextAction>;
+  if (e.status === 'SUSPENDED') return <NextAction tone="warning" title={n.suspendedTitle} body={n.suspendedBody}>{go('hr-actions', n.goActions)}</NextAction>;
+  if (PROVISIONING_IN_PROGRESS.includes(e.provisioning.step)) return <NextAction title={n.issuingTitle} body={n.issuingBody} />;
+  if ((e.requestedGrants ?? []).some((g) => g.submission === 'SUBMITTED')) return <NextAction title={n.grantsTitle} body={n.grantsBody} />;
+  return null;
 }

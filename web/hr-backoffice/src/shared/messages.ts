@@ -91,6 +91,14 @@ export const messages = {
     FAILED: '실패 — 다시 시도',
     COMPENSATED: '실패(되돌림) — 다시 시도',
   } satisfies Record<ProvisioningStep, string>,
+  /** 계정 발급 진행 단계(2026-11-19) */
+  provisioningProgress: {
+    title: '계정 발급 진행',
+    steps: ['요청', '사서함', '로그인 계정', '안내 메일', '완료'] as readonly string[],
+    note: { mailbox: '사서함 만드는 중', iam: '로그인 계정 만드는 중', invite: '안내 메일 보내는 중', finishing: '마무리 중' },
+    failed: '발급 실패',
+    compensated: '실패(되돌림)',
+  },
   provisioningDetail: {
     REQUESTED: '요청됨',
     MAILBOX_CREATED: '사서함 만듦',
@@ -189,6 +197,19 @@ export const messages = {
   },
 
   detail: {
+    /** 다음 할 일(2026-11-19) */
+    next: {
+      failedTitle: '계정 발급이 실패했어요',
+      failedBody: '아래 계정 발급에서 마지막 오류를 보고 "발급 다시 시도"를 눌러 주세요.',
+      goProvisioning: '계정 발급으로',
+      suspendedTitle: '정지된 직원이에요',
+      suspendedBody: '로그인할 수 없어요. 다시 일하게 되면 아래 인사 처리에서 복귀해요.',
+      goActions: '인사 처리로',
+      issuingTitle: '계정을 발급하는 중이에요',
+      issuingBody: '몇 초~몇 분 걸려요. 이 화면은 저절로 다시 읽어요.',
+      grantsTitle: '권한 승인을 기다려요',
+      grantsBody: '승인은 승인자가 백오피스 승인함에서 해요. 결정이 오면 요청 권한에 보여요.',
+    },
     back: '목록으로',
     info: '기본 정보',
     provisioning: '계정 발급',
