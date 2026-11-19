@@ -49,11 +49,14 @@ final class KakaoIdTokenSource implements SocialTokenSource {
   }
 }
 
-/// 네이버 로그인 뒤 돌아오는 앱 주소 — build.gradle `appAuthRedirectScheme`(com.pmart.rider)와 같은 scheme.
-/// 네이버 콘솔이 앱 주소를 받지 않으면 게이트웨이 중계 주소(고객앱 BR-66 과 같은 방식)를 빌드 때 `NAVER_REDIRECT_URL` 로 넣는다.
+/// 네이버 redirect_uri = 네이버 콘솔 Callback URL. 네이버 콘솔이 앱 주소를 받지 않아 게이트웨이 중계 주소를 쓴다
+/// (백엔드 auth-service 0.5.0, 2026-11-19 LAN 배포): 서버는 받은 쿼리를 그대로 `com.pmart.rider://oauth/naver?…` 로 302 만 한다
+/// (코드 교환·저장 없음). 앱은 build.gradle `appAuthRedirectScheme`(com.pmart.rider)로 그 주소를 받고, 코드 교환은 앱이 PKCE 로
+/// 이 http 주소를 redirect_uri 로 그대로 보낸다. 사내 와이파이에서만 닿는다. 다른 주소는 빌드 때 `NAVER_REDIRECT_URL` 로.
 const naverRedirectUrl = String.fromEnvironment(
   'NAVER_REDIRECT_URL',
-  defaultValue: 'com.pmart.rider://oauth/naver',
+  defaultValue:
+      'http://192.168.0.40:8080/api/v1/auth/oauth-callbacks/naver/rider',
 );
 
 /// 네이버 OIDC 공개 설정(https://nid.naver.com/.well-known/openid-configuration — 고객앱과 같음).

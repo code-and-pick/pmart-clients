@@ -306,8 +306,11 @@ void main() {
     expect(m.read(phoneIdentityRepositoryProvider), isNotNull);
   });
 
-  test('네이버(OIDC+PKCE): Client ID 가 없으면 브라우저를 열지 않고 설정 문제로 알린다, 돌아오는 주소는 com.pmart.rider', () async {
-    expect(naverRedirectUrl, 'com.pmart.rider://oauth/naver');
+  test('네이버(OIDC+PKCE): Client ID 가 없으면 브라우저를 열지 않고 설정 문제로 알린다, redirect_uri 는 게이트웨이 중계 주소(앱으로 com.pmart.rider 302)', () async {
+    expect(
+      naverRedirectUrl,
+      'http://192.168.0.40:8080/api/v1/auth/oauth-callbacks/naver/rider',
+    );
     await expectLater(
       const NaverIdTokenSource(clientId: '  ').obtain(),
       throwsA(isA<RiderLoginMisconfigured>()),
