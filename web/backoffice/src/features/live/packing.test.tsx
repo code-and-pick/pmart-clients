@@ -34,7 +34,10 @@ describe('포장 인계 현황', () => {
     const row = await rowOf(/25111704/);
     expect(within(row).getByTestId('packing-qty')).toHaveTextContent('포장 3 · 인계 1 · 남음 2');
     await userEvent.click(within(row).getByRole('button', { name: '포장 3개 보기' }));
-    expect(within(row).getByTestId('packing-packages')).toHaveTextContent('PKG-4-1 · 인계됨'); // 원천 코드는 이름으로, 코드는 마우스를 올리면(2026-11-18)
+    // 포장 라벨 6자리(bff 0.21.0 handoverCode) — 없으면 "포장 n", 시스템 ID(PKG-…)는 보이지 않는다(ADR-0070)
+    expect(within(row).getByTestId('packing-packages')).toHaveTextContent('305118 인계 · 인계됨'); // 원천 코드는 이름으로, 코드는 마우스를 올리면(2026-11-18)
+    expect(within(row).getAllByTestId('package-label').map((x) => x.textContent)).toEqual(['305118 인계', '포장 2', '포장 3']);
+    expect(within(row).getByTestId('packing-packages')).not.toHaveTextContent('PKG-4-1');
     expect(within(within(row).getByTestId('packing-packages')).getAllByTitle('HANDED_OVER')[0]).toHaveTextContent('인계됨');
     expect(within(row).getByTestId('packing-packages')).toHaveTextContent('라이더 이*영 · 517204'); // 화면 번호(ADR-0070)
     expect(within(row).getByTestId('packing-delivery')).toHaveTextContent('25111704-1');

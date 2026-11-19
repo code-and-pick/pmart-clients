@@ -422,7 +422,8 @@ export function ActivityFeed({ approvals, cases, inquiries }: { readonly approva
 
 // ───────────────────────── 지표(준비 중 포함) ─────────────────────────
 // 백엔드 회신 2026-11-18(reply-dashboard-approval·notice-metrics-case-sla):
-// - 결품률(SHORTAGE_RATE)·정시 배송률(ON_TIME_DELIVERY)은 bff 지표 조회에 있지만 아직 501 — 물어서 501 이면 "준비 중", 구현되면 저절로 숫자.
+// - (bff 0.21.0, 2026-11-19) 정시 배송률 ON_TIME_DELIVERY: 분자 onTime·분모 due(늦음엔 전달 전·실패 포함). 약속 전(pending)·판단 밖(unjudged — 고객 수령 확인·자동 완료)은 분모 밖이라 옆에 따로 적는다.
+// - 결품률(SHORTAGE_RATE)·정시 배송률(ON_TIME_DELIVERY)은 bff 지표 조회에 있지만 배포 전이면 501 — 물어서 501 이면 "준비 중", 구현되면 저절로 숫자.
 // - 매출(결제 승인 금액 — 환불은 따로 나란히)·상품별 판매 상위(주문 확정 기준)·센터별 품절 SKU 는 원천 API 작업 중(O-8·CL-3·IV-5) — 부를 곳이 없어 자리만.
 
 type MetricCell = { readonly key: string; readonly label: string; readonly note: string };
@@ -460,13 +461,30 @@ export function MetricsPanel({ from, to }: { readonly from: string; readonly to:
           if (q.data) {
             let n = 0;
             let d = 0;
+            // 분모 밖 칸 — 한 칸이라도 null(원천이 안 줌)이면 합하지 않고 적지 않는다(0 으로 바꾸지 않음)
+            let pending: number | null = 0;
+            let unjudged: number | null = 0;
             for (const t of q.data.totals ?? []) {
               n += t.numerator;
               d += t.denominator;
+              pending = pending === null || t.pending === undefined || t.pending === null ? null : pending + t.pending;
+              unjudged = unjudged === null || t.unjudged === undefined || t.unjudged === null ? null : unjudged + t.unjudged;
             }
             const t = slaText({ numerator: n, denominator: d });
             value = t.ratio;
-            sub = t.count;
+            sub =
+              c.key === 'ON_TIME_DELIVERY' ? (
+                <>
+                  {t.count}
+                  {(pending !== null && pending > 0) || (unjudged !== null && unjudged > 0) ? (
+                    <span className="block" data-testid="dash-ontime-outside">
+                      {m.metrics.onTimeOutside(pending, unjudged)}
+                    </span>
+                  ) : null}
+                </>
+              ) : (
+                t.count
+              );
             ready = true;
           } else if (q.isError) {
             value = isNotImplemented(q.error) ? m.metrics.soon : '?';

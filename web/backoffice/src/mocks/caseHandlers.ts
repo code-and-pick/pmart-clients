@@ -343,6 +343,20 @@ export const caseHandlers = [
     if ('denied' in v) return v.denied;
     if (!v.admin) return problem(403, 'FORBIDDEN');
     const q = new URL(request.url).searchParams;
+    // bff 0.21.0 정시 배송률 목 — 센터 하나, 하루 묶음만. 약속 전·판단 밖은 분모 밖
+    if (q.get('metric') === 'ON_TIME_DELIVERY') {
+      const stamp = { system: 'delivery-dispatch-service', confidence: 'DIRECT' as const, asOf: { asOf: new Date().toISOString(), freshness: 'CURRENT' as const } };
+      const to = q.get('to') ?? '';
+      const day = (back: number) => new Date(Date.parse(`${to}T00:00:00+09:00`) - back * 86_400_000 + 9 * 3_600_000).toISOString().slice(0, 10);
+      const rows = [
+        { back: 0, n: 18, d: 20, p: 3, u: 1 },
+        { back: 1, n: 22, d: 24, p: 0, u: 2 },
+        { back: 2, n: 19, d: 19, p: 0, u: 0 },
+      ];
+      const points = rows.map((r) => ({ bucket: day(r.back), segment: { mfcId: 'MFC-BSN-01' }, numerator: r.n, denominator: r.d, ratio: r.n / r.d, pending: r.p, unjudged: r.u, source: stamp }));
+      const totals = rows.map((r) => ({ bucket: day(r.back), numerator: r.n, denominator: r.d, ratio: r.n / r.d, pending: r.p, unjudged: r.u })).sort((a, b) => a.bucket.localeCompare(b.bucket));
+      return HttpResponse.json({ metric: 'ON_TIME_DELIVERY', timeZone: 'Asia/Seoul', sources: [stamp], unavailableSources: [], points, totals });
+    }
     if (q.get('metric') !== 'CASE_SLA') return problem(501, 'NOT_IMPLEMENTED');
     const from = q.get('from') ?? '';
     const to = q.get('to') ?? '';

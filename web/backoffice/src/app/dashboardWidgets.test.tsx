@@ -86,11 +86,21 @@ describe('대시보드 2판', () => {
 
 describe('대시보드 지표(백엔드 회신 2026-11-18)', () => {
   it('결품률·정시 배송률은 서버가 501 이면 "준비 중", 품절은 자리만(매출·상품별 판매는 D2·D3 배포로 진짜 칸)', async () => {
+    // 정시 배송률은 bff 0.21.0 부터 목이 숫자를 준다 — 배포 전 LAN 처럼 501 로 바꿔 본다
+    server.use(http.get(`${BFF_BASE}/views/metrics`, () => HttpResponse.json({ type: 'about:blank', title: 'x', status: 501, code: 'NOT_IMPLEMENTED' }, { status: 501, headers: { 'content-type': 'application/problem+json' } })));
     renderAt('/?tab=sales', as.admin);
     for (const id of ['SHORTAGE_RATE', 'ON_TIME_DELIVERY']) expect(await within(await screen.findByTestId(`dash-metric-${id}`)).findByText('준비 중')).toBeInTheDocument();
     expect(within(screen.getByTestId('dash-metric-soldOut')).getByText('준비 중')).toBeInTheDocument();
     expect(screen.queryByTestId('dash-metric-sales')).not.toBeInTheDocument();
     expect(screen.queryByTestId('dash-metric-top')).not.toBeInTheDocument();
+  });
+
+  it('정시 배송률(bff 0.21.0): 분자·분모 합으로 비율, 약속 전·판단 밖은 분모 밖이라 옆에 따로', async () => {
+    renderAt('/?tab=sales', as.admin);
+    const cell = await screen.findByTestId('dash-metric-ON_TIME_DELIVERY');
+    // 목: 18/20 + 22/24 + 19/19 = 59/63, 약속 전 3, 판단 밖 3
+    await waitFor(() => expect(cell).toHaveTextContent('63건 중 59건'));
+    expect(within(cell).getByTestId('dash-ontime-outside')).toHaveTextContent('약속 전 3 · 판단 밖 3 (분모 밖)');
   });
 
   it('지표가 구현되면(200) 숫자와 "N건 중 M건"', async () => {

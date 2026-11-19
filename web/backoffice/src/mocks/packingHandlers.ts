@@ -24,7 +24,7 @@ interface Row {
   packageCount: number | null;
   handed: number | null;
   remaining: number | null;
-  packages: Array<{ packageId: string; state: string; fenceState: string | null; handoverAuthorizedAt: string | null; handedOverAt: string | null; riderId: string | null }>;
+  packages: Array<{ packageId: string; handoverCode?: string | null; state: string; fenceState: string | null; handoverAuthorizedAt: string | null; handedOverAt: string | null; riderId: string | null }>;
   readyAt: string | null;
   dispatchRequestedAt: string | null;
   deliveryId: string | null;
@@ -48,7 +48,7 @@ const rows: readonly Row[] = [
   {
     shipmentId: 'SHP-4', orderId: 'ORD-MOCK-2004', orderNumber: '25111704', workOrderKind: 'ORIGINAL', shipmentState: 'PARTIALLY_HANDED_OVER', stage: 'PARTIALLY_HANDED_OVER', pick: { state: 'COMPLETED' }, pack: { state: 'COMPLETED' }, packageCount: 3, handed: 1, remaining: 2,
     packages: [
-      { packageId: 'PKG-4-1', state: 'HANDED_OVER', fenceState: 'AUTHORIZED', handoverAuthorizedAt: at(20), handedOverAt: at(21), riderId: 'RID-MOCK-2' },
+      { packageId: 'PKG-4-1', handoverCode: '305118', state: 'HANDED_OVER', fenceState: 'AUTHORIZED', handoverAuthorizedAt: at(20), handedOverAt: at(21), riderId: 'RID-MOCK-2' },
       { packageId: 'PKG-4-2', state: 'SEALED', fenceState: null, handoverAuthorizedAt: null, handedOverAt: null, riderId: null },
       { packageId: 'PKG-4-3', state: 'SEALED', fenceState: null, handoverAuthorizedAt: null, handedOverAt: null, riderId: null },
     ],

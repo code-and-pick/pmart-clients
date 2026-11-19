@@ -83,9 +83,11 @@ function Packages({ it, riderFailed }: { readonly it: Item; readonly riderFailed
       </button>
       {open && (
         <ul className="space-y-0.5 text-xs" data-testid="packing-packages">
-          {list.map((p) => (
-            <li key={p.packageId}>
-              {`${p.packageId ?? messages.none} · `}
+          {list.map((p, n) => (
+            <li key={p.packageId ?? n}>
+              {/* 포장 라벨 6자리(bff 0.21.0 handoverCode — "305118 인계"), 원천이 아직 안 주면 "포장 n" — 시스템 ID(packageId)는 보이지 않는다(ADR-0070) */}
+              <span className="font-mono font-semibold" data-testid="package-label">{p.handoverCode ? m.packageLabel(p.handoverCode) : m.packageNth(n + 1)}</span>
+              {' · '}
               <Code code={p.state} names={m.packageStateName} />
               {` · ${m.fence} `}
               <Code code={p.fenceState} names={m.fenceStateName} />
