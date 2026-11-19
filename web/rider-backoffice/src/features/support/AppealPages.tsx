@@ -12,7 +12,7 @@ import { commandParams } from '../../api/command';
 import { useApi } from '../../app/ApiContext';
 import { ChipGroup, FieldList, PageHeader, ResultBar, SearchPanel, SearchRow, StatusBadge, type Tone } from '../../shared/admin';
 import { DeliveryNo, RiderName, useRiderSummaries } from '../../shared/displayNumbers';
-import { when } from '../../shared/opsUi';
+import { when, won } from '../../shared/opsUi';
 
 export const appealText = {
   title: '소명·이의',
@@ -31,10 +31,10 @@ export const appealText = {
   note: '결정 메모(라이더에게 보임, 1~300자)',
   uphold: '유지',
   accept: '인정',
-  acceptHint: { RESTRICTION: '인정하면 이 라이더의 계정 제한이 바로 풀려요.', EARNING: '인정해도 금액은 바뀌지 않아요 — 수행료 조정에서 따로 처리해요.' } as Readonly<Record<string, string>>,
+  acceptHint: { RESTRICTION: '인정하면 이 라이더의 계정 제한이 바로 풀려요.', EARNING: '인정해도 원래 수행료는 그대로예요 — 인정한 뒤 보상금을 따로 줘요.' } as Readonly<Record<string, string>>,
   decided: (s: string) => `${s}(으)로 결정했어요.`,
   doneLine: (type: string, rider: string, s: string) => `${type}(${rider})을 ${s}(으)로 결정했어요.`,
-  toAdjust: '이 배송 수행료 조정하기',
+  toAdjustUncalculable: '산정 불가 수행료라면 수행료 조정 화면에서 바로 조정할 수도 있어요',
   decidedLine: (s: string, at: string, by: string) => `${s} · ${at} · ${by}`,
 } as const;
 
@@ -76,7 +76,7 @@ export function AppealsMenu() {
       ),
   });
   // 결정하면 신청이 "결정 대기" 목록에서 빠져 줄 안 알림이 사라지므로 위에 남긴다(수행료 인정이면 조정으로 가는 버튼도).
-  const [done, setDone] = useState<{ readonly text: string; readonly adjustDeliveryId: string | null } | null>(null);
+  const [done, setDone] = useState<{ readonly text: string; readonly compensate: { readonly appealId: string; readonly deliveryId: string } | null } | null>(null);
   const riders = useRiderSummaries((list.data?.items ?? []).map((a) => a.riderId));
   const submit = (ev: FormEvent) => {
     ev.preventDefault();
@@ -90,12 +90,16 @@ export function AppealsMenu() {
     <section className="max-w-6xl space-y-4">
       <PageHeader title={t.title} description={t.intro} />
       {done && (
-        <div role="status" className="alert alert-success flex flex-wrap justify-between text-sm" data-testid="appeal-done">
+        <div role="status" className="alert alert-success flex flex-col items-stretch gap-2 text-sm" data-testid="appeal-done">
           <span>{done.text}</span>
-          {done.adjustDeliveryId && (
-            <Link to={adjustmentLink(done.adjustDeliveryId)} className="btn btn-xs btn-primary" data-testid="to-adjustment">
-              {t.toAdjust}
-            </Link>
+          {done.compensate && (
+            <>
+              {/* 수행료 이의 인정 → 보상금 한 줄(사용자 2026-11-19). 산정 불가 수행료면 기존 조정도 쓸 수 있다. */}
+              <CompensationBox appealId={done.compensate.appealId} />
+              <Link to={adjustmentLink(done.compensate.deliveryId)} className="link text-xs" data-testid="to-adjustment">
+                {t.toAdjustUncalculable}
+              </Link>
+            </>
           )}
         </div>
       )}
@@ -165,16 +169,19 @@ export function AppealsMenu() {
                         <AppealDecision
                           appealId={a.appealId}
                           targetType={a.targetType}
-                          onDone={(r) => setDone({ text: t.doneLine(t.typeName[a.targetType] ?? a.targetType, s?.riderNumber ?? a.riderId, t.stateName[r.state] ?? r.state), adjustDeliveryId: r.adjustmentRequired ? a.targetRef : null })}
+                          onDone={(r) => setDone({ text: t.doneLine(t.typeName[a.targetType] ?? a.targetType, s?.riderNumber ?? a.riderId, t.stateName[r.state] ?? r.state), compensate: r.adjustmentRequired ? { appealId: a.appealId, deliveryId: a.targetRef } : null })}
                         />
                       ) : (
                         <div data-testid="appeal-decided">
                           <p className="text-base-content/70">{t.decidedLine(t.stateName[a.state] ?? a.state, when(a.decidedAt), a.decidedBy ?? '—')}</p>
                           {a.decisionNote && <p className="mt-1 whitespace-pre-wrap">{a.decisionNote}</p>}
                           {a.targetType === 'EARNING' && a.state === 'ACCEPTED' && (
-                            <Link to={adjustmentLink(a.targetRef)} className="btn btn-xs mt-2">
-                              {t.toAdjust}
-                            </Link>
+                            <div className="mt-2 space-y-1">
+                              <CompensationBox appealId={a.appealId} />
+                              <Link to={adjustmentLink(a.targetRef)} className="link text-xs">
+                                {t.toAdjustUncalculable}
+                              </Link>
+                            </div>
                           )}
                         </div>
                       )}
@@ -225,5 +232,86 @@ function AppealDecision({ appealId, targetType, onDone }: { readonly appealId: s
         {(a) => <p className="text-success">{t.decided(t.stateName[a.state] ?? a.state)}</p>}
       </CommandFeedback>
     </form>
+  );
+}
+
+export const compensationText = {
+  title: '이의 인정 보상금',
+  intro: '원래 수행료는 그대로 두고, 이 이의에 보상금 한 줄을 따로 기록해요. 지급 예정일은 서버가 정해요(오늘 + 3영업일).',
+  amount: '금액(원, 1~100,000)',
+  reason: '사유(직원만 봄, 1~300자)',
+  give: '보상금 주기',
+  given: (won: string, date: string) => `${won} 보상금을 기록했어요 · 지급 예정일 ${date}`,
+  line: (won: string, state: string, date: string, by: string) => `${won} · ${state} · 지급 예정일 ${date} · ${by}`,
+  loadFailed: '보상금 기록을 불러오지 못했어요 — 이미 줬는지 모르니 다시 시도한 뒤에 주세요.',
+  retry: '다시 시도',
+  stateName: { CONFIRMED: '확정(지급 전)', PAYING: '지급 중', PAID: '지급 완료', PAYMENT_FAILED: '지급 실패', ADJUSTED: '조정됨', ESTIMATED: '예상', PENDING_CONFIRMATION: '확정 대기' } as Readonly<Record<string, string>>,
+} as const;
+
+/**
+ * 인정한 수행료 이의의 보상금(execution 0.30.0 — 사용자 2026-11-19 "보상금 한 줄 따로").
+ * 이미 줬으면 그 줄을, 아니면 "보상금 주기"(금액·사유). 이미 줬는지 못 읽으면 주기를 막는다(두 번 주지 않게).
+ */
+export function CompensationBox({ appealId }: { readonly appealId: string }) {
+  const api = useApi();
+  const queryClient = useQueryClient();
+  const c = compensationText;
+  const given = useQuery({
+    queryKey: ['rider-compensations', appealId],
+    queryFn: () => request('GET', api.execution.GET('/rider-compensations', { params: { query: { appealId } } })),
+  });
+  const [amount, setAmount] = useState('');
+  const [reason, setReason] = useState('');
+  const record = useCommand(async (body: { appealId: string; amount: number; reason: string }, key) => {
+    try {
+      return await request('POST', api.execution.POST('/rider-compensations', { ...commandParams(key), body }));
+    } finally {
+      void queryClient.invalidateQueries({ queryKey: ['rider-compensations', appealId] });
+    }
+  });
+  const n = Number(amount);
+  const ok = Number.isInteger(n) && n >= 1 && n <= 100_000 && reason.trim().length >= 1;
+  const locked = record.busy || record.phase.kind === 'done';
+  if (given.isPending) return <p className="text-xs text-base-content/60">…</p>;
+  if (given.isError) {
+    return (
+      <div role="alert" className="flex flex-wrap items-center gap-2 text-xs text-error" data-testid="compensation-load-failed">
+        {c.loadFailed}
+        <button type="button" className="btn btn-xs" onClick={() => void given.refetch()}>
+          {c.retry}
+        </button>
+      </div>
+    );
+  }
+  const existing = given.data.items[0];
+  return (
+    <div className="space-y-2 rounded-box border border-base-300 bg-base-100 p-3" data-testid="compensation">
+      <p className="font-semibold">{c.title}</p>
+      {existing ? (
+        <div data-testid="compensation-given">
+          <p>{c.line(won(existing.amount), c.stateName[existing.settlementState] ?? existing.settlementState, existing.payoutDate, existing.recordedBy ?? '—')}</p>
+          <p className="whitespace-pre-wrap text-xs text-base-content/60">{existing.reason}</p>
+        </div>
+      ) : (
+        <form
+          className="space-y-2"
+          aria-label={`${c.give} ${appealId}`}
+          onSubmit={(ev) => {
+            ev.preventDefault();
+            if (ok) void record.run({ appealId, amount: n, reason: reason.trim() });
+          }}
+        >
+          <p className="text-xs text-base-content/60">{c.intro}</p>
+          <div className="flex flex-wrap items-center gap-2">
+            <input className="input input-sm w-40" inputMode="numeric" aria-label={c.amount} placeholder={c.amount} value={amount} disabled={locked} onChange={(ev) => setAmount(ev.target.value.replace(/[^0-9]/g, ''))} />
+            <input className="input input-sm min-w-64 flex-1" aria-label={c.reason} placeholder={c.reason} maxLength={300} value={reason} disabled={locked} onChange={(ev) => setReason(ev.target.value)} />
+            <button type="submit" className="btn btn-sm btn-primary" disabled={!ok || locked}>
+              {c.give}
+            </button>
+          </div>
+          <CommandFeedback command={record}>{(r) => <p className="text-success">{c.given(won(r.amount), r.payoutDate)}</p>}</CommandFeedback>
+        </form>
+      )}
+    </div>
   );
 }

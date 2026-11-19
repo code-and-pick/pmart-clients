@@ -52,6 +52,7 @@ export const actionText = {
     PAYOUT_PAID: '지급 완료 표시',
     PAYOUT_FAILED: '지급 실패 표시',
     APPEAL_DECIDED: '소명·이의 결정',
+    COMPENSATION_RECORDED: '이의 인정 보상금',
   } as Readonly<Record<string, string>>,
 } as const;
 

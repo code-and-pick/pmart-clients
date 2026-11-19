@@ -38,6 +38,7 @@ export const payoutText = {
   recorded: (s: string) => `${s}(으)로 표시했어요.`,
   doneLine: (rider: string, date: string, s: string) => `${rider} · ${date} 묶음을 ${s}(으)로 표시했어요.`,
   adminOnly: '관리자만 표시할 수 있어요',
+  compensations: (n: number) => `(보상 ${n})`,
   lastLine: (result: string, at: string, by: string) => `${result} · ${at} · ${by}`,
 } as const;
 
@@ -145,7 +146,10 @@ export function PayoutsMenu() {
                         <RiderName riderId={p.riderId} nameMasked={s?.nameMasked} riderNumber={s?.riderNumber} />
                       </td>
                       <td className="whitespace-nowrap">{p.payoutDate}</td>
-                      <td className="text-right">{p.count}</td>
+                      <td className="text-right">
+                        {p.count}
+                        {p.compensationCount ? <span className="ml-1 text-xs text-base-content/60">{t.compensations(p.compensationCount)}</span> : null}
+                      </td>
                       <td className="text-right font-semibold">{won(p.total)}</td>
                       <td>
                         <StatusBadge tone={stateTone(p.state)}>{t.stateName[p.state] ?? p.state}</StatusBadge>

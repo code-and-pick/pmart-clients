@@ -13,6 +13,7 @@ interface MockPayout {
   payoutDate: string;
   count: number;
   total: number;
+  compensationCount?: number;
   state: 'CONFIRMED' | 'PAYING' | 'PAID' | 'PAYMENT_FAILED' | 'MIXED';
   lastResult: { result: 'PAYING' | 'PAID' | 'FAILED'; recordedAt: string; recordedBy: string; reference: string | null; failureReason: string | null } | null;
 }
@@ -32,12 +33,25 @@ interface MockAppeal {
   adjustmentRequired?: boolean;
 }
 
+interface MockCompensation {
+  compensationId: string;
+  appealId: string;
+  deliveryId: string;
+  riderId: string;
+  amount: number;
+  reason: string;
+  settlementState: 'CONFIRMED' | 'PAYING' | 'PAID' | 'PAYMENT_FAILED';
+  payoutDate: string;
+  recordedBy: string;
+  recordedAt: string;
+}
+
 /** 목 "오늘"(서울) — 시험이 날짜에 흔들리지 않게 고정 */
 export const MOCK_TODAY = '2026-11-19';
 
 const seed = () => ({
   payouts: [
-    { riderId: 'RD-7', payoutDate: '2026-11-19', count: 3, total: 10500, state: 'CONFIRMED', lastResult: null },
+    { riderId: 'RD-7', payoutDate: '2026-11-19', count: 3, total: 10500, compensationCount: 1, state: 'CONFIRMED', lastResult: null },
     { riderId: 'RD-8', payoutDate: '2026-11-19', count: 2, total: 7000, state: 'PAYING', lastResult: { result: 'PAYING', recordedAt: '2026-11-19T00:30:00.000Z', recordedBy: 'OP-admin-1', reference: 'ACC-1119-02', failureReason: null } },
     { riderId: 'RD-7', payoutDate: '2026-11-21', count: 1, total: 3500, state: 'CONFIRMED', lastResult: null },
   ] as MockPayout[],
@@ -46,6 +60,7 @@ const seed = () => ({
     { appealId: 'AP-2', riderId: 'RD-7', targetType: 'EARNING', targetRef: 'DLV-3', restriction: null, body: '엘리베이터 고장이었는데 추가 배달료가 반려됐어요.', state: 'OPEN', submittedAt: '2026-11-18T06:00:00.000Z', decidedAt: null, decidedBy: null, decisionNote: null },
     { appealId: 'AP-0', riderId: 'RD-7', targetType: 'EARNING', targetRef: 'DLV-1', restriction: null, body: '거리 계산이 틀렸어요.', state: 'UPHELD', submittedAt: '2026-11-16T05:00:00.000Z', decidedAt: '2026-11-16T07:00:00.000Z', decidedBy: 'OP-rops-1', decisionNote: '경로 확인 결과 정상 산정이에요.' },
   ] as MockAppeal[],
+  compensations: [] as MockCompensation[],
 });
 
 export const payoutAppealState = seed();
@@ -61,6 +76,45 @@ function replay(request: Request, scope: string) {
 }
 
 export const payoutAppealHandlers = [
+  // 이의 인정 보상금(execution 0.30.0): 인정한 수행료 이의만(422 APPEAL_NOT_ACCEPTED), 이의마다 한 줄(409 COMPENSATION_EXISTS).
+  http.get(`${API_BASE}/rider-compensations`, ({ request }) => {
+    const who = operator(request);
+    if (!who) return unauthorized();
+    if (!staff(who.roles)) return problem(403, 'FORBIDDEN');
+    const q = new URL(request.url).searchParams;
+    const items = payoutAppealState.compensations.filter(
+      (c) => (!q.get('appealId') || c.appealId === q.get('appealId')) && (!q.get('riderId') || c.riderId === q.get('riderId')) && (!q.get('deliveryId') || c.deliveryId === q.get('deliveryId')),
+    );
+    return HttpResponse.json({ items });
+  }),
+  http.post(`${API_BASE}/rider-compensations`, async ({ request }) => {
+    const who = operator(request);
+    if (!who) return unauthorized();
+    if (!staff(who.roles)) return problem(403, 'FORBIDDEN');
+    const seen = replay(request, 'compensation');
+    if (seen) return HttpResponse.json(seen.body as MockCompensation, { status: seen.status });
+    const body = (await request.json()) as { appealId?: string; amount?: number; reason?: string };
+    const amount = body.amount ?? 0;
+    if (!Number.isInteger(amount) || amount < 1 || amount > 100_000 || !(body.reason ?? '').trim()) return problem(400, 'VALIDATION_FAILED');
+    const a = payoutAppealState.appeals.find((x) => x.appealId === body.appealId);
+    if (!a || a.targetType !== 'EARNING' || a.state !== 'ACCEPTED') return problem(422, 'APPEAL_NOT_ACCEPTED');
+    if (payoutAppealState.compensations.some((c) => c.appealId === a.appealId)) return problem(409, 'COMPENSATION_EXISTS');
+    const c: MockCompensation = {
+      compensationId: `CMP-${payoutAppealState.compensations.length + 1}`,
+      appealId: a.appealId,
+      deliveryId: a.targetRef,
+      riderId: a.riderId,
+      amount,
+      reason: (body.reason ?? '').trim(),
+      settlementState: 'CONFIRMED',
+      payoutDate: '2026-11-24',
+      recordedBy: who.subject,
+      recordedAt: timestamp(),
+    };
+    payoutAppealState.compensations.push(c);
+    db.idempotent.set(`compensation:${keyOf(request)}`, { status: 200, body: c });
+    return HttpResponse.json(c);
+  }),
   http.get(`${API_BASE}/rider-payouts`, ({ request }) => {
     const who = operator(request);
     if (!who) return unauthorized();

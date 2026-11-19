@@ -91,3 +91,41 @@ describe('소명·이의', () => {
     expect(within(row).getByTestId('appeal-decided')).toHaveTextContent('경로 확인 결과 정상 산정이에요.');
   });
 });
+
+describe('이의 인정 보상금', () => {
+  it('수행료 이의를 인정하면 위 알림에서 보상금을 주고, 이미 준 보상금이 보인다', async () => {
+    const view = renderAt('/appeals', as.riderOps);
+    const rows = await screen.findAllByTestId('appeal-row');
+    const form = within(rows[1]!).getByRole('form');
+    await userEvent.type(within(form).getByLabelText(/결정 메모/), '고장 확인');
+    await userEvent.click(within(form).getByRole('button', { name: '인정' }));
+    const done = await screen.findByTestId('appeal-done');
+    const give = await within(done).findByRole('form', { name: /보상금 주기 AP-2/ });
+    expect(within(give).getByRole('button', { name: '보상금 주기' })).toBeDisabled();
+    await userEvent.type(within(give).getByLabelText(/금액/), '1500');
+    await userEvent.type(within(give).getByLabelText(/사유/), '엘리베이터 고장 확인');
+    await userEvent.click(within(give).getByRole('button', { name: '보상금 주기' }));
+    expect(await within(done).findByTestId('compensation-given')).toHaveTextContent('1,500원');
+    const req = posts(view.sent, '/rider-compensations')[0]!;
+    expect(req.headers.get('Idempotency-Key')).toBeTruthy();
+    expect(await req.clone().json()).toEqual({ appealId: 'AP-2', amount: 1500, reason: '엘리베이터 고장 확인' });
+  });
+
+  it('금액은 1~100,000원만', async () => {
+    renderAt('/appeals', as.riderOps);
+    const rows = await screen.findAllByTestId('appeal-row');
+    const form = within(rows[1]!).getByRole('form');
+    await userEvent.type(within(form).getByLabelText(/결정 메모/), '확인');
+    await userEvent.click(within(form).getByRole('button', { name: '인정' }));
+    const give = await within(await screen.findByTestId('appeal-done')).findByRole('form', { name: /보상금 주기/ });
+    await userEvent.type(within(give).getByLabelText(/사유/), '사유');
+    await userEvent.type(within(give).getByLabelText(/금액/), '100001');
+    expect(within(give).getByRole('button', { name: '보상금 주기' })).toBeDisabled();
+  });
+
+  it('지급 묶음에 보상 건수', async () => {
+    renderAt('/payouts', as.admin);
+    const rows = await screen.findAllByTestId('payout-row');
+    expect(rows[0]).toHaveTextContent('(보상 1)');
+  });
+});

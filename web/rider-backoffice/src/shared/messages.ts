@@ -262,6 +262,8 @@ export const messages = {
     PICKED_UP_CASE_REQUIRED: '픽업한 배송은 배차 취소할 수 없어요 — 전달 실패로 처리해 주세요.',
     PAYOUT_NOT_DUE: '지급 예정일이 아직 안 됐어요 — 지급 중·지급 완료는 예정일부터 표시할 수 있어요.',
     APPEAL_EXISTS: '이 대상에는 이미 신청이 있어요.',
+    APPEAL_NOT_ACCEPTED: '인정한 수행료 이의에만 보상금을 줄 수 있어요.',
+    COMPENSATION_EXISTS: '이 이의에는 이미 보상금을 줬어요.',
   } as Readonly<Record<string, string>>,
 
   /** 검증 사유 code → 문구(없는 code 는 code 그대로) */
