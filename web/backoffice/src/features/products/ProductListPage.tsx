@@ -107,6 +107,8 @@ export function ProductListPage() {
   const categoryId = params.get('categoryId') ?? '';
   // 콘텐츠 게시 상태 거르기(2026-11-19 상품 묶음 합치기 — 콘텐츠 조회 화면 대신) — 이 쪽 안에서, 게시 카드 기준
   const contentFilter = (['published', 'missing'] as const).find((v) => v === params.get('content'));
+  // 가격 미설정 거르기(2026-11-19 상품 하나씩 등록 다듬기) — 이 쪽 안에서, 서버 가격(notSet) 기준. 못 읽은 상품은 거르지 않고 남긴다
+  const priceFilter = params.get('price') === 'notSet' ? ('notSet' as const) : undefined;
   const cursor = params.get('cursor') ?? undefined;
   const [text, setText] = useState('');
   const [sort, setSort] = useState<Sort>('server');
@@ -151,7 +153,7 @@ export function ProductListPage() {
     setParams(next);
   };
   const q = text.trim().toLowerCase().replace(/\s+/g, '');
-  const filtered = saleState !== undefined || categoryId !== '' || q !== '' || contentFilter !== undefined;
+  const filtered = saleState !== undefined || categoryId !== '' || q !== '' || contentFilter !== undefined || priceFilter !== undefined;
   const stateName = saleState ? m.products.saleStateName[saleState] : l.all;
 
   return (
@@ -226,6 +228,13 @@ export function ProductListPage() {
             <option value="missing">{l.contentMissingOnly}</option>
           </select>
         </label>
+        <label className="flex flex-col gap-1 text-xs font-medium text-base-content/60">
+          {l.col.price}
+          <select className="select select-sm w-36 bg-base-100" aria-label={l.col.price} value={priceFilter ?? ''} onChange={(e) => setParam('price', e.target.value)}>
+            <option value="">{l.all}</option>
+            <option value="notSet">{l.priceNotSetOnly}</option>
+          </select>
+        </label>
         <Lookup />
         <button
           type="button"
@@ -247,7 +256,18 @@ export function ProductListPage() {
           const all = d.items ?? [];
           const items = all
             .filter((p) => !q || nameOf(p).includes(q))
-            .filter((p) => !contentFilter || !cards.data || (contentFilter === 'published' ? Boolean(p.productId && cardOf.has(p.productId)) : Boolean(p.productId && (cards.data.missing ?? []).includes(p.productId))));
+            .filter((p) => !contentFilter || !cards.data || (contentFilter === 'published' ? Boolean(p.productId && cardOf.has(p.productId)) : Boolean(p.productId && (cards.data.missing ?? []).includes(p.productId))))
+            .filter((p) => {
+              if (!priceFilter || !p.productId) return true;
+              const pr = priceOf.get(p.productId);
+              return !pr || pr.loading || pr.failed || pr.notSet > 0;
+            });
+          // 빠진 것(불러온 쪽 기준) — 사진 미게시(게시 카드 missing)·가격 미설정(서버 notSet). 못 읽었거나 읽는 중이면 세지 않고 "…"
+          const loadedIds = all.flatMap((p) => (p.productId ? [p.productId] : []));
+          const noPhoto = cards.data ? loadedIds.filter((id) => (cards.data.missing ?? []).includes(id)).length : undefined;
+          const priceDone = loadedIds.every((id) => { const pr = priceOf.get(id); return pr && !pr.loading; });
+          const noPrice = priceDone ? loadedIds.filter((id) => (priceOf.get(id)?.notSet ?? 0) > 0).length : undefined;
+          const more = Boolean(d.page?.nextCursor);
           const byName = (x: (typeof items)[number], y: (typeof items)[number]) => (x.internalName ?? '').localeCompare(y.internalName ?? '', 'ko');
           const priceKey = (p: (typeof items)[number]) => (p.productId ? priceOf.get(p.productId)?.min : undefined);
           const byPrice = (dir: 1 | -1) => (x: (typeof items)[number], y: (typeof items)[number]) => {
@@ -268,6 +288,23 @@ export function ProductListPage() {
                   <span className="text-base-content/60">{l.total(rows.length, Boolean(d.page?.nextCursor))}</span>
                 </div>
               </div>
+              {/* 등록이 덜 된 상품(2026-11-19) — 눌러서 그것만 보기. 수는 불러온 쪽 기준, 더 있으면 "+" */}
+              {(noPhoto !== 0 || noPrice !== 0) && (
+                <div className="flex flex-wrap items-center gap-2 rounded-box border border-warning/30 bg-warning/5 px-3 py-2 text-sm" data-testid="product-missing">
+                  <span className="font-medium">{l.missing.title}</span>
+                  {noPhoto !== 0 && (
+                    <button type="button" className="btn btn-xs rounded-full border-warning/40 bg-base-100" aria-pressed={contentFilter === 'missing'} onClick={() => setParam('content', contentFilter === 'missing' ? '' : 'missing')} data-testid="missing-photo">
+                      {l.missing.photo(noPhoto === undefined ? (cards.isError ? '?' : '…') : `${noPhoto}${more ? '+' : ''}`)}
+                    </button>
+                  )}
+                  {noPrice !== 0 && (
+                    <button type="button" className="btn btn-xs rounded-full border-warning/40 bg-base-100" aria-pressed={priceFilter === 'notSet'} onClick={() => setParam('price', priceFilter ? '' : 'notSet')} data-testid="missing-price">
+                      {l.missing.price(noPrice === undefined ? '…' : `${noPrice}${more ? '+' : ''}`)}
+                    </button>
+                  )}
+                  <span className="text-xs text-base-content/50">{l.missing.basis}</span>
+                </div>
+              )}
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex flex-wrap gap-2">
                   {SORTS.map((s) => (

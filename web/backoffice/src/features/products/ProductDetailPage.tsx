@@ -1,9 +1,10 @@
 // 상품 상세·SKU·판매 상태 변경. 일시품절·판매 재개는 바로, 판매중지는 PRODUCT 승인 뒤 approvalId 와 함께(2026-10-30 결정).
 // 화면(2026-11-18 사용자 "밋밋하다 — Shopify 상품 상세처럼"): 머리(제목·판매 상태 배지·관리용 명칭) 아래 넓은 화면 두 칸 —
 // 왼쪽(2/3) SKU 표 카드·판매 상태 변경 카드, 오른쪽(1/3) 상품 요약 카드·작업 카드(콘텐츠 등록·정보 수정 시작). 동작은 그대로.
+import { useProductPrices } from '../prices/productPrices';
 import { PriceLookup } from '../prices/PricePage';
 import { SystemNumbers } from '../../shared/displayNumber';
-import { ContentGallery } from '../contents/ContentGallery';
+import { ContentGallery, notPublished, useProductContent } from '../contents/ContentGallery';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, type ReactNode } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
@@ -216,6 +217,11 @@ export function ProductDetailPage() {
     queryFn: () => request('GET', api.product.GET('/products/{productId}', { params: { path: { productId } } })),
   });
   const p0 = query.data;
+  // 등록 덜 된 것(2026-11-19) — 게시 콘텐츠 없음(404 NOT_FOUND·CONTENT_NOT_PUBLISHED), SKU 가격 미설정(서버 notSet). 못 읽으면 말하지 않는다
+  const content = useProductContent(productId);
+  const noContent = content.isError && notPublished(content.error);
+  const price = useProductPrices(productId ? [productId] : []).get(productId);
+  const noPriceSku = price && !price.loading && !price.failed && price.notSet > 0 ? (p0?.skus ?? []).map((s) => s.sku)[0] : undefined;
   const [params, setParams] = useSearchParams();
   const tab: ProductTab = PRODUCT_TABS.find((t) => t === params.get('tab')) ?? 'info';
   const setTab = (t: ProductTab) =>
@@ -272,6 +278,20 @@ export function ProductDetailPage() {
       <QueryState state={toUiState(query)} onRetry={() => void query.refetch()}>
         {(p) => (
           <div className="space-y-4">
+          {noContent || noPriceSku ? (
+            <NextAction tone="warning" title={m.products.next.unfinished} body={[noContent ? m.products.next.noContent : null, noPriceSku ? m.products.next.noPrice(price?.notSet ?? 0) : null].filter(Boolean).join(' ')}>
+              {noContent && (
+                <Link className="btn btn-sm btn-warning" to={`/contents/drafts/new?productId=${encodeURIComponent(productId)}`} data-testid="next-photo">
+                  {m.products.next.photo}
+                </Link>
+              )}
+              {noPriceSku && (
+                <Link className="btn btn-sm" to={`/prices?sku=${encodeURIComponent(noPriceSku)}`} data-testid="next-price">
+                  {m.products.next.price}
+                </Link>
+              )}
+            </NextAction>
+          ) : null}
           {/* 다음 할 일(2026-11-18): 서버 판매 상태가 판매중이 아니고 바꿀 수 있는 사람(MD)일 때만 — 그 밖에는 없음 */}
           {canChangeSaleState && p.saleState && p.saleState !== 'ON_SALE' && (
             <NextAction tone="warning" title={m.products.next.saleNotOn(m.products.saleStateName[p.saleState])} body={m.products.next.saleNotOnBody}>
