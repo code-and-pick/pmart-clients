@@ -6,6 +6,7 @@ import 'package:pmart_core/pmart_core.dart';
 
 import '../../l10n/gen/app_localizations.dart';
 import '../../router.dart';
+import '../../shared/rider_widgets.dart';
 import '../notifications/data/notifications.dart';
 import '../offers/presentation/offer_controllers.dart';
 import 'push_tokens.dart';
@@ -145,29 +146,28 @@ class PushHandler {
     _refresh(m);
     // 배달리스트를 보고 있으면 알림 없이 목록만 새로(요청 §3)
     if (m.isDeliveryList && _currentPath() == deliveryListRoute) return;
-    final messenger = _ref.read(riderMessengerKeyProvider).currentState;
+    // 화면 위쪽 안내 — 아래 버튼을 가리지 않고, "보기" 가 있어도 저절로 사라진다(사용자 2026-11-19).
+    final overlay = _ref
+        .read(routerProvider)
+        .routerDelegate
+        .navigatorKey
+        .currentState
+        ?.overlay;
     final title = m.title;
-    if (messenger == null || title == null) return;
+    if (overlay == null || title == null) return;
     final route = pushRoute(m);
-    messenger
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          key: const ValueKey('push-banner'),
-          behavior: SnackBarBehavior.floating,
-          duration: Duration(seconds: m.isOffer ? 6 : 4),
-          content: Text(
-            [title, ?m.body].join('\n'),
-            style: const TextStyle(fontSize: 14, height: 1.4),
-          ),
-          action: route == null || (m.isOffer && _onHome())
-              ? null
-              : SnackBarAction(
-                  label: lookupAppLocalizations(const Locale('ko')).pushView,
-                  onPressed: () => open(m),
-                ),
-        ),
-      );
+    final withView = route != null && !(m.isOffer && _onHome());
+    showRiderTopToast(
+      overlay,
+      [title, ?m.body].join('\n'),
+      key: const ValueKey('push-banner'),
+      // 읽고 "보기"를 누를 시간 — 일반 안내(2초)보다 조금 길게
+      duration: Duration(seconds: m.isOffer ? 5 : 4),
+      actionLabel: withView
+          ? lookupAppLocalizations(const Locale('ko')).pushView
+          : null,
+      onAction: withView ? () => open(m) : null,
+    );
   }
 
   /// 지금 맨 위 화면 경로 — push 로 연 화면도(routeInformationProvider 는 push 를 반영하지 않는다)

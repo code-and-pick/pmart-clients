@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import 'rider_style.dart';
@@ -285,49 +287,167 @@ class MapCircleButton extends StatelessWidget {
   );
 }
 
-/// 짧은 알림. [aboveActions] 면 화면 아래 큰 버튼(반납·전달 완료 등)을 가리지 않게 그 위에 띄운다
-/// (사용자 2026-11-18 — 틀린 인증번호 알림이 "MFC에 반납했어요" 버튼을 몇 초 가렸다).
+/// 짧은 안내(회색 팝업). 화면 **위쪽**에 띄워 아래 버튼·입력칸을 가리지 않는다(사용자 2026-11-19
+/// "버튼을 계속 가리니까 상단에"). [aboveActions] 는 예전 호출과 맞추려고 남겨 둔다(이제 늘 위쪽).
 void showRiderToast(
   BuildContext context,
   String text, {
   bool aboveActions = false,
+}) => showRiderTopToast(Overlay.of(context, rootOverlay: true), text);
+
+/// 위쪽 안내. [actionLabel] 이 있으면 오른쪽에 버튼(예: 알림의 "보기") — 버튼이 있어도 [duration] 뒤 저절로
+/// 사라진다(기본 SnackBar 는 버튼이 있으면 누를 때까지 남아 불편했다, 사용자 2026-11-19). 눌러도·위로 밀어도 닫힌다.
+void showRiderTopToast(
+  OverlayState overlay,
+  String text, {
+  String? actionLabel,
+  VoidCallback? onAction,
+  Duration duration = riderToastDuration,
+  Key? key,
 }) {
-  // 키보드가 떠 있으면 입력칸을 가리지 않게 화면 위쪽에 띄운다(사용자 2026-11-19 "입력창을 가려").
-  // 화면(Scaffold) 안 MediaQuery 는 키보드 높이를 지우므로 창(View) 값을 직접 본다.
-  final view = View.of(context);
-  final dpr = view.devicePixelRatio;
-  final keyboardHeight = view.viewInsets.bottom / dpr;
-  final keyboard = keyboardHeight > 0;
-  // 안내는 키보드 위 영역에 놓이므로, 그 영역 맨 위까지 올린다.
-  final topRoom =
-      view.physicalSize.height / dpr -
-      keyboardHeight -
-      view.padding.top / dpr -
-      riderToastHeight;
-  ScaffoldMessenger.of(context)
-    ..hideCurrentSnackBar()
-    ..showSnackBar(
-      keyboard || aboveActions
-          ? SnackBar(
-              content: Text(text),
-              behavior: SnackBarBehavior.floating,
-              margin: EdgeInsets.fromLTRB(
-                16,
-                0,
-                16,
-                keyboard ? (topRoom > 0 ? topRoom : 0) : 150,
-              ),
-              duration: riderToastDuration,
-            )
-          : SnackBar(content: Text(text), duration: riderToastDuration),
-    );
+  _hideRiderToast();
+  late final OverlayEntry entry;
+  void close() {
+    if (identical(_toastEntry, entry)) _hideRiderToast();
+  }
+
+  entry = OverlayEntry(
+    builder: (context) => _TopToast(
+      key: key,
+      text: text,
+      duration: duration,
+      actionLabel: actionLabel,
+      onAction: onAction == null
+          ? null
+          : () {
+              close();
+              onAction();
+            },
+      onDismiss: close,
+    ),
+  );
+  _toastEntry = entry;
+  overlay.insert(entry);
 }
 
-/// 안내(회색 팝업)가 떠 있는 시간 — 기본 4초는 길어 입력·버튼을 가린다(사용자 2026-11-19 "조금 길어").
-const riderToastDuration = Duration(seconds: 2);
+OverlayEntry? _toastEntry;
 
-/// 키보드가 떠 있을 때 화면 위쪽에 띄우려고 비워 두는 높이(안내 한두 줄).
-const riderToastHeight = 80.0;
+void _hideRiderToast() {
+  final e = _toastEntry;
+  _toastEntry = null;
+  // 방금 넣어 아직 그려지기 전(mounted=false)이어도 뺀다 — 같은 프레임에 두 번 띄우면 겹쳐 보였다.
+  e?.remove();
+}
+
+/// 사라지는 시간은 이 위젯이 잰다 — 화면이 통째로 닫히면 타이머도 같이 끈다.
+class _TopToast extends StatefulWidget {
+  const _TopToast({
+    super.key,
+    required this.text,
+    required this.duration,
+    required this.onDismiss,
+    this.actionLabel,
+    this.onAction,
+  });
+
+  final String text;
+  final Duration duration;
+  final String? actionLabel;
+  final VoidCallback? onAction;
+  final VoidCallback onDismiss;
+
+  @override
+  State<_TopToast> createState() => _TopToastState();
+}
+
+class _TopToastState extends State<_TopToast> {
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer(widget.duration, widget.onDismiss);
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final text = widget.text;
+    final actionLabel = widget.actionLabel;
+    final onAction = widget.onAction;
+    final onDismiss = widget.onDismiss;
+    final top = MediaQuery.paddingOf(context).top;
+    return Positioned(
+      top: top + 8,
+      left: 16,
+      right: 16,
+      child: TweenAnimationBuilder<double>(
+        tween: Tween(begin: 0, end: 1),
+        duration: const Duration(milliseconds: 180),
+        builder: (context, v, child) => Opacity(
+          opacity: v,
+          child: Transform.translate(
+            offset: Offset(0, (1 - v) * -12),
+            child: child,
+          ),
+        ),
+        child: Dismissible(
+          key: const ValueKey('rider-toast-dismiss'),
+          direction: DismissDirection.up,
+          onDismissed: (_) => onDismiss(),
+          child: Material(
+            key: const ValueKey('rider-toast'),
+            color: const Color(0xFF323232),
+            elevation: 6,
+            borderRadius: BorderRadius.circular(8),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(8),
+              onTap: onDismiss,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        text,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                          height: 1.4,
+                        ),
+                      ),
+                    ),
+                    if (actionLabel case final label?)
+                      TextButton(
+                        onPressed: onAction,
+                        child: Text(
+                          label,
+                          style: const TextStyle(
+                            color: Color(0xFFB9A8FF),
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      )
+                    else
+                      const SizedBox(width: 8),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 안내(회색 팝업)가 떠 있는 시간 — 기본 4초는 길어 입력·버튼을 가린다(사용자 2026-11-19 "2초로 하자").
+const riderToastDuration = Duration(seconds: 2);
 
 /// 메뉴 한 줄(마이페이지·환경설정).
 class MenuRow extends StatelessWidget {

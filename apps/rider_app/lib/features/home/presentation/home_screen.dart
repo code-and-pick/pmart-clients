@@ -35,23 +35,17 @@ Future<void> changeDuty(
   required bool newDispatch,
 }) async {
   final l10n = AppLocalizations.of(context);
-  final messenger = ScaffoldMessenger.of(context);
+  final overlay = Overlay.of(context, rootOverlay: true);
   final code = await ref
       .read(dutyProvider.notifier)
       .change(onDuty: onDuty, newDispatch: newDispatch);
   if (code == null) return;
   if (code == restrictedCode) ref.invalidate(profileProvider);
-  messenger
-    ..hideCurrentSnackBar()
-    ..showSnackBar(
-      SnackBar(
-        content: Text(switch (code) {
-          ProblemCode.invalidState => l10n.cannotEndWithActive,
-          restrictedCode => l10n.restrictedNoDispatch,
-          _ => l10n.dutyChangeFailed,
-        }),
-      ),
-    );
+  showRiderTopToast(overlay, switch (code) {
+    ProblemCode.invalidState => l10n.cannotEndWithActive,
+    restrictedCode => l10n.restrictedNoDispatch,
+    _ => l10n.dutyChangeFailed,
+  });
 }
 
 /// 진행 중 배송 ID: 서버 목록(재접속 복구)과 이번에 수락한 배송을 합친다.

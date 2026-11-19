@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../l10n/gen/app_localizations.dart';
+import '../../../shared/rider_widgets.dart';
 import '../../../shared/rider_style.dart';
 import '../../delivery/presentation/delivery_controller.dart';
 import '../domain/offer_list.dart';
@@ -38,7 +39,7 @@ Future<OfferOutcome> respondToOffer(
   required bool accept,
 }) async {
   final l10n = AppLocalizations.of(context);
-  final messenger = ScaffoldMessenger.of(context);
+  final overlay = Overlay.of(context, rootOverlay: true);
   final navigator = Navigator.of(context, rootNavigator: true);
   // 응답을 기다리는 동안 화면이 닫혀도 끝까지 처리하도록 컨테이너를 잡아 둔다.
   final container = ProviderScope.containerOf(context, listen: false);
@@ -52,9 +53,7 @@ Future<OfferOutcome> respondToOffer(
         reason: accept ? null : RejectReason.other,
       );
   busy.remove(offer.offerId);
-  void toast(String text) => messenger
-    ..hideCurrentSnackBar()
-    ..showSnackBar(SnackBar(content: Text(text)));
+  void toast(String text) => showRiderTopToast(overlay, text);
   switch (outcome) {
     case OfferAssigned():
       container.invalidate(myActiveDeliveriesProvider);
