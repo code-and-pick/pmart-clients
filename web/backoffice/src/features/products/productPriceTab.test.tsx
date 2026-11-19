@@ -21,3 +21,17 @@ describe('상품 상세 가격 탭', () => {
     expect(screen.getByRole('heading', { level: 1, name: /사과 1\.5kg/ })).toBeInTheDocument(); // 상품 상세 그대로
   });
 });
+
+describe('센터 취급(2026-11-20)', () => {
+  it('상품 상세에 센터 취급 탭이 없다 — 기본 정보·고객 화면·가격 셋', async () => {
+    renderAt('/products/P-00000001', as.md);
+    const tabs = await screen.findByRole('tablist');
+    expect(within(tabs).getAllByRole('tab').map((t) => t.textContent)).toEqual(['기본 정보', '고객 화면', '가격']);
+  });
+
+  it('센터가 없는 본사 역할(MD)에는 "센터 취급" 메뉴가 없다 — 그 화면은 토큰에 센터가 있어야 열린다', async () => {
+    renderAt('/products', as.md);
+    await screen.findByRole('heading', { level: 1, name: '상품 조회' });
+    expect(screen.queryByRole('link', { name: '센터 취급' })).not.toBeInTheDocument();
+  });
+});

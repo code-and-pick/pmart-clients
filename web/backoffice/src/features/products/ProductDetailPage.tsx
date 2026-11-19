@@ -205,8 +205,9 @@ function Fact({ label, children, testId }: { readonly label: string; readonly ch
   );
 }
 
-type ProductTab = 'info' | 'content' | 'price' | 'handling';
-const PRODUCT_TABS: readonly ProductTab[] = ['info', 'content', 'price', 'handling'];
+// 센터 취급 탭은 뺐다(2026-11-20 — 다른 화면 링크뿐이었고, 그 화면은 센터가 있는 사람만 쓴다)
+type ProductTab = 'info' | 'content' | 'price';
+const PRODUCT_TABS: readonly ProductTab[] = ['info', 'content', 'price'];
 
 export function ProductDetailPage() {
   const { productId = '' } = useParams();
@@ -444,16 +445,6 @@ export function ProductDetailPage() {
                 </div>
               ))}
             </div>
-          )}
-          {tab === 'handling' && (
-            <Card title={m.products.tabs.handling}>
-              <div className="flex flex-wrap items-center gap-3 text-sm" data-testid="tab-handling">
-                <span className="text-base-content/65">{m.products.tabs.handlingBody((p.skus ?? []).map((x) => x.sku).join(', ') || m.none)}</span>
-                <Link className="btn btn-sm" to="/handlings">
-                  {m.products.tabs.handlingGo}
-                </Link>
-              </div>
-            </Card>
           )}
           </div>
         )}

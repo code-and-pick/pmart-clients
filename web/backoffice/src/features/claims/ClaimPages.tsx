@@ -212,10 +212,12 @@ function ClaimTable({ query, withCount = false, preview = false, stage }: { read
                           m.none
                         ),
                       ],
+                      // 사유·환불까지(2026-11-20 — 미리보기가 상태·주문·시각뿐이었다)
+                      [cl.col.reason, c.reason ? (m.claims.reasonName[c.reason] ?? c.reason) : m.none],
+                      [cl.col.refund, <RefundCell key="r" r={c.refund} />],
                       [m.claims.openedAt, when(c.openedAt)],
                     ]}
                   />
-                  <p className="text-xs text-base-content/55">{m.preview.claimInDetail}</p>
                 </div>
               ) : null}
             </PreviewDrawer>

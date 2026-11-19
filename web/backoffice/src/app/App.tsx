@@ -167,7 +167,7 @@ function ScrollToTopOnNavigate() {
 function Layout() {
   const { session, signedIn, restoring } = useSession();
   const { pathname } = useLocation();
-  const groups = session ? visibleGroups(session.roles) : [];
+  const groups = session ? visibleGroups(session.roles, session.centers) : [];
   // 한 번에 한 묶음만 펼침 — 지금 화면의 묶음이 바뀌면 그 묶음을 연다(대시보드처럼 묶음 밖이면 그대로)
   const activeGroup = groups.find((g) => g.items.some((i) => covers(i, pathname)))?.id ?? null;
   const [openGroup, setOpenGroup] = useState<string | null>(activeGroup);

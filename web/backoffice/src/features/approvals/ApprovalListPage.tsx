@@ -183,7 +183,6 @@ export function ApprovalListPage() {
                               [m.approvals.submittedAt, a.submittedAt ? `${formatSeoul(a.submittedAt)} (${ago(a.submittedAt)})` : m.none],
                             ]}
                           />
-                          <p className="text-xs text-base-content/55">{m.preview.decideInDetail}</p>
                         </div>
                       ) : null}
                     </PreviewDrawer>

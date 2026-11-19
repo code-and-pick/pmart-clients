@@ -14,6 +14,8 @@ export interface NavItem {
   readonly also?: readonly string[];
   /** 묶음 안에서 이 항목만 보는 역할(없으면 묶음 역할 그대로) */
   readonly visibleTo?: (role: string) => boolean;
+  /** 토큰에 센터가 있어야 쓰는 화면(서버가 centers 클레임으로 판정 — 없으면 늘 403이라 메뉴에서 숨긴다) */
+  readonly needsCenter?: boolean;
 }
 
 export interface NavGroup {
@@ -44,7 +46,8 @@ export const navGroups: readonly NavGroup[] = [
       { to: '/products/drafts/new', label: m.nav.productNew, also: ['/products/drafts', '/contents/drafts'] },
       { to: '/imports', label: m.nav.imports, also: ['/products/import', '/contents/import', '/prices/import'] },
       { to: '/categories', label: m.nav.categories },
-      { to: '/handlings', label: m.nav.handlings },
+      // 센터 취급(mfc/cdc-inventory sku-handlings)은 토큰 centers 에 그 센터가 있어야만 된다(계약 "없으면 403") — 센터 없는 본사 역할에는 숨긴다(2026-11-20)
+      { to: '/handlings', label: m.nav.handlings, needsCenter: true },
       // 결과 0건 검색어(search 0.4.0, ADR-0073) — 동의어·상품명 고칠 근거. 묶음 역할(MD·OPERATOR_ADMIN)과 서버 역할이 같다
       { to: '/search/zero-results', label: m.nav.zeroResults },
     ],
@@ -134,10 +137,10 @@ export const navGroups: readonly NavGroup[] = [
 ];
 
 /** 이 역할들로 보이는 묶음(순서 유지). */
-export function visibleGroups(roles: readonly string[]): NavGroup[] {
+export function visibleGroups(roles: readonly string[], centers: readonly string[] = []): NavGroup[] {
   return navGroups
     .filter((g) => g.visibleTo === 'ALL' || roles.some(g.visibleTo))
-    .map((g) => ({ ...g, items: g.items.filter((i) => !i.visibleTo || roles.some(i.visibleTo)) }))
+    .map((g) => ({ ...g, items: g.items.filter((i) => (!i.visibleTo || roles.some(i.visibleTo)) && (!i.needsCenter || centers.length > 0)) }))
     .filter((g) => g.items.length > 0);
 }
 

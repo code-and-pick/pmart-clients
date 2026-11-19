@@ -167,7 +167,6 @@ export function RiderComplaintTable({ riderId, deliveryId, complaintType, from, 
                       [m.complaints.recordedAt, when(c.recordedAt)],
                     ]}
                   />
-                  <p className="text-xs text-base-content/55">{m.preview.moreInDetail2}</p>
                 </div>
               ) : null}
             </PreviewDrawer>
