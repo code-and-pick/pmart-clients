@@ -23,7 +23,7 @@ import { CommandFeedback } from '../../shared/Feedback';
 import { canSeeIntakes, CsIntakeLog } from '../csIntakes/CsIntakePages';
 import { InquiryPhotos } from './InquiryPhotos';
 import { ago, Avatar, Card, EmptyBox, Icon, ICON, MetaList } from './HelpdeskParts';
-import { CodeLabel, DetailHeader, NextAction, PageHeader, StatusBadge, type Tone, GuideBox, StatCard, StatStrip } from '../../shared/admin';
+import { CodeLabel, DetailHeader, NextAction, PageHeader, StatusBadge, type Tone, GuideBox, StatCard, StatStrip, AllDone } from '../../shared/admin';
 import { DisplayNumber, RiderLabel } from '../../shared/displayNumber';
 import { useDeliveryNumber, useOrderNumbers, useRiderLabels } from '../../shared/numberLookups';
 import { SavedViews } from '../../shared/SavedViews';
@@ -212,6 +212,11 @@ export function InquiryListPage({ kind = 'CUSTOMER' }: { readonly kind?: Request
             <QueryState state={uiStateFromError(query.error)} onRetry={() => void query.refetch()}>
               {() => null}
             </QueryState>
+          </div>
+        ) : items.length === 0 && status === 'RECEIVED' && !wait && query.isSuccess ? (
+          // 미답변이 서버 0건이면 "다 답했어요"(2026-11-19)
+          <div className="p-4">
+            <AllDone title={m.allDone.inquiries} body={m.allDone.inquiriesBody} testId="inquiries-all-done" />
           </div>
         ) : items.length === 0 ? (
           <EmptyBox icon={ICON.inbox} hint={m.inquiries.emptyHint}>

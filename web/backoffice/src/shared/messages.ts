@@ -319,6 +319,15 @@ export const messages = {
       withCases: '처리 중인 접수 건 있음',
       casesUnknown: (n: number) => `${n}건은 접수 건 확인 못 함`,
     },
+    /** 두 줄 카드(2026-11-19 쿠팡 윙 배송관리 참고) */
+    boards: {
+      firstTitle: '먼저 확인하고 처리해 주세요',
+      flowTitle: '배송 진행 단계',
+      failed: '전달 실패 등록',
+      allClear: '지금 먼저 볼 배송이 없어요',
+      allClearBody: (n: number) => `읽어 온 배송 ${n}건 모두 약속 시간 안이고, 실패·미배정·처리 중 접수 건이 없어요.`,
+      basis: (n: number) => `이 화면에 읽어 온 배송 ${n}건 기준 — 전체 건수가 아니에요. 카드를 누르면 그 배송만 보여요.`,
+    },
     nextStep: {
       failureTitle: (n: number) => `전달 실패 확정 대기 ${n}건`,
       failureBody: '라이더가 등록한 전달 실패를 확정하거나 반려해 주세요.',
@@ -1026,6 +1035,19 @@ export const messages = {
     prev: '이전',
     next: '다음',
     position: (at: number, total: number) => `${at} / ${total}`,
+  },
+  /** 검색 조건 칩(2026-11-19 쿠팡 윙 참고) — 시스템 ID 는 칩에 보이지 않게 */
+  searchChip: { order: '주문', rider: '라이더', delivery: '배송', state: '상태', kind: '종류', period: '기간', sort: '정렬', oldest: '오래된 순', oneOrder: '한 주문', oneRider: '한 라이더', oneDelivery: '한 배송' },
+  /** 할 일 0건 띠(2026-11-19 쿠팡 윙 "수고많으셨습니다!" 참고) — 서버가 0건이라 했을 때만 */
+  allDone: {
+    cases: '수고하셨어요! 이 탭의 접수 건을 모두 처리했어요.',
+    casesBody: '새 접수 건이 들어오면 메뉴 알림과 숫자 카드로 알려 드려요.',
+    approvals: '수고하셨어요! 심사 대기 중인 승인이 없어요.',
+    approvalsBody: '새 요청이 올라오면 메뉴 알림으로 알려 드려요.',
+    pending: '수고하셨어요! 처리 대기 중인 일이 없어요.',
+    pendingBody: '결제 결과 불명·결과 불일치 확인 같은 일이 생기면 여기에 모여요.',
+    inquiries: '수고하셨어요! 답변을 기다리는 문의가 없어요.',
+    inquiriesBody: '새 문의가 들어오면 메뉴 알림과 미답변 현황으로 알려 드려요.',
   },
   shortcuts: {
     open: '단축키 보기',

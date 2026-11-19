@@ -326,7 +326,18 @@ export function ClaimListPage() {
       </div>
       {/* 내 보기(2026-11-18 Saleor 참고) — 지금 주소 조건을 이름 붙여 저장 */}
       <SavedViews listKey="claims" />
-      <SearchPanel onSubmit={(e) => void submit(e)} onReset={() => setDraft({ orderId: '', type: '', state: '' })} submitLabel={m.claims.filter} resetLabel={m.claims.reset}>
+      {/* 조건을 건 뒤에는 한 줄 칩으로 접힌다(2026-11-19 쿠팡 윙 반품관리 참고) */}
+      <SearchPanel
+        onSubmit={(e) => void submit(e)}
+        onReset={() => setDraft({ orderId: '', type: '', state: '' })}
+        submitLabel={m.claims.filter}
+        resetLabel={m.claims.reset}
+        summary={[
+          [m.claims.orderId, orderId ? m.searchChip.oneOrder : ''],
+          [m.claims.type, isType(type) ? (m.claims.typeName[type] ?? type) : ''],
+          [m.claims.state, isState(state) ? (m.claims.stateName[state] ?? state) : ''],
+        ]}
+      >
         <SearchRow label={m.claims.orderId}>
           <input className="input input-sm w-56" aria-label={m.claims.orderId} placeholder={m.claims.orderFilterHint} value={draft.orderId} onChange={(e) => setDraft((d) => ({ ...d, orderId: e.target.value }))} />
           {notFound && (

@@ -37,7 +37,7 @@ import type { operations as BffOps } from '../../api/generated/backoffice-bff';
 import type { components } from '../../api/generated/case';
 import { useApi } from '../../app/ApiContext';
 import { useSession } from '../../app/SessionContext';
-import { CodeLabel, NextAction, PageHeader, StatCard, StatStrip, StatusBadge, countCell, type Tone } from '../../shared/admin';
+import { CodeLabel, NextAction, PageHeader, StatCard, StatStrip, StatusBadge, countCell, type Tone, AllDone } from '../../shared/admin';
 import { SavedViews } from '../../shared/SavedViews';
 import { useRecordRecent } from '../../shared/recentViews';
 import { TabCount, useAlertCount } from '../../app/MenuAlerts';
@@ -495,6 +495,13 @@ export function CaseListPage() {
             </select>
           </label>
         </div>
+        {/* 할 일 탭이 서버 0건이면 "다 처리했어요"(2026-11-19 쿠팡 윙 배송관리 참고) — 처리 끝남 탭·실패·읽는 중에는 그리지 않는다 */}
+        {query.isSuccess && (query.data.items ?? []).length === 0 && tab !== 'closed' && (
+          <div className="p-4">
+            <AllDone title={m.allDone.cases} body={m.allDone.casesBody} testId="cases-all-done" />
+          </div>
+        )}
+        {!(query.isSuccess && (query.data.items ?? []).length === 0 && tab !== 'closed') && (
         <QueryState state={toUiState(query, (r) => (r.items ?? []).length === 0)} onRetry={() => void query.refetch()} emptyText={m.cases.empty}>
           {(r) => (
             <>
@@ -616,6 +623,7 @@ export function CaseListPage() {
             </>
           )}
         </QueryState>
+        )}
       </div>
     </section>
   );

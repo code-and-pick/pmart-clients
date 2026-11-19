@@ -97,9 +97,22 @@ export function PageHeader({ title, description, actions, back }: { readonly tit
 /** 검색 조건 — 목록 카드 맨 위 필터 줄(2026-11-18 Shopify·Medusa 목록처럼: 항목명은 칸 위에 작게, 버튼은 오른쪽).
  * 바로 뒤의 결과 줄(ResultBar)·표(DataTable)와 한 카드로 붙는다(index.css 의 data-list-part). */
 // 기본 백오피스 사본에만 더함(2026-11-18): submitDisabled(입력이 틀리면 조회를 막는 화면), label(화면 안 폼이 여럿일 때 이름)
-export function SearchPanel({ onSubmit, onReset, children, submitLabel = '조회', resetLabel = '초기화', submitDisabled = false, label = '검색 조건' }: { readonly onSubmit: (e: FormEvent) => void; readonly onReset: () => void; readonly children: ReactNode; readonly submitLabel?: string; readonly resetLabel?: string; readonly submitDisabled?: boolean; readonly label?: string }) {
-  return (
-    <form className="flex flex-wrap items-end gap-x-5 gap-y-3 rounded-box border border-base-300 bg-base-100 px-4 py-3.5 shadow-sm" onSubmit={onSubmit} aria-label={label} data-list-part="top">
+// summary(2026-11-19 쿠팡 윙 반품관리·고객문의 "검색조건 [기간 지난 30일 ▾] … 검색 열기" 참고): [이름, 값] 목록을 주면
+// 조건을 건 뒤에는 한 줄 칩으로 접히고 "검색 열기"로 펼친다. 조건이 없으면 처음부터 펼친다(입력해야 하니까). 칩을 눌러도 펼친다.
+export function SearchPanel({ onSubmit, onReset, children, submitLabel = '조회', resetLabel = '초기화', submitDisabled = false, label = '검색 조건', summary }: { readonly onSubmit: (e: FormEvent) => void; readonly onReset: () => void; readonly children: ReactNode; readonly submitLabel?: string; readonly resetLabel?: string; readonly submitDisabled?: boolean; readonly label?: string; readonly summary?: ReadonlyArray<readonly [string, string]> }) {
+  const active = (summary ?? []).filter(([, v]) => v !== '');
+  const [open, setOpen] = useState(active.length === 0);
+  const form = (
+    <form
+      className={`flex flex-wrap items-end gap-x-5 gap-y-3 rounded-box border border-base-300 bg-base-100 px-4 py-3.5 shadow-sm ${summary ? 'rounded-t-none border-t-0' : ''}`}
+      onSubmit={(e) => {
+        onSubmit(e);
+        if (summary) setOpen(false);
+      }}
+      aria-label={label}
+      data-list-part="top"
+      hidden={summary !== undefined && !open}
+    >
       {children}
       <div className="ml-auto flex gap-2">
         <button type="button" className="btn btn-sm btn-ghost" onClick={onReset}>
@@ -110,6 +123,36 @@ export function SearchPanel({ onSubmit, onReset, children, submitLabel = '조회
         </button>
       </div>
     </form>
+  );
+  if (!summary) return form;
+  return (
+    <div data-testid="search-summary-panel">
+      <div className={`flex flex-wrap items-center gap-2 rounded-box border border-base-300 bg-base-200/60 px-4 py-2.5 ${open ? 'rounded-b-none' : ''}`}>
+        <span className="inline-flex items-center gap-1.5 text-sm font-bold">
+          <svg viewBox="0 0 24 24" className="h-4 w-4 fill-none stroke-current" strokeWidth={2} strokeLinecap="round" aria-hidden="true">
+            <path d="M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14Zm9 2-4-4" />
+          </svg>
+          {label}
+        </span>
+        {summary.map(([k, v]) => (
+          <button
+            key={k}
+            type="button"
+            className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs ${v ? 'border-primary bg-base-100 text-base-content' : 'border-base-300 bg-base-100 text-base-content/60'}`}
+            onClick={() => setOpen(true)}
+            data-testid="search-chip"
+          >
+            <span className="font-semibold">{k}</span>
+            <span className={v ? 'text-primary' : ''}>{v || '전체'}</span>
+            <span aria-hidden="true">▾</span>
+          </button>
+        ))}
+        <button type="button" className="btn btn-ghost btn-xs ml-auto border border-base-300 bg-base-100" aria-expanded={open} onClick={() => setOpen((o) => !o)} data-testid="search-toggle">
+          {open ? '검색 닫기 ▴' : '검색 열기 ▾'}
+        </button>
+      </div>
+      {form}
+    </div>
   );
 }
 
@@ -411,6 +454,26 @@ export function GuideBox({ title, items, storeKey, testId, tone = 'info' }: { re
           ))}
         </ul>
       )}
+    </div>
+  );
+}
+
+/**
+ * 다 끝났어요 띠(2026-11-19 쿠팡 윙 배송관리 "수고많으셨습니다! 모든 주문의 발송 처리가 끝났습니다" 참고).
+ * 서버가 0건이라고 확인했을 때만 그린다 — 읽는 중·조회 실패에는 그리지 않는다(부르는 쪽이 성공일 때만).
+ */
+export function AllDone({ title, body, testId = 'all-done' }: { readonly title: string; readonly body?: string; readonly testId?: string }) {
+  return (
+    <div role="status" className="flex items-center gap-3 rounded-box border border-success/30 bg-success/10 px-5 py-3.5" data-testid={testId}>
+      <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-success text-white" aria-hidden="true">
+        <svg viewBox="0 0 24 24" className="h-4 w-4 fill-none stroke-current" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round">
+          <path d="M5 12.5l4.5 4.5L19 7.5" />
+        </svg>
+      </span>
+      <span>
+        <span className="block font-bold">{title}</span>
+        {body && <span className="block text-sm text-base-content/65">{body}</span>}
+      </span>
     </div>
   );
 }

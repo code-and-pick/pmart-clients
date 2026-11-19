@@ -28,7 +28,7 @@ import { messages as m, messages } from '../../shared/messages';
 import { DisplayNumber } from '../../shared/displayNumber';
 import { label, text, when } from '../../shared/ops';
 import { SourceStamps } from '../../shared/SourceStamps';
-import { CodeLabel, NextAction, PageHeader, StatCard, StatStrip } from '../../shared/admin';
+import { CodeLabel, NextAction, PageHeader, StatCard, StatStrip, AllDone } from '../../shared/admin';
 import { PENDING_KINDS } from '../../app/listCounts';
 
 type Item = components['schemas']['PendingWorkItem'];
@@ -297,6 +297,8 @@ export function PendingPage() {
           ? { kind: 'empty' }
           : { kind: 'ready', data: query.data };
 
+  // "다 처리했어요"는 서버가 다 읽고 0건이라 했을 때만 — 일부 원천 실패·MFC 꺼짐이면 0건이어도 끝났다고 하지 않는다
+  const pendingAllDone = query.isSuccess && (query.data.items ?? []).length === 0 && !query.data.truncated && (query.data.unavailableSources ?? []).length === 0 && (query.data.sources ?? []).some((x) => x.system === MFC);
   return (
     <section className="max-w-6xl space-y-4">
       <PageHeader title={m.pending.title} description={m.pending.intro} />
@@ -309,6 +311,9 @@ export function PendingPage() {
           })}
         </StatStrip>
       )}
+      {/* 처리 대기가 서버 0건이고 모든 원천을 읽었을 때(잘림·못 읽은 원천·꺼진 MFC 없음)만 "다 처리했어요"(2026-11-19) */}
+      {pendingAllDone && <AllDone title={m.allDone.pending} body={m.allDone.pendingBody} testId="pending-all-done" />}
+      {!(pendingAllDone) && (
       <QueryState state={state} onRetry={() => void query.refetch()} emptyText={m.pending.empty}>
         {(view) => (
           <>
@@ -325,6 +330,7 @@ export function PendingPage() {
           </>
         )}
       </QueryState>
+      )}
       {query.isSuccess && !(query.data.sources ?? []).some((s) => s.system === MFC) && !(query.data.unavailableSources ?? []).includes(MFC) && (
         <p className="text-xs text-base-content/60" data-testid="pending-not-yet">
           {m.pending.notYet}

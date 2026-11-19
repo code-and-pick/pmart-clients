@@ -19,9 +19,9 @@ import { useApi } from '../../app/ApiContext';
 import { messages } from '../../shared/messages';
 import { label, when } from '../../shared/ops';
 import { SourceStamps } from '../../shared/SourceStamps';
-import { CodeLabel, DataTable, NextAction, PageHeader, StatusBadge, useRowLink } from '../../shared/admin';
+import { CodeLabel, DataTable, NextAction, PageHeader, StatusBadge, useRowLink, AllDone } from '../../shared/admin';
 import { executionTone } from '../deliveries/DeliveryPages';
-import { EmptyBox, Icon, KindChip, Kpi, UnderlineTabs } from '../lookup/parts';
+import { EmptyBox, Icon, KindChip, UnderlineTabs } from '../lookup/parts';
 import { DisplayNumber, RiderLabel, riderSourceFailed, type RiderDisplay } from '../../shared/displayNumber';
 
 const m = messages.live;
@@ -113,13 +113,16 @@ export function LiveDeliveryPage() {
   const [params, setParams] = useSearchParams();
   const mfcId = params.get('mfcId') ?? '';
   const state = params.get('state') ?? '';
+  // 먼저 확인 카드로 거르기(2026-11-19) — 읽어 온 줄 안에서(late·noRider·withCases). 서버 상태 거르기는 state
+  const focus = (['late', 'noRider', 'withCases'] as const).find((x) => x === params.get('focus'));
   const cursor = state ? (params.get('cursor') ?? '') : '';
-  const set = (next: { mfcId?: string; state?: string; cursor?: string }) => {
-    const merged = { mfcId, state, cursor: '', ...next };
+  const set = (next: { mfcId?: string; state?: string; cursor?: string; focus?: string }) => {
+    const merged = { mfcId, state, cursor: '', focus: '', ...next };
     const out: Record<string, string> = {};
     if (merged.mfcId) out.mfcId = merged.mfcId;
     if (merged.state) out.state = merged.state;
     if (merged.state && merged.cursor) out.cursor = merged.cursor;
+    if (merged.focus) out.focus = merged.focus;
     setParams(out);
   };
 
@@ -139,6 +142,12 @@ export function LiveDeliveryPage() {
       ),
   });
 
+  // 카드 숫자는 상태 거르기 없는 목록으로(상태 탭을 골라도 단계별 수가 그대로) — 상태를 안 골랐으면 위 조회와 같은 캐시
+  const all = useQuery({
+    queryKey: ['bff', 'live-delivery', mfcId, '', ''],
+    refetchInterval: REFRESH_MS,
+    queryFn: () => request('GET', api.bff.GET('/views/live-delivery', { params: { query: { size: PAGE_SIZE, ...(mfcId ? { mfcId } : {}) } } })),
+  });
   // 화면(2026-11-18 관제 화면처럼): 머리(새로 고침) → 숫자 카드(읽은 줄을 센 값) → 한 카드(수행 상태 탭 → 센터 → 표 → 쪽)
   const loaded = query.isSuccess ? query.data : null;
   return (
@@ -158,7 +167,8 @@ export function LiveDeliveryPage() {
           </>
         }
       />
-      {loaded && <LiveKpis items={(loaded.items ?? [])} composedAt={loaded.composedAt} />}
+      {/* 2026-11-19 쿠팡 윙 배송관리 참고: "먼저 확인하고 처리해 주세요" + "배송 진행 단계" 두 줄 카드 */}
+      {all.isSuccess && <LiveBoards items={all.data.items ?? []} composedAt={all.data.composedAt} state={state} focus={focus} onState={(st) => set({ state: st })} onFocus={(fx) => set({ focus: fx })} />}
       {loaded && <LiveNext items={loaded.items ?? []} />}
       <div className="overflow-hidden rounded-box border border-base-300 bg-base-100 shadow-sm">
         <UnderlineTabs
@@ -182,7 +192,8 @@ export function LiveDeliveryPage() {
         <div className="space-y-3 p-3">
           <QueryState state={toUiState(query)} onRetry={() => void query.refetch()}>
             {(view) => {
-              const items = (view.items ?? []) as readonly LiveItem[];
+              const rows = (view.items ?? []) as readonly LiveItem[];
+              const items = focus ? rows.filter((it) => matchFocus(it, focus, view.composedAt)) : rows;
               const nextCursor = view.page?.nextCursor ?? null;
               return (
                 <div className="space-y-3">
@@ -234,19 +245,95 @@ const isLate = (it: LiveItem, composedAt: string | undefined) => {
   return !!it.promisedAt && Date.parse(it.promisedAt) < now;
 };
 
-/** 숫자 카드 — 이 화면에 읽어 온 줄만 센다(전체 건수 아님). 접수 건을 못 읽은 줄은 0 으로 세지 않고 따로 알린다 */
-function LiveKpis({ items, composedAt }: { readonly items: readonly LiveItem[]; readonly composedAt: string | undefined }) {
-  const late = items.filter((it) => isLate(it, composedAt)).length;
+type Focus = 'late' | 'noRider' | 'withCases';
+const matchFocus = (it: LiveItem, fx: Focus, composedAt: string | undefined) =>
+  fx === 'late' ? isLate(it, composedAt) : fx === 'noRider' ? !it.riderId : (it.openCases ?? []).length > 0;
+/** 진행 단계(카드 둘째 줄) — 서버 수행 상태 그대로, 앞에서 뒤 순서 */
+const FLOW = ['UNASSIGNED', 'ASSIGNED', 'ARRIVED_AT_STORE', 'PICKED_UP', 'ARRIVED_AT_CUSTOMER'] as const;
+
+/**
+ * 두 줄 카드(2026-11-19 쿠팡 윙 배송관리 참고) — 이 화면에 읽어 온 줄을 센다(전체 건수 아님, 아래에 적음).
+ * 위: 먼저 확인할 것(약속 시간 지남 = 서버 promisedAt < 서버 composedAt, 전달 실패 등록, 라이더 없음, 처리 중 접수 건). 모두 0 이면 "다 처리됐어요".
+ * 아래: 진행 단계별 수 — 누르면 그 상태로. 접수 건을 못 읽은 줄은 0 으로 세지 않고 따로 알린다.
+ */
+function LiveBoards({
+  items,
+  composedAt,
+  state,
+  focus,
+  onState,
+  onFocus,
+}: {
+  readonly items: readonly LiveItem[];
+  readonly composedAt: string | undefined;
+  readonly state: string;
+  readonly focus: Focus | undefined;
+  readonly onState: (st: string) => void;
+  readonly onFocus: (fx: string) => void;
+}) {
+  const b = m.boards;
+  const late = composedAt ? items.filter((it) => isLate(it, composedAt)).length : null;
+  const failed = items.filter((it) => it.delivery?.state === 'FAILURE_REPORTED').length;
   const noRider = items.filter((it) => !it.riderId).length;
   const casesKnown = items.filter((it) => it.openCases !== null && it.openCases !== undefined);
   const withCases = casesKnown.filter((it) => (it.openCases ?? []).length > 0).length;
   const casesUnknown = items.length - casesKnown.length;
+  const byState = (st: string) => items.filter((it) => it.delivery?.state === st).length;
+  const card = (key: string, label: string, value: number | null, tone: 'error' | 'warning', active: boolean, onClick: () => void, hint?: string) => (
+    <button
+      key={key}
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      data-testid={`live-first-${key}`}
+      className={`relative rounded-box border px-4 py-3.5 text-left transition hover:-translate-y-0.5 ${active ? 'border-primary bg-primary/5' : 'border-base-300 bg-base-100'}`}
+    >
+      <span className="block text-sm font-semibold">{label}</span>
+      <span className={`mt-1 block text-2xl font-bold tabular-nums ${value && value > 0 ? (tone === 'error' ? 'text-error' : 'text-warning') : ''}`}>{value === null ? messages.none : value}</span>
+      {hint && <span className="block text-[11px] text-base-content/50">{hint}</span>}
+    </button>
+  );
+  const allClear = late === 0 && failed === 0 && noRider === 0 && withCases === 0 && casesUnknown === 0;
   return (
-    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4" data-testid="live-kpis">
-      <Kpi icon="truck" label={m.kpi.shown} value={items.length} hint={m.kpi.shownHint} />
-      <Kpi icon="clock" tone={late > 0 ? 'error' : undefined} label={m.kpi.late} value={composedAt ? late : messages.none} />
-      <Kpi icon="user" tone={noRider > 0 ? 'warning' : undefined} label={m.kpi.noRider} value={noRider} />
-      <Kpi icon="alert" tone={withCases > 0 ? 'warning' : undefined} label={m.kpi.withCases} value={withCases} hint={casesUnknown > 0 ? m.kpi.casesUnknown(casesUnknown) : undefined} />
+    <div className="space-y-4" data-testid="live-kpis">
+      <section aria-label={b.firstTitle} className="space-y-2">
+        <h2 className="text-sm font-bold">{b.firstTitle}</h2>
+        {allClear && items.length > 0 ? (
+          <AllDone title={b.allClear} body={b.allClearBody(items.length)} testId="live-all-clear" />
+        ) : (
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            {card('late', m.kpi.late, late, 'error', focus === 'late', () => onFocus(focus === 'late' ? '' : 'late'))}
+            {card('failed', b.failed, failed, 'error', state === 'FAILURE_REPORTED', () => onState(state === 'FAILURE_REPORTED' ? '' : 'FAILURE_REPORTED'))}
+            {card('noRider', m.kpi.noRider, noRider, 'warning', focus === 'noRider', () => onFocus(focus === 'noRider' ? '' : 'noRider'))}
+            {card('withCases', m.kpi.withCases, withCases, 'warning', focus === 'withCases', () => onFocus(focus === 'withCases' ? '' : 'withCases'), casesUnknown > 0 ? m.kpi.casesUnknown(casesUnknown) : undefined)}
+          </div>
+        )}
+      </section>
+      <section aria-label={b.flowTitle} className="space-y-2">
+        <h2 className="text-sm font-bold">{b.flowTitle}</h2>
+        <ol className="grid grid-cols-2 gap-3 md:grid-cols-5" data-testid="live-flow">
+          {FLOW.map((st, i) => (
+            <li key={st} className="relative">
+              <button
+                type="button"
+                onClick={() => onState(state === st ? '' : st)}
+                aria-pressed={state === st}
+                data-testid={`live-flow-${st}`}
+                className={`w-full rounded-box border px-4 py-3.5 text-left transition hover:-translate-y-0.5 ${state === st ? 'border-primary bg-primary/5' : 'border-base-300 bg-base-100'}`}
+              >
+                <span className="block text-sm font-semibold">{label(d.executionState, st)}</span>
+                <span className="mt-1 block text-2xl font-bold tabular-nums">{byState(st)}</span>
+              </button>
+              {i < FLOW.length - 1 && (
+                <span className="pointer-events-none absolute -right-2.5 top-1/2 z-10 hidden -translate-y-1/2 text-base-content/30 md:block" aria-hidden="true">
+                  ›
+                </span>
+              )}
+            </li>
+          ))}
+        </ol>
+        <p className="text-xs text-base-content/50">{b.basis(items.length)}</p>
+      </section>
     </div>
   );
 }

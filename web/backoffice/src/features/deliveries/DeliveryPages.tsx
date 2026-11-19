@@ -294,6 +294,13 @@ export function DeliveryOpenPage() {
         submitLabel={m.deliveries.search}
         resetLabel={m.deliveries.reset}
         label={m.deliveries.search}
+        // 조건을 건 뒤에는 한 줄 칩으로 접힌다(2026-11-19) — 번호는 화면 번호 그대로, 다른 화면에서 온 시스템 ID 는 "한 주문/한 라이더"
+        summary={[
+          [m.searchChip.order, applied.orderNumber || (applied.orderId ? m.searchChip.oneOrder : '')],
+          [m.searchChip.rider, applied.riderNumber || (applied.riderId ? m.searchChip.oneRider : '')],
+          [m.searchChip.state, applied.state ? label(m.deliveries.executionState, applied.state) : ''],
+          [m.searchChip.sort, applied.oldest ? m.searchChip.oldest : ''],
+        ]}
       >
         <SearchRow label={m.deliveries.ids}>
           <input aria-label={m.deliveries.orderIdFilter} placeholder={m.deliveries.orderIdFilter} className="input input-sm w-52" value={draft.order} onChange={(e) => setDraft((d) => ({ ...d, order: e.target.value }))} />
