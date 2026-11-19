@@ -11,9 +11,9 @@ describe('내 할 일(첫 화면)', () => {
     renderAt('/', as.cs);
     const work = await screen.findByTestId('dash-my-work');
     expect(within(work).getByRole('heading', { name: '내 할 일' })).toBeInTheDocument();
-    // 통계를 위로(사용자 2026-11-18): 오늘 주문 카드가 내 할 일보다 앞
+    // 숫자 띠(2026-11-19 사용자가 보여 준 관제 화면 — 탭과 상관없이 맨 위): 내 할 일 띠가 오늘 주문 카드보다 앞
     const orders = screen.queryByTestId('dash-kpi-orders');
-    if (orders) expect(work.compareDocumentPosition(orders) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy();
+    if (orders) expect(orders.compareDocumentPosition(work) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy();
     // 상담원은 접수 건을 맡지 않으므로 접수 건 할 일은 없다
     expect(within(work).queryByTestId('dash-kpi-casesOverdue')).not.toBeInTheDocument();
     await user.click(within(work).getByTestId('dash-kpi-inquiries'));

@@ -27,13 +27,14 @@ describe('대시보드 2판', () => {
     const user = userEvent.setup();
     renderAt('/', as.admin);
     const work = await screen.findByTestId('dash-my-work');
-    expect(work.compareDocumentPosition(screen.getByTestId('dash-glance')) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy();
+    expect(screen.getByTestId('dash-glance').compareDocumentPosition(work) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy(); // 2026-11-19: 숫자 띠(내 할 일)가 맨 위
     expect(screen.queryByTestId('dash-orders-week')).not.toBeInTheDocument();
     expect(screen.getByRole('tab', { name: '한눈에' })).toHaveAttribute('aria-selected', 'true');
 
     await user.click(screen.getByRole('tab', { name: '매출·통계' }));
     expect(await screen.findByTestId('dash-orders-week')).toBeInTheDocument();
-    expect(screen.queryByTestId('dash-my-work')).not.toBeInTheDocument();
+    expect(screen.getByTestId('dash-my-work')).toBeInTheDocument(); // 2026-11-19: 숫자 띠는 탭과 상관없이 늘 위
+    expect(screen.getByTestId('dash-side')).toBeInTheDocument(); // 최근 활동은 오른쪽 패널에 늘
   });
 
   it('볼 것이 없는 탭은 숨긴다 — 승인자에게 매출·통계 탭 없음, 없는 탭 주소는 한눈에', async () => {

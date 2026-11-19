@@ -2304,7 +2304,18 @@ export const messages = {
     approvalTypes: '심사 대기 유형별',
     slaNoClosed: '닫힌 건 없음',
     myWorkHint: '급한 것부터 · 누르면 그 일만 모아 둔 목록으로 가요',
+    /** 이상 한 줄(2026-11-19) — 서버 숫자로만, 못 읽으면 이상 없음이라 하지 않는다 */
+    health: {
+      ok: '이상 없음',
+      checking: '확인하는 중…',
+      unknown: '확인 못 함',
+      issues: (n: number) => `이상 ${n}`,
+      overdueCases: (n: string) => `기한 지난 접수 건 ${n}건`,
+      lateDeliveries: (n: number) => `약속 시각 넘긴 배송 ${n}건`,
+      failed: (n: number) => `숫자 ${n}개를 읽지 못했어요(0 이 아니에요)`,
+    },
     noneLeft: '없음',
+    failedShort: '읽지 못함',
     go: '하러 가기',
     status: '현황',
     toCases: '접수 건',

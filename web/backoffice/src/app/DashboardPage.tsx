@@ -13,6 +13,7 @@ import { useApi } from './ApiContext';
 import { ALERT_SIZE, useAlertCount, type AlertKey } from './MenuAlerts';
 import { ApprovalTypes, LiveSummary, RiskPanel, SlaTrend } from './DashboardSections';
 import { RecentViews } from './RecentViews';
+import { DashboardStatus } from './DashboardStatus';
 import { DisplayNumber } from '../shared/displayNumber';
 import { ActivityFeed, LiveStat, MetricsPanel, OrdersWeekChart, SalesPanel, WorkCountsPanel, useWorkCounts, workText, type WorkSum, RefreshBar, RiskStat, SlaStat, StatusDonut, TodayOrdersStat, slaQuery } from './DashboardWidgets';
 import { GroupIcon } from './groupIcons';
@@ -42,31 +43,25 @@ function TaskRow({ alert, title, to, tone, group, exact }: { readonly alert: Ale
   const failed = exact ? sum === null : alertQ.isError;
   const has = n !== null && n > 0;
   const text = exact ? (sum ? workText(sum) : sum === null ? '?' : '…') : alertQ.data ? countText(alertQ.data.n, alertQ.data.more, ALERT_SIZE) : alertQ.isError ? '?' : '…';
-  const q = { isError: failed };
-  const color = { error: 'bg-error text-error-content', warning: 'bg-warning text-warning-content', info: 'bg-info text-info-content' }[tone];
+  // 숫자 띠 카드(2026-11-19 사용자가 보여 준 배송 관제 화면 — 왼쪽 색 막대 + 큰 숫자 하나 + 설명 한 줄, 색만 봐도 상태)
+  const bar = has ? { error: 'bg-error', warning: 'bg-warning', info: 'bg-info' }[tone] : failed ? 'bg-base-content/20' : 'bg-base-300';
+  const num = has ? { error: 'text-error', warning: 'text-warning', info: 'text-base-content' }[tone] : 'text-base-content/35';
   return (
-    <Link to={to} data-testid={`dash-kpi-${alert}`} className={`group flex items-center gap-4 px-5 py-3.5 transition-colors hover:bg-base-200/60 ${has ? '' : 'opacity-70'}`}>
-      <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${has ? 'bg-primary/10 text-primary' : 'bg-base-200 text-base-content/40'}`} aria-hidden="true">
-        <GroupIcon id={group} className="h-5 w-5" />
+    <Link
+      to={to}
+      data-testid={`dash-kpi-${alert}`}
+      data-tone={has ? tone : 'none'}
+      className="group relative flex min-w-0 flex-col gap-0.5 overflow-hidden rounded-box border border-base-300 bg-base-100 py-3 pl-4 pr-3 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+    >
+      <span className={`absolute inset-y-0 left-0 w-1 ${bar}`} aria-hidden="true" />
+      <span className="flex items-center gap-1.5 text-xs font-medium text-base-content/60">
+        <GroupIcon id={group} className="h-3.5 w-3.5 shrink-0" />
+        <span className="truncate">{title}</span>
       </span>
-      <span className={`min-w-0 flex-1 ${has ? 'font-semibold' : 'text-base-content/60'}`}>{title}</span>
-      {q.isError ? (
-        <span className="text-sm text-base-content/50" title={m.failed}>
-          {text}
-        </span>
-      ) : has ? (
-        <span className={`min-w-8 rounded-full px-2.5 py-0.5 text-center text-sm font-bold tabular-nums ${color}`}>{text}</span>
-      ) : n === 0 ? (
-        <span className="text-sm text-base-content/45">
-          <span className="sr-only">0</span>
-          {m.noneLeft}
-        </span>
-      ) : (
-        <span className="text-sm text-base-content/40">{text}</span>
-      )}
-      <span className={`w-24 whitespace-nowrap text-right text-sm ${has ? 'font-medium text-primary' : 'text-base-content/30'} group-hover:underline`} aria-hidden="true">
-        {m.go} →
+      <span className={`text-2xl font-bold leading-tight tabular-nums ${num}`} {...(failed ? { title: m.failed } : {})}>
+        {n === 0 ? '0' : text}
       </span>
+      <span className={`text-[11px] ${has ? 'font-medium text-primary group-hover:underline' : 'text-base-content/45'}`}>{failed ? m.failedShort : n === 0 ? m.noneLeft : has ? `${m.go} →` : ' '}</span>
     </Link>
   );
 }
@@ -253,6 +248,25 @@ export function DashboardPage() {
         <RefreshBar />
       </header>
 
+      {/* 숫자 띠(2026-11-19 사용자가 보여 준 배송 관제 화면 참고 — 탭과 상관없이 늘 맨 위, 급한 것부터). 누르면 그 일만 모은 목록 */}
+      {tasks.length > 0 && (
+        <section aria-labelledby="dash-my-work" data-testid="dash-my-work" className="space-y-2">
+          <div className="flex items-baseline justify-between gap-2">
+            <h2 id="dash-my-work" className="text-sm font-bold text-base-content/70">
+              {m.myWork}
+            </h2>
+            <span className="text-xs text-base-content/45">{m.myWorkHint}</span>
+          </div>
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-3 2xl:grid-cols-6">{tasks}</div>
+        </section>
+      )}
+
+      {/* 이상 없음 / 이상 N — 기한 지난 접수 건·약속 넘긴 배송(서버 숫자), 못 읽으면 "확인 못 함" */}
+      <DashboardStatus cases={can('/cases') && claimsCases} live={can('/live-delivery')} />
+
+      {/* 가운데 = 탭 내용, 오른쪽 = 최근 활동(넓은 화면에서 붙어 있음) */}
+      <div className={`grid items-start gap-5 ${hasActivity ? 'xl:grid-cols-[minmax(0,1fr)_22rem]' : ''}`}>
+      <div className="min-w-0 space-y-5">
       {tabs.length > 1 && (
         <div role="tablist" aria-label={m.tabs.label} className="flex gap-1 border-b border-base-300" data-testid="dash-tabs">
           {tabs.map((t) => (
@@ -281,28 +295,6 @@ export function DashboardPage() {
 
           {/* 최근 본 항목 — 이 브라우저·이 직원 것, 없으면 안 보임 */}
           <RecentViews />
-
-          {/* 내 할 일 | 최근 활동 */}
-          {(tasks.length > 0 || hasActivity) && (
-            <div className="grid items-start gap-4 lg:grid-cols-3">
-              {tasks.length > 0 && (
-                <section aria-labelledby="dash-my-work" className={`overflow-hidden rounded-box border border-base-300 bg-base-100 shadow-sm ${hasActivity ? 'lg:col-span-2' : 'lg:col-span-3'}`} data-testid="dash-my-work">
-                  <div className="flex items-baseline justify-between gap-2 border-b border-base-300 px-5 py-3">
-                    <h2 id="dash-my-work" className="text-lg font-bold">
-                      {m.myWork}
-                    </h2>
-                    <span className="text-xs text-base-content/50">{m.myWorkHint}</span>
-                  </div>
-                  <div className="divide-y divide-base-300">{tasks}</div>
-                </section>
-              )}
-              {hasActivity && (
-                <div className={tasks.length > 0 ? '' : 'lg:col-span-3'}>
-                  <ActivityFeed {...activity} />
-                </div>
-              )}
-            </div>
-          )}
 
           {tasks.length === 0 && stats.length === 0 && !hasActivity && <p className="text-sm text-base-content/60">{m.nothing}</p>}
         </div>
@@ -371,6 +363,14 @@ export function DashboardPage() {
           )}
         </div>
       )}
+      </div>
+      {/* 오른쪽 패널 — 최근 활동(승인·접수 건·문의, 최신 순). 넓은 화면에선 내려도 붙어 있다 */}
+      {hasActivity && (
+        <aside className="xl:sticky xl:top-4" data-testid="dash-side">
+          <ActivityFeed {...activity} />
+        </aside>
+      )}
+      </div>
     </section>
   );
 }
