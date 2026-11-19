@@ -205,8 +205,35 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
   /// 서버 예정 시각은 1분마다 다시 계산된다 — 화면도 1분마다 다시 읽는다.
   Timer? _etaPoll;
 
+  /// 배송을 못 읽으면 바로 오류 화면을 띄우지 않고 몇 초마다 다시 읽는다(그동안은 불러오는 중).
+  /// 전달 불가 결정 뒤 새로 생기는 반납 배송처럼, 막 만들어져 아직 읽히지 않는 배송이 있다
+  /// (사용자 2026-11-19 "이 화면 뜨게 하지 말고 자동으로 새로고침"). 그래도 안 되면 오류와 다시 시도.
+  Timer? _loadRetry;
+  int _loadRetries = 0;
+  static const _loadRetryEvery = Duration(seconds: 3);
+  static const _loadRetryMax = 10;
+
+  AsyncValue<DeliveryView> _autoRetry(AsyncValue<DeliveryView> v) {
+    if (v is AsyncData<DeliveryView>) {
+      _loadRetries = 0;
+      return v;
+    }
+    if (v is! AsyncError<DeliveryView> || _loadRetries >= _loadRetryMax) {
+      return v;
+    }
+    if (_loadRetry?.isActive != true) {
+      _loadRetry = Timer(_loadRetryEvery, () {
+        if (!mounted) return;
+        _loadRetries++;
+        ref.invalidate(deliveryProvider(_id));
+      });
+    }
+    return const AsyncLoading<DeliveryView>();
+  }
+
   @override
   void dispose() {
+    _loadRetry?.cancel();
     _etaPoll?.cancel();
     _failurePoll?.cancel();
     _sheet.dispose();
@@ -528,6 +555,8 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
     ref.listen(provider.select((a) => a.value?.returnDeliveryId), (prev, next) {
       if (prev == null && next != null) {
         showRiderToast(context, AppLocalizations.of(context).goReturnToast);
+        // 반납 배송은 막 만들어져 몇 초 동안 404 일 수 있다 — 방금 받은 배송처럼 다시 묻게 한다.
+        ref.read(assignedDeliveriesProvider.notifier).add(next);
         context.go('/deliveries/$next');
       }
     });
@@ -601,8 +630,11 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       body: UiStateView<DeliveryView>(
-        state: uiStateOf(ref.watch(provider)),
-        onRetry: () => ref.invalidate(provider),
+        state: uiStateOf(_autoRetry(ref.watch(provider))),
+        onRetry: () {
+          _loadRetries = 0;
+          ref.invalidate(provider);
+        },
         ready: _ready,
       ),
     );
@@ -1220,7 +1252,10 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
             RiderButton(
               key: const ValueKey('go-return'),
               label: l10n.goReturn,
-              onPressed: () => context.go('/deliveries/$rid'),
+              onPressed: () {
+                ref.read(assignedDeliveriesProvider.notifier).add(rid);
+                context.go('/deliveries/$rid');
+              },
             )
           else if (d.goodsWithRider == true)
             const LinearProgressIndicator()

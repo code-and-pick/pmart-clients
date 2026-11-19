@@ -14,6 +14,8 @@ import 'package:rider_app/features/delivery/data/delivery_repository.dart';
 import 'package:rider_app/features/delivery/data/mock_delivery_repository.dart';
 import 'package:rider_app/features/delivery/domain/delivery.dart';
 import 'package:rider_app/features/delivery/presentation/delivery_controller.dart';
+import 'package:rider_app/features/delivery/presentation/delivery_screen.dart';
+import 'package:rider_app/l10n/gen/app_localizations.dart';
 import 'package:rider_app/features/offers/data/mock_offer_repository.dart';
 import 'package:rider_app/features/offers/presentation/offer_controllers.dart';
 import 'package:rider_app/shared/providers.dart';
@@ -489,6 +491,48 @@ void main() {
         await settle();
       }
       expect(find.byKey(const ValueKey('delivery-dlv-1')), findsNothing);
+    },
+  );
+
+  testWidgets(
+    '배송을 잠깐 못 읽어도(막 생긴 반납 배송 등) 오류 화면 대신 불러오는 중으로 두고 저절로 다시 읽는다(사용자 2026-11-19)',
+    (t) async {
+      t.view
+        ..physicalSize = const Size(800, 2000)
+        ..devicePixelRatio = 1;
+      addTearDown(t.view.reset);
+      repo.notFoundNextGets = 3;
+      final router = GoRouter(
+        initialLocation: '/d',
+        routes: [
+          GoRoute(
+            path: '/d',
+            builder: (_, _) => const DeliveryScreen(deliveryId: 'dlv-1'),
+          ),
+        ],
+      );
+      await t.pumpWidget(
+        ProviderScope(
+          retry: (_, _) => null,
+          overrides: overrides(),
+          child: MaterialApp.router(
+            routerConfig: router,
+            localizationsDelegates: const [
+              ...AppLocalizations.localizationsDelegates,
+              PmartUiLocalizations.delegate,
+            ],
+            supportedLocales: AppLocalizations.supportedLocales,
+          ),
+        ),
+      );
+      for (var i = 0; i < 4; i++) {
+        await t.pump(const Duration(seconds: 3));
+        // 오류 화면("다시 시도")이 뜨지 않는다
+        expect(find.text('다시 시도'), findsNothing);
+      }
+      await t.pump(const Duration(milliseconds: 100));
+      expect(repo.notFoundNextGets, 0);
+      expect(find.byKey(const ValueKey('delivery-sheet')), findsWidgets);
     },
   );
 }

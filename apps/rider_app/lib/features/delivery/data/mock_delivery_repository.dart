@@ -211,9 +211,18 @@ base class MockDeliveryRepository
 
   Map<String, Object?> deliveryJson(String id) => _deliveries[id]!;
 
+  /// 다음 조회 몇 번을 404 로(막 만들어진 배송이 아직 안 읽히는 것 흉내 — 시험용).
+  int notFoundNextGets = 0;
+
   @override
   Future<DeliveryView> get(String deliveryId) async {
     await _wait();
+    if (notFoundNextGets > 0) {
+      notFoundNextGets--;
+      throw const ProblemFailure(
+        Problem(status: 404, code: ProblemCode.notFound),
+      );
+    }
     final d = _deliveries[deliveryId];
     if (d == null) {
       throw const ProblemFailure(
