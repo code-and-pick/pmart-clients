@@ -392,7 +392,7 @@
   "safetyHelmet": "안전을 위해 승차용 안전모를 착용해주세요",
   "startDuty": "운행시작",
   "endDuty": "운행종료",
-  "newDispatchOffNotice": "신규배차 꺼짐 상태입니다.\n신규배차 기능을 켜고 배달을 시작해보세요!",
+  "newDispatchOffNotice": "쉬는 중 — 위치를 공유하지 않아요.\n신규배차를 켜면 배달을 시작할 수 있어요!",
   "detail": "상세",
   "storeLabel": "PMart {mfcId}",
   "@storeLabel": {

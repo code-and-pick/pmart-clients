@@ -170,9 +170,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final active = watchActiveDeliveryIds(ref);
     final profile = ref.watch(profileProvider).value;
 
-    // 운행 중이거나 배달 중이면 위치를 보낸다(배달 중에는 운행 종료 뒤에도 — 3분 끊기면 위치 끊김 기록).
+    // 배달 중이면 운행 종료 뒤에도 위치를 보낸다(3분 끊기면 위치 끊김 기록).
     // 보내는 동안은 상시 알림을 띄워 앱을 내려도 계속 보낸다.
-    final reportLocation = onDuty || active.isNotEmpty;
+    // 위치 공유 = 맡은 배송이 있음 또는 (운행 중·신규배차 켬). 둘 다 아니면 쉬는 중 — 표본·올리기·상시 알림을 멈춘다
+    // (사용자 2026-11-19 "신규배차도 끄고 배송 중인 것도 없으면 위치 공유가 안 되어야", 백엔드 tracking 0.12.0).
+    final reportLocation =
+        active.isNotEmpty || (onDuty && (st?.newDispatchEnabled ?? false));
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final wasActive = ref.read(locationReporterProvider);
