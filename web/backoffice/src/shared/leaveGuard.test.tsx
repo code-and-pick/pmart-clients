@@ -1,5 +1,5 @@
 // 입력 중 떠날 때 경고(2026-11-18)
-import { screen, within } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 
@@ -20,7 +20,7 @@ describe('입력 중 떠날 때 경고', () => {
 
     await user.click(screen.getByRole('link', { name: '상품 조회' }));
     await user.click(within(await screen.findByTestId('leave-guard')).getByRole('button', { name: '나가기' }));
-    expect(screen.queryByLabelText('관리용 명칭')).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByLabelText('관리용 명칭')).not.toBeInTheDocument());
   });
 
   it('아무것도 안 썼으면 묻지 않는다', async () => {

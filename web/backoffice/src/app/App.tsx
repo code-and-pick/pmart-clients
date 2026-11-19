@@ -1,46 +1,14 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { AppLauncher, UiTextProvider } from '@pmart/web-ui';
-import { useEffect, useState, type ReactNode } from 'react';
+import { AppLauncher, QueryState, UiTextProvider } from '@pmart/web-ui';
+import { lazy, Suspense, useEffect, useState, type ReactNode } from 'react';
 import { createBrowserRouter, createMemoryRouter, Link, Navigate, NavLink, Outlet, RouterProvider, useLocation, useNavigate } from 'react-router';
 
-import { ApprovalDetailPage } from '../features/approvals/ApprovalDetailPage';
-import { ApprovalInboxPage } from '../features/approvals/ApprovalInboxPage';
-import { ApprovalListPage } from '../features/approvals/ApprovalListPage';
 import { AssistantProvider } from '../features/assistant/AssistantContext';
 import { AssistantAnswerPage, AssistantPage } from '../features/assistant/AssistantPage';
 import { createDraftAssistantMock } from '../features/assistant/draftMock';
 import { createHttpAssistant } from '../features/assistant/httpAssistant';
 import type { AssistantPort } from '../features/assistant/port';
-import { CategoryTreePage } from '../features/categories/CategoryTreePage';
-import { ContentDraftPage, NewContentDraftPage } from '../features/contents/ContentDraftPage';
-import { ContentImportPage, NewContentImportPage } from '../features/contents/ContentImportPage';
-import { SkuHandlingPage } from '../features/handlings/SkuHandlingPage';
-import { ClaimDetailPage, ClaimListPage } from '../features/claims/ClaimPages';
-import { ReturnIntakePage } from '../features/claims/ReturnClaim';
-import { PendingPage } from '../features/pending/PendingPage';
-import { PiiAccessLogDetailPage, PiiAccessLogListPage } from '../features/piiAccess/PiiAccessLogPages';
-import { UnifiedLookupPage } from '../features/lookup/UnifiedLookupPage';
-import { LiveDeliveryPage } from '../features/live/LiveDeliveryPage';
-import { PackingHandoverPage } from '../features/live/PackingHandoverPage';
-import { CaseDetailPage, CaseListPage, NewMisdeliveryPage } from '../features/cases/CasePages';
-import { CsFollowUpPage } from '../features/cases/FollowUps';
-import { HandoverPage } from '../features/cases/HandoverPages';
-import { DeliveryDetailPage, DeliveryOpenPage } from '../features/deliveries/DeliveryPages';
-import { CaseMetricsPage } from '../features/cases/CaseMetricsPage';
-import { CaseSlaPage } from '../features/cases/CaseSlaPage';
 import { DashboardPage } from './DashboardPage';
-import { InquiryDetailPage, InquiryListPage } from '../features/inquiries/InquiryPages';
-import { SatisfactionPage } from '../features/inquiries/SatisfactionPage';
-import { NewCsIntakePage } from '../features/csIntakes/CsIntakePages';
-import { OrderDetailPage, OrderLookupPage } from '../features/orders/OrderLookupPages';
-import { NewRiderComplaintPage, RiderComplaintDetailPage, RiderComplaintListPage } from '../features/riderComplaints/RiderComplaintPages';
-import { RiderDetailPage, RiderOpsMovedPage } from '../features/riders/RiderPages';
-import { NewPriceImportPage, PriceImportPage } from '../features/prices/PriceImportPage';
-import { PricePage } from '../features/prices/PricePage';
-import { ProductDetailPage } from '../features/products/ProductDetailPage';
-import { NewProductDraftPage, ProductDraftPage } from '../features/products/ProductDraftPage';
-import { NewProductImportPage, ProductImportPage } from '../features/products/ProductImportPage';
-import { ProductListPage } from '../features/products/ProductListPage';
 import { LoginCallbackPage, LoginPage } from '../features/session/LoginPage';
 import { SessionPage } from '../features/session/SessionPage';
 import type { Api } from '../api/client';
@@ -56,6 +24,55 @@ import { covers, visibleGroups, type NavGroup } from './nav';
 import { RequireSession, SessionProvider, useSession } from './SessionContext';
 import { GroupIcon } from './groupIcons';
 import { GroupAlertBadge, MenuGroupAlert, MenuItemAlerts } from './MenuAlerts';
+
+// 화면은 열 때 받는다(2026-11-19 — 앱 전체가 파일 하나라 첫 화면이 느렸다). 로그인·세션·대시보드·업무 도우미 틀은 처음부터.
+const ApprovalDetailPage = lazy(() => import('../features/approvals/ApprovalDetailPage').then((x) => ({ default: x.ApprovalDetailPage })));
+const ApprovalInboxPage = lazy(() => import('../features/approvals/ApprovalInboxPage').then((x) => ({ default: x.ApprovalInboxPage })));
+const ApprovalListPage = lazy(() => import('../features/approvals/ApprovalListPage').then((x) => ({ default: x.ApprovalListPage })));
+const CategoryTreePage = lazy(() => import('../features/categories/CategoryTreePage').then((x) => ({ default: x.CategoryTreePage })));
+const ContentDraftPage = lazy(() => import('../features/contents/ContentDraftPage').then((x) => ({ default: x.ContentDraftPage })));
+const NewContentDraftPage = lazy(() => import('../features/contents/ContentDraftPage').then((x) => ({ default: x.NewContentDraftPage })));
+const ContentImportPage = lazy(() => import('../features/contents/ContentImportPage').then((x) => ({ default: x.ContentImportPage })));
+const NewContentImportPage = lazy(() => import('../features/contents/ContentImportPage').then((x) => ({ default: x.NewContentImportPage })));
+const SkuHandlingPage = lazy(() => import('../features/handlings/SkuHandlingPage').then((x) => ({ default: x.SkuHandlingPage })));
+const ClaimDetailPage = lazy(() => import('../features/claims/ClaimPages').then((x) => ({ default: x.ClaimDetailPage })));
+const ClaimListPage = lazy(() => import('../features/claims/ClaimPages').then((x) => ({ default: x.ClaimListPage })));
+const ReturnIntakePage = lazy(() => import('../features/claims/ReturnClaim').then((x) => ({ default: x.ReturnIntakePage })));
+const PendingPage = lazy(() => import('../features/pending/PendingPage').then((x) => ({ default: x.PendingPage })));
+const PiiAccessLogDetailPage = lazy(() => import('../features/piiAccess/PiiAccessLogPages').then((x) => ({ default: x.PiiAccessLogDetailPage })));
+const PiiAccessLogListPage = lazy(() => import('../features/piiAccess/PiiAccessLogPages').then((x) => ({ default: x.PiiAccessLogListPage })));
+const UnifiedLookupPage = lazy(() => import('../features/lookup/UnifiedLookupPage').then((x) => ({ default: x.UnifiedLookupPage })));
+const LiveDeliveryPage = lazy(() => import('../features/live/LiveDeliveryPage').then((x) => ({ default: x.LiveDeliveryPage })));
+const PackingHandoverPage = lazy(() => import('../features/live/PackingHandoverPage').then((x) => ({ default: x.PackingHandoverPage })));
+const CaseDetailPage = lazy(() => import('../features/cases/CasePages').then((x) => ({ default: x.CaseDetailPage })));
+const CaseListPage = lazy(() => import('../features/cases/CasePages').then((x) => ({ default: x.CaseListPage })));
+const NewMisdeliveryPage = lazy(() => import('../features/cases/CasePages').then((x) => ({ default: x.NewMisdeliveryPage })));
+const CsFollowUpPage = lazy(() => import('../features/cases/FollowUps').then((x) => ({ default: x.CsFollowUpPage })));
+const HandoverPage = lazy(() => import('../features/cases/HandoverPages').then((x) => ({ default: x.HandoverPage })));
+const DeliveryDetailPage = lazy(() => import('../features/deliveries/DeliveryPages').then((x) => ({ default: x.DeliveryDetailPage })));
+const DeliveryOpenPage = lazy(() => import('../features/deliveries/DeliveryPages').then((x) => ({ default: x.DeliveryOpenPage })));
+const CaseMetricsPage = lazy(() => import('../features/cases/CaseMetricsPage').then((x) => ({ default: x.CaseMetricsPage })));
+const CaseSlaPage = lazy(() => import('../features/cases/CaseSlaPage').then((x) => ({ default: x.CaseSlaPage })));
+const InquiryDetailPage = lazy(() => import('../features/inquiries/InquiryPages').then((x) => ({ default: x.InquiryDetailPage })));
+const InquiryListPage = lazy(() => import('../features/inquiries/InquiryPages').then((x) => ({ default: x.InquiryListPage })));
+const SatisfactionPage = lazy(() => import('../features/inquiries/SatisfactionPage').then((x) => ({ default: x.SatisfactionPage })));
+const NewCsIntakePage = lazy(() => import('../features/csIntakes/CsIntakePages').then((x) => ({ default: x.NewCsIntakePage })));
+const OrderDetailPage = lazy(() => import('../features/orders/OrderLookupPages').then((x) => ({ default: x.OrderDetailPage })));
+const OrderLookupPage = lazy(() => import('../features/orders/OrderLookupPages').then((x) => ({ default: x.OrderLookupPage })));
+const NewRiderComplaintPage = lazy(() => import('../features/riderComplaints/RiderComplaintPages').then((x) => ({ default: x.NewRiderComplaintPage })));
+const RiderComplaintDetailPage = lazy(() => import('../features/riderComplaints/RiderComplaintPages').then((x) => ({ default: x.RiderComplaintDetailPage })));
+const RiderComplaintListPage = lazy(() => import('../features/riderComplaints/RiderComplaintPages').then((x) => ({ default: x.RiderComplaintListPage })));
+const RiderDetailPage = lazy(() => import('../features/riders/RiderPages').then((x) => ({ default: x.RiderDetailPage })));
+const RiderOpsMovedPage = lazy(() => import('../features/riders/RiderPages').then((x) => ({ default: x.RiderOpsMovedPage })));
+const NewPriceImportPage = lazy(() => import('../features/prices/PriceImportPage').then((x) => ({ default: x.NewPriceImportPage })));
+const PriceImportPage = lazy(() => import('../features/prices/PriceImportPage').then((x) => ({ default: x.PriceImportPage })));
+const PricePage = lazy(() => import('../features/prices/PricePage').then((x) => ({ default: x.PricePage })));
+const ProductDetailPage = lazy(() => import('../features/products/ProductDetailPage').then((x) => ({ default: x.ProductDetailPage })));
+const NewProductDraftPage = lazy(() => import('../features/products/ProductDraftPage').then((x) => ({ default: x.NewProductDraftPage })));
+const ProductDraftPage = lazy(() => import('../features/products/ProductDraftPage').then((x) => ({ default: x.ProductDraftPage })));
+const NewProductImportPage = lazy(() => import('../features/products/ProductImportPage').then((x) => ({ default: x.NewProductImportPage })));
+const ProductImportPage = lazy(() => import('../features/products/ProductImportPage').then((x) => ({ default: x.ProductImportPage })));
+const ProductListPage = lazy(() => import('../features/products/ProductListPage').then((x) => ({ default: x.ProductListPage })));
 
 /** 업무 도우미: 목 모드는 draftMock(계약 모양), 실서버 모드(local·lan)는 게이트웨이의 ai-assistant-service(2026-11-09 LAN 배포). */
 const defaultAssistantPort = (api: Api): AssistantPort =>
@@ -258,7 +275,10 @@ function Layout() {
           </div>
         </header>
         <main className="min-w-0 flex-1 p-6">
-          <Outlet />
+          {/* 화면을 받는 동안 뼈대(QueryState 불러오는 중 모양, 2026-11-19) */}
+          <Suspense fallback={<QueryState state={{ kind: 'loading' }}>{() => null}</QueryState>}>
+            <Outlet />
+          </Suspense>
         </main>
         {/* 처리 결과 알림(2026-11-18) */}
         <Toasts />

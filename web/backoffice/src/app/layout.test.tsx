@@ -1,5 +1,5 @@
 // 메뉴 레이아웃 — 메뉴는 화면 높이에 고정·따로 스크롤, 다른 화면으로 가면 맨 위부터(사용자 2026-11-17)
-import { screen } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 
@@ -27,6 +27,6 @@ describe('메뉴 레이아웃', () => {
     const root = document.scrollingElement ?? document.documentElement;
     root.scrollTop = 800;
     await userEvent.click(screen.getByRole('link', { name: '클레임 조회', hidden: true }));
-    expect(root.scrollTop).toBe(0);
+    await waitFor(() => expect(root.scrollTop).toBe(0)); // 화면을 받은 뒤(열 때 받기, 2026-11-19)
   });
 });

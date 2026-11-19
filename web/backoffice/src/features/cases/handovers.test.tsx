@@ -20,7 +20,7 @@ async function writeHandover() {
 describe('교대 인계', () => {
   it('자동으로 넘어가지 않는다는 안내, 다음 조치가 비었거나 후임이 나면 쓸 수 없다', async () => {
     renderAt('/cases/handovers', as.riderOps);
-    expect(screen.getByRole('note')).toHaveTextContent('자동으로 넘어가거나 돌아가지 않고');
+    expect((await screen.findByRole('note'))).toHaveTextContent('자동으로 넘어가거나 돌아가지 않고');
     const row = await screen.findByTestId('handover-case');
     const submit = screen.getByRole('button', { name: '인계서 쓰기' });
     await userEvent.type(screen.getByLabelText('후임 운영자 ID'), 'op-rider-ops-1');

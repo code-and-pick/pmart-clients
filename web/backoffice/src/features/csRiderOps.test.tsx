@@ -182,7 +182,7 @@ describe('라이더 컴플레인', () => {
   it('기록: Idempotency-Key·X-Source-System, 라이더는 서버가 채운다 → 목록에 보인다', async () => {
     const user = userEvent.setup();
     const view = renderAt('/rider-complaints/new?deliveryId=DLV-MOCK-1&orderId=ORD-MOCK-1001', as.cs);
-    expect(screen.getByLabelText('배송 번호')).toHaveValue('DLV-MOCK-1');
+    expect((await screen.findByLabelText('배송 번호'))).toHaveValue('DLV-MOCK-1');
     await user.click(screen.getByLabelText('파손'));
     await user.type(screen.getByLabelText('내부 메모'), '상자가 찌그러짐');
     await user.click(screen.getByRole('button', { name: '기록하기' }));
@@ -201,7 +201,7 @@ describe('라이더 컴플레인', () => {
   it('배정 라이더가 없으면 422 RIDER_NOT_ASSIGNED 를 그대로 안내한다', async () => {
     const user = userEvent.setup();
     renderAt('/rider-complaints/new?deliveryId=DLV-MOCK-4', as.cs);
-    await user.click(screen.getByLabelText('신고'));
+    await user.click((await screen.findByLabelText('신고')));
     await user.click(screen.getByRole('button', { name: '기록하기' }));
     expect(await screen.findByText('그 배송에 배정된 라이더가 없어요.')).toBeInTheDocument();
   });
@@ -216,7 +216,7 @@ describe('라이더 컴플레인', () => {
       }),
     );
     const view = renderAt('/rider-complaints/new?deliveryId=DLV-MOCK-1', as.cs);
-    await user.click(screen.getByLabelText('오배송'));
+    await user.click((await screen.findByLabelText('오배송')));
     await user.click(screen.getByRole('button', { name: '기록하기' }));
     expect(await screen.findByText('처리 결과를 확인하고 있어요')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: '같은 요청으로 결과 확인' }));
@@ -360,7 +360,7 @@ describe('라이더 상세(보기만 — 라이더 운영 묶음은 2026-11-18 �
   it('배송 확인: "전달 실패 확정 대기" = state=FAILURE_REPORTED&sort=OLDEST', async () => {
     const user = userEvent.setup();
     const view = renderAt('/deliveries', as.riderOps);
-    await user.click(screen.getByRole('button', { name: '전달 실패 확정 대기' }));
+    await user.click((await screen.findByRole('button', { name: '전달 실패 확정 대기' })));
     const rows = await screen.findAllByTestId('delivery-row');
     expect(rows).toHaveLength(1);
     expect(rows[0]).toHaveTextContent('74939002-1'); // 화면 배송 번호(ADR-0070) — 시스템 ID DLV-MOCK-2 는 링크에만

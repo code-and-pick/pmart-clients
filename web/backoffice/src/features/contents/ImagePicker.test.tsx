@@ -34,7 +34,7 @@ describe('콘텐츠 등록 — 이미지', () => {
     const user = userEvent.setup();
     const view = renderAt('/contents/drafts/new');
 
-    upload(screen.getByLabelText('대표 이미지 추가'), png('main.png'));
+    upload((await screen.findByLabelText('대표 이미지 추가')), png('main.png'));
     upload(screen.getByLabelText('상세설명 이미지 추가'), [png('d1.png'), png('d2.png'), png('d3.png')]);
     // 상세설명 세 번째는 빼 본다.
     await user.click(screen.getByRole('button', { name: 'd3.png 제거' }));
@@ -76,7 +76,7 @@ describe('콘텐츠 등록 — 이미지', () => {
     const user = userEvent.setup();
     renderAt('/contents/drafts/new');
 
-    upload(screen.getByLabelText('대표 이미지 추가'), png('main.png'));
+    upload((await screen.findByLabelText('대표 이미지 추가')), png('main.png'));
     upload(screen.getByLabelText('상세설명 이미지 추가'), png('d1.png'));
     await user.type(screen.getByLabelText('고객용 상품명'), '사과');
     await user.click(screen.getByRole('button', { name: '초안 저장' }));
@@ -94,7 +94,7 @@ describe('콘텐츠 등록 — 이미지', () => {
     uploadMock.mockImplementation(allSucceed);
     const user = userEvent.setup();
     renderAt('/contents/drafts/new');
-    await user.type(screen.getByLabelText('고객용 상품명'), '사과');
+    await user.type((await screen.findByLabelText('고객용 상품명')), '사과');
     await user.click(screen.getByRole('button', { name: '초안 저장' }));
     await screen.findByText(/콘텐츠 초안 cd-/);
     expect(uploadMock).not.toHaveBeenCalled();

@@ -14,7 +14,7 @@ describe('콘텐츠 등록 — 승인된 상품 고르기(드롭다운)', () => 
   it('드롭다운에서 상품을 고르면 상품 ID 가 채워지고, 게시된 콘텐츠가 있으면 다섯 칸을 자동 기입한다', async () => {
     const user = userEvent.setup();
     renderAt('/contents/drafts/new');
-    const select = screen.getByRole('combobox', { name: '상품 ID(승인된 상품)' });
+    const select = (await screen.findByRole('combobox', { name: '상품 ID(승인된 상품)' }));
     await screen.findByRole('option', { name: /사과 1.5kg/ });
     expect(within(select).getAllByRole('option')).toHaveLength(3); // 안내 1 + 상품 2
 
@@ -32,7 +32,7 @@ describe('콘텐츠 등록 — 승인된 상품 고르기(드롭다운)', () => 
   it('게시된 콘텐츠가 없는 상품은 상품명(관리용 명칭)만 채우고 나머지는 비워 둔다', async () => {
     const user = userEvent.setup();
     renderAt('/contents/drafts/new');
-    const select = screen.getByRole('combobox', { name: '상품 ID(승인된 상품)' });
+    const select = (await screen.findByRole('combobox', { name: '상품 ID(승인된 상품)' }));
     await screen.findByRole('option', { name: /소고기 미역국/ });
 
     await user.selectOptions(select, 'P-00000002');
@@ -46,7 +46,7 @@ describe('콘텐츠 등록 — 승인된 상품 고르기(드롭다운)', () => 
   it('상품이 골라지면 오른쪽 X 가 보이고, 누르면 폼 전체가 비워진다', async () => {
     const user = userEvent.setup();
     renderAt('/contents/drafts/new');
-    const select = screen.getByRole('combobox', { name: '상품 ID(승인된 상품)' });
+    const select = (await screen.findByRole('combobox', { name: '상품 ID(승인된 상품)' }));
     await screen.findByRole('option', { name: /사과 1.5kg/ });
     expect(screen.queryByRole('button', { name: '전체 지우기' })).not.toBeInTheDocument();
 

@@ -1,5 +1,5 @@
 // 왼쪽 메뉴 접기(2026-11-19 — 좁은 화면에서 본문이 답답하다)
-import { screen } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
@@ -18,7 +18,7 @@ describe('왼쪽 메뉴 접기', () => {
     const rail = screen.getByTestId('nav-rail-cs');
     expect(rail).toHaveAttribute('title');
     await user.click(rail);
-    expect(screen.getByTestId('page-title')).not.toHaveTextContent(/^$/);
+    await waitFor(() => expect(screen.getByTestId('page-title')).not.toHaveTextContent(/^$/));
     first.unmount();
 
     renderAt('/', as.cs);

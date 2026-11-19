@@ -11,7 +11,7 @@ import { as, renderAt } from '../../test/render';
 const row = (n: number) => ({ approvalId: `APV-${n}`, type: 'PRODUCT', summary: `요청 ${n}`, requesterId: 'op-md-1', reviewState: 'APPROVED', executionState: 'APPLIED', submittedAt: '2026-11-17T00:00:00Z' });
 
 describe('승인함 목록 — 더 보기', () => {
-  it('다음 쪽(nextCursor)을 같은 필터로 묻고, 받은 줄 아래에 이어 붙인다', async () => {
+  it('다음 쪽(nextCursor)을 같은 필터로 묻고, 받은 줄 아래에 이어 붙인다', { timeout: 15000 }, async () => {
     server.use(
       http.get(`${API_BASE}/approvals`, ({ request }) => {
         const cursor = new URL(request.url).searchParams.get('cursor');
@@ -21,7 +21,8 @@ describe('승인함 목록 — 더 보기', () => {
       }),
     );
     const view = renderAt('/approvals?type=PRODUCT', as.admin);
-    expect(await screen.findByRole('link', { name: 'APV-2' })).toBeInTheDocument();
+    // 관리자 첫 화면은 메뉴 알림 등 조회가 많아 전체 시험 중에는 1초를 넘길 때가 있다 — 기다림만 늘린다(확인 내용은 그대로)
+    expect(await screen.findByRole('link', { name: 'APV-2' }, { timeout: 5000 })).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: '더 보기' }));
     expect(await screen.findByRole('link', { name: 'APV-3' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'APV-1' })).toBeInTheDocument(); // 앞 줄은 그대로

@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest';
-import { cleanup } from '@testing-library/react';
+import { cleanup, configure } from '@testing-library/react';
 import { afterAll, afterEach, beforeAll } from 'vitest';
 
 import { resetDb } from '../mocks/db';
@@ -15,6 +15,9 @@ import { clearToasts } from '../shared/toast';
 pollConfig.sleep = () => Promise.resolve();
 pollConfig.maxAttempts = 3;
 pollConfig.intervalMs = 5;
+
+// 화면은 열 때 받는다(2026-11-19) — 시험 파일마다 첫 화면을 받는 동안 전체 시험 중에는 1초를 넘길 때가 있어 기다림 기본값만 3초로(확인 내용은 그대로)
+configure({ asyncUtilTimeout: 3000 });
 
 // 시험 화면은 사무실 모니터 폭(1440px)으로 — 좁은 화면(메뉴 접힘)은 그 시험에서 따로 바꾼다(2026-11-19 메뉴 접기)
 Object.defineProperty(window, 'innerWidth', { value: 1440, writable: true, configurable: true });
