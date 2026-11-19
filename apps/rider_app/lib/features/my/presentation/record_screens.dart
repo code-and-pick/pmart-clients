@@ -153,10 +153,18 @@ class SettlementsScreen extends ConsumerWidget {
           titleTextStyle: riderTitleStyle(context, color: Colors.white),
         ),
         body: UiStateView<List<Settlement>>(
-          state: uiStateOf(
-            ref.watch(settlementsProvider),
-            isEmpty: (l) => l.isEmpty,
-          ),
+          // 보상금만 못 읽었으면 수행료는 보이고 "일부만" 띠(백엔드 회신 2026-11-19 권고).
+          state: switch (ref.watch(settlementsProvider)) {
+            AsyncData(:final value) when value.compensationsFailed =>
+              UiPartial<List<Settlement>>(
+                value.items,
+                missing: const {'compensations'},
+              ),
+            final async => uiStateOf(
+              async.whenData((l) => l.items),
+              isEmpty: (l) => l.isEmpty,
+            ),
+          },
           onRetry: () => ref.invalidate(settlementsProvider),
           ready: (context, list) => ListView.separated(
             padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -205,6 +213,18 @@ class SettlementsScreen extends ConsumerWidget {
                               fontWeight: FontWeight.w800,
                             ),
                           ),
+                          // 보상 사유(라이더도 보는 값 — 백엔드 회신 2026-11-19)
+                          if (s.compensation && s.note != null) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              s.note!,
+                              key: ValueKey('compensation-reason-$i'),
+                              style: const TextStyle(
+                                color: Colors.white70,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                     ),

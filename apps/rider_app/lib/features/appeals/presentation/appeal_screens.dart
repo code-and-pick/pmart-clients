@@ -193,7 +193,8 @@ class MyAppealsScreen extends ConsumerWidget {
     // 인정된 수행료 이의의 보상금(정산내역의 보상 줄 — execution 0.30.0). 못 읽었으면 금액을 붙이지 않는다(0원으로 지어내지 않음).
     final compensations = <String, int>{
       for (final s
-          in ref.watch(settlementsProvider).value ?? const <Settlement>[])
+          in ref.watch(settlementsProvider).value?.items ??
+              const <Settlement>[])
         if (s.compensation && s.appealId != null && s.amount != null)
           s.appealId!: s.amount!,
     };

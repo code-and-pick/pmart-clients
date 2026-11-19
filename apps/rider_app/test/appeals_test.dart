@@ -11,6 +11,7 @@ import 'package:rider_app/features/auth/data/session.dart';
 import 'package:rider_app/features/delivery/data/mock_delivery_repository.dart';
 import 'package:rider_app/features/delivery/presentation/delivery_controller.dart';
 import 'package:rider_app/features/my/data/profile.dart';
+import 'package:rider_app/features/my/data/records.dart';
 import 'package:rider_app/features/offers/data/mock_offer_repository.dart';
 import 'package:rider_app/features/offers/presentation/offer_controllers.dart';
 import 'package:rider_app/shared/providers.dart';
@@ -29,6 +30,7 @@ void main() {
     WidgetTester t, {
     required MockAppealRepository appeals,
     Restriction restriction = Restriction.normal,
+    MockRecordsRepository? records,
   }) async {
     t.view
       ..physicalSize = const Size(800, 2400)
@@ -52,6 +54,8 @@ void main() {
             MockDeliveryRepository(latency: Duration.zero, seeded: false),
           ),
           appealRepositoryProvider.overrideWithValue(appeals),
+          if (records != null)
+            recordsRepositoryProvider.overrideWithValue(records),
         ],
         child: const RiderApp(),
       ),
@@ -164,6 +168,7 @@ void main() {
     expect(find.textContaining('이의 인정 보상'), findsOneWidget);
     expect(find.textContaining('지급 예정일 2026-11-20'), findsOneWidget);
     expect(find.text('1,500원'), findsOneWidget);
+    expect(find.text('엘리베이터 고장 확인'), findsOneWidget); // 보상 사유
     // 보상금 줄에는 "이의 신청"을 붙이지 않는다
     expect(find.byKey(const ValueKey('appeal-earning-4')), findsNothing);
 
@@ -176,5 +181,20 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('보상금 1,500원'), findsOneWidget);
+  });
+
+  testWidgets('보상금만 못 읽으면 수행료는 보이고 "일부만" 띠', (t) async {
+    final records = MockRecordsRepository(latency: Duration.zero)
+      ..failCompensations = true;
+    await pumpApp(
+      t,
+      appeals: MockAppealRepository(latency: Duration.zero),
+      records: records,
+    );
+    router(t).go('/my/settlements');
+    await settle(t);
+    expect(find.byKey(const ValueKey('ui-partial')), findsOneWidget);
+    expect(find.byKey(const ValueKey('settlement-0')), findsOneWidget);
+    expect(find.byKey(const ValueKey('compensation-4')), findsNothing);
   });
 }

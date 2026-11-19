@@ -126,7 +126,7 @@ class DeliveryRecord {
 abstract interface class RecordsRepository {
   Future<TodaySummary> today();
   Future<OperatingTime> operatingTime();
-  Future<List<Settlement>> settlements();
+  Future<SettlementList> settlements();
   Future<List<DeliveryRecord>> history();
 }
 
@@ -174,9 +174,9 @@ final class MockRecordsRepository implements RecordsRepository {
   }
 
   @override
-  Future<List<Settlement>> settlements() async {
+  Future<SettlementList> settlements() async {
     await _wait();
-    return [
+    final all = [
       Settlement(
         from: DateTime(2026, 11, 2),
         to: DateTime(2026, 11, 8),
@@ -216,7 +216,21 @@ final class MockRecordsRepository implements RecordsRepository {
         payoutDate: '2026-11-20',
       ),
     ];
+    // 시험: 보상금만 못 읽은 경우(수행료는 보인다)
+    if (failCompensations) {
+      return SettlementList(
+        items: [
+          for (final s in all)
+            if (!s.compensation) s,
+        ],
+        compensationsFailed: true,
+      );
+    }
+    return SettlementList(items: all);
   }
+
+  /// 시험용: 보상금 목록 읽기를 실패로.
+  bool failCompensations = false;
 
   @override
   Future<List<DeliveryRecord>> history() async {
@@ -326,35 +340,40 @@ final class ApiRecordsRepository implements RecordsRepository {
       '${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
   @override
-  Future<List<Settlement>> settlements() async {
-    // 수행료와 이의 인정 보상금(execution 0.30.0)을 함께 — 보상금을 못 읽으면 전체를 실패로(빠진 채 보이지 않게).
-    final (res, comp) = await (
-      pmartGuard(() => _me.listMyEarnings()),
-      pmartGuard(() => _comp.listMyCompensations()),
-    ).wait;
-    return [
-      for (final c in comp.data?.items ?? const <ex.RiderCompensation>[])
-        Settlement(
-          from: c.recordedAt.toLocal(),
-          to: c.recordedAt.toLocal(),
-          amount: c.amount,
-          deliveryId: c.deliveryId,
-          note: c.reason,
-          compensation: true,
-          appealId: c.appealId,
-          payoutDate: c.payoutDate,
-          status: settlementStatusFromWire(c.settlementState.value),
-        ),
-      for (final e in res.data?.items ?? const <ex.Earning>[])
-        Settlement(
-          from: (e.recordedAt ?? DateTime.now()).toLocal(),
-          to: (e.recordedAt ?? DateTime.now()).toLocal(),
-          amount: (e.calculable ?? false) ? e.total : null,
-          deliveryId: e.deliveryId,
-          note: e.note,
-          status: settlementStatusFromWire(e.settlementState?.value),
-        ),
-    ];
+  Future<SettlementList> settlements() async {
+    // 수행료와 이의 인정 보상금(execution 0.30.0)을 함께. 보상금만 못 읽으면 수행료는 보이고 "일부만"으로 알린다
+    // (백엔드 회신 2026-11-19 권고) — 빠진 채 정상처럼 보이지 않게 compensationsFailed 를 둔다. 수행료를 못 읽으면 실패.
+    final compFuture = pmartGuard(() => _comp.listMyCompensations())
+        .then<ex.ListRiderCompensations200Response?>((r) => r.data)
+        .catchError((Object _) => null, test: (e) => e is PmartFailure);
+    final res = await pmartGuard(() => _me.listMyEarnings());
+    final compData = await compFuture;
+    return SettlementList(
+      compensationsFailed: compData == null,
+      items: [
+        for (final c in compData?.items ?? const <ex.RiderCompensation>[])
+          Settlement(
+            from: c.recordedAt.toLocal(),
+            to: c.recordedAt.toLocal(),
+            amount: c.amount,
+            deliveryId: c.deliveryId,
+            note: c.reason,
+            compensation: true,
+            appealId: c.appealId,
+            payoutDate: c.payoutDate,
+            status: settlementStatusFromWire(c.settlementState.value),
+          ),
+        for (final e in res.data?.items ?? const <ex.Earning>[])
+          Settlement(
+            from: (e.recordedAt ?? DateTime.now()).toLocal(),
+            to: (e.recordedAt ?? DateTime.now()).toLocal(),
+            amount: (e.calculable ?? false) ? e.total : null,
+            deliveryId: e.deliveryId,
+            note: e.note,
+            status: settlementStatusFromWire(e.settlementState?.value),
+          ),
+      ],
+    );
   }
 
   @override
@@ -394,10 +413,21 @@ final operatingTimeProvider = FutureProvider.autoDispose<OperatingTime>(
   (ref) => ref.watch(recordsRepositoryProvider).operatingTime(),
 );
 
-final settlementsProvider = FutureProvider.autoDispose<List<Settlement>>(
+final settlementsProvider = FutureProvider.autoDispose<SettlementList>(
   (ref) => ref.watch(recordsRepositoryProvider).settlements(),
 );
 
 final historyProvider = FutureProvider.autoDispose<List<DeliveryRecord>>(
   (ref) => ref.watch(recordsRepositoryProvider).history(),
 );
+
+/// 정산내역 — 수행료 줄 + 이의 인정 보상금 줄.
+@immutable
+class SettlementList {
+  const SettlementList({required this.items, this.compensationsFailed = false});
+
+  final List<Settlement> items;
+
+  /// 보상금 목록을 못 읽었다(수행료만 보인다 — 화면은 "일부만"으로 알린다).
+  final bool compensationsFailed;
+}
