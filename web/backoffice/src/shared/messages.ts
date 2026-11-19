@@ -1923,9 +1923,30 @@ export const messages = {
     /** 일괄 등록 한 메뉴(2026-11-19) */
     imports: {
       title: '일괄 등록',
-      orderLabel: '올리는 순서',
-      orderHint: '상품이 승인돼 SKU 가 나온 뒤에 콘텐츠·가격이 그 상품에 붙어요.',
-      tab: { product: '상품', content: '콘텐츠', price: '가격' },
+      intro: 'seed-v1.zip 한 번만 올리면 상품·콘텐츠(사진·설명)·가격을 서비스마다 따로 검사해요.',
+      steps: ['파일 올리기', '결과 확인', '배치마다 제출', '승인'],
+      caution: '같은 seed-v1.zip 에서 상품은 상품 정보, 콘텐츠는 사진·설명, 가격은 가격만 읽어요. 바로 반영되지 않고 배치마다 제출·승인을 거쳐요.',
+      cautionOrder: '순서: 상품 승인 → 콘텐츠가 그 상품에 자동으로 이어짐 → 가격 배치에서 "다시 대조" 뒤 제출.',
+      pickLabel: '보낼 곳',
+      part: { product: '상품', content: '콘텐츠(사진·설명)', price: '가격' },
+      partReads: { product: '상품·SKU', content: 'content·images/', price: '가격' },
+      pickNone: '보낼 곳을 하나 이상 골라 주세요.',
+      resultTitle: '올린 결과',
+      resultIntro: '서비스마다 따로 검사한 결과예요. 하나가 실패해도 나머지는 그대로예요 — 실패한 것만 다시 보내요.',
+      retry: '이것만 다시 보내기',
+      openBatch: '배치 열기',
+      sum: {
+        product: (n: number, ok: number, bad: number) => `상품 ${n}개 · 정상 ${ok} · 오류 ${bad}`,
+        content: (n: number, img?: number, created?: number, same?: number) =>
+          [`상품 ${n}개`, img === undefined ? null : `사진 ${img}장`, created === undefined ? null : `새로 ${created}`, same === undefined ? null : `그대로 ${same}`].filter(Boolean).join(' · '),
+        price: (n: number, ok: number) => `가격 ${n}줄 · 지금 제출할 수 있는 것 ${ok}`,
+        priceNoSku: (n: number) => `SKU 아직 없음 ${n}줄 — 새 상품이면 정상이에요. 상품 승인 뒤 배치 화면에서 "다시 대조"해요.`,
+      },
+      next: {
+        product: '배치 화면에서 오류를 고치고 제출 → 상품 승인.',
+        content: '상품이 승인되면 그 상품에 자동으로 이어져요. 제출은 상품 승인 뒤에 해요.',
+        price: '상품 승인 뒤 "다시 대조" → 제출 → 가격 승인.',
+      },
       priceManage: '가격 관리',
     },
     /** 상품 상세 탭(2026-11-19 상품 묶음 합치기 1단계) */
