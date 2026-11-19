@@ -71,8 +71,12 @@ function Layout() {
       <aside className={`sticky top-0 flex h-screen shrink-0 flex-col self-start overflow-y-auto bg-neutral text-neutral-content transition-[width] ${collapsed ? 'w-20' : 'w-60'}`} data-testid="side-menu" data-collapsed={collapsed}>
         <div className={`flex h-14 shrink-0 items-center gap-1 border-b border-neutral-content/10 ${collapsed ? 'justify-center px-1' : 'justify-between pl-5 pr-2'}`}>
           {!collapsed && (
-            <Link to="/" className="truncate text-base font-bold text-neutral-content" aria-label={m.goHome}>
-              {m.appTitle}
+            <Link to="/" className="flex min-w-0 items-center gap-2 font-bold text-neutral-content" aria-label={m.goHome}>
+              {/* 로고 배지(2026-11-19 — 라이더 백오피스와 같게) */}
+              <span className="grid h-7 w-7 shrink-0 place-items-center rounded-md bg-accent text-sm text-accent-content" aria-hidden="true">
+                P
+              </span>
+              <span className="truncate text-[15px]">{m.appTitle}</span>
             </Link>
           )}
           <button type="button" className="btn btn-ghost btn-sm h-8 w-8 p-0 text-neutral-content/70 hover:bg-neutral-content/10" onClick={toggleMenu} aria-label={collapsed ? m.nav.expand : m.nav.collapse} title={collapsed ? m.nav.expand : m.nav.collapse} data-testid="menu-toggle">
@@ -86,7 +90,7 @@ function Layout() {
             {nav.map(([to, label]) => {
               const active = current?.[0] === to;
               return (
-                <Link key={to} to={to} aria-label={label} title={label} aria-current={active ? 'page' : undefined} className={`flex w-16 flex-col items-center gap-1 rounded-lg px-1 py-2 text-[10.5px] font-medium leading-tight transition-colors ${active ? 'bg-accent/20 text-accent' : 'text-neutral-content/75 hover:bg-neutral-content/10 hover:text-neutral-content'}`} data-testid={`nav-rail-${to === '/' ? 'home' : to.slice(1).replace('/', '-')}`}>
+                <Link key={to} to={to} aria-label={label} title={label} aria-current={active ? 'page' : undefined} className={`flex w-16 flex-col items-center gap-1 rounded-lg px-1 py-2 text-[10.5px] font-medium leading-tight transition-colors ${active ? 'bg-primary text-primary-content' : 'text-neutral-content/75 hover:bg-neutral-content/10 hover:text-neutral-content'}`} data-testid={`nav-rail-${to === '/' ? 'home' : to.slice(1).replace('/', '-')}`}>
                   <svg viewBox="0 0 24 24" className="h-5 w-5 fill-none stroke-current" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                     <path d={RAIL_ICON[to]} />
                   </svg>
@@ -102,7 +106,7 @@ function Layout() {
           // 메뉴(2026-11-19 사용자 "백오피스 화면이랑 같게"): 백오피스 묶음 모양 — 굵은 묶음 이름 + 아이콘, 들여 쓴 하위 메뉴, 선택은 민트 막대. 묶음이 하나라 늘 펼침
         <nav aria-label="메뉴" className="flex-1 py-3">
           <div className="mx-2 mb-1 rounded-lg bg-neutral-content/5" data-testid="nav-group-hr">
-            <p className={`flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-[15px] font-bold ${current ? 'text-accent' : 'text-neutral-content'}`}>
+            <p className={`flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-[15px] font-bold ${current ? 'text-neutral-content' : 'text-neutral-content/60'}`}>
               <svg viewBox="0 0 24 24" className="h-5 w-5 shrink-0 fill-none stroke-current" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <circle cx="9" cy="8" r="3.5" />
                 <path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M18 20a6.5 6.5 0 0 0-2.5-5.1" />
@@ -116,7 +120,7 @@ function Layout() {
                     to={to}
                     end
                     className={({ isActive }) =>
-                      `my-0.5 ml-5 mr-1 flex items-center gap-1 rounded-r-lg border-l-4 py-2 pl-4 pr-3 text-[13px] transition-colors active:scale-[0.98] ${isActive ? 'border-accent bg-accent/20 font-bold text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.06)]' : 'border-neutral-content/10 text-neutral-content/70 hover:bg-neutral-content/10 hover:text-neutral-content'}`
+                      `my-0.5 flex items-center gap-1 rounded-md py-1.5 pl-10 pr-3 text-sm transition-colors active:scale-[0.98] ${isActive ? 'bg-primary font-semibold text-primary-content' : 'text-neutral-content/75 hover:bg-neutral-content/10 hover:text-neutral-content'}`
                     }
                   >
                     {label}
