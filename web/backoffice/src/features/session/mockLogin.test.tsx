@@ -43,7 +43,11 @@ function recordRequests() {
   return { sent, stop: () => server.events.removeListener('request:start', listener) };
 }
 
-const clickAccount = (user: ReturnType<typeof userEvent.setup>, name: RegExp) => screen.findByRole('button', { name }).then((b) => user.click(b));
+// 시험 계정은 역할 안에 있어 처음 화면에는 없다(2026-11-20) — 위 검색칸에 이름을 치면 바로 나온다. 단추 이름은 그대로.
+const clickAccount = async (user: ReturnType<typeof userEvent.setup>, name: RegExp) => {
+  await user.type(await screen.findByRole('searchbox', { name: '시험 계정 찾기' }), name.source);
+  await user.click(await screen.findByRole('button', { name }));
+};
 
 describe('목 로그인 화면', () => {
   it('세션이 없으면 로그인으로 보내고, 목 계정으로 로그인하면 가려던 화면으로 돌아간다 — 아이디·비밀번호를 받지 않는다', async () => {

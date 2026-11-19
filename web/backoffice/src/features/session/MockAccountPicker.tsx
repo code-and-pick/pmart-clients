@@ -1,9 +1,12 @@
-// 목 모드 시험 계정 고르기(2026-11-20 사용자 "한참 봐야 자기 버튼이 어딨는지 알 것 같다 — 운영자가 20명이면?").
-// 카드 묶음 대신: 맨 위 검색(이름·역할) → 역할 탭 → 한 줄 목록(이름 왼쪽, 역할 오른쪽). 길어지면 목록 안에서만 스크롤.
+// 목 모드 시험 계정 고르기(2026-11-20 사용자 — "탭도 길어지는 건 마찬가지. 운영 탭을 누르면 안으로 들어가 운영 관리자가
+// 주루룩 뜨고 자기 번호를 검색하면 찾아지게"). 두 단계:
+//   ① 역할 목록(세로, 역할마다 인원) + 위에 이름·사번 바로 찾기(전체에서)
+//   ② 역할을 누르면 그 안으로 — "← 역할 목록" + 이름·사번 검색 + 그 역할 계정 한 줄 목록(길면 목록 안에서만 스크롤)
 // 실서버 로그인은 "직원 계정으로 로그인" 단추 하나라 이 화면은 목 모드에만 나온다.
-// 단추 이름(읽기 도구·시험이 찾는 이름)은 예전 그대로 "이름 · 역할" — aria-label.
-import { useMemo, useState } from 'react';
+// 계정 단추 이름(읽기 도구·시험이 찾는 이름)은 예전 그대로 "이름 · 역할" — aria-label.
+import { useState } from 'react';
 
+import { MOCK_EMPLOYEE_LABELS } from '../../mocks/hrLabelHandlers';
 import { mockAccounts } from '../../mocks/operators';
 import { messages as m } from '../../shared/messages';
 
@@ -21,62 +24,114 @@ function groupOf(a: MockAccount): GroupId {
 }
 
 const roleText = (a: MockAccount) => (a.roles.length > 0 ? a.roles.map((r) => m.shell.roleName[r] ?? r) : a.centers).join(', ');
+const employeeNo = (a: MockAccount) => MOCK_EMPLOYEE_LABELS[a.operatorId]?.employeeNo ?? '';
+
+function matches(a: MockAccount, needle: string) {
+  if (needle === '') return true;
+  const hay = [a.label, MOCK_EMPLOYEE_LABELS[a.operatorId]?.name ?? '', employeeNo(a), roleText(a), ...a.roles, ...a.centers].join(' ').toLowerCase();
+  return hay.includes(needle);
+}
+
+const Chevron = ({ dir = 'right' }: { dir?: 'right' | 'left' }) => (
+  <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0 fill-none stroke-current opacity-50" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d={dir === 'right' ? 'm9 6 6 6-6 6' : 'm15 6-6 6 6 6'} />
+  </svg>
+);
+
+function SearchBox({ value, onChange, autoFocus }: { value: string; onChange: (v: string) => void; autoFocus?: boolean }) {
+  return (
+    <label className="input input-sm w-full">
+      <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0 fill-none stroke-current opacity-50" strokeWidth={2} strokeLinecap="round" aria-hidden="true">
+        <circle cx="11" cy="11" r="7" />
+        <path d="m20 20-3.5-3.5" />
+      </svg>
+      {/* 역할 안으로 들어가면 바로 사번을 치게 autoFocus */}
+      <input type="search" value={value} onChange={(e) => onChange(e.target.value)} placeholder={m.login.searchPlaceholder} aria-label={m.login.searchLabel} className="grow" autoFocus={autoFocus} />
+    </label>
+  );
+}
+
+function AccountList({ accounts, disabled, onPick, showRole }: { accounts: readonly MockAccount[]; disabled: boolean; onPick: (id: string) => void; showRole: boolean }) {
+  if (accounts.length === 0) {
+    return <p className="rounded-box border border-dashed border-base-300 p-4 text-center text-sm text-base-content/60">{m.login.noMatch}</p>;
+  }
+  return (
+    <ul className="max-h-80 divide-y divide-base-300 overflow-y-auto rounded-box border border-base-300">
+      {accounts.map((a) => (
+        <li key={a.operatorId}>
+          <button
+            type="button"
+            aria-label={`${a.label} · ${a.roles.join(', ') || a.centers.join(', ')}`}
+            className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-primary/5 focus-visible:bg-primary/10 focus-visible:outline-none disabled:opacity-50"
+            disabled={disabled}
+            onClick={() => onPick(a.operatorId)}
+          >
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-sm font-semibold">{a.label}</span>
+              {showRole && <span className="block truncate text-xs text-base-content/60">{roleText(a)}</span>}
+            </span>
+            <span className="shrink-0 font-mono text-xs text-base-content/60">{employeeNo(a)}</span>
+            <Chevron />
+          </button>
+        </li>
+      ))}
+    </ul>
+  );
+}
 
 export function MockAccountPicker({ disabled, onPick }: { disabled: boolean; onPick: (operatorId: string) => void }) {
-  const [group, setGroup] = useState<GroupId | 'all'>('all');
+  const [group, setGroup] = useState<GroupId | null>(null);
   const [q, setQ] = useState('');
-  const counts = useMemo(
-    () => Object.fromEntries(GROUPS.map((g) => [g, mockAccounts.filter((a) => groupOf(a) === g).length])) as Record<GroupId, number>,
-    [],
-  );
   const needle = q.trim().toLowerCase();
-  const shown = mockAccounts.filter(
-    (a) =>
-      (group === 'all' || groupOf(a) === group) &&
-      (needle === '' || `${a.label} ${roleText(a)} ${a.roles.join(' ')} ${a.centers.join(' ')}`.toLowerCase().includes(needle)),
-  );
 
+  // ② 역할 안
+  if (group) {
+    const inGroup = mockAccounts.filter((a) => groupOf(a) === group);
+    return (
+      <div className="space-y-3">
+        <button
+          type="button"
+          className="btn btn-ghost btn-sm -ml-2 gap-1 px-2"
+          onClick={() => {
+            setGroup(null);
+            setQ('');
+          }}
+        >
+          <Chevron dir="left" />
+          {m.login.backToGroups}
+        </button>
+        <h2 className="text-base font-bold">
+          {m.login.groups[group]}
+          <span className="ml-2 text-sm font-normal text-base-content/60">{m.login.count(inGroup.length)}</span>
+        </h2>
+        <SearchBox value={q} onChange={setQ} autoFocus />
+        <AccountList accounts={inGroup.filter((a) => matches(a, needle))} disabled={disabled} onPick={onPick} showRole={false} />
+      </div>
+    );
+  }
+
+  // ① 역할 목록(검색하면 전체에서 바로)
   return (
     <div className="space-y-3">
       <p className="text-sm font-semibold">{m.login.mockAccounts}</p>
-      <label className="input input-sm w-full">
-        <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0 fill-none stroke-current opacity-50" strokeWidth={2} strokeLinecap="round" aria-hidden="true">
-          <circle cx="11" cy="11" r="7" />
-          <path d="m20 20-3.5-3.5" />
-        </svg>
-        <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder={m.login.searchPlaceholder} aria-label={m.login.searchLabel} className="grow" />
-      </label>
-      <div role="tablist" aria-label={m.login.groupsLabel} className="tabs tabs-box tabs-sm flex-wrap">
-        {(['all', ...GROUPS] as const)
-          .filter((g) => g === 'all' || counts[g] > 0)
-          .map((g) => (
-            <button key={g} type="button" role="tab" aria-selected={group === g} className={`tab ${group === g ? 'tab-active' : ''}`} onClick={() => setGroup(g)}>
-              {g === 'all' ? m.login.groupAll : m.login.groups[g]}
-              <span className="ml-1 text-xs opacity-60">{g === 'all' ? mockAccounts.length : counts[g]}</span>
-            </button>
-          ))}
-      </div>
-      {shown.length === 0 ? (
-        <p className="rounded-box border border-dashed border-base-300 p-4 text-center text-sm text-base-content/60">{m.login.noMatch}</p>
+      <SearchBox value={q} onChange={setQ} />
+      {needle !== '' ? (
+        <AccountList accounts={mockAccounts.filter((a) => matches(a, needle))} disabled={disabled} onPick={onPick} showRole />
       ) : (
-        <ul className="max-h-80 divide-y divide-base-300 overflow-y-auto rounded-box border border-base-300">
-          {shown.map((a) => (
-            <li key={a.operatorId}>
-              <button
-                type="button"
-                aria-label={`${a.label} · ${a.roles.join(', ') || a.centers.join(', ')}`}
-                className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-primary/5 focus-visible:bg-primary/10 focus-visible:outline-none disabled:opacity-50"
-                disabled={disabled}
-                onClick={() => onPick(a.operatorId)}
-              >
-                <span className="min-w-0 flex-1 truncate text-sm font-semibold">{a.label}</span>
-                <span className="min-w-0 truncate text-xs text-base-content/60">{roleText(a)}</span>
-                <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0 fill-none stroke-current opacity-40" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <path d="m9 6 6 6-6 6" />
-                </svg>
-              </button>
-            </li>
-          ))}
+        <ul className="divide-y divide-base-300 rounded-box border border-base-300" aria-label={m.login.groupsLabel}>
+          {GROUPS.map((g) => {
+            const n = mockAccounts.filter((a) => groupOf(a) === g).length;
+            if (n === 0) return null;
+            return (
+              <li key={g}>
+                <button type="button" className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-primary/5 focus-visible:bg-primary/10 focus-visible:outline-none" onClick={() => setGroup(g)}>
+                  <span className="flex-1 text-sm font-semibold">{m.login.groups[g]}</span>
+                  <span className="text-xs text-base-content/60">{m.login.count(n)}</span>
+                  <Chevron />
+                </button>
+              </li>
+            );
+          })}
         </ul>
       )}
     </div>
