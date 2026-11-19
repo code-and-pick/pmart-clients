@@ -31,7 +31,7 @@ export function ZeroResultKeywordsPage() {
 
   return (
     <section className="max-w-5xl space-y-4">
-      <PageHeader title={m.title} description={m.intro} />
+      <PageHeader title={m.title} />
       <div className="flex flex-wrap items-center gap-3 rounded-box border border-base-300 bg-base-100 px-4 py-3 text-sm shadow-sm">
         <span className="text-xs font-medium text-base-content/55">{m.period}</span>
         <div className="join" role="group" aria-label={m.period}>
@@ -48,7 +48,6 @@ export function ZeroResultKeywordsPage() {
             </button>
           ))}
         </div>
-        <span className="text-xs text-base-content/50">{m.periodHint}</span>
       </div>
       <QueryState state={toUiState(query)} onRetry={() => void query.refetch()}>
         {(r) => {
@@ -98,7 +97,6 @@ export function ZeroResultKeywordsPage() {
                   </table>
                 </div>
               )}
-              <p className="border-t border-base-300 px-4 py-3 text-xs text-base-content/60">{m.next}</p>
             </section>
           );
         }}

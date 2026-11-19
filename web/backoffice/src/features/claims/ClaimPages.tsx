@@ -9,7 +9,7 @@ import { request } from '@pmart/web-core';
 import { QueryState, toUiState, uiStateFromError } from '@pmart/web-ui';
 import type { components } from '../../api/generated/claim';
 import { useApi } from '../../app/ApiContext';
-import { ChipGroup, CodeLabel, DataTable, DetailHeader, GuideBox, NextAction, Notice, PageHeader, ResultBar, SearchPanel, SearchRow, Section, StatCard, StatStrip, StatusBadge, type Tone } from '../../shared/admin';
+import { ChipGroup, CodeLabel, DataTable, DetailHeader, NextAction, Notice, PageHeader, ResultBar, SearchPanel, SearchRow, Section, StatCard, StatStrip, StatusBadge, type Tone } from '../../shared/admin';
 import { EmptyBox, KindChip, ListFoot, SideFields, When } from '../lookup/parts';
 import { DisplayNumber, SystemNumbers } from '../../shared/displayNumber';
 import { SavedViews } from '../../shared/SavedViews';
@@ -293,14 +293,12 @@ export function ClaimListPage() {
     <section className="space-y-4">
       <PageHeader
         title={m.claims.title}
-        description={m.claims.intro}
         actions={
           <Link className="btn btn-sm" to="/return-intake">
             {cl.newReturn}
           </Link>
         }
       />
-      <GuideBox title={cl.guideTitle} items={cl.guide} storeKey="claims" testId="claim-guide" />
       <div className="space-y-1.5">
         <StatStrip label={cl.stagesLabel} testId="claim-stages">
           <StatCard layout="row" label={cl.all} value={recent.isPending ? '…' : `${recentItems.length}${more ? '+' : ''}`} to={stageTo('')} active={!stage} testId="claim-stage-all" />
@@ -312,7 +310,6 @@ export function ClaimListPage() {
                 key={st}
                 layout="row"
                 label={cl.stage[st]}
-                hint={cl.stageHint[st]}
                 value={v}
                 tone={has ? (st === 'contact' ? 'error' : st === 'opened' ? 'warning' : st === 'progress' ? 'info' : undefined) : undefined}
                 to={stageTo(st)}

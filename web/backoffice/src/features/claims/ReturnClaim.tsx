@@ -248,7 +248,7 @@ export function ReturnIntakePage() {
   const [draft, setDraft] = useState(orderId);
   return (
     <section className="max-w-7xl space-y-4">
-      <PageHeader title={m.title} description={m.intro} />
+      <PageHeader title={m.title} />
       {/* 화면(2026-11-18): 주문 불러오기 띠 → 두 칸 접수 양식(① 품목 ② 사유 | ③ 본인 확인·접수) */}
       <form
         className="flex flex-wrap items-center gap-3 rounded-box border border-base-300 bg-base-100 px-4 py-3 text-sm shadow-sm"

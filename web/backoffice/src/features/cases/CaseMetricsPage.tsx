@@ -42,7 +42,6 @@ export function CaseMetricsPage() {
     <section className="max-w-6xl space-y-4">
       <PageHeader
         title={m.title}
-        description={m.intro}
         actions={
           <button type="button" className="btn btn-sm border-base-300 bg-base-100" disabled={query.isFetching} onClick={() => void query.refetch()}>
             {m.refresh}
@@ -161,7 +160,6 @@ export function CaseMetricsPage() {
                   </Section>
                 </div>
               </div>
-              <p className="text-xs text-base-content/60">{m.noRates}</p>
             </div>
           );
         }}

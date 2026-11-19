@@ -17,7 +17,7 @@ import { toUiState } from '@pmart/web-ui';
 import { useCommand } from '@pmart/web-ui';
 import { RequestApproval } from '../approvals/RequestApproval';
 import { DraftProblems } from './ProductDraftPage';
-import { NextAction, PageHeader, StatusBadge, type Tone, GuideBox } from '../../shared/admin';
+import { NextAction, PageHeader, StatusBadge, type Tone } from '../../shared/admin';
 import { Card, JumpLink, MiniStat, Steps, tableClass, TitleWithId } from './parts';
 
 const REVIEW_TONE: Readonly<Record<string, Tone>> = {
@@ -139,12 +139,8 @@ export function ZipUpload({
             className="file-input file-input-sm w-full max-w-sm"
             onChange={(e) => setFile(e.target.files?.[0] ?? null)}
           />
-          <span className="text-xs text-base-content/55">{file ? m.products.zipChosen(file.name, Math.max(1, Math.round(file.size / 1024))) : m.products.zipHint}</span>
+          <span className="text-xs text-base-content/55">{file ? m.products.zipChosen(file.name, Math.max(1, Math.round(file.size / 1024))) : null}</span>
         </label>
-      </div>
-      <div className="grid gap-3 py-4 md:grid-cols-[14rem_1fr]">
-        <p className="text-sm font-medium">{u.step2}</p>
-        <p className="text-sm text-base-content/65">{u.step2Body}</p>
       </div>
       <div className="flex justify-center pt-5">
         <button type="button" className="btn btn-primary gap-2 px-8" disabled={!file || busy} onClick={() => file && onUpload(file)}>
@@ -160,14 +156,13 @@ export function ZipUpload({
 
 /**
  * 올리기 화면 공통 짜임(상품·콘텐츠·가격 일괄 등록) — 2026-11-19 쿠팡 윙 "상품 일괄등록" 참고:
- * 화면 너비 그대로, 맨 위 주황 주의 띠(지금 안내 문구) → "파일 올리기 요청" 접는 상자(단계 표시 · 번호 줄 · 큰 단추) → 아래 [주의] 한 줄.
+ * 화면 너비 그대로 "파일 올리기 요청" 접는 상자(단계 표시 · 번호 줄 · 큰 단추). 주의 띠·[주의] 한 줄은 뺐다(2026-11-20 사용자 "쓸데없는 말 다 지워" — 단계 표시로 흐름이 보인다).
  */
-export function UploadLayout({ steps, intro, children, cautions = [] }: { readonly steps: readonly string[]; readonly intro: string; readonly children: ReactNode; readonly cautions?: readonly string[] }) {
+export function UploadLayout({ steps, children }: { readonly steps: readonly string[]; readonly children: ReactNode }) {
   const u = m.products.uploadView;
   const [open, setOpen] = useState(true);
   return (
     <div className="space-y-4">
-      <GuideBox tone="warning" title={u.cautionTitle} items={[intro, ...cautions]} storeKey={`upload-${steps.join('-')}`} testId="upload-caution" />
       <section className="rounded-box border border-base-300 bg-base-100 shadow-sm" aria-label={u.sectionTitle}>
         <button type="button" className="flex w-full flex-wrap items-center justify-between gap-3 border-b border-base-300 px-6 py-4 text-left" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
           <span className="text-lg font-semibold">{u.sectionTitle}</span>
@@ -180,7 +175,6 @@ export function UploadLayout({ steps, intro, children, cautions = [] }: { readon
         </button>
         {open && <div className="space-y-3 px-6 pb-5">{children}</div>}
       </section>
-      <p className="text-sm font-medium text-error">{u.notice}</p>
     </div>
   );
 }
@@ -205,7 +199,7 @@ export function NewProductImportPage() {
   return (
     <section className="space-y-4">
       <PageHeader title={m.products.importTitle} />
-      <UploadLayout steps={m.products.importSteps} intro={m.products.importIntro}>
+      <UploadLayout steps={m.products.importSteps}>
         <ZipUpload busy={upload.busy} onUpload={(file) => void upload.run(file)} />
         <CommandFeedback command={upload} />
       </UploadLayout>

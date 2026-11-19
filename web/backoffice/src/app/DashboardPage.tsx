@@ -135,7 +135,6 @@ function SlaCard({ from, to, days }: { readonly from: string; readonly to: strin
             })}
           </div>
         )}
-        {import.meta.env.VITE_PMART_ENV !== 'mock' && <p className="text-[11px] text-base-content/45">{m.slaLanNote}</p>}
       </div>
     );
   }
@@ -243,7 +242,6 @@ export function DashboardPage() {
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">{m.hello(hour)}</h1>
-          <p className="text-sm text-base-content/60">{m.intro(today)}</p>
         </div>
         <RefreshBar />
       </header>
@@ -255,7 +253,6 @@ export function DashboardPage() {
             <h2 id="dash-my-work" className="text-sm font-bold text-base-content/70">
               {m.myWork}
             </h2>
-            <span className="text-xs text-base-content/45">{m.myWorkHint}</span>
           </div>
           <div className="grid grid-cols-2 gap-3 md:grid-cols-3 2xl:grid-cols-6">{tasks}</div>
         </section>

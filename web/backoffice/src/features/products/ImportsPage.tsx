@@ -92,8 +92,8 @@ export function ImportsPage() {
   const shown = PARTS.filter((p) => batchOf(p) !== '' || cmds[p].phase.kind !== 'idle');
   return (
     <section className="space-y-4">
-      <PageHeader title={m.title} description={m.intro} />
-      <UploadLayout steps={m.steps} intro={m.caution} cautions={[m.cautionOrder]}>
+      <PageHeader title={m.title} />
+      <UploadLayout steps={m.steps}>
         <fieldset className="flex flex-wrap items-center gap-4 py-3" aria-label={m.pickLabel} data-testid="imports-pick">
           <legend className="sr-only">{m.pickLabel}</legend>
           <span className="text-sm font-medium">{m.pickLabel}</span>
@@ -116,7 +116,6 @@ export function ImportsPage() {
       {shown.length > 0 && (
         <section aria-label={m.resultTitle} className="space-y-3" data-testid="imports-results">
           <h2 className="text-lg font-bold">{m.resultTitle}</h2>
-          <p className="text-sm text-base-content/60">{m.resultIntro}</p>
           <div className="grid gap-3 lg:grid-cols-3">
             {shown.map((p, i) => (
               <article key={p} className="space-y-3 rounded-box border border-base-300 bg-base-100 p-4 shadow-sm" data-testid={`imports-result-${p}`}>

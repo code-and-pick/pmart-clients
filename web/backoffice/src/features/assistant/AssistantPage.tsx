@@ -41,7 +41,6 @@ function Header() {
             {port.mock && <span className="badge badge-warning ml-2 align-middle">{m.assistant.mockBadge}</span>}
           </>
         }
-        description={m.assistant.intro}
       />
     </>
   );
@@ -150,7 +149,6 @@ function History({ activeId }: { readonly activeId: string | null }) {
             {m.assistant.history}
             {items.length > 0 && <span className="badge badge-sm badge-ghost tabular-nums">{query.hasNextPage ? `${items.length}+` : items.length}</span>}
           </h2>
-          <p className="text-xs text-base-content/55">{m.assistant.historyNote}</p>
         </div>
       </div>
       {query.isError && items.length === 0 ? (

@@ -20,7 +20,7 @@ import { messages } from '../../shared/messages';
 import { label, when, won } from '../../shared/ops';
 import { SourceStamps } from '../../shared/SourceStamps';
 import { FieldWork } from './FieldSection';
-import { ChipGroup, CodeLabel, Notice, PageHeader } from '../../shared/admin';
+import { ChipGroup, CodeLabel, PageHeader } from '../../shared/admin';
 import { DisplayNumber, SystemNumbers } from '../../shared/displayNumber';
 import { EmptyBox, Icon, type IconName } from './parts';
 
@@ -189,7 +189,7 @@ export function UnifiedLookupPage() {
   // 화면(2026-11-18): 큰 검색 상자(종류 칩 + 번호) → 찾은 대상 띠 → 두 칸(왼쪽 주문·현장·접수 건, 오른쪽 배송·배차·클레임·문의)
   return (
     <section className="max-w-7xl space-y-4">
-      <PageHeader title={m.title} description={m.intro} />
+      <PageHeader title={m.title} />
       <form
         className="space-y-3 rounded-box border border-base-300 bg-base-100 px-4 py-4 shadow-sm"
         aria-label={m.search}
@@ -211,7 +211,6 @@ export function UnifiedLookupPage() {
             {m.search}
           </button>
         </div>
-        <p className="text-xs text-base-content/55">{m.qHint}</p>
       </form>
       {q ? (
         codeFailure ? (
@@ -223,11 +222,8 @@ export function UnifiedLookupPage() {
         )
       ) : (
         // 찾기 전(2026-11-18): 넣을 번호 모양 + 최근 본 주문·배송·접수 건
-        <StartGuide hint={m.startHint} formats={messages.startGuide.lookupFormats} recentKinds={['order', 'delivery', 'case']} />
+        <StartGuide recentKinds={['order', 'delivery', 'case']} />
       )}
-      <Notice>
-        {m.piiNote} {m.notYet}
-      </Notice>
     </section>
   );
 }

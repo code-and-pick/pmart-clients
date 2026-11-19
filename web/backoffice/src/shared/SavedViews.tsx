@@ -71,7 +71,6 @@ export function SavedViews({ listKey }: { readonly listKey: string }) {
   return (
     <div className="flex flex-wrap items-center gap-2 text-sm" data-testid="saved-views" aria-label={m.title}>
       <span className="text-xs font-medium text-base-content/55">{m.title}</span>
-      {views.length === 0 && !naming && <span className="text-xs text-base-content/40">{m.empty}</span>}
       {views.map((v) => {
         const on = v.search === current;
         return (

@@ -25,17 +25,18 @@ describe('문의 미답변 현황', () => {
   it('접수(미답변)만 기다린 시간으로 — 24시간 이내 1 · 24~72시간 1 · 72시간 넘음 2(빨강)', async () => {
     serve();
     renderAt('/inquiries', as.cs);
-    expect(await screen.findByTestId('inquiry-guide')).toBeInTheDocument();
-    await waitFor(() => expect(screen.getByTestId('inquiry-wait-gt72')).toHaveTextContent(/기다림2$/)); // 끝 숫자(이름의 72 와 헷갈리지 않게)
-    expect(screen.getByTestId('inquiry-wait-lt24')).toHaveTextContent(/하루 안1$/);
-    expect(screen.getByTestId('inquiry-wait-h24to72')).toHaveTextContent(/기다림1$/);
+    // 카드 밑 설명·안내 상자는 없다(2026-11-20) — 카드 이름 뒤에 숫자
+    await waitFor(() => expect(screen.getByTestId('inquiry-wait-gt72')).toHaveTextContent(/넘음2$/)); // 끝 숫자(이름의 72 와 헷갈리지 않게)
+    expect(screen.queryByTestId('inquiry-guide')).not.toBeInTheDocument();
+    expect(screen.getByTestId('inquiry-wait-lt24')).toHaveTextContent(/이내1$/);
+    expect(screen.getByTestId('inquiry-wait-h24to72')).toHaveTextContent(/시간1$/);
   });
 
   it('"72시간 넘음"을 누르면 그 문의만, 줄에 "N일째 기다림"', async () => {
     const user = userEvent.setup();
     serve();
     renderAt('/inquiries', as.cs);
-    await waitFor(() => expect(screen.getByTestId('inquiry-wait-gt72')).toHaveTextContent(/기다림2$/)); // 끝 숫자(이름의 72 와 헷갈리지 않게)
+    await waitFor(() => expect(screen.getByTestId('inquiry-wait-gt72')).toHaveTextContent(/넘음2$/)); // 끝 숫자(이름의 72 와 헷갈리지 않게)
     await user.click(screen.getByTestId('inquiry-wait-gt72'));
     await waitFor(() => expect(screen.getAllByTestId('inquiry-row')).toHaveLength(2));
     for (const r of screen.getAllByTestId('inquiry-row')) expect(within(r).getByTestId('inquiry-wait')).toHaveTextContent(/일째 기다림/);

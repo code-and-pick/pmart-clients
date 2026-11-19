@@ -156,7 +156,7 @@ export function PiiAccessLogListPage() {
 
   return (
     <section className="space-y-4">
-      <PageHeader title={m.title} description={m.intro} />
+      <PageHeader title={m.title} />
       {/* 내 보기(2026-11-18 Saleor 참고) — 지금 주소 조건을 이름 붙여 저장 */}
       <SavedViews listKey="pii-access" />
       <FilterForm key={params.toString()} initial={filters} onApply={(f) => apply(f)} />

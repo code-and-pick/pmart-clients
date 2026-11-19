@@ -11,7 +11,7 @@ import { request } from '@pmart/web-core';
 import { formatKrw, formatSeoul } from '@pmart/web-ui';
 import type { Price, ProductDetail as Product } from '../../api/models';
 import { useApi } from '../../app/ApiContext';
-import { DataTable, GuideBox, StatCard, StatStrip, StatusBadge, type Tone } from '../../shared/admin';
+import { DataTable, StatCard, StatStrip, StatusBadge, type Tone } from '../../shared/admin';
 import { messages as m } from '../../shared/messages';
 import { LineIcon } from '../products/parts';
 
@@ -156,8 +156,6 @@ export function PriceList({ onChange, onOpen, openSku }: { readonly onChange: (s
         <p className="text-xs text-base-content/50">{l.basis(products.data?.pages.flatMap((p) => p.items ?? []).length ?? 0, Boolean(products.hasNextPage))}</p>
       </div>
 
-      {/* 안내 상자(접기) — 공통 GuideBox */}
-      <GuideBox title={l.noticeTitle} items={l.notice} storeKey="prices" testId="price-notice" />
 
       {/* 회색 검색 띠 — 바로 걸러진다(불러온 목록 안에서) */}
       <div className="flex flex-wrap items-end gap-3 rounded-box bg-base-300/40 px-4 py-3" role="group" aria-label={l.filters}>

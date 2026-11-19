@@ -10,12 +10,12 @@ describe.each([
   ['/contents/import', as.md],
   ['/prices/import', as.md],
 ])('%s 올리기 화면', (path, who) => {
-  it('주황 주의 띠·"파일 올리기 요청" 상자·[주의] 한 줄, 파일을 고르기 전엔 올리기 단추가 꺼져 있다', async () => {
+  it('"파일 올리기 요청" 상자만(주의 띠·[주의] 줄 없음, 2026-11-20), 파일을 고르기 전엔 올리기 단추가 꺼져 있다', async () => {
     const user = userEvent.setup();
     renderAt(path, who);
-    expect(await screen.findByTestId('upload-caution')).toHaveTextContent('올리기 전에 확인해 주세요');
-    expect(screen.getByRole('region', { name: '파일 올리기 요청' })).toBeInTheDocument();
-    expect(screen.getByText(/^\[주의\]/)).toBeInTheDocument();
+    expect(await screen.findByRole('region', { name: '파일 올리기 요청' })).toBeInTheDocument();
+    expect(screen.queryByTestId('upload-caution')).not.toBeInTheDocument();
+    expect(screen.queryByText(/^\[주의\]/)).not.toBeInTheDocument();
     const button = screen.getByRole('button', { name: '업로드·검증' });
     expect(button).toBeDisabled();
     await user.upload(screen.getByLabelText('seed-v1.zip'), new File(['x'], 'seed-v1.zip', { type: 'application/zip' }));

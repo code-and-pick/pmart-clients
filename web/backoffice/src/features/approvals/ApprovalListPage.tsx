@@ -65,7 +65,7 @@ export function ApprovalListPage() {
 
   return (
     <section className="space-y-4">
-      <PageHeader title={m.approvals.title} description={m.approvals.intro} />
+      <PageHeader title={m.approvals.title} />
       {/* 숫자 띠(2026-11-19 관제 형식) — 심사 대기 유형별, 대시보드와 같은 조회. 누르면 그 유형의 심사 대기 */}
       <ApprovalStrip type={type} reviewState={reviewState} />
       {/* 내 보기(2026-11-18 Saleor 참고) — 지금 주소 조건을 이름 붙여 저장 */}

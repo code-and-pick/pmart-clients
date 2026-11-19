@@ -272,7 +272,7 @@ function FileBox({ label, file, children }: { readonly label: string; readonly f
     <label className={`flex cursor-pointer flex-col gap-2 rounded-lg border-2 border-dashed px-4 py-4 text-sm transition-colors ${file ? 'border-primary/40 bg-primary/5' : 'border-base-300 hover:border-primary/40 hover:bg-base-200/60'}`}>
       <span className="font-medium">{label}</span>
       {children}
-      <span className="text-xs text-base-content/50">{file ? m.categories.fileChosen(file.name) : m.categories.fileHint}</span>
+      <span className="text-xs text-base-content/50">{file ? m.categories.fileChosen(file.name) : null}</span>
     </label>
   );
 }
@@ -315,7 +315,6 @@ function DraftUpload() {
     <div className="space-y-4 rounded-box border border-base-300 bg-base-100 p-5 shadow-sm" data-testid="draft-upload">
       <div className="space-y-1">
         <h2 className="text-lg font-bold">{m.categories.upload}</h2>
-        <p className="text-sm text-base-content/60">{m.categories.uploadHint}</p>
       </div>
       <Steps now={create.phase.kind === 'done' ? (create.phase.result.approvalRequest ? 2 : 1) : 0} />
       <div className="grid gap-3 sm:grid-cols-2">
@@ -428,7 +427,6 @@ function AdditionUpload() {
           <h2 className="text-lg font-bold">{m.categories.additionTitle}</h2>
           <span className="badge badge-sm badge-soft badge-accent">{m.categories.recommended}</span>
         </div>
-        <p className="text-sm text-base-content/60">{m.categories.additionHint}</p>
       </div>
       <Steps now={create.phase.kind === 'done' ? (create.phase.result.approvalRequest ? 2 : 1) : 0} />
       <FileBox label={m.categories.additionFile} file={file}>
@@ -498,11 +496,10 @@ function AdditionUpload() {
 export function CategoryTreePage() {
   return (
     <section className="space-y-5">
-      <PageHeader title={m.categories.title} description={m.categories.intro} />
+      <PageHeader title={m.categories.title} />
       <TreeView />
       <div>
         <h2 className="mb-1 text-base font-bold">{m.categories.changeTitle}</h2>
-        <p className="mb-3 text-sm text-base-content/60">{m.categories.changeIntro}</p>
         <div className="grid gap-4 xl:grid-cols-2">
           <AdditionUpload />
           <DraftUpload />

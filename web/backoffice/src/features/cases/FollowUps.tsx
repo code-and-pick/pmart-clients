@@ -313,7 +313,6 @@ function AddForm({ c, onDone }: { readonly c: Case; readonly onDone: () => void 
           </span>
           {m.add}
         </h3>
-        <p className="mt-0.5 text-xs text-base-content/55">{m.addHint}</p>
       </div>
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         <label className={fieldLabel}>
@@ -417,10 +416,10 @@ export function CsFollowUpPage() {
   const resolvable = !done && state.kind === 'ready' ? (state.data.items ?? []).filter((o) => canResolve(o, 'CS', roles)).length : null;
   return (
     <section className="max-w-5xl space-y-4">
-      <PageHeader title={m.csTitle} description={m.csIntro} />
+      <PageHeader title={m.csTitle} />
       {resolvable !== null &&
         (resolvable > 0 ? (
-          <NextAction tone="warning" title={m.nextResolve(resolvable)} body={m.nextResolveBody} />
+          <NextAction tone="warning" title={m.nextResolve(resolvable)} />
         ) : (
           <NextAction tone="info" title={m.nextReadOnly} body={m.nextReadOnlyBody} />
         ))}

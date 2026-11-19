@@ -467,12 +467,11 @@ export function CaseListPage() {
   };
   return (
     <section className="space-y-4">
-      <PageHeader title={m.cases.title} description={m.cases.intro} />
+      <PageHeader title={m.cases.title} />
       {/* 숫자 띠(2026-11-19 관제 형식) — 탭 개수와 같은 조회, 종류를 골랐으면 숫자가 달라 숨긴다 */}
       {!kind && <CaseStrip tab={tab} />}
       {/* 내 보기(2026-11-18 Saleor 참고) — 지금 주소 조건을 이름 붙여 저장 */}
       <SavedViews listKey="cases" />
-      {admin && <p className="text-sm text-base-content/60">{m.cases.orderNote}</p>}
       {/* 한 카드(2026-11-18 이슈 트래커 목록처럼): 밑줄 탭 → 종류 거르기 줄 → 표 → 아래 쪽 넘기기 */}
       <div className="overflow-hidden rounded-box border border-base-300 bg-base-100 shadow-sm" data-testid="case-list-card">
         <div role="tablist" className="flex gap-1 overflow-x-auto overflow-y-hidden border-b border-base-300 px-3">
@@ -1432,7 +1431,7 @@ export function NewMisdeliveryPage() {
   const setAddr = (k: keyof Address, val: string) => setAddress((a) => ({ ...a, [k]: val }));
   return (
     <section className="max-w-5xl space-y-4">
-      <PageHeader title={m.cases.newTitle} description={m.cases.newIntro} back={{ to: '/cases', label: m.cases.back }} />
+      <PageHeader title={m.cases.newTitle} back={{ to: '/cases', label: m.cases.back }} />
       {/* 단계 상자(2026-11-18): ① 배송·요약 ② 누구 잘못 ③ 고객이 고른 처리(+실제 주소) ④ 근거 — 오른쪽은 고른 처리 안내 */}
       <form
         className="grid items-start gap-4 lg:grid-cols-3"
@@ -1541,12 +1540,10 @@ export function NewMisdeliveryPage() {
         {/* 오른쪽 — 고른 처리의 안내 + 접수 버튼 */}
         <aside className="min-w-0 space-y-3 rounded-box border border-base-300 bg-base-100 p-4 text-sm shadow-sm lg:sticky lg:top-4">
           <h2 className="font-semibold">{m.cases.newSideTitle}</h2>
-          {fault !== '' ? (
+          {fault !== '' && (
             <p className={`rounded-box px-3 py-2 text-xs ${fault === 'CUSTOMER' ? 'bg-warning/10 text-warning' : 'bg-base-200/60 text-base-content/75'}`} data-testid="choice-note">
               {choiceNote(fault, choice)}
             </p>
-          ) : (
-            <p className="text-xs text-base-content/55">{m.cases.newSidePick}</p>
           )}
           <p className="text-xs text-base-content/60">{m.cases.piiHint}</p>
           <button type="submit" className="btn btn-primary btn-sm w-full" disabled={!ok || open.busy}>

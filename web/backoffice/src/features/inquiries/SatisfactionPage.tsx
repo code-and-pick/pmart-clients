@@ -66,7 +66,7 @@ export function SatisfactionPage() {
 
   return (
     <section className="max-w-5xl space-y-4">
-      <PageHeader title={m.title} description={m.intro} />
+      <PageHeader title={m.title} />
       {/* 기간 줄 — 목록 화면 필터 줄과 같은 모양(항목명 위 작게, 버튼 오른쪽) */}
       <form
         className="flex flex-wrap items-end gap-x-5 gap-y-3 rounded-box border border-base-300 bg-base-100 px-4 py-3.5 text-sm shadow-sm"
@@ -88,7 +88,6 @@ export function SatisfactionPage() {
           <input type="date" className="input input-sm w-40 text-sm text-base-content" value={draft.to} max={today} onChange={(e) => setDraft((d) => ({ ...d, to: e.target.value }))} />
         </label>
         <div className="flex min-w-0 flex-col gap-0.5 pb-1">
-          <span className="text-xs text-base-content/55">{m.periodHint}</span>
           {draftProblem && <span className="text-xs text-error">{draftProblem}</span>}
         </div>
         <button type="submit" className="btn btn-sm btn-primary ml-auto min-w-20" disabled={draftProblem !== null}>
@@ -120,7 +119,6 @@ export function SatisfactionPage() {
               <section className="overflow-hidden rounded-box border border-base-300 bg-base-100 shadow-sm">
                 <div className="flex items-center justify-between gap-2 border-b border-base-300 px-4 py-3">
                   <h2 className="text-sm font-semibold">{m.byScore}</h2>
-                  <span className="text-xs text-base-content/50">{m.byScoreHint}</span>
                 </div>
                 <ul className="space-y-3 px-4 py-4 text-sm" aria-label={m.byScore}>
                   {(['5', '4', '3', '2', '1'] as const).map((k) => {
@@ -139,7 +137,6 @@ export function SatisfactionPage() {
                   })}
                 </ul>
               </section>
-              <p className="text-xs text-base-content/60">{m.notForAgents}</p>
             </div>
           );
         }}

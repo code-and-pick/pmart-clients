@@ -242,7 +242,7 @@ export function OrdersWeekChart({ days }: { readonly days: readonly string[] }) 
   const top = Math.max(4, Math.ceil(max / 4) * 4);
   const grid = [top, (top * 3) / 4, top / 2, top / 4, 0];
   return (
-    <Section title={m.ordersWeek} aside={<span className="text-xs text-base-content/50">{m.ordersWeekHint}</span>} testId="dash-orders-week">
+    <Section title={m.ordersWeek} testId="dash-orders-week">
       <div className="relative h-56 pl-8">
         {/* 눈금 */}
         <div className="pointer-events-none absolute inset-0 bottom-6 flex flex-col justify-between" aria-hidden="true">
@@ -449,7 +449,7 @@ export function MetricsPanel({ from, to }: { readonly from: string; readonly to:
     { key: 'soldOut', label: m.metrics.soldOut, note: m.metrics.soldOutNote },
   ];
   return (
-    <Section title={m.metrics.title} aside={<span className="text-xs text-base-content/50">{m.metrics.hint}</span>} testId="dash-metrics">
+    <Section title={m.metrics.title} testId="dash-metrics">
       {/* 칸 수는 이 상자 폭으로(2026-11-18 — 매출·통계 탭에서 최근 주문 옆 좁은 칸에 들어간다) */}
       <div className="@container">
       <div className="grid gap-3 @md:grid-cols-2 @4xl:grid-cols-5">
@@ -502,7 +502,6 @@ export function MetricsPanel({ from, to }: { readonly from: string; readonly to:
           <div key={c.key} className="rounded-lg border border-dashed border-base-300 bg-base-200/30 px-4 py-3" data-testid={`dash-metric-${c.key}`}>
             <p className="text-xs text-base-content/60">{c.label}</p>
             <p className="mt-0.5 text-xl font-bold text-base-content/40">{m.metrics.soon}</p>
-            <p className="text-[11px] text-base-content/45">{c.note}</p>
           </div>
         ))}
       </div>

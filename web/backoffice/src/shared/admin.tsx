@@ -62,7 +62,7 @@ function useGroupId(): string | null {
   return best?.id ?? null;
 }
 
-export function PageHeader({ title, description, actions, back }: { readonly title: ReactNode; readonly description?: ReactNode; readonly actions?: ReactNode; readonly back?: { readonly to: string; readonly label: string } }) {
+export function PageHeader({ title, actions, back }: { readonly title: ReactNode; readonly actions?: ReactNode; readonly back?: { readonly to: string; readonly label: string } }) {
   const group = useGroupId();
   return (
     <header className="space-y-1">
@@ -82,12 +82,7 @@ export function PageHeader({ title, description, actions, back }: { readonly tit
           )}
           <div className="min-w-0 space-y-1">
             <h1 className="text-xl font-bold tracking-tight">{title}</h1>
-            {/* 설명은 한 줄만 — 누르면 다 보인다(2026-11-18 사용자 "설명이 많아 값이 묻힌다") */}
-            {description && (
-              <details className="group max-w-3xl text-sm text-base-content/60">
-                <summary className="line-clamp-1 cursor-pointer list-none group-open:line-clamp-none hover:text-base-content/80">{description}</summary>
-              </details>
-            )}
+            {/* 제목 아래 설명 줄은 두지 않는다(2026-11-20 사용자 "쓸데없는 말 다 지워 — 안 적어도 알 수 있게") */}
           </div>
         </div>
         {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}

@@ -32,7 +32,7 @@ export function NewContentImportPage() {
   return (
     <section className="space-y-4">
       <PageHeader title={m.contents.importTitle} />
-      <UploadLayout steps={m.contents.importSteps} intro={m.contents.importIntro}>
+      <UploadLayout steps={m.contents.importSteps}>
         <ZipUpload busy={upload.busy} onUpload={(file) => void upload.run(file)} />
         <CommandFeedback command={upload} />
       </UploadLayout>

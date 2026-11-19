@@ -256,7 +256,6 @@ export function DeliveryOpenPage() {
       {/* 화면(2026-11-18 Shopify 목록처럼): 머리 오른쪽 "바로 열기" → 한 카드(빠른 보기 → 검색 조건 → 결과 줄·표 → 더 보기) */}
       <PageHeader
         title={m.deliveries.title}
-        description={m.deliveries.intro}
         actions={
           <form className="join" onSubmit={(e) => void open(e)} aria-label={m.deliveries.open}>
             <label className="input input-sm join-item w-60">
@@ -367,7 +366,7 @@ export function DeliveryOpenPage() {
         </QueryState>
       ) : (
         // 찾기 전(2026-11-18): 넣을 번호 모양 + 최근 본 배송
-        <StartGuide hint={m.deliveries.startHint} formats={m.startGuide.deliveryFormats} recentKinds={['delivery']} />
+        <StartGuide recentKinds={['delivery']} />
       )}
     </section>
   );
@@ -850,7 +849,7 @@ export function DeliveryDetailPage() {
       <SystemNumbers ids={[{ label: m.displayNumber.system.deliveryId, id: deliveryId }, { label: m.displayNumber.system.orderId, id: d?.orderId }, { label: m.displayNumber.system.riderId, id: d?.riderId }]} />
       {/* 다음 할 일 — 서버 수행 상태가 전달 실패 등록(FAILURE_REPORTED)일 때만: 확정·반려 칸으로 */}
       {admin && d?.state === 'FAILURE_REPORTED' && (
-        <NextAction tone="warning" title={m.deliveries.nextStep.failureTitle} body={m.deliveries.nextStep.failureBody}>
+        <NextAction tone="warning" title={m.deliveries.nextStep.failureTitle}>
           <a className="btn btn-sm btn-warning" href="#failure-decision">
             {m.deliveries.nextStep.failureGo}
           </a>

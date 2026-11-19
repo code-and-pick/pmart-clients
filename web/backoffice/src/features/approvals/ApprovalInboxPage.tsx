@@ -46,7 +46,7 @@ export function ApprovalInboxPage() {
   return (
     <section className="space-y-4">
       {/* 제목은 메뉴 이름과 같게(2026-11-20 화면 점검 — 승인함과 같은 제목이라 헷갈림) */}
-      <PageHeader title={m.nav.bffInbox} description={m.approvals.intro} />
+      <PageHeader title={m.nav.bffInbox} />
       <QueryState state={state} onRetry={() => void query.refetch()} emptyText={m.approvals.empty}>
         {(view) => {
           const items = view.items ?? [];

@@ -106,9 +106,6 @@ function StartChooser() {
     <section aria-label={c.title} className="space-y-3" data-testid="start-chooser">
       <div>
         <h2 className="text-lg font-bold">{c.title}</h2>
-        <p className="text-sm text-base-content/60">{c.intro}</p>
-        {/* 메뉴 정리(2026-11-19) — 콘텐츠만·가격만 바꿀 때 가는 곳 */}
-        <p className="text-xs text-base-content/50" data-testid="start-other">{c.other}</p>
       </div>
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
         {card('direct', 'M4 20h4L19 9l-4-4L4 16v4Zm11-15 4 4', c.direct, c.directBody, !pickBase, () => {
@@ -158,7 +155,6 @@ export function NewProductDraftPage() {
       {sameBaseAs === '' && <StartChooser />}
       <div id="product-form-start" className="scroll-mt-4">
         <Steps steps={m.products.draftSteps} now={0} />
-        <p className="text-xs text-base-content/55" data-testid="draft-after">{m.products.afterApproval}</p>
       </div>
       <div className="mx-auto max-w-5xl space-y-4">
         {sameBaseAs === '' ? (
@@ -282,7 +278,6 @@ export function ProductDraftPage() {
         {(d) => (
           <>
             <Steps steps={m.products.draftSteps} now={stepOf(d)} />
-            <p className="text-xs text-base-content/55">{m.products.afterApproval}</p>
             <DraftNextAction draft={d} />
             {/* 같은 기초상품에 붙는 새 상품(2026-11-18) — 심사하는 사람이 어느 기초상품의 다른 판매 단위인지 본다 */}
             {!d.input?.targetProductId && d.input?.product.baseProductId && (

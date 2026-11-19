@@ -12,7 +12,7 @@ describe('문의 만족도', () => {
     expect(screen.getByTestId('satisfaction-average')).toHaveTextContent('4.00점');
     const rows = screen.getAllByTestId('satisfaction-score');
     expect(rows.map((r) => r.textContent)).toEqual(['5점0건', '4점1건', '3점0건', '2점0건', '1점0건']);
-    expect(screen.getByText(/상담원별 순위·이름은 보여 주지 않아요/)).toBeInTheDocument();
+    expect(screen.queryByText(/상담원별 순위·이름은 보여 주지 않아요/)).not.toBeInTheDocument(); // 설명 줄은 뺐다(2026-11-20) — 서버가 상담원별 값을 주지 않는다
     const q = new URL(view.sent.find((r) => new URL(r.url).pathname.endsWith('/satisfaction-summary'))!.url).searchParams;
     expect(q.get('answeredFrom')).toBe('2026-11-10T00:00:00+09:00');
     expect(q.get('answeredTo')).toBe('2026-11-16T23:59:59+09:00');

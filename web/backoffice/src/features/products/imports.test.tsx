@@ -106,7 +106,6 @@ describe('상품 등록 — 사진·설명 입구', () => {
   it('등록 방식 고르기에 "사진·설명 등록" 카드 → 콘텐츠 등록 화면', async () => {
     const user = userEvent.setup();
     renderAt('/products/drafts/new', as.md);
-    expect(await screen.findByTestId('draft-after')).toHaveTextContent('사진·설명 → 가격');
     await user.click(await screen.findByTestId('start-photo'));
     expect(await screen.findByRole('heading', { name: messages.contents.draftTitle })).toBeInTheDocument();
   });

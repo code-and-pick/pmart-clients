@@ -130,7 +130,7 @@ export function OrderLookupPage() {
   // 관리자 형식(2026-11-18, PC 5 요청 — 모범 화면 rider-backoffice DeliveryPages): 머리말 → 검색 조건 상자 → 결과 줄 → 표 → 쪽
   return (
     <section className="space-y-5">
-      <PageHeader title={m.orders.title} description={m.orders.intro} />
+      <PageHeader title={m.orders.title} />
       {/* 내 보기(2026-11-18 Saleor 참고) — 지금 주소 조건을 이름 붙여 저장 */}
       <SavedViews listKey="orders" />
       <SearchPanel onSubmit={submit} onReset={reset} submitLabel={m.orders.search} resetLabel={m.orders.reset}>

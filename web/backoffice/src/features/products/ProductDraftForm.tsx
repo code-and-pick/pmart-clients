@@ -315,7 +315,6 @@ export function ProductDraftForm({
       <LeaveGuard when={dirty} />
       <Card
         title={m.products.formBasic}
-        hint={m.products.formBasicHint}
         aside={
           !edit && (
             <button type="button" className="btn btn-ghost btn-sm" onClick={clearAll}>
@@ -341,7 +340,6 @@ export function ProductDraftForm({
                 e.target.value = '';
               }}
             />
-            <span className="text-xs text-base-content/55">{m.products.jsonHint}</span>
           </label>
         )}
         {note && (
@@ -351,7 +349,7 @@ export function ProductDraftForm({
         )}
       </Card>
 
-      <Card title={m.products.formCategory} hint={m.products.formCategoryHint}>
+      <Card title={m.products.formCategory}>
         <div className="grid gap-3 md:grid-cols-2">
           <div className="flex flex-col gap-1 text-sm">
             <span className={`${fieldLabel} field-required`}>{m.products.primaryCategory}</span>
@@ -382,7 +380,6 @@ export function ProductDraftForm({
               selectedText={m.products.categoriesSelected}
               disabled={tree.isPending}
             />
-            <span className="text-xs text-base-content/60">{m.products.categoriesHint}</span>
           </div>
           {tree.error instanceof PmartFailure && (
             <div className="md:col-span-2">
@@ -442,7 +439,6 @@ export function ProductDraftForm({
 
       <Card
         title={m.products.skus}
-        hint={m.products.formSkuHint}
         aside={
           !edit && (
             <button type="button" className="btn btn-outline btn-xs" onClick={() => set('skus', [...v.skus, emptySku()])}>

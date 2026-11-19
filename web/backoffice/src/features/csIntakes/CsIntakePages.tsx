@@ -158,7 +158,7 @@ export function NewCsIntakePage() {
 
   return (
     <section className="max-w-6xl space-y-4">
-      <PageHeader title={m.title} description={m.intro} />
+      <PageHeader title={m.title} />
       <form className="grid items-start gap-4 text-sm lg:grid-cols-3" onSubmit={submit} aria-label={m.title}>
         <LeaveGuard when={dirty} />
         <div className="space-y-4 lg:col-span-2">
@@ -248,7 +248,7 @@ export function NewCsIntakePage() {
             </div>
           </Step>
 
-          <Step n={4} title={m.step.extra.title} hint={m.step.extra.hint} done={stepDone([m.need.consentType])} optional>
+          <Step n={4} title={m.step.extra.title} done={stepDone([m.need.consentType])} optional>
             <details className="rounded-box border border-base-300" open={d.consentOn}>
               <summary className="cursor-pointer px-3 py-2 font-medium">{m.consent}</summary>
               <div className="space-y-3 border-t border-base-300 px-3 py-3">
@@ -281,7 +281,6 @@ export function NewCsIntakePage() {
                 <input className={`input input-sm font-mono text-base-content ${field}`} maxLength={64} placeholder={messages.refField.caseHint} value={d.linkCaseId} disabled={locked} onChange={(e) => set('linkCaseId', e.target.value)} />
                 <RefStatus r={linkCase} kind="case" />
               </label>
-              <p className="mt-1 text-xs text-base-content/50">{m.linkHint}</p>
             </div>
           </Step>
         </div>

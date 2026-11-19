@@ -59,7 +59,7 @@ describe('상품 등록 방식 고르기', () => {
     expect(within(chooser).getByRole('heading', { name: '어떤 방식으로 등록하시겠어요?' })).toBeInTheDocument();
     expect(within(chooser).getAllByRole('button')).toHaveLength(5);
     await user.click(screen.getByTestId('start-import'));
-    expect(await screen.findByTestId('upload-caution')).toBeInTheDocument();
+    expect(await screen.findByRole('region', { name: '파일 올리기 요청' })).toBeInTheDocument();
   });
 });
 

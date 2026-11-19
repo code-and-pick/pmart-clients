@@ -8,9 +8,10 @@ import { as, renderAt } from '../../test/render';
 const rowOf = (text: string) => screen.getAllByTestId('claim-row').find((r) => r.textContent?.includes(text))!;
 
 describe('클레임 조회', () => {
-  it('안내 상자·단계 숫자 카드(서버 상태를 묶어 셈) — 회수 실패는 "고객 연락 필요"로 빨강', async () => {
+  it('단계 숫자 카드(서버 상태를 묶어 셈) — 회수 실패는 "고객 연락 필요"로 빨강, 안내 상자는 없다(2026-11-20)', async () => {
     renderAt('/claims', as.cs);
-    expect(await screen.findByTestId('claim-guide')).toHaveTextContent('조회만 해요');
+    await screen.findByTestId('claim-stage-all');
+    expect(screen.queryByTestId('claim-guide')).not.toBeInTheDocument();
     await waitFor(() => expect(screen.getByTestId('claim-stage-all')).toHaveTextContent('3'));
     expect(screen.getByTestId('claim-stage-contact')).toHaveTextContent('1');
     expect(screen.getByTestId('claim-stage-progress')).toHaveTextContent('1');

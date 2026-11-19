@@ -18,7 +18,7 @@ import { QueryState } from '@pmart/web-ui';
 import { toUiState } from '@pmart/web-ui';
 import { useCommand } from '@pmart/web-ui';
 import { ChipGroup, CodeLabel, PageHeader, StatusBadge } from '../../shared/admin';
-import { ago, EmptyState, LineIcon, tableClass, UnderlineTabs } from '../products/parts';
+import { ago, EmptyState, tableClass, UnderlineTabs } from '../products/parts';
 
 type CenterType = 'MFC' | 'CDC';
 
@@ -163,12 +163,7 @@ export function SkuHandlingPage() {
   const rows = query.data?.items ?? [];
   return (
     <section className="space-y-4">
-      <PageHeader title={m.handlings.title} description={m.handlings.intro} />
-      {/* 안내(센터 목록 API 없음·기본 OFF·판매 조건) */}
-      <div role="note" className="flex gap-3 rounded-box border border-info/30 bg-info/5 px-4 py-3 text-xs text-base-content/75">
-        <LineIcon name="store" className="h-5 w-5 shrink-0 text-info" />
-        <p>{`${m.handlings.centerIdHint} ${m.handlings.defaultOff} ${m.handlings.saleHint}`}</p>
-      </div>
+      <PageHeader title={m.handlings.title} />
 
       {/* 센터 고르기 줄 */}
       <div className="flex flex-wrap items-end gap-x-6 gap-y-3 rounded-box border border-base-300 bg-base-100 px-4 py-3 shadow-sm">

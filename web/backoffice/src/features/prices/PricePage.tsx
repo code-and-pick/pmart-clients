@@ -355,7 +355,6 @@ export function PricePage() {
     <section className="space-y-5">
       <PageHeader
         title={m.prices.title}
-        description={m.prices.intro}
         actions={
           <>
             {/* 오른쪽 위 바로 가기(쿠팡 윙처럼) — 요청한 가격 변경의 심사·반영은 승인함에서 */}

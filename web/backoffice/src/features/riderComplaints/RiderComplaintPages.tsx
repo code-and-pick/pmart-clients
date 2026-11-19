@@ -210,7 +210,6 @@ export function RiderComplaintListPage() {
     <section className="space-y-4">
       <PageHeader
         title={m.complaints.title}
-        description={m.complaints.intro}
         actions={
           <Link className="btn btn-primary btn-sm" to="/rider-complaints/new">
             {m.complaints.record}

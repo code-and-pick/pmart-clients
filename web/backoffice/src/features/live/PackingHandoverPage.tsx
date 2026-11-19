@@ -150,13 +150,9 @@ export function PackingHandoverPage() {
     <section className="space-y-4">
       <PageHeader
         title={m.title}
-        description={m.intro}
         actions={
           <>
-            <span className="flex items-center gap-1.5 text-xs text-base-content/55">
-              <span className={`h-2 w-2 rounded-full ${query.isFetching ? 'animate-pulse bg-info' : 'bg-success'}`} aria-hidden="true" />
-              {m.refreshNote}
-            </span>
+            <span className={`h-2 w-2 rounded-full ${query.isFetching ? 'animate-pulse bg-info' : 'bg-success'}`} title={m.refreshNote} aria-label={m.refreshNote} role="img" />
             <button type="button" className="btn btn-sm" disabled={!mfcId || query.isFetching} onClick={() => void query.refetch()}>
               {m.refresh}
             </button>

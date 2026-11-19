@@ -147,7 +147,7 @@ function ContentForm({
       }}
     >
       <LeaveGuard when={dirty} />
-      <Card title={m.contents.formProduct} hint={m.contents.formProductHint}>
+      <Card title={m.contents.formProduct}>
         <ProductPicker label={m.contents.productId} value={v.productId} onChange={(id, product) => void pickProduct(id, product)} onClear={clearAll} />
         {pickNote && (
           <span role="status" className={`text-sm ${pickNote.ok ? 'text-success' : 'text-error'}`}>
@@ -155,11 +155,11 @@ function ContentForm({
           </span>
         )}
       </Card>
-      <Card title={m.contents.formCustomer} hint={m.contents.formCustomerHint}>
+      <Card title={m.contents.formCustomer}>
         {field('name', m.contents.name)}
         {field('description', m.contents.description, true)}
       </Card>
-      <Card title={m.contents.formGuide} hint={m.contents.formGuideHint}>
+      <Card title={m.contents.formGuide}>
         {field('notices', m.contents.notices, true)}
         <label className="flex cursor-pointer flex-col gap-2 rounded-lg border-2 border-dashed border-base-300 px-4 py-3 text-sm transition-colors hover:border-primary/40 hover:bg-base-200/60">
           <span className="font-medium">{m.contents.noticesJson}</span>

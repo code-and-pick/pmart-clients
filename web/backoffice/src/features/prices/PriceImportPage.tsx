@@ -45,7 +45,7 @@ export function NewPriceImportPage() {
   return (
     <section className="space-y-4">
       <PageHeader title={m.prices.importTitle} />
-      <UploadLayout steps={m.prices.importSteps} intro={m.prices.importHint}>
+      <UploadLayout steps={m.prices.importSteps}>
         <ZipUpload busy={upload.busy} onUpload={(file) => void upload.run(file)} />
         <CommandFeedback command={upload} />
       </UploadLayout>

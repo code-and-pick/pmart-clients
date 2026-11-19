@@ -160,7 +160,6 @@ export function ProductListPage() {
     <section className="space-y-4">
       <PageHeader
         title={m.products.listTitle}
-        description={m.products.listIntro}
         actions={
           <>
             {/* 가격 관리는 메뉴 대신 여기서(2026-11-19 메뉴 정리) */}

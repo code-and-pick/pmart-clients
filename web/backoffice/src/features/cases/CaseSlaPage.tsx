@@ -17,7 +17,7 @@ import { useApi } from '../../app/ApiContext';
 import { messages } from '../../shared/messages';
 import { label } from '../../shared/ops';
 import { SourceStamps } from '../../shared/SourceStamps';
-import { ChipGroup, DataTable, Notice, PageHeader, SearchPanel, SearchRow, Section, StatCard } from '../../shared/admin';
+import { ChipGroup, DataTable, PageHeader, SearchPanel, SearchRow, Section, StatCard } from '../../shared/admin';
 
 const m = messages.caseSla;
 
@@ -153,14 +153,12 @@ export function CaseSlaPage() {
 
   return (
     <section className="max-w-5xl space-y-4">
-      <PageHeader title={m.title} description={m.intro} />
-      <Notice>{m.labData}</Notice>
+      <PageHeader title={m.title} />
       <SearchPanel onSubmit={submit} onReset={() => setDraft({ from: seoulToday(-6), to: seoulToday(), granularity: 'DAY', centerId: '' })} submitLabel={m.show} resetLabel={m.reset} label={m.title}>
         <SearchRow label={m.period}>
           <input type="date" aria-label={m.from} className="input input-sm w-40" value={draft.from} onChange={(e) => setDraft((d) => ({ ...d, from: e.target.value }))} />
           <span className="text-base-content/50">~</span>
           <input type="date" aria-label={m.to} className="input input-sm w-40" value={draft.to} onChange={(e) => setDraft((d) => ({ ...d, to: e.target.value }))} />
-          <span className="text-xs text-base-content/55">{m.rangeHint}</span>
         </SearchRow>
         <SearchRow label={m.granularity}>
           <ChipGroup label={m.granularity} value={draft.granularity} onChange={(g) => setDraft((d) => ({ ...d, granularity: g }))} options={[{ value: 'DAY', label: m.day }, { value: 'HOUR', label: m.hour }]} />
@@ -232,7 +230,6 @@ export function CaseSlaPage() {
                       </tbody>
                     </DataTable>
                   )}
-                  <p className="mt-2 text-xs text-base-content/55">{m.zeroBuckets}</p>
                 </Section>
 
                 <Section id="case-sla-overdue" title={m.overdueNow} aside={<span className="text-xs text-base-content/55">{m.overdueAside}</span>}>

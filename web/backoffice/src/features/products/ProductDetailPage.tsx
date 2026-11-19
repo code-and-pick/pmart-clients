@@ -173,7 +173,6 @@ function EditStart({ productId }: { readonly productId: string }) {
       <button type="button" className="btn btn-sm btn-block" disabled={start.busy} onClick={() => void start.run(null)}>
         {m.products.editStart}
       </button>
-      <p className="text-xs text-base-content/55">{m.products.editStartHint}</p>
       {existing ? (
         <div role="alert" className="alert alert-warning alert-soft flex-col items-start text-sm" data-testid="product-edit-exists">
           <span>{m.products.editDraftExists}</span>
@@ -409,7 +408,6 @@ export function ProductDetailPage() {
                 </Card>
                 <Card title={m.products.actionsTitle}>
                   {/* 고객용 상품명·설명·이미지는 콘텐츠(product-content-service, DISPLAY 승인)로 따로 등록한다(머리 오른쪽 버튼). */}
-                  <p className="text-xs text-base-content/55">{m.products.contentHint}</p>
                   {canChangeSaleState ? <EditStart productId={productId} /> : <p className="text-sm text-base-content/60">{m.products.editMdOnly}</p>}
                 </Card>
               </div>
@@ -418,7 +416,6 @@ export function ProductDetailPage() {
           {tab === 'content' && (
             <Card
               title={m.products.tabs.content}
-              hint={m.products.tabs.contentHint}
               aside={
                 <Link className="btn btn-sm btn-primary" to={`/contents/drafts/new?productId=${encodeURIComponent(productId)}`} data-testid="tab-content-edit">
                   {m.products.tabs.contentEdit}
@@ -430,7 +427,6 @@ export function ProductDetailPage() {
           )}
           {tab === 'price' && (
             <div className="space-y-4" data-testid="tab-price">
-              <p className="text-sm text-base-content/60">{m.products.tabs.priceHint}</p>
               {(p.skus ?? []).map((sk) => (
                 <div key={sk.sku} className="space-y-2">
                   <div className="flex flex-wrap items-center justify-between gap-2">
@@ -448,7 +444,7 @@ export function ProductDetailPage() {
             </div>
           )}
           {tab === 'handling' && (
-            <Card title={m.products.tabs.handling} hint={m.products.tabs.handlingHint}>
+            <Card title={m.products.tabs.handling}>
               <div className="flex flex-wrap items-center gap-3 text-sm" data-testid="tab-handling">
                 <span className="text-base-content/65">{m.products.tabs.handlingBody((p.skus ?? []).map((x) => x.sku).join(', ') || m.none)}</span>
                 <Link className="btn btn-sm" to="/handlings">

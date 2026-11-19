@@ -5,21 +5,14 @@ import { Link } from 'react-router';
 import { messages as m } from './messages';
 import { recentPath, useRecentViews, type RecentKind } from './recentViews';
 
-export function StartGuide({ hint, formats, recentKinds, testId }: { readonly hint: string; readonly formats: ReadonlyArray<{ readonly what: string; readonly shape: string }>; readonly recentKinds: readonly RecentKind[]; readonly testId?: string }) {
+export function StartGuide({ recentKinds, testId }: { readonly recentKinds: readonly RecentKind[]; readonly testId?: string }) {
   const recent = useRecentViews().items.filter((e) => recentKinds.includes(e.kind)).slice(0, 5);
+  // 설명 문장·번호 형식 표는 뺐다(2026-11-20 사용자 "쓸데없는 말 다 지워") — 입력 칸 자리표시자가 형식을 보인다. 최근 본 것이 없으면 그리지 않는다
+  if (recent.length === 0) return null;
   return (
-    <div className="rounded-box border border-dashed border-base-300 bg-base-100 px-6 py-8" data-testid={testId ?? 'start-guide'}>
-      <p className="text-center text-sm text-base-content/70">{hint}</p>
-      <ul className="mx-auto mt-4 grid max-w-xl gap-2 sm:grid-cols-2" aria-label={m.startGuide.formats}>
-        {formats.map((f) => (
-          <li key={f.what} className="flex items-center justify-between gap-3 rounded-lg bg-base-200/60 px-3 py-2 text-sm">
-            <span className="text-base-content/65">{f.what}</span>
-            <code className="font-mono text-xs text-base-content/80">{f.shape}</code>
-          </li>
-        ))}
-      </ul>
+    <div className="rounded-box border border-base-300 bg-base-100 px-6 py-5" data-testid={testId ?? 'start-guide'}>
       {recent.length > 0 && (
-        <div className="mx-auto mt-5 max-w-xl">
+        <div className="max-w-3xl">
           <p className="mb-2 text-xs font-semibold text-base-content/55">{m.startGuide.recent}</p>
           <ul className="flex flex-wrap gap-2">
             {recent.map((e) => (

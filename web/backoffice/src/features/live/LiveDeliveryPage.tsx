@@ -153,13 +153,9 @@ export function LiveDeliveryPage() {
     <section className="space-y-4">
       <PageHeader
         title={m.title}
-        description={m.intro}
         actions={
           <>
-            <span className="flex items-center gap-1.5 text-xs text-base-content/55">
-              <span className={`h-2 w-2 rounded-full ${query.isFetching ? 'animate-pulse bg-info' : 'bg-success'}`} aria-hidden="true" />
-              {m.autoRefreshNote}
-            </span>
+            <span className={`h-2 w-2 rounded-full ${query.isFetching ? 'animate-pulse bg-info' : 'bg-success'}`} title={m.autoRefreshNote} aria-label={m.autoRefreshNote} role="img" />
             <button type="button" className="btn btn-sm" onClick={() => void query.refetch()} disabled={query.isFetching}>
               {m.refresh}
             </button>
@@ -374,7 +370,7 @@ function LiveNext({ items }: { readonly items: readonly LiveItem[] }) {
   const n = items.filter((it) => it.delivery?.state === 'FAILURE_REPORTED').length;
   if (n === 0) return null;
   return (
-    <NextAction tone="warning" title={m.nextStep.failureTitle(n)} body={m.nextStep.failureBody}>
+    <NextAction tone="warning" title={m.nextStep.failureTitle(n)}>
       <Link className="btn btn-sm btn-warning" to="/deliveries?q=1&state=FAILURE_REPORTED&sort=OLDEST">
         {m.nextStep.failureGo}
       </Link>

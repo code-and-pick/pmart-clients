@@ -77,7 +77,7 @@ describe('지원센터 사건', () => {
     expect(within(order).getByRole('link', { name: '주문 74939259' })).toHaveAttribute('href', '/orders/ORD-MOCK-1004');
     expect(within(order).getByText('주문 처리')).toBeInTheDocument(); // 사가 ID 는 글자로 안 보인다(ADR-0070 덧붙임)
     expect(order).not.toHaveTextContent('SAGA-MOCK-1');
-    expect(screen.getByText(/결과 불일치 확인·결제 결과 불명은 본사 관리자만 봐요/)).toBeInTheDocument();
+    expect(screen.queryByText(/결과 불일치 확인·결제 결과 불명은 본사 관리자만 봐요/)).not.toBeInTheDocument(); // 목록 위 설명 줄은 뺐다(2026-11-20)
     await userEvent.selectOptions(screen.getByLabelText('종류'), 'PAYMENT_UNKNOWN');
     await waitFor(() => expect(view.sent.some((r) => new URL(r.url).searchParams.get('kind') === 'PAYMENT_UNKNOWN')).toBe(true));
     view.unmount();
