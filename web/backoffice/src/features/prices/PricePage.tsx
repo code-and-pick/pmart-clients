@@ -351,7 +351,7 @@ export function PricePage() {
     requestAnimationFrame(() => document.getElementById('price-change')?.scrollIntoView?.({ behavior: 'smooth', block: 'start' }));
   };
   return (
-    <section className="space-y-4">
+    <section className="space-y-5">
       <PageHeader
         title={m.prices.title}
         description={m.prices.intro}
