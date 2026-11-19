@@ -13,6 +13,9 @@ async function start() {
     const { worker } = await import('./mocks/browser');
     // 목에 없는 경로는 경고만 하고 그대로 보낸다(목 모드에서 실서버를 부르지 않도록 핸들러를 채운다).
     await worker.start({ onUnhandledFrame: 'warn' });
+    // 브라우저가 쉬던 워커를 다시 띄우면 목이 꺼지던 것 — 다시 켜고 한 번 더 보낸다(mocks/keepMocking.ts)
+    const { keepMocking } = await import('./mocks/keepMocking');
+    keepMocking('/api/v1/');
   }
   const root = document.getElementById('root');
   if (!root) throw new Error('#root 가 없다');
