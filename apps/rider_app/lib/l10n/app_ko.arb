@@ -226,6 +226,8 @@
   "helpInProgress": "지원센터가 처리하고 있어요",
   "helpResolved": "지원센터가 처리를 마쳤어요",
   "helpUnknown": "접수됐는지 확인하는 중이에요",
+  "helpRejected": "도움요청을 보내지 못했어요. 내용을 확인하고 다시 보내 주세요",
+  "helpRejectedPhoto": "이 배송에 올린 사진만 붙일 수 있어요. 사진 없이 다시 보내 주세요",
   "loginHello": "안녕하세요\n라이더님!",
   "loginGuide": "PMart 라이더는 Google 계정으로 로그인해요.",
   "loginGoogle": "Google로 로그인",
