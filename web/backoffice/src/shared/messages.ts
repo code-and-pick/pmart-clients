@@ -1857,6 +1857,15 @@ export const messages = {
     importTitle: '상품 일괄 등록(seed-v1)',
     zipFile: 'seed-v1.zip',
     zipHint: '눌러서 seed-v1.zip 을 고르세요. 올리면 서버가 검사하고 배치 화면으로 넘어가요.',
+    /** 올리기 화면 공통(2026-11-19 쿠팡 윙 상품 일괄등록 참고) — 규칙은 지금 화면 문구 그대로 */
+    uploadView: {
+      cautionTitle: '올리기 전에 확인해 주세요',
+      sectionTitle: '파일 올리기 요청',
+      step1: '1. 올릴 파일을 고르세요.',
+      step2: '2. 서버가 검사해요.',
+      step2Body: '올리면 서버가 파일을 검사하고 배치 화면으로 넘어가요. 오류가 있는 행은 배치 화면에서 고칠 수 있어요.',
+      notice: '[주의] 올린 것은 바로 반영되지 않아요. 배치 화면에서 확인·제출하고 승인을 거쳐 반영돼요.',
+    },
     zipChosen: (name: string, kb: number) => `고른 파일: ${name} (${kb.toLocaleString('ko-KR')}KB)`,
     upload: '업로드·검증',
     uploadAnother: '다른 파일 올리기',

@@ -222,7 +222,10 @@ function AnotherUpload() {
   return (
     <div id="another-upload" className="scroll-mt-4 space-y-2">
       <h2 className="font-bold">{m.products.uploadAnother}</h2>
-      <ZipUpload busy={upload.busy} onUpload={(file) => void upload.run(file)} />
+      {/* 다른 파일 올리기 — 틀 안에(2026-11-19 올리기 상자가 틀 없이 번호 줄만 되어서) */}
+      <div className="rounded-box border border-base-300 bg-base-100 px-6 pb-5 shadow-sm">
+        <ZipUpload busy={upload.busy} onUpload={(file) => void upload.run(file)} />
+      </div>
       <CommandFeedback command={upload} />
     </div>
   );

@@ -372,7 +372,8 @@ export function Notice({ children, tone = 'muted' }: { readonly children: ReactN
  * 안내 상자(2026-11-19 쿠팡 윙 "반품 정보안내"처럼) — ⓘ 제목 + 글머리 몇 줄, 접기. 이 브라우저에서 접은 것은 기억(화면마다 key).
  * 규칙 문구는 화면이 이미 쓰는 업무 문구만 — 새 규칙을 만들지 않는다.
  */
-export function GuideBox({ title, items, storeKey, testId }: { readonly title: string; readonly items: readonly ReactNode[]; readonly storeKey: string; readonly testId?: string }) {
+// tone 'warning' = 올리기 전 주의(쿠팡 윙 일괄등록의 주황 띠처럼)
+export function GuideBox({ title, items, storeKey, testId, tone = 'info' }: { readonly title: string; readonly items: readonly ReactNode[]; readonly storeKey: string; readonly testId?: string; readonly tone?: 'info' | 'warning' }) {
   const k = `pmart.backoffice.guide.${storeKey}`;
   const [open, setOpen] = useState(() => {
     try {
@@ -391,11 +392,11 @@ export function GuideBox({ title, items, storeKey, testId }: { readonly title: s
     }
   };
   return (
-    <div className="rounded-box border border-base-300 bg-base-200/50 px-5 py-3" data-testid={testId}>
+    <div className={`rounded-box border px-5 py-3 ${tone === 'warning' ? 'border-warning/50 bg-warning/10' : 'border-base-300 bg-base-200/50'}`} data-testid={testId}>
       <button type="button" className="flex w-full items-center justify-between gap-2 text-left text-sm font-semibold" aria-expanded={open} onClick={toggle}>
         <span className="inline-flex items-center gap-2">
-          <span className="flex h-5 w-5 items-center justify-center rounded-full border border-base-content/40 text-[11px]" aria-hidden="true">
-            i
+          <span className={`flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-bold ${tone === 'warning' ? 'bg-warning text-warning-content' : 'border border-base-content/40'}`} aria-hidden="true">
+            {tone === 'warning' ? '!' : 'i'}
           </span>
           {title}
         </span>
