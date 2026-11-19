@@ -13,6 +13,7 @@ class RiderButton extends StatelessWidget {
     this.icon,
     this.height = 56,
     this.color = RiderColors.primary,
+    this.foreground = Colors.white,
   });
 
   final String label;
@@ -23,6 +24,9 @@ class RiderButton extends StatelessWidget {
   /// 바탕색 — 기본은 주 색. 같은 모양의 보조 버튼(예: 배달리스트 "취소")은 회색.
   final Color color;
 
+  /// 글자색 — 기본 흰색(카카오 로그인 버튼은 검정).
+  final Color foreground;
+
   @override
   Widget build(BuildContext context) => SizedBox(
     width: double.infinity,
@@ -31,6 +35,7 @@ class RiderButton extends StatelessWidget {
       onPressed: onPressed,
       style: FilledButton.styleFrom(
         backgroundColor: color,
+        foregroundColor: foreground,
         disabledBackgroundColor: RiderColors.disabled,
         disabledForegroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),

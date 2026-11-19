@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../l10n/gen/app_localizations.dart';
 import '../../../shared/rider_style.dart';
 import '../../../shared/rider_widgets.dart';
+import '../data/rider_auth.dart';
 import '../data/session.dart';
 
 /// 로그인 결과 안내(로그인됨·취소는 안내 없음).
@@ -13,9 +14,54 @@ String? loginResultText(AppLocalizations l10n, LoginResult r) => switch (r) {
   LoginResult.misconfigured => l10n.loginMisconfigured,
   LoginResult.rejected => l10n.loginRejected,
   LoginResult.unavailable => l10n.loginUnavailable,
+  LoginResult.unsupported => l10n.loginUnsupported,
 };
 
-/// 로그인. 라이더 인증은 Google 로그인 하나다(백엔드 ADR-0054·0055) — 레퍼런스의 아이디·비밀번호 칸은 두지 않는다.
+String loginLabel(AppLocalizations l10n, RiderSocialProvider p) => switch (p) {
+  RiderSocialProvider.google => l10n.loginGoogle,
+  RiderSocialProvider.kakao => l10n.loginKakao,
+  RiderSocialProvider.naver => l10n.loginNaver,
+};
+
+String providerName(AppLocalizations l10n, RiderSocialProvider p) =>
+    switch (p) {
+      RiderSocialProvider.google => l10n.providerGoogle,
+      RiderSocialProvider.kakao => l10n.providerKakao,
+      RiderSocialProvider.naver => l10n.providerNaver,
+    };
+
+/// 제공자 로그인 버튼(구글 = 주 색, 카카오 = 노랑·검정 글자, 네이버 = 초록). 키 `login-<제공자>`.
+class SocialLoginButton extends StatelessWidget {
+  const SocialLoginButton({
+    super.key,
+    required this.provider,
+    required this.onPressed,
+  });
+
+  final RiderSocialProvider provider;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return RiderButton(
+      key: ValueKey('login-${provider.name}'),
+      label: loginLabel(l10n, provider),
+      onPressed: onPressed,
+      color: switch (provider) {
+        RiderSocialProvider.google => RiderColors.primary,
+        RiderSocialProvider.kakao => RiderColors.kakao,
+        RiderSocialProvider.naver => RiderColors.naver,
+      },
+      foreground: provider == RiderSocialProvider.kakao
+          ? RiderColors.kakaoInk
+          : Colors.white,
+    );
+  }
+}
+
+/// 로그인. 라이더 인증은 소셜 로그인이다(백엔드 ADR-0054·0055) — 레퍼런스의 아이디·비밀번호 칸은 두지 않는다.
+/// 구글 아래 카카오·네이버(사용자 2026-11-19). 실서버는 rider-auth 가 받는 제공자만 보인다([riderSocialProvidersProvider]).
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
 
@@ -26,10 +72,10 @@ class LoginScreen extends ConsumerStatefulWidget {
 class _LoginScreenState extends ConsumerState<LoginScreen> {
   bool _busy = false;
 
-  Future<void> _login() async {
+  Future<void> _login(RiderSocialProvider provider) async {
     final l10n = AppLocalizations.of(context);
     setState(() => _busy = true);
-    final result = await ref.read(sessionProvider.notifier).loginWithGoogle();
+    final result = await ref.read(sessionProvider.notifier).login(provider);
     if (!mounted) return;
     setState(() => _busy = false);
     if (loginResultText(l10n, result) case final text?) {
@@ -62,11 +108,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 style: const TextStyle(fontSize: 15, color: RiderColors.sub),
               ),
               const SizedBox(height: 20),
-              RiderButton(
-                key: const ValueKey('login-google'),
-                label: l10n.loginGoogle,
-                onPressed: _busy ? null : _login,
-              ),
+              for (final (i, p)
+                  in ref.watch(riderSocialProvidersProvider).indexed) ...[
+                if (i > 0) const SizedBox(height: 10),
+                SocialLoginButton(
+                  provider: p,
+                  onPressed: _busy ? null : () => _login(p),
+                ),
+              ],
               const Spacer(),
               Center(
                 child: Row(

@@ -37,6 +37,13 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
+            <!-- 카카오 로그인(카카오계정 웹)이 끝나면 kakao{네이티브 앱 키}://oauth 로 이 화면에 돌아온다(kakao_flutter_sdk 2). 키는 빌드 때 .secrets 에서. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="kakao${kakaoNativeAppKey}" android:host="oauth"/>
+            </intent-filter>
         </activity>
         <!-- 카카오내비 SDK with UI — 앱 안 음성 길안내. 화면 회전에도 안내를 다시 시작하지 않는다. -->
         <activity
@@ -66,6 +73,11 @@
         <intent>
             <action android:name="android.intent.action.DIAL"/>
             <data android:scheme="tel"/>
+        </intent>
+        <!-- 휴대폰 본인 확인: 문자 앱을 받는 번호·내용을 채워 연다(sms:) -->
+        <intent>
+            <action android:name="android.intent.action.SENDTO"/>
+            <data android:scheme="sms"/>
         </intent>
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>

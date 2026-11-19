@@ -65,6 +65,9 @@ enum LoginResult {
 
   /// 연결·Google 장애 — 잠시 뒤 다시.
   unavailable,
+
+  /// 서버가 아직 이 제공자(카카오·네이버)를 받지 않는다 — 서버를 부르지 않았다.
+  unsupported,
 }
 
 /// 라이더 세션.
@@ -76,7 +79,21 @@ class SessionController extends Notifier<RiderSession?> {
   RiderSession? build() => ref.watch(initialSessionProvider);
 
   /// [newAccount] 는 목 모드에서 "처음 로그인한 계정(미가입)"을 흉내 낸다(실서버는 서버가 정한다).
-  Future<LoginResult> loginWithGoogle({bool newAccount = false}) async {
+  Future<LoginResult> loginWithGoogle({bool newAccount = false}) =>
+      login(RiderSocialProvider.google, newAccount: newAccount);
+
+  /// 이 번호로 가입한 다른 계정이 있다는 안내에서 "그 계정으로 로그인" — 지금(가입 중) 세션을 끝내고
+  /// 그 제공자로 다시 로그인한다.
+  Future<LoginResult> switchAccount(RiderSocialProvider provider) {
+    logout();
+    return login(provider);
+  }
+
+  /// 제공자로 로그인. 목 모드는 버튼만으로 목 라이더로 들어간다(구글·카카오·네이버 같음).
+  Future<LoginResult> login(
+    RiderSocialProvider provider, {
+    bool newAccount = false,
+  }) async {
     if (ref.read(envProvider) == PmartEnv.mock) {
       _set(
         RiderSession(
@@ -86,7 +103,9 @@ class SessionController extends Notifier<RiderSession?> {
       );
       return LoginResult.loggedIn;
     }
-    final outcome = await ref.read(riderLoginProvider).login();
+    final outcome = await ref
+        .read(riderLoginProvider)
+        .login(provider: provider);
     return switch (outcome) {
       RiderLoggedIn(:final riderId, :final registered) => () {
         _set(RiderSession(riderId: riderId, registered: registered));
@@ -96,6 +115,7 @@ class SessionController extends Notifier<RiderSession?> {
       RiderLoginMisconfigured() => LoginResult.misconfigured,
       RiderLoginRejected() => LoginResult.rejected,
       RiderLoginUnavailable() => LoginResult.unavailable,
+      RiderLoginUnsupported() => LoginResult.unsupported,
     };
   }
 

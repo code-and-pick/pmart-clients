@@ -13,6 +13,7 @@ import '../../../shared/terms_text.dart';
 import '../data/pickup_points.dart';
 import '../data/session.dart';
 import 'login_screen.dart' show loginResultText;
+import '../data/phone_identity.dart';
 import '../data/signup.dart';
 import 'postcode_screen.dart';
 import '../../../shared/keyboard.dart';
@@ -250,7 +251,29 @@ class _SignupFlowScreenState extends ConsumerState<SignupFlowScreen> {
       _phoneAvailable = ok ?? true;
       _phoneDeferred = ok == null;
     });
+    // 중복이 아니면 본인 확인(OCTOMO 문자)까지 — 본인 확인 계약이 있을 때만(지금은 목 모드만).
+    if (ok == true && _identityRequired) {
+      final verificationId = await context.push<String>(
+        '/signup/phone',
+        extra: phone,
+      );
+      if (!mounted) return;
+      if (verificationId != null && _draft.phone == phone) {
+        _phoneVerifiedFor = phone;
+        _set(_draft.copyWith(phoneVerificationId: verificationId));
+      }
+    }
   }
+
+  /// 본인 확인(OCTOMO)을 받을지. 실서버는 라이더 계약이 없어 예전처럼 중복 확인만 한다.
+  bool get _identityRequired =>
+      ref.read(phoneIdentityRepositoryProvider) != null;
+
+  /// 본인 확인을 마친 번호(번호가 바뀌면 다시).
+  String? _phoneVerifiedFor;
+
+  bool get _phoneIdentityOk =>
+      !_identityRequired || _phoneVerifiedFor == _draft.phone;
 
   @override
   void initState() {
@@ -342,6 +365,7 @@ class _SignupFlowScreenState extends ConsumerState<SignupFlowScreen> {
     2 =>
       _phonePattern.hasMatch(_draft.phone) &&
           _phoneAvailable == true &&
+          _phoneIdentityOk &&
           // 완성된 글자로 된 이름(자음·모음만은 안 됨).
           nameValid(_draft.name),
     // 계좌는 선택(가입 뒤 프로필에서도 넣는다). 넣기 시작했으면 세 칸을 다 채우고,
@@ -623,6 +647,8 @@ class _SignupFlowScreenState extends ConsumerState<SignupFlowScreen> {
       child: Text(
         switch (_phoneAvailable) {
           true when _phoneDeferred => l10n.checkAtSignup,
+          true when !_phoneIdentityOk => l10n.phoneIdNeeded,
+          true when _identityRequired => l10n.phoneIdDone,
           true => l10n.phoneAvailable,
           false => l10n.phoneDuplicate,
           null => l10n.phoneVerifyNote,

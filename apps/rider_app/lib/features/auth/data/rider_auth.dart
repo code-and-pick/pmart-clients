@@ -15,6 +15,41 @@ const riderGoogleServerClientId = String.fromEnvironment(
   defaultValue: '293585219605-la3cj13q19oo51p7e4d0rf4ickh3flgu.apps.googleusercontent.com',
 );
 
+/// 라이더 로그인 제공자. 화면 순서도 이 순서(구글 → 카카오 → 네이버).
+enum RiderSocialProvider { google, kakao, naver }
+
+/// rider-auth-service 가 카카오·네이버를 받는지. 우리가 생성한 계약(rider-auth 0.1.0)은 GOOGLE 만이다.
+/// rider-auth 계약에 KAKAO·NAVER 가 생기면 켠다 — 백엔드 회신 PR #250(rider-auth 0.2.0, 병합 전): providerToken 은
+/// ID 토큰만(카카오 OIDC idToken, 네이버 인가 코드 + PKCE id_token), 서버에 앱 키가 없으면 422 CONFIG_REQUIRED(그 버튼 숨김·안내).
+/// 병합 뒤 [RiderLogin.login] 이 생성 enum(`ra.Provider`) 값으로 보내게 바꾼다. 네이버는 OIDC 패키지 승인도 필요
+/// ([NaverIdTokenSource] 주석).
+const riderAuthAcceptsKakaoNaver = false;
+
+/// 빌드 때 `--dart-define-from-file=.secrets/rider.env` 로 들어오는 키(버튼을 낼지 판단에만 쓴다. 값은 로그에 남기지 않는다).
+/// 네이버 Client Secret 은 Dart 에서 읽지 않는다(매니페스트 meta-data 로만 들어간다).
+const _kakaoNativeAppKey = String.fromEnvironment('KAKAO_NATIVE_APP_KEY');
+const _naverClientId = String.fromEnvironment('NAVER_CLIENT_ID');
+
+/// 실서버에서 카카오·네이버 버튼을 낼지: 서버가 받고 + 그 키가 빌드에 들어 있을 때만.
+List<RiderSocialProvider> serverSocialProviders({
+  bool serverAccepts = riderAuthAcceptsKakaoNaver,
+  String kakaoKey = _kakaoNativeAppKey,
+  String naverClientId = _naverClientId,
+}) => [
+  RiderSocialProvider.google,
+  if (serverAccepts && kakaoKey.trim().isNotEmpty) RiderSocialProvider.kakao,
+  if (serverAccepts && naverClientId.trim().isNotEmpty)
+    RiderSocialProvider.naver,
+];
+
+/// 로그인 화면에 보일 제공자. 목 모드는 셋 다(목 로그인), 실서버는 [serverSocialProviders].
+final riderSocialProvidersProvider = Provider<List<RiderSocialProvider>>(
+  (ref) => switch (ref.watch(envProvider)) {
+    PmartEnv.mock => RiderSocialProvider.values,
+    PmartEnv.local => serverSocialProviders(),
+  },
+);
+
 /// 실서버 로그인 결과(목 모드는 [RiderLogin] 을 거치지 않는다).
 sealed class RiderLoginOutcome {
   const RiderLoginOutcome();
@@ -48,13 +83,21 @@ final class RiderLoginUnavailable extends RiderLoginOutcome {
   const RiderLoginUnavailable();
 }
 
-/// Google 계정 선택 → ID 토큰. 토큰은 로그·오류 문구에 남기지 않는다.
-abstract interface class GoogleIdTokenSource {
+/// 서버(rider-auth 계약)가 아직 이 제공자를 받지 않는다 — 서버를 부르지 않았다.
+final class RiderLoginUnsupported extends RiderLoginOutcome {
+  const RiderLoginUnsupported();
+}
+
+/// 제공자 로그인 → 서버에 넘길 토큰(Google·카카오 = ID 토큰, 네이버 = 액세스 토큰). 토큰은 로그·오류 문구에 남기지 않는다.
+abstract interface class SocialTokenSource {
   /// 취소면 null. 설정 문제면 [RiderLoginMisconfigured] 를, 장애면 [RiderLoginUnavailable] 를 던진다.
   Future<String?> obtain();
 
   Future<void> signOut();
 }
+
+/// Google 계정 선택 → ID 토큰.
+abstract interface class GoogleIdTokenSource implements SocialTokenSource {}
 
 final class GoogleSignInIdTokenSource implements GoogleIdTokenSource {
   GoogleSignInIdTokenSource({GoogleSignIn? signIn})
@@ -122,7 +165,15 @@ final class RiderLogin {
   final DeviceIdProvider deviceId;
   final GoogleIdTokenSource google;
 
-  Future<RiderLoginOutcome> login() async {
+  Future<RiderLoginOutcome> login({
+    RiderSocialProvider provider = RiderSocialProvider.google,
+  }) async {
+    // rider-auth 계약은 GOOGLE 만 — 카카오·네이버는 계약이 생기기 전까지 서버를 부르지 않는다
+    // (화면은 [riderSocialProvidersProvider] 로 버튼부터 내지 않는다). 토큰 소스는 [kakaoTokenSourceProvider]·
+    // [naverTokenSourceProvider] 에 붙어 있다.
+    if (provider != RiderSocialProvider.google) {
+      return const RiderLoginUnsupported();
+    }
     final String? idToken;
     try {
       idToken = await google.obtain();

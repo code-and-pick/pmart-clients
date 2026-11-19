@@ -55,6 +55,7 @@ class SignupDraft {
     this.vehicle,
     this.licenseNumber = '',
     this.licenseChecked = false,
+    this.phoneVerificationId,
   });
 
   final Set<String> consents;
@@ -80,6 +81,10 @@ class SignupDraft {
   final String licenseNumber;
   final bool licenseChecked;
 
+  /// 휴대폰 본인 확인(OCTOMO) ID — rider 0.17.0(PR #250, 병합 전) `POST /riders/signups` 의 phoneVerificationId(확인 뒤 1시간 안).
+  /// 생성 코드에 아직 없어 실서버 가입 요청에는 넣지 않는다(목만). 계약 병합 뒤 붙인다.
+  final String? phoneVerificationId;
+
   SignupDraft copyWith({
     Set<String>? consents,
     String? phone,
@@ -95,6 +100,7 @@ class SignupDraft {
     Vehicle? vehicle,
     String? licenseNumber,
     bool? licenseChecked,
+    String? phoneVerificationId,
   }) => SignupDraft(
     consents: consents ?? this.consents,
     phone: phone ?? this.phone,
@@ -110,6 +116,7 @@ class SignupDraft {
     vehicle: vehicle ?? this.vehicle,
     licenseNumber: licenseNumber ?? this.licenseNumber,
     licenseChecked: licenseChecked ?? this.licenseChecked,
+    phoneVerificationId: phoneVerificationId ?? this.phoneVerificationId,
   );
 }
 

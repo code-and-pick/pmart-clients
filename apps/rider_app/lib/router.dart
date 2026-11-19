@@ -7,6 +7,7 @@ import 'features/appeals/presentation/appeal_screens.dart';
 import 'features/auth/data/session.dart';
 import 'features/auth/presentation/fee_guide_screen.dart';
 import 'features/auth/presentation/login_screen.dart';
+import 'features/auth/presentation/phone_identity_screen.dart';
 import 'features/auth/presentation/signup_screens.dart';
 import 'features/delivery/domain/delivery.dart' show FailureReason;
 import 'features/delivery/presentation/delivery_list_screen.dart';
@@ -55,6 +56,11 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(path: '/signup', builder: (_, _) => const SignupFlowScreen()),
       GoRoute(path: '/signup/fees', builder: (_, _) => const FeeGuideScreen()),
+      // 휴대폰 본인 확인(OCTOMO) — 가입 전화번호 단계에서 연다(목 모드만, 라이더 계약 요청 중).
+      GoRoute(
+        path: '/signup/phone',
+        builder: (_, s) => PhoneIdentityScreen(phone: s.extra as String? ?? ''),
+      ),
       GoRoute(
         path: '/signup/terms/:type',
         builder: (_, s) => TermsScreen(type: s.pathParameters['type']!),

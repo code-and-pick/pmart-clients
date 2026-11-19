@@ -25,6 +25,11 @@ abstract final class RiderColors {
   static const danger = Color(0xFFE0524D);
   static const gold = Color(0xFFF2B63C);
   static const notice = Color(0xFFFFF7EC);
+
+  /// 소셜 로그인 버튼(각 회사 로그인 버튼 안내의 바탕·글자색).
+  static const kakao = Color(0xFFFEE500);
+  static const kakaoInk = Color(0xD9000000);
+  static const naver = Color(0xFF03C75A);
 }
 
 abstract final class RiderTheme {

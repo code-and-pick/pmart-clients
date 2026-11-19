@@ -1,9 +1,26 @@
+import java.util.Base64
+
 plugins {
     id("com.android.application")
     id("com.google.gms.google-services")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
 }
+
+// flutter build/run 의 --dart-define(·from-file) 값(Base64 "KEY=VALUE" 를 쉼표로 이은 dart-defines 속성).
+// 키·값 앞뒤 공백은 지운다(.secrets/rider.env 줄 앞 공백). 값은 빌드 로그에 찍지 않는다.
+val dartDefines: Map<String, String> =
+    (project.findProperty("dart-defines") as String?)
+        ?.split(",")
+        ?.mapNotNull { encoded ->
+            runCatching { String(Base64.getDecoder().decode(encoded)) }.getOrNull()
+        }
+        ?.mapNotNull { pair ->
+            val i = pair.indexOf('=')
+            if (i > 0) pair.substring(0, i).trim() to pair.substring(i + 1).trim() else null
+        }
+        ?.toMap()
+        ?: emptyMap()
 
 android {
     namespace = "com.pmart.rider_app"
@@ -29,6 +46,9 @@ android {
         // flag during build.
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        // 소셜 로그인 키는 빌드 때 `--dart-define-from-file=.secrets/rider.env` 로만 들어온다(저장소에 넣지 않음). 없으면 빈 값 — 빌드는 된다.
+        // 카카오: 로그인 뒤 돌아오는 주소 kakao{네이티브 앱 키}://oauth. (네이버는 OIDC+PKCE 패키지 승인 뒤 redirect scheme 을 더한다.)
+        manifestPlaceholders["kakaoNativeAppKey"] = dartDefines["KAKAO_NATIVE_APP_KEY"] ?: ""
     }
 
     buildTypes {

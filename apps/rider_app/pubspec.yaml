@@ -38,6 +38,10 @@ dependencies:
     path: ../../packages/pmart_api/gen/notification
   # 라이더 Google 로그인(rider-auth). 고객앱과 같은 버전.
   google_sign_in: ^7.2.0
+  # 라이더 카카오 로그인(OIDC idToken, 사용자 승인 2026-11-19, 고객앱과 같은 판). 서버(rider-auth)가 받기 전에는 목 모드에서만 버튼.
+  # 네이버는 서버가 ID 토큰(인가 코드 + PKCE)만 받아(ADR-0071) 액세스 토큰만 주는 flutter_naver_login 은 넣지 않았다 —
+  # flutter_appauth(고객앱 안내 docs/operations/social-login-kakao-naver.md) 승인 뒤 붙인다.
+  kakao_flutter_sdk_user: ^2.1.0
   pmart_api_delivery_execution:
     path: ../../packages/pmart_api/gen/delivery-execution
   pmart_api_mfc_fulfillment:

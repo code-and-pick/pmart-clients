@@ -7,6 +7,7 @@ import 'package:pmart_ui/pmart_ui.dart';
 import 'package:rider_app/shared/location_reporter.dart';
 import 'package:rider_app/app.dart';
 import 'package:rider_app/features/auth/data/session.dart';
+import 'package:rider_app/features/auth/data/phone_identity.dart';
 import 'package:rider_app/features/auth/data/signup.dart';
 import 'package:rider_app/features/auth/presentation/postcode_screen.dart';
 import 'package:rider_app/features/delivery/data/mock_delivery_repository.dart';
@@ -313,6 +314,9 @@ void main() {
             MockDeliveryRepository(latency: Duration.zero, seeded: false),
           ),
           signupRepositoryProvider.overrideWithValue(signups),
+          phoneIdentityRepositoryProvider.overrideWithValue(
+            MockPhoneIdentityRepository(delay: Duration.zero),
+          ),
           addressSearchProvider.overrideWithValue(
             (_) async => const PickedAddress(
               roadAddress: '부산 부산진구 동천로 109',
@@ -371,7 +375,14 @@ void main() {
       reason: '번호를 바꾸면 다시 인증',
     );
     await tap('phone-check');
-    expect(find.text('가입할 수 있는 번호예요'), findsOneWidget);
+    // 중복이 아니면 본인 확인(OCTOMO 문자) 화면 — "보냈어요"로 확인을 마쳐야 다음으로 간다(목 모드).
+    expect(find.byKey(const ValueKey('phone-id-sent')), findsOneWidget);
+    await tap('phone-id-sent');
+    expect(find.byKey(const ValueKey('phone-id-sent')), findsNothing);
+    expect(
+      t.widget<Text>(find.byKey(const ValueKey('phone-result'))).data,
+      '본인 확인을 마쳤어요',
+    );
     expect(canNext(), isTrue);
     await tap('signup-next');
 
@@ -468,6 +479,8 @@ void main() {
     await tap('signup-next');
 
     expect(signups.submitted?.phone, '01012345678');
+    // 본인 확인 ID 가 가입 입력에 남는다(rider 0.17.0 phoneVerificationId — 실서버 요청에는 계약 병합 뒤).
+    expect(signups.submitted?.phoneVerificationId, startsWith('mock-pv-'));
     expect(signups.submitted?.vehicle, Vehicle.motorcycle);
     expect(signups.submitted?.area?.mfcId, 'MFC-BSJ-01');
     expect(signups.submitted?.roadAddress, '부산 부산진구 동천로 109');
