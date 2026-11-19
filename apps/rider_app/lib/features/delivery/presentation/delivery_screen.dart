@@ -222,6 +222,12 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
   /// 사용자 2026-11-19). 네트워크 등 다른 실패면 넘어간다(그 화면이 저절로 다시 읽는다).
   Future<void> _openReturn(String rid) async {
     if (_openingReturn || _returnElsewhere == rid) return;
+    // 서버가 "다른 라이더가 반납"이라고 알려 주면(failure.returnBy OTHER_RIDER — execution 0.31.1) 읽어 보지 않고 바로 안내.
+    if (ref.read(deliveryProvider(_id)).value?.returnByOtherRider ?? false) {
+      setState(() => _returnElsewhere = rid);
+      showRiderToast(context, AppLocalizations.of(context).returnByOtherRider);
+      return;
+    }
     _openingReturn = true;
     final assigned = ref.read(assignedDeliveriesProvider.notifier)..add(rid);
     try {
@@ -1272,14 +1278,16 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
           ),
           const SizedBox(height: 4),
           Text(switch ((d.goodsWithRider, d.returnDeliveryId)) {
-            (_, final rid?) when rid == _returnElsewhere =>
+            (_, final rid?)
+                when rid == _returnElsewhere || d.returnByOtherRider =>
               l10n.returnByOtherRider,
             (_, _?) => l10n.failureConfirmedReturn,
             (true, null) => l10n.failureConfirmedPreparing,
             _ => l10n.failureConfirmedStore,
           }, style: const TextStyle(fontSize: 14, color: RiderColors.sub)),
           const SizedBox(height: 10),
-          if (d.returnDeliveryId case final rid? when rid != _returnElsewhere)
+          if (d.returnDeliveryId case final rid?
+              when rid != _returnElsewhere && !d.returnByOtherRider)
             RiderButton(
               key: const ValueKey('go-return'),
               label: l10n.goReturn,

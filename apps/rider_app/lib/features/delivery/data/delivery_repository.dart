@@ -739,6 +739,9 @@ DeliveryView deliveryFromContract(ex.DeliveryExecution d) => DeliveryView(
     null => null,
   },
   returnDeliveryId: d.failure?.returnDeliveryId,
+  returnByOtherRider:
+      d.failure?.returnBy ==
+      ex.DeliveryExecutionFailureReturnByEnum.OTHER_RIDER,
 );
 
 /// 받을 품목. 반품 회수는 `returnLines`(서버가 이름을 채운다 — execution 0.14.3, 짝짓지 않는다),

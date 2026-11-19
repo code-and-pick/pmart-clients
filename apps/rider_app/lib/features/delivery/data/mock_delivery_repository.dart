@@ -728,7 +728,11 @@ base class MockDeliveryRepository
       final rid = 'ret-$deliveryId';
       if (returnByOtherRider) {
         // 다른 라이더의 배송 — 내 조회에는 없다(404)
-        d['failure'] = {...failure, 'returnDeliveryId': rid};
+        d['failure'] = {
+          ...failure,
+          'returnDeliveryId': rid,
+          'returnBy': 'OTHER_RIDER',
+        };
         return;
       }
       final trip = mockTrip(deliveryId!);

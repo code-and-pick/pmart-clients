@@ -57,6 +57,7 @@ class DeliveryView {
     this.failureConfirmed = false,
     this.goodsWithRider,
     this.returnDeliveryId,
+    this.returnByOtherRider = false,
   });
 
   /// 지원센터가 전달 불가를 확정했다(`failure.decision` CONFIRM — 배송은 FAILED).
@@ -67,6 +68,9 @@ class DeliveryView {
 
   /// 확정 뒤 같은 라이더에게 배정된 반납 배송(몇 초 뒤 생긴다).
   final String? returnDeliveryId;
+
+  /// 반납을 다른 라이더가 맡았다(failure.returnBy OTHER_RIDER — execution 0.31.1). 그 반납 배송은 내게 404 라 넘어가지 않는다.
+  final bool returnByOtherRider;
 
   /// 회수 배송(type RETURN)이면 목적 — 받는 곳(회수지) → 두는 곳(MFC). 일반 배송은 null.
   /// 반품 회수·오배송 회수는 문구만 다르고 단계는 같다(백엔드 요청 2026-11-17 회수 화면 한 벌).
