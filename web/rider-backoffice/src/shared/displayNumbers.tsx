@@ -144,21 +144,29 @@ export interface DeliveryNumbers {
  * 배송 ID 만 있는 목록(수행료·추가 배달료·도움요청·라이더 이력 등)의 배송 번호 — 배송마다 `GET /deliveries/{id}`(직원 조회) 한 번,
  * 5분 캐시. 한꺼번에 받는 조회(deliveryIds)가 계약에 없어 하나씩(백엔드에 요청 — 2026-11-19). 못 읽으면 빈 칸(번호 없음 표시).
  */
+/** 묶음 조회 한 번에 넣는 배송 수(계약 상한 50) */
+const DELIVERY_BATCH = 50;
+
 export function useDeliveryNumbers(deliveryIds: ReadonlyArray<string | null | undefined>) {
   const api = useApi();
-  const ids = [...new Set(deliveryIds.filter((x): x is string => !!x))];
+  const ids = [...new Set(deliveryIds.filter((x): x is string => !!x))].sort();
+  // 50개씩 한 번에(execution 0.31.0 `GET /deliveries?deliveryIds=` — 백엔드 #217). 전에는 배송마다 따로 물었다.
+  const chunks: string[][] = [];
+  for (let i = 0; i < ids.length; i += DELIVERY_BATCH) chunks.push(ids.slice(i, i + DELIVERY_BATCH));
   const queries = useQueries({
-    queries: ids.map((deliveryId) => ({
-      queryKey: ['delivery-number', deliveryId],
+    queries: chunks.map((chunk) => ({
+      queryKey: ['delivery-numbers', chunk.join(',')],
       staleTime: 5 * 60_000,
-      queryFn: () => request('GET', api.execution.GET('/deliveries/{deliveryId}', { params: { path: { deliveryId } } })),
+      queryFn: () =>
+        request('GET', api.execution.GET('/deliveries', { params: { query: { deliveryIds: chunk.join(','), size: chunk.length } } })),
     })),
   });
   const byId = new Map<string, DeliveryNumbers>();
-  queries.forEach((q, i) => {
-    const id = ids[i];
-    if (id && q.data) byId.set(id, { deliveryNumber: q.data.deliveryNumber ?? null, orderNumber: q.data.orderNumber ?? null });
-  });
+  for (const q of queries) {
+    for (const d of q.data?.items ?? []) {
+      if (d.deliveryId) byId.set(d.deliveryId, { deliveryNumber: d.deliveryNumber ?? null, orderNumber: d.orderNumber ?? null });
+    }
+  }
   return byId;
 }
 

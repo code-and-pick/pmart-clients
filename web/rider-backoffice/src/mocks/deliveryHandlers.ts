@@ -156,6 +156,8 @@ export const deliveryHandlers = [
     const size = Number(q.get('size') ?? '20') || 20;
     const skip = Number(q.get('cursor') ?? '0') || 0;
     const rows = mockDeliveries
+      // 화면 번호 묶음 조회(execution 0.31.0) — 쉼표로 이은 배송 ID
+      .filter((d) => !q.get('deliveryIds') || (q.get('deliveryIds') ?? '').split(',').includes(d.deliveryId ?? ''))
       .filter((d) => !q.get('orderId') || d.orderId === q.get('orderId'))
       // 주문번호는 배정된 배송만 갖는다(계약 — 배정 사건이 실어 준 값)
       .filter((d) => !q.get('orderNumber') || (d.riderId != null && d.orderNumber === q.get('orderNumber')))

@@ -50,3 +50,13 @@ describe('화면 번호 — 시스템 ID 는 겉에 없다', () => {
     expect(view.sent.filter((r) => new URL(r.url).pathname.endsWith('/surcharge-requests')).length).toBe(before);
   });
 });
+
+describe('배송 번호는 묶음으로 한 번에(execution 0.31.0 deliveryIds — 백엔드 #217)', () => {
+  it('목록의 배송 번호를 배송마다 묻지 않고 deliveryIds 한 번으로', async () => {
+    const view = renderAt('/help-requests/DLV-1/HR-1', as.riderOps);
+    await screen.findAllByText('48213075-1');
+    const batch = view.sent.filter((r) => r.method === 'GET' && new URL(r.url).pathname.endsWith('/deliveries') && new URL(r.url).searchParams.get('deliveryIds'));
+    expect(batch.length).toBeGreaterThan(0);
+    expect(new URL(batch[0]!.url).searchParams.get('deliveryIds')).toContain('DLV-1');
+  });
+});
