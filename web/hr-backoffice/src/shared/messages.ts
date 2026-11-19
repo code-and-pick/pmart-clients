@@ -114,7 +114,10 @@ export const messages = {
 
   login: {
     title: '인사팀 백오피스 로그인',
+    lead: '회사 직원 계정으로 로그인해 주세요',
     mockAccounts: '목 계정으로 로그인(목 모드에는 Keycloak 이 없어요)',
+    brandLead: '직원 등록·계정 발급·정지와 퇴사를 한곳에서 처리해요',
+    brandFoot: '인사팀 직원 전용 화면이에요',
   },
   employeeLogin: employeeLoginMessages,
 

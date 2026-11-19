@@ -8,6 +8,7 @@ import { useSession } from '../../app/SessionContext';
 import { env } from '../../env';
 import { mockAccounts } from '../../mocks/operators';
 import { messages as m } from '../../shared/messages';
+import { LoginShell } from './LoginShell';
 
 /** 열린 리디렉트 방지: 앱 안 경로만 */
 // 갈 곳이 없으면(로그인 화면을 바로 연 경우) 첫 화면 = 대시보드(2026-11-19 사용자 — 전에는 승인함. PC 1 영역이지만 사용자 허락으로 이 한 줄만)
@@ -44,55 +45,75 @@ export function LoginPage() {
   }
 
   return (
-    <section className="mx-auto max-w-sm space-y-4 pt-10">
-      <h1 className="text-xl font-bold">{m.login.title}</h1>
-      <div className="space-y-3 rounded-box bg-base-100 p-6 shadow-sm">
-        {env.isMock ? (
-          <div className="space-y-2">
-            <p className="text-sm font-semibold">{m.login.mockAccounts}</p>
-            {mockAccounts.map((a) => (
-              <button
-                key={a.operatorId}
-                type="button"
-                className="btn btn-primary btn-sm w-full"
-                disabled={phase === 'starting'}
-                onClick={() => {
-                  setPhase('starting');
-                  startMockLogin(from, a.operatorId)
-                    .then((callback) => navigate(callback, { replace: true }))
-                    .catch(() => setPhase('failed'));
-                }}
-              >
-                {`${a.label} · ${a.roles.join(', ') || a.centers.join(', ')}`}
-              </button>
-            ))}
-          </div>
-        ) : (
-          <button
-            type="button"
-            className="btn btn-primary w-full"
-            disabled={phase === 'starting'}
-            onClick={() => {
-              setPhase('starting');
-              startEmployeeLogin(from).catch(() => setPhase('failed'));
-            }}
-          >
-            {phase === 'starting' ? m.employeeLogin.starting : m.employeeLogin.start}
-          </button>
-        )}
-        {phase === 'failed' && (
-          <p role="alert" className="alert alert-error text-sm">
-            {m.employeeLogin.startFailed}
-          </p>
-        )}
-        {signOutUnconfirmed && (
-          <p role="alert" className="alert alert-warning alert-soft text-sm">
-            {m.employeeLogin.signOutUnconfirmed}
-          </p>
-        )}
-        <p className="text-xs opacity-70">{m.employeeLogin.note}</p>
-      </div>
-    </section>
+    <LoginShell title={m.login.title} lead={m.login.lead}>
+      {env.isMock ? (
+        <div className="space-y-3">
+          <p className="text-sm font-semibold">{m.login.mockAccounts}</p>
+          {/* 시험 계정은 역할 카드(2칸). 단추 이름(읽기 도구·시험이 찾는 이름)은 예전 그대로 "이름 · 역할" — aria-label */}
+          <ul className="grid gap-2 sm:grid-cols-2">
+            {mockAccounts.map((a) => {
+              const tags = a.roles.length > 0 ? a.roles.map((r) => m.shell.roleName[r] ?? r) : a.centers;
+              return (
+                <li key={a.operatorId}>
+                  <button
+                    type="button"
+                    aria-label={`${a.label} · ${a.roles.join(', ') || a.centers.join(', ')}`}
+                    className="flex h-full w-full items-start gap-3 rounded-box border border-base-300 bg-base-100 p-3 text-left transition-colors hover:border-primary hover:bg-primary/5 focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50"
+                    disabled={phase === 'starting'}
+                    onClick={() => {
+                      setPhase('starting');
+                      startMockLogin(from, a.operatorId)
+                        .then((callback) => navigate(callback, { replace: true }))
+                        .catch(() => setPhase('failed'));
+                    }}
+                  >
+                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-primary/10 text-primary" aria-hidden="true">
+                      <svg viewBox="0 0 24 24" className="h-4 w-4 fill-none stroke-current" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="12" cy="8" r="4" />
+                        <path d="M4 21a8 8 0 0 1 16 0" />
+                      </svg>
+                    </span>
+                    <span className="block min-w-0 flex-1 space-y-1">
+                      <span className="block truncate text-sm font-semibold">{a.label}</span>
+                      <span className="flex flex-wrap gap-1">
+                        {tags.map((t) => (
+                          <span key={t} className="badge badge-ghost badge-sm">
+                            {t}
+                          </span>
+                        ))}
+                      </span>
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      ) : (
+        <button
+          type="button"
+          className="btn btn-primary btn-lg w-full"
+          disabled={phase === 'starting'}
+          onClick={() => {
+            setPhase('starting');
+            startEmployeeLogin(from).catch(() => setPhase('failed'));
+          }}
+        >
+          {phase === 'starting' ? m.employeeLogin.starting : m.employeeLogin.start}
+        </button>
+      )}
+      {phase === 'failed' && (
+        <p role="alert" className="alert alert-error text-sm">
+          {m.employeeLogin.startFailed}
+        </p>
+      )}
+      {signOutUnconfirmed && (
+        <p role="alert" className="alert alert-warning alert-soft text-sm">
+          {m.employeeLogin.signOutUnconfirmed}
+        </p>
+      )}
+      <p className="border-t border-base-300 pt-4 text-xs text-base-content/60">{m.employeeLogin.note}</p>
+    </LoginShell>
   );
 }
 
@@ -125,24 +146,21 @@ export function LoginCallbackPage() {
   }, [completeEmployeeLogin, navigate, params]);
 
   return (
-    <section className="mx-auto max-w-sm space-y-4 pt-10">
-      <h1 className="text-xl font-bold">{m.login.title}</h1>
-      <div className="space-y-3 rounded-box bg-base-100 p-6 shadow-sm">
-        {error === null ? (
-          <p role="status" className="text-sm opacity-70">
-            {m.employeeLogin.completing}
+    <LoginShell title={m.login.title}>
+      {error === null ? (
+        <p role="status" className="text-sm opacity-70">
+          {m.employeeLogin.completing}
+        </p>
+      ) : (
+        <>
+          <p role="alert" className="alert alert-error text-sm">
+            {m.employeeLogin.errors[error]}
           </p>
-        ) : (
-          <>
-            <p role="alert" className="alert alert-error text-sm">
-              {m.employeeLogin.errors[error]}
-            </p>
-            <Link to="/login" replace className="btn btn-primary w-full">
-              {m.employeeLogin.retry}
-            </Link>
-          </>
-        )}
-      </div>
-    </section>
+          <Link to="/login" replace className="btn btn-primary w-full">
+            {m.employeeLogin.retry}
+          </Link>
+        </>
+      )}
+    </LoginShell>
   );
 }

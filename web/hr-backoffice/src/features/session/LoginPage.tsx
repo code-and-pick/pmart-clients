@@ -8,6 +8,7 @@ import { useSession } from '../../app/SessionContext';
 import { env } from '../../env';
 import { mockLogins } from '../../mocks/db';
 import { messages as m } from '../../shared/messages';
+import { LoginShell } from './LoginShell';
 
 /** 열린 리디렉트 방지: 앱 안 경로만 */
 const safeFrom = (from: string | null) => (from && from.startsWith('/') && !from.startsWith('//') ? from : '/employees');
@@ -43,55 +44,62 @@ export function LoginPage() {
   }
 
   return (
-    <section className="mx-auto max-w-sm space-y-4 pt-10">
-      <h1 className="text-xl font-bold">{m.login.title}</h1>
-      <div className="space-y-3 rounded-box bg-base-100 p-6 shadow-sm">
-        {env.isMock ? (
-          <div className="space-y-2">
-            <p className="text-sm font-semibold">{m.login.mockAccounts}</p>
+    <LoginShell title={m.login.title} lead={m.login.lead}>
+      {env.isMock ? (
+        <div className="space-y-3">
+          <p className="text-sm font-semibold">{m.login.mockAccounts}</p>
+          {/* 시험 계정은 카드 목록. 단추 이름은 예전 그대로(계정 이름 글자) */}
+          <ul className="grid gap-2">
             {mockLogins.map((a) => (
-              <button
-                key={a.operatorId}
-                type="button"
-                className="btn btn-primary btn-sm w-full"
-                disabled={phase === 'starting'}
-                onClick={() => {
-                  setPhase('starting');
-                  startMockLogin(from, a.operatorId)
-                    .then((callback) => navigate(callback, { replace: true }))
-                    .catch(() => setPhase('failed'));
-                }}
-              >
-                {a.label}
-              </button>
+              <li key={a.operatorId}>
+                <button
+                  type="button"
+                  className="flex w-full items-center gap-3 rounded-box border border-base-300 bg-base-100 p-3 text-left text-sm font-semibold transition-colors hover:border-primary hover:bg-primary/5 focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50"
+                  disabled={phase === 'starting'}
+                  onClick={() => {
+                    setPhase('starting');
+                    startMockLogin(from, a.operatorId)
+                      .then((callback) => navigate(callback, { replace: true }))
+                      .catch(() => setPhase('failed'));
+                  }}
+                >
+                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-primary/10 text-primary" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" className="h-4 w-4 fill-none stroke-current" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="12" cy="8" r="4" />
+                      <path d="M4 21a8 8 0 0 1 16 0" />
+                    </svg>
+                  </span>
+                  {a.label}
+                </button>
+              </li>
             ))}
-          </div>
-        ) : (
-          <button
-            type="button"
-            className="btn btn-primary w-full"
-            disabled={phase === 'starting'}
-            onClick={() => {
-              setPhase('starting');
-              startLogin(from).catch(() => setPhase('failed'));
-            }}
-          >
-            {phase === 'starting' ? m.employeeLogin.starting : m.employeeLogin.start}
-          </button>
-        )}
-        {phase === 'failed' && (
-          <p role="alert" className="alert alert-error text-sm">
-            {m.employeeLogin.startFailed}
-          </p>
-        )}
-        {signOutUnconfirmed && (
-          <p role="alert" className="alert alert-warning text-sm">
-            {m.employeeLogin.signOutUnconfirmed}
-          </p>
-        )}
-        <p className="text-xs opacity-70">{m.employeeLogin.note}</p>
-      </div>
-    </section>
+          </ul>
+        </div>
+      ) : (
+        <button
+          type="button"
+          className="btn btn-primary btn-lg w-full"
+          disabled={phase === 'starting'}
+          onClick={() => {
+            setPhase('starting');
+            startLogin(from).catch(() => setPhase('failed'));
+          }}
+        >
+          {phase === 'starting' ? m.employeeLogin.starting : m.employeeLogin.start}
+        </button>
+      )}
+      {phase === 'failed' && (
+        <p role="alert" className="alert alert-error text-sm">
+          {m.employeeLogin.startFailed}
+        </p>
+      )}
+      {signOutUnconfirmed && (
+        <p role="alert" className="alert alert-warning text-sm">
+          {m.employeeLogin.signOutUnconfirmed}
+        </p>
+      )}
+      <p className="border-t border-base-300 pt-4 text-xs text-base-content/60">{m.employeeLogin.note}</p>
+    </LoginShell>
   );
 }
 
@@ -124,24 +132,21 @@ export function LoginCallbackPage() {
   }, [completeLogin, navigate, params]);
 
   return (
-    <section className="mx-auto max-w-sm space-y-4 pt-10">
-      <h1 className="text-xl font-bold">{m.login.title}</h1>
-      <div className="space-y-3 rounded-box bg-base-100 p-6 shadow-sm">
-        {error === null ? (
-          <p role="status" className="text-sm opacity-70">
-            {m.employeeLogin.completing}
+    <LoginShell title={m.login.title}>
+      {error === null ? (
+        <p role="status" className="text-sm opacity-70">
+          {m.employeeLogin.completing}
+        </p>
+      ) : (
+        <>
+          <p role="alert" className="alert alert-error text-sm">
+            {m.employeeLogin.errors[error]}
           </p>
-        ) : (
-          <>
-            <p role="alert" className="alert alert-error text-sm">
-              {m.employeeLogin.errors[error]}
-            </p>
-            <Link to="/login" replace className="btn btn-primary w-full">
-              {m.employeeLogin.retry}
-            </Link>
-          </>
-        )}
-      </div>
-    </section>
+          <Link to="/login" replace className="btn btn-primary w-full">
+            {m.employeeLogin.retry}
+          </Link>
+        </>
+      )}
+    </LoginShell>
   );
 }

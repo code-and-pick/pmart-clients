@@ -1650,7 +1650,10 @@ export const messages = {
 
   login: {
     title: '운영자 로그인',
+    lead: '회사 직원 계정으로 로그인해 주세요',
     mockAccounts: '목 계정(목 데이터 — 비밀번호 없이 바로 로그인)',
+    brandLead: '상품·주문·고객·배송 운영을 한곳에서 처리해요',
+    brandFoot: '바로픽 직원 전용 화면이에요',
   },
 
   employeeLogin: employeeLoginMessages,
