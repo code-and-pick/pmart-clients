@@ -150,14 +150,16 @@ describe('앱 바꾸기 — 이 앱 메뉴 칸(알림과 함께)', () => {
     expect(screen.queryByTestId('app-launcher-menu')).not.toBeInTheDocument();
   });
 
-  it('지금 메뉴는 또렷하게 — 민트 막대·밝은 바탕·굵은 글씨, 지금 묶음 이름도 민트', async () => {
+  // 2026-11-19 사용자 캡처 "라이더 백오피스 메뉴처럼" — 민트 막대 대신 파란 채움·흰 굵은 글자, 지금 묶음 이름은 흰 글자(다른 묶음은 흐리게)
+  it('지금 메뉴는 또렷하게 — 파란 채움·흰 굵은 글자, 지금 묶음 이름은 흰 글자', async () => {
     renderAt('/approvals', as.admin);
     const link = await screen.findByRole('link', { name: '승인함' });
-    expect(link.className).toContain('border-accent');
-    expect(link.className).toContain('bg-accent/20');
-    expect(link.className).toContain('font-bold');
-    expect(screen.getByTestId('nav-group-approval').querySelector('summary')!.className).toContain('text-accent');
-    expect(screen.getByTestId('nav-group-catalog').querySelector('summary')!.className).not.toContain('text-accent');
+    expect(link.className).toContain('bg-primary');
+    expect(link.className).toContain('text-primary-content');
+    expect(link.className).toContain('font-semibold');
+    expect(link.className).not.toContain('accent');
+    expect(screen.getByTestId('nav-group-approval').querySelector('summary')!.className.split(' ')).toContain('text-neutral-content'); // 흐린 /60 이 아닌 흰 글자
+    expect(screen.getByTestId('nav-group-catalog').querySelector('summary')!.className).toContain('text-neutral-content/60');
   });
 });
 
@@ -168,7 +170,7 @@ describe('묶음 이름(2026-11-18 — 하위보다 크게, 눌렀을 때 펼침
     const support = await screen.findByTestId('nav-group-support');
     const summary = support.querySelector('summary')!;
     expect(summary.className).toContain('text-[15px]');
-    expect(screen.getByRole('link', { name: '승인함' }).className).toContain('text-[13px]');
+    expect(screen.getByRole('link', { name: '승인함' }).className).toContain('text-sm'); // 하위 메뉴 14px < 묶음 15px
     expect(summary.querySelector('svg')).not.toBeNull(); // 묶음 아이콘
     const chevron = within(support).getByTestId('nav-group-chevron');
     expect(chevron.getAttribute('class')).not.toContain('rotate-90');
