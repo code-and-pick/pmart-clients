@@ -40,16 +40,20 @@ function readFilters(params: URLSearchParams): Filters {
   return f;
 }
 
-/** 참조 → 백오피스 화면(있는 것만). ORDER:ORD-… → 주문 상세, RIDER:RD-… → 라이더 상세 */
-function refLink(ref: string | null | undefined) {
+/**
+ * 참조 → 백오피스 화면(있는 것만). ORDER:ORD-… → 주문 상세, RIDER:RD-… → 라이더 상세.
+ * 목록·머리(withId=false)는 "주문 보기"처럼 종류만 — 시스템 ID 는 상세 오른쪽 칸(withId)에만(2026-11-20 다시 점검, ADR-0070)
+ */
+function refLink(ref: string | null | undefined, withId = false) {
   if (!ref) return messages.none;
   const [kind, id] = ref.split(/:(.*)/s);
-  if (id && kind === 'ORDER') return <Link className="link font-mono" to={`/orders/${encodeURIComponent(id)}`}>{ref}</Link>;
-  if (id && kind === 'RIDER') return <Link className="link font-mono" to={`/riders/${encodeURIComponent(id)}`}>{ref}</Link>;
-  return <span className="font-mono">{ref}</span>;
+  if (id && kind === 'ORDER') return <Link className={withId ? 'link font-mono' : 'link'} to={`/orders/${encodeURIComponent(id)}`}>{withId ? ref : m.openOrder}</Link>;
+  if (id && kind === 'RIDER') return <Link className={withId ? 'link font-mono' : 'link'} to={`/riders/${encodeURIComponent(id)}`}>{withId ? ref : m.openRider}</Link>;
+  return withId ? <span className="font-mono">{ref}</span> : <span>{m.otherRef}</span>;
 }
 
-function subject(log: Pick<Log, 'subjectType' | 'subjectRef'>) {
+/** 정보주체 — 종류 꼬리표(라이더면 상세 링크). 고객·라이더 ID 는 상세 오른쪽 칸(withId)에만 */
+function subject(log: Pick<Log, 'subjectType' | 'subjectRef'>, withId = false) {
   const type = log.subjectType ?? 'CUSTOMER'; // 계약 기본값
   return (
     <>
@@ -57,12 +61,12 @@ function subject(log: Pick<Log, 'subjectType' | 'subjectRef'>) {
         <CodeLabel code={type} names={m.subjectTypeName} />
       </span>
       {type === 'RIDER' ? (
-        <Link className="link font-mono" to={`/riders/${encodeURIComponent(log.subjectRef)}`}>
-          {log.subjectRef}
+        <Link className={withId ? 'link font-mono' : 'link text-sm'} to={`/riders/${encodeURIComponent(log.subjectRef)}`}>
+          {withId ? log.subjectRef : m.openRider}
         </Link>
-      ) : (
+      ) : withId ? (
         <span className="font-mono">{log.subjectRef}</span>
-      )}
+      ) : null}
     </>
   );
 }
@@ -374,8 +378,8 @@ export function PiiAccessLogDetailPage() {
                     ],
                     [m.col.accessType, <CodeLabel code={log.accessType} names={m.accessTypeName} />],
                     [m.recordCount, text(log.recordCount ?? 1)],
-                    [m.col.subject, subject(log)],
-                    [m.col.caseRef, refLink(log.caseRef)],
+                    [m.col.subject, subject(log, true)],
+                    [m.col.caseRef, refLink(log.caseRef, true)],
                     [m.screen, text(log.screen)],
                   ]}
                 />

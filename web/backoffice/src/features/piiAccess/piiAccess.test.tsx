@@ -32,10 +32,11 @@ describe('개인정보 열람 기록', () => {
     const order = rows.find((r) => r.textContent?.includes('오배송 확인 — 수령지 대조'))!;
     expect(order).toHaveTextContent('이름, 주소, 출입 메모·배송 요청사항'); // 항목마다 이름 + 원래 코드(title)(2026-11-18)
     expect(within(order).getByTitle('ENTRANCE')).toHaveTextContent('출입 메모·배송 요청사항');
-    expect(within(order).getByRole('link', { name: 'ORDER:ORD-MOCK-1001' })).toHaveAttribute('href', '/orders/ORD-MOCK-1001');
+    expect(within(order).getByRole('link', { name: '주문 보기' })).toHaveAttribute('href', '/orders/ORD-MOCK-1001'); // 목록엔 ID 없이(ADR-0070)
+    expect(order).not.toHaveTextContent(/ORD-MOCK|CU-MOCK/);
     const rider = rows.find((r) => r.textContent?.includes('라이더 연락 두절 확인'))!;
     expect(within(rider).getByText('라이더')).toBeInTheDocument();
-    expect(within(rider).getByRole('link', { name: 'RD-1' })).toHaveAttribute('href', '/riders/RD-1');
+    expect(within(rider).getAllByRole('link', { name: '라이더 보기' })[0]).toHaveAttribute('href', '/riders/RD-1');
     expect(within(rider).getByTitle('RIDER_OPS')).toHaveTextContent('라이더 운영'); // 역할 이름 + 원래 코드(title)
     const sent = listCalls(view.sent)[0]!;
     expect([sent.get('size'), sent.get('cursor'), sent.get('from')]).toEqual(['50', null, null]);

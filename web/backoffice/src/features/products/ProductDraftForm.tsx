@@ -530,6 +530,7 @@ export function ProductDraftForm({
                   <span className={fieldLabel}>{m.products.barcodes}</span>
                   <input
                     className="input input-sm w-full font-mono"
+                    placeholder={m.products.barcodeEnterHint}
                     value={s.barcodes}
                     onChange={(e) => setSku(i, { barcodes: e.target.value })}
                     // 스캐너는 끝에 Enter 를 보낸다 — 폼을 저장하지 않고 다음 바코드 자리를 만든다.
@@ -540,7 +541,6 @@ export function ProductDraftForm({
                     }}
                   />
                 </label>
-                <span className="text-xs text-base-content/60">{m.products.barcodeEnterHint}</span>
                 {list(s.barcodes).flatMap((b) => {
                   const digit = gs1CheckDigitProblem(b);
                   return digit === null
