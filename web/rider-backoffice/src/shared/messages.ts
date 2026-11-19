@@ -227,7 +227,10 @@ export const messages = {
 
   login: {
     title: '라이더 백오피스 로그인',
+    lead: '회사 직원 계정으로 로그인해 주세요',
     mockAccounts: '목 계정으로 로그인(목 모드에는 Keycloak 이 없어요)',
+    brandLead: '라이더·배송 관제와 지원을 한곳에서 처리해요',
+    brandFoot: '라이더 운영 직원 전용 화면이에요',
   },
   employeeLogin: employeeLoginMessages,
 

@@ -1360,7 +1360,10 @@ export const messages = {
 
   login: {
     title: 'MFC 백오피스 로그인',
+    lead: '회사 직원 계정으로 로그인해 주세요',
     mockAccounts: '목 계정으로 로그인(목 모드에는 Keycloak 이 없어요)',
+    brandLead: '센터 작업·입고·재고·품질 운영을 한곳에서 처리해요',
+    brandFoot: '센터 관리자 전용 화면이에요',
   },
   employeeLogin: employeeLoginMessages,
 
