@@ -124,6 +124,10 @@ function grantRuleProblems(grants: ReadonlyArray<{ role?: string; centers?: stri
 /** 계정의 끝나지 않은 권한(목 db.accountGrants) */
 const activeAccountGrants = (operatorId: string) => (db.accountGrants.get(operatorId) ?? []).filter((g) => !g.revokedAt && (!g.validUntil || Date.parse(g.validUntil) > Date.now()));
 
+/** 목 오늘(서울) — 계약 종료 임박 시험이 날짜에 흔들리지 않게 고정 */
+export const MOCK_TODAY = '2026-11-19';
+const addDays = (day: string, n: number) => new Date(Date.parse(`${day}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
+
 export const hrHandlers = [
   // hr 0.3.0 권한 추가·변경 요청(BO-01): 재직 중·발급 끝난 직원만(409 INVALID_STATE), 결정 안 된 요청이 있으면 409 GRANT_REQUEST_PENDING, 자기 권한 403.
   // 목 규칙: SUBMITTED 로 붙고, 다음 직원 조회에서 소속 센터 MFC_WORKER 만 자동 승인(등록 때와 같은 advance 규칙).
@@ -208,6 +212,30 @@ export const hrHandlers = [
     });
   }),
 
+  // hr 0.9.0 인원 세기(H-D2) — :id 보다 먼저(같은 모양 경로). 오늘 = 목 고정 서울 날짜
+  http.get(`${API_BASE}/hr/employees/counts`, ({ request }) => {
+    const denied = requireHr(request);
+    if (denied) return denied;
+    const days = Number(new URL(request.url).searchParams.get('endingWithinDays') ?? 7);
+    if (!Number.isInteger(days) || days < 1 || days > 90) return problem(400, 'VALIDATION_FAILED');
+    const today = MOCK_TODAY;
+    const to = addDays(today, days - 1);
+    const all = [...db.employees.values()].map((m) => m.employee);
+    const c = (n: number) => ({ value: n, complete: true });
+    return HttpResponse.json({
+      asOf: new Date().toISOString(),
+      active: c(all.filter((e) => e.status === 'ACTIVE').length),
+      suspended: c(all.filter((e) => e.status === 'SUSPENDED').length),
+      left: c(all.filter((e) => e.status === 'LEFT').length),
+      provisioningFailed: c(all.filter((e) => e.provisioning.step === 'FAILED' || e.provisioning.step === 'COMPENSATED').length),
+      grantPendingApproval: c(all.filter((e) => e.status !== 'LEFT' && (e.requestedGrants ?? []).some((g) => g.submission === 'SUBMITTED')).length),
+      endingSoon: c(all.filter((e) => e.status === 'ACTIVE' && e.endDate && e.endDate >= today && e.endDate <= to).length),
+      endingWithinDays: days,
+      endingFrom: today,
+      endingTo: to,
+    });
+  }),
+
   http.get(`${API_BASE}/hr/employees`, ({ request }) => {
     const denied = requireHr(request);
     if (denied) return denied;
@@ -217,12 +245,22 @@ export const hrHandlers = [
     const q = url.searchParams.get('q')?.trim().toLowerCase() ?? '';
     const size = Number(url.searchParams.get('size') ?? 50);
     const offset = Number(url.searchParams.get('cursor') ?? 0);
+    // hr 0.9.0 거르기(H-D1)
+    const steps = url.searchParams.get('provisioningStep')?.split(',').filter(Boolean) ?? [];
+    const grant = url.searchParams.get('grantSubmission');
+    const endFrom = url.searchParams.get('endDateFrom');
+    const endTo = url.searchParams.get('endDateTo');
+    const sort = url.searchParams.get('sort') ?? 'CREATED_DESC';
+    if (endFrom && endTo && endFrom > endTo) return problem(400, 'VALIDATION_FAILED');
     const all = [...db.employees.values()]
       .map((m) => m.employee)
       .filter((e) => !status || e.status === status)
       .filter((e) => !affiliationCode || e.affiliation.code === affiliationCode)
       .filter((e) => !q || e.name.toLowerCase().startsWith(q) || mailIdOf(e).startsWith(q) || e.employeeNo.toLowerCase().startsWith(q))
-      .sort((a, b) => b.employeeNo.localeCompare(a.employeeNo));
+      .filter((e) => steps.length === 0 || steps.includes(e.provisioning.step))
+      .filter((e) => !grant || (e.requestedGrants ?? []).some((g) => g.submission === grant))
+      .filter((e) => (!endFrom && !endTo && sort !== 'END_DATE_ASC') || (Boolean(e.endDate) && (!endFrom || (e.endDate ?? '') >= endFrom) && (!endTo || (e.endDate ?? '') <= endTo)))
+      .sort((a, b) => (sort === 'END_DATE_ASC' ? (a.endDate ?? '').localeCompare(b.endDate ?? '') || a.employeeNo.localeCompare(b.employeeNo) : b.employeeNo.localeCompare(a.employeeNo)));
     const items = all.slice(offset, offset + size);
     const next = offset + size < all.length ? String(offset + size) : undefined;
     return HttpResponse.json({ items, ...(next ? { nextCursor: next } : {}) });

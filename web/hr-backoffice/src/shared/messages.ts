@@ -32,8 +32,24 @@ export const messages = {
 
   /** 첫 화면(2026-11-19) — 숫자는 계약에 세는 조회가 없어 넣지 않는다(H-D2) */
   home: {
+    /** 숫자 띠(2026-11-19 hr 0.9.0 H-D2) */
+    counts: {
+      label: '직원 수',
+      provisioningFailed: '계정 발급 실패',
+      provisioningFailedHint: '다시 시도가 필요해요',
+      grantPending: '권한 승인 대기',
+      grantPendingHint: '승인자가 백오피스 승인함에서 해요',
+      endingSoon: (days: number) => `계약 종료 ${days}일 안`,
+      failed: '수를 읽지 못했어요(0 이 아니에요) — 잠시 뒤 다시 열어 주세요.',
+    },
+    recent: {
+      title: '최근 등록',
+      all: '전체 직원',
+      failed: '최근 등록 직원을 읽지 못했어요.',
+      none: '아직 등록한 직원이 없어요.',
+    },
     title: '인사팀 첫 화면',
-    description: '자주 하는 일로 바로 가요.',
+    description: '직원 현황을 보고, 자주 하는 일로 바로 가요.',
     shortcuts: '바로 가기',
     registerBody: '새 직원을 넣으면 계정이 자동으로 발급돼요.',
     employeesBody: '이름·메일 ID·사번으로 찾고 정지·퇴사를 처리해요.',
@@ -169,6 +185,15 @@ export const messages = {
   },
 
   list: {
+    /** 첫 화면에서 넘어온 조건(2026-11-19 hr 0.9.0 H-D1) */
+    extraFilter: '거른 조건',
+    extraName: {
+      provisioning: '계정 발급 실패',
+      grant: (s: string) => `요청 권한 ${s}`,
+      endDate: (from: string, to: string) => `계약 종료 ${from}~${to}`,
+      sortEnd: '종료일 빠른 순',
+    },
+    clearExtra: '조건 지우기',
     title: '직원 목록',
     intro: '이름·메일 ID·사번 앞부분으로 찾고, 상태·소속으로 걸러요. 줄을 누르면 직원 상세로 가요.',
     person: '직원',

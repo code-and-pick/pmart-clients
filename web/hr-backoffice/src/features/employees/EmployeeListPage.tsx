@@ -21,6 +21,25 @@ const PAGE_SIZE = 50;
 
 const isStatus = (v: string | null): v is EmploymentStatus => EMPLOYMENT_STATUSES.some((s) => s === v);
 
+/** hr 0.9.0 거르기(H-D1) — 첫 화면 숫자 칸에서 넘어올 때 쓴다. 모르는 값은 버린다(서버는 400) */
+const STEPS = ['REQUESTED', 'MAILBOX_CREATED', 'IAM_CREATED', 'INVITE_SENT', 'DONE', 'FAILED', 'COMPENSATED'] as const;
+const GRANT_STATES = ['PENDING', 'SUBMITTED', 'APPROVED', 'REJECTED'] as const;
+const isDay = (v: string | null): v is string => v !== null && /^\d{4}-\d{2}-\d{2}$/.test(v);
+function extraFilters(params: URLSearchParams) {
+  const steps = (params.get('provisioningStep') ?? '').split(',').filter((x): x is (typeof STEPS)[number] => (STEPS as readonly string[]).includes(x));
+  const grant = GRANT_STATES.find((g) => g === params.get('grantSubmission'));
+  const endFrom = params.get('endDateFrom');
+  const endTo = params.get('endDateTo');
+  const sort = params.get('sort') === 'END_DATE_ASC' ? ('END_DATE_ASC' as const) : undefined;
+  return {
+    ...(steps.length > 0 ? { provisioningStep: steps.join(',') } : {}),
+    ...(grant ? { grantSubmission: grant } : {}),
+    ...(isDay(endFrom) ? { endDateFrom: endFrom } : {}),
+    ...(isDay(endTo) ? { endDateTo: endTo } : {}),
+    ...(sort ? { sort } : {}),
+  };
+}
+
 export function EmployeeListPage() {
   const api = useApi();
   const { session } = useSession();
@@ -31,9 +50,11 @@ export function EmployeeListPage() {
   const q = params.get('q') ?? '';
   // 입력 중인 값(조회를 눌러야 URL·요청에 반영된다)
   const [draft, setDraft] = useState({ status: status ?? '', affiliationCode, q });
+  const extra = extraFilters(params);
+  const extraKey = JSON.stringify(extra);
 
   const query = useInfiniteQuery({
-    queryKey: ['hr', 'employees', session?.subject, status ?? '', affiliationCode, q],
+    queryKey: ['hr', 'employees', session?.subject, status ?? '', affiliationCode, q, extraKey],
     initialPageParam: undefined as string | undefined,
     queryFn: ({ pageParam }) =>
       request(
@@ -44,6 +65,7 @@ export function EmployeeListPage() {
               ...(status ? { status } : {}),
               ...(affiliationCode ? { affiliationCode } : {}),
               ...(q ? { q } : {}),
+              ...extra,
               size: PAGE_SIZE,
               ...(pageParam ? { cursor: pageParam } : {}),
             },
@@ -77,6 +99,19 @@ export function EmployeeListPage() {
       />
       {/* 내 보기(2026-11-19 — 백오피스와 같음): 상태·소속 조건만 이 브라우저에 저장(검색어 = 이름은 저장하지 않는다) */}
       <SavedViews listKey="employees" />
+      {/* 첫 화면 숫자 칸에서 넘어온 조건(2026-11-19 H-D1) — 무엇으로 걸렀는지 보이고 지울 수 있다 */}
+      {Object.keys(extra).length > 0 && (
+        <p className="flex flex-wrap items-center gap-2 rounded-box border border-primary/30 bg-primary/5 px-3 py-2 text-sm" data-testid="extra-filter">
+          <span className="font-semibold">{m.list.extraFilter}</span>
+          {extra.provisioningStep && <span className="badge badge-sm">{m.list.extraName.provisioning}</span>}
+          {extra.grantSubmission && <span className="badge badge-sm">{m.list.extraName.grant(m.grantSubmission[extra.grantSubmission])}</span>}
+          {(extra.endDateFrom || extra.endDateTo) && <span className="badge badge-sm">{m.list.extraName.endDate(extra.endDateFrom ?? '', extra.endDateTo ?? '')}</span>}
+          {extra.sort && <span className="badge badge-sm">{m.list.extraName.sortEnd}</span>}
+          <Link className="link ml-auto text-xs" to={status ? `/employees?status=${status}` : '/employees'}>
+            {m.list.clearExtra}
+          </Link>
+        </p>
+      )}
       <SearchPanel
         submitLabel={m.search}
         resetLabel={m.list.reset}
