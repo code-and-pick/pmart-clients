@@ -10,6 +10,7 @@ import type { paths as CenterPaths } from './generated/center-master';
 import type { paths as RiderPaths } from './generated/rider';
 import type { paths as TrackingPaths } from './generated/delivery-tracking';
 import type { paths as NotificationPaths } from './generated/notification';
+import type { paths as HrPaths } from './generated/hr';
 
 export { SOURCE_SYSTEM };
 
@@ -36,6 +37,8 @@ export function createApi(pmartFetch: PmartFetch, baseUrl = API_BASE) {
     center: createClient<CenterPaths>(options),
     // 라이더 공지 보내기·보낸 목록(notification 0.5.0, 2026-11-18)
     notification: createClient<NotificationPaths>(options),
+    // 직원 "이름 · 사번"(hr 0.8.0 GET /hr/employee-labels — 직원 토큰이면 누구나, ADR-0070 덧붙임 2026-11-19)
+    hr: createClient<HrPaths>(options),
   };
 }
 

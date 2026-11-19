@@ -11,6 +11,7 @@ import { Link } from 'react-router';
 import { request } from '@pmart/web-core';
 import type { components } from '../api/generated/rider';
 import { useApi } from '../app/ApiContext';
+import { labelText, useEmployeeLabel } from './employeeLabels';
 import { SimBadge } from './sim';
 
 type RiderSummary = components['schemas']['StaffRiderSummary'];
@@ -182,13 +183,26 @@ export function RiderRef({ riderId, summary }: { readonly riderId: string | null
 }
 
 /**
- * 직원(처리자·결정자·보낸 사람) — ADR-0070: "이름 · 사번"이 정본이고 OP-… 는 내지 않는다. 이름·사번 조회(HR-4)가 아직 없어
- * 로그인한 본인이면 "나", 그 밖은 "직원 …끝 6자리"(전체 ID 는 마우스를 올리면). HR-4 가 나오면 여기만 바꾼다.
+ * 직원(처리자·결정자·보낸 사람) — ADR-0070: "이름 · 사번"이 정본이고 OP-… 는 내지 않는다.
+ * 2026-11-19: hr 0.8.0 `GET /hr/employee-labels`(shared/employeeLabels — 한 화면의 ID 를 50개씩 묶어 한 번에)로 "이름 · 사번".
+ * 로그인한 본인이면 "나". 읽는 중·못 읽음·hr 이 모르는 ID 는 전처럼 "직원 …끝 6자리"(전체 ID 는 마우스를 올리면) — 이름을 지어내지 않는다.
  */
 export function StaffName({ operatorId, me }: { readonly operatorId: string | null | undefined; readonly me?: string | undefined }) {
   if (!operatorId) return <span className="text-base-content/40">—</span>;
   if (me && operatorId === me) return <span className="font-medium">{numberMessages.me}</span>;
   if (!operatorId.startsWith('OP-')) return <span>{operatorId}</span>; // 서비스(자동 처리 등) 이름
+  return <StaffLabel operatorId={operatorId} />;
+}
+
+function StaffLabel({ operatorId }: { readonly operatorId: string }) {
+  const label = useEmployeeLabel(operatorId);
+  if (label.data) {
+    return (
+      <span className="whitespace-nowrap" title={operatorId} data-testid="staff-name">
+        {labelText(label.data)}
+      </span>
+    );
+  }
   return (
     <span className="whitespace-nowrap text-base-content/70" title={operatorId} data-testid="staff-name">
       {numberMessages.staff} <span className="font-mono text-base-content/45">…{operatorId.slice(-6)}</span>
