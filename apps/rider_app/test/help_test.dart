@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:pmart_core/pmart_core.dart';
 import 'package:pmart_ui/pmart_ui.dart';
 
@@ -541,6 +544,54 @@ void main() {
       expect(c.read(p).rejectedCode, isNull);
       expect(c.read(p).tickets, hasLength(1));
       expect(c.read(p).state, HelpState.open);
+    },
+  );
+
+  testWidgets(
+    '전달 실패 결정 대기 중이면 도움요청이 닫혀도 대화를 막지 않는다(서버가 다시 연다, 사용자 2026-11-19)',
+    (t) async {
+      t.view
+        ..physicalSize = const Size(800, 2200)
+        ..devicePixelRatio = 1;
+      addTearDown(t.view.reset);
+      repo
+        ..seedFailureReport('dlv-1', 'req-f1')
+        ..closeHelp('req-f1');
+      final offers = MockOfferRepository(latency: Duration.zero);
+      await t.pumpWidget(
+        ProviderScope(
+          retry: (_, _) => null,
+          overrides: [
+            ...overrides(),
+            initialSessionProvider.overrideWithValue(
+              const RiderSession(riderId: 'rider-mock-1'),
+            ),
+            offerRepositoryProvider.overrideWithValue(offers),
+            dutyRepositoryProvider.overrideWithValue(offers),
+          ],
+          child: const RiderApp(),
+        ),
+      );
+      Future<void> settle() async {
+        for (var i = 0; i < 12; i++) {
+          await t.pump(const Duration(milliseconds: 25));
+        }
+      }
+
+      await settle();
+      final c = ProviderScope.containerOf(t.element(find.byType(RiderApp)));
+      await t.runAsync(
+        () => c.read(helpFlowProvider('dlv-1').notifier).refresh(),
+      );
+      unawaited(
+        GoRouter.of(t.element(find.byType(Scaffold).first))
+            .push('/deliveries/dlv-1/support/req-f1'),
+      );
+      await t.pump(const Duration(seconds: 1));
+      await settle();
+      expect(repo.deliveryJson('dlv-1')['state'], 'FAILURE_REPORTED');
+      expect(find.byKey(const ValueKey('thread-resolved')), findsNothing);
+      expect(find.byKey(const ValueKey('thread-input')), findsOneWidget);
     },
   );
 }
