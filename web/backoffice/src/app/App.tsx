@@ -141,10 +141,14 @@ function NavGroupMenu({ group, pathname, open, onToggle }: { readonly group: Nav
 }
 
 /** 지금 주소의 메뉴(머리줄 "묶음 › 메뉴") — 하위 경로는 가장 긴 메뉴 경로로 */
-function currentMenu(groups: readonly NavGroup[], pathname: string): { readonly group: string; readonly menu: string } | null {
+// 메뉴를 합치며 그 메뉴 아래로 옮긴 화면(also)은 머리줄에 화면 이름을 하나 더(2026-11-20 사용자 "가격 화면인데 상품 조회로 나간 줄 알았다")
+const SUB_PAGE: ReadonlyArray<readonly [string, string]> = [['/prices', m.prices.title]];
+
+function currentMenu(groups: readonly NavGroup[], pathname: string): { readonly group: string; readonly menu: string; readonly sub: string | null } | null {
   let best: { group: string; menu: string; len: number } | null = null;
   for (const g of groups) for (const i of g.items) if (covers(i, pathname) && (!best || i.to.length > best.len)) best = { group: g.label, menu: i.label, len: i.to.length };
-  return best ? { group: best.group, menu: best.menu } : null;
+  const sub = SUB_PAGE.find(([p]) => pathname === p || pathname.startsWith(`${p}/`))?.[1] ?? null;
+  return best ? { group: best.group, menu: best.menu, sub } : null;
 }
 
 /**
@@ -232,7 +236,14 @@ function Layout() {
             {current ? (
               <>
                 {current.group} <span className="px-1 text-base-content/30">›</span>
-                <span className="font-semibold text-base-content">{current.menu}</span>
+                {current.sub ? (
+                  <>
+                    {current.menu} <span className="px-1 text-base-content/30">›</span>
+                    <span className="font-semibold text-base-content">{current.sub}</span>
+                  </>
+                ) : (
+                  <span className="font-semibold text-base-content">{current.menu}</span>
+                )}
               </>
             ) : null}
           </p>

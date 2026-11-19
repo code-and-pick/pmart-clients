@@ -206,7 +206,7 @@ describe('지원센터 사건', () => {
     );
     renderAt('/cases', as.riderOps);
     const row = (await rows())[0]!;
-    expect(within(row).getByRole('link', { name: '라이더 도움요청' })).toHaveAttribute('href', '/cases/CASE-NOSUM');
+    expect(within(row).getByTestId('case-summary')).toHaveTextContent('라이더 도움요청'); // 줄은 링크 없이 — 누르면 미리보기(2026-11-20)
     expect(within(row).queryByText('CASE-NOSUM')).not.toBeInTheDocument();
   });
 
@@ -267,10 +267,10 @@ describe('지원센터 사건', () => {
     const view = renderAt('/cases', as.riderOps);
     await rows();
     await userEvent.click(screen.getByRole('button', { name: '다음 쪽' }));
-    expect(await screen.findByRole('link', { name: 'CASE-P2' })).toBeInTheDocument();
+    expect(await screen.findByText('CASE-P2', { selector: '[data-testid="case-summary"]' })).toBeInTheDocument();
     expect(inboxCalls(view.sent).some((q) => q.get('cursor') === 'CUR-2')).toBe(true);
     await userEvent.click(screen.getByRole('button', { name: '처음 쪽' }));
-    expect(await screen.findByRole('link', { name: 'CASE-P1' })).toBeInTheDocument();
+    expect(await screen.findByText('CASE-P1', { selector: '[data-testid="case-summary"]' })).toBeInTheDocument();
   });
   it('연결 원천에 없으면(state null·DIRECT) "원천에 없음" — 상태를 지어내지 않는다', async () => {
     const stamp = { system: 'delivery-execution-service', confidence: 'DIRECT', asOf: { asOf: '2026-11-16T00:00:00Z', freshness: 'CURRENT' } };

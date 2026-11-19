@@ -156,9 +156,9 @@ function ClaimTable({ query, withCount = false, preview = false, stage }: { read
                 <span className="flex flex-wrap items-center gap-2">
                   <ClaimTypeChip type={c.type} />
                   {c.claimId ? (
-                    <Link className="font-mono font-semibold text-base-content hover:text-primary hover:underline" to={`/claims/${encodeURIComponent(c.claimId)}`} onClick={(e) => e.stopPropagation()} data-testid="claim-label">
+                    <span className="font-mono font-semibold text-base-content" data-testid="claim-label">
                       {claimLabel(orders.get(c.orderId), c.type, c.openedAt)}
-                    </Link>
+                    </span>
                   ) : (
                     m.none
                   )}

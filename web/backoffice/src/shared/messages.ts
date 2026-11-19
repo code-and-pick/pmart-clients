@@ -2366,7 +2366,29 @@ export const messages = {
   },
 
   prices: {
-    title: '가격',
+    /** 가격 바꾸기 한 자리 흐름(2026-11-20) */
+    form: {
+      title: '가격 바꾸기',
+      bulkTitle: (n: number) => `선택한 ${n}개 가격 바꾸기`,
+      sku: 'SKU',
+      now: '지금 가격',
+      next: '새 가격',
+      newPriceOf: (sku: string) => `${sku} 새 가격`,
+      newPricePlaceholder: '바꿀 때만',
+      diff: (d: number) => (d > 0 ? `+${d.toLocaleString('ko-KR')}원` : `${d.toLocaleString('ko-KR')}원`),
+      when: '적용',
+      onApproval: '승인되면 바로',
+      atTime: '시각 지정',
+      submit: '가격 변경 승인 요청',
+      submitMany: (n: number) => `${n}개 가격 변경 승인 요청`,
+      requested: (n: number) => `${n}개 SKU 가격 변경을 승인 요청했어요.`,
+      appliesOnApproval: '승인되면 바로 바뀌어요.',
+      appliesAt: (t: string) => `승인되면 ${t} 부터 바뀌어요.`,
+      openApproval: '승인 진행 보기',
+      again: '다른 가격 바꾸기',
+      productPrice: '상품 가격 탭',
+    },
+    title: '가격 관리',
     /** 가격 관리 목록(2026-11-19 쿠팡 윙 가격관리 참고) */
     list: {
       countsLabel: '가격 상태',

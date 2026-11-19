@@ -1,29 +1,22 @@
-// 기본 판매가격: 조회(현재·예약·이력), 변경 요청(approval PRICE 변경 요청을 화면에서 직접 만든다), 승인 반영 확인.
-// 화면(2026-11-18 사용자 "밋밋하다"): SKU 찾기 줄 → 두 칸(현재 기본가 큰 숫자·예약 / 가격 이력 세로 줄) → 변경 요청 카드(단계 표시·행 표·반영 확인).
+// 기본 판매가격: 가격 관리 목록 + 오른쪽 서랍(지금 가격·이력·바로 바꾸기). 바꾸기는 PriceChangeForm(상품 상세 가격 탭과 같은 부품) —
+// 2026-11-20 사용자 "바꾸기 누르면 상품 조회로 나가지고 맨 아래로 가고…" — 맨 아래 변경 카드·"반영 확인"(승인 번호 다시 넣기)은 뺐다.
 // 금액은 서버 값을 표시만 한다. PRICE_NOT_SET 은 0원이 아니라 "미설정(판매 불가)".
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
 
-import { commandParams } from '../../api/command';
 import { ProblemFailure } from '@pmart/web-core';
 import type { ChangeRequestBody } from '../../api/models';
 import { request } from '@pmart/web-core';
-import { settleCommand } from '@pmart/web-core';
-import { randomUuid } from '@pmart/web-core';
 import { useApi } from '../../app/ApiContext';
-import { CommandFeedback } from '../../shared/Feedback';
 import { formatKrw, formatSeoul } from '@pmart/web-ui';
-import { ApprovalChosen, ApprovalPicker } from '../../shared/ApprovalPicker';
 import { messages as m } from '../../shared/messages';
 import { QueryState } from '@pmart/web-ui';
 import { toUiState } from '@pmart/web-ui';
-import { useCommand } from '@pmart/web-ui';
-import { RequestApproval } from '../approvals/RequestApproval';
-import { CodeLabel, NextAction, PageHeader, StatusBadge, type Tone } from '../../shared/admin';
-import { Card, JumpLink, LineIcon, Steps, tableClass } from '../products/parts';
+import { PageHeader, StatusBadge, type Tone } from '../../shared/admin';
+import { Card, LineIcon } from '../products/parts';
 import { PreviewDrawer } from '../../shared/Preview';
-import { pushToast } from '../../shared/toast';
+import { PriceChangeForm } from './PriceChangeForm';
 import { PriceList } from './PriceList';
 
 const SKU_PATTERN = /^[EB]-\d{8}$/;
@@ -77,12 +70,6 @@ export function PriceLookup({ sku, compact = false, withProduct = true }: { read
     <div className="space-y-4">
     {/* 상품 상세 가격 탭에서는 이미 그 상품이라 뺀다 */}
     {withProduct && <SkuProduct sku={sku} />}
-    {/* 다음 할 일(2026-11-18): 서버가 PRICE_NOT_SET 이라 답했을 때만 — 아래 변경 요청 카드로 */}
-    {notSet && (
-      <NextAction tone="warning" title={m.prices.nextAction.notSet} body={m.prices.nextAction.notSetBody}>
-        <JumpLink to="price-change">{m.prices.goChange}</JumpLink>
-      </NextAction>
-    )}
     <div className={compact ? 'space-y-4' : 'grid items-start gap-4 lg:grid-cols-3'}>
       <Card title={m.prices.current} aside={<span className="rounded bg-base-200 px-2 py-0.5 font-mono text-xs">{sku}</span>} className={compact ? '' : 'lg:col-span-2'}>
         {notSet ? (
@@ -143,39 +130,12 @@ export function PriceLookup({ sku, compact = false, withProduct = true }: { read
   );
 }
 
-/**
- * 변경할 행의 SKU 가 무엇인지(2026-11-19 — 가격 관리 목록에서 넘어오면 SKU 코드만 보여 무엇의 가격인지 몰랐다): 상품 이름 · 지금 기본가.
- * 목록·서랍과 같은 조회(같은 queryKey — 다시 안 읽음). 못 읽으면 ?(0원·미설정으로 바꾸지 않는다).
- */
-function LineSkuInfo({ sku }: { readonly sku: string }) {
-  const api = useApi();
-  const skuQ = useQuery({ queryKey: ['product', 'sku', sku], queryFn: () => request('GET', api.product.GET('/skus/{sku}', { params: { path: { sku } } })) });
-  const productId = skuQ.data?.productId;
-  const productQ = useQuery({
-    queryKey: ['product', 'detail', productId ?? ''],
-    enabled: Boolean(productId),
-    queryFn: () => request('GET', api.product.GET('/products/{productId}', { params: { path: { productId: productId ?? '' } } })),
-  });
-  const price = useQuery({ queryKey: ['pricing', 'price', sku], queryFn: () => request('GET', api.pricing.GET('/prices/{sku}', { params: { path: { sku } } })) });
-  const notSet = price.error instanceof ProblemFailure && price.error.problem.code === PRICE_NOT_SET;
-  const name = skuQ.isError || productQ.isError ? '?' : (productQ.data?.internalName ?? '…');
-  const now = notSet ? m.prices.list.notSet : price.data ? formatKrw(price.data.basePrice) : price.isError ? '?' : '…';
-  return (
-    <span className="mt-1 block text-xs text-base-content/55" data-testid="line-sku-info">
-      <span className="font-medium text-base-content/75">{name}</span>
-      {` · ${m.prices.list.nowPrice} `}
-      <span className={notSet ? 'font-semibold text-error' : 'font-semibold tabular-nums'}>{now}</span>
-    </span>
-  );
-}
-
 interface Line {
   sku: string;
   basePrice: string;
   effectiveFrom: string;
 }
 
-const emptyLine = (sku = ''): Line => ({ sku, basePrice: '', effectiveFrom: '' });
 
 /** handoff 2026-10-30 §4.5 PRICE 변경 요청 본문. requestedAmount = attributes.basePrice. */
 export function priceChangeBody(lines: readonly Line[], requestedEffectiveFrom: string, refId: string): ChangeRequestBody {
@@ -199,143 +159,18 @@ export function priceChangeBody(lines: readonly Line[], requestedEffectiveFrom: 
   };
 }
 
-const validLine = (l: Line) => SKU_PATTERN.test(l.sku) && /^\d+$/.test(l.basePrice);
-
-function PriceChange({ initialSkus }: { readonly initialSkus: readonly string[] }) {
-  const api = useApi();
-  const [lines, setLines] = useState<Line[]>(initialSkus.length > 0 ? initialSkus.map((s) => emptyLine(s)) : [emptyLine()]);
-  const [common, setCommon] = useState('');
-  const [body, setBody] = useState<ChangeRequestBody | null>(null);
-  const [approvalId, setApprovalId] = useState('');
-
-  const ok = lines.length > 0 && lines.every(validLine) && new Set(lines.map((l) => l.sku)).size === lines.length;
-  const setLine = (i: number, patch: Partial<Line>) => setLines(lines.map((l, j) => (j === i ? { ...l, ...patch } : l)));
-  const effectiveOf = (l: Line) => seoulInputToIso(l.effectiveFrom) || seoulInputToIso(common);
-  const confirmable = approvalId.trim().length > 0 && lines.every((l) => effectiveOf(l));
-
-  const confirm = useCommand((v: { approvalId: string; lines: Line[] }, key) =>
-    settleCommand(
-      key,
-      () =>
-        request(
-          'POST',
-          api.pricing.POST('/price-version-applications', {
-            ...commandParams(key),
-            body: {
-              approvalId: v.approvalId,
-              items: v.lines.map((l) => ({ sku: l.sku, basePrice: Number(l.basePrice), effectiveFrom: effectiveOf(l) })),
-            },
-          }),
-        ),
-      (requestId) =>
-        request('GET', api.pricing.GET('/price-version-applications/{requestId}', { params: { path: { requestId } } })),
-    ),
-  );
-
-  // 단계: ① 행 입력 → ② 승인 요청 → ③ 반영 확인(보기용 — 화면 상태로만 고른다)
-  const step = body === null ? 0 : approvalId.trim() ? 2 : 1;
-  const label = 'text-xs font-medium text-base-content/60';
-  return (
-    <Card id="price-change" title={m.prices.changeTitle} hint={m.prices.effectiveHint} aside={<Steps steps={m.prices.changeSteps} now={step} label={m.prices.stepsLabel} />}>
-      <label className="flex w-fit flex-col gap-1 text-sm">
-        <span className={label}>{m.prices.requestedEffectiveFrom}</span>
-        <input type="datetime-local" className="input input-sm" disabled={body !== null} value={common} onChange={(e) => setCommon(e.target.value)} />
-      </label>
-      <div className="overflow-hidden rounded-lg border border-base-300">
-        <div className="border-b border-base-300 bg-base-200/40 px-4 py-2 text-xs font-medium text-base-content/60">{m.prices.linesTitle}</div>
-        <div className="overflow-x-auto">
-          <table className={tableClass}>
-            <thead>
-              <tr>
-                <th className="w-10">#</th>
-                <th>{m.prices.sku}</th>
-                <th>{m.prices.basePrice}</th>
-                <th>{m.prices.lineEffectiveFrom}</th>
-                <th />
-              </tr>
-            </thead>
-            <tbody>
-              {lines.map((l, i) => (
-                <tr key={i}>
-                  <td className="text-xs text-base-content/45">{i + 1}</td>
-                  <td>
-                    <input aria-label={`${m.prices.sku} ${i + 1}`} className="input input-sm w-36 font-mono" disabled={body !== null} value={l.sku} onChange={(e) => setLine(i, { sku: e.target.value.trim() })} />
-                    {SKU_PATTERN.test(l.sku) && <LineSkuInfo sku={l.sku} />}
-                  </td>
-                  <td>
-                    <input aria-label={`${m.prices.basePrice} ${i + 1}`} className="input input-sm w-28 text-right tabular-nums" inputMode="numeric" disabled={body !== null} value={l.basePrice} onChange={(e) => setLine(i, { basePrice: e.target.value.trim() })} />
-                  </td>
-                  <td>
-                    <input type="datetime-local" className="input input-sm" disabled={body !== null} value={l.effectiveFrom} onChange={(e) => setLine(i, { effectiveFrom: e.target.value })} />
-                  </td>
-                  <td className="text-right">
-                    {body === null && lines.length > 1 && (
-                      <button type="button" className="btn btn-ghost btn-xs" onClick={() => setLines(lines.filter((_, j) => j !== i))}>
-                        {m.prices.removeLine}
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-      {body === null ? (
-        <div className="flex flex-wrap justify-between gap-2">
-          <button type="button" className="btn btn-sm btn-ghost" onClick={() => setLines([...lines, emptyLine()])}>
-            + {m.prices.addLine}
-          </button>
-          <button type="button" className="btn btn-primary btn-sm" disabled={!ok} onClick={() => setBody(priceChangeBody(lines, common, randomUuid()))}>
-            {m.approvals.requestApproval}
-          </button>
-        </div>
-      ) : (
-        <RequestApproval body={body} onRequested={(r) => r.approvalId && setApprovalId(r.approvalId)} />
-      )}
-
-      <div className="space-y-2 rounded-lg border border-base-300 bg-base-200/30 px-4 py-3">
-        <h3 className="font-semibold">{m.prices.confirmTitle}</h3>
-        <div className="flex flex-wrap items-end gap-2">
-          <label className="flex flex-col gap-1 text-sm">
-            <span className={label}>{m.prices.approvalId}</span>
-            <input className="input input-sm" value={approvalId} onChange={(e) => setApprovalId(e.target.value)} />
-            <ApprovalChosen approvalId={approvalId} />
-          </label>
-          <ApprovalPicker type="PRICE" selectedId={approvalId} onPick={setApprovalId} />
-          <button
-            type="button"
-            className="btn btn-sm"
-            disabled={!ok || !confirmable || confirm.busy}
-            onClick={() => void confirm.run({ approvalId: approvalId.trim(), lines })}
-          >
-            {m.prices.confirm}
-          </button>
-        </div>
-        <CommandFeedback command={confirm}>
-          {(r) => (
-            <ul role="status" className="text-sm">
-              {('items' in r ? (r.items ?? []) : []).map((it, i) => (
-                <li key={it.sku ?? i}>{`${it.sku ?? m.none} · v${it.priceVersion ?? m.none} · ${it.state ? m.prices.versionState[it.state] : m.none}`}</li>
-              ))}
-              <li>
-                {r.status && <CodeLabel code={r.status} names={m.prices.commandStatusName} />}
-              </li>
-            </ul>
-          )}
-        </CommandFeedback>
-      </div>
-    </Card>
-  );
-}
-
 export function PricePage() {
   const [params, setParams] = useSearchParams();
   const sku = params.get('sku') ?? '';
   const valid = SKU_PATTERN.test(sku);
-  // 가격 변경 카드에 넣을 SKU(줄의 "가격 변경"·선택 일괄). 바뀌면 카드를 새로 그린다(key)
-  const [changeSkus, setChangeSkus] = useState<readonly string[]>(valid ? [sku] : []);
+  // 서랍(2026-11-20 사용자 "바꾸기 누르면 상품 조회로 나가지고·맨 아래로 가고") — 줄을 누르든 "가격 변경"을 누르든 오른쪽 서랍 한 곳에서
+  // 지금 가격·이력과 바꾸기를 함께. 여러 개 고르면 같은 서랍에 그 SKU 들. 아래 단추는 그 상품의 "가격" 탭으로.
   const [drawer, setDrawer] = useState<{ ids: readonly string[]; productId: string } | null>(null);
+  const [bulk, setBulk] = useState<readonly string[] | null>(null);
+  // 주소로 바로 열었을 때(?sku=)도 그 상품을 안다 — 상품 조회와 같은 조회(GET /skus/{sku})
+  const api = useApi();
+  const skuQ = useQuery({ queryKey: ['product', 'sku', sku], enabled: valid && !drawer?.productId, queryFn: () => request('GET', api.product.GET('/skus/{sku}', { params: { path: { sku } } })) });
+  const productId = drawer?.productId || skuQ.data?.productId || '';
   const setSku = (next: string | null) =>
     setParams(
       (p) => {
@@ -347,9 +182,13 @@ export function PricePage() {
       { replace: true },
     );
   const startChange = (skus: string[]) => {
-    setChangeSkus(skus);
-    pushToast({ tone: 'info', title: m.prices.list.changeFor(skus.length) });
-    requestAnimationFrame(() => document.getElementById('price-change')?.scrollIntoView?.({ behavior: 'smooth', block: 'start' }));
+    if (skus.length === 1 && skus[0]) {
+      setBulk(null);
+      setSku(skus[0]);
+    } else {
+      setSku(null);
+      setBulk(skus);
+    }
   };
   return (
     <section className="space-y-5">
@@ -372,6 +211,7 @@ export function PricePage() {
         openSku={valid ? sku : ''}
         onChange={startChange}
         onOpen={(next, ids, productId) => {
+          setBulk(null);
           setDrawer({ ids, productId });
           setSku(next);
         }}
@@ -384,15 +224,22 @@ export function PricePage() {
           onMove={(next) => setSku(next)}
           onClose={() => setSku(null)}
           title={m.prices.list.drawerTitle(sku)}
-          detailTo={drawer?.productId ? `/products/${encodeURIComponent(drawer.productId)}` : '/products'}
+          {...(productId ? { detailTo: `/products/${encodeURIComponent(productId)}?tab=price`, detailLabel: m.prices.form.productPrice } : {})}
         >
-          <PriceLookup key={sku} sku={sku} compact />
-          <button type="button" className="btn btn-primary btn-sm mt-4" onClick={() => startChange([sku])}>
-            {m.prices.list.change}
-          </button>
+          <div className="space-y-5">
+            <section className="space-y-2" aria-label={m.prices.form.title}>
+              <h3 className="text-sm font-bold">{m.prices.form.title}</h3>
+              <PriceChangeForm key={sku} skus={[sku]} />
+            </section>
+            <PriceLookup key={sku} sku={sku} compact withProduct={false} />
+          </div>
         </PreviewDrawer>
       )}
-      <PriceChange key={changeSkus.join(',')} initialSkus={changeSkus} />
+      {bulk && bulk.length > 0 && (
+        <PreviewDrawer id={bulk.join(',')} ids={[bulk.join(',')]} onMove={() => undefined} onClose={() => setBulk(null)} title={m.prices.form.bulkTitle(bulk.length)}>
+          <PriceChangeForm key={bulk.join(',')} skus={bulk} />
+        </PreviewDrawer>
+      )}
     </section>
   );
 }

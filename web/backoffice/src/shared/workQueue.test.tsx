@@ -14,7 +14,8 @@ describe('목록 순서대로 이전·다음', () => {
     renderAt('/cases?tab=unassigned', as.riderOps);
     const rows = await screen.findAllByTestId('case-row');
     expect(rows.length).toBeGreaterThan(1);
-    await user.click(within(rows[0]!).getAllByRole('link')[0]!);
+    await user.click(within(rows[0]!).getByTestId('case-summary'));
+    await user.click(await screen.findByRole('link', { name: '상세 열기' }));
     expect(await screen.findByTestId('queue-pos')).toHaveTextContent(`1 / ${rows.length}`);
     expect(screen.queryByTestId('queue-prev')).not.toBeInTheDocument();
     fireEvent.keyDown(window, { key: ']' });

@@ -25,13 +25,14 @@ describe('목록 미리보기 칸', () => {
     await waitFor(() => expect(screen.queryByTestId('preview-drawer')).not.toBeInTheDocument());
   });
 
-  it('줄 안의 번호 링크는 그대로 상세로 간다', async () => {
+  it('번호를 눌러도 같은 미리보기(누른 자리마다 다르지 않게, 2026-11-20) — 상세는 "상세 열기"', async () => {
     const user = userEvent.setup();
     renderAt('/orders', as.cs);
     const row = (await screen.findAllByTestId('order-row'))[0]!;
     await user.click(within(row).getByTestId('order-number'));
+    expect(await screen.findByTestId('preview-drawer')).toBeInTheDocument();
+    await user.click(await screen.findByRole('link', { name: '상세 열기' }));
     expect(await screen.findByTestId('order-head-number')).toBeInTheDocument();
-    expect(screen.queryByTestId('preview-drawer')).not.toBeInTheDocument();
   });
 
   it('주소의 ?preview= 로 열린 채 들어온다 — "상세 열기"는 그 상세로', async () => {

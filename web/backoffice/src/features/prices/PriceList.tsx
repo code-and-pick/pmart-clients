@@ -274,9 +274,8 @@ export function PriceList({ onChange, onOpen, openSku }: { readonly onChange: (s
                       <LineIcon name="box" className="h-5 w-5" />
                     </span>
                     <span className="min-w-0">
-                      <Link to={`/products/${encodeURIComponent(r.productId)}`} className="block truncate font-semibold hover:text-primary hover:underline" onClick={(e) => e.stopPropagation()}>
-                        {r.productName}
-                      </Link>
+                      {/* 이름도 줄과 같게 — 누르면 오른쪽 서랍(2026-11-20, 상품 조회와 같은 규칙). 상품으로는 서랍 아래 "상품 가격 탭" */}
+                      <span className="block truncate font-semibold">{r.productName}</span>
                       <span className="block text-xs text-base-content/50">
                         <span className="font-mono">{r.sku}</span>
                         {r.unitsPerSku !== undefined && r.unitsPerSku > 1 && ` · ${l.units(r.unitsPerSku)}`}
@@ -311,14 +310,10 @@ export function PriceList({ onChange, onOpen, openSku }: { readonly onChange: (s
                   <StatusBadge tone={st.tone}>{l.state[st.key]}</StatusBadge>
                 </td>
                 <td className="text-right" onClick={(e) => e.stopPropagation()}>
-                  <div className="join">
-                    <button type="button" className="btn btn-sm join-item" onClick={() => onChange([r.sku])} data-testid="price-row-change">
-                      {l.change}
-                    </button>
-                    <button type="button" className="btn btn-sm join-item" onClick={() => onOpen(r.sku, shown.map((x) => x.sku), r.productId)} title={l.historyTitle} aria-label={l.historyOf(r.sku)}>
-                      {l.history}
-                    </button>
-                  </div>
+                  {/* 단추 하나 — 줄을 눌러도 같은 서랍(지금 가격·이력·바로 바꾸기). "이력" 단추는 같은 일이라 뺐다(2026-11-20) */}
+                  <button type="button" className="btn btn-sm" onClick={() => onOpen(r.sku, shown.map((x) => x.sku), r.productId)} data-testid="price-row-change">
+                    {l.change}
+                  </button>
                 </td>
               </tr>
             );

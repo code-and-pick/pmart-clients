@@ -120,7 +120,7 @@ describe('주문 조회', () => {
     expect(screen.getByTestId('order-entrance-note')).toHaveTextContent('가림');
     expect(screen.getByTestId('order-delivery-note')).toHaveTextContent('가림');
     expect(screen.queryByText('01055556666')).not.toBeInTheDocument();
-    expect(await screen.findByRole('link', { name: '74939002 취소' })).toBeInTheDocument(); // ADR-0070 덧붙임(2026-11-19): 시스템 ID·끝 8자리를 보이지 않는다
+    expect(await screen.findByText('74939002 취소')).toBeInTheDocument(); // 이 표는 줄을 누르면 클레임 상세 — ADR-0070 덧붙임(2026-11-19): 시스템 ID·끝 8자리를 보이지 않는다
     expect(screen.queryByRole('button', { name: /취소/ })).not.toBeInTheDocument();
   });
 
@@ -252,7 +252,8 @@ describe('클레임 조회', () => {
     const user = userEvent.setup();
     renderAt('/claims', as.cs);
     expect(await screen.findAllByTestId('claim-row')).toHaveLength(3);
-    await user.click(screen.getByRole('link', { name: '74939003 취소' }));
+    await user.click(screen.getByText('74939003 취소'));
+    await user.click(await screen.findByRole('link', { name: '상세 열기' }));
     expect(await screen.findByTestId('claim-state')).toHaveTextContent('출고 중지 대기');
     expect(await screen.findByTestId('refund-row')).toHaveTextContent('실행 대기');
     expect(screen.queryByText('환불 완료')).not.toBeInTheDocument();
@@ -411,7 +412,8 @@ describe('라이더 상세(보기만 — 라이더 운영 묶음은 2026-11-18 �
     renderAt('/delivery-help-requests', as.riderOps);
     const row = await screen.findByTestId('case-row');
     expect(row).toHaveTextContent('라이더 도움요청');
-    await user.click(within(row).getByRole('link', { name: /라이더 도움요청 — 건물 출입 불가/ }));
+    await user.click(within(row).getByText(/라이더 도움요청 — 건물 출입 불가/));
+    await user.click(await screen.findByRole('link', { name: '상세 열기' }));
     expect(await screen.findByTestId('case-help-request')).toHaveTextContent('공동현관이 잠겨');
   });
 });

@@ -116,9 +116,9 @@ export function RiderComplaintTable({ riderId, deliveryId, complaintType, from, 
             <tr key={c.complaintId} data-testid="complaint-row" {...(preview ? pv.row(c.complaintId) : {})}>
               <td>
                 {/* 컴플레인은 번호 없이 종류 · 시각(ADR-0070 덧붙임) — 종류 꼬리표가 상세 링크, 시각은 옆 칸 */}
-                <Link className="block hover:opacity-80" to={`/rider-complaints/${encodeURIComponent(c.complaintId)}`} onClick={(e) => e.stopPropagation()} data-testid="complaint-link">
+                <span className="block" data-testid="complaint-link">
                   <ComplaintType type={c.complaintType} />
-                </Link>
+                </span>
               </td>
               <td data-testid="complaint-rider">
                 <Link className="text-sm hover:text-primary hover:underline" to={`/riders/${encodeURIComponent(c.riderId)}`}>

@@ -51,7 +51,8 @@ describe('배송 신고(case 0.16.0)', () => {
     const rows = await screen.findAllByTestId('inquiry-row');
     const row = rows.find((r) => r.textContent?.includes('Q-1119-0003'))!;
     expect(within(row).getByTestId('inquiry-delivery-issue')).toHaveTextContent('배송 신고 · 못 받음');
-    await userEvent.click(within(row).getByRole('link', { name: 'Q-1119-0003' }));
+    await userEvent.click(within(row).getByTestId('inquiry-number'));
+    await userEvent.click(await screen.findByRole('link', { name: '상세 열기' }));
     const issue = await screen.findByTestId('inquiry-delivery-issue');
     expect(issue).toHaveTextContent('못 받음 · 배송');
     // 화면 배송 번호(ADR-0070) — 링크는 시스템 ID

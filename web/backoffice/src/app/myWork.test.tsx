@@ -1,5 +1,5 @@
 // 작업 따라 해 보기(2026-11-18)에서 찾은 것: 첫 화면 "내 할 일", 할 일 → 그 일만 걸러 둔 목록, 줄 전체 누르기, 답한 뒤 다음 문의.
-import { screen, within } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 
@@ -43,11 +43,11 @@ describe('목록 줄 전체 누르기', () => {
 });
 
 describe('가격 화면 — 무엇의 가격인지', () => {
-  it('SKU 로 조회하면 그 상품 이름이 위에(누르면 상품 상세)', async () => {
+  it('SKU 로 열면 서랍 바꾸기 줄에 상품 이름, 아래 단추는 그 상품의 가격 탭(2026-11-20 가격 흐름)', async () => {
     renderAt('/prices?sku=E-00000001', as.md);
-    const product = await screen.findByTestId('sku-product');
-    expect(await within(product).findByText('사과 1.5kg')).toBeInTheDocument();
-    expect(product).toHaveAttribute('href', '/products/P-00000001');
+    const row = await screen.findByTestId('price-form-row');
+    await waitFor(() => expect(row).toHaveTextContent('사과 1.5kg'));
+    expect(await screen.findByRole('link', { name: '상품 가격 탭' })).toHaveAttribute('href', '/products/P-00000001?tab=price');
   });
 });
 

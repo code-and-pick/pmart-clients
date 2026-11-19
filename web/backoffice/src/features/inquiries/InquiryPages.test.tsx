@@ -14,7 +14,7 @@ describe('고객센터 문의 목록', () => {
   it('상담원: 최근 순 목록, 상태 필터는 서버에 status 로 묻는다', async () => {
     const view = renderAt('/inquiries', as.cs);
     expect(await screen.findAllByTestId('inquiry-row')).toHaveLength(3);
-    expect(screen.getByRole('link', { name: 'Q-1119-0003' })).toBeInTheDocument(); // ADR-0070 덧붙임(2026-11-19): 시스템 ID·끝 8자리를 보이지 않는다
+    expect(screen.getByText('Q-1119-0003')).toBeInTheDocument(); // ADR-0070 덧붙임(2026-11-19): 시스템 ID·끝 8자리를 보이지 않는다
     expect(screen.getByText('AI 상담에서 넘어옴')).toBeInTheDocument();
 
     await userEvent.click(within(screen.getByRole('radiogroup', { name: '상태' })).getByRole('radio', { name: '접수' }));

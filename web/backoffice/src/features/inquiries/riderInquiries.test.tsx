@@ -25,13 +25,14 @@ describe('라이더 문의', () => {
   it('목록은 requesterType=RIDER 로 묻고, 상세는 라이더 ID(라이더 찾기 링크) — 답변은 지원센터가', async () => {
     const view = renderAt('/rider-inquiries', as.riderOps);
     const rows = await screen.findAllByTestId('inquiry-row');
-    expect(rows.map((r) => within(r).getAllByRole('link')[0]!.textContent)).toEqual(['Q-1119-0101', 'Q-1119-0102']);
+    expect(rows.map((r) => within(r).getByTestId('inquiry-number').textContent)).toEqual(['Q-1119-0101', 'Q-1119-0102']);
     expect(rows[0]).toHaveTextContent('정산');
     expect(rows[1]).toHaveTextContent('앱 오류');
     const list = view.sent.find((r) => new URL(r.url).pathname.endsWith('/inquiries'))!;
     expect(new URL(list.url).searchParams.get('requesterType')).toBe('RIDER');
 
-    await userEvent.click(within(rows[0]!).getByRole('link', { name: 'Q-1119-0101' }));
+    await userEvent.click(within(rows[0]!).getByTestId('inquiry-number'));
+    await userEvent.click(await screen.findByRole('link', { name: '상세 열기' }));
     expect(await screen.findByTestId('inquiry-requester')).toHaveTextContent('라이더');
     // 화면 번호(ADR-0070): 라이더 "가린 이름 · 6자리" — 시스템 ID 는 링크에만
     expect(await screen.findByTestId('inquiry-rider')).toHaveAttribute('href', '/riders/RID-MOCK-1');
@@ -53,7 +54,7 @@ describe('라이더 문의', () => {
   it('고객센터 문의 목록은 requesterType=CUSTOMER — 라이더 문의가 섞이지 않는다', async () => {
     const view = renderAt('/inquiries', as.admin);
     const rows = await screen.findAllByTestId('inquiry-row');
-    expect(rows.map((r) => within(r).getAllByRole('link')[0]!.textContent)).not.toContain('INQ-MOCK-R1');
+    expect(rows.map((r) => within(r).getByTestId('inquiry-number').textContent)).not.toContain('INQ-MOCK-R1');
     const list = view.sent.find((r) => new URL(r.url).pathname.endsWith('/inquiries'))!;
     expect(new URL(list.url).searchParams.get('requesterType')).toBe('CUSTOMER');
   });

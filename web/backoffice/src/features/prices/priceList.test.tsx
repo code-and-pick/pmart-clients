@@ -39,24 +39,48 @@ describe('가격 관리 목록', () => {
     expect(screen.getByTestId('price-empty')).toHaveTextContent('해당 SKU 가 없어요.');
   });
 
-  it('줄의 "가격 변경" → 아래 변경 요청에 그 SKU(상품 이름 · 지금 가격과 함께)', async () => {
+  // 2026-11-20 가격 흐름 다시 짬 — "가격 변경"을 누르면 화면을 옮기거나 맨 아래로 가지 않고, 오른쪽 서랍에서 지금 가격 옆에 새 가격
+  it('줄의 "가격 변경" → 오른쪽 서랍에 그 SKU 의 바꾸기(지금 가격·상품 이름), 다른 화면으로 가지 않는다', async () => {
     const user = userEvent.setup();
     renderAt('/prices', as.md);
     await waitFor(() => expect(screen.getAllByTestId('price-row')).toHaveLength(2));
     await user.click(within(rowOf('소고기 미역국')).getByTestId('price-row-change'));
-    expect(await screen.findByRole('textbox', { name: 'SKU 1' })).toHaveValue('E-00000002');
-    expect(await screen.findByTestId('line-sku-info')).toHaveTextContent('소고기 미역국 500g');
-    await waitFor(() => expect(screen.getByTestId('line-sku-info')).toHaveTextContent('지금 미설정'));
+    const drawer = await screen.findByTestId('preview-drawer');
+    const row = await within(drawer).findByTestId('price-form-row');
+    expect(row).toHaveTextContent('E-00000002');
+    await waitFor(() => expect(row).toHaveTextContent('소고기 미역국 500g'));
+    await waitFor(() => expect(within(row).getByTestId('price-form-now')).toHaveTextContent('미설정'));
+    expect(screen.getByRole('heading', { level: 1, name: '가격 관리' })).toBeInTheDocument();
+    expect(within(drawer).getByRole('link', { name: '상품 가격 탭' })).toHaveAttribute('href', '/products/P-00000002?tab=price');
   });
 
-  it('여러 개 골라 "선택한 SKU 가격 변경" → 그 SKU 들이 행으로', async () => {
+  it('여러 개 골라 "선택한 SKU 가격 변경" → 같은 서랍에 그 SKU 들', async () => {
     const user = userEvent.setup();
     renderAt('/prices', as.md);
     await waitFor(() => expect(screen.getAllByTestId('price-row')).toHaveLength(2));
     await user.click(screen.getByRole('checkbox', { name: '보이는 SKU 모두 고르기' }));
     await user.click(screen.getByTestId('price-bulk-change'));
-    expect(await screen.findByRole('textbox', { name: 'SKU 2' })).toBeInTheDocument();
-    expect(screen.getByRole('textbox', { name: 'SKU 1' })).toHaveValue('E-00000001');
+    const drawer = await screen.findByTestId('preview-drawer');
+    expect(within(drawer).getByRole('heading', { name: '선택한 2개 가격 바꾸기' })).toBeInTheDocument();
+    expect(within(drawer).getAllByTestId('price-form-row')).toHaveLength(2);
+  });
+
+  it('새 가격을 넣고 한 번 누르면 승인 요청까지 — 바뀌는 금액이 보이고, 끝나면 승인 진행으로 갈 수 있다', async () => {
+    const user = userEvent.setup();
+    const view = renderAt('/prices', as.md);
+    await waitFor(() => expect(screen.getAllByTestId('price-row')).toHaveLength(2));
+    await user.click(rowOf('사과 1.5kg'));
+    const drawer = await screen.findByTestId('preview-drawer');
+    await waitFor(() => expect(within(drawer).getByTestId('price-form-now')).toHaveTextContent('4,500원'));
+    await user.type(within(drawer).getByRole('textbox', { name: 'E-00000001 새 가격' }), '5000');
+    expect(within(drawer).getByTestId('price-form-diff')).toHaveTextContent('+500원');
+    await user.click(within(drawer).getByTestId('price-form-submit'));
+    expect(await within(drawer).findByTestId('price-form-done')).toHaveTextContent('1개 SKU 가격 변경을 승인 요청했어요.');
+    expect(within(drawer).getByTestId('price-form-approval').getAttribute('href')).toMatch(/^\/approvals\//);
+    const body = (await view.mutations('/change-requests')[0]!.clone().json()) as { type: string; lines: Array<{ lineKey: string; requestedAmount: number }> };
+    expect(body.type).toBe('PRICE');
+    expect(body.lines).toEqual([expect.objectContaining({ lineKey: 'E-00000001', requestedAmount: 5000 })]);
+    view.stop();
   });
 
   it('줄을 누르면 오른쪽 서랍에 현재 기본가·이력 — 상품 시스템 ID 는 보이지 않는다', async () => {
@@ -65,6 +89,8 @@ describe('가격 관리 목록', () => {
     await waitFor(() => expect(screen.getAllByTestId('price-row')).toHaveLength(2));
     await user.click(rowOf('사과 1.5kg'));
     expect(await screen.findByTestId('base-price')).toHaveTextContent('4,500원');
-    expect(await screen.findByTestId('sku-product')).not.toHaveTextContent('P-00000001');
+    const row = await screen.findByTestId('price-form-row');
+    await waitFor(() => expect(row).toHaveTextContent('사과 1.5kg'));
+    expect(screen.getByTestId('preview-drawer')).not.toHaveTextContent('P-00000001');
   });
 });

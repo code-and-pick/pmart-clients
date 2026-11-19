@@ -5,7 +5,7 @@
 import { QueueNav, RememberQueue } from '../../shared/workQueue';
 import { useQuery } from '@tanstack/react-query';
 import { useState, type FormEvent, type ReactNode } from 'react';
-import { Link, useParams, useSearchParams } from 'react-router';
+import { useParams, useSearchParams } from 'react-router';
 
 import { request } from '@pmart/web-core';
 import { CommandFeedback, QueryState, toUiState, useCommand } from '@pmart/web-ui';
@@ -187,9 +187,9 @@ export function OrderLookupPage() {
                     {r.items.map((o) => (
                       <tr key={o.orderId} data-testid="order-row" {...pv.row(o.orderId)}>
                         <td>
-                          <Link className="font-semibold text-base-content hover:text-primary hover:underline" to={`/orders/${encodeURIComponent(o.orderId)}`} onClick={(e) => e.stopPropagation()} data-testid="order-number">
+                          <span className="font-semibold text-base-content" data-testid="order-number">
                             <DisplayNumber number={o.orderNumber} systemId={o.orderId} />
-                          </Link>
+                          </span>
                           {/* 고객: 고객번호(customer CU-3) 전까지 "고객"만 — 고객 ID 는 상세의 시스템 번호 칸(ADR-0070 덧붙임) */}
                           <span className="mt-0.5 flex items-center gap-1 text-xs font-normal text-base-content/50">
                             <Icon name="user" className="h-3 w-3" />

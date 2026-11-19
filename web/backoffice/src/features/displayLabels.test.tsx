@@ -28,7 +28,8 @@ describe('화면 표기(ADR-0070 덧붙임)', () => {
     expect(numbers[0]).toHaveTextContent(/^C-1119-\d{4}$/);
     const row = (await screen.findAllByTestId('case-row'))[0]!;
     expect(row).not.toHaveTextContent(/CASE-MOCK/);
-    await user.click(within(row).getAllByRole('link')[0]!);
+    await user.click(within(row).getByTestId('case-summary'));
+    await user.click(await screen.findByRole('link', { name: '상세 열기' }));
     // 상세가 응답을 받은 뒤(받기 전 머리 번호 칸은 비어 있다)
     await waitFor(() => expect(screen.getByTestId('case-number')).toHaveTextContent(/^C-1119-\d{4}$/));
     expect(screen.getByTestId('system-numbers')).toBeInTheDocument();
@@ -69,20 +70,11 @@ describe('ID 칸 → 번호로·골라 넣기', () => {
     expect(view.sent.some((r) => new URL(r.url).searchParams.get('caseNumber') === 'C-1119-0001')).toBe(true);
   });
 
-  it('가격: 승인 번호를 몰라도 승인 난 가격 요청에서 골라 넣는다(요약 · 요청자 · 시각, 번호 없음)', async () => {
-    const user = userEvent.setup();
+  it('가격: 승인 번호를 옮겨 적는 칸이 없다 — 승인되면 가격 서비스가 바꾼다(2026-11-20 가격 흐름 다시 짬)', async () => {
     renderAt('/prices', as.md);
-    await user.click(await screen.findByTestId('approval-picker-open'));
-    const picker = screen.getByTestId('approval-picker');
-    await waitFor(() => expect(within(picker).queryByText('…')).not.toBeInTheDocument());
-    const rows = within(picker).queryAllByTestId('approval-picker-row');
-    if (rows.length > 0) {
-      expect(rows[0]).not.toHaveTextContent(/apv-|AP-/);
-      await user.click(rows[0]!);
-      expect(await screen.findByTestId('approval-chosen')).toHaveTextContent('✓');
-    } else {
-      expect(within(picker).getByText('승인 난 요청이 없어요.')).toBeInTheDocument();
-    }
+    await screen.findAllByTestId('price-row');
+    expect(screen.queryByTestId('approval-picker-open')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('승인 ID')).not.toBeInTheDocument();
   });
 });
 

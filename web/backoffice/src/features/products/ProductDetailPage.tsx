@@ -3,6 +3,7 @@
 // 왼쪽(2/3) SKU 표 카드·판매 상태 변경 카드, 오른쪽(1/3) 상품 요약 카드·작업 카드(콘텐츠 등록·정보 수정 시작). 동작은 그대로.
 import { useProductPrices } from '../prices/productPrices';
 import { PriceLookup } from '../prices/PricePage';
+import { PriceChangeForm } from '../prices/PriceChangeForm';
 import { SystemNumbers } from '../../shared/displayNumber';
 import { ContentGallery, notPublished, useProductContent } from '../contents/ContentGallery';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -429,17 +430,16 @@ export function ProductDetailPage() {
           )}
           {tab === 'price' && (
             <div className="space-y-4" data-testid="tab-price">
+              {/* 이 탭 안에서 바로 바꾼다(2026-11-20 사용자 "가격도 여기서 바로 바꿀 수 있게") — 가격 관리 화면으로 보내지 않는다 */}
+              <Card title={m.prices.form.title}>
+                <PriceChangeForm skus={(p.skus ?? []).map((sk) => sk.sku)} labels={Object.fromEntries((p.skus ?? []).map((sk) => [sk.sku, m.products.unitName[sk.unitType]]))} />
+              </Card>
               {(p.skus ?? []).map((sk) => (
                 <div key={sk.sku} className="space-y-2">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <h3 className="font-semibold">
-                      <span className="font-mono">{sk.sku}</span>
-                      <span className="ml-2 text-sm font-normal text-base-content/55">{m.products.unitName[sk.unitType]}</span>
-                    </h3>
-                    <Link className="btn btn-sm" to={`/prices?sku=${encodeURIComponent(sk.sku)}`}>
-                      {m.products.tabs.priceChange}
-                    </Link>
-                  </div>
+                  <h3 className="font-semibold">
+                    <span className="font-mono">{sk.sku}</span>
+                    <span className="ml-2 text-sm font-normal text-base-content/55">{m.products.unitName[sk.unitType]}</span>
+                  </h3>
                   <PriceLookup sku={sk.sku} withProduct={false} />
                 </div>
               ))}

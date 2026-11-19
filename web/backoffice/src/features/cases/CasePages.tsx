@@ -578,9 +578,10 @@ export function CaseListPage() {
                           <PriorityBadge p={c.priority} />
                         </td>
                         <td className="max-w-md">
-                          <Link className="block truncate font-medium hover:text-primary hover:underline" to={`/cases/${encodeURIComponent(c.caseId ?? '')}`} onClick={(e) => e.stopPropagation()}>
+                          {/* 줄 어디를 눌러도 오른쪽 미리보기(2026-11-20 — 이름만 상세로 가서 누른 자리마다 달랐다). 상세는 미리보기 "상세 열기"·Enter */}
+                          <span className="block truncate font-medium" data-testid="case-summary">
                             {c.summary ? c.summary : label(m.cases.kindName, c.kind)}
-                          </Link>
+                          </span>
                           {/* 화면 번호(ADR-0070 덧붙임 2026-11-19, bff caseNumber) — 시스템 ID 는 보이지 않는다 */}
                           {c.caseNumber && (
                             <span className="block font-mono text-xs text-base-content/50" data-testid="case-number">

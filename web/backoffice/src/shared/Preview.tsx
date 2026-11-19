@@ -42,6 +42,7 @@ export function PreviewDrawer({
   onClose,
   title,
   detailTo,
+  detailLabel,
   children,
 }: {
   readonly id: string;
@@ -50,7 +51,10 @@ export function PreviewDrawer({
   readonly onMove: (id: string) => void;
   readonly onClose: () => void;
   readonly title: ReactNode;
-  readonly detailTo: string;
+  /** 아래 단추로 갈 곳(없으면 단추 없음) */
+  readonly detailTo?: string;
+  /** 아래 단추 이름(기본 "상세 열기") */
+  readonly detailLabel?: string;
   readonly children: ReactNode;
 }) {
   const navigate = useNavigate();
@@ -68,7 +72,7 @@ export function PreviewDrawer({
       } else if (e.key === 'ArrowDown' && next) {
         e.preventDefault();
         onMove(next);
-      } else if (e.key === 'Enter' && !(t instanceof HTMLElement && ['A', 'BUTTON', 'SUMMARY'].includes(t.tagName)) && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) {
+      } else if (detailTo && e.key === 'Enter' && !(t instanceof HTMLElement && ['A', 'BUTTON', 'SUMMARY'].includes(t.tagName)) && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) {
         // Enter = 미리보던 건의 상세 열기(2026-11-19). 단추·링크에 초점이 있으면 그 단추가 먼저(가로채지 않는다)
         e.preventDefault();
         void navigate(detailTo);
@@ -99,9 +103,11 @@ export function PreviewDrawer({
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">{children}</div>
       <div className="flex items-center justify-between gap-2 border-t border-base-300 px-4 py-3">
         <span className="text-xs text-base-content/50">{at >= 0 ? m.preview.position(at + 1, ids.length) : ''}</span>
-        <Link className="btn btn-primary btn-sm" to={detailTo}>
-          {m.preview.openDetail}
-        </Link>
+        {detailTo && (
+          <Link className="btn btn-primary btn-sm" to={detailTo}>
+            {detailLabel ?? m.preview.openDetail}
+          </Link>
+        )}
       </div>
     </aside>
   );

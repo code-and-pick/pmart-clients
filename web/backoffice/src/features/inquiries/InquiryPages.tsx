@@ -248,14 +248,9 @@ export function InquiryListPage({ kind = 'CUSTOMER' }: { readonly kind?: Request
                           </p>
                         )}
                         <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
-                          <Link
-                            className="font-mono text-xs text-base-content/50 hover:text-primary hover:underline"
-                            to={`${basePath(kind)}/${encodeURIComponent(i.inquiryId)}`}
-                            onClick={(e) => e.stopPropagation()}
-                            data-testid="inquiry-number"
-                          >
+                          <span className="font-mono text-xs text-base-content/50" data-testid="inquiry-number">
                             {i.inquiryNumber ?? m.displayNumber.missing}
-                          </Link>
+                          </span>
                           {i.origin === 'ASSISTANT_HANDOFF' && <span className="badge badge-ghost badge-xs">{m.inquiries.fromAssistant}</span>}
                           {i.origin === 'STAFF_INTAKE' && (
                             <span className="badge badge-ghost badge-xs" data-testid="inquiry-channel">{m.inquiries.fromStaff} · {codeOf(m.csIntake.channelName, i.channel)}</span>
