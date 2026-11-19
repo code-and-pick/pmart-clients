@@ -1,5 +1,5 @@
 // 라이더 백오피스 뼈대(2026-11-17, PC 1): 직원 로그인·세션·메뉴 자리. 메뉴 화면(관제 등)은 delivery 영역(PC 5)이 채운다.
-import { UiTextProvider } from '@pmart/web-ui';
+import { AppLauncher, UiTextProvider } from '@pmart/web-ui';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useState, type ReactNode } from 'react';
 import { createBrowserRouter, createMemoryRouter, Link, Navigate, NavLink, Outlet, RouterProvider, useLocation, useNavigate } from 'react-router';
@@ -184,6 +184,8 @@ function Layout() {
                 {m.nav.login}
               </NavLink>
             )}
+            {/* 직원 웹 앱 바꾸기(요청 all/2026-11-17-request-app-launcher §3-3) — 머리줄 맨 오른쪽, 통합·인사팀 백오피스와 같게. 링크만, 세션을 읽지 않는다 */}
+            <AppLauncher current="rider-backoffice" />
           </div>
         </header>
         {/* 상세 제목 띠 자리(2026-11-19) — 상세를 내리면 DetailHeader 가 여기에 얇은 제목 띠를 그린다. 머리줄(h-14)이 붙어 있어 그 아래 */}

@@ -1,4 +1,4 @@
-import { UiTextProvider } from '@pmart/web-ui';
+import { AppLauncher, UiTextProvider } from '@pmart/web-ui';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ComponentType, ReactNode } from 'react';
 import { createBrowserRouter, createMemoryRouter, Link, Navigate, NavLink, Outlet, RouterProvider, useLocation, useParams } from 'react-router';
@@ -139,6 +139,8 @@ function Layout() {
             <NavLink to={session ? '/session' : '/login'} className={({ isActive }) => `btn btn-ghost btn-xs font-normal ${isActive ? 'btn-active' : ''}`}>
               {session ? m.nav.session : m.nav.login}
             </NavLink>
+            {/* 직원 웹 앱 바꾸기(요청 all/2026-11-17-request-app-launcher §3-2) — 머리줄 맨 오른쪽, 통합·인사팀 백오피스와 같게. 링크만, 세션을 읽지 않는다 */}
+            <AppLauncher current="mfc-backoffice" />
           </div>
         </header>
         <div id={DETAIL_BAR_SLOT} className="sticky top-14 z-[9]" />

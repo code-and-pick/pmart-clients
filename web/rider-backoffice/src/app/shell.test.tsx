@@ -45,3 +45,13 @@ describe('대시보드 — 오늘의 할 일', () => {
     expect(within(strip).getByTestId('stat-surcharges')).toHaveAttribute('href', '/surcharges');
   });
 });
+
+describe('머리줄 앱 바꾸기(⋮⋮⋮, 2026-11-20 — 요청 all/2026-11-17-request-app-launcher §3-3)', () => {
+  it('4개 앱, 라이더 운영이 지금 앱, 다른 앱은 링크', async () => {
+    renderAt('/dashboard', as.riderOps);
+    await userEvent.click(await screen.findByRole('button', { name: '앱 바꾸기' }));
+    expect(screen.getByRole('navigation', { name: '앱 바꾸기' })).toHaveTextContent('MFC 센터');
+    expect(screen.getByText('라이더 운영', { selector: '[aria-current="page"]' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '백오피스' })).toHaveAttribute('href', 'http://localhost:5173/');
+  });
+});

@@ -71,8 +71,8 @@ describe('배차 실패(우리 센터, 보기만)', () => {
     expect(screen.getByTestId('system-numbers')).toHaveTextContent('CASE-DF-1');
     expect(screen.getByTestId('system-numbers')).toHaveTextContent('DLV-C-1');
     expect(screen.getByTestId('dispatch-failure-history')).toHaveTextContent('재발');
-    // 명령 단추 없음(시스템 번호 복사 단추만)
-    expect(screen.getAllByRole('button').every((b) => /복사|단축키/.test(b.getAttribute('aria-label') ?? ''))).toBe(true);
+    // 명령 단추 없음(시스템 번호 복사 단추만 — 머리줄 단축키·앱 바꾸기(⋮⋮⋮, 링크 메뉴)는 명령 아님)
+    expect(screen.getAllByRole('button').every((b) => /복사|단축키|앱 바꾸기/.test(b.getAttribute('aria-label') ?? ''))).toBe(true);
   });
 
   it('다른 센터 사건은 404 — 없음(권한 밖) 화면', async () => {

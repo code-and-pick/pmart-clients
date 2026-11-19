@@ -191,3 +191,13 @@ describe('메뉴', () => {
     expect(await screen.findByRole('button', { name: '센터 관리자(MFC 1곳)' })).toBeInTheDocument();
   });
 });
+
+describe('머리줄 앱 바꾸기(⋮⋮⋮, 2026-11-20 — 요청 all/2026-11-17-request-app-launcher §3-2)', () => {
+  it('4개 앱, MFC 센터가 지금 앱, 다른 앱은 링크', async () => {
+    renderAt('/c/MFC-BSN-01/inventory', as.sup);
+    await userEvent.click(await screen.findByRole('button', { name: '앱 바꾸기' }));
+    expect(screen.getByRole('navigation', { name: '앱 바꾸기' })).toHaveTextContent('라이더 운영');
+    expect(screen.getByText('MFC 센터', { selector: '[aria-current="page"]' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '백오피스' })).toHaveAttribute('href', 'http://localhost:5173/');
+  });
+});
