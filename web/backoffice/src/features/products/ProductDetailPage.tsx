@@ -194,9 +194,10 @@ function EditStart({ productId }: { readonly productId: string }) {
 /** 오른쪽 요약 카드의 한 줄(이름 위·값 아래) */
 function Fact({ label, children, testId }: { readonly label: string; readonly children: ReactNode; readonly testId?: string }) {
   return (
-    <div className="space-y-0.5">
-      <dt className="text-xs text-base-content/50">{label}</dt>
-      <dd className="break-words text-sm font-medium" data-testid={testId}>
+    // 항목 이름(작고 흐리게, 왼쪽)과 값(크고 굵게, 오른쪽)을 한 줄에, 줄마다 구분선(2026-11-20 사용자 "폰트 크기 다르게 해서 나눠지는 거 구별 잘 되게")
+    <div className="grid grid-cols-[6.5rem_1fr] items-baseline gap-3 py-2.5">
+      <dt className="text-[13px] text-base-content/55">{label}</dt>
+      <dd className="min-w-0 break-words text-[15px] font-semibold" data-testid={testId}>
         {children}
       </dd>
     </div>
@@ -303,7 +304,8 @@ export function ProductDetailPage() {
             <div className="grid items-start gap-4 lg:grid-cols-3">
               <div className="space-y-4 lg:col-span-2">
                 {/* 상품 사진(2026-11-19 사용자 "상품 조회 안에서도 사진") — 게시된 콘텐츠의 사진, 없으면 등록 안내 */}
-                <Card title={m.contents.gallery.title} aside={<button type="button" className="text-xs text-primary hover:underline" onClick={() => setTab('content')}>{m.products.tabs.openContentTab}</button>}>
+                {/* "고객 화면 탭에서 보기" 링크는 뺐다(2026-11-20 사용자 — 바로 옆 탭을 누르면 된다) */}
+                <Card title={m.contents.gallery.title}>
                   <ContentGallery productId={productId} />
                 </Card>
                 <Card title={m.products.skus} aside={<span className="text-xs text-base-content/55">{m.products.skuCount(p.skus?.length ?? 0)}</span>}>
@@ -319,7 +321,7 @@ export function ProductDetailPage() {
                             <th>{m.products.weightG}</th>
                             <th>{m.products.net.label}</th>
                             <th>{m.products.storageType}</th>
-                            <th>{m.products.barcodes}</th>
+                            <th>{m.products.preview.barcodes}</th>
                             <th>{m.products.saleState}</th>
                           </tr>
                         </thead>
@@ -371,12 +373,12 @@ export function ProductDetailPage() {
   
               <div className="space-y-4">
                 <Card title={m.products.summaryTitle}>
-                  <dl className="space-y-3">
+                  <dl className="-my-2 divide-y divide-base-200">
                     <Fact label={m.products.internalName}>{p.internalName ?? m.none}</Fact>
                     <Fact label={m.products.saleState} testId="sale-state">
                       {p.saleState ? m.products.saleStateName[p.saleState] : m.none}
                     </Fact>
-                    <Fact label={m.products.version}>{p.version ?? m.none}</Fact>
+                    <Fact label={m.products.version}>{p.version === undefined ? m.none : `v${p.version}`}</Fact>
                     {/* 카테고리는 노드 ID 대신 경로(대분류 > 중분류 > 소분류, 2026-11-19) — 트리를 못 읽으면 "?" */}
                     <Fact label={m.products.primaryCategory}>
                       <span data-testid="primary-category">{p.primaryCategoryId ? catPath(p.primaryCategoryId) : m.none}</span>
