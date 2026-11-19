@@ -17,6 +17,7 @@ import {
 } from '../../api/models';
 import { useApi } from '../../app/ApiContext';
 import { LeaveGuard } from '../../shared/LeaveGuard';
+import { TitleIcon } from '../../shared/TitleIcon';
 import { messages as m } from '../../shared/messages';
 import { AffiliationFields, toAffiliation, type AffiliationDraft } from './AffiliationFields';
 import { CenterMultiSelect, useCenters } from './centers';
@@ -89,6 +90,16 @@ export function EmployeeRegisterPage() {
     <section className="max-w-3xl space-y-4">
       <PageHeader title={m.register.title} description={m.register.intro} />
       <LeaveGuard when={dirty && !leaving} />
+      {/* 흐름 안내(2026-11-19 — 백오피스 상품 등록 단계 줄처럼): 이 화면은 1·2, 3 은 등록 뒤 서버가 자동으로 */}
+      <ol className="flex flex-wrap items-center gap-2 text-xs" aria-label={m.register.flowLabel} data-testid="register-flow">
+        {m.register.flow.map((label, i) => (
+          <li key={label} className="flex items-center gap-2">
+            {i > 0 && <span className="text-base-content/30" aria-hidden="true">→</span>}
+            <span className={`flex h-5 w-5 items-center justify-center rounded-full font-bold ${i === 0 ? 'bg-primary text-primary-content' : 'bg-base-300 text-base-content/60'}`}>{i + 1}</span>
+            <span className={i === 0 ? 'font-semibold' : 'text-base-content/60'}>{label}</span>
+          </li>
+        ))}
+      </ol>
       <form
         className="space-y-4"
         onSubmit={(e) => {
@@ -107,7 +118,7 @@ export function EmployeeRegisterPage() {
         }}
       >
         <div className="space-y-3 rounded-box border border-base-300 bg-base-100 p-4">
-          <h2 className="font-bold">{m.register.basic}</h2>
+          <h2 className="flex items-center gap-2 font-bold"><TitleIcon name="user" />{m.register.basic}</h2>
           <div className="flex flex-col gap-1 text-sm">
             <label className="flex flex-col gap-1">
               {m.fields.name}
@@ -181,7 +192,7 @@ export function EmployeeRegisterPage() {
         </div>
 
         <div className="space-y-3 rounded-box border border-base-300 bg-base-100 p-4">
-          <h2 className="font-bold">{m.register.grants}</h2>
+          <h2 className="flex items-center gap-2 font-bold"><TitleIcon name="shield" />{m.register.grants}</h2>
           <p className="text-xs text-base-content/60">{m.register.grantsNote}</p>
           {/* 역할 목록을 못 받으면 고를 수 없다 — 빈 목록이 아니라 오류 + 다시 시도(권한 추가 버튼도 막는다) */}
           {!roles.isSuccess && (

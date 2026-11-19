@@ -17,6 +17,7 @@ import { commandParams } from '../../api/command';
 import type { RequestedGrant } from '../../api/models';
 import { useApi } from '../../app/ApiContext';
 import { useSession } from '../../app/SessionContext';
+import { TitleIcon } from '../../shared/TitleIcon';
 import { messages as m } from '../../shared/messages';
 import { CenterMultiSelect, useCenters } from '../employees/centers';
 import { activeGrants, extensionStart, failureCodeOf, followingGrants, lastDayOf, lineProblems, needsCenter, overlappingGrants, parseConflict, problemDetail, roleMixGrants } from '../employees/grantRules';
@@ -179,7 +180,7 @@ function AccountView({ operatorId, account, roles, self, canRevokeAdmin, onExten
         <dt>{m.permissions.lastLogin}</dt>
         <dd>{account.lastLoginAt ? formatSeoul(account.lastLoginAt) : m.none}</dd>
       </dl>
-      <h2 className="font-bold">{m.permissions.grants}</h2>
+      <h2 className="flex items-center gap-2 font-bold"><TitleIcon name="shield" />{m.permissions.grants}</h2>
       {grants.length === 0 ? (
         <p className="text-sm text-base-content/60">{m.permissions.noGrants}</p>
       ) : (
@@ -463,7 +464,7 @@ export function PermissionDetailPage() {
               <PageHeader title={`${m.permissions.title} — ${e.name} (${e.employeeNo})`} />
               <p className="text-sm text-base-content/60">{`${e.mailAddress} · ${m.employmentStatus[e.status]}`}</p>
 
-              <h2 className="font-bold">{m.permissions.account}</h2>
+              <h2 className="flex items-center gap-2 font-bold"><TitleIcon name="user" />{m.permissions.account}</h2>
               {accountPending ? (
                 <p role="status" className="alert text-sm">
                   {m.permissions.accountPending}
@@ -494,7 +495,7 @@ export function PermissionDetailPage() {
                 </QueryState>
               )}
 
-              <h2 className="font-bold">{m.permissions.requests}</h2>
+              <h2 className="flex items-center gap-2 font-bold"><TitleIcon name="list" />{m.permissions.requests}</h2>
               {(e.requestedGrants ?? []).length === 0 ? (
                 <p className="text-sm text-base-content/60">{m.permissions.noRequests}</p>
               ) : (

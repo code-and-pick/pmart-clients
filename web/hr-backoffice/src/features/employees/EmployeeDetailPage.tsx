@@ -13,6 +13,7 @@ import { commandParams } from '../../api/command';
 import { PROVISIONING_IN_PROGRESS, PROVISIONING_RETRYABLE, type Employee } from '../../api/models';
 import { useApi } from '../../app/ApiContext';
 import { useSession } from '../../app/SessionContext';
+import { TitleIcon } from '../../shared/TitleIcon';
 import { messages as m } from '../../shared/messages';
 import { AffiliationFields, toAffiliation, type AffiliationDraft } from './AffiliationFields';
 import { useCenters } from './centers';
@@ -137,7 +138,7 @@ function Actions({ employee, onChanged, self }: { readonly employee: Employee; r
 
   return (
     <div id="hr-actions" className="space-y-3 rounded-box border border-base-300 bg-base-100 p-4">
-      <h2 className="font-bold">{m.detail.actions}</h2>
+      <h2 className="flex items-center gap-2 font-bold"><TitleIcon name="briefcase" />{m.detail.actions}</h2>
       {self && (
         <p role="note" className="text-sm text-base-content/60" data-testid="self-action-note">
           {m.detail.selfNote}
@@ -248,7 +249,7 @@ function ProvisioningCard({ employee, onChanged }: { readonly employee: Employee
 
   return (
     <div id="provisioning" className="space-y-3 rounded-box border border-base-300 bg-base-100 p-4">
-      <h2 className="font-bold">{m.detail.provisioning}</h2>
+      <h2 className="flex items-center gap-2 font-bold"><TitleIcon name="key" />{m.detail.provisioning}</h2>
       {/* 진행 단계(2026-11-19) — 요청·사서함·로그인 계정·안내 메일·완료 */}
       <ProvisioningProgress step={p.step} />
       <dl className="grid grid-cols-[8rem_1fr] gap-1 text-sm">
@@ -359,7 +360,7 @@ export function EmployeeDetailPage() {
             />
             {/* 다음 할 일(2026-11-19 — 백오피스 상세와 같은 자리): 서버 상태로 하나만 */}
             <EmployeeNextAction employee={e} />
-            <Section title={m.detail.info}>
+            <Section title={<span className="flex items-center gap-2"><TitleIcon name="user" />{m.detail.info}</span>}>
               <FieldList
                 rows={[
                   [m.fields.status, <span key="s" data-status={e.status}>{m.employmentStatus[e.status]}</span>],
@@ -378,7 +379,7 @@ export function EmployeeDetailPage() {
             <ProvisioningCard employee={e} onChanged={onChanged} />
 
             <div className="space-y-2 rounded-box border border-base-300 bg-base-100 p-4">
-              <h2 className="font-bold">{m.detail.grants}</h2>
+              <h2 className="flex items-center gap-2 font-bold"><TitleIcon name="shield" />{m.detail.grants}</h2>
               <p className="text-xs text-base-content/60">{m.detail.grantsNote}</p>
               {(e.requestedGrants ?? []).length === 0 ? (
                 <p className="text-sm text-base-content/60">{m.detail.grantsEmpty}</p>
