@@ -1182,6 +1182,27 @@ export const messages = {
   claims: {
     title: '클레임 조회',
     intro: '조회만 해요. 클레임 결정은 서버가 아직 열지 않아 이 화면에 없어요.',
+    /** 클레임 목록(2026-11-19 쿠팡 윙 반품관리 참고) */
+    listView: {
+      newReturn: '반품 접수',
+      guideTitle: '클레임 안내',
+      guide: [
+        '이 화면은 조회만 해요. 클레임 결정은 서버가 아직 열지 않아 여기서 하지 않아요.',
+        '반품은 왼쪽 메뉴 "반품 접수"에서 접수해요. 배차가 안 돼 취소할 때는 접수 건 상세의 "배차 불가로 취소"를 써요.',
+        '"회수 실패 — 다시 연락"은 고객에게 다시 연락이 필요한 건이에요. 위 "고객 연락 필요" 카드로 모아 볼 수 있어요.',
+        '환불 금액은 서버가 정한 값 그대로예요. 진행 중인 환불을 완료로 보이지 않아요.',
+      ] as const,
+      stagesLabel: '진행 단계',
+      all: '전체',
+      stage: { opened: '접수', progress: '진행 중', contact: '고객 연락 필요', done: '끝남' },
+      stageHint: { opened: '아직 심사 전', progress: '심사·출고 중지·처리·회수비', contact: '회수 실패 — 다시 연락', done: '종료·철회·거절·취소됨' },
+      basis: '최근 클레임 한 쪽 기준(넘치면 +) — 서버가 단계별 수를 세 주지 않아요.',
+      listTitle: '클레임 목록',
+      total: (n: number, more: boolean) => `총 ${n}건${more ? '(불러온 것)' : ''}`,
+      col: { reason: '사유', refund: '환불' },
+      channel: { CUSTOMER_APP: '고객 앱', CS: '고객센터', OPERATOR: '운영자', SYSTEM: '시스템' },
+      refundState: { NONE: '없음', IN_PROGRESS: '환불 진행 중', COMPLETED: '환불 완료', FAILED: '환불 실패' },
+    },
     orderId: '주문',
     orderFilterHint: '주문번호 8자리 또는 주문 ID',
     orderNumberNotFound: (n: string) => `주문번호 ${n} 의 주문을 찾지 못했어요.`,

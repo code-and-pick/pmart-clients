@@ -11,7 +11,7 @@ import { request } from '@pmart/web-core';
 import { formatKrw, formatSeoul } from '@pmart/web-ui';
 import type { Price, ProductDetail as Product } from '../../api/models';
 import { useApi } from '../../app/ApiContext';
-import { DataTable, StatCard, StatStrip, StatusBadge, type Tone } from '../../shared/admin';
+import { DataTable, GuideBox, StatCard, StatStrip, StatusBadge, type Tone } from '../../shared/admin';
 import { messages as m } from '../../shared/messages';
 import { LineIcon } from '../products/parts';
 
@@ -109,7 +109,6 @@ export function PriceList({ onChange, onOpen, openSku }: { readonly onChange: (s
   const [text, setText] = useState('');
   const [sort, setSort] = useState<Sort>('product');
   const [picked, setPicked] = useState<ReadonlySet<string>>(new Set());
-  const [noticeOpen, setNoticeOpen] = useState(true);
 
   const setParam = (k: string, v: string) =>
     setParams(
@@ -157,27 +156,8 @@ export function PriceList({ onChange, onOpen, openSku }: { readonly onChange: (s
         <p className="text-xs text-base-content/50">{l.basis(products.data?.pages.flatMap((p) => p.items ?? []).length ?? 0, Boolean(products.hasNextPage))}</p>
       </div>
 
-      {/* 안내 상자(접기) */}
-      <div className="rounded-box border border-base-300 bg-base-100 px-5 py-3 shadow-sm" data-testid="price-notice">
-        <button type="button" className="flex w-full items-center justify-between gap-2 text-left text-sm font-semibold" aria-expanded={noticeOpen} onClick={() => setNoticeOpen((o) => !o)}>
-          <span className="inline-flex items-center gap-2">
-            <span className="flex h-5 w-5 items-center justify-center rounded-full border border-base-content/40 text-[11px]" aria-hidden="true">
-              i
-            </span>
-            {l.noticeTitle}
-          </span>
-          <span className="text-xs text-base-content/50" aria-hidden="true">
-            {noticeOpen ? '▴' : '▾'}
-          </span>
-        </button>
-        {noticeOpen && (
-          <ul className="mt-2 list-inside list-disc space-y-1 text-sm text-base-content/70">
-            {l.notice.map((t) => (
-              <li key={t}>{t}</li>
-            ))}
-          </ul>
-        )}
-      </div>
+      {/* 안내 상자(접기) — 공통 GuideBox */}
+      <GuideBox title={l.noticeTitle} items={l.notice} storeKey="prices" testId="price-notice" />
 
       {/* 회색 검색 띠 — 바로 걸러진다(불러온 목록 안에서) */}
       <div className="flex flex-wrap items-end gap-3 rounded-box bg-base-300/40 px-4 py-3" role="group" aria-label={l.filters}>

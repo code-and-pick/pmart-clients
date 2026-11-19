@@ -8,7 +8,7 @@
 // - 상세: 제목·표시·요약 + 오른쪽 동작 버튼, 그 아래 구역 상자(제목 줄 + 항목명/값 줄), 구역으로 가는 밑줄 탭
 import { StickyTitle, useScrolledPast } from './StickyTitle';
 import { useStatChange } from './motion';
-import { type FormEvent, type ReactNode, useRef } from 'react';
+import { type FormEvent, type ReactNode, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router';
 
 import { GroupIcon } from '../app/groupIcons';
@@ -365,5 +365,51 @@ export function Notice({ children, tone = 'muted' }: { readonly children: ReactN
     <p role="note" className={`rounded-box px-4 py-3 text-sm ${tone === 'warning' ? 'bg-warning/15' : 'bg-base-300/50 text-base-content/75'}`}>
       {children}
     </p>
+  );
+}
+
+/**
+ * 안내 상자(2026-11-19 쿠팡 윙 "반품 정보안내"처럼) — ⓘ 제목 + 글머리 몇 줄, 접기. 이 브라우저에서 접은 것은 기억(화면마다 key).
+ * 규칙 문구는 화면이 이미 쓰는 업무 문구만 — 새 규칙을 만들지 않는다.
+ */
+export function GuideBox({ title, items, storeKey, testId }: { readonly title: string; readonly items: readonly ReactNode[]; readonly storeKey: string; readonly testId?: string }) {
+  const k = `pmart.backoffice.guide.${storeKey}`;
+  const [open, setOpen] = useState(() => {
+    try {
+      return window.localStorage.getItem(k) !== 'closed';
+    } catch {
+      return true;
+    }
+  });
+  const toggle = () => {
+    const next = !open;
+    setOpen(next);
+    try {
+      window.localStorage.setItem(k, next ? 'open' : 'closed');
+    } catch {
+      // 저장이 막힌 브라우저 — 이번 화면에서만
+    }
+  };
+  return (
+    <div className="rounded-box border border-base-300 bg-base-200/50 px-5 py-3" data-testid={testId}>
+      <button type="button" className="flex w-full items-center justify-between gap-2 text-left text-sm font-semibold" aria-expanded={open} onClick={toggle}>
+        <span className="inline-flex items-center gap-2">
+          <span className="flex h-5 w-5 items-center justify-center rounded-full border border-base-content/40 text-[11px]" aria-hidden="true">
+            i
+          </span>
+          {title}
+        </span>
+        <span className="text-xs text-base-content/50" aria-hidden="true">
+          {open ? '▴' : '▾'}
+        </span>
+      </button>
+      {open && (
+        <ul className="mt-2 list-inside list-disc space-y-1 text-sm text-base-content/70">
+          {items.map((t, i) => (
+            <li key={i}>{t}</li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }

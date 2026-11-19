@@ -9,7 +9,7 @@ import { request } from '@pmart/web-core';
 import { QueryState, toUiState, uiStateFromError } from '@pmart/web-ui';
 import type { components } from '../../api/generated/claim';
 import { useApi } from '../../app/ApiContext';
-import { ChipGroup, CodeLabel, DataTable, DetailHeader, NextAction, Notice, PageHeader, ResultBar, SearchPanel, SearchRow, Section, StatusBadge, type Tone } from '../../shared/admin';
+import { ChipGroup, CodeLabel, DataTable, DetailHeader, GuideBox, NextAction, Notice, PageHeader, ResultBar, SearchPanel, SearchRow, Section, StatCard, StatStrip, StatusBadge, type Tone } from '../../shared/admin';
 import { EmptyBox, KindChip, ListFoot, SideFields, When } from '../lookup/parts';
 import { DisplayNumber, SystemNumbers } from '../../shared/displayNumber';
 import { SavedViews } from '../../shared/SavedViews';
@@ -65,11 +65,45 @@ function useClaimList(filter: { orderId?: string | undefined; type?: ClaimType |
   });
 }
 
-function ClaimTable({ query, withCount = false, preview = false }: { readonly query: ReturnType<typeof useClaimList>; readonly withCount?: boolean; readonly preview?: boolean }) {
+const cl = m.claims.listView;
+/** 진행 단계(2026-11-19 쿠팡 윙 반품관리 "반품접수·반품진행·반품완료" 참고) — 서버 상태를 묶어 보일 뿐(판정은 서버 상태 그대로) */
+export type Stage = 'opened' | 'progress' | 'contact' | 'done';
+const STAGE_OF: Readonly<Record<string, Stage>> = {
+  OPENED: 'opened',
+  UNDER_REVIEW: 'progress',
+  STOP_PENDING: 'progress',
+  DECIDED: 'progress',
+  IN_PROGRESS: 'progress',
+  FEE_PENDING: 'progress',
+  RECOVERY_FAILED: 'contact',
+  CLOSED: 'done',
+  WITHDRAWN: 'done',
+  REJECTED: 'done',
+  CANCELLED: 'done',
+};
+const stageOf = (st: string | null | undefined): Stage | undefined => (st ? STAGE_OF[st] : undefined);
+const STAGES: readonly Stage[] = ['opened', 'progress', 'contact', 'done'];
+const isStage = (v: string | null): v is Stage => v !== null && (STAGES as readonly string[]).includes(v);
+
+/** 환불 칸 — 서버 요약 그대로(진행 중을 완료로 보이지 않는다) */
+function RefundCell({ r }: { readonly r: ClaimSummary['refund'] }) {
+  if (!r || r.state === 'NONE' || r.requestedAmount === undefined) return <span className="text-base-content/35">—</span>;
+  const tone = r.state === 'COMPLETED' ? 'text-success' : r.state === 'FAILED' ? 'text-error' : 'text-warning';
+  return (
+    <span className="inline-flex flex-col items-end">
+      <span className="font-semibold tabular-nums">{won(r.requestedAmount)}</span>
+      <span className={`text-xs ${tone}`}>{r.state ? (cl.refundState[r.state as keyof typeof cl.refundState] ?? r.state) : m.none}</span>
+    </span>
+  );
+}
+
+function ClaimTable({ query, withCount = false, preview = false, stage }: { readonly query: ReturnType<typeof useClaimList>; readonly withCount?: boolean; readonly preview?: boolean; readonly stage?: Stage | undefined }) {
   const navigate = useNavigate();
   // 오른쪽 미리보기(2026-11-19 관제 형식) — 클레임 목록 화면에서만(주문 상세 안의 표는 전처럼 상세로)
   const pv = usePreview();
-  const items: ClaimSummary[] = query.data?.pages.flatMap((p) => p.items ?? []) ?? [];
+  const loaded: ClaimSummary[] = query.data?.pages.flatMap((p) => p.items ?? []) ?? [];
+  // 단계 카드로 거르기(2026-11-19) — 불러온 목록 안에서(서버는 상태 하나로만 거른다)
+  const items = stage ? loaded.filter((c) => stageOf(c.state) === stage) : loaded;
   // 화면 주문번호 — bff 응답의 orderNumber(줄마다 따로 부르지 않는다). 주문 원천을 못 읽었으면 그 칸만 null + unavailableSources → "번호 확인 불가"
   const orderSourceFailed = (query.data?.pages ?? []).some((p) => (p.unavailableSources ?? []).includes(ORDER_SOURCE));
   const orders = {
@@ -86,18 +120,26 @@ function ClaimTable({ query, withCount = false, preview = false }: { readonly qu
   }
   if (items.length === 0)
     return (
-      <EmptyBox icon="return" listPart={withCount}>
+      <EmptyBox icon="return" listPart={withCount && !preview}>
         {m.claims.empty}
       </EmptyBox>
     );
   // 목록(2026-11-18 Shopify·Medusa 목록처럼): 첫 칸 종류 색 꼬리표 + 클레임 번호, 상태 점 꼬리표, 주문 번호 작게, "N일 전" → 아래 건수·더 보기
   return (
     <>
-      {withCount && <ResultBar count={items.length} more={query.hasNextPage} />}
+      {withCount && !preview && <ResultBar count={items.length} more={query.hasNextPage} />}
+      {preview && (
+        <div className="flex flex-wrap items-center gap-3 border-b border-base-300 pb-3 text-sm">
+          <h2 className="text-base font-bold">{stage ? cl.stage[stage] : cl.listTitle}</h2>
+          <span className="text-base-content/60">{cl.total(items.length, Boolean(query.hasNextPage))}</span>
+        </div>
+      )}
       <DataTable>
         <thead>
           <tr>
             <th>{m.claims.detailTitle}</th>
+            {preview && <th>{cl.col.reason}</th>}
+            {preview && <th className="text-right">{cl.col.refund}</th>}
             <th>{m.claims.state}</th>
             <th>{m.claims.orderId}</th>
             <th className="text-right">{m.claims.openedAt}</th>
@@ -121,7 +163,14 @@ function ClaimTable({ query, withCount = false, preview = false }: { readonly qu
                     m.none
                   )}
                 </span>
+                {preview && c.channel && <span className="mt-0.5 block text-xs text-base-content/45">{cl.channel[c.channel as keyof typeof cl.channel] ?? c.channel}</span>}
               </td>
+              {preview && <td className="text-sm">{c.reason ? (m.claims.reasonName[c.reason] ?? c.reason) : m.none}</td>}
+              {preview && (
+                <td className="text-right text-sm" data-testid="claim-refund">
+                  <RefundCell r={c.refund} />
+                </td>
+              )}
               <td>
                 <StatusBadge tone={claimTone(c.state)}>{c.state ? <CodeLabel code={c.state} names={m.claims.stateName} /> : m.none}</StatusBadge>
               </td>
@@ -225,13 +274,56 @@ export function ClaimListPage() {
     setSearch(next);
   };
 
-  const typeOptions = [{ value: '', label: m.claims.any }, ...TYPES.map((t) => ({ value: t, label: m.claims.typeName[t] ?? t }))];
-  const stateOptions = [{ value: '', label: m.claims.any }, ...STATES.map((st) => ({ value: st, label: m.claims.stateName[st] ?? st }))];
+  // 단계 카드 숫자 — 거르기 없는 최근 목록 한 쪽으로 센다(넘치면 "+"). 서버가 단계별 수를 세 주지 않는다
+  const recent = useClaimList({});
+  const stageParam = search.get('stage');
+  const stage = isStage(stageParam) ? stageParam : undefined;
+  const recentItems = recent.data?.pages[0]?.items ?? [];
+  const more = Boolean(recent.data?.pages[0]?.page?.nextCursor);
+  const count = (st: Stage) => (recent.isPending ? '…' : recent.isError ? '?' : `${recentItems.filter((c) => stageOf(c.state) === st).length}${more ? '+' : ''}`);
+  const stageTo = (st: Stage | '') => {
+    const next = new URLSearchParams(search);
+    if (st) next.set('stage', st);
+    else next.delete('stage');
+    return `/claims${next.toString() ? `?${next.toString()}` : ''}`;
+  };
 
-  // 관리자 형식(2026-11-18): 머리말 → 검색 조건 상자 → 결과 줄·표
+  // 2026-11-19 쿠팡 윙 반품관리 참고: 안내 상자 → 단계 숫자 카드 → 검색 조건(드롭다운) → 목록(사유·환불 칸)
   return (
-    <section className="space-y-5">
-      <PageHeader title={m.claims.title} description={m.claims.intro} />
+    <section className="space-y-4">
+      <PageHeader
+        title={m.claims.title}
+        description={m.claims.intro}
+        actions={
+          <Link className="btn btn-sm" to="/return-intake">
+            {cl.newReturn}
+          </Link>
+        }
+      />
+      <GuideBox title={cl.guideTitle} items={cl.guide} storeKey="claims" testId="claim-guide" />
+      <div className="space-y-1.5">
+        <StatStrip label={cl.stagesLabel} testId="claim-stages">
+          <StatCard layout="row" label={cl.all} value={recent.isPending ? '…' : `${recentItems.length}${more ? '+' : ''}`} to={stageTo('')} active={!stage} testId="claim-stage-all" />
+          {STAGES.map((st) => {
+            const v = count(st);
+            const has = /^[1-9]/.test(v);
+            return (
+              <StatCard
+                key={st}
+                layout="row"
+                label={cl.stage[st]}
+                hint={cl.stageHint[st]}
+                value={v}
+                tone={has ? (st === 'contact' ? 'error' : st === 'opened' ? 'warning' : st === 'progress' ? 'info' : undefined) : undefined}
+                to={stageTo(st)}
+                active={stage === st}
+                testId={`claim-stage-${st}`}
+              />
+            );
+          })}
+        </StatStrip>
+        <p className="text-xs text-base-content/50">{cl.basis}</p>
+      </div>
       {/* 내 보기(2026-11-18 Saleor 참고) — 지금 주소 조건을 이름 붙여 저장 */}
       <SavedViews listKey="claims" />
       <SearchPanel onSubmit={(e) => void submit(e)} onReset={() => setDraft({ orderId: '', type: '', state: '' })} submitLabel={m.claims.filter} resetLabel={m.claims.reset}>
@@ -244,13 +336,21 @@ export function ClaimListPage() {
           )}
         </SearchRow>
         <SearchRow label={m.claims.type}>
-          <ChipGroup label={m.claims.type} value={draft.type} options={typeOptions} onChange={(v) => setDraft((d) => ({ ...d, type: v }))} />
+          <ChipGroup label={m.claims.type} value={draft.type} options={[{ value: '', label: m.claims.any }, ...TYPES.map((t) => ({ value: t, label: m.claims.typeName[t] ?? t }))]} onChange={(v) => setDraft((d) => ({ ...d, type: v }))} />
         </SearchRow>
+        {/* 상태는 11가지라 칩 대신 고르기(2026-11-19 — 한 줄에 칩 12개는 읽기 힘들다). 단계는 위 카드로 */}
         <SearchRow label={m.claims.state}>
-          <ChipGroup label={m.claims.state} value={draft.state} options={stateOptions} onChange={(v) => setDraft((d) => ({ ...d, state: v }))} />
+          <select className="select select-sm w-56" aria-label={m.claims.state} value={draft.state} onChange={(e) => setDraft((d) => ({ ...d, state: e.target.value }))}>
+            <option value="">{m.claims.any}</option>
+            {STATES.map((st) => (
+              <option key={st} value={st}>
+                {m.claims.stateName[st] ?? st}
+              </option>
+            ))}
+          </select>
         </SearchRow>
       </SearchPanel>
-      <ClaimTable query={query} withCount preview />
+      <ClaimTable query={query} withCount preview stage={stage} />
     </section>
   );
 }
