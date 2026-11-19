@@ -30,8 +30,24 @@ export const messages = {
   reasonLabel: '사유',
   reasonHint: '필수, 500자까지',
 
+  /** 첫 화면(2026-11-19) — 숫자는 계약에 세는 조회가 없어 넣지 않는다(H-D2) */
+  home: {
+    title: '인사팀 첫 화면',
+    description: '자주 하는 일로 바로 가요.',
+    shortcuts: '바로 가기',
+    registerBody: '새 직원을 넣으면 계정이 자동으로 발급돼요.',
+    employeesBody: '이름·메일 ID·사번으로 찾고 정지·퇴사를 처리해요.',
+    permissionsBody: '직원별 권한과 승인 요청을 봐요.',
+    departmentsBody: '본사 부서 목록을 봐요.',
+    byStatus: '상태별 직원 목록',
+    byStatusBody: '상태로 걸러 직원 목록을 열어요. 인원 수는 서버가 아직 세어 주지 않아 보이지 않아요.',
+    seeList: '목록',
+    flowTitle: '직원 한 명이 일을 시작하기까지',
+    flow: ['직원 등록에서 기본 정보와 요청 권한을 넣어요.', '서버가 사서함 → 로그인 계정 → 안내 메일 순서로 계정을 발급해요(직원 상세에서 진행을 봐요).', '요청 권한은 승인자가 백오피스 승인함에서 승인하면 붙어요.'] as readonly string[],
+  },
   nav: {
     group: '인사',
+    home: '첫 화면',
     session: '내 세션',
     login: '로그인',
     employees: '직원 목록',

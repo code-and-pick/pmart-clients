@@ -1,7 +1,7 @@
 import { AppLauncher, UiTextProvider } from '@pmart/web-ui';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useEffect, type ReactNode } from 'react';
-import { createBrowserRouter, createMemoryRouter, Link, Navigate, NavLink, Outlet, RouterProvider, useLocation } from 'react-router';
+import { createBrowserRouter, createMemoryRouter, Link, NavLink, Outlet, RouterProvider, useLocation } from 'react-router';
 
 import { env } from '../env';
 import { DepartmentsPage } from '../features/departments/departments';
@@ -14,11 +14,13 @@ import { SessionPage } from '../features/session/SessionPage';
 import { useMe } from '../features/session/useMe';
 import { messages as m } from '../shared/messages';
 import { RequireSession, SessionProvider, useSession } from './SessionContext';
+import { HomePage } from './HomePage';
 import { QuickFind } from './QuickFind';
 import { ThemeToggle } from './ThemeToggle';
 import { Toasts } from './Toasts';
 
 const nav: ReadonlyArray<readonly [string, string]> = [
+  ['/', m.nav.home],
   ['/employees', m.nav.employees],
   ['/employees/new', m.nav.register],
   ['/departments', m.nav.departments],
@@ -134,7 +136,7 @@ const routes = [
     path: '/',
     element: <Layout />,
     children: [
-      { index: true, element: <Navigate to="/employees" replace /> },
+      { index: true, element: guarded(<HomePage />) },
       { path: 'session', element: guarded(<SessionPage />) },
       { path: 'employees', element: guarded(<EmployeeListPage />) },
       { path: 'employees/new', element: guarded(<EmployeeRegisterPage />) },
