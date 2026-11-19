@@ -14,7 +14,8 @@ import { affiliationText } from './labels';
 import { DataTable, PageHeader, ResultBar, SearchPanel, SearchRow, StatusBadge } from '../../shared/admin';
 import { PreviewDrawer, PreviewFacts, usePreview } from '../../shared/Preview';
 import { SavedViews } from '../../shared/SavedViews';
-import { provisioningTone, statusTone } from './labels';
+import { affiliationIcon, employmentIcon, provisioningTone, statusTone } from './labels';
+import { KindChip } from '../../shared/KindChip';
 
 const PAGE_SIZE = 50;
 
@@ -155,8 +156,12 @@ export function EmployeeListPage() {
                         </div>
                       </td>
                       <td className="text-sm">{e.mailAddress}</td>
-                      <td className="text-sm">{m.employmentType[e.employmentType]}</td>
-                      <td className="text-sm">{affiliationText(e.affiliation)}</td>
+                      <td>
+                        <KindChip icon={employmentIcon(e.employmentType)}>{m.employmentType[e.employmentType]}</KindChip>
+                      </td>
+                      <td>
+                        <KindChip icon={affiliationIcon(e.affiliation)}>{affiliationText(e.affiliation)}</KindChip>
+                      </td>
                       <td>
                         <StatusBadge tone={statusTone(e.status)}>{m.employmentStatus[e.status]}</StatusBadge>
                       </td>

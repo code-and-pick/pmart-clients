@@ -114,7 +114,7 @@ describe('직원 등록', () => {
     await userEvent.click(screen.getByRole('button', { name: '등록' }));
 
     await screen.findByRole('heading', { name: /오알바/ });
-    await waitFor(() => expect(screen.getByText('승인됨')).toHaveAttribute('data-submission', 'APPROVED'), { timeout: 3000 });
+    await waitFor(() => expect(screen.getByText('승인됨').closest('[data-submission]')).toHaveAttribute('data-submission', 'APPROVED'), { timeout: 3000 });
     expect(await view.mutations('/hr/employees')[0]!.json()).toEqual({
       name: '오알바',
       mailId: 'alba.oh',

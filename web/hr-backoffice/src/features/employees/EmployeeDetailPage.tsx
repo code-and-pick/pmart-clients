@@ -20,7 +20,8 @@ import { affiliationText, periodText } from './labels';
 import { MailboxPassword } from './MailboxPassword';
 import { DataTable, DetailHeader, FieldList, NextAction, Section, StatusBadge } from '../../shared/admin';
 import { CopyButton } from '../../shared/CopyButton';
-import { provisioningTone, statusTone } from './labels';
+import { affiliationIcon, employmentIcon, provisioningTone, statusTone, submissionTone } from './labels';
+import { KindChip } from '../../shared/KindChip';
 import { ProvisioningProgress } from './ProvisioningProgress';
 
 /** 발급 진행 중 다시 조회 간격. 테스트가 줄여 쓴다 */
@@ -363,8 +364,8 @@ export function EmployeeDetailPage() {
                 rows={[
                   [m.fields.status, <span key="s" data-status={e.status}>{m.employmentStatus[e.status]}</span>],
                   [m.fields.mailAddress, e.mailAddress],
-                  [m.fields.employmentType, m.employmentType[e.employmentType]],
-                  [m.fields.affiliation, affiliationText(e.affiliation)],
+                  [m.fields.employmentType, <KindChip key="t" icon={employmentIcon(e.employmentType)}>{m.employmentType[e.employmentType]}</KindChip>],
+                  [m.fields.affiliation, <KindChip key="a" icon={affiliationIcon(e.affiliation)}>{affiliationText(e.affiliation)}</KindChip>],
                   [m.fields.startDate, e.startDate],
                   [m.fields.endDate, e.endDate ?? m.none],
                   [m.fields.operatorId, <span key="o" className="font-mono text-xs select-all">{e.operatorId}</span>],
@@ -396,11 +397,17 @@ export function EmployeeDetailPage() {
                   <tbody>
                     {(e.requestedGrants ?? []).map((g, i) => (
                       <tr key={`${g.role}-${i}`}>
-                        <td>{g.role}</td>
+                        <td>
+                          <KindChip icon="role">{g.role}</KindChip>
+                        </td>
                         <td>{g.centers.join(', ') || m.none}</td>
                         <td>{periodText(g.validFrom, g.validTo)}</td>
                         <td>{g.reason ?? m.none}</td>
-                        <td data-submission={g.submission}>{m.grantSubmission[g.submission]}</td>
+                        <td>
+                          <span data-submission={g.submission}>
+                            <StatusBadge tone={submissionTone(g.submission)}>{m.grantSubmission[g.submission]}</StatusBadge>
+                          </span>
+                        </td>
                         <td className="text-xs">{g.approvalRef ?? m.none}</td>
                       </tr>
                     ))}
