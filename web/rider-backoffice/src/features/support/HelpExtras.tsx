@@ -23,7 +23,7 @@ export const helpExtrasMessages = {
   resolve: {
     title: '처리',
     button: '처리함으로 닫기',
-    hasCase: '접수 건이 붙은 도움요청은 접수 건에서 닫아요.',
+    hasCase: '접수 건이 붙은 도움요청은 접수 건의 "처리 끝내기"로 닫아요(닫으면 이 도움요청도 처리 끝).',
     resolved: '이미 처리했어요.',
     confirmTitle: '처리함으로 닫을까요?',
     confirmBody: '이 도움요청을 처리함으로 닫아요. 배송 상태는 바뀌지 않아요. 라이더 앱에는 처리함으로 보여요.',

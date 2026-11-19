@@ -31,9 +31,11 @@
 
 ## 4. 메뉴 (`src/app/nav.ts`)
 
+화면 틀(2026-11-19, 사용자 "다른 통합 백오피스 앱 참조" — `App.tsx` `Layout`·`groupIcons.tsx`·`index.css`): 통합 백오피스(`web/backoffice`)와 같은 모양 — 왼쪽 진한 남색 메뉴(앱 이름 · 홈 · 묶음 아이콘+이름 · 하위 메뉴 왼쪽 띠, 지금 메뉴 민트), 위 머리줄(묶음 › 메뉴 · 역할 칩 · 센터 표시/고르기 · 목 · 내 정보·내 세션), 본문 최대 폭. 테마는 통합 백오피스 값 사본(파랑 동작·민트 강조·연회색 바탕), 상태 배지는 옅은 바탕·진한 글자. 홈은 통합 백오피스 대시보드 짜임(제목·기준 줄 → "내 할 일" 숫자 칸 → "이상 N" 한 줄 → 예외 처리함 밑줄 탭).
+
 | 묶음 | 메뉴 | 경로 | 화면 | 서버 API 가 아직 없는 것(백엔드 §2-1) |
 |---|---|---|---|---|
-| 운영 | 센터 운영판 | `ops` | **됨**(§4-0, 센터 첫 화면) | 결품(SHORT) 건별 센터 목록, 출하 약속 초과·임박 서버 건수(요청 `mfc-backoffice/2026-11-19-backend-ops-exceptions.md`) |
+| (맨 위) | 홈 | `ops` | **됨**(§4-0, 센터 첫 화면 "오늘 센터 현황") | 결품(SHORT) 건별 센터 목록, 출하 약속 초과·임박 서버 건수(요청 `mfc-backoffice/2026-11-19-backend-ops-exceptions.md`) |
 | 작업자 관리 | 작업자 | `workers` | **됨**(§4-3) | — |
 |  | 배정 | `assignments` | **됨**(§4-6) — 지난 추천은 ID 로만 | 배정 추천 계획 목록 |
 | 작업 | 작업 현황 | `tasks` | **됨**(§4-5) — 확인 필요 포장은 안내만 | 확인 필요 포장 목록·확인(지금은 작업자만 — 백엔드 결정 대기) |
@@ -50,8 +52,8 @@
 - 기존 화면 요청서는 그대로 쓴다: 입고 B1~B4, 피킹·포장, 근무 기본값·배정 계획(백엔드 handoff `archive/2026-11-07-clients-request-mfc-*`, `backoffice/2026-11-09-clients-notice-*`).
 - 메뉴 아래 화면(목록·상세·등록)은 라우트 `c/:mfcId/<메뉴>/*` 아래에서 메뉴 화면이 자기 `<Routes>` 로 나눈다(`App.tsx` `menuPages`).
 
-### 4-0. 센터 운영판·예외 처리함 (`features/ops/OpsBoard.tsx`·`opsRules.ts`, 2026-11-19 PC 3)
-센터 관리자의 센터 첫 화면(`/` → `/c/<첫 센터>/ops`, 왼쪽 "운영 › 센터 운영판"). 요약 카드 3장 + 같은 화면 예외 처리함. 카드의 "목록 보기"·처리함 단추가 유형 필터(URL `?type=promise|picking|handover`).
+### 4-0. 홈(오늘 센터 현황)·예외 처리함 (`features/ops/OpsBoard.tsx`·`opsRules.ts`, 2026-11-19 PC 3)
+센터 관리자의 센터 첫 화면(`/` → `/c/<첫 센터>/ops`, 왼쪽 메뉴 맨 위 "홈"). 요약 카드 3장 + 같은 화면 예외 처리함. 카드의 "목록 보기"·처리함 단추가 유형 필터(URL `?type=promise|picking|handover`).
 새 계약 없이 기존 API 만 쓴다. 원천마다 따로 읽어 하나가 실패해도 나머지는 보이고, 실패는 "조회 실패"(0건 아님). 1분마다 다시 읽는다. 쿼리 키에 센터가 있고 센터가 바뀌면 화면을 새로 그려 이전 센터 값을 보이지 않는다.
 - **출하 약속 초과·임박**: fulfillment `GET /tasks?mfcId=&state=WAITING,READY,ASSIGNED,IN_PROGRESS,BLOCKED&size=200`을 커서로 끝까지(최대 5쪽 = 1,000건, 넘으면 "N건 이상"과 안내). PICK·PACK 만 출고(shipmentId)로 묶어 `promisedReadyAt`(서버 약속 시각) 가장 이른 값을 응답 `asOf` 와 비교 — 지났으면 초과, **15분 안이면 임박**(`DUE_SOON_MINUTES` — 업무 원문에 출하 임박 기준이 없어 화면 기준, 카드에 표시). 약속 시각이 없는 출고는 세지 않고 수를 따로 보인다. 행 → 지금 단계 작업 상세(출고·포장·작업 풀기). 재배정은 배정 메뉴.
 - **피킹 결품·파손**: 카드 = fulfillment `GET /metrics/picking-lines?from=오늘&to=오늘&mfcId=`(0.19.0) 의 사유별 줄 수(SHORT·DAMAGED, 서버가 센 값 — 그날 줄이 없으면 0). 건별 행 = mfc-quality `GET /quality-incidents?mfcId=&kind=DAMAGE`(열림·판정됨) 중 `sourceEvent = LineShortageReported`(피킹 파손으로 자동으로 열린 사고) → 품질 › 품질 사고 상세. **결품(SHORT) 건별 센터 목록은 계약이 없어** 안내만(작업 BLOCKED·수량 차이를 결품으로 추정하지 않는다).

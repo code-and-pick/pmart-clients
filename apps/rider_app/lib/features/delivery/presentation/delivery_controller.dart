@@ -639,11 +639,19 @@ class HelpTicket {
 
 @immutable
 class HelpFlowState {
-  const HelpFlowState({this.tickets = const [], this.sending = false});
+  const HelpFlowState({
+    this.tickets = const [],
+    this.sending = false,
+    this.rejectedCode,
+  });
 
   /// 이 배송에서 보낸 도움요청(오래된 것부터).
   final List<HelpTicket> tickets;
   final bool sending;
+
+  /// 방금 보낸 도움요청을 서버가 거절했다(4xx — 접수되지 않음). 값은 Problem code(없으면 빈 글자).
+  /// 거절된 요청은 "보낸 요청"에 남기지 않는다 — 보낸 것처럼 보이면 안 된다(사용자 2026-11-19 "백오피스에 안 떠").
+  final String? rejectedCode;
 
   HelpTicket? get last => tickets.lastOrNull;
 
@@ -714,6 +722,16 @@ class HelpFlowController extends Notifier<HelpFlowState> {
         sent = true;
       } on UnknownResultFailure {
         continue;
+      } on ProblemFailure catch (f) {
+        // 서버가 거절(4xx) — 접수되지 않았다. "접수 확인 중"으로 남기지 않고 실패로 알린다
+        // (전에는 상태 조회 404 → "확인하는 중"으로 남아 보낸 것처럼 보였다, 2026-11-19).
+        final status = f.problem.status;
+        if (status >= 400 && status < 500 && status != 408 && status != 429) {
+          if (!ref.mounted) return;
+          state = HelpFlowState(tickets: others, rejectedCode: f.problem.code);
+          return;
+        }
+        break;
       } on PmartFailure {
         break;
       }

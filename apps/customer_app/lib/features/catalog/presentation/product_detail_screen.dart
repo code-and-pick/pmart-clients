@@ -206,11 +206,10 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
           ContentImage(key: ValueKey('detail-image-$i'), url: url),
       ],
     ];
-    return ListView(
-      padding: const EdgeInsets.only(bottom: 24),
-      children: [
-        // 사진은 화면 폭을 채운다. 낮은 화면에서는 높이의 0.45 까지(가격·옵션이 첫 화면에 보이게).
-        LayoutBuilder(
+    // 위 사진 + 나머지 줄. 화면에 들어올 때 만든다(설명 이미지 여러 장을 처음에 다 만들지 않게 — 백엔드 요청 2026-11-19).
+    Widget item(int i) {
+      if (i == 0) {
+        return LayoutBuilder(
           builder: (context, c) {
             final byHeight = MediaQuery.sizeOf(context).height * 0.5;
             return ProductImage(
@@ -221,16 +220,21 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
               radius: 0,
             );
           },
-        ),
-        for (final w in rest)
-          if (w is PmartSectionGap)
-            w
-          else
-            Padding(
+        );
+      }
+      final w = rest[i - 1];
+      return w is PmartSectionGap
+          ? w
+          : Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: w,
-            ),
-      ],
+            );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.only(bottom: 24),
+      itemCount: rest.length + 1,
+      itemBuilder: (context, i) => item(i),
     );
   }
 }

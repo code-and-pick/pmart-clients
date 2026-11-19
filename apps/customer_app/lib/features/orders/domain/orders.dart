@@ -206,6 +206,7 @@ class OrderDetail {
     this.orderNumber,
     this.deliveryMode,
     this.mfcId,
+    this.mfcName,
     this.window,
     this.quote,
     this.paymentState,
@@ -228,6 +229,9 @@ class OrderDetail {
   final int version;
   final OrderStatus status;
   final String? mfcId;
+
+  /// 주문한 센터의 고객용 이름(order 0.15.0 — BR-62, center-master 이름). 모르면 null(브랜드만 보인다).
+  final String? mfcName;
 
   /// 주문 당시 배송지 사본(BR-37). null 이면 "배송지 정보 없음" — 주소록을 다시 부르지 않는다.
   final ShippingAddress? shippingAddress;

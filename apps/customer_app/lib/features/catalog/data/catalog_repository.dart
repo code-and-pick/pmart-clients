@@ -367,12 +367,13 @@ ProductDetail productFromContract(pc.ProductContent c, {OptionPrices? prices}) {
     returnGuide: c.returnGuide,
     notices: c.notices ?? const [],
     categoryPath: c.categoryPath ?? const [],
-    rating: (rating?.averageRating != null && rating?.reviewCount != null)
-        ? RatingSummary(
-            average: rating!.averageRating!.toDouble(),
-            count: rating.reviewCount!,
-          )
-        : null,
+    rating: switch (rating) {
+      final r? when r.averageRating != null => RatingSummary(
+        average: r.averageRating!.toDouble(),
+        count: r.reviewCount,
+      ),
+      _ => null,
+    },
     options: [
       for (final o in c.options ?? const <pc.SaleOption>[])
         if (_saleState(o.saleState) != SaleState.saleStopped)

@@ -2,6 +2,7 @@ import '@testing-library/jest-dom/vitest';
 import { cleanup } from '@testing-library/react';
 import { afterAll, afterEach, beforeAll } from 'vitest';
 
+import { resetCases } from '../mocks/caseHandlers';
 import { resetDb } from '../mocks/db';
 import { resetNotices } from '../mocks/noticeHandlers';
 import { resetPayoutAppeals } from '../mocks/payoutAppealHandlers';
@@ -13,6 +14,7 @@ beforeAll(() => server.listen({ onUnhandledFrame: 'error' }));
 afterEach(() => {
   server.resetHandlers();
   resetDb();
+  resetCases();
   resetOps();
   resetNotices();
   resetPayoutAppeals();

@@ -337,6 +337,10 @@ OrderDetail orderFromContract(api.Order o) => OrderDetail(
   status: OrderStatus.fromWire(o.status?.value),
   deliveryMode: o.deliveryMode,
   mfcId: o.mfcId,
+  mfcName: switch (o.mfcName?.trim()) {
+    final n? when n.isNotEmpty => n,
+    _ => null,
+  },
   window: switch (o.arrivalWindow) {
     final w? => ArrivalWindow(date: w.date, start: w.start, end: w.end),
     null => null,

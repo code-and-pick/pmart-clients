@@ -41,7 +41,7 @@ describe('로그인', () => {
     renderAt('/', null);
     await userEvent.click(await screen.findByRole('button', { name: '센터 관리자(MFC 1곳)' }));
     // 센터 첫 화면은 센터 운영판(2026-11-19)
-    expect(await screen.findByRole('heading', { name: '센터 운영판' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: '오늘 센터 현황' })).toBeInTheDocument();
     expect(await screen.findByText('부산진구 MFC (MFC-BSN-01)')).toBeInTheDocument();
   });
 });
@@ -49,7 +49,7 @@ describe('로그인', () => {
 describe('센터', () => {
   it('센터가 하나면 고르지 않고 그 센터로 — 이름은 세션 응답 centerDetails(0.9.0)에서, GET /centers 는 부르지 않는다', async () => {
     const view = renderAt('/');
-    expect(await screen.findByRole('heading', { name: '센터 운영판' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: '오늘 센터 현황' })).toBeInTheDocument();
     expect(await screen.findByText('부산진구 MFC (MFC-BSN-01)')).toBeInTheDocument();
     expect(screen.queryByRole('combobox', { name: '센터 고르기' })).not.toBeInTheDocument();
     expect(view.gets('/centers')).toHaveLength(0);
@@ -131,7 +131,7 @@ describe('세션 응답(sessions/current 0.6.0) — 토큰을 풀지 않는다',
     expect(screen.queryByText('작업자 관리')).not.toBeInTheDocument();
     fail = false;
     await userEvent.click(screen.getByRole('button', { name: '다시 시도' }));
-    expect(await screen.findByRole('heading', { name: '센터 운영판' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: '오늘 센터 현황' })).toBeInTheDocument();
   });
 });
 
@@ -158,12 +158,14 @@ describe('역할', () => {
 });
 
 describe('메뉴', () => {
-  it('묶음 6개 · 하위 메뉴 14개가 모두 보이고 센터 주소 아래로 간다', async () => {
+  it('홈 + 묶음 5개 · 메뉴 14개가 모두 보이고 센터 주소 아래로 간다', async () => {
     renderAt('/');
-    await screen.findByRole('heading', { name: '센터 운영판' });
-    for (const group of ['운영', '작업자 관리', '작업', '배송', '재고·품질', '센터']) expect(screen.getByText(group, { selector: 'summary' })).toBeInTheDocument();
+    await screen.findByRole('heading', { name: '오늘 센터 현황' });
+    // 묶음 제목(홈은 제목 없이 맨 위)
+    const menu = screen.getByRole('navigation', { name: '메뉴' });
+    for (const group of ['작업자 관리', '작업', '배송', '재고·품질', '센터']) expect(within(menu).getByText(group, { selector: '[data-group-label]' })).toBeInTheDocument();
     expect(allMenus).toHaveLength(14);
-    for (const label of ['센터 운영판', '작업자', '배정', '작업 현황', '이동·보충', '입고', '재고', '품질', '위치(칸)', '운영 제한', '포장 인계', '배송 현황', '배차 실패', '반납 인증번호']) {
+    for (const label of ['홈', '작업자', '배정', '작업 현황', '이동·보충', '입고', '재고', '품질', '위치(칸)', '운영 제한', '포장 인계', '배송 현황', '배차 실패', '반납 인증번호']) {
       expect(screen.getByRole('link', { name: label }).getAttribute('href')).toMatch(/^\/c\/MFC-BSN-01\//);
     }
   });

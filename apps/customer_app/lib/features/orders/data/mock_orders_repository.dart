@@ -64,6 +64,7 @@ base class MockOrdersRepository implements OrdersRepository {
       'version': 2,
       'status': 'CONFIRMED',
       'mfcId': 'MFC-BSJ-01',
+      'mfcName': '부산진구점',
       'deliveryMode': 'SCHEDULED',
       'arrivalWindow': {'date': '2026-10-24', 'start': '18:00', 'end': '19:00'},
       'shippingAddress': {
@@ -123,6 +124,7 @@ base class MockOrdersRepository implements OrdersRepository {
       'version': 7,
       'status': 'PARTIALLY_DELIVERED',
       'mfcId': 'MFC-BSJ-01',
+      'mfcName': '부산진구점',
       'deliveryMode': 'SINGLE',
       'quote': _quoteSeed,
       'lines': [

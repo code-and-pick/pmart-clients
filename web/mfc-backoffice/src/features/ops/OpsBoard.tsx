@@ -117,50 +117,108 @@ function OpsBoard({ mfcId }: { readonly mfcId: string }) {
   };
   const busy = tasks.isFetching || metrics.isFetching || damages.isFetching || handovers.isFetching;
 
-  return (
-    <section className="space-y-4">
-      <div className="flex flex-wrap items-center gap-3">
-        <h1 className="text-xl font-bold">{m.title}</h1>
-        <button type="button" className="btn btn-sm" onClick={refetchAll} disabled={busy}>
-          {m.refresh}
-        </button>
-        <span className="text-xs opacity-70">{m.autoRefreshNote}</span>
-        {tasks.data?.asOf && <span className="text-xs opacity-70">{m.asOf(formatSeoul(tasks.data.asOf))}</span>}
-      </div>
-      <p className="text-sm opacity-70">{m.intro}</p>
+  const asOf = tasks.data?.asOf ?? null;
+  const shortN = metrics.data?.short ?? 0;
+  const damagedN = metrics.data?.damaged ?? 0;
+  const handoverN = (handovers.data?.items ?? []).length;
+  const notes = [
+    m.card.promiseRule(DUE_SOON_MINUTES),
+    ...(promise && promise.noPromise > 0 ? [m.card.noPromise(promise.noPromise)] : []),
+    m.card.pickingRule,
+    m.card.handoverRule,
+  ];
 
-      <div className="grid gap-3 md:grid-cols-3">
-        <Card
-          testId="card-promise"
-          title={m.card.promise}
-          active={filter === 'promise'}
-          onClick={() => choose('promise')}
-          state={tasks}
-          value={promise && tasks.data ? m.card.promiseValue(countText(promise.overdue, tasks.data.complete), countText(promise.dueSoon, tasks.data.complete)) : ''}
-          alarm={(promise?.overdue ?? 0) > 0}
-          notes={[m.card.promiseRule(DUE_SOON_MINUTES), ...(promise && promise.noPromise > 0 ? [m.card.noPromise(promise.noPromise)] : [])]}
-        />
-        <Card
-          testId="card-picking"
-          title={m.card.picking}
-          active={filter === 'picking'}
-          onClick={() => choose('picking')}
-          state={metrics}
-          value={metrics.data ? m.card.pickingValue(metrics.data.short, metrics.data.damaged) : ''}
-          alarm={(metrics.data?.short ?? 0) + (metrics.data?.damaged ?? 0) > 0}
-          notes={[m.card.pickingRule]}
-        />
-        <Card
-          testId="card-handover"
-          title={m.card.handover}
-          active={filter === 'handover'}
-          onClick={() => choose('handover')}
-          state={handovers}
-          value={handovers.data ? m.count((handovers.data.items ?? []).length) : ''}
-          alarm={(handovers.data?.items ?? []).length > 0}
-          notes={[m.card.handoverRule]}
-        />
+  // 통합 백오피스 대시보드와 같은 짜임(2026-11-19): 제목·기준 줄 → "내 할 일" 숫자 칸(왼쪽 색 띠) → "이상 N" 한 줄 → 예외 처리함
+  return (
+    <section className="space-y-5">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold">{m.title}</h1>
+          <p className="text-sm text-base-content/60">{asOf ? m.subtitle(formatSeoul(asOf)) : m.intro}</p>
+        </div>
+        <div className="flex items-center gap-3 text-xs text-base-content/60">
+          <span className="flex items-center gap-1.5">
+            <span className={`h-2 w-2 rounded-full ${busy ? 'bg-warning' : 'bg-success'}`} aria-hidden="true" />
+            {busy ? m.refreshing : m.autoRefreshNote}
+          </span>
+          <button type="button" className="btn btn-ghost btn-xs font-bold" onClick={refetchAll} disabled={busy}>
+            {m.refresh}
+          </button>
+        </div>
       </div>
+
+      <div>
+        <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
+          <h2 className="text-sm font-semibold">{m.todoTitle}</h2>
+          <span className="text-xs text-base-content/50">{m.todoHint}</span>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+          <Tile
+            testId="tile-overdue"
+            label={m.tile.overdue}
+            tone="error"
+            state={tasks}
+            value={promise && tasks.data ? countText(promise.overdue, tasks.data.complete) : ''}
+            has={(promise?.overdue ?? 0) > 0}
+            active={filter === 'promise'}
+            onClick={() => choose('promise')}
+          />
+          <Tile
+            testId="tile-due"
+            label={m.tile.dueSoon}
+            tone="warning"
+            state={tasks}
+            value={promise && tasks.data ? countText(promise.dueSoon, tasks.data.complete) : ''}
+            has={(promise?.dueSoon ?? 0) > 0}
+            active={filter === 'promise'}
+            onClick={() => choose('promise')}
+          />
+          <Tile
+            testId="tile-short"
+            label={m.tile.short}
+            tone="warning"
+            state={metrics}
+            value={m.lines(shortN)}
+            has={shortN > 0}
+            active={filter === 'picking'}
+            onClick={() => choose('picking')}
+          />
+          <Tile
+            testId="tile-damaged"
+            label={m.tile.damaged}
+            tone="warning"
+            state={metrics}
+            value={m.lines(damagedN)}
+            has={damagedN > 0}
+            active={filter === 'picking'}
+            onClick={() => choose('picking')}
+          />
+          <Tile
+            testId="tile-handover"
+            label={m.tile.handover}
+            tone="info"
+            state={handovers}
+            value={m.count(handoverN)}
+            has={handoverN > 0}
+            active={filter === 'handover'}
+            onClick={() => choose('handover')}
+          />
+        </div>
+        <ul className="mt-2 flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-base-content/50" data-testid="ops-rules">
+          {notes.map((n) => (
+            <li key={n}>{n}</li>
+          ))}
+        </ul>
+      </div>
+
+      <StatusStrip
+        onFilter={choose}
+        parts={[
+          { key: 'promise', state: tasks, n: promise?.overdue ?? 0, text: m.issue.overdue },
+          { key: 'handover', state: handovers, n: handoverN, text: m.issue.handover },
+          { key: 'picking', state: damages, n: damages.data?.items.length ?? 0, text: m.issue.damaged },
+        ]}
+      />
 
       <ExceptionList
         mfcId={mfcId}
@@ -181,54 +239,80 @@ interface QueryLike {
   readonly refetch: () => unknown;
 }
 
-function Card({
+/** "내 할 일" 숫자 칸 — 통합 백오피스 WorkTile 과 같은 모양(왼쪽 색 띠는 일이 있을 때만). 누르면 아래 처리함이 그 유형으로 */
+function Tile({
   testId,
-  title,
+  label,
   value,
   state,
+  tone,
+  has,
   active,
-  alarm,
-  notes,
   onClick,
 }: {
   readonly testId: string;
-  readonly title: string;
+  readonly label: string;
   readonly value: string;
   readonly state: QueryLike;
+  readonly tone: 'error' | 'warning' | 'info';
+  readonly has: boolean;
   readonly active: boolean;
-  readonly alarm: boolean;
-  readonly notes: readonly string[];
   readonly onClick: () => void;
 }) {
+  const [text, stripe] = { error: ['text-error', 'border-l-error'], warning: ['text-warning', 'border-l-warning'], info: ['text-info', 'border-l-info'] }[tone];
+  const failed = state.isError;
   return (
-    <div data-testid={testId} className={`card border bg-base-100 ${active ? 'border-primary' : 'border-base-300'}`}>
-      <div className="card-body gap-1 p-4">
-        <h2 className="text-sm font-semibold opacity-80">{title}</h2>
-        {state.isPending ? (
-          <span className="loading loading-dots loading-sm" aria-label={messages.loading} />
-        ) : state.isError ? (
-          <p role="alert" data-state="error" className="text-error font-semibold">
-            {m.failed}{' '}
-            <button type="button" className="btn btn-xs" onClick={() => void state.refetch()}>
-              {m.retry}
-            </button>
-          </p>
-        ) : (
-          <p data-testid={`${testId}-value`} className={`text-lg font-bold ${alarm ? 'text-error' : ''}`}>
-            {value}
-          </p>
-        )}
-        {notes.map((n) => (
-          <p key={n} className="text-xs opacity-70">
-            {n}
-          </p>
-        ))}
-        <div className="card-actions justify-end">
-          <button type="button" className="btn btn-xs" aria-pressed={active} onClick={onClick}>
-            {m.card.showList}
-          </button>
-        </div>
-      </div>
+    <button
+      type="button"
+      data-testid={testId}
+      aria-pressed={active}
+      onClick={onClick}
+      className={`block rounded-lg border border-l-4 bg-base-100 px-4 py-3 text-left transition hover:bg-base-200/60 ${active ? 'border-primary/40 ring-1 ring-primary/30' : 'border-base-300'} ${has && !failed ? stripe : 'border-l-base-300'}`}
+    >
+      <p className="text-xs text-base-content/60">{label}</p>
+      {state.isPending ? (
+        <p className="mt-0.5 text-2xl font-bold text-base-content/40">…</p>
+      ) : failed ? (
+        <p className="mt-0.5 text-sm font-semibold text-error" data-state="error">
+          {m.failed}
+        </p>
+      ) : (
+        <p data-testid={`${testId}-value`} className={`mt-0.5 text-2xl font-bold tabular-nums ${has ? text : 'text-base-content/70'}`}>
+          {value}
+        </p>
+      )}
+    </button>
+  );
+}
+
+/** "이상 없음 / 이상 N" 한 줄(통합 백오피스 DashboardStatus 와 같은 모양) — 서버 숫자만. 못 읽은 원천이 있으면 "이상 없음"이라 하지 않는다 */
+function StatusStrip({
+  parts,
+  onFilter,
+}: {
+  readonly parts: ReadonlyArray<{ readonly key: Filter; readonly state: QueryLike; readonly n: number; readonly text: (n: number) => string }>;
+  readonly onFilter: (f: Filter) => void;
+}) {
+  const issues = parts.filter((p) => !p.state.isPending && !p.state.isError && p.n > 0);
+  const failed = parts.filter((p) => p.state.isError).length;
+  const loading = parts.some((p) => p.state.isPending);
+  const tone = issues.length > 0 ? 'error' : failed > 0 ? 'warning' : loading ? 'neutral' : 'success';
+  const box = { error: 'border-error/30 bg-error/10', warning: 'border-warning/40 bg-warning/10', neutral: 'border-base-300 bg-base-100', success: 'border-success/30 bg-success/10' }[tone];
+  const dot = { error: 'bg-error', warning: 'bg-warning', neutral: 'bg-base-content/30', success: 'bg-success' }[tone];
+  const title = issues.length > 0 ? m.status.issues(issues.length) : failed > 0 ? m.status.unknown : loading ? m.status.checking : m.status.ok;
+  return (
+    <div className={`flex flex-wrap items-center gap-x-3 gap-y-1 rounded-box border px-4 py-2.5 text-sm ${box}`} aria-live="polite" data-testid="ops-status" data-tone={tone}>
+      <span className="relative flex h-2.5 w-2.5" aria-hidden="true">
+        {tone === 'error' && <span className={`absolute inline-flex h-full w-full animate-ping rounded-full opacity-60 ${dot}`} />}
+        <span className={`relative inline-flex h-2.5 w-2.5 rounded-full ${dot}`} />
+      </span>
+      <span className="font-bold">{title}</span>
+      {issues.map((p) => (
+        <button key={p.key} type="button" className="link link-hover text-error" onClick={() => onFilter(p.key)}>
+          {p.text(p.n)}
+        </button>
+      ))}
+      {failed > 0 && <span className="text-xs text-base-content/60">{m.status.failed(failed)}</span>}
     </div>
   );
 }
@@ -287,12 +371,13 @@ function ExceptionList({
     <div className="space-y-2 rounded-box bg-base-100 p-4" data-testid="exception-list">
       <div className="flex flex-wrap items-center gap-2">
         <h2 className="font-bold">{m.listTitle}</h2>
-        <div role="group" className="join">
-          <button type="button" className={`btn btn-xs join-item ${filter === null ? 'btn-primary' : ''}`} aria-pressed={filter === null} onClick={() => onFilter(null)}>
+        {/* 통합 백오피스 대시보드 탭과 같은 밑줄 탭 */}
+        <div role="group" className="tabs tabs-border ml-2">
+          <button type="button" className={`tab ${filter === null ? 'tab-active font-bold' : ''}`} aria-pressed={filter === null} onClick={() => onFilter(null)}>
             {m.filter.all}
           </button>
           {FILTERS.map((f) => (
-            <button key={f} type="button" className={`btn btn-xs join-item ${filter === f ? 'btn-primary' : ''}`} aria-pressed={filter === f} onClick={() => onFilter(f)}>
+            <button key={f} type="button" className={`tab ${filter === f ? 'tab-active font-bold' : ''}`} aria-pressed={filter === f} onClick={() => onFilter(f)}>
               {m.filter[f]}
             </button>
           ))}

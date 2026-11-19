@@ -50,6 +50,12 @@ class ProductImage extends ConsumerWidget {
               width: size,
               height: h,
               fit: BoxFit.cover,
+              // 원본(예 1080px)을 그대로 풀지 않고 그릴 크기만큼만 디코딩한다(백엔드 요청 2026-11-19 — 메모리·속도).
+              // 채우기(cover)라 긴 변 기준으로 잡는다.
+              cacheWidth:
+                  ((size > h ? size : h) *
+                          MediaQuery.devicePixelRatioOf(context))
+                      .round(),
               errorBuilder: (_, _, _) => placeholder,
             ),
     );

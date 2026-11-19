@@ -792,6 +792,8 @@ void main() {
       // 레퍼런스: 배달정보 자세히(주소·요청사항), 센터·상세내역, 주문 상품, 총 결제금액.
       await t.ensureVisible(key('track-total'));
       expect(key('track-store'), findsOneWidget);
+      // 센터 이름(order 0.15.0 mfcName — BR-62).
+      expect(find.text('PMart 부산진구점'), findsOneWidget);
       expect(key('track-order-detail'), findsOneWidget);
       expect(find.text('21,040원'), findsOneWidget);
       await t.ensureVisible(key('track-delivery-info'));

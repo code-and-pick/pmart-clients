@@ -73,7 +73,16 @@ class _SupportScreenState extends ConsumerState<SupportScreen> {
         .read(helpFlowProvider(_id).notifier)
         .send(category, detail: _detail.text);
     if (!mounted) return;
-    final last = ref.read(helpFlowProvider(_id)).last;
+    final after = ref.read(helpFlowProvider(_id));
+    // 서버가 거절했다 — 접수되지 않았으니 쓴 내용·고른 종류를 그대로 두고 실패를 알린다.
+    if (after.rejectedCode case final code?) {
+      showRiderToast(
+        context,
+        code == 'PHOTO_NOT_FOUND' ? l10n.helpRejectedPhoto : l10n.helpRejected,
+      );
+      return;
+    }
+    final last = after.last;
     if (last != null && last.state != HelpState.unknown) {
       _detail.clear();
       setState(() => _category = null);

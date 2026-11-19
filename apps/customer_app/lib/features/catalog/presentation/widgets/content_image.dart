@@ -22,12 +22,22 @@ class ContentImage extends ConsumerWidget {
     // 서버 이미지는 게이트웨이 상대 경로다(ProductImage 와 같은 방식으로 출처를 붙인다).
     final u = resolveImageUrl(url, ref.watch(imageOriginProvider));
     if (u == null) return placeholder;
-    return Image.network(
-      u,
-      width: double.infinity,
-      fit: BoxFit.fitWidth,
-      gaplessPlayback: true,
-      errorBuilder: (_, _, _) => placeholder,
+    // 설명 이미지는 1080×2000·150~450KB 라 원본으로 풀면 장당 약 8MB — 화면 폭 × 화소 비율로만 디코딩한다
+    // (백엔드 요청 2026-11-19 상품 상세 느림). 비율은 그대로라 보이는 모양은 같다.
+    return LayoutBuilder(
+      builder: (context, c) {
+        final width = c.maxWidth.isFinite
+            ? c.maxWidth
+            : MediaQuery.sizeOf(context).width;
+        return Image.network(
+          u,
+          width: double.infinity,
+          fit: BoxFit.fitWidth,
+          gaplessPlayback: true,
+          cacheWidth: (width * MediaQuery.devicePixelRatioOf(context)).round(),
+          errorBuilder: (_, _, _) => placeholder,
+        );
+      },
     );
   }
 }

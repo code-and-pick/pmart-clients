@@ -31,7 +31,10 @@ export const messages = {
     session: '내 세션',
     login: '로그인',
     me: '내 정보',
+    menu: '메뉴',
   },
+  /** 머리줄 역할 칩 */
+  roleChip: { supervisor: '센터 관리자' },
 
   /** 내 정보 — hr-service GET /hr/employees/me(본인). 비밀번호·연락처 바꾸기는 백엔드 EA-3·HR-3 대기 */
   me: {
@@ -82,7 +85,7 @@ export const messages = {
     delivery: '배송',
   },
   menus: {
-    ops: '센터 운영판',
+    ops: '홈',
     workers: '작업자',
     assignments: '배정',
     tasks: '작업 현황',
@@ -100,11 +103,29 @@ export const messages = {
 
   /** 센터 운영판·예외 처리함(features/ops) */
   ops: {
-    title: '센터 운영판',
+    title: '오늘 센터 현황',
     intro: '출하가 늦어지거나 현장에서 막힌 일을 먼저 찾아요. 조치는 각 상세 화면에서 해요.',
-    refresh: '새로 읽기',
-    autoRefreshNote: '1분마다 다시 읽어요',
+    refresh: '지금 새로 고침',
+    autoRefreshNote: '1분마다 자동',
+    refreshing: '읽는 중',
     asOf: (at: string) => `기준 ${at}`,
+    subtitle: (at: string) => `${at} 기준 · 숫자를 누르면 아래 처리함이 그 일만 보여요. 1분마다 다시 읽어요.`,
+    todoTitle: '내 할 일',
+    todoHint: '급한 것부터 · 누르면 그 일만 모아 봐요',
+    tile: { overdue: '출하 약속 초과', dueSoon: '출하 약속 임박', short: '결품 줄(오늘)', damaged: '파손 줄(오늘)', handover: '인계 확인 필요' },
+    lines: (n: number) => `${n}줄`,
+    issue: {
+      overdue: (n: number) => `출하 약속 초과 ${n}건`,
+      handover: (n: number) => `인계 확인 필요 ${n}건`,
+      damaged: (n: number) => `피킹 파손 사고 ${n}건`,
+    },
+    status: {
+      issues: (n: number) => `이상 ${n}`,
+      ok: '이상 없음',
+      unknown: '확인 못 함',
+      checking: '확인 중',
+      failed: (n: number) => `${n}곳을 읽지 못했어요`,
+    },
     failed: '조회 실패',
     retry: '다시 시도',
     atLeast: (n: number) => `${n}건 이상`,

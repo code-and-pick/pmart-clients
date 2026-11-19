@@ -2196,7 +2196,7 @@ class TrackSheetHead extends StatelessWidget {
 }
 
 /// 시트 아래(레퍼런스 8-5·예약 화면): "배달정보 자세히"(배달주소·요청사항), 주문한 센터·"상세내역", 주문 상품, 총 결제금액.
-/// 모두 주문 응답의 서버 값. 센터 이름은 고객용 경로가 없어(BR-62) 브랜드만 보인다.
+/// 모두 주문 응답의 서버 값. 센터 이름은 `mfcName`(order 0.15.0), 없으면 브랜드만.
 class OrderSheetDetails extends StatefulWidget {
   const OrderSheetDetails({super.key, required this.order});
 
@@ -2293,7 +2293,11 @@ class _OrderSheetDetailsState extends State<OrderSheetDetails> {
           children: [
             Expanded(
               child: Text(
-                l10n.trackStoreName,
+                // 센터 이름(BR-62) — 없으면 브랜드만(ID 를 보이지 않는다).
+                switch (o.mfcName) {
+                  final n? => '${l10n.trackStoreName} $n',
+                  null => l10n.trackStoreName,
+                },
                 key: const ValueKey('track-store'),
                 style: theme.textTheme.titleMedium?.copyWith(
                   fontSize: 18,

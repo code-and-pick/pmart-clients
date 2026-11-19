@@ -50,19 +50,47 @@ describe('접수 건 목록', () => {
 });
 
 describe('접수 건 상세', () => {
-  it('내용·상태·처리 결과·이력, 보기만 안내 — 맡기·닫기 버튼 없음', async () => {
+  it('내용·상태·처리 결과·이력, 끝난 건은 처리 끝내기 칸이 없다', async () => {
     renderAt('/cases/CASE-RH-0', as.riderOps);
     const detail = await screen.findByTestId('case-detail');
     expect(detail).toHaveTextContent('포장 대기 — 처리함');
     expect(detail).toHaveTextContent('처리 끝남');
     expect(detail).toHaveTextContent('해결 — 매장 확인 뒤 픽업');
     expect(screen.getByTestId('case-history')).toHaveTextContent('처리 끝냄');
-    expect(screen.getByRole('note')).toHaveTextContent('보기만');
+    expect(screen.getByRole('note')).toHaveTextContent('처리 끝내기');
     expect(screen.queryByRole('button', { name: /맡기|닫기|처리 끝내기/ })).not.toBeInTheDocument();
   });
 
   it('라이더 운영에게 안 보이는 종류는 찾지 못함(404) — 빈 화면이 아니라 오류', async () => {
     renderAt('/cases/CASE-PAY-1', as.riderOps);
     expect(await screen.findByRole('alert')).toBeInTheDocument();
+  });
+});
+
+describe('접수 건 처리 끝내기(사용자 2026-11-19 "처리 완료 버튼이 없네")', () => {
+  const closeCalls = (sent: readonly Request[]) => sent.filter((r) => r.method === 'POST' && new URL(r.url).pathname.endsWith('/closures'));
+
+  it('결과·처리 내용을 넣고 끝내면 닫히고, 같은 요청에 Idempotency-Key 가 붙는다', async () => {
+    const view = renderAt('/cases/CASE-RH-1', as.riderOps);
+    const form = await screen.findByRole('form', { name: '처리 끝내기' });
+    const submit = within(form).getByRole('button', { name: '처리 끝내기' });
+    expect(submit).toBeDisabled(); // 처리 내용이 있어야
+    await userEvent.type(within(form).getByLabelText(/처리 내용/), '고객과 통화해 문 앞에 두기로 함');
+    await userEvent.click(submit);
+    expect(await screen.findByTestId('case-closed-now')).toHaveTextContent('처리를 끝냈어요.');
+    const call = closeCalls(view.sent)[0]!;
+    expect(call.headers.get('Idempotency-Key')).toBeTruthy();
+    expect((await call.clone().json()) as unknown).toEqual({ resolution: 'RESOLVED', summary: '고객과 통화해 문 앞에 두기로 함' });
+    // 다시 읽으면 처리 끝 — 끝내기 칸이 사라지고 결과가 보인다
+    expect(await screen.findByText(/해결 — 고객과 통화해/)).toBeInTheDocument();
+    expect(screen.queryByRole('form', { name: '처리 끝내기' })).not.toBeInTheDocument();
+  });
+
+  it('후속 처리가 남은 건은 서버가 막는다 — 이유를 알린다', async () => {
+    renderAt('/cases/CASE-DF-1', as.riderOps);
+    const form = await screen.findByRole('form', { name: '처리 끝내기' });
+    await userEvent.type(within(form).getByLabelText(/처리 내용/), '처리함');
+    await userEvent.click(within(form).getByRole('button', { name: '처리 끝내기' }));
+    expect(await within(form).findByRole('alert')).toHaveTextContent('후속 처리');
   });
 });

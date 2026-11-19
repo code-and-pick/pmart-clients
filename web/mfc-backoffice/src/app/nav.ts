@@ -24,7 +24,7 @@ export interface MenuGroup {
 
 export const navGroups: readonly MenuGroup[] = [
   {
-    // 센터 첫 화면(2026-11-19) — 출하 약속 임박·초과, 피킹 결품·파손, 인계 확인 필요를 한 화면에서 찾고 상세로 간다.
+    // 센터 홈(2026-11-19) — 출하 약속 임박·초과, 피킹 결품·파손, 인계 확인 필요를 한 화면에서 찾고 상세로 간다. 묶음 제목 없이 맨 위 "홈".
     key: 'overview',
     items: [
       {

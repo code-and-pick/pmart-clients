@@ -624,6 +624,9 @@ base class MockDeliveryRepository
   /// 다음 도움요청 응답을 1회 잃는다(서버는 접수함).
   bool loseNextHelpResponse = false;
 
+  /// 다음 도움요청을 서버가 거절한 것처럼(422 등) — 접수 기록을 남기지 않는다.
+  String? rejectNextHelpCode;
+
   @override
   Future<void> requestHelp(
     String deliveryId,
@@ -633,6 +636,10 @@ base class MockDeliveryRepository
     required IdempotencyKey key,
   }) async {
     await _wait();
+    if (rejectNextHelpCode case final code?) {
+      rejectNextHelpCode = null;
+      throw ProblemFailure(Problem(status: 422, code: code));
+    }
     _helpAt.putIfAbsent(key.value, clock);
     _helpDelivery[key.value] = deliveryId;
     _helpCategory[key.value] = category;

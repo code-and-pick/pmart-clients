@@ -1,7 +1,7 @@
 import { UiTextProvider } from '@pmart/web-ui';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ComponentType, ReactNode } from 'react';
-import { createBrowserRouter, createMemoryRouter, Link, Navigate, NavLink, Outlet, RouterProvider, useParams } from 'react-router';
+import { createBrowserRouter, createMemoryRouter, Link, Navigate, NavLink, Outlet, RouterProvider, useLocation, useParams } from 'react-router';
 
 import { env } from '../env';
 import { AssignmentsMenu } from '../features/assignments/AssignmentPages';
@@ -23,6 +23,7 @@ import { LoginCallbackPage, LoginPage } from '../features/session/LoginPage';
 import { SessionPage } from '../features/session/SessionPage';
 import { MyInfoPage } from '../features/me/MyInfoPage';
 import { messages as m } from '../shared/messages';
+import { GroupIcon } from './groupIcons';
 import { allMenus, centerPath, isWorkerOnly, navGroups, type MenuItem, type MenuKey } from './nav';
 import { RequireSession, SessionProvider, useSession } from './SessionContext';
 
@@ -34,50 +35,106 @@ function useCenter(): { readonly mfcId: string; readonly mine: boolean } | null 
   return { mfcId, mine: session?.centers.includes(mfcId) ?? false };
 }
 
+/** 화면 틀 — 통합 백오피스(web/backoffice)와 같은 모양(2026-11-19 사용자 "다른 통합 백오피스 앱 참조"):
+ *  왼쪽 진한 남색 메뉴(앱 이름 · 홈 · 묶음 아이콘+이름 · 하위 메뉴 왼쪽 띠, 지금 메뉴 민트) + 위 머리줄(묶음 › 메뉴 · 역할 · 센터 · 목 · 내 정보·세션). */
 function Layout() {
   const { session } = useSession();
   const center = useCenter();
+  const { pathname } = useLocation();
   const target = center?.mine ? center.mfcId : session?.centers[0];
+  // 지금 메뉴(`/c/:mfcId/<segment>/…`) — 센터를 바꾸면 같은 메뉴로 간다
+  const segment = pathname.split('/')[3] ?? allMenus[0]!.segment;
+  const showMenus = !!target && !isWorkerOnly(session?.roles ?? []);
+  const currentGroup = navGroups.find((g) => g.items.some((i) => i.segment === segment));
+  const currentItem = currentGroup?.items.find((i) => i.segment === segment);
   return (
     <div className="flex min-h-screen bg-base-200">
-      <aside className="w-52 shrink-0 bg-base-100 shadow-sm">
-        <div className="p-4">
-          <Link to="/" className="text-lg font-bold" aria-label={m.goHome}>
+      <aside className="sticky top-0 flex h-screen w-60 shrink-0 flex-col self-start overflow-y-auto bg-neutral text-neutral-content" data-testid="side-menu">
+        <div className="flex h-14 shrink-0 items-center border-b border-neutral-content/10 px-5">
+          <Link to="/" className="truncate text-base font-bold text-neutral-content" aria-label={m.goHome}>
             {m.appTitle}
           </Link>
-          {env.isMock && <span className="badge badge-outline ml-2">{m.mockBadge}</span>}
         </div>
-        <ul className="menu w-full">
-          <li>
-            <NavLink to={session ? '/session' : '/login'}>{session ? m.nav.session : m.nav.login}</NavLink>
-          </li>
-          {session && (
-            <li>
-              <NavLink to="/me">{m.nav.me}</NavLink>
-            </li>
-          )}
-          {/* 센터가 정해져야 메뉴 주소가 생긴다(맡은 센터가 없으면 묶음을 보이지 않는다) */}
-          {target &&
-            !isWorkerOnly(session?.roles ?? []) &&
-            navGroups.map((g) => (
-              <li key={g.key}>
-                <details open>
-                  <summary>{m.groups[g.key]}</summary>
-                  <ul>
+        {showMenus && (
+          <nav aria-label={m.nav.menu} className="flex-1 py-3">
+            {navGroups.map((g) =>
+              g.key === 'overview' ? (
+                g.items.map((item) => (
+                  <NavLink
+                    key={item.key}
+                    to={centerPath(target, item.segment)}
+                    className={({ isActive }) =>
+                      `mx-2 mb-2 flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-[15px] font-bold transition-colors ${isActive ? 'bg-accent/20 text-accent' : 'text-neutral-content/85 hover:bg-neutral-content/10'}`
+                    }
+                  >
+                    <GroupIcon id="dashboard" className="h-5 w-5 shrink-0" />
+                    {m.menus[item.key]}
+                  </NavLink>
+                ))
+              ) : (
+                <section key={g.key} className="mx-2 mb-1" data-testid={`nav-group-${g.key}`}>
+                  <p className={`flex items-center gap-2.5 px-3 py-2 text-[15px] font-bold ${currentGroup?.key === g.key ? 'text-accent' : 'text-neutral-content/85'}`}>
+                    <GroupIcon id={g.key} className="h-5 w-5 shrink-0" />
+                    <span data-group-label>{m.groups[g.key]}</span>
+                  </p>
+                  <ul className="pb-2">
                     {g.items.map((item) => (
                       <li key={item.key}>
-                        <NavLink to={centerPath(target, item.segment)}>{m.menus[item.key]}</NavLink>
+                        <NavLink
+                          to={centerPath(target, item.segment)}
+                          className={({ isActive }) =>
+                            `my-0.5 ml-5 mr-1 flex items-center gap-1 rounded-r-lg border-l-4 py-2 pl-4 pr-3 text-[13px] transition-colors ${isActive ? 'border-accent bg-accent/20 font-bold text-white' : 'border-neutral-content/10 text-neutral-content/70 hover:bg-neutral-content/10 hover:text-neutral-content'}`
+                          }
+                        >
+                          {m.menus[item.key]}
+                        </NavLink>
                       </li>
                     ))}
                   </ul>
-                </details>
-              </li>
-            ))}
-        </ul>
+                </section>
+              ),
+            )}
+          </nav>
+        )}
       </aside>
-      <main className="min-w-0 flex-1 space-y-4 p-6">
-        <Outlet />
-      </main>
+      <div className="flex min-w-0 flex-1 flex-col">
+        <header className="sticky top-0 z-10 flex h-14 shrink-0 items-center gap-3 border-b border-base-300 bg-base-100 px-6">
+          <p className="truncate text-sm text-base-content/60" data-testid="page-title">
+            {currentItem && currentGroup ? (
+              currentGroup.key === 'overview' ? (
+                <span className="font-semibold text-base-content">{m.menus[currentItem.key]}</span>
+              ) : (
+                <>
+                  {m.groups[currentGroup.key]} <span className="px-1 text-base-content/30">›</span>
+                  <span className="font-semibold text-base-content">{m.menus[currentItem.key]}</span>
+                </>
+              )
+            ) : null}
+          </p>
+          {session && session.roles.length > 0 && (
+            <span className="badge badge-ghost badge-sm" data-testid="role-chip">
+              {session.roles.includes('MFC_SUPERVISOR') ? m.roleChip.supervisor : session.roles.join(', ')}
+            </span>
+          )}
+          <div className="ml-auto flex items-center gap-2 text-sm">
+            {session && center?.mine && <CenterSwitcher centers={session.centers} current={center.mfcId} segment={segment} />}
+            {env.isMock && <span className="badge badge-accent badge-sm">{m.mockBadge}</span>}
+            {session && (
+              <NavLink to="/me" className={({ isActive }) => `btn btn-ghost btn-xs font-normal ${isActive ? 'btn-active' : ''}`}>
+                {m.nav.me}
+              </NavLink>
+            )}
+            <NavLink to={session ? '/session' : '/login'} className={({ isActive }) => `btn btn-ghost btn-xs font-normal ${isActive ? 'btn-active' : ''}`}>
+              {session ? m.nav.session : m.nav.login}
+            </NavLink>
+          </div>
+        </header>
+        <main className="min-w-0 flex-1 space-y-4 p-6">
+          <div className="mx-auto max-w-7xl space-y-4">
+            <Outlet />
+          </div>
+        </main>
+      </div>
     </div>
   );
 }
@@ -106,9 +163,9 @@ function CenterScope({ menu }: { readonly menu: MenuItem }) {
       </div>
     );
   }
+  // 센터 표시·고르기는 위 바(Layout)에 있다.
   return (
     <>
-      <CenterSwitcher centers={session.centers} current={center.mfcId} segment={menu.segment} />
       {!session.roles.includes('MFC_SUPERVISOR') && (
         <p role="note" className="alert alert-warning text-sm">
           {m.noSupervisor}

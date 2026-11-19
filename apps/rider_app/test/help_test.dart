@@ -510,4 +510,37 @@ void main() {
     expect(cards(), findsNWidgets(5));
     expect(find.text('접기'), findsOneWidget);
   });
+
+  test(
+    '서버가 도움요청을 거절하면(422) 보낸 요청에 남기지 않고 거절을 알린다(사용자 2026-11-19 "백오피스에 안 떠")',
+    () async {
+      final c = ProviderContainer(
+        retry: (_, _) => null,
+        overrides: overrides(),
+      );
+      addTearDown(c.dispose);
+      final p = helpFlowProvider('dlv-1');
+      c.listen(p, (_, _) {});
+      repo.rejectNextHelpCode = 'PHOTO_NOT_FOUND';
+
+      await c
+          .read(p.notifier)
+          .send(HelpCategory.photoUploadFailed, detail: '사진이 안 올라가요');
+      expect(c.read(p).rejectedCode, 'PHOTO_NOT_FOUND');
+      expect(
+        c.read(p).tickets,
+        isEmpty,
+        reason: '접수되지 않은 요청을 "확인 중"으로 남기지 않는다',
+      );
+      expect(c.read(p).sending, isFalse);
+
+      // 다시 보내면 접수되고, 거절 표시는 사라진다.
+      await c
+          .read(p.notifier)
+          .send(HelpCategory.photoUploadFailed, detail: '사진이 안 올라가요');
+      expect(c.read(p).rejectedCode, isNull);
+      expect(c.read(p).tickets, hasLength(1));
+      expect(c.read(p).state, HelpState.open);
+    },
+  );
 }

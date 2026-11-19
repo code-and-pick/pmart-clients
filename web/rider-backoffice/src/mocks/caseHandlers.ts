@@ -114,3 +114,36 @@ export const caseHandlers = [
     return HttpResponse.json(found);
   }),
 ];
+
+// 처리 끝내기(case `POST /cases/{caseId}/closures`) — 닫힌 건은 이 표에 두고 단건 조회에 덮어 쓴다(시험마다 resetCases).
+const closedCases = new Map<string, Case>();
+
+export function resetCases() {
+  closedCases.clear();
+}
+
+export const caseCloseHandlers = [
+  http.post(`${API_BASE}/cases/:caseId/closures`, async ({ request, params }) => {
+    const who = operator(request);
+    if (!who) return unauthorized();
+    const id = String(params['caseId']);
+    const found = closedCases.get(id) ?? mockCases.find((c) => c.caseId === id);
+    if (!found || !visibleTo(who.roles, found)) return problem(404, 'NOT_FOUND');
+    if (found.state === 'CLOSED') return problem(409, 'INVALID_STATE');
+    if (found.assigneeId && found.assigneeId !== who.subject && !who.roles.includes('OPERATOR_ADMIN')) return problem(403, 'FORBIDDEN');
+    if (found.caseId === 'CASE-DF-1') return problem(409, 'OPEN_OBLIGATIONS'); // 목: 후속 처리가 남은 건
+    const body = (await request.json()) as { resolution: string; summary: string };
+    const closed = {
+      ...found,
+      state: 'CLOSED',
+      closure: { resolution: body.resolution, summary: body.summary, closedAt: new Date().toISOString() },
+    } as Case;
+    closedCases.set(id, closed);
+    return HttpResponse.json(closed);
+  }),
+  http.get(`${API_BASE}/cases/:caseId`, ({ request, params }) => {
+    const hit = closedCases.get(String(params['caseId']));
+    if (!hit || !operator(request)) return undefined;
+    return HttpResponse.json(hit);
+  }),
+];
