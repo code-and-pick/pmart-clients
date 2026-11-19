@@ -263,18 +263,23 @@ export function FieldList({ rows, testId }: { readonly rows: ReadonlyArray<reado
   );
 }
 
-/** 통계 카드 */
-export function StatCard({ label, value, hint, to, tone, testId }: { readonly label: ReactNode; readonly value: ReactNode; readonly hint?: ReactNode; readonly to?: string; readonly tone?: 'warning' | 'error'; readonly testId?: string }) {
+/**
+ * 통계 카드 — 관제 형식(2026-11-19 사용자가 보여 준 배송 관제 화면): 왼쪽 색 막대 + 이름 + 큰 숫자 + 설명 한 줄.
+ * 색은 tone 이 있을 때만(0 이거나 평범하면 회색 막대). active 면 지금 고른 거르기라는 테두리.
+ */
+export function StatCard({ label, value, hint, to, tone, testId, active = false }: { readonly label: ReactNode; readonly value: ReactNode; readonly hint?: ReactNode; readonly to?: string; readonly tone?: 'warning' | 'error' | 'info' | 'success' | undefined; readonly testId?: string; readonly active?: boolean }) {
+  const bar = tone ? { error: 'bg-error', warning: 'bg-warning', info: 'bg-info', success: 'bg-success' }[tone] : 'bg-base-300';
   const body = (
     <>
-      <p className="text-sm text-base-content/60">{label}</p>
-      <p className={`mt-1 text-2xl font-bold ${tone === 'error' ? 'text-error' : tone === 'warning' ? 'text-warning' : ''}`}>{value}</p>
-      {hint && <p className="mt-1 text-xs text-base-content/50">{hint}</p>}
+      <span className={`absolute inset-y-0 left-0 w-1 ${bar}`} aria-hidden="true" />
+      <p className="text-xs font-medium text-base-content/60">{label}</p>
+      <p className={`text-2xl font-bold leading-tight tabular-nums ${tone === 'error' ? 'text-error' : tone === 'warning' ? 'text-warning' : ''}`}>{value}</p>
+      {hint && <p className="text-[11px] text-base-content/50">{hint}</p>}
     </>
   );
-  const cls = 'block rounded-box border border-base-300 bg-base-100 px-5 py-4 shadow-sm';
+  const cls = `relative block space-y-0.5 overflow-hidden rounded-box border bg-base-100 py-3 pl-4 pr-3 shadow-sm ${active ? 'border-primary ring-1 ring-primary/30' : 'border-base-300'}`;
   return to ? (
-    <Link to={to} className={`${cls} hover:border-primary`} data-testid={testId}>
+    <Link to={to} className={`${cls} transition hover:-translate-y-0.5 hover:shadow-md`} data-testid={testId} aria-current={active ? 'true' : undefined}>
       {body}
     </Link>
   ) : (
@@ -283,6 +288,18 @@ export function StatCard({ label, value, hint, to, tone, testId }: { readonly la
     </div>
   );
 }
+
+/** 숫자 띠(목록 맨 위 카드 한 줄, 2026-11-19 관제 형식) */
+export function StatStrip({ children, label, testId }: { readonly children: ReactNode; readonly label: string; readonly testId?: string }) {
+  return (
+    <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5" role="group" aria-label={label} data-testid={testId}>
+      {children}
+    </div>
+  );
+}
+
+/** 숫자 칸 글자 — 서버 개수(50 넘으면 "N+"), 읽는 중 "…", 못 읽음 "?"(0 이 아님) */
+export const countCell = (q: { readonly data?: { readonly n: number; readonly more: boolean } | undefined; readonly isError: boolean }): string => (q.data ? `${q.data.n}${q.data.more ? '+' : ''}` : q.isError ? '?' : '…');
 
 /**
  * 다음 할 일 — 상세 화면 맨 위에 하나만(2026-11-18 사용자 "지금 뭘 해야 하는지 안 보인다").

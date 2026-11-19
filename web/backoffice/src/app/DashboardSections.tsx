@@ -4,12 +4,13 @@
 // - 지금 배송: bff live-delivery 첫 쪽(50줄)을 센다 — "읽은 N줄 기준"을 함께 적는다(전체 건수가 아니다).
 // - 심사 대기 유형별: approval `GET /approvals?type=&reviewState=REVIEW_PENDING` 유형마다(50 넘으면 "50+").
 // 매출·상품별 판매·주문 상태 분포·정시 배송률 같은 집계는 서버에 없어 만들지 않는다(백엔드 요청 docs/handoff/backoffice/2026-11-18-backend-dashboard-metrics.md).
-import { useQueries, useQuery } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { Link } from 'react-router';
 
 import { request } from '@pmart/web-core';
 import { APPROVAL_TYPES } from '../api/models';
+import { PENDING_KINDS, useApprovalTypeCounts } from './listCounts';
 import { useApi } from './ApiContext';
 import { GroupIcon } from './groupIcons';
 import { systemName } from '../shared/SourceStamps';
@@ -18,7 +19,6 @@ import { Section } from '../shared/admin';
 
 const m = messages.dashboard;
 const LIVE_SIZE = 50;
-const APPROVAL_SIZE = 50;
 
 type Tone = 'error' | 'warning' | 'info';
 const toneText: Record<Tone, string> = { error: 'text-error', warning: 'text-warning', info: 'text-info' };
@@ -65,11 +65,11 @@ export function RiskPanel() {
       testId="dash-risk"
     >
       <div className="grid grid-cols-2 gap-3 xl:grid-cols-5">
-        <Tile label={m.risk.paymentUnknown} value={count((i) => i.kind === 'STUCK_SAGA' && i.reasonCode === 'PAYMENT_UNKNOWN')} more={more} to="/pending" tone="error" testId="dash-risk-payment" />
-        <Tile label={m.risk.stuck} value={count((i) => i.kind === 'STUCK_SAGA' && i.reasonCode !== 'PAYMENT_UNKNOWN')} more={more} to="/pending" tone="warning" testId="dash-risk-stuck" />
-        <Tile label={m.risk.issue} value={count((i) => i.kind === 'FULFILLMENT_ISSUE')} more={more} to="/pending" tone="warning" testId="dash-risk-issue" />
-        <Tile label={m.risk.handover} value={count((i) => i.kind === 'MFC_HANDOVER_REJECTED')} more={more} to="/pending" tone="warning" testId="dash-risk-handover" />
-        <Tile label={m.risk.stop} value={count((i) => i.kind === 'MFC_STOP_FAILED')} more={more} to="/pending" tone="warning" testId="dash-risk-stop" />
+        <Tile label={m.risk.paymentUnknown} value={count(PENDING_KINDS[0].match)} more={more} to="/pending" tone="error" testId="dash-risk-payment" />
+        <Tile label={m.risk.stuck} value={count(PENDING_KINDS[1].match)} more={more} to="/pending" tone="warning" testId="dash-risk-stuck" />
+        <Tile label={m.risk.issue} value={count(PENDING_KINDS[2].match)} more={more} to="/pending" tone="warning" testId="dash-risk-issue" />
+        <Tile label={m.risk.handover} value={count(PENDING_KINDS[3].match)} more={more} to="/pending" tone="warning" testId="dash-risk-handover" />
+        <Tile label={m.risk.stop} value={count(PENDING_KINDS[4].match)} more={more} to="/pending" tone="warning" testId="dash-risk-stop" />
       </div>
       {missing.length > 0 && (
         <p className="mt-3 text-xs text-warning" data-testid="dash-risk-missing" title={missing.join(', ')}>
@@ -119,18 +119,8 @@ export function LiveSummary() {
 
 /** 심사 대기 유형별 — 유형마다 같은 승인 목록 조회(50 넘으면 "50+") */
 export function ApprovalTypes() {
-  const api = useApi();
-  const qs = useQueries({
-    queries: APPROVAL_TYPES.map((type) => ({
-      queryKey: ['dashboard', 'approvals-by-type', type],
-      refetchInterval: 60_000,
-      queryFn: async () => {
-        const r = await request('GET', api.approval.GET('/approvals', { params: { query: { type, reviewState: 'REVIEW_PENDING', size: APPROVAL_SIZE } } }));
-        const n = (r.items ?? []).length;
-        return { n, more: Boolean(r.page?.nextCursor) };
-      },
-    })),
-  });
+  // 셈은 승인함 숫자 띠와 같은 것(listCounts)
+  const qs = useApprovalTypeCounts().map((c) => c.q);
   return (
     <Section
       title={

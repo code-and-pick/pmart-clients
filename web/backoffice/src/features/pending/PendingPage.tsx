@@ -27,7 +27,8 @@ import { useApi } from '../../app/ApiContext';
 import { messages as m } from '../../shared/messages';
 import { label, text, when } from '../../shared/ops';
 import { SourceStamps } from '../../shared/SourceStamps';
-import { CodeLabel, NextAction, PageHeader } from '../../shared/admin';
+import { CodeLabel, NextAction, PageHeader, StatCard, StatStrip } from '../../shared/admin';
+import { PENDING_KINDS } from '../../app/listCounts';
 
 type Item = components['schemas']['PendingWorkItem'];
 type View = components['schemas']['ComposedView'] & { items?: Item[]; truncated?: boolean };
@@ -293,6 +294,15 @@ export function PendingPage() {
   return (
     <section className="max-w-6xl space-y-4">
       <PageHeader title={m.pending.title} description={m.pending.intro} />
+      {/* 숫자 띠(2026-11-19 관제 형식) — 이 화면이 읽은 목록을 종류별로(대시보드 "확인이 필요한 문제"와 같은 조회·기준). 잘렸으면 "N+" */}
+      {query.data && (
+        <StatStrip label={m.listStrip.pending} testId="pending-strip">
+          {PENDING_KINDS.map((k) => {
+            const n = (query.data.items ?? []).filter(k.match).length;
+            return <StatCard key={k.id} label={m.dashboard.risk[k.id === 'payment' ? 'paymentUnknown' : k.id]} value={`${n}${query.data.truncated ? '+' : ''}`} tone={n > 0 ? k.tone : undefined} testId={`pending-strip-${k.id}`} />;
+          })}
+        </StatStrip>
+      )}
       <QueryState state={state} onRetry={() => void query.refetch()} emptyText={m.pending.empty}>
         {(view) => (
           <>

@@ -13,7 +13,8 @@ import { SavedViews } from '../../shared/SavedViews';
 import { messages as m } from '../../shared/messages';
 import { QueryState } from '@pmart/web-ui';
 import { toUiState } from '@pmart/web-ui';
-import { CodeLabel, PageHeader, StatusBadge, type Tone, useRowLink } from '../../shared/admin';
+import { CodeLabel, PageHeader, StatCard, StatStrip, StatusBadge, countCell, type Tone, useRowLink } from '../../shared/admin';
+import { useApprovalTypeCounts } from '../../app/listCounts';
 
 const pick = <T extends string>(value: string | null, allowed: readonly T[]): T | undefined =>
   allowed.find((a) => a === value);
@@ -56,6 +57,8 @@ export function ApprovalListPage() {
   return (
     <section className="space-y-4">
       <PageHeader title={m.approvals.title} description={m.approvals.intro} />
+      {/* 숫자 띠(2026-11-19 관제 형식) — 심사 대기 유형별, 대시보드와 같은 조회. 누르면 그 유형의 심사 대기 */}
+      <ApprovalStrip type={type} reviewState={reviewState} />
       {/* 내 보기(2026-11-18 Saleor 참고) — 지금 주소 조건을 이름 붙여 저장 */}
       <SavedViews listKey="approvals" />
       <div className="overflow-hidden rounded-box border border-base-300 bg-base-100 shadow-sm" data-testid="approval-list-card">
@@ -239,3 +242,23 @@ function ago(iso: string): string {
 
 /** 승인 유형 이름 — 거르기 칩 유형 + 그 밖 유형(표시만, 2026-11-18 "직관적이지 않다") */
 const TYPE_NAME: Readonly<Record<string, string>> = { ...m.approvals.typeName, ...m.approvals.otherTypeName };
+
+function ApprovalStrip({ type, reviewState }: { readonly type: ApprovalType | undefined; readonly reviewState: ReviewState | undefined }) {
+  const counts = useApprovalTypeCounts();
+  return (
+    <StatStrip label={m.listStrip.approvals} testId="approval-strip">
+      {counts.map(({ type: t, q }) => (
+        <StatCard
+          key={t}
+          label={m.approvals.typeName[t] ?? t}
+          value={countCell(q)}
+          hint={m.listStrip.reviewPending}
+          tone={(q.data?.n ?? 0) > 0 ? 'info' : undefined}
+          to={`/approvals?reviewState=REVIEW_PENDING&type=${t}`}
+          active={reviewState === 'REVIEW_PENDING' && type === t}
+          testId={`approval-strip-${t}`}
+        />
+      ))}
+    </StatStrip>
+  );
+}

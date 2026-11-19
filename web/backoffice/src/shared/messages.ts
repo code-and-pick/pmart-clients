@@ -44,6 +44,13 @@ export const messages = {
   reasonLabel: '사유',
   reasonRequired: '사유를 입력해 주세요',
 
+  /** 목록 숫자 띠(2026-11-19 관제 형식 2단계) */
+  listStrip: {
+    cases: '접수 건 숫자',
+    approvals: '심사 대기 유형별',
+    pending: '처리 대기 종류별',
+    reviewPending: '심사 대기',
+  },
   nav: {
     session: '내 세션',
     login: '로그인',

@@ -31,10 +31,10 @@ import type { operations as BffOps } from '../../api/generated/backoffice-bff';
 import type { components } from '../../api/generated/case';
 import { useApi } from '../../app/ApiContext';
 import { useSession } from '../../app/SessionContext';
-import { CodeLabel, NextAction, PageHeader, StatusBadge, type Tone } from '../../shared/admin';
+import { CodeLabel, NextAction, PageHeader, StatCard, StatStrip, StatusBadge, countCell, type Tone } from '../../shared/admin';
 import { SavedViews } from '../../shared/SavedViews';
 import { useRecordRecent } from '../../shared/recentViews';
-import { TabCount } from '../../app/MenuAlerts';
+import { TabCount, useAlertCount } from '../../app/MenuAlerts';
 import { PreviewDrawer, PreviewFacts, usePreview } from '../../shared/Preview';
 import { messages as m } from '../../shared/messages';
 import { label, text, when } from '../../shared/ops';
@@ -392,6 +392,8 @@ export function CaseListPage() {
   return (
     <section className="max-w-7xl space-y-4">
       <PageHeader title={m.cases.title} description={m.cases.intro} />
+      {/* 숫자 띠(2026-11-19 관제 형식) — 탭 개수와 같은 조회, 종류를 골랐으면 숫자가 달라 숨긴다 */}
+      {!kind && <CaseStrip tab={tab} />}
       {/* 내 보기(2026-11-18 Saleor 참고) — 지금 주소 조건을 이름 붙여 저장 */}
       <SavedViews listKey="cases" />
       {admin && <p className="text-sm text-base-content/60">{m.cases.orderNote}</p>}
@@ -1347,5 +1349,18 @@ function Step({ n, title, done, children }: { readonly n: number; readonly title
       </div>
       <div className="space-y-3 px-5 py-4">{children}</div>
     </div>
+  );
+}
+
+/** 접수 건 숫자 띠 — 안 맡음·기한 지남(메뉴 알림·탭 개수와 같은 서버 조회). 누르면 그 탭 */
+function CaseStrip({ tab }: { readonly tab: Tab }) {
+  const unassigned = useAlertCount('casesUnassigned');
+  const overdue = useAlertCount('casesOverdue');
+  const has = (q: typeof unassigned) => (q.data?.n ?? 0) > 0;
+  return (
+    <StatStrip label={m.listStrip.cases} testId="case-strip">
+      <StatCard label={m.cases.tabs.unassigned} value={countCell(unassigned)} tone={has(unassigned) ? 'warning' : undefined} to="/cases?tab=unassigned" active={tab === 'unassigned'} testId="case-strip-unassigned" />
+      <StatCard label={m.cases.tabs.overdue} value={countCell(overdue)} tone={has(overdue) ? 'error' : undefined} to="/cases?tab=overdue" active={tab === 'overdue'} testId="case-strip-overdue" />
+    </StatStrip>
   );
 }
