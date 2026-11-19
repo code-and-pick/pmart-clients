@@ -584,6 +584,13 @@
   "supportSend": "지원센터에 보내기",
   "supportSent": "지원센터에 보냈어요",
   "supportHistory": "보낸 요청",
+  "supportShowMore": "더보기 ({count}건)",
+  "@supportShowMore": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "supportShowLess": "접기",
   "supportEmpty": "아직 보낸 요청이 없어요",
   "supportReplyPending": "요청을 누르면 진행상황과 상담원 대화를 볼 수 있어요.",
   "supportOpenThread": "대화 보기",

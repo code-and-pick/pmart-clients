@@ -45,6 +45,10 @@ class _SupportScreenState extends ConsumerState<SupportScreen> {
   final _detail = TextEditingController();
   HelpCategory? _category;
 
+  /// 보낸 요청은 최근 이만큼만 먼저 보인다.
+  static const _ticketPreview = 3;
+  bool _showAllTickets = false;
+
   String get _id => widget.deliveryId;
 
   @override
@@ -157,11 +161,30 @@ class _SupportScreenState extends ConsumerState<SupportScreen> {
                 ),
               ],
             ),
-            for (final t in listed.reversed)
+            // 최근 3건만 — 나머지는 "더보기"로 펼친다(10건이 되면 줄줄이 내려야 해서, 사용자 2026-11-19).
+            for (final t in listed.reversed.take(
+              _showAllTickets ? listed.length : _ticketPreview,
+            ))
               _TicketCard(
                 ticket: t,
                 onOpen: () =>
                     context.push('/deliveries/$_id/support/${t.key.value}'),
+              ),
+            if (listed.length > _ticketPreview)
+              Center(
+                child: TextButton.icon(
+                  key: const ValueKey('support-more'),
+                  onPressed: () =>
+                      setState(() => _showAllTickets = !_showAllTickets),
+                  icon: Icon(
+                    _showAllTickets ? Icons.expand_less : Icons.expand_more,
+                  ),
+                  label: Text(
+                    _showAllTickets
+                        ? l10n.supportShowLess
+                        : l10n.supportShowMore(listed.length - _ticketPreview),
+                  ),
+                ),
               ),
             const SizedBox(height: 6),
             Text(

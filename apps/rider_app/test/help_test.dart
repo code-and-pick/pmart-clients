@@ -449,4 +449,65 @@ void main() {
     expect(c.read(p).key, isNot(first));
     expect(c.read(p).sentCount, 2);
   });
+
+  testWidgets('보낸 요청이 많으면 최근 3건만, 나머지는 "더보기"로 펼친다(사용자 2026-11-19)', (t) async {
+    t.view
+      ..physicalSize = const Size(800, 2400)
+      ..devicePixelRatio = 1;
+    addTearDown(t.view.reset);
+    final offers = MockOfferRepository(latency: Duration.zero);
+    await t.pumpWidget(
+      ProviderScope(
+        retry: (_, _) => null,
+        overrides: [
+          ...overrides(),
+          initialSessionProvider.overrideWithValue(
+            const RiderSession(riderId: 'rider-mock-1'),
+          ),
+          offerRepositoryProvider.overrideWithValue(offers),
+          dutyRepositoryProvider.overrideWithValue(offers),
+        ],
+        child: const RiderApp(),
+      ),
+    );
+    Future<void> settle() async {
+      for (var i = 0; i < 12; i++) {
+        await t.pump(const Duration(milliseconds: 25));
+      }
+    }
+
+    await settle();
+    final c = ProviderScope.containerOf(t.element(find.byType(RiderApp)));
+    final help = helpFlowProvider('dlv-1');
+    final keep = c.listen(help, (_, _) {});
+    addTearDown(keep.close);
+    for (final cat in [
+      HelpCategory.customerUnreachable,
+      HelpCategory.addressIssue,
+      HelpCategory.accident,
+      HelpCategory.appError,
+      HelpCategory.other,
+    ]) {
+      await t.runAsync(() => c.read(help.notifier).send(cat));
+    }
+    await settle();
+    await t.tap(find.byKey(const ValueKey('delivery-dlv-1')));
+    await settle();
+    await t.tap(find.byKey(const ValueKey('help')));
+    await settle();
+
+    Finder cards() => find.byWidgetPredicate(
+      (w) =>
+          w is InkWell &&
+          w.key is ValueKey<String> &&
+          (w.key! as ValueKey<String>).value.startsWith('ticket-') &&
+          !(w.key! as ValueKey<String>).value.startsWith('ticket-state-'),
+    );
+    expect(cards(), findsNWidgets(3));
+    expect(find.text('더보기 (2건)'), findsOneWidget);
+    await t.tap(find.byKey(const ValueKey('support-more')));
+    await settle();
+    expect(cards(), findsNWidgets(5));
+    expect(find.text('접기'), findsOneWidget);
+  });
 }
