@@ -22,7 +22,7 @@ function guard(request: Request) {
 }
 
 async function ordersIn(request: Request, from: string, to: string, mfcId: string | null) {
-  const qs = new URLSearchParams({ createdFrom: `${from}T00:00:00+09:00`, createdTo: `${to}T23:59:59.999+09:00`, page: '0', size: '100' });
+  const qs = new URLSearchParams({ createdFrom: `${from}T00:00:00+09:00`, createdTo: `${to}T23:59:59.999+09:00`, page: '0', size: '50' }); // 계약 size 최대 50
   if (mfcId) qs.set('mfcId', mfcId);
   const r = await fetch(`${API_BASE}/orders/lookups?${qs.toString()}`, { headers: { Authorization: request.headers.get('Authorization') ?? '' } });
   if (!r.ok) return null;

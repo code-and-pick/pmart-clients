@@ -450,6 +450,8 @@ export const opsHandlers = [
       .toSorted((a, b) => b.confirmedAt.localeCompare(a.confirmedAt));
     const page = Number(q.get('page') ?? '0');
     const size = Number(q.get('size') ?? '20');
+    // 계약 size 1~50(실서버는 넘으면 400) — 목도 같게 막는다
+    if (!Number.isInteger(size) || size < 1 || size > 50) return problem(400, 'VALIDATION_FAILED', [{ field: 'size', reason: 'RANGE' }]);
     const slice = all.slice(page * size, page * size + size);
     return HttpResponse.json({
       items: slice.map((o) => ({

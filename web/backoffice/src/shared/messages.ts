@@ -2344,7 +2344,7 @@ export const messages = {
     slaUnreachable: '접수 건 정보를 가져오지 못했어요 — 0건이 아니에요.',
     slaLanNote: 'LAN 데이터는 시험·시뮬레이터 값이에요(운영 성과 아님).',
     statusToday: '오늘 주문 상태',
-    first100: '앞 100건 기준',
+    first100: '앞 50건 기준',
     noOrdersToday: '오늘 들어온 주문이 아직 없어요.',
     ordersUnit: '건',
     act: {
@@ -2400,7 +2400,7 @@ export const messages = {
     approvals: '심사 대기 승인',
     toApprovals: '승인함',
     ordersWeek: '최근 7일 주문',
-    ordersWeekHint: '확정 시각 기준 · 날마다 100 건 넘으면 "100+"',
+    ordersWeekHint: '확정 시각 기준 · 날마다 50건 넘으면 "50+"',
     today: '오늘',
     sla: '처리 기한 지킴(최근 7일)',
     slaFailed: '처리 기한 지킴을 불러오지 못했어요 — 0 이 아니에요.',

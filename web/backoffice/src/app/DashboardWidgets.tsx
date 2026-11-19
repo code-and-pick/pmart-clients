@@ -15,12 +15,13 @@ import { addSeoulDays, label, seoulDayEnd, seoulDayStart } from '../shared/ops';
 import { Section } from '../shared/admin';
 
 const m = messages.dashboard;
-export const ORDER_SIZE = 100;
+/** 주문 찾기 한 번에 받는 최대 수 — 계약 `GET /orders/lookups` size 최대 50(2026-11-19: 100 으로 묻다가 실서버가 400 → 오늘 주문 "?"였다) */
+export const ORDER_SIZE = 50;
 const REFRESH_MS = 60_000;
 
 type Api = ReturnType<typeof useApi>;
 
-/** 하루 주문(확정 시각 기준) — 건수·다음 쪽 여부·앞 100건의 상태별 개수. 오늘 카드·7일 막대·상태 도넛이 같은 queryKey */
+/** 하루 주문(확정 시각 기준) — 건수·다음 쪽 여부·앞 50건의 상태별 개수. 오늘 카드·7일 막대·상태 도넛이 같은 queryKey */
 export function dayQuery(api: Api, day: string) {
   return {
     queryKey: ['dashboard', 'orders-day', day],
@@ -290,7 +291,7 @@ const STATUS_COLOR: Record<string, string> = {
 /** 도넛 칸 색(테마 색만) */
 const PALETTE = ['var(--color-primary)', 'var(--color-accent)', 'var(--color-success)', 'var(--color-warning)', 'var(--color-info)', 'var(--color-secondary)', 'var(--color-neutral)'];
 
-/** 오늘 주문 상태 분포 — 오늘 주문 조회 앞 100건을 상태별로 센 값(더 있으면 그렇게 밝힌다) */
+/** 오늘 주문 상태 분포 — 오늘 주문 조회 앞 50건을 상태별로 센 값(더 있으면 그렇게 밝힌다) */
 export function StatusDonut({ today, toneOf }: { readonly today: string; readonly toneOf: (s: string) => string }) {
   const api = useApi();
   const q = useQuery(dayQuery(api, today));
