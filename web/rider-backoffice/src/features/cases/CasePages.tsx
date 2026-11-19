@@ -2,12 +2,13 @@
 // 보이는 범위는 서버가 정한다(RIDER_OPS = 배송 쪽 사건만 — RIDER_HELP·DELIVERY_INCIDENT·RIDER_LOCATION_STALE·MISDELIVERY·DISPATCH_FAILED).
 // 1차(2026-11-17, PC 5): 보기만 — 맡기·이관·처리 끝내기는 다음 차례. 필터·쪽은 주소 쿼리에 둔다.
 // 2026-11-18: 배민 주문접수 목록·상세 모양 — 처리 중/끝남 밑줄 탭 → 검색 조건 상자 → 결과 줄 → 표(줄 누르면 상세) / 상세 머리 → 구역 상자.
-import { useQuery } from '@tanstack/react-query';
-import type { FormEvent } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useState, type FormEvent } from 'react';
 import { Link, Route, Routes, useNavigate, useParams, useSearchParams } from 'react-router';
 
 import { request } from '@pmart/web-core';
-import { formatSeoul, QueryState, toUiState } from '@pmart/web-ui';
+import { CommandFeedback, failureCode, formatSeoul, QueryState, toUiState, useCommand } from '@pmart/web-ui';
+import { commandParams } from '../../api/command';
 import type { components } from '../../api/generated/case';
 import { useApi } from '../../app/ApiContext';
 import { messages } from '../../shared/messages';
@@ -217,6 +218,7 @@ function CaseDetailPage() {
     queryKey: ['case', caseId],
     queryFn: () => request('GET', api.cases.GET('/cases/{caseId}', { params: { path: { caseId } } })),
   });
+  const [closedNow, setClosedNow] = useState(false);
   const c = query.data;
   return (
     <section className="max-w-[1600px] space-y-4">
@@ -235,6 +237,11 @@ function CaseDetailPage() {
         summary={c && [name(n.caseKind, c.kind), c.summary, `${m.col.openedAt} ${when(c.openedAt)}`].filter(Boolean).join(' · ')}
       />
       <Notice>{m.viewOnlyNote}</Notice>
+      {closedNow && (
+        <p role="status" className="rounded-box bg-success/10 px-4 py-3 text-sm text-success" data-testid="case-closed-now">
+          {closeText.done}
+        </p>
+      )}
       <QueryState state={toUiState(query)} onRetry={() => void query.refetch()}>
         {(x) => (
           <div className="grid gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
@@ -255,6 +262,11 @@ function CaseDetailPage() {
               />
               <SystemIds ids={[['접수 건', caseId], ...(x.refs ?? []).filter((r) => r.refId).map((r) => [name(n.refType, r.refType), r.refId] as const)]} />
             </Section>
+            {x.state !== 'CLOSED' && (
+              <Section id="sec-close" title={closeText.title}>
+                <CaseClose caseId={caseId} version={(x as { version?: number }).version} onClosed={() => setClosedNow(true)} />
+              </Section>
+            )}
             <Section id="sec-history" title={m.history}>
               {(x.history ?? []).length === 0 ? (
                 <p className="text-sm text-base-content/50">{none}</p>
@@ -275,5 +287,92 @@ function CaseDetailPage() {
         )}
       </QueryState>
     </section>
+  );
+}
+
+const closeText = {
+  title: '처리 끝내기',
+  intro: '상담·처리를 마쳤으면 결과와 처리 내용을 남기고 닫아요. 이 접수 건에 붙은 도움요청도 함께 "처리 끝"이 돼요.',
+  resolution: '결과',
+  summary: '처리 내용(라이더 개인정보는 적지 않아요, 1~2000자)',
+  submit: '처리 끝내기',
+  done: '처리를 끝냈어요.',
+  openObligations: '아직 끝나지 않은 후속 처리(의무)가 있어서 닫을 수 없어요. 그것부터 끝내 주세요.',
+  forbidden: '닫을 권한이 없어요 — 다른 직원이 맡은 건은 관리자만 닫을 수 있어요.',
+  unknown: '닫혔는지 확인하지 못했어요. 같은 내용으로 다시 누르면 같은 요청으로 확인해요.',
+} as const;
+
+const RESOLUTIONS = ['RESOLVED', 'NOT_REPRODUCIBLE', 'DUPLICATE', 'NO_ACTION_REQUIRED', 'ESCALATED_EXTERNAL'] as const;
+
+/**
+ * 접수 건 처리 끝내기(case `POST /cases/{caseId}/closures` — 배송 쪽은 RIDER_OPS·OPERATOR_ADMIN).
+ * 도움요청이 붙은 건은 도움요청 화면에서 닫지 못한다(409 HELP_REQUEST_HAS_CASE) — 여기서 닫으면 도움요청도 RESOLVED
+ * (사용자 2026-11-19 "백오피스에 처리 완료 버튼이 없네").
+ */
+function CaseClose({ caseId, version, onClosed }: { readonly caseId: string; readonly version: number | undefined; readonly onClosed: () => void }) {
+  const api = useApi();
+  const queryClient = useQueryClient();
+  const [resolution, setResolution] = useState<(typeof RESOLUTIONS)[number]>('RESOLVED');
+  const [summary, setSummary] = useState('');
+  const close = useCommand(async (body: { resolution: (typeof RESOLUTIONS)[number]; summary: string }, key) => {
+    try {
+      const res = await request(
+        'POST',
+        api.cases.POST('/cases/{caseId}/closures', {
+          ...commandParams(key, { path: { caseId }, ...(version !== undefined ? { version } : {}) }),
+          body,
+        }),
+      );
+      onClosed();
+      return res;
+    } finally {
+      void queryClient.invalidateQueries({ queryKey: ['case', caseId] });
+      void queryClient.invalidateQueries({ queryKey: ['cases'] });
+      void queryClient.invalidateQueries({ queryKey: ['help-queue'] });
+    }
+  });
+  const locked = close.busy || close.phase.kind === 'done';
+  const ok = summary.trim().length >= 1;
+  const code = close.phase.kind === 'rejected' ? failureCode(close.phase.failure) : undefined;
+  return (
+    <form
+      className="space-y-3"
+      aria-label={closeText.title}
+      data-testid="case-close"
+      onSubmit={(ev) => {
+        ev.preventDefault();
+        if (ok) void close.run({ resolution, summary: summary.trim() });
+      }}
+    >
+      <p className="text-sm text-base-content/70">{closeText.intro}</p>
+      <label className="flex flex-col gap-1 text-sm">
+        <span className="text-base-content/60">{closeText.resolution}</span>
+        <select className="select select-sm w-60" value={resolution} disabled={locked} onChange={(ev) => setResolution(ev.target.value as (typeof RESOLUTIONS)[number])}>
+          {RESOLUTIONS.map((r) => (
+            <option key={r} value={r}>
+              {name(n.resolution, r)}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="flex flex-col gap-1 text-sm">
+        <span className="text-base-content/60">{closeText.summary}</span>
+        <textarea className="textarea textarea-sm w-full" rows={3} maxLength={2000} value={summary} disabled={locked} onChange={(ev) => setSummary(ev.target.value)} />
+      </label>
+      <div className="flex justify-end">
+        <button type="submit" className="btn btn-sm btn-primary" disabled={!ok || locked}>
+          {closeText.submit}
+        </button>
+      </div>
+      {code === 'OPEN_OBLIGATIONS' ? (
+        <p role="alert" className="text-sm text-error">{closeText.openObligations}</p>
+      ) : code === 'FORBIDDEN' ? (
+        <p role="alert" className="text-sm text-error">{closeText.forbidden}</p>
+      ) : (
+        <CommandFeedback command={close} unknown={{ body: closeText.unknown }}>
+          {() => <p className="text-sm text-success">{closeText.done}</p>}
+        </CommandFeedback>
+      )}
+    </form>
   );
 }

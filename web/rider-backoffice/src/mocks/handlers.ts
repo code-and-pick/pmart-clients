@@ -2,7 +2,7 @@ import { http } from 'msw';
 
 import { API_BASE } from '../api/client';
 import { authHandlers } from './authHandlers';
-import { caseHandlers } from './caseHandlers';
+import { caseCloseHandlers, caseHandlers } from './caseHandlers';
 import { deliveryHandlers } from './deliveryHandlers';
 import { noticeHandlers } from './noticeHandlers';
 import { payoutAppealHandlers } from './payoutAppealHandlers';
@@ -21,4 +21,4 @@ const gateway = http.all(`${API_BASE}/*`, ({ request }) => {
   return operator(request) ? undefined : unauthorized();
 });
 
-export const handlers = [gateway, ...authHandlers, ...caseHandlers, ...deliveryHandlers, ...staffEvidenceHandlers, ...supportPlusHandlers, ...noticeHandlers, ...payoutAppealHandlers, ...opsHandlers];
+export const handlers = [gateway, ...authHandlers, ...caseCloseHandlers, ...caseHandlers, ...deliveryHandlers, ...staffEvidenceHandlers, ...supportPlusHandlers, ...noticeHandlers, ...payoutAppealHandlers, ...opsHandlers];

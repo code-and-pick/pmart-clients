@@ -179,7 +179,7 @@ export const messages = {
     detailTitle: (id: string) => `접수 건 ${id}`,
     closure: '처리 결과',
     history: '이력',
-    viewOnlyNote: '지금은 보기만 할 수 있어요. 맡기·처리 끝내기는 다음 차례에 붙여요.',
+    viewOnlyNote: '처리를 마쳤으면 아래 "처리 끝내기"로 닫아요. 맡기·넘기기는 다음 차례에 붙여요.',
   },
 
   /** 배송 찾기(execution 직원용 찾기 + 배차 조회) — 개인정보 없음 */
