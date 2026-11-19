@@ -6,31 +6,13 @@ import { Link, Navigate, useNavigate, useSearchParams } from 'react-router';
 import { EmployeeLoginError, type EmployeeLoginErrorCode } from '../../api/employeeAuth';
 import { useSession } from '../../app/SessionContext';
 import { env } from '../../env';
-import { mockAccounts } from '../../mocks/operators';
 import { messages as m } from '../../shared/messages';
 import { LoginShell } from './LoginShell';
+import { MockAccountPicker } from './MockAccountPicker';
 
 /** 열린 리디렉트 방지: 앱 안 경로만 */
 // 갈 곳이 없으면(로그인 화면을 바로 연 경우) 첫 화면 = 대시보드(2026-11-19 사용자 — 전에는 승인함. PC 1 영역이지만 사용자 허락으로 이 한 줄만)
 const safeFrom = (from: string | null) => (from && from.startsWith('/') && !from.startsWith('//') ? from : '/');
-
-type MockAccount = (typeof mockAccounts)[number];
-type AccountGroupId = 'admin' | 'product' | 'center' | 'support';
-
-/** 목 시험 계정을 역할 묶음으로(첫 역할 기준, 역할 없이 센터만이면 센터). 묶음 순서 고정, 빈 묶음은 뺀다 */
-function accountGroups(): { id: AccountGroupId; accounts: MockAccount[] }[] {
-  const groupOf = (a: MockAccount): AccountGroupId => {
-    const roles: readonly string[] = a.roles;
-    if (roles.includes('OPERATOR_ADMIN')) return 'admin';
-    if (roles.length === 0) return 'center';
-    if (roles.some((r) => r === 'MD' || r.endsWith('_APPROVER'))) return 'product';
-    return 'support';
-  };
-  const order: AccountGroupId[] = ['admin', 'product', 'center', 'support'];
-  return order
-    .map((id) => ({ id, accounts: mockAccounts.filter((a) => groupOf(a) === id) }))
-    .filter((g) => g.accounts.length > 0);
-}
 
 export function LoginPage() {
   const { signedIn, restoring, startEmployeeLogin, canTrySilentLogin, startSilentLogin, startMockLogin, signOutUnconfirmed } = useSession();
@@ -65,55 +47,15 @@ export function LoginPage() {
   return (
     <LoginShell title={m.login.title} lead={m.login.lead}>
       {env.isMock ? (
-        <div className="space-y-3">
-          <p className="text-sm font-semibold">{m.login.mockAccounts}</p>
-          {/* 시험 계정은 역할 묶음(운영 관리 · 상품 · 센터 · 고객센터·라이더)별 카드. 단추 이름(읽기 도구·시험이 찾는 이름)은 예전 그대로 "이름 · 역할" — aria-label */}
-          {accountGroups().map((g) => (
-            <section key={g.id} aria-labelledby={`mock-group-${g.id}`} className="space-y-2">
-              <h2 id={`mock-group-${g.id}`} className="text-xs font-semibold tracking-wide text-base-content/60">
-                {m.login.groups[g.id]}
-              </h2>
-              <ul className="grid gap-2 sm:grid-cols-2">
-                {g.accounts.map((a) => {
-                  const tags = a.roles.length > 0 ? a.roles.map((r) => m.shell.roleName[r] ?? r) : a.centers;
-                  return (
-                    <li key={a.operatorId}>
-                      <button
-                        type="button"
-                        aria-label={`${a.label} · ${a.roles.join(', ') || a.centers.join(', ')}`}
-                        className="flex h-full w-full items-start gap-3 rounded-box border border-base-300 bg-base-100 p-3 text-left transition-colors hover:border-primary hover:bg-primary/5 focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50"
-                        disabled={phase === 'starting'}
-                        onClick={() => {
-                          setPhase('starting');
-                          startMockLogin(from, a.operatorId)
-                            .then((callback) => navigate(callback, { replace: true }))
-                            .catch(() => setPhase('failed'));
-                        }}
-                      >
-                        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-primary/10 text-primary" aria-hidden="true">
-                          <svg viewBox="0 0 24 24" className="h-4 w-4 fill-none stroke-current" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                            <circle cx="12" cy="8" r="4" />
-                            <path d="M4 21a8 8 0 0 1 16 0" />
-                          </svg>
-                        </span>
-                        <span className="block min-w-0 flex-1 space-y-1">
-                          <span className="block truncate text-sm font-semibold">{a.label}</span>
-                          <span className="flex flex-wrap gap-1">
-                            {tags.map((t) => (
-                              <span key={t} className="badge badge-ghost badge-sm">
-                                {t}
-                              </span>
-                            ))}
-                          </span>
-                        </span>
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-            </section>
-          ))}
-        </div>
+        <MockAccountPicker
+          disabled={phase === 'starting'}
+          onPick={(operatorId) => {
+            setPhase('starting');
+            startMockLogin(from, operatorId)
+              .then((callback) => navigate(callback, { replace: true }))
+              .catch(() => setPhase('failed'));
+          }}
+        />
       ) : (
         <button
           type="button"
