@@ -1,9 +1,10 @@
-// 픽라이더 앱 아이콘 만들기(사용자 2026-11-19 로고 — 두 번째 안, 스쿠터 P). 원본: tool/icon/pick_rider_icon.webp
+// 픽라이더 앱 아이콘 만들기(사용자 2026-11-19 로고 — 세 번째 안, 헬멧 쓴 P 스쿠터). 원본: tool/icon/pick_rider_icon.png
 // 실행(이 앱 밖 임시 프로젝트에서 package:image 로): dart run gen_launcher_icon.dart <원본> <android/app/src/main/res>
-// - mipmap-*/ic_launcher.png: 원본 그대로(둥근 사각, 모서리 투명) — Android 7 이하·둥근 아이콘 없는 런처.
+// - mipmap-*/ic_launcher.png: 정리한 그림에 둥근 사각(반지름 22%)을 새로 씌움 — 적응형을 안 쓰는 런처.
 // - mipmap-*/ic_launcher_foreground.png + mipmap-anydpi-v26/ic_launcher.xml: 적응형 아이콘. 런처가 모양(원·둥근 사각)을
 //   잘라 쓰므로 투명 모서리를 안쪽 색으로 채운 정사각을 보이는 영역(108dp 중 가운데 72dp)에 꽉 채운다.
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:image/image.dart' as img;
 
@@ -39,10 +40,13 @@ void main(List<String> args) {
   final cut = (side * 0.05).round();
   final edgeless = img.copyCrop(filled, x: cut, y: cut, width: side - 2 * cut, height: side - 2 * cut);
 
+  // 일반 아이콘: 원본 가장자리(투명 여백·잡티)를 쓰지 않고, 정리한 정사각에 둥근 사각 모양을 새로 씌운다(반지름 22%).
+  final rounded = _roundedSquare(edgeless, 0.22);
+
   const dens = {'mdpi': 1.0, 'hdpi': 1.5, 'xhdpi': 2.0, 'xxhdpi': 3.0, 'xxxhdpi': 4.0};
   dens.forEach((name, k) {
     final dir = '$res/mipmap-$name';
-    final legacy = img.copyResize(square, width: (48 * k).round(), interpolation: img.Interpolation.average);
+    final legacy = img.copyResize(rounded, width: (48 * k).round(), interpolation: img.Interpolation.average);
     File('$dir/ic_launcher.png').writeAsBytesSync(img.encodePng(legacy));
     final canvas = (108 * k).round(), inner = (72 * k).round();
     final fg = img.Image(width: canvas, height: canvas, numChannels: 4);
@@ -50,4 +54,23 @@ void main(List<String> args) {
     img.compositeImage(fg, art, dstX: (canvas - inner) ~/ 2, dstY: (canvas - inner) ~/ 2);
     File('$dir/ic_launcher_foreground.png').writeAsBytesSync(img.encodePng(fg));
   });
+}
+
+img.Image _roundedSquare(img.Image src, double radiusRatio) {
+  final n = src.width;
+  final r = n * radiusRatio;
+  final out = img.Image(width: n, height: n, numChannels: 4);
+  for (var y = 0; y < n; y++) {
+    for (var x = 0; x < n; x++) {
+      // 가장 가까운 모서리 원 중심까지의 거리 — 바깥이면 투명, 경계 1px 은 부드럽게.
+      final px = x + 0.5, py = y + 0.5;
+      final cx = px.clamp(r, n - r), cy = py.clamp(r, n - r);
+      final dist = math.sqrt((px - cx) * (px - cx) + (py - cy) * (py - cy)) - r;
+      final cov = (0.5 - dist).clamp(0.0, 1.0);
+      if (cov <= 0) continue;
+      final p = src.getPixel(x, y);
+      out.setPixelRgba(x, y, p.r, p.g, p.b, (255 * cov).round());
+    }
+  }
+  return out;
 }
