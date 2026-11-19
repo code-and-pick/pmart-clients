@@ -1929,7 +1929,7 @@ export const messages = {
       allCategories: '모든 카테고리',
       reset: '초기화',
       total: (n: number, more: boolean) => `총 ${n}개${more ? '(이 쪽)' : ''}`,
-      sort: { server: '기본 순', name: '이름 순' },
+      sort: { server: '기본 순', name: '이름 순(가나다)', nameDesc: '이름 역순', priceAsc: '판매가 낮은 순', priceDesc: '판매가 높은 순' },
       col: { product: '상품 정보', productSub: '관리용 명칭 · 대표 카테고리', price: '판매가', priceSub: '기본가(가장 낮은 SKU)' },
       skus: 'SKU',
       skuCount: (n: number) => `SKU ${n}개`,

@@ -573,7 +573,8 @@ export function InquiryDetailPage({ kind = 'CUSTOMER' }: { readonly kind?: Reque
   const delivery = useDeliveryNumber(query.data?.deliveryId);
 
   // 최근 본 항목(2026-11-18) — 서버 응답을 받은 뒤에만 남긴다
-  useRecordRecent(kind === 'RIDER' ? 'riderInquiry' : 'inquiry', inquiryId, query.data ? inquiryId : null);
+  // 최근 본 항목 이름(2026-11-19 — 시스템 ID 를 이름으로 남기던 것 고침, ADR-0070 덧붙임) — 문의는 분류
+  useRecordRecent(kind === 'RIDER' ? 'riderInquiry' : 'inquiry', inquiryId, query.data ? `${m.inquiries.categoryName[query.data.category] ?? query.data.category} 문의` : null); // 제목은 고객이 쓴 글이라(개인정보가 있을 수 있어) 분류만
   return (
     <section className="space-y-4">
       {/* 보던 목록 순서대로 이전·다음(2026-11-19) */}

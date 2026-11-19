@@ -176,7 +176,8 @@ export function ApprovalDetailPage() {
   // 화면(2026-11-18 Shopify 상세처럼): 상세 머리(번호·유형·심사·반영 꼬리표·요약) → 두 칸
   // 왼쪽(넓게) = 승인 행·결정 이력·반영 확인, 오른쪽 = 심사(승인·반려)·요청 정보. 5축은 꼬리표를 따로 두고 합치지 않는다.
   // 최근 본 항목(2026-11-18) — 서버 응답을 받은 뒤에만 남긴다
-  useRecordRecent('approval', approvalId, query.data ? approvalId : null);
+  // 최근 본 항목 이름은 화면 번호·종류(2026-11-19 — 시스템 ID 를 이름으로 남기던 것 고침, ADR-0070 덧붙임) — 승인은 번호가 없어 종류
+  useRecordRecent('approval', approvalId, query.data ? (query.data.type ? `${m.approvals.typeName[query.data.type] ?? query.data.type} 승인 요청` : m.approvals.detailTitle) : null); // 요약에는 메일 같은 개인정보가 있을 수 있어 종류만
   return (
     <section className="max-w-7xl space-y-4" data-fetched-at={lastFetchedAt}>
       <QueryState state={toUiState(query)} onRetry={() => void query.refetch()}>

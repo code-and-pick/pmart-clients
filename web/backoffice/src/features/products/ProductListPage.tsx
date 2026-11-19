@@ -94,7 +94,9 @@ function useSaleCounts() {
   return new Map(states.map((st, i) => [st, countCell(qs[i] ?? { isError: false })]));
 }
 
-type Sort = 'server' | 'name';
+// 정렬(2026-11-19 사용자 "이름순 해도 작동 안 함" — 목 두 상품이 이미 가나다 순이라 바뀐 게 안 보였다): 이 쪽 안에서. 가격 미설정·못 읽음은 맨 뒤
+type Sort = 'server' | 'name' | 'nameDesc' | 'priceAsc' | 'priceDesc';
+const SORTS: readonly Sort[] = ['server', 'name', 'nameDesc', 'priceAsc', 'priceDesc'];
 
 export function ProductListPage() {
   const api = useApi();
@@ -230,7 +232,17 @@ export function ProductListPage() {
           const nameOf = (p: (typeof all)[number]) => `${p.internalName ?? ''}${(p.productId && cardOf.get(p.productId)?.name) ?? ''}`.toLowerCase().replace(/\s+/g, '');
           const all = d.items ?? [];
           const items = all.filter((p) => !q || nameOf(p).includes(q));
-          const rows = sort === 'name' ? [...items].sort((x, y) => (x.internalName ?? '').localeCompare(y.internalName ?? '', 'ko')) : items;
+          const byName = (x: (typeof items)[number], y: (typeof items)[number]) => (x.internalName ?? '').localeCompare(y.internalName ?? '', 'ko');
+          const priceKey = (p: (typeof items)[number]) => (p.productId ? priceOf.get(p.productId)?.min : undefined);
+          const byPrice = (dir: 1 | -1) => (x: (typeof items)[number], y: (typeof items)[number]) => {
+            const a = priceKey(x);
+            const b = priceKey(y);
+            if (a === undefined) return b === undefined ? 0 : 1;
+            if (b === undefined) return -1;
+            return dir * (a - b);
+          };
+          const rows =
+            sort === 'name' ? [...items].sort(byName) : sort === 'nameDesc' ? [...items].sort((x, y) => byName(y, x)) : sort === 'priceAsc' ? [...items].sort(byPrice(1)) : sort === 'priceDesc' ? [...items].sort(byPrice(-1)) : items;
           return (
             <>
               {/* 목록 머리줄: 이름 · 총 N개 | 정렬 칩 · 표시 수 */}
@@ -242,7 +254,7 @@ export function ProductListPage() {
               </div>
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex flex-wrap gap-2">
-                  {(['server', 'name'] as const).map((s) => (
+                  {SORTS.map((s) => (
                     <button key={s} type="button" className={`btn btn-xs rounded-full ${sort === s ? 'btn-primary btn-outline' : 'btn-ghost border border-base-300'}`} aria-pressed={sort === s} onClick={() => setSort(s)}>
                       {l.sort[s]}
                     </button>

@@ -37,7 +37,7 @@ export function readRecent(subject: string): RecentEntry[] {
     return raw.filter(
       (e): e is RecentEntry =>
         typeof e === 'object' && e !== null && KINDS.includes((e as RecentEntry).kind) && typeof (e as RecentEntry).id === 'string' && typeof (e as RecentEntry).label === 'string' && typeof (e as RecentEntry).at === 'number',
-    );
+    ).filter((e) => e.label !== e.id); // 2026-11-19 전에 시스템 ID 를 이름으로 남긴 항목은 빼고 보인다(ADR-0070 덧붙임)
   } catch {
     return [];
   }

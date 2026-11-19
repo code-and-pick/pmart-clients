@@ -1,10 +1,12 @@
 // 상품 조회(2026-11-19 쿠팡 윙 상품 조회/수정 참고)
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 
 import { pick } from '../../test/pick';
 import { as, renderAt } from '../../test/render';
+import { server } from '../../test/server';
 
 const rowOf = (name: string) => screen.getAllByTestId('product-row').find((r) => r.textContent?.includes(name))!;
 
@@ -66,5 +68,46 @@ describe('상품 조회 — 사진·이름 찾기(2026-11-19)', () => {
     await waitFor(() => expect(within(rowOf('사과 1.5kg')).getByTestId('product-thumb').querySelector('img')).not.toBeNull());
     await user.type(screen.getByRole('textbox', { name: '상품명' }), '사과');
     expect(screen.getAllByTestId('product-row')).toHaveLength(1);
+  });
+});
+
+describe('상품 조회 정렬(2026-11-19 "이름순 해도 작동 안 함")', () => {
+  const names = () => screen.getAllByTestId('product-row').map((r) => r.querySelector('a')?.textContent);
+
+  it('이름 순(가나다)·이름 역순 — 서버 순서가 섞여 있어도', async () => {
+    const user = userEvent.setup();
+    server.use(
+      http.get('*/api/v1/products', ({ request }) =>
+        new URL(request.url).searchParams.get('size') === '200'
+          ? undefined
+          : HttpResponse.json({
+              items: [
+                { productId: 'P-1', internalName: '참외', saleState: 'ON_SALE', version: 1 },
+                { productId: 'P-2', internalName: '귤', saleState: 'ON_SALE', version: 1 },
+                { productId: 'P-3', internalName: '사과', saleState: 'ON_SALE', version: 1 },
+              ],
+              page: { nextCursor: null },
+            }),
+      ),
+    );
+    renderAt('/products', as.md);
+    await waitFor(() => expect(names()).toEqual(['참외', '귤', '사과']));
+    await user.click(screen.getByRole('button', { name: '이름 순(가나다)' }));
+    expect(names()).toEqual(['귤', '사과', '참외']);
+    await user.click(screen.getByRole('button', { name: '이름 역순' }));
+    expect(names()).toEqual(['참외', '사과', '귤']);
+    await user.click(screen.getByRole('button', { name: '기본 순' }));
+    expect(names()).toEqual(['참외', '귤', '사과']);
+  });
+
+  it('판매가 순 — 가격 미설정은 낮은 순·높은 순 모두 맨 뒤', async () => {
+    const user = userEvent.setup();
+    renderAt('/products', as.md);
+    await waitFor(() => expect(within(rowOf('사과 1.5kg')).getByTestId('product-price')).toHaveTextContent('4,500원'));
+    await waitFor(() => expect(within(rowOf('소고기 미역국')).getByTestId('product-price')).toHaveTextContent('가격 미설정'));
+    await user.click(screen.getByRole('button', { name: '판매가 높은 순' }));
+    expect(names()).toEqual(['사과 1.5kg', '소고기 미역국 500g']);
+    await user.click(screen.getByRole('button', { name: '판매가 낮은 순' }));
+    expect(names()).toEqual(['사과 1.5kg', '소고기 미역국 500g']);
   });
 });

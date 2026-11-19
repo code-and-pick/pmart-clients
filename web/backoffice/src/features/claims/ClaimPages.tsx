@@ -420,7 +420,8 @@ export function ClaimDetailPage() {
   // 상세(2026-11-18 Shopify 상세처럼): 상세 머리 → 두 칸
   // 왼쪽(넓게) = 품목·반품 진행·환불·회수 조치, 오른쪽 = 클레임 정보·회수/재배송/비용
   // 최근 본 항목(2026-11-18) — 서버 응답을 받은 뒤에만 남긴다
-  useRecordRecent('claim', claimId, query.data ? claimId : null);
+  // 최근 본 항목 이름은 화면 번호·요약(2026-11-19 — 시스템 ID 를 이름으로 남기던 것 고침, ADR-0070 덧붙임)
+  useRecordRecent('claim', claimId, query.data ? claimLabel(detailOrders.get(query.data.orderId), query.data.type, query.data.openedAt) : null);
   return (
     <section className="max-w-7xl space-y-4">
       <QueryState state={toUiState(query)} onRetry={() => void query.refetch()}>
