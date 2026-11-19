@@ -86,6 +86,12 @@ final locationFlushIntervalProvider = Provider<Duration>(
   (_) => const Duration(seconds: 10),
 );
 
+/// 맡은 배송이 있는 동안(배정 ~ 전달 완료·반납)의 전송 간격 — 고객 지도에 라이더 위치가 5~8초 안에 보이게
+/// (백엔드 딜리버리 조율 2026-11-19 notice-live-rider-location, 사용자 "실시간으로"). 표본은 그대로 5초.
+final deliveringFlushIntervalProvider = Provider<Duration>(
+  (_) => const Duration(seconds: 5),
+);
+
 final locationReporterProvider = NotifierProvider<LocationReporter, bool>(
   LocationReporter.new,
 );
@@ -100,6 +106,7 @@ class LocationReporter extends Notifier<bool> {
   BackgroundLocation? _background;
   LocationNotice? _notice;
   bool _backgroundStarted = false;
+  bool _delivering = false;
   StreamSubscription<GeoPoint>? _sub;
   Timer? _timer;
   final _buffer = <LocationSample>[];
@@ -112,11 +119,37 @@ class LocationReporter extends Notifier<bool> {
     return false;
   }
 
-  /// [notice] 는 보내는 동안 띄울 상시 알림 문구.
-  void setActive(bool active, {LocationNotice? notice}) {
-    if (active == state) return;
+  /// [notice] 는 보내는 동안 띄울 상시 알림 문구. [delivering] = 맡은 배송이 있음(더 자주 보낸다).
+  void setActive(
+    bool active, {
+    LocationNotice? notice,
+    bool delivering = false,
+  }) {
+    if (active == state) {
+      if (active && delivering != _delivering) _changeInterval(delivering);
+      return;
+    }
+    _delivering = delivering;
     active ? _start(notice) : _stop();
     state = active;
+  }
+
+  Duration get _interval => ref.read(
+    _delivering
+        ? deliveringFlushIntervalProvider
+        : locationFlushIntervalProvider,
+  );
+
+  /// 보내는 중에 배송이 생기거나 끝났다 — 간격만 바꾼다(앱·서비스 둘 다).
+  void _changeInterval(bool delivering) {
+    _delivering = delivering;
+    _timer?.cancel();
+    _timer = Timer.periodic(_interval, (_) => flush());
+    final background = _background;
+    final notice = _notice;
+    if (background != null && notice != null && _backgroundStarted) {
+      unawaited(background.start(notice, flushEvery: _interval));
+    }
   }
 
   /// 위치 권한을 받은 뒤(권한 창·설정에서 돌아옴) 부른다. 권한이 없어 못 켠 위치 전송 서비스·위치 구독을 다시 켠다.
@@ -142,7 +175,7 @@ class LocationReporter extends Notifier<bool> {
     if (background != null && notice != null) {
       unawaited(source.keepAlive(null));
       unawaited(
-        background.start(notice).then((ok) {
+        background.start(notice, flushEvery: _interval).then((ok) {
           if (identical(_background, background)) _backgroundStarted = ok;
         }),
       );
@@ -159,10 +192,7 @@ class LocationReporter extends Notifier<bool> {
       // 권한이 아직 없으면 위치 스트림이 오류로 끝난다 — 권한을 받으면 retryAfterPermission 이 다시 구독한다.
       onError: (Object _) => _backgroundStarted = false,
     );
-    _timer = Timer.periodic(
-      ref.read(locationFlushIntervalProvider),
-      (_) => flush(),
-    );
+    _timer = Timer.periodic(_interval, (_) => flush());
   }
 
   void _stop() {

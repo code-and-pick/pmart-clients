@@ -15,7 +15,8 @@ import 'providers.dart';
 abstract interface class BackgroundLocation {
   /// 운행 시작 — 상시 알림을 띄우고 넘겨받을 준비를 한다. 다시 부르면 Dart 가 보내는 쪽으로 돌려받는다.
   /// 못 켰으면(위치 권한이 아직 없음 등) false — 권한이 생기면 [LocationReporter.retryAfterPermission] 이 다시 부른다.
-  Future<bool> start(LocationNotice notice);
+  /// [flushEvery] = 앱 화면이 없을 때 서비스가 올리는 간격(맡은 배송이 있으면 5초, 없으면 10초).
+  Future<bool> start(LocationNotice notice, {Duration flushEvery});
 
   /// 넘겨받을 때 쓸 최신 access token 을 건넨다(값이 바뀐 때만 보낸다).
   Future<void> syncToken();
@@ -38,7 +39,10 @@ final class NativeBackgroundLocation implements BackgroundLocation {
   String? _sentToken;
 
   @override
-  Future<bool> start(LocationNotice notice) async {
+  Future<bool> start(
+    LocationNotice notice, {
+    Duration flushEvery = const Duration(seconds: 10),
+  }) async {
     final token = tokens.accessToken;
     _sentToken = token;
     return _call('start', {
@@ -49,6 +53,7 @@ final class NativeBackgroundLocation implements BackgroundLocation {
       'title': notice.title,
       'text': notice.text,
       'channel': notice.channel,
+      'flushMs': flushEvery.inMilliseconds,
     });
   }
 

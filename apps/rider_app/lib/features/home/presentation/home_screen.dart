@@ -191,6 +191,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               text: l10n.locationNoticeText,
               channel: l10n.locationNoticeChannel,
             ),
+            delivering: active.isNotEmpty,
           );
       if (reportLocation && !wasActive) unawaited(_askLocation());
     });

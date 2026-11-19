@@ -28,8 +28,15 @@ final class _Background implements BackgroundLocation {
   /// 위치 권한이 있는지(없으면 서비스가 못 켜져 false)
   bool permitted = true;
 
+  /// start 때 받은 서비스 전송 간격
+  final flushes = <Duration>[];
+
   @override
-  Future<bool> start(LocationNotice notice) async {
+  Future<bool> start(
+    LocationNotice notice, {
+    Duration flushEvery = const Duration(seconds: 10),
+  }) async {
+    flushes.add(flushEvery);
     calls.add('start:${notice.title}');
     return permitted;
   }
@@ -122,5 +129,45 @@ void main() {
     reporter.retryAfterPermission();
     await Future<void>.delayed(Duration.zero);
     expect(bg.calls, hasLength(3));
+  });
+
+  test(
+    '맡은 배송이 있는 동안은 5초마다, 없으면 10초마다 — 서비스(앱 닫힘)도 같은 간격(고객 지도 실시간, 2026-11-19)',
+    () async {
+      final source = _Source();
+      final bg = _Background();
+      final c = container(source, bg);
+      final reporter = c.read(locationReporterProvider.notifier)
+        ..setActive(true, notice: notice);
+      await Future<void>.delayed(Duration.zero);
+      expect(bg.flushes, [const Duration(seconds: 10)], reason: '운행 중·배송 없음');
+
+      // 배송을 맡으면 간격만 5초로(다시 켜지 않는다)
+      reporter.setActive(true, notice: notice, delivering: true);
+      await Future<void>.delayed(Duration.zero);
+      expect(bg.flushes.last, const Duration(seconds: 5));
+      expect(bg.calls.where((x) => x == 'stop'), isEmpty);
+
+      // 같은 상태로 다시 불러도 그대로
+      reporter.setActive(true, notice: notice, delivering: true);
+      await Future<void>.delayed(Duration.zero);
+      expect(bg.flushes, hasLength(2));
+
+      // 배송이 끝나면 10초로
+      reporter.setActive(true, notice: notice);
+      await Future<void>.delayed(Duration.zero);
+      expect(bg.flushes.last, const Duration(seconds: 10));
+    },
+  );
+
+  test('배송을 맡은 채 시작하면 처음부터 5초', () async {
+    final source = _Source();
+    final bg = _Background();
+    final c = container(source, bg);
+    c
+        .read(locationReporterProvider.notifier)
+        .setActive(true, notice: notice, delivering: true);
+    await Future<void>.delayed(Duration.zero);
+    expect(bg.flushes, [const Duration(seconds: 5)]);
   });
 }

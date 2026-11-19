@@ -409,11 +409,7 @@ void main() {
     );
     await t.pumpAndSettle(const Duration(milliseconds: 50));
     expect(find.text('부산 부산진구 동천로 109'), findsOneWidget);
-    expect(
-      t.testTextInput.isVisible,
-      isFalse,
-      reason: '입력칸 밖을 누르면 키보드가 내려간다',
-    );
+    expect(t.testTextInput.isVisible, isFalse, reason: '입력칸 밖을 누르면 키보드가 내려간다');
     await tap('signup-area');
     await tap('area-gyeongsang');
     await tap('area-confirm');

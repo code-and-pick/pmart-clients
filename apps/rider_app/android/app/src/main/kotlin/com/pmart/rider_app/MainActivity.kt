@@ -137,6 +137,10 @@ class MainActivity : FlutterActivity() {
                             )) {
                                 call.argument<String>(k)?.let { service.putExtra(k, it) }
                             }
+                            // Dart int 는 크기에 따라 Int/Long 으로 온다
+                            call.argument<Number>(RiderLocationService.EXTRA_FLUSH_MS)?.let {
+                                service.putExtra(RiderLocationService.EXTRA_FLUSH_MS, it.toLong())
+                            }
                             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                                 startForegroundService(service)
                             } else {

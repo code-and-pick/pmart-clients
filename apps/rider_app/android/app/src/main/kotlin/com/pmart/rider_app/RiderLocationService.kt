@@ -58,6 +58,9 @@ class RiderLocationService : Service() {
     private var deviceId: String? = null
     private var sourceSystem: String = "rider-app"
 
+    /** 올리는 간격 — 맡은 배송이 있으면 5초, 없으면 10초(Dart 가 정해 넘긴다, 2026-11-19 고객 지도 실시간). */
+    private var flushMs: Long = FLUSH_MS
+
     /** true = 앱 화면이 없어져 이 서비스가 보내는 중. false = Dart 가 보내는 중(이 서비스는 알림만). */
     private var sending = false
     private var stoppedForToken = false
@@ -71,7 +74,7 @@ class RiderLocationService : Service() {
     private val flushTick = object : Runnable {
         override fun run() {
             flush()
-            main.postDelayed(this, FLUSH_MS)
+            main.postDelayed(this, flushMs)
         }
     }
 
@@ -86,6 +89,7 @@ class RiderLocationService : Service() {
                 baseUrl = intent.getStringExtra(EXTRA_BASE_URL) ?: baseUrl
                 deviceId = intent.getStringExtra(EXTRA_DEVICE_ID) ?: deviceId
                 sourceSystem = intent.getStringExtra(EXTRA_SOURCE) ?: sourceSystem
+                flushMs = intent.getLongExtra(EXTRA_FLUSH_MS, flushMs).coerceIn(MIN_FLUSH_MS, FLUSH_MS)
                 intent.getStringExtra(EXTRA_TOKEN)?.let { accessToken = it }
                 // 권한이 그 사이 빠졌으면(설정에서 끔) startForeground 가 SecurityException 으로 앱을 종료한다 — 조용히 내린다.
                 try {
@@ -115,7 +119,7 @@ class RiderLocationService : Service() {
         stoppedForToken = false
         startLocationUpdates()
         main.removeCallbacks(flushTick)
-        main.postDelayed(flushTick, FLUSH_MS)
+        main.postDelayed(flushTick, flushMs)
     }
 
     /** Dart 가 (다시) 보낸다 — 알림만 두고 받기를 멈춘다(모아 둔 점은 버린다. Dart 가 곧 새로 보낸다). */
@@ -316,6 +320,8 @@ class RiderLocationService : Service() {
         const val EXTRA_TITLE = "title"
         const val EXTRA_TEXT = "text"
         const val EXTRA_CHANNEL = "channel"
+        const val EXTRA_FLUSH_MS = "flushMs"
+        private const val MIN_FLUSH_MS = 5_000L
 
         /** 운행 중인지(START 를 받았고 STOP 전) — MainActivity 가 화면이 없어질 때 넘길지 정한다. */
         @Volatile
