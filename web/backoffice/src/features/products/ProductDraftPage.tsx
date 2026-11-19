@@ -110,7 +110,7 @@ function StartChooser() {
         {/* 메뉴 정리(2026-11-19) — 콘텐츠만·가격만 바꿀 때 가는 곳 */}
         <p className="text-xs text-base-content/50" data-testid="start-other">{c.other}</p>
       </div>
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
         {card('direct', 'M4 20h4L19 9l-4-4L4 16v4Zm11-15 4 4', c.direct, c.directBody, !pickBase, () => {
           setPickBase(false);
           document.getElementById('product-form-start')?.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
@@ -123,6 +123,8 @@ function StartChooser() {
         })}
         {card('import', 'M12 15V4m0 0-4 4m4-4 4 4M5 15v3a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-3', c.bulk, c.bulkBody, false, () => void navigate('/imports'))}
         {card('sameBase', 'M8 8h11v11H8zM5 16V5h11', c.sameBase, c.sameBaseBody, pickBase, () => setPickBase((p) => !p))}
+        {/* 사진·설명 등록(2026-11-19 사용자 "상품 등록할 때 사진 등록하던 게 없어졌다" — 메뉴 정리로 콘텐츠 등록 메뉴를 뺀 뒤 입구) */}
+        {card('photo', 'M4 7h3l2-2h6l2 2h3v12H4zM12 17a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z', c.photo, c.photoBody, false, () => void navigate('/contents/drafts/new'))}
       </div>
       {pickBase && (
         <div className="max-w-xl rounded-box border border-primary/40 bg-primary/5 p-4" data-testid="start-same-base">
@@ -156,6 +158,7 @@ export function NewProductDraftPage() {
       {sameBaseAs === '' && <StartChooser />}
       <div id="product-form-start" className="scroll-mt-4">
         <Steps steps={m.products.draftSteps} now={0} />
+        <p className="text-xs text-base-content/55" data-testid="draft-after">{m.products.afterApproval}</p>
       </div>
       <div className="mx-auto max-w-5xl space-y-4">
         {sameBaseAs === '' ? (
@@ -216,7 +219,18 @@ function DraftNextAction({ draft: d }: { readonly draft: ProductDraft }) {
   }
   if (d.state === 'APPLIED') {
     return (
-      <NextAction tone="success" title={m.products.next.applied}>
+      <NextAction tone="success" title={m.products.next.applied} body={m.products.next.appliedBody}>
+        {/* 승인 뒤 이어서 — 사진·설명(콘텐츠 초안, 이 상품으로) → 가격(첫 SKU) */}
+        {d.resultProductId && (
+          <Link className="btn btn-sm btn-primary" to={`/contents/drafts/new?productId=${encodeURIComponent(d.resultProductId)}`} data-testid="applied-photo">
+            {m.products.next.photo}
+          </Link>
+        )}
+        {d.resultSkus?.[0] && (
+          <Link className="btn btn-sm" to={`/prices?sku=${encodeURIComponent(d.resultSkus[0])}`} data-testid="applied-price">
+            {m.products.next.price}
+          </Link>
+        )}
         {d.resultProductId && (
           <Link className="btn btn-sm" to={`/products/${encodeURIComponent(d.resultProductId)}`}>
             {m.products.openResult}
@@ -268,6 +282,7 @@ export function ProductDraftPage() {
         {(d) => (
           <>
             <Steps steps={m.products.draftSteps} now={stepOf(d)} />
+            <p className="text-xs text-base-content/55">{m.products.afterApproval}</p>
             <DraftNextAction draft={d} />
             {/* 같은 기초상품에 붙는 새 상품(2026-11-18) — 심사하는 사람이 어느 기초상품의 다른 판매 단위인지 본다 */}
             {!d.input?.targetProductId && d.input?.product.baseProductId && (

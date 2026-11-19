@@ -52,12 +52,12 @@ describe('검색 조건 칩', () => {
 });
 
 describe('상품 등록 방식 고르기', () => {
-  it('네 카드 — 일괄 등록은 그 화면으로', async () => {
+  it('다섯 카드(사진·설명 등록 더함, 2026-11-19) — 일괄 등록은 그 화면으로', async () => {
     const user = userEvent.setup();
     renderAt('/products/drafts/new', as.md);
     const chooser = await screen.findByTestId('start-chooser');
     expect(within(chooser).getByRole('heading', { name: '어떤 방식으로 등록하시겠어요?' })).toBeInTheDocument();
-    expect(within(chooser).getAllByRole('button')).toHaveLength(4);
+    expect(within(chooser).getAllByRole('button')).toHaveLength(5);
     await user.click(screen.getByTestId('start-import'));
     expect(await screen.findByTestId('upload-caution')).toBeInTheDocument();
   });

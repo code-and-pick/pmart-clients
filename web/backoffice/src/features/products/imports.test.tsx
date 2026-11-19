@@ -3,6 +3,7 @@ import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 
+import { messages } from '../../shared/messages';
 import { as, renderAt } from '../../test/render';
 
 describe('일괄 등록 한 메뉴', () => {
@@ -20,5 +21,16 @@ describe('일괄 등록 한 메뉴', () => {
     const nav = await screen.findByRole('navigation');
     await waitFor(() => expect(within(nav).getByRole('link', { name: '일괄 등록' })).toHaveAttribute('data-active', 'alias'));
     for (const gone of ['콘텐츠 등록', '콘텐츠 일괄 등록', '가격 일괄 등록', '상품 일괄 등록']) expect(within(nav).queryByRole('link', { name: gone })).toBeNull();
+  });
+});
+
+// 2026-11-19 사용자 "상품 등록할 때 사진 등록하던 게 없어졌다" — 메뉴 정리 뒤에도 상품 등록에서 사진 등록으로
+describe('상품 등록 — 사진·설명 입구', () => {
+  it('등록 방식 고르기에 "사진·설명 등록" 카드 → 콘텐츠 등록 화면', async () => {
+    const user = userEvent.setup();
+    renderAt('/products/drafts/new', as.md);
+    expect(await screen.findByTestId('draft-after')).toHaveTextContent('사진·설명 → 가격');
+    await user.click(await screen.findByTestId('start-photo'));
+    expect(await screen.findByRole('heading', { name: messages.contents.draftTitle })).toBeInTheDocument();
   });
 });
