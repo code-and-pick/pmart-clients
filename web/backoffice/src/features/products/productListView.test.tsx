@@ -72,7 +72,7 @@ describe('상품 조회 — 사진·이름 찾기(2026-11-19)', () => {
 });
 
 describe('상품 조회 정렬(2026-11-19 "이름순 해도 작동 안 함")', () => {
-  const names = () => screen.getAllByTestId('product-row').map((r) => r.querySelector('a')?.textContent);
+  const names = () => screen.getAllByTestId('product-row').map((r) => r.querySelector('[data-testid="product-name"]')?.textContent);
 
   it('이름 순(가나다)·이름 역순 — 서버 순서가 섞여 있어도', async () => {
     const user = userEvent.setup();

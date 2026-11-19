@@ -1850,6 +1850,21 @@ export const messages = {
   },
 
   products: {
+    /** 상품 조회 오른쪽 미리보기(2026-11-20) */
+    preview: {
+      customerName: (n: string) => `고객용: ${n}`,
+      version: '버전',
+      published: '반영 시각',
+      skuCount: 'SKU',
+      count: (n: number) => `${n}개`,
+      skus: 'SKU',
+      unit: '단위',
+      weight: '중량',
+      storage: '보관',
+      barcodes: '바코드',
+      notSet: '가격 미설정',
+      failed: '상품을 불러오지 못했어요.',
+    },
     quickFind: '바로 찾기',
     draftTitle: '상품 등록(개별)',
     addContent: '콘텐츠·이미지 등록',

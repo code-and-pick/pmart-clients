@@ -20,7 +20,8 @@ import { countCell, PageHeader, StatCard, StatStrip, StatusBadge, type Tone } fr
 import { SearchSelect } from '../../shared/SearchSelect';
 import { formatKrw } from '@pmart/web-ui';
 import { useProductPrices } from '../prices/productPrices';
-import { PreviewDrawer, PreviewFacts, usePreview } from '../../shared/Preview';
+import { PreviewDrawer, usePreview } from '../../shared/Preview';
+import { ProductPreviewBody } from './ProductPreview';
 import { LineIcon, tableClass } from './parts';
 
 const l = m.products.listView;
@@ -350,13 +351,10 @@ export function ProductListPage() {
                               <div className="flex items-center gap-3">
                                 <Thumb card={p.productId ? cardOf.get(p.productId) : undefined} name={p.internalName ?? ''} />
                                 <div className="min-w-0">
-                                  {p.productId ? (
-                                    <Link className="block truncate font-semibold hover:text-primary hover:underline" to={`/products/${encodeURIComponent(p.productId)}`} title={p.internalName ?? undefined} onClick={(e) => e.stopPropagation()}>
-                                      {p.internalName ?? m.none}
-                                    </Link>
-                                  ) : (
-                                    <p className="truncate font-semibold">{p.internalName ?? m.none}</p>
-                                  )}
+                                  {/* 이름도 줄과 같게 — 누르면 오른쪽 미리보기(2026-11-20 사용자 "어떤 건 미리보기, 어떤 건 상세 — 일관성 없다") */}
+                                  <p className="truncate font-semibold" title={p.internalName ?? undefined} data-testid="product-name">
+                                    {p.internalName ?? m.none}
+                                  </p>
                                   {(() => {
                                     const c = p.productId ? cardOf.get(p.productId) : undefined;
                                     return c?.name && c.name !== p.internalName ? <p className="truncate text-xs text-base-content/60">{l.customerName(c.name)}</p> : null;
@@ -424,23 +422,10 @@ export function ProductListPage() {
                 (() => {
                   const all = d.items ?? [];
                   const p = all.find((x) => x.productId === pv.id);
-                  const pr = priceOf.get(pv.id);
                   return (
                     <PreviewDrawer id={pv.id} ids={rows.flatMap((x) => (x.productId ? [x.productId] : []))} onMove={pv.open} onClose={pv.close} title={p?.internalName ?? m.none} detailTo={`/products/${encodeURIComponent(pv.id)}`}>
-                      {p ? (
-                        <div className="space-y-4" data-testid="product-preview">
-                          <PreviewFacts
-                            rows={[
-                              [m.products.primaryCategoryId, catLabel(p.primaryCategoryId)],
-                              [m.products.saleState, p.saleState ? <StatusBadge tone={SALE_TONE[p.saleState]}>{m.products.saleStateName[p.saleState]}</StatusBadge> : m.none],
-                              [l.col.price, pr && !pr.loading && pr.min !== undefined ? `${formatKrw(pr.min)}${pr.max !== undefined && pr.max > pr.min ? ` ~ ${formatKrw(pr.max)}` : ''}` : pr?.notSet ? l.notSet : '…'],
-                              [l.skus, pr ? l.skuCount(pr.skus.length) : '…'],
-                              [m.products.version, p.version === undefined ? m.none : `v${p.version}`],
-                            ]}
-                          />
-                          <p className="text-xs text-base-content/55">{m.preview.moreInDetail}</p>
-                        </div>
-                      ) : null}
+                      {/* SKU·바코드·가격·버전까지(2026-11-20) — 상세와 같은 조회 */}
+                      <ProductPreviewBody productId={pv.id} category={catLabel(p?.primaryCategoryId)} imageId={cardOf.get(pv.id)?.mainImage?.imageId} customerName={cardOf.get(pv.id)?.name ?? undefined} />
                     </PreviewDrawer>
                   );
                 })()}
