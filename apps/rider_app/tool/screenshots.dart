@@ -44,6 +44,12 @@ Future<void> _loadFonts() async {
   await _font('MaterialIcons', ['$material/materialicons-regular.otf']);
   const win = 'C:/Windows/Fonts';
   await _font('Roboto', ['$win/malgun.ttf', '$win/malgunbd.ttf']);
+  // 앱 글꼴(pubspec fonts) — 테스트 러너는 앱 글꼴을 자동으로 읽지 않는다.
+  await _font('Pretendard', [
+    'assets/fonts/Pretendard-Regular.otf',
+    'assets/fonts/Pretendard-SemiBold.otf',
+    'assets/fonts/Pretendard-Bold.otf',
+  ]);
 }
 
 void main() {

@@ -177,9 +177,9 @@ void main() {
 
     testWidgets('보낼 내용·대표번호를 보이고, 보냈어요 → 확인되면 확인 ID 로 닫힌다', (t) async {
       final result = await open(t, '01012345678');
-      expect(find.text('휴대폰 본인 확인'), findsOneWidget);
+      expect(find.text('본인 확인'), findsOneWidget);
       expect(find.text(MockPhoneIdentityRepository.sendTo), findsOneWidget);
-      expect(find.text('확인할 번호 010-****-5678'), findsOneWidget);
+      expect(find.text('010-****-5678'), findsOneWidget);
       expect(find.byKey(const ValueKey('phone-id-open-sms')), findsOneWidget);
       await tap(t, 'phone-id-open-sms'); // 시험에서는 문자 앱을 열지 않는다
       await tap(t, 'phone-id-sent');
@@ -196,15 +196,9 @@ void main() {
       ]);
       final result = await open(t, '01012345678');
       await tap(t, 'phone-id-sent');
-      expect(
-        find.text('아직 문자가 확인되지 않았어요. 보낸 뒤 다시 눌러 주세요 (남은 횟수 4번)'),
-        findsOneWidget,
-      );
+      expect(find.text('보낸 뒤 다시 눌러 주세요 · 남은 횟수 4번'), findsOneWidget);
       await tap(t, 'phone-id-sent');
-      expect(
-        find.text('지금은 확인이 밀려 있어요. 잠시 뒤 다시 눌러 주세요 (횟수는 줄지 않아요)'),
-        findsOneWidget,
-      );
+      expect(find.text('잠시 뒤 다시 눌러 주세요 · 횟수는 그대로예요'), findsOneWidget);
       // 혼잡 뒤에도 "보냈어요"는 다시 누를 수 있다(자동으로 되풀이해 부르지 않는다).
       expect(identity.confirmCalls, 2);
       await tap(t, 'phone-id-sent');
@@ -219,7 +213,7 @@ void main() {
       identity.script.add(MockConfirmStep.expired);
       final result = await open(t, '01012345678');
       await tap(t, 'phone-id-sent');
-      expect(find.text('확인 시간이 지났어요. 다시 시작해 주세요'), findsOneWidget);
+      expect(find.text('확인 시간이 지났어요'), findsOneWidget);
       expect(find.byKey(const ValueKey('phone-id-sent')), findsNothing);
       await tap(t, 'phone-id-restart');
       expect(find.byKey(const ValueKey('phone-id-sent')), findsOneWidget);
@@ -231,7 +225,7 @@ void main() {
     testWidgets('이 번호로 가입한 계정이 있으면 제공자·가입일·가린 이메일과 그 제공자 로그인', (t) async {
       // 세션이 바뀌면 화면 묶음이 통째로 바뀌어 이 화면의 결과(Future)는 끝나지 않는다 — 기다리지 않는다.
       await open(t, '01099990000');
-      expect(find.text('이 번호로 가입한 계정이 있어요'), findsOneWidget);
+      expect(find.text('이미 가입한 번호예요'), findsOneWidget);
       expect(
         t.widget<Text>(find.byKey(const ValueKey('existing-provider'))).data,
         '카카오',
@@ -276,16 +270,13 @@ void main() {
 
     testWidgets('시작 거절: 010 이 아닌 번호·하루 횟수 초과는 안내만(문자 화면 없음)', (t) async {
       await open(t, '01022220000');
-      expect(
-        find.text('오늘은 본인 확인을 더 시작할 수 없어요. 내일 다시 시도해 주세요'),
-        findsOneWidget,
-      );
+      expect(find.text('오늘은 더 확인할 수 없어요'), findsOneWidget);
       expect(find.byKey(const ValueKey('phone-id-sent')), findsNothing);
     });
 
     testWidgets('010 이 아닌 번호는 확인할 수 없다고 안내', (t) async {
       await open(t, '01112345678');
-      expect(find.text('010으로 시작하는 휴대폰 번호만 확인할 수 있어요'), findsOneWidget);
+      expect(find.text('010 휴대폰 번호만 확인할 수 있어요'), findsOneWidget);
       expect(identity.confirmCalls, 0);
     });
   });

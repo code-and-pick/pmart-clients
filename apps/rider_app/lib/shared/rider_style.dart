@@ -32,6 +32,9 @@ abstract final class RiderColors {
   static const naver = Color(0xFF03C75A);
 }
 
+/// 앱 글꼴(pubspec `fonts`, 고객앱과 같은 Pretendard — 사용자 2026-11-20).
+const riderFontFamily = 'Pretendard';
+
 abstract final class RiderTheme {
   static ThemeData light() {
     final scheme = ColorScheme.fromSeed(seedColor: RiderColors.primary)
@@ -41,10 +44,15 @@ abstract final class RiderTheme {
           surface: Colors.white,
           onSurface: RiderColors.ink,
         );
-    final base = ThemeData(colorScheme: scheme, useMaterial3: true);
+    final base = ThemeData(
+      colorScheme: scheme,
+      useMaterial3: true,
+      fontFamily: riderFontFamily,
+    );
     return ThemeData(
       colorScheme: scheme,
       useMaterial3: true,
+      fontFamily: riderFontFamily,
       scaffoldBackgroundColor: Colors.white,
       // 화면 전환: 아래 화면(카카오 지도 — 안드로이드가 직접 그림)을 확대·축소하지 않는 짧은 페이드.
       // 기본(줌) 전환은 지도를 함께 움직여 깜빡였다(사용자 2026-11-18 "화면 전환 할 때마다 지도가 깜빡 깜빡").

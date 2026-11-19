@@ -128,7 +128,11 @@ class _EvidencePhotoBoxState extends ConsumerState<EvidencePhotoBox> {
           foregroundColor: RiderColors.primary,
           minimumSize: const Size.fromHeight(56),
           side: const BorderSide(color: RiderColors.primary),
-          textStyle: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+          textStyle: const TextStyle(
+            fontFamily: riderFontFamily,
+            fontSize: 17,
+            fontWeight: FontWeight.w700,
+          ),
         ),
       );
     }
