@@ -4,12 +4,14 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useState, type ReactNode } from 'react';
 
-import { request, type PmartFailure } from '@pmart/web-core';
+import { ProblemFailure, request, type PmartFailure } from '@pmart/web-core';
 import { CommandFeedback, failureCode, useCommand } from '@pmart/web-ui';
 import { commandParams } from '../../api/command';
 import type { components as Dispatch } from '../../api/generated/delivery-dispatch';
 import type { components as Execution } from '../../api/generated/delivery-execution';
 import { useApi } from '../../app/ApiContext';
+import { isOperatorAdmin } from '../../app/nav';
+import { useSession } from '../../app/SessionContext';
 import { AuthedPhotos } from '../../shared/AuthedPhotos';
 import { useEvidenceLoader } from '../../shared/evidenceLoader';
 import { messages } from '../../shared/messages';
@@ -97,6 +99,8 @@ export function DeliveryActions({ delivery, dispatch }: { readonly delivery: Del
     state === 'FAILURE_REPORTED' && <FailureDecisionForm key="decide" delivery={delivery} direct={false} />,
     forward && (state === 'PICKED_UP' || state === 'ARRIVED_AT_CUSTOMER') && <FailureDecisionForm key="direct" delivery={delivery} direct />,
     dispatch && (dispatch.state === 'ASSIGNED' || dispatch.state === 'DISPATCHING') && <CancellationForm key="cancel" dispatch={dispatch} />,
+    // 전달 실패 확정 되돌리기 — 상품이 라이더 손인 확정만(되돌릴 수 있는지는 서버가 정한다)
+    forward && state === 'FAILED' && delivery.failure?.decision === 'CONFIRM' && delivery.failure?.custody === 'RIDER' && <ReversalForm key="reverse" delivery={delivery} />,
   ].filter(Boolean);
   return (
     <div className="grid gap-4 xl:grid-cols-2" data-testid="delivery-actions">
@@ -413,6 +417,89 @@ function CancellationForm({ dispatch }: { readonly dispatch: DispatchView }) {
       <label className="flex items-center gap-2 sm:pl-[8.75rem]">
         <input type="checkbox" className="checkbox checkbox-sm" checked={reassign} onChange={(e) => setReassign(e.target.checked)} />
         {a.reassign}
+      </label>
+    </ActionBox>
+  );
+}
+
+/** 확정 되돌리기가 거절되는 실패 사유 — 새 상품 재발송이 걸린다(관리자가 재발송을 멈춘 뒤에만) */
+const RESHIPPING_REASONS = new Set(['RIDER_INCIDENT', 'DAMAGED']);
+
+/**
+ * 전달 실패 확정 되돌리기(execution 0.32.0 `POST /deliveries/{id}/failure-reversals` — 백엔드 PR #235).
+ * 반려하려다 확정이 눌린 경우(28767701-1, 사용자 2026-11-19 "확정 되돌리기를 만들라고"). 되돌릴 수 있는지는 서버가 정한다 —
+ * 확정 뒤 30분 안·상품이 라이더 손·반납 받기 전·수행료 확정 전. 아니면 409 FAILURE_NOT_REVERSIBLE 과 까닭(detail)을 그대로 보인다.
+ * 사고·파손 확정은 관리자가 재발송 출고를 멈춘 뒤 "멈췄어요"를 확인해야 한다.
+ */
+function ReversalForm({ delivery }: { readonly delivery: DeliveryExecution }) {
+  const api = useApi();
+  const deliveryId = delivery.deliveryId ?? '';
+  const refresh = useRefresh(deliveryId);
+  const admin = isOperatorAdmin(useSession().session?.roles ?? []);
+  const reshipping = RESHIPPING_REASONS.has(delivery.failure?.reason ?? '');
+  const [reason, setReason] = useState('');
+  const [sure, setSure] = useState(false);
+  const [stopped, setStopped] = useState(false);
+  const revert = useCommand(async (body: { reason: string; reshipmentStopped: boolean }, key) => {
+    try {
+      return settled(
+        await request(
+          'POST',
+          api.execution.POST('/deliveries/{deliveryId}/failure-reversals', {
+            ...commandParams(key, { path: { deliveryId } }),
+            body,
+          }),
+        ),
+      );
+    } finally {
+      refresh();
+    }
+  });
+  const ok = reason.trim().length >= 2 && sure && (!reshipping || stopped);
+  const rejected = revert.phase.kind === 'rejected' ? revert.phase.failure : undefined;
+  const notReversible = rejected instanceof ProblemFailure && rejected.problem.code === 'FAILURE_NOT_REVERSIBLE';
+  return (
+    <ActionBox
+      title={a.reverseTitle}
+      intro={a.reverseIntro}
+      onSubmit={() => {
+        if (ok) void revert.run({ reason: reason.trim(), reshipmentStopped: reshipping && stopped });
+      }}
+      footer={
+        <>
+          <div className="flex justify-end">
+            <button type="submit" className="btn btn-sm btn-warning" disabled={!ok || revert.busy || revert.phase.kind === 'done'}>
+              {a.reverse}
+            </button>
+          </div>
+          {notReversible ? (
+            <p role="alert" className="text-sm text-error" data-testid="reverse-not-reversible">
+              {a.reverseNo}
+              {rejected.problem.detail ? ` — ${rejected.problem.detail}` : ''}
+            </p>
+          ) : (
+            <CommandFeedback command={revert} unknown={{ body: a.unknown }}>
+              {() => <p className="text-sm text-success">{a.reversed}</p>}
+            </CommandFeedback>
+          )}
+        </>
+      }
+    >
+      <Field name={a.reverseReason} wide>
+        <input className="input input-sm w-full" maxLength={300} value={reason} placeholder={a.reversePlaceholder} onChange={(e) => setReason(e.target.value)} />
+      </Field>
+      {reshipping &&
+        (admin ? (
+          <label className="flex items-start gap-2 rounded-box bg-error/10 px-3 py-2 text-sm">
+            <input type="checkbox" className="checkbox checkbox-sm mt-0.5" checked={stopped} onChange={(e) => setStopped(e.target.checked)} />
+            <span>{a.reshipmentStopped}</span>
+          </label>
+        ) : (
+          <p className="rounded-box bg-error/10 px-3 py-2 text-sm">{a.reshipmentAdminOnly}</p>
+        ))}
+      <label className="flex items-start gap-2 rounded-box bg-warning/15 px-3 py-2 text-sm">
+        <input type="checkbox" className="checkbox checkbox-sm mt-0.5" checked={sure} onChange={(e) => setSure(e.target.checked)} />
+        <span>{a.reverseSure}</span>
       </label>
     </ActionBox>
   );
