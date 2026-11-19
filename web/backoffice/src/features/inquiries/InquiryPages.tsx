@@ -7,6 +7,7 @@
 // 문의·답변 본문은 고객이 쓴 신뢰할 수 없는 텍스트 — 일반 텍스트로만 그린다. 로그에 남기지 않는다.
 // 화면(2026-11-18 사용자 "밋밋하다 — 헬프데스크(Zendesk·Intercom)처럼"): 목록은 한 카드 안 상태 탭 → 표(제목 굵게·번호 작게·종류 색 꼬리표·"N분 전") → 아래 건수·더 보기.
 // 상세는 왼쪽 대화(고객/라이더 말풍선 ↔ 답변 말풍선, 아래 답변 쓰기 카드), 오른쪽 정보 카드(문의 정보·고객/라이더·이어서 할 일·연락 기록). 동작은 그대로.
+import { useNow } from '../../shared/motion';
 import { QueueNav, useRememberQueue } from '../../shared/workQueue';
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, type ReactNode } from 'react';
@@ -22,7 +23,7 @@ import { CommandFeedback } from '../../shared/Feedback';
 import { canSeeIntakes, CsIntakeLog } from '../csIntakes/CsIntakePages';
 import { InquiryPhotos } from './InquiryPhotos';
 import { ago, Avatar, Card, EmptyBox, Icon, ICON, MetaList } from './HelpdeskParts';
-import { CodeLabel, DetailHeader, NextAction, PageHeader, StatusBadge, type Tone } from '../../shared/admin';
+import { CodeLabel, DetailHeader, NextAction, PageHeader, StatusBadge, type Tone, GuideBox, StatCard, StatStrip } from '../../shared/admin';
 import { DisplayNumber, RiderLabel } from '../../shared/displayNumber';
 import { useDeliveryNumber, useOrderNumbers, useRiderLabels } from '../../shared/numberLookups';
 import { SavedViews } from '../../shared/SavedViews';
@@ -44,6 +45,31 @@ const STATUSES: readonly InquiryStatus[] = ['RECEIVED', 'ANSWERED', 'CLOSED'];
 const MAX_REPLY = 4000; // 계약 replyInquiry body maxLength
 
 const isStatus = (v: string | null): v is InquiryStatus => v !== null && (STATUSES as readonly string[]).includes(v);
+/**
+ * 미답변 기다린 시간(2026-11-19 쿠팡 윙 고객문의 "미답변 현황 24시간 이내·24~72시간·72시간~" 참고).
+ * 서버 접수 시각(createdAt)에서 지금까지 — 표시용 묶음일 뿐 기한 판정이 아니다(기한·자격은 서버).
+ */
+type Wait = 'lt24' | 'h24to72' | 'gt72';
+const WAITS: readonly Wait[] = ['lt24', 'h24to72', 'gt72'];
+const isWait = (v: string | null): v is Wait => v !== null && (WAITS as readonly string[]).includes(v);
+const HOUR = 3_600_000;
+const waitOf = (createdAt: string, now: number): Wait | undefined => {
+  const h = (now - Date.parse(createdAt)) / HOUR;
+  if (!Number.isFinite(h)) return undefined;
+  return h < 24 ? 'lt24' : h < 72 ? 'h24to72' : 'gt72';
+};
+/** 미답변 줄의 "N시간째 기다림" — 24시간 넘으면 주황, 72시간 넘으면 빨강 */
+function WaitChip({ createdAt, now }: { readonly createdAt: string; readonly now: number }) {
+  const h = Math.floor((now - Date.parse(createdAt)) / HOUR);
+  if (!Number.isFinite(h) || h < 0) return null;
+  const w = waitOf(createdAt, now);
+  const tone = w === 'gt72' ? 'badge-error' : w === 'h24to72' ? 'badge-warning' : 'badge-ghost';
+  return (
+    <span className={`badge badge-soft badge-xs mt-1 ${tone}`} data-testid="inquiry-wait">
+      {h < 24 ? m.inquiries.listView.waitHours(h) : m.inquiries.listView.waitDays(Math.floor(h / 24))}
+    </span>
+  );
+}
 /** 계약 밖 값은 지어내지 않고 원문 그대로 보인다. */
 const label = (map: Readonly<Record<string, string>>, v: string | null | undefined) => (v ? (map[v] ?? v) : m.none);
 /** 화면에 그리는 코드 값 — 한국어 이름(원래 코드는 마우스를 올리면), 값이 없으면 "—" */
@@ -104,7 +130,20 @@ export function InquiryListPage({ kind = 'CUSTOMER' }: { readonly kind?: Request
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (last) => last.page?.nextCursor ?? undefined,
   });
-  const items: InquirySummary[] = query.data?.pages.flatMap((p) => p.items ?? []) ?? [];
+  const loaded: InquirySummary[] = query.data?.pages.flatMap((p) => p.items ?? []) ?? [];
+  // 기다린 시간 카드(미답변) — 접수 상태 첫 쪽으로 센다(넘치면 +). 누르면 wait= 로 그 묶음만(접수 탭에서)
+  const now = useNow(60_000);
+  const waitParam = search.get('wait');
+  const wait = status === 'RECEIVED' && isWait(waitParam) ? waitParam : undefined;
+  const items = wait ? loaded.filter((i) => waitOf(i.createdAt, now) === wait) : loaded;
+  const open = useQuery({
+    queryKey: ['inquiries', 'list', kind, 'RECEIVED', 'waits'],
+    queryFn: () => request('GET', api.cases.GET('/inquiries', { params: { query: { requesterType: kind, status: 'RECEIVED' } } })),
+  });
+  const openItems = open.data?.items ?? [];
+  const openMore = Boolean(open.data?.page?.nextCursor);
+  const waitCount = (w: Wait) => (open.isPending ? '…' : open.isError ? '?' : `${openItems.filter((i) => waitOf(i.createdAt, now) === w).length}${openMore ? '+' : ''}`);
+  const lv = m.inquiries.listView;
   // 상세에서 이전·다음으로 넘기도록 지금 목록 순서를 기억(2026-11-19)
   useRememberQueue(rider ? 'riderInquiry' : 'inquiry', query.data ? items.map((i) => i.inquiryId) : undefined, `${basePath(kind)}?${search.toString()}`);
   const tabs: ReadonlyArray<{ readonly value: InquiryStatus | ''; readonly label: string }> = [
@@ -115,6 +154,30 @@ export function InquiryListPage({ kind = 'CUSTOMER' }: { readonly kind?: Request
   return (
     <section className="space-y-4">
       <PageHeader title={rider ? m.inquiries.riderTitle : m.inquiries.title} description={rider ? m.inquiries.riderIntro : m.inquiries.intro} />
+      {/* 2026-11-19 쿠팡 윙 고객문의 참고: 안내 상자 → 미답변 현황(기다린 시간) 카드 → 상태 탭·목록 */}
+      <GuideBox title={lv.guideTitle} items={rider ? lv.riderGuide : lv.guide} storeKey={rider ? 'rider-inquiries' : 'inquiries'} testId="inquiry-guide" />
+      <section aria-label={lv.waitsLabel} className="space-y-1.5">
+        <h2 className="text-sm font-bold">{lv.waitsLabel}</h2>
+        <StatStrip label={lv.waitsLabel} testId="inquiry-waits">
+          {WAITS.map((w) => {
+            const v = waitCount(w);
+            const has = /^[1-9]/.test(v);
+            return (
+              <StatCard
+                key={w}
+                layout="row"
+                label={lv.wait[w]}
+                hint={lv.waitHint[w]}
+                value={v}
+                tone={has ? (w === 'gt72' ? 'error' : w === 'h24to72' ? 'warning' : 'info') : undefined}
+                to={`${basePath(kind)}?status=RECEIVED&wait=${w}`}
+                active={wait === w}
+                testId={`inquiry-wait-${w}`}
+              />
+            );
+          })}
+        </StatStrip>
+      </section>
       {/* 내 보기(2026-11-18 Saleor 참고) — 지금 주소 조건을 이름 붙여 저장 */}
       <SavedViews listKey={rider ? 'rider-inquiries' : 'inquiries'} />
       <div className="overflow-hidden rounded-box border border-base-300 bg-base-100 shadow-sm" data-testid="inquiry-list-card">
@@ -201,6 +264,12 @@ export function InquiryListPage({ kind = 'CUSTOMER' }: { readonly kind?: Request
                       </td>
                       <td className="whitespace-nowrap text-right">
                         <Time iso={i.createdAt} />
+                        {/* 아직 답하지 않은 문의는 기다린 시간(2026-11-19) */}
+                        {i.status === 'RECEIVED' && (
+                          <span className="block">
+                            <WaitChip createdAt={i.createdAt} now={now} />
+                          </span>
+                        )}
                       </td>
                       <td className="whitespace-nowrap text-right">
                         <Time iso={i.answeredAt} />
