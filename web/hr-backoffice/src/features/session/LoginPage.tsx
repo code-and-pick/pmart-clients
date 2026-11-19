@@ -46,15 +46,15 @@ export function LoginPage() {
   return (
     <LoginShell title={m.login.title} lead={m.login.lead}>
       {env.isMock ? (
-        <div className="space-y-3">
+        <div className="space-y-4">
           <p className="text-sm font-semibold">{m.login.mockAccounts}</p>
           {/* 시험 계정은 카드 목록. 단추 이름은 예전 그대로(계정 이름 글자) */}
-          <ul className="grid gap-2">
+          <ul className="divide-y divide-base-300 border-y border-base-300">
             {mockLogins.map((a) => (
               <li key={a.operatorId}>
                 <button
                   type="button"
-                  className="flex w-full items-center gap-3 rounded-box border border-base-300 bg-base-100 p-3 text-left text-sm font-semibold transition-colors hover:border-primary hover:bg-primary/5 focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50"
+                  className="flex w-full items-center gap-4 px-2 py-4 text-left text-base font-semibold transition-colors hover:bg-primary/5 focus-visible:bg-primary/10 focus-visible:outline-none disabled:opacity-50"
                   disabled={phase === 'starting'}
                   onClick={() => {
                     setPhase('starting');
@@ -98,7 +98,7 @@ export function LoginPage() {
           {m.employeeLogin.signOutUnconfirmed}
         </p>
       )}
-      <p className="border-t border-base-300 pt-4 text-xs text-base-content/60">{m.employeeLogin.note}</p>
+      <p className="text-xs leading-relaxed text-base-content/50">{m.employeeLogin.note}</p>
     </LoginShell>
   );
 }

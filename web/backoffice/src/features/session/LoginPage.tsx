@@ -79,7 +79,7 @@ export function LoginPage() {
           {m.employeeLogin.signOutUnconfirmed}
         </p>
       )}
-      <p className="border-t border-base-300 pt-4 text-xs text-base-content/60">{m.employeeLogin.note}</p>
+      <p className="text-xs leading-relaxed text-base-content/50">{m.employeeLogin.note}</p>
     </LoginShell>
   );
 }
