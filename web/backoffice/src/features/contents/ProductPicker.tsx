@@ -1,7 +1,8 @@
-// 승인된 상품 고르기(콘텐츠 등록용). 검색·필터 없는 드롭다운(사용자 결정 2026-11-02).
+// 승인된 상품 고르기(콘텐츠 등록용). 2026-11-02 "검색·필터 없는 드롭다운" → 2026-11-19 사용자 요청으로 쳐서 찾는 고르기(SearchSelect).
 // 목록은 GET /products 를 쪽 단위로 불러온다. 다 불러오지 않았으면 "더 불러오기"를 보인다.
+import { SearchSelect } from '../../shared/SearchSelect';
 import { useInfiniteQuery } from '@tanstack/react-query';
-import { useId, useMemo } from 'react';
+import { useMemo } from 'react';
 
 import { PmartFailure } from '@pmart/web-core';
 import type { ProductSummary } from '../../api/models';
@@ -26,7 +27,6 @@ export function ProductPicker({
   readonly onClear?: () => void;
 }) {
   const api = useApi();
-  const selectId = useId();
 
   const query = useInfiniteQuery({
     queryKey: ['product', 'picker'],
@@ -42,53 +42,48 @@ export function ProductPicker({
   });
 
   const loaded = useMemo(() => query.data?.pages.flatMap((p) => p.items ?? []) ?? [], [query.data]);
-  const known = loaded.some((p) => p.productId === value);
+
+  // 쳐서 찾는 고르기(2026-11-19 사용자 "데이터가 많아지면 일일이 찾기 힘들다") — 불러온 상품 안에서 이름·상태·상품 ID 로 좁힌다(서버 검색 아님, 계약에 검색 조건 없음).
+  // 목록에는 관리용 명칭 · 판매 상태만(시스템 ID 는 보이지 않게 — ADR-0070 덧붙임), ID 는 붙여 넣어도 찾게 숨은 낱말로.
+  const options = useMemo(
+    () =>
+      loaded.flatMap((p) =>
+        p.productId
+          ? [{ value: p.productId, label: p.internalName ?? m.none, ...(p.saleState ? { hint: m.products.saleStateName[p.saleState] } : {}), keywords: p.productId }]
+          : [],
+      ),
+    [loaded],
+  );
 
   return (
     <div className="flex flex-col gap-1 text-sm">
-      <label htmlFor={selectId}>{label}</label>
-      {/* X 는 드롭다운 상자 안(오른쪽 화살표 왼쪽)에 겹쳐 둔다. */}
-      <div className="relative">
-        <select
-          id={selectId}
-          className={`select select-sm w-full${value && onClear ? ' pr-14' : ''}`}
+      <span>{label}</span>
+      <div className="flex items-center gap-1">
+        <SearchSelect
+          label={label}
+          className="min-w-0 flex-1"
           value={value}
-          disabled={query.isPending}
-          onChange={(e) => {
-            const id = e.target.value;
-            onChange(
-              id,
-              loaded.find((p) => p.productId === id),
-            );
-          }}
-        >
-          <option value="">{query.isPending ? m.loading : m.contents.pickerSelect}</option>
-          {/* 목록에 없는 값(상품 상세에서 넘어온 ID 등)도 선택된 채로 보인다 */}
-          {value && !known && <option value={value}>{value}</option>}
-          {loaded.map((p) => (
-            <option key={p.productId} value={p.productId ?? ''}>
-              {`${p.internalName ?? m.none} · ${p.productId ?? ''}${p.saleState ? ` · ${m.products.saleStateName[p.saleState]}` : ''}`}
-            </option>
-          ))}
-        </select>
+          options={options}
+          loading={query.isPending}
+          loadingText={m.loading}
+          placeholder={m.contents.pickerSearch}
+          emptyText={m.contents.pickerNoMatch(loaded.length)}
+          onChange={(id) => onChange(id, loaded.find((p) => p.productId === id))}
+          footer={
+            query.hasNextPage ? (
+              <button type="button" className="btn btn-ghost btn-xs" disabled={query.isFetchingNextPage} onMouseDown={(e) => e.preventDefault()} onClick={() => void query.fetchNextPage()}>
+                {m.contents.pickerMore(loaded.length)}
+              </button>
+            ) : undefined
+          }
+        />
         {value && onClear && (
-          <button
-            type="button"
-            className="btn btn-ghost btn-xs btn-circle absolute top-1/2 right-8 -translate-y-1/2"
-            aria-label={m.contents.clearAll}
-            title={m.contents.clearAll}
-            onClick={onClear}
-          >
+          <button type="button" className="btn btn-ghost btn-xs btn-circle" aria-label={m.contents.clearAll} title={m.contents.clearAll} onClick={onClear}>
             ✕
           </button>
         )}
       </div>
       {query.error instanceof PmartFailure && <FailureAlert failure={query.error} />}
-      {query.hasNextPage && (
-        <button type="button" className="btn btn-ghost btn-xs self-start" disabled={query.isFetchingNextPage} onClick={() => void query.fetchNextPage()}>
-          {m.contents.pickerMore(loaded.length)}
-        </button>
-      )}
     </div>
   );
 }

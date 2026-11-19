@@ -1,5 +1,6 @@
 // 상품 초안 입력(계약 ProductDraftInput). 카테고리는 발효된 트리에서 고르고(대표 1·노출 여러 개), 대표 카테고리의 필터 옵션을
 // 고르며, SKU 는 여러 개(물류 규격 포함). seed-v1 product.json 으로 채울 수 있다. 빈 칸은 보내지 않는다(0 으로 채우지 않음).
+import { SearchSelect } from '../../shared/SearchSelect';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 
@@ -329,26 +330,20 @@ export function ProductDraftForm({
 
       <Card title={m.products.formCategory} hint={m.products.formCategoryHint}>
         <div className="grid gap-3 md:grid-cols-2">
-          <label className="flex flex-col gap-1 text-sm">
+          <div className="flex flex-col gap-1 text-sm">
             <span className={`${fieldLabel} field-required`}>{m.products.primaryCategory}</span>
-            <select
-              className="select select-sm w-full"
+            {/* 쳐서 찾는 고르기(2026-11-19 — 카테고리가 많아지면 드롭다운에서 찾기 힘들다). 경로(대분류 > 중분류)로 찾고 초성도 */}
+            <SearchSelect
+              label={m.products.primaryCategory}
               value={v.primaryCategoryId}
-              disabled={tree.isPending}
+              options={nodes.map((n) => ({ value: n.categoryId, label: n.path ?? n.name }))}
+              loading={tree.isPending}
+              loadingText={m.loading}
+              placeholder={m.products.categorySearch}
               // 대표 카테고리는 노출 카테고리에 자동으로 들어간다(서버도 categoryIds 맨 앞에 대표를 둔다). 따로 고른 목록에서는 뺀다.
-              onChange={(e) =>
-                setV((prev) => ({ ...prev, primaryCategoryId: e.target.value, categoryIds: prev.categoryIds.filter((id) => id !== e.target.value) }))
-              }
-            >
-              <option value="">{tree.isPending ? m.loading : m.products.categoryPick}</option>
-              {v.primaryCategoryId && !nodeById.has(v.primaryCategoryId) && <option value={v.primaryCategoryId}>{v.primaryCategoryId}</option>}
-              {nodes.map((n) => (
-                <option key={n.categoryId} value={n.categoryId}>
-                  {n.path ?? n.name}
-                </option>
-              ))}
-            </select>
-          </label>
+              onChange={(id) => setV((prev) => ({ ...prev, primaryCategoryId: id, categoryIds: prev.categoryIds.filter((x) => x !== id) }))}
+            />
+          </div>
           <div className="flex flex-col gap-1">
             <MultiSelectDropdown
               label={m.products.categories}

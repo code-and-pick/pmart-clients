@@ -7,6 +7,7 @@
 // - 화면 번호(bff 0.14.0, ADR-0070): 배송·주문 칸은 deliveryNumber·orderNumber, 라이더는 가린 이름 + 라이더 번호. 링크는 시스템 ID 로.
 //   번호가 null 이면 시스템 ID 끝 8자리 회색 + "번호 없음", rider-service 를 못 읽었으면 라이더 칸 "번호 확인 불가"(원천 줄에도 보인다).
 // - 자동 새로 고침 1분(요청서: 서버 부담 — 30초 이상 권장). 화면이 숨겨지면 멈춘다(TanStack Query 기본).
+import { SearchSelect } from '../../shared/SearchSelect';
 import { useNewIds } from '../../shared/motion';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useSearchParams } from 'react-router';
@@ -167,18 +168,11 @@ export function LiveDeliveryPage() {
           onChange={(v) => set({ state: v })}
         />
         <div className="flex flex-wrap items-center gap-3 border-b border-base-300 bg-base-200/40 px-4 py-2.5 text-sm" role="group" aria-label={m.filters}>
-          <label className="flex items-center gap-2">
+          <div className="flex items-center gap-2">
             <span className="text-xs font-medium text-base-content/55">{m.center}</span>
-            <select className="select select-sm w-56" value={mfcId} onChange={(e) => set({ mfcId: e.target.value })}>
-              <option value="">{m.allCenters}</option>
-              {(centers.data ?? []).map((c) => (
-                <option key={c.centerId} value={c.centerId}>
-                  {c.name ? `${c.name} (${c.centerId})` : c.centerId}
-                </option>
-              ))}
-              {mfcId && !centers.data?.some((c) => c.centerId === mfcId) && <option value={mfcId}>{mfcId}</option>}
-            </select>
-          </label>
+            {/* 쳐서 찾는 고르기(2026-11-19 — 센터가 늘어도 이름·센터 코드로 바로) */}
+            <SearchSelect label={m.center} className="w-56" value={mfcId} allowEmpty={m.allCenters} options={(centers.data ?? []).flatMap((c) => (c.centerId ? [{ value: c.centerId, label: c.name ?? c.centerId, hint: c.centerId, keywords: c.centerId }] : []))} loading={centers.isPending} onChange={(v) => set({ mfcId: v })} />
+          </div>
           {centers.isError && (
             <p role="alert" className="text-xs text-warning">
               {m.centersFailed}

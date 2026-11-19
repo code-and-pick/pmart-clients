@@ -1792,6 +1792,7 @@ export const messages = {
     categoriesHint: '대표 카테고리는 자동으로 들어가요',
     primaryTag: '대표',
     categoryPick: '카테고리를 고르세요',
+    categorySearch: '카테고리 이름으로 찾기 (초성도 돼요)',
     selectedCategories: '고른 노출 카테고리',
     removeCategory: (name: string) => `${name} 빼기`,
     categoryPathsPending: (n: number) => `JSON 의 카테고리 이름 경로 ${n}개는 트리에 없어 서버가 이름으로 매핑해요`,
@@ -2008,6 +2009,9 @@ export const messages = {
     sortOrder: '순서',
     uploadImage: '이미지 올리기',
     pickerSelect: '상품을 고르세요',
+    /** 쳐서 찾는 고르기(2026-11-19) */
+    pickerSearch: '상품 이름·상품 ID 로 찾기 (초성도 돼요)',
+    pickerNoMatch: (n: number) => `불러온 ${n}개 안에 맞는 상품이 없어요 — 아래 '더 불러오기'로 더 찾아보세요.`,
     pickerMore: (n: number) => `더 불러오기(지금 ${n}개)`,
     clearAll: '전체 지우기',
     autoFilled: '게시된 콘텐츠로 상품명·상세설명·고시 정보·보관 안내·반품 안내를 채웠어요',

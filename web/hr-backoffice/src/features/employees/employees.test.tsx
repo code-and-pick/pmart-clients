@@ -1,4 +1,5 @@
 // 직원 목록·등록·상세(계약 hr-service.yaml 0.1.0, 백엔드 handoff 2026-11-13 clients-request-hr-backoffice §2·§3).
+import { pick } from '../../test/pick';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
@@ -100,7 +101,7 @@ describe('직원 등록', () => {
     await userEvent.type(screen.getByLabelText(/메일 ID/), 'alba.oh');
     await userEvent.selectOptions(screen.getByLabelText('고용 형태'), 'PART_TIME');
     await userEvent.click(screen.getByRole('radio', { name: '센터' }));
-    await userEvent.selectOptions(await screen.findByRole('combobox', { name: '센터' }), 'MFC-BSN-01');
+    await pick(userEvent.setup(), '센터', /MFC-BSN-01/, 'BSN'); // 쳐서 찾는 고르기(2026-11-19)
     fireEvent.change(screen.getByLabelText('근무 시작일'), { target: { value: '2026-12-01' } });
     expect(screen.getByRole('button', { name: '등록' })).toBeDisabled(); // 계약 종료일 없음
     fireEvent.change(screen.getByLabelText('계약 종료일'), { target: { value: '2027-02-28' } });
@@ -235,7 +236,8 @@ describe('직원 상세', () => {
     await userEvent.click(screen.getByRole('button', { name: '소속 변경' }));
     const dialog = within(screen.getByRole('dialog', { name: '소속 변경' }));
     expect(dialog.getByText(/이전 센터 권한은 내일 00:00 에 자동으로 끝나요/)).toBeInTheDocument();
-    await userEvent.selectOptions(await dialog.findByRole('combobox', { name: '센터' }), 'MFC-SEL-01');
+    await dialog.findByRole('combobox', { name: '센터' });
+    await pick(userEvent.setup(), '센터', /MFC-SEL-01/, 'ㅅㅍ'); // 쳐서 찾는 고르기(2026-11-19) — 초성(송파)으로
     await userEvent.type(dialog.getByLabelText('사유'), '센터 이동');
     await userEvent.click(dialog.getByRole('button', { name: '확인' }));
     expect(await screen.findByText('센터 MFC-SEL-01')).toBeInTheDocument();

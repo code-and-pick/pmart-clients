@@ -7,6 +7,7 @@
 //   링크는 시스템 ID 로. 번호가 null 이면 ID 끝 8자리 회색 + "번호 없음", rider-service 실패면 라이더 "번호 확인 불가".
 // - unavailableSources: mfc-fulfillment-service = 목록 전체를 못 읽음(0건 아님), delivery-execution-service = 배송 칸만 "—".
 // - 새로고침은 30초(한 번 부를 때 MFC 1회 + 출고 수만큼 배송 조회 — 백엔드 권고). 개인정보·QR 없음.
+import { SearchSelect } from '../../shared/SearchSelect';
 import { useNewIds } from '../../shared/motion';
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
@@ -163,18 +164,11 @@ export function PackingHandoverPage() {
         <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary" aria-hidden="true">
           <Icon name="store" className="h-4 w-4" />
         </span>
-        <label className="flex items-center gap-2">
+        <div className="flex items-center gap-2">
           <span className="text-xs font-medium text-base-content/55">{m.center}</span>
-          <select className="select select-sm w-64" value={mfcId} onChange={(e) => set({ mfcId: e.target.value })}>
-            <option value="">{m.pickCenter}</option>
-            {(centers.data ?? []).map((c) => (
-              <option key={c.centerId} value={c.centerId}>
-                {`${c.name ?? c.centerId} (${c.centerId})`}
-              </option>
-            ))}
-            {mfcId && !centers.data?.some((c) => c.centerId === mfcId) && <option value={mfcId}>{mfcId}</option>}
-          </select>
-        </label>
+          {/* 쳐서 찾는 고르기(2026-11-19) */}
+          <SearchSelect label={m.center} className="w-64" value={mfcId} placeholder={m.pickCenter} options={(centers.data ?? []).flatMap((c) => (c.centerId ? [{ value: c.centerId, label: c.name ?? c.centerId, hint: c.centerId, keywords: c.centerId }] : []))} loading={centers.isPending} onChange={(v) => set({ mfcId: v })} />
+        </div>
         {centers.isError && <p className="text-xs text-warning">{m.centersFailed}</p>}
       </div>
 

@@ -1,5 +1,6 @@
 // 센터 고르기(center-master `GET /centers`). 소속 센터 한 곳, 요청 권한의 센터 여러 곳.
 // HR_ADMIN 이 센터 목록을 볼 수 있는지 계약에 없다(회신 Q2) — 못 불러오면 빈 목록으로 보이지 않고, 안내와 함께 코드를 직접 입력받는다.
+import { SearchSelect } from '../../shared/SearchSelect';
 import { useQuery } from '@tanstack/react-query';
 
 import { request } from '@pmart/web-core';
@@ -52,20 +53,15 @@ export function CenterSelect({
   const options = centers.data?.options;
   return (
     <div className="flex flex-col gap-1 text-sm">
-      <label className="flex flex-col gap-1">
-        {label}
-        {options ? (
-          <select className="select select-sm w-full max-w-xs" value={value} onChange={(e) => onChange(e.target.value)}>
-            <option value="">{m.centers.choose}</option>
-            {/* 목록에 없는 기존 값(다른 상태의 센터 등)도 그대로 보인다 */}
-            {value && !options.some((o) => o.value === value) && <option value={value}>{value}</option>}
-            {options.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
-        ) : (
+      {options ? (
+        // 쳐서 찾는 고르기(2026-11-19 — 센터가 많아지면 드롭다운에서 찾기 힘들다). 센터 코드·이름으로, 초성도
+        <div className="flex flex-col gap-1">
+          <span>{label}</span>
+          <SearchSelect label={label} className="w-full max-w-xs" value={value} placeholder={m.centers.choose} options={options} onChange={onChange} />
+        </div>
+      ) : (
+        <label className="flex flex-col gap-1">
+          {label}
           <input
             className="input input-sm w-full max-w-xs"
             maxLength={64}
@@ -74,8 +70,8 @@ export function CenterSelect({
             value={value}
             onChange={(e) => onChange(e.target.value.trim())}
           />
-        )}
-      </label>
+        </label>
+      )}
       <LoadNote centers={centers} />
     </div>
   );

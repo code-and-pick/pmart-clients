@@ -1,6 +1,26 @@
 // 여러 개 고르는 드롭다운. 평소에는 닫힌 한 줄(고른 개수)로 보이고, 누르면 체크박스 목록이 펼쳐진다.
 // 바깥을 누르거나 Esc 로 닫는다. 고른 값의 순서는 목록 순서를 따른다(목록에 없는 기존 값은 맨 앞에 그대로 둔다).
+// 항목이 많으면(SEARCH_FROM 개 넘게) 펼친 목록 맨 위에 찾기 칸(2026-11-19 사용자 "데이터가 많아지면 일일이 찾기 힘들다") — 화면에서 거르기, 한글 초성도.
+// 찾기로 가려진 항목도 고른 상태는 그대로다(거르기는 보이는 것만 바꾼다).
 import { useEffect, useId, useRef, useState } from 'react';
+
+const SEARCH_FROM = 8;
+const CHO = ['ㄱ', 'ㄲ', 'ㄴ', 'ㄷ', 'ㄸ', 'ㄹ', 'ㅁ', 'ㅂ', 'ㅃ', 'ㅅ', 'ㅆ', 'ㅇ', 'ㅈ', 'ㅉ', 'ㅊ', 'ㅋ', 'ㅌ', 'ㅍ', 'ㅎ'];
+const norm = (s: string) => s.toLowerCase().replace(/s+/g, '');
+const chosungOf = (s: string) =>
+  [...s]
+    .map((ch) => {
+      const c = ch.charCodeAt(0) - 0xac00;
+      return c >= 0 && c <= 11171 ? CHO[Math.floor(c / 588)] : ch;
+    })
+    .join('');
+/** 찾기 말이 이 항목 이름에 맞나(띄어쓰기·대소문자 무시, 자음만 넣으면 초성으로) */
+export function optionMatches(label: string, query: string): boolean {
+  const q = norm(query);
+  if (!q) return true;
+  const l = norm(label);
+  return l.includes(q) || (/^[ㄱ-ㅎ]+$/.test(q) && chosungOf(l).includes(q));
+}
 
 export interface MultiSelectOption {
   readonly value: string;
@@ -30,6 +50,9 @@ export function MultiSelectDropdown({
   readonly className?: string;
 }) {
   const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const searchable = options.length > SEARCH_FROM;
+  const shown = searchable ? options.filter((o) => optionMatches(o.label, query)) : options;
   const root = useRef<HTMLDivElement>(null);
   const labelId = useId();
   const panelId = useId();
@@ -70,18 +93,31 @@ export function MultiSelectDropdown({
         aria-expanded={open}
         aria-controls={panelId}
         disabled={disabled}
-        onClick={() => setOpen((o) => !o)}
+        onClick={() => {
+          setOpen((o) => !o);
+          setQuery('');
+        }}
       >
         <span className={value.length === 0 ? 'opacity-60' : ''}>{value.length === 0 ? placeholder : selectedText(value.length)}</span>
       </button>
       {open && (
-        <ul
-          id={panelId}
-          role="group"
-          aria-labelledby={labelId}
-          className="absolute top-full z-20 mt-1 max-h-64 w-full overflow-auto rounded-box border border-base-300 bg-base-100 p-1 shadow"
-        >
-          {options.map((o) => (
+        <div className="absolute top-full z-20 mt-1 w-full overflow-hidden rounded-box border border-base-300 bg-base-100 shadow">
+          {searchable && (
+            <div className="border-b border-base-300 p-1">
+              <input
+                type="search"
+                className="input input-sm w-full"
+                aria-label={`${label} 찾기`}
+                placeholder="찾기 (초성도 돼요)"
+                value={query}
+                autoFocus
+                onChange={(e) => setQuery(e.target.value)}
+              />
+            </div>
+          )}
+          <ul id={panelId} role="group" aria-labelledby={labelId} className="max-h-64 overflow-auto p-1">
+          {shown.length === 0 && <li className="px-2 py-1 text-base-content/50">맞는 것이 없어요.</li>}
+          {shown.map((o) => (
             <li key={o.value}>
               <label className={`flex items-center gap-2 rounded px-2 py-1 ${o.disabled ? 'opacity-50' : 'cursor-pointer hover:bg-base-200'}`}>
                 <input
@@ -95,7 +131,8 @@ export function MultiSelectDropdown({
               </label>
             </li>
           ))}
-        </ul>
+          </ul>
+        </div>
       )}
     </div>
   );

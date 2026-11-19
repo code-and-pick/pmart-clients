@@ -1,4 +1,5 @@
 // 실시간 배송 현황 — bff 0.3.0 views/live-delivery 목(백엔드 PR #25).
+import { pick } from '../../test/pick';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
@@ -36,7 +37,7 @@ describe('실시간 배송 현황', () => {
   it('센터를 고르면 그 센터만 — 주소에 남는다', async () => {
     const view = renderAt('/live-delivery', as.admin);
     await screen.findAllByTestId('live-row');
-    await userEvent.selectOptions(await screen.findByRole('combobox', { name: '센터' }), 'MFC-SEL-01');
+    await pick(userEvent.setup(), '센터', /MFC-SEL-01/, 'SEL-01'); // 쳐서 찾는 고르기(2026-11-19)
     await waitFor(() => expect(screen.getAllByTestId('live-row')).toHaveLength(1));
     expect(liveCalls(view.sent).at(-1)!.get('mfcId')).toBe('MFC-SEL-01');
   });

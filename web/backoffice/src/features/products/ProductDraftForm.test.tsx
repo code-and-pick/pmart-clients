@@ -1,4 +1,5 @@
-import { fireEvent, screen, within } from '@testing-library/react';
+import { pick } from '../../test/pick';
+import { fireEvent, screen, within, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 
@@ -13,9 +14,9 @@ describe('상품 등록 폼', () => {
     const user = userEvent.setup();
     const view = renderAt('/products/drafts/new');
 
-    const primary = await screen.findByLabelText('대표 카테고리');
-    await within(primary).findByRole('option', { name: '과일·채소 > 과일 > 사과·배' });
-    await user.selectOptions(primary, 'p01-c01');
+    // 대표 카테고리는 쳐서 찾는 고르기(2026-11-19) — 경로로 좁혀 고른다
+    await waitFor(() => expect(screen.getByRole('combobox', { name: '대표 카테고리' })).toBeEnabled());
+    await pick(user, '대표 카테고리', '과일·채소 > 과일', '채소 > 과일');
     // 대표 카테고리 필터(목: 원산지 국산/수입)
     await user.click(await screen.findByLabelText('원산지: 국산'));
     await user.click(screen.getByRole('button', { name: '노출 카테고리' }));
@@ -47,7 +48,7 @@ describe('상품 등록 폼', () => {
     const user = userEvent.setup();
     const view = renderAt('/products/drafts/new');
     await user.type(screen.getByLabelText('관리용 명칭'), '우유');
-    await user.selectOptions(await screen.findByLabelText('대표 카테고리'), 'p01');
+    await pick(user, '대표 카테고리', /^과일·채소$/); // 쳐서 찾는 고르기(2026-11-19)
 
     await user.click(screen.getByRole('button', { name: 'SKU 추가' }));
     const sku1 = within(screen.getByRole('region', { name: 'SKU 1' }));
@@ -78,7 +79,7 @@ describe('상품 등록 폼', () => {
   it('seed-v1 product.json 으로 채운다: 이름 경로는 트리에서 찾아 ID 로, 못 찾은 경로는 서버 매핑으로 남기고, 전체 지우기로 비운다', async () => {
     const user = userEvent.setup();
     const view = renderAt('/products/drafts/new');
-    await within(await screen.findByLabelText('대표 카테고리')).findByRole('option', { name: '과일·채소 > 과일 > 사과·배' });
+    await waitFor(() => expect(screen.getByRole('combobox', { name: '대표 카테고리' })).toBeEnabled()); // 카테고리 트리를 다 받은 뒤
 
     upload(
       screen.getByLabelText('상품 JSON 파일로 채우기'),
@@ -96,7 +97,7 @@ describe('상품 등록 폼', () => {
 
     expect(await screen.findByText(/채웠어요: SKU 1개, 카테고리 2개 매핑, 이름 경로 1개는 서버 매핑/)).toBeInTheDocument();
     expect(screen.getByLabelText('관리용 명칭')).toHaveValue('부사 사과 1kg');
-    expect(screen.getByLabelText('대표 카테고리')).toHaveValue('p01-c01-l01');
+    expect(screen.getByRole('combobox', { name: '대표 카테고리' })).toHaveValue('과일·채소 > 과일 > 사과·배'); // 칸에는 경로 이름(보내는 값은 아래 p01-c01-l01)
     expect(screen.getByLabelText('중량(g)')).toHaveValue('1000');
     expect(screen.getByLabelText('보관 방식')).toHaveValue('CHILLED');
     expect(screen.getByLabelText('바코드(쉼표 구분, 앞자리 0 유지)')).toHaveValue('0880000000012');
@@ -116,7 +117,7 @@ describe('상품 등록 폼', () => {
     const user = userEvent.setup();
     renderAt('/products/drafts/new');
     await user.type(screen.getByLabelText('관리용 명칭'), '사과');
-    await user.selectOptions(await screen.findByLabelText('대표 카테고리'), 'p01');
+    await pick(user, '대표 카테고리', /^과일·채소$/); // 쳐서 찾는 고르기(2026-11-19)
     await user.type(screen.getByLabelText('중량(g)'), '1000');
     await user.click(screen.getByRole('button', { name: 'SKU 추가' }));
 

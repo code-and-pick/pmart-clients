@@ -1,3 +1,4 @@
+import { pick } from '../test/pick';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
@@ -14,7 +15,7 @@ describe('상품 등록 → 승인 요청 → 승인 → 반영', () => {
     const md = renderAt('/products/drafts/new');
 
     await user.type((await screen.findByLabelText('관리용 명칭')), '테스트 사과');
-    await user.selectOptions(await screen.findByLabelText('대표 카테고리'), 'p01-c01-l01');
+    await pick(user, '대표 카테고리', '과일·채소 > 과일 > 사과·배', '사과'); // 쳐서 찾는 고르기(2026-11-19)
     await user.type(screen.getByLabelText('중량(g)'), '1000');
     await user.selectOptions(screen.getByLabelText('보관 방식'), 'CHILLED');
     await user.click(screen.getByRole('button', { name: '초안 저장' }));
@@ -77,7 +78,7 @@ describe('상품 등록 → 승인 요청 → 승인 → 반영', () => {
     const user = userEvent.setup();
     renderAt('/products/drafts/new');
     await user.type(screen.getByLabelText('관리용 명칭'), '중량 없는 상품');
-    await user.selectOptions(await screen.findByLabelText('대표 카테고리'), 'p01');
+    await pick(user, '대표 카테고리', /^과일·채소$/); // 쳐서 찾는 고르기(2026-11-19)
     await user.click(screen.getByRole('button', { name: '초안 저장' }));
 
     expect(await screen.findByTitle('INVALID')).toHaveTextContent('검증 오류');
