@@ -40,8 +40,10 @@ enum _Note { none, pending, busy, expired, failed }
 
 /// 휴대폰 본인 확인(OCTOMO) — 대표번호로 문자를 보내고 "보냈어요"를 누른다. 확인되면 확인 ID(가입에 넣는 phoneVerificationId)로 닫는다.
 ///
-/// 확인됐는데 이 번호로 가입한 다른 계정이 있으면 그 계정 안내(제공자·가입일·가린 이메일 + 그 제공자로 로그인),
-/// 탈퇴한 번호면 다시 가입할 수 있는 날(서버 값)을 보인다. 계약이 없어 목 모드에서만 연다([phoneIdentityRepositoryProvider]).
+/// 이 번호로 가입한 다른 계정이 있으면(시작 409) 그 계정 안내(제공자·가입일·가린 이메일 + 그 제공자로 로그인),
+/// 탈퇴한 번호면 다시 가입할 수 있는 날(서버 값)을 보인다.
+/// 서버에 확인 설정이 없으면(422 CONFIG_REQUIRED) 준비 중 안내 + "확인 없이 계속" — [phoneIdentitySkipped] 로 닫는다
+/// (가입을 받을지는 서버가 정한다: 확인이 필수로 켜지면 가입이 422 PHONE_NOT_VERIFIED).
 class PhoneIdentityScreen extends ConsumerStatefulWidget {
   const PhoneIdentityScreen({super.key, required this.phone});
 
@@ -95,6 +97,8 @@ class _PhoneIdentityScreenState extends ConsumerState<PhoneIdentityScreen> {
       });
     } on PhoneIdentityStartRejected catch (e) {
       if (mounted) setState(() => _rejected = e.reason);
+    } on PhoneIdentityStartEnded catch (e) {
+      if (mounted) setState(() => _final = e.outcome);
     } on PmartFailure {
       if (mounted) setState(() => _startFailed = true);
     }
@@ -186,17 +190,12 @@ class _PhoneIdentityScreenState extends ConsumerState<PhoneIdentityScreen> {
     return Scaffold(
       appBar: AppBar(title: Text(l10n.phoneIdTitle)),
       body: SafeArea(
-        child: switch (_final) {
-          PhoneIdentityAlreadyRegistered(:final account) => _ExistingAccount(
-            account: account,
-            onOtherPhone: () => context.pop(),
-          ),
-          PhoneIdentityRejoinBlocked(:final until) => _RejoinBlocked(
-            availableAt: until,
-            onOk: () => context.pop(),
-          ),
-          _ => _body(l10n),
-        },
+        child:
+            switch (_final) {
+              final o? => identityEndedView(o, onClose: () => context.pop()),
+              null => null,
+            } ??
+            _body(l10n),
       ),
     );
   }
@@ -211,11 +210,21 @@ class _PhoneIdentityScreenState extends ConsumerState<PhoneIdentityScreen> {
               PhoneIdentityStartRejection.notSupported =>
                 l10n.phoneIdNotSupported,
               PhoneIdentityStartRejection.tooMany => l10n.phoneIdTooMany,
+              PhoneIdentityStartRejection.notReady => l10n.phoneIdNotReady,
             },
             key: const ValueKey('phone-id-rejected'),
             textAlign: TextAlign.center,
             style: const TextStyle(fontSize: 15, color: RiderColors.sub),
           ),
+          // 서버가 아직 확인을 받지 않는다 — 확인 없이 가입을 이어 간다(받을지는 가입 때 서버가 정한다).
+          if (r == PhoneIdentityStartRejection.notReady) ...[
+            const SizedBox(height: 16),
+            OutlinedButton(
+              key: const ValueKey('phone-id-skip'),
+              onPressed: () => context.pop(phoneIdentitySkipped),
+              child: Text(l10n.phoneIdSkip),
+            ),
+          ],
         ],
       );
     }
@@ -382,6 +391,40 @@ class _CopyRow extends StatelessWidget {
   );
 }
 
+/// 다른 계정이 있음·탈퇴한 번호 안내. 그 밖의 결과는 null.
+Widget? identityEndedView(
+  PhoneIdentityOutcome outcome, {
+  required VoidCallback onClose,
+}) => switch (outcome) {
+  PhoneIdentityAlreadyRegistered(:final account) => _ExistingAccount(
+    account: account,
+    onOtherPhone: onClose,
+  ),
+  PhoneIdentityRejoinBlocked(:final until) => _RejoinBlocked(
+    availableAt: until,
+    onOk: onClose,
+  ),
+  _ => null,
+};
+
+/// 가입(`POST /riders/signups`)이 409 IDENTITY_ALREADY_REGISTERED·RIDER_REJOIN_BLOCKED 로 거절했을 때 같은 안내.
+/// 닫으면 가입 화면(전화번호 단계)으로 돌아간다.
+class IdentityEndedScreen extends StatelessWidget {
+  const IdentityEndedScreen({super.key, required this.outcome});
+
+  final PhoneIdentityOutcome outcome;
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(title: Text(AppLocalizations.of(context).phoneIdTitle)),
+    body: SafeArea(
+      child:
+          identityEndedView(outcome, onClose: () => context.pop()) ??
+          const SizedBox.shrink(),
+    ),
+  );
+}
+
 /// 이 번호로 가입한 계정이 있다 — 그 제공자로 로그인하게 안내한다(다른 이커머스처럼).
 class _ExistingAccount extends ConsumerWidget {
   const _ExistingAccount({required this.account, required this.onOtherPhone});
@@ -443,16 +486,18 @@ class _ExistingAccount extends ConsumerWidget {
           ),
           child: Column(
             children: [
-              row(
-                l10n.existingProvider,
-                providerName(l10n, account.provider),
-                const ValueKey('existing-provider'),
-              ),
-              row(
-                l10n.existingJoined,
-                seoulDate(account.joinedAt),
-                const ValueKey('existing-joined'),
-              ),
+              if (account.provider case final p?)
+                row(
+                  l10n.existingProvider,
+                  providerName(l10n, p),
+                  const ValueKey('existing-provider'),
+                ),
+              if (account.joinedAt case final at?)
+                row(
+                  l10n.existingJoined,
+                  seoulDate(at),
+                  const ValueKey('existing-joined'),
+                ),
               if (account.emailMasked case final email?)
                 row(
                   l10n.existingEmail,
@@ -463,13 +508,19 @@ class _ExistingAccount extends ConsumerWidget {
           ),
         ),
         const SizedBox(height: 28),
-        // 지금(가입 중) 세션을 끝내고 그 제공자로 로그인한다.
-        SocialLoginButton(
-          provider: account.provider,
-          onPressed: () => ref
-              .read(sessionProvider.notifier)
-              .switchAccount(account.provider),
-        ),
+        // 지금(가입 중) 세션을 끝내고 그 제공자로 로그인한다. 서버가 수단을 알려 주지 않으면 로그인 화면으로.
+        if (account.provider case final p?)
+          SocialLoginButton(
+            provider: p,
+            onPressed: () =>
+                ref.read(sessionProvider.notifier).switchAccount(p),
+          )
+        else
+          RiderButton(
+            key: const ValueKey('existing-to-login'),
+            label: l10n.existingToLogin,
+            onPressed: () => ref.read(sessionProvider.notifier).logout(),
+          ),
         const SizedBox(height: 8),
         TextButton(
           key: const ValueKey('existing-other-phone'),

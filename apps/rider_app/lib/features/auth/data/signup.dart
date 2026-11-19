@@ -6,6 +6,7 @@ import 'package:pmart_core/pmart_core.dart';
 
 import '../../../shared/mfc_directory.dart';
 import '../../../shared/providers.dart';
+import 'phone_identity.dart';
 
 /// 배달 수단 = rider-service `VehicleType`(E_BIKE·KICKBOARD 는 2026-11-16 계약 추가 — 수행료는 자전거와 같다).
 enum Vehicle { motorcycle, bicycle, eBike, kickboard, car, walk }
@@ -81,8 +82,8 @@ class SignupDraft {
   final String licenseNumber;
   final bool licenseChecked;
 
-  /// 휴대폰 본인 확인(OCTOMO) ID — rider 0.17.0(PR #250, 병합 전) `POST /riders/signups` 의 phoneVerificationId(확인 뒤 1시간 안).
-  /// 생성 코드에 아직 없어 실서버 가입 요청에는 넣지 않는다(목만). 계약 병합 뒤 붙인다.
+  /// 휴대폰 본인 확인(OCTOMO) ID — rider 0.17.0 `POST /riders/signups` 의 phoneVerificationId(확인 뒤 1시간 안).
+  /// 확인을 건너뛰었으면(서버 설정 없음) null — 보내지 않는다.
   final String? phoneVerificationId;
 
   SignupDraft copyWith({
@@ -101,6 +102,7 @@ class SignupDraft {
     String? licenseNumber,
     bool? licenseChecked,
     String? phoneVerificationId,
+    bool clearPhoneVerification = false,
   }) => SignupDraft(
     consents: consents ?? this.consents,
     phone: phone ?? this.phone,
@@ -116,7 +118,9 @@ class SignupDraft {
     vehicle: vehicle ?? this.vehicle,
     licenseNumber: licenseNumber ?? this.licenseNumber,
     licenseChecked: licenseChecked ?? this.licenseChecked,
-    phoneVerificationId: phoneVerificationId ?? this.phoneVerificationId,
+    phoneVerificationId: clearPhoneVerification
+        ? null
+        : phoneVerificationId ?? this.phoneVerificationId,
   );
 }
 
@@ -182,8 +186,22 @@ abstract final class SignupOptions {
   };
 }
 
+/// 가입을 서버가 번호 때문에 거절했다 — 409 IDENTITY_ALREADY_REGISTERED(다른 계정)·RIDER_REJOIN_BLOCKED(탈퇴한 번호).
+/// 휴대폰 본인 확인 화면과 같은 안내를 보인다.
+final class SignupIdentityEnded implements Exception {
+  const SignupIdentityEnded(this.outcome);
+  final PhoneIdentityOutcome outcome;
+}
+
+/// 가입에 휴대폰 본인 확인이 필요하다(422 PHONE_NOT_VERIFIED — 서버가 확인을 필수로 켰거나 확인 ID 가 지남).
+/// 전화번호 단계로 돌아가 다시 확인한다.
+final class SignupPhoneNotVerified implements Exception {
+  const SignupPhoneNotVerified();
+}
+
 /// 가입(`POST /riders/signups`). 서버가 프로필을 돌려주면 바로 운행할 수 있다(즉시 승인).
 abstract interface class SignupRepository {
+  /// 번호 거절은 [SignupIdentityEnded]·[SignupPhoneNotVerified], 그 밖의 실패는 [PmartFailure].
   Future<void> submit(SignupDraft draft);
 
   /// 운전면허 중복 확인(`POST /riders/license-checks`). true 면 쓸 수 있다.
@@ -228,12 +246,19 @@ final class MockSignupRepository implements SignupRepository {
   final Duration latency;
   SignupDraft? submitted;
 
+  /// 다음 가입 한 번을 이 예외로 거절한다(시험 — 409·422 흉내).
+  Exception? rejectNext;
+
   /// 이미 등록된 면허(시연용 가짜 번호).
   final registeredLicenses = <String>{'112233333344'};
 
   @override
   Future<void> submit(SignupDraft draft) async {
     await Future<void>.delayed(latency);
+    if (rejectNext case final e?) {
+      rejectNext = null;
+      throw e;
+    }
     submitted = draft;
     registeredPhones.add(draft.phone);
     if (draft.bankCode != null && draft.accountNumber.isNotEmpty) {
@@ -296,11 +321,37 @@ final class ApiSignupRepository implements SignupRepository {
     if (vehicle == null || area == null) {
       throw const ContractViolationFailure('가입 입력이 끝나지 않았다');
     }
+    try {
+      await _create(draft, key, vehicle, area);
+    } on ProblemFailure catch (f) {
+      // 서버가 확정 거절했다 — 입력을 고쳐 다시 보내면 새 요청이다(같은 키에 다른 본문은 IDEMPOTENCY_CONFLICT).
+      _key = null;
+      if (identityConflictOf(f.problem) case final ended?) {
+        throw SignupIdentityEnded(ended);
+      }
+      if (f.problem.code == 'PHONE_NOT_VERIFIED') {
+        throw const SignupPhoneNotVerified();
+      }
+      rethrow;
+    }
+    _key = null;
+  }
+
+  Future<void> _create(
+    SignupDraft draft,
+    IdempotencyKey key,
+    Vehicle vehicle,
+    AreaOption area,
+  ) async {
+    final verificationId = draft.phoneVerificationId;
     await pmartGuard(
       () => _signup.createRiderSignup(
         idempotencyKey: key.value,
         xSourceSystem: sourceSystem,
         riderSignupRequest: rd.RiderSignupRequest(
+          phoneVerificationId: verificationId == null || verificationId.isEmpty
+              ? null
+              : verificationId,
           phone: draft.phone,
           name: draft.name.trim(),
           vehicleType: vehicleToContract(vehicle),
@@ -332,7 +383,6 @@ final class ApiSignupRepository implements SignupRepository {
         extra: commandOptions(key).extra,
       ),
     );
-    _key = null;
   }
 
   @override

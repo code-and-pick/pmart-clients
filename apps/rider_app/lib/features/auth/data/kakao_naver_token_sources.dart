@@ -7,7 +7,7 @@ import 'rider_auth.dart';
 
 /// 카카오 로그인: 카카오톡이 있으면 카카오톡, 없으면 카카오계정(웹)으로 로그인해 **OIDC ID 토큰**을 넘긴다
 /// (고객앱 BR-65 와 같은 방식 — 서버가 카카오 JWKS 로 검증). 콘솔에서 OpenID Connect 를 켜야 ID 토큰이 온다.
-/// rider-auth 계약에 KAKAO 가 생기기 전에는 부르지 않는다([riderAuthAcceptsKakaoNaver]). 토큰은 로그에 남기지 않는다.
+/// rider-auth 0.2.0 KAKAO(aud = 카카오 앱 키). 토큰은 로그에 남기지 않는다.
 final class KakaoIdTokenSource implements SocialTokenSource {
   const KakaoIdTokenSource();
 

@@ -251,8 +251,8 @@ class _SignupFlowScreenState extends ConsumerState<SignupFlowScreen> {
       _phoneAvailable = ok ?? true;
       _phoneDeferred = ok == null;
     });
-    // 중복이 아니면 본인 확인(OCTOMO 문자)까지 — 본인 확인 계약이 있을 때만(지금은 목 모드만).
-    if (ok == true && _identityRequired) {
+    // 중복이 아니면 본인 확인(OCTOMO 문자)까지(rider 0.17.0).
+    if (ok == true) {
       final verificationId = await context.push<String>(
         '/signup/phone',
         extra: phone,
@@ -260,20 +260,20 @@ class _SignupFlowScreenState extends ConsumerState<SignupFlowScreen> {
       if (!mounted) return;
       if (verificationId != null && _draft.phone == phone) {
         _phoneVerifiedFor = phone;
-        _set(_draft.copyWith(phoneVerificationId: verificationId));
+        // 건너뜀([phoneIdentitySkipped] — 서버 설정 없음)이면 확인 ID 없이 이어 간다(가입 때 서버가 정한다).
+        _set(
+          verificationId == phoneIdentitySkipped
+              ? _draft.copyWith(clearPhoneVerification: true)
+              : _draft.copyWith(phoneVerificationId: verificationId),
+        );
       }
     }
   }
 
-  /// 본인 확인(OCTOMO)을 받을지. 실서버는 라이더 계약이 없어 예전처럼 중복 확인만 한다.
-  bool get _identityRequired =>
-      ref.read(phoneIdentityRepositoryProvider) != null;
-
   /// 본인 확인을 마친 번호(번호가 바뀌면 다시).
   String? _phoneVerifiedFor;
 
-  bool get _phoneIdentityOk =>
-      !_identityRequired || _phoneVerifiedFor == _draft.phone;
+  bool get _phoneIdentityOk => _phoneVerifiedFor == _draft.phone;
 
   @override
   void initState() {
@@ -400,10 +400,44 @@ class _SignupFlowScreenState extends ConsumerState<SignupFlowScreen> {
       return;
     }
     setState(() => _busy = true);
-    await ref.read(signupRepositoryProvider).submit(_draft);
+    try {
+      await ref.read(signupRepositoryProvider).submit(_draft);
+    } on SignupIdentityEnded catch (e) {
+      // 이 번호로 가입한 다른 계정·탈퇴한 번호(409) — 안내를 보이고, 닫으면 전화번호 단계에서 다시.
+      if (!mounted) return;
+      _backToPhoneStep();
+      await context.push<void>('/signup/identity-ended', extra: e.outcome);
+      return;
+    } on SignupPhoneNotVerified {
+      // 본인 확인이 필요하다(422 PHONE_NOT_VERIFIED) — 전화번호 단계에서 다시 확인.
+      if (!mounted) return;
+      _backToPhoneStep();
+      showRiderToast(context, l10n.signupPhoneNotVerified);
+      return;
+    } on PmartFailure catch (f) {
+      if (!mounted) return;
+      setState(() => _busy = false);
+      // 결과를 모르면 같은 키로 다시 누르게 둔다(저장소가 키를 들고 있다). 실패로 단정하지 않는다.
+      showRiderToast(
+        context,
+        f is ProblemFailure ? l10n.signupRejected : l10n.signupUnknown,
+      );
+      return;
+    }
     if (!mounted) return;
     // 가입하면 바로 운행할 수 있다(심사 없음). 완료 화면에서 "시작하기"를 누르면 홈으로 간다.
     context.go('/signup/done');
+  }
+
+  /// 전화번호 단계로 돌아가 본인 확인을 다시 받게 한다.
+  void _backToPhoneStep() {
+    setState(() {
+      _busy = false;
+      _step = 2;
+      _phoneVerifiedFor = null;
+      _phoneAvailable = null;
+      _draft = _draft.copyWith(clearPhoneVerification: true);
+    });
   }
 
   void _back() {
@@ -625,7 +659,9 @@ class _SignupFlowScreenState extends ConsumerState<SignupFlowScreen> {
               if (digits == _draft.phone) return;
               // 번호가 바뀌면 인증(중복 확인)을 다시 받는다.
               _phoneAvailable = null;
-              _set(_draft.copyWith(phone: digits));
+              _set(
+                _draft.copyWith(phone: digits, clearPhoneVerification: true),
+              );
             },
           ),
         ),
@@ -648,8 +684,9 @@ class _SignupFlowScreenState extends ConsumerState<SignupFlowScreen> {
         switch (_phoneAvailable) {
           true when _phoneDeferred => l10n.checkAtSignup,
           true when !_phoneIdentityOk => l10n.phoneIdNeeded,
-          true when _identityRequired => l10n.phoneIdDone,
-          true => l10n.phoneAvailable,
+          // 서버에 확인 설정이 없어 건너뛰었다 — 확인을 마쳤다고 하지 않는다.
+          true when _draft.phoneVerificationId == null => l10n.checkAtSignup,
+          true => l10n.phoneIdDone,
           false => l10n.phoneDuplicate,
           null => l10n.phoneVerifyNote,
         },

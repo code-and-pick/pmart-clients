@@ -6,6 +6,7 @@ import 'package:pmart_api_rider_auth/pmart_api_rider_auth.dart' as ra;
 import 'package:pmart_core/pmart_core.dart';
 
 import '../../../shared/providers.dart';
+import 'kakao_naver_token_sources.dart';
 
 /// 라이더용 Google 웹 클라이언트 ID(serverClientId). Google 이 주는 ID 토큰의 `aud` 가 이 값이고,
 /// rider-auth-service 는 이 값만 받는다(고객용 ID 로는 라이더 로그인이 안 된다). 공개 식별자 — 비밀값 아님
@@ -18,12 +19,10 @@ const riderGoogleServerClientId = String.fromEnvironment(
 /// 라이더 로그인 제공자. 화면 순서도 이 순서(구글 → 카카오 → 네이버).
 enum RiderSocialProvider { google, kakao, naver }
 
-/// rider-auth-service 가 카카오·네이버를 받는지. 우리가 생성한 계약(rider-auth 0.1.0)은 GOOGLE 만이다.
-/// rider-auth 계약에 KAKAO·NAVER 가 생기면 켠다 — 백엔드 회신 PR #250(rider-auth 0.2.0, 병합 전): providerToken 은
-/// ID 토큰만(카카오 OIDC idToken, 네이버 인가 코드 + PKCE id_token), 서버에 앱 키가 없으면 422 CONFIG_REQUIRED(그 버튼 숨김·안내).
-/// 병합 뒤 [RiderLogin.login] 이 생성 enum(`ra.Provider`) 값으로 보내게 바꾼다. 네이버는 OIDC 패키지 승인도 필요
-/// ([NaverIdTokenSource] 주석).
-const riderAuthAcceptsKakaoNaver = false;
+/// rider-auth-service 가 카카오·네이버를 받는지 — rider-auth 0.2.0(백엔드 #250 병합·배포)부터 GOOGLE·KAKAO·NAVER.
+/// providerToken 은 ID 토큰만(카카오 OIDC idToken, 네이버 인가 코드 + PKCE id_token). 서버에 그 제공자 앱 키가 아직 없으면
+/// 422 CONFIG_REQUIRED — 안내하고 이 실행 동안 그 버튼을 숨긴다([unavailableSocialProvidersProvider]).
+const riderAuthAcceptsKakaoNaver = true;
 
 /// 빌드 때 `--dart-define-from-file=.secrets/rider.env` 로 들어오는 키(버튼을 낼지 판단에만 쓴다. 값은 로그에 남기지 않는다).
 /// 네이버 Client Secret 은 Dart 에서 읽지 않는다(매니페스트 meta-data 로만 들어간다).
@@ -42,13 +41,36 @@ List<RiderSocialProvider> serverSocialProviders({
     RiderSocialProvider.naver,
 ];
 
-/// 로그인 화면에 보일 제공자. 목 모드는 셋 다(목 로그인), 실서버는 [serverSocialProviders].
-final riderSocialProvidersProvider = Provider<List<RiderSocialProvider>>(
-  (ref) => switch (ref.watch(envProvider)) {
+/// 이 실행 동안 숨길 제공자 — 서버가 422 CONFIG_REQUIRED(앱 키 미설정)·501 UNSUPPORTED_ACTION 으로 답한 카카오·네이버.
+/// 앱을 다시 켜면 비워진다(그사이 서버 설정이 끝났을 수 있다). 구글은 숨기지 않는다(로그인할 방법이 없어진다).
+final class UnavailableSocialProviders
+    extends Notifier<Set<RiderSocialProvider>> {
+  @override
+  Set<RiderSocialProvider> build() => const {};
+
+  void hide(RiderSocialProvider p) {
+    if (p == RiderSocialProvider.google || state.contains(p)) return;
+    state = {...state, p};
+  }
+}
+
+final unavailableSocialProvidersProvider =
+    NotifierProvider<UnavailableSocialProviders, Set<RiderSocialProvider>>(
+      UnavailableSocialProviders.new,
+    );
+
+/// 로그인 화면에 보일 제공자. 목 모드는 셋 다(목 로그인), 실서버는 [serverSocialProviders] 에서 이번 실행에 준비 안 됨으로
+/// 확인된 제공자를 뺀다.
+final riderSocialProvidersProvider = Provider<List<RiderSocialProvider>>((ref) {
+  final hidden = ref.watch(unavailableSocialProvidersProvider);
+  return switch (ref.watch(envProvider)) {
     PmartEnv.mock => RiderSocialProvider.values,
-    PmartEnv.local => serverSocialProviders(),
-  },
-);
+    PmartEnv.local => [
+      for (final p in serverSocialProviders())
+        if (!hidden.contains(p)) p,
+    ],
+  };
+});
 
 /// 실서버 로그인 결과(목 모드는 [RiderLogin] 을 거치지 않는다).
 sealed class RiderLoginOutcome {
@@ -83,12 +105,19 @@ final class RiderLoginUnavailable extends RiderLoginOutcome {
   const RiderLoginUnavailable();
 }
 
-/// 서버(rider-auth 계약)가 아직 이 제공자를 받지 않는다 — 서버를 부르지 않았다.
+/// 이 앱에 그 제공자 로그인이 붙어 있지 않다(토큰 소스 없음) — 서버를 부르지 않았다.
 final class RiderLoginUnsupported extends RiderLoginOutcome {
   const RiderLoginUnsupported();
 }
 
-/// 제공자 로그인 → 서버에 넘길 토큰(Google·카카오 = ID 토큰, 네이버 = 액세스 토큰). 토큰은 로그·오류 문구에 남기지 않는다.
+/// 서버가 이 제공자를 아직 받지 않는다 — 422 CONFIG_REQUIRED(앱 키 미설정)·501 UNSUPPORTED_ACTION.
+/// 안내하고 이 실행 동안 그 버튼을 숨긴다.
+final class RiderLoginProviderNotReady extends RiderLoginOutcome {
+  const RiderLoginProviderNotReady(this.provider);
+  final RiderSocialProvider provider;
+}
+
+/// 제공자 로그인 → 서버에 넘길 OIDC ID 토큰(Google·카카오·네이버). 토큰은 로그·오류 문구에 남기지 않는다.
 abstract interface class SocialTokenSource {
   /// 취소면 null. 설정 문제면 [RiderLoginMisconfigured] 를, 장애면 [RiderLoginUnavailable] 를 던진다.
   Future<String?> obtain();
@@ -154,6 +183,8 @@ final class RiderLogin {
     required this.tokens,
     required this.deviceId,
     required this.google,
+    this.kakao,
+    this.naver,
   }) : _logins = ra.PmartApiRiderAuth(dio: dio).getLoginsApi(),
        _tokensApi = ra.PmartApiRiderAuth(dio: dio).getTokensApi(),
        _me = rd.PmartApiRider(dio: dio).getMeApi();
@@ -165,18 +196,35 @@ final class RiderLogin {
   final DeviceIdProvider deviceId;
   final GoogleIdTokenSource google;
 
+  /// 카카오 OIDC ID 토큰([KakaoIdTokenSource]). null 이면 카카오 로그인을 부르지 않는다.
+  final SocialTokenSource? kakao;
+
+  /// 네이버 OIDC(인가 코드 + PKCE) ID 토큰([NaverIdTokenSource]). null 이면 부르지 않는다.
+  final SocialTokenSource? naver;
+
+  /// 마지막으로 로그인한 제공자 소스 — 로그아웃 때 그 SDK 로그인도 끝낸다.
+  SocialTokenSource? _signedIn;
+
+  SocialTokenSource? _sourceOf(RiderSocialProvider p) => switch (p) {
+    RiderSocialProvider.google => google,
+    RiderSocialProvider.kakao => kakao,
+    RiderSocialProvider.naver => naver,
+  };
+
+  static ra.Provider _contractProvider(RiderSocialProvider p) => switch (p) {
+    RiderSocialProvider.google => ra.Provider.GOOGLE,
+    RiderSocialProvider.kakao => ra.Provider.KAKAO,
+    RiderSocialProvider.naver => ra.Provider.NAVER,
+  };
+
   Future<RiderLoginOutcome> login({
     RiderSocialProvider provider = RiderSocialProvider.google,
   }) async {
-    // rider-auth 계약은 GOOGLE 만 — 카카오·네이버는 계약이 생기기 전까지 서버를 부르지 않는다
-    // (화면은 [riderSocialProvidersProvider] 로 버튼부터 내지 않는다). 토큰 소스는 [kakaoTokenSourceProvider]·
-    // [naverTokenSourceProvider] 에 붙어 있다.
-    if (provider != RiderSocialProvider.google) {
-      return const RiderLoginUnsupported();
-    }
+    final source = _sourceOf(provider);
+    if (source == null) return const RiderLoginUnsupported();
     final String? idToken;
     try {
-      idToken = await google.obtain();
+      idToken = await source.obtain();
     } on RiderLoginOutcome catch (o) {
       return o;
     }
@@ -190,7 +238,7 @@ final class RiderLogin {
           xSourceSystem: sourceSystem,
           xDeviceId: await deviceId.get(),
           riderSocialLoginRequest: ra.RiderSocialLoginRequest(
-            provider: ra.Provider.GOOGLE,
+            provider: _contractProvider(provider),
             providerToken: idToken!,
           ),
           extra: commandOptions(key).extra,
@@ -200,10 +248,23 @@ final class RiderLogin {
           res.data ??
           (throw const ContractViolationFailure('RiderAuthResult 본문 없음'));
     } on ProblemFailure catch (f) {
+      // 서버에 그 제공자 앱 키가 아직 없다(422 CONFIG_REQUIRED) / 받지 않는 제공자(501) — 제공자 SDK 로그인만 끝내 둔다.
+      if (f.problem.code == ProblemCode.configRequired ||
+          f.problem.code == ProblemCode.unsupportedAction) {
+        await source.signOut();
+        return RiderLoginProviderNotReady(provider);
+      }
       return RiderLoginRejected(f.problem.code);
-    } on PmartFailure {
+    } on PmartFailure catch (f) {
+      // 501 은 변경 요청의 5xx 라 결과 불명으로 온다 — 코드가 UNSUPPORTED_ACTION 이면 준비 안 됨.
+      if (f case UnknownResultFailure(:final problem?)
+          when problem.code == ProblemCode.unsupportedAction) {
+        await source.signOut();
+        return RiderLoginProviderNotReady(provider);
+      }
       return const RiderLoginUnavailable();
     }
+    _signedIn = source;
     final pair = result.tokens;
     if (pair == null) return const RiderLoginUnavailable();
     await tokens.save(
@@ -243,7 +304,9 @@ final class RiderLogin {
       }
     }
     await tokens.clear();
-    await google.signOut();
+    final signedIn = _signedIn ?? google;
+    _signedIn = null;
+    await signedIn.signOut();
   }
 }
 
@@ -253,6 +316,8 @@ final riderLoginProvider = Provider<RiderLogin>(
     tokens: ref.watch(tokenStoreProvider),
     deviceId: ref.watch(deviceIdProvider),
     google: ref.watch(googleIdTokenSourceProvider),
+    kakao: ref.watch(kakaoTokenSourceProvider),
+    naver: ref.watch(naverTokenSourceProvider),
   ),
 );
 

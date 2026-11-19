@@ -476,10 +476,23 @@ void main() {
     expect(find.textContaining('2,600'), findsWidgets);
     await tap('fee-agree');
     expect(t.widget<RiderButton>(next).onPressed, isNotNull);
+
+    // 서버가 본인 확인을 요구하면(422 PHONE_NOT_VERIFIED) 전화번호 단계로 돌아가 다시 확인한다.
+    signups.rejectNext = const SignupPhoneNotVerified();
     await tap('signup-next');
+    expect(signups.submitted, isNull);
+    expect(find.byKey(const ValueKey('phone-check')), findsOneWidget);
+    expect(find.text('휴대폰 본인 확인이 필요해요. 인증하기를 다시 눌러 주세요'), findsOneWidget);
+    expect(canNext(), isFalse, reason: '본인 확인을 다시 받아야 한다');
+    await tap('phone-check');
+    await tap('phone-id-sent');
+    expect(canNext(), isTrue);
+    await tap('signup-next'); // 계좌(입력 그대로)
+    await tap('signup-next'); // 배달 정보(입력 그대로)
+    await tap('signup-next'); // 완료
 
     expect(signups.submitted?.phone, '01012345678');
-    // 본인 확인 ID 가 가입 입력에 남는다(rider 0.17.0 phoneVerificationId — 실서버 요청에는 계약 병합 뒤).
+    // 본인 확인 ID 가 가입 입력에 남는다(rider 0.17.0 phoneVerificationId — 실서버는 가입 요청 본문에 넣는다).
     expect(signups.submitted?.phoneVerificationId, startsWith('mock-pv-'));
     expect(signups.submitted?.vehicle, Vehicle.motorcycle);
     expect(signups.submitted?.area?.mfcId, 'MFC-BSJ-01');

@@ -132,7 +132,7 @@ void main() {
       );
     });
 
-    test('실서버 카카오·네이버 로그인은 계약이 없어 서버·SDK 를 부르지 않는다', () async {
+    test('카카오·네이버 토큰 소스가 붙지 않은 로그인은 서버·SDK 를 부르지 않는다', () async {
       final google = _NoGoogle();
       final login = RiderLogin(
         dio: Dio(),
@@ -231,7 +231,6 @@ void main() {
     testWidgets('이 번호로 가입한 계정이 있으면 제공자·가입일·가린 이메일과 그 제공자 로그인', (t) async {
       // 세션이 바뀌면 화면 묶음이 통째로 바뀌어 이 화면의 결과(Future)는 끝나지 않는다 — 기다리지 않는다.
       await open(t, '01099990000');
-      await tap(t, 'phone-id-sent');
       expect(find.text('이 번호로 가입한 계정이 있어요'), findsOneWidget);
       expect(
         t.widget<Text>(find.byKey(const ValueKey('existing-provider'))).data,
@@ -257,7 +256,6 @@ void main() {
 
     testWidgets('네이버로 가입한 번호면 네이버로 로그인 버튼', (t) async {
       await open(t, '01099990001');
-      await tap(t, 'phone-id-sent');
       expect(
         t.widget<Text>(find.byKey(const ValueKey('existing-provider'))).data,
         '네이버',
@@ -270,7 +268,6 @@ void main() {
 
     testWidgets('탈퇴한 번호는 서버가 준 날부터 다시 가입할 수 있다고 안내', (t) async {
       final result = await open(t, '01077770000');
-      await tap(t, 'phone-id-sent');
       expect(find.text('탈퇴한 번호예요'), findsOneWidget);
       expect(find.text('2026-12-19부터 다시 가입할 수 있어요'), findsOneWidget);
       await tap(t, 'rejoin-ok');
@@ -293,17 +290,23 @@ void main() {
     });
   });
 
-  test('실서버는 본인 확인 계약이 없어 저장소가 없다(가입은 phone-checks 만)', () {
+  test('본인 확인 저장소: 실서버는 Api(rider 0.17.0), 목은 목 구현', () {
     final c = ProviderContainer(
       overrides: [envProvider.overrideWithValue(PmartEnv.local)],
     );
     addTearDown(c.dispose);
-    expect(c.read(phoneIdentityRepositoryProvider), isNull);
+    expect(
+      c.read(phoneIdentityRepositoryProvider),
+      isA<ApiPhoneIdentityRepository>(),
+    );
     final m = ProviderContainer(
       overrides: [envProvider.overrideWithValue(PmartEnv.mock)],
     );
     addTearDown(m.dispose);
-    expect(m.read(phoneIdentityRepositoryProvider), isNotNull);
+    expect(
+      m.read(phoneIdentityRepositoryProvider),
+      isA<MockPhoneIdentityRepository>(),
+    );
   });
 
   test('네이버(OIDC+PKCE): Client ID 가 없으면 브라우저를 열지 않고 설정 문제로 알린다, redirect_uri 는 게이트웨이 중계 주소(앱으로 com.pmart.rider 302)', () async {

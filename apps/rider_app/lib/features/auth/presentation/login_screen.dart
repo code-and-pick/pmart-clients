@@ -9,12 +9,20 @@ import '../data/rider_auth.dart';
 import '../data/session.dart';
 
 /// 로그인 결과 안내(로그인됨·취소는 안내 없음).
-String? loginResultText(AppLocalizations l10n, LoginResult r) => switch (r) {
+/// [provider] 는 준비 안 됨(notReady) 안내에 쓰는 제공자 이름.
+String? loginResultText(
+  AppLocalizations l10n,
+  LoginResult r, {
+  RiderSocialProvider provider = RiderSocialProvider.google,
+}) => switch (r) {
   LoginResult.loggedIn || LoginResult.canceled => null,
   LoginResult.misconfigured => l10n.loginMisconfigured,
   LoginResult.rejected => l10n.loginRejected,
   LoginResult.unavailable => l10n.loginUnavailable,
   LoginResult.unsupported => l10n.loginUnsupported,
+  LoginResult.notReady => l10n.loginProviderNotReady(
+    providerName(l10n, provider),
+  ),
 };
 
 String loginLabel(AppLocalizations l10n, RiderSocialProvider p) => switch (p) {
@@ -78,7 +86,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final result = await ref.read(sessionProvider.notifier).login(provider);
     if (!mounted) return;
     setState(() => _busy = false);
-    if (loginResultText(l10n, result) case final text?) {
+    if (loginResultText(l10n, result, provider: provider) case final text?) {
       showRiderToast(context, text);
     }
   }

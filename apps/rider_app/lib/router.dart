@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import 'features/appeals/data/appeals.dart';
 import 'features/appeals/presentation/appeal_screens.dart';
+import 'features/auth/data/phone_identity.dart' show PhoneIdentityOutcome;
 import 'features/auth/data/session.dart';
 import 'features/auth/presentation/fee_guide_screen.dart';
 import 'features/auth/presentation/login_screen.dart';
@@ -56,10 +57,16 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(path: '/signup', builder: (_, _) => const SignupFlowScreen()),
       GoRoute(path: '/signup/fees', builder: (_, _) => const FeeGuideScreen()),
-      // 휴대폰 본인 확인(OCTOMO) — 가입 전화번호 단계에서 연다(목 모드만, 라이더 계약 요청 중).
+      // 휴대폰 본인 확인(OCTOMO, rider 0.17.0) — 가입 전화번호 단계에서 연다.
       GoRoute(
         path: '/signup/phone',
         builder: (_, s) => PhoneIdentityScreen(phone: s.extra as String? ?? ''),
+      ),
+      // 가입이 409(다른 계정·탈퇴한 번호)로 거절됐을 때 안내.
+      GoRoute(
+        path: '/signup/identity-ended',
+        builder: (_, s) =>
+            IdentityEndedScreen(outcome: s.extra! as PhoneIdentityOutcome),
       ),
       GoRoute(
         path: '/signup/terms/:type',
