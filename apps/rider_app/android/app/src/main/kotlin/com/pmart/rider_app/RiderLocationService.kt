@@ -14,6 +14,7 @@ import android.content.pm.ServiceInfo
 import android.location.Location
 import android.location.LocationListener
 import android.location.LocationManager
+import android.location.LocationRequest
 import android.os.Build
 import android.os.Handler
 import android.os.IBinder
@@ -185,6 +186,20 @@ class RiderLocationService : Service() {
         val lm = locationManager ?: getSystemService(Context.LOCATION_SERVICE) as LocationManager
         locationManager = lm
         lm.removeUpdates(listener)
+        // Android 12+: 기기 내장 fused 위치(GPS·와이파이·기지국 합침)에 높은 정확도·5초 간격을 고정으로 요청한다.
+        // GPS·네트워크를 따로 받으면 서 있을 때(가게 앞 등) 갱신이 8~10초로 늘었다(백엔드 측정 2026-11-19).
+        // 추가 라이브러리 없이 안드로이드 기본 API 만 쓴다.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+            lm.allProviders.contains(LocationManager.FUSED_PROVIDER)
+        ) {
+            val request = LocationRequest.Builder(LOCATION_MS)
+                .setQuality(LocationRequest.QUALITY_HIGH_ACCURACY)
+                .setMinUpdateIntervalMillis(LOCATION_MS)
+                .setMinUpdateDistanceMeters(0f)
+                .build()
+            lm.requestLocationUpdates(LocationManager.FUSED_PROVIDER, request, mainExecutor, listener)
+            return
+        }
         for (provider in listOf(LocationManager.GPS_PROVIDER, LocationManager.NETWORK_PROVIDER)) {
             if (lm.isProviderEnabled(provider)) {
                 lm.requestLocationUpdates(provider, LOCATION_MS, 0f, listener, Looper.getMainLooper())
