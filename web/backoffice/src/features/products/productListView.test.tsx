@@ -1,0 +1,54 @@
+// 상품 조회(2026-11-19 쿠팡 윙 상품 조회/수정 참고)
+import { screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { describe, expect, it } from 'vitest';
+
+import { pick } from '../../test/pick';
+import { as, renderAt } from '../../test/render';
+
+const rowOf = (name: string) => screen.getAllByTestId('product-row').find((r) => r.textContent?.includes(name))!;
+
+describe('상품 조회', () => {
+  it('판매 상태 숫자 카드(서버 목록으로 셈), 누르면 그 상태', async () => {
+    const user = userEvent.setup();
+    renderAt('/products', as.md);
+    await waitFor(() => expect(screen.getByTestId('product-count-all')).toHaveTextContent('2'));
+    expect(screen.getByTestId('product-count-ON_SALE')).toHaveTextContent('2');
+    expect(screen.getByTestId('product-count-SALE_STOPPED')).toHaveTextContent('0');
+    await user.click(screen.getByTestId('product-count-SALE_STOPPED'));
+    expect(await screen.findByText('조건에 맞는 상품이 없어요')).toBeInTheDocument();
+    expect(screen.getByTestId('product-count-SALE_STOPPED')).toHaveAttribute('aria-current', 'true');
+  });
+
+  it('줄에는 시스템 ID 대신 카테고리 경로·SKU 수·판매가(서버 값), 미설정은 0원이 아니라 "가격 미설정"', async () => {
+    renderAt('/products', as.md);
+    await waitFor(() => expect(rowOf('사과 1.5kg')).toHaveTextContent('과일·채소 > 과일 > 사과·배'));
+    const apple = rowOf('사과 1.5kg');
+    expect(apple).not.toHaveTextContent('P-00000001');
+    expect(apple).not.toHaveTextContent('p01-c01');
+    await waitFor(() => expect(within(apple).getByTestId('product-price')).toHaveTextContent('4,500원'));
+    expect(apple).toHaveTextContent('SKU 1개');
+    await waitFor(() => expect(within(rowOf('소고기 미역국')).getByTestId('product-price')).toHaveTextContent('가격 미설정'));
+  });
+
+  it('상품명은 바로 거르고, 카테고리는 경로로 쳐서 고른다(주소에 categoryId)', async () => {
+    const user = userEvent.setup();
+    renderAt('/products', as.md);
+    await waitFor(() => expect(screen.getAllByTestId('product-row')).toHaveLength(2));
+    await user.type(screen.getByRole('textbox', { name: '상품명' }), '미역');
+    expect(screen.getAllByTestId('product-row')).toHaveLength(1);
+    await user.clear(screen.getByRole('textbox', { name: '상품명' }));
+    await waitFor(() => expect(screen.getByRole('combobox', { name: '카테고리' })).toBeEnabled());
+    await pick(user, '카테고리', '국·탕·찌개 > 국·국밥', '국밥');
+    await waitFor(() => expect(screen.getAllByTestId('product-row').every((r) => r.textContent?.includes('국·탕·찌개'))).toBe(true));
+  });
+
+  it('줄 행동: 상품 수정은 상세로, ⋮ 에 가격·콘텐츠 바로 가기', async () => {
+    renderAt('/products', as.md);
+    await waitFor(() => expect(within(rowOf('사과 1.5kg')).getByTestId('product-price')).toHaveTextContent('4,500원'));
+    const apple = rowOf('사과 1.5kg');
+    expect(within(apple).getByTestId('product-edit')).toHaveAttribute('href', '/products/P-00000001');
+    expect(within(apple).getByRole('link', { name: '가격 관리에서 보기' })).toHaveAttribute('href', '/prices?sku=E-00000001');
+    expect(within(apple).getByRole('link', { name: '콘텐츠·이미지 등록' })).toHaveAttribute('href', '/contents/drafts/new?productId=P-00000001');
+  });
+});
