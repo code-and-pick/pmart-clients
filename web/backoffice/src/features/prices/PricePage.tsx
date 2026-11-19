@@ -21,7 +21,10 @@ import { toUiState } from '@pmart/web-ui';
 import { useCommand } from '@pmart/web-ui';
 import { RequestApproval } from '../approvals/RequestApproval';
 import { CodeLabel, NextAction, PageHeader, StatusBadge, type Tone } from '../../shared/admin';
-import { Card, EmptyState, JumpLink, LineIcon, Steps, tableClass } from '../products/parts';
+import { Card, JumpLink, LineIcon, Steps, tableClass } from '../products/parts';
+import { PreviewDrawer } from '../../shared/Preview';
+import { pushToast } from '../../shared/toast';
+import { PriceList } from './PriceList';
 
 const SKU_PATTERN = /^[EB]-\d{8}$/;
 const PRICE_NOT_SET = 'PRICE_NOT_SET';
@@ -51,13 +54,13 @@ function SkuProduct({ sku }: { readonly sku: string }) {
     <Link to={`/products/${encodeURIComponent(productId)}`} className="group inline-flex items-center gap-2 rounded-box border border-base-300 bg-base-100 px-4 py-2.5 shadow-sm hover:border-primary/40" data-testid="sku-product">
       <LineIcon name="box" className="h-4 w-4 text-base-content/50" />
       <span className="font-semibold">{productQ.data?.internalName ?? '…'}</span>
-      <span className="font-mono text-xs text-base-content/50">{productId}</span>
       <span className="text-sm text-primary group-hover:underline">{m.prices.openProduct} →</span>
     </Link>
   );
 }
 
-function PriceLookup({ sku }: { readonly sku: string }) {
+/** compact = 오른쪽 서랍 안(좁다) — 현재 기본가·이력을 위아래로 */
+function PriceLookup({ sku, compact = false }: { readonly sku: string; readonly compact?: boolean }) {
   const api = useApi();
   const price = useQuery({
     queryKey: ['pricing', 'price', sku],
@@ -79,8 +82,8 @@ function PriceLookup({ sku }: { readonly sku: string }) {
         <JumpLink to="price-change">{m.prices.goChange}</JumpLink>
       </NextAction>
     )}
-    <div className="grid items-start gap-4 lg:grid-cols-3">
-      <Card title={m.prices.current} aside={<span className="rounded bg-base-200 px-2 py-0.5 font-mono text-xs">{sku}</span>} className="lg:col-span-2">
+    <div className={compact ? 'space-y-4' : 'grid items-start gap-4 lg:grid-cols-3'}>
+      <Card title={m.prices.current} aside={<span className="rounded bg-base-200 px-2 py-0.5 font-mono text-xs">{sku}</span>} className={compact ? '' : 'lg:col-span-2'}>
         {notSet ? (
           <div role="status" data-state="not-set" className="flex items-center gap-3 rounded-lg border border-warning/40 bg-warning/10 px-4 py-4 text-warning">
             <LineIcon name="tag" className="h-6 w-6 shrink-0" />
@@ -139,6 +142,32 @@ function PriceLookup({ sku }: { readonly sku: string }) {
   );
 }
 
+/**
+ * 변경할 행의 SKU 가 무엇인지(2026-11-19 — 가격 관리 목록에서 넘어오면 SKU 코드만 보여 무엇의 가격인지 몰랐다): 상품 이름 · 지금 기본가.
+ * 목록·서랍과 같은 조회(같은 queryKey — 다시 안 읽음). 못 읽으면 ?(0원·미설정으로 바꾸지 않는다).
+ */
+function LineSkuInfo({ sku }: { readonly sku: string }) {
+  const api = useApi();
+  const skuQ = useQuery({ queryKey: ['product', 'sku', sku], queryFn: () => request('GET', api.product.GET('/skus/{sku}', { params: { path: { sku } } })) });
+  const productId = skuQ.data?.productId;
+  const productQ = useQuery({
+    queryKey: ['product', 'detail', productId ?? ''],
+    enabled: Boolean(productId),
+    queryFn: () => request('GET', api.product.GET('/products/{productId}', { params: { path: { productId: productId ?? '' } } })),
+  });
+  const price = useQuery({ queryKey: ['pricing', 'price', sku], queryFn: () => request('GET', api.pricing.GET('/prices/{sku}', { params: { path: { sku } } })) });
+  const notSet = price.error instanceof ProblemFailure && price.error.problem.code === PRICE_NOT_SET;
+  const name = skuQ.isError || productQ.isError ? '?' : (productQ.data?.internalName ?? '…');
+  const now = notSet ? m.prices.list.notSet : price.data ? formatKrw(price.data.basePrice) : price.isError ? '?' : '…';
+  return (
+    <span className="mt-1 block text-xs text-base-content/55" data-testid="line-sku-info">
+      <span className="font-medium text-base-content/75">{name}</span>
+      {` · ${m.prices.list.nowPrice} `}
+      <span className={notSet ? 'font-semibold text-error' : 'font-semibold tabular-nums'}>{now}</span>
+    </span>
+  );
+}
+
 interface Line {
   sku: string;
   basePrice: string;
@@ -171,9 +200,9 @@ export function priceChangeBody(lines: readonly Line[], requestedEffectiveFrom: 
 
 const validLine = (l: Line) => SKU_PATTERN.test(l.sku) && /^\d+$/.test(l.basePrice);
 
-function PriceChange({ initialSku }: { readonly initialSku: string }) {
+function PriceChange({ initialSkus }: { readonly initialSkus: readonly string[] }) {
   const api = useApi();
-  const [lines, setLines] = useState<Line[]>([emptyLine(initialSku)]);
+  const [lines, setLines] = useState<Line[]>(initialSkus.length > 0 ? initialSkus.map((s) => emptyLine(s)) : [emptyLine()]);
   const [common, setCommon] = useState('');
   const [body, setBody] = useState<ChangeRequestBody | null>(null);
   const [approvalId, setApprovalId] = useState('');
@@ -230,6 +259,7 @@ function PriceChange({ initialSku }: { readonly initialSku: string }) {
                   <td className="text-xs text-base-content/45">{i + 1}</td>
                   <td>
                     <input aria-label={`${m.prices.sku} ${i + 1}`} className="input input-sm w-36 font-mono" disabled={body !== null} value={l.sku} onChange={(e) => setLine(i, { sku: e.target.value.trim() })} />
+                    {SKU_PATTERN.test(l.sku) && <LineSkuInfo sku={l.sku} />}
                   </td>
                   <td>
                     <input aria-label={`${m.prices.basePrice} ${i + 1}`} className="input input-sm w-28 text-right tabular-nums" inputMode="numeric" disabled={body !== null} value={l.basePrice} onChange={(e) => setLine(i, { basePrice: e.target.value.trim() })} />
@@ -301,43 +331,68 @@ function PriceChange({ initialSku }: { readonly initialSku: string }) {
 export function PricePage() {
   const [params, setParams] = useSearchParams();
   const sku = params.get('sku') ?? '';
-  const [input, setInput] = useState(sku);
   const valid = SKU_PATTERN.test(sku);
+  // 가격 변경 카드에 넣을 SKU(줄의 "가격 변경"·선택 일괄). 바뀌면 카드를 새로 그린다(key)
+  const [changeSkus, setChangeSkus] = useState<readonly string[]>(valid ? [sku] : []);
+  const [drawer, setDrawer] = useState<{ ids: readonly string[]; productId: string } | null>(null);
+  const setSku = (next: string | null) =>
+    setParams(
+      (p) => {
+        const q = new URLSearchParams(p);
+        if (next) q.set('sku', next);
+        else q.delete('sku');
+        return q;
+      },
+      { replace: true },
+    );
+  const startChange = (skus: string[]) => {
+    setChangeSkus(skus);
+    pushToast({ tone: 'info', title: m.prices.list.changeFor(skus.length) });
+    requestAnimationFrame(() => document.getElementById('price-change')?.scrollIntoView?.({ behavior: 'smooth', block: 'start' }));
+  };
   return (
     <section className="space-y-4">
       <PageHeader
         title={m.prices.title}
         description={m.prices.intro}
         actions={
-          <Link className="btn btn-sm" to="/prices/import">
-            {m.prices.importTitle}
-          </Link>
+          <>
+            {/* 오른쪽 위 바로 가기(쿠팡 윙처럼) — 요청한 가격 변경의 심사·반영은 승인함에서 */}
+            <Link className="btn btn-sm" to="/approvals?type=PRICE">
+              {m.prices.list.card.approvals}
+            </Link>
+            <Link className="btn btn-sm" to="/prices/import">
+              {m.prices.importTitle}
+            </Link>
+          </>
         }
       />
-      {/* SKU 찾기 줄 */}
-      <form
-        className="flex flex-wrap items-center gap-2 rounded-box border border-base-300 bg-base-100 px-4 py-3 shadow-sm"
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (SKU_PATTERN.test(input.trim())) setParams({ sku: input.trim() });
+      {/* 가격 관리 목록(2026-11-19 쿠팡 윙 가격관리 참고) — 숫자 카드·안내·검색 띠·목록 */}
+      <PriceList
+        openSku={valid ? sku : ''}
+        onChange={startChange}
+        onOpen={(next, ids, productId) => {
+          setDrawer({ ids, productId });
+          setSku(next);
         }}
-      >
-        <label className="input input-sm flex w-64 items-center gap-2">
-          <LineIcon name="search" className="h-4 w-4 text-base-content/40" />
-          <input aria-label={m.prices.sku} placeholder="E-00000001" className="grow font-mono" value={input} onChange={(e) => setInput(e.target.value)} />
-        </label>
-        <button type="submit" className="btn btn-sm btn-primary" disabled={!SKU_PATTERN.test(input.trim())}>
-          {m.prices.lookup}
-        </button>
-      </form>
-      {sku && valid ? (
-        <PriceLookup key={sku} sku={sku} />
-      ) : (
-        <div className="rounded-box border border-dashed border-base-300 bg-base-100">
-          <EmptyState icon="tag">{m.prices.pickSku}</EmptyState>
-        </div>
+      />
+      {/* 줄을 누르면 오른쪽에 현재 기본가·예약·이력(예전 SKU 조회 화면 그대로) */}
+      {sku && valid && (
+        <PreviewDrawer
+          id={sku}
+          ids={drawer?.ids ?? [sku]}
+          onMove={(next) => setSku(next)}
+          onClose={() => setSku(null)}
+          title={m.prices.list.drawerTitle(sku)}
+          detailTo={drawer?.productId ? `/products/${encodeURIComponent(drawer.productId)}` : '/products'}
+        >
+          <PriceLookup key={sku} sku={sku} compact />
+          <button type="button" className="btn btn-primary btn-sm mt-4" onClick={() => startChange([sku])}>
+            {m.prices.list.change}
+          </button>
+        </PreviewDrawer>
       )}
-      <PriceChange key={sku} initialSku={valid ? sku : ''} />
+      <PriceChange key={changeSkus.join(',')} initialSkus={changeSkus} />
     </section>
   );
 }

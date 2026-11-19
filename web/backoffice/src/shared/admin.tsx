@@ -273,10 +273,27 @@ export function FieldList({ rows, testId }: { readonly rows: ReadonlyArray<reado
  * 통계 카드 — 관제 형식(2026-11-19 사용자가 보여 준 배송 관제 화면): 왼쪽 색 막대 + 이름 + 큰 숫자 + 설명 한 줄.
  * 색은 tone 이 있을 때만(0 이거나 평범하면 회색 막대). active 면 지금 고른 거르기라는 테두리.
  */
-export function StatCard({ label, value, hint, to, tone, testId, active = false }: { readonly label: ReactNode; readonly value: ReactNode; readonly hint?: ReactNode; readonly to?: string; readonly tone?: 'warning' | 'error' | 'info' | 'success' | undefined; readonly testId?: string; readonly active?: boolean }) {
+// layout 'row'(2026-11-19 쿠팡 윙 가격관리 참고): 이름·도움말 왼쪽, 큰 숫자 오른쪽. 기본 'stack' 은 이름 아래 숫자
+export function StatCard({ label, value, hint, to, tone, testId, active = false, layout = 'stack' }: { readonly label: ReactNode; readonly value: ReactNode; readonly hint?: ReactNode; readonly to?: string; readonly tone?: 'warning' | 'error' | 'info' | 'success' | undefined; readonly testId?: string; readonly active?: boolean; readonly layout?: 'stack' | 'row' }) {
   const bar = tone ? { error: 'bg-error', warning: 'bg-warning', info: 'bg-info', success: 'bg-success' }[tone] : 'bg-base-300';
   const ch = useStatChange(value); // 방금 바뀐 칸만 잠깐 빛남 + ▲▼(2026-11-19)
-  const body = (
+  const valueCls = tone === 'error' ? 'text-error' : tone === 'warning' ? 'text-warning' : '';
+  const body =
+    layout === 'row' ? (
+      <>
+        <span className={`absolute inset-y-0 left-0 w-1 ${bar}`} aria-hidden="true" />
+        <span className="flex items-start justify-between gap-3">
+          <span className="min-w-0">
+            <span className="block text-sm font-semibold">{label}</span>
+            {hint && <span className="mt-0.5 block text-[11px] text-base-content/50">{hint}</span>}
+          </span>
+          <span className={`shrink-0 text-3xl font-bold leading-none tabular-nums ${valueCls}`}>
+            {value}
+            {ch.badge}
+          </span>
+        </span>
+      </>
+    ) : (
     <>
       <span className={`absolute inset-y-0 left-0 w-1 ${bar}`} aria-hidden="true" />
       <p className="text-xs font-medium text-base-content/60">{label}</p>
@@ -287,7 +304,8 @@ export function StatCard({ label, value, hint, to, tone, testId, active = false 
       {hint && <p className="text-[11px] text-base-content/50">{hint}</p>}
     </>
   );
-  const cls = `relative block space-y-0.5 overflow-hidden rounded-box border bg-base-100 py-3 pl-4 pr-3 shadow-sm ${active ? 'border-primary ring-1 ring-primary/30' : 'border-base-300'} ${ch.cls}`;
+  // 고른 카드: 테두리 + 옅은 바탕(쿠팡 윙처럼 어느 상태를 보는지 한눈에)
+  const cls = `relative block space-y-0.5 overflow-hidden rounded-box border py-3 pl-4 pr-3 shadow-sm ${layout === 'row' ? 'min-h-20 py-4' : ''} ${active ? 'border-primary bg-primary/5 ring-1 ring-primary/30' : 'border-base-300 bg-base-100'} ${ch.cls}`;
   return to ? (
     <Link to={to} className={`${cls} transition hover:-translate-y-0.5 hover:shadow-md`} data-testid={testId} aria-current={active ? 'true' : undefined}>
       {body}
