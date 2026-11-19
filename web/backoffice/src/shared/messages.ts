@@ -1884,6 +1884,17 @@ export const messages = {
     unitsPerSku: '구성 낱개 수',
     weightG: '중량(g)',
     volumeMl: '용량(mL)',
+    /** 내용량(product 0.4.0, 2026-11-19) */
+    net: {
+      label: '내용량',
+      unit: '내용량 단위',
+      placeholder: '예 500, 1.5',
+      unitName: { G: 'g', KG: 'kg', ML: 'mL', L: 'L' },
+      hint: '판매 단위 전체에 든 양(500g×2입 묶음이면 1kg). 고객 앱 "100g당 가격"에 써요. 개수로만 팔면 비워요.',
+      invalid: '숫자로 적어 주세요 — g·mL 로 바꿨을 때 1~1,000,000 의 정수여야 해요(예 1.5kg = 1500g).',
+      cleared: '지금 있는 내용량을 지웠어요. 이대로 승인되면 내용량이 없어지고 고객 앱에 단위 가격이 안 나와요.',
+      show: (n: number, u: 'G' | 'ML') => (n >= 1000 && n % 100 === 0 ? `${(n / 1000).toLocaleString('ko-KR')}${u === 'G' ? 'kg' : 'L'}` : `${n.toLocaleString('ko-KR')}${u === 'G' ? 'g' : 'mL'}`),
+    },
     storageType: '보관 방식',
     alcohol: '주류',
     barcodes: '바코드(쉼표 구분, 앞자리 0 유지)',

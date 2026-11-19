@@ -318,6 +318,7 @@ export function ProductDetailPage() {
                             <th>SKU</th>
                             <th>{m.products.unitType}</th>
                             <th>{m.products.weightG}</th>
+                            <th>{m.products.net.label}</th>
                             <th>{m.products.storageType}</th>
                             <th>{m.products.barcodes}</th>
                             <th>{m.products.saleState}</th>
@@ -336,6 +337,8 @@ export function ProductDetailPage() {
                                 <p className="text-xs text-base-content/50">{`${m.products.unitsPerSku} ${s.unitsPerSku}`}</p>
                               </td>
                               <td>{s.weightG ?? m.notSet}</td>
+                              {/* 내용량 — 없으면 "없음"(개수로만 파는 상품은 원래 비움, 고객 화면에 단위 가격이 안 나옴) */}
+                              <td data-testid="sku-net-content">{s.netContent ? m.products.net.show(s.netContent.amount, s.netContent.unit) : m.none}</td>
                               <td>{s.logistics?.storageType ? <span className="badge badge-sm badge-info badge-soft">{m.products.storageName[s.logistics.storageType]}</span> : m.none}</td>
                               <td>
                                 {(s.barcodes ?? []).length === 0 ? (

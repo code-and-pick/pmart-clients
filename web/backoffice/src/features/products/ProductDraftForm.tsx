@@ -21,11 +21,27 @@ const fieldLabel = 'text-xs font-medium text-base-content/60';
 type DraftSku = ProductDraftInput['skus'][number];
 type DimensionsSource = NonNullable<DraftSku['dimensionsSource']>;
 
+type NetUnit = 'G' | 'KG' | 'ML' | 'L';
+const NET_UNITS: readonly NetUnit[] = ['G', 'KG', 'ML', 'L'];
+/** 화면 값 → 계약 값(g·mL 정수 1~1,000,000). 비었으면 null(보내지 않음), 잘못이면 'invalid' — 판정은 서버(NET_CONTENT_INVALID)도 한다 */
+export function netContentOf(amount: string, unit: NetUnit): { amount: number; unit: 'G' | 'ML' } | null | 'invalid' {
+  const t = amount.trim().replace(/,/g, '');
+  if (!t) return null;
+  if (!/^\d+(\.\d+)?$/.test(t)) return 'invalid';
+  const big = unit === 'KG' || unit === 'L';
+  const n = Math.round(Number(t) * (big ? 1000 : 1) * 1000) / 1000;
+  if (!Number.isInteger(n) || n < 1 || n > 1_000_000) return 'invalid';
+  return { amount: n, unit: unit === 'G' || unit === 'KG' ? 'G' : 'ML' };
+}
+
 interface SkuRow {
   unitType: SaleUnitType;
   unitsPerSku: string;
   weightG: string;
   volumeMl: string;
+  // 내용량(product 0.4.0 — 고객 앱 "100g당 가격"). 화면은 g·kg·mL·L 로 받고 보낼 때 g·mL 정수로(kg·L ×1000)
+  netAmount: string;
+  netUnit: NetUnit;
   storageType: StorageType | '';
   alcohol: boolean;
   barcodes: string;
@@ -66,6 +82,8 @@ const emptySku = (): SkuRow => ({
   unitsPerSku: '1',
   weightG: '',
   volumeMl: '',
+  netAmount: '',
+  netUnit: 'G',
   storageType: '',
   alcohol: false,
   barcodes: '',
@@ -99,6 +117,8 @@ function skuRowOf(s: DraftSku | SkuJson): SkuRow {
     unitsPerSku: String(s.unitsPerSku),
     weightG: numText(s.weightG),
     volumeMl: numText(s.volumeMl),
+    netAmount: numText(d.netContent?.amount),
+    netUnit: d.netContent?.unit === 'ML' ? 'ML' : 'G',
     storageType: s.storageType ?? l?.storageType ?? '',
     alcohol: s.alcohol ?? false,
     barcodes: (s.barcodes ?? []).join(', '),
@@ -153,6 +173,7 @@ function toInput(v: FormValues, base: ProductDraftInput | undefined): ProductDra
     skus: v.skus.map((s) => {
       const weightG = int(s.weightG);
       const volumeMl = int(s.volumeMl);
+      const net = netContentOf(s.netAmount, s.netUnit);
       const barcodes = list(s.barcodes);
       const logistics: Record<'unitsPerBox' | 'ti' | 'hi' | 'boxesPerPallet', number> = {} as never;
       for (const k of ['unitsPerBox', 'ti', 'hi', 'boxesPerPallet'] as const) {
@@ -172,6 +193,7 @@ function toInput(v: FormValues, base: ProductDraftInput | undefined): ProductDra
         unitsPerSku: int(s.unitsPerSku) ?? 1,
         ...(weightG === undefined ? {} : { weightG }),
         ...(volumeMl === undefined ? {} : { volumeMl }),
+        ...(net && net !== 'invalid' ? { netContent: net } : {}),
         ...(s.storageType ? { storageType: s.storageType } : {}),
         alcohol: s.alcohol,
         ...(barcodes.length > 0 ? { barcodes } : {}),
@@ -285,6 +307,7 @@ export function ProductDraftForm({
       onSubmit={(e) => {
         e.preventDefault();
         if (!v.internalName.trim()) return;
+        if (v.skus.some((sk) => netContentOf(sk.netAmount, sk.netUnit) === 'invalid')) return;
         setBaseline(JSON.stringify(v));
         onSubmit(toInput(v, initial));
       }}
@@ -459,6 +482,34 @@ export function ProductDraftForm({
               {numField(i, 'unitsPerSku', m.products.unitsPerSku, edit)}
               {numField(i, 'weightG', m.products.weightG, false, true)}
               {numField(i, 'volumeMl', m.products.volumeMl)}
+              {/* 내용량(2026-11-19 백엔드 알림 notice-sku-net-content) — 포장 무게와 다른 칸, 개수로만 파는 상품은 비운다 */}
+              <div className="flex flex-col gap-1 text-sm" data-testid={`net-content-${i}`}>
+                <span className={fieldLabel}>{m.products.net.label}</span>
+                <div className="join">
+                  <input
+                    className={`input input-sm join-item w-full ${netContentOf(s.netAmount, s.netUnit) === 'invalid' ? 'input-error' : ''}`}
+                    inputMode="decimal"
+                    aria-label={m.products.net.label}
+                    placeholder={m.products.net.placeholder}
+                    value={s.netAmount}
+                    onChange={(e) => setSku(i, { netAmount: e.target.value })}
+                  />
+                  <select className="select select-sm join-item w-20" aria-label={m.products.net.unit} value={s.netUnit} onChange={(e) => setSku(i, { netUnit: NET_UNITS.find((u) => u === e.target.value) ?? 'G' })}>
+                    {NET_UNITS.map((u) => (
+                      <option key={u} value={u}>
+                        {m.products.net.unitName[u]}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                {netContentOf(s.netAmount, s.netUnit) === 'invalid' ? (
+                  <span className="text-xs text-error" role="alert">{m.products.net.invalid}</span>
+                ) : edit && !s.netAmount.trim() && initial?.skus[i]?.netContent ? (
+                  <span className="text-xs text-warning" role="alert" data-testid="net-content-cleared">{m.products.net.cleared}</span>
+                ) : (
+                  <span className="text-xs text-base-content/50">{m.products.net.hint}</span>
+                )}
+              </div>
               <label className="flex flex-col gap-1 text-sm">
                 <span className={`${fieldLabel} field-required`}>{m.products.storageType}</span>
                 <select

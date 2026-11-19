@@ -133,7 +133,8 @@ export function createDb(): MockDb {
       categoryIds: [i === 1 ? 'p01-c01-l01' : 'p03-c01'],
       saleState: 'ON_SALE',
       version: 1,
-      skus: [sku(i, productId)],
+      // 내용량(product 0.4.0) — 사과는 1.5kg, 미역국은 비움(목)
+      skus: [i === 1 ? { ...sku(i, productId), netContent: { amount: 1500, unit: 'G' as const } } : sku(i, productId)],
       approvalId: `apv-seed-${i}`,
       publishedAt: '2026-10-29T01:00:00Z',
     });

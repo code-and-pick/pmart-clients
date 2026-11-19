@@ -319,6 +319,7 @@ export const catalogHandlers = [
                 unitsPerSku: s.unitsPerSku,
                 ...(s.weightG === undefined ? {} : { weightG: s.weightG }),
                 ...(s.volumeMl == null ? {} : { volumeMl: s.volumeMl }),
+                ...(s.netContent ? { netContent: s.netContent } : {}), // product 0.4.0 — 현재 값을 옮겨 담는다
                 ...(s.logistics?.storageType ? { storageType: s.logistics.storageType } : {}),
                 alcohol: s.alcohol ?? false,
                 ...(s.shelfLifeGuarantee ? { shelfLifeGuarantee: s.shelfLifeGuarantee } : {}),
