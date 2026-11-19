@@ -44,6 +44,11 @@ export const messages = {
   reasonLabel: '사유',
   reasonRequired: '사유를 입력해 주세요',
 
+  /** 머리줄 맥락 꼬리표(2026-11-19 관제 화면 형식) */
+  shell: {
+    clockTitle: '서울 시각(표시용)',
+    roleName: { OPERATOR_ADMIN: '운영 관리자', MD: 'MD', PRODUCT_APPROVER: '상품 승인', DISPLAY_APPROVER: '전시 승인', PRICE_APPROVER: '가격 승인', RIDER_OPS: '라이더 운영', CS_AGENT: '상담원', MFC_SUPERVISOR: '센터 관리자', HR_ADMIN: '인사팀' } as Readonly<Record<string, string>>,
+  },
   nav: {
     session: '내 세션',
     login: '로그인',

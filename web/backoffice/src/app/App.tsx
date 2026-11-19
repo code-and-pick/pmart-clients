@@ -24,6 +24,8 @@ import { covers, visibleGroups, type NavGroup } from './nav';
 import { RequireSession, SessionProvider, useSession } from './SessionContext';
 import { GroupIcon } from './groupIcons';
 import { GroupAlertBadge, MenuGroupAlert, MenuItemAlerts } from './MenuAlerts';
+import { NavRail } from './NavRail';
+import { LiveClock, RoleChips } from './HeaderContext';
 
 // 화면은 열 때 받는다(2026-11-19 — 앱 전체가 파일 하나라 첫 화면이 느렸다). 로그인·세션·대시보드·업무 도우미 틀은 처음부터.
 const ApprovalDetailPage = lazy(() => import('../features/approvals/ApprovalDetailPage').then((x) => ({ default: x.ApprovalDetailPage })));
@@ -169,7 +171,7 @@ function Layout() {
     <div className="flex min-h-screen bg-base-200">
       <ScrollToTopOnNavigate />
       {/* 메뉴는 화면 높이에 고정하고 길면 메뉴만 따로 스크롤(오른쪽 화면을 내려도 메뉴는 그 자리) */}
-      <aside className={`sticky top-0 flex h-screen shrink-0 flex-col self-start overflow-y-auto bg-neutral text-neutral-content transition-[width] ${collapsed ? 'w-16' : 'w-60'}`} data-testid="side-menu" data-collapsed={collapsed}>
+      <aside className={`sticky top-0 flex h-screen shrink-0 flex-col self-start overflow-y-auto bg-neutral text-neutral-content transition-[width] ${collapsed ? 'w-20' : 'w-60'}`} data-testid="side-menu" data-collapsed={collapsed}>
         <div className={`flex h-14 shrink-0 items-center gap-1 border-b border-neutral-content/10 ${collapsed ? 'justify-center px-1' : 'justify-between pl-5 pr-2'}`}>
           {!collapsed && (
             <Link to="/" className="truncate text-base font-bold text-neutral-content" aria-label={m.goHome}>
@@ -183,24 +185,7 @@ function Layout() {
           </button>
         </div>
         {collapsed ? (
-          <nav aria-label="메뉴" className="flex flex-1 flex-col items-center gap-1 py-3">
-            {session && (
-              <NavLink to="/" end aria-label={m.dashboard.title} title={m.dashboard.title} className={({ isActive }) => `flex h-10 w-10 items-center justify-center rounded-lg ${isActive ? 'bg-accent/20 text-accent' : 'text-neutral-content/80 hover:bg-neutral-content/10'}`} data-testid="nav-dashboard">
-                <GroupIcon id="dashboard" className="h-5 w-5" />
-              </NavLink>
-            )}
-            {groups.map((g) => {
-              const active = g.items.some((i) => covers(i, pathname));
-              return (
-                <Link key={g.id} to={g.home ?? g.items[0]?.to ?? '/'} aria-label={g.label} title={g.label} className={`relative flex h-10 w-10 items-center justify-center rounded-lg ${active ? 'bg-accent/20 text-accent' : 'text-neutral-content/80 hover:bg-neutral-content/10'}`} data-testid={`nav-rail-${g.id}`}>
-                  <GroupIcon id={g.id} className="h-5 w-5" />
-                  <span className="absolute -right-1.5 -top-1.5 [&>span]:flex-col [&>span]:items-end">
-                    <GroupAlertBadge items={g.items} />
-                  </span>
-                </Link>
-              );
-            })}
-          </nav>
+          <NavRail groups={groups} pathname={pathname} showDashboard={!!session} />
         ) : (
         <nav aria-label="메뉴" className="flex-1 py-3">
           {session && (
@@ -233,7 +218,10 @@ function Layout() {
               </>
             ) : null}
           </p>
-          <div className="flex items-center gap-2 text-sm">
+          {/* 맥락 꼬리표(2026-11-19 관제 화면 형식) — 내 역할 */}
+          {session && <RoleChips roles={session.roles} />}
+          <div className="ml-auto flex items-center gap-2 text-sm">
+            {session && <LiveClock />}
             {/* 번호로 바로 찾기(Ctrl+K, 2026-11-18) — 로그인했을 때만 */}
             {session && <QuickJump />}
             {env.isMock && <span className="badge badge-accent badge-sm">{m.mockBadge}</span>}
