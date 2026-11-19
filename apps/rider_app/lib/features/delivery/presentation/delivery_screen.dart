@@ -213,6 +213,40 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
   static const _loadRetryEvery = Duration(seconds: 3);
   static const _loadRetryMax = 10;
 
+  /// 반납 배송이 내 배송이 아니다(운영자가 "다른 라이더가 반납"으로 확정 — 그 배송은 내게 404).
+  String? _returnElsewhere;
+  bool _openingReturn = false;
+
+  /// 반납 배송으로 넘어가기 전에 내가 읽을 수 있는지 본다(막 만들어져 잠깐 404 인 것은 기다린다).
+  /// 끝까지 404 면 다른 라이더 반납 — 넘어가지 않고 이 화면에서 안내한다(넘어가면 "다시 시도"만 반복됐다,
+  /// 사용자 2026-11-19). 네트워크 등 다른 실패면 넘어간다(그 화면이 저절로 다시 읽는다).
+  Future<void> _openReturn(String rid) async {
+    if (_openingReturn || _returnElsewhere == rid) return;
+    _openingReturn = true;
+    final assigned = ref.read(assignedDeliveriesProvider.notifier)..add(rid);
+    try {
+      await ref.read(deliveryProvider(rid).future);
+    } on ProblemFailure catch (f) {
+      if (f.problem.status == 404) {
+        assigned.remove(rid);
+        _openingReturn = false;
+        if (!mounted) return;
+        setState(() => _returnElsewhere = rid);
+        showRiderToast(
+          context,
+          AppLocalizations.of(context).returnByOtherRider,
+        );
+        return;
+      }
+    } on Object {
+      // 아래에서 넘어간다
+    }
+    _openingReturn = false;
+    if (!mounted) return;
+    showRiderToast(context, AppLocalizations.of(context).goReturnToast);
+    context.go('/deliveries/$rid');
+  }
+
   AsyncValue<DeliveryView> _autoRetry(AsyncValue<DeliveryView> v) {
     if (v is AsyncData<DeliveryView>) {
       _loadRetries = 0;
@@ -553,12 +587,7 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
     });
     // 확정 뒤 반납 배송이 생기면(같은 라이더, 몇 초 뒤) 그 회수 화면으로 넘어간다.
     ref.listen(provider.select((a) => a.value?.returnDeliveryId), (prev, next) {
-      if (prev == null && next != null) {
-        showRiderToast(context, AppLocalizations.of(context).goReturnToast);
-        // 반납 배송은 막 만들어져 몇 초 동안 404 일 수 있다 — 방금 받은 배송처럼 다시 묻게 한다.
-        ref.read(assignedDeliveriesProvider.notifier).add(next);
-        context.go('/deliveries/$next');
-      }
+      if (prev == null && next != null) unawaited(_openReturn(next));
     });
     // 결정 대기·반납 배송 준비 중에는 몇 초마다 다시 읽는다.
     _watchFailure(switch (ref.watch(provider).value) {
@@ -1243,19 +1272,27 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
           ),
           const SizedBox(height: 4),
           Text(switch ((d.goodsWithRider, d.returnDeliveryId)) {
+            (_, final rid?) when rid == _returnElsewhere =>
+              l10n.returnByOtherRider,
             (_, _?) => l10n.failureConfirmedReturn,
             (true, null) => l10n.failureConfirmedPreparing,
             _ => l10n.failureConfirmedStore,
           }, style: const TextStyle(fontSize: 14, color: RiderColors.sub)),
           const SizedBox(height: 10),
-          if (d.returnDeliveryId case final rid?)
+          if (d.returnDeliveryId case final rid? when rid != _returnElsewhere)
             RiderButton(
               key: const ValueKey('go-return'),
               label: l10n.goReturn,
-              onPressed: () {
-                ref.read(assignedDeliveriesProvider.notifier).add(rid);
-                context.go('/deliveries/$rid');
-              },
+              onPressed: _openingReturn
+                  ? null
+                  : () => unawaited(_openReturn(rid)),
+            )
+          else if (d.returnDeliveryId != null)
+            // 다른 라이더 반납 — 지원센터 대화로 확인할 수 있게
+            RiderButton(
+              key: const ValueKey('return-elsewhere-help'),
+              label: l10n.supportOpenThread,
+              onPressed: () => _openHelp(d),
             )
           else if (d.goodsWithRider == true)
             const LinearProgressIndicator()

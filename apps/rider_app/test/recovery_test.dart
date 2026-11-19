@@ -299,4 +299,81 @@ void main() {
     expect(repo.deliveryJson('ret-dlv-1')['state'], 'RETURNED_TO_STORE');
     expect(find.text('반납완료'), findsOneWidget);
   });
+
+  testWidgets(
+    '다른 라이더가 반납(OTHER_RIDER — 내게 404)이면 넘어가지 않고 이 화면에서 안내한다(사용자 2026-11-19 "다시 시도만 반복")',
+    (t) async {
+      t.view
+        ..physicalSize = const Size(800, 2400)
+        ..devicePixelRatio = 1;
+      addTearDown(t.view.reset);
+      var now = DateTime.utc(2026, 11, 17, 10);
+      final repo = MockDeliveryRepository(
+        latency: Duration.zero,
+        clock: () => now,
+      );
+      // 전달 불가 신고가 접수된 상태(실패 등록이 연 대화 req-f1).
+      repo
+        ..seedFailureReport('dlv-1', 'req-f1')
+        ..returnByOtherRider = true;
+      final offers = MockOfferRepository(latency: Duration.zero);
+      await t.pumpWidget(
+        ProviderScope(
+          retry: (_, _) => null,
+          overrides: [
+            envProvider.overrideWithValue(PmartEnv.mock),
+            secureStoreProvider.overrideWithValue(MemoryKeyValueStore()),
+            initialSessionProvider.overrideWithValue(
+              const RiderSession(riderId: 'rider-mock-1'),
+            ),
+            deliveryRepositoryProvider.overrideWithValue(repo),
+            handoverRepositoryProvider.overrideWithValue(repo),
+            evidenceUploaderProvider.overrideWithValue(repo),
+            supportThreadRepositoryProvider.overrideWithValue(repo),
+            mockOfferRepositoryProvider.overrideWithValue(offers),
+            offerRepositoryProvider.overrideWithValue(offers),
+            dutyRepositoryProvider.overrideWithValue(offers),
+          ],
+          child: const RiderApp(),
+        ),
+      );
+      Future<void> settle() async {
+        for (var i = 0; i < 12; i++) {
+          await t.pump(const Duration(milliseconds: 25));
+        }
+      }
+
+      await settle();
+      await t.tap(find.byKey(const ValueKey('delivery-dlv-1')));
+      await settle();
+      expect(find.byKey(const ValueKey('failure-waiting')), findsOneWidget);
+
+      // 지원센터 확정(목: 45초 동안 재개 요청 없음) → 배송 화면이 다시 읽어 안다.
+      now = now.add(MockDeliveryRepository.confirmAfter);
+      await t.pump(const Duration(seconds: 8));
+      await settle();
+      expect(repo.deliveryJson('dlv-1')['state'], 'FAILED');
+      expect(find.byKey(const ValueKey('failure-confirmed')), findsOneWidget);
+
+      now = now.add(MockDeliveryRepository.returnAssignAfter);
+      await t.pump(const Duration(seconds: 8));
+      await settle();
+      // 몇 초 기다려도(막 생긴 배송일 수 있으니) 내 배송이 아니면 넘어가지 않는다 — 오류·다시 시도 화면 없음
+      for (var i = 0; i < 12; i++) {
+        await t.pump(const Duration(seconds: 1));
+      }
+      await settle();
+      expect(find.text('다시 시도'), findsNothing);
+      expect(find.byKey(const ValueKey('failure-confirmed')), findsOneWidget);
+      expect(find.textContaining('다른 라이더가 맡았어요'), findsWidgets);
+      expect(find.byKey(const ValueKey('go-return')), findsNothing);
+      expect(
+        find.byKey(const ValueKey('return-elsewhere-help')),
+        findsOneWidget,
+      );
+      for (var i = 0; i < 12; i++) {
+        await t.pump(const Duration(milliseconds: 250));
+      }
+    },
+  );
 }

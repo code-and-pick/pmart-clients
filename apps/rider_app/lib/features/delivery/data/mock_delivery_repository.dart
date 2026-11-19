@@ -673,6 +673,9 @@ base class MockDeliveryRepository
   static const confirmAfter = Duration(seconds: 45);
   static const returnAssignAfter = Duration(seconds: 3);
 
+  /// 운영자가 "다른 라이더가 반납"(returnBy OTHER_RIDER)으로 확정한 것처럼 — 반납 배송 ID 는 주지만 내게는 없다(404).
+  bool returnByOtherRider = false;
+
   /// 제안 없이 배정된 배송(반납) — 진행 목록에 보인다.
   final autoAssigned = <String>{};
 
@@ -723,6 +726,11 @@ base class MockDeliveryRepository
         decided != null &&
         !now.isBefore(decided.add(returnAssignAfter))) {
       final rid = 'ret-$deliveryId';
+      if (returnByOtherRider) {
+        // 다른 라이더의 배송 — 내 조회에는 없다(404)
+        d['failure'] = {...failure, 'returnDeliveryId': rid};
+        return;
+      }
       final trip = mockTrip(deliveryId!);
       _deliveries[rid] = {
         'deliveryId': rid,
