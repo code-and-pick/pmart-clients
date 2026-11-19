@@ -2,6 +2,7 @@
 // 2026-11-19 쿠팡 윙 "상품 조회/수정" 참고: 판매 상태 숫자 카드 → 회색 검색 띠(상품명·카테고리 경로·바로 찾기) → 머리줄·정렬 → 줄(이름·카테고리 경로·판매가 ~·상태·[상품 수정 ⋮]). 시스템 ID(상품·카테고리 노드)는 줄에 안 보인다.
 // 화면(2026-11-18 사용자 "밋밋하다 — Shopify·Medusa 상품 목록처럼"): 한 카드 안에 판매 상태 탭 → 찾기 줄(바로 찾기·카테고리) →
 // 표(관리용 명칭 굵게·상품 ID 작게, 판매 상태 점 배지, 버전) → 아래 표시 수·더 보기. 머리말 오른쪽에 등록 버튼.
+import { AuthedImage } from '../contents/AuthedImage';
 import { useQueries, useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
@@ -130,6 +131,13 @@ export function ProductListPage() {
   const catLabel = (id: string | undefined) => (id ? (pathOf.get(id) ?? (tree.isError ? '?' : '…')) : m.none);
   const ids = useMemo(() => (query.data?.items ?? []).flatMap((p) => (p.productId ? [p.productId] : [])), [query.data]);
   const priceOf = useProductPrices(ids);
+  // 상품 카드(대표 이미지·고객용 이름, 2026-11-19 쿠팡 윙처럼 사진을 앞에) — GET /product-contents?productIds=(최대 100, 이 쪽 50개). 미게시는 missing → 상자 아이콘
+  const cards = useQuery({
+    queryKey: ['product-contents', 'cards', ids.join(',')],
+    enabled: ids.length > 0,
+    queryFn: () => request('GET', api.content.GET('/product-contents', { params: { query: { productIds: ids } } })),
+  });
+  const cardOf = useMemo(() => new Map((cards.data?.items ?? []).flatMap((c) => (c.productId ? [[c.productId, c] as const] : []))), [cards.data]);
 
   const setParam = (k: string, v: string) => {
     const next = new URLSearchParams(params);
@@ -218,7 +226,10 @@ export function ProductListPage() {
 
       <QueryState state={toUiState(query, (d) => (d.items?.length ?? 0) === 0)} onRetry={() => void query.refetch()} emptyText={m.products.listEmpty}>
         {(d) => {
-          const items = (d.items ?? []).filter((p) => !q || (p.internalName ?? '').toLowerCase().replace(/\s+/g, '').includes(q));
+          // 이름 찾기 — 관리용 명칭 또는 고객용 상품명(게시된 콘텐츠). 서버에 이름 검색이 없어 이 쪽 안에서만(백엔드 요청 2026-11-19 product-name-search)
+          const nameOf = (p: (typeof all)[number]) => `${p.internalName ?? ''}${(p.productId && cardOf.get(p.productId)?.name) ?? ''}`.toLowerCase().replace(/\s+/g, '');
+          const all = d.items ?? [];
+          const items = all.filter((p) => !q || nameOf(p).includes(q));
           const rows = sort === 'name' ? [...items].sort((x, y) => (x.internalName ?? '').localeCompare(y.internalName ?? '', 'ko')) : items;
           return (
             <>
@@ -272,9 +283,7 @@ export function ProductListPage() {
                           <tr key={p.productId ?? i} data-testid="product-row" {...pv.row(p.productId)}>
                             <td className="max-w-xl">
                               <div className="flex items-center gap-3">
-                                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-base-200 text-base-content/45" aria-hidden="true">
-                                  <LineIcon name="box" className="h-5 w-5" />
-                                </span>
+                                <Thumb card={p.productId ? cardOf.get(p.productId) : undefined} name={p.internalName ?? ''} />
                                 <div className="min-w-0">
                                   {p.productId ? (
                                     <Link className="block truncate font-semibold hover:text-primary hover:underline" to={`/products/${encodeURIComponent(p.productId)}`} title={p.internalName ?? undefined} onClick={(e) => e.stopPropagation()}>
@@ -283,6 +292,10 @@ export function ProductListPage() {
                                   ) : (
                                     <p className="truncate font-semibold">{p.internalName ?? m.none}</p>
                                   )}
+                                  {(() => {
+                                    const c = p.productId ? cardOf.get(p.productId) : undefined;
+                                    return c?.name && c.name !== p.internalName ? <p className="truncate text-xs text-base-content/60">{l.customerName(c.name)}</p> : null;
+                                  })()}
                                   <p className="truncate text-xs text-base-content/50" data-testid="product-category">
                                     {catLabel(p.primaryCategoryId)}
                                     {pr && pr.skus.length > 0 && ` · ${l.skuCount(pr.skus.length)}`}
@@ -319,7 +332,10 @@ export function ProductListPage() {
                   </table>
                 </div>
                 <div className="flex flex-wrap items-center justify-between gap-2 border-t border-base-300 px-4 py-3 text-sm">
-                  <span className="text-base-content/55">{m.products.listShown(d.items?.length ?? 0, Boolean(d.page?.nextCursor))}</span>
+                  <span className="text-base-content/55">
+                    {m.products.listShown(d.items?.length ?? 0, Boolean(d.page?.nextCursor))}
+                    {q && d.page?.nextCursor && <span className="ml-2 text-warning">{l.searchThisPage}</span>}
+                  </span>
                   {d.page?.nextCursor && (
                     <button type="button" className="btn btn-sm" onClick={() => setParam('cursor', d.page?.nextCursor ?? '')}>
                       {m.more}
@@ -356,6 +372,16 @@ export function ProductListPage() {
         }}
       </QueryState>
     </section>
+  );
+}
+
+/** 대표 이미지 썸네일 — 게시된 콘텐츠의 MAIN 이미지(인증 필요해 AuthedImage), 없으면 상자 아이콘 */
+function Thumb({ card, name }: { readonly card: { readonly mainImage?: { readonly imageId?: string } } | undefined; readonly name: string }) {
+  const id = card?.mainImage?.imageId;
+  return (
+    <span className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-base-300 bg-base-200 text-base-content/45" data-testid="product-thumb">
+      {id ? <AuthedImage imageId={id} alt={name} className="h-full w-full object-cover" /> : <LineIcon name="box" className="h-5 w-5" />}
+    </span>
   );
 }
 

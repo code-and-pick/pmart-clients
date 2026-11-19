@@ -52,3 +52,19 @@ describe('상품 조회', () => {
     expect(within(apple).getByRole('link', { name: '콘텐츠·이미지 등록' })).toHaveAttribute('href', '/contents/drafts/new?productId=P-00000001');
   });
 });
+
+describe('상품 조회 — 사진·이름 찾기(2026-11-19)', () => {
+  it('게시된 상품은 대표 이미지 썸네일, 미게시는 상자 아이콘', async () => {
+    renderAt('/products', as.md);
+    await waitFor(() => expect(within(rowOf('사과 1.5kg')).getByTestId('product-thumb').querySelector('img')).not.toBeNull());
+    expect(within(rowOf('소고기 미역국')).getByTestId('product-thumb').querySelector('img')).toBeNull();
+  });
+
+  it('상품명 칸은 관리용 명칭·고객용 상품명 모두로 찾는다(이 쪽 안에서)', async () => {
+    const user = userEvent.setup();
+    renderAt('/products', as.md);
+    await waitFor(() => expect(within(rowOf('사과 1.5kg')).getByTestId('product-thumb').querySelector('img')).not.toBeNull());
+    await user.type(screen.getByRole('textbox', { name: '상품명' }), '사과');
+    expect(screen.getAllByTestId('product-row')).toHaveLength(1);
+  });
+});

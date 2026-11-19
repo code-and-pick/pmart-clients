@@ -197,6 +197,7 @@ const contentApproval = (targetRef: string, drafts: readonly ContentDraft[], sum
 });
 
 /** 1x1 PNG(목 이미지 본문) */
+const APPLE_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96"><rect width="96" height="96" fill="#fff4f2"/><path d="M48 30c-6-6-26-6-26 18 0 18 14 32 26 28 12 4 26-10 26-28 0-24-20-24-26-18z" fill="#e5383b"/><path d="M48 30c0-8 4-14 10-16" stroke="#6b3e26" stroke-width="4" fill="none" stroke-linecap="round"/><path d="M52 22c6-6 14-6 18-2-6 6-14 6-18 2z" fill="#3a9d23"/><ellipse cx="36" cy="46" rx="5" ry="9" fill="#ff8a8c" opacity=".6"/></svg>';
 const PIXEL = Uint8Array.from(atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='), (c) => c.charCodeAt(0));
 
 export const catalogHandlers = [
@@ -465,6 +466,22 @@ export const catalogHandlers = [
     const d = db.contentDrafts.get(String(params['id']));
     return d ? HttpResponse.json(viewContent(d)) : problem(404, 'NOT_FOUND');
   }),
+  // 상품 카드 일괄 조회(계약 listProductContents — 최대 100건, 미게시는 missing). 상품 조회 썸네일·고객용 이름(2026-11-19)
+  http.get(`${API_BASE}/product-contents`, ({ request }) => {
+    const ids = new URL(request.url).searchParams.getAll('productIds').flatMap((s) => s.split(',')).filter(Boolean);
+    if (ids.length > 100) return problem(400, 'VALIDATION_FAILED');
+    const card = (productId: string) => {
+      const d = [...db.contentDrafts.values()].find((c) => c.state === 'PUBLISHED' && c.productId === productId);
+      if (!d) return null;
+      const main = (d.images ?? []).find((i) => i.role === 'MAIN');
+      return { productId, contentVersion: d.contentVersion ?? 1, name: d.input?.name, ...(main ? { mainImage: { imageId: main.imageId, role: 'MAIN', sortOrder: 0, url: main.url } } : {}), options: [] };
+    };
+    const items = ids.flatMap((id) => {
+      const c = card(id);
+      return c ? [c] : [];
+    });
+    return HttpResponse.json({ asOf: timestamp(), items, missing: ids.filter((id) => !card(id)) });
+  }),
   // 게시된 콘텐츠(고객 공개 API). 콘텐츠 등록의 상품 선택 자동 기입이 읽는다. 게시된 것이 없으면 404.
   http.get(`${API_BASE}/product-contents/:id`, ({ params }) => {
     const productId = String(params['id']);
@@ -523,6 +540,8 @@ export const catalogHandlers = [
     if (!operator(request)) return unauthorized();
     const img = db.images.get(String(params['id']));
     if (img) return new HttpResponse(img.bytes, { headers: { 'content-type': img.contentType } });
+    // 목 사과 그림(상품 조회 썸네일 확인용) — 그 밖 img-seed 는 1px
+    if (String(params['id']) === 'img-seed-apple') return new HttpResponse(APPLE_SVG, { headers: { 'content-type': 'image/svg+xml' } });
     return String(params['id']).startsWith('img-seed') ? new HttpResponse(PIXEL, { headers: { 'content-type': 'image/png' } }) : problem(404, 'NOT_FOUND');
   }),
   http.post(`${API_BASE}/content-drafts/:id/submissions`, ({ request, params }) =>
