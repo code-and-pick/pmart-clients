@@ -11,6 +11,7 @@ import { CommandFeedback, QueryState, toUiState, useCommand } from '@pmart/web-u
 import { commandParams } from '../../api/command';
 import { useApi } from '../../app/ApiContext';
 import { ChipGroup, FieldList, PageHeader, ResultBar, SearchPanel, SearchRow, StatusBadge, type Tone } from '../../shared/admin';
+import { SavedViews } from '../../shared/SavedViews';
 import { DeliveryNo, resolveRiderId, RiderName, searchHint, StaffName, SystemIds, useDeliveryNumbers, useRiderSummaries } from '../../shared/displayNumbers';
 import { useSession } from '../../app/SessionContext';
 import { when, won } from '../../shared/opsUi';
@@ -96,7 +97,7 @@ export function AppealsMenu() {
   };
   return (
     <section className="max-w-[1600px] space-y-4">
-      <PageHeader title={t.title} description={t.intro} />
+      <PageHeader title={t.title} description={t.intro} actions={<SavedViews listKey="appeals" />} />
       {done && (
         <div role="status" className="alert alert-success flex flex-col items-stretch gap-2 text-sm" data-testid="appeal-done">
           <span>{done.text}</span>

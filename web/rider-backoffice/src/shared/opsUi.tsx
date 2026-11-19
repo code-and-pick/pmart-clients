@@ -7,6 +7,7 @@ import { formatKrw, formatSeoul } from '@pmart/web-ui';
 import { useApi } from '../app/ApiContext';
 import { messages } from './messages';
 import { ops } from './opsMessages';
+import { SearchSelect } from './SearchSelect';
 
 export const none = messages.none;
 export const label = (map: Readonly<Record<string, string>>, v: string | null | undefined) => (v ? (map[v] ?? v) : none);
@@ -59,17 +60,21 @@ export function CenterPicker({
       </label>
     );
   }
+  // 쳐서 찾는 고르기(2026-11-19 통합 백오피스 SearchSelect 처럼 — 초성도). 센터 ID 는 보이지 않는 찾기 낱말로만(붙여 넣기용, ADR-0070)
   return (
-    <label className="flex flex-col gap-1 text-sm">
-      {ops.center.label}
-      <select className="select select-sm w-56" value={value} onChange={(e) => onChange(e.target.value)}>
-        {(allowAll || !value) && <option value="">{allowAll ? ops.dashboard.allCenters : '—'}</option>}
-        {(centers.data?.items ?? []).map((c) => (
-          <option key={c.centerId} value={c.centerId ?? ''}>
-            {c.name ? `${c.name} (${c.centerId})` : c.centerId}
-          </option>
-        ))}
-      </select>
-    </label>
+    <div className="flex flex-col gap-1 text-sm">
+      <span aria-hidden="true">{ops.center.label}</span>
+      <SearchSelect
+        label={ops.center.label}
+        className="w-56"
+        value={value}
+        loading={centers.isPending}
+        {...(allowAll ? { allowEmpty: ops.dashboard.allCenters } : {})}
+        placeholder="센터 이름으로 찾기"
+        options={(centers.data?.items ?? []).map((c) => ({ value: c.centerId ?? '', label: c.name ?? c.centerId ?? '', keywords: c.centerId ?? '' }))}
+        onChange={onChange}
+        testId="center-picker"
+      />
+    </div>
   );
 }

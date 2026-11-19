@@ -24,6 +24,8 @@ import { messages as m } from '../shared/messages';
 import { StaffName } from '../shared/displayNumbers';
 import { Icon, type IconName } from '../shared/icons';
 import { SimulatorLink } from '../shared/sim';
+import { DETAIL_BAR_SLOT } from '../shared/StickyTitle';
+import { ConnectionBanner, ThemeToggle, useDocumentTitle, useSlashToSearch } from './PageChrome';
 import { allMenus, hasRiderAppRole, isOperatorAdmin, menuPath, navGroups, visibleGroups, type GroupKey, type MenuItem } from './nav';
 import { RequireSession, SessionProvider, useSession } from './SessionContext';
 
@@ -82,6 +84,9 @@ function Layout() {
   const [collapsed, toggle] = useNavCollapsed();
   const { pathname } = useLocation();
   const seg = pathname.split('/')[1] ?? '';
+  // 브라우저 탭 제목(화면 이름 + 아직 받지 않은 도움요청 수)·'/' 로 검색 칸 — 2026-11-19 통합 백오피스와 같게
+  useDocumentTitle(current?.menu ?? null, !!session);
+  useSlashToSearch();
   return (
     <div className="flex min-h-screen bg-base-200">
       <aside className={`sticky top-0 flex h-screen shrink-0 flex-col bg-neutral text-neutral-content transition-[width] ${collapsed ? 'w-16' : 'w-60'}`} data-collapsed={collapsed}>
@@ -159,6 +164,7 @@ function Layout() {
           <div className="flex min-w-0 flex-1 justify-center">{session && <HeaderSearch />}</div>
           <div className="flex shrink-0 items-center gap-3 text-sm">
             <SimulatorLink />
+            <ThemeToggle />
             {session ? (
               <>
                 <span className="text-xs" data-testid="operator">
@@ -180,6 +186,10 @@ function Layout() {
             )}
           </div>
         </header>
+        {/* 상세 제목 띠 자리(2026-11-19) — 상세를 내리면 DetailHeader 가 여기에 얇은 제목 띠를 그린다. 머리줄(h-14)이 붙어 있어 그 아래 */}
+        <div id={DETAIL_BAR_SLOT} className="sticky top-14 z-10" />
+        {/* 인터넷 끊김 띠(2026-11-19) */}
+        <ConnectionBanner />
         <main className="min-w-0 flex-1 space-y-5 p-6">
           <Outlet />
         </main>

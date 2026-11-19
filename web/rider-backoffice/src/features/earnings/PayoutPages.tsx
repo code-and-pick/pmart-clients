@@ -14,6 +14,7 @@ import { useApi } from '../../app/ApiContext';
 import { isOperatorAdmin } from '../../app/nav';
 import { useSession } from '../../app/SessionContext';
 import { ChipGroup, DataTable, PageHeader, ResultBar, SearchPanel, SearchRow, StatusBadge, type Tone } from '../../shared/admin';
+import { SavedViews } from '../../shared/SavedViews';
 import { resolveRiderId, RiderName, searchHint, StaffName, useRiderSummaries } from '../../shared/displayNumbers';
 import { when, won } from '../../shared/opsUi';
 
@@ -96,7 +97,7 @@ export function PayoutsMenu() {
   };
   return (
     <section className="max-w-[1600px] space-y-4">
-      <PageHeader title={t.title} description={t.intro} />
+      <PageHeader title={t.title} description={t.intro} actions={<SavedViews listKey="payouts" />} />
       {done && (
         <p role="status" className="alert alert-success text-sm" data-testid="payout-done">
           {done}

@@ -14,7 +14,10 @@ import { useApi } from '../../app/ApiContext';
 import { messages } from '../../shared/messages';
 import { DeliveryRef, RiderRef, StaffName, SystemIds, useDeliveryNumbers, useRiderSummaries } from '../../shared/displayNumbers';
 import { useSession } from '../../app/SessionContext';
-import { ChipGroup, CursorPager, DataTable, DetailHeader, FieldList, Notice, PageHeader, ResultBar, SearchPanel, SearchRow, Section, StatusBadge } from '../../shared/admin';
+import { ChipGroup, CursorPager, DataTable, DetailHeader, FieldList, Notice, PageHeader, ResultBar, SearchPanel, SearchRow, Section, StatCard, StatStrip, StatusBadge } from '../../shared/admin';
+import { listCountText, useListRows } from '../../shared/listKit';
+import { SavedViews } from '../../shared/SavedViews';
+import { useNow } from '../../shared/useNow';
 import { caseTone, StateTabs } from '../support/supportUi';
 
 const m = messages.cases;
@@ -39,15 +42,33 @@ export function CasesMenu() {
   );
 }
 
-function Sla({ slaDueAt, overdue }: { readonly slaDueAt: string | null | undefined; readonly overdue: boolean | null | undefined }) {
+/** 기한 15분 안 — 남은 분(서버 기한 slaDueAt 과 지금 시각의 차, 넘김 판정은 서버 overdue). 2026-11-19 통합 백오피스처럼 숨쉬기 */
+const SOON_MIN = 15;
+function Sla({ slaDueAt, overdue, now }: { readonly slaDueAt: string | null | undefined; readonly overdue: boolean | null | undefined; readonly now?: number | null }) {
   if (!slaDueAt) return <>{none}</>;
+  const left = !overdue && now != null ? Math.ceil((new Date(slaDueAt).getTime() - now) / 60_000) : null;
+  const soon = left !== null && left > 0 && left <= SOON_MIN;
   return (
     <span className={`whitespace-nowrap ${overdue ? 'font-semibold text-error' : ''}`} data-overdue={overdue ? 'true' : 'false'}>
       {when(slaDueAt)}
       {overdue && ` · ${m.overdue}`}
+      {soon && (
+        <span className="breathe ml-1 font-semibold text-warning" data-testid="sla-soon">
+          · {cx.minutesLeft(left)}
+        </span>
+      )}
     </span>
   );
 }
+
+/** 이 화면에서 더한 문구(2026-11-19 통합 백오피스와 맞추기) */
+const cx = {
+  stripLabel: '처리 중 접수 건 수',
+  unassigned: '아무도 안 맡음',
+  overdue: '기한 넘김',
+  listHint: '불러온 것 기준',
+  minutesLeft: (n: number) => `${n}분 남음`,
+} as const;
 
 /** 관련 대상 — 배송·라이더는 화면 번호(ADR-0070), 주문은 시스템 ID 라 목록에 내지 않는다(배송 번호 안에 주문번호가 있다) */
 function Refs({ refs }: { readonly refs: CaseSummary['refs'] }) {
@@ -125,10 +146,28 @@ function CaseListPage() {
   };
   const reset = () => set({ kind: '', overdue: false, unassigned: false });
   const open = (caseId: string | undefined) => void navigate(`/cases/${encodeURIComponent(caseId ?? '')}`);
+  const casePath = (caseId: string | undefined) => `/cases/${encodeURIComponent(caseId ?? '')}`;
+  // 숫자 띠(2026-11-19) — 처리 중인 건 중 안 맡은 것·기한 넘긴 것. 서버 목록 한 쪽(50건)으로 세고, 다음 쪽이 있으면 "N건 이상"
+  const countQuery = (flag: 'unassigned' | 'overdue') => ({
+    queryKey: ['cases-count', flag],
+    refetchInterval: 30_000,
+    queryFn: async () => {
+      const r = await request('GET', api.cases.GET('/cases', { params: { query: { size: PAGE_SIZE, [flag]: true } } }));
+      return { n: (r.items ?? []).length, more: !!r.page?.nextCursor };
+    },
+  });
+  const unassignedCount = useQuery(countQuery('unassigned'));
+  const overdueCount = useQuery(countQuery('overdue'));
+  const listRows = useListRows(query.data?.items?.map((c) => casePath(c.caseId)), [closed, kind, overdue, unassigned, cursor].join('|'));
+  const now = useNow();
 
   return (
     <section className="space-y-4">
-      <PageHeader title={m.title} description={m.intro} />
+      <PageHeader title={m.title} description={m.intro} actions={<SavedViews listKey="cases" />} />
+      <StatStrip label={cx.stripLabel} testId="case-strip">
+        <StatCard label={cx.unassigned} value={listCountText(unassignedCount.data, unassignedCount.isError)} hint={cx.listHint} to="/cases?unassigned=true" active={!closed && unassigned && !overdue} tone={(unassignedCount.data?.n ?? 0) > 0 ? 'warning' : undefined} testId="strip-unassigned" />
+        <StatCard label={cx.overdue} value={listCountText(overdueCount.data, overdueCount.isError)} hint={cx.listHint} to="/cases?overdue=true" active={!closed && overdue && !unassigned} tone={(overdueCount.data?.n ?? 0) > 0 ? 'error' : undefined} testId="strip-overdue" />
+      </StatStrip>
       <StateTabs
         label="처리 상태"
         value={closed ? 'CLOSED' : 'OPEN'}
@@ -176,7 +215,7 @@ function CaseListPage() {
                 </thead>
                 <tbody>
                   {items.map((c, i) => (
-                    <tr key={c.caseId ?? `case-${i}`} data-testid="case-row" className={`cursor-pointer ${c.overdue ? 'bg-error/5' : ''}`} onClick={() => open(c.caseId)}>
+                    <tr key={c.caseId ?? `case-${i}`} data-testid="case-row" className={`cursor-pointer ${c.overdue ? 'bg-error/5' : ''} ${listRows.rowClass(casePath(c.caseId))}`} onClick={() => open(c.caseId)}>
                       <td>
                         <PriorityBadge priority={c.priority} />
                       </td>
@@ -185,12 +224,13 @@ function CaseListPage() {
                         <Link className="hover:underline" to={`/cases/${encodeURIComponent(c.caseId ?? '')}`} onClick={(e) => e.stopPropagation()}>
                           {c.summary || name(n.caseKind, c.kind)}
                         </Link>
+                        {listRows.seenMark(casePath(c.caseId))}
                       </td>
                       <td>
                         <Refs refs={c.refs} />
                       </td>
                       <td>
-                        <Sla slaDueAt={c.slaDueAt} overdue={c.overdue} />
+                        <Sla slaDueAt={c.slaDueAt} overdue={c.overdue} now={c.state === 'CLOSED' ? null : now} />
                       </td>
                       <td>
                         <StatusBadge tone={caseTone(c.state)}>{name(n.caseState, c.state)}</StatusBadge>
@@ -223,6 +263,7 @@ function CaseDetailPage() {
   return (
     <section className="max-w-[1600px] space-y-4">
       <DetailHeader
+        seen={!!c}
         back={{ to: '/cases', label: m.back }}
         title={c ? c.summary || name(n.caseKind, c.kind) : m.detailTitle('')}
         badges={

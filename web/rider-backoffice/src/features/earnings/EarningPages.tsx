@@ -10,7 +10,19 @@ import { request } from '@pmart/web-core';
 import { CommandFeedback, QueryState, toUiState, useCommand } from '@pmart/web-ui';
 import { commandParams } from '../../api/command';
 import { useApi } from '../../app/ApiContext';
-import { ChipGroup, CursorPager, FieldList, PageHeader, ResultBar, SearchPanel, SearchRow, StatusBadge, type Tone } from '../../shared/admin';
+import { ChipGroup, CursorPager, FieldList, PageHeader, ResultBar, SearchPanel, SearchRow, StatCard, StatStrip, StatusBadge, type Tone } from '../../shared/admin';
+import { statText } from '../../shared/listKit';
+import { SavedViews } from '../../shared/SavedViews';
+
+/** 숫자 띠(2026-11-19 통합 백오피스처럼) — 서버가 센 수(delivery-stats, 센터 무관) */
+function useEarningStats() {
+  const api = useApi();
+  return useQuery({
+    queryKey: ['delivery-stats', ''],
+    refetchInterval: 30_000,
+    queryFn: () => request('GET', api.execution.GET('/delivery-stats', { params: { query: {} } })),
+  });
+}
 import { ops } from '../../shared/opsMessages';
 import { AuthedPhotos } from '../../shared/AuthedPhotos';
 import { useEvidenceLoader } from '../../shared/evidenceLoader';
@@ -50,9 +62,13 @@ export function AdjustmentsMenu() {
   // 화면 번호(ADR-0070): 배송 번호·라이더 번호를 붙이고 시스템 ID 는 카드 안 접힌 칸으로
   const deliveryNos = useDeliveryNumbers((queue.data?.items ?? []).map((it) => it.deliveryId));
   const riders = useRiderSummaries((queue.data?.items ?? []).map((it) => it.riderId));
+  const stats = useEarningStats();
   return (
     <section className="max-w-[1600px] space-y-4">
       <PageHeader title={e.adjustTitle} description={e.adjustIntro} />
+      <StatStrip label="조정 대기 수" testId="adjust-strip">
+        <StatCard label="조정 기다림" value={statText(stats.data?.adjustmentPending, stats.isError)} hint="산정 불가 수행료" tone={(stats.data?.adjustmentPending ?? 0) > 0 ? 'warning' : undefined} testId="strip-adjustment" />
+      </StatStrip>
       {onlyDelivery && (
         <p role="note" className="alert flex flex-wrap justify-between text-sm" data-testid="adjust-only">
           <span>{e.onlyDelivery(onlyDelivery)}</span>
@@ -195,6 +211,7 @@ export function SurchargesMenu() {
   const riders = useRiderSummaries((list.data?.items ?? []).map((it) => it.riderId));
   const me = useSession().session?.subject;
   const f = surchargeFilter;
+  const stats = useEarningStats();
   const submit = (ev: FormEvent) => {
     ev.preventDefault();
     patch({ riderId: riderInput.trim() });
@@ -205,7 +222,10 @@ export function SurchargesMenu() {
   };
   return (
     <section className="max-w-[1600px] space-y-4">
-      <PageHeader title={e.surchargeTitle} description={e.surchargeIntro} />
+      <PageHeader title={e.surchargeTitle} description={e.surchargeIntro} actions={<SavedViews listKey="surcharges" />} />
+      <StatStrip label="추가 배달료 신청 수" testId="surcharge-strip">
+        <StatCard label="처리 전 신청" value={statText(stats.data?.surchargeRequested, stats.isError)} to="/surcharges" active={state === 'REQUESTED' && !riderId} tone={(stats.data?.surchargeRequested ?? 0) > 0 ? 'warning' : undefined} testId="strip-surcharge" />
+      </StatStrip>
       <SearchPanel onSubmit={submit} onReset={reset} submitLabel={f.search} resetLabel={f.reset}>
         <SearchRow label={f.state}>
           <ChipGroup

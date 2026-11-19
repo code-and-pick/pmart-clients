@@ -60,7 +60,8 @@ describe('제한 검토 — 상태 탭·결정', () => {
   it('결정하면 목록을 다시 읽지 않고 그 줄에 결과가 남는다', async () => {
     const view = renderAt('/restriction-reviews', as.riderOps);
     const row = await screen.findByTestId('review-row');
-    expect(row).toHaveTextContent('RD-8');
+    // 라이더 칸은 번호를 읽기 전엔 ID 끝, 읽은 뒤엔 라이더 번호 — 읽는 속도에 따라 갈려 늘 맞는 번호를 기다린다(2026-11-19 들쭉날쭉 시험 고침)
+    expect(await within(row).findByText('730115')).toBeInTheDocument();
     expect(row).not.toHaveTextContent('RC-4'); // 컴플레인 ID 는 목록에 내지 않는다(ADR-0070)
     expect(row).toHaveTextContent('3건');
     const gets = () => view.sent.filter((r) => r.method === 'GET' && new URL(r.url).pathname.endsWith('/restriction-reviews')).length;

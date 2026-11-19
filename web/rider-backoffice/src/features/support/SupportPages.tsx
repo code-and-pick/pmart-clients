@@ -12,7 +12,9 @@ import { commandParams } from '../../api/command';
 import { useApi } from '../../app/ApiContext';
 import { useSession } from '../../app/SessionContext';
 import { photoMessages } from '../../shared/AuthedPhotos';
-import { DataTable, DetailHeader, FieldList, PageHeader, ResultBar, Section, SectionTabs, StatusBadge } from '../../shared/admin';
+import { DataTable, DetailHeader, FieldList, PageHeader, ResultBar, Section, SectionTabs, StatCard, StatStrip, StatusBadge } from '../../shared/admin';
+import { listCountText, statText, useListRows } from '../../shared/listKit';
+import { useNewIds } from '../../shared/motion';
 import { DeliveryNo, DeliveryRef, RiderName, RiderRef, StaffName, SystemIds, useDeliveryNumbers, useRiderSummaries } from '../../shared/displayNumbers';
 import { messages } from '../../shared/messages';
 import { ops } from '../../shared/opsMessages';
@@ -107,6 +109,8 @@ function HelpChatPage() {
     }
   });
   const closed = chat.data?.helpState === 'RESOLVED';
+  // 새로 들어온 메시지(2026-11-19 통합 백오피스처럼) — 처음 읽은 대화는 새것이 아니다. 움직임 줄이기면 CSS 가 끈다
+  const freshHelp = useNewIds(chat.data?.items?.map((x) => x.messageId ?? ''), 'help');
   const { session } = useSession();
   const isAdmin = (session?.roles ?? []).includes('OPERATOR_ADMIN');
   const d = detail.data;
@@ -123,6 +127,7 @@ function HelpChatPage() {
   return (
     <section className="max-w-[1600px] space-y-4">
       <DetailHeader
+        seen={!!d}
         back={{ to: '/consults', label: consultBack }}
         title={d ? `${label(helpCategoryName, d.category)} 도움요청` : h.chatTitle('')}
         badges={
@@ -200,6 +205,7 @@ function HelpChatPage() {
                   {(c.items ?? []).map((msg) => (
                     <ChatBubble
                       key={msg.messageId}
+                      fresh={freshHelp.has(msg.messageId ?? '')}
                       mine={msg.senderType === 'SUPPORT'}
                       who={msg.senderType === 'SUPPORT' ? h.support : h.rider}
                       at={when(msg.createdAt)}
@@ -298,6 +304,7 @@ function InquiryDetailPage() {
     }
   });
   const status = chat.data?.status ?? inquiry.data?.status;
+  const freshInquiry = useNewIds(chat.data?.items?.map((x) => x.messageId ?? ''), 'inquiry');
   const closed = status === 'CLOSED';
   const d = inquiry.data;
   const riderSummary = useRiderSummaries([d?.riderId]).get(d?.riderId ?? '');
@@ -311,6 +318,7 @@ function InquiryDetailPage() {
   return (
     <section className="max-w-[1600px] space-y-4">
       <DetailHeader
+        seen={!!d}
         back={{ to: '/consults', label: consultBack }}
         title={d?.title ?? q.detailTitle('')}
         badges={
@@ -366,7 +374,7 @@ function InquiryDetailPage() {
                 {(c) => (
                   <ChatBox testId="inquiry-messages" empty={(c.items ?? []).length === 0}>
                     {(c.items ?? []).map((msg) => (
-                      <ChatBubble key={msg.messageId} mine={msg.senderType === 'SUPPORT'} who={msg.senderType === 'SUPPORT' ? h.support : h.rider} at={when(msg.createdAt)}>
+                      <ChatBubble key={msg.messageId} fresh={freshInquiry.has(msg.messageId ?? '')} mine={msg.senderType === 'SUPPORT'} who={msg.senderType === 'SUPPORT' ? h.support : h.rider} at={when(msg.createdAt)}>
                         {msg.body}
                       </ChatBubble>
                     ))}
@@ -442,6 +450,9 @@ const consultText = {
   empty: { open: '상담할 건이 없어요.', done: '끝난 상담이 없어요.' },
   partial: (what: string) => `${what} 목록을 불러오지 못했어요 — 아래는 일부예요.`,
   retry: '다시 불러오기',
+  stripLabel: '상담 대기 수',
+  stripHelpHint: '받음·처리 중',
+  stripInquiryHint: '접수·답함 — 불러온 것 기준',
 } as const;
 
 // 결정 대기(멈춘 배송) → 배송 도움요청 → 일반 문의
@@ -481,6 +492,20 @@ function ConsultsPage() {
       (await Promise.all(helpStates.map((state) => request('GET', api.execution.GET('/delivery-help-requests', { params: { query: { size: HELP_PAGE_SIZE, state } } }))))).flatMap(
         (r) => r.items ?? [],
       ),
+  });
+  // 숫자 띠(2026-11-19 통합 백오피스처럼) — 서버가 센 수: 도움요청·전달 실패 결정 대기는 delivery-stats, 일반 문의는 목록 한 쪽(넘치면 "N건 이상")
+  const stats = useQuery({
+    queryKey: ['delivery-stats', ''],
+    refetchInterval: 15_000,
+    queryFn: () => request('GET', api.execution.GET('/delivery-stats', { params: { query: {} } })),
+  });
+  const openInquiries = useQuery({
+    queryKey: ['rider-inquiries', 'consults-count'],
+    refetchInterval: 15_000,
+    queryFn: async () => {
+      const pages = await Promise.all((['RECEIVED', 'ANSWERED'] as const).map((status) => request('GET', api.cases.GET('/inquiries', { params: { query: { requesterType: 'RIDER', status, size: INQUIRY_PAGE_SIZE } } }))));
+      return { n: pages.reduce((a, p) => a + (p.items ?? []).length, 0), more: pages.some((p) => !!p.page?.nextCursor) };
+    },
   });
   const inquiries = useQuery({
     queryKey: ['rider-inquiries', 'consults', tab],
@@ -560,6 +585,7 @@ function ConsultsPage() {
   const bothFailed = help.isError && inquiries.isError;
   const loading = help.isPending || inquiries.isPending;
   const partial = !bothFailed && (help.isError || inquiries.isError);
+  const listRows = useListRows(loading || bothFailed ? undefined : rows.map((r) => r.to), tab);
   const retryAll = () => {
     void help.refetch();
     void inquiries.refetch();
@@ -567,6 +593,11 @@ function ConsultsPage() {
   return (
     <section className="space-y-4">
       <PageHeader title={consultText.title} description={consultText.intro} />
+      <StatStrip label={consultText.stripLabel} testId="consult-strip">
+        <StatCard label={consultText.kind.help} value={statText(stats.data?.openHelpRequests, stats.isError)} hint={consultText.stripHelpHint} tone={(stats.data?.openHelpRequests ?? 0) > 0 ? 'warning' : undefined} testId="strip-help" />
+        <StatCard label={consultText.kind.failure} value={statText(stats.data?.inProgress?.['FAILURE_REPORTED'], stats.isError)} tone={(stats.data?.inProgress?.['FAILURE_REPORTED'] ?? 0) > 0 ? 'error' : undefined} testId="strip-failure" />
+        <StatCard label={consultText.kind.inquiry} value={listCountText(openInquiries.data, openInquiries.isError)} hint={consultText.stripInquiryHint} testId="strip-inquiry" />
+      </StatStrip>
       <StateTabs
         label={consultText.title}
         value={tab}
@@ -612,7 +643,7 @@ function ConsultsPage() {
             </thead>
             <tbody>
               {rows.map((r) => (
-                <tr key={r.key} data-testid="consult-row" data-kind={r.kind} className="cursor-pointer" onClick={() => void navigate(r.to)}>
+                <tr key={r.key} data-testid="consult-row" data-kind={r.kind} className={`cursor-pointer ${listRows.rowClass(r.to)}`} onClick={() => void navigate(r.to)}>
                   <td className="whitespace-nowrap">
                     <StatusBadge tone={r.kind === 'failure' ? 'error' : r.kind === 'help' ? 'warning' : 'ghost'}>{consultText.kind[r.kind]}</StatusBadge>
                   </td>
@@ -620,6 +651,7 @@ function ConsultsPage() {
                     <Link className="hover:underline" to={r.to} onClick={(e) => e.stopPropagation()}>
                       {r.title}
                     </Link>
+                    {listRows.seenMark(r.to)}
                   </td>
                   <td>{r.state}</td>
                   <td>{r.deliveryId ? <DeliveryRef deliveryId={r.deliveryId} numbers={deliveryNos.get(r.deliveryId)} /> : none}</td>

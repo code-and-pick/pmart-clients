@@ -1,5 +1,6 @@
 // 지원센터·접수 건 화면 부품(2026-11-18, PC 5 — 배민 주문접수 "처리중/완료" 밑줄 탭·상담 대화 참고).
 // 색은 테마 변수만 쓴다. 공통 부품(shared/admin)으로 안 되는 것만 둔다.
+import { ui } from '../../shared/uiMessages';
 import type { ReactNode } from 'react';
 
 import type { Tone } from '../../shared/admin';
@@ -28,12 +29,19 @@ export function StateTabs<T extends string>({ value, options, onChange, label }:
 }
 
 /** 대화 말풍선 하나 — 지원센터(오른쪽, 브랜드색) / 라이더(왼쪽, 회색) */
-export function ChatBubble({ mine, who, at, children, footer }: { readonly mine: boolean; readonly who: string; readonly at: string; readonly children: ReactNode; readonly footer?: ReactNode }) {
+// fresh(2026-11-19 통합 백오피스처럼): 대화를 연 뒤 새로 들어온 메시지 — 미끄러져 들어오고, 라이더가 보낸 것이면 "새 메시지" 점(움직임 줄이기면 CSS 가 끈다)
+export function ChatBubble({ mine, who, at, children, footer, fresh = false }: { readonly mine: boolean; readonly who: string; readonly at: string; readonly children: ReactNode; readonly footer?: ReactNode; readonly fresh?: boolean }) {
   return (
-    <li className={mine ? 'chat chat-end' : 'chat chat-start'}>
+    <li className={`${mine ? 'chat chat-end' : 'chat chat-start'} ${fresh ? 'msg-new' : ''}`}>
       <div className="chat-header mb-0.5 text-xs text-base-content/60">
         <span className="font-medium">{who}</span>
         <time className="ml-1.5 text-base-content/45">{at}</time>
+        {fresh && !mine && (
+          <span className="ml-1.5 inline-flex items-center gap-1 font-semibold text-primary" data-testid="new-message">
+            <span className="breathe h-1.5 w-1.5 rounded-full bg-primary" aria-hidden="true" />
+            {ui.newMessage}
+          </span>
+        )}
       </div>
       <div className={`chat-bubble whitespace-pre-wrap text-sm ${mine ? 'chat-bubble-primary' : 'bg-base-200 text-base-content'}`}>{children}</div>
       {footer && <div className="chat-footer mt-0.5">{footer}</div>}

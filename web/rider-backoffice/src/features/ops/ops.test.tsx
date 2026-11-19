@@ -1,5 +1,5 @@
 // 라이더 공지·직원 조치 이력(2026-11-18, PC 5) — 목(MSW) 기준. 실서버 확인은 아니다.
-import { screen, within } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
@@ -40,9 +40,12 @@ describe('공지 보내기', () => {
     await userEvent.type(within(form).getByLabelText(/내용/), '주차 위치가 바뀌었어요.');
     await userEvent.click(within(form).getByLabelText('한 센터 라이더'));
     expect(within(form).getByRole('button', { name: '보내기' })).toBeDisabled();
-    const picker = await within(form).findByRole('combobox');
-    const option = await within(picker).findAllByRole('option');
-    await userEvent.selectOptions(picker, option.at(-1)!);
+    // 센터 고르기는 쳐서 찾는 칸(2026-11-19 — 통합 백오피스 SearchSelect): 눌러 펼치고 마지막 센터를 누른다
+    const picker = await within(form).findByRole('combobox', { name: '센터' });
+    await waitFor(() => expect(picker).not.toBeDisabled());
+    await userEvent.click(picker);
+    const options = await screen.findAllByRole('option');
+    await userEvent.click(options.at(-1)!);
     await userEvent.click(within(form).getByRole('button', { name: '보내기' }));
     await userEvent.click(within(await screen.findByTestId('notice-confirm')).getByRole('button', { name: '보내기' }));
     expect(await screen.findByTestId('notice-sent')).toHaveTextContent('42명에게 보냈어요.');

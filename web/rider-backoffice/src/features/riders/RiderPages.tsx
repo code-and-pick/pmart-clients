@@ -14,7 +14,9 @@ import { CommandFeedback, QueryState, toUiState, useCommand } from '@pmart/web-u
 import { commandParams } from '../../api/command';
 import type { components } from '../../api/generated/rider';
 import { useApi } from '../../app/ApiContext';
-import { ChipGroup, CursorPager, DataTable, DetailHeader, FieldList, Notice, PageHeader, ResultBar, SearchPanel, SearchRow, Section, SectionTabs, StatusBadge, type Tone } from '../../shared/admin';
+import { ChipGroup, CursorPager, DataTable, DetailHeader, FieldList, Notice, PageHeader, ResultBar, SearchPanel, SearchRow, Section, SectionTabs, StatCard, StatStrip, StatusBadge, type Tone } from '../../shared/admin';
+import { statText, useListRows } from '../../shared/listKit';
+import { SavedViews } from '../../shared/SavedViews';
 import { DeliveryRef, RiderName, RiderRef, StaffName, SystemIds, useDeliveryNumbers, useRiderSummaries } from '../../shared/displayNumbers';
 import { SimBadge } from '../../shared/sim';
 import { useSession } from '../../app/SessionContext';
@@ -39,6 +41,15 @@ const SORTS = Object.keys(rm.search.sortName) as Sort[];
 const REVIEW_STATES = Object.keys(rm.reviews.state) as ReviewState[];
 const reviewTone = (s: string | null | undefined): Tone => (s === 'OPEN' ? 'warning' : s === 'RESTRICTED' ? 'error' : 'ghost');
 const PAGE_SIZE = 20;
+
+/** 이 화면에서 더한 문구(2026-11-19 통합 백오피스와 맞추기) */
+const rx = {
+  stripLabel: '라이더 수',
+  total: '전체 라이더',
+  onDuty: '운행 중',
+  accepting: (n: string) => `새 배차 받는 중 ${n}`,
+  joinedToday: '오늘 가입',
+} as const;
 
 const restrictionTone = (s: string | null | undefined): Tone =>
   s === 'NORMAL' ? 'success' : s === 'DISPATCH_RESTRICTED' ? 'warning' : s === 'SUSPENDED' ? 'error' : s === 'TERMINATED' ? 'neutral' : 'ghost';
@@ -116,9 +127,42 @@ function RiderSearchPage({ signups = false }: { readonly signups?: boolean }) {
       ),
   });
   const open = (id: string | undefined) => void navigate(`/riders/${encodeURIComponent(id ?? '')}`);
+  // 숫자 띠(2026-11-19 통합 백오피스처럼) — 서버가 센 라이더 수(GET /riders/stats). 누르면 그 조건으로 거른다
+  const stats = useQuery({
+    queryKey: ['rider-stats', ''],
+    refetchInterval: LIVE.dashboard,
+    queryFn: () => request('GET', api.riders.GET('/riders/stats', { params: { query: {} } })),
+  });
+  const st = stats.data;
+  const failed = stats.isError;
+  const riderPath = (id: string | undefined) => `/riders/${encodeURIComponent(id ?? '')}`;
+  const listRows = useListRows(query.data?.items?.map((row) => riderPath(row.riderId)), [signups, riderNumber, riderId, phone, restriction, operatingStatus, vehicleType, sort, page].join('|'));
+  const filtered = !!(riderNumber || riderId || phone || operatingStatus || vehicleType);
   return (
     <section className="space-y-4">
-      <PageHeader title={signups ? ops.signups.title : r.title} description={signups ? ops.signups.intro : r.intro} />
+      <PageHeader title={signups ? ops.signups.title : r.title} description={signups ? ops.signups.intro : r.intro} actions={signups ? undefined : <SavedViews listKey="riders" />} />
+      {signups ? (
+        <StatStrip label={rx.stripLabel} testId="signup-strip">
+          <StatCard label={rx.joinedToday} value={statText(st?.joinedToday, failed)} testId="strip-joined-today" />
+          <StatCard label={rx.total} value={statText(st?.total, failed)} to="/riders" testId="strip-total" />
+        </StatStrip>
+      ) : (
+        <StatStrip label={rx.stripLabel} testId="rider-strip">
+          <StatCard label={rx.total} value={statText(st?.total, failed)} to="/riders" active={!restriction && !filtered} testId="strip-total" />
+          <StatCard label={rx.onDuty} value={statText(st?.onDuty, failed)} hint={rx.accepting(statText(st?.onDutyAcceptingNew, failed))} to="/riders?operatingStatus=ON_DUTY" active={operatingStatus === 'ON_DUTY' && !restriction} testId="strip-on-duty" />
+          {RESTRICTIONS.filter((x) => x !== 'NORMAL').map((x) => (
+            <StatCard
+              key={x}
+              label={label(n.restriction, x)}
+              value={statText(st?.byRestriction[x], failed)}
+              to={`/riders?restriction=${x}`}
+              active={restriction === x}
+              tone={(st?.byRestriction[x] ?? 0) > 0 ? (x === 'SUSPENDED' ? 'error' : x === 'DISPATCH_RESTRICTED' ? 'warning' : undefined) : undefined}
+              testId={`strip-${x}`}
+            />
+          ))}
+        </StatStrip>
+      )}
       {signups && <Notice>{ops.signups.autoNote}</Notice>}
       {!signups && (
         <SearchPanel onSubmit={submit} onReset={reset} submitLabel={r.search} resetLabel={r.reset}>
@@ -192,11 +236,12 @@ function RiderSearchPage({ signups = false }: { readonly signups?: boolean }) {
                 </thead>
                 <tbody>
                   {items.map((row) => (
-                    <tr key={row.riderId} data-testid="rider-row" className="cursor-pointer" onClick={() => open(row.riderId)}>
+                    <tr key={row.riderId} data-testid="rider-row" className={`cursor-pointer ${listRows.rowClass(riderPath(row.riderId))}`} onClick={() => open(row.riderId)}>
                       <td className="font-mono font-semibold">
                         <Link className="hover:underline" to={`/riders/${encodeURIComponent(row.riderId ?? '')}`} onClick={(e) => e.stopPropagation()}>
                           <RiderName riderId={row.riderId} riderNumber={row.riderNumber} />
                         </Link>
+                        {listRows.seenMark(riderPath(row.riderId))}
                       </td>
                       <td>{row.nameMasked ?? none}</td>
                       <td className="font-mono">{row.phoneMasked ?? none}</td>
@@ -275,6 +320,7 @@ function RiderDetailPage() {
   return (
     <section className="max-w-[1600px] space-y-4">
       <DetailHeader
+        seen={!!d}
         back={{ to: '/riders', label: r.back }}
         title={d?.riderNumber ? r.detailTitle(d.riderNumber) : r.detailTitle(rm.noNumber)}
         badges={
@@ -653,13 +699,20 @@ export function RestrictionReviewsMenu() {
   const raw = params.get('state');
   const state: ReviewState = REVIEW_STATES.find((s) => s === raw) ?? 'OPEN';
   const v = ops.reviews;
+  // 검토 중 개수(2026-11-19 통합 백오피스 칩 옆 개수처럼) — 아래 표와 같은 조회(같은 키)라 한 번만 부른다. 못 읽으면 "?"(0 이 아님)
+  const api = useApi();
+  const openList = useQuery({
+    queryKey: ['restriction-reviews', 'OPEN', ''],
+    queryFn: () => request('GET', api.riders.GET('/riders/restriction-reviews', { params: { query: { state: 'OPEN' } } })),
+  });
+  const openCount = openList.data ? String((openList.data.items ?? []).length) : openList.isError ? '?' : undefined;
   return (
     <section className="space-y-4">
       <PageHeader title={v.title} description={v.intro} />
       <ChipGroup
         label={v.title}
         value={state}
-        options={REVIEW_STATES.map((s) => ({ value: s, label: rm.reviews.state[s] }))}
+        options={REVIEW_STATES.map((s) => ({ value: s, label: rm.reviews.state[s], ...(s === 'OPEN' ? { count: openCount } : {}) }))}
         onChange={(s) => setParams(s === 'OPEN' ? {} : { state: s })}
       />
       <ReviewTable state={state} />

@@ -12,10 +12,22 @@ import type { components } from '../../api/generated/delivery-execution';
 import { useApi } from '../../app/ApiContext';
 import { isLiveDelivery, LIVE } from '../../shared/liveRefresh';
 import { messages } from '../../shared/messages';
-import { ChipGroup, CursorPager, DataTable, DetailHeader, FieldList, PageHeader, ResultBar, SearchPanel, SearchRow, Section, SectionTabs, StatusBadge, type Tone } from '../../shared/admin';
+import { ChipGroup, CursorPager, DataTable, DetailHeader, FieldList, PageHeader, ResultBar, SearchPanel, SearchRow, Section, SectionTabs, StatCard, StatStrip, StatusBadge, type Tone } from '../../shared/admin';
 import { DeliveryNo, DeliveryRef, resolveRiderId, RiderName, SystemIds, useDeliveryNumbers, useRiderSummaries } from '../../shared/displayNumbers';
 import { ops } from '../../shared/opsMessages';
+import { statText, useListRows } from '../../shared/listKit';
+import { ProgressSteps, type StepPlace } from '../../shared/ProgressSteps';
+import { SavedViews } from '../../shared/SavedViews';
 import { DeliveryActions } from './DeliveryActions';
+
+/** 이 화면에서 더한 문구(2026-11-19 통합 백오피스와 맞추기) */
+const dx = {
+  stripLabel: '배송 상태별 수',
+  inProgressAll: '진행 중 전체',
+  stateCard: (s: string) => s,
+  failedToday: '오늘 전달 실패',
+  today: '오늘',
+} as const;
 import { DeliveryEarning, DeliveryProof, DispatchAttempts, EtaPanel, extrasMessages } from './DeliveryExtras';
 
 const m = messages.deliveries;
@@ -110,9 +122,38 @@ function DeliverySearchPage() {
   const stateTone = (s: string | undefined): Tone =>
     s === 'COMPLETED' ? 'success' : s === 'FAILURE_REPORTED' || s === 'FAILED' ? 'error' : s === 'UNASSIGNED' ? 'warning' : s === 'CANCELLED' ? 'ghost' : 'info';
 
+  // 상태 숫자 띠(2026-11-19 통합 백오피스처럼) — 서버가 센 끝나지 않은 배송 상태별 수(delivery-stats). 누르면 그 상태로 거른다.
+  const stats = useQuery({
+    queryKey: ['delivery-stats', ''],
+    refetchInterval: LIVE.deliveryList,
+    queryFn: () => request('GET', api.execution.GET('/delivery-stats', { params: { query: {} } })),
+  });
+  const inProgress = stats.data?.inProgress;
+  const liveStates = STATES.filter((s) => inProgress && s in inProgress);
+  const stateLink = (s: string) => `/deliveries?state=${encodeURIComponent(s)}`;
+  const listRows = useListRows(
+    query.data?.items?.map((d) => `/deliveries/${encodeURIComponent(d.deliveryId ?? '')}`),
+    [orderId, orderNumber, riderId, state, type, oldest, cursor].join('|'),
+  );
+
   return (
     <section className="space-y-4">
-      <PageHeader title={m.title} description={m.intro} />
+      <PageHeader title={m.title} description={m.intro} actions={<SavedViews listKey="deliveries" />} />
+      <StatStrip label={dx.stripLabel} testId="delivery-strip">
+        <StatCard label={dx.inProgressAll} value={statText(inProgress ? Object.values(inProgress).reduce((a, b) => a + b, 0) : undefined, stats.isError)} to="/deliveries" active={!state} testId="strip-all" />
+        {(stats.isError || !inProgress ? (['UNASSIGNED', 'FAILURE_REPORTED'] as const) : liveStates).map((s) => (
+          <StatCard
+            key={s}
+            label={dx.stateCard(name(n.executionState, s))}
+            value={statText(inProgress?.[s], stats.isError)}
+            to={stateLink(s)}
+            active={state === s}
+            tone={(inProgress?.[s] ?? 0) > 0 ? (s === 'FAILURE_REPORTED' ? 'error' : s === 'UNASSIGNED' ? 'warning' : undefined) : undefined}
+            testId={`strip-${s}`}
+          />
+        ))}
+        <StatCard label={dx.failedToday} value={statText(stats.data?.failedToday, stats.isError)} tone={(stats.data?.failedToday ?? 0) > 0 ? 'error' : undefined} hint={dx.today} testId="strip-failed-today" />
+      </StatStrip>
       <SearchPanel onSubmit={submit} onReset={reset} submitLabel={m.search} resetLabel={m.reset}>
         <SearchRow label="번호로 찾기">
           <label className="flex items-center gap-2 text-sm">
@@ -171,11 +212,12 @@ function DeliverySearchPage() {
                 </thead>
                 <tbody>
                   {items.map((d, i) => (
-                    <tr key={d.deliveryId ?? `d-${i}`} data-testid="delivery-row" className="cursor-pointer" onClick={() => void navigate(`/deliveries/${encodeURIComponent(d.deliveryId ?? '')}`)}>
+                    <tr key={d.deliveryId ?? `d-${i}`} data-testid="delivery-row" className={`cursor-pointer ${listRows.rowClass(`/deliveries/${encodeURIComponent(d.deliveryId ?? '')}`)}`} onClick={() => void navigate(`/deliveries/${encodeURIComponent(d.deliveryId ?? '')}`)}>
                       <td>
                         <Link className="hover:underline" to={`/deliveries/${encodeURIComponent(d.deliveryId ?? '')}`} onClick={(e) => e.stopPropagation()}>
                           <DeliveryNo deliveryId={d.deliveryId ?? ''} deliveryNumber={d.deliveryNumber} orderNumber={d.orderNumber} />
                         </Link>
+                        {listRows.seenMark(`/deliveries/${encodeURIComponent(d.deliveryId ?? '')}`)}
                       </td>
                       <td className="font-mono">{d.orderNumber ?? <span className="text-base-content/40">{none}</span>}</td>
                       <td>{name(n.deliveryType, d.type)}</td>
@@ -207,6 +249,33 @@ function DeliverySearchPage() {
     </section>
   );
 }
+// 배송 진행 단계(2026-11-19 통합 백오피스 ProgressSteps 처럼) — 서버 상태를 단계 자리로만 바꾼다(지금 단계만 숨쉬기, 끝난 단계는 체크).
+// 단계 밖 상태(회수·중지 등)는 칠하지 않고 그 이름을 그대로 적는다. 전달 실패 확정·취소는 오른쪽 ✕ 갈래.
+const STEP_STATES = ['UNASSIGNED', 'ASSIGNED', 'ARRIVED_AT_STORE', 'PICKED_UP', 'ARRIVED_AT_CUSTOMER', 'COMPLETED'] as const;
+function deliveryStepPlace(state: string | null | undefined): { readonly place: StepPlace | null; readonly ended?: string } {
+  if (!state) return { place: null };
+  if (state === 'COMPLETED') return { place: { step: STEP_STATES.length - 1, done: true } };
+  if (state === 'FAILURE_REPORTED') return { place: { step: 4, done: false, warn: true, note: name(n.executionState, state) } };
+  if (state === 'FAILED' || state === 'CANCELLED') return { place: null, ended: name(n.executionState, state) };
+  const i = (STEP_STATES as readonly string[]).indexOf(state);
+  return { place: i >= 0 ? { step: i, done: false } : null };
+}
+
+function DeliverySteps({ state }: { readonly state: string | null | undefined }) {
+  const { place, ended } = deliveryStepPlace(state);
+  return (
+    <ProgressSteps
+      steps={STEP_STATES.map((s) => name(n.executionState, s))}
+      place={place}
+      ended={ended}
+      unknownText={state ? `지금 상태: ${name(n.executionState, state)} — 배달 단계 밖이에요` : undefined}
+      label="배송 진행 단계"
+      testId="delivery-steps"
+      endedTestId="delivery-steps-ended"
+    />
+  );
+}
+
 const executionTone = (s: string | undefined): Tone =>
   s === 'COMPLETED' ? 'success' : s === 'FAILURE_REPORTED' || s === 'FAILED' ? 'error' : s === 'UNASSIGNED' ? 'warning' : s === 'CANCELLED' ? 'ghost' : 'info';
 
@@ -242,6 +311,7 @@ function DeliveryDetailPage() {
   return (
     <section className="max-w-[1600px] space-y-4">
       <DetailHeader
+        seen={!!d}
         back={{ to: '/deliveries', label: m.back }}
         title={
           <>
@@ -273,6 +343,7 @@ function DeliveryDetailPage() {
           )
         }
       />
+      {d && <DeliverySteps state={d.state} />}
       {d && (
         <SystemIds
           ids={[
