@@ -30,7 +30,7 @@ function useLateDeliveries(enabled: boolean): { issue: Issue | null; failed: boo
   if (!q.data) return { issue: null, failed: q.isError, loading: !q.isError };
   const now = q.data.composedAt ? Date.parse(q.data.composedAt) : Number.NaN;
   const late = (q.data.items ?? []).filter((i) => !!i.promisedAt && Date.parse(i.promisedAt) < now).length;
-  return { issue: late > 0 ? { text: m.lateDeliveries(late), to: '/live-delivery' } : null, failed: false, loading: false };
+  return { issue: late > 0 ? { text: m.lateDeliveries(late), to: '/live-delivery?focus=late' } : null, failed: false, loading: false };
 }
 
 export function DashboardStatus({ cases, live }: { readonly cases: boolean; readonly live: boolean }) {
@@ -44,19 +44,29 @@ export function DashboardStatus({ cases, live }: { readonly cases: boolean; read
   const box = { error: 'border-error/30 bg-error/10', warning: 'border-warning/40 bg-warning/10', neutral: 'border-base-300 bg-base-100', success: 'border-success/30 bg-success/10' }[tone];
   const dot = { error: 'bg-error', warning: 'bg-warning', neutral: 'bg-base-content/30', success: 'bg-success' }[tone];
   const title = issues.length > 0 ? m.issues(issues.length) : failed > 0 ? m.unknown : loading ? m.checking : m.ok;
+  // 2026-11-20 사용자 "이상도 너무 작게 뜨고, 눌러도 들어가지지 않아 — 누르는 범위를 넓게": 큰 글씨 + 이상마다 큰 버튼(칸 전체가 링크)
   return (
-    <div className={`flex flex-wrap items-center gap-x-3 gap-y-1 rounded-box border px-4 py-2.5 text-sm ${box}`} aria-live="polite" data-testid="dash-status" data-tone={tone}>
-      <span className="relative flex h-2.5 w-2.5" aria-hidden="true">
-        {tone === 'error' && <span className={`absolute inline-flex h-full w-full animate-ping rounded-full opacity-60 ${dot}`} />}
-        <span className={`relative inline-flex h-2.5 w-2.5 rounded-full ${dot}`} />
-      </span>
-      <span className="font-bold">{title}</span>
-      {issues.map((i) => (
-        <Link key={i.to} to={i.to} className="link link-hover text-error">
-          {i.text}
-        </Link>
-      ))}
-      {failed > 0 && <span className="text-xs text-base-content/60">{m.failed(failed)}</span>}
+    <div className={`rounded-box border px-4 py-3 ${box}`} aria-live="polite" data-testid="dash-status" data-tone={tone}>
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
+        <span className="flex items-center gap-2.5">
+          <span className="relative flex h-3 w-3" aria-hidden="true">
+            {tone === 'error' && <span className={`absolute inline-flex h-full w-full animate-ping rounded-full opacity-60 ${dot}`} />}
+            <span className={`relative inline-flex h-3 w-3 rounded-full ${dot}`} />
+          </span>
+          <span className={`text-lg font-extrabold ${tone === 'error' ? 'text-error' : ''}`}>{title}</span>
+        </span>
+        {issues.map((i) => (
+          <Link
+            key={i.to}
+            to={i.to}
+            className="flex min-w-56 flex-1 items-center justify-between gap-3 rounded-lg border border-error/30 bg-base-100 px-4 py-3 text-base font-semibold text-error shadow-sm transition hover:border-error hover:bg-error/5 sm:flex-none"
+          >
+            <span>{i.text}</span>
+            <span aria-hidden="true">→</span>
+          </Link>
+        ))}
+        {failed > 0 && <span className="text-sm text-base-content/60">{m.failed(failed)}</span>}
+      </div>
     </div>
   );
 }

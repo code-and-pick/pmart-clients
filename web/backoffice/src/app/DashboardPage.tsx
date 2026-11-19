@@ -12,7 +12,6 @@ import { ProblemFailure, request } from '@pmart/web-core';
 import { useApi } from './ApiContext';
 import { ALERT_SIZE, useAlertCount, type AlertKey } from './MenuAlerts';
 import { ApprovalTypes, LiveSummary, RiskPanel, SlaTrend } from './DashboardSections';
-import { RecentViews } from './RecentViews';
 import { DashboardStatus } from './DashboardStatus';
 import { DisplayNumber } from '../shared/displayNumber';
 import { ActivityFeed, LiveStat, MetricsPanel, OrdersWeekChart, SalesPanel, WorkCountsPanel, useWorkCounts, workText, type WorkSum, RefreshBar, RiskStat, SlaStat, StatusDonut, TodayOrdersStat, slaQuery } from './DashboardWidgets';
@@ -290,8 +289,7 @@ export function DashboardPage() {
             </div>
           )}
 
-          {/* 최근 본 항목 — 이 브라우저·이 직원 것, 없으면 안 보임 */}
-          <RecentViews />
+          {/* 최근 본 항목 줄은 뺐다(2026-11-20 사용자 "대시보드가 메인인데 없어 보이게 떠 있어야 하니") — 통합 조회·배송 확인 빈 화면에만 */}
 
           {tasks.length === 0 && stats.length === 0 && !hasActivity && <p className="text-sm text-base-content/60">{m.nothing}</p>}
         </div>
