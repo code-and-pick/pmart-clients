@@ -87,7 +87,7 @@ export function AppealsMenu() {
     setParams({});
   };
   return (
-    <section className="max-w-6xl space-y-4">
+    <section className="max-w-[1600px] space-y-4">
       <PageHeader title={t.title} description={t.intro} />
       {done && (
         <div role="status" className="alert alert-success flex flex-col items-stretch gap-2 text-sm" data-testid="appeal-done">

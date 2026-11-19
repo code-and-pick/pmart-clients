@@ -10,6 +10,8 @@ export const messages = {
   nav: {
     session: '내 세션',
     login: '로그인',
+    collapse: '메뉴 접기',
+    expand: '메뉴 펼치기',
   },
 
   /** 메뉴 묶음·하위 메뉴(뼈대 — 이름·순서는 PC 5 가 정해도 된다) */

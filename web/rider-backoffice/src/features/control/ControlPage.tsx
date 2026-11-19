@@ -4,13 +4,13 @@
 // 2026-11-18: 관리자 화면 모양 — 머리말, 조건 상자(센터 + 보기 칩), 요약 카드(누르면 그 거르기), 지도 구역, 표(위치 상태 꼬리표).
 import { useQuery } from '@tanstack/react-query';
 import { useCallback, useEffect } from 'react';
-import { useSearchParams } from 'react-router';
+import { Link, useSearchParams } from 'react-router';
 
 import { request } from '@pmart/web-core';
 import { QueryState, toUiState } from '@pmart/web-ui';
 import type { components } from '../../api/generated/delivery-tracking';
 import { useApi } from '../../app/ApiContext';
-import { ChipGroup, DataTable, PageHeader, Section, StatCard, StatusBadge } from '../../shared/admin';
+import { ChipGroup, PageHeader, StatusBadge } from '../../shared/admin';
 import { RiderName } from '../../shared/displayNumbers';
 import { isSimRider } from '../../shared/sim';
 import { messages } from '../../shared/messages';
@@ -32,6 +32,7 @@ const cx = {
   view: '보기',
   onDuty: '운행 중',
   delivering: '배송 중',
+  waiting: '대기',
   staleOrNone: '위치 끊김·없음',
   people: (k: number) => `${k}명`,
   map: '위치 지도',
@@ -129,18 +130,12 @@ export function ControlPage() {
   const routes: MapRoute[] = drops.flatMap((q, i) => (q.data?.lat != null && q.data.lng != null ? [{ deliveryId: routeIds[i] ?? '', drop: { lat: q.data.lat, lng: q.data.lng } }] : []));
   return (
     <section className="space-y-4">
-      <PageHeader title={c.title} description={c.intro} />
-      <div className="flex flex-wrap items-end gap-x-8 gap-y-3 rounded-box border border-base-300 bg-base-100 px-5 py-4" aria-label="관제 조건" role="group">
-        <ControlSearch onFound={found} />
-        <CenterPicker value={mfcId} onChange={(v) => setParams(v ? { mfcId: v } : {})} />
-        <div className="flex flex-col gap-1 text-sm">
-          <span>{cx.view}</span>
-          <ChipGroup
-            label={cx.view}
-            value={filter}
-            options={(['all', 'delivering', 'stale', 'sim'] as const).map((f) => ({ value: f, label: c.filter[f] }))}
-            onChange={setFilter}
-          />
+      {/* 머리말 + 조건(한 줄): 찾기 · 센터 — 보기 거르기는 아래 라이더 목록 머리로 */}
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <PageHeader title={c.title} description={c.intro} />
+        <div className="flex flex-wrap items-end gap-x-6 gap-y-3" aria-label="관제 조건" role="group">
+          <ControlSearch onFound={found} />
+          <CenterPicker value={mfcId} onChange={(v) => setParams(v ? { mfcId: v } : {})} />
         </div>
       </div>
       {mfcId === '' ? (
@@ -153,6 +148,7 @@ export function ControlPage() {
             const all = b.items ?? [];
             const staleFlag = all.filter((r) => r.stale).length;
             const staleOrNone = all.filter(isStale).length;
+            const delivering = all.filter(isDelivering).length;
             const items = all.filter((r) => (filter === 'delivering' ? isDelivering(r) : filter === 'stale' ? isStale(r) : filter === 'sim' ? isSimRider(r.riderId) : true));
             const mapRiders: MapRider[] = items.flatMap((r) =>
               r.location?.lat != null && r.location.lng != null
@@ -161,85 +157,67 @@ export function ControlPage() {
             );
             return (
               <div className="space-y-4">
-                <div className="grid gap-3 sm:grid-cols-3">
-                  <StatCard label={cx.onDuty} value={cx.people(all.length)} to={filterLink('all')} hint={ops.dashboard.asOf(when(b.asOf))} testId="control-stat-all" />
-                  <StatCard label={cx.delivering} value={cx.people(all.filter(isDelivering).length)} to={filterLink('delivering')} testId="control-stat-delivering" />
-                  <StatCard label={cx.staleOrNone} value={cx.people(staleOrNone)} to={filterLink('stale')} {...(staleOrNone > 0 ? { tone: 'error' as const } : {})} testId="control-stat-stale" />
+                {/* 핵심 수 — 누르면 그 거르기(목록·지도가 함께 바뀐다) */}
+                <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                  <KpiTile label={cx.onDuty} value={cx.people(all.length)} to={filterLink('all')} active={filter === 'all'} hint={ops.dashboard.asOf(when(b.asOf))} testId="control-stat-all" />
+                  <KpiTile label={cx.delivering} value={cx.people(delivering)} to={filterLink('delivering')} active={filter === 'delivering'} dot="bg-info" testId="control-stat-delivering" />
+                  <KpiTile label={cx.waiting} value={cx.people(all.filter((r) => !isDelivering(r) && !isStale(r)).length)} to={filterLink('all')} dot="bg-success" />
+                  <KpiTile label={cx.staleOrNone} value={cx.people(staleOrNone)} to={filterLink('stale')} active={filter === 'stale'} dot="bg-error" alert={staleOrNone > 0} testId="control-stat-stale" />
                 </div>
-                <Section
-                  title={cx.map}
-                  aside={
-                    <span className="flex flex-wrap items-center gap-1">
-                      <StatusBadge tone="success">{cx.legend.ok}</StatusBadge>
-                      <StatusBadge tone="info">{cx.legend.delivering}</StatusBadge>
-                      <StatusBadge tone="warning">{cx.legend.stale}</StatusBadge>
-                    </span>
-                  }
-                >
-                  {/* 지도 + 오른쪽 상세 칸: 실시간 위치와 고른 라이더의 픽업지·주문 내역·도착 예정을 한 화면에서 */}
-                  <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_24rem]">
-                    <KakaoRiderMap center={centerPoint} riders={mapRiders} onSelect={select} selectedId={selectedId} routes={routes} />
-                    <ControlRiderPanel rider={all.find((r) => r.riderId === selectedId)} selectedId={selectedId} focusDeliveryId={focusDeliveryId} onClose={() => select('')} asOf={b.asOf} />
-                  </div>
-                </Section>
-                {/* 최근 배송(끝난 것까지) — 짧은 배송도 놓치지 않게. 줄을 누르면 위 "라이더 한눈에"로 */}
-                <RecentDeliveries mfcId={mfcId} selectedDeliveryId={focusDeliveryId} onPick={(hit) => found({ ...hit, mfcId })} />
-                <div className="flex flex-wrap items-center justify-between gap-2 px-1">
-                  <p className="flex items-center gap-2 text-sm">
-                    <span>
-                      <span className="font-semibold text-primary">{items.length}</span>명
-                    </span>
-                    {staleFlag > 0 && <StatusBadge tone="error">{c.staleCount(staleFlag)}</StatusBadge>}
-                  </p>
-                  <span className="text-xs text-base-content/50">{cx.refresh}</span>
-                </div>
-                {items.length === 0 ? (
-                  <p data-state="empty" className="rounded-box border border-base-300 bg-base-100 p-6 text-center text-sm text-base-content/60">
-                    {c.emptyFiltered}
-                  </p>
-                ) : (
-                  <DataTable>
-                    <thead>
-                      <tr>
-                        <th>{c.col.rider}</th>
-                        <th>{c.col.vehicle}</th>
-                        <th>{c.col.dispatch}</th>
-                        <th>{c.col.location}</th>
-                        <th>{c.col.updated}</th>
-                        <th>{c.col.deliveries}</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {items.map((r) => (
-                        <tr
-                          key={r.riderId}
-                          id={`control-${r.riderId}`}
-                          data-testid="control-row"
-                          aria-selected={r.riderId === selectedId}
-                          className={`cursor-pointer ${r.riderId === selectedId ? 'bg-primary/10' : isStale(r) ? 'bg-error/5' : ''}`}
-                          onClick={() => select(r.riderId)}
-                        >
-                          <td>
-                            <span className="flex flex-wrap items-center gap-1">
-                              {/* 화면 번호(ADR-0070): "이* · 482913". 줄을 누르면 오른쪽 칸 — 라이더 상세 링크는 그 칸에 */}
-                              <RiderName riderId={r.riderId} nameMasked={r.nameMasked} riderNumber={r.riderNumber} />
-                              {r.restriction && r.restriction !== 'NORMAL' && <StatusBadge tone="warning">{label(n.restriction, r.restriction)}</StatusBadge>}
-                            </span>
-                          </td>
-                          <td>{label(n.vehicle, r.vehicleType)}</td>
-                          <td>{r.newDispatchEnabled ? <StatusBadge tone="success">{c.on}</StatusBadge> : <StatusBadge>{c.off}</StatusBadge>}</td>
-                          <td>
-                            <span className="flex flex-wrap items-center gap-2">
+
+                {/* 작업 화면(배민 주문접수처럼): 왼쪽 라이더 목록 · 가운데 지도 · 오른쪽 고른 라이더 상세 — 한 화면에서 스크롤 없이 */}
+                <div className="grid gap-4 xl:h-[calc(100vh-17rem)] xl:min-h-[560px] xl:grid-cols-[20rem_minmax(0,1fr)_24rem]">
+                  <div className="flex min-h-0 flex-col overflow-hidden rounded-box border border-base-300 bg-base-100">
+                    <div className="space-y-2 border-b border-base-300 px-4 py-3">
+                      <div className="flex items-center justify-between">
+                        <h2 className="font-bold">{cx.list}</h2>
+                        <p className="flex items-center gap-2 text-sm">
+                          <span>
+                            <span className="font-semibold text-primary">{items.length}</span>명
+                          </span>
+                          {staleFlag > 0 && <StatusBadge tone="error">{c.staleCount(staleFlag)}</StatusBadge>}
+                        </p>
+                      </div>
+                      <ChipGroup
+                        label={cx.view}
+                        value={filter}
+                        options={(['all', 'delivering', 'stale', 'sim'] as const).map((f) => ({ value: f, label: c.filter[f] }))}
+                        onChange={setFilter}
+                      />
+                    </div>
+                    {items.length === 0 ? (
+                      <p data-state="empty" className="p-6 text-center text-sm text-base-content/60">
+                        {c.emptyFiltered}
+                      </p>
+                    ) : (
+                      <ul className="min-h-0 flex-1 divide-y divide-base-200 overflow-y-auto" aria-label={cx.list}>
+                        {items.map((r) => (
+                          <li
+                            key={r.riderId}
+                            id={`control-${r.riderId}`}
+                            data-testid="control-row"
+                            aria-selected={r.riderId === selectedId}
+                            className={`cursor-pointer border-l-[3px] px-4 py-3 text-sm ${r.riderId === selectedId ? 'border-primary bg-primary/10' : isStale(r) ? 'border-error bg-error/5 hover:bg-error/10' : 'border-transparent hover:bg-base-200/60'}`}
+                            onClick={() => select(r.riderId)}
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <span className="flex min-w-0 flex-wrap items-center gap-1">
+                                {/* 화면 번호(ADR-0070): "이* · 482913" */}
+                                <RiderName riderId={r.riderId} nameMasked={r.nameMasked} riderNumber={r.riderNumber} />
+                                {r.restriction && r.restriction !== 'NORMAL' && <StatusBadge tone="warning">{label(n.restriction, r.restriction)}</StatusBadge>}
+                              </span>
                               <LocationBadge r={r} />
-                              {r.location && <span className="font-mono text-xs text-base-content/70">{`${Number(r.location.lat).toFixed(5)}, ${Number(r.location.lng).toFixed(5)}`}</span>}
-                            </span>
-                          </td>
-                          <td className="whitespace-nowrap">{r.staleSinceSeconds === null || r.staleSinceSeconds === undefined ? none : c.seconds(r.staleSinceSeconds)}</td>
-                          <td>
-                            {r.activeDeliveries.length === 0 ? (
-                              <span className="text-base-content/40">{none}</span>
-                            ) : (
-                              <ul className="space-y-0.5">
+                            </div>
+                            <p className="mt-1 flex flex-wrap items-center gap-x-2 text-xs text-base-content/60">
+                              <span>{label(n.vehicle, r.vehicleType)}</span>
+                              <span>·</span>
+                              <span>{r.newDispatchEnabled ? `${c.col.dispatch} ${c.on}` : `${c.col.dispatch} ${c.off}`}</span>
+                              <span>·</span>
+                              <span>{r.staleSinceSeconds === null || r.staleSinceSeconds === undefined ? none : c.seconds(r.staleSinceSeconds)}</span>
+                            </p>
+                            {r.location && <p className="mt-0.5 font-mono text-[11px] text-base-content/45">{`${Number(r.location.lat).toFixed(5)}, ${Number(r.location.lng).toFixed(5)}`}</p>}
+                            {r.activeDeliveries.length > 0 && (
+                              <ul className="mt-1.5 space-y-0.5 rounded-md bg-info/10 px-2 py-1.5">
                                 {r.activeDeliveries.map((x) => (
                                   <li key={x.deliveryId}>
                                     <ActiveDeliverySummary active={x} />
@@ -247,17 +225,54 @@ export function ControlPage() {
                                 ))}
                               </ul>
                             )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </DataTable>
-                )}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    <p className="border-t border-base-300 px-4 py-2 text-right text-xs text-base-content/50">{cx.refresh}</p>
+                  </div>
+
+                  <div className="relative flex min-h-[420px] flex-col">
+                    <KakaoRiderMap center={centerPoint} riders={mapRiders} onSelect={select} selectedId={selectedId} routes={routes} heightClass="h-full min-h-[420px]" />
+                    <span className="pointer-events-none absolute left-3 top-3 flex flex-wrap items-center gap-1">
+                      <StatusBadge tone="success">{cx.legend.ok}</StatusBadge>
+                      <StatusBadge tone="info">{cx.legend.delivering}</StatusBadge>
+                      <StatusBadge tone="warning">{cx.legend.stale}</StatusBadge>
+                    </span>
+                  </div>
+
+                  <div className="min-h-0 overflow-y-auto">
+                    <ControlRiderPanel rider={all.find((r) => r.riderId === selectedId)} selectedId={selectedId} focusDeliveryId={focusDeliveryId} onClose={() => select('')} asOf={b.asOf} />
+                  </div>
+                </div>
+
+                {/* 최근 배송(끝난 것까지) — 짧은 배송도 놓치지 않게. 줄을 누르면 위 상세로 */}
+                <RecentDeliveries mfcId={mfcId} selectedDeliveryId={focusDeliveryId} onPick={(hit) => found({ ...hit, mfcId })} />
               </div>
             );
           }}
         </QueryState>
       )}
     </section>
+  );
+}
+
+/** 관제 핵심 수 — 누르면 그 거르기. 고른 거르기는 테두리, 문제가 있으면 빨강 */
+function KpiTile({ label: text, value, to, active = false, dot, alert = false, hint, testId }: { readonly label: string; readonly value: string; readonly to: string; readonly active?: boolean; readonly dot?: string; readonly alert?: boolean; readonly hint?: string; readonly testId?: string }) {
+  return (
+    <Link
+      to={to}
+      className={`flex items-center justify-between gap-3 rounded-box border bg-base-100 px-5 py-3 ${active ? 'border-primary ring-1 ring-primary' : 'border-base-300 hover:border-primary'}`}
+      data-testid={testId}
+    >
+      <span className="min-w-0">
+        <span className="flex items-center gap-2 text-sm text-base-content/65">
+          {dot && <span className={`h-2 w-2 rounded-full ${dot}`} aria-hidden />}
+          {text}
+        </span>
+        {hint && <span className="block text-[11px] text-base-content/45">{hint}</span>}
+      </span>
+      <span className={`text-2xl font-bold ${alert ? 'text-error' : ''}`}>{value}</span>
+    </Link>
   );
 }

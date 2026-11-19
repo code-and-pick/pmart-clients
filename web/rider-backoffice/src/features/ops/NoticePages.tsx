@@ -47,7 +47,7 @@ type Target = { readonly type: 'ALL' } | { readonly type: 'MFC'; readonly mfcId:
 
 export function NoticesMenu() {
   return (
-    <section className="max-w-6xl space-y-4">
+    <section className="max-w-[1600px] space-y-4">
       <PageHeader title={noticeText.title} description={noticeText.intro} />
       <NoticeForm />
       <SentNotices />

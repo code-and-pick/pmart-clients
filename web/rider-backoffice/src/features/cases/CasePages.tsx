@@ -208,7 +208,7 @@ function CaseDetailPage() {
   });
   const c = query.data;
   return (
-    <section className="max-w-6xl space-y-4">
+    <section className="max-w-[1600px] space-y-4">
       <DetailHeader
         back={{ to: '/cases', label: m.back }}
         title={m.detailTitle(caseId)}

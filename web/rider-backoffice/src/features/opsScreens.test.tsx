@@ -14,7 +14,7 @@ describe('대시보드', () => {
     expect(screen.getByTestId('stat-on-duty')).toHaveTextContent('1');
     expect(await screen.findByTestId('stat-in-progress')).toHaveTextContent('4');
     expect(screen.getByTestId('stat-surcharges')).toHaveTextContent('1');
-    expect(screen.getByTestId('stat-by-state')).toHaveTextContent('픽업 2');
+    expect(screen.getByTestId('stat-by-state')).toHaveTextContent(/픽업\s*2/);
   });
 });
 

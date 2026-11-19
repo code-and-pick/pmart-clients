@@ -91,7 +91,7 @@ export function PayoutsMenu() {
     setParams({});
   };
   return (
-    <section className="max-w-6xl space-y-4">
+    <section className="max-w-[1600px] space-y-4">
       <PageHeader title={t.title} description={t.intro} />
       {done && (
         <p role="status" className="alert alert-success text-sm" data-testid="payout-done">

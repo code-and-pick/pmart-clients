@@ -72,7 +72,10 @@ export function KakaoRiderMap({
   onSelect,
   selectedId = '',
   routes = [],
+  heightClass = 'h-96',
 }: {
+  /** 높이(관제 작업 화면은 칸을 가득 채운다) */
+  readonly heightClass?: string;
   readonly routes?: readonly MapRoute[];
   readonly center: { readonly lat: number; readonly lng: number } | null;
   readonly riders: readonly MapRider[];
@@ -176,10 +179,10 @@ export function KakaoRiderMap({
 
   if (state === 'failed') {
     return (
-      <p role="note" className="rounded-box bg-base-300/50 px-4 py-3 text-sm text-base-content/75" data-testid="map-unavailable">
+      <p role="note" className={`grid place-items-center rounded-box border border-dashed border-base-300 bg-base-200/70 px-6 py-3 text-center text-sm text-base-content/70 ${heightClass}`} data-testid="map-unavailable">
         {KEY ? m.map.failed : m.map.noKey}
       </p>
     );
   }
-  return <div ref={el} aria-label={m.map.label} className="h-96 w-full rounded-box border border-base-300 bg-base-200" data-testid="rider-map" />;
+  return <div ref={el} aria-label={m.map.label} className={`${heightClass} w-full rounded-box border border-base-300 bg-base-200`} data-testid="rider-map" />;
 }

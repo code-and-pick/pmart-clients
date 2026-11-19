@@ -14,9 +14,11 @@ import { useApi } from '../../app/ApiContext';
 import { useSession } from '../../app/SessionContext';
 import { photoMessages } from '../../shared/AuthedPhotos';
 import { ChipGroup, CursorPager, DataTable, DetailHeader, FieldList, PageHeader, ResultBar, SearchPanel, SearchRow, Section, SectionTabs, StatusBadge } from '../../shared/admin';
+import { RiderName, useRiderSummaries } from '../../shared/displayNumbers';
 import { messages } from '../../shared/messages';
 import { ops } from '../../shared/opsMessages';
 import { label, none, when } from '../../shared/opsUi';
+import { useNow, waited } from '../../shared/useNow';
 import { EvidencePhotos, helpExtrasMessages, InquiryPhotos, MaskMessage, ResolvePanel } from './HelpExtras';
 import { ChatBox, ChatBubble, helpTone, inquiryTone, StateTabs } from './supportUi';
 
@@ -111,6 +113,9 @@ function HelpQueuePage() {
         }),
       ),
   });
+  // 라이더는 화면 번호로(ADR-0070), 기다린 시간은 30초마다(급한 건이 먼저 눈에 띄게 — 2026-11-19)
+  const riders = useRiderSummaries((queue.data?.items ?? []).map((it) => it.riderId));
+  const now = useNow();
   const submit = (e: FormEvent) => {
     e.preventDefault();
     set({ riderId: draftRider.trim() });
@@ -156,6 +161,7 @@ function HelpQueuePage() {
                     <th>{h.col.rider}</th>
                     <th>{sm.helpCol.photos}</th>
                     <th>{h.col.createdAt}</th>
+                    <th>{waitCol}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -179,9 +185,10 @@ function HelpQueuePage() {
                         </Link>
                       </td>
                       <td className="whitespace-nowrap">{label(n.executionState, it.stage)}</td>
-                      <td className="font-mono text-xs">{it.riderId ?? none}</td>
+                      <td>{it.riderId ? <RiderName riderId={it.riderId} nameMasked={riders.get(it.riderId)?.nameMasked} riderNumber={riders.get(it.riderId)?.riderNumber} /> : none}</td>
                       <td className="tabular-nums">{sm.photoCount(it.photoCount ?? 0)}</td>
                       <td className="whitespace-nowrap">{when(it.createdAt)}</td>
+                      <td className="whitespace-nowrap">{it.state === 'RESOLVED' ? none : <WaitBadge from={it.createdAt} now={now} />}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -229,7 +236,7 @@ function HelpChatPage() {
     { id: 'sec-chat', label: sm.help.chat },
   ];
   return (
-    <section className="max-w-6xl space-y-4">
+    <section className="max-w-[1600px] space-y-4">
       <DetailHeader
         back={{ to: '/help-requests', label: h.back }}
         title={h.chatTitle(requestId)}
@@ -465,7 +472,7 @@ function InquiryDetailPage() {
     ...(closed ? [] : [{ id: 'sec-close', label: sm.inquiry.close }]),
   ];
   return (
-    <section className="max-w-6xl space-y-4">
+    <section className="max-w-[1600px] space-y-4">
       <DetailHeader
         back={{ to: '/inquiries', label: q.back }}
         title={q.detailTitle(inquiryId)}
@@ -574,4 +581,13 @@ function InquiryDetailPage() {
       </div>
     </section>
   );
+}
+
+const waitCol = '기다린 시간';
+
+/** 받은 뒤 지난 시간 — 10분 넘으면 주의, 30분 넘으면 경고 */
+function WaitBadge({ from, now }: { readonly from: string | null | undefined; readonly now: number | null }) {
+  const w = waited(from, now);
+  if (!w) return <span className="text-base-content/40">—</span>;
+  return <StatusBadge tone={w.tone}>{w.text}</StatusBadge>;
 }

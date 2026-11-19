@@ -49,7 +49,7 @@ export function AdjustmentsMenu() {
     queryFn: () => request('GET', api.execution.GET('/rider-earnings/adjustment-queue', { params: { query: { size: 50 } } })),
   });
   return (
-    <section className="max-w-6xl space-y-4">
+    <section className="max-w-[1600px] space-y-4">
       <PageHeader title={e.adjustTitle} description={e.adjustIntro} />
       {onlyDelivery && (
         <p role="note" className="alert flex flex-wrap justify-between text-sm" data-testid="adjust-only">
@@ -200,7 +200,7 @@ export function SurchargesMenu() {
     setParams({});
   };
   return (
-    <section className="max-w-6xl space-y-4">
+    <section className="max-w-[1600px] space-y-4">
       <PageHeader title={e.surchargeTitle} description={e.surchargeIntro} />
       <SearchPanel onSubmit={submit} onReset={reset} submitLabel={f.search} resetLabel={f.reset}>
         <SearchRow label={f.state}>

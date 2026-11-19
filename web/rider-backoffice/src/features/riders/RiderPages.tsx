@@ -271,7 +271,7 @@ function RiderDetailPage() {
     { id: 'sec-restriction', label: rm.tabs.restriction },
   ];
   return (
-    <section className="max-w-6xl space-y-4">
+    <section className="max-w-[1600px] space-y-4">
       <DetailHeader
         back={{ to: '/riders', label: r.back }}
         title={d?.riderNumber ? r.detailTitle(d.riderNumber) : r.detailTitle(rm.noNumber)}

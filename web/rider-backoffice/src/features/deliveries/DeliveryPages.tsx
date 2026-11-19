@@ -232,7 +232,7 @@ function DeliveryDetailPage() {
     { id: 'sec-actions', label: '운영 조치' },
   ];
   return (
-    <section className="max-w-6xl space-y-4">
+    <section className="max-w-[1600px] space-y-4">
       <DetailHeader
         back={{ to: '/deliveries', label: m.back }}
         title={

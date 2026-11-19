@@ -165,7 +165,7 @@ export function StaffActionsMenu() {
   );
 
   return (
-    <section className="max-w-6xl space-y-4">
+    <section className="max-w-[1600px] space-y-4">
       <PageHeader title={t.title} description={t.intro} />
       <SearchPanel onSubmit={submit} onReset={reset} submitLabel={t.search} resetLabel={t.reset}>
         <SearchRow label={t.period}>
