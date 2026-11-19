@@ -2332,6 +2332,7 @@ export const messages = {
   menuAlerts: {
     failed: '개수를 읽지 못했어요(0 이 아니에요)',
     groupTitle: '이 묶음의 할 일',
+    groupUrgentTitle: '이 묶음의 기한 지남(할 일과 겹칠 수 있어요)',
     launcherMenu: '이 앱 메뉴',
     title: {
       casesUnassigned: '아무도 안 맡은 접수 건',

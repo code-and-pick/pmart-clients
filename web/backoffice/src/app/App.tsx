@@ -194,7 +194,7 @@ function Layout() {
               return (
                 <Link key={g.id} to={g.home ?? g.items[0]?.to ?? '/'} aria-label={g.label} title={g.label} className={`relative flex h-10 w-10 items-center justify-center rounded-lg ${active ? 'bg-accent/20 text-accent' : 'text-neutral-content/80 hover:bg-neutral-content/10'}`} data-testid={`nav-rail-${g.id}`}>
                   <GroupIcon id={g.id} className="h-5 w-5" />
-                  <span className="absolute -right-1 -top-1">
+                  <span className="absolute -right-1.5 -top-1.5 [&>span]:flex-col [&>span]:items-end">
                     <GroupAlertBadge items={g.items} />
                   </span>
                 </Link>

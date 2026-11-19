@@ -39,9 +39,13 @@ describe('왼쪽 메뉴 업무 알림', () => {
     const user = userEvent.setup();
     renderAt('/session', as.admin);
     await screen.findByTestId('nav-group-support');
-    // 지원센터: 안 맡음 4 + 라이더 문의 1 = 5, 기한 지남이 있어 빨강
+    // 지원센터(2026-11-19 색별로 나눔): 파랑 = 안 맡음 4 + 라이더 문의 1 = 5, 빨강 = 기한 지남 2 — 펼친 메뉴 배지를 색별로 더한 값과 같다
     expect(await within(screen.getByTestId('nav-group-support')).findByTestId('menu-alert-group')).toHaveTextContent('5');
-    expect(groupAlert('support')).toHaveClass('badge-error');
+    expect(groupAlert('support')).toHaveClass('badge-info');
+    const urgent = within(screen.getByTestId('nav-group-support').querySelector('summary')!).getByTestId('menu-alert-group-urgent');
+    expect(urgent).toHaveTextContent('2');
+    expect(urgent).toHaveClass('badge-error');
+    expect(within(screen.getByTestId('nav-group-approval')).queryByTestId('menu-alert-group-urgent')).not.toBeInTheDocument(); // 빨간 메뉴가 없는 묶음
     expect(await within(screen.getByTestId('nav-group-approval')).findByTestId('menu-alert-group')).toHaveTextContent('3');
     expect(groupAlert('approval')).toHaveClass('badge-info');
     expect(await within(screen.getByTestId('nav-group-cs')).findByTestId('menu-alert-group')).toHaveTextContent('2');
@@ -83,6 +87,22 @@ describe('왼쪽 메뉴 업무 알림', () => {
     renderAt('/session', as.admin); // 목록 화면은 열지 않는다(가짜 줄로 화면을 그리지 않게) — 접힌 묶음 합계로 본다
     expect(await within(screen.getByTestId('nav-group-cs')).findByTestId('menu-alert-group')).toHaveTextContent('50+');
     expect(await within(screen.getByTestId('nav-group-approval')).findByTestId('menu-alert-group')).toHaveTextContent('?');
+  });
+});
+
+describe('메뉴를 접었을 때(2026-11-19 사용자 "접었을 때 빨간색 알림만 보인다")', () => {
+  it('묶음 아이콘 칸에도 파랑(할 일)·빨강(기한 지남)을 따로 — 빨강 하나로 덮지 않는다', async () => {
+    busy();
+    window.localStorage.setItem('pmart.backoffice.menu', 'collapsed');
+    try {
+      renderAt('/session', as.admin);
+      const rail = await screen.findByTestId('nav-rail-support');
+      expect(await within(rail).findByTestId('menu-alert-group')).toHaveTextContent('5');
+      expect(within(rail).getByTestId('menu-alert-group')).toHaveClass('badge-info');
+      expect(within(rail).getByTestId('menu-alert-group-urgent')).toHaveTextContent('2');
+    } finally {
+      window.localStorage.removeItem('pmart.backoffice.menu');
+    }
   });
 });
 

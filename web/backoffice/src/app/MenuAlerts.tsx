@@ -148,30 +148,47 @@ export function MenuItemAlerts({ to }: { readonly to: string }) {
   );
 }
 
+type AlertResult = { readonly k: AlertKey; readonly q: { readonly data?: Count | undefined; readonly isError: boolean } };
+
+/**
+ * 색 하나의 합계 배지. PC 1 검토(#119): 실패한 메뉴를 0 으로 더하지 않는다 — 하나라도 못 읽었으면 "N+?"(모르는 부분이 있음).
+ * 읽는 중인 메뉴가 있으면 숨긴다(일부만 더한 작은 숫자를 보이지 않게).
+ */
+function SumBadge({ results, tone, title, testId }: { readonly results: readonly AlertResult[]; readonly tone: 'info' | 'error'; readonly title: string; readonly testId: string }) {
+  if (results.length === 0 || results.some((r) => !r.q.data && !r.q.isError)) return null;
+  const failed = results.some((r) => r.q.isError && !r.q.data);
+  const sum = results.reduce((n, r) => n + (r.q.data?.n ?? 0), 0);
+  const more = results.some((r) => r.q.data?.more);
+  if (failed)
+    return (
+      <span className={`badge badge-xs ${tone === 'error' ? 'badge-error' : 'badge-ghost'}`} title={m.failed} data-testid={testId}>
+        {sum > 0 || more ? `${sum}${more ? '+' : ''}+?` : '?'}
+      </span>
+    );
+  if (sum === 0) return null;
+  return (
+    <span className={`badge badge-xs ${tone === 'error' ? 'badge-error' : 'badge-info'}`} title={title} data-testid={testId}>
+      {more ? `${sum}+` : sum}
+    </span>
+  );
+}
+
+/**
+ * 묶음 합계(2026-11-19 사용자 "펼치기 전엔 7 인데 펼치면 8, 접었을 때 빨간 알림만 보인다"):
+ * 메뉴 배지와 같은 색으로 나눠 보인다 — 파랑 = 파란 메뉴 배지의 합(할 일), 빨강 = 빨간 메뉴 배지의 합(기한 지남).
+ * 그래서 펼친 메뉴 배지를 색별로 더한 값과 늘 같다. 기한 지남은 안 맡음과 겹칠 수 있어 한 숫자로 합치지 않는다.
+ */
 function GroupSum({ keys }: { readonly keys: readonly AlertKey[] }) {
   // 항목 배지와 같은 queryKey — 같은 캐시를 읽는다
   const api = useApi();
   const qs = useQueries({ queries: keys.map((k) => alertQuery(api, k)) });
-  const results = keys.map((k, i) => ({ k, q: qs[i]! }));
-  // PC 1 검토(#119): 실패한 메뉴를 0 으로 더하지 않는다 — 하나라도 못 읽었으면 "N+?"(모르는 부분이 있음), 읽는 중이면 합계를 숨긴다.
-  const failed = results.some((r) => r.q.isError && !r.q.data);
-  const loading = results.some((r) => !r.q.data && !r.q.isError);
-  if (loading) return null;
-  // 합계는 "할 일" 수 — 접수 건은 안 맡음만 더한다(기한 지남은 안 맡음과 겹칠 수 있어 색으로만)
-  const todo = results.filter((r) => r.k !== 'casesOverdue');
-  const sum = todo.reduce((n, r) => n + (r.q.data?.n ?? 0), 0);
-  const more = todo.some((r) => r.q.data?.more);
-  const urgent = results.some((r) => URGENT.has(r.k) && (r.q.data?.n ?? 0) > 0);
-  if (failed)
-    return (
-      <span className={`badge badge-xs ${urgent ? 'badge-error' : 'badge-ghost'}`} title={m.failed} data-testid="menu-alert-group">
-        {sum > 0 || more ? `${sum}${more ? '+' : ''}+?` : '?'}
-      </span>
-    );
-  if (sum === 0 && !urgent) return null;
+  const results: AlertResult[] = keys.map((k, i) => ({ k, q: qs[i]! }));
+  const todo = results.filter((r) => !URGENT.has(r.k));
+  const urgent = results.filter((r) => URGENT.has(r.k));
   return (
-    <span className={`badge badge-xs ${urgent ? 'badge-error' : 'badge-info'}`} title={m.groupTitle} data-testid="menu-alert-group">
-      {more ? `${sum}+` : sum}
+    <span className="inline-flex items-center gap-0.5">
+      <SumBadge results={todo} tone="info" title={m.groupTitle} testId="menu-alert-group" />
+      <SumBadge results={urgent} tone="error" title={m.groupUrgentTitle} testId="menu-alert-group-urgent" />
     </span>
   );
 }
