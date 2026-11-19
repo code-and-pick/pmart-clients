@@ -45,7 +45,8 @@ export function ApprovalInboxPage() {
   // 화면(2026-11-18 승인함 목록과 같은 짜임): 원천 표시 → 한 카드(첫 칸 건 번호 굵게, 유형 색 꼬리표, 심사·반영 점 꼬리표, "N일 전") → 건수
   return (
     <section className="space-y-4">
-      <PageHeader title={m.approvals.title} description={m.approvals.intro} />
+      {/* 제목은 메뉴 이름과 같게(2026-11-20 화면 점검 — 승인함과 같은 제목이라 헷갈림) */}
+      <PageHeader title={m.nav.bffInbox} description={m.approvals.intro} />
       <QueryState state={state} onRetry={() => void query.refetch()} emptyText={m.approvals.empty}>
         {(view) => {
           const items = view.items ?? [];
@@ -69,8 +70,9 @@ export function ApprovalInboxPage() {
                         <td>
                           {/* 승인·반려는 승인 상세에서 한다. BR-40 회신: dossierId = approval-service 승인 ID(approvalId 로도 온다). */}
                           {(item.approvalId ?? item.dossierId) ? (
-                            <Link className="font-mono font-semibold text-base-content hover:text-primary hover:underline" to={`/approvals/${encodeURIComponent(item.approvalId ?? item.dossierId ?? '')}`}>
-                              {item.dossierId ?? item.approvalId}
+                            // 첫 칸은 요약(승인함 목록과 같게) — 시스템 ID(dossierId)는 보이지 않는다(ADR-0070). 요약이 없으면 "승인 건"
+                            <Link className="font-semibold text-base-content hover:text-primary hover:underline" to={`/approvals/${encodeURIComponent(item.approvalId ?? item.dossierId ?? '')}`}>
+                              {item.summary?.trim() || m.approvals.untitled}
                             </Link>
                           ) : (
                             '-'

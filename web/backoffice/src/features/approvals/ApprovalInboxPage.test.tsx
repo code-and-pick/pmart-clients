@@ -14,8 +14,12 @@ describe('승인함 (목 모드, MSW)', () => {
   it('원천·신선도와 함께 목록을 보여 준다', async () => {
     render(<App memory initialPath="/views/approval-inbox" initialToken={as.md} />);
 
-    // 건 ID 는 승인 상세(승인·반려 버튼이 있는 화면)로 가는 링크다.
-    expect(await screen.findByRole('link', { name: 'dos-mock-1' })).toHaveAttribute('href', '/approvals/dos-mock-1');
+    // 요약이 승인 상세(승인·반려 버튼이 있는 화면)로 가는 링크다. 시스템 ID·영문 코드는 보이지 않는다(ADR-0070).
+    expect(await screen.findByRole('link', { name: '기본가 변경 1건' })).toHaveAttribute('href', '/approvals/dos-mock-1');
+    expect(screen.getByRole('heading', { level: 1, name: '모든 승인 한눈에' })).toBeInTheDocument();
+    expect(screen.queryByText('dos-mock-1')).not.toBeInTheDocument();
+    expect(screen.getByText('심사 대기')).toBeInTheDocument();
+    expect(screen.getByText('반영 전')).toBeInTheDocument();
     expect(screen.getByText(/approval-service · 원래 정보 · 최신/)).toBeInTheDocument();
     expect(screen.getByText(/order-service · 옮겨 온 정보 · 지연/)).toBeInTheDocument();
     expect(screen.getByText('목 데이터')).toBeInTheDocument();
@@ -61,7 +65,7 @@ describe('승인함 (목 모드, MSW)', () => {
       http.get(inbox, () => HttpResponse.json({ ...approvalInbox, unavailableSources: ['order-service'] })),
     );
     render(<App memory initialPath="/views/approval-inbox" initialToken={as.md} />);
-    expect(await screen.findByText('dos-mock-1')).toBeInTheDocument();
+    expect(await screen.findByText('기본가 변경 1건')).toBeInTheDocument();
     expect(screen.getAllByText(/조회하지 못한 원천: order-service/).length).toBeGreaterThan(0);
   });
 });

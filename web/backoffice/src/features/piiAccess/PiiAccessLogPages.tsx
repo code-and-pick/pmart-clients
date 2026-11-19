@@ -15,6 +15,7 @@ import { useApi } from '../../app/ApiContext';
 import { SavedViews } from '../../shared/SavedViews';
 import { messages } from '../../shared/messages';
 import { isSeoulDate, label, seoulDayEnd, seoulDayStart, text, when } from '../../shared/ops';
+import { labelText, useEmployeeLabel } from '../../shared/employeeLabels';
 import { CodeLabel, FieldList, PageHeader, SearchPanel, SearchRow, Section, StatusBadge, type Tone } from '../../shared/admin';
 
 const m = messages.piiLogs;
@@ -64,6 +65,24 @@ function subject(log: Pick<Log, 'subjectType' | 'subjectRef'>) {
       )}
     </>
   );
+}
+
+/** 열람한 직원 — "이름 · 사번"(ADR-0070 덧붙임, hr employee-labels). OP-… 시스템 ID 는 상세 오른쪽 "직원" 칸에만(2026-11-20 화면 점검) */
+function useActorText(actorId: string): { readonly text: string; readonly letter: string } {
+  const q = useEmployeeLabel(actorId);
+  if (q.data) return { text: labelText(q.data), letter: q.data.name.replace(/^\[목\]\s*/, '').charAt(0) || '?' };
+  return { text: q.isPending ? '…' : q.isError ? messages.displayNumber.staffFailed : messages.displayNumber.staffUnknown, letter: '?' };
+}
+function ActorAvatar({ actorId, big = false }: { readonly actorId: string; readonly big?: boolean }) {
+  const a = useActorText(actorId);
+  return (
+    <span className={big ? 'flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-base-300 text-sm font-bold text-base-content/70' : 'hidden h-9 w-9 items-center justify-center rounded-full bg-base-300 text-xs font-bold text-base-content/70 sm:flex'} aria-hidden="true">
+      {a.letter}
+    </span>
+  );
+}
+function ActorName({ actorId }: { readonly actorId: string }) {
+  return <span className="font-semibold" data-testid="pii-actor">{useActorText(actorId).text}</span>;
 }
 
 const fieldsText = (fields: readonly string[]) => fields.map((f) => label(m.fieldName, f)).join(', ');
@@ -258,12 +277,10 @@ function LogList({ items, search }: { readonly items: readonly Log[]; readonly s
               {when(log.occurredAt)}
             </Link>
           </div>
-          <span className="hidden h-9 w-9 items-center justify-center rounded-full bg-base-300 text-xs font-bold text-base-content/70 sm:flex" aria-hidden="true">
-            {(log.actor.actorId.replace(/^op-/i, '').charAt(0) || '?').toUpperCase()}
-          </span>
+          <ActorAvatar actorId={log.actor.actorId} />
           <div className="min-w-0 space-y-1.5">
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-              <span className="font-mono font-semibold">{log.actor.actorId}</span>
+              <ActorName actorId={log.actor.actorId} />
               <StatusBadge tone={ACCESS_TONE[log.accessType] ?? 'ghost'}>
                 <CodeLabel code={log.accessType} names={m.accessTypeName} />
               </StatusBadge>
@@ -310,11 +327,12 @@ export function PiiAccessLogDetailPage() {
     queryKey: ['audit', 'pii-access-log', piiAccessLogId],
     queryFn: () => request('GET', api.audit.GET('/pii-access-logs/{piiAccessLogId}', { params: { path: { piiAccessLogId } } })),
   });
+  const actor = useActorText(query.data?.actor.actorId ?? '');
   return (
     <section className="max-w-6xl space-y-4">
       {/* 제목은 누가·무엇을 먼저(2026-11-18 "제목이 번호뿐") — 읽기 전에는 "열람 기록 한 건" */}
       <PageHeader
-        title={query.data ? m.detailHeadline(query.data.actor.actorId, fieldsText(query.data.fields), label(m.accessTypeName, query.data.accessType)) : m.detailTitle}
+        title={query.data ? m.detailHeadline(actor.text,fieldsText(query.data.fields), label(m.accessTypeName, query.data.accessType)) : m.detailTitle}
         back={{ to: `/pii-access-logs${back ? `?${back}` : ''}`, label: m.back }}
       />
       <QueryState state={toUiState(query)} onRetry={() => void query.refetch()}>
@@ -324,12 +342,10 @@ export function PiiAccessLogDetailPage() {
             <div className="min-w-0 space-y-4 lg:col-span-2">
               <div className="rounded-box border border-base-300 bg-base-100 px-5 py-4 shadow-sm">
                 <div className="flex items-start gap-3">
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-base-300 text-sm font-bold text-base-content/70" aria-hidden="true">
-                    {(log.actor.actorId.replace(/^op-/i, '').charAt(0) || '?').toUpperCase()}
-                  </span>
+                  <ActorAvatar actorId={log.actor.actorId} big />
                   <div className="min-w-0 space-y-2">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-mono font-semibold">{log.actor.actorId}</span>
+                      <ActorName actorId={log.actor.actorId} />
                       <StatusBadge tone={ACCESS_TONE[log.accessType] ?? 'ghost'}>
                         <CodeLabel code={log.accessType} names={m.accessTypeName} />
                       </StatusBadge>

@@ -82,6 +82,18 @@ main dl.grid {
 [data-list-part='top'] + [data-list-part] {
   border-top-width: 1px;
 }
+/* 읽는 동안(뼈대)도 같은 자리에 붙인다 — 읽는 중엔 16px 떨어져 있다가 다 읽으면 붙으며 표가 위로 튀던 것(2026-11-20 화면 점검, 개인정보 열람 기록) */
+[data-list-part]:has(+ [data-state='loading']) {
+  margin-block-end: 0 !important;
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+  box-shadow: none;
+}
+[data-list-part] + [data-state='loading'] {
+  margin-block-start: 0 !important;
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
 
 /* 불러오는 동안 뼈대(2026-11-18 사용자 "UI 보충 — 추천 다", Shopify·Medusa 처럼).
    공유 QueryState(@pmart/web-ui)는 그대로 두고 이 앱에서만 모양을 바꾼다(PC 3·PC 5 앱에 번지지 않게) —
@@ -160,4 +172,19 @@ main [data-state='loading']::after {
     z-index: 5;
     background-color: color-mix(in oklab, var(--color-base-200) 92%, var(--color-base-100));
   }
+}
+
+/* 지금 메뉴(파랑 바탕)의 알림 숫자 — 파랑(info) 배지가 바탕에 묻혀 안 보이던 것(2026-11-20 화면 점검).
+   지금 메뉴 안에서는 바탕·글자를 뒤집는다. 빨강(급함) 배지는 그대로 둔다. 별칭으로 켜진 메뉴(data-active=alias)도 같게. */
+aside a[aria-current='page'] .badge-info,
+aside a[data-active='alias'] .badge-info {
+  background-color: var(--color-primary-content);
+  border-color: var(--color-primary-content);
+  color: var(--color-primary);
+}
+
+/* 쪽이 길어져 세로 스크롤 막대가 생기거나 없어질 때 화면 폭이 15px 바뀌어 오른쪽 정렬된 머리줄·카드가 옆으로 밀리던 것(2026-11-20 화면 점검 —
+   개인정보 열람 기록·실시간 배송 현황에서 크게 보임). 막대 자리를 늘 비워 둔다. */
+html {
+  scrollbar-gutter: stable;
 }

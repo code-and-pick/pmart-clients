@@ -239,9 +239,16 @@ export function InquiryListPage({ kind = 'CUSTOMER' }: { readonly kind?: Request
                   {items.map((i) => (
                     <tr key={i.inquiryId} data-testid="inquiry-row" {...pv.row(i.inquiryId)}>
                       <td className="max-w-xl">
-                        <p className="truncate font-medium" title={i.title ?? undefined}>
-                          {i.title ?? m.none}
-                        </p>
+                        {/* 제목 없는 문의는 "-" 한 글자 대신 흐린 "제목 없는 문의"(2026-11-20 화면 점검) */}
+                        {i.title?.trim() ? (
+                          <p className="truncate font-medium" title={i.title}>
+                            {i.title}
+                          </p>
+                        ) : (
+                          <p className="truncate font-medium text-base-content/45" data-testid="inquiry-untitled">
+                            {m.inquiries.untitled}
+                          </p>
+                        )}
                         <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
                           <Link
                             className="font-mono text-xs text-base-content/50 hover:text-primary hover:underline"

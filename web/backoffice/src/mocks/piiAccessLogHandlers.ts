@@ -28,7 +28,7 @@ const log = (n: number, extra: Partial<MockLog>): MockLog => ({
   piiAccessLogId: `PAL-MOCK-${n}`,
   occurredAt: `2026-11-${String(16 - Math.floor(n / 3)).padStart(2, '0')}T0${n % 3}:30:00Z`,
   recordedAt: `2026-11-${String(16 - Math.floor(n / 3)).padStart(2, '0')}T0${n % 3}:30:01Z`,
-  actor: { actorId: 'OP-cs-1', actorType: 'OPERATOR', roles: ['CS_AGENT'], centerScope: [] },
+  actor: { actorId: 'op-cs-1', actorType: 'OPERATOR', roles: ['CS_AGENT'], centerScope: [] },
   subjectType: 'CUSTOMER',
   subjectRef: 'CU-MOCK-1',
   accessType: 'VIEW',
@@ -46,9 +46,9 @@ const log = (n: number, extra: Partial<MockLog>): MockLog => ({
 export const mockPiiLogs: readonly MockLog[] = [
   log(0, {}),
   log(1, { fields: ['NAME', 'ADDRESS', 'ENTRANCE'], purpose: '오배송 확인 — 수령지 대조' }),
-  log(2, { actor: { actorId: 'OP-rider-ops-1', actorType: 'OPERATOR', roles: ['RIDER_OPS'], centerScope: [] }, subjectType: 'RIDER', subjectRef: 'RD-1', caseRef: 'RIDER:RD-1', fields: ['PHONE'], purpose: '라이더 연락 두절 확인', screen: 'backoffice/rider-detail', sourceSystem: 'rider-service' }),
+  log(2, { actor: { actorId: 'op-rider-ops-1', actorType: 'OPERATOR', roles: ['RIDER_OPS'], centerScope: [] }, subjectType: 'RIDER', subjectRef: 'RD-1', caseRef: 'RIDER:RD-1', fields: ['PHONE'], purpose: '라이더 연락 두절 확인', screen: 'backoffice/rider-detail', sourceSystem: 'rider-service' }),
   log(3, { subjectRef: 'CU-MOCK-2', caseRef: 'ORDER:ORD-MOCK-1002' }),
-  log(4, { actor: { actorId: 'OP-admin-1', actorType: 'OPERATOR', roles: ['OPERATOR_ADMIN'], centerScope: [] }, caseRef: null }),
+  log(4, { actor: { actorId: 'op-admin-1', actorType: 'OPERATOR', roles: ['OPERATOR_ADMIN'], centerScope: [] }, caseRef: null }),
   log(5, {}),
   log(6, { subjectRef: 'CU-MOCK-3', caseRef: 'ORDER:ORD-MOCK-1003' }),
 ].sort((a, b) => b.occurredAt.localeCompare(a.occurredAt));

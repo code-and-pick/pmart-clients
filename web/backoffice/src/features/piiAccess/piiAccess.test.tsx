@@ -44,21 +44,21 @@ describe('개인정보 열람 기록', () => {
   it('거르기는 주소에 남고, 기간은 한국 날짜 0시부터 종료일 다음 날 0시 전까지', async () => {
     const view = renderAt('/pii-access-logs', as.admin);
     await screen.findAllByTestId('pii-log-row');
-    await userEvent.type(screen.getByLabelText('열람한 직원(운영자 ID)'), 'OP-cs-1');
+    await userEvent.type(screen.getByLabelText('열람한 직원(운영자 ID)'), 'op-cs-1');
     await userEvent.selectOptions(screen.getByLabelText('정보주체 종류'), 'CUSTOMER');
     await userEvent.type(screen.getByLabelText('시작일'), '2026-11-15');
     await userEvent.type(screen.getByLabelText('종료일(그날 포함)'), '2026-11-15');
     await userEvent.click(screen.getByRole('button', { name: '조회' }));
-    await waitFor(() => expect(listCalls(view.sent).some((q) => q.get('actorId') === 'OP-cs-1')).toBe(true));
-    const q = listCalls(view.sent).find((s) => s.get('actorId') === 'OP-cs-1')!;
+    await waitFor(() => expect(listCalls(view.sent).some((q) => q.get('actorId') === 'op-cs-1')).toBe(true));
+    const q = listCalls(view.sent).find((s) => s.get('actorId') === 'op-cs-1')!;
     expect([q.get('subjectType'), q.get('from'), q.get('to')]).toEqual(['CUSTOMER', '2026-11-14T15:00:00.000Z', '2026-11-15T15:00:00.000Z']);
-    // 목: 11-15(한국) 에 OP-cs-1 이 고객을 본 기록만
+    // 목: 11-15(한국) 에 op-cs-1 이 고객을 본 기록만
     const expected = mockPiiLogs.filter(
-      (l) => l.actor.actorId === 'OP-cs-1' && l.subjectType === 'CUSTOMER' && l.occurredAt >= '2026-11-14T15:00:00Z' && l.occurredAt < '2026-11-15T15:00:00Z',
+      (l) => l.actor.actorId === 'op-cs-1' && l.subjectType === 'CUSTOMER' && l.occurredAt >= '2026-11-14T15:00:00Z' && l.occurredAt < '2026-11-15T15:00:00Z',
     );
     await waitFor(() => expect(screen.getAllByTestId('pii-log-row')).toHaveLength(expected.length));
     // 거르기 칸은 주소에서 다시 읽는다(조회 뒤 다시 그려도 값이 남는다)
-    expect(screen.getByLabelText('열람한 직원(운영자 ID)')).toHaveValue('OP-cs-1');
+    expect(screen.getByLabelText('열람한 직원(운영자 ID)')).toHaveValue('op-cs-1');
   });
 
   it('시작일이 종료일보다 늦으면 부르지 않고 안내', async () => {

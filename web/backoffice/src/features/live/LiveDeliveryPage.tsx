@@ -149,7 +149,6 @@ export function LiveDeliveryPage() {
     queryFn: () => request('GET', api.bff.GET('/views/live-delivery', { params: { query: { size: PAGE_SIZE, ...(mfcId ? { mfcId } : {}) } } })),
   });
   // 화면(2026-11-18 관제 화면처럼): 머리(새로 고침) → 숫자 카드(읽은 줄을 센 값) → 한 카드(수행 상태 탭 → 센터 → 표 → 쪽)
-  const loaded = query.isSuccess ? query.data : null;
   return (
     <section className="space-y-4">
       <PageHeader
@@ -169,7 +168,10 @@ export function LiveDeliveryPage() {
       />
       {/* 2026-11-19 쿠팡 윙 배송관리 참고: "먼저 확인하고 처리해 주세요" + "배송 진행 단계" 두 줄 카드 */}
       {all.isSuccess && <LiveBoards items={all.data.items ?? []} composedAt={all.data.composedAt} state={state} focus={focus} onState={(st) => set({ state: st })} onFocus={(fx) => set({ focus: fx })} />}
-      {loaded && <LiveNext items={loaded.items ?? []} />}
+      {/* 읽는 동안 카드 자리를 미리 잡는다 — 데이터가 온 뒤에 카드가 생기며 아래 표가 한꺼번에 밀려 내려가던 것(2026-11-20 화면 점검) */}
+      {all.isPending && <LiveBoardsSkeleton />}
+      {/* 다음 할 일은 카드와 같은 거르기 없는 목록으로 — 상태 탭을 바꿀 때마다 띠가 사라졌다 생기며 표가 위아래로 움직이던 것 */}
+      {all.isSuccess && <LiveNext items={all.data.items ?? []} />}
       <div className="overflow-hidden rounded-box border border-base-300 bg-base-100 shadow-sm">
         <UnderlineTabs
           label={m.state}
@@ -256,6 +258,32 @@ const FLOW = ['UNASSIGNED', 'ASSIGNED', 'ARRIVED_AT_STORE', 'PICKED_UP', 'ARRIVE
  * 위: 먼저 확인할 것(약속 시간 지남 = 서버 promisedAt < 서버 composedAt, 전달 실패 등록, 라이더 없음, 처리 중 접수 건). 모두 0 이면 "다 처리됐어요".
  * 아래: 진행 단계별 수 — 누르면 그 상태로. 접수 건을 못 읽은 줄은 0 으로 세지 않고 따로 알린다.
  */
+/** 숫자 카드 두 줄의 자리(읽는 중) — LiveBoards 와 같은 높이 */
+function LiveBoardsSkeleton() {
+  const row = (n: number, key: string) => (
+    <div className={`grid grid-cols-2 gap-3 ${n === 4 ? 'lg:grid-cols-4' : 'md:grid-cols-5'}`}>
+      {Array.from({ length: n }, (_, i) => (
+        <div key={`${key}-${i}`} className="h-[86px] rounded-box border border-base-300 bg-base-100">
+          <div className="skeleton m-3.5 h-4 w-24" />
+        </div>
+      ))}
+    </div>
+  );
+  return (
+    <div className="space-y-4" aria-busy="true" data-testid="live-kpis-loading">
+      <div className="space-y-2">
+        <div className="skeleton h-5 w-40" />
+        {row(4, 'first')}
+      </div>
+      <div className="space-y-2">
+        <div className="skeleton h-5 w-28" />
+        {row(5, 'flow')}
+        <div className="skeleton h-4 w-64" />
+      </div>
+    </div>
+  );
+}
+
 function LiveBoards({
   items,
   composedAt,

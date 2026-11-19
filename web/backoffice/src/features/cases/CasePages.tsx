@@ -466,7 +466,7 @@ export function CaseListPage() {
     setPicked(next);
   };
   return (
-    <section className="max-w-7xl space-y-4">
+    <section className="space-y-4">
       <PageHeader title={m.cases.title} description={m.cases.intro} />
       {/* 숫자 띠(2026-11-19 관제 형식) — 탭 개수와 같은 조회, 종류를 골랐으면 숫자가 달라 숨긴다 */}
       {!kind && <CaseStrip tab={tab} />}
@@ -597,7 +597,8 @@ export function CaseListPage() {
                         <td className="text-xs">
                           {/* 화면 번호(bff 0.14.0, ADR-0070 — main #137) */}<ListRefs c={c} riderFailed={riderSourceFailed(r.unavailableSources)} />
                         </td>
-                        <td>
+                        {/* 연결 상태·담당·상태 칸이 좁아 한 글자씩 꺾이던 것(2026-11-20 화면 점검) — 최소 폭·줄바꿈 막기 */}
+                        <td className="min-w-40">
                           {(c.linked ?? []).length === 0 ? (
                             <span className="opacity-70">{m.none}</span>
                           ) : (
@@ -616,7 +617,7 @@ export function CaseListPage() {
                         <td className="whitespace-nowrap text-sm">
                           <Sla c={{ slaDueAt: c.slaDueAt ?? null, overdue: c.overdue ?? false, state: c.state ?? null }} />
                         </td>
-                        <td className="text-sm">
+                        <td className="whitespace-nowrap text-sm">
                           {withAdminTeam(c) && (
                             <span className="badge badge-warning badge-sm mb-1" data-testid="case-admin-team">
                               {m.cases.adminHandling}
@@ -624,7 +625,7 @@ export function CaseListPage() {
                           )}
                           <Person id={c.assigneeId} />
                         </td>
-                        <td>
+                        <td className="whitespace-nowrap">
                           <StatusBadge tone={stateTone(c)}>{c.state ? <CodeLabel code={c.state} names={m.cases.stateName} /> : m.none}</StatusBadge>
                         </td>
                       </tr>
