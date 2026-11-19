@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Android 12+ 시스템 시작 화면은 작은 아이콘만 그릴 수 있어서 픽라이더 보라 바탕만 보이고(아이콘 없음),
+         곧바로 Flutter 첫 화면(PickRiderSplash — 전체 시작 그림)으로 이어진다. 사용자 2026-11-19. -->
+    <style name="LaunchTheme" parent="@android:style/Theme.Light.NoTitleBar">
+        <item name="android:windowBackground">@drawable/launch_background</item>
+        <item name="android:windowSplashScreenBackground">@color/pick_rider_splash</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@android:color/transparent</item>
+    </style>
+    <style name="NormalTheme" parent="@android:style/Theme.Light.NoTitleBar">
+        <item name="android:windowBackground">@color/pick_rider_splash</item>
+    </style>
+</resources>

@@ -69,3 +69,5 @@ flutter:
   # 라이더 약관 5종 본문(docs/PMart_라이더앱_약관_5종.md 에서 나눔).
   assets:
     - assets/terms/
+    # 시작 화면 그림(사용자 2026-11-19).
+    - assets/splash/

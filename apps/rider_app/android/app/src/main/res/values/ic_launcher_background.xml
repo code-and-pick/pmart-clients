@@ -2,4 +2,6 @@
 <resources>
     <!-- 픽라이더 로고 바탕 보라(가운데쯤 색). 적응형 아이콘 가장자리에만 보인다. -->
     <color name="ic_launcher_background">#6F1FE3</color>
+    <!-- 시작 화면 그림(assets/splash/pick_rider_splash.jpg) 바탕 보라 — 그림이 화면 비율과 달라도 빈 곳이 같은 색. -->
+    <color name="pick_rider_splash">#751EEB</color>
 </resources>

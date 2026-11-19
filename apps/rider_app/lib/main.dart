@@ -14,6 +14,7 @@ import 'features/push/push_messages.dart';
 import 'features/push/push_tokens.dart';
 import 'shared/providers.dart';
 import 'shared/kakao_navi.dart';
+import 'shared/launch_splash.dart';
 import 'shared/rider_map.dart' show kakaoNativeAppKey;
 
 /// FCM 등록 토큰(firebase_messaging). 토큰 값은 로그에 남기지 않는다.
@@ -59,6 +60,9 @@ final class FirebasePushTokenSource implements PushTokenSource {
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // 준비하는 동안 픽라이더 시작 화면(전체 그림)을 먼저 보인다 — 준비가 끝나면 아래 runApp 이 앱으로 바꾼다.
+  runApp(const PickRiderSplash());
+  final splashShown = Stopwatch()..start();
   await initPmartFormatting();
   // LAN HTTPS 게이트웨이(사설 CA, ADR-0057)를 믿는다 — 운영(release) 빌드에는 넣지 않는다(T6). 고객앱과 같다.
   if (!kReleaseMode) trustPmartLanRootCa();
@@ -77,6 +81,8 @@ Future<void> main() async {
   }
   // 앱이 내려졌다 다시 켜져도(카메라 등) 로그인 상태를 잇는다.
   final saved = await loadSavedSession(FlutterSecureKeyValueStore());
+  final rest = pickRiderSplashMinimum - splashShown.elapsed;
+  if (rest > Duration.zero) await Future<void>.delayed(rest);
   runApp(
     // Riverpod 3 의 자동 재시도를 끈다. 재시도 규칙은 pmart_core(429·retryable)만 따른다.
     ProviderScope(
