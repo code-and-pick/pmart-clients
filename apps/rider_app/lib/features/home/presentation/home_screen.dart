@@ -55,10 +55,14 @@ Future<void> changeDuty(
 }
 
 /// 진행 중 배송 ID: 서버 목록(재접속 복구)과 이번에 수락한 배송을 합친다.
-List<String> watchActiveDeliveryIds(WidgetRef ref) => {
-  ...?ref.watch(myActiveDeliveriesProvider).value?.map((d) => d.deliveryId),
-  ...ref.watch(assignedDeliveriesProvider),
-}.toList();
+/// 서버가 내 배송이 아니라고 확정한 배송(배차 취소 APPLIED)은 뺀다 — 목록이 늦게 따라와도 남지 않게.
+List<String> watchActiveDeliveryIds(WidgetRef ref) {
+  final released = ref.watch(releasedDeliveriesProvider);
+  return {
+    ...?ref.watch(myActiveDeliveriesProvider).value?.map((d) => d.deliveryId),
+    ...ref.watch(assignedDeliveriesProvider),
+  }.where((id) => !released.contains(id)).toList();
+}
 
 /// 라이더 홈(지도). 운행 시작 → 신규배차 → 제안 카드 → 진행 중 배송. 화면 상태는 서버 확정 결과로만 바꾼다.
 class HomeScreen extends ConsumerStatefulWidget {

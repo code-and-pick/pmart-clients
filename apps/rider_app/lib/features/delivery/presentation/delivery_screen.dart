@@ -297,6 +297,8 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
     if (outcome != CancelOutcome.unknown) _cancelKey = null;
     switch (outcome) {
       case CancelOutcome.accepted:
+        // dispatch 가 배정 해제를 확정(APPLIED). 수행 서비스 목록이 늦게 따라와도 진행 중에 남기지 않는다.
+        ref.read(releasedDeliveriesProvider.notifier).add(_id);
         showRiderToast(context, l10n.cancelAccepted);
         _finish();
       case CancelOutcome.pickedUpCaseRequired:

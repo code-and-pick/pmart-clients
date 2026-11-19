@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
+import 'package:go_router/go_router.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pmart_core/pmart_core.dart';
 import 'package:pmart_ui/pmart_ui.dart';
@@ -421,4 +424,71 @@ void main() {
     expect(find.text('배차취소를 접수했어요'), findsOneWidget);
     expect(find.byKey(const ValueKey('delivery-dlv-1')), findsNothing);
   });
+
+  testWidgets(
+    '배차취소 뒤 서버 진행 중 목록이 늦게 따라와도(아직 그 배송을 줌) 진행 중에 남지 않는다(사용자 2026-11-19)',
+    (t) async {
+      t.view
+        ..physicalSize = const Size(800, 2000)
+        ..devicePixelRatio = 1;
+      addTearDown(t.view.reset);
+      // 수행 서비스가 배정 해제를 아직 반영하기 전 — 다시 읽어도 같은 목록(dlv-1 포함)을 준다.
+      final stale = (await t.runAsync(repo.myActive))!
+          .where((d) => d.deliveryId == 'dlv-1')
+          .toList();
+      expect(stale, hasLength(1));
+      final offers = MockOfferRepository(latency: Duration.zero);
+      await t.pumpWidget(
+        ProviderScope(
+          retry: (_, _) => null,
+          overrides: [
+            ...overrides(),
+            assignmentCancelRepositoryProvider.overrideWithValue(repo),
+            myActiveDeliveriesProvider.overrideWith((ref) async => stale),
+            initialSessionProvider.overrideWithValue(
+              const RiderSession(riderId: 'rider-mock-1'),
+            ),
+            offerRepositoryProvider.overrideWithValue(offers),
+            dutyRepositoryProvider.overrideWithValue(offers),
+          ],
+          child: const RiderApp(),
+        ),
+      );
+      Future<void> settle() async {
+        for (var i = 0; i < 6; i++) {
+          await t.pump(const Duration(milliseconds: 20));
+        }
+      }
+
+      await settle();
+      await t.tap(find.byKey(const ValueKey('delivery-dlv-1')));
+      await settle();
+      await t.tap(find.byKey(const ValueKey('help')));
+      await settle();
+      await t.tap(find.byKey(const ValueKey('cancel-assignment')));
+      await settle();
+      await t.tap(find.byKey(const ValueKey('cancel-assignment-confirm')));
+      await settle();
+
+      expect(find.text('배차취소를 접수했어요'), findsOneWidget);
+      expect(find.byKey(const ValueKey('delivery-dlv-1')), findsNothing);
+      // 화면 전환이 끝난 뒤 — 홈에도, 배달리스트 진행 탭에도 남지 않는다(목록이 그 배송을 계속 줘도)
+      await t.pump(const Duration(seconds: 1));
+      await settle();
+      expect(find.byKey(const ValueKey('delivery-sheet')), findsNothing);
+      expect(find.byKey(const ValueKey('active-count')), findsNothing);
+      unawaited(
+        GoRouter.of(t.element(find.byType(Scaffold).first)).push('/deliveries'),
+      );
+      await t.pump(const Duration(seconds: 1));
+      await settle();
+      // 일반 배차모드면 진행 탭으로(AI 추천 모드는 탭 없이 진행 목록)
+      final progressTab = find.byKey(const ValueKey('list-tab-0'));
+      if (progressTab.evaluate().isNotEmpty) {
+        await t.tap(progressTab);
+        await settle();
+      }
+      expect(find.byKey(const ValueKey('delivery-dlv-1')), findsNothing);
+    },
+  );
 }

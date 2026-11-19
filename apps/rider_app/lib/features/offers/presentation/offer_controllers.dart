@@ -242,10 +242,32 @@ class AssignedDeliveries extends Notifier<List<String>> {
   List<String> build() => const [];
 
   void add(String deliveryId) {
+    // 다시 내게 배정됐다(운영자 재배정 등) — 내려놓은 표시를 지운다.
+    ref.read(releasedDeliveriesProvider.notifier).forget(deliveryId);
     if (!state.contains(deliveryId)) state = [...state, deliveryId];
   }
 
   void remove(String deliveryId) => state = [...state]..remove(deliveryId);
+}
+
+/// 서버가 "이제 내 배송이 아니다"라고 확정한 배송(이번 실행 동안) — 진행 중 목록에서 뺀다.
+/// - 배차 취소가 APPLIED 로 끝남(dispatch 확정).
+/// 배차 취소 직후에는 수행 서비스가 아직 반영 전이라 `GET /riders/me/deliveries` 가 그 배송을 한동안 더 준다 —
+/// 그 사이 다시 읽은 목록에 남아 "진행 중"으로 계속 보이던 문제(사용자 2026-11-19).
+final releasedDeliveriesProvider =
+    NotifierProvider<ReleasedDeliveries, Set<String>>(ReleasedDeliveries.new);
+
+class ReleasedDeliveries extends Notifier<Set<String>> {
+  @override
+  Set<String> build() => const {};
+
+  void add(String deliveryId) {
+    if (!state.contains(deliveryId)) state = {...state, deliveryId};
+  }
+
+  void forget(String deliveryId) {
+    if (state.contains(deliveryId)) state = {...state}..remove(deliveryId);
+  }
 }
 
 /// 제안 응답 1회. 판정을 받지 못하면 같은 키로만 다시 보낸다(새 수락이 아니다).
