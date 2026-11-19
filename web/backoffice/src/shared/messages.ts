@@ -510,6 +510,15 @@ export const messages = {
     picked: '맡았어요.',
     /** 목록 줄 빠른 맡기(2026-11-19) — 마우스를 올리면 보인다 */
     quickPick: '맡기',
+    /** 일괄 맡기(2026-11-19) */
+    bulk: {
+      pickAll: '맡을 수 있는 줄 모두 고르기',
+      pickOne: (n: string) => `${n} 고르기`,
+      picked: (n: number) => `${n}개 선택됨`,
+      pick: '선택한 건 내가 맡기',
+      running: (i: number, n: number) => `맡는 중 ${i}/${n}`,
+      result: (done: number, failed: number) => (failed > 0 ? `${done}건 맡았어요 · ${failed}건은 못 맡았어요(그 사이 다른 사람이 맡았을 수 있어요 — 다시 누르면 그 건만 다시)` : `${done}건 맡았어요`),
+    },
     quickPickTitle: '목록에서 바로 내가 맡아요 — 지금 상태를 다시 읽고 맡고, 그 사이 다른 사람이 맡았으면 서버가 거절해요.',
     close: '완료 처리',
     resolution: '결과',
@@ -1989,6 +1998,20 @@ export const messages = {
     draftSteps: ['초안 저장', '검증', '제출 준비', '승인·반영'] as const,
     importSteps: ['파일 올리기', '검증·고치기', '제출 준비', '승인 요청'] as const,
     importIntro: 'seed-v1.zip 을 올리면 서버가 상품마다 검증해요. 오류 행은 고친 뒤 유효 행만 제출해요.',
+    /** 등록 방식 고르기(2026-11-19 쿠팡 윙 참고) */
+    start: {
+      title: '어떤 방식으로 등록하시겠어요?',
+      intro: '하나를 고르면 그 방식으로 이어져요. 쓰던 초안은 오른쪽 위 "초안 열기"로 열어요.',
+      direct: '직접 입력',
+      directBody: '아래 칸을 하나씩 채워요',
+      json: '상품 JSON 으로 채우기',
+      jsonBody: 'seed-v1 product.json 으로 한 번에',
+      bulk: '일괄 등록',
+      bulkBody: 'seed-v1.zip 으로 여러 상품을',
+      sameBase: '같은 기초상품으로',
+      sameBaseBody: '이미 있는 상품의 다른 판매 단위',
+      sameBasePick: '기초상품을 같이 쓸 상품',
+    },
     statTotal: '전체 상품',
     statValid: '유효',
     statInvalid: '오류',

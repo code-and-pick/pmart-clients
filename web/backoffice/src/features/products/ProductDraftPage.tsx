@@ -1,6 +1,7 @@
 // 상품 초안 1건: 새로 만들기 / 조회·수정·제출 준비 → PRODUCT 승인 요청 → 반영 결과(productId·SKU).
 // 화면(2026-11-18 사용자 "밋밋하다 — Shopify·Medusa 처럼"): 머리(제목·상태 배지·단계 표시) 아래 넓은 화면 두 칸 —
 // 왼쪽(2/3) 입력 폼(제목 있는 카드 묶음), 오른쪽(1/3) 검증 카드·다음 단계 카드(제출 준비·승인 요청)·발급 결과 카드. 동작은 그대로.
+import { ProductPicker } from '../contents/ProductPicker';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
@@ -77,6 +78,59 @@ export function OpenById({ base }: { readonly base: string }) {
   );
 }
 
+/**
+ * 등록 방식 고르기(2026-11-19 쿠팡 윙 상품 등록 "어떤 방식으로 등록하시겠어요?" 참고) — 이미 있는 네 길을 큰 카드로.
+ * 직접 입력(아래 폼) · 상품 JSON 으로 채우기(폼 안 파일 칸으로) · 일괄 등록(seed-v1.zip 화면) · 같은 기초상품으로(상품 고르면 ?sameBaseAs=).
+ */
+function StartChooser() {
+  const navigate = useNavigate();
+  const [pickBase, setPickBase] = useState(false);
+  const c = m.products.start;
+  const card = (key: string, icon: string, title: string, body: string, active: boolean, onClick: () => void) => (
+    <button
+      key={key}
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      data-testid={`start-${key}`}
+      className={`flex flex-col items-center gap-2 rounded-box border px-4 py-5 text-center transition hover:-translate-y-0.5 ${active ? 'border-primary bg-primary/5 text-primary' : 'border-base-300 bg-base-100'}`}
+    >
+      <svg viewBox="0 0 24 24" className="h-6 w-6 fill-none stroke-current" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d={icon} />
+      </svg>
+      <span className="font-semibold">{title}</span>
+      <span className="text-xs text-base-content/55">{body}</span>
+    </button>
+  );
+  return (
+    <section aria-label={c.title} className="space-y-3" data-testid="start-chooser">
+      <div>
+        <h2 className="text-lg font-bold">{c.title}</h2>
+        <p className="text-sm text-base-content/60">{c.intro}</p>
+      </div>
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {card('direct', 'M4 20h4L19 9l-4-4L4 16v4Zm11-15 4 4', c.direct, c.directBody, !pickBase, () => {
+          setPickBase(false);
+          document.getElementById('product-form-start')?.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
+        })}
+        {card('json', 'M14 3v5h5M14 3H6v18h12V8l-4-5ZM9 13h6M9 17h4', c.json, c.jsonBody, false, () => {
+          setPickBase(false);
+          const input = document.querySelector<HTMLInputElement>(`input[aria-label="${m.products.jsonFill}"]`);
+          input?.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
+          input?.focus();
+        })}
+        {card('import', 'M12 15V4m0 0-4 4m4-4 4 4M5 15v3a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-3', c.bulk, c.bulkBody, false, () => void navigate('/products/import'))}
+        {card('sameBase', 'M8 8h11v11H8zM5 16V5h11', c.sameBase, c.sameBaseBody, pickBase, () => setPickBase((p) => !p))}
+      </div>
+      {pickBase && (
+        <div className="max-w-xl rounded-box border border-primary/40 bg-primary/5 p-4" data-testid="start-same-base">
+          <ProductPicker label={c.sameBasePick} value="" onChange={(id) => id && void navigate(`/products/drafts/new?sameBaseAs=${encodeURIComponent(id)}`)} />
+        </div>
+      )}
+    </section>
+  );
+}
+
 export function NewProductDraftPage() {
   const api = useApi();
   const navigate = useNavigate();
@@ -97,7 +151,10 @@ export function NewProductDraftPage() {
   return (
     <section className="space-y-4">
       <PageHeader title={m.products.draftTitle} actions={<OpenById base="/products/drafts" />} />
-      <Steps steps={m.products.draftSteps} now={0} />
+      {sameBaseAs === '' && <StartChooser />}
+      <div id="product-form-start" className="scroll-mt-4">
+        <Steps steps={m.products.draftSteps} now={0} />
+      </div>
       <div className="mx-auto max-w-5xl space-y-4">
         {sameBaseAs === '' ? (
           <ProductDraftForm submitLabel={m.products.create} busy={create.busy} onSubmit={(input) => void create.run(input)} />
