@@ -3,7 +3,7 @@
 // - 처리함 `POST …/resolutions` — OPEN·IN_PROGRESS → RESOLVED. 접수 건(caseId)이 붙은 건 서버가 409 HELP_REQUEST_HAS_CASE 이므로 버튼 대신 접수 건 링크.
 //   "닫았어요"는 서버가 돌려준 resolvedAt 으로만. 메모에는 개인정보를 적지 않는다(안내).
 // - 가리기 `POST …/messages/{messageId}/maskings` — OPERATOR_ADMIN 만(그 밖 403), 사유 2~500자. 가린 뒤 대화를 다시 읽는다.
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useState } from 'react';
 
 import { request } from '@pmart/web-core';
@@ -26,6 +26,8 @@ export const helpExtrasMessages = {
     confirmTitle: '상담을 완료할까요?',
     confirmBody: '이 도움요청의 상담을 끝내요. 라이더 앱에는 "지원센터가 처리를 마쳤어요"로 보여요. 배송 상태는 바뀌지 않아요.',
     resultLabel: '결과',
+    decideFirstShort: '전달 실패 결정 먼저',
+    decideFirst: '전달 실패 확정·반려를 먼저 해 주세요(아래 배송 조치). 결정 전에 끝내면 라이더의 재개 요청을 볼 사람이 없어요.',
     openObligations: '아직 끝나지 않은 후속 처리가 있어서 완료할 수 없어요. 그것부터 끝내 주세요.',
     forbidden: '완료할 권한이 없어요 — 다른 상담사가 맡은 건은 관리자만 완료할 수 있어요.',
     noteLabel: '처리 내용(선택, 300자까지)',
@@ -84,6 +86,15 @@ export function ResolvePanel({ help, deliveryId, requestId }: { readonly help: H
   const [note, setNote] = useState('');
   const [resolution, setResolution] = useState<Resolution>('RESOLVED');
   const caseId = help.caseId ?? null;
+  // 전달 실패 결정(확정·반려)을 기다리는 배송이면 상담을 먼저 끝내지 못하게 한다 — 끝내 버리면 라이더가
+  // "전달할 수 있어요"(재개 요청)를 보내도 볼 사람이 없고 배송이 멈춘다(사용자 2026-11-19).
+  // 배송 조치 칸·배송 상세와 같은 조회 키(캐시 공유).
+  const delivery = useQuery({
+    queryKey: ['delivery', deliveryId],
+    refetchInterval: 10_000,
+    queryFn: () => request('GET', api.execution.GET('/deliveries/{deliveryId}', { params: { path: { deliveryId } } })),
+  });
+  const pendingDecision = delivery.data?.state === 'FAILURE_REPORTED';
   const resolve = useCommand(async (body: { note: string; resolution: Resolution }, key) => {
     try {
       if (caseId) {
@@ -131,7 +142,8 @@ export function ResolvePanel({ help, deliveryId, requestId }: { readonly help: H
           <button
             type="button"
             className="btn btn-primary btn-sm"
-            disabled={resolve.busy}
+            disabled={resolve.busy || pendingDecision}
+            title={pendingDecision ? m.resolve.decideFirst : undefined}
             onClick={() => {
               if (resolve.phase.kind === 'rejected') resolve.reset();
               setOpen(true);
@@ -140,6 +152,11 @@ export function ResolvePanel({ help, deliveryId, requestId }: { readonly help: H
             {m.resolve.button}
           </button>
         )
+      )}
+      {pendingDecision && !done && help.state !== 'RESOLVED' && (
+        <span className="text-xs text-warning" data-testid="resolve-decide-first">
+          {m.resolve.decideFirstShort}
+        </span>
       )}
       {code === 'OPEN_OBLIGATIONS' ? (
         <p role="alert" className="text-sm text-error">{m.resolve.openObligations}</p>

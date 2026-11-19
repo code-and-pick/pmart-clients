@@ -19,6 +19,10 @@ beforeEach(() => {
 });
 
 describe('도움요청 상세 — 증빙 사진·처리함·가리기', () => {
+  // 상담 완료 시험은 결정 대기가 아닌 배송으로(결정 대기면 상담 완료를 막는다 — 아래 따로 시험)
+  beforeEach(() => {
+    server.use(http.get(`${API_BASE}/deliveries/DLV-1`, () => HttpResponse.json({ ...mockDeliveries[0]!, state: 'PICKED_UP', failure: null })));
+  });
   it('증빙 사진: 받은 사진은 보이고, 못 받은 사진은 빈칸이 아니라 "불러오지 못함"', async () => {
     renderAt('/help-requests/DLV-1/HR-1', as.riderOps);
     expect(await screen.findByRole('heading', { name: '증빙 사진 2장' })).toBeInTheDocument();
@@ -121,5 +125,29 @@ describe('반려 직후 "직접 실패 처리"가 같은 자리에 떠도 두 �
     expect(sentTo(view.sent, '/failure-decisions')).toHaveLength(0);
     await userEvent.click(within(direct).getByRole('checkbox'));
     expect(send).toBeEnabled();
+  });
+});
+
+describe('전달 실패 결정 전에는 상담 완료를 막고, 결정 대기 배송은 상담함에 남는다(사용자 2026-11-19 "지원센터에서 처리해버리면 반려해달라고 해도 연락이 안 가지고")', () => {
+  it('결정 대기(FAILURE_REPORTED) 배송의 도움요청은 상담 완료가 막히고 이유가 보인다', async () => {
+    renderAt('/help-requests/DLV-1/HR-1', as.riderOps);
+    expect(await screen.findByTestId('resolve-decide-first')).toHaveTextContent('전달 실패 결정 먼저');
+    expect(screen.getByRole('button', { name: '상담 완료' })).toBeDisabled();
+  });
+
+  it('상담이 끝났어도 결정 대기·재개 요청 배송은 상담함 맨 위에 "라이더 재개 요청"으로', async () => {
+    server.use(
+      http.get(`${API_BASE}/delivery-help-requests`, () => HttpResponse.json({ items: [] })),
+      http.get(`${API_BASE}/deliveries`, ({ request }) =>
+        new URL(request.url).searchParams.get('state') === 'FAILURE_REPORTED'
+          ? HttpResponse.json({ items: [{ deliveryId: 'DLV-1', riderId: 'RD-7', state: 'FAILURE_REPORTED', resumeRequestedAt: '2026-11-19T08:45:00.000Z', createdAt: '2026-11-19T08:00:00.000Z' }], page: { nextCursor: null } })
+          : HttpResponse.json({ items: [], page: { nextCursor: null } }),
+      ),
+    );
+    renderAt('/consults', as.riderOps);
+    const rows = await screen.findAllByTestId('consult-row');
+    expect(rows[0]).toHaveAttribute('data-kind', 'failure');
+    expect(rows[0]).toHaveTextContent('라이더 재개 요청');
+    expect(within(rows[0]!).getByRole('link', { name: '전달 불가 신고 — 확정·반려 기다림' })).toHaveAttribute('href', '/deliveries/DLV-1');
   });
 });

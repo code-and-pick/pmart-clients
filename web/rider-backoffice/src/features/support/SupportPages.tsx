@@ -435,15 +435,20 @@ const consultText = {
   title: '상담함',
   intro: '라이더가 보낸 배송 도움요청(급함)과 일반 문의를 한곳에서 봐요. 배송 도움요청이 먼저, 그 안에서는 오래 기다린 것부터. 누르면 대화를 열고, 끝나면 "상담 완료".',
   tabs: { open: '상담 중', done: '끝남' },
-  kind: { help: '배송 도움요청', inquiry: '일반 문의' },
+  kind: { help: '배송 도움요청', inquiry: '일반 문의', failure: '전달 실패 결정 대기' },
+  failureTitle: '전달 불가 신고 — 확정·반려 기다림',
+  resumeRequested: '라이더 재개 요청',
   col: { kind: '구분', title: '내용', state: '상태', delivery: '배송', rider: '라이더', createdAt: '받은 때', wait: '기다린 시간' },
   empty: { open: '상담할 건이 없어요.', done: '끝난 상담이 없어요.' },
   partial: (what: string) => `${what} 목록을 불러오지 못했어요 — 아래는 일부예요.`,
   retry: '다시 불러오기',
 } as const;
 
+// 결정 대기(멈춘 배송) → 배송 도움요청 → 일반 문의
+const kindOrder = { failure: 0, help: 1, inquiry: 2 } as const;
+
 type ConsultRow = {
-  readonly kind: 'help' | 'inquiry';
+  readonly kind: 'help' | 'inquiry' | 'failure';
   readonly key: string;
   readonly to: string;
   readonly title: string;
@@ -487,17 +492,50 @@ function ConsultsPage() {
         )
       ).flatMap((r) => r.items ?? []),
   });
-  const riders = useRiderSummaries((help.data ?? []).map((it) => it.riderId));
+  // 전달 실패 결정(확정·반려)을 기다리는 배송 — 상담이 끝났어도 결정 전이면 여기 남긴다. 라이더가 "전달할 수 있어요"
+  // (재개 요청)를 보내면 표시한다(사용자 2026-11-19 "지원센터에서 처리해버리면 반려해 달라고 해도 연락이 안 가지고").
+  const failures = useQuery({
+    queryKey: ['deliveries', 'consults-failure-reported'],
+    enabled: tab === 'open',
+    refetchInterval: 15_000,
+    queryFn: () => request('GET', api.execution.GET('/deliveries', { params: { query: { state: 'FAILURE_REPORTED', size: 50 } } })),
+  });
+  const openHelpDeliveries = new Set((help.data ?? []).filter((it) => it.state !== 'RESOLVED').map((it) => it.deliveryId));
+  const pendingFailures = tab === 'open' ? (failures.data?.items ?? []) : [];
+  const resumeBy = new Map(pendingFailures.filter((d) => d.resumeRequestedAt).map((d) => [d.deliveryId, d.resumeRequestedAt] as const));
+  const riders = useRiderSummaries([...(help.data ?? []).map((it) => it.riderId), ...pendingFailures.map((d) => d.riderId ?? undefined)]);
   const deliveryNos = useDeliveryNumbers([...(help.data ?? []).map((it) => it.deliveryId), ...(inquiries.data ?? []).map((it) => it.deliveryId ?? undefined)]);
   const now = useNow();
+  const resumeBadge = <StatusBadge tone="error">{consultText.resumeRequested}</StatusBadge>;
   const rows: ConsultRow[] = [
+    // 도움요청이 열려 있지 않은(상담이 끝난) 결정 대기 배송 — 상세의 배송 조치에서 확정·반려
+    ...pendingFailures
+      .filter((d) => d.deliveryId && !openHelpDeliveries.has(d.deliveryId))
+      .map(
+        (d): ConsultRow => ({
+          kind: 'failure',
+          key: `f:${d.deliveryId}`,
+          to: `/deliveries/${encodeURIComponent(d.deliveryId ?? '')}`,
+          title: consultText.failureTitle,
+          state: d.resumeRequestedAt ? resumeBadge : <StatusBadge tone="warning">{label(n.executionState, d.state)}</StatusBadge>,
+          deliveryId: d.deliveryId ?? null,
+          riderId: d.riderId ?? null,
+          createdAt: d.resumeRequestedAt ?? d.createdAt,
+          open: true,
+        }),
+      ),
     ...(help.data ?? []).map(
       (it): ConsultRow => ({
         kind: 'help',
         key: `h:${it.deliveryId}:${it.requestId}`,
         to: helpPath(it.deliveryId, it.requestId),
         title: label(helpCategoryName, it.category),
-        state: <StatusBadge tone={helpTone(it.state)}>{label(n.helpState, it.state)}</StatusBadge>,
+        state: (
+          <span className="flex flex-wrap items-center gap-1">
+            <StatusBadge tone={helpTone(it.state)}>{label(n.helpState, it.state)}</StatusBadge>
+            {it.state !== 'RESOLVED' && it.deliveryId && resumeBy.has(it.deliveryId) && resumeBadge}
+          </span>
+        ),
         deliveryId: it.deliveryId ?? null,
         riderId: it.riderId ?? null,
         createdAt: it.createdAt,
@@ -517,7 +555,7 @@ function ConsultsPage() {
         open: it.status !== 'CLOSED',
       }),
     ),
-  ].sort((a, b) => (a.kind === b.kind ? (a.createdAt ?? '').localeCompare(b.createdAt ?? '') * (tab === 'open' ? 1 : -1) : a.kind === 'help' ? -1 : 1));
+  ].sort((a, b) => (a.kind === b.kind ? (a.createdAt ?? '').localeCompare(b.createdAt ?? '') * (tab === 'open' ? 1 : -1) : kindOrder[a.kind] - kindOrder[b.kind]));
   // 둘 다 실패면 오류, 하나만 실패면 일부라고 알린다(빈 목록·0 으로 바꾸지 않는다)
   const bothFailed = help.isError && inquiries.isError;
   const loading = help.isPending || inquiries.isPending;
@@ -576,7 +614,7 @@ function ConsultsPage() {
               {rows.map((r) => (
                 <tr key={r.key} data-testid="consult-row" data-kind={r.kind} className="cursor-pointer" onClick={() => void navigate(r.to)}>
                   <td className="whitespace-nowrap">
-                    <StatusBadge tone={r.kind === 'help' ? 'warning' : 'ghost'}>{consultText.kind[r.kind]}</StatusBadge>
+                    <StatusBadge tone={r.kind === 'failure' ? 'error' : r.kind === 'help' ? 'warning' : 'ghost'}>{consultText.kind[r.kind]}</StatusBadge>
                   </td>
                   <td className="font-semibold">
                     <Link className="hover:underline" to={r.to} onClick={(e) => e.stopPropagation()}>
