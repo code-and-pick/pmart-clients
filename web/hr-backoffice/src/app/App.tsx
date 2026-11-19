@@ -157,7 +157,8 @@ function Layout() {
         </header>
         {/* 인터넷 끊김 띠(2026-11-19) */}
         <ConnectionBanner />
-        <main className="min-w-0 flex-1 space-y-4 p-6">
+        {/* 본문 겉모습: 쿠팡 윙 느낌(index.css data-skin=wing, 2026-11-19) — 왼쪽 메뉴·머리줄은 그대로 */}
+        <main className="min-w-0 flex-1 space-y-4 p-6" data-skin="wing">
           {/* 안내만 한다 — 화면을 막지 않고, 판정은 서버(403 → 이용할 수 없는 화면) */}
           {session && !session.roles.includes('HR_ADMIN') && (
             <p role="note" className="alert alert-warning text-sm">
