@@ -40,6 +40,7 @@ export const navGroups: readonly NavGroup[] = [
       { to: '/products/drafts/new', label: m.nav.productNew },
       { to: '/products/import', label: m.nav.productImport },
       { to: '/categories', label: m.nav.categories },
+      { to: '/contents', label: m.nav.contents }, // 콘텐츠 조회(2026-11-19)
       { to: '/contents/drafts/new', label: m.nav.contentNew },
       { to: '/contents/import', label: m.nav.contentImport },
       { to: '/prices', label: m.nav.prices },

@@ -1,3 +1,4 @@
+import { ContentListPage } from '../features/contents/ContentListPage';
 import { DETAIL_BAR_SLOT } from '../shared/StickyTitle';
 import { ConnectionBanner, useDocumentTitle } from './PageChrome';
 import { useStaffText } from '../shared/employeeLabels';
@@ -317,6 +318,7 @@ const routes = [
       { path: 'products/import', element: guarded(<NewProductImportPage />) },
       { path: 'products/import/:batchId', element: guarded(<ProductImportPage />) },
       { path: 'products/:productId', element: guarded(<ProductDetailPage />) },
+      { path: 'contents', element: guarded(<ContentListPage />) },
       { path: 'contents/drafts/new', element: guarded(<NewContentDraftPage />) },
       { path: 'contents/drafts/:draftId', element: guarded(<ContentDraftPage />) },
       { path: 'contents/import', element: guarded(<NewContentImportPage />) },

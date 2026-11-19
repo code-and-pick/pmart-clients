@@ -496,7 +496,8 @@ export const catalogHandlers = [
       storageGuide: i.storageGuide ?? null,
       returnGuide: i.returnGuide ?? null,
       notices: i.notices ?? [],
-      images: [],
+      // 게시 초안의 사진 그대로(2026-11-19 상품 상세·콘텐츠 조회 사진)
+      images: (d.images ?? []).map((img) => ({ imageId: img.imageId, role: img.role, sortOrder: img.sortOrder, url: img.url })),
       options: [],
     });
   }),

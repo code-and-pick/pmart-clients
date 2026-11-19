@@ -1,6 +1,7 @@
 // 상품 상세·SKU·판매 상태 변경. 일시품절·판매 재개는 바로, 판매중지는 PRODUCT 승인 뒤 approvalId 와 함께(2026-10-30 결정).
 // 화면(2026-11-18 사용자 "밋밋하다 — Shopify 상품 상세처럼"): 머리(제목·판매 상태 배지·관리용 명칭) 아래 넓은 화면 두 칸 —
 // 왼쪽(2/3) SKU 표 카드·판매 상태 변경 카드, 오른쪽(1/3) 상품 요약 카드·작업 카드(콘텐츠 등록·정보 수정 시작). 동작은 그대로.
+import { ContentGallery } from '../contents/ContentGallery';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, type ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
@@ -250,6 +251,10 @@ export function ProductDetailPage() {
           )}
           <div className="grid items-start gap-4 lg:grid-cols-3">
             <div className="space-y-4 lg:col-span-2">
+              {/* 상품 사진(2026-11-19 사용자 "상품 조회 안에서도 사진") — 게시된 콘텐츠의 사진, 없으면 등록 안내 */}
+              <Card title={m.contents.gallery.title} aside={<Link className="text-xs text-primary hover:underline" to={`/contents?preview=${encodeURIComponent(productId)}`}>{m.contents.gallery.openContent}</Link>}>
+                <ContentGallery productId={productId} />
+              </Card>
               <Card title={m.products.skus} aside={<span className="text-xs text-base-content/55">{m.products.skuCount(p.skus?.length ?? 0)}</span>}>
                 {(p.skus?.length ?? 0) === 0 ? (
                   <EmptyState icon="tag">{m.products.noSkus}</EmptyState>
