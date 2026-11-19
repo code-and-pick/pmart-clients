@@ -1,11 +1,12 @@
 // 상품 상세·SKU·판매 상태 변경. 일시품절·판매 재개는 바로, 판매중지는 PRODUCT 승인 뒤 approvalId 와 함께(2026-10-30 결정).
 // 화면(2026-11-18 사용자 "밋밋하다 — Shopify 상품 상세처럼"): 머리(제목·판매 상태 배지·관리용 명칭) 아래 넓은 화면 두 칸 —
 // 왼쪽(2/3) SKU 표 카드·판매 상태 변경 카드, 오른쪽(1/3) 상품 요약 카드·작업 카드(콘텐츠 등록·정보 수정 시작). 동작은 그대로.
+import { PriceLookup } from '../prices/PricePage';
 import { SystemNumbers } from '../../shared/displayNumber';
 import { ContentGallery } from '../contents/ContentGallery';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, type ReactNode } from 'react';
-import { Link, useNavigate, useParams } from 'react-router';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 
 import { commandParams } from '../../api/command';
 import { SALE_STATES, type ChangeRequestBody, type ProductDetail, type SaleState } from '../../api/models';
@@ -23,7 +24,7 @@ import { toUiState } from '@pmart/web-ui';
 import { useCommand } from '@pmart/web-ui';
 import { RequestApproval } from '../approvals/RequestApproval';
 import { DetailHeader, NextAction, StatusBadge } from '../../shared/admin';
-import { Card, EmptyState, JumpLink, tableClass } from './parts';
+import { Card, EmptyState, JumpLink, tableClass, UnderlineTabs } from './parts';
 import { SALE_TONE } from './ProductListPage';
 
 /** handoff 2026-10-30 §4.3 판매중지 변경 요청 본문 */
@@ -202,6 +203,9 @@ function Fact({ label, children, testId }: { readonly label: string; readonly ch
   );
 }
 
+type ProductTab = 'info' | 'content' | 'price' | 'handling';
+const PRODUCT_TABS: readonly ProductTab[] = ['info', 'content', 'price', 'handling'];
+
 export function ProductDetailPage() {
   const { productId = '' } = useParams();
   const api = useApi();
@@ -212,6 +216,18 @@ export function ProductDetailPage() {
     queryFn: () => request('GET', api.product.GET('/products/{productId}', { params: { path: { productId } } })),
   });
   const p0 = query.data;
+  const [params, setParams] = useSearchParams();
+  const tab: ProductTab = PRODUCT_TABS.find((t) => t === params.get('tab')) ?? 'info';
+  const setTab = (t: ProductTab) =>
+    setParams(
+      (q) => {
+        const n = new URLSearchParams(q);
+        if (t === 'info') n.delete('tab');
+        else n.set('tab', t);
+        return n;
+      },
+      { replace: true },
+    );
 
   // 최근 본 항목(2026-11-18) — 서버 응답을 받은 뒤에만 남긴다
   useRecordRecent('product', productId, p0?.internalName ?? null);
@@ -262,116 +278,162 @@ export function ProductDetailPage() {
               <JumpLink to="sale-state-change">{m.products.go.saleState}</JumpLink>
             </NextAction>
           )}
-          <div className="grid items-start gap-4 lg:grid-cols-3">
-            <div className="space-y-4 lg:col-span-2">
-              {/* 상품 사진(2026-11-19 사용자 "상품 조회 안에서도 사진") — 게시된 콘텐츠의 사진, 없으면 등록 안내 */}
-              <Card title={m.contents.gallery.title} aside={<Link className="text-xs text-primary hover:underline" to={`/contents?preview=${encodeURIComponent(productId)}`}>{m.contents.gallery.openContent}</Link>}>
-                <ContentGallery productId={productId} />
-              </Card>
-              <Card title={m.products.skus} aside={<span className="text-xs text-base-content/55">{m.products.skuCount(p.skus?.length ?? 0)}</span>}>
-                {(p.skus?.length ?? 0) === 0 ? (
-                  <EmptyState icon="tag">{m.products.noSkus}</EmptyState>
-                ) : (
-                  <div className="-mx-5 -my-4 overflow-x-auto">
-                    <table className={tableClass}>
-                      <thead>
-                        <tr>
-                          <th>SKU</th>
-                          <th>{m.products.unitType}</th>
-                          <th>{m.products.weightG}</th>
-                          <th>{m.products.storageType}</th>
-                          <th>{m.products.barcodes}</th>
-                          <th>{m.products.saleState}</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {(p.skus ?? []).map((s) => (
-                          <tr key={s.sku}>
-                            <td>
-                              <Link className="font-mono font-medium text-primary hover:underline" to={`/prices?sku=${encodeURIComponent(s.sku)}`}>
-                                {s.sku}
-                              </Link>
-                            </td>
-                            <td>
-                              <p>{m.products.unitName[s.unitType]}</p>
-                              <p className="text-xs text-base-content/50">{`${m.products.unitsPerSku} ${s.unitsPerSku}`}</p>
-                            </td>
-                            <td>{s.weightG ?? m.notSet}</td>
-                            <td>{s.logistics?.storageType ? <span className="badge badge-sm badge-info badge-soft">{m.products.storageName[s.logistics.storageType]}</span> : m.none}</td>
-                            <td>
-                              {(s.barcodes ?? []).length === 0 ? (
-                                m.none
-                              ) : (
-                                <div className="flex flex-wrap gap-1">
-                                  {(s.barcodes ?? []).map((b) => (
-                                    <span key={b} className="rounded bg-base-200 px-1.5 py-0.5 font-mono text-xs">
-                                      {b}
-                                    </span>
-                                  ))}
-                                </div>
-                              )}
-                            </td>
-                            <td>
-                              <StatusBadge tone={SALE_TONE[s.saleState]}>{m.products.saleStateName[s.saleState]}</StatusBadge>
-                            </td>
+          {/* 상세 탭(2026-11-19 상품 묶음 합치기 1단계 — 백엔드 백오피스 제안 + 사용자 "조회부터"): 기본 정보 / 고객 화면 / 가격 / 센터 취급. 원천·수정 단추는 탭마다 따로 */}
+          <UnderlineTabs<ProductTab> label={m.products.tabs.label} value={tab} onChange={setTab} options={PRODUCT_TABS.map((t) => ({ value: t, label: m.products.tabs[t] }))} />
+          {tab === 'info' && (
+            <div className="grid items-start gap-4 lg:grid-cols-3">
+              <div className="space-y-4 lg:col-span-2">
+                {/* 상품 사진(2026-11-19 사용자 "상품 조회 안에서도 사진") — 게시된 콘텐츠의 사진, 없으면 등록 안내 */}
+                <Card title={m.contents.gallery.title} aside={<button type="button" className="text-xs text-primary hover:underline" onClick={() => setTab('content')}>{m.products.tabs.openContentTab}</button>}>
+                  <ContentGallery productId={productId} />
+                </Card>
+                <Card title={m.products.skus} aside={<span className="text-xs text-base-content/55">{m.products.skuCount(p.skus?.length ?? 0)}</span>}>
+                  {(p.skus?.length ?? 0) === 0 ? (
+                    <EmptyState icon="tag">{m.products.noSkus}</EmptyState>
+                  ) : (
+                    <div className="-mx-5 -my-4 overflow-x-auto">
+                      <table className={tableClass}>
+                        <thead>
+                          <tr>
+                            <th>SKU</th>
+                            <th>{m.products.unitType}</th>
+                            <th>{m.products.weightG}</th>
+                            <th>{m.products.storageType}</th>
+                            <th>{m.products.barcodes}</th>
+                            <th>{m.products.saleState}</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                        </thead>
+                        <tbody>
+                          {(p.skus ?? []).map((s) => (
+                            <tr key={s.sku}>
+                              <td>
+                                <Link className="font-mono font-medium text-primary hover:underline" to={`/prices?sku=${encodeURIComponent(s.sku)}`}>
+                                  {s.sku}
+                                </Link>
+                              </td>
+                              <td>
+                                <p>{m.products.unitName[s.unitType]}</p>
+                                <p className="text-xs text-base-content/50">{`${m.products.unitsPerSku} ${s.unitsPerSku}`}</p>
+                              </td>
+                              <td>{s.weightG ?? m.notSet}</td>
+                              <td>{s.logistics?.storageType ? <span className="badge badge-sm badge-info badge-soft">{m.products.storageName[s.logistics.storageType]}</span> : m.none}</td>
+                              <td>
+                                {(s.barcodes ?? []).length === 0 ? (
+                                  m.none
+                                ) : (
+                                  <div className="flex flex-wrap gap-1">
+                                    {(s.barcodes ?? []).map((b) => (
+                                      <span key={b} className="rounded bg-base-200 px-1.5 py-0.5 font-mono text-xs">
+                                        {b}
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
+                              </td>
+                              <td>
+                                <StatusBadge tone={SALE_TONE[s.saleState]}>{m.products.saleStateName[s.saleState]}</StatusBadge>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </Card>
+                {canChangeSaleState ? (
+                  <SaleStateChange key={p.productId} product={p} />
+                ) : (
+                  <p className="rounded-box border border-dashed border-base-300 bg-base-100 p-4 text-sm text-base-content/60">{m.products.saleStateMdOnly}</p>
                 )}
-              </Card>
-              {canChangeSaleState ? (
-                <SaleStateChange key={p.productId} product={p} />
-              ) : (
-                <p className="rounded-box border border-dashed border-base-300 bg-base-100 p-4 text-sm text-base-content/60">{m.products.saleStateMdOnly}</p>
-              )}
+              </div>
+  
+              <div className="space-y-4">
+                <Card title={m.products.summaryTitle}>
+                  <dl className="space-y-3">
+                    <Fact label={m.products.internalName}>{p.internalName ?? m.none}</Fact>
+                    <Fact label={m.products.saleState} testId="sale-state">
+                      {p.saleState ? m.products.saleStateName[p.saleState] : m.none}
+                    </Fact>
+                    <Fact label={m.products.version}>{p.version ?? m.none}</Fact>
+                    {/* 카테고리는 노드 ID 대신 경로(대분류 > 중분류 > 소분류, 2026-11-19) — 트리를 못 읽으면 "?" */}
+                    <Fact label={m.products.primaryCategory}>
+                      <span data-testid="primary-category">{p.primaryCategoryId ? catPath(p.primaryCategoryId) : m.none}</span>
+                    </Fact>
+                    <Fact label={m.products.categories}>
+                      {(p.categoryIds ?? []).length === 0 ? (
+                        m.none
+                      ) : (
+                        <span className="flex flex-wrap gap-1">
+                          {(p.categoryIds ?? []).map((c) => (
+                            <span key={c} className="rounded bg-base-200 px-1.5 py-0.5 text-xs font-normal" data-testid="exposed-category">
+                              {catPath(c)}
+                            </span>
+                          ))}
+                        </span>
+                      )}
+                    </Fact>
+                    <Fact label={m.products.sys.approval}>
+                      {p.approvalId ? (
+                        <Link className="link link-primary text-sm" to={`/approvals/${encodeURIComponent(p.approvalId)}`} data-testid="product-approval">
+                          {m.products.openApproval} ›
+                        </Link>
+                      ) : (
+                        m.none
+                      )}
+                    </Fact>
+                    <Fact label={m.products.publishedAt}>{p.publishedAt ? formatSeoul(p.publishedAt) : m.none}</Fact>
+                  </dl>
+                </Card>
+                <Card title={m.products.actionsTitle}>
+                  {/* 고객용 상품명·설명·이미지는 콘텐츠(product-content-service, DISPLAY 승인)로 따로 등록한다(머리 오른쪽 버튼). */}
+                  <p className="text-xs text-base-content/55">{m.products.contentHint}</p>
+                  {canChangeSaleState ? <EditStart productId={productId} /> : <p className="text-sm text-base-content/60">{m.products.editMdOnly}</p>}
+                </Card>
+              </div>
             </div>
-
-            <div className="space-y-4">
-              <Card title={m.products.summaryTitle}>
-                <dl className="space-y-3">
-                  <Fact label={m.products.internalName}>{p.internalName ?? m.none}</Fact>
-                  <Fact label={m.products.saleState} testId="sale-state">
-                    {p.saleState ? m.products.saleStateName[p.saleState] : m.none}
-                  </Fact>
-                  <Fact label={m.products.version}>{p.version ?? m.none}</Fact>
-                  {/* 카테고리는 노드 ID 대신 경로(대분류 > 중분류 > 소분류, 2026-11-19) — 트리를 못 읽으면 "?" */}
-                  <Fact label={m.products.primaryCategory}>
-                    <span data-testid="primary-category">{p.primaryCategoryId ? catPath(p.primaryCategoryId) : m.none}</span>
-                  </Fact>
-                  <Fact label={m.products.categories}>
-                    {(p.categoryIds ?? []).length === 0 ? (
-                      m.none
-                    ) : (
-                      <span className="flex flex-wrap gap-1">
-                        {(p.categoryIds ?? []).map((c) => (
-                          <span key={c} className="rounded bg-base-200 px-1.5 py-0.5 text-xs font-normal" data-testid="exposed-category">
-                            {catPath(c)}
-                          </span>
-                        ))}
-                      </span>
-                    )}
-                  </Fact>
-                  <Fact label={m.products.sys.approval}>
-                    {p.approvalId ? (
-                      <Link className="link link-primary text-sm" to={`/approvals/${encodeURIComponent(p.approvalId)}`} data-testid="product-approval">
-                        {m.products.openApproval} ›
-                      </Link>
-                    ) : (
-                      m.none
-                    )}
-                  </Fact>
-                  <Fact label={m.products.publishedAt}>{p.publishedAt ? formatSeoul(p.publishedAt) : m.none}</Fact>
-                </dl>
-              </Card>
-              <Card title={m.products.actionsTitle}>
-                {/* 고객용 상품명·설명·이미지는 콘텐츠(product-content-service, DISPLAY 승인)로 따로 등록한다(머리 오른쪽 버튼). */}
-                <p className="text-xs text-base-content/55">{m.products.contentHint}</p>
-                {canChangeSaleState ? <EditStart productId={productId} /> : <p className="text-sm text-base-content/60">{m.products.editMdOnly}</p>}
-              </Card>
+          )}
+          {tab === 'content' && (
+            <Card
+              title={m.products.tabs.content}
+              hint={m.products.tabs.contentHint}
+              aside={
+                <Link className="btn btn-sm btn-primary" to={`/contents/drafts/new?productId=${encodeURIComponent(productId)}`} data-testid="tab-content-edit">
+                  {m.products.tabs.contentEdit}
+                </Link>
+              }
+            >
+              <ContentGallery productId={productId} withText />
+            </Card>
+          )}
+          {tab === 'price' && (
+            <div className="space-y-4" data-testid="tab-price">
+              <p className="text-sm text-base-content/60">{m.products.tabs.priceHint}</p>
+              {(p.skus ?? []).map((sk) => (
+                <div key={sk.sku} className="space-y-2">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <h3 className="font-semibold">
+                      <span className="font-mono">{sk.sku}</span>
+                      <span className="ml-2 text-sm font-normal text-base-content/55">{m.products.unitName[sk.unitType]}</span>
+                    </h3>
+                    <Link className="btn btn-sm" to={`/prices?sku=${encodeURIComponent(sk.sku)}`}>
+                      {m.products.tabs.priceChange}
+                    </Link>
+                  </div>
+                  <PriceLookup sku={sk.sku} withProduct={false} />
+                </div>
+              ))}
             </div>
-          </div>
+          )}
+          {tab === 'handling' && (
+            <Card title={m.products.tabs.handling} hint={m.products.tabs.handlingHint}>
+              <div className="flex flex-wrap items-center gap-3 text-sm" data-testid="tab-handling">
+                <span className="text-base-content/65">{m.products.tabs.handlingBody((p.skus ?? []).map((x) => x.sku).join(', ') || m.none)}</span>
+                <Link className="btn btn-sm" to="/handlings">
+                  {m.products.tabs.handlingGo}
+                </Link>
+              </div>
+            </Card>
+          )}
           </div>
         )}
       </QueryState>

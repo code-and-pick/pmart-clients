@@ -1,4 +1,4 @@
-import { ContentListPage } from '../features/contents/ContentListPage';
+import { ContentsRedirect } from '../features/contents/ContentListPage';
 import { DETAIL_BAR_SLOT } from '../shared/StickyTitle';
 import { ConnectionBanner, useDocumentTitle } from './PageChrome';
 import { useStaffText } from '../shared/employeeLabels';
@@ -318,7 +318,8 @@ const routes = [
       { path: 'products/import', element: guarded(<NewProductImportPage />) },
       { path: 'products/import/:batchId', element: guarded(<ProductImportPage />) },
       { path: 'products/:productId', element: guarded(<ProductDetailPage />) },
-      { path: 'contents', element: guarded(<ContentListPage />) },
+      // 콘텐츠 조회는 상품으로 합침(2026-11-19 상품 묶음 1단계) — 옛 주소는 상품 목록으로(미게시 보기는 콘텐츠 거르기로)
+      { path: 'contents', element: guarded(<ContentsRedirect />) },
       { path: 'contents/drafts/new', element: guarded(<NewContentDraftPage />) },
       { path: 'contents/drafts/:draftId', element: guarded(<ContentDraftPage />) },
       { path: 'contents/import', element: guarded(<NewContentImportPage />) },

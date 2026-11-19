@@ -60,7 +60,7 @@ function SkuProduct({ sku }: { readonly sku: string }) {
 }
 
 /** compact = 오른쪽 서랍 안(좁다) — 현재 기본가·이력을 위아래로 */
-function PriceLookup({ sku, compact = false }: { readonly sku: string; readonly compact?: boolean }) {
+export function PriceLookup({ sku, compact = false, withProduct = true }: { readonly sku: string; readonly compact?: boolean; readonly withProduct?: boolean }) {
   const api = useApi();
   const price = useQuery({
     queryKey: ['pricing', 'price', sku],
@@ -75,7 +75,8 @@ function PriceLookup({ sku, compact = false }: { readonly sku: string; readonly 
   // 왼쪽(2/3): 현재 기본가 큰 숫자 + 예약된 다음 가격, 오른쪽(1/3): 가격 이력 세로 줄(최신 위)
   return (
     <div className="space-y-4">
-    <SkuProduct sku={sku} />
+    {/* 상품 상세 가격 탭에서는 이미 그 상품이라 뺀다 */}
+    {withProduct && <SkuProduct sku={sku} />}
     {/* 다음 할 일(2026-11-18): 서버가 PRICE_NOT_SET 이라 답했을 때만 — 아래 변경 요청 카드로 */}
     {notSet && (
       <NextAction tone="warning" title={m.prices.nextAction.notSet} body={m.prices.nextAction.notSetBody}>

@@ -51,7 +51,7 @@ describe('상품 조회', () => {
     const apple = rowOf('사과 1.5kg');
     expect(within(apple).getByTestId('product-edit')).toHaveAttribute('href', '/products/P-00000001');
     expect(within(apple).getByRole('link', { name: '가격 관리에서 보기' })).toHaveAttribute('href', '/prices?sku=E-00000001');
-    expect(within(apple).getByRole('link', { name: '콘텐츠·이미지 등록' })).toHaveAttribute('href', '/contents/drafts/new?productId=P-00000001');
+    expect(within(apple).getByRole('link', { name: '콘텐츠·이미지 등록' })).toHaveAttribute('href', '/products/P-00000001?tab=content'); // 상품 상세의 고객 화면 탭(2026-11-19 상품 묶음 합치기)
   });
 });
 

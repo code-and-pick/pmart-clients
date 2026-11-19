@@ -105,6 +105,8 @@ export function ProductListPage() {
   const [params, setParams] = useSearchParams();
   const saleState: SaleState | undefined = SALE_STATES.find((s) => s === params.get('saleState'));
   const categoryId = params.get('categoryId') ?? '';
+  // 콘텐츠 게시 상태 거르기(2026-11-19 상품 묶음 합치기 — 콘텐츠 조회 화면 대신) — 이 쪽 안에서, 게시 카드 기준
+  const contentFilter = (['published', 'missing'] as const).find((v) => v === params.get('content'));
   const cursor = params.get('cursor') ?? undefined;
   const [text, setText] = useState('');
   const [sort, setSort] = useState<Sort>('server');
@@ -149,7 +151,7 @@ export function ProductListPage() {
     setParams(next);
   };
   const q = text.trim().toLowerCase().replace(/\s+/g, '');
-  const filtered = saleState !== undefined || categoryId !== '' || q !== '';
+  const filtered = saleState !== undefined || categoryId !== '' || q !== '' || contentFilter !== undefined;
   const stateName = saleState ? m.products.saleStateName[saleState] : l.all;
 
   return (
@@ -212,6 +214,14 @@ export function ProductListPage() {
             onChange={(v) => setParam('categoryId', v)}
           />
         </div>
+        <label className="flex flex-col gap-1 text-xs font-medium text-base-content/60">
+          {l.col.content}
+          <select className="select select-sm w-36 bg-base-100" aria-label={l.col.content} value={contentFilter ?? ''} onChange={(e) => setParam('content', e.target.value)}>
+            <option value="">{l.all}</option>
+            <option value="published">{l.contentPublished}</option>
+            <option value="missing">{l.contentMissingOnly}</option>
+          </select>
+        </label>
         <Lookup />
         <button
           type="button"
@@ -231,7 +241,9 @@ export function ProductListPage() {
           // 이름 찾기 — 관리용 명칭 또는 고객용 상품명(게시된 콘텐츠). 서버에 이름 검색이 없어 이 쪽 안에서만(백엔드 요청 2026-11-19 product-name-search)
           const nameOf = (p: (typeof all)[number]) => `${p.internalName ?? ''}${(p.productId && cardOf.get(p.productId)?.name) ?? ''}`.toLowerCase().replace(/\s+/g, '');
           const all = d.items ?? [];
-          const items = all.filter((p) => !q || nameOf(p).includes(q));
+          const items = all
+            .filter((p) => !q || nameOf(p).includes(q))
+            .filter((p) => !contentFilter || !cards.data || (contentFilter === 'published' ? Boolean(p.productId && cardOf.has(p.productId)) : Boolean(p.productId && (cards.data.missing ?? []).includes(p.productId))));
           const byName = (x: (typeof items)[number], y: (typeof items)[number]) => (x.internalName ?? '').localeCompare(y.internalName ?? '', 'ko');
           const priceKey = (p: (typeof items)[number]) => (p.productId ? priceOf.get(p.productId)?.min : undefined);
           const byPrice = (dir: 1 | -1) => (x: (typeof items)[number], y: (typeof items)[number]) => {
@@ -275,13 +287,14 @@ export function ProductListPage() {
                           <span className="block text-[11px] font-normal text-base-content/40">{l.col.priceSub}</span>
                         </th>
                         <th>{m.products.saleState}</th>
+                        <th>{l.col.content}</th>
                         <th className="w-44" />
                       </tr>
                     </thead>
                     <tbody>
                       {rows.length === 0 && (
                         <tr>
-                          <td colSpan={4} className="py-12 text-center text-sm text-base-content/60" data-testid="product-empty">
+                          <td colSpan={5} className="py-12 text-center text-sm text-base-content/60" data-testid="product-empty">
                             {l.noMatch}{' '}
                             <button type="button" className="link link-primary" onClick={() => setText('')}>
                               {l.showAll}
@@ -334,6 +347,18 @@ export function ProductListPage() {
                               )}
                             </td>
                             <td>{p.saleState ? <StatusBadge tone={SALE_TONE[p.saleState]}>{m.products.saleStateName[p.saleState]}</StatusBadge> : m.none}</td>
+                            {/* 콘텐츠 게시 상태(게시 카드 일괄 조회 — 못 읽으면 "?", 미게시로 바꾸지 않음) */}
+                            <td data-testid="product-content-state">
+                              {!cards.data ? (
+                                <span className="text-base-content/40">{cards.isError ? '?' : '…'}</span>
+                              ) : p.productId && cardOf.has(p.productId) ? (
+                                <StatusBadge tone="success">{l.contentPublished}</StatusBadge>
+                              ) : p.productId && (cards.data.missing ?? []).includes(p.productId) ? (
+                                <StatusBadge tone="warning">{l.contentMissing}</StatusBadge>
+                              ) : (
+                                <span className="text-base-content/40">?</span>
+                              )}
+                            </td>
                             <td className="text-right" onClick={(e) => e.stopPropagation()}>
                               {p.productId && <RowActions productId={p.productId} firstSku={pr?.skus[0]} />}
                             </td>
@@ -414,7 +439,7 @@ function RowActions({ productId, firstSku }: { readonly productId: string; reado
             <Link to={firstSku ? `/prices?sku=${encodeURIComponent(firstSku)}` : '/prices'}>{l.menu.price}</Link>
           </li>
           <li>
-            <Link to={`/contents/drafts/new?productId=${encodeURIComponent(productId)}`}>{l.menu.content}</Link>
+            <Link to={`${detail}?tab=content`}>{l.menu.content}</Link>
           </li>
           <li>
             <Link to={detail}>{l.menu.saleState}</Link>
