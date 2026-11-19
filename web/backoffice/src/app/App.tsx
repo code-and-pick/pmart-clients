@@ -95,14 +95,14 @@ function NavGroupMenu({ group, pathname, open, onToggle }: { readonly group: Nav
   const active = group.items.some((i) => covers(i, pathname));
   return (
     // 묶음 이름(2026-11-18 사용자 — "큰 항목이 하위보다 글자가 작다, 눌렀을 때 직관적이지 않다"):
-    // 하위 메뉴보다 크고 굵게 + 묶음 아이콘 + 펼침 화살표(▸/▾), 펼친 묶음은 바탕을 살짝 밝게, 지금 묶음은 민트.
+    // 하위 메뉴보다 크고 굵게 + 묶음 아이콘 + 펼침 화살표(▸/▾), 펼친 묶음은 바탕을 살짝 밝게, 지금 묶음은 흰 글자(2026-11-19 민트 → 라이더 백오피스처럼).
     <details open={open} data-testid={`nav-group-${group.id}`} className={`mx-2 mb-1 rounded-lg ${open ? 'bg-neutral-content/5' : ''}`}>
       <summary
         onClick={(e) => {
           e.preventDefault(); // 브라우저가 따로 열고 닫지 않게 — 열림은 위(한 묶음만)에서 정한다
           onToggle();
         }}
-        className={`flex cursor-pointer list-none items-center gap-2.5 rounded-lg px-3 py-2.5 text-[15px] font-bold transition-colors hover:bg-neutral-content/10 active:scale-[0.99] ${active ? 'text-accent' : open ? 'text-neutral-content' : 'text-neutral-content/85'}`}
+        className={`flex cursor-pointer list-none items-center gap-2.5 rounded-lg px-3 py-2.5 text-[15px] font-bold transition-colors hover:bg-neutral-content/10 active:scale-[0.99] ${active ? 'text-neutral-content' : open ? 'text-neutral-content' : 'text-neutral-content/60'}`}
       >
         <GroupIcon id={group.id} className="h-5 w-5 shrink-0" />
         <span data-group-label>{group.label}</span>
@@ -121,7 +121,7 @@ function NavGroupMenu({ group, pathname, open, onToggle }: { readonly group: Nav
               to={item.to}
               end
               className={({ isActive }) =>
-                `my-0.5 ml-5 mr-1 flex items-center gap-1 rounded-r-lg border-l-4 py-2 pl-4 pr-3 text-[13px] transition-colors active:scale-[0.98] ${isActive ? 'border-accent bg-accent/20 font-bold text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.06)]' : 'border-neutral-content/10 text-neutral-content/70 hover:bg-neutral-content/10 hover:text-neutral-content'}`
+                `my-0.5 flex items-center gap-1 rounded-md py-1.5 pl-10 pr-3 text-sm transition-colors active:scale-[0.98] ${isActive ? 'bg-primary font-semibold text-primary-content' : 'text-neutral-content/75 hover:bg-neutral-content/10 hover:text-neutral-content'}`
               }
             >
               {item.label}
@@ -183,8 +183,12 @@ function Layout() {
       <aside className={`sticky top-0 flex h-screen shrink-0 flex-col self-start overflow-y-auto bg-neutral text-neutral-content transition-[width] ${collapsed ? 'w-20' : 'w-60'}`} data-testid="side-menu" data-collapsed={collapsed}>
         <div className={`flex h-14 shrink-0 items-center gap-1 border-b border-neutral-content/10 ${collapsed ? 'justify-center px-1' : 'justify-between pl-5 pr-2'}`}>
           {!collapsed && (
-            <Link to="/" className="truncate text-base font-bold text-neutral-content" aria-label={m.goHome}>
-              {m.appTitle}
+            <Link to="/" className="flex min-w-0 items-center gap-2 font-bold text-neutral-content" aria-label={m.goHome}>
+              {/* 로고 배지(2026-11-19 — 라이더 백오피스와 같게) */}
+              <span className="grid h-7 w-7 shrink-0 place-items-center rounded-md bg-accent text-sm text-accent-content" aria-hidden="true">
+                P
+              </span>
+              <span className="truncate text-[15px]">{m.appTitle}</span>
             </Link>
           )}
           <button type="button" className="btn btn-ghost btn-sm h-8 w-8 p-0 text-neutral-content/70 hover:bg-neutral-content/10" onClick={toggleMenu} aria-label={collapsed ? m.nav.expand : m.nav.collapse} title={collapsed ? m.nav.expand : m.nav.collapse} data-testid="menu-toggle">
@@ -202,7 +206,7 @@ function Layout() {
               to="/"
               end
               className={({ isActive }) =>
-                `mx-2 mb-2 flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-[15px] font-bold transition-colors ${isActive ? 'bg-accent/20 text-accent' : 'text-neutral-content/85 hover:bg-neutral-content/10'}`
+                `mx-2 mb-2 flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-[15px] font-bold transition-colors ${isActive ? 'bg-primary text-primary-content' : 'text-neutral-content/85 hover:bg-neutral-content/10'}`
               }
               data-testid="nav-dashboard"
             >
@@ -275,7 +279,8 @@ function Layout() {
         <div id={DETAIL_BAR_SLOT} className="sticky top-0 z-20" />
         {/* 인터넷 끊김 띠(2026-11-19) */}
         <ConnectionBanner />
-        <main className="min-w-0 flex-1 p-6">
+        {/* 본문 겉모습: 쿠팡 윙 느낌(index.css data-skin=wing, 2026-11-19) — 왼쪽 메뉴·머리줄은 그대로 */}
+        <main className="min-w-0 flex-1 p-6" data-skin="wing">
           {/* 화면을 받는 동안 뼈대(QueryState 불러오는 중 모양, 2026-11-19) */}
           <Suspense fallback={<QueryState state={{ kind: 'loading' }}>{() => null}</QueryState>}>
             <Outlet />

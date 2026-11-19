@@ -8,3 +8,4 @@ export * from './QueryState';
 export * from './toUiState';
 export * from './UiText';
 export * from './useCommand';
+export * from './floatingPanel';

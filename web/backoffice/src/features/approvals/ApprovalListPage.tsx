@@ -16,7 +16,7 @@ import { SavedViews } from '../../shared/SavedViews';
 import { messages as m } from '../../shared/messages';
 import { QueryState } from '@pmart/web-ui';
 import { toUiState } from '@pmart/web-ui';
-import { CodeLabel, PageHeader, StatCard, StatStrip, StatusBadge, countCell, type Tone } from '../../shared/admin';
+import { CodeLabel, PageHeader, StatCard, StatStrip, StatusBadge, countCell, type Tone, AllDone } from '../../shared/admin';
 import { PreviewDrawer, PreviewFacts, usePreview } from '../../shared/Preview';
 import { useApprovalTypeCounts } from '../../app/listCounts';
 import { Person } from '../lookup/parts';
@@ -108,6 +108,13 @@ export function ApprovalListPage() {
           })}
         </div>
 
+        {/* 심사 대기가 서버 0건이면 "다 심사했어요"(2026-11-19) */}
+        {query.isSuccess && rows.length === 0 && reviewState === 'REVIEW_PENDING' && (
+          <div className="p-4">
+            <AllDone title={m.allDone.approvals} body={m.allDone.approvalsBody} testId="approvals-all-done" />
+          </div>
+        )}
+        {!(query.isSuccess && rows.length === 0 && reviewState === 'REVIEW_PENDING') && (
         <QueryState
           // 다음 쪽 실패는 이미 받은 줄을 가리지 않는다 — 첫 쪽이 있으면 그 데이터로(경고는 아래 줄)
           state={query.data ? (rows.length === 0 ? { kind: 'empty' } : { kind: 'ready', data: query.data }) : toUiState(query)}
@@ -195,6 +202,7 @@ export function ApprovalListPage() {
             </>
           )}
         </QueryState>
+        )}
       </div>
     </section>
   );

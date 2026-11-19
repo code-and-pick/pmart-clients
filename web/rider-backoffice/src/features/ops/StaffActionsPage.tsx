@@ -45,6 +45,7 @@ export const actionText = {
     RESTRICTION_REVIEW_DECIDED: '제한 검토 결정',
     STATUS_CORRECTED: '상태 바로잡기',
     FAILURE_CONFIRM: '전달 실패 확정',
+    FAILURE_REVERSED: '전달 실패 확정 되돌림',
     FAILURE_REJECT: '전달 실패 반려',
     EARNING_ADJUSTED: '수행료 조정',
     SURCHARGE_APPROVED: '추가 배달료 승인',

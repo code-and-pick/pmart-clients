@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart' show kReleaseMode;
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:kakao_flutter_sdk_user/kakao_flutter_sdk_user.dart'
+    show KakaoSdk;
 import 'package:kakao_map_sdk/kakao_map_sdk.dart';
 import 'package:pmart_core/pmart_core.dart' show trustPmartLanRootCa;
 import 'package:pmart_ui/pmart_ui.dart';
@@ -22,6 +24,8 @@ Future<void> main() async {
   // 카카오 지도는 키가 있을 때만 켠다(빌드 때 --dart-define-from-file=.secrets/customer.env). 키는 로그에 남기지 않는다.
   if (kakaoNativeAppKey.isNotEmpty) {
     await KakaoMapSdk.instance.initialize(kakaoNativeAppKey);
+    // 카카오 로그인도 같은 네이티브 앱 키(BR-65).
+    await KakaoSdk.init(nativeAppKey: kakaoNativeAppKey);
   }
   runApp(
     // Riverpod 3 의 자동 재시도를 끈다. 재시도 규칙은 pmart_core(429·retryable)만 따른다.

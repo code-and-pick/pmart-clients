@@ -1,8 +1,24 @@
+import java.util.Base64
+
 plugins {
     id("com.android.application")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
 }
+
+// flutter build/run 의 --dart-define(·from-file) 값(Base64 "KEY=VALUE" 를 쉼표로 이은 dart-defines 속성).
+val dartDefines: Map<String, String> =
+    (project.findProperty("dart-defines") as String?)
+        ?.split(",")
+        ?.mapNotNull { encoded ->
+            runCatching { String(Base64.getDecoder().decode(encoded)) }.getOrNull()
+        }
+        ?.mapNotNull { pair ->
+            val i = pair.indexOf('=')
+            if (i > 0) pair.substring(0, i) to pair.substring(i + 1) else null
+        }
+        ?.toMap()
+        ?: emptyMap()
 
 android {
     namespace = "com.pmart.customer_app"
@@ -30,6 +46,11 @@ android {
         // flag during build.
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        // 소셜 로그인 키는 빌드 때 `--dart-define-from-file=.secrets/customer.env` 로만 들어온다(저장소에 넣지 않음).
+        // 카카오: 로그인 뒤 돌아오는 주소 kakao{앱 키}://oauth, 네이버: SDK 가 매니페스트 meta-data 로 읽는다.
+        manifestPlaceholders["kakaoNativeAppKey"] = dartDefines["KAKAO_NATIVE_APP_KEY"] ?: ""
+        manifestPlaceholders["naverClientId"] = dartDefines["NAVER_CLIENT_ID"] ?: ""
+        manifestPlaceholders["naverClientSecret"] = dartDefines["NAVER_CLIENT_SECRET"] ?: ""
     }
 
     buildTypes {

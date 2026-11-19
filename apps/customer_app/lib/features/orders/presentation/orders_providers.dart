@@ -61,6 +61,11 @@ final trackingHomeProvider = FutureProvider.autoDispose
       }
     });
 
+/// 주문 단위 배송 현황에서 배송 ID 가 생겼는지 주문을 다시 읽는 간격(배차 전 → 배송 생성, BR-61).
+final orderLinkPollIntervalProvider = Provider<Duration>(
+  (_) => const Duration(seconds: 10),
+);
+
 /// 실시간 구독 재연결 대기([attempt] 는 1부터). 1·2·4·…초, 최대 60초.
 final trackingReconnectDelayProvider = Provider<Duration Function(int attempt)>(
   (_) => (attempt) {

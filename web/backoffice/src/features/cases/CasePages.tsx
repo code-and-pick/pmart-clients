@@ -27,17 +27,17 @@ import { useSeenIds } from '../../shared/recentViews';
 import { useNewIds, useNow } from '../../shared/motion';
 import { useStaffText } from '../../shared/employeeLabels';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useState, type FormEvent, type ReactNode, useRef } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 
 import { ProblemFailure, request } from '@pmart/web-core';
 import { CommandFeedback, QueryState, toUiState, useCommand } from '@pmart/web-ui';
-import { commandParams } from '../../api/command';
+import { commandParams, IdempotencyKey } from '../../api/command';
 import type { operations as BffOps } from '../../api/generated/backoffice-bff';
 import type { components } from '../../api/generated/case';
 import { useApi } from '../../app/ApiContext';
 import { useSession } from '../../app/SessionContext';
-import { CodeLabel, NextAction, PageHeader, StatCard, StatStrip, StatusBadge, countCell, type Tone } from '../../shared/admin';
+import { CodeLabel, NextAction, PageHeader, StatCard, StatStrip, StatusBadge, countCell, type Tone, AllDone } from '../../shared/admin';
 import { SavedViews } from '../../shared/SavedViews';
 import { useRecordRecent } from '../../shared/recentViews';
 import { TabCount, useAlertCount } from '../../app/MenuAlerts';
@@ -454,6 +454,17 @@ export function CaseListPage() {
   // 상세에서 이전·다음으로 넘기도록 지금 목록 순서를 기억(2026-11-19)
   useRememberQueue('case', query.data?.items?.flatMap((c) => (c.caseId ? [c.caseId] : [])), `/cases?${params.toString()}`);
   const roles = { admin, team, agent };
+  // 일괄 맡기(2026-11-19 쿠팡 윙 "N개 선택됨 [일괄 처리]" 참고) — 맡을 수 있는 줄만 고른다
+  const bulk = useBulkPick();
+  const [picked, setPicked] = useState<ReadonlySet<string>>(new Set());
+  const pickable = (query.data?.items ?? []).flatMap((c) => (c.caseId && canPickCase(c, roles) ? [c.caseId] : []));
+  const allPicked = pickable.length > 0 && pickable.every((id) => picked.has(id));
+  const togglePick = (id: string) => {
+    const next = new Set(picked);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    setPicked(next);
+  };
   return (
     <section className="max-w-7xl space-y-4">
       <PageHeader title={m.cases.title} description={m.cases.intro} />
@@ -495,6 +506,13 @@ export function CaseListPage() {
             </select>
           </label>
         </div>
+        {/* 할 일 탭이 서버 0건이면 "다 처리했어요"(2026-11-19 쿠팡 윙 배송관리 참고) — 처리 끝남 탭·실패·읽는 중에는 그리지 않는다 */}
+        {query.isSuccess && (query.data.items ?? []).length === 0 && tab !== 'closed' && (
+          <div className="p-4">
+            <AllDone title={m.allDone.cases} body={m.allDone.casesBody} testId="cases-all-done" />
+          </div>
+        )}
+        {!(query.isSuccess && (query.data.items ?? []).length === 0 && tab !== 'closed') && (
         <QueryState state={toUiState(query, (r) => (r.items ?? []).length === 0)} onRetry={() => void query.refetch()} emptyText={m.cases.empty}>
           {(r) => (
             <>
@@ -503,10 +521,34 @@ export function CaseListPage() {
                   <SourceStamps sources={r.sources} unavailableSources={r.unavailableSources} />
                 </div>
               )}
+              {pickable.length > 0 && (
+                <div className="flex flex-wrap items-center gap-3 border-b border-base-300 px-4 py-2.5 text-sm" data-testid="case-bulk-bar">
+                  <span className="text-base-content/60">{m.cases.bulk.picked(picked.size)}</span>
+                  <button
+                    type="button"
+                    className="btn btn-outline btn-primary btn-xs"
+                    disabled={picked.size === 0 || bulk.busy}
+                    onClick={() =>
+                      void bulk.run([...picked]).then((done) => {
+                        setPicked(new Set([...picked].filter((id) => !done.includes(id))));
+                      })
+                    }
+                    data-testid="case-bulk-pick"
+                  >
+                    {bulk.busy ? m.cases.bulk.running(bulk.progress, picked.size) : m.cases.bulk.pick}
+                  </button>
+                  {bulk.result && <span role="status" className={bulk.result.failed > 0 ? 'text-warning' : 'text-success'} data-testid="case-bulk-result">{m.cases.bulk.result(bulk.result.done, bulk.result.failed)}</span>}
+                </div>
+              )}
               <div className="overflow-x-auto">
                 <table className="table [&_tbody_td]:py-3 [&_tbody_tr:hover]:bg-base-200/60 [&_tbody_tr]:border-base-300/70 [&_thead_th]:text-xs [&_thead_th]:font-medium [&_thead_th]:text-base-content/50">
                   <thead>
                     <tr>
+                      {pickable.length > 0 && (
+                        <th className="w-8">
+                          <input type="checkbox" className="checkbox checkbox-xs" aria-label={m.cases.bulk.pickAll} checked={allPicked} onChange={() => setPicked(allPicked ? new Set() : new Set(pickable))} />
+                        </th>
+                      )}
                       <th className="w-12">{m.cases.priority}</th>
                       <th>{m.cases.summary}</th>
                       <th>{m.cases.kind}</th>
@@ -526,6 +568,13 @@ export function CaseListPage() {
                         className={`${pv.row(c.caseId).className ?? ''} ${c.overdue && pv.id !== c.caseId ? 'bg-error/5 shadow-[inset_3px_0_0_var(--color-error)]' : ''} ${c.caseId && fresh.has(c.caseId) ? 'row-new' : ''}`}
                         data-new={c.caseId && fresh.has(c.caseId) ? 'true' : undefined}
                       >
+                        {pickable.length > 0 && (
+                          <td onClick={(e) => e.stopPropagation()}>
+                            {c.caseId && pickable.includes(c.caseId) && (
+                              <input type="checkbox" className="checkbox checkbox-xs" aria-label={m.cases.bulk.pickOne(c.caseNumber ?? '')} checked={picked.has(c.caseId)} onChange={() => togglePick(c.caseId ?? '')} />
+                            )}
+                          </td>
+                        )}
                         <td>
                           <PriorityBadge p={c.priority} />
                         </td>
@@ -616,6 +665,7 @@ export function CaseListPage() {
             </>
           )}
         </QueryState>
+        )}
       </div>
     </section>
   );
@@ -654,6 +704,46 @@ function CasePreview({ caseId }: { readonly caseId: string }) {
 /** 내가 맡을 수 있나(버튼을 보일지만 — 판정은 서버) */
 const canPickCase = (c: { readonly kind?: string | null; readonly assigneeGroup?: string | null; readonly assigneeId?: string | null }, r: { readonly admin: boolean; readonly team: boolean; readonly agent: boolean }) =>
   ((isCsCase(c) ? r.agent : r.team && !withAdminTeam(c)) || r.admin) && !c.assigneeId;
+
+/**
+ * 일괄 맡기(2026-11-19 쿠팡 윙 "선택한 것 일괄 처리" 참고) — 계약에 일괄 명령이 없어 건마다 따로(빠른 맡기와 같게):
+ * 그 건을 다시 읽어 지금 version 으로 POST /cases/{id}/assignments. 건마다 Idempotency-Key 를 기억해 다시 누르면 같은 키(실패한 것만 다시).
+ * 결과는 서버 응답대로 — 받은 건 "맡음", 거절(이미 다른 사람이 맡음 등)은 그대로 둔다. 한 번에 하나씩(서버에 몰아 보내지 않는다).
+ */
+function useBulkPick() {
+  const api = useApi();
+  const queryClient = useQueryClient();
+  const { me } = useCaseRoles();
+  const keys = useRef(new Map<string, IdempotencyKey>());
+  const [busy, setBusy] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [result, setResult] = useState<{ done: number; failed: number } | null>(null);
+  const run = async (ids: readonly string[]): Promise<string[]> => {
+    setBusy(true);
+    setResult(null);
+    const done: string[] = [];
+    let failed = 0;
+    for (const [i, caseId] of ids.entries()) {
+      setProgress(i + 1);
+      const key = keys.current.get(caseId) ?? IdempotencyKey.generate();
+      keys.current.set(caseId, key);
+      try {
+        const now = await request('GET', api.cases.GET('/cases/{caseId}', { params: { path: { caseId } } }));
+        const r = await request('POST', api.cases.POST('/cases/{caseId}/assignments', { ...commandParams(key, { path: { caseId }, version: now.version }), body: { assigneeId: me } }));
+        queryClient.setQueryData(['cases', 'detail', caseId], r);
+        keys.current.delete(caseId);
+        done.push(caseId);
+      } catch {
+        failed += 1;
+      }
+    }
+    setResult({ done: done.length, failed });
+    setBusy(false);
+    void queryClient.invalidateQueries({ queryKey: ['cases'] });
+    return done;
+  };
+  return { run, busy, progress, result };
+}
 
 /**
  * 목록 줄 빠른 맡기(2026-11-19 "계속 넣어") — 줄에 마우스를 올리거나 키보드로 오면 보인다.
@@ -981,7 +1071,8 @@ export function CaseDetailPage() {
     void queryClient.invalidateQueries({ queryKey: ['help-request'] });
   };
   // 최근 본 항목(2026-11-18) — 서버 응답을 받은 뒤에만 남긴다
-  useRecordRecent('case', caseId, query.data ? caseId : null);
+  // 최근 본 항목 이름은 화면 번호·요약(2026-11-19 — 시스템 ID 를 이름으로 남기던 것 고침, ADR-0070 덧붙임)
+  useRecordRecent('case', caseId, query.data ? (query.data.caseNumber ?? label(m.cases.kindName, query.data.kind)) : null);
   return (
     <section className="max-w-7xl space-y-4">
       {/* 제목은 종류 이름 먼저, 번호는 작게(2026-11-18 "제목이 번호뿐") — 읽기 전에는 "접수 건" */}

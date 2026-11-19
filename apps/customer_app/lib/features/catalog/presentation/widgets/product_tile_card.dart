@@ -40,7 +40,12 @@ class ProductImage extends ConsumerWidget {
       ),
     );
     // 서버 이미지는 상대 경로라 게이트웨이 주소를 붙여야 받을 수 있다.
-    final u = resolveImageUrl(url, ref.watch(imageOriginProvider));
+    // 서버 축소본: 그릴 크기(긴 변 × 화소 비율)에 맞는 240·480·720(백엔드 요청 R3).
+    final px = (size > h ? size : h) * MediaQuery.devicePixelRatioOf(context);
+    final u = resolveImageUrl(
+      withImageWidth(url, px),
+      ref.watch(imageOriginProvider),
+    );
     return ClipRRect(
       borderRadius: BorderRadius.circular(radius),
       child: u == null

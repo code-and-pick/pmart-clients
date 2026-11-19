@@ -17,7 +17,7 @@ import { toUiState } from '@pmart/web-ui';
 import { useCommand } from '@pmart/web-ui';
 import { RequestApproval } from '../approvals/RequestApproval';
 import { DraftProblems } from './ProductDraftPage';
-import { NextAction, PageHeader, StatusBadge, type Tone } from '../../shared/admin';
+import { NextAction, PageHeader, StatusBadge, type Tone, GuideBox } from '../../shared/admin';
 import { Card, JumpLink, MiniStat, Steps, tableClass, TitleWithId } from './parts';
 
 const REVIEW_TONE: Readonly<Record<string, Tone>> = {
@@ -117,29 +117,40 @@ export function ZipUpload({
   readonly onUpload: (file: File) => void;
 }) {
   const [file, setFile] = useState<File | null>(null);
-  // 점선 파일 상자(2026-11-18 화면 다듬기) — 이름표·버튼 이름은 그대로
+  const u = m.products.uploadView;
+  // 2026-11-19 쿠팡 윙 "상품 일괄등록" 참고: 번호 붙은 줄(1. 파일 고르기 2. 서버 검사) + 가운데 큰 올리기 단추. 이름표·버튼 이름은 그대로
   return (
-    <div className="space-y-4 rounded-box border border-base-300 bg-base-100 p-5 shadow-sm" data-testid="zip-upload">
-      <label
-        className={`flex cursor-pointer flex-col items-center gap-3 rounded-lg border-2 border-dashed px-6 py-8 text-center transition-colors ${file ? 'border-primary/40 bg-primary/5' : 'border-base-300 hover:border-primary/40 hover:bg-base-200/60'}`}
-      >
-        <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary" aria-hidden="true">
-          <svg viewBox="0 0 24 24" className="h-6 w-6 fill-none stroke-current" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round">
-            <path d="M12 15V4m0 0-4 4m4-4 4 4M5 15v3a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-3" />
+    <div className="divide-y divide-base-300" data-testid="zip-upload">
+      <div className="grid gap-3 py-4 md:grid-cols-[14rem_1fr]">
+        <p className="text-sm font-medium">{u.step1}</p>
+        <label
+          className={`flex cursor-pointer flex-col items-center gap-3 rounded-lg border-2 border-dashed px-6 py-7 text-center transition-colors ${file ? 'border-primary/40 bg-primary/5' : 'border-base-300 hover:border-primary/40 hover:bg-base-200/60'}`}
+        >
+          <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/10 text-primary" aria-hidden="true">
+            <svg viewBox="0 0 24 24" className="h-6 w-6 fill-none stroke-current" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 15V4m0 0-4 4m4-4 4 4M5 15v3a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-3" />
+            </svg>
+          </span>
+          <span className="font-semibold">{m.products.zipFile}</span>
+          <input
+            type="file"
+            accept=".zip,application/zip"
+            aria-label={m.products.zipFile}
+            className="file-input file-input-sm w-full max-w-sm"
+            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+          />
+          <span className="text-xs text-base-content/55">{file ? m.products.zipChosen(file.name, Math.max(1, Math.round(file.size / 1024))) : m.products.zipHint}</span>
+        </label>
+      </div>
+      <div className="grid gap-3 py-4 md:grid-cols-[14rem_1fr]">
+        <p className="text-sm font-medium">{u.step2}</p>
+        <p className="text-sm text-base-content/65">{u.step2Body}</p>
+      </div>
+      <div className="flex justify-center pt-5">
+        <button type="button" className="btn btn-primary gap-2 px-8" disabled={!file || busy} onClick={() => file && onUpload(file)}>
+          <svg viewBox="0 0 24 24" className="h-5 w-5 fill-none stroke-current" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M12 16V4m0 0-5 5m5-5 5 5M4 20h16" />
           </svg>
-        </span>
-        <span className="font-semibold">{m.products.zipFile}</span>
-        <input
-          type="file"
-          accept=".zip,application/zip"
-          aria-label={m.products.zipFile}
-          className="file-input file-input-sm w-full max-w-sm"
-          onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-        />
-        <span className="text-xs text-base-content/55">{file ? m.products.zipChosen(file.name, Math.max(1, Math.round(file.size / 1024))) : m.products.zipHint}</span>
-      </label>
-      <div className="flex justify-end">
-        <button type="button" className="btn btn-primary btn-sm" disabled={!file || busy} onClick={() => file && onUpload(file)}>
           {m.products.upload}
         </button>
       </div>
@@ -147,15 +158,29 @@ export function ZipUpload({
   );
 }
 
-/** 올리기 화면 공통 짜임: 단계 표시 + 안내 + 파일 상자(가운데 좁게) */
-export function UploadLayout({ steps, intro, children }: { readonly steps: readonly string[]; readonly intro: string; readonly children: ReactNode }) {
+/**
+ * 올리기 화면 공통 짜임(상품·콘텐츠·가격 일괄 등록) — 2026-11-19 쿠팡 윙 "상품 일괄등록" 참고:
+ * 화면 너비 그대로, 맨 위 주황 주의 띠(지금 안내 문구) → "파일 올리기 요청" 접는 상자(단계 표시 · 번호 줄 · 큰 단추) → 아래 [주의] 한 줄.
+ */
+export function UploadLayout({ steps, intro, children, cautions = [] }: { readonly steps: readonly string[]; readonly intro: string; readonly children: ReactNode; readonly cautions?: readonly string[] }) {
+  const u = m.products.uploadView;
+  const [open, setOpen] = useState(true);
   return (
-    <div className="mx-auto max-w-3xl space-y-4">
-      <div className="space-y-2 rounded-box border border-base-300 bg-base-100 px-5 py-4 shadow-sm">
-        <Steps steps={steps} now={0} />
-        <p className="text-sm text-base-content/65">{intro}</p>
-      </div>
-      {children}
+    <div className="space-y-4">
+      <GuideBox tone="warning" title={u.cautionTitle} items={[intro, ...cautions]} storeKey={`upload-${steps.join('-')}`} testId="upload-caution" />
+      <section className="rounded-box border border-base-300 bg-base-100 shadow-sm" aria-label={u.sectionTitle}>
+        <button type="button" className="flex w-full flex-wrap items-center justify-between gap-3 border-b border-base-300 px-6 py-4 text-left" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+          <span className="text-lg font-semibold">{u.sectionTitle}</span>
+          <span className="flex items-center gap-4">
+            <Steps steps={steps} now={0} />
+            <span className="text-base-content/50" aria-hidden="true">
+              {open ? '▴' : '▾'}
+            </span>
+          </span>
+        </button>
+        {open && <div className="space-y-3 px-6 pb-5">{children}</div>}
+      </section>
+      <p className="text-sm font-medium text-error">{u.notice}</p>
     </div>
   );
 }
@@ -248,7 +273,10 @@ function AnotherUpload() {
   return (
     <div id="another-upload" className="scroll-mt-4 space-y-2">
       <h2 className="font-bold">{m.products.uploadAnother}</h2>
-      <ZipUpload busy={upload.busy} onUpload={(file) => void upload.run(file)} />
+      {/* 다른 파일 올리기 — 틀 안에(2026-11-19 올리기 상자가 틀 없이 번호 줄만 되어서) */}
+      <div className="rounded-box border border-base-300 bg-base-100 px-6 pb-5 shadow-sm">
+        <ZipUpload busy={upload.busy} onUpload={(file) => void upload.run(file)} />
+      </div>
       <CommandFeedback command={upload} />
     </div>
   );

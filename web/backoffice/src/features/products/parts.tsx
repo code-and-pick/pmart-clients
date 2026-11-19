@@ -29,10 +29,10 @@ export function Steps({ steps, now, label = m.products.stepsLabel }: { readonly 
     <ol className="flex flex-wrap items-center gap-1 text-xs" aria-label={label}>
       {steps.map((st, i) => (
         <li key={st} className="flex items-center gap-1">
-          <span className={`relative flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-bold ${i < now ? 'bg-success text-success-content' : i === now ? 'bg-primary text-primary-content' : 'bg-base-200 text-base-content/50'}`}>
+          <span className={`relative flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-bold ${i < now ? 'bg-success text-white' : i === now ? 'bg-primary text-primary-content' : 'bg-base-200 text-base-content/50'}`}>
             {/* 진행 중 표시(2026-11-19) — 지금 단계에서만 */}
             {i === now && <span className="step-pulse text-primary" aria-hidden="true" data-testid="step-pulse" />}
-            {i < now ? '✓' : i + 1}
+            {i < now ? <svg viewBox="0 0 24 24" className="h-3 w-3 fill-none stroke-current" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" data-testid="step-check"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg> : i + 1}
           </span>
           <span className={i <= now ? 'font-medium' : 'text-base-content/50'}>{st}</span>
           {i < steps.length - 1 && <span className="px-1 text-base-content/30">→</span>}

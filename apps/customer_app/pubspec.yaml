@@ -80,6 +80,8 @@ dependencies:
   # "현재 위치로 찾기"(레퍼런스 2-4) — 휴대폰 위치 한 번 읽기. 라이더앱과 같은 버전. 사용자 승인 2026-11-19.
   # 좌표 → 주소는 서버 /address-reverse-geocodes(카카오 로컬, ADR-0023). 위치기반서비스 약관 동의 뒤에만 쓴다(BR-59).
   geolocator: ^14.1.2
+  kakao_flutter_sdk_user: ^2.1.0
+  flutter_naver_login: ^2.1.1
 
 dev_dependencies:
   flutter_test:

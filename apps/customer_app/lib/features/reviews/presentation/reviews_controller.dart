@@ -37,6 +37,8 @@ final reviewPhotoPickerProvider = Provider<ReviewPhotoPicker>(
       ReviewPhotoSource.camera => [
         ?await picker.pickImage(
           source: ImageSource.camera,
+          // 상품 사진이라 후방 카메라로 연다(사용자 2026-11-19). 기기 카메라 앱이 이 요청을 따르는지는 기종마다 다르다.
+          preferredCameraDevice: CameraDevice.rear,
           maxWidth: 2048,
           maxHeight: 2048,
           imageQuality: 85,

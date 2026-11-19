@@ -710,7 +710,9 @@ void main() {
       expect(find.text('10분 남음'), findsOneWidget);
     });
 
-    testWidgets('배송지 좌표도 라이더 위치도 없으면 지도 칸에 "확인 중" — 위치를 지어내지 않는다', (t) async {
+    testWidgets('배송지 좌표 없이 라이더 위치가 사라져도 지도는 그대로 — 마커만 숨기고 확인 중(지어내지 않음)', (
+      t,
+    ) async {
       final orders = MockOrdersRepository(latency: Duration.zero);
       await openTracking(
         t,
@@ -726,9 +728,11 @@ void main() {
         ),
       );
       await t.pumpAndSettle();
-      // order-seed-1 은 배송지 사본이 없다(배포 전 주문).
+      // order-seed-1 은 배송지 사본이 없다(배포 전 주문). 한 번 그린 지도는 다시 만들지 않는다(카메라가 튀지 않게) —
+      // 라이더 마커만 숨기고 "확인하고 있어요".
       expect(key('track-map-mode'), findsOneWidget);
-      expect(key('track-map-pending'), findsOneWidget);
+      expect(key('track-map-pending'), findsNothing);
+      expect(map(t).rider, isNull);
       expect(key('track-rider-locating'), findsOneWidget);
     });
 
@@ -801,6 +805,46 @@ void main() {
       await t.pumpAndSettle();
       expect(key('track-delivery-info-body'), findsOneWidget);
       expect(key('track-request'), findsOneWidget);
+    });
+
+    testWidgets('배차 전에 열어 두면 배송이 생기는 대로(10초마다 주문 확인) 실시간 화면으로 넘어간다', (t) async {
+      final orders = MockOrdersRepository(latency: Duration.zero);
+      final o = orders.orderJson('order-seed-4')!;
+      orders.overrides['order-seed-4'] = {...o, 'shipments': <Object?>[]};
+      await openOrder(t, orders, 'order-seed-4');
+      await t.tap(key('order-track'));
+      await t.pumpAndSettle();
+      expect(key('track-no-delivery'), findsOneWidget);
+      expect(find.byType(TrackingScreen), findsNothing);
+
+      // 서버: 배차로 배송이 생겼다(shipments 에 deliveryId).
+      orders.overrides['order-seed-4'] = o;
+      await t.pump(const Duration(seconds: 10));
+      await t.pumpAndSettle();
+      expect(find.byType(TrackingScreen), findsOneWidget);
+      expect(orders.openTrackCount, 1);
+      await t.tap(find.byType(BackButton).first);
+      await t.pumpAndSettle();
+    });
+
+    testWidgets('배차 전에 열어 두면 배송이 생기는 대로(10초마다 주문 확인) 실시간 화면으로 넘어간다', (t) async {
+      final orders = MockOrdersRepository(latency: Duration.zero);
+      final o = orders.orderJson('order-seed-4')!;
+      orders.overrides['order-seed-4'] = {...o, 'shipments': <Object?>[]};
+      await openOrder(t, orders, 'order-seed-4');
+      await t.tap(key('order-track'));
+      await t.pumpAndSettle();
+      expect(key('track-no-delivery'), findsOneWidget);
+      expect(find.byType(TrackingScreen), findsNothing);
+
+      // 서버: 배차로 배송이 생겼다(shipments 에 deliveryId).
+      orders.overrides['order-seed-4'] = o;
+      await t.pump(const Duration(seconds: 10));
+      await t.pumpAndSettle();
+      expect(find.byType(TrackingScreen), findsOneWidget);
+      expect(orders.openTrackCount, 1);
+      await t.tap(find.byType(BackButton).first);
+      await t.pumpAndSettle();
     });
 
     testWidgets('배송 ID 가 있으면 "배송현황 보기"가 실시간 화면으로', (t) async {

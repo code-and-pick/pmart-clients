@@ -4,6 +4,8 @@
 // 찾기로 가려진 항목도 고른 상태는 그대로다(거르기는 보이는 것만 바꾼다).
 import { useEffect, useId, useRef, useState } from 'react';
 
+import { useFloatingPanel } from './floatingPanel';
+
 const SEARCH_FROM = 8;
 const CHO = ['ㄱ', 'ㄲ', 'ㄴ', 'ㄷ', 'ㄸ', 'ㄹ', 'ㅁ', 'ㅂ', 'ㅃ', 'ㅅ', 'ㅆ', 'ㅇ', 'ㅈ', 'ㅉ', 'ㅊ', 'ㅋ', 'ㅌ', 'ㅍ', 'ㅎ'];
 const norm = (s: string) => s.toLowerCase().replace(/s+/g, '');
@@ -54,13 +56,18 @@ export function MultiSelectDropdown({
   const searchable = options.length > SEARCH_FROM;
   const shown = searchable ? options.filter((o) => optionMatches(o.label, query)) : options;
   const root = useRef<HTMLDivElement>(null);
+  const trigger = useRef<HTMLButtonElement>(null);
+  const panel = useRef<HTMLDivElement>(null);
+  // 펼친 판은 화면 고정 자리(position: fixed)에 — 카드(overflow-hidden) 가장자리에서 잘리지 않게(2026-11-19)
+  const float = useFloatingPanel(trigger, open);
   const labelId = useId();
   const panelId = useId();
 
   useEffect(() => {
     if (!open) return;
     const onDown = (e: MouseEvent) => {
-      if (root.current && !root.current.contains(e.target as Node)) setOpen(false);
+      const t = e.target as Node;
+      if (root.current && !root.current.contains(t) && !panel.current?.contains(t)) setOpen(false);
     };
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setOpen(false);
@@ -86,6 +93,7 @@ export function MultiSelectDropdown({
     <div ref={root} className={`relative flex flex-col gap-1 text-sm ${className}`}>
       <span id={labelId}>{label}</span>
       <button
+        ref={trigger}
         type="button"
         className="select select-sm w-full items-center text-left"
         aria-labelledby={labelId}
@@ -100,10 +108,11 @@ export function MultiSelectDropdown({
       >
         <span className={value.length === 0 ? 'opacity-60' : ''}>{value.length === 0 ? placeholder : selectedText(value.length)}</span>
       </button>
-      {open && (
-        <div className="absolute top-full z-20 mt-1 w-full overflow-hidden rounded-box border border-base-300 bg-base-100 shadow">
+      {open &&
+        (
+        <div ref={panel} style={float ?? { position: 'fixed', visibility: 'hidden' }} className="flex flex-col overflow-hidden rounded-box border border-base-300 bg-base-100 shadow">
           {searchable && (
-            <div className="border-b border-base-300 p-1">
+            <div className="shrink-0 border-b border-base-300 p-1">
               <input
                 type="search"
                 className="input input-sm w-full"
@@ -115,7 +124,7 @@ export function MultiSelectDropdown({
               />
             </div>
           )}
-          <ul id={panelId} role="group" aria-labelledby={labelId} className="max-h-64 overflow-auto p-1">
+          <ul id={panelId} role="group" aria-labelledby={labelId} className="min-h-0 flex-1 overflow-auto p-1">
           {shown.length === 0 && <li className="px-2 py-1 text-base-content/50">맞는 것이 없어요.</li>}
           {shown.map((o) => (
             <li key={o.value}>

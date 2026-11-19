@@ -142,6 +142,16 @@ final imageOriginProvider = Provider<String?>(
 );
 
 /// 이미지 주소를 그릴 수 있는 완전한 주소로 바꾼다. 출처를 모르는 상대 경로는 null(자리표시).
+/// 서버 콘텐츠 이미지(`/content-images/{id}`)에 축소 폭 `?w=`(product-content 0.3.0 — 240·480·720)을 붙인다.
+/// 그릴 폭(물리 화소)보다 크거나 같은 가장 작은 값, 넘으면 720. 다른 주소·이미 쿼리가 있으면 그대로.
+String? withImageWidth(String? url, double pixels) {
+  if (url == null || !url.contains('/content-images/') || url.contains('?')) {
+    return url;
+  }
+  final w = pixels <= 240 ? 240 : (pixels <= 480 ? 480 : 720);
+  return '$url?w=$w';
+}
+
 String? resolveImageUrl(String? url, String? origin) {
   if (url == null || url.isEmpty) return null;
   if (url.startsWith('http://') || url.startsWith('https://')) return url;

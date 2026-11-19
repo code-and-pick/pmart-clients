@@ -5,6 +5,7 @@ import 'package:pmart_core/pmart_core.dart';
 import '../../../shared/providers.dart';
 import '../data/auth_repository.dart';
 import '../data/google_token_source.dart';
+import '../data/kakao_naver_token_sources.dart';
 import '../data/mock_auth_repository.dart';
 import '../domain/auth.dart';
 
@@ -21,8 +22,10 @@ final authRepositoryProvider = Provider<AuthRepository>(
 final socialTokenSourceProvider = Provider<SocialTokenSource>(
   (ref) => switch (ref.watch(envProvider)) {
     PmartEnv.mock => MockSocialTokenSource(),
-    // 실서버는 Google 만 지원한다(ADR-0019). 카카오·네이버 SDK 는 서버 지원 뒤 붙인다.
-    PmartEnv.local => GoogleSocialTokenSource(),
+    // 제공자마다 SDK — Google(ID 토큰), 카카오(OIDC ID 토큰), 네이버(액세스 토큰) — BR-65.
+    PmartEnv.local => RoutingSocialTokenSource(
+      google: GoogleSocialTokenSource(),
+    ),
   },
 );
 

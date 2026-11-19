@@ -46,6 +46,34 @@ final class _RatingFromSummary extends MockCatalogRepository {
       const RatingSummary(average: 4.1, count: 480);
 }
 
+/// 상세 응답을 [release] 가 끝날 때까지 늦추는 목.
+final class _SlowDetail extends MockCatalogRepository {
+  _SlowDetail({super.latency});
+
+  final release = Completer<void>();
+
+  @override
+  Future<ProductDetail> product(String productId, {String? mfcId}) async {
+    await release.future;
+    return super.product(productId, mfcId: mfcId);
+  }
+}
+
+/// 가로 진열 카드를 누르되 상세가 늦게 와도 기다리지 않는다.
+Future<void> tapTileNoSettle(WidgetTester t, String productId) async {
+  final tiles = find.byKey(ValueKey('tile-$productId'));
+  if (tiles.evaluate().isEmpty) {
+    await t.scrollUntilVisible(
+      tiles,
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+  }
+  await t.ensureVisible(tiles.first);
+  await t.pumpAndSettle();
+  await t.tap(tiles.first);
+}
+
 final class _HomeDown extends MockCatalogRepository {
   _HomeDown() : super(latency: Duration.zero);
 
@@ -300,6 +328,23 @@ void main() {
           .data!;
       expect(text, contains('4.1'));
       expect(text, contains('480'));
+    });
+
+    // 백엔드 요청 2026-11-19 상세 속도 R1: 상세 응답 전에도 카드 값(이름·가격)으로 첫 화면.
+    testWidgets('카드를 누르면 상세 응답 전에도 카드의 이름·가격이 바로 보이고, 응답이 오면 상세로 바뀐다', (
+      t,
+    ) async {
+      final catalog = _SlowDetail(latency: Duration.zero);
+      await t.pumpWidget(testApp([], catalog: catalog));
+      await t.pumpAndSettle();
+      await tapTileNoSettle(t, 'P-0006');
+      await t.pump();
+      expect(find.byKey(const ValueKey('product-preview')), findsOneWidget);
+      expect(find.text('저지방 우유 900mL'), findsOneWidget);
+      catalog.release.complete();
+      await t.pumpAndSettle();
+      expect(find.byKey(const ValueKey('product-preview')), findsNothing);
+      expect(find.byKey(const ValueKey('product-rating')), findsOneWidget);
     });
 
     testWidgets('일시품절이면 담기를 열지 않고 품절로 보인다', (t) async {

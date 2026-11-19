@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pmart_core/pmart_core.dart';
@@ -185,9 +187,16 @@ final productRatingProvider = FutureProvider.autoDispose
           ref.watch(catalogRepositoryProvider).ratingSummary(productId),
     );
 
+/// 상품 상세. 화면을 나가도 [productDetailKeep] 동안 붙잡아 다시 들어오면 바로 보인다(화면이 뒤에서 다시 읽는다 —
+/// 백엔드 요청 2026-11-19 상세 속도 R2). 지금 MFC 를 watch 해 센터가 바뀌면 새로 읽는다.
+const productDetailKeep = Duration(minutes: 5);
+
 final productDetailProvider = FutureProvider.autoDispose
-    .family<ProductDetail, String>(
-      (ref, productId) => ref
+    .family<ProductDetail, String>((ref, productId) {
+      final link = ref.keepAlive();
+      final timer = Timer(productDetailKeep, link.close);
+      ref.onDispose(timer.cancel);
+      return ref
           .watch(catalogRepositoryProvider)
-          .product(productId, mfcId: ref.watch(currentMfcIdProvider)),
-    );
+          .product(productId, mfcId: ref.watch(currentMfcIdProvider));
+    });

@@ -1,8 +1,10 @@
 // 상품 목록(카테고리·판매 상태 필터, 커서는 URL) + SKU·바코드로 찾기.
+// 2026-11-19 쿠팡 윙 "상품 조회/수정" 참고: 판매 상태 숫자 카드 → 회색 검색 띠(상품명·카테고리 경로·바로 찾기) → 머리줄·정렬 → 줄(이름·카테고리 경로·판매가 ~·상태·[상품 수정 ⋮]). 시스템 ID(상품·카테고리 노드)는 줄에 안 보인다.
 // 화면(2026-11-18 사용자 "밋밋하다 — Shopify·Medusa 상품 목록처럼"): 한 카드 안에 판매 상태 탭 → 찾기 줄(바로 찾기·카테고리) →
 // 표(관리용 명칭 굵게·상품 ID 작게, 판매 상태 점 배지, 버전) → 아래 표시 수·더 보기. 머리말 오른쪽에 등록 버튼.
-import { useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
+import { AuthedImage } from '../contents/AuthedImage';
+import { useQueries, useQuery } from '@tanstack/react-query';
+import { useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 
 import { PmartFailure } from '@pmart/web-core';
@@ -14,9 +16,14 @@ import { SavedViews } from '../../shared/SavedViews';
 import { messages as m } from '../../shared/messages';
 import { QueryState } from '@pmart/web-ui';
 import { toUiState } from '@pmart/web-ui';
-import { PageHeader, StatusBadge, type Tone } from '../../shared/admin';
+import { countCell, PageHeader, StatCard, StatStrip, StatusBadge, type Tone } from '../../shared/admin';
+import { SearchSelect } from '../../shared/SearchSelect';
+import { formatKrw } from '@pmart/web-ui';
+import { useProductPrices } from '../prices/productPrices';
 import { PreviewDrawer, PreviewFacts, usePreview } from '../../shared/Preview';
-import { LineIcon, tableClass, UnderlineTabs } from './parts';
+import { LineIcon, tableClass } from './parts';
+
+const l = m.products.listView;
 
 export const SALE_TONE: Readonly<Record<SaleState, Tone>> = {
   ON_SALE: 'success',
@@ -70,6 +77,27 @@ function Lookup() {
   );
 }
 
+/** 판매 상태별 수(카드) — 상태마다 한 번씩 묻는다(서버가 전체를 세 주지 않아 COUNT_SIZE 까지 세고 넘으면 "N+") */
+const COUNT_SIZE = 200;
+function useSaleCounts() {
+  const api = useApi();
+  const states = ['', ...SALE_STATES] as const;
+  const qs = useQueries({
+    queries: states.map((st) => ({
+      queryKey: ['product', 'counts', st],
+      queryFn: async () => {
+        const r = await request('GET', api.product.GET('/products', { params: { query: { size: COUNT_SIZE, ...(st ? { saleState: st } : {}) } } }));
+        return { n: r.items?.length ?? 0, more: Boolean(r.page?.nextCursor) };
+      },
+    })),
+  });
+  return new Map(states.map((st, i) => [st, countCell(qs[i] ?? { isError: false })]));
+}
+
+// 정렬(2026-11-19 사용자 "이름순 해도 작동 안 함" — 목 두 상품이 이미 가나다 순이라 바뀐 게 안 보였다): 이 쪽 안에서. 가격 미설정·못 읽음은 맨 뒤
+type Sort = 'server' | 'name' | 'nameDesc' | 'priceAsc' | 'priceDesc';
+const SORTS: readonly Sort[] = ['server', 'name', 'nameDesc', 'priceAsc', 'priceDesc'];
+
 export function ProductListPage() {
   const api = useApi();
   // 오른쪽 미리보기(2026-11-19 관제 형식)
@@ -78,7 +106,9 @@ export function ProductListPage() {
   const saleState: SaleState | undefined = SALE_STATES.find((s) => s === params.get('saleState'));
   const categoryId = params.get('categoryId') ?? '';
   const cursor = params.get('cursor') ?? undefined;
-  const [categoryInput, setCategoryInput] = useState(categoryId);
+  const [text, setText] = useState('');
+  const [sort, setSort] = useState<Sort>('server');
+  const counts = useSaleCounts();
 
   const query = useQuery({
     queryKey: ['product', 'list', saleState, categoryId, cursor],
@@ -97,6 +127,19 @@ export function ProductListPage() {
         }),
       ),
   });
+  // 카테고리 경로(대분류 > 중분류) — 줄·미리보기·고르기 칸에 노드 ID 대신(ADR-0070 덧붙임)
+  const tree = useQuery({ queryKey: ['product', 'category-tree'], queryFn: () => request('GET', api.product.GET('/categories/tree', {})) });
+  const pathOf = useMemo(() => new Map((tree.data?.nodes ?? []).map((n) => [n.categoryId, n.path ?? n.name])), [tree.data]);
+  const catLabel = (id: string | undefined) => (id ? (pathOf.get(id) ?? (tree.isError ? '?' : '…')) : m.none);
+  const ids = useMemo(() => (query.data?.items ?? []).flatMap((p) => (p.productId ? [p.productId] : [])), [query.data]);
+  const priceOf = useProductPrices(ids);
+  // 상품 카드(대표 이미지·고객용 이름, 2026-11-19 쿠팡 윙처럼 사진을 앞에) — GET /product-contents?productIds=(최대 100, 이 쪽 50개). 미게시는 missing → 상자 아이콘
+  const cards = useQuery({
+    queryKey: ['product-contents', 'cards', ids.join(',')],
+    enabled: ids.length > 0,
+    queryFn: () => request('GET', api.content.GET('/product-contents', { params: { query: { productIds: ids } } })),
+  });
+  const cardOf = useMemo(() => new Map((cards.data?.items ?? []).flatMap((c) => (c.productId ? [[c.productId, c] as const] : []))), [cards.data]);
 
   const setParam = (k: string, v: string) => {
     const next = new URLSearchParams(params);
@@ -105,6 +148,9 @@ export function ProductListPage() {
     if (k !== 'cursor') next.delete('cursor');
     setParams(next);
   };
+  const q = text.trim().toLowerCase().replace(/\s+/g, '');
+  const filtered = saleState !== undefined || categoryId !== '' || q !== '';
+  const stateName = saleState ? m.products.saleStateName[saleState] : l.all;
 
   return (
     <section className="space-y-4">
@@ -122,92 +168,208 @@ export function ProductListPage() {
           </>
         }
       />
+      {/* 판매 상태 숫자 카드(2026-11-19 쿠팡 윙 상품 조회/수정 참고) — 누르면 그 상태로. 품절·판매중지가 있으면 색 */}
+      <StatStrip label={m.products.saleState} testId="product-counts">
+        <StatCard layout="row" label={l.all} value={counts.get('') ?? '…'} to="/products" active={!saleState} testId="product-count-all" />
+        {SALE_STATES.map((st) => {
+          const v = counts.get(st) ?? '…';
+          const has = /^[1-9]/.test(v);
+          return (
+            <StatCard
+              key={st}
+              layout="row"
+              label={m.products.saleStateName[st]}
+              value={v}
+              tone={has ? (st === 'ON_SALE' ? 'success' : st === 'TEMPORARILY_SOLD_OUT' ? 'warning' : 'error') : undefined}
+              to={`/products?saleState=${st}`}
+              active={saleState === st}
+              testId={`product-count-${st}`}
+            />
+          );
+        })}
+      </StatStrip>
       {/* 내 보기(2026-11-18 Saleor 참고) — 지금 주소 조건을 이름 붙여 저장 */}
       <SavedViews listKey="products" />
-      <div className="overflow-hidden rounded-box border border-base-300 bg-base-100 shadow-sm" data-testid="product-list-card">
-        {/* 판매 상태 탭(밑줄) — URL 의 saleState 그대로 */}
-        <UnderlineTabs<SaleState | ''>
-          label={m.products.saleState}
-          value={saleState ?? ''}
-          onChange={(v) => setParam('saleState', v)}
-          options={[{ value: '', label: m.approvals.filterAll }, ...SALE_STATES.map((s) => ({ value: s, label: m.products.saleStateName[s] }))]}
-        />
-        {/* 찾기 줄: 바로 찾기(SKU·바코드) · 카테고리 ID */}
-        <div className="flex flex-wrap items-end gap-x-6 gap-y-3 border-b border-base-300 bg-base-200/40 px-4 py-3">
-          <Lookup />
-          <form
-            className="min-w-0 space-y-2"
-            onSubmit={(e) => {
-              e.preventDefault();
-              setParam('categoryId', categoryInput.trim());
-            }}
-          >
-            <div className="text-xs font-medium text-base-content/55">{m.products.categoryFilter}</div>
-            <div className="join">
-              <input aria-label={m.products.categoryFilter} placeholder={m.products.categoryFilter} className="input input-sm join-item" value={categoryInput} onChange={(e) => setCategoryInput(e.target.value)} />
-              <button type="submit" className="btn btn-sm join-item">
-                {m.search}
-              </button>
-            </div>
-          </form>
-        </div>
 
-        <QueryState state={toUiState(query, (d) => (d.items?.length ?? 0) === 0)} onRetry={() => void query.refetch()} emptyText={m.products.listEmpty}>
-          {(d) => (
+      {/* 회색 검색 띠: 상품명(이 쪽 안에서 바로) · 카테고리(경로로 찾기) · SKU·바코드 바로 찾기 · 초기화 */}
+      <div className="flex flex-wrap items-end gap-x-5 gap-y-3 rounded-box bg-base-300/40 px-4 py-3" role="group" aria-label={l.filters}>
+        <label className="flex min-w-56 flex-col gap-1 text-xs font-medium text-base-content/60">
+          {l.name}
+          <span className="input input-sm flex w-64 items-center gap-2 bg-base-100">
+            <LineIcon name="search" className="h-4 w-4 text-base-content/40" />
+            <input className="grow" aria-label={l.name} placeholder={l.nameHint} value={text} onChange={(e) => setText(e.target.value)} />
+          </span>
+        </label>
+        <div className="flex flex-col gap-1 text-xs font-medium text-base-content/60">
+          <span>{l.category}</span>
+          <SearchSelect
+            label={l.category}
+            className="w-72"
+            value={categoryId}
+            allowEmpty={l.allCategories}
+            options={(tree.data?.nodes ?? []).map((n) => ({ value: n.categoryId, label: n.path ?? n.name }))}
+            loading={tree.isPending}
+            onChange={(v) => setParam('categoryId', v)}
+          />
+        </div>
+        <Lookup />
+        <button
+          type="button"
+          className="btn btn-sm btn-ghost text-base-content/60"
+          disabled={!filtered}
+          onClick={() => {
+            setText('');
+            setParams({});
+          }}
+        >
+          {l.reset} ⟳
+        </button>
+      </div>
+
+      <QueryState state={toUiState(query, (d) => (d.items?.length ?? 0) === 0)} onRetry={() => void query.refetch()} emptyText={m.products.listEmpty}>
+        {(d) => {
+          // 이름 찾기 — 관리용 명칭 또는 고객용 상품명(게시된 콘텐츠). 서버에 이름 검색이 없어 이 쪽 안에서만(백엔드 요청 2026-11-19 product-name-search)
+          const nameOf = (p: (typeof all)[number]) => `${p.internalName ?? ''}${(p.productId && cardOf.get(p.productId)?.name) ?? ''}`.toLowerCase().replace(/\s+/g, '');
+          const all = d.items ?? [];
+          const items = all.filter((p) => !q || nameOf(p).includes(q));
+          const byName = (x: (typeof items)[number], y: (typeof items)[number]) => (x.internalName ?? '').localeCompare(y.internalName ?? '', 'ko');
+          const priceKey = (p: (typeof items)[number]) => (p.productId ? priceOf.get(p.productId)?.min : undefined);
+          const byPrice = (dir: 1 | -1) => (x: (typeof items)[number], y: (typeof items)[number]) => {
+            const a = priceKey(x);
+            const b = priceKey(y);
+            if (a === undefined) return b === undefined ? 0 : 1;
+            if (b === undefined) return -1;
+            return dir * (a - b);
+          };
+          const rows =
+            sort === 'name' ? [...items].sort(byName) : sort === 'nameDesc' ? [...items].sort((x, y) => byName(y, x)) : sort === 'priceAsc' ? [...items].sort(byPrice(1)) : sort === 'priceDesc' ? [...items].sort(byPrice(-1)) : items;
+          return (
             <>
-              <div className="overflow-x-auto">
-                <table className={tableClass}>
-                  <thead>
-                    <tr>
-                      <th>{m.products.internalName}</th>
-                      <th>{m.products.primaryCategoryId}</th>
-                      <th>{m.products.saleState}</th>
-                      <th className="text-right">{m.products.version}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(d.items ?? []).map((p, i) => (
-                      <tr key={p.productId ?? i} data-testid="product-row" {...pv.row(p.productId)}>
-                        <td className="max-w-xl">
-                          <div className="flex items-center gap-3">
-                            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-base-200 text-base-content/45" aria-hidden="true">
-                              <LineIcon name="box" className="h-4 w-4" />
-                            </span>
-                            <div className="min-w-0">
-                              <p className="truncate font-medium" title={p.internalName ?? undefined}>
-                                {p.internalName ?? m.none}
-                              </p>
-                              {p.productId ? (
-                                <Link className="font-mono text-xs text-base-content/50 hover:text-primary hover:underline" to={`/products/${encodeURIComponent(p.productId)}`}>
-                                  {p.productId}
-                                </Link>
-                              ) : (
-                                <span className="text-xs text-base-content/40">{m.none}</span>
-                              )}
-                            </div>
-                          </div>
-                        </td>
-                        <td>{p.primaryCategoryId ? <span className="rounded-md bg-base-200 px-2 py-0.5 font-mono text-xs">{p.primaryCategoryId}</span> : m.none}</td>
-                        <td>{p.saleState ? <StatusBadge tone={SALE_TONE[p.saleState]}>{m.products.saleStateName[p.saleState]}</StatusBadge> : m.none}</td>
-                        <td className="text-right font-mono text-xs text-base-content/60">{p.version === undefined ? m.none : `v${p.version}`}</td>
+              {/* 목록 머리줄: 이름 · 총 N개 | 정렬 칩 · 표시 수 */}
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-base-300 pb-3">
+                <div className="flex flex-wrap items-center gap-3 text-sm">
+                  <h2 className="text-base font-bold">{stateName}</h2>
+                  <span className="text-base-content/60">{l.total(rows.length, Boolean(d.page?.nextCursor))}</span>
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex flex-wrap gap-2">
+                  {SORTS.map((s) => (
+                    <button key={s} type="button" className={`btn btn-xs rounded-full ${sort === s ? 'btn-primary btn-outline' : 'btn-ghost border border-base-300'}`} aria-pressed={sort === s} onClick={() => setSort(s)}>
+                      {l.sort[s]}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="overflow-hidden rounded-box border border-base-300 bg-base-100 shadow-sm" data-testid="product-list-card">
+                <div className="overflow-x-auto">
+                  <table className={tableClass}>
+                    <thead>
+                      <tr>
+                        <th>
+                          {l.col.product}
+                          <span className="block text-[11px] font-normal text-base-content/40">{l.col.productSub}</span>
+                        </th>
+                        <th className="text-right">
+                          {l.col.price}
+                          <span className="block text-[11px] font-normal text-base-content/40">{l.col.priceSub}</span>
+                        </th>
+                        <th>{m.products.saleState}</th>
+                        <th className="w-44" />
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {rows.length === 0 && (
+                        <tr>
+                          <td colSpan={4} className="py-12 text-center text-sm text-base-content/60" data-testid="product-empty">
+                            {l.noMatch}{' '}
+                            <button type="button" className="link link-primary" onClick={() => setText('')}>
+                              {l.showAll}
+                            </button>
+                          </td>
+                        </tr>
+                      )}
+                      {rows.map((p, i) => {
+                        const pr = p.productId ? priceOf.get(p.productId) : undefined;
+                        return (
+                          <tr key={p.productId ?? i} data-testid="product-row" {...pv.row(p.productId)}>
+                            <td className="max-w-xl">
+                              <div className="flex items-center gap-3">
+                                <Thumb card={p.productId ? cardOf.get(p.productId) : undefined} name={p.internalName ?? ''} />
+                                <div className="min-w-0">
+                                  {p.productId ? (
+                                    <Link className="block truncate font-semibold hover:text-primary hover:underline" to={`/products/${encodeURIComponent(p.productId)}`} title={p.internalName ?? undefined} onClick={(e) => e.stopPropagation()}>
+                                      {p.internalName ?? m.none}
+                                    </Link>
+                                  ) : (
+                                    <p className="truncate font-semibold">{p.internalName ?? m.none}</p>
+                                  )}
+                                  {(() => {
+                                    const c = p.productId ? cardOf.get(p.productId) : undefined;
+                                    return c?.name && c.name !== p.internalName ? <p className="truncate text-xs text-base-content/60">{l.customerName(c.name)}</p> : null;
+                                  })()}
+                                  <p className="truncate text-xs text-base-content/50" data-testid="product-category">
+                                    {catLabel(p.primaryCategoryId)}
+                                    {pr && pr.skus.length > 0 && ` · ${l.skuCount(pr.skus.length)}`}
+                                  </p>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="text-right" data-testid="product-price">
+                              {!pr || pr.loading ? (
+                                <span className="text-base-content/40">…</span>
+                              ) : pr.failed ? (
+                                <span className="text-base-content/40" title={l.priceFailed}>
+                                  ?
+                                </span>
+                              ) : pr.min !== undefined ? (
+                                <>
+                                  <span className="block font-bold tabular-nums">{`${formatKrw(pr.min)}${pr.max !== undefined && pr.max > pr.min ? '~' : ''}`}</span>
+                                  {pr.notSet > 0 && <span className="block text-xs font-semibold text-error">{l.someNotSet(pr.notSet)}</span>}
+                                </>
+                              ) : pr.notSet > 0 ? (
+                                <span className="font-semibold text-error">{l.notSet}</span>
+                              ) : (
+                                <span className="text-base-content/40">{m.none}</span>
+                              )}
+                            </td>
+                            <td>{p.saleState ? <StatusBadge tone={SALE_TONE[p.saleState]}>{m.products.saleStateName[p.saleState]}</StatusBadge> : m.none}</td>
+                            <td className="text-right" onClick={(e) => e.stopPropagation()}>
+                              {p.productId && <RowActions productId={p.productId} firstSku={pr?.skus[0]} />}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="flex flex-wrap items-center justify-between gap-2 border-t border-base-300 px-4 py-3 text-sm">
+                  <span className="text-base-content/55">
+                    {m.products.listShown(d.items?.length ?? 0, Boolean(d.page?.nextCursor))}
+                    {q && d.page?.nextCursor && <span className="ml-2 text-warning">{l.searchThisPage}</span>}
+                  </span>
+                  {d.page?.nextCursor && (
+                    <button type="button" className="btn btn-sm" onClick={() => setParam('cursor', d.page?.nextCursor ?? '')}>
+                      {m.more}
+                    </button>
+                  )}
+                </div>
               </div>
               {pv.id &&
                 (() => {
-                  const items = d.items ?? [];
-                  const p = items.find((x) => x.productId === pv.id);
+                  const all = d.items ?? [];
+                  const p = all.find((x) => x.productId === pv.id);
+                  const pr = priceOf.get(pv.id);
                   return (
-                    <PreviewDrawer id={pv.id} ids={items.flatMap((x) => (x.productId ? [x.productId] : []))} onMove={pv.open} onClose={pv.close} title={p?.internalName ?? pv.id} detailTo={`/products/${encodeURIComponent(pv.id)}`}>
+                    <PreviewDrawer id={pv.id} ids={rows.flatMap((x) => (x.productId ? [x.productId] : []))} onMove={pv.open} onClose={pv.close} title={p?.internalName ?? m.none} detailTo={`/products/${encodeURIComponent(pv.id)}`}>
                       {p ? (
                         <div className="space-y-4" data-testid="product-preview">
-                          <p className="font-mono text-xs text-base-content/50">{p.productId}</p>
                           <PreviewFacts
                             rows={[
-                              [m.products.primaryCategoryId, p.primaryCategoryId ?? m.none],
+                              [m.products.primaryCategoryId, catLabel(p.primaryCategoryId)],
                               [m.products.saleState, p.saleState ? <StatusBadge tone={SALE_TONE[p.saleState]}>{m.products.saleStateName[p.saleState]}</StatusBadge> : m.none],
+                              [l.col.price, pr && !pr.loading && pr.min !== undefined ? `${formatKrw(pr.min)}${pr.max !== undefined && pr.max > pr.min ? ` ~ ${formatKrw(pr.max)}` : ''}` : pr?.notSet ? l.notSet : '…'],
+                              [l.skus, pr ? l.skuCount(pr.skus.length) : '…'],
                               [m.products.version, p.version === undefined ? m.none : `v${p.version}`],
                             ]}
                           />
@@ -217,18 +379,48 @@ export function ProductListPage() {
                     </PreviewDrawer>
                   );
                 })()}
-              <div className="flex flex-wrap items-center justify-between gap-2 border-t border-base-300 px-4 py-3 text-sm">
-                <span className="text-base-content/55">{m.products.listShown(d.items?.length ?? 0, Boolean(d.page?.nextCursor))}</span>
-                {d.page?.nextCursor && (
-                  <button type="button" className="btn btn-sm" onClick={() => setParam('cursor', d.page?.nextCursor ?? '')}>
-                    {m.more}
-                  </button>
-                )}
-              </div>
             </>
-          )}
-        </QueryState>
-      </div>
+          );
+        }}
+      </QueryState>
     </section>
+  );
+}
+
+/** 대표 이미지 썸네일 — 게시된 콘텐츠의 MAIN 이미지(인증 필요해 AuthedImage), 없으면 상자 아이콘 */
+function Thumb({ card, name }: { readonly card: { readonly mainImage?: { readonly imageId?: string } } | undefined; readonly name: string }) {
+  const id = card?.mainImage?.imageId;
+  return (
+    <span className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-base-300 bg-base-200 text-base-content/45" data-testid="product-thumb">
+      {id ? <AuthedImage imageId={id} alt={name} className="h-full w-full object-cover" /> : <LineIcon name="box" className="h-5 w-5" />}
+    </span>
+  );
+}
+
+/** 줄 행동(쿠팡 윙 "상품수정 ⋮") — 상품 수정은 상세로, ⋮ 는 가격·콘텐츠로 바로 */
+function RowActions({ productId, firstSku }: { readonly productId: string; readonly firstSku: string | undefined }) {
+  const detail = `/products/${encodeURIComponent(productId)}`;
+  return (
+    <div className="join">
+      <Link className="btn btn-sm join-item" to={detail} data-testid="product-edit">
+        {l.edit}
+      </Link>
+      <div className="dropdown dropdown-end join-item">
+        <button type="button" className="btn btn-sm join-item px-2" aria-label={l.more} title={l.more}>
+          ⋮
+        </button>
+        <ul tabIndex={0} className="menu dropdown-content z-30 mt-1 w-48 rounded-box border border-base-300 bg-base-100 p-1 text-sm shadow-lg">
+          <li>
+            <Link to={firstSku ? `/prices?sku=${encodeURIComponent(firstSku)}` : '/prices'}>{l.menu.price}</Link>
+          </li>
+          <li>
+            <Link to={`/contents/drafts/new?productId=${encodeURIComponent(productId)}`}>{l.menu.content}</Link>
+          </li>
+          <li>
+            <Link to={detail}>{l.menu.saleState}</Link>
+          </li>
+        </ul>
+      </div>
+    </div>
   );
 }

@@ -1513,7 +1513,7 @@ class TrackMapLayout extends StatelessWidget {
         children: [
           Positioned.fill(child: map),
           DraggableScrollableSheet(
-            initialChildSize: 0.45,
+            initialChildSize: TrackingMap.sheetFraction,
             minChildSize: 0.3,
             maxChildSize: 0.92,
             builder: (context, scroll) => DecoratedBox(
@@ -1585,13 +1585,69 @@ class TrackMapLayout extends StatelessWidget {
 /// 주문 단위 배송 현황(`/orders/{orderId}/tracking`). 주문 응답에 배송 ID(`shipments[].deliveryId`)가 있으면
 /// 그 배송의 실시간 화면([TrackingScreen])을 그대로 보이고, 없으면(BR-61 — 지금 서버는 shipments 를 비워 준다)
 /// 지도(내 배송지)·주문 단계만 보인다. 라이더 위치는 배송 ID 가 있어야 서버에 물을 수 있어 그때까지 보이지 않는다.
-class OrderTrackingScreen extends ConsumerWidget {
+class OrderTrackingScreen extends ConsumerStatefulWidget {
   const OrderTrackingScreen({super.key, required this.orderId});
 
   final String orderId;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<OrderTrackingScreen> createState() =>
+      _OrderTrackingScreenState();
+}
+
+/// 배송 ID 가 아직 없으면(배차 전 — 서버는 배송이 생긴 뒤 shipments 를 채운다, BR-61) [orderLinkPollIntervalProvider]
+/// 마다 주문을 다시 읽어, 배송이 생기는 대로 실시간 화면(라이더 위치)으로 넘어간다. 앱이 가려지면 멈춘다.
+class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
+    with WidgetsBindingObserver {
+  Timer? _poll;
+
+  String get orderId => widget.orderId;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _start();
+  }
+
+  void _start() {
+    _poll?.cancel();
+    _poll = Timer.periodic(ref.read(orderLinkPollIntervalProvider), (_) {
+      if (!mounted) return;
+      final o = ref.read(orderDetailProvider(orderId)).value;
+      final linked = o?.shipments.any((s) => s.deliveryId != null) ?? false;
+      if (linked) {
+        _poll?.cancel();
+        return;
+      }
+      ref.invalidate(orderDetailProvider(orderId));
+    });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    switch (state) {
+      case AppLifecycleState.resumed:
+        ref.invalidate(orderDetailProvider(orderId));
+        _start();
+      case AppLifecycleState.hidden ||
+          AppLifecycleState.paused ||
+          AppLifecycleState.detached:
+        _poll?.cancel();
+      case AppLifecycleState.inactive:
+        break;
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _poll?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final theme = Theme.of(context);
     final value = ref.watch(orderDetailProvider(orderId));
@@ -2054,12 +2110,7 @@ class _StepDot extends StatelessWidget {
     if (current) {
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 2),
-        child: PmartLineIcon(
-          PmartLineIcons.scooter,
-          size: 26,
-          color: scheme.primary,
-          strokeWidth: 2.2,
-        ),
+        child: ScooterGlyph(size: 26, color: scheme.primary),
       );
     }
     return Container(
@@ -2181,11 +2232,7 @@ class TrackSheetHead extends StatelessWidget {
                 shape: BoxShape.circle,
               ),
               alignment: Alignment.center,
-              child: PmartLineIcon(
-                PmartLineIcons.scooter,
-                size: 44,
-                color: theme.colorScheme.primary,
-              ),
+              child: ScooterGlyph(size: 44, color: theme.colorScheme.primary),
             ),
           ],
         ),

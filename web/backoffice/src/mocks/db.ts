@@ -107,7 +107,8 @@ function seedContentDrafts(): Map<string, ContentDraft> {
       returnGuide: '신선식품은 받은 뒤 24시간 안에',
       notices: ['원산지: 국산', '품종: 부사'],
     },
-    images: [],
+    // 대표 이미지(2026-11-19 상품 조회 썸네일 — 목은 사과 그림 SVG)
+    images: [{ imageId: 'img-seed-apple', role: 'MAIN', sortOrder: 0, url: '/api/v1/content-images/img-seed-apple', contentType: 'image/svg+xml', width: 96, height: 96, bytes: 400, sha256: 'img-seed-apple' }],
     draftHash: null,
     approvalId: 'apv-seed-content-1',
     contentVersion: 1,

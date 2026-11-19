@@ -716,7 +716,22 @@ export const opsHandlers = [
       composedAt: new Date().toISOString(),
       sources: [],
       unavailableSources: [],
-      items: page.items.map((c) => ({ claimId: c.claimId, orderId: c.orderId, orderNumber: (c.orderId && ORDER_NUMBERS[c.orderId]) ?? null, type: c.type, state: c.state, openedAt: c.openedAt })),
+      // claim 0.6.0 줄 값 그대로(reason·channel·refund 요약) — refund 는 이 클레임의 환불 의도 합(목)
+      items: page.items.map((c) => {
+        const rs = (c.claimId && ops.refunds.get(c.claimId)) || [];
+        const requested = rs.reduce((n, r) => n + (r.amount ?? 0), 0);
+        const done = rs.filter((r) => r.state === 'COMPLETED');
+        const refund =
+          rs.length === 0
+            ? null
+            : {
+                requestedAmount: requested,
+                refundedAmount: done.reduce((n, r) => n + (r.amount ?? 0), 0),
+                state: done.length === rs.length ? 'COMPLETED' : 'IN_PROGRESS',
+                completedAt: done.length === rs.length ? (done.at(-1)?.completedAt ?? null) : null,
+              };
+        return { claimId: c.claimId, orderId: c.orderId, orderNumber: (c.orderId && ORDER_NUMBERS[c.orderId]) ?? null, type: c.type, state: c.state, openedAt: c.openedAt, reason: c.reason ?? null, channel: c.channel ?? null, refund };
+      }),
       page: page.page,
     });
   }),

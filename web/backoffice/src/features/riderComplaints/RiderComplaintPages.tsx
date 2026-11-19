@@ -236,6 +236,13 @@ export function RiderComplaintListPage() {
         submitLabel={m.complaints.filter}
         resetLabel={m.complaints.reset}
         label={m.complaints.title}
+        // 조건을 건 뒤에는 한 줄 칩으로 접힌다(2026-11-19)
+        summary={[
+          [m.searchChip.rider, get('riderId') ? m.searchChip.oneRider : ''],
+          [m.searchChip.delivery, get('deliveryId') ? m.searchChip.oneDelivery : ''],
+          [m.searchChip.kind, isType(type) ? label(m.complaints.typeName, type) : ''],
+          [m.searchChip.period, from || to ? `${from || '…'} ~ ${to || '…'}` : ''],
+        ]}
       >
         <SearchRow label={m.complaints.ids}>
           <input aria-label={m.complaints.riderId} placeholder={m.refField.riderHint} className="input input-sm w-56" {...field('riderId')} />

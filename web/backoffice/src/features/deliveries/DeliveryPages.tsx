@@ -294,6 +294,13 @@ export function DeliveryOpenPage() {
         submitLabel={m.deliveries.search}
         resetLabel={m.deliveries.reset}
         label={m.deliveries.search}
+        // 조건을 건 뒤에는 한 줄 칩으로 접힌다(2026-11-19) — 번호는 화면 번호 그대로, 다른 화면에서 온 시스템 ID 는 "한 주문/한 라이더"
+        summary={[
+          [m.searchChip.order, applied.orderNumber || (applied.orderId ? m.searchChip.oneOrder : '')],
+          [m.searchChip.rider, applied.riderNumber || (applied.riderId ? m.searchChip.oneRider : '')],
+          [m.searchChip.state, applied.state ? label(m.deliveries.executionState, applied.state) : ''],
+          [m.searchChip.sort, applied.oldest ? m.searchChip.oldest : ''],
+        ]}
       >
         <SearchRow label={m.deliveries.ids}>
           <input aria-label={m.deliveries.orderIdFilter} placeholder={m.deliveries.orderIdFilter} className="input input-sm w-52" value={draft.order} onChange={(e) => setDraft((d) => ({ ...d, order: e.target.value }))} />
@@ -759,7 +766,7 @@ export function DeliveryDetailPage() {
   const rl = headRiders.get(d?.riderId);
   // 상세(2026-11-18): 상세 머리(종류·수행 상태가 먼저, 번호는 옆에 작게 + 컴플레인 기록) → 다음 할 일 → 원천 두 칸(배송 수행 | 배차) — 상태는 원천마다 따로, 합치지 않는다
   // 최근 본 항목(2026-11-18) — 서버 응답을 받은 뒤에만 남긴다
-  useRecordRecent('delivery', deliveryId, d ? (d.deliveryNumber ?? deliveryId) : null);
+  useRecordRecent('delivery', deliveryId, d ? (d.deliveryNumber ?? m.displayNumber.missing) : null); // 번호 없으면 ID 대신 "번호 없음"(2026-11-19)
   return (
     <section className="max-w-7xl space-y-4">
       <DetailHeader

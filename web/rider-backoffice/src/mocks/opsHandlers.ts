@@ -353,6 +353,20 @@ export const opsHandlers = [
     if (body.reason && !canAct(g.who.roles)) return problem(403, 'FORBIDDEN');
     return idempotent(request, () => applied(`DEC-${nextSeq()}`));
   }),
+  // 전달 실패 확정 되돌리기(execution 0.32.0 — 백엔드 PR #235) 흉내: 사유 2자 미만 400, DLV-NOREV 는 409 FAILURE_NOT_REVERSIBLE(까닭 detail)
+  http.post(`${API_BASE}/deliveries/:deliveryId/failure-reversals`, async ({ request, params }) => {
+    const g = guard(request);
+    if ('error' in g) return g.error;
+    const body = (await request.json()) as { reason?: string };
+    if ((body.reason ?? '').trim().length < 2) return problem(400, 'VALIDATION_FAILED');
+    if (params['deliveryId'] === 'DLV-NOREV') {
+      return HttpResponse.json(
+        { type: 'about:blank', status: 409, code: 'FAILURE_NOT_REVERSIBLE', detail: '확정 뒤 30분이 지났어요.' },
+        { status: 409, headers: { 'Content-Type': 'application/problem+json' } },
+      );
+    }
+    return idempotent(request, () => applied(`REV-${nextSeq()}`));
+  }),
   http.post(`${API_BASE}/deliveries/:deliveryId/assignment-cancellations`, ({ request }) => {
     const g = guard(request);
     if ('error' in g) return g.error;

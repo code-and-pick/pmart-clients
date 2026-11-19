@@ -11,7 +11,7 @@ import { covers, type NavGroup } from './nav';
 import { messages as m } from '../shared/messages';
 
 const cell = (active: boolean) =>
-  `relative flex w-16 flex-col items-center gap-1 rounded-lg px-1 py-2 text-[10.5px] font-medium leading-tight transition-colors ${active ? 'bg-accent/20 text-accent' : 'text-neutral-content/75 hover:bg-neutral-content/10 hover:text-neutral-content'}`;
+  `relative flex w-16 flex-col items-center gap-1 rounded-lg px-1 py-2 text-[10.5px] font-medium leading-tight transition-colors ${active ? 'bg-primary text-primary-content' : 'text-neutral-content/75 hover:bg-neutral-content/10 hover:text-neutral-content'}`;
 
 export function NavRail({ groups, pathname, showDashboard }: { readonly groups: readonly NavGroup[]; readonly pathname: string; readonly showDashboard: boolean }) {
   const [open, setOpen] = useState<{ id: string; top: number } | null>(null);
@@ -62,7 +62,7 @@ export function NavRail({ groups, pathname, showDashboard }: { readonly groups: 
               aria-expanded={isOpen}
               aria-haspopup="menu"
               data-rail-group={g.id}
-              className={`${cell(active || isOpen)} ${isOpen ? 'ring-1 ring-accent/40' : ''}`}
+              className={`${cell(active || isOpen)} ${isOpen ? 'ring-1 ring-primary/50' : ''}`}
               data-testid={`nav-rail-${g.id}`}
               onClick={(e) => {
                 const r = e.currentTarget.getBoundingClientRect();
@@ -104,7 +104,7 @@ export function NavRail({ groups, pathname, showDashboard }: { readonly groups: 
                     role="menuitem"
                     to={item.to}
                     aria-current={active ? 'page' : undefined}
-                    className={`mx-1 flex items-center gap-2 rounded-lg px-3 py-2 text-[13px] ${active ? 'bg-accent/20 font-bold text-white' : 'text-neutral-content/80 hover:bg-neutral-content/10 hover:text-neutral-content'}`}
+                    className={`mx-1 flex items-center gap-2 rounded-lg px-3 py-2 text-[13px] ${active ? 'bg-primary font-semibold text-primary-content' : 'text-neutral-content/80 hover:bg-neutral-content/10 hover:text-neutral-content'}`}
                   >
                     {item.label}
                     <MenuItemAlerts to={item.to} />

@@ -627,8 +627,10 @@ class _SectionView extends ConsumerWidget {
                       child: ProductTileCard(
                         rail: true,
                         tile: tile,
-                        onTap: () =>
-                            context.push('/products/${tile.productId}'),
+                        onTap: () => context.push(
+                          '/products/${tile.productId}',
+                          extra: tile,
+                        ),
                       ),
                     ),
                 ],
@@ -649,8 +651,10 @@ class _SectionView extends ConsumerWidget {
                   child: ProductTileCard(
                     rail: true,
                     tile: shown.items[i],
-                    onTap: () =>
-                        context.push('/products/${shown.items[i].productId}'),
+                    onTap: () => context.push(
+                      '/products/${shown.items[i].productId}',
+                      extra: shown.items[i],
+                    ),
                   ),
                 ),
               ),

@@ -142,7 +142,8 @@ class ProductGrid extends StatelessWidget {
               return ProductTileCard(
                 rail: true,
                 tile: tile,
-                onTap: () => context.push('/products/${tile.productId}'),
+                onTap: () =>
+                    context.push('/products/${tile.productId}', extra: tile),
               );
             },
           ),

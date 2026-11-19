@@ -16,9 +16,12 @@ import 'widgets/product_tile_card.dart';
 
 /// SCR-PRODUCT-001·OPTION-001. 가격·가용은 사본이다. 구매 가능 확정은 장바구니·주문서 서버 판정.
 class ProductDetailScreen extends ConsumerStatefulWidget {
-  const ProductDetailScreen({super.key, required this.productId});
+  const ProductDetailScreen({super.key, required this.productId, this.preview});
 
   final String productId;
+
+  /// 카드에서 들어올 때 카드 값 — 상세 응답이 오기 전 첫 화면만 채운다(가격 확정·담기에 쓰지 않는다 — 담기는 응답 뒤).
+  final ProductTile? preview;
 
   @override
   ConsumerState<ProductDetailScreen> createState() =>
@@ -29,10 +32,22 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
   String? _selectedSku;
 
   @override
+  void initState() {
+    super.initState();
+    // 몇 분 붙잡아 둔 상세가 있으면 그것을 바로 보이고, 가격·재고는 뒤에서 다시 읽는다(R2).
+    final provider = productDetailProvider(widget.productId);
+    if (ref.read(provider).hasValue) ref.invalidate(provider);
+  }
+
+  @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final provider = productDetailProvider(widget.productId);
-    final value = ref.watch(provider);
+    final watched = ref.watch(provider);
+    // 다시 읽는 중에도 앞의 값을 보인다(로딩 화면으로 바꾸지 않음).
+    final value = watched.isLoading && watched.hasValue
+        ? AsyncData<ProductDetail>(watched.requireValue)
+        : watched;
     final notFound = switch (value) {
       AsyncError(error: ProblemFailure(:final problem)) =>
         problem.code == ProblemCode.notFound ||
@@ -68,11 +83,15 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
       ),
       body: notFound
           ? Center(child: Text(l10n.productNotFound))
-          : UiStateView<ProductDetail>(
-              state: uiStateOf(value),
-              onRetry: () => ref.invalidate(provider),
-              ready: (context, p) => _body(context, l10n, p),
-            ),
+          : switch ((value, widget.preview)) {
+              // 응답 전: 카드 값으로 사진·이름·가격(R1). 담기는 응답 뒤에만 열린다(아래 바 없음).
+              (AsyncLoading(), final ProductTile t) => _PreviewBody(tile: t),
+              _ => UiStateView<ProductDetail>(
+                state: uiStateOf(value),
+                onRetry: () => ref.invalidate(provider),
+                ready: (context, p) => _body(context, l10n, p),
+              ),
+            },
       bottomNavigationBar: switch (value) {
         AsyncData(value: final p) => Builder(
           builder: (context) {
@@ -99,9 +118,10 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
       color: theme.colorScheme.onSurfaceVariant,
     );
     final scheme = theme.colorScheme;
-    // 평점: 서버 집계(rating-summary)를 먼저, 못 읽었으면 상세 응답 값(둘 다 서버 값 — 앱이 세지 않는다).
+    // 평점: 상세 응답 rating(product-content 0.3.0 — BR-63, 집계와 같은 값). 비어 오면 그때만 평점 집계를 부른다.
     final rating =
-        ref.watch(productRatingProvider(p.productId)).value ?? p.rating;
+        p.rating ?? ref.watch(productRatingProvider(p.productId)).value;
+
     final hasRating = rating != null;
     // 사진 아래 내용(좌우 여백 16). 구획 띠([PmartSectionGap])만 화면 폭을 채운다.
     final rest = <Widget>[
@@ -356,6 +376,62 @@ class _OptionTile extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// 상세 응답 전 카드 값으로 그리는 첫 화면(사진·이름·가격). 응답이 오면 그 값으로 바뀐다.
+class _PreviewBody extends StatelessWidget {
+  const _PreviewBody({required this.tile});
+
+  final ProductTile tile;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return ListView(
+      key: const ValueKey('product-preview'),
+      padding: const EdgeInsets.only(bottom: 24),
+      children: [
+        LayoutBuilder(
+          builder: (context, c) {
+            final byHeight = MediaQuery.sizeOf(context).height * 0.5;
+            return ProductImage(
+              url: tile.imageUrl,
+              size: c.maxWidth,
+              height: c.maxWidth < byHeight ? c.maxWidth : byHeight,
+              radius: 0,
+            );
+          },
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                tile.name,
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontSize: 17,
+                  height: 1.35,
+                  fontWeight: FontWeight.w400,
+                ),
+              ),
+              if (tile.basePrice case final price?) ...[
+                const SizedBox(height: 10),
+                Text(
+                  formatKrw(price),
+                  style: theme.textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+              const SizedBox(height: 24),
+              const LinearProgressIndicator(),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

@@ -14,6 +14,7 @@ import 'features/cart/presentation/cart_screen.dart';
 import 'features/checkout/presentation/delivery_select_screen.dart';
 import 'features/checkout/presentation/order_sheet_screen.dart';
 import 'features/claims/presentation/claims_screens.dart';
+import 'features/catalog/domain/catalog.dart' show ProductTile;
 import 'features/catalog/presentation/category_screen.dart';
 import 'features/notifications/presentation/notifications_screens.dart';
 import 'features/redelivery/presentation/redelivery_screens.dart';
@@ -292,8 +293,14 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         parentNavigatorKey: rootNavigatorKey,
         path: '/products/:productId',
-        builder: (_, state) =>
-            ProductDetailScreen(productId: state.pathParameters['productId']!),
+        // 카드에서 오면 카드 값(이름·사진·가격)을 넘겨 상세 첫 프레임에 바로 그린다(백엔드 요청 2026-11-19 상세 속도 R1).
+        builder: (_, state) => ProductDetailScreen(
+          productId: state.pathParameters['productId']!,
+          preview: switch (state.extra) {
+            final ProductTile t => t,
+            _ => null,
+          },
+        ),
         routes: [
           GoRoute(
             parentNavigatorKey: rootNavigatorKey,

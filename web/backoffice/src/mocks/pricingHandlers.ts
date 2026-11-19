@@ -100,6 +100,16 @@ function handlingHandlers(prefix: 'mfcs' | 'cdcs') {
 }
 
 export const pricingHandlers = [
+  // SKU 일괄 가격 조회(최대 100건, 계약 listPrices) — 가격 미설정 SKU 는 items 에서 빼고 notSet 에(2026-11-19 가격 관리 목록)
+  http.get(`${API_BASE}/prices`, ({ request }) => {
+    const skus = new URL(request.url).searchParams.getAll('skus').flatMap((s) => s.split(',')).filter(Boolean);
+    if (skus.length > 100) return problem(400, 'VALIDATION_FAILED');
+    const items = skus.flatMap((s) => {
+      const p = current(s);
+      return p ? [p] : [];
+    });
+    return HttpResponse.json({ asOf: timestamp(), items, notSet: skus.filter((s) => !current(s)) });
+  }),
   http.get(`${API_BASE}/prices/:sku`, ({ params }) => {
     const p = current(String(params['sku']));
     return p ? HttpResponse.json(p) : problem(404, 'PRICE_NOT_SET');

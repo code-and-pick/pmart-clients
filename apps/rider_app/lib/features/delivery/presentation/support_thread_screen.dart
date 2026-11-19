@@ -78,7 +78,12 @@ class _SupportThreadScreenState extends ConsumerState<SupportThreadScreen> {
         .tickets
         .where((t) => t.key.value == widget.requestId)
         .firstOrNull;
-    final resolved = ticket?.state == HelpState.resolved;
+    // 전달 실패 결정 대기(FAILURE_REPORTED) 동안은 닫혔어도 말할 수 있다 — 라이더가 보내면 서버가 다시 연다
+    // (백엔드 execution 0.31.2, 사용자 2026-11-19 "지원센터에서 처리해버리면 반려해 달라고 해도 연락이 안 가지고").
+    final pendingDecision =
+        ref.watch(deliveryProvider(widget.deliveryId)).value?.state ==
+        ExecutionState.failureReported;
+    final resolved = ticket?.state == HelpState.resolved && !pendingDecision;
     final canTalk = !thread.unavailable && !resolved;
     return Scaffold(
       backgroundColor: RiderColors.field,
