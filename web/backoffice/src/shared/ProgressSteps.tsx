@@ -32,7 +32,7 @@ export function ProgressSteps({
           const state = !place ? 'todo' : i < place.step || (i === place.step && place.done) ? 'done' : i === place.step ? 'now' : 'todo';
           const circle =
             state === 'done'
-              ? 'bg-success text-success-content'
+              ? 'bg-success text-white'
               : state === 'now'
                 ? place?.warn
                   ? 'bg-warning text-warning-content ring-4 ring-warning/20'
@@ -47,7 +47,8 @@ export function ProgressSteps({
               <span className={`relative z-10 flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold ${circle}`} aria-hidden="true">
                 {/* 진행 중 표시(2026-11-19) — 지금 단계에서만 고리가 천천히 퍼진다(움직임 줄이기면 없음) */}
                 {state === 'now' && <span className={`step-pulse ${place?.warn ? 'text-warning' : 'text-primary'}`} data-testid="step-pulse" />}
-                {state === 'done' ? '✓' : i + 1}
+                {/* 끝난 단계 — 글자 ✓ 대신 굵은 흰 선 체크(2026-11-19 사용자 "체크가 조잡해 보인다") */}
+                {state === 'done' ? <svg viewBox="0 0 24 24" className="h-4 w-4 fill-none stroke-current" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" data-testid="step-check"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg> : i + 1}
               </span>
               <span className={`mt-2 text-xs ${state === 'now' ? 'font-bold' : state === 'done' ? 'text-base-content/80' : 'text-base-content/45'}`}>{name}</span>
               {state === 'now' && place?.note && <span className={`mt-0.5 text-[11px] ${place.warn ? 'text-warning' : 'text-base-content/55'}`}>{place.note}</span>}
