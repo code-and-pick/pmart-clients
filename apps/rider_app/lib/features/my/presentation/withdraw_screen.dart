@@ -7,6 +7,7 @@ import '../../../shared/rider_style.dart';
 import '../../../shared/rider_widgets.dart';
 import '../../auth/data/session.dart';
 import '../data/withdrawal.dart';
+import '../../../shared/keyboard.dart';
 
 String blockerText(AppLocalizations l10n, WithdrawalBlocker b) => switch (b) {
   WithdrawalBlocker.activeDelivery => l10n.wdBlockDelivery,
@@ -183,6 +184,7 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
             ),
           const SizedBox(height: 12),
           TextField(
+            onTapOutside: dismissKeyboard,
             key: const ValueKey('withdraw-reason'),
             controller: _reason,
             maxLength: 300,

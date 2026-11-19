@@ -398,8 +398,22 @@ void main() {
       ),
       findsNothing,
     );
-    await tap('signup-road');
+    // 상세 주소를 치던 중(키보드 떠 있음)에 거주지 칸의 왼쪽 끝(돋보기 아님)을 눌러도 주소 검색이 열리고
+    // 키보드는 내려간다(사용자 2026-11-19).
+    await t.tap(find.byKey(const ValueKey('signup-detail')));
+    await t.pump();
+    expect(t.testTextInput.isVisible, isTrue);
+    await t.tapAt(
+      t.getTopLeft(find.byKey(const ValueKey('signup-road'))) +
+          const Offset(4, 25),
+    );
+    await t.pumpAndSettle(const Duration(milliseconds: 50));
     expect(find.text('부산 부산진구 동천로 109'), findsOneWidget);
+    expect(
+      t.testTextInput.isVisible,
+      isFalse,
+      reason: '입력칸 밖을 누르면 키보드가 내려간다',
+    );
     await tap('signup-area');
     await tap('area-gyeongsang');
     await tap('area-confirm');

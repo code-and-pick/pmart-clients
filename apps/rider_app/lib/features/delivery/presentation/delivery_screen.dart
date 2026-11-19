@@ -26,6 +26,7 @@ import 'photo_box.dart';
 import 'support_screen.dart';
 import 'support_thread_screen.dart' show helpStateLook;
 import 'trip_widgets.dart';
+import '../../../shared/keyboard.dart';
 
 /// 배송 수행: 가게 도착 → QR 인계 → 픽업 완료 → 전달완료. 화면 상태는 서버 확정으로만 바꾼다.
 ///
@@ -1651,6 +1652,7 @@ class _ReturnCodeDialogState extends ConsumerState<_ReturnCodeDialog> {
           Text(l10n.returnCodeBody(ReturnHandoverCode.length)),
           const SizedBox(height: 16),
           TextField(
+            onTapOutside: dismissKeyboard,
             key: const ValueKey('return-code'),
             controller: _code,
             autofocus: true,

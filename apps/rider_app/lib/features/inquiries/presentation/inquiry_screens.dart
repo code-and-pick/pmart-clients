@@ -10,6 +10,7 @@ import '../../../shared/rider_style.dart';
 import '../../../shared/rider_widgets.dart';
 import '../../delivery/presentation/delivery_texts.dart' show clockText;
 import '../data/inquiries.dart';
+import '../../../shared/keyboard.dart';
 
 String inquiryKindText(AppLocalizations l10n, InquiryKind k) => switch (k) {
   InquiryKind.settlement => l10n.inqSettlement,
@@ -251,6 +252,7 @@ class _InquiryNewScreenState extends ConsumerState<InquiryNewScreen> {
           Text(l10n.inqTitle, style: _label),
           const SizedBox(height: 8),
           TextField(
+            onTapOutside: dismissKeyboard,
             key: const ValueKey('inq-title'),
             controller: _title,
             maxLength: 100,
@@ -261,6 +263,7 @@ class _InquiryNewScreenState extends ConsumerState<InquiryNewScreen> {
           Text(l10n.inqBody, style: _label),
           const SizedBox(height: 8),
           TextField(
+            onTapOutside: dismissKeyboard,
             key: const ValueKey('inq-body'),
             controller: _body,
             maxLength: 2000,

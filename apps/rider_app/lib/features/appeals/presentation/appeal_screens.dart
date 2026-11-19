@@ -10,6 +10,7 @@ import '../../../shared/rider_widgets.dart';
 import '../../../shared/ui_state_of.dart';
 import '../../my/data/records.dart';
 import '../data/appeals.dart';
+import '../../../shared/keyboard.dart';
 
 /// 신청 화면 주소. 계정 제한 소명은 대상이 서버에서 정해지고, 수행료 이의는 배송 ID 를 넘긴다.
 String appealNewRoute(AppealTarget target, {String? deliveryId}) => Uri(
@@ -134,6 +135,7 @@ class _AppealNewScreenState extends ConsumerState<AppealNewScreen> {
                   ),
                   const SizedBox(height: 16),
                   TextField(
+                    onTapOutside: dismissKeyboard,
                     key: const ValueKey('appeal-body'),
                     controller: _body,
                     maxLines: 8,

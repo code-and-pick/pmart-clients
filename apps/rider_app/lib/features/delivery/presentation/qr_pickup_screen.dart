@@ -14,6 +14,7 @@ import '../data/trip_repository.dart';
 import '../domain/delivery.dart';
 import 'delivery_controller.dart';
 import 'delivery_texts.dart';
+import '../../../shared/keyboard.dart';
 
 /// 라벨 숫자 → QR 원문. null 이면 숫자 입력을 쓸 수 없다(실서버 — 계약에 아직 없음).
 final labelNumberResolverProvider = Provider<String? Function(String)?>(
@@ -325,6 +326,7 @@ class _NumberFieldState extends State<_NumberField> {
       children: [
         Expanded(
           child: TextField(
+            onTapOutside: dismissKeyboard,
             key: const ValueKey('qr-number'),
             controller: _input,
             autofocus: widget.autofocus,

@@ -11,6 +11,7 @@ import '../domain/delivery.dart';
 import 'delivery_controller.dart';
 import 'delivery_texts.dart';
 import 'support_thread_screen.dart' show HelpStateChip, helpStateLook;
+import '../../../shared/keyboard.dart';
 
 /// 지원센터 화면에서 배송 화면으로 돌려보낼 처리(배송 화면이 실제로 한다).
 /// 전달 불가는 고른 문제에 맞춰 사유를 미리 고른다(고객 연락 안 됨 / 주소 문제).
@@ -278,6 +279,7 @@ class _SupportScreenState extends ConsumerState<SupportScreen> {
             ),
           const SizedBox(height: 14),
           TextField(
+            onTapOutside: dismissKeyboard,
             key: const ValueKey('support-detail'),
             controller: _detail,
             maxLength: 500,

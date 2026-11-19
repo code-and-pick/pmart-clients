@@ -15,6 +15,7 @@ import '../data/session.dart';
 import 'login_screen.dart' show loginResultText;
 import '../data/signup.dart';
 import 'postcode_screen.dart';
+import '../../../shared/keyboard.dart';
 
 String consentTitle(AppLocalizations l10n, ConsentItem c) {
   final title = switch (c.type) {
@@ -588,6 +589,7 @@ class _SignupFlowScreenState extends ConsumerState<SignupFlowScreen> {
       children: [
         Expanded(
           child: TextField(
+            onTapOutside: dismissKeyboard,
             key: const ValueKey('signup-phone'),
             controller: _phone,
             keyboardType: TextInputType.phone,
@@ -640,6 +642,7 @@ class _SignupFlowScreenState extends ConsumerState<SignupFlowScreen> {
     Text(l10n.fieldName, style: _label),
     const SizedBox(height: 8),
     TextField(
+      onTapOutside: dismissKeyboard,
       key: const ValueKey('signup-name'),
       controller: _name,
       decoration: InputDecoration(
@@ -673,6 +676,7 @@ class _SignupFlowScreenState extends ConsumerState<SignupFlowScreen> {
     Text(l10n.fieldHolder, style: _label),
     const SizedBox(height: 8),
     TextField(
+      onTapOutside: dismissKeyboard,
       key: const ValueKey('signup-holder'),
       controller: _holder,
       decoration: InputDecoration(
@@ -688,6 +692,7 @@ class _SignupFlowScreenState extends ConsumerState<SignupFlowScreen> {
       children: [
         Expanded(
           child: TextField(
+            onTapOutside: dismissKeyboard,
             key: const ValueKey('signup-account'),
             controller: _account,
             keyboardType: TextInputType.number,
@@ -752,6 +757,7 @@ class _SignupFlowScreenState extends ConsumerState<SignupFlowScreen> {
     ),
     const SizedBox(height: 8),
     TextField(
+      onTapOutside: dismissKeyboard,
       key: const ValueKey('signup-detail'),
       controller: _detail,
       decoration: InputDecoration(hintText: l10n.fieldResidenceDetailHint),
@@ -808,6 +814,7 @@ class _SignupFlowScreenState extends ConsumerState<SignupFlowScreen> {
       children: [
         Expanded(
           child: TextField(
+            onTapOutside: dismissKeyboard,
             key: const ValueKey('signup-license'),
             controller: _license,
             keyboardType: TextInputType.number,
@@ -988,29 +995,40 @@ class _SelectBox extends StatelessWidget {
   final IconData icon;
 
   @override
-  Widget build(BuildContext context) => InkWell(
-    onTap: onTap,
-    child: Container(
-      height: 50,
-      padding: const EdgeInsets.symmetric(horizontal: 14),
-      decoration: BoxDecoration(
-        border: Border.all(color: RiderColors.line),
-        borderRadius: BorderRadius.circular(2),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              text ?? hint,
-              style: TextStyle(
-                fontSize: 15,
-                color: text == null ? RiderColors.hint : RiderColors.ink,
-              ),
+  // 칸 어디를 눌러도 연다(글자·빈 곳·아이콘 — 사용자 2026-11-19 "돋보기 말고 네모 박스 아무데나").
+  // 키보드가 떠 있으면 먼저 내린다 — 떠 있는 채로 누르면 첫 터치가 키보드 정리에 쓰이는 기기가 있다.
+  Widget build(BuildContext context) => Semantics(
+    button: true,
+    child: GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () {
+        FocusManager.instance.primaryFocus?.unfocus();
+        onTap();
+      },
+      child: _box(),
+    ),
+  );
+
+  Widget _box() => Container(
+    height: 50,
+    padding: const EdgeInsets.symmetric(horizontal: 14),
+    decoration: BoxDecoration(
+      border: Border.all(color: RiderColors.line),
+      borderRadius: BorderRadius.circular(2),
+    ),
+    child: Row(
+      children: [
+        Expanded(
+          child: Text(
+            text ?? hint,
+            style: TextStyle(
+              fontSize: 15,
+              color: text == null ? RiderColors.hint : RiderColors.ink,
             ),
           ),
-          Icon(icon, color: RiderColors.sub),
-        ],
-      ),
+        ),
+        Icon(icon, color: RiderColors.sub),
+      ],
     ),
   );
 }
