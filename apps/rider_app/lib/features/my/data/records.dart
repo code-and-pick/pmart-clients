@@ -55,6 +55,9 @@ class Settlement {
     required this.status,
     this.deliveryId,
     this.note,
+    this.compensation = false,
+    this.appealId,
+    this.payoutDate,
   });
 
   final DateTime from;
@@ -70,11 +73,31 @@ class Settlement {
   /// 조정·추가 배달료 결과 안내(서버 `note`).
   final String? note;
 
-  /// 이의 신청을 보일 줄(rider 0.15.0 — 산정 불가·조정·결과 안내가 있는 줄. 맞는지는 직원이 판단한다).
+  /// 이의 인정 보상금 한 줄(execution 0.30.0 — 원래 수행료와 따로). [note] 는 보상 사유.
+  final bool compensation;
+
+  /// 보상금이면 그 이의.
+  final String? appealId;
+
+  /// 보상금 지급 예정일(서버, YYYY-MM-DD).
+  final String? payoutDate;
+
+  /// 이의 신청을 보일 줄(rider 0.15.0 — 산정 불가·조정·결과 안내가 있는 줄. 맞는지는 직원이 판단한다). 보상금 줄은 아니다.
   bool get appealable =>
+      !compensation &&
       deliveryId != null &&
       (amount == null || status == SettlementStatus.adjusted || note != null);
 }
+
+SettlementStatus settlementStatusFromWire(String? w) => switch (w) {
+  'PENDING_CONFIRMATION' => SettlementStatus.awaitingConfirm,
+  'CONFIRMED' => SettlementStatus.confirmed,
+  'PAYING' => SettlementStatus.paying,
+  'PAID' => SettlementStatus.paid,
+  'PAYMENT_FAILED' => SettlementStatus.payFailed,
+  'ADJUSTED' => SettlementStatus.adjusted,
+  _ => SettlementStatus.estimated,
+};
 
 @immutable
 class DeliveryRecord {
@@ -180,6 +203,18 @@ final class MockRecordsRepository implements RecordsRepository {
         // 목: 산정 불가 한 줄은 이의 신청을 시험할 수 있게 배송 ID 를 둔다
         deliveryId: 'dlv-1',
       ),
+      // 목: 이의 인정 보상금 한 줄(목 신청 AP-mock-A 와 짝)
+      Settlement(
+        from: DateTime(2026, 11, 17),
+        to: DateTime(2026, 11, 17),
+        amount: 1500,
+        status: SettlementStatus.confirmed,
+        deliveryId: 'dlv-old-2',
+        note: '엘리베이터 고장 확인',
+        compensation: true,
+        appealId: 'AP-mock-A',
+        payoutDate: '2026-11-20',
+      ),
     ];
   }
 
@@ -218,9 +253,11 @@ final class MockRecordsRepository implements RecordsRepository {
 /// 실서버. 수행료는 배송마다 한 줄(완료 직후 확정 대기 → 5시간 뒤 확정). 산정 불가(`calculable: false`)는 금액 대신 "산정 불가".
 final class ApiRecordsRepository implements RecordsRepository {
   ApiRecordsRepository(Dio dio)
-    : _me = ex.PmartApiDeliveryExecution(dio: dio).getMeApi();
+    : _me = ex.PmartApiDeliveryExecution(dio: dio).getMeApi(),
+      _comp = ex.PmartApiDeliveryExecution(dio: dio).getCompensationsApi();
 
   final ex.MeApi _me;
+  final ex.CompensationsApi _comp;
 
   /// 서울 날짜(YYYY-MM-DD).
   static String _seoulDate(DateTime now) {
@@ -290,8 +327,24 @@ final class ApiRecordsRepository implements RecordsRepository {
 
   @override
   Future<List<Settlement>> settlements() async {
-    final res = await pmartGuard(() => _me.listMyEarnings());
+    // 수행료와 이의 인정 보상금(execution 0.30.0)을 함께 — 보상금을 못 읽으면 전체를 실패로(빠진 채 보이지 않게).
+    final (res, comp) = await (
+      pmartGuard(() => _me.listMyEarnings()),
+      pmartGuard(() => _comp.listMyCompensations()),
+    ).wait;
     return [
+      for (final c in comp.data?.items ?? const <ex.RiderCompensation>[])
+        Settlement(
+          from: c.recordedAt.toLocal(),
+          to: c.recordedAt.toLocal(),
+          amount: c.amount,
+          deliveryId: c.deliveryId,
+          note: c.reason,
+          compensation: true,
+          appealId: c.appealId,
+          payoutDate: c.payoutDate,
+          status: settlementStatusFromWire(c.settlementState.value),
+        ),
       for (final e in res.data?.items ?? const <ex.Earning>[])
         Settlement(
           from: (e.recordedAt ?? DateTime.now()).toLocal(),
@@ -299,15 +352,7 @@ final class ApiRecordsRepository implements RecordsRepository {
           amount: (e.calculable ?? false) ? e.total : null,
           deliveryId: e.deliveryId,
           note: e.note,
-          status: switch (e.settlementState?.value) {
-            'PENDING_CONFIRMATION' => SettlementStatus.awaitingConfirm,
-            'CONFIRMED' => SettlementStatus.confirmed,
-            'PAYING' => SettlementStatus.paying,
-            'PAID' => SettlementStatus.paid,
-            'PAYMENT_FAILED' => SettlementStatus.payFailed,
-            'ADJUSTED' => SettlementStatus.adjusted,
-            _ => SettlementStatus.estimated,
-          },
+          status: settlementStatusFromWire(e.settlementState?.value),
         ),
     ];
   }

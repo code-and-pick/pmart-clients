@@ -174,11 +174,20 @@ class SettlementsScreen extends ConsumerWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            s.from.year == s.to.year &&
-                                    s.from.month == s.to.month &&
-                                    s.from.day == s.to.day
+                            s.compensation
+                                // 이의 인정 보상금(원래 수행료와 따로 한 줄)
+                                ? l10n.compensationLine(
+                                    _day(l10n, s.from),
+                                    s.payoutDate ?? '-',
+                                  )
+                                : s.from.year == s.to.year &&
+                                      s.from.month == s.to.month &&
+                                      s.from.day == s.to.day
                                 ? _day(l10n, s.from)
                                 : '${_day(l10n, s.from)} ~ ${_day(l10n, s.to)}',
+                            key: s.compensation
+                                ? ValueKey('compensation-$i')
+                                : null,
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 15,

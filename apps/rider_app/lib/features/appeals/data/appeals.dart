@@ -155,6 +155,17 @@ final class MockAppealRepository implements AppealRepository {
       decidedAt: DateTime.utc(2026, 11, 16, 7),
       decisionNote: '경로 확인 결과 정상 산정이에요.',
     ),
+    // 목: 인정된 수행료 이의(보상금 1,500원 — 정산 목의 보상 줄과 짝)
+    Appeal(
+      appealId: 'AP-mock-A',
+      target: AppealTarget.earning,
+      targetRef: 'dlv-old-2',
+      body: '엘리베이터 고장이었는데 추가 배달료가 반려됐어요.',
+      state: AppealState.accepted,
+      submittedAt: DateTime.utc(2026, 11, 17, 3),
+      decidedAt: DateTime.utc(2026, 11, 17, 5),
+      decisionNote: '고장 확인했어요. 보상금을 드려요.',
+    ),
   ];
   final _byKey = <String, Appeal>{};
   var _seq = 0;

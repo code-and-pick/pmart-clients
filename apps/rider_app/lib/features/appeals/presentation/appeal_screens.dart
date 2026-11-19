@@ -8,6 +8,7 @@ import '../../../l10n/gen/app_localizations.dart';
 import '../../../shared/rider_style.dart';
 import '../../../shared/rider_widgets.dart';
 import '../../../shared/ui_state_of.dart';
+import '../../my/data/records.dart';
 import '../data/appeals.dart';
 
 /// 신청 화면 주소. 계정 제한 소명은 대상이 서버에서 정해지고, 수행료 이의는 배송 ID 를 넘긴다.
@@ -189,6 +190,13 @@ class MyAppealsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
+    // 인정된 수행료 이의의 보상금(정산내역의 보상 줄 — execution 0.30.0). 못 읽었으면 금액을 붙이지 않는다(0원으로 지어내지 않음).
+    final compensations = <String, int>{
+      for (final s
+          in ref.watch(settlementsProvider).value ?? const <Settlement>[])
+        if (s.compensation && s.appealId != null && s.amount != null)
+          s.appealId!: s.amount!,
+    };
     return Scaffold(
       appBar: AppBar(
         title: Text(l10n.appealMine),
@@ -260,6 +268,18 @@ class MyAppealsScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: 6),
                   Text(a.body, style: const TextStyle(fontSize: 15)),
+                  if (compensations[a.appealId] case final won?) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      l10n.appealCompensation(formatKrw(won)),
+                      key: ValueKey('appeal-compensation-${a.appealId}'),
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: RiderColors.primary,
+                      ),
+                    ),
+                  ],
                   if (a.decisionNote case final note?) ...[
                     const SizedBox(height: 8),
                     Container(

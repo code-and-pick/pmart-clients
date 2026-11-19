@@ -94,6 +94,8 @@ void main() {
     expect(find.text('파손은 포장 불량이었어요'), findsOneWidget);
     // 앞서 결정된 신청은 결정 이유와 함께
     expect(find.text('결정 이유: 경로 확인 결과 정상 산정이에요.'), findsOneWidget);
+    // 내 신청은 보상금을 보려고 정산내역도 읽는다(목 지연) — 끝까지 기다린다
+    await t.pump(const Duration(seconds: 1));
   });
 
   testWidgets('같은 대상에 두 번 신청하면 "이미 신청" 안내(409 APPEAL_EXISTS)', (t) async {
@@ -150,5 +152,29 @@ void main() {
       (await appeals.mine()).where((x) => x.state == AppealState.open),
       hasLength(1),
     );
+  });
+
+  testWidgets('정산내역에 이의 인정 보상 줄, 내 신청의 인정 건에 보상금', (t) async {
+    await pumpApp(t, appeals: MockAppealRepository(latency: Duration.zero));
+    router(t).go('/my/settlements');
+    await settle(t);
+    await t.pump(const Duration(seconds: 1));
+    await settle(t);
+    expect(find.byKey(const ValueKey('compensation-4')), findsOneWidget);
+    expect(find.textContaining('이의 인정 보상'), findsOneWidget);
+    expect(find.textContaining('지급 예정일 2026-11-20'), findsOneWidget);
+    expect(find.text('1,500원'), findsOneWidget);
+    // 보상금 줄에는 "이의 신청"을 붙이지 않는다
+    expect(find.byKey(const ValueKey('appeal-earning-4')), findsNothing);
+
+    router(t).go('/my/appeals');
+    await settle(t);
+    await t.pump(const Duration(seconds: 1));
+    await settle(t);
+    expect(
+      find.byKey(const ValueKey('appeal-compensation-AP-mock-A')),
+      findsOneWidget,
+    );
+    expect(find.text('보상금 1,500원'), findsOneWidget);
   });
 }

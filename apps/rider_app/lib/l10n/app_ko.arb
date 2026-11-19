@@ -803,6 +803,10 @@
   "@appealDecisionNote": {"placeholders": {"note": {"type": "String"}}},
   "appealButton": "이의 신청",
   "appealRestrictionButton": "소명하기",
+  "compensationLine": "이의 인정 보상 · {day} · 지급 예정일 {payoutDate}",
+  "@compensationLine": {"placeholders": {"day": {"type": "String"}, "payoutDate": {"type": "String"}}},
+  "appealCompensation": "보상금 {amount}",
+  "@appealCompensation": {"placeholders": {"amount": {"type": "String"}}},
   "restrictUntil": "{until}까지",
   "@restrictUntil": {
     "placeholders": {
