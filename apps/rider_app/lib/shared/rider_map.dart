@@ -179,6 +179,9 @@ class _LiveMapState extends ConsumerState<_LiveMap> {
     _map = controller;
     _readyCap = Timer(const Duration(milliseconds: 700), _reveal);
     final source = ref.read(locationSourceProvider);
+    // 위치 받기는 지도가 준비되자마자 시작한다 — 전에는 경로 그리기를 기다린 뒤에 구독해서, 그리기가 끝나지
+    // 않으면 내 위치 점이 처음 자리에 멈춰 있었다(사용자 2026-11-19 "라이더 이동위치 실시간으로 안 보여").
+    if (source != null) _sub = source.watch().listen(_show);
     // 마지막으로 안 위치가 있으면 그것으로 먼저 그린다(지금 위치는 늦게 올 수 있다).
     if (_lastKnownSpot case final known?) {
       await _show(known);
@@ -194,7 +197,6 @@ class _LiveMapState extends ConsumerState<_LiveMap> {
     // 경로가 있으면 경로가 다 보이게 둔다(내 위치로 옮기지 않는다).
     if (widget.route == null) await _center();
     _reveal();
-    if (source != null) _sub = source.watch().listen(_show);
   }
 
   static kakao.LatLng _at(GeoPoint p) => kakao.LatLng(p.lat, p.lng);
@@ -328,14 +330,26 @@ class _LiveMapState extends ConsumerState<_LiveMap> {
       await me.move(position, 300);
       return;
     }
-    _me = await map.labelLayer.addPoi(
-      position,
-      style: kakao.PoiStyle(
-        icon: kakao.KImage.fromData(await _dotPng(), 28, 28),
-        anchor: const kakao.KPoint(0.5, 0.5),
-      ),
-    );
+    // 점을 만드는 중에 다음 위치가 오면 점이 둘 생겨, 하나는 처음 자리에 남았다 — 만드는 것은 한 번만.
+    final creating = _meCreating ??= () async {
+      final poi = await map.labelLayer.addPoi(
+        position,
+        style: kakao.PoiStyle(
+          icon: kakao.KImage.fromData(await _dotPng(), 28, 28),
+          anchor: const kakao.KPoint(0.5, 0.5),
+        ),
+      );
+      _me = poi;
+      return poi;
+    }();
+    final poi = await creating;
+    // 만드는 동안 온 가장 새 위치로 옮긴다
+    if (_last case final latest? when latest != p) {
+      await poi.move(_at(latest), 300);
+    }
   }
+
+  Future<kakao.Poi>? _meCreating;
 
   Future<void> _center() async {
     final p = _last;
