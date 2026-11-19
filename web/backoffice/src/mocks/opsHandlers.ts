@@ -87,8 +87,8 @@ function maskedAddress(o: StaffOrder, open: readonly PiiField[] = []): OrderC['s
   const a = o.shippingAddress;
   if (!a) return null;
   const has = (f: PiiField) => open.includes(f);
-  const name = has('NAME') ? a.receiverName : maskName(a.receiverName);
-  const phone = has('PHONE') ? a.receiverPhone : maskPhone(a.receiverPhone);
+  const name = has('NAME') ? a.receiverName : maskName(a.receiverName ?? undefined);
+  const phone = has('PHONE') ? a.receiverPhone : maskPhone(a.receiverPhone ?? undefined);
   return {
     ...a,
     ...(name !== undefined ? { receiverName: name } : {}),
