@@ -7,6 +7,7 @@
 //   링크는 시스템 ID 로. 번호가 null 이면 ID 끝 8자리 회색 + "번호 없음", rider-service 실패면 라이더 "번호 확인 불가".
 // - unavailableSources: mfc-fulfillment-service = 목록 전체를 못 읽음(0건 아님), delivery-execution-service = 배송 칸만 "—".
 // - 새로고침은 30초(한 번 부를 때 MFC 1회 + 출고 수만큼 배송 조회 — 백엔드 권고). 개인정보·QR 없음.
+import { blockReasonLabel } from '../../shared/blockReason';
 import { SearchSelect } from '../../shared/SearchSelect';
 import { useNewIds } from '../../shared/motion';
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
@@ -67,7 +68,7 @@ function StageCell({ it }: { readonly it: Item }) {
       <span className={`badge badge-sm ${it.stage === 'HANDED_OVER' ? 'badge-success' : it.stage === 'READY_FOR_HANDOVER' ? 'badge-info' : 'badge-ghost'}`}>
         {waiting ? m.packWaiting : label(m.stageName, it.stage)}
       </span>
-      {blocked && <span className="block text-xs font-bold text-error">{m.blocked(text(reason))}</span>}
+      {blocked && <span className="block text-xs font-bold text-error">{m.blocked(reason ? blockReasonLabel(reason) : text(reason))}</span>}
     </span>
   );
 }

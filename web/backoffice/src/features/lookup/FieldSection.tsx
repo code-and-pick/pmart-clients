@@ -3,6 +3,7 @@
 // - FULFILLMENT(작업 지시): 수락·거절, 출고별 피킹 → 포장 → 인계 한 줄, BLOCKED 사유 빨강, 점원 결품 보고, 포장의 인계 거절 사유.
 // - MFC_STOP(중지 요청): 범위·상태·마지막 오류 — PENDING + 오류면 관리자에게 처리 대기 링크.
 // 작업자는 ID 그대로(이름 없음 — LAN 은 운영자 ID OP-…). 원천 실패는 "조회 실패"(0건 아님), 404 는 칸 없음(현장 기록 없음).
+import { blockReasonLabel } from '../../shared/blockReason';
 import { Link } from 'react-router';
 
 import { useSession } from '../../app/SessionContext';
@@ -32,7 +33,7 @@ function Task({ t }: { readonly t: Obj }) {
       <span className="font-semibold">{label(m.taskName, str(t['taskType']))}</span> {state ? <CodeLabel code={state} names={messages.packing.taskStateName} /> : messages.none}
       {planned !== null && <span className="ml-1 opacity-80">{m.qty(done ?? 0, planned, cancelled ?? 0)}</span>}
       {str(t['workerId']) && <span className="ml-1 font-mono text-base-content/60">{m.worker(str(t['workerId'])!)}</span>}
-      {blocked && str(t['blockReason']) && <span className="block font-bold">{m.blocked(str(t['blockReason'])!)}</span>}
+      {blocked && str(t['blockReason']) && <span className="block font-bold">{m.blocked(blockReasonLabel(str(t['blockReason'])!))}</span>}
     </li>
   );
 }

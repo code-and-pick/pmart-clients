@@ -44,11 +44,11 @@ const RIDERS: Readonly<Record<string, { riderNumber: string; nameMasked: string 
 const rows: readonly Row[] = [
   { shipmentId: 'SHP-1', orderId: 'ORD-MOCK-2001', orderNumber: '25111701', workOrderKind: 'ORIGINAL', shipmentState: 'PREPARING', stage: 'PICKING', pick: { state: 'IN_PROGRESS', startedAt: at(1) }, pack: { state: 'WAITING' }, packageCount: null, handed: null, remaining: null, packages: [], readyAt: null, dispatchRequestedAt: at(0), deliveryId: 'DLV-MOCK-21', deliveryState: 'ASSIGNED', riderId: 'RID-MOCK-1', createdAt: at(0) },
   { shipmentId: 'SHP-2', orderId: 'ORD-MOCK-2002', orderNumber: null, workOrderKind: 'RESHIPMENT', shipmentState: 'PREPARING', stage: 'PACKING', pick: { state: 'COMPLETED' }, pack: { state: 'WAITING' }, packageCount: null, handed: null, remaining: null, packages: [], readyAt: null, dispatchRequestedAt: null, deliveryId: null, deliveryState: null, riderId: null, createdAt: at(2) },
-  { shipmentId: 'SHP-3', orderId: 'ORD-MOCK-2003', orderNumber: '25111703', workOrderKind: 'ORIGINAL', shipmentState: 'PREPARING', stage: 'PACKING', pick: { state: 'COMPLETED' }, pack: { state: 'BLOCKED', blockReason: 'PACKAGE_MISMATCH' }, packageCount: null, handed: null, remaining: null, packages: [], readyAt: null, dispatchRequestedAt: null, deliveryId: null, deliveryState: null, riderId: null, createdAt: at(3) },
+  { shipmentId: 'SHP-3', orderId: 'ORD-MOCK-2003', orderNumber: '25111703', workOrderKind: 'ORIGINAL', shipmentState: 'PREPARING', stage: 'PACKING', pick: { state: 'COMPLETED' }, pack: { state: 'BLOCKED', blockReason: '결품 보고: OL-MOCK-2003-1 2개 SHORT' }, packageCount: null, handed: null, remaining: null, packages: [], readyAt: null, dispatchRequestedAt: null, deliveryId: null, deliveryState: null, riderId: null, createdAt: at(3) },
   {
     shipmentId: 'SHP-4', orderId: 'ORD-MOCK-2004', orderNumber: '25111704', workOrderKind: 'ORIGINAL', shipmentState: 'PARTIALLY_HANDED_OVER', stage: 'PARTIALLY_HANDED_OVER', pick: { state: 'COMPLETED' }, pack: { state: 'COMPLETED' }, packageCount: 3, handed: 1, remaining: 2,
     packages: [
-      { packageId: 'PKG-4-1', handoverCode: '305118', state: 'HANDED_OVER', fenceState: 'AUTHORIZED', handoverAuthorizedAt: at(20), handedOverAt: at(21), riderId: 'RID-MOCK-2' },
+      { packageId: 'PKG-4-1', handoverCode: '305118', state: 'HANDED_OVER', fenceState: 'COMMITTED', handoverAuthorizedAt: at(20), handedOverAt: at(21), riderId: 'RID-MOCK-2' },
       { packageId: 'PKG-4-2', state: 'SEALED', fenceState: null, handoverAuthorizedAt: null, handedOverAt: null, riderId: null },
       { packageId: 'PKG-4-3', state: 'SEALED', fenceState: null, handoverAuthorizedAt: null, handedOverAt: null, riderId: null },
     ],

@@ -96,7 +96,7 @@ const order1001: readonly MockMatch[] = [
           dispatchRequestedAt: null,
           tasks: [
             { taskType: 'PACK', state: 'READY', workerId: null, startedAt: null, endedAt: null, blockReason: null, plannedQty: 3, completedQty: 0, cancelledQty: 0, remainingQty: 3 },
-            { taskType: 'PICK', state: 'BLOCKED', workerId: 'E-1042', startedAt: at, endedAt: null, blockReason: 'SHORTAGE_REPORTED', plannedQty: 3, completedQty: 2, cancelledQty: 1, remainingQty: 0 },
+            { taskType: 'PICK', state: 'BLOCKED', workerId: 'E-1042', startedAt: at, endedAt: null, blockReason: '예약 보류(격리·실사 손실 — 재확보 못 함): OL-MOCK-1-1 1개', plannedQty: 3, completedQty: 2, cancelledQty: 1, remainingQty: 0 },
           ],
           shortages: [{ sku: 'E-00000002', qty: 1, reason: 'NOT_ON_SHELF', reportedAt: at, executionState: 'REPORTED' }],
           packages: [{ state: 'OPEN', sealedAt: null, fenceState: null, handoverAuthorizedAt: null, handoverStatus: 'REJECTED', handoverRejectReason: 'STOCK_MISMATCH', handedOverAt: null }],

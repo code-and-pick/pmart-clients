@@ -23,7 +23,8 @@ describe('포장 인계 현황', () => {
     expect(waiting).toHaveTextContent('번호 없음');
     expect(within(waiting).getByTestId('packing-stage')).toHaveTextContent('패킹 대기');
     expect(waiting).toHaveTextContent('재발송');
-    expect(within(await rowOf(/25111703/)).getByTestId('packing-stage')).toHaveTextContent('막힘: PACKAGE_MISMATCH');
+    expect(within(await rowOf(/25111703/)).getByTestId('packing-stage')).toHaveTextContent('막힘: 결품'); // 막힌 사유 문장은 앞부분 이름표로, 뒤(주문 줄 ID)는 안 보임(백엔드 회신 C2·ADR-0070)
+    expect(within(await rowOf(/25111703/)).getByTestId('packing-stage')).not.toHaveTextContent('OL-MOCK');
     const q = new URL(view.sent.find((r) => new URL(r.url).pathname.endsWith('/views/packing-handover'))!.url).searchParams;
     expect(q.get('mfcId')).toBe('MFC-BSN-01');
     expect(q.getAll('state')).toEqual(['PREPARING']);

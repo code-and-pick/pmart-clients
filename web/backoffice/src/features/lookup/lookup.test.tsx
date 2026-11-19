@@ -65,7 +65,8 @@ describe('통합 조회', () => {
     const field = await waitFor(() => section('현장(MFC)'));
     const tasks = within(field).getAllByTestId('field-task');
     expect(tasks.map((t) => t.getAttribute('data-type'))).toEqual(['PICK', 'PACK']);
-    expect(tasks[0]).toHaveTextContent('막힘: SHORTAGE_REPORTED');
+    expect(tasks[0]).toHaveTextContent('막힘: 재고 보류'); // 백엔드 회신 C2 — 문장 앞부분 이름표
+    expect(tasks[0]).not.toHaveTextContent('OL-MOCK');
     expect(tasks[0]).toHaveTextContent('작업자 E-1042');
     expect(tasks[0]).toHaveTextContent('2/3 · 취소 1');
     expect(within(field).getByTestId('field-shortages')).toHaveTextContent('점원 결품 보고 1건');

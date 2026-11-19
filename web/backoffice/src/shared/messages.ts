@@ -2,6 +2,8 @@
 import { employeeLoginMessages, uiMessages } from '@pmart/web-ui';
 
 export const messages = {
+  /** 막힌 사유 이름표(mfc blockReason 문장 앞부분 — 백엔드 회신 2026-11-19 C2) */
+  blockReason: { stockHold: '재고 보류', shortage: '결품' },
   appTitle: 'PMart 백오피스',
   goHome: 'PMart 백오피스 홈으로',
   mockBadge: '목 데이터',
