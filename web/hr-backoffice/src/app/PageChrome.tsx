@@ -25,11 +25,11 @@ export function useDocumentTitle(screen: string | null) {
     enabled: hr,
   });
   const failed = hr ? q.data?.provisioningFailed : undefined;
+  // 서버가 다 세지 못했으면(complete=false) 수 뒤에 + (첫 화면 숫자 띠와 같게)
+  const count = failed && failed.value > 0 ? `(${failed.value}${failed.complete ? '' : '+'}) ` : '';
   useEffect(() => {
-    // 서버가 다 세지 못했으면(complete=false) 수 뒤에 + (첫 화면 숫자 띠와 같게)
-    const count = failed && failed.value > 0 ? `(${failed.value}${failed.complete ? '' : '+'}) ` : '';
     document.title = `${count}${screen ? `${screen} · ` : ''}${BASE}`;
-  }, [screen, failed?.value, failed?.complete]);
+  }, [screen, count]);
   useEffect(
     () => () => {
       document.title = BASE;
