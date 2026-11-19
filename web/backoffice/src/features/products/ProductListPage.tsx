@@ -161,8 +161,12 @@ export function ProductListPage() {
         description={m.products.listIntro}
         actions={
           <>
-            <Link className="btn btn-sm" to="/products/import">
-              {m.products.importTitle}
+            {/* 가격 관리는 메뉴 대신 여기서(2026-11-19 메뉴 정리) */}
+            <Link className="btn btn-sm" to="/prices">
+              {m.products.imports.priceManage}
+            </Link>
+            <Link className="btn btn-sm" to="/imports">
+              {m.nav.imports}
             </Link>
             <Link className="btn btn-sm btn-primary" to="/products/drafts/new">
               {m.products.draftTitle}

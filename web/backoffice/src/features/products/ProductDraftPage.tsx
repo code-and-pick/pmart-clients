@@ -107,6 +107,8 @@ function StartChooser() {
       <div>
         <h2 className="text-lg font-bold">{c.title}</h2>
         <p className="text-sm text-base-content/60">{c.intro}</p>
+        {/* 메뉴 정리(2026-11-19) — 콘텐츠만·가격만 바꿀 때 가는 곳 */}
+        <p className="text-xs text-base-content/50" data-testid="start-other">{c.other}</p>
       </div>
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {card('direct', 'M4 20h4L19 9l-4-4L4 16v4Zm11-15 4 4', c.direct, c.directBody, !pickBase, () => {
@@ -119,7 +121,7 @@ function StartChooser() {
           input?.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
           input?.focus();
         })}
-        {card('import', 'M12 15V4m0 0-4 4m4-4 4 4M5 15v3a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-3', c.bulk, c.bulkBody, false, () => void navigate('/products/import'))}
+        {card('import', 'M12 15V4m0 0-4 4m4-4 4 4M5 15v3a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-3', c.bulk, c.bulkBody, false, () => void navigate('/imports'))}
         {card('sameBase', 'M8 8h11v11H8zM5 16V5h11', c.sameBase, c.sameBaseBody, pickBase, () => setPickBase((p) => !p))}
       </div>
       {pickBase && (

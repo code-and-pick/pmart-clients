@@ -10,6 +10,8 @@ import { messages as m } from '../shared/messages';
 export interface NavItem {
   readonly to: string;
   readonly label: string;
+  /** 이 메뉴로 켤 다른 주소(앞부분) — 메뉴를 합치며 옛 화면 주소를 그대로 둘 때 */
+  readonly also?: readonly string[];
   /** 묶음 안에서 이 항목만 보는 역할(없으면 묶음 역할 그대로) */
   readonly visibleTo?: (role: string) => boolean;
 }
@@ -35,15 +37,13 @@ export const navGroups: readonly NavGroup[] = [
     label: m.nav.group.catalog,
     // OPERATOR_ADMIN 도(사용자 2026-11-15, 백엔드 알림 backoffice/2026-11-15-notice-product-menu-operator-admin). 판매 상태 변경만 MD.
     visibleTo: oneOf('MD', 'OPERATOR_ADMIN'),
+    // 메뉴 정리(2026-11-19 상품 묶음 합치기 — 9개 → 5개): 콘텐츠 등록은 상품 상세 "고객 화면" 탭·상품 등록에서, 가격 관리는 상품 목록 위 단추·상세 "가격" 탭에서,
+    // 일괄 등록 셋은 한 메뉴(탭). 옛 주소는 그대로 열리고 also 로 그 메뉴가 켜진다. "등록 진행 중"은 초안 목록 API 가 없어 아직(handoff product-flow-questions)
     items: [
-      { to: '/products', label: m.nav.products },
-      { to: '/products/drafts/new', label: m.nav.productNew },
-      { to: '/products/import', label: m.nav.productImport },
+      { to: '/products', label: m.nav.products, also: ['/prices', '/contents'] },
+      { to: '/products/drafts/new', label: m.nav.productNew, also: ['/products/drafts', '/contents/drafts'] },
+      { to: '/imports', label: m.nav.imports, also: ['/products/import', '/contents/import', '/prices/import'] },
       { to: '/categories', label: m.nav.categories },
-      { to: '/contents/drafts/new', label: m.nav.contentNew },
-      { to: '/contents/import', label: m.nav.contentImport },
-      { to: '/prices', label: m.nav.prices },
-      { to: '/prices/import', label: m.nav.priceImport },
       { to: '/handlings', label: m.nav.handlings },
     ],
   },
@@ -140,8 +140,20 @@ export function visibleGroups(roles: readonly string[]): NavGroup[] {
 }
 
 /** 메뉴 항목이 지금 경로의 화면인가(하위 경로 포함 — 상세 화면에서도 묶음을 펼쳐 둔다). */
+/**
+ * 옛 주소(also)로 켤 메뉴 — 가장 길게 맞는 also 하나만(/prices/import 는 /prices(상품)보다 /prices/import(일괄 등록)).
+ * 메뉴 주소 자체와 똑같으면 NavLink 가 켜므로 여기서는 also 만 본다.
+ */
+export function aliasMenu(items: readonly NavItem[], pathname: string): string | null {
+  let best: { to: string; len: number } | null = null;
+  for (const i of items) for (const a of i.also ?? []) if ((pathname === a || pathname.startsWith(`${a}/`)) && (!best || a.length > best.len)) best = { to: i.to, len: a.length };
+  if (items.some((i) => i.to === pathname)) return null;
+  return best?.to ?? null;
+}
+
 export function covers(item: NavItem, pathname: string): boolean {
-  return pathname === item.to || pathname.startsWith(`${item.to}/`);
+  const hit = (to: string) => pathname === to || pathname.startsWith(`${to}/`);
+  return hit(item.to) || (item.also ?? []).some(hit);
 }
 
 /**

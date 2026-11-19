@@ -1,3 +1,4 @@
+import { ImportsPage } from '../features/products/ImportsPage';
 import { ContentsRedirect } from '../features/contents/ContentListPage';
 import { DETAIL_BAR_SLOT } from '../shared/StickyTitle';
 import { ConnectionBanner, useDocumentTitle } from './PageChrome';
@@ -24,7 +25,7 @@ import { ThemeToggle } from './ThemeToggle';
 import { Toasts } from './Toasts';
 import { messages as m } from '../shared/messages';
 import { useApi } from './ApiContext';
-import { covers, visibleGroups, type NavGroup } from './nav';
+import { aliasMenu, covers, visibleGroups, type NavGroup } from './nav';
 import { RequireSession, SessionProvider, useSession } from './SessionContext';
 import { GroupIcon } from './groupIcons';
 import { GroupAlertBadge, MenuGroupAlert, MenuItemAlerts } from './MenuAlerts';
@@ -94,6 +95,7 @@ const defaultAssistantPort = (api: Api): AssistantPort =>
  */
 function NavGroupMenu({ group, pathname, open, onToggle }: { readonly group: NavGroup; readonly pathname: string; readonly open: boolean; readonly onToggle: () => void }) {
   const active = group.items.some((i) => covers(i, pathname));
+  const alias = aliasMenu(group.items, pathname); // 옛 주소로 켤 메뉴(2026-11-19 메뉴 정리)
   return (
     // 묶음 이름(2026-11-18 사용자 — "큰 항목이 하위보다 글자가 작다, 눌렀을 때 직관적이지 않다"):
     // 하위 메뉴보다 크고 굵게 + 묶음 아이콘 + 펼침 화살표(▸/▾), 펼친 묶음은 바탕을 살짝 밝게, 지금 묶음은 흰 글자(2026-11-19 민트 → 라이더 백오피스처럼).
@@ -121,8 +123,9 @@ function NavGroupMenu({ group, pathname, open, onToggle }: { readonly group: Nav
             <NavLink
               to={item.to}
               end
+              data-active={alias === item.to ? 'alias' : undefined}
               className={({ isActive }) =>
-                `my-0.5 flex items-center gap-1 rounded-md py-1.5 pl-10 pr-3 text-sm transition-colors active:scale-[0.98] ${isActive ? 'bg-primary font-semibold text-primary-content' : 'text-neutral-content/75 hover:bg-neutral-content/10 hover:text-neutral-content'}`
+                `my-0.5 flex items-center gap-1 rounded-md py-1.5 pl-10 pr-3 text-sm transition-colors active:scale-[0.98] ${isActive || alias === item.to ? 'bg-primary font-semibold text-primary-content' : 'text-neutral-content/75 hover:bg-neutral-content/10 hover:text-neutral-content'}`
               }
             >
               {item.label}
@@ -315,6 +318,7 @@ const routes = [
       { path: 'products', element: guarded(<ProductListPage />) },
       { path: 'products/drafts/new', element: guarded(<NewProductDraftPage />) },
       { path: 'products/drafts/:draftId', element: guarded(<ProductDraftPage />) },
+      { path: 'imports', element: guarded(<ImportsPage />) }, // 일괄 등록 한 메뉴(2026-11-19)
       { path: 'products/import', element: guarded(<NewProductImportPage />) },
       { path: 'products/import/:batchId', element: guarded(<ProductImportPage />) },
       { path: 'products/:productId', element: guarded(<ProductDetailPage />) },

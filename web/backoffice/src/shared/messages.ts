@@ -64,6 +64,7 @@ export const messages = {
     categories: '카테고리 트리',
     productNew: '상품 등록',
     productImport: '상품 일괄 등록',
+    imports: '일괄 등록',
     products: '상품 조회',
     contentNew: '콘텐츠 등록',
     contentImport: '콘텐츠 일괄 등록',
@@ -1919,6 +1920,14 @@ export const messages = {
     listTitle: '상품 조회',
     /** 상품 상세 — 시스템 ID 대신(2026-11-19 ADR-0070 덧붙임) */
     detailTitleNoId: '상품',
+    /** 일괄 등록 한 메뉴(2026-11-19) */
+    imports: {
+      title: '일괄 등록',
+      orderLabel: '올리는 순서',
+      orderHint: '상품이 승인돼 SKU 가 나온 뒤에 콘텐츠·가격이 그 상품에 붙어요.',
+      tab: { product: '상품', content: '콘텐츠', price: '가격' },
+      priceManage: '가격 관리',
+    },
     /** 상품 상세 탭(2026-11-19 상품 묶음 합치기 1단계) */
     tabs: {
       label: '상품 상세',
@@ -2034,6 +2043,7 @@ export const messages = {
       sameBase: '같은 기초상품으로',
       sameBaseBody: '이미 있는 상품의 다른 판매 단위',
       sameBasePick: '기초상품을 같이 쓸 상품',
+      other: '이미 있는 상품의 콘텐츠만 바꾸려면 상품 상세의 "고객 화면" 탭, 가격만 바꾸려면 상품 목록 위 "가격 관리"에서 해요.',
     },
     statTotal: '전체 상품',
     statValid: '유효',
