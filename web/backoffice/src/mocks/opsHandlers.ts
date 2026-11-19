@@ -51,7 +51,7 @@ function order(orderId: string, status: StaffOrder['status'], confirmedAt: strin
     outOfStockPreference: 'CANCEL_OOS_ONLY',
     version: 3,
     weightG: 1800,
-    deliveryNote: '[목] 문 앞에 두세요',
+    deliveryNote: '문 앞에 두세요',
     amounts: {
       itemAmount: 12000,
       deliveryTip: 3000,
@@ -70,13 +70,13 @@ function order(orderId: string, status: StaffOrder['status'], confirmedAt: strin
     // 목 원장은 원문을 둔다 — 상세 응답은 maskedDetail() 로 가리고(0.4.0·0.5.0), 원문은 POST …/pii-reveals 로만 준다.
     shippingAddressMasked: false,
     shippingAddress: {
-      receiverName: '[목] 김고객',
+      receiverName: '김고객',
       receiverPhone: phone,
-      roadAddress: '[목] 부산 수영구 광안로 1',
+      roadAddress: '부산 수영구 광안로 1',
       detailAddress: '101동 1001호',
       postalCode: '48300',
       entranceMethod: 'PASSWORD',
-      entranceNote: '[목] #1234',
+      entranceNote: '#1234',
       capturedAt: confirmedAt,
     },
   };
@@ -192,22 +192,22 @@ interface OpsState {
 
 function seed(): OpsState {
   const failed = execution('DLV-MOCK-2', 'ORD-MOCK-1002', 'FAILURE_REPORTED', 'RID-MOCK-2');
-  failed.failure = { reason: 'CUSTOMER_UNREACHABLE', detail: '[목] 세 번 전화했지만 받지 않았어요.', goodsLocation: 'WITH_RIDER', contactAttempts: 3, reportedAt: ago(1) };
+  failed.failure = { reason: 'CUSTOMER_UNREACHABLE', detail: '세 번 전화했지만 받지 않았어요.', goodsLocation: 'WITH_RIDER', contactAttempts: 3, reportedAt: ago(1) };
   return {
     seq: 100,
     sagas: [
-      { sagaId: 'SAGA-MOCK-1', orderId: 'ORD-MOCK-1001', sagaType: 'S1_CHECKOUT', state: 'ESCALATED', step: 'AWAIT_PAYMENT_RESULT', reasonCode: 'PAYMENT_UNKNOWN', reasonMessage: '[목] PG 승인 결과를 모름 — 결제 결과 다시 확인 필요', since: ago(2), requeryable: true, resolved: false },
-      { sagaId: 'SAGA-MOCK-2', orderId: 'ORD-MOCK-1003', sagaType: 'S2_FULFILLMENT', state: 'ESCALATED', step: 'REQUEST_FULFILLMENT', reasonCode: 'INSUFFICIENT_STOCK', reasonMessage: '[목] MFC 예약 거절 — 밖에서 처리한 뒤 완료 표시', since: ago(6), requeryable: false, resolved: false },
+      { sagaId: 'SAGA-MOCK-1', orderId: 'ORD-MOCK-1001', sagaType: 'S1_CHECKOUT', state: 'ESCALATED', step: 'AWAIT_PAYMENT_RESULT', reasonCode: 'PAYMENT_UNKNOWN', reasonMessage: 'PG 승인 결과를 모름 — 결제 결과 다시 확인 필요', since: ago(2), requeryable: true, resolved: false },
+      { sagaId: 'SAGA-MOCK-2', orderId: 'ORD-MOCK-1003', sagaType: 'S2_FULFILLMENT', state: 'ESCALATED', step: 'REQUEST_FULFILLMENT', reasonCode: 'INSUFFICIENT_STOCK', reasonMessage: 'MFC 예약 거절 — 밖에서 처리한 뒤 완료 표시', since: ago(6), requeryable: false, resolved: false },
     ],
     bffResults: new Map(),
     mfcPending: [
-      { kind: 'MFC_STOP_FAILED', refId: 'STOP-MOCK-1', orderId: 'ORD-MOCK-1002', mfcId: 'MFC-BSN-01', state: 'PENDING', reasonCode: 'PDA_OFFLINE', reasonMessage: '[목] 피킹 PDA 응답 없음 — 중지 확인 못 함', since: ago(4), retry: 'APPLIED', done: false, lastRetry: null },
-      { kind: 'MFC_HANDOVER_REJECTED', refId: 'HO-MOCK-1', orderId: 'ORD-MOCK-1001', mfcId: 'MFC-BSN-01', state: 'REJECTED', reasonCode: 'RECORD_MISMATCH', reasonMessage: '[목] 재고와 인계 수량이 다름', since: ago(8), retry: 'REJECTED', done: false, lastRetry: { operatorId: 'op-admin-1', reason: '[목] 실물 확인 전 재시도', retriedAt: ago(2) } },
+      { kind: 'MFC_STOP_FAILED', refId: 'STOP-MOCK-1', orderId: 'ORD-MOCK-1002', mfcId: 'MFC-BSN-01', state: 'PENDING', reasonCode: 'PDA_OFFLINE', reasonMessage: '피킹 PDA 응답 없음 — 중지 확인 못 함', since: ago(4), retry: 'APPLIED', done: false, lastRetry: null },
+      { kind: 'MFC_HANDOVER_REJECTED', refId: 'HO-MOCK-1', orderId: 'ORD-MOCK-1001', mfcId: 'MFC-BSN-01', state: 'REJECTED', reasonCode: 'RECORD_MISMATCH', reasonMessage: '재고와 인계 수량이 다름', since: ago(8), retry: 'REJECTED', done: false, lastRetry: { operatorId: 'op-admin-1', reason: '실물 확인 전 재시도', retriedAt: ago(2) } },
     ],
     issues: [
       { issueId: 'FI-MOCK-1', orderId: 'ORD-MOCK-1003', mfcId: 'MFC-BSN-01', sku: 'E-00000001', lotId: 'LOT-MOCK-7', blockedQty: 1, reason: 'QUALITY_HOLD', state: 'OPEN', blockedAt: ago(3), reservationId: 'RSV-MOCK-1', note: null, acknowledgedBy: null, acknowledgedAt: null, resolvedAt: null },
       { issueId: 'FI-MOCK-2', orderId: 'ORD-MOCK-1001', mfcId: 'MFC-SEL-01', sku: 'E-00000002', lotId: null, blockedQty: 2, reason: 'COUNT_LOSS', state: 'OPEN', blockedAt: ago(5), reservationId: 'RSV-MOCK-2', note: null, acknowledgedBy: null, acknowledgedAt: null, resolvedAt: null },
-      { issueId: 'FI-MOCK-3', orderId: 'ORD-MOCK-1002', mfcId: 'MFC-BSN-01', sku: 'E-00000003', lotId: 'LOT-MOCK-8', blockedQty: 1, reason: 'SHORT', state: 'ACKNOWLEDGED', blockedAt: ago(30), reservationId: 'RSV-MOCK-3', note: '[목] 고객센터 연락 완료', acknowledgedBy: 'OP-admin-1', acknowledgedAt: ago(28), resolvedAt: null },
+      { issueId: 'FI-MOCK-3', orderId: 'ORD-MOCK-1002', mfcId: 'MFC-BSN-01', sku: 'E-00000003', lotId: 'LOT-MOCK-8', blockedQty: 1, reason: 'SHORT', state: 'ACKNOWLEDGED', blockedAt: ago(30), reservationId: 'RSV-MOCK-3', note: '고객센터 연락 완료', acknowledgedBy: 'OP-admin-1', acknowledgedAt: ago(28), resolvedAt: null },
     ],
     orders: [
       order('ORD-MOCK-1001', 'IN_DELIVERY', ago(1), '01012345678'),
@@ -228,7 +228,7 @@ function seed(): OpsState {
       ['DLV-MOCK-4', dispatch('DLV-MOCK-4', 'ORD-MOCK-1003', 'DISPATCHING', undefined)],
     ]),
     complaints: [
-      { complaintId: 'RCP-MOCK-2', complaintType: 'MISDELIVERY', deliveryId: 'DLV-MOCK-21', riderId: 'RID-MOCK-2', recordedAt: ago(20), recordedBy: 'op-cs-1', source: 'CS_AGENT', note: '[목] 옆집에 두고 감' },
+      { complaintId: 'RCP-MOCK-2', complaintType: 'MISDELIVERY', deliveryId: 'DLV-MOCK-21', riderId: 'RID-MOCK-2', recordedAt: ago(20), recordedBy: 'op-cs-1', source: 'CS_AGENT', note: '옆집에 두고 감' },
       { complaintId: 'RCP-MOCK-1', complaintType: 'MISDELIVERY', deliveryId: 'DLV-MOCK-20', riderId: 'RID-MOCK-2', recordedAt: ago(48), recordedBy: 'op-cs-1', source: 'CS_AGENT', note: null },
     ],
     claims: [
@@ -282,8 +282,8 @@ function seed(): OpsState {
           version: 3,
           current: 'NORMAL',
           history: [
-            { riderId: 'RID-MOCK-2', previous: 'DISPATCH_RESTRICTED', restriction: 'NORMAL', reason: '[목] 소명 확인 — 제한 풀기', changedAt: ago(240), changedBy: 'op-admin-1', version: 3 },
-            { riderId: 'RID-MOCK-2', previous: 'NORMAL', restriction: 'DISPATCH_RESTRICTED', reason: '[목] 오배송 반복', changedAt: ago(300), changedBy: 'op-admin-1', version: 2 },
+            { riderId: 'RID-MOCK-2', previous: 'DISPATCH_RESTRICTED', restriction: 'NORMAL', reason: '소명 확인 — 제한 풀기', changedAt: ago(240), changedBy: 'op-admin-1', version: 3 },
+            { riderId: 'RID-MOCK-2', previous: 'NORMAL', restriction: 'DISPATCH_RESTRICTED', reason: '오배송 반복', changedAt: ago(300), changedBy: 'op-admin-1', version: 2 },
           ],
         },
       ],
@@ -305,7 +305,7 @@ function seed(): OpsState {
     cancellations: new Map(),
     /** execution 0.6.0 도움요청 대화(DLV-MOCK-1:HLP-MOCK-1) — seq 오름차순 */
     helpMessages: [
-      { messageId: 'HMSG-MOCK-1', seq: 1, senderType: 'RIDER', senderId: 'RID-MOCK-1', body: '[목] 호출해도 응답이 없어요. 문 앞에 두고 가도 될까요?', photoRefs: ['PHOTO-MOCK-1'], createdAt: ago(1) },
+      { messageId: 'HMSG-MOCK-1', seq: 1, senderType: 'RIDER', senderId: 'RID-MOCK-1', body: '호출해도 응답이 없어요. 문 앞에 두고 가도 될까요?', photoRefs: ['PHOTO-MOCK-1'], createdAt: ago(1) },
     ],
     helpState: 'OPEN',
   };
@@ -371,7 +371,7 @@ function createCancel(body: ClaimC['schemas']['CreateClaimRequest']) {
   const order = ops.orders.find((o) => o.orderId === body.orderId);
   if (!order) return problem(404, 'ORDER_NOT_FOUND');
   if (dispatch ? !['CONFIRMED', 'PREPARING'].includes(order.status) : order.status !== 'CONFIRMED')
-    return { status: 422, body: { type: 'about:blank', title: 'ORDER_NOT_CANCELLABLE', status: 422, code: 'ORDER_NOT_CANCELLABLE', traceId: 'mock', detail: '[목] 상품 준비가 시작되어 취소할 수 없습니다 — 받으신 뒤 반품으로 안내해 주세요.' } };
+    return { status: 422, body: { type: 'about:blank', title: 'ORDER_NOT_CANCELLABLE', status: 422, code: 'ORDER_NOT_CANCELLABLE', traceId: 'mock', detail: '상품 준비가 시작되어 취소할 수 없습니다 — 받으신 뒤 반품으로 안내해 주세요.' } };
   const whole = order.lines.every((l) => body.lines.some((x) => x.orderLineId === l.orderLineId && x.qty === (l.unfulfilledQty ?? 0)));
   if (!whole || body.lines.length !== order.lines.length) return problem(422, 'PARTIAL_CANCEL_NOT_ALLOWED');
   if (ops.claims.some((c) => c.type === 'CANCEL' && c.orderId === body.orderId && !['CANCELLED', 'CLOSED', 'REJECTED', 'WITHDRAWN'].includes(c.state ?? ''))) return problem(422, 'DUPLICATE_CLAIM');
@@ -398,8 +398,8 @@ const MAX_DAYS = 31;
 
 /** rider 0.4.0 목 라이더(직원 찾기·상세·원문 열람). 계정 제한 상태·version 은 ops.riders 와 같은 값 */
 const RIDER_PROFILES = [
-  { riderId: 'RID-MOCK-1', riderNumber: '482913', name: '[목] 김라이더', phone: '01011112222', vehicleType: 'MOTORCYCLE' as const, operatingStatus: 'ON_DUTY' as const, newDispatchEnabled: true, operatingMfcId: 'MFC-BSN-01', joinedAt: '2026-10-01T00:00:00Z', lastHeartbeatAt: '2026-11-15T01:00:00Z' },
-  { riderId: 'RID-MOCK-2', riderNumber: null as string | null, name: '[목] 이라이더', phone: '01033334444', vehicleType: 'BICYCLE' as const, operatingStatus: 'OFF_DUTY' as const, newDispatchEnabled: false, operatingMfcId: null, joinedAt: '2026-10-10T00:00:00Z', lastHeartbeatAt: null },
+  { riderId: 'RID-MOCK-1', riderNumber: '482913', name: '김라이더', phone: '01011112222', vehicleType: 'MOTORCYCLE' as const, operatingStatus: 'ON_DUTY' as const, newDispatchEnabled: true, operatingMfcId: 'MFC-BSN-01', joinedAt: '2026-10-01T00:00:00Z', lastHeartbeatAt: '2026-11-15T01:00:00Z' },
+  { riderId: 'RID-MOCK-2', riderNumber: null as string | null, name: '이라이더', phone: '01033334444', vehicleType: 'BICYCLE' as const, operatingStatus: 'OFF_DUTY' as const, newDispatchEnabled: false, operatingMfcId: null, joinedAt: '2026-10-10T00:00:00Z', lastHeartbeatAt: null },
 ];
 
 function riderSummary(r: (typeof RIDER_PROFILES)[number]) {
@@ -408,7 +408,7 @@ function riderSummary(r: (typeof RIDER_PROFILES)[number]) {
     riderId: r.riderId,
     riderNumber: r.riderNumber, // rider 0.12.0 화면 번호(ADR-0070) — RID-MOCK-2 는 null(번호 없음 대체 표시용)
     version: state?.version ?? 1,
-    // "[목] " 머리말은 떼고 가린다("김*더") — 원문 열람(pii-reveals)은 머리말까지 그대로
+    // "" 머리말은 떼고 가린다("김*더") — 원문 열람(pii-reveals)은 머리말까지 그대로
     nameMasked: maskName(r.name.replace(/^\[목\] /, '')) ?? null,
     phoneMasked: `${r.phone.slice(0, 3)}****${r.phone.slice(-4)}`,
     vehicleType: r.vehicleType,
@@ -1125,7 +1125,7 @@ export const opsHandlers = [
       state: ops.helpState,
       lastRiderMessageAt: ops.helpMessages.filter((x) => x.senderType === 'RIDER').at(-1)?.createdAt ?? null,
       lastSupportMessageAt: ops.helpMessages.filter((x) => x.senderType === 'SUPPORT').at(-1)?.createdAt ?? null,
-      detail: '[목] 공동현관이 잠겨 있고 호출해도 응답이 없어요.',
+      detail: '공동현관이 잠겨 있고 호출해도 응답이 없어요.',
       evidenceRefs: ['PHOTO-MOCK-1'],
       createdAt: ago(1),
       caseId: 'CASE-MOCK-1',

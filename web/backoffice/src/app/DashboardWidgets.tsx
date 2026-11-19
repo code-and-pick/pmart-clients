@@ -101,12 +101,12 @@ function StatCard({ icon, tone, label: title, value, sub, to, testId, children, 
         </svg>
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block text-xs font-medium text-base-content/55">{title}</span>
+        <span className="block truncate text-xs font-medium text-base-content/55">{title}</span>
         <span className={`block text-[28px] font-extrabold leading-tight tabular-nums ${failed ? 'text-base-content/35' : ''}`} title={failed ? m.failed : undefined}>
           {value}
           {ch.badge}
         </span>
-        {sub && <span className="block text-xs text-base-content/55">{sub}</span>}
+        {sub && <span className="block truncate text-xs text-base-content/55">{sub}</span>}
       </span>
       {children}
     </Link>
@@ -120,7 +120,7 @@ function Sparkline({ values }: { readonly values: ReadonlyArray<number | null> }
   const max = Math.max(1, ...vs);
   const pts = vs.map((v, i) => `${(i / (vs.length - 1)) * 100},${28 - (v / max) * 24}`).join(' ');
   return (
-    <svg viewBox="0 0 100 30" className="h-10 w-24 shrink-0 self-center text-primary" preserveAspectRatio="none" aria-hidden="true" data-testid="dash-sparkline">
+    <svg viewBox="0 0 100 30" className="h-9 w-16 shrink-0 self-center text-primary" preserveAspectRatio="none" aria-hidden="true" data-testid="dash-sparkline">
       <polyline points={`0,30 ${pts} 100,30`} className="fill-primary/10 stroke-none" />
       <polyline points={pts} className="fill-none stroke-current" strokeWidth={2} vectorEffect="non-scaling-stroke" strokeLinejoin="round" />
     </svg>
@@ -492,15 +492,15 @@ export function MetricsPanel({ from, to }: { readonly from: string; readonly to:
           }
           return (
             <div key={c.key} className={`rounded-lg border px-4 py-3 ${ready ? 'border-base-300' : 'border-dashed border-base-300 bg-base-200/30'}`} data-testid={`dash-metric-${c.key}`}>
-              <p className="text-xs text-base-content/60">{c.label}</p>
+              <p className="truncate text-xs text-base-content/60">{c.label}</p>
               <p className={`mt-0.5 text-xl font-bold ${ready ? '' : 'text-base-content/40'}`}>{value}</p>
-              <p className="text-[11px] text-base-content/45">{sub}</p>
+              <p className="truncate text-[11px] text-base-content/45">{sub}</p>
             </div>
           );
         })}
         {planned.map((c) => (
           <div key={c.key} className="rounded-lg border border-dashed border-base-300 bg-base-200/30 px-4 py-3" data-testid={`dash-metric-${c.key}`}>
-            <p className="text-xs text-base-content/60">{c.label}</p>
+            <p className="truncate text-xs text-base-content/60">{c.label}</p>
             <p className="mt-0.5 text-xl font-bold text-base-content/40">{m.metrics.soon}</p>
           </div>
         ))}
@@ -563,7 +563,7 @@ function WorkTile({ label: title, sum, to, tone, testId }: { readonly label: str
   const ch = useStatChange(sum ? sum.value : undefined);
   return (
     <Link to={to} data-testid={testId} className={`block rounded-lg border border-l-4 border-base-300 px-4 py-3 transition hover:bg-base-200/60 ${has ? color.split(' ')[1] : 'border-l-base-300'} ${ch.cls}`}>
-      <p className="text-xs text-base-content/60">{title}</p>
+      <p className="truncate text-xs text-base-content/60">{title}</p>
       <p className={`mt-0.5 text-2xl font-bold tabular-nums ${sum === null ? 'text-base-content/40' : has ? color.split(' ')[0] : 'text-base-content/70'}`} title={sum === null ? m.failed : undefined}>
         {sum === undefined ? '…' : sum === null ? m.work.unknown : workText(sum)}
         {ch.badge}
@@ -636,11 +636,11 @@ const REFUND_NAME: Readonly<Record<string, string>> = { CANCEL: '취소', SHORTA
 function MoneyCard({ title, amount, sub, testId, failed, children }: { readonly title: string; readonly amount: number | undefined; readonly sub: ReactNode; readonly testId: string; readonly failed: boolean; readonly children?: ReactNode }) {
   return (
     <div className="rounded-lg border border-base-300 px-4 py-3" data-testid={testId}>
-      <p className="text-xs text-base-content/60">{title}</p>
+      <p className="truncate text-xs text-base-content/60">{title}</p>
       <p className={`mt-0.5 text-2xl font-extrabold tabular-nums ${failed ? 'text-base-content/40' : ''}`} title={failed ? m.failed : undefined}>
         {amount === undefined ? (failed ? '?' : '…') : krw(amount)}
       </p>
-      <p className="text-xs text-base-content/55">{sub}</p>
+      <p className="truncate text-xs text-base-content/55">{sub}</p>
       {children}
     </div>
   );

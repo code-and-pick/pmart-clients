@@ -90,7 +90,7 @@ describe('교대 인계 역할(case 0.13.1)', () => {
     renderAt('/cases/handovers', as.riderOps);
     expect(await screen.findByTestId('handover-group-fixed')).toBeInTheDocument();
     expect(screen.queryByRole('combobox', { name: '팀' })).not.toBeInTheDocument();
-    expect(screen.getByTestId('handover-to-hint')).toHaveTextContent('후임도 그 팀 역할');
+    expect(screen.getByTestId('handover-to-hint')).toHaveTextContent('후임도 같은 팀 역할');
     cleanup();
     renderAt('/cases/handovers', as.admin);
     expect(await screen.findByRole('combobox', { name: '팀' })).toBeInTheDocument();

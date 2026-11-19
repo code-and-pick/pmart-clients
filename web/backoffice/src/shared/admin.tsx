@@ -263,8 +263,8 @@ export function StatCard({ label, value, hint, to, tone, testId, active = false,
         <span className={`absolute inset-y-0 left-0 w-1 ${bar}`} aria-hidden="true" />
         <span className="flex items-start justify-between gap-3">
           <span className="min-w-0">
-            <span className="block text-sm font-semibold">{label}</span>
-            {hint && <span className="mt-0.5 block text-[11px] text-base-content/50">{hint}</span>}
+            <span className="block truncate text-sm font-semibold">{label}</span>
+            {hint && <span className="mt-0.5 block truncate text-[11px] text-base-content/50">{hint}</span>}
           </span>
           <span className={`shrink-0 text-3xl font-bold leading-none tabular-nums ${valueCls}`}>
             {value}
@@ -275,12 +275,12 @@ export function StatCard({ label, value, hint, to, tone, testId, active = false,
     ) : (
     <>
       <span className={`absolute inset-y-0 left-0 w-1 ${bar}`} aria-hidden="true" />
-      <p className="text-xs font-medium text-base-content/60">{label}</p>
+      <p className="truncate text-xs font-medium text-base-content/60">{label}</p>
       <p className={`text-2xl font-bold leading-tight tabular-nums ${tone === 'error' ? 'text-error' : tone === 'warning' ? 'text-warning' : ''}`}>
         {value}
         {ch.badge}
       </p>
-      {hint && <p className="text-[11px] text-base-content/50">{hint}</p>}
+      {hint && <p className="truncate text-[11px] text-base-content/50">{hint}</p>}
     </>
   );
   // 고른 카드: 테두리 + 옅은 바탕(쿠팡 윙처럼 어느 상태를 보는지 한눈에)

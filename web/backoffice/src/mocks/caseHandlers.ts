@@ -42,12 +42,12 @@ function seed(): Case[] {
       caseId: 'CASE-MOCK-1',
       openObligationCount: 2,
       obligations: [
-        { obligationId: 'OBL-MOCK-1', caseId: 'CASE-MOCK-1', kind: 'CUSTOMER_CONTACT', owner: 'CS', state: 'OPEN', note: '[목] 도착 지연 안내 연락', dueAt: at(1), createdAt: at(-1), version: 1, resolutions: [] },
+        { obligationId: 'OBL-MOCK-1', caseId: 'CASE-MOCK-1', kind: 'CUSTOMER_CONTACT', owner: 'CS', state: 'OPEN', note: '도착 지연 안내 연락', dueAt: at(1), createdAt: at(-1), version: 1, resolutions: [] },
         { obligationId: 'OBL-MOCK-2', caseId: 'CASE-MOCK-1', kind: 'RETURN_PICKUP', owner: 'DELIVERY_OPS', state: 'OPEN', qty: 1, resolvedQty: 0, createdAt: at(-1), version: 1, resolutions: [] },
       ],
       kind: 'RIDER_HELP',
       priority: 'P1',
-      summary: '[목] 라이더 도움요청 — 건물 출입 불가',
+      summary: '라이더 도움요청 — 건물 출입 불가',
       subjectType: 'DELIVERY',
       subjectRef: 'DLV-MOCK-1',
       refs: [{ refType: 'deliveryId', refId: 'DLV-MOCK-1' }, { refType: 'orderId', refId: 'ORD-MOCK-1001' }, { refType: 'riderId', refId: 'RID-MOCK-1' }, { refType: 'incidentId', refId: 'DLV-MOCK-1:HLP-MOCK-1' }],
@@ -58,7 +58,7 @@ function seed(): Case[] {
       caseId: 'CASE-MOCK-2',
       kind: 'DELIVERY_INCIDENT',
       priority: 'P2',
-      summary: '[목] 전달 실패 — 고객 연락 안 됨',
+      summary: '전달 실패 — 고객 연락 안 됨',
       subjectType: 'DELIVERY',
       subjectRef: 'DLV-MOCK-2',
       refs: [{ refType: 'deliveryId', refId: 'DLV-MOCK-2' }, { refType: 'orderId', refId: 'ORD-MOCK-1002' }, { refType: 'riderId', refId: 'RID-MOCK-2' }],
@@ -68,7 +68,7 @@ function seed(): Case[] {
       caseId: 'CASE-MOCK-3',
       kind: 'RIDER_LOCATION_STALE',
       priority: 'P2',
-      summary: '[목] 배달 중 위치 끊김 10분',
+      summary: '배달 중 위치 끊김 10분',
       subjectType: 'DELIVERY',
       subjectRef: 'DLV-MOCK-3',
       refs: [{ refType: 'deliveryId', refId: 'DLV-MOCK-3' }, { refType: 'riderId', refId: 'RID-MOCK-1' }],
@@ -84,12 +84,12 @@ function seed(): Case[] {
       caseId: 'CASE-MOCK-4',
       kind: 'MISDELIVERY',
       priority: 'P3',
-      summary: '[목] 옆 동으로 오배송 확인',
+      summary: '옆 동으로 오배송 확인',
       subjectType: 'DELIVERY',
       subjectRef: 'DLV-MOCK-4',
       refs: [{ refType: 'deliveryId', refId: 'DLV-MOCK-4' }, { refType: 'orderId', refId: 'ORD-MOCK-1003' }, { refType: 'recoveryDeliveryId', refId: 'DLV-MOCK-R1' }, { refType: 'reshipmentDeliveryId', refId: 'DLV-MOCK-S1' }],
       state: 'CLOSED',
-      closure: { closedAt: at(-1), closedBy: 'op-admin-1', resolution: 'RESOLVED', summary: '[목] 회수 배차 완료' },
+      closure: { closedAt: at(-1), closedBy: 'op-admin-1', resolution: 'RESOLVED', summary: '회수 배차 완료' },
       history: [
         { action: 'OPENED', at: at(-3), toState: 'OPEN', actorId: 'op-cs-1' },
         { action: 'RECOVERY_CREATED', at: at(-2.5), actorId: 'SYSTEM', note: 'DLV-MOCK-R1' },
@@ -104,7 +104,7 @@ function seed(): Case[] {
       caseId: 'CASE-MOCK-5',
       kind: 'RECONCILIATION',
       priority: 'P2',
-      summary: '[목] 보상 해제 실패 — INVENTORY_RESERVATION',
+      summary: '보상 해제 실패 — INVENTORY_RESERVATION',
       subjectType: 'ORDER',
       subjectRef: 'ORD-MOCK-1004',
       assigneeGroup: 'ORDER_OPS',
@@ -116,7 +116,7 @@ function seed(): Case[] {
       caseId: 'CASE-MOCK-6',
       kind: 'DISPATCH_FAILED',
       priority: 'P2',
-      summary: '[목] 배차 실패 2번째 — 응답 만료 (10분마다 자동 재배차 중)',
+      summary: '배차 실패 2번째 — 응답 만료 (10분마다 자동 재배차 중)',
       subjectType: 'DELIVERY',
       subjectRef: 'DLV-MOCK-6',
       assigneeGroup: 'DELIVERY_OPS',
@@ -132,7 +132,7 @@ function seed(): Case[] {
       caseId: 'CASE-MOCK-R9',
       kind: 'DISPATCH_DELAYED',
       priority: 'P2',
-      summary: '[목] 배차 지연 — 약속보다 25분 늦음, 라이더 못 찾음',
+      summary: '배차 지연 — 약속보다 25분 늦음, 라이더 못 찾음',
       subjectType: 'DELIVERY',
       subjectRef: 'DLV-MOCK-R9',
       assigneeGroup: 'CS',
@@ -148,7 +148,7 @@ function seed(): Case[] {
       caseId: 'CASE-MOCK-R8',
       kind: 'RETURN_RECOVERY_FAILED',
       priority: 'P2',
-      summary: '[목] 반품 회수 두 번 실패 — 고객에게 다시 연락',
+      summary: '반품 회수 두 번 실패 — 고객에게 다시 연락',
       subjectType: 'CLAIM',
       subjectRef: 'CLM-MOCK-RF',
       assigneeGroup: 'CS',
@@ -364,9 +364,9 @@ export const caseHandlers = [
     const days = (Date.parse(to) - Date.parse(from)) / 86_400_000 + 1;
     const bad = (detail: string) =>
       HttpResponse.json({ type: 'about:blank', title: 'VALIDATION_FAILED', status: 400, code: 'VALIDATION_FAILED', traceId: 'mock-trace', details: [{ field: 'to' }], detail }, { status: 400, headers: { 'content-type': 'application/problem+json' } });
-    if (!(days >= 1)) return bad('[목] 시작일이 종료일보다 늦어요.');
-    if (!hour && days > 93) return bad('[목] 하루 묶음은 93일까지 볼 수 있어요.');
-    if (hour && days > 7) return bad('[목] 한 시간 묶음은 7일까지 볼 수 있어요.');
+    if (!(days >= 1)) return bad('시작일이 종료일보다 늦어요.');
+    if (!hour && days > 93) return bad('하루 묶음은 93일까지 볼 수 있어요.');
+    if (hour && days > 7) return bad('한 시간 묶음은 7일까지 볼 수 있어요.');
     // 종료일부터 거꾸로 사흘에만 끝난 건이 있다(0건 묶음은 줄이 없다)
     const day = (back: number) => new Date(Date.parse(`${to}T00:00:00+09:00`) - back * 86_400_000 + 9 * 3_600_000).toISOString().slice(0, 10);
     const bucket = (back: number, h: string) => (hour ? `${day(back)}T${h}:00` : day(back));

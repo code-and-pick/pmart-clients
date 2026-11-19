@@ -59,13 +59,13 @@ const order1001: readonly MockMatch[] = [
     kind: 'CASE',
     id: 'CASE-MOCK-1',
     system: 'case-service',
-    summary: { caseId: 'CASE-MOCK-1', kind: 'RIDER_HELP', state: 'OPEN', priority: 'P1', summary: '[목] 공동현관 비밀번호 모름', slaDueAt: at, overdue: true, assigneeId: null },
+    summary: { caseId: 'CASE-MOCK-1', kind: 'RIDER_HELP', state: 'OPEN', priority: 'P1', summary: '공동현관 비밀번호 모름', slaDueAt: at, overdue: true, assigneeId: null },
   },
   {
     kind: 'CASE',
     id: 'CASE-MOCK-0',
     system: 'case-service',
-    summary: { caseId: 'CASE-MOCK-0', kind: 'DELIVERY_INCIDENT', state: 'CLOSED', priority: 'P2', summary: '[목] 부재 — 문 앞 두기', slaDueAt: at, overdue: false, assigneeId: 'op-riderops-1' },
+    summary: { caseId: 'CASE-MOCK-0', kind: 'DELIVERY_INCIDENT', state: 'CLOSED', priority: 'P2', summary: '부재 — 문 앞 두기', slaDueAt: at, overdue: false, assigneeId: 'op-riderops-1' },
   },
   {
     kind: 'INQUIRY',

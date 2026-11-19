@@ -30,7 +30,7 @@ const seed = (): Inquiry[] => [
     version: 1,
     caseId: 'CASE-MOCK-3',
     customerId: 'CUS-MOCK-1',
-    body: '[목] 배송 완료라고 뜨는데 아직 못 받았어요.',
+    body: '배송 완료라고 뜨는데 아직 못 받았어요.',
     deliveryIssue: 'NOT_RECEIVED',
     deliveryId: 'DLV-MOCK-1',
     photos: [photo('IPH-MOCK-1'), photo('IPH-MOCK-2')],
@@ -48,7 +48,7 @@ const seed = (): Inquiry[] => [
     version: 1,
     caseId: 'CASE-MOCK-2',
     customerId: 'CUS-MOCK-2',
-    body: '[목] 환불은 언제 들어오나요?',
+    body: '환불은 언제 들어오나요?',
     replies: [],
   },
   {
@@ -63,9 +63,9 @@ const seed = (): Inquiry[] => [
     version: 2,
     caseId: 'CASE-MOCK-1',
     customerId: 'CUS-MOCK-3',
-    body: '[목] 우유 소비기한이 얼마나 남은 상품이 오나요?',
-    satisfaction: { score: 4, comment: '[목] 빨리 답해 줘서 좋았어요', ratedAt: '2026-11-13T05:00:00Z' },
-    replies: [{ replyId: 'REP-MOCK-1', authorType: 'AGENT', body: '[목] 남은 기한을 확인하고 보내 드립니다.', createdAt: '2026-11-13T03:00:00Z' }],
+    body: '우유 소비기한이 얼마나 남은 상품이 오나요?',
+    satisfaction: { score: 4, comment: '빨리 답해 줘서 좋았어요', ratedAt: '2026-11-13T05:00:00Z' },
+    replies: [{ replyId: 'REP-MOCK-1', authorType: 'AGENT', body: '남은 기한을 확인하고 보내 드립니다.', createdAt: '2026-11-13T03:00:00Z' }],
   },
   {
     inquiryId: 'INQ-MOCK-R1',
@@ -80,7 +80,7 @@ const seed = (): Inquiry[] => [
     version: 1,
     caseId: 'CASE-MOCK-R1',
     riderId: 'RID-MOCK-1',
-    body: '[목] 어제 정산 금액이 앱에 안 보여요.',
+    body: '어제 정산 금액이 앱에 안 보여요.',
     // 두 번째는 저장소에서 지워진 사진처럼 본문 404
     photos: [photo('IPH-MOCK-R1'), photo('IPH-MOCK-GONE')],
     replies: [],
@@ -98,11 +98,11 @@ const seed = (): Inquiry[] => [
     version: 2,
     caseId: 'CASE-MOCK-R2',
     riderId: 'RID-MOCK-2',
-    body: '[목] 배송 완료 버튼이 안 눌려요.',
+    body: '배송 완료 버튼이 안 눌려요.',
     // case 0.21.0: 라이더가 답변 뒤에 이어 씀 → 다시 RECEIVED
     replies: [
-      { replyId: 'REP-MOCK-R1', authorType: 'AGENT', body: '[목] 앱을 다시 켜 주세요.', createdAt: '2026-11-14T04:00:00Z' },
-      { replyId: 'REP-MOCK-R2', authorType: 'RIDER', body: '[목] 다시 켜도 안 눌려요.', createdAt: '2026-11-14T05:00:00Z' },
+      { replyId: 'REP-MOCK-R1', authorType: 'AGENT', body: '앱을 다시 켜 주세요.', createdAt: '2026-11-14T04:00:00Z' },
+      { replyId: 'REP-MOCK-R2', authorType: 'RIDER', body: '다시 켜도 안 눌려요.', createdAt: '2026-11-14T05:00:00Z' },
     ],
   },
 ];
