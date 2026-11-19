@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 픽라이더 로고 바탕 보라(가운데쯤 색). 적응형 아이콘 가장자리에만 보인다. -->
+    <color name="ic_launcher_background">#4F0BC9</color>
+</resources>

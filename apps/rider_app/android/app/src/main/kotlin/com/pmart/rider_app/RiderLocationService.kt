@@ -95,7 +95,7 @@ class RiderLocationService : Service() {
                 // 권한이 그 사이 빠졌으면(설정에서 끔) startForeground 가 SecurityException 으로 앱을 종료한다 — 조용히 내린다.
                 try {
                     startInForeground(
-                        intent.getStringExtra(EXTRA_TITLE) ?: "PMart 라이더 운행 중",
+                        intent.getStringExtra(EXTRA_TITLE) ?: "픽라이더 운행 중",
                         intent.getStringExtra(EXTRA_TEXT) ?: "배차와 배달을 위해 위치를 보내고 있어요",
                         intent.getStringExtra(EXTRA_CHANNEL) ?: "운행 중 위치 전송",
                     )
@@ -293,7 +293,7 @@ class RiderLocationService : Service() {
         }
         manager.notify(
             NOTIFICATION_ID,
-            notification("신규배차가 켜져 있어요", "눌러서 PMart 라이더 앱으로 가기", DUTY_CHANNEL_ID),
+            notification("신규배차가 켜져 있어요", "눌러서 픽라이더 앱으로 가기", DUTY_CHANNEL_ID),
         )
     }
 

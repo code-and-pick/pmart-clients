@@ -5,6 +5,7 @@ analyzer:
     - build/**
     - android/**
     - ios/**
+    - tool/icon/**   # 아이콘 생성 스크립트 — package:image 는 앱 의존성이 아니라 임시 프로젝트에서 돌린다
   language:
     strict-casts: true
     strict-inference: true
