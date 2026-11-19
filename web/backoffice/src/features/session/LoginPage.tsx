@@ -10,7 +10,8 @@ import { mockAccounts } from '../../mocks/operators';
 import { messages as m } from '../../shared/messages';
 
 /** 열린 리디렉트 방지: 앱 안 경로만 */
-const safeFrom = (from: string | null) => (from && from.startsWith('/') && !from.startsWith('//') ? from : '/approvals');
+// 갈 곳이 없으면(로그인 화면을 바로 연 경우) 첫 화면 = 대시보드(2026-11-19 사용자 — 전에는 승인함. PC 1 영역이지만 사용자 허락으로 이 한 줄만)
+const safeFrom = (from: string | null) => (from && from.startsWith('/') && !from.startsWith('//') ? from : '/');
 
 export function LoginPage() {
   const { signedIn, restoring, startEmployeeLogin, canTrySilentLogin, startSilentLogin, startMockLogin, signOutUnconfirmed } = useSession();

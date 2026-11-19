@@ -77,6 +77,15 @@ describe('목 로그인 화면', () => {
     rec.stop();
   });
 
+  it('로그인 화면을 바로 열어 로그인하면(갈 곳 없음) 첫 화면은 대시보드(2026-11-19 사용자)', async () => {
+    const user = userEvent.setup();
+    render(<App memory initialPath="/login" />);
+    expect(await screen.findByRole('heading', { name: '운영자 로그인' })).toBeInTheDocument();
+    await clickAccount(user, /관리자/);
+    expect(await screen.findByTestId('dashboard')).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: '승인함' })).not.toBeInTheDocument();
+  });
+
   it('새로고침(앱 다시 마운트)해도 이 탭에 보관한 refresh token 으로 세션을 되살려 로그인 화면으로 보내지 않는다', async () => {
     const user = userEvent.setup();
     const first = render(<App memory initialPath="/products" />);
