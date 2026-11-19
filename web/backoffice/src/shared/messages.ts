@@ -62,7 +62,6 @@ export const messages = {
     session: '내 세션',
     login: '로그인',
     approvals: '승인함',
-    bffInbox: '모든 승인 한눈에',
     categories: '카테고리 트리',
     productNew: '상품 등록',
     productImport: '상품 일괄 등록',
@@ -1748,13 +1747,13 @@ export const messages = {
     } as const,
     executionState: {
       NOT_REQUESTED: '반영 전',
-      VALIDATING: '반영 검증 중',
-      ACCEPTED: '반영 접수(완료 아님)',
+      VALIDATING: '검증 중',
+      ACCEPTED: '접수됨',
       IN_PROGRESS: '반영 중',
-      PARTIAL: '일부 적용',
-      APPLIED: '실행 완료',
+      PARTIAL: '일부 반영',
+      APPLIED: '반영 완료',
       REJECTED: '반영 거절',
-      UNKNOWN_RESULT: '반영 결과 확인 중',
+      UNKNOWN_RESULT: '확인 중',
     } as const,
     // 2026-11-18 사용자 "직관적이지 않다" — 코드 대신 업무 이름(원래 코드는 마우스를 올리면)
     /** 거르기 칩에 없는 승인 유형(ApprovalType) — 화면 표시용만. 뜻이 분명한 것만, 그 밖은 코드 그대로 */

@@ -35,7 +35,6 @@ import { LiveClock, RoleChips } from './HeaderContext';
 
 // 화면은 열 때 받는다(2026-11-19 — 앱 전체가 파일 하나라 첫 화면이 느렸다). 로그인·세션·대시보드·업무 도우미 틀은 처음부터.
 const ApprovalDetailPage = lazy(() => import('../features/approvals/ApprovalDetailPage').then((x) => ({ default: x.ApprovalDetailPage })));
-const ApprovalInboxPage = lazy(() => import('../features/approvals/ApprovalInboxPage').then((x) => ({ default: x.ApprovalInboxPage })));
 const ApprovalListPage = lazy(() => import('../features/approvals/ApprovalListPage').then((x) => ({ default: x.ApprovalListPage })));
 const CategoryTreePage = lazy(() => import('../features/categories/CategoryTreePage').then((x) => ({ default: x.CategoryTreePage })));
 const ContentDraftPage = lazy(() => import('../features/contents/ContentDraftPage').then((x) => ({ default: x.ContentDraftPage })));
@@ -325,7 +324,8 @@ const routes = [
       { path: 'session', element: guarded(<SessionPage />) },
       { path: 'approvals', element: guarded(<ApprovalListPage />) },
       { path: 'approvals/:approvalId', element: guarded(<ApprovalDetailPage />) },
-      { path: 'views/approval-inbox', element: guarded(<ApprovalInboxPage />) },
+      // "모든 승인 한눈에"는 승인함과 같은 목록이라 합침(2026-11-20) — 예전 주소는 승인함으로
+      { path: 'views/approval-inbox', element: <Navigate to="/approvals" replace /> },
       { path: 'categories', element: guarded(<CategoryTreePage />) },
       { path: 'products', element: guarded(<ProductListPage />) },
       { path: 'products/drafts/new', element: guarded(<NewProductDraftPage />) },

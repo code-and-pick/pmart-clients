@@ -7,6 +7,8 @@ const PATTERNS: readonly RegExp[] = [
   /\b[a-z]+(?:[A-Z][a-z]*)+:[A-Za-z0-9_-]+/g,
   new RegExp(`\\b[A-Z]{1,6}-${UUID}\\b`, 'g'),
   new RegExp(`\\b${UUID}\\b`, 'g'),
+  // ③ 원천 서비스 이름 + 참조(hr-service GR-seed-1) — 직원 권한 요청 요약 끝에 붙어 온다(2026-11-20)
+  /\b[a-z]+(?:-[a-z]+)*-service(?:\s+[A-Za-z0-9][\w-]*)?/g,
 ];
 
 /** 문장에 시스템 ID 모양이 있으면 걷어내고 빈 괄호·겹친 구분자를 정리한다. ID 뿐이던 문장이면 빈 문자열 */

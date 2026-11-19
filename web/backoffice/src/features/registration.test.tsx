@@ -43,7 +43,7 @@ describe('상품 등록 → 승인 요청 → 승인 → 반영', () => {
     expect(await screen.findByText(/결정을 기록했어요/)).toBeInTheDocument();
     // 심사와 실행은 다른 축이다: 심사 완료 뒤 실행 완료는 따로 확인된다.
     await waitFor(() => expect(screen.getByTestId('review-state')).toHaveTextContent('심사 완료(승인)'));
-    await waitFor(() => expect(screen.getByTestId('execution-state')).toHaveTextContent('실행 완료'));
+    await waitFor(() => expect(screen.getByTestId('execution-state')).toHaveTextContent('반영 완료'));
 
     const draft = [...db.productDrafts.values()][0];
     expect(draft?.state).toBe('APPLIED');

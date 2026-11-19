@@ -59,7 +59,6 @@ export const navGroups: readonly NavGroup[] = [
     visibleTo: (role) => role.endsWith('_APPROVER') || role === 'OPERATOR_ADMIN',
     items: [
       { to: '/approvals', label: m.nav.approvals },
-      { to: '/views/approval-inbox', label: m.nav.bffInbox },
     ],
   },
   {

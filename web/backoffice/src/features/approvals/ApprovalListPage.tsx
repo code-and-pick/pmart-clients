@@ -125,7 +125,16 @@ export function ApprovalListPage() {
           {() => (
             <>
               <div className="overflow-x-auto">
-                <table className="table [&_tbody_tr:hover]:bg-base-200/60 [&_tbody_tr]:border-base-300/70 [&_thead_th]:text-xs [&_thead_th]:font-medium [&_thead_th]:text-base-content/50">
+                <table className="table table-fixed min-w-[56rem] [&_tbody_tr:hover]:bg-base-200/60 [&_tbody_tr]:border-base-300/70 [&_thead_th]:text-xs [&_thead_th]:font-medium [&_thead_th]:text-base-content/50">
+                  {/* 칸 너비 고정 — 긴 요청 제목이 표를 밀어 반영 칸이 화면 밖으로 나가지 않게(2026-11-20), 제목만 말줄임 */}
+                  <colgroup>
+                    <col />
+                    <col className="w-32" />
+                    <col className="w-56" />
+                    <col className="w-28" />
+                    <col className="w-28" />
+                    <col className="w-36" />
+                  </colgroup>
                   <thead>
                     <tr>
                       <th>{m.approvals.request}</th>
@@ -139,7 +148,7 @@ export function ApprovalListPage() {
                   <tbody>
                     {rows.map((a, i) => (
                       <tr key={a.approvalId ?? `row-${i}`} data-testid="approval-row" {...pv.row(a.approvalId)}>
-                        <td className="max-w-xl">
+                        <td className="min-w-0">
                           <p className="truncate font-medium" title={hideIds(a.summary) || undefined}>
                             {hideIds(a.summary) || m.none}
                           </p>
@@ -150,7 +159,7 @@ export function ApprovalListPage() {
                           </span>
                         </td>
                         <td>{a.type ? <TypeBadge type={a.type} /> : m.none}</td>
-                        <td>{a.requesterId ? <Requester id={a.requesterId} /> : m.none}</td>
+                        <td className="truncate">{a.requesterId ? <Requester id={a.requesterId} /> : m.none}</td>
                         <td>{a.reviewState ? <StatusBadge tone={REVIEW_TONE[a.reviewState] ?? 'ghost'}>{m.approvals.reviewState[a.reviewState]}</StatusBadge> : m.none}</td>
                         <td>{a.executionState ? <StatusBadge tone={EXEC_TONE[a.executionState] ?? 'ghost'}>{m.approvals.executionState[a.executionState]}</StatusBadge> : m.none}</td>
                         <td className="whitespace-nowrap text-right">
