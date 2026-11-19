@@ -61,15 +61,17 @@ describe('제한 검토 — 상태 탭·결정', () => {
     const view = renderAt('/restriction-reviews', as.riderOps);
     const row = await screen.findByTestId('review-row');
     expect(row).toHaveTextContent('RD-8');
-    expect(row).toHaveTextContent('RC-4');
+    expect(row).not.toHaveTextContent('RC-4'); // 컴플레인 ID 는 목록에 내지 않는다(ADR-0070)
+    expect(row).toHaveTextContent('3건');
     const gets = () => view.sent.filter((r) => r.method === 'GET' && new URL(r.url).pathname.endsWith('/restriction-reviews')).length;
     const before = gets();
     await userEvent.click(within(row).getByRole('button', { name: '제한 안 함' }));
     // 같은 줄이 닫힌 기록(상태·언제·누가)으로 바뀐다 — 결정 버튼은 사라진다
     await within(screen.getByTestId('review-row')).findByText('제한 안 함');
     const closed = screen.getByTestId('review-row');
-    expect(closed).toHaveTextContent('RD-8');
-    expect(closed).toHaveTextContent('OP-rops-1');
+    expect(await within(closed).findByText('730115')).toBeInTheDocument(); // 라이더 번호(ADR-0070)
+    expect(closed).toHaveTextContent(/나|직원/);
+    expect(closed).not.toHaveTextContent('OP-');
     expect(within(closed).queryByRole('button', { name: '제한함' })).not.toBeInTheDocument();
     expect(gets()).toBe(before);
   });
@@ -78,9 +80,10 @@ describe('제한 검토 — 상태 탭·결정', () => {
     const view = renderAt('/restriction-reviews', as.riderOps);
     await screen.findByTestId('review-row');
     await userEvent.click(within(screen.getByRole('radiogroup', { name: '제한 검토' })).getByRole('radio', { name: '제한 안 함' }));
-    const row = await screen.findByText('RD-7');
+    const row = await screen.findByText('482913'); // 라이더 번호(ADR-0070)
     const tr = row.closest('tr')!;
-    expect(tr).toHaveTextContent('OP-rops-1');
+    expect(tr).toHaveTextContent(/나|직원/);
+    expect(tr).not.toHaveTextContent('OP-');
     expect(tr).toHaveTextContent('고객 오해 — 통화 확인');
     expect(within(tr).queryByRole('button', { name: '제한함' })).not.toBeInTheDocument();
     expect(view.sent.some((r) => new URL(r.url).searchParams.get('state') === 'DISMISSED')).toBe(true);
@@ -94,8 +97,8 @@ describe('라이더 상세 — 열린 제한 검토·컴플레인', () => {
     expect(within(reviews).getByText('파손')).toBeInTheDocument();
     const complaints = await screen.findAllByTestId('complaint-row');
     expect(complaints).toHaveLength(3);
-    expect(complaints[0]).toHaveTextContent('RC-6');
-    expect(within(complaints[0]!).getByRole('link', { name: 'DLV-6' })).toHaveAttribute('href', '/deliveries/DLV-6');
+    expect(complaints[0]).not.toHaveTextContent('RC-6'); // 컴플레인 ID(시스템 ID)는 목록에 내지 않는다
+    expect(within(complaints[0]!).getByRole('link', { name: /DLV-6/ })).toHaveAttribute('href', '/deliveries/DLV-6');
     const rv = view.sent.find((r) => new URL(r.url).pathname.endsWith('/restriction-reviews'))!;
     expect([new URL(rv.url).searchParams.get('riderId'), new URL(rv.url).searchParams.get('state')]).toEqual(['RD-8', 'OPEN']);
     const rc = view.sent.find((r) => new URL(r.url).pathname.endsWith('/rider-complaints'))!;
@@ -139,7 +142,7 @@ describe('라이더 상세 — 배정 이력', () => {
     expect(rows).toHaveLength(3);
     expect(rows[0]).toHaveTextContent('진행 중');
     expect(rows[0]).toHaveTextContent('3,900');
-    expect(within(rows[0]!).getByRole('link', { name: 'DLV-1' })).toHaveAttribute('href', '/deliveries/DLV-1');
+    expect(await within(rows[0]!).findByRole('link', { name: /48213075-1/ })).toHaveAttribute('href', '/deliveries/DLV-1');
     expect(rows[1]).toHaveTextContent('이 라이더로 끝남');
     expect(rows[2]).toHaveTextContent('픽업 전 취소');
     expect(rows[2]).toHaveTextContent('운영자 · 라이더 미도착');

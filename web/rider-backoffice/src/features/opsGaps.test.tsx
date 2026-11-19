@@ -58,14 +58,15 @@ describe('추가 배달료 거르기', () => {
     await userEvent.click(screen.getByRole('radio', { name: '승인' }));
     const decided = await screen.findByTestId('surcharge-decided');
     expect(decided).toHaveTextContent('승인');
-    expect(decided).toHaveTextContent('OP-rops-1');
+    expect(decided).toHaveTextContent(/나|직원/); // 직원은 OP-… 대신(ADR-0070)
+    expect(decided).not.toHaveTextContent('OP-');
     expect(screen.queryByRole('button', { name: /승인$/ })).toBeNull();
 
     await userEvent.click(screen.getByRole('radio', { name: '전체' }));
     expect(await screen.findAllByTestId('surcharge-row')).toHaveLength(2);
     expect(surchargeQuery(view.sent).at(-1)!.has('state')).toBe(false);
 
-    await userEvent.type(screen.getByLabelText('라이더 ID(완전 일치)'), 'RD-8');
+    await userEvent.type(screen.getByLabelText('라이더 번호 6자리(또는 라이더 ID)'), 'RD-8');
     await userEvent.click(screen.getByRole('button', { name: '찾기' }));
     expect(await screen.findAllByTestId('surcharge-row')).toHaveLength(1);
     expect(surchargeQuery(view.sent).at(-1)!.get('riderId')).toBe('RD-8');

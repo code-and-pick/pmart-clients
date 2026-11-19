@@ -16,7 +16,7 @@ describe('접수 건 목록', () => {
     const help = rows.find((r) => r.textContent?.includes('고객 연락 안 됨'))!;
     expect(within(help).getByText('라이더 도움요청')).toBeInTheDocument();
     expect(within(help).getByText(/기한 넘김/)).toHaveAttribute('data-overdue', 'true');
-    expect(within(help).getByRole('link', { name: '배송 DLV-1' })).toHaveAttribute('href', '/deliveries/DLV-1');
+    expect(await within(help).findByRole('link', { name: /48213075-1/ })).toHaveAttribute('href', '/deliveries/DLV-1');
     const q = caseCalls(view.sent)[0]!;
     expect([q.get('state'), q.get('kind'), q.get('size')]).toEqual([null, null, '50']);
   });

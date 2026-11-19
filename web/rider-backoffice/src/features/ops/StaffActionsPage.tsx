@@ -12,7 +12,8 @@ import { Link, useSearchParams } from 'react-router';
 import { request } from '@pmart/web-core';
 import { useApi } from '../../app/ApiContext';
 import { DataTable, Notice, PageHeader, ResultBar, SearchPanel, SearchRow } from '../../shared/admin';
-import { DeliveryNo, RiderName, useRiderSummaries } from '../../shared/displayNumbers';
+import { DeliveryNo, resolveDeliveryId, resolveRiderId, RiderName, StaffName, useRiderSummaries } from '../../shared/displayNumbers';
+import { useSession } from '../../app/SessionContext';
 import { when } from '../../shared/opsUi';
 
 export const actionText = {
@@ -22,9 +23,9 @@ export const actionText = {
   to: '끝일',
   period: '기간',
   who: '누가·누구',
-  operatorId: '조치한 직원 ID',
-  riderId: '라이더 ID',
-  deliveryId: '배송 ID',
+  operatorId: '조치한 직원(ID)',
+  riderId: '라이더 번호',
+  deliveryId: '배송 번호',
   search: '조회',
   reset: '초기화',
   tooLong: '기간은 최대 31일까지 볼 수 있어요.',
@@ -123,10 +124,34 @@ export function StaffActionsMenu() {
     ...(riderId ? { riderId } : {}),
     ...(deliveryId ? { deliveryId } : {}),
   };
+  // 찾기 칸은 화면 번호로(ADR-0070) — 라이더 번호 6자리·배송 번호(74939255-1)를 시스템 ID 로 바꿔 부른다. 맞는 대상이 없으면 빈 목록.
+  const resolveQuery = async () => {
+    const rid = riderId ? await resolveRiderId(api, riderId) : '';
+    const did = deliveryId ? await resolveDeliveryId(api, deliveryId) : '';
+    if (rid === null || did === null) return null;
+    return {
+      size: 50,
+      ...(from ? { from: seoulDayStart(from) } : {}),
+      ...(to ? { to: seoulDayStart(to, true) } : {}),
+      ...(operatorId ? { operatorId } : {}),
+      ...(rid ? { riderId: rid } : {}),
+      ...(did ? { deliveryId: did } : {}),
+    };
+  };
+  const none: ActionPage = { items: [], nextCursor: null };
   const fetchers: Record<SourceKey, (cursor: string | undefined) => Promise<ActionPage>> = {
-    rider: (cursor) => request('GET', api.riders.GET('/rider-staff-actions', { params: { query: { ...query, ...(cursor ? { cursor } : {}) } } })),
-    execution: (cursor) => request('GET', api.execution.GET('/delivery-staff-actions', { params: { query: { ...query, ...(cursor ? { cursor } : {}) } } })),
-    dispatch: (cursor) => request('GET', api.dispatch.GET('/dispatch-staff-actions', { params: { query: { ...query, ...(cursor ? { cursor } : {}) } } })),
+    rider: async (cursor) => {
+      const q = await resolveQuery();
+      return q ? request('GET', api.riders.GET('/rider-staff-actions', { params: { query: { ...q, ...(cursor ? { cursor } : {}) } } })) : none;
+    },
+    execution: async (cursor) => {
+      const q = await resolveQuery();
+      return q ? request('GET', api.execution.GET('/delivery-staff-actions', { params: { query: { ...q, ...(cursor ? { cursor } : {}) } } })) : none;
+    },
+    dispatch: async (cursor) => {
+      const q = await resolveQuery();
+      return q ? request('GET', api.dispatch.GET('/dispatch-staff-actions', { params: { query: { ...q, ...(cursor ? { cursor } : {}) } } })) : none;
+    },
   };
   const sources = {
     rider: useSource('rider', query, fetchers.rider, !problem),
@@ -142,6 +167,7 @@ export function StaffActionsMenu() {
     }),
   );
   const riders = useRiderSummaries(shown.map((r) => r.riderId));
+  const me = useSession().session?.subject;
   const failed = SOURCES.filter((s) => sources[s].isError);
   const loading = SOURCES.some((s) => sources[s].isPending && !sources[s].isError) && !problem;
   const canMore = SOURCES.some((s) => sources[s].hasNextPage);
@@ -220,7 +246,7 @@ export function StaffActionsMenu() {
                     <tr key={`${r.at}-${r.action}-${r.deliveryId ?? r.riderId ?? ''}-${i}`} data-testid="staff-action-row">
                       <td className="whitespace-nowrap">{when(r.at)}</td>
                       <td className="whitespace-nowrap font-medium">{t.actionName[r.action] ?? r.action}</td>
-                      <td className="font-mono text-xs">{r.actorId}</td>
+                      <td><StaffName operatorId={r.actorId} me={me} /></td>
                       <td>
                         {r.riderId ? (
                           <Link to={`/riders/${encodeURIComponent(r.riderId)}`} className="hover:underline">

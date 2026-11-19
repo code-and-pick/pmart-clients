@@ -13,7 +13,7 @@ import { useApi } from '../../app/ApiContext';
 import { isLiveDelivery, LIVE } from '../../shared/liveRefresh';
 import { messages } from '../../shared/messages';
 import { ChipGroup, CursorPager, DataTable, DetailHeader, FieldList, PageHeader, ResultBar, SearchPanel, SearchRow, Section, SectionTabs, StatusBadge, type Tone } from '../../shared/admin';
-import { DeliveryNo, RiderName, SystemIds, useRiderSummaries } from '../../shared/displayNumbers';
+import { DeliveryNo, DeliveryRef, resolveRiderId, RiderName, SystemIds, useDeliveryNumbers, useRiderSummaries } from '../../shared/displayNumbers';
 import { ops } from '../../shared/opsMessages';
 import { DeliveryActions } from './DeliveryActions';
 import { DeliveryEarning, DeliveryProof, DispatchAttempts, EtaPanel, extrasMessages } from './DeliveryExtras';
@@ -76,8 +76,11 @@ function DeliverySearchPage() {
     // 20초마다 다시 — 새로 받는 동안 이전 목록을 그대로 둬 깜빡이지 않게
     refetchInterval: LIVE.deliveryList,
     placeholderData: keepPreviousData,
-    queryFn: () =>
-      request(
+    queryFn: async () => {
+      // 라이더 번호 6자리로도 찾는다(ADR-0070) — 맞는 라이더가 없으면 빈 목록
+      const rid = riderId ? await resolveRiderId(api, riderId) : '';
+      if (rid === null) return { items: [], page: { nextCursor: null } };
+      return request(
         'GET',
         api.execution.GET('/deliveries', {
           params: {
@@ -85,7 +88,7 @@ function DeliverySearchPage() {
               size: PAGE_SIZE,
               ...(orderId ? { orderId } : {}),
               ...(orderNumber ? { orderNumber } : {}),
-              ...(riderId ? { riderId } : {}),
+              ...(rid ? { riderId: rid } : {}),
               ...(state ? { state } : {}),
               ...(type ? { type } : {}),
               ...(oldest ? { sort: 'OLDEST' as const } : {}),
@@ -93,7 +96,8 @@ function DeliverySearchPage() {
             },
           },
         }),
-      ),
+      );
+    },
   });
 
   // 라이더 칸: 가린 이름 · 라이더 번호(GET /riders?riderIds= 한 번에 — ADR-0070)
@@ -112,17 +116,21 @@ function DeliverySearchPage() {
       <SearchPanel onSubmit={submit} onReset={reset} submitLabel={m.search} resetLabel={m.reset}>
         <SearchRow label="번호로 찾기">
           <label className="flex items-center gap-2 text-sm">
-            <span className="text-base-content/60">{m.orderId}</span>
-            <input className="input input-sm w-44" value={draft.orderId} maxLength={64} onChange={(e) => setDraft({ ...draft, orderId: e.target.value })} />
-          </label>
-          <label className="flex items-center gap-2 text-sm">
             <span className="text-base-content/60">{ops.actions.orderNumber}</span>
             <input className="input input-sm w-32" value={draft.orderNumber} maxLength={8} inputMode="numeric" placeholder="8자리" onChange={(e) => setDraft({ ...draft, orderNumber: e.target.value })} />
           </label>
           <label className="flex items-center gap-2 text-sm">
             <span className="text-base-content/60">{m.riderId}</span>
-            <input className="input input-sm w-40" value={draft.riderId} maxLength={64} onChange={(e) => setDraft({ ...draft, riderId: e.target.value })} />
+            <input className="input input-sm w-40" value={draft.riderId} maxLength={64} placeholder="6자리" onChange={(e) => setDraft({ ...draft, riderId: e.target.value })} />
           </label>
+          {/* 시스템 ID(ORD-…)는 겉에 두지 않는다(ADR-0070) — 서버 로그 대조용으로만 접어 둔다 */}
+          <details className="text-sm">
+            <summary className="cursor-pointer select-none text-xs text-base-content/50">시스템 번호로 찾기</summary>
+            <label className="mt-1 flex items-center gap-2">
+              <span className="text-base-content/60">{m.orderId}</span>
+              <input className="input input-sm w-44" value={draft.orderId} maxLength={64} onChange={(e) => setDraft({ ...draft, orderId: e.target.value })} />
+            </label>
+          </details>
         </SearchRow>
         <SearchRow label={m.state}>
           <ChipGroup
@@ -169,7 +177,7 @@ function DeliverySearchPage() {
                           <DeliveryNo deliveryId={d.deliveryId ?? ''} deliveryNumber={d.deliveryNumber} orderNumber={d.orderNumber} />
                         </Link>
                       </td>
-                      <td className="font-mono">{d.orderNumber ?? <span className="text-base-content/40">{d.orderId ?? none}</span>}</td>
+                      <td className="font-mono">{d.orderNumber ?? <span className="text-base-content/40">{none}</span>}</td>
                       <td>{name(n.deliveryType, d.type)}</td>
                       <td>
                         <span className="flex flex-wrap items-center gap-1">
@@ -286,7 +294,7 @@ function DeliveryDetailPage() {
                     [m.col.state, name(n.executionState, x.state)],
                     [m.col.type, name(n.deliveryType, x.type)],
                     [m.purpose, name(n.purpose, x.purpose)],
-                    [m.orderNumber, <span className="font-mono">{x.orderNumber ?? x.orderId ?? none}</span>],
+                    [m.orderNumber, <span className="font-mono">{x.orderNumber ?? none}</span>],
                     [m.col.mfc, x.mfcName ?? x.mfcId ?? none],
                     [m.col.rider, x.riderId ? <RiderName riderId={x.riderId} nameMasked={riders.get(x.riderId)?.nameMasked} riderNumber={riders.get(x.riderId)?.riderNumber} /> : m.noRider],
                     [m.col.assignedAt, when(x.assignedAt)],
@@ -305,9 +313,7 @@ function DeliveryDetailPage() {
                         x.failure.returnDeliveryId
                           ? [
                               m.returnDelivery,
-                              <Link className="link font-mono" to={`/deliveries/${encodeURIComponent(x.failure.returnDeliveryId)}`}>
-                                {x.failure.returnDeliveryId}
-                              </Link>,
+                              <ReturnDeliveryRef deliveryId={x.failure.returnDeliveryId} />,
                             ]
                           : null,
                       ]}
@@ -386,4 +392,9 @@ function DeliveryDetailPage() {
       </Section>
     </section>
   );
+}
+/** 반납 배송 — 배송 번호로(시스템 ID 는 그 배송 상세의 "시스템 번호") */
+function ReturnDeliveryRef({ deliveryId }: { readonly deliveryId: string }) {
+  const no = useDeliveryNumbers([deliveryId]).get(deliveryId);
+  return <DeliveryRef deliveryId={deliveryId} numbers={no} />;
 }

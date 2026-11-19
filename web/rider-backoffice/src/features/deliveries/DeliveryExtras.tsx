@@ -2,6 +2,7 @@
 // 도착 예정(tracking `GET /deliveries/{id}/eta`). 값은 서버 그대로 — 남은 분·km 는 서버 초·미터를 단위만 바꿔 보인다.
 import { useQuery } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
+import { Link } from 'react-router';
 
 import { request } from '@pmart/web-core';
 import { QueryState, toUiState } from '@pmart/web-ui';
@@ -201,7 +202,13 @@ export function DeliveryProof({ delivery }: { readonly delivery: Execution }) {
             <Row k={m.method}>{label(m.methodName, ev.method)}</Row>
             {ev.placement && <Row k={m.placement}>{label(m.placementName, ev.placement)}</Row>}
             <Row k={m.takenAt}>{when(ev.takenAt)}</Row>
-            {ev.substituteEvidenceCaseId && <Row k={m.substituteCase}>{ev.substituteEvidenceCaseId}</Row>}
+            {ev.substituteEvidenceCaseId && (
+              <Row k={m.substituteCase}>
+                <Link className="link link-primary" to={`/cases/${encodeURIComponent(ev.substituteEvidenceCaseId)}`}>
+                  접수 건 보기
+                </Link>
+              </Row>
+            )}
           </dl>
           {(ev.photoRefs ?? []).length > 0 && <AuthedPhotos refs={ev.photoRefs ?? []} load={load} label={m.proofPhoto} heading={false} />}
         </>

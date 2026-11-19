@@ -86,8 +86,8 @@ export function ResolvePanel({ help, deliveryId, requestId }: { readonly help: H
       {help.caseId ? (
         <p className="rounded-box bg-base-200/60 px-4 py-3 text-sm text-base-content/75" data-testid="resolve-has-case">
           {m.resolve.hasCase}{' '}
-          <Link className="link link-primary font-mono" to={`/cases/${encodeURIComponent(help.caseId)}`}>
-            {help.caseId}
+          <Link className="link link-primary" to={`/cases/${encodeURIComponent(help.caseId)}`}>
+            접수 건 보기
           </Link>
         </p>
       ) : help.state === 'RESOLVED' && !done ? (

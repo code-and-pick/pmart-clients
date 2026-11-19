@@ -21,6 +21,7 @@ import { PreparingPage } from '../features/menus/PreparingPage';
 import { LoginCallbackPage, LoginPage } from '../features/session/LoginPage';
 import { SessionPage } from '../features/session/SessionPage';
 import { messages as m } from '../shared/messages';
+import { StaffName } from '../shared/displayNumbers';
 import { Icon, type IconName } from '../shared/icons';
 import { SimulatorLink } from '../shared/sim';
 import { allMenus, hasRiderAppRole, isOperatorAdmin, menuPath, navGroups, visibleGroups, type GroupKey, type MenuItem } from './nav';
@@ -160,8 +161,8 @@ function Layout() {
             <SimulatorLink />
             {session ? (
               <>
-                <span className="font-mono text-xs" data-testid="operator">
-                  {session.subject}
+                <span className="text-xs" data-testid="operator">
+                  <StaffName operatorId={session.subject} />
                 </span>
                 {session.roles.map((r) => (
                   <span key={r} className="badge badge-outline badge-sm">

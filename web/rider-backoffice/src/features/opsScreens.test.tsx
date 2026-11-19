@@ -27,7 +27,7 @@ describe('라이더', () => {
     await userEvent.click(within(rows[0]!).getByRole('link', { name: '482913' }));
     expect(await screen.findByTestId('rider-detail')).toHaveTextContent('자동 승인');
     expect(await screen.findByTestId('operating-time')).toHaveTextContent('1시간 30분');
-    expect(await screen.findByTestId('rider-earnings')).toHaveTextContent('DLV-3');
+    expect(await screen.findByTestId('rider-earnings')).toHaveTextContent('48213110-1'); // 배송 번호(ADR-0070) — 시스템 ID 대신
     const reveal = screen.getByRole('form', { name: '이름·전화 원문 보기' });
     expect(within(reveal).getByRole('button', { name: '원문 보기' })).toBeDisabled();
     await userEvent.type(within(reveal).getByLabelText('사유(2~200자)'), '컴플레인 확인');

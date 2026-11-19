@@ -11,6 +11,8 @@ import { formatSeoul, QueryState, toUiState } from '@pmart/web-ui';
 import type { components } from '../../api/generated/case';
 import { useApi } from '../../app/ApiContext';
 import { messages } from '../../shared/messages';
+import { DeliveryRef, RiderRef, StaffName, SystemIds, useDeliveryNumbers, useRiderSummaries } from '../../shared/displayNumbers';
+import { useSession } from '../../app/SessionContext';
 import { ChipGroup, CursorPager, DataTable, DetailHeader, FieldList, Notice, PageHeader, ResultBar, SearchPanel, SearchRow, Section, StatusBadge } from '../../shared/admin';
 import { caseTone, StateTabs } from '../support/supportUi';
 
@@ -46,20 +48,27 @@ function Sla({ slaDueAt, overdue }: { readonly slaDueAt: string | null | undefin
   );
 }
 
+/** 관련 대상 — 배송·라이더는 화면 번호(ADR-0070), 주문은 시스템 ID 라 목록에 내지 않는다(배송 번호 안에 주문번호가 있다) */
 function Refs({ refs }: { readonly refs: CaseSummary['refs'] }) {
-  const shown = (refs ?? []).filter((r) => r.refId && (r.refType === 'deliveryId' || r.refType === 'orderId' || r.refType === 'riderId'));
-  if (shown.length === 0) return <>{none}</>;
+  const deliveryIds = (refs ?? []).filter((r) => r.refType === 'deliveryId' && r.refId).map((r) => r.refId!);
+  const riderIds = (refs ?? []).filter((r) => r.refType === 'riderId' && r.refId).map((r) => r.refId!);
+  const nos = useDeliveryNumbers(deliveryIds);
+  const riders = useRiderSummaries(riderIds);
+  if (deliveryIds.length === 0 && riderIds.length === 0) return <>{none}</>;
   return (
-    <span className="flex flex-wrap gap-x-2 gap-y-0.5 font-mono text-xs">
-      {shown.map((r) =>
-        r.refType === 'deliveryId' ? (
-          <Link key={`${r.refType}-${r.refId}`} className="link link-primary" to={`/deliveries/${encodeURIComponent(r.refId ?? '')}`} onClick={(e) => e.stopPropagation()}>
-            {`${name(n.refType, r.refType)} ${r.refId}`}
-          </Link>
-        ) : (
-          <span key={`${r.refType}-${r.refId}`}>{`${name(n.refType, r.refType)} ${r.refId}`}</span>
-        ),
-      )}
+    <span className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs">
+      {deliveryIds.map((id) => (
+        <span key={`d-${id}`} className="inline-flex items-center gap-1">
+          <span className="text-base-content/50">{name(n.refType, 'deliveryId')}</span>
+          <DeliveryRef deliveryId={id} numbers={nos.get(id)} />
+        </span>
+      ))}
+      {riderIds.map((id) => (
+        <span key={`r-${id}`} className="inline-flex items-center gap-1">
+          <span className="text-base-content/50">{name(n.refType, 'riderId')}</span>
+          <RiderRef riderId={id} summary={riders.get(id)} />
+        </span>
+      ))}
     </span>
   );
 }
@@ -70,6 +79,7 @@ function PriorityBadge({ priority }: { readonly priority: string | null | undefi
 
 function CaseListPage() {
   const api = useApi();
+  const me = useSession().session?.subject;
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const closed = params.get('state') === 'CLOSED';
@@ -184,7 +194,7 @@ function CaseListPage() {
                       <td>
                         <StatusBadge tone={caseTone(c.state)}>{name(n.caseState, c.state)}</StatusBadge>
                       </td>
-                      <td className="font-mono text-xs">{c.assigneeId ?? <span className="font-sans text-base-content/45">{m.unassigned}</span>}</td>
+                      <td>{c.assigneeId ? <StaffName operatorId={c.assigneeId} me={me} /> : <span className="text-base-content/45">{m.unassigned}</span>}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -201,6 +211,7 @@ function CaseListPage() {
 // 상세(배민 주문내역 상세 참고): 머리(번호·긴급도·상태·요약) → 보기만 안내 → 구역 상자(접수 내용 / 이력).
 function CaseDetailPage() {
   const api = useApi();
+  const me = useSession().session?.subject;
   const { caseId = '' } = useParams();
   const query = useQuery({
     queryKey: ['case', caseId],
@@ -211,7 +222,7 @@ function CaseDetailPage() {
     <section className="max-w-[1600px] space-y-4">
       <DetailHeader
         back={{ to: '/cases', label: m.back }}
-        title={m.detailTitle(caseId)}
+        title={c ? c.summary || name(n.caseKind, c.kind) : m.detailTitle('')}
         badges={
           c && (
             <>
@@ -238,10 +249,11 @@ function CaseDetailPage() {
                   [m.col.refs, <Refs refs={x.refs} />],
                   [m.col.openedAt, when(x.openedAt)],
                   [m.col.sla, <Sla slaDueAt={x.slaDueAt} overdue={x.overdue} />],
-                  [m.col.assignee, x.assigneeId ? <span className="font-mono">{x.assigneeId}</span> : m.unassigned],
+                  [m.col.assignee, x.assigneeId ? <StaffName operatorId={x.assigneeId} me={me} /> : m.unassigned],
                   x.closure && [m.closure, `${name(n.resolution, x.closure.resolution)}${x.closure.summary ? ` — ${x.closure.summary}` : ''} (${when(x.closure.closedAt)})`],
                 ]}
               />
+              <SystemIds ids={[['접수 건', caseId], ...(x.refs ?? []).filter((r) => r.refId).map((r) => [name(n.refType, r.refType), r.refId] as const)]} />
             </Section>
             <Section id="sec-history" title={m.history}>
               {(x.history ?? []).length === 0 ? (

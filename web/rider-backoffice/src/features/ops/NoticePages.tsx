@@ -13,6 +13,8 @@ import { commandParams } from '../../api/command';
 import { useApi } from '../../app/ApiContext';
 import { CursorPager, DataTable, PageHeader, ResultBar, Section } from '../../shared/admin';
 import { CenterPicker, when } from '../../shared/opsUi';
+import { StaffName } from '../../shared/displayNumbers';
+import { useSession } from '../../app/SessionContext';
 
 export const noticeText = {
   title: '공지 보내기',
@@ -163,6 +165,7 @@ function NoticeForm() {
 function SentNotices() {
   const api = useApi();
   const t = noticeText;
+  const me = useSession().session?.subject;
   const [params, setParams] = useSearchParams();
   const cursor = params.get('cursor') ?? '';
   const list = useQuery({
@@ -200,7 +203,7 @@ function SentNotices() {
                       <p className="line-clamp-2 whitespace-pre-wrap text-xs text-base-content/60">{n.body}</p>
                     </td>
                     <td className="whitespace-nowrap">{t.targetLine(n.targetType, n.mfcId)}</td>
-                    <td className="font-mono text-xs">{n.sentBy}</td>
+                    <td><StaffName operatorId={n.sentBy} me={me} /></td>
                     <td className="text-right">{t.people(n.recipientCount)}</td>
                   </tr>
                 ))}

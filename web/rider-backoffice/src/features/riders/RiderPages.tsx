@@ -15,8 +15,9 @@ import { commandParams } from '../../api/command';
 import type { components } from '../../api/generated/rider';
 import { useApi } from '../../app/ApiContext';
 import { ChipGroup, CursorPager, DataTable, DetailHeader, FieldList, Notice, PageHeader, ResultBar, SearchPanel, SearchRow, Section, SectionTabs, StatusBadge, type Tone } from '../../shared/admin';
-import { RiderName, SystemIds } from '../../shared/displayNumbers';
+import { DeliveryRef, RiderName, RiderRef, StaffName, SystemIds, useDeliveryNumbers, useRiderSummaries } from '../../shared/displayNumbers';
 import { SimBadge } from '../../shared/sim';
+import { useSession } from '../../app/SessionContext';
 import { LIVE } from '../../shared/liveRefresh';
 import { messages } from '../../shared/messages';
 import { ops } from '../../shared/opsMessages';
@@ -255,6 +256,7 @@ function RiderDetailPage() {
     queryKey: ['rider-earnings', riderId],
     queryFn: () => request('GET', api.execution.GET('/rider-earnings', { params: { query: { riderId, size: 20 } } })),
   });
+  const earningNos = useDeliveryNumbers((earnings.data?.items ?? []).map((it) => it.deliveryId));
   const time = useQuery({
     queryKey: ['rider-operating-time', riderId, week.from],
     queryFn: () => request('GET', api.execution.GET('/rider-operating-time', { params: { query: { riderId, from: week.from, to: week.to } } })),
@@ -349,10 +351,8 @@ function RiderDetailPage() {
                   <tbody>
                     {(e.items ?? []).map((it) => (
                       <tr key={it.earningId}>
-                        <td className="font-mono text-xs">
-                          <Link className="link" to={`/deliveries/${encodeURIComponent(it.deliveryId ?? '')}`}>
-                            {it.deliveryId}
-                          </Link>
+                        <td>
+                          <DeliveryRef deliveryId={it.deliveryId} numbers={earningNos.get(it.deliveryId ?? '')} />
                         </td>
                         <td className="whitespace-nowrap">{when(it.recordedAt)}</td>
                         <td className="tabular-nums">{it.calculable ? won(it.total) : <StatusBadge tone="warning">{r.notCalculable}</StatusBadge>}</td>
@@ -444,6 +444,7 @@ function AssignmentHistory({ riderId, live = false }: { readonly riderId: string
     queryFn: () =>
       request('GET', api.dispatch.GET('/rider-assignments', { params: { query: { riderId, size: PAGE_SIZE, ...(cursor ? { cursor } : {}) } } })),
   });
+  const assignNos = useDeliveryNumbers((query.data?.items ?? []).map((it) => it.deliveryId));
   return (
     <QueryState state={toUiState(query, (x) => (x.items ?? []).length === 0)} onRetry={() => void query.refetch()} emptyText={a.empty}>
       {(x) => {
@@ -470,12 +471,10 @@ function AssignmentHistory({ riderId, live = false }: { readonly riderId: string
                 {items.map((it, i) => (
                   <tr key={it.offerId ?? `${it.deliveryId}-${i}`} data-testid="assignment-row">
                     <td className="whitespace-nowrap">{when(it.assignedAt)}</td>
-                    <td className="font-mono font-semibold">
-                      <Link className="hover:underline" to={`/deliveries/${encodeURIComponent(it.deliveryId)}`}>
-                        {it.deliveryId}
-                      </Link>
+                    <td className="font-semibold">
+                      <DeliveryRef deliveryId={it.deliveryId} numbers={assignNos.get(it.deliveryId)} />
                     </td>
-                    <td className="font-mono">{it.orderId ?? none}</td>
+                    <td className="font-mono">{assignNos.get(it.deliveryId)?.orderNumber ?? none}</td>
                     <td>{[it.type ? label(n.deliveryType, it.type) : null, it.purpose && it.purpose !== 'DELIVERY' ? label(n.purpose, it.purpose) : null].filter(Boolean).join(' · ') || none}</td>
                     <td>{label(a.source, it.source)}</td>
                     <td className="tabular-nums">{won(it.fee)}</td>
@@ -676,6 +675,9 @@ function ReviewTable({ state, riderId }: { readonly state: ReviewState; readonly
     queryFn: () => request('GET', api.riders.GET('/riders/restriction-reviews', { params: { query: { state, ...(riderId ? { riderId } : {}) } } })),
   });
   const v = ops.reviews;
+  const reviewRiders = useRiderSummaries(riderId ? [] : (query.data?.items ?? []).map((it) => it.riderId));
+  const complaintNos = useDeliveryNumbers((query.data?.items ?? []).flatMap((it) => (it.complaints ?? []).map((c) => c.deliveryId)));
+  const me = useSession().session?.subject;
   return (
     <QueryState state={toUiState(query, (x) => (x.items ?? []).length === 0)} onRetry={() => void query.refetch()} emptyText={riderId ? rm.detailReviews.empty : v.empty}>
       {(x) => {
@@ -698,13 +700,8 @@ function ReviewTable({ state, riderId }: { readonly state: ReviewState; readonly
                   // 결정 뒤에도 같은 줄로 남게 reviewId 를 키로
                   <tr key={it.reviewId ?? `review-${i}`} data-testid="review-row">
                     {!riderId && (
-                      <td className="font-mono font-semibold">
-                        <Link className="hover:underline" to={`/riders/${encodeURIComponent(it.riderId ?? '')}`}>
-                          {it.riderId}
-                        </Link>
-                        <span className="ml-1 align-middle font-sans">
-                          <SimBadge riderId={it.riderId} />
-                        </span>
+                      <td>
+                        <RiderRef riderId={it.riderId} summary={reviewRiders.get(it.riderId ?? '')} />
                       </td>
                     )}
                     <td>
@@ -715,7 +712,10 @@ function ReviewTable({ state, riderId }: { readonly state: ReviewState; readonly
                       <ul className="mt-1 space-y-0.5 text-base-content/60">
                         {(it.complaints ?? []).map((c, k) => (
                           <li key={c.complaintId ?? `c-${k}`}>
-                            {[c.complaintId, c.deliveryId, c.recordedAt ? when(c.recordedAt) : null].filter(Boolean).join(' · ')}
+                            <span className="inline-flex flex-wrap items-center gap-1">
+                              {c.deliveryId ? <DeliveryRef deliveryId={c.deliveryId} numbers={complaintNos.get(c.deliveryId)} /> : null}
+                              {c.recordedAt ? <span>· {when(c.recordedAt)}</span> : null}
+                            </span>
                           </li>
                         ))}
                       </ul>
@@ -727,7 +727,10 @@ function ReviewTable({ state, riderId }: { readonly state: ReviewState; readonly
                       ) : (
                         <span className="flex flex-col gap-1 text-sm">
                           <StatusBadge tone={reviewTone(it.state)}>{label(rm.reviews.state, it.state)}</StatusBadge>
-                          <span className="text-xs text-base-content/60">{rm.reviews.closed(when(it.decidedAt), it.decidedBy ?? none, it.note)}</span>
+                          <span className="text-xs text-base-content/60">
+                            {when(it.decidedAt)} · <StaffName operatorId={it.decidedBy} me={me} />
+                            {it.note ? ` — ${it.note}` : ''}
+                          </span>
                         </span>
                       )}
                     </td>
@@ -811,6 +814,8 @@ function ComplaintHistory({ riderId }: { readonly riderId: string }) {
     getNextPageParam: (last) => last.page?.nextCursor ?? undefined,
   });
   const items = query.data?.pages.flatMap((p) => p.items ?? []) ?? [];
+  const complaintNos = useDeliveryNumbers(items.map((it) => it.deliveryId));
+  const me = useSession().session?.subject;
   if (query.isPending) return <QueryState state={{ kind: 'loading' }}>{() => null}</QueryState>;
   if (query.isError && items.length === 0) {
     return (
@@ -826,7 +831,6 @@ function ComplaintHistory({ riderId }: { readonly riderId: string }) {
       <DataTable testId="rider-complaints">
         <thead>
           <tr>
-            <th>{c.col.id}</th>
             <th>{c.col.type}</th>
             <th>{c.col.delivery}</th>
             <th>{c.col.order}</th>
@@ -837,18 +841,17 @@ function ComplaintHistory({ riderId }: { readonly riderId: string }) {
         <tbody>
           {items.map((it) => (
             <tr key={it.complaintId} data-testid="complaint-row">
-              <td className="font-mono text-xs">{it.complaintId}</td>
               <td>
                 <StatusBadge tone="warning">{label(n.complaintType, it.complaintType)}</StatusBadge>
               </td>
-              <td className="font-mono text-xs">
-                <Link className="hover:underline" to={`/deliveries/${encodeURIComponent(it.deliveryId)}`}>
-                  {it.deliveryId}
-                </Link>
+              <td>
+                <DeliveryRef deliveryId={it.deliveryId} numbers={complaintNos.get(it.deliveryId)} />
               </td>
-              <td className="font-mono text-xs">{it.orderId ?? none}</td>
+              <td className="font-mono text-xs">{complaintNos.get(it.deliveryId)?.orderNumber ?? none}</td>
               <td className="whitespace-nowrap">{when(it.recordedAt)}</td>
-              <td className="font-mono text-xs">{it.recordedBy}</td>
+              <td>
+                <StaffName operatorId={it.recordedBy} me={me} />
+              </td>
             </tr>
           ))}
         </tbody>

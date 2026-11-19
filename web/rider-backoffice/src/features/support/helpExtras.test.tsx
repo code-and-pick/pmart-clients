@@ -45,7 +45,7 @@ describe('도움요청 상세 — 증빙 사진·처리함·가리기', () => {
   it('접수 건이 붙은 도움요청은 버튼 대신 접수 건 링크', async () => {
     renderAt('/help-requests/DLV-1/HR-CASE', as.riderOps);
     expect(await screen.findByTestId('resolve-has-case')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'CASE-9' })).toHaveAttribute('href', '/cases/CASE-9');
+    expect(screen.getByRole('link', { name: '접수 건 보기' })).toHaveAttribute('href', '/cases/CASE-9');
     expect(screen.queryByRole('button', { name: '처리함으로 닫기' })).not.toBeInTheDocument();
   });
 

@@ -11,7 +11,8 @@ import { CommandFeedback, QueryState, toUiState, useCommand } from '@pmart/web-u
 import { commandParams } from '../../api/command';
 import { useApi } from '../../app/ApiContext';
 import { ChipGroup, FieldList, PageHeader, ResultBar, SearchPanel, SearchRow, StatusBadge, type Tone } from '../../shared/admin';
-import { DeliveryNo, RiderName, useRiderSummaries } from '../../shared/displayNumbers';
+import { DeliveryNo, resolveRiderId, RiderName, searchHint, StaffName, SystemIds, useDeliveryNumbers, useRiderSummaries } from '../../shared/displayNumbers';
+import { useSession } from '../../app/SessionContext';
 import { when, won } from '../../shared/opsUi';
 
 export const appealText = {
@@ -20,7 +21,7 @@ export const appealText = {
   state: '상태',
   type: '종류',
   all: '전체',
-  rider: '라이더 ID(완전 일치)',
+  rider: searchHint.rider,
   search: '조회',
   reset: '초기화',
   empty: '이 조건의 신청이 없어요.',
@@ -34,8 +35,9 @@ export const appealText = {
   acceptHint: { RESTRICTION: '인정하면 이 라이더의 계정 제한이 바로 풀려요.', EARNING: '인정해도 원래 수행료는 그대로예요 — 인정한 뒤 보상금을 따로 줘요.' } as Readonly<Record<string, string>>,
   decided: (s: string) => `${s}(으)로 결정했어요.`,
   doneLine: (type: string, rider: string, s: string) => `${type}(${rider})을 ${s}(으)로 결정했어요.`,
+  sys: { appeal: '신청', delivery: '배송', restriction: '제한 기록', rider: '라이더' },
   toAdjustUncalculable: '산정 불가 수행료라면 수행료 조정 화면에서 바로 조정할 수도 있어요',
-  decidedLine: (s: string, at: string, by: string) => `${s} · ${at} · ${by}`,
+  decidedLine: (s: string, at: string) => `${s} · ${at} ·`,
 } as const;
 
 type AppealState = 'OPEN' | 'UPHELD' | 'ACCEPTED';
@@ -67,17 +69,23 @@ export function AppealsMenu() {
   };
   const list = useQuery({
     queryKey: ['rider-appeals', state, targetType, riderId],
-    queryFn: () =>
-      request(
+    queryFn: async () => {
+      // 라이더 번호 6자리로도 찾는다(ADR-0070) — 맞는 라이더가 없으면 빈 목록
+      const rid = riderId ? await resolveRiderId(api, riderId) : '';
+      if (rid === null) return { items: [] };
+      return request(
         'GET',
         api.riders.GET('/rider-appeals', {
-          params: { query: { ...(state === 'ALL' ? {} : { state }), ...(targetType === 'ALL' ? {} : { targetType }), ...(riderId ? { riderId } : {}) } },
+          params: { query: { ...(state === 'ALL' ? {} : { state }), ...(targetType === 'ALL' ? {} : { targetType }), ...(rid ? { riderId: rid } : {}) } },
         }),
-      ),
+      );
+    },
   });
   // 결정하면 신청이 "결정 대기" 목록에서 빠져 줄 안 알림이 사라지므로 위에 남긴다(수행료 인정이면 조정으로 가는 버튼도).
   const [done, setDone] = useState<{ readonly text: string; readonly compensate: { readonly appealId: string; readonly deliveryId: string } | null } | null>(null);
   const riders = useRiderSummaries((list.data?.items ?? []).map((a) => a.riderId));
+  const deliveryNos = useDeliveryNumbers((list.data?.items ?? []).filter((a) => a.targetType === 'EARNING').map((a) => a.targetRef));
+  const me = useSession().session?.subject;
   const submit = (ev: FormEvent) => {
     ev.preventDefault();
     patch({ riderId: riderInput.trim() });
@@ -155,7 +163,7 @@ export function AppealsMenu() {
                             ? [
                                 t.col.target,
                                 <Link to={`/deliveries/${encodeURIComponent(a.targetRef)}`} className="hover:underline">
-                                  <DeliveryNo deliveryId={a.targetRef} />
+                                  <DeliveryNo deliveryId={a.targetRef} deliveryNumber={deliveryNos.get(a.targetRef)?.deliveryNumber} orderNumber={deliveryNos.get(a.targetRef)?.orderNumber} />
                                 </Link>,
                               ]
                             : null,
@@ -163,6 +171,7 @@ export function AppealsMenu() {
                           [t.col.body, <p className="whitespace-pre-wrap">{a.body}</p>],
                         ]}
                       />
+                      <SystemIds ids={[[t.sys.appeal, a.appealId], [a.targetType === 'EARNING' ? t.sys.delivery : t.sys.restriction, a.targetRef], [t.sys.rider, a.riderId]]} />
                     </div>
                     <div className="border-t border-base-200 bg-base-200/50 px-5 py-3">
                       {a.state === 'OPEN' ? (
@@ -173,7 +182,7 @@ export function AppealsMenu() {
                         />
                       ) : (
                         <div data-testid="appeal-decided">
-                          <p className="text-base-content/70">{t.decidedLine(t.stateName[a.state] ?? a.state, when(a.decidedAt), a.decidedBy ?? '—')}</p>
+                          <p className="text-base-content/70">{t.decidedLine(t.stateName[a.state] ?? a.state, when(a.decidedAt))} <StaffName operatorId={a.decidedBy} me={me} /></p>
                           {a.decisionNote && <p className="mt-1 whitespace-pre-wrap">{a.decisionNote}</p>}
                           {a.targetType === 'EARNING' && a.state === 'ACCEPTED' && (
                             <div className="mt-2 space-y-1">
@@ -242,7 +251,7 @@ export const compensationText = {
   reason: '사유(라이더에게도 전달돼요, 1~300자, 개인정보 금지)',
   give: '보상금 주기',
   given: (won: string, date: string) => `${won} 보상금을 기록했어요 · 지급 예정일 ${date}`,
-  line: (won: string, state: string, date: string, by: string) => `${won} · ${state} · 지급 예정일 ${date} · ${by}`,
+  line: (won: string, state: string, date: string) => `${won} · ${state} · 지급 예정일 ${date} ·`,
   loadFailed: '보상금 기록을 불러오지 못했어요 — 이미 줬는지 모르니 다시 시도한 뒤에 주세요.',
   retry: '다시 시도',
   stateName: { CONFIRMED: '확정(지급 전)', PAYING: '지급 중', PAID: '지급 완료', PAYMENT_FAILED: '지급 실패', ADJUSTED: '조정됨', ESTIMATED: '예상', PENDING_CONFIRMATION: '확정 대기' } as Readonly<Record<string, string>>,
@@ -256,6 +265,7 @@ export function CompensationBox({ appealId }: { readonly appealId: string }) {
   const api = useApi();
   const queryClient = useQueryClient();
   const c = compensationText;
+  const me = useSession().session?.subject;
   const given = useQuery({
     queryKey: ['rider-compensations', appealId],
     queryFn: () => request('GET', api.execution.GET('/rider-compensations', { params: { query: { appealId } } })),
@@ -289,7 +299,7 @@ export function CompensationBox({ appealId }: { readonly appealId: string }) {
       <p className="font-semibold">{c.title}</p>
       {existing ? (
         <div data-testid="compensation-given">
-          <p>{c.line(won(existing.amount), c.stateName[existing.settlementState] ?? existing.settlementState, existing.payoutDate, existing.recordedBy ?? '—')}</p>
+          <p>{c.line(won(existing.amount), c.stateName[existing.settlementState] ?? existing.settlementState, existing.payoutDate)} <StaffName operatorId={existing.recordedBy} me={me} /></p>
           <p className="whitespace-pre-wrap text-xs text-base-content/60">{existing.reason}</p>
         </div>
       ) : (

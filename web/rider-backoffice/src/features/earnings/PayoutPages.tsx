@@ -14,7 +14,7 @@ import { useApi } from '../../app/ApiContext';
 import { isOperatorAdmin } from '../../app/nav';
 import { useSession } from '../../app/SessionContext';
 import { ChipGroup, DataTable, PageHeader, ResultBar, SearchPanel, SearchRow, StatusBadge, type Tone } from '../../shared/admin';
-import { RiderName, useRiderSummaries } from '../../shared/displayNumbers';
+import { resolveRiderId, RiderName, searchHint, StaffName, useRiderSummaries } from '../../shared/displayNumbers';
 import { when, won } from '../../shared/opsUi';
 
 export const payoutText = {
@@ -22,7 +22,7 @@ export const payoutText = {
   intro: '지급은 외부 회계가 해요. 회계 결과를 여기서 표시하면 라이더 정산 내역과 알림에 반영돼요. 묶음 = 라이더 한 명의 같은 지급 예정일 수행료.',
   date: '지급 예정일',
   dateHint: '비우면 오늘',
-  rider: '라이더 ID(완전 일치)',
+  rider: searchHint.rider,
   state: '상태',
   all: '전체',
   search: '조회',
@@ -39,7 +39,7 @@ export const payoutText = {
   doneLine: (rider: string, date: string, s: string) => `${rider} · ${date} 묶음을 ${s}(으)로 표시했어요.`,
   adminOnly: '관리자만 표시할 수 있어요',
   compensations: (n: number) => `(보상 ${n})`,
-  lastLine: (result: string, at: string, by: string) => `${result} · ${at} · ${by}`,
+  lastLine: (result: string, at: string) => `${result} · ${at} ·`,
 } as const;
 
 type PayoutState = 'CONFIRMED' | 'PAYING' | 'PAID' | 'PAYMENT_FAILED';
@@ -70,13 +70,17 @@ export function PayoutsMenu() {
   };
   const list = useQuery({
     queryKey: ['rider-payouts', payoutDate, riderId, state],
-    queryFn: () =>
-      request(
+    queryFn: async () => {
+      // 라이더 번호 6자리로도 찾는다(ADR-0070) — 맞는 라이더가 없으면 빈 목록
+      const rid = riderId ? await resolveRiderId(api, riderId) : '';
+      if (rid === null) return { items: [] };
+      return request(
         'GET',
         api.execution.GET('/rider-payouts', {
-          params: { query: { ...(payoutDate ? { payoutDate } : {}), ...(riderId ? { riderId } : {}), ...(state === 'ALL' ? {} : { state }) } },
+          params: { query: { ...(payoutDate ? { payoutDate } : {}), ...(rid ? { riderId: rid } : {}), ...(state === 'ALL' ? {} : { state }) } },
         }),
-      ),
+      );
+    },
   });
   // 표시가 끝나면 줄이 바뀌어(지급 완료 → 입력 칸 없음) 줄 안 알림이 사라지므로 위에 남긴다.
   const [done, setDone] = useState<string | null>(null);
@@ -157,7 +161,9 @@ export function PayoutsMenu() {
                       <td className="text-xs">
                         {last?.result ? (
                           <>
-                            <p>{t.lastLine(t.resultName[last.result] ?? last.result, when(last.recordedAt), last.recordedBy ?? '—')}</p>
+                            <p>
+                              {t.lastLine(t.resultName[last.result] ?? last.result, when(last.recordedAt))} <StaffName operatorId={last.recordedBy} me={session?.subject} />
+                            </p>
                             {last.reference && <p className="font-mono text-base-content/60">{last.reference}</p>}
                             {last.failureReason && <p className="text-error">{last.failureReason}</p>}
                           </>

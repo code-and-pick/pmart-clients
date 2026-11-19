@@ -14,7 +14,7 @@ import { useApi } from '../../app/ApiContext';
 import { useSession } from '../../app/SessionContext';
 import { photoMessages } from '../../shared/AuthedPhotos';
 import { ChipGroup, CursorPager, DataTable, DetailHeader, FieldList, PageHeader, ResultBar, SearchPanel, SearchRow, Section, SectionTabs, StatusBadge } from '../../shared/admin';
-import { RiderName, useRiderSummaries } from '../../shared/displayNumbers';
+import { DeliveryNo, DeliveryRef, resolveRiderId, RiderName, RiderRef, StaffName, SystemIds, useDeliveryNumbers, useRiderSummaries } from '../../shared/displayNumbers';
 import { messages } from '../../shared/messages';
 import { ops } from '../../shared/opsMessages';
 import { label, none, when } from '../../shared/opsUi';
@@ -29,7 +29,7 @@ const n = messages.names;
 /** 이 화면에서만 쓰는 문구(공통 문구 파일은 다른 PC 와 같이 고치므로 여기에 둔다) */
 const sm = {
   helpCol: { stage: '배송 단계', photos: '사진', case: '접수 건' },
-  helpSearch: { state: '상태', category: '종류', allCategories: '모든 종류', rider: '라이더 ID', riderHint: '완전 일치' },
+  helpSearch: { state: '상태', category: '종류', allCategories: '모든 종류', rider: '라이더', riderHint: '라이더 번호 6자리' },
   autoRefresh: (s: number) => `${s}초마다 새로 불러와요`,
   photoCount: (k: number) => (k > 0 ? `${k}장` : none),
   hasCase: '접수 건 있음',
@@ -105,16 +105,21 @@ function HelpQueuePage() {
   const queue = useQuery({
     queryKey: ['help-queue', state, category, riderId, cursor],
     refetchInterval: 15_000,
-    queryFn: () =>
-      request(
+    queryFn: async () => {
+      // 라이더 번호 6자리로도 찾는다(ADR-0070) — 맞는 라이더가 없으면 빈 목록
+      const rid = riderId ? await resolveRiderId(api, riderId) : '';
+      if (rid === null) return { items: [], page: { nextCursor: null } };
+      return request(
         'GET',
         api.execution.GET('/delivery-help-requests', {
-          params: { query: { size: HELP_PAGE_SIZE, state, ...(category ? { category } : {}), ...(riderId ? { riderId } : {}), ...(cursor ? { cursor } : {}) } },
+          params: { query: { size: HELP_PAGE_SIZE, state, ...(category ? { category } : {}), ...(rid ? { riderId: rid } : {}), ...(cursor ? { cursor } : {}) } },
         }),
-      ),
+      );
+    },
   });
   // 라이더는 화면 번호로(ADR-0070), 기다린 시간은 30초마다(급한 건이 먼저 눈에 띄게 — 2026-11-19)
   const riders = useRiderSummaries((queue.data?.items ?? []).map((it) => it.riderId));
+  const deliveryNos = useDeliveryNumbers((queue.data?.items ?? []).map((it) => it.deliveryId));
   const now = useNow();
   const submit = (e: FormEvent) => {
     e.preventDefault();
@@ -153,9 +158,8 @@ function HelpQueuePage() {
               <DataTable>
                 <thead>
                   <tr>
-                    <th>{h.col.request}</th>
-                    <th>{h.col.state}</th>
                     <th>{h.col.category}</th>
+                    <th>{h.col.state}</th>
                     <th>{h.col.delivery}</th>
                     <th>{sm.helpCol.stage}</th>
                     <th>{h.col.rider}</th>
@@ -167,9 +171,10 @@ function HelpQueuePage() {
                 <tbody>
                   {items.map((it) => (
                     <tr key={`${it.deliveryId}:${it.requestId}`} data-testid="help-row" className="cursor-pointer" onClick={() => void navigate(helpPath(it.deliveryId, it.requestId))}>
-                      <td className="font-mono font-semibold">
+                      {/* 요청 ID(시스템 ID)는 목록에 내지 않는다(ADR-0070) — 종류를 누르면 대화, ID 는 대화 화면의 접힌 "시스템 번호" */}
+                      <td className="whitespace-nowrap font-semibold">
                         <Link className="hover:underline" to={helpPath(it.deliveryId, it.requestId)} onClick={(e) => e.stopPropagation()}>
-                          {it.requestId}
+                          {label(helpCategoryName, it.category)}
                         </Link>
                       </td>
                       <td>
@@ -178,11 +183,8 @@ function HelpQueuePage() {
                           {it.caseId && <StatusBadge tone="accent">{sm.hasCase}</StatusBadge>}
                         </span>
                       </td>
-                      <td className="whitespace-nowrap">{label(helpCategoryName, it.category)}</td>
-                      <td className="font-mono text-xs">
-                        <Link className="link link-primary" to={`/deliveries/${encodeURIComponent(it.deliveryId ?? '')}`} onClick={(e) => e.stopPropagation()}>
-                          {it.deliveryId}
-                        </Link>
+                      <td>
+                        <DeliveryRef deliveryId={it.deliveryId} numbers={deliveryNos.get(it.deliveryId ?? '')} />
                       </td>
                       <td className="whitespace-nowrap">{label(n.executionState, it.stage)}</td>
                       <td>{it.riderId ? <RiderName riderId={it.riderId} nameMasked={riders.get(it.riderId)?.nameMasked} riderNumber={riders.get(it.riderId)?.riderNumber} /> : none}</td>
@@ -229,6 +231,9 @@ function HelpChatPage() {
   const isAdmin = (session?.roles ?? []).includes('OPERATOR_ADMIN');
   const d = detail.data;
   const photoRefs = d?.evidenceRefs ?? [];
+  // 화면 번호(ADR-0070): 배송 번호 — 시스템 ID 는 아래 접힌 "시스템 번호"
+  const no = useDeliveryNumbers([deliveryId]).get(deliveryId);
+  const deliveryLabel = no?.deliveryNumber ?? (no?.orderNumber ? `주문 ${no.orderNumber}` : `…${deliveryId.slice(-8)}`);
   const tabs = [
     { id: 'sec-request', label: sm.help.request },
     { id: 'sec-photos', label: sm.help.photos },
@@ -239,7 +244,7 @@ function HelpChatPage() {
     <section className="max-w-[1600px] space-y-4">
       <DetailHeader
         back={{ to: '/help-requests', label: h.back }}
-        title={h.chatTitle(requestId)}
+        title={d ? `${label(helpCategoryName, d.category)} 도움요청` : h.chatTitle('')}
         badges={
           d && (
             <>
@@ -249,7 +254,7 @@ function HelpChatPage() {
             </>
           )
         }
-        summary={d && [`배송 ${deliveryId}`, d.stage ? `${sm.helpCol.stage} ${label(n.executionState, d.stage)}` : null, `${h.col.createdAt} ${when(d.createdAt)}`].filter(Boolean).join(' · ')}
+        summary={d && [`배송 ${deliveryLabel}`, d.stage ? `${sm.helpCol.stage} ${label(n.executionState, d.stage)}` : null, `${h.col.createdAt} ${when(d.createdAt)}`].filter(Boolean).join(' · ')}
         actions={
           <Link className="btn btn-sm border-base-300 bg-base-100" to={`/deliveries/${encodeURIComponent(deliveryId)}`}>
             {sm.help.goDelivery}
@@ -275,13 +280,20 @@ function HelpChatPage() {
                       [h.col.category, label(helpCategoryName, x.category)],
                       [h.col.state, label(n.helpState, x.state)],
                       [sm.helpCol.stage, label(n.executionState, x.stage)],
-                      [h.col.delivery, <span className="font-mono">{x.deliveryId ?? deliveryId}</span>],
+                      [h.col.delivery, <DeliveryNo deliveryId={x.deliveryId ?? deliveryId} deliveryNumber={no?.deliveryNumber} orderNumber={no?.orderNumber} />],
                       [h.col.createdAt, when(x.createdAt)],
                       [sm.help.lastRider, when(x.lastRiderMessageAt)],
                       [sm.help.lastSupport, when(x.lastSupportMessageAt)],
                       !!x.resolvedAt && [sm.help.resolvedAt, when(x.resolvedAt)],
-                      !!x.resolvedBy && [sm.help.resolvedBy, <span className="font-mono">{x.resolvedBy}</span>],
+                      !!x.resolvedBy && [sm.help.resolvedBy, <StaffName operatorId={x.resolvedBy} me={session?.subject} />],
                       !!x.resolutionNote && [sm.help.resolutionNote, <span className="whitespace-pre-wrap">{x.resolutionNote}</span>],
+                    ]}
+                  />
+                  <SystemIds
+                    ids={[
+                      ['도움요청', requestId],
+                      ['배송', deliveryId],
+                      ['접수 건', x.caseId],
                     ]}
                   />
                 </div>
@@ -385,10 +397,9 @@ function InquiryListPage() {
               <DataTable>
                 <thead>
                   <tr>
-                    <th>{q.col.inquiry}</th>
+                    <th>{q.col.title}</th>
                     <th>{q.col.status}</th>
                     <th>{q.col.category}</th>
-                    <th>{q.col.title}</th>
                     <th>{q.col.createdAt}</th>
                     <th>{sm.inquiry.answeredAt}</th>
                   </tr>
@@ -396,16 +407,17 @@ function InquiryListPage() {
                 <tbody>
                   {items.map((it) => (
                     <tr key={it.inquiryId} data-testid="inquiry-row" className="cursor-pointer" onClick={() => void navigate(go(it.inquiryId))}>
-                      <td className="font-mono font-semibold">
+                      {/* 문의 ID(시스템 ID)는 목록에 내지 않는다(ADR-0070) — 제목을 누르면 대화 */}
+                      <td className="font-medium">
                         <Link className="hover:underline" to={go(it.inquiryId)} onClick={(e) => e.stopPropagation()}>
-                          {it.inquiryId}
+                          {it.title ?? label(n.inquiryCategory, it.category)}
                         </Link>
                       </td>
                       <td>
                         <StatusBadge tone={inquiryTone(it.status)}>{label(q.statusName, it.status)}</StatusBadge>
                       </td>
                       <td className="whitespace-nowrap">{label(n.inquiryCategory, it.category)}</td>
-                      <td className="font-medium">{it.title ?? none}</td>
+
                       <td className="whitespace-nowrap">{when(it.createdAt)}</td>
                       <td className="whitespace-nowrap">{when(it.answeredAt)}</td>
                     </tr>
@@ -464,6 +476,7 @@ function InquiryDetailPage() {
   const status = chat.data?.status ?? inquiry.data?.status;
   const closed = status === 'CLOSED';
   const d = inquiry.data;
+  const riderSummary = useRiderSummaries([d?.riderId]).get(d?.riderId ?? '');
   const photoIds = (d?.photos ?? []).map((p) => p.photoId);
   const tabs = [
     { id: 'sec-content', label: sm.inquiry.content },
@@ -475,7 +488,7 @@ function InquiryDetailPage() {
     <section className="max-w-[1600px] space-y-4">
       <DetailHeader
         back={{ to: '/inquiries', label: q.back }}
-        title={q.detailTitle(inquiryId)}
+        title={d?.title ?? q.detailTitle('')}
         badges={
           d && (
             <>
@@ -484,7 +497,7 @@ function InquiryDetailPage() {
             </>
           )
         }
-        summary={d && [d.title, d.riderId ? `${sm.inquiry.rider} ${d.riderId}` : null, `${q.col.createdAt} ${when(d.createdAt)}`].filter(Boolean).join(' · ')}
+        summary={d && [d.title, d.riderId && riderSummary?.riderNumber ? `${sm.inquiry.rider} ${riderSummary.nameMasked ?? ''} ${riderSummary.riderNumber}` : null, `${q.col.createdAt} ${when(d.createdAt)}`].filter(Boolean).join(' · ')}
       />
       <SectionTabs items={tabs} />
       <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
@@ -503,7 +516,7 @@ function InquiryDetailPage() {
                     rows={[
                       [q.col.category, label(n.inquiryCategory, x.category)],
                       [q.col.status, label(q.statusName, x.status)],
-                      [sm.inquiry.rider, <span className="font-mono">{x.riderId ?? none}</span>],
+                      [sm.inquiry.rider, <RiderRef riderId={x.riderId} summary={riderSummary} />],
                       [q.col.createdAt, when(x.createdAt)],
                       [sm.inquiry.answeredAt, when(x.answeredAt)],
                       !!x.closedAt && [sm.inquiry.closedAt, when(x.closedAt)],
@@ -511,6 +524,7 @@ function InquiryDetailPage() {
                       !!x.closeReason && [sm.inquiry.closeReason, <span className="whitespace-pre-wrap">{x.closeReason}</span>],
                     ]}
                   />
+                  <SystemIds ids={[['문의', inquiryId], ['라이더', x.riderId]]} />
                 </div>
               )}
             </QueryState>

@@ -3,7 +3,7 @@
 // 2026-11-18: 관리자 화면 모양 — 머리말, (추가 배달료) 검색 조건 상자, 결과 줄, 건마다 카드(머리 줄 + 항목 + 회색 처리 줄).
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, type FormEvent, type ReactNode } from 'react';
-import { Link, useSearchParams } from 'react-router';
+import { useSearchParams } from 'react-router';
 
 import { request } from '@pmart/web-core';
 import { CommandFeedback, QueryState, toUiState, useCommand } from '@pmart/web-ui';
@@ -14,6 +14,8 @@ import { ops } from '../../shared/opsMessages';
 import { AuthedPhotos } from '../../shared/AuthedPhotos';
 import { useEvidenceLoader } from '../../shared/evidenceLoader';
 import { when, won } from '../../shared/opsUi';
+import { DeliveryRef, resolveRiderId, RiderRef, searchHint, StaffName, SystemIds, useDeliveryNumbers, useRiderSummaries } from '../../shared/displayNumbers';
+import { useSession } from '../../app/SessionContext';
 
 const e = ops.earnings;
 type Fault = 'RIDER' | 'CUSTOMER' | 'STORE' | 'PMART';
@@ -32,11 +34,7 @@ function ItemCard({ head, at, children, action, testId }: { readonly head: React
   );
 }
 
-const idLink = (to: string, text: string | undefined) => (
-  <Link className="font-mono font-semibold hover:underline" to={to}>
-    {text}
-  </Link>
-);
+const sysLabel = { earning: '수행료', surcharge: '추가 배달료 신청', delivery: '배송', rider: '라이더' } as const;
 
 export function AdjustmentsMenu() {
   const api = useApi();
@@ -48,6 +46,9 @@ export function AdjustmentsMenu() {
     queryKey: ['adjustment-queue'],
     queryFn: () => request('GET', api.execution.GET('/rider-earnings/adjustment-queue', { params: { query: { size: 50 } } })),
   });
+  // 화면 번호(ADR-0070): 배송 번호·라이더 번호를 붙이고 시스템 ID 는 카드 안 접힌 칸으로
+  const deliveryNos = useDeliveryNumbers((queue.data?.items ?? []).map((it) => it.deliveryId));
+  const riders = useRiderSummaries((queue.data?.items ?? []).map((it) => it.riderId));
   return (
     <section className="max-w-[1600px] space-y-4">
       <PageHeader title={e.adjustTitle} description={e.adjustIntro} />
@@ -77,7 +78,7 @@ export function AdjustmentsMenu() {
                   head={
                     <>
                       <StatusBadge tone="warning">산정 불가</StatusBadge>
-                      <span className="font-mono text-base-content/70">{it.earningId}</span>
+                      <DeliveryRef deliveryId={it.deliveryId} numbers={deliveryNos.get(it.deliveryId ?? '')} />
                     </>
                   }
                   at={when(it.recordedAt)}
@@ -85,11 +86,11 @@ export function AdjustmentsMenu() {
                 >
                   <FieldList
                     rows={[
-                      [e.col.delivery, idLink(`/deliveries/${encodeURIComponent(it.deliveryId ?? '')}`, it.deliveryId)],
-                      [e.col.rider, idLink(`/riders/${encodeURIComponent(it.riderId ?? '')}`, it.riderId)],
+                      [e.col.rider, <RiderRef riderId={it.riderId} summary={riders.get(it.riderId ?? '')} />],
                       it.note ? [e.col.note, it.note] : null,
                     ]}
                   />
+                  <SystemIds ids={[[sysLabel.earning, it.earningId], [sysLabel.delivery, it.deliveryId], [sysLabel.rider, it.riderId]]} />
                 </ItemCard>
               ))}
             </ul>
@@ -153,10 +154,10 @@ const surchargeFilter = {
   state: '상태',
   all: '전체',
   stateName: { REQUESTED: '신청', APPROVED: '승인', REJECTED: '반려' } as Readonly<Record<string, string>>,
-  riderId: '라이더 ID(완전 일치)',
+  riderId: searchHint.rider,
   search: '찾기',
   reset: '지우기',
-  decidedLine: (state: string, at: string, by: string) => `${state} · ${at} · ${by}`,
+  decidedLine: (state: string, at: string) => `${state} · ${at} ·`,
   photo: '추가 배달료 사진',
 } as const;
 const surchargeTone = (s: string): Tone => (s === 'REQUESTED' ? 'warning' : s === 'APPROVED' ? 'success' : 'ghost');
@@ -182,14 +183,16 @@ export function SurchargesMenu() {
   };
   const list = useQuery({
     queryKey: ['surcharge-requests', state, riderId, cursor],
-    queryFn: () =>
-      request(
-        'GET',
-        api.execution.GET('/surcharge-requests', {
-          params: { query: { size: 50, ...(state === 'ALL' ? {} : { state }), ...(riderId ? { riderId } : {}), ...(cursor ? { cursor } : {}) } },
-        }),
-      ),
+    queryFn: async () => {
+      // 라이더 번호 6자리로도 찾는다(ADR-0070) — 맞는 라이더가 없으면 빈 목록
+      const rid = riderId ? await resolveRiderId(api, riderId) : '';
+      if (rid === null) return { items: [], page: { nextCursor: null } };
+      return request('GET', api.execution.GET('/surcharge-requests', { params: { query: { size: 50, ...(state === 'ALL' ? {} : { state }), ...(rid ? { riderId: rid } : {}), ...(cursor ? { cursor } : {}) } } }));
+    },
   });
+  const deliveryNos = useDeliveryNumbers((list.data?.items ?? []).map((it) => it.deliveryId));
+  const riders = useRiderSummaries((list.data?.items ?? []).map((it) => it.riderId));
+  const me = useSession().session?.subject;
   const f = surchargeFilter;
   const submit = (ev: FormEvent) => {
     ev.preventDefault();
@@ -232,7 +235,7 @@ export function SurchargesMenu() {
                     head={
                       <>
                         <StatusBadge tone={surchargeTone(it.state)}>{f.stateName[it.state] ?? it.state}</StatusBadge>
-                        <span className="font-mono text-base-content/70">{it.requestId}</span>
+                        <DeliveryRef deliveryId={it.deliveryId} numbers={deliveryNos.get(it.deliveryId)} />
                       </>
                     }
                     at={`${e.scol.requestedAt} ${when(it.requestedAt)}`}
@@ -243,7 +246,7 @@ export function SurchargesMenu() {
                         <div className="text-sm" data-testid="surcharge-decided">
                           <p className="text-base-content/70">
                             <span className="mr-2 font-medium text-base-content">처리</span>
-                            {f.decidedLine(f.stateName[it.state] ?? it.state, when(it.decidedAt), it.decidedBy ?? '—')}
+                            {f.decidedLine(f.stateName[it.state] ?? it.state, when(it.decidedAt))} <StaffName operatorId={it.decidedBy} me={me} />
                           </p>
                           {it.decisionNote && <p className="mt-1 whitespace-pre-wrap">{it.decisionNote}</p>}
                         </div>
@@ -253,14 +256,14 @@ export function SurchargesMenu() {
                     <div className="grid gap-4 md:grid-cols-[1fr_auto]">
                       <FieldList
                         rows={[
-                          [e.scol.delivery, idLink(`/deliveries/${encodeURIComponent(it.deliveryId)}`, it.deliveryId)],
-                          [e.scol.rider, idLink(`/riders/${encodeURIComponent(it.riderId)}`, it.riderId)],
+                          [e.scol.rider, <RiderRef riderId={it.riderId} summary={riders.get(it.riderId)} />],
                           [e.scol.floor, `${it.floor}층`],
                           [e.scol.amount, <span className="font-semibold">{won(it.amount)}</span>],
                         ]}
                       />
                       <SurchargePhotos deliveryId={it.deliveryId} refs={it.evidenceRefs ?? []} />
                     </div>
+                    <SystemIds ids={[[sysLabel.surcharge, it.requestId], [sysLabel.delivery, it.deliveryId], [sysLabel.rider, it.riderId]]} />
                   </ItemCard>
                 ))}
               </ul>

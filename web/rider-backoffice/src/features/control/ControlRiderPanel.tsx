@@ -245,7 +245,7 @@ export function ActiveDeliverySummary({ active }: { readonly active: ActiveDeliv
   return (
     <span className="flex flex-wrap items-center gap-1" data-testid="row-delivery">
       <Link className="font-mono text-xs font-semibold hover:underline" to={`/deliveries/${encodeURIComponent(active.deliveryId)}`} onClick={(e) => e.stopPropagation()}>
-        {active.deliveryId}
+        <DeliveryNo deliveryId={active.deliveryId} deliveryNumber={x?.deliveryNumber} orderNumber={orderNo} />
       </Link>
       <StatusBadge tone="info">{label(n.stage, active.stage)}</StatusBadge>
       {x && <span className="text-xs text-base-content/70">{[orderNo ? `#${orderNo}` : null, x.mfcName ? `${p.pickupShort} ${x.mfcName}` : null].filter(Boolean).join(' · ')}</span>}
