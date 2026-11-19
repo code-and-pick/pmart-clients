@@ -1,4 +1,4 @@
-import { act, render, screen, within } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 
@@ -29,6 +29,12 @@ async function ask(question: string) {
   await user.type(await screen.findByRole('textbox', { name: '질문' }), question);
   await user.click(screen.getByRole('button', { name: '질문 보내기' }));
   return user;
+}
+
+/** 내 질문 목록 줄의 링크(줄 전체가 링크) — n 줄이 될 때까지 기다린다 */
+async function historyHrefs(n = 1) {
+  await waitFor(() => expect(screen.getAllByTestId('history-item')).toHaveLength(n));
+  return screen.getAllByTestId('history-item').map((li) => li.querySelector('a')?.getAttribute('href'));
 }
 
 const wireAnswer = (over: Partial<AnswerWire> = {}): AnswerWire => ({
@@ -84,7 +90,7 @@ describe('업무 도우미 (계약 1.1.0 목)', () => {
     expect(within(cites[0]!).queryByRole('link')).not.toBeInTheDocument();
     // 내 질문 목록(서버)에 남고, 답변 번호로 다시 연다
     const row = await screen.findByTestId('history-item');
-    expect(within(row).getByRole('link', { name: 'ans-mock-1' })).toHaveAttribute('href', '/assistant/answers/ans-mock-1');
+    expect(within(row).getByRole('link')).toHaveAttribute('href', '/assistant/answers/ans-mock-1'); // 줄 전체가 다시 보기 링크
     expect(within(row).getByText(/\[목 답변\]/)).toBeInTheDocument(); // 질문 원문 대신 답변 앞부분
   });
 
@@ -173,7 +179,7 @@ describe('업무 도우미 (계약 1.1.0 목)', () => {
     expect(await screen.findByTestId('answer-text')).toBeInTheDocument();
     expect(keys).toEqual([keys[0], keys[0]]);
     expect(mock.received).toHaveLength(1); // 서버 처리는 한 번
-    expect(screen.getAllByRole('link', { name: 'ans-mock-1' }).length).toBeGreaterThan(0);
+    expect(await historyHrefs()).toEqual(['/assistant/answers/ans-mock-1']);
   });
 
   it('중복 전송: 진행 중 다시 눌러도 한 번만 보낸다', async () => {
@@ -199,10 +205,10 @@ describe('업무 도우미 (계약 1.1.0 목)', () => {
     await user.click(screen.getByRole('button', { name: '질문 보내기' }));
     await screen.findByRole('link', { name: '답변 번호 ans-mock-2' });
 
-    expect(await screen.findByRole('link', { name: 'ans-mock-2' })).toBeInTheDocument();
+    expect(await historyHrefs()).toEqual(['/assistant/answers/ans-mock-2']);
     expect(screen.getAllByTestId('history-item')).toHaveLength(1);
     await user.click(screen.getByRole('button', { name: '더 보기' }));
-    expect(await screen.findByRole('link', { name: 'ans-mock-1' })).toBeInTheDocument();
+    expect(await historyHrefs(2)).toEqual(['/assistant/answers/ans-mock-2', '/assistant/answers/ans-mock-1']);
     expect(screen.getAllByTestId('history-item')).toHaveLength(2);
     expect(screen.queryByRole('button', { name: '더 보기' })).not.toBeInTheDocument();
   });
@@ -281,6 +287,50 @@ describe('업무 도우미 (계약 1.1.0 목)', () => {
     const { port } = setup();
     render(<App memory initialPath="/assistant" initialToken={as.center} assistantPort={port} />);
     expect(await screen.findByRole('link', { name: '업무 도우미' })).toBeInTheDocument();
+  });
+});
+
+describe('업무 도우미 — 내 질문 목록에 질문 보이기(2026-11-19)', () => {
+  it('이 탭에서 물은 질문은 목록 제목으로, 오늘 묶음 아래, 방금 받은 답은 강조 — 답변 다시 보기에도 질문', async () => {
+    const { port } = setup();
+    render(<App memory initialPath="/assistant" initialToken={as.md} assistantPort={port} />);
+    const user = await ask('반품 기한은 며칠인가요?');
+    await screen.findByTestId('answer-text');
+    const row = await screen.findByTestId('history-item');
+    expect(within(row).getByTestId('history-question')).toHaveTextContent('반품 기한은 며칠인가요?');
+    expect(within(row).getByText(/\[목 답변\]/)).toBeInTheDocument(); // 답 앞부분은 아래 줄에
+    expect(within(row).getByRole('link')).toHaveAttribute('aria-current', 'true');
+    expect(screen.getByTestId('history-day')).toHaveTextContent('오늘');
+    await user.click(within(row).getByRole('link'));
+    expect(await screen.findByText('Q. 반품 기한은 며칠인가요?')).toBeInTheDocument(); // 답변 다시 보기 화면의 질문 말풍선
+  });
+
+  it('다른 탭·예전 질문(이 탭에 기억 없음, 서버 question null)은 질문 글 없음이라 밝히고 답 앞부분으로', async () => {
+    const { port } = setup();
+    const { unmount } = render(<App memory initialPath="/assistant" initialToken={as.md} assistantPort={port} />);
+    await ask('지워질 질문');
+    await screen.findByTestId('answer-text');
+    unmount();
+    sessionStorage.clear(); // 새 탭
+    render(<App memory initialPath="/assistant" initialToken={as.md} assistantPort={port} />);
+    const row = await screen.findByTestId('history-item');
+    expect(within(row).getByTestId('history-question-unknown')).toHaveTextContent('질문 글 없음');
+    expect(within(row).queryByText('지워질 질문')).not.toBeInTheDocument();
+  });
+
+  it('서버가 question 을 주면 서버 값이 먼저', async () => {
+    const { port } = setup();
+    const withQ: AssistantPort = {
+      ...port,
+      history: async (c) => {
+        const page = await port.history(c);
+        return { ...page, items: page.items.map((h) => ({ ...h, question: '서버에 저장된 질문' })) };
+      },
+    };
+    render(<App memory initialPath="/assistant" initialToken={as.md} assistantPort={withQ} />);
+    await ask('탭에서 물은 질문');
+    await screen.findByTestId('answer-text');
+    expect(await screen.findByTestId('history-question')).toHaveTextContent('서버에 저장된 질문');
   });
 });
 
