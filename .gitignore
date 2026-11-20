@@ -1,6 +1,9 @@
 # 고객앱 레퍼런스 캡처: 타사 화면·개인정보 포함, 용량 큼. 로컬에만 둔다(2026-10-24 결정)
 docs/customer-app-design/
 
+# 백오피스 개편 레퍼런스 캡처(AWS 콘솔): 계정 번호·사용자 이름이 찍혀 있다. 로컬에만 둔다(2026-11-20, ADR-0004)
+web/aws-ui-reference/
+
 # Dart / Flutter
 .dart_tool/
 .packages
