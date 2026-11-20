@@ -208,7 +208,7 @@ export function KpiCell({ label, value, unit, hero = false, tone, delta, sub, tr
   readonly testId?: string;
   readonly children?: ReactNode;
 }) {
-  const color = tone === 'danger' ? 'text-error' : tone === 'warning' ? 'text-[color-mix(in_oklab,var(--color-warning)_60%,var(--color-base-content))]' : tone === 'muted' ? 'text-base-content/35' : '';
+  const color = tone === 'danger' ? 'text-error' : tone === 'warning' ? 'text-[color-mix(in_oklab,var(--color-warning)_60%,var(--color-base-content))]' : tone === 'muted' ? 'text-base-content/45' : '';
   return (
     <div className="pm-kpi relative min-w-0 px-5 py-4" data-testid={testId}>
       {tone === 'danger' && <span className="absolute inset-x-0 top-0 h-0.5 bg-error" aria-hidden="true" />}
@@ -311,7 +311,7 @@ export function LineChart({ points, label, avg, testId, testIdPoint, height = 'h
                   aria-hidden="true"
                 />
               ) : (
-                <span className="absolute bottom-1 left-1/2 -translate-x-1/2 text-[11px] text-base-content/35" aria-hidden="true">
+                <span className="absolute bottom-1 left-1/2 -translate-x-1/2 text-[11px] text-base-content/45" aria-hidden="true">
                   —
                 </span>
               )}

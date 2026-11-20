@@ -47,7 +47,7 @@ export function Steps({ steps, now, label = m.products.stepsLabel }: { readonly 
             {i < now ? <svg viewBox="0 0 24 24" className="h-3 w-3 fill-none stroke-current" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" data-testid="step-check"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg> : i + 1}
           </span>
           <span className={i <= now ? 'font-medium' : 'text-base-content/50'}>{st}</span>
-          {i < steps.length - 1 && <span className="px-1 text-base-content/30">→</span>}
+          {i < steps.length - 1 && <span className="px-1 text-base-content/55" aria-hidden="true">→</span>}
         </li>
       ))}
     </ol>

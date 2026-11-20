@@ -65,7 +65,7 @@ function Stat({ label, value, tone }: { readonly label: string; readonly value: 
   return (
     <div className="bg-base-100 px-5 py-4">
       <p className="text-sm text-base-content/70">{label}</p>
-      <p className={`text-[26px] font-semibold leading-tight tracking-tight ${tone === 'muted' || value === 0 ? 'text-base-content/35' : ''}`}>{value}</p>
+      <p className={`text-[26px] font-semibold leading-tight tracking-tight ${tone === 'muted' || value === 0 ? 'text-base-content/45' : ''}`}>{value}</p>
     </div>
   );
 }
@@ -259,7 +259,7 @@ function Steps({ now }: { readonly now: number }) {
         <li key={st} className="flex items-center gap-1">
           <span className={`flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-bold ${i <= now ? 'bg-primary text-primary-content' : 'bg-base-200 text-base-content/50'}`}>{i + 1}</span>
           <span className={i <= now ? 'font-medium' : 'text-base-content/50'}>{st}</span>
-          {i < m.categories.steps.length - 1 && <span className="px-1 text-base-content/30">→</span>}
+          {i < m.categories.steps.length - 1 && <span className="px-1 text-base-content/55" aria-hidden="true">→</span>}
         </li>
       ))}
     </ol>

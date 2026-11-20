@@ -96,7 +96,7 @@ function StatCard({ icon, tone, label: title, value, sub, to, testId, children, 
     <Link to={to} data-testid={testId} data-icon={icon} data-tone={tone} className={`group flex items-end gap-4 bg-base-100 px-5 py-4 transition-colors hover:bg-base-200/50 ${ch.cls}`}>
       <span className="min-w-0 flex-1">
         <span className="block truncate text-sm text-base-content/70">{title}</span>
-        <span className={`inline-block text-[30px] font-semibold leading-tight tracking-tight group-hover:text-primary ${failed ? 'text-base-content/35' : ''}`} title={failed ? m.failed : undefined}>
+        <span className={`inline-block text-[30px] font-semibold leading-tight tracking-tight group-hover:text-primary ${failed ? 'text-base-content/45' : ''}`} title={failed ? m.failed : undefined}>
           {value}
           {ch.badge}
         </span>
@@ -362,10 +362,10 @@ export function StatusDonut({ today, admin = false }: { readonly today: string; 
                     data-testid="dash-flow-stage"
                   >
                     <span className="text-xs text-base-content/60">{name(st.key)}</span>
-                    <span className={`text-2xl font-semibold leading-tight ${n > 0 ? '' : 'text-base-content/30'}`}>{n}</span>
+                    <span className={`text-2xl font-semibold leading-tight ${n > 0 ? '' : 'text-base-content/45'}`}>{n}</span>
                     {partial > 0 && <span className="text-[11px] text-base-content/50">{m.flow.partial(partial)}</span>}
                   </Link>
-                  {!last && <span className="absolute -right-2 top-1/2 z-10 hidden -translate-y-1/2 text-base-content/30 sm:block" aria-hidden="true">›</span>}
+                  {!last && <span className="absolute -right-2 top-1/2 z-10 hidden -translate-y-1/2 text-base-content/45 sm:block" aria-hidden="true">›</span>}
                 </li>
               );
             })}
@@ -651,7 +651,7 @@ function WorkTile({ label: title, sum, to, tone, testId }: { readonly label: str
         {has && <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${dot}`} aria-hidden="true" />}
         {title}
       </p>
-      <p className={`mt-0.5 text-[26px] font-semibold leading-tight tracking-tight ${sum === null ? 'text-base-content/40' : has ? (tone === 'error' ? 'text-error' : '') : 'text-base-content/30'}`} title={sum === null ? m.failed : undefined}>
+      <p className={`mt-0.5 text-[26px] font-semibold leading-tight tracking-tight ${sum === null ? 'text-base-content/40' : has ? (tone === 'error' ? 'text-error' : '') : 'text-base-content/45'}`} title={sum === null ? m.failed : undefined}>
         {sum === undefined ? '…' : sum === null ? m.work.unknown : workText(sum)}
         {ch.badge}
       </p>
@@ -748,7 +748,7 @@ function Kpi({ title, value, failed, sub, delta, trend, hero = false, testId, ch
     <div className="min-w-0 px-5 py-4" data-testid={testId}>
       <p className="truncate text-sm text-base-content/70">{title}</p>
       <div className="mt-1 flex items-end justify-between gap-3">
-        <p className={`min-w-0 truncate font-semibold leading-tight ${hero ? 'text-[34px]' : 'text-[28px]'} ${failed ? 'text-base-content/35' : ''}`} title={failed ? m.failed : undefined}>
+        <p className={`min-w-0 truncate font-semibold leading-tight ${hero ? 'text-[34px]' : 'text-[28px]'} ${failed ? 'text-base-content/45' : ''}`} title={failed ? m.failed : undefined}>
           {value === undefined ? (failed ? '?' : '…') : value}
         </p>
         {trend}

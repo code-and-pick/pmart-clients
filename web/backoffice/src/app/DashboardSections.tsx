@@ -39,7 +39,7 @@ function Tile({ label, value, more, to, tone, testId }: { readonly label: string
         {has && <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${toneDot[tone]}`} aria-hidden="true" />}
         {label}
       </p>
-      <p className={`mt-0.5 text-[26px] font-semibold leading-tight tracking-tight ${value === null ? 'text-base-content/40' : has ? (tone === 'error' ? 'text-error' : '') : 'text-base-content/30'}`}>{text}</p>
+      <p className={`mt-0.5 text-[26px] font-semibold leading-tight tracking-tight ${value === null ? 'text-base-content/40' : has ? (tone === 'error' ? 'text-error' : '') : 'text-base-content/45'}`}>{text}</p>
     </Link>
   );
 }

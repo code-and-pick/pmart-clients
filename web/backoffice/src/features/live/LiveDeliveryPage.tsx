@@ -316,7 +316,7 @@ function LiveBoards({
         {value !== null && value > 0 && <span className={`h-1.5 w-1.5 rounded-full ${tone === 'error' ? 'bg-error' : 'bg-warning'}`} aria-hidden="true" />}
         {label}
       </span>
-      <span className={`mt-0.5 block text-[26px] font-semibold leading-tight tracking-tight ${value === null ? 'text-base-content/40' : value > 0 ? (tone === 'error' ? 'text-error' : '') : 'text-base-content/35'}`}>{value === null ? messages.none : value}</span>
+      <span className={`mt-0.5 block text-[26px] font-semibold leading-tight tracking-tight ${value === null ? 'text-base-content/40' : value > 0 ? (tone === 'error' ? 'text-error' : '') : 'text-base-content/45'}`}>{value === null ? messages.none : value}</span>
       {hint && <span className="block text-[11px] text-base-content/50">{hint}</span>}
     </button>
   );
@@ -352,7 +352,7 @@ function LiveBoards({
                 <span className="mt-1 block text-2xl font-bold tabular-nums">{byState(st)}</span>
               </button>
               {i < FLOW.length - 1 && (
-                <span className="pointer-events-none absolute -right-2.5 top-1/2 z-10 hidden -translate-y-1/2 text-base-content/30 md:block" aria-hidden="true">
+                <span className="pointer-events-none absolute -right-2.5 top-1/2 z-10 hidden -translate-y-1/2 text-base-content/45 md:block" aria-hidden="true">
                   ›
                 </span>
               )}
