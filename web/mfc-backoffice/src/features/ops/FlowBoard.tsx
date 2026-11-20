@@ -69,7 +69,7 @@ export function FlowBoard({ mfcId, tasks }: { readonly mfcId: string; readonly t
               <th>{m.type}</th>
               {STAGES.map((s, i) => (
                 <th key={s.key}>
-                  {i > 0 && <span className="mr-2 text-base-content/30">›</span>}
+                  {i > 0 && <span className="mr-2 text-base-content/50" aria-hidden="true">›</span>}
                   {m.stage[s.key]}
                 </th>
               ))}

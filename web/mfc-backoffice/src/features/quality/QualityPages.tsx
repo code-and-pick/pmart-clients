@@ -182,6 +182,7 @@ function LinesEditor({ value, onChange, withWork }: { readonly value: readonly L
 
 function LinesTable({ lines }: { readonly lines: readonly QualityLine[] }) {
   return (
+    <div className="overflow-x-auto">
     <table className="table table-xs">
       <thead>
         <tr>
@@ -204,6 +205,7 @@ function LinesTable({ lines }: { readonly lines: readonly QualityLine[] }) {
         ))}
       </tbody>
     </table>
+    </div>
   );
 }
 
@@ -483,6 +485,7 @@ function DisposalView({ mfcId, id }: { readonly mfcId: string; readonly id: stri
         <Who id={d.approverId} />
         {` · ${messages.approval.ref} ${d.approvalRef ?? messages.none}`}
       </p>
+          <div className="overflow-x-auto">
           <table className="table table-xs">
             <thead>
               <tr>
@@ -511,6 +514,7 @@ function DisposalView({ mfcId, id }: { readonly mfcId: string; readonly id: stri
               ))}
             </tbody>
           </table>
+          </div>
           {(d.executions ?? []).length > 0 && (
             <div>
               <h3 className="font-semibold">{m.executions}</h3>

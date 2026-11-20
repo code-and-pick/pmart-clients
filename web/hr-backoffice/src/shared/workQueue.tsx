@@ -51,7 +51,13 @@ export function useRememberQueue(ids: readonly string[] | undefined, from: strin
   }, [key, from]);
 }
 
-/** 상세: 기억한 목록 안에 이 직원이 있으면 이전·다음 띠 */
+/** 상세 "‹ 직원 목록"이 갈 곳 — 기억한 목록(거른 조건 그대로)에 이 직원이 있으면 그 목록, 없으면 undefined(2026-11-20: "보던 목록으로" 링크와 둘이 겹쳐 하나로) */
+export function useQueueFrom(id: string): string | undefined {
+  const q = useMemo(() => read(), []);
+  return q && q.ids.includes(id) ? q.from : undefined;
+}
+
+/** 상세: 기억한 목록 안에 이 직원이 있으면 이전·다음 띠(목록으로 돌아가기는 상세 머리 링크가 한다) */
 export function QueueNav({ id }: { readonly id: string }) {
   const navigate = useNavigate();
   const q = useMemo(() => read(), []);
@@ -73,9 +79,6 @@ export function QueueNav({ id }: { readonly id: string }) {
   const btn = 'btn btn-ghost btn-xs';
   return (
     <nav aria-label={m.label} className="flex flex-wrap items-center justify-end gap-1 text-xs text-base-content/60" data-testid="queue-nav">
-      <Link to={q.from} className="mr-auto hover:text-base-content">
-        {m.backToList}
-      </Link>
       {prev ? (
         <Link to={detailPath(prev)} className={btn} title={`${m.prev} ([)`} data-testid="queue-prev">
           ‹ {m.prev}

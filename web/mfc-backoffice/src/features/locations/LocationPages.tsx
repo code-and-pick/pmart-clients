@@ -118,7 +118,8 @@ function LocationListPage({ mfcId }: { readonly mfcId: string }) {
       <QueryState state={state$} onRetry={() => void query.refetch()} emptyText={m.empty}>
         {() => (
           <div className="space-y-2">
-            <table className="table table-sm rounded-box bg-base-100">
+            <div className="overflow-x-auto rounded-box bg-base-100">
+            <table className="table table-sm">
               <thead>
                 <tr>
                   <th>{m.fields.code}</th>
@@ -154,6 +155,7 @@ function LocationListPage({ mfcId }: { readonly mfcId: string }) {
                 ))}
               </tbody>
             </table>
+            </div>
             {query.hasNextPage && (
               <button type="button" className="btn btn-sm" disabled={query.isFetchingNextPage} onClick={() => void query.fetchNextPage()}>
                 {m.more}

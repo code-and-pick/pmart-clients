@@ -65,7 +65,8 @@ export function DispatchDelaysMenu({ mfcId }: { readonly mfcId: string }) {
           items.length === 0 ? (
             <AllDone body={m.none} />
           ) : (
-            <table className="table table-sm rounded-box bg-base-100" data-testid="dispatch-delays">
+            <div className="overflow-x-auto rounded-box bg-base-100">
+            <table className="table table-sm" data-testid="dispatch-delays">
               <thead>
                 <tr>
                   <th>{m.col.delivery}</th>
@@ -117,6 +118,7 @@ export function DispatchDelaysMenu({ mfcId }: { readonly mfcId: string }) {
                 })}
               </tbody>
             </table>
+            </div>
           )
         }
       </QueryState>

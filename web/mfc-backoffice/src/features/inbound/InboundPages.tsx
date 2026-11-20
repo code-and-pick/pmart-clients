@@ -153,7 +153,8 @@ function InboundTaskList({ mfcId }: { readonly mfcId: string }) {
       <SavedViews listKey={`inbound-tasks.${mfcId}`} />
       <QueryState state={toUiState(query, (rows) => rows.length === 0)} onRetry={() => void query.refetch()} emptyText={m.empty}>
         {(rows) => (
-          <table className="table table-sm rounded-box bg-base-100">
+          <div className="overflow-x-auto rounded-box bg-base-100">
+          <table className="table table-sm">
             <thead>
               <tr>
                 <th>{m.filters.type}</th>
@@ -190,6 +191,7 @@ function InboundTaskList({ mfcId }: { readonly mfcId: string }) {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </QueryState>
     </div>

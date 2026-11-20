@@ -2,7 +2,7 @@
 // - 계정 발급이 진행 중이면 몇 초마다 다시 조회한다(handoff 2026-11-13 §2). 단계는 서버 값만 보인다.
 // - 상태 변경은 X-Expected-Version(직원 version)과 사유를 보낸다. 응답(Employee)이 온 것만 반영한다.
 // - 요청 권한은 상태만 보인다(승인 버튼 없음 — 인사와 권한 분리).
-import { QueueNav } from '../../shared/workQueue';
+import { QueueNav, useQueueFrom } from '../../shared/workQueue';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, type ReactNode } from 'react';
 import { useParams } from 'react-router';
@@ -331,16 +331,17 @@ export function EmployeeDetailPage() {
     void queryClient.invalidateQueries({ queryKey: ['hr', 'employees'] });
   };
 
+  const backTo = useQueueFrom(operatorId);
   return (
     <section className="max-w-4xl space-y-4">
-      {/* 보던 목록 순서대로 이전·다음(2026-11-19) */}
+      {/* 보던 목록 순서대로 이전·다음(2026-11-19) — 목록으로 돌아가기는 아래 상세 머리 "‹ 직원 목록"(보던 목록이 있으면 그 조건으로) */}
       <QueueNav id={operatorId} />
       <QueryState state={toUiState(query)} onRetry={() => void query.refetch()}>
         {(e) => (
           <>
             {/* 상세 머리(2026-11-18 백오피스와 같은 모양): 이름 + 상태·계정 꼬리표, 아래 사번·메일(복사) */}
             <DetailHeader
-              back={{ to: '/employees', label: m.detail.back }}
+              back={{ to: backTo ?? '/employees', label: m.detail.back }}
               title={
                 <>
                   {e.name}

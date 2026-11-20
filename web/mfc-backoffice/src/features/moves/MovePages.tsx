@@ -471,6 +471,7 @@ function StockPicker({ mfcId, sku, onPick }: { readonly mfcId: string; readonly 
       {asked !== null && (
         <QueryState state={toUiState(query, (s) => s.units.length === 0)} onRetry={() => void query.refetch()} emptyText={m.stockEmpty}>
           {(s) => (
+            <div className="overflow-x-auto">
             <table className="table table-xs" aria-label={m.pickStock}>
               <thead>
                 <tr>
@@ -501,6 +502,7 @@ function StockPicker({ mfcId, sku, onPick }: { readonly mfcId: string; readonly 
                 ))}
               </tbody>
             </table>
+            </div>
           )}
         </QueryState>
       )}

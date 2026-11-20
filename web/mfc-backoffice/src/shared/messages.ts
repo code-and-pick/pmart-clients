@@ -5,6 +5,8 @@ export const messages = {
   appTitle: 'PMart MFC',
   goHome: 'PMart MFC 백오피스 홈으로',
   mockBadge: '목 데이터',
+  /** 밝은/어두운 화면 단추(2026-11-20 — 인사·라이더·통합과 같게) */
+  theme: { toDark: '어두운 화면으로', toLight: '밝은 화면으로' },
   ...uiMessages,
 
   /** 번호 복사 단추 */

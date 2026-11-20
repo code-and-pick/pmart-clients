@@ -186,7 +186,8 @@ function TaskListPage({ mfcId }: { readonly mfcId: string }) {
       <QueryState state={toUiState(query, () => rows.length === 0)} onRetry={() => void query.refetch()} emptyText={m.empty}>
         {() => (
           <div className="space-y-2">
-            <table className="table table-sm rounded-box bg-base-100">
+            <div className="overflow-x-auto rounded-box bg-base-100">
+            <table className="table table-sm">
               <thead>
                 <tr>
                   <th>{m.type}</th>
@@ -248,6 +249,7 @@ function TaskListPage({ mfcId }: { readonly mfcId: string }) {
                 })}
               </tbody>
             </table>
+            </div>
             {query.hasNextPage && (
               <button type="button" className="btn btn-sm" disabled={query.isFetchingNextPage} onClick={() => void query.fetchNextPage()}>
                 {m.more}
@@ -455,6 +457,7 @@ function TaskLines({ task: t }: { readonly task: TaskDetail }) {
   return (
     <div className="rounded-box bg-base-100 p-4">
       <h2 className="mb-2 font-semibold">{m.lines}</h2>
+      <div className="overflow-x-auto">
       <table className="table table-xs">
         <thead>
           <tr>
@@ -487,6 +490,7 @@ function TaskLines({ task: t }: { readonly task: TaskDetail }) {
           ))}
         </tbody>
       </table>
+      </div>
     </div>
   );
 }
@@ -563,6 +567,7 @@ function ShipmentView({ shipmentId }: { readonly shipmentId: string }) {
             {(s.packages ?? []).length === 0 ? (
               <p className="opacity-70">{m.noPackages}</p>
             ) : (
+              <div className="overflow-x-auto">
               <table className="table table-xs">
                 <thead>
                   <tr>
@@ -597,6 +602,7 @@ function ShipmentView({ shipmentId }: { readonly shipmentId: string }) {
                   ))}
                 </tbody>
               </table>
+              </div>
             )}
             <SystemNumbers ids={(s.packages ?? []).map((pkg, i) => ({ label: `${messages.displayNumber.system.packageId} ${i + 1}`, id: pkg.packageId }))} />
           </>

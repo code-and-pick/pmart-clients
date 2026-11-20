@@ -140,6 +140,7 @@ function StockTab({ mfcId }: { readonly mfcId: string }) {
             <div className="space-y-3">
               <div className="rounded-box bg-base-100 p-4">
                 <h2 className="mb-2 font-semibold">{m.lots}</h2>
+                <div className="overflow-x-auto">
                 <table className="table table-xs">
                   <thead>
                     <tr>
@@ -166,9 +167,11 @@ function StockTab({ mfcId }: { readonly mfcId: string }) {
                     ))}
                   </tbody>
                 </table>
+                </div>
               </div>
               <div className="rounded-box bg-base-100 p-4">
                 <h2 className="mb-2 font-semibold">{m.units}</h2>
+                <div className="overflow-x-auto">
                 <table className="table table-xs">
                   <thead>
                     <tr>
@@ -206,6 +209,7 @@ function StockTab({ mfcId }: { readonly mfcId: string }) {
                     ))}
                   </tbody>
                 </table>
+                </div>
               </div>
               {editing && (
                 <CorrectionForm
@@ -468,6 +472,7 @@ function CountSessionCard({ mfcId, session: s, onDecided }: { readonly mfcId: st
         {s.differences == null ? (
           <p className="opacity-70">{m.diffHidden}</p>
         ) : (
+          <div className="overflow-x-auto">
           <table className="table table-xs">
             <thead>
               <tr>
@@ -496,6 +501,7 @@ function CountSessionCard({ mfcId, session: s, onDecided }: { readonly mfcId: st
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
       {s.state === 'PENDING_APPROVAL' && <DecideCount key={s.version} mfcId={mfcId} session={s} onDecided={onDecided} />}
@@ -565,7 +571,8 @@ function UnshippableTab({ mfcId }: { readonly mfcId: string }) {
       <p className="text-xs opacity-70">{m.unshippableHint}</p>
       <QueryState state={toUiState(query, (rows) => rows.length === 0)} onRetry={() => void query.refetch()} emptyText={m.unshippableEmpty}>
         {(rows) => (
-          <table className="table table-sm rounded-box bg-base-100">
+          <div className="overflow-x-auto rounded-box bg-base-100">
+          <table className="table table-sm">
             <thead>
               <tr>
                 <th>{m.sku}</th>
@@ -602,6 +609,7 @@ function UnshippableTab({ mfcId }: { readonly mfcId: string }) {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </QueryState>
     </div>
@@ -669,7 +677,8 @@ function PoliciesTab({ mfcId }: { readonly mfcId: string }) {
       )}
       <QueryState state={toUiState(query, (rows) => rows.length === 0)} onRetry={() => void query.refetch()} emptyText={m.policiesEmpty}>
         {(rows) => (
-          <table className="table table-sm rounded-box bg-base-100">
+          <div className="overflow-x-auto rounded-box bg-base-100">
+          <table className="table table-sm">
             <thead>
               <tr>
                 <th>{c.location}</th>
@@ -707,6 +716,7 @@ function PoliciesTab({ mfcId }: { readonly mfcId: string }) {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </QueryState>
       <CommandFeedback command={remove} />
@@ -818,13 +828,15 @@ function HandlingsTab({ mfcId }: { readonly mfcId: string }) {
       <QueryState state={toUiState(query, () => rows.length === 0)} onRetry={() => void query.refetch()} emptyText={m.handlingsEmpty}>
         {() => (
           <div className="space-y-2">
-            <table className="table table-sm rounded-box bg-base-100">
+            <div className="overflow-x-auto rounded-box bg-base-100">
+            <table className="table table-sm">
               <tbody>
                 {rows.map((h) => (
                   <HandlingRow key={`${h.sku}-${h.version}`} mfcId={mfcId} handling={h} onDone={setNotice} />
                 ))}
               </tbody>
             </table>
+            </div>
             {query.hasNextPage && (
               <button type="button" className="btn btn-sm" disabled={query.isFetchingNextPage} onClick={() => void query.fetchNextPage()}>
                 {m.more}

@@ -136,7 +136,8 @@ export function UnassignedTasks({ mfcId }: { readonly mfcId: string }) {
             <AllDone body={m.noUnassigned} />
           ) : (
             <>
-              <table className="table table-sm rounded-box bg-base-100">
+              <div className="overflow-x-auto rounded-box bg-base-100">
+              <table className="table table-sm">
                 <thead>
                   <tr>
                     <th>{t.type}</th>
@@ -171,6 +172,7 @@ export function UnassignedTasks({ mfcId }: { readonly mfcId: string }) {
                   ))}
                 </tbody>
               </table>
+              </div>
               {r.page?.nextCursor && <p className="text-xs text-base-content/60">{m.moreInTasks}</p>}
             </>
           )

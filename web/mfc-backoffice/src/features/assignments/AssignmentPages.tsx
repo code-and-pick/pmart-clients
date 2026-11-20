@@ -176,7 +176,8 @@ function AssignmentList({ mfcId, onReassign }: { readonly mfcId: string; readonl
       <p className="text-xs opacity-70">{m.eligibilityNote}</p>
       <QueryState state={toUiState(query, () => rows.length === 0)} onRetry={() => void query.refetch()} emptyText={m.empty}>
         {() => (
-          <table className="table table-sm rounded-box bg-base-100">
+          <div className="overflow-x-auto rounded-box bg-base-100">
+          <table className="table table-sm">
             <thead>
               <tr>
                 <th>{m.fields.task}</th>
@@ -218,6 +219,7 @@ function AssignmentList({ mfcId, onReassign }: { readonly mfcId: string; readonl
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </QueryState>
     </div>
@@ -523,6 +525,7 @@ function PlanView({ mfcId, plan }: { readonly mfcId: string; readonly plan: Plan
         {(plan.items ?? []).length === 0 ? (
           <p className="opacity-70">{messages.none}</p>
         ) : (
+          <div className="overflow-x-auto">
           <table className="table table-xs">
             <thead>
               <tr>
@@ -549,6 +552,7 @@ function PlanView({ mfcId, plan }: { readonly mfcId: string; readonly plan: Plan
               ))}
             </tbody>
           </table>
+          </div>
         )}
         {(plan.unassigned ?? []).length > 0 && (
           <>

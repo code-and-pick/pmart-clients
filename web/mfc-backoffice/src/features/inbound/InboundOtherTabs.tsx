@@ -143,6 +143,7 @@ function InitialLoadCard({ mfcId, load, approvalId }: { readonly mfcId: string; 
           void receive.run(null);
         }}
       >
+        <div className="overflow-x-auto">
         <table className="table table-xs">
           <thead>
             <tr>
@@ -176,6 +177,7 @@ function InitialLoadCard({ mfcId, load, approvalId }: { readonly mfcId: string; 
             ))}
           </tbody>
         </table>
+        </div>
         {load.state === 'EXPECTED' && mine && (
           <>
             <p className="text-xs opacity-70">{m.receiveHint}</p>

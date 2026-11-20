@@ -266,6 +266,7 @@ function IncidentDetail({ incident: i }: { readonly incident: Incident }) {
 
       <div>
         <h3 className="mb-1 font-semibold">{m.lots}</h3>
+        <div className="overflow-x-auto">
         <table className="table table-xs" data-testid="incident-lots">
           <thead>
             <tr>
@@ -303,6 +304,7 @@ function IncidentDetail({ incident: i }: { readonly incident: Incident }) {
             ))}
           </tbody>
         </table>
+        </div>
       </div>
       {(i.decisionIds ?? []).length > 0 && <p className="text-xs">{`${m.decisions}: ${i.decisionIds!.join(', ')}`}</p>}
 

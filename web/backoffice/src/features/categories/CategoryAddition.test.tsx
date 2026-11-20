@@ -66,7 +66,9 @@ describe('카테고리 트리 — 기준파일(seed-v1) 카테고리 추가', ()
     );
     await user.click(screen.getByRole('button', { name: '없는 카테고리만 추가' }));
 
-    expect(await screen.findByRole('status')).toHaveTextContent('추가할 카테고리가 없어요');
+    // 2026-11-20: 전체 시험을 한꺼번에 돌릴 때 가끔 1초 안에 답이 안 와 실패했다 — 그 글자를 5초까지 기다리고, 그 글자가 status 안에 있는지 본다
+    const note = await screen.findByText(/추가할 카테고리가 없어요/, {}, { timeout: 5000 });
+    expect(note.closest('[role="status"]')).not.toBeNull();
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 

@@ -276,7 +276,8 @@ function DispatchFailureListPage({ mfcId }: { readonly mfcId: string }) {
       </div>
       <QueryState state={toUiState(query, (r) => (r.items ?? []).length === 0)} onRetry={() => void query.refetch()} emptyText={closed ? f.emptyClosed : f.emptyOpen}>
         {(r) => (
-          <table className="table table-sm rounded-box bg-base-100">
+          <div className="overflow-x-auto rounded-box bg-base-100">
+          <table className="table table-sm">
             <thead>
               <tr>
                 <th>{f.col.priority}</th>
@@ -309,6 +310,7 @@ function DispatchFailureListPage({ mfcId }: { readonly mfcId: string }) {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </QueryState>
       {!closed && <p className="text-xs opacity-70">{f.notYetNote}</p>}

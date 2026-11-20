@@ -28,6 +28,7 @@ import { messages as m } from '../shared/messages';
 import { allMenus, centerPath, isWorkerOnly, navGroups, type MenuItem, type MenuKey } from './nav';
 import { ConnectionBanner, ShortcutHelp, TaskAlertBadge, useDocumentTitle, useSlashToSearch } from './PageChrome';
 import { RequireSession, SessionProvider, useSession } from './SessionContext';
+import { ThemeToggle } from './ThemeToggle';
 import { DETAIL_BAR_SLOT } from '../shared/StickyTitle';
 
 /** 주소의 센터(`/c/:mfcId/…`). 세션 centers(sessions/current)에 있을 때만 그 센터 */
@@ -99,6 +100,7 @@ function Layout() {
           {session && center?.mine && <CenterSwitcher centers={session.centers} current={center.mfcId} segment={segment} />}
           {env.isMock && <span className="badge badge-accent badge-sm">{m.mockBadge}</span>}
           <ShortcutHelp />
+          <ThemeToggle />
           {session && (
             <NavLink to="/me" className={({ isActive }) => `btn btn-ghost btn-xs font-normal ${isActive ? 'btn-active' : ''}`}>
               {m.nav.me}

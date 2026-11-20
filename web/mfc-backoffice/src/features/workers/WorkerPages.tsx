@@ -170,7 +170,8 @@ function WorkerListPage({ mfcId }: { readonly mfcId: string }) {
         {(rows) => (
           <>
           <Pager testId="worker-pager-top" page={paging.page} pageCount={paging.pageCount} total={rows.length} from={paging.from} to={paging.to} onChange={paging.set} />
-          <table className="table table-sm rounded-box bg-base-100">
+          <div className="overflow-x-auto rounded-box bg-base-100">
+          <table className="table table-sm">
             <thead>
               <tr>
                 <th>{m.ui.employee}</th>
@@ -204,6 +205,7 @@ function WorkerListPage({ mfcId }: { readonly mfcId: string }) {
               ))}
             </tbody>
           </table>
+          </div>
           <Pager testId="worker-pager-bottom" page={paging.page} pageCount={paging.pageCount} total={rows.length} from={paging.from} to={paging.to} onChange={paging.set} />
           </>
         )}
@@ -987,6 +989,7 @@ function Activities({ mfcId, workerId }: { readonly mfcId: string; readonly work
                 {r.totals.length > 0 && (
                   <div>
                     <h3 className="font-semibold">{a.totals}</h3>
+                    <div className="overflow-x-auto">
                     <table className="table table-xs w-fit">
                       <thead>
                         <tr>
@@ -1005,6 +1008,7 @@ function Activities({ mfcId, workerId }: { readonly mfcId: string; readonly work
                         ))}
                       </tbody>
                     </table>
+                    </div>
                     <p className="text-xs opacity-70">{a.rejectedNote}</p>
                   </div>
                 )}
@@ -1013,6 +1017,7 @@ function Activities({ mfcId, workerId }: { readonly mfcId: string; readonly work
                     {a.empty}
                   </p>
                 ) : (
+                  <div className="overflow-x-auto">
                   <table className="table table-xs">
                     <thead>
                       <tr>
@@ -1037,6 +1042,7 @@ function Activities({ mfcId, workerId }: { readonly mfcId: string; readonly work
                       ))}
                     </tbody>
                   </table>
+                  </div>
                 )}
               </div>
             )}
