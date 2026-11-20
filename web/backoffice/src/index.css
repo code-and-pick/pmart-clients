@@ -251,11 +251,16 @@ main [data-state='loading']::after {
   }
 }
 
-/* 미리보기 칸이 열리면 넓은 화면에서는 본문을 그 폭만큼 비켜 목록 오른쪽 칸이 가리지 않게(2026-11-18) — 좁은 화면은 칸이 위에 덮는다 */
-@media (min-width: 1280px) {
-  main:has([data-testid='preview-drawer']) {
-    padding-right: calc(26rem + 1.5rem);
-  }
+/* 아래 분할 상세(2026-11-20 AWS Split panel — 예전 오른쪽 서랍): 열리면 본문 아래에 그 높이만큼 여백(목록 끝 줄이 가려지지 않게),
+   분할 상세는 왼쪽 메뉴 오른쪽부터(--pm-menu-w — 메뉴 폭 220px, 접으면 80px) */
+:root {
+  --pm-menu-w: 220px;
+}
+:root:has([data-testid='side-menu'][data-collapsed='true']) {
+  --pm-menu-w: 80px;
+}
+main:has([data-testid='preview-drawer']) {
+  padding-bottom: calc(var(--pm-split-h, 40vh) + 1.5rem);
 }
 
 /* 필수 칸 표시(2026-11-19 — 저장해야 서버가 "중량이 필요해요"를 알려 줘서 미리 보이게). 글자는 CSS 로만 그려

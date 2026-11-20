@@ -212,7 +212,7 @@ export function SectionTabs({ items }: { readonly items: ReadonlyArray<{ readonl
     return () => io.disconnect();
   }, [items]);
   return (
-    <nav aria-label="구역" className="sticky top-0 z-20 flex overflow-x-auto border-b border-base-300 bg-base-200/95 backdrop-blur" data-testid="section-tabs">
+    <nav aria-label="구역" className="sticky top-0 z-20 flex overflow-x-auto overflow-y-hidden border-b border-base-300 bg-base-200/95 backdrop-blur" data-testid="section-tabs">
       {items.map((i, n) => {
         const on = i.id === active;
         return (

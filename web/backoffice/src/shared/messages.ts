@@ -1273,6 +1273,7 @@ export const messages = {
     riderHint: '라이더 번호(6자리) 또는 라이더 ID',
   },
   preview: {
+    resize: '끌어서 높이 바꾸기',
     label: '미리보기',
     prev: '앞 줄',
     next: '다음 줄',

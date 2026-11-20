@@ -2,7 +2,7 @@
 // 줄을 누르면 목록을 떠나지 않고 오른쪽에 요약이 열린다. 줄 안의 번호 링크는 그대로 상세로 간다.
 // 열린 것은 주소 `?preview=<ID>` 에 둔다(새로 고침·링크 보내기에도 그대로, 다른 조건은 건드리지 않는다).
 // ↑↓ 로 앞뒤 줄, Esc 로 닫기(입력 칸에 있을 때는 키를 가로채지 않는다). 내용은 상세와 같은 조회 키라 상세로 가도 다시 읽지 않는다.
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 
 import { messages as m } from './messages';
@@ -64,6 +64,13 @@ export function PreviewDrawer({
   readonly detailLabel?: string;
   readonly children: ReactNode;
 }) {
+  const [height, setHeight] = useState(40);
+  useEffect(() => {
+    document.documentElement.style.setProperty('--pm-split-h', `${height}vh`);
+    return () => {
+      document.documentElement.style.removeProperty('--pm-split-h');
+    };
+  }, [height]);
   const navigate = useNavigate();
   const at = ids.indexOf(id);
   const prev = at > 0 ? ids[at - 1] : undefined;
@@ -89,13 +96,29 @@ export function PreviewDrawer({
     return () => window.removeEventListener('keydown', onKey);
   }, [prev, next, onClose, onMove, navigate, detailTo]);
 
+  // 2026-11-20 AWS 아래 분할 상세(Split panel): 오른쪽 서랍 대신 목록 아래에서 올라온다. 위 손잡이로 높이(화면 20~80%)를 끌어 바꾼다.
+  // 목록이 가려지지 않게 높이를 --pm-split-h 로 알려 본문 아래 여백을 그만큼 둔다(index.css).
+  const startDrag = (e: React.PointerEvent) => {
+    e.preventDefault();
+    const move = (ev: PointerEvent) => setHeight(Math.min(80, Math.max(20, ((window.innerHeight - ev.clientY) / window.innerHeight) * 100)));
+    const up = () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+  };
   return (
     <aside
       aria-label={m.preview.label}
-      className="fixed bottom-0 right-0 top-14 z-30 flex w-[26rem] max-w-full flex-col border-l border-base-300 bg-base-100 shadow-2xl"
+      className="fixed bottom-0 right-0 z-30 flex flex-col border-t border-base-300 bg-base-100 shadow-[0_-4px_16px_rgba(0,0,0,0.08)]"
+      style={{ height: `${height}vh`, left: 'var(--pm-menu-w, 0px)' }}
       data-testid="preview-drawer"
     >
-      <div className="flex items-center gap-1 border-b border-base-300 px-4 py-3">
+      <div className="flex h-3 cursor-row-resize items-center justify-center" onPointerDown={startDrag} role="separator" aria-orientation="horizontal" aria-label={m.preview.resize} title={m.preview.resize}>
+        <span className="h-1 w-10 rounded-full bg-base-content/25" aria-hidden="true" />
+      </div>
+      <div className="flex items-center gap-1 border-b border-base-300 px-4 pb-2">
         <h2 className="min-w-0 flex-1 truncate text-base font-bold">{title}</h2>
         <button type="button" className="btn btn-ghost btn-xs" disabled={!prev} onClick={() => prev && onMove(prev)} aria-label={m.preview.prev} title={`${m.preview.prev} (↑)`}>
           ↑
