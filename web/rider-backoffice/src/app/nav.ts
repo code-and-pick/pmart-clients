@@ -32,7 +32,7 @@ const done = (key: MenuKey, segment: string): MenuItem => ({ key, segment, ready
 export const navGroups: readonly MenuGroup[] = [
   { key: 'overview', items: [done('dashboard', 'dashboard')] },
   { key: 'control', items: [done('riderMap', 'control')] },
-  { key: 'riders', items: [done('riders', 'riders'), done('signups', 'signups'), done('restrictionReviews', 'restriction-reviews')] },
+  { key: 'riders', items: [done('riders', 'riders'), done('signups', 'signups'), done('restrictionReviews', 'restriction-reviews'), done('withdrawals', 'withdrawals')] },
   { key: 'deliveries', items: [done('deliveries', 'deliveries')] },
   // 2026-11-19: 사용자 "라이더문의랑 도움요청이 둘 다 있는 이유" — 상담함 하나로. 옛 두 목록은 상세 주소만 남긴다(hidden). 접수 건은 운영으로.
   { key: 'support', items: [done('consults', 'consults'), { ...done('helpRequests', 'help-requests'), hidden: true }, { ...done('inquiries', 'inquiries'), hidden: true }, { ...done('appeals', 'appeals'), hidden: true }] },

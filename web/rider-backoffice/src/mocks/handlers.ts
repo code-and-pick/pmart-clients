@@ -8,6 +8,7 @@ import { hrLabelHandlers } from './hrLabelHandlers';
 import { noticeHandlers } from './noticeHandlers';
 import { payoutAppealHandlers } from './payoutAppealHandlers';
 import { opsHandlers } from './opsHandlers';
+import { withdrawalHandlers } from './withdrawalHandlers';
 import { staffEvidenceHandlers } from './staffEvidenceHandlers';
 import { supportPlusHandlers } from './supportPlusHandlers';
 import { operator, unauthorized } from './support';
@@ -22,4 +23,4 @@ const gateway = http.all(`${API_BASE}/*`, ({ request }) => {
   return operator(request) ? undefined : unauthorized();
 });
 
-export const handlers = [gateway, ...authHandlers, ...caseCloseHandlers, ...caseHandlers, ...deliveryHandlers, ...staffEvidenceHandlers, ...supportPlusHandlers, ...noticeHandlers, ...payoutAppealHandlers, ...hrLabelHandlers, ...opsHandlers];
+export const handlers = [gateway, ...authHandlers, ...caseCloseHandlers, ...caseHandlers, ...deliveryHandlers, ...staffEvidenceHandlers, ...supportPlusHandlers, ...noticeHandlers, ...payoutAppealHandlers, ...hrLabelHandlers, ...withdrawalHandlers, ...opsHandlers];

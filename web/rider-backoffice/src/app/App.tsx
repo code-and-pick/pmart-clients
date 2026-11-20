@@ -14,6 +14,7 @@ import { PayoutsMenu } from '../features/earnings/PayoutPages';
 import { NoticesMenu } from '../features/ops/NoticePages';
 import { StaffActionsMenu } from '../features/ops/StaffActionsPage';
 import { RestrictionReviewsMenu, RidersMenu, SignupsMenu } from '../features/riders/RiderPages';
+import { WithdrawalsMenu } from '../features/riders/WithdrawalsPage';
 import { ConsultsMenu, HelpRequestsMenu, InquiriesMenu } from '../features/support/SupportPages';
 import { DeliveriesMenu } from '../features/deliveries/DeliveryPages';
 import { PreparingPage } from '../features/menus/PreparingPage';
@@ -240,6 +241,8 @@ function MenuPage({ menu }: { readonly menu: MenuItem }) {
       return <SignupsMenu />;
     case 'restrictionReviews':
       return <RestrictionReviewsMenu />;
+    case 'withdrawals':
+      return <WithdrawalsMenu />;
     case 'consults':
       return <ConsultsMenu />;
     case 'helpRequests':
