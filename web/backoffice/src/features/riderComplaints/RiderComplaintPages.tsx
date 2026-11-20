@@ -216,8 +216,6 @@ export function RiderComplaintListPage() {
           </Link>
         }
       />
-      {/* 내 보기(2026-11-19 — 다른 목록과 같게) — 지금 주소 조건을 이름 붙여 저장 */}
-      <SavedViews listKey="rider-complaints" />
       {/* 종류별 숫자 띠(case 0.26.0 counts, 2026-11-19) — 지금 거르기(라이더·배송·기간) 그대로, 종류만 빼고 센다. 누르면 그 종류로 */}
       {!unresolved && (
         <ComplaintCounts
@@ -239,6 +237,7 @@ export function RiderComplaintListPage() {
           value={{ riderId: get('riderId'), deliveryId: get('deliveryId'), complaintType: type ?? '' }}
           onChange={setCriteria}
           testId="complaint-filter"
+          lead={<SavedViews listKey="rider-complaints" />}
           aside={
             <span className="flex items-center gap-2 text-sm">
               <span className="font-semibold text-base-content/80">{m.complaints.period}</span>

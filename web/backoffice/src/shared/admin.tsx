@@ -423,13 +423,15 @@ export type FilterProp = {
  * 속성마다 값 하나(서버 조건이 하나씩만 받는다). 글자를 치면 목록을 좁힌다 — 줄을 글자로 찾는 검색이 아니다(계약에 글자 검색 없음).
  * 연산자는 "=" 하나뿐이라 고르는 단계를 두지 않는다.
  */
-export function PropertyFilter({ props, value, onChange, testId, aside }: {
+export function PropertyFilter({ props, value, onChange, testId, aside, lead }: {
   readonly props: readonly FilterProp[];
   readonly value: Readonly<Record<string, string | undefined>>;
   readonly onChange: (patch: Readonly<Record<string, string | null>>) => void;
   readonly testId?: string;
   /** 검색칸 오른쪽(기간·정렬 등 — AWS 의 시간 범위 고르기 자리) */
   readonly aside?: ReactNode;
+  /** 검색칸 왼쪽(저장한 보기 — AWS "저장된 필터 세트" 자리) */
+  readonly lead?: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
   const [prop, setProp] = useState<string | null>(null);
@@ -471,6 +473,7 @@ export function PropertyFilter({ props, value, onChange, testId, aside }: {
   return (
     <div className="space-y-2" data-testid={testId}>
       <div className="flex flex-wrap items-center gap-3">
+      {lead}
       <div
         className="relative w-full max-w-xl"
         onBlur={(e) => {

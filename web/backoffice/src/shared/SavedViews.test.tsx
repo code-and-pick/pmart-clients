@@ -18,6 +18,7 @@ describe('내 보기', () => {
   it('조건이 없으면 저장 버튼이 꺼져 있다', async () => {
     renderAt('/claims', as.cs);
     const box = await screen.findByTestId('saved-views');
+    await userEvent.click(within(box).getByTestId('saved-views-toggle')); // 2026-11-20 고르기 칸으로 — 펼쳐서
     expect(within(box).getByRole('button', { name: '+ 지금 조건 저장' })).toBeDisabled();
   });
 
@@ -26,6 +27,7 @@ describe('내 보기', () => {
     const user = userEvent.setup();
     renderAt('/claims?type=CANCEL', as.cs);
     const box = await screen.findByTestId('saved-views');
+    await userEvent.click(within(box).getByTestId('saved-views-toggle')); // 2026-11-20 고르기 칸으로 — 펼쳐서
     await user.click(within(box).getByRole('button', { name: '+ 지금 조건 저장' }));
     await user.type(within(box).getByLabelText('보기 이름'), '취소 건{Enter}');
     expect(within(box).getByRole('link', { name: '취소 건' })).toHaveAttribute('aria-current', 'true');

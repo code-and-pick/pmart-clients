@@ -277,8 +277,6 @@ export function DeliveryOpenPage() {
           </form>
         }
       />
-      {/* 내 보기(2026-11-18 Saleor 참고) — 지금 주소 조건을 이름 붙여 저장 */}
-      <SavedViews listKey="deliveries" />
       <div className="flex flex-wrap items-center gap-2" role="group" aria-label={m.deliveries.quickViews}>
         <span className="text-xs font-medium text-base-content/55">{m.deliveries.quickViews}</span>
         <button
@@ -308,6 +306,7 @@ export function DeliveryOpenPage() {
             })
           }
           testId="delivery-filter"
+          lead={<SavedViews listKey="deliveries" />}
           aside={
             <label className="flex items-center gap-1.5 text-sm">
               <input type="checkbox" className="checkbox checkbox-xs" checked={now.oldest} onChange={(e) => go({ ...now, oldest: e.target.checked })} />

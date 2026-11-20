@@ -135,14 +135,13 @@ export function OrderLookupPage() {
   return (
     <section className="space-y-5">
       <ListHeader title={m.orders.title} count={listCount(query)} refresh={refreshOf(query)} onInfo={help?.open} />
-      {/* 내 보기(2026-11-18 Saleor 참고) — 지금 주소 조건을 이름 붙여 저장 */}
-      <SavedViews listKey="orders" />
       <div className="rounded-box border border-base-300 bg-base-100 px-5 py-3" data-list-part="top">
         <PropertyFilter
           props={filterProps}
           value={{ orderId: criteria.orderId, customerId: criteria.customerId, mfcId: criteria.mfcId, receiverPhone: criteria.receiverPhone, status: criteria.status }}
           onChange={setCriteria}
           testId="order-filter"
+          lead={<SavedViews listKey="orders" />}
           aside={
             <span className="flex items-center gap-2 text-sm">
               <span className="font-semibold text-base-content/80">{m.orders.period}</span>

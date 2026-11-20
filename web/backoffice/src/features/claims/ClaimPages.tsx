@@ -324,8 +324,6 @@ export function ClaimListPage() {
         </StatStrip>
         <p className="text-xs text-base-content/50">{cl.basis}</p>
       </div>
-      {/* 내 보기(2026-11-18 Saleor 참고) — 지금 주소 조건을 이름 붙여 저장 */}
-      <SavedViews listKey="claims" />
       {/* 조건을 건 뒤에는 한 줄 칩으로 접힌다(2026-11-19 쿠팡 윙 반품관리 참고) */}
       <div className="rounded-box border border-base-300 bg-base-100 px-5 py-3" data-list-part="top">
         <PropertyFilter
@@ -337,6 +335,7 @@ export function ClaimListPage() {
           value={{ orderId, type: type ?? '', state: state ?? '' }}
           onChange={(patch) => void submit({ orderId: patch.orderId === undefined ? orderId : (patch.orderId ?? ''), type: patch.type === undefined ? (type ?? '') : (patch.type ?? ''), state: patch.state === undefined ? (state ?? '') : (patch.state ?? '') })}
           testId="claim-filter"
+          lead={<SavedViews listKey="claims" />}
         />
         {notFound && (
           <p role="alert" className="mt-2 text-xs text-warning">

@@ -2834,7 +2834,7 @@ export const messages = {
   /** 첫 화면 대시보드(2026-11-18) */
   /** 목록 "내 보기"(2026-11-18 Saleor 참고) — 이 브라우저에만 저장 */
   savedViews: {
-    title: '내 보기',
+    title: '저장한 보기',
     empty: '저장한 보기가 없어요',
     add: '+ 지금 조건 저장',
     noFilter: '조건을 먼저 고르세요',
