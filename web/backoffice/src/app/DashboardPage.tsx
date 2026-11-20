@@ -11,10 +11,11 @@ import { Link, useSearchParams } from 'react-router';
 import { ProblemFailure, request } from '@pmart/web-core';
 import { useApi } from './ApiContext';
 import { ALERT_SIZE, useAlertCount, type AlertKey } from './MenuAlerts';
-import { ApprovalTypes, LiveSummary, RiskPanel, SlaTrend } from './DashboardSections';
+import { ApprovalTypes, LiveSummary, RiskPanel } from './DashboardSections';
+import { Insight, LineChart, Meter } from './Charts';
 import { DashboardStatus } from './DashboardStatus';
 import { DisplayNumber } from '../shared/displayNumber';
-import { ActivityFeed, LiveStat, MetricsPanel, OrdersWeekChart, SalesPanel, WorkCountsPanel, useWorkCounts, workText, type WorkSum, RefreshBar, RiskStat, SlaStat, StatusDonut, TodayOrdersStat, slaQuery } from './DashboardWidgets';
+import { ActivityFeed, LiveStat, MetricsPanel, OrdersWeekChart, SalesPanel, TopProducts, WorkCountsPanel, useWorkCounts, workText, type WorkSum, RefreshBar, RiskStat, SlaStat, StatusDonut, TodayOrdersStat, slaQuery } from './DashboardWidgets';
 import { visibleGroups } from './nav';
 import { useSession } from './SessionContext';
 import { slaText } from '../features/cases/CaseSlaPage';
@@ -53,8 +54,11 @@ function TaskRow({ alert, title, to, tone, group, exact }: { readonly alert: Ale
       data-group={group}
       className="group flex min-w-0 flex-col gap-1 px-5 py-1"
     >
-      <span className="truncate text-sm text-base-content/70">{title}</span>
-      <span className={`self-start text-2xl font-bold leading-tight tabular-nums underline decoration-dotted decoration-2 underline-offset-4 group-hover:text-primary ${num}`} {...(failed ? { title: m.failed } : {})}>
+      <span className="flex items-center gap-1.5 truncate text-sm text-base-content/70">
+        {has && tone !== 'info' && <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${tone === 'error' ? 'bg-error' : 'bg-warning'}`} aria-hidden="true" />}
+        {title}
+      </span>
+      <span className={`self-start text-[28px] font-semibold leading-tight tracking-tight group-hover:text-primary ${num}`} {...(failed ? { title: m.failed } : {})}>
         {n === 0 ? '0' : text}
       </span>
       <span className={`text-xs ${has ? 'text-primary group-hover:underline' : 'text-base-content/50'}`}>{failed ? m.failedShort : n === 0 ? m.noneLeft : has ? `${m.go} →` : ' '}</span>
@@ -92,13 +96,17 @@ function SlaCard({ from, to, days }: { readonly from: string; readonly to: strin
       const cur = byKind.get(k) ?? { n: 0, d: 0 };
       byKind.set(k, { n: cur.n + p.numerator, d: cur.d + p.denominator });
     }
-    const kinds = [...byKind.entries()].sort((a, b) => b[1].d - a[1].d).slice(0, 4);
+    // 2026-11-20: 낮은 순(먼저 봐야 할 것 위) — 판정할 건이 없는 종류는 아래
+    const rate = (v: { n: number; d: number }) => (v.d === 0 ? 2 : v.n / v.d);
+    const kinds = [...byKind.entries()].sort((a, b) => rate(a[1]) - rate(b[1]) || b[1].d - a[1].d).slice(0, 4);
+    const worst = kinds.find(([, v]) => v.d > 0);
+    const byDay = new Map((q.data.totals ?? []).map((tt) => [tt.bucket.slice(0, 10), tt]));
     body = (
       <div className="space-y-4">
-        <div className="grid items-end gap-5 sm:grid-cols-[auto_1fr]">
+        <div className="grid items-end gap-6 sm:grid-cols-[12rem_1fr]">
           <div className="space-y-2">
             <div>
-              <p className="text-3xl font-bold tabular-nums" data-testid="dash-sla-ratio">{t.ratio}</p>
+              <p className="text-[34px] font-semibold leading-tight tracking-tight" data-testid="dash-sla-ratio">{t.ratio}</p>
               <p className="text-xs text-base-content/55">{t.count}</p>
               {unjudged > 0 && <p className="text-xs text-base-content/55" data-testid="dash-sla-unjudged">{m.slaUnjudged(unjudged)}</p>}
             </div>
@@ -109,11 +117,23 @@ function SlaCard({ from, to, days }: { readonly from: string; readonly to: strin
               </span>
             </p>
           </div>
-          <SlaTrend days={days} totals={q.data.totals ?? []} />
+          <LineChart
+            testId="dash-sla-trend"
+            testIdPoint="dash-sla-day"
+            label={m.sla}
+            height="h-28"
+            avg={denominator > 0 ? { value: numerator / denominator, text: m.slaAvg(t.ratio) } : null}
+            points={days.map((d, i) => {
+              const b = byDay.get(d);
+              const r = b && b.denominator > 0 ? b.numerator / b.denominator : null;
+              return { key: d, title: d, label: i === days.length - 1 ? m.today : d.slice(5).replace('-', '.'), value: r, tip: [[b ? slaText(b).ratio : m.slaNoClosed, m.sla] as const, [b ? slaText(b).count : '—', m.slaClosed] as const] };
+            })}
+          />
         </div>
+        {worst && <Insight>{m.slaWorst(label(messages.cases.kindName, worst[0] || null), slaText({ numerator: worst[1].n, denominator: worst[1].d }).ratio)}</Insight>}
         {kinds.length > 0 && (
           <div className="space-y-1.5" data-testid="dash-sla-kinds">
-            <p className="text-xs font-medium text-base-content/55">{m.slaByKind}</p>
+            <p className="text-xs font-medium text-base-content/55">{m.slaByKindLow}</p>
             {kinds.map(([k, v]) => {
               const kt = slaText({ numerator: v.n, denominator: v.d });
               const pct = v.d === 0 ? null : Math.round((v.n / v.d) * 100);
@@ -122,9 +142,7 @@ function SlaCard({ from, to, days }: { readonly from: string; readonly to: strin
                   <span className="truncate" title={k}>
                     {label(messages.cases.kindName, k || null)}
                   </span>
-                  <span className="h-1.5 overflow-hidden rounded-full bg-base-200" aria-hidden="true">
-                    {pct !== null && <span className={`block h-full rounded-full ${pct >= 90 ? 'bg-success' : pct >= 70 ? 'bg-warning' : 'bg-error'}`} style={{ width: `${pct}%` }} />}
-                  </span>
+                  <Meter value={pct === null ? null : pct / 100} tone={pct !== null && k === worst?.[0] ? 'danger' : 'neutral'} className="-mt-1 w-full" />
                   <span className="whitespace-nowrap text-xs tabular-nums text-base-content/65">{`${kt.ratio} · ${kt.count}`}</span>
                 </div>
               );
@@ -287,7 +305,7 @@ export function DashboardPage() {
         <div role="tabpanel" aria-label={m.tabs.overview} className="space-y-5">
           {/* 숫자 카드(가로) — 누르면 그 화면으로 */}
           {stats.length > 0 && (
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label={m.glance} data-testid="dash-glance">
+            <div className="pm-stat-strip flex flex-wrap gap-px overflow-hidden rounded-box border border-base-300 bg-base-300" aria-label={m.glance} data-testid="dash-glance">
               {stats}
             </div>
           )}
@@ -337,34 +355,26 @@ export function DashboardPage() {
 
       {tab === 'sales' && (
         <div role="tabpanel" aria-label={m.tabs.sales} className="space-y-5">
-          {/* 7일 주문 | 오늘 주문 상태 */}
+          {/* 2026-11-20 그림 개편: 맨 위 매출 숫자 줄(관리자) → 7일 주문 | 오늘 상태 → 상품별 판매 | 지표 → 최근 주문 */}
+          {admin && <Widget id="sales"><SalesPanel from={weekFrom} to={today} /></Widget>}
+
           {can('/orders') && (
             <div className="grid gap-4 lg:grid-cols-3">
               <div className="lg:col-span-2">
-                <Widget id="orders-week"><OrdersWeekChart days={days} /></Widget>
+                <Widget id="orders-week"><OrdersWeekChart days={days} admin={admin} /></Widget>
               </div>
-              <Widget id="status-donut"><StatusDonut today={today} toneOf={(s) => statusTone(s)} /></Widget>
+              <Widget id="status-donut"><StatusDonut today={today} admin={admin} /></Widget>
             </div>
           )}
 
-          {/* 매출·환불·상품별 판매(관리자, D2·D3 — 최근 7일) */}
-          {admin && <Widget id="sales"><SalesPanel from={weekFrom} to={today} /></Widget>}
-
-          {/* 최근 주문 | 지표(결품률·정시 배송률 — 501 이면 준비 중) — 나란히 */}
-          {(can('/orders') || can('/case-sla')) && (
-            <div className="grid items-start gap-4 xl:grid-cols-3">
-              {can('/orders') && (
-                <div className={can('/case-sla') ? 'xl:col-span-2' : 'xl:col-span-3'}>
-                  <Widget id="recent-orders"><RecentOrders from={weekFrom} to={today} /></Widget>
-                </div>
-              )}
-              {can('/case-sla') && (
-                <div className={can('/orders') ? '' : 'xl:col-span-3'}>
-                  <Widget id="metrics"><MetricsPanel from={weekFrom} to={today} /></Widget>
-                </div>
-              )}
+          {(admin || can('/case-sla')) && (
+            <div className={`grid items-start gap-4 ${admin && can('/case-sla') ? 'xl:grid-cols-2' : ''}`}>
+              {admin && <Widget id="top-products"><TopProducts from={weekFrom} to={today} /></Widget>}
+              {can('/case-sla') && <Widget id="metrics"><MetricsPanel from={weekFrom} to={today} /></Widget>}
             </div>
           )}
+
+          {can('/orders') && <Widget id="recent-orders"><RecentOrders from={weekFrom} to={today} /></Widget>}
         </div>
       )}
       </div>

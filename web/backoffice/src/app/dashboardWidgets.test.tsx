@@ -43,16 +43,22 @@ describe('대시보드 2판', () => {
     expect(screen.queryByRole('tab', { name: '매출·통계' })).not.toBeInTheDocument();
   });
 
-  it('오늘 주문 상태 — 상태별 이름과 개수, 합은 오늘 주문 수', async () => {
+  it('오늘 주문 흐름(2026-11-20) — 확정·상품 준비·배송 중·완료 칸 + 흐름 밖(결제 확인·취소·만료), 합은 오늘 주문 수, 칸을 누르면 그 상태·오늘 주문 조회', async () => {
     // 목 주문은 "지금부터 N시간 전" — 자정 직후엔 오늘 주문이 없어 깨졌다(2026-11-19 00:02). 서울 정오로 시계를 고정하고 목을 다시 만든다(Date 만, 기다림 타이머는 진짜)
     vi.useFakeTimers({ toFake: ['Date'], now: new Date('2026-11-18T03:00:00Z') });
     resetMockOps();
     renderAt('/?tab=sales', as.admin);
-    const legend = await screen.findByTestId('dash-status-legend');
-    const counts = within(legend).getAllByRole('listitem').map((li) => Number(li.lastElementChild?.textContent));
-    const total = counts.reduce((a, b) => a + b, 0);
+    const flow = await screen.findByTestId('dash-status-flow');
+    const stages = within(flow).getAllByTestId('dash-flow-stage');
+    expect(stages.map((s) => s.firstElementChild?.textContent)).toEqual(['주문 확정', '상품 준비', '배송 중', '완료']);
+    const inFlow = stages.reduce((a, s) => a + Number(s.children[1]?.textContent), 0);
+    const side = within(screen.getByTestId('dash-status-legend'))
+      .queryAllByRole('listitem')
+      .reduce((a, li) => a + (Number(li.lastElementChild?.textContent) || 0), 0);
+    const total = inFlow + side;
     expect(total).toBeGreaterThan(0);
     expect(within(screen.getByTestId('dash-status-donut')).getByText(String(total))).toBeInTheDocument();
+    expect(stages[0]).toHaveAttribute('href', '/orders?status=CONFIRMED&from=2026-11-18&to=2026-11-18');
   });
 
   it('최근 활동 — 승인·접수 건·문의를 시각순으로, 누르면 그 상세', async () => {

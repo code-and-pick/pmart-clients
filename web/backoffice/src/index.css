@@ -86,6 +86,15 @@
   --pm-btn-border: #8a867f;
   --pm-btn-fg: #ecebe8;
   --pm-row-line: #2a2926;
+  /* 그림 색(2026-11-20, dataviz 검사 통과 — 어두운 화면용으로 따로 고름) */
+  --pm-chart-1: #6f8fff;
+  --pm-chart-1-soft: color-mix(in oklab, #6f8fff 32%, #1c1b19);
+  --pm-stage-1: #184f95; --pm-stage-1-ink: #ffffff;
+  --pm-stage-2: #2a78d6; --pm-stage-2-ink: #ffffff;
+  --pm-stage-3: #6da7ec; --pm-stage-3-ink: #0b0b0b;
+  --pm-stage-4: #b7d3f6; --pm-stage-4-ink: #0b0b0b;
+  --pm-cat-1: #3987e5; --pm-cat-2: #d95926; --pm-cat-3: #199e70; --pm-cat-4: #c98500; --pm-cat-5: #d55181;
+  --pm-fill-warn: #fab219; --pm-fill-off: #4a4844; --pm-fill-off-ink: #ecebe8;
 }
 :root:not([data-theme='pmart-dark']) {
   /* daisyUI 테마에 칸이 없는 AWS 값은 여기 한곳에만 둔다(화면 코드는 이 변수만 쓴다) */
@@ -94,6 +103,16 @@
   --pm-btn-border: #949088; /* 보통 버튼 테두리 */
   --pm-btn-fg: #3e3b35; /* 보통 버튼 글자 */
   --pm-row-line: #eeedeb; /* 표 줄 사이 선 */
+  /* 그림 색(2026-11-20, dataviz 검사 통과): 한 계열은 브랜드 파랑, 주문 단계는 파랑 4단(옅음→진함 = 앞→뒤 단계),
+     환불 사유는 범주 5색(사유마다 고정 — 순위로 바꾸지 않음), 결제 확인은 주의 노랑, 취소·만료는 회색 */
+  --pm-chart-1: #295eff;
+  --pm-chart-1-soft: color-mix(in oklab, #295eff 22%, #ffffff);
+  --pm-stage-1: #86b6ef; --pm-stage-1-ink: #0b0b0b;
+  --pm-stage-2: #3987e5; --pm-stage-2-ink: #ffffff;
+  --pm-stage-3: #1c5cab; --pm-stage-3-ink: #ffffff;
+  --pm-stage-4: #0d366b; --pm-stage-4-ink: #ffffff;
+  --pm-cat-1: #2a78d6; --pm-cat-2: #eb6834; --pm-cat-3: #1baf7a; --pm-cat-4: #eda100; --pm-cat-5: #e87ba4;
+  --pm-fill-warn: #fab219; --pm-fill-off: #c3c2b7; --pm-fill-off-ink: #0b0b0b;
 }
 body {
   font-family: 'Pretendard Variable', Pretendard, system-ui, 'Malgun Gothic', sans-serif;
@@ -353,4 +372,51 @@ main [data-list-part='head']:has(+ [data-list-part]) {
 main [data-list-part='head'] + [data-list-part] {
   border-top-left-radius: 0;
   border-top-right-radius: 0;
+}
+
+/* 숫자 줄(2026-11-20 통계 개편): 칸 사이 머리카락 선 — 한 줄이면 세로선, 줄이 바뀌면 가로선. 마지막 열·줄 끝 선은 지운다 */
+.pm-kpi-strip > .pm-kpi {
+  border-color: var(--color-base-300);
+  border-style: solid;
+  border-width: 0 0 1px 0;
+}
+@media (min-width: 640px) {
+  .pm-kpi-strip > .pm-kpi {
+    border-width: 0 1px 0 0;
+  }
+  .pm-kpi-strip > .pm-kpi:last-child {
+    border-right-width: 0;
+  }
+}
+@media (min-width: 640px) and (max-width: 1279px) {
+  .pm-kpi-strip.xl\:grid-cols-4 > .pm-kpi:nth-child(2n) {
+    border-right-width: 0;
+  }
+  .pm-kpi-strip.xl\:grid-cols-4 > .pm-kpi:nth-child(-n + 2) {
+    border-bottom-width: 1px;
+  }
+}
+.pm-kpi-strip > .pm-kpi:last-child {
+  border-bottom-width: 0;
+}
+
+/* 숫자 띠(2026-11-20 통계 개편): 칸은 상자 안 한 칸 — 테두리·둥근 모서리 없음, 칸 사이는 띠의 회색 1px 틈. 고른 칸은 아래 2px 파란 띠 + 옅은 바탕 */
+.pm-stat-strip > * {
+  flex: 1 1 11rem;
+  min-width: 0;
+}
+.pm-stat-strip > .pm-stat {
+  border: 0;
+  border-radius: 0;
+  outline: 0;
+}
+.pm-stat-strip > .pm-stat:hover {
+  background: color-mix(in oklab, var(--color-base-200) 60%, var(--color-base-100));
+}
+.pm-stat-strip > .pm-stat[aria-current='true'] {
+  background: color-mix(in oklab, var(--color-primary) 5%, var(--color-base-100));
+  box-shadow: inset 0 -2px 0 var(--color-primary);
+}
+.pm-stat-strip > .pm-stat[aria-current='true'] .pm-stat-value {
+  color: var(--color-primary);
 }

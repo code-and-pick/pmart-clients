@@ -15,6 +15,7 @@ import { hideIds } from '../shared/hideIds';
 import { messages } from '../shared/messages';
 import { addSeoulDays, label, seoulDayEnd, seoulDayStart } from '../shared/ops';
 import { Section } from '../shared/admin';
+import { ColumnChart, Delta, Insight, SegmentBar, TrendLine, type Column } from './Charts';
 
 const m = messages.dashboard;
 /** 주문 찾기 한 번에 받는 최대 수 — 계약 `GET /orders/lookups` size 최대 50(2026-11-19: 100 으로 묻다가 실서버가 400 → 오늘 주문 "?"였다) */
@@ -91,10 +92,11 @@ function StatCard({ icon, tone, label: title, value, sub, to, testId, children, 
   const ch = useStatChange(value); // 방금 바뀐 칸만 잠깐 빛남 + ▲▼(2026-11-19)
   return (
     // 2026-11-20 AWS 개편: 아이콘 타일·그림자 없이 흰 상자 + 회색 이름 + 큰 숫자(점선 밑줄 링크)
-    <Link to={to} data-testid={testId} data-icon={icon} data-tone={tone} className={`group flex items-start gap-4 rounded-box border border-base-300 bg-base-100 px-5 py-4 transition-colors hover:border-primary/60 ${ch.cls}`}>
+    // 2026-11-20 통계 개편: 카드가 아니라 숫자 띠의 한 칸(테두리는 띠가), 점선 밑줄 없이 칸 전체가 누르는 곳
+    <Link to={to} data-testid={testId} data-icon={icon} data-tone={tone} className={`group flex items-end gap-4 bg-base-100 px-5 py-4 transition-colors hover:bg-base-200/50 ${ch.cls}`}>
       <span className="min-w-0 flex-1">
         <span className="block truncate text-sm text-base-content/70">{title}</span>
-        <span className={`inline-block text-[28px] font-bold leading-tight tabular-nums underline decoration-dotted decoration-2 underline-offset-4 group-hover:text-primary ${failed ? 'text-base-content/35' : ''}`} title={failed ? m.failed : undefined}>
+        <span className={`inline-block text-[30px] font-semibold leading-tight tracking-tight group-hover:text-primary ${failed ? 'text-base-content/35' : ''}`} title={failed ? m.failed : undefined}>
           {value}
           {ch.badge}
         </span>
@@ -108,15 +110,7 @@ function StatCard({ icon, tone, label: title, value, sub, to, testId, children, 
 /** 7일 미니 추세선(SVG) — 못 읽은 날이 있으면 그리지 않는다(빈 값을 0 으로 잇지 않는다) */
 function Sparkline({ values }: { readonly values: ReadonlyArray<number | null> }) {
   if (values.some((v) => v === null) || values.length < 2) return null;
-  const vs = values as number[];
-  const max = Math.max(1, ...vs);
-  const pts = vs.map((v, i) => `${(i / (vs.length - 1)) * 100},${28 - (v / max) * 24}`).join(' ');
-  return (
-    <svg viewBox="0 0 100 30" className="h-9 w-16 shrink-0 self-center text-primary" preserveAspectRatio="none" aria-hidden="true" data-testid="dash-sparkline">
-      <polyline points={`0,30 ${pts} 100,30`} className="fill-primary/10 stroke-none" />
-      <polyline points={pts} className="fill-none stroke-current" strokeWidth={2} vectorEffect="non-scaling-stroke" strokeLinejoin="round" />
-    </svg>
-  );
+  return <TrendLine values={values} testId="dash-sparkline" className="mb-1 h-10 w-24" />;
 }
 
 /** 오늘 주문 — 어제 대비 증감 + 7일 추세선 */
@@ -226,107 +220,171 @@ export function RiskStat() {
 }
 
 // ───────────────────────── 7일 주문 막대 ─────────────────────────
+// 2026-11-20 그림 개편: 얇은 막대(24px)·실선 눈금·값은 오늘·최고만(나머지는 눈금·도움말). 관리자는 주문 요약(order 0.13.0)을 하루씩 불러
+// 50건 상한 없이 정확한 건수와 결제 승인 금액을 본다(주문 수 | 결제 금액 바꿔 보기 — 두 축을 한 그림에 겹치지 않는다). 그 밖 역할은 주문 찾기 첫 쪽(50+ 로 밝힘).
 
-export function OrdersWeekChart({ days }: { readonly days: readonly string[] }) {
+/** 주문 요약(관리자만 — order `GET /orders/metrics/summary`). 매출 칸·7일 막대·오늘 상태가 같은 queryKey */
+export function summaryQuery(api: Api, from: string, to: string) {
+  return {
+    queryKey: ['dashboard', 'sales', 'summary', from, to],
+    refetchInterval: REFRESH_MS,
+    retry: false,
+    queryFn: () => request('GET', api.orders.GET('/orders/metrics/summary', { params: { query: { from, to } } })),
+  };
+}
+
+const dayLabel = (d: string, today: boolean) => (today ? m.today : d.slice(5).replace('-', '.'));
+const krwShort = (n: number) => (n >= 10_000 ? `${(n / 10_000).toLocaleString('ko-KR', { maximumFractionDigits: 1 })}만원` : `${n.toLocaleString('ko-KR')}원`);
+
+export function OrdersWeekChart({ days, admin = false }: { readonly days: readonly string[]; readonly admin?: boolean }) {
   const api = useApi();
-  const qs = useQueries({ queries: days.map((d) => dayQuery(api, d)) });
-  const max = Math.max(1, ...qs.map((q) => q.data?.n ?? 0));
-  const top = Math.max(4, Math.ceil(max / 4) * 4);
-  const grid = [top, (top * 3) / 4, top / 2, top / 4, 0];
+  const [measure, setMeasure] = useState<'count' | 'amount'>('count');
+  const lookups = useQueries({ queries: days.map((d) => ({ ...dayQuery(api, d), enabled: !admin })) });
+  const sums = useQueries({ queries: days.map((d) => ({ ...summaryQuery(api, d, d), enabled: admin })) });
+  const amount = admin && measure === 'amount';
+  const raw = days.map((_, i) => {
+    if (admin) {
+      const q = sums[i]!;
+      return { failed: q.isError, loading: q.isPending, count: q.data?.orderCount ?? null, more: false, won: q.data?.approvedAmount ?? null };
+    }
+    const q = lookups[i]!;
+    return { failed: q.isError, loading: q.isPending, count: q.data?.n ?? null, more: q.data?.more ?? false, won: null };
+  });
+  const vals = raw.map((r) => (amount ? r.won : r.count));
+  const max = Math.max(...vals.map((v) => v ?? -1));
+  const maxAt = vals.findIndex((v) => v === max && max > 0);
+  const columns: Column[] = days.map((d, i) => {
+    const r = raw[i]!;
+    const today = i === days.length - 1;
+    const v = vals[i] ?? null;
+    const shown = r.failed ? '?' : r.loading ? '…' : amount ? krwShort(r.won ?? 0) : r.more ? `${ORDER_SIZE}+` : String(r.count ?? 0);
+    const tip: Array<readonly [string, string]> = [[r.failed ? m.failed : r.more ? `${ORDER_SIZE}건 이상` : `${r.count ?? 0}건`, m.chart.orders]];
+    if (admin) tip.push([r.failed ? m.failed : `${(r.won ?? 0).toLocaleString('ko-KR')}원`, m.chart.approved]);
+    return {
+      key: d,
+      label: dayLabel(d, today),
+      title: d,
+      value: r.failed ? null : (v ?? 0),
+      cap: r.failed || r.loading || today || i === maxAt ? shown : undefined,
+      strong: today,
+      loading: r.loading,
+      tip,
+    };
+  });
+  // 기간 합 — 모두 읽었고 상한에 걸리지 않았을 때만(하나라도 빠지면 합을 보이지 않는다)
+  const exact = raw.every((r) => !r.failed && !r.loading && !r.more);
+  const total = exact ? raw.reduce((s, r) => s + ((amount ? r.won : r.count) ?? 0), 0) : null;
+  // 하루 평균(건수만 — 금액은 서버 합을 나누지 않는다) · 가장 많은 날
+  const avgCount = !amount && total !== null ? total / days.length : null;
+  const peak = maxAt >= 0 ? columns[maxAt] : undefined;
   return (
-    <Section title={m.ordersWeek} testId="dash-orders-week">
-      <div className="relative h-56 pl-8">
-        {/* 눈금 */}
-        <div className="pointer-events-none absolute inset-0 bottom-6 flex flex-col justify-between" aria-hidden="true">
-          {grid.map((g) => (
-            <div key={g} className="flex items-center gap-2">
-              <span className="w-6 text-right text-[10px] tabular-nums text-base-content/40">{g}</span>
-              <span className="h-px flex-1 border-t border-dashed border-base-300" />
-            </div>
-          ))}
-        </div>
-        <div className="relative flex h-full items-end gap-3 pb-6">
-          {days.map((d, i) => {
-            const q = qs[i]!;
-            const v = q.data ? countText(q.data.n, q.data.more, ORDER_SIZE) : q.isError ? '?' : '…';
-            const h = q.data ? Math.max(2, Math.round((q.data.n / top) * 100)) : 2;
-            const today = i === days.length - 1;
-            return (
-              <div key={d} className="group relative flex h-full flex-1 flex-col items-center justify-end" data-testid="dash-day" title={`${d} · ${v}건`}>
-                <span className={`mb-1 text-xs font-semibold tabular-nums ${q.isError ? 'text-base-content/40' : today ? 'text-primary' : 'text-base-content/60'}`} title={q.isError ? m.failed : undefined}>
-                  {v}
-                </span>
-                <div
-                  className={`w-full max-w-12 rounded-t-lg transition-all group-hover:opacity-80 ${q.isError ? 'border border-dashed border-base-300 bg-transparent' : today ? 'bg-gradient-to-t from-primary to-primary/70 shadow-sm' : 'bg-primary/25'}`}
-                  style={{ height: `${h}%` }}
-                  aria-hidden="true"
-                />
-                <span className={`absolute -bottom-0 translate-y-full pt-1 text-[11px] ${today ? 'font-semibold text-base-content' : 'text-base-content/50'}`}>{today ? m.today : d.slice(5).replace('-', '.')}</span>
-              </div>
-            );
-          })}
-        </div>
+    <Section
+      title={m.ordersWeek}
+      testId="dash-orders-week"
+      aside={
+        admin ? (
+          <div role="radiogroup" aria-label={m.chart.measure} className="inline-flex rounded-field border border-base-300 p-0.5 text-xs">
+            {(['count', 'amount'] as const).map((k) => (
+              <button key={k} type="button" role="radio" aria-checked={measure === k} className={`rounded px-2.5 py-1 ${measure === k ? 'bg-base-200 font-semibold text-base-content' : 'text-base-content/60 hover:text-base-content'}`} onClick={() => setMeasure(k)}>
+                {k === 'count' ? m.chart.orders : m.chart.approved}
+              </button>
+            ))}
+          </div>
+        ) : undefined
+      }
+    >
+      <div className="-mt-2 mb-4 space-y-1" data-testid="dash-week-total">
+        <Insight>
+          {total === null ? m.chart.totalUnknown : amount ? m.chart.totalWon(total.toLocaleString('ko-KR')) : m.chart.totalCount(total)}
+          {total !== null && peak && <span className="text-base-content/60">{` · ${m.chart.peak(peak.label, peak.cap ?? '')}`}</span>}
+          {avgCount !== null && <span className="text-base-content/60">{` · ${m.chart.avg(avgCount)}`}</span>}
+        </Insight>
+        <p className="pl-6 text-xs text-base-content/45">{admin ? m.chart.basisSummary : m.chart.basisLookup}</p>
       </div>
+      <ColumnChart columns={columns} big={amount} testIdCol="dash-day" label={m.ordersWeek} avg={avgCount !== null && avgCount > 0 ? { value: avgCount, text: m.chart.avgShort(avgCount) } : null} />
     </Section>
   );
 }
 
-// ───────────────────────── 오늘 주문 상태 도넛 ─────────────────────────
+// ───────────────────────── 오늘 주문 흐름 ─────────────────────────
+// 2026-11-20 사용자 "줄다리기하냐, 목적에 맞게": 이 칸의 목적은 "오늘 주문이 어디까지 왔고 막힌 게 있나".
+// 그래서 몫(%) 그림 대신 흐름 단계 칸(확정 → 상품 준비 → 배송 중 → 완료)에 건수, 그 아래 따로 봐야 할 것(결제 확인 중 등 앞 단계·취소·만료).
+// 숫자를 누르면 그 상태·오늘로 거른 주문 조회. 일부 인계·일부 전달은 앞 단계 칸에 더하고 "일부 N 포함"으로 밝힌다.
 
-const STATUS_COLOR: Record<string, string> = {
-  success: 'var(--color-success)',
-  info: 'var(--color-info)',
-  warning: 'var(--color-warning)',
-  error: 'var(--color-error)',
-  accent: 'var(--color-accent)',
-  neutral: 'var(--color-neutral)',
-  ghost: 'color-mix(in oklab, var(--color-base-content) 25%, transparent)',
-};
+const FLOW_STAGES: ReadonlyArray<{ readonly key: string; readonly statuses: readonly string[] }> = [
+  { key: 'CONFIRMED', statuses: ['CONFIRMED'] },
+  { key: 'PREPARING', statuses: ['PREPARING', 'PARTIALLY_HANDED_OVER'] },
+  { key: 'IN_DELIVERY', statuses: ['IN_DELIVERY', 'PARTIALLY_DELIVERED'] },
+  { key: 'COMPLETED', statuses: ['COMPLETED'] },
+];
+const FLOW_KNOWN = new Set(FLOW_STAGES.flatMap((s) => s.statuses));
+const OFF = new Set(['CANCELLED', 'EXPIRED']);
 
-/** 도넛 칸 색(테마 색만) */
-const PALETTE = ['var(--color-primary)', 'var(--color-accent)', 'var(--color-success)', 'var(--color-warning)', 'var(--color-info)', 'var(--color-secondary)', 'var(--color-neutral)'];
-
-/** 오늘 주문 상태 분포 — 오늘 주문 조회 앞 50건을 상태별로 센 값(더 있으면 그렇게 밝힌다) */
-export function StatusDonut({ today, toneOf }: { readonly today: string; readonly toneOf: (s: string) => string }) {
+/** 오늘 주문 흐름 — 관리자는 주문 요약(정확), 그 밖은 오늘 주문 찾기 앞 50건(더 있으면 그렇게 밝힌다) */
+export function StatusDonut({ today, admin = false }: { readonly today: string; readonly admin?: boolean }) {
   const api = useApi();
-  const q = useQuery(dayQuery(api, today));
-  const rows = q.data ? Object.entries(q.data.byStatus).sort((a, b) => b[1] - a[1]) : [];
-  const total = q.data?.n ?? 0;
-  // 칸마다 다른 색(상태 의미 색은 여럿이 같은 파랑이라 도넛에서 구분이 안 된다 — 2026-11-18 화면 확인). 취소·만료처럼 나쁜 상태만 빨강 계열 유지.
-  const colorOf = (s: string, i: number) => (toneOf(s) === 'error' ? STATUS_COLOR['error']! : PALETTE[i % PALETTE.length]!);
-  // 누적 각도(앞 칸들의 합) — 바깥 변수를 바꾸지 않고 계산
-  const stops = rows.map(([s, n], i) => {
-    const before = rows.slice(0, i).reduce((sum, [, k]) => sum + k, 0);
-    const from = (before / Math.max(1, total)) * 360;
-    const to = ((before + n) / Math.max(1, total)) * 360;
-    return `${colorOf(s, i)} ${from}deg ${to}deg`;
-  });
+  const look = useQuery({ ...dayQuery(api, today), enabled: !admin });
+  const sum = useQuery({ ...summaryQuery(api, today, today), enabled: admin });
+  const pending = admin ? sum.isPending : look.isPending;
+  const failed = admin ? sum.isError : look.isError;
+  const counts: Record<string, number> = admin ? Object.fromEntries((sum.data?.statusCounts ?? []).map((c) => [c.status, c.count])) : (look.data?.byStatus ?? {});
+  const total = Object.values(counts).reduce((a, b) => a + b, 0);
+  const more = !admin && Boolean(look.data?.more);
+  const to = (status: string) => `/orders?status=${encodeURIComponent(status)}&from=${today}&to=${today}`;
+  const name = (s: string) => label(messages.orders.statusName, s);
+  // 흐름 밖: 결제·자원 확인 등 앞 단계(주의), 취소·만료(회색)
+  const side = Object.entries(counts).filter(([s, n]) => n > 0 && !FLOW_KNOWN.has(s));
   return (
-    <Section title={m.statusToday} aside={q.data?.more ? <span className="text-xs text-warning">{m.first100}</span> : undefined} testId="dash-status-donut">
-      {q.isPending ? (
+    <Section title={m.statusToday} aside={more ? <span className="text-xs text-warning">{m.first100}</span> : undefined} testId="dash-status-donut">
+      {pending ? (
         <p className="text-sm text-base-content/50">…</p>
-      ) : q.isError ? (
+      ) : failed ? (
         <p className="text-sm text-warning">{m.ordersFailed}</p>
       ) : total === 0 ? (
         <p className="py-8 text-center text-sm text-base-content/55">{m.noOrdersToday}</p>
       ) : (
-        <div className="flex items-center gap-5">
-          <div className="relative h-32 w-32 shrink-0 rounded-full" style={{ background: `conic-gradient(${stops.join(', ')})` }} aria-hidden="true">
-            <div className="absolute inset-[18%] flex flex-col items-center justify-center rounded-full bg-base-100">
-              <span className="text-2xl font-extrabold tabular-nums">{countText(total, q.data.more, ORDER_SIZE)}</span>
-              <span className="text-[10px] text-base-content/50">{m.ordersUnit}</span>
-            </div>
-          </div>
-          <ul className="min-w-0 flex-1 space-y-1.5 text-sm" data-testid="dash-status-legend">
-            {rows.map(([s, n]) => (
-              <li key={s} className="flex items-center gap-2">
-                <span className="h-2.5 w-2.5 shrink-0 rounded-sm" style={{ background: colorOf(s, rows.findIndex(([k]) => k === s)) }} aria-hidden="true" />
-                <span className="min-w-0 flex-1 truncate" title={s}>
-                  {label(messages.orders.statusName, s)}
-                </span>
-                <span className="font-semibold tabular-nums">{n}</span>
-              </li>
-            ))}
+        <div className="space-y-4">
+          <p className="flex items-baseline gap-1 text-sm text-base-content/60">
+            {m.flow.total}
+            <span className="ml-1 text-2xl font-semibold text-base-content">{more ? `${ORDER_SIZE}+` : total}</span>
+            <span>{m.ordersUnit}</span>
+          </p>
+          <ol className="grid grid-cols-2 gap-2 sm:grid-cols-4" data-testid="dash-status-flow" aria-label={m.flow.label}>
+            {FLOW_STAGES.map((st, i) => {
+              const n = st.statuses.reduce((a, s) => a + (counts[s] ?? 0), 0);
+              const partial = st.statuses.slice(1).reduce((a, s) => a + (counts[s] ?? 0), 0);
+              const last = i === FLOW_STAGES.length - 1;
+              return (
+                <li key={st.key} className="relative">
+                  <Link
+                    to={to(st.key)}
+                    className={`flex h-full flex-col rounded-box border px-3 py-2.5 transition-colors hover:border-primary/60 ${n > 0 ? (last ? 'border-success/40 bg-success/5' : 'border-base-300 bg-base-100') : 'border-base-300 bg-base-200/40'}`}
+                    data-testid="dash-flow-stage"
+                  >
+                    <span className="text-xs text-base-content/60">{name(st.key)}</span>
+                    <span className={`text-2xl font-semibold leading-tight ${n > 0 ? '' : 'text-base-content/30'}`}>{n}</span>
+                    {partial > 0 && <span className="text-[11px] text-base-content/50">{m.flow.partial(partial)}</span>}
+                  </Link>
+                  {!last && <span className="absolute -right-2 top-1/2 z-10 hidden -translate-y-1/2 text-base-content/30 sm:block" aria-hidden="true">›</span>}
+                </li>
+              );
+            })}
+          </ol>
+          {/* 흐름 밖 — 따로 봐야 할 것. 없으면 "없음" 한 줄 */}
+          <ul className="space-y-1 border-t border-base-300 pt-3 text-sm" data-testid="dash-status-legend">
+            {side.length === 0 ? (
+              <li className="text-xs text-base-content/50">{m.flow.noSide}</li>
+            ) : (
+              side.map(([s, n]) => (
+                <li key={s} className="flex items-center gap-2">
+                  <span className={`h-2 w-2 shrink-0 rounded-full ${OFF.has(s) ? 'bg-base-content/30' : 'bg-warning'}`} aria-hidden="true" />
+                  <Link to={to(s)} className="min-w-0 flex-1 truncate hover:text-primary hover:underline" title={s}>
+                    {name(s)}
+                  </Link>
+                  <span className={`font-semibold tabular-nums ${OFF.has(s) ? 'text-base-content/60' : 'text-warning'}`}>{n}</span>
+                </li>
+              ))
+            )}
           </ul>
         </div>
       )}
@@ -415,7 +473,8 @@ export function ActivityFeed({ approvals, cases, inquiries }: { readonly approva
 // 백엔드 회신 2026-11-18(reply-dashboard-approval·notice-metrics-case-sla):
 // - (bff 0.21.0, 2026-11-19) 정시 배송률 ON_TIME_DELIVERY: 분자 onTime·분모 due(늦음엔 전달 전·실패 포함). 약속 전(pending)·판단 밖(unjudged — 고객 수령 확인·자동 완료)은 분모 밖이라 옆에 따로 적는다.
 // - 결품률(SHORTAGE_RATE)·정시 배송률(ON_TIME_DELIVERY)은 bff 지표 조회에 있지만 배포 전이면 501 — 물어서 501 이면 "준비 중", 구현되면 저절로 숫자.
-// - 매출(결제 승인 금액 — 환불은 따로 나란히)·상품별 판매 상위(주문 확정 기준)·센터별 품절 SKU 는 원천 API 작업 중(O-8·CL-3·IV-5) — 부를 곳이 없어 자리만.
+// - 센터별 품절 SKU 는 원천 API 작업 중(IV-5) — 부를 곳이 없어 자리만.
+// 2026-11-20 그림 개편: 점선 상자 대신 줄 목록 — 큰 비율 + 분자/분모 + 하루별 비율 추세선(분모 0 인 날은 끊는다). 준비 중은 한 줄로 작게.
 
 type MetricCell = { readonly key: string; readonly label: string; readonly note: string };
 
@@ -425,9 +484,11 @@ function isNotImplemented(e: unknown): boolean {
 
 export function MetricsPanel({ from, to }: { readonly from: string; readonly to: string }) {
   const api = useApi();
+  const days: string[] = [];
+  for (let d = from; d <= to && days.length < 31; d = addSeoulDays(d, 1)) days.push(d);
   const live: MetricCell[] = [
-    { key: 'SHORTAGE_RATE', label: m.metrics.shortage, note: m.metrics.shortageNote },
     { key: 'ON_TIME_DELIVERY', label: m.metrics.onTime, note: m.metrics.onTimeNote },
+    { key: 'SHORTAGE_RATE', label: m.metrics.shortage, note: m.metrics.shortageNote },
   ];
   const qs = useQueries({
     queries: live.map((c) => ({
@@ -436,67 +497,61 @@ export function MetricsPanel({ from, to }: { readonly from: string; readonly to:
       queryFn: () => request('GET', api.bff.GET('/views/metrics', { params: { query: { metric: c.key as 'SHORTAGE_RATE' | 'ON_TIME_DELIVERY', from, to, granularity: 'DAY' } } })),
     })),
   });
-  const planned: MetricCell[] = [
-    { key: 'soldOut', label: m.metrics.soldOut, note: m.metrics.soldOutNote },
-  ];
   return (
-    <Section title={m.metrics.title} testId="dash-metrics">
-      {/* 칸 수는 이 상자 폭으로(2026-11-18 — 매출·통계 탭에서 최근 주문 옆 좁은 칸에 들어간다) */}
-      <div className="@container">
-      <div className="grid gap-3 @md:grid-cols-2 @4xl:grid-cols-5">
+    <Section title={m.metrics.title} aside={<span className="text-xs text-base-content/50">{m.metrics.hint}</span>} testId="dash-metrics">
+      <ul className="-my-2 divide-y divide-base-300/70">
         {live.map((c, i) => {
           const q = qs[i]!;
-          let value: ReactNode = '…';
-          let sub: ReactNode = c.note;
-          let ready = false;
-          if (q.data) {
-            let n = 0;
-            let d = 0;
-            // 분모 밖 칸 — 한 칸이라도 null(원천이 안 줌)이면 합하지 않고 적지 않는다(0 으로 바꾸지 않음)
-            let pending: number | null = 0;
-            let unjudged: number | null = 0;
-            for (const t of q.data.totals ?? []) {
-              n += t.numerator;
-              d += t.denominator;
-              pending = pending === null || t.pending === undefined || t.pending === null ? null : pending + t.pending;
-              unjudged = unjudged === null || t.unjudged === undefined || t.unjudged === null ? null : unjudged + t.unjudged;
-            }
-            const t = slaText({ numerator: n, denominator: d });
-            value = t.ratio;
-            sub =
-              c.key === 'ON_TIME_DELIVERY' ? (
-                <>
-                  {t.count}
-                  {(pending !== null && pending > 0) || (unjudged !== null && unjudged > 0) ? (
-                    <span className="block" data-testid="dash-ontime-outside">
-                      {m.metrics.onTimeOutside(pending, unjudged)}
-                    </span>
-                  ) : null}
-                </>
-              ) : (
-                t.count
-              );
-            ready = true;
-          } else if (q.isError) {
-            value = isNotImplemented(q.error) ? m.metrics.soon : '?';
-            if (!isNotImplemented(q.error)) sub = m.failed;
+          if (!q.data) {
+            const soon = q.isError && isNotImplemented(q.error);
+            return (
+              <li key={c.key} className="flex items-baseline justify-between gap-3 py-3" data-testid={`dash-metric-${c.key}`}>
+                <span className="min-w-0">
+                  <span className="block text-sm text-base-content/70">{c.label}</span>
+                  <span className="block truncate text-[11px] text-base-content/45">{q.isError && !soon ? m.failed : c.note}</span>
+                </span>
+                <span className={`shrink-0 ${soon ? 'text-sm text-base-content/45' : 'text-xl font-semibold text-base-content/40'}`}>{q.isPending ? '…' : soon ? m.metrics.soon : '?'}</span>
+              </li>
+            );
           }
+          let n = 0;
+          let d = 0;
+          // 분모 밖 칸 — 한 칸이라도 null(원천이 안 줌)이면 합하지 않고 적지 않는다(0 으로 바꾸지 않음)
+          let pending: number | null = 0;
+          let unjudged: number | null = 0;
+          const byDay = new Map<string, number | null>();
+          for (const t of q.data.totals ?? []) {
+            n += t.numerator;
+            d += t.denominator;
+            byDay.set(t.bucket.slice(0, 10), t.denominator > 0 ? t.numerator / t.denominator : null);
+            pending = pending === null || t.pending === undefined || t.pending === null ? null : pending + t.pending;
+            unjudged = unjudged === null || t.unjudged === undefined || t.unjudged === null ? null : unjudged + t.unjudged;
+          }
+          const t = slaText({ numerator: n, denominator: d });
           return (
-            <div key={c.key} className={`rounded-lg border px-4 py-3 ${ready ? 'border-base-300' : 'border-dashed border-base-300 bg-base-200/30'}`} data-testid={`dash-metric-${c.key}`}>
-              <p className="truncate text-xs text-base-content/60">{c.label}</p>
-              <p className={`mt-0.5 text-xl font-bold ${ready ? '' : 'text-base-content/40'}`}>{value}</p>
-              <p className="truncate text-[11px] text-base-content/45">{sub}</p>
-            </div>
+            <li key={c.key} className="flex items-center gap-4 py-3" data-testid={`dash-metric-${c.key}`}>
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm text-base-content/70">{c.label}</span>
+                <span className="block text-[28px] font-semibold leading-tight">{t.ratio}</span>
+                <span className="block truncate text-xs text-base-content/55">{t.count}</span>
+                {c.key === 'ON_TIME_DELIVERY' && ((pending !== null && pending > 0) || (unjudged !== null && unjudged > 0)) ? (
+                  <span className="block truncate text-[11px] text-base-content/45" data-testid="dash-ontime-outside">
+                    {m.metrics.onTimeOutside(pending, unjudged)}
+                  </span>
+                ) : null}
+              </span>
+              <TrendLine values={days.map((day) => byDay.get(day) ?? null)} max={1} className="h-12 w-32" />
+            </li>
           );
         })}
-        {planned.map((c) => (
-          <div key={c.key} className="rounded-lg border border-dashed border-base-300 bg-base-200/30 px-4 py-3" data-testid={`dash-metric-${c.key}`}>
-            <p className="truncate text-xs text-base-content/60">{c.label}</p>
-            <p className="mt-0.5 text-xl font-bold text-base-content/40">{m.metrics.soon}</p>
-          </div>
-        ))}
-      </div>
-      </div>
+        <li className="flex items-baseline justify-between gap-3 py-3" data-testid="dash-metric-soldOut">
+          <span className="min-w-0">
+            <span className="block text-sm text-base-content/70">{m.metrics.soldOut}</span>
+            <span className="block truncate text-[11px] text-base-content/45">{m.metrics.soldOutNote}</span>
+          </span>
+          <span className="shrink-0 text-sm text-base-content/45">{m.metrics.soon}</span>
+        </li>
+      </ul>
     </Section>
   );
 }
@@ -550,12 +605,16 @@ export const workText = (s: WorkSum) => (s.complete ? String(s.value) : m.work.a
 
 function WorkTile({ label: title, sum, to, tone, testId }: { readonly label: string; readonly sum: WorkSum | null | undefined; readonly to: string; readonly tone: 'error' | 'warning' | 'info'; readonly testId: string }) {
   const has = !!sum && sum.value > 0;
-  const color = { error: 'text-error border-l-error', warning: 'text-warning border-l-warning', info: 'text-info border-l-info' }[tone];
+  // 2026-11-20 통계 개편: 숫자는 글자색(0 흐리게), 있을 때만 이름 앞 상태 점. 칸 사이는 머리카락 선
+  const dot = { error: 'bg-error', warning: 'bg-warning', info: 'bg-base-content/30' }[tone];
   const ch = useStatChange(sum ? sum.value : undefined);
   return (
-    <Link to={to} data-testid={testId} className={`block rounded-box border border-base-300 px-4 py-3 transition-colors hover:border-primary/60 ${ch.cls}`}>
-      <p className="truncate text-sm text-base-content/70">{title}</p>
-      <p className={`mt-0.5 text-2xl font-bold tabular-nums ${sum === null ? 'text-base-content/40' : has ? color.split(' ')[0] : 'text-base-content/70'}`} title={sum === null ? m.failed : undefined}>
+    <Link to={to} data-testid={testId} className={`block bg-base-100 px-4 py-3 transition-colors hover:bg-base-200/60 ${ch.cls}`}>
+      <p className="flex items-center gap-1.5 truncate text-sm text-base-content/70">
+        {has && <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${dot}`} aria-hidden="true" />}
+        {title}
+      </p>
+      <p className={`mt-0.5 text-[26px] font-semibold leading-tight tracking-tight ${sum === null ? 'text-base-content/40' : has ? (tone === 'error' ? 'text-error' : '') : 'text-base-content/30'}`} title={sum === null ? m.failed : undefined}>
         {sum === undefined ? '…' : sum === null ? m.work.unknown : workText(sum)}
         {ch.badge}
       </p>
@@ -585,8 +644,9 @@ export function WorkCountsPanel({ part }: { readonly part?: 'deliveries' | 'tile
                   <span className="truncate" title={d.segment ?? ''}>
                     {label(messages.deliveries.executionState, d.segment ?? null)}
                   </span>
-                  <span className="h-3 overflow-hidden rounded bg-base-200" aria-hidden="true">
-                    <span className={`block h-full rounded ${d.segment === 'FAILURE_REPORTED' ? 'bg-error/70' : d.segment === 'UNASSIGNED' ? 'bg-warning/70' : 'bg-primary/60'}`} style={{ width: `${Math.max(4, Math.round((d.value / max) * 100))}%` }} />
+                  {/* 한 계열이라 한 색 — 전달 실패(빨강)·미배정(노랑)만 상태 색 */}
+                  <span className="h-2 overflow-hidden rounded-full bg-base-200" aria-hidden="true">
+                    <span className="block h-full rounded-full" style={{ width: `${Math.max(3, Math.round((d.value / max) * 100))}%`, background: d.segment === 'FAILURE_REPORTED' ? 'var(--color-error)' : d.segment === 'UNASSIGNED' ? 'var(--color-warning)' : 'var(--pm-chart-1)' }} />
                   </span>
                   <span className="whitespace-nowrap font-semibold tabular-nums">{workText(d)}</span>
                 </li>
@@ -597,7 +657,7 @@ export function WorkCountsPanel({ part }: { readonly part?: 'deliveries' | 'tile
   );
   const tilesPart = (
       <Section title={m.work.title} aside={<span className="text-xs text-base-content/50">{m.work.exact}</span>} testId="dash-work-tiles">
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-px overflow-hidden rounded-box border border-base-300 bg-base-300 [&>*:last-child:nth-child(odd)]:col-span-2">
           <WorkTile label={m.work.casesOpen} sum={sum('CASES', 'OPEN')} to="/cases" tone="info" testId="dash-work-cases-open" />
           <WorkTile label={m.work.handovers} sum={sum('SHIFT_HANDOVERS', 'PENDING')} to="/cases/handovers" tone="warning" testId="dash-work-handovers" />
           <WorkTile label={m.work.obligationsOpen} sum={sum('OBLIGATIONS', 'OPEN')} to="/cases" tone="info" testId="dash-work-obligations" />
@@ -620,18 +680,46 @@ export function WorkCountsPanel({ part }: { readonly part?: 'deliveries' | 'tile
 // 백엔드 알림 2026-11-18(AP-3·O-8·CL-3 배포): order `/orders/metrics/summary`(주문 확정일 기준 상태별 건수·결제 승인 합),
 // claim `/claims/metrics/refunds`(환불 완료일 기준 사유 묶음별 합), order `/orders/metrics/top-products`(주문 확정 기준).
 // 사용자 결정: 승인 합과 환불 합은 나란히만 — 서로 빼서 순매출을 만들지 않는다(기준 날짜가 다르다). 금액은 서버 정수 KRW 그대로.
+// 2026-11-20 그림 개편: 숫자 칸 셋을 한 상자에(머리카락 선으로 나눔) — 큰 숫자 + 지난 7일 대비(같은 서버 조회를 앞 7일로 한 번 더) + 하루별 추세선.
 
 const krw = (n: number) => `${n.toLocaleString('ko-KR')}원`;
 const REFUND_NAME: Readonly<Record<string, string>> = { CANCEL: '취소', SHORTAGE: '결품', RETURN: '반품', RETURN_FEE: '회수비', OTHER: '기타' };
+/** 환불 사유 색 — 사유마다 고정(순위·필터로 바뀌지 않는다) */
+const REFUND_FILL: Readonly<Record<string, readonly [string, string]>> = {
+  CANCEL: ['var(--pm-cat-1)', '#ffffff'],
+  SHORTAGE: ['var(--pm-cat-2)', '#ffffff'],
+  RETURN: ['var(--pm-cat-3)', '#ffffff'],
+  RETURN_FEE: ['var(--pm-cat-4)', '#0b0b0b'],
+  OTHER: ['var(--pm-cat-5)', '#ffffff'],
+};
 
-function MoneyCard({ title, amount, sub, testId, failed, children }: { readonly title: string; readonly amount: number | undefined; readonly sub: ReactNode; readonly testId: string; readonly failed: boolean; readonly children?: ReactNode }) {
+const daysBetween = (from: string, to: string) => {
+  const out: string[] = [];
+  for (let d = from; d <= to && out.length < 93; d = addSeoulDays(d, 1)) out.push(d);
+  return out;
+};
+
+/** 앞 기간 대비 — 앞 값이 없거나 0 이면 비교하지 않는다(0 과 견주지 않음) */
+function pctChange(cur: number | undefined, prev: number | undefined): { readonly text: string; readonly dir: -1 | 0 | 1 } | null {
+  if (cur === undefined || prev === undefined || prev === 0) return null;
+  const p = Math.round(((cur - prev) / prev) * 1000) / 10;
+  return { text: m.sales.vsPrevPct(Math.abs(p)), dir: p > 0 ? 1 : p < 0 ? -1 : 0 };
+}
+
+function Kpi({ title, value, failed, sub, delta, trend, hero = false, testId, children }: { readonly title: string; readonly value: string | undefined; readonly failed: boolean; readonly sub: ReactNode; readonly delta?: ReactNode; readonly trend?: ReactNode; readonly hero?: boolean; readonly testId: string; readonly children?: ReactNode }) {
   return (
-    <div className="rounded-lg border border-base-300 px-4 py-3" data-testid={testId}>
-      <p className="truncate text-xs text-base-content/60">{title}</p>
-      <p className={`mt-0.5 text-2xl font-extrabold tabular-nums ${failed ? 'text-base-content/40' : ''}`} title={failed ? m.failed : undefined}>
-        {amount === undefined ? (failed ? '?' : '…') : krw(amount)}
+    <div className="min-w-0 px-5 py-4" data-testid={testId}>
+      <p className="truncate text-sm text-base-content/70">{title}</p>
+      <div className="mt-1 flex items-end justify-between gap-3">
+        <p className={`min-w-0 truncate font-semibold leading-tight ${hero ? 'text-[34px]' : 'text-[28px]'} ${failed ? 'text-base-content/35' : ''}`} title={failed ? m.failed : undefined}>
+          {value === undefined ? (failed ? '?' : '…') : value}
+        </p>
+        {trend}
+      </div>
+      <p className="mt-1 flex flex-wrap items-center gap-x-2 text-xs text-base-content/55">
+        {delta}
+        <span className="truncate">{sub}</span>
       </p>
-      <p className="truncate text-xs text-base-content/55">{sub}</p>
       {children}
     </div>
   );
@@ -639,8 +727,69 @@ function MoneyCard({ title, amount, sub, testId, failed, children }: { readonly 
 
 export function SalesPanel({ from, to }: { readonly from: string; readonly to: string }) {
   const api = useApi();
-  const summary = useQuery({ queryKey: ['dashboard', 'sales', 'summary', from, to], refetchInterval: REFRESH_MS, retry: false, queryFn: () => request('GET', api.orders.GET('/orders/metrics/summary', { params: { query: { from, to } } })) });
+  const days = daysBetween(from, to);
+  const summary = useQuery(summaryQuery(api, from, to));
+  const prev = useQuery(summaryQuery(api, addSeoulDays(from, -days.length), addSeoulDays(from, -1)));
+  const daily = useQueries({ queries: days.map((d) => summaryQuery(api, d, d)) });
   const refunds = useQuery({ queryKey: ['dashboard', 'sales', 'refunds', from, to], refetchInterval: REFRESH_MS, retry: false, queryFn: () => request('GET', api.claims.GET('/claims/metrics/refunds', { params: { query: { from, to } } })) });
+  // 하루라도 못 읽었으면 그 자리는 끊는다(0 으로 잇지 않음)
+  const wonByDay = daily.map((q) => (q.data ? q.data.approvedAmount : null));
+  const cntByDay = daily.map((q) => (q.data ? q.data.orderCount : null));
+  const dWon = pctChange(summary.data?.approvedAmount, prev.data?.approvedAmount);
+  const dCnt = summary.data && prev.data ? summary.data.orderCount - prev.data.orderCount : null;
+  const reasons = (refunds.data?.byReason ?? []).filter((r) => r.count > 0);
+  return (
+    <Section title={m.sales.title} aside={<span className="text-xs text-base-content/50">{m.sales.hint(from, to)}</span>} testId="dash-sales">
+      <div className="-mx-5 grid divide-y divide-base-300 border-y border-base-300 lg:grid-cols-3 lg:divide-x lg:divide-y-0">
+        <Kpi
+          hero
+          title={m.sales.approved}
+          value={summary.data ? krw(summary.data.approvedAmount) : undefined}
+          failed={summary.isError}
+          testId="dash-sales-approved"
+          sub={summary.data ? m.sales.approvedSub(summary.data.approvedOrderCount) : m.sales.approvedBasis}
+          delta={dWon && <Delta text={dWon.text} dir={dWon.dir} testId="dash-sales-approved-delta" />}
+          trend={<TrendLine values={wonByDay} testId="dash-sales-approved-trend" />}
+        />
+        <Kpi
+          title={m.sales.orders}
+          value={summary.data ? m.sales.ordersValue(summary.data.orderCount) : undefined}
+          failed={summary.isError}
+          testId="dash-sales-orders"
+          sub={m.sales.approvedBasis}
+          delta={dCnt !== null && <Delta text={m.sales.vsPrevCount(Math.abs(dCnt))} dir={dCnt > 0 ? 1 : dCnt < 0 ? -1 : 0} />}
+          trend={<TrendLine values={cntByDay} />}
+        />
+        <Kpi
+          title={m.sales.refunded}
+          value={refunds.data ? krw(refunds.data.totalAmount) : undefined}
+          failed={refunds.isError}
+          testId="dash-sales-refunded"
+          sub={refunds.data ? m.sales.refundedSub(refunds.data.totalCount) : m.sales.refundedBasis}
+        >
+          {reasons.length > 0 && (
+            <div className="mt-3 space-y-2">
+              <SegmentBar thin label={m.sales.refundByReason} parts={reasons.map((r) => ({ key: r.reason, label: REFUND_NAME[r.reason] ?? r.reason, value: r.amount, fill: (REFUND_FILL[r.reason] ?? REFUND_FILL['OTHER']!)[0], ink: (REFUND_FILL[r.reason] ?? REFUND_FILL['OTHER']!)[1] }))} />
+              <ul className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-base-content/70">
+                {reasons.map((r) => (
+                  <li key={r.reason} className="inline-flex items-center gap-1.5" title={r.reason}>
+                    <span className="h-2 w-2 rounded-full" style={{ background: (REFUND_FILL[r.reason] ?? REFUND_FILL['OTHER']!)[0] }} aria-hidden="true" />
+                    {`${REFUND_NAME[r.reason] ?? r.reason} ${krw(r.amount)} · ${r.count}건`}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </Kpi>
+      </div>
+      <p className="mt-3 text-[11px] text-base-content/45">{m.sales.noNet}</p>
+    </Section>
+  );
+}
+
+/** 상품별 판매 상위 5 — 한 계열(수량)이라 막대는 한 색, 값은 끝에 */
+export function TopProducts({ from, to }: { readonly from: string; readonly to: string }) {
+  const api = useApi();
   const top = useQuery({ queryKey: ['dashboard', 'sales', 'top', from, to], refetchInterval: REFRESH_MS, retry: false, queryFn: () => request('GET', api.orders.GET('/orders/metrics/top-products', { params: { query: { from, to, limit: 5 } } })) });
   // 상품 이름 — 상품 상세와 같은 조회(queryKey 공유)
   const ids = [...new Set((top.data?.items ?? []).map((i) => i.productId).filter((x): x is string => Boolean(x)))];
@@ -648,64 +797,39 @@ export function SalesPanel({ from, to }: { readonly from: string; readonly to: s
   const nameOf = (id: string | null | undefined) => (id ? names[ids.indexOf(id)]?.data?.internalName : undefined);
   const maxQty = Math.max(1, ...(top.data?.items ?? []).map((i) => i.qty));
   return (
-    <Section title={m.sales.title} aside={<span className="text-xs text-base-content/50">{m.sales.hint(from, to)}</span>} testId="dash-sales">
-      <div className="grid gap-4 lg:grid-cols-3">
-        <div className="space-y-3">
-          <MoneyCard title={m.sales.approved} amount={summary.data?.approvedAmount} failed={summary.isError} testId="dash-sales-approved" sub={summary.data ? m.sales.approvedSub(summary.data.approvedOrderCount) : m.sales.approvedBasis} />
-          <MoneyCard title={m.sales.refunded} amount={refunds.data?.totalAmount} failed={refunds.isError} testId="dash-sales-refunded" sub={refunds.data ? m.sales.refundedSub(refunds.data.totalCount) : m.sales.refundedBasis}>
-            {refunds.data && (
-              <ul className="mt-2 flex flex-wrap gap-1.5 text-[11px]">
-                {refunds.data.byReason
-                  .filter((r) => r.count > 0)
-                  .map((r) => (
-                    <li key={r.reason} className="rounded-full bg-base-200 px-2 py-0.5" title={r.reason}>
-                      {`${REFUND_NAME[r.reason] ?? r.reason} ${krw(r.amount)} · ${r.count}건`}
-                    </li>
-                  ))}
-              </ul>
-            )}
-          </MoneyCard>
-          <p className="text-[11px] text-base-content/45">{m.sales.noNet}</p>
-        </div>
-        <div className="lg:col-span-2">
-          <p className="mb-2 flex items-baseline justify-between text-sm font-semibold">
-            {m.sales.top}
-            <span className="text-xs font-normal text-base-content/50">{m.sales.topBasis}</span>
-          </p>
-          {top.isPending ? (
-            <p className="text-sm text-base-content/50">…</p>
-          ) : top.isError ? (
-            <p className="text-sm text-warning">{m.sales.topFailed}</p>
-          ) : top.data.items.length === 0 ? (
-            <p className="py-6 text-center text-sm text-base-content/55">{m.sales.topNone}</p>
-          ) : (
-            <ol className="space-y-2" data-testid="dash-sales-top">
-              {top.data.items.map((it, i) => (
-                <li key={it.sku} className="grid grid-cols-[1.5rem_minmax(0,12rem)_1fr_auto] items-center gap-3 text-sm" data-testid="dash-sales-top-row">
-                  <span className="text-center text-xs font-bold text-base-content/45">{i + 1}</span>
-                  <span className="min-w-0">
-                    {it.productId ? (
-                      <Link to={`/products/${encodeURIComponent(it.productId)}`} className="block truncate font-medium hover:text-primary hover:underline">
-                        {nameOf(it.productId) ?? it.sku}
-                      </Link>
-                    ) : (
-                      <span className="block truncate font-medium">{it.sku}</span>
-                    )}
-                    <span className="block font-mono text-[11px] text-base-content/45">{it.sku}</span>
-                  </span>
-                  <span className="h-2 overflow-hidden rounded-full bg-base-200" aria-hidden="true">
-                    <span className="block h-full rounded-full bg-primary/60" style={{ width: `${Math.max(4, Math.round((it.qty / maxQty) * 100))}%` }} />
-                  </span>
-                  <span className="whitespace-nowrap text-right tabular-nums">
-                    <span className="font-semibold">{m.sales.qty(it.qty)}</span>
-                    <span className="ml-2 text-xs text-base-content/55">{krw(it.amount)}</span>
-                  </span>
-                </li>
-              ))}
-            </ol>
-          )}
-        </div>
-      </div>
+    <Section title={m.sales.top} aside={<span className="text-xs text-base-content/50">{m.sales.topBasis}</span>} testId="dash-sales-top-panel">
+      {top.isPending ? (
+        <p className="text-sm text-base-content/50">…</p>
+      ) : top.isError ? (
+        <p className="text-sm text-warning">{m.sales.topFailed}</p>
+      ) : top.data.items.length === 0 ? (
+        <p className="py-6 text-center text-sm text-base-content/55">{m.sales.topNone}</p>
+      ) : (
+        <ol className="divide-y divide-base-300/70" data-testid="dash-sales-top">
+          {top.data.items.map((it, i) => (
+            <li key={it.sku} className="grid grid-cols-[1.25rem_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1.5 py-2.5 text-sm" data-testid="dash-sales-top-row">
+              <span className="row-span-2 self-start pt-0.5 text-center text-xs font-semibold text-base-content/45">{i + 1}</span>
+              <span className="min-w-0">
+                {it.productId ? (
+                  <Link to={`/products/${encodeURIComponent(it.productId)}`} className="truncate font-medium hover:text-primary hover:underline">
+                    {nameOf(it.productId) ?? it.sku}
+                  </Link>
+                ) : (
+                  <span className="truncate font-medium">{it.sku}</span>
+                )}
+                <span className="ml-2 font-mono text-[11px] text-base-content/45">{it.sku}</span>
+              </span>
+              <span className="whitespace-nowrap text-right">
+                <span className="font-semibold tabular-nums">{m.sales.qty(it.qty)}</span>
+                <span className="ml-2 text-xs tabular-nums text-base-content/55">{krw(it.amount)}</span>
+              </span>
+              <span className="col-span-2 h-2 overflow-hidden rounded-full bg-base-200" aria-hidden="true">
+                <span className="block h-full rounded-full" style={{ width: `${Math.max(3, Math.round((it.qty / maxQty) * 100))}%`, background: 'var(--pm-chart-1)' }} />
+              </span>
+            </li>
+          ))}
+        </ol>
+      )}
     </Section>
   );
 }

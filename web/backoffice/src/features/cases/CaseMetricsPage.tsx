@@ -10,7 +10,8 @@ import type { components } from '../../api/generated/case';
 import { useApi } from '../../app/ApiContext';
 import { messages } from '../../shared/messages';
 import { label, when } from '../../shared/ops';
-import { DataTable, PageHeader, Section, StatCard } from '../../shared/admin';
+import { DataTable, PageHeader, Section } from '../../shared/admin';
+import { Insight, KpiCell, KpiStrip, Meter } from '../../app/Charts';
 
 const m = messages.caseMetrics;
 type Kind = components['schemas']['CaseKind'];
@@ -53,18 +54,29 @@ export function CaseMetricsPage() {
           const total = r.cases.reduce((s, c) => s + c.open, 0);
           const overdueTotal = r.cases.reduce((s, c) => s + c.overdue, 0);
           const awaitingTotal = r.inquiries.reduce((s, i) => s + (i.awaitingAnswer ?? 0), 0);
+          // 서버 건수에서 바로 읽히는 것만: 처리 중이 가장 많은 종류, 기한 지남이 가장 많은 종류
+          const worstKind = r.cases.length > 1 ? r.cases.reduce((w, c) => (c.open > w.open ? c : w)) : undefined;
+          const topOverdue = r.cases.filter((c) => c.overdue > 0).reduce<(typeof r.cases)[number] | undefined>((w, c) => (!w || c.overdue > w.overdue ? c : w), undefined);
           return (
             <div className="space-y-4">
               <p className="text-xs text-base-content/60" data-testid="metrics-as-of">
                 {m.asOf(when(r.asOf))}
               </p>
               {/* 위 숫자 카드(2026-11-18) — 서버 건수를 더한 것만 */}
-              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                <StatCard label={m.cardOpen} value={total} />
-                <StatCard label={m.cardOverdue} value={overdueTotal} {...(overdueTotal > 0 ? { tone: 'error' as const, to: '/cases?tab=overdue' } : {})} />
-                <StatCard label={m.pendingHandovers} value={r.pendingHandovers} {...(r.pendingHandovers > 0 ? { tone: 'warning' as const } : {})} />
-                <StatCard label={m.inquiries} value={awaitingTotal} />
-              </div>
+              {/* 숫자 줄(2026-11-20 통계 개편) — 건수만(비율·목표 없음) */}
+              <KpiStrip cols={4}>
+                <KpiCell label={m.cardOpen} value={total} unit={m.unit} sub={worstKind ? m.mostOpen(label(messages.cases.kindName, worstKind.kind), worstKind.open) : undefined} />
+                <KpiCell
+                  label={m.cardOverdue}
+                  value={overdueTotal}
+                  unit={m.unit}
+                  tone={overdueTotal > 0 ? 'danger' : 'muted'}
+                  sub={overdueTotal > 0 ? <Link className="link" to="/cases?tab=overdue">{m.goOverdue}</Link> : m.noneOverdue}
+                />
+                <KpiCell label={m.pendingHandovers} value={r.pendingHandovers} unit={m.unit} tone={r.pendingHandovers > 0 ? 'warning' : 'muted'} />
+                <KpiCell label={m.inquiries} value={awaitingTotal} unit={m.unit} tone={awaitingTotal > 0 ? undefined : 'muted'} />
+              </KpiStrip>
+              {topOverdue && <Insight>{m.mostOverdue(label(messages.cases.kindName, topOverdue.kind), topOverdue.overdue, topOverdue.open)}</Insight>}
 
               <div className="grid items-start gap-4 lg:grid-cols-3">
                 <div className="min-w-0 lg:col-span-2">
@@ -93,12 +105,12 @@ export function CaseMetricsPage() {
                                 </td>
                                 <td>
                                   <span className="text-sm">{m.ofOpen(c.unassigned, c.open)}</span>
-                                  <Bar n={c.unassigned} of={c.open} tone="bg-info" />
+                                  <Meter value={c.open > 0 ? c.unassigned / c.open : null} className="w-full max-w-40" />
                                 </td>
                                 <td>
                                   <Count n={c.overdue} danger to={to('overdue')} testId="metrics-overdue" />
                                   <span className="opacity-60">{` / ${c.open}`}</span>
-                                  <Bar n={c.overdue} of={c.open} tone="bg-error" />
+                                  <Meter value={c.open > 0 ? c.overdue / c.open : null} tone="danger" className="w-full max-w-40" />
                                 </td>
                               </tr>
                             );
@@ -130,7 +142,7 @@ export function CaseMetricsPage() {
                             {` · ${m.overdue} `}
                             <Count n={o.overdue} danger />
                             <span className="opacity-60">{` / ${o.open}`}</span>
-                            <Bar n={o.overdue} of={o.open} tone="bg-error" />
+                            <Meter value={o.open > 0 ? o.overdue / o.open : null} tone="danger" className="w-full max-w-40" />
                           </li>
                         ))}
                       </ul>
@@ -168,12 +180,3 @@ export function CaseMetricsPage() {
   );
 }
 
-/** 건수 막대(전체 중 몇 건) — 전체가 0 이면 그리지 않는다 */
-function Bar({ n, of, tone }: { readonly n: number; readonly of: number; readonly tone: string }) {
-  if (of <= 0) return null;
-  return (
-    <span className="mt-1 block h-1.5 w-full max-w-40 overflow-hidden rounded-full bg-base-200" aria-hidden="true">
-      <span className={`block h-full rounded-full ${tone}`} style={{ width: `${Math.min(100, (n / of) * 100)}%` }} />
-    </span>
-  );
-}

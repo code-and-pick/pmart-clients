@@ -15,9 +15,10 @@ import { QueryState, uiStateFromError, type UiState } from '@pmart/web-ui';
 import type { paths } from '../../api/generated/backoffice-bff';
 import { useApi } from '../../app/ApiContext';
 import { messages } from '../../shared/messages';
-import { label } from '../../shared/ops';
+import { addSeoulDays, label } from '../../shared/ops';
 import { SourceStamps } from '../../shared/SourceStamps';
-import { ChipGroup, DataTable, PageHeader, SearchPanel, SearchRow, Section, StatCard } from '../../shared/admin';
+import { ChipGroup, DataTable, PageHeader, SearchPanel, SearchRow, Section } from '../../shared/admin';
+import { Insight, KpiCell, KpiStrip, LineChart, Meter, TrendLine } from '../../app/Charts';
 import { PeriodPresets } from '../../shared/PeriodPresets';
 
 const m = messages.caseSla;
@@ -68,11 +69,16 @@ function Breakdown({ points }: { readonly points: readonly Point[] }) {
   const groups = new Map<string, Point[]>();
   for (const p of points) groups.set(keyOf(p), [...(groups.get(keyOf(p)) ?? []), p]);
   const rows = [...groups.entries()].map(([name, ps]) => ({ name, ...sum(ps) })).sort((a, b) => b.denominator + b.unjudged - (a.denominator + a.unjudged));
+  // 가장 낮은 줄(판정할 건이 있는 것 중) — 먼저 볼 곳
+  const judged = rows.filter((r) => r.denominator > 0);
+  const worst = judged.length > 1 ? judged.reduce((w, r) => (r.numerator / r.denominator < w.numerator / w.denominator ? r : w)) : null;
   return (
     <Section id="case-sla-split" title={m.split} aside={<ChipGroup label={m.splitBy} value={by} onChange={setBy} options={[{ value: 'kind', label: m.byKind }, { value: 'group', label: m.byGroup }, { value: 'both', label: m.byBoth }]} />}>
       {rows.length === 0 ? (
         <p className="text-sm text-base-content/60">{m.noClosed}</p>
       ) : (
+        <div className="space-y-3">
+        {worst && <Insight>{m.lowest(worst.name, slaText(worst).ratio, slaText(worst).count)}</Insight>}
         <DataTable testId="case-sla-split">
           <thead>
             <tr>
@@ -90,7 +96,7 @@ function Breakdown({ points }: { readonly points: readonly Point[] }) {
                   <td>{r.name}</td>
                   <td>
                     <span>{t.count}</span>
-                    <RatioBar n={r.numerator} of={r.denominator} />
+                    <Meter value={r.denominator > 0 ? r.numerator / r.denominator : null} tone={worst && r.name === worst.name ? 'danger' : 'neutral'} />
                   </td>
                   <td className="text-right font-semibold">{t.ratio}</td>
                   <td className="text-right">{r.unjudged > 0 ? m.countOf(r.unjudged) : m.zero}</td>
@@ -99,19 +105,9 @@ function Breakdown({ points }: { readonly points: readonly Point[] }) {
             })}
           </tbody>
         </DataTable>
+        </div>
       )}
     </Section>
-  );
-}
-
-/** 기한 안에 끝낸 몫 막대(2026-11-18) — 분모 0 이면 그리지 않는다(0%로 보이지 않게) */
-function RatioBar({ n, of }: { readonly n: number; readonly of: number }) {
-  if (of <= 0) return null;
-  const pct = Math.min(100, (n / of) * 100);
-  return (
-    <span className="mt-1 block h-1.5 w-full max-w-48 overflow-hidden rounded-full bg-error/20" aria-hidden="true">
-      <span className="block h-full rounded-full bg-success" style={{ width: pct + "%" }} />
-    </span>
   );
 }
 
@@ -187,20 +183,37 @@ export function CaseSlaPage() {
             const all = sum(v.totals ?? v.points ?? []);
             const t = slaText(all);
             const overdueTotal = v.currentOverdue ? v.currentOverdue.reduce((n, o) => n + o.overdue, 0) : null;
+            // 그림 칸 — 하루 묶음이면 기간의 모든 날(닫힌 건이 없는 날도 칸은 있고 값은 "—"), 시간 묶음이면 서버가 준 묶음
+            const byBucket = new Map((v.totals ?? []).map((b) => [applied.granularity === 'DAY' ? b.bucket.slice(0, 10) : b.bucket, b]));
+            const slots: string[] = [];
+            if (applied.granularity === 'DAY') for (let d = applied.from; d <= applied.to && slots.length < 93; d = addSeoulDays(d, 1)) slots.push(d);
+            else slots.push(...byBucket.keys());
+            const slotRatio = (k: string) => {
+              const b = byBucket.get(k);
+              return b && b.denominator > 0 ? b.numerator / b.denominator : null;
+            };
             return (
               <>
                 <SourceStamps sources={v.sources} unavailableSources={v.unavailableSources} />
-                <div className="grid gap-3 sm:grid-cols-3">
-                  <StatCard label={m.inTimeTotal} value={<span data-testid="case-sla-ratio">{t.ratio}</span>} hint={<span data-testid="case-sla-count">{t.count}</span>} />
-                  <StatCard label={m.unjudged} value={m.countOf(all.unjudged)} hint={m.unjudgedHint} testId="case-sla-unjudged" />
-                  <StatCard
+                {/* 숫자 줄(2026-11-20 통계 개편) — 한 상자에 셋, 기한 지킴은 날마다 비율 추세선 */}
+                <KpiStrip>
+                  <KpiCell
+                    hero
+                    label={m.inTimeTotal}
+                    value={<span data-testid="case-sla-ratio">{t.ratio}</span>}
+                    sub={<span data-testid="case-sla-count">{t.count}</span>}
+                    trend={<TrendLine values={slots.map(slotRatio)} max={1} />}
+                  >
+                    <Meter value={all.denominator > 0 ? all.numerator / all.denominator : null} />
+                  </KpiCell>
+                  <KpiCell label={m.unjudged} value={<span data-testid="case-sla-unjudged">{m.countOf(all.unjudged)}</span>} sub={m.unjudgedHint} tone={all.unjudged === 0 ? 'muted' : undefined} />
+                  <KpiCell
                     label={m.overdueNow}
-                    value={overdueTotal === null ? m.na : m.countOf(overdueTotal)}
-                    hint={overdueTotal === null ? m.overdueUnavailable : m.overdueHint}
-                    {...(overdueTotal !== null && overdueTotal > 0 ? { tone: 'error' as const } : {})}
-                    testId="case-sla-overdue"
+                    value={<span data-testid="case-sla-overdue">{overdueTotal === null ? m.na : m.countOf(overdueTotal)}</span>}
+                    sub={overdueTotal === null ? m.overdueUnavailable : m.overdueHint}
+                    tone={overdueTotal !== null && overdueTotal > 0 ? 'danger' : undefined}
                   />
-                </div>
+                </KpiStrip>
 
                 <Breakdown points={v.points ?? []} />
 
@@ -208,6 +221,22 @@ export function CaseSlaPage() {
                   {(v.totals ?? []).length === 0 ? (
                     <p className="text-sm text-base-content/60">{m.noClosed}</p>
                   ) : (
+                    <div className="space-y-5">
+                    {/* 추이 그림(2026-11-20) — 아래 표가 같은 숫자(그림을 못 보는 사람·정확한 값) */}
+                    <LineChart
+                      label={applied.granularity === 'HOUR' ? m.byHour : m.byDay}
+                      avg={all.denominator > 0 ? { value: all.numerator / all.denominator, text: m.avgLine(t.ratio) } : null}
+                      points={slots.map((k) => {
+                        const b = byBucket.get(k);
+                        return {
+                          key: k,
+                          title: k,
+                          label: applied.granularity === 'HOUR' ? `${k.slice(11, 13)}시` : k.slice(5, 10).replace('-', '.'),
+                          value: slotRatio(k),
+                          tip: b ? [[ratioOf(b), m.ratio] as const, [m.ofDue(b.numerator, b.denominator), m.inTime] as const] : [[m.na, m.noClosedShort] as const],
+                        };
+                      })}
+                    />
                     <DataTable testId="case-sla-buckets">
                       <thead>
                         <tr>
@@ -223,7 +252,7 @@ export function CaseSlaPage() {
                             <td className="font-mono text-xs">{b.bucket}</td>
                             <td>
                               <span>{m.ofDue(b.numerator, b.denominator)}</span>
-                              <RatioBar n={b.numerator} of={b.denominator} />
+                              <Meter value={b.denominator > 0 ? b.numerator / b.denominator : null} />
                             </td>
                             <td className="text-right font-semibold">{ratioOf(b)}</td>
                             <td className="text-right">{(b.unjudged ?? 0) > 0 ? m.countOf(b.unjudged ?? 0) : m.zero}</td>
@@ -231,6 +260,7 @@ export function CaseSlaPage() {
                         ))}
                       </tbody>
                     </DataTable>
+                    </div>
                   )}
                 </Section>
 

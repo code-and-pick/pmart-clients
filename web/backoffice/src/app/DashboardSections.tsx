@@ -21,7 +21,8 @@ const m = messages.dashboard;
 const LIVE_SIZE = 50;
 
 type Tone = 'error' | 'warning' | 'info';
-const toneText: Record<Tone, string> = { error: 'text-error', warning: 'text-warning', info: 'text-info' };
+// 2026-11-20 통계 개편: 숫자는 글자색(0 이면 흐리게), 있을 때만 이름 앞 상태 점 — 빨강(급함)·노랑(주의). 파랑 숫자는 없앴다
+const toneDot: Record<Tone, string> = { error: 'bg-error', warning: 'bg-warning', info: 'bg-base-content/30' };
 
 /** 숫자 하나 + 이름 + 누르면 그 화면. value 가 null 이면 못 읽음("?") */
 function Tile({ label, value, more, to, tone, testId }: { readonly label: string; readonly value: number | null | undefined; readonly more?: boolean; readonly to: string; readonly tone: Tone; readonly testId: string }) {
@@ -31,11 +32,14 @@ function Tile({ label, value, more, to, tone, testId }: { readonly label: string
     <Link
       to={to}
       data-testid={testId}
-      className="block rounded-box border border-base-300 px-4 py-3 transition-colors hover:border-primary/60"
+      className="block bg-base-100 px-4 py-3 transition-colors hover:bg-base-200/60"
       title={value === null ? m.failed : undefined}
     >
-      <p className="text-sm text-base-content/70">{label}</p>
-      <p className={`mt-0.5 text-2xl font-bold tabular-nums ${value === null ? 'text-base-content/40' : has ? toneText[tone] : 'text-base-content/70'}`}>{text}</p>
+      <p className="flex items-center gap-1.5 truncate text-sm text-base-content/70">
+        {has && <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${toneDot[tone]}`} aria-hidden="true" />}
+        {label}
+      </p>
+      <p className={`mt-0.5 text-[26px] font-semibold leading-tight tracking-tight ${value === null ? 'text-base-content/40' : has ? (tone === 'error' ? 'text-error' : '') : 'text-base-content/30'}`}>{text}</p>
     </Link>
   );
 }
@@ -63,7 +67,7 @@ export function RiskPanel() {
       aside={<Link className="link text-xs" to="/pending">{m.more}</Link>}
       testId="dash-risk"
     >
-      <div className="grid grid-cols-2 gap-3 xl:grid-cols-5">
+      <div className="grid grid-cols-2 gap-px overflow-hidden rounded-box border border-base-300 bg-base-300 xl:grid-cols-5">
         <Tile label={m.risk.paymentUnknown} value={count(PENDING_KINDS[0].match)} more={more} to="/pending" tone="error" testId="dash-risk-payment" />
         <Tile label={m.risk.stuck} value={count(PENDING_KINDS[1].match)} more={more} to="/pending" tone="warning" testId="dash-risk-stuck" />
         <Tile label={m.risk.issue} value={count(PENDING_KINDS[2].match)} more={more} to="/pending" tone="warning" testId="dash-risk-issue" />
@@ -107,7 +111,7 @@ export function LiveSummary() {
       aside={<span className="text-xs text-base-content/50">{q.data ? m.live.basis(items.length, more) : ''}</span>}
       testId="dash-live"
     >
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-3 gap-px overflow-hidden rounded-box border border-base-300 bg-base-300">
         <Tile label={m.live.late} value={q.data && !q.data.composedAt ? null : count((i) => !!i.promisedAt && Date.parse(i.promisedAt) < now)} to="/live-delivery" tone="error" testId="dash-live-late" />
         <Tile label={m.live.noRider} value={count((i) => !i.riderId)} to="/live-delivery" tone="warning" testId="dash-live-norider" />
         <Tile label={m.live.failure} value={count((i) => i.delivery?.state === 'FAILURE_REPORTED')} to="/deliveries?q=1&state=FAILURE_REPORTED&sort=OLDEST" tone="warning" testId="dash-live-failure" />

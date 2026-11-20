@@ -8,7 +8,7 @@
 // - 상세: 제목·표시·요약 + 오른쪽 동작 버튼, 그 아래 구역 상자(제목 줄 + 항목명/값 줄), 구역으로 가는 밑줄 탭
 // 목록 부품 SearchPanel·StatStrip·GuideBox·AllDone 는 공용(@pmart/web-ui listParts, 2026-11-19)으로 옮김 — 이 파일에서 그대로 가져다 쓰게 다시 내보낸다
 // SearchPanel 은 2026-11-20 AWS 개편 때 이 앱 사본으로(아래) — 공용 web/ui 는 그대로(다른 앱이 씀)
-export { StatStrip, GuideBox, AllDone } from '@pmart/web-ui';
+export { GuideBox, AllDone } from '@pmart/web-ui';
 import { StickyTitle, useScrolledPast } from './StickyTitle';
 import { useStatChange } from './motion';
 import { type FormEvent, type ReactNode, useEffect, useId, useRef, useState } from 'react';
@@ -265,12 +265,24 @@ export function FieldList({ rows, testId }: { readonly rows: ReadonlyArray<reado
 }
 
 /**
+ * 숫자 띠(2026-11-20 통계 개편 — 공용 StatStrip 의 backoffice 사본): 칸을 한 상자에 넣고 칸 사이는 머리카락 선.
+ * 칸 수가 몇이든 줄을 꽉 채운다(빈 회색 칸이 남지 않게 flex). 고른 칸(aria-current)은 아래 파란 띠 — index.css .pm-stat-strip
+ */
+export function StatStrip({ children, label, testId }: { readonly children: ReactNode; readonly label: string; readonly testId?: string }) {
+  return (
+    <div className="pm-stat-strip flex flex-wrap gap-px overflow-hidden rounded-box border border-base-300 bg-base-300" role="group" aria-label={label} data-testid={testId}>
+      {children}
+    </div>
+  );
+}
+
+/**
  * 숫자 칸 — 2026-11-20 AWS 개편(대시보드 숫자 칸): 흰 상자 + 1px, 회색 이름, 큰 숫자(누르면 목록 — 숫자에 점선 밑줄), 색은 tone 이 있을 때 숫자에만.
  * active 면 지금 고른 거르기라는 파란 테두리. layout 'row' 는 이름 왼쪽·숫자 오른쪽.
  */
 export function StatCard({ label, value, hint, to, tone, testId, active = false, layout = 'stack' }: { readonly label: ReactNode; readonly value: ReactNode; readonly hint?: ReactNode; readonly to?: string; readonly tone?: 'warning' | 'error' | 'info' | 'success' | undefined; readonly testId?: string; readonly active?: boolean; readonly layout?: 'stack' | 'row' }) {
   const ch = useStatChange(value); // 방금 바뀐 칸만 잠깐 빛남 + ▲▼(2026-11-19)
-  const valueCls = `${tone === 'error' ? 'text-error' : tone === 'warning' ? 'text-[color-mix(in_oklab,var(--color-warning)_60%,var(--color-base-content))]' : ''} ${to ? 'underline decoration-dotted decoration-2 underline-offset-4' : ''}`;
+  const valueCls = tone === 'error' ? 'text-error' : tone === 'warning' ? 'text-[color-mix(in_oklab,var(--color-warning)_60%,var(--color-base-content))]' : '';
   const body =
     layout === 'row' ? (
       <span className="flex items-start justify-between gap-3">
@@ -278,7 +290,7 @@ export function StatCard({ label, value, hint, to, tone, testId, active = false,
           <span className="block truncate text-sm text-base-content/70">{label}</span>
           {hint && <span className="mt-0.5 block truncate text-xs text-base-content/55">{hint}</span>}
         </span>
-        <span className={`shrink-0 text-3xl font-bold leading-none tabular-nums ${valueCls}`}>
+        <span className={`pm-stat-value shrink-0 text-[28px] font-semibold leading-none tracking-tight ${valueCls}`}>
           {value}
           {ch.badge}
         </span>
@@ -286,14 +298,14 @@ export function StatCard({ label, value, hint, to, tone, testId, active = false,
     ) : (
       <>
         <p className="truncate text-sm text-base-content/70">{label}</p>
-        <p className={`text-2xl font-bold leading-tight tabular-nums ${valueCls}`}>
+        <p className={`pm-stat-value text-[26px] font-semibold leading-tight tracking-tight ${valueCls}`}>
           {value}
           {ch.badge}
         </p>
         {hint && <p className="truncate text-xs text-base-content/55">{hint}</p>}
       </>
     );
-  const cls = `relative block space-y-1 rounded-box border bg-base-100 px-4 py-3 ${layout === 'row' ? 'min-h-20 py-4' : ''} ${active ? 'border-primary outline outline-1 outline-primary' : 'border-base-300'} ${ch.cls}`;
+  const cls = `pm-stat relative block space-y-1 rounded-box border bg-base-100 px-4 py-3 ${layout === 'row' ? 'min-h-20 py-4' : ''} ${active ? 'border-primary outline outline-1 outline-primary' : 'border-base-300'} ${ch.cls}`;
   return to ? (
     <Link to={to} className={`${cls} transition-colors hover:border-primary/60`} data-testid={testId} aria-current={active ? 'true' : undefined}>
       {body}

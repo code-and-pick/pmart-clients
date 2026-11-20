@@ -11,7 +11,7 @@ describe('문의 만족도', () => {
     expect(await screen.findByTestId('satisfaction-response')).toHaveTextContent('답변 2건 중 1건 응답(1/2)');
     expect(screen.getByTestId('satisfaction-average')).toHaveTextContent('4.00점');
     const rows = screen.getAllByTestId('satisfaction-score');
-    expect(rows.map((r) => r.textContent)).toEqual(['5점0건', '4점1건', '3점0건', '2점0건', '1점0건']);
+    expect(rows.map((r) => r.textContent)).toEqual(['5점0%0건', '4점100%1건', '3점0%0건', '2점0%0건', '1점0%0건']); // 2026-11-20 몫(%) 칸 더함 — 응답 1건 중
     expect(screen.queryByText(/상담원별 순위·이름은 보여 주지 않아요/)).not.toBeInTheDocument(); // 설명 줄은 뺐다(2026-11-20) — 서버가 상담원별 값을 주지 않는다
     const q = new URL(view.sent.find((r) => new URL(r.url).pathname.endsWith('/satisfaction-summary'))!.url).searchParams;
     expect(q.get('answeredFrom')).toBe('2026-11-10T00:00:00+09:00');

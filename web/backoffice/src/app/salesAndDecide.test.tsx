@@ -25,7 +25,7 @@ describe('매출·환불·상품별 판매(관리자)', () => {
     renderAt('/?tab=sales', as.admin);
     const rows = await screen.findAllByTestId('dash-sales-top-row');
     expect(rows.length).toBeGreaterThan(0);
-    expect(screen.getByTestId('dash-sales')).toHaveTextContent('주문 확정 기준');
+    expect(screen.getByTestId('dash-sales-top-panel')).toHaveTextContent('주문 확정 기준'); // 2026-11-20 상품별 판매는 따로 칸
     expect(await within(rows[0]!).findByRole('link', { name: '사과 1.5kg' })).toHaveAttribute('href', '/products/P-00000001');
   });
 

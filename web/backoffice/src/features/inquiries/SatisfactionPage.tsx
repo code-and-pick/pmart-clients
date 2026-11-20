@@ -4,7 +4,7 @@
 // 비율은 분자·분모를 같이("답변 N건 중 M건 응답"), 분모 0 은 비율 대신 "—". 평균이 없으면(남긴 건 0) "—" — 숫자를 지어내지 않는다.
 // 화면(2026-11-18 사용자 "밋밋하다"): 위 기간 줄 → 숫자 카드 3개(기간·응답·평균 점수) → 점수별 막대(서버 byScore 그대로, 막대 길이는 보기용). 동작은 그대로.
 import { useQuery } from '@tanstack/react-query';
-import { useState, type ReactNode } from 'react';
+import { useState } from 'react';
 import { useSearchParams } from 'react-router';
 
 import { request } from '@pmart/web-core';
@@ -12,7 +12,7 @@ import { QueryState, toUiState } from '@pmart/web-ui';
 import { useApi } from '../../app/ApiContext';
 import { messages } from '../../shared/messages';
 import { PageHeader } from '../../shared/admin';
-import { Icon, ICON } from './HelpdeskParts';
+import { KpiCell, KpiStrip, Meter } from '../../app/Charts';
 
 const m = messages.satisfaction;
 const MAX_DAYS = 92;
@@ -23,23 +23,8 @@ const seoulDate = (ms: number) => new Date(ms + 9 * 3_600_000).toISOString().sli
 /** 시작~끝 날짜(둘 다 포함) 일수 */
 const daysOf = (from: string, to: string) => Math.round((Date.parse(to) - Date.parse(from)) / DAY) + 1;
 
-function Stat({ icon, label, children, sub }: { readonly icon: string; readonly label: string; readonly children: ReactNode; readonly sub?: ReactNode }) {
-  return (
-    <div className="flex items-start gap-3 rounded-box border border-base-300 bg-base-100 px-4 py-4 shadow-sm">
-      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-        <Icon d={icon} className="h-5 w-5" />
-      </span>
-      <div className="min-w-0 space-y-1">
-        <p className="text-xs text-base-content/55">{label}</p>
-        {children}
-        {sub && <p className="text-xs text-base-content/50">{sub}</p>}
-      </div>
-    </div>
-  );
-}
-
-/** 점수 색(보기만) — 높을수록 초록 */
-const SCORE_BAR: Readonly<Record<string, string>> = { '5': 'bg-success', '4': 'bg-success/70', '3': 'bg-warning', '2': 'bg-error/70', '1': 'bg-error' };
+/** 점수 색(보기만) — 5점 쪽 파랑, 1점 쪽 주황(두 끝이 반대로 읽히게), 3점은 회색 가운데. 색 검사 통과(dataviz) */
+const SCORE_FILL: Readonly<Record<string, string>> = { '5': 'var(--pm-stage-3)', '4': 'var(--pm-stage-2)', '3': 'color-mix(in oklab, var(--color-base-content) 22%, var(--color-base-100))', '2': 'color-mix(in oklab, var(--pm-cat-2) 60%, var(--color-base-100))', '1': 'var(--pm-cat-2)' };
 
 export function SatisfactionPage() {
   const api = useApi();
@@ -101,24 +86,36 @@ export function SatisfactionPage() {
           const avg = s.averageScore;
           return (
             <div className="space-y-4">
-              <div className="grid gap-3 sm:grid-cols-3" data-testid="satisfaction-summary">
-                <Stat icon={ICON.clock} label={m.periodLine}>
-                  <p className="text-lg font-bold tabular-nums">{`${from} ~ ${to}`}</p>
-                </Stat>
-                <Stat icon={ICON.chat} label={m.response}>
-                  <p className="font-semibold" data-testid="satisfaction-response">
-                    {answered === 0 ? m.noAnswered : m.responseLine(answered, rated)}
-                  </p>
-                </Stat>
-                <Stat icon={ICON.star} label={m.average} sub={avg === null || avg === undefined ? undefined : m.outOf}>
-                  <p className="text-2xl font-bold tabular-nums" data-testid="satisfaction-average">
-                    {avg === null || avg === undefined ? m.none : m.averageLine(avg)}
-                  </p>
-                </Stat>
-              </div>
+              {/* 숫자 줄(2026-11-20 통계 개편): 응답률 · 평균 점수 · 4·5점 몫 — 서버 건수로만, 분모 0 이면 "—" */}
+              <KpiStrip testId="satisfaction-summary">
+                <KpiCell
+                  label={m.responseRate}
+                  value={answered === 0 ? m.none : `${Math.round((rated / answered) * 1000) / 10}%`}
+                  tone={answered === 0 ? 'muted' : undefined}
+                  sub={<span data-testid="satisfaction-response">{answered === 0 ? m.noAnswered : m.responseLine(answered, rated)}</span>}
+                >
+                  <Meter value={answered === 0 ? null : rated / answered} />
+                </KpiCell>
+                <KpiCell
+                  hero
+                  label={m.average}
+                  value={<span data-testid="satisfaction-average">{avg === null || avg === undefined ? m.none : m.averageLine(avg)}</span>}
+                  tone={avg === null || avg === undefined ? 'muted' : undefined}
+                  sub={avg === null || avg === undefined ? undefined : m.outOf}
+                >
+                  <Meter value={avg === null || avg === undefined ? null : avg / 5} />
+                </KpiCell>
+                <KpiCell
+                  label={m.goodShare}
+                  value={rated === 0 ? m.none : `${Math.round((((s.byScore['5'] ?? 0) + (s.byScore['4'] ?? 0)) / rated) * 1000) / 10}%`}
+                  tone={rated === 0 ? 'muted' : undefined}
+                  sub={rated === 0 ? m.noRated : m.goodShareLine((s.byScore['5'] ?? 0) + (s.byScore['4'] ?? 0), rated)}
+                />
+              </KpiStrip>
               <section className="overflow-hidden rounded-box border border-base-300 bg-base-100 shadow-sm">
                 <div className="flex items-center justify-between gap-2 border-b border-base-300 px-4 py-3">
                   <h2 className="text-sm font-semibold">{m.byScore}</h2>
+                  <span className="text-xs text-base-content/50">{`${m.byScoreHint} · ${from} ~ ${to}`}</span>
                 </div>
                 <ul className="space-y-3 px-4 py-4 text-sm" aria-label={m.byScore}>
                   {(['5', '4', '3', '2', '1'] as const).map((k) => {
@@ -126,12 +123,13 @@ export function SatisfactionPage() {
                     // 막대 길이는 보기용(응답 건 중 몫). 응답 0건이면 빈 막대
                     const pct = rated > 0 ? Math.min(100, (n / rated) * 100) : 0;
                     return (
-                      <li key={k} className="grid grid-cols-[3rem_1fr_3.5rem] items-center gap-3" data-testid="satisfaction-score">
+                      <li key={k} className="grid grid-cols-[3rem_1fr_3rem_3.5rem] items-center gap-3" data-testid="satisfaction-score">
                         <span className="font-medium">{m.scoreLabel(k)}</span>
-                        <span className="h-2.5 overflow-hidden rounded-full bg-base-200" role="img" aria-label={m.scoreLabel(k)}>
-                          <span className={`block h-full rounded-full ${SCORE_BAR[k] ?? 'bg-primary'}`} style={{ width: `${pct}%` }} />
+                        <span className="h-2 overflow-hidden rounded-full bg-base-200" role="img" aria-label={m.scoreLabel(k)}>
+                          {pct > 0 && <span className="block h-full rounded-full" style={{ width: `${Math.max(2, pct)}%`, background: SCORE_FILL[k] }} />}
                         </span>
-                        <span className="text-right tabular-nums text-base-content/70">{m.count(n)}</span>
+                        <span className="text-right text-xs tabular-nums text-base-content/50" data-share>{rated > 0 ? `${Math.round(pct)}%` : '—'}</span>
+                        <span className="text-right font-semibold tabular-nums">{m.count(n)}</span>
                       </li>
                     );
                   })}
