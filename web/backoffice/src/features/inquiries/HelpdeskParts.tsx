@@ -29,15 +29,12 @@ export function Icon({ d, className = 'h-4 w-4' }: { readonly d: string; readonl
   );
 }
 
-/** 빈 상태 — 아이콘 + 한 줄 안내 */
-export function EmptyBox({ icon, children, hint }: { readonly icon: string; readonly children: ReactNode; readonly hint?: ReactNode }) {
+/** 빈 상태 — 2026-11-20 AWS 빈 화면: 그림 없이 "무엇이 없다(굵게) / 왜·어디(회색)" (icon 은 예전 호출 자리 때문에 받기만) */
+export function EmptyBox({ children, hint }: { readonly icon: string; readonly children: ReactNode; readonly hint?: ReactNode }) {
   return (
-    <div className="flex flex-col items-center justify-center gap-2 px-4 py-12 text-center">
-      <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-base-200 text-base-content/40">
-        <Icon d={icon} className="h-6 w-6" />
-      </span>
-      <p className="text-sm font-medium text-base-content/70">{children}</p>
-      {hint && <p className="text-xs text-base-content/50">{hint}</p>}
+    <div className="flex flex-col items-center justify-center gap-1.5 px-4 py-12 text-center" data-empty-box>
+      <p className="text-sm font-bold text-base-content">{children}</p>
+      {hint && <p className="text-sm text-base-content/65">{hint}</p>}
     </div>
   );
 }

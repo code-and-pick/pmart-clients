@@ -288,3 +288,13 @@ aside .badge-xs,
   font-weight: 700;
   line-height: 1;
 }
+
+/* 빈 화면(2026-11-20 AWS — "무엇이 없다" 굵게, 그림 없이, 실선 상자). 공용 QueryState(web/ui)는 그대로 두고 이 앱에서만 모양을 맞춘다 */
+main [data-state='empty'] {
+  border-style: solid;
+  color: var(--color-base-content);
+  font-weight: 700;
+}
+main [data-state='empty'] > svg {
+  display: none;
+}

@@ -118,18 +118,21 @@ export function KindChip({ tone = 'ghost', icon, children }: { readonly tone?: T
   );
 }
 
-/** 그림 있는 빈·처음 상자 — 한 줄 안내 */
-export function EmptyBox({ icon = 'search', children, testId, listPart = false }: { readonly icon?: IconName; readonly children: ReactNode; readonly testId?: string; readonly listPart?: boolean }) {
+/**
+ * 빈·처음 상자 — 2026-11-20 AWS 빈 화면: 그림 없이 "무엇이 없다(굵게) / 왜·어디(회색, 있으면) / 단추(있으면)" 세 줄, 실선 상자.
+ * icon 은 예전 호출 자리를 그대로 두려고 받기만 한다(그리지 않는다).
+ */
+export function EmptyBox({ children, hint, action, testId, listPart = false }: { readonly icon?: IconName; readonly children: ReactNode; readonly hint?: ReactNode; readonly action?: ReactNode; readonly testId?: string; readonly listPart?: boolean }) {
   return (
     <div
-      className="flex flex-col items-center justify-center gap-3 rounded-box border border-dashed border-base-300 bg-base-100 px-6 py-10 text-center text-sm text-base-content/60"
+      className="flex flex-col items-center justify-center gap-1.5 rounded-box border border-base-300 bg-base-100 px-6 py-10 text-center"
       data-testid={testId}
+      data-empty-box
       {...(listPart ? { 'data-list-part': 'table' } : {})}
     >
-      <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-base-200 text-base-content/40">
-        <Icon name={icon} className="h-6 w-6" />
-      </span>
-      <span>{children}</span>
+      <span className="text-sm font-bold text-base-content">{children}</span>
+      {hint && <span className="text-sm text-base-content/65">{hint}</span>}
+      {action && <span className="mt-2">{action}</span>}
     </div>
   );
 }
