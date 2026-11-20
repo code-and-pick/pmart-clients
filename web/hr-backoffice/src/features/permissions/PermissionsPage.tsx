@@ -296,7 +296,9 @@ function GrantRequestForm({
   const current = activeGrants(grants, now);
   const overlap = overlappingGrants(grants, draft, scoped, now);
   // HR-2: 센터 지정 역할은 센터 1개 이상, 그 밖 역할은 센터를 보내지 않는다
-  const ready = draft.role !== '' && reason.trim() !== '' && (!scoped || draft.centers.length > 0);
+  // 종료일이 시작일보다 앞이면 보내지 않는다(2026-11-20 — 2027-03-01 ~ 2026-11-20 이 승인됐다). 둘 다 넣었을 때만 판정(비우면 서버가 근무 기간으로 채운다)
+  const badPeriod = draft.validFrom !== '' && draft.validTo !== '' && draft.validTo < draft.validFrom;
+  const ready = draft.role !== '' && reason.trim() !== '' && (!scoped || draft.centers.length > 0) && !badPeriod;
   const rejected = submit.phase.kind === 'rejected' ? submit.phase.failure : null;
   const problems = lineProblems(rejected, 'grants');
   // 409 GRANT_ALREADY_ACTIVE — details[].reason 의 existingGrantId 로 그 줄을 강조, extension=true 면 연장이라 거절
@@ -395,9 +397,14 @@ function GrantRequestForm({
         </label>
         <label className="flex flex-col gap-1">
           {m.register.grantTo}
-          <input type="date" className="input input-sm" value={draft.validTo} onChange={(e) => setDraft({ ...draft, validTo: e.target.value })} />
+          <input type="date" className="input input-sm" value={draft.validTo} aria-invalid={badPeriod} {...(draft.validFrom ? { min: draft.validFrom } : {})} onChange={(e) => setDraft({ ...draft, validTo: e.target.value })} />
         </label>
       </div>
+      {badPeriod && (
+        <p role="alert" className="text-xs text-error" data-testid="grant-period-order">
+          {m.register.periodOrder}
+        </p>
+      )}
       {mix.length > 0 && (
         <p role="alert" className="text-xs text-warning" data-testid="grant-role-mix">
           {m.permissions.roleMixWarn(mix.map((g) => `${roleName(roles, g.role)} · ${g.centers.join(', ')}`).join(', '))}

@@ -245,6 +245,8 @@ export const messages = {
     grantCenters: '센터',
     grantFrom: '시작일',
     grantTo: '종료일',
+    /** 기간 순서(2026-11-20 사용자 — 종료일이 시작일보다 앞인데 승인됐다): 보내기 전에 화면이 막는다. 서버 거절은 백엔드 요청 */
+    periodOrder: '종료일이 시작일보다 앞이에요. 날짜를 확인해 주세요.',
     grantPeriodHint: '비우면 근무 기간',
     grantReason: '근거',
     chooseRole: '역할 고르기',
