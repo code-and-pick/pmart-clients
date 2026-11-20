@@ -151,3 +151,28 @@ describe('전달 실패 결정 전에는 상담 완료를 막고, 결정 대기 
     expect(within(rows[0]!).getByRole('link', { name: '전달 불가 신고 — 확정·반려 기다림' })).toHaveAttribute('href', '/deliveries/DLV-1');
   });
 });
+
+describe('상담함 — 도움요청 여러 쪽', () => {
+  it('서버가 오래된 것부터 50건씩 줘도 다음 쪽까지 읽어 최근 끝난 건이 끝남 탭에 보이고, 최근 7일만 묻는다', async () => {
+    const asked: URLSearchParams[] = [];
+    const item = (i: number) => ({ requestId: `HR-P${i}`, deliveryId: `DLV-P${i}`, riderId: 'RD-7', category: 'ADDRESS_ISSUE', state: 'RESOLVED', createdAt: `2026-11-20T0${i}:00:00.000Z` });
+    server.use(
+      http.get(`${API_BASE}/delivery-help-requests`, ({ request }) => {
+        const q = new URL(request.url).searchParams;
+        asked.push(q);
+        return q.get('cursor') === 'c2'
+          ? HttpResponse.json({ items: [item(2)], page: { nextCursor: null } })
+          : HttpResponse.json({ items: [item(1)], page: { nextCursor: 'c2' } });
+      }),
+    );
+    renderAt('/consults?tab=done', as.riderOps);
+    const rows = await screen.findAllByTestId('consult-row');
+    const help = rows.filter((r) => r.getAttribute('data-kind') === 'help');
+    expect(help).toHaveLength(2);
+    expect(help.flatMap((r) => [...r.querySelectorAll('a')].map((a) => a.getAttribute('href')))).toContain('/help-requests/DLV-P2/HR-P2');
+    // 머리줄 급한 건 수(OPEN)는 따로 묻는다 — 끝남 탭이 물은 것만 본다
+    const done = asked.filter((q) => q.get('state') === 'RESOLVED');
+    expect(done.map((q) => q.get('cursor'))).toEqual([null, 'c2']);
+    expect(done.every((q) => !!q.get('from'))).toBe(true);
+  });
+});

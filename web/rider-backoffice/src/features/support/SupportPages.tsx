@@ -70,6 +70,10 @@ const sm = {
 const helpCategoryName: Readonly<Record<string, string>> = n.helpCategory;
 type HelpState = 'OPEN' | 'IN_PROGRESS' | 'RESOLVED';
 const HELP_PAGE_SIZE = 50;
+/** 상담함이 한 상태에서 읽는 최대 쪽 수(50 × 20 = 1,000건) */
+const HELP_MAX_PAGES = 20;
+/** 상담함 끝남 탭이 보여 주는 기간(일) */
+const DONE_DAYS = 7;
 const consultBack = '상담함';
 
 // ---------------- 도움요청
@@ -450,7 +454,7 @@ const consultText = {
   failureTitle: '전달 불가 신고 — 확정·반려 기다림',
   resumeRequested: '라이더 재개 요청',
   col: { kind: '구분', title: '내용', state: '상태', delivery: '배송', rider: '라이더', createdAt: '받은 때', wait: '기다린 시간' },
-  empty: { open: '상담할 건이 없어요.', done: '끝난 상담이 없어요.' },
+  empty: { open: '상담할 건이 없어요.', done: '최근 7일 동안 끝난 상담이 없어요.' },
   partial: (what: string) => `${what} 목록을 불러오지 못했어요 — 아래는 일부예요.`,
   retry: '다시 불러오기',
   stripLabel: '상담 대기 수',
@@ -491,10 +495,25 @@ function ConsultsPage() {
   const help = useQuery({
     queryKey: ['help-queue', 'consults', tab],
     refetchInterval: 15_000,
-    queryFn: async () =>
-      (await Promise.all(helpStates.map((state) => request('GET', api.execution.GET('/delivery-help-requests', { params: { query: { size: HELP_PAGE_SIZE, state } } }))))).flatMap(
-        (r) => r.items ?? [],
-      ),
+    // 서버는 오래된 것부터 한 쪽 50건(계약) — 첫 쪽만 읽으면 끝난 건이 50건을 넘을 때 최근 것이 빠졌다(2026-11-20 사용자 "상담함에 안 뜬다").
+    // 다음 쪽까지 읽는다. 끝남 탭은 최근 7일만(끝난 건은 계속 쌓인다).
+    queryFn: async () => {
+      const from = tab === 'done' ? new Date(Date.now() - DONE_DAYS * 86_400_000).toISOString() : undefined;
+      const pages = await Promise.all(
+        helpStates.map(async (state) => {
+          const items = [];
+          let cursor: string | undefined;
+          for (let i = 0; i < HELP_MAX_PAGES; i++) {
+            const r = await request('GET', api.execution.GET('/delivery-help-requests', { params: { query: { size: HELP_PAGE_SIZE, state, ...(from ? { from } : {}), ...(cursor ? { cursor } : {}) } } }));
+            items.push(...(r.items ?? []));
+            cursor = r.page?.nextCursor ?? undefined;
+            if (!cursor) break;
+          }
+          return items;
+        }),
+      );
+      return pages.flat();
+    },
   });
   // 숫자 띠(2026-11-19 통합 백오피스처럼) — 서버가 센 수: 도움요청·전달 실패 결정 대기는 delivery-stats, 일반 문의는 목록 한 쪽(넘치면 "N건 이상")
   const stats = useQuery({
