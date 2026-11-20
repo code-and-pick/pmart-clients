@@ -59,34 +59,24 @@ class SupportCenterScreen extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  IntrinsicHeight(
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Expanded(
-                          child: _ActionTile(
-                            key: const ValueKey('live-chat'),
-                            icon: Icons.chat_bubble_outline,
-                            title: l10n.supportChat,
-                            sub: l10n.supportChatSub,
-                            onTap: () => context.push('/my/inquiries/chat'),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: _ActionTile(
-                            key: const ValueKey('inquiry-new'),
-                            icon: Icons.edit_outlined,
-                            title: l10n.supportNew,
-                            sub: l10n.supportNewSub,
-                            onTap: () async {
-                              await context.push('/my/inquiries/new');
-                              ref.invalidate(inquiriesProvider);
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
+                  // 가로로 긴 보라 버튼 두 줄(사용자 2026-11-20 "한 줄 한 줄 보라색, 흰 글자")
+                  _ActionTile(
+                    key: const ValueKey('live-chat'),
+                    icon: Icons.chat_bubble_outline,
+                    title: l10n.supportChat,
+                    sub: l10n.supportChatSub,
+                    onTap: () => context.push('/my/inquiries/chat'),
+                  ),
+                  const SizedBox(height: 8),
+                  _ActionTile(
+                    key: const ValueKey('inquiry-new'),
+                    icon: Icons.edit_outlined,
+                    title: l10n.supportNew,
+                    sub: l10n.supportNewSub,
+                    onTap: () async {
+                      await context.push('/my/inquiries/new');
+                      ref.invalidate(inquiriesProvider);
+                    },
                   ),
                   const SizedBox(height: 10),
                   Row(
@@ -165,35 +155,42 @@ class _ActionTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Material(
-    color: RiderColors.primaryMist,
+    color: RiderColors.primary,
     borderRadius: BorderRadius.circular(12),
     child: InkWell(
       borderRadius: BorderRadius.circular(12),
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 14, 10, 14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        padding: const EdgeInsets.fromLTRB(16, 14, 12, 14),
+        child: Row(
           children: [
-            Icon(icon, size: 24, color: RiderColors.primary),
-            const SizedBox(height: 8),
-            Text(
-              title,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-                color: RiderColors.ink,
+            Icon(icon, size: 24, color: Colors.white),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    sub,
+                    style: TextStyle(
+                      fontSize: 12,
+                      height: 1.35,
+                      color: Colors.white.withValues(alpha: 0.85),
+                    ),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 2),
-            Text(
-              sub,
-              style: const TextStyle(
-                fontSize: 12,
-                height: 1.35,
-                color: RiderColors.sub,
-              ),
-            ),
+            const Icon(Icons.chevron_right, color: Colors.white),
           ],
         ),
       ),
