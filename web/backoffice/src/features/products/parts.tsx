@@ -7,18 +7,19 @@ import { messages as m } from '../../shared/messages';
 /** 제목 줄이 있는 카드. 폼 묶음·오른쪽 요약 카드에 쓴다. */
 export function Card({ title, hint, aside, children, footer, testId, label, id, className = '' }: { readonly title?: ReactNode; readonly hint?: ReactNode; readonly aside?: ReactNode; readonly children: ReactNode; readonly footer?: ReactNode; readonly testId?: string; readonly label?: string; readonly id?: string; readonly className?: string }) {
   return (
-    <section id={id} className={`scroll-mt-4 overflow-hidden rounded-box border border-base-300 bg-base-100 shadow-sm ${className}`} data-testid={testId} aria-label={label}>
+    // 2026-11-20 AWS 개편(Container): 머리 아래 선·그림자 없이 20px 굵은 제목, 바닥 단추 줄도 회색 띠 없이
+    <section id={id} className={`scroll-mt-4 rounded-box border border-base-300 bg-base-100 ${className}`} data-testid={testId} aria-label={label}>
       {(title || aside) && (
-        <div className="flex flex-wrap items-start justify-between gap-2 border-b border-base-300 px-5 py-3">
+        <div className="flex flex-wrap items-start justify-between gap-2 px-5 pb-1 pt-4">
           <div className="min-w-0 space-y-0.5">
-            {title && <h2 className="font-bold">{title}</h2>}
-            {hint && <p className="text-xs text-base-content/55">{hint}</p>}
+            {title && <h2 className="text-lg font-bold">{title}</h2>}
+            {hint && <p className="text-sm text-base-content/65">{hint}</p>}
           </div>
           {aside && <div className="flex flex-wrap items-center gap-2 text-sm">{aside}</div>}
         </div>
       )}
-      <div className="space-y-3 px-5 py-4">{children}</div>
-      {footer && <div className="flex flex-wrap items-center justify-end gap-2 border-t border-base-300 bg-base-200/40 px-5 py-3">{footer}</div>}
+      <div className="space-y-4 px-5 pb-5 pt-3">{children}</div>
+      {footer && <div className="flex flex-wrap items-center justify-end gap-2 px-5 pb-5">{footer}</div>}
     </section>
   );
 }

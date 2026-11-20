@@ -188,7 +188,7 @@ export function UnifiedLookupPage() {
 
   // 화면(2026-11-18): 큰 검색 상자(종류 칩 + 번호) → 찾은 대상 띠 → 두 칸(왼쪽 주문·현장·접수 건, 오른쪽 배송·배차·클레임·문의)
   return (
-    <section className="max-w-7xl space-y-4">
+    <section className="space-y-4">
       <PageHeader title={m.title} />
       <form
         className="space-y-3 rounded-box border border-base-300 bg-base-100 px-4 py-4 shadow-sm"

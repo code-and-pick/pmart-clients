@@ -324,7 +324,7 @@ export function NewRiderComplaintPage() {
 
   // 화면(2026-11-18): 두 칸 — 왼쪽 기록 카드(배송 → 종류 큰 선택 칸 → 연결 번호 → 메모), 오른쪽 안내 카드(서버가 정하는 것)
   return (
-    <section className="max-w-6xl space-y-4">
+    <section className="space-y-4">
       {/* 설명은 오른쪽 "기록 전에" 카드에 있다 — 머리말에 되풀이하지 않는다(2026-11-18) */}
       <PageHeader title={m.complaints.newTitle} back={{ to: '/rider-complaints', label: m.complaints.back }} />
       <div className="grid items-start gap-4 lg:grid-cols-3">
@@ -419,7 +419,7 @@ export function RiderComplaintDetailPage() {
   };
   // 상세(2026-11-18): 상세 머리(번호·종류·기록 시각) → 두 칸(왼쪽 내부 메모·연결된 것, 오른쪽 기록 정보)
   return (
-    <section className="max-w-6xl space-y-4">
+    <section className="space-y-4">
       <QueryState state={toUiState(query)} onRetry={() => void query.refetch()}>
         {(c) => (
           <>

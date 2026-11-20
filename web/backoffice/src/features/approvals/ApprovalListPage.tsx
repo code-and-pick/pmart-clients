@@ -129,7 +129,7 @@ export function ApprovalListPage() {
   ];
 
   return (
-    <section className="max-w-6xl space-y-4">
+    <section className="space-y-4">
       <ListHeader
         title={m.approvals.title}
         count={query.data ? `${rows.length}${query.hasNextPage ? '+' : ''}` : undefined}

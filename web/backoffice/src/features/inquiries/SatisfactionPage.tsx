@@ -65,7 +65,7 @@ export function SatisfactionPage() {
   });
 
   return (
-    <section className="max-w-5xl space-y-4">
+    <section className="space-y-4">
       <PageHeader title={m.title} />
       {/* 기간 줄 — 목록 화면 필터 줄과 같은 모양(항목명 위 작게, 버튼 오른쪽) */}
       <form

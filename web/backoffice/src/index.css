@@ -98,6 +98,14 @@ main h1 {
   --btn-color: var(--pm-btn-main);
   --btn-fg: var(--pm-btn-main-fg);
 }
+/* 화면마다 직접 그린 회색 머리 띠(거르기 줄·상자 머리) — AWS 상자는 흰 바탕 하나(2026-11-20 전면 개편) */
+main :is([class~='bg-base-200/40'], [class~='bg-base-200/50'], [class~='bg-base-200/60']):is(.border-b, .border-t) {
+  background-color: transparent;
+}
+/* 화면마다 직접 쓴 둥근 모서리(rounded-lg·xl·2xl)도 상자 둥글기(2px)로 — AWS 는 거의 각진 상자(2026-11-20 전면 개편). 동그라미(rounded-full)는 그대로 */
+main :is(.rounded-lg, .rounded-xl, .rounded-2xl, .rounded-md) {
+  border-radius: var(--radius-box);
+}
 /* 입력칸 포커스 — 굵은 글자색 테두리 대신 파랑 1px(AWS 포커스, 3단계에서 찾음) */
 :is(.input, .select, .textarea):is(:focus, :focus-within) {
   --input-color: var(--color-primary);
@@ -139,9 +147,11 @@ main [aria-current='true'].rounded-box {
 }
 
 
-/* 상세 화면의 항목 목록(dl): 이름은 옅게, 줄 사이를 넓게(2026-11-18 화면 다듬기 — FieldList 와 같은 모양) */
-main dl.grid > dt {
-  color: color-mix(in oklab, var(--color-base-content) 55%, transparent);
+/* 상세 화면의 이름/값(dl) — 2026-11-20 AWS 개편(Key-value): 화면마다 작은 회색으로 그리던 이름(dt)을 굵은 14px 회갈색으로 한 번에 */
+main dt:not([class*='text-info']) {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: color-mix(in oklab, var(--color-base-content) 80%, transparent);
 }
 main dl.grid {
   row-gap: 0.55rem;

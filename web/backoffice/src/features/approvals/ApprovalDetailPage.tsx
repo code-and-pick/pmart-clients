@@ -180,7 +180,7 @@ export function ApprovalDetailPage() {
   // 최근 본 항목 이름은 화면 번호·종류(2026-11-19 — 시스템 ID 를 이름으로 남기던 것 고침, ADR-0070 덧붙임) — 승인은 번호가 없어 종류
   useRecordRecent('approval', approvalId, query.data ? (query.data.type ? `${m.approvals.typeName[query.data.type] ?? query.data.type} 승인 요청` : m.approvals.detailTitle) : null); // 요약에는 메일 같은 개인정보가 있을 수 있어 종류만
   return (
-    <section className="max-w-7xl space-y-4" data-fetched-at={lastFetchedAt}>
+    <section className="space-y-4" data-fetched-at={lastFetchedAt}>
       <QueryState state={toUiState(query)} onRetry={() => void query.refetch()}>
         {(a) => {
           const open = OPEN_REVIEW.includes(a.reviewState ?? 'REVIEW_PENDING');

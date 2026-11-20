@@ -57,7 +57,7 @@ export function HomeLayoutListPage() {
   const current = query.data?.currentLayoutVersion;
 
   return (
-    <section className="max-w-6xl space-y-4">
+    <section className="space-y-4">
       <PageHeader
         title={m.title}
         actions={

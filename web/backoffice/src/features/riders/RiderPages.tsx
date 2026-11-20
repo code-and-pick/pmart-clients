@@ -151,7 +151,7 @@ export function RiderDetailPage() {
     queryFn: () => request('GET', api.riders.GET('/riders/{riderId}', { params: { path: { riderId } } })),
   });
   return (
-    <section className="max-w-6xl space-y-4">
+    <section className="space-y-4">
       <PageHeader
         // 제목은 (서버가 가린) 이름 먼저, 번호는 작게(2026-11-18 "제목이 번호뿐") — 원문 이름은 제목에 쓰지 않는다
         title={

@@ -15,7 +15,6 @@ import { ApprovalTypes, LiveSummary, RiskPanel, SlaTrend } from './DashboardSect
 import { DashboardStatus } from './DashboardStatus';
 import { DisplayNumber } from '../shared/displayNumber';
 import { ActivityFeed, LiveStat, MetricsPanel, OrdersWeekChart, SalesPanel, WorkCountsPanel, useWorkCounts, workText, type WorkSum, RefreshBar, RiskStat, SlaStat, StatusDonut, TodayOrdersStat, slaQuery } from './DashboardWidgets';
-import { GroupIcon } from './groupIcons';
 import { visibleGroups } from './nav';
 import { useSession } from './SessionContext';
 import { slaText } from '../features/cases/CaseSlaPage';
@@ -42,25 +41,21 @@ function TaskRow({ alert, title, to, tone, group, exact }: { readonly alert: Ale
   const failed = exact ? sum === null : alertQ.isError;
   const has = n !== null && n > 0;
   const text = exact ? (sum ? workText(sum) : sum === null ? '?' : '…') : alertQ.data ? countText(alertQ.data.n, alertQ.data.more, ALERT_SIZE) : alertQ.isError ? '?' : '…';
-  // 숫자 띠 카드(2026-11-19 사용자가 보여 준 배송 관제 화면 — 왼쪽 색 막대 + 큰 숫자 하나 + 설명 한 줄, 색만 봐도 상태)
-  const bar = has ? { error: 'bg-error', warning: 'bg-warning', info: 'bg-info' }[tone] : failed ? 'bg-base-content/20' : 'bg-base-300';
-  const num = has ? { error: 'text-error', warning: 'text-warning', info: 'text-base-content' }[tone] : 'text-base-content/35';
+  // 2026-11-20 AWS 개편(대시보드 숫자 칸): 한 상자 안에 칸 사이 세로 선, 회색 이름 + 큰 숫자(점선 밑줄 링크). 색은 숫자에만
+  const num = has ? { error: 'text-error', warning: 'text-[color-mix(in_oklab,var(--color-warning)_60%,var(--color-base-content))]', info: 'text-base-content' }[tone] : 'text-base-content/40';
   return (
     <Link
       to={to}
       data-testid={`dash-kpi-${alert}`}
       data-tone={has ? tone : 'none'}
-      className="group relative flex min-w-0 flex-col gap-0.5 overflow-hidden rounded-box border border-base-300 bg-base-100 py-3 pl-4 pr-3 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+      data-group={group}
+      className="group flex min-w-0 flex-col gap-1 px-5 py-1"
     >
-      <span className={`absolute inset-y-0 left-0 w-1 ${bar}`} aria-hidden="true" />
-      <span className="flex items-center gap-1.5 text-xs font-medium text-base-content/60">
-        <GroupIcon id={group} className="h-3.5 w-3.5 shrink-0" />
-        <span className="truncate">{title}</span>
-      </span>
-      <span className={`text-2xl font-bold leading-tight tabular-nums ${num}`} {...(failed ? { title: m.failed } : {})}>
+      <span className="truncate text-sm text-base-content/70">{title}</span>
+      <span className={`self-start text-2xl font-bold leading-tight tabular-nums underline decoration-dotted decoration-2 underline-offset-4 group-hover:text-primary ${num}`} {...(failed ? { title: m.failed } : {})}>
         {n === 0 ? '0' : text}
       </span>
-      <span className={`text-[11px] ${has ? 'font-medium text-primary group-hover:underline' : 'text-base-content/45'}`}>{failed ? m.failedShort : n === 0 ? m.noneLeft : has ? `${m.go} →` : ' '}</span>
+      <span className={`text-xs ${has ? 'text-primary group-hover:underline' : 'text-base-content/50'}`}>{failed ? m.failedShort : n === 0 ? m.noneLeft : has ? `${m.go} →` : ' '}</span>
     </Link>
   );
 }
@@ -247,13 +242,12 @@ export function DashboardPage() {
 
       {/* 숫자 띠(2026-11-19 사용자가 보여 준 배송 관제 화면 참고 — 탭과 상관없이 늘 맨 위, 급한 것부터). 누르면 그 일만 모은 목록 */}
       {tasks.length > 0 && (
-        <section aria-labelledby="dash-my-work" data-testid="dash-my-work" className="space-y-2">
-          <div className="flex items-baseline justify-between gap-2">
-            <h2 id="dash-my-work" className="text-sm font-bold text-base-content/70">
-              {m.myWork}
-            </h2>
-          </div>
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-3 2xl:grid-cols-6">{tasks}</div>
+        <section aria-labelledby="dash-my-work" data-testid="dash-my-work" className="rounded-box border border-base-300 bg-base-100 pb-4 pt-4">
+          <h2 id="dash-my-work" className="px-5 pb-3 text-lg font-bold">
+            {m.myWork}
+          </h2>
+          {/* 칸 사이 세로 선(AWS 리소스 숫자 칸) */}
+          <div className="grid grid-cols-2 gap-y-4 md:grid-cols-3 2xl:grid-cols-6 [&>a]:border-l [&>a]:border-base-300">{tasks}</div>
         </section>
       )}
 

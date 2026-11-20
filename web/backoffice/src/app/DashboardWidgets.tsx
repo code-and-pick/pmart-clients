@@ -84,26 +84,17 @@ export function RefreshBar() {
 
 // ───────────────────────── 숫자 카드(오른쪽 세로) ─────────────────────────
 
-const ICONS: Record<string, string> = {
-  cart: 'M3 4h2l2.4 10.2a1 1 0 0 0 1 .8h8.9a1 1 0 0 0 1-.8L20 8H6.2M9 20h.01M17 20h.01',
-  truck: 'M3 6h11v9H3zM14 9h4l3 3v3h-7M7 18a1.5 1.5 0 1 0 0-.01M17 18a1.5 1.5 0 1 0 0-.01',
-  clock: 'M12 7v5l3 2M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z',
-  alert: 'M12 9v4m0 3h.01M10.3 3.9 2.4 18a2 2 0 0 0 1.7 3h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z',
-};
-const tileTone = { primary: 'bg-primary/10 text-primary', info: 'bg-info/10 text-info', success: 'bg-success/10 text-success', warning: 'bg-warning/15 text-warning', error: 'bg-error/10 text-error' } as const;
+// 숫자 카드 아이콘 타일은 2026-11-20 AWS 개편 때 뺐다(icon·tone 은 data- 속성으로만 남김)
+type TileTone = 'primary' | 'info' | 'success' | 'warning' | 'error';
 
-function StatCard({ icon, tone, label: title, value, sub, to, testId, children, failed }: { readonly icon: string; readonly tone: keyof typeof tileTone; readonly label: string; readonly value: ReactNode; readonly sub?: ReactNode; readonly to: string; readonly testId: string; readonly children?: ReactNode; readonly failed?: boolean }) {
+function StatCard({ icon, tone, label: title, value, sub, to, testId, children, failed }: { readonly icon: string; readonly tone: TileTone; readonly label: string; readonly value: ReactNode; readonly sub?: ReactNode; readonly to: string; readonly testId: string; readonly children?: ReactNode; readonly failed?: boolean }) {
   const ch = useStatChange(value); // 방금 바뀐 칸만 잠깐 빛남 + ▲▼(2026-11-19)
   return (
-    <Link to={to} data-testid={testId} className={`group flex items-start gap-4 rounded-box border border-base-300 bg-base-100 p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md ${ch.cls}`}>
-      <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${tileTone[tone]}`} aria-hidden="true">
-        <svg viewBox="0 0 24 24" className="h-5 w-5 fill-none stroke-current" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
-          <path d={ICONS[icon]} />
-        </svg>
-      </span>
+    // 2026-11-20 AWS 개편: 아이콘 타일·그림자 없이 흰 상자 + 회색 이름 + 큰 숫자(점선 밑줄 링크)
+    <Link to={to} data-testid={testId} data-icon={icon} data-tone={tone} className={`group flex items-start gap-4 rounded-box border border-base-300 bg-base-100 px-5 py-4 transition-colors hover:border-primary/60 ${ch.cls}`}>
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-xs font-medium text-base-content/55">{title}</span>
-        <span className={`block text-[28px] font-extrabold leading-tight tabular-nums ${failed ? 'text-base-content/35' : ''}`} title={failed ? m.failed : undefined}>
+        <span className="block truncate text-sm text-base-content/70">{title}</span>
+        <span className={`inline-block text-[28px] font-bold leading-tight tabular-nums underline decoration-dotted decoration-2 underline-offset-4 group-hover:text-primary ${failed ? 'text-base-content/35' : ''}`} title={failed ? m.failed : undefined}>
           {value}
           {ch.badge}
         </span>
@@ -561,8 +552,8 @@ function WorkTile({ label: title, sum, to, tone, testId }: { readonly label: str
   const color = { error: 'text-error border-l-error', warning: 'text-warning border-l-warning', info: 'text-info border-l-info' }[tone];
   const ch = useStatChange(sum ? sum.value : undefined);
   return (
-    <Link to={to} data-testid={testId} className={`block rounded-lg border border-l-4 border-base-300 px-4 py-3 transition hover:bg-base-200/60 ${has ? color.split(' ')[1] : 'border-l-base-300'} ${ch.cls}`}>
-      <p className="truncate text-xs text-base-content/60">{title}</p>
+    <Link to={to} data-testid={testId} className={`block rounded-box border border-base-300 px-4 py-3 transition-colors hover:border-primary/60 ${ch.cls}`}>
+      <p className="truncate text-sm text-base-content/70">{title}</p>
       <p className={`mt-0.5 text-2xl font-bold tabular-nums ${sum === null ? 'text-base-content/40' : has ? color.split(' ')[0] : 'text-base-content/70'}`} title={sum === null ? m.failed : undefined}>
         {sum === undefined ? '…' : sum === null ? m.work.unknown : workText(sum)}
         {ch.badge}

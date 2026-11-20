@@ -41,7 +41,7 @@ export function saleStopApprovalBody(productId: string, reason: string): ChangeR
   };
 }
 
-const fieldLabel = 'text-xs font-medium text-base-content/60';
+const fieldLabel = 'text-sm font-semibold text-base-content/85'; // 2026-11-20 AWS 개편
 
 function SaleStateChange({ product }: { readonly product: ProductDetail }) {
   const api = useApi();

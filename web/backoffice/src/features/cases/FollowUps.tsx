@@ -161,7 +161,7 @@ function ObligationItem({ o, caseGroup, onChanged, caseLink }: { readonly o: Obl
   );
 }
 
-const fieldLabel = 'flex flex-col gap-1 text-xs font-medium text-base-content/60';
+const fieldLabel = 'flex flex-col gap-1 text-sm font-semibold text-base-content/85'; // 2026-11-20 AWS 개편
 
 function ResolveForm({ o, admin, onClose, onDone }: { readonly o: Obligation; readonly admin: boolean; readonly onClose: () => void; readonly onDone: () => void }) {
   const api = useApi();
@@ -415,7 +415,7 @@ export function CsFollowUpPage() {
   // 다음 할 일 — 처리 중 탭을 읽었을 때만, 서버가 준 목록·역할로(결과 남기기 버튼이 보이는 건수). 판정은 서버
   const resolvable = !done && state.kind === 'ready' ? (state.data.items ?? []).filter((o) => canResolve(o, 'CS', roles)).length : null;
   return (
-    <section className="max-w-5xl space-y-4">
+    <section className="space-y-4">
       <PageHeader title={m.csTitle} />
       {resolvable !== null &&
         (resolvable > 0 ? (

@@ -422,7 +422,7 @@ export function ClaimDetailPage() {
   // 최근 본 항목 이름은 화면 번호·요약(2026-11-19 — 시스템 ID 를 이름으로 남기던 것 고침, ADR-0070 덧붙임)
   useRecordRecent('claim', claimId, query.data ? claimLabel(detailOrders.get(query.data.orderId), query.data.type, query.data.openedAt) : null);
   return (
-    <section className="max-w-7xl space-y-4">
+    <section className="space-y-4">
       <QueryState state={toUiState(query)} onRetry={() => void query.refetch()}>
         {(c) => {
           // 다음 할 일 — 회수 조치 칸(RecoveryActions)이 열리는 서버 상태와 같은 판정(availableActions)만 쓴다

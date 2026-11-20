@@ -828,7 +828,7 @@ export function DeliveryDetailPage() {
   // 최근 본 항목(2026-11-18) — 서버 응답을 받은 뒤에만 남긴다
   useRecordRecent('delivery', deliveryId, d ? (d.deliveryNumber ?? m.displayNumber.missing) : null); // 번호 없으면 ID 대신 "번호 없음"(2026-11-19)
   return (
-    <section className="max-w-7xl space-y-4">
+    <section className="space-y-4">
       <DetailHeader
         back={{ to: '/deliveries', label: m.deliveries.back }}
         title={

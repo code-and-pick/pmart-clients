@@ -152,7 +152,7 @@ export function CaseSlaPage() {
         : { kind: 'ready', data: query.data };
 
   return (
-    <section className="max-w-5xl space-y-4">
+    <section className="space-y-4">
       <PageHeader title={m.title} />
       <SearchPanel onSubmit={submit} onReset={() => setDraft({ from: seoulToday(-6), to: seoulToday(), granularity: 'DAY', centerId: '' })} submitLabel={m.show} resetLabel={m.reset} label={m.title}>
         <SearchRow label={m.period}>

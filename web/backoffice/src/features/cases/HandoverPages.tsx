@@ -52,7 +52,7 @@ export function HandoverPage() {
   const raw = params.get('tab');
   const tab: Tab = tabs.find((t) => t === raw) ?? tabs[0] ?? 'inbox';
   return (
-    <section className="max-w-5xl space-y-4">
+    <section className="space-y-4">
       <PageHeader title={m.title} />
       {/* 관리자 형식(2026-11-18): 회색 안내 상자 + 밑줄 탭(접수 건과 같게) */}
       <Notice>{m.noAuto}</Notice>

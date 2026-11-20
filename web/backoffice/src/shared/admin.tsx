@@ -7,37 +7,26 @@
 // - 표: 회색 머리줄, 줄 전체 누르면 상세
 // - 상세: 제목·표시·요약 + 오른쪽 동작 버튼, 그 아래 구역 상자(제목 줄 + 항목명/값 줄), 구역으로 가는 밑줄 탭
 // 목록 부품 SearchPanel·StatStrip·GuideBox·AllDone 는 공용(@pmart/web-ui listParts, 2026-11-19)으로 옮김 — 이 파일에서 그대로 가져다 쓰게 다시 내보낸다
-export { SearchPanel, StatStrip, GuideBox, AllDone } from '@pmart/web-ui';
+// SearchPanel 은 2026-11-20 AWS 개편 때 이 앱 사본으로(아래) — 공용 web/ui 는 그대로(다른 앱이 씀)
+export { StatStrip, GuideBox, AllDone } from '@pmart/web-ui';
 import { StickyTitle, useScrolledPast } from './StickyTitle';
 import { useStatChange } from './motion';
-import { type ReactNode, useId, useRef, useState } from 'react';
+import { type FormEvent, type ReactNode, useId, useRef, useState } from 'react';
 
 import { formatSeoul } from '@pmart/web-ui';
 import { messages as lm } from './messages';
-import { Link, useLocation, useNavigate } from 'react-router';
+import { Link, useNavigate } from 'react-router';
 
-import { GroupIcon } from '../app/groupIcons';
-import { covers, navGroups } from '../app/nav';
 
 export type Tone = 'neutral' | 'info' | 'success' | 'warning' | 'error' | 'accent' | 'ghost';
 
-const toneClass: Record<Tone, string> = {
-  neutral: 'badge-neutral badge-soft',
-  info: 'badge-info badge-soft',
-  success: 'badge-success badge-soft',
-  warning: 'badge-warning badge-soft',
-  error: 'badge-error badge-soft',
-  accent: 'badge-accent badge-soft',
-  ghost: 'badge-ghost',
-};
 
-/** 상태 표시(작은 둥근 꼬리표) */
+/** 상태 표시 — 2026-11-20 AWS 개편: 둥근 꼬리표 대신 아이콘 + 색 글자(StatusText 와 같은 모양, 모든 화면에 한 번에) */
 export function StatusBadge({ tone = 'ghost', children, testId }: { readonly tone?: Tone; readonly children: ReactNode; readonly testId?: string }) {
   return (
-    <span className={`badge badge-sm gap-1.5 whitespace-nowrap font-medium ${toneClass[tone]}`} data-testid={testId}>
-      <span className="h-1.5 w-1.5 rounded-full bg-current opacity-80" aria-hidden="true" />
+    <StatusText tone={tone} testId={testId}>
       {children}
-    </span>
+    </StatusText>
   );
 }
 
@@ -56,38 +45,18 @@ export function useRowLink() {
   });
 }
 
-/** 쪽 머리말 — h1 은 화면마다 하나 */
-/** 지금 주소가 속한 메뉴 묶음(쪽 제목 아이콘용 — 가장 긴 메뉴 경로) */
-function useGroupId(): string | null {
-  const { pathname } = useLocation();
-  let best: { id: string; len: number } | null = null;
-  for (const g of navGroups) for (const i of g.items) if (covers(i, pathname) && (!best || i.to.length > best.len)) best = { id: g.id, len: i.to.length };
-  return best?.id ?? null;
-}
-
+/** 쪽 머리말 — h1 은 화면마다 하나. 2026-11-20 AWS 개편: 아이콘 타일 없이 24px 굵은 제목 + 오른쪽 동작 */
 export function PageHeader({ title, actions, back }: { readonly title: ReactNode; readonly actions?: ReactNode; readonly back?: { readonly to: string; readonly label: string } }) {
-  const group = useGroupId();
   return (
     <header className="space-y-1">
       {back && (
-        <Link to={back.to} className="inline-flex items-center gap-1 text-sm text-base-content/60 hover:text-base-content">
+        <Link to={back.to} className="inline-flex items-center gap-1 text-sm text-base-content/70 underline underline-offset-2 hover:text-primary">
           <span aria-hidden>‹</span>
           {back.label}
         </Link>
       )}
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="flex min-w-0 items-start gap-3">
-          {/* 쪽 제목 아이콘 — 왼쪽 메뉴 묶음과 같은 아이콘(2026-11-18 화면 다듬기) */}
-          {group && (
-            <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary" aria-hidden="true">
-              <GroupIcon id={group} className="h-5 w-5" />
-            </span>
-          )}
-          <div className="min-w-0 space-y-1">
-            <h1 className="text-xl font-bold tracking-tight">{title}</h1>
-            {/* 제목 아래 설명 줄은 두지 않는다(2026-11-20 사용자 "쓸데없는 말 다 지워 — 안 적어도 알 수 있게") */}
-          </div>
-        </div>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <h1 className="min-w-0 text-2xl font-bold">{title}</h1>
         {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
       </div>
     </header>
@@ -99,55 +68,57 @@ export function PageHeader({ title, actions, back }: { readonly title: ReactNode
 export function SearchRow({ label, children }: { readonly label: ReactNode; readonly children: ReactNode }) {
   return (
     <div className="flex min-w-0 flex-col gap-1">
-      <div className="text-xs font-medium text-base-content/55">{label}</div>
+      <div className="text-sm font-semibold text-base-content/85">{label}</div>
       <div className="flex flex-wrap items-center gap-2">{children}</div>
     </div>
   );
 }
 
-/** 칩 모양 하나 고르기(상태·종류 등) */
-/** count 를 주면 이름 옆에 작게(2026-11-18 — 서버가 센 값만, 읽기 도구에는 이름만) */
+/** 하나 고르기(상태·종류 등) — 2026-11-20 AWS 개편: 붙은 단추 줄(Segmented control), 고른 칸은 파랑. count 는 서버가 센 값만 */
 export function ChipGroup<T extends string>({ value, options, onChange, label }: { readonly value: T; readonly options: ReadonlyArray<{ readonly value: T; readonly label: string; readonly count?: string | undefined }>; readonly onChange: (v: T) => void; readonly label: string }) {
   return (
-    <div role="radiogroup" aria-label={label} className="flex flex-wrap gap-1">
-      {options.map((o) => (
-        <button
-          key={o.value}
-          type="button"
-          role="radio"
-          aria-checked={o.value === value}
-          className={`btn btn-xs rounded-full px-3 ${o.value === value ? 'btn-neutral' : 'border-base-300 bg-base-100 font-normal'}`}
-          onClick={() => onChange(o.value)}
-        >
-          {o.label}
-          {o.count !== undefined && (
-            <span className={`ml-1 tabular-nums ${o.value === value ? 'opacity-70' : 'text-base-content/50'}`} aria-hidden="true" data-testid={`chip-count-${o.value}`}>
-              {o.count}
-            </span>
-          )}
-        </button>
-      ))}
+    <div role="radiogroup" aria-label={label} className="inline-flex flex-wrap overflow-hidden rounded-field border border-base-content/40">
+      {options.map((o, i) => {
+        const on = o.value === value;
+        return (
+          <button
+            key={o.value}
+            type="button"
+            role="radio"
+            aria-checked={on}
+            className={`px-3 py-1 text-sm transition-colors ${i > 0 ? 'border-l border-base-content/25' : ''} ${on ? 'bg-primary font-semibold text-primary-content' : 'bg-base-100 hover:bg-base-200'}`}
+            onClick={() => onChange(o.value)}
+          >
+            {o.label}
+            {o.count !== undefined && (
+              <span className={`ml-1 tabular-nums ${on ? 'opacity-80' : 'text-base-content/50'}`} aria-hidden="true" data-testid={`chip-count-${o.value}`}>
+                {o.count}
+              </span>
+            )}
+          </button>
+        );
+      })}
     </div>
   );
 }
 
-/** 결과 줄: 건수 + 정렬 토글 */
+/** 결과 줄: 건수 + 정렬 토글 — 2026-11-20 AWS 개편: 흰 상자 안 얇은 줄 */
 export function ResultBar({ count, more, sort, extra }: { readonly count: number; readonly more?: boolean; readonly sort?: { readonly oldest: boolean; readonly onChange: (oldest: boolean) => void; readonly newest?: string; readonly oldestLabel?: string }; readonly extra?: ReactNode }) {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-2 rounded-box border border-base-300 bg-base-100 px-4 py-2.5 shadow-sm" data-list-part="mid">
-      <p className="text-sm" data-testid="result-count">
-        <span className="font-semibold text-primary">{count}</span>
+    <div className="flex flex-wrap items-center justify-between gap-2 rounded-box border border-base-300 bg-base-100 px-5 py-2" data-list-part="mid">
+      <p className="text-sm text-base-content/70" data-testid="result-count">
+        <span className="font-bold text-base-content">{count}</span>
         {more ? '건 이상' : '건'}
       </p>
       <div className="flex items-center gap-3">
         {extra}
         {sort && (
           <div role="radiogroup" aria-label="정렬" className="flex items-center gap-2 text-sm">
-            <button type="button" role="radio" aria-checked={!sort.oldest} className={!sort.oldest ? 'font-semibold' : 'text-base-content/50'} onClick={() => sort.onChange(false)}>
+            <button type="button" role="radio" aria-checked={!sort.oldest} className={!sort.oldest ? 'font-bold text-primary' : 'text-base-content/60 hover:text-primary'} onClick={() => sort.onChange(false)}>
               {sort.newest ?? '최신순'}
             </button>
             <span className="text-base-content/30">|</span>
-            <button type="button" role="radio" aria-checked={sort.oldest} className={sort.oldest ? 'font-semibold' : 'text-base-content/50'} onClick={() => sort.onChange(true)}>
+            <button type="button" role="radio" aria-checked={sort.oldest} className={sort.oldest ? 'font-bold text-primary' : 'text-base-content/60 hover:text-primary'} onClick={() => sort.onChange(true)}>
               {sort.oldestLabel ?? '과거순'}
             </button>
           </div>
@@ -157,47 +128,47 @@ export function ResultBar({ count, more, sort, extra }: { readonly count: number
   );
 }
 
-/** 표 상자 — 머리줄은 옅은 작은 글씨, 줄은 넉넉히, 첫 칸은 굵게(목록의 주인공), 링크는 밑줄 없이 */
+/** 표 상자 — 2026-11-20 AWS 개편: 흰 상자 + 1px, 머리·줄은 index.css 토큰, 첫 칸 링크는 점선 밑줄(이름), 다른 링크는 파랑 */
 export function DataTable({ children, testId }: { readonly children: ReactNode; readonly testId?: string }) {
   return (
-    <div className="overflow-x-auto rounded-box border border-base-300 bg-base-100 shadow-sm" data-testid={testId} data-list-part="table">
-      <table className="table [&_tbody_td:first-child]:font-medium [&_tbody_td]:py-3 [&_tbody_tr:hover]:bg-base-200/60 [&_tbody_tr]:border-base-300/70 [&_td_a.link]:no-underline [&_td_a.link]:text-primary [&_td_a.link:hover]:underline [&_thead_th]:bg-base-200/50 [&_thead_th]:text-xs [&_thead_th]:font-medium [&_thead_th]:text-base-content/50">{children}</table>
+    <div className="overflow-x-auto rounded-box border border-base-300 bg-base-100" data-testid={testId} data-list-part="table">
+      <table className="table [&_tbody_td:first-child]:font-medium [&_tbody_tr:hover]:bg-base-200/60 [&_td_a.link]:text-primary [&_td_a.link]:no-underline [&_td_a.link:hover]:underline [&_tbody_td:first-child_a]:text-base-content [&_tbody_td:first-child_a]:underline [&_tbody_td:first-child_a]:decoration-dotted [&_tbody_td:first-child_a]:underline-offset-2">{children}</table>
     </div>
   );
 }
 
-/** 쪽 넘기기(커서) — 처음으로 / 다음 */
+/** 쪽 넘기기(커서) — 처음으로 / 다음. 2026-11-20 AWS 개편: 오른쪽 정렬 작은 글자 단추 */
 export function CursorPager({ hasPrev, nextCursor, onFirst, onNext, page }: { readonly hasPrev: boolean; readonly nextCursor: string | null | undefined; readonly onFirst: () => void; readonly onNext: (cursor: string) => void; readonly page?: number }) {
   if (!hasPrev && !nextCursor) return null;
   return (
-    <nav aria-label="쪽" className="flex items-center justify-center gap-2">
-      <button type="button" className="btn btn-sm border-base-300 bg-base-100" disabled={!hasPrev} onClick={onFirst}>
+    <nav aria-label="쪽" className="flex items-center justify-end gap-1 text-sm">
+      <button type="button" className="btn btn-ghost btn-sm" disabled={!hasPrev} onClick={onFirst}>
         « 처음으로
       </button>
-      {page !== undefined && <span className="px-2 text-sm text-base-content/60">{page}쪽</span>}
-      <button type="button" className="btn btn-sm border-base-300 bg-base-100" disabled={!nextCursor} onClick={() => nextCursor && onNext(nextCursor)}>
+      {page !== undefined && <span className="px-2 font-bold">{page}쪽</span>}
+      <button type="button" className="btn btn-ghost btn-sm" disabled={!nextCursor} onClick={() => nextCursor && onNext(nextCursor)}>
         다음 ›
       </button>
     </nav>
   );
 }
 
-/** 상세 머리: 제목 + 표시 + 요약, 오른쪽 동작 */
+/** 상세 머리 — 2026-11-20 AWS 개편: 상자 없이 24px 제목 + 표시, 아래 회색 요약 한 줄, 오른쪽 동작(흰 테두리 단추·주 단추 검정) */
 export function DetailHeader({ back, title, badges, summary, actions }: { readonly back: { readonly to: string; readonly label: string }; readonly title: ReactNode; readonly badges?: ReactNode; readonly summary?: ReactNode; readonly actions?: ReactNode }) {
-  // 제목 카드가 화면 위로 지나가면 위에 얇은 제목 띠(2026-11-19)
+  // 제목이 화면 위로 지나가면 위에 얇은 제목 띠(2026-11-19)
   const card = useRef<HTMLDivElement>(null);
   const past = useScrolledPast(card);
   return (
-    <header className="space-y-2">
+    <header className="space-y-1">
       <StickyTitle show={past} title={title} badges={badges} />
-      <Link to={back.to} className="inline-flex items-center gap-1 text-sm text-base-content/60 hover:text-base-content">
+      <Link to={back.to} className="inline-flex items-center gap-1 text-sm text-base-content/70 underline underline-offset-2 hover:text-primary">
         <span aria-hidden>‹</span>
         {back.label}
       </Link>
-      <div ref={card} className="flex flex-wrap items-start justify-between gap-3 rounded-box border border-base-300 bg-base-100 px-5 py-4 shadow-sm">
+      <div ref={card} className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 space-y-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <h1 className="text-xl font-semibold">{title}</h1>
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="text-2xl font-bold">{title}</h1>
             {badges}
           </div>
           {summary && <p className="text-sm text-base-content/70">{summary}</p>}
@@ -208,12 +179,12 @@ export function DetailHeader({ back, title, badges, summary, actions }: { readon
   );
 }
 
-/** 구역으로 가는 밑줄 탭(같은 쪽 안 이동) */
+/** 구역으로 가는 탭(같은 쪽 안 이동) — 2026-11-20 AWS 개편: 굵은 글자 탭, 사이 세로 선, 파랑으로 바뀜 */
 export function SectionTabs({ items }: { readonly items: ReadonlyArray<{ readonly id: string; readonly label: string }> }) {
   return (
-    <nav aria-label="구역" className="sticky top-0 z-10 -mx-1 flex gap-1 overflow-x-auto border-b border-base-300 bg-base-200/95 px-1 backdrop-blur">
-      {items.map((i) => (
-        <a key={i.id} href={`#${i.id}`} className="whitespace-nowrap border-b-2 border-transparent px-3 py-2 text-sm text-base-content/70 hover:border-base-content/40 hover:text-base-content">
+    <nav aria-label="구역" className="sticky top-0 z-10 flex overflow-x-auto border-b border-base-300 bg-base-200/95 backdrop-blur">
+      {items.map((i, n) => (
+        <a key={i.id} href={`#${i.id}`} className={`-mb-px whitespace-nowrap border-b-2 border-transparent px-4 py-2.5 text-sm font-bold text-base-content/70 hover:border-primary hover:text-primary ${n > 0 ? 'relative before:absolute before:inset-y-3 before:left-0 before:w-px before:bg-base-300' : ''}`}>
           {i.label}
         </a>
       ))}
@@ -221,29 +192,28 @@ export function SectionTabs({ items }: { readonly items: ReadonlyArray<{ readonl
   );
 }
 
-/** 구역 상자 — 제목 줄(오른쪽 덧붙임) + 내용 */
+/** 구역 상자 — 2026-11-20 AWS 개편(Container): 흰 상자 + 1px, 회색 머리 띠 없이 20px 굵은 제목, 오른쪽 덧붙임 */
 export function Section({ id, title, aside, children, testId }: { readonly id?: string; readonly title: ReactNode; readonly aside?: ReactNode; readonly children: ReactNode; readonly testId?: string }) {
   return (
-    <section id={id} className="scroll-mt-12 overflow-hidden rounded-box border border-base-300 bg-base-100 shadow-sm" data-testid={testId}>
-      <div className="flex items-center justify-between gap-2 border-b border-base-300 bg-base-200/40 px-5 py-3">
-        <h2 className="font-bold">{title}</h2>
+    <section id={id} className="scroll-mt-12 rounded-box border border-base-300 bg-base-100" data-testid={testId}>
+      <div className="flex items-center justify-between gap-2 px-5 pb-2 pt-4">
+        <h2 className="text-lg font-bold">{title}</h2>
         {aside && <div className="flex items-center gap-2 text-sm">{aside}</div>}
       </div>
-      <div className="px-5 py-4">{children}</div>
+      <div className="px-5 pb-5 pt-1">{children}</div>
     </section>
   );
 }
 
-/** 항목명/값 줄 묶음 */
+/** 항목명/값 — 2026-11-20 AWS 개편(Key-value pairs): 이름은 굵은 회갈색, 값은 아래, 넓으면 2~4칸 + 칸 사이 세로 선 */
 export function FieldList({ rows, testId }: { readonly rows: ReadonlyArray<readonly [ReactNode, ReactNode] | false | null | undefined>; readonly testId?: string }) {
   return (
-    // 상세 항목(2026-11-18): 이름은 위에 작게, 값은 아래 굵게 — 넓으면 2~3칸으로(Shopify 상세처럼)
-    <dl className="grid gap-x-8 gap-y-4 text-sm sm:grid-cols-2 xl:grid-cols-3" data-testid={testId}>
+    <dl className="grid gap-y-4 text-sm sm:grid-cols-2 xl:grid-cols-4 [&>div]:pr-4 sm:[&>div]:border-l sm:[&>div]:border-base-300 sm:[&>div]:pl-4" data-testid={testId}>
       {rows.map((r, i) =>
         r ? (
           <div key={i} className="min-w-0 space-y-0.5">
-            <dt className="text-xs text-base-content/50">{r[0]}</dt>
-            <dd className="min-w-0 break-words font-medium">{r[1]}</dd>
+            <dt className="font-semibold text-base-content/80">{r[0]}</dt>
+            <dd className="min-w-0 break-words">{r[1]}</dd>
           </div>
         ) : null,
       )}
@@ -252,44 +222,37 @@ export function FieldList({ rows, testId }: { readonly rows: ReadonlyArray<reado
 }
 
 /**
- * 통계 카드 — 관제 형식(2026-11-19 사용자가 보여 준 배송 관제 화면): 왼쪽 색 막대 + 이름 + 큰 숫자 + 설명 한 줄.
- * 색은 tone 이 있을 때만(0 이거나 평범하면 회색 막대). active 면 지금 고른 거르기라는 테두리.
+ * 숫자 칸 — 2026-11-20 AWS 개편(대시보드 숫자 칸): 흰 상자 + 1px, 회색 이름, 큰 숫자(누르면 목록 — 숫자에 점선 밑줄), 색은 tone 이 있을 때 숫자에만.
+ * active 면 지금 고른 거르기라는 파란 테두리. layout 'row' 는 이름 왼쪽·숫자 오른쪽.
  */
-// layout 'row'(2026-11-19 쿠팡 윙 가격관리 참고): 이름·도움말 왼쪽, 큰 숫자 오른쪽. 기본 'stack' 은 이름 아래 숫자
 export function StatCard({ label, value, hint, to, tone, testId, active = false, layout = 'stack' }: { readonly label: ReactNode; readonly value: ReactNode; readonly hint?: ReactNode; readonly to?: string; readonly tone?: 'warning' | 'error' | 'info' | 'success' | undefined; readonly testId?: string; readonly active?: boolean; readonly layout?: 'stack' | 'row' }) {
-  const bar = tone ? { error: 'bg-error', warning: 'bg-warning', info: 'bg-info', success: 'bg-success' }[tone] : 'bg-base-300';
   const ch = useStatChange(value); // 방금 바뀐 칸만 잠깐 빛남 + ▲▼(2026-11-19)
-  const valueCls = tone === 'error' ? 'text-error' : tone === 'warning' ? 'text-warning' : '';
+  const valueCls = `${tone === 'error' ? 'text-error' : tone === 'warning' ? 'text-[color-mix(in_oklab,var(--color-warning)_60%,var(--color-base-content))]' : ''} ${to ? 'underline decoration-dotted decoration-2 underline-offset-4' : ''}`;
   const body =
     layout === 'row' ? (
-      <>
-        <span className={`absolute inset-y-0 left-0 w-1 ${bar}`} aria-hidden="true" />
-        <span className="flex items-start justify-between gap-3">
-          <span className="min-w-0">
-            <span className="block truncate text-sm font-semibold">{label}</span>
-            {hint && <span className="mt-0.5 block truncate text-[11px] text-base-content/50">{hint}</span>}
-          </span>
-          <span className={`shrink-0 text-3xl font-bold leading-none tabular-nums ${valueCls}`}>
-            {value}
-            {ch.badge}
-          </span>
+      <span className="flex items-start justify-between gap-3">
+        <span className="min-w-0">
+          <span className="block truncate text-sm text-base-content/70">{label}</span>
+          {hint && <span className="mt-0.5 block truncate text-xs text-base-content/55">{hint}</span>}
         </span>
-      </>
+        <span className={`shrink-0 text-3xl font-bold leading-none tabular-nums ${valueCls}`}>
+          {value}
+          {ch.badge}
+        </span>
+      </span>
     ) : (
-    <>
-      <span className={`absolute inset-y-0 left-0 w-1 ${bar}`} aria-hidden="true" />
-      <p className="truncate text-xs font-medium text-base-content/60">{label}</p>
-      <p className={`text-2xl font-bold leading-tight tabular-nums ${tone === 'error' ? 'text-error' : tone === 'warning' ? 'text-warning' : ''}`}>
-        {value}
-        {ch.badge}
-      </p>
-      {hint && <p className="truncate text-[11px] text-base-content/50">{hint}</p>}
-    </>
-  );
-  // 고른 카드: 테두리 + 옅은 바탕(쿠팡 윙처럼 어느 상태를 보는지 한눈에)
-  const cls = `relative block space-y-0.5 overflow-hidden rounded-box border py-3 pl-4 pr-3 shadow-sm ${layout === 'row' ? 'min-h-20 py-4' : ''} ${active ? 'border-primary bg-primary/5 ring-1 ring-primary/30' : 'border-base-300 bg-base-100'} ${ch.cls}`;
+      <>
+        <p className="truncate text-sm text-base-content/70">{label}</p>
+        <p className={`text-2xl font-bold leading-tight tabular-nums ${valueCls}`}>
+          {value}
+          {ch.badge}
+        </p>
+        {hint && <p className="truncate text-xs text-base-content/55">{hint}</p>}
+      </>
+    );
+  const cls = `relative block space-y-1 rounded-box border bg-base-100 px-4 py-3 ${layout === 'row' ? 'min-h-20 py-4' : ''} ${active ? 'border-primary outline outline-1 outline-primary' : 'border-base-300'} ${ch.cls}`;
   return to ? (
-    <Link to={to} className={`${cls} transition hover:-translate-y-0.5 hover:shadow-md`} data-testid={testId} aria-current={active ? 'true' : undefined}>
+    <Link to={to} className={`${cls} transition-colors hover:border-primary/60`} data-testid={testId} aria-current={active ? 'true' : undefined}>
       {body}
     </Link>
   ) : (
@@ -303,24 +266,30 @@ export function StatCard({ label, value, hint, to, tone, testId, active = false,
 /** 숫자 칸 글자 — 서버 개수(50 넘으면 "N+"), 읽는 중 "…", 못 읽음 "?"(0 이 아님) */
 export const countCell = (q: { readonly data?: { readonly n: number; readonly more: boolean } | undefined; readonly isError: boolean }): string => (q.data ? `${q.data.n}${q.data.more ? '+' : ''}` : q.isError ? '?' : '…');
 
+const alertTone = {
+  info: { box: 'border-info bg-info/5', icon: 'text-info', d: 'M12 11v5M12 8h.01' },
+  warning: { box: 'border-warning bg-warning/10', icon: 'text-[color-mix(in_oklab,var(--color-warning)_60%,var(--color-base-content))]', d: 'M12 8v5M12 16h.01' },
+  error: { box: 'border-error bg-error/5', icon: 'text-error', d: 'M9 9l6 6M15 9l-6 6' },
+  success: { box: 'border-success bg-success/5', icon: 'text-success', d: 'M8 12.5l2.5 2.5L16 9.5' },
+} as const;
+
 /**
  * 다음 할 일 — 상세 화면 맨 위에 하나만(2026-11-18 사용자 "지금 뭘 해야 하는지 안 보인다").
- * 무엇을 보일지는 화면이 서버 상태로만 고른다(클라이언트가 판정을 새로 만들지 않는다). 할 일이 없으면 그리지 않는다.
+ * 무엇을 보일지는 화면이 서버 상태로만 고른다. 할 일이 없으면 그리지 않는다.
+ * 2026-11-20 AWS 개편(Alert): 색 테두리 + 옅은 바탕 + 원 아이콘, 오른쪽 단추.
  */
 export function NextAction({ tone = 'info', title, body, children, testId = 'next-action' }: { readonly tone?: 'info' | 'warning' | 'error' | 'success'; readonly title: ReactNode; readonly body?: ReactNode; readonly children?: ReactNode; readonly testId?: string }) {
-  const bar = { info: 'border-l-info', warning: 'border-l-warning', error: 'border-l-error', success: 'border-l-success' }[tone];
-  const dot = { info: 'bg-info/15 text-info', warning: 'bg-warning/15 text-warning', error: 'bg-error/15 text-error', success: 'bg-success/15 text-success' }[tone];
+  const t = alertTone[tone];
   return (
-    <section aria-label="다음 할 일" className={`flex flex-wrap items-center gap-4 rounded-box border border-l-4 border-base-300 ${bar} bg-base-100 px-5 py-4 shadow-sm`} data-testid={testId}>
-      <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${dot}`} aria-hidden="true">
-        <svg viewBox="0 0 24 24" className="h-5 w-5 fill-none stroke-current" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-          <path d="M5 12h14m-5-5 5 5-5 5" />
-        </svg>
-      </span>
+    <section aria-label="다음 할 일" className={`flex flex-wrap items-start gap-3 rounded-box border-2 px-4 py-3 ${t.box}`} data-testid={testId}>
+      <svg viewBox="0 0 24 24" className={`mt-0.5 h-5 w-5 shrink-0 fill-none stroke-current ${t.icon}`} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="9" />
+        <path d={t.d} />
+      </svg>
       <div className="min-w-0 flex-1">
-        <p className="text-xs font-medium text-base-content/50">다음 할 일</p>
-        <p className="font-semibold">{title}</p>
-        {body && <p className="text-sm text-base-content/65">{body}</p>}
+        <p className="text-xs font-semibold text-base-content/60">다음 할 일</p>
+        <p className="font-bold">{title}</p>
+        {body && <p className="text-sm text-base-content/75">{body}</p>}
       </div>
       {children && <div className="flex flex-wrap items-center gap-2">{children}</div>}
     </section>
@@ -333,11 +302,16 @@ export function CodeLabel({ code, names }: { readonly code: string; readonly nam
   return name ? <span title={code}>{name}</span> : <span className="font-mono text-xs">{code}</span>;
 }
 
-/** 안내 상자(회색) — 화면 맨 위 설명·서버 대기 안내 */
+/** 안내 띠 — 2026-11-20 AWS 개편(Alert): 정보는 파랑 테두리·옅은 파랑, 주의는 노랑 */
 export function Notice({ children, tone = 'muted' }: { readonly children: ReactNode; readonly tone?: 'muted' | 'warning' }) {
+  const t = alertTone[tone === 'warning' ? 'warning' : 'info'];
   return (
-    <p role="note" className={`rounded-box px-4 py-3 text-sm ${tone === 'warning' ? 'bg-warning/15' : 'bg-base-300/50 text-base-content/75'}`}>
-      {children}
+    <p role="note" className={`flex items-start gap-2 rounded-box border px-4 py-2.5 text-sm ${t.box}`}>
+      <svg viewBox="0 0 24 24" className={`mt-0.5 h-4 w-4 shrink-0 fill-none stroke-current ${t.icon}`} strokeWidth={2} strokeLinecap="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="9" />
+        <path d={t.d} />
+      </svg>
+      <span>{children}</span>
     </p>
   );
 }
@@ -552,7 +526,7 @@ const statusTextClass: Record<Tone, string> = {
 };
 
 /** 상태 = 아이콘 + 색 글자(AWS Status indicator) — 둥근 꼬리표 대신. 시범: 승인함부터, 다른 화면은 StatusBadge 그대로 */
-export function StatusText({ tone = 'ghost', children, testId }: { readonly tone?: Tone; readonly children: ReactNode; readonly testId?: string }) {
+export function StatusText({ tone = 'ghost', children, testId }: { readonly tone?: Tone; readonly children: ReactNode; readonly testId?: string | undefined }) {
   const icon =
     tone === 'success' ? <path d="M8 12.5l2.5 2.5L16 9.5" /> : tone === 'error' ? <path d="M9 9l6 6M15 9l-6 6" /> : tone === 'warning' ? <path d="M12 8v5M12 16h.01" /> : tone === 'info' || tone === 'accent' ? <path d="M12 7v5l3 2" /> : <path d="M8 12h8" />;
   return (
@@ -563,5 +537,67 @@ export function StatusText({ tone = 'ghost', children, testId }: { readonly tone
       </svg>
       {children}
     </span>
+  );
+}
+
+/**
+ * 검색 조건 상자 — 2026-11-20 AWS 개편 때 공용(@pmart/web-ui listParts)에서 이 앱 사본으로 옮김(공용은 다른 앱이 써서 그대로).
+ * AWS 필터 줄처럼: 흰 상자 + 1px, 항목 이름은 굵게 칸 위, 오른쪽 아래 "지우기"(흰 단추)·"찾기"(검정 주 단추).
+ * summary 를 주면 조건을 건 뒤에는 "속성 = 값" 칩 줄로 접히고 "검색 열기"로 편다. 동작은 공용과 같다(시험 그대로).
+ */
+export function SearchPanel({ onSubmit, onReset, children, submitLabel = '조회', resetLabel = '초기화', submitDisabled = false, label = '검색 조건', summary }: { readonly onSubmit: (e: FormEvent) => void; readonly onReset: () => void; readonly children: ReactNode; readonly submitLabel?: string; readonly resetLabel?: string; readonly submitDisabled?: boolean; readonly label?: string; readonly summary?: ReadonlyArray<readonly [string, string]> }) {
+  const active = (summary ?? []).filter(([, v]) => v !== '');
+  const [open, setOpen] = useState(active.length === 0);
+  const form = (
+    <form
+      className={`flex flex-wrap items-end gap-x-5 gap-y-3 rounded-box border border-base-300 bg-base-100 px-5 py-4 [&_label>span:first-child]:font-semibold [&_label>span:first-child]:text-base-content/80 ${summary ? 'rounded-t-none border-t-0' : ''}`}
+      onSubmit={(e) => {
+        onSubmit(e);
+        if (summary) setOpen(false);
+      }}
+      aria-label={label}
+      data-list-part="top"
+      hidden={summary !== undefined && !open}
+    >
+      {children}
+      <div className="ml-auto flex gap-2">
+        <button type="button" className="btn btn-sm" onClick={onReset}>
+          {resetLabel}
+        </button>
+        <button type="submit" className="btn btn-sm btn-primary min-w-20" disabled={submitDisabled}>
+          {submitLabel}
+        </button>
+      </div>
+    </form>
+  );
+  if (!summary) return form;
+  return (
+    <div data-testid="search-summary-panel">
+      <div className={`flex flex-wrap items-center gap-2 rounded-box border border-base-300 bg-base-100 px-5 py-2.5 ${open ? 'rounded-b-none' : ''}`}>
+        <span className="inline-flex items-center gap-1.5 text-sm font-bold">
+          <svg viewBox="0 0 24 24" className="h-4 w-4 fill-none stroke-current" strokeWidth={2} strokeLinecap="round" aria-hidden="true">
+            <path d="M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14Zm9 2-4-4" />
+          </svg>
+          {label}
+        </span>
+        {summary.map(([k, v]) => (
+          <button
+            key={k}
+            type="button"
+            className={`inline-flex items-center gap-1 rounded border px-2 py-0.5 text-xs ${v ? 'border-base-content/40 bg-base-100' : 'border-base-300 bg-base-100 text-base-content/60'}`}
+            onClick={() => setOpen(true)}
+            data-testid="search-chip"
+          >
+            <span className="font-semibold">{k}</span>
+            <span aria-hidden="true">=</span>
+            <span className={v ? 'text-primary' : ''}>{v || '전체'}</span>
+          </button>
+        ))}
+        <button type="button" className="btn btn-sm ml-auto" aria-expanded={open} onClick={() => setOpen((o) => !o)} data-testid="search-toggle">
+          {open ? '검색 닫기 ▴' : '검색 열기 ▾'}
+        </button>
+      </div>
+      {form}
+    </div>
   );
 }

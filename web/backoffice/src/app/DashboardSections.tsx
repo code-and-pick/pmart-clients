@@ -22,7 +22,6 @@ const LIVE_SIZE = 50;
 
 type Tone = 'error' | 'warning' | 'info';
 const toneText: Record<Tone, string> = { error: 'text-error', warning: 'text-warning', info: 'text-info' };
-const toneBar: Record<Tone, string> = { error: 'border-l-error', warning: 'border-l-warning', info: 'border-l-info' };
 
 /** 숫자 하나 + 이름 + 누르면 그 화면. value 가 null 이면 못 읽음("?") */
 function Tile({ label, value, more, to, tone, testId }: { readonly label: string; readonly value: number | null | undefined; readonly more?: boolean; readonly to: string; readonly tone: Tone; readonly testId: string }) {
@@ -32,10 +31,10 @@ function Tile({ label, value, more, to, tone, testId }: { readonly label: string
     <Link
       to={to}
       data-testid={testId}
-      className={`block rounded-lg border border-l-4 border-base-300 px-4 py-3 transition hover:bg-base-200/60 ${has ? toneBar[tone] : 'border-l-base-300'}`}
+      className="block rounded-box border border-base-300 px-4 py-3 transition-colors hover:border-primary/60"
       title={value === null ? m.failed : undefined}
     >
-      <p className="text-xs text-base-content/60">{label}</p>
+      <p className="text-sm text-base-content/70">{label}</p>
       <p className={`mt-0.5 text-2xl font-bold tabular-nums ${value === null ? 'text-base-content/40' : has ? toneText[tone] : 'text-base-content/70'}`}>{text}</p>
     </Link>
   );

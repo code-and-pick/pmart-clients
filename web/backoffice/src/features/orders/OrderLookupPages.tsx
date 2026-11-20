@@ -449,7 +449,7 @@ export function OrderDetailPage() {
   // 최근 본 항목(2026-11-18) — 서버 응답을 받은 뒤에만 남긴다
   useRecordRecent('order', orderId, query.data ? (query.data.orderNumber ?? m.displayNumber.missing) : null); // 번호 없으면 ID 대신 "번호 없음"(2026-11-19)
   return (
-    <section className="max-w-7xl space-y-4">
+    <section className="space-y-4">
       <QueryState state={toUiState(query)} onRetry={() => void query.refetch()}>
         {(o) => {
           // 제목(2026-11-18 사용자 "직관적이지 않다"): 첫 상품 이름 + 외 N건을 앞에, 주문 번호는 옆에 작게. 상품 이름이 없으면 "주문"

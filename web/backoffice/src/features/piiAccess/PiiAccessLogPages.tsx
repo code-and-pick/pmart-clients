@@ -333,7 +333,7 @@ export function PiiAccessLogDetailPage() {
   });
   const actor = useActorText(query.data?.actor.actorId ?? '');
   return (
-    <section className="max-w-6xl space-y-4">
+    <section className="space-y-4">
       {/* 제목은 누가·무엇을 먼저(2026-11-18 "제목이 번호뿐") — 읽기 전에는 "열람 기록 한 건" */}
       <PageHeader
         title={query.data ? m.detailHeadline(actor.text,fieldsText(query.data.fields), label(m.accessTypeName, query.data.accessType)) : m.detailTitle}

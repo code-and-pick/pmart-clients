@@ -16,7 +16,7 @@ import { gs1CheckDigitProblem } from './barcode';
 import { Card } from './parts';
 import { parseProductJson, ProductJsonError, type SkuJson } from './productJson';
 
-const fieldLabel = 'text-xs font-medium text-base-content/60';
+const fieldLabel = 'text-sm font-semibold text-base-content/85'; // 2026-11-20 AWS 개편
 
 type DraftSku = ProductDraftInput['skus'][number];
 type DimensionsSource = NonNullable<DraftSku['dimensionsSource']>;

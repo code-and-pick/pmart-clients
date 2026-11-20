@@ -1076,7 +1076,7 @@ export function CaseDetailPage() {
   // 최근 본 항목 이름은 화면 번호·요약(2026-11-19 — 시스템 ID 를 이름으로 남기던 것 고침, ADR-0070 덧붙임)
   useRecordRecent('case', caseId, query.data ? (query.data.caseNumber ?? label(m.cases.kindName, query.data.kind)) : null);
   return (
-    <section className="max-w-7xl space-y-4">
+    <section className="space-y-4">
       {/* 제목은 종류 이름 먼저, 번호는 작게(2026-11-18 "제목이 번호뿐") — 읽기 전에는 "접수 건" */}
       <PageHeader
         title={
@@ -1432,7 +1432,7 @@ export function NewMisdeliveryPage() {
   const ok = delivery.id !== null && summary.trim() !== '' && fault !== '' && addressOk;
   const setAddr = (k: keyof Address, val: string) => setAddress((a) => ({ ...a, [k]: val }));
   return (
-    <section className="max-w-5xl space-y-4">
+    <section className="space-y-4">
       <PageHeader title={m.cases.newTitle} back={{ to: '/cases', label: m.cases.back }} />
       {/* 단계 상자(2026-11-18): ① 배송·요약 ② 누구 잘못 ③ 고객이 고른 처리(+실제 주소) ④ 근거 — 오른쪽은 고른 처리 안내 */}
       <form

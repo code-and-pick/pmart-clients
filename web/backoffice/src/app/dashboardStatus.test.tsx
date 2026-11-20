@@ -16,7 +16,7 @@ describe('대시보드 숫자 띠·이상 한 줄', () => {
     expect(within(status).getByRole('link', { name: /기한 지난 접수 건/ })).toHaveAttribute('href', '/cases?tab=overdue');
     const overdue = screen.getByTestId('dash-kpi-casesOverdue');
     expect(overdue).toHaveAttribute('data-tone', 'error');
-    expect(overdue.querySelector('.bg-error')).not.toBeNull();
+    expect(overdue.querySelector('.text-error')).not.toBeNull(); // 2026-11-20 AWS 개편: 색은 숫자에(왼쪽 색 막대 없음)
   });
 
   it('숫자를 못 읽으면 "이상 없음"이 아니라 "확인 못 함"', async () => {

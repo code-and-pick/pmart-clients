@@ -300,7 +300,7 @@ export function PendingPage() {
   // "다 처리했어요"는 서버가 다 읽고 0건이라 했을 때만 — 일부 원천 실패·MFC 꺼짐이면 0건이어도 끝났다고 하지 않는다
   const pendingAllDone = query.isSuccess && (query.data.items ?? []).length === 0 && !query.data.truncated && (query.data.unavailableSources ?? []).length === 0 && (query.data.sources ?? []).some((x) => x.system === MFC);
   return (
-    <section className="max-w-6xl space-y-4">
+    <section className="space-y-4">
       <PageHeader title={m.pending.title} />
       {/* 숫자 띠(2026-11-19 관제 형식) — 이 화면이 읽은 목록을 종류별로(대시보드 "확인이 필요한 문제"와 같은 조회·기준). 잘렸으면 "N+" */}
       {query.data && (

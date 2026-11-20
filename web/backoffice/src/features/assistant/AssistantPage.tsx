@@ -300,7 +300,7 @@ function AskView() {
 export function AssistantPage() {
   const { port, owner } = useAssistant();
   return (
-    <section className="max-w-6xl space-y-4">
+    <section className="space-y-4">
       <Header />
       {/* 계정이 바뀌면 질문·명령 상태를 새로 시작한다(이전 사용자 질문이 남지 않게) */}
       {port.connected ? <AskView key={owner ?? '-'} /> : <NotConnected />}

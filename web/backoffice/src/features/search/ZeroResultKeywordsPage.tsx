@@ -30,7 +30,7 @@ export function ZeroResultKeywordsPage() {
   });
 
   return (
-    <section className="max-w-5xl space-y-4">
+    <section className="space-y-4">
       <PageHeader title={m.title} />
       <div className="flex flex-wrap items-center gap-3 rounded-box border border-base-300 bg-base-100 px-4 py-3 text-sm shadow-sm">
         <span className="text-xs font-medium text-base-content/55">{m.period}</span>
