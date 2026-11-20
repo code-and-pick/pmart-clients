@@ -20,12 +20,12 @@ const riderGoogleServerClientId = String.fromEnvironment(
 enum RiderSocialProvider { google, kakao, naver }
 
 /// rider-auth-service 가 카카오·네이버를 받는지 — rider-auth 0.2.0(백엔드 #250 병합·배포)부터 GOOGLE·KAKAO·NAVER.
-/// providerToken 은 ID 토큰만(카카오 OIDC idToken, 네이버 인가 코드 + PKCE id_token). 서버에 그 제공자 앱 키가 아직 없으면
+/// providerToken 은 ID 토큰만(카카오 OIDC idToken, 네이버는 인가 코드 + PKCE 를 서버가 교환한 id_token). 서버에 그 제공자 앱 키가 아직 없으면
 /// 422 CONFIG_REQUIRED — 안내하고 이 실행 동안 그 버튼을 숨긴다([unavailableSocialProvidersProvider]).
 const riderAuthAcceptsKakaoNaver = true;
 
 /// 빌드 때 `--dart-define-from-file=.secrets/rider.env` 로 들어오는 키(버튼을 낼지 판단에만 쓴다. 값은 로그에 남기지 않는다).
-/// 네이버 Client Secret 은 Dart 에서 읽지 않는다(매니페스트 meta-data 로만 들어간다).
+/// 네이버 Client Secret 은 앱·빌드 설정에 두지 않는다 — 서버(rider-auth)가 코드 교환에 쓴다(BR-69, ADR-0078).
 const _kakaoNativeAppKey = String.fromEnvironment('KAKAO_NATIVE_APP_KEY');
 const _naverClientId = String.fromEnvironment('NAVER_CLIENT_ID');
 

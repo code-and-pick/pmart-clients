@@ -305,9 +305,113 @@ void main() {
       naverRedirectUrl,
       'http://192.168.0.40:8080/api/v1/auth/oauth-callbacks/naver/rider',
     );
+    var opened = false;
     await expectLater(
-      const NaverIdTokenSource(clientId: '  ').obtain(),
+      NaverIdTokenSource(
+        clientId: '  ',
+        exchange: _noExchange,
+        authorize: (_) async {
+          opened = true;
+          return null;
+        },
+      ).obtain(),
       throwsA(isA<RiderLoginMisconfigured>()),
     );
+    expect(opened, isFalse);
+  });
+
+  group('네이버 서버 교환(BR-69, rider-auth 0.3.0)', () {
+    final granted = (code: 'CODE-1', codeVerifier: 'v' * 43);
+
+    test('인가 코드만 받고 서버가 바꾼 id_token 을 쓴다 — redirectUri 는 중계 주소 그대로', () async {
+      final calls = <(String, String)>[];
+      final token = await NaverIdTokenSource(
+        clientId: 'CID',
+        authorize: (_) async => granted,
+        exchange:
+            ({
+              required authorizationCode,
+              required codeVerifier,
+              required redirectUri,
+              required key,
+            }) async {
+              calls.add((authorizationCode, redirectUri));
+              return 'ID-TOKEN';
+            },
+      ).obtain();
+      expect(token, 'ID-TOKEN');
+      expect(calls, [('CODE-1', naverRedirectUrl)]);
+    });
+
+    test('결과 불명이면 같은 키로 한 번만 더', () async {
+      final keys = <String>[];
+      final token = await NaverIdTokenSource(
+        clientId: 'CID',
+        authorize: (_) async => granted,
+        exchange:
+            ({
+              required authorizationCode,
+              required codeVerifier,
+              required redirectUri,
+              required key,
+            }) async {
+              keys.add(key.value);
+              if (keys.length == 1) throw const UnknownResultFailure();
+              return 'ID-TOKEN';
+            },
+      ).obtain();
+      expect(token, 'ID-TOKEN');
+      expect(keys, hasLength(2));
+      expect(keys.toSet(), hasLength(1));
+    });
+
+    test(
+      '서버에 secret 이 없으면(422 CONFIG_REQUIRED) 설정 문제, 네이버 거절(401)은 장애로',
+      () async {
+        NaverIdTokenSource failing(int status, String code) =>
+            NaverIdTokenSource(
+              clientId: 'CID',
+              authorize: (_) async => granted,
+              exchange:
+                  ({
+                    required authorizationCode,
+                    required codeVerifier,
+                    required redirectUri,
+                    required key,
+                  }) async => throw ProblemFailure(
+                    Problem.fromJson({
+                      'type': 'about:blank',
+                      'title': code,
+                      'status': status,
+                      'code': code,
+                    }, httpStatus: status),
+                  ),
+            );
+        await expectLater(
+          failing(422, ProblemCode.configRequired).obtain(),
+          throwsA(isA<RiderLoginMisconfigured>()),
+        );
+        await expectLater(
+          failing(401, 'PROVIDER_REJECTED').obtain(),
+          throwsA(isA<RiderLoginUnavailable>()),
+        );
+      },
+    );
+
+    test('라이더가 네이버 화면을 닫으면 서버에 보내지 않고 취소', () async {
+      final token = await NaverIdTokenSource(
+        clientId: 'CID',
+        authorize: (_) async => null,
+        exchange: _noExchange,
+      ).obtain();
+      expect(token, isNull);
+    });
   });
 }
+
+Future<String> _noExchange({
+  required String authorizationCode,
+  required String codeVerifier,
+  required String redirectUri,
+  required IdempotencyKey key,
+}) async => throw StateError('부르면 안 된다');
