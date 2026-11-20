@@ -560,6 +560,17 @@ class DeliveryFlowController extends Notifier<DeliveryFlowState> {
         return ConfirmResult.unknown;
       }
     });
+    // 완료·반납이 보내자마자 반영(APPLIED)되면 위 확인 단계를 거치지 않는다 — 큐 상태로도 본다
+    // (2026-11-20 S23: 완료 200 APPLIED 뒤 진행 중 목록·제안을 다시 읽지 않던 것).
+    if (!finishedOne) {
+      finishedOne = (await queue.items()).any(
+        (i) =>
+            i.targetId == deliveryId &&
+            i.state == QueueItemState.applied &&
+            (i.kind == DeliveryCommandKind.completion ||
+                i.kind == DeliveryCommandKind.returnToStore),
+      );
+    }
     if (!ref.mounted) return;
     ref
       ..invalidate(deliveryProvider(deliveryId))
