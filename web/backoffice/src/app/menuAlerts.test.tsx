@@ -41,13 +41,13 @@ describe('왼쪽 메뉴 업무 알림', () => {
     await screen.findByTestId('nav-group-support');
     // 지원센터(2026-11-19 색별로 나눔): 파랑 = 안 맡음 4 + 라이더 문의 1 = 5, 빨강 = 기한 지남 2 — 펼친 메뉴 배지를 색별로 더한 값과 같다
     expect(await within(screen.getByTestId('nav-group-support')).findByTestId('menu-alert-group')).toHaveTextContent('5');
-    expect(groupAlert('support')).toHaveClass('badge-info');
+    expect(groupAlert('support')).toHaveAttribute('data-tone', 'todo');
     const urgent = within(screen.getByTestId('nav-group-support').querySelector('summary')!).getByTestId('menu-alert-group-urgent');
     expect(urgent).toHaveTextContent('2');
-    expect(urgent).toHaveClass('badge-error');
+    expect(urgent).toHaveAttribute('data-tone', 'urgent');
     expect(within(screen.getByTestId('nav-group-approval')).queryByTestId('menu-alert-group-urgent')).not.toBeInTheDocument(); // 빨간 메뉴가 없는 묶음
     expect(await within(screen.getByTestId('nav-group-approval')).findByTestId('menu-alert-group')).toHaveTextContent('3');
-    expect(groupAlert('approval')).toHaveClass('badge-info');
+    expect(groupAlert('approval')).toHaveAttribute('data-tone', 'todo');
     expect(await within(screen.getByTestId('nav-group-cs')).findByTestId('menu-alert-group')).toHaveTextContent('2');
     expect(await within(screen.getByTestId('nav-group-pending')).findByTestId('menu-alert-group')).toHaveTextContent('5');
     expect(groupAlert('catalog')).toBeNull(); // 할 일 성격이 아닌 묶음은 알림 없음
@@ -98,7 +98,7 @@ describe('메뉴를 접었을 때(2026-11-19 사용자 "접었을 때 빨간색 
       renderAt('/session', as.admin);
       const rail = await screen.findByTestId('nav-rail-support');
       expect(await within(rail).findByTestId('menu-alert-group')).toHaveTextContent('5');
-      expect(within(rail).getByTestId('menu-alert-group')).toHaveClass('badge-info');
+      expect(within(rail).getByTestId('menu-alert-group')).toHaveAttribute('data-tone', 'todo');
       expect(within(rail).getByTestId('menu-alert-group-urgent')).toHaveTextContent('2');
     } finally {
       window.localStorage.removeItem('pmart.backoffice.menu');

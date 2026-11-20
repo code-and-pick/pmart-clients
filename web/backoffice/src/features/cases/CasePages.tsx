@@ -557,10 +557,10 @@ export function CaseListPage() {
                 </div>
               )}
               {/* 표 설정 톱니(2026-11-20 AWS) — 칸 켜고 끄기·줄 바꿈. 머리·줄 모양은 index.css 토큰(예전 작은 회색 머리·넉넉한 줄 뺌) */}
-              <div className="relative overflow-x-auto">
-                <div className="absolute right-1 top-1 z-10">
-                  <TableSettings storeKey="cases" tableId="case-table" />
-                </div>
+              <div className="flex justify-end border-b border-base-300 px-2 py-0.5">
+                <TableSettings storeKey="cases" tableId="case-table" />
+              </div>
+              <div className="overflow-x-auto">
                 <table id="case-table" className="table [&_tbody_tr:hover]:bg-base-200/60">
                   <thead>
                     <tr>

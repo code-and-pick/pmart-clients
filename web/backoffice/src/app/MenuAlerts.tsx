@@ -125,14 +125,16 @@ function AlertBadge({ alert }: { readonly alert: AlertKey }) {
   const flash = useFlash(q.data?.n);
   if (q.isError && !q.data)
     return (
-      <span className="badge badge-ghost badge-xs" title={m.failed} data-testid={`menu-alert-${alert}`}>
+      <span className="pm-count" data-tone="unknown" title={m.failed} data-testid={`menu-alert-${alert}`}>
         ?
       </span>
     );
   if (!q.data || q.data.n === 0) return null;
   return (
     <span
-      className={`badge badge-xs ${URGENT.has(alert) ? 'badge-error' : 'badge-info'} ${flash ? 'animate-pulse ring-2 ring-warning' : ''}`}
+      // 2026-11-20 사용자 "알림 숫자가 너무 구리다": 꽉 찬 파랑·빨강 공 대신 옅은 바탕 숫자 칩(index.css .pm-count) — 할 일 회색, 기한 넘김만 빨강
+      className="pm-count"
+      data-tone={URGENT.has(alert) ? 'urgent' : 'todo'}
       title={m.title[alert]}
       data-testid={`menu-alert-${alert}`}
       data-flash={flash ? 'true' : 'false'}
@@ -169,13 +171,13 @@ function SumBadge({ results, tone, title, testId }: { readonly results: readonly
   const more = results.some((r) => r.q.data?.more);
   if (failed)
     return (
-      <span className={`badge badge-xs ${tone === 'error' ? 'badge-error' : 'badge-ghost'}`} title={m.failed} data-testid={testId}>
+      <span className="pm-count" data-tone={tone === 'error' ? 'urgent' : 'unknown'} title={m.failed} data-testid={testId}>
         {sum > 0 || more ? `${sum}${more ? '+' : ''}+?` : '?'}
       </span>
     );
   if (sum === 0) return null;
   return (
-    <span className={`badge badge-xs ${tone === 'error' ? 'badge-error' : 'badge-info'}`} title={title} data-testid={testId}>
+    <span className="pm-count" data-tone={tone === 'error' ? 'urgent' : 'todo'} title={title} data-testid={testId}>
       {more ? `${sum}+` : sum}
     </span>
   );

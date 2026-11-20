@@ -288,18 +288,40 @@ html {
   scrollbar-gutter: stable;
 }
 
-/* 왼쪽 메뉴·접힌 메뉴·앱 바꾸기의 할 일 숫자(2026-11-20 사용자 "메뉴 숫자 알람이 너무 안 보인다") —
-   가장 작은 꼬리표(16px·10px 글자) 대신 20px 동그란 숫자, 12px 굵게. 색은 그대로(파랑 할 일·빨강 기한 넘김) */
-aside .badge-xs,
-[data-testid='nav-rail-panel'] .badge-xs,
-[data-testid='app-launcher-menu'] .badge-xs {
-  height: 1.25rem;
-  min-width: 1.375rem;
+/* 메뉴 할 일 숫자 칩(2026-11-20 사용자 "알림 숫자 아이콘이 너무 구리다 — 센스 있게"): 꽉 찬 파랑·빨강 공 대신
+   옅은 바탕의 작은 숫자 칩(Linear·GitHub 옆 메뉴처럼). 할 일 = 회색, 기한 넘김만 빨강, 지금 메뉴 안에서는 옅은 파랑. 못 읽음은 점선 "?" */
+.pm-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 1.125rem;
+  min-width: 1.25rem;
   padding: 0 0.375rem;
-  border-radius: 9999px;
-  font-size: 0.75rem;
-  font-weight: 700;
+  border-radius: 0.375rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
   line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: color-mix(in oklab, var(--color-base-content) 72%, transparent);
+  background: color-mix(in oklab, var(--color-base-content) 8%, transparent);
+  transition: background-color 0.3s, color 0.3s, box-shadow 0.3s;
+}
+.pm-count[data-tone='urgent'] {
+  color: var(--color-error);
+  background: color-mix(in oklab, var(--color-error) 13%, transparent);
+}
+.pm-count[data-tone='unknown'] {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--color-base-content) 30%, transparent);
+  color: color-mix(in oklab, var(--color-base-content) 55%, transparent);
+}
+:is(a[aria-current='page'], a[data-active='alias']) .pm-count[data-tone='todo'] {
+  color: var(--color-primary);
+  background: color-mix(in oklab, var(--color-primary) 12%, transparent);
+}
+/* 숫자가 늘었을 때 잠깐(2026-11-18 깜빡임 대신 부드러운 테두리) */
+.pm-count[data-flash='true'] {
+  box-shadow: 0 0 0 2px color-mix(in oklab, var(--color-primary) 45%, transparent);
 }
 
 /* 빈 화면(2026-11-20 AWS — "무엇이 없다" 굵게, 그림 없이, 실선 상자). 공용 QueryState(web/ui)는 그대로 두고 이 앱에서만 모양을 맞춘다 */
@@ -312,7 +334,3 @@ main [data-state='empty'] > svg {
   display: none;
 }
 
-/* 표 설정 톱니(오른쪽 위)가 마지막 머리 칸 글자를 덮지 않게 자리를 비운다(2026-11-20 1024px 점검에서 찾음) */
-:is([data-list-part='table'], .relative):has(> .absolute [data-testid^='table-settings-']) table thead th:last-child {
-  padding-right: 2.75rem;
-}

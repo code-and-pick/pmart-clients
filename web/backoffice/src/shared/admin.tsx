@@ -132,16 +132,18 @@ export function ResultBar({ count, more, sort, extra }: { readonly count: number
 
 /** 표 상자 — 2026-11-20 AWS 개편: 흰 상자 + 1px, 머리·줄은 index.css 토큰, 첫 칸 링크는 점선 밑줄(이름), 다른 링크는 파랑 */
 export function DataTable({ children, testId, settingsKey }: { readonly children: ReactNode; readonly testId?: string; readonly settingsKey?: string }) {
-  // 표 설정 톱니(settingsKey 를 주면) — 표 오른쪽 위, 칸 켜고 끄기·줄 바꿈(이 브라우저에만)
+  // 표 설정 톱니(settingsKey 를 주면) — 표 위 얇은 줄 오른쪽(2026-11-20: 표 위에 띄우면 가로로 넘치는 표에서 머리 칸 글자를 덮었다)
   const tid = `tbl-${useId().replace(/[^a-zA-Z0-9-]/g, '')}`;
   return (
-    <div className="relative overflow-x-auto rounded-box border border-base-300 bg-base-100" data-testid={testId} data-list-part="table">
+    <div className="rounded-box border border-base-300 bg-base-100" data-testid={testId} data-list-part="table">
       {settingsKey && (
-        <div className="absolute right-1 top-1 z-10">
+        <div className="flex justify-end border-b border-base-300 px-2 py-0.5">
           <TableSettings storeKey={settingsKey} tableId={tid} />
         </div>
       )}
-      <table id={tid} className="table [&_tbody_td:first-child]:font-medium [&_tbody_tr:hover]:bg-base-200/60 [&_td_a.link]:text-primary [&_td_a.link]:no-underline [&_td_a.link:hover]:underline [&_tbody_td:first-child_a]:text-base-content [&_tbody_td:first-child_a]:underline [&_tbody_td:first-child_a]:decoration-dotted [&_tbody_td:first-child_a]:underline-offset-2">{children}</table>
+      <div className="overflow-x-auto">
+        <table id={tid} className="table [&_tbody_td:first-child]:font-medium [&_tbody_tr:hover]:bg-base-200/60 [&_td_a.link]:text-primary [&_td_a.link]:no-underline [&_td_a.link:hover]:underline [&_tbody_td:first-child_a]:text-base-content [&_tbody_td:first-child_a]:underline [&_tbody_td:first-child_a]:decoration-dotted [&_tbody_td:first-child_a]:underline-offset-2">{children}</table>
+      </div>
     </div>
   );
 }
