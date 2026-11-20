@@ -116,6 +116,8 @@ export const messages = {
     note: '보기 전용이에요 — 카드를 누르면 상세에서 처리해요. 개수는 한 쪽(최대 50건) 안의 수예요.',
   },
   /** 목록 공통 부품(2026-11-20 AWS 개편 3단계 — 제목줄·속성 필터·도움말 패널) */
+  /** 쪽 넘기기(2026-11-20) */
+  pager: { first: '처음으로', jumpLabel: '쪽 번호로 바로 가기', jumpHint: (n: number) => `${n.toLocaleString('ko-KR')}쪽`, go: '이동' },
   listUi: {
     info: '정보',
     refresh: '새로 고침',
@@ -971,6 +973,8 @@ export const messages = {
     prev: '이전',
     next: '다음',
     pageLabel: (n: number) => `${n + 1}쪽`,
+    /** 몇 번째부터 몇 번째(2026-11-20 — 쪽이 아주 많아져도 칸이 늘어나게, 전체 건수는 서버가 주지 않음) */
+    rangeLabel: (from: number, to: number) => (to < from ? `${from.toLocaleString('ko-KR')}번째부터 없음` : `${from.toLocaleString('ko-KR')}–${to.toLocaleString('ko-KR')}번째`),
     detailTitle: '주문',
     mode: { SINGLE: '단건', BUNDLED: '알뜰(묶음)', SCHEDULED: '예약' } as Readonly<Record<string, string>>,
     deliveryMode: '배송 방식',

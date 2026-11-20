@@ -155,7 +155,21 @@ export function OrderLookupPage() {
             </span>
             /* 쪽 넘기기(AWS 표 오른쪽 위) — 서버가 다음 쪽 있음(hasNext)을 알려 줄 때만 다음 */
           }
-          tail={<PagerMini className="ml-auto" label={m.orders.pageLabel(page)} prevLabel={m.orders.prev} nextLabel={m.orders.next} canPrev={page > 0} canNext={Boolean(query.data?.page.hasNext)} onPrev={() => goPage(page - 1)} onNext={() => goPage(page + 1)} />}
+          tail={
+            <PagerMini
+              className="ml-auto"
+              label={query.data ? m.orders.rangeLabel(page * query.data.page.size + 1, page * query.data.page.size + query.data.items.length) : m.orders.pageLabel(page)}
+              page={page}
+              prevLabel={m.orders.prev}
+              nextLabel={m.orders.next}
+              canPrev={page > 0}
+              canNext={Boolean(query.data?.page.hasNext)}
+              onPrev={() => goPage(page - 1)}
+              onNext={() => goPage(page + 1)}
+              onFirst={() => goPage(0)}
+              onJump={goPage}
+            />
+          }
         />
       </div>
 

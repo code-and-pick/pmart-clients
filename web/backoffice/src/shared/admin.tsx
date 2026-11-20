@@ -288,7 +288,7 @@ export function StatCard({ label, value, hint, to, tone, testId, active = false,
       <span className="flex items-start justify-between gap-3">
         <span className="min-w-0">
           <span className="block truncate text-sm text-base-content/70">{label}</span>
-          {hint && <span className="mt-0.5 block truncate text-xs text-base-content/55">{hint}</span>}
+          {hint && <span className="mt-0.5 line-clamp-2 block text-xs text-base-content/55">{hint}</span>}
         </span>
         <span className={`pm-stat-value shrink-0 text-[28px] font-semibold leading-none tracking-tight ${valueCls}`}>
           {value}
@@ -704,8 +704,13 @@ export function listCount(q: { readonly data?: unknown; readonly hasNextPage?: b
 /** 제목줄 새로 고침 — 같은 조회를 다시, 읽은 시각은 그 조회가 받은 때 */
 export const refreshOf = (q: { readonly refetch: () => Promise<unknown>; readonly isFetching: boolean; readonly dataUpdatedAt: number }) => ({ onClick: () => void q.refetch(), busy: q.isFetching, readAt: q.dataUpdatedAt || undefined });
 
-/** 작은 쪽 넘기기(AWS 표 오른쪽 위 `< 1 >`) — 쪽 번호로 오가는 목록만(커서로 이어 받는 목록은 아래 "더 보기"·"다음 쪽") */
-export function PagerMini({ label, prevLabel, nextLabel, canPrev, canNext, onPrev, onNext, className = '' }: {
+/**
+ * 작은 쪽 넘기기(AWS 표 오른쪽 위 `< 1 >`) — 쪽 번호로 오가는 목록만(커서로 이어 받는 목록은 아래 "더 보기"·"다음 쪽").
+ * 2026-11-20 사용자 "나중에 99999999쪽이 되면?": 서버가 전체 건수를 주지 않아(hasNext 만) 마지막 쪽을 모른다 —
+ * 그래서 쪽 번호 대신 "몇 번째부터 몇 번째"(숫자가 커져도 칸이 늘어난다), 처음으로, 쪽 번호로 바로 가기(서버가 page 를 바로 받는다).
+ * 끝을 넘긴 쪽은 목록이 비어 "없음"으로 보인다. 전체 건수(주문 O-9)가 오면 "전체 N건 · 마지막 쪽"을 붙인다.
+ */
+export function PagerMini({ label, prevLabel, nextLabel, canPrev, canNext, onPrev, onNext, onFirst, onJump, page, className = '' }: {
   readonly label: string;
   readonly prevLabel: string;
   readonly nextLabel: string;
@@ -713,17 +718,54 @@ export function PagerMini({ label, prevLabel, nextLabel, canPrev, canNext, onPre
   readonly canNext: boolean;
   readonly onPrev: () => void;
   readonly onNext: () => void;
+  /** 첫 쪽으로(지금이 첫 쪽이 아닐 때만 보인다) */
+  readonly onFirst?: () => void;
+  /** 쪽 번호(0부터)로 바로 가기 */
+  readonly onJump?: (page: number) => void;
+  /** 지금 쪽(0부터) — 바로 가기 칸 처음 값 */
+  readonly page?: number;
   readonly className?: string;
 }) {
+  const [jump, setJump] = useState('');
   return (
-    <nav aria-label="쪽" className={`flex items-center gap-0.5 text-sm ${className}`} data-testid="pager-mini">
+    <nav aria-label="쪽" className={`flex items-center gap-1 text-sm ${className}`} data-testid="pager-mini">
+      {onFirst && canPrev && (
+        <button type="button" className="btn btn-ghost btn-sm h-8 px-2 text-xs" onClick={onFirst} data-testid="pager-first">
+          {lm.pager.first}
+        </button>
+      )}
       <button type="button" className="btn btn-ghost btn-sm h-8 w-8 p-0" aria-label={prevLabel} disabled={!canPrev} onClick={onPrev}>
         ‹
       </button>
-      <span className="min-w-10 text-center font-bold tabular-nums">{label}</span>
+      <span className="whitespace-nowrap px-1 text-center font-semibold tabular-nums" data-testid="pager-label">{label}</span>
       <button type="button" className="btn btn-ghost btn-sm h-8 w-8 p-0" aria-label={nextLabel} disabled={!canNext} onClick={onNext}>
         ›
       </button>
+      {onJump && (
+        <form
+          className="ml-1 flex items-center gap-1"
+          onSubmit={(e) => {
+            e.preventDefault();
+            const n = Number(jump.replace(/[^0-9]/g, ''));
+            if (Number.isInteger(n) && n >= 1) onJump(n - 1);
+            setJump('');
+          }}
+        >
+          <input
+            className="input input-sm h-8 w-20 text-right tabular-nums"
+            inputMode="numeric"
+            maxLength={7}
+            aria-label={lm.pager.jumpLabel}
+            placeholder={page !== undefined ? lm.pager.jumpHint(page + 1) : ''}
+            value={jump}
+            onChange={(e) => setJump(e.target.value.replace(/[^0-9]/g, ''))}
+            data-testid="pager-jump"
+          />
+          <button type="submit" className="btn btn-ghost btn-sm h-8 px-2 text-xs" disabled={!jump}>
+            {lm.pager.go}
+          </button>
+        </form>
+      )}
     </nav>
   );
 }

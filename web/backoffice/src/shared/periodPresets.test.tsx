@@ -22,7 +22,19 @@ describe('기간 빠른 고르기', () => {
     renderAt('/orders', as.cs);
     const pager = await screen.findByTestId('pager-mini');
     expect(within(pager).getByRole('button', { name: '이전' })).toBeDisabled();
-    expect(pager).toHaveTextContent('1쪽');
+    // 쪽 번호 대신 "몇 번째부터 몇 번째"(전체 건수를 서버가 주지 않음 — 2026-11-20)
+    await waitFor(() => expect(within(pager).getByTestId('pager-label')).toHaveTextContent(/^1–\d+번째$/));
+    expect(within(pager).queryByTestId('pager-first')).not.toBeInTheDocument(); // 첫 쪽에선 "처음으로" 없음
+  });
+
+  it('쪽 번호로 바로 가기 — 주소의 page 가 바뀐다(0부터), 끝을 넘긴 쪽은 "없음"', async () => {
+    const user = userEvent.setup();
+    const view = renderAt('/orders', as.cs);
+    const pager = await screen.findByTestId('pager-mini');
+    await user.type(within(pager).getByTestId('pager-jump'), '12');
+    await user.click(within(pager).getByRole('button', { name: '이동' }));
+    await waitFor(() => expect(view.sent.some((r) => r.url.includes('/orders/lookups') && new URL(r.url).searchParams.get('page') === '11')).toBe(true));
+    expect(await within(screen.getByTestId('pager-mini')).findByTestId('pager-first')).toBeInTheDocument();
   });
 });
 
