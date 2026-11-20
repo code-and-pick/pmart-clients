@@ -470,7 +470,7 @@ function ThemeCard({
 }
 
 /** 고객 홈 미리보기(초안 본문) — 맨 위 배너 → 테마 순서대로, 가운데 배너는 첫 테마 뒤 */
-function Preview({ body }: { readonly body: Body }) {
+function Preview({ body, sticky = true }: { readonly body: Body; readonly sticky?: boolean }) {
   const banners = body.banners ?? [];
   const themes = body.themes ?? [];
   const top = banners.filter((b) => b.placement === 'HOME_TOP');
@@ -494,7 +494,7 @@ function Preview({ body }: { readonly body: Body }) {
     </div>
   );
   return (
-    <aside className="sticky top-16 space-y-2" aria-label={m.preview} data-testid="layout-preview">
+    <aside className={`${sticky ? 'sticky top-16 ' : ''}space-y-2`} aria-label={m.preview} data-testid="layout-preview">
       <p className="text-sm font-semibold">
         {m.preview} <span className="text-xs font-normal text-base-content/50">· {m.previewHint}</span>
       </p>
@@ -511,6 +511,23 @@ function Preview({ body }: { readonly body: Body }) {
         )}
       </div>
     </aside>
+  );
+}
+
+/**
+ * 승인 상세의 편성 초안 미리보기(2026-11-20 — 백엔드 회신: DISPLAY_APPROVER 도 layout-drafts·banner-images 를 읽음, storefront 0.7.1).
+ * 보기만 — 고치기·제출은 편성 화면(MD·OPERATOR_ADMIN). 못 읽으면 QueryState 가 실패로 보인다(빈 편성으로 보이지 않게).
+ */
+export function LayoutDraftPreview({ draftId }: { readonly draftId: string }) {
+  const api = useApi();
+  const query = useQuery({
+    queryKey: ['storefront', 'layout-draft', draftId],
+    queryFn: () => request('GET', api.storefront.GET('/storefront/layout-drafts/{draftId}', { params: { path: { draftId } } })),
+  });
+  return (
+    <QueryState state={toUiState(query)} onRetry={() => void query.refetch()}>
+      {(d) => <Preview body={bodyOf(d)} sticky={false} />}
+    </QueryState>
   );
 }
 

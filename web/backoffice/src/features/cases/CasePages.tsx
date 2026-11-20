@@ -37,7 +37,7 @@ import type { operations as BffOps } from '../../api/generated/backoffice-bff';
 import type { components } from '../../api/generated/case';
 import { useApi } from '../../app/ApiContext';
 import { useSession } from '../../app/SessionContext';
-import { CodeLabel, NextAction, PageHeader, StatCard, StatStrip, StatusBadge, countCell, type Tone, AllDone } from '../../shared/admin';
+import { CodeLabel, NextAction, Notice, PageHeader, StatCard, StatStrip, StatusBadge, countCell, type Tone, AllDone } from '../../shared/admin';
 import { SavedViews } from '../../shared/SavedViews';
 import { useRecordRecent } from '../../shared/recentViews';
 import { TabCount, useAlertCount } from '../../app/MenuAlerts';
@@ -884,6 +884,12 @@ function CloseForm({ c, onDone, openFollowUps }: { readonly c: Case; readonly on
         </span>
         {m.cases.close}
       </h2>
+      {/* case 0.30.0: 라이더 도움요청·전달 실패는 닫기 = 전달 실패 확정 + 반납 배송(서버가 한다 — 화면은 미리 알린다) */}
+      {(c.kind === 'RIDER_HELP' || c.kind === 'DELIVERY_INCIDENT') && (
+        <Notice tone="warning">
+          <span data-testid="close-confirms-failure">{m.cases.closeConfirmsFailure}</span>
+        </Notice>
+      )}
       <label className="flex flex-col gap-1 text-xs text-base-content/60">
         {m.cases.resolution}
         <select className="select select-sm w-full" value={resolution} onChange={(e) => setResolution(RESOLUTIONS.find((r) => r === e.target.value) ?? 'RESOLVED')}>

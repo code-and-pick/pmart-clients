@@ -101,7 +101,7 @@ export function SynonymRulesPage() {
         targetService: 'search-service',
         targetRef: TARGET_REF,
         targetExpectedVersion: set.version,
-        allowedActions: ['APPLY_SYNONYM_RULES'],
+        allowedActions: ['APPLY_SYNONYM_RULES'], // 확정(백엔드 회신 2026-11-20 — approval·search 계약 설명, 서버 값 검사는 아직 없음)
         summary: m.summary(changes.length, head),
         lines: changes.map((c) => ({
           lineKey: c.ruleId,

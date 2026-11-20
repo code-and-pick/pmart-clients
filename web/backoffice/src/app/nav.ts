@@ -86,6 +86,8 @@ export const navGroups: readonly NavGroup[] = [
     visibleTo: oneOf('CS_AGENT', 'OPERATOR_ADMIN'),
     home: '/orders',
     items: [
+      // 고객(bff 0.22.0 BF-2, 2026-11-20) — 고객번호·전화·주문번호로 찾기(완전 일치) → 가린 상세 → 사유 적고 원문
+      { to: '/customers', label: m.nav.customers },
       { to: '/inquiries', label: m.nav.inquiries },
       { to: '/cs-intakes/new', label: m.nav.csIntake }, // case 0.12.0 — 전화·채팅·메일로 받은 연락 기록
       // 문의 만족도(case 0.15.0) — 관리자만(상담원 평가에 쓰지 않음)

@@ -1,4 +1,4 @@
-// storefront 0.7.0 진열 편성(배너·상품 테마, ADR-0075 ② BO-05) 목. MD·OPERATOR_ADMIN 만, 그 밖 403.
+// storefront 0.7.0 진열 편성(배너·상품 테마, ADR-0075 ② BO-05) 목. 쓰기는 MD·OPERATOR_ADMIN 만, 읽기는 DISPLAY_APPROVER 도(0.7.1), 그 밖 403.
 // 초안 → 제출(검사·잠금, approvalRequest) → approval DISPLAY → 승인되면 PUBLISHED(layoutVersion), 반려면 REJECTED.
 // 검사 field 는 서버(LayoutRules)와 같은 모양: banners[0].imageId · themes[0].title · themes[0].productIds[1] 등.
 import { http, HttpResponse } from 'msw';
@@ -41,6 +41,14 @@ const canManage = (request: Request) => {
   const who = operator(request);
   if (!who) return unauthorized();
   if (!who.roles.some((r) => r === 'MD' || r === 'OPERATOR_ADMIN')) return problem(403, 'FORBIDDEN');
+  return null;
+};
+
+/** 읽기(목록·초안) — storefront 0.7.1(백엔드 회신 2026-11-20): DISPLAY_APPROVER 도 읽는다. 만들기·고치기·제출은 그대로 MD·OPERATOR_ADMIN */
+const canRead = (request: Request) => {
+  const who = operator(request);
+  if (!who) return unauthorized();
+  if (!who.roles.some((r) => r === 'MD' || r === 'OPERATOR_ADMIN' || r === 'DISPLAY_APPROVER')) return problem(403, 'FORBIDDEN');
   return null;
 };
 
@@ -100,7 +108,7 @@ const bannerSvg = (label: string) =>
 
 export const storefrontHandlers = [
   http.get(`${API_BASE}/storefront/layout-drafts`, ({ request }) => {
-    const denied = canManage(request);
+    const denied = canRead(request);
     if (denied) return denied;
     const state = new URL(request.url).searchParams.get('state');
     const items = [...layouts.drafts.values()].filter((d) => !state || d.state === state).sort((a, b) => (b.updatedAt ?? b.createdAt).localeCompare(a.updatedAt ?? a.createdAt));
@@ -124,7 +132,7 @@ export const storefrontHandlers = [
   }),
 
   http.get(`${API_BASE}/storefront/layout-drafts/:id`, ({ request, params }) => {
-    const denied = canManage(request);
+    const denied = canRead(request);
     if (denied) return denied;
     const d = layouts.drafts.get(String(params['id']));
     return d ? HttpResponse.json(d) : problem(404, 'NOT_FOUND');

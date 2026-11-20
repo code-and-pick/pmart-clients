@@ -46,6 +46,39 @@ export const messages = {
   reasonLabel: '사유',
   reasonRequired: '사유를 입력해 주세요',
 
+  /** 고객 메뉴(2026-11-20, bff 0.22.0 BF-2 — 백엔드 알림 2026-11-19-notice-customer-menu-plan 1단계, 조회만) */
+  customers: {
+    title: '고객',
+    searchHint: '고객번호·전화번호·주문번호 중 하나로 찾아요 — 완전히 같은 것만(이름 검색·전체 목록 없음)',
+    by: { customerNumber: '고객번호', phone: '전화번호', orderNumber: '주문번호' } as const,
+    byHint: { customerNumber: '6자리', phone: '숫자만 또는 010-1234-5678', orderNumber: '8자리' } as const,
+    empty: '맞는 고객이 없어요',
+    col: { number: '고객번호', name: '이름', phone: '연락처', status: '계정 상태' },
+    statusName: { ACTIVE: '정상', WITHDRAW_PENDING: '탈퇴 대기', WITHDRAW_COMPLETED: '탈퇴 완료' } as Readonly<Record<string, string>>,
+    providerName: { KAKAO: '카카오', NAVER: '네이버', GOOGLE: 'Google', APPLE: 'Apple' } as Readonly<Record<string, string>>,
+    detailTitle: '고객 상세',
+    back: '고객 찾기',
+    basic: '기본 정보',
+    name: '이름',
+    phone: '연락처',
+    email: '이메일',
+    provider: '가입 방식',
+    phoneVerified: '휴대폰 확인',
+    verified: '확인함',
+    notVerified: '확인 안 함',
+    joinedAt: '가입일',
+    status: '계정 상태',
+    orders: '최근 주문',
+    inquiries: '문의',
+    csIntakes: '상담원 접수',
+    recentOnly: '최근 10건만 — 전체는 해당 메뉴에서',
+    noneRows: '없음',
+    sourceFailed: '확인 못 함 — 원천을 읽지 못했어요(0건이 아니에요)',
+    intakeCol: { at: '받은 시각', channel: '경로', category: '분류', by: '받은 사람', link: '이어진 것' },
+    inquiryCol: { number: '문의 번호', category: '분류', status: '상태', at: '받은 시각' },
+    orderCol: { number: '주문', status: '주문 상태', at: '확정 시각', items: '수량', total: '결제 금액' },
+    pii: { title: '원문 열람', fields: '열 항목', fieldName: { NAME: '이름', PHONE: '연락처' } as const, reason: '열람 사유', reasonHint: '2~200자. 예: 고객 전화 — 본인 확인', open: '열람', hide: '다시 가리기', opened: (logId: string, at: string) => `열람 기록 ${logId} · ${at} — 이 화면을 떠나면 다시 가려져요.` },
+  },
   /** 보드(칸반) 보기(2026-11-20) — 보기 전용, 칸은 서버 판정 값으로만 */
   board: {
     layout: '보기 방식',
@@ -102,6 +135,7 @@ export const messages = {
     synonyms: '검색 동의어',
     homeLayout: '홈 진열 편성',
     assistant: '업무 도우미',
+    customers: '고객', // 2026-11-20 고객 메뉴(bff 0.22.0)
     inquiries: '문의 답변',
     csIntake: '전화·채팅 접수',
     riderInquiries: '라이더 문의',
@@ -567,6 +601,8 @@ export const messages = {
       ESCALATED_EXTERNAL: '외부로 넘김',
     } as const,
     closeSummary: '처리 결과 요약',
+    // case 0.30.0(백엔드 #295, 2026-11-20 알림 notice-case-closed-confirms-failure): 라이더 도움요청·전달 실패 접수 건은 닫으면 전달 실패 확정 + 같은 라이더에게 반납 배송
+    closeConfirmsFailure: '닫으면 전달 실패로 확정되고 반납 배송이 만들어져요. 라이더가 계속 전달해야 하면 닫기 전에 배송 상세에서 실패 결정을 반려해 주세요.',
     piiHint: '고객 주소·연락처 원문은 적지 마세요.',
     closed: '완료 처리했어요.',
     newTitle: '오배송 접수',
@@ -3049,6 +3085,7 @@ export const messages = {
   // 홈 진열 편성(storefront 0.7.0 layouts, ADR-0075 ② BO-05 — 2026-11-20 PC 1 요청서). 할인·쿠폰은 1차 범위 밖
   homeLayout: {
     title: '홈 진열 편성',
+    previewTitle: '승인할 편성 — 고객 홈 미리보기',
     draftTitle: '편성 초안',
     openDraft: '편성 내용 보기',
     current: (v: number) => (v === 0 ? '지금 고객 홈: 기본 진열' : `지금 고객 홈: 버전 ${v}`),

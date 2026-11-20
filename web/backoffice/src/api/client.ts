@@ -5,6 +5,7 @@ import type { paths as ApprovalPaths } from './generated/approval';
 import type { paths as AuditPaths } from './generated/audit';
 import type { paths as BffPaths } from './generated/backoffice-bff';
 import type { paths as CasePaths } from './generated/case';
+import type { paths as CustomerPaths } from './generated/customer';
 import type { paths as CdcInventoryPaths } from './generated/cdc-inventory';
 import type { paths as CenterPaths } from './generated/center-master';
 import type { paths as ClaimPaths } from './generated/claim';
@@ -40,6 +41,8 @@ export function createApi(pmartFetch: PmartFetch, baseUrl = API_BASE) {
   const options = { baseUrl, fetch: pmartFetch };
   return {
     bff: createClient<BffPaths>({ ...options, baseUrl: `${baseUrl}/backoffice` }),
+    // 고객 원문 열람(customer 0.11.0 `POST /customers/{id}/pii-reveals`, 2026-11-20 고객 메뉴)
+    customer: createClient<CustomerPaths>(options),
     employeeAuth: createClient<EmployeeAuthPaths>(options),
     approval: createClient<ApprovalPaths>(options),
     product: createClient<ProductPaths>(options),

@@ -1,0 +1,312 @@
+// 고객 메뉴(2026-11-20) — bff 0.22.0 BF-2(백엔드 #287, main f397211b) 1단계: 조회만.
+// - 찾기 `GET /backoffice/views/customer-search` — customerNumber·phone·orderNumber 중 **하나만**, 완전 일치(이름 검색·전체 목록 없음). 속성 필터에서 하나를 고르면 다른 조건은 지운다.
+// - 상세 `GET /backoffice/views/customer/{customerId}` — 머리는 가린 값 그대로. 칸(주문·문의·상담원 접수)은 원천 실패면 null → "확인 못 함"(0건 아님).
+// - 원문 `POST /customers/{id}/pii-reveals`(customer 0.11.0) — 사유 2~200자, 열람 기록이 남은 뒤 고른 항목만. 받은 원문은 메모리에만(라이더 상세와 같은 방식).
+// 클레임 칸은 claim CL-7 뒤(계약에 아직 없음 — 부르지 않는다).
+import { useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
+import { Link, useParams, useSearchParams } from 'react-router';
+
+import { request } from '@pmart/web-core';
+import { CommandFeedback, QueryState, toUiState, useCommand } from '@pmart/web-ui';
+import { commandParams } from '../../api/command';
+import type { components } from '../../api/generated/backoffice-bff';
+import type { components as CustomerC } from '../../api/generated/customer';
+import { useApi } from '../../app/ApiContext';
+import { ago } from '../../app/DashboardBoard';
+import { CodeLabel, DataTable, DetailHeader, FieldList, Notice, PageHeader, PropertyFilter, Section, StatusBadge, type FilterProp, type Tone } from '../../shared/admin';
+import { messages } from '../../shared/messages';
+import { label, text, when, won } from '../../shared/ops';
+import { statusTone } from '../orders/OrderLookupPages';
+
+const m = messages.customers;
+type Detail = components['schemas']['ComposedView'] & components['schemas']['CustomerDetailView'];
+type PiiField = CustomerC['schemas']['CustomerPiiField'];
+const PII_FIELDS: readonly PiiField[] = ['NAME', 'PHONE'];
+const KEYS = ['customerNumber', 'phone', 'orderNumber'] as const;
+type Key = (typeof KEYS)[number];
+
+const statusToneOf = (s: string | null | undefined): Tone => (s === 'ACTIVE' ? 'success' : s === 'WITHDRAW_PENDING' ? 'warning' : 'ghost');
+
+export function CustomerSearchPage() {
+  const api = useApi();
+  const [params, setParams] = useSearchParams();
+  const given = KEYS.filter((k) => (params.get(k) ?? '').trim() !== '');
+  const by: Key | undefined = given.length === 1 ? given[0] : undefined;
+  const value = by ? (params.get(by) ?? '').trim() : '';
+  const query = useQuery({
+    queryKey: ['customers', 'search', by, value],
+    enabled: by !== undefined,
+    queryFn: () => request('GET', api.bff.GET('/views/customer-search', { params: { query: by ? { [by]: by === 'phone' ? value.replace(/[\s-]/g, '') : value } : {} } })),
+  });
+  // 하나만 — 새 조건을 고르면 다른 조건은 지운다(계약: 둘 이상이면 400)
+  const change = (patch: Readonly<Record<string, string | null>>) => {
+    const next = new URLSearchParams(params);
+    const set = Object.entries(patch).find(([, v]) => v !== null && v.trim() !== '');
+    if (set) for (const k of KEYS) next.delete(k);
+    for (const [k, v] of Object.entries(patch)) {
+      if (v === null || !v.trim()) next.delete(k);
+      else next.set(k, v.trim());
+    }
+    setParams(next);
+  };
+  const props: FilterProp[] = KEYS.map((k) => ({ key: k, label: m.by[k], text: { hint: m.byHint[k], maxLength: k === 'phone' ? 20 : 16, numeric: true } }));
+  return (
+    <section className="space-y-4">
+      <PageHeader title={m.title} />
+      <div className="rounded-box border border-base-300 bg-base-100 px-5 py-3" data-list-part="top">
+        <PropertyFilter props={props} value={Object.fromEntries(KEYS.map((k) => [k, params.get(k) ?? undefined]))} onChange={change} testId="customer-filter" />
+        <p className="mt-2 text-xs text-base-content/60">{m.searchHint}</p>
+      </div>
+      {by && (
+        <QueryState state={toUiState(query)} onRetry={() => void query.refetch()}>
+          {(r) => (
+            <div className="space-y-2">
+              {(r.unavailableSources ?? []).length > 0 && <Notice tone="warning">{m.sourceFailed}</Notice>}
+              {r.items.length === 0 ? (
+                <p className="rounded-box border border-base-300 bg-base-100 px-5 py-6 text-center text-sm text-base-content/60" data-testid="customer-empty">
+                  {m.empty}
+                </p>
+              ) : (
+                <DataTable testId="customer-results">
+                  <thead>
+                    <tr>
+                      <th>{m.col.number}</th>
+                      <th>{m.col.name}</th>
+                      <th>{m.col.phone}</th>
+                      <th>{m.col.status}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {r.items.map((c) => (
+                      <tr key={c.customerId} data-testid="customer-row">
+                        <td>
+                          <Link to={`/customers/${encodeURIComponent(c.customerId)}`}>{c.customerNumber ?? m.detailTitle}</Link>
+                        </td>
+                        <td>{text(c.nameMasked)}</td>
+                        <td className="font-mono text-sm">{text(c.phoneMasked)}</td>
+                        <td>
+                          <StatusBadge tone={statusToneOf(c.status)}>{label(m.statusName, c.status)}</StatusBadge>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </DataTable>
+              )}
+            </div>
+          )}
+        </QueryState>
+      )}
+    </section>
+  );
+}
+
+/** 칸 — 원천 실패(null)면 "확인 못 함", 비었으면 "없음", 더 있으면 "최근 10건만" */
+function Part<T>({ title, part, children, testId }: { readonly title: string; readonly part: { readonly hasMore?: boolean; readonly items?: readonly T[] } | null | undefined; readonly children: (items: readonly T[]) => React.ReactNode; readonly testId: string }) {
+  return (
+    <Section title={title} testId={testId} aside={part?.hasMore ? <span className="text-xs text-base-content/60">{m.recentOnly}</span> : undefined}>
+      {part === null || part === undefined ? (
+        <p className="text-sm text-warning" data-testid={`${testId}-failed`}>
+          {m.sourceFailed}
+        </p>
+      ) : (part.items ?? []).length === 0 ? (
+        <p className="text-sm text-base-content/60">{m.noneRows}</p>
+      ) : (
+        children(part.items ?? [])
+      )}
+    </Section>
+  );
+}
+
+export function CustomerDetailPage() {
+  const { customerId = '' } = useParams();
+  const api = useApi();
+  const q = useQuery({
+    queryKey: ['customers', 'detail', customerId],
+    queryFn: () => request('GET', api.bff.GET('/views/customer/{customerId}', { params: { path: { customerId } } })),
+  });
+  return (
+    <QueryState state={toUiState(q)} onRetry={() => void q.refetch()}>
+      {(d) => <CustomerDetail d={d} />}
+    </QueryState>
+  );
+}
+
+function CustomerDetail({ d }: { readonly d: Detail }) {
+  const api = useApi();
+  const c = d.customer;
+  const [fields, setFields] = useState<readonly PiiField[]>(PII_FIELDS);
+  const [reason, setReason] = useState('');
+  const reveal = useCommand(async (v: { reason: string; fields: readonly PiiField[] }, key) =>
+    request('POST', api.customer.POST('/customers/{customerId}/pii-reveals', { ...commandParams(key, { path: { customerId: c.customerId } }), body: { reason: v.reason, fields: [...v.fields] } })),
+  );
+  const opened = reveal.phase.kind === 'done' ? reveal.phase.result : null;
+  const isOpen = (f: PiiField) => opened?.fields?.includes(f) ?? false;
+  const reasonOk = reason.trim().length >= 2 && reason.trim().length <= 200;
+  return (
+    <section className="space-y-4" data-testid="customer-detail">
+      <DetailHeader
+        back={{ to: '/customers', label: m.back }}
+        title={`${text(c.nameMasked)} · ${c.customerNumber ?? ''}`}
+        badges={
+          <>
+            <StatusBadge tone={statusToneOf(c.status)}>{label(m.statusName, c.status)}</StatusBadge>
+            {c.socialProvider && <span className="text-sm text-base-content/70">{label(m.providerName, c.socialProvider)}</span>}
+          </>
+        }
+        summary={c.joinedAt ? `${m.joinedAt} ${when(c.joinedAt)}` : undefined}
+      />
+      {(d.unavailableSources ?? []).length > 0 && <Notice tone="warning">{m.sourceFailed}</Notice>}
+
+      <div className="grid items-start gap-4 lg:grid-cols-3">
+        <div className="min-w-0 lg:col-span-2">
+          <Section title={m.basic}>
+            <FieldList
+              testId="customer-basic"
+              rows={[
+                [m.name, <span key="n" data-testid="customer-name" data-masked={!isOpen('NAME')}>{isOpen('NAME') ? text(opened?.name) : text(c.nameMasked)}</span>],
+                [m.phone, <span key="p" className="font-mono" data-testid="customer-phone" data-masked={!isOpen('PHONE')}>{isOpen('PHONE') ? text(opened?.phone) : text(c.phoneMasked)}</span>],
+                [m.email, text(c.emailMasked)],
+                [m.provider, c.socialProvider ? <CodeLabel key="s" code={c.socialProvider} names={m.providerName} /> : messages.none],
+                [m.phoneVerified, c.phoneVerified === null || c.phoneVerified === undefined ? messages.none : c.phoneVerified ? m.verified : m.notVerified],
+                [m.joinedAt, when(c.joinedAt)],
+              ]}
+            />
+          </Section>
+        </div>
+        <aside className="min-w-0">
+          {opened ? (
+            <div role="status" className="space-y-2 rounded-box border-2 border-warning bg-warning/10 p-4 text-xs">
+              <p>{m.pii.opened(text(opened.piiAccessLogId), when(opened.recordedAt))}</p>
+              <button type="button" className="btn btn-sm" onClick={() => reveal.reset()}>
+                {m.pii.hide}
+              </button>
+            </div>
+          ) : (
+            <form
+              className="space-y-3 rounded-box border border-base-300 bg-base-100 p-4 text-sm"
+              aria-label={m.pii.title}
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (!reasonOk || fields.length === 0) return;
+                if (reveal.phase.kind === 'rejected') reveal.reset();
+                void reveal.run({ reason: reason.trim(), fields });
+              }}
+            >
+              <h3 className="font-bold">{m.pii.title}</h3>
+              <fieldset className="flex flex-wrap gap-3">
+                <legend className="mb-1 text-sm font-semibold text-base-content/80">{m.pii.fields}</legend>
+                {PII_FIELDS.map((f) => (
+                  <label key={f} className="flex items-center gap-1">
+                    <input type="checkbox" className="checkbox checkbox-xs" checked={fields.includes(f)} onChange={(e) => setFields((cur) => (e.target.checked ? PII_FIELDS.filter((x) => x === f || cur.includes(x)) : cur.filter((x) => x !== f)))} />
+                    {m.pii.fieldName[f]}
+                  </label>
+                ))}
+              </fieldset>
+              <label className="flex flex-col gap-1 text-sm font-semibold text-base-content/80">
+                {m.pii.reason}
+                <input className="input input-sm w-full font-normal" maxLength={200} autoComplete="off" placeholder={m.pii.reasonHint} value={reason} onChange={(e) => setReason(e.target.value)} />
+              </label>
+              <button type="submit" className="btn btn-sm w-full" disabled={!reasonOk || fields.length === 0 || reveal.busy}>
+                {m.pii.open}
+              </button>
+              <CommandFeedback command={reveal} />
+            </form>
+          )}
+        </aside>
+      </div>
+
+      <Part title={m.orders} part={d.orders} testId="customer-orders">
+        {(items) => (
+          <DataTable>
+            <thead>
+              <tr>
+                <th>{m.orderCol.number}</th>
+                <th>{m.orderCol.status}</th>
+                <th>{m.orderCol.at}</th>
+                <th className="text-right">{m.orderCol.items}</th>
+                <th className="text-right">{m.orderCol.total}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((o) => (
+                <tr key={o.orderId}>
+                  <td>
+                    <Link to={`/orders/${encodeURIComponent(o.orderId ?? '')}`}>{o.orderNumber ?? messages.displayNumber.missing}</Link>
+                  </td>
+                  <td>
+                    <StatusBadge tone={statusTone(o.status ?? undefined)}>{label(messages.orders.statusName, o.status)}</StatusBadge>
+                  </td>
+                  <td>{ago(o.confirmedAt) ?? messages.none}</td>
+                  <td className="text-right tabular-nums">{text(o.itemCount)}</td>
+                  <td className="text-right tabular-nums">{o.totalAmount === null || o.totalAmount === undefined ? messages.none : won(o.totalAmount)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </DataTable>
+        )}
+      </Part>
+
+      <div className="grid items-start gap-4 xl:grid-cols-2">
+        <Part title={m.inquiries} part={d.inquiries} testId="customer-inquiries">
+          {(items) => (
+            <DataTable>
+              <thead>
+                <tr>
+                  <th>{m.inquiryCol.number}</th>
+                  <th>{m.inquiryCol.category}</th>
+                  <th>{m.inquiryCol.status}</th>
+                  <th>{m.inquiryCol.at}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {items.map((x) => (
+                  <tr key={x.inquiryId}>
+                    <td>
+                      <Link to={`/inquiries/${encodeURIComponent(x.inquiryId ?? '')}`}>{x.inquiryNumber ?? messages.displayNumber.missing}</Link>
+                    </td>
+                    <td>{label(messages.inquiries.categoryName, x.category)}</td>
+                    <td>{label(messages.inquiries.status, x.status)}</td>
+                    <td>{ago(x.createdAt) ?? messages.none}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </DataTable>
+          )}
+        </Part>
+        <Part title={m.csIntakes} part={d.csIntakes} testId="customer-intakes">
+          {(items) => (
+            <DataTable>
+              <thead>
+                <tr>
+                  <th>{m.intakeCol.at}</th>
+                  <th>{m.intakeCol.channel}</th>
+                  <th>{m.intakeCol.by}</th>
+                  <th>{m.intakeCol.link}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {items.map((x) => (
+                  <tr key={x.intakeId}>
+                    <td>{ago(x.receivedAt) ?? messages.none}</td>
+                    <td>{label(messages.csIntake.channelName, x.channel)}</td>
+                    <td>{x.receivedByLabel?.name ?? messages.none}</td>
+                    <td>
+                      {x.caseId ? (
+                        <Link to={`/cases/${encodeURIComponent(x.caseId)}`}>{messages.nav.cases}</Link>
+                      ) : x.inquiryId ? (
+                        <Link to={`/inquiries/${encodeURIComponent(x.inquiryId)}`}>{m.inquiries}</Link>
+                      ) : (
+                        messages.none
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </DataTable>
+          )}
+        </Part>
+      </div>
+    </section>
+  );
+}

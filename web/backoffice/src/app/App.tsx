@@ -69,6 +69,8 @@ const InquiryDetailPage = lazy(() => import('../features/inquiries/InquiryPages'
 const InquiryListPage = lazy(() => import('../features/inquiries/InquiryPages').then((x) => ({ default: x.InquiryListPage })));
 const SatisfactionPage = lazy(() => import('../features/inquiries/SatisfactionPage').then((x) => ({ default: x.SatisfactionPage })));
 const NewCsIntakePage = lazy(() => import('../features/csIntakes/CsIntakePages').then((x) => ({ default: x.NewCsIntakePage })));
+const CustomerSearchPage = lazy(() => import('../features/customers/CustomerPages').then((x) => ({ default: x.CustomerSearchPage })));
+const CustomerDetailPage = lazy(() => import('../features/customers/CustomerPages').then((x) => ({ default: x.CustomerDetailPage })));
 const OrderDetailPage = lazy(() => import('../features/orders/OrderLookupPages').then((x) => ({ default: x.OrderDetailPage })));
 const OrderLookupPage = lazy(() => import('../features/orders/OrderLookupPages').then((x) => ({ default: x.OrderLookupPage })));
 const NewRiderComplaintPage = lazy(() => import('../features/riderComplaints/RiderComplaintPages').then((x) => ({ default: x.NewRiderComplaintPage })));
@@ -347,6 +349,9 @@ const routes = [
       { index: true, element: guarded(<DashboardPage />) },
       { path: 'session', element: guarded(<SessionPage />) },
       { path: 'approvals', element: guarded(<ApprovalListPage />) },
+      // 고객(bff 0.22.0 BF-2, 2026-11-20)
+      { path: 'customers', element: guarded(<CustomerSearchPage />) },
+      { path: 'customers/:customerId', element: guarded(<CustomerDetailPage />) },
       { path: 'approvals/:approvalId', element: guarded(<ApprovalDetailPage />) },
       // "모든 승인 한눈에"는 승인함과 같은 목록이라 합침(2026-11-20) — 예전 주소는 승인함으로
       { path: 'views/approval-inbox', element: <Navigate to="/approvals" replace /> },

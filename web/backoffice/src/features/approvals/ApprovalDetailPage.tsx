@@ -26,6 +26,7 @@ import { useCommand } from '@pmart/web-ui';
 import { ContentRegistration } from '../contents/ContentRegistration';
 import { CodeLabel, DataTable, DetailHeader, NextAction, Section, StatusBadge, type Tone } from '../../shared/admin';
 import { KindChip, Person, SideFields, Timeline, When } from '../lookup/parts';
+import { LayoutDraftPreview } from '../display/HomeLayoutPages';
 
 const OPEN_REVIEW: readonly ReviewState[] = ['REVIEW_PENDING', 'EVIDENCE_REQUIRED'];
 const FINAL_EXECUTION: readonly ExecutionState[] = ['APPLIED', 'PARTIAL', 'REJECTED'];
@@ -281,6 +282,12 @@ export function ApprovalDetailPage() {
 
               <div className="grid items-start gap-4 lg:grid-cols-3">
                 <div className="min-w-0 space-y-4 lg:col-span-2">
+                  {/* 홈 진열 편성 승인 — 무엇을 승인하는지 초안 그대로(2026-11-20 백엔드 회신 ①: 전시 승인자도 초안·배너 그림을 읽음) */}
+                  {a.targetService === 'storefront-service' && a.targetRef && (
+                    <Section title={m.homeLayout.previewTitle} testId="approval-layout-preview">
+                      <LayoutDraftPreview draftId={a.targetRef} />
+                    </Section>
+                  )}
                   <Section title={m.approvals.lines} aside={<span className="text-base-content/55">{m.approvals.lineCount((a.lines ?? []).length)}</span>}>
                     <DataTable>
                       <thead>
