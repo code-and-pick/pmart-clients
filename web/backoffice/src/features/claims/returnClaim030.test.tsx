@@ -98,6 +98,45 @@ describe('반품 claim 0.3.0', () => {
     expect(await within(box).findByTestId('recovery-rejected')).toHaveTextContent('끄고 다시 보내');
   });
 
+  // claim 0.12.0 CL-2 — 서버 판정 feeRefundOnCancel
+  const pickup = { addressFixedToOrder: true, attempts: 2, failedAttempts: 2, countedFailures: 2, retryAllowed: true };
+
+  it('0.12.0 AGENT_CHOOSES: 돌려주기 고르기와 상담원 판단 안내', async () => {
+    claimAs({ pickup: { ...pickup, feeRefundOnCancel: 'AGENT_CHOOSES' } });
+    renderAt('/claims/CLM-MOCK-RF', as.cs);
+    const box = await screen.findByTestId('recovery-actions');
+    expect(within(box).getByRole('checkbox', { name: /낸 회수비 돌려주기/ })).toHaveAccessibleName(/상담원이 정해요/);
+    expect(within(box).queryByTestId('fee-on-cancel')).not.toBeInTheDocument();
+  });
+
+  it('0.12.0 REFUND: 고르기 없이 자동으로 돌려준다는 안내, feeRefund 는 보내지 않는다', async () => {
+    claimAs({ pickup: { ...pickup, feeRefundOnCancel: 'REFUND' } });
+    const view = renderAt('/claims/CLM-MOCK-RF', as.cs);
+    const box = await screen.findByTestId('recovery-actions');
+    expect(within(box).queryByRole('checkbox')).not.toBeInTheDocument();
+    expect(within(box).getByTestId('fee-on-cancel')).toHaveTextContent('취소하면 낸 회수비(9,000원)는 자동으로 돌려줘요');
+    await userEvent.type(within(box).getByRole('textbox'), '라이더 사고 — 반품 그만');
+    await userEvent.click(within(box).getByRole('button', { name: '반품 취소' }));
+    await within(box).findByTestId('recovery-done');
+    expect(await view.mutations('/recovery-actions')[0]!.json()).toEqual({ action: 'CANCEL', note: '라이더 사고 — 반품 그만' });
+  });
+
+  it('0.12.0 NO_REFUND: 고르기 없이 돌려주지 않는다는 안내', async () => {
+    claimAs({ pickup: { ...pickup, feeRefundOnCancel: 'NO_REFUND' } });
+    renderAt('/claims/CLM-MOCK-RF', as.cs);
+    const box = await screen.findByTestId('recovery-actions');
+    expect(within(box).queryByRole('checkbox')).not.toBeInTheDocument();
+    expect(within(box).getByTestId('fee-on-cancel')).toHaveTextContent('돌려주지 않아요');
+  });
+
+  it('0.12.0 null(낸 회수비 없음): 고르기도 안내도 없다', async () => {
+    claimAs({ pickup: { ...pickup, feeRefundOnCancel: null } });
+    renderAt('/claims/CLM-MOCK-RF', as.cs);
+    const box = await screen.findByTestId('recovery-actions');
+    expect(within(box).queryByRole('checkbox')).not.toBeInTheDocument();
+    expect(within(box).queryByTestId('fee-on-cancel')).not.toBeInTheDocument();
+  });
+
   it('회수비를 내지 않았으면 돌려주기 칸이 없다', async () => {
     claimAs({ feePayment: { amount: 9000, state: 'WAITING' }, state: 'FEE_PENDING' });
     renderAt('/claims/CLM-MOCK-RF', as.cs);

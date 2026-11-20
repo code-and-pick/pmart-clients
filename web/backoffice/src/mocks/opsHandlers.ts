@@ -267,7 +267,7 @@ function seed(): OpsState {
         feePayment: { amount: 9000, orderName: '반품 회수비', state: 'PAID', paidAt: ago(19), paymentAttemptId: 'PAY-RET-1' },
         fees: { returnPickupFee: 9000 },
         returnDeadlineAt: ago(-148),
-        pickup: { addressFixedToOrder: true, state: 'FAILED', attempts: 2, failedAttempts: 2, countedFailures: 2, retryAllowed: true, deliveryId: 'DLV-MOCK-RET-2' },
+        pickup: { addressFixedToOrder: true, state: 'FAILED', attempts: 2, failedAttempts: 2, countedFailures: 2, retryAllowed: true, deliveryId: 'DLV-MOCK-RET-2', feeRefundOnCancel: 'AGENT_CHOOSES' },
         lines: [{ claimLineId: 'CL-RF-1', orderLineId: 'ORD-MOCK-1002-L1', sku: 'E-00000001', requestedQty: 1, decision: 'APPROVED', pickedUpQty: 0 }],
       },
     ],
@@ -371,10 +371,14 @@ function createCancel(body: ClaimC['schemas']['CreateClaimRequest']) {
   if (body.faultCode || body.channel === 'CUSTOMER_APP' || body.reason === 'FULFILLMENT_REJECTED' || body.reason === 'OUT_OF_STOCK') return problem(400, 'VALIDATION_FAILED');
   const order = ops.orders.find((o) => o.orderId === body.orderId);
   if (!order) return problem(404, 'ORDER_NOT_FOUND');
+  // claim 0.11.0 DC-1: 직원 회사 사유 전체 취소는 lines 를 빼면 서버가 "모든 행 × 미이행 수량"을 채운다. 그 밖엔 lines 필요(400)
+  const company = dispatch || body.reason === 'OPERATOR_DECISION';
+  const lines = body.lines ?? (company ? order.lines.map((l) => ({ orderLineId: l.orderLineId ?? '', qty: l.unfulfilledQty ?? 0 })) : undefined);
+  if (!lines) return problem(400, 'VALIDATION_FAILED');
   if (dispatch ? !['CONFIRMED', 'PREPARING'].includes(order.status) : order.status !== 'CONFIRMED')
     return { status: 422, body: { type: 'about:blank', title: 'ORDER_NOT_CANCELLABLE', status: 422, code: 'ORDER_NOT_CANCELLABLE', traceId: 'mock', detail: '상품 준비가 시작되어 취소할 수 없습니다 — 받으신 뒤 반품으로 안내해 주세요.' } };
-  const whole = order.lines.every((l) => body.lines.some((x) => x.orderLineId === l.orderLineId && x.qty === (l.unfulfilledQty ?? 0)));
-  if (!whole || body.lines.length !== order.lines.length) return problem(422, 'PARTIAL_CANCEL_NOT_ALLOWED');
+  const whole = order.lines.every((l) => lines.some((x) => x.orderLineId === l.orderLineId && x.qty === (l.unfulfilledQty ?? 0)));
+  if (!whole || lines.length !== order.lines.length) return problem(422, 'PARTIAL_CANCEL_NOT_ALLOWED');
   if (ops.claims.some((c) => c.type === 'CANCEL' && c.orderId === body.orderId && !['CANCELLED', 'CLOSED', 'REJECTED', 'WITHDRAWN'].includes(c.state ?? ''))) return problem(422, 'DUPLICATE_CLAIM');
   const claim: Claim = {
     claimId: `CLM-CAN-${ops.claims.length + 1}`,
@@ -386,7 +390,7 @@ function createCancel(body: ClaimC['schemas']['CreateClaimRequest']) {
     ...(body.reasonDetail ? { reasonDetail: body.reasonDetail } : {}),
     openedAt: new Date().toISOString(),
     version: 1,
-    lines: body.lines.map((l, i) => ({ claimLineId: `CL-CAN-${i + 1}`, orderLineId: l.orderLineId, requestedQty: l.qty, decision: 'APPROVED' as const })),
+    lines: lines.map((l, i) => ({ claimLineId: `CL-CAN-${i + 1}`, orderLineId: l.orderLineId, requestedQty: l.qty, decision: 'APPROVED' as const })),
   };
   ops.claims.unshift(claim);
   return { status: 201, body: claim };
@@ -815,7 +819,9 @@ export const opsHandlers = [
       if (!body.identityCheck?.method || (body.identityCheck.method === 'OTHER' && !body.identityCheck.note)) return problem(400, 'VALIDATION_FAILED');
       const order = ops.orders.find((o) => o.orderId === body.orderId);
       if (!order) return problem(404, 'ORDER_NOT_FOUND');
-      for (const l of body.lines) {
+      const lines = body.lines; // 0.11.0: 반품은 lines 필요(없으면 400)
+      if (!lines) return problem(400, 'VALIDATION_FAILED');
+      for (const l of lines) {
         const line = order.lines.find((x) => x.orderLineId === l.orderLineId);
         const taken = ops.claims
           .filter((c) => c.type === 'RETURN' && c.orderId === body.orderId && !['CANCELLED', 'CLOSED'].includes(c.state ?? ''))
@@ -842,7 +848,7 @@ export const opsHandlers = [
         fees: { returnPickupFee: fee ? 9000 : 0 },
         ...(fee ? { feePayment: { amount: 9000, orderName: '반품 회수비', state: 'WAITING' as const, paymentAttemptId: 'PAY-RET-NEW', deadlineAt: new Date(Date.now() + 86_400_000).toISOString() } } : {}),
         pickup: { addressFixedToOrder: true, state: fee ? 'NOT_REQUIRED' : 'REQUESTED', attempts: fee ? 0 : 1, failedAttempts: 0 },
-        lines: body.lines.map((l, i) => ({ claimLineId: `CL-RET-${i + 1}`, orderLineId: l.orderLineId, requestedQty: l.qty, decision: 'APPROVED' as const })),
+        lines: lines.map((l, i) => ({ claimLineId: `CL-RET-${i + 1}`, orderLineId: l.orderLineId, requestedQty: l.qty, decision: 'APPROVED' as const })),
       };
       ops.claims.unshift(claim);
       return { status: 201, body: claim };
@@ -868,8 +874,12 @@ export const opsHandlers = [
         // 0.3.0 회수비: 낸 것이 없는데 돌려주기는 422. (목은 회수 실패 사유를 따로 두지 않아 그 밖은 받는다)
         const paid = found.feePayment?.state === 'PAID';
         if (body.feeRefund && !paid) return problem(422, 'FEE_REFUND_NOT_ALLOWED');
-        const fee = found.feePayment && paid ? { ...found.feePayment, refundDecision: body.feeRefund ? ('REFUND' as const) : ('KEEP' as const), ...(body.feeRefund ? { refundIntentId: `RF-FEE-${found.claimId ?? ''}` } : {}) } : found.feePayment;
-        if (body.feeRefund) ops.refunds.set(found.claimId ?? '', [...(ops.refunds.get(found.claimId ?? '') ?? []), { refundIntentId: `RF-FEE-${found.claimId ?? ''}`, claimId: found.claimId ?? '', kind: 'RETURN_FEE', amount: found.feePayment?.amount ?? 0, state: 'PENDING_EXECUTION', requestedAt: new Date().toISOString() }]);
+        // 0.12.0 feeRefundOnCancel 규칙: REFUND 에 false·NO_REFUND 에 true 는 422, REFUND 는 보내지 않아도 돌려줌
+        const rule = found.pickup?.feeRefundOnCancel;
+        if ((rule === 'REFUND' && body.feeRefund === false) || (rule === 'NO_REFUND' && body.feeRefund === true)) return problem(422, 'FEE_REFUND_NOT_ALLOWED');
+        const refundFee = paid && (rule === 'REFUND' || (rule !== 'NO_REFUND' && body.feeRefund === true));
+        const fee = found.feePayment && paid ? { ...found.feePayment, refundDecision: refundFee ? ('REFUND' as const) : ('KEEP' as const), ...(refundFee ? { refundIntentId: `RF-FEE-${found.claimId ?? ''}` } : {}) } : found.feePayment;
+        if (refundFee) ops.refunds.set(found.claimId ?? '', [...(ops.refunds.get(found.claimId ?? '') ?? []), { refundIntentId: `RF-FEE-${found.claimId ?? ''}`, claimId: found.claimId ?? '', kind: 'RETURN_FEE', amount: found.feePayment?.amount ?? 0, state: 'PENDING_EXECUTION', requestedAt: new Date().toISOString() }]);
         next = { ...found, state: 'CANCELLED', version, closedAt: new Date().toISOString(), ...(fee ? { feePayment: fee } : {}) };
       } else if (body.action === 'RETRY_PICKUP') {
         if (found.state !== 'RECOVERY_FAILED') return problem(409, 'INVALID_STATE');

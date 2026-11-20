@@ -10,6 +10,8 @@
 //   다시 회수 버튼은 retryAllowed 가 false 가 아닐 때만(기한 지남은 서버 409 RETURN_DEADLINE_PASSED — 화면이 시각을 비교해 막지 않는다).
 // - 반품 취소 때 낸 회수비(feePayment PAID)를 돌려줄지 feeRefund — 고객 사유는 안 돌려줌·우리 잘못은 돌려줌으로 정해져 있고 파손·기타만 상담원 판단.
 //   계약에 회수 실패 사유가 없어 화면은 파손·기타인지 모른다 → 낸 회수비가 있으면 고르게 두고 고를 때만 true, 규칙과 다르면 서버 422 FEE_REFUND_NOT_ALLOWED 안내.
+// claim 0.12.0(CL-2, 2026-11-21): 서버가 `pickup.feeRefundOnCancel` 로 판정을 준다 — AGENT_CHOOSES 일 때만 고르기,
+//   REFUND(자동 돌려줌)·NO_REFUND(안 돌려줌)는 결과만 안내, null 은 낸 회수비 없음. 필드가 없는(0.12.0 전) 서버면 위 방식 그대로.
 // - 라이더가 수거했거나 센터가 받은 회수품이 있으면 취소 버튼 없음(서버 409) — 받은 만큼만 끝내기. 결과는 feePayment.refundDecision·환불(kind RETURN_FEE).
 // - 받은 만큼만 끝내기(CLOSE_AS_RECEIVED): IN_PROGRESS·RECOVERY_FAILED 에서 센터가 받은 수량이 요청보다 적을 때 — 남은 수량은 환불 없음·다시 반품 접수 불가.
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -392,9 +394,12 @@ export function RecoveryActions({ claim }: { readonly claim: Claim }) {
   // 낸 회수비가 있을 때만 돌려주기를 고를 수 있다. 고르면 true 만 보내고, 안 고르면 보내지 않는다(서버가 규칙대로 — 고객 사유 안 돌려줌·우리 잘못 돌려줌·파손·기타 기본 안 돌려줌).
   // 회수 실패 사유가 계약에 없어 화면이 파손·기타인지 모른다 — 규칙과 다르면 422 FEE_REFUND_NOT_ALLOWED 안내
   const paidFee = claim.feePayment?.state === 'PAID';
+  // 0.12.0 서버 판정(feeRefundOnCancel). undefined 는 필드가 없는 예전 서버 — 낸 회수비가 있으면 고르게 둔다
+  const feeRule = claim.pickup?.feeRefundOnCancel;
+  const canChooseFee = feeRule === 'AGENT_CHOOSES' || (feeRule === undefined && paidFee);
   const run = (action: RecoveryAction) => {
     setSent(action);
-    void act.run({ action, note: note.trim(), ...(action === 'CANCEL' && paidFee && feeRefund ? { feeRefund: true } : {}) });
+    void act.run({ action, note: note.trim(), ...(action === 'CANCEL' && canChooseFee && feeRefund ? { feeRefund: true } : {}) });
   };
   const code = act.phase.kind === 'rejected' ? failureCode(act.phase.failure) : undefined;
   return (
@@ -432,14 +437,19 @@ export function RecoveryActions({ claim }: { readonly claim: Claim }) {
           </button>
         )}
       </div>
-      {can.has('CANCEL') && paidFee && (
+      {can.has('CANCEL') && canChooseFee && (
         <label className="flex items-start gap-2 text-sm">
           <input type="checkbox" className="checkbox checkbox-sm" checked={feeRefund} disabled={locked} onChange={(e) => setFeeRefund(e.target.checked)} />
           <span>
             {m.feeRefund}
-            <span className="block text-xs text-base-content/60">{m.feeRefundHint}</span>
+            <span className="block text-xs text-base-content/60">{feeRule === 'AGENT_CHOOSES' ? m.feeRefundAgentHint : m.feeRefundHint}</span>
           </span>
         </label>
+      )}
+      {can.has('CANCEL') && (feeRule === 'REFUND' || feeRule === 'NO_REFUND') && (
+        <p className="text-sm" data-testid="fee-on-cancel">
+          {feeRule === 'REFUND' ? m.feeOnCancelRefund(claim.feePayment ? won(claim.feePayment.amount) : m.feePayment) : m.feeOnCancelNoRefund}
+        </p>
       )}
       {can.has('CANCEL') && <p className="text-xs text-base-content/60">{m.cancelHint}</p>}
       {can.has('CLOSE_AS_RECEIVED') && (
