@@ -27,6 +27,7 @@ import { OrderCancelAction, OrderCancelForm } from '../claims/OrderCancel';
 import { ReturnIntakeLink } from '../claims/ReturnClaim';
 import { DeliveriesOf } from '../deliveries/DeliveryPages';
 import { EmptyBox, Icon, KindChip, ListFoot, SideFields, Timeline, When } from '../lookup/parts';
+import { useHelp } from '../../shared/HelpPanel';
 
 type OrderStatus = components['schemas']['OrderStatus'];
 type Detail = components['schemas']['StaffOrderDetail'];
@@ -96,6 +97,8 @@ export function OrderLookupPage() {
   const criteria = criteriaFrom(search);
   const page = Math.max(0, Number(search.get('page') ?? '0') || 0);
   const blocked = problemOf(criteria);
+  // 도움말(2026-11-20) — 이 화면이 이미 지키는 입력 규칙
+  const help = useHelp('orders', m.orders.title, <>{m.help.orders.map((t) => <p key={t}>{t}</p>)}</>);
 
   const query = useQuery({
     queryKey: ['orders', 'lookups', criteria, page],
@@ -131,7 +134,7 @@ export function OrderLookupPage() {
   // 관리자 형식(2026-11-18, PC 5 요청 — 모범 화면 rider-backoffice DeliveryPages): 머리말 → 검색 조건 상자 → 결과 줄 → 표 → 쪽
   return (
     <section className="space-y-5">
-      <ListHeader title={m.orders.title} count={listCount(query)} refresh={refreshOf(query)} />
+      <ListHeader title={m.orders.title} count={listCount(query)} refresh={refreshOf(query)} onInfo={help?.open} />
       {/* 내 보기(2026-11-18 Saleor 참고) — 지금 주소 조건을 이름 붙여 저장 */}
       <SavedViews listKey="orders" />
       <div className="rounded-box border border-base-300 bg-base-100 px-5 py-3" data-list-part="top">

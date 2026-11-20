@@ -14,10 +14,11 @@ import type { components } from '../../api/generated/backoffice-bff';
 import type { components as CustomerC } from '../../api/generated/customer';
 import { useApi } from '../../app/ApiContext';
 import { ago } from '../../app/DashboardBoard';
-import { CodeLabel, DataTable, DetailHeader, FieldList, Notice, PageHeader, PropertyFilter, Section, StatusBadge, type FilterProp, type Tone } from '../../shared/admin';
+import { CodeLabel, DataTable, DetailHeader, FieldList, Notice, PropertyFilter, Section, StatusBadge, type FilterProp, type Tone, ListHeader, listCount, refreshOf } from '../../shared/admin';
 import { messages } from '../../shared/messages';
 import { label, text, when, won } from '../../shared/ops';
 import { statusTone } from '../orders/OrderLookupPages';
+import { useHelp } from '../../shared/HelpPanel';
 
 const m = messages.customers;
 type Detail = components['schemas']['ComposedView'] & components['schemas']['CustomerDetailView'];
@@ -50,10 +51,11 @@ export function CustomerSearchPage() {
     }
     setParams(next);
   };
+  const help = useHelp('customers', m.title, <>{messages.help.customers.map((t) => <p key={t}>{t}</p>)}</>);
   const props: FilterProp[] = KEYS.map((k) => ({ key: k, label: m.by[k], text: { hint: m.byHint[k], maxLength: k === 'phone' ? 20 : 16, numeric: true } }));
   return (
     <section className="space-y-4">
-      <PageHeader title={m.title} />
+      <ListHeader title={m.title} count={by ? listCount(query) : undefined} refresh={by ? refreshOf(query) : undefined} onInfo={help?.open} />
       <div className="rounded-box border border-base-300 bg-base-100 px-5 py-3" data-list-part="top">
         <PropertyFilter props={props} value={Object.fromEntries(KEYS.map((k) => [k, params.get(k) ?? undefined]))} onChange={change} testId="customer-filter" />
         <p className="mt-2 text-xs text-base-content/60">{m.searchHint}</p>
@@ -143,6 +145,8 @@ function CustomerDetail({ d }: { readonly d: Detail }) {
   const opened = reveal.phase.kind === 'done' ? reveal.phase.result : null;
   const isOpen = (f: PiiField) => opened?.fields?.includes(f) ?? false;
   const reasonOk = reason.trim().length >= 2 && reason.trim().length <= 200;
+  // 도움말(위치 줄 ⓘ) — 찾기 화면과 같은 글
+  useHelp('customers', m.title, <>{messages.help.customers.map((t) => <p key={t}>{t}</p>)}</>);
   return (
     <section className="space-y-4" data-testid="customer-detail">
       <DetailHeader

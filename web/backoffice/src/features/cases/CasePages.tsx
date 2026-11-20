@@ -64,6 +64,7 @@ import { ClaimOfCase } from '../claims/ReturnClaim';
 import { CaseBoard } from './CaseBoard';
 import { LayoutToggle } from '../../shared/Kanban';
 import { TableSettings } from '../../shared/TableSettings';
+import { useHelp } from '../../shared/HelpPanel';
 
 type Case = components['schemas']['Case'];
 type InboxView = BffOps['getCaseInboxView']['responses'][200]['content']['application/json'];
@@ -469,6 +470,7 @@ export function CaseListPage() {
     setPicked(next);
   };
   const board = params.get('layout') === 'board';
+  const help = useHelp('cases', m.cases.title, <>{m.help.cases.map((t) => <p key={t}>{t}</p>)}</>);
   const setBoard = (on: boolean) => {
     const next = new URLSearchParams(params);
     if (on) next.set('layout', 'board');
@@ -478,7 +480,7 @@ export function CaseListPage() {
   return (
     <section className="space-y-4">
       {/* 표 / 보드(2026-11-20 사용자 "보드로 보기") — 주소 layout=board 로 기억 */}
-      <ListHeader title={m.cases.title} count={board ? undefined : listCount(query)} refresh={board ? undefined : refreshOf(query)} actions={<LayoutToggle board={board} onChange={setBoard} />} />
+      <ListHeader title={m.cases.title} count={board ? undefined : listCount(query)} refresh={board ? undefined : refreshOf(query)} onInfo={help?.open} actions={<LayoutToggle board={board} onChange={setBoard} />} />
       {board ? (
         <CaseBoard kind={kind} />
       ) : (
