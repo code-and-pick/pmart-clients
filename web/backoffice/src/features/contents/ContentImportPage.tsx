@@ -70,9 +70,9 @@ export function ContentImportPage() {
           <>
             <Steps steps={m.contents.importSteps} now={b.state === 'UPLOADED' ? 1 : 3} />
             <ContentBatchNextAction state={b.state} ready={(b.items ?? []).filter((it) => rowStatus(it).kind === 'ready').length} />
-            <div className="grid gap-3 sm:grid-cols-4">
+            <div className="pm-stat-strip flex flex-wrap gap-px overflow-hidden rounded-box border border-base-300 bg-base-300">
               <MiniStat label={m.contents.statProducts} value={b.productCount} />
-              <div className="flex items-center rounded-box border border-base-300 bg-base-100 px-4 py-3 shadow-sm sm:col-span-3">
+              <div className="flex flex-[3_1_20rem] items-center bg-base-100 px-5 py-4">
                 <p role="status" data-testid="row-summary" className="text-sm">
                   {rowSummary(b.items ?? [])}
                 </p>

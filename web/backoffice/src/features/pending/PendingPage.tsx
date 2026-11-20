@@ -376,17 +376,17 @@ function PendingGroups({ items }: { readonly items: readonly Item[] }) {
   const groups = kinds.map((k) => ({ kind: k, items: items.filter((i) => i.kind === k) }));
   return (
     <>
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="pm-stat-strip flex flex-wrap gap-px overflow-hidden rounded-box border border-base-300 bg-base-300">
         {groups.map((g) => {
           const st = KIND_STYLE[g.kind] ?? OTHER_STYLE;
           return (
-            <a key={g.kind} href={`#pending-${g.kind}`} className="flex items-center gap-3 rounded-box border border-base-300 bg-base-100 px-4 py-3 shadow-sm hover:border-primary" data-testid="pending-kind-count">
+            <a key={g.kind} href={`#pending-${g.kind}`} className="flex items-center gap-3 bg-base-100 px-5 py-4 transition-colors hover:bg-base-200/50" data-testid="pending-kind-count">
               <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${st.chip}`}>
                 <KindIcon d={st.icon} />
               </span>
               <span className="min-w-0">
                 <span className="block truncate text-xs text-base-content/60">{label(m.pending.kindName, g.kind)}</span>
-                <span className="text-xl font-bold">{m.pending.count(g.items.length)}</span>
+                <span className="text-[22px] font-semibold leading-tight tracking-tight">{m.pending.count(g.items.length)}</span>
               </span>
             </a>
           );

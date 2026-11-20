@@ -220,7 +220,7 @@ export function NewCsIntakePage() {
             <div>
               <label className="block text-xs font-medium text-base-content/60">
                 {m.category}
-                <select className={`select select-sm text-base-content ${field} sm:max-w-xs`} value={d.category} disabled={locked} onChange={(e) => set('category', e.target.value as Category | '')}>
+                <select className={`select select-sm block text-base-content ${field} sm:max-w-xs`} value={d.category} disabled={locked} onChange={(e) => set('category', e.target.value as Category | '')}>
                   <option value="">{m.pick}</option>
                   {CATEGORIES.map((c) => (
                     <option key={c} value={c}>

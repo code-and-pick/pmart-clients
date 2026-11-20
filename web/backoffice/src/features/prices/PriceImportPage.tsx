@@ -276,10 +276,10 @@ export function PriceImportPage() {
           <>
             <Steps steps={m.prices.importSteps} now={b.state === 'DRAFT' ? 1 : 3} label={m.prices.stepsLabel} />
             <PriceBatchNextAction state={b.state} submittable={b.submittableCount} />
-            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+            <div className="pm-stat-strip flex flex-wrap gap-px overflow-hidden rounded-box border border-base-300 bg-base-300">
               <MiniStat label={m.prices.statLines} value={b.lineCount} />
               <MiniStat label={m.prices.statSubmittable} value={b.submittableCount} tone={b.submittableCount > 0 ? 'success' : 'muted'} />
-              <div className="col-span-2 rounded-box border border-base-300 bg-base-100 px-4 py-3 text-sm shadow-sm">
+              <div className="flex-[2_1_20rem] bg-base-100 px-5 py-4 text-sm">
                 <p data-testid="batch-summary">
                   {`${m.prices.batchStateName[b.state]} · ${m.prices.batchSummary(b.lineCount, b.submittableCount)}`}
                   {b.checkedAt && ` · ${m.prices.checkedAt} ${formatSeoul(b.checkedAt)}`}

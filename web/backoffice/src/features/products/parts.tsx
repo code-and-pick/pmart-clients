@@ -86,9 +86,9 @@ export function EmptyState({ icon, children }: { readonly icon: keyof typeof ICO
 export function MiniStat({ label, value, tone, testId }: { readonly label: ReactNode; readonly value: ReactNode; readonly tone?: 'success' | 'error' | 'warning' | 'muted'; readonly testId?: string }) {
   const color = tone === 'success' ? 'text-success' : tone === 'error' ? 'text-error' : tone === 'warning' ? 'text-warning' : tone === 'muted' ? 'text-base-content/50' : '';
   return (
-    <div className="rounded-box border border-base-300 bg-base-100 px-4 py-3 shadow-sm" data-testid={testId}>
-      <p className="text-xs text-base-content/55">{label}</p>
-      <p className={`text-2xl font-bold tabular-nums ${color}`}>{value}</p>
+    <div className="pm-mini-stat rounded-box border border-base-300 bg-base-100 px-5 py-4" data-testid={testId}>
+      <p className="text-sm text-base-content/70">{label}</p>
+      <p className={`text-[26px] font-semibold leading-tight tracking-tight ${color}`}>{value}</p>
     </div>
   );
 }

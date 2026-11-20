@@ -63,9 +63,9 @@ function Chevron({ open }: { readonly open: boolean }) {
 
 function Stat({ label, value, tone }: { readonly label: string; readonly value: number; readonly tone?: 'muted' }) {
   return (
-    <div className="rounded-box border border-base-300 bg-base-100 px-4 py-3 shadow-sm">
-      <p className="text-xs text-base-content/55">{label}</p>
-      <p className={`text-2xl font-bold tabular-nums ${tone === 'muted' ? 'text-base-content/50' : ''}`}>{value}</p>
+    <div className="bg-base-100 px-5 py-4">
+      <p className="text-sm text-base-content/70">{label}</p>
+      <p className={`text-[26px] font-semibold leading-tight tracking-tight ${tone === 'muted' || value === 0 ? 'text-base-content/35' : ''}`}>{value}</p>
     </div>
   );
 }
@@ -135,7 +135,7 @@ function TreeView() {
 
         return (
           <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-3 md:grid-cols-4" data-testid="category-stats">
+            <div className="pm-stat-strip flex flex-wrap gap-px overflow-hidden rounded-box border border-base-300 bg-base-300" data-testid="category-stats">
               <Stat label={m.categories.depthCount(LEVEL_DEPTH_NAME[0])} value={counts[0] ?? 0} />
               <Stat label={m.categories.depthCount(LEVEL_DEPTH_NAME[1])} value={counts[1] ?? 0} />
               <Stat label={m.categories.depthCount(LEVEL_DEPTH_NAME[2])} value={counts[2] ?? 0} />
@@ -164,7 +164,7 @@ function TreeView() {
                     const open = q ? true : !closed.has(n.categoryId);
                     const on = selected === n.categoryId;
                     return (
-                      <li key={n.categoryId} className="flex items-center gap-0.5" style={{ paddingLeft: `${n.depth * 1.1}rem` }}>
+                      <li key={n.categoryId} className="flex items-center gap-1" style={{ paddingLeft: `${n.depth * 1.1}rem` }}>
                         {has ? (
                           <button type="button" className="btn btn-ghost btn-xs btn-square" aria-label={`${open ? m.categories.collapse : m.categories.expand} ${n.name}`} aria-expanded={open} onClick={() => toggle(n.categoryId)}>
                             <Chevron open={open} />

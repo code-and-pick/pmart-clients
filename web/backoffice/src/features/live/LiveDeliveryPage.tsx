@@ -257,9 +257,9 @@ const FLOW = ['UNASSIGNED', 'ASSIGNED', 'ARRIVED_AT_STORE', 'PICKED_UP', 'ARRIVE
 /** 숫자 카드 두 줄의 자리(읽는 중) — LiveBoards 와 같은 높이 */
 function LiveBoardsSkeleton() {
   const row = (n: number, key: string) => (
-    <div className={`grid grid-cols-2 gap-3 ${n === 4 ? 'lg:grid-cols-4' : 'md:grid-cols-5'}`}>
+    <div className="pm-stat-strip flex flex-wrap gap-px overflow-hidden rounded-box border border-base-300 bg-base-300">
       {Array.from({ length: n }, (_, i) => (
-        <div key={`${key}-${i}`} className="h-[86px] rounded-box border border-base-300 bg-base-100">
+        <div key={`${key}-${i}`} className="h-[86px] bg-base-100">
           <div className="skeleton m-3.5 h-4 w-24" />
         </div>
       ))}
@@ -310,10 +310,13 @@ function LiveBoards({
       onClick={onClick}
       aria-pressed={active}
       data-testid={`live-first-${key}`}
-      className={`relative rounded-box border px-4 py-3.5 text-left transition hover:-translate-y-0.5 ${active ? 'border-primary bg-primary/5' : 'border-base-300 bg-base-100'}`}
+      className="relative bg-base-100 px-5 py-4 text-left transition-colors hover:bg-base-200/50"
     >
-      <span className="block text-sm font-semibold">{label}</span>
-      <span className={`mt-1 block text-2xl font-bold tabular-nums ${value && value > 0 ? (tone === 'error' ? 'text-error' : 'text-warning') : ''}`}>{value === null ? messages.none : value}</span>
+      <span className="flex items-center gap-1.5 text-sm text-base-content/70">
+        {value !== null && value > 0 && <span className={`h-1.5 w-1.5 rounded-full ${tone === 'error' ? 'bg-error' : 'bg-warning'}`} aria-hidden="true" />}
+        {label}
+      </span>
+      <span className={`mt-0.5 block text-[26px] font-semibold leading-tight tracking-tight ${value === null ? 'text-base-content/40' : value > 0 ? (tone === 'error' ? 'text-error' : '') : 'text-base-content/35'}`}>{value === null ? messages.none : value}</span>
       {hint && <span className="block text-[11px] text-base-content/50">{hint}</span>}
     </button>
   );
@@ -325,7 +328,7 @@ function LiveBoards({
         {allClear && items.length > 0 ? (
           <AllDone title={b.allClear} body={b.allClearBody(items.length)} testId="live-all-clear" />
         ) : (
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <div className="pm-stat-strip flex flex-wrap gap-px overflow-hidden rounded-box border border-base-300 bg-base-300">
             {card('late', m.kpi.late, late, 'error', focus === 'late', () => onFocus(focus === 'late' ? '' : 'late'))}
             {card('failed', b.failed, failed, 'error', state === 'FAILURE_REPORTED', () => onState(state === 'FAILURE_REPORTED' ? '' : 'FAILURE_REPORTED'))}
             {card('noRider', m.kpi.noRider, noRider, 'warning', focus === 'noRider', () => onFocus(focus === 'noRider' ? '' : 'noRider'))}
