@@ -12,13 +12,16 @@ type MockCustomer = { customerId: string; customerNumber: string; name: string; 
 
 export const MOCK_CUSTOMERS: readonly MockCustomer[] = [
   { customerId: 'CUS-1001', customerNumber: '482913', name: '김고객', phone: '01012345678', email: 'kim.customer@example.com', provider: 'KAKAO', verified: true, status: 'ACTIVE', joinedAt: '2026-03-02T01:20:00Z', orderNumbers: ['74939001', '74939002'] },
+  // 탈퇴 완료(customer 0.12.0) — 이름·연락처·이메일은 지워져 가린 값도 null, 고객번호는 남음
+  { customerId: 'CUS-1009', customerNumber: '600112', name: '', phone: '', email: '', provider: 'KAKAO', verified: false, status: 'WITHDRAW_COMPLETED', joinedAt: '2026-01-10T03:00:00Z', orderNumbers: [] },
   { customerId: 'CUS-1005', customerNumber: '517204', name: '이민지', phone: '01098765678', email: 'minji@example.com', provider: 'NAVER', verified: false, status: 'WITHDRAW_PENDING', joinedAt: '2026-08-15T05:00:00Z', orderNumbers: ['74939005'] },
 ];
 
 const maskName = (n: string) => (n.length <= 1 ? '*' : `${n[0]}${'*'.repeat(Math.max(1, n.length - 2))}${n.length > 2 ? n[n.length - 1] : ''}`);
 const maskPhone = (p: string) => `${p.slice(0, 3)}-****-${p.slice(-4)}`;
 const maskEmail = (e: string) => `${e[0]}***@${e.split('@')[1] ?? ''}`;
-const summary = (c: MockCustomer) => ({ customerId: c.customerId, customerNumber: c.customerNumber, nameMasked: maskName(c.name), phoneMasked: maskPhone(c.phone), status: c.status });
+const gone = (c: MockCustomer) => c.status === 'WITHDRAW_COMPLETED';
+const summary = (c: MockCustomer) => ({ customerId: c.customerId, customerNumber: c.customerNumber, nameMasked: gone(c) ? null : maskName(c.name), phoneMasked: gone(c) ? null : maskPhone(c.phone), status: c.status });
 
 /** CS_AGENT·OPERATOR_ADMIN 만(계약 x-roles) */
 function deny(request: Request): Response | null {
@@ -50,7 +53,7 @@ export const customerHandlers = [
     const first = c.customerId === 'CUS-1001';
     return HttpResponse.json({
       ...composed(),
-      customer: { customerId: c.customerId, customerNumber: c.customerNumber, nameMasked: maskName(c.name), phoneMasked: maskPhone(c.phone), emailMasked: maskEmail(c.email), status: c.status, socialProvider: c.provider, phoneVerified: c.verified, joinedAt: c.joinedAt },
+      customer: { customerId: c.customerId, customerNumber: c.customerNumber, nameMasked: gone(c) ? null : maskName(c.name), phoneMasked: gone(c) ? null : maskPhone(c.phone), emailMasked: gone(c) ? null : maskEmail(c.email), status: c.status, socialProvider: c.provider, phoneVerified: c.verified, joinedAt: c.joinedAt },
       orders: {
         hasMore: false,
         items: c.orderNumbers.map((n, i) => ({ orderId: `ORD-MOCK-100${n.slice(-1)}`, /* 목 주문 번호표(opsHandlers ORDER_NUMBERS: 74939001 ↔ ORD-MOCK-1001) */ orderNumber: n, status: i === 0 ? 'CONFIRMED' : 'IN_DELIVERY', confirmedAt: ago(2 + i * 24), itemCount: 1 + i, totalAmount: 15100, deliveryMode: 'INSTANT', mfcId: 'MFC-BSN-01', openFulfillmentIssues: 0 })),

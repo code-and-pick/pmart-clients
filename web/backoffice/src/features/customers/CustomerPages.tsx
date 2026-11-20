@@ -175,7 +175,12 @@ function CustomerDetail({ d }: { readonly d: Detail }) {
           </Section>
         </div>
         <aside className="min-w-0">
-          {opened ? (
+          {c.status === 'WITHDRAW_COMPLETED' ? (
+            // 탈퇴 완료(customer 0.12.0) — 지운 값이라 열람할 원문이 없다
+            <Notice>
+              <span data-testid="customer-withdrawn">{m.withdrawnNote}</span>
+            </Notice>
+          ) : opened ? (
             <div role="status" className="space-y-2 rounded-box border-2 border-warning bg-warning/10 p-4 text-xs">
               <p>{m.pii.opened(text(opened.piiAccessLogId), when(opened.recordedAt))}</p>
               <button type="button" className="btn btn-sm" onClick={() => reveal.reset()}>

@@ -54,7 +54,9 @@ export const messages = {
     byHint: { customerNumber: '6자리', phone: '숫자만 또는 010-1234-5678', orderNumber: '8자리' } as const,
     empty: '맞는 고객이 없어요',
     col: { number: '고객번호', name: '이름', phone: '연락처', status: '계정 상태' },
-    statusName: { ACTIVE: '정상', WITHDRAW_PENDING: '탈퇴 대기', WITHDRAW_COMPLETED: '탈퇴 완료' } as Readonly<Record<string, string>>,
+    // customer 0.12.0 고객 탈퇴(ADR-0077, 2026-11-20 알림): 신청 = 신규 구매만 막힘(조회·고객센터·클레임 그대로), 완료 = 이름·연락처·이메일 지워짐(고객번호는 남음). 모르는 값은 원문 그대로
+    statusName: { ACTIVE: '정상', WITHDRAW_PENDING: '탈퇴 신청', WITHDRAW_COMPLETED: '탈퇴 완료' } as Readonly<Record<string, string>>,
+    withdrawnNote: '탈퇴를 마친 고객이에요 — 이름·연락처·이메일은 지워져 원문이 없어요. 고객번호와 주문·문의 이력만 남아요.',
     providerName: { KAKAO: '카카오', NAVER: '네이버', GOOGLE: 'Google', APPLE: 'Apple' } as Readonly<Record<string, string>>,
     detailTitle: '고객 상세',
     back: '고객 찾기',
