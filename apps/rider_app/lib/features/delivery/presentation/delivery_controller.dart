@@ -567,6 +567,10 @@ class DeliveryFlowController extends Notifier<DeliveryFlowState> {
     // 배송이 끝났다(서버 확정) — 제안을 바로 다시 본다. 하나씩 배달하기·최대 3건이 차 있던 동안 서버는
     // 폴링을 멈추게(pollAfterSec null) 하므로, 끝난 뒤 다시 묻지 않으면 새 제안이 앱을 다시 열 때까지 안 보인다.
     if (finishedOne) {
+      // 서버가 끝남을 확정했다 — 진행 중 목록에서 바로 뺀다. 전에는 완료 창의 "확인"을 눌러야만 빠져서,
+      // 창을 바깥을 눌러 닫으면 끝난 배송이 "진행 중인 배달 n건"에 남았다(2026-11-20 S23 실서버 재현).
+      ref.read(assignedDeliveriesProvider.notifier).remove(deliveryId);
+      ref.invalidate(myActiveDeliveriesProvider);
       unawaited(ref.read(offerPollerProvider.notifier).refreshNow());
     }
   }
