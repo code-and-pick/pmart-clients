@@ -626,3 +626,23 @@ export function SearchPanel({ onSubmit, onReset, children, submitLabel = '조회
     </div>
   );
 }
+
+/**
+ * 목록 개수(제목줄 "이름 (개수)") — 서버가 준 줄만 센다. 다음 쪽이 있으면 "N+". 못 읽었거나 읽는 중이면 undefined(0 으로 보이지 않게).
+ * 모양: 한 쪽 { items, page: { hasNext | nextCursor } } 또는 이어 붙이는 쪽 { pages: [...] }(useInfiniteQuery).
+ */
+type ListPage = { readonly items?: readonly unknown[] | null; readonly page?: { readonly hasNext?: boolean | null; readonly nextCursor?: string | null } | null };
+export function listCount(q: { readonly data?: unknown; readonly hasNextPage?: boolean }): string | undefined {
+  const d = q.data as (ListPage & { readonly pages?: readonly ListPage[] }) | undefined;
+  if (!d) return undefined;
+  const pages: readonly ListPage[] | undefined = d.pages;
+  if (pages) {
+    const n = pages.reduce((sum: number, p: ListPage) => sum + (p.items?.length ?? 0), 0);
+    return `${n}${q.hasNextPage ? '+' : ''}`;
+  }
+  if (!Array.isArray(d.items)) return undefined;
+  return `${d.items.length}${d.page?.hasNext || d.page?.nextCursor ? '+' : ''}`;
+}
+
+/** 제목줄 새로 고침 — 같은 조회를 다시, 읽은 시각은 그 조회가 받은 때 */
+export const refreshOf = (q: { readonly refetch: () => Promise<unknown>; readonly isFetching: boolean; readonly dataUpdatedAt: number }) => ({ onClick: () => void q.refetch(), busy: q.isFetching, readAt: q.dataUpdatedAt || undefined });

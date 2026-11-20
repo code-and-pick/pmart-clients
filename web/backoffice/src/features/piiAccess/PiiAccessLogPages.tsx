@@ -15,7 +15,7 @@ import { SavedViews } from '../../shared/SavedViews';
 import { messages } from '../../shared/messages';
 import { isSeoulDate, label, seoulDayEnd, seoulDayStart, text, when } from '../../shared/ops';
 import { labelText, useEmployeeLabel } from '../../shared/employeeLabels';
-import { CodeLabel, FieldList, PageHeader, PropertyFilter, Section, StatusBadge, type Tone } from '../../shared/admin';
+import { CodeLabel, FieldList, PageHeader, PropertyFilter, Section, StatusBadge, type Tone, ListHeader, listCount, refreshOf } from '../../shared/admin';
 
 const m = messages.piiLogs;
 type Log = components['schemas']['PiiAccessLog'];
@@ -159,7 +159,7 @@ export function PiiAccessLogListPage() {
 
   return (
     <section className="space-y-4">
-      <PageHeader title={m.title} />
+      <ListHeader title={m.title} count={listCount(query)} refresh={refreshOf(query)} />
       {/* 내 보기(2026-11-18 Saleor 참고) — 지금 주소 조건을 이름 붙여 저장 */}
       <SavedViews listKey="pii-access" />
       <FilterForm key={params.toString()} initial={filters} onApply={(f) => apply(f)} />

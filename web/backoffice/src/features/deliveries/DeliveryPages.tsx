@@ -31,7 +31,7 @@ import { CopyButton } from '../../shared/CopyButton';
 import { useRecordRecent } from '../../shared/recentViews';
 import { messages as m } from '../../shared/messages';
 import { label, text, when } from '../../shared/ops';
-import { CodeLabel, DataTable, DetailHeader, FieldList, NextAction, PageHeader, PropertyFilter, ResultBar, Section, StatusBadge, type Tone, useRowLink } from '../../shared/admin';
+import { CodeLabel, DataTable, DetailHeader, FieldList, NextAction, PropertyFilter, ResultBar, Section, StatusBadge, type Tone, useRowLink, ListHeader, refreshOf } from '../../shared/admin';
 import { Icon, KindChip, ListFoot, Timeline, When } from '../lookup/parts';
 
 type DeliveryExecution = Execution['schemas']['DeliveryExecution'];
@@ -255,8 +255,11 @@ export function DeliveryOpenPage() {
   return (
     <section className="space-y-5">
       {/* 화면(2026-11-18 Shopify 목록처럼): 머리 오른쪽 "바로 열기" → 한 카드(빠른 보기 → 검색 조건 → 결과 줄·표 → 더 보기) */}
-      <PageHeader
+      <ListHeader
         title={m.deliveries.title}
+        // 더 보기로 이어 붙인 줄까지(서버가 준 줄만)
+        count={query.data ? `${(query.data.items ?? []).length + more.rows.length}${nextCursor ? '+' : ''}` : undefined}
+        refresh={refreshOf(query)}
         actions={
           <form className="join" onSubmit={(e) => void open(e)} aria-label={m.deliveries.open}>
             <label className="input input-sm join-item w-60">

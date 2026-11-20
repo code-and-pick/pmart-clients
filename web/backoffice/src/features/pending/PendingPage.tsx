@@ -28,7 +28,7 @@ import { messages as m, messages } from '../../shared/messages';
 import { DisplayNumber } from '../../shared/displayNumber';
 import { label, text, when } from '../../shared/ops';
 import { SourceStamps } from '../../shared/SourceStamps';
-import { CodeLabel, NextAction, PageHeader, StatCard, StatStrip, AllDone } from '../../shared/admin';
+import { CodeLabel, NextAction, StatCard, StatStrip, AllDone, ListHeader, refreshOf } from '../../shared/admin';
 import { PENDING_KINDS } from '../../app/listCounts';
 
 type Item = components['schemas']['PendingWorkItem'];
@@ -301,7 +301,7 @@ export function PendingPage() {
   const pendingAllDone = query.isSuccess && (query.data.items ?? []).length === 0 && !query.data.truncated && (query.data.unavailableSources ?? []).length === 0 && (query.data.sources ?? []).some((x) => x.system === MFC);
   return (
     <section className="space-y-4">
-      <PageHeader title={m.pending.title} />
+      <ListHeader title={m.pending.title} count={query.data ? `${(query.data.items ?? []).length}${query.data.truncated ? '+' : ''}` : undefined} refresh={refreshOf(query)} />
       {/* 숫자 띠(2026-11-19 관제 형식) — 이 화면이 읽은 목록을 종류별로(대시보드 "확인이 필요한 문제"와 같은 조회·기준). 잘렸으면 "N+" */}
       {query.data && (
         <StatStrip label={m.listStrip.pending} testId="pending-strip">

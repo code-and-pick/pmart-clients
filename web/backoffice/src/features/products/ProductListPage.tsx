@@ -16,7 +16,7 @@ import { SavedViews } from '../../shared/SavedViews';
 import { messages as m } from '../../shared/messages';
 import { QueryState } from '@pmart/web-ui';
 import { toUiState } from '@pmart/web-ui';
-import { countCell, PageHeader, StatCard, StatStrip, StatusBadge, type Tone } from '../../shared/admin';
+import { countCell, StatCard, StatStrip, StatusBadge, type Tone, ListHeader, listCount, refreshOf } from '../../shared/admin';
 import { SearchSelect } from '../../shared/SearchSelect';
 import { formatKrw } from '@pmart/web-ui';
 import { useProductPrices } from '../prices/productPrices';
@@ -159,8 +159,10 @@ export function ProductListPage() {
 
   return (
     <section className="space-y-4">
-      <PageHeader
+      <ListHeader
         title={m.products.listTitle}
+        count={listCount(query)}
+        refresh={refreshOf(query)}
         actions={
           <>
             {/* 가격 관리는 메뉴 대신 여기서(2026-11-19 메뉴 정리) */}

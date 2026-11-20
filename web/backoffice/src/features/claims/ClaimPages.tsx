@@ -9,7 +9,7 @@ import { request } from '@pmart/web-core';
 import { QueryState, toUiState, uiStateFromError } from '@pmart/web-ui';
 import type { components } from '../../api/generated/claim';
 import { useApi } from '../../app/ApiContext';
-import { CodeLabel, DataTable, DetailHeader, NextAction, Notice, PageHeader, PropertyFilter, ResultBar, Section, StatCard, StatStrip, StatusBadge, type Tone } from '../../shared/admin';
+import { CodeLabel, DataTable, DetailHeader, NextAction, Notice, PropertyFilter, ResultBar, Section, StatCard, StatStrip, StatusBadge, type Tone, ListHeader, listCount, refreshOf } from '../../shared/admin';
 import { EmptyBox, KindChip, ListFoot, SideFields, When } from '../lookup/parts';
 import { DisplayNumber, SystemNumbers } from '../../shared/displayNumber';
 import { SavedViews } from '../../shared/SavedViews';
@@ -292,8 +292,10 @@ export function ClaimListPage() {
   // 2026-11-19 쿠팡 윙 반품관리 참고: 안내 상자 → 단계 숫자 카드 → 검색 조건(드롭다운) → 목록(사유·환불 칸)
   return (
     <section className="space-y-4">
-      <PageHeader
+      <ListHeader
         title={m.claims.title}
+        count={listCount(query)}
+        refresh={refreshOf(query)}
         actions={
           <Link className="btn btn-sm" to="/return-intake">
             {cl.newReturn}

@@ -23,7 +23,7 @@ import { CommandFeedback } from '../../shared/Feedback';
 import { canSeeIntakes, CsIntakeLog } from '../csIntakes/CsIntakePages';
 import { InquiryPhotos } from './InquiryPhotos';
 import { ago, Avatar, Card, EmptyBox, Icon, ICON, MetaList } from './HelpdeskParts';
-import { CodeLabel, DetailHeader, NextAction, PageHeader, StatusBadge, type Tone, StatCard, StatStrip, AllDone } from '../../shared/admin';
+import { CodeLabel, DetailHeader, NextAction, StatusBadge, type Tone, StatCard, StatStrip, AllDone, ListHeader, listCount, refreshOf } from '../../shared/admin';
 import { DisplayNumber, RiderLabel, SystemNumbers } from '../../shared/displayNumber';
 import { useDeliveryNumber, useOrderNumbers, useRiderLabels } from '../../shared/numberLookups';
 import { SavedViews } from '../../shared/SavedViews';
@@ -153,7 +153,7 @@ export function InquiryListPage({ kind = 'CUSTOMER' }: { readonly kind?: Request
 
   return (
     <section className="space-y-4">
-      <PageHeader title={rider ? m.inquiries.riderTitle : m.inquiries.title} />
+      <ListHeader title={rider ? m.inquiries.riderTitle : m.inquiries.title} count={listCount(query)} refresh={refreshOf(query)} />
       {/* 2026-11-19 쿠팡 윙 고객문의 참고: 안내 상자 → 미답변 현황(기다린 시간) 카드 → 상태 탭·목록 */}
       <section aria-label={lv.waitsLabel} className="space-y-1.5">
         <h2 className="text-sm font-bold">{lv.waitsLabel}</h2>

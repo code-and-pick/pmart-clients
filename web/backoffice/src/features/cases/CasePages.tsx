@@ -37,7 +37,7 @@ import type { operations as BffOps } from '../../api/generated/backoffice-bff';
 import type { components } from '../../api/generated/case';
 import { useApi } from '../../app/ApiContext';
 import { useSession } from '../../app/SessionContext';
-import { CodeLabel, NextAction, Notice, PageHeader, StatCard, StatStrip, StatusBadge, countCell, type Tone, AllDone } from '../../shared/admin';
+import { CodeLabel, NextAction, Notice, PageHeader, StatCard, StatStrip, StatusBadge, countCell, type Tone, AllDone, ListHeader, listCount, refreshOf } from '../../shared/admin';
 import { SavedViews } from '../../shared/SavedViews';
 import { useRecordRecent } from '../../shared/recentViews';
 import { TabCount, useAlertCount } from '../../app/MenuAlerts';
@@ -477,7 +477,7 @@ export function CaseListPage() {
   return (
     <section className="space-y-4">
       {/* 표 / 보드(2026-11-20 사용자 "보드로 보기") — 주소 layout=board 로 기억 */}
-      <PageHeader title={m.cases.title} actions={<LayoutToggle board={board} onChange={setBoard} />} />
+      <ListHeader title={m.cases.title} count={board ? undefined : listCount(query)} refresh={board ? undefined : refreshOf(query)} actions={<LayoutToggle board={board} onChange={setBoard} />} />
       {board ? (
         <CaseBoard kind={kind} />
       ) : (
