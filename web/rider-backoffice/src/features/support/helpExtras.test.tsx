@@ -1,5 +1,5 @@
 // 도움요청 상세 보탬 — 증빙 사진·처리함·가리기(execution 계약) — 목(MSW) 기준. 실서버 확인은 아니다.
-import { screen, within } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -174,5 +174,38 @@ describe('상담함 — 도움요청 여러 쪽', () => {
     const done = asked.filter((q) => q.get('state') === 'RESOLVED');
     expect(done.map((q) => q.get('cursor'))).toEqual([null, 'c2']);
     expect(done.every((q) => !!q.get('from'))).toBe(true);
+  });
+});
+
+describe('상담함 — 찾기·주문번호·소명·이의 탭(2026-11-20)', () => {
+  it('줄마다 주문번호가 보이고, 주문번호로 찾으면 그 배송 상담만 남는다', async () => {
+    // 번호 묶음 조회(GET /deliveries?deliveryIds=) — DLV-1 만 주문번호가 48213075
+    server.use(
+      http.get(`${API_BASE}/deliveries`, ({ request }) => {
+        const ids = (new URL(request.url).searchParams.get('deliveryIds') ?? '').split(',').filter(Boolean);
+        return HttpResponse.json({ items: ids.map((id, i) => ({ deliveryId: id, state: 'PICKED_UP', deliveryNumber: id === 'DLV-1' ? '48213075-1' : `5000000${i}-1`, orderNumber: id === 'DLV-1' ? '48213075' : `5000000${i}` })), page: { nextCursor: null } });
+      }),
+    );
+    renderAt('/consults', as.riderOps);
+    // 번호는 목록 뒤에 따로 온다
+    await waitFor(() => expect(screen.getAllByTestId('consult-order').map((o) => o.textContent)).toContain('48213075'));
+    const before = (await screen.findAllByTestId('consult-row')).length;
+    await userEvent.type(screen.getByRole('searchbox'), '48213075');
+    await userEvent.click(within(screen.getByTestId('consults-search')).getByRole('button', { name: '찾기' }));
+    const rows = await screen.findAllByTestId('consult-row');
+    expect(rows.length).toBeLessThan(before);
+    expect(rows.every((r) => within(r).getByTestId('consult-order').textContent === '48213075')).toBe(true);
+  });
+
+  it('맞는 게 없으면 "맞는 상담이 없어요"(수고하셨어요가 아니라)', async () => {
+    renderAt('/consults?q=없는번호', as.riderOps);
+    expect(await screen.findByTestId('consults-empty')).toHaveTextContent('"없는번호"에 맞는 상담이 없어요.');
+    expect(screen.queryByTestId('consults-all-done')).not.toBeInTheDocument();
+  });
+
+  it('소명·이의는 상담함 탭 — 옛 주소 /appeals 는 조건을 들고 그 탭으로', async () => {
+    renderAt('/appeals?state=UPHELD', as.riderOps);
+    expect(await screen.findByRole('heading', { name: '상담함' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: '소명·이의' })).toHaveAttribute('aria-selected', 'true');
   });
 });

@@ -22,6 +22,7 @@ import { ops } from '../../shared/opsMessages';
 import { label, none, when } from '../../shared/opsUi';
 import { useNow, waited } from '../../shared/useNow';
 import { DeliveryActions } from '../deliveries/DeliveryActions';
+import { AppealsMenu } from './AppealPages';
 import { EvidencePhotos, helpExtrasMessages, InquiryPhotos, MaskMessage, ResolvePanel } from './HelpExtras';
 import { ChatBox, ChatBubble, helpTone, inquiryTone, StateTabs } from './supportUi';
 
@@ -449,11 +450,17 @@ const consultText = {
   intro: '라이더가 보낸 배송 도움요청(급함)과 일반 문의를 한곳에서 봐요. 배송 도움요청이 먼저, 그 안에서는 오래 기다린 것부터. 누르면 대화를 열고, 끝나면 "상담 완료".',
   // 안내 상자 글머리(2026-11-19) — 위 intro 를 문장으로 나눈 것(새 규칙 아님)
   guide: ['라이더가 보낸 배송 도움요청(급함)과 일반 문의를 한곳에서 봐요.', '배송 도움요청이 먼저, 그 안에서는 오래 기다린 것부터.', '누르면 대화를 열고, 끝나면 "상담 완료".'],
-  tabs: { open: '상담 중', done: '끝남' },
+  tabs: { open: '상담 중', done: '끝남', appeals: '소명·이의' },
+  searchLabel: '찾기',
+  searchHint: '배송번호·주문번호·라이더 이름·번호·내용',
+  search: '찾기',
+  clear: '지우기',
+  allKinds: '전체',
+  noMatch: (q: string) => `"${q}"에 맞는 상담이 없어요.`,
   kind: { help: '배송 도움요청', inquiry: '일반 문의', failure: '전달 실패 결정 대기' },
   failureTitle: '전달 불가 신고 — 확정·반려 기다림',
   resumeRequested: '라이더 재개 요청',
-  col: { kind: '구분', title: '내용', state: '상태', delivery: '배송', rider: '라이더', createdAt: '받은 때', wait: '기다린 시간' },
+  col: { kind: '구분', title: '내용', state: '상태', delivery: '배송번호', order: '주문번호', rider: '라이더', createdAt: '받은 때', wait: '기다린 시간' },
   empty: { open: '상담할 건이 없어요.', done: '최근 7일 동안 끝난 상담이 없어요.' },
   partial: (what: string) => `${what} 목록을 불러오지 못했어요 — 아래는 일부예요.`,
   retry: '다시 불러오기',
@@ -480,16 +487,58 @@ type ConsultRow = {
 export function ConsultsMenu() {
   return (
     <Routes>
-      <Route index element={<ConsultsPage />} />
+      <Route index element={<ConsultsHome />} />
     </Routes>
   );
 }
 
-function ConsultsPage() {
+type ConsultTab = 'open' | 'done' | 'appeals';
+
+/**
+ * 상담함 한 곳 — 상담 중 | 끝남 | 소명·이의(2026-11-20 사용자 "상담함이랑 소명이의는 왜 나눠져 있냐").
+ * 라이더앱도 지원센터 한 화면(문의 | 소명·이의 탭)으로 합쳤다. 소명·이의 화면은 그대로 이 탭 안에 그린다.
+ */
+function ConsultsHome() {
+  const [params, setParams] = useSearchParams();
+  const raw = params.get('tab');
+  const tab: ConsultTab = raw === 'done' || raw === 'appeals' ? raw : 'open';
+  return (
+    <section className="space-y-4">
+      <PageHeader title={consultText.title} />
+      <StateTabs
+        label={consultText.title}
+        value={tab}
+        options={[
+          { value: 'open' as const, label: consultText.tabs.open },
+          { value: 'done' as const, label: consultText.tabs.done },
+          { value: 'appeals' as const, label: consultText.tabs.appeals },
+        ]}
+        onChange={(t) => setParams(t === 'open' ? {} : { tab: t })}
+      />
+      {tab === 'appeals' ? <AppealsMenu embedded /> : <ConsultsPage tab={tab} />}
+    </section>
+  );
+}
+
+/** 검색어가 줄에 맞는지 — 배송번호·주문번호·라이더(이름·번호)·내용. 띄어쓰기·대소문자는 무시 */
+const norm = (s: string | null | undefined) => (s ?? '').replace(/\s+/g, '').toLowerCase();
+
+function ConsultsPage({ tab }: { readonly tab: 'open' | 'done' }) {
   const api = useApi();
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
-  const tab: 'open' | 'done' = params.get('tab') === 'done' ? 'done' : 'open';
+  const query = params.get('q') ?? '';
+  const [queryInput, setQueryInput] = useState(query);
+  const rawKind = params.get('kind');
+  const kindFilter: ConsultRow['kind'] | 'all' = rawKind === 'help' || rawKind === 'inquiry' || rawKind === 'failure' ? rawKind : 'all';
+  const patch = (next: Record<string, string>) => {
+    const p = new URLSearchParams(params);
+    for (const [k, v] of Object.entries(next)) {
+      if (v) p.set(k, v);
+      else p.delete(k);
+    }
+    setParams(p);
+  };
   const helpStates: readonly HelpState[] = tab === 'open' ? ['OPEN', 'IN_PROGRESS'] : ['RESOLVED'];
   const inquiryStatuses: readonly InquiryStatus[] = tab === 'open' ? ['RECEIVED', 'ANSWERED'] : ['CLOSED'];
   const help = useQuery({
@@ -554,7 +603,7 @@ function ConsultsPage() {
   const deliveryNos = useDeliveryNumbers([...(help.data ?? []).map((it) => it.deliveryId), ...(inquiries.data ?? []).map((it) => it.deliveryId ?? undefined)]);
   const now = useNow();
   const resumeBadge = <StatusBadge tone="error">{consultText.resumeRequested}</StatusBadge>;
-  const rows: ConsultRow[] = [
+  const allRows: ConsultRow[] = [
     // 도움요청이 열려 있지 않은(상담이 끝난) 결정 대기 배송 — 상세의 배송 조치에서 확정·반려
     ...pendingFailures
       .filter((d) => d.deliveryId && !openHelpDeliveries.has(d.deliveryId))
@@ -603,6 +652,16 @@ function ConsultsPage() {
       }),
     ),
   ].sort((a, b) => (a.kind === b.kind ? (a.createdAt ?? '').localeCompare(b.createdAt ?? '') * (tab === 'open' ? 1 : -1) : kindOrder[a.kind] - kindOrder[b.kind]));
+  // 찾기·구분 거르기 — 불러온 목록 안에서(서버 목록에 번호 검색이 없어 화면에서 거른다)
+  const needle = norm(query);
+  const rows = allRows.filter((r) => {
+    if (kindFilter !== 'all' && r.kind !== kindFilter) return false;
+    if (!needle) return true;
+    const no = r.deliveryId ? deliveryNos.get(r.deliveryId) : undefined;
+    const rider = r.riderId ? riders.get(r.riderId) : undefined;
+    return [r.title, no?.deliveryNumber, no?.orderNumber, rider?.nameMasked, rider?.riderNumber].some((x) => norm(x).includes(needle));
+  });
+  const filtered = !!needle || kindFilter !== 'all';
   // 둘 다 실패면 오류, 하나만 실패면 일부라고 알린다(빈 목록·0 으로 바꾸지 않는다)
   const bothFailed = help.isError && inquiries.isError;
   const loading = help.isPending || inquiries.isPending;
@@ -613,23 +672,63 @@ function ConsultsPage() {
     void inquiries.refetch();
   };
   return (
-    <section className="space-y-4">
-      <PageHeader title={consultText.title} />
+    <div className="space-y-4">
       <GuideBox title={ui.guideTitle} items={consultText.guide} storeKey="consults" testId="consults-guide" />
       <StatStrip label={consultText.stripLabel} testId="consult-strip">
         <StatCard layout="row" label={consultText.kind.help} value={statText(stats.data?.openHelpRequests, stats.isError)} hint={consultText.stripHelpHint} tone={(stats.data?.openHelpRequests ?? 0) > 0 ? 'warning' : undefined} testId="strip-help" />
         <StatCard layout="row" label={consultText.kind.failure} value={statText(stats.data?.inProgress?.['FAILURE_REPORTED'], stats.isError)} tone={(stats.data?.inProgress?.['FAILURE_REPORTED'] ?? 0) > 0 ? 'error' : undefined} testId="strip-failure" />
         <StatCard layout="row" label={consultText.kind.inquiry} value={listCountText(openInquiries.data, openInquiries.isError)} hint={consultText.stripInquiryHint} testId="strip-inquiry" />
       </StatStrip>
-      <StateTabs
-        label={consultText.title}
-        value={tab}
-        options={[
-          { value: 'open' as const, label: consultText.tabs.open },
-          { value: 'done' as const, label: consultText.tabs.done },
-        ]}
-        onChange={(t) => setParams(t === 'open' ? {} : { tab: t })}
-      />
+      <form
+        className="flex flex-wrap items-center gap-2 rounded-box border border-base-300 bg-base-100 px-4 py-3"
+        role="search"
+        data-testid="consults-search"
+        onSubmit={(ev) => {
+          ev.preventDefault();
+          patch({ q: queryInput.trim() });
+        }}
+      >
+        <label className="flex min-w-0 flex-1 items-center gap-2 text-sm">
+          <span className="shrink-0 font-semibold">{consultText.searchLabel}</span>
+          <input
+            className="input input-sm w-full max-w-md"
+            type="search"
+            maxLength={64}
+            placeholder={consultText.searchHint}
+            aria-label={consultText.searchHint}
+            value={queryInput}
+            onChange={(ev) => setQueryInput(ev.target.value)}
+          />
+        </label>
+        <button type="submit" className="btn btn-sm btn-primary">
+          {consultText.search}
+        </button>
+        {filtered && (
+          <button
+            type="button"
+            className="btn btn-sm btn-ghost"
+            onClick={() => {
+              setQueryInput('');
+              patch({ q: '', kind: '' });
+            }}
+          >
+            {consultText.clear}
+          </button>
+        )}
+        <div className="flex flex-wrap gap-1" role="group" aria-label={consultText.col.kind}>
+          {(['all', 'help', 'inquiry', ...(tab === 'open' ? (['failure'] as const) : [])] as const).map((k) => (
+            <button
+              key={k}
+              type="button"
+              aria-pressed={kindFilter === k}
+              className={`btn btn-xs ${kindFilter === k ? 'btn-neutral' : 'btn-ghost border-base-300'}`}
+              onClick={() => patch({ kind: k === 'all' ? '' : k })}
+            >
+              {k === 'all' ? consultText.allKinds : consultText.kind[k]}
+            </button>
+          ))}
+        </div>
+      </form>
       {partial && (
         <p role="alert" className="alert alert-warning text-sm" data-testid="consults-partial">
           {consultText.partial(help.isError ? consultText.kind.help : consultText.kind.inquiry)}
@@ -647,11 +746,13 @@ function ConsultsPage() {
         </p>
       ) : loading ? (
         <span className="loading loading-spinner" aria-label="불러오는 중" />
-      ) : rows.length === 0 && tab === 'open' && help.isSuccess && inquiries.isSuccess && failures.isSuccess ? (
+      ) : allRows.length === 0 && !filtered && tab === 'open' && help.isSuccess && inquiries.isSuccess && failures.isSuccess ? (
         // 상담할 건이 서버 0건(세 원천 모두 읽음)일 때만 "수고하셨어요"(2026-11-19 통합 백오피스 AllDone) — 하나라도 못 읽으면 위 경고
         <AllDone title={ui.allDone} body={consultText.empty.open} testId="consults-all-done" />
       ) : rows.length === 0 ? (
-        <p className="rounded-box bg-base-100 px-4 py-10 text-center text-sm text-base-content/60">{consultText.empty[tab]}</p>
+        <p className="rounded-box bg-base-100 px-4 py-10 text-center text-sm text-base-content/60" data-testid="consults-empty">
+          {needle ? consultText.noMatch(query) : consultText.empty[tab]}
+        </p>
       ) : (
         <div className="space-y-3">
           <ResultBar count={rows.length} more={false} extra={<span className="text-xs text-base-content/50">{sm.autoRefresh(15)}</span>} />
@@ -662,6 +763,7 @@ function ConsultsPage() {
                 <th>{consultText.col.title}</th>
                 <th>{consultText.col.state}</th>
                 <th>{consultText.col.delivery}</th>
+                <th>{consultText.col.order}</th>
                 <th>{consultText.col.rider}</th>
                 <th>{consultText.col.createdAt}</th>
                 <th>{consultText.col.wait}</th>
@@ -681,6 +783,7 @@ function ConsultsPage() {
                   </td>
                   <td>{r.state}</td>
                   <td>{r.deliveryId ? <DeliveryRef deliveryId={r.deliveryId} numbers={deliveryNos.get(r.deliveryId)} /> : none}</td>
+                  <td className="whitespace-nowrap font-mono" data-testid="consult-order">{(r.deliveryId && deliveryNos.get(r.deliveryId)?.orderNumber) || none}</td>
                   <td>{r.riderId ? <RiderName riderId={r.riderId} nameMasked={riders.get(r.riderId)?.nameMasked} riderNumber={riders.get(r.riderId)?.riderNumber} /> : none}</td>
                   <td className="whitespace-nowrap">{when(r.createdAt)}</td>
                   <td className="whitespace-nowrap">{r.open ? <WaitBadge from={r.createdAt} now={now} /> : none}</td>
@@ -690,7 +793,7 @@ function ConsultsPage() {
           </DataTable>
         </div>
       )}
-    </section>
+    </div>
   );
 }
 

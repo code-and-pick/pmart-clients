@@ -51,7 +51,8 @@ const tone = (s: string): Tone => (s === 'OPEN' ? 'warning' : s === 'ACCEPTED' ?
 /** 수행료 조정 화면으로(그 배송만 보이게) */
 export const adjustmentLink = (deliveryId: string) => `/adjustments?deliveryId=${encodeURIComponent(deliveryId)}`;
 
-export function AppealsMenu() {
+/** embedded: 상담함의 소명·이의 탭 안에 그릴 때 — 제목은 상담함이 그리고, 초기화해도 탭은 남긴다(2026-11-20 합침) */
+export function AppealsMenu({ embedded = false }: { readonly embedded?: boolean } = {}) {
   const api = useApi();
   const t = appealText;
   const [params, setParams] = useSearchParams();
@@ -94,11 +95,18 @@ export function AppealsMenu() {
   };
   const reset = () => {
     setRiderInput('');
-    setParams({});
+    setParams(embedded ? { tab: 'appeals' } : {});
   };
   return (
     <section className="max-w-[1600px] space-y-4">
-      <PageHeader title={t.title} description={t.intro} actions={<SavedViews listKey="appeals" />} />
+      {embedded ? (
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="text-sm text-base-content/70">{t.intro}</p>
+          <SavedViews listKey="appeals" />
+        </div>
+      ) : (
+        <PageHeader title={t.title} description={t.intro} actions={<SavedViews listKey="appeals" />} />
+      )}
       {done && (
         <div role="status" className="alert alert-success flex flex-col items-stretch gap-2 text-sm" data-testid="appeal-done">
           <span>{done.text}</span>

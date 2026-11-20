@@ -35,7 +35,7 @@ export const navGroups: readonly MenuGroup[] = [
   { key: 'riders', items: [done('riders', 'riders'), done('signups', 'signups'), done('restrictionReviews', 'restriction-reviews')] },
   { key: 'deliveries', items: [done('deliveries', 'deliveries')] },
   // 2026-11-19: 사용자 "라이더문의랑 도움요청이 둘 다 있는 이유" — 상담함 하나로. 옛 두 목록은 상세 주소만 남긴다(hidden). 접수 건은 운영으로.
-  { key: 'support', items: [done('consults', 'consults'), { ...done('helpRequests', 'help-requests'), hidden: true }, { ...done('inquiries', 'inquiries'), hidden: true }, done('appeals', 'appeals')] },
+  { key: 'support', items: [done('consults', 'consults'), { ...done('helpRequests', 'help-requests'), hidden: true }, { ...done('inquiries', 'inquiries'), hidden: true }, { ...done('appeals', 'appeals'), hidden: true }] },
   // 2026-11-19: 지급 관리(execution 0.29.0)·소명·이의(rider 0.15.0)
   { key: 'earnings', items: [done('adjustments', 'adjustments'), done('surcharges', 'surcharges'), done('payouts', 'payouts')] },
   // 2026-11-18(PC 5, 백엔드 notification 0.5.0·rider 0.14.0·execution 0.28.0·dispatch 0.11.0): 라이더 공지·직원 조치 이력(관리자만).
