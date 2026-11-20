@@ -15,6 +15,7 @@ import { type FormEvent, type ReactNode, useId, useRef, useState } from 'react';
 
 import { formatSeoul } from '@pmart/web-ui';
 import { messages as lm } from './messages';
+import { WidgetMenuButton } from './WidgetMenu';
 import { Link, useNavigate } from 'react-router';
 
 
@@ -198,7 +199,11 @@ export function Section({ id, title, aside, children, testId }: { readonly id?: 
     <section id={id} className="scroll-mt-12 rounded-box border border-base-300 bg-base-100" data-testid={testId}>
       <div className="flex items-center justify-between gap-2 px-5 pb-2 pt-4">
         <h2 className="text-lg font-bold">{title}</h2>
-        {aside && <div className="flex items-center gap-2 text-sm">{aside}</div>}
+        <div className="flex items-center gap-2 text-sm">
+          {aside}
+          {/* 대시보드 위젯 자리 안이면 ⋮(숨기기) — 2026-11-20 AWS 위젯 메뉴 */}
+          <WidgetMenuButton />
+        </div>
       </div>
       <div className="px-5 pb-5 pt-1">{children}</div>
     </section>

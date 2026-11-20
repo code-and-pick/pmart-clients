@@ -157,7 +157,7 @@ export function NewProductDraftPage() {
       <div id="product-form-start" className="scroll-mt-4">
         <Steps steps={m.products.draftSteps} now={0} />
       </div>
-      <div className="mx-auto max-w-5xl space-y-4">
+      <div className="mx-auto max-w-6xl space-y-4">
         {sameBaseAs === '' ? (
           <ProductDraftForm submitLabel={m.products.create} busy={create.busy} onSubmit={(input) => void create.run(input)} />
         ) : (

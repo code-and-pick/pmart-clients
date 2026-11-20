@@ -7,7 +7,7 @@ import { ProgressSteps } from './ProgressSteps';
 const STEPS = ['결제', '주문 확정', '상품 준비', '배송 중', '전달 완료'];
 /** 단계마다 [왼쪽 반 선, 오른쪽 반 선] 색 — 첫 단계는 왼쪽, 끝 단계는 오른쪽 선이 없다 */
 const lines = () =>
-  screen.getAllByRole('listitem').map((li) => [...li.querySelectorAll('span[aria-hidden="true"].h-0\\.5')].map((s) => (s.className.includes('bg-success') ? 'green' : 'gray')));
+  screen.getAllByRole('listitem').map((li) => [...li.querySelectorAll('[data-step-line]')].map((s) => (s.className.includes('bg-success') ? 'green' : 'gray'))); // 2026-11-20 AWS 줄: 단계마다 들어오는 선 하나(data-step-line)
 
 describe('진행 단계 막대', () => {
   it('끝 단계까지 끝났으면(전달 완료) 선이 모두 초록 — 마지막 단계 앞 반쪽도', () => {
@@ -18,7 +18,7 @@ describe('진행 단계 막대', () => {
   it('중간 단계(배송 중)면 그 단계까지 초록, 그 뒤는 회색', () => {
     render(<ProgressSteps steps={STEPS} place={{ step: 3, done: false }} label="주문 진행" testId="p" endedTestId="e" />);
     const l = lines();
-    expect(l[3]).toEqual(['green', 'gray']); // 배송 중: 들어오는 선 초록, 나가는 선 회색
+    expect(l[3]).toEqual(['green']); // 배송 중: 들어오는 선 초록(2026-11-20 AWS 줄 — 단계마다 들어오는 선 하나)
     expect(l[4]).toEqual(['gray']); // 전달 완료로 들어오는 선 회색
   });
 });

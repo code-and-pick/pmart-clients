@@ -240,15 +240,12 @@ main [data-state='loading']::after {
 
 /* 필수 칸 표시(2026-11-19 — 저장해야 서버가 "중량이 필요해요"를 알려 줘서 미리 보이게). 글자는 CSS 로만 그려
    칸 이름(읽기 도구·시험이 찾는 이름)은 그대로다. 판정은 서버. */
+/* 2026-11-20 AWS 개편: 빨강 꼬리표 대신 이름 뒤 " - 필수"(기울임·회색) */
 .field-required::after {
-  content: '필수';
-  margin-left: 0.375rem;
-  padding: 0 0.3rem;
-  border-radius: 0.25rem;
-  font-size: 10px;
-  font-weight: 600;
-  color: var(--color-error);
-  background: color-mix(in oklab, var(--color-error) 10%, transparent);
+  content: ' - 필수';
+  font-style: italic;
+  font-weight: 400;
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
 }
 
 /* 긴 표 머리 고정(2026-11-19 — 목록을 내리면 칸 이름이 사라져 헷갈렸다). 표를 감싼 가로 스크롤 상자가 있으면 sticky 가 듣지 않아,

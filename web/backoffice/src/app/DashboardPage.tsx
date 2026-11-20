@@ -22,6 +22,7 @@ import { statusTone } from '../features/orders/OrderLookupPages';
 import { messages } from '../shared/messages';
 import { addSeoulDays, label, seoulDayEnd, seoulDayStart, seoulToday, when, won } from '../shared/ops';
 import { DataTable, Section, StatusBadge } from '../shared/admin';
+import { DashboardLayoutProvider, ResetLayout, Widget } from '../shared/WidgetMenu';
 
 const m = messages.dashboard;
 const DAYS = 7;
@@ -232,12 +233,16 @@ export function DashboardPage() {
   const tab = tabs.find((t) => t.id === params.get('tab'))?.id ?? 'overview';
 
   return (
+    <DashboardLayoutProvider>
     <section className="space-y-5" data-testid="dashboard">
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">{m.hello(hour)}</h1>
         </div>
-        <RefreshBar />
+        <div className="flex flex-wrap items-center gap-3">
+          <ResetLayout />
+          <RefreshBar />
+        </div>
       </header>
 
       {/* 숫자 띠(2026-11-19 사용자가 보여 준 배송 관제 화면 참고 — 탭과 상관없이 늘 맨 위, 급한 것부터). 누르면 그 일만 모은 목록 */}
@@ -297,26 +302,26 @@ export function DashboardPage() {
             <div className="grid items-start gap-4 lg:grid-cols-3">
               {(can('/live-delivery') || admin) && (
                 <div className={`space-y-4 ${can('/approvals') || admin ? 'lg:col-span-2' : 'lg:col-span-3'}`}>
-                  {can('/live-delivery') && <LiveSummary />}
-                  {admin && <WorkCountsPanel part="deliveries" />}
+                  {can('/live-delivery') && <Widget id="live"><LiveSummary /></Widget>}
+                  {admin && <Widget id="work-deliveries"><WorkCountsPanel part="deliveries" /></Widget>}
                   {/* 운영 위험도 왼쪽 기둥 아래 — 오른쪽(심사 대기 + 지금 일 전체)과 높이가 비슷해진다 */}
-                  {can('/pending') && <RiskPanel />}
+                  {can('/pending') && <Widget id="risk"><RiskPanel /></Widget>}
                 </div>
               )}
               {(can('/approvals') || admin) && (
                 <div className="space-y-4">
-                  {can('/approvals') && <ApprovalTypes />}
-                  {admin && <WorkCountsPanel part="tiles" />}
+                  {can('/approvals') && <Widget id="approval-types"><ApprovalTypes /></Widget>}
+                  {admin && <Widget id="work-tiles"><WorkCountsPanel part="tiles" /></Widget>}
                 </div>
               )}
             </div>
           )}
 
           {/* 운영 위험만 볼 수 있고 왼쪽 기둥이 없는 역할(처리 대기 메뉴만)일 때 */}
-          {can('/pending') && !(can('/live-delivery') || admin) && <RiskPanel />}
+          {can('/pending') && !(can('/live-delivery') || admin) && <Widget id="risk"><RiskPanel /></Widget>}
 
           {/* 처리 기한 지킴(최근 7일) — 아래 한 줄 */}
-          {can('/case-sla') && <SlaCard from={weekFrom} to={today} days={days} />}
+          {can('/case-sla') && <Widget id="sla"><SlaCard from={weekFrom} to={today} days={days} /></Widget>}
         </div>
       )}
 
@@ -326,26 +331,26 @@ export function DashboardPage() {
           {can('/orders') && (
             <div className="grid gap-4 lg:grid-cols-3">
               <div className="lg:col-span-2">
-                <OrdersWeekChart days={days} />
+                <Widget id="orders-week"><OrdersWeekChart days={days} /></Widget>
               </div>
-              <StatusDonut today={today} toneOf={(s) => statusTone(s)} />
+              <Widget id="status-donut"><StatusDonut today={today} toneOf={(s) => statusTone(s)} /></Widget>
             </div>
           )}
 
           {/* 매출·환불·상품별 판매(관리자, D2·D3 — 최근 7일) */}
-          {admin && <SalesPanel from={weekFrom} to={today} />}
+          {admin && <Widget id="sales"><SalesPanel from={weekFrom} to={today} /></Widget>}
 
           {/* 최근 주문 | 지표(결품률·정시 배송률 — 501 이면 준비 중) — 나란히 */}
           {(can('/orders') || can('/case-sla')) && (
             <div className="grid items-start gap-4 xl:grid-cols-3">
               {can('/orders') && (
                 <div className={can('/case-sla') ? 'xl:col-span-2' : 'xl:col-span-3'}>
-                  <RecentOrders from={weekFrom} to={today} />
+                  <Widget id="recent-orders"><RecentOrders from={weekFrom} to={today} /></Widget>
                 </div>
               )}
               {can('/case-sla') && (
                 <div className={can('/orders') ? '' : 'xl:col-span-3'}>
-                  <MetricsPanel from={weekFrom} to={today} />
+                  <Widget id="metrics"><MetricsPanel from={weekFrom} to={today} /></Widget>
                 </div>
               )}
             </div>
@@ -361,5 +366,6 @@ export function DashboardPage() {
       )}
       </div>
     </section>
+    </DashboardLayoutProvider>
   );
 }

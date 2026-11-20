@@ -579,17 +579,19 @@ export function CaseListPage() {
                         </td>
                         <td className="max-w-md">
                           {/* 줄 어디를 눌러도 오른쪽 미리보기(2026-11-20 — 이름만 상세로 가서 누른 자리마다 달랐다). 상세는 미리보기 "상세 열기"·Enter */}
-                          <span className="block truncate font-medium" data-testid="case-summary">
-                            {c.summary ? c.summary : label(m.cases.kindName, c.kind)}
-                          </span>
-                          {/* 화면 번호(ADR-0070 덧붙임 2026-11-19, bff caseNumber) — 시스템 ID 는 보이지 않는다 */}
-                          {c.caseNumber && (
-                            <span className="block font-mono text-xs text-base-content/50" data-testid="case-number">
-                              {c.caseNumber}
-                              <SeenMark seen={!!c.caseId && seen.has(c.caseId)} />
+                          {/* 2026-11-20 AWS 한 줄 줄: 요약 · 화면 번호 · 맡기를 한 줄에(번호는 ADR-0070 화면 번호 — 시스템 ID 는 보이지 않는다) */}
+                          <span className="flex min-w-0 items-center gap-2 whitespace-nowrap">
+                            <span className="truncate font-medium" data-testid="case-summary">
+                              {c.summary ? c.summary : label(m.cases.kindName, c.kind)}
                             </span>
-                          )}
-                          {c.caseId && canPickCase(c, roles) && <QuickPick caseId={c.caseId} caseNumber={c.caseNumber ?? null} />}
+                            {c.caseNumber && (
+                              <span className="shrink-0 font-mono text-xs text-base-content/50" data-testid="case-number">
+                                {c.caseNumber}
+                                <SeenMark seen={!!c.caseId && seen.has(c.caseId)} />
+                              </span>
+                            )}
+                            {c.caseId && canPickCase(c, roles) && <QuickPick caseId={c.caseId} caseNumber={c.caseNumber ?? null} />}
+                          </span>
                         </td>
                         <td>
                           <KindBadge kind={c.kind} />
@@ -602,7 +604,7 @@ export function CaseListPage() {
                           {(c.linked ?? []).length === 0 ? (
                             <span className="opacity-70">{m.none}</span>
                           ) : (
-                            <ul className="space-y-0.5 text-xs">
+                            <ul className="flex items-center gap-x-3 whitespace-nowrap text-xs">
                               {(c.linked ?? []).map((l) => (
                                 <LinkedState
                                   key={`${l.kind ?? ''}:${l.id ?? ''}`}

@@ -300,10 +300,11 @@ export function ProductDraftForm({
     v.skus.some((sk) => !sk.storageType) && m.products.storageType,
   ].flatMap((x) => (x ? [x] : []));
 
-  // 화면(2026-11-18 사용자 "밋밋하다"): 제목 있는 카드로 묶는다 — 기본 정보 → 카테고리 → 필터 옵션 → SKU, 저장 버튼은 아래 오른쪽.
+  // 화면(2026-11-18 사용자 "밋밋하다"): 제목 있는 카드로 묶는다 — 기본 정보 → 카테고리 → 필터 옵션 → SKU.
+  // 2026-11-20 AWS 개편(만들기 화면): 넓으면 오른쪽에 고정 "요약" 상자 — 고른 값·빠진 필수 칸·저장 단추(스크롤해도 따라온다)
   return (
     <form
-      className="space-y-4"
+      className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_17rem]"
       onSubmit={(e) => {
         e.preventDefault();
         if (!v.internalName.trim()) return;
@@ -313,6 +314,7 @@ export function ProductDraftForm({
       }}
     >
       <LeaveGuard when={dirty} />
+      <div className="min-w-0 space-y-4">
       <Card
         title={m.products.formBasic}
         aside={
@@ -591,18 +593,37 @@ export function ProductDraftForm({
         ))}
       </Card>
 
-      {/* 저장은 아래 오른쪽(Shopify 저장 줄처럼) */}
-      <div className="flex flex-wrap items-center justify-end gap-3 rounded-box border border-base-300 bg-base-100 px-5 py-3 shadow-sm">
+      </div>
+
+      {/* 요약(AWS 만들기 화면 오른쪽 상자) — 저장 단추도 여기 */}
+      <aside className="space-y-3 rounded-box border border-base-300 bg-base-100 px-5 py-4 lg:sticky lg:top-4" aria-label={m.products.summary.title} data-testid="draft-summary">
+        <h2 className="text-lg font-bold">{m.products.summary.title}</h2>
+        <dl className="space-y-2 text-sm">
+          <div>
+            <dt>{m.products.internalName}</dt>
+            <dd className="break-words">{v.internalName.trim() || m.none}</dd>
+          </div>
+          <div>
+            <dt>{m.products.primaryCategory}</dt>
+            <dd>{v.primaryCategoryId || v.categoryPaths.length > 0 ? m.products.summary.chosen : m.products.summary.notYet}</dd>
+          </div>
+          <div>
+            <dt>SKU</dt>
+            <dd>{m.products.summary.count(v.skus.length)}</dd>
+          </div>
+        </dl>
         {/* 저장 전 안내(2026-11-19): 비어 있는 필수 칸 — 초안은 비어도 저장되고(검증 오류로), 제출 준비 전에 채워야 한다 */}
         {missing.length > 0 && (
-          <p className="mr-auto text-xs text-warning" data-testid="draft-missing">
+          <p className="text-xs text-warning" data-testid="draft-missing">
             {m.products.missingRequired(missing.join(', '))}
           </p>
         )}
-        <button type="submit" className="btn btn-primary btn-sm min-w-28" disabled={busy || !v.internalName.trim()}>
-          {submitLabel}
-        </button>
-      </div>
+        <div className="flex justify-end border-t border-base-300 pt-3">
+          <button type="submit" className="btn btn-primary btn-sm min-w-28" disabled={busy || !v.internalName.trim()}>
+            {submitLabel}
+          </button>
+        </div>
+      </aside>
     </form>
   );
 }

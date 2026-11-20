@@ -180,15 +180,19 @@ export function ApprovalListPage() {
             {() => (
               <>
                 <div className="overflow-x-auto">
-                  <table className="table table-fixed min-w-[44rem] [&_tbody_tr:hover]:bg-base-200/60">
+                  <table className="table table-fixed min-w-[56rem] [&_tbody_tr:hover]:bg-base-200/60">
                     <colgroup>
                       <col />
+                      <col className="w-48" />
+                      <col className="w-28" />
                       <col className="w-44" />
                       <col className="w-28" />
                     </colgroup>
                     <thead>
                       <tr>
                         <th>{t.col.what}</th>
+                        <th>{t.col.requester}</th>
+                        <th>{t.col.submitted}</th>
                         <th>{t.col.now}</th>
                         <th />
                       </tr>
@@ -210,11 +214,10 @@ export function ApprovalListPage() {
                                 </Link>
                                 <SeenMark seen={!!a.approvalId && seen.has(a.approvalId)} />
                               </div>
-                              <p className="mt-1 flex min-w-0 items-center gap-1.5 truncate text-xs text-base-content/55">
-                                {a.requesterId ? <Person id={a.requesterId} /> : null}
-                                {a.submittedAt && <span title={formatSeoul(a.submittedAt)}>· {ago(a.submittedAt)}</span>}
-                              </p>
                             </td>
+                            {/* 2026-11-20 AWS 한 줄 줄: 요청자·올린 시각은 따로 칸 */}
+                            <td className="truncate text-sm">{a.requesterId ? <Person id={a.requesterId} /> : m.none}</td>
+                            <td className="whitespace-nowrap text-sm">{a.submittedAt ? <span title={formatSeoul(a.submittedAt)}>{ago(a.submittedAt)}</span> : m.none}</td>
                             <td>
                               <StatusText tone={now.tone} testId="approval-now">
                                 {now.text}

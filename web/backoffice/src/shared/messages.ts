@@ -1727,7 +1727,7 @@ export const messages = {
       } as Readonly<Record<string, string>>,
       what: { HOME_LAYOUT: '홈 진열 편성' },
       now: { draft: '올리는 중', waiting: '심사 기다림', applying: '승인됨 · 반영 중', applied: '승인됨 · 반영 완료' },
-      col: { what: '무엇을 승인', now: '지금' },
+      col: { what: '무엇을 승인', requester: '요청자', submitted: '올린 시각', now: '지금' },
       decide: '심사하기',
       mine: '내 요청',
       blocked: { SELF_APPROVAL: '내 요청', NO_ROLE: '다른 승인자 몫', GRANT_TO_SELF: '본인 권한 요청', CONFIG_REQUIRED: '승인자 미설정' } as Readonly<Record<string, string>>,
@@ -1905,6 +1905,10 @@ export const messages = {
   },
 
   products: {
+    // 2026-11-20 AWS 개편 — 만들기 화면 오른쪽 요약·구역 접기
+    summary: { title: '요약', chosen: '고름', notYet: '아직 안 고름', count: (n: number) => `${n}개` },
+    collapse: '이 구역 접기',
+    expand: '이 구역 펴기',
     /** 상품 조회 오른쪽 미리보기(2026-11-20) */
     preview: {
       customerName: (n: string) => `고객용: ${n}`,
@@ -2766,6 +2770,8 @@ export const messages = {
     remove: (n: string) => `${n} 보기 지우기`,
   },
   dashboard: {
+    // 2026-11-20 AWS 위젯 메뉴
+    layout: { menu: '위젯 메뉴', hide: '이 위젯 숨기기', reset: '기본 배치로', hiddenCount: (n: number) => `숨긴 위젯 ${n}개` },
     /** 탭(2026-11-18 — 첫 화면은 지금 할 일, 통계는 따로) */
     tabs: { label: '대시보드 보기', overview: '한눈에', ops: '운영', sales: '매출·통계' },
     title: '대시보드',
