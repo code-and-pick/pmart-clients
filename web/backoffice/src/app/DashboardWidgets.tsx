@@ -15,7 +15,7 @@ import { hideIds } from '../shared/hideIds';
 import { messages } from '../shared/messages';
 import { addSeoulDays, label, seoulDayEnd, seoulDayStart } from '../shared/ops';
 import { Section } from '../shared/admin';
-import { ColumnChart, Delta, Insight, SegmentBar, TrendLine, type Column } from './Charts';
+import { ColumnChart, Delta, Insight, Meter, SegmentBar, TrendLine, type Column } from './Charts';
 
 const m = messages.dashboard;
 /** 주문 찾기 한 번에 받는 최대 수 — 계약 `GET /orders/lookups` size 최대 50(2026-11-19: 100 으로 묻다가 실서버가 400 → 오늘 주문 "?"였다) */
@@ -482,6 +482,40 @@ function isNotImplemented(e: unknown): boolean {
   return e instanceof ProblemFailure && (e.problem.status === 501 || e.problem.code === 'NOT_IMPLEMENTED');
 }
 
+/** 센터별 품절 상품 수(mfc-inventory 0.28.0 `GET /stock-summaries` — 지금 값, 기간과 무관). 취급 상품 중 가용 ≤ 0. 못 읽으면 "?"(0 아님) */
+function SoldOutRow() {
+  const api = useApi();
+  const q = useQuery({ queryKey: ['dashboard', 'stock-summaries'], refetchInterval: REFRESH_MS, retry: false, queryFn: () => request('GET', api.mfcInventory.GET('/stock-summaries', {})) });
+  const items = q.data?.items ?? [];
+  const soldOut = items.reduce((s, i) => s + i.soldOutSkuCount, 0);
+  const handled = items.reduce((s, i) => s + i.handledSkuCount, 0);
+  return (
+    <li className="flex items-center gap-4 py-3" data-testid="dash-metric-soldOut">
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm text-base-content/70">{m.metrics.soldOut}</span>
+        <span className={`block text-[28px] font-semibold leading-tight ${q.isError ? 'text-base-content/40' : soldOut > 0 ? 'text-error' : ''}`} title={q.isError ? m.failed : undefined}>
+          {q.isPending ? '…' : q.isError ? '?' : `${soldOut.toLocaleString('ko-KR')}개`}
+        </span>
+        <span className="block truncate text-xs text-base-content/55">{q.isError ? m.failed : q.data ? m.metrics.soldOutOf(handled) : m.metrics.soldOutNote}</span>
+      </span>
+      {/* 센터별 — 취급 중 품절 몫 막대(센터가 둘 이상일 때) */}
+      {items.length > 1 && (
+        <ul className="w-40 shrink-0 space-y-1.5 text-[11px]" data-testid="dash-soldout-centers">
+          {items.map((i) => (
+            <li key={i.mfcId}>
+              <span className="flex justify-between gap-2">
+                <span className="truncate text-base-content/60">{i.mfcId}</span>
+                <span className="font-semibold tabular-nums">{i.soldOutSkuCount}</span>
+              </span>
+              <Meter value={i.handledSkuCount > 0 ? i.soldOutSkuCount / i.handledSkuCount : null} tone={i.soldOutSkuCount > 0 ? 'danger' : 'neutral'} className="-mt-0.5 w-full" />
+            </li>
+          ))}
+        </ul>
+      )}
+    </li>
+  );
+}
+
 export function MetricsPanel({ from, to }: { readonly from: string; readonly to: string }) {
   const api = useApi();
   const days: string[] = [];
@@ -528,29 +562,32 @@ export function MetricsPanel({ from, to }: { readonly from: string; readonly to:
             unjudged = unjudged === null || t.unjudged === undefined || t.unjudged === null ? null : unjudged + t.unjudged;
           }
           const t = slaText({ numerator: n, denominator: d });
+          // 결품률 사유별(같은 분모, 한 줄에 사유가 둘이면 둘 다 세서 합이 전체보다 클 수 있다 — 계약 그대로 줄 수만 보인다)
+          const byReason = new Map<string, number>();
+          if (c.key === 'SHORTAGE_RATE') for (const p of q.data.points ?? []) if (p.segment?.reason) byReason.set(p.segment.reason, (byReason.get(p.segment.reason) ?? 0) + p.numerator);
+          const reasons = [...byReason.entries()].filter(([, k]) => k > 0).sort((a, b) => b[1] - a[1]);
           return (
             <li key={c.key} className="flex items-center gap-4 py-3" data-testid={`dash-metric-${c.key}`}>
               <span className="min-w-0 flex-1">
                 <span className="block text-sm text-base-content/70">{c.label}</span>
                 <span className="block text-[28px] font-semibold leading-tight">{t.ratio}</span>
                 <span className="block truncate text-xs text-base-content/55">{t.count}</span>
+                {reasons.length > 0 && (
+                  <span className="block truncate text-[11px] text-base-content/55" data-testid="dash-shortage-reasons">
+                    {reasons.map(([r, k]) => `${label(m.metrics.reasonName, r)} ${k}`).join(' · ')}
+                  </span>
+                )}
                 {c.key === 'ON_TIME_DELIVERY' && ((pending !== null && pending > 0) || (unjudged !== null && unjudged > 0)) ? (
                   <span className="block truncate text-[11px] text-base-content/45" data-testid="dash-ontime-outside">
                     {m.metrics.onTimeOutside(pending, unjudged)}
                   </span>
                 ) : null}
               </span>
-              <TrendLine values={days.map((day) => byDay.get(day) ?? null)} max={1} className="h-12 w-32" />
+              <TrendLine values={days.map((day) => byDay.get(day) ?? null)} {...(c.key === 'SHORTAGE_RATE' ? {} : { max: 1 })} className="h-12 w-32" />
             </li>
           );
         })}
-        <li className="flex items-baseline justify-between gap-3 py-3" data-testid="dash-metric-soldOut">
-          <span className="min-w-0">
-            <span className="block text-sm text-base-content/70">{m.metrics.soldOut}</span>
-            <span className="block truncate text-[11px] text-base-content/45">{m.metrics.soldOutNote}</span>
-          </span>
-          <span className="shrink-0 text-sm text-base-content/45">{m.metrics.soon}</span>
-        </li>
+        <SoldOutRow />
       </ul>
     </Section>
   );

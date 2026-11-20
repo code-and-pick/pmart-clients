@@ -51,7 +51,7 @@ export function ColumnChart({ columns, big = false, testIdCol, label, avg }: { r
         {/* 기준선(평균) — 눈금과 헷갈리지 않게 점선 + 이름표 */}
         {avg && avg.value > 0 && (
           <div className="absolute right-0 left-10 z-10 border-t border-dashed border-base-content/45" style={{ top: `${(1 - avg.value / top) * 100}%` }} data-testid="chart-avg">
-            <span className="absolute -top-2.5 right-0 rounded bg-base-100 px-1 text-[11px] font-medium text-base-content/65">{avg.text}</span>
+            <span className="absolute -top-2.5 left-0 rounded bg-base-100 px-1 text-[11px] font-medium text-base-content/65">{avg.text}</span>
           </div>
         )}
       </div>

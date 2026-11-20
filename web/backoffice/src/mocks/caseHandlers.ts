@@ -357,6 +357,25 @@ export const caseHandlers = [
       const totals = rows.map((r) => ({ bucket: day(r.back), numerator: r.n, denominator: r.d, ratio: r.n / r.d, pending: r.p, unjudged: r.u })).sort((a, b) => a.bucket.localeCompare(b.bucket));
       return HttpResponse.json({ metric: 'ON_TIME_DELIVERY', timeZone: 'Asia/Seoul', sources: [stamp], unavailableSources: [], points, totals });
     }
+    // bff 0.20.0 결품률 목(원천 mfc-fulfillment 0.19.0 picking-lines) — 전체 점(reason null) + 사유별 점, totals 는 전체 점만
+    if (q.get('metric') === 'SHORTAGE_RATE') {
+      if (q.get('granularity') === 'HOUR') return problem(400, 'VALIDATION_FAILED');
+      const stamp = { system: 'mfc-fulfillment-service', confidence: 'DIRECT' as const, asOf: { asOf: new Date().toISOString(), freshness: 'CURRENT' as const } };
+      const to = q.get('to') ?? '';
+      const day = (back: number) => new Date(Date.parse(`${to}T00:00:00+09:00`) - back * 86_400_000 + 9 * 3_600_000).toISOString().slice(0, 10);
+      const rows = [
+        { back: 0, picked: 140, short: 4, by: { SHORT: 3, DAMAGED: 1, BLOCKED: 0 } },
+        { back: 1, picked: 162, short: 7, by: { SHORT: 5, DAMAGED: 1, BLOCKED: 1 } },
+        { back: 2, picked: 118, short: 2, by: { SHORT: 2, DAMAGED: 0, BLOCKED: 0 } },
+        { back: 3, picked: 131, short: 5, by: { SHORT: 4, DAMAGED: 1, BLOCKED: 0 } },
+      ];
+      const points = rows.flatMap((r) => [
+        { bucket: day(r.back), segment: { mfcId: 'MFC-BSN-01', reason: null }, numerator: r.short, denominator: r.picked, ratio: r.short / r.picked, unjudged: 0, source: stamp },
+        ...Object.entries(r.by).map(([reason, n]) => ({ bucket: day(r.back), segment: { mfcId: 'MFC-BSN-01', reason }, numerator: n, denominator: r.picked, ratio: n / r.picked, unjudged: 0, source: stamp })),
+      ]);
+      const totals = rows.map((r) => ({ bucket: day(r.back), numerator: r.short, denominator: r.picked, ratio: r.short / r.picked, unjudged: 0 })).sort((a, b) => a.bucket.localeCompare(b.bucket));
+      return HttpResponse.json({ metric: 'SHORTAGE_RATE', timeZone: 'Asia/Seoul', sources: [stamp], unavailableSources: [], points, totals, currentOverdue: null });
+    }
     if (q.get('metric') !== 'CASE_SLA') return problem(501, 'NOT_IMPLEMENTED');
     const from = q.get('from') ?? '';
     const to = q.get('to') ?? '';

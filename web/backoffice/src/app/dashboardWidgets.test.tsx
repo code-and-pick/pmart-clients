@@ -96,7 +96,8 @@ describe('대시보드 지표(백엔드 회신 2026-11-18)', () => {
     server.use(http.get(`${BFF_BASE}/views/metrics`, () => HttpResponse.json({ type: 'about:blank', title: 'x', status: 501, code: 'NOT_IMPLEMENTED' }, { status: 501, headers: { 'content-type': 'application/problem+json' } })));
     renderAt('/?tab=sales', as.admin);
     for (const id of ['SHORTAGE_RATE', 'ON_TIME_DELIVERY']) expect(await within(await screen.findByTestId(`dash-metric-${id}`)).findByText('준비 중')).toBeInTheDocument();
-    expect(within(screen.getByTestId('dash-metric-soldOut')).getByText('준비 중')).toBeInTheDocument();
+    // 품절 SKU 는 mfc-inventory 0.28.0 실제 조회(2026-11-20) — 지표 501 과 상관없이 숫자(목: 9 + 3)
+    expect(await within(screen.getByTestId('dash-metric-soldOut')).findByText('12개')).toBeInTheDocument();
     expect(screen.queryByTestId('dash-metric-sales')).not.toBeInTheDocument();
     expect(screen.queryByTestId('dash-metric-top')).not.toBeInTheDocument();
   });
@@ -107,6 +108,15 @@ describe('대시보드 지표(백엔드 회신 2026-11-18)', () => {
     // 목: 18/20 + 22/24 + 19/19 = 59/63, 약속 전 3, 판단 밖 3
     await waitFor(() => expect(cell).toHaveTextContent('63건 중 59건'));
     expect(within(cell).getByTestId('dash-ontime-outside')).toHaveTextContent('약속 전 3 · 판단 밖 3 (분모 밖)');
+  });
+
+  it('결품률(bff 0.20.0): 피킹 줄 중 결품 줄 비율 + 사유별 줄 수, 품절 SKU 는 센터별(목 2곳)', async () => {
+    renderAt('/?tab=sales', as.admin);
+    const cell = await screen.findByTestId('dash-metric-SHORTAGE_RATE');
+    // 목: 4/140 + 7/162 + 2/118 + 5/131 = 18/551
+    await waitFor(() => expect(cell).toHaveTextContent('551건 중 18건'));
+    expect(within(cell).getByTestId('dash-shortage-reasons')).toHaveTextContent('결품 14 · 파손 3 · 막힘 1');
+    expect(await screen.findByTestId('dash-soldout-centers')).toHaveTextContent('MFC-BSN-01');
   });
 
   it('지표가 구현되면(200) 숫자와 "N건 중 M건"', async () => {

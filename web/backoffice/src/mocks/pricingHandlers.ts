@@ -100,6 +100,17 @@ function handlingHandlers(prefix: 'mfcs' | 'cdcs') {
 }
 
 export const pricingHandlers = [
+  // mfc-inventory 0.28.0 센터별 품절 상품 수(IV-5) — OPERATOR 만, 관리자는 모든 센터
+  http.get(`${API_BASE}/stock-summaries`, ({ request }) => {
+    const who = operator(request);
+    if (!who) return unauthorized();
+    const mfcId = new URL(request.url).searchParams.get('mfcId');
+    const items = [
+      { mfcId: 'MFC-BSN-01', handledSkuCount: 412, soldOutSkuCount: 9 },
+      { mfcId: 'MFC-BSN-02', handledSkuCount: 388, soldOutSkuCount: 3 },
+    ].filter((i) => !mfcId || i.mfcId === mfcId);
+    return HttpResponse.json({ items, asOf: new Date().toISOString() });
+  }),
   // SKU 일괄 가격 조회(최대 100건, 계약 listPrices) — 가격 미설정 SKU 는 items 에서 빼고 notSet 에(2026-11-19 가격 관리 목록)
   http.get(`${API_BASE}/prices`, ({ request }) => {
     const skus = new URL(request.url).searchParams.getAll('skus').flatMap((s) => s.split(',')).filter(Boolean);
