@@ -1419,6 +1419,9 @@ export const messages = {
 
   /** 인계 뒤 반품(회수) — claim 0.2.0, 고객센터만 접수 */
   returns: {
+    // 오른쪽 요약(2026-11-20 AWS 만들기 화면) — 고른 값·빠진 것
+    summaryLines: (kinds: number, qty: number) => (kinds === 0 ? '아직 안 고름' : `${kinds}가지 · ${qty}개`),
+    summaryMissing: (what: string) => `아직 고르지 않은 것: ${what}`,
     title: '반품 접수',
     intro: '라이더가 상품을 가져간 뒤 고객이 더는 원하지 않으면 고객센터에서 반품(회수)을 받아요. 회수비·환불액은 서버가 정해요 — 회수품이 센터에 들어와 검수되면 상품값을 원래 결제로 환불해요(봉투값·배달팁 제외).',
     formLabel: '반품 접수',

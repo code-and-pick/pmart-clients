@@ -2,7 +2,7 @@
 // 상품 승인으로 productId 가 생긴 뒤에만 제출할 수 있다(PRODUCT_NOT_LINKED).
 // 화면(2026-11-18 사용자 "밋밋하다"): 머리·단계 표시 아래 두 칸 — 왼쪽 폼(카드 묶음)·이미지, 오른쪽 상태 카드·다음 단계 카드.
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { type ReactNode, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 
 import { commandParams } from '../../api/command';
@@ -31,11 +31,14 @@ function ContentForm({
   submitLabel,
   busy,
   onSubmit,
+  side,
 }: {
   readonly initial?: ContentDraftInput;
   readonly submitLabel: string;
   readonly busy: boolean;
   readonly onSubmit: (input: ContentDraftInput) => void;
+  /** 주면 AWS 만들기 화면처럼 오른쪽에 고정 "요약"(저장 단추 포함) + 그 아래 이 칸(2026-11-20) */
+  readonly side?: ReactNode;
 }) {
   const [v, setV] = useState({
     productId: initial?.productId ?? '',
@@ -125,7 +128,7 @@ function ContentForm({
   // 화면(2026-11-18 사용자 "밋밋하다"): 제목 있는 카드로 묶는다 — 연결 상품 → 고객에게 보이는 정보 → 고시 정보·안내, 저장은 아래 오른쪽.
   return (
     <form
-      className="space-y-4"
+      className={side === undefined ? 'space-y-4' : 'grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_17rem]'}
       onSubmit={(e) => {
         e.preventDefault();
         const notices = v.notices
@@ -147,6 +150,7 @@ function ContentForm({
       }}
     >
       <LeaveGuard when={dirty} />
+      <div className="min-w-0 space-y-4">
       <Card title={m.contents.formProduct}>
         <ProductPicker label={m.contents.productId} value={v.productId} onChange={(id, product) => void pickProduct(id, product)} onClear={clearAll} />
         {pickNote && (
@@ -185,11 +189,42 @@ function ContentForm({
           {field('returnGuide', m.contents.returnGuide)}
         </div>
       </Card>
-      <div className="flex justify-end rounded-box border border-base-300 bg-base-100 px-5 py-3 shadow-sm">
-        <button type="submit" className="btn btn-primary btn-sm min-w-28" disabled={busy}>
-          {submitLabel}
-        </button>
+      {side === undefined && (
+        <div className="flex justify-end rounded-box border border-base-300 bg-base-100 px-5 py-3">
+          <button type="submit" className="btn btn-primary btn-sm min-w-28" disabled={busy}>
+            {submitLabel}
+          </button>
+        </div>
+      )}
       </div>
+      {side !== undefined && (
+        <div className="min-w-0 space-y-4 lg:sticky lg:top-4">
+          {/* 요약(AWS 만들기 화면 오른쪽 상자) — 고른 값과 저장 단추 */}
+          <aside className="space-y-3 rounded-box border border-base-300 bg-base-100 px-5 py-4" aria-label={m.products.summary.title} data-testid="content-summary">
+            <h2 className="text-lg font-bold">{m.products.summary.title}</h2>
+            <dl className="space-y-2 text-sm">
+              <div>
+                <dt>{m.contents.productId}</dt>
+                <dd>{v.productId.trim() ? m.products.summary.chosen : m.products.summary.notYet}</dd>
+              </div>
+              <div>
+                <dt>{m.contents.name}</dt>
+                <dd className="break-words">{v.name.trim() || m.none}</dd>
+              </div>
+              <div>
+                <dt>{m.contents.notices}</dt>
+                <dd>{m.products.summary.count(v.notices.split('\n').filter((x) => x.trim()).length)}</dd>
+              </div>
+            </dl>
+            <div className="flex justify-end border-t border-base-300 pt-3">
+              <button type="submit" className="btn btn-primary btn-sm min-w-28" disabled={busy}>
+                {submitLabel}
+              </button>
+            </div>
+          </aside>
+          {side}
+        </div>
+      )}
     </form>
   );
 }
@@ -218,13 +253,24 @@ export function NewContentDraftPage() {
     <section className="space-y-4">
       <PageHeader title={m.contents.draftTitle} actions={<OpenById base="/contents/drafts" />} />
       <Steps steps={m.contents.draftSteps} now={0} />
-      <div className="grid items-start gap-4 lg:grid-cols-3">
-        <div className="space-y-4 lg:col-span-2">
+      <div className="space-y-4">
+        <div className="space-y-4">
           <ContentForm
             {...(productId ? { initial: { productId } } : {})}
             submitLabel={m.products.create}
             busy={create.busy}
             onSubmit={(input) => void create.run(input)}
+            side={
+              <Card title={m.contents.images} hint={m.contents.imageAfterSave}>
+                <ImagePicker pending={pending} onChange={setPending} disabled={create.busy} />
+                {pending.length > 0 && !create.busy && <p className="text-sm">{m.contents.imagesPending(pending.length)}</p>}
+                {progress && (
+                  <p role="status" className="text-sm">
+                    {m.contents.imageUploading(progress.done, progress.total)}
+                  </p>
+                )}
+              </Card>
+            }
           />
           <CommandFeedback command={create}>
             {(r) =>
@@ -239,15 +285,6 @@ export function NewContentDraftPage() {
             }
           </CommandFeedback>
         </div>
-        <Card title={m.contents.images} hint={m.contents.imageAfterSave}>
-          <ImagePicker pending={pending} onChange={setPending} disabled={create.busy} />
-          {pending.length > 0 && !create.busy && <p className="text-sm">{m.contents.imagesPending(pending.length)}</p>}
-          {progress && (
-            <p role="status" className="text-sm">
-              {m.contents.imageUploading(progress.done, progress.total)}
-            </p>
-          )}
-        </Card>
       </div>
     </section>
   );

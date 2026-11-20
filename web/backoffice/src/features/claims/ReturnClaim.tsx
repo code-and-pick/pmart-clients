@@ -216,7 +216,32 @@ function ReturnForm({ orderId }: { readonly orderId: string }) {
             </label>
           </fieldset>
 
-          <div className={CARD}>
+          {/* 요약(2026-11-20 AWS 만들기 화면) — 고른 값·빠진 것·접수 단추 */}
+          <aside className={CARD} aria-label={messages.products.summary.title} data-testid="return-summary">
+          <h2 className="text-lg font-bold">{messages.products.summary.title}</h2>
+          <dl className="space-y-2 text-sm">
+            <div>
+              <dt>{m.lines}</dt>
+              <dd>{m.summaryLines(lines.length, lines.reduce((n, l) => n + l.qty, 0))}</dd>
+            </div>
+            <div>
+              <dt>{m.reason}</dt>
+              <dd>{reason ? messages.claims.reasonName[reason] : messages.products.summary.notYet}</dd>
+            </div>
+            <div>
+              <dt>{m.fault}</dt>
+              <dd>{fault ? m.faultName[fault] : m.customerFault}</dd>
+            </div>
+            <div>
+              <dt>{messages.csIntake.method}</dt>
+              <dd>{method ? messages.csIntake.methodName[method] : messages.products.summary.notYet}</dd>
+            </div>
+          </dl>
+          {!valid && !locked && (
+            <p className="text-xs text-warning" data-testid="return-missing">
+              {m.summaryMissing([lines.length === 0 && m.lines, reason === '' && m.reason, method === '' && messages.csIntake.method, !noteOk && m.methodNoteRequired].filter(Boolean).join(', '))}
+            </p>
+          )}
           <button type="submit" className="btn btn-primary btn-block" disabled={locked || !valid}>
             {m.submit}
           </button>
@@ -233,7 +258,7 @@ function ReturnForm({ orderId }: { readonly orderId: string }) {
               </div>
             )}
           </CommandFeedback>
-          </div>
+          </aside>
           </div>
         </form>
       )}
