@@ -59,7 +59,7 @@ describe('왼쪽 메뉴 업무 알림', () => {
     expect(screen.getByTestId('menu-alert-casesUnassigned')).toHaveTextContent('4');
     expect(screen.getByTestId('menu-alert-casesOverdue')).toHaveTextContent('2');
     expect(screen.getByTestId('menu-alert-riderInquiries')).toHaveTextContent('1');
-    expect(screen.getByTestId('menu-alert-riderInquiries')).toHaveAttribute('title', '답변 대기 라이더 문의');
+    expect(screen.getByTestId('menu-alert-riderInquiries')).toHaveAttribute('title', '할 일 — 답변 대기 라이더 문의 1건'); // 2026-11-20 뜻(할 일·기한 넘김)과 건수를 함께
     // 메뉴 링크 이름에는 숫자가 섞이지 않는다
     expect(screen.getByRole('link', { name: '접수 건' })).toBeInTheDocument();
   });

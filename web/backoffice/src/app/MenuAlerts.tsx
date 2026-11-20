@@ -133,12 +133,14 @@ function AlertBadge({ alert }: { readonly alert: AlertKey }) {
   return (
     <span
       // 2026-11-20 사용자 "알림 숫자가 너무 구리다": 꽉 찬 파랑·빨강 공 대신 옅은 바탕 숫자 칩(index.css .pm-count) — 할 일 회색, 기한 넘김만 빨강
+      // 2026-11-20 사용자 "뭐가 파랑이고 뭐가 빨강인지 모르겠다": 지금 메뉴라서 파랗던 것은 없앰(색 = 뜻만), 기한 넘김은 시계 표시도(색만으로 알리지 않음)
       className="pm-count"
       data-tone={URGENT.has(alert) ? 'urgent' : 'todo'}
-      title={m.title[alert]}
+      title={`${URGENT.has(alert) ? m.kindUrgent : m.kindTodo} — ${m.title[alert] ?? ''} ${shown(q.data)}건`}
       data-testid={`menu-alert-${alert}`}
       data-flash={flash ? 'true' : 'false'}
     >
+      {URGENT.has(alert) && <UrgentMark />}
       {shown(q.data)}
     </span>
   );
@@ -177,15 +179,46 @@ function SumBadge({ results, tone, title, testId }: { readonly results: readonly
     );
   if (sum === 0) return null;
   return (
-    <span className="pm-count" data-tone={tone === 'error' ? 'urgent' : 'todo'} title={title} data-testid={testId}>
+    <span className="pm-count" data-tone={tone === 'error' ? 'urgent' : 'todo'} title={`${title} ${more ? `${sum}+` : sum}건`} data-testid={testId}>
+      {tone === 'error' && <UrgentMark />}
       {more ? `${sum}+` : sum}
     </span>
   );
 }
 
+/** 기한 넘김 표시(작은 시계) — 빨강을 못 구분해도 알 수 있게. 글자가 아니라 시험·읽기 도구의 숫자는 그대로 */
+function UrgentMark() {
+  return (
+    <svg viewBox="0 0 24 24" className="-ml-0.5 mr-0.5 h-2.5 w-2.5 fill-none stroke-current" strokeWidth={3} strokeLinecap="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3 2" />
+    </svg>
+  );
+}
+
+/** 메뉴 맨 아래 보는 법(2026-11-20) — 회색 숫자 = 할 일, 빨강 시계 숫자 = 기한 넘김 */
+export function MenuAlertLegend() {
+  return (
+    <p className="mx-4 mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-base-300 pt-3 text-[11px] text-base-content/60" data-testid="menu-alert-legend">
+      <span className="inline-flex items-center gap-1">
+        <span className="pm-count" data-tone="todo" aria-hidden="true">
+          3
+        </span>
+        {m.kindTodo}
+      </span>
+      <span className="inline-flex items-center gap-1">
+        <span className="pm-count" data-tone="urgent" aria-hidden="true">
+          <UrgentMark />1
+        </span>
+        {m.kindUrgent}
+      </span>
+    </p>
+  );
+}
+
 /**
  * 묶음 합계(2026-11-19 사용자 "펼치기 전엔 7 인데 펼치면 8, 접었을 때 빨간 알림만 보인다"):
- * 메뉴 배지와 같은 색으로 나눠 보인다 — 파랑 = 파란 메뉴 배지의 합(할 일), 빨강 = 빨간 메뉴 배지의 합(기한 지남).
+ * 메뉴 배지와 같은 색으로 나눠 보인다 — 회색 = 할 일 배지의 합, 빨강(시계) = 기한 넘김 배지의 합.
  * 그래서 펼친 메뉴 배지를 색별로 더한 값과 늘 같다. 기한 지남은 안 맡음과 겹칠 수 있어 한 숫자로 합치지 않는다.
  */
 function GroupSum({ keys }: { readonly keys: readonly AlertKey[] }) {

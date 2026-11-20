@@ -29,7 +29,7 @@ import { useApi } from './ApiContext';
 import { aliasMenu, covers, visibleGroups, type NavGroup } from './nav';
 import { RequireSession, SessionProvider, useSession } from './SessionContext';
 import { GroupIcon } from './groupIcons';
-import { GroupAlertBadge, MenuGroupAlert, MenuItemAlerts } from './MenuAlerts';
+import { GroupAlertBadge, MenuAlertLegend, MenuGroupAlert, MenuItemAlerts } from './MenuAlerts';
 import { NavRail } from './NavRail';
 import { AlertsAutoRefresh } from './AlertsAutoRefresh';
 import { LiveClock, RoleChips } from './HeaderContext';
@@ -275,7 +275,7 @@ function Layout() {
       </header>
       <div className="flex min-w-0 flex-1">
         {/* 흰 왼쪽 메뉴 — 화면 높이에 고정하고 길면 메뉴만 따로 스크롤(오른쪽 화면을 내려도 메뉴는 그 자리) */}
-        <aside className={`sticky top-0 flex h-screen shrink-0 flex-col self-start overflow-y-auto border-r border-base-300 bg-base-100 text-base-content transition-[width] ${collapsed ? 'w-20' : 'w-[220px]'}`} data-testid="side-menu" data-collapsed={collapsed}>
+        <aside className={`sticky top-0 flex h-screen shrink-0 flex-col self-start overflow-y-auto border-r pb-11 border-base-300 bg-base-100 text-base-content transition-[width] ${collapsed ? 'w-20' : 'w-[220px]'}`} data-testid="side-menu" data-collapsed={collapsed}>
           <div className={`flex h-10 shrink-0 items-center ${collapsed ? 'justify-center px-1' : 'justify-end px-2'}`}>
             <button type="button" className="btn btn-ghost btn-sm h-8 w-8 p-0 text-base-content/70" onClick={toggleMenu} aria-label={collapsed ? m.nav.expand : m.nav.collapse} title={collapsed ? m.nav.expand : m.nav.collapse} data-testid="menu-toggle">
               <svg viewBox="0 0 24 24" className="h-4 w-4 fill-none stroke-current" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -303,6 +303,8 @@ function Layout() {
               {session && groups.every((g) => g.id === 'assistant') && <p className="px-4 text-xs text-base-content/60">{m.nav.noMenu}</p>}
             </nav>
           )}
+          {/* 숫자 보는 법(2026-11-20 사용자 "뭐가 파랑이고 뭐가 빨강인지") — 펼친 메뉴에만 */}
+          {!collapsed && session && <MenuAlertLegend />}
         </aside>
         <div className="flex min-w-0 flex-1 flex-col">
           {/* 위치 줄(AWS 빵부스러기) + 맥락 꼬리표(내 역할) */}

@@ -27,7 +27,7 @@ describe('접수 건 알림 배지', () => {
     renderAt('/session', as.riderOps);
     expect(await screen.findByTestId('menu-alert-casesUnassigned')).toHaveTextContent('3');
     expect(screen.getByTestId('menu-alert-casesOverdue')).toHaveTextContent('50+');
-    expect(screen.getByTestId('menu-alert-casesUnassigned')).toHaveAttribute('title', '아무도 안 맡은 접수 건');
+    expect(screen.getByTestId('menu-alert-casesUnassigned')).toHaveAttribute('title', expect.stringMatching(/^할 일 — 아무도 안 맡은 접수 건 /));
   });
 
   it('0건이면 배지가 없고, 상담원(보기만)에게는 묻지도 않는다', async () => {
