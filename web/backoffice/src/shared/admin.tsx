@@ -376,7 +376,8 @@ export function ListHeader({ title, count, onInfo, refresh, actions }: {
 }) {
   const readAt = refresh?.readAt ? new Date(refresh.readAt) : null;
   return (
-    <header className="flex flex-wrap items-end justify-between gap-3">
+    // data-list-part="head" — 바로 뒤가 목록 상자(필터·표)면 그 상자의 머리가 된다(2026-11-20 AWS 목록 = 상자 하나, index.css)
+    <header className="flex flex-wrap items-end justify-between gap-3" data-list-part="head">
       <div className="flex min-w-0 items-baseline gap-2">
         <h1 className="text-2xl font-bold">{title}</h1>
         {count !== undefined && (

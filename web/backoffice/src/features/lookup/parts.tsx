@@ -98,20 +98,21 @@ export function Icon({ name, className = 'h-4 w-4' }: { readonly name: IconName;
   );
 }
 
+// 2026-11-20 AWS 색 줄이기: 바탕 없는 그림 + 글자. 색은 주의·실패에만(나머지는 회색 글자)
 const chipTone: Record<Tone, string> = {
-  neutral: 'bg-base-300/60 text-base-content/80',
-  info: 'bg-info/10 text-info',
-  success: 'bg-success/10 text-success',
-  warning: 'bg-warning/15 text-warning',
-  error: 'bg-error/10 text-error',
-  accent: 'bg-accent/15 text-accent',
-  ghost: 'bg-base-200 text-base-content/70',
+  neutral: 'text-base-content/80',
+  info: 'text-base-content/80',
+  success: 'text-base-content/80',
+  warning: 'text-[color-mix(in_oklab,var(--color-warning)_60%,var(--color-base-content))]',
+  error: 'text-error',
+  accent: 'text-base-content/80',
+  ghost: 'text-base-content/70',
 };
 
 /** 종류 꼬리표(네모, 색 + 그림) — 상태 점 꼬리표(StatusBadge)와 모양을 달리해 종류와 상태가 섞여 보이지 않게 */
 export function KindChip({ tone = 'ghost', icon, children }: { readonly tone?: Tone; readonly icon?: IconName; readonly children: ReactNode }) {
   return (
-    <span className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-md px-2 py-1 text-xs font-medium ${chipTone[tone]}`}>
+    <span className={`inline-flex items-center gap-1.5 whitespace-nowrap text-sm ${chipTone[tone]}`} data-tone={tone}>
       {icon && <Icon name={icon} className="h-3.5 w-3.5" />}
       {children}
     </span>

@@ -340,9 +340,10 @@ export function StatusDonut({ today, toneOf }: { readonly today: string; readonl
 // [종류 꼬리표] 짧은 이름(접수 건 종류·문의 종류·승인 유형) …… 몇 시간 전. 긴 요약 문장은 줄에 마우스를 올리면(title) 보인다.
 type Activity = { readonly at: string; readonly kind: 'approval' | 'case' | 'inquiry'; readonly what: string; readonly full: string; readonly to: string };
 const ACT_CHIP: Record<Activity['kind'], { readonly label: string; readonly cls: string }> = {
-  approval: { label: m.act.chip.approval, cls: 'bg-info/15 text-info' },
-  case: { label: m.act.chip.case, cls: 'bg-warning/15 text-warning' },
-  inquiry: { label: m.act.chip.inquiry, cls: 'bg-primary/10 text-primary' },
+  // 2026-11-20 AWS 색 줄이기: 색 칩 대신 회색 글자(무엇인지는 글자로)
+  approval: { label: m.act.chip.approval, cls: 'text-base-content/60' },
+  case: { label: m.act.chip.case, cls: 'text-base-content/60' },
+  inquiry: { label: m.act.chip.inquiry, cls: 'text-base-content/60' },
 };
 
 function ago(iso: string): string {

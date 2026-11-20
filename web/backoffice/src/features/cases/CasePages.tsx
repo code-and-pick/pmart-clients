@@ -316,20 +316,19 @@ const KIND_TONE: Readonly<Record<string, Tone>> = {
 
 function KindBadge({ kind }: { readonly kind: string | null | undefined }) {
   if (!kind) return <span>{m.none}</span>;
-  const named = m.cases.kindName[kind] !== undefined;
-  return named ? (
-    <StatusBadge tone={KIND_TONE[kind] ?? 'ghost'}>
+  // 2026-11-20 AWS 색 줄이기: 종류는 상태가 아니라 색 없이 글자로(색은 처리 기한·상태 칸에만)
+  return (
+    <span className="text-sm text-base-content/85" data-kind-tone={KIND_TONE[kind] ?? 'ghost'}>
       <CodeLabel code={kind} names={m.cases.kindName} />
-    </StatusBadge>
-  ) : (
-    <CodeLabel code={kind} names={m.cases.kindName} />
+    </span>
   );
 }
 
 function PriorityBadge({ p }: { readonly p: string | null | undefined }) {
   if (!p) return <span>{m.none}</span>;
-  const cls = p === 'P1' ? 'badge-error' : p === 'P2' ? 'badge-warning badge-soft' : 'badge-ghost';
-  return <span className={`badge badge-sm font-mono font-semibold ${cls}`}>{p}</span>;
+  // 2026-11-20 AWS 색 줄이기: 꽉 찬 꼬리표 대신 글자 — P1 만 빨강 굵게, P2 진한 노랑, 나머지 회색
+  const cls = p === 'P1' ? 'font-bold text-error' : p === 'P2' ? 'font-semibold text-[color-mix(in_oklab,var(--color-warning)_60%,var(--color-base-content))]' : 'text-base-content/60';
+  return <span className={`font-mono text-sm ${cls}`} data-priority={p}>{p}</span>;
 }
 
 const stateTone = (c: { readonly state?: string | null; readonly overdue?: boolean | null }): Tone =>

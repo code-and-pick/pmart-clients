@@ -31,7 +31,7 @@ import { CopyButton } from '../../shared/CopyButton';
 import { useRecordRecent } from '../../shared/recentViews';
 import { messages as m } from '../../shared/messages';
 import { label, text, when } from '../../shared/ops';
-import { CodeLabel, DataTable, DetailHeader, FieldList, NextAction, PropertyFilter, ResultBar, Section, StatusBadge, type Tone, useRowLink, ListHeader, refreshOf } from '../../shared/admin';
+import { CodeLabel, DataTable, DetailHeader, FieldList, NextAction, PropertyFilter, Section, StatusBadge, type Tone, useRowLink, ListHeader, refreshOf } from '../../shared/admin';
 import { Icon, KindChip, ListFoot, Timeline, When } from '../lookup/parts';
 
 type DeliveryExecution = Execution['schemas']['DeliveryExecution'];
@@ -321,7 +321,7 @@ export function DeliveryOpenPage() {
             const rows = [...(r.items ?? []), ...more.rows];
             return (
               <>
-                <ResultBar count={rows.length} more={!!nextCursor} />
+                {/* 건수는 제목 옆 (개수)(2026-11-20 AWS 상자 하나) */}
                 {/* 상세에서 이전·다음으로 넘기도록 지금 목록 순서를 기억(2026-11-19) */}
                 <RememberQueue kind="delivery" ids={rows.flatMap((d) => (d.deliveryId ? [d.deliveryId] : []))} from={`/deliveries?${params.toString()}`} />
                 <DeliveryTable rows={rows} preview={pv} />
