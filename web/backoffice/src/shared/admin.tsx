@@ -772,3 +772,39 @@ export function ActionsMenu({ items, label = '작업', busyLabel, testId }: {
     </div>
   );
 }
+
+/**
+ * 받은 쪽 안에서만 줄 세우기(2026-11-20 AWS 칸 정렬 ▲▽) — 서버가 정렬을 받지 않는 목록이라 이 쪽에 받은 줄만 다시 놓는다(전체 정렬이 아니다).
+ * 누를 때마다 오름 → 내림 → 처음 순서. 값이 없는 줄은 맨 뒤.
+ */
+export type LocalSort<K extends string> = { readonly key: K; readonly dir: 'asc' | 'desc' } | null;
+export function useLocalSort<T, K extends string>(rows: readonly T[], value: (row: T, key: K) => string | number | null | undefined) {
+  const [sort, setSort] = useState<LocalSort<K>>(null);
+  const sorted = sort
+    ? [...rows].sort((a, b) => {
+        const x = value(a, sort.key);
+        const y = value(b, sort.key);
+        if (x === null || x === undefined) return 1;
+        if (y === null || y === undefined) return -1;
+        const c = typeof x === 'number' && typeof y === 'number' ? x - y : String(x).localeCompare(String(y), 'ko');
+        return sort.dir === 'asc' ? c : -c;
+      })
+    : rows;
+  const toggle = (key: K) => setSort((cur) => (!cur || cur.key !== key ? { key, dir: 'asc' } : cur.dir === 'asc' ? { key, dir: 'desc' } : null));
+  return { sorted, sort, toggle };
+}
+
+/** 정렬 칸 머리 — 누르면 받은 쪽 안에서 정렬, ▲ 오름·▼ 내림·▽ 안 함 */
+export function SortTh<K extends string>({ k, label, sort, onSort, className = '' }: { readonly k: K; readonly label: string; readonly sort: LocalSort<K>; readonly onSort: (k: K) => void; readonly className?: string }) {
+  const on = sort?.key === k;
+  return (
+    <th className={className} aria-sort={on ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}>
+      <button type="button" className={`inline-flex items-center gap-1 ${on ? 'text-base-content' : ''} hover:text-primary`} title={lm.listUi.sortHint} onClick={() => onSort(k)}>
+        {label}
+        <span aria-hidden="true" className={on ? 'text-primary' : 'text-base-content/35'}>
+          {on ? (sort.dir === 'asc' ? '▲' : '▼') : '▽'}
+        </span>
+      </button>
+    </th>
+  );
+}

@@ -25,3 +25,19 @@ describe('기간 빠른 고르기', () => {
     expect(pager).toHaveTextContent('1쪽');
   });
 });
+
+describe('칸 정렬(받은 쪽 안에서만)', () => {
+  it('주문 조회: 결제 금액 머리를 누르면 ▲ 오름 → ▼ 내림 → 처음 순서, 정렬 중엔 "이 쪽 안에서만" 표시', async () => {
+    const user = userEvent.setup();
+    renderAt('/orders', as.cs);
+    await screen.findAllByTestId('order-row');
+    const th = screen.getByRole('columnheader', { name: /결제 금액/ });
+    await user.click(within(th).getByRole('button'));
+    expect(th).toHaveAttribute('aria-sort', 'ascending');
+    expect(screen.getByTestId('sort-note')).toHaveTextContent('이 쪽 안에서만');
+    await user.click(within(th).getByRole('button'));
+    expect(th).toHaveAttribute('aria-sort', 'descending');
+    await user.click(within(th).getByRole('button'));
+    expect(th).toHaveAttribute('aria-sort', 'none');
+  });
+});

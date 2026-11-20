@@ -12,7 +12,7 @@ import { CommandFeedback, QueryState, toUiState, useCommand } from '@pmart/web-u
 import { commandParams } from '../../api/command';
 import type { components } from '../../api/generated/order';
 import { useApi } from '../../app/ApiContext';
-import { CodeLabel, DataTable, DetailHeader, NextAction, Notice, PropertyFilter, Section, StatusBadge, type FilterProp, type Tone, ListHeader, listCount, refreshOf, SectionTabs, PagerMini } from '../../shared/admin';
+import { CodeLabel, DataTable, DetailHeader, NextAction, Notice, PropertyFilter, Section, StatusBadge, type FilterProp, type Tone, ListHeader, listCount, refreshOf, SectionTabs, PagerMini, SortTh, useLocalSort } from '../../shared/admin';
 import { SavedViews } from '../../shared/SavedViews';
 import { OrderProgress } from './OrderProgress';
 import { CopyButton } from '../../shared/CopyButton';
@@ -106,6 +106,8 @@ export function OrderLookupPage() {
     queryFn: () => request('GET', api.orders.GET('/orders/lookups', { params: { query: queryOf(criteria, page) } })),
     enabled: blocked === null,
   });
+  // 칸 정렬(2026-11-20 AWS ▲▽) — 주문 조회는 서버 정렬이 없어 이 쪽 안에서만
+  const local = useLocalSort(query.data?.items ?? [], (o, k: 'confirmedAt' | 'itemCount' | 'approvedAmount') => (k === 'confirmedAt' ? (o.confirmedAt ?? null) : k === 'itemCount' ? o.itemCount : o.approvedAmount));
 
   // 2026-11-20 AWS 개편: 검색 조건 상자 → 속성 필터(고르면 바로 주소에 — 찾기 단추 없음). 기간은 오른쪽 날짜 둘
   const setCriteria = (patch: Readonly<Record<string, string | null>>) => {
@@ -179,16 +181,16 @@ export function OrderLookupPage() {
                     <tr>
                       <th>{m.orders.detailTitle}</th>
                       <th>{m.orders.status}</th>
-                      <th>{m.orders.confirmedAt}</th>
+                      <SortTh k="confirmedAt" label={m.orders.confirmedAt} sort={local.sort} onSort={local.toggle} />
                       <th>{m.orders.mfcId}</th>
                       <th>{m.orders.phone}</th>
-                      <th className="text-right">{m.orders.items}</th>
-                      <th className="text-right">{m.orders.total}</th>
+                      <SortTh k="itemCount" label={m.orders.items} sort={local.sort} onSort={local.toggle} className="text-right" />
+                      <SortTh k="approvedAmount" label={m.orders.total} sort={local.sort} onSort={local.toggle} className="text-right" />
                       <th>{m.orders.openIssues}</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {r.items.map((o) => (
+                    {local.sorted.map((o) => (
                       <tr key={o.orderId} data-testid="order-row" {...pv.row(o.orderId)}>
                         <td>
                           <span className="font-semibold text-base-content" data-testid="order-number">
@@ -224,6 +226,7 @@ export function OrderLookupPage() {
                 {/* 쪽 넘기기는 필터 줄 오른쪽 위(2026-11-20 AWS) — 아래에는 이 쪽 번호만 */}
                 <ListFoot>
                   <span className="text-base-content/55">{m.orders.pageLabel(r.page.page)}</span>
+                  {local.sort && <span className="text-xs text-base-content/55" data-testid="sort-note">{m.listUi.sortNote}</span>}
                 </ListFoot>
                 {pv.id && (
                   <PreviewDrawer
