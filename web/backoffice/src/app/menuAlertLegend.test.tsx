@@ -10,6 +10,9 @@ describe('메뉴 숫자 보는 법', () => {
     const legend = await screen.findByTestId('menu-alert-legend');
     expect(legend).toHaveTextContent('할 일');
     expect(legend).toHaveTextContent('기한 넘김');
+    // 보는 법임을 밝히고, 실제 개수로 읽히는 예시 숫자는 두지 않는다(2026-11-20 사용자 "알림 현황이 메뉴와 다르다")
+    expect(legend).toHaveTextContent('메뉴 숫자 보는 법');
+    expect(legend.textContent).not.toMatch(/\d/);
     const urgent = await screen.findByTestId('menu-alert-casesOverdue');
     expect(urgent).toHaveAttribute('data-tone', 'urgent');
     expect(urgent.querySelector('svg')).not.toBeNull();

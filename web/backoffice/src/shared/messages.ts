@@ -3048,6 +3048,8 @@ export const messages = {
     groupUrgentTitle: '이 묶음의 기한 넘김(할 일과 겹칠 수 있어요)',
     kindTodo: '할 일',
     kindUrgent: '기한 넘김',
+    /** 메뉴 맨 아래 보는 법 제목(2026-11-20 사용자 — 예시 숫자 3·1 을 실제 알림 수로 읽었다) */
+    legendTitle: '메뉴 숫자 보는 법',
     launcherMenu: '이 앱 메뉴',
     title: {
       casesUnassigned: '아무도 안 맡은 접수 건',

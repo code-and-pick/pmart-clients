@@ -196,19 +196,21 @@ function UrgentMark() {
   );
 }
 
-/** 메뉴 맨 아래 보는 법(2026-11-20) — 회색 숫자 = 할 일, 빨강 시계 숫자 = 기한 넘김 */
+/**
+ * 메뉴 맨 아래 보는 법(2026-11-20) — 회색 칩 = 할 일, 빨강 시계 칩 = 기한 넘김.
+ * 2026-11-20 사용자 "왼쪽 구석 알림 현황이랑 메뉴 알림이 다르다": 예시 숫자(3·1)를 실제 개수로 읽었다 — 숫자를 빼고 제목을 붙인다.
+ */
 export function MenuAlertLegend() {
   return (
     <p className="mx-4 mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-base-300 pt-3 text-[11px] text-base-content/60" data-testid="menu-alert-legend">
+      <span className="w-full">{m.legendTitle}</span>
       <span className="inline-flex items-center gap-1">
-        <span className="pm-count" data-tone="todo" aria-hidden="true">
-          3
-        </span>
+        <span className="pm-count min-w-5" data-tone="todo" aria-hidden="true" />
         {m.kindTodo}
       </span>
       <span className="inline-flex items-center gap-1">
         <span className="pm-count" data-tone="urgent" aria-hidden="true">
-          <UrgentMark />1
+          <UrgentMark />
         </span>
         {m.kindUrgent}
       </span>
