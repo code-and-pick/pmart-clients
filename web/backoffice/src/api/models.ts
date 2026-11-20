@@ -23,7 +23,7 @@ export type ChangeRequestBody = A['ChangeRequestBody'];
 export type ChangeRequest = A['ChangeRequest'];
 export type Decision = A['Decision'];
 /** 목록 필터에 내놓는 유형. GRANT = 직원 권한 요청(hr-service 등록 → 자동 제출, 백엔드 handoff 2026-11-13) */
-export const APPROVAL_TYPES = ['PRODUCT', 'DISPLAY', 'PRICE', 'GRANT'] as const satisfies readonly ApprovalType[];
+export const APPROVAL_TYPES = ['PRODUCT', 'DISPLAY', 'PRICE', 'GRANT', 'SEARCH_SYNONYM'] as const satisfies readonly ApprovalType[];
 export const REVIEW_STATES = [
   'REVIEW_PENDING',
   'EVIDENCE_REQUIRED',

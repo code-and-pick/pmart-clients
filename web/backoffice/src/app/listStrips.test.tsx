@@ -18,17 +18,6 @@ describe('목록 숫자 띠', () => {
     expect(screen.getByTestId('case-strip-overdue')).toHaveAttribute('aria-current', 'true');
   });
 
-  it('승인함: 심사 대기 유형별 4칸(대시보드와 같은 조회), 누르면 그 유형의 심사 대기로 거름', async () => {
-    const user = userEvent.setup();
-    renderAt('/approvals', as.admin);
-    const strip = await screen.findByTestId('approval-strip');
-    expect(within(strip).getAllByRole('link')).toHaveLength(4);
-    const grant = within(strip).getByTestId('approval-strip-GRANT');
-    expect(await within(grant).findByText(/^\d+\+?$/)).toBeInTheDocument();
-    await user.click(grant);
-    expect(await screen.findByTestId('approval-strip-GRANT')).toHaveAttribute('aria-current', 'true');
-  });
-
   it('처리 대기: 종류별 5칸(결제 결과 불명은 따로), 숫자는 이 화면이 읽은 목록', async () => {
     renderAt('/pending', as.admin);
     const strip = await screen.findByTestId('pending-strip');

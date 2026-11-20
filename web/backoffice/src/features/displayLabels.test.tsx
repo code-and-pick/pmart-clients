@@ -12,7 +12,7 @@ import { as, renderAt } from '../test/render';
 
 describe('화면 표기(ADR-0070 덧붙임)', () => {
   it('승인함: 요청자는 이름 · 사번, 승인 번호(AP-/apv-)는 목록에 없다', async () => {
-    renderAt('/approvals', as.admin);
+    renderAt('/approvals?view=all', as.admin);
     const rows = await screen.findAllByTestId('approval-row');
     await waitFor(() => expect(rows.some((r) => r.textContent?.includes('[목] 김엠디 · P2026-00002'))).toBe(true));
     for (const r of rows) {
@@ -122,7 +122,7 @@ describe('라이더 컴플레인 종류별 수(case 0.26.0)', () => {
 
 describe('직원 표시 묶음 조회', () => {
   it('승인함 한 쪽의 요청자들을 hr employee-labels 한두 번에 묻는다(줄마다 아님)', async () => {
-    const view = renderAt('/approvals', as.admin);
+    const view = renderAt('/approvals?view=all', as.admin);
     const rows = await screen.findAllByTestId('approval-row');
     await waitFor(() => expect(rows.some((r) => r.textContent?.includes('P2026-'))).toBe(true));
     const label = view.sent.filter((r) => new URL(r.url).pathname.endsWith('/hr/employee-labels'));

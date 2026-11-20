@@ -11,10 +11,10 @@ describe('승인함 하나로', () => {
     expect(screen.queryByRole('link', { name: '모든 승인 한눈에' })).not.toBeInTheDocument();
   });
 
-  it('표는 칸 너비를 고정하고(table-fixed), 반영 상태는 짧은 이름', async () => {
-    renderAt('/approvals', as.admin);
+  it('표는 칸 너비를 고정하고(table-fixed), 심사·반영은 "지금" 한 칸', async () => {
+    renderAt('/approvals?view=all', as.admin);
     const rows = await screen.findAllByTestId('approval-row');
     expect(rows[0]!.closest('table')).toHaveClass('table-fixed');
-    expect(rows[0]!).toHaveTextContent('반영 전');
+    expect(rows[0]!).toHaveTextContent('심사 기다림');
   });
 });

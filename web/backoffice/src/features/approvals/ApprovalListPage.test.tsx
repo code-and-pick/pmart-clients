@@ -46,24 +46,38 @@ describe('승인함 목록 — 더 보기', () => {
   });
 });
 
-describe('승인함 목록 — 탭·칩 필터(2026-11-18 화면)', () => {
-  it('심사 상태 탭·유형 칩을 누르면 그 값으로 묻고, 줄은 요약·유형 이름·상태 배지로 보인다', async () => {
-    server.use(http.get(`${API_BASE}/approvals`, () => HttpResponse.json({ items: [row(1)], page: { nextCursor: null, size: 50 } })));
+describe('승인함 — 내 일 기준(2026-11-20 "뭐가 뭔지 모르겠다")', () => {
+  it('처음은 "내가 심사할 것"(decidableByMe), 줄은 무엇을 승인·요약·지금 한 칸·심사하기', async () => {
+    server.use(
+      http.get(`${API_BASE}/approvals`, () =>
+        HttpResponse.json({ items: [{ ...row(1), type: 'PRICE', reviewState: 'REVIEW_PENDING', executionState: 'NOT_REQUESTED', viewerCanDecide: true }], page: { nextCursor: null, size: 50 } }),
+      ),
+    );
     const view = renderAt('/approvals', as.admin);
     const first = await screen.findByTestId('approval-row');
+    expect(screen.getByRole('tab', { name: /내가 심사할 것/ })).toHaveAttribute('aria-selected', 'true');
+    expect(first).toHaveTextContent('가격 변경');
     expect(first).toHaveTextContent('요청 1');
-    expect(first).toHaveTextContent('상품'); // PRODUCT
-    expect(first).toHaveTextContent('심사 완료(승인)');
-    expect(screen.getByText('1건 표시')).toBeInTheDocument();
+    expect(first).toHaveTextContent('심사 기다림');
+    expect(screen.getByTestId('approval-decide')).toHaveAttribute('href', '/approvals/APV-1');
+    expect(screen.queryByTestId('approval-state')).not.toBeInTheDocument(); // 심사할 것은 상태 고르기 없음
+    await waitFor(() => expect(view.sent.some((r) => new URL(r.url).searchParams.get('decidableByMe') === 'true')).toBe(true));
+  });
 
-    await userEvent.click(screen.getByRole('tab', { name: '심사 대기' }));
-    await waitFor(() => expect(view.sent.some((r) => new URL(r.url).searchParams.get('reviewState') === 'REVIEW_PENDING')).toBe(true));
-    expect(screen.getByRole('tab', { name: '심사 대기' })).toHaveAttribute('aria-selected', 'true');
-
-    await userEvent.click(screen.getByRole('button', { name: '가격' }));
+  it('"내가 올린 것"은 requesterId = 나, "모두"에서 상태·무엇을 고르면 그 값으로 묻는다', async () => {
+    server.use(http.get(`${API_BASE}/approvals`, () => HttpResponse.json({ items: [row(1)], page: { nextCursor: null, size: 50 } })));
+    const user = userEvent.setup();
+    const view = renderAt('/approvals', as.admin);
+    await user.click(await screen.findByTestId('approval-view-mine'));
+    await waitFor(() => expect(view.sent.some((r) => new URL(r.url).searchParams.get('requesterId') !== null)).toBe(true));
+    await user.click(screen.getByTestId('approval-view-all'));
+    const first = await screen.findByTestId('approval-row');
+    expect(first).toHaveTextContent('상품 등록');
+    expect(first).toHaveTextContent('승인됨 · 반영 완료'); // 심사·반영 두 축을 한 마디로
+    await user.selectOptions(screen.getByTestId('approval-state'), '반려됨');
+    await user.click(screen.getByRole('button', { name: '가격 변경' }));
     await waitFor(() =>
-      expect(view.sent.some((r) => { const p = new URL(r.url).searchParams; return p.get('type') === 'PRICE' && p.get('reviewState') === 'REVIEW_PENDING'; })).toBe(true),
+      expect(view.sent.some((r) => { const p = new URL(r.url).searchParams; return p.get('type') === 'PRICE' && p.get('reviewState') === 'REJECTED' && !p.get('decidableByMe'); })).toBe(true),
     );
-    expect(screen.getByRole('button', { name: '가격' })).toHaveAttribute('aria-pressed', 'true');
   });
 });

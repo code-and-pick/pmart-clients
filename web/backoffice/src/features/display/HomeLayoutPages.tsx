@@ -2,7 +2,7 @@
 // 초안(DRAFT) → 저장(PUT, X-Expected-Version) → 제출(검사·잠금, approvalRequest) → approval DISPLAY → 승인되면 PUBLISHED(새 홈 버전), 반려면 REJECTED(고쳐서 다시).
 // 콘텐츠 게시와 같은 모양. 한 번 누르면 저장 → 제출 → 승인 요청까지(승인 요청만 실패하면 그 단계만 다시 올리는 상자).
 // 고객 홈은 승인 뒤에만 바뀐다 — 미리보기는 초안 본문으로 그린다. 배너·테마 ID 는 화면이 만들고 보이지 않는다(ADR-0070), 할인·쿠폰 문구는 서버가 막는다(1차 범위).
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState, type ReactNode } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 
@@ -557,7 +557,8 @@ function Editor({ draft }: { readonly draft: Draft }) {
     setBase({ version: saved.version, body: sent });
     void qc.invalidateQueries({ queryKey: ['storefront', 'layout-drafts'] });
   };
-  const save = useMutation({ mutationFn: () => put(new IdempotencyKey(randomUuid())) });
+  // 저장도 명령 — 다시 누르기(같은 시도)는 같은 키(PR #282 검토 댓글)
+  const save = useCommand((_: void, key) => put(key));
 
   // 한 번 누르면: (바뀐 게 있으면) 저장 → 제출(검사·잠금) → 승인 요청. 키 하나에서 단계별 키를 만든다(다시 누르면 같은 키)
   const submit = useCommand(async (_: void, key): Promise<SubmitResult> => {
@@ -576,7 +577,7 @@ function Editor({ draft }: { readonly draft: Draft }) {
   });
   const result = submit.phase.kind === 'done' ? submit.phase.result : null;
   const problems = problemsOf(submit.phase.kind === 'rejected' ? submit.phase.failure : null);
-  const locked = !editable || submit.busy || result !== null || save.isPending;
+  const locked = !editable || submit.busy || result !== null || save.busy;
 
   const setBanner = (i: number, b: Banner) => setBody((x) => ({ ...x, banners: (x.banners ?? []).map((y, j) => (j === i ? b : y)) }));
   const setTheme = (i: number, t: Theme) => setBody((x) => ({ ...x, themes: (x.themes ?? []).map((y, j) => (j === i ? t : y)) }));
@@ -722,7 +723,7 @@ function Editor({ draft }: { readonly draft: Draft }) {
                     </span>
                   )}
                   {dirty && problems.count === 0 && <span className="mr-auto text-xs text-base-content/55">{m.unsaved}</span>}
-                  <button type="button" className="btn btn-sm" disabled={!dirty || locked} data-testid="layout-save" onClick={() => save.mutate()}>
+                  <button type="button" className="btn btn-sm" disabled={!dirty || locked} data-testid="layout-save" onClick={() => void save.run()}>
                     {m.save}
                   </button>
                   <button type="button" className="btn btn-sm btn-primary" disabled={locked} data-testid="layout-submit" onClick={() => void submit.run()}>
@@ -730,7 +731,7 @@ function Editor({ draft }: { readonly draft: Draft }) {
                   </button>
                 </div>
               )}
-              {save.error && <FailureAlert failure={save.error} />}
+              {(save.phase.kind === 'rejected' || save.phase.kind === 'unknown') && <FailureAlert failure={save.phase.failure} />}
               {/* 승인 요청은 반영이 아니다 — 성공 알림 대신 아래 상자, 실패만 */}
               {problems.count === 0 && (submit.phase.kind === 'rejected' || submit.phase.kind === 'unknown') && <FailureAlert failure={submit.phase.failure} />}
               {result?.approvalId && (

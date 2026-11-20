@@ -31,7 +31,7 @@ describe('목록 순서대로 이전·다음', () => {
 
   it('승인함 목록 → 상세에서도', async () => {
     const user = userEvent.setup();
-    renderAt('/approvals', as.admin);
+    renderAt('/approvals?view=all', as.admin);
     const rows = await screen.findAllByTestId('approval-row');
     expect(rows.length).toBeGreaterThan(1);
     // 승인함 줄을 누르면 미리보기 — 거기서 '상세 열기'
@@ -43,7 +43,7 @@ describe('목록 순서대로 이전·다음', () => {
 describe('미리보기에서 Enter · 기억하는 주소', () => {
   it('승인함 줄을 누르면 바로 그 건 상세(이전·다음 띠도)', async () => {
     const user = userEvent.setup();
-    renderAt('/approvals', as.admin);
+    renderAt('/approvals?view=all', as.admin);
     const rows = await screen.findAllByTestId('approval-row');
     await user.click(rows[0]!);
     expect(await screen.findByTestId('queue-pos')).toHaveTextContent(`1 / ${rows.length}`);
