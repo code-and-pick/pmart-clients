@@ -23,6 +23,8 @@ import { SeenMark } from '../../shared/SeenMark';
 import { useRememberQueue } from '../../shared/workQueue';
 import { Person } from '../lookup/parts';
 import { approvalPlace } from './ApprovalProgress';
+import { ApprovalBoard } from './ApprovalBoard';
+import { LayoutToggle } from '../../shared/Kanban';
 
 type Summary = components['schemas']['ApprovalSummary'];
 const t = m.approvals.inbox;
@@ -122,10 +124,12 @@ export function ApprovalListPage() {
       <p>{t.help.decide}</p>
     </>
   ));
+  // 보드(2026-11-20 "보드로 보기") — 내가 올린 것·모두에서만, 칸이 심사 상태라 상태 거르기는 숨김
+  const board = view !== 'todo' && params.get('layout') === 'board';
   const filterProps: FilterProp[] = [
     { key: 'type', label: t.whatLabel, options: APPROVAL_TYPES.map((x) => ({ value: x, label: m.approvals.typeName[x] ?? x })) },
     // 심사 상태는 "내가 올린 것·모두"에서만(내가 심사할 것은 늘 심사 기다림)
-    ...(view === 'todo' ? [] : [{ key: 'state', label: t.reviewStateLabel, options: REVIEW_STATES.map((x) => ({ value: x, label: t.state[x] ?? x })) }]),
+    ...(view === 'todo' || board ? [] : [{ key: 'state', label: t.reviewStateLabel, options: REVIEW_STATES.map((x) => ({ value: x, label: t.state[x] ?? x })) }]),
   ];
 
   return (
@@ -135,6 +139,7 @@ export function ApprovalListPage() {
         count={query.data ? `${rows.length}${query.hasNextPage ? '+' : ''}` : undefined}
         onInfo={help?.open}
         refresh={{ onClick: () => void Promise.all([query.refetch(), todo.refetch()]), busy: query.isFetching, readAt: query.dataUpdatedAt || undefined }}
+        actions={view === 'todo' ? undefined : <LayoutToggle board={board} onChange={(on) => set({ layout: on ? 'board' : null, state: null })} />}
       />
       <div className="overflow-hidden rounded-box border border-base-300 bg-base-100" data-testid="approval-list-card">
         {/* ① 내 일 기준 세 갈래 */}
@@ -148,7 +153,7 @@ export function ApprovalListPage() {
                 role="tab"
                 aria-selected={on}
                 data-testid={`approval-view-${v}`}
-                onClick={() => set({ view: v === 'todo' ? null : v, state: null })}
+                onClick={() => set({ view: v === 'todo' ? null : v, state: null, ...(v === 'todo' ? { layout: null } : {}) })}
                 className={`-mb-px flex items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-3 text-sm transition-colors ${on ? 'border-primary font-bold text-primary' : 'border-transparent text-base-content/70 hover:text-primary'}`}
               >
                 {t.views[v]}
@@ -167,7 +172,11 @@ export function ApprovalListPage() {
           <PropertyFilter props={filterProps} value={{ type, state }} onChange={set} testId="approval-filter" />
         </div>
 
-        {todoEmpty ? (
+        {board ? (
+          <div className="p-4">
+            <ApprovalBoard requesterId={view === 'mine' ? (me ?? undefined) : undefined} type={type} />
+          </div>
+        ) : todoEmpty ? (
           <div className="p-4">
             <AllDone title={t.todoDone} body={m.allDone.approvalsBody} testId="approvals-all-done" />
           </div>

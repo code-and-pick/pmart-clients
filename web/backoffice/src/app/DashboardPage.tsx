@@ -23,6 +23,7 @@ import { messages } from '../shared/messages';
 import { addSeoulDays, label, seoulDayEnd, seoulDayStart, seoulToday, when, won } from '../shared/ops';
 import { DataTable, Section, StatusBadge } from '../shared/admin';
 import { DashboardLayoutProvider, ResetLayout, Widget } from '../shared/WidgetMenu';
+import { DashboardBoard } from './DashboardBoard';
 
 const m = messages.dashboard;
 const DAYS = 7;
@@ -228,7 +229,10 @@ export function DashboardPage() {
   // 볼 것이 없는 탭은 숨긴다. 고른 탭은 주소(?tab=)에 — 안 보이는 탭 주소면 한눈에. 고른 탭의 덩어리만 그려서 그 조회만 부른다.
   const showOps = can('/live-delivery') || can('/approvals') || can('/pending') || can('/case-sla') || admin;
   const showSales = can('/orders') || admin;
-  const tabs = [{ id: 'overview', label: m.tabs.overview }, ...(showOps ? [{ id: 'ops', label: m.tabs.ops }] : []), ...(showSales ? [{ id: 'sales', label: m.tabs.sales }] : [])] as const;
+  // 보드 탭(2026-11-20 사용자 "보드로 보기") — 내 할 일과 같은 서버 조회로 칸, 볼 일이 하나라도 있는 역할만
+  const board = { cases: can('/cases') && claimsCases, inquiries: can('/inquiries'), riderInquiries: can('/rider-inquiries'), approvals: can('/approvals') };
+  const showBoard = board.cases || board.inquiries || board.riderInquiries || board.approvals;
+  const tabs = [{ id: 'overview', label: m.tabs.overview }, ...(showBoard ? [{ id: 'board', label: m.tabs.board }] : []), ...(showOps ? [{ id: 'ops', label: m.tabs.ops }] : []), ...(showSales ? [{ id: 'sales', label: m.tabs.sales }] : [])] as const;
   const [params, setParams] = useSearchParams();
   const tab = tabs.find((t) => t.id === params.get('tab'))?.id ?? 'overview';
 
@@ -291,6 +295,12 @@ export function DashboardPage() {
           {/* 최근 본 항목 줄은 뺐다(2026-11-20 사용자 "대시보드가 메인인데 없어 보이게 떠 있어야 하니") — 통합 조회·배송 확인 빈 화면에만 */}
 
           {tasks.length === 0 && stats.length === 0 && !hasActivity && <p className="text-sm text-base-content/60">{m.nothing}</p>}
+        </div>
+      )}
+
+      {tab === 'board' && (
+        <div role="tabpanel" aria-label={m.tabs.board}>
+          <DashboardBoard {...board} />
         </div>
       )}
 

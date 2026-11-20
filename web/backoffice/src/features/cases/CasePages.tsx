@@ -61,6 +61,8 @@ import { useMarkCaseSeen } from './caseSeen';
 import { hasNewRiderMessage } from './helpChatRead';
 import { FollowUps, isOpenObligation } from './FollowUps';
 import { ClaimOfCase } from '../claims/ReturnClaim';
+import { CaseBoard } from './CaseBoard';
+import { LayoutToggle } from '../../shared/Kanban';
 
 type Case = components['schemas']['Case'];
 type InboxView = BffOps['getCaseInboxView']['responses'][200]['content']['application/json'];
@@ -465,9 +467,21 @@ export function CaseListPage() {
     else next.add(id);
     setPicked(next);
   };
+  const board = params.get('layout') === 'board';
+  const setBoard = (on: boolean) => {
+    const next = new URLSearchParams(params);
+    if (on) next.set('layout', 'board');
+    else next.delete('layout');
+    setParams(next);
+  };
   return (
     <section className="space-y-4">
-      <PageHeader title={m.cases.title} />
+      {/* 표 / 보드(2026-11-20 사용자 "보드로 보기") — 주소 layout=board 로 기억 */}
+      <PageHeader title={m.cases.title} actions={<LayoutToggle board={board} onChange={setBoard} />} />
+      {board ? (
+        <CaseBoard kind={kind} />
+      ) : (
+      <>
       {/* 숫자 띠(2026-11-19 관제 형식) — 탭 개수와 같은 조회, 종류를 골랐으면 숫자가 달라 숨긴다 */}
       {!kind && <CaseStrip tab={tab} />}
       {/* 내 보기(2026-11-18 Saleor 참고) — 지금 주소 조건을 이름 붙여 저장 */}
@@ -670,6 +684,8 @@ export function CaseListPage() {
         </QueryState>
         )}
       </div>
+      </>
+      )}
     </section>
   );
 }

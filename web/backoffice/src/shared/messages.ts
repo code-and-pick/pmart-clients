@@ -46,6 +46,17 @@ export const messages = {
   reasonLabel: '사유',
   reasonRequired: '사유를 입력해 주세요',
 
+  /** 보드(칸반) 보기(2026-11-20) — 보기 전용, 칸은 서버 판정 값으로만 */
+  board: {
+    layout: '보기 방식',
+    table: '표',
+    board: '보드',
+    empty: '없음',
+    failed: '못 읽었어요.',
+    retry: '다시',
+    more: '목록에서 모두 보기 →',
+    note: '보기 전용이에요 — 카드를 누르면 상세에서 처리해요. 개수는 한 쪽(최대 50건) 안의 수예요.',
+  },
   /** 목록 공통 부품(2026-11-20 AWS 개편 3단계 — 제목줄·속성 필터·도움말 패널) */
   listUi: {
     info: '정보',
@@ -432,6 +443,7 @@ export const messages = {
     title: '접수 건',
     intro: '유형별 팀이 공용 목록에서 접수 건을 맡아 가요. 긴급(P1)·기한 이른 것이 먼저예요. 처리 기한은 표시만 해요(알림 없음).',
     tabs: { unassigned: '아무도 안 맡은 것', mine: '내 것', overdue: '기한 넘김', closed: '처리 끝남' } as const,
+    boardLabel: '접수 건 처리 단계 보드',
     empty: '접수 건이 없어요.',
     caseId: '접수 건',
     kind: '종류',
@@ -1732,6 +1744,7 @@ export const messages = {
       mine: '내 요청',
       blocked: { SELF_APPROVAL: '내 요청', NO_ROLE: '다른 승인자 몫', GRANT_TO_SELF: '본인 권한 요청', CONFIG_REQUIRED: '승인자 미설정' } as Readonly<Record<string, string>>,
       reviewStateLabel: '심사 상태',
+      boardLabel: '승인 심사 상태 보드',
       // 도움말 패널(2026-11-20 3단계) — 계약 approval-service GET /approvals 의 decidableByMe 설명과 이 화면 동작만 옮김
       help: {
         todo: '내가 심사할 것: 지금 내가 결정할 수 있는 승인만 보여요. 심사 중이고, 내 요청이 아니고, 승인 역할이 있고, 내 권한을 주는 요청이 아닌 것 — 판정은 서버가 해요.',
@@ -2773,7 +2786,9 @@ export const messages = {
     // 2026-11-20 AWS 위젯 메뉴
     layout: { menu: '위젯 메뉴', hide: '이 위젯 숨기기', reset: '기본 배치로', hiddenCount: (n: number) => `숨긴 위젯 ${n}개` },
     /** 탭(2026-11-18 — 첫 화면은 지금 할 일, 통계는 따로) */
-    tabs: { label: '대시보드 보기', overview: '한눈에', ops: '운영', sales: '매출·통계' },
+    tabs: { label: '대시보드 보기', overview: '한눈에', ops: '운영', sales: '매출·통계', board: '보드' },
+    // 보드 탭(2026-11-20) — 칸 이름은 "내 할 일" 과 같은 서버 조회
+    board: { label: '내 일 보드', overdue: '기한 넘김', unassigned: '아무도 안 맡음', mine: '내가 맡음', inquiries: '답변 대기 문의', approvals: '내가 심사할 승인' },
     title: '대시보드',
     hello: (hour: number) => (hour < 12 ? '좋은 아침이에요' : hour < 18 ? '오늘도 수고 많아요' : '오늘 하루 고생 많았어요'),
     intro: (today: string) => `${today} 기준 · 숫자를 누르면 그 화면으로 가요. 1분마다 다시 읽어요.`,
