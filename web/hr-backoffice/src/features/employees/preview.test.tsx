@@ -29,8 +29,9 @@ describe('직원 목록 — 백오피스와 같은 동작', () => {
     expect(await screen.findByLabelText('검색어')).toHaveValue('한인사');
   });
 
-  it('내 보기 줄이 목록 위에 있다', async () => {
+  // 2026-11-20 공용 콘솔(AWS 모양): 예전 "내 보기" 줄 → "저장한 보기 ▾" 고르기 칸(백오피스와 같음)
+  it('목록 위에 저장한 보기 고르기 칸이 있다', async () => {
     renderAt('/employees');
-    expect(await screen.findByText('내 보기')).toBeInTheDocument();
+    expect(await screen.findByTestId('saved-views-toggle')).toHaveTextContent('저장한 보기');
   });
 });

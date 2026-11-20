@@ -1,8 +1,9 @@
 import { ConnectionBanner, useDocumentTitle } from './PageChrome';
 import { AppLauncher, UiTextProvider } from '@pmart/web-ui';
+import { ConsoleBreadcrumb, ConsoleShell, type ConsoleNavGroup } from '@pmart/web-ui/console';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useEffect, type ReactNode } from 'react';
-import { createBrowserRouter, createMemoryRouter, Link, NavLink, Outlet, RouterProvider, useLocation } from 'react-router';
+import { createBrowserRouter, createMemoryRouter, NavLink, Outlet, RouterProvider, useLocation } from 'react-router';
 
 import { env } from '../env';
 import { DepartmentsPage } from '../features/departments/departments';
@@ -53,128 +54,60 @@ function ScrollToTopOnNavigate() {
 
 function Layout() {
   const { session } = useSession();
-  // 메뉴에는 이름을 보인다(운영자 ID 는 길다). 이름을 아직 못 받았거나 인사 기록이 없으면 "내 세션"만.
   const me = useMe();
   const myName = me.data?.name;
   const { pathname } = useLocation();
-  // 메뉴 접기(2026-11-19 사용자 "인사팀은 왜 메뉴 바를 접는 옵션이 없어?" — 백오피스 #171 과 같게, 기억은 이 브라우저에만)
   const [collapsed, toggleMenu] = useMenuCollapsed();
-  // 머리줄 위치(가장 긴 메뉴 경로 — /employees/new 는 직원 등록, /employees/xxx 는 직원 목록)
   const current = [...nav].sort((x, y) => y[0].length - x[0].length).find(([to]) => pathname === to || pathname.startsWith(`${to}/`));
-  // 브라우저 탭 제목 — 화면 이름 + 계정 발급 실패 수(2026-11-19, 백오피스와 같게)
   useDocumentTitle(current?.[1] ?? null);
-  // 화면 틀(2026-11-18 — PC 5 요청 "관리자 형식", 사본: rider-backoffice App.tsx Layout PR #93 461ff31 — 이 앱에서 따로 고친다)
+  // 2026-11-20 AWS 콘솔 모양(백오피스와 같은 공용 틀 @pmart/web-ui/console ConsoleShell) — 흰 머리줄·흰 왼쪽 메뉴·위치 줄
+  const groups: ConsoleNavGroup[] = [
+    {
+      id: 'hr',
+      label: m.nav.group,
+      items: nav.map(([to, label]) => ({ to, label, ...(RAIL_ICON[to] ? { icon: RAIL_ICON[to] } : {}), testId: to === '/' ? 'home' : to.slice(1).replace('/', '-') })),
+    },
+  ];
   return (
-    <div className="flex min-h-screen bg-base-200">
+    <>
       <ScrollToTopOnNavigate />
-      {/* 메뉴는 화면 높이에 고정하고 길면 메뉴만 따로 스크롤(오른쪽 화면을 내려도 메뉴는 그 자리) */}
-      <aside className={`sticky top-0 flex h-screen shrink-0 flex-col self-start overflow-y-auto bg-neutral text-neutral-content transition-[width] ${collapsed ? 'w-20' : 'w-60'}`} data-testid="side-menu" data-collapsed={collapsed}>
-        <div className={`flex h-14 shrink-0 items-center gap-1 border-b border-neutral-content/10 ${collapsed ? 'justify-center px-1' : 'justify-between pl-5 pr-2'}`}>
-          {!collapsed && (
-            <Link to="/" className="flex min-w-0 items-center gap-2 font-bold text-neutral-content" aria-label={m.goHome}>
-              {/* 로고 배지(2026-11-19 — 라이더 백오피스와 같게) */}
-              <span className="grid h-7 w-7 shrink-0 place-items-center rounded-md bg-accent text-sm text-accent-content" aria-hidden="true">
-                P
-              </span>
-              <span className="truncate text-[15px]">{m.appTitle}</span>
-            </Link>
-          )}
-          <button type="button" className="btn btn-ghost btn-sm h-8 w-8 p-0 text-neutral-content/70 hover:bg-neutral-content/10" onClick={toggleMenu} aria-label={collapsed ? m.nav.expand : m.nav.collapse} title={collapsed ? m.nav.expand : m.nav.collapse} data-testid="menu-toggle">
-            <svg viewBox="0 0 24 24" className="h-4 w-4 fill-none stroke-current" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              {collapsed ? <path d="m9 6 6 6-6 6M4 4v16" /> : <path d="m15 6-6 6 6 6M20 4v16" />}
-            </svg>
-          </button>
-        </div>
-        {collapsed ? (
-          <nav aria-label="메뉴" className="flex flex-1 flex-col items-center gap-1 py-3">
-            {nav.map(([to, label]) => {
-              const active = current?.[0] === to;
-              return (
-                <Link key={to} to={to} aria-label={label} title={label} aria-current={active ? 'page' : undefined} className={`flex w-16 flex-col items-center gap-1 rounded-lg px-1 py-2 text-[10.5px] font-medium leading-tight transition-colors ${active ? 'bg-primary text-primary-content' : 'text-neutral-content/75 hover:bg-neutral-content/10 hover:text-neutral-content'}`} data-testid={`nav-rail-${to === '/' ? 'home' : to.slice(1).replace('/', '-')}`}>
-                  <svg viewBox="0 0 24 24" className="h-5 w-5 fill-none stroke-current" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                    <path d={RAIL_ICON[to]} />
-                  </svg>
-                  {/* 관제 형식(2026-11-19 — 백오피스와 같게): 아이콘 아래 글자 */}
-                  <span aria-hidden="true" className="line-clamp-2 break-keep text-center">
-                    {label}
-                  </span>
-                </Link>
-              );
-            })}
-          </nav>
-        ) : (
-          // 메뉴(2026-11-19 사용자 "백오피스 화면이랑 같게"): 백오피스 묶음 모양 — 굵은 묶음 이름 + 아이콘, 들여 쓴 하위 메뉴, 선택은 민트 막대. 묶음이 하나라 늘 펼침
-        <nav aria-label="메뉴" className="flex-1 py-3">
-          <div className="mx-2 mb-1 rounded-lg bg-neutral-content/5" data-testid="nav-group-hr">
-            <p className={`flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-[15px] font-bold ${current ? 'text-neutral-content' : 'text-neutral-content/60'}`}>
-              <svg viewBox="0 0 24 24" className="h-5 w-5 shrink-0 fill-none stroke-current" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <circle cx="9" cy="8" r="3.5" />
-                <path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M18 20a6.5 6.5 0 0 0-2.5-5.1" />
-              </svg>
-              <span>{m.nav.group}</span>
-            </p>
-            <ul className="pb-2">
-              {nav.map(([to, label]) => (
-                <li key={to}>
-                  <NavLink
-                    to={to}
-                    end
-                    className={({ isActive }) =>
-                      `my-0.5 flex items-center gap-1 rounded-md py-1.5 pl-10 pr-3 text-sm transition-colors active:scale-[0.98] ${isActive ? 'bg-primary font-semibold text-primary-content' : 'text-neutral-content/75 hover:bg-neutral-content/10 hover:text-neutral-content'}`
-                    }
-                  >
-                    {label}
-                  </NavLink>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </nav>
-        )}
-      </aside>
-      <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-14 shrink-0 items-center justify-between gap-3 border-b border-base-300 bg-base-100 px-6">
-          <p className="truncate text-sm text-base-content/60" data-testid="page-title">
-            {current ? (
-              <>
-                {m.nav.group} <span className="px-1 text-base-content/30">›</span>
-                <span className="font-semibold text-base-content">{current[1]}</span>
-              </>
-            ) : null}
-          </p>
-          {/* 맥락 꼬리표(2026-11-19 관제 형식) — 내 역할 */}
-          {session && <RoleChips roles={session.roles} />}
-          <div className="flex items-center gap-2 text-sm">
-            {/* 직원 바로 찾기(Ctrl+K, 2026-11-19 — 백오피스 번호 찾기 자리) — 로그인했을 때만 */}
-            {session && <LiveClock />}
+      <ConsoleShell
+        title={m.appTitle}
+        homeLabel={m.goHome}
+        groups={groups}
+        collapsed={collapsed}
+        onToggleMenu={toggleMenu}
+        expandLabel={m.nav.expand}
+        collapseLabel={m.nav.collapse}
+        location={<ConsoleBreadcrumb group={{ label: m.nav.group, to: '/' }} current={current?.[1]} />}
+        locationAside={session && <RoleChips roles={session.roles} />}
+        banner={<ConnectionBanner />}
+        tools={
+          <>
+            {/* 직원 바로 찾기(Ctrl+K, 2026-11-19) — 로그인했을 때만 */}
             {session && <QuickFind />}
+            {session && <LiveClock />}
             {env.isMock && <span className="badge badge-accent badge-sm">{m.mockBadge}</span>}
-            {/* 밝은/어두운 테마(2026-11-18, 백오피스와 같음) */}
             <ThemeToggle />
             {/* 로그인 직원 — 이름(없으면 "내 세션"). 로그인 시험이 이 링크 이름으로 찾는다 */}
             <NavLink to={session ? '/session' : '/login'} className={session ? 'btn btn-ghost btn-xs font-normal' : 'btn btn-primary btn-xs'}>
               {session ? (myName ? `${m.nav.session}: ${myName}` : m.nav.session) : m.nav.login}
             </NavLink>
-            {/* 직원 웹 앱 바꾸기(백엔드 요청 all/2026-11-17-request-app-launcher) — 2026-11-18 사용자: Google 앱 런처처럼 머리줄 맨 오른쪽("내 세션" 오른쪽, 사용자 2026-11-18). 링크만, 세션을 읽지 않는다 */}
             <AppLauncher current="hr-backoffice" />
-          </div>
-        </header>
-        {/* 인터넷 끊김 띠(2026-11-19) */}
-        <ConnectionBanner />
-        {/* 본문 겉모습: 쿠팡 윙 느낌(index.css data-skin=wing, 2026-11-19) — 왼쪽 메뉴·머리줄은 그대로 */}
-        <main className="min-w-0 flex-1 space-y-4 p-6" data-skin="wing">
-          {/* 안내만 한다 — 화면을 막지 않고, 판정은 서버(403 → 이용할 수 없는 화면) */}
-          {session && !session.roles.includes('HR_ADMIN') && (
-            <p role="note" className="alert alert-warning text-sm">
-              {m.noHrRole}
-            </p>
-          )}
-          <Outlet />
-        </main>
-        {/* 처리 결과 알림(2026-11-18, 백오피스와 같음) */}
-        <Toasts />
-      </div>
-    </div>
+          </>
+        }
+      >
+        {/* 안내만 한다 — 화면을 막지 않고, 판정은 서버(403 → 이용할 수 없는 화면) */}
+        {session && !session.roles.includes('HR_ADMIN') && (
+          <p role="note" className="alert alert-warning mb-4 text-sm">
+            {m.noHrRole}
+          </p>
+        )}
+        <Outlet />
+      </ConsoleShell>
+      {/* 처리 결과 알림(2026-11-18, 백오피스와 같음) */}
+      <Toasts />
+    </>
   );
 }
 

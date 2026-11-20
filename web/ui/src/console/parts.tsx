@@ -48,7 +48,7 @@ export function useRowLink() {
 }
 
 /** 쪽 머리말 — h1 은 화면마다 하나. 2026-11-20 AWS 개편: 아이콘 타일 없이 24px 굵은 제목 + 오른쪽 동작 */
-export function PageHeader({ title, actions, back }: { readonly title: ReactNode; readonly actions?: ReactNode; readonly back?: { readonly to: string; readonly label: string } }) {
+export function PageHeader({ title, description, actions, back }: { readonly title: ReactNode; /** 제목 아래 회색 한 줄(앱이 쓸 때만 — AWS 는 보통 도움말 패널로) */ readonly description?: ReactNode; readonly actions?: ReactNode; readonly back?: { readonly to: string; readonly label: string } }) {
   return (
     <header className="space-y-1">
       {back && (
@@ -61,6 +61,7 @@ export function PageHeader({ title, actions, back }: { readonly title: ReactNode
         <h1 className="min-w-0 text-2xl font-bold">{title}</h1>
         {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
       </div>
+      {description && <p className="text-sm text-base-content/65">{description}</p>}
     </header>
   );
 }
@@ -105,12 +106,12 @@ export function ChipGroup<T extends string>({ value, options, onChange, label }:
 }
 
 /** 결과 줄: 건수 + 정렬 토글 — 2026-11-20 AWS 개편: 흰 상자 안 얇은 줄 */
-export function ResultBar({ count, more, sort, extra }: { readonly count: number; readonly more?: boolean; readonly sort?: { readonly oldest: boolean; readonly onChange: (oldest: boolean) => void; readonly newest?: string; readonly oldestLabel?: string }; readonly extra?: ReactNode }) {
+export function ResultBar({ count, more, sort, extra, unit = '건' }: { /** 세는 말(건·명 등) */ readonly unit?: string; readonly count: number; readonly more?: boolean; readonly sort?: { readonly oldest: boolean; readonly onChange: (oldest: boolean) => void; readonly newest?: string; readonly oldestLabel?: string }; readonly extra?: ReactNode }) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-2 rounded-box border border-base-300 bg-base-100 px-5 py-2" data-list-part="mid">
       <p className="text-sm text-base-content/70" data-testid="result-count">
         <span className="font-bold text-base-content">{count}</span>
-        {more ? '건 이상' : '건'}
+        {more ? `${unit} 이상` : unit}
       </p>
       <div className="flex items-center gap-3">
         {extra}
