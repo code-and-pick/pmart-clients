@@ -49,14 +49,29 @@ export function TableSettings({ storeKey, tableId }: { readonly storeKey: string
     setSaved(v);
     write(storeKey, v);
   };
-  const sel = `#${CSS.escape(tableId)}`;
-  const css = [
-    ...saved.hidden.map((i) => `${sel} tr > :nth-child(${i + 1}) { display: none; }`),
-    saved.wrap ? `${sel} td, ${sel} th { white-space: normal !important; }` : `${sel} td { white-space: nowrap; }`,
-  ].join('\n');
+  // 숨긴 칸·줄 바꿈은 칸마다 element.style 로(2026-11-20 — 실서버 nginx CSP `style-src 'self'` 가 페이지 안 <style> 을 막아
+  // 로컬에선 되고 실서버에선 토글이 먹지 않았다. element.style 은 CSSOM 이라 CSP 에 막히지 않는다). 줄이 새로 그려지면 다시 칠한다.
+  useEffect(() => {
+    const table = document.getElementById(tableId);
+    if (!table) return;
+    const apply = () => {
+      for (const row of table.querySelectorAll('tr')) {
+        [...row.children].forEach((cell, i) => {
+          if (!(cell instanceof HTMLElement)) return;
+          const hide = saved.hidden.includes(i) ? 'none' : '';
+          if (cell.style.display !== hide) cell.style.display = hide;
+          const ws = saved.wrap ? 'normal' : cell.tagName === 'TD' ? 'nowrap' : '';
+          if (cell.style.whiteSpace !== ws) cell.style.whiteSpace = ws;
+        });
+      }
+    };
+    apply();
+    const watch = new MutationObserver(apply);
+    watch.observe(table, { childList: true, subtree: true });
+    return () => watch.disconnect();
+  }, [saved, tableId]);
   return (
     <div className="relative" ref={box}>
-      <style>{css}</style>
       <button type="button" className="btn btn-ghost btn-sm h-8 w-8 p-0" aria-label={m.open} title={m.open} aria-haspopup="dialog" aria-expanded={open} onClick={() => {
           if (!open) setCols(readCols());
           setOpen((o) => !o);
