@@ -1,4 +1,6 @@
 @import 'tailwindcss';
+/* 글꼴 Pretendard(OFL-1.1, npm pretendard 1.3.9 — 2026-11-20 사용자 허락, AWS 개편). 쓰는 글자 묶음만 받는 가변 글꼴 */
+@import 'pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css';
 /* 공용 움직임·겉모습(@pmart/web-ui, 2026-11-19) */
 @import '../../ui/src/motion.css';
 /* 공용 wing.css(쿠팡 윙 겉모습)는 이 앱에서 뺐다(2026-11-20 AWS 콘솔 개편 시범, ADR-0004) — 다른 웹 앱은 그대로 쓴다. 필요한 것은 아래 "AWS 콘솔 겉모습"에 다시 둠. */
@@ -66,7 +68,7 @@
 
 /* ---- AWS 콘솔 겉모습(2026-11-20 개편 1단계, ADR-0004 · 기준 docs/apps/backoffice-ui-guide.md §8) ----
    예전 본문 wing 겉모습 가운데 AWS 와 맞는 것(그림자 없음·흰 보통 버튼·제목 옆 아이콘 숨김·숫자 카드 띠 숨김·고른 칩 파랑)은 AWS 수치로 여기에 다시 둔다.
-   글꼴 Pretendard·Noto Sans KR 은 깔린 PC 에서만 쓰인다(글꼴 파일은 아직 들이지 않음). */
+   글꼴은 앱에 넣은 Pretendard(가변) — 못 받으면 깔린 글꼴로. */
 :root:not([data-theme='pmart-dark']) {
   /* daisyUI 테마에 칸이 없는 AWS 값은 여기 한곳에만 둔다(화면 코드는 이 변수만 쓴다) */
   --pm-btn-main: #262420; /* 주 버튼 바탕(검정) */
@@ -76,7 +78,7 @@
   --pm-row-line: #eeedeb; /* 표 줄 사이 선 */
 }
 body {
-  font-family: Pretendard, 'Noto Sans KR', system-ui, 'Malgun Gothic', sans-serif;
+  font-family: 'Pretendard Variable', Pretendard, system-ui, 'Malgun Gothic', sans-serif;
   font-size: 0.875rem;
   line-height: 1.25rem;
 }
