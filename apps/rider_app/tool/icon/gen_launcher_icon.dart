@@ -1,4 +1,4 @@
-// 픽라이더 앱 아이콘 만들기(사용자 2026-11-20 로고 — 다섯 번째 안, 헬멧 쓴 P 스쿠터 · 보라 그라데이션). 원본: tool/icon/pick_rider_icon.png
+// 픽라이더 앱 아이콘 만들기(사용자 2026-11-20 로고 — 여섯 번째 안, 헬멧 쓴 라이더 스쿠터 · 보라 그라데이션). 원본: tool/icon/pick_rider_icon.png
 // 실행(이 앱 밖 임시 프로젝트에서 package:image 로): dart run gen_launcher_icon.dart <원본> <android/app/src/main/res>
 // - mipmap-*/ic_launcher.png: 정리한 그림에 둥근 사각(반지름 22%)을 새로 씌움 — 적응형을 안 쓰는 런처.
 // - mipmap-*/ic_launcher_foreground.png + mipmap-anydpi-v26/ic_launcher.xml: 적응형 아이콘. 런처가 모양(원·둥근 사각)을
@@ -9,8 +9,10 @@ import 'dart:math' as math;
 import 'package:image/image.dart' as img;
 
 void main(List<String> args) {
-  final src = _clearDarkCorners(
-    img.decodeImage(File(args[0]).readAsBytesSync())!.convert(numChannels: 4),
+  final src = _clearOutsideOwnShape(
+    _clearDarkCorners(
+      img.decodeImage(File(args[0]).readAsBytesSync())!.convert(numChannels: 4),
+    ),
   );
   final res = args[1];
   final side = src.width > src.height ? src.width : src.height;
@@ -117,6 +119,44 @@ img.Image _clearDarkCorners(img.Image src) {
     if (x < w - 1) stack.add(i + 1);
     if (y > 0) stack.add(i - w);
     if (y < h - 1) stack.add(i + w);
+  }
+  return src;
+}
+
+/// 원본 둥근 사각 바깥(모서리)에 얼룩(파랑·분홍 잡티)이 묻어 온 경우(2026-11-20 여섯 번째 안) — 원본 자신의 모서리
+/// 반지름을 대각선에서 재고(얼룩에 속지 않게 연속 12px 불투명이 시작되는 곳), 그 둥근 사각 바깥을 투명으로 지운다.
+/// 정사각 원본만 다룬다(아니면 그대로).
+img.Image _clearOutsideOwnShape(img.Image src) {
+  final n = src.width;
+  if (src.height != n) return src;
+  var d = 0;
+  bool solidFrom(int k) {
+    for (var j = 0; j < 12; j++) {
+      if (k + j >= n || src.getPixel(k + j, k + j).a <= 250) return false;
+    }
+    return true;
+  }
+
+  while (d < n ~/ 2 && !solidFrom(d)) {
+    d++;
+  }
+  if (d == 0 || d >= n ~/ 2) return src;
+  // 대각선 거리 d = R(1 - 1/√2) → R. 경계 잡티가 남지 않게 2px 안쪽으로.
+  final r = d / (1 - 1 / math.sqrt2) + 2;
+  final inset = 2.0;
+  for (var y = 0; y < n; y++) {
+    for (var x = 0; x < n; x++) {
+      final px = x + 0.5, py = y + 0.5;
+      final cx = px.clamp(inset + r, n - inset - r);
+      final cy = py.clamp(inset + r, n - inset - r);
+      final outside =
+          px < inset ||
+          py < inset ||
+          px > n - inset ||
+          py > n - inset ||
+          math.sqrt((px - cx) * (px - cx) + (py - cy) * (py - cy)) > r;
+      if (outside) src.getPixel(x, y).a = 0;
+    }
   }
   return src;
 }
