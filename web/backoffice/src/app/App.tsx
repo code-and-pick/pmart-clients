@@ -297,8 +297,8 @@ function Layout() {
         <div id={DETAIL_BAR_SLOT} className="sticky top-0 z-20" />
         {/* 인터넷 끊김 띠(2026-11-19) */}
         <ConnectionBanner />
-        {/* 본문 겉모습: 쿠팡 윙 느낌(index.css data-skin=wing, 2026-11-19) — 왼쪽 메뉴·머리줄은 그대로 */}
-        <main className="min-w-0 flex-1 p-6" data-skin="wing">
+        {/* 본문 겉모습은 index.css "AWS 콘솔 겉모습"(2026-11-20 개편 시범, 공용 wing 겉모습은 이 앱에서 뺐다) */}
+        <main className="min-w-0 flex-1 p-6">
           {/* 화면을 받는 동안 뼈대(QueryState 불러오는 중 모양, 2026-11-19) */}
           <Suspense fallback={<QueryState state={{ kind: 'loading' }}>{() => null}</QueryState>}>
             <Outlet />
