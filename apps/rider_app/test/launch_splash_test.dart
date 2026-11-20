@@ -4,13 +4,13 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:rider_app/shared/launch_splash.dart';
 
 void main() {
-  testWidgets('시작 화면은 그림을 화면 가득(cover) 보라 바탕 위에 그린다', (t) async {
+  testWidgets('시작 화면은 그림을 자르지 않고(contain) 보라 바탕 위에 그린다', (t) async {
     await t.pumpWidget(const PickRiderSplash());
     final image = t.widget<Image>(find.byType(Image));
-    expect(image.fit, BoxFit.cover);
+    expect(image.fit, BoxFit.contain);
     expect(
       (image.image as AssetImage).assetName,
-      'assets/splash/pick_rider_splash.jpg',
+      'assets/splash/pick_rider_splash.png',
     );
     expect(
       t.widget<ColoredBox>(find.byType(ColoredBox)).color,

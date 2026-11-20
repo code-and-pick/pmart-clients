@@ -1,4 +1,4 @@
-// 픽라이더 앱 아이콘 만들기(사용자 2026-11-19 로고 — 세 번째 안, 헬멧 쓴 P 스쿠터). 원본: tool/icon/pick_rider_icon.png
+// 픽라이더 앱 아이콘 만들기(사용자 2026-11-20 로고 — 다섯 번째 안, 헬멧 쓴 P 스쿠터 · 보라 그라데이션). 원본: tool/icon/pick_rider_icon.png
 // 실행(이 앱 밖 임시 프로젝트에서 package:image 로): dart run gen_launcher_icon.dart <원본> <android/app/src/main/res>
 // - mipmap-*/ic_launcher.png: 정리한 그림에 둥근 사각(반지름 22%)을 새로 씌움 — 적응형을 안 쓰는 런처.
 // - mipmap-*/ic_launcher_foreground.png + mipmap-anydpi-v26/ic_launcher.xml: 적응형 아이콘. 런처가 모양(원·둥근 사각)을
@@ -9,7 +9,9 @@ import 'dart:math' as math;
 import 'package:image/image.dart' as img;
 
 void main(List<String> args) {
-  final src = img.decodeImage(File(args[0]).readAsBytesSync())!;
+  final src = _clearDarkCorners(
+    img.decodeImage(File(args[0]).readAsBytesSync())!.convert(numChannels: 4),
+  );
   final res = args[1];
   final side = src.width > src.height ? src.width : src.height;
   final square = img.copyResize(
@@ -94,6 +96,29 @@ void main(List<String> args) {
     );
     File('$dir/ic_launcher_foreground.png').writeAsBytesSync(img.encodePng(fg));
   });
+}
+
+/// 원본 둥근 사각 바깥 모서리가 투명이 아니라 검정으로 칠해져 온 경우(2026-11-20 네 번째 안) — 네 모서리에서
+/// 이어진 어두운 픽셀만 투명으로 바꾼다. 그림 안쪽의 어두운 색은 모서리와 이어지지 않으면 그대로 둔다.
+img.Image _clearDarkCorners(img.Image src) {
+  bool dark(img.Pixel p) => p.a > 0 && p.r < 60 && p.g < 60 && p.b < 60;
+  final w = src.width, h = src.height;
+  final seen = List<bool>.filled(w * h, false);
+  final stack = <int>[0, w - 1, (h - 1) * w, (h - 1) * w + w - 1];
+  while (stack.isNotEmpty) {
+    final i = stack.removeLast();
+    if (seen[i]) continue;
+    seen[i] = true;
+    final x = i % w, y = i ~/ w;
+    final p = src.getPixel(x, y);
+    if (!dark(p) && p.a > 0) continue;
+    p.a = 0;
+    if (x > 0) stack.add(i - 1);
+    if (x < w - 1) stack.add(i + 1);
+    if (y > 0) stack.add(i - w);
+    if (y < h - 1) stack.add(i + w);
+  }
+  return src;
 }
 
 img.Image _roundedSquare(img.Image src, double radiusRatio) {
