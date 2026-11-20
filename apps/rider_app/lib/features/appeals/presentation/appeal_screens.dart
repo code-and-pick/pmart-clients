@@ -34,6 +34,7 @@ class _AppealNewScreenState extends ConsumerState<AppealNewScreen> {
 
   /// 이 신청(행위)의 키 — 결과 불명으로 다시 보내면 같은 키.
   IdempotencyKey? _key;
+  String? _keyFor;
   bool _busy = false;
   Appeal? _done;
   String? _error;
@@ -48,6 +49,9 @@ class _AppealNewScreenState extends ConsumerState<AppealNewScreen> {
     final l10n = AppLocalizations.of(context);
     final text = _body.text.trim();
     if (text.isEmpty || _busy) return;
+    // 결과 불명 뒤 같은 글이면 같은 키, 글을 고쳤으면 새 키(같은 키·다른 본문은 409).
+    if (_keyFor != text) _key = null;
+    _keyFor = text;
     final key = _key ??= IdempotencyKey.generate();
     setState(() {
       _busy = true;

@@ -399,6 +399,9 @@ final class ReturnAttempts {
 
 abstract final class HandoverProblemCode {
   static const alreadyHandedOver = 'ALREADY_HANDED_OVER';
+
+  /// 확정 결과 대기 — 거절이 아니라 판정 조회로 풀 대상.
+  static const resultPending = 'HANDOVER_RESULT_PENDING';
   static const packageInvalidated = 'PACKAGE_INVALIDATED';
   static const deliveryMismatch = 'DELIVERY_MISMATCH';
   static const fenceActive = 'FENCE_ACTIVE';

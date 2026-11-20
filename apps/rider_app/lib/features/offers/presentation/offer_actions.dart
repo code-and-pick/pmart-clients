@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pmart_core/pmart_core.dart';
 
 import '../../../l10n/gen/app_localizations.dart';
 import '../../../shared/rider_widgets.dart';
@@ -16,6 +17,16 @@ String lateText(AppLocalizations l10n, LateReason r) => switch (r) {
   LateReason.orderCancelled => l10n.lateOrderCancelled,
   LateReason.ineligible => l10n.lateIneligible,
   LateReason.unknown => l10n.lateExpired,
+};
+
+/// 응답이 거절됐을 때(Problem) 문구. 없음·상태 다름은 "이미 처리된 제안", 권한은 "지금 받을 수 없음".
+String offerFailedText(AppLocalizations l10n, String? code) => switch (code) {
+  ProblemCode.notFound ||
+  ProblemCode.invalidState ||
+  ProblemCode.versionConflict ||
+  ProblemCode.idempotencyConflict => l10n.offerGone,
+  ProblemCode.forbidden => l10n.offerForbidden,
+  _ => l10n.offerFailed,
 };
 
 /// 응답을 보내는 중인 제안(버튼을 막는다).
@@ -45,14 +56,19 @@ Future<OfferOutcome> respondToOffer(
   final container = ProviderScope.containerOf(context, listen: false);
   final busy = container.read(respondingOffersProvider.notifier)
     ..add(offer.offerId);
-  final outcome = await container
-      .read(offerResponderProvider)
-      .respond(
-        offer,
-        accept: accept,
-        reason: accept ? null : RejectReason.other,
-      );
-  busy.remove(offer.offerId);
+  final OfferOutcome outcome;
+  try {
+    outcome = await container
+        .read(offerResponderProvider)
+        .respond(
+          offer,
+          accept: accept,
+          reason: accept ? null : RejectReason.other,
+        );
+  } finally {
+    // 어떤 경우에도 버튼을 다시 연다(전에는 예외면 앱을 다시 켤 때까지 막혔다).
+    busy.remove(offer.offerId);
+  }
   void toast(String text) => showRiderTopToast(overlay, text);
   switch (outcome) {
     case OfferAssigned():
@@ -76,7 +92,12 @@ Future<OfferOutcome> respondToOffer(
         );
       }
     case OfferUnknown():
+      // 서버가 이미 배정했을 수 있다 — 진행 중 배송을 다시 읽는다.
+      container.invalidate(myActiveDeliveriesProvider);
       toast(l10n.offerUnknown);
+    case OfferFailed(:final code):
+      container.invalidate(myActiveDeliveriesProvider);
+      toast(offerFailedText(l10n, code));
   }
   return outcome;
 }

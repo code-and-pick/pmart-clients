@@ -70,10 +70,21 @@ class _FailureScreenState extends ConsumerState<FailureScreen> {
     final photo = s.photo;
     await flow.reportFailure(reason, detail: summary);
     if (!mounted) return;
-    final d = await ref.read(deliveryProvider(_id).future);
+    final DeliveryView d;
+    try {
+      d = await ref.read(deliveryProvider(_id).future);
+    } on PmartFailure {
+      // 배송을 다시 읽지 못했다 — 신고는 큐가 같은 키로 이어서 확인한다. 버튼은 풀어 둔다(전에는 계속 잠겼다).
+      if (!mounted) return;
+      setState(() => _sending = false);
+      showRiderToast(context, AppLocalizations.of(context).failureSentChecking);
+      return;
+    }
     if (!mounted) return;
     if (d.state != ExecutionState.failureReported) {
+      // 아직 반영 전(접수·확인 중) — 아무 말 없이 돌아가지 않는다.
       setState(() => _sending = false);
+      showRiderToast(context, AppLocalizations.of(context).failureSentChecking);
       return;
     }
     // 서버가 실패 등록과 함께 대화를 열었다(execution 0.14.0) — 그 대화로 간다.

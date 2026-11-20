@@ -735,6 +735,14 @@ SendResult transitionFailureToSend(PmartFailure f) => switch (f) {
       when problem.code == ProblemCode.idempotencyConflict &&
           problem.retryable =>
     const SendUnknown(),
+  // 너무 많음(429)·시간 초과(408)·잠시 불가(503)·재시도 가능은 거절이 아니다 — 같은 키로 다시 보낸다
+  // (전에는 거절로 확정돼 큐에서 지워졌다).
+  ProblemFailure(:final problem)
+      when problem.retryable ||
+          problem.status == 429 ||
+          problem.status == 408 ||
+          problem.status == 503 =>
+    const SendUnknown(),
   ProblemFailure(:final problem) => SendRejected(problem.code),
   _ => const SendUnknown(),
 };

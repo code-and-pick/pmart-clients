@@ -153,6 +153,54 @@ void main() {
       expect(state().phaseOf('pkg-1').phase, HandoverPhase.handedOver);
     });
 
+    test('다른 기기·점원이 이미 인계한 포장을 찍으면 거절이 아니라 인계 완료로 맞춘다', () async {
+      await flow.arriveAtStore();
+      await flow.scan(await delivery(), qr('pkg-1'));
+      // 앱을 다시 켠 것처럼 새 컨트롤러(인계 기록 없음)로 같은 포장을 다시 찍는다.
+      final c2 = ProviderContainer(
+        retry: (_, _) => null,
+        overrides: overrides(),
+      );
+      addTearDown(c2.dispose);
+      c2.listen(deliveryFlowProvider('dlv-1'), (_, _) {});
+      final flow2 = c2.read(deliveryFlowProvider('dlv-1').notifier);
+
+      await flow2.scan(await delivery(), qr('pkg-1'));
+
+      final h = c2.read(deliveryFlowProvider('dlv-1')).phaseOf('pkg-1');
+      expect(h.phase, HandoverPhase.handedOver);
+      expect(h.handoverId, 'hof-pkg-1');
+    });
+
+    test('인계를 끝낸 라벨 숫자를 다시 넣으면 서버에 보내지 않고 "이미 인계된 포장"', () async {
+      await flow.arriveAtStore();
+      final d = await delivery();
+      final code = MockDeliveryRepository.labelNumbers['pkg-1']!;
+      await flow.enterCode(d, code);
+      expect(state().phaseOf('pkg-1').phase, HandoverPhase.handedOver);
+
+      final again = await flow.enterCode(d, code);
+
+      expect(again, isA<HandoverRejected>());
+      expect(
+        (again! as HandoverRejected).code,
+        HandoverProblemCode.alreadyHandedOver,
+      );
+    });
+
+    test('같은 수행 명령을 연달아 누르면 새로 넣지 않고 같은 명령을 다시 보낸다', () async {
+      repo.offline = true;
+      await flow.arriveAtStore();
+      await flow.arriveAtStore();
+      final items = (await c.read(riderQueueProvider).items())
+          .where((i) => i.kind == DeliveryCommandKind.storeArrival)
+          .toList();
+      expect(items, hasLength(1));
+      repo.offline = false;
+      await flow.sync();
+      expect((await delivery()).state, ExecutionState.arrivedAtStore);
+    });
+
     test('출고가 중지된 포장은 중지로 보인다', () async {
       await flow.arriveAtStore();
       repo.stoppedPackages.add('pkg-2');
@@ -313,10 +361,7 @@ void main() {
     await enterNumber('12');
     expect(find.text('라벨 숫자 4자리를 입력해 주세요'), findsOneWidget);
     await enterNumber('9999');
-    expect(
-      find.text('이 배달의 포장 숫자가 아니에요. 4번 더 틀리면 숫자 입력이 막혀요'),
-      findsOneWidget,
-    );
+    expect(find.text('이 배달의 포장 숫자가 아니에요. 4번 더 틀리면 숫자 입력이 막혀요'), findsOneWidget);
     await enterNumber(MockDeliveryRepository.labelNumbers['pkg-1']!);
     expect(find.text('포장 인계 1 / 2'), findsOneWidget);
     expect(find.byKey(const ValueKey('partial-handover')), findsOneWidget);

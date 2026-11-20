@@ -50,6 +50,8 @@ final class ApiLiveChatRepository implements LiveChatRepository {
     final res = await pmartGuard(
       () => _api.listInquiryMessages(inquiryId: id, after: _after),
     );
+    // 기다리는 사이 상담이 바뀌었다(닫힘 → 새 상담) — 지난 상담의 늦은 응답으로 새 상담을 지우지 않는다.
+    if (_inquiryId != id) return [?_first, ..._items];
     final body = res.data;
     for (final m in body?.items ?? const <cs.InquiryMessage>[]) {
       if (_items.any((x) => x.id == m.messageId)) continue;

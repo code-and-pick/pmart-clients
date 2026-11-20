@@ -27,6 +27,7 @@ class QrPickupScreen extends ConsumerStatefulWidget {
 }
 
 class _QrPickupScreenState extends ConsumerState<QrPickupScreen> {
+  bool _closing = false;
   bool _scanning = false;
   String? _numberError;
 
@@ -72,6 +73,14 @@ class _QrPickupScreenState extends ConsumerState<QrPickupScreen> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final d = ref.watch(deliveryProvider(_id)).value;
+    // 픽업이 이미 끝났거나(연타로 화면이 한 번 더 열림 — 2026-11-20 S23 실서버 재현) 배송이 다른 단계로 갔으면
+    // 이 화면을 닫는다. 남아 있으면 끝난 픽업 버튼이 켜진 채 보인다.
+    if (d != null && d.state != ExecutionState.arrivedAtStore && !_closing) {
+      _closing = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && context.canPop()) context.pop();
+      });
+    }
     final trip = ref.watch(tripInfoProvider(_id)).value;
     final flow = ref.watch(deliveryFlowProvider(_id));
     final ctl = ref.read(deliveryFlowProvider(_id).notifier);

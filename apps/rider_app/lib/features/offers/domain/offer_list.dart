@@ -138,6 +138,13 @@ final class OfferUnknown extends OfferOutcome {
   const OfferUnknown();
 }
 
+/// 서버가 응답을 받지 않았다(404·409 INVALID_STATE·403 등 — 판정이 아니라 Problem). [code] 는 Problem code.
+final class OfferFailed extends OfferOutcome {
+  const OfferFailed(this.code);
+
+  final String? code;
+}
+
 /// 운행 상태(rider-service). 신규배차 OFF 는 새 제안만 막는다(진행 배송은 그대로).
 @immutable
 class OperatingState {

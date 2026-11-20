@@ -355,6 +355,11 @@ class HiddenWaiting extends Notifier<Set<String>> {
   void hide(String deliveryId) => state = {...state, deliveryId};
 }
 
+/// 일반 배차모드 수락 키(배송별). 판정을 받지 못하면 같은 키로만 다시 보낸다 — 화면이 바뀌어도 남게 앱 전역.
+final waitingAcceptKeysProvider = Provider<Map<String, IdempotencyKey>>(
+  (_) => <String, IdempotencyKey>{},
+);
+
 class _Waiting extends ConsumerStatefulWidget {
   const _Waiting({required this.state, required this.onAssigned});
 
@@ -366,35 +371,43 @@ class _Waiting extends ConsumerStatefulWidget {
 }
 
 class _WaitingState extends ConsumerState<_Waiting> {
-  /// 배송별 수락 키. 판정을 받지 못하면 같은 키로만 다시 보낸다.
-  final _keys = <String, IdempotencyKey>{};
   final _busy = <String>{};
 
   Future<void> _accept(WaitingDelivery w) async {
     final l10n = AppLocalizations.of(context);
-    final key = _keys[w.deliveryId] ??= IdempotencyKey.generate();
+    // 키는 화면 밖(앱 전역)에 둔다 — 결과 불명 뒤 탭을 바꿨다 와도 같은 키로 다시 보낸다.
+    final container = ProviderScope.containerOf(context, listen: false);
+    final keys = container.read(waitingAcceptKeysProvider);
+    final key = keys[w.deliveryId] ??= IdempotencyKey.generate();
     setState(() => _busy.add(w.deliveryId));
-    final OfferOutcome outcome;
+    OfferOutcome outcome;
     try {
-      outcome = await ref
+      outcome = await container
           .read(deliveryListRepositoryProvider)
           .accept(w.deliveryId, key: key);
+    } on UnknownResultFailure {
+      outcome = const OfferUnknown();
+    } on ProblemFailure catch (f) {
+      outcome = OfferFailed(f.problem.code);
     } on PmartFailure {
-      if (mounted) {
-        setState(() => _busy.remove(w.deliveryId));
-        showRiderToast(context, l10n.acceptFailed);
-      }
-      return;
+      outcome = const OfferFailed(null);
     }
+    if (outcome is! OfferUnknown) keys.remove(w.deliveryId);
+    // 화면이 닫혔어도 배정·목록은 맞춘다.
+    if (outcome case OfferAssigned(:final deliveryId)) {
+      container
+          .read(assignedDeliveriesProvider.notifier)
+          .add(deliveryId ?? w.deliveryId);
+    }
+    if (outcome is! OfferRejected && outcome is! OfferLate) {
+      // 배정됐거나 결과를 모르면 서버가 이미 배정했을 수 있다
+      container.invalidate(myActiveDeliveriesProvider);
+    }
+    container.invalidate(waitingListProvider);
     if (!mounted) return;
     setState(() => _busy.remove(w.deliveryId));
-    if (outcome is! OfferUnknown) _keys.remove(w.deliveryId);
     switch (outcome) {
-      case OfferAssigned(:final deliveryId):
-        ref
-            .read(assignedDeliveriesProvider.notifier)
-            .add(deliveryId ?? w.deliveryId);
-        ref.invalidate(myActiveDeliveriesProvider);
+      case OfferAssigned():
         showRiderToast(context, l10n.offerAssigned);
         widget.onAssigned();
       case OfferLate(:final reason):
@@ -404,8 +417,14 @@ class _WaitingState extends ConsumerState<_Waiting> {
         break;
       case OfferUnknown():
         showRiderToast(context, l10n.offerUnknown);
+      case OfferFailed(:final code):
+        showRiderToast(
+          context,
+          code == ProblemCode.notFound || code == ProblemCode.invalidState
+              ? l10n.acceptGoneList
+              : l10n.acceptFailed,
+        );
     }
-    ref.invalidate(waitingListProvider);
   }
 
   @override

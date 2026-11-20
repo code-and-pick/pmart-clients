@@ -96,6 +96,13 @@ String handoverRejectText(AppLocalizations l10n, String? code) =>
       HandoverProblemCode.handoverCodeMismatch => l10n.labelNumberUnknown,
       HandoverProblemCode.handoverCodeAmbiguous => l10n.labelNumberAmbiguous,
       HandoverProblemCode.handoverCodeLocked => l10n.labelNumberLocked,
+      // 계약 mfc-fulfillment 인계 허가·확정의 나머지 거절(2026-11-20 경합 점검)
+      'FENCE_EXPIRED' || 'FENCE_EXPIRED_UNCONFIRMED' => l10n.hoFenceExpired,
+      'RIDER_MISMATCH' ||
+      HandoverProblemCode.handoverRiderMismatch => l10n.hoForbidden,
+      'NOT_ASSIGNED' => l10n.hoNotAssigned,
+      'CONFIG_REQUIRED' => l10n.hoConfig,
+      ProblemCode.invalidState => l10n.hoState,
       _ => l10n.hoRejected,
     };
 

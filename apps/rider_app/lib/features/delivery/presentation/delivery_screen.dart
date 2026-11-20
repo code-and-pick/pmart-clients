@@ -76,6 +76,10 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
     _etaPoll = Timer.periodic(const Duration(minutes: 1), (_) {
       if (mounted) ref.invalidate(tripInfoProvider(_id));
     });
+    // 보내지 못했거나 확인 중인 명령을 다시 보낸다(같은 키) — 전에는 누를 때만 보내서, 오프라인에서 누른 뒤
+    // 버튼이 꺼진 채 다시 보낼 길이 없었다. 앱이 앞으로 돌아올 때도.
+    _queuePoll = Timer.periodic(_queuePollEvery, (_) => _resendOpen());
+    _lifecycle = AppLifecycleListener(onResume: _resendOpen);
     _sheet.addListener(() {
       final size = _sheet.size;
       final open = size > (_peekSize + _sheetFull) / 2;
@@ -102,6 +106,18 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
         _sheet.jumpTo(_peekSize);
       }
     });
+  }
+
+  Timer? _queuePoll;
+  AppLifecycleListener? _lifecycle;
+  static const _queuePollEvery = Duration(seconds: 10);
+
+  void _resendOpen() {
+    if (!mounted) return;
+    final open =
+        ref.read(deliveryQueueProvider(_id)).value?.any((q) => q.isOpen) ??
+        false;
+    if (open) unawaited(ref.read(deliveryFlowProvider(_id).notifier).sync());
   }
 
   /// 전달 불가 대기(FAILURE_REPORTED) 동안 운영자 결정(확정·반려)을 확인한다.
@@ -276,6 +292,8 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
     _loadRetry?.cancel();
     _etaPoll?.cancel();
     _failurePoll?.cancel();
+    _queuePoll?.cancel();
+    _lifecycle?.dispose();
     _sheet.dispose();
     super.dispose();
   }

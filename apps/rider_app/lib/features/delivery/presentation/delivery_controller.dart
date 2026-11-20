@@ -252,6 +252,9 @@ class DeliveryFlowController extends Notifier<DeliveryFlowState> {
   final _commitKeys = <String, IdempotencyKey>{};
   final _auths = <String, HandoverAuthorized>{};
 
+  /// 허가를 받은 라벨 숫자 → 포장(이 배송). 인계가 끝난 숫자를 다시 넣으면 서버에 보내지 않는다.
+  final _usedCodes = <String, String>{};
+
   /// 라벨 숫자 허가 멱등 키(숫자별) — 결과를 모를 때 같은 숫자를 다시 넣으면 같은 키로 보낸다.
   final _codeKeys = <String, IdempotencyKey>{};
 
@@ -325,10 +328,17 @@ class DeliveryFlowController extends Notifier<DeliveryFlowState> {
     switch (step) {
       case HandoverAuthorized():
         _auths[pkg] = step;
+      // 이미 인계됨(점원·다른 기기)·확정 대기 — 거절이 아니다. 판정 조회로 맞춘다.
+      case HandoverRejected(:final code) when _settledElsewhere(code):
+        _authKeys.remove(pkg);
+        _setPhase(pkg, HandoverPhase.checking);
+        await resolve(pkg);
+        return;
       case HandoverRejected(:final code):
         _authKeys.remove(pkg);
         _setPhase(pkg, HandoverPhase.rejected, code: code);
         if (ref.mounted) state = state.copyWith(lastRejectCode: () => code);
+        _refreshIfReassigned(code);
         return;
       default:
         // 승인 여부를 모른다. 판정 조회로 확인한다.
@@ -346,6 +356,12 @@ class DeliveryFlowController extends Notifier<DeliveryFlowState> {
     final code = digits.trim();
     if (!PackageLabelNumber.pattern.hasMatch(code)) return null;
     state = state.copyWith(lastRejectCode: () => null);
+    // 이미 이 숫자로 인계한 포장 — 서버에 다시 보내면 HANDOVER_CODE_MISMATCH 로 남은 횟수가 준다
+    // (2026-11-20 S23 실서버 재현: 인계 끝난 3387 을 다시 넣자 "이 배달의 포장 숫자가 아니에요 · 3번 남음").
+    if (_usedCodes[code] case final pkg?
+        when state.phaseOf(pkg).phase == HandoverPhase.handedOver) {
+      return const HandoverRejected(HandoverProblemCode.alreadyHandedOver);
+    }
     final key = _codeKeys[code] ??= IdempotencyKey.generate();
     HandoverStep step = const HandoverUnknown();
     for (var i = 0; i < 3 && step is HandoverUnknown; i++) {
@@ -357,10 +373,21 @@ class DeliveryFlowController extends Notifier<DeliveryFlowState> {
       );
     }
     if (step is! HandoverUnknown) _codeKeys.remove(code);
+    // 이미 인계된 포장의 번호(fulfillment 0.31.1 — 틀린 횟수 안 셈). 어느 포장인지 응답에 없으니
+    // 아직 인계 전으로 보이는 포장을 판정 조회로 맞춘다(점원·다른 기기가 인계했을 수 있다).
+    if (step case HandoverRejected(:final code)
+        when code == HandoverProblemCode.alreadyHandedOver) {
+      for (final pkg in d.packageIds) {
+        if (state.phaseOf(pkg).phase != HandoverPhase.handedOver) {
+          await resolve(pkg);
+        }
+      }
+    }
     if (step case HandoverCodeAuthorized(
       :final packageId,
       :final authorization,
     )) {
+      _usedCodes[code] = packageId;
       final phase = state.phaseOf(packageId).phase;
       if (phase == HandoverPhase.handedOver) return step;
       _auths[packageId] = authorization;
@@ -374,7 +401,8 @@ class DeliveryFlowController extends Notifier<DeliveryFlowState> {
     final auth = _auths[pkg];
     if (auth == null) return;
     _setPhase(pkg, HandoverPhase.committing);
-    final key = _commitKeys[pkg] ??= IdempotencyKey.generate();
+    // 커밋 키는 허가마다 — 새 허가(다시 찍기·번호)를 예전 키에 실어 IDEMPOTENCY_CONFLICT 가 나지 않게.
+    final key = _commitKeys[auth.authorizationId] ??= IdempotencyKey.generate();
     HandoverStep step = const HandoverUnknown();
     for (var i = 0; i < 3 && step is HandoverUnknown; i++) {
       step = await _handovers.commit(
@@ -387,14 +415,46 @@ class DeliveryFlowController extends Notifier<DeliveryFlowState> {
     }
     switch (step) {
       case HandoverCommitted(:final handoverId):
+        _forgetHandover(pkg, auth);
         _setPhase(pkg, HandoverPhase.handedOver, handoverId: handoverId);
+      case HandoverRejected(:final code) when _settledElsewhere(code):
+        _forgetHandover(pkg, auth);
+        _setPhase(pkg, HandoverPhase.checking);
+        await resolve(pkg);
       case HandoverRejected(:final code):
+        // 거절(FENCE_EXPIRED 등)로 끝났다 — 다시 찍으면 새 허가·새 키로(예전 만료 허가를 되받지 않게).
+        _forgetHandover(pkg, auth);
         _setPhase(pkg, HandoverPhase.rejected, code: code);
         if (ref.mounted) state = state.copyWith(lastRejectCode: () => code);
+        _refreshIfReassigned(code);
       default:
         _setPhase(pkg, HandoverPhase.checking);
         await resolve(pkg);
     }
+  }
+
+  /// 배정이 바뀌었거나 단계가 달라진 거절 — 배송을 다시 읽어 화면을 서버 상태로(예전 버튼이 남지 않게).
+  void _refreshIfReassigned(String? code) {
+    const codes = {
+      'NOT_ASSIGNED',
+      'RIDER_MISMATCH',
+      HandoverProblemCode.handoverRiderMismatch,
+      ProblemCode.invalidState,
+      ProblemCode.notFound,
+    };
+    if (ref.mounted && codes.contains(code)) {
+      ref.invalidate(deliveryProvider(deliveryId));
+    }
+  }
+
+  static bool _settledElsewhere(String? code) =>
+      code == HandoverProblemCode.alreadyHandedOver ||
+      code == HandoverProblemCode.resultPending;
+
+  void _forgetHandover(String pkg, HandoverAuthorized auth) {
+    _authKeys.remove(pkg);
+    _auths.remove(pkg);
+    _commitKeys.remove(auth.authorizationId);
   }
 
   /// 인계 판정 조회(`handover-resolution`). 시간이 지났다고 원상복구하지 않는다.
@@ -419,9 +479,10 @@ class DeliveryFlowController extends Notifier<DeliveryFlowState> {
   /// "다시 확인": 먼저 판정을 조회하고, 아직 진행 중이면 같은 키로 커밋을 다시 보낸다(새 인계를 만들지 않는다).
   Future<void> checkAgain(String pkg) async {
     await resolve(pkg);
+    final auth = _auths[pkg];
     if (state.phaseOf(pkg).phase == HandoverPhase.checking &&
-        _auths.containsKey(pkg) &&
-        _commitKeys.containsKey(pkg)) {
+        auth != null &&
+        _commitKeys.containsKey(auth.authorizationId)) {
       await _commit(pkg);
     }
   }
@@ -430,6 +491,19 @@ class DeliveryFlowController extends Notifier<DeliveryFlowState> {
 
   Future<void> _send(String kind, Map<String, Object?> payload) async {
     final queue = ref.read(riderQueueProvider);
+    // 같은 명령이 아직 열려 있으면(두 번 누름·결과 확인 중) 새로 넣지 않고 그 명령을 같은 키로 다시 보낸다.
+    // 전에는 두 번째 누름이 새 키로 들어가 409 INVALID_STATE "상태가 맞지 않아요" 가 떴다.
+    // 이미 그 단계를 지났다(첫 누름이 방금 반영됨 — 화면이 바뀌기 전 연타). 새 키로 또 보내면 409 INVALID_STATE
+    // "상태가 맞지 않아요" 가 뜬다(2026-11-20 S23 실서버에서 가게 도착 연타로 재현).
+    final known = ref.read(deliveryProvider(deliveryId)).value?.state;
+    if (known != null && _reached(kind, known)) return;
+    final open = (await queue.items()).any(
+      (i) => i.targetId == deliveryId && i.kind == kind && i.isOpen,
+    );
+    if (open) {
+      await sync();
+      return;
+    }
     await queue.enqueue(
       kind: kind,
       targetId: deliveryId,
@@ -441,8 +515,29 @@ class DeliveryFlowController extends Notifier<DeliveryFlowState> {
     await sync();
   }
 
+  bool _syncing = false;
+  bool _syncAgain = false;
+
   /// 전송 대기·확인 중을 같은 키로 보내고, 접수분은 배송 상태로 확정을 확인한다.
+  /// 겹쳐 부르면(누름·주기·복귀) 끝난 뒤 한 번 더 — 큐를 동시에 고치지 않는다.
   Future<void> sync() async {
+    if (_syncing) {
+      _syncAgain = true;
+      return;
+    }
+    _syncing = true;
+    try {
+      await _syncOnce();
+    } finally {
+      _syncing = false;
+    }
+    if (_syncAgain && ref.mounted) {
+      _syncAgain = false;
+      await sync();
+    }
+  }
+
+  Future<void> _syncOnce() async {
     final repo = ref.read(deliveryRepositoryProvider);
     final queue = ref.read(riderQueueProvider);
     await queue.flush(repo.send);
@@ -456,7 +551,11 @@ class DeliveryFlowController extends Notifier<DeliveryFlowState> {
                 item.kind == DeliveryCommandKind.returnToStore)) {
           finishedOne = true;
         }
-        return reached ? ConfirmResult.applied : ConfirmResult.pending;
+        if (reached) return ConfirmResult.applied;
+        // 다른 주체가 배송을 바꿨다(취소·배정 해제·실패 확정·운영자 반려 등) — 기다려도 도달하지 않는다.
+        // 명령을 닫아 버튼을 풀고, 화면은 서버 상태를 그대로 그린다(전에는 영영 잠겼다).
+        if (_overtaken(item, d)) return ConfirmResult.applied;
+        return ConfirmResult.pending;
       } on PmartFailure {
         return ConfirmResult.unknown;
       }
@@ -470,6 +569,26 @@ class DeliveryFlowController extends Notifier<DeliveryFlowState> {
     if (finishedOne) {
       unawaited(ref.read(offerPollerProvider.notifier).refreshNow());
     }
+  }
+
+  static bool _overtaken(QueueItem item, DeliveryView d) {
+    const ended = {
+      ExecutionState.cancelled,
+      ExecutionState.unassigned,
+      ExecutionState.failed,
+      ExecutionState.returnedToStore,
+      ExecutionState.completed,
+    };
+    if (ended.contains(d.state)) return true;
+    // 전달 불가 신고가 접수됐는데 배송이 원래 단계에 있다 = 운영자가 이미 반려했다(재개 요청이 있었거나 충분히 지났다).
+    if (item.kind == DeliveryCommandKind.failure &&
+        (d.state == ExecutionState.pickedUp ||
+            d.state == ExecutionState.arrivedAtCustomer)) {
+      return d.resumeRequestedAt != null ||
+          DateTime.now().difference(item.createdAt) >
+              const Duration(minutes: 2);
+    }
+    return false;
   }
 
   static bool _reached(String kind, ExecutionState s) {
@@ -762,7 +881,16 @@ class HelpFlowController extends Notifier<HelpFlowState> {
         final status = f.problem.status;
         if (status >= 400 && status < 500 && status != 408 && status != 429) {
           if (!ref.mounted) return;
-          state = HelpFlowState(tickets: others, rejectedCode: f.problem.code);
+          // 기다리는 사이 받은 다른 요청의 상태 변화는 살리고, 이 요청만 뺀다.
+          state = HelpFlowState(
+            tickets: [
+              for (final x in state.tickets)
+                if (x.key.value != ticket.key.value) x,
+            ],
+            rejectedCode: f.problem.code,
+          );
+          // 409(배송이 끝났거나 단계가 바뀜) — 배송을 다시 읽어 화면을 서버 상태로 맞춘다.
+          ref.invalidate(deliveryProvider(deliveryId));
           return;
         }
         break;
@@ -786,18 +914,36 @@ class HelpFlowController extends Notifier<HelpFlowState> {
     );
   }
 
-  /// 아직 처리되지 않은 도움요청의 상태를 다시 조회한다.
+  bool _refreshing = false;
+
+  /// 서버의 지난 도움요청 목록을 한 번 받아 합쳤다(앱을 다시 켠 뒤).
+  bool _restored = false;
+
+  /// 아직 처리되지 않은 도움요청의 상태를 다시 조회한다. 겹쳐 부르면 건너뛴다(늦은 응답이 새 상태를 되돌리지 않게).
   Future<void> refresh() async {
+    if (_refreshing) return;
+    _refreshing = true;
+    try {
+      await _refresh();
+    } finally {
+      _refreshing = false;
+    }
+  }
+
+  Future<void> _refresh() async {
     final repo = ref.read(deliveryRepositoryProvider);
     // 앱을 다시 켰으면 보낸 도움요청을 서버 목록에서 되찾는다(execution 0.7.0).
-    if (state.tickets.isEmpty && !state.sending) {
+    if (!_restored) {
       try {
         final records = await repo.helpRequests(deliveryId);
         if (!ref.mounted) return;
-        if (state.tickets.isEmpty && records.isNotEmpty) {
-          state = HelpFlowState(
-            tickets: [
-              for (final r in records)
+        _restored = true;
+        // 서버 목록을 앞에, 그 사이 이 앱이 보낸 요청은 뒤에 — 키로 합친다(전에는 읽는 동안 하나라도 보내면
+        // 서버 목록을 버려 예전 요청이 영영 안 보였다).
+        final local = {for (final t in state.tickets) t.key.value: t};
+        final merged = [
+          for (final r in records)
+            local.remove(r.requestId) ??
                 HelpTicket(
                   key: IdempotencyKey(r.requestId),
                   category: r.category,
@@ -806,13 +952,17 @@ class HelpFlowController extends Notifier<HelpFlowState> {
                   state: r.state,
                   caseId: r.caseId,
                 ),
-            ],
-          );
-        }
+          ...state.tickets.where((t) => local.containsKey(t.key.value)),
+        ];
+        state = HelpFlowState(
+          tickets: merged,
+          sending: state.sending,
+          rejectedCode: state.rejectedCode,
+        );
       } on PmartFailure {
         // 목록을 못 읽으면 빈 목록으로 단정하지 않는다 — 다음에 다시.
+        return;
       }
-      return;
     }
     for (final t in state.tickets) {
       if (t.state == HelpState.resolved) continue;
@@ -843,10 +993,18 @@ class SupportThreadState {
     this.unavailable = false,
     this.failed = false,
     this.sending = false,
+    this.missing = false,
+    this.closedOnSend = false,
   });
 
   final List<SupportMessage> messages;
   final bool loaded;
+
+  /// 볼 수 없는 요청(404 — 없거나 다른 라이더의 것). 확인을 멈추고 입력을 막는다.
+  final bool missing;
+
+  /// 보내는 순간 지원센터가 처리를 끝냈다(409 HELP_REQUEST_CLOSED) — 보내지 못했다.
+  final bool closedOnSend;
 
   /// 실서버: 대화 API 가 없다.
   final bool unavailable;
@@ -861,12 +1019,16 @@ class SupportThreadState {
     bool? unavailable,
     bool? failed,
     bool? sending,
+    bool? missing,
+    bool? closedOnSend,
   }) => SupportThreadState(
     messages: messages ?? this.messages,
     loaded: loaded ?? this.loaded,
     unavailable: unavailable ?? this.unavailable,
     failed: failed ?? this.failed,
     sending: sending ?? this.sending,
+    missing: missing ?? this.missing,
+    closedOnSend: closedOnSend ?? this.closedOnSend,
   );
 }
 
@@ -889,16 +1051,26 @@ class SupportThreadController extends Notifier<SupportThreadState> {
   SupportThreadRepository get _repo =>
       ref.read(supportThreadRepositoryProvider);
 
-  /// 대화와 처리 상태를 새로 받는다.
+  int _gen = 0;
+
+  /// 대화와 처리 상태를 새로 받는다. 늦게 온 예전 응답은 버린다(보낸 직후 다시 읽은 것을 덮지 않게).
   Future<void> load() async {
+    if (state.missing) return;
+    final gen = ++_gen;
     try {
       final messages = await _repo.threadMessages(id.deliveryId, id.requestId);
-      if (!ref.mounted) return;
+      if (!ref.mounted || gen != _gen) return;
       state = state.copyWith(messages: messages, loaded: true, failed: false);
     } on SupportThreadUnavailable {
       if (ref.mounted) state = state.copyWith(loaded: true, unavailable: true);
-    } on PmartFailure {
-      if (ref.mounted) state = state.copyWith(loaded: true, failed: true);
+    } on PmartFailure catch (f) {
+      if (f is ProblemFailure && f.problem.status == 404) {
+        if (ref.mounted) state = state.copyWith(loaded: true, missing: true);
+        return;
+      }
+      if (ref.mounted && gen == _gen) {
+        state = state.copyWith(loaded: true, failed: true);
+      }
     }
     if (ref.mounted) {
       await ref.read(helpFlowProvider(id.deliveryId).notifier).refresh();
@@ -914,7 +1086,7 @@ class SupportThreadController extends Notifier<SupportThreadState> {
         : IdempotencyKey.generate();
     _pendingKey = key;
     _pendingText = t;
-    state = state.copyWith(sending: true);
+    state = state.copyWith(sending: true, closedOnSend: false);
     try {
       await _repo.sendMessage(id.deliveryId, id.requestId, t, key: key);
       _pendingKey = null;
@@ -928,12 +1100,42 @@ class SupportThreadController extends Notifier<SupportThreadState> {
         state = state.copyWith(sending: false, unavailable: true);
       }
       return false;
-    } on PmartFailure {
+    } on UnknownResultFailure {
+      // 들어갔는지 모른다 — 다시 읽어 내 말이 있으면 보낸 것으로(같은 키라 다시 보내도 하나).
+      if (!ref.mounted) return false;
+      state = state.copyWith(sending: false);
+      await load();
+      final arrived = state.messages.any(
+        (m) => m.sender == SupportSender.rider && m.text == t,
+      );
+      if (arrived) {
+        _pendingKey = null;
+        _pendingText = null;
+        return true;
+      }
+      if (ref.mounted) state = state.copyWith(failed: true);
+      return false;
+    } on PmartFailure catch (f) {
+      if (f is ProblemFailure && f.problem.code == helpRequestClosedCode) {
+        // 보내는 순간 처리 완료됐다 — 일반 실패가 아니다. 상태를 바로 다시 받아 입력칸을 닫는다.
+        _pendingKey = null;
+        if (!ref.mounted) return false;
+        state = state.copyWith(sending: false, closedOnSend: true);
+        await ref.read(helpFlowProvider(id.deliveryId).notifier).refresh();
+        return false;
+      }
+      if (f is ProblemFailure && f.problem.status == 404) {
+        if (ref.mounted) state = state.copyWith(sending: false, missing: true);
+        return false;
+      }
       if (ref.mounted) state = state.copyWith(sending: false, failed: true);
       return false;
     }
   }
 }
+
+/// 처리가 끝난 도움요청에 보냄(execution postHelpRequestMessage 409).
+const helpRequestClosedCode = 'HELP_REQUEST_CLOSED';
 
 /// 반납 인증번호를 틀렸을 때 남은 횟수(배송별) — 저장소가 기록하고 배송 화면이 거절 알림에 쓴다.
 final returnAttemptsProvider = Provider<ReturnAttempts>(

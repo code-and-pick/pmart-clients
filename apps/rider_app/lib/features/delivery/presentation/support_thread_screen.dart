@@ -52,7 +52,12 @@ class _SupportThreadScreenState extends ConsumerState<SupportThreadScreen> {
 
   Future<void> _load() async {
     if (!mounted) return;
-    await ref.read(supportThreadProvider(_id).notifier).load();
+    final ctl = ref.read(supportThreadProvider(_id).notifier);
+    await ctl.load();
+    // 볼 수 없는 요청이면 4초마다 404 를 되풀이하지 않는다.
+    if (mounted && ref.read(supportThreadProvider(_id)).missing) {
+      _poll?.cancel();
+    }
   }
 
   @override
@@ -84,7 +89,7 @@ class _SupportThreadScreenState extends ConsumerState<SupportThreadScreen> {
         ref.watch(deliveryProvider(widget.deliveryId)).value?.state ==
         ExecutionState.failureReported;
     final resolved = ticket?.state == HelpState.resolved && !pendingDecision;
-    final canTalk = !thread.unavailable && !resolved;
+    final canTalk = !thread.unavailable && !thread.missing && !resolved;
     return Scaffold(
       backgroundColor: RiderColors.field,
       appBar: riderDarkBar(context, title: l10n.supportThreadTitle),
@@ -111,11 +116,16 @@ class _SupportThreadScreenState extends ConsumerState<SupportThreadScreen> {
               ],
             ),
           ),
-          if (thread.failed)
+          if (thread.missing || thread.closedOnSend || thread.failed)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Text(
-                l10n.supportThreadFailed,
+                thread.missing
+                    ? l10n.supportThreadMissing
+                    : thread.closedOnSend
+                    ? l10n.supportThreadClosedOnSend
+                    : l10n.supportThreadFailed,
+                key: const ValueKey('thread-notice'),
                 style: const TextStyle(fontSize: 13, color: RiderColors.danger),
               ),
             ),

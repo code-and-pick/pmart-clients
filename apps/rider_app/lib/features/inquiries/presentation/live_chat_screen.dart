@@ -48,9 +48,13 @@ class _LiveChatScreenState extends ConsumerState<LiveChatScreen> {
     super.dispose();
   }
 
+  bool _loading = false;
+
   Future<void> _load() async {
     // 닫힌 상담은 새로 보내기 전까지 다시 읽지 않는다(남은 말을 그대로 둔다).
-    if (_closed) return;
+    // 읽는 중이면 겹쳐 읽지 않는다(늦은 응답이 새 상태를 덮지 않게).
+    if (_closed || _loading) return;
+    _loading = true;
     try {
       final list = await ref.read(liveChatRepositoryProvider).messages();
       if (mounted) {
@@ -72,6 +76,8 @@ class _LiveChatScreenState extends ConsumerState<LiveChatScreen> {
       if (mounted) setState(() => _unavailable = true);
     } on PmartFailure {
       if (mounted) setState(() => _failed = true);
+    } finally {
+      _loading = false;
     }
   }
 
@@ -89,6 +95,8 @@ class _LiveChatScreenState extends ConsumerState<LiveChatScreen> {
       await ref.read(liveChatRepositoryProvider).send(text, key: key);
       _pendingKey = null;
       _pendingText = null;
+      // 보내는 사이 화면을 나갔으면 해제된 입력칸을 쓰지 않는다.
+      if (!mounted) return;
       _input.clear();
       // 닫힌 뒤 보낸 말은 새 상담이다 — 지난 말을 비우고 다시 읽는다.
       if (_closed) {
@@ -97,6 +105,7 @@ class _LiveChatScreenState extends ConsumerState<LiveChatScreen> {
           _messages = const [];
         });
       }
+      _loading = false; // 보낸 뒤 바로 다시 읽기는 주기 읽기를 기다리지 않는다
       await _load();
     } on LiveChatClosed {
       // 보내는 사이 닫혔다 — 같은 글을 다시 보내면 새 상담으로 간다(새 키).

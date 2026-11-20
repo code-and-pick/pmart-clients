@@ -95,6 +95,9 @@ class OfferPoller extends Notifier<OfferPollState> {
   Timer? _timer;
   bool _fetching = false;
 
+  /// 읽는 중에 다시 읽기를 부탁받았다 — 끝나면 한 번 더(수락 직후 새로 읽기가 버려지지 않게).
+  bool _again = false;
+
   @override
   OfferPollState build() {
     ref.onDispose(() => _timer?.cancel());
@@ -103,7 +106,10 @@ class OfferPoller extends Notifier<OfferPollState> {
 
   Future<void> refreshNow() async {
     _timer?.cancel();
-    if (_fetching) return;
+    if (_fetching) {
+      _again = true;
+      return;
+    }
     _fetching = true;
     try {
       final list = await ref.read(offerRepositoryProvider).activeOffers();
@@ -130,6 +136,10 @@ class OfferPoller extends Notifier<OfferPollState> {
       _timer = Timer(wait, refreshNow);
     } finally {
       _fetching = false;
+    }
+    if (_again && ref.mounted) {
+      _again = false;
+      await refreshNow();
     }
   }
 
@@ -274,7 +284,13 @@ class ReleasedDeliveries extends Notifier<Set<String>> {
 final offerResponderProvider = Provider<OfferResponder>(OfferResponder.new);
 
 class OfferResponder {
-  OfferResponder(this._ref);
+  OfferResponder(
+    this._ref, {
+    this.retryDelay = const Duration(milliseconds: 600),
+  });
+
+  /// 결과 불명 재전송 간격(같은 키, 점점 길게).
+  final Duration retryDelay;
 
   final Ref _ref;
   final _pendingKeys = <String, IdempotencyKey>{};
@@ -284,18 +300,32 @@ class OfferResponder {
     required bool accept,
     RejectReason? reason,
   }) async {
-    final key = _pendingKeys[offer.offerId] ??= IdempotencyKey.generate();
+    // 키는 제안 + 동작마다 — 수락 결과를 모르는 채로 거절을 누르면 같은 키에 다른 본문이 가지 않게.
+    final slot = '${offer.offerId}:${accept ? 'A' : 'R'}';
+    final key = _pendingKeys[slot] ??= IdempotencyKey.generate();
     final repo = _ref.read(offerRepositoryProvider);
     OfferOutcome outcome = const OfferUnknown();
     for (var i = 0; i < 3 && outcome is OfferUnknown; i++) {
-      outcome = await repo.respond(
-        offer.offerId,
-        accept: accept,
-        reason: reason,
-        key: key,
-      );
+      if (i > 0) await Future<void>.delayed(retryDelay * i);
+      try {
+        outcome = await repo.respond(
+          offer.offerId,
+          accept: accept,
+          reason: reason,
+          key: key,
+        );
+      } on ProblemFailure catch (f) {
+        // 판정이 아니라 거절된 요청(없음·상태 다름·권한) — 다음 누름은 새 키.
+        outcome = OfferFailed(f.problem.code);
+      } on PmartFailure {
+        outcome = const OfferFailed(null);
+      }
     }
-    if (outcome is! OfferUnknown) _pendingKeys.remove(offer.offerId);
+    if (outcome is! OfferUnknown) {
+      _pendingKeys
+        ..remove('${offer.offerId}:A')
+        ..remove('${offer.offerId}:R');
+    }
     if (outcome case OfferAssigned(:final deliveryId?)) {
       final assigned = _ref.read(assignedDeliveriesProvider.notifier)
         ..add(deliveryId);
@@ -311,9 +341,8 @@ class OfferResponder {
         }
       }
     }
-    if (outcome is! OfferUnknown) {
-      unawaited(_ref.read(offerPollerProvider.notifier).refreshNow());
-    }
+    // 결과를 모를 때도 다시 읽는다 — 서버가 이미 배정했으면 제안이 빠지고 진행 중 배송에 나타난다.
+    unawaited(_ref.read(offerPollerProvider.notifier).refreshNow());
     return outcome;
   }
 }

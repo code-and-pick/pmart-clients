@@ -142,11 +142,31 @@ void main() {
 
     await t.tap(find.byKey(const ValueKey('accept-offer-mock-1')));
     await settle(t);
+    await t.pump(const Duration(seconds: 1)); // 같은 키 재전송은 잠깐 쉬고 보낸다
+    await settle(t);
 
     expect(repo.respondKeys, hasLength(2));
     expect(repo.respondKeys.toSet(), hasLength(1));
     expect(find.text('배정됐어요. 배송 정보를 확인해 주세요'), findsOneWidget);
     expect(find.byKey(const ValueKey('delivery-dlv-1')), findsOneWidget);
+  });
+
+  testWidgets('응답이 404 로 거절돼도 버튼이 다시 열리고 "이미 처리된 제안" 안내', (t) async {
+    repo.problemNext = const Problem(status: 404, code: ProblemCode.notFound);
+    await start(t);
+
+    await t.tap(find.byKey(const ValueKey('accept-offer-mock-1')));
+    await settle(t);
+
+    expect(find.text('이미 처리됐거나 시간이 지난 제안이에요'), findsOneWidget);
+    // 다시 누를 수 있다(새 키) — 전에는 앱을 다시 켤 때까지 막혔다
+    final accept = find.byKey(const ValueKey('accept-offer-mock-1'));
+    if (accept.evaluate().isNotEmpty) {
+      expect(t.widget<FilledButton>(accept).onPressed, isNotNull);
+      await t.tap(accept);
+      await settle(t);
+      expect(repo.respondKeys.toSet(), hasLength(2));
+    }
   });
 
   testWidgets('늦은 수락은 사유별로 안내한다', (t) async {

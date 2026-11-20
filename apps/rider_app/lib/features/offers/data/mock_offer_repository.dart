@@ -233,6 +233,9 @@ base class MockOfferRepository implements OfferRepository, DutyRepository {
   /// 다음 수락을 늦은 수락으로 판정한다.
   LateReason? lateNext;
 
+  /// 다음 응답을 이 Problem 으로 거절한다(판정이 아닌 404·409·403 — 시험용).
+  Problem? problemNext;
+
   /// 수락된 배송(배송 수행 단계가 읽는다).
   final assignedDeliveries = <String>[];
   final respondKeys = <String>[];
@@ -290,6 +293,10 @@ base class MockOfferRepository implements OfferRepository, DutyRepository {
   }) async {
     await _wait();
     respondKeys.add(key.value);
+    if (problemNext case final p?) {
+      problemNext = null;
+      throw ProblemFailure(p);
+    }
     final previous = _responses[key.value];
     if (previous != null) {
       return offerOutcomeFromContract(OfferResponseResult.fromJson(previous));

@@ -119,7 +119,10 @@ final class ApiAppealRepository implements AppealRepository {
       );
     } on ProblemFailure catch (f) {
       if (f.problem.code == appealExistsCode) throw const AppealExistsFailure();
-      if (f.problem.status == 409 && target == AppealTarget.restriction) {
+      // 같은 키·다른 본문(IDEMPOTENCY_CONFLICT)은 "제한 없음"이 아니다 — 그대로 올린다.
+      if (f.problem.status == 409 &&
+          f.problem.code != ProblemCode.idempotencyConflict &&
+          target == AppealTarget.restriction) {
         throw const NothingToAppealFailure();
       }
       rethrow;
