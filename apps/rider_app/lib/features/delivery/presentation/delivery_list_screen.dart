@@ -14,8 +14,10 @@ import '../../offers/data/delivery_list_repository.dart';
 import '../../offers/domain/offer_list.dart';
 import '../../offers/presentation/offer_actions.dart';
 import '../../offers/presentation/offer_controllers.dart';
+import '../data/trip_repository.dart';
 import 'delivery_controller.dart';
 import 'delivery_texts.dart';
+import 'trip_widgets.dart' show packageCountText;
 
 /// 배달리스트: 진행 중인 배송, (일반 배차모드면) 배차 대기 배송, 신규배차 켜기/끄기.
 ///
@@ -220,6 +222,8 @@ class _Stop extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
     final d = ref.watch(deliveryProvider(deliveryId)).value;
+    // 알뜰 여러 건이 모두 같은 점포로 보여 구분이 안 됐다(2026-11-20 S23) — 주문번호를 함께.
+    final orderNo = ref.watch(tripInfoProvider(deliveryId)).value?.orderNo;
     final drop = d != null && !isPickupStage(d.state)
         ? ref.watch(dropInfoProvider(deliveryId)).value
         : null;
@@ -277,7 +281,10 @@ class _Stop extends ConsumerWidget {
                       Padding(
                         padding: const EdgeInsets.only(top: 4),
                         child: Text(
-                          l10n.packageCount(d.packageIds.length),
+                          [
+                            if (orderNo != null) l10n.orderNoShort(orderNo),
+                            packageCountText(l10n, d.packageIds.length),
+                          ].join(' · '),
                           style: const TextStyle(
                             fontSize: 15,
                             color: RiderColors.sub,

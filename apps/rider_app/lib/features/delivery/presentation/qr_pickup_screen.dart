@@ -28,6 +28,21 @@ class QrPickupScreen extends ConsumerStatefulWidget {
 
 class _QrPickupScreenState extends ConsumerState<QrPickupScreen> {
   bool _closing = false;
+
+  /// 닫기 직전에 카메라를 먼저 끈다 — 카메라 미리보기가 켜진 채 닫히면 아래 지도(안드로이드가 그리는 화면)가
+  /// 페이드 동안 검게 깜빡였다(2026-11-20 S23 픽업 뒤 화면 녹화로 확인, 사용자 "검정으로 껌뻑껌뻑").
+  bool _cameraOff = false;
+
+  /// 한 번만 닫는다: 카메라를 끄고 한 프레임 뒤에 닫는다(픽업 버튼과 단계 바뀜 감지가 둘 다 닫으려 했다).
+  void _close() {
+    if (_closing) return;
+    _closing = true;
+    setState(() => _cameraOff = true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && context.canPop()) context.pop();
+    });
+  }
+
   bool _scanning = false;
   String? _numberError;
 
@@ -76,9 +91,8 @@ class _QrPickupScreenState extends ConsumerState<QrPickupScreen> {
     // 픽업이 이미 끝났거나(연타로 화면이 한 번 더 열림 — 2026-11-20 S23 실서버 재현) 배송이 다른 단계로 갔으면
     // 이 화면을 닫는다. 남아 있으면 끝난 픽업 버튼이 켜진 채 보인다.
     if (d != null && d.state != ExecutionState.arrivedAtStore && !_closing) {
-      _closing = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && context.canPop()) context.pop();
+        if (mounted) _close();
       });
     }
     final trip = ref.watch(tripInfoProvider(_id)).value;
@@ -120,7 +134,7 @@ class _QrPickupScreenState extends ConsumerState<QrPickupScreen> {
                       color: Colors.white,
                       size: 30,
                     ),
-                    onPressed: () => context.pop(),
+                    onPressed: _close,
                   ),
                 ],
               ),
@@ -138,7 +152,7 @@ class _QrPickupScreenState extends ConsumerState<QrPickupScreen> {
                       color: Colors.black26,
                     ),
                     clipBehavior: Clip.hardEdge,
-                    child: camera != null && d != null
+                    child: camera != null && d != null && !_cameraOff
                         ? camera((code) => _scan(d, code))
                         : const Center(
                             child: Icon(
@@ -276,7 +290,7 @@ class _QrPickupScreenState extends ConsumerState<QrPickupScreen> {
                       onPressed: (allHanded && !busy)
                           ? () async {
                               await ctl.pickup();
-                              if (context.mounted) context.pop();
+                              if (context.mounted) _close();
                             }
                           : null,
                     ),

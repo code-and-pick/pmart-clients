@@ -153,7 +153,7 @@ class OrderInfoSection extends StatelessWidget {
           t == null ? storeText(l10n, mfcId) : l10n.storeLabel(t.store.name),
         ),
         if (packageCount case final n?)
-          TripLine(l10n.packagesLabel, l10n.packageCount(n)),
+          TripLine(l10n.packagesLabel, packageCountText(l10n, n)),
         if (t == null)
           Padding(
             padding: const EdgeInsets.only(top: 6),
@@ -412,3 +412,7 @@ String dueText(
     if (minutes > 0) l10n.etaMinutes(minutes),
   ].join(' · ');
 }
+
+/// 포장 수 — 0 이면 아직 포장 전(서버가 포장을 붙이기 전)이라 "0개" 대신 준비 중으로(2026-11-20 S23 알뜰).
+String packageCountText(AppLocalizations l10n, int n) =>
+    n == 0 ? l10n.packagesPreparing : l10n.packageCount(n);

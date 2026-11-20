@@ -634,6 +634,13 @@
   "supportAgent": "지원센터 상담원",
   "orderPlace": "주문장소",
   "packagesLabel": "포장",
+  "packagesPreparing": "포장 준비 중",
+  "orderNoShort": "주문 {no}",
+  "@orderNoShort": {
+    "placeholders": {
+      "no": { "type": "String" }
+    }
+  },
   "orderDetailPending": "메뉴 품목·금액·요청사항은 아직 서버에서 받을 수 없어요",
   "menuItems": "메뉴 품목",
   "itemLine": "{name} × {qty}",
