@@ -151,6 +151,18 @@ void main() {
     expect(find.byKey(const ValueKey('delivery-dlv-1')), findsOneWidget);
   });
 
+  testWidgets('같은 프레임 연타(버튼이 다시 그려지기 전) — 수락 요청은 한 번만', (t) async {
+    await start(t);
+    final accept = find.byKey(const ValueKey('accept-offer-mock-1'));
+    // 다시 그리기 없이 onPressed 를 세 번 — 실기기 adb 3연타(2026-11-20 S23 알뜰 수락 POST 2번)와 같은 상황
+    final onPressed = t.widget<FilledButton>(accept).onPressed!;
+    onPressed();
+    onPressed();
+    onPressed();
+    await settle(t);
+    expect(repo.respondKeys, hasLength(1));
+  });
+
   testWidgets('응답이 404 로 거절돼도 버튼이 다시 열리고 "이미 처리된 제안" 안내', (t) async {
     repo.problemNext = const Problem(status: 404, code: ProblemCode.notFound);
     await start(t);

@@ -294,14 +294,29 @@ class OfferResponder {
 
   final Ref _ref;
   final _pendingKeys = <String, IdempotencyKey>{};
+  final _inFlight = <String, Future<OfferOutcome>>{};
 
+  /// 같은 제안·같은 동작을 보내는 중이면 그 결과를 같이 기다린다 — 버튼이 다시 그려지기 전 같은 프레임의 연타가
+  /// 요청을 두 번 보내던 것(2026-11-20 S23 알뜰 묶음 수락 3연타 → POST 2번).
   Future<OfferOutcome> respond(
     OfferItem offer, {
     required bool accept,
     RejectReason? reason,
-  }) async {
+  }) {
     // 키는 제안 + 동작마다 — 수락 결과를 모르는 채로 거절을 누르면 같은 키에 다른 본문이 가지 않게.
     final slot = '${offer.offerId}:${accept ? 'A' : 'R'}';
+    return _inFlight[slot] ??=
+        _respond(offer, slot, accept: accept, reason: reason).whenComplete(() {
+          _inFlight.remove(slot); // 화살표로 쓰면 지운 Future 를 돌려줘 자기 자신을 기다린다
+        });
+  }
+
+  Future<OfferOutcome> _respond(
+    OfferItem offer,
+    String slot, {
+    required bool accept,
+    RejectReason? reason,
+  }) async {
     final key = _pendingKeys[slot] ??= IdempotencyKey.generate();
     final repo = _ref.read(offerRepositoryProvider);
     OfferOutcome outcome = const OfferUnknown();
