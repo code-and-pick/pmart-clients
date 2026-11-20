@@ -898,6 +898,15 @@ function CloseForm({ c, onDone, openFollowUps }: { readonly c: Case; readonly on
       {(c.kind === 'RIDER_HELP' || c.kind === 'DELIVERY_INCIDENT') && (
         <Notice tone="warning">
           <span data-testid="close-confirms-failure">{m.cases.closeConfirmsFailure}</span>
+          {/* 반려는 배송 상세의 실패 결정 칸(#failure-decision)에서 — 이 건의 배송으로 바로 */}
+          {(() => {
+            const dl = (c.refs ?? []).find((r) => r.refType === 'deliveryId')?.refId;
+            return dl ? (
+              <Link className="link mt-1 block font-semibold" to={`/deliveries/${encodeURIComponent(dl)}#failure-decision`} data-testid="close-go-reject">
+                {m.cases.closeGoReject}
+              </Link>
+            ) : null;
+          })()}
         </Notice>
       )}
       <label className="flex flex-col gap-1 text-xs text-base-content/60">

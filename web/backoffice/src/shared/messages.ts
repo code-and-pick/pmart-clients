@@ -630,6 +630,7 @@ export const messages = {
     closeSummary: '처리 결과 요약',
     // case 0.30.0(백엔드 #295, 2026-11-20 알림 notice-case-closed-confirms-failure): 라이더 도움요청·전달 실패 접수 건은 닫으면 전달 실패 확정 + 같은 라이더에게 반납 배송
     closeConfirmsFailure: '닫으면 전달 실패로 확정되고 반납 배송이 만들어져요. 라이더가 계속 전달해야 하면 닫기 전에 배송 상세에서 실패 결정을 반려해 주세요.',
+    closeGoReject: '이 건의 배송 상세에서 실패 결정 반려하기 →',
     piiHint: '고객 주소·연락처 원문은 적지 마세요.',
     closed: '완료 처리했어요.',
     newTitle: '오배송 접수',
