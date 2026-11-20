@@ -165,13 +165,3 @@ export function covers(item: NavItem, pathname: string): boolean {
   const hit = (to: string) => pathname === to || pathname.startsWith(`${to}/`);
   return hit(item.to) || (item.also ?? []).some(hit);
 }
-
-/**
- * 첫 화면: 역할 묶음 중 보이는 첫 묶음의 첫 화면(home 이 있으면 그것) — 상담원은 주문 조회, 라이더 운영은 라이더 찾기.
- * 함께 쓰는 조회·현황 묶음과 업무 도우미는 역할 묶음이 없을 때만. 그것도 없으면 내 세션.
- */
-export function homePath(roles: readonly string[]): string {
-  const groups = visibleGroups(roles);
-  const own = groups.find((g) => g.id !== 'lookup' && g.id !== 'assistant') ?? groups.find((g) => g.id === 'lookup');
-  return own ? (own.home ?? own.items[0]?.to ?? '/session') : '/session';
-}

@@ -155,28 +155,3 @@ export function ApprovalTypes() {
     </Section>
   );
 }
-
-/**
- * 처리 기한 지킴 날짜별 — CASE_SLA totals(날짜 묶음)의 서버 비율을 막대로. 닫힌 건이 없는 날(묶음 없음)·비율 null 은 "—"(0% 아님).
- */
-export function SlaTrend({ days, totals }: { readonly days: readonly string[]; readonly totals: ReadonlyArray<{ readonly bucket: string; readonly ratio?: number | null; readonly numerator: number; readonly denominator: number }> }) {
-  const byDay = new Map(totals.map((t) => [t.bucket.slice(0, 10), t]));
-  return (
-    <div className="flex h-20 items-end gap-1.5" data-testid="dash-sla-trend">
-      {days.map((d) => {
-        const t = byDay.get(d);
-        const ratio = t && t.ratio !== null && t.ratio !== undefined ? t.ratio : null;
-        return (
-          <div key={d} className="flex h-full flex-1 flex-col items-center justify-end gap-1" title={t ? `${d} · ${t.numerator}/${t.denominator}` : `${d} · ${m.slaNoClosed}`} data-testid="dash-sla-day">
-            {ratio === null ? (
-              <div className="h-1 w-full max-w-6 rounded bg-base-300" aria-hidden="true" />
-            ) : (
-              <div className={`w-full max-w-6 rounded-t ${ratio >= 0.9 ? 'bg-success/70' : ratio >= 0.7 ? 'bg-warning/70' : 'bg-error/70'}`} style={{ height: `${Math.max(6, Math.round(ratio * 100))}%` }} aria-hidden="true" />
-            )}
-            <span className="text-[10px] text-base-content/45">{ratio === null ? '—' : `${Math.round(ratio * 100)}`}</span>
-          </div>
-        );
-      })}
-    </div>
-  );
-}

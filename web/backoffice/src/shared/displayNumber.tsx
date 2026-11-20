@@ -18,9 +18,6 @@ export const RIDER_SOURCE = 'rider-service';
 /** 이 화면 응답에서 라이더 번호를 못 읽었는지 */
 export const riderSourceFailed = (unavailableSources: readonly string[] | null | undefined) => (unavailableSources ?? []).includes(RIDER_SOURCE);
 
-/** 시스템 ID 끝 8자리(번호가 없을 때 알아보는 용도로만) */
-export const idTail = (id: string) => id.slice(-8);
-
 /** 번호가 없을 때(ADR-0070 덧붙임 2026-11-19): 시스템 ID 도 "끝 8자리 회색"도 보이지 않는다 — "번호 없음"·"번호 확인 불가"만. 시스템 ID 는 상세의 시스템 번호 칸에서 */
 function Fallback({ failed }: { readonly systemId: string; readonly failed: boolean }) {
   return (

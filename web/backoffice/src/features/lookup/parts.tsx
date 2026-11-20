@@ -63,18 +63,6 @@ export function StaffName({ id }: { readonly id: string | null | undefined }) {
   return <>{q.data ? labelText(q.data) : q.isError ? messages.displayNumber.staffFailed : q.isPending ? '…' : messages.displayNumber.staffUnknown}</>;
 }
 
-/** 작은 ID 링크(목록 첫 칸 아래 줄·상세 연결) */
-export function IdLink({ id, to }: { readonly id: string | null | undefined; readonly to?: string | null }) {
-  if (!id) return <span className="text-xs text-base-content/40">{messages.none}</span>;
-  return to ? (
-    <Link className="font-mono text-xs text-base-content/55 hover:text-primary hover:underline" to={to}>
-      {id}
-    </Link>
-  ) : (
-    <span className="font-mono text-xs text-base-content/55">{id}</span>
-  );
-}
-
 const iconPaths = {
   box: 'M4 8l8-4 8 4-8 4-8-4Zm0 0v8l8 4 8-4V8M12 12v8',
   truck: 'M3 6h11v9H3zM14 9h4l3 3v3h-7M7 18.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Zm10 0a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z',

@@ -148,22 +148,6 @@ export function DataTable({ children, testId, settingsKey }: { readonly children
   );
 }
 
-/** 쪽 넘기기(커서) — 처음으로 / 다음. 2026-11-20 AWS 개편: 오른쪽 정렬 작은 글자 단추 */
-export function CursorPager({ hasPrev, nextCursor, onFirst, onNext, page }: { readonly hasPrev: boolean; readonly nextCursor: string | null | undefined; readonly onFirst: () => void; readonly onNext: (cursor: string) => void; readonly page?: number }) {
-  if (!hasPrev && !nextCursor) return null;
-  return (
-    <nav aria-label="쪽" className="flex items-center justify-end gap-1 text-sm">
-      <button type="button" className="btn btn-ghost btn-sm" disabled={!hasPrev} onClick={onFirst}>
-        « 처음으로
-      </button>
-      {page !== undefined && <span className="px-2 font-bold">{page}쪽</span>}
-      <button type="button" className="btn btn-ghost btn-sm" disabled={!nextCursor} onClick={() => nextCursor && onNext(nextCursor)}>
-        다음 ›
-      </button>
-    </nav>
-  );
-}
-
 /** 상세 머리 — 2026-11-20 AWS 개편: 상자 없이 24px 제목 + 표시, 아래 회색 요약 한 줄, 오른쪽 동작(흰 테두리 단추·주 단추 검정) */
 export function DetailHeader({ back, title, badges, summary, actions }: { readonly back: { readonly to: string; readonly label: string }; readonly title: ReactNode; readonly badges?: ReactNode; readonly summary?: ReactNode; readonly actions?: ReactNode }) {
   // 제목이 화면 위로 지나가면 위에 얇은 제목 띠(2026-11-19)

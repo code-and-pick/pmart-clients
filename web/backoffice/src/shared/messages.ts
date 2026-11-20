@@ -3053,10 +3053,6 @@ export const messages = {
       pending: '처리 대기',
     } as Readonly<Record<string, string>>,
   },
-  caseBadges: {
-    title: { unassigned: '아무도 안 맡은 접수 건', overdue: '기한 지난 접수 건' } as const,
-    failed: '접수 건 수를 읽지 못했어요',
-  },
   /** 접수 건 현황 건수(case 0.18.0, 관리자만) — 건수만, 비율·목표 없음, 개인별 없음 */
   caseMetrics: {
     title: '접수 건 현황',
