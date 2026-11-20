@@ -150,33 +150,31 @@ describe('앱 바꾸기 — 이 앱 메뉴 칸(알림과 함께)', () => {
     expect(screen.queryByTestId('app-launcher-menu')).not.toBeInTheDocument();
   });
 
-  // 2026-11-19 사용자 캡처 "라이더 백오피스 메뉴처럼" — 민트 막대 대신 파란 채움·흰 굵은 글자, 지금 묶음 이름은 흰 글자(다른 묶음은 흐리게)
-  it('지금 메뉴는 또렷하게 — 파란 채움·흰 굵은 글자, 지금 묶음 이름은 흰 글자', async () => {
+  // 2026-11-20 AWS 개편 2단계(ADR-0004): 흰 메뉴 — 지금 메뉴는 파랑 굵은 글자, 바탕 없음(예전 파란 채움은 뺐다)
+  it('지금 메뉴는 파랑 굵은 글자 — 바탕 채움 없음, 지금 묶음 표시', async () => {
     renderAt('/approvals', as.admin);
     const link = await screen.findByRole('link', { name: '승인함' });
-    expect(link.className).toContain('bg-primary');
-    expect(link.className).toContain('text-primary-content');
+    expect(link).toHaveAttribute('aria-current', 'page');
+    expect(link.className).toContain('text-primary');
     expect(link.className).toContain('font-semibold');
-    expect(link.className).not.toContain('accent');
-    expect(screen.getByTestId('nav-group-approval').querySelector('summary')!.className.split(' ')).toContain('text-neutral-content'); // 흐린 /60 이 아닌 흰 글자
-    expect(screen.getByTestId('nav-group-catalog').querySelector('summary')!.className).toContain('text-neutral-content/60');
+    expect(link.className).not.toContain('bg-primary');
+    expect(screen.getByTestId('nav-group-approval')).toHaveAttribute('data-current', 'true');
+    expect(screen.getByTestId('nav-group-catalog')).not.toHaveAttribute('data-current');
+    expect(screen.getByTestId('side-menu').className).toContain('bg-base-100'); // 흰 메뉴
   });
 });
 
-describe('묶음 이름(2026-11-18 — 하위보다 크게, 눌렀을 때 펼침이 보이게)', () => {
-  it('묶음 이름은 하위 메뉴보다 큰 글씨·아이콘, 누르면 화살표가 돌고 바탕이 밝아진다', async () => {
+describe('묶음 이름(2026-11-20 AWS — 굵은 제목 + 왼쪽 펼침 화살표)', () => {
+  it('묶음 이름은 굵게, 누르면 화살표가 돈다', async () => {
     const user = userEvent.setup();
     renderAt('/approvals', as.admin);
     const support = await screen.findByTestId('nav-group-support');
     const summary = support.querySelector('summary')!;
-    expect(summary.className).toContain('text-[15px]');
-    expect(screen.getByRole('link', { name: '승인함' }).className).toContain('text-sm'); // 하위 메뉴 14px < 묶음 15px
-    expect(summary.querySelector('svg')).not.toBeNull(); // 묶음 아이콘
-    const chevron = within(support).getByTestId('nav-group-chevron');
-    expect(chevron.getAttribute('class')).not.toContain('rotate-90');
-    expect(support.className).not.toContain('bg-neutral-content/5');
+    expect(summary.className).toContain('font-bold');
+    expect(summary.firstElementChild).toBe(within(support).getByTestId('nav-group-chevron')); // 화살표가 이름 앞
+    expect(within(support).getByTestId('nav-group-chevron').getAttribute('class')).not.toContain('rotate-90');
     await user.click(within(support).getByText('지원센터'));
     expect(within(support).getByTestId('nav-group-chevron').getAttribute('class')).toContain('rotate-90');
-    expect(support.className).toContain('bg-neutral-content/5');
+    expect(support).toHaveAttribute('open');
   });
 });

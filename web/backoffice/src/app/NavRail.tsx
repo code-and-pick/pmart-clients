@@ -1,6 +1,7 @@
 // 접힌 메뉴(2026-11-19 사용자 "전체 UI·UX 를 관제 화면 형식으로" — 왼쪽 아이콘 + 글자 세로 칸).
 // 묶음을 누르면 오른쪽에 하위 메뉴 판이 열린다(알림 배지 포함). 판은 다른 곳을 누르거나 Esc·화면 이동으로 닫힌다.
 // 묶음 칸의 합계 배지는 펼친 메뉴와 같은 부품(색별 — 파랑 할 일·빨강 기한 지남).
+// 2026-11-20 AWS 개편 2단계(ADR-0004): 흰 메뉴 — 지금 칸은 연한 파랑 바탕 + 파랑 글자, 판은 흰 상자 + 1px 테두리.
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, NavLink } from 'react-router';
@@ -11,7 +12,7 @@ import { covers, type NavGroup } from './nav';
 import { messages as m } from '../shared/messages';
 
 const cell = (active: boolean) =>
-  `relative flex w-16 flex-col items-center gap-1 rounded-lg px-1 py-2 text-[10.5px] font-medium leading-tight transition-colors ${active ? 'bg-primary text-primary-content' : 'text-neutral-content/75 hover:bg-neutral-content/10 hover:text-neutral-content'}`;
+  `relative flex w-16 flex-col items-center gap-1 rounded px-1 py-2 text-[10.5px] font-medium leading-tight transition-colors ${active ? 'bg-primary/10 font-semibold text-primary' : 'text-base-content/75 hover:bg-base-200 hover:text-base-content'}`;
 
 export function NavRail({ groups, pathname, showDashboard }: { readonly groups: readonly NavGroup[]; readonly pathname: string; readonly showDashboard: boolean }) {
   const [open, setOpen] = useState<{ id: string; top: number } | null>(null);
@@ -87,11 +88,11 @@ export function NavRail({ groups, pathname, showDashboard }: { readonly groups: 
           ref={panel}
           role="menu"
           aria-label={openGroup.label}
-          className="fixed left-20 z-50 ml-1 w-60 overflow-hidden rounded-box border border-neutral-content/10 bg-neutral text-neutral-content shadow-2xl"
+          className="fixed left-20 z-50 ml-1 w-60 overflow-hidden rounded-box border border-base-300 bg-base-100 text-base-content shadow-lg"
           style={{ top: Math.max(8, Math.min(open.top, window.innerHeight - 48 * (openGroup.items.length + 1) - 16)) }}
           data-testid="nav-rail-panel"
         >
-          <p className="flex items-center gap-2 border-b border-neutral-content/10 px-4 py-2.5 text-sm font-bold">
+          <p className="flex items-center gap-2 border-b border-base-300 px-4 py-2.5 text-sm font-bold">
             <GroupIcon id={openGroup.id} className="h-4 w-4" />
             {openGroup.label}
           </p>
@@ -104,7 +105,7 @@ export function NavRail({ groups, pathname, showDashboard }: { readonly groups: 
                     role="menuitem"
                     to={item.to}
                     aria-current={active ? 'page' : undefined}
-                    className={`mx-1 flex items-center gap-2 rounded-lg px-3 py-2 text-[13px] ${active ? 'bg-primary font-semibold text-primary-content' : 'text-neutral-content/80 hover:bg-neutral-content/10 hover:text-neutral-content'}`}
+                    className={`mx-1 flex items-center gap-2 rounded px-3 py-[5px] text-sm ${active ? 'font-semibold text-primary' : 'text-base-content/85 hover:text-primary'}`}
                   >
                     {item.label}
                     <MenuItemAlerts to={item.to} />

@@ -100,35 +100,34 @@ function NavGroupMenu({ group, pathname, open, onToggle }: { readonly group: Nav
   const active = group.items.some((i) => covers(i, pathname));
   const alias = aliasMenu(group.items, pathname); // 옛 주소로 켤 메뉴(2026-11-19 메뉴 정리)
   return (
-    // 묶음 이름(2026-11-18 사용자 — "큰 항목이 하위보다 글자가 작다, 눌렀을 때 직관적이지 않다"):
-    // 하위 메뉴보다 크고 굵게 + 묶음 아이콘 + 펼침 화살표(▸/▾), 펼친 묶음은 바탕을 살짝 밝게, 지금 묶음은 흰 글자(2026-11-19 민트 → 라이더 백오피스처럼).
-    <details open={open} data-testid={`nav-group-${group.id}`} className={`mx-2 mb-1 rounded-lg ${open ? 'bg-neutral-content/5' : ''}`}>
+    // 묶음 이름(2026-11-20 AWS 개편 2단계, ADR-0004): 흰 메뉴의 굵은 묶음 제목 — 왼쪽 펼침 화살표(▸ → 펼치면 ▾), 아이콘·바탕 없음.
+    // 알림 합계는 오른쪽 끝(접혀 있을 때만, 2026-11-18 사용자 "메뉴에 업무 알람").
+    <details open={open} data-testid={`nav-group-${group.id}`} data-current={active || undefined} className="mb-1">
       <summary
         onClick={(e) => {
           e.preventDefault(); // 브라우저가 따로 열고 닫지 않게 — 열림은 위(한 묶음만)에서 정한다
           onToggle();
         }}
-        className={`flex cursor-pointer list-none items-center gap-2.5 rounded-lg px-3 py-2.5 text-[15px] font-bold transition-colors hover:bg-neutral-content/10 active:scale-[0.99] ${active ? 'text-neutral-content' : open ? 'text-neutral-content' : 'text-neutral-content/60'}`}
+        className="flex cursor-pointer list-none items-center gap-1.5 px-4 py-[5px] text-sm font-bold text-base-content transition-colors hover:text-primary"
       >
-        <GroupIcon id={group.id} className="h-5 w-5 shrink-0" />
+        <svg viewBox="0 0 24 24" className={`h-3.5 w-3.5 shrink-0 fill-none stroke-current transition-transform ${open ? 'rotate-90' : ''}`} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" data-testid="nav-group-chevron">
+          <path d="m9 6 6 6-6 6" />
+        </svg>
         <span data-group-label>{group.label}</span>
-        {/* 업무 알림 합계 — 접혀 있을 때만(2026-11-18 사용자 "메뉴에 업무 알람") */}
         <span className="ml-auto flex items-center gap-2" aria-hidden="true">
           <MenuGroupAlert items={group.items} open={open} />
-          <svg viewBox="0 0 24 24" className={`h-4 w-4 fill-none stroke-current opacity-60 transition-transform ${open ? 'rotate-90' : ''}`} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" data-testid="nav-group-chevron">
-            <path d="m9 6 6 6-6 6" />
-          </svg>
         </span>
       </summary>
-      <ul className="pb-2">
+      <ul className="pb-1">
         {group.items.map((item) => (
           <li key={item.to}>
+            {/* 지금 메뉴는 파랑 굵은 글자, 바탕 없음(AWS) */}
             <NavLink
               to={item.to}
               end
               data-active={alias === item.to ? 'alias' : undefined}
               className={({ isActive }) =>
-                `my-0.5 flex items-center gap-1 rounded-md py-1.5 pl-10 pr-3 text-sm transition-colors active:scale-[0.98] ${isActive || alias === item.to ? 'bg-primary font-semibold text-primary-content' : 'text-neutral-content/75 hover:bg-neutral-content/10 hover:text-neutral-content'}`
+                `flex items-center gap-1 py-[5px] pl-9 pr-3 text-sm transition-colors ${isActive || alias === item.to ? 'font-semibold text-primary' : 'text-base-content/85 hover:text-primary'}`
               }
             >
               {item.label}
@@ -146,11 +145,39 @@ function NavGroupMenu({ group, pathname, open, onToggle }: { readonly group: Nav
 // 메뉴를 합치며 그 메뉴 아래로 옮긴 화면(also)은 머리줄에 화면 이름을 하나 더(2026-11-20 사용자 "가격 화면인데 상품 조회로 나간 줄 알았다")
 const SUB_PAGE: ReadonlyArray<readonly [string, string]> = [['/prices', m.prices.title]];
 
-function currentMenu(groups: readonly NavGroup[], pathname: string): { readonly group: string; readonly menu: string; readonly sub: string | null } | null {
-  let best: { group: string; menu: string; len: number } | null = null;
-  for (const g of groups) for (const i of g.items) if (covers(i, pathname) && (!best || i.to.length > best.len)) best = { group: g.label, menu: i.label, len: i.to.length };
+function currentMenu(groups: readonly NavGroup[], pathname: string): { readonly group: string; readonly groupTo: string; readonly menu: string; readonly menuTo: string; readonly sub: string | null } | null {
+  let best: { group: string; groupTo: string; menu: string; menuTo: string; len: number } | null = null;
+  for (const g of groups)
+    for (const i of g.items)
+      if (covers(i, pathname) && (!best || i.to.length > best.len)) best = { group: g.label, groupTo: g.home ?? g.items[0]?.to ?? '/', menu: i.label, menuTo: i.to, len: i.to.length };
   const sub = SUB_PAGE.find(([p]) => pathname === p || pathname.startsWith(`${p}/`))?.[1] ?? null;
-  return best ? { group: best.group, menu: best.menu, sub } : null;
+  return best ? { group: best.group, groupTo: best.groupTo, menu: best.menu, menuTo: best.menuTo, sub } : null;
+}
+
+/** 위치 줄(AWS 빵부스러기): 묶음 / 메뉴 / (하위 화면) — 앞은 밑줄 링크, 마지막은 굵은 글자. 시험은 data-testid=page-title 의 글자로 찾는다. */
+function Breadcrumbs({ current, pathname }: { readonly current: ReturnType<typeof currentMenu>; readonly pathname: string }) {
+  if (!current) return <p className="truncate text-sm" data-testid="page-title" />;
+  const crumbs: { label: string; to: string }[] = [{ label: current.group, to: current.groupTo }, { label: current.menu, to: current.menuTo }];
+  if (current.sub) crumbs.push({ label: current.sub, to: pathname });
+  return (
+    <p className="flex min-w-0 items-center truncate text-sm" data-testid="page-title">
+      {crumbs.map((c, i) => {
+        const last = i === crumbs.length - 1;
+        return (
+          <span key={`${i}-${c.label}`} className="flex items-center">
+            {i > 0 && <span className="px-2 text-base-content/40" aria-hidden="true">/</span>}
+            {last || c.to === pathname ? (
+              <span className={last ? 'font-semibold text-base-content' : 'text-base-content/70'}>{c.label}</span>
+            ) : (
+              <Link to={c.to} className="text-base-content/80 underline underline-offset-2 hover:text-primary">
+                {c.label}
+              </Link>
+            )}
+          </span>
+        );
+      })}
+    </p>
+  );
 }
 
 /**
@@ -165,7 +192,7 @@ function ScrollToTopOnNavigate() {
   return null;
 }
 
-// 화면 틀(2026-11-18 — PC 5 요청 "관리자 형식", 배민 관리자 화면 참고): 진한 왼쪽 메뉴(묶음 제목 + 메뉴), 흰 머리줄(위치 · 로그인 직원·역할), 연회색 본문.
+// 화면 틀 — 2026-11-20 AWS 콘솔 개편 2단계로 다시 짬(아래 return 주석). 예전: 2026-11-18 PC 5 요청 "관리자 형식"(진한 왼쪽 메뉴).
 function Layout() {
   const { session, signedIn, restoring } = useSession();
   const { pathname } = useLocation();
@@ -188,73 +215,22 @@ function Layout() {
   const myName = staff && staff !== '…' && !staff.startsWith('직원 ·') ? staff : '';
   const navigate = useNavigate();
   return (
-    <div className="flex min-h-screen bg-base-200">
+    // 화면 틀(2026-11-20 AWS 개편 2단계, ADR-0004 · docs/apps/backoffice-ui-guide.md §2):
+    // 맨 위 전체 폭 흰 머리줄(로고 · 번호 찾기 · 도구 · 내 세션 · 앱 바꾸기) → 그 아래 흰 왼쪽 메뉴 | 위치 줄(묶음 / 메뉴) + 본문.
+    <div className="flex min-h-screen flex-col bg-base-200">
       <ScrollToTopOnNavigate />
-      {/* 메뉴는 화면 높이에 고정하고 길면 메뉴만 따로 스크롤(오른쪽 화면을 내려도 메뉴는 그 자리) */}
-      <aside className={`sticky top-0 flex h-screen shrink-0 flex-col self-start overflow-y-auto bg-neutral text-neutral-content transition-[width] ${collapsed ? 'w-20' : 'w-60'}`} data-testid="side-menu" data-collapsed={collapsed}>
-        <div className={`flex h-14 shrink-0 items-center gap-1 border-b border-neutral-content/10 ${collapsed ? 'justify-center px-1' : 'justify-between pl-5 pr-2'}`}>
-          {!collapsed && (
-            <Link to="/" className="flex min-w-0 items-center gap-2 font-bold text-neutral-content" aria-label={m.goHome}>
-              {/* 로고 배지(2026-11-19 — 라이더 백오피스와 같게) */}
-              <span className="grid h-7 w-7 shrink-0 place-items-center rounded-md bg-accent text-sm text-accent-content" aria-hidden="true">
-                P
-              </span>
-              <span className="truncate text-[15px]">{m.appTitle}</span>
-            </Link>
-          )}
-          <button type="button" className="btn btn-ghost btn-sm h-8 w-8 p-0 text-neutral-content/70 hover:bg-neutral-content/10" onClick={toggleMenu} aria-label={collapsed ? m.nav.expand : m.nav.collapse} title={collapsed ? m.nav.expand : m.nav.collapse} data-testid="menu-toggle">
-            <svg viewBox="0 0 24 24" className="h-4 w-4 fill-none stroke-current" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              {collapsed ? <path d="m9 6 6 6-6 6M4 4v16" /> : <path d="m15 6-6 6 6 6M20 4v16" />}
-            </svg>
-          </button>
-        </div>
-        {collapsed ? (
-          <NavRail groups={groups} pathname={pathname} showDashboard={!!session} />
-        ) : (
-        <nav aria-label="메뉴" className="flex-1 py-3">
-          {session && (
-            <NavLink
-              to="/"
-              end
-              className={({ isActive }) =>
-                `mx-2 mb-2 flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-[15px] font-bold transition-colors ${isActive ? 'bg-primary text-primary-content' : 'text-neutral-content/85 hover:bg-neutral-content/10'}`
-              }
-              data-testid="nav-dashboard"
-            >
-              <GroupIcon id="dashboard" className="h-5 w-5 shrink-0" />
-              {m.dashboard.title}
-            </NavLink>
-          )}
-          {groups.map((g) => (
-            <NavGroupMenu key={g.id} group={g} pathname={pathname} open={openGroup === g.id} onToggle={() => setOpenGroup((cur) => (cur === g.id ? null : g.id))} />
-          ))}
-          {session && groups.every((g) => g.id === 'assistant') && <p className="px-5 text-xs text-neutral-content/60">{m.nav.noMenu}</p>}
-        </nav>
-        )}
-      </aside>
-      <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-14 shrink-0 items-center justify-between gap-3 border-b border-base-300 bg-base-100 px-6">
-          <p className="truncate text-sm text-base-content/60" data-testid="page-title">
-            {current ? (
-              <>
-                {current.group} <span className="px-1 text-base-content/30">›</span>
-                {current.sub ? (
-                  <>
-                    {current.menu} <span className="px-1 text-base-content/30">›</span>
-                    <span className="font-semibold text-base-content">{current.sub}</span>
-                  </>
-                ) : (
-                  <span className="font-semibold text-base-content">{current.menu}</span>
-                )}
-              </>
-            ) : null}
-          </p>
-          {/* 맥락 꼬리표(2026-11-19 관제 화면 형식) — 내 역할 */}
-          {session && <RoleChips roles={session.roles} />}
-          <div className="ml-auto flex items-center gap-2 text-sm">
+      <header className="flex h-11 shrink-0 items-center gap-3 border-b border-base-300 bg-base-100 px-4">
+        <Link to="/" className="flex shrink-0 items-center gap-2 font-bold text-base-content" aria-label={m.goHome}>
+          {/* 로고 배지(2026-11-19 — 라이더 백오피스와 같게) */}
+          <span className="grid h-6 w-6 shrink-0 place-items-center rounded bg-accent text-xs text-accent-content" aria-hidden="true">
+            P
+          </span>
+          <span className="truncate text-[15px]">{m.appTitle}</span>
+        </Link>
+        {/* 번호로 바로 찾기(Ctrl+K, 2026-11-18) — 로그인했을 때만. AWS 처럼 로고 바로 옆 */}
+        {session && <QuickJump />}
+        <div className="ml-auto flex items-center gap-2 text-sm">
             {session && <LiveClock />}
-            {/* 번호로 바로 찾기(Ctrl+K, 2026-11-18) — 로그인했을 때만 */}
-            {session && <QuickJump />}
             {env.isMock && <span className="badge badge-accent badge-sm">{m.mockBadge}</span>}
             {/* 단축키 안내(2026-11-19) */}
             <ShortcutHelp />
@@ -291,21 +267,59 @@ function Layout() {
                 }),
               }}
             />
+        </div>
+      </header>
+      <div className="flex min-w-0 flex-1">
+        {/* 흰 왼쪽 메뉴 — 화면 높이에 고정하고 길면 메뉴만 따로 스크롤(오른쪽 화면을 내려도 메뉴는 그 자리) */}
+        <aside className={`sticky top-0 flex h-screen shrink-0 flex-col self-start overflow-y-auto border-r border-base-300 bg-base-100 text-base-content transition-[width] ${collapsed ? 'w-20' : 'w-[220px]'}`} data-testid="side-menu" data-collapsed={collapsed}>
+          <div className={`flex h-10 shrink-0 items-center ${collapsed ? 'justify-center px-1' : 'justify-end px-2'}`}>
+            <button type="button" className="btn btn-ghost btn-sm h-8 w-8 p-0 text-base-content/70" onClick={toggleMenu} aria-label={collapsed ? m.nav.expand : m.nav.collapse} title={collapsed ? m.nav.expand : m.nav.collapse} data-testid="menu-toggle">
+              <svg viewBox="0 0 24 24" className="h-4 w-4 fill-none stroke-current" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                {collapsed ? <path d="m9 6 6 6-6 6M4 4v16" /> : <path d="m15 6-6 6 6 6M20 4v16" />}
+              </svg>
+            </button>
           </div>
-        </header>
-        {/* 상세 제목 띠 자리(2026-11-19) — 상세를 내리면 DetailHeader 가 여기에 얇은 제목 띠를 그린다 */}
-        <div id={DETAIL_BAR_SLOT} className="sticky top-0 z-20" />
-        {/* 인터넷 끊김 띠(2026-11-19) */}
-        <ConnectionBanner />
-        {/* 본문 겉모습은 index.css "AWS 콘솔 겉모습"(2026-11-20 개편 시범, 공용 wing 겉모습은 이 앱에서 뺐다) */}
-        <main className="min-w-0 flex-1 p-6">
-          {/* 화면을 받는 동안 뼈대(QueryState 불러오는 중 모양, 2026-11-19) */}
-          <Suspense fallback={<QueryState state={{ kind: 'loading' }}>{() => null}</QueryState>}>
-            <Outlet />
-          </Suspense>
-        </main>
-        {/* 처리 결과 알림(2026-11-18) */}
-        <Toasts />
+          {collapsed ? (
+            <NavRail groups={groups} pathname={pathname} showDashboard={!!session} />
+          ) : (
+            <nav aria-label="메뉴" className="flex-1 pb-3">
+              {session && (
+                <NavLink
+                  to="/"
+                  end
+                  className={({ isActive }) => `mb-1 flex items-center px-4 py-[5px] text-sm font-bold transition-colors ${isActive ? 'text-primary' : 'text-base-content hover:text-primary'}`}
+                  data-testid="nav-dashboard"
+                >
+                  {m.dashboard.title}
+                </NavLink>
+              )}
+              {groups.map((g) => (
+                <NavGroupMenu key={g.id} group={g} pathname={pathname} open={openGroup === g.id} onToggle={() => setOpenGroup((cur) => (cur === g.id ? null : g.id))} />
+              ))}
+              {session && groups.every((g) => g.id === 'assistant') && <p className="px-4 text-xs text-base-content/60">{m.nav.noMenu}</p>}
+            </nav>
+          )}
+        </aside>
+        <div className="flex min-w-0 flex-1 flex-col">
+          {/* 위치 줄(AWS 빵부스러기) + 맥락 꼬리표(내 역할) */}
+          <div className="flex h-10 shrink-0 items-center gap-3 px-6">
+            <Breadcrumbs current={current} pathname={pathname} />
+            {session && <RoleChips roles={session.roles} />}
+          </div>
+          {/* 상세 제목 띠 자리(2026-11-19) — 상세를 내리면 DetailHeader 가 여기에 얇은 제목 띠를 그린다 */}
+          <div id={DETAIL_BAR_SLOT} className="sticky top-0 z-20" />
+          {/* 인터넷 끊김 띠(2026-11-19) */}
+          <ConnectionBanner />
+          {/* 본문 겉모습은 index.css "AWS 콘솔 겉모습"(2026-11-20 개편 시범, 공용 wing 겉모습은 이 앱에서 뺐다) */}
+          <main className="min-w-0 flex-1 px-6 pb-6 pt-1">
+            {/* 화면을 받는 동안 뼈대(QueryState 불러오는 중 모양, 2026-11-19) */}
+            <Suspense fallback={<QueryState state={{ kind: 'loading' }}>{() => null}</QueryState>}>
+              <Outlet />
+            </Suspense>
+          </main>
+          {/* 처리 결과 알림(2026-11-18) */}
+          <Toasts />
+        </div>
       </div>
     </div>
   );

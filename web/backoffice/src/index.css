@@ -250,15 +250,6 @@ main [data-state='loading']::after {
   }
 }
 
-/* 지금 메뉴(파랑 바탕)의 알림 숫자 — 파랑(info) 배지가 바탕에 묻혀 안 보이던 것(2026-11-20 화면 점검).
-   지금 메뉴 안에서는 바탕·글자를 뒤집는다. 빨강(급함) 배지는 그대로 둔다. 별칭으로 켜진 메뉴(data-active=alias)도 같게. */
-aside a[aria-current='page'] .badge-info,
-aside a[data-active='alias'] .badge-info {
-  background-color: var(--color-primary-content);
-  border-color: var(--color-primary-content);
-  color: var(--color-primary);
-}
-
 /* 쪽이 길어져 세로 스크롤 막대가 생기거나 없어질 때 화면 폭이 15px 바뀌어 오른쪽 정렬된 머리줄·카드가 옆으로 밀리던 것(2026-11-20 화면 점검 —
    개인정보 열람 기록·실시간 배송 현황에서 크게 보임). 막대 자리를 늘 비워 둔다. */
 html {
