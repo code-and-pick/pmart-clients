@@ -49,21 +49,26 @@
   name: 'pmart-dark';
   default: false;
   color-scheme: dark;
-  --color-primary: oklch(68% 0.17 262);
-  --color-primary-content: oklch(16% 0.02 262);
+  /* 2026-11-20 어두운 화면 다듬기: 밝은 화면의 AWS 규칙(따뜻한 회색·1px 테두리·파랑 강조·상태색 위 글자)을 어두운 화면에 맞춤.
+     AWS 어두운 화면 캡처가 없어 AWS 수치를 옮긴 것은 아니다 — 남색 기운을 빼고 밝은 화면과 같은 회색 결로. */
+  --color-primary: #6f8fff;
+  --color-primary-content: #0f0e0c;
   --color-accent: oklch(76% 0.12 188);
   --color-accent-content: oklch(18% 0.03 188);
-  --color-neutral: oklch(17% 0.02 262);
-  --color-neutral-content: oklch(88% 0.01 262);
-  --color-base-100: oklch(23% 0.02 262);
-  --color-base-200: oklch(19.5% 0.018 262);
-  --color-base-300: oklch(32% 0.02 262);
-  --color-base-content: oklch(91% 0.01 262);
-  --color-info: oklch(70% 0.13 240);
-  --color-success: oklch(70% 0.14 160);
+  --color-neutral: #1c1b19;
+  --color-neutral-content: #ecebe8;
+  --color-base-100: #1c1b19;
+  --color-base-200: #141311;
+  --color-base-300: #3a3835;
+  --color-base-content: #ecebe8;
+  --color-info: #6f8fff;
+  --color-info-content: #0f0e0c;
+  --color-success: oklch(72% 0.14 160);
+  --color-success-content: #0f0e0c;
   --color-warning: oklch(80% 0.14 75);
-  --color-error: oklch(68% 0.18 25);
-  /* 2026-11-20 AWS 개편 1단계: 어두운 화면은 색은 그대로 두고 모양(둥글기·깊이)만 맞춘다 — AWS 어두운 화면 수치는 재지 않았다 */
+  --color-warning-content: #0f0e0c;
+  --color-error: oklch(70% 0.18 25);
+  --color-error-content: #0f0e0c;
   --radius-box: 0.125rem;
   --radius-field: 0.25rem;
   --radius-selector: 0.25rem;
@@ -74,6 +79,14 @@
 /* ---- AWS 콘솔 겉모습(2026-11-20 개편 1단계, ADR-0004 · 기준 docs/apps/backoffice-ui-guide.md §8) ----
    예전 본문 wing 겉모습 가운데 AWS 와 맞는 것(그림자 없음·흰 보통 버튼·제목 옆 아이콘 숨김·숫자 카드 띠 숨김·고른 칩 파랑)은 AWS 수치로 여기에 다시 둔다.
    글꼴은 앱에 넣은 Pretendard(가변) — 못 받으면 깔린 글꼴로. */
+/* 어두운 화면의 같은 칸 — 주 버튼은 밝은 바탕·어두운 글자(밝은 화면의 검정 주 버튼을 뒤집음) */
+[data-theme='pmart-dark'] {
+  --pm-btn-main: #ecebe8;
+  --pm-btn-main-fg: #141311;
+  --pm-btn-border: #8a867f;
+  --pm-btn-fg: #ecebe8;
+  --pm-row-line: #2a2926;
+}
 :root:not([data-theme='pmart-dark']) {
   /* daisyUI 테마에 칸이 없는 AWS 값은 여기 한곳에만 둔다(화면 코드는 이 변수만 쓴다) */
   --pm-btn-main: #262420; /* 주 버튼 바탕(검정) */
@@ -96,12 +109,12 @@ main h1 {
 .btn {
   font-weight: 500;
 }
-:root:not([data-theme='pmart-dark']) .btn:not(:is(.btn-primary, .btn-secondary, .btn-accent, .btn-neutral, .btn-info, .btn-success, .btn-warning, .btn-error, .btn-ghost, .btn-link, .btn-outline, .btn-soft, .btn-active, :disabled, .btn-disabled)) {
+.btn:not(:is(.btn-primary, .btn-secondary, .btn-accent, .btn-neutral, .btn-info, .btn-success, .btn-warning, .btn-error, .btn-ghost, .btn-link, .btn-outline, .btn-soft, .btn-active, :disabled, .btn-disabled)) {
   --btn-bg: var(--color-base-100);
   --btn-border: var(--pm-btn-border);
   --btn-fg: var(--pm-btn-fg);
 }
-:root:not([data-theme='pmart-dark']) .btn-primary {
+.btn-primary {
   --btn-color: var(--pm-btn-main);
   --btn-fg: var(--pm-btn-main-fg);
 }
@@ -132,7 +145,7 @@ main table :is(th) {
 main table td {
   padding-block: 0.5625rem;
 }
-:root:not([data-theme='pmart-dark']) main table tbody tr {
+main table tbody tr {
   border-color: var(--pm-row-line);
 }
 /* 제목 옆 아이콘 타일·숫자 카드 왼쪽 색 띠 — AWS 는 제목·숫자만 */
@@ -297,4 +310,9 @@ main [data-state='empty'] {
 }
 main [data-state='empty'] > svg {
   display: none;
+}
+
+/* 표 설정 톱니(오른쪽 위)가 마지막 머리 칸 글자를 덮지 않게 자리를 비운다(2026-11-20 1024px 점검에서 찾음) */
+:is([data-list-part='table'], .relative):has(> .absolute [data-testid^='table-settings-']) table thead th:last-child {
+  padding-right: 2.75rem;
 }
