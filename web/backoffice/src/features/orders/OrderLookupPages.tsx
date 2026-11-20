@@ -12,7 +12,7 @@ import { CommandFeedback, QueryState, toUiState, useCommand } from '@pmart/web-u
 import { commandParams } from '../../api/command';
 import type { components } from '../../api/generated/order';
 import { useApi } from '../../app/ApiContext';
-import { CodeLabel, DataTable, DetailHeader, NextAction, Notice, PropertyFilter, ResultBar, Section, StatusBadge, type FilterProp, type Tone, ListHeader, listCount, refreshOf, SectionTabs } from '../../shared/admin';
+import { CodeLabel, DataTable, DetailHeader, NextAction, Notice, PropertyFilter, ResultBar, Section, StatusBadge, type FilterProp, type Tone, ListHeader, listCount, refreshOf, SectionTabs, PagerMini } from '../../shared/admin';
 import { SavedViews } from '../../shared/SavedViews';
 import { OrderProgress } from './OrderProgress';
 import { CopyButton } from '../../shared/CopyButton';
@@ -149,7 +149,9 @@ export function OrderLookupPage() {
               <span className="text-base-content/40">~</span>
               <input type="date" className="input input-sm w-40" aria-label={m.orders.to} value={criteria.to} onChange={(e) => setCriteria({ to: e.target.value })} />
             </span>
+            /* 쪽 넘기기(AWS 표 오른쪽 위) — 서버가 다음 쪽 있음(hasNext)을 알려 줄 때만 다음 */
           }
+          tail={<PagerMini className="ml-auto" label={m.orders.pageLabel(page)} prevLabel={m.orders.prev} nextLabel={m.orders.next} canPrev={page > 0} canNext={Boolean(query.data?.page.hasNext)} onPrev={() => goPage(page - 1)} onNext={() => goPage(page + 1)} />}
         />
       </div>
 
@@ -218,16 +220,9 @@ export function OrderLookupPage() {
                     ))}
                   </tbody>
                 </DataTable>
+                {/* 쪽 넘기기는 필터 줄 오른쪽 위(2026-11-20 AWS) — 아래에는 이 쪽 번호만 */}
                 <ListFoot>
                   <span className="text-base-content/55">{m.orders.pageLabel(r.page.page)}</span>
-                  <nav aria-label="쪽" className="flex items-center gap-2">
-                    <button type="button" className="btn btn-sm border-base-300 bg-base-100" disabled={page === 0} onClick={() => goPage(page - 1)}>
-                      {m.orders.prev}
-                    </button>
-                    <button type="button" className="btn btn-sm border-base-300 bg-base-100" disabled={!r.page.hasNext} onClick={() => goPage(page + 1)}>
-                      {m.orders.next}
-                    </button>
-                  </nav>
                 </ListFoot>
                 {pv.id && (
                   <PreviewDrawer

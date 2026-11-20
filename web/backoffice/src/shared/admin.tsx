@@ -423,7 +423,7 @@ export type FilterProp = {
  * 속성마다 값 하나(서버 조건이 하나씩만 받는다). 글자를 치면 목록을 좁힌다 — 줄을 글자로 찾는 검색이 아니다(계약에 글자 검색 없음).
  * 연산자는 "=" 하나뿐이라 고르는 단계를 두지 않는다.
  */
-export function PropertyFilter({ props, value, onChange, testId, aside, lead }: {
+export function PropertyFilter({ props, value, onChange, testId, aside, lead, tail }: {
   readonly props: readonly FilterProp[];
   readonly value: Readonly<Record<string, string | undefined>>;
   readonly onChange: (patch: Readonly<Record<string, string | null>>) => void;
@@ -432,6 +432,8 @@ export function PropertyFilter({ props, value, onChange, testId, aside, lead }: 
   readonly aside?: ReactNode;
   /** 검색칸 왼쪽(저장한 보기 — AWS "저장된 필터 세트" 자리) */
   readonly lead?: ReactNode;
+  /** 줄 오른쪽 끝(쪽 넘기기 — AWS 표 오른쪽 위) */
+  readonly tail?: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
   const [prop, setProp] = useState<string | null>(null);
@@ -557,6 +559,7 @@ export function PropertyFilter({ props, value, onChange, testId, aside, lead }: 
         )}
       </div>
       {aside}
+      {tail}
       </div>
       {chips.length > 0 && (
         <div className="flex flex-wrap items-center gap-2" data-testid={testId ? `${testId}-chips` : undefined}>
@@ -687,3 +690,27 @@ export function listCount(q: { readonly data?: unknown; readonly hasNextPage?: b
 
 /** 제목줄 새로 고침 — 같은 조회를 다시, 읽은 시각은 그 조회가 받은 때 */
 export const refreshOf = (q: { readonly refetch: () => Promise<unknown>; readonly isFetching: boolean; readonly dataUpdatedAt: number }) => ({ onClick: () => void q.refetch(), busy: q.isFetching, readAt: q.dataUpdatedAt || undefined });
+
+/** 작은 쪽 넘기기(AWS 표 오른쪽 위 `< 1 >`) — 쪽 번호로 오가는 목록만(커서로 이어 받는 목록은 아래 "더 보기"·"다음 쪽") */
+export function PagerMini({ label, prevLabel, nextLabel, canPrev, canNext, onPrev, onNext, className = '' }: {
+  readonly label: string;
+  readonly prevLabel: string;
+  readonly nextLabel: string;
+  readonly canPrev: boolean;
+  readonly canNext: boolean;
+  readonly onPrev: () => void;
+  readonly onNext: () => void;
+  readonly className?: string;
+}) {
+  return (
+    <nav aria-label="쪽" className={`flex items-center gap-0.5 text-sm ${className}`} data-testid="pager-mini">
+      <button type="button" className="btn btn-ghost btn-sm h-8 w-8 p-0" aria-label={prevLabel} disabled={!canPrev} onClick={onPrev}>
+        ‹
+      </button>
+      <span className="min-w-10 text-center font-bold tabular-nums">{label}</span>
+      <button type="button" className="btn btn-ghost btn-sm h-8 w-8 p-0" aria-label={nextLabel} disabled={!canNext} onClick={onNext}>
+        ›
+      </button>
+    </nav>
+  );
+}
