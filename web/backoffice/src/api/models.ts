@@ -5,6 +5,7 @@ import type { components as MfcInventory } from './generated/mfc-inventory';
 import type { components as Pricing } from './generated/pricing';
 import type { components as Product } from './generated/product';
 import type { components as Content } from './generated/product-content';
+import type { components as PromotionC } from './generated/promotion';
 
 type A = Approval['schemas'];
 type P = Product['schemas'];
@@ -23,7 +24,7 @@ export type ChangeRequestBody = A['ChangeRequestBody'];
 export type ChangeRequest = A['ChangeRequest'];
 export type Decision = A['Decision'];
 /** 목록 필터에 내놓는 유형. GRANT = 직원 권한 요청(hr-service 등록 → 자동 제출, 백엔드 handoff 2026-11-13) */
-export const APPROVAL_TYPES = ['PRODUCT', 'DISPLAY', 'PRICE', 'GRANT', 'SEARCH_SYNONYM'] as const satisfies readonly ApprovalType[];
+export const APPROVAL_TYPES = ['PRODUCT', 'DISPLAY', 'PRICE', 'GRANT', 'SEARCH_SYNONYM', 'PROMOTION'] as const satisfies readonly ApprovalType[];
 export const REVIEW_STATES = [
   'REVIEW_PENDING',
   'EVIDENCE_REQUIRED',
@@ -63,6 +64,19 @@ export const IMAGE_ROLES = ['MAIN', 'DESCRIPTION', 'DETAIL'] as const satisfies 
 export type ContentDraftInput = C['ContentDraftInput'];
 export type ContentDraft = C['ContentDraft'];
 export type ContentDraftSummary = C['ContentDraftSummary'];
+
+// 행사·쿠폰(promotion 0.2.0, ADR-0082)
+type PR = PromotionC['schemas'];
+export type Promotion = PR['Promotion'];
+export type PromotionInput = PR['PromotionInput'];
+export type PromotionKind = PR['PromotionKind'];
+export type PromotionState = PR['PromotionState'];
+export type PromotionPhase = PR['PromotionPhase'];
+export type PromotionTarget = PR['PromotionTarget'];
+export type CouponPolicy = PR['CouponPolicy'];
+export const PROMOTION_KINDS = ['PRICE_DISCOUNT', 'COUPON'] as const satisfies readonly PromotionKind[];
+export const PROMOTION_STATES = ['DRAFT', 'SUBMITTED', 'APPROVED', 'REJECTED', 'ENDED'] as const satisfies readonly PromotionState[];
+export const ISSUE_MODES = ['DOWNLOAD', 'ADMIN', 'SIGNUP'] as const satisfies readonly CouponPolicy['issueMode'][];
 export type ContentImage = C['ContentImage'];
 export type ContentImportBatch = C['ContentImportBatch'];
 export type ContentSubmissionResult = C['ContentSubmissionResult'];

@@ -14,7 +14,9 @@ import openapiTS, { astToString } from 'openapi-typescript';
 const here = dirname(fileURLToPath(import.meta.url));
 const repo = resolve(here, '../..');
 const backend = resolve(repo, '../pmart-backend');
-const contracts = join(backend, 'contracts/openapi');
+// 백엔드 작업 폴더가 다른 가지에 있을 때(2026-11-20): `git -C ../pmart-backend archive origin/main contracts` 를 푼 폴더를 PMART_CONTRACTS_DIR, 그 커밋을 PMART_CONTRACTS_SHA 로.
+// 백엔드 작업 폴더는 읽기만 하고 바꾸지 않는다.
+const contracts = process.env.PMART_CONTRACTS_DIR ? resolve(process.env.PMART_CONTRACTS_DIR) : join(backend, 'contracts/openapi');
 const cache = join(here, '.cache/specs');
 const out = join(repo, 'web/backoffice/src/api/generated');
 /** 다른 웹 패키지가 쓰는 계약만 그 패키지의 generated/ 에 복사한다(@pmart/web-core = 직원 로그인, 인사팀 백오피스 = hr·센터 목록). */
@@ -67,8 +69,8 @@ function git(args) {
 
 async function main() {
   if (!existsSync(contracts)) throw new Error(`계약 디렉터리 없음: ${contracts}`);
-  const sha = git(['rev-parse', 'HEAD']);
-  const dirty = git(['status', '--porcelain', '--', 'contracts']).length > 0;
+  const sha = process.env.PMART_CONTRACTS_SHA ?? git(['rev-parse', 'HEAD']);
+  const dirty = process.env.PMART_CONTRACTS_DIR ? false : git(['status', '--porcelain', '--', 'contracts']).length > 0;
   if (dirty) console.warn(`경고: 백엔드 contracts/ 에 커밋되지 않은 변경이 있다(${sha}).`);
 
   mkdirSync(cache, { recursive: true });

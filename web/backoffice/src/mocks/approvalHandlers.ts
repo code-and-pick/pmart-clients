@@ -7,7 +7,7 @@ import { decide, settle } from './effects';
 import { expectedVersion, idempotent, keyOf, operator, problem, unauthorized } from './support';
 
 /** 승인 종류별 승인자 역할(handoff 2026-10-30 §2) */
-const approverRole: Partial<Record<ApprovalType, string>> = {
+const approverRole: Partial<Record<ApprovalType, string | readonly string[]>> = {
   PRODUCT: 'PRODUCT_APPROVER',
   DISPLAY: 'DISPLAY_APPROVER',
   PRICE: 'PRICE_APPROVER',
@@ -15,6 +15,13 @@ const approverRole: Partial<Record<ApprovalType, string>> = {
   GRANT: 'OPERATOR_ADMIN',
   // 검색 동의어(approval 0.5.0) — 승인자 운영 관리자
   SEARCH_SYNONYM: 'OPERATOR_ADMIN',
+  // 행사(approval 0.6.0, ADR-0082) — 승인자 MARKETING 또는 OPERATOR_ADMIN(쉼표로 여럿 중 하나), 자기 승인 금지
+  PROMOTION: ['MARKETING', 'OPERATOR_ADMIN'],
+};
+/** 이 종류를 승인할 수 있는 역할을 가졌나(설정이 여럿이면 그중 하나) */
+const hasApproverRole = (type: ApprovalType, roles: readonly string[]) => {
+  const r = approverRole[type];
+  return r !== undefined && (typeof r === 'string' ? [r] : r).some((x) => roles.includes(x));
 };
 
 /** GRANT 행이 권한을 줄 직원 ID(attributes.employee.operatorId) */
@@ -38,7 +45,7 @@ function viewerDecide(a: { type?: ApprovalType; reviewState?: string; requesterI
         ? 'SELF_APPROVAL'
         : !a.type || !approverRole[a.type]
           ? 'CONFIG_REQUIRED'
-          : !who.roles.includes(approverRole[a.type]!)
+          : !hasApproverRole(a.type, who.roles)
             ? 'NO_ROLE'
             : a.type === 'GRANT' && grantEmployee(a).includes(who.subject)
               ? 'GRANT_TO_SELF'
@@ -163,8 +170,7 @@ export const approvalHandlers = [
       const id = String(params['id']);
       const a = db.approvals.get(id);
       if (!a) return problem(404, 'NOT_FOUND');
-      const role = a.type ? approverRole[a.type] : undefined;
-      if (!role || !who.roles.includes(role) || a.requesterId === who.subject || (a.type === 'GRANT' && grantEmployee(a).includes(who.subject))) return problem(403, 'FORBIDDEN');
+      if (!a.type || !hasApproverRole(a.type, who.roles) || a.requesterId === who.subject || (a.type === 'GRANT' && grantEmployee(a).includes(who.subject))) return problem(403, 'FORBIDDEN');
       if (body.decision !== 'APPROVE' && body.decision !== 'REJECT') return problem(422, 'UNSUPPORTED_ACTION');
       if (a.reviewState !== 'REVIEW_PENDING' && a.reviewState !== 'EVIDENCE_REQUIRED') return problem(409, 'INVALID_STATE');
       const v = expectedVersion(request);

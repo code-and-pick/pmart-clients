@@ -302,7 +302,7 @@ export function ApprovalDetailPage() {
                         {(a.lines ?? []).map((l, i) => (
                           <tr key={l.lineKey}>
                             {/* 항목 키가 시스템 ID(PD-… 초안 등)면 순번만 — 무엇인지는 오른쪽 내용 칸(상품명 등) */}
-                            <td className="font-mono" title={l.lineKey}>{isSystemId(l.lineKey) || a.type === 'SEARCH_SYNONYM' || a.targetService === 'storefront-service' ? String(i + 1) : l.lineKey}</td>
+                            <td className="font-mono" title={l.lineKey}>{isSystemId(l.lineKey) || a.type === 'SEARCH_SYNONYM' || a.targetService === 'storefront-service' || a.type === 'PROMOTION' ? String(i + 1) : l.lineKey}</td>
                             <td className="text-right tabular-nums" data-testid="line-qty">{lineQtyText(l)}</td>
                             <td className="text-right font-semibold tabular-nums" data-testid="line-amount">{lineAmountText(a.type, l)}</td>
                             <td className="space-y-1">
@@ -311,6 +311,8 @@ export function ApprovalDetailPage() {
                               {a.type === 'GRANT' && <GrantLineAttributes attributes={l.attributes} />}
                               {/* 검색 동의어 행(approval 0.5.0): 규칙 ID 대신 추가·고침·삭제 + 낱말(바꾸기 전 낱말이 있으면 같이) */}
                               {a.type === 'SEARCH_SYNONYM' && <SynonymLine attributes={l.attributes} />}
+                              {/* 행사(approval 0.6.0 PROMOTION, ADR-0082): 발효·조기 종료 + 이름·종류·기간·할인(종료면 사유), 행사 화면으로 */}
+                              {a.type === 'PROMOTION' && <PromotionLine attributes={l.attributes} targetRef={a.targetRef} />}
                               {/* 홈 진열 편성(storefront 0.7.0): 초안 ID 대신 편성 화면으로 */}
                               {a.targetService === 'storefront-service' && a.targetRef && (
                                 <Link className="link text-sm" to={`/display/home/${encodeURIComponent(a.targetRef)}`} data-testid="layout-line">
@@ -451,6 +453,43 @@ const REVIEW_TONE: Readonly<Record<string, Tone>> = { REVIEW_PENDING: 'warning',
 const EXEC_TONE: Readonly<Record<string, Tone>> = { VALIDATING: 'info', ACCEPTED: 'info', IN_PROGRESS: 'info', PARTIAL: 'warning', APPLIED: 'success', REJECTED: 'error', UNKNOWN_RESULT: 'warning' };
 /** 결정 이력 표시 이름(승인·반려 버튼과 같은 말). 모르는 값은 그대로 */
 const DECISION_NAME: Readonly<Record<string, string>> = { APPROVE: m.approvals.approve, REJECT: m.approvals.reject };
+
+/** 행사 행 — attributes: action(ACTIVATE/END)·kind·name·startsAt·endsAt·discount·reason(요청서 2026-11-20). 없는 값은 건너뛴다 */
+function PromotionLine({ attributes, targetRef }: { readonly attributes: Readonly<Record<string, unknown>> | undefined; readonly targetRef: string | null | undefined }) {
+  const pm = m.promotions;
+  const s = (k: string) => {
+    const v = attributes?.[k];
+    return typeof v === 'string' ? v : null;
+  };
+  const disc = attributes?.['discount'];
+  const d = typeof disc === 'object' && disc !== null ? (disc as { type?: unknown; value?: unknown; maxAmount?: unknown }) : null;
+  const kind = s('kind');
+  const discountText =
+    d && typeof d.value === 'number' ? (d.type === 'RATE' ? pm.rate(d.value, typeof d.maxAmount === 'number' ? d.maxAmount : null) : pm.amount(d.value, kind === 'PRICE_DISCOUNT')) : null;
+  const starts = s('startsAt');
+  const ends = s('endsAt');
+  const end = s('action') === 'END';
+  return (
+    <div className="space-y-0.5 text-sm" data-testid="promotion-line">
+      <p>
+        <span className={`mr-2 font-medium ${end ? 'text-error' : 'text-primary'}`}>{end ? pm.end.title : pm.approvalActivate}</span>
+        {kind && <span className="mr-2 text-base-content/60">{pm.kindName[kind] ?? kind}</span>}
+        <span className="font-medium">{s('name') ?? ''}</span>
+      </p>
+      {(starts || ends || discountText) && (
+        <p className="text-xs text-base-content/70">
+          {[starts && ends ? `${formatSeoul(starts)} ~ ${formatSeoul(ends)}` : null, discountText].filter(Boolean).join(' · ')}
+        </p>
+      )}
+      {end && s('reason') && <p className="text-xs text-base-content/70">{pm.end.reason.split('(')[0]}: {s('reason')}</p>}
+      {targetRef && (
+        <Link className="link text-xs" to={`/promotions/${encodeURIComponent(targetRef)}`}>
+          {pm.openPromotion}
+        </Link>
+      )}
+    </div>
+  );
+}
 
 /** 검색 동의어 행 — op·terms·before(approval SEARCH_SYNONYM 설명) */
 function SynonymLine({ attributes }: { readonly attributes: Readonly<Record<string, unknown>> | undefined }) {

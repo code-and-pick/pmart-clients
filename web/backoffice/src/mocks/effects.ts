@@ -3,6 +3,7 @@ import type { ApprovalDetail, ContentDraft, ProductDetail, ProductDraft } from '
 import { db, nextId, timestamp } from './db';
 import { settlePriceImportBatch } from './priceImportHandlers';
 import { decideLayout } from './storefrontHandlers';
+import { decidePromotion } from './promotionHandlers';
 import { applySynonyms } from './synonymStore';
 
 const draftIdsOf = (a: ApprovalDetail) => (a.lines ?? []).map((l) => l.lineKey);
@@ -160,6 +161,8 @@ export function decide(a: ApprovalDetail, approved: boolean): void {
   if (a.targetService === 'pricing-service' && approved) applyPrice(a);
   if (a.targetService === 'pricing-service' && a.approvalId) settlePriceImportBatch(a.targetRef, a.approvalId, approved);
   if (a.targetService === 'storefront-service') decideLayout(a.targetRef ?? '', approved, a.decisions?.at(-1)?.comment ?? null);
+  // 행사(promotion 0.2.0) — 발효(ACTIVATE_PROMOTION) 또는 조기 종료(END_PROMOTION)
+  if (a.targetService === 'promotion-service') decidePromotion(a.targetRef ?? '', approved, a.allowedActions?.[0]);
   if (a.targetService === 'search-service' && approved) {
     const cr = db.changeRequests.get(a.changeRequestId ?? '');
     applySynonyms(a, cr?.targetExpectedVersion, a.decisions?.at(-1)?.approverId ?? null);

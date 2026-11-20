@@ -20,6 +20,7 @@ import { priceImportHandlers } from './priceImportHandlers';
 import { pricingHandlers } from './pricingHandlers';
 import { searchHandlers } from './searchHandlers';
 import { storefrontHandlers } from './storefrontHandlers';
+import { promotionHandlers } from './promotionHandlers';
 import { operator, unauthorized } from './support';
 import { customerHandlers } from './customerHandlers';
 
@@ -57,4 +58,5 @@ export const handlers = [
   ...hrLabelHandlers,
   ...searchHandlers,
   ...storefrontHandlers,
+  ...promotionHandlers,
 ];

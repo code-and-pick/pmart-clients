@@ -11,8 +11,8 @@ import { mockAccounts } from '../../mocks/operators';
 import { messages as m } from '../../shared/messages';
 
 type MockAccount = (typeof mockAccounts)[number];
-type GroupId = 'admin' | 'product' | 'center' | 'support';
-const GROUPS: GroupId[] = ['admin', 'product', 'center', 'support'];
+type GroupId = 'admin' | 'product' | 'marketing' | 'center' | 'support';
+const GROUPS: GroupId[] = ['admin', 'product', 'marketing', 'center', 'support'];
 
 /** 역할 묶음(첫 역할 기준, 역할 없이 센터만이면 센터) */
 function groupOf(a: MockAccount): GroupId {
@@ -20,6 +20,8 @@ function groupOf(a: MockAccount): GroupId {
   if (roles.includes('OPERATOR_ADMIN')) return 'admin';
   if (roles.length === 0) return 'center';
   if (roles.some((r) => r === 'MD' || r.endsWith('_APPROVER'))) return 'product';
+  // 행사·쿠폰(2026-11-20 ADR-0082)
+  if (roles.includes('MARKETING')) return 'marketing';
   return 'support';
 }
 

@@ -16,6 +16,7 @@ import type {
   SkuHandling,
 } from '../api/models';
 import { resetLayouts } from './storefrontHandlers';
+import { resetPromotions } from './promotionHandlers';
 import { resetSynonyms } from './synonymStore';
 import { mockAccounts } from './operators';
 
@@ -264,6 +265,7 @@ export function resetDb(): void {
   db = createDb();
   resetSynonyms();
   resetLayouts();
+  resetPromotions();
 }
 
 export const nextId = (prefix: string) => `${prefix}-${++db.seq}`;

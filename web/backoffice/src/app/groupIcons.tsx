@@ -11,6 +11,8 @@ const PATHS: Readonly<Record<string, string>> = {
   pending: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18ZM12 7.5V12l3 2',
   audit: 'M12 3 5 6v6c0 4.5 3 7.5 7 9 4-1.5 7-4.5 7-9V6l-7-3ZM9 12l2 2 4-4',
   assistant: 'M4 5h16v11H8l-4 4V5ZM8 9.5h8M8 12.5h5',
+  // 행사·쿠폰(2026-11-20) — 꼬리표
+  marketing: 'M3 12V4h8l9 9-8 8-9-9ZM7.5 8.5h.01',
 };
 const FALLBACK = 'M5 5h14v14H5z';
 

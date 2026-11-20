@@ -60,9 +60,20 @@ export const navGroups: readonly NavGroup[] = [
     id: 'approval',
     label: m.nav.group.approval,
     // *_APPROVER(PRODUCT·DISPLAY·PRICE·SERVICEABILITY·CENTER_MASTER·INVENTORY) + OPERATOR_ADMIN
-    visibleTo: (role) => role.endsWith('_APPROVER') || role === 'OPERATOR_ADMIN',
+    // MARKETING 도(행사 승인 — approval 0.6.0 PROMOTION 승인자 MARKETING·OPERATOR_ADMIN, 남이 만든 행사만)
+    visibleTo: (role) => role.endsWith('_APPROVER') || role === 'OPERATOR_ADMIN' || role === 'MARKETING',
     items: [
       { to: '/approvals', label: m.nav.approvals },
+    ],
+  },
+  {
+    // 행사·쿠폰(promotion 0.2.0, ADR-0082 — 사용자 결정 2026-11-20). 보기 MARKETING·OPERATOR_ADMIN·CS_AGENT(지정 발급 포함), 만들기는 MARKETING·OPERATOR_ADMIN
+    id: 'marketing',
+    label: m.nav.group.marketing,
+    visibleTo: oneOf('MARKETING', 'OPERATOR_ADMIN', 'CS_AGENT'),
+    items: [
+      { to: '/promotions', label: m.nav.promotions },
+      { to: '/promotions/new', label: m.nav.promotionNew, visibleTo: oneOf('MARKETING', 'OPERATOR_ADMIN') },
     ],
   },
   {

@@ -16,6 +16,7 @@ import type { paths as OrderPaths } from './generated/order';
 import type { paths as RiderPaths } from './generated/rider';
 import type { paths as PricingPaths } from './generated/pricing';
 import type { paths as ProductPaths } from './generated/product';
+import type { paths as PromotionPaths } from './generated/promotion';
 import type { paths as ContentPaths } from './generated/product-content';
 import type { paths as HrPaths } from './generated/hr';
 import type { paths as SearchPaths } from './generated/search';
@@ -67,6 +68,8 @@ export function createApi(pmartFetch: PmartFetch, baseUrl = API_BASE) {
     search: createClient<SearchPaths>(options),
     // 홈 진열 편성(storefront 0.7.0 layouts, ADR-0075 ② — MD·OPERATOR_ADMIN)
     storefront: createClient<StorefrontPaths>(options),
+    // 행사·쿠폰(promotion 0.2.0, ADR-0082)
+    promotion: createClient<PromotionPaths>(options),
   };
 }
 

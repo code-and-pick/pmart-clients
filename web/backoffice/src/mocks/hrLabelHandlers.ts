@@ -11,6 +11,8 @@ export const MOCK_EMPLOYEE_LABELS: Readonly<Record<string, { name: string; emplo
   'op-cs-1': { name: '[목] 최상담', employeeNo: 'P2026-00005' },
   'op-rider-ops-1': { name: '[목] 정운영', employeeNo: 'P2026-00006' },
   'op-cs-rider-1': { name: '[목] 한상담', employeeNo: 'P2026-00007' },
+  'op-marketing-1': { name: '[목] 윤마케', employeeNo: 'P2026-00008' },
+  'op-marketing-2': { name: '[목] 서마케', employeeNo: 'P2026-00009' },
   'OP-seed-hr-1': { name: '[목] 홍인사', employeeNo: 'P2026-00014' },
 };
 

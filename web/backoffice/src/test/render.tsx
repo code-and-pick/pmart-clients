@@ -12,6 +12,8 @@ export const as = {
   cs: mockTokenFor(mockOperators[4]),
   riderOps: mockTokenFor(mockOperators[5]),
   csRider: mockTokenFor(mockOperators[6]),
+  marketing: mockTokenFor(mockOperators[7]),
+  marketing2: mockTokenFor(mockOperators[8]),
 };
 
 /** 화면 + 보낸 요청 기록(헤더 확인용) */
