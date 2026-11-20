@@ -53,8 +53,7 @@ class SupportCenterScreen extends ConsumerWidget {
         appBar: riderDarkBar(context, title: l10n.menuSupport),
         body: Column(
           children: [
-            Container(
-              color: Colors.white,
+            Padding(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -62,15 +61,15 @@ class SupportCenterScreen extends ConsumerWidget {
                   // 가로로 긴 보라 버튼 두 줄(사용자 2026-11-20 "한 줄 한 줄 보라색, 흰 글자")
                   _ActionTile(
                     key: const ValueKey('live-chat'),
-                    icon: Icons.chat_bubble_outline,
+                    icon: Icons.chat_bubble_rounded,
                     title: l10n.supportChat,
                     sub: l10n.supportChatSub,
                     onTap: () => context.push('/my/inquiries/chat'),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 10),
                   _ActionTile(
                     key: const ValueKey('inquiry-new'),
-                    icon: Icons.edit_outlined,
+                    icon: Icons.edit_note_rounded,
                     title: l10n.supportNew,
                     sub: l10n.supportNewSub,
                     onTap: () async {
@@ -78,52 +77,76 @@ class SupportCenterScreen extends ConsumerWidget {
                       ref.invalidate(inquiriesProvider);
                     },
                   ),
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      const Icon(
-                        Icons.info_outline,
-                        size: 15,
-                        color: RiderColors.hint,
-                      ),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: Text(
-                          l10n.supportCenterNote,
-                          style: const TextStyle(
-                            fontSize: 13,
-                            color: RiderColors.sub,
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 11,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.info_outline_rounded,
+                          size: 18,
+                          color: RiderColors.primary,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            l10n.supportCenterNote,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              height: 1.4,
+                              color: RiderColors.sub,
+                            ),
                           ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                  const SizedBox(height: 6),
-                  TabBar(
-                    labelColor: RiderColors.ink,
-                    unselectedLabelColor: RiderColors.hint,
-                    labelStyle: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
+                  const SizedBox(height: 20),
+                  // 알약 모양 탭 — 고른 쪽이 보라, 숫자는 옆에
+                  Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(14),
                     ),
-                    unselectedLabelStyle: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
+                    child: TabBar(
+                      labelColor: Colors.white,
+                      unselectedLabelColor: RiderColors.sub,
+                      labelStyle: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                      ),
+                      unselectedLabelStyle: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      indicator: BoxDecoration(
+                        color: RiderColors.primary,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      indicatorSize: TabBarIndicatorSize.tab,
+                      dividerColor: Colors.transparent,
+                      splashBorderRadius: BorderRadius.circular(10),
+                      tabs: [
+                        Tab(
+                          key: const ValueKey('tab-inquiries'),
+                          height: 42,
+                          text: tab(l10n.supportTabInquiries, inquiries),
+                        ),
+                        Tab(
+                          key: const ValueKey('tab-appeals'),
+                          height: 42,
+                          text: tab(l10n.supportTabAppeals, appeals),
+                        ),
+                      ],
                     ),
-                    indicatorColor: RiderColors.primary,
-                    indicatorWeight: 3,
-                    indicatorSize: TabBarIndicatorSize.tab,
-                    dividerColor: RiderColors.line,
-                    tabs: [
-                      Tab(
-                        key: const ValueKey('tab-inquiries'),
-                        text: tab(l10n.supportTabInquiries, inquiries),
-                      ),
-                      Tab(
-                        key: const ValueKey('tab-appeals'),
-                        text: tab(l10n.supportTabAppeals, appeals),
-                      ),
-                    ],
                   ),
                 ],
               ),
@@ -138,7 +161,7 @@ class SupportCenterScreen extends ConsumerWidget {
   }
 }
 
-/// 위쪽 큰 버튼(채팅 상담·문의 남기기).
+/// 위쪽 큰 버튼(채팅 상담·문의 남기기) — 가로로 긴 보라 바탕, 흰 글자, 흰 원 안 아이콘.
 class _ActionTile extends StatelessWidget {
   const _ActionTile({
     super.key,
@@ -154,44 +177,76 @@ class _ActionTile extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) => Material(
-    color: RiderColors.primary,
-    borderRadius: BorderRadius.circular(12),
-    child: InkWell(
-      borderRadius: BorderRadius.circular(12),
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 14, 12, 14),
-        child: Row(
-          children: [
-            Icon(icon, size: 24, color: Colors.white),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    sub,
-                    style: TextStyle(
-                      fontSize: 12,
-                      height: 1.35,
-                      color: Colors.white.withValues(alpha: 0.85),
-                    ),
-                  ),
-                ],
+  Widget build(BuildContext context) => DecoratedBox(
+    decoration: BoxDecoration(
+      borderRadius: BorderRadius.circular(16),
+      boxShadow: [
+        BoxShadow(
+          color: RiderColors.primary.withValues(alpha: 0.28),
+          blurRadius: 14,
+          offset: const Offset(0, 5),
+        ),
+      ],
+    ),
+    child: Material(
+      color: RiderColors.primary,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 14, 16),
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.18),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, size: 24, color: Colors.white),
               ),
-            ),
-            const Icon(Icons.chevron_right, color: Colors.white),
-          ],
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      sub,
+                      style: TextStyle(
+                        fontSize: 13,
+                        height: 1.35,
+                        color: Colors.white.withValues(alpha: 0.82),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                width: 30,
+                height: 30,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.18),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.arrow_forward_ios_rounded,
+                  size: 14,
+                  color: Colors.white,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     ),
@@ -256,31 +311,15 @@ class _InquiryCard extends StatelessWidget {
     return SupportCard(
       key: ValueKey('inquiry-${inquiry.id}'),
       onTap: () => context.push('/my/inquiries/${inquiry.id}'),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    StatusPill(label: text, color: color),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        '${inquiryKindText(l10n, inquiry.kind)} · ${formatSeoulDateTime(inquiry.createdAt)}',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: RiderColors.hint,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Text(
+          // 제목이 먼저, 상태는 오른쪽 위
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Text(
                   inquiry.title,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -290,24 +329,60 @@ class _InquiryCard extends StatelessWidget {
                     color: RiderColors.ink,
                   ),
                 ),
-                if (body.isNotEmpty) ...[
-                  const SizedBox(height: 3),
-                  Text(
-                    body,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      height: 1.4,
-                      color: RiderColors.sub,
-                    ),
-                  ),
-                ],
-              ],
-            ),
+              ),
+              const SizedBox(width: 8),
+              StatusPill(label: text, color: color),
+            ],
           ),
-          const SizedBox(width: 6),
-          const Icon(Icons.chevron_right, color: RiderColors.hint),
+          if (body.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text(
+              body,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 14,
+                height: 1.45,
+                color: RiderColors.sub,
+              ),
+            ),
+          ],
+          const SizedBox(height: 12),
+          const Divider(height: 1, color: RiderColors.gap),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                decoration: BoxDecoration(
+                  color: RiderColors.field,
+                  borderRadius: BorderRadius.circular(5),
+                ),
+                child: Text(
+                  inquiryKindText(l10n, inquiry.kind),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: RiderColors.sub,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  formatSeoulDateTime(inquiry.createdAt),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 12, color: RiderColors.hint),
+                ),
+              ),
+              const Icon(
+                Icons.chevron_right,
+                size: 20,
+                color: RiderColors.hint,
+              ),
+            ],
+          ),
         ],
       ),
     );
