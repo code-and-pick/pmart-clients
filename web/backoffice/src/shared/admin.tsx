@@ -366,18 +366,27 @@ export function ListHeader({ title, count, onInfo, refresh, actions }: {
   );
 }
 
-export type FilterProp = { readonly key: string; readonly label: string; readonly options: ReadonlyArray<{ readonly value: string; readonly label: string }> };
+/** 속성 — options 가 있으면 값 고르기, text 가 있으면 값을 직접 쳐서 Enter(번호·연락처 등, 2026-11-20 목록 전면 적용) */
+export type FilterProp = {
+  readonly key: string;
+  readonly label: string;
+  /** chip: 칩에 보일 말(목록 이름에 건수 등이 붙어 있을 때) */
+  readonly options?: ReadonlyArray<{ readonly value: string; readonly label: string; readonly chip?: string }>;
+  readonly text?: { readonly hint?: string; readonly maxLength?: number; readonly numeric?: boolean; /** 칩에 보일 말(시스템 ID 를 그대로 보이지 않게, ADR-0070) */ readonly show?: (v: string) => string };
+};
 
 /**
  * 속성 필터(AWS Property filter): 검색칸을 누르면 속성 목록 → 속성을 고르면 값 목록 → 고르면 칸 아래 "속성 = 값 ✕" 칩.
  * 속성마다 값 하나(서버 조건이 하나씩만 받는다). 글자를 치면 목록을 좁힌다 — 줄을 글자로 찾는 검색이 아니다(계약에 글자 검색 없음).
  * 연산자는 "=" 하나뿐이라 고르는 단계를 두지 않는다.
  */
-export function PropertyFilter({ props, value, onChange, testId }: {
+export function PropertyFilter({ props, value, onChange, testId, aside }: {
   readonly props: readonly FilterProp[];
   readonly value: Readonly<Record<string, string | undefined>>;
   readonly onChange: (patch: Readonly<Record<string, string | null>>) => void;
   readonly testId?: string;
+  /** 검색칸 오른쪽(기간·정렬 등 — AWS 의 시간 범위 고르기 자리) */
+  readonly aside?: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
   const [prop, setProp] = useState<string | null>(null);
@@ -387,7 +396,11 @@ export function PropertyFilter({ props, value, onChange, testId }: {
   const current = prop ? props.find((p) => p.key === prop) : undefined;
   const q = text.trim();
   const items: ReadonlyArray<{ readonly id: string; readonly label: string }> = current
-    ? current.options.filter((o) => !q || o.label.includes(q)).map((o) => ({ id: o.value, label: o.label }))
+    ? current.text
+      ? q
+        ? [{ id: q, label: `${current.label} = ${q}` }]
+        : []
+      : (current.options ?? []).filter((o) => !q || o.label.includes(q)).map((o) => ({ id: o.value, label: o.label }))
     : props.filter((p) => !q || p.label.includes(q)).map((p) => ({ id: p.key, label: p.label }));
   const reset = () => {
     setProp(null);
@@ -407,13 +420,16 @@ export function PropertyFilter({ props, value, onChange, testId }: {
   };
   const chips = props.flatMap((p) => {
     const v = value[p.key];
-    const o = v ? p.options.find((x) => x.value === v) : undefined;
-    return o ? [{ key: p.key, text: `${p.label} = ${o.label}` }] : [];
+    if (!v) return [];
+    if (p.text) return [{ key: p.key, text: `${p.label} = ${p.text.show ? p.text.show(v) : v}` }];
+    const o = p.options?.find((x) => x.value === v);
+    return o ? [{ key: p.key, text: `${p.label} = ${o.chip ?? o.label}` }] : [];
   });
   return (
     <div className="space-y-2" data-testid={testId}>
+      <div className="flex flex-wrap items-center gap-3">
       <div
-        className="relative max-w-xl"
+        className="relative w-full max-w-xl"
         onBlur={(e) => {
           if (!e.currentTarget.contains(e.relatedTarget)) {
             setOpen(false);
@@ -436,6 +452,8 @@ export function PropertyFilter({ props, value, onChange, testId }: {
             className="grow placeholder:italic placeholder:text-base-content/55"
             placeholder={current ? '' : lm.listUi.filterPlaceholder}
             value={text}
+            maxLength={current?.text?.maxLength}
+            inputMode={current?.text?.numeric ? 'numeric' : undefined}
             onFocus={() => setOpen(true)}
             onClick={() => setOpen(true)}
             onChange={(e) => {
@@ -473,7 +491,7 @@ export function PropertyFilter({ props, value, onChange, testId }: {
               </li>
             )}
             {items.length === 0 ? (
-              <li className="px-3 py-1.5 text-sm text-base-content/55">{lm.listUi.noMatch}</li>
+              <li className="px-3 py-1.5 text-sm text-base-content/55">{current?.text ? (current.text.hint ?? lm.listUi.typeValue) : lm.listUi.noMatch}</li>
             ) : (
               items.map((it, i) => (
                 <li
@@ -491,6 +509,8 @@ export function PropertyFilter({ props, value, onChange, testId }: {
             )}
           </ul>
         )}
+      </div>
+      {aside}
       </div>
       {chips.length > 0 && (
         <div className="flex flex-wrap items-center gap-2" data-testid={testId ? `${testId}-chips` : undefined}>

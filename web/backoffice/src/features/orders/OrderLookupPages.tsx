@@ -4,7 +4,7 @@
 // 검색 조건·배송지·연락처를 로그에 남기지 않는다. 고객센터는 주문을 취소하지 않는다(ADR-0060) — 취소 버튼 없음.
 import { QueueNav, RememberQueue } from '../../shared/workQueue';
 import { useQuery } from '@tanstack/react-query';
-import { useState, type FormEvent, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useParams, useSearchParams } from 'react-router';
 
 import { request } from '@pmart/web-core';
@@ -12,7 +12,7 @@ import { CommandFeedback, QueryState, toUiState, useCommand } from '@pmart/web-u
 import { commandParams } from '../../api/command';
 import type { components } from '../../api/generated/order';
 import { useApi } from '../../app/ApiContext';
-import { ChipGroup, CodeLabel, DataTable, DetailHeader, NextAction, Notice, PageHeader, ResultBar, SearchPanel, SearchRow, Section, StatusBadge, type Tone } from '../../shared/admin';
+import { CodeLabel, DataTable, DetailHeader, NextAction, Notice, PageHeader, PropertyFilter, ResultBar, Section, StatusBadge, type FilterProp, type Tone } from '../../shared/admin';
 import { SavedViews } from '../../shared/SavedViews';
 import { OrderProgress } from './OrderProgress';
 import { CopyButton } from '../../shared/CopyButton';
@@ -95,7 +95,6 @@ export function OrderLookupPage() {
   const [search, setSearch] = useSearchParams();
   const criteria = criteriaFrom(search);
   const page = Math.max(0, Number(search.get('page') ?? '0') || 0);
-  const [draft, setDraft] = useState<Criteria>(criteria);
   const blocked = problemOf(criteria);
 
   const query = useQuery({
@@ -104,12 +103,14 @@ export function OrderLookupPage() {
     enabled: blocked === null,
   });
 
-  const submit = (e: FormEvent) => {
-    e.preventDefault();
-    const next = new URLSearchParams();
-    for (const k of Object.keys(draft) as (keyof Criteria)[]) if (draft[k]) next.set(k, draft[k]);
-    if (!draft.from) next.set('from', '');
-    if (!draft.to) next.set('to', '');
+  // 2026-11-20 AWS 개편: 검색 조건 상자 → 속성 필터(고르면 바로 주소에 — 찾기 단추 없음). 기간은 오른쪽 날짜 둘
+  const setCriteria = (patch: Readonly<Record<string, string | null>>) => {
+    const next = new URLSearchParams(search);
+    for (const [k, v] of Object.entries(patch)) {
+      if (v === null) next.delete(k);
+      else next.set(k, v);
+    }
+    next.delete('page');
     setSearch(next);
   };
   const goPage = (p: number) => {
@@ -117,15 +118,15 @@ export function OrderLookupPage() {
     next.set('page', String(p));
     setSearch(next);
   };
-  const field = (k: keyof Criteria) => ({
-    value: draft[k],
-    onChange: (e: { target: { value: string } }) => setDraft((d) => ({ ...d, [k]: e.target.value })),
-  });
-
   // 미리보기 칸(2026-11-18) — 줄을 누르면 목록을 떠나지 않고 오른쪽에 요약, 번호 링크는 그대로 상세로
   const pv = usePreview((id) => `/orders/${encodeURIComponent(id)}`);
-  const reset = () => setDraft({ orderId: '', customerId: '', status: '', mfcId: '', receiverPhone: '', from: addSeoulDays(seoulToday(), -6), to: seoulToday() });
-  const statusOptions = [{ value: '', label: m.orders.any }, ...STATUSES.map((st) => ({ value: st, label: m.orders.statusName[st] ?? st }))];
+  const filterProps: FilterProp[] = [
+    { key: 'orderId', label: m.orders.orderId, text: { maxLength: 64 } },
+    { key: 'customerId', label: m.orders.customerId, text: { maxLength: 64 } },
+    { key: 'mfcId', label: m.orders.mfcId, text: { maxLength: 40 } },
+    { key: 'receiverPhone', label: m.orders.receiverPhone, text: { maxLength: 20, numeric: true, hint: m.orders.receiverPhoneHint } },
+    { key: 'status', label: m.orders.status, options: STATUSES.map((st) => ({ value: st, label: m.orders.statusName[st] ?? st })) },
+  ];
 
   // 관리자 형식(2026-11-18, PC 5 요청 — 모범 화면 rider-backoffice DeliveryPages): 머리말 → 검색 조건 상자 → 결과 줄 → 표 → 쪽
   return (
@@ -133,24 +134,22 @@ export function OrderLookupPage() {
       <PageHeader title={m.orders.title} />
       {/* 내 보기(2026-11-18 Saleor 참고) — 지금 주소 조건을 이름 붙여 저장 */}
       <SavedViews listKey="orders" />
-      <SearchPanel onSubmit={submit} onReset={reset} submitLabel={m.orders.search} resetLabel={m.orders.reset}>
-        <SearchRow label={m.orders.ids}>
-          <input className="input input-sm w-48" aria-label={m.orders.orderId} placeholder={m.orders.orderId} maxLength={64} {...field('orderId')} />
-          <input className="input input-sm w-48" aria-label={m.orders.customerId} placeholder={m.orders.customerId} maxLength={64} {...field('customerId')} />
-          <input className="input input-sm w-40" aria-label={m.orders.mfcId} placeholder={m.orders.mfcId} maxLength={40} {...field('mfcId')} />
-        </SearchRow>
-        <SearchRow label={m.orders.receiverPhone}>
-          <input className="input input-sm w-56" aria-label={m.orders.receiverPhone} inputMode="numeric" maxLength={20} placeholder={m.orders.receiverPhoneHint} autoComplete="off" {...field('receiverPhone')} />
-        </SearchRow>
-        <SearchRow label={m.orders.status}>
-          <ChipGroup label={m.orders.status} value={draft.status} options={statusOptions} onChange={(v) => setDraft((d) => ({ ...d, status: v }))} />
-        </SearchRow>
-        <SearchRow label={m.orders.period}>
-          <input type="date" className="input input-sm w-40" aria-label={m.orders.from} {...field('from')} />
-          <span className="text-base-content/40">~</span>
-          <input type="date" className="input input-sm w-40" aria-label={m.orders.to} {...field('to')} />
-        </SearchRow>
-      </SearchPanel>
+      <div className="rounded-box border border-base-300 bg-base-100 px-5 py-3" data-list-part="top">
+        <PropertyFilter
+          props={filterProps}
+          value={{ orderId: criteria.orderId, customerId: criteria.customerId, mfcId: criteria.mfcId, receiverPhone: criteria.receiverPhone, status: criteria.status }}
+          onChange={setCriteria}
+          testId="order-filter"
+          aside={
+            <span className="flex items-center gap-2 text-sm">
+              <span className="font-semibold text-base-content/80">{m.orders.period}</span>
+              <input type="date" className="input input-sm w-40" aria-label={m.orders.from} value={criteria.from} onChange={(e) => setCriteria({ from: e.target.value })} />
+              <span className="text-base-content/40">~</span>
+              <input type="date" className="input input-sm w-40" aria-label={m.orders.to} value={criteria.to} onChange={(e) => setCriteria({ to: e.target.value })} />
+            </span>
+          }
+        />
+      </div>
 
       {blocked ? (
         <Notice tone="warning">
@@ -190,11 +189,7 @@ export function OrderLookupPage() {
                           <span className="font-semibold text-base-content" data-testid="order-number">
                             <DisplayNumber number={o.orderNumber} systemId={o.orderId} />
                           </span>
-                          {/* 고객: 고객번호(customer CU-3) 전까지 "고객"만 — 고객 ID 는 상세의 시스템 번호 칸(ADR-0070 덧붙임) */}
-                          <span className="mt-0.5 flex items-center gap-1 text-xs font-normal text-base-content/50">
-                            <Icon name="user" className="h-3 w-3" />
-                            {m.displayNumber.customerPending}
-                          </span>
+                          {/* 2026-11-20 AWS 한 줄 줄: 번호 아래 "고객(고객번호 준비 중)" 줄은 뺐다 — 고객번호가 계약에 오면 칸으로 */}
                         </td>
                         <td>
                           <StatusBadge tone={statusTone(o.status)}>{o.status ? <CodeLabel code={o.status} names={m.orders.statusName} /> : m.none}</StatusBadge>

@@ -34,20 +34,21 @@ describe('할 일 0건 "수고하셨어요" 띠', () => {
   });
 });
 
-describe('검색 조건 칩', () => {
-  it('조건을 건 채 열면 한 줄 칩으로 접혀 있고, "검색 열기"로 펼친다', async () => {
+// 2026-11-20 AWS 개편: 검색 조건 상자 → 속성 필터. 건 조건은 검색칸 아래 "속성 = 값 ✕" 칩
+describe('검색 조건 칩(속성 필터)', () => {
+  it('조건을 건 채 열면 칸 아래 칩으로 보이고, ✕ 로 그 조건만 뺀다', async () => {
     const user = userEvent.setup();
     renderAt('/claims?state=STOP_PENDING&type=CANCEL', as.cs);
-    const chips = await screen.findAllByTestId('search-chip');
-    expect(chips.map((c) => c.textContent)).toEqual([expect.stringContaining('전체'), expect.stringContaining('취소'), expect.stringContaining('출고 중지 대기')]);
-    expect(document.querySelector('form[aria-label="검색 조건"]')).not.toBeVisible();
-    await user.click(screen.getByTestId('search-toggle'));
-    expect(screen.getByRole('form', { name: '검색 조건' })).toBeVisible();
+    const chips = await screen.findAllByTestId('filter-chip');
+    expect(chips.map((c) => c.textContent)).toEqual([expect.stringContaining('취소'), expect.stringContaining('출고 중지 대기')]);
+    await user.click(screen.getByRole('button', { name: /취소 지우기$/ }));
+    expect(await screen.findAllByTestId('filter-chip')).toHaveLength(1);
   });
 
-  it('조건이 없으면 처음부터 펼쳐 둔다', async () => {
+  it('조건이 없으면 칩 없이 검색칸만', async () => {
     renderAt('/claims', as.cs);
-    expect(await screen.findByRole('form', { name: '검색 조건' })).toBeVisible();
+    expect(await screen.findByRole('combobox', { name: '속성으로 거르기' })).toBeVisible();
+    expect(screen.queryByTestId('filter-chip')).not.toBeInTheDocument();
   });
 });
 

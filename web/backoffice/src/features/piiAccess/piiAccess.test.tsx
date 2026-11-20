@@ -8,6 +8,11 @@ import { API_BASE } from '../../api/client';
 import { mockPiiLogs } from '../../mocks/piiAccessLogHandlers';
 import { as, renderAt } from '../../test/render';
 import { server } from '../../test/server';
+import { filterBy } from '../../test/filter';
+import { messages } from '../../shared/messages';
+
+const SUBJECT_CUSTOMER = messages.piiLogs.subjectTypeName.CUSTOMER ?? 'CUSTOMER';
+const SUBJECT_RIDER = messages.piiLogs.subjectTypeName.RIDER ?? 'RIDER';
 
 const listCalls = (sent: readonly Request[]) => sent.filter((r) => new URL(r.url).pathname.endsWith('/pii-access-logs')).map((r) => new URL(r.url).searchParams);
 
@@ -45,21 +50,24 @@ describe('개인정보 열람 기록', () => {
   it('거르기는 주소에 남고, 기간은 한국 날짜 0시부터 종료일 다음 날 0시 전까지', async () => {
     const view = renderAt('/pii-access-logs', as.admin);
     await screen.findAllByTestId('pii-log-row');
-    await userEvent.type(screen.getByLabelText('열람한 직원(운영자 ID)'), 'op-cs-1');
-    await userEvent.selectOptions(screen.getByLabelText('정보주체 종류'), 'CUSTOMER');
-    await userEvent.type(screen.getByLabelText('시작일'), '2026-11-15');
-    await userEvent.type(screen.getByLabelText('종료일(그날 포함)'), '2026-11-15');
-    await userEvent.click(screen.getByRole('button', { name: '조회' }));
-    await waitFor(() => expect(listCalls(view.sent).some((q) => q.get('actorId') === 'op-cs-1')).toBe(true));
-    const q = listCalls(view.sent).find((s) => s.get('actorId') === 'op-cs-1')!;
+    // 속성 필터(2026-11-20 AWS 개편 — 고르면 바로 적용, 기간은 오른쪽 날짜)
+    const user = userEvent.setup();
+    await filterBy(user, '열람한 직원(운영자 ID)', 'op-cs-1');
+    await filterBy(user, '정보주체 종류', SUBJECT_CUSTOMER);
+    await user.type(screen.getByLabelText('시작일'), '2026-11-15');
+    await user.type(screen.getByLabelText('종료일(그날 포함)'), '2026-11-15');
+    // 칩마다 바로 묻는다 — 조건이 다 걸린 마지막 요청을 본다
+    const full = (q: URLSearchParams) => q.get('actorId') === 'op-cs-1' && q.get('subjectType') === 'CUSTOMER' && q.get('to') !== null && q.get('from') === '2026-11-14T15:00:00.000Z';
+    await waitFor(() => expect(listCalls(view.sent).some(full)).toBe(true));
+    const q = listCalls(view.sent).filter(full).at(-1)!;
     expect([q.get('subjectType'), q.get('from'), q.get('to')]).toEqual(['CUSTOMER', '2026-11-14T15:00:00.000Z', '2026-11-15T15:00:00.000Z']);
     // 목: 11-15(한국) 에 op-cs-1 이 고객을 본 기록만
     const expected = mockPiiLogs.filter(
       (l) => l.actor.actorId === 'op-cs-1' && l.subjectType === 'CUSTOMER' && l.occurredAt >= '2026-11-14T15:00:00Z' && l.occurredAt < '2026-11-15T15:00:00Z',
     );
     await waitFor(() => expect(screen.getAllByTestId('pii-log-row')).toHaveLength(expected.length));
-    // 거르기 칸은 주소에서 다시 읽는다(조회 뒤 다시 그려도 값이 남는다)
-    expect(screen.getByLabelText('열람한 직원(운영자 ID)')).toHaveValue('op-cs-1');
+    // 거르기는 주소에서 다시 읽는다(다시 그려도 칩이 남는다)
+    expect(screen.getByRole('button', { name: '열람한 직원(운영자 ID) = op-cs-1 지우기' })).toBeInTheDocument();
   });
 
   it('시작일이 종료일보다 늦으면 부르지 않고 안내', async () => {
@@ -101,6 +109,6 @@ describe('개인정보 열람 기록', () => {
     expect(within(detail).getByTitle('RIDER_OPS')).toHaveTextContent('라이더 운영');
     expect(detail).toHaveTextContent(target.piiAccessLogId);
     await userEvent.click(screen.getByRole('link', { name: '목록으로' }));
-    expect(await screen.findByLabelText('정보주체 종류')).toHaveValue('RIDER');
+    expect(await screen.findByRole('button', { name: `정보주체 종류 = ${SUBJECT_RIDER} 지우기` })).toBeInTheDocument(); // 거르기 칩 유지
   });
 });

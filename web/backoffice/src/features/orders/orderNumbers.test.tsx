@@ -4,13 +4,13 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 
 import { as, renderAt } from '../../test/render';
+import { filterBy } from '../../test/filter';
 
 describe('주문 화면 번호', () => {
   it('주문번호 8자리로 찾으면 orderNumber 로 묻고, 목록 첫 칸은 주문번호 — 링크는 시스템 ID', async () => {
     const user = userEvent.setup();
     const view = renderAt('/orders', as.cs);
-    await user.type(await screen.findByLabelText('주문번호 또는 주문 ID'), '74939003');
-    await user.click(screen.getByRole('button', { name: '찾기' }));
+    await filterBy(user, '주문번호 또는 주문 ID', '74939003'); // 속성 필터(2026-11-20 AWS 개편)
     const row = (await screen.findAllByTestId('order-row'))[0]!;
     expect(within(row).getByTestId('order-number')).toHaveTextContent('74939003');
     // 화면을 열면 기간 목록을 먼저 묻는다 — 찾기를 누른 뒤 마지막 요청을 본다

@@ -39,8 +39,11 @@ describe('클레임 조회', () => {
     expect(rowOf('회수 실패')).toHaveTextContent('고객센터');
   });
 
-  it('상태는 칩 대신 고르기(11가지)', async () => {
+  it('상태(11가지)는 속성 필터의 값 목록(2026-11-20 AWS 개편)', async () => {
+    const user = userEvent.setup();
     renderAt('/claims', as.cs);
-    expect(await screen.findByRole('combobox', { name: '상태' })).toBeInTheDocument();
+    await user.click(await screen.findByRole('combobox', { name: '속성으로 거르기' }));
+    await user.click(screen.getByRole('option', { name: '상태' }));
+    expect(screen.getAllByRole('option').length).toBeGreaterThanOrEqual(11);
   });
 });

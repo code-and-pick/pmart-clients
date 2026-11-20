@@ -22,7 +22,8 @@ import { useResolvedRef } from '../../shared/numberLookups';
 import { RefStatus } from '../../shared/RefField';
 import { DeliveryPicker } from '../../shared/DeliveryPicker';
 import { PreviewDrawer, PreviewFacts, usePreview } from '../../shared/Preview';
-import { ChipGroup, CodeLabel, DataTable, DetailHeader, FieldList, NextAction, PageHeader, SearchPanel, SearchRow, Section, StatCard, StatStrip, type Tone } from '../../shared/admin';
+import { CodeLabel, DataTable, DetailHeader, FieldList, NextAction, PageHeader, PropertyFilter, Section, StatCard, StatStrip, type Tone } from '../../shared/admin';
+import { isDeliveryNumber, isRiderNumber } from '../../shared/numberLookups';
 import { EmptyBox, Icon, KindChip, ListFoot, Person, SideFields, StaffName, When, type IconName } from '../lookup/parts';
 
 type ComplaintType = components['schemas']['RiderComplaintType'];
@@ -189,15 +190,15 @@ export function RiderComplaintListPage() {
   const [search, setSearch] = useSearchParams();
   const get = (k: string) => search.get(k) ?? '';
   const type = search.get('complaintType');
-  const [draft, setDraft] = useState({ riderId: get('riderId'), deliveryId: get('deliveryId'), complaintType: type ?? '', from: get('from'), to: get('to') });
-
-  const submit = (e: FormEvent) => {
-    e.preventDefault();
-    const next = new URLSearchParams();
-    for (const [k, v] of Object.entries(draft)) if (v.trim()) next.set(k, v.trim());
+  // 2026-11-20 AWS 개편: 검색 조건 상자 → 속성 필터(고르면 바로 주소에), 기간은 오른쪽 날짜 둘
+  const setCriteria = (patch: Readonly<Record<string, string | null>>) => {
+    const next = new URLSearchParams(search);
+    for (const [k, v] of Object.entries(patch)) {
+      if (v === null || !v.trim()) next.delete(k);
+      else next.set(k, v.trim());
+    }
     setSearch(next);
   };
-  const field = (k: keyof typeof draft) => ({ value: draft[k], onChange: (e: { target: { value: string } }) => setDraft((d) => ({ ...d, [k]: e.target.value })) });
   const from = get('from');
   const to = get('to');
   // 번호로도 거른다(2026-11-19) — 주소에는 넣은 값 그대로, 조회에는 찾은 ID
@@ -228,40 +229,30 @@ export function RiderComplaintListPage() {
         />
       )}
       {/* 관리자 형식(2026-11-18): 검색 조건 상자 — 줄마다 왼쪽 항목명 */}
-      <SearchPanel
-        onSubmit={submit}
-        onReset={() => setDraft({ riderId: '', deliveryId: '', complaintType: '', from: '', to: '' })}
-        submitLabel={m.complaints.filter}
-        resetLabel={m.complaints.reset}
-        label={m.complaints.title}
-        // 조건을 건 뒤에는 한 줄 칩으로 접힌다(2026-11-19)
-        summary={[
-          [m.searchChip.rider, get('riderId') ? m.searchChip.oneRider : ''],
-          [m.searchChip.delivery, get('deliveryId') ? m.searchChip.oneDelivery : ''],
-          [m.searchChip.kind, isType(type) ? label(m.complaints.typeName, type) : ''],
-          [m.searchChip.period, from || to ? `${from || '…'} ~ ${to || '…'}` : ''],
-        ]}
-      >
-        <SearchRow label={m.complaints.ids}>
-          <input aria-label={m.complaints.riderId} placeholder={m.refField.riderHint} className="input input-sm w-56" {...field('riderId')} />
-          <input aria-label={m.complaints.deliveryId} placeholder={m.refField.deliveryHint} className="input input-sm w-60" {...field('deliveryId')} />
+      <div className="rounded-box border border-base-300 bg-base-100 px-5 py-3" data-list-part="top">
+        <PropertyFilter
+          props={[
+            { key: 'riderId', label: m.complaints.riderId, text: { hint: m.refField.riderHint, maxLength: 64, show: (v) => (isRiderNumber(v) ? v : m.searchChip.oneRider) } },
+            { key: 'deliveryId', label: m.complaints.deliveryId, text: { hint: m.refField.deliveryHint, maxLength: 64, show: (v) => (isDeliveryNumber(v) ? v : m.searchChip.oneDelivery) } },
+            { key: 'complaintType', label: m.complaints.type, options: TYPES.map((t) => ({ value: t, label: m.complaints.typeName[t] ?? t })) },
+          ]}
+          value={{ riderId: get('riderId'), deliveryId: get('deliveryId'), complaintType: type ?? '' }}
+          onChange={setCriteria}
+          testId="complaint-filter"
+          aside={
+            <span className="flex items-center gap-2 text-sm">
+              <span className="font-semibold text-base-content/80">{m.complaints.period}</span>
+              <input type="date" aria-label={m.complaints.from} className="input input-sm w-40" value={from} onChange={(e) => setCriteria({ from: e.target.value })} />
+              <span className="text-base-content/50">~</span>
+              <input type="date" aria-label={m.complaints.to} className="input input-sm w-40" value={to} onChange={(e) => setCriteria({ to: e.target.value })} />
+            </span>
+          }
+        />
+        <div className="mt-1 flex flex-wrap gap-3 empty:hidden">
           <RefStatus r={rider} kind="rider" />
           <RefStatus r={delivery} kind="delivery" />
-        </SearchRow>
-        <SearchRow label={m.complaints.type}>
-          <ChipGroup
-            label={m.complaints.type}
-            value={draft.complaintType}
-            options={[{ value: '', label: m.complaints.any }, ...TYPES.map((t) => ({ value: t, label: m.complaints.typeName[t] ?? t }))]}
-            onChange={(v) => setDraft((d) => ({ ...d, complaintType: v }))}
-          />
-        </SearchRow>
-        <SearchRow label={m.complaints.period}>
-          <input type="date" aria-label={m.complaints.from} className="input input-sm w-40" {...field('from')} />
-          <span className="text-base-content/50">~</span>
-          <input type="date" aria-label={m.complaints.to} className="input input-sm w-40" {...field('to')} />
-        </SearchRow>
-      </SearchPanel>
+        </div>
+      </div>
       {/* 번호를 아직 못 찾았으면 표를 그리지 않는다(잘못된 값으로 거른 빈 목록을 "없음"으로 보이지 않게) */}
       {!unresolved && <RiderComplaintTable
         riderId={rider.id ?? undefined}

@@ -2,14 +2,14 @@
 // 클레임 결정(`POST …/decisions`)은 서버가 아직 501 — 화면에 넣지 않는다(요청서 §2). PG 환불 성공 전에는 "완료"로 보이지 않는다(서버 상태 그대로).
 import type { components as BffC } from '../../api/generated/backoffice-bff';
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
-import { useState, type FormEvent } from 'react';
+import { useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 
 import { request } from '@pmart/web-core';
 import { QueryState, toUiState, uiStateFromError } from '@pmart/web-ui';
 import type { components } from '../../api/generated/claim';
 import { useApi } from '../../app/ApiContext';
-import { ChipGroup, CodeLabel, DataTable, DetailHeader, NextAction, Notice, PageHeader, ResultBar, SearchPanel, SearchRow, Section, StatCard, StatStrip, StatusBadge, type Tone } from '../../shared/admin';
+import { CodeLabel, DataTable, DetailHeader, NextAction, Notice, PageHeader, PropertyFilter, ResultBar, Section, StatCard, StatStrip, StatusBadge, type Tone } from '../../shared/admin';
 import { EmptyBox, KindChip, ListFoot, SideFields, When } from '../lookup/parts';
 import { DisplayNumber, SystemNumbers } from '../../shared/displayNumber';
 import { SavedViews } from '../../shared/SavedViews';
@@ -250,15 +250,14 @@ export function ClaimListPage() {
   const orderId = search.get('orderId') ?? '';
   const type = search.get('type');
   const state = search.get('state');
-  const [draft, setDraft] = useState({ orderId, type: type ?? '', state: state ?? '' });
   const query = useClaimList({
     orderId: orderId || undefined,
     type: isType(type) ? type : undefined,
     state: isState(state) ? state : undefined,
   });
 
-  const submit = async (e: FormEvent) => {
-    e.preventDefault();
+  // 2026-11-20 AWS 개편: 속성 필터가 고친 조건(지금 조건 + 바뀐 것)을 받아 바로 건다 — 주문번호 8자리는 주문 ID 로 찾아서
+  const submit = async (draft: { readonly orderId: string; readonly type: string; readonly state: string }) => {
     setNotFound(null);
     const next = new URLSearchParams();
     const order = draft.orderId.trim();
@@ -326,40 +325,23 @@ export function ClaimListPage() {
       {/* 내 보기(2026-11-18 Saleor 참고) — 지금 주소 조건을 이름 붙여 저장 */}
       <SavedViews listKey="claims" />
       {/* 조건을 건 뒤에는 한 줄 칩으로 접힌다(2026-11-19 쿠팡 윙 반품관리 참고) */}
-      <SearchPanel
-        onSubmit={(e) => void submit(e)}
-        onReset={() => setDraft({ orderId: '', type: '', state: '' })}
-        submitLabel={m.claims.filter}
-        resetLabel={m.claims.reset}
-        summary={[
-          [m.claims.orderId, orderId ? m.searchChip.oneOrder : ''],
-          [m.claims.type, isType(type) ? (m.claims.typeName[type] ?? type) : ''],
-          [m.claims.state, isState(state) ? (m.claims.stateName[state] ?? state) : ''],
-        ]}
-      >
-        <SearchRow label={m.claims.orderId}>
-          <input className="input input-sm w-56" aria-label={m.claims.orderId} placeholder={m.claims.orderFilterHint} value={draft.orderId} onChange={(e) => setDraft((d) => ({ ...d, orderId: e.target.value }))} />
-          {notFound && (
-            <span role="alert" className="text-xs text-warning">
-              {m.claims.orderNumberNotFound(notFound)}
-            </span>
-          )}
-        </SearchRow>
-        <SearchRow label={m.claims.type}>
-          <ChipGroup label={m.claims.type} value={draft.type} options={[{ value: '', label: m.claims.any }, ...TYPES.map((t) => ({ value: t, label: m.claims.typeName[t] ?? t }))]} onChange={(v) => setDraft((d) => ({ ...d, type: v }))} />
-        </SearchRow>
-        {/* 상태는 11가지라 칩 대신 고르기(2026-11-19 — 한 줄에 칩 12개는 읽기 힘들다). 단계는 위 카드로 */}
-        <SearchRow label={m.claims.state}>
-          <select className="select select-sm w-56" aria-label={m.claims.state} value={draft.state} onChange={(e) => setDraft((d) => ({ ...d, state: e.target.value }))}>
-            <option value="">{m.claims.any}</option>
-            {STATES.map((st) => (
-              <option key={st} value={st}>
-                {m.claims.stateName[st] ?? st}
-              </option>
-            ))}
-          </select>
-        </SearchRow>
-      </SearchPanel>
+      <div className="rounded-box border border-base-300 bg-base-100 px-5 py-3" data-list-part="top">
+        <PropertyFilter
+          props={[
+            { key: 'orderId', label: m.claims.orderId, text: { hint: m.claims.orderFilterHint, maxLength: 64, show: (v) => (isOrderNumber(v) ? v : m.searchChip.oneOrder) } },
+            { key: 'type', label: m.claims.type, options: TYPES.map((t) => ({ value: t, label: m.claims.typeName[t] ?? t })) },
+            { key: 'state', label: m.claims.state, options: STATES.map((st) => ({ value: st, label: m.claims.stateName[st] ?? st })) },
+          ]}
+          value={{ orderId, type: type ?? '', state: state ?? '' }}
+          onChange={(patch) => void submit({ orderId: patch.orderId === undefined ? orderId : (patch.orderId ?? ''), type: patch.type === undefined ? (type ?? '') : (patch.type ?? ''), state: patch.state === undefined ? (state ?? '') : (patch.state ?? '') })}
+          testId="claim-filter"
+        />
+        {notFound && (
+          <p role="alert" className="mt-2 text-xs text-warning">
+            {m.claims.orderNumberNotFound(notFound)}
+          </p>
+        )}
+      </div>
       <ClaimTable query={query} withCount preview stage={stage} />
     </section>
   );

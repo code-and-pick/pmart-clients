@@ -54,6 +54,7 @@ export const messages = {
     filterPlaceholder: '속성으로 거르기',
     filterBack: '속성 목록',
     noMatch: '맞는 항목이 없어요',
+    typeValue: '값을 입력하고 Enter 를 누르세요',
     clearAll: '모두 지우기',
     removeChip: (s: string) => `${s} 지우기`,
     helpTitle: '도움말',

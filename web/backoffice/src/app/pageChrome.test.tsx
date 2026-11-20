@@ -43,10 +43,10 @@ describe('인터넷 끊김 띠', () => {
 });
 
 describe('"/" 단축키', () => {
-  it('검색 조건 첫 칸으로 간다', async () => {
+  it('속성 필터 검색칸으로 간다(2026-11-20 AWS 개편 — 검색 조건 상자 대신)', async () => {
     renderAt('/orders', as.cs);
-    const form = await screen.findByRole('form', { name: '검색 조건' });
+    const box = await screen.findByRole('combobox', { name: '속성으로 거르기' });
     fireEvent.keyDown(window, { key: '/' });
-    expect(form.contains(document.activeElement)).toBe(true);
+    expect(document.activeElement).toBe(box);
   });
 });

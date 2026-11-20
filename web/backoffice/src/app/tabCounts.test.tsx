@@ -7,6 +7,7 @@ import { http, HttpResponse } from 'msw';
 import { API_BASE } from '../api/client';
 import { server } from '../test/server';
 import { as, renderAt } from '../test/render';
+import userEvent from '@testing-library/user-event';
 
 describe('목록 탭 옆 개수', () => {
   it('접수 건: "아무도 안 맡은 것"·"기한 넘김" 탭 옆에 메뉴 알림과 같은 개수 — 탭 이름은 그대로', async () => {
@@ -30,13 +31,17 @@ describe('목록 탭 옆 개수', () => {
     expect(within(tab).queryByTestId('tab-count-inquiries')).not.toBeInTheDocument();
   });
 
-  it('배송 확인(관리자): 진행 중 상태 칩 옆에 건수, 끝난 상태는 빈칸 — 관리자가 아니면 없음', async () => {
+  // 2026-11-20 AWS 개편: 상태는 속성 필터의 값 목록 — 건수는 값 이름 옆 괄호
+  it('배송 확인(관리자): 진행 중 상태 값 옆에 건수, 끝난 상태는 없음 — 관리자가 아니면 없음', async () => {
+    const user = userEvent.setup();
     const first = renderAt('/deliveries', as.admin);
-    expect(await screen.findByTestId('chip-count-UNASSIGNED')).toHaveTextContent(/^\d+/);
-    expect(screen.queryByTestId('chip-count-')).not.toBeInTheDocument(); // "전체" 칩
+    await user.click(await screen.findByRole('combobox', { name: '속성으로 거르기' }));
+    await user.click(screen.getByRole('option', { name: '상태' }));
+    expect(await screen.findByRole('option', { name: /^미배정 \(\d+\+?\)$/ })).toBeInTheDocument();
     first.unmount();
     renderAt('/deliveries', as.riderOps);
-    await screen.findByRole('radio', { name: '미배정' });
-    expect(screen.queryByTestId('chip-count-UNASSIGNED')).not.toBeInTheDocument();
+    await user.click(await screen.findByRole('combobox', { name: '속성으로 거르기' }));
+    await user.click(screen.getByRole('option', { name: '상태' }));
+    expect(screen.getByRole('option', { name: '미배정' })).toBeInTheDocument();
   });
 });

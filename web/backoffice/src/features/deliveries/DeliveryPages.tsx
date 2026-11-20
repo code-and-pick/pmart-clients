@@ -31,7 +31,7 @@ import { CopyButton } from '../../shared/CopyButton';
 import { useRecordRecent } from '../../shared/recentViews';
 import { messages as m } from '../../shared/messages';
 import { label, text, when } from '../../shared/ops';
-import { ChipGroup, CodeLabel, DataTable, DetailHeader, FieldList, NextAction, PageHeader, ResultBar, SearchPanel, SearchRow, Section, StatusBadge, type Tone, useRowLink } from '../../shared/admin';
+import { CodeLabel, DataTable, DetailHeader, FieldList, NextAction, PageHeader, PropertyFilter, ResultBar, Section, StatusBadge, type Tone, useRowLink } from '../../shared/admin';
 import { Icon, KindChip, ListFoot, Timeline, When } from '../lookup/parts';
 
 type DeliveryExecution = Execution['schemas']['DeliveryExecution'];
@@ -183,7 +183,8 @@ export function DeliveryOpenPage() {
     oldest: params.get('sort') === 'OLDEST',
   };
   const searched = applied.orderId !== '' || applied.riderId !== '' || applied.orderNumber !== '' || applied.riderNumber !== '' || applied.state !== '' || params.has('q');
-  const [draft, setDraft] = useState({ order: applied.orderNumber || applied.orderId, rider: applied.riderNumber || applied.riderId, state: applied.state, oldest: applied.oldest });
+  // 2026-11-20 AWS 개편: 속성 필터가 고친 조건(지금 조건 + 바뀐 것)으로 바로 go — 번호는 go 가 그대로 판정
+  const now = { order: applied.orderNumber || applied.orderId, rider: applied.riderNumber || applied.riderId, state: applied.state, oldest: applied.oldest };
   /** 찾기 조건 — 라이더 번호는 rider 조회로 라이더 ID 로 바꾼다(없는 번호면 null = 결과 없음) */
   const baseQuery = async () => {
     const riderId = applied.riderId || (applied.riderNumber ? await riderIdOfNumber(api, applied.riderNumber) : '');
@@ -287,45 +288,31 @@ export function DeliveryOpenPage() {
           {m.deliveries.failureQueue}
         </button>
       </div>
-      <SearchPanel
-        onSubmit={(e) => {
-          e.preventDefault();
-          go(draft);
-        }}
-        onReset={() => setDraft({ order: '', rider: '', state: '', oldest: false })}
-        submitLabel={m.deliveries.search}
-        resetLabel={m.deliveries.reset}
-        label={m.deliveries.search}
-        // 조건을 건 뒤에는 한 줄 칩으로 접힌다(2026-11-19) — 번호는 화면 번호 그대로, 다른 화면에서 온 시스템 ID 는 "한 주문/한 라이더"
-        summary={[
-          [m.searchChip.order, applied.orderNumber || (applied.orderId ? m.searchChip.oneOrder : '')],
-          [m.searchChip.rider, applied.riderNumber || (applied.riderId ? m.searchChip.oneRider : '')],
-          [m.searchChip.state, applied.state ? label(m.deliveries.executionState, applied.state) : ''],
-          [m.searchChip.sort, applied.oldest ? m.searchChip.oldest : ''],
-        ]}
-      >
-        <SearchRow label={m.deliveries.ids}>
-          <input aria-label={m.deliveries.orderIdFilter} placeholder={m.deliveries.orderIdFilter} className="input input-sm w-52" value={draft.order} onChange={(e) => setDraft((d) => ({ ...d, order: e.target.value }))} />
-          <input aria-label={m.deliveries.riderIdFilter} placeholder={m.deliveries.riderIdFilter} className="input input-sm w-52" value={draft.rider} onChange={(e) => setDraft((d) => ({ ...d, rider: e.target.value }))} />
-        </SearchRow>
-        <SearchRow label={m.deliveries.sort}>
-          <label className="flex h-8 items-center gap-1 text-sm">
-            <input type="checkbox" className="checkbox checkbox-xs" checked={draft.oldest} onChange={(e) => setDraft((d) => ({ ...d, oldest: e.target.checked }))} />
-            {m.deliveries.sortOldest}
-          </label>
-        </SearchRow>
-        <div className="basis-full">
-          <SearchRow label={m.deliveries.stateFilter}>
-            <ChipGroup
-              label={m.deliveries.stateFilter}
-              value={draft.state}
-              // 관리자는 상태 옆에 진행 중 건수(bff work-counts DELIVERIES·ACTIVE, 2026-11-18) — 서버가 그 상태 줄을 준 것만, 끝난 상태·못 읽음은 빈칸
-              options={[{ value: '', label: m.deliveries.any }, ...EXECUTION_STATES.map((s) => ({ value: s, label: label(m.deliveries.executionState, s), count: stateCount(s) }))]}
-              onChange={(v) => setDraft((d) => ({ ...d, state: v }))}
-            />
-          </SearchRow>
-        </div>
-      </SearchPanel>
+      <div className="rounded-box border border-base-300 bg-base-100 px-5 py-3" data-list-part="top">
+        <PropertyFilter
+          props={[
+            { key: 'order', label: m.deliveries.orderIdFilter, text: { maxLength: 64, show: (v) => (isOrderNumber(v) ? v : m.searchChip.oneOrder) } },
+            { key: 'rider', label: m.deliveries.riderIdFilter, text: { maxLength: 64, show: (v) => (isRiderNumber(v) ? v : m.searchChip.oneRider) } },
+            { key: 'state', label: m.deliveries.stateFilter, options: EXECUTION_STATES.map((st) => ({ value: st, label: `${label(m.deliveries.executionState, st)}${stateCount(st) ? ` (${stateCount(st)})` : ''}`, chip: label(m.deliveries.executionState, st) })) },
+          ]}
+          value={{ order: now.order, rider: now.rider, state: now.state }}
+          onChange={(patch) =>
+            go({
+              order: patch.order === undefined ? now.order : (patch.order ?? ''),
+              rider: patch.rider === undefined ? now.rider : (patch.rider ?? ''),
+              state: patch.state === undefined ? now.state : ((patch.state ?? '') as ExecutionState | ''),
+              oldest: now.oldest,
+            })
+          }
+          testId="delivery-filter"
+          aside={
+            <label className="flex items-center gap-1.5 text-sm">
+              <input type="checkbox" className="checkbox checkbox-xs" checked={now.oldest} onChange={(e) => go({ ...now, oldest: e.target.checked })} />
+              {m.deliveries.sortOldest}
+            </label>
+          }
+        />
+      </div>
       {searched ? (
         <QueryState state={toUiState(query, (r) => (r.items ?? []).length === 0)} onRetry={() => void query.refetch()} emptyText={m.deliveries.empty}>
           {(r) => {

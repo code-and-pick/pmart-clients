@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest';
 import { API_BASE } from '../api/client';
 import { as, renderAt } from '../test/render';
 import { server } from '../test/server';
+import { filterBy } from '../test/filter';
 
 // 묶음 이름만(옆 업무 알림 숫자 빼고)
 const groupLabels = () => [...document.querySelectorAll('[data-testid^="nav-group-"] > summary [data-group-label]')].map((s) => s.textContent);
@@ -90,12 +91,10 @@ describe('주문 조회', () => {
     expect(await screen.findByTestId('order-search-blocked')).toHaveTextContent('기간을 31일 안으로');
     expect(view.sent.filter((r) => r.url.includes('/orders/lookups'))).toHaveLength(0);
 
-    await user.type(screen.getByLabelText('주문번호 또는 주문 ID'), 'ORD-MOCK-1002');
-    await user.click(screen.getByRole('button', { name: '찾기' }));
+    await filterBy(user, '주문번호 또는 주문 ID', 'ORD-MOCK-1002'); // 속성 필터(2026-11-20 AWS 개편)
     expect(await screen.findAllByTestId('order-row')).toHaveLength(1);
 
-    await user.type(screen.getByLabelText('수령인 연락처'), '1234');
-    await user.click(screen.getByRole('button', { name: '찾기' }));
+    await filterBy(user, '수령인 연락처', '1234');
     expect(await screen.findByTestId('order-search-blocked')).toHaveTextContent('숫자 9~11자리');
     view.stop();
   });
@@ -104,8 +103,7 @@ describe('주문 조회', () => {
     const user = userEvent.setup();
     const view = renderAt('/orders', as.cs);
     await screen.findAllByTestId('order-row');
-    await user.type(screen.getByLabelText('수령인 연락처'), '010-5555-6666');
-    await user.click(screen.getByRole('button', { name: '찾기' }));
+    await filterBy(user, '수령인 연락처', '010-5555-6666');
     await waitFor(() => expect(screen.getAllByTestId('order-row')).toHaveLength(1));
     const last = view.sent.filter((r) => r.url.includes('/orders/lookups')).at(-1);
     expect(new URL(last?.url ?? '').searchParams.get('receiverPhone')).toBe('01055556666');

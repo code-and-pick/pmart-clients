@@ -5,7 +5,6 @@
 // - 열람 시각 새 것부터 50건씩, page.nextCursor 로 다음 쪽.
 // - 기록에는 원문 개인정보 값이 없다(참조·항목 코드·사유만). 열람 사유(purpose)는 직원이 쓴 글 — 화면에만 보이고 로그·콘솔에 남기지 않는다.
 import { useQuery } from '@tanstack/react-query';
-import { useState, type FormEvent } from 'react';
 import { Link, useLocation, useParams, useSearchParams } from 'react-router';
 
 import { request } from '@pmart/web-core';
@@ -16,7 +15,7 @@ import { SavedViews } from '../../shared/SavedViews';
 import { messages } from '../../shared/messages';
 import { isSeoulDate, label, seoulDayEnd, seoulDayStart, text, when } from '../../shared/ops';
 import { labelText, useEmployeeLabel } from '../../shared/employeeLabels';
-import { CodeLabel, FieldList, PageHeader, SearchPanel, SearchRow, Section, StatusBadge, type Tone } from '../../shared/admin';
+import { CodeLabel, FieldList, PageHeader, PropertyFilter, Section, StatusBadge, type Tone } from '../../shared/admin';
 
 const m = messages.piiLogs;
 type Log = components['schemas']['PiiAccessLog'];
@@ -213,56 +212,34 @@ export function PiiAccessLogListPage() {
   );
 }
 
+// 2026-11-20 AWS 개편: 검색 조건 상자 → 속성 필터(고르면 바로 적용), 기간은 오른쪽 날짜 둘
 function FilterForm({ initial, onApply }: { readonly initial: Filters; readonly onApply: (f: Filters) => void }) {
-  const [f, setF] = useState<Filters>(initial);
-  const set = (k: Key, v: string) => setF((prev) => ({ ...prev, [k]: v }));
-  const submit = (e: FormEvent) => {
-    e.preventDefault();
-    onApply(Object.fromEntries(KEYS.map((k) => [k, f[k].trim()])) as Filters);
+  const change = (patch: Readonly<Record<string, string | null>>) => {
+    const next = { ...initial } as Record<Key, string>;
+    for (const [k, v] of Object.entries(patch)) next[k as Key] = (v ?? '').trim();
+    onApply(next);
   };
   return (
-    <SearchPanel
-      onSubmit={submit}
-      onReset={() => {
-        const blank = Object.fromEntries(KEYS.map((k) => [k, ''])) as Filters;
-        setF(blank);
-        onApply(blank);
-      }}
-      submitLabel={messages.search}
-      resetLabel={m.reset}
-      label={m.filters}
-    >
-      {TEXT_KEYS.map((k) => (
-        <SearchRow key={k} label={m.filterRow[k]}>
-          <input aria-label={m.filter[k]} placeholder={m.filter[k]} className="input input-sm w-72 max-w-full font-mono" maxLength={128} value={f[k]} onChange={(e) => set(k, e.target.value)} />
-        </SearchRow>
-      ))}
-      <SearchRow label={m.filter.subjectType}>
-        <select aria-label={m.filter.subjectType} className="select select-sm w-32" value={f.subjectType} onChange={(e) => set('subjectType', e.target.value)}>
-          <option value="">{m.all}</option>
-          {SUBJECT_TYPES.map((s) => (
-            <option key={s} value={s}>
-              {label(m.subjectTypeName, s)}
-            </option>
-          ))}
-        </select>
-      </SearchRow>
-      <SearchRow label={m.filter.accessType}>
-        <select aria-label={m.filter.accessType} className="select select-sm w-32" value={f.accessType} onChange={(e) => set('accessType', e.target.value)}>
-          <option value="">{m.all}</option>
-          {ACCESS_TYPES.map((s) => (
-            <option key={s} value={s}>
-              {label(m.accessTypeName, s)}
-            </option>
-          ))}
-        </select>
-      </SearchRow>
-      <SearchRow label={m.period}>
-        <input type="date" aria-label={m.filter.from} className="input input-sm w-40" value={f.from} onChange={(e) => set('from', e.target.value)} />
-        <span className="text-base-content/50">~</span>
-        <input type="date" aria-label={m.filter.to} className="input input-sm w-40" value={f.to} onChange={(e) => set('to', e.target.value)} />
-      </SearchRow>
-    </SearchPanel>
+    <div className="rounded-box border border-base-300 bg-base-100 px-5 py-3" data-list-part="top">
+      <PropertyFilter
+        props={[
+          ...TEXT_KEYS.map((k) => ({ key: k, label: m.filter[k], text: { maxLength: 128 } })),
+          { key: 'subjectType', label: m.filter.subjectType, options: SUBJECT_TYPES.map((s) => ({ value: s, label: label(m.subjectTypeName, s) })) },
+          { key: 'accessType', label: m.filter.accessType, options: ACCESS_TYPES.map((s) => ({ value: s, label: label(m.accessTypeName, s) })) },
+        ]}
+        value={initial}
+        onChange={change}
+        testId="pii-filter"
+        aside={
+          <span className="flex items-center gap-2 text-sm">
+            <span className="font-semibold text-base-content/80">{m.period}</span>
+            <input type="date" aria-label={m.filter.from} className="input input-sm w-40" value={initial.from} onChange={(e) => change({ from: e.target.value })} />
+            <span className="text-base-content/50">~</span>
+            <input type="date" aria-label={m.filter.to} className="input input-sm w-40" value={initial.to} onChange={(e) => change({ to: e.target.value })} />
+          </span>
+        }
+      />
+    </div>
   );
 }
 
