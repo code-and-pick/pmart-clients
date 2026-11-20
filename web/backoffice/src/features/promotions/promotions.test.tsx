@@ -49,6 +49,7 @@ describe('행사·쿠폰', () => {
     const mine = renderAt(href, as.marketing);
     await screen.findByTestId('promotion-line');
     expect(screen.getByTestId('promotion-line')).toHaveTextContent('주말 5천원 쿠폰');
+    expect(screen.getByTestId('promotion-line')).toHaveTextContent('5,000원'); // discountType·discountValue
     expect(screen.getByRole('button', { name: '승인' })).toBeDisabled();
     mine.unmount();
 

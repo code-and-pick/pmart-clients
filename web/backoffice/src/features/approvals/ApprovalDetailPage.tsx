@@ -454,18 +454,17 @@ const EXEC_TONE: Readonly<Record<string, Tone>> = { VALIDATING: 'info', ACCEPTED
 /** 결정 이력 표시 이름(승인·반려 버튼과 같은 말). 모르는 값은 그대로 */
 const DECISION_NAME: Readonly<Record<string, string>> = { APPROVE: m.approvals.approve, REJECT: m.approvals.reject };
 
-/** 행사 행 — attributes: action(ACTIVATE/END)·kind·name·startsAt·endsAt·discount·reason(요청서 2026-11-20). 없는 값은 건너뛴다 */
+/** 행사 행 — attributes(promotion 0.2.0 실제 키, PC 1 2026-11-21): promotionId·action(ACTIVATE|END)·draftHash·kind·name·startsAt·endsAt·discountType(RATE|AMOUNT)·discountValue·reason(END 만).
+ * 최대 할인액·대상·쿠폰 조건은 실리지 않아 행사 화면 링크에서. 없는 값은 건너뛴다 */
 function PromotionLine({ attributes, targetRef }: { readonly attributes: Readonly<Record<string, unknown>> | undefined; readonly targetRef: string | null | undefined }) {
   const pm = m.promotions;
   const s = (k: string) => {
     const v = attributes?.[k];
     return typeof v === 'string' ? v : null;
   };
-  const disc = attributes?.['discount'];
-  const d = typeof disc === 'object' && disc !== null ? (disc as { type?: unknown; value?: unknown; maxAmount?: unknown }) : null;
   const kind = s('kind');
-  const discountText =
-    d && typeof d.value === 'number' ? (d.type === 'RATE' ? pm.rate(d.value, typeof d.maxAmount === 'number' ? d.maxAmount : null) : pm.amount(d.value, kind === 'PRICE_DISCOUNT')) : null;
+  const value = attributes?.['discountValue'];
+  const discountText = typeof value === 'number' ? (s('discountType') === 'RATE' ? pm.rate(value, null) : pm.amount(value, kind === 'PRICE_DISCOUNT')) : null;
   const starts = s('startsAt');
   const ends = s('endsAt');
   const end = s('action') === 'END';

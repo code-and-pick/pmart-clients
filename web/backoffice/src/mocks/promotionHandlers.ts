@@ -164,7 +164,9 @@ function approvalRequest(p: Promotion, action: 'ACTIVATE_PROMOTION' | 'END_PROMO
           name: p.name,
           startsAt: p.startsAt,
           endsAt: p.endsAt,
-          discount: p.discount,
+          // 실제 키(PC 1 2026-11-21): discount 객체가 아니라 discountType·discountValue, maxAmount 없음
+          discountType: p.discount.type,
+          discountValue: p.discount.value,
           ...(reason ? { reason } : {}),
         },
       },
