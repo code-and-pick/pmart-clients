@@ -169,11 +169,13 @@ const problem = { type: 'about:blank', title: 'x', status: 503, code: 'UNAVAILAB
 const fail503 = () => HttpResponse.json(problem, { status: 503, headers: { 'content-type': 'application/problem+json' } });
 
 describe('2차 — 겉모습·안내·다 끝났어요', () => {
-  it('본문에만 쿠팡 윙 겉모습(data-skin=wing)', async () => {
+  // 2026-11-20 웹 백오피스 맞추기: 쿠팡 윙(data-skin=wing) → 공용 콘솔 틀(흰 메뉴·위치 줄) — 통합 백오피스와 같다
+  it('공용 콘솔 틀 — 윙 표시 없음, 흰 왼쪽 메뉴(side-menu)·위치 줄(page-title)', async () => {
     renderAt('/deliveries', as.riderOps);
     await screen.findAllByTestId('delivery-row');
-    expect(document.querySelector('main')).toHaveAttribute('data-skin', 'wing');
-    expect(document.querySelector('aside')).not.toHaveAttribute('data-skin');
+    expect(document.querySelector('main')).not.toHaveAttribute('data-skin');
+    expect(screen.getByTestId('side-menu')).toHaveClass('bg-base-100');
+    expect(screen.getByTestId('page-title')).toHaveTextContent('배송 찾기');
   });
 
   it('진행 단계의 끝난 단계는 흰 선 체크(글자 ✓ 아님)', async () => {

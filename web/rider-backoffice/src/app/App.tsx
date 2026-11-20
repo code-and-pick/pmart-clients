@@ -1,8 +1,9 @@
 // 라이더 백오피스 뼈대(2026-11-17, PC 1): 직원 로그인·세션·메뉴 자리. 메뉴 화면(관제 등)은 delivery 영역(PC 5)이 채운다.
 import { AppLauncher, UiTextProvider } from '@pmart/web-ui';
+import { ConsoleBreadcrumb, ConsoleShell, type ConsoleNavGroup } from '@pmart/web-ui/console';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useState, type ReactNode } from 'react';
-import { createBrowserRouter, createMemoryRouter, Link, Navigate, NavLink, Outlet, RouterProvider, useLocation, useNavigate } from 'react-router';
+import { createBrowserRouter, createMemoryRouter, Navigate, NavLink, Outlet, RouterProvider, useLocation, useNavigate } from 'react-router';
 
 import { env } from '../env';
 import { CasesMenu } from '../features/cases/CasePages';
@@ -86,117 +87,82 @@ function Layout() {
   // 브라우저 탭 제목(화면 이름 + 아직 받지 않은 도움요청 수)·'/' 로 검색 칸 — 2026-11-19 통합 백오피스와 같게
   useDocumentTitle(current?.menu ?? null, !!session);
   useSlashToSearch();
+  // 2026-11-20 웹 백오피스 맞추기 4단계: 진한 남색 메뉴·data-skin=wing → 공용 콘솔 틀(@pmart/web-ui/console ConsoleShell — 흰 머리줄·흰 메뉴·위치 줄).
+  // 접으면 묶음마다 아이콘 하나(그 묶음 첫 메뉴로, 이름은 링크 이름) — 전과 같음
+  const groups: ConsoleNavGroup[] = session
+    ? visibleGroups(session.roles).map((g) => ({
+        id: g.key,
+        label: m.groups[g.key],
+        icon: <Icon name={groupIcon[g.key]} className="h-5 w-5" />,
+        items: g.items.map((item) => ({ to: menuPath(item.segment), label: m.menus[item.key], end: false })),
+      }))
+    : [];
+  const currentGroup = navGroups.find((g) => g.items.some((i) => i.segment === seg));
   return (
-    <div className="flex min-h-screen bg-base-200">
-      <aside className={`sticky top-0 flex h-screen shrink-0 flex-col bg-neutral text-neutral-content transition-[width] ${collapsed ? 'w-16' : 'w-60'}`} data-collapsed={collapsed}>
-        <div className={`flex h-14 shrink-0 items-center gap-2 border-b border-neutral-content/10 ${collapsed ? 'justify-center px-2' : 'px-5'}`}>
-          <Link to="/" className="flex items-center gap-2 font-bold text-neutral-content" aria-label={m.goHome}>
-            <span className="grid h-7 w-7 place-items-center rounded-md bg-accent text-sm text-accent-content">P</span>
-            {!collapsed && <span className="whitespace-nowrap text-[15px]">{m.appTitle}</span>}
-          </Link>
-          {!collapsed && env.isMock && <span className="badge badge-accent badge-xs whitespace-nowrap">{m.mockBadge}</span>}
-        </div>
-        <nav aria-label="메뉴" className={`flex-1 py-3 ${collapsed ? 'overflow-visible' : 'overflow-y-auto'}`}>
-          {session &&
-            visibleGroups(session.roles).map((g) => {
-              const groupActive = g.items.some((i) => i.segment === seg);
-              if (collapsed) {
-                // 접힌 메뉴: 묶음 아이콘 하나 = 그 묶음 첫 메뉴(이름은 툴팁)
-                const first = g.items[0]!;
-                return (
-                  <div key={g.key} className="tooltip tooltip-right block" data-tip={m.groups[g.key]}>
-                    <NavLink
-                      to={menuPath(first.segment)}
-                      aria-label={m.groups[g.key]}
-                      className={`mx-2 mb-1 flex h-10 items-center justify-center rounded-md ${groupActive ? 'bg-primary text-primary-content' : 'text-neutral-content/70 hover:bg-neutral-content/10'}`}
-                    >
-                      <Icon name={groupIcon[g.key]} />
-                    </NavLink>
-                  </div>
-                );
-              }
-              return (
-                <div key={g.key} className="mb-2">
-                  <p className={`flex items-center gap-2.5 px-5 py-1.5 text-[13px] font-semibold ${groupActive ? 'text-neutral-content' : 'text-neutral-content/55'}`}>
-                    <Icon name={groupIcon[g.key]} className="h-[18px] w-[18px]" />
-                    {m.groups[g.key]}
-                  </p>
-                  <ul>
-                    {g.items.map((item) => (
-                      <li key={item.key}>
-                        <NavLink
-                          to={menuPath(item.segment)}
-                          className={({ isActive }) =>
-                            `mx-2 flex items-center rounded-md py-1.5 pl-10 pr-3 text-sm ${isActive ? 'bg-primary font-semibold text-primary-content' : 'text-neutral-content/75 hover:bg-neutral-content/10 hover:text-neutral-content'}`
-                          }
-                        >
-                          {m.menus[item.key]}
-                        </NavLink>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              );
-            })}
-        </nav>
-        <button
-          type="button"
-          onClick={toggle}
-          className="flex h-11 shrink-0 items-center justify-center gap-2 border-t border-neutral-content/10 text-xs text-neutral-content/60 hover:text-neutral-content"
-          aria-label={collapsed ? m.nav.expand : m.nav.collapse}
-          aria-expanded={!collapsed}
-        >
-          <Icon name={collapsed ? 'expand' : 'collapse'} className="h-4 w-4" />
-          {!collapsed && m.nav.collapse}
-        </button>
-      </aside>
-      <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-20 flex h-14 shrink-0 items-center gap-4 border-b border-base-300 bg-base-100/95 px-6 backdrop-blur">
-          <p className="w-56 shrink-0 truncate text-sm text-base-content/60" data-testid="page-title">
-            {current ? (
-              <>
-                {current.group} <span className="px-1 text-base-content/30">›</span>
-                <span className="font-semibold text-base-content">{current.menu}</span>
-              </>
-            ) : null}
-          </p>
-          <div className="flex min-w-0 flex-1 justify-center">{session && <HeaderSearch />}</div>
-          <div className="flex shrink-0 items-center gap-3 text-sm">
-            <SimulatorLink />
-            <ThemeToggle />
-            {session ? (
-              <>
-                <span className="text-xs" data-testid="operator">
-                  <StaffName operatorId={session.subject} />
-                </span>
-                {session.roles.map((r) => (
-                  <span key={r} className="badge badge-outline badge-sm">
-                    {r}
-                  </span>
-                ))}
-                <NavLink to="/session" className="btn btn-ghost btn-xs">
-                  {m.nav.session}
-                </NavLink>
-              </>
-            ) : (
-              <NavLink to="/login" className="btn btn-primary btn-xs">
-                {m.nav.login}
+    <ConsoleShell
+      title={m.appTitle}
+      homeLabel={m.goHome}
+      groups={groups}
+      rail="groups"
+      activePath={pathname}
+      collapsed={collapsed}
+      onToggleMenu={toggle}
+      expandLabel={m.nav.expand}
+      collapseLabel={m.nav.collapse}
+      location={
+        <ConsoleBreadcrumb
+          {...(current && currentGroup?.items[0] ? { group: { label: current.group, to: menuPath(currentGroup.items[0].segment) } } : {})}
+          {...(current ? { current: current.menu } : {})}
+        />
+      }
+      locationAside={
+        session ? (
+          <>
+            {session.roles.map((r) => (
+              <span key={r} className="badge badge-ghost badge-sm">
+                {r}
+              </span>
+            ))}
+          </>
+        ) : undefined
+      }
+      banner={
+        <>
+          {/* 상세 제목 띠 자리(2026-11-19) — 상세를 내리면 DetailHeader 가 여기에 얇은 제목 띠를 그린다 */}
+          <div id={DETAIL_BAR_SLOT} className="sticky top-0 z-10" />
+          <ConnectionBanner />
+        </>
+      }
+      tools={
+        <>
+          {/* 머리줄 통합 찾기 — 주문번호·라이더 번호로 관제의 그 라이더로 */}
+          {session && <HeaderSearch />}
+          <SimulatorLink />
+          {env.isMock && <span className="badge badge-accent badge-sm whitespace-nowrap">{m.mockBadge}</span>}
+          <ThemeToggle />
+          {session ? (
+            <>
+              <span className="text-xs" data-testid="operator">
+                <StaffName operatorId={session.subject} />
+              </span>
+              <NavLink to="/session" className="btn btn-ghost btn-xs">
+                {m.nav.session}
               </NavLink>
-            )}
-            {/* 직원 웹 앱 바꾸기(요청 all/2026-11-17-request-app-launcher §3-3) — 머리줄 맨 오른쪽, 통합·인사팀 백오피스와 같게. 링크만, 세션을 읽지 않는다 */}
-            <AppLauncher current="rider-backoffice" />
-          </div>
-        </header>
-        {/* 상세 제목 띠 자리(2026-11-19) — 상세를 내리면 DetailHeader 가 여기에 얇은 제목 띠를 그린다. 머리줄(h-14)이 붙어 있어 그 아래 */}
-        <div id={DETAIL_BAR_SLOT} className="sticky top-14 z-10" />
-        {/* 인터넷 끊김 띠(2026-11-19) */}
-        <ConnectionBanner />
-        {/* 본문 겉모습: 쿠팡 윙 느낌(index.css data-skin=wing, 2026-11-19 통합 백오피스와 같게) — 왼쪽 메뉴·머리줄·어두운 화면은 그대로 */}
-        <main className="min-w-0 flex-1 space-y-5 p-6" data-skin="wing">
-          <Outlet />
-        </main>
+            </>
+          ) : (
+            <NavLink to="/login" className="btn btn-primary btn-xs">
+              {m.nav.login}
+            </NavLink>
+          )}
+          {/* 직원 웹 앱 바꾸기 — 머리줄 맨 오른쪽, 통합·인사팀 백오피스와 같게 */}
+          <AppLauncher current="rider-backoffice" />
+        </>
+      }
+    >
+      <div className="space-y-5">
+        <Outlet />
       </div>
-    </div>
+    </ConsoleShell>
   );
 }
 

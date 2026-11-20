@@ -15,12 +15,22 @@ export interface ConsoleNavItem {
   readonly badge?: ReactNode;
   /** nav-rail-<testId> */
   readonly testId?: string;
+  /** 접은 메뉴 아이콘을 요소로(앱 아이콘 부품) — 있으면 icon 보다 먼저 */
+  readonly iconNode?: ReactNode;
 }
 export interface ConsoleNavGroup {
   readonly id: string;
   readonly label: string;
   readonly items: readonly ConsoleNavItem[];
+  /** 묶음 아이콘(요소) — 펼친 메뉴 묶음 제목 옆, rail='groups' 의 접은 메뉴 */
+  readonly icon?: ReactNode;
 }
+
+const railSvg = (d: string | undefined) => (
+  <svg viewBox="0 0 24 24" className="h-5 w-5 fill-none stroke-current" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d={d ?? 'M4 6h16M4 12h16M4 18h16'} />
+  </svg>
+);
 
 export function ConsoleShell({
   title,
@@ -32,6 +42,8 @@ export function ConsoleShell({
   expandLabel,
   collapseLabel,
   navLabel = '메뉴',
+  rail = 'items',
+  activePath,
   location,
   locationAside,
   banner,
@@ -50,6 +62,10 @@ export function ConsoleShell({
   readonly collapseLabel?: string;
   /** 메뉴 nav 이름(읽기 도구·시험) */
   readonly navLabel?: string;
+  /** 접은 메뉴: items = 메뉴마다 아이콘(기본), groups = 묶음마다 아이콘 하나(그 묶음 첫 메뉴로) */
+  readonly rail?: 'items' | 'groups';
+  /** 지금 주소(rail='groups' 에서 켜진 묶음을 고를 때) */
+  readonly activePath?: string;
   /** 위치 줄 — 보통 ConsoleBreadcrumb */
   readonly location?: ReactNode;
   /** 위치 줄 오른쪽(역할 꼬리표·도움말) */
@@ -82,56 +98,73 @@ export function ConsoleShell({
               </button>
             )}
           </div>
-          {collapsed ? (
-            <nav aria-label={navLabel} className="flex flex-1 flex-col items-center gap-1 py-2">
-              {groups.flatMap((g) => g.items).map((it) => (
-                <NavLink
-                  key={it.to}
-                  to={it.to}
-                  end={it.end ?? true}
-                  aria-label={it.label}
-                  title={it.label}
-                  className={({ isActive }) => `flex w-16 flex-col items-center gap-1 rounded-lg px-1 py-2 text-[11px] transition-colors ${isActive ? 'bg-primary/10 font-semibold text-primary' : 'text-base-content/70 hover:bg-base-200 hover:text-base-content'}`}
-                  {...(it.testId ? { 'data-testid': `nav-rail-${it.testId}` } : {})}
-                >
-                  <svg viewBox="0 0 24 24" className="h-5 w-5 fill-none stroke-current" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                    <path d={it.icon ?? 'M4 6h16M4 12h16M4 18h16'} />
-                  </svg>
-                  <span aria-hidden="true" className="line-clamp-2 break-keep text-center">
-                    {it.label}
-                  </span>
-                  {it.badge && <span className="empty:hidden">{it.badge}</span>}
-                </NavLink>
-              ))}
-            </nav>
-          ) : (
-            <nav aria-label={navLabel} className="flex-1 pb-3">
-              {groups.map((g) => (
-                <div key={g.id} className="mb-2" data-testid={`nav-group-${g.id}`}>
-                  {/* 이름 없는 묶음(홈 등)은 제목 없이 */}
-                  {g.label && (
-                    <p className="px-4 py-[5px] text-sm font-bold text-base-content">
-                      <span data-group-label>{g.label}</span>
-                    </p>
-                  )}
-                  <ul>
-                    {g.items.map((it) => (
-                      <li key={it.to}>
-                        <NavLink
-                          to={it.to}
-                          end={it.end ?? true}
-                          className={({ isActive }) => `flex items-center justify-between gap-2 py-[5px] ${g.label ? 'pl-7' : 'pl-4 font-bold'} pr-4 text-sm transition-colors ${isActive ? 'font-semibold text-primary' : g.label ? 'text-base-content/80 hover:text-primary' : 'text-base-content hover:text-primary'}`}
-                        >
-                          <span className="truncate">{it.label}</span>
-                          {it.badge}
-                        </NavLink>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ))}
-            </nav>
-          )}
+          {/* 메뉴 nav 는 접어도 같은 요소(펼침·접음은 안의 내용만 바뀐다) */}
+          <nav aria-label={navLabel} className={collapsed ? 'flex flex-1 flex-col items-center gap-1 py-2' : 'flex-1 pb-3'}>
+            {collapsed
+              ? rail === 'groups'
+                ? groups.map((g) => {
+                    const first = g.items[0];
+                    if (!first) return null;
+                    const active = g.items.some((it) => it.to === activePath || (activePath ?? '').startsWith(`${it.to}/`));
+                    return (
+                      <Link
+                        key={g.id}
+                        to={first.to}
+                        aria-label={g.label || first.label}
+                        title={g.label || first.label}
+                        className={`flex w-16 flex-col items-center gap-1 rounded-lg px-1 py-2 text-[11px] transition-colors ${active ? 'bg-primary/10 font-semibold text-primary' : 'text-base-content/70 hover:bg-base-200 hover:text-base-content'}`}
+                        data-testid={`nav-rail-${g.id}`}
+                      >
+                        {g.icon ?? railSvg(first.icon)}
+                        <span aria-hidden="true" className="line-clamp-2 break-keep text-center">
+                          {g.label || first.label}
+                        </span>
+                      </Link>
+                    );
+                  })
+                : groups.flatMap((g) => g.items).map((it) => (
+                    <NavLink
+                      key={it.to}
+                      to={it.to}
+                      end={it.end ?? true}
+                      aria-label={it.label}
+                      title={it.label}
+                      className={({ isActive }) => `flex w-16 flex-col items-center gap-1 rounded-lg px-1 py-2 text-[11px] transition-colors ${isActive ? 'bg-primary/10 font-semibold text-primary' : 'text-base-content/70 hover:bg-base-200 hover:text-base-content'}`}
+                      {...(it.testId ? { 'data-testid': `nav-rail-${it.testId}` } : {})}
+                    >
+                      {it.iconNode ?? railSvg(it.icon)}
+                      <span aria-hidden="true" className="line-clamp-2 break-keep text-center">
+                        {it.label}
+                      </span>
+                      {it.badge && <span className="empty:hidden">{it.badge}</span>}
+                    </NavLink>
+                  ))
+              : groups.map((g) => (
+                  <div key={g.id} className="mb-2" data-testid={`nav-group-${g.id}`}>
+                    {/* 이름 없는 묶음(홈 등)은 제목 없이 */}
+                    {g.label && (
+                      <p className="flex items-center gap-2 px-4 py-[5px] text-sm font-bold text-base-content">
+                        {g.icon && <span className="text-base-content/60 [&_svg]:h-4 [&_svg]:w-4">{g.icon}</span>}
+                        <span data-group-label>{g.label}</span>
+                      </p>
+                    )}
+                    <ul>
+                      {g.items.map((it) => (
+                        <li key={it.to}>
+                          <NavLink
+                            to={it.to}
+                            end={it.end ?? true}
+                            className={({ isActive }) => `flex items-center justify-between gap-2 py-[5px] ${g.label ? 'pl-7' : 'pl-4 font-bold'} pr-4 text-sm transition-colors ${isActive ? 'font-semibold text-primary' : g.label ? 'text-base-content/80 hover:text-primary' : 'text-base-content hover:text-primary'}`}
+                          >
+                            <span className="truncate">{it.label}</span>
+                            {it.badge}
+                          </NavLink>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+          </nav>
           {!collapsed && menuFooter}
         </aside>
         <div className="flex min-w-0 flex-1 flex-col">

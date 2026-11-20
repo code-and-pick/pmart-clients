@@ -9,7 +9,7 @@
 // - 상세: 제목·표시·요약 + 오른쪽 동작 버튼, 그 아래 구역 상자(제목 줄 + 항목명/값 줄), 구역으로 가는 밑줄 탭
 // 목록 부품 SearchPanel·StatStrip·GuideBox·AllDone 는 공용(@pmart/web-ui listParts, 2026-11-19)으로 옮김 — 이 파일에서 그대로 가져다 쓰게 다시 내보낸다
 // SearchPanel 은 2026-11-20 AWS 개편 때 이 앱 사본으로(아래) — 공용 web/ui 는 그대로(다른 앱이 씀)
-export { GuideBox, AllDone } from '@pmart/web-ui';
+export { GuideBox, AllDone } from '../listParts';
 import { StickyTitle, useScrolledPast } from './StickyTitle';
 import { useStatChange } from '../motion';
 import { createContext, type FormEvent, type ReactNode, useContext, useEffect, useId, useRef, useState } from 'react';
@@ -146,6 +146,22 @@ export function DataTable({ children, testId, settingsKey }: { readonly children
         <table id={tid} className="table [&_tbody_td:first-child]:font-medium [&_tbody_tr:hover]:bg-base-200/60 [&_td_a.link]:text-primary [&_td_a.link]:no-underline [&_td_a.link:hover]:underline [&_tbody_td:first-child_a]:text-base-content [&_tbody_td:first-child_a]:underline [&_tbody_td:first-child_a]:decoration-dotted [&_tbody_td:first-child_a]:underline-offset-2">{children}</table>
       </div>
     </div>
+  );
+}
+
+/** 쪽 넘기기(커서) — 처음으로 / 다음. 2026-11-20 AWS 개편: 오른쪽 정렬 작은 글자 단추(라이더·인사 백오피스가 쓴다 — 공용으로 다시 둠) */
+export function CursorPager({ hasPrev, nextCursor, onFirst, onNext, page }: { readonly hasPrev: boolean; readonly nextCursor: string | null | undefined; readonly onFirst: () => void; readonly onNext: (cursor: string) => void; readonly page?: number }) {
+  if (!hasPrev && !nextCursor) return null;
+  return (
+    <nav aria-label="쪽" className="flex items-center justify-end gap-1 text-sm">
+      <button type="button" className="btn btn-ghost btn-sm" disabled={!hasPrev} onClick={onFirst}>
+        « 처음으로
+      </button>
+      {page !== undefined && <span className="px-2 font-bold">{page}쪽</span>}
+      <button type="button" className="btn btn-ghost btn-sm" disabled={!nextCursor} onClick={() => nextCursor && onNext(nextCursor)}>
+        다음 ›
+      </button>
+    </nav>
   );
 }
 
@@ -677,6 +693,8 @@ export function SearchPanel({ onSubmit, onReset, children, submitLabel = '조회
             type="button"
             className={`inline-flex items-center gap-1 rounded border px-2 py-0.5 text-xs ${v ? 'border-base-content/40 bg-base-100' : 'border-base-300 bg-base-100 text-base-content/60'}`}
             onClick={() => setOpen(true)}
+            // 칩 이름이 거르기 값으로 끝나면 그 값 이름의 단추로 오해된다(예: "승인") — "… 조건 바꾸기"로 읽힌다(라이더 백오피스에서 옮김 2026-11-20)
+            aria-label={`${k} ${v || '전체'} 조건 바꾸기`}
             data-testid="search-chip"
           >
             <span className="font-semibold">{k}</span>
