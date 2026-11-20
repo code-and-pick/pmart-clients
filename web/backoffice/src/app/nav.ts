@@ -50,6 +50,8 @@ export const navGroups: readonly NavGroup[] = [
       { to: '/handlings', label: m.nav.handlings, needsCenter: true },
       // 결과 0건 검색어(search 0.4.0, ADR-0073) — 동의어·상품명 고칠 근거. 묶음 역할(MD·OPERATOR_ADMIN)과 서버 역할이 같다
       { to: '/search/zero-results', label: m.nav.zeroResults },
+      // 검색 동의어(search 0.5.0 + approval SEARCH_SYNONYM, ADR-0073) — 요청 MD·OPERATOR_ADMIN, 승인 OPERATOR_ADMIN
+      { to: '/search/synonyms', label: m.nav.synonyms },
     ],
   },
   {

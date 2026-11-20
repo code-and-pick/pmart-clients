@@ -15,6 +15,7 @@ import type {
   ProductDraft,
   SkuHandling,
 } from '../api/models';
+import { resetSynonyms } from './synonymStore';
 import { mockAccounts } from './operators';
 
 export interface StoredImage {
@@ -260,6 +261,7 @@ export let db: MockDb = createDb();
 /** 테스트마다 초기 상태로 */
 export function resetDb(): void {
   db = createDb();
+  resetSynonyms();
 }
 
 export const nextId = (prefix: string) => `${prefix}-${++db.seq}`;

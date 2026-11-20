@@ -14,7 +14,7 @@ describe('승인함 하나로', () => {
   it('표는 칸 너비를 고정하고(table-fixed), 반영 상태는 짧은 이름', async () => {
     renderAt('/approvals', as.admin);
     const rows = await screen.findAllByTestId('approval-row');
-    expect(rows[0].closest('table')).toHaveClass('table-fixed');
-    expect(rows[0]).toHaveTextContent('반영 전');
+    expect(rows[0]!.closest('table')).toHaveClass('table-fixed');
+    expect(rows[0]!).toHaveTextContent('반영 전');
   });
 });

@@ -13,6 +13,8 @@ const approverRole: Partial<Record<ApprovalType, string>> = {
   PRICE: 'PRICE_APPROVER',
   // 직원 권한 요청 수동 심사 = 운영 관리자(pmart-backend approval-service approver-roles.GRANT, 2026-11-13)
   GRANT: 'OPERATOR_ADMIN',
+  // 검색 동의어(approval 0.5.0) — 승인자 운영 관리자
+  SEARCH_SYNONYM: 'OPERATOR_ADMIN',
 };
 
 /** GRANT 행이 권한을 줄 직원 ID(attributes.employee.operatorId) */
@@ -80,6 +82,8 @@ export const approvalHandlers = [
       if (cr.requestState !== 'DRAFT') return problem(409, 'INVALID_STATE');
       const v = expectedVersion(request);
       if (v !== undefined && v !== cr.version) return problem(409, 'VERSION_CONFLICT');
+      // 같은 원객체·종류의 열린 승인이 있으면 DUPLICATE_APPROVAL(동의어는 대상이 하나라 한 번에 하나)
+      if ([...db.approvals.values()].some((x) => x.type === cr.type && x.targetRef === cr.targetRef && (x.reviewState === 'REVIEW_PENDING' || x.reviewState === 'EVIDENCE_REQUIRED'))) return problem(409, 'DUPLICATE_APPROVAL');
       const approvalId = nextId('apv');
       const approval: ApprovalDetail = {
         approvalId,

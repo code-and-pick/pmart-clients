@@ -295,13 +295,15 @@ export function ApprovalDetailPage() {
                         {(a.lines ?? []).map((l, i) => (
                           <tr key={l.lineKey}>
                             {/* 항목 키가 시스템 ID(PD-… 초안 등)면 순번만 — 무엇인지는 오른쪽 내용 칸(상품명 등) */}
-                            <td className="font-mono" title={l.lineKey}>{isSystemId(l.lineKey) ? String(i + 1) : l.lineKey}</td>
+                            <td className="font-mono" title={l.lineKey}>{isSystemId(l.lineKey) || a.type === 'SEARCH_SYNONYM' ? String(i + 1) : l.lineKey}</td>
                             <td className="text-right tabular-nums" data-testid="line-qty">{lineQtyText(l)}</td>
                             <td className="text-right font-semibold tabular-nums" data-testid="line-amount">{lineAmountText(a.type, l)}</td>
                             <td className="space-y-1">
                               {/* 가격 일괄 등록 행(백엔드 안내 2026-11-03 §1-5): 승인자가 이전 → 새 가격·구분·상품명을 바로 본다 */}
                               <PriceLineAttributes attributes={l.attributes} />
                               {a.type === 'GRANT' && <GrantLineAttributes attributes={l.attributes} />}
+                              {/* 검색 동의어 행(approval 0.5.0): 규칙 ID 대신 추가·고침·삭제 + 낱말(바꾸기 전 낱말이 있으면 같이) */}
+                              {a.type === 'SEARCH_SYNONYM' && <SynonymLine attributes={l.attributes} />}
                               {/* 상품 등록 행(BR-39 회신): 재업로드면 "기존 상품 갱신"을 먼저 보인다 */}
                               {/* 콘텐츠 게시 행(BR-44 회신): 이미 게시된 콘텐츠를 바꾸는 건이면 "기존 게시 갱신" + 지금 게시본 버전 */}
                               {a.targetService === 'product-content-service' ? (
@@ -436,3 +438,19 @@ const REVIEW_TONE: Readonly<Record<string, Tone>> = { REVIEW_PENDING: 'warning',
 const EXEC_TONE: Readonly<Record<string, Tone>> = { VALIDATING: 'info', ACCEPTED: 'info', IN_PROGRESS: 'info', PARTIAL: 'warning', APPLIED: 'success', REJECTED: 'error', UNKNOWN_RESULT: 'warning' };
 /** 결정 이력 표시 이름(승인·반려 버튼과 같은 말). 모르는 값은 그대로 */
 const DECISION_NAME: Readonly<Record<string, string>> = { APPROVE: m.approvals.approve, REJECT: m.approvals.reject };
+
+/** 검색 동의어 행 — op·terms·before(approval SEARCH_SYNONYM 설명) */
+function SynonymLine({ attributes }: { readonly attributes: Readonly<Record<string, unknown>> | undefined }) {
+  const words = (v: unknown) => (Array.isArray(v) ? v.map(String) : []);
+  const op = attributes?.['op'];
+  const terms = words(attributes?.['terms']);
+  const before = words(attributes?.['before']);
+  const kind = op === 'DELETE' ? m.synonyms.op.DELETE : before.length ? m.synonyms.op.EDIT : m.synonyms.op.ADD;
+  return (
+    <p className="text-sm" data-testid="synonym-line">
+      <span className={`mr-2 font-medium ${op === 'DELETE' ? 'text-error' : 'text-primary'}`}>{kind}</span>
+      {(op === 'DELETE' ? before : terms).join(', ')}
+      {op !== 'DELETE' && before.length > 0 && <span className="ml-2 text-xs text-base-content/50">{m.synonyms.before(before.join(', '))}</span>}
+    </p>
+  );
+}

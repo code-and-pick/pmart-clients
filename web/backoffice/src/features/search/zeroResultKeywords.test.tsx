@@ -29,7 +29,7 @@ describe('결과 없는 검색어', () => {
     await screen.findAllByTestId('zero-row');
     await userEvent.click(screen.getByTestId('zero-days-90'));
     expect(await screen.findByText('ㅅㄱㅇ')).toBeInTheDocument();
-    expect(screen.getByText('ㅅㄱㅇ').closest('tr')).toHaveTextContent(/1명-$/);
+    expect(screen.getByText('ㅅㄱㅇ').closest('tr')).toHaveTextContent(/1명-동의어 만들기$/);
     expect(sentDays(view.sent)).toContain('90');
   });
 

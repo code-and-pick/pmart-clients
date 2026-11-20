@@ -3,6 +3,7 @@ import { http, HttpResponse } from 'msw';
 
 import { API_BASE } from '../api/client';
 import { operator, problem, unauthorized } from './support';
+import { synonyms } from './synonymStore';
 
 const hour = 3_600_000;
 const rows = [
@@ -14,7 +15,26 @@ const rows = [
   { keyword: 'ㅅㄱㅇ', searches: 3, searchers: 1, back: null },
 ] as const;
 
+const canManage = (request: Request) => {
+  const who = operator(request);
+  if (!who) return unauthorized();
+  if (!who.roles.some((r) => r === 'MD' || r === 'OPERATOR_ADMIN')) return problem(403, 'FORBIDDEN');
+  return null;
+};
+
 export const searchHandlers = [
+  // search 0.5.0 동의어 규칙·반영 기록(ADR-0073 단계 B) — MD·OPERATOR_ADMIN
+  http.get(`${API_BASE}/search/synonym-rules`, ({ request }) => {
+    const denied = canManage(request);
+    if (denied) return denied;
+    return HttpResponse.json({ version: synonyms.version, rules: synonyms.rules, lastApprovalId: synonyms.lastApprovalId, updatedAt: synonyms.updatedAt });
+  }),
+  http.get(`${API_BASE}/search/synonym-rule-applications`, ({ request }) => {
+    const denied = canManage(request);
+    if (denied) return denied;
+    const size = Number(new URL(request.url).searchParams.get('size') ?? 20);
+    return HttpResponse.json({ items: synonyms.applications.slice(0, size) });
+  }),
   http.get(`${API_BASE}/search/zero-result-keywords`, ({ request }) => {
     const who = operator(request);
     if (!who) return unauthorized();

@@ -1,8 +1,8 @@
 // 결과 0건 검색어(search 0.4.0 `GET /search/zero-result-keywords`, ADR-0073 — MD·OPERATOR_ADMIN, 그 밖 403).
 // 고객·비회원 첫 쪽 검색에서 최근 days 일 결과 0건 검색어를 많이 나온 순으로. 서버가 정렬·인기 키워드 숨김을 한다 — 화면은 그대로 보인다.
-// 검색한 사람 수는 서버가 근사로 준다(원문 없음). 동의어 등록(SEARCH_SYNONYM 승인)은 다음 단계 계약이 나오면 이 화면에 붙인다.
+// 검색한 사람 수는 서버가 근사로 준다(원문 없음). 줄마다 "동의어 만들기" → 검색 동의어 화면에 그 검색어로 새 묶음(search 0.5.0, 2026-11-20).
 import { useQuery } from '@tanstack/react-query';
-import { useSearchParams } from 'react-router';
+import { Link, useSearchParams } from 'react-router';
 
 import { request } from '@pmart/web-core';
 import { formatSeoul, QueryState, toUiState } from '@pmart/web-ui';
@@ -81,6 +81,7 @@ export function ZeroResultKeywordsPage() {
                         <th className="text-right">{m.col.searches}</th>
                         <th className="text-right">{m.col.searchers}</th>
                         <th>{m.col.last}</th>
+                        <th className="w-28" />
                       </tr>
                     </thead>
                     <tbody>
@@ -91,6 +92,11 @@ export function ZeroResultKeywordsPage() {
                           <td className="text-right tabular-nums">{m.times(k.searches)}</td>
                           <td className="text-right tabular-nums">{m.people(k.searchers)}</td>
                           <td className="text-base-content/70">{k.lastSearchedAt ? formatSeoul(k.lastSearchedAt) : messages.none}</td>
+                          <td className="text-right">
+                            <Link className="btn btn-ghost btn-xs whitespace-nowrap text-primary" to={`/search/synonyms?add=${encodeURIComponent(k.keyword)}`} data-testid="zero-make-synonym">
+                              {m.makeSynonym}
+                            </Link>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
