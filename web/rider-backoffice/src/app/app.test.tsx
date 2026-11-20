@@ -125,11 +125,12 @@ describe('메뉴 자리', () => {
     expect(screen.getAllByText('라이더').length).toBeGreaterThan(0);
     for (const name of ['대시보드', '라이더 관제', '라이더 찾기', '가입 승인', '제한 검토', '배송 찾기', '상담함', '접수 건', '수행료 조정', '추가 배달료']) {
       await userEvent.click(screen.getByRole('link', { name }));
-      expect(await screen.findByRole('heading', { name })).toBeInTheDocument();
+      // 화면 10개를 차례로 처음 그린다 — 전체 실행 첫 번(차가운 변환)에서 기본 1초 기다림이 모자랐다(PC 1 PR 세션 2026-11-20)
+      expect(await screen.findByRole('heading', { name }, { timeout: 5_000 })).toBeInTheDocument();
       expect(screen.queryByText('화면 준비 중')).not.toBeInTheDocument();
     }
     expect(allMenus.every((menu) => menu.ready)).toBe(true);
-  });
+  }, 60_000);
 });
 
 describe('지원센터 메뉴 정리(사용자 2026-11-19 "라이더문의랑 도움요청이 둘 다 있는 이유")', () => {

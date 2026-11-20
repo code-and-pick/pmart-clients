@@ -456,6 +456,7 @@ const consultText = {
   search: '찾기',
   clear: '지우기',
   allKinds: '전체',
+  truncated: '도움요청이 너무 많아 가장 최근 것 일부를 불러오지 못했어요. 찾기·구분으로 좁히거나 끝남 탭은 기간이 지나면 줄어요.',
   noMatch: (q: string) => `"${q}"에 맞는 상담이 없어요.`,
   kind: { help: '배송 도움요청', inquiry: '일반 문의', failure: '전달 실패 결정 대기' },
   failureTitle: '전달 불가 신고 — 확정·반려 기다림',
@@ -558,10 +559,11 @@ function ConsultsPage({ tab }: { readonly tab: 'open' | 'done' }) {
             cursor = r.page?.nextCursor ?? undefined;
             if (!cursor) break;
           }
-          return items;
+          // 상한까지 읽고도 다음 쪽이 남았다 — 오래된 것부터라 가장 최근 것이 빠졌다. 숨기지 않고 알린다(PC 1 PR 리뷰 2026-11-20).
+          return { items, more: !!cursor };
         }),
       );
-      return pages.flat();
+      return { items: pages.flatMap((p) => p.items), more: pages.some((p) => p.more) };
     },
   });
   // 숫자 띠(2026-11-19 통합 백오피스처럼) — 서버가 센 수: 도움요청·전달 실패 결정 대기는 delivery-stats, 일반 문의는 목록 한 쪽(넘치면 "N건 이상")
@@ -596,11 +598,11 @@ function ConsultsPage({ tab }: { readonly tab: 'open' | 'done' }) {
     refetchInterval: 15_000,
     queryFn: () => request('GET', api.execution.GET('/deliveries', { params: { query: { state: 'FAILURE_REPORTED', size: 50 } } })),
   });
-  const openHelpDeliveries = new Set((help.data ?? []).filter((it) => it.state !== 'RESOLVED').map((it) => it.deliveryId));
+  const openHelpDeliveries = new Set((help.data?.items ?? []).filter((it) => it.state !== 'RESOLVED').map((it) => it.deliveryId));
   const pendingFailures = tab === 'open' ? (failures.data?.items ?? []) : [];
   const resumeBy = new Map(pendingFailures.filter((d) => d.resumeRequestedAt).map((d) => [d.deliveryId, d.resumeRequestedAt] as const));
-  const riders = useRiderSummaries([...(help.data ?? []).map((it) => it.riderId), ...pendingFailures.map((d) => d.riderId ?? undefined)]);
-  const deliveryNos = useDeliveryNumbers([...(help.data ?? []).map((it) => it.deliveryId), ...(inquiries.data ?? []).map((it) => it.deliveryId ?? undefined)]);
+  const riders = useRiderSummaries([...(help.data?.items ?? []).map((it) => it.riderId), ...pendingFailures.map((d) => d.riderId ?? undefined)]);
+  const deliveryNos = useDeliveryNumbers([...(help.data?.items ?? []).map((it) => it.deliveryId), ...(inquiries.data ?? []).map((it) => it.deliveryId ?? undefined)]);
   const now = useNow();
   const resumeBadge = <StatusBadge tone="error">{consultText.resumeRequested}</StatusBadge>;
   const allRows: ConsultRow[] = [
@@ -620,7 +622,7 @@ function ConsultsPage({ tab }: { readonly tab: 'open' | 'done' }) {
           open: true,
         }),
       ),
-    ...(help.data ?? []).map(
+    ...(help.data?.items ?? []).map(
       (it): ConsultRow => ({
         kind: 'help',
         key: `h:${it.deliveryId}:${it.requestId}`,
@@ -755,7 +757,12 @@ function ConsultsPage({ tab }: { readonly tab: 'open' | 'done' }) {
         </p>
       ) : (
         <div className="space-y-3">
-          <ResultBar count={rows.length} more={false} extra={<span className="text-xs text-base-content/50">{sm.autoRefresh(15)}</span>} />
+          {help.data?.more && (
+            <p role="alert" className="alert alert-warning text-sm" data-testid="consults-truncated">
+              {consultText.truncated}
+            </p>
+          )}
+          <ResultBar count={rows.length} more={!!help.data?.more} extra={<span className="text-xs text-base-content/50">{sm.autoRefresh(15)}</span>} />
           <DataTable>
             <thead>
               <tr>

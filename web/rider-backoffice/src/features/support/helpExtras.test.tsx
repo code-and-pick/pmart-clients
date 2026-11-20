@@ -209,3 +209,20 @@ describe('상담함 — 찾기·주문번호·소명·이의 탭(2026-11-20)', (
     expect(screen.getByRole('tab', { name: '소명·이의' })).toHaveAttribute('aria-selected', 'true');
   });
 });
+
+describe('상담함 — 읽기 상한(2026-11-20 PC 1 리뷰 후속)', () => {
+  it('20쪽을 읽고도 다음 쪽이 남으면 "최근 것 일부를 불러오지 못했어요"와 "N건 이상"', async () => {
+    let n = 0;
+    server.use(
+      http.get(`${API_BASE}/delivery-help-requests`, ({ request }) => {
+        if (new URL(request.url).searchParams.get('state') !== 'RESOLVED') return HttpResponse.json({ items: [], page: { nextCursor: null } });
+        n += 1;
+        return HttpResponse.json({ items: [{ requestId: `HR-T${n}`, deliveryId: `DLV-T${n}`, riderId: 'RD-7', category: 'ADDRESS_ISSUE', state: 'RESOLVED', createdAt: '2026-11-20T01:00:00.000Z' }], page: { nextCursor: `c${n}` } });
+      }),
+    );
+    renderAt('/consults?tab=done', as.riderOps);
+    expect(await screen.findByTestId('consults-truncated', {}, { timeout: 5_000 })).toHaveTextContent('최근 것 일부를 불러오지 못했어요');
+    expect(screen.getByTestId('result-count')).toHaveTextContent('건 이상');
+    expect(n).toBe(20);
+  });
+});
