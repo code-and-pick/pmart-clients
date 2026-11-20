@@ -169,7 +169,7 @@ export function OrderLookupPage() {
                 {/* 상세에서 이전·다음으로 넘기도록 지금 목록 순서를 기억(2026-11-19) — 고객 전화 같은 조건은 기억하지 않는다 */}
                 <RememberQueue kind="order" ids={r.items.map((o) => o.orderId)} from={`/orders?${search.toString()}`} />
                 {/* 목록(2026-11-18 Shopify 주문 목록처럼): 첫 칸 주문 번호 굵게 + 고객 ID 작게, 상태 점 꼬리표, "N일 전", 금액 오른쪽 굵게 */}
-                <DataTable>
+                <DataTable settingsKey="orders">
                   <thead>
                     <tr>
                       <th>{m.orders.detailTitle}</th>

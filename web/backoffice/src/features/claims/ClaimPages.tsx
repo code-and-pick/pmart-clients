@@ -134,7 +134,7 @@ function ClaimTable({ query, withCount = false, preview = false, stage }: { read
           <span className="text-base-content/60">{cl.total(items.length, Boolean(query.hasNextPage))}</span>
         </div>
       )}
-      <DataTable>
+      <DataTable settingsKey="claims">
         <thead>
           <tr>
             <th>{m.claims.detailTitle}</th>

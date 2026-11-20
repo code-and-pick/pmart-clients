@@ -83,7 +83,7 @@ export function DeliveryTable({ rows, preview }: { readonly rows: readonly Staff
   // 화면 번호(ADR-0070, 2026-11-18): 배송·주문은 응답의 deliveryNumber·orderNumber, 라이더는 rider 일괄 조회(riderIds)
   const riders = useRiderLabels(rows.map((d) => d.riderId));
   return (
-    <DataTable>
+    <DataTable settingsKey="deliveries">
       <thead>
         <tr>
           <th>{m.deliveries.deliveryId}</th>

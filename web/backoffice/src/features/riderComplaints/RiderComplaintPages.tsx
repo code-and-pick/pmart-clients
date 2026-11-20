@@ -101,7 +101,7 @@ export function RiderComplaintTable({ riderId, deliveryId, complaintType, from, 
   // 목록(2026-11-18 Shopify·Medusa 목록처럼): 첫 칸 종류(색 꼬리표) + 컴플레인 ID 작게, 라이더·기록자 머리글자, "N일 전"
   return (
     <>
-      <DataTable>
+      <DataTable settingsKey="rider-complaints">
         <thead>
           <tr>
             <th>{m.complaints.detailTitle}</th>

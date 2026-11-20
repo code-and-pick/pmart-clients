@@ -63,6 +63,7 @@ import { FollowUps, isOpenObligation } from './FollowUps';
 import { ClaimOfCase } from '../claims/ReturnClaim';
 import { CaseBoard } from './CaseBoard';
 import { LayoutToggle } from '../../shared/Kanban';
+import { TableSettings } from '../../shared/TableSettings';
 
 type Case = components['schemas']['Case'];
 type InboxView = BffOps['getCaseInboxView']['responses'][200]['content']['application/json'];
@@ -553,8 +554,12 @@ export function CaseListPage() {
                   {bulk.result && <span role="status" className={bulk.result.failed > 0 ? 'text-warning' : 'text-success'} data-testid="case-bulk-result">{m.cases.bulk.result(bulk.result.done, bulk.result.failed)}</span>}
                 </div>
               )}
-              <div className="overflow-x-auto">
-                <table className="table [&_tbody_td]:py-3 [&_tbody_tr:hover]:bg-base-200/60 [&_tbody_tr]:border-base-300/70 [&_thead_th]:text-xs [&_thead_th]:font-medium [&_thead_th]:text-base-content/50">
+              {/* 표 설정 톱니(2026-11-20 AWS) — 칸 켜고 끄기·줄 바꿈. 머리·줄 모양은 index.css 토큰(예전 작은 회색 머리·넉넉한 줄 뺌) */}
+              <div className="relative overflow-x-auto">
+                <div className="absolute right-1 top-1 z-10">
+                  <TableSettings storeKey="cases" tableId="case-table" />
+                </div>
+                <table id="case-table" className="table [&_tbody_tr:hover]:bg-base-200/60">
                   <thead>
                     <tr>
                       {pickable.length > 0 && (

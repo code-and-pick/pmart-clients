@@ -221,7 +221,7 @@ export function PriceList({ onChange, onOpen, openSku }: { readonly onChange: (s
         </p>
       )}
 
-      <DataTable testId="price-list">
+      <DataTable testId="price-list" settingsKey="prices">
         <thead>
           <tr>
             <th className="w-10">

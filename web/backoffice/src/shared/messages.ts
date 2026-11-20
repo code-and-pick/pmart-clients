@@ -79,6 +79,8 @@ export const messages = {
     orderCol: { number: '주문', status: '주문 상태', at: '확정 시각', items: '수량', total: '결제 금액' },
     pii: { title: '원문 열람', fields: '열 항목', fieldName: { NAME: '이름', PHONE: '연락처' } as const, reason: '열람 사유', reasonHint: '2~200자. 예: 고객 전화 — 본인 확인', open: '열람', hide: '다시 가리기', opened: (logId: string, at: string) => `열람 기록 ${logId} · ${at} — 이 화면을 떠나면 다시 가려져요.` },
   },
+  /** 표 설정(2026-11-20 AWS) — 칸 켜고 끄기·줄 바꿈, 이 브라우저에만 */
+  tableSettings: { open: '표 설정', title: '표 설정', columns: '보이는 칸', wrap: '긴 글 줄 바꿈', reset: '기본으로', unnamed: (n: number) => `${n}번째 칸` },
   /** 보드(칸반) 보기(2026-11-20) — 보기 전용, 칸은 서버 판정 값으로만 */
   board: {
     layout: '보기 방식',
