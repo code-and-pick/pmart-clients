@@ -1,4 +1,4 @@
-// 업무 도우미 실서버 어댑터(ai-assistant-service 1.1.0) — 게이트웨이 응답을 MSW 로 흉내 낸다. 실서버 확인은 아니다.
+// 업무 도우미 실서버 어댑터(ai-assistant-service 1.3.0) — 게이트웨이 응답을 MSW 로 흉내 낸다. 실서버 확인은 아니다.
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
@@ -83,7 +83,14 @@ describe('업무 도우미 실서버 어댑터', () => {
     expect(sent[0]!.headers.get('Idempotency-Key')).toBe(key.value);
     expect(sent[0]!.headers.get('X-Source-System')).toBe('backoffice-web');
     expect(sent[0]!.headers.get('Authorization')).toBe(`Bearer ${as.md}`);
-    expect(sent[0]!.body).toEqual({ question: '결품이면 어떻게 하나요?' });
+    expect(sent[0]!.body).toEqual({ question: '결품이면 어떻게 하나요?' }); // 새 채팅 = sessionId 없이
+  });
+
+  it('이어 묻기: 본문에 sessionId 를 넣는다(1.3.0)', async () => {
+    const sent = askHandler(() => HttpResponse.json(answered({ sessionId: 'S-1', question: '그럼 반품은?' })));
+    const a = await port().ask('그럼 반품은?', IdempotencyKey.generate(), 'S-1');
+    expect(sent[0]!.body).toEqual({ question: '그럼 반품은?', sessionId: 'S-1' });
+    expect(a).toMatchObject({ sessionId: 'S-1', question: '그럼 반품은?' });
   });
 
   it('202 처리 중은 PROCESSING 으로 돌려준다(결과가 아니다)', async () => {
@@ -124,41 +131,68 @@ describe('업무 도우미 실서버 어댑터', () => {
     expect((e as ProblemFailure).problem.code).toBe('NOT_FOUND');
   });
 
-  it('내 질문 목록 GET /assistant/question-history — cursor 는 있을 때만 보낸다', async () => {
-    const cursors: Array<string | null> = [];
+  it('내 채팅 목록 GET /assistant/chat-sessions — X-Source-System, cursor 는 있을 때만', async () => {
+    const seen: Array<{ cursor: string | null; source: string | null }> = [];
     server.use(
-      http.get('*/api/v1/assistant/question-history', ({ request }) => {
+      http.get('*/api/v1/assistant/chat-sessions', ({ request }) => {
         const cursor = new URL(request.url).searchParams.get('cursor');
-        cursors.push(cursor);
+        seen.push({ cursor, source: request.headers.get('X-Source-System') });
         return HttpResponse.json({
-          items: [
-            {
-              answerId: cursor ? 'ANS-2' : 'ANS-1',
-              requestId: 'k',
-              state: 'ANSWERED',
-              question: null,
-              answerPreview: '결품이면 …',
-              answerMode: 'GENERATIVE',
-              citationCount: 1,
-              askedAt: '2026-11-09T07:10:00Z',
-            },
-          ],
+          items: [{ sessionId: cursor ? 'S-2' : 'S-1', title: null, questionCount: 3, createdAt: '2026-11-21T01:00:00Z', lastAskedAt: '2026-11-21T02:00:00Z' }],
           page: { nextCursor: cursor ? null : 'c2', size: 1 },
         });
       }),
     );
-    const first = await port().history();
+    const first = await port().chats();
     expect(first.nextCursor).toBe('c2');
-    const second = await port().history('c2');
-    expect(second.items[0]!.answerId).toBe('ANS-2');
+    const second = await port().chats('c2');
+    expect(second.items[0]).toMatchObject({ sessionId: 'S-2', questionCount: 3, title: null });
     expect(second.nextCursor).toBeNull();
-    expect(cursors).toEqual([null, 'c2']);
+    expect(seen).toEqual([
+      { cursor: null, source: 'backoffice-web' },
+      { cursor: 'c2', source: 'backoffice-web' },
+    ]);
+  });
+
+  it('채팅 하나 GET /assistant/chat-sessions/{id} — messages 를 질문 순 답변으로, 없으면 404 NOT_FOUND', async () => {
+    server.use(
+      http.get('*/api/v1/assistant/chat-sessions/:sessionId', ({ params }) =>
+        params.sessionId === 'S-1'
+          ? HttpResponse.json({
+              sessionId: 'S-1',
+              createdAt: '2026-11-21T01:00:00Z',
+              lastAskedAt: '2026-11-21T02:00:00Z',
+              messages: [answered({ answerId: 'A-1', sessionId: 'S-1' }), processing()],
+            })
+          : problem(404, 'NOT_FOUND'),
+      ),
+    );
+    const s = await port().chat('S-1');
+    expect(s.messages.map((x) => x.state)).toEqual(['ANSWERED', 'PROCESSING']);
+    const e = await port()
+      .chat('S-X')
+      .catch((x: unknown) => x);
+    expect((e as ProblemFailure).problem.code).toBe('NOT_FOUND');
+  });
+
+  it('채팅 지우기 DELETE /assistant/chat-sessions/{id} — Idempotency-Key·X-Source-System, 204 는 성공', async () => {
+    const sent: Headers[] = [];
+    server.use(
+      http.delete('*/api/v1/assistant/chat-sessions/:sessionId', ({ request }) => {
+        sent.push(request.headers);
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    const key = IdempotencyKey.generate();
+    await expect(port().deleteChat('S-1', key)).resolves.toBeUndefined();
+    expect(sent[0]!.get('Idempotency-Key')).toBe(key.value);
+    expect(sent[0]!.get('X-Source-System')).toBe('backoffice-web');
   });
 });
 
 describe('업무 도우미 화면 + 실서버 어댑터', () => {
   const history = () =>
-    server.use(http.get('*/api/v1/assistant/question-history', () => HttpResponse.json({ items: [], page: { nextCursor: null, size: 20 } })));
+    server.use(http.get('*/api/v1/assistant/chat-sessions', () => HttpResponse.json({ items: [], page: { nextCursor: null, size: 20 } })));
 
   it('생성 답변: 목 표시 없이 답·근거를 보이고 "근거를 꼭 확인" 안내를 붙인다(기준선 안내는 없음)', async () => {
     history();

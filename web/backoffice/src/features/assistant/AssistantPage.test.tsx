@@ -8,20 +8,23 @@ import { as } from '../../test/render';
 import { createDraftAssistantMock, type DraftMockOptions, type DraftScenario } from './draftMock';
 import { isDisplayablePath } from './model';
 import { notConnectedAssistant, type AssistantPort } from './port';
-import { answerFromWire, historyFromWire, type AnswerWire } from './wire';
+import { answerFromWire, chatPageFromWire, type AnswerWire } from './wire';
 
 /** 목 + 보낸 키 기록 */
 function setup(opts: DraftMockOptions & { scenario?: DraftScenario } = {}) {
   const mock = createDraftAssistantMock({ ...opts, ...(opts.scenario ? { script: () => opts.scenario as DraftScenario } : {}) });
   const keys: string[] = [];
+  /** 질의마다 보낸 sessionId(없으면 null = 새 채팅) */
+  const sessions: Array<string | null> = [];
   const port: AssistantPort = {
     ...mock,
-    ask: (q, k) => {
+    ask: (q, k, s) => {
       keys.push(k.value);
-      return mock.ask(q, k);
+      sessions.push(s ?? null);
+      return mock.ask(q, k, s);
     },
   };
-  return { mock, port, keys };
+  return { mock, port, keys, sessions };
 }
 
 async function ask(question: string) {
@@ -31,10 +34,10 @@ async function ask(question: string) {
   return user;
 }
 
-/** 내 질문 목록 줄의 링크(줄 전체가 링크) — n 줄이 될 때까지 기다린다 */
-async function historyHrefs(n = 1) {
-  await waitFor(() => expect(screen.getAllByTestId('history-item')).toHaveLength(n));
-  return screen.getAllByTestId('history-item').map((li) => li.querySelector('a')?.getAttribute('href'));
+/** 내 채팅 목록 줄의 링크 — n 줄이 될 때까지 기다린다 */
+async function chatHrefs(n = 1) {
+  await waitFor(() => expect(screen.getAllByTestId('chat-item')).toHaveLength(n));
+  return screen.getAllByTestId('chat-item').map((li) => li.querySelector('a')?.getAttribute('href'));
 }
 
 const wireAnswer = (over: Partial<AnswerWire> = {}): AnswerWire => ({
@@ -61,7 +64,7 @@ const wireCitation = (path: string): AnswerWire['citations'][number] => ({
   excerpt: '본문',
 });
 
-describe('업무 도우미 (계약 1.1.0 목)', () => {
+describe('업무 도우미 (계약 1.3.0 목)', () => {
   it('정상 답변: 답변·근거 경로·절·버전·지위·생애·구현 기록·색인 시점을 보이고, 기준선·목 표시를 붙인다', async () => {
     const { port } = setup();
     render(<App memory initialPath="/assistant" initialToken={as.md} assistantPort={port} />);
@@ -88,10 +91,11 @@ describe('업무 도우미 (계약 1.1.0 목)', () => {
     // 근거 본문은 전문 그대로, 출처는 링크가 아니다(1차에 문서 열람 API 없음)
     expect(within(cites[0]!).getByTestId('excerpt')).toHaveTextContent('[목 청크] 반품 접수 기한');
     expect(within(cites[0]!).queryByRole('link')).not.toBeInTheDocument();
-    // 내 질문 목록(서버)에 남고, 답변 번호로 다시 연다
-    const row = await screen.findByTestId('history-item');
-    expect(within(row).getByRole('link')).toHaveAttribute('href', '/assistant/answers/ans-mock-1'); // 줄 전체가 다시 보기 링크
-    expect(within(row).getByText(/\[목 답변\]/)).toBeInTheDocument(); // 질문 원문 대신 답변 앞부분
+    // 새 채팅이 서버에 생겨 그 채팅 화면으로, 내 채팅 목록에 남는다(제목 = 원문 미저장이라 첫 답 앞부분)
+    const row = await screen.findByTestId('chat-item');
+    expect(within(row).getByRole('link')).toHaveAttribute('href', '/assistant/chats/chat-mock-1');
+    expect(within(row).getByTestId('chat-title')).toHaveTextContent('[목 답변]');
+    expect(screen.getByRole('link', { name: '답변 번호 ans-mock-1' })).toHaveAttribute('href', '/assistant/answers/ans-mock-1');
   });
 
   it('서버 답변의 HTML 은 실행·해석하지 않고 글자로 보인다', async () => {
@@ -164,7 +168,9 @@ describe('업무 도우미 (계약 1.1.0 목)', () => {
     expect(await screen.findByText('처리 결과를 확인하고 있어요')).toBeInTheDocument();
     expect(screen.queryByTestId('answer-text')).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: '같은 요청으로 결과 확인' }));
-    expect(await screen.findByTestId('answer-text')).toBeInTheDocument();
+    // 완료되면 새 채팅 주소로 옮겨 같은 답을 보인다
+    await screen.findByRole('link', { name: '답변 번호 ans-mock-1' });
+    expect(screen.getByTestId('answer-text')).toBeInTheDocument();
     expect(keys).toEqual([keys[0], keys[0]]);
     expect(mock.received).toHaveLength(1);
   });
@@ -176,10 +182,11 @@ describe('업무 도우미 (계약 1.1.0 목)', () => {
     expect(await screen.findByText('처리 결과를 확인하고 있어요')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: '같은 요청으로 결과 확인' }));
 
-    expect(await screen.findByTestId('answer-text')).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByTestId('chat-item').querySelector('a')).toHaveAttribute('aria-current', 'true'));
+    expect(screen.getByTestId('answer-text')).toBeInTheDocument();
     expect(keys).toEqual([keys[0], keys[0]]);
     expect(mock.received).toHaveLength(1); // 서버 처리는 한 번
-    expect(await historyHrefs()).toEqual(['/assistant/answers/ans-mock-1']);
+    expect(await chatHrefs()).toEqual(['/assistant/chats/chat-mock-1']);
   });
 
   it('중복 전송: 진행 중 다시 눌러도 한 번만 보낸다', async () => {
@@ -195,30 +202,28 @@ describe('업무 도우미 (계약 1.1.0 목)', () => {
     expect(mock.received).toHaveLength(1);
   });
 
-  it('내 질문 목록: 최근 순, 다음 페이지는 "더 보기"(서버 커서)', async () => {
+  it('내 채팅 목록: 마지막 질문 최근 순, 다음 페이지는 "더 보기"(서버 커서)', async () => {
     const { port } = setup({ pageSize: 1 });
     render(<App memory initialPath="/assistant" initialToken={as.md} assistantPort={port} />);
     const user = await ask('첫 질문');
     await screen.findByTestId('answer-text');
-    await user.click(screen.getByRole('button', { name: '새 질문' }));
-    await user.type(screen.getByRole('textbox', { name: '질문' }), '둘째 질문');
+    await user.click(screen.getByRole('link', { name: /새 채팅/ }));
+    await user.type(await screen.findByRole('textbox', { name: '질문' }), '둘째 질문');
     await user.click(screen.getByRole('button', { name: '질문 보내기' }));
     await screen.findByRole('link', { name: '답변 번호 ans-mock-2' });
 
-    expect(await historyHrefs()).toEqual(['/assistant/answers/ans-mock-2']);
-    expect(screen.getAllByTestId('history-item')).toHaveLength(1);
+    expect(await chatHrefs()).toEqual(['/assistant/chats/chat-mock-2']);
     await user.click(screen.getByRole('button', { name: '더 보기' }));
-    expect(await historyHrefs(2)).toEqual(['/assistant/answers/ans-mock-2', '/assistant/answers/ans-mock-1']);
-    expect(screen.getAllByTestId('history-item')).toHaveLength(2);
+    expect(await chatHrefs(2)).toEqual(['/assistant/chats/chat-mock-2', '/assistant/chats/chat-mock-1']);
     expect(screen.queryByRole('button', { name: '더 보기' })).not.toBeInTheDocument();
   });
 
-  it('내 질문 목록 조회 실패는 "기록 없음"이 아니라 오류로 보인다', async () => {
+  it('내 채팅 목록 조회 실패는 "채팅 없음"이 아니라 오류로 보인다', async () => {
     const { port } = setup();
-    const broken: AssistantPort = { ...port, history: () => Promise.reject(new Error('down')) };
+    const broken: AssistantPort = { ...port, chats: () => Promise.reject(new Error('down')) };
     render(<App memory initialPath="/assistant" initialToken={as.md} assistantPort={broken} />);
-    expect(await screen.findByRole('alert')).toHaveAttribute('data-state', 'error');
-    expect(screen.queryByText('아직 질문한 기록이 없어요.')).not.toBeInTheDocument();
+    expect(await within(await screen.findByTestId('chat-list')).findByRole('alert')).toHaveAttribute('data-state', 'error');
+    expect(screen.queryByText('아직 채팅이 없어요.')).not.toBeInTheDocument();
   });
 
   it('계정 전환: 이전 사용자의 질문·답변·목록을 화면에서 지운다', async () => {
@@ -226,15 +231,15 @@ describe('업무 도우미 (계약 1.1.0 목)', () => {
     render(<App memory initialPath="/assistant" initialToken={as.md} assistantPort={port} />);
     await ask('A 의 질문');
     expect(await screen.findByTestId('answer-text')).toBeInTheDocument();
-    expect(await screen.findByTestId('history-item')).toBeInTheDocument();
+    expect(await screen.findByTestId('chat-item')).toBeInTheDocument();
 
     act(() => {
       tokens.accessToken = as.approver;
     });
-    expect(await screen.findByText('아직 질문한 기록이 없어요.')).toBeInTheDocument();
+    expect(await screen.findByText('아직 채팅이 없어요.')).toBeInTheDocument();
     expect(screen.queryByText(/A 의 질문/)).not.toBeInTheDocument();
     expect(screen.queryByTestId('answer-text')).not.toBeInTheDocument();
-    expect(screen.queryByTestId('history-item')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('chat-item')).not.toBeInTheDocument();
     expect(screen.getByRole('textbox', { name: '질문' })).toHaveValue('');
   });
 
@@ -290,47 +295,104 @@ describe('업무 도우미 (계약 1.1.0 목)', () => {
   });
 });
 
-describe('업무 도우미 — 내 질문 목록에 질문 보이기(2026-11-19)', () => {
-  it('이 탭에서 물은 질문은 목록 제목으로, 오늘 묶음 아래, 방금 받은 답은 강조 — 답변 다시 보기에도 질문', async () => {
-    const { port } = setup();
+describe('업무 도우미 — 채팅 세션(1.3.0, 2026-11-21)', () => {
+  it('이어 묻기: 첫 질문은 sessionId 없이(새 채팅) → 그 채팅 화면, 다음 질문은 같은 sessionId 로 — 대화가 차례로 쌓인다', async () => {
+    const { port, sessions, mock } = setup();
     render(<App memory initialPath="/assistant" initialToken={as.md} assistantPort={port} />);
+    expect(screen.getByTestId('chat-retention')).toHaveTextContent('마지막 질문 뒤 14일이 지나면 자동으로 지워져요');
     const user = await ask('반품 기한은 며칠인가요?');
-    await screen.findByTestId('answer-text');
-    const row = await screen.findByTestId('history-item');
-    expect(within(row).getByTestId('history-question')).toHaveTextContent('반품 기한은 며칠인가요?');
-    expect(within(row).getByText(/\[목 답변\]/)).toBeInTheDocument(); // 답 앞부분은 아래 줄에
+    await screen.findByRole('link', { name: '답변 번호 ans-mock-1' });
+    expect(screen.getByRole('textbox', { name: '질문' })).toHaveValue(''); // 보낸 뒤 입력칸은 비운다
+    await user.type(screen.getByRole('textbox', { name: '질문' }), '그럼 교환은요?');
+    await user.click(screen.getByRole('button', { name: '질문 보내기' }));
+    await screen.findByRole('link', { name: '답변 번호 ans-mock-2' });
+
+    expect(sessions).toEqual([null, 'chat-mock-1']);
+    expect(mock.received).toHaveLength(2);
+    const turns = screen.getAllByTestId('chat-turn');
+    expect(turns).toHaveLength(2); // 방금 받은 답이 서버 대화와 겹쳐 두 번 보이지 않는다
+    expect(within(turns[0]!).getByTestId('chat-question')).toHaveTextContent('반품 기한은 며칠인가요?');
+    expect(within(turns[1]!).getByTestId('chat-question')).toHaveTextContent('그럼 교환은요?');
+    const row = await screen.findByTestId('chat-item');
+    await waitFor(() => expect(row).toHaveTextContent('질문 2개'));
     expect(within(row).getByRole('link')).toHaveAttribute('aria-current', 'true');
-    expect(screen.getByTestId('history-day')).toHaveTextContent('오늘');
-    await user.click(within(row).getByRole('link'));
-    expect(await screen.findByText('Q. 반품 기한은 며칠인가요?')).toBeInTheDocument(); // 답변 다시 보기 화면의 질문 말풍선
+    expect(screen.getByTestId('chat-day')).toHaveTextContent('오늘');
   });
 
-  it('다른 탭·예전 질문(이 탭에 기억 없음, 서버 question null)은 질문 글 없음이라 밝히고 답 앞부분으로', async () => {
+  it('채팅 지우기: 확인 상자("되돌릴 수 없어요") → 그만두기는 안 지움, 지우기 → 목록에서 빠지고 보던 채팅이면 새 채팅 화면', async () => {
+    const { port, mock } = setup();
+    let deleteKeys = 0;
+    const counted: AssistantPort = {
+      ...port,
+      deleteChat: (id, k) => {
+        deleteKeys += 1;
+        expect(k.value).toBeTruthy();
+        return mock.deleteChat(id, k);
+      },
+    };
+    render(<App memory initialPath="/assistant" initialToken={as.md} assistantPort={counted} />);
+    const user = await ask('지울 질문');
+    await screen.findByRole('link', { name: '답변 번호 ans-mock-1' });
+    const row = await screen.findByTestId('chat-item');
+    await user.click(within(row).getByRole('button', { name: /^채팅 지우기: / }));
+    const dialog = screen.getByRole('dialog', { name: '이 채팅을 지울까요?' });
+    expect(dialog).toHaveTextContent('지우면 되돌릴 수 없어요');
+    await user.click(within(dialog).getByRole('button', { name: '그만두기' }));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(deleteKeys).toBe(0);
+
+    await user.click(within(screen.getByTestId('chat-item')).getByRole('button', { name: /^채팅 지우기: / }));
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: '지우기' }));
+    expect(await screen.findByText('아직 채팅이 없어요.')).toBeInTheDocument();
+    await waitFor(() => expect(document.querySelector('[data-state="idle"]')).toBeInTheDocument()); // 새 채팅 화면
+    expect(within(screen.getByTestId('chat-thread')).queryByRole('alert')).not.toBeInTheDocument(); // 지운 채팅을 다시 읽어 404 가 보이지 않는다
+    expect(screen.queryByTestId('answer-text')).not.toBeInTheDocument();
+    expect(deleteKeys).toBe(1);
+    await expect(mock.chat('chat-mock-1')).rejects.toMatchObject({ problem: { code: 'NOT_FOUND' } });
+  });
+
+  it('없는·남의 채팅 주소는 오류로 보이고 "새 채팅"처럼 보이지 않으며, 그 채팅으로 질문을 보내지 않는다', async () => {
+    const { port, keys } = setup();
+    render(<App memory initialPath="/assistant/chats/chat-mock-999" initialToken={as.md} assistantPort={port} />);
+    const alert = await within(screen.getByTestId('chat-thread')).findByRole('alert');
+    expect(alert).toHaveAttribute('data-state', 'error');
+    expect(document.querySelector('[data-state="idle"]')).not.toBeInTheDocument();
+    await userEvent.setup().type(screen.getByRole('textbox', { name: '질문' }), '질문');
+    expect(screen.getByRole('button', { name: '질문 보내기' })).toBeDisabled();
+    expect(keys).toHaveLength(0);
+  });
+
+  it('질문 글: 서버 question(원문 저장)이 먼저 — 채팅 제목·말풍선 모두', async () => {
+    const { port } = setup({ storeQuestion: true });
+    render(<App memory initialPath="/assistant" initialToken={as.md} assistantPort={port} />);
+    await ask('서버에 저장된 질문');
+    await screen.findByRole('link', { name: '답변 번호 ans-mock-1' });
+    sessionStorage.clear(); // 탭 기억 없이도
+    expect(await screen.findByTestId('chat-title')).toHaveTextContent('서버에 저장된 질문');
+  });
+
+  it('질문 글을 모르면(서버 원문 미저장·이 탭에 기억 없음) "질문 글 없음"이라 밝힌다 — 답변 다시 보기도 같다', async () => {
     const { port } = setup();
     const { unmount } = render(<App memory initialPath="/assistant" initialToken={as.md} assistantPort={port} />);
     await ask('지워질 질문');
-    await screen.findByTestId('answer-text');
+    await screen.findByRole('link', { name: '답변 번호 ans-mock-1' });
     unmount();
     sessionStorage.clear(); // 새 탭
-    render(<App memory initialPath="/assistant" initialToken={as.md} assistantPort={port} />);
-    const row = await screen.findByTestId('history-item');
-    expect(within(row).getByTestId('history-question-unknown')).toHaveTextContent('질문 글 없음');
-    expect(within(row).queryByText('지워질 질문')).not.toBeInTheDocument();
+    render(<App memory initialPath="/assistant/chats/chat-mock-1" initialToken={as.md} assistantPort={port} />);
+    expect(await screen.findByTestId('chat-question-unknown')).toHaveTextContent('질문 글 없음');
+    expect(screen.queryByText(/지워질 질문/)).not.toBeInTheDocument();
   });
 
-  it('서버가 question 을 주면 서버 값이 먼저', async () => {
-    const { port } = setup();
-    const withQ: AssistantPort = {
-      ...port,
-      history: async (c) => {
-        const page = await port.history(c);
-        return { ...page, items: page.items.map((h) => ({ ...h, question: '서버에 저장된 질문' })) };
-      },
+  it('상품 안내(PRODUCT_INFO, 1.2.0): 근거 문서 없음이 정상 — "근거 없는 답변" 경고 대신 상품 안내 표시', async () => {
+    const port: AssistantPort = {
+      ...createDraftAssistantMock(),
+      ask: () => Promise.resolve(answerFromWire(wireAnswer({ state: 'PRODUCT_INFO', answerMode: 'PRODUCT_TEMPLATE', retrievalMode: 'NONE', answer: '사과 1.5kg 는 판매 중이에요.' }))),
     };
-    render(<App memory initialPath="/assistant" initialToken={as.md} assistantPort={withQ} />);
-    await ask('탭에서 물은 질문');
-    await screen.findByTestId('answer-text');
-    expect(await screen.findByTestId('history-question')).toHaveTextContent('서버에 저장된 질문');
+    render(<App memory initialPath="/assistant" initialToken={as.md} assistantPort={port} />);
+    await ask('사과 팔아요?');
+    expect(await screen.findByTestId('answer-text')).toHaveTextContent('사과 1.5kg');
+    expect(screen.getByTestId('product-info')).toHaveTextContent('상품 검색 결과');
+    expect(screen.queryByText('근거 문서가 붙지 않은 답변이에요. 확정 정보로 쓰지 마세요.')).not.toBeInTheDocument();
   });
 });
 
@@ -367,13 +429,15 @@ describe('업무 도우미 — 출처 경로·계약 대조', () => {
     expect(c.asOf).toEqual({ snapshotId: 'IDX-1', sourceRevision: null, sourceDirty: false, indexedAt: '2026-11-04T07:00:00Z' });
   });
 
-  it('질문 목록 변환: question 은 null 그대로, nextCursor 없으면 끝', () => {
-    const page = historyFromWire({
-      items: [{ answerId: 'a', requestId: 'k', state: 'ANSWERED', askedAt: '2026-11-04T07:10:00Z', question: null, answerPreview: '앞부분' }],
-      page: { nextCursor: null },
-    });
-    expect(page.items[0]).toMatchObject({ question: null, answerPreview: '앞부분', citationCount: null });
+  it('채팅 목록 변환: title 은 null 그대로, nextCursor 없으면 끝, 질문 수가 없으면 계약 위반', () => {
+    const item = { sessionId: 's1', title: null, questionCount: 2, createdAt: '2026-11-21T01:00:00Z', lastAskedAt: '2026-11-21T02:00:00Z' };
+    const page = chatPageFromWire({ items: [item], page: { nextCursor: null } });
+    expect(page.items[0]).toMatchObject({ sessionId: 's1', title: null, questionCount: 2 });
     expect(page.nextCursor).toBeNull();
+    expect(() => chatPageFromWire({ items: [{ ...item, questionCount: undefined as unknown as number }], page: { nextCursor: null } })).toThrow(/questionCount/);
+    // 답변의 sessionId·question(1.3.0)은 있으면 그대로, 없으면 null
+    expect(answerFromWire(wireAnswer({ sessionId: 's1', question: '원문' }))).toMatchObject({ sessionId: 's1', question: '원문' });
+    expect(answerFromWire(wireAnswer())).toMatchObject({ sessionId: null, question: null });
   });
 
   it('목의 멱등 규칙(_common IdempotencyKey): 같은 키·다른 질문은 409 IDEMPOTENCY_CONFLICT', async () => {
@@ -397,7 +461,7 @@ describe('업무 도우미 — 계정 전환 뒤 이전 답변', () => {
     const mine = await mock.ask('A 만의 질문', IdempotencyKey.generate());
     tokens.accessToken = as.approver;
     await expect(mock.get(mine.answerId)).rejects.toMatchObject({ problem: { code: 'NOT_FOUND' } });
-    expect((await mock.history()).items).toHaveLength(0);
+    expect((await mock.chats()).items).toHaveLength(0);
     tokens.accessToken = null;
 
     // 화면: A 로 답변을 연 뒤(캐시) B 로 바뀌면 그 답변 화면은 다시 조회해 오류로 보인다

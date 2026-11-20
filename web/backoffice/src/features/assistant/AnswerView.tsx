@@ -156,6 +156,11 @@ export function AnswerView({
               {m.assistant.baseline}
             </p>
           )}
+          {answer.state === 'PRODUCT_INFO' && (
+            <p role="note" data-testid="product-info" className="alert alert-info alert-soft text-xs">
+              {m.assistant.productInfo}
+            </p>
+          )}
           {answer.answerMode === 'GENERATIVE' && (
             <p role="note" data-testid="generative" className="alert alert-info alert-soft text-xs">
               {m.assistant.generative}
@@ -171,6 +176,7 @@ export function AnswerView({
           </div>
         </div>
       </div>
+      {answer.state === 'PRODUCT_INFO' && answer.citations.length === 0 ? null : (
       <div className="space-y-2 pl-11">
         <h2 className="flex items-center gap-2 text-sm font-semibold">
           {m.assistant.citations}
@@ -188,6 +194,7 @@ export function AnswerView({
           </ul>
         )}
       </div>
+      )}
     </article>
   );
 }

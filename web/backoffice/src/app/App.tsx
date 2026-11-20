@@ -430,6 +430,7 @@ const routes = [
       { path: 'riders/:riderId', element: guarded(<RiderDetailPage />) },
       { path: 'delivery-help-requests', element: <Navigate to="/cases?kind=RIDER_HELP" replace /> }, // 도움요청 대기는 사건함으로(백엔드 알림 2026-11-16 §3)
       { path: 'assistant', element: guarded(<AssistantPage />) },
+      { path: 'assistant/chats/:sessionId', element: guarded(<AssistantPage />) },
       { path: 'assistant/answers/:answerId', element: guarded(<AssistantAnswerPage />) },
     ],
   },

@@ -1,14 +1,14 @@
 // ⚠ 화면 개발·시험용 목. 실제 ai-assistant-service 동작이 아니다(실서버 모드는 httpAssistant).
-// - 계약 1.1.0 의 경로 의미(질의 200/202, answerId 다시 보기, 내 질문 목록)와 공통 규칙
+// - 계약 1.3.0 의 경로 의미(질의 200/202, answerId 다시 보기, 채팅 세션 목록·하나·삭제)와 공통 규칙
 //   (같은 Idempotency-Key·같은 본문 = 같은 결과, 같은 키·다른 본문 = 409 IDEMPOTENCY_CONFLICT, 403·404·422·503)만 흉내 낸다.
 // - 응답 본문은 생성 타입(AnswerWire)으로 만들고 wire.ts 로 바꾼다 — 실서버 어댑터와 같은 길.
-// - 질문 원문은 서버가 기본 저장하지 않는다(ADR-0036) → 목도 목록의 question 을 null 로 둔다.
+// - 질문 원문은 서버가 기본 저장하지 않는다(ADR-0036) → 목도 기본은 question null(storeQuestion 으로 켠다).
 import { tokens } from '../../api/client';
 import type { IdempotencyKey } from '../../api/command';
 import { type Problem, ProblemFailure, UnknownResultFailure } from '@pmart/web-core';
 import { parseOperatorToken } from '@pmart/web-core';
 import type { AssistantPort } from './port';
-import { answerFromWire, historyFromWire, type AnswerWire, type HistoryWire } from './wire';
+import { answerFromWire, chatPageFromWire, chatSessionFromWire, type AnswerWire, type ChatPageWire } from './wire';
 
 /** 목이 질문마다 고르는 결과. 화면 개발(dev 목 모드)은 질문의 꼬리표로, 테스트는 script 로 고른다. */
 export type DraftScenario =
@@ -26,8 +26,10 @@ export interface DraftMockOptions {
   readonly script?: (question: string) => DraftScenario;
   readonly delayMs?: number;
   readonly now?: () => Date;
-  /** 내 질문 목록 한 페이지 크기(계약 PageSize). */
+  /** 내 채팅 목록 한 페이지 크기(계약 PageSize). */
   readonly pageSize?: number;
+  /** 서버 원문 저장 설정(pmart.assistant.store-question) — 켜면 응답·채팅에 question 이 온다. 기본 꺼짐. */
+  readonly storeQuestion?: boolean;
 }
 
 /** dev 목 모드 꼬리표. 화면 안내에 같은 목록을 보인다. */
@@ -57,6 +59,7 @@ const AS_OF = { snapshotId: SNAPSHOT, sourceRevision: 'mock000', sourceDirty: fa
 interface Stored {
   readonly owner: string;
   readonly question: string;
+  readonly sessionId: string;
   wire: AnswerWire;
   /** processingOnce: 첫 응답은 202, 그다음부터 완료. */
   pendingDone?: AnswerWire;
@@ -74,15 +77,26 @@ export function createDraftAssistantMock(options: DraftMockOptions = {}): DraftM
   const pageSize = options.pageSize ?? 20;
   const byKey = new Map<string, Stored>(); // Idempotency-Key → 처리 결과
   const byId = new Map<string, Stored>();
-  const order: Stored[] = []; // 최근 순 목록용(앞이 최신)
+  /** 채팅 세션 — answers 는 질문 순. */
+  const sessions = new Map<string, { owner: string; createdAt: string; lastAskedAt: string; answers: Stored[] }>();
   const lostOnce = new Set<string>(); // 이미 한 번 응답을 잃은 키
   const received: { key: string; question: string }[] = [];
   let seq = 0;
+  let sessionSeq = 0;
+  const storeQuestion = options.storeQuestion ?? false;
 
   const wait = () => (delay > 0 ? new Promise<void>((r) => setTimeout(r, delay)) : Promise.resolve());
 
-  function compose(answerId: string, requestId: string, scenario: DraftScenario): AnswerWire {
-    const base = { answerId, requestId, askedAt: now().toISOString(), indexSnapshotId: SNAPSHOT, citations: [] };
+  function compose(answerId: string, requestId: string, scenario: DraftScenario, sessionId: string, question: string): AnswerWire {
+    const base = {
+      answerId,
+      requestId,
+      sessionId,
+      question: storeQuestion ? question : null,
+      askedAt: now().toISOString(),
+      indexSnapshotId: SNAPSHOT,
+      citations: [],
+    };
     if (scenario === 'noGrounding')
       return { ...base, state: 'NO_GROUNDING', answer: '허용된 문서에서 이 질문을 뒷받침할 근거를 찾지 못했습니다.', answerMode: 'NONE', retrievalMode: 'BASELINE_HASH' };
     if (scenario === 'realtime')
@@ -190,28 +204,42 @@ export function createDraftAssistantMock(options: DraftMockOptions = {}): DraftM
     mockHints: DEV_TAGS.map(([t]) => t),
     received,
 
-    async ask(question: string, key: IdempotencyKey) {
+    async ask(question: string, key: IdempotencyKey, sessionId?: string | null) {
       await wait();
       const owner = currentSubject();
       if (!owner) throw problem(401, 'UNAUTHORIZED');
       const saved = byKey.get(key.value);
       if (saved) {
-        // 멱등 재생: 같은 키·같은 본문 = 같은 결과(새로 만들지 않는다)
-        if (saved.question !== question || saved.owner !== owner) throw problem(409, 'IDEMPOTENCY_CONFLICT');
+        // 멱등 재생: 같은 키·같은 본문(+ 같은 채팅) = 같은 결과(새로 만들지 않는다)
+        if (saved.question !== question || saved.owner !== owner || (sessionId && sessionId !== saved.sessionId)) throw problem(409, 'IDEMPOTENCY_CONFLICT');
         return answerFromWire(settle(saved));
       }
+      // 이어 묻기: 본인 채팅만(없거나 남의 채팅 = 404)
+      const existing = sessionId ? sessions.get(sessionId) : undefined;
+      if (sessionId && (!existing || existing.owner !== owner)) throw problem(404, 'NOT_FOUND');
       const scenario = script(question);
       if (scenario === 'forbidden') throw problem(403, 'FORBIDDEN');
       if (scenario === 'configRequired') throw problem(422, 'CONFIG_REQUIRED');
       if (scenario === 'unavailable') throw new UnknownResultFailure(problem(503, 'DEPENDENCY_UNAVAILABLE', true).problem, 'mock-unavailable');
       received.push({ key: key.value, question });
       seq += 1;
-      const done = compose(`ans-mock-${seq}`, key.value, scenario);
+      const at = now().toISOString();
+      let sid = sessionId ?? null;
+      if (!sid) {
+        sessionSeq += 1;
+        sid = `chat-mock-${sessionSeq}`;
+        sessions.set(sid, { owner, createdAt: at, lastAskedAt: at, answers: [] });
+      }
+      const session = sessions.get(sid)!;
+      const done = compose(`ans-mock-${seq}`, key.value, scenario, sid, question);
       const stored: Stored =
-        scenario === 'processingOnce' ? { owner, question, wire: processing(done), pendingDone: done } : { owner, question, wire: done };
+        scenario === 'processingOnce'
+          ? { owner, question, sessionId: sid, wire: processing(done), pendingDone: done }
+          : { owner, question, sessionId: sid, wire: done };
       byKey.set(key.value, stored);
       byId.set(done.answerId, stored);
-      order.unshift(stored);
+      session.answers.push(stored);
+      session.lastAskedAt = at;
       if (scenario === 'lostOnce' && !lostOnce.has(key.value)) {
         lostOnce.add(key.value);
         throw new UnknownResultFailure('mock: 응답 유실', 'mock-lost');
@@ -228,28 +256,53 @@ export function createDraftAssistantMock(options: DraftMockOptions = {}): DraftM
       return answerFromWire(settle(saved));
     },
 
-    async history(cursor?: string) {
+    async chats(cursor?: string) {
       await wait();
       const owner = currentSubject();
       if (!owner) throw problem(401, 'UNAUTHORIZED');
-      const mine = order.filter((s) => s.owner === owner);
+      // 마지막 질문 최근 순(같은 시각이면 나중에 만든 채팅 먼저)
+      const mine = [...sessions.entries()].filter(([, v]) => v.owner === owner).reverse();
+      mine.sort((a, b) => b[1].lastAskedAt.localeCompare(a[1].lastAskedAt));
       const start = cursor ? Number(cursor) : 0;
       const slice = mine.slice(start, start + pageSize);
       const next = start + pageSize < mine.length ? String(start + pageSize) : null;
-      const wire: HistoryWire = {
-        items: slice.map(({ wire: w }) => ({
-          answerId: w.answerId,
-          requestId: w.requestId,
-          state: w.state,
-          question: null,
-          answerPreview: w.state === 'PROCESSING' ? null : w.answer.slice(0, 120),
-          answerMode: w.answerMode,
-          citationCount: w.citations.length,
-          askedAt: w.askedAt,
-        })),
+      const wire: ChatPageWire = {
+        items: slice.map(([sid, v]) => {
+          const first = v.answers[0];
+          const preview = first && first.wire.state !== 'PROCESSING' ? first.wire.answer.slice(0, 60) : null;
+          return {
+            sessionId: sid,
+            title: (storeQuestion ? first?.question : null) ?? (preview || null),
+            questionCount: v.answers.length,
+            createdAt: v.createdAt,
+            lastAskedAt: v.lastAskedAt,
+          };
+        }),
         page: { nextCursor: next, size: pageSize },
       };
-      return historyFromWire(wire);
+      return chatPageFromWire(wire);
+    },
+
+    async chat(sessionId: string) {
+      await wait();
+      const owner = currentSubject();
+      const v = sessions.get(sessionId);
+      // 남의 채팅은 있는지도 알리지 않는다
+      if (!owner || !v || v.owner !== owner) throw problem(404, 'NOT_FOUND');
+      return chatSessionFromWire({ sessionId, createdAt: v.createdAt, lastAskedAt: v.lastAskedAt, messages: v.answers.map((a) => a.wire) });
+    },
+
+    async deleteChat(sessionId: string) {
+      await wait();
+      const owner = currentSubject();
+      if (!owner) throw problem(401, 'UNAUTHORIZED');
+      const v = sessions.get(sessionId);
+      // 없거나 이미 지웠거나 남의 채팅이어도 204 — 남의 것은 지우지 않는다
+      if (!v || v.owner !== owner) return;
+      for (const a of v.answers) {
+        byId.delete(a.wire.answerId);
+      }
+      sessions.delete(sessionId);
     },
   };
 }

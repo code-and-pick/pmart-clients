@@ -1,20 +1,21 @@
 // 업무 도우미(정책·업무 절차 질의응답) 화면 모델.
-// 정본: contracts/openapi/ai-assistant-service.yaml 1.1.0(ADR-0036, BR-46 회신 2026-11-04). 서버 값을 그대로 보이고 지어내지 않는다.
+// 정본: contracts/openapi/ai-assistant-service.yaml 1.3.0(ADR-0036, 상품 답 1.2.0 ADR-0083, 채팅 세션 1.3.0 ADR-0084). 서버 값을 그대로 보이고 지어내지 않는다.
 // 인용의 지위(authority)·생애(lifecycleStatus)·구현 기록(implementationEvidence)은 서로 다른 축이라 따로 보인다.
 
 /** 계약 AnswerState 그대로. PROCESSING 은 202(처리 중)에서만 온다. */
-export type AnswerState = 'ANSWERED' | 'NO_GROUNDING' | 'REALTIME_DATA_REQUIRED' | 'OUT_OF_SCOPE' | 'FORBIDDEN_SCOPE' | 'PROCESSING';
+export type AnswerState = 'ANSWERED' | 'NO_GROUNDING' | 'REALTIME_DATA_REQUIRED' | 'OUT_OF_SCOPE' | 'FORBIDDEN_SCOPE' | 'PRODUCT_INFO' | 'PROCESSING';
 export const ANSWER_STATES: readonly AnswerState[] = [
   'ANSWERED',
   'NO_GROUNDING',
   'REALTIME_DATA_REQUIRED',
   'OUT_OF_SCOPE',
   'FORBIDDEN_SCOPE',
+  'PRODUCT_INFO', // 1.2.0 — 상품 검색 결과를 정해진 문장으로(근거 문서 없음)
   'PROCESSING',
 ];
 
-export type AnswerMode = 'GENERATIVE' | 'BASELINE_EXTRACTIVE' | 'NONE';
-export const ANSWER_MODES: readonly AnswerMode[] = ['GENERATIVE', 'BASELINE_EXTRACTIVE', 'NONE'];
+export type AnswerMode = 'GENERATIVE' | 'BASELINE_EXTRACTIVE' | 'PRODUCT_TEMPLATE' | 'NONE';
+export const ANSWER_MODES: readonly AnswerMode[] = ['GENERATIVE', 'BASELINE_EXTRACTIVE', 'PRODUCT_TEMPLATE', 'NONE'];
 export type RetrievalMode = 'SEMANTIC' | 'BASELINE_HASH' | 'NONE';
 export const RETRIEVAL_MODES: readonly RetrievalMode[] = ['SEMANTIC', 'BASELINE_HASH', 'NONE'];
 
@@ -51,6 +52,10 @@ export interface Citation {
 
 export interface AssistantAnswer {
   readonly answerId: string;
+  /** 이 질문이 속한 채팅(1.3.0). 예전 답변·다른 경로면 null. */
+  readonly sessionId: string | null;
+  /** 질문 원문(1.3.0, 서버 원문 저장 설정일 때만) — 없으면 null. */
+  readonly question: string | null;
   /** 질의 때의 Idempotency-Key. */
   readonly requestId: string;
   readonly state: AnswerState;
@@ -63,20 +68,27 @@ export interface AssistantAnswer {
   readonly askedAt: string;
 }
 
-/** 내 질문 목록 한 줄. 질문 원문은 기본 저장하지 않아 question 은 대개 null — answerPreview 로 구분한다. */
-export interface HistoryItem {
-  readonly answerId: string;
-  readonly requestId: string;
-  readonly state: AnswerState;
-  readonly question: string | null;
-  readonly answerPreview: string | null;
-  readonly citationCount: number | null;
-  readonly askedAt: string;
+/** 내 채팅 목록 한 줄(1.3.0). title = 첫 질문(원문 저장일 때) → 첫 답변 앞부분 → null. */
+export interface ChatSummary {
+  readonly sessionId: string;
+  readonly title: string | null;
+  readonly questionCount: number;
+  readonly createdAt: string;
+  /** 마지막 질문 시각 — 보존 기간(14일) 기준. */
+  readonly lastAskedAt: string;
 }
 
-export interface HistoryPage {
-  readonly items: readonly HistoryItem[];
+export interface ChatPage {
+  readonly items: readonly ChatSummary[];
   readonly nextCursor: string | null;
+}
+
+/** 채팅 하나 — messages 는 질문 순(처리 중이면 state PROCESSING). */
+export interface ChatSession {
+  readonly sessionId: string;
+  readonly createdAt: string;
+  readonly lastAskedAt: string;
+  readonly messages: readonly AssistantAnswer[];
 }
 
 /** 기준선(외부 모델 없음) — 파이프라인은 검증됐지만 의미 검색·생성 품질은 검증되지 않았다. */

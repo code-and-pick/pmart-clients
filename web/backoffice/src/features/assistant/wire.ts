@@ -1,4 +1,4 @@
-// 계약(생성 타입, ai-assistant-service 1.1.0) 응답 → 화면 모델. 목과 실서버 어댑터가 같이 쓴다.
+// 계약(생성 타입, ai-assistant-service 1.3.0) 응답 → 화면 모델. 목과 실서버 어댑터가 같이 쓴다.
 // 계약 필수 값이 없거나 enum 밖이면 빈 값으로 메우지 않고 계약 위반으로 던진다(화면은 오류로 보인다).
 import { ContractViolationFailure } from '@pmart/web-core';
 import type { components } from '../../api/generated/ai-assistant';
@@ -9,15 +9,17 @@ import {
   LIFECYCLE_STATUSES,
   RETRIEVAL_MODES,
   type AssistantAnswer,
+  type ChatPage,
+  type ChatSession,
+  type ChatSummary,
   type Citation,
-  type HistoryItem,
-  type HistoryPage,
 } from './model';
 
 type S = components['schemas'];
 export type AnswerWire = S['PolicyAnswer'];
 export type CitationWire = S['Citation'];
-export type HistoryWire = S['QuestionHistoryPage'];
+export type ChatPageWire = S['ChatSessionPage'];
+export type ChatSessionWire = S['ChatSession'];
 
 const text = (v: unknown): v is string => typeof v === 'string' && v.length > 0;
 const orNull = (v: unknown): string | null => (typeof v === 'string' ? v : null);
@@ -63,6 +65,8 @@ export function answerFromWire(w: AnswerWire, requestId?: string): AssistantAnsw
   if (!Array.isArray(w.citations)) throw new ContractViolationFailure('citations 없음', requestId);
   return {
     answerId: need(w.answerId, 'answerId', requestId),
+    sessionId: text(w.sessionId) ? w.sessionId : null,
+    question: text(w.question) ? w.question : null,
     requestId: need(w.requestId, 'requestId', requestId),
     state: oneOf(ANSWER_STATES, w.state, 'state', requestId),
     answer: typeof w.answer === 'string' ? w.answer : '',
@@ -74,20 +78,33 @@ export function answerFromWire(w: AnswerWire, requestId?: string): AssistantAnsw
   };
 }
 
-export function historyFromWire(w: HistoryWire, requestId?: string): HistoryPage {
-  if (!Array.isArray(w.items)) throw new ContractViolationFailure('items 없음', requestId);
+function count(v: unknown): number {
+  if (typeof v === 'number' && Number.isInteger(v) && v >= 0) return v;
+  throw new ContractViolationFailure(`items[].questionCount 값 이상: ${String(v)}`);
+}
+
+export function chatPageFromWire(w: ChatPageWire): ChatPage {
+  if (!Array.isArray(w.items)) throw new ContractViolationFailure('items 없음');
   return {
     items: w.items.map(
-      (i): HistoryItem => ({
-        answerId: need(i.answerId, 'items[].answerId', requestId),
-        requestId: need(i.requestId, 'items[].requestId', requestId),
-        state: oneOf(ANSWER_STATES, i.state, 'items[].state', requestId),
-        question: orNull(i.question),
-        answerPreview: orNull(i.answerPreview),
-        citationCount: typeof i.citationCount === 'number' ? i.citationCount : null,
-        askedAt: need(i.askedAt, 'items[].askedAt', requestId),
+      (i): ChatSummary => ({
+        sessionId: need(i.sessionId, 'items[].sessionId'),
+        title: text(i.title) ? i.title : null,
+        questionCount: count(i.questionCount),
+        createdAt: need(i.createdAt, 'items[].createdAt'),
+        lastAskedAt: need(i.lastAskedAt, 'items[].lastAskedAt'),
       }),
     ),
     nextCursor: text(w.page?.nextCursor) ? w.page.nextCursor : null,
+  };
+}
+
+export function chatSessionFromWire(w: ChatSessionWire): ChatSession {
+  if (!Array.isArray(w.messages)) throw new ContractViolationFailure('messages 없음');
+  return {
+    sessionId: need(w.sessionId, 'sessionId'),
+    createdAt: need(w.createdAt, 'createdAt'),
+    lastAskedAt: need(w.lastAskedAt, 'lastAskedAt'),
+    messages: w.messages.map((m) => answerFromWire(m)),
   };
 }
