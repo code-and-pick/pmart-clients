@@ -65,6 +65,7 @@ import { CaseBoard } from './CaseBoard';
 import { LayoutToggle } from '../../shared/Kanban';
 import { TableSettings } from '../../shared/TableSettings';
 import { useHelp } from '../../shared/HelpPanel';
+import { CopyButton } from '../../shared/CopyButton';
 
 type Case = components['schemas']['Case'];
 type InboxView = BffOps['getCaseInboxView']['responses'][200]['content']['application/json'];
@@ -1117,6 +1118,12 @@ export function CaseDetailPage() {
           <>
             {query.data?.kind ? <CodeLabel code={query.data.kind} names={m.cases.kindName} /> : m.cases.title}
             <span className="ml-2 font-mono text-xs font-normal text-base-content/45" data-testid="case-number">{query.data ? (query.data.caseNumber ?? m.displayNumber.missing) : ''}</span>
+            {/* 번호 옆 복사(2026-11-20 AWS 값 옆 복사 아이콘) — 화면 번호만(시스템 ID 아님) */}
+            {query.data?.caseNumber && (
+              <span className="ml-1 inline-flex align-middle text-base font-normal">
+                <CopyButton value={query.data.caseNumber} />
+              </span>
+            )}
           </>
         }
         back={{ to: '/cases', label: m.cases.back }}

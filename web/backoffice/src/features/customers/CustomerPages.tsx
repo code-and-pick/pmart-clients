@@ -19,6 +19,7 @@ import { messages } from '../../shared/messages';
 import { label, text, when, won } from '../../shared/ops';
 import { statusTone } from '../orders/OrderLookupPages';
 import { useHelp } from '../../shared/HelpPanel';
+import { CopyButton } from '../../shared/CopyButton';
 
 const m = messages.customers;
 type Detail = components['schemas']['ComposedView'] & components['schemas']['CustomerDetailView'];
@@ -154,6 +155,8 @@ function CustomerDetail({ d }: { readonly d: Detail }) {
         title={`${text(c.nameMasked)} · ${c.customerNumber ?? ''}`}
         badges={
           <>
+            {/* 고객번호 복사(2026-11-20 AWS 값 옆 복사) */}
+            {c.customerNumber && <CopyButton value={c.customerNumber} />}
             <StatusBadge tone={statusToneOf(c.status)}>{label(m.statusName, c.status)}</StatusBadge>
             {c.socialProvider && <span className="text-sm text-base-content/70">{label(m.providerName, c.socialProvider)}</span>}
           </>
