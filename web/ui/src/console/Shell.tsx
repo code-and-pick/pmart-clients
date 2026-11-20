@@ -31,6 +31,7 @@ export function ConsoleShell({
   onToggleMenu,
   expandLabel,
   collapseLabel,
+  navLabel = '메뉴',
   location,
   locationAside,
   banner,
@@ -43,9 +44,12 @@ export function ConsoleShell({
   readonly tools: ReactNode;
   readonly groups: readonly ConsoleNavGroup[];
   readonly collapsed: boolean;
-  readonly onToggleMenu: () => void;
-  readonly expandLabel: string;
-  readonly collapseLabel: string;
+  /** 없으면 접기 단추를 그리지 않는다(접지 않는 앱) */
+  readonly onToggleMenu?: (() => void) | undefined;
+  readonly expandLabel?: string;
+  readonly collapseLabel?: string;
+  /** 메뉴 nav 이름(읽기 도구·시험) */
+  readonly navLabel?: string;
   /** 위치 줄 — 보통 ConsoleBreadcrumb */
   readonly location?: ReactNode;
   /** 위치 줄 오른쪽(역할 꼬리표·도움말) */
@@ -70,14 +74,16 @@ export function ConsoleShell({
       <div className="flex min-w-0 flex-1">
         <aside className={`sticky top-0 flex h-screen shrink-0 flex-col self-start overflow-y-auto border-r border-base-300 bg-base-100 pb-11 text-base-content transition-[width] ${collapsed ? 'w-20' : 'w-[220px]'}`} data-testid="side-menu" data-collapsed={collapsed}>
           <div className={`flex h-10 shrink-0 items-center ${collapsed ? 'justify-center px-1' : 'justify-end px-2'}`}>
-            <button type="button" className="btn btn-ghost btn-sm h-8 w-8 p-0 text-base-content/70" onClick={onToggleMenu} aria-label={collapsed ? expandLabel : collapseLabel} title={collapsed ? expandLabel : collapseLabel}>
-              <svg viewBox="0 0 24 24" className="h-4 w-4 fill-none stroke-current" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                {collapsed ? <path d="m9 6 6 6-6 6M4 4v16" /> : <path d="m15 6-6 6 6 6M20 4v16" />}
-              </svg>
-            </button>
+            {onToggleMenu && (
+              <button type="button" className="btn btn-ghost btn-sm h-8 w-8 p-0 text-base-content/70" onClick={onToggleMenu} aria-label={collapsed ? expandLabel : collapseLabel} title={collapsed ? expandLabel : collapseLabel}>
+                <svg viewBox="0 0 24 24" className="h-4 w-4 fill-none stroke-current" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  {collapsed ? <path d="m9 6 6 6-6 6M4 4v16" /> : <path d="m15 6-6 6 6 6M20 4v16" />}
+                </svg>
+              </button>
+            )}
           </div>
           {collapsed ? (
-            <nav aria-label="메뉴" className="flex flex-1 flex-col items-center gap-1 py-2">
+            <nav aria-label={navLabel} className="flex flex-1 flex-col items-center gap-1 py-2">
               {groups.flatMap((g) => g.items).map((it) => (
                 <NavLink
                   key={it.to}
@@ -99,17 +105,22 @@ export function ConsoleShell({
               ))}
             </nav>
           ) : (
-            <nav aria-label="메뉴" className="flex-1 pb-3">
+            <nav aria-label={navLabel} className="flex-1 pb-3">
               {groups.map((g) => (
                 <div key={g.id} className="mb-2" data-testid={`nav-group-${g.id}`}>
-                  <p className="px-4 py-[5px] text-sm font-bold text-base-content">{g.label}</p>
+                  {/* 이름 없는 묶음(홈 등)은 제목 없이 */}
+                  {g.label && (
+                    <p className="px-4 py-[5px] text-sm font-bold text-base-content">
+                      <span data-group-label>{g.label}</span>
+                    </p>
+                  )}
                   <ul>
                     {g.items.map((it) => (
                       <li key={it.to}>
                         <NavLink
                           to={it.to}
                           end={it.end ?? true}
-                          className={({ isActive }) => `flex items-center justify-between gap-2 py-[5px] pl-7 pr-4 text-sm transition-colors ${isActive ? 'font-semibold text-primary' : 'text-base-content/80 hover:text-primary'}`}
+                          className={({ isActive }) => `flex items-center justify-between gap-2 py-[5px] ${g.label ? 'pl-7' : 'pl-4 font-bold'} pr-4 text-sm transition-colors ${isActive ? 'font-semibold text-primary' : g.label ? 'text-base-content/80 hover:text-primary' : 'text-base-content hover:text-primary'}`}
                         >
                           <span className="truncate">{it.label}</span>
                           {it.badge}

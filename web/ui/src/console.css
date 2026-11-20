@@ -433,3 +433,9 @@ main [data-list-part='head'] + [data-list-part] {
 .pm-stat-strip.pm-compact > * {
   flex-basis: 7.5rem;
 }
+
+/* 배지 글자는 줄바꿈하지 않는다(MFC 백오피스에서 옮김 2026-11-20) — 표 칸이 좁아지면 "재직"이 한 글자씩 세로로 꺾였다. 배지는 줄지 않고 칸이 넓어진다 */
+.badge {
+  white-space: nowrap;
+  flex-shrink: 0;
+}

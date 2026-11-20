@@ -1,4 +1,5 @@
 import { AppLauncher, UiTextProvider } from '@pmart/web-ui';
+import { ConsoleBreadcrumb, ConsoleShell, type ConsoleNavGroup } from '@pmart/web-ui/console';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ComponentType, ReactNode } from 'react';
 import { createBrowserRouter, createMemoryRouter, Link, Navigate, NavLink, Outlet, RouterProvider, useLocation, useParams } from 'react-router';
@@ -24,7 +25,6 @@ import { LoginCallbackPage, LoginPage } from '../features/session/LoginPage';
 import { SessionPage } from '../features/session/SessionPage';
 import { MyInfoPage } from '../features/me/MyInfoPage';
 import { messages as m } from '../shared/messages';
-import { GroupIcon } from './groupIcons';
 import { allMenus, centerPath, isWorkerOnly, navGroups, type MenuItem, type MenuKey } from './nav';
 import { ConnectionBanner, ShortcutHelp, TaskAlertBadge, useDocumentTitle, useSlashToSearch } from './PageChrome';
 import { RequireSession, SessionProvider, useSession } from './SessionContext';
@@ -53,105 +53,69 @@ function Layout() {
   const currentItem = currentGroup?.items.find((i) => i.segment === segment);
   useDocumentTitle(currentItem ? m.menus[currentItem.key] : null, showMenus && center?.mine ? center.mfcId : null);
   useSlashToSearch();
+  // 2026-11-20 웹 백오피스 맞추기 3단계: 쿠팡 윙(진한 남색 메뉴·data-skin=wing) → 공용 콘솔 틀(@pmart/web-ui/console ConsoleShell — 흰 머리줄·흰 메뉴·위치 줄)
+  const groups: ConsoleNavGroup[] = showMenus
+    ? navGroups.map((g) => ({
+        id: g.key,
+        // 홈 묶음은 제목 없이 맨 위(전과 같음)
+        label: g.key === 'overview' ? '' : m.groups[g.key],
+        items: g.items.map((item) => ({
+          to: centerPath(target, item.segment),
+          label: m.menus[item.key],
+          end: false,
+          ...(item.key === 'tasks' && center?.mine ? { badge: <TaskAlertBadge mfcId={center.mfcId} /> } : {}),
+        })),
+      }))
+    : [];
   return (
-    <div className="flex min-h-screen bg-base-200">
-      <aside className="sticky top-0 flex h-screen w-60 shrink-0 flex-col self-start overflow-y-auto bg-neutral text-neutral-content" data-testid="side-menu">
-        <div className="flex h-14 shrink-0 items-center border-b border-neutral-content/10 px-5">
-          <Link to="/" className="flex min-w-0 items-center gap-2 font-bold text-neutral-content" aria-label={m.goHome}>
-            {/* 로고 배지(통합·라이더 백오피스와 같게) */}
-            <span className="grid h-7 w-7 shrink-0 place-items-center rounded-md bg-accent text-sm text-accent-content" aria-hidden="true">
-              P
-            </span>
-            <span className="truncate text-[15px]">{m.appTitle}</span>
-          </Link>
-        </div>
-        {showMenus && (
-          <nav aria-label={m.nav.menu} className="flex-1 py-3">
-            {navGroups.map((g) =>
-              g.key === 'overview' ? (
-                g.items.map((item) => (
-                  <NavLink
-                    key={item.key}
-                    to={centerPath(target, item.segment)}
-                    className={({ isActive }) =>
-                      `mx-2 mb-2 flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-[15px] font-bold transition-colors ${isActive ? 'bg-primary text-primary-content' : 'text-neutral-content/85 hover:bg-neutral-content/10'}`
-                    }
-                  >
-                    <GroupIcon id="dashboard" className="h-5 w-5 shrink-0" />
-                    {m.menus[item.key]}
-                  </NavLink>
-                ))
-              ) : (
-                <section key={g.key} className="mx-2 mb-1" data-testid={`nav-group-${g.key}`}>
-                  <p className={`flex items-center gap-2.5 px-3 py-2 text-[15px] font-bold ${currentGroup?.key === g.key ? 'text-neutral-content' : 'text-neutral-content/60'}`}>
-                    <GroupIcon id={g.key} className="h-5 w-5 shrink-0" />
-                    <span data-group-label>{m.groups[g.key]}</span>
-                  </p>
-                  <ul className="pb-2">
-                    {g.items.map((item) => (
-                      <li key={item.key}>
-                        <NavLink
-                          to={centerPath(target, item.segment)}
-                          className={({ isActive }) =>
-                            `my-0.5 flex items-center gap-1 rounded-md py-1.5 pl-10 pr-3 text-sm transition-colors active:scale-[0.98] ${isActive ? 'bg-primary font-semibold text-primary-content' : 'text-neutral-content/75 hover:bg-neutral-content/10 hover:text-neutral-content'}`
-                          }
-                        >
-                          {m.menus[item.key]}
-                          {item.key === 'tasks' && center?.mine && <TaskAlertBadge mfcId={center.mfcId} />}
-                        </NavLink>
-                      </li>
-                    ))}
-                  </ul>
-                </section>
-              ),
-            )}
-          </nav>
-        )}
-      </aside>
-      <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-10 flex h-14 shrink-0 items-center gap-3 border-b border-base-300 bg-base-100 px-6">
-          <p className="truncate text-sm text-base-content/60" data-testid="page-title">
-            {currentItem && currentGroup ? (
-              currentGroup.key === 'overview' ? (
-                <span className="font-semibold text-base-content">{m.menus[currentItem.key]}</span>
-              ) : (
-                <>
-                  {m.groups[currentGroup.key]} <span className="px-1 text-base-content/30">›</span>
-                  <span className="font-semibold text-base-content">{m.menus[currentItem.key]}</span>
-                </>
-              )
-            ) : null}
-          </p>
-          {session && session.roles.length > 0 && (
-            <span className="badge badge-ghost badge-sm" data-testid="role-chip">
-              {session.roles.includes('MFC_SUPERVISOR') ? m.roleChip.supervisor : session.roles.join(', ')}
-            </span>
-          )}
-          <div className="ml-auto flex items-center gap-2 text-sm">
-            {session && center?.mine && <CenterSwitcher centers={session.centers} current={center.mfcId} segment={segment} />}
-            {env.isMock && <span className="badge badge-accent badge-sm">{m.mockBadge}</span>}
-            <ShortcutHelp />
-            {session && (
-              <NavLink to="/me" className={({ isActive }) => `btn btn-ghost btn-xs font-normal ${isActive ? 'btn-active' : ''}`}>
-                {m.nav.me}
-              </NavLink>
-            )}
-            <NavLink to={session ? '/session' : '/login'} className={({ isActive }) => `btn btn-ghost btn-xs font-normal ${isActive ? 'btn-active' : ''}`}>
-              {session ? m.nav.session : m.nav.login}
+    <ConsoleShell
+      title={m.appTitle}
+      homeLabel={m.goHome}
+      groups={groups}
+      collapsed={false}
+      navLabel={m.nav.menu}
+      location={
+        <ConsoleBreadcrumb
+          {...(currentGroup && currentGroup.key !== 'overview' && currentGroup.items[0] && target ? { group: { label: m.groups[currentGroup.key], to: centerPath(target, currentGroup.items[0].segment) } } : {})}
+          {...(currentItem ? { current: m.menus[currentItem.key] } : {})}
+        />
+      }
+      locationAside={
+        session && session.roles.length > 0 ? (
+          <span className="badge badge-ghost badge-sm" data-testid="role-chip">
+            {session.roles.includes('MFC_SUPERVISOR') ? m.roleChip.supervisor : session.roles.join(', ')}
+          </span>
+        ) : undefined
+      }
+      banner={
+        <>
+          {/* 상세 제목 띠 자리 — 상세를 내리면 얇은 제목 띠가 여기에 붙는다 */}
+          <div id={DETAIL_BAR_SLOT} className="sticky top-0 z-[9]" />
+          <ConnectionBanner />
+        </>
+      }
+      tools={
+        <>
+          {session && center?.mine && <CenterSwitcher centers={session.centers} current={center.mfcId} segment={segment} />}
+          {env.isMock && <span className="badge badge-accent badge-sm">{m.mockBadge}</span>}
+          <ShortcutHelp />
+          {session && (
+            <NavLink to="/me" className={({ isActive }) => `btn btn-ghost btn-xs font-normal ${isActive ? 'btn-active' : ''}`}>
+              {m.nav.me}
             </NavLink>
-            {/* 직원 웹 앱 바꾸기(요청 all/2026-11-17-request-app-launcher §3-2) — 머리줄 맨 오른쪽, 통합·인사팀 백오피스와 같게. 링크만, 세션을 읽지 않는다 */}
-            <AppLauncher current="mfc-backoffice" />
-          </div>
-        </header>
-        <div id={DETAIL_BAR_SLOT} className="sticky top-14 z-[9]" />
-        <ConnectionBanner />
-        <main className="min-w-0 flex-1 space-y-4 p-6" data-skin="wing">
-          <div className="mx-auto max-w-7xl space-y-4">
-            <Outlet />
-          </div>
-        </main>
+          )}
+          <NavLink to={session ? '/session' : '/login'} className={({ isActive }) => `btn btn-ghost btn-xs font-normal ${isActive ? 'btn-active' : ''}`}>
+            {session ? m.nav.session : m.nav.login}
+          </NavLink>
+          {/* 직원 웹 앱 바꾸기 — 머리줄 맨 오른쪽, 통합·인사팀 백오피스와 같게 */}
+          <AppLauncher current="mfc-backoffice" />
+        </>
+      }
+    >
+      <div className="space-y-4">
+        <Outlet />
       </div>
-    </div>
+    </ConsoleShell>
   );
 }
 

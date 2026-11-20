@@ -38,21 +38,22 @@ export function StatCard({
   readonly onClick?: () => void;
 }) {
   const ch = useStatChange(value);
-  const valueCls = tone === 'error' ? 'text-error' : tone === 'warning' ? 'text-warning' : tone === 'info' ? 'text-primary' : '';
+  // 2026-11-20 공용 콘솔 모양: 색은 뜻만(경고·위험) — info 파랑 숫자는 글자색으로. 고른 칸은 띠가 아래 파란 줄(console.css)
+  const valueCls = tone === 'error' ? 'text-error' : tone === 'warning' ? 'text-[color-mix(in_oklab,var(--color-warning)_60%,var(--color-base-content))]' : '';
   // 가로형(지침 2 "이름은 왼쪽, 큰 숫자는 오른쪽") — 왼쪽 색 띠 없이 숫자 색으로만 구분
   const body = (
     <span className="flex items-start justify-between gap-3">
       <span className="min-w-0">
-        <span className="block text-sm font-semibold">{label}</span>
+        <span className="block text-sm text-base-content/70">{label}</span>
         {hint && <span className="mt-0.5 block text-[11px] text-base-content/50">{hint}</span>}
       </span>
-      <span className={`shrink-0 text-3xl font-bold leading-none tabular-nums ${value === '?' ? 'text-base-content/40' : valueCls}`} data-testid={testId ? `${testId}-value` : undefined}>
+      <span className={`pm-stat-value shrink-0 text-[28px] font-semibold leading-none tracking-tight ${value === '?' ? 'text-base-content/40' : valueCls}`} data-testid={testId ? `${testId}-value` : undefined}>
         {value}
         {ch.badge}
       </span>
     </span>
   );
-  const cls = `block min-h-20 w-full rounded-box border px-4 py-4 text-left ${active ? 'border-primary bg-primary/5' : 'border-base-300 bg-base-100'} ${ch.cls}`;
+  const cls = `pm-stat block min-h-20 w-full rounded-box border px-4 py-4 text-left ${active ? 'border-primary bg-primary/5' : 'border-base-300 bg-base-100'} ${ch.cls}`;
   return onClick ? (
     <button type="button" className={`${cls} transition hover:border-primary/60`} onClick={onClick} aria-pressed={active} data-testid={testId}>
       {body}
@@ -64,8 +65,8 @@ export function StatCard({
   );
 }
 
-/** 숫자 띠 — 공용(@pmart/web-ui StatStrip) 그대로 */
-export { StatStrip } from '@pmart/web-ui';
+/** 숫자 띠 — 공용 콘솔(@pmart/web-ui/console StatStrip, 2026-11-20): 한 상자·칸 사이 머리카락 선, 고른 칸(aria-pressed)은 아래 파란 줄 */
+export { StatStrip } from '@pmart/web-ui/console';
 
 /** 안내 상자 — 공용(@pmart/web-ui GuideBox, tone info·warning). 이 앱 시험이 찾는 testId 기본값만 둔다 */
 export function GuideBox(props: ComponentProps<typeof UiGuideBox>) {

@@ -1,91 +1,11 @@
 @import 'tailwindcss';
-/* 공용 움직임·겉모습(@pmart/web-ui, 2026-11-19 PC 2 — 2026-11-20 사본에서 바꿔 낌) */
+/* 글꼴 Pretendard(통합 백오피스와 같음) */
+@import 'pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css';
+/* 공용 움직임(@pmart/web-ui) */
 @import '../../ui/src/motion.css';
-@import '../../ui/src/wing.css';
 @plugin "daisyui";
 /* 공유 패키지(@pmart/web-ui)의 컴포넌트가 쓰는 클래스도 읽는다 */
 @source "../../ui/src";
 
-/* 통합 백오피스(web/backoffice)와 같은 테마(2026-11-19 사용자 "다른 통합 백오피스 앱 참조") — 흰 구역 상자 + 연회색 바탕,
-   진한 남색 왼쪽 메뉴(neutral), 동작은 파랑(primary), 표시·강조는 민트(accent). 색은 테마 변수로만(컴포넌트에 색 하드코딩 금지).
-   값은 web/backoffice/src/index.css 사본 — 이 앱에서 따로 고친다. 상태색은 옅은 배지 글자로도 읽히게 조금 진하게. */
-@plugin "daisyui/theme" {
-  name: 'pmart';
-  default: true;
-  color-scheme: light;
-  --color-primary: oklch(56% 0.2 262);
-  --color-primary-content: oklch(99% 0 0);
-  --color-accent: oklch(74% 0.12 188);
-  --color-accent-content: oklch(99% 0 0);
-  --color-neutral: oklch(26% 0.03 262);
-  --color-neutral-content: oklch(92% 0.01 262);
-  --color-base-100: oklch(100% 0 0);
-  --color-base-200: oklch(96.5% 0.004 262);
-  --color-base-300: oklch(90% 0.008 262);
-  --color-base-content: oklch(24% 0.02 262);
-  --color-info: oklch(58% 0.15 240);
-  --color-success: oklch(58% 0.15 160);
-  --color-warning: oklch(68% 0.16 70);
-  --color-error: oklch(58% 0.21 25);
-  --radius-box: 0.5rem;
-  --radius-field: 0.375rem;
-  --radius-selector: 1rem;
-}
-
-/* 상세 화면의 항목 목록(dl): 이름은 옅게, 줄 사이를 넓게(통합 백오피스와 같게) */
-main dl.grid > dt {
-  color: color-mix(in oklab, var(--color-base-content) 55%, transparent);
-}
-main dl.grid {
-  row-gap: 0.55rem;
-}
-
-/* 레이어 밖에 둔다 — daisyUI 컴포넌트 규칙보다 앞서게 */
-/* 상태 배지는 옅은 바탕 + 진한 글자(원색 칸이 눈을 끌지 않게). 외곽선·회색 배지는 그대로. */
-.badge:is(.badge-info, .badge-success, .badge-warning, .badge-error, .badge-accent, .badge-primary):not(.badge-outline) {
-  color: var(--badge-color);
-  background-color: color-mix(in oklab, var(--badge-color) 12%, var(--color-base-100));
-  border-color: color-mix(in oklab, var(--badge-color) 22%, var(--color-base-100));
-  background-image: none;
-  font-weight: 600;
-}
-
-/* 배지 글자는 줄바꿈하지 않는다 — 표 칸이 좁아지면 "재직"이 한 글자씩 세로로 꺾여 배지 상자 밖으로 넘쳤다(사용자 2026-11-20).
-   배지는 줄어들지 않고(칸이 대신 넓어진다) 높이도 글자에 맞춘다. */
-.badge {
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-
-/* 표: 머리글은 작은 회색, 줄 사이 옅은 선, 마우스를 올리면 옅게 */
-.table thead th {
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-}
-.table tbody tr:hover {
-  background-color: color-mix(in oklab, var(--color-primary) 4%, var(--color-base-100));
-}
-
-/* 흰 칸(카드·표·폼 묶음)에는 옅은 테두리 — 회색 바탕 위에서 경계가 보이게 */
-main .rounded-box.bg-base-100 {
-  border: 1px solid var(--color-base-300);
-}
-
-/* ---- 쿠팡 윙 겉모습은 공용 wing.css(위 @import). 아래는 이 앱에만 있는 덧붙임 ---- */
-/* 왼쪽 메뉴의 고른 메뉴·홈도 본문과 같은 파랑(지침 1-3) — wing.css 는 본문(main)에만 걸린다 */
-aside[data-testid='side-menu'] {
-  --color-primary: #346aff;
-  --color-primary-content: #fff;
-}
-/* 고른 숫자 카드·칩: 파랑 테두리 + 옅은 파랑(지침 1-1). 이 앱 숫자 카드는 거르기 단추라 aria-pressed 로 표시한다(공용은 aria-current) */
-:root:not([data-theme='pmart-dark']) [data-skin='wing'] [aria-pressed='true']:is(.rounded-box, .rounded-lg) {
-  border-color: #346aff;
-  background: #f0f5ff;
-  --tw-ring-color: transparent;
-}
-/* 색 단추(경고·위험·확인)는 흰 바탕으로 바꾸지 않는다 — 공용 wing.css 는 파랑·ghost 만 빼서, 격리·취소 같은 단추가 흰색이 된다 */
-:root:not([data-theme='pmart-dark']) [data-skin='wing'] .btn:is(.btn-warning, .btn-error, .btn-success):not(.btn-ghost):not(.btn-link) {
-  background-color: var(--btn-bg);
-  border-color: var(--btn-border);
-}
+/* 2026-11-20 웹 백오피스 맞추기 3단계: 쿠팡 윙(wing.css)·자체 테마·윙 덧붙임 대신 공용 콘솔(AWS 모양) 테마·겉모습 — 통합 백오피스와 같다 */
+@import '../../ui/src/console.css';
