@@ -5,7 +5,9 @@
   "description": "웹 앱 공통 화면 부품(UiState 표시·명령 결과·공통 문구). 빌드 없이 소스(src/index.ts)를 앱이 직접 묶는다. Tailwind 클래스는 앱의 index.css 가 @source 로 읽는다.",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./console": "./src/console/index.ts",
+    "./console.css": "./src/console.css"
   },
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json",
@@ -17,7 +19,9 @@
   },
   "peerDependencies": {
     "@tanstack/react-query": "^5.104.5",
-    "react": "^19.3.1"
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "react-router": "^8.5.0"
   },
   "devDependencies": {
     "@testing-library/dom": "^10.4.2",

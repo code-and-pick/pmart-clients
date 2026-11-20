@@ -33,6 +33,8 @@ import { GroupAlertBadge, MenuAlertLegend, MenuGroupAlert, MenuItemAlerts } from
 import { NavRail } from './NavRail';
 import { AlertsAutoRefresh } from './AlertsAutoRefresh';
 import { LiveClock, RoleChips } from './HeaderContext';
+import { SectionMenuContext } from '../shared/admin';
+import { WidgetMenuButton } from '../shared/WidgetMenu';
 
 // 화면은 열 때 받는다(2026-11-19 — 앱 전체가 파일 하나라 첫 화면이 느렸다). 로그인·세션·대시보드·업무 도우미 틀은 처음부터.
 const ApprovalDetailPage = lazy(() => import('../features/approvals/ApprovalDetailPage').then((x) => ({ default: x.ApprovalDetailPage })));
@@ -221,6 +223,8 @@ function Layout() {
     // 화면 틀(2026-11-20 AWS 개편 2단계, ADR-0004 · docs/apps/backoffice-ui-guide.md §2):
     // 맨 위 전체 폭 흰 머리줄(로고 · 번호 찾기 · 도구 · 내 세션 · 앱 바꾸기) → 그 아래 흰 왼쪽 메뉴 | 위치 줄(묶음 / 메뉴) + 본문.
     <HelpProvider>
+    {/* 구역 상자 오른쪽 위 메뉴 = 대시보드 위젯 ⋮(공용 Section 이 그린다 — 위젯 밖이면 스스로 안 그림) */}
+    <SectionMenuContext.Provider value={<WidgetMenuButton />}>
     <div className="flex min-h-screen flex-col bg-base-200">
       <ScrollToTopOnNavigate />
       <header className="flex h-11 shrink-0 items-center gap-3 border-b border-base-300 bg-base-100 px-4">
@@ -332,6 +336,7 @@ function Layout() {
         <HelpPanelSlot />
       </div>
     </div>
+    </SectionMenuContext.Provider>
     </HelpProvider>
   );
 }
