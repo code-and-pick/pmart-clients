@@ -11,13 +11,14 @@ import { as, renderAt } from '../../test/render';
 const MESSAGES = `${API_BASE}/deliveries/DLV-MOCK-1/help-requests/HLP-MOCK-1/messages`;
 
 describe('라이더 도움요청 대화', () => {
-  it('라이더 메시지(사진 번호)를 보이고, 답장은 같은 줄기에 지원센터로 붙는다', async () => {
+  it('라이더 메시지(사진은 장수만 — 사진 ID 는 시스템 값)를 보이고, 답장은 같은 줄기에 지원센터로 붙는다', async () => {
     const view = renderAt('/cases/CASE-MOCK-1', as.riderOps);
     const chat = await screen.findByTestId('help-chat');
     const first = within(chat).getByTestId('help-message');
     expect(first).toHaveAttribute('data-sender', 'RIDER');
     expect(first).toHaveTextContent('문 앞에 두고 가도 될까요?');
-    expect(first).toHaveTextContent('사진 PHOTO-MOCK-1');
+    expect(first).toHaveTextContent('사진 1장');
+    expect(first).not.toHaveTextContent('PHOTO-MOCK');
 
     await userEvent.type(screen.getByLabelText('라이더에게 답장(1~1,000자)'), '문 앞에 두고 사진 남겨 주세요.');
     await userEvent.click(screen.getByRole('button', { name: '답장 보내기' }));

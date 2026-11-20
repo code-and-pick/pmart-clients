@@ -189,7 +189,7 @@ export function HelpChat({
                     ) : (
                       <p className="whitespace-pre-wrap">{x.body}</p>
                     )}
-                    {(x.photoRefs ?? []).length > 0 && <p className="text-xs text-base-content/60">{m.photos((x.photoRefs ?? []).join(', '))}</p>}
+                    {(x.photoRefs ?? []).length > 0 && <p className="text-xs text-base-content/60">{m.photoCount((x.photoRefs ?? []).length)}</p>}
                     {admin && !x.masked && <MaskMessage deliveryId={deliveryId} requestId={requestId} messageId={x.messageId} onDone={reload} />}
                   </div>
                 </li>

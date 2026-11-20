@@ -1040,7 +1040,8 @@ function HelpRequestOfCase({ c }: { readonly c: Case }) {
                 </div>
                 <div className="sm:col-span-2">
                   <dt>{m.helpQueue.photos}</dt>
-                  <dd className="break-all">{(h.evidenceRefs ?? []).join(', ') || m.none}</dd>
+                  {/* 사진 참조(PHOTO-…)는 시스템 값이라 장수만(2026-11-20) */}
+                  <dd>{(h.evidenceRefs ?? []).length > 0 ? m.helpChat.photoCount((h.evidenceRefs ?? []).length) : m.none}</dd>
                 </div>
               </dl>
             </div>

@@ -17,6 +17,7 @@ import type { components } from '../../api/generated/rider';
 import { useApi } from '../../app/ApiContext';
 import { CommandFeedback } from '../../shared/Feedback';
 import { messages as m } from '../../shared/messages';
+import { SystemNumbers } from '../../shared/displayNumber';
 import { label, text, when } from '../../shared/ops';
 import { DeliveriesOf } from '../deliveries/DeliveryPages';
 import { RiderComplaintTable } from '../riderComplaints/RiderComplaintPages';
@@ -156,7 +157,8 @@ export function RiderDetailPage() {
         title={
           <>
             {detail.data?.nameMasked ? detail.data.nameMasked : m.riders.detailTitle}
-            <span className="ml-2 font-mono text-xs font-normal text-base-content/45">{`${m.riders.detailTitle} ${riderId}`}</span>
+            {/* 번호는 라이더 번호(rider riderNumber) — 시스템 ID(RD-…)는 아래 시스템 번호 칸에만(2026-11-20) */}
+            {detail.data?.riderNumber && <span className="ml-2 font-mono text-xs font-normal text-base-content/45">{detail.data.riderNumber}</span>}
           </>
         }
         actions={
@@ -168,6 +170,7 @@ export function RiderDetailPage() {
       <Notice>
         <span data-testid="rider-ops-moved">{m.riders.moved}</span>
       </Notice>
+      <SystemNumbers ids={[{ label: m.riders.detailTitle, id: riderId }]} />
       <QueryState state={toUiState(detail)} onRetry={() => void detail.refetch()}>
         {(r) => <RiderBasic key={r.riderId} rider={r} />}
       </QueryState>

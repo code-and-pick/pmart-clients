@@ -602,6 +602,7 @@ export const messages = {
     rider: '라이더',
     support: '지원센터',
     photos: (refs: string) => `사진 ${refs}`,
+    photoCount: (n: number) => `사진 ${n}장`,
     replyLabel: '라이더에게 답장(1~1,000자)',
     reply: '답장 보내기',
     sent: '보냈어요.',

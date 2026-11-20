@@ -487,7 +487,16 @@ export function OrderDetailPage() {
             />
             {/* 보던 목록 순서대로 이전·다음(2026-11-19) */}
             <QueueNav kind="order" id={orderId} />
-            <SystemNumbers ids={[{ label: m.displayNumber.system.orderId, id: orderId }, { label: m.displayNumber.system.customerId, id: query.data?.customerId }]} />
+            {/* 결제 시도·PG 거래 ID 도 여기에만(2026-11-20 사용자 "pay-…·TEST_AUTO_pay-… 는 상세에만" — 금액 칸에서 뺌) */}
+            <SystemNumbers
+              ids={[
+                { label: m.displayNumber.system.orderId, id: orderId },
+                { label: m.displayNumber.system.customerId, id: query.data?.customerId },
+                { label: m.orders.paymentAttemptId, id: query.data?.payment.paymentAttemptId },
+                { label: m.orders.pgTransactionId, id: query.data?.payment.pgTransactionId },
+                { label: m.orders.version, id: query.data?.version === undefined ? null : String(query.data.version) },
+              ]}
+            />
             {/* 주문 진행 단계(2026-11-18 Refine 참고) — 서버 상태를 계약 상태표 순서대로 */}
             <OrderProgress status={o.status} />
             {cancelOpen && o.status === 'CONFIRMED' && <OrderCancelForm order={o} onClose={() => setCancelOpen(false)} />}
@@ -540,16 +549,6 @@ export function OrderDetailPage() {
                     <div className="my-1.5 border-t border-base-300" />
                     <AmountRow name={m.orders.totalAmount} value={won(o.amounts.totalAmount)} strong />
                     <AmountRow name={m.orders.approvedAmount} value={won(o.amounts.approvedAmount)} strong />
-                    <div className="mt-3 grid gap-2 rounded-box bg-base-200/60 px-3 py-2 text-xs sm:grid-cols-2">
-                      <p>
-                        <span className="text-base-content/50">{`${m.orders.paymentAttemptId} `}</span>
-                        <span className="break-all font-mono">{o.payment.paymentAttemptId}</span>
-                      </p>
-                      <p>
-                        <span className="text-base-content/50">{`${m.orders.pgTransactionId} `}</span>
-                        <span className="break-all font-mono">{text(o.payment.pgTransactionId)}</span>
-                      </p>
-                    </div>
                   </div>
                 </Section>
 
@@ -603,7 +602,6 @@ export function OrderDetailPage() {
                       [m.orders.shipments, text(o.plannedShipments)],
                       [m.orders.oosPreference, label(m.orders.oos, o.outOfStockPreference)],
                       [m.orders.weight, o.weightG === undefined ? m.none : `${o.weightG}g`],
-                      [m.orders.version, o.version],
                     ]}
                   />
                   <p className="mt-4 border-t border-base-300 pt-3 text-xs text-base-content/55">{m.orders.noCancelShort}</p>

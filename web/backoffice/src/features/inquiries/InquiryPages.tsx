@@ -24,7 +24,7 @@ import { canSeeIntakes, CsIntakeLog } from '../csIntakes/CsIntakePages';
 import { InquiryPhotos } from './InquiryPhotos';
 import { ago, Avatar, Card, EmptyBox, Icon, ICON, MetaList } from './HelpdeskParts';
 import { CodeLabel, DetailHeader, NextAction, PageHeader, StatusBadge, type Tone, StatCard, StatStrip, AllDone } from '../../shared/admin';
-import { DisplayNumber, RiderLabel } from '../../shared/displayNumber';
+import { DisplayNumber, RiderLabel, SystemNumbers } from '../../shared/displayNumber';
 import { useDeliveryNumber, useOrderNumbers, useRiderLabels } from '../../shared/numberLookups';
 import { SavedViews } from '../../shared/SavedViews';
 import { LeaveGuard } from '../../shared/LeaveGuard';
@@ -579,6 +579,8 @@ export function InquiryDetailPage({ kind = 'CUSTOMER' }: { readonly kind?: Reque
     <section className="space-y-4">
       {/* 보던 목록 순서대로 이전·다음(2026-11-19) */}
       <QueueNav kind={kind === 'RIDER' ? 'riderInquiry' : 'inquiry'} id={inquiryId} />
+      {/* 고객 계정 ID 는 여기에만(2026-11-20 "시스템 값은 상세에만") — 고객 번호는 bff 고객 메뉴(0.22.0)가 들어오면 */}
+      <SystemNumbers ids={[{ label: m.inquiries.customer, id: query.data?.customerId }]} />
       <QueryState state={toUiState(query)} onRetry={() => void query.refetch()}>
         {(q) => {
           const riderAsk = q.requesterType === 'RIDER';
@@ -734,7 +736,6 @@ export function InquiryDetailPage({ kind = 'CUSTOMER' }: { readonly kind?: Reque
                     <Card title={m.inquiries.sectionCustomer} icon={ICON.bag}>
                       <MetaList
                         rows={[
-                          [m.inquiries.customer, <span className="font-mono text-xs">{q.customerId ?? m.none}</span>],
                           [
                             m.inquiries.order,
                             q.orderId ? (
