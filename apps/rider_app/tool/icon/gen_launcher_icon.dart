@@ -1,4 +1,5 @@
-// 픽라이더 앱 아이콘 만들기(사용자 2026-11-20 로고 — 여섯 번째 안, 헬멧 쓴 라이더 스쿠터 · 보라 그라데이션). 원본: tool/icon/pick_rider_icon.png
+// 픽라이더 앱 아이콘 만들기(사용자 2026-11-20 로고 — 일곱 번째 안, 헬멧 라이더·배달통 스쿠터·속도선 · 보라 그라데이션). 원본: tool/icon/pick_rider_icon.png
+// (받은 그림이 흰 바탕 JPG 라 보라 둥근 사각만 잘라 정사각으로 맞추고 바깥 흰색을 투명으로 바꾼 PNG 를 원본으로 둔다.)
 // 실행(이 앱 밖 임시 프로젝트에서 package:image 로): dart run gen_launcher_icon.dart <원본> <android/app/src/main/res>
 // - mipmap-*/ic_launcher.png: 정리한 그림에 둥근 사각(반지름 22%)을 새로 씌움 — 적응형을 안 쓰는 런처.
 // - mipmap-*/ic_launcher_foreground.png + mipmap-anydpi-v26/ic_launcher.xml: 적응형 아이콘. 런처가 모양(원·둥근 사각)을
