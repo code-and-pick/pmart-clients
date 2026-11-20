@@ -127,6 +127,26 @@ function seed(): Case[] {
         { action: 'RECURRED', at: at(-0.1), actorId: 'SYSTEM', note: '3번째 — NO_RIDER' },
       ],
     }),
+    // case 0.31.0 품질 사고 고객 영향(CS-MFC-Q) — 상담원 팀(CS), 지원센터에는 안 보임. 주문 ORD-MOCK-1003 으로 품질 사고(파손) LOT 이 나감
+    base({
+      caseId: 'CASE-MOCK-Q1',
+      kind: 'MFC_QUALITY_IMPACT',
+      // 최근 활동 8건을 밀어내지 않게 6일 전에 열린 것으로(다른 시험이 문의를 본다). 기한은 표시만이라 지나지 않게 둔다
+      openedAt: at(-24 * 6),
+      history: [{ action: 'OPENED', at: at(-24 * 6), toState: 'OPEN', actorId: 'SYSTEM' }],
+      priority: 'P2',
+      summary: '품질 사고(파손) 상품이 이 주문으로 나감 — SKU 1개 · 고객 연락·환불 판단',
+      subjectType: 'ORDER',
+      subjectRef: 'ORD-MOCK-1003',
+      assigneeGroup: 'CS',
+      centerId: 'MFC-BSN-01',
+      refs: [
+        { refType: 'incidentId', refId: 'QI-MOCK-1' },
+        { refType: 'orderId', refId: 'ORD-MOCK-1003' },
+        { refType: 'lotId', refId: 'LOT-MOCK-7' },
+      ],
+      slaDueAt: at(1),
+    }),
     // case 0.27.0 배차 지연(R-9) — 상담원 팀(CS), 지원센터에는 안 보임. 주문 ORD-MOCK-1005(확정 — 배차 불가 취소 가능)
     base({
       caseId: 'CASE-MOCK-R9',

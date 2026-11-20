@@ -16,7 +16,7 @@ import { Insight, KpiCell, KpiStrip, Meter } from '../../app/Charts';
 const m = messages.caseMetrics;
 type Kind = components['schemas']['CaseKind'];
 /** 사건함(/cases)에서 거를 수 있는 종류 — 그 밖(문의 사건 등)은 링크 없이 숫자만 */
-const LISTABLE: readonly Kind[] = ['RIDER_HELP', 'DELIVERY_INCIDENT', 'RIDER_LOCATION_STALE', 'MISDELIVERY', 'DISPATCH_FAILED', 'RECONCILIATION', 'PAYMENT_UNKNOWN'];
+const LISTABLE: readonly Kind[] = ['RIDER_HELP', 'DELIVERY_INCIDENT', 'RIDER_LOCATION_STALE', 'MISDELIVERY', 'DISPATCH_FAILED', 'RECONCILIATION', 'PAYMENT_UNKNOWN', 'RETURN_RECOVERY_FAILED', 'DISPATCH_DELAYED', 'MFC_QUALITY_IMPACT'];
 const REFRESH_MS = 60_000;
 
 function Count({ n, to, danger = false, testId }: { readonly n: number; readonly to?: string | undefined; readonly danger?: boolean; readonly testId?: string }) {

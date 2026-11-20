@@ -523,6 +523,7 @@ export const messages = {
       PAYMENT_UNKNOWN: '결제 결과 불명',
       RETURN_RECOVERY_FAILED: '반품 회수 실패',
       DISPATCH_DELAYED: '배차 지연',
+      MFC_QUALITY_IMPACT: '품질 사고 고객 영향',
       // 계약 CaseKind 의 나머지(2026-11-18 코드 이름 — 지금 열리지 않아도 이름만)
       TRANSPORT_INCIDENT: '간선 운송 사고',
       LINE_SHORTAGE: '품목 결품',
@@ -559,6 +560,7 @@ export const messages = {
       orderId: '주문',
       riderId: '라이더',
       incidentId: '사고',
+      lotId: 'LOT',
       sagaId: '주문 처리',
       paymentAttemptId: '결제 시도',
       resourceId: '보상 자원',
