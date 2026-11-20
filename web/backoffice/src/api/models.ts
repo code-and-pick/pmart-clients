@@ -62,6 +62,7 @@ export type ImageRole = C['ImageRole'];
 export const IMAGE_ROLES = ['MAIN', 'DESCRIPTION', 'DETAIL'] as const satisfies readonly ImageRole[];
 export type ContentDraftInput = C['ContentDraftInput'];
 export type ContentDraft = C['ContentDraft'];
+export type ContentDraftSummary = C['ContentDraftSummary'];
 export type ContentImage = C['ContentImage'];
 export type ContentImportBatch = C['ContentImportBatch'];
 export type ContentSubmissionResult = C['ContentSubmissionResult'];

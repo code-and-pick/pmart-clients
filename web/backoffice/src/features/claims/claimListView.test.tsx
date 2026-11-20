@@ -3,7 +3,10 @@ import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 
+import { http, HttpResponse } from 'msw';
+
 import { as, renderAt } from '../../test/render';
+import { server } from '../../test/server';
 
 const rowOf = (text: string) => screen.getAllByTestId('claim-row').find((r) => r.textContent?.includes(text))!;
 
@@ -16,6 +19,26 @@ describe('클레임 조회', () => {
     expect(screen.getByTestId('claim-stage-contact')).toHaveTextContent('1');
     expect(screen.getByTestId('claim-stage-progress')).toHaveTextContent('1');
     expect(screen.getByTestId('claim-stage-done')).toHaveTextContent('1');
+  });
+
+  it('단계 숫자는 서버 집계(claim 0.10.0 CL-6 GET /claims/counts) — 주문 조건을 같이 걸고, 못 읽으면 0 이 아니라 "?"', async () => {
+    const view = renderAt('/claims?orderId=ORD-MOCK-1002', as.cs);
+    await waitFor(() => expect(screen.getByTestId('claim-stage-all')).toHaveTextContent('2')); // 목 ORD-MOCK-1002 클레임 2건(전체 3건 중)
+    const counts = view.sent.filter((r) => new URL(r.url).pathname.endsWith('/claims/counts'));
+    expect(counts.length).toBeGreaterThan(0);
+    expect(new URL(counts[0]!.url).searchParams.get('orderId')).toBe('ORD-MOCK-1002');
+  });
+
+  it('단계 숫자를 못 읽으면 0 이 아니라 "?"', async () => {
+    server.use(http.get('*/api/v1/claims/counts', () => HttpResponse.json({ type: 'about:blank', status: 503, code: 'UPSTREAM_UNAVAILABLE', retryable: true }, { status: 503, headers: { 'content-type': 'application/problem+json' } })));
+    renderAt('/claims', as.cs);
+    await waitFor(() => expect(screen.getByTestId('claim-stage-all')).toHaveTextContent('?'), { timeout: 5000 });
+    expect(screen.getByTestId('claim-stage-done')).not.toHaveTextContent('0');
+  });
+
+  it('클레임 상세 표기에 서버 순번(claimSeq) — "<주문번호> <종류> <순번>"', async () => {
+    renderAt('/claims/CLM-MOCK-1', as.cs);
+    await waitFor(() => expect(screen.getByTestId('claim-label')).toHaveTextContent(/ 취소 1$/));
   });
 
   it('단계 카드를 누르면 그 단계만(주소 stage=)', async () => {

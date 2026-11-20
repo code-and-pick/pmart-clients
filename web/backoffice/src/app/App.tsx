@@ -41,6 +41,7 @@ const ApprovalDetailPage = lazy(() => import('../features/approvals/ApprovalDeta
 const ApprovalListPage = lazy(() => import('../features/approvals/ApprovalListPage').then((x) => ({ default: x.ApprovalListPage })));
 const CategoryTreePage = lazy(() => import('../features/categories/CategoryTreePage').then((x) => ({ default: x.CategoryTreePage })));
 const ContentDraftPage = lazy(() => import('../features/contents/ContentDraftPage').then((x) => ({ default: x.ContentDraftPage })));
+const ContentDraftListPage = lazy(() => import('../features/contents/ContentDraftListPage').then((x) => ({ default: x.ContentDraftListPage })));
 const NewContentDraftPage = lazy(() => import('../features/contents/ContentDraftPage').then((x) => ({ default: x.NewContentDraftPage })));
 const ContentImportPage = lazy(() => import('../features/contents/ContentImportPage').then((x) => ({ default: x.ContentImportPage })));
 const NewContentImportPage = lazy(() => import('../features/contents/ContentImportPage').then((x) => ({ default: x.NewContentImportPage })));
@@ -372,6 +373,7 @@ const routes = [
       { path: 'products/:productId', element: guarded(<ProductDetailPage />) },
       // 콘텐츠 조회는 상품으로 합침(2026-11-19 상품 묶음 1단계) — 옛 주소는 상품 목록으로(미게시 보기는 콘텐츠 거르기로)
       { path: 'contents', element: guarded(<ContentsRedirect />) },
+      { path: 'contents/drafts', element: guarded(<ContentDraftListPage />) },
       { path: 'contents/drafts/new', element: guarded(<NewContentDraftPage />) },
       { path: 'contents/drafts/:draftId', element: guarded(<ContentDraftPage />) },
       { path: 'contents/import', element: guarded(<NewContentImportPage />) },

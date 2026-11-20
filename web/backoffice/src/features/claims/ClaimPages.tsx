@@ -31,11 +31,13 @@ const STATES = Object.keys(m.claims.stateName) as ClaimState[];
 const isType = (v: string | null): v is ClaimType => v !== null && (TYPES as readonly string[]).includes(v);
 const isState = (v: string | null): v is ClaimState => v !== null && (STATES as readonly string[]).includes(v);
 /**
- * 클레임 화면 표기(ADR-0070 덧붙임 2026-11-19): 주문번호 + 종류(순번은 claim CL-4 뒤). 주문번호를 아직 모르면 종류 · 시각.
- * 시스템 ID(CLM-…)는 상세의 시스템 번호 칸에서만.
+ * 클레임 화면 표기(ADR-0070 덧붙임 2026-11-19): 주문번호 + 종류 + 순번(claim 0.10.0 CL-4 claimSeq — "74939255 반품 1"). 주문번호를 아직 모르면 종류 · 시각.
+ * 순번은 서버 값이 있을 때만(목록은 bff views/claims 가 claimSeq 를 싣기 전까지 순번 없이). 시스템 ID(CLM-…)는 상세의 시스템 번호 칸에서만.
  */
-export const claimLabel = (orderNumber: string | null | undefined, type: string | null | undefined, openedAt: string | null | undefined) =>
-  orderNumber ? `${orderNumber} ${label(m.claims.typeName, type ?? null)}` : `${label(m.claims.typeName, type ?? null)} · ${openedAt ? when(openedAt) : m.none}`;
+export const claimLabel = (orderNumber: string | null | undefined, type: string | null | undefined, openedAt: string | null | undefined, seq?: number | null) =>
+  orderNumber
+    ? `${orderNumber} ${label(m.claims.typeName, type ?? null)}${seq ? ` ${seq}` : ''}`
+    : `${label(m.claims.typeName, type ?? null)} · ${openedAt ? when(openedAt) : m.none}`;
 
 /** 상태 꼬리표 색(표시만) */
 export const claimTone = (s: string | null | undefined): Tone =>
@@ -275,13 +277,25 @@ export function ClaimListPage() {
     setSearch(next);
   };
 
-  // 단계 카드 숫자 — 거르기 없는 최근 목록 한 쪽으로 센다(넘치면 "+"). 서버가 단계별 수를 세 주지 않는다
-  const recent = useClaimList({});
+  // 단계 카드 숫자 — claim 0.10.0 CL-6 `GET /claims/counts`(2026-11-20): 서버가 상태별로 정확히 센 수를 단계로 묶어 더한다.
+  // 주문·종류 조건은 같이 건다(상태 조건은 카드가 단계라 걸지 않는다). 못 읽으면 0 이 아니라 "?"
+  const orderIdParam = search.get('orderId') ?? '';
+  const typeParam = search.get('type');
+  const counts = useQuery({
+    queryKey: ['claims', 'counts', orderIdParam, typeParam],
+    queryFn: () =>
+      request(
+        'GET',
+        api.claims.GET('/claims/counts', {
+          params: { query: { ...(orderIdParam ? { orderId: orderIdParam } : {}), ...(isType(typeParam) ? { type: typeParam } : {}) } },
+        }),
+      ),
+  });
   const stageParam = search.get('stage');
   const stage = isStage(stageParam) ? stageParam : undefined;
-  const recentItems = recent.data?.pages[0]?.items ?? [];
-  const more = Boolean(recent.data?.pages[0]?.page?.nextCursor);
-  const count = (st: Stage) => (recent.isPending ? '…' : recent.isError ? '?' : `${recentItems.filter((c) => stageOf(c.state) === st).length}${more ? '+' : ''}`);
+  const sumOf = (pick: (key: string) => boolean) => (counts.data?.counts ?? []).filter((c) => pick(c.key)).reduce((n, c) => n + Number(c.count), 0);
+  const countText = (pick: (key: string) => boolean) => (counts.isPending ? '…' : counts.isError ? '?' : sumOf(pick).toLocaleString('ko-KR'));
+  const count = (st: Stage) => countText((key) => STAGE_OF[key] === st);
   const stageTo = (st: Stage | '') => {
     const next = new URLSearchParams(search);
     if (st) next.set('stage', st);
@@ -304,7 +318,7 @@ export function ClaimListPage() {
       />
       <div className="space-y-1.5">
         <StatStrip label={cl.stagesLabel} testId="claim-stages">
-          <StatCard layout="row" label={cl.all} value={recent.isPending ? '…' : `${recentItems.length}${more ? '+' : ''}`} to={stageTo('')} active={!stage} testId="claim-stage-all" />
+          <StatCard layout="row" label={cl.all} value={countText(() => true)} to={stageTo('')} active={!stage} testId="claim-stage-all" />
           {STAGES.map((st) => {
             const v = count(st);
             const has = /^[1-9]/.test(v);
@@ -403,7 +417,7 @@ export function ClaimDetailPage() {
   // 왼쪽(넓게) = 품목·반품 진행·환불·회수 조치, 오른쪽 = 클레임 정보·회수/재배송/비용
   // 최근 본 항목(2026-11-18) — 서버 응답을 받은 뒤에만 남긴다
   // 최근 본 항목 이름은 화면 번호·요약(2026-11-19 — 시스템 ID 를 이름으로 남기던 것 고침, ADR-0070 덧붙임)
-  useRecordRecent('claim', claimId, query.data ? claimLabel(detailOrders.get(query.data.orderId), query.data.type, query.data.openedAt) : null);
+  useRecordRecent('claim', claimId, query.data ? claimLabel(detailOrders.get(query.data.orderId), query.data.type, query.data.openedAt, query.data.claimSeq) : null);
   return (
     <section className="space-y-4">
       <QueryState state={toUiState(query)} onRetry={() => void query.refetch()}>
@@ -426,7 +440,7 @@ export function ClaimDetailPage() {
               title={
                 <>
                   {c.type ? m.claims.titleOf(label(m.claims.typeName, c.type), label(m.claims.reasonName, c.reason)) : m.claims.detailTitle}
-                  <span className="ml-2 font-mono text-sm font-normal text-base-content/50" data-testid="claim-label">{claimLabel(detailOrders.get(c.orderId), c.type, c.openedAt)}</span>
+                  <span className="ml-2 font-mono text-sm font-normal text-base-content/50" data-testid="claim-label">{claimLabel(detailOrders.get(c.orderId), c.type, c.openedAt, c.claimSeq)}</span>
                 </>
               }
               badges={

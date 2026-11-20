@@ -33,12 +33,12 @@ describe('상품 조회', () => {
     await waitFor(() => expect(within(rowOf('소고기 미역국')).getByTestId('product-price')).toHaveTextContent('가격 미설정'));
   });
 
-  it('상품명은 바로 거르고, 카테고리는 경로로 쳐서 고른다(주소에 categoryId)', async () => {
+  it('상품명은 서버 찾기(잠깐 멈추면 반영), 카테고리는 경로로 쳐서 고른다(주소에 categoryId)', async () => {
     const user = userEvent.setup();
     renderAt('/products', as.md);
     await waitFor(() => expect(screen.getAllByTestId('product-row')).toHaveLength(2));
     await user.type(screen.getByRole('textbox', { name: '상품명' }), '미역');
-    expect(screen.getAllByTestId('product-row')).toHaveLength(1);
+    await waitFor(() => expect(screen.getAllByTestId('product-row')).toHaveLength(1));
     await user.clear(screen.getByRole('textbox', { name: '상품명' }));
     await waitFor(() => expect(screen.getByRole('combobox', { name: '카테고리' })).toBeEnabled());
     await pick(user, '카테고리', '국·탕·찌개 > 국·국밥', '국밥');
@@ -63,12 +63,13 @@ describe('상품 조회 — 사진·이름 찾기(2026-11-19)', () => {
     expect(within(rowOf('소고기 미역국')).getByTestId('product-thumb').querySelector('img')).toBeNull();
   });
 
-  it('상품명 칸은 관리용 명칭·고객용 상품명 모두로 찾는다(이 쪽 안에서)', async () => {
+  it('상품명 칸은 서버 찾기(product 0.5.0 PD-4 q) — 관리용 명칭 부분 일치, 주소에 q 로 남는다', async () => {
     const user = userEvent.setup();
-    renderAt('/products', as.md);
+    const view = renderAt('/products', as.md);
     await waitFor(() => expect(within(rowOf('사과 1.5kg')).getByTestId('product-thumb').querySelector('img')).not.toBeNull());
     await user.type(screen.getByRole('textbox', { name: '상품명' }), '사과');
-    expect(screen.getAllByTestId('product-row')).toHaveLength(1);
+    await waitFor(() => expect(screen.getAllByTestId('product-row')).toHaveLength(1));
+    expect(view.sent.some((r) => r.method === 'GET' && new URL(r.url).pathname.endsWith('/products') && new URL(r.url).searchParams.get('q') === '사과')).toBe(true);
   });
 });
 

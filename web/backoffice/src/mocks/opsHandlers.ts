@@ -234,6 +234,7 @@ function seed(): OpsState {
     claims: [
       {
         claimId: 'CLM-MOCK-1',
+        claimSeq: 1, // claim 0.10.0 CL-4
         orderId: 'ORD-MOCK-1002',
         type: 'CANCEL',
         state: 'CLOSED',
@@ -780,6 +781,21 @@ export const opsHandlers = [
     return HttpResponse.json({
       items: page.items.map((c) => ({ claimId: c.claimId, orderId: c.orderId, type: c.type, state: c.state, openedAt: c.openedAt })),
       page: page.page,
+    });
+  }),
+  // claim 0.10.0 CL-6: 상태별(또는 종류별) 수 — 같은 거르기(orderId·customerId·type), 모든 값 0 까지, capped 늘 false
+  http.get(`${API_BASE}/claims/counts`, ({ request }) => {
+    const { denied } = allow(request, ...CS);
+    if (denied) return denied;
+    const q = new URL(request.url).searchParams;
+    const byType = q.get('by') === 'type';
+    const rows = ops.claims.filter((c) => (!q.get('orderId') || c.orderId === q.get('orderId')) && (byType || !q.get('type') || c.type === q.get('type')));
+    const keys = byType
+      ? ['CANCEL', 'RETURN', 'EXCHANGE']
+      : ['OPENED', 'UNDER_REVIEW', 'STOP_PENDING', 'DECIDED', 'IN_PROGRESS', 'FEE_PENDING', 'RECOVERY_FAILED', 'CLOSED', 'WITHDRAWN', 'REJECTED', 'CANCELLED'];
+    return HttpResponse.json({
+      counts: keys.map((key) => ({ key, count: rows.filter((c) => (byType ? c.type : c.state) === key).length, capped: false })),
+      asOf: new Date().toISOString(),
     });
   }),
   http.get(`${API_BASE}/claims/:claimId`, ({ request, params }) => {

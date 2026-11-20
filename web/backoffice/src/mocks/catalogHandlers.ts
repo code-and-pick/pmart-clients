@@ -410,6 +410,13 @@ export const catalogHandlers = [
     const items = [...db.products.values()]
       .filter((p) => !q.get('saleState') || p.saleState === q.get('saleState'))
       .filter((p) => !q.get('categoryId') || (p.categoryIds ?? []).includes(q.get('categoryId') ?? ''))
+      // product 0.5.0 PD-4 q: 관리용 명칭 부분 일치(대소문자·띄어쓰기 무시) 또는 SKU·바코드 완전 일치
+      .filter((p) => {
+        const raw = q.get('q');
+        if (!raw) return true;
+        const norm = (s: string) => s.toLowerCase().replace(/\s+/g, '');
+        return norm(p.internalName ?? '').includes(norm(raw)) || (p.skus ?? []).some((s) => s.sku === raw || (s.barcodes ?? []).includes(raw));
+      })
       .map(({ productId, baseProductId, internalName, primaryCategoryId, saleState, version }) => ({ productId, baseProductId, internalName, primaryCategoryId, saleState, version }));
     return HttpResponse.json({ items, page: { nextCursor: null, size: items.length } });
   }),
@@ -462,6 +469,36 @@ export const catalogHandlers = [
       if (input.productId && !db.products.has(input.productId)) return problem(422, 'PRODUCT_NOT_FOUND');
       return { status: 201, body: newContentDraft(input) };
     });
+  }),
+  // product-content 0.4.0 PCT-1: 초안 목록(최근 바뀐 순, state 여러 개) · 상태별 수(모든 상태 0 까지) — /:id 보다 먼저
+  http.get(`${API_BASE}/content-drafts/counts`, ({ request }) => {
+    if (!operator(request)) return unauthorized();
+    const productId = new URL(request.url).searchParams.get('productId');
+    const rows = [...db.contentDrafts.values()].filter((d) => !productId || d.productId === productId);
+    return HttpResponse.json({
+      counts: (['DRAFT', 'SUBMITTED', 'PUBLISHED', 'REJECTED'] as const).map((key) => ({ key, count: rows.filter((d) => d.state === key).length, capped: false })),
+      asOf: new Date().toISOString(),
+    });
+  }),
+  http.get(`${API_BASE}/content-drafts`, ({ request }) => {
+    if (!operator(request)) return unauthorized();
+    const url = new URL(request.url);
+    const states = url.searchParams.getAll('state').flatMap((s) => s.split(',')).filter(Boolean);
+    const productId = url.searchParams.get('productId');
+    const items = [...db.contentDrafts.values()]
+      .filter((d) => (states.length === 0 || states.includes(d.state)) && (!productId || d.productId === productId))
+      .sort((a, b) => (b.updatedAt ?? '').localeCompare(a.updatedAt ?? '') || b.draftId.localeCompare(a.draftId))
+      .map((d) => ({
+        draftId: d.draftId,
+        productId: d.productId ?? null,
+        state: d.state,
+        name: d.input?.name ?? null,
+        imageId: (d.images ?? []).find((i) => i.role === 'MAIN')?.imageId ?? null,
+        approvalId: d.approvalId ?? null,
+        updatedAt: d.updatedAt ?? new Date().toISOString(),
+        version: d.version,
+      }));
+    return HttpResponse.json({ items, page: { nextCursor: null, size: items.length } });
   }),
   http.get(`${API_BASE}/content-drafts/:id`, ({ params }) => {
     const d = db.contentDrafts.get(String(params['id']));

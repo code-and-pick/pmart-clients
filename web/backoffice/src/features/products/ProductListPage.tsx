@@ -4,7 +4,7 @@
 // 표(관리용 명칭 굵게·상품 ID 작게, 판매 상태 점 배지, 버전) → 아래 표시 수·더 보기. 머리말 오른쪽에 등록 버튼.
 import { AuthedImage } from '../contents/AuthedImage';
 import { useQueries, useQuery } from '@tanstack/react-query';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 
 import { PmartFailure } from '@pmart/web-core';
@@ -111,12 +111,14 @@ export function ProductListPage() {
   // 가격 미설정 거르기(2026-11-19 상품 하나씩 등록 다듬기) — 이 쪽 안에서, 서버 가격(notSet) 기준. 못 읽은 상품은 거르지 않고 남긴다
   const priceFilter = params.get('price') === 'notSet' ? ('notSet' as const) : undefined;
   const cursor = params.get('cursor') ?? undefined;
-  const [text, setText] = useState('');
+  // 찾기(product 0.5.0 PD-4, 2026-11-20): 서버 q — 관리용 명칭 부분 일치·SKU·바코드 완전 일치. 주소에 두고(내 보기·뒤로 가기) 입력은 잠깐 멈추면 반영
+  const qParam = params.get('q') ?? '';
+  const [text, setText] = useState(qParam);
   const [sort, setSort] = useState<Sort>('server');
   const counts = useSaleCounts();
 
   const query = useQuery({
-    queryKey: ['product', 'list', saleState, categoryId, cursor],
+    queryKey: ['product', 'list', saleState, categoryId, qParam, cursor],
     queryFn: () =>
       request(
         'GET',
@@ -125,6 +127,7 @@ export function ProductListPage() {
             query: {
               ...(saleState ? { saleState } : {}),
               ...(categoryId ? { categoryId } : {}),
+              ...(qParam ? { q: qParam } : {}),
               ...(cursor ? { cursor } : {}),
               size: 50,
             },
@@ -153,8 +156,15 @@ export function ProductListPage() {
     if (k !== 'cursor') next.delete('cursor');
     setParams(next);
   };
-  const q = text.trim().toLowerCase().replace(/\s+/g, '');
-  const filtered = saleState !== undefined || categoryId !== '' || q !== '' || contentFilter !== undefined || priceFilter !== undefined;
+  // 찾기 칸 → 주소 q(잠깐 멈추면, 50자까지 — 계약 maxLength)
+  useEffect(() => {
+    const v = text.trim().slice(0, 50);
+    if (v === qParam) return;
+    const t = setTimeout(() => setParam('q', v), 300);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [text, qParam]);
+  const filtered = saleState !== undefined || categoryId !== '' || qParam !== '' || contentFilter !== undefined || priceFilter !== undefined;
   const stateName = saleState ? m.products.saleStateName[saleState] : l.all;
 
   return (
@@ -165,6 +175,10 @@ export function ProductListPage() {
         refresh={refreshOf(query)}
         actions={
           <>
+            {/* 콘텐츠 초안 목록(product-content 0.4.0 PCT-1, 2026-11-20) */}
+            <Link className="btn btn-sm" to="/contents/drafts">
+              {m.contents.draftList.open}
+            </Link>
             {/* 가격 관리는 메뉴 대신 여기서(2026-11-19 메뉴 정리) */}
             <Link className="btn btn-sm" to="/prices">
               {m.products.imports.priceManage}
@@ -253,11 +267,9 @@ export function ProductListPage() {
 
       <QueryState state={toUiState(query, (d) => (d.items?.length ?? 0) === 0)} onRetry={() => void query.refetch()} emptyText={m.products.listEmpty}>
         {(d) => {
-          // 이름 찾기 — 관리용 명칭 또는 고객용 상품명(게시된 콘텐츠). 서버에 이름 검색이 없어 이 쪽 안에서만(백엔드 요청 2026-11-19 product-name-search)
-          const nameOf = (p: (typeof all)[number]) => `${p.internalName ?? ''}${(p.productId && cardOf.get(p.productId)?.name) ?? ''}`.toLowerCase().replace(/\s+/g, '');
+          // 이름 찾기는 서버 q(PD-4)로 — 이 쪽 안 이름 거르기는 지웠다(2026-11-20)
           const all = d.items ?? [];
           const items = all
-            .filter((p) => !q || nameOf(p).includes(q))
             .filter((p) => !contentFilter || !cards.data || (contentFilter === 'published' ? Boolean(p.productId && cardOf.has(p.productId)) : Boolean(p.productId && (cards.data.missing ?? []).includes(p.productId))))
             .filter((p) => {
               if (!priceFilter || !p.productId) return true;
@@ -411,7 +423,6 @@ export function ProductListPage() {
                 <div className="flex flex-wrap items-center justify-between gap-2 border-t border-base-300 px-4 py-3 text-sm">
                   <span className="text-base-content/55">
                     {m.products.listShown(d.items?.length ?? 0, Boolean(d.page?.nextCursor))}
-                    {q && d.page?.nextCursor && <span className="ml-2 text-warning">{l.searchThisPage}</span>}
                   </span>
                   {d.page?.nextCursor && (
                     <button type="button" className="btn btn-sm" onClick={() => setParam('cursor', d.page?.nextCursor ?? '')}>

@@ -1336,7 +1336,8 @@ export const messages = {
       all: '전체',
       stage: { opened: '접수', progress: '진행 중', contact: '고객 연락 필요', done: '끝남' },
       stageHint: { opened: '아직 심사 전', progress: '심사·출고 중지·처리·회수비', contact: '회수 실패 — 다시 연락', done: '종료·철회·거절·취소됨' },
-      basis: '불러온 쪽 기준',
+      /** claim 0.10.0 CL-6(2026-11-20): 서버가 상태별로 정확히 센 수 — 주문·종류 조건은 같이 건다 */
+      basis: '서버 집계 · 주문·종류 조건 반영',
       listTitle: '클레임 목록',
       total: (n: number, more: boolean) => `총 ${n}건${more ? '(불러온 것)' : ''}`,
       col: { reason: '사유', refund: '환불' },
@@ -2206,7 +2207,8 @@ export const messages = {
       all: '전체',
       filters: '검색 조건',
       name: '상품명',
-      nameHint: '관리용 명칭·고객용 상품명으로 찾기',
+      /** product 0.5.0 PD-4(2026-11-20): 서버 찾기 — 관리용 명칭 부분 일치, SKU·바코드 완전 일치(고객용 이름은 아님) */
+      nameHint: '관리용 명칭·SKU·바코드로 찾기',
       customerName: (n: string) => `고객용: ${n}`,
       contentPublished: '게시됨',
       contentMissing: '미게시',
@@ -2218,7 +2220,6 @@ export const messages = {
         price: (n: string) => `가격 미설정 ${n}`,
         basis: '불러온 쪽 기준',
       },
-      searchThisPage: '이름 찾기는 지금 불러온 쪽 안에서만 해요 — 없으면 "더 보기"로 다음 쪽을 불러와 주세요.',
       category: '카테고리',
       allCategories: '모든 카테고리',
       reset: '초기화',
@@ -2366,6 +2367,21 @@ export const messages = {
   },
 
   contents: {
+    /** 콘텐츠 초안 목록(product-content 0.4.0 PCT-1, 2026-11-20) — 작성 중·승인 대기·게시·반려, 최근 바뀐 순 */
+    draftList: {
+      title: '콘텐츠 초안',
+      open: '콘텐츠 초안',
+      stagesLabel: '초안 상태',
+      all: '전체',
+      state: { DRAFT: '작성 중', SUBMITTED: '승인 대기', PUBLISHED: '게시됨', REJECTED: '반려' } as Readonly<Record<string, string>>,
+      basis: '서버 집계',
+      col: { name: '고객용 상품명', product: '상품', state: '상태', updatedAt: '바뀐 때' },
+      noName: '이름 없음',
+      noProduct: '상품 승인 전',
+      empty: '이 상태의 콘텐츠 초안이 없어요.',
+      more: '더 보기',
+      newDraft: '새 콘텐츠 초안',
+    },
     /** 게시된 콘텐츠 사진(2026-11-19) */
     gallery: {
       title: '상품 사진',
