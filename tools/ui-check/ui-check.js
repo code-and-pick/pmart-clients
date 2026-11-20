@@ -82,7 +82,8 @@
         const tr = textRect(lab, ctl);
         if (tr) {
           const same = Math.min(tr.bottom, cr.bottom) - Math.max(tr.top, cr.top) > 4;
-          if (same && cr.left - tr.right < 6) out.push(`이름표 옆 붙음: ${lab.textContent.trim().slice(0, 12)}`);
+          // 칸 왼쪽 글자(이름표)만 — 칸 오른쪽의 안내 글("비우면 오늘")은 이름표가 아니다
+          if (same && tr.right <= cr.left + 2 && cr.left - tr.right < 6) out.push(`이름표 옆 붙음: ${lab.textContent.trim().slice(0, 12)}`);
           else if (!same && tr.bottom <= cr.top + 2 && (cr.top - tr.bottom < 1 || cr.top - tr.bottom > 14)) out.push(`이름표-칸 세로 ${Math.round(cr.top - tr.bottom)}px: ${lab.textContent.trim().slice(0, 12)}`);
         }
       }
@@ -160,7 +161,7 @@
 
   const uniq = (a) => [...new Set(a)];
   async function all(doc = document) {
-    doc.querySelectorAll('main details:not([open])').forEach((d) => { d.open = true; });
+    // 접힌 <details> 는 열지 않는다 — 출처 꼬리표처럼 펼치면 본문 위에 뜨는 것이 있어 겹침으로 잘못 잡힌다(접힌 안쪽은 SKIP 이 건너뛴다)
     await new Promise((r) => setTimeout(r, 150));
     return uniq([...overlap(doc), ...spacing(doc), ...overflow(doc), ...(doc.documentElement.getAttribute('data-theme')?.includes('dark') ? contrast(doc) : [])]);
   }

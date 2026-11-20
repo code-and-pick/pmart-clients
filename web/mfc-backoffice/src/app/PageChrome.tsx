@@ -101,7 +101,12 @@ export function TaskAlertBadge({ mfcId }: { readonly mfcId: string }) {
   const n = q.data.items.filter((t) => t.late || t.state === 'BLOCKED').length;
   if (n === 0) return null;
   return (
-    <span className="badge badge-error badge-sm ml-auto tabular-nums" title={m.taskAlertTitle} data-testid="menu-alert-tasks">
+    // 2026-11-20 공용 콘솔 모양: 꽉 찬 빨간 공 → 메뉴 숫자 칩(console.css .pm-count, 기한 넘김 = 빨강 + 시계 — 통합 백오피스와 같음)
+    <span className="pm-count ml-auto" data-tone="urgent" title={`${m.taskAlertTitle} ${q.data.complete ? n : `${n}+`}건`} data-testid="menu-alert-tasks">
+      <svg viewBox="0 0 24 24" className="-ml-0.5 mr-0.5 h-2.5 w-2.5 fill-none stroke-current" strokeWidth={3} strokeLinecap="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="9" />
+        <path d="M12 7v5l3 2" />
+      </svg>
       {q.data.complete ? n : `${n}+`}
     </span>
   );

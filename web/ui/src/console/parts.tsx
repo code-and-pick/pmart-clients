@@ -120,7 +120,7 @@ export function ResultBar({ count, more, sort, extra, unit = '건' }: { /** 세�
             <button type="button" role="radio" aria-checked={!sort.oldest} className={!sort.oldest ? 'font-bold text-primary' : 'text-base-content/60 hover:text-primary'} onClick={() => sort.onChange(false)}>
               {sort.newest ?? '최신순'}
             </button>
-            <span className="text-base-content/30">|</span>
+            <span className="text-base-content/50" aria-hidden="true">|</span>
             <button type="button" role="radio" aria-checked={sort.oldest} className={sort.oldest ? 'font-bold text-primary' : 'text-base-content/60 hover:text-primary'} onClick={() => sort.onChange(true)}>
               {sort.oldestLabel ?? '과거순'}
             </button>

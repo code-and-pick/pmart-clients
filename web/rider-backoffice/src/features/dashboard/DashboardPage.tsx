@@ -8,7 +8,7 @@ import { Link, useSearchParams } from 'react-router';
 import { request } from '@pmart/web-core';
 import { QueryState, toUiState } from '@pmart/web-ui';
 import { useApi } from '../../app/ApiContext';
-import { PageHeader, Section, StatCard, StatusBadge } from '../../shared/admin';
+import { PageHeader, Section, StatCard, StatStrip, StatusBadge } from '../../shared/admin';
 import { LIVE } from '../../shared/liveRefresh';
 import { messages } from '../../shared/messages';
 import { ops } from '../../shared/opsMessages';
@@ -33,14 +33,18 @@ const todo = {
 function TodoCell({ label: text, to, count, more, failed, testId }: { readonly label: string; readonly to: string; readonly count: number | undefined; readonly more?: boolean; readonly failed: boolean; readonly testId?: string }) {
   const busy = count !== undefined && count > 0;
   return (
-    <Link to={to} className={`flex min-w-0 flex-col justify-between gap-2 px-5 py-4 hover:bg-base-200/60 ${busy ? 'bg-warning/10' : ''}`} data-testid={testId}>
-      <span className="truncate text-sm text-base-content/70">{text}</span>
+    // 2026-11-20 공용 콘솔 모양(통합 백오피스 내 할 일과 같음): 베이지 바탕 대신 흰 칸, 일이 있으면 이름 앞 노란 점·숫자는 글자색, 0 은 흐리게
+    <Link to={to} className="flex min-w-0 flex-col justify-between gap-2 px-5 py-4 transition-colors hover:bg-base-200/50" data-testid={testId}>
+      <span className="flex items-center gap-1.5 truncate text-sm text-base-content/70">
+        {busy && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-warning" aria-hidden="true" />}
+        {text}
+      </span>
       {failed ? (
         <span className="text-sm text-error">{todo.failed}</span>
       ) : count === undefined ? (
         <span className="loading loading-dots loading-sm text-base-content/40" />
       ) : (
-        <span className={`text-2xl font-bold ${busy ? 'text-warning-content' : 'text-base-content/40'}`}>
+        <span className={`text-[26px] font-semibold leading-tight tracking-tight ${busy ? '' : 'text-base-content/45'}`}>
           {num(count)}
           {more ? '+' : ''}
         </span>
@@ -108,8 +112,8 @@ export function DashboardPage() {
         </div>
       </section>
 
-      {/* 핵심 수 */}
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6">
+      {/* 핵심 수 — 공용 숫자 띠(한 상자, 칸 사이 선 — 통합 백오피스와 같음) */}
+      <StatStrip label={d.coreLabel}>
         <QueryState state={toUiState(riders)} onRetry={() => void riders.refetch()}>
           {(r) => (
             <>
@@ -128,7 +132,7 @@ export function DashboardPage() {
             </>
           )}
         </QueryState>
-      </div>
+      </StatStrip>
 
       <div className="grid gap-4 xl:grid-cols-2">
         <Section title={d.riders} aside={riders.data && <span className="text-xs text-base-content/50">{d.asOf(when(riders.data.asOf))}</span>}>
@@ -138,9 +142,9 @@ export function DashboardPage() {
                 <Bars
                   total={Math.max(r.total, 1)}
                   rows={[
-                    { label: d.onDuty, value: r.onDuty, to: controlLink, tone: 'bg-success' },
-                    { label: d.accepting, value: r.onDutyAcceptingNew, to: controlLink, tone: 'bg-info' },
-                    { label: d.joinedToday, value: r.joinedToday, to: '/signups', tone: 'bg-accent' },
+                    { label: d.onDuty, value: r.onDuty, to: controlLink, tone: 'bg-[var(--pm-chart-1)]' },
+                    { label: d.accepting, value: r.onDutyAcceptingNew, to: controlLink, tone: 'bg-[var(--pm-chart-1)]' },
+                    { label: d.joinedToday, value: r.joinedToday, to: '/signups', tone: 'bg-[var(--pm-chart-1)]' },
                   ]}
                 />
                 <div className="flex flex-wrap items-center gap-2 rounded-box bg-base-200/60 px-4 py-2.5 text-sm" data-testid="stat-restrictions">
@@ -167,7 +171,7 @@ export function DashboardPage() {
                 </p>
               ) : (
                 <div data-testid="stat-by-state">
-                  <Bars total={Math.max(open, 1)} rows={byState.map(([k, v]) => ({ label: label(n.executionState, k), value: v, to: `/deliveries?state=${encodeURIComponent(k)}`, tone: k.includes('FAIL') ? 'bg-error' : 'bg-primary' }))} />
+                  <Bars total={Math.max(open, 1)} rows={byState.map(([k, v]) => ({ label: label(n.executionState, k), value: v, to: `/deliveries?state=${encodeURIComponent(k)}`, tone: k.includes('FAIL') ? 'bg-error' : 'bg-[var(--pm-chart-1)]' }))} />
                 </div>
               );
             }}
@@ -186,7 +190,7 @@ function Bars({ rows, total }: { readonly rows: ReadonlyArray<{ readonly label: 
         <li key={r.label}>
           <Link to={r.to} aria-label={`${r.label} ${num(r.value)}`} className="grid grid-cols-[9rem_1fr_3rem] items-center gap-3 text-sm hover:opacity-80">
             <span className="truncate text-base-content/70">{r.label}</span>
-            <span className="h-2.5 overflow-hidden rounded-full bg-base-200">
+            <span className="h-2 overflow-hidden rounded-full bg-base-200">
               <span className={`block h-full rounded-full ${r.tone}`} style={{ width: `${Math.min(100, Math.round((r.value / total) * 100))}%` }} />
             </span>
             <span className="text-right font-semibold">{num(r.value)}</span>

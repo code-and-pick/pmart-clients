@@ -343,7 +343,7 @@ function DeliveryDetailPage() {
           d && (
             <span className="inline-flex flex-wrap items-center gap-1">
               {[d.orderNumber ? `주문번호 ${d.orderNumber}` : null, d.mfcName ?? d.mfcId].filter(Boolean).join(' · ')}
-              <span className="text-base-content/30">·</span>
+              <span className="text-base-content/50" aria-hidden="true">·</span>
               {d.riderId ? (
                 <>
                   라이더 <RiderName riderId={d.riderId} nameMasked={riders.get(d.riderId)?.nameMasked} riderNumber={riders.get(d.riderId)?.riderNumber} />

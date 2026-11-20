@@ -284,8 +284,9 @@ main:has([data-testid='preview-drawer']) {
 }
 
 /* 긴 표 머리 고정(2026-11-19 — 목록을 내리면 칸 이름이 사라져 헷갈렸다). 표를 감싼 가로 스크롤 상자가 있으면 sticky 가 듣지 않아,
-   넓은 화면(1024px 이상)에서는 그 상자의 가로 스크롤을 풀고 머리 칸을 화면 위에 붙인다. 좁은 화면은 지금처럼 가로 스크롤. */
-@media (min-width: 1024px) {
+   넓은 화면(1280px 이상)에서는 그 상자의 가로 스크롤을 풀고 머리 칸을 화면 위에 붙인다. 좁은 화면은 지금처럼 가로 스크롤.
+   (2026-11-20: 1024px 부터 풀면 메뉴 220px 를 뺀 본문이 좁아 칸이 한 단어씩 세로로 꺾였다 — 1280px 부터로) */
+@media (min-width: 1280px) {
   main .overflow-x-auto:has(> table) {
     overflow: visible;
   }
@@ -438,4 +439,23 @@ main [data-list-part='head'] + [data-list-part] {
 .badge {
   white-space: nowrap;
   flex-shrink: 0;
+}
+
+/* 본문 상태 배지는 옅은 바탕 + 진한 글자(MFC 백오피스에서 옮김 2026-11-20 — 원색 칸이 눈을 끌지 않게, AWS 상태 표시처럼).
+   외곽선·회색 배지와 머리줄(목 데이터 등)은 그대로. 노랑은 글자가 흐려 조금 진하게 */
+main .badge:is(.badge-info, .badge-success, .badge-warning, .badge-error, .badge-accent, .badge-primary):not(.badge-outline) {
+  color: var(--badge-color);
+  background-color: color-mix(in oklab, var(--badge-color) 12%, var(--color-base-100));
+  border-color: color-mix(in oklab, var(--badge-color) 22%, var(--color-base-100));
+  background-image: none;
+  font-weight: 600;
+}
+main .badge.badge-warning:not(.badge-outline) {
+  color: color-mix(in oklab, var(--color-warning) 60%, var(--color-base-content));
+}
+
+/* 표 칸 한국어는 단어 가운데서 끊지 않는다(2026-11-20 좁은 폭 점검 — "계좌 바꾸기"가 계좌/바꾸/기 로 한 글자씩 꺾였다).
+   더 줄일 수 없으면 표가 가로 스크롤된다 — 가로 스크롤 감싸개(overflow-x-auto, DataTable)가 있는 표에만(감싸개 없는 표는 화면 밖으로 넘친다) */
+main .overflow-x-auto > .table :is(th, td) {
+  word-break: keep-all;
 }

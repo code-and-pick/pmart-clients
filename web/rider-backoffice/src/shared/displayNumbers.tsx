@@ -76,7 +76,7 @@ export function RiderName({
   return (
     <span className={`inline-flex flex-wrap items-center gap-1 ${className}`} data-testid="rider-name">
       {nameMasked && <span className="font-medium">{nameMasked}</span>}
-      {nameMasked && <span className="text-base-content/30">·</span>}
+      {nameMasked && <span className="text-base-content/50" aria-hidden="true">·</span>}
       {riderNumber ? <span className="font-mono font-semibold">{riderNumber}</span> : <NoNumber id={riderId} />}
       <SimBadge riderId={riderId} />
     </span>

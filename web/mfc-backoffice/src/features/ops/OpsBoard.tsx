@@ -141,7 +141,7 @@ function OpsBoard({ mfcId }: { readonly mfcId: string }) {
           <h2 className="text-sm font-semibold">{m.todoTitle}</h2>
           <span className="text-xs text-base-content/50">{m.todoHint}</span>
         </div>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+        <div className="pm-stat-strip flex flex-wrap gap-px overflow-hidden rounded-box border border-base-300 bg-base-300">
           <Tile
             testId="tile-overdue"
             label={m.tile.overdue}
@@ -245,8 +245,12 @@ function DispatchDelayTile({ mfcId }: { readonly mfcId: string }) {
   const n = q.data?.length ?? 0;
   const ch = useStatChange(q.data ? String(n) : undefined);
   return (
-    <Link to={centerPath(mfcId, 'dispatch-delays')} data-testid="tile-dispatch-delay" className={`block rounded-lg border border-base-300 bg-base-100 px-4 py-3 transition hover:bg-base-200/60 ${ch.cls}`}>
-      <p className="text-xs text-base-content/60">{m.tile.dispatchDelay}</p>
+    <Link to={centerPath(mfcId, 'dispatch-delays')} data-testid="tile-dispatch-delay" className={`pm-stat block bg-base-100 px-5 py-4 transition-colors hover:bg-base-200/50 ${ch.cls}`}>
+      {/* 2026-11-20 공용 콘솔 모양 — 내 할 일 띠의 한 칸(다른 칸과 같게) */}
+      <p className="flex items-center gap-1.5 truncate text-sm text-base-content/70">
+        {n > 0 && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-error" aria-hidden="true" />}
+        {m.tile.dispatchDelay}
+      </p>
       {q.isPending ? (
         <p className="mt-0.5 text-2xl font-bold text-base-content/40">…</p>
       ) : q.isError ? (
@@ -254,7 +258,7 @@ function DispatchDelayTile({ mfcId }: { readonly mfcId: string }) {
           {m.failed}
         </p>
       ) : (
-        <p data-testid="tile-dispatch-delay-value" className={`mt-0.5 text-2xl font-bold tabular-nums ${n > 0 ? 'text-error' : 'text-base-content/70'}`}>
+        <p data-testid="tile-dispatch-delay-value" className={`pm-stat-value mt-0.5 text-[26px] font-semibold leading-tight tracking-tight ${n > 0 ? 'text-error' : 'text-base-content/45'}`}>
           {m.count(n)}
           {ch.badge}
         </p>
@@ -289,8 +293,9 @@ function Tile({
   readonly active: boolean;
   readonly onClick: () => void;
 }) {
-  // 왼쪽 색 띠 없이 숫자 색으로만(통합 백오피스 지침 1-1 — 쿠팡 윙)
-  const text = { error: 'text-error', warning: 'text-warning', info: 'text-info' }[tone];
+  // 2026-11-20 공용 콘솔 모양(통합 백오피스 내 할 일과 같음): 숫자는 글자색, 급함만 빨강, 일이 있으면 이름 앞 점(빨강·노랑), 0 은 흐리게
+  const text = tone === 'error' ? 'text-error' : '';
+  const dot = tone === 'error' ? 'bg-error' : tone === 'warning' ? 'bg-warning' : '';
   const failed = state.isError;
   const ch = useStatChange(state.isPending || failed ? undefined : value); // 방금 바뀐 칸만 잠깐 빛남·▲▼(움직임 줄이기면 없음)
   return (
@@ -299,9 +304,12 @@ function Tile({
       data-testid={testId}
       aria-pressed={active}
       onClick={onClick}
-      className={`block rounded-lg border bg-base-100 px-4 py-3 text-left transition hover:bg-base-200/60 ${active ? 'border-primary/40 ring-1 ring-primary/30' : 'border-base-300'} ${ch.cls}`}
+      className={`pm-stat block bg-base-100 px-5 py-4 text-left transition-colors hover:bg-base-200/50 ${ch.cls}`}
     >
-      <p className="text-xs text-base-content/60">{label}</p>
+      <p className="flex items-center gap-1.5 truncate text-sm text-base-content/70">
+        {has && dot && <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${dot}`} aria-hidden="true" />}
+        {label}
+      </p>
       {state.isPending ? (
         <p className="mt-0.5 text-2xl font-bold text-base-content/40">…</p>
       ) : failed ? (
@@ -309,7 +317,7 @@ function Tile({
           {m.failed}
         </p>
       ) : (
-        <p data-testid={`${testId}-value`} className={`mt-0.5 text-2xl font-bold tabular-nums ${has ? text : 'text-base-content/70'}`}>
+        <p data-testid={`${testId}-value`} className={`pm-stat-value mt-0.5 text-[26px] font-semibold leading-tight tracking-tight ${has ? text : 'text-base-content/45'}`}>
           {value}
           {ch.badge}
         </p>

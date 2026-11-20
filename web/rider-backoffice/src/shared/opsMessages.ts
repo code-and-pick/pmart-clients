@@ -15,6 +15,7 @@ export const ops = {
     inProgress: '진행 중',
     completedToday: '오늘 완료',
     failedToday: '오늘 전달 실패 확정',
+    coreLabel: '핵심 수',
     work: '처리할 일',
     openHelp: '열린 도움요청',
     adjustmentPending: '수행료 조정 대기',

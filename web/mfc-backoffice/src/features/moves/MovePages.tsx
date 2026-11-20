@@ -124,7 +124,9 @@ function MoveListPage({ mfcId }: { readonly mfcId: string }) {
       <SavedViews listKey={`moves.${mfcId}`} />
       <QueryState state={toUiState(query, (rows) => rows.length === 0)} onRetry={() => void query.refetch()} emptyText={m.empty}>
         {(rows) => (
-          <table className="table table-sm rounded-box bg-base-100">
+          // 좁은 폭(1024px)에서 화면 밖으로 넘쳐 가로 스크롤 상자에(2026-11-20 점검)
+          <div className="overflow-x-auto rounded-box border border-base-300 bg-base-100">
+          <table className="table table-sm">
             <thead>
               <tr>
                 <th>{m.fields.kind}</th>
@@ -166,6 +168,7 @@ function MoveListPage({ mfcId }: { readonly mfcId: string }) {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </QueryState>
     </section>
