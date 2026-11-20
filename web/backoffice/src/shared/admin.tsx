@@ -10,7 +10,10 @@
 export { SearchPanel, StatStrip, GuideBox, AllDone } from '@pmart/web-ui';
 import { StickyTitle, useScrolledPast } from './StickyTitle';
 import { useStatChange } from './motion';
-import { type ReactNode, useRef } from 'react';
+import { type ReactNode, useId, useRef, useState } from 'react';
+
+import { formatSeoul } from '@pmart/web-ui';
+import { messages as lm } from './messages';
 import { Link, useLocation, useNavigate } from 'react-router';
 
 import { GroupIcon } from '../app/groupIcons';
@@ -340,3 +343,225 @@ export function Notice({ children, tone = 'muted' }: { readonly children: ReactN
 }
 
 
+
+// ---- AWS 콘솔 목록 부품(2026-11-20 개편 3단계, ADR-0004 · docs/apps/backoffice-ui-guide.md §3) — 시범: 승인함부터 ----
+
+/**
+ * 목록 제목줄: "이름 (개수)" · 파랑 "정보"(도움말 패널) · 오른쪽 읽은 시각 + 새로 고침 + 동작.
+ * 개수는 서버가 준 줄 수만(못 읽었으면 넘기지 않는다 — 0 으로 보이지 않게). h1 은 이름만(시험·읽기 도구가 찾는 이름 그대로).
+ */
+export function ListHeader({ title, count, onInfo, refresh, actions }: {
+  readonly title: string;
+  readonly count?: string | undefined;
+  readonly onInfo?: (() => void) | undefined;
+  readonly refresh?: { readonly onClick: () => void; readonly busy: boolean; readonly readAt?: number | undefined } | undefined;
+  readonly actions?: ReactNode;
+}) {
+  const readAt = refresh?.readAt ? new Date(refresh.readAt) : null;
+  return (
+    <header className="flex flex-wrap items-end justify-between gap-3">
+      <div className="flex min-w-0 items-baseline gap-2">
+        <h1 className="text-2xl font-bold">{title}</h1>
+        {count !== undefined && (
+          <span className="text-2xl text-base-content/50 tabular-nums" data-testid="list-count">
+            ({count})
+          </span>
+        )}
+        {onInfo && (
+          <button type="button" className="text-xs font-bold text-primary hover:underline" onClick={onInfo} data-testid="list-info">
+            {lm.listUi.info}
+          </button>
+        )}
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        {readAt && (
+          <span className="text-xs text-base-content/55" title={formatSeoul(readAt.toISOString())} data-testid="list-read-at">
+            {lm.listUi.readAt(readAt.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Seoul' }))}
+          </span>
+        )}
+        {refresh && (
+          <button type="button" className="btn btn-sm h-8 w-8 p-0" aria-label={lm.listUi.refresh} title={lm.listUi.refresh} disabled={refresh.busy} onClick={refresh.onClick} data-testid="list-refresh">
+            <svg viewBox="0 0 24 24" className={`h-4 w-4 fill-none stroke-current ${refresh.busy ? 'animate-spin' : ''}`} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7" />
+            </svg>
+          </button>
+        )}
+        {actions}
+      </div>
+    </header>
+  );
+}
+
+export type FilterProp = { readonly key: string; readonly label: string; readonly options: ReadonlyArray<{ readonly value: string; readonly label: string }> };
+
+/**
+ * 속성 필터(AWS Property filter): 검색칸을 누르면 속성 목록 → 속성을 고르면 값 목록 → 고르면 칸 아래 "속성 = 값 ✕" 칩.
+ * 속성마다 값 하나(서버 조건이 하나씩만 받는다). 글자를 치면 목록을 좁힌다 — 줄을 글자로 찾는 검색이 아니다(계약에 글자 검색 없음).
+ * 연산자는 "=" 하나뿐이라 고르는 단계를 두지 않는다.
+ */
+export function PropertyFilter({ props, value, onChange, testId }: {
+  readonly props: readonly FilterProp[];
+  readonly value: Readonly<Record<string, string | undefined>>;
+  readonly onChange: (patch: Readonly<Record<string, string | null>>) => void;
+  readonly testId?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [prop, setProp] = useState<string | null>(null);
+  const [text, setText] = useState('');
+  const [hi, setHi] = useState(0);
+  const listId = useId();
+  const current = prop ? props.find((p) => p.key === prop) : undefined;
+  const q = text.trim();
+  const items: ReadonlyArray<{ readonly id: string; readonly label: string }> = current
+    ? current.options.filter((o) => !q || o.label.includes(q)).map((o) => ({ id: o.value, label: o.label }))
+    : props.filter((p) => !q || p.label.includes(q)).map((p) => ({ id: p.key, label: p.label }));
+  const reset = () => {
+    setProp(null);
+    setText('');
+    setHi(0);
+  };
+  const choose = (id: string) => {
+    if (!current) {
+      setProp(id);
+      setText('');
+      setHi(0);
+      return;
+    }
+    onChange({ [current.key]: id });
+    reset();
+    setOpen(false);
+  };
+  const chips = props.flatMap((p) => {
+    const v = value[p.key];
+    const o = v ? p.options.find((x) => x.value === v) : undefined;
+    return o ? [{ key: p.key, text: `${p.label} = ${o.label}` }] : [];
+  });
+  return (
+    <div className="space-y-2" data-testid={testId}>
+      <div
+        className="relative max-w-xl"
+        onBlur={(e) => {
+          if (!e.currentTarget.contains(e.relatedTarget)) {
+            setOpen(false);
+            reset();
+          }
+        }}
+      >
+        <label className="input input-sm w-full">
+          <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0 fill-none stroke-current opacity-60" strokeWidth={2} strokeLinecap="round" aria-hidden="true">
+            <circle cx="11" cy="11" r="7" />
+            <path d="m20 20-3.5-3.5" />
+          </svg>
+          {current && <span className="shrink-0 text-xs font-semibold text-base-content/70">{current.label} =</span>}
+          <input
+            role="combobox"
+            aria-label={lm.listUi.filterPlaceholder}
+            aria-expanded={open}
+            aria-controls={listId}
+            aria-autocomplete="list"
+            className="grow placeholder:italic placeholder:text-base-content/55"
+            placeholder={current ? '' : lm.listUi.filterPlaceholder}
+            value={text}
+            onFocus={() => setOpen(true)}
+            onClick={() => setOpen(true)}
+            onChange={(e) => {
+              setText(e.target.value);
+              setHi(0);
+              setOpen(true);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') {
+                setOpen(false);
+                reset();
+              } else if (e.key === 'Backspace' && !text && prop) {
+                setProp(null);
+              } else if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                setOpen(true);
+                setHi((h) => Math.min(h + 1, Math.max(items.length - 1, 0)));
+              } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                setHi((h) => Math.max(h - 1, 0));
+              } else if (e.key === 'Enter' && open && items[hi]) {
+                e.preventDefault();
+                choose(items[hi].id);
+              }
+            }}
+          />
+        </label>
+        {open && (
+          <ul id={listId} role="listbox" aria-label={current ? current.label : lm.listUi.filterPlaceholder} className="absolute left-0 right-0 z-30 mt-1 max-h-72 overflow-y-auto rounded-box border border-base-300 bg-base-100 py-1 shadow-lg">
+            {current && (
+              <li className="px-3 pb-1 pt-0.5 text-xs text-base-content/55">
+                <button type="button" className="hover:text-primary" onMouseDown={(e) => e.preventDefault()} onClick={() => reset()}>
+                  ‹ {lm.listUi.filterBack}
+                </button>
+              </li>
+            )}
+            {items.length === 0 ? (
+              <li className="px-3 py-1.5 text-sm text-base-content/55">{lm.listUi.noMatch}</li>
+            ) : (
+              items.map((it, i) => (
+                <li
+                  key={it.id}
+                  role="option"
+                  aria-selected={i === hi}
+                  className={`cursor-pointer px-3 py-1.5 text-sm ${i === hi ? 'bg-primary/10 text-primary' : 'hover:bg-base-200'}`}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onMouseEnter={() => setHi(i)}
+                  onClick={() => choose(it.id)}
+                >
+                  {it.label}
+                </li>
+              ))
+            )}
+          </ul>
+        )}
+      </div>
+      {chips.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2" data-testid={testId ? `${testId}-chips` : undefined}>
+          {chips.map((c) => (
+            <span key={c.key} className="inline-flex items-center gap-1 rounded border border-base-300 bg-base-100 py-0.5 pl-2 pr-1 text-xs" data-testid="filter-chip">
+              {c.text}
+              <button type="button" className="grid h-5 w-5 place-items-center rounded hover:bg-base-200" aria-label={lm.listUi.removeChip(c.text)} onClick={() => onChange({ [c.key]: null })}>
+                <svg viewBox="0 0 24 24" className="h-3 w-3 fill-none stroke-current" strokeWidth={2.5} strokeLinecap="round" aria-hidden="true">
+                  <path d="M6 6l12 12M18 6 6 18" />
+                </svg>
+              </button>
+            </span>
+          ))}
+          {chips.length > 1 && (
+            <button type="button" className="text-xs text-primary hover:underline" onClick={() => onChange(Object.fromEntries(chips.map((c) => [c.key, null])))}>
+              {lm.listUi.clearAll}
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+const statusTextClass: Record<Tone, string> = {
+  success: 'text-success',
+  error: 'text-error',
+  warning: 'text-[color-mix(in_oklab,var(--color-warning)_60%,var(--color-base-content))]',
+  info: 'text-info',
+  accent: 'text-info',
+  neutral: 'text-base-content/70',
+  ghost: 'text-base-content/60',
+};
+
+/** 상태 = 아이콘 + 색 글자(AWS Status indicator) — 둥근 꼬리표 대신. 시범: 승인함부터, 다른 화면은 StatusBadge 그대로 */
+export function StatusText({ tone = 'ghost', children, testId }: { readonly tone?: Tone; readonly children: ReactNode; readonly testId?: string }) {
+  const icon =
+    tone === 'success' ? <path d="M8 12.5l2.5 2.5L16 9.5" /> : tone === 'error' ? <path d="M9 9l6 6M15 9l-6 6" /> : tone === 'warning' ? <path d="M12 8v5M12 16h.01" /> : tone === 'info' || tone === 'accent' ? <path d="M12 7v5l3 2" /> : <path d="M8 12h8" />;
+  return (
+    <span className={`inline-flex items-center gap-1.5 whitespace-nowrap text-sm font-medium ${statusTextClass[tone]}`} data-testid={testId}>
+      <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0 fill-none stroke-current" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="9" />
+        {icon}
+      </svg>
+      {children}
+    </span>
+  );
+}

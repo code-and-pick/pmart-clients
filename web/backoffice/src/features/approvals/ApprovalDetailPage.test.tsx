@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 
@@ -142,7 +143,10 @@ describe('직원 권한 요청(GRANT) 승인 상세 — 백엔드 회신 2026-11
 
   it('승인 목록의 유형 필터에 GRANT 가 있다', async () => {
     render(<App memory initialPath="/approvals" initialToken={as.admin} />);
-    expect(await screen.findByRole('button', { name: '직원 권한' })).toBeInTheDocument(); // 유형 칩(GRANT, 2026-11-18 칩으로)
+    // 유형은 속성 필터의 "무엇을 승인" 값(2026-11-20 AWS 개편 3단계 — 예전 칩 줄 대신)
+    await userEvent.click(await screen.findByRole('combobox', { name: '속성으로 거르기' }));
+    await userEvent.click(screen.getByRole('option', { name: '무엇을 승인' }));
+    expect(screen.getByRole('option', { name: '직원 권한' })).toBeInTheDocument();
   });
 });
 

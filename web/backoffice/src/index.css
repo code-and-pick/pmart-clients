@@ -98,6 +98,11 @@ main h1 {
   --btn-color: var(--pm-btn-main);
   --btn-fg: var(--pm-btn-main-fg);
 }
+/* 입력칸 포커스 — 굵은 글자색 테두리 대신 파랑 1px(AWS 포커스, 3단계에서 찾음) */
+:is(.input, .select, .textarea):is(:focus, :focus-within) {
+  --input-color: var(--color-primary);
+  outline-width: 1px;
+}
 /* 그림자 없음 — 카드·상자는 1px 테두리만. 떠 있는 것(펼침 메뉴·창: shadow-md 이상)은 그대로 */
 main :is(.shadow-sm, .shadow) {
   box-shadow: none;

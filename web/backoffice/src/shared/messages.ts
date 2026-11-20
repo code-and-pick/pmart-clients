@@ -46,6 +46,20 @@ export const messages = {
   reasonLabel: '사유',
   reasonRequired: '사유를 입력해 주세요',
 
+  /** 목록 공통 부품(2026-11-20 AWS 개편 3단계 — 제목줄·속성 필터·도움말 패널) */
+  listUi: {
+    info: '정보',
+    refresh: '새로 고침',
+    readAt: (hm: string) => `${hm}에 읽음`,
+    filterPlaceholder: '속성으로 거르기',
+    filterBack: '속성 목록',
+    noMatch: '맞는 항목이 없어요',
+    clearAll: '모두 지우기',
+    removeChip: (s: string) => `${s} 지우기`,
+    helpTitle: '도움말',
+    helpOpen: '도움말 열기',
+    helpClose: '도움말 닫기',
+  },
   /** 머리줄 맥락 꼬리표(2026-11-19 관제 화면 형식) */
   shell: {
     clockTitle: '서울 시각(표시용)',
@@ -1716,6 +1730,14 @@ export const messages = {
       decide: '심사하기',
       mine: '내 요청',
       blocked: { SELF_APPROVAL: '내 요청', NO_ROLE: '다른 승인자 몫', GRANT_TO_SELF: '본인 권한 요청', CONFIG_REQUIRED: '승인자 미설정' } as Readonly<Record<string, string>>,
+      reviewStateLabel: '심사 상태',
+      // 도움말 패널(2026-11-20 3단계) — 계약 approval-service GET /approvals 의 decidableByMe 설명과 이 화면 동작만 옮김
+      help: {
+        todo: '내가 심사할 것: 지금 내가 결정할 수 있는 승인만 보여요. 심사 중이고, 내 요청이 아니고, 승인 역할이 있고, 내 권한을 주는 요청이 아닌 것 — 판정은 서버가 해요.',
+        mine: '내가 올린 것: 내가 요청한 승인이에요. 심사 상태로 거를 수 있어요.',
+        now: '지금: 심사와 반영을 한 마디로 보여요. 승인돼도 원래 화면에 반영이 끝나야 "반영 완료"예요.',
+        decide: '심사하기를 누르면 상세에서 승인·반려해요. 내가 못 하는 승인은 그 까닭(내 요청·다른 승인자 몫 등)이 보여요.',
+      },
       todoDone: '수고하셨어요! 지금 심사할 승인이 없어요.',
       empty: { todo: '이 종류는 지금 심사할 게 없어요', mine: '내가 올린 승인이 없어요', all: '승인이 없어요' } as const,
     },

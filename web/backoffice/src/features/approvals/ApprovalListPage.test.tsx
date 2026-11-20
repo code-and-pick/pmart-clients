@@ -60,7 +60,10 @@ describe('승인함 — 내 일 기준(2026-11-20 "뭐가 뭔지 모르겠다")'
     expect(first).toHaveTextContent('요청 1');
     expect(first).toHaveTextContent('심사 기다림');
     expect(screen.getByTestId('approval-decide')).toHaveAttribute('href', '/approvals/APV-1');
-    expect(screen.queryByTestId('approval-state')).not.toBeInTheDocument(); // 심사할 것은 상태 고르기 없음
+    // 심사할 것은 속성 필터에 심사 상태가 없다(늘 심사 기다림) — 2026-11-20 속성 필터(AWS 개편 3단계)
+    await userEvent.click(screen.getByRole('combobox', { name: '속성으로 거르기' }));
+    expect(screen.getByRole('option', { name: '무엇을 승인' })).toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: '심사 상태' })).not.toBeInTheDocument();
     await waitFor(() => expect(view.sent.some((r) => new URL(r.url).searchParams.get('decidableByMe') === 'true')).toBe(true));
   });
 
@@ -74,10 +77,45 @@ describe('승인함 — 내 일 기준(2026-11-20 "뭐가 뭔지 모르겠다")'
     const first = await screen.findByTestId('approval-row');
     expect(first).toHaveTextContent('상품 등록');
     expect(first).toHaveTextContent('승인됨 · 반영 완료'); // 심사·반영 두 축을 한 마디로
-    await user.selectOptions(screen.getByTestId('approval-state'), '반려됨');
-    await user.click(screen.getByRole('button', { name: '가격 변경' }));
+    // 속성 필터: 속성 → 값 → 칩(2026-11-20 AWS 개편 3단계, 예전 상태 고르기 상자·종류 칩 줄 대신)
+    const filter = screen.getByRole('combobox', { name: '속성으로 거르기' });
+    await user.click(filter);
+    await user.click(screen.getByRole('option', { name: '심사 상태' }));
+    await user.click(screen.getByRole('option', { name: '반려됨' }));
+    await user.click(filter);
+    await user.click(screen.getByRole('option', { name: '무엇을 승인' }));
+    await user.click(screen.getByRole('option', { name: '가격 변경' }));
+    expect(screen.getByRole('button', { name: '심사 상태 = 반려됨 지우기' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '무엇을 승인 = 가격 변경 지우기' })).toBeInTheDocument();
     await waitFor(() =>
       expect(view.sent.some((r) => { const p = new URL(r.url).searchParams; return p.get('type') === 'PRICE' && p.get('reviewState') === 'REJECTED' && !p.get('decidableByMe'); })).toBe(true),
     );
+  });
+});
+
+describe('승인함 — 제목줄·속성 필터·도움말(2026-11-20 AWS 개편 3단계)', () => {
+  it('제목 옆 개수는 받은 줄 수, 정보를 누르면 오른쪽 도움말 패널, 칩 지우기는 그 조건만 뺀다', async () => {
+    server.use(http.get(`${API_BASE}/approvals`, () => HttpResponse.json({ items: [row(1), row(2)], page: { nextCursor: 'C2', size: 50 } })));
+    const user = userEvent.setup();
+    const view = renderAt('/approvals?view=all&type=PRICE&state=REJECTED', as.admin);
+    expect(await screen.findByTestId('list-count')).toHaveTextContent('(2+)'); // 다음 쪽이 있으면 +
+    expect(screen.getAllByTestId('filter-chip')).toHaveLength(2);
+    await user.click(screen.getByTestId('list-info'));
+    const panel = screen.getByTestId('help-panel');
+    expect(panel).toHaveTextContent('내가 심사할 것');
+    await user.click(screen.getByRole('button', { name: '도움말 닫기', hidden: false }));
+    expect(screen.queryByTestId('help-panel')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: '무엇을 승인 = 가격 변경 지우기' }));
+    await waitFor(() =>
+      expect(view.sent.some((r) => { const p = new URL(r.url).searchParams; return !p.get('type') && p.get('reviewState') === 'REJECTED'; })).toBe(true),
+    );
+  });
+
+  it('목록을 못 읽으면 개수를 0 으로 보이지 않는다', async () => {
+    server.use(http.get(`${API_BASE}/approvals`, () => HttpResponse.json({ type: 'about:blank', title: 'x', status: 503 }, { status: 503, headers: { 'content-type': 'application/problem+json' } })));
+    renderAt('/approvals?view=all', as.admin);
+    expect(await screen.findByRole('heading', { name: '승인함' })).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole('button', { name: /다시/ })).toBeInTheDocument());
+    expect(screen.queryByTestId('list-count')).not.toBeInTheDocument();
   });
 });

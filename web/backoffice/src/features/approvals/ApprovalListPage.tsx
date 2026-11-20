@@ -13,7 +13,8 @@ import { APPROVAL_TYPES, REVIEW_STATES, type ApprovalType, type ReviewState } fr
 import type { components } from '../../api/generated/approval';
 import { useApi } from '../../app/ApiContext';
 import { useSession } from '../../app/SessionContext';
-import { AllDone, PageHeader, StatusBadge, type Tone } from '../../shared/admin';
+import { AllDone, ListHeader, PropertyFilter, StatusText, type FilterProp, type Tone } from '../../shared/admin';
+import { useHelp } from '../../shared/HelpPanel';
 import { hideIds } from '../../shared/hideIds';
 import { messages as m } from '../../shared/messages';
 import { usePreview } from '../../shared/Preview';
@@ -112,11 +113,30 @@ export function ApprovalListPage() {
   const rows = query.data?.pages.flatMap((p) => p.items ?? []) ?? [];
   useRememberQueue('approval', query.data ? rows.flatMap((a) => (a.approvalId ? [a.approvalId] : [])) : undefined, `/approvals?${params.toString()}`);
   const todoEmpty = view === 'todo' && query.isSuccess && rows.length === 0 && !type;
+  // 2026-11-20 AWS 개편 3단계(ADR-0004): 제목줄(개수·정보·새로 고침)·속성 필터·상태 아이콘 글자·도움말 패널. 세 갈래 탭은 그대로(사용자 결정)
+  const help = useHelp('approvals', m.approvals.title, (
+    <>
+      <p>{t.help.todo}</p>
+      <p>{t.help.mine}</p>
+      <p>{t.help.now}</p>
+      <p>{t.help.decide}</p>
+    </>
+  ));
+  const filterProps: FilterProp[] = [
+    { key: 'type', label: t.whatLabel, options: APPROVAL_TYPES.map((x) => ({ value: x, label: m.approvals.typeName[x] ?? x })) },
+    // 심사 상태는 "내가 올린 것·모두"에서만(내가 심사할 것은 늘 심사 기다림)
+    ...(view === 'todo' ? [] : [{ key: 'state', label: t.reviewStateLabel, options: REVIEW_STATES.map((x) => ({ value: x, label: t.state[x] ?? x })) }]),
+  ];
 
   return (
     <section className="max-w-6xl space-y-4">
-      <PageHeader title={m.approvals.title} />
-      <div className="overflow-hidden rounded-box border border-base-300 bg-base-100 shadow-sm" data-testid="approval-list-card">
+      <ListHeader
+        title={m.approvals.title}
+        count={query.data ? `${rows.length}${query.hasNextPage ? '+' : ''}` : undefined}
+        onInfo={help?.open}
+        refresh={{ onClick: () => void Promise.all([query.refetch(), todo.refetch()]), busy: query.isFetching, readAt: query.dataUpdatedAt || undefined }}
+      />
+      <div className="overflow-hidden rounded-box border border-base-300 bg-base-100" data-testid="approval-list-card">
         {/* ① 내 일 기준 세 갈래 */}
         <div role="tablist" aria-label={t.viewLabel} className="flex gap-1 border-b border-base-300 px-3">
           {VIEWS.map((v) => {
@@ -129,7 +149,7 @@ export function ApprovalListPage() {
                 aria-selected={on}
                 data-testid={`approval-view-${v}`}
                 onClick={() => set({ view: v === 'todo' ? null : v, state: null })}
-                className={`-mb-px flex items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-3 text-sm transition-colors ${on ? 'border-primary font-semibold text-base-content' : 'border-transparent text-base-content/55 hover:text-base-content'}`}
+                className={`-mb-px flex items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-3 text-sm transition-colors ${on ? 'border-primary font-bold text-primary' : 'border-transparent text-base-content/70 hover:text-primary'}`}
               >
                 {t.views[v]}
                 {v === 'todo' && todo.data && todo.data.n > 0 && (
@@ -142,37 +162,9 @@ export function ApprovalListPage() {
             );
           })}
         </div>
-        {/* ② 무엇을 승인 + (내가 올린 것·모두) 상태 */}
-        <div className="flex flex-wrap items-center gap-2 border-b border-base-300 bg-base-200/40 px-4 py-2.5">
-          <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label={t.whatLabel}>
-            {[undefined, ...APPROVAL_TYPES].map((x) => {
-              const on = type === x;
-              return (
-                <button
-                  key={x ?? 'all'}
-                  type="button"
-                  aria-pressed={on}
-                  onClick={() => set({ type: x ?? null })}
-                  className={`rounded-full border px-3 py-1 text-xs transition-colors ${on ? 'border-base-content bg-base-content text-base-100' : 'border-base-300 bg-base-100 hover:border-base-content/40'}`}
-                >
-                  {x ? m.approvals.typeName[x] : t.allWhat}
-                </button>
-              );
-            })}
-          </div>
-          {view !== 'todo' && (
-            <label className="ml-auto flex items-center gap-2 text-xs text-base-content/60">
-              {t.stateLabel}
-              <select className="select select-sm w-36" value={state ?? ''} data-testid="approval-state" onChange={(e) => set({ state: e.target.value || null })}>
-                <option value="">{t.allState}</option>
-                {REVIEW_STATES.map((s) => (
-                  <option key={s} value={s}>
-                    {t.state[s]}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
+        {/* ② 무엇을 승인·심사 상태 → 속성 필터 하나(AWS Property filter) */}
+        <div className="border-b border-base-300 px-4 py-3">
+          <PropertyFilter props={filterProps} value={{ type, state }} onChange={set} testId="approval-filter" />
         </div>
 
         {todoEmpty ? (
@@ -188,7 +180,7 @@ export function ApprovalListPage() {
             {() => (
               <>
                 <div className="overflow-x-auto">
-                  <table className="table table-fixed min-w-[44rem] [&_tbody_tr:hover]:bg-base-200/60 [&_tbody_tr]:border-base-300/70 [&_thead_th]:text-xs [&_thead_th]:font-medium [&_thead_th]:text-base-content/50">
+                  <table className="table table-fixed min-w-[44rem] [&_tbody_tr:hover]:bg-base-200/60">
                     <colgroup>
                       <col />
                       <col className="w-44" />
@@ -209,12 +201,13 @@ export function ApprovalListPage() {
                           <tr key={a.approvalId ?? `row-${i}`} data-testid="approval-row" {...pv.row(a.approvalId)}>
                             <td className="min-w-0">
                               <div className="flex min-w-0 items-center gap-2">
-                                <span className="shrink-0 rounded-md bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary" data-testid="approval-what">
+                                {/* 종류는 회색 작은 글자(꼬리표 대신), 요약은 점선 밑줄 링크 — 누르면 상세(AWS 이름 칸) */}
+                                <span className="shrink-0 text-xs text-base-content/60" data-testid="approval-what">
                                   {approvalWhat(a)}
                                 </span>
-                                <span className="truncate font-medium" title={hideIds(a.summary) || undefined}>
+                                <Link to={`/approvals/${encodeURIComponent(a.approvalId ?? '')}`} className="truncate pb-0.5 font-medium underline decoration-dotted decoration-base-content/50 underline-offset-2 hover:text-primary" title={hideIds(a.summary) || undefined}>
                                   {hideIds(a.summary) || m.approvals.untitled}
-                                </span>
+                                </Link>
                                 <SeenMark seen={!!a.approvalId && seen.has(a.approvalId)} />
                               </div>
                               <p className="mt-1 flex min-w-0 items-center gap-1.5 truncate text-xs text-base-content/55">
@@ -223,9 +216,9 @@ export function ApprovalListPage() {
                               </p>
                             </td>
                             <td>
-                              <StatusBadge tone={now.tone} testId="approval-now">
+                              <StatusText tone={now.tone} testId="approval-now">
                                 {now.text}
-                              </StatusBadge>
+                              </StatusText>
                             </td>
                             <td className="text-right">
                               {a.viewerCanDecide ? (

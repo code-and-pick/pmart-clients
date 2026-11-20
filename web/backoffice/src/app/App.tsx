@@ -1,6 +1,7 @@
 import { ImportsPage } from '../features/products/ImportsPage';
 import { ContentsRedirect } from '../features/contents/ContentListPage';
 import { DETAIL_BAR_SLOT } from '../shared/StickyTitle';
+import { HelpPanelSlot, HelpProvider, HelpToggle } from '../shared/HelpPanel';
 import { ConnectionBanner, useDocumentTitle } from './PageChrome';
 import { useStaffText } from '../shared/employeeLabels';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -217,6 +218,7 @@ function Layout() {
   return (
     // 화면 틀(2026-11-20 AWS 개편 2단계, ADR-0004 · docs/apps/backoffice-ui-guide.md §2):
     // 맨 위 전체 폭 흰 머리줄(로고 · 번호 찾기 · 도구 · 내 세션 · 앱 바꾸기) → 그 아래 흰 왼쪽 메뉴 | 위치 줄(묶음 / 메뉴) + 본문.
+    <HelpProvider>
     <div className="flex min-h-screen flex-col bg-base-200">
       <ScrollToTopOnNavigate />
       <header className="flex h-11 shrink-0 items-center gap-3 border-b border-base-300 bg-base-100 px-4">
@@ -305,6 +307,8 @@ function Layout() {
           <div className="flex h-10 shrink-0 items-center gap-3 px-6">
             <Breadcrumbs current={current} pathname={pathname} />
             {session && <RoleChips roles={session.roles} />}
+            {/* 도움말 열기(화면이 설명을 걸었을 때만, 3단계) */}
+            <HelpToggle />
           </div>
           {/* 상세 제목 띠 자리(2026-11-19) — 상세를 내리면 DetailHeader 가 여기에 얇은 제목 띠를 그린다 */}
           <div id={DETAIL_BAR_SLOT} className="sticky top-0 z-20" />
@@ -320,8 +324,11 @@ function Layout() {
           {/* 처리 결과 알림(2026-11-18) */}
           <Toasts />
         </div>
+        {/* 오른쪽 도움말 패널(AWS Help panel) */}
+        <HelpPanelSlot />
       </div>
     </div>
+    </HelpProvider>
   );
 }
 
