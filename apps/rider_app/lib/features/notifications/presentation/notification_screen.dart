@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:pmart_core/pmart_core.dart';
+import 'package:pmart_ui/pmart_ui.dart' show formatSeoulDate, toSeoulWallClock;
 
 import '../../../l10n/gen/app_localizations.dart';
 import '../../../shared/rider_style.dart';
@@ -53,41 +54,23 @@ class NotificationScreen extends ConsumerWidget {
         child: switch (inbox) {
           AsyncData(:final value) when value.items.isEmpty => ListView(
             children: [
-              Padding(
-                padding: const EdgeInsets.all(32),
-                child: Text(
-                  l10n.notiEmpty,
-                  key: const ValueKey('noti-empty'),
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(color: RiderColors.sub),
-                ),
+              SupportEmpty(
+                key: const ValueKey('noti-empty'),
+                icon: Icons.notifications_none,
+                text: l10n.notiEmpty,
               ),
             ],
           ),
           AsyncData(:final value) => ListView(
             key: const ValueKey('noti-list'),
+            padding: const EdgeInsets.only(bottom: 24),
             children: [
-              for (final n in value.items)
-                ListTile(
-                  key: ValueKey('noti-${n.id}'),
-                  leading: Icon(
-                    n.read
-                        ? Icons.notifications_none
-                        : Icons.notifications_active,
-                    color: n.read ? RiderColors.sub : RiderColors.primary,
-                  ),
-                  title: Text(
-                    n.title,
-                    style: TextStyle(
-                      fontWeight: n.read ? FontWeight.w400 : FontWeight.w800,
-                    ),
-                  ),
-                  subtitle: Text(clockText(n.createdAt)),
-                  trailing: n.target is NoTarget
-                      ? null
-                      : const Icon(Icons.chevron_right),
-                  onTap: () => _open(context, ref, n),
-                ),
+              for (final (i, n) in value.items.indexed) ...[
+                if (i == 0 ||
+                    _day(value.items[i - 1].createdAt) != _day(n.createdAt))
+                  _DayHeader(text: _dayText(l10n, n.createdAt)),
+                _NotificationRow(n: n, onTap: () => _open(context, ref, n)),
+              ],
             ],
           ),
           // 조회 실패를 "알림 없음"으로 보이지 않는다.
@@ -111,6 +94,137 @@ class NotificationScreen extends ConsumerWidget {
           ),
           _ => const Center(child: CircularProgressIndicator()),
         },
+      ),
+    );
+  }
+}
+
+/// 서울 날짜(표시 묶음용 — 판정에 쓰지 않는다).
+DateTime _day(DateTime t) {
+  final s = toSeoulWallClock(t);
+  return DateTime.utc(s.year, s.month, s.day);
+}
+
+String _dayText(AppLocalizations l10n, DateTime t) {
+  final today = _day(DateTime.now());
+  final d = _day(t);
+  if (d == today) return l10n.notiToday;
+  if (d == today.subtract(const Duration(days: 1))) return l10n.notiYesterday;
+  return formatSeoulDate(t);
+}
+
+class _DayHeader extends StatelessWidget {
+  const _DayHeader({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.fromLTRB(20, 18, 20, 6),
+    child: Text(
+      text,
+      style: const TextStyle(
+        fontSize: 13,
+        fontWeight: FontWeight.w700,
+        color: RiderColors.sub,
+      ),
+    ),
+  );
+}
+
+/// 알림 한 줄: 종류 그림(지원센터 답장·문의 답변·계정 안내) · 제목 · 내용 2줄 · 시각 · 안 읽음 점.
+class _NotificationRow extends StatelessWidget {
+  const _NotificationRow({required this.n, required this.onTap});
+
+  final RiderNotification n;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final (icon, color) = switch (n.target) {
+      HelpRequestTarget() => (Icons.support_agent, RiderColors.drop),
+      InquiryTarget() => (Icons.chat_bubble_outline, RiderColors.primary),
+      NoTarget() => (Icons.notifications_none, RiderColors.sub),
+    };
+    final body = n.body?.trim() ?? '';
+    return Material(
+      color: n.read ? Colors.white : RiderColors.primaryMist,
+      child: InkWell(
+        key: ValueKey('noti-${n.id}'),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(20, 14, 16, 14),
+          decoration: const BoxDecoration(
+            border: Border(bottom: BorderSide(color: RiderColors.gap)),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, size: 21, color: color),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      n.title,
+                      style: TextStyle(
+                        fontSize: 15,
+                        height: 1.35,
+                        fontWeight: n.read ? FontWeight.w500 : FontWeight.w700,
+                        color: n.read ? RiderColors.sub : RiderColors.ink,
+                      ),
+                    ),
+                    if (body.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        body,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          height: 1.4,
+                          color: RiderColors.sub,
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 4),
+                    Text(
+                      clockText(n.createdAt),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: RiderColors.hint,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              SizedBox(
+                width: 8,
+                child: n.read
+                    ? null
+                    : Container(
+                        key: ValueKey('noti-unread-${n.id}'),
+                        margin: const EdgeInsets.only(top: 6),
+                        height: 8,
+                        decoration: const BoxDecoration(
+                          color: RiderColors.primary,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

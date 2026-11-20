@@ -185,9 +185,17 @@ class _AppealNewScreenState extends ConsumerState<AppealNewScreen> {
   }
 }
 
-/// 내 신청 — 결정 대기·유지·인정과 결정 이유.
-class MyAppealsScreen extends ConsumerWidget {
-  const MyAppealsScreen({super.key});
+/// 소명·이의 상태 글자·색 — 결정 대기(주황) · 유지(회색) · 인정(보라).
+(String, Color) appealStateLook(AppLocalizations l10n, AppealState s) =>
+    switch (s) {
+      AppealState.open => (l10n.appealOpen, RiderColors.pickup),
+      AppealState.upheld => (l10n.appealUpheld, RiderColors.sub),
+      AppealState.accepted => (l10n.appealAccepted, RiderColors.primary),
+    };
+
+/// 지원센터의 "소명·이의" 탭 — 결정 대기·유지·인정과 결정 이유.
+class AppealList extends ConsumerWidget {
+  const AppealList({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -200,106 +208,122 @@ class MyAppealsScreen extends ConsumerWidget {
         if (s.compensation && s.appealId != null && s.amount != null)
           s.appealId!: s.amount!,
     };
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(l10n.appealMine),
-        titleTextStyle: riderTitleStyle(context),
-      ),
-      body: UiStateView<List<Appeal>>(
+    return RefreshIndicator(
+      onRefresh: () => ref.refresh(myAppealsProvider.future),
+      child: UiStateView<List<Appeal>>(
         state: uiStateOf(
           ref.watch(myAppealsProvider),
           isEmpty: (l) => l.isEmpty,
         ),
         onRetry: () => ref.invalidate(myAppealsProvider),
-        empty: (_) => Center(
-          child: Text(
-            l10n.appealNone,
-            key: const ValueKey('appeal-none'),
-            style: const TextStyle(fontSize: 15, color: RiderColors.sub),
-          ),
+        empty: (_) => ListView(
+          children: [
+            SupportEmpty(
+              key: const ValueKey('appeal-none'),
+              icon: Icons.gavel_outlined,
+              text: l10n.appealNone,
+              note: l10n.appealWhere,
+            ),
+          ],
         ),
-        ready: (context, list) => ListView.separated(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          itemCount: list.length,
-          separatorBuilder: (_, _) => const Divider(height: 1),
-          itemBuilder: (context, i) {
-            final a = list[i];
-            return Padding(
-              key: ValueKey('appeal-${a.appealId}'),
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          a.target == AppealTarget.restriction
-                              ? l10n.appealRestrictionTitle
-                              : l10n.appealEarningTitle,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                      Text(
-                        switch (a.state) {
-                          AppealState.open => l10n.appealOpen,
-                          AppealState.upheld => l10n.appealUpheld,
-                          AppealState.accepted => l10n.appealAccepted,
-                        },
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          color: switch (a.state) {
-                            AppealState.open => RiderColors.sub,
-                            AppealState.upheld => RiderColors.ink,
-                            AppealState.accepted => RiderColors.primary,
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    formatSeoulDateTime(a.submittedAt),
-                    style: const TextStyle(
-                      fontSize: 13,
-                      color: RiderColors.hint,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(a.body, style: const TextStyle(fontSize: 15)),
-                  if (compensations[a.appealId] case final won?) ...[
-                    const SizedBox(height: 6),
-                    Text(
-                      l10n.appealCompensation(formatKrw(won)),
-                      key: ValueKey('appeal-compensation-${a.appealId}'),
-                      style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                        color: RiderColors.primary,
-                      ),
-                    ),
-                  ],
-                  if (a.decisionNote case final note?) ...[
-                    const SizedBox(height: 8),
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(10),
-                      color: RiderColors.field,
-                      child: Text(
-                        l10n.appealDecisionNote(note),
-                        style: const TextStyle(fontSize: 14),
-                      ),
-                    ),
-                  ],
-                ],
+        ready: (context, list) => ListView(
+          key: const ValueKey('appeal-list'),
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+          children: [
+            for (final a in list)
+              _AppealCard(
+                key: ValueKey('appeal-${a.appealId}'),
+                appeal: a,
+                compensation: compensations[a.appealId],
               ),
-            );
-          },
+          ],
         ),
+      ),
+    );
+  }
+}
+
+class _AppealCard extends StatelessWidget {
+  const _AppealCard({super.key, required this.appeal, this.compensation});
+
+  final Appeal appeal;
+  final int? compensation;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final a = appeal;
+    final (stateText, stateColor) = appealStateLook(l10n, a.state);
+    return SupportCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              StatusPill(label: stateText, color: stateColor),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  formatSeoulDateTime(a.submittedAt),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 12, color: RiderColors.hint),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            a.target == AppealTarget.restriction
+                ? l10n.appealRestrictionTitle
+                : l10n.appealEarningTitle,
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              color: RiderColors.ink,
+            ),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            a.body,
+            style: const TextStyle(
+              fontSize: 14,
+              height: 1.4,
+              color: RiderColors.sub,
+            ),
+          ),
+          if (compensation case final won?) ...[
+            const SizedBox(height: 8),
+            Text(
+              l10n.appealCompensation(formatKrw(won)),
+              key: ValueKey('appeal-compensation-${a.appealId}'),
+              style: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+                color: RiderColors.primary,
+              ),
+            ),
+          ],
+          if (a.decisionNote case final note?) ...[
+            const SizedBox(height: 10),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+              decoration: BoxDecoration(
+                color: RiderColors.field,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                l10n.appealDecisionNote(note),
+                style: const TextStyle(
+                  fontSize: 13,
+                  height: 1.4,
+                  color: RiderColors.ink,
+                ),
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }

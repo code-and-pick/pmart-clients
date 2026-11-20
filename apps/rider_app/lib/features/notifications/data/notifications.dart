@@ -128,6 +128,7 @@ final class MockNotificationRepository implements NotificationRepository {
     RiderNotification(
       id: 'ntf-1',
       title: '지원센터 답장이 왔어요',
+      body: '고객과 다시 연락이 됐는지 확인했어요. 전달을 계속해 주세요.',
       createdAt: DateTime.now().subtract(const Duration(minutes: 3)),
       read: _read.contains('ntf-1'),
       target: const NoTarget(),
@@ -135,7 +136,8 @@ final class MockNotificationRepository implements NotificationRepository {
     RiderNotification(
       id: 'ntf-2',
       title: '계정 제한이 풀렸어요',
-      createdAt: DateTime.now().subtract(const Duration(hours: 2)),
+      body: '소명이 인정됐어요. 지금부터 다시 배달할 수 있어요.',
+      createdAt: DateTime.now().subtract(const Duration(days: 1)),
       read: _read.contains('ntf-2'),
       target: const NoTarget(),
     ),

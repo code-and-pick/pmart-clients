@@ -509,3 +509,97 @@ class MenuRow extends StatelessWidget {
     ),
   );
 }
+
+/// 상태 표시 작은 꼬리표(문의 접수됨·답변 완료, 소명 결정 대기·유지·인정). 옅은 바탕 + 같은 색 글자.
+class StatusPill extends StatelessWidget {
+  const StatusPill({super.key, required this.label, required this.color});
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+    decoration: BoxDecoration(
+      color: color.withValues(alpha: 0.12),
+      borderRadius: BorderRadius.circular(6),
+    ),
+    child: Text(
+      label,
+      style: TextStyle(
+        fontSize: 12,
+        fontWeight: FontWeight.w700,
+        color: color,
+        height: 1.2,
+      ),
+    ),
+  );
+}
+
+/// 목록 한 칸(회색 바탕 위 흰 카드) — 지원센터 문의·소명·이의.
+class SupportCard extends StatelessWidget {
+  const SupportCard({super.key, required this.child, this.onTap});
+
+  final Widget child;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: 10),
+    child: Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onTap,
+        child: Padding(padding: const EdgeInsets.all(16), child: child),
+      ),
+    ),
+  );
+}
+
+/// 목록이 비었을 때 — 흐린 그림 + 한 줄(+ 안내).
+class SupportEmpty extends StatelessWidget {
+  const SupportEmpty({
+    super.key,
+    required this.icon,
+    required this.text,
+    this.note,
+  });
+
+  final IconData icon;
+  final String text;
+  final String? note;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.fromLTRB(16, 48, 16, 24),
+    child: Column(
+      children: [
+        Icon(icon, size: 44, color: RiderColors.disabled),
+        const SizedBox(height: 12),
+        Text(
+          text,
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+            color: RiderColors.sub,
+          ),
+        ),
+        if (note != null) ...[
+          const SizedBox(height: 6),
+          Text(
+            note!,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 13,
+              height: 1.45,
+              color: RiderColors.hint,
+            ),
+          ),
+        ],
+      ],
+    ),
+  );
+}

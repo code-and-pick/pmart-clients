@@ -4,11 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:pmart_core/pmart_core.dart';
+import 'package:pmart_ui/pmart_ui.dart' show formatSeoulDateTime;
 
 import '../../../l10n/gen/app_localizations.dart';
 import '../../../shared/rider_style.dart';
 import '../../../shared/rider_widgets.dart';
-import '../../delivery/presentation/delivery_texts.dart' show clockText;
+import '../../appeals/data/appeals.dart' show myAppealsProvider;
+import '../../appeals/presentation/appeal_screens.dart' show AppealList;
 import '../data/inquiries.dart';
 import '../../../shared/keyboard.dart';
 
@@ -26,81 +28,119 @@ String inquiryKindText(AppLocalizations l10n, InquiryKind k) => switch (k) {
       InquiryState.unknown => (l10n.inqUnknown, RiderColors.sub),
     };
 
-/// 지원센터 문의(배송과 상관없는 것 — 정산·계정·앱 오류·기타). 배송 건은 배송 화면의 도움요청.
-class InquiryListScreen extends ConsumerWidget {
-  const InquiryListScreen({super.key});
+/// 지원센터(사용자 2026-11-20 "소명·이의도 결국 지원센터에 남기는 것") — 마이페이지 한 곳에서
+/// 채팅 상담·문의 남기기와, 남긴 것을 탭 둘로 본다: 문의(case-service) | 소명·이의(rider-service 0.15.0).
+/// 서버 기록은 따로다(소명·이의는 라이더 운영이 유지·인정으로 결정 — 제한·수행료에 반영).
+/// 배송 중인 건은 배송 화면의 도움요청.
+class SupportCenterScreen extends ConsumerWidget {
+  const SupportCenterScreen({super.key, this.initialTab = 0});
+
+  /// 0 = 문의, 1 = 소명·이의
+  final int initialTab;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
-    final list = ref.watch(inquiriesProvider);
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: riderDarkBar(context, title: l10n.menuInquiries),
-      body: RefreshIndicator(
-        onRefresh: () => ref.refresh(inquiriesProvider.future),
-        child: ListView(
-          key: const ValueKey('inquiry-list'),
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+    final inquiries = ref.watch(inquiriesProvider).value?.length;
+    final appeals = ref.watch(myAppealsProvider).value?.length;
+    String tab(String label, int? n) =>
+        n == null || n == 0 ? label : '$label $n';
+    return DefaultTabController(
+      length: 2,
+      initialIndex: initialTab,
+      child: Scaffold(
+        backgroundColor: RiderColors.gap,
+        appBar: riderDarkBar(context, title: l10n.menuSupport),
+        body: Column(
           children: [
-            Text(
-              l10n.inqIntro,
-              style: const TextStyle(
-                fontSize: 14,
-                height: 1.5,
-                color: RiderColors.sub,
-              ),
-            ),
-            const SizedBox(height: 12),
-            // 실시간 채팅 상담(사용자 요청 2026-11-17). 문의 남기기는 답을 기다리는 방식.
-            RiderOutlineButton(
-              key: const ValueKey('live-chat'),
-              accent: true,
-              height: 52,
-              icon: Icons.chat_bubble_outline,
-              label: l10n.liveChatTitle,
-              onPressed: () => context.push('/my/inquiries/chat'),
-            ),
-            const SizedBox(height: 8),
-            RiderButton(
-              key: const ValueKey('inquiry-new'),
-              icon: Icons.edit_outlined,
-              label: l10n.inqNew,
-              onPressed: () async {
-                await context.push('/my/inquiries/new');
-                ref.invalidate(inquiriesProvider);
-              },
-            ),
-            const SizedBox(height: 18),
-            switch (list) {
-              AsyncData(:final value) when value.isEmpty => Padding(
-                padding: const EdgeInsets.symmetric(vertical: 24),
-                child: Text(
-                  l10n.inqEmpty,
-                  key: const ValueKey('inquiry-empty'),
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(color: RiderColors.sub),
-                ),
-              ),
-              AsyncData(:final value) => Column(
-                children: [for (final i in value) _InquiryRow(inquiry: i)],
-              ),
-              // 조회 실패를 "문의 없음"으로 보이지 않는다.
-              AsyncError() => Row(
-                key: const ValueKey('inquiry-error'),
+            Container(
+              color: Colors.white,
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Expanded(child: Text(l10n.inqLoadFailed)),
-                  TextButton(
-                    onPressed: () => ref.invalidate(inquiriesProvider),
-                    child: Text(l10n.retry),
+                  IntrinsicHeight(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Expanded(
+                          child: _ActionTile(
+                            key: const ValueKey('live-chat'),
+                            icon: Icons.chat_bubble_outline,
+                            title: l10n.supportChat,
+                            sub: l10n.supportChatSub,
+                            onTap: () => context.push('/my/inquiries/chat'),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: _ActionTile(
+                            key: const ValueKey('inquiry-new'),
+                            icon: Icons.edit_outlined,
+                            title: l10n.supportNew,
+                            sub: l10n.supportNewSub,
+                            onTap: () async {
+                              await context.push('/my/inquiries/new');
+                              ref.invalidate(inquiriesProvider);
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.info_outline,
+                        size: 15,
+                        color: RiderColors.hint,
+                      ),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          l10n.supportCenterNote,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: RiderColors.sub,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  TabBar(
+                    labelColor: RiderColors.ink,
+                    unselectedLabelColor: RiderColors.hint,
+                    labelStyle: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                    ),
+                    unselectedLabelStyle: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    indicatorColor: RiderColors.primary,
+                    indicatorWeight: 3,
+                    indicatorSize: TabBarIndicatorSize.tab,
+                    dividerColor: RiderColors.line,
+                    tabs: [
+                      Tab(
+                        key: const ValueKey('tab-inquiries'),
+                        text: tab(l10n.supportTabInquiries, inquiries),
+                      ),
+                      Tab(
+                        key: const ValueKey('tab-appeals'),
+                        text: tab(l10n.supportTabAppeals, appeals),
+                      ),
+                    ],
                   ),
                 ],
               ),
-              _ => const Padding(
-                padding: EdgeInsets.all(24),
-                child: Center(child: CircularProgressIndicator()),
-              ),
-            },
+            ),
+            const Expanded(
+              child: TabBarView(children: [_InquiryList(), AppealList()]),
+            ),
           ],
         ),
       ),
@@ -108,8 +148,106 @@ class InquiryListScreen extends ConsumerWidget {
   }
 }
 
-class _InquiryRow extends StatelessWidget {
-  const _InquiryRow({required this.inquiry});
+/// 위쪽 큰 버튼(채팅 상담·문의 남기기).
+class _ActionTile extends StatelessWidget {
+  const _ActionTile({
+    super.key,
+    required this.icon,
+    required this.title,
+    required this.sub,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final String sub;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Material(
+    color: RiderColors.primaryMist,
+    borderRadius: BorderRadius.circular(12),
+    child: InkWell(
+      borderRadius: BorderRadius.circular(12),
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 14, 10, 14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, size: 24, color: RiderColors.primary),
+            const SizedBox(height: 8),
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: RiderColors.ink,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              sub,
+              style: const TextStyle(
+                fontSize: 12,
+                height: 1.35,
+                color: RiderColors.sub,
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+/// 남긴 문의(최근 것이 위).
+class _InquiryList extends ConsumerWidget {
+  const _InquiryList();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
+    final list = ref.watch(inquiriesProvider);
+    return RefreshIndicator(
+      onRefresh: () => ref.refresh(inquiriesProvider.future),
+      child: ListView(
+        key: const ValueKey('inquiry-list'),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+        children: [
+          switch (list) {
+            AsyncData(:final value) when value.isEmpty => SupportEmpty(
+              key: const ValueKey('inquiry-empty'),
+              icon: Icons.forum_outlined,
+              text: l10n.inqEmpty,
+            ),
+            AsyncData(:final value) => Column(
+              children: [for (final i in value) _InquiryCard(inquiry: i)],
+            ),
+            // 조회 실패를 "문의 없음"으로 보이지 않는다.
+            AsyncError() => Row(
+              key: const ValueKey('inquiry-error'),
+              children: [
+                Expanded(child: Text(l10n.inqLoadFailed)),
+                TextButton(
+                  onPressed: () => ref.invalidate(inquiriesProvider),
+                  child: Text(l10n.retry),
+                ),
+              ],
+            ),
+            _ => const Padding(
+              padding: EdgeInsets.all(24),
+              child: Center(child: CircularProgressIndicator()),
+            ),
+          },
+        ],
+      ),
+    );
+  }
+}
+
+class _InquiryCard extends StatelessWidget {
+  const _InquiryCard({required this.inquiry});
 
   final RiderInquiry inquiry;
 
@@ -117,51 +255,63 @@ class _InquiryRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final (text, color) = inquiryStateLook(l10n, inquiry.state);
-    return InkWell(
+    final body = inquiry.body.trim();
+    return SupportCard(
       key: ValueKey('inquiry-${inquiry.id}'),
       onTap: () => context.push('/my/inquiries/${inquiry.id}'),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 14),
-        decoration: const BoxDecoration(
-          border: Border(bottom: BorderSide(color: RiderColors.line)),
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    StatusPill(label: text, color: color),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        '${inquiryKindText(l10n, inquiry.kind)} · ${formatSeoulDateTime(inquiry.createdAt)}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: RiderColors.hint,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  inquiry.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: RiderColors.ink,
+                  ),
+                ),
+                if (body.isNotEmpty) ...[
+                  const SizedBox(height: 3),
                   Text(
-                    '${inquiryKindText(l10n, inquiry.kind)} · ${clockText(inquiry.createdAt)}',
+                    body,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                      fontSize: 13,
+                      fontSize: 14,
+                      height: 1.4,
                       color: RiderColors.sub,
                     ),
                   ),
-                  const SizedBox(height: 2),
-                  Text(
-                    inquiry.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
                 ],
-              ),
+              ],
             ),
-            Text(
-              text,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                color: color,
-              ),
-            ),
-            const Icon(Icons.chevron_right, color: RiderColors.sub),
-          ],
-        ),
+          ),
+          const SizedBox(width: 6),
+          const Icon(Icons.chevron_right, color: RiderColors.hint),
+        ],
       ),
     );
   }

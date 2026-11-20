@@ -172,18 +172,11 @@ class MyPageScreen extends ConsumerWidget {
                   label: l10n.menuTime,
                   onTap: () => context.push('/my/time'),
                 ),
-                // 소명·이의 신청과 결과(rider 0.15.0)
-                MenuRow(
-                  key: const ValueKey('menu-appeals'),
-                  icon: Icons.gavel_outlined,
-                  label: l10n.appealMine,
-                  onTap: () => context.push('/my/appeals'),
-                ),
-                // 배송과 상관없는 문의(정산·계정·앱 오류) — 배송 건은 배송 화면의 도움요청.
+                // 지원센터: 배송과 상관없는 문의 + 소명·이의(사용자 2026-11-20 한 곳으로). 배송 건은 배송 화면의 도움요청.
                 MenuRow(
                   key: const ValueKey('menu-inquiries'),
                   icon: Icons.support_agent,
-                  label: l10n.menuInquiries,
+                  label: l10n.menuSupport,
                   onTap: () => context.push('/my/inquiries'),
                 ),
                 MenuRow(

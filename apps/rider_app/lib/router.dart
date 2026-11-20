@@ -144,7 +144,11 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(path: '/my/history', builder: (_, _) => const HistoryScreen()),
       // 소명·이의 신청(rider 0.15.0) — ?type=restriction|earning&deliveryId=
-      GoRoute(path: '/my/appeals', builder: (_, _) => const MyAppealsScreen()),
+      // 지원센터의 소명·이의 탭(사용자 2026-11-20 — 문의와 한 곳에서)
+      GoRoute(
+        path: '/my/appeals',
+        builder: (_, _) => const SupportCenterScreen(initialTab: 1),
+      ),
       GoRoute(
         path: '/my/appeals/new',
         builder: (_, s) => AppealNewScreen(
@@ -157,7 +161,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       // 배송 밖 문의(case-service, 라이더 토큰)·알림함(notification).
       GoRoute(
         path: '/my/inquiries',
-        builder: (_, _) => const InquiryListScreen(),
+        builder: (_, _) => const SupportCenterScreen(),
       ),
       GoRoute(
         path: '/my/inquiries/chat',
