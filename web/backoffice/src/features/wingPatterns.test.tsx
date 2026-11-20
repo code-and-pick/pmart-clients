@@ -73,6 +73,7 @@ describe('접수 건 일괄 맡기', () => {
     const rows = boxes.filter((b) => b.getAttribute('aria-label') !== '맡을 수 있는 줄 모두 고르기').slice(0, 2);
     for (const b of rows) await user.click(b);
     expect(bar).toHaveTextContent('2개 선택됨');
+    await user.click(screen.getByTestId('case-actions')); // 작업 ▾(2026-11-20 AWS) 펼치고
     await user.click(screen.getByTestId('case-bulk-pick'));
     expect(await screen.findByTestId('case-bulk-result')).toHaveTextContent(/맡았어요/);
     const posts = view.sent.filter((q) => q.method === 'POST' && new URL(q.url).pathname.endsWith('/assignments'));

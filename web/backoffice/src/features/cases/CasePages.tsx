@@ -37,7 +37,7 @@ import type { operations as BffOps } from '../../api/generated/backoffice-bff';
 import type { components } from '../../api/generated/case';
 import { useApi } from '../../app/ApiContext';
 import { useSession } from '../../app/SessionContext';
-import { CodeLabel, NextAction, Notice, PageHeader, StatCard, StatStrip, StatusBadge, countCell, type Tone, AllDone, ListHeader, listCount, refreshOf } from '../../shared/admin';
+import { CodeLabel, NextAction, Notice, PageHeader, StatCard, StatStrip, StatusBadge, countCell, type Tone, AllDone, ListHeader, listCount, refreshOf, ActionsMenu } from '../../shared/admin';
 import { SavedViews } from '../../shared/SavedViews';
 import { useRecordRecent } from '../../shared/recentViews';
 import { TabCount, useAlertCount } from '../../app/MenuAlerts';
@@ -540,19 +540,22 @@ export function CaseListPage() {
               {pickable.length > 0 && (
                 <div className="flex flex-wrap items-center gap-3 border-b border-base-300 px-4 py-2.5 text-sm" data-testid="case-bulk-bar">
                   <span className="text-base-content/60">{m.cases.bulk.picked(picked.size)}</span>
-                  <button
-                    type="button"
-                    className="btn btn-outline btn-primary btn-xs"
-                    disabled={picked.size === 0 || bulk.busy}
-                    onClick={() =>
-                      void bulk.run([...picked]).then((done) => {
-                        setPicked(new Set([...picked].filter((id) => !done.includes(id))));
-                      })
-                    }
-                    data-testid="case-bulk-pick"
-                  >
-                    {bulk.busy ? m.cases.bulk.running(bulk.progress, picked.size) : m.cases.bulk.pick}
-                  </button>
+                  {/* 작업 ▾(2026-11-20 AWS) — 고른 줄에 할 일을 한 메뉴에. 지금은 "선택한 건 내가 맡기" 하나 */}
+                  <ActionsMenu
+                    testId="case-actions"
+                    busyLabel={bulk.busy ? m.cases.bulk.running(bulk.progress, picked.size) : undefined}
+                    items={[
+                      {
+                        label: `${m.cases.bulk.pick} (${picked.size})`,
+                        disabled: picked.size === 0,
+                        testId: 'case-bulk-pick',
+                        onSelect: () =>
+                          void bulk.run([...picked]).then((done) => {
+                            setPicked(new Set([...picked].filter((id) => !done.includes(id))));
+                          }),
+                      },
+                    ]}
+                  />
                   {bulk.result && <span role="status" className={bulk.result.failed > 0 ? 'text-warning' : 'text-success'} data-testid="case-bulk-result">{m.cases.bulk.result(bulk.result.done, bulk.result.failed)}</span>}
                 </div>
               )}

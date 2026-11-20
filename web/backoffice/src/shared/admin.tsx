@@ -714,3 +714,60 @@ export function PagerMini({ label, prevLabel, nextLabel, canPrev, canNext, onPre
     </nav>
   );
 }
+
+/**
+ * 작업 ▾(AWS 표 위 "작업" 메뉴) — 고른 줄에 할 수 있는 일을 한 단추에 모은다. 할 수 있는 일이 없으면 꺼진 채 보인다(무엇이 있는지는 알 수 있게).
+ * 명령 자체는 부르는 쪽(useCommand 등) — 이 부품은 메뉴만.
+ */
+export function ActionsMenu({ items, label = '작업', busyLabel, testId }: {
+  readonly items: ReadonlyArray<{ readonly label: string; readonly onSelect: () => void; readonly disabled?: boolean; readonly testId?: string }>;
+  readonly label?: string;
+  /** 일하는 중이면 단추 글자 대신 */
+  readonly busyLabel?: string | undefined;
+  readonly testId?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const box = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: MouseEvent) => {
+      if (!box.current?.contains(e.target as Node)) setOpen(false);
+    };
+    const esc = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false);
+    window.addEventListener('mousedown', close);
+    window.addEventListener('keydown', esc);
+    return () => {
+      window.removeEventListener('mousedown', close);
+      window.removeEventListener('keydown', esc);
+    };
+  }, [open]);
+  const none = items.every((i) => i.disabled);
+  return (
+    <div className="relative" ref={box}>
+      <button type="button" className="btn btn-sm" aria-haspopup="menu" aria-expanded={open} disabled={none || busyLabel !== undefined} onClick={() => setOpen((o) => !o)} data-testid={testId}>
+        {busyLabel ?? label} <span aria-hidden="true">▾</span>
+      </button>
+      {open && (
+        <ul role="menu" className="absolute left-0 z-30 mt-1 min-w-48 rounded-box border border-base-300 bg-base-100 py-1 text-sm shadow-lg">
+          {items.map((i) => (
+            <li key={i.label} role="none">
+              <button
+                type="button"
+                role="menuitem"
+                className="w-full px-3 py-1.5 text-left hover:bg-base-200 disabled:text-base-content/40 disabled:hover:bg-transparent"
+                disabled={i.disabled}
+                data-testid={i.testId}
+                onClick={() => {
+                  setOpen(false);
+                  i.onSelect();
+                }}
+              >
+                {i.label}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
