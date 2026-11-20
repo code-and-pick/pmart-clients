@@ -46,6 +46,8 @@ export const navGroups: readonly NavGroup[] = [
       { to: '/products/drafts/new', label: m.nav.productNew, also: ['/products/drafts', '/contents/drafts'] },
       { to: '/imports', label: m.nav.imports, also: ['/products/import', '/contents/import', '/prices/import'] },
       { to: '/categories', label: m.nav.categories },
+      // 홈 진열 편성(storefront 0.7.0, ADR-0075 ② — 배너·상품 테마, 편성 MD·OPERATOR_ADMIN, 승인 DISPLAY_APPROVER)
+      { to: '/display/home', label: m.nav.homeLayout },
       // 센터 취급(mfc/cdc-inventory sku-handlings)은 토큰 centers 에 그 센터가 있어야만 된다(계약 "없으면 403") — 센터 없는 본사 역할에는 숨긴다(2026-11-20)
       { to: '/handlings', label: m.nav.handlings, needsCenter: true },
       // 결과 0건 검색어(search 0.4.0, ADR-0073) — 동의어·상품명 고칠 근거. 묶음 역할(MD·OPERATOR_ADMIN)과 서버 역할이 같다

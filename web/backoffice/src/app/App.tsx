@@ -41,6 +41,8 @@ const ContentDraftPage = lazy(() => import('../features/contents/ContentDraftPag
 const NewContentDraftPage = lazy(() => import('../features/contents/ContentDraftPage').then((x) => ({ default: x.NewContentDraftPage })));
 const ContentImportPage = lazy(() => import('../features/contents/ContentImportPage').then((x) => ({ default: x.ContentImportPage })));
 const NewContentImportPage = lazy(() => import('../features/contents/ContentImportPage').then((x) => ({ default: x.NewContentImportPage })));
+const HomeLayoutListPage = lazy(() => import('../features/display/HomeLayoutPages').then((x) => ({ default: x.HomeLayoutListPage })));
+const HomeLayoutDraftPage = lazy(() => import('../features/display/HomeLayoutPages').then((x) => ({ default: x.HomeLayoutDraftPage })));
 const SynonymRulesPage = lazy(() => import('../features/search/SynonymRulesPage').then((x) => ({ default: x.SynonymRulesPage })));
 const ZeroResultKeywordsPage = lazy(() => import('../features/search/ZeroResultKeywordsPage').then((x) => ({ default: x.ZeroResultKeywordsPage })));
 const SkuHandlingPage = lazy(() => import('../features/handlings/SkuHandlingPage').then((x) => ({ default: x.SkuHandlingPage })));
@@ -347,6 +349,8 @@ const routes = [
       { path: 'handlings', element: guarded(<SkuHandlingPage />) },
       { path: 'search/zero-results', element: guarded(<ZeroResultKeywordsPage />) },
       { path: 'search/synonyms', element: guarded(<SynonymRulesPage />) },
+      { path: 'display/home', element: guarded(<HomeLayoutListPage />) },
+      { path: 'display/home/:draftId', element: guarded(<HomeLayoutDraftPage />) },
       { path: 'inquiries', element: guarded(<InquiryListPage />) },
       { path: 'inquiry-satisfaction', element: guarded(<SatisfactionPage />) },
       { path: 'inquiries/:inquiryId', element: guarded(<InquiryDetailPage />) },

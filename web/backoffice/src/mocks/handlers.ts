@@ -19,6 +19,7 @@ import { hrLabelHandlers } from './hrLabelHandlers';
 import { priceImportHandlers } from './priceImportHandlers';
 import { pricingHandlers } from './pricingHandlers';
 import { searchHandlers } from './searchHandlers';
+import { storefrontHandlers } from './storefrontHandlers';
 import { operator, unauthorized } from './support';
 
 /** 게이트웨이 공개 경로(계약 security: []) */
@@ -53,4 +54,5 @@ export const handlers = [
   ...piiAccessLogHandlers,
   ...hrLabelHandlers,
   ...searchHandlers,
+  ...storefrontHandlers,
 ];

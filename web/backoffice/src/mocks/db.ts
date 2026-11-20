@@ -15,6 +15,7 @@ import type {
   ProductDraft,
   SkuHandling,
 } from '../api/models';
+import { resetLayouts } from './storefrontHandlers';
 import { resetSynonyms } from './synonymStore';
 import { mockAccounts } from './operators';
 
@@ -262,6 +263,7 @@ export let db: MockDb = createDb();
 export function resetDb(): void {
   db = createDb();
   resetSynonyms();
+  resetLayouts();
 }
 
 export const nextId = (prefix: string) => `${prefix}-${++db.seq}`;

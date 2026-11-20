@@ -18,6 +18,7 @@ import type { paths as ProductPaths } from './generated/product';
 import type { paths as ContentPaths } from './generated/product-content';
 import type { paths as HrPaths } from './generated/hr';
 import type { paths as SearchPaths } from './generated/search';
+import type { paths as StorefrontPaths } from './generated/storefront';
 import { SOURCE_SYSTEM } from './command';
 import { refreshEmployeeTokens } from './employeeAuth';
 import { createPmartFetch, TokenStore, type EmployeeAuthPaths, type PmartFetch } from '@pmart/web-core';
@@ -61,6 +62,8 @@ export function createApi(pmartFetch: PmartFetch, baseUrl = API_BASE) {
     hr: createClient<HrPaths>(options),
     // 결과 0건 검색어(search 0.4.0, ADR-0073 — MD·OPERATOR_ADMIN)
     search: createClient<SearchPaths>(options),
+    // 홈 진열 편성(storefront 0.7.0 layouts, ADR-0075 ② — MD·OPERATOR_ADMIN)
+    storefront: createClient<StorefrontPaths>(options),
   };
 }
 

@@ -4,7 +4,7 @@ import { QueueNav } from '../../shared/workQueue';
 import { StaffName } from '../lookup/parts';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { useParams } from 'react-router';
+import { Link, useParams } from 'react-router';
 
 import { commandParams } from '../../api/command';
 import { CommandRejectedFailure, UnknownResultFailure } from '@pmart/web-core';
@@ -295,7 +295,7 @@ export function ApprovalDetailPage() {
                         {(a.lines ?? []).map((l, i) => (
                           <tr key={l.lineKey}>
                             {/* 항목 키가 시스템 ID(PD-… 초안 등)면 순번만 — 무엇인지는 오른쪽 내용 칸(상품명 등) */}
-                            <td className="font-mono" title={l.lineKey}>{isSystemId(l.lineKey) || a.type === 'SEARCH_SYNONYM' ? String(i + 1) : l.lineKey}</td>
+                            <td className="font-mono" title={l.lineKey}>{isSystemId(l.lineKey) || a.type === 'SEARCH_SYNONYM' || a.targetService === 'storefront-service' ? String(i + 1) : l.lineKey}</td>
                             <td className="text-right tabular-nums" data-testid="line-qty">{lineQtyText(l)}</td>
                             <td className="text-right font-semibold tabular-nums" data-testid="line-amount">{lineAmountText(a.type, l)}</td>
                             <td className="space-y-1">
@@ -304,6 +304,12 @@ export function ApprovalDetailPage() {
                               {a.type === 'GRANT' && <GrantLineAttributes attributes={l.attributes} />}
                               {/* 검색 동의어 행(approval 0.5.0): 규칙 ID 대신 추가·고침·삭제 + 낱말(바꾸기 전 낱말이 있으면 같이) */}
                               {a.type === 'SEARCH_SYNONYM' && <SynonymLine attributes={l.attributes} />}
+                              {/* 홈 진열 편성(storefront 0.7.0): 초안 ID 대신 편성 화면으로 */}
+                              {a.targetService === 'storefront-service' && a.targetRef && (
+                                <Link className="link text-sm" to={`/display/home/${encodeURIComponent(a.targetRef)}`} data-testid="layout-line">
+                                  {m.homeLayout.openDraft}
+                                </Link>
+                              )}
                               {/* 상품 등록 행(BR-39 회신): 재업로드면 "기존 상품 갱신"을 먼저 보인다 */}
                               {/* 콘텐츠 게시 행(BR-44 회신): 이미 게시된 콘텐츠를 바꾸는 건이면 "기존 게시 갱신" + 지금 게시본 버전 */}
                               {a.targetService === 'product-content-service' ? (

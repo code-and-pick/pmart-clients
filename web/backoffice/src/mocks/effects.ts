@@ -2,6 +2,7 @@
 import type { ApprovalDetail, ContentDraft, ProductDetail, ProductDraft } from '../api/models';
 import { db, nextId, timestamp } from './db';
 import { settlePriceImportBatch } from './priceImportHandlers';
+import { decideLayout } from './storefrontHandlers';
 import { applySynonyms } from './synonymStore';
 
 const draftIdsOf = (a: ApprovalDetail) => (a.lines ?? []).map((l) => l.lineKey);
@@ -158,6 +159,7 @@ export function decide(a: ApprovalDetail, approved: boolean): void {
   if (a.targetService === 'product-content-service') applyContent(a, approved);
   if (a.targetService === 'pricing-service' && approved) applyPrice(a);
   if (a.targetService === 'pricing-service' && a.approvalId) settlePriceImportBatch(a.targetRef, a.approvalId, approved);
+  if (a.targetService === 'storefront-service') decideLayout(a.targetRef ?? '', approved, a.decisions?.at(-1)?.comment ?? null);
   if (a.targetService === 'search-service' && approved) {
     const cr = db.changeRequests.get(a.changeRequestId ?? '');
     applySynonyms(a, cr?.targetExpectedVersion, a.decisions?.at(-1)?.approverId ?? null);
