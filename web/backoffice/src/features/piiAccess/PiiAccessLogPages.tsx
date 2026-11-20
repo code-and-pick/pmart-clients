@@ -16,6 +16,7 @@ import { messages } from '../../shared/messages';
 import { isSeoulDate, label, seoulDayEnd, seoulDayStart, text, when } from '../../shared/ops';
 import { labelText, useEmployeeLabel } from '../../shared/employeeLabels';
 import { CodeLabel, FieldList, PageHeader, PropertyFilter, Section, StatusBadge, type Tone, ListHeader, listCount, refreshOf } from '../../shared/admin';
+import { PeriodPresets } from '../../shared/PeriodPresets';
 
 const m = messages.piiLogs;
 type Log = components['schemas']['PiiAccessLog'];
@@ -233,6 +234,7 @@ function FilterForm({ initial, onApply }: { readonly initial: Filters; readonly 
         aside={
           <span className="flex items-center gap-2 text-sm">
             <span className="font-semibold text-base-content/80">{m.period}</span>
+            <PeriodPresets from={initial.from} to={initial.to} onPick={(r) => change({ from: r.from, to: r.to })} />
             <input type="date" aria-label={m.filter.from} className="input input-sm w-40" value={initial.from} onChange={(e) => change({ from: e.target.value })} />
             <span className="text-base-content/50">~</span>
             <input type="date" aria-label={m.filter.to} className="input input-sm w-40" value={initial.to} onChange={(e) => change({ to: e.target.value })} />

@@ -18,6 +18,7 @@ import { messages } from '../../shared/messages';
 import { label } from '../../shared/ops';
 import { SourceStamps } from '../../shared/SourceStamps';
 import { ChipGroup, DataTable, PageHeader, SearchPanel, SearchRow, Section, StatCard } from '../../shared/admin';
+import { PeriodPresets } from '../../shared/PeriodPresets';
 
 const m = messages.caseSla;
 
@@ -156,6 +157,7 @@ export function CaseSlaPage() {
       <PageHeader title={m.title} />
       <SearchPanel onSubmit={submit} onReset={() => setDraft({ from: seoulToday(-6), to: seoulToday(), granularity: 'DAY', centerId: '' })} submitLabel={m.show} resetLabel={m.reset} label={m.title}>
         <SearchRow label={m.period}>
+          <PeriodPresets from={draft.from} to={draft.to} onPick={(r) => setDraft((d) => ({ ...d, from: r.from, to: r.to }))} />
           <input type="date" aria-label={m.from} className="input input-sm w-40" value={draft.from} onChange={(e) => setDraft((d) => ({ ...d, from: e.target.value }))} />
           <span className="text-base-content/50">~</span>
           <input type="date" aria-label={m.to} className="input input-sm w-40" value={draft.to} onChange={(e) => setDraft((d) => ({ ...d, to: e.target.value }))} />

@@ -28,6 +28,7 @@ import { ReturnIntakeLink } from '../claims/ReturnClaim';
 import { DeliveriesOf } from '../deliveries/DeliveryPages';
 import { EmptyBox, Icon, KindChip, ListFoot, SideFields, Timeline, When } from '../lookup/parts';
 import { useHelp } from '../../shared/HelpPanel';
+import { PeriodPresets } from '../../shared/PeriodPresets';
 
 type OrderStatus = components['schemas']['OrderStatus'];
 type Detail = components['schemas']['StaffOrderDetail'];
@@ -145,6 +146,7 @@ export function OrderLookupPage() {
           aside={
             <span className="flex items-center gap-2 text-sm">
               <span className="font-semibold text-base-content/80">{m.orders.period}</span>
+              <PeriodPresets from={criteria.from} to={criteria.to} onPick={(r) => setCriteria({ from: r.from, to: r.to })} />
               <input type="date" className="input input-sm w-40" aria-label={m.orders.from} value={criteria.from} onChange={(e) => setCriteria({ from: e.target.value })} />
               <span className="text-base-content/40">~</span>
               <input type="date" className="input input-sm w-40" aria-label={m.orders.to} value={criteria.to} onChange={(e) => setCriteria({ to: e.target.value })} />

@@ -25,6 +25,7 @@ import { PreviewDrawer, PreviewFacts, usePreview } from '../../shared/Preview';
 import { CodeLabel, DataTable, DetailHeader, FieldList, NextAction, PageHeader, PropertyFilter, Section, StatCard, StatStrip, type Tone } from '../../shared/admin';
 import { isDeliveryNumber, isRiderNumber } from '../../shared/numberLookups';
 import { EmptyBox, Icon, KindChip, ListFoot, Person, SideFields, StaffName, When, type IconName } from '../lookup/parts';
+import { PeriodPresets } from '../../shared/PeriodPresets';
 
 type ComplaintType = components['schemas']['RiderComplaintType'];
 type ListItem = BffC['schemas']['RiderComplaintListItem'];
@@ -241,6 +242,7 @@ export function RiderComplaintListPage() {
           aside={
             <span className="flex items-center gap-2 text-sm">
               <span className="font-semibold text-base-content/80">{m.complaints.period}</span>
+              <PeriodPresets from={from} to={to} onPick={(r) => setCriteria({ from: r.from, to: r.to })} />
               <input type="date" aria-label={m.complaints.from} className="input input-sm w-40" value={from} onChange={(e) => setCriteria({ from: e.target.value })} />
               <span className="text-base-content/50">~</span>
               <input type="date" aria-label={m.complaints.to} className="input input-sm w-40" value={to} onChange={(e) => setCriteria({ to: e.target.value })} />
