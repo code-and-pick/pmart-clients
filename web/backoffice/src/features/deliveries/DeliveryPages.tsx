@@ -413,9 +413,9 @@ function FailureDecisionForm({ delivery }: { readonly delivery: DeliveryExecutio
         ))}
       </fieldset>
       {decision === 'CONFIRM' && (
-        <label className="block text-sm">
+        <label className="flex flex-col items-start text-sm">
           {m.deliveries.custody}
-          <select className="select select-sm mt-1 block" value={custody} disabled={locked} onChange={(e) => setCustody(e.target.value as '' | 'RIDER' | 'STORE')}>
+          <select className="select select-sm mt-1" value={custody} disabled={locked} onChange={(e) => setCustody(e.target.value as '' | 'RIDER' | 'STORE')}>
             {(['', 'RIDER', 'STORE'] as const).map((c) => (
               <option key={c} value={c}>
                 {m.deliveries.custodyName[c]}
@@ -506,9 +506,9 @@ function CancellationForm({ dispatch }: { readonly dispatch: DispatchView }) {
     >
       <h2 className="font-bold">{m.deliveries.cancelTitle}</h2>
       <p className="text-xs opacity-60">{m.deliveries.cancelIntro}</p>
-      <label className="block text-sm">
+      <label className="flex flex-col items-start text-sm">
         {m.deliveries.cancelReason}
-        <select className="select select-sm mt-1 block" value={reason} disabled={locked} onChange={(e) => setReason(e.target.value as CancelReason | '')}>
+        <select className="select select-sm mt-1" value={reason} disabled={locked} onChange={(e) => setReason(e.target.value as CancelReason | '')}>
           <option value="">-</option>
           {CANCEL_REASONS.map((r) => (
             <option key={r} value={r}>
