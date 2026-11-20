@@ -9,7 +9,7 @@ import { request } from '@pmart/web-core';
 import { QueryState, toUiState, uiStateFromError } from '@pmart/web-ui';
 import type { components } from '../../api/generated/claim';
 import { useApi } from '../../app/ApiContext';
-import { CodeLabel, DataTable, DetailHeader, NextAction, Notice, PropertyFilter, ResultBar, Section, StatCard, StatStrip, StatusBadge, type Tone, ListHeader, listCount, refreshOf } from '../../shared/admin';
+import { CodeLabel, DataTable, DetailHeader, NextAction, Notice, PropertyFilter, ResultBar, Section, StatCard, StatStrip, StatusBadge, type Tone, ListHeader, listCount, refreshOf, SectionTabs } from '../../shared/admin';
 import { EmptyBox, KindChip, ListFoot, SideFields, When } from '../lookup/parts';
 import { DisplayNumber, SystemNumbers } from '../../shared/displayNumber';
 import { SavedViews } from '../../shared/SavedViews';
@@ -449,6 +449,15 @@ export function ClaimDetailPage() {
                 </a>
               </NextAction>
             )}
+            {/* 상세 탭(2026-11-20 AWS) — 누르면 그 구역으로, 지금 보는 구역 밑줄 */}
+            <SectionTabs
+              items={[
+                { id: 'claim-lines', label: m.claims.lines },
+                { id: 'claim-refunds', label: m.claims.refunds },
+                { id: 'claim-basic', label: m.claims.sectionBasic },
+                { id: 'claim-logistics', label: m.claims.sectionLogistics },
+              ]}
+            />
             <div className="grid items-start gap-4 lg:grid-cols-3">
               <div className="min-w-0 space-y-4 lg:col-span-2">
                 {/* 맨 위 운영 조치 — 반품 회수 조치(조건이 안 맞으면 칸이 없다) */}
@@ -456,7 +465,7 @@ export function ClaimDetailPage() {
                   <RecoveryActions claim={c} />
                 </div>
 
-                <Section title={m.claims.lines} aside={<span className="text-base-content/55">{m.orders.lineCount((c.lines ?? []).length)}</span>}>
+                <Section id="claim-lines" title={m.claims.lines} aside={<span className="text-base-content/55">{m.orders.lineCount((c.lines ?? []).length)}</span>}>
                   <DataTable>
                     <thead>
                       <tr>
@@ -491,7 +500,7 @@ export function ClaimDetailPage() {
                   </Section>
                 )}
 
-                <Section title={m.claims.refunds}>
+                <Section id="claim-refunds" title={m.claims.refunds}>
                   <Notice>{m.claims.refundsNote}</Notice>
                   <div className="mt-3">
                     <Refunds claimId={claimId} />
@@ -500,7 +509,7 @@ export function ClaimDetailPage() {
               </div>
 
               <aside className="min-w-0 space-y-4">
-                <Section title={m.claims.sectionBasic}>
+                <Section id="claim-basic" title={m.claims.sectionBasic}>
                   <SideFields
                     testId="claim-summary"
                     rows={[
@@ -514,7 +523,7 @@ export function ClaimDetailPage() {
                   />
                   <p className="mt-4 border-t border-base-300 pt-3 text-xs text-base-content/55">{m.claims.noDecision}</p>
                 </Section>
-                <Section title={m.claims.sectionLogistics}>
+                <Section id="claim-logistics" title={m.claims.sectionLogistics}>
                   <SideFields
                     rows={[
                       [

@@ -11,7 +11,7 @@
 export { StatStrip, GuideBox, AllDone } from '@pmart/web-ui';
 import { StickyTitle, useScrolledPast } from './StickyTitle';
 import { useStatChange } from './motion';
-import { type FormEvent, type ReactNode, useId, useRef, useState } from 'react';
+import { type FormEvent, type ReactNode, useEffect, useId, useRef, useState } from 'react';
 
 import { formatSeoul } from '@pmart/web-ui';
 import { messages as lm } from './messages';
@@ -188,15 +188,43 @@ export function DetailHeader({ back, title, badges, summary, actions }: { readon
   );
 }
 
-/** 구역으로 가는 탭(같은 쪽 안 이동) — 2026-11-20 AWS 개편: 굵은 글자 탭, 사이 세로 선, 파랑으로 바뀜 */
+/**
+ * 상세 화면 탭(같은 쪽 안 이동) — 2026-11-20 AWS 밑줄 탭: 위에 붙어 있고, 누르면 그 구역으로, 지금 보는 구역은 파랑 굵은 글자 + 밑줄.
+ * 구역을 숨기지 않고 이동만 한다(상세를 훑어 읽는 지금 쓰임·시험을 그대로).
+ */
 export function SectionTabs({ items }: { readonly items: ReadonlyArray<{ readonly id: string; readonly label: string }> }) {
+  const [active, setActive] = useState(items[0]?.id ?? '');
+  useEffect(() => {
+    if (typeof IntersectionObserver === 'undefined') return;
+    const io = new IntersectionObserver(
+      (es) => {
+        const top = es.filter((e) => e.isIntersecting).sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0];
+        if (top) setActive(top.target.id);
+      },
+      { rootMargin: '-15% 0px -70% 0px' },
+    );
+    for (const it of items) {
+      const el = document.getElementById(it.id);
+      if (el) io.observe(el);
+    }
+    return () => io.disconnect();
+  }, [items]);
   return (
-    <nav aria-label="구역" className="sticky top-0 z-10 flex overflow-x-auto border-b border-base-300 bg-base-200/95 backdrop-blur">
-      {items.map((i, n) => (
-        <a key={i.id} href={`#${i.id}`} className={`-mb-px whitespace-nowrap border-b-2 border-transparent px-4 py-2.5 text-sm font-bold text-base-content/70 hover:border-primary hover:text-primary ${n > 0 ? 'relative before:absolute before:inset-y-3 before:left-0 before:w-px before:bg-base-300' : ''}`}>
-          {i.label}
-        </a>
-      ))}
+    <nav aria-label="구역" className="sticky top-0 z-20 flex overflow-x-auto border-b border-base-300 bg-base-200/95 backdrop-blur" data-testid="section-tabs">
+      {items.map((i, n) => {
+        const on = i.id === active;
+        return (
+          <a
+            key={i.id}
+            href={`#${i.id}`}
+            aria-current={on ? 'true' : undefined}
+            onClick={() => setActive(i.id)}
+            className={`-mb-px whitespace-nowrap border-b-2 px-4 py-2.5 text-sm font-bold ${on ? 'border-primary text-primary' : 'border-transparent text-base-content/70 hover:text-primary'} ${n > 0 ? 'relative before:absolute before:inset-y-3 before:left-0 before:w-px before:bg-base-300' : ''}`}
+          >
+            {i.label}
+          </a>
+        );
+      })}
     </nav>
   );
 }

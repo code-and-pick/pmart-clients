@@ -12,7 +12,7 @@ import { CommandFeedback, QueryState, toUiState, useCommand } from '@pmart/web-u
 import { commandParams } from '../../api/command';
 import type { components } from '../../api/generated/order';
 import { useApi } from '../../app/ApiContext';
-import { CodeLabel, DataTable, DetailHeader, NextAction, Notice, PropertyFilter, ResultBar, Section, StatusBadge, type FilterProp, type Tone, ListHeader, listCount, refreshOf } from '../../shared/admin';
+import { CodeLabel, DataTable, DetailHeader, NextAction, Notice, PropertyFilter, ResultBar, Section, StatusBadge, type FilterProp, type Tone, ListHeader, listCount, refreshOf, SectionTabs } from '../../shared/admin';
 import { SavedViews } from '../../shared/SavedViews';
 import { OrderProgress } from './OrderProgress';
 import { CopyButton } from '../../shared/CopyButton';
@@ -494,6 +494,18 @@ export function OrderDetailPage() {
             />
             {/* 주문 진행 단계(2026-11-18 Refine 참고) — 서버 상태를 계약 상태표 순서대로 */}
             <OrderProgress status={o.status} />
+            {/* 상세 탭(2026-11-20 AWS) — 누르면 그 구역으로, 지금 보는 구역 밑줄 */}
+            <SectionTabs
+              items={[
+                { id: 'order-lines', label: m.orders.lines },
+                { id: 'order-amounts', label: m.orders.amounts },
+                { id: 'order-basic', label: m.orders.sectionBasic },
+                { id: 'order-address-section', label: m.orders.address },
+                { id: 'order-issues', label: m.orders.issues },
+                { id: 'order-deliveries', label: m.deliveries.ofOrder },
+                { id: 'order-claims', label: m.orders.claims },
+              ]}
+            />
             {cancelOpen && o.status === 'CONFIRMED' && <OrderCancelForm order={o} onClose={() => setCancelOpen(false)} />}
             {/* 다음 할 일 — 서버 값만으로: 확인 필요(OPEN) 이행 기록이 있으면 그 기록으로, 결제 결과 불명이면 안내만 */}
             {openIssues > 0 ? (
