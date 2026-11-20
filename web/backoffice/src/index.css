@@ -437,3 +437,8 @@ main [data-list-part='head'] + [data-list-part] {
 .pm-stat-strip > .pm-stat[aria-current='true'] .pm-stat-value {
   color: var(--color-primary);
 }
+
+/* 작은 숫자 띠(2026-11-20 배송 상태별 수 — 칸이 많아 좁게) */
+.pm-stat-strip.pm-compact > * {
+  flex-basis: 7.5rem;
+}

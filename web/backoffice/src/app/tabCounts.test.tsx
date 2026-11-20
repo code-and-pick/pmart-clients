@@ -32,16 +32,19 @@ describe('목록 탭 옆 개수', () => {
   });
 
   // 2026-11-20 AWS 개편: 상태는 속성 필터의 값 목록 — 건수는 값 이름 옆 괄호
-  it('배송 확인(관리자): 진행 중 상태 값 옆에 건수, 끝난 상태는 없음 — 관리자가 아니면 없음', async () => {
+  // 2026-11-20 DE-7: 건수는 execution `/deliveries/counts`(정확한 수, 모든 상태 0 까지) — 관리자만이 아니라 목록을 보는 모든 직원
+  it('배송 확인: 상태 값 옆에 정확한 건수 — 진행 중·끝난 상태 모두, 관리자가 아니어도', async () => {
     const user = userEvent.setup();
     const first = renderAt('/deliveries', as.admin);
     await user.click(await screen.findByRole('combobox', { name: '속성으로 거르기' }));
     await user.click(screen.getByRole('option', { name: '상태' }));
-    expect(await screen.findByRole('option', { name: /^미배정 \(\d+\+?\)$/ })).toBeInTheDocument();
+    expect(await screen.findByRole('option', { name: /^미배정 \(\d+\)$/ })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: /^취소 \(\d+\)$/ })).toBeInTheDocument();
     first.unmount();
     renderAt('/deliveries', as.riderOps);
+    await screen.findByTestId('delivery-counts');
     await user.click(await screen.findByRole('combobox', { name: '속성으로 거르기' }));
     await user.click(screen.getByRole('option', { name: '상태' }));
-    expect(screen.getByRole('option', { name: '미배정' })).toBeInTheDocument();
+    expect(await screen.findByRole('option', { name: /^미배정 \(\d+\)$/ })).toBeInTheDocument();
   });
 });

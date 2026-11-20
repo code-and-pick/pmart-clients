@@ -1605,6 +1605,11 @@ export const messages = {
     failureReasonName: { NO_RIDER: '라이더 없음', REPEATED_REJECTION: '반복 거절', EXPIRED: '시간 초과', SYSTEM_FAILURE: '시스템 오류' } as Readonly<Record<string, string>>,
     noAssignment: '배정된 라이더가 없어요.',
     recordComplaint: '이 배송으로 라이더 컴플레인 기록',
+    /** 상태별 수 띠(2026-11-20 DE-7) */
+    countsLabel: '상태별 배송 수',
+    countsActive: '진행 중',
+    countsDone: '끝남',
+    countsFailed: '상태별 수를 읽지 못했어요 — 0 건이 아니에요.',
     executionState: {
       UNASSIGNED: '미배정',
       ASSIGNED: '배정',

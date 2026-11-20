@@ -22,7 +22,6 @@ import { DisplayNumber, RiderLabel, SystemNumbers } from '../../shared/displayNu
 import { RiderCard } from '../riders/RiderCard';
 import { PreviewDrawer, PreviewFacts, usePreview } from '../../shared/Preview';
 import { StartGuide } from '../../shared/StartGuide';
-import { useWorkCounts, workText } from '../../app/DashboardWidgets';
 import { useSession } from '../../app/SessionContext';
 import { DeliveryStartActions } from '../../shared/StartActions';
 import { deliveryIdOfNumber, isDeliveryNumber, isOrderNumber, isRiderNumber, riderIdOfNumber, useRiderLabels } from '../../shared/numberLookups';
@@ -141,6 +140,55 @@ export function DeliveryTable({ rows, preview }: { readonly rows: readonly Staff
   );
 }
 
+/** 진행 중(9)·끝남(4) — 상태가 13개라 두 줄로 나눈다. 순서는 계약 ExecutionState 흐름 순 */
+const ACTIVE_STATES: readonly ExecutionState[] = ['UNASSIGNED', 'ASSIGNED', 'ARRIVED_AT_STORE', 'PICKED_UP', 'ARRIVED_AT_CUSTOMER', 'FAILURE_REPORTED', 'SUSPENDED', 'RETURN_IN_PROGRESS', 'RETURN_PICKED_UP'];
+const DONE_STATES: readonly ExecutionState[] = ['COMPLETED', 'FAILED', 'RETURNED_TO_STORE', 'CANCELLED'];
+
+/**
+ * 배송 상태별 수 띠(2026-11-20, DE-7) — 칸을 누르면 그 상태로 거르고, 다시 누르면 풀린다. 못 읽으면 칸마다 "?"(0 아님).
+ * 색은 뜻만: 전달 실패 등록이 있으면 빨강(확정 대기), 0 은 흐리게. 숫자 띠(pm-stat-strip) 모양, 칸은 작게(pm-compact).
+ */
+function DeliveryCounts({ stateCount, failed, active, onPick }: { readonly stateCount: (st: string) => string | undefined; readonly failed: boolean; readonly active: string; readonly onPick: (st: ExecutionState) => void }) {
+  const row = (title: string, states: readonly ExecutionState[]) => (
+    <div className="flex items-stretch gap-3">
+      <span className="w-14 shrink-0 pt-2.5 text-xs font-medium text-base-content/60">{title}</span>
+      <div className="pm-stat-strip pm-compact flex flex-1 flex-wrap gap-px overflow-hidden rounded-box border border-base-300 bg-base-300">
+        {states.map((st) => {
+          const v = stateCount(st);
+          const n = v === undefined ? null : Number.parseInt(v, 10);
+          return (
+            <button
+              key={st}
+              type="button"
+              className="pm-stat bg-base-100 px-3 py-2 text-left transition-colors"
+              aria-current={active === st ? 'true' : undefined}
+              onClick={() => onPick(st)}
+              data-testid={`delivery-count-${st}`}
+              title={failed ? m.deliveries.countsFailed : undefined}
+            >
+              <span className="block truncate text-xs text-base-content/70">{label(m.deliveries.executionState, st)}</span>
+              <span className={`pm-stat-value block text-xl font-semibold leading-tight tracking-tight ${n === null ? 'text-base-content/45' : n === 0 ? 'text-base-content/45' : st === 'FAILURE_REPORTED' ? 'text-error' : ''}`}>
+                {v ?? (failed ? '?' : '…')}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+  return (
+    <section aria-label={m.deliveries.countsLabel} className="space-y-2" data-testid="delivery-counts">
+      {row(m.deliveries.countsActive, ACTIVE_STATES)}
+      {row(m.deliveries.countsDone, DONE_STATES)}
+      {failed && (
+        <p className="pl-[4.25rem] text-xs text-warning" data-testid="delivery-counts-failed">
+          {m.deliveries.countsFailed}
+        </p>
+      )}
+    </section>
+  );
+}
+
 /** 이 주문·이 라이더의 배송(execution 0.4.0 `GET /deliveries?orderId=|riderId=`) — 주문 상세·라이더 상세가 쓴다 */
 export function DeliveriesOf({ riderId, orderId }: { readonly riderId?: string; readonly orderId?: string }) {
   const api = useApi();
@@ -163,13 +211,6 @@ export function DeliveryOpenPage() {
   const api = useApi();
   // 미리보기 칸(2026-11-18)
   const pv = usePreview((id) => `/deliveries/${encodeURIComponent(id)}`);
-  const admin = useSession().session?.roles.includes('OPERATOR_ADMIN') ?? false;
-  const wc = useWorkCounts(admin);
-  const stateCount = (st: string) => {
-    const rows = wc.segments('DELIVERIES', 'ACTIVE').filter((c) => c.segment === st);
-    if (rows.length === 0) return undefined;
-    return workText({ value: rows.reduce((n, c) => n + c.value, 0), complete: rows.every((c) => c.complete) });
-  };
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const [id, setId] = useState('');
@@ -197,6 +238,21 @@ export function DeliveryOpenPage() {
       ...(riderId ? { riderId } : {}),
       ...(applied.state ? { state: applied.state } : {}),
     };
+  };
+  // 상태별 정확한 수(execution 0.33.0 `GET /deliveries/counts`, DE-7 — 2026-11-20): 목록과 같은 조건(상태 제외), 모든 상태 0 까지.
+  // 예전엔 관리자만 work-counts(진행 중만)로 거르기 칸 옆에 적었다 → 이제 모든 직원, 숫자 띠와 거르기 칸이 같은 수.
+  const counts = useQuery({
+    queryKey: ['deliveries', 'counts', applied.orderId, applied.orderNumber, applied.riderId, applied.riderNumber],
+    queryFn: async () => {
+      const riderId = applied.riderId || (applied.riderNumber ? await riderIdOfNumber(api, applied.riderNumber) : '');
+      if (riderId === null) return null; // 없는 라이더 번호 — 셀 것이 없다(띠를 숨긴다)
+      return request('GET', api.execution.GET('/deliveries/counts', { params: { query: { ...(applied.orderId ? { orderId: applied.orderId } : {}), ...(applied.orderNumber ? { orderNumber: applied.orderNumber } : {}), ...(riderId ? { riderId } : {}) } } }));
+    },
+  });
+  const countByState = new Map((counts.data?.counts ?? []).map((c) => [c.key, c]));
+  const stateCount = (st: string) => {
+    const c = countByState.get(st);
+    return c ? `${c.count}${c.capped ? '+' : ''}` : undefined;
   };
   const [extra, setExtra] = useState<{ key: string; rows: StaffDeliverySummary[]; cursor: string | null }>({ key: '', rows: [], cursor: null });
   const key = JSON.stringify(applied);
@@ -289,6 +345,14 @@ export function DeliveryOpenPage() {
           {m.deliveries.failureQueue}
         </button>
       </div>
+      {counts.data !== null && (
+        <DeliveryCounts
+          stateCount={stateCount}
+          failed={counts.isError}
+          active={applied.state}
+          onPick={(st) => go({ ...now, state: applied.state === st ? '' : st })}
+        />
+      )}
       <div className="rounded-box border border-base-300 bg-base-100 px-5 py-3" data-list-part="top">
         <PropertyFilter
           props={[

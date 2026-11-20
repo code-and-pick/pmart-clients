@@ -879,6 +879,22 @@ export const opsHandlers = [
   }),
 
   // ---- delivery-execution 0.3.2 ----
+  // execution 0.33.0 직원 배송 상태별 수(DE-7) — 목록과 같은 거르기(state 제외), 모든 상태를 0 까지 계약 순서대로. :deliveryId 보다 먼저(그 경로로 잡히지 않게)
+  http.get(`${API_BASE}/deliveries/counts`, ({ request }) => {
+    const { denied } = allow(request, ...LOOKUP);
+    if (denied) return denied;
+    const q = new URL(request.url).searchParams;
+    const STATES = ['UNASSIGNED', 'ASSIGNED', 'ARRIVED_AT_STORE', 'PICKED_UP', 'ARRIVED_AT_CUSTOMER', 'FAILURE_REPORTED', 'COMPLETED', 'FAILED', 'SUSPENDED', 'RETURN_IN_PROGRESS', 'RETURN_PICKED_UP', 'RETURNED_TO_STORE', 'CANCELLED'];
+    const rows = [...ops.executions.values()].filter(
+      (e) =>
+        (!q.get('orderId') || e.orderId === q.get('orderId')) &&
+        (!q.get('orderNumber') || e.orderNumber === q.get('orderNumber')) &&
+        (!q.get('riderId') || e.riderId === q.get('riderId')) &&
+        (!q.get('type') || e.type === q.get('type')) &&
+        (!q.get('mfcId') || e.mfcId === q.get('mfcId')),
+    );
+    return HttpResponse.json({ counts: STATES.map((key) => ({ key, count: rows.filter((e) => e.state === key).length, capped: false })), asOf: new Date().toISOString() });
+  }),
   http.get(`${API_BASE}/deliveries/:deliveryId`, ({ request, params }) => {
     const { denied } = allow(request, ...LOOKUP);
     if (denied) return denied;
