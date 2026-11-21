@@ -32,6 +32,11 @@ function seedRiders(): MockRider[] {
   ];
 }
 
+// 탈퇴한 라이더(rider 0.20.0 — withdrawn=true·includeWithdrawn 일 때만). 이름·전화는 탈퇴 때 지워져 없다. 통계·기본 목록에는 넣지 않는다
+const WITHDRAWN_RIDERS = [
+  { riderId: 'RD-W1', riderNumber: '615204', nameMasked: null, phoneMasked: '', vehicleType: 'BICYCLE', operatingStatus: 'OFF_DUTY', restriction: 'NORMAL', joinedAt: '2026-11-10T01:00:00.000Z', withdrawnAt: '2026-11-20T09:40:01.000Z', version: 3 },
+] as const;
+
 type MockReview = { reviewId: string; riderId: string; complaintType: string; state: string; complaints: Array<{ complaintId: string; deliveryId: string; recordedAt: string }>; openedAt: string; decidedAt?: string; decidedBy?: string; note?: string };
 
 function seedReviews(): MockReview[] {
@@ -183,6 +188,10 @@ export const opsHandlers = [
     const q = new URL(request.url).searchParams;
     // 정렬은 흉내만: 상태 바뀐 순은 버전 높은 순으로 본다
     const order = q.get('sort') === 'STATE_CHANGED_DESC' ? (a: MockRider, b: MockRider) => b.version - a.version : (a: MockRider, b: MockRider) => b.joinedAt.localeCompare(a.joinedAt);
+    if (q.get('withdrawn') === 'true') {
+      const gone = WITHDRAWN_RIDERS.filter((r) => (!q.get('riderNumber') || r.riderNumber === q.get('riderNumber')) && (!q.get('riderId') || r.riderId === q.get('riderId'))).map((r) => ({ ...r, signupStatus: 'APPROVED' }));
+      return HttpResponse.json({ items: gone, page: 0, size: gone.length, hasNext: false });
+    }
     const items = ops.riders
       .filter((r) => !q.get('riderId') || r.riderId === q.get('riderId'))
       .filter((r) => !q.get('riderNumber') || r.riderNumber === q.get('riderNumber'))
@@ -226,6 +235,11 @@ export const opsHandlers = [
   http.get(`${API_BASE}/riders/:riderId`, ({ request, params }) => {
     const g = guard(request);
     if ('error' in g) return g.error;
+    const w = WITHDRAWN_RIDERS.find((x) => x.riderId === params.riderId);
+    if (w) {
+      if (new URL(request.url).searchParams.get('includeWithdrawn') !== 'true') return problem(404, 'RIDER_NOT_FOUND');
+      return HttpResponse.json({ ...w, signupStatus: 'APPROVED', signupDecidedBy: 'AUTO', deliveryAreas: [], operating: { status: 'OFF_DUTY', newDispatchEnabled: false }, restriction: { state: 'NORMAL' }, bankAccountRegistered: false, bankName: null, consents: [] });
+    }
     const r = ops.riders.find((x) => x.riderId === params.riderId);
     if (!r) return problem(404, 'NOT_FOUND');
     return HttpResponse.json({

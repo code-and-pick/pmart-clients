@@ -52,6 +52,13 @@ const rx = {
   onDuty: '운행 중',
   accepting: (n: string) => `새 배차 받는 중 ${n}`,
   joinedToday: '오늘 가입',
+  memberRow: '가입 상태',
+  active: '이용 중 라이더',
+  withdrawnOnly: '탈퇴한 라이더',
+  withdrawn: '탈퇴함',
+  withdrawnAt: (t: string) => `탈퇴함 ${t}`,
+  withdrawnEmpty: '탈퇴한 라이더가 없어요.',
+  withdrawnNotice: (t: string) => `${t}에 탈퇴한 라이더예요. 이름·전화·계좌는 탈퇴 때 지워졌고 수행료·배정·컴플레인 기록은 남아 있어요. 계정 제한·원문 열람은 할 수 없어요.`,
 } as const;
 
 const restrictionTone = (s: string | null | undefined): Tone =>
@@ -90,12 +97,13 @@ function RiderSearchPage({ signups = false }: { readonly signups?: boolean }) {
   const operatingStatus = (OPERATING as readonly string[]).includes(rawO) ? (rawO as OperatingStatus) : undefined;
   const rawV = params.get('vehicleType') ?? '';
   const vehicleType = (VEHICLES as readonly string[]).includes(rawV) ? (rawV as VehicleType) : undefined;
+  const withdrawn = params.get('withdrawn') === '1';
   const sort: Sort = SORTS.find((s) => s === params.get('sort')) ?? 'JOINED_DESC';
   const page = Number(params.get('page') ?? '0') || 0;
   const [draft, setDraft] = useState({ riderNumber, phone });
 
-  const set = (next: Partial<Record<'riderNumber' | 'riderId' | 'phone' | 'restriction' | 'operatingStatus' | 'vehicleType' | 'sort' | 'page', string>>) => {
-    const v = { riderNumber, riderId, phone, restriction: restriction ?? '', operatingStatus: operatingStatus ?? '', vehicleType: vehicleType ?? '', sort: sort === 'JOINED_DESC' ? '' : sort, page: '', ...next };
+  const set = (next: Partial<Record<'withdrawn' | 'riderNumber' | 'riderId' | 'phone' | 'restriction' | 'operatingStatus' | 'vehicleType' | 'sort' | 'page', string>>) => {
+    const v = { withdrawn: withdrawn ? '1' : '', riderNumber, riderId, phone, restriction: restriction ?? '', operatingStatus: operatingStatus ?? '', vehicleType: vehicleType ?? '', sort: sort === 'JOINED_DESC' ? '' : sort, page: '', ...next };
     setParams(Object.fromEntries(Object.entries(v).filter(([k, x]) => x !== '' && x !== '0' && !(k === 'sort' && x === 'JOINED_DESC'))));
   };
   const submit = (e: FormEvent) => {
@@ -107,7 +115,7 @@ function RiderSearchPage({ signups = false }: { readonly signups?: boolean }) {
     setParams({});
   };
   const query = useQuery({
-    queryKey: ['riders', riderNumber, riderId, phone, restriction, operatingStatus, vehicleType, sort, page],
+    queryKey: ['riders', withdrawn, riderNumber, riderId, phone, restriction, operatingStatus, vehicleType, sort, page],
     queryFn: () =>
       request(
         'GET',
@@ -118,6 +126,7 @@ function RiderSearchPage({ signups = false }: { readonly signups?: boolean }) {
               page,
               // 가입 승인 화면은 늘 최근 가입 순
               sort: signups ? 'JOINED_DESC' : sort,
+              ...(withdrawn && !signups ? { withdrawn: true } : {}),
               ...(riderNumber ? { riderNumber } : {}),
               ...(riderId ? { riderId } : {}),
               ...(phone ? { phone } : {}),
@@ -139,8 +148,8 @@ function RiderSearchPage({ signups = false }: { readonly signups?: boolean }) {
   const st = stats.data;
   const failed = stats.isError;
   const riderPath = (id: string | undefined) => `/riders/${encodeURIComponent(id ?? '')}`;
-  const listRows = useListRows(query.data?.items?.map((row) => riderPath(row.riderId)), [signups, riderNumber, riderId, phone, restriction, operatingStatus, vehicleType, sort, page].join('|'));
-  const filtered = !!(riderNumber || riderId || phone || operatingStatus || vehicleType);
+  const listRows = useListRows(query.data?.items?.map((row) => riderPath(row.riderId)), [signups, withdrawn, riderNumber, riderId, phone, restriction, operatingStatus, vehicleType, sort, page].join('|'));
+  const filtered = !!(withdrawn || riderNumber || riderId || phone || operatingStatus || vehicleType);
   return (
     <section className="space-y-4">
       <PageHeader title={signups ? ops.signups.title : r.title} description={signups ? ops.signups.intro : r.intro} actions={signups ? undefined : <SavedViews listKey="riders" />} />
@@ -174,6 +183,7 @@ function RiderSearchPage({ signups = false }: { readonly signups?: boolean }) {
           submitLabel={r.search}
           resetLabel={r.reset}
           summary={[
+            [rx.memberRow, withdrawn ? rx.withdrawnOnly : ''],
             [rm.riderNumber, riderNumber || (riderId ? '한 라이더' : '')],
             [r.phone, phone ? '입력함' : ''],
             [r.restriction, restriction ? label(n.restriction, restriction) : ''],
@@ -181,6 +191,14 @@ function RiderSearchPage({ signups = false }: { readonly signups?: boolean }) {
             [rm.search.vehicle, vehicleType ? label(n.vehicle, vehicleType) : ''],
           ]}
         >
+          <SearchRow label={rx.memberRow}>
+            <ChipGroup
+              label={rx.memberRow}
+              value={withdrawn ? '1' : ''}
+              options={[{ value: '', label: rx.active }, { value: '1', label: rx.withdrawnOnly }]}
+              onChange={(v) => set({ withdrawn: v })}
+            />
+          </SearchRow>
           <SearchRow label={rm.findByNumber}>
             <label className="flex items-center gap-2 text-sm">
               <span className="text-base-content/60">{rm.riderNumber}</span>
@@ -230,7 +248,7 @@ function RiderSearchPage({ signups = false }: { readonly signups?: boolean }) {
           <ChipGroup label={rm.search.sort} value={sort} options={SORTS.map((s) => ({ value: s, label: rm.search.sortName[s] }))} onChange={(v) => set({ sort: v })} />
         </div>
       )}
-      <QueryState state={toUiState(query, (x) => (x.items ?? []).length === 0)} onRetry={() => void query.refetch()} emptyText={r.empty}>
+      <QueryState state={toUiState(query, (x) => (x.items ?? []).length === 0)} onRetry={() => void query.refetch()} emptyText={withdrawn && !signups ? rx.withdrawnEmpty : r.empty}>
         {(x) => {
           const items = x.items ?? [];
           return (
@@ -259,7 +277,7 @@ function RiderSearchPage({ signups = false }: { readonly signups?: boolean }) {
                         {listRows.seenMark(riderPath(row.riderId))}
                       </td>
                       <td>{row.nameMasked ?? none}</td>
-                      <td className="font-mono">{row.phoneMasked ?? none}</td>
+                      <td className="font-mono">{row.phoneMasked || none}</td>
                       <td>{label(n.vehicle, row.vehicleType)}</td>
                       <td>
                         <StatusBadge tone={operatingTone(row.operatingStatus)}>{label(n.operatingStatus, row.operatingStatus)}</StatusBadge>
@@ -268,7 +286,11 @@ function RiderSearchPage({ signups = false }: { readonly signups?: boolean }) {
                         <StatusBadge tone={restrictionTone(row.restriction)}>{label(n.restriction, row.restriction)}</StatusBadge>
                       </td>
                       <td>
-                        <StatusBadge tone={signupTone(row.signupStatus)}>{signupText(row.signupStatus)}</StatusBadge>
+                        {row.withdrawnAt ? (
+                          <StatusBadge tone="neutral">{rx.withdrawnAt(when(row.withdrawnAt))}</StatusBadge>
+                        ) : (
+                          <StatusBadge tone={signupTone(row.signupStatus)}>{signupText(row.signupStatus)}</StatusBadge>
+                        )}
                       </td>
                       <td className="whitespace-nowrap">{when(row.joinedAt)}</td>
                     </tr>
@@ -308,7 +330,7 @@ function RiderDetailPage() {
   const detail = useQuery({
     queryKey: ['rider', riderId],
     refetchInterval: (q) => (q.state.data?.operating?.status === 'ON_DUTY' ? LIVE.rider : false),
-    queryFn: () => request('GET', api.riders.GET('/riders/{riderId}', { params: { path: { riderId } } })),
+    queryFn: () => request('GET', api.riders.GET('/riders/{riderId}', { params: { path: { riderId }, query: { includeWithdrawn: true } } })),
   });
   const riderLive = detail.data?.operating?.status === 'ON_DUTY';
   const week = thisWeek();
@@ -322,6 +344,8 @@ function RiderDetailPage() {
     queryFn: () => request('GET', api.execution.GET('/rider-operating-time', { params: { query: { riderId, from: week.from, to: week.to } } })),
   });
   const d = detail.data;
+  // 탈퇴한 라이더(rider 0.20.0 includeWithdrawn): 기록만 보고, 제한·원문 열람·검토 결정은 감춘다(서버도 404)
+  const gone = !!d?.withdrawnAt;
   const tabs = [
     { id: 'sec-info', label: rm.tabs.info },
     { id: 'sec-account', label: rm.tabs.account },
@@ -332,6 +356,7 @@ function RiderDetailPage() {
     { id: 'sec-complaints', label: rm.tabs.complaints },
     { id: 'sec-restriction', label: rm.tabs.restriction },
   ];
+  const shownTabs = !d || gone ? tabs.filter((t) => t.id !== 'sec-reviews' && t.id !== 'sec-restriction') : tabs;
   return (
     <section className="max-w-[1600px] space-y-4">
       <DetailHeader
@@ -342,6 +367,7 @@ function RiderDetailPage() {
           d && (
             <>
               <SimBadge riderId={riderId} />
+              {gone && <StatusBadge tone="neutral">{rx.withdrawn}</StatusBadge>}
               <StatusBadge tone={restrictionTone(d.restriction?.state)}>{label(n.restriction, d.restriction?.state)}</StatusBadge>
               <StatusBadge tone={operatingTone(d.operating?.status)}>{label(n.operatingStatus, d.operating?.status)}</StatusBadge>
               <StatusBadge tone={signupTone(d.signupStatus)}>{signupText(d.signupStatus, d.signupDecidedBy ?? null)}</StatusBadge>
@@ -356,7 +382,8 @@ function RiderDetailPage() {
         }
       />
       <SystemIds ids={[[rm.systemRiderId, riderId]]} />
-      <SectionTabs items={tabs} />
+      {gone && d?.withdrawnAt && <Notice tone="warning">{rx.withdrawnNotice(when(d.withdrawnAt))}</Notice>}
+      <SectionTabs items={shownTabs} />
       <div className="grid gap-4 lg:grid-cols-2">
         <Section id="sec-info" title={r.info}>
           <QueryState state={toUiState(detail)} onRetry={() => void detail.refetch()}>
@@ -366,16 +393,17 @@ function RiderDetailPage() {
                   testId="rider-detail"
                   rows={[
                     [r.col.name, x.nameMasked ?? none],
-                    [r.col.phone, <span className="font-mono">{x.phoneMasked ?? none}</span>],
+                    [r.col.phone, <span className="font-mono">{x.phoneMasked || none}</span>],
                     [r.col.vehicle, label(n.vehicle, x.vehicleType)],
                     [r.col.operating, label(n.operatingStatus, x.operating?.status)],
                     [r.col.restriction, label(n.restriction, x.restriction?.state)],
                     [r.signupStatus, signupText(x.signupStatus, x.signupDecidedBy ?? null)],
                     [r.areas, (x.deliveryAreas ?? []).map((a) => a.mfcId).join(', ') || none],
                     [r.col.joinedAt, when(x.joinedAt)],
+                    ...(x.withdrawnAt ? [[rx.withdrawn, when(x.withdrawnAt)] as const] : []),
                   ]}
                 />
-                <RevealForm riderId={riderId} />
+                {!x.withdrawnAt && <RevealForm riderId={riderId} />}
               </div>
             )}
           </QueryState>
@@ -430,6 +458,8 @@ function RiderDetailPage() {
       <Section id="sec-assignments" title={rm.assignments.title} aside={<span className="text-xs text-base-content/50">{rm.assignments.intro}</span>}>
         <AssignmentHistory riderId={riderId} live={riderLive} />
       </Section>
+      {d && !gone && (
+        <>
       <Section id="sec-reviews" title={rm.tabs.reviews} aside={<span className="text-xs text-base-content/50">{rm.detailReviews.intro}</span>}>
         <ReviewTable state="OPEN" riderId={riderId} />
       </Section>
@@ -439,6 +469,8 @@ function RiderDetailPage() {
       <Section id="sec-restriction" title={rm.tabs.restriction} aside={<span className="text-xs text-base-content/50">{rm.restrictionAside}</span>}>
         <RestrictionPanel riderId={riderId} />
       </Section>
+        </>
+      )}
     </section>
   );
 }

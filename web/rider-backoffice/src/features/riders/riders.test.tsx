@@ -29,6 +29,29 @@ describe('라이더 찾기 — 라이더 번호(ADR-0070)', () => {
   });
 });
 
+describe('탈퇴한 라이더 — 기록 보기(rider 0.20.0)', () => {
+  it('가입 상태 칩 "탈퇴한 라이더"를 누르면 withdrawn=true 로 찾고 탈퇴 시각이 보인다', async () => {
+    const view = renderAt('/riders', as.riderOps);
+    expect(await screen.findAllByTestId('rider-row')).toHaveLength(2);
+    await userEvent.click(within(screen.getByRole('radiogroup', { name: '가입 상태' })).getByRole('radio', { name: '탈퇴한 라이더' }));
+    await screen.findByText(/탈퇴함/);
+    const rows = screen.getAllByTestId('rider-row');
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toHaveTextContent('615204');
+    expect(view.sent.some((r) => new URL(r.url).searchParams.get('withdrawn') === 'true')).toBe(true);
+  });
+
+  it('탈퇴한 라이더 상세는 안내와 기록만 — 원문 열람·계정 제한은 없다', async () => {
+    const view = renderAt('/riders/RD-W1', as.riderOps);
+    expect(await screen.findByRole('heading', { name: /615204/ })).toBeInTheDocument();
+    expect(await screen.findByText(/탈퇴한 라이더예요/)).toBeInTheDocument();
+    expect(view.sent.some((r) => new URL(r.url).pathname.endsWith('/riders/RD-W1') && new URL(r.url).searchParams.get('includeWithdrawn') === 'true')).toBe(true);
+    expect(screen.queryByRole('form', { name: '이름·전화 원문 보기' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('form', { name: '계정 제한 걸기·풀기' })).not.toBeInTheDocument();
+    expect(view.sent.some((r) => new URL(r.url).pathname.endsWith('/riders/RD-W1/restrictions'))).toBe(false);
+  });
+});
+
 describe('라이더 찾기 — 거르기', () => {
   it('계정 제한 칩을 누르면 그 값으로 다시 찾는다', async () => {
     const view = renderAt('/riders', as.riderOps);

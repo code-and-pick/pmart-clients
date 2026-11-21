@@ -6,14 +6,14 @@ import { describe, expect, it } from 'vitest';
 import { as, renderAt } from '../../test/render';
 
 describe('탈퇴 — 신청 목록', () => {
-  it('완료는 번호만(링크 없음), 거절은 막은 이유와 함께 상세로 간다', async () => {
+  it('완료·거절 모두 상세로 간다 — 거절은 막은 이유와 함께', async () => {
     renderAt('/withdrawals', as.riderOps);
     const rows = await screen.findAllByTestId('withdrawal-row');
     expect(rows).toHaveLength(3);
     const done = rows.find((r) => r.textContent?.includes('615204'))!;
     expect(done).toHaveTextContent('탈퇴 완료');
     expect(done).toHaveTextContent('다른 일을 하게 됐어요');
-    expect(within(done).queryByRole('link')).not.toBeInTheDocument();
+    expect(within(done).getByRole('link')).toHaveAttribute('href', '/riders/RD-W1');
     const rejected = rows.find((r) => r.textContent?.includes('482913'))!;
     expect(rejected).toHaveTextContent('진행 중 배송, 확정 전 수행료');
     expect(within(rejected).getByRole('link')).toHaveAttribute('href', '/riders/RD-7');

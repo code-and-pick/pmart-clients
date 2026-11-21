@@ -136,16 +136,11 @@ export function WithdrawalsMenu() {
                   {items.map((w, i) => (
                     <tr key={`${w.riderId}-${w.requestedAt}-${i}`} data-testid="withdrawal-row">
                       <td className="font-mono font-semibold">
-                        {w.state === 'COMPLETED' ? (
-                          <span>
-                            <RiderName riderId={w.riderId} riderNumber={w.riderNumber} />{' '}
-                            <span className="text-xs font-normal text-base-content/50">{v.withdrawnNote}</span>
-                          </span>
-                        ) : (
-                          <Link className="hover:underline" to={`/riders/${encodeURIComponent(w.riderId)}`}>
-                            <RiderName riderId={w.riderId} riderNumber={w.riderNumber} />
-                          </Link>
-                        )}
+                        {/* 탈퇴 완료도 상세로(rider 0.20.0 includeWithdrawn — 남은 수행료·배정·컴플레인 기록) */}
+                        <Link className="hover:underline" to={`/riders/${encodeURIComponent(w.riderId)}`}>
+                          <RiderName riderId={w.riderId} riderNumber={w.riderNumber} />
+                        </Link>
+                        {w.state === 'COMPLETED' && <span className="ml-1 text-xs font-normal text-base-content/50">{v.withdrawnNote}</span>}
                       </td>
                       <td>
                         <StatusBadge tone={tone(w.state)}>{v.stateName[w.state] ?? w.state}</StatusBadge>
