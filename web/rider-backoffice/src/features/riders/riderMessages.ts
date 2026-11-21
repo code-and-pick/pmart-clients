@@ -29,7 +29,7 @@ export const riderMessages = {
     requestedBy: { RIDER: '라이더', STORE_STAFF: '매장', OPERATOR: '운영자', ORCHESTRATION: '주문 처리' } as Readonly<Record<string, string>>,
     cancelReason: { RIDER_UNABLE: '라이더 사정', STORE_REQUEST: '매장 요청', ORDER_CANCELLED: '주문 취소', NO_SHOW: '라이더 미도착', OPERATOR: '운영 판단' } as Readonly<Record<string, string>>,
   },
-  tabs: { info: '기본 정보', account: '정산계좌·동의', time: '운행시간', earnings: '수행료', assignments: '배정 이력', restriction: '계정 제한', reviews: '제한 검토', complaints: '컴플레인' },
+  tabs: { info: '기본 정보', account: '정산계좌·동의', time: '운행시간', earnings: '수행료', assignments: '배정 이력', restriction: '계정 제한', reviews: '제한 검토', complaints: '컴플레인', helps: '도움요청' },
   restrictionAside: '바꾸면 이력이 남아요',
   reviewsCount: (n: number) => `${n}건`,
   // 기본 백오피스에서 옮겨 온 것(2026-11-18, ADR-0068 — PC 2 요청): 수단 거르기·정렬, 제한 검토 상태 탭, 상세의 열린 검토·컴플레인
@@ -57,5 +57,12 @@ export const riderMessages = {
     col: { id: '컴플레인', type: '종류', delivery: '배송', order: '주문', recordedAt: '기록한 때', recordedBy: '기록한 직원' },
     more: '더 보기',
     moreFailed: '다음 기록을 불러오지 못했어요 — 더 보기를 다시 눌러 주세요.',
+  },
+  // 2026-11-21 사용자 "응" — 이 라이더가 배송 중에 낸 도움요청(execution 0.35.0 state=ALL·sort=NEWEST). 문의는 case R-11 뒤에
+  helps: {
+    intro: '이 라이더가 배송 중에 보낸 도움요청이에요(최근 접수 순, 모든 상태). 줄을 누르면 지원센터 대화로 가요.',
+    empty: '도움요청 기록이 없어요.',
+    col: { category: '종류', delivery: '배송', stage: '보낸 단계', state: '상태', createdAt: '보낸 때', resolvedAt: '끝난 때' },
+    open: (n: number) => `열림 ${n}`,
   },
 } as const;

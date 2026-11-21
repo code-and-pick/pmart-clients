@@ -28,6 +28,7 @@ import { messages } from '../../shared/messages';
 import { ops } from '../../shared/opsMessages';
 import { label, none, when, won } from '../../shared/opsUi';
 import { riderMessages as rm } from './riderMessages';
+import { helpTone } from '../support/supportUi';
 
 const r = ops.riders;
 const n = messages.names;
@@ -417,6 +418,7 @@ function RiderDetailPage() {
   const canAct = !!d && !gone;
   const reviews = useOpenReviews(riderId, canAct);
   const complaints = useComplaints(riderId);
+  const helps = useHelpHistory(riderId);
   // 탈퇴한 라이더는 제한 이력을 부르지 않는다(서버 404 — 전과 같음)
   const restrictions = useRestrictionHistory(riderId, canAct);
   const tabs = [
@@ -426,6 +428,7 @@ function RiderDetailPage() {
     { id: 'sec-earnings', label: rm.tabs.earnings },
     { id: 'sec-assignments', label: rm.tabs.assignments },
     { id: 'sec-complaints', label: rm.tabs.complaints },
+    { id: 'sec-helps', label: rm.tabs.helps },
     { id: 'sec-reviews', label: rm.tabs.reviews },
     { id: 'sec-restriction', label: rm.tabs.restriction },
   ];
@@ -434,6 +437,9 @@ function RiderDetailPage() {
   const asg = assignments.data?.items ?? [];
   const asgCurrent = asg.filter((it) => it.outcome === 'CURRENT').length;
   const complaintItems = complaints.data?.pages.flatMap((p) => p.items ?? []) ?? [];
+  const helpItems = helps.data?.pages.flatMap((p) => p.items ?? []) ?? [];
+  const helpOpen = helpItems.filter((it) => it.state !== 'RESOLVED').length;
+  const helpCount = `${helpItems.length}건${helps.hasNextPage ? ' 이상' : ''}`;
   const reviewItems = reviews.data?.items ?? [];
   const restrictionItems = restrictions.data?.items ?? [];
   /** 요약 값 — 읽는 중 "…", 못 읽음 "?"(0 이 아님) */
@@ -472,6 +478,7 @@ function RiderDetailPage() {
           [dx.confirmed, v(earnings, (e) => won(e.totals?.confirmed))],
           canAct && [rm.tabs.reviews, v(reviews, () => `${reviewItems.length}건`)],
           [rm.tabs.complaints, complaints.data ? `${complaintItems.length}건${complaints.hasNextPage ? ' 이상' : ''}` : complaints.isError ? ui.strip.unknown : ui.strip.loading],
+          [rm.tabs.helps, helps.data ? (helpOpen > 0 ? `${helpCount}(${rm.helps.open(helpOpen)})` : helpCount) : helps.isError ? ui.strip.unknown : ui.strip.loading],
         ]}
       />
       <SystemIds ids={[[rm.systemRiderId, riderId]]} />
@@ -580,6 +587,16 @@ function RiderDetailPage() {
             empty={complaints.isSuccess && complaintItems.length === 0}
           >
             <ComplaintHistory riderId={riderId} />
+          </ViewSection>
+          <ViewSection
+            id="sec-helps"
+            icon={<Icon name="headset" className="h-4 w-4" />}
+            title={rm.tabs.helps}
+            info={rm.helps.intro}
+            summary={helps.data ? (helpItems.length === 0 ? rm.helps.empty : helpOpen > 0 ? `${helpCount} · ${rm.helps.open(helpOpen)}` : helpCount) : undefined}
+            empty={helps.isSuccess && helpItems.length === 0}
+          >
+            <HelpHistory riderId={riderId} />
           </ViewSection>
           {canAct && (
           <ViewSection
@@ -1203,3 +1220,75 @@ function ComplaintHistory({ riderId }: { readonly riderId: string }) {
   );
 }
 
+
+/** 이 라이더 도움요청 — execution `GET /delivery-help-requests?riderId=&state=ALL&sort=NEWEST`(0.35.0, 최근 접수 순, cursor). 라이더 글(detail)은 목록에 없다. */
+function useHelpHistory(riderId: string) {
+  const api = useApi();
+  return useInfiniteQuery({
+    queryKey: ['rider-help-requests', riderId],
+    queryFn: ({ pageParam }) =>
+      request('GET', api.execution.GET('/delivery-help-requests', { params: { query: { riderId, state: 'ALL', sort: 'NEWEST', size: PAGE_SIZE, ...(pageParam ? { cursor: pageParam } : {}) } } })),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (last) => last.page?.nextCursor ?? undefined,
+  });
+}
+
+/** 도움요청 기록 표 — 종류를 누르면 지원센터 대화(`/help-requests/{deliveryId}/{requestId}`). */
+function HelpHistory({ riderId }: { readonly riderId: string }) {
+  const c = rm.helps;
+  const query = useHelpHistory(riderId);
+  const items = query.data?.pages.flatMap((p) => p.items ?? []) ?? [];
+  const nos = useDeliveryNumbers(items.map((it) => it.deliveryId));
+  if (query.isPending) return <QueryState state={{ kind: 'loading' }}>{() => null}</QueryState>;
+  if (query.isError && items.length === 0) {
+    return (
+      <QueryState state={toUiState(query)} onRetry={() => void query.refetch()}>
+        {() => null}
+      </QueryState>
+    );
+  }
+  if (items.length === 0) return <p className="text-sm text-base-content/60">{c.empty}</p>;
+  return (
+    <div className="space-y-3">
+      <ResultBar count={items.length} more={query.hasNextPage} />
+      <DataTable testId="rider-help-requests">
+        <thead>
+          <tr>
+            <th>{c.col.category}</th>
+            <th>{c.col.delivery}</th>
+            <th>{c.col.stage}</th>
+            <th>{c.col.state}</th>
+            <th>{c.col.createdAt}</th>
+            <th>{c.col.resolvedAt}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {items.map((it) => (
+            <tr key={`${it.deliveryId}:${it.requestId}`} data-testid="help-row">
+              <td>
+                <Link className="link link-hover text-primary" to={`/help-requests/${encodeURIComponent(it.deliveryId ?? '')}/${encodeURIComponent(it.requestId ?? '')}`}>
+                  {label(n.helpCategory, it.category)}
+                </Link>
+              </td>
+              <td>{it.deliveryId ? <DeliveryRef deliveryId={it.deliveryId} numbers={nos.get(it.deliveryId)} /> : none}</td>
+              <td>{label(n.executionState, it.stage)}</td>
+              <td>
+                <StatusBadge tone={helpTone(it.state)}>{label(n.helpState, it.state)}</StatusBadge>
+              </td>
+              <td className="whitespace-nowrap">{when(it.createdAt)}</td>
+              <td className="whitespace-nowrap">{it.resolvedAt ? when(it.resolvedAt) : none}</td>
+            </tr>
+          ))}
+        </tbody>
+      </DataTable>
+      {query.isError && <Notice tone="warning">{rm.complaints.moreFailed}</Notice>}
+      {query.hasNextPage && (
+        <div className="flex justify-center">
+          <button type="button" className="btn btn-sm border-base-300 bg-base-100" disabled={query.isFetchingNextPage} onClick={() => void query.fetchNextPage()}>
+            {rm.complaints.more}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}

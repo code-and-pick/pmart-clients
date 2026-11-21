@@ -143,6 +143,26 @@ describe('라이더 상세 — 열린 제한 검토·컴플레인', () => {
     expect(await within(section).findByRole('button', { name: /다시/ })).toBeInTheDocument();
     expect(within(section).queryByText('컴플레인 기록이 없어요.')).not.toBeInTheDocument();
   });
+
+  it('도움요청 — 이 라이더의 모든 상태를 최근 순으로, 종류를 누르면 지원센터 대화로(execution 0.35.0)', async () => {
+    server.use(
+      http.get(`${API_BASE}/delivery-help-requests`, () =>
+        HttpResponse.json({
+          items: [
+            { requestId: 'HR-2', deliveryId: 'DLV-2', riderId: 'RD-7', category: 'ADDRESS_ISSUE', stage: 'PICKED_UP', state: 'OPEN', createdAt: '2026-11-21T05:00:00.000Z' },
+            { requestId: 'HR-1', deliveryId: 'DLV-1', riderId: 'RD-7', category: 'ADDRESS_ISSUE', stage: 'ARRIVED_AT_CUSTOMER', state: 'RESOLVED', createdAt: '2026-11-19T05:00:00.000Z', resolvedAt: '2026-11-19T06:00:00.000Z' },
+          ],
+        }),
+      ),
+    );
+    const view = renderAt('/riders/RD-7', as.riderOps);
+    const rows = await screen.findAllByTestId('help-row');
+    expect(rows).toHaveLength(2);
+    expect(within(rows[0]!).getAllByRole('link')[0]).toHaveAttribute('href', '/help-requests/DLV-2/HR-2');
+    expect(screen.getByTestId('rider-summary')).toHaveTextContent('2건(열림 1)');
+    const q = new URL(view.sent.find((r) => new URL(r.url).pathname.endsWith('/delivery-help-requests'))!.url).searchParams;
+    expect([q.get('riderId'), q.get('state'), q.get('sort')]).toEqual(['RD-7', 'ALL', 'NEWEST']);
+  });
 });
 
 describe('라이더 상세 — 정산계좌·동의', () => {
