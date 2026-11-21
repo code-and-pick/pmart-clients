@@ -89,9 +89,9 @@ html[data-theme='pmart-dark'] [data-testid='side-menu'] [data-group-label] {
 }
 
 /* 본문: 제목은 크고 촘촘하게, 패널은 둥글게 + 보라 윗선 + 옅은 비스듬한 빛 + 부드러운 그림자 */
+/* 제목 크기는 밝은 테마(console.css 1.5rem/1.875rem)와 같게 — 테마를 바꿔도 제목 아래 배치가 움직이지 않게, 라이더 백오피스와도 같은 크기
+   (사용자 2026-11-21 "추천대로" — MFC 원본은 1.875rem). 굵기·자간만 관제실 느낌으로 */
 html[data-theme='pmart-dark'] main h1 {
-  font-size: 1.875rem;
-  line-height: 1.12;
   font-weight: 800;
   letter-spacing: -0.045em;
 }
