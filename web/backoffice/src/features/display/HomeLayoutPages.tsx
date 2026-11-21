@@ -7,7 +7,7 @@
 // storefront 0.10.0(같은 요청서 "추가 — 0.10.0"): 배너 넘김 간격(bannerIntervalSeconds 2~30초), 홈 중간 배너 묶음(HOME_INLINE + groupId G-…),
 // 홈 순서(homeOrder — 배너 묶음·테마를 보일 순서대로, 위/아래 단추로 옮김. 끌어 옮기기는 나중 — 사용자).
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 
 import { PmartFailure, ProblemFailure, randomUuid, request } from '@pmart/web-core';
@@ -209,12 +209,39 @@ interface Problems {
   readonly at: (prefix: string) => readonly Why[];
   readonly product: (productId: string) => string | null;
   readonly count: number;
+  /** 칸에 붙이지 못한 것이 있다 — 그때는 실패 알림도 같이 보인다(안 보이는 오류가 없게) */
+  readonly unplaced: boolean;
 }
-function problemsOf(failure: PmartFailure | null): Problems {
-  const details = failure instanceof ProblemFailure && failure.problem.code === 'LAYOUT_INVALID' ? (failure.problem.details ?? []) : [];
-  const text = (r: string | undefined) => (r && m.reason[r]) || r || '';
+type Detail = { readonly field?: string | undefined; readonly reason?: string | undefined };
+/** 서버 오류 → 칸별 까닭. 422 LAYOUT_INVALID 와 400 VALIDATION_FAILED(계약 minLength 등 — 앞의 "body." 는 뗀다) */
+function serverDetails(failure: PmartFailure | null): readonly Detail[] {
+  if (!(failure instanceof ProblemFailure)) return [];
+  const code = failure.problem.code;
+  if (code !== 'LAYOUT_INVALID' && code !== 'VALIDATION_FAILED') return [];
+  return (failure.problem.details ?? []).map((d) => ({ field: d.field?.replace(/^body\./, ''), reason: d.reason }));
+}
+/** 보내기 전에 화면이 먼저 막는 빈 칸(2026-11-21 점검 — 계약 minLength·minItems, 서버면 400). 승인 요청이면 그림 없는 배너도 */
+function localDetails(body: Body, forSubmit: boolean): readonly Detail[] {
+  const out: Detail[] = [];
+  (body.banners ?? []).forEach((b, i) => {
+    if (forSubmit && !b.imageId) out.push({ field: `banners[${i}].imageId`, reason: 'IMAGE_MISSING' });
+    if (!b.altText.trim()) out.push({ field: `banners[${i}].altText`, reason: 'ALT_REQUIRED' });
+  });
+  (body.themes ?? []).forEach((t, i) => {
+    if (!t.title.trim()) out.push({ field: `themes[${i}].title`, reason: 'TITLE_REQUIRED' });
+  });
+  (body.tabs ?? []).forEach((t, i) => {
+    if (!t.title.trim()) out.push({ field: `tabs[${i}].title`, reason: 'TAB_TITLE_REQUIRED' });
+    if (t.sectionIds.length === 0) out.push({ field: `tabs[${i}].sectionIds`, reason: 'TAB_EMPTY' });
+  });
+  return out;
+}
+const PLACED = /^(banners|themes|tabs)\[\d+\]|^homeOrder|^bannerIntervalSeconds$/;
+function problemsOf(details: readonly Detail[]): Problems {
+  const text = (r: string | undefined) => (r && m.reason[r]) || m.reason['VALUE_INVALID'] || '';
   return {
     count: details.length,
+    unplaced: details.some((d) => d.reason !== 'PRODUCT_NOT_PUBLISHED' && !PLACED.test(d.field ?? '')),
     at: (prefix) =>
       details
         .filter((d) => d.field === prefix || d.field?.startsWith(`${prefix}.`) || d.field?.startsWith(`${prefix}[`))
@@ -397,6 +424,7 @@ function BannerCard({
           <WhyText items={whyOf(why, 'altText')} />
         </Field>
       </div>
+      {m.placementHint[b.placement] && <p className="-mt-1 text-xs text-base-content/55">{m.placementHint[b.placement]}</p>}
       {b.placement === 'HOME_INLINE' && (
         <div className="grid gap-3 md:grid-cols-[10rem_minmax(0,1fr)]">
           <Field label={m.group}>
@@ -846,7 +874,27 @@ function Editor({ draft }: { readonly draft: Draft }) {
     }
   });
   const result = submit.phase.kind === 'done' ? submit.phase.result : null;
-  const problems = problemsOf(submit.phase.kind === 'rejected' ? submit.phase.failure : null);
+  // 빈 칸은 보내기 전에 막는다(누른 뒤부터 칸 옆에 — 고치면 바로 사라짐). 없으면 마지막 서버 오류(저장·제출)
+  const [checked, setChecked] = useState<'save' | 'submit' | null>(null);
+  const local = checked ? localDetails(body, checked === 'submit') : [];
+  const lastFailure = submit.phase.kind === 'rejected' ? submit.phase.failure : save.phase.kind === 'rejected' ? save.phase.failure : null;
+  const problems = problemsOf(local.length > 0 ? local : serverDetails(lastFailure));
+  const problemKey = `${problems.count}:${local.length > 0 ? 'local' : submit.phase.kind + save.phase.kind}`;
+  // 고칠 곳이 생기면 첫 칸으로 데려간다(2026-11-21 점검 — 아래 줄에만 "N군데"가 떠서 칸이 화면 밖에 있었다)
+  const goFirst = () => document.querySelector('[data-testid=layout-problem]')?.scrollIntoView?.({ block: 'center', behavior: 'smooth' });
+  useEffect(() => {
+    if (problems.count > 0) requestAnimationFrame(goFirst);
+  }, [problemKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  const runSave = () => {
+    if (localDetails(body, false).length > 0) return setChecked('save');
+    setChecked(null);
+    void save.run();
+  };
+  const runSubmit = () => {
+    if (localDetails(body, true).length > 0) return setChecked('submit');
+    setChecked(null);
+    void submit.run();
+  };
   const locked = !editable || submit.busy || result !== null || save.busy;
   const orderWhy = problems.at('homeOrder').map((w) => w.text);
   const intervalWhy = problems.at('bannerIntervalSeconds').map((w) => w.text);
@@ -1082,22 +1130,25 @@ function Editor({ draft }: { readonly draft: Draft }) {
               {result === null && (
                 <div className="flex flex-wrap items-center justify-end gap-2">
                   {problems.count > 0 && (
-                    <span className="mr-auto text-sm text-error" data-testid="layout-invalid">
+                    <span className="mr-auto flex flex-wrap items-center gap-2 text-sm text-error" data-testid="layout-invalid">
                       {m.invalid(problems.count)}
+                      <button type="button" className="link text-xs" onClick={goFirst}>
+                        {m.goFirst}
+                      </button>
                     </span>
                   )}
                   {dirty && problems.count === 0 && <span className="mr-auto text-xs text-base-content/55">{m.unsaved}</span>}
-                  <button type="button" className="btn btn-sm" disabled={!dirty || locked} data-testid="layout-save" onClick={() => void save.run()}>
+                  <button type="button" className="btn btn-sm" disabled={!dirty || locked} data-testid="layout-save" onClick={runSave}>
                     {m.save}
                   </button>
-                  <button type="button" className="btn btn-sm btn-primary" disabled={locked} data-testid="layout-submit" onClick={() => void submit.run()}>
+                  <button type="button" className="btn btn-sm btn-primary" disabled={locked} data-testid="layout-submit" onClick={runSubmit}>
                     {dirty ? m.saveAndSubmit : m.submit}
                   </button>
                 </div>
               )}
-              {(save.phase.kind === 'rejected' || save.phase.kind === 'unknown') && <FailureAlert failure={save.phase.failure} />}
+              {local.length === 0 && (problems.count === 0 || problems.unplaced) && (save.phase.kind === 'rejected' || save.phase.kind === 'unknown') && <FailureAlert failure={save.phase.failure} />}
               {/* 승인 요청은 반영이 아니다 — 성공 알림 대신 아래 상자, 실패만 */}
-              {problems.count === 0 && (submit.phase.kind === 'rejected' || submit.phase.kind === 'unknown') && <FailureAlert failure={submit.phase.failure} />}
+              {local.length === 0 && (problems.count === 0 || problems.unplaced) && (submit.phase.kind === 'rejected' || submit.phase.kind === 'unknown') && <FailureAlert failure={submit.phase.failure} />}
               {result?.approvalId && (
                 <div className="alert alert-success alert-soft text-sm" role="status" data-testid="layout-requested">
                   <span>{m.requested}</span>

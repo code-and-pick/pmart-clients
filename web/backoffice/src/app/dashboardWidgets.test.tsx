@@ -63,7 +63,7 @@ describe('대시보드 2판', () => {
 
   it('최근 활동 — 승인·접수 건·문의를 시각순으로, 누르면 그 상세', async () => {
     renderAt('/', as.admin);
-    // 세 원천이 따로 도착한다. 최근 8건만 — 목 데이터에선 접수 건(2시간 전)·문의(3·4일 전)가 승인(5·19일 전)보다 최근이라 승인은 밀린다
+    // 세 원천이 따로 도착한다. 최근 8건 — 종류마다 최근 2건은 남기고(2026-11-21 점검) 나머지는 시각순
     await waitFor(() => {
       const metas = screen.getAllByTestId('dash-activity-item').map((i) => i.textContent ?? '');
       expect(metas).toHaveLength(8);

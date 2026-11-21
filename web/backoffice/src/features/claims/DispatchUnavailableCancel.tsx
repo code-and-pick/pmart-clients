@@ -60,7 +60,7 @@ export function DispatchUnavailableCancel({ caseId, orderId, closed }: { readonl
     <Section id="dispatch-cancel" title={m.title} testId="dispatch-cancel">
       <div className="space-y-3 text-sm">
         <p className="text-base-content/70">{m.intro}</p>
-        {order.isError ? (
+        {done ? null : order.isError ? (
           <Notice tone="warning">{m.orderFailed}</Notice>
         ) : !o ? (
           <p className="text-base-content/50">…</p>
@@ -84,7 +84,8 @@ export function DispatchUnavailableCancel({ caseId, orderId, closed }: { readonl
         )}
         <CommandFeedback command={create}>
           {(claim) => (
-            <p role="status" className="text-success" data-testid="dispatch-cancel-done">
+            // 접수 ≠ 끝남 — 클레임이 닫혔을 때만 초록, 아니면 진행 중 색(2026-11-21 점검)
+            <p role="status" className={claim.state === 'CLOSED' ? 'text-success' : 'text-info'} data-testid="dispatch-cancel-done">
               {m.done(label(messages.claims.stateName, claim.state ?? null))}{' '}
               {claim.claimId && (
                 <Link className="link" to={`/claims/${encodeURIComponent(claim.claimId)}`}>

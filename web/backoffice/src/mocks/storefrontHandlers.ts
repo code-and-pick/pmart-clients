@@ -185,6 +185,13 @@ export const storefrontHandlers = [
       if (d.state !== 'DRAFT' && d.state !== 'REJECTED') return problem(409, 'INVALID_STATE');
       const v = expectedVersion(request);
       if (v !== undefined && v !== d.version) return problem(409, 'VERSION_CONFLICT');
+      // 계약 스키마(altText·title minLength 1, 탭 sectionIds minItems 1) — 어기면 400 VALIDATION_FAILED(칸 경로)
+      const bad = [
+        ...(body.banners ?? []).flatMap((b, i) => (b.altText ? [] : [{ field: `banners[${i}].altText`, reason: 'MIN_LENGTH' }])),
+        ...(body.themes ?? []).flatMap((t, i) => (t.title ? [] : [{ field: `themes[${i}].title`, reason: 'MIN_LENGTH' }])),
+        ...(body.tabs ?? []).flatMap((t, i) => [...(t.title ? [] : [{ field: `tabs[${i}].title`, reason: 'MIN_LENGTH' }]), ...(t.sectionIds.length > 0 ? [] : [{ field: `tabs[${i}].sectionIds`, reason: 'MIN_ITEMS' }])]),
+      ];
+      if (bad.length > 0) return problem(400, 'VALIDATION_FAILED', bad);
       const next: Draft = { ...d, ...bodyOf(body), state: 'DRAFT', version: d.version + 1, updatedAt: new Date().toISOString() };
       layouts.drafts.set(d.draftId, next);
       return { status: 200, body: next };

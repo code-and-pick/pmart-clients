@@ -445,6 +445,11 @@ export function ActivityFeed({ approvals, cases, inquiries }: { readonly approva
   for (const x of q.data?.items ?? [])
     list.push({ at: x.createdAt, kind: 'inquiry', what: m.act.inquiryWhat(label(messages.inquiries.categoryName, x.category)), full: x.title ?? '', to: `/inquiries/${encodeURIComponent(x.inquiryId)}` });
   list.sort((p, n) => n.at.localeCompare(p.at));
+  // 종류마다 최근 2건은 남긴다(2026-11-21 점검 — 접수 건이 많으면 문의·승인이 8칸에서 밀려 안 보였다). 나머지 칸은 시각순으로 채운다
+  const shown = new Set<Activity>();
+  for (const kind of ['case', 'inquiry', 'approval'] as const) for (const x of list.filter((y) => y.kind === kind).slice(0, 2)) shown.add(x);
+  for (const x of list) if (shown.size < 8) shown.add(x);
+  const feed = list.filter((x) => shown.has(x)).slice(0, 8);
   const failed = [approvals && a.isError && m.act.sourceApproval, cases && c.isError && m.act.sourceCase, inquiries && q.isError && m.act.sourceInquiry].filter(Boolean) as string[];
   const loading = (approvals && a.isPending) || (cases && c.isPending) || (inquiries && q.isPending);
   return (
@@ -453,7 +458,7 @@ export function ActivityFeed({ approvals, cases, inquiries }: { readonly approva
         <p className="py-6 text-center text-sm text-base-content/55">{loading ? '…' : failed.length > 0 ? m.act.allFailed : m.act.none}</p>
       ) : (
         <ul className="-mx-2 divide-y divide-base-200">
-          {list.slice(0, 8).map((x) => (
+          {feed.map((x) => (
             <li key={`${x.kind}-${x.to}`} data-testid="dash-activity-item">
               <Link to={x.to} title={x.full || undefined} className="flex items-center gap-2 rounded-md px-2 py-2 text-sm hover:bg-base-200/60">
                 <span className={`shrink-0 rounded px-1.5 py-0.5 text-[11px] font-semibold ${ACT_CHIP[x.kind].cls}`}>{ACT_CHIP[x.kind].label}</span>
@@ -848,9 +853,10 @@ export function ShortageTop({ from, to }: { readonly from: string; readonly to: 
       aside={
         <span className="flex items-center gap-2">
           <span className="text-xs text-base-content/50">{t.hint}</span>
-          <span className="join" role="group" aria-label={t.sortLabel}>
+          {/* 고른 쪽이 또렷하게 — 같은 대시보드 "주문 수·승인 금액" 고르기와 같은 모양(2026-11-21 점검) */}
+          <span role="radiogroup" aria-label={t.sortLabel} className="inline-flex rounded-field border border-base-300 p-0.5 text-xs">
             {(['shortLines', 'shortRate'] as const).map((s) => (
-              <button key={s} type="button" className={`btn join-item btn-xs ${sort === s ? 'btn-active' : ''}`} aria-pressed={sort === s} onClick={() => setSort(s)}>
+              <button key={s} type="button" role="radio" aria-checked={sort === s} className={`rounded px-2.5 py-1 ${sort === s ? 'bg-base-200 font-semibold text-base-content' : 'text-base-content/60 hover:text-base-content'}`} onClick={() => setSort(s)}>
                 {s === 'shortLines' ? t.sortLines : t.sortRate}
               </button>
             ))}

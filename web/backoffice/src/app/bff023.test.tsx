@@ -76,7 +76,7 @@ describe('대시보드 — 결품 많은 상품(BR-73 SK-2)', () => {
     const user = userEvent.setup();
     const view = renderAt('/?tab=sales', as.admin);
     await screen.findAllByTestId('dash-shortage-top-row');
-    await user.click(screen.getByRole('button', { name: '결품률 순' }));
+    await user.click(screen.getByRole('radio', { name: '결품률 순' }));
     await waitFor(() => expect(screen.getByTestId('dash-shortage-top-note')).toHaveTextContent('피킹 20줄 이상인 상품만'));
     const calls = view.sent.map((r) => new URL(r.url)).filter((u) => u.pathname.endsWith('/views/metrics/shortage-by-sku'));
     expect(calls.at(-1)!.searchParams.get('sort')).toBe('shortRate');

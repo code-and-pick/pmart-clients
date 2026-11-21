@@ -101,7 +101,7 @@ function RefundCell({ r }: { readonly r: ClaimSummary['refund'] }) {
   );
 }
 
-function ClaimTable({ query, withCount = false, preview = false, stage }: { readonly query: ReturnType<typeof useClaimList>; readonly withCount?: boolean; readonly preview?: boolean; readonly stage?: Stage | undefined }) {
+function ClaimTable({ query, withCount = false, preview = false, stage, inOrder = false }: { readonly query: ReturnType<typeof useClaimList>; readonly withCount?: boolean; readonly preview?: boolean; readonly stage?: Stage | undefined; readonly inOrder?: boolean }) {
   const navigate = useNavigate();
   // 오른쪽 미리보기(2026-11-19 관제 형식) — 클레임 목록 화면에서만(주문 상세 안의 표는 전처럼 상세로)
   const pv = usePreview((id) => `/claims/${encodeURIComponent(id)}`);
@@ -145,7 +145,8 @@ function ClaimTable({ query, withCount = false, preview = false, stage }: { read
             {preview && <th>{cl.col.reason}</th>}
             {preview && <th className="text-right">{cl.col.refund}</th>}
             <th>{m.claims.state}</th>
-            <th>{m.claims.orderId}</th>
+            {/* 주문 상세 안의 표는 모두 같은 주문이라 주문 칸을 뺀다(2026-11-21 점검) */}
+            {!inOrder && <th>{m.claims.orderId}</th>}
             <th className="text-right">{m.claims.openedAt}</th>
           </tr>
         </thead>
@@ -178,15 +179,17 @@ function ClaimTable({ query, withCount = false, preview = false, stage }: { read
               <td>
                 <StatusBadge tone={claimTone(c.state)}>{c.state ? <CodeLabel code={c.state} names={m.claims.stateName} /> : m.none}</StatusBadge>
               </td>
-              <td>
-                {c.orderId ? (
-                  <Link className="font-mono text-xs text-base-content/55 hover:text-primary hover:underline" to={`/orders/${encodeURIComponent(c.orderId)}`} onClick={(e) => e.stopPropagation()}>
-                    <DisplayNumber number={orders.get(c.orderId)} systemId={c.orderId} failed={orders.failed(c.orderId)} />
-                  </Link>
-                ) : (
-                  m.none
-                )}
-              </td>
+              {!inOrder && (
+                <td>
+                  {c.orderId ? (
+                    <Link className="font-mono text-xs text-base-content/55 hover:text-primary hover:underline" to={`/orders/${encodeURIComponent(c.orderId)}`} onClick={(e) => e.stopPropagation()}>
+                      <DisplayNumber number={orders.get(c.orderId)} systemId={c.orderId} failed={orders.failed(c.orderId)} />
+                    </Link>
+                  ) : (
+                    m.none
+                  )}
+                </td>
+              )}
               <td>
                 <When iso={c.openedAt} align="right" />
               </td>
@@ -244,7 +247,7 @@ function ClaimTable({ query, withCount = false, preview = false, stage }: { read
 
 /** 주문 상세 아래 — 이 주문의 클레임(`GET /claims?orderId=`). */
 export function ClaimsOfOrder({ orderId }: { readonly orderId: string }) {
-  return <ClaimTable query={useClaimList({ orderId })} />;
+  return <ClaimTable query={useClaimList({ orderId })} inOrder />;
 }
 
 export function ClaimListPage() {
@@ -449,9 +452,9 @@ export function ClaimDetailPage() {
                   <span className="ml-2 font-mono text-sm font-normal text-base-content/50" data-testid="claim-label">{claimLabel(detailOrders.get(c.orderId), c.type, c.openedAt, c.claimSeq)}</span>
                 </>
               }
+              // 종류는 제목·번호에 이미 있어 꼬리표를 또 달지 않는다(2026-11-21 점검 — "반품"이 세 번 보였다)
               badges={
                 <>
-                  <ClaimTypeChip type={c.type} />
                   <StatusBadge tone={claimTone(c.state)} testId="claim-state">
                     {c.state ? <CodeLabel code={c.state} names={m.claims.stateName} /> : m.none}
                   </StatusBadge>
