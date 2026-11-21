@@ -208,7 +208,7 @@ main table tbody tr:hover > td {
 }
 
 /* ⑨ 머리 줄·왼쪽 메뉴 — 판 색 바탕 + 선 하나(어두운 화면은 바탕과 같은 짙은 색) */
-[data-theme='pmart-dark'] :is(header, nav, aside):not(main *) {
+[data-theme='pmart-dark'] :is(header.h-11, [data-testid='side-menu']):not(main *) {
   background-color: var(--color-base-200);
 }
 
