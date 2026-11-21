@@ -311,9 +311,6 @@ export function DashboardPage() {
             </div>
           )}
 
-          {/* 보드 — 지금 처리할 건(2026-11-21 보드 탭을 여기로) */}
-          {showBoard && <DashboardBoard {...board} />}
-
           {/* 최근 본 항목 줄은 뺐다(2026-11-20 사용자 "대시보드가 메인인데 없어 보이게 떠 있어야 하니") — 통합 조회·배송 확인 빈 화면에만 */}
 
           {tasks.length === 0 && stats.length === 0 && !hasActivity && !showBoard && <p className="text-sm text-base-content/60">{m.nothing}</p>}
@@ -386,6 +383,9 @@ export function DashboardPage() {
         </aside>
       )}
       </div>
+
+      {/* 보드 — 지금 처리할 건(2026-11-21 보드 탭을 한눈에로). 오른쪽 최근 활동 칸 옆에선 다섯 칸이 다 안 보여 그 아래 전체 폭으로 */}
+      {tab === 'overview' && showBoard && <DashboardBoard {...board} />}
     </section>
     </DashboardLayoutProvider>
   );

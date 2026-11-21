@@ -94,8 +94,9 @@ function StatCard({ icon, tone, label: title, value, sub, to, testId, children, 
   return (
     // 2026-11-20 AWS 개편: 아이콘 타일·그림자 없이 흰 상자 + 회색 이름 + 큰 숫자(점선 밑줄 링크)
     // 2026-11-20 통계 개편: 카드가 아니라 숫자 띠의 한 칸(테두리는 띠가), 점선 밑줄 없이 칸 전체가 누르는 곳
-    <Link to={to} data-testid={testId} data-icon={icon} data-tone={tone} className={`group flex items-end gap-4 bg-base-100 px-5 py-4 transition-colors hover:bg-base-200/50 ${ch.cls}`}>
-      <span className="min-w-0 flex-1">
+    <Link to={to} data-testid={testId} data-icon={icon} data-tone={tone} className={`group flex flex-wrap items-end gap-x-4 gap-y-1 bg-base-100 px-5 py-4 transition-colors hover:bg-base-200/50 ${ch.cls}`}>
+      {/* 글 칸은 8rem 아래로 줄지 않는다 — 칸이 좁으면 추세선이 아래 줄로(2026-11-21 "오늘 주문"이 "오…"로 잘리던 것) */}
+      <span className="min-w-[8rem] flex-1 self-start">
         <span className="block truncate text-sm text-base-content/70">{title}</span>
         <span className={`inline-block text-[30px] font-semibold leading-tight tracking-tight group-hover:text-primary ${failed ? 'text-base-content/45' : ''}`} title={failed ? m.failed : undefined}>
           {value}

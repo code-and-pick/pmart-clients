@@ -32,7 +32,7 @@ describe('메뉴 묶음 — 역할로 보이고(합집합) 접고 편다', () =>
     }
   });
 
-  it('지금 화면의 묶음만 펼친 채로 시작하고, 다른 묶음 이름을 누르면 그것만 펼친다(한 묶음만, 2026-11-18)', async () => {
+  it('지금 화면의 묶음만 펼친 채로 시작하고, 다른 묶음을 눌러 열어도 앞 묶음은 열린 채(2026-11-21 — 11-18 의 한 묶음만을 되돌림)', async () => {
     const user = userEvent.setup();
     renderAt('/inquiries', as.csRider);
     const cs = await screen.findByTestId('nav-group-cs');
@@ -41,7 +41,7 @@ describe('메뉴 묶음 — 역할로 보이고(합집합) 접고 편다', () =>
     expect(support).not.toHaveAttribute('open');
     await user.click(within(support).getByText('지원센터'));
     expect(support).toHaveAttribute('open');
-    expect(cs).not.toHaveAttribute('open'); // 전 묶음은 닫힘
+    expect(cs).toHaveAttribute('open'); // 앞서 연 묶음은 그대로
     await user.click(within(support).getByText('지원센터'));
     expect(support).not.toHaveAttribute('open'); // 다시 누르면 닫힘
   });

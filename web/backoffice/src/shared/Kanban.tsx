@@ -38,7 +38,7 @@ const SHOW = 20;
 export function KanbanBoard({ columns, label, testId = 'kanban' }: { readonly columns: readonly BoardColumn[]; readonly label: string; readonly testId?: string }) {
   return (
     <div className="overflow-x-auto pb-2" role="region" aria-label={label} data-testid={testId}>
-      <div className="grid auto-cols-[minmax(15rem,1fr)] grid-flow-col gap-3">
+      <div className="grid auto-cols-[minmax(12.5rem,1fr)] grid-flow-col gap-3">
         {columns.map((c) => (
           <Column key={c.id} c={c} />
         ))}

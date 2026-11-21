@@ -9,11 +9,14 @@ import { server } from '../test/server';
 import { as, renderAt } from '../test/render';
 
 describe('대시보드 보드(한눈에 아래, 2026-11-21 보드 탭 없앰)', () => {
-  it('보드 탭은 없고, 한눈에 숫자 칸 아래에 보드가 바로 보인다 — 옛 ?tab=board 주소도 한눈에', async () => {
+  it('보드 탭은 없고, 한눈에에서 보드가 바로 보인다(전체 폭) — 옛 ?tab=board 주소도 한눈에, 다른 탭에선 안 보임', async () => {
+    const user = userEvent.setup();
     renderAt('/?tab=board', as.admin);
-    const panel = await screen.findByRole('tabpanel', { name: '한눈에' });
+    expect(await screen.findByRole('tab', { name: '한눈에' })).toHaveAttribute('aria-selected', 'true');
     expect(screen.queryByRole('tab', { name: '보드' })).not.toBeInTheDocument();
-    expect(within(panel).getByTestId('dash-board')).toBeInTheDocument();
+    expect(await screen.findByTestId('dash-board')).toBeInTheDocument();
+    await user.click(screen.getByRole('tab', { name: '운영' }));
+    expect(screen.queryByTestId('dash-board')).not.toBeInTheDocument();
   });
 
   it('관리자: 기한 넘김·아무도 안 맡음·내가 맡음·답변 대기 문의·내가 심사할 승인 칸, 카드를 누르면 상세', async () => {
