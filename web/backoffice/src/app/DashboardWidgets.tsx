@@ -13,6 +13,7 @@ import { liveQuery } from './DashboardSections';
 import { slaText } from '../features/cases/CaseSlaPage';
 import { hideIds } from '../shared/hideIds';
 import { messages } from '../shared/messages';
+import { caseSummaryText } from '../shared/blockReason';
 import { addSeoulDays, label, seoulDayEnd, seoulDayStart } from '../shared/ops';
 import { Section } from '../shared/admin';
 import { ColumnChart, Delta, Insight, Meter, SegmentBar, TrendLine, type Column } from './Charts';
@@ -441,7 +442,7 @@ export function ActivityFeed({ approvals, cases, inquiries }: { readonly approva
       list.push({ at: x.submittedAt, kind: 'approval', what: m.act.approvalWhat(type), full: hideIds(x.summary), to: `/approvals/${encodeURIComponent(x.approvalId)}` });
     }
   for (const x of c.data?.items ?? [])
-    if (x.openedAt && x.caseId) list.push({ at: x.openedAt, kind: 'case', what: label(messages.cases.kindName, x.kind ?? null), full: x.summary ?? '', to: `/cases/${encodeURIComponent(x.caseId)}` });
+    if (x.openedAt && x.caseId) list.push({ at: x.openedAt, kind: 'case', what: label(messages.cases.kindName, x.kind ?? null), full: caseSummaryText(x.summary), to: `/cases/${encodeURIComponent(x.caseId)}` });
   for (const x of q.data?.items ?? [])
     list.push({ at: x.createdAt, kind: 'inquiry', what: m.act.inquiryWhat(label(messages.inquiries.categoryName, x.category)), full: x.title ?? '', to: `/inquiries/${encodeURIComponent(x.inquiryId)}` });
   list.sort((p, n) => n.at.localeCompare(p.at));

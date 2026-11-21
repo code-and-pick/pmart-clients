@@ -48,7 +48,20 @@ export function SourceStamps({ sources, unavailableSources }: Props) {
         </span>
       )}
       {sources.length > 0 && (
-        <details className="group relative">
+        // 펼칠 때 화면 오른쪽 밖으로 나가면 오른쪽 끝에 맞춰 연다(2026-11-21 점검 — 768px 처리 대기에서 목록 끝이 잘렸다). CSP 라 style 속성 대신 element.style
+        <details
+          className="group relative"
+          onToggle={(e) => {
+            const ul = e.currentTarget.querySelector('ul');
+            if (!ul || !e.currentTarget.open) return;
+            ul.style.left = '';
+            ul.style.right = '';
+            if (ul.getBoundingClientRect().right > window.innerWidth - 8) {
+              ul.style.left = 'auto';
+              ul.style.right = '0';
+            }
+          }}
+        >
           <summary className="cursor-pointer list-none rounded px-1 underline decoration-dotted underline-offset-2 hover:text-base-content">{m.sourceSummary.detail(sources.length)}</summary>
           <ul className="absolute left-0 top-6 z-20 w-max max-w-[90vw] space-y-1 rounded-box border border-base-300 bg-base-100 p-3 text-xs text-base-content shadow-lg">
             {sources.map((s) => (

@@ -30,6 +30,7 @@ import { label, text, when } from '../../shared/ops';
 import { SourceStamps } from '../../shared/SourceStamps';
 import { CodeLabel, NextAction, StatCard, StatStrip, AllDone, ListHeader, refreshOf } from '../../shared/admin';
 import { PENDING_KINDS } from '../../app/listCounts';
+import { stopErrorName, stopErrorText } from '../../shared/blockReason';
 
 type Item = components['schemas']['PendingWorkItem'];
 type View = components['schemas']['ComposedView'] & { items?: Item[]; truncated?: boolean };
@@ -150,7 +151,7 @@ function ResultCheck({
         <>
           {typeof lastError === 'string' && lastError !== '' && (
             <p className="text-xs" data-testid="result-check-last-error">
-              {m.pending.checkLastError(lastError)}
+              {m.pending.checkLastError(stopErrorText(lastError))}
             </p>
           )}
           <button type="button" className="btn btn-xs btn-primary" onClick={onRetry}>
@@ -408,7 +409,7 @@ function PendingGroups({ items }: { readonly items: readonly Item[] }) {
                 <li key={`${i.kind}:${i.refId}`} className={`grid gap-x-6 gap-y-3 border-l-4 px-5 py-4 text-sm md:grid-cols-[minmax(0,1fr)_minmax(16rem,auto)] ${st.bar}`} data-testid="pending-item" data-kind={i.kind}>
                   <div className="min-w-0 space-y-2">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-semibold">{i.reasonCode ? <CodeLabel code={i.reasonCode} names={i.kind === 'FULFILLMENT_ISSUE' ? m.pending.reasonName : m.pending.errorName} /> : m.none}</span>
+                      <span className="font-semibold">{i.reasonCode ? i.kind === 'FULFILLMENT_ISSUE' ? <CodeLabel code={i.reasonCode} names={m.pending.reasonName} /> : <span title={i.reasonCode}>{stopErrorName(i.reasonCode)}</span> : m.none}</span>
                       {i.state && (
                         <span className="badge badge-sm badge-ghost" data-testid="pending-state">
                           <CodeLabel code={i.state} names={m.pending.stateNameByKind[i.kind] ?? {}} />

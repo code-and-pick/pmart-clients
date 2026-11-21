@@ -20,6 +20,7 @@ import type { components } from '../../api/generated/case';
 import { useApi } from '../../app/ApiContext';
 import { useSession } from '../../app/SessionContext';
 import { messages } from '../../shared/messages';
+import { caseSummaryText } from '../../shared/blockReason';
 import { label, text, when } from '../../shared/ops';
 import { CodeLabel, NextAction, Notice, PageHeader } from '../../shared/admin';
 import { StaffName } from '../lookup/parts';
@@ -159,7 +160,7 @@ function WriteForm() {
                       <span className={`badge badge-sm font-mono ${c.priority === 'P1' ? 'badge-error' : 'badge-ghost'}`}>{text(c.priority)}</span>
                       <span className="text-base-content/60">{c.kind ? <CodeLabel code={c.kind} names={messages.cases.kindName} /> : messages.none}</span>
                       <Link className="font-medium hover:text-primary hover:underline" to={`/cases/${encodeURIComponent(id)}`}>
-                        {c.summary || id}
+                        {c.summary ? caseSummaryText(c.summary) : id}
                       </Link>
                       {(c.openObligationCount ?? 0) > 0 && <span className="badge badge-warning badge-soft badge-sm">{m.followUpsLeft(c.openObligationCount ?? 0)}</span>}
                     </label>

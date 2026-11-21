@@ -43,6 +43,7 @@ import { useRecordRecent } from '../../shared/recentViews';
 import { TabCount, useAlertCount } from '../../app/MenuAlerts';
 import { PreviewDrawer, PreviewFacts, usePreview } from '../../shared/Preview';
 import { messages as m } from '../../shared/messages';
+import { caseSummaryText } from '../../shared/blockReason';
 import { label, text, when } from '../../shared/ops';
 import { SourceStamps } from '../../shared/SourceStamps';
 import { DisplayNumber, RiderLabel, riderSourceFailed, SystemNumbers } from '../../shared/displayNumber';
@@ -609,7 +610,7 @@ export function CaseListPage() {
                           {/* 2026-11-20 AWS 한 줄 줄: 요약 · 화면 번호 · 맡기를 한 줄에(번호는 ADR-0070 화면 번호 — 시스템 ID 는 보이지 않는다) */}
                           <span className="flex min-w-0 items-center gap-2 whitespace-nowrap">
                             <span className="truncate font-medium" data-testid="case-summary">
-                              {c.summary ? c.summary : label(m.cases.kindName, c.kind)}
+                              {c.summary ? caseSummaryText(c.summary) : label(m.cases.kindName, c.kind)}
                             </span>
                             {c.caseNumber && (
                               <span className="shrink-0 font-mono text-xs text-base-content/50" data-testid="case-number">
@@ -716,7 +717,7 @@ function CasePreview({ caseId }: { readonly caseId: string }) {
             <KindBadge kind={c.kind} />
             <StatusBadge tone={stateTone(c)}>{c.state ? <CodeLabel code={c.state} names={m.cases.stateName} /> : m.none}</StatusBadge>
           </div>
-          {c.summary && <p className="rounded-box bg-base-200/60 px-3 py-2 text-sm">{c.summary}</p>}
+          {c.summary && <p className="rounded-box bg-base-200/60 px-3 py-2 text-sm">{caseSummaryText(c.summary)}</p>}
           <PreviewFacts
             rows={[
               [m.cases.sla, <Sla key="s" c={{ slaDueAt: c.slaDueAt ?? null, overdue: c.overdue ?? false, state: c.state ?? null }} />],
@@ -1176,7 +1177,7 @@ export function CaseDetailPage() {
                         </span>
                       )}
                     </div>
-                    <p className="mt-3 whitespace-pre-wrap text-lg font-semibold leading-snug">{text(c.summary)}</p>
+                    <p className="mt-3 whitespace-pre-wrap text-lg font-semibold leading-snug">{c.summary ? caseSummaryText(c.summary) : text(c.summary)}</p>
                     <p className="mt-1 text-xs text-base-content/55">{`${m.cases.openedAt} ${when(c.openedAt)}`}</p>
                   </div>
   

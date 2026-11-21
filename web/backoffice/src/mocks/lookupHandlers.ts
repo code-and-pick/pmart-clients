@@ -108,7 +108,7 @@ const order1001: readonly MockMatch[] = [
     kind: 'MFC_STOP',
     id: 'STOP-MOCK-1',
     system: 'mfc-fulfillment-service',
-    summary: { scope: 'ORDER', state: 'PENDING', lastError: 'PDA_OFFLINE: 피킹 PDA 응답 없음', requestedAt: at, failedAt: at, resolvedAt: null },
+    summary: { scope: 'ORDER', state: 'PENDING', lastError: 'INVALID_STATE: 예약 상태가 바뀜(이미 인계)', requestedAt: at, failedAt: at, resolvedAt: null },
   },
 ];
 

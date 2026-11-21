@@ -107,7 +107,7 @@ describe('처리 대기', () => {
   });
   it('MFC 중지 실패: 다시 시도(메모 필수) → bff mfc-fulfillment-service/stop-retry → 목록에서 빠진다, 처리 완료 버튼은 없다', async () => {
     const view = renderAt('/pending', as.admin);
-    const row = await rowOf('PDA 응답 없음');
+    const row = await rowOf('예약 상태가 바뀜');
     expect(within(row.closest('section')!).getByRole('heading', { name: 'MFC 중지 실패(취소 멈춤)' })).toBeInTheDocument(); // 종류는 묶음 머리에
     expect(within(row).queryByRole('button', { name: '처리 완료(밖에서 해결)' })).not.toBeInTheDocument();
     await userEvent.click(within(row).getByRole('button', { name: '다시 시도' }));
@@ -115,7 +115,7 @@ describe('처리 대기', () => {
     expect(within(row).getByRole('button', { name: '보내기' })).toBeDisabled();
     await userEvent.type(within(row).getByLabelText('다시 시도 사유(필수)'), 'PDA 재부팅 확인');
     await userEvent.click(within(row).getByRole('button', { name: '보내기' }));
-    await waitFor(() => expect(screen.queryByText(/PDA 응답 없음/)).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.queryByText(/예약 상태가 바뀜/)).not.toBeInTheDocument());
     const sent = view.mutations('/commands/mfc-fulfillment-service/stop-retry')[0]!;
     expect(sent.headers.get('Idempotency-Key')).toBeTruthy();
     expect(await sent.json()).toEqual({ targetRef: 'STOP-MOCK-1', payload: {}, reason: 'PDA 재부팅 확인' });
@@ -142,7 +142,7 @@ describe('처리 대기', () => {
     const handover = await rowOf('재고와 인계 수량이 다름');
     expect(within(handover).getByTestId('pending-last-retry')).toHaveTextContent('최근 재시도: [목] 관리자 · P2026-00001 ·');
     expect(within(handover).getByTestId('pending-last-retry')).toHaveTextContent('실물 확인 전 재시도');
-    const stop = await rowOf('PDA 응답 없음');
+    const stop = await rowOf('예약 상태가 바뀜');
     expect(within(stop).queryByTestId('pending-last-retry')).not.toBeInTheDocument();
   });
 
@@ -184,7 +184,7 @@ it('다시 시도 결과를 모르면(202 UNKNOWN_RESULT) 성공·실패로 단�
       ),
     );
     const view = renderAt('/pending', as.admin);
-    const row = await rowOf('PDA 응답 없음');
+    const row = await rowOf('예약 상태가 바뀜');
     await userEvent.click(within(row).getByRole('button', { name: '다시 시도' }));
     await userEvent.type(within(row).getByLabelText('다시 시도 사유(필수)'), 'PDA 재부팅 확인');
     await userEvent.click(within(row).getByRole('button', { name: '보내기' }));

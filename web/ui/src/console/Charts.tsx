@@ -5,6 +5,12 @@
 // 못 읽은 값(null)은 0 으로 그리지 않는다 — 막대는 점선 빈칸, 추세선은 끊는다.
 import { useId, type ReactNode } from 'react';
 
+/** 도움말 상자 자리 — 첫 칸은 왼쪽 끝, 마지막 칸은 오른쪽 끝에 맞춘다(가운데 맞춤이면 좁은 폭에서 그림 밖·화면 밖으로 나가
+    숨은 상자도 가로 스크롤을 만들었다, 2026-11-21 PC 2 점검 — 768px 대시보드) */
+function tipEdge(i: number, n: number): string {
+  return i === 0 ? 'left-0' : i === n - 1 ? 'right-0' : 'left-1/2 -translate-x-1/2';
+}
+
 /** 눈금 위 끝 — 깔끔한 수(1·2·2.5·5 × 10ⁿ)로 올림 */
 export function niceMax(max: number): number {
   if (max <= 0) return 4;
@@ -57,7 +63,7 @@ export function ColumnChart({ columns, big = false, testIdCol, label, avg }: { r
         )}
       </div>
       <div className="relative flex h-52 items-stretch">
-        {columns.map((c) => {
+        {columns.map((c, ci) => {
           const h = c.value === null ? 0 : (c.value / top) * 100;
           return (
             <div key={c.key} className="group relative flex flex-1 flex-col items-center outline-none" tabIndex={0} data-testid={testIdCol} aria-label={`${c.label} ${c.tip.map(([v, n]) => `${n} ${typeof v === 'string' || typeof v === 'number' ? v : ''}`).join(', ')}`}>
@@ -80,7 +86,7 @@ export function ColumnChart({ columns, big = false, testIdCol, label, avg }: { r
               </div>
               <span className={`absolute bottom-1 text-[11px] ${c.strong ? 'font-semibold text-base-content' : 'text-base-content/55'}`}>{c.label}</span>
               {/* 도움말(마우스·키보드) — 값은 진하게, 이름은 옅게 */}
-              <div className="pointer-events-none invisible absolute bottom-[calc(100%-1rem)] left-1/2 z-20 min-w-36 -translate-x-1/2 rounded-box border border-base-300 bg-base-100 px-3 py-2 text-xs shadow-lg group-hover:visible group-focus-visible:visible" role="tooltip">
+              <div className={`pointer-events-none invisible absolute bottom-[calc(100%-1rem)] z-20 min-w-36 rounded-box ${tipEdge(ci, columns.length)} border border-base-300 bg-base-100 px-3 py-2 text-xs shadow-lg group-hover:visible group-focus-visible:visible`} role="tooltip">
                 <p className="mb-1 text-base-content/55">{c.title ?? c.label}</p>
                 {c.tip.map(([v, n]) => (
                   <p key={n} className="flex items-center justify-between gap-4">
@@ -319,7 +325,7 @@ export function LineChart({ points, label, avg, testId, testIdPoint, height = 'h
               {i === lastI && p.value !== null && (
                 <span className="absolute left-1/2 -translate-x-1/2 text-xs font-semibold text-base-content" style={{ top: `calc(${y(p.value)}% - 22px)` }}>{`${Math.round(p.value * 100)}%`}</span>
               )}
-              <div className="pointer-events-none invisible absolute bottom-full left-1/2 z-20 mb-1 min-w-36 -translate-x-1/2 rounded-box border border-base-300 bg-base-100 px-3 py-2 text-xs shadow-lg group-hover:visible group-focus-visible:visible" role="tooltip">
+              <div className={`pointer-events-none invisible absolute bottom-full z-20 mb-1 min-w-36 rounded-box border border-base-300 bg-base-100 px-3 py-2 text-xs shadow-lg group-hover:visible group-focus-visible:visible ${tipEdge(i, points.length)}`} role="tooltip">
                 <p className="mb-1 text-base-content/55">{p.title ?? p.label}</p>
                 {p.tip.map(([v, nm]) => (
                   <p key={nm} className="flex items-center justify-between gap-4">

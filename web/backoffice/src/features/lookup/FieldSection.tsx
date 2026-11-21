@@ -3,7 +3,7 @@
 // - FULFILLMENT(작업 지시): 수락·거절, 출고별 피킹 → 포장 → 인계 한 줄, BLOCKED 사유 빨강, 점원 결품 보고, 포장의 인계 거절 사유.
 // - MFC_STOP(중지 요청): 범위·상태·마지막 오류 — PENDING + 오류면 관리자에게 처리 대기 링크.
 // 작업자는 ID 그대로(이름 없음 — LAN 은 운영자 ID OP-…). 원천 실패는 "조회 실패"(0건 아님), 404 는 칸 없음(현장 기록 없음).
-import { blockReasonLabel } from '../../shared/blockReason';
+import { blockReasonLabel, stopErrorText } from '../../shared/blockReason';
 import { Link } from 'react-router';
 
 import { useSession } from '../../app/SessionContext';
@@ -105,7 +105,7 @@ function StopCard({ id, summary }: { readonly id: string; readonly summary: Obj 
         {str(summary['state']) ? <CodeLabel code={str(summary['state'])!} names={m.stopStateName} /> : messages.none}
         {str(summary['requestedAt']) && <span className="opacity-70">{` · ${when(str(summary['requestedAt']))}`}</span>}
       </p>
-      {error && <p className="text-error">{m.lastError(error)}</p>}
+      {error && <p className="text-error">{m.lastError(stopErrorText(error))}</p>}
       {stuck && admin && (
         <Link className="link text-xs" to="/pending">
           {m.toPending}

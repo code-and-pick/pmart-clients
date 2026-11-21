@@ -202,7 +202,7 @@ function seed(): OpsState {
     ],
     bffResults: new Map(),
     mfcPending: [
-      { kind: 'MFC_STOP_FAILED', refId: 'STOP-MOCK-1', orderId: 'ORD-MOCK-1002', mfcId: 'MFC-BSN-01', state: 'PENDING', reasonCode: 'PDA_OFFLINE', reasonMessage: '피킹 PDA 응답 없음 — 중지 확인 못 함', since: ago(4), retry: 'APPLIED', done: false, lastRetry: null },
+      { kind: 'MFC_STOP_FAILED', refId: 'STOP-MOCK-1', orderId: 'ORD-MOCK-1002', mfcId: 'MFC-BSN-01', state: 'PENDING', reasonCode: 'INVALID_STATE', reasonMessage: '예약 상태가 바뀜(이미 인계) — 중지 확인 못 함', since: ago(4), retry: 'APPLIED', done: false, lastRetry: null },
       { kind: 'MFC_HANDOVER_REJECTED', refId: 'HO-MOCK-1', orderId: 'ORD-MOCK-1001', mfcId: 'MFC-BSN-01', state: 'REJECTED', reasonCode: 'RECORD_MISMATCH', reasonMessage: '재고와 인계 수량이 다름', since: ago(8), retry: 'REJECTED', done: false, lastRetry: { operatorId: 'op-admin-1', reason: '실물 확인 전 재시도', retriedAt: ago(2) } },
     ],
     issues: [

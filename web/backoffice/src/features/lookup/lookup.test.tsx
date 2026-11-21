@@ -71,7 +71,7 @@ describe('통합 조회', () => {
     expect(tasks[0]).toHaveTextContent('2/3 · 취소 1');
     expect(within(field).getByTestId('field-shortages')).toHaveTextContent('점원 결품 보고 1건');
     expect(within(field).getByTestId('field-package')).toHaveTextContent('인계 거절: STOCK_MISMATCH');
-    expect(within(field).getByTestId('match-MFC_STOP')).toHaveTextContent('마지막 오류: PDA_OFFLINE');
+    expect(within(field).getByTestId('match-MFC_STOP')).toHaveTextContent('마지막 오류: 지금 상태로는 안 됨 — 예약 상태가 바뀜(이미 인계)'); // 계약 C1 "코드: 상세" → 이름표
     expect(within(field).getByRole('link', { name: '처리 대기에서 다시 시도' })).toHaveAttribute('href', '/pending');
   });
 

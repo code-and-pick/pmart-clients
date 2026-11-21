@@ -21,7 +21,7 @@ const unknownStop = () =>
   );
 
 async function retryStop() {
-  const row = await rowOf('PDA 응답 없음');
+  const row = await rowOf('예약 상태가 바뀜');
   await userEvent.click(within(row).getByRole('button', { name: '다시 시도' }));
   await userEvent.type(within(row).getByLabelText('다시 시도 사유(필수)'), 'PDA 재부팅 확인');
   await userEvent.click(within(row).getByRole('button', { name: '보내기' }));
@@ -52,7 +52,7 @@ describe('처리 대기 — 결과 확인', () => {
     unknownStop();
     server.use(
       http.get(`${BFF_BASE}/commands/mfc-fulfillment-service/stop-retry/:requestId`, () =>
-        HttpResponse.json({ requestId: 'RQ-1', status: 'REJECTED', resultId: 'STOP-MOCK-1', nextAction: 'FIX_AND_RETRY', source: source('DIRECT'), detail: { state: 'PENDING', lastError: 'PDA_OFFLINE' } }),
+        HttpResponse.json({ requestId: 'RQ-1', status: 'REJECTED', resultId: 'STOP-MOCK-1', nextAction: 'FIX_AND_RETRY', source: source('DIRECT'), detail: { state: 'PENDING', lastError: 'RECORD_MISMATCH: 집품 수량 다름' } }),
       ),
     );
     const view = renderAt('/pending', as.admin);
@@ -61,7 +61,7 @@ describe('처리 대기 — 결과 확인', () => {
     const out = await within(row).findByTestId('result-check-outcome');
     expect(out).toHaveAttribute('data-outcome', 'fixAndRetry');
     expect(out).toHaveTextContent('실패 확정 아님');
-    expect(within(row).getByTestId('result-check-last-error')).toHaveTextContent('PDA_OFFLINE');
+    expect(within(row).getByTestId('result-check-last-error')).toHaveTextContent('집품·포장 기록 안 맞음 — 집품 수량 다름');
     expect(within(row).queryByText(/반영됐어요/)).not.toBeInTheDocument();
     // 다시 보내기 = 새 폼(새 키)
     await userEvent.click(within(row).getByRole('button', { name: '원인 고친 뒤 다시 보내기' }));

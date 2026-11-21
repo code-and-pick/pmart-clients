@@ -15,6 +15,7 @@ import { approvalWhat } from '../features/approvals/ApprovalListPage';
 import { hideIds } from '../shared/hideIds';
 import { KanbanBoard, type BoardCard, type BoardColumn } from '../shared/Kanban';
 import { messages } from '../shared/messages';
+import { caseSummaryText } from '../shared/blockReason';
 import { label } from '../shared/ops';
 
 const m = messages.dashboard.board;
@@ -36,7 +37,7 @@ export const caseCard = (c: CaseItem): BoardCard => ({
   key: c.caseId ?? '',
   to: `/cases/${encodeURIComponent(c.caseId ?? '')}`,
   tag: label(messages.cases.kindName, c.kind ?? null),
-  title: c.summary || label(messages.cases.kindName, c.kind ?? null),
+  title: c.summary ? caseSummaryText(c.summary) : label(messages.cases.kindName, c.kind ?? null),
   sub: c.caseNumber ?? undefined,
   meta: ago(c.openedAt),
 });

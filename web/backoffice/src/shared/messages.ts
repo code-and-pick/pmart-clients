@@ -947,6 +947,9 @@ export const messages = {
       FENCE_VERSION_MISMATCH: '인계 잠금 버전 안 맞음',
       VERSION_CONFLICT: '그사이 바뀜',
       INVALID_STATE: '지금 상태로는 안 됨',
+      // 작업 중지 실패 사유(계약 C1, 2026-11-21 점검에서 빠진 것 채움)
+      NOT_FOUND: '예약·위치 없음',
+      VALIDATION_FAILED: '요청 값 오류',
     } as Readonly<Record<string, string>>,
     /** 다음 할 일(2026-11-18) — 서버 순서(오래된 것부터)의 첫 항목 */
     nextTitle: (n: number) => `사람 손이 필요한 일 ${n}건 — 가장 오래된 것부터`,
@@ -1257,6 +1260,12 @@ export const messages = {
     notFound: '그 승인을 찾지 못했어요 — 다시 골라 주세요.',
   },
   /** 배차 불가로 취소(claim 0.7.0 CL-5, 2026-11-19) */
+  /** 접수 건 요약 끝 코드 이름(이벤트 contracts/events ReconciliationRequired·PaymentMismatch·CompensationExecuted) — shared/blockReason caseSummaryText */
+  caseSummaryCode: {
+    reconciliation: { AMOUNT: '금액', QTY: '수량', STATE: '상태' } as Readonly<Record<string, string>>,
+    paymentMismatch: { AMOUNT: '금액', CURRENCY: '통화', ORDER_REF: '주문 번호' } as Readonly<Record<string, string>>,
+    compensation: { INVENTORY_RESERVATION: '재고 예약', CAPACITY_HOLD: '처리 용량 확보', SLOT_HOLD: '도착 시간대 확보', COUPON_HOLD: '쿠폰 사용', PAYMENT_APPROVAL: '결제 승인', FULFILLMENT_WORK: '센터 작업', DISPATCH_ASSIGNMENT: '배차' } as Readonly<Record<string, string>>,
+  },
   dispatchCancel: {
     title: '배차 불가로 취소',
     intro: '라이더를 찾지 못해 배송할 수 없으면 주문 전체를 취소하고 결제한 금액을 모두 돌려줘요. 회사 사유라 고객 본인 확인은 필요 없어요. 물건을 넘기기 전까지만 돼요. 고객에게 2,000원 쿠폰(받은 날 포함 30일, 최소 주문 없음)이 주문마다 한 번 나가고 알림이 따로 가요.',
