@@ -73,6 +73,10 @@ export const messages = {
     orders: '최근 주문',
     inquiries: '문의',
     csIntakes: '상담원 접수',
+    // bff 0.23.0 고객 상세 클레임 칸(claim CL-7) — 최근 10건, 더 있으면 클레임 목록(customerId)으로
+    claims: '최근 클레임',
+    allClaims: '전체 클레임 보기',
+    claimCol: { claim: '클레임', state: '상태', refund: '환불', at: '접수 시각' },
     recentOnly: '최근 10건만 — 전체는 해당 메뉴에서',
     noneRows: '없음',
     sourceFailed: '확인 못 함 — 원천을 읽지 못했어요(0건이 아니에요)',
@@ -1157,7 +1161,7 @@ export const messages = {
     position: (at: number, total: number) => `${at} / ${total}`,
   },
   /** 검색 조건 칩(2026-11-19 쿠팡 윙 참고) — 시스템 ID 는 칩에 보이지 않게 */
-  searchChip: { order: '주문', rider: '라이더', delivery: '배송', state: '상태', kind: '종류', period: '기간', sort: '정렬', oldest: '오래된 순', oneOrder: '한 주문', oneRider: '한 라이더', oneDelivery: '한 배송' },
+  searchChip: { order: '주문', rider: '라이더', delivery: '배송', state: '상태', kind: '종류', period: '기간', sort: '정렬', oldest: '오래된 순', oneOrder: '한 주문', oneRider: '한 라이더', oneDelivery: '한 배송', oneCustomer: '한 고객' },
   /** 할 일 0건 띠(2026-11-19 쿠팡 윙 "수고많으셨습니다!" 참고) — 서버가 0건이라 했을 때만 */
   allDone: {
     cases: '수고하셨어요! 이 탭의 접수 건을 모두 처리했어요.',
@@ -1349,6 +1353,8 @@ export const messages = {
     },
     orderId: '주문',
     orderFilterHint: '주문번호 8자리 또는 주문 ID',
+    customer: '고객',
+    customerFilterHint: '고객 ID(고객 상세에서 넘어와요)',
     orderNumberNotFound: (n: string) => `주문번호 ${n} 의 주문을 찾지 못했어요.`,
     orderNumberUnknown: '번호 확인 불가',
     type: '종류',
@@ -2983,6 +2989,19 @@ export const messages = {
       soldOutNote: '취급 상품 중 가용 0 이하 · 지금 값',
       soldOutOf: (handled: number) => `취급 ${handled.toLocaleString('ko-KR')}개 중 · 지금 값`,
       reasonName: { SHORT: '결품', DAMAGED: '파손', BLOCKED: '막힘', SPOILED: '변질' } as Readonly<Record<string, string>>,
+    },
+    // bff 0.23.0 상품(SKU)별 결품 상위(BR-73 SK-2) — 비율은 화면이 결품 줄 ÷ 피킹 줄로
+    shortageTop: {
+      title: '결품 많은 상품',
+      hint: '최근 7일 · 피킹 줄 기준',
+      sortLines: '결품 줄 순',
+      sortRate: '결품률 순',
+      sortLabel: '정렬',
+      failed: '확인 못 함 — 결품 원천을 읽지 못했어요(0건이 아니에요)',
+      none: '이 기간에 결품이 보고된 상품이 없어요.',
+      lines: (short: number, picked: number) => `결품 ${short.toLocaleString('ko-KR')}줄 / 피킹 ${picked.toLocaleString('ko-KR')}줄`,
+      minPicked: (n: number) => `피킹 ${n.toLocaleString('ko-KR')}줄 이상인 상품만 — 적게 나간 상품의 높은 비율은 빼요.`,
+      overlap: '한 줄에 사유가 둘이면 사유마다 세서, 사유별 합이 결품 줄보다 클 수 있어요.',
     },
     slaUnjudged: (n: number) => `기한 없음 ${n}건(판정 안 함)`,
     slaByKind: '종류별',

@@ -824,6 +824,86 @@ export function SalesPanel({ from, to }: { readonly from: string; readonly to: s
   );
 }
 
+// ───────────────────────── 결품 많은 상품(bff 0.23.0 shortage-by-sku, BR-73 SK-2) ─────────────────────────
+// 원천 mfc-fulfillment by-sku 를 직원 토큰으로 — 세는 법은 결품률과 같다. 비율은 싣지 않아 화면이 결품 줄 ÷ 피킹 줄(분모를 같이 적는다).
+// 결품률 순은 원천이 정한 최소 피킹 줄(minPickedLines) 이상만 — 응답 값을 그대로 적는다. 장애는 503 → "확인 못 함"(0건 아님).
+type ShortSort = 'shortLines' | 'shortRate';
+const pct = (n: number, d: number) => (d > 0 ? `${((n / d) * 100).toFixed(1)}%` : '—');
+
+export function ShortageTop({ from, to }: { readonly from: string; readonly to: string }) {
+  const api = useApi();
+  const t = m.shortageTop;
+  const [sort, setSort] = useState<ShortSort>('shortLines');
+  const q = useQuery({
+    queryKey: ['dashboard', 'shortage-by-sku', from, to, sort],
+    refetchInterval: REFRESH_MS,
+    retry: false,
+    queryFn: () => request('GET', api.bff.GET('/views/metrics/shortage-by-sku', { params: { query: { from, to, sort, limit: 5 } } })),
+  });
+  const items = q.data?.items ?? [];
+  const maxLines = Math.max(1, ...items.map((i) => i.shortLines));
+  return (
+    <Section
+      title={t.title}
+      aside={
+        <span className="flex items-center gap-2">
+          <span className="text-xs text-base-content/50">{t.hint}</span>
+          <span className="join" role="group" aria-label={t.sortLabel}>
+            {(['shortLines', 'shortRate'] as const).map((s) => (
+              <button key={s} type="button" className={`btn join-item btn-xs ${sort === s ? 'btn-active' : ''}`} aria-pressed={sort === s} onClick={() => setSort(s)}>
+                {s === 'shortLines' ? t.sortLines : t.sortRate}
+              </button>
+            ))}
+          </span>
+        </span>
+      }
+      testId="dash-shortage-top-panel"
+    >
+      {q.isPending ? (
+        <p className="text-sm text-base-content/50">…</p>
+      ) : q.isError ? (
+        <p className="text-sm text-warning" data-testid="dash-shortage-top-failed">
+          {t.failed}
+        </p>
+      ) : items.length === 0 ? (
+        <p className="py-6 text-center text-sm text-base-content/55">{t.none}</p>
+      ) : (
+        <>
+          <ol className="divide-y divide-base-300/70" data-testid="dash-shortage-top">
+            {items.map((it, i) => {
+              const reasons = Object.entries(it.shortLinesByReason ?? {})
+                .filter(([, k]) => k > 0)
+                .sort((a, b) => b[1] - a[1]);
+              const share = sort === 'shortRate' ? (it.pickedLines > 0 ? it.shortLines / it.pickedLines : 0) : it.shortLines / maxLines;
+              return (
+                <li key={it.sku} className="grid grid-cols-[1.25rem_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 py-2.5 text-sm" data-testid="dash-shortage-top-row">
+                  <span className="row-span-3 self-start pt-0.5 text-center text-xs font-semibold text-base-content/45">{i + 1}</span>
+                  <span className="min-w-0 truncate">
+                    <span className="font-medium">{it.productName ?? it.sku}</span>
+                    {it.productName && <span className="ml-2 font-mono text-[11px] text-base-content/45">{it.sku}</span>}
+                  </span>
+                  <span className="whitespace-nowrap text-right">
+                    <span className="font-semibold tabular-nums">{pct(it.shortLines, it.pickedLines)}</span>
+                    <span className="ml-2 text-xs tabular-nums text-base-content/55">{t.lines(it.shortLines, it.pickedLines)}</span>
+                  </span>
+                  <span className="col-span-2 truncate text-[11px] text-base-content/55">{reasons.map(([r, k]) => `${label(m.metrics.reasonName, r)} ${k}`).join(' · ')}</span>
+                  <span className="col-span-2 h-2 overflow-hidden rounded-full bg-base-200" aria-hidden="true">
+                    <span className="block h-full rounded-full" style={{ width: `${Math.max(3, Math.round(share * 100))}%`, background: 'var(--pm-chart-1)' }} />
+                  </span>
+                </li>
+              );
+            })}
+          </ol>
+          <p className="mt-3 text-[11px] text-base-content/45" data-testid="dash-shortage-top-note">
+            {q.data.minPickedLines ? `${t.minPicked(q.data.minPickedLines)} ` : ''}
+            {t.overlap}
+          </p>
+        </>
+      )}
+    </Section>
+  );
+}
+
 /** 상품별 판매 상위 5 — 한 계열(수량)이라 막대는 한 색, 값은 끝에 */
 export function TopProducts({ from, to }: { readonly from: string; readonly to: string }) {
   const api = useApi();

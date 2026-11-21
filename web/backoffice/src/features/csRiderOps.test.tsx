@@ -118,7 +118,7 @@ describe('주문 조회', () => {
     expect(screen.getByTestId('order-entrance-note')).toHaveTextContent('가림');
     expect(screen.getByTestId('order-delivery-note')).toHaveTextContent('가림');
     expect(screen.queryByText('01055556666')).not.toBeInTheDocument();
-    expect(await screen.findByText('74939002 취소')).toBeInTheDocument(); // 이 표는 줄을 누르면 클레임 상세 — ADR-0070 덧붙임(2026-11-19): 시스템 ID·끝 8자리를 보이지 않는다
+    expect(await screen.findByText('74939002 취소 1')).toBeInTheDocument(); // 이 표는 줄을 누르면 클레임 상세 — ADR-0070 덧붙임(2026-11-19): 시스템 ID·끝 8자리를 보이지 않는다
     expect(screen.queryByRole('button', { name: /취소/ })).not.toBeInTheDocument();
   });
 

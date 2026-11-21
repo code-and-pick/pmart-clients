@@ -32,7 +32,7 @@ const isType = (v: string | null): v is ClaimType => v !== null && (TYPES as rea
 const isState = (v: string | null): v is ClaimState => v !== null && (STATES as readonly string[]).includes(v);
 /**
  * 클레임 화면 표기(ADR-0070 덧붙임 2026-11-19): 주문번호 + 종류 + 순번(claim 0.10.0 CL-4 claimSeq — "74939255 반품 1"). 주문번호를 아직 모르면 종류 · 시각.
- * 순번은 서버 값이 있을 때만(목록은 bff views/claims 가 claimSeq 를 싣기 전까지 순번 없이). 시스템 ID(CLM-…)는 상세의 시스템 번호 칸에서만.
+ * 순번은 서버 값이 있을 때만(bff 0.23.0 부터 목록 줄에도 claimSeq). 시스템 ID(CLM-…)는 상세의 시스템 번호 칸에서만.
  */
 export const claimLabel = (orderNumber: string | null | undefined, type: string | null | undefined, openedAt: string | null | undefined, seq?: number | null) =>
   orderNumber
@@ -43,7 +43,7 @@ export const claimLabel = (orderNumber: string | null | undefined, type: string 
 export const claimTone = (s: string | null | undefined): Tone =>
   s === 'CLOSED' ? 'success' : s === 'REJECTED' || s === 'CANCELLED' || s === 'WITHDRAWN' ? 'ghost' : s === 'RECOVERY_FAILED' ? 'error' : s === 'FEE_PENDING' || s === 'STOP_PENDING' ? 'warning' : 'info';
 
-function useClaimList(filter: { orderId?: string | undefined; type?: ClaimType | undefined; state?: ClaimState | undefined }) {
+function useClaimList(filter: { orderId?: string | undefined; customerId?: string | undefined; type?: ClaimType | undefined; state?: ClaimState | undefined }) {
   const api = useApi();
   return useInfiniteQuery({
     queryKey: ['claims', 'list', filter],
@@ -55,6 +55,8 @@ function useClaimList(filter: { orderId?: string | undefined; type?: ClaimType |
           params: {
             query: {
               ...(filter.orderId ? { orderId: filter.orderId } : {}),
+              // bff 0.23.0 고객 조건(claim CL-7) — 고객 상세 "전체 클레임 보기"에서
+              ...(filter.customerId ? { customerId: filter.customerId } : {}),
               ...(filter.type ? { type: filter.type } : {}),
               ...(filter.state ? { state: filter.state } : {}),
               ...(pageParam ? { cursor: pageParam } : {}),
@@ -159,7 +161,7 @@ function ClaimTable({ query, withCount = false, preview = false, stage }: { read
                   <ClaimTypeChip type={c.type} />
                   {c.claimId ? (
                     <span className="font-mono font-semibold text-base-content" data-testid="claim-label">
-                      {claimLabel(orders.get(c.orderId), c.type, c.openedAt)}
+                      {claimLabel(orders.get(c.orderId), c.type, c.openedAt, c.claimSeq)}
                     </span>
                   ) : (
                     m.none
@@ -197,7 +199,7 @@ function ClaimTable({ query, withCount = false, preview = false, stage }: { read
         (() => {
           const c = items.find((x) => x.claimId === pv.id);
           return (
-            <PreviewDrawer id={pv.id} ids={items.flatMap((x) => (x.claimId ? [x.claimId] : []))} onMove={pv.open} onClose={pv.close} title={(() => { const x = items.find((y) => y.claimId === pv.id); return x ? claimLabel(orders.get(x.orderId), x.type, x.openedAt) : m.claims.detailTitle; })()} detailTo={`/claims/${encodeURIComponent(pv.id)}`}>
+            <PreviewDrawer id={pv.id} ids={items.flatMap((x) => (x.claimId ? [x.claimId] : []))} onMove={pv.open} onClose={pv.close} title={(() => { const x = items.find((y) => y.claimId === pv.id); return x ? claimLabel(orders.get(x.orderId), x.type, x.openedAt, x.claimSeq) : m.claims.detailTitle; })()} detailTo={`/claims/${encodeURIComponent(pv.id)}`}>
               {c ? (
                 <div className="space-y-4" data-testid="claim-preview">
                   <ClaimTypeChip type={c.type} />
@@ -250,16 +252,18 @@ export function ClaimListPage() {
   const [search, setSearch] = useSearchParams();
   const [notFound, setNotFound] = useState<string | null>(null);
   const orderId = search.get('orderId') ?? '';
+  const customerId = search.get('customerId') ?? '';
   const type = search.get('type');
   const state = search.get('state');
   const query = useClaimList({
     orderId: orderId || undefined,
+    customerId: customerId || undefined,
     type: isType(type) ? type : undefined,
     state: isState(state) ? state : undefined,
   });
 
   // 2026-11-20 AWS 개편: 속성 필터가 고친 조건(지금 조건 + 바뀐 것)을 받아 바로 건다 — 주문번호 8자리는 주문 ID 로 찾아서
-  const submit = async (draft: { readonly orderId: string; readonly type: string; readonly state: string }) => {
+  const submit = async (draft: { readonly orderId: string; readonly customerId: string; readonly type: string; readonly state: string }) => {
     setNotFound(null);
     const next = new URLSearchParams();
     const order = draft.orderId.trim();
@@ -272,6 +276,7 @@ export function ClaimListPage() {
       }
       next.set('orderId', id);
     } else if (order) next.set('orderId', order);
+    if (draft.customerId.trim()) next.set('customerId', draft.customerId.trim());
     if (draft.type) next.set('type', draft.type);
     if (draft.state) next.set('state', draft.state);
     setSearch(next);
@@ -282,12 +287,12 @@ export function ClaimListPage() {
   const orderIdParam = search.get('orderId') ?? '';
   const typeParam = search.get('type');
   const counts = useQuery({
-    queryKey: ['claims', 'counts', orderIdParam, typeParam],
+    queryKey: ['claims', 'counts', orderIdParam, customerId, typeParam],
     queryFn: () =>
       request(
         'GET',
         api.claims.GET('/claims/counts', {
-          params: { query: { ...(orderIdParam ? { orderId: orderIdParam } : {}), ...(isType(typeParam) ? { type: typeParam } : {}) } },
+          params: { query: { ...(orderIdParam ? { orderId: orderIdParam } : {}), ...(customerId ? { customerId } : {}), ...(isType(typeParam) ? { type: typeParam } : {}) } },
         }),
       ),
   });
@@ -343,11 +348,12 @@ export function ClaimListPage() {
         <PropertyFilter
           props={[
             { key: 'orderId', label: m.claims.orderId, text: { hint: m.claims.orderFilterHint, maxLength: 64, show: (v) => (isOrderNumber(v) ? v : m.searchChip.oneOrder) } },
+            { key: 'customerId', label: m.claims.customer, text: { hint: m.claims.customerFilterHint, maxLength: 64, show: () => m.searchChip.oneCustomer } },
             { key: 'type', label: m.claims.type, options: TYPES.map((t) => ({ value: t, label: m.claims.typeName[t] ?? t })) },
             { key: 'state', label: m.claims.state, options: STATES.map((st) => ({ value: st, label: m.claims.stateName[st] ?? st })) },
           ]}
-          value={{ orderId, type: type ?? '', state: state ?? '' }}
-          onChange={(patch) => void submit({ orderId: patch.orderId === undefined ? orderId : (patch.orderId ?? ''), type: patch.type === undefined ? (type ?? '') : (patch.type ?? ''), state: patch.state === undefined ? (state ?? '') : (patch.state ?? '') })}
+          value={{ orderId, customerId, type: type ?? '', state: state ?? '' }}
+          onChange={(patch) => void submit({ orderId: patch.orderId === undefined ? orderId : (patch.orderId ?? ''), customerId: patch.customerId === undefined ? customerId : (patch.customerId ?? ''), type: patch.type === undefined ? (type ?? '') : (patch.type ?? ''), state: patch.state === undefined ? (state ?? '') : (patch.state ?? '') })}
           testId="claim-filter"
           lead={<SavedViews listKey="claims" />}
         />

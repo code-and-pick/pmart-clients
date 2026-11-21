@@ -15,7 +15,7 @@ import { ApprovalTypes, LiveSummary, RiskPanel } from './DashboardSections';
 import { Insight, LineChart, Meter } from './Charts';
 import { DashboardStatus } from './DashboardStatus';
 import { DisplayNumber } from '../shared/displayNumber';
-import { ActivityFeed, LiveStat, MetricsPanel, OrdersWeekChart, SalesPanel, TopProducts, WorkCountsPanel, useWorkCounts, workText, type WorkSum, RefreshBar, RiskStat, SlaStat, StatusDonut, TodayOrdersStat, slaQuery } from './DashboardWidgets';
+import { ActivityFeed, LiveStat, MetricsPanel, OrdersWeekChart, SalesPanel, ShortageTop, TopProducts, WorkCountsPanel, useWorkCounts, workText, type WorkSum, RefreshBar, RiskStat, SlaStat, StatusDonut, TodayOrdersStat, slaQuery } from './DashboardWidgets';
 import { visibleGroups } from './nav';
 import { useSession } from './SessionContext';
 import { slaText } from '../features/cases/CaseSlaPage';
@@ -373,6 +373,9 @@ export function DashboardPage() {
               {can('/case-sla') && <Widget id="metrics"><MetricsPanel from={weekFrom} to={today} /></Widget>}
             </div>
           )}
+
+          {/* bff 0.23.0 결품 많은 상품(관리자) */}
+          {admin && <Widget id="shortage-top"><ShortageTop from={weekFrom} to={today} /></Widget>}
 
           {can('/orders') && <Widget id="recent-orders"><RecentOrders from={weekFrom} to={today} /></Widget>}
         </div>

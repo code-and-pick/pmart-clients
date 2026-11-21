@@ -4,6 +4,7 @@
 import { http, HttpResponse } from 'msw';
 
 import { API_BASE, BFF_BASE } from '../api/client';
+import { mockClaimRowsOf } from './opsHandlers';
 import { idempotent, keyOf, operator, problem, unauthorized } from './support';
 
 const ago = (h: number) => new Date(Date.now() - h * 3600_000).toISOString();
@@ -16,6 +17,11 @@ export const MOCK_CUSTOMERS: readonly MockCustomer[] = [
   { customerId: 'CUS-1009', customerNumber: '600112', name: '', phone: '', email: '', provider: 'KAKAO', verified: false, status: 'WITHDRAW_COMPLETED', joinedAt: '2026-01-10T03:00:00Z', orderNumbers: [] },
   { customerId: 'CUS-1005', customerNumber: '517204', name: '이민지', phone: '01098765678', email: 'minji@example.com', provider: 'NAVER', verified: false, status: 'WITHDRAW_PENDING', joinedAt: '2026-08-15T05:00:00Z', orderNumbers: ['74939005'] },
 ];
+
+/** 목 고객 주문 ID(opsHandlers ORDER_NUMBERS: 74939001 ↔ ORD-MOCK-1001) */
+const orderIdsOf = (c: MockCustomer) => c.orderNumbers.map((n) => `ORD-MOCK-100${n.slice(-1)}`);
+/** 그 주문의 목 고객(클레임 목록 customerId 조건용) */
+export const mockCustomerOfOrder = (orderId: string) => MOCK_CUSTOMERS.find((c) => orderIdsOf(c).includes(orderId))?.customerId;
 
 const maskName = (n: string) => (n.length <= 1 ? '*' : `${n[0]}${'*'.repeat(Math.max(1, n.length - 2))}${n.length > 2 ? n[n.length - 1] : ''}`);
 const maskPhone = (p: string) => `${p.slice(0, 3)}-****-${p.slice(-4)}`;
@@ -56,7 +62,7 @@ export const customerHandlers = [
       customer: { customerId: c.customerId, customerNumber: c.customerNumber, nameMasked: gone(c) ? null : maskName(c.name), phoneMasked: gone(c) ? null : maskPhone(c.phone), emailMasked: gone(c) ? null : maskEmail(c.email), status: c.status, socialProvider: c.provider, phoneVerified: c.verified, joinedAt: c.joinedAt },
       orders: {
         hasMore: false,
-        items: c.orderNumbers.map((n, i) => ({ orderId: `ORD-MOCK-100${n.slice(-1)}`, /* 목 주문 번호표(opsHandlers ORDER_NUMBERS: 74939001 ↔ ORD-MOCK-1001) */ orderNumber: n, status: i === 0 ? 'CONFIRMED' : 'IN_DELIVERY', confirmedAt: ago(2 + i * 24), itemCount: 1 + i, totalAmount: 15100, deliveryMode: 'INSTANT', mfcId: 'MFC-BSN-01', openFulfillmentIssues: 0 })),
+        items: c.orderNumbers.map((n, i) => ({ orderId: orderIdsOf(c)[i], orderNumber: n, status: i === 0 ? 'CONFIRMED' : 'IN_DELIVERY', confirmedAt: ago(2 + i * 24), itemCount: 1 + i, totalAmount: 15100, deliveryMode: 'INSTANT', mfcId: 'MFC-BSN-01', openFulfillmentIssues: 0 })),
       },
       inquiries: first
         ? { hasMore: false, items: [{ inquiryId: 'INQ-MOCK-3', inquiryNumber: '30418', category: 'DELIVERY', status: 'RECEIVED', channel: 'APP', origin: 'CUSTOMER', createdAt: ago(5 * 24), answeredAt: null, orderId: 'ORD-MOCK-1001' }] }
@@ -65,6 +71,11 @@ export const customerHandlers = [
         ? { hasMore: false, items: [{ intakeId: 'CSI-MOCK-1', channel: 'PHONE', category: 'DELIVERY', callerRelation: 'SELF', receivedAt: ago(30), receivedBy: 'op-cs-1', receivedByLabel: { operatorId: 'op-cs-1', name: '[목] 상담원', employeeNo: 'P2026-00003' }, linked: true, caseId: null, inquiryId: 'INQ-MOCK-3', subjectRef: null }] }
         : // 두 번째 고객은 상담 접수 원천을 못 읽은 것처럼 — 칸 null + unavailableSources
           null,
+      // bff 0.23.0 클레임 칸(claim CL-7) — 최근 10건, 더 있으면 hasMore
+      claims: (() => {
+        const rows = mockClaimRowsOf(orderIdsOf(c));
+        return { hasMore: rows.length > 10, items: rows.slice(0, 10) };
+      })(),
       ...(first ? {} : { unavailableSources: ['case-service'] }),
     });
   }),

@@ -1,6 +1,7 @@
 // 고객 메뉴(2026-11-20) — bff 0.22.0 BF-2(백엔드 #287, main f397211b) 1단계: 조회만.
 // - 찾기 `GET /backoffice/views/customer-search` — customerNumber·phone·orderNumber 중 **하나만**, 완전 일치(이름 검색·전체 목록 없음). 속성 필터에서 하나를 고르면 다른 조건은 지운다.
-// - 상세 `GET /backoffice/views/customer/{customerId}` — 머리는 가린 값 그대로. 칸(주문·문의·상담원 접수)은 원천 실패면 null → "확인 못 함"(0건 아님).
+// - 상세 `GET /backoffice/views/customer/{customerId}` — 머리는 가린 값 그대로. 칸(주문·문의·상담원 접수·클레임)은 원천 실패면 null → "확인 못 함"(0건 아님).
+// - 클레임 칸(bff 0.23.0, claim CL-7): 최근 10건, 더 있으면 클레임 목록(customerId)으로. 사유는 싣지 않는다 — 상세에서.
 // - 원문 `POST /customers/{id}/pii-reveals`(customer 0.11.0) — 사유 2~200자, 열람 기록이 남은 뒤 고른 항목만. 받은 원문은 메모리에만(라이더 상세와 같은 방식).
 // 클레임 칸은 claim CL-7 뒤(계약에 아직 없음 — 부르지 않는다).
 import { useQuery } from '@tanstack/react-query';
@@ -18,6 +19,7 @@ import { CodeLabel, DataTable, DetailHeader, FieldList, Notice, PropertyFilter, 
 import { messages } from '../../shared/messages';
 import { label, text, when, won } from '../../shared/ops';
 import { statusTone } from '../orders/OrderLookupPages';
+import { claimLabel, claimTone } from '../claims/ClaimPages';
 import { useHelp } from '../../shared/HelpPanel';
 import { CopyButton } from '../../shared/CopyButton';
 
@@ -105,9 +107,9 @@ export function CustomerSearchPage() {
 }
 
 /** 칸 — 원천 실패(null)면 "확인 못 함", 비었으면 "없음", 더 있으면 "최근 10건만" */
-function Part<T>({ title, part, children, testId }: { readonly title: string; readonly part: { readonly hasMore?: boolean; readonly items?: readonly T[] } | null | undefined; readonly children: (items: readonly T[]) => React.ReactNode; readonly testId: string }) {
+function Part<T>({ title, part, children, testId, more }: { readonly title: string; readonly part: { readonly hasMore?: boolean; readonly items?: readonly T[] } | null | undefined; readonly children: (items: readonly T[]) => React.ReactNode; readonly testId: string; readonly more?: React.ReactNode }) {
   return (
-    <Section title={title} testId={testId} aside={part?.hasMore ? <span className="text-xs text-base-content/60">{m.recentOnly}</span> : undefined}>
+    <Section title={title} testId={testId} aside={part?.hasMore ? (more ?? <span className="text-xs text-base-content/60">{m.recentOnly}</span>) : undefined}>
       {part === null || part === undefined ? (
         <p className="text-sm text-warning" data-testid={`${testId}-failed`}>
           {m.sourceFailed}
@@ -252,6 +254,44 @@ function CustomerDetail({ d }: { readonly d: Detail }) {
                   <td>{ago(o.confirmedAt) ?? messages.none}</td>
                   <td className="text-right tabular-nums">{text(o.itemCount)}</td>
                   <td className="text-right tabular-nums">{o.totalAmount === null || o.totalAmount === undefined ? messages.none : won(o.totalAmount)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </DataTable>
+        )}
+      </Part>
+
+      <Part
+        title={m.claims}
+        part={d.claims}
+        testId="customer-claims"
+        more={
+          <Link className="text-xs text-primary hover:underline" to={`/claims?customerId=${encodeURIComponent(c.customerId)}`} data-testid="customer-claims-all">
+            {m.allClaims}
+          </Link>
+        }
+      >
+        {(items) => (
+          <DataTable>
+            <thead>
+              <tr>
+                <th>{m.claimCol.claim}</th>
+                <th>{m.claimCol.state}</th>
+                <th>{m.claimCol.refund}</th>
+                <th>{m.claimCol.at}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((x) => (
+                <tr key={x.claimId} data-testid="customer-claim-row">
+                  <td>
+                    <Link to={`/claims/${encodeURIComponent(x.claimId ?? '')}`}>{claimLabel(x.orderNumber, x.type, x.openedAt, x.claimSeq)}</Link>
+                  </td>
+                  <td>
+                    <StatusBadge tone={claimTone(x.state)}>{label(messages.claims.stateName, x.state)}</StatusBadge>
+                  </td>
+                  <td>{x.refundState ? label(messages.claims.listView.refundState, x.refundState) : messages.none}</td>
+                  <td>{ago(x.openedAt) ?? messages.none}</td>
                 </tr>
               ))}
             </tbody>

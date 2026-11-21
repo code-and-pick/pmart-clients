@@ -40,10 +40,10 @@ describe('화면 표기(ADR-0070 덧붙임)', () => {
     expect(links.map((l) => l.textContent)).toEqual(expect.arrayContaining(['Q-1119-0003']));
   });
 
-  it('클레임: "주문번호 종류", CLM- 는 목록에 없다', async () => {
+  it('클레임: "주문번호 종류 순번"(bff 0.23.0 claimSeq), CLM- 는 목록에 없다', async () => {
     renderAt('/claims', as.cs);
     const labels = await screen.findAllByTestId('claim-label');
-    await waitFor(() => expect(labels.map((l) => l.textContent)).toEqual(expect.arrayContaining(['74939002 취소'])));
+    await waitFor(() => expect(labels.map((l) => l.textContent)).toEqual(expect.arrayContaining(['74939002 취소 1'])));
     expect(screen.queryByText(/CLM-MOCK/)).not.toBeInTheDocument();
   });
 
@@ -80,7 +80,7 @@ describe('ID 칸 → 번호로·골라 넣기', () => {
 describe('목록 번호는 bff 화면 조회 한 번으로(2026-11-19 백엔드 회신 — 줄마다 부르지 않는다)', () => {
   it('클레임 목록: bff views/claims 한 번, 주문 번호 조회(orders/lookups)는 줄마다 부르지 않는다', async () => {
     const view = renderAt('/claims', as.cs);
-    await waitFor(() => expect(screen.getAllByTestId('claim-label').map((l) => l.textContent)).toEqual(expect.arrayContaining(['74939002 취소'])));
+    await waitFor(() => expect(screen.getAllByTestId('claim-label').map((l) => l.textContent)).toEqual(expect.arrayContaining(['74939002 취소 1'])));
     const paths = view.sent.map((r) => new URL(r.url).pathname);
     expect(paths.filter((p) => p.endsWith('/views/claims')).length).toBeGreaterThan(0);
     expect(paths.some((p) => p.endsWith('/orders/lookups'))).toBe(false);

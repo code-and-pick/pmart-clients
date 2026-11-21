@@ -13,6 +13,7 @@ import type { components as OrderC } from '../api/generated/order';
 import type { components as RiderC } from '../api/generated/rider';
 import { expectedVersion, idempotent, keyOf, operator, problem, unauthorized } from './support';
 import { MOCK_EMPLOYEE_LABELS } from './hrLabelHandlers';
+import { mockCustomerOfOrder } from './customerHandlers';
 
 /** bff 0.17.0 직원 표시(이름 · 사번) — 목 직원 표시와 같은 값, 모르는 직원이면 null */
 const operatorLabel = (id: string | null | undefined) => {
@@ -330,6 +331,26 @@ export function markMockHelpPicked(incidentId: string): void {
 }
 
 /** 시험 사이에 목 상태를 처음으로 돌린다. */
+/** bff 0.23.0 고객 상세 클레임 칸 — 그 주문들의 클레임(최근 순) 줄. 환불 요약은 views/claims 와 같은 셈 */
+export function mockClaimRowsOf(orderIds: readonly string[]) {
+  return ops.claims
+    .filter((c) => c.orderId && orderIds.includes(c.orderId))
+    .sort((a, b) => (b.openedAt ?? '').localeCompare(a.openedAt ?? ''))
+    .map((c) => ({ claimId: c.claimId, claimSeq: c.claimSeq ?? null, orderId: c.orderId, orderNumber: (c.orderId && ORDER_NUMBERS[c.orderId]) ?? null, type: c.type, state: c.state, channel: c.channel ?? null, openedAt: c.openedAt, closedAt: c.closedAt ?? null, refundState: refundOf(c.claimId)?.state ?? null }));
+}
+
+function refundOf(claimId: string | undefined) {
+  const rs = (claimId && ops.refunds.get(claimId)) || [];
+  if (rs.length === 0) return null;
+  const done = rs.filter((r) => r.state === 'COMPLETED');
+  return {
+    requestedAmount: rs.reduce((n, r) => n + (r.amount ?? 0), 0),
+    refundedAmount: done.reduce((n, r) => n + (r.amount ?? 0), 0),
+    state: done.length === rs.length ? 'COMPLETED' : 'IN_PROGRESS',
+    completedAt: done.length === rs.length ? (done.at(-1)?.completedAt ?? null) : null,
+  };
+}
+
 export function resetMockOps(): void {
   ops = seed();
 }
@@ -715,28 +736,22 @@ export const opsHandlers = [
     if (denied) return denied;
     const url = new URL(request.url);
     const q = url.searchParams;
-    const all = ops.claims.filter((c) => (!q.get('orderId') || c.orderId === q.get('orderId')) && (!q.get('type') || c.type === q.get('type')) && (!q.get('state') || c.state === q.get('state')));
+    // bff 0.23.0: orderNumber(bff 가 orderId 로 — 없는 주문이면 빈 목록, orderId 와 같이 주면 400)·customerId(claim 에 그대로)
+    const orderNumber = (q.get('orderNumber') ?? '').replace(/[\s-]/g, '');
+    if (orderNumber && q.get('orderId')) return problem(400, 'VALIDATION_FAILED');
+    const byNumber = orderNumber ? (Object.entries(ORDER_NUMBERS).find(([, n]) => n === orderNumber)?.[0] ?? '') : null;
+    const orderId = byNumber ?? q.get('orderId');
+    const customerId = q.get('customerId');
+    const all = ops.claims.filter(
+      (c) => (byNumber === '' ? false : !orderId || c.orderId === orderId) && (!customerId || (c.orderId && mockCustomerOfOrder(c.orderId)) === customerId) && (!q.get('type') || c.type === q.get('type')) && (!q.get('state') || c.state === q.get('state')),
+    );
     const page = cursorPage(all, url);
     return HttpResponse.json({
       composedAt: new Date().toISOString(),
       sources: [],
       unavailableSources: [],
-      // claim 0.6.0 줄 값 그대로(reason·channel·refund 요약) — refund 는 이 클레임의 환불 의도 합(목)
-      items: page.items.map((c) => {
-        const rs = (c.claimId && ops.refunds.get(c.claimId)) || [];
-        const requested = rs.reduce((n, r) => n + (r.amount ?? 0), 0);
-        const done = rs.filter((r) => r.state === 'COMPLETED');
-        const refund =
-          rs.length === 0
-            ? null
-            : {
-                requestedAmount: requested,
-                refundedAmount: done.reduce((n, r) => n + (r.amount ?? 0), 0),
-                state: done.length === rs.length ? 'COMPLETED' : 'IN_PROGRESS',
-                completedAt: done.length === rs.length ? (done.at(-1)?.completedAt ?? null) : null,
-              };
-        return { claimId: c.claimId, orderId: c.orderId, orderNumber: (c.orderId && ORDER_NUMBERS[c.orderId]) ?? null, type: c.type, state: c.state, openedAt: c.openedAt, reason: c.reason ?? null, channel: c.channel ?? null, refund };
-      }),
+      // claim 0.6.0 줄 값 그대로(reason·channel·refund 요약) — refund 는 이 클레임의 환불 의도 합(목). 0.23.0 claimSeq
+      items: page.items.map((c) => ({ claimId: c.claimId, claimSeq: c.claimSeq ?? null, orderId: c.orderId, orderNumber: (c.orderId && ORDER_NUMBERS[c.orderId]) ?? null, type: c.type, state: c.state, openedAt: c.openedAt, reason: c.reason ?? null, channel: c.channel ?? null, refund: refundOf(c.claimId) })),
       page: page.page,
     });
   }),
@@ -793,7 +808,8 @@ export const opsHandlers = [
     if (denied) return denied;
     const q = new URL(request.url).searchParams;
     const byType = q.get('by') === 'type';
-    const rows = ops.claims.filter((c) => (!q.get('orderId') || c.orderId === q.get('orderId')) && (byType || !q.get('type') || c.type === q.get('type')));
+    const customerId = q.get('customerId');
+    const rows = ops.claims.filter((c) => (!q.get('orderId') || c.orderId === q.get('orderId')) && (!customerId || (c.orderId && mockCustomerOfOrder(c.orderId)) === customerId) && (byType || !q.get('type') || c.type === q.get('type')));
     const keys = byType
       ? ['CANCEL', 'RETURN', 'EXCHANGE']
       : ['OPENED', 'UNDER_REVIEW', 'STOP_PENDING', 'DECIDED', 'IN_PROGRESS', 'FEE_PENDING', 'RECOVERY_FAILED', 'CLOSED', 'WITHDRAWN', 'REJECTED', 'CANCELLED'];

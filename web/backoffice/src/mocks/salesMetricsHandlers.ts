@@ -4,7 +4,7 @@
 // 기간 93일 넘으면 400(계약).
 import { http, HttpResponse } from 'msw';
 
-import { API_BASE } from '../api/client';
+import { API_BASE, BFF_BASE } from '../api/client';
 import { operator, problem, unauthorized } from './support';
 
 const MAX_DAYS = 93;
@@ -30,7 +30,30 @@ async function ordersIn(request: Request, from: string, to: string, mfcId: strin
   return body.items;
 }
 
+// bff 0.23.0 상품(SKU)별 결품(BR-73 SK-2) — 고정 목 값. 결품 0 인 SKU 없음, 비율은 싣지 않음, shortRate 면 minPickedLines(기본 20) 이상만
+const SHORTAGE_BY_SKU = [
+  { sku: 'E-00000001', productName: '[목] 친환경 대추방울토마토 500g', pickedLines: 120, shortLines: 9, shortLinesByReason: { SHORT: 7, DAMAGED: 3 } },
+  { sku: 'E-00000007', productName: '[목] 무항생제 계란 15구', pickedLines: 60, shortLines: 6, shortLinesByReason: { DAMAGED: 6 } },
+  { sku: 'E-00000012', productName: null, pickedLines: 8, shortLines: 4, shortLinesByReason: { SPOILED: 4 } },
+  { sku: 'E-00000003', productName: '[목] 국산 콩나물 300g', pickedLines: 45, shortLines: 2, shortLinesByReason: { SHORT: 2 } },
+];
+
 export const salesMetricsHandlers = [
+  http.get(`${BFF_BASE}/views/metrics/shortage-by-sku`, ({ request }) => {
+    const g = guard(request);
+    if (g instanceof Response) return g;
+    const q = new URL(request.url).searchParams;
+    const sort = q.get('sort') ?? 'shortLines';
+    if (sort !== 'shortLines' && sort !== 'shortRate') return problem(400, 'VALIDATION_FAILED');
+    const limit = Math.min(50, Math.max(1, Number(q.get('limit') ?? '10') || 10));
+    const min = sort === 'shortRate' ? Number(q.get('minPickedLines') ?? '20') || 20 : null;
+    const items = [...SHORTAGE_BY_SKU]
+      .filter((i) => min === null || i.pickedLines >= min)
+      .sort((a, b) => (sort === 'shortRate' ? b.shortLines / b.pickedLines - a.shortLines / a.pickedLines : b.shortLines - a.shortLines))
+      .slice(0, limit);
+    return HttpResponse.json({ composedAt: new Date().toISOString(), sources: [], unavailableSources: [], sort, minPickedLines: min, items });
+  }),
+
   http.get(`${API_BASE}/orders/metrics/summary`, async ({ request }) => {
     const g = guard(request);
     if (g instanceof Response) return g;
