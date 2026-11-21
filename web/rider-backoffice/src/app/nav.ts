@@ -35,11 +35,15 @@ export const navGroups: readonly MenuGroup[] = [
   { key: 'riders', items: [done('riders', 'riders'), done('signups', 'signups'), done('restrictionReviews', 'restriction-reviews'), done('withdrawals', 'withdrawals')] },
   { key: 'deliveries', items: [done('deliveries', 'deliveries')] },
   // 2026-11-19: 사용자 "라이더문의랑 도움요청이 둘 다 있는 이유" — 상담함 하나로. 옛 두 목록은 상세 주소만 남긴다(hidden). 접수 건은 운영으로.
-  { key: 'support', items: [done('consults', 'consults'), { ...done('helpRequests', 'help-requests'), hidden: true }, { ...done('inquiries', 'inquiries'), hidden: true }, { ...done('appeals', 'appeals'), hidden: true }] },
+  // 2026-11-21 사용자 "할 일/기록으로 나누기"("접수건이랑 조치이력이랑 상담함의 차이가 애매하다"): 상담함 + 접수 건 → 처리함(상담 중·배송 사건·소명·이의·끝남).
+  // 옛 접수 건 주소(/cases, /cases/:id)는 처리함으로 넘긴다(hidden — 메뉴에는 없고 주소만).
+  { key: 'support', items: [done('consults', 'consults'), { ...done('helpRequests', 'help-requests'), hidden: true }, { ...done('inquiries', 'inquiries'), hidden: true }, { ...done('appeals', 'appeals'), hidden: true }, { ...done('cases', 'cases'), hidden: true }] },
   // 2026-11-19: 지급 관리(execution 0.29.0)·소명·이의(rider 0.15.0)
   { key: 'earnings', items: [done('adjustments', 'adjustments'), done('surcharges', 'surcharges'), done('payouts', 'payouts')] },
   // 2026-11-18(PC 5, 백엔드 notification 0.5.0·rider 0.14.0·execution 0.28.0·dispatch 0.11.0): 라이더 공지·직원 조치 이력(관리자만).
-  { key: 'ops', items: [done('cases', 'cases'), done('notices', 'notices'), { ...done('staffActions', 'staff-actions'), adminOnly: true }] },
+  { key: 'ops', items: [done('notices', 'notices')] },
+  // 2026-11-21: 기록 — 직원 조치 기록(옛 조치 이력, 관리자만, 주소 그대로)
+  { key: 'records', items: [{ ...done('staffActions', 'staff-actions'), adminOnly: true }] },
 ];
 export const allMenus: readonly MenuItem[] = navGroups.flatMap((g) => g.items);
 

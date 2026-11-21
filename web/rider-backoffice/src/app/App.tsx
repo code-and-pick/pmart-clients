@@ -6,7 +6,6 @@ import { useState, type ReactNode } from 'react';
 import { createBrowserRouter, createMemoryRouter, Navigate, NavLink, Outlet, RouterProvider, useLocation, useNavigate } from 'react-router';
 
 import { env } from '../env';
-import { CasesMenu } from '../features/cases/CasePages';
 import { ControlPage } from '../features/control/ControlPage';
 import { ControlSearch } from '../features/control/ControlSearch';
 import { DashboardPage } from '../features/dashboard/DashboardPage';
@@ -48,6 +47,7 @@ const groupIcon: Record<GroupKey, IconName> = {
   support: 'headset',
   earnings: 'won',
   ops: 'megaphone',
+  records: 'list',
 };
 
 /**
@@ -191,7 +191,8 @@ function MenuPage({ menu }: { readonly menu: MenuItem }) {
   if (!menu.ready) return <PreparingPage menu={menu} />;
   switch (menu.key) {
     case 'cases':
-      return <CasesMenu />;
+      // 옛 접수 건 주소 → 처리함 배송 사건(2026-11-21)
+      return <CasesRedirect />;
     case 'deliveries':
       return <DeliveriesMenu />;
     case 'dashboard':
@@ -250,6 +251,16 @@ const routes = [
 ];
 
 /** 재시도는 pmartFetch(429·retryable) 규칙만 따른다. TanStack Query 의 자동 재시도는 끈다. */
+/** 옛 접수 건 주소(2026-11-21 처리함으로 합침): /cases?… → /consults?tab=cases&…, /cases/:id → /consults/cases/:id(상세는 그대로 열린다) */
+function CasesRedirect() {
+  const { pathname, search } = useLocation();
+  const id = pathname.replace(/^\/cases\/?/, '').split('/')[0] ?? '';
+  if (id) return <Navigate to={`/consults/cases/${id}${search}`} replace />;
+  const p = new URLSearchParams(search);
+  p.set('tab', 'cases');
+  return <Navigate to={`/consults?${p.toString()}`} replace />;
+}
+
 /** /appeals?… → /consults?tab=appeals&… */
 function AppealsRedirect() {
   const { search } = useLocation();

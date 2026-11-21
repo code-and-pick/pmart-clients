@@ -205,7 +205,7 @@ describe('상담함 — 찾기·주문번호·소명·이의 탭(2026-11-20)', (
 
   it('소명·이의는 상담함 탭 — 옛 주소 /appeals 는 조건을 들고 그 탭으로', async () => {
     renderAt('/appeals?state=UPHELD', as.riderOps);
-    expect(await screen.findByRole('heading', { name: '상담함' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: '처리함' })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: '소명·이의' })).toHaveAttribute('aria-selected', 'true');
   });
 });

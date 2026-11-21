@@ -204,7 +204,7 @@ export function DeliveryProof({ delivery }: { readonly delivery: Execution }) {
             <Row k={m.takenAt}>{when(ev.takenAt)}</Row>
             {ev.substituteEvidenceCaseId && (
               <Row k={m.substituteCase}>
-                <Link className="link link-primary" to={`/cases/${encodeURIComponent(ev.substituteEvidenceCaseId)}`}>
+                <Link className="link link-primary" to={`/consults/cases/${encodeURIComponent(ev.substituteEvidenceCaseId)}`}>
                   접수 건 보기
                 </Link>
               </Row>

@@ -4,7 +4,7 @@
 // 2026-11-18: 배민 주문접수 목록·상세 모양 — 처리 중/끝남 밑줄 탭 → 검색 조건 상자 → 결과 줄 → 표(줄 누르면 상세) / 상세 머리 → 구역 상자.
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Fragment, useState, type FormEvent } from 'react';
-import { Link, Route, Routes, useParams, useSearchParams } from 'react-router';
+import { Link, useParams, useSearchParams } from 'react-router';
 
 import { request } from '@pmart/web-core';
 import { CommandFeedback, failureCode, formatSeoul, QueryState, toUiState, useCommand } from '@pmart/web-ui';
@@ -35,14 +35,6 @@ type CaseSummary = components['schemas']['CaseSummary'];
 export const DELIVERY_KINDS: readonly CaseKind[] = ['RIDER_HELP', 'DISPATCH_FAILED', 'RIDER_LOCATION_STALE', 'MISDELIVERY', 'DELIVERY_INCIDENT'];
 const PAGE_SIZE = 50;
 
-export function CasesMenu() {
-  return (
-    <Routes>
-      <Route index element={<CaseListPage />} />
-      <Route path=":caseId" element={<CaseDetailPage />} />
-    </Routes>
-  );
-}
 
 /** 기한 15분 안 — 남은 분(서버 기한 slaDueAt 과 지금 시각의 차, 넘김 판정은 서버 overdue). 2026-11-19 통합 백오피스처럼 숨쉬기 */
 const SOON_MIN = 15;
@@ -101,7 +93,8 @@ function PriorityBadge({ priority }: { readonly priority: string | null | undefi
   return <StatusBadge tone={priority === 'P1' ? 'error' : priority === 'P2' ? 'warning' : 'ghost'}>{priority ?? none}</StatusBadge>;
 }
 
-function CaseListPage() {
+/** 처리함의 "배송 사건" 탭(2026-11-21) — embedded 면 쪽 제목 없이, 주소의 tab=cases 를 지킨다 */
+export function CaseListPage({ embedded = false }: { readonly embedded?: boolean }) {
   const api = useApi();
   const me = useSession().session?.subject;
   const [params, setParams] = useSearchParams();
@@ -114,6 +107,7 @@ function CaseListPage() {
   const set = (next: Partial<{ state: string; kind: string; overdue: boolean; unassigned: boolean; cursor: string }>) => {
     const v = { state: closed ? 'CLOSED' : '', kind: kind ?? '', overdue, unassigned, cursor: '', ...next };
     setParams({
+      ...(embedded ? { tab: 'cases' } : {}),
       ...(v.state ? { state: v.state } : {}),
       ...(v.kind ? { kind: v.kind } : {}),
       ...(v.overdue ? { overdue: 'true' } : {}),
@@ -147,7 +141,7 @@ function CaseListPage() {
   };
   const reset = () => set({ kind: '', overdue: false, unassigned: false });
   const inline = useInlineOpen();
-  const casePath = (caseId: string | undefined) => `/cases/${encodeURIComponent(caseId ?? '')}`;
+  const casePath = caseDetailPath;
   // 숫자 띠(2026-11-19) — 처리 중인 건 중 안 맡은 것·기한 넘긴 것. 서버 목록 한 쪽(50건)으로 세고, 다음 쪽이 있으면 "N건 이상"
   const countQuery = (flag: 'unassigned' | 'overdue') => ({
     queryKey: ['cases-count', flag],
@@ -164,11 +158,17 @@ function CaseListPage() {
 
   return (
     <section className="space-y-4">
-      <PageHeader title={m.title} actions={<SavedViews listKey="cases" />} />
+      {embedded ? (
+        <div className="flex justify-end">
+          <SavedViews listKey="cases" />
+        </div>
+      ) : (
+        <PageHeader title={m.title} actions={<SavedViews listKey="cases" />} />
+      )}
       <GuideBox title={ui.guideTitle} items={[m.intro]} storeKey="cases" testId="cases-guide" />
       <StatStrip label={cx.stripLabel} testId="case-strip">
-        <StatCard layout="row" label={cx.unassigned} value={listCountText(unassignedCount.data, unassignedCount.isError)} hint={cx.listHint} to="/cases?unassigned=true" active={!closed && unassigned && !overdue} tone={(unassignedCount.data?.n ?? 0) > 0 ? 'warning' : undefined} testId="strip-unassigned" />
-        <StatCard layout="row" label={cx.overdue} value={listCountText(overdueCount.data, overdueCount.isError)} hint={cx.listHint} to="/cases?overdue=true" active={!closed && overdue && !unassigned} tone={(overdueCount.data?.n ?? 0) > 0 ? 'error' : undefined} testId="strip-overdue" />
+        <StatCard layout="row" label={cx.unassigned} value={listCountText(unassignedCount.data, unassignedCount.isError)} hint={cx.listHint} to={`${CASE_LIST}&unassigned=true`} active={!closed && unassigned && !overdue} tone={(unassignedCount.data?.n ?? 0) > 0 ? 'warning' : undefined} testId="strip-unassigned" />
+        <StatCard layout="row" label={cx.overdue} value={listCountText(overdueCount.data, overdueCount.isError)} hint={cx.listHint} to={`${CASE_LIST}&overdue=true`} active={!closed && overdue && !unassigned} tone={(overdueCount.data?.n ?? 0) > 0 ? 'error' : undefined} testId="strip-overdue" />
       </StatStrip>
       <StateTabs
         label="처리 상태"
@@ -241,7 +241,7 @@ function CaseListPage() {
                         </td>
                         <td className="whitespace-nowrap">{name(n.caseKind, c.kind)}</td>
                         <td className="font-medium">
-                          <Link className="hover:underline" to={`/cases/${encodeURIComponent(c.caseId ?? '')}`} onClick={(e) => e.stopPropagation()}>
+                          <Link className="hover:underline" to={casePath(c.caseId)} onClick={(e) => e.stopPropagation()}>
                             {c.summary || name(n.caseKind, c.kind)}
                           </Link>
                           {listRows.seenMark(casePath(c.caseId))}
@@ -326,8 +326,12 @@ function CaseInline({ caseId }: { readonly caseId: string }) {
   );
 }
 
+/** 처리함 안 배송 사건 자리(2026-11-21 — 옛 /cases 는 App 이 여기로 넘긴다) */
+export const CASE_LIST = '/consults?tab=cases';
+export const caseDetailPath = (caseId: string | undefined) => `/consults/cases/${encodeURIComponent(caseId ?? '')}`;
+
 // 상세(배민 주문내역 상세 참고): 머리(번호·긴급도·상태·요약) → 보기만 안내 → 구역 상자(접수 내용 / 이력).
-function CaseDetailPage() {
+export function CaseDetailPage() {
   const api = useApi();
   const me = useSession().session?.subject;
   const { caseId = '' } = useParams();
@@ -341,7 +345,7 @@ function CaseDetailPage() {
     <section className="max-w-[1600px] space-y-4">
       <DetailHeader
         seen={!!c}
-        back={{ to: '/cases', label: m.back }}
+        back={{ to: CASE_LIST, label: m.back }}
         title={c ? c.summary || name(n.caseKind, c.kind) : m.detailTitle('')}
         badges={
           c && (
