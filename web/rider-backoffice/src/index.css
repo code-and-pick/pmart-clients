@@ -12,3 +12,6 @@
 
 /* 2026-11-21 라이더 시뮬레이터 모양 시범(사용자 지시) — 공용 console.css 를 고치지 않고 이 앱에서만 뒤에 덮는다 */
 @import './sim-look.css';
+
+/* 2026-11-21 시뮬레이터 모양 2단계 — 찾기 칸 + 깔때기 팝업, ⓘ 접기, 줄 아래 펼침(shared/simList.tsx) */
+@import './sim-list.css';

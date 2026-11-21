@@ -1,0 +1,358 @@
+/* 라이더 시뮬레이터 모양 2단계(2026-11-21 사용자 "기능·보이는 정보·내용도 라이더시뮬레이션 UI처럼") — shared/simList.tsx 의 모양.
+   기준: pmart-rider-simulation src/ui/console-v2.css .c-recent-bar·.c-recent-funnel·.c-pop·.c-recent-chip·.md-inline.
+   색은 sim-look.css 토큰(daisyUI 변수 + --pm-*)만. 보라 없음, 그림자는 팝업 한 곳만(떠 있는 것이 보이게). */
+
+/* ① 찾기 줄: [찾기 칸][찾기][깔때기][칩 ✕][초기화] 왼쪽으로 모음 */
+.pm-fbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.pm-fbar-q {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.pm-fbar-q .input {
+  height: 36px;
+  border-radius: 8px;
+  border-color: var(--color-base-300);
+  background: var(--color-base-100);
+}
+.pm-fbar-q .input:focus,
+.pm-fbar-q .input:focus-within {
+  border-color: var(--color-primary);
+  outline: none;
+}
+.pm-fbar > .btn,
+.pm-fbar-q + .btn {
+  height: 36px;
+  min-height: 36px;
+  border-radius: 8px;
+}
+.pm-fwrap {
+  position: relative;
+}
+.pm-funnel {
+  position: relative;
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  border: 1px solid var(--color-base-300);
+  background: var(--color-base-100);
+  color: var(--pm-sub);
+  cursor: pointer;
+}
+.pm-funnel:hover {
+  color: var(--color-base-content);
+}
+.pm-funnel.on {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: var(--color-primary-content);
+}
+.pm-funnel-n {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 9999px;
+  background: var(--color-base-content);
+  color: var(--color-base-100);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+}
+.pm-pop-back {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+}
+.pm-pop {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 31;
+  width: max-content;
+  max-width: min(760px, calc(100vw - 32px));
+  max-height: min(70vh, 560px);
+  overflow: auto;
+  padding: 10px;
+  border-radius: 10px;
+  background: var(--color-base-100);
+  border: 1px solid var(--color-base-300);
+  box-shadow: 0 10px 28px color-mix(in oklab, var(--color-base-content) 22%, transparent);
+}
+.pm-pop-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 6px 14px;
+  min-width: min(520px, calc(100vw - 52px));
+}
+.pm-pop-sec {
+  min-width: 0;
+}
+.pm-pop-h {
+  margin: 4px 6px 4px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--pm-sub);
+}
+.pm-pop-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.pm-pop-body label {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2px;
+  padding: 0 6px;
+  font-size: 12px;
+}
+.pm-pop-body .input,
+.pm-pop-body .select {
+  width: 100%;
+}
+.pm-pop-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--color-base-300);
+}
+
+/* 팝업 안 고르기(ChipGroup) — 붙은 단추 줄 대신 시뮬레이터 목록: ✓ + 이름 + 건수 */
+.pm-pop [role='radiogroup'] {
+  display: flex;
+  flex-direction: column;
+  border: 0;
+  border-radius: 0;
+  overflow: visible;
+}
+main .pm-pop [role='radiogroup'] > [role='radio'],
+.pm-pop [role='radiogroup'] > [role='radio'] {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  box-shadow: none;
+  color: var(--color-base-content);
+  font-size: 13px;
+  font-weight: 400;
+  text-align: left;
+}
+.pm-pop [role='radiogroup'] > [role='radio']::before {
+  content: '';
+  color: var(--color-primary);
+  font-weight: 800;
+}
+main .pm-pop [role='radiogroup'] > [role='radio'][aria-checked='true'] {
+  background: var(--pm-soft);
+  color: var(--color-base-content);
+  box-shadow: none;
+  font-weight: 700;
+}
+.pm-pop [role='radiogroup'] > [role='radio'][aria-checked='true']::before {
+  content: '✓';
+}
+.pm-pop [role='radiogroup'] > [role='radio']:hover {
+  background: var(--pm-soft);
+}
+main .pm-pop [role='radiogroup'] > [role='radio'] > span {
+  color: var(--pm-sub);
+  margin: 0;
+}
+
+/* 건 조건 칩 — 옅은 파랑 판 + ✕ */
+.pm-fchip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px 4px 3px 10px;
+  border-radius: 9999px;
+  background: color-mix(in oklab, var(--color-primary) 13%, transparent);
+  color: var(--color-base-content);
+  font-size: 13px;
+  font-weight: 600;
+}
+.pm-fchip-k {
+  color: var(--pm-sub);
+  font-weight: 500;
+}
+.pm-fchip-x {
+  width: 20px;
+  height: 20px;
+  border-radius: 9999px;
+  color: var(--pm-sub);
+  font-size: 11px;
+}
+.pm-fchip-x:hover {
+  background: color-mix(in oklab, var(--color-primary) 22%, transparent);
+  color: var(--color-base-content);
+}
+.pm-fbar-reset {
+  font-size: 13px;
+  color: var(--pm-sub);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.pm-fbar-reset:hover {
+  color: var(--color-primary);
+}
+
+/* ② 화면 설명 ⓘ·화면 안내 — 상자 대신 작은 한 줄(누르면 원래 문장) */
+.pm-info-btn {
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  color: var(--pm-sub);
+  font-size: 15px;
+  line-height: 1;
+}
+.pm-info-btn:hover,
+.pm-info-btn[aria-expanded='true'] {
+  color: var(--color-primary);
+}
+.pm-info-text {
+  max-width: 72ch;
+  font-size: 13px;
+  color: var(--pm-sub);
+}
+.pm-guide-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--pm-sub);
+}
+.pm-guide-btn:hover,
+.pm-guide-btn[aria-expanded='true'] {
+  color: var(--color-primary);
+}
+.pm-guide[data-tone='warning'] .pm-guide-btn {
+  color: var(--color-warning);
+}
+.pm-guide-caret {
+  font-size: 10px;
+}
+.pm-guide-list {
+  margin-top: 6px;
+  padding: 8px 12px 8px 26px;
+  max-width: 80ch;
+  list-style: disc;
+  border-left: 2px solid var(--color-base-300);
+  font-size: 13px;
+  color: var(--pm-sub);
+}
+.pm-guide[data-tone='warning'] .pm-guide-list {
+  border-left-color: var(--color-warning);
+}
+.pm-guide-list > li + li {
+  margin-top: 2px;
+}
+
+/* ③ 줄 아래 펼침 상세(.md-inline) — 펼친 줄은 옅은 판 + 아래 파랑 2px, 상세는 같은 옅은 판 */
+main table tbody tr[aria-expanded] {
+  cursor: pointer;
+}
+main table tbody tr[aria-expanded]:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+}
+main table tbody tr[data-open] > td {
+  background-color: var(--pm-soft);
+}
+main table tbody tr.pm-inline-row > td {
+  padding: 0;
+  background-color: var(--pm-soft);
+  border-bottom: 2px solid var(--color-primary);
+  white-space: normal;
+}
+main table tbody tr.pm-inline-row:hover > td {
+  background-color: var(--pm-soft);
+}
+.pm-inline {
+  position: relative;
+  padding: 14px 20px 16px 34px;
+  font-size: 13px;
+}
+.pm-inline-link {
+  float: right;
+  margin-left: 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-primary);
+}
+.pm-inline-link:hover {
+  text-decoration: underline;
+}
+.pm-inline-cols {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+.pm-inline-side {
+  min-width: 0;
+  padding-left: 24px;
+  border-left: 1px solid var(--color-base-300);
+}
+.pm-inline h4 {
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--pm-sub);
+}
+.pm-caret {
+  display: inline-block;
+  width: 16px;
+  font-size: 11px;
+  color: var(--pm-sub);
+}
+@media (max-width: 1100px) {
+  .pm-inline-cols {
+    grid-template-columns: 1fr;
+  }
+  .pm-inline-side {
+    padding-left: 0;
+    padding-top: 12px;
+    border-left: 0;
+    border-top: 1px solid var(--color-base-300);
+  }
+}
+@media (max-width: 640px) {
+  .pm-inline {
+    padding: 12px 12px 14px;
+  }
+  .pm-pop-grid {
+    min-width: 0;
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ④ 머리 줄 역할 — 조용한 작은 회색 글자(정보는 그대로) */
+.pm-roles {
+  font-size: 11px;
+  color: var(--pm-sub);
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}

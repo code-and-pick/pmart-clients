@@ -12,7 +12,7 @@ import { commandParams } from '../../api/command';
 import { useApi } from '../../app/ApiContext';
 import { useSession } from '../../app/SessionContext';
 import { photoMessages } from '../../shared/AuthedPhotos';
-import { AllDone, DataTable, DetailHeader, GuideBox, FieldList, PageHeader, ResultBar, Section, SectionTabs, StatCard, StatStrip, StatusBadge } from '../../shared/admin';
+import { AllDone, ChipGroup, DataTable, DetailHeader, GuideBox, FieldList, PageHeader, ResultBar, SearchPanel, SearchRow, Section, SectionTabs, StatCard, StatStrip, StatusBadge } from '../../shared/admin';
 import { listCountText, statText, useListRows } from '../../shared/listKit';
 import { useNewIds } from '../../shared/motion';
 import { ui } from '../../shared/uiMessages';
@@ -677,23 +677,33 @@ function ConsultsPage({ tab }: { readonly tab: 'open' | 'done' }) {
     <div className="space-y-4">
       <GuideBox title={ui.guideTitle} items={consultText.guide} storeKey="consults" testId="consults-guide" />
       <StatStrip label={consultText.stripLabel} testId="consult-strip">
-        <StatCard layout="row" label={consultText.kind.help} value={statText(stats.data?.openHelpRequests, stats.isError)} hint={consultText.stripHelpHint} tone={(stats.data?.openHelpRequests ?? 0) > 0 ? 'warning' : undefined} testId="strip-help" />
-        <StatCard layout="row" label={consultText.kind.failure} value={statText(stats.data?.inProgress?.['FAILURE_REPORTED'], stats.isError)} tone={(stats.data?.inProgress?.['FAILURE_REPORTED'] ?? 0) > 0 ? 'error' : undefined} testId="strip-failure" />
-        <StatCard layout="row" label={consultText.kind.inquiry} value={listCountText(openInquiries.data, openInquiries.isError)} hint={consultText.stripInquiryHint} testId="strip-inquiry" />
+        <StatCard layout="row" label={consultText.kind.help} value={statText(stats.data?.openHelpRequests, stats.isError)} hint={consultText.stripHelpHint} tone={(stats.data?.openHelpRequests ?? 0) > 0 ? 'warning' : undefined} onClick={() => patch({ kind: kindFilter === 'help' ? '' : 'help' })} active={kindFilter === 'help'} testId="strip-help" />
+        <StatCard layout="row" label={consultText.kind.failure} value={statText(stats.data?.inProgress?.['FAILURE_REPORTED'], stats.isError)} tone={(stats.data?.inProgress?.['FAILURE_REPORTED'] ?? 0) > 0 ? 'error' : undefined} {...(tab === 'open' ? { onClick: () => patch({ kind: kindFilter === 'failure' ? '' : 'failure' }), active: kindFilter === 'failure' } : {})} testId="strip-failure" />
+        <StatCard layout="row" label={consultText.kind.inquiry} value={listCountText(openInquiries.data, openInquiries.isError)} hint={consultText.stripInquiryHint} onClick={() => patch({ kind: kindFilter === 'inquiry' ? '' : 'inquiry' })} active={kindFilter === 'inquiry'} testId="strip-inquiry" />
       </StatStrip>
-      <form
-        className="flex flex-wrap items-center gap-2 rounded-box border border-base-300 bg-base-100 px-4 py-3"
-        role="search"
-        data-testid="consults-search"
+      {/* 시뮬레이터 모양(2026-11-21): 왼쪽 찾기 칸 + 깔때기(종류) + 건 조건 칩 ✕ */}
+      <SearchPanel
+        testId="consults-search"
         onSubmit={(ev) => {
           ev.preventDefault();
           patch({ q: queryInput.trim() });
         }}
-      >
-        <label className="flex min-w-0 flex-1 items-center gap-2 text-sm">
-          <span className="shrink-0 font-semibold">{consultText.searchLabel}</span>
+        onReset={() => {
+          setQueryInput('');
+          patch({ q: '', kind: '' });
+        }}
+        submitLabel={consultText.search}
+        resetLabel={consultText.clear}
+        summary={[
+          [consultText.searchLabel, needle ? query : '', () => {
+            setQueryInput('');
+            patch({ q: '' });
+          }],
+          [consultText.col.kind, kindFilter === 'all' ? '' : consultText.kind[kindFilter], () => patch({ kind: '' })],
+        ]}
+        search={
           <input
-            className="input input-sm w-full max-w-md"
+            className="input input-sm w-72 max-w-full"
             type="search"
             maxLength={64}
             placeholder={consultText.searchHint}
@@ -701,36 +711,17 @@ function ConsultsPage({ tab }: { readonly tab: 'open' | 'done' }) {
             value={queryInput}
             onChange={(ev) => setQueryInput(ev.target.value)}
           />
-        </label>
-        <button type="submit" className="btn btn-sm btn-primary">
-          {consultText.search}
-        </button>
-        {filtered && (
-          <button
-            type="button"
-            className="btn btn-sm btn-ghost"
-            onClick={() => {
-              setQueryInput('');
-              patch({ q: '', kind: '' });
-            }}
-          >
-            {consultText.clear}
-          </button>
-        )}
-        <div className="flex flex-wrap gap-1" role="group" aria-label={consultText.col.kind}>
-          {(['all', 'help', 'inquiry', ...(tab === 'open' ? (['failure'] as const) : [])] as const).map((k) => (
-            <button
-              key={k}
-              type="button"
-              aria-pressed={kindFilter === k}
-              className={`btn btn-xs ${kindFilter === k ? 'btn-neutral' : 'btn-ghost border-base-300'}`}
-              onClick={() => patch({ kind: k === 'all' ? '' : k })}
-            >
-              {k === 'all' ? consultText.allKinds : consultText.kind[k]}
-            </button>
-          ))}
-        </div>
-      </form>
+        }
+      >
+        <SearchRow label={consultText.col.kind}>
+          <ChipGroup
+            label={consultText.col.kind}
+            value={kindFilter}
+            options={(['all', 'help', 'inquiry', ...(tab === 'open' ? (['failure'] as const) : [])] as const).map((k) => ({ value: k, label: k === 'all' ? consultText.allKinds : consultText.kind[k] }))}
+            onChange={(k) => patch({ kind: k === 'all' ? '' : k })}
+          />
+        </SearchRow>
+      </SearchPanel>
       {partial && (
         <p role="alert" className="alert alert-warning text-sm" data-testid="consults-partial">
           {consultText.partial(help.isError ? consultText.kind.help : consultText.kind.inquiry)}

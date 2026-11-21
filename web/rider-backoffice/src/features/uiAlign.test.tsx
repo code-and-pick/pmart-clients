@@ -187,7 +187,10 @@ describe('2차 — 겉모습·안내·다 끝났어요', () => {
 
   it('안내 상자: 화면 설명 문장을 글머리로, 접으면 닫힌다', async () => {
     renderAt('/consults', as.riderOps);
+    // 2026-11-21 시뮬레이터 모양: 처음엔 "ⓘ 화면 안내" 한 줄로 접혀 있고, 누르면 같은 문장 3개
     const guide = await screen.findByTestId('consults-guide');
+    expect(within(guide).queryAllByRole('listitem')).toHaveLength(0);
+    await userEvent.click(within(guide).getByRole('button', { name: /화면 안내/ }));
     expect(within(guide).getAllByRole('listitem')).toHaveLength(3);
     await userEvent.click(within(guide).getByRole('button', { name: /화면 안내/ }));
     expect(within(guide).queryAllByRole('listitem')).toHaveLength(0);
@@ -216,16 +219,27 @@ describe('2차 — 겉모습·안내·다 끝났어요', () => {
     expect(screen.queryByTestId('surcharge-all-done')).not.toBeInTheDocument();
   });
 
-  it('검색 조건 칩: 조건을 건 주소로 열면 한 줄 칩으로 접혀 있고, "검색 열기"로 펼친다', async () => {
-    renderAt('/deliveries?state=FAILURE_REPORTED&riderId=RD-7', as.riderOps);
+  it('검색 조건 칩(시뮬레이터 모양): 건 조건만 칩으로, 깔때기로 팝업을 열고, ✕ 로 하나만 푼다', async () => {
+    const view = renderAt('/deliveries?state=FAILURE_REPORTED&riderId=RD-7', as.riderOps);
     const chips = await screen.findAllByTestId('search-chip');
-    expect(chips).toHaveLength(4);
-    expect(chips[2]).toHaveTextContent('전달 실패 등록');
-    expect(chips[1]).toHaveTextContent('한 라이더'); // 시스템 ID 는 칩에 보이지 않는다(ADR-0070)
-    expect(chips[1]).not.toHaveTextContent('RD-7');
-    expect(screen.queryByRole('form', { name: '검색 조건' })).not.toBeInTheDocument();
-    await userEvent.click(screen.getByTestId('search-toggle'));
+    expect(chips).toHaveLength(2);
+    expect(chips[0]).toHaveTextContent('한 라이더'); // 시스템 ID 는 칩에 보이지 않는다(ADR-0070)
+    expect(chips[0]).not.toHaveTextContent('RD-7');
+    expect(chips[1]).toHaveTextContent('전달 실패 등록');
+    // 찾기 칸은 늘 보이고, 상태·종류 고르기는 팝업 안
     expect(screen.getByRole('form', { name: '검색 조건' })).toBeInTheDocument();
+    expect(screen.queryByTestId('search-popup')).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: /거르기 조건 열기 \(2개 걸림\)/ }));
+    expect(within(screen.getByTestId('search-popup')).getByRole('radio', { name: '전달 실패 등록' })).toHaveAttribute('aria-checked', 'true');
+    await userEvent.keyboard('{Escape}');
+    expect(screen.queryByTestId('search-popup')).not.toBeInTheDocument();
+    // ✕ = 그 조건만 풀기(라이더 조건은 남는다) — 주소가 정본
+    await userEvent.click(screen.getByRole('button', { name: '수행 상태 조건 풀기' }));
+    await waitFor(() => expect(screen.getAllByTestId('search-chip')).toHaveLength(1));
+    await waitFor(() => {
+      const q = view.sent.filter((r) => new URL(r.url).pathname.endsWith('/deliveries')).map((r) => new URL(r.url).searchParams).at(-1)!;
+      expect(q.get('state')).toBeNull();
+    });
   });
 });
 

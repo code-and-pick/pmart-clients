@@ -185,6 +185,13 @@ export function StaffActionsMenu() {
     setForm({ from: '', to: '', operatorId: '', riderId: '', deliveryId: '' });
     setParams({});
   };
+  /** 칩 ✕ — 조건 하나만 풀기(입력 칸도 비운다) */
+  const clearOne = (k: keyof typeof form) => {
+    setForm((f) => ({ ...f, [k]: '' }));
+    const p = new URLSearchParams(params);
+    p.delete(k);
+    setParams(p);
+  };
   const input = (k: keyof typeof form, label: string, type: 'date' | 'text' = 'text') => (
     <label className="flex items-center gap-2 text-sm">
       <span className="whitespace-nowrap text-base-content/60">{label}</span>
@@ -195,20 +202,25 @@ export function StaffActionsMenu() {
   return (
     <section className="max-w-[1600px] space-y-4">
       <PageHeader title={t.title} description={t.intro} />
-      <SearchPanel onSubmit={submit} onReset={reset} submitLabel={t.search} resetLabel={t.reset}>
+      {/* 시뮬레이터 모양(2026-11-21): 라이더·배송은 왼쪽 찾기 칸, 기간·직원은 깔때기 팝업, 건 조건은 칩(✕ = 그 조건만 풀기) */}
+      <SearchPanel
+        onSubmit={submit}
+        onReset={reset}
+        submitLabel={t.search}
+        resetLabel={t.reset}
+        summary={(['from', 'to', 'operatorId', 'riderId', 'deliveryId'] as const).map((k) => [t[k], params.get(k) ?? '', () => clearOne(k)] as const)}
+        search={
+          <>
+            <input type="search" className="input input-sm w-48" maxLength={64} value={form.riderId} placeholder={t.riderId} aria-label={t.riderId} onChange={(ev) => setForm((f) => ({ ...f, riderId: ev.target.value }))} />
+            <input type="search" className="input input-sm w-52" maxLength={64} value={form.deliveryId} placeholder={t.deliveryId} aria-label={t.deliveryId} onChange={(ev) => setForm((f) => ({ ...f, deliveryId: ev.target.value }))} />
+          </>
+        }
+      >
         <SearchRow label={t.period}>
-          <div className="flex flex-wrap gap-3">
-            {input('from', t.from, 'date')}
-            {input('to', t.to, 'date')}
-          </div>
+          {input('from', t.from, 'date')}
+          {input('to', t.to, 'date')}
         </SearchRow>
-        <SearchRow label={t.who}>
-          <div className="flex flex-wrap gap-3">
-            {input('operatorId', t.operatorId)}
-            {input('riderId', t.riderId)}
-            {input('deliveryId', t.deliveryId)}
-          </div>
-        </SearchRow>
+        <SearchRow label={t.who}>{input('operatorId', t.operatorId)}</SearchRow>
       </SearchPanel>
       {problem && (
         <p role="alert" className="alert alert-warning text-sm" data-testid="range-problem">

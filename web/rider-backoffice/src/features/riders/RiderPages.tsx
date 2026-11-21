@@ -6,8 +6,8 @@
 // - 2026-11-18 기본 백오피스에서 마저 옮김(ADR-0068, PC 2 요청): 찾기의 수단 거르기·정렬, 상세의 열린 제한 검토·컴플레인 기록(case `GET /rider-complaints`).
 // 꾸밈(2026-11-18): 배민 관리자 구성 — 목록은 검색 조건 상자 → 결과 줄 → 표, 상세는 머리 → 구역 탭 → 구역 상자(DeliveryPages 와 같은 틀).
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState, type FormEvent } from 'react';
-import { Link, Route, Routes, useNavigate, useParams, useSearchParams } from 'react-router';
+import { Fragment, useState, type FormEvent } from 'react';
+import { Link, Route, Routes, useParams, useSearchParams } from 'react-router';
 
 import { request } from '@pmart/web-core';
 import { CommandFeedback, QueryState, toUiState, useCommand } from '@pmart/web-ui';
@@ -17,6 +17,7 @@ import { useApi } from '../../app/ApiContext';
 import { AllDone, ChipGroup, CursorPager, DataTable, GuideBox, DetailHeader, FieldList, Notice, PageHeader, ResultBar, SearchPanel, SearchRow, Section, SectionTabs, StatCard, StatStrip, StatusBadge, type Tone } from '../../shared/admin';
 import { statText, useListRows } from '../../shared/listKit';
 import { SavedViews } from '../../shared/SavedViews';
+import { Caret, expandRowProps, InlineDetail, useInlineOpen } from '../../shared/simList';
 import { ui } from '../../shared/uiMessages';
 import { DeliveryRef, RiderName, RiderRef, StaffName, SystemIds, useDeliveryNumbers, useRiderSummaries } from '../../shared/displayNumbers';
 import { SimBadge } from '../../shared/sim';
@@ -84,7 +85,6 @@ export function SignupsMenu() {
 
 function RiderSearchPage({ signups = false }: { readonly signups?: boolean }) {
   const api = useApi();
-  const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   // 화면 번호 규칙(ADR-0070, 2026-11-18 사용자 "설마 저 긴 ID를 다 쳐야 한다는 건 아니지?"): 라이더 번호 6자리로 찾는다.
   // 옛 링크 ?riderId=RD-… 는 그대로 받아 그 라이더를 찾는다(화면 칸에는 없음).
@@ -114,6 +114,12 @@ function RiderSearchPage({ signups = false }: { readonly signups?: boolean }) {
     setDraft({ riderNumber: '', phone: '' });
     setParams({});
   };
+  /** 칩 ✕ — 글자 조건 하나만 풀기(찾기 칸도 비운다) */
+  const clearText = (next: Partial<Record<'riderNumber' | 'riderId' | 'phone', string>>) => {
+    setDraft({ riderNumber: next.riderNumber ?? draft.riderNumber, phone: next.phone ?? draft.phone });
+    set(next);
+  };
+  const inline = useInlineOpen();
   const query = useQuery({
     queryKey: ['riders', withdrawn, riderNumber, riderId, phone, restriction, operatingStatus, vehicleType, sort, page],
     queryFn: () =>
@@ -138,7 +144,6 @@ function RiderSearchPage({ signups = false }: { readonly signups?: boolean }) {
         }),
       ),
   });
-  const open = (id: string | undefined) => void navigate(`/riders/${encodeURIComponent(id ?? '')}`);
   // 숫자 띠(2026-11-19 통합 백오피스처럼) — 서버가 센 라이더 수(GET /riders/stats). 누르면 그 조건으로 거른다
   const stats = useQuery({
     queryKey: ['rider-stats', ''],
@@ -183,13 +188,29 @@ function RiderSearchPage({ signups = false }: { readonly signups?: boolean }) {
           submitLabel={r.search}
           resetLabel={r.reset}
           summary={[
-            [rx.memberRow, withdrawn ? rx.withdrawnOnly : ''],
-            [rm.riderNumber, riderNumber || (riderId ? '한 라이더' : '')],
-            [r.phone, phone ? '입력함' : ''],
-            [r.restriction, restriction ? label(n.restriction, restriction) : ''],
-            [r.operating, operatingStatus ? label(n.operatingStatus, operatingStatus) : ''],
-            [rm.search.vehicle, vehicleType ? label(n.vehicle, vehicleType) : ''],
+            [rx.memberRow, withdrawn ? rx.withdrawnOnly : '', () => set({ withdrawn: '' })],
+            [rm.riderNumber, riderNumber || (riderId ? '한 라이더' : ''), () => clearText({ riderNumber: '', riderId: '' })],
+            [r.phone, phone ? '입력함' : '', () => clearText({ phone: '' })],
+            [r.restriction, restriction ? label(n.restriction, restriction) : '', () => set({ restriction: '' })],
+            [r.operating, operatingStatus ? label(n.operatingStatus, operatingStatus) : '', () => set({ operatingStatus: '' })],
+            [rm.search.vehicle, vehicleType ? label(n.vehicle, vehicleType) : '', () => set({ vehicleType: '' })],
           ]}
+          // 왼쪽 찾기 칸(시뮬레이터처럼) — 라이더 번호 6자리·전화. 상태·수단 거르기는 깔때기 팝업
+          search={
+            <>
+              <input
+                type="search"
+                className="input input-sm w-44 font-mono"
+                value={draft.riderNumber}
+                maxLength={6}
+                inputMode="numeric"
+                placeholder={`${rm.riderNumber} 6자리`}
+                aria-label={rm.riderNumber}
+                onChange={(e) => setDraft({ ...draft, riderNumber: e.target.value.replace(/\D/g, '').slice(0, 6) })}
+              />
+              <input type="search" className="input input-sm w-40" value={draft.phone} maxLength={20} inputMode="tel" placeholder={r.phone} aria-label={r.phone} onChange={(e) => setDraft({ ...draft, phone: e.target.value })} />
+            </>
+          }
         >
           <SearchRow label={rx.memberRow}>
             <ChipGroup
@@ -198,24 +219,6 @@ function RiderSearchPage({ signups = false }: { readonly signups?: boolean }) {
               options={[{ value: '', label: rx.active }, { value: '1', label: rx.withdrawnOnly }]}
               onChange={(v) => set({ withdrawn: v })}
             />
-          </SearchRow>
-          <SearchRow label={rm.findByNumber}>
-            <label className="flex items-center gap-2 text-sm">
-              <span className="text-base-content/60">{rm.riderNumber}</span>
-              <input
-                className="input input-sm w-32 font-mono"
-                value={draft.riderNumber}
-                maxLength={6}
-                inputMode="numeric"
-                placeholder="482913"
-                aria-label={rm.riderNumber}
-                onChange={(e) => setDraft({ ...draft, riderNumber: e.target.value.replace(/\D/g, '').slice(0, 6) })}
-              />
-            </label>
-            <label className="flex items-center gap-2 text-sm">
-              <span className="text-base-content/60">{r.phone}</span>
-              <input className="input input-sm w-40" value={draft.phone} maxLength={20} inputMode="tel" onChange={(e) => setDraft({ ...draft, phone: e.target.value })} />
-            </label>
           </SearchRow>
           <SearchRow label={r.restriction}>
             <ChipGroup
@@ -268,9 +271,15 @@ function RiderSearchPage({ signups = false }: { readonly signups?: boolean }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {items.map((row) => (
-                    <tr key={row.riderId} data-testid="rider-row" className={`cursor-pointer ${listRows.rowClass(riderPath(row.riderId))}`} onClick={() => open(row.riderId)}>
+                  {items.map((row) => {
+                    const k = row.riderId ?? '';
+                    const isOpen = inline.isOpen(k);
+                    return (
+                    <Fragment key={row.riderId}>
+                    {/* 줄을 누르면 바로 아래에 펼친 상세(시뮬레이터처럼 — 다른 화면으로 넘어가지 않음). 번호 링크·"전체 상세 ›"는 상세 화면으로 */}
+                    <tr data-testid="rider-row" className={listRows.rowClass(riderPath(row.riderId))} {...expandRowProps(isOpen, () => inline.toggle(k))}>
                       <td className="font-mono font-semibold">
+                        <Caret open={isOpen} />
                         <Link className="hover:underline" to={`/riders/${encodeURIComponent(row.riderId ?? '')}`} onClick={(e) => e.stopPropagation()}>
                           <RiderName riderId={row.riderId} riderNumber={row.riderNumber} />
                         </Link>
@@ -294,7 +303,14 @@ function RiderSearchPage({ signups = false }: { readonly signups?: boolean }) {
                       </td>
                       <td className="whitespace-nowrap">{when(row.joinedAt)}</td>
                     </tr>
-                  ))}
+                    {isOpen && (
+                      <InlineDetail colSpan={8} to={riderPath(row.riderId)} testId="rider-inline">
+                        <RiderInline riderId={k} />
+                      </InlineDetail>
+                    )}
+                    </Fragment>
+                    );
+                  })}
                 </tbody>
               </DataTable>
               <CursorPager
@@ -309,6 +325,53 @@ function RiderSearchPage({ signups = false }: { readonly signups?: boolean }) {
         }}
       </QueryState>
     </section>
+  );
+}
+
+/**
+ * 목록 줄 아래 펼친 라이더 요약(2026-11-21 시뮬레이터 .md-inline) — 상세 화면과 같은 조회(['rider', id] — 캐시를 같이 쓴다), 새 API 없음.
+ * 왼쪽: 기본 정보(가린 이름·전화, 수단·운행·제한·가입, 배송 지역, 가입·탈퇴 시각), 오른쪽: 정산계좌·동의.
+ * 원문 열람·계정 제한·수행료·배정·컴플레인은 "전체 상세 ›"에서(사유 입력 흐름 그대로).
+ */
+function RiderInline({ riderId }: { readonly riderId: string }) {
+  const api = useApi();
+  const detail = useQuery({
+    queryKey: ['rider', riderId],
+    queryFn: () => request('GET', api.riders.GET('/riders/{riderId}', { params: { path: { riderId }, query: { includeWithdrawn: true } } })),
+  });
+  return (
+    <QueryState state={toUiState(detail)} onRetry={() => void detail.refetch()}>
+      {(x) => (
+        <div className="pm-inline-cols">
+          <div>
+            <h4>{r.info}</h4>
+            <FieldList
+              testId="rider-inline-info"
+              rows={[
+                [r.col.name, x.nameMasked ?? none],
+                [r.col.phone, <span className="font-mono">{x.phoneMasked || none}</span>],
+                [r.col.vehicle, label(n.vehicle, x.vehicleType)],
+                [r.col.operating, <StatusBadge tone={operatingTone(x.operating?.status)}>{label(n.operatingStatus, x.operating?.status)}</StatusBadge>],
+                [r.col.restriction, <StatusBadge tone={restrictionTone(x.restriction?.state)}>{label(n.restriction, x.restriction?.state)}</StatusBadge>],
+                [r.signupStatus, signupText(x.signupStatus, x.signupDecidedBy ?? null)],
+                [r.areas, (x.deliveryAreas ?? []).map((a) => a.mfcId).join(', ') || none],
+                [r.col.joinedAt, when(x.joinedAt)],
+                ...(x.withdrawnAt ? [[rx.withdrawn, when(x.withdrawnAt)] as const] : []),
+              ]}
+            />
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Link className="btn btn-xs" to={`/deliveries?riderId=${encodeURIComponent(riderId)}`}>
+                {r.deliveries}
+              </Link>
+            </div>
+          </div>
+          <div className="pm-inline-side">
+            <h4>{rm.bank.title}</h4>
+            <AccountAndConsents detail={x} />
+          </div>
+        </div>
+      )}
+    </QueryState>
   );
 }
 

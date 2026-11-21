@@ -109,17 +109,25 @@ export function PayoutsMenu() {
         submitLabel={t.search}
         resetLabel={t.reset}
         summary={[
-          [t.date, payoutDate],
-          [t.state, state === 'ALL' ? '' : (t.stateName[state] ?? state)],
-          ['라이더', riderId ? (/^\d{6}$/.test(riderId) ? riderId : '한 라이더') : ''],
+          [t.date, payoutDate, () => {
+            setDateInput('');
+            patch({ payoutDate: '' });
+          }],
+          [t.state, state === 'ALL' ? '' : (t.stateName[state] ?? state), () => patch({ state: '' })],
+          ['라이더', riderId ? (/^\d{6}$/.test(riderId) ? riderId : '한 라이더') : '', () => {
+            setRiderInput('');
+            patch({ riderId: '' });
+          }],
         ]}
-      >
-        <SearchRow label={t.date}>
-          <label className="flex items-center gap-2 text-sm">
-            <input type="date" className="input input-sm w-44" aria-label={t.date} value={dateInput} onChange={(ev) => setDateInput(ev.target.value)} />
+        // 왼쪽 찾기 칸(시뮬레이터처럼) — 라이더 번호·지급일. 지급 상태는 깔때기 팝업
+        search={
+          <>
+            <input type="search" className="input input-sm w-48" maxLength={64} value={riderInput} placeholder={t.rider} aria-label={t.rider} onChange={(ev) => setRiderInput(ev.target.value)} />
+            <input type="date" className="input input-sm w-40" aria-label={t.date} title={t.dateHint} value={dateInput} onChange={(ev) => setDateInput(ev.target.value)} />
             <span className="text-xs text-base-content/55">{t.dateHint}</span>
-          </label>
-        </SearchRow>
+          </>
+        }
+      >
         <SearchRow label={t.state}>
           <ChipGroup
             label={t.state}
@@ -128,12 +136,7 @@ export function PayoutsMenu() {
             onChange={(s) => patch({ state: s === 'ALL' ? '' : s })}
           />
         </SearchRow>
-        <SearchRow label="라이더">
-          <label className="flex items-center gap-2 text-sm">
-            <span className="text-base-content/60">{t.rider}</span>
-            <input className="input input-sm w-44" maxLength={64} value={riderInput} onChange={(ev) => setRiderInput(ev.target.value)} />
-          </label>
-        </SearchRow>
+
       </SearchPanel>
       <QueryState state={toUiState(list, (x) => x.items.length === 0)} onRetry={() => void list.refetch()} emptyText={t.empty}>
         {(x) => (

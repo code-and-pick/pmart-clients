@@ -118,13 +118,10 @@ function Layout() {
       }
       locationAside={
         session ? (
-          <>
-            {session.roles.map((r) => (
-              <span key={r} className="badge badge-ghost badge-sm">
-                {r}
-              </span>
-            ))}
-          </>
+          // 역할 — 칩 대신 조용한 작은 회색 글자 한 줄(2026-11-21 시뮬레이터 모양 — 정보는 그대로 보인다)
+          <span className="pm-roles" data-testid="header-roles" title="내 역할">
+            {session.roles.join(' · ')}
+          </span>
         ) : undefined
       }
       banner={

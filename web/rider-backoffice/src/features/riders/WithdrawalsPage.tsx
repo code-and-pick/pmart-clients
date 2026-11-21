@@ -94,23 +94,26 @@ export function WithdrawalsMenu() {
         submitLabel={v.search}
         resetLabel={v.reset}
         summary={[
-          [v.riderNumber, riderNumber],
-          [v.stateLabel, state ? v.state[state] : ''],
+          [v.riderNumber, riderNumber, () => {
+            setDraft('');
+            set({ riderNumber: '' });
+          }],
+          [v.stateLabel, state ? v.state[state] : '', () => set({ state: '' })],
         ]}
+        // 왼쪽 찾기 칸(시뮬레이터처럼) — 라이더 번호 6자리. 결과 거르기는 깔때기 팝업
+        search={
+          <input
+            type="search"
+            className="input input-sm w-44 font-mono"
+            value={draft}
+            maxLength={6}
+            inputMode="numeric"
+            placeholder={`${v.riderNumber} 6자리`}
+            aria-label={v.riderNumber}
+            onChange={(e) => setDraft(e.target.value.replace(/\D/g, '').slice(0, 6))}
+          />
+        }
       >
-        <SearchRow label={v.findByNumber}>
-          <label className="flex items-center gap-2 text-sm">
-            <span className="text-base-content/60">{v.riderNumber}</span>
-            <input
-              className="input input-sm w-32 font-mono"
-              value={draft}
-              maxLength={6}
-              inputMode="numeric"
-              aria-label={v.riderNumber}
-              onChange={(e) => setDraft(e.target.value.replace(/\D/g, '').slice(0, 6))}
-            />
-          </label>
-        </SearchRow>
         <SearchRow label={v.stateLabel}>
           <ChipGroup label={v.stateLabel} value={state} options={STATES.map((s) => ({ value: s, label: v.state[s] }))} onChange={(s) => set({ state: s })} />
         </SearchRow>

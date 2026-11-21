@@ -243,9 +243,14 @@ export function SurchargesMenu() {
         submitLabel={f.search}
         resetLabel={f.reset}
         summary={[
-          [f.state, state === 'REQUESTED' ? '' : state === 'ALL' ? f.all : (f.stateName[state] ?? state)],
-          ['라이더', riderId ? (/^\d{6}$/.test(riderId) ? riderId : '한 라이더') : ''],
+          [f.state, state === 'REQUESTED' ? '' : state === 'ALL' ? f.all : (f.stateName[state] ?? state), () => patch({ state: '' })],
+          ['라이더', riderId ? (/^\d{6}$/.test(riderId) ? riderId : '한 라이더') : '', () => {
+            setRiderInput('');
+            patch({ riderId: '' });
+          }],
         ]}
+        // 왼쪽 찾기 칸(시뮬레이터처럼) — 라이더 번호. 상태는 깔때기 팝업
+        search={<input type="search" className="input input-sm w-48" maxLength={64} value={riderInput} placeholder={f.riderId} aria-label={f.riderId} onChange={(ev) => setRiderInput(ev.target.value)} />}
       >
         <SearchRow label={f.state}>
           <ChipGroup
@@ -255,13 +260,8 @@ export function SurchargesMenu() {
             onChange={(s) => patch({ state: s === 'REQUESTED' ? '' : s })}
           />
         </SearchRow>
-        <SearchRow label="라이더">
-          <label className="flex items-center gap-2 text-sm">
-            <span className="text-base-content/60">{f.riderId}</span>
-            <input className="input input-sm w-44" maxLength={64} value={riderInput} onChange={(ev) => setRiderInput(ev.target.value)} />
-          </label>
-        </SearchRow>
       </SearchPanel>
+
       {/* 할 일이 서버 0건이면 "수고하셨어요"(2026-11-19 통합 백오피스 AllDone) — 읽는 중·실패·거르기를 건 때는 그리지 않는다 */}
       {state === 'REQUESTED' && !riderId && !cursor && list.isSuccess && (list.data.items ?? []).length === 0 ? (
         <AllDone title={ui.allDone} body={e.surchargeEmpty} testId="surcharge-all-done" />

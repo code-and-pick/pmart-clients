@@ -55,6 +55,7 @@ describe('추가 배달료 거르기', () => {
     expect(await screen.findAllByTestId('surcharge-row')).toHaveLength(1);
     expect(surchargeQuery(view.sent).at(-1)!.get('state')).toBe('REQUESTED');
 
+    await userEvent.click(screen.getByTestId('search-toggle')); // 상태는 깔때기 팝업 안(2026-11-21)
     await userEvent.click(screen.getByRole('radio', { name: '승인' }));
     const decided = await screen.findByTestId('surcharge-decided');
     expect(decided).toHaveTextContent('승인');

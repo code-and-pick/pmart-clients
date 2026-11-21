@@ -27,12 +27,14 @@ describe('배송 찾기', () => {
   it('주문 ID 완전 일치·상태로 거르고 주소에 남긴다, 없으면 "없어요"(실패와 구분)', async () => {
     const view = renderAt('/deliveries', as.riderOps);
     await screen.findAllByTestId('delivery-row');
+    // 시스템 번호(주문 ID)는 깔때기 팝업 안(2026-11-21 시뮬레이터 모양)
+    await userEvent.click(screen.getByTestId('search-toggle'));
     await userEvent.type(screen.getByLabelText('주문 ID'), 'ORD-1');
     await userEvent.click(screen.getByRole('button', { name: '찾기' }));
     expect(await screen.findAllByTestId('delivery-row')).toHaveLength(2); // 원래 배송 + 반납 배송
     expect(searchCalls(view.sent).at(-1)!.get('orderId')).toBe('ORD-1');
 
-    // 찾으면 검색 조건이 칩 한 줄로 접힌다(2026-11-19 통합 백오피스처럼) — 칩에 건 조건, '검색 열기'로 다시 펼친다
+    // 찾으면 팝업이 닫히고 건 조건이 칩으로 남는다 — 깔때기로 다시 연다
     expect(screen.getByRole('button', { name: '주문 한 주문 조건 바꾸기' })).toBeInTheDocument();
     await userEvent.click(screen.getByTestId('search-toggle'));
     await userEvent.click(within(screen.getByRole('radiogroup', { name: '수행 상태' })).getByRole('radio', { name: '전달 완료' }));
