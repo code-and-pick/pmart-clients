@@ -130,3 +130,17 @@ describe('상세 — 보기 구역·처리 구역(2026-11-21)', () => {
     expect(preview).toHaveTextContent('바로 확정');
   });
 });
+
+describe('찾기 줄 — 지우기 단추 없음, 구분은 붙은 단추 줄(2026-11-21)', () => {
+  it('상담함: "지우기" 단추가 없고, 구분 고르기는 늘 보이며, 걸면 끝에 "모두 지우기"', async () => {
+    renderAt('/consults', as.riderOps);
+    const bar = await screen.findByTestId('consults-search');
+    expect(within(bar).queryByRole('button', { name: '지우기' })).not.toBeInTheDocument();
+    expect(within(bar).queryByRole('button', { name: '모두 지우기' })).not.toBeInTheDocument();
+    const kinds = within(bar).getByRole('radiogroup', { name: '구분' });
+    await userEvent.click(within(kinds).getByRole('radio', { name: '일반 문의' }));
+    expect(within(kinds).getByRole('radio', { name: '일반 문의' })).toHaveAttribute('aria-checked', 'true');
+    await userEvent.click(within(bar).getByRole('button', { name: '모두 지우기' }));
+    expect(within(kinds).getByRole('radio', { name: '전체' })).toHaveAttribute('aria-checked', 'true');
+  });
+});

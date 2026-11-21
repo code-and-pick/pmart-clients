@@ -11,6 +11,7 @@ const t = {
   change: (k: string, v: string) => `${k} ${v} 조건 바꾸기`,
   clear: (k: string) => `${k} 조건 풀기`,
   close: '닫기',
+  clearAll: '모두 지우기',
   info: 'ⓘ',
   infoLabel: (open: boolean) => (open ? '화면 설명 접기' : '화면 설명 보기'),
   full: '전체 상세 ›',
@@ -29,18 +30,20 @@ export function SearchPanel({
   onReset,
   children,
   submitLabel = '조회',
-  resetLabel = '초기화',
   submitDisabled = false,
   label = '검색 조건',
   summary,
   submit = true,
   search,
+  filters,
+  active: activeProp = false,
   testId,
 }: {
   readonly onSubmit: (e: FormEvent) => void;
   readonly onReset: () => void;
   readonly children?: ReactNode;
   readonly submitLabel?: string;
+  /** 공용과 맞춘 이름 — 이 모양은 늘 "모두 지우기"(2026-11-21 사용자 "지우기 버튼 굳이") */
   readonly resetLabel?: string;
   readonly submitDisabled?: boolean;
   readonly label?: string;
@@ -51,6 +54,10 @@ export function SearchPanel({
   readonly startOpen?: boolean;
   /** 왼쪽 찾기 칸(번호·전화 등 글자 입력) — 늘 보인다 */
   readonly search?: ReactNode;
+  /** 늘 보이는 거르기(고르기 하나뿐인 화면 — 예: 상담함 구분). 찾기 단추와 떨어진 자리에 이름을 붙여 둔다 */
+  readonly filters?: ReactNode;
+  /** 칩이 없어도 거르기가 걸렸는지(filters 쪽) — "모두 지우기" 보이기 */
+  readonly active?: boolean;
   readonly testId?: string;
 }) {
   const [open, setOpen] = useState(false);
@@ -83,6 +90,7 @@ export function SearchPanel({
     >
       {search && <div className="pm-fbar-q">{search}</div>}
       {search && submitBtn}
+      {filters && <div className="pm-fbar-filters">{filters}</div>}
       {children !== undefined && children !== null && children !== false && (
         <div className="pm-fwrap">
           <button
@@ -108,7 +116,7 @@ export function SearchPanel({
                 <div className="pm-pop-grid">{children}</div>
                 <div className="pm-pop-foot">
                   <button type="button" className="btn btn-sm btn-ghost" onClick={onReset}>
-                    {resetLabel}
+                    {t.clearAll}
                   </button>
                   {!search && submitBtn}
                   <button type="button" className="btn btn-sm" onClick={() => setOpen(false)}>
@@ -133,9 +141,10 @@ export function SearchPanel({
           )}
         </span>
       ))}
-      {active.length > 0 && (
+      {/* "지우기" 단추 대신(2026-11-21 사용자) — 글자는 찾기 칸의 ×, 거르기가 걸렸을 때만 칩 줄 끝에 "모두 지우기" */}
+      {(active.length > 0 || activeProp) && (
         <button type="button" className="pm-fbar-reset" onClick={onReset}>
-          {resetLabel}
+          {t.clearAll}
         </button>
       )}
     </form>

@@ -12,7 +12,7 @@ import { commandParams } from '../../api/command';
 import { useApi } from '../../app/ApiContext';
 import { useSession } from '../../app/SessionContext';
 import { photoMessages } from '../../shared/AuthedPhotos';
-import { AllDone, ChipGroup, DataTable, DetailHeader, GuideBox, FieldList, PageHeader, ResultBar, SearchPanel, SearchRow, Section, SectionTabs, StatCard, StatStrip, StatusBadge } from '../../shared/admin';
+import { AllDone, ChipGroup, DataTable, DetailHeader, GuideBox, FieldList, PageHeader, ResultBar, SearchPanel, Section, SectionTabs, StatCard, StatStrip, StatusBadge } from '../../shared/admin';
 import { listCountText, statText, useListRows } from '../../shared/listKit';
 import { useNewIds } from '../../shared/motion';
 import { ui } from '../../shared/uiMessages';
@@ -699,8 +699,22 @@ function ConsultsPage({ tab }: { readonly tab: 'open' | 'done' }) {
             setQueryInput('');
             patch({ q: '' });
           }],
-          [consultText.col.kind, kindFilter === 'all' ? '' : consultText.kind[kindFilter], () => patch({ kind: '' })],
         ]}
+        active={kindFilter !== 'all'}
+        // 구분은 고르기 하나뿐이라 팝업에 숨기지 않고 늘 보이는 붙은 단추 줄(찾기 단추와 세로 선으로 떨어뜨림 — 2026-11-21 사용자)
+        filters={
+          <>
+            <span className="pm-fbar-filters-l" aria-hidden="true">
+              {consultText.col.kind}
+            </span>
+            <ChipGroup
+              label={consultText.col.kind}
+              value={kindFilter}
+              options={(['all', 'help', 'inquiry', ...(tab === 'open' ? (['failure'] as const) : [])] as const).map((k) => ({ value: k, label: k === 'all' ? consultText.allKinds : consultText.kind[k] }))}
+              onChange={(k) => patch({ kind: k === 'all' ? '' : k })}
+            />
+          </>
+        }
         search={
           <input
             className="input input-sm w-72 max-w-full"
@@ -712,16 +726,8 @@ function ConsultsPage({ tab }: { readonly tab: 'open' | 'done' }) {
             onChange={(ev) => setQueryInput(ev.target.value)}
           />
         }
-      >
-        <SearchRow label={consultText.col.kind}>
-          <ChipGroup
-            label={consultText.col.kind}
-            value={kindFilter}
-            options={(['all', 'help', 'inquiry', ...(tab === 'open' ? (['failure'] as const) : [])] as const).map((k) => ({ value: k, label: k === 'all' ? consultText.allKinds : consultText.kind[k] }))}
-            onChange={(k) => patch({ kind: k === 'all' ? '' : k })}
-          />
-        </SearchRow>
-      </SearchPanel>
+      />
+
       {partial && (
         <p role="alert" className="alert alert-warning text-sm" data-testid="consults-partial">
           {consultText.partial(help.isError ? consultText.kind.help : consultText.kind.inquiry)}
