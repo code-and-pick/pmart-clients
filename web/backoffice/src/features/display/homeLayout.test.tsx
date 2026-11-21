@@ -112,6 +112,56 @@ describe('홈 진열 편성', () => {
     expect(sent.banners[0]!.placement).toBe('POPUP');
   });
 
+  it('0.10.0 홈 중간 배너 묶음·홈 순서(위/아래)·넘김 간격(2~30초, 벗어나면 그 칸에 까닭)', async () => {
+    const user = userEvent.setup();
+    const view = renderAt('/display/home', as.md);
+    await user.click(await screen.findByTestId('layout-new-current'));
+    await screen.findByTestId('layout-state');
+
+    // 옮긴 적 없고 묶음 없으면 홈 순서 = 테마 순서
+    expect(screen.getAllByTestId('layout-order-item').map((x) => x.textContent)).toEqual([expect.stringContaining('겨울 제철 채소')]);
+
+    // 배너를 홈 중간 묶음으로 → 새 묶음이 홈 순서 끝에
+    const banner = screen.getAllByTestId('layout-banner')[0]!;
+    await user.selectOptions(within(banner).getByLabelText('자리'), 'HOME_INLINE');
+    expect(within(banner).getByLabelText('배너 묶음')).toHaveDisplayValue('배너 묶음 1');
+    let items = screen.getAllByTestId('layout-order-item');
+    expect(items[1]).toHaveTextContent('배너 묶음 1 · 배너 1개');
+    await user.click(within(items[1]!).getByRole('button', { name: '위로' }));
+    items = screen.getAllByTestId('layout-order-item');
+    expect(items[0]).toHaveTextContent('배너 묶음 1');
+    expect(within(screen.getByTestId('layout-preview')).getByTestId('layout-preview-group')).toBeInTheDocument();
+
+    // 넘김 간격 1초 → 422 INVALID_INTERVAL, 고치면 승인 요청
+    const interval = screen.getByLabelText('넘김 간격(초)');
+    await user.type(interval, '1');
+    await user.click(screen.getByTestId('layout-submit'));
+    expect(await screen.findByText('넘김 간격은 2~30초예요(비우면 앱 기본값)')).toBeInTheDocument();
+    await user.clear(interval);
+    await user.type(interval, '5');
+    await user.click(screen.getByTestId('layout-submit'));
+    expect(await screen.findByTestId('layout-requested')).toBeInTheDocument();
+
+    const put = view.sent.filter((q) => q.method === 'PUT').at(-1)!;
+    const sent = (await put.clone().json()) as { banners: { placement: string; groupId: string | null }[]; homeOrder: string[]; bannerIntervalSeconds: number | null };
+    expect(sent.bannerIntervalSeconds).toBe(5);
+    expect(sent.banners[0]!.placement).toBe('HOME_INLINE');
+    expect(sent.banners[0]!.groupId).toMatch(/^G-/);
+    expect(sent.homeOrder).toEqual([sent.banners[0]!.groupId, 'T-WINTER-VEG']);
+  });
+
+  it('홈 순서를 옮기지 않았고 묶음도 없으면 homeOrder 는 빈 채로(예전 순서)', async () => {
+    const user = userEvent.setup();
+    const view = renderAt('/display/home', as.md);
+    await user.click(await screen.findByTestId('layout-new-current'));
+    await screen.findByTestId('layout-state');
+    await user.type(screen.getByLabelText('넘김 간격(초)'), '4');
+    await user.click(screen.getByTestId('layout-save'));
+    await waitFor(() => expect(view.sent.some((q) => q.method === 'PUT')).toBe(true));
+    const sent = (await view.sent.find((q) => q.method === 'PUT')!.clone().json()) as { homeOrder: string[] };
+    expect(sent.homeOrder).toEqual([]);
+  });
+
   it('반려되면 사유와 함께 다시 고칠 수 있고, 승인되면 새 홈 버전', async () => {
     const user = userEvent.setup();
     renderAt('/display/home', as.md);

@@ -4,6 +4,8 @@
 // 고객 홈은 승인 뒤에만 바뀐다 — 미리보기는 초안 본문으로 그린다. 배너·테마·탭 ID 는 화면이 만들고 보이지 않는다(ADR-0070).
 // storefront 0.9.0(2026-11-21 PC 1 요청서 request-home-promotion-extras): 배너 자리 팝업·로딩 화면, 테마 남은 시간 표시(showTimer — endsAt 필수),
 // 자동 랭킹 테마(RANKING_AUTO — 상품 대신 autoSize 1~30), MD 탭(tabs — 넣은 테마는 홈에서 빠짐). 할인·특가·쿠폰 문구는 이제 허용, 근거 없는 "최저가"·"신선 보장"만 서버가 막는다.
+// storefront 0.10.0(같은 요청서 "추가 — 0.10.0"): 배너 넘김 간격(bannerIntervalSeconds 2~30초), 홈 중간 배너 묶음(HOME_INLINE + groupId G-…),
+// 홈 순서(homeOrder — 배너 묶음·테마를 보일 순서대로, 위/아래 단추로 옮김. 끌어 옮기기는 나중 — 사용자).
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState, type ReactNode } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
@@ -143,12 +145,40 @@ export function HomeLayoutListPage() {
 
 // ───────── 편성 화면 ─────────
 
-const bodyOf = (d: Draft): Body => ({ banners: d.banners ?? [], themes: d.themes ?? [], tabs: d.tabs ?? [], note: d.note ?? null });
+const bodyOf = (d: Draft): Body => ({
+  banners: d.banners ?? [],
+  themes: d.themes ?? [],
+  tabs: d.tabs ?? [],
+  homeOrder: d.homeOrder ?? [],
+  bannerIntervalSeconds: d.bannerIntervalSeconds ?? null,
+  note: d.note ?? null,
+});
+
+/** 홈 중간 배너 묶음(HOME_INLINE) groupId — 배너 순서에서 처음 나온 순서. 화면에는 "배너 묶음 1·2…"로만 보인다 */
+const groupsOf = (b: Body): string[] => [...new Set((b.banners ?? []).flatMap((x) => (x.placement === 'HOME_INLINE' && x.groupId ? [x.groupId] : [])))];
+/** 홈에 보이는 테마(MD 탭에 넣은 것 빼고) */
+const homeThemesOf = (b: Body): Theme[] => {
+  const tabbed = new Set((b.tabs ?? []).flatMap((t) => t.sectionIds));
+  return (b.themes ?? []).filter((t) => !tabbed.has(t.sectionId));
+};
+/**
+ * 보낼 홈 순서(0.10.0) — 저장된 순서 중 아직 홈에 있는 것 + 빠진 테마(테마 순서)·묶음을 뒤에.
+ * 옮긴 적 없고 묶음도 없으면 [](서버가 예전처럼 테마 순서) — 지운 테마·탭에 넣은 테마는 빠지고(UNKNOWN_SECTION), 새 묶음은 늘 들어간다(UNPLACED_GROUP)
+ */
+const homeOrderOf = (b: Body): string[] => {
+  const groups = groupsOf(b);
+  const raw = b.homeOrder ?? [];
+  if (raw.length === 0 && groups.length === 0) return [];
+  const ids = [...homeThemesOf(b).map((t) => t.sectionId), ...groups];
+  const kept = [...new Set(raw)].filter((id) => ids.includes(id));
+  return [...kept, ...ids.filter((id) => !kept.includes(id))];
+};
 const withOrder = (b: Body): Body => ({
   ...b,
   banners: (b.banners ?? []).map((x, i) => ({ ...x, sortOrder: i })),
   themes: (b.themes ?? []).map((x, i) => ({ ...x, sortOrder: i })),
   tabs: (b.tabs ?? []).map((x, i) => ({ ...x, sortOrder: i })),
+  homeOrder: homeOrderOf(b),
 });
 
 /** datetime-local(서울 시각) ↔ ISO */
@@ -170,7 +200,8 @@ interface Why {
 const whyOf = (why: readonly Why[], ...fields: string[]) => why.filter((w) => fields.includes(w.field)).map((w) => w.text);
 /** 칸에 붙이지 못한 까닭(같은 ID 두 번 등) — 카드 맨 아래 */
 const whyRest = (why: readonly Why[], known: readonly string[]) => why.filter((w) => !known.includes(w.field)).map((w) => w.text);
-const BANNER_FIELDS = ['imageId', 'altText', 'linkRef', 'startsAt', 'endsAt', 'placement'];
+const BANNER_FIELDS = ['imageId', 'altText', 'linkRef', 'startsAt', 'endsAt', 'placement', 'groupId'];
+const NEW_GROUP = '__new';
 const THEME_FIELDS = ['title', 'subtitle', 'startsAt', 'endsAt', 'productIds', 'autoSize', 'showTimer', 'kind'];
 const TAB_FIELDS = ['title', 'sectionIds', 'startsAt', 'endsAt', 'showTimer'];
 
@@ -300,6 +331,7 @@ function BannerCard({
   i,
   n,
   themes,
+  groups,
   locked,
   why,
   onChange,
@@ -310,6 +342,8 @@ function BannerCard({
   readonly i: number;
   readonly n: number;
   readonly themes: readonly Theme[];
+  /** 지금 있는 홈 중간 배너 묶음 groupId(순서대로) */
+  readonly groups: readonly string[];
   readonly locked: boolean;
   readonly why: readonly Why[];
   readonly onChange: (b: Banner) => void;
@@ -317,6 +351,9 @@ function BannerCard({
   readonly onRemove: () => void;
 }) {
   const api = useApi();
+  // 홈 중간 묶음이면 묶음 하나에 넣는다(없으면 새 묶음), 다른 자리면 groupId 를 비운다(INVALID_GROUP)
+  const setPlacement = (placement: Banner['placement']) =>
+    onChange(placement === 'HOME_INLINE' ? { ...b, placement, groupId: b.groupId ?? groups[0] ?? `G-${shortId()}` } : { ...b, placement, groupId: null });
   const upload = useCommand((file: File, key) =>
     request('POST', api.storefront.POST('/storefront/banner-images', { ...commandParams(key), body: { file: '' }, ...multipart({ file }) })),
   );
@@ -347,8 +384,8 @@ function BannerCard({
       </div>
       <div className="grid gap-3 md:grid-cols-[10rem_minmax(0,1fr)]">
         <Field label={m.placement}>
-          <select className="select select-sm" disabled={locked} value={b.placement} onChange={(e) => onChange({ ...b, placement: e.target.value as Banner['placement'] })}>
-            {(['HOME_TOP', 'HOME_MIDDLE', 'POPUP', 'SPLASH'] as const).map((p) => (
+          <select className="select select-sm" disabled={locked} value={b.placement} onChange={(e) => setPlacement(e.target.value as Banner['placement'])}>
+            {(['HOME_TOP', 'HOME_MIDDLE', 'HOME_INLINE', 'POPUP', 'SPLASH'] as const).map((p) => (
               <option key={p} value={p}>
                 {m.placementName[p]}
               </option>
@@ -360,6 +397,27 @@ function BannerCard({
           <WhyText items={whyOf(why, 'altText')} />
         </Field>
       </div>
+      {b.placement === 'HOME_INLINE' && (
+        <div className="grid gap-3 md:grid-cols-[10rem_minmax(0,1fr)]">
+          <Field label={m.group}>
+            <select
+              className="select select-sm"
+              disabled={locked}
+              value={b.groupId ?? ''}
+              onChange={(e) => onChange({ ...b, groupId: e.target.value === NEW_GROUP ? `G-${shortId()}` : e.target.value })}
+            >
+              {groups.map((g, k) => (
+                <option key={g} value={g}>
+                  {m.groupName(k + 1)}
+                </option>
+              ))}
+              <option value={NEW_GROUP}>{m.newGroup}</option>
+            </select>
+          </Field>
+          <p className="self-end pb-1 text-xs text-base-content/55">{m.groupHint}</p>
+          <WhyText items={whyOf(why, 'groupId')} />
+        </div>
+      )}
       <div className="grid gap-3 md:grid-cols-[10rem_minmax(0,1fr)]">
         <Field label={m.link}>
           <select className="select select-sm" disabled={locked} value={b.linkType} onChange={(e) => setLink(e.target.value as Banner['linkType'])}>
@@ -600,6 +658,27 @@ function Preview({ body, sticky = true }: { readonly body: Body; readonly sticky
   const middle = banners.filter((b) => b.placement === 'HOME_MIDDLE');
   const strip = (list: readonly Banner[]) =>
     list.map((b) => <BannerImage key={b.bannerId} imageId={b.imageId} alt={b.altText} className="aspect-[3/1] w-full rounded-lg" />);
+  // 넘기는 배너(맨 위·묶음) — 첫 장과 "1/n · n초마다"(배너가 1개면 넘기지 않는다)
+  const interval = body.bannerIntervalSeconds;
+  const carousel = (list: readonly Banner[], key: string, testId?: string) =>
+    list.length > 0 && (
+      <div key={key} className="space-y-0.5" data-testid={testId}>
+        <BannerImage imageId={list[0]!.imageId} alt={list[0]!.altText} className="aspect-[3/1] w-full rounded-lg" />
+        {list.length > 1 && <p className="text-right text-[10px] text-base-content/50">{m.carousel(list.length, interval ?? null)}</p>}
+      </div>
+    );
+  // 홈 순서(0.10.0) — 있으면 그 순서로 묶음·테마, 없으면 테마 순서
+  const order = homeOrderOf(body);
+  type Slot = { readonly group: string } | { readonly theme: Theme };
+  const seq: readonly Slot[] =
+    order.length > 0
+      ? order.flatMap((id): Slot[] => {
+          if (id.startsWith('G-')) return [{ group: id }];
+          const t = themes.find((x) => x.sectionId === id);
+          return t ? [{ theme: t }] : [];
+        })
+      : themes.map((t) => ({ theme: t }));
+  const firstTheme = seq.findIndex((x) => 'theme' in x);
   const themeBlock = (t: Theme) => (
     <div key={t.sectionId} className="space-y-1.5">
       <p className="flex flex-wrap items-center gap-1.5 text-sm font-bold">
@@ -653,10 +732,20 @@ function Preview({ body, sticky = true }: { readonly body: Body; readonly sticky
                 ))}
               </div>
             )}
-            {strip(top)}
-            {themes.slice(0, 1).map(themeBlock)}
-            {strip(middle)}
-            {themes.slice(1).map(themeBlock)}
+            {carousel(top, 'top')}
+            {seq.map((x, k) => (
+              <div key={'group' in x ? x.group : x.theme.sectionId} className="space-y-3">
+                {'group' in x
+                  ? carousel(
+                      banners.filter((b) => b.placement === 'HOME_INLINE' && b.groupId === x.group),
+                      x.group,
+                      'layout-preview-group',
+                    )
+                  : themeBlock(x.theme)}
+                {k === firstTheme && strip(middle)}
+              </div>
+            ))}
+            {firstTheme < 0 && strip(middle)}
           </>
         )}
       </div>
@@ -723,6 +812,11 @@ function Editor({ draft }: { readonly draft: Draft }) {
   const tabs = body.tabs ?? [];
   /** 테마 sectionId → 넣은 탭(순서) */
   const tabOf = new Map(tabs.flatMap((t, ti) => t.sectionIds.map((id) => [id, ti] as const)));
+  const groups = groupsOf(body);
+  // 홈 순서 목록 — 보낼 순서, 비었으면(옮긴 적 없고 묶음 없음) 테마 순서 그대로 보여 준다
+  const sentOrder = homeOrderOf(body);
+  const orderList = sentOrder.length > 0 ? sentOrder : homeThemesOf(body).map((t) => t.sectionId);
+  const moveOrder = (from: number, to: number) => setBody((x) => ({ ...x, homeOrder: move(orderList, from, to) }));
 
   const refresh = () => {
     void qc.invalidateQueries({ queryKey: ['storefront'] });
@@ -754,6 +848,8 @@ function Editor({ draft }: { readonly draft: Draft }) {
   const result = submit.phase.kind === 'done' ? submit.phase.result : null;
   const problems = problemsOf(submit.phase.kind === 'rejected' ? submit.phase.failure : null);
   const locked = !editable || submit.busy || result !== null || save.busy;
+  const orderWhy = problems.at('homeOrder').map((w) => w.text);
+  const intervalWhy = problems.at('bannerIntervalSeconds').map((w) => w.text);
 
   const setBanner = (i: number, b: Banner) => setBody((x) => ({ ...x, banners: (x.banners ?? []).map((y, j) => (j === i ? b : y)) }));
   const setTheme = (i: number, t: Theme) => setBody((x) => ({ ...x, themes: (x.themes ?? []).map((y, j) => (j === i ? t : y)) }));
@@ -832,6 +928,21 @@ function Editor({ draft }: { readonly draft: Draft }) {
                 </button>
               )}
             </div>
+            <div className="flex flex-wrap items-end gap-3">
+              <Field label={m.interval} className="w-36">
+                <input
+                  type="number"
+                  className="input input-sm w-full"
+                  min={2}
+                  max={30}
+                  disabled={locked}
+                  value={body.bannerIntervalSeconds ?? ''}
+                  onChange={(e) => setBody((x) => ({ ...x, bannerIntervalSeconds: e.target.value === '' ? null : Number(e.target.value) }))}
+                />
+              </Field>
+              <p className="pb-1 text-xs text-base-content/55">{m.intervalHint}</p>
+            </div>
+            <WhyText items={intervalWhy} />
             {banners.length === 0 ? (
               <p className="text-sm text-base-content/55">{m.noBanners}</p>
             ) : (
@@ -843,6 +954,7 @@ function Editor({ draft }: { readonly draft: Draft }) {
                     i={i}
                     n={banners.length}
                     themes={themes}
+                    groups={groups}
                     locked={locked}
                     why={problems.at(`banners[${i}]`)}
                     onChange={(x) => setBanner(i, x)}
@@ -921,6 +1033,42 @@ function Editor({ draft }: { readonly draft: Draft }) {
                 ))}
               </ul>
             )}
+          </section>
+
+          <section className={`space-y-3 rounded-box border bg-base-100 p-4 shadow-sm ${orderWhy.length ? 'border-error/50' : 'border-base-300'}`} aria-label={m.homeOrder}>
+            <h2 className="font-bold">
+              {m.homeOrder} <span className="text-sm font-normal text-base-content/50">{orderList.length}</span>
+            </h2>
+            <p className="text-xs text-base-content/55">{m.homeOrderHint}</p>
+            {orderList.length === 0 ? (
+              <p className="text-sm text-base-content/55">{m.homeOrderEmpty}</p>
+            ) : (
+              <ol className="divide-y divide-base-300 rounded-box border border-base-300">
+                {orderList.map((id, k) => {
+                  const g = groups.indexOf(id);
+                  const t = themes.find((x) => x.sectionId === id);
+                  const count = banners.filter((b) => b.placement === 'HOME_INLINE' && b.groupId === id).length;
+                  return (
+                    <li key={id} className="flex items-center gap-2 px-3 py-1.5 text-sm" data-testid="layout-order-item">
+                      <span className="w-5 text-right tabular-nums text-base-content/45">{k + 1}</span>
+                      <span className={`badge badge-sm ${g >= 0 ? 'badge-primary badge-soft' : 'badge-ghost'}`}>{g >= 0 ? m.orderBanner : m.orderTheme}</span>
+                      <span className="min-w-0 flex-1 truncate">{g >= 0 ? `${m.groupName(g + 1)} · ${m.groupCount(count)}` : t?.title || m.untitledTheme}</span>
+                      {!locked && (
+                        <span className="flex shrink-0 items-center gap-0.5">
+                          <button type="button" className="btn btn-ghost btn-xs" aria-label={m.up} disabled={k === 0} onClick={() => moveOrder(k, k - 1)}>
+                            ↑
+                          </button>
+                          <button type="button" className="btn btn-ghost btn-xs" aria-label={m.down} disabled={k === orderList.length - 1} onClick={() => moveOrder(k, k + 1)}>
+                            ↓
+                          </button>
+                        </span>
+                      )}
+                    </li>
+                  );
+                })}
+              </ol>
+            )}
+            <WhyText items={orderWhy} />
           </section>
 
           <section className="rounded-box border border-base-300 bg-base-100 p-4 shadow-sm">

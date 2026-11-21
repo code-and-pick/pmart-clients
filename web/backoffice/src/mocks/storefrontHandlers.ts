@@ -92,6 +92,23 @@ function check(body: Body): { field: string; reason: string }[] {
       if (db.products.get(p)?.saleState !== 'ON_SALE') out.push({ field: p, reason: 'PRODUCT_NOT_PUBLISHED' });
     });
   });
+  // 0.10.0 넘김 간격·배너 묶음·홈 순서
+  const iv = body.bannerIntervalSeconds;
+  if (iv != null && (iv < 2 || iv > 30)) out.push({ field: 'bannerIntervalSeconds', reason: 'INVALID_INTERVAL' });
+  const groups = new Set<string>();
+  (body.banners ?? []).forEach((b, i) => {
+    if ((b.placement === 'HOME_INLINE') !== Boolean(b.groupId)) out.push({ field: `banners[${i}].groupId`, reason: 'INVALID_GROUP' });
+    if (b.placement === 'HOME_INLINE' && b.groupId) groups.add(b.groupId);
+  });
+  const inTabs = new Set((body.tabs ?? []).flatMap((t) => t.sectionIds));
+  const order = body.homeOrder ?? [];
+  const seenO = new Set<string>();
+  order.forEach((id, i) => {
+    if (seenO.has(id)) out.push({ field: `homeOrder[${i}]`, reason: 'DUPLICATE_ID' });
+    else if (!groups.has(id) && (!sections.has(id) || inTabs.has(id))) out.push({ field: `homeOrder[${i}]`, reason: 'UNKNOWN_SECTION' });
+    seenO.add(id);
+  });
+  if ([...groups].some((g) => !seenO.has(g))) out.push({ field: 'homeOrder', reason: 'UNPLACED_GROUP' });
   // 0.9.0 MD 탭
   const seenK = new Set<string>();
   const used = new Set<string>();
@@ -110,7 +127,7 @@ function check(body: Body): { field: string; reason: string }[] {
   return out;
 }
 
-const bodyOf = (b: Body): Body => ({ banners: b.banners ?? [], themes: b.themes ?? [], tabs: b.tabs ?? [], note: b.note ?? null });
+const bodyOf = (b: Body): Body => ({ banners: b.banners ?? [], themes: b.themes ?? [], tabs: b.tabs ?? [], homeOrder: b.homeOrder ?? [], bannerIntervalSeconds: b.bannerIntervalSeconds ?? null, note: b.note ?? null });
 
 /** approval DISPLAY 결정(effects.decide) — 승인이면 새 진열 버전으로 게시, 반려면 REJECTED */
 export function decideLayout(draftId: string, approved: boolean, comment: string | null): void {
