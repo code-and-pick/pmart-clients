@@ -102,8 +102,8 @@ const defaultAssistantPort = (api: Api): AssistantPort =>
  * 접고 펴는 메뉴 묶음 — 진한 메뉴의 작은 회색 묶음 제목, 선택된 메뉴는 민트 왼쪽 막대
  * (사본: web/rider-backoffice/src/app/App.tsx Layout, PR #93 461ff31 — 이 앱에서 따로 고친다).
  * 기본 백오피스는 묶음·메뉴가 많아 접고 펴기는 그대로 둔다.
- * 한 번에 한 묶음만 펼친다(2026-11-18 사용자 "다른 묶음 열면 전 묶음이 안 닫혀 밑으로 줄줄 흐른다"):
- * 묶음 이름을 누르면 그 묶음만 열리고 나머지는 닫힌다. 다른 묶음의 화면으로 옮기면 그 묶음이 열린다. 열린 묶음을 다시 누르면 닫힌다.
+ * 묶음마다 따로 열고 닫는다(2026-11-21 사용자 "내가 클릭해서 연 건 계속 열려있게" — 2026-11-18 의 한 묶음만 펼침을 되돌림):
+ * 묶음 이름을 누르면 그 묶음만 열리거나 닫히고 다른 묶음은 그대로다. 다른 묶음의 화면으로 옮기면 그 묶음도 열린다(연 것은 닫지 않는다).
  */
 function NavGroupMenu({ group, pathname, open, onToggle }: { readonly group: NavGroup; readonly pathname: string; readonly open: boolean; readonly onToggle: () => void }) {
   const active = group.items.some((i) => covers(i, pathname));
@@ -114,7 +114,7 @@ function NavGroupMenu({ group, pathname, open, onToggle }: { readonly group: Nav
     <details open={open} data-testid={`nav-group-${group.id}`} data-current={active || undefined} className="mb-1">
       <summary
         onClick={(e) => {
-          e.preventDefault(); // 브라우저가 따로 열고 닫지 않게 — 열림은 위(한 묶음만)에서 정한다
+          e.preventDefault(); // 브라우저가 따로 열고 닫지 않게 — 열림은 위(Layout 의 열린 묶음 모음)에서 정한다
           onToggle();
         }}
         className="flex cursor-pointer list-none items-center gap-1.5 px-4 py-[5px] text-sm font-bold text-base-content transition-colors hover:text-primary"
@@ -206,14 +206,21 @@ function Layout() {
   const { session, signedIn, restoring } = useSession();
   const { pathname } = useLocation();
   const groups = session ? visibleGroups(session.roles, session.centers) : [];
-  // 한 번에 한 묶음만 펼침 — 지금 화면의 묶음이 바뀌면 그 묶음을 연다(대시보드처럼 묶음 밖이면 그대로)
+  // 묶음마다 따로 펼침 — 지금 화면의 묶음이 바뀌면 그 묶음도 연다(이미 연 묶음은 닫지 않는다, 대시보드처럼 묶음 밖이면 그대로)
   const activeGroup = groups.find((g) => g.items.some((i) => covers(i, pathname)))?.id ?? null;
-  const [openGroup, setOpenGroup] = useState<string | null>(activeGroup);
+  const [openGroups, setOpenGroups] = useState<ReadonlySet<string>>(() => new Set(activeGroup ? [activeGroup] : []));
   const [seenActive, setSeenActive] = useState(activeGroup);
   if (activeGroup !== seenActive) {
     setSeenActive(activeGroup);
-    if (activeGroup) setOpenGroup(activeGroup);
+    if (activeGroup && !openGroups.has(activeGroup)) setOpenGroups(new Set([...openGroups, activeGroup]));
   }
+  const toggleGroup = (id: string) =>
+    setOpenGroups((cur) => {
+      const next = new Set(cur);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
   const current = currentMenu(groups, pathname);
   // 브라우저 탭 제목 — 화면 이름 + 기한 넘긴 접수 건 수(2026-11-19)
   useDocumentTitle(pathname === '/' && session ? m.chrome.home : (current?.sub ?? current?.menu ?? null));
@@ -306,7 +313,7 @@ function Layout() {
                 </NavLink>
               )}
               {groups.map((g) => (
-                <NavGroupMenu key={g.id} group={g} pathname={pathname} open={openGroup === g.id} onToggle={() => setOpenGroup((cur) => (cur === g.id ? null : g.id))} />
+                <NavGroupMenu key={g.id} group={g} pathname={pathname} open={openGroups.has(g.id)} onToggle={() => toggleGroup(g.id)} />
               ))}
               {session && groups.every((g) => g.id === 'assistant') && <p className="px-4 text-xs text-base-content/60">{m.nav.noMenu}</p>}
             </nav>
