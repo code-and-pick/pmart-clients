@@ -72,9 +72,14 @@ export function EmployeeRegisterPage() {
   const aff = toAffiliation(affiliation);
   const roleList = roles.data ?? [];
   // HR-2: 센터 지정 역할은 센터 1개 이상(그 밖 역할은 센터를 보내지 않는다), 한 요청에 역할은 한 번
-  // 기간 순서(2026-11-20): 종료일이 시작일보다 앞이면 보내지 않는다 — 둘 다 넣었을 때만
+  // 기간 순서(2026-11-20): 종료일이 시작일보다 앞이면 보내지 않는다.
+  // 권한 기간은 hr 0.9.1 처럼 비운 날짜를 근무 기간(근무 시작일·계약 종료일)으로 채운 값으로 본다(서버도 그렇게 400) — 2026-11-21 점검
   const badOrder = (from: string, to: string) => from !== '' && to !== '' && to < from;
-  const grantsOk = grants.every((g) => g.role !== '' && (!needsCenter(roleList, g.role) || g.centers.length > 0) && !badOrder(g.validFrom, g.validTo));
+  const workEnd = regular ? '' : endDate;
+  const grantFrom = (g: GrantDraft) => g.validFrom || startDate;
+  const grantTo = (g: GrantDraft) => g.validTo || workEnd;
+  const badGrant = (g: GrantDraft) => badOrder(grantFrom(g), grantTo(g));
+  const grantsOk = grants.every((g) => g.role !== '' && (!needsCenter(roleList, g.role) || g.centers.length > 0) && !badGrant(g));
   // hr 0.5.1: 이름에 쓸 수 없는 문자(대괄호 등) — 미리 알리고 등록을 막는다(판정은 서버 400 field name)
   const badChars = prohibitedInName(name);
   const badWork = !regular && badOrder(startDate, endDate);
@@ -251,11 +256,11 @@ export function EmployeeRegisterPage() {
               </label>
               <label className="flex flex-col gap-1 text-sm">
                 {m.register.grantTo}
-                <input type="date" className="input input-sm" value={g.validTo} aria-invalid={badOrder(g.validFrom, g.validTo)} {...(g.validFrom ? { min: g.validFrom } : {})} onChange={(e) => patchGrant(g.id, { validTo: e.target.value })} />
+                <input type="date" className="input input-sm" value={g.validTo} aria-invalid={badGrant(g)} {...(g.validFrom ? { min: g.validFrom } : {})} onChange={(e) => patchGrant(g.id, { validTo: e.target.value })} />
               </label>
-              {badOrder(g.validFrom, g.validTo) && (
+              {badGrant(g) && (
                 <p role="alert" className="text-xs text-error sm:col-span-2" data-testid="grant-period-order">
-                  {m.register.periodOrder}
+                  {g.validFrom && g.validTo ? m.register.periodOrder : m.register.periodOrderFilled(grantFrom(g), grantTo(g))}
                 </p>
               )}
               <label className="flex flex-col gap-1 text-sm sm:col-span-2">

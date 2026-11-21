@@ -127,6 +127,9 @@ function Actions({ employee, onChanged, self }: { readonly employee: Employee; r
   const [endDate, setEndDate] = useState('');
   const path = { operatorId: employee.operatorId };
   const version = employee.version;
+  // 복귀: 새 계약 종료일이 근무 시작일(넣지 않으면 지금 값 — 계약 "생략하면 그대로")보다 앞이면 서버 400(hr 0.9.1 field endDate) — 보내기 전에 막는다(2026-11-21 점검)
+  const reinstateStart = startDate || employee.startDate;
+  const badReinstate = endDate !== '' && endDate < reinstateStart;
   const close = () => setOpen(null);
   const nextAffiliation = toAffiliation(affiliation);
 
@@ -193,6 +196,7 @@ function Actions({ employee, onChanged, self }: { readonly employee: Employee; r
           title={m.detail.reinstate}
           note={m.detail.reinstateNote}
           doneText={m.detail.reinstated}
+          canSubmit={!badReinstate}
           send={(reason, key) =>
             request(
               'POST',
@@ -212,9 +216,14 @@ function Actions({ employee, onChanged, self }: { readonly employee: Employee; r
             </label>
             <label className="flex flex-col gap-1 text-sm">
               {m.fields.endDate}
-              <input type="date" className="input input-sm" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+              <input type="date" className="input input-sm" value={endDate} aria-invalid={badReinstate} {...(reinstateStart ? { min: reinstateStart } : {})} onChange={(e) => setEndDate(e.target.value)} />
             </label>
           </div>
+          {badReinstate && (
+            <p role="alert" className="text-xs text-error" data-testid="reinstate-period-order">
+              {startDate ? m.register.periodOrder : m.register.periodOrderFilled(reinstateStart, endDate)}
+            </p>
+          )}
         </ReasonAction>
       )}
       {open === 'depart' && (

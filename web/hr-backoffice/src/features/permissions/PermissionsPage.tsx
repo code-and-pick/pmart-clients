@@ -261,6 +261,8 @@ const periodText = (g: EmployeeGrant) => `${formatSeoulDate(g.validFrom)} ~ ${la
 function GrantRequestForm({
   operatorId,
   version,
+  workStart,
+  workEnd,
   roles,
   grants,
   extendFrom,
@@ -271,6 +273,9 @@ function GrantRequestForm({
   readonly onCancelExtend?: () => void;
   readonly operatorId: string;
   readonly version: number;
+  /** 근무 기간 — 비운 권한 날짜를 서버가 이 값으로 채운다(hr 0.9.1) */
+  readonly workStart: string;
+  readonly workEnd: string;
   readonly roles: readonly EmployeeRole[];
   /** 이 직원의 승인된 권한(계정 발급 전이면 빈 목록) — 지금 가진·예정된 권한 표시와 겹침 경고(HR-2 §3) */
   readonly grants: readonly EmployeeGrant[];
@@ -296,8 +301,11 @@ function GrantRequestForm({
   const current = activeGrants(grants, now);
   const overlap = overlappingGrants(grants, draft, scoped, now);
   // HR-2: 센터 지정 역할은 센터 1개 이상, 그 밖 역할은 센터를 보내지 않는다
-  // 종료일이 시작일보다 앞이면 보내지 않는다(2026-11-20 — 2027-03-01 ~ 2026-11-20 이 승인됐다). 둘 다 넣었을 때만 판정(비우면 서버가 근무 기간으로 채운다)
-  const badPeriod = draft.validFrom !== '' && draft.validTo !== '' && draft.validTo < draft.validFrom;
+  // 종료일이 시작일보다 앞이면 보내지 않는다(2026-11-20 — 2027-03-01 ~ 2026-11-20 이 승인됐다).
+  // 비운 날짜는 서버가 근무 기간(근무 시작일·계약 종료일)으로 채운 뒤 본다(hr 0.9.1, 400) — 채운 값으로 판정(2026-11-21 점검)
+  const effFrom = draft.validFrom || workStart;
+  const effTo = draft.validTo || workEnd;
+  const badPeriod = effFrom !== '' && effTo !== '' && effTo < effFrom;
   const ready = draft.role !== '' && reason.trim() !== '' && (!scoped || draft.centers.length > 0) && !badPeriod;
   const rejected = submit.phase.kind === 'rejected' ? submit.phase.failure : null;
   const problems = lineProblems(rejected, 'grants');
@@ -402,7 +410,7 @@ function GrantRequestForm({
       </div>
       {badPeriod && (
         <p role="alert" className="text-xs text-error" data-testid="grant-period-order">
-          {m.register.periodOrder}
+          {draft.validFrom && draft.validTo ? m.register.periodOrder : m.register.periodOrderFilled(effFrom, effTo)}
         </p>
       )}
       {mix.length > 0 && (
@@ -531,6 +539,8 @@ export function PermissionDetailPage() {
                     key={extendFrom?.grantId ?? 'new'}
                     operatorId={operatorId}
                     version={e.version}
+                    workStart={e.startDate}
+                    workEnd={e.endDate ?? ''}
                     roles={roles.data}
                     grants={account.data?.grants ?? []}
                     extendFrom={extendFrom}
