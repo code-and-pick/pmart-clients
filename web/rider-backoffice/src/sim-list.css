@@ -356,3 +356,174 @@ main table tbody tr.pm-inline-row:hover > td {
   letter-spacing: 0.01em;
   white-space: nowrap;
 }
+
+/* ⑤ 상세 — 보기 구역(조용한 판)·처리 구역(왼쪽 파랑 띠 + "처리" 머리)·요약 띠 */
+.pm-vsec,
+.pm-act {
+  scroll-margin-top: 48px;
+  border: 1px solid var(--color-base-300);
+  border-radius: var(--radius-box);
+  background: var(--color-base-100);
+}
+.pm-sec-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  padding: 12px 16px;
+}
+.pm-vsec:not(.pm-vsec-empty) > .pm-sec-head,
+.pm-act > .pm-sec-head {
+  border-bottom: 1px solid var(--color-base-300);
+}
+.pm-sec-icon {
+  display: inline-flex;
+  color: var(--pm-sub);
+}
+.pm-sec-title {
+  font-size: 14px;
+  font-weight: 700;
+}
+.pm-sec-sum {
+  font-size: 13px;
+  color: var(--pm-sub);
+  font-variant-numeric: tabular-nums;
+}
+.pm-sec-sum::before {
+  content: '·';
+  margin-right: 6px;
+}
+.pm-sec-aside {
+  margin-left: auto;
+  font-size: 13px;
+}
+.pm-sec-info {
+  padding: 0 16px 10px;
+}
+.pm-sec-body {
+  padding: 14px 16px 16px;
+}
+.pm-vsec-empty {
+  background: transparent;
+  border-style: dashed;
+}
+.pm-vsec-empty .pm-sec-head {
+  padding: 8px 16px;
+}
+.pm-vsec-empty .pm-sec-title {
+  font-weight: 600;
+  color: var(--pm-sub);
+}
+.pm-act {
+  box-shadow: inset 3px 0 0 var(--color-primary);
+}
+.pm-act > .pm-sec-head {
+  background: var(--pm-soft);
+  border-top-right-radius: var(--radius-box);
+}
+.pm-act-tag {
+  padding: 1px 7px;
+  border-radius: 4px;
+  background: var(--color-primary);
+  color: var(--color-primary-content);
+  font-size: 11px;
+  font-weight: 700;
+}
+.pm-act-col {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+@media (min-width: 1280px) {
+  .pm-detail-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 400px;
+    gap: 16px;
+    align-items: start;
+  }
+  .pm-act-col {
+    position: sticky;
+    top: 56px;
+    max-height: calc(100vh - 72px);
+    overflow-y: auto;
+  }
+}
+@media (max-width: 1279px) {
+  .pm-detail-grid {
+    display: flex;
+    flex-direction: column-reverse;
+    gap: 16px;
+  }
+}
+.pm-view-col {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+.pm-sumbar {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  border: 1px solid var(--color-base-300);
+  border-radius: var(--radius-box);
+  background: var(--color-base-100);
+  overflow: hidden;
+}
+.pm-sumbar-cell {
+  min-width: 0;
+  padding: 10px 14px;
+  border-left: 1px solid var(--color-base-300);
+  margin-left: -1px;
+}
+.pm-sumbar-cell dt {
+  font-size: 12px;
+  color: var(--pm-sub);
+}
+.pm-sumbar-cell dd {
+  margin-top: 2px;
+  font-size: 15px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ⑥ 처리 카드(수행료 조정 등) — 걸린 금액 크게, 입력은 순서대로(1 → 2 → 3), 결과 미리보기 */
+.pm-money {
+  font-size: 22px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.pm-steps {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px 14px;
+}
+.pm-step {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+}
+.pm-step-n {
+  display: inline-flex;
+  width: 18px;
+  height: 18px;
+  align-items: center;
+  justify-content: center;
+  margin-right: 4px;
+  border-radius: 9999px;
+  border: 1px solid var(--color-base-300);
+  color: var(--pm-sub);
+  font-size: 11px;
+  font-weight: 700;
+}
+.pm-preview {
+  font-size: 13px;
+  color: var(--pm-sub);
+}
+.pm-preview[data-tone='warning'] {
+  color: var(--color-warning);
+}
+.pm-preview[data-tone='info'] {
+  color: var(--color-info);
+}

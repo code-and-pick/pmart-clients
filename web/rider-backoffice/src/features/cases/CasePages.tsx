@@ -381,7 +381,7 @@ function CaseDetailPage() {
               <SystemIds ids={[['접수 건', caseId], ...(x.refs ?? []).filter((r) => r.refId).map((r) => [name(n.refType, r.refType), r.refId] as const)]} />
             </Section>
             {x.state !== 'CLOSED' && (
-              <Section id="sec-close" title={closeText.title}>
+              <Section id="sec-close" action title={closeText.title}>
                 <CaseClose caseId={caseId} version={(x as { version?: number }).version} onClosed={() => setClosedNow(true)} />
               </Section>
             )}

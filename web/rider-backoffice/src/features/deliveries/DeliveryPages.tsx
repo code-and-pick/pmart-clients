@@ -464,6 +464,9 @@ function DeliveryDetailPage() {
         />
       )}
       <SectionTabs items={tabs} />
+      {/* 2026-11-21: 왼쪽 보기 구역, 오른쪽 처리 구역(운영 조치) 한곳 — 좁으면 처리가 위로 */}
+      <div className="pm-detail-grid">
+      <div className="pm-view-col">
       <div className="grid gap-4 lg:grid-cols-2">
         <Section id="sec-execution" title={m.execution}>
           <QueryState state={toUiState(execution)} onRetry={() => void execution.refetch()}>
@@ -568,9 +571,13 @@ function DeliveryDetailPage() {
           ))}
         </Section>
       </div>
-      <Section id="sec-actions" title="운영 조치" aside={<span className="text-xs text-base-content/50">지금 상태에서 계약이 허락하는 조치만 보여요</span>}>
-        {d ? <DeliveryActions delivery={d} dispatch={dispatch.data} /> : null}
-      </Section>
+      </div>
+      <aside className="pm-act-col" aria-label="처리">
+        <Section id="sec-actions" action title="배송 조치하기" info="지금 상태에서 계약이 허락하는 조치만 보여요">
+          {d ? <DeliveryActions delivery={d} dispatch={dispatch.data} /> : null}
+        </Section>
+      </aside>
+      </div>
     </section>
   );
 }

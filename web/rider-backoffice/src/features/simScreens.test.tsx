@@ -91,3 +91,42 @@ describe('머리 줄 역할', () => {
     expect(await screen.findByTestId('header-roles')).toHaveTextContent('RIDER_OPS');
   });
 });
+
+describe('상세 — 보기 구역·처리 구역(2026-11-21)', () => {
+  it('라이더 상세: 맨 위 요약 띠, 처리 구역(계정 제한 바꾸기·제한 검토 결정하기·원문 보기)은 한곳에', async () => {
+    renderAt('/riders/RD-7', as.riderOps);
+    const sum = await screen.findByTestId('rider-summary');
+    expect(sum).toHaveTextContent('운행');
+    expect(sum).toHaveTextContent('진행 중 배정');
+    await waitFor(() => expect(sum).toHaveTextContent('이번 주 운행1시간 30분'));
+    const acts = screen.getByRole('complementary', { name: '처리' });
+    for (const h of ['계정 제한 바꾸기', '제한 검토 결정하기', '이름·전화 원문 보기']) expect(within(acts).getByRole('heading', { name: h })).toBeInTheDocument();
+    expect(within(acts).getByRole('form', { name: '계정 제한 걸기·풀기' })).toBeInTheDocument();
+    // 보기 구역 머리에 한 줄 요약, 개발 말(delivery-dispatch)은 ⓘ 안
+    const asg = screen.getByRole('heading', { name: '배정 이력' }).closest('section')!;
+    expect(asg).not.toHaveTextContent('delivery-dispatch');
+    await waitFor(() => expect(asg).toHaveTextContent(/3건 · 진행 중 1/));
+    await userEvent.click(within(asg).getByRole('button', { name: '화면 설명 보기' }));
+    expect(asg).toHaveTextContent('delivery-dispatch');
+  });
+
+  it('비어 있는 처리·보기 구역은 한 줄(열린 검토 없음)', async () => {
+    renderAt('/riders/RD-7', as.riderOps);
+    const reviews = (await screen.findByRole('heading', { name: '제한 검토 결정하기' })).closest('section')!;
+    expect(await within(reviews).findByText('열린 검토가 없어요.')).toBeInTheDocument();
+    expect(within(reviews).queryByTestId('rider-reviews')).not.toBeInTheDocument();
+  });
+
+  it('수행료 조정: 걸린 금액을 크게, 고른 귀책에 따라 결과 미리보기(표시만)', async () => {
+    renderAt('/adjustments', as.riderOps);
+    const row = await screen.findByTestId('adjustment-row');
+    expect(within(row).getByTestId('adjust-fee')).toBeInTheDocument();
+    const preview = within(row).getByTestId('adjust-preview');
+    expect(preview).toHaveTextContent('귀책을 고르면');
+    await userEvent.selectOptions(within(row).getByLabelText('귀책'), 'RIDER');
+    expect(preview).toHaveTextContent('라이더 귀책 → 미지급');
+    await userEvent.selectOptions(within(row).getByLabelText('귀책'), 'STORE');
+    expect(preview).toHaveTextContent('매장 귀책 → ');
+    expect(preview).toHaveTextContent('바로 확정');
+  });
+});

@@ -258,3 +258,106 @@ export function InlineDetail({ colSpan, to, linkLabel = t.full, children, testId
     </tr>
   );
 }
+
+/*
+ * 상세 화면 — 보는 구역과 처리하는 구역을 한눈에(2026-11-21 사용자 "각각 뭐를 보여주고 처리하는 박스인지가 직관적으로 안 보인다").
+ * 보기 구역(ViewSection) = 조용한 판, 머리 = 아이콘 + 제목 + 한 줄 요약 값. 비었으면 한 줄로 접는다.
+ * 처리 구역(ActionSection) = 왼쪽 파랑 띠 + "처리" 머리 + 동사 제목("계정 제한 바꾸기"). 구역 설명·개발 말은 ⓘ 로.
+ */
+function InfoButton({ open, onToggle }: { readonly open: boolean; readonly onToggle: () => void }) {
+  return (
+    <button type="button" className="pm-info-btn" aria-expanded={open} aria-label={t.infoLabel(open)} title={t.infoLabel(open)} onClick={onToggle}>
+      {t.info}
+    </button>
+  );
+}
+
+export function ViewSection({ id, icon, title, summary, info, empty = false, aside, children, testId }: {
+  readonly id?: string;
+  readonly icon?: ReactNode;
+  readonly title: ReactNode;
+  /** 머리 옆 한 줄 요약 값(서버 값만) — 예: "3건 · 진행 중 1" */
+  readonly summary?: ReactNode;
+  /** 구역 설명(ⓘ 로 접힘) */
+  readonly info?: ReactNode;
+  /** true 면 몸통 없이 한 줄(요약에 "없음"류 문장) */
+  readonly empty?: boolean;
+  readonly aside?: ReactNode;
+  readonly children?: ReactNode;
+  readonly testId?: string;
+}) {
+  const [showInfo, setShowInfo] = useState(false);
+  return (
+    <section id={id} className={`pm-vsec ${empty ? 'pm-vsec-empty' : ''}`} data-testid={testId}>
+      <div className="pm-sec-head">
+        {icon && <span className="pm-sec-icon">{icon}</span>}
+        <h2 className="pm-sec-title">{title}</h2>
+        {summary !== undefined && summary !== null && summary !== '' && <span className="pm-sec-sum">{summary}</span>}
+        {info && <InfoButton open={showInfo} onToggle={() => setShowInfo((o) => !o)} />}
+        {aside && <div className="pm-sec-aside">{aside}</div>}
+      </div>
+      {info && showInfo && <p className="pm-info-text pm-sec-info">{info}</p>}
+      {!empty && children !== undefined && <div className="pm-sec-body">{children}</div>}
+    </section>
+  );
+}
+
+export function ActionSection({ id, title, summary, info, aside, children, testId }: {
+  readonly aside?: ReactNode;
+  readonly id?: string;
+  /** 동사로 — "계정 제한 바꾸기" */
+  readonly title: ReactNode;
+  readonly summary?: ReactNode;
+  readonly info?: ReactNode;
+  readonly children?: ReactNode;
+  readonly testId?: string;
+}) {
+  const [showInfo, setShowInfo] = useState(false);
+  return (
+    <section id={id} className="pm-act" data-testid={testId}>
+      <div className="pm-sec-head">
+        <span className="pm-act-tag">처리</span>
+        <h2 className="pm-sec-title">{title}</h2>
+        {summary !== undefined && summary !== null && summary !== '' && <span className="pm-sec-sum">{summary}</span>}
+        {info && <InfoButton open={showInfo} onToggle={() => setShowInfo((o) => !o)} />}
+        {aside && <div className="pm-sec-aside">{aside}</div>}
+      </div>
+      {info && showInfo && <p className="pm-info-text pm-sec-info">{info}</p>}
+      {children !== undefined && <div className="pm-sec-body">{children}</div>}
+    </section>
+  );
+}
+
+/** 맨 위 요약 띠(시뮬레이터 라이더 카드처럼) — [이름, 값] 칸들. 값은 이미 읽은 서버 값만 */
+export function SummaryBar({ items, label, testId }: { readonly items: ReadonlyArray<readonly [string, ReactNode] | false | null | undefined>; readonly label: string; readonly testId?: string }) {
+  return (
+    <dl className="pm-sumbar" aria-label={label} data-testid={testId}>
+      {items.map((it) =>
+        it ? (
+          <div key={it[0]} className="pm-sumbar-cell">
+            <dt>{it[0]}</dt>
+            <dd>{it[1]}</dd>
+          </div>
+        ) : null,
+      )}
+    </dl>
+  );
+}
+
+/**
+ * 구역 상자(공용 Section 과 같은 속성으로 덮음) — 모든 상세가 보기/처리 모양을 따르게.
+ * action = 처리 구역(왼쪽 띠 + "처리"), info = 구역 설명(ⓘ), summary = 머리 옆 한 줄 요약 값.
+ */
+export function Section({ id, title, aside, children, testId, action = false, info, summary }: {
+  readonly id?: string;
+  readonly title: ReactNode;
+  readonly aside?: ReactNode;
+  readonly children: ReactNode;
+  readonly testId?: string;
+  readonly action?: boolean;
+  readonly info?: ReactNode;
+  readonly summary?: ReactNode;
+}) {
+  const common = { title, info, summary, aside, children, ...(id ? { id } : {}), ...(testId ? { testId } : {}) };
+  return action ? <ActionSection {...common} /> : <ViewSection {...common} />;
+}

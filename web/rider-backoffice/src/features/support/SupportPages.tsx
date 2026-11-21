@@ -245,7 +245,7 @@ function HelpChatPage() {
           </div>
         </Section>
         {/* 상담하면서 바로 배송 조치(상태 정정·전달 실패 확정·반려·배차 취소) — 배송 찾기로 가지 않아도 된다(사용자 2026-11-19) */}
-        <Section id="sec-actions" title={sm.help.actions} aside={<span className="text-xs text-base-content/50">{sm.help.actionsHint}</span>}>
+        <Section id="sec-actions" action title={`${sm.help.actions}하기`} info={sm.help.actionsHint}>
           <HelpDeliveryActions deliveryId={deliveryId} />
         </Section>
         </div>
@@ -409,7 +409,7 @@ function InquiryDetailPage() {
             </div>
           </Section>
           {!closed && (
-            <Section id="sec-close" title={q.close}>
+            <Section id="sec-close" action title={`${q.close}하기`}>
               <form
                 className="flex flex-wrap items-end gap-2 text-sm"
                 aria-label={q.close}
