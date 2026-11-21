@@ -96,7 +96,7 @@ void main() {
     await t.tap(find.byKey(const ValueKey('new-dispatch')));
     await settle(t);
     expect(c.read(locationReporterProvider), isFalse, reason: '쉬는 중 — 공유하지 않음');
-    expect(find.textContaining('위치를 공유하지 않아요'), findsOneWidget);
+    expect(find.textContaining('신규배차를 켜면 배달을 시작할 수 있어요'), findsOneWidget);
     await t.tap(find.byKey(const ValueKey('new-dispatch')));
     await settle(t);
     expect(c.read(locationReporterProvider), isTrue, reason: '신규배차를 켜면 바로 다시');
