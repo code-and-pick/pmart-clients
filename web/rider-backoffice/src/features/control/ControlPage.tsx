@@ -3,7 +3,7 @@
 // 거르기(전체·배송 중·위치 끊김)는 주소 쿼리 filter.
 // 2026-11-18: 관리자 화면 모양 — 머리말, 조건 상자(센터 + 보기 칩), 요약 카드(누르면 그 거르기), 지도 구역, 표(위치 상태 꼬리표).
 import { useQuery } from '@tanstack/react-query';
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { Link, useSearchParams } from 'react-router';
 
 import { request } from '@pmart/web-core';
@@ -110,6 +110,7 @@ export function ControlPage() {
   // 고른 라이더(오른쪽 "라이더 한눈에") — URL ?rider= (주문번호로 찾았으면 ?delivery= 도) 로 둬서 새로 고침·공유해도 그대로
   const selectedId = params.get('rider') ?? '';
   const focusDeliveryId = params.get('delivery') ?? '';
+  const boardRef = useRef<HTMLDivElement>(null);
   const select = useCallback(
     (riderId: string) =>
       setParams((prev) => {
@@ -172,7 +173,7 @@ export function ControlPage() {
                 <ControlBoards all={all} filter={filter} filterLink={filterLink} asOf={b.asOf} staleOrNone={staleOrNone} delivering={delivering} />
 
                 {/* 작업 화면(배민 주문접수처럼): 왼쪽 라이더 목록 · 가운데 지도 · 오른쪽 고른 라이더 상세 — 한 화면에서 스크롤 없이 */}
-                <div className="grid gap-4 xl:h-[calc(100vh-17rem)] xl:min-h-[560px] xl:grid-cols-[20rem_minmax(0,1fr)_24rem]">
+                <div ref={boardRef} className="scroll-mt-4 grid gap-4 xl:h-[calc(100vh-17rem)] xl:min-h-[560px] xl:grid-cols-[20rem_minmax(0,1fr)_24rem]">
                   <div className="flex min-h-0 flex-col overflow-hidden rounded-box border border-base-300 bg-base-100">
                     <div className="space-y-2 border-b border-base-300 px-4 py-3">
                       <div className="flex items-center justify-between">
@@ -253,7 +254,15 @@ export function ControlPage() {
                 </div>
 
                 {/* 최근 배송(끝난 것까지) — 짧은 배송도 놓치지 않게. 줄을 누르면 위 상세로 */}
-                <RecentDeliveries mfcId={mfcId} selectedDeliveryId={focusDeliveryId} onPick={(hit) => found({ ...hit, mfcId })} />
+                <RecentDeliveries
+                  mfcId={mfcId}
+                  selectedDeliveryId={focusDeliveryId}
+                  onPick={(hit) => {
+                    found({ ...hit, mfcId });
+                    // 아래 목록에서 고르면 위(목록·지도·상세 칸)로 올려 바로 보이게(2026-11-21 사용자)
+                    requestAnimationFrame(() => boardRef.current?.scrollIntoView?.({ behavior: window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' }));
+                  }}
+                />
               </div>
             );
           }}

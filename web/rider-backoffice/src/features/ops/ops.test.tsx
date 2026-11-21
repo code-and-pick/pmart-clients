@@ -67,6 +67,18 @@ describe('조치 이력', () => {
     expect(await within(screen.getAllByTestId('staff-action-row')[1]!).findByText('730115')).toBeInTheDocument();
   });
 
+  it('줄 어디를 눌러도 바로 아래에 그 조치가 펼쳐진다(배송번호를 누르지 않아도 — 사용자 2026-11-21)', async () => {
+    renderAt('/staff-actions', as.admin);
+    const rows = await screen.findAllByTestId('staff-action-row');
+    expect(screen.queryByTestId('staff-action-inline')).not.toBeInTheDocument();
+    await userEvent.click(within(rows[1]!).getByText('계정 제한'));
+    const open = await screen.findByTestId('staff-action-inline');
+    expect(open).toHaveTextContent('결과·값');
+    expect(within(open).getByRole('link', { name: '라이더 상세 ›' })).toHaveAttribute('href', expect.stringMatching(/^\/riders\//));
+    await userEvent.click(within(rows[1]!).getByText('계정 제한'));
+    expect(screen.queryByTestId('staff-action-inline')).not.toBeInTheDocument();
+  });
+
   it('관리자가 아니면 메뉴에 없고 주소로 열어도 안내만', async () => {
     renderAt('/staff-actions', as.riderOps);
     expect(await screen.findByTestId('admin-only')).toBeInTheDocument();

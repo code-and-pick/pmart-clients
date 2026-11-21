@@ -7,12 +7,13 @@
 // 표시(ADR-0070): 라이더 = RiderName, 배송 = DeliveryNo. 직원은 "이름 · 사번"이 정본이지만 HR 이름 조회가 아직 없어 actorId 그대로(PC 1 에 요청).
 import { humanizeCodes } from '../../shared/codeText';
 import { useInfiniteQuery } from '@tanstack/react-query';
-import { useState, type FormEvent } from 'react';
+import { Fragment, useState, type FormEvent } from 'react';
 import { Link, useSearchParams } from 'react-router';
 
 import { request } from '@pmart/web-core';
 import { useApi } from '../../app/ApiContext';
-import { DataTable, Notice, PageHeader, ResultBar, SearchPanel, SearchRow } from '../../shared/admin';
+import { DataTable, FieldList, Notice, PageHeader, ResultBar, SearchPanel, SearchRow } from '../../shared/admin';
+import { Caret, expandRowProps, InlineDetail, useInlineOpen } from '../../shared/simList';
 import { DeliveryNo, resolveDeliveryId, resolveRiderId, RiderName, StaffName, useRiderSummaries } from '../../shared/displayNumbers';
 import { useSession } from '../../app/SessionContext';
 import { when } from '../../shared/opsUi';
@@ -39,6 +40,8 @@ export const actionText = {
   retry: '다시 시도',
   col: { at: '시각', action: '조치', actor: '직원', rider: '라이더', delivery: '배송', detail: '결과·사유' },
   source: { rider: '라이더 계정', execution: '배송 수행', dispatch: '배차' },
+  // 줄 펼침(2026-11-21 사용자 "배송번호를 눌러야만 상세를 볼 수 있다") — 줄 어디를 눌러도 아래에 그 조치 전부
+  inline: { result: '결과·값', reason: '사유', code: '원래 값', riderLink: '라이더 상세 ›', deliveryLink: '배송 상세 ›', none: '—' },
   actionName: {
     RESTRICTION_SET: '계정 제한',
     RESTRICTION_LIFTED: '제한 풀기',
@@ -171,6 +174,7 @@ export function StaffActionsMenu() {
   const riders = useRiderSummaries(shown.map((r) => r.riderId));
   const me = useSession().session?.subject;
   const failed = SOURCES.filter((s) => sources[s].isError);
+  const inline = useInlineOpen();
   const loading = SOURCES.some((s) => sources[s].isPending && !sources[s].isError) && !problem;
   const canMore = SOURCES.some((s) => sources[s].hasNextPage);
   const moreBusy = SOURCES.some((s) => sources[s].isFetchingNextPage);
@@ -256,9 +260,17 @@ export function StaffActionsMenu() {
               <tbody>
                 {shown.map((r, i) => {
                   const s = r.riderId ? riders.get(r.riderId) : undefined;
+                  const k = `${r.at}-${r.action}-${r.deliveryId ?? r.riderId ?? ''}-${i}`;
+                  const isOpen = inline.isOpen(k);
+                  const riderPath = r.riderId ? `/riders/${encodeURIComponent(r.riderId)}` : undefined;
+                  const deliveryPath = r.deliveryId ? `/deliveries/${encodeURIComponent(r.deliveryId)}` : undefined;
                   return (
-                    <tr key={`${r.at}-${r.action}-${r.deliveryId ?? r.riderId ?? ''}-${i}`} data-testid="staff-action-row">
-                      <td className="whitespace-nowrap">{when(r.at)}</td>
+                    <Fragment key={k}>
+                    <tr data-testid="staff-action-row" {...expandRowProps(isOpen, () => inline.toggle(k))}>
+                      <td className="whitespace-nowrap">
+                        <Caret open={isOpen} />
+                        {when(r.at)}
+                      </td>
                       <td className="whitespace-nowrap font-medium">{t.actionName[r.action] ?? r.action}</td>
                       <td><StaffName operatorId={r.actorId} me={me} /></td>
                       <td>
@@ -285,6 +297,47 @@ export function StaffActionsMenu() {
                         {!r.detail && !r.reason && '—'}
                       </td>
                     </tr>
+                    {isOpen && (
+                      <InlineDetail colSpan={6} testId="staff-action-inline">
+                        <FieldList
+                          rows={[
+                            [t.col.at, when(r.at)],
+                            [t.col.action, t.actionName[r.action] ?? r.action],
+                            [t.col.actor, <StaffName operatorId={r.actorId} me={me} />],
+                            [
+                              t.col.rider,
+                              r.riderId && riderPath ? (
+                                <span className="flex flex-wrap items-center gap-2">
+                                  <RiderName riderId={r.riderId} nameMasked={s?.nameMasked} riderNumber={s?.riderNumber} />
+                                  <Link className="text-primary hover:underline" to={riderPath}>
+                                    {t.inline.riderLink}
+                                  </Link>
+                                </span>
+                              ) : (
+                                t.inline.none
+                              ),
+                            ],
+                            [
+                              t.col.delivery,
+                              r.deliveryId && deliveryPath ? (
+                                <span className="flex flex-wrap items-center gap-2">
+                                  <DeliveryNo deliveryId={r.deliveryId} />
+                                  <Link className="text-primary hover:underline" to={deliveryPath}>
+                                    {t.inline.deliveryLink}
+                                  </Link>
+                                </span>
+                              ) : (
+                                t.inline.none
+                              ),
+                            ],
+                            [t.inline.result, r.detail ? humanizeCodes(r.detail) : t.inline.none],
+                            r.detail && humanizeCodes(r.detail) !== r.detail ? [t.inline.code, <span className="break-all text-base-content/60">{r.detail}</span>] : null,
+                            [t.inline.reason, r.reason ? <span className="whitespace-pre-wrap">{r.reason}</span> : t.inline.none],
+                          ]}
+                        />
+                      </InlineDetail>
+                    )}
+                    </Fragment>
                   );
                 })}
               </tbody>
