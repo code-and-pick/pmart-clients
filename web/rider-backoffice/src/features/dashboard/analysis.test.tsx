@@ -69,15 +69,13 @@ describe('대시보드 분석 셈', () => {
     expect(Math.round((m.rate ?? 0) * 100)).toBe(67);
     expect(dur(m.avgTotalSec)).toBe('25분'); // (20 + 30) / 2
     expect(m.problems).toBe(1);
-    // 1 은 다섯 구간으로 나뉘고, 2 는 도착 시각이 없어 합친 구간(MFC 이동·대기 / 고객에게·고객 앞)으로
+    // 1 은 도착 시각이 있어 다섯 구간 — 도착 시각을 잰 배송이 있으면 합친 구간(2 의 MFC 이동·대기 등)은 막대에 따로 두지 않는다(많아야 다섯 칸)
     expect(m.phases?.segments.map((s) => [s.key, s.n])).toEqual([
       ['find', 2],
       ['toStore', 1],
       ['atStore', 1],
-      ['store', 1],
       ['toCustomer', 1],
       ['atCustomer', 1],
-      ['customer', 1],
     ]);
   });
 
@@ -114,11 +112,11 @@ describe('대시보드 분석 셈', () => {
     expect(leg['find']).toMatchObject({ sec: 225, n: 4 }); // (2+4+6+3)/4 분
     expect(leg['toStore']).toMatchObject({ sec: 420, n: 2 }); // (8+6)/2
     expect(leg['atStore']).toMatchObject({ sec: 300, n: 2 }); // (4+6)/2
-    expect(leg['store']).toMatchObject({ sec: 660, n: 2 }); // (12+10)/2
+    expect(leg['store']).toBeUndefined(); // 나눈 구간이 있으면 합친 구간(B·F)은 막대에 없다
     expect(leg['toCustomer']?.n).toBe(3);
     expect(leg['toCustomer']?.sec).toBeCloseTo(700); // (16+12+7)/3 분
     expect(leg['atCustomer']?.sec).toBeCloseTo(200); // (3+2+5)/3 분
-    expect(leg['customer']).toMatchObject({ sec: 1320, n: 1 });
+    expect(leg['customer']).toBeUndefined();
     expect(p?.totalSec).toBe(32 * 60); // (33+30+40+25)/4
     expect((p?.segments ?? []).reduce((a, s) => a + s.share, 0)).toBeCloseTo(1);
     // 한 건 평균도 고객 확인·자동 완료(90분)를 뺀다 · 라이더 찾기 평균은 완료 방법과 무관(6건, 첫 배정 우선)
@@ -343,7 +341,7 @@ describe('대시보드 분석 — 지연(정시 배송률)·펼친 흐름의 주
     expect(within(journey).getByTestId('an-leg-find')).toHaveTextContent('2건');
     expect(within(journey).getByTestId('an-leg-toStore')).toHaveTextContent('MFC 이동');
     expect(within(journey).getByTestId('an-leg-toStore')).toHaveTextContent('1건');
-    expect(within(journey).getByTestId('an-leg-store')).toHaveTextContent('MFC 이동·대기');
+    expect(within(journey).queryByTestId('an-leg-store')).not.toBeInTheDocument(); // 많아야 다섯 칸
     expect(within(journey).getByTestId('an-leg-atCustomer')).toHaveTextContent('고객 앞');
   });
 

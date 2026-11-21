@@ -957,7 +957,7 @@
   stop-color: var(--an-done);
 }
 /* 막대는 흰 광택이 아니라 제 색이 한쪽으로 옅어지는 그라데이션(2026-11-21 사용자 "볼록한 음영 말고") — 색과 상관없이 쓰려고 투명도 마스크로 */
-.an-stack {
+.an-stack > i {
   -webkit-mask-image: linear-gradient(to top, rgb(0 0 0 / 0.4), #000 85%);
   mask-image: linear-gradient(to top, rgb(0 0 0 / 0.4), #000 85%);
 }

@@ -220,10 +220,16 @@ export function phasesOf(rows: readonly Summary[]): Phases | null {
     } else add('customer', (e - p) / 1000);
   }
   if (!n) return null;
-  const segments = LEG_ORDER.flatMap((key) => {
+  // 막대는 많아야 다섯 구간(2026-11-21 — 나눈 구간과 합친 구간을 같이 늘어놓으면 7칸이 돼 읽히지 않았다).
+  // 가게·고객 도착을 잰 배송이 한 건이라도 있으면 그 쪽은 나눈 두 구간(잰 배송만의 평균, 건수 표시)만, 없으면 합친 한 구간.
+  const has = (k: LegKey) => sums.has(k);
+  const keys: LegKey[] = ['find', ...(has('toStore') ? (['toStore', 'atStore'] as const) : (['store'] as const)), ...(has('toCustomer') ? (['toCustomer', 'atCustomer'] as const) : (['customer'] as const))];
+  const avgs = keys.flatMap((key) => {
     const x = sums.get(key);
-    return x ? [{ key, sec: x.s / x.n, n: x.n, share: total > 0 ? x.s / total : 0 }] : [];
+    return x ? [{ key, sec: x.s / x.n, n: x.n }] : [];
   });
+  const sumSec = avgs.reduce((a, x) => a + x.sec, 0);
+  const segments = avgs.map((x) => ({ ...x, share: sumSec > 0 ? x.sec / sumSec : 0 }));
   return { n, excluded, segments, totalSec: total / n };
 }
 
