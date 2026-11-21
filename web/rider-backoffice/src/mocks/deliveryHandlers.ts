@@ -76,9 +76,9 @@ export const mockDeliveries: Execution[] = [
   },
 ];
 
-const created = (d: Execution) => d.assignedAt ?? '2026-11-17T00:00:00.000Z';
+export const created = (d: Execution) => d.assignedAt ?? '2026-11-17T00:00:00.000Z';
 
-const summary = (d: Execution): ExecC['schemas']['StaffDeliverySummary'] => ({
+export const summary = (d: Execution): ExecC['schemas']['StaffDeliverySummary'] => ({
   deliveryId: d.deliveryId ?? '',
   orderId: d.orderId ?? null,
   orderNumber: d.riderId ? (d.orderNumber ?? d.orderSummary?.orderNumber ?? null) : null,

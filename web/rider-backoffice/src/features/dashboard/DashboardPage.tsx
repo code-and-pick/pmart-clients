@@ -13,6 +13,7 @@ import { LIVE } from '../../shared/liveRefresh';
 import { messages } from '../../shared/messages';
 import { ops } from '../../shared/opsMessages';
 import { CenterPicker, label, when } from '../../shared/opsUi';
+import { AnalysisSection } from './AnalysisSection';
 
 const d = ops.dashboard;
 const n = messages.names;
@@ -178,6 +179,9 @@ export function DashboardPage() {
           </QueryState>
         </Section>
       </div>
+
+      {/* 분석(2026-11-21 사용자 "라이더 시뮬레이션 분석 탭 같으면") — 위 내용은 그대로 두고 아래에 더한다 */}
+      <AnalysisSection mfcId={mfcId} />
     </section>
   );
 }
