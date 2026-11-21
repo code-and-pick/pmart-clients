@@ -1,7 +1,9 @@
 // 홈 진열 편성 — 일반 배너·상품 테마(storefront 0.7.0 layouts, ADR-0075 ② BO-05 — PC 1 요청서 2026-11-20 request-home-banners-themes).
 // 초안(DRAFT) → 저장(PUT, X-Expected-Version) → 제출(검사·잠금, approvalRequest) → approval DISPLAY → 승인되면 PUBLISHED(새 홈 버전), 반려면 REJECTED(고쳐서 다시).
 // 콘텐츠 게시와 같은 모양. 한 번 누르면 저장 → 제출 → 승인 요청까지(승인 요청만 실패하면 그 단계만 다시 올리는 상자).
-// 고객 홈은 승인 뒤에만 바뀐다 — 미리보기는 초안 본문으로 그린다. 배너·테마 ID 는 화면이 만들고 보이지 않는다(ADR-0070), 할인·쿠폰 문구는 서버가 막는다(1차 범위).
+// 고객 홈은 승인 뒤에만 바뀐다 — 미리보기는 초안 본문으로 그린다. 배너·테마·탭 ID 는 화면이 만들고 보이지 않는다(ADR-0070).
+// storefront 0.9.0(2026-11-21 PC 1 요청서 request-home-promotion-extras): 배너 자리 팝업·로딩 화면, 테마 남은 시간 표시(showTimer — endsAt 필수),
+// 자동 랭킹 테마(RANKING_AUTO — 상품 대신 autoSize 1~30), MD 탭(tabs — 넣은 테마는 홈에서 빠짐). 할인·특가·쿠폰 문구는 이제 허용, 근거 없는 "최저가"·"신선 보장"만 서버가 막는다.
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState, type ReactNode } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
@@ -28,6 +30,7 @@ type Draft = components['schemas']['LayoutDraft'];
 type Body = components['schemas']['LayoutDraftBody'];
 type Banner = components['schemas']['LayoutBanner'];
 type Theme = components['schemas']['LayoutTheme'];
+type Tab = components['schemas']['LayoutTab'];
 type State = Draft['state'];
 
 const STATES = ['DRAFT', 'SUBMITTED', 'PUBLISHED', 'REJECTED'] as const;
@@ -140,11 +143,12 @@ export function HomeLayoutListPage() {
 
 // ───────── 편성 화면 ─────────
 
-const bodyOf = (d: Draft): Body => ({ banners: d.banners ?? [], themes: d.themes ?? [], note: d.note ?? null });
+const bodyOf = (d: Draft): Body => ({ banners: d.banners ?? [], themes: d.themes ?? [], tabs: d.tabs ?? [], note: d.note ?? null });
 const withOrder = (b: Body): Body => ({
   ...b,
   banners: (b.banners ?? []).map((x, i) => ({ ...x, sortOrder: i })),
   themes: (b.themes ?? []).map((x, i) => ({ ...x, sortOrder: i })),
+  tabs: (b.tabs ?? []).map((x, i) => ({ ...x, sortOrder: i })),
 });
 
 /** datetime-local(서울 시각) ↔ ISO */
@@ -167,7 +171,8 @@ const whyOf = (why: readonly Why[], ...fields: string[]) => why.filter((w) => fi
 /** 칸에 붙이지 못한 까닭(같은 ID 두 번 등) — 카드 맨 아래 */
 const whyRest = (why: readonly Why[], known: readonly string[]) => why.filter((w) => !known.includes(w.field)).map((w) => w.text);
 const BANNER_FIELDS = ['imageId', 'altText', 'linkRef', 'startsAt', 'endsAt', 'placement'];
-const THEME_FIELDS = ['title', 'subtitle', 'startsAt', 'endsAt', 'productIds'];
+const THEME_FIELDS = ['title', 'subtitle', 'startsAt', 'endsAt', 'productIds', 'autoSize', 'showTimer', 'kind'];
+const TAB_FIELDS = ['title', 'sectionIds', 'startsAt', 'endsAt', 'showTimer'];
 
 interface Problems {
   readonly at: (prefix: string) => readonly Why[];
@@ -277,6 +282,19 @@ function Period({ startsAt, endsAt, onChange, disabled }: { readonly startsAt: s
   );
 }
 
+/** 남은 시간 표시(0.9.0 showTimer) — 켜면 끝 시각 필수(서버 TIMER_NEEDS_END) */
+function TimerToggle({ checked, disabled, onChange }: { readonly checked: boolean; readonly disabled: boolean; readonly onChange: (on: boolean) => void }) {
+  return (
+    <label className="flex items-start gap-2 text-sm">
+      <input type="checkbox" className="checkbox checkbox-sm" checked={checked} disabled={disabled} onChange={(e) => onChange(e.target.checked)} />
+      <span>
+        {m.showTimer}
+        <span className="block text-xs text-base-content/55">{m.showTimerHint}</span>
+      </span>
+    </label>
+  );
+}
+
 function BannerCard({
   b,
   i,
@@ -330,7 +348,7 @@ function BannerCard({
       <div className="grid gap-3 md:grid-cols-[10rem_minmax(0,1fr)]">
         <Field label={m.placement}>
           <select className="select select-sm" disabled={locked} value={b.placement} onChange={(e) => onChange({ ...b, placement: e.target.value as Banner['placement'] })}>
-            {(['HOME_TOP', 'HOME_MIDDLE'] as const).map((p) => (
+            {(['HOME_TOP', 'HOME_MIDDLE', 'POPUP', 'SPLASH'] as const).map((p) => (
               <option key={p} value={p}>
                 {m.placementName[p]}
               </option>
@@ -385,6 +403,7 @@ function ThemeCard({
   locked,
   why,
   productWhy,
+  inTab,
   onChange,
   onMove,
   onRemove,
@@ -395,18 +414,25 @@ function ThemeCard({
   readonly locked: boolean;
   readonly why: readonly Why[];
   readonly productWhy: (id: string) => string | null;
+  /** 이 테마를 넣은 MD 탭 이름 — 있으면 홈에는 안 보인다 */
+  readonly inTab: string | null;
   readonly onChange: (t: Theme) => void;
   readonly onMove: (to: number) => void;
   readonly onRemove: () => void;
 }) {
   const [adding, setAdding] = useState('');
-  const bad = why.length > 0 || t.productIds.some((p) => productWhy(p));
+  const ids = t.productIds ?? [];
+  const bad = why.length > 0 || ids.some((p) => productWhy(p));
+  const auto = t.kind === 'RANKING_AUTO';
+  // 자동 랭킹은 상품 없이 상위 몇 개만(INVALID_AUTO_THEME) — 바꾸면 상품을 비우고, 돌아가면 autoSize 를 비운다
+  const setKind = (kind: Theme['kind']) =>
+    onChange(kind === 'RANKING_AUTO' ? { ...t, kind, productIds: [], autoSize: t.autoSize ?? 10 } : { ...t, kind, autoSize: null });
   return (
     <li className={`space-y-3 rounded-box border p-3 ${bad ? 'border-error/50' : 'border-base-300'}`} data-testid="layout-theme">
       <div className="grid gap-3 md:grid-cols-[10rem_minmax(0,1fr)_auto]">
         <Field label={m.kind}>
-          <select className="select select-sm" disabled={locked} value={t.kind} onChange={(e) => onChange({ ...t, kind: e.target.value as Theme['kind'] })}>
-            {(['THEME', 'SEASON', 'WEEKLY_PICK'] as const).map((k) => (
+          <select className="select select-sm" disabled={locked} value={t.kind} onChange={(e) => setKind(e.target.value as Theme['kind'])}>
+            {(['THEME', 'SEASON', 'WEEKLY_PICK', 'RANKING_AUTO'] as const).map((k) => (
               <option key={k} value={k}>
                 {m.kindName[k]}
               </option>
@@ -425,13 +451,35 @@ function ThemeCard({
         <input className="input input-sm w-full" maxLength={80} disabled={locked} value={t.subtitle ?? ''} onChange={(e) => onChange({ ...t, subtitle: e.target.value || null })} />
         <WhyText items={whyOf(why, 'subtitle')} />
       </Field>
+      {inTab !== null && (
+        <p className="text-xs text-info" data-testid="layout-theme-in-tab">
+          {m.inTab(inTab)}
+        </p>
+      )}
+      {auto ? (
+        <div className="space-y-1">
+          <Field label={m.autoSize} className="w-40">
+            <input
+              type="number"
+              className="input input-sm w-full"
+              min={1}
+              max={30}
+              disabled={locked}
+              value={t.autoSize ?? ''}
+              onChange={(e) => onChange({ ...t, autoSize: e.target.value === '' ? null : Number(e.target.value) })}
+            />
+          </Field>
+          <p className="text-xs text-base-content/55">{m.autoSizeHint}</p>
+          <WhyText items={whyOf(why, 'autoSize', 'productIds', 'kind')} />
+        </div>
+      ) : (
       <div className="space-y-1.5">
-        <p className="text-xs font-medium text-base-content/60">{m.products(t.productIds.length)}</p>
-        {t.productIds.length === 0 ? (
+        <p className="text-xs font-medium text-base-content/60">{m.products(ids.length)}</p>
+        {ids.length === 0 ? (
           <p className="text-sm text-warning">{m.noProducts}</p>
         ) : (
           <ol className="divide-y divide-base-300 rounded-box border border-base-300">
-            {t.productIds.map((p, j) => (
+            {ids.map((p, j) => (
               <li key={p} className="flex items-center gap-2 px-3 py-1.5 text-sm" data-testid="layout-theme-product">
                 <span className="w-5 text-right tabular-nums text-base-content/45">{j + 1}</span>
                 <span className="min-w-0 flex-1 truncate">
@@ -440,49 +488,130 @@ function ThemeCard({
                 </span>
                 <Mover
                   i={j}
-                  n={t.productIds.length}
+                  n={ids.length}
                   disabled={locked}
-                  onMove={(to) => onChange({ ...t, productIds: move(t.productIds, j, to) })}
-                  onRemove={() => onChange({ ...t, productIds: t.productIds.filter((x) => x !== p) })}
+                  onMove={(to) => onChange({ ...t, productIds: move(ids, j, to) })}
+                  onRemove={() => onChange({ ...t, productIds: ids.filter((x) => x !== p) })}
                 />
               </li>
             ))}
           </ol>
         )}
-        {!locked && t.productIds.length < 50 && (
+        {!locked && ids.length < 50 && (
           <ProductPicker
-            key={t.productIds.length}
+            key={ids.length}
             label={m.addProduct}
             value={adding}
             onChange={(id) => {
               setAdding('');
-              if (id && !t.productIds.includes(id)) onChange({ ...t, productIds: [...t.productIds, id] });
+              if (id && !ids.includes(id)) onChange({ ...t, productIds: [...ids, id] });
             }}
           />
         )}
+        <WhyText items={whyOf(why, 'productIds', 'autoSize', 'kind')} />
       </div>
+      )}
       <Period startsAt={t.startsAt} endsAt={t.endsAt} disabled={locked} onChange={(s, e) => onChange({ ...t, startsAt: s, endsAt: e })} />
-      <WhyText items={whyOf(why, 'startsAt', 'endsAt')} />
-      <WhyText items={whyOf(why, 'productIds')} />
+      <TimerToggle checked={t.showTimer ?? false} disabled={locked} onChange={(on) => onChange({ ...t, showTimer: on })} />
+      <WhyText items={whyOf(why, 'startsAt', 'endsAt', 'showTimer')} />
       <WhyText items={whyRest(why, THEME_FIELDS)} />
     </li>
   );
 }
 
-/** 고객 홈 미리보기(초안 본문) — 맨 위 배너 → 테마 순서대로, 가운데 배너는 첫 테마 뒤 */
+/** MD 탭(0.9.0) — 이름·넣을 테마(다른 탭에 들어간 테마는 고를 수 없음)·기간·남은 시간 표시 */
+function TabCard({
+  tab,
+  i,
+  n,
+  themes,
+  taken,
+  locked,
+  why,
+  onChange,
+  onMove,
+  onRemove,
+}: {
+  readonly tab: Tab;
+  readonly i: number;
+  readonly n: number;
+  readonly themes: readonly Theme[];
+  /** 다른 탭에 들어간 테마 sectionId → 그 탭 이름 */
+  readonly taken: ReadonlyMap<string, string>;
+  readonly locked: boolean;
+  readonly why: readonly Why[];
+  readonly onChange: (t: Tab) => void;
+  readonly onMove: (to: number) => void;
+  readonly onRemove: () => void;
+}) {
+  const toggle = (id: string) => onChange({ ...tab, sectionIds: tab.sectionIds.includes(id) ? tab.sectionIds.filter((x) => x !== id) : [...tab.sectionIds, id] });
+  return (
+    <li className={`space-y-3 rounded-box border p-3 ${why.length ? 'border-error/50' : 'border-base-300'}`} data-testid="layout-tab">
+      <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto]">
+        <Field label={m.tabTitle}>
+          <input className="input input-sm w-full" maxLength={20} disabled={locked} value={tab.title} onChange={(e) => onChange({ ...tab, title: e.target.value })} />
+          <WhyText items={whyOf(why, 'title')} />
+        </Field>
+        <div className="flex items-end pb-0.5">
+          <Mover i={i} n={n} onMove={onMove} onRemove={onRemove} disabled={locked} />
+        </div>
+      </div>
+      <fieldset className="space-y-1.5" disabled={locked}>
+        <legend className="mb-1 text-xs font-medium text-base-content/60">{m.tabThemes(tab.sectionIds.length)}</legend>
+        {themes.length === 0 ? (
+          <p className="text-sm text-base-content/55">{m.noThemeYet}</p>
+        ) : (
+          <ul className="space-y-1">
+            {themes.map((t) => {
+              const other = taken.get(t.sectionId);
+              const at = tab.sectionIds.indexOf(t.sectionId);
+              return (
+                <li key={t.sectionId}>
+                  <label className={`flex items-center gap-2 text-sm ${other !== undefined ? 'text-base-content/45' : ''}`}>
+                    <input type="checkbox" className="checkbox checkbox-sm" checked={at >= 0} disabled={other !== undefined} onChange={() => toggle(t.sectionId)} />
+                    <span>{t.title || m.untitledTheme}</span>
+                    {at >= 0 && <span className="badge badge-ghost badge-sm tabular-nums">{at + 1}</span>}
+                    {other !== undefined && <span className="text-xs">{m.inOtherTab(other || m.untitledTab)}</span>}
+                  </label>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+        <WhyText items={whyOf(why, 'sectionIds')} />
+      </fieldset>
+      <Period startsAt={tab.startsAt} endsAt={tab.endsAt} disabled={locked} onChange={(s, e) => onChange({ ...tab, startsAt: s, endsAt: e })} />
+      <TimerToggle checked={tab.showTimer ?? false} disabled={locked} onChange={(on) => onChange({ ...tab, showTimer: on })} />
+      <WhyText items={whyOf(why, 'startsAt', 'endsAt', 'showTimer')} />
+      <WhyText items={whyRest(why, TAB_FIELDS)} />
+    </li>
+  );
+}
+
+/** 고객 홈 미리보기(초안 본문) — 탭 줄 → 맨 위 배너 → 테마 순서대로, 가운데 배너는 첫 테마 뒤. 탭에 넣은 테마는 홈에서 빠진다. 팝업·로딩 화면은 아래에 따로 */
 function Preview({ body, sticky = true }: { readonly body: Body; readonly sticky?: boolean }) {
   const banners = body.banners ?? [];
-  const themes = body.themes ?? [];
+  const tabs = body.tabs ?? [];
+  const tabbed = new Set(tabs.flatMap((t) => t.sectionIds));
+  const themes = (body.themes ?? []).filter((t) => !tabbed.has(t.sectionId));
+  const popups = banners.filter((b) => b.placement === 'POPUP');
+  const splashes = banners.filter((b) => b.placement === 'SPLASH');
   const top = banners.filter((b) => b.placement === 'HOME_TOP');
   const middle = banners.filter((b) => b.placement === 'HOME_MIDDLE');
   const strip = (list: readonly Banner[]) =>
     list.map((b) => <BannerImage key={b.bannerId} imageId={b.imageId} alt={b.altText} className="aspect-[3/1] w-full rounded-lg" />);
   const themeBlock = (t: Theme) => (
     <div key={t.sectionId} className="space-y-1.5">
-      <p className="text-sm font-bold">{t.title || m.untitledTheme}</p>
+      <p className="flex flex-wrap items-center gap-1.5 text-sm font-bold">
+        {t.title || m.untitledTheme}
+        {t.showTimer && t.endsAt && <span className="badge badge-error badge-soft badge-xs font-normal">{m.timerUntil(formatSeoul(t.endsAt))}</span>}
+      </p>
       {t.subtitle && <p className="text-xs text-base-content/55">{t.subtitle}</p>}
+      {t.kind === 'RANKING_AUTO' ? (
+        <p className="rounded-md bg-base-200 px-2 py-3 text-center text-xs text-base-content/60">{m.autoPreview(t.autoSize ?? 0)}</p>
+      ) : (
       <div className="flex gap-2 overflow-hidden">
-        {t.productIds.slice(0, 6).map((p) => (
+        {(t.productIds ?? []).slice(0, 6).map((p) => (
           <div key={p} className="w-20 shrink-0 space-y-1">
             <div className="aspect-square rounded-md bg-base-200" />
             <p className="line-clamp-2 text-[11px] leading-tight">
@@ -491,8 +620,19 @@ function Preview({ body, sticky = true }: { readonly body: Body; readonly sticky
           </div>
         ))}
       </div>
+      )}
     </div>
   );
+  // 팝업·로딩 화면 — 휴대폰 전체 화면 비율
+  const fullScreen = (label: string, list: readonly Banner[], testId: string) =>
+    list.length > 0 && (
+      <div className="space-y-1" data-testid={testId}>
+        <p className="text-xs text-base-content/55">{label}</p>
+        {list.map((b) => (
+          <BannerImage key={b.bannerId} imageId={b.imageId} alt={b.altText} className="aspect-[9/16] w-28 rounded-lg border-2 border-base-300" />
+        ))}
+      </div>
+    );
   return (
     <aside className={`${sticky ? 'sticky top-16 ' : ''}space-y-2`} aria-label={m.preview} data-testid="layout-preview">
       <p className="text-sm font-semibold">
@@ -503,6 +643,16 @@ function Preview({ body, sticky = true }: { readonly body: Body; readonly sticky
           <p className="py-16 text-center text-xs text-base-content/50">{m.previewEmpty}</p>
         ) : (
           <>
+            {tabs.length > 0 && (
+              <div className="flex gap-3 overflow-hidden border-b border-base-300 pb-1 text-xs" data-testid="layout-preview-tabs">
+                <span className="font-bold">{m.previewHome}</span>
+                {tabs.map((t) => (
+                  <span key={t.tabKey} className="whitespace-nowrap text-base-content/60">
+                    {t.title || m.untitledTab}
+                  </span>
+                ))}
+              </div>
+            )}
             {strip(top)}
             {themes.slice(0, 1).map(themeBlock)}
             {strip(middle)}
@@ -510,6 +660,12 @@ function Preview({ body, sticky = true }: { readonly body: Body; readonly sticky
           </>
         )}
       </div>
+      {(popups.length > 0 || splashes.length > 0) && (
+        <div className="flex flex-wrap justify-center gap-4">
+          {fullScreen(m.placementName['POPUP'] ?? '', popups, 'layout-preview-popup')}
+          {fullScreen(m.placementName['SPLASH'] ?? '', splashes, 'layout-preview-splash')}
+        </div>
+      )}
     </aside>
   );
 }
@@ -564,6 +720,9 @@ function Editor({ draft }: { readonly draft: Draft }) {
   const dirty = useMemo(() => JSON.stringify(withOrder(body)) !== JSON.stringify(base.body), [body, base]);
   const banners = body.banners ?? [];
   const themes = body.themes ?? [];
+  const tabs = body.tabs ?? [];
+  /** 테마 sectionId → 넣은 탭(순서) */
+  const tabOf = new Map(tabs.flatMap((t, ti) => t.sectionIds.map((id) => [id, ti] as const)));
 
   const refresh = () => {
     void qc.invalidateQueries({ queryKey: ['storefront'] });
@@ -598,12 +757,14 @@ function Editor({ draft }: { readonly draft: Draft }) {
 
   const setBanner = (i: number, b: Banner) => setBody((x) => ({ ...x, banners: (x.banners ?? []).map((y, j) => (j === i ? b : y)) }));
   const setTheme = (i: number, t: Theme) => setBody((x) => ({ ...x, themes: (x.themes ?? []).map((y, j) => (j === i ? t : y)) }));
+  const setTab = (i: number, t: Tab) => setBody((x) => ({ ...x, tabs: (x.tabs ?? []).map((y, j) => (j === i ? t : y)) }));
+  const addTab = () => setBody((x) => ({ ...x, tabs: [...(x.tabs ?? []), { tabKey: `X-${shortId()}`, title: '', sectionIds: [], sortOrder: 0, startsAt: null, endsAt: null, showTimer: false }] }));
   const addBanner = () =>
     setBody((x) => ({
       ...x,
       banners: [...(x.banners ?? []), { bannerId: `B-${shortId()}`, placement: 'HOME_TOP', imageId: '', altText: '', linkType: themes[0] ? 'SECTION' : 'NONE', linkRef: themes[0]?.sectionId ?? null, sortOrder: 0, startsAt: null, endsAt: null }],
     }));
-  const addTheme = () => setBody((x) => ({ ...x, themes: [...(x.themes ?? []), { sectionId: `T-${shortId()}`, kind: 'THEME', title: '', subtitle: null, productIds: [], sortOrder: 0, startsAt: null, endsAt: null }] }));
+  const addTheme = () => setBody((x) => ({ ...x, themes: [...(x.themes ?? []), { sectionId: `T-${shortId()}`, kind: 'THEME', title: '', subtitle: null, productIds: [], sortOrder: 0, startsAt: null, endsAt: null, showTimer: false }] }));
   const removeTheme = (i: number) =>
     setBody((x) => {
       const gone = (x.themes ?? [])[i]?.sectionId;
@@ -612,6 +773,8 @@ function Editor({ draft }: { readonly draft: Draft }) {
         ...x,
         themes: (x.themes ?? []).filter((_, j) => j !== i),
         banners: (x.banners ?? []).map((b) => (b.linkType === 'SECTION' && b.linkRef === gone ? { ...b, linkType: 'NONE', linkRef: null } : b)),
+        // 탭에서도 뺀다(남겨 두면 UNKNOWN_SECTION)
+        tabs: (x.tabs ?? []).map((t) => ({ ...t, sectionIds: t.sectionIds.filter((id) => id !== gone) })),
       };
     });
 
@@ -715,9 +878,45 @@ function Editor({ draft }: { readonly draft: Draft }) {
                     locked={locked}
                     why={problems.at(`themes[${i}]`)}
                     productWhy={problems.product}
+                    inTab={tabOf.has(t.sectionId) ? tabs[tabOf.get(t.sectionId) ?? 0]?.title || m.untitledTab : null}
                     onChange={(x) => setTheme(i, x)}
                     onMove={(to) => setBody((x) => ({ ...x, themes: move(x.themes ?? [], i, to) }))}
                     onRemove={() => removeTheme(i)}
+                  />
+                ))}
+              </ul>
+            )}
+          </section>
+
+          <section className="space-y-3 rounded-box border border-base-300 bg-base-100 p-4 shadow-sm" aria-label={m.tabsTitle}>
+            <div className="flex items-center justify-between">
+              <h2 className="font-bold">
+                {m.tabsTitle} <span className="text-sm font-normal text-base-content/50">{tabs.length}</span>
+              </h2>
+              {!locked && tabs.length < 5 && (
+                <button type="button" className="btn btn-sm btn-outline btn-primary" data-testid="layout-add-tab" onClick={addTab}>
+                  {m.addTab}
+                </button>
+              )}
+            </div>
+            <p className="text-xs text-base-content/55">{m.tabsHint}</p>
+            {tabs.length === 0 ? (
+              <p className="text-sm text-base-content/55">{m.noTabs}</p>
+            ) : (
+              <ul className="space-y-3">
+                {tabs.map((t, i) => (
+                  <TabCard
+                    key={t.tabKey}
+                    tab={t}
+                    i={i}
+                    n={tabs.length}
+                    themes={themes}
+                    taken={new Map([...tabOf].filter(([, ti]) => ti !== i).map(([id, ti]) => [id, tabs[ti]?.title ?? '']))}
+                    locked={locked}
+                    why={problems.at(`tabs[${i}]`)}
+                    onChange={(x) => setTab(i, x)}
+                    onMove={(to) => setBody((x) => ({ ...x, tabs: move(x.tabs ?? [], i, to) }))}
+                    onRemove={() => setBody((x) => ({ ...x, tabs: (x.tabs ?? []).filter((_, j) => j !== i) }))}
                   />
                 ))}
               </ul>

@@ -27,7 +27,7 @@ function seed(): { drafts: Map<string, Draft>; images: Set<string>; current: num
     updatedAt: '2026-11-19T02:00:00Z',
     note: '겨울 제철 채소 기획',
     banners: [{ bannerId: 'B-WINTER-VEG', placement: 'HOME_TOP', imageId: SEED_IMAGE, altText: '겨울 제철 채소 모음', linkType: 'SECTION', linkRef: 'T-WINTER-VEG', sortOrder: 0, startsAt: null, endsAt: null }],
-    themes: [{ sectionId: 'T-WINTER-VEG', kind: 'SEASON', title: '겨울 제철 채소', subtitle: '지금 가장 맛있는 채소', productIds: ['P-00000001', 'P-00000002'], sortOrder: 0, startsAt: null, endsAt: null }],
+    themes: [{ sectionId: 'T-WINTER-VEG', kind: 'SEASON', title: '겨울 제철 채소', subtitle: '지금 가장 맛있는 채소', productIds: ['P-00000001', 'P-00000002'], sortOrder: 0, startsAt: null, endsAt: null, showTimer: false }],
   };
   return { drafts: new Map([[published.draftId, published]]), images: new Set([SEED_IMAGE]), current: 1, seq: 0 };
 }
@@ -52,8 +52,8 @@ const canRead = (request: Request) => {
   return null;
 };
 
-// 1차 범위 밖 문구(BO-05 §3). "100% 국내산" 같은 %는 통과 — 숫자% 뒤에 off·할인이 올 때만
-const PROMO = /할인|쿠폰|특가|증정|사은품|1\+1|세일|최저가|신선\s*보장|\d+\s*%\s*(off|할인)/i;
+// 0.9.0 문구 검사 완화 — 할인·특가·쿠폰·세일·1+1 허용, 근거 없는 "최저가"·"신선 보장"만 막는다
+const PROMO = /최저가|신선\s*보장/;
 
 function check(body: Body): { field: string; reason: string }[] {
   const out: { field: string; reason: string }[] = [];
@@ -80,17 +80,37 @@ function check(body: Body): { field: string; reason: string }[] {
     if (t.startsAt && t.endsAt && t.startsAt >= t.endsAt) out.push({ field: `${at}.endsAt`, reason: 'INVALID_PERIOD' });
     if (PROMO.test(t.title)) out.push({ field: `${at}.title`, reason: 'PROMOTION_NOT_ALLOWED' });
     if (t.subtitle && PROMO.test(t.subtitle)) out.push({ field: `${at}.subtitle`, reason: 'PROMOTION_NOT_ALLOWED' });
+    // 0.9.0 자동 랭킹·빈 테마·남은 시간
+    if (t.kind === 'RANKING_AUTO') {
+      if ((t.productIds ?? []).length > 0 || !t.autoSize || t.autoSize < 1 || t.autoSize > 30) out.push({ field: `${at}.autoSize`, reason: 'INVALID_AUTO_THEME' });
+    } else if ((t.productIds ?? []).length === 0) out.push({ field: `${at}.productIds`, reason: 'EMPTY_THEME' });
+    if (t.showTimer && !t.endsAt) out.push({ field: `${at}.endsAt`, reason: 'TIMER_NEEDS_END' });
     const seenP = new Set<string>();
-    t.productIds.forEach((p, j) => {
+    (t.productIds ?? []).forEach((p, j) => {
       if (seenP.has(p)) out.push({ field: `${at}.productIds[${j}]`, reason: 'DUPLICATE_PRODUCT' });
       seenP.add(p);
       if (db.products.get(p)?.saleState !== 'ON_SALE') out.push({ field: p, reason: 'PRODUCT_NOT_PUBLISHED' });
     });
   });
+  // 0.9.0 MD 탭
+  const seenK = new Set<string>();
+  const used = new Set<string>();
+  (body.tabs ?? []).forEach((tab, i) => {
+    const at = `tabs[${i}]`;
+    if (seenK.has(tab.tabKey)) out.push({ field: `${at}.tabKey`, reason: 'DUPLICATE_ID' });
+    seenK.add(tab.tabKey);
+    tab.sectionIds.forEach((id, j) => {
+      if (!sections.has(id)) out.push({ field: `${at}.sectionIds[${j}]`, reason: 'UNKNOWN_SECTION' });
+      else if (used.has(id)) out.push({ field: `${at}.sectionIds[${j}]`, reason: 'DUPLICATE_ID' });
+      used.add(id);
+    });
+    if (tab.startsAt && tab.endsAt && tab.startsAt >= tab.endsAt) out.push({ field: `${at}.endsAt`, reason: 'INVALID_PERIOD' });
+    if (tab.showTimer && !tab.endsAt) out.push({ field: `${at}.endsAt`, reason: 'TIMER_NEEDS_END' });
+  });
   return out;
 }
 
-const bodyOf = (b: Body): Body => ({ banners: b.banners ?? [], themes: b.themes ?? [], note: b.note ?? null });
+const bodyOf = (b: Body): Body => ({ banners: b.banners ?? [], themes: b.themes ?? [], tabs: b.tabs ?? [], note: b.note ?? null });
 
 /** approval DISPLAY 결정(effects.decide) — 승인이면 새 진열 버전으로 게시, 반려면 REJECTED */
 export function decideLayout(draftId: string, approved: boolean, comment: string | null): void {
