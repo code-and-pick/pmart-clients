@@ -156,6 +156,15 @@ main [role='radiogroup'] {
 main [role='radiogroup'] > [role='radio'] {
   border-color: var(--color-base-300);
 }
+/* 양 끝 칩은 상자 모서리(바깥 1px 안쪽)만큼 둥글게 — 상자가 overflow-hidden 이라 고른 칩의 파란 안쪽 테두리가 모서리에서 잘려 보였다(2026-11-21 사용자) */
+main [role='radiogroup'] > [role='radio']:first-child {
+  border-top-left-radius: calc(var(--radius-field) - 1px);
+  border-bottom-left-radius: calc(var(--radius-field) - 1px);
+}
+main [role='radiogroup'] > [role='radio']:last-child {
+  border-top-right-radius: calc(var(--radius-field) - 1px);
+  border-bottom-right-radius: calc(var(--radius-field) - 1px);
+}
 main .btn-neutral.btn-xs {
   --btn-color: var(--pm-soft);
   --btn-fg: var(--color-primary);
