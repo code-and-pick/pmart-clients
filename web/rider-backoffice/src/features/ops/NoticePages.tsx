@@ -84,7 +84,7 @@ function NoticeForm() {
     send.reset();
   };
   return (
-    <Section title={t.write} testId="notice-form">
+    <Section action title={t.write} testId="notice-form">
       <form
         className="space-y-4"
         onSubmit={(ev) => {

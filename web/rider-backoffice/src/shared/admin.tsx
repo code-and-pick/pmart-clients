@@ -10,6 +10,9 @@ import { StickyTitle, useScrolledPast } from './StickyTitle';
 import { QueueNav } from './workQueue';
 
 export * from '@pmart/web-ui/console';
+// 라이더 시뮬레이터 모양 2단계(2026-11-21 사용자 "기능·보이는 정보·내용도 라이더시뮬레이션 UI처럼") — 검색 조건은 찾기 칸 + 깔때기 팝업 + 칩,
+// 화면 설명·안내 상자는 ⓘ 로 접기. 공용과 같은 이름으로 덮는다(shared/simList.tsx).
+export { GuideBox, PageHeader, SearchPanel, SearchRow, Section } from './simList';
 
 /*
  * 라이더 시뮬레이터 모양 시범(2026-11-21 사용자 "라이더 백오피스에만 라이더 시뮬레이션 UI 적용") — 겉모양만, 글자·동작은 그대로.

@@ -3,8 +3,8 @@
 // 1차(2026-11-17, PC 5): 보기만 — 맡기·이관·처리 끝내기는 다음 차례. 필터·쪽은 주소 쿼리에 둔다.
 // 2026-11-18: 배민 주문접수 목록·상세 모양 — 처리 중/끝남 밑줄 탭 → 검색 조건 상자 → 결과 줄 → 표(줄 누르면 상세) / 상세 머리 → 구역 상자.
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState, type FormEvent } from 'react';
-import { Link, Route, Routes, useNavigate, useParams, useSearchParams } from 'react-router';
+import { Fragment, useState, type FormEvent } from 'react';
+import { Link, useParams, useSearchParams } from 'react-router';
 
 import { request } from '@pmart/web-core';
 import { CommandFeedback, failureCode, formatSeoul, QueryState, toUiState, useCommand } from '@pmart/web-ui';
@@ -18,6 +18,7 @@ import { AllDone, ChipGroup, GuideBox, CursorPager, DataTable, DetailHeader, Fie
 import { ui } from '../../shared/uiMessages';
 import { listCountText, useListRows } from '../../shared/listKit';
 import { SavedViews } from '../../shared/SavedViews';
+import { Caret, expandRowProps, InlineDetail, useInlineOpen } from '../../shared/simList';
 import { useNow } from '../../shared/useNow';
 import { caseTone, StateTabs } from '../support/supportUi';
 
@@ -34,14 +35,6 @@ type CaseSummary = components['schemas']['CaseSummary'];
 export const DELIVERY_KINDS: readonly CaseKind[] = ['RIDER_HELP', 'DISPATCH_FAILED', 'RIDER_LOCATION_STALE', 'MISDELIVERY', 'DELIVERY_INCIDENT'];
 const PAGE_SIZE = 50;
 
-export function CasesMenu() {
-  return (
-    <Routes>
-      <Route index element={<CaseListPage />} />
-      <Route path=":caseId" element={<CaseDetailPage />} />
-    </Routes>
-  );
-}
 
 /** 기한 15분 안 — 남은 분(서버 기한 slaDueAt 과 지금 시각의 차, 넘김 판정은 서버 overdue). 2026-11-19 통합 백오피스처럼 숨쉬기 */
 const SOON_MIN = 15;
@@ -100,10 +93,10 @@ function PriorityBadge({ priority }: { readonly priority: string | null | undefi
   return <StatusBadge tone={priority === 'P1' ? 'error' : priority === 'P2' ? 'warning' : 'ghost'}>{priority ?? none}</StatusBadge>;
 }
 
-function CaseListPage() {
+/** 처리함의 "배송 사건" 탭(2026-11-21) — embedded 면 쪽 제목 없이, 주소의 tab=cases 를 지킨다 */
+export function CaseListPage({ embedded = false }: { readonly embedded?: boolean }) {
   const api = useApi();
   const me = useSession().session?.subject;
-  const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const closed = params.get('state') === 'CLOSED';
   const rawKind = params.get('kind') ?? '';
@@ -114,6 +107,7 @@ function CaseListPage() {
   const set = (next: Partial<{ state: string; kind: string; overdue: boolean; unassigned: boolean; cursor: string }>) => {
     const v = { state: closed ? 'CLOSED' : '', kind: kind ?? '', overdue, unassigned, cursor: '', ...next };
     setParams({
+      ...(embedded ? { tab: 'cases' } : {}),
       ...(v.state ? { state: v.state } : {}),
       ...(v.kind ? { kind: v.kind } : {}),
       ...(v.overdue ? { overdue: 'true' } : {}),
@@ -146,8 +140,8 @@ function CaseListPage() {
     void query.refetch();
   };
   const reset = () => set({ kind: '', overdue: false, unassigned: false });
-  const open = (caseId: string | undefined) => void navigate(`/cases/${encodeURIComponent(caseId ?? '')}`);
-  const casePath = (caseId: string | undefined) => `/cases/${encodeURIComponent(caseId ?? '')}`;
+  const inline = useInlineOpen();
+  const casePath = caseDetailPath;
   // 숫자 띠(2026-11-19) — 처리 중인 건 중 안 맡은 것·기한 넘긴 것. 서버 목록 한 쪽(50건)으로 세고, 다음 쪽이 있으면 "N건 이상"
   const countQuery = (flag: 'unassigned' | 'overdue') => ({
     queryKey: ['cases-count', flag],
@@ -164,11 +158,17 @@ function CaseListPage() {
 
   return (
     <section className="space-y-4">
-      <PageHeader title={m.title} actions={<SavedViews listKey="cases" />} />
+      {embedded ? (
+        <div className="flex justify-end">
+          <SavedViews listKey="cases" />
+        </div>
+      ) : (
+        <PageHeader title={m.title} actions={<SavedViews listKey="cases" />} />
+      )}
       <GuideBox title={ui.guideTitle} items={[m.intro]} storeKey="cases" testId="cases-guide" />
       <StatStrip label={cx.stripLabel} testId="case-strip">
-        <StatCard layout="row" label={cx.unassigned} value={listCountText(unassignedCount.data, unassignedCount.isError)} hint={cx.listHint} to="/cases?unassigned=true" active={!closed && unassigned && !overdue} tone={(unassignedCount.data?.n ?? 0) > 0 ? 'warning' : undefined} testId="strip-unassigned" />
-        <StatCard layout="row" label={cx.overdue} value={listCountText(overdueCount.data, overdueCount.isError)} hint={cx.listHint} to="/cases?overdue=true" active={!closed && overdue && !unassigned} tone={(overdueCount.data?.n ?? 0) > 0 ? 'error' : undefined} testId="strip-overdue" />
+        <StatCard layout="row" label={cx.unassigned} value={listCountText(unassignedCount.data, unassignedCount.isError)} hint={cx.listHint} to={`${CASE_LIST}&unassigned=true`} active={!closed && unassigned && !overdue} tone={(unassignedCount.data?.n ?? 0) > 0 ? 'warning' : undefined} testId="strip-unassigned" />
+        <StatCard layout="row" label={cx.overdue} value={listCountText(overdueCount.data, overdueCount.isError)} hint={cx.listHint} to={`${CASE_LIST}&overdue=true`} active={!closed && overdue && !unassigned} tone={(overdueCount.data?.n ?? 0) > 0 ? 'error' : undefined} testId="strip-overdue" />
       </StatStrip>
       <StateTabs
         label="처리 상태"
@@ -183,8 +183,9 @@ function CaseListPage() {
         onSubmit={submit}
         onReset={reset}
         summary={[
-          [m.kind, kind ? name(n.caseKind, kind) : ''],
-          ['조건', [overdue ? m.overdueOnly : '', unassigned ? m.unassignedOnly : ''].filter(Boolean).join(' · ')],
+          [m.kind, kind ? name(n.caseKind, kind) : '', () => set({ kind: '' })],
+          ['기한', overdue ? m.overdueOnly : '', () => set({ overdue: false })],
+          ['담당', unassigned ? m.unassignedOnly : '', () => set({ unassigned: false })],
         ]}
       >
         <SearchRow label={m.kind}>
@@ -192,11 +193,11 @@ function CaseListPage() {
         </SearchRow>
         {!closed && (
           <SearchRow label="조건">
-            <label className="flex items-center gap-2 text-sm">
+            <label className="flex flex-row items-center gap-2 text-sm">
               <input type="checkbox" className="checkbox checkbox-sm checkbox-primary" checked={overdue} onChange={(e) => set({ overdue: e.target.checked })} />
               {m.overdueOnly}
             </label>
-            <label className="ml-4 flex items-center gap-2 text-sm">
+            <label className="flex flex-row items-center gap-2 text-sm">
               <input type="checkbox" className="checkbox checkbox-sm checkbox-primary" checked={unassigned} onChange={(e) => set({ unassigned: e.target.checked })} />
               {m.unassignedOnly}
             </label>
@@ -227,14 +228,20 @@ function CaseListPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {items.map((c, i) => (
-                      <tr key={c.caseId ?? `case-${i}`} data-testid="case-row" className={`cursor-pointer ${c.overdue ? 'bg-error/5' : ''} ${listRows.rowClass(casePath(c.caseId))}`} onClick={() => open(c.caseId)}>
+                    {items.map((c, i) => {
+                      const k = c.caseId ?? `case-${i}`;
+                      const isOpen = inline.isOpen(k);
+                      return (
+                      <Fragment key={k}>
+                      {/* 줄을 누르면 바로 아래에 접수 내용·이력(시뮬레이터처럼). 처리 끝내기는 요약 링크·"전체 상세 ›"에서 */}
+                      <tr data-testid="case-row" className={`${c.overdue ? 'bg-error/5' : ''} ${listRows.rowClass(casePath(c.caseId))}`} {...expandRowProps(isOpen, () => inline.toggle(k))}>
                         <td>
+                          <Caret open={isOpen} />
                           <PriorityBadge priority={c.priority} />
                         </td>
                         <td className="whitespace-nowrap">{name(n.caseKind, c.kind)}</td>
                         <td className="font-medium">
-                          <Link className="hover:underline" to={`/cases/${encodeURIComponent(c.caseId ?? '')}`} onClick={(e) => e.stopPropagation()}>
+                          <Link className="hover:underline" to={casePath(c.caseId)} onClick={(e) => e.stopPropagation()}>
                             {c.summary || name(n.caseKind, c.kind)}
                           </Link>
                           {listRows.seenMark(casePath(c.caseId))}
@@ -250,7 +257,14 @@ function CaseListPage() {
                         </td>
                         <td>{c.assigneeId ? <StaffName operatorId={c.assigneeId} me={me} /> : <span className="text-base-content/45">{m.unassigned}</span>}</td>
                       </tr>
-                    ))}
+                      {isOpen && c.caseId && (
+                        <InlineDetail colSpan={7} to={casePath(c.caseId)} testId="case-inline">
+                          <CaseInline caseId={c.caseId} />
+                        </InlineDetail>
+                      )}
+                      </Fragment>
+                      );
+                    })}
                   </tbody>
                 </DataTable>
                 <CursorPager hasPrev={!!cursor} nextCursor={nextCursor} onFirst={() => set({})} onNext={(c) => set({ cursor: c })} />
@@ -263,8 +277,61 @@ function CaseListPage() {
   );
 }
 
+/** 목록 줄 아래 펼친 접수 건 요약(2026-11-21 시뮬레이터 .md-inline) — 상세와 같은 조회(['case', id]), 새 API 없음. 처리 끝내기는 전체 상세에서 */
+function CaseInline({ caseId }: { readonly caseId: string }) {
+  const api = useApi();
+  const me = useSession().session?.subject;
+  const query = useQuery({
+    queryKey: ['case', caseId],
+    queryFn: () => request('GET', api.cases.GET('/cases/{caseId}', { params: { path: { caseId } } })),
+  });
+  return (
+    <QueryState state={toUiState(query)} onRetry={() => void query.refetch()}>
+      {(x) => (
+        <div className="pm-inline-cols">
+          <div>
+            <h4>접수 내용</h4>
+            <FieldList
+              testId="case-inline-detail"
+              rows={[
+                [m.col.kind, name(n.caseKind, x.kind)],
+                [m.col.summary, x.summary || none],
+                [m.col.refs, <Refs refs={x.refs} />],
+                [m.col.openedAt, when(x.openedAt)],
+                [m.col.sla, <Sla slaDueAt={x.slaDueAt} overdue={x.overdue} />],
+                [m.col.assignee, x.assigneeId ? <StaffName operatorId={x.assigneeId} me={me} /> : m.unassigned],
+                x.closure && [m.closure, `${name(n.resolution, x.closure.resolution)}${x.closure.summary ? ` — ${x.closure.summary}` : ''} (${when(x.closure.closedAt)})`],
+              ]}
+            />
+          </div>
+          <div className="pm-inline-side">
+            <h4>{m.history}</h4>
+            {(x.history ?? []).length === 0 ? (
+              <p className="text-sm text-base-content/50">{none}</p>
+            ) : (
+              <ol className="space-y-1.5 text-sm" data-testid="case-inline-history">
+                {(x.history ?? []).map((h, i) => (
+                  <li key={`${h.at ?? ''}-${i}`}>
+                    <span className="font-medium">{`${name(n.caseAction, h.action)}${h.toState ? ` → ${name(n.caseState, h.toState)}` : ''}`}</span>
+                    <span className="ml-2 text-base-content/55">{when(h.at)}</span>
+                    {h.note && <p className="text-base-content/70">{h.note}</p>}
+                  </li>
+                ))}
+              </ol>
+            )}
+          </div>
+        </div>
+      )}
+    </QueryState>
+  );
+}
+
+/** 처리함 안 배송 사건 자리(2026-11-21 — 옛 /cases 는 App 이 여기로 넘긴다) */
+export const CASE_LIST = '/consults?tab=cases';
+export const caseDetailPath = (caseId: string | undefined) => `/consults/cases/${encodeURIComponent(caseId ?? '')}`;
+
 // 상세(배민 주문내역 상세 참고): 머리(번호·긴급도·상태·요약) → 보기만 안내 → 구역 상자(접수 내용 / 이력).
-function CaseDetailPage() {
+export function CaseDetailPage() {
   const api = useApi();
   const me = useSession().session?.subject;
   const { caseId = '' } = useParams();
@@ -278,7 +345,7 @@ function CaseDetailPage() {
     <section className="max-w-[1600px] space-y-4">
       <DetailHeader
         seen={!!c}
-        back={{ to: '/cases', label: m.back }}
+        back={{ to: CASE_LIST, label: m.back }}
         title={c ? c.summary || name(n.caseKind, c.kind) : m.detailTitle('')}
         badges={
           c && (
@@ -318,7 +385,7 @@ function CaseDetailPage() {
               <SystemIds ids={[['접수 건', caseId], ...(x.refs ?? []).filter((r) => r.refId).map((r) => [name(n.refType, r.refType), r.refId] as const)]} />
             </Section>
             {x.state !== 'CLOSED' && (
-              <Section id="sec-close" title={closeText.title}>
+              <Section id="sec-close" action title={closeText.title}>
                 <CaseClose caseId={caseId} version={(x as { version?: number }).version} onClosed={() => setClosedNow(true)} />
               </Section>
             )}

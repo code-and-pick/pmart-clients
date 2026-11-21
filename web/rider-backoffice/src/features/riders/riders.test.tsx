@@ -8,6 +8,9 @@ import { API_BASE } from '../../api/client';
 import { as, renderAt } from '../../test/render';
 import { server } from '../../test/server';
 
+/** 깔때기 단추 → 거르기 팝업(2026-11-21 시뮬레이터 모양) */
+const openFilters = () => userEvent.click(screen.getByTestId('search-toggle'));
+
 describe('라이더 찾기 — 라이더 번호(ADR-0070)', () => {
   it('목록은 라이더 번호로 보이고, 6자리 번호로 찾는다(긴 시스템 ID 칸 없음)', async () => {
     const view = renderAt('/riders', as.riderOps);
@@ -33,6 +36,7 @@ describe('탈퇴한 라이더 — 기록 보기(rider 0.20.0)', () => {
   it('가입 상태 칩 "탈퇴한 라이더"를 누르면 withdrawn=true 로 찾고 탈퇴 시각이 보인다', async () => {
     const view = renderAt('/riders', as.riderOps);
     expect(await screen.findAllByTestId('rider-row')).toHaveLength(2);
+    await openFilters();
     await userEvent.click(within(screen.getByRole('radiogroup', { name: '가입 상태' })).getByRole('radio', { name: '탈퇴한 라이더' }));
     await screen.findByText(/탈퇴함/);
     const rows = screen.getAllByTestId('rider-row');
@@ -56,6 +60,7 @@ describe('라이더 찾기 — 거르기', () => {
   it('계정 제한 칩을 누르면 그 값으로 다시 찾는다', async () => {
     const view = renderAt('/riders', as.riderOps);
     expect(await screen.findAllByTestId('rider-row')).toHaveLength(2);
+    await openFilters();
     await userEvent.click(within(screen.getByRole('radiogroup', { name: '계정 제한' })).getByRole('radio', { name: '일시 중지' }));
     expect(await screen.findAllByTestId('rider-row')).toHaveLength(1);
     expect(screen.getByTestId('rider-row')).toHaveTextContent('730115');
@@ -68,6 +73,7 @@ describe('라이더 찾기 — 거르기', () => {
     const sorts = () => view.sent.filter((r) => new URL(r.url).pathname.endsWith('/riders')).map((r) => new URL(r.url).searchParams.get('sort'));
     expect(sorts()[0]).toBe('JOINED_DESC');
 
+    await openFilters();
     await userEvent.click(within(screen.getByRole('radiogroup', { name: '수단' })).getByRole('radio', { name: '자전거' }));
     expect(await screen.findAllByTestId('rider-row')).toHaveLength(1);
     expect(screen.getByTestId('rider-row')).toHaveTextContent('730115');

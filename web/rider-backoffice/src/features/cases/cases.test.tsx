@@ -28,7 +28,8 @@ describe('접수 건 목록', () => {
     expect(await screen.findByText('위치 3분 끊김')).toBeInTheDocument();
     expect(caseCalls(view.sent).at(-1)!.get('cursor')).toBe('2');
 
-    // 종류는 칩(라디오)으로 고른다(2026-11-18 화면 개편)
+    // 종류는 깔때기 팝업 안 목록(라디오)으로 고른다(2026-11-21 시뮬레이터 모양)
+    await userEvent.click(screen.getByTestId('search-toggle'));
     await userEvent.click(within(screen.getByRole('radiogroup', { name: '종류' })).getByRole('radio', { name: '배차 실패' }));
     expect(await screen.findByText('응답 만료 — 배차 실패')).toBeInTheDocument();
     const q = caseCalls(view.sent).at(-1)!;
@@ -42,6 +43,7 @@ describe('접수 건 목록', () => {
   it('기한 넘긴 것만·아무도 안 맡은 것만', async () => {
     const view = renderAt('/cases', as.riderOps);
     await screen.findAllByTestId('case-row');
+    await userEvent.click(screen.getByTestId('search-toggle'));
     await userEvent.click(screen.getByLabelText('기한 넘긴 것만'));
     const rows = await screen.findAllByTestId('case-row');
     expect(rows).toHaveLength(1);

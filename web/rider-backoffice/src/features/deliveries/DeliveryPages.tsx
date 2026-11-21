@@ -3,8 +3,8 @@
 // - 상세: 수행 `GET /deliveries/{id}`(execution) + 배차 `GET /deliveries/{id}/dispatch`(dispatch) — 서로 다른 서비스의 값이라 따로 보인다.
 // 1차(2026-11-17, PC 5): 보기만 — 배차 취소·전달 실패 확정은 다음 차례. 필터·쪽은 주소 쿼리에 둔다.
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
-import { useState, type FormEvent } from 'react';
-import { Link, Route, Routes, useNavigate, useParams, useSearchParams } from 'react-router';
+import { Fragment, useState, type FormEvent } from 'react';
+import { Link, Route, Routes, useParams, useSearchParams } from 'react-router';
 
 import { request } from '@pmart/web-core';
 import { formatSeoul, QueryState, toUiState } from '@pmart/web-ui';
@@ -18,6 +18,7 @@ import { ops } from '../../shared/opsMessages';
 import { statText, useListRows } from '../../shared/listKit';
 import { ProgressSteps, type StepPlace } from '../../shared/ProgressSteps';
 import { SavedViews } from '../../shared/SavedViews';
+import { Caret, expandRowProps, InlineDetail, useInlineOpen } from '../../shared/simList';
 import { DeliveryActions } from './DeliveryActions';
 
 /** 이 화면에서 더한 문구(2026-11-19 통합 백오피스와 맞추기) */
@@ -64,7 +65,6 @@ function DeliverySearchPage() {
   const oldest = params.get('sort') === 'OLDEST';
   const cursor = params.get('cursor') ?? '';
   const [draft, setDraft] = useState({ orderId, orderNumber, riderId });
-  const navigate = useNavigate();
 
   const set = (next: Partial<{ orderId: string; orderNumber: string; riderId: string; state: string; type: string; oldest: boolean; cursor: string }>) => {
     const v = { orderId, orderNumber, riderId, state: state ?? '', type: type ?? '', oldest, cursor: '', ...next };
@@ -119,6 +119,12 @@ function DeliverySearchPage() {
     setDraft({ orderId: '', orderNumber: '', riderId: '' });
     setParams({});
   };
+  /** 칩 ✕ — 글자 조건 하나만 풀기(찾기 칸도 비운다) */
+  const clearText = (next: Partial<{ orderId: string; orderNumber: string; riderId: string }>) => {
+    setDraft({ ...draft, ...next });
+    set(next);
+  };
+  const inline = useInlineOpen();
   const stateTone = (s: string | undefined): Tone =>
     s === 'COMPLETED' ? 'success' : s === 'FAILURE_REPORTED' || s === 'FAILED' ? 'error' : s === 'UNASSIGNED' ? 'warning' : s === 'CANCELLED' ? 'ghost' : 'info';
 
@@ -161,30 +167,19 @@ function DeliverySearchPage() {
         submitLabel={m.search}
         resetLabel={m.reset}
         summary={[
-          ['주문', orderNumber || (orderId ? '한 주문' : '')],
-          ['라이더', riderId ? (/^\d{6}$/.test(riderId) ? riderId : '한 라이더') : ''],
-          [m.state, state ? name(n.executionState, state) : ''],
-          [m.type, type ? name(n.deliveryType, type) : ''],
+          ['주문', orderNumber || (orderId ? '한 주문' : ''), () => clearText({ orderNumber: '', orderId: '' })],
+          ['라이더', riderId ? (/^\d{6}$/.test(riderId) ? riderId : '한 라이더') : '', () => clearText({ riderId: '' })],
+          [m.state, state ? name(n.executionState, state) : '', () => set({ state: '' })],
+          [m.type, type ? name(n.deliveryType, type) : '', () => set({ type: '' })],
         ]}
+        // 왼쪽 찾기 칸(시뮬레이터처럼) — 주문번호 8자리·라이더 번호 6자리. 상태·종류·시스템 번호는 깔때기 팝업
+        search={
+          <>
+            <input type="search" className="input input-sm w-40" value={draft.orderNumber} maxLength={8} inputMode="numeric" placeholder={`${ops.actions.orderNumber} 8자리`} aria-label={ops.actions.orderNumber} onChange={(e) => setDraft({ ...draft, orderNumber: e.target.value })} />
+            <input type="search" className="input input-sm w-40" value={draft.riderId} maxLength={64} placeholder={`${m.riderId} 6자리`} aria-label={m.riderId} onChange={(e) => setDraft({ ...draft, riderId: e.target.value })} />
+          </>
+        }
       >
-        <SearchRow label="번호로 찾기">
-          <label className="flex items-center gap-2 text-sm">
-            <span className="text-base-content/60">{ops.actions.orderNumber}</span>
-            <input className="input input-sm w-32" value={draft.orderNumber} maxLength={8} inputMode="numeric" placeholder="8자리" onChange={(e) => setDraft({ ...draft, orderNumber: e.target.value })} />
-          </label>
-          <label className="flex items-center gap-2 text-sm">
-            <span className="text-base-content/60">{m.riderId}</span>
-            <input className="input input-sm w-40" value={draft.riderId} maxLength={64} placeholder="6자리" onChange={(e) => setDraft({ ...draft, riderId: e.target.value })} />
-          </label>
-          {/* 시스템 ID(ORD-…)는 겉에 두지 않는다(ADR-0070) — 서버 로그 대조용으로만 접어 둔다 */}
-          <details className="text-sm">
-            <summary className="cursor-pointer select-none text-xs text-base-content/50">시스템 번호로 찾기</summary>
-            <label className="mt-1 flex items-center gap-2">
-              <span className="text-base-content/60">{m.orderId}</span>
-              <input className="input input-sm w-44" value={draft.orderId} maxLength={64} onChange={(e) => setDraft({ ...draft, orderId: e.target.value })} />
-            </label>
-          </details>
-        </SearchRow>
         <SearchRow label={m.state}>
           <ChipGroup
             label={m.state}
@@ -200,6 +195,13 @@ function DeliverySearchPage() {
             options={[{ value: '', label: m.allTypes }, ...TYPES.map((x) => ({ value: x, label: name(n.deliveryType, x) }))]}
             onChange={(v) => set({ type: v })}
           />
+        </SearchRow>
+        {/* 시스템 ID(ORD-…)는 겉에 두지 않는다(ADR-0070) — 서버 로그 대조용으로 팝업 안에 */}
+        <SearchRow label="시스템 번호로 찾기">
+          <label>
+            <span className="text-base-content/60">{m.orderId}</span>
+            <input className="input input-sm" value={draft.orderId} maxLength={64} onChange={(e) => setDraft({ ...draft, orderId: e.target.value })} />
+          </label>
         </SearchRow>
       </SearchPanel>
       <QueryState state={toUiState(query, (r) => (r.items ?? []).length === 0)} onRetry={() => void query.refetch()} emptyText={m.empty}>
@@ -223,9 +225,16 @@ function DeliverySearchPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {items.map((d, i) => (
-                    <tr key={d.deliveryId ?? `d-${i}`} data-testid="delivery-row" className={`cursor-pointer ${listRows.rowClass(`/deliveries/${encodeURIComponent(d.deliveryId ?? '')}`)}`} onClick={() => void navigate(`/deliveries/${encodeURIComponent(d.deliveryId ?? '')}`)}>
+                  {items.map((d, i) => {
+                    const k = d.deliveryId ?? `d-${i}`;
+                    const isOpen = inline.isOpen(k);
+                    const path = `/deliveries/${encodeURIComponent(d.deliveryId ?? '')}`;
+                    return (
+                    <Fragment key={k}>
+                    {/* 줄을 누르면 바로 아래에 펼친 상세(시뮬레이터처럼 — 다른 화면으로 넘어가지 않음). 번호 링크·"전체 상세 ›"는 상세 화면(운영 조치)으로 */}
+                    <tr data-testid="delivery-row" className={listRows.rowClass(path)} {...expandRowProps(isOpen, () => inline.toggle(k))}>
                       <td>
+                        <Caret open={isOpen} />
                         <Link className="hover:underline" to={`/deliveries/${encodeURIComponent(d.deliveryId ?? '')}`} onClick={(e) => e.stopPropagation()}>
                           <DeliveryNo deliveryId={d.deliveryId ?? ''} deliveryNumber={d.deliveryNumber} orderNumber={d.orderNumber} />
                         </Link>
@@ -250,7 +259,14 @@ function DeliverySearchPage() {
                       <td className="whitespace-nowrap">{when(d.createdAt)}</td>
                       <td className="whitespace-nowrap">{when(d.completedAt)}</td>
                     </tr>
-                  ))}
+                    {isOpen && d.deliveryId && (
+                      <InlineDetail colSpan={8} to={path} testId="delivery-inline">
+                        <DeliveryInline deliveryId={d.deliveryId} />
+                      </InlineDetail>
+                    )}
+                    </Fragment>
+                    );
+                  })}
                 </tbody>
               </DataTable>
               <CursorPager hasPrev={!!cursor} nextCursor={nextCursor} onFirst={() => set({})} onNext={(c) => set({ cursor: c })} />
@@ -261,6 +277,88 @@ function DeliverySearchPage() {
     </section>
   );
 }
+/**
+ * 목록 줄 아래 펼친 배송 요약(2026-11-21 시뮬레이터 .md-inline) — 상세 화면과 같은 조회(['delivery', id]·['delivery-dispatch', id] — 캐시를 같이 쓴다), 새 API 없음.
+ * 진행 단계 + 왼쪽 수행(상태·종류·목적·주문번호·센터·라이더·배정·완료, 전달 실패 내용) + 오른쪽 배차(상태·라이더·시도·도착 시간대)·주문 상품.
+ * 도착 예정·완료 증빙·수행료·이력·운영 조치(배차 취소·실패 확정 등)는 "전체 상세 ›"에서.
+ */
+function DeliveryInline({ deliveryId }: { readonly deliveryId: string }) {
+  const api = useApi();
+  const execution = useQuery({
+    queryKey: ['delivery', deliveryId],
+    refetchInterval: (q) => (isLiveDelivery(q.state.data?.state) ? LIVE.delivery : false),
+    queryFn: () => request('GET', api.execution.GET('/deliveries/{deliveryId}', { params: { path: { deliveryId } } })),
+  });
+  const dispatch = useQuery({
+    queryKey: ['delivery-dispatch', deliveryId],
+    refetchInterval: isLiveDelivery(execution.data?.state) ? LIVE.delivery : false,
+    queryFn: () => request('GET', api.dispatch.GET('/deliveries/{deliveryId}/dispatch', { params: { path: { deliveryId } } })),
+  });
+  const riders = useRiderSummaries([execution.data?.riderId, dispatch.data?.assignment?.riderId]);
+  const rider = (id: string | null | undefined) => (id ? <RiderName riderId={id} nameMasked={riders.get(id)?.nameMasked} riderNumber={riders.get(id)?.riderNumber} /> : m.noRider);
+  return (
+    <div className="space-y-3">
+      {execution.data && <DeliverySteps state={execution.data.state} />}
+      <div className="pm-inline-cols">
+        <div>
+          <h4>{m.execution}</h4>
+          <QueryState state={toUiState(execution)} onRetry={() => void execution.refetch()}>
+            {(x) => (
+              <div className="space-y-3">
+                <FieldList
+                  testId="delivery-inline-execution"
+                  rows={[
+                    [m.col.state, name(n.executionState, x.state)],
+                    [m.col.type, name(n.deliveryType, x.type)],
+                    [m.purpose, name(n.purpose, x.purpose)],
+                    [m.orderNumber, <span className="font-mono">{x.orderNumber ?? none}</span>],
+                    [m.col.mfc, x.mfcName ?? x.mfcId ?? none],
+                    [m.col.rider, rider(x.riderId)],
+                    [m.col.assignedAt, when(x.assignedAt)],
+                    [m.col.completedAt, when(x.completedAt)],
+                    x.failure ? [m.failureReason, <span className="text-error">{name(n.failureReason, x.failure.reason)}</span>] : null,
+                    x.failure ? [m.decision, x.failure.decision ? `${name(n.decision, x.failure.decision)} (${when(x.failure.decidedAt)})` : none] : null,
+                    x.failure ? [m.custody, name(n.custody, x.failure.custody)] : null,
+                  ]}
+                />
+              </div>
+            )}
+          </QueryState>
+        </div>
+        <div className="pm-inline-side">
+          <h4>{m.dispatch}</h4>
+          <QueryState state={toUiState(dispatch)} onRetry={() => void dispatch.refetch()}>
+            {(p) => (
+              <FieldList
+                testId="delivery-inline-dispatch"
+                rows={[
+                  ['배차 상태', name(n.dispatchState, p.state)],
+                  [m.col.rider, rider(p.assignment?.riderId)],
+                  [m.attempts, m.attemptsCount((p.attempts ?? []).length)],
+                  [m.arrivalWindow, p.arrivalWindow ? [p.arrivalWindow.date, [p.arrivalWindow.start, p.arrivalWindow.end].filter(Boolean).join('~')].filter(Boolean).join(' ') || none : none],
+                ]}
+              />
+            )}
+          </QueryState>
+          {(execution.data?.orderSummary?.items ?? []).length > 0 && (
+            <div className="mt-3">
+              <h4>{m.items}</h4>
+              <ul className="divide-y divide-base-300 text-sm" data-testid="inline-order-items">
+                {(execution.data?.orderSummary?.items ?? []).map((it, i) => (
+                  <li key={`${it.name ?? ''}-${i}`} className="flex justify-between gap-3 py-1">
+                    <span>{[it.name, it.optionLabel].filter(Boolean).join(' ')}</span>
+                    <span className="tabular-nums">{it.qty ?? 0}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // 배송 진행 단계(2026-11-19 통합 백오피스 ProgressSteps 처럼) — 서버 상태를 단계 자리로만 바꾼다(지금 단계만 숨쉬기, 끝난 단계는 체크).
 // 단계 밖 상태(회수·중지 등)는 칠하지 않고 그 이름을 그대로 적는다. 전달 실패 확정·취소는 오른쪽 ✕ 갈래.
 const STEP_STATES = ['UNASSIGNED', 'ASSIGNED', 'ARRIVED_AT_STORE', 'PICKED_UP', 'ARRIVED_AT_CUSTOMER', 'COMPLETED'] as const;
@@ -366,6 +464,9 @@ function DeliveryDetailPage() {
         />
       )}
       <SectionTabs items={tabs} />
+      {/* 2026-11-21: 왼쪽 보기 구역, 오른쪽 처리 구역(운영 조치) 한곳 — 좁으면 처리가 위로 */}
+      <div className="pm-detail-grid">
+      <div className="pm-view-col">
       <div className="grid gap-4 lg:grid-cols-2">
         <Section id="sec-execution" title={m.execution}>
           <QueryState state={toUiState(execution)} onRetry={() => void execution.refetch()}>
@@ -470,9 +571,13 @@ function DeliveryDetailPage() {
           ))}
         </Section>
       </div>
-      <Section id="sec-actions" title="운영 조치" aside={<span className="text-xs text-base-content/50">지금 상태에서 계약이 허락하는 조치만 보여요</span>}>
-        {d ? <DeliveryActions delivery={d} dispatch={dispatch.data} /> : null}
-      </Section>
+      </div>
+      <aside className="pm-act-col" aria-label="처리">
+        <Section id="sec-actions" action title="배송 조치하기" info="지금 상태에서 계약이 허락하는 조치만 보여요">
+          {d ? <DeliveryActions delivery={d} dispatch={dispatch.data} /> : null}
+        </Section>
+      </aside>
+      </div>
     </section>
   );
 }

@@ -127,10 +127,15 @@ export function AppealsMenu({ embedded = false }: { readonly embedded?: boolean 
         submitLabel={t.search}
         resetLabel={t.reset}
         summary={[
-          [t.state, state === 'OPEN' ? '' : state === 'ALL' ? t.all : (t.stateName[state] ?? state)],
-          [t.type, targetType === 'ALL' ? '' : (t.typeName[targetType] ?? targetType)],
-          ['라이더', riderId ? (/^\d{6}$/.test(riderId) ? riderId : '한 라이더') : ''],
+          [t.state, state === 'OPEN' ? '' : state === 'ALL' ? t.all : (t.stateName[state] ?? state), () => patch({ state: '' })],
+          [t.type, targetType === 'ALL' ? '' : (t.typeName[targetType] ?? targetType), () => patch({ targetType: '' })],
+          ['라이더', riderId ? (/^\d{6}$/.test(riderId) ? riderId : '한 라이더') : '', () => {
+            setRiderInput('');
+            patch({ riderId: '' });
+          }],
         ]}
+        // 왼쪽 찾기 칸(시뮬레이터처럼) — 라이더 번호. 상태·종류는 깔때기 팝업
+        search={<input type="search" className="input input-sm w-48" maxLength={64} value={riderInput} placeholder={t.rider} aria-label={t.rider} onChange={(ev) => setRiderInput(ev.target.value)} />}
       >
         <SearchRow label={t.state}>
           <ChipGroup
@@ -148,12 +153,7 @@ export function AppealsMenu({ embedded = false }: { readonly embedded?: boolean 
             onChange={(x) => patch({ targetType: x === 'ALL' ? '' : x })}
           />
         </SearchRow>
-        <SearchRow label="라이더">
-          <label className="flex items-center gap-2 text-sm">
-            <span className="text-base-content/60">{t.rider}</span>
-            <input className="input input-sm w-44" maxLength={64} value={riderInput} onChange={(ev) => setRiderInput(ev.target.value)} />
-          </label>
-        </SearchRow>
+
       </SearchPanel>
       {/* 할 일이 서버 0건이면 "수고하셨어요"(2026-11-19 통합 백오피스 AllDone) — 읽는 중·실패·거르기를 건 때는 그리지 않는다 */}
       {state === 'OPEN' && targetType === 'ALL' && !riderId && list.isSuccess && list.data.items.length === 0 ? (

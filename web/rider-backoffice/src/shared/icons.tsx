@@ -1,7 +1,7 @@
 // 메뉴·머리줄 선 아이콘(2026-11-19 — 카페24 관리자처럼 묶음마다 아이콘). 색은 currentColor(테마 따라), 그림 파일·라이브러리 없이 SVG 로.
 import type { ReactNode } from 'react';
 
-export type IconName = 'home' | 'radar' | 'rider' | 'truck' | 'headset' | 'won' | 'megaphone' | 'search' | 'collapse' | 'expand' | 'external' | 'clock';
+export type IconName = 'home' | 'radar' | 'rider' | 'truck' | 'headset' | 'won' | 'megaphone' | 'search' | 'collapse' | 'expand' | 'external' | 'clock' | 'list' | 'alert' | 'card' | 'shield';
 
 const paths: Record<IconName, ReactNode> = {
   home: <path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z" />,
@@ -54,6 +54,20 @@ const paths: Record<IconName, ReactNode> = {
   collapse: <path d="M11 6 5 12l6 6M19 6l-6 6 6 6" />,
   expand: <path d="M13 6l6 6-6 6M5 6l6 6-6 6" />,
   external: <path d="M14 4h6v6M20 4l-9 9M18 14v6H4V6h6" />,
+  list: <path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01" />,
+  alert: (
+    <>
+      <path d="M12 3 2 20h20z" />
+      <path d="M12 10v4M12 17h.01" />
+    </>
+  ),
+  card: (
+    <>
+      <rect x="3" y="5" width="18" height="14" rx="2" />
+      <path d="M3 10h18" />
+    </>
+  ),
+  shield: <path d="M12 3 4 6v6c0 4.5 3.4 8.2 8 9 4.6-.8 8-4.5 8-9V6z" />,
   clock: (
     <>
       <circle cx="12" cy="12" r="9" />

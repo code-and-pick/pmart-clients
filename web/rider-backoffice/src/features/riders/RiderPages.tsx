@@ -6,17 +6,19 @@
 // - 2026-11-18 기본 백오피스에서 마저 옮김(ADR-0068, PC 2 요청): 찾기의 수단 거르기·정렬, 상세의 열린 제한 검토·컴플레인 기록(case `GET /rider-complaints`).
 // 꾸밈(2026-11-18): 배민 관리자 구성 — 목록은 검색 조건 상자 → 결과 줄 → 표, 상세는 머리 → 구역 탭 → 구역 상자(DeliveryPages 와 같은 틀).
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState, type FormEvent } from 'react';
-import { Link, Route, Routes, useNavigate, useParams, useSearchParams } from 'react-router';
+import { Fragment, useState, type FormEvent, type ReactNode } from 'react';
+import { Link, Route, Routes, useParams, useSearchParams } from 'react-router';
 
 import { request } from '@pmart/web-core';
 import { CommandFeedback, QueryState, toUiState, useCommand } from '@pmart/web-ui';
 import { commandParams } from '../../api/command';
 import type { components } from '../../api/generated/rider';
 import { useApi } from '../../app/ApiContext';
-import { AllDone, ChipGroup, CursorPager, DataTable, GuideBox, DetailHeader, FieldList, Notice, PageHeader, ResultBar, SearchPanel, SearchRow, Section, SectionTabs, StatCard, StatStrip, StatusBadge, type Tone } from '../../shared/admin';
+import { AllDone, ChipGroup, CursorPager, DataTable, GuideBox, DetailHeader, FieldList, Notice, PageHeader, ResultBar, SearchPanel, SearchRow, SectionTabs, StatCard, StatStrip, StatusBadge, type Tone } from '../../shared/admin';
 import { statText, useListRows } from '../../shared/listKit';
 import { SavedViews } from '../../shared/SavedViews';
+import { ActionSection, Caret, expandRowProps, InlineDetail, SummaryBar, useInlineOpen, ViewSection } from '../../shared/simList';
+import { Icon } from '../../shared/icons';
 import { ui } from '../../shared/uiMessages';
 import { DeliveryRef, RiderName, RiderRef, StaffName, SystemIds, useDeliveryNumbers, useRiderSummaries } from '../../shared/displayNumbers';
 import { SimBadge } from '../../shared/sim';
@@ -84,7 +86,6 @@ export function SignupsMenu() {
 
 function RiderSearchPage({ signups = false }: { readonly signups?: boolean }) {
   const api = useApi();
-  const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   // 화면 번호 규칙(ADR-0070, 2026-11-18 사용자 "설마 저 긴 ID를 다 쳐야 한다는 건 아니지?"): 라이더 번호 6자리로 찾는다.
   // 옛 링크 ?riderId=RD-… 는 그대로 받아 그 라이더를 찾는다(화면 칸에는 없음).
@@ -114,6 +115,12 @@ function RiderSearchPage({ signups = false }: { readonly signups?: boolean }) {
     setDraft({ riderNumber: '', phone: '' });
     setParams({});
   };
+  /** 칩 ✕ — 글자 조건 하나만 풀기(찾기 칸도 비운다) */
+  const clearText = (next: Partial<Record<'riderNumber' | 'riderId' | 'phone', string>>) => {
+    setDraft({ riderNumber: next.riderNumber ?? draft.riderNumber, phone: next.phone ?? draft.phone });
+    set(next);
+  };
+  const inline = useInlineOpen();
   const query = useQuery({
     queryKey: ['riders', withdrawn, riderNumber, riderId, phone, restriction, operatingStatus, vehicleType, sort, page],
     queryFn: () =>
@@ -138,7 +145,6 @@ function RiderSearchPage({ signups = false }: { readonly signups?: boolean }) {
         }),
       ),
   });
-  const open = (id: string | undefined) => void navigate(`/riders/${encodeURIComponent(id ?? '')}`);
   // 숫자 띠(2026-11-19 통합 백오피스처럼) — 서버가 센 라이더 수(GET /riders/stats). 누르면 그 조건으로 거른다
   const stats = useQuery({
     queryKey: ['rider-stats', ''],
@@ -183,13 +189,29 @@ function RiderSearchPage({ signups = false }: { readonly signups?: boolean }) {
           submitLabel={r.search}
           resetLabel={r.reset}
           summary={[
-            [rx.memberRow, withdrawn ? rx.withdrawnOnly : ''],
-            [rm.riderNumber, riderNumber || (riderId ? '한 라이더' : '')],
-            [r.phone, phone ? '입력함' : ''],
-            [r.restriction, restriction ? label(n.restriction, restriction) : ''],
-            [r.operating, operatingStatus ? label(n.operatingStatus, operatingStatus) : ''],
-            [rm.search.vehicle, vehicleType ? label(n.vehicle, vehicleType) : ''],
+            [rx.memberRow, withdrawn ? rx.withdrawnOnly : '', () => set({ withdrawn: '' })],
+            [rm.riderNumber, riderNumber || (riderId ? '한 라이더' : ''), () => clearText({ riderNumber: '', riderId: '' })],
+            [r.phone, phone ? '입력함' : '', () => clearText({ phone: '' })],
+            [r.restriction, restriction ? label(n.restriction, restriction) : '', () => set({ restriction: '' })],
+            [r.operating, operatingStatus ? label(n.operatingStatus, operatingStatus) : '', () => set({ operatingStatus: '' })],
+            [rm.search.vehicle, vehicleType ? label(n.vehicle, vehicleType) : '', () => set({ vehicleType: '' })],
           ]}
+          // 왼쪽 찾기 칸(시뮬레이터처럼) — 라이더 번호 6자리·전화. 상태·수단 거르기는 깔때기 팝업
+          search={
+            <>
+              <input
+                type="search"
+                className="input input-sm w-44 font-mono"
+                value={draft.riderNumber}
+                maxLength={6}
+                inputMode="numeric"
+                placeholder={`${rm.riderNumber} 6자리`}
+                aria-label={rm.riderNumber}
+                onChange={(e) => setDraft({ ...draft, riderNumber: e.target.value.replace(/\D/g, '').slice(0, 6) })}
+              />
+              <input type="search" className="input input-sm w-40" value={draft.phone} maxLength={20} inputMode="tel" placeholder={r.phone} aria-label={r.phone} onChange={(e) => setDraft({ ...draft, phone: e.target.value })} />
+            </>
+          }
         >
           <SearchRow label={rx.memberRow}>
             <ChipGroup
@@ -198,24 +220,6 @@ function RiderSearchPage({ signups = false }: { readonly signups?: boolean }) {
               options={[{ value: '', label: rx.active }, { value: '1', label: rx.withdrawnOnly }]}
               onChange={(v) => set({ withdrawn: v })}
             />
-          </SearchRow>
-          <SearchRow label={rm.findByNumber}>
-            <label className="flex items-center gap-2 text-sm">
-              <span className="text-base-content/60">{rm.riderNumber}</span>
-              <input
-                className="input input-sm w-32 font-mono"
-                value={draft.riderNumber}
-                maxLength={6}
-                inputMode="numeric"
-                placeholder="482913"
-                aria-label={rm.riderNumber}
-                onChange={(e) => setDraft({ ...draft, riderNumber: e.target.value.replace(/\D/g, '').slice(0, 6) })}
-              />
-            </label>
-            <label className="flex items-center gap-2 text-sm">
-              <span className="text-base-content/60">{r.phone}</span>
-              <input className="input input-sm w-40" value={draft.phone} maxLength={20} inputMode="tel" onChange={(e) => setDraft({ ...draft, phone: e.target.value })} />
-            </label>
           </SearchRow>
           <SearchRow label={r.restriction}>
             <ChipGroup
@@ -268,9 +272,15 @@ function RiderSearchPage({ signups = false }: { readonly signups?: boolean }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {items.map((row) => (
-                    <tr key={row.riderId} data-testid="rider-row" className={`cursor-pointer ${listRows.rowClass(riderPath(row.riderId))}`} onClick={() => open(row.riderId)}>
+                  {items.map((row) => {
+                    const k = row.riderId ?? '';
+                    const isOpen = inline.isOpen(k);
+                    return (
+                    <Fragment key={row.riderId}>
+                    {/* 줄을 누르면 바로 아래에 펼친 상세(시뮬레이터처럼 — 다른 화면으로 넘어가지 않음). 번호 링크·"전체 상세 ›"는 상세 화면으로 */}
+                    <tr data-testid="rider-row" className={listRows.rowClass(riderPath(row.riderId))} {...expandRowProps(isOpen, () => inline.toggle(k))}>
                       <td className="font-mono font-semibold">
+                        <Caret open={isOpen} />
                         <Link className="hover:underline" to={`/riders/${encodeURIComponent(row.riderId ?? '')}`} onClick={(e) => e.stopPropagation()}>
                           <RiderName riderId={row.riderId} riderNumber={row.riderNumber} />
                         </Link>
@@ -294,7 +304,14 @@ function RiderSearchPage({ signups = false }: { readonly signups?: boolean }) {
                       </td>
                       <td className="whitespace-nowrap">{when(row.joinedAt)}</td>
                     </tr>
-                  ))}
+                    {isOpen && (
+                      <InlineDetail colSpan={8} to={riderPath(row.riderId)} testId="rider-inline">
+                        <RiderInline riderId={k} />
+                      </InlineDetail>
+                    )}
+                    </Fragment>
+                    );
+                  })}
                 </tbody>
               </DataTable>
               <CursorPager
@@ -312,6 +329,53 @@ function RiderSearchPage({ signups = false }: { readonly signups?: boolean }) {
   );
 }
 
+/**
+ * 목록 줄 아래 펼친 라이더 요약(2026-11-21 시뮬레이터 .md-inline) — 상세 화면과 같은 조회(['rider', id] — 캐시를 같이 쓴다), 새 API 없음.
+ * 왼쪽: 기본 정보(가린 이름·전화, 수단·운행·제한·가입, 배송 지역, 가입·탈퇴 시각), 오른쪽: 정산계좌·동의.
+ * 원문 열람·계정 제한·수행료·배정·컴플레인은 "전체 상세 ›"에서(사유 입력 흐름 그대로).
+ */
+function RiderInline({ riderId }: { readonly riderId: string }) {
+  const api = useApi();
+  const detail = useQuery({
+    queryKey: ['rider', riderId],
+    queryFn: () => request('GET', api.riders.GET('/riders/{riderId}', { params: { path: { riderId }, query: { includeWithdrawn: true } } })),
+  });
+  return (
+    <QueryState state={toUiState(detail)} onRetry={() => void detail.refetch()}>
+      {(x) => (
+        <div className="pm-inline-cols">
+          <div>
+            <h4>{r.info}</h4>
+            <FieldList
+              testId="rider-inline-info"
+              rows={[
+                [r.col.name, x.nameMasked ?? none],
+                [r.col.phone, <span className="font-mono">{x.phoneMasked || none}</span>],
+                [r.col.vehicle, label(n.vehicle, x.vehicleType)],
+                [r.col.operating, <StatusBadge tone={operatingTone(x.operating?.status)}>{label(n.operatingStatus, x.operating?.status)}</StatusBadge>],
+                [r.col.restriction, <StatusBadge tone={restrictionTone(x.restriction?.state)}>{label(n.restriction, x.restriction?.state)}</StatusBadge>],
+                [r.signupStatus, signupText(x.signupStatus, x.signupDecidedBy ?? null)],
+                [r.areas, (x.deliveryAreas ?? []).map((a) => a.mfcId).join(', ') || none],
+                [r.col.joinedAt, when(x.joinedAt)],
+                ...(x.withdrawnAt ? [[rx.withdrawn, when(x.withdrawnAt)] as const] : []),
+              ]}
+            />
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Link className="btn btn-xs" to={`/deliveries?riderId=${encodeURIComponent(riderId)}`}>
+                {r.deliveries}
+              </Link>
+            </div>
+          </div>
+          <div className="pm-inline-side">
+            <h4>{rm.bank.title}</h4>
+            <AccountAndConsents detail={x} />
+          </div>
+        </div>
+      )}
+    </QueryState>
+  );
+}
+
 function thisWeek(): { from: string; to: string } {
   const now = new Date(Date.now() + 9 * 3600_000); // Asia/Seoul 날짜
   const day = (now.getUTCDay() + 6) % 7; // 월요일 0
@@ -320,13 +384,15 @@ function thisWeek(): { from: string; to: string } {
   return { from: iso(from), to: iso(now) };
 }
 
-// 상세(2026-11-18 — 배민 주문내역 상세 참고): 머리(ID·제한·운행·가입 표시 + 요약) → 구역 탭 → 구역 상자.
-// rider·execution·dispatch 는 서로 다른 서비스 값이라 구역도 따로, 못 읽은 구역만 오류.
+// 상세(2026-11-21 시뮬레이터 모양 — 사용자 "각각 뭐를 보여주고 처리하는 박스인지가 직관적으로 안 보인다"):
+// 머리 → 요약 띠(운행·제한·진행 중 배정·이번 주 운행·수행료·열린 검토·컴플레인 — 이미 읽는 값만) → 구역 탭 →
+// [왼쪽 보기 구역(조용한 판, 머리에 한 줄 요약, 비면 한 줄)] [오른쪽 처리 구역(계정 제한 바꾸기·제한 검토 결정하기·원문 보기 — 한곳에 모음)].
+// rider·execution·dispatch·case 는 서로 다른 서비스 값이라 구역도 따로, 못 읽은 구역만 오류.
 function RiderDetailPage() {
   const api = useApi();
   const { riderId = '' } = useParams();
   // 운행 중(ON_DUTY)이면 15초마다(배정·완료가 바로 보이게), 운행 중이 아니면 멈춤.
-  // operating.activeDeliveryCount 는 계약에 있지만 rider-service 가 아직 채우지 않아(백엔드 확인 2026-11-18) 쓰지 않는다.
+  // operating.activeDeliveryCount 는 계약에 있지만 rider-service 가 아직 채우지 않아(백엔드 확인 2026-11-18) 쓰지 않는다 — 진행 중은 배정 이력(CURRENT)으로 센다.
   const detail = useQuery({
     queryKey: ['rider', riderId],
     refetchInterval: (q) => (q.state.data?.operating?.status === 'ON_DUTY' ? LIVE.rider : false),
@@ -343,20 +409,35 @@ function RiderDetailPage() {
     queryKey: ['rider-operating-time', riderId, week.from],
     queryFn: () => request('GET', api.execution.GET('/rider-operating-time', { params: { query: { riderId, from: week.from, to: week.to } } })),
   });
+  // 요약 값 — 아래 구역과 같은 조회(같은 키라 한 번만 부른다)
+  const assignments = useAssignments(riderId, '', riderLive);
   const d = detail.data;
   // 탈퇴한 라이더(rider 0.20.0 includeWithdrawn): 기록만 보고, 제한·원문 열람·검토 결정은 감춘다(서버도 404)
   const gone = !!d?.withdrawnAt;
+  const canAct = !!d && !gone;
+  const reviews = useOpenReviews(riderId, canAct);
+  const complaints = useComplaints(riderId);
+  // 탈퇴한 라이더는 제한 이력을 부르지 않는다(서버 404 — 전과 같음)
+  const restrictions = useRestrictionHistory(riderId, canAct);
   const tabs = [
     { id: 'sec-info', label: rm.tabs.info },
     { id: 'sec-account', label: rm.tabs.account },
     { id: 'sec-time', label: rm.tabs.time },
     { id: 'sec-earnings', label: rm.tabs.earnings },
     { id: 'sec-assignments', label: rm.tabs.assignments },
-    { id: 'sec-reviews', label: rm.tabs.reviews },
     { id: 'sec-complaints', label: rm.tabs.complaints },
+    { id: 'sec-reviews', label: rm.tabs.reviews },
     { id: 'sec-restriction', label: rm.tabs.restriction },
   ];
-  const shownTabs = !d || gone ? tabs.filter((t) => t.id !== 'sec-reviews' && t.id !== 'sec-restriction') : tabs;
+  const shownTabs = canAct ? tabs : tabs.filter((t) => t.id !== 'sec-reviews' && t.id !== 'sec-restriction');
+  const hours = (s: number) => `${Math.floor(s / 3600)}시간 ${Math.floor((s % 3600) / 60)}분`;
+  const asg = assignments.data?.items ?? [];
+  const asgCurrent = asg.filter((it) => it.outcome === 'CURRENT').length;
+  const complaintItems = complaints.data?.pages.flatMap((p) => p.items ?? []) ?? [];
+  const reviewItems = reviews.data?.items ?? [];
+  const restrictionItems = restrictions.data?.items ?? [];
+  /** 요약 값 — 읽는 중 "…", 못 읽음 "?"(0 이 아님) */
+  const v = <T,>(q: { readonly data?: T | undefined; readonly isError: boolean }, f: (x: NonNullable<T>) => ReactNode): ReactNode => (q.data != null ? f(q.data) : q.isError ? ui.strip.unknown : ui.strip.loading);
   return (
     <section className="max-w-[1600px] space-y-4">
       <DetailHeader
@@ -368,8 +449,6 @@ function RiderDetailPage() {
             <>
               <SimBadge riderId={riderId} />
               {gone && <StatusBadge tone="neutral">{rx.withdrawn}</StatusBadge>}
-              <StatusBadge tone={restrictionTone(d.restriction?.state)}>{label(n.restriction, d.restriction?.state)}</StatusBadge>
-              <StatusBadge tone={operatingTone(d.operating?.status)}>{label(n.operatingStatus, d.operating?.status)}</StatusBadge>
               <StatusBadge tone={signupTone(d.signupStatus)}>{signupText(d.signupStatus, d.signupDecidedBy ?? null)}</StatusBadge>
             </>
           )
@@ -381,14 +460,33 @@ function RiderDetailPage() {
           </Link>
         }
       />
+      {/* 요약 띠(시뮬레이터 라이더 카드처럼) — 아래 구역들이 읽는 값을 한 줄로 */}
+      <SummaryBar
+        label={dx.summary}
+        testId="rider-summary"
+        items={[
+          [r.col.operating, v(detail, (x) => <StatusBadge tone={operatingTone(x.operating?.status)}>{label(n.operatingStatus, x.operating?.status)}</StatusBadge>)],
+          [r.col.restriction, v(detail, (x) => <StatusBadge tone={restrictionTone(x.restriction?.state)}>{label(n.restriction, x.restriction?.state)}</StatusBadge>)],
+          [dx.current, v(assignments, () => `${asgCurrent}건`)],
+          [dx.weekTime, v(time, (t) => hours(t.totalSeconds))],
+          [dx.confirmed, v(earnings, (e) => won(e.totals?.confirmed))],
+          canAct && [rm.tabs.reviews, v(reviews, () => `${reviewItems.length}건`)],
+          [rm.tabs.complaints, complaints.data ? `${complaintItems.length}건${complaints.hasNextPage ? ' 이상' : ''}` : complaints.isError ? ui.strip.unknown : ui.strip.loading],
+        ]}
+      />
       <SystemIds ids={[[rm.systemRiderId, riderId]]} />
       {gone && d?.withdrawnAt && <Notice tone="warning">{rx.withdrawnNotice(when(d.withdrawnAt))}</Notice>}
       <SectionTabs items={shownTabs} />
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Section id="sec-info" title={r.info}>
-          <QueryState state={toUiState(detail)} onRetry={() => void detail.refetch()}>
-            {(x) => (
-              <div className="space-y-4">
+      <div className={canAct ? 'pm-detail-grid' : ''}>
+        <div className="pm-view-col">
+          <ViewSection
+            id="sec-info"
+            icon={<Icon name="rider" className="h-4 w-4" />}
+            title={r.info}
+            summary={d ? [label(n.vehicle, d.vehicleType), dx.areas((d.deliveryAreas ?? []).length)].join(' · ') : undefined}
+          >
+            <QueryState state={toUiState(detail)} onRetry={() => void detail.refetch()}>
+              {(x) => (
                 <FieldList
                   testId="rider-detail"
                   rows={[
@@ -403,31 +501,42 @@ function RiderDetailPage() {
                     ...(x.withdrawnAt ? [[rx.withdrawn, when(x.withdrawnAt)] as const] : []),
                   ]}
                 />
-                {!x.withdrawnAt && <RevealForm riderId={riderId} />}
-              </div>
-            )}
-          </QueryState>
-        </Section>
-        <Section id="sec-account" title={rm.bank.title}>
-          <QueryState state={toUiState(detail)} onRetry={() => void detail.refetch()}>
-            {(x) => <AccountAndConsents detail={x} />}
-          </QueryState>
-        </Section>
-        <Section id="sec-time" title={r.operatingTime}>
-          <QueryState state={toUiState(time)} onRetry={() => void time.refetch()}>
-            {(t) => (
-              <p className="text-sm" data-testid="operating-time">
-                {r.operatingTotal(`${Math.floor(t.totalSeconds / 3600)}시간 ${Math.floor((t.totalSeconds % 3600) / 60)}분`)}
-                <span className="ml-2 text-base-content/50">{`${week.from} ~ ${week.to}`}</span>
-              </p>
-            )}
-          </QueryState>
-        </Section>
-        <Section id="sec-earnings" title={r.earnings}>
-          <QueryState state={toUiState(earnings, (e) => (e.items ?? []).length === 0)} onRetry={() => void earnings.refetch()} emptyText={none}>
-            {(e) => (
-              <div className="space-y-3">
-                <p className="text-sm text-base-content/70">{r.earningsTotals(won(e.totals?.estimated), won(e.totals?.confirmed), won(e.totals?.paid))}</p>
+              )}
+            </QueryState>
+          </ViewSection>
+          <div className="grid gap-3 lg:grid-cols-2">
+            <ViewSection
+              id="sec-account"
+              icon={<Icon name="card" className="h-4 w-4" />}
+              title={rm.bank.title}
+              summary={d ? [d.bankAccountRegistered === undefined ? null : `${rm.bank.registered} ${d.bankAccountRegistered ? rm.bank.yes : rm.bank.no}`, d.consents === undefined ? null : dx.consents((d.consents ?? []).length)].filter(Boolean).join(' · ') : undefined}
+            >
+              <QueryState state={toUiState(detail)} onRetry={() => void detail.refetch()}>
+                {(x) => <AccountAndConsents detail={x} />}
+              </QueryState>
+            </ViewSection>
+            <div className="flex flex-col gap-3">
+              <ViewSection id="sec-time" icon={<Icon name="clock" className="h-4 w-4" />} title={r.operatingTime} summary={time.data ? r.operatingTotal(hours(time.data.totalSeconds)) : undefined}>
+                <QueryState state={toUiState(time)} onRetry={() => void time.refetch()}>
+                  {(t) => (
+                    <p className="text-sm" data-testid="operating-time">
+                      {r.operatingTotal(hours(t.totalSeconds))}
+                      <span className="ml-2 text-base-content/50">{`${week.from} ~ ${week.to}`}</span>
+                    </p>
+                  )}
+                </QueryState>
+              </ViewSection>
+            </div>
+          </div>
+          <ViewSection
+            id="sec-earnings"
+            icon={<Icon name="won" className="h-4 w-4" />}
+            title={r.earnings}
+            summary={earnings.data ? ((earnings.data.items ?? []).length === 0 ? dx.noneShort : r.earningsTotals(won(earnings.data.totals?.estimated), won(earnings.data.totals?.confirmed), won(earnings.data.totals?.paid))) : undefined}
+            empty={earnings.isSuccess && (earnings.data.items ?? []).length === 0}
+          >
+            <QueryState state={toUiState(earnings)} onRetry={() => void earnings.refetch()}>
+              {(e) => (
                 <DataTable testId="rider-earnings">
                   <thead>
                     <tr>
@@ -450,31 +559,165 @@ function RiderDetailPage() {
                     ))}
                   </tbody>
                 </DataTable>
-              </div>
-            )}
-          </QueryState>
-        </Section>
+              )}
+            </QueryState>
+          </ViewSection>
+          <ViewSection
+            id="sec-assignments"
+            icon={<Icon name="list" className="h-4 w-4" />}
+            title={rm.assignments.title}
+            info={rm.assignments.intro}
+            summary={assignments.data ? (asg.length === 0 ? rm.assignments.empty : dx.assignSummary(asg.length, !!assignments.data.page?.nextCursor, asgCurrent)) : undefined}
+          >
+            <AssignmentHistory riderId={riderId} live={riderLive} />
+          </ViewSection>
+          <ViewSection
+            id="sec-complaints"
+            icon={<Icon name="alert" className="h-4 w-4" />}
+            title={rm.tabs.complaints}
+            info={rm.complaints.intro}
+            summary={complaints.data ? (complaintItems.length === 0 ? rm.complaints.empty : `${complaintItems.length}건${complaints.hasNextPage ? ' 이상' : ''}`) : undefined}
+            empty={complaints.isSuccess && complaintItems.length === 0}
+          >
+            <ComplaintHistory riderId={riderId} />
+          </ViewSection>
+          {canAct && (
+          <ViewSection
+            id="sec-restriction-history"
+            icon={<Icon name="shield" className="h-4 w-4" />}
+            title={r.restrictionHistory}
+            summary={restrictions.data ? (restrictionItems.length === 0 ? dx.noHistory : dx.changes(restrictionItems.length)) : undefined}
+            empty={restrictions.isSuccess && restrictionItems.length === 0}
+          >
+            <RestrictionHistory riderId={riderId} />
+          </ViewSection>
+          )}
+        </div>
+        {canAct && (
+          // 처리 구역 — 한곳에(넓은 화면은 오른쪽 고정 칸, 좁으면 위로)
+          <aside className="pm-act-col" aria-label={dx.actions}>
+            <ActionSection id="sec-restriction" title={dx.restrictTitle} summary={label(n.restriction, d.restriction?.state)} info={`${r.restrictIntro} ${rm.restrictionAside}`}>
+              <RestrictionPanel riderId={riderId} />
+            </ActionSection>
+            <ActionSection
+              id="sec-reviews"
+              title={dx.reviewTitle}
+              summary={reviews.data ? (reviewItems.length === 0 ? rm.detailReviews.empty : `${reviewItems.length}건`) : undefined}
+              info={rm.detailReviews.intro}
+            >
+              {reviews.isSuccess && reviewItems.length === 0 ? undefined : <RiderOpenReviews riderId={riderId} />}
+            </ActionSection>
+            <ActionSection title={r.reveal} info={r.revealIntro}>
+              <RevealForm riderId={riderId} />
+            </ActionSection>
+          </aside>
+        )}
       </div>
-      <Section id="sec-assignments" title={rm.assignments.title} aside={<span className="text-xs text-base-content/50">{rm.assignments.intro}</span>}>
-        <AssignmentHistory riderId={riderId} live={riderLive} />
-      </Section>
-      {d && !gone && (
-        <>
-      <Section id="sec-reviews" title={rm.tabs.reviews} aside={<span className="text-xs text-base-content/50">{rm.detailReviews.intro}</span>}>
-        <ReviewTable state="OPEN" riderId={riderId} />
-      </Section>
-      <Section id="sec-complaints" title={rm.tabs.complaints} aside={<span className="text-xs text-base-content/50">{rm.complaints.intro}</span>}>
-        <ComplaintHistory riderId={riderId} />
-      </Section>
-      <Section id="sec-restriction" title={rm.tabs.restriction} aside={<span className="text-xs text-base-content/50">{rm.restrictionAside}</span>}>
-        <RestrictionPanel riderId={riderId} />
-      </Section>
-        </>
-      )}
     </section>
   );
 }
 
+/** 상세에서 더한 문구(2026-11-21 보기·처리 구역 나누기) */
+const dx = {
+  summary: '라이더 요약',
+  current: '진행 중 배정',
+  weekTime: '이번 주 운행',
+  confirmed: '수행료 확정',
+  areas: (n: number) => `배달지역 ${n}곳`,
+  consents: (n: number) => `동의 ${n}개`,
+  noneShort: '없음',
+  noHistory: '바뀐 적 없음',
+  changes: (n: number) => `${n}번 바뀜`,
+  assignSummary: (n: number, more: boolean, current: number) => `${n}건${more ? ' 이상' : ''} · 진행 중 ${current}`,
+  actions: '처리',
+  restrictTitle: '계정 제한 바꾸기',
+  reviewTitle: '제한 검토 결정하기',
+} as const;
+
+function useAssignments(riderId: string, cursor: string, live: boolean) {
+  const api = useApi();
+  return useQuery({
+    queryKey: ['rider-assignments', riderId, cursor],
+    // 라이더가 운행 중일 때 첫 쪽(최신 배정)만 15초마다 — 넘긴 쪽은 그대로
+    refetchInterval: live && !cursor ? LIVE.rider : false,
+    queryFn: () => request('GET', api.dispatch.GET('/rider-assignments', { params: { query: { riderId, size: PAGE_SIZE, ...(cursor ? { cursor } : {}) } } })),
+  });
+}
+
+function useOpenReviews(riderId: string, enabled = true) {
+  const api = useApi();
+  return useQuery({
+    queryKey: ['restriction-reviews', 'OPEN', riderId],
+    enabled,
+    queryFn: () => request('GET', api.riders.GET('/riders/restriction-reviews', { params: { query: { state: 'OPEN', riderId } } })),
+  });
+}
+
+function useComplaints(riderId: string) {
+  const api = useApi();
+  return useInfiniteQuery({
+    queryKey: ['rider-complaints', riderId],
+    queryFn: ({ pageParam }) => request('GET', api.cases.GET('/rider-complaints', { params: { query: { riderId, size: PAGE_SIZE, ...(pageParam ? { cursor: pageParam } : {}) } } })),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (last) => last.page?.nextCursor ?? undefined,
+  });
+}
+
+function useRestrictionHistory(riderId: string, enabled = true) {
+  const api = useApi();
+  return useQuery({
+    queryKey: ['rider-restrictions', riderId],
+    enabled,
+    queryFn: () => request('GET', api.riders.GET('/riders/{riderId}/restrictions', { params: { path: { riderId } } })),
+  });
+}
+
+/** 상세 처리 칸의 열린 제한 검토 — 줄마다 작은 카드(종류·쌓인 컴플레인·열린 때 + 결정). 결정하면 그 카드가 결과로 바뀐다 */
+function RiderOpenReviews({ riderId }: { readonly riderId: string }) {
+  const query = useOpenReviews(riderId);
+  const complaintNos = useDeliveryNumbers((query.data?.items ?? []).flatMap((it) => (it.complaints ?? []).map((c) => c.deliveryId)));
+  const me = useSession().session?.subject;
+  const v = ops.reviews;
+  return (
+    <QueryState state={toUiState(query)} onRetry={() => void query.refetch()}>
+      {(x) => (
+        <ul className="space-y-3" data-testid="rider-reviews">
+          {(x.items ?? []).map((it, i) => (
+            <li key={it.reviewId ?? `review-${i}`} className="space-y-2 border-b border-base-300 pb-3 text-sm last:border-0 last:pb-0" data-testid="review-row">
+              <div className="flex flex-wrap items-center gap-2">
+                <StatusBadge tone="warning">{label(n.complaintType, it.complaintType)}</StatusBadge>
+                <span className="text-base-content/60">
+                  {rm.reviews.complaints} {rm.reviewsCount((it.complaints ?? []).length)} · {v.col.openedAt} {when(it.openedAt)}
+                </span>
+              </div>
+              <ul className="space-y-0.5 text-xs text-base-content/60">
+                {(it.complaints ?? []).map((c, k) => (
+                  <li key={c.complaintId ?? `c-${k}`}>
+                    <span className="inline-flex flex-wrap items-center gap-1">
+                      {c.deliveryId ? <DeliveryRef deliveryId={c.deliveryId} numbers={complaintNos.get(c.deliveryId)} /> : null}
+                      {c.recordedAt ? <span>· {when(c.recordedAt)}</span> : null}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              {it.state === 'OPEN' ? (
+                <ReviewDecision review={it} />
+              ) : (
+                <span className="flex flex-col gap-1">
+                  <StatusBadge tone={reviewTone(it.state)}>{label(rm.reviews.state, it.state)}</StatusBadge>
+                  <span className="text-xs text-base-content/60">
+                    {when(it.decidedAt)} · <StaffName operatorId={it.decidedBy} me={me} />
+                    {it.note ? ` — ${it.note}` : ''}
+                  </span>
+                </span>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+    </QueryState>
+  );
+}
 /** 정산계좌 등록 여부·은행 이름(계좌번호는 오지 않는다) + 지금 동의한 버전(항목마다 마지막만) */
 function AccountAndConsents({ detail }: { readonly detail: components['schemas']['StaffRiderDetail'] }) {
   const consents = detail.consents ?? [];
@@ -526,17 +769,10 @@ function AccountAndConsents({ detail }: { readonly detail: components['schemas']
 
 /** 배정 이력 — dispatch `GET /rider-assignments`(배정 최신순, cursor). 결과(outcome)·취소 기록은 서버 값 그대로 */
 function AssignmentHistory({ riderId, live = false }: { readonly riderId: string; readonly live?: boolean }) {
-  const api = useApi();
   const [cursor, setCursor] = useState('');
   const [pageNo, setPageNo] = useState(1);
   const a = rm.assignments;
-  const query = useQuery({
-    queryKey: ['rider-assignments', riderId, cursor],
-    // 라이더가 운행 중일 때 첫 쪽(최신 배정)만 15초마다 — 넘긴 쪽은 그대로
-    refetchInterval: live && !cursor ? LIVE.rider : false,
-    queryFn: () =>
-      request('GET', api.dispatch.GET('/rider-assignments', { params: { query: { riderId, size: PAGE_SIZE, ...(cursor ? { cursor } : {}) } } })),
-  });
+  const query = useAssignments(riderId, cursor, live);
   const assignNos = useDeliveryNumbers((query.data?.items ?? []).map((it) => it.deliveryId));
   return (
     <QueryState state={toUiState(query, (x) => (x.items ?? []).length === 0)} onRetry={() => void query.refetch()} emptyText={a.empty}>
@@ -618,15 +854,13 @@ function RevealForm({ riderId }: { readonly riderId: string }) {
   );
   return (
     <form
-      className="space-y-2 rounded-box border border-base-300 bg-base-200/40 p-4 text-sm"
+      className="space-y-2 text-sm"
       aria-label={r.reveal}
       onSubmit={(e) => {
         e.preventDefault();
         if (reason.trim().length >= 2) void reveal.run({ reason: reason.trim() });
       }}
     >
-      <h3 className="font-semibold">{r.reveal}</h3>
-      <p className="text-xs text-base-content/60">{r.revealIntro}</p>
       <div className="flex flex-wrap items-end gap-2">
         <label className="flex min-w-60 flex-1 flex-col gap-1">
           {r.revealReason}
@@ -650,10 +884,7 @@ function RevealForm({ riderId }: { readonly riderId: string }) {
 function RestrictionPanel({ riderId }: { readonly riderId: string }) {
   const api = useApi();
   const queryClient = useQueryClient();
-  const history = useQuery({
-    queryKey: ['rider-restrictions', riderId],
-    queryFn: () => request('GET', api.riders.GET('/riders/{riderId}/restrictions', { params: { path: { riderId } } })),
-  });
+  const history = useRestrictionHistory(riderId);
   const [to, setTo] = useState<Restriction | ''>('');
   const [reason, setReason] = useState('');
   const [until, setUntil] = useState('');
@@ -672,7 +903,7 @@ function RestrictionPanel({ riderId }: { readonly riderId: string }) {
     }
   });
   return (
-    <div className="grid gap-6 lg:grid-cols-2">
+    <>
       <form
         className="space-y-3 text-sm"
         aria-label={r.restrict}
@@ -686,8 +917,6 @@ function RestrictionPanel({ riderId }: { readonly riderId: string }) {
           });
         }}
       >
-        <h3 className="font-semibold">{r.restrict}</h3>
-        <p className="text-xs text-base-content/60">{r.restrictIntro}</p>
         <label className="block">
           {r.restrictTo}
           <select className="select select-sm mt-1 block" value={to} onChange={(e) => setTo(e.target.value as Restriction | '')}>
@@ -720,26 +949,29 @@ function RestrictionPanel({ riderId }: { readonly riderId: string }) {
           )}
         </CommandFeedback>
       </form>
-      <div className="space-y-3">
-        <h3 className="text-sm font-semibold">{r.restrictionHistory}</h3>
-        <QueryState state={toUiState(history, (h) => (h.items ?? []).length === 0)} onRetry={() => void history.refetch()} emptyText={none}>
-          {(h) => (
-            <ol className="relative space-y-3 border-l-2 border-base-300 pl-4 text-sm" data-testid="restriction-history">
-              {(h.items ?? []).map((it, i) => (
-                <li key={`${it.changedAt ?? ''}-${i}`} className="relative">
-                  <span className="absolute -left-[1.4rem] top-1 size-2.5 rounded-full bg-accent" aria-hidden />
-                  <span className="font-medium">{`${label(n.restriction, it.previous)} → ${label(n.restriction, it.restriction)}`}</span>
-                  <span className="ml-2 text-base-content/55">{`${when(it.changedAt)} · ${it.reason ?? ''}`}</span>
-                </li>
-              ))}
-            </ol>
-          )}
-        </QueryState>
-      </div>
-    </div>
+    </>
   );
 }
 
+/** 제한 이력(보기) — 계정 제한 바꾸기와 같은 조회 */
+function RestrictionHistory({ riderId }: { readonly riderId: string }) {
+  const history = useRestrictionHistory(riderId);
+  return (
+    <QueryState state={toUiState(history, (h) => (h.items ?? []).length === 0)} onRetry={() => void history.refetch()} emptyText={none}>
+      {(h) => (
+        <ol className="relative space-y-3 border-l-2 border-base-300 pl-4 text-sm" data-testid="restriction-history">
+          {(h.items ?? []).map((it, i) => (
+            <li key={`${it.changedAt ?? ''}-${i}`} className="relative">
+              <span className="absolute -left-[1.4rem] top-1 size-2.5 rounded-full bg-base-content/40" aria-hidden />
+              <span className="font-medium">{`${label(n.restriction, it.previous)} → ${label(n.restriction, it.restriction)}`}</span>
+              <span className="ml-2 text-base-content/55">{`${when(it.changedAt)} · ${it.reason ?? ''}`}</span>
+            </li>
+          ))}
+        </ol>
+      )}
+    </QueryState>
+  );
+}
 // 제한 검토 — 상태 탭(검토 중·제한함·제한 안 함, URL ?state=). 기본 백오피스에서 옮김(2026-11-18, ADR-0068).
 export function RestrictionReviewsMenu() {
   const [params, setParams] = useSearchParams();
@@ -912,15 +1144,8 @@ function ReviewDecision({ review }: { readonly review: Review }) {
 
 /** 이 라이더 컴플레인 기록 — case `GET /rider-complaints?riderId=`(최근 기록 순, cursor). 상세 글(note)은 목록에 오지 않는다. */
 function ComplaintHistory({ riderId }: { readonly riderId: string }) {
-  const api = useApi();
   const c = rm.complaints;
-  const query = useInfiniteQuery({
-    queryKey: ['rider-complaints', riderId],
-    queryFn: ({ pageParam }) =>
-      request('GET', api.cases.GET('/rider-complaints', { params: { query: { riderId, size: PAGE_SIZE, ...(pageParam ? { cursor: pageParam } : {}) } } })),
-    initialPageParam: undefined as string | undefined,
-    getNextPageParam: (last) => last.page?.nextCursor ?? undefined,
-  });
+  const query = useComplaints(riderId);
   const items = query.data?.pages.flatMap((p) => p.items ?? []) ?? [];
   const complaintNos = useDeliveryNumbers(items.map((it) => it.deliveryId));
   const me = useSession().session?.subject;

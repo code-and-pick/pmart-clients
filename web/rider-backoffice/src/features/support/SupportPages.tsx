@@ -12,7 +12,7 @@ import { commandParams } from '../../api/command';
 import { useApi } from '../../app/ApiContext';
 import { useSession } from '../../app/SessionContext';
 import { photoMessages } from '../../shared/AuthedPhotos';
-import { AllDone, DataTable, DetailHeader, GuideBox, FieldList, PageHeader, ResultBar, Section, SectionTabs, StatCard, StatStrip, StatusBadge } from '../../shared/admin';
+import { AllDone, ChipGroup, DataTable, DetailHeader, GuideBox, FieldList, PageHeader, ResultBar, SearchPanel, Section, SectionTabs, StatCard, StatStrip, StatusBadge } from '../../shared/admin';
 import { listCountText, statText, useListRows } from '../../shared/listKit';
 import { useNewIds } from '../../shared/motion';
 import { ui } from '../../shared/uiMessages';
@@ -23,6 +23,7 @@ import { label, none, when } from '../../shared/opsUi';
 import { useNow, waited } from '../../shared/useNow';
 import { DeliveryActions } from '../deliveries/DeliveryActions';
 import { AppealsMenu } from './AppealPages';
+import { CaseDetailPage, caseDetailPath, CaseListPage } from '../cases/CasePages';
 import { EvidencePhotos, helpExtrasMessages, InquiryPhotos, MaskMessage, ResolvePanel } from './HelpExtras';
 import { ChatBox, ChatBubble, helpTone, inquiryTone, StateTabs } from './supportUi';
 
@@ -36,7 +37,7 @@ const sm = {
   helpSearch: { state: '상태', category: '종류', allCategories: '모든 종류', rider: '라이더', riderHint: '라이더 번호 6자리' },
   autoRefresh: (s: number) => `${s}초마다 새로 불러와요`,
   photoCount: (k: number) => (k > 0 ? `${k}장` : none),
-  hasCase: '접수 건 있음',
+  hasCase: '사건 있음',
   help: {
     request: '요청 내용',
     photos: '사진',
@@ -245,7 +246,7 @@ function HelpChatPage() {
           </div>
         </Section>
         {/* 상담하면서 바로 배송 조치(상태 정정·전달 실패 확정·반려·배차 취소) — 배송 찾기로 가지 않아도 된다(사용자 2026-11-19) */}
-        <Section id="sec-actions" title={sm.help.actions} aside={<span className="text-xs text-base-content/50">{sm.help.actionsHint}</span>}>
+        <Section id="sec-actions" action title={`${sm.help.actions}하기`} info={sm.help.actionsHint}>
           <HelpDeliveryActions deliveryId={deliveryId} />
         </Section>
         </div>
@@ -409,7 +410,7 @@ function InquiryDetailPage() {
             </div>
           </Section>
           {!closed && (
-            <Section id="sec-close" title={q.close}>
+            <Section id="sec-close" action title={`${q.close}하기`}>
               <form
                 className="flex flex-wrap items-end gap-2 text-sm"
                 aria-label={q.close}
@@ -446,11 +447,11 @@ function WaitBadge({ from, now }: { readonly from: string | null | undefined; re
 // ---------------- 상담함(도움요청 + 라이더 문의 한 목록 — 사용자 2026-11-19 "라이더문의랑 도움요청이 둘 다 있는 이유가 뭐냐")
 
 const consultText = {
-  title: '상담함',
+  title: '처리함',
   intro: '라이더가 보낸 배송 도움요청(급함)과 일반 문의를 한곳에서 봐요. 배송 도움요청이 먼저, 그 안에서는 오래 기다린 것부터. 누르면 대화를 열고, 끝나면 "상담 완료".',
   // 안내 상자 글머리(2026-11-19) — 위 intro 를 문장으로 나눈 것(새 규칙 아님)
   guide: ['라이더가 보낸 배송 도움요청(급함)과 일반 문의를 한곳에서 봐요.', '배송 도움요청이 먼저, 그 안에서는 오래 기다린 것부터.', '누르면 대화를 열고, 끝나면 "상담 완료".'],
-  tabs: { open: '상담 중', done: '끝남', appeals: '소명·이의' },
+  tabs: { open: '상담 중', cases: '배송 사건', appeals: '소명·이의', done: '끝남' },
   searchLabel: '찾기',
   searchHint: '배송번호·주문번호·라이더 이름·번호·내용',
   search: '찾기',
@@ -489,11 +490,13 @@ export function ConsultsMenu() {
   return (
     <Routes>
       <Route index element={<ConsultsHome />} />
+      {/* 배송 사건 상세(2026-11-21 처리함으로 합침 — 옛 /cases/:id 가 여기로) */}
+      <Route path="cases/:caseId" element={<CaseDetailPage />} />
     </Routes>
   );
 }
 
-type ConsultTab = 'open' | 'done' | 'appeals';
+type ConsultTab = 'open' | 'cases' | 'appeals' | 'done';
 
 /**
  * 상담함 한 곳 — 상담 중 | 끝남 | 소명·이의(2026-11-20 사용자 "상담함이랑 소명이의는 왜 나눠져 있냐").
@@ -502,7 +505,7 @@ type ConsultTab = 'open' | 'done' | 'appeals';
 function ConsultsHome() {
   const [params, setParams] = useSearchParams();
   const raw = params.get('tab');
-  const tab: ConsultTab = raw === 'done' || raw === 'appeals' ? raw : 'open';
+  const tab: ConsultTab = raw === 'done' || raw === 'appeals' || raw === 'cases' ? raw : 'open';
   return (
     <section className="space-y-4">
       <PageHeader title={consultText.title} />
@@ -511,12 +514,13 @@ function ConsultsHome() {
         value={tab}
         options={[
           { value: 'open' as const, label: consultText.tabs.open },
-          { value: 'done' as const, label: consultText.tabs.done },
+          { value: 'cases' as const, label: consultText.tabs.cases },
           { value: 'appeals' as const, label: consultText.tabs.appeals },
+          { value: 'done' as const, label: consultText.tabs.done },
         ]}
         onChange={(t) => setParams(t === 'open' ? {} : { tab: t })}
       />
-      {tab === 'appeals' ? <AppealsMenu embedded /> : <ConsultsPage tab={tab} />}
+      {tab === 'appeals' ? <AppealsMenu embedded /> : tab === 'cases' ? <CaseListPage embedded /> : <ConsultsPage tab={tab} />}
     </section>
   );
 }
@@ -632,6 +636,12 @@ function ConsultsPage({ tab }: { readonly tab: 'open' | 'done' }) {
           <span className="flex flex-wrap items-center gap-1">
             <StatusBadge>{label(n.helpState, it.state)}</StatusBadge>
             {it.state !== 'RESOLVED' && it.deliveryId && resumeBy.has(it.deliveryId) && resumeBadge}
+            {/* 같은 일의 배송 사건(RIDER_HELP) — 처리함에서 한 줄로: 도움요청 줄에 "사건 있음 ›"(사건 상세로) */}
+            {it.caseId && (
+              <Link className="text-xs text-primary hover:underline" to={caseDetailPath(it.caseId)} onClick={(e) => e.stopPropagation()} data-testid="help-case-link">
+                {sm.hasCase} ›
+              </Link>
+            )}
           </span>
         ),
         deliveryId: it.deliveryId ?? null,
@@ -677,23 +687,47 @@ function ConsultsPage({ tab }: { readonly tab: 'open' | 'done' }) {
     <div className="space-y-4">
       <GuideBox title={ui.guideTitle} items={consultText.guide} storeKey="consults" testId="consults-guide" />
       <StatStrip label={consultText.stripLabel} testId="consult-strip">
-        <StatCard layout="row" label={consultText.kind.help} value={statText(stats.data?.openHelpRequests, stats.isError)} hint={consultText.stripHelpHint} tone={(stats.data?.openHelpRequests ?? 0) > 0 ? 'warning' : undefined} testId="strip-help" />
-        <StatCard layout="row" label={consultText.kind.failure} value={statText(stats.data?.inProgress?.['FAILURE_REPORTED'], stats.isError)} tone={(stats.data?.inProgress?.['FAILURE_REPORTED'] ?? 0) > 0 ? 'error' : undefined} testId="strip-failure" />
-        <StatCard layout="row" label={consultText.kind.inquiry} value={listCountText(openInquiries.data, openInquiries.isError)} hint={consultText.stripInquiryHint} testId="strip-inquiry" />
+        <StatCard layout="row" label={consultText.kind.help} value={statText(stats.data?.openHelpRequests, stats.isError)} hint={consultText.stripHelpHint} tone={(stats.data?.openHelpRequests ?? 0) > 0 ? 'warning' : undefined} onClick={() => patch({ kind: kindFilter === 'help' ? '' : 'help' })} active={kindFilter === 'help'} testId="strip-help" />
+        <StatCard layout="row" label={consultText.kind.failure} value={statText(stats.data?.inProgress?.['FAILURE_REPORTED'], stats.isError)} tone={(stats.data?.inProgress?.['FAILURE_REPORTED'] ?? 0) > 0 ? 'error' : undefined} {...(tab === 'open' ? { onClick: () => patch({ kind: kindFilter === 'failure' ? '' : 'failure' }), active: kindFilter === 'failure' } : {})} testId="strip-failure" />
+        <StatCard layout="row" label={consultText.kind.inquiry} value={listCountText(openInquiries.data, openInquiries.isError)} hint={consultText.stripInquiryHint} onClick={() => patch({ kind: kindFilter === 'inquiry' ? '' : 'inquiry' })} active={kindFilter === 'inquiry'} testId="strip-inquiry" />
       </StatStrip>
-      <form
-        className="flex flex-wrap items-center gap-2 rounded-box border border-base-300 bg-base-100 px-4 py-3"
-        role="search"
-        data-testid="consults-search"
+      {/* 시뮬레이터 모양(2026-11-21): 왼쪽 찾기 칸 + 깔때기(종류) + 건 조건 칩 ✕ */}
+      <SearchPanel
+        testId="consults-search"
         onSubmit={(ev) => {
           ev.preventDefault();
           patch({ q: queryInput.trim() });
         }}
-      >
-        <label className="flex min-w-0 flex-1 items-center gap-2 text-sm">
-          <span className="shrink-0 font-semibold">{consultText.searchLabel}</span>
+        onReset={() => {
+          setQueryInput('');
+          patch({ q: '', kind: '' });
+        }}
+        submitLabel={consultText.search}
+        resetLabel={consultText.clear}
+        summary={[
+          [consultText.searchLabel, needle ? query : '', () => {
+            setQueryInput('');
+            patch({ q: '' });
+          }],
+        ]}
+        active={kindFilter !== 'all'}
+        // 구분은 고르기 하나뿐이라 팝업에 숨기지 않고 늘 보이는 붙은 단추 줄(찾기 단추와 세로 선으로 떨어뜨림 — 2026-11-21 사용자)
+        filters={
+          <>
+            <span className="pm-fbar-filters-l" aria-hidden="true">
+              {consultText.col.kind}
+            </span>
+            <ChipGroup
+              label={consultText.col.kind}
+              value={kindFilter}
+              options={(['all', 'help', 'inquiry', ...(tab === 'open' ? (['failure'] as const) : [])] as const).map((k) => ({ value: k, label: k === 'all' ? consultText.allKinds : consultText.kind[k] }))}
+              onChange={(k) => patch({ kind: k === 'all' ? '' : k })}
+            />
+          </>
+        }
+        search={
           <input
-            className="input input-sm w-full max-w-md"
+            className="input input-sm w-72 max-w-full"
             type="search"
             maxLength={64}
             placeholder={consultText.searchHint}
@@ -701,36 +735,9 @@ function ConsultsPage({ tab }: { readonly tab: 'open' | 'done' }) {
             value={queryInput}
             onChange={(ev) => setQueryInput(ev.target.value)}
           />
-        </label>
-        <button type="submit" className="btn btn-sm btn-primary">
-          {consultText.search}
-        </button>
-        {filtered && (
-          <button
-            type="button"
-            className="btn btn-sm btn-ghost"
-            onClick={() => {
-              setQueryInput('');
-              patch({ q: '', kind: '' });
-            }}
-          >
-            {consultText.clear}
-          </button>
-        )}
-        <div className="flex flex-wrap gap-1" role="group" aria-label={consultText.col.kind}>
-          {(['all', 'help', 'inquiry', ...(tab === 'open' ? (['failure'] as const) : [])] as const).map((k) => (
-            <button
-              key={k}
-              type="button"
-              aria-pressed={kindFilter === k}
-              className={`btn btn-xs ${kindFilter === k ? 'btn-neutral' : 'btn-ghost border-base-300'}`}
-              onClick={() => patch({ kind: k === 'all' ? '' : k })}
-            >
-              {k === 'all' ? consultText.allKinds : consultText.kind[k]}
-            </button>
-          ))}
-        </div>
-      </form>
+        }
+      />
+
       {partial && (
         <p role="alert" className="alert alert-warning text-sm" data-testid="consults-partial">
           {consultText.partial(help.isError ? consultText.kind.help : consultText.kind.inquiry)}
