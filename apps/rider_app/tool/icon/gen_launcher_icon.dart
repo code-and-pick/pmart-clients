@@ -84,10 +84,10 @@ void main(List<String> args) {
       interpolation: img.Interpolation.average,
     );
     File('$dir/ic_launcher.png').writeAsBytesSync(img.encodePng(legacy));
-    // 그림을 보이는 영역(72dp)의 72% 크기로 가운데에 두고, 바깥은 그림 가장자리 색을 그대로 늘여 칠한다.
+    // 그림을 보이는 영역(72dp)의 78% 크기로 가운데에 두고, 바깥은 그림 가장자리 색을 그대로 늘여 칠한다.
     // 72dp 에 꽉 채우면 런처(삼성 등)가 모양을 자르며 가장자리 보라와 그림 끝(고리)까지 잘려 헬멧만 크게 보였다
     // (사용자 2026-11-21 "보라화면 자르지 마").
-    final canvas = (108 * k).round(), inner = (72 * k * 0.72).round();
+    final canvas = (108 * k).round(), inner = (72 * k * 0.78).round();
     final fg = img.Image(width: canvas, height: canvas, numChannels: 4);
     final art = img.copyResize(
       edgeless,
