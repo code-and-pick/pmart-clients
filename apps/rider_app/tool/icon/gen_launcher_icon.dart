@@ -84,19 +84,26 @@ void main(List<String> args) {
       interpolation: img.Interpolation.average,
     );
     File('$dir/ic_launcher.png').writeAsBytesSync(img.encodePng(legacy));
-    final canvas = (108 * k).round(), inner = (72 * k).round();
+    // 그림을 보이는 영역(72dp)의 72% 크기로 가운데에 두고, 바깥은 그림 가장자리 색을 그대로 늘여 칠한다.
+    // 72dp 에 꽉 채우면 런처(삼성 등)가 모양을 자르며 가장자리 보라와 그림 끝(고리)까지 잘려 헬멧만 크게 보였다
+    // (사용자 2026-11-21 "보라화면 자르지 마").
+    final canvas = (108 * k).round(), inner = (72 * k * 0.72).round();
     final fg = img.Image(width: canvas, height: canvas, numChannels: 4);
     final art = img.copyResize(
       edgeless,
       width: inner,
       interpolation: img.Interpolation.average,
     );
-    img.compositeImage(
-      fg,
-      art,
-      dstX: (canvas - inner) ~/ 2,
-      dstY: (canvas - inner) ~/ 2,
-    );
+    final off = (canvas - inner) ~/ 2;
+    for (var y = 0; y < canvas; y++) {
+      for (var x = 0; x < canvas; x++) {
+        final p = art.getPixel(
+          (x - off).clamp(0, inner - 1),
+          (y - off).clamp(0, inner - 1),
+        );
+        fg.setPixelRgba(x, y, p.r, p.g, p.b, 255);
+      }
+    }
     File('$dir/ic_launcher_foreground.png').writeAsBytesSync(img.encodePng(fg));
   });
 }
