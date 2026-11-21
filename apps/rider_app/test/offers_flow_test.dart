@@ -118,6 +118,36 @@ void main() {
     expect(find.byKey(const ValueKey('reconnecting')), findsNothing);
   });
 
+  testWidgets('제안이 없을 때 조회가 실패하면 아래 안내 자리에서 글자만 바뀐다(홈 배치가 흔들리지 않음)', (t) async {
+    repo = MockOfferRepository(
+      latency: Duration.zero,
+      mode: DispatchMode.aiRecommended,
+    );
+    await start(t);
+    await t.tap(find.byKey(const ValueKey('reject-offer-mock-1')));
+    await settle(t);
+    final empty = find.byKey(const ValueKey('offers-empty'));
+    expect(empty, findsOneWidget);
+    final before = t.getRect(empty);
+
+    repo.failNextFetches = 1;
+    await t.pump(const Duration(seconds: 5));
+    await settle(t);
+    final reconnecting = find.byKey(const ValueKey('reconnecting'));
+    expect(
+      reconnecting,
+      findsOneWidget,
+      reason: '아래 자리 하나만 — 가운데 알약을 따로 띄우지 않는다',
+    );
+    expect(empty, findsNothing, reason: '조회 실패는 "제안 없음"이 아니다');
+    expect(t.getRect(reconnecting), before, reason: '안내 칸 자리·높이가 그대로');
+
+    await t.pump(const Duration(seconds: 2));
+    await settle(t);
+    expect(reconnecting, findsNothing);
+    expect(t.getRect(empty), before);
+  });
+
   testWidgets('남은 시간은 서버 값에서 단조 경과로 줄이고, 다시 조회하면 서버 값으로 맞춘다', (t) async {
     await start(t);
     expect(find.text('42초 남음'), findsOneWidget);

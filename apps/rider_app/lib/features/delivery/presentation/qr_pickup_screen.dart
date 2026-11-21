@@ -68,7 +68,24 @@ class _QrPickupScreenState extends ConsumerState<QrPickupScreen> {
           .enterCode(d, digits);
       if (!mounted) return;
       final l10n = AppLocalizations.of(context);
-      setState(() => _numberError = labelNumberResultText(l10n, step));
+      // 같은 MFC 에서 픽업 전인 다른 주문(묶음·여러 건) — 틀린 숫자가 그 주문 포장일 수 있다.
+      // 목록을 못 읽었으면 없는 것으로 본다(기본 안내).
+      final others = ref.read(myActiveDeliveriesProvider).value ?? const [];
+      final pickingUpOthers = others.any(
+        (o) =>
+            o.deliveryId != _id &&
+            o.mfcId != null &&
+            o.mfcId == d.mfcId &&
+            (o.state == ExecutionState.assigned ||
+                o.state == ExecutionState.arrivedAtStore),
+      );
+      setState(
+        () => _numberError = labelNumberResultText(
+          l10n,
+          step,
+          pickingUpOthers: pickingUpOthers,
+        ),
+      );
     } finally {
       _scanning = false;
     }
@@ -96,6 +113,8 @@ class _QrPickupScreenState extends ConsumerState<QrPickupScreen> {
       });
     }
     final trip = ref.watch(tripInfoProvider(_id)).value;
+    // 숫자 안내에서 같이 픽업하는 다른 주문이 있는지 본다(_enterNumber) — 화면이 떠 있는 동안 살려 둔다.
+    ref.watch(myActiveDeliveriesProvider);
     final flow = ref.watch(deliveryFlowProvider(_id));
     final ctl = ref.read(deliveryFlowProvider(_id).notifier);
     final queue = ref.watch(deliveryQueueProvider(_id)).value ?? const [];

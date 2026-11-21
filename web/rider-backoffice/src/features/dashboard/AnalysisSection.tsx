@@ -230,8 +230,8 @@ function AnalysisBody({ rows, partial, now, mfcId }: { readonly rows: readonly S
             unit="건"
             sub={
               <>
-                <span>{t.onTimeRate(onTime.data.rate)}</span>
-                <span>{t.delayNow(delayNow)}</span>
+                <span title={t.onTimeRate(onTime.data.rate)}>{t.onTimeRate(onTime.data.rate)}</span>
+                <span title={t.delayNow(delayNow)}>{t.delayNow(delayNow)}</span>
               </>
             }
             bad={onTime.data.late > 0}
@@ -344,6 +344,8 @@ function Ring({ ratio, name = '완료율' }: { readonly ratio: number; readonly 
 
 function StatusDonut({ counts, total }: { readonly counts: Record<Kind, number>; readonly total: number }) {
   const [hov, setHov] = useState<Kind | null>(null);
+  // 다른 그래프처럼 제 색이 한쪽으로 옅어지는 그라데이션(흰 광택 아님) — 조각 색과 상관없이 쓰려고 투명도 마스크. id 는 도넛마다 달라야 한다
+  const fade = `an-donut-${useId().replace(/:/g, '')}`;
   if (!total) return <p className="an-empty">{t.empty}</p>;
   const ks = KINDS.filter((k) => counts[k]);
   const r = 46;
@@ -355,7 +357,17 @@ function StatusDonut({ counts, total }: { readonly counts: Record<Kind, number>;
     <div className="an-donut-wrap" data-testid="an-donut">
       <div className="an-donut">
         <svg viewBox="0 0 120 120" role="img" aria-label={ks.map((k) => `${KIND_LABEL[k]} ${counts[k]}건`).join(', ')}>
+          <defs>
+            <linearGradient id={`${fade}-g`} x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stopColor="#fff" stopOpacity="1" />
+              <stop offset="100%" stopColor="#fff" stopOpacity="0.45" />
+            </linearGradient>
+            <mask id={fade} maskUnits="userSpaceOnUse" x="0" y="0" width="120" height="120">
+              <rect x="0" y="0" width="120" height="120" fill={`url(#${fade}-g)`} />
+            </mask>
+          </defs>
           <circle cx="60" cy="60" r={r} className="track" />
+          <g mask={`url(#${fade})`}>
           {ks.map((k, i) => {
             const len = (counts[k] / total) * c;
             return (
@@ -373,6 +385,7 @@ function StatusDonut({ counts, total }: { readonly counts: Record<Kind, number>;
               />
             );
           })}
+          </g>
         </svg>
         <div className="an-donut-c">
           <b>

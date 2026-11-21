@@ -992,3 +992,22 @@
 .an-tag.mute {
   color: var(--pm-sub);
 }
+
+/* 좁은 폭에서 지연 타일 글자가 세 줄로 꺾이던 것(2026-11-21) — 그림은 위 오른쪽(이름·숫자 옆)에만 자리를 잡고,
+   아래 설명 줄은 타일 폭을 다 쓴다. 설명 한 토막은 한 줄(넘치면 말줄임 — 전체 글은 title 로) */
+.an-tile.has-viz {
+  padding-right: 18px;
+}
+.an-tile.has-viz > .l,
+.an-tile.has-viz > .v {
+  padding-right: 72px;
+}
+.an-tile.has-viz > .viz {
+  top: 14px;
+  transform: none;
+}
+.an-tile .s > span {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

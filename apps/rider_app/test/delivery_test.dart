@@ -15,6 +15,7 @@ import 'package:rider_app/features/delivery/data/mock_delivery_repository.dart';
 import 'package:rider_app/features/delivery/domain/delivery.dart';
 import 'package:rider_app/features/delivery/presentation/delivery_controller.dart';
 import 'package:rider_app/features/delivery/presentation/delivery_screen.dart';
+import 'package:rider_app/features/delivery/presentation/delivery_texts.dart';
 import 'package:rider_app/l10n/gen/app_localizations.dart';
 import 'package:rider_app/features/offers/data/mock_offer_repository.dart';
 import 'package:rider_app/features/offers/presentation/offer_controllers.dart';
@@ -410,6 +411,36 @@ void main() {
     await t.tap(find.byKey(const ValueKey('complete-confirm')));
     await settle();
     expect(find.byKey(const ValueKey('delivery-done')), findsOneWidget);
+    // 완료 뒤에는 전달지를 부르지 않으니 주소 자리를 "확인 중"(읽는 중)으로 두지 않는다(2026-11-21 S23).
+    expect(find.text('확인 중'), findsNothing);
+  });
+
+  group('라벨 숫자 안내', () {
+    final l10n = lookupAppLocalizations(const Locale('ko'));
+    const wrong = HandoverRejected(
+      HandoverProblemCode.handoverCodeMismatch,
+      attemptsLeft: 3,
+    );
+    test('같이 픽업하는 다른 주문이 없으면 기본 안내', () {
+      expect(
+        labelNumberResultText(l10n, wrong),
+        '이 배달의 포장 숫자가 아니에요. 3번 더 틀리면 숫자 입력이 막혀요',
+      );
+    });
+    test('같은 MFC 에서 픽업 전인 다른 주문이 있으면 그 주문 화면에서 넣으라고 알린다', () {
+      expect(
+        labelNumberResultText(l10n, wrong, pickingUpOthers: true),
+        contains('그 주문 화면에서 넣어 주세요. 3번 더 틀리면'),
+      );
+      expect(
+        labelNumberResultText(
+          l10n,
+          const HandoverRejected(HandoverProblemCode.handoverCodeMismatch),
+          pickingUpOthers: true,
+        ),
+        contains('그 주문 화면에서 넣어 주세요'),
+      );
+    });
   });
 
   group('배차취소', () {

@@ -107,16 +107,28 @@ String handoverRejectText(AppLocalizations l10n, String? code) =>
     };
 
 /// 라벨 숫자 입력 결과 안내. 허가는 null(진행 상황은 포장 인계 수로 보인다).
-String? labelNumberResultText(AppLocalizations l10n, HandoverStep? step) =>
-    switch (step) {
-      null => l10n.labelNumberFormat,
-      HandoverRejected(:final code, attemptsLeft: final left?)
-          when code == HandoverProblemCode.handoverCodeMismatch =>
-        l10n.labelNumberWrong(left),
-      HandoverRejected(:final code) => handoverRejectText(l10n, code),
-      HandoverUnknown() => l10n.labelNumberNoResult,
-      _ => null,
-    };
+/// [pickingUpOthers] — 같은 MFC 에서 아직 픽업 전인 다른 주문이 있다(묶음·여러 건). 틀린 숫자가 그 주문의
+/// 포장일 수 있어 그 주문 화면에서 넣으라고 알린다. 앱은 다른 주문의 라벨 숫자를 모르니 보내기 전에 거르지는 못한다
+/// (서버는 그것도 틀린 횟수로 센다 — mfc-fulfillment authorizeHandoverByCode).
+String? labelNumberResultText(
+  AppLocalizations l10n,
+  HandoverStep? step, {
+  bool pickingUpOthers = false,
+}) => switch (step) {
+  null => l10n.labelNumberFormat,
+  HandoverRejected(:final code, attemptsLeft: final left?)
+      when code == HandoverProblemCode.handoverCodeMismatch =>
+    pickingUpOthers
+        ? l10n.labelNumberWrongSibling(left)
+        : l10n.labelNumberWrong(left),
+  HandoverRejected(:final code)
+      when code == HandoverProblemCode.handoverCodeMismatch &&
+          pickingUpOthers =>
+    l10n.labelNumberUnknownSibling,
+  HandoverRejected(:final code) => handoverRejectText(l10n, code),
+  HandoverUnknown() => l10n.labelNumberNoResult,
+  _ => null,
+};
 
 /// 앱 안 길안내(카카오내비 SDK)를 못 쓴 이유. 코드는 카카오모빌리티 안내 기준.
 String naviErrorText(AppLocalizations l10n, String code) => switch (code) {

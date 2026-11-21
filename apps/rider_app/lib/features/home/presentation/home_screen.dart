@@ -250,7 +250,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ? l10n.pollingStopped
             : l10n.newDispatchOffNotice,
       );
-    } else if (poll.list != null && !poll.reconnecting) {
+    } else if (poll.reconnecting) {
+      // 조회 실패(503 등)는 "제안 없음"이 아니다. 아래 안내 자리에 그대로 두어 글자만 바뀐다 —
+      // 전에는 안내가 사라지고 가운데에 알약이 떴다가 다시 바뀌어 홈 배치가 흔들렸다(2026-11-21 S23).
+      bottom = _DarkNotice(
+        key: const ValueKey('reconnecting'),
+        // "제안 없음"과 같은 한 줄 높이(긴 문구는 두 줄로 꺾여 안내 칸이 커졌다 줄었다 한다).
+        text: l10n.reconnectingShort,
+      );
+    } else if (poll.list != null) {
       bottom = _DarkNotice(
         key: const ValueKey('offers-empty'),
         text: l10n.offersEmpty,
@@ -347,7 +355,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 child: _RestrictionBanner(profile: profile),
               ),
             ),
-          if (poll.reconnecting)
+          // 아래 안내 자리에 이미 보이면(위 bottom) 띄우지 않는다. 제안·배송 시트가 아래를 쓰고 있을 때만 위에 띄운다.
+          if (poll.reconnecting &&
+              (bottom is! _DarkNotice ||
+                  bottom.key != const ValueKey('reconnecting')))
             SafeArea(
               child: Align(
                 alignment: const Alignment(0, -0.72),

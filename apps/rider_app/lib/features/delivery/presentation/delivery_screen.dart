@@ -777,6 +777,9 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
                   error.reason == DropInfoUnavailable.notFound =>
             l10n.dropInfoNotFound,
           AsyncError() => l10n.dropInfoUnavailable,
+          // 전달 단계가 아니면(완료·취소 등) 전달지를 부르지 않는다 — 읽는 중이 아니니 "확인 중"으로 두지 않고
+          // 도착 지역(제안 때 받은 값)이나 "상세 주소는 전달 중에만 보여요"(2026-11-21 S23: 완료 뒤 주소가 "확인 중"으로 남음).
+          null => trip?.dropLabel ?? l10n.dropAddressClosed,
           _ => l10n.statLoading,
         };
     final gone =
