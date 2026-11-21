@@ -200,7 +200,8 @@ describe('2차 — 겉모습·안내·다 끝났어요', () => {
     const emptyDeliveries = http.get(`${API_BASE}/deliveries`, () => HttpResponse.json({ items: [], page: { nextCursor: null } }));
     server.use(http.get(`${API_BASE}/delivery-help-requests`, () => HttpResponse.json({ items: [] })), http.get(`${API_BASE}/inquiries`, () => HttpResponse.json({ items: [], page: { nextCursor: null } })), emptyDeliveries);
     const first = renderAt('/consults', as.riderOps);
-    expect(await screen.findByTestId('consults-all-done')).toHaveTextContent('수고하셨어요!');
+    expect(await screen.findByTestId('consults-all-done')).toHaveTextContent('상담할 건이 없어요.');
+    expect(screen.getByTestId('consults-all-done')).not.toHaveTextContent('수고하셨어요'); // 성공처럼 보이지 않게(2026-11-21)
     first.unmount();
     server.use(http.get(`${API_BASE}/inquiries`, fail503));
     renderAt('/consults', as.riderOps);

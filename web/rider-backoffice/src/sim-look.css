@@ -257,3 +257,14 @@ main [role='alert'][data-state] > p.select-all {
   word-break: break-all;
   font-size: 0.8125rem;
 }
+
+/* 할 일 0건(shared/admin.tsx AllDone) — 성공처럼 초록으로 칠하지 않고 판 위 회색 한 줄 */
+.pm-empty-line {
+  border: 1px solid var(--color-base-300);
+  border-radius: var(--radius-box);
+  background: var(--color-base-100);
+  color: var(--pm-sub);
+  padding: 1.25rem 1rem;
+  text-align: center;
+  font-size: 0.875rem;
+}

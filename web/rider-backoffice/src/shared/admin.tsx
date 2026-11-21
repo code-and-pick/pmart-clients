@@ -7,6 +7,7 @@ import { StatCard as ConsoleStatCard, type Tone } from '@pmart/web-ui/console';
 
 import { useRecordRecent } from './recentViews';
 import { StickyTitle, useScrolledPast } from './StickyTitle';
+import { ui } from './uiMessages';
 import { QueueNav } from './workQueue';
 
 export * from '@pmart/web-ui/console';
@@ -29,6 +30,21 @@ export function StatusText({ tone = 'ghost', children, testId }: { readonly tone
 
 export function StatusBadge(p: { readonly tone?: Tone; readonly children: ReactNode; readonly testId?: string }) {
   return <StatusText {...p} />;
+}
+
+/**
+ * 할 일 0건 — 초록 체크·"수고하셨어요!" 대신 조용한 한 줄(2026-11-21 사용자 "성공한 것처럼 수고하셨어요 초록 체크는 좀 고쳐라").
+ * 할 일이 없다는 건 사실 안내일 뿐 성공 결과가 아니다. 제목이 그 인사말이면 빼고 본문(화면의 빈 안내)만, 뜻이 있는 제목(관제 "지금 먼저 볼 라이더가 없어요")은 본문과 함께.
+ */
+export function AllDone({ title, body, testId = 'all-done' }: { readonly title: string; readonly body?: string; readonly testId?: string }) {
+  const lead = title === ui.allDone ? null : title;
+  return (
+    <p role="status" className="pm-empty-line" data-testid={testId}>
+      {lead && <span className="font-semibold text-base-content">{lead}</span>}
+      {lead && body && ' · '}
+      {body ?? (lead ? null : title)}
+    </p>
+  );
 }
 
 /** 숫자 칸 — 값이 0 이면 숫자를 보조 글색으로(색은 0 이 아닐 때만). 숫자 바뀜 표시가 그대로 돌도록 값은 건드리지 않고 이름에 표시를 단다 */
