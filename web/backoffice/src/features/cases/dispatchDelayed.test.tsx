@@ -29,8 +29,9 @@ describe('배차 지연 접수 건', () => {
     await user.click(within(screen.getByTestId('dispatch-cancel-confirm')).getByRole('button', { name: '그만두기' }));
     expect(screen.queryByTestId('dispatch-cancel-confirm')).not.toBeInTheDocument();
     expect(view.mutations('/claims')).toHaveLength(0);
-    // 확인하면 보낸다
+    // 확인하면 보낸다 — 확인 상자에 보상 쿠폰 안내(ADR-0082 5단계)
     await user.click(within(box).getByTestId('dispatch-cancel-open'));
+    expect(screen.getByTestId('dispatch-cancel-confirm')).toHaveTextContent('2,000원 쿠폰(받은 날 포함 30일, 최소 주문 없음)');
     await user.click(within(screen.getByTestId('dispatch-cancel-confirm')).getByRole('button', { name: '취소하고 전액 환불' }));
     await waitFor(() => expect(view.mutations('/claims')).toHaveLength(1));
     const body = (await view.mutations('/claims')[0]!.json()) as Record<string, unknown>;

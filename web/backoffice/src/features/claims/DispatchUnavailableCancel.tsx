@@ -3,7 +3,8 @@
 // - 무엇: 주문 전체 취소 + 원 승인액 전액 환불 — `POST /claims` {orderId, type CANCEL, reason DISPATCH_UNAVAILABLE, channel CS|OPERATOR, lines(미이행 전부), caseRef}.
 //   회사 사유라 본인 확인 없음. 상품준비 뒤라도 인계 전이면 된다(인계 뒤·미이행 0 은 422).
 // - 실제 취소·환불이 일어나므로 확인 상자를 거친다. 결과는 서버가 준 클레임 상태만(취소 접수 ≠ 환불 끝남) — 진행은 클레임 상세.
-// - 2,000원 쿠폰은 promotion 이 없어 아직 없다(화면에 적지 않는다 — 백엔드 요청).
+// - 보상 쿠폰: promotion 이 OrderCancelled(DISPATCH_UNAVAILABLE)를 받아 주문마다 한 번 2,000원(받은 날 포함 30일, 최소 주문 없음)을 주고
+//   고객에게 알림을 따로 보낸다(백엔드 a0d2c884, ADR-0082 5단계 — 2026-11-21). 화면은 안내만 하고 "즉시"라 쓰지 않는다(MFC 백오피스와 같은 표현).
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link } from 'react-router';
