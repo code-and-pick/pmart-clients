@@ -615,7 +615,7 @@ function ConsultsPage({ tab }: { readonly tab: 'open' | 'done' }) {
           key: `f:${d.deliveryId}`,
           to: `/deliveries/${encodeURIComponent(d.deliveryId ?? '')}`,
           title: consultText.failureTitle,
-          state: d.resumeRequestedAt ? resumeBadge : <StatusBadge tone="warning">{label(n.executionState, d.state)}</StatusBadge>,
+          state: d.resumeRequestedAt ? resumeBadge : <StatusBadge>{label(n.executionState, d.state)}</StatusBadge>,
           deliveryId: d.deliveryId ?? null,
           riderId: d.riderId ?? null,
           createdAt: d.resumeRequestedAt ?? d.createdAt,
@@ -630,7 +630,7 @@ function ConsultsPage({ tab }: { readonly tab: 'open' | 'done' }) {
         title: label(helpCategoryName, it.category),
         state: (
           <span className="flex flex-wrap items-center gap-1">
-            <StatusBadge tone={helpTone(it.state)}>{label(n.helpState, it.state)}</StatusBadge>
+            <StatusBadge>{label(n.helpState, it.state)}</StatusBadge>
             {it.state !== 'RESOLVED' && it.deliveryId && resumeBy.has(it.deliveryId) && resumeBadge}
           </span>
         ),
@@ -646,7 +646,7 @@ function ConsultsPage({ tab }: { readonly tab: 'open' | 'done' }) {
         key: `i:${it.inquiryId}`,
         to: `/inquiries/${encodeURIComponent(it.inquiryId)}`,
         title: it.title ?? label(n.inquiryCategory, it.category),
-        state: <StatusBadge tone={inquiryTone(it.status)}>{label(q.statusName, it.status)}</StatusBadge>,
+        state: <StatusBadge>{label(q.statusName, it.status)}</StatusBadge>,
         deliveryId: it.deliveryId ?? null,
         riderId: null,
         createdAt: it.createdAt,
@@ -780,7 +780,7 @@ function ConsultsPage({ tab }: { readonly tab: 'open' | 'done' }) {
               {rows.map((r) => (
                 <tr key={r.key} data-testid="consult-row" data-kind={r.kind} className={`cursor-pointer ${listRows.rowClass(r.to)}`} onClick={() => void navigate(r.to)}>
                   <td className="whitespace-nowrap">
-                    <StatusBadge tone={r.kind === 'failure' ? 'error' : r.kind === 'help' ? 'warning' : 'ghost'}>{consultText.kind[r.kind]}</StatusBadge>
+                    <StatusBadge>{consultText.kind[r.kind]}</StatusBadge>
                   </td>
                   <td className="font-semibold">
                     <Link className="hover:underline" to={r.to} onClick={(e) => e.stopPropagation()}>

@@ -278,7 +278,8 @@ function ControlBoards({ all, filter, filterLink, asOf, staleOrNone, delivering 
     const inner = (
       <>
         <span className="block text-sm font-semibold">{text}</span>
-        <span className="mt-1 block text-2xl font-bold tabular-nums">{value}</span>
+        {/* 0 은 흐리게(2026-11-21 라이더 시뮬레이터 모양 시범) — 값이 있는 단계만 눈에 띄게 */}
+        <span className={`mt-1 block text-2xl font-bold tabular-nums ${/^0(\D|$)/.test(value) ? 'text-base-content/40' : ''}`}>{value}</span>
       </>
     );
     const cls = `block w-full rounded-box border px-4 py-3.5 text-left ${active ? 'border-primary bg-primary/5' : 'border-base-300 bg-base-100'}`;
@@ -344,7 +345,7 @@ function KpiTile({ label: text, value, to, active = false, dot, alert = false, w
         </span>
         {hint && <span className="block text-[11px] text-base-content/45">{hint}</span>}
       </span>
-      <span className={`text-2xl font-bold tabular-nums ${alert ? 'text-error' : warn ? 'text-warning' : ''}`}>{value}</span>
+      <span className={`shrink-0 whitespace-nowrap text-2xl font-bold tabular-nums ${alert ? 'text-error' : warn ? 'text-warning' : ''}`}>{value}</span>
     </>
   );
   return to ? (

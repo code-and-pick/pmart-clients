@@ -202,3 +202,22 @@ main table tbody tr:hover > td {
 [data-theme='pmart-dark'] :is(header, nav, aside):not(main *) {
   background-color: var(--color-base-200);
 }
+
+/* 오류·주의 알림(daisyUI alert) — 빨강·주황으로 꽉 채우지 않고 판 색 + 왼쪽 띠 + 색 글자 */
+main .alert:is(.alert-error, .alert-warning, .alert-info, .alert-success) {
+  background-color: var(--color-base-100);
+  border: 1px solid var(--color-base-300);
+  color: var(--color-base-content);
+}
+main .alert.alert-error {
+  box-shadow: inset 3px 0 0 var(--color-error);
+}
+main .alert.alert-warning {
+  box-shadow: inset 3px 0 0 var(--color-warning);
+}
+main .alert.alert-info {
+  box-shadow: inset 3px 0 0 var(--color-info);
+}
+main .alert.alert-success {
+  box-shadow: inset 3px 0 0 var(--color-success);
+}
