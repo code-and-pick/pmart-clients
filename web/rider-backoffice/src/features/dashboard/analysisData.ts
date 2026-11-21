@@ -1,5 +1,6 @@
 // 대시보드 분석 구역의 셈(화면 없이 시험한다) — 2026-11-21 사용자 "대시보드가 허전해, 라이더 시뮬레이션 분석 탭 같으면 좋겠다".
-// 원천은 execution 직원 배송 목록(GET /deliveries — StaffDeliverySummary: 상태·createdAt·assignedAt·pickedUpAt·completedAt)뿐이다(새 API 없음).
+// 셈의 원천은 execution 직원 배송 목록(GET /deliveries — StaffDeliverySummary: 상태·createdAt·assignedAt·pickedUpAt·completedAt).
+// (2026-11-21 더함) 지연·정시율은 dispatch GET /metrics/on-time-deliveries, 흐름의 가게 도착·고객 도착 시각과 주문 내역은 배송 상세 GET /deliveries/{id}(history·orderSummary).
 // 시각 해석(목록에 있는 시각만 쓰는 근사 — 서버 정본 단계 기록은 배송 상세 history):
 //   배차 요청 ≈ createdAt(배송이 생긴 때) · 라이더 찾기 = createdAt → assignedAt(지금 배정 기준 — 재배정이면 마지막 배정)
 //   MFC 이동·대기 = assignedAt → pickedUpAt · 고객에게 = pickedUpAt → completedAt · 한 건 = createdAt → completedAt(COMPLETED 만)
@@ -21,7 +22,7 @@ export function kindOf(state: string | null | undefined): Kind {
   return 'active';
 }
 
-/** 사람이 봐야 하는 상태(지연은 약속 시각이 목록에 없어 셀 수 없다) */
+/** 사람이 봐야 하는 상태(지연은 목록에 약속 시각이 없어 여기서 세지 않는다 — dispatch 정시 배송률 late 를 쓴다) */
 export const PROBLEM_STATES: ReadonlySet<string> = new Set(['FAILURE_REPORTED', 'FAILED', 'SUSPENDED']);
 
 export const KST = 9 * 3600_000;
@@ -223,4 +224,75 @@ export function spanOf(r: Summary, now: number): Span | null {
   const start = ms(r.assignedAt) ?? created;
   const end = ms(r.completedAt) ?? (kindOf(r.state) === 'active' ? now : start);
   return { row: r, s: Math.min(start, end), e: Math.max(end, start) };
+}
+
+/** 서울 날짜 'YYYY-MM-DD'(dispatch 정시 배송률 from·to) */
+export const seoulDate = (t: number) => new Date(t + KST).toISOString().slice(0, 10);
+
+export interface OnTimeDay {
+  readonly due: number;
+  readonly onTime: number;
+  readonly late: number;
+  readonly unjudged: number;
+  readonly pending: number;
+}
+
+/** 정시 배송률 날짜·센터 줄을 더한다 — 정시율 = onTime / due(판정된 것만, 서버 정의). due 가 0 이면 null */
+export function onTimeTotals(items: readonly OnTimeDay[]): OnTimeDay & { readonly rate: number | null } {
+  const sum = (k: keyof OnTimeDay) => items.reduce((a, x) => a + (x[k] ?? 0), 0);
+  const due = sum('due');
+  const onTime = sum('onTime');
+  return { due, onTime, late: sum('late'), unjudged: sum('unjudged'), pending: sum('pending'), rate: due ? onTime / due : null };
+}
+
+type Detail = components['schemas']['DeliveryExecution'];
+export type StepKey = 'created' | components['schemas']['ExecutionState'];
+
+const STEP_LABEL: Partial<Record<StepKey, string>> = {
+  created: '배차 요청(배송 생김)',
+  ASSIGNED: '라이더 배정',
+  ARRIVED_AT_STORE: '가게 도착',
+  PICKED_UP: '픽업',
+  ARRIVED_AT_CUSTOMER: '고객 도착',
+  FAILURE_REPORTED: '실패 등록',
+  COMPLETED: '전달 완료',
+  FAILED: '실패 확정',
+  SUSPENDED: '보류',
+  RETURN_IN_PROGRESS: '반납 시작',
+  RETURN_PICKED_UP: '반납 상품 받음',
+  RETURNED_TO_STORE: 'MFC 반납',
+  CANCELLED: '취소',
+};
+
+export interface FlowStep {
+  readonly key: StepKey;
+  readonly label: string;
+  readonly at: number;
+  readonly bad: boolean;
+  /** 자동 완료(이력 actor SYSTEM_EVENT 의 COMPLETED, 또는 증빙 방법 AUTO_COMPLETED) */
+  readonly auto: boolean;
+}
+
+/**
+ * 배송 흐름 단계 — 상세 이력(history)이 있으면 상태마다 처음 일어난 때(occurredAt)를, 없으면(아직 못 읽음·실패·빈 이력) 목록 시각(생김·배정·픽업·끝)을 쓴다.
+ * 배차 요청은 언제나 목록 createdAt(이력에는 배송 생김이 없다). 이력에 없는 배정·픽업은 목록 시각으로 채운다.
+ */
+export function flowSteps(row: Summary, detail: Detail | undefined): FlowStep[] {
+  const steps = new Map<StepKey, FlowStep>();
+  const put = (key: StepKey, at: number | null, auto = false) => {
+    if (at === null || steps.has(key)) return;
+    steps.set(key, { key, label: STEP_LABEL[key] ?? key, at, bad: key === 'FAILED' || key === 'FAILURE_REPORTED', auto });
+  };
+  put('created', ms(row.createdAt));
+  const autoMethod = detail?.evidence?.method === 'AUTO_COMPLETED';
+  for (const h of [...(detail?.history ?? [])].sort((a, b) => (ms(a.occurredAt) ?? 0) - (ms(b.occurredAt) ?? 0))) {
+    if (!h.state || h.state === 'UNASSIGNED') continue;
+    put(h.state, ms(h.occurredAt), h.state === 'COMPLETED' && (h.actor === 'SYSTEM_EVENT' || autoMethod));
+  }
+  put('ASSIGNED', ms(row.assignedAt));
+  put('PICKED_UP', ms(row.pickedUpAt));
+  const kind = kindOf(row.state);
+  const endKey: StepKey = kind === 'done' ? 'COMPLETED' : kind === 'failed' ? (row.state === 'FAILED' ? 'FAILED' : 'FAILURE_REPORTED') : kind === 'other' ? row.state : 'COMPLETED';
+  if (!(kind === 'failed' && steps.has('FAILURE_REPORTED'))) put(endKey, ms(row.completedAt), endKey === 'COMPLETED' && autoMethod);
+  return [...steps.values()].sort((a, b) => a.at - b.at);
 }

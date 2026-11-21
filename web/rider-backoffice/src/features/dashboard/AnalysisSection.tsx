@@ -1,8 +1,10 @@
 // 대시보드 분석 구역(2026-11-21 사용자 "대시보드가 허전해 — 라이더 시뮬레이션 분석 탭 같으면 좋겠다", 라이더 시뮬 세션 요청서).
-// 라이더 시뮬레이터 ui/AnalyzePage.tsx 구성을 옮김: 숫자 타일 5개(작은 그림) · 시간대별 쌓인 막대(최근 2시간/하루/7일, 말풍선, 누르면 목록 → 배송 번호 누르면 바로 아래 흐름)
+// 라이더 시뮬레이터 ui/AnalyzePage.tsx 구성을 옮김: 숫자 타일 6개(작은 그림) · 시간대별 쌓인 막대(최근 2시간/하루/7일, 말풍선, 누르면 목록 → 배송 번호 누르면 바로 아래 흐름)
 // · 상태 도넛 · 구간별 평균 여정 막대 · 라이더별 배송(오늘/7일 띠, 표시 누르면 흐름).
 // 원천: execution 직원 배송 목록 GET /deliveries(최근 7일, 생긴 시각 최신순으로 커서를 따라 읽음 — 상한에 닿으면 "일부만"을 알린다). 시각 해석은 analysisData.ts 머리.
-// 주문 내역·전화·주소는 넣지 않는다(목록에 개인정보 없음, 이름은 가린 값). 다른 화면으로 넘기지 않고 같은 자리에서 펼친다(배송 상세 링크만 작게).
+// 지연 타일: dispatch 정시 배송률 GET /metrics/on-time-deliveries(최근 7일 — 약속 끝 날짜 기준, OPERATOR_ADMIN 이 아니면 센터 필수) + 지금 배차 지연 GET /dispatch-delays.
+// 펼친 흐름: 배송 상세 GET /deliveries/{id}(상세 화면과 같은 캐시 ['delivery', id]) — 단계 시각(history, 가게 도착·고객 도착 포함) | 주문 내역(orderSummary).
+// 전화·주소·고객 이름은 넣지 않는다(이름은 가린 값). 다른 화면으로 넘기지 않고 같은 자리에서 펼친다(배송 상세 링크만 작게).
 import { useQuery } from '@tanstack/react-query';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router';
@@ -10,9 +12,12 @@ import { Link } from 'react-router';
 import { request } from '@pmart/web-core';
 import { QueryState, toUiState } from '@pmart/web-ui';
 import { useApi } from '../../app/ApiContext';
+import { isOperatorAdmin } from '../../app/nav';
+import { useSession } from '../../app/SessionContext';
 import { DeliveryNo, RiderName, useRiderSummaries } from '../../shared/displayNumbers';
 import { messages } from '../../shared/messages';
 import { label } from '../../shared/opsUi';
+import type { components } from '../../api/generated/delivery-execution';
 import {
   binCount,
   binLabel,
@@ -22,6 +27,7 @@ import {
   dayStart,
   defaultView,
   dur,
+  flowSteps,
   frame,
   frameTitle,
   isRow,
@@ -33,7 +39,9 @@ import {
   metrics,
   ms,
   niceStep,
+  onTimeTotals,
   pack,
+  seoulDate,
   seoulDay,
   shift,
   spanOf,
@@ -56,6 +64,12 @@ const t = {
   avgTotalSub: '배차 요청 → 전달 완료',
   avgFind: '라이더 찾기 평균',
   avgFindSub: '배차 요청 → 배정',
+  late: '지연',
+  onTimeRate: (rate: number | null) => `정시율 ${rate === null ? '—' : `${Math.round(rate * 100)}%`}`,
+  delayNow: (n: number | null) => `지금 배차 지연 ${n === null ? '—' : `${n}건`}`,
+  pickCentre: '센터를 고르면 보여요',
+  loadFail: '불러오지 못했어요',
+  retry: '다시',
   problems: '실패·이상',
   problemsSub: '실패 등록·확정·보류',
   timeTitle: '시간대별 배송 건수',
@@ -70,7 +84,15 @@ const t = {
   close: '닫기',
   openDetail: '배송 상세 화면',
   flow: '배송 흐름',
+  order: '주문 내역',
+  orderLoading: '주문 내역을 불러오는 중…',
+  orderMissing: '주문 내역을 받지 못했어요',
+  itemAmount: '상품 합계',
+  note: '요청사항',
+  auto: '자동 완료',
 } as const;
+
+const won = (n: number | null | undefined) => (typeof n === 'number' ? `${n.toLocaleString('ko-KR')}원` : '—');
 
 const PHASE: Record<'find' | 'store' | 'customer', { readonly label: string; readonly color: string }> = {
   find: { label: '라이더 찾기', color: 'var(--an-c1)' },
@@ -105,6 +127,32 @@ function useWeekDeliveries(mfcId: string) {
   });
 }
 
+/** 정시 배송률(최근 7일 — 약속 끝의 서울 날짜). 관리자가 아니면 센터를 골라야 부를 수 있다(서버가 mfcId 필수 — 0 으로 보이지 않게 부르지 않는다) */
+function useOnTime(mfcId: string, canAll: boolean) {
+  const api = useApi();
+  return useQuery({
+    queryKey: ['dashboard-on-time', mfcId],
+    enabled: canAll || !!mfcId,
+    refetchInterval: 60_000,
+    queryFn: async () => {
+      const now = Date.now();
+      const query = { from: seoulDate(dayStart(now) - 6 * DAY), to: seoulDate(now), ...(mfcId ? { mfcId } : {}) };
+      const res = await request('GET', api.dispatch.GET('/metrics/on-time-deliveries', { params: { query } }));
+      return onTimeTotals(res.items);
+    },
+  });
+}
+
+/** 지금 배차 지연(픽업 전, 약속보다 늦을 것으로 본 배송 — 최대 200건) */
+function useDispatchDelays(mfcId: string) {
+  const api = useApi();
+  return useQuery({
+    queryKey: ['dashboard-dispatch-delays', mfcId],
+    refetchInterval: 60_000,
+    queryFn: () => request('GET', api.dispatch.GET('/dispatch-delays', { params: { query: mfcId ? { mfcId } : {} } })),
+  });
+}
+
 export function AnalysisSection({ mfcId }: { readonly mfcId: string }) {
   const q = useWeekDeliveries(mfcId);
   return (
@@ -116,14 +164,18 @@ export function AnalysisSection({ mfcId }: { readonly mfcId: string }) {
         {q.data && <span className="an-asof">{t.asOf(hhmm(q.data.asOf))}</span>}
       </header>
       <QueryState state={toUiState(q)} onRetry={() => void q.refetch()}>
-        {(data) => <AnalysisBody rows={data.items} partial={data.partial} now={data.asOf} />}
+        {(data) => <AnalysisBody rows={data.items} partial={data.partial} now={data.asOf} mfcId={mfcId} />}
       </QueryState>
     </section>
   );
 }
 
-function AnalysisBody({ rows, partial, now }: { readonly rows: readonly Summary[]; readonly partial: boolean; readonly now: number }) {
+function AnalysisBody({ rows, partial, now, mfcId }: { readonly rows: readonly Summary[]; readonly partial: boolean; readonly now: number; readonly mfcId: string }) {
   const m = metrics(rows, now);
+  const canAll = isOperatorAdmin(useSession().session?.roles ?? []);
+  const onTime = useOnTime(mfcId, canAll);
+  const delays = useDispatchDelays(mfcId);
+  const delayNow = delays.data ? delays.data.items.length : null;
   const riders = useRiderSummaries(rows.map((r) => r.riderId));
   const name = (id: string | null | undefined) => (id ? <RiderName riderId={id} nameMasked={riders.get(id)?.nameMasked} riderNumber={riders.get(id)?.riderNumber} /> : <span className="an-sub-t">{t.noRider}</span>);
   return (
@@ -145,6 +197,42 @@ function AnalysisBody({ rows, partial, now }: { readonly rows: readonly Summary[
         />
         <Tile testId="an-tile-avg" label={t.avgTotal} value={dur(m.avgTotalSec)} sub={t.avgTotalSub} />
         <Tile testId="an-tile-find" label={t.avgFind} value={dur(m.avgFindSec)} sub={t.avgFindSub} />
+        {!canAll && !mfcId ? (
+          <Tile testId="an-tile-late" label={t.late} value="—" sub={t.pickCentre} />
+        ) : onTime.data ? (
+          <Tile
+            testId="an-tile-late"
+            label={t.late}
+            value={String(onTime.data.late)}
+            unit="건"
+            sub={
+              <>
+                <span>{t.onTimeRate(onTime.data.rate)}</span>
+                <span>{t.delayNow(delayNow)}</span>
+              </>
+            }
+            bad={onTime.data.late > 0}
+            viz={onTime.data.rate !== null ? <Ring ratio={onTime.data.rate} name="정시율" /> : undefined}
+          />
+        ) : (
+          <Tile
+            testId="an-tile-late"
+            label={t.late}
+            value={onTime.isError ? '—' : '…'}
+            sub={
+              onTime.isError ? (
+                <>
+                  {t.loadFail}{' '}
+                  <button type="button" className="an-link" onClick={() => void onTime.refetch()}>
+                    {t.retry}
+                  </button>
+                </>
+              ) : (
+                ' '
+              )
+            }
+          />
+        )}
         <Tile testId="an-tile-problems" label={t.problems} value={String(m.problems)} unit="건" sub={t.problemsSub} bad={m.problems > 0} />
       </div>
 
@@ -172,7 +260,7 @@ function AnalysisBody({ rows, partial, now }: { readonly rows: readonly Summary[
   );
 }
 
-function Tile({ label: text, value, unit, sub, bad = false, viz, testId }: { readonly label: string; readonly value: string; readonly unit?: string; readonly sub: string; readonly bad?: boolean; readonly viz?: ReactNode; readonly testId: string }) {
+function Tile({ label: text, value, unit, sub, bad = false, viz, testId }: { readonly label: string; readonly value: string; readonly unit?: string; readonly sub: ReactNode; readonly bad?: boolean; readonly viz?: ReactNode; readonly testId: string }) {
   return (
     <div className={`an-tile ${bad ? 'bad' : ''} ${viz ? 'has-viz' : ''}`} data-testid={testId}>
       <span className="l">{text}</span>
@@ -199,11 +287,11 @@ function Spark({ values }: { readonly values: readonly number[] }) {
   );
 }
 
-function Ring({ ratio }: { readonly ratio: number }) {
+function Ring({ ratio, name = '완료율' }: { readonly ratio: number; readonly name?: string }) {
   const r = 20;
   const c = 2 * Math.PI * r;
   return (
-    <svg className="an-ring" viewBox="0 0 50 50" role="img" aria-label={`완료율 ${Math.round(ratio * 100)}%`}>
+    <svg className="an-ring" viewBox="0 0 50 50" role="img" aria-label={`${name} ${Math.round(ratio * 100)}%`}>
       <circle cx="25" cy="25" r={r} className="track" />
       <circle cx="25" cy="25" r={r} className="arc" strokeDasharray={`${c * ratio} ${c}`} transform="rotate(-90 25 25)" />
     </svg>
@@ -528,21 +616,24 @@ function TimeChart({ rows, now, name }: { readonly rows: readonly Summary[]; rea
   );
 }
 
-/** 배송 한 건의 흐름 — 목록이 가진 시각만(생김 · 배정 · 픽업 · 끝). 같은 자리에서 펼친다 */
+/** 배송 상세 — 상세 화면·펼친 요약과 같은 키(['delivery', id])라 캐시를 같이 쓴다 */
+function useDeliveryDetail(deliveryId: string) {
+  const api = useApi();
+  return useQuery({
+    queryKey: ['delivery', deliveryId],
+    queryFn: () => request('GET', api.execution.GET('/deliveries/{deliveryId}', { params: { path: { deliveryId } } })),
+  });
+}
+
+/** 배송 한 건 — 왼쪽 흐름(상세 이력의 단계 시각, 못 읽으면 목록 시각) | 오른쪽 주문 내역. 같은 자리에서 펼친다 */
 function Flow({ row, name, now, onClose }: { readonly row: Summary; readonly name: NameFn; readonly now: number; readonly onClose: () => void }) {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     ref.current?.scrollIntoView?.({ behavior: 'smooth', block: 'nearest' });
   }, [row.deliveryId]);
+  const detail = useDeliveryDetail(row.deliveryId);
   const kind = kindOf(row.state);
-  const end = kind === 'done' ? '전달 완료' : kind === 'failed' ? '실패' : kind === 'other' ? label(messages.names.executionState, row.state) : null;
-  const steps: ReadonlyArray<readonly [string, number | null, boolean]> = [
-    ['배차 요청(배송 생김)', ms(row.createdAt), false],
-    ['라이더 배정', ms(row.assignedAt), false],
-    ['픽업', ms(row.pickedUpAt), false],
-    [end ?? '전달 완료', ms(row.completedAt), kind === 'failed'],
-  ];
-  const shown = steps.filter(([, at]) => at !== null) as ReadonlyArray<readonly [string, number, boolean]>;
+  const shown = flowSteps(row, detail.data);
   const start = ms(row.createdAt);
   const last = ms(row.completedAt) ?? (kind === 'active' ? now : null);
   return (
@@ -561,32 +652,92 @@ function Flow({ row, name, now, onClose }: { readonly row: Summary; readonly nam
           </button>
         </span>
       </div>
-      <h4 className="an-sub">{t.flow}</h4>
-      <dl className="an-facts">
+      <div className="an-flow-cols">
         <div>
-          <dt>라이더</dt>
-          <dd>{name(row.riderId)}</dd>
+          <h4 className="an-sub">{t.flow}</h4>
+          <dl className="an-facts">
+            <div>
+              <dt>라이더</dt>
+              <dd>{name(row.riderId)}</dd>
+            </div>
+            <div>
+              <dt>배차 요청부터</dt>
+              <dd>{start !== null && last !== null ? dur((last - start) / 1000) : '—'}</dd>
+            </div>
+          </dl>
+          <ol className="an-steps" data-testid="an-steps">
+            {shown.map((st, i) => {
+              const prev = shown[i - 1];
+              return (
+                <li key={st.key} className={st.bad ? 'bad' : ''}>
+                  <span className="t">
+                    {seoulDay(st.at)} {hhmm(st.at)}
+                  </span>
+                  <span className="l">
+                    {st.label}
+                    {st.auto && <span className="an-tag">{t.auto}</span>}
+                  </span>
+                  <span className="g">{prev ? `+${dur((st.at - prev.at) / 1000)}` : ''}</span>
+                </li>
+              );
+            })}
+          </ol>
         </div>
-        <div>
-          <dt>배차 요청부터</dt>
-          <dd>{start !== null && last !== null ? dur((last - start) / 1000) : '—'}</dd>
-        </div>
-      </dl>
-      <ol className="an-steps">
-        {shown.map(([text, at, bad], i) => {
-          const prev = shown[i - 1];
-          return (
-            <li key={text} className={bad ? 'bad' : ''}>
-              <span className="t">
-                {seoulDay(at)} {hhmm(at)}
-              </span>
-              <span className="l">{text}</span>
-              <span className="g">{prev ? `+${dur((at - prev[1]) / 1000)}` : ''}</span>
-            </li>
-          );
-        })}
-      </ol>
+        <section className="an-order" aria-label={t.order} data-testid="an-order">
+          <h4 className="an-sub">{t.order}</h4>
+          {detail.isPending ? (
+            <p className="an-empty" role="status">
+              {t.orderLoading}
+            </p>
+          ) : detail.isError ? (
+            <p className="an-empty bad" role="alert">
+              {t.loadFail}{' '}
+              <button type="button" className="an-link" onClick={() => void detail.refetch()}>
+                {t.retry}
+              </button>
+            </p>
+          ) : detail.data.orderSummary ? (
+            <OrderItems order={detail.data.orderSummary} />
+          ) : (
+            <p className="an-empty">{t.orderMissing}</p>
+          )}
+        </section>
+      </div>
     </div>
+  );
+}
+
+type OrderSummary = NonNullable<components['schemas']['DeliveryExecution']['orderSummary']>;
+
+/** 주문 내역 — 서버 값(품목·수량·줄 금액·상품 합계)을 그대로. 클라이언트가 더하지 않는다 */
+function OrderItems({ order }: { readonly order: OrderSummary }) {
+  const items = order.items ?? [];
+  return (
+    <>
+      {order.orderNumber && <p className="an-order-no">주문번호 {order.orderNumber}</p>}
+      <ul className="an-items">
+        {items.map((it, i) => (
+          <li key={it.orderLineId ?? i}>
+            <span className="nm">
+              {it.name ?? '—'}
+              {it.optionLabel && <em>{it.optionLabel}</em>}
+            </span>
+            <span className="q">{typeof it.qty === 'number' ? `${it.qty}개` : '—'}</span>
+            <b>{won(it.lineAmount)}</b>
+          </li>
+        ))}
+      </ul>
+      <div className="an-items-sum">
+        <span>{t.itemAmount}</span>
+        <b>{won(order.itemAmount)}</b>
+      </div>
+      {order.deliveryNote && (
+        <p className="an-order-note">
+          <span>{t.note}</span>
+          {order.deliveryNote}
+        </p>
+      )}
+    </>
   );
 }
 

@@ -60,11 +60,16 @@
 /* 숫자 타일 */
 .an-tiles {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 12px;
   margin-bottom: 12px;
 }
-@media (max-width: 1100px) {
+@media (max-width: 1400px) {
+  .an-tiles {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (max-width: 700px) {
   .an-tiles {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -102,6 +107,10 @@
 }
 .an-tile .s {
   color: var(--pm-sub);
+  word-break: keep-all;
+}
+.an-tile .s > span {
+  display: block;
 }
 .an-tile.bad .v {
   color: var(--an-failed);
@@ -832,4 +841,97 @@
 /* 화이트 화면은 단계 색이 진해 숫자를 흰 글자로(어두운 화면은 밝은 색 위 짙은 글자) */
 :root:not([data-theme='pmart-dark']) :is(.an-journey-bar i, .an-journey-legs .n, .an-pill) {
   color: #ffffff;
+}
+
+/* 펼친 흐름 | 주문 내역 두 칸(시뮬레이터와 같게) */
+.an-flow-cols {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
+  gap: 28px;
+}
+@media (max-width: 900px) {
+  .an-flow-cols {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.an-tag {
+  display: inline-flex;
+  margin-left: 8px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: var(--an-t3);
+  font-weight: 700;
+  color: var(--an-c4);
+  border: 1px solid currentColor;
+}
+.an-order {
+  min-width: 0;
+  padding-left: 24px;
+  border-left: 1px solid var(--an-line);
+}
+@media (max-width: 900px) {
+  .an-order {
+    padding-left: 0;
+    border-left: 0;
+  }
+}
+.an-order-no {
+  margin: 0 0 8px;
+  color: var(--pm-sub);
+  font-variant-numeric: tabular-nums;
+}
+.an-items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.an-items li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 12px;
+  align-items: baseline;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--an-line);
+}
+.an-items .nm {
+  font-weight: 600;
+  min-width: 0;
+}
+.an-items .nm em {
+  font-style: normal;
+  font-weight: 500;
+  color: var(--pm-sub);
+  margin-left: 6px;
+}
+.an-items .q {
+  color: var(--pm-sub);
+  font-variant-numeric: tabular-nums;
+}
+.an-items b,
+.an-items-sum b {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.an-items-sum {
+  display: flex;
+  justify-content: space-between;
+  padding: 9px 0 0;
+  font-weight: 700;
+}
+.an-order-note {
+  margin: 10px 0 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--an-panel);
+  border: 1px solid var(--an-line);
+}
+.an-order-note span {
+  display: block;
+  font-size: var(--an-t3);
+  font-weight: 700;
+  color: var(--pm-sub);
+  margin-bottom: 2px;
+}
+.an-empty.bad {
+  color: var(--an-failed);
 }
