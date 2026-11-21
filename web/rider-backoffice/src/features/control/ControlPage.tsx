@@ -203,7 +203,7 @@ export function ControlPage() {
                             id={`control-${r.riderId}`}
                             data-testid="control-row"
                             aria-selected={r.riderId === selectedId}
-                            className={`cursor-pointer border-l-[3px] px-4 py-3 text-sm ${r.riderId === selectedId ? 'border-primary bg-primary/10' : isStale(r) ? 'border-error bg-error/5 hover:bg-error/10' : 'border-transparent hover:bg-base-200/60'}`}
+                            className={`cursor-pointer border-l-[3px] px-4 py-3 text-sm ${r.riderId === selectedId ? 'border-primary bg-primary/10' : isStale(r) ? 'border-error hover:bg-base-200/60' : 'border-transparent hover:bg-base-200/60'}`}
                             onClick={() => select(r.riderId)}
                           >
                             <div className="flex items-start justify-between gap-2">

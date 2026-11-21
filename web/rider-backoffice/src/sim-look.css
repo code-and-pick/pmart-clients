@@ -1,0 +1,204 @@
+/* 라이더 시뮬레이터 모양 시범(2026-11-21 사용자 "라이더 백오피스에만 라이더 시뮬레이션 UI 적용시켜봐 — 기능·보이는 정보·내용은 허락받고").
+   요청서: pmart-rider-simulation/docs/rider-backoffice-ui-design-request.md §2·§3(겉모양만). 기준 화면: 라이더 시뮬레이터 src/ui/theme.css.
+   공용 console.css(통합·MFC·인사 백오피스가 같이 씀)는 고치지 않는다 — 이 파일은 라이더 백오피스 index.css 에서만, console.css 뒤에 읽는다.
+   원칙: 짙은 회색 바탕 + 얇은 선, 강조는 파랑 하나(보라 안 씀), 색은 문제·주의·진행 중에만, 줄·칸을 색으로 칠하지 않고 왼쪽 띠·점으로, 그림자 없음, 둥글기 10px. */
+
+/* ① 색 토큰 — daisyUI 테마 변수를 다시 정한다(화면 코드는 변수만 써서 따라온다). 밝은 화면 = pmart(기본), 어두운 화면 = pmart-dark */
+:root,
+[data-theme='pmart'] {
+  --color-base-100: #ffffff;
+  --color-base-200: #f4f5f7;
+  --color-base-300: #e3e6eb;
+  --color-base-content: #111827;
+  --color-neutral: #111827;
+  --color-neutral-content: #f4f5f7;
+  --color-primary: #2563eb;
+  --color-primary-content: #ffffff;
+  --color-info: #2563eb;
+  --color-info-content: #ffffff;
+  --color-success: #16a34a;
+  --color-success-content: #ffffff;
+  --color-warning: #ea580c;
+  --color-warning-content: #ffffff;
+  --color-error: #dc2626;
+  --color-error-content: #ffffff;
+  --radius-box: 10px;
+  --radius-field: 6px;
+  --radius-selector: 6px;
+  --depth: 0;
+  --pm-soft: #f3f4f6; /* 옅은 판(고른 줄·머리) */
+  --pm-sub: #6b7280; /* 보조 글 */
+  --pm-row-line: #e3e6eb;
+  --pm-btn-main: #111827;
+  --pm-btn-main-fg: #ffffff;
+  --pm-btn-border: #cfd4dc;
+  --pm-btn-fg: #111827;
+  --pm-chart-1: #2563eb;
+  --pm-chart-1-soft: color-mix(in oklab, #2563eb 22%, #ffffff);
+}
+[data-theme='pmart-dark'] {
+  --color-base-100: #14171c;
+  --color-base-200: #0b0d10;
+  --color-base-300: #23272e;
+  --color-base-content: #e4e7ec;
+  --color-neutral: #1b1f25;
+  --color-neutral-content: #e4e7ec;
+  --color-primary: #4c8dff;
+  --color-primary-content: #0b0d10;
+  --color-info: #4c8dff;
+  --color-info-content: #0b0d10;
+  --color-success: #22c55e;
+  --color-success-content: #0b0d10;
+  --color-warning: #f59e0b;
+  --color-warning-content: #0b0d10;
+  --color-error: #f05252;
+  --color-error-content: #0b0d10;
+  --radius-box: 10px;
+  --radius-field: 6px;
+  --radius-selector: 6px;
+  --depth: 0;
+  --pm-soft: #1b1f25;
+  --pm-sub: #8b929d;
+  --pm-row-line: #23272e;
+  --pm-btn-main: #e4e7ec;
+  --pm-btn-main-fg: #0b0d10;
+  --pm-btn-border: #3a404a;
+  --pm-btn-fg: #e4e7ec;
+  --pm-chart-1: #4c8dff;
+  --pm-chart-1-soft: color-mix(in oklab, #4c8dff 32%, #14171c);
+}
+
+/* 주의 글자 — console.css 는 노랑이 흐려 본문색과 섞었다. 주황은 그대로 읽혀서 섞지 않는다 */
+main [class*='--color-warning)_60%'] {
+  color: var(--color-warning);
+}
+
+/* ② 상태 = 작은 점(7px) + 글자(shared/admin.tsx StatusText). 평상시 값은 보조 글색, 색 글자는 문제·주의·진행 중에만 */
+.pm-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--pm-sub);
+}
+.pm-status::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  flex-shrink: 0;
+  border-radius: 9999px;
+  background: color-mix(in oklab, var(--pm-sub) 70%, transparent);
+}
+.pm-status[data-tone='success']::before {
+  background: var(--color-success);
+}
+.pm-status[data-tone='error'] {
+  color: var(--color-error);
+}
+.pm-status[data-tone='error']::before {
+  background: var(--color-error);
+}
+.pm-status[data-tone='warning'] {
+  color: var(--color-warning);
+}
+.pm-status[data-tone='warning']::before {
+  background: var(--color-warning);
+}
+.pm-status:is([data-tone='info'], [data-tone='accent']) {
+  color: var(--color-info);
+}
+.pm-status:is([data-tone='info'], [data-tone='accent'])::before {
+  background: var(--color-info);
+}
+
+/* ③ 문제 줄 — 칠하지 않고 왼쪽 띠만(라이더 관제 목록은 ControlPage 에서 바탕을 뺐다). 옅은 색 바탕 상자도 판 색 + 왼쪽 띠로 */
+main :is([class~='bg-error/5'], [class~='bg-error/10']) {
+  background-color: var(--color-base-100);
+  box-shadow: inset 3px 0 0 var(--color-error);
+}
+main [class~='bg-warning/15'] {
+  background-color: var(--pm-soft);
+  box-shadow: inset 3px 0 0 var(--color-warning);
+}
+main [role='alert'].border-warning,
+main [role='alert'].border-error,
+main [role='alert'].border-info {
+  background-color: var(--color-base-100);
+}
+
+/* ④ 둥글기 10px, 그림자 없음 — console.css 가 2px 로 깎던 것을 되돌린다. 입력칸·단추는 6px(--radius-field) */
+main :is(.rounded-lg, .rounded-xl, .rounded-2xl) {
+  border-radius: var(--radius-box);
+}
+main .rounded-md {
+  border-radius: var(--radius-field);
+}
+main :is(.shadow-sm, .shadow) {
+  box-shadow: none;
+}
+
+/* ⑤ 고른 칩 — 파랑으로 꽉 채우지 않고 옅은 판 + 파랑 글자 + 1px 파랑 테두리 */
+main [role='radiogroup'] > [role='radio'][aria-checked='true'] {
+  background: var(--pm-soft);
+  color: var(--color-primary);
+  box-shadow: inset 0 0 0 1px var(--color-primary);
+}
+main [role='radiogroup'] > [role='radio'][aria-checked='true'] > span {
+  opacity: 1;
+  color: color-mix(in oklab, var(--color-primary) 75%, transparent);
+}
+main [role='radiogroup'] {
+  border-color: var(--color-base-300);
+}
+main [role='radiogroup'] > [role='radio'] {
+  border-color: var(--color-base-300);
+}
+main .btn-neutral.btn-xs {
+  --btn-color: var(--pm-soft);
+  --btn-fg: var(--color-primary);
+  border-color: var(--color-primary);
+}
+
+/* ⑥ 숫자 — 고정폭 숫자. 숫자 칸 값이 0 이면 보조 글색(shared/admin.tsx StatCard 가 이름에 data-zero) */
+main :is(table, .pm-stat-value, .pm-kpi, time) {
+  font-variant-numeric: tabular-nums;
+}
+.pm-stat:has([data-zero]) .pm-stat-value {
+  color: var(--pm-sub);
+}
+/* ID·센터 코드·배송번호 — 모노 글꼴 대신 본문 글꼴 + 고정폭 숫자 */
+.font-mono {
+  font-family: inherit;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ⑦ 어두운 화면 지도 — 지도 그림(타일 img)만 살짝 낮춘다. 라이더·센터 표시(HTML)에는 걸지 않는다. 반전은 쓰지 않는다 */
+[data-theme='pmart-dark'] [data-testid='rider-map'] img {
+  filter: brightness(0.98) saturate(0.9);
+}
+
+/* ⑧ 표 — 머리는 보조 글색 600·판과 같은 바탕·아래 1px 선, 줄 사이 선, 마우스를 올리면 옅은 판 */
+main table th {
+  color: var(--pm-sub);
+  font-weight: 600;
+  border-bottom: 1px solid var(--color-base-300);
+}
+@media (min-width: 1280px) {
+  main table > thead th {
+    background-color: var(--color-base-100);
+  }
+}
+main table tbody tr {
+  border-color: var(--pm-row-line);
+}
+main table tbody tr:hover > td {
+  background-color: var(--pm-soft);
+}
+
+/* ⑨ 머리 줄·왼쪽 메뉴 — 판 색 바탕 + 선 하나(어두운 화면은 바탕과 같은 짙은 색) */
+[data-theme='pmart-dark'] :is(header, nav, aside):not(main *) {
+  background-color: var(--color-base-200);
+}
