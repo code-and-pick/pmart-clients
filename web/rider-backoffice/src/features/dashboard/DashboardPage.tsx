@@ -195,7 +195,7 @@ function Bars({ rows, total }: { readonly rows: ReadonlyArray<{ readonly label: 
           <Link to={r.to} aria-label={`${r.label} ${num(r.value)}`} className="grid grid-cols-[9rem_1fr_3rem] items-center gap-3 text-sm hover:opacity-80">
             <span className="truncate text-base-content/70">{r.label}</span>
             <span className="h-2 overflow-hidden rounded-full bg-base-200">
-              <span className={`block h-full rounded-full ${r.tone}`} style={{ width: `${Math.min(100, Math.round((r.value / total) * 100))}%` }} />
+              <span className={`pm-bar-fill block h-full rounded-full ${r.tone}`} style={{ width: `${Math.min(100, Math.round((r.value / total) * 100))}%` }} />
             </span>
             <span className="text-right font-semibold">{num(r.value)}</span>
           </Link>

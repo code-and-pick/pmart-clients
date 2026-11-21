@@ -935,3 +935,31 @@
 .an-empty.bad {
   color: var(--an-failed);
 }
+
+/* 그라데이션(2026-11-21 사용자 "백오피스 그래프에 그라데이션 넣어줘") — 색은 그대로, 위·끝이 밝고 아래로 진하게. 보라 없음 */
+.an-spark .area {
+  fill-opacity: 1;
+}
+.an-spark .g0 {
+  stop-color: var(--an-active);
+  stop-opacity: 0.45;
+}
+.an-spark .g1 {
+  stop-color: var(--an-active);
+  stop-opacity: 0;
+}
+.an-ring .g0 {
+  stop-color: color-mix(in oklab, var(--an-done) 55%, #ffffff);
+}
+.an-ring .g1 {
+  stop-color: var(--an-done);
+}
+.an-stack > i,
+.an-journey-bar > i,
+.an-strip .mk {
+  background-image: linear-gradient(to bottom, rgb(255 255 255 / 0.3), rgb(255 255 255 / 0) 80%);
+}
+/* 대시보드 위쪽 가로 막대(라이더·진행 중 배송 상태별) — 왼쪽은 살짝 진하게, 끝으로 밝게 */
+.pm-bar-fill {
+  background-image: linear-gradient(to right, rgb(0 0 0 / 0.12), rgb(255 255 255 / 0.22));
+}

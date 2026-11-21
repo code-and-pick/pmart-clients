@@ -6,7 +6,7 @@
 // 펼친 흐름: 배송 상세 GET /deliveries/{id}(상세 화면과 같은 캐시 ['delivery', id]) — 단계 시각(history, 가게 도착·고객 도착 포함) | 주문 내역(orderSummary).
 // 전화·주소·고객 이름은 넣지 않는다(이름은 가린 값). 다른 화면으로 넘기지 않고 같은 자리에서 펼친다(배송 상세 링크만 작게).
 import { useQuery } from '@tanstack/react-query';
-import { type ReactNode, useEffect, useRef, useState } from 'react';
+import { type ReactNode, useEffect, useId, useRef, useState } from 'react';
 import { Link } from 'react-router';
 
 import { request } from '@pmart/web-core';
@@ -279,9 +279,17 @@ function Spark({ values }: { readonly values: readonly number[] }) {
   const max = Math.max(1, ...values);
   const pts = values.map((v, i) => [(i / (values.length - 1)) * 100, 34 - (v / max) * 28] as const);
   const line = pts.map(([x, y], i) => `${i ? 'L' : 'M'}${x.toFixed(1)},${y.toFixed(1)}`).join(' ');
+  // 선 아래 면은 위에서 아래로 옅어지는 그라데이션(2026-11-21 사용자 "그래프에 그라데이션") — id 는 타일마다 달라야 한다
+  const grad = `an-spark-${useId().replace(/:/g, '')}`;
   return (
     <svg className="an-spark" viewBox="0 0 100 36" preserveAspectRatio="none" role="img" aria-label={`최근 12시간 1시간마다 배송: ${values.join(', ')}`}>
-      <path d={`${line} L100,36 L0,36 Z`} className="area" />
+      <defs>
+        <linearGradient id={grad} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" className="g0" />
+          <stop offset="100%" className="g1" />
+        </linearGradient>
+      </defs>
+      <path d={`${line} L100,36 L0,36 Z`} className="area" fill={`url(#${grad})`} />
       <path d={line} className="line" vectorEffect="non-scaling-stroke" />
     </svg>
   );
@@ -290,10 +298,18 @@ function Spark({ values }: { readonly values: readonly number[] }) {
 function Ring({ ratio, name = '완료율' }: { readonly ratio: number; readonly name?: string }) {
   const r = 20;
   const c = 2 * Math.PI * r;
+  // 고리도 옅은 색 → 진한 색 그라데이션(2026-11-21)
+  const grad = `an-ring-${useId().replace(/:/g, '')}`;
   return (
     <svg className="an-ring" viewBox="0 0 50 50" role="img" aria-label={`${name} ${Math.round(ratio * 100)}%`}>
+      <defs>
+        <linearGradient id={grad} x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" className="g0" />
+          <stop offset="100%" className="g1" />
+        </linearGradient>
+      </defs>
       <circle cx="25" cy="25" r={r} className="track" />
-      <circle cx="25" cy="25" r={r} className="arc" strokeDasharray={`${c * ratio} ${c}`} transform="rotate(-90 25 25)" />
+      <circle cx="25" cy="25" r={r} className="arc" stroke={`url(#${grad})`} strokeDasharray={`${c * ratio} ${c}`} transform="rotate(-90 25 25)" />
     </svg>
   );
 }
@@ -358,7 +374,7 @@ function Journey({ segments, total }: { readonly segments: ReadonlyArray<{ reado
     <div className="an-journey" data-testid="an-journey">
       <div className="an-journey-bar" role="img" aria-label={segments.map((x) => `${PHASE[x.key].label} ${dur(x.sec)}`).join(', ')}>
         {segments.map((x, i) => (
-          <i key={x.key} style={{ flexGrow: Math.max(x.sec, sum * 0.05), background: PHASE[x.key].color }}>
+          <i key={x.key} style={{ flexGrow: Math.max(x.sec, sum * 0.05), backgroundColor: PHASE[x.key].color }}>
             {i + 1}
           </i>
         ))}
