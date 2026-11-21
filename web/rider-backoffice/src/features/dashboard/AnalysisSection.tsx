@@ -4,6 +4,7 @@
 // 원천: execution 직원 배송 목록 GET /deliveries(최근 7일, 생긴 시각 최신순으로 커서를 따라 읽음 — 상한에 닿으면 "일부만"을 알린다). 시각 해석은 analysisData.ts 머리.
 // 지연 타일: dispatch 정시 배송률 GET /metrics/on-time-deliveries(최근 7일 — 약속 끝 날짜 기준, OPERATOR_ADMIN 이 아니면 센터 필수) + 지금 배차 지연 GET /dispatch-delays.
 // 펼친 흐름: 배송 상세 GET /deliveries/{id}(상세 화면과 같은 캐시 ['delivery', id]) — 단계 시각(history, 가게 도착·고객 도착 포함) | 주문 내역(orderSummary).
+// (0.34.0) 목록의 firstAssignedAt·arrivedAtStoreAt·arrivedAtCustomerAt·promisedAt·completionMethod — 다섯 구간 평균, 건별 지연 고리(약속 없으면 판정 없음), 흐름의 약속 시각·도착 시각 대체.
 // 전화·주소·고객 이름은 넣지 않는다(이름은 가린 값). 다른 화면으로 넘기지 않고 같은 자리에서 펼친다(배송 상세 링크만 작게).
 import { useQuery } from '@tanstack/react-query';
 import { type ReactNode, useEffect, useId, useRef, useState } from 'react';
@@ -30,12 +31,16 @@ import {
   flowSteps,
   frame,
   frameTitle,
+  isLate,
   isRow,
   hhmm,
   KIND_LABEL,
   type Kind,
   KINDS,
   kindOf,
+  type Leg,
+  type LegKey,
+  lateness,
   metrics,
   ms,
   niceStep,
@@ -46,6 +51,7 @@ import {
   shift,
   spanOf,
   type Summary,
+  unrealCompletion,
 } from './analysisData';
 
 /** 한 번에 읽는 최대 쪽 수(50건씩) — 넘으면 오래된 쪽이 빠졌다고 알린다 */
@@ -63,7 +69,7 @@ const t = {
   avgTotal: '한 건 평균',
   avgTotalSub: '배차 요청 → 전달 완료',
   avgFind: '라이더 찾기 평균',
-  avgFindSub: '배차 요청 → 배정',
+  avgFindSub: '배차 요청 → 첫 배정',
   late: '지연',
   onTimeRate: (rate: number | null) => `정시율 ${rate === null ? '—' : `${Math.round(rate * 100)}%`}`,
   delayNow: (n: number | null) => `지금 배차 지연 ${n === null ? '—' : `${n}건`}`,
@@ -76,6 +82,13 @@ const t = {
   state: '상태',
   phases: '구간별 평균',
   phasesNote: (n: number) => `완료 ${n}건 기준`,
+  phasesExcluded: (n: number) => `고객 확인·자동 완료 ${n}건 뺌`,
+  promised: '약속 시각',
+  lateBy: (s: string) => `${s} 늦음`,
+  onTime: '약속 안에',
+  unjudged: '판정 없음',
+  lateMark: '약속보다 늦음',
+  byCustomer: '고객 확인 완료',
   phasesEmpty: '완료된 배송이 생기면 나와요.',
   riders: '라이더별 배송',
   noRider: '배정 전',
@@ -94,10 +107,20 @@ const t = {
 
 const won = (n: number | null | undefined) => (typeof n === 'number' ? `${n.toLocaleString('ko-KR')}원` : '—');
 
-const PHASE: Record<'find' | 'store' | 'customer', { readonly label: string; readonly color: string }> = {
+/** 구간 색 — 청록·파랑·노랑·주황·회색(보라 없음). 합친 구간(도착 시각 없는 배송)은 두 색을 이은 그라데이션 */
+const PHASE: Record<LegKey, { readonly label: string; readonly color: string; readonly to?: string }> = {
   find: { label: '라이더 찾기', color: 'var(--an-c1)' },
-  store: { label: 'MFC 이동·대기', color: 'var(--an-c2)' },
-  customer: { label: '고객에게', color: 'var(--an-c4)' },
+  toStore: { label: 'MFC 이동', color: 'var(--an-c2)' },
+  atStore: { label: 'MFC 대기', color: 'var(--an-c3)' },
+  store: { label: 'MFC 이동·대기', color: 'var(--an-c2)', to: 'var(--an-c3)' },
+  toCustomer: { label: '고객에게', color: 'var(--an-c4)' },
+  atCustomer: { label: '고객 앞', color: 'var(--an-c5)' },
+  customer: { label: '고객에게·고객 앞', color: 'var(--an-c4)', to: 'var(--an-c5)' },
+};
+const legStyle = (k: LegKey) => {
+  const p = PHASE[k];
+  // 흰 광택 없이 평평한 색(2026-11-21 사용자 "볼록한 음영 말고") — 합친 구간만 두 구간 색을 가로로 잇는다
+  return p.to ? { backgroundColor: p.color, backgroundImage: `linear-gradient(to right, ${p.color}, ${p.to})` } : { backgroundColor: p.color };
 };
 
 /** 최근 7일 배송(최신순으로 생긴 시각이 7일 앞보다 오래될 때까지) */
@@ -247,7 +270,12 @@ function AnalysisBody({ rows, partial, now, mfcId }: { readonly rows: readonly S
           <StatusDonut counts={m.counts} total={m.total} />
           <div className="an-card-h an-gap">
             <h3>{t.phases}</h3>
-            {m.phases && <span className="an-note">{t.phasesNote(m.phases.n)}</span>}
+            {m.phases && (
+              <span className="an-note" data-testid="an-phases-note">
+                {t.phasesNote(m.phases.n)}
+                {m.phases.excluded > 0 && ` · ${t.phasesExcluded(m.phases.excluded)}`}
+              </span>
+            )}
           </div>
           {m.phases ? <Journey segments={m.phases.segments} total={m.phases.totalSec} /> : <p className="an-empty">{t.phasesEmpty}</p>}
         </section>
@@ -368,13 +396,13 @@ function StatusDonut({ counts, total }: { readonly counts: Record<Kind, number>;
   );
 }
 
-function Journey({ segments, total }: { readonly segments: ReadonlyArray<{ readonly key: 'find' | 'store' | 'customer'; readonly sec: number }>; readonly total: number }) {
-  const sum = Math.max(1, segments.reduce((a, x) => a + x.sec, 0));
+/** 여정 막대 — 너비는 전체 걸린 시간 중 그 구간 몫(share), 숫자는 그 구간을 잴 수 있었던 배송만의 평균과 건수 */
+function Journey({ segments, total }: { readonly segments: readonly Leg[]; readonly total: number }) {
   return (
     <div className="an-journey" data-testid="an-journey">
-      <div className="an-journey-bar" role="img" aria-label={segments.map((x) => `${PHASE[x.key].label} ${dur(x.sec)}`).join(', ')}>
+      <div className="an-journey-bar" role="img" aria-label={segments.map((x) => `${PHASE[x.key].label} ${dur(x.sec)} ${x.n}건`).join(', ')}>
         {segments.map((x, i) => (
-          <i key={x.key} style={{ flexGrow: Math.max(x.sec, sum * 0.05), backgroundColor: PHASE[x.key].color }}>
+          <i key={x.key} style={{ flexGrow: Math.max(x.share, 0.05), ...legStyle(x.key) }}>
             {i + 1}
           </i>
         ))}
@@ -385,19 +413,21 @@ function Journey({ segments, total }: { readonly segments: ReadonlyArray<{ reado
       </div>
       <ol className="an-journey-legs">
         {segments.map((x, i) => (
-          <li key={x.key}>
-            <span className="n" style={{ background: PHASE[x.key].color }}>
+          <li key={x.key} data-testid={`an-leg-${x.key}`}>
+            <span className="n" style={legStyle(x.key)}>
               {i + 1}
             </span>
             <span className="l">{PHASE[x.key].label}</span>
             <b>{dur(x.sec)}</b>
-            <em>{Math.round((x.sec / sum) * 100)}%</em>
+            <span className="c">{x.n}건</span>
+            <em>{Math.round(x.share * 100)}%</em>
           </li>
         ))}
         <li className="tot">
           <span className="n" />
           <span className="l">합계(한 건 평균)</span>
           <b>{dur(total)}</b>
+          <span className="c" />
           <em />
         </li>
       </ol>
@@ -615,6 +645,7 @@ function TimeChart({ rows, now, name }: { readonly rows: readonly Summary[]; rea
                         <i className={`k-${kind}`} />
                         {label(messages.names.executionState, r.state)}
                       </span>
+                      {isLate(r, now) && <LateMark />}
                     </td>
                     <td className="num">{dur(((end ?? (kind === 'active' ? now : at)) - at) / 1000)}</td>
                   </tr>
@@ -630,6 +661,11 @@ function TimeChart({ rows, now, name }: { readonly rows: readonly Summary[]; rea
       })()}
     </>
   );
+}
+
+/** 약속(promisedAt)보다 늦은 배송 표시 — 주황 고리 */
+function LateMark() {
+  return <span className="an-late" role="img" aria-label={t.lateMark} title={t.lateMark} data-testid="an-late" />;
 }
 
 /** 배송 상세 — 상세 화면·펼친 요약과 같은 키(['delivery', id])라 캐시를 같이 쓴다 */
@@ -652,6 +688,8 @@ function Flow({ row, name, now, onClose }: { readonly row: Summary; readonly nam
   const shown = flowSteps(row, detail.data);
   const start = ms(row.createdAt);
   const last = ms(row.completedAt) ?? (kind === 'active' ? now : null);
+  const promised = ms(row.promisedAt);
+  const lt = lateness(row, now);
   return (
     <div className="an-detail" ref={ref} data-testid="an-flow">
       <div className="an-detail-h">
@@ -680,6 +718,19 @@ function Flow({ row, name, now, onClose }: { readonly row: Summary; readonly nam
               <dt>배차 요청부터</dt>
               <dd>{start !== null && last !== null ? dur((last - start) / 1000) : '—'}</dd>
             </div>
+            <div data-testid="an-promise">
+              <dt>{t.promised}</dt>
+              <dd>
+                {promised !== null ? `${seoulDay(promised)} ${hhmm(promised)}` : '—'}
+                {!lt.judged ? (
+                  <span className="an-tag mute">{t.unjudged}</span>
+                ) : lt.late ? (
+                  <span className="an-tag">{t.lateBy(dur(Math.ceil(lt.lateSec / 60) * 60))}</span>
+                ) : (
+                  <span className="an-tag ok">{t.onTime}</span>
+                )}
+              </dd>
+            </div>
           </dl>
           <ol className="an-steps" data-testid="an-steps">
             {shown.map((st, i) => {
@@ -692,6 +743,7 @@ function Flow({ row, name, now, onClose }: { readonly row: Summary; readonly nam
                   <span className="l">
                     {st.label}
                     {st.auto && <span className="an-tag">{t.auto}</span>}
+                    {st.byCustomer && <span className="an-tag">{t.byCustomer}</span>}
                   </span>
                   <span className="g">{prev ? `+${dur((st.at - prev.at) / 1000)}` : ''}</span>
                 </li>
@@ -825,7 +877,9 @@ function RiderTable({ rows, now, name }: { readonly rows: readonly Summary[]; re
                 const list = raw.filter((x): x is NonNullable<typeof x> => !!x);
                 const done = list.filter((x) => x.row.state === 'COMPLETED' && ms(x.row.completedAt) !== null);
                 const active = list.filter((x) => kindOf(x.row.state) === 'active').length;
-                const avgSec = done.length ? done.reduce((a, x) => a + (x.e - x.s), 0) / done.length / 1000 : null;
+                // 평균 걸린 시간은 완료 시각이 실제인 건만(고객 확인·자동 완료 뺌)
+                const timed = done.filter((x) => !unrealCompletion(x.row));
+                const avgSec = timed.length ? timed.reduce((a, x) => a + (x.e - x.s), 0) / timed.length / 1000 : null;
                 const packed = pack(list.map((x) => ({ ...x, s: Math.max(x.s, from) })));
                 return (
                   <tr key={id || 'none'} className={id ? '' : 'none'}>
@@ -840,18 +894,22 @@ function RiderTable({ rows, now, name }: { readonly rows: readonly Summary[]; re
                           <i key={x} className="g" style={{ left: `${pct(x)}%` }} />
                         ))}
                         {now >= from && now <= to && <i className="nowline" style={{ left: `${pct(now)}%` }} />}
-                        {packed.placed.map(({ row, s, e, line }) => (
-                          <button
-                            key={row.deliveryId}
-                            type="button"
-                            className={`mk k-${kindOf(row.state)} ${picked === row.deliveryId ? 'on' : ''}`}
-                            style={{ left: `${pct(s)}%`, width: `max(6px, ${pct(e) - pct(s)}%)`, top: `${4 + line * 10}px` }}
-                            title={`${row.deliveryNumber ?? row.deliveryId} · ${KIND_LABEL[kindOf(row.state)]} · ${dur((e - s) / 1000)}`}
-                            aria-label={`배송 ${row.deliveryNumber ?? row.deliveryId} 흐름 보기`}
-                            data-testid="an-mark"
-                            onClick={() => setPicked(picked === row.deliveryId ? null : row.deliveryId)}
-                          />
-                        ))}
+                        {packed.placed.map(({ row, s, e, line }) => {
+                          const late = isLate(row, now);
+                          return (
+                            <button
+                              key={row.deliveryId}
+                              type="button"
+                              className={`mk k-${kindOf(row.state)} ${late ? 'late' : ''} ${picked === row.deliveryId ? 'on' : ''}`}
+                              style={{ left: `${pct(s)}%`, width: `max(6px, ${pct(e) - pct(s)}%)`, top: `${4 + line * 10}px` }}
+                              title={`${row.deliveryNumber ?? row.deliveryId} · ${KIND_LABEL[kindOf(row.state)]} · ${dur((e - s) / 1000)}${late ? ` · ${t.lateMark}` : ''}`}
+                              aria-label={`배송 ${row.deliveryNumber ?? row.deliveryId}${late ? ` ${t.lateMark}` : ''} 흐름 보기`}
+                              data-testid="an-mark"
+                              data-late={late || undefined}
+                              onClick={() => setPicked(picked === row.deliveryId ? null : row.deliveryId)}
+                            />
+                          );
+                        })}
                       </div>
                     </td>
                   </tr>

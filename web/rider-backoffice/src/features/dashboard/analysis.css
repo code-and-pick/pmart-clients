@@ -1,6 +1,6 @@
 /* 대시보드 분석 구역(2026-11-21) — 라이더 시뮬레이터 analyze.css 를 이 앱 토큰(sim-look.css: --pm-soft·--pm-sub·daisyUI 색)으로 옮김.
    글자 크기는 세 단계만: 제목 18 · 본문 14 · 축·보조 13(11px 회색 글은 쓰지 않음) + 큰 숫자. 표시는 얇게, 그림자 없음, 보라 없음.
-   단계 색 청록·파랑·노랑·주황(화이트 화면은 같은 계열을 진하게). 상태 색은 완료 초록 · 진행 중 파랑 · 실패 빨강 · 그 밖 회색(쌓는 순서 완료 → 진행 중 → 실패). */
+   단계 색 청록·파랑·노랑·주황·회색(화이트 화면은 같은 계열을 진하게, 0.34.0 다섯 구간). 상태 색은 완료 초록 · 진행 중 파랑 · 실패 빨강 · 그 밖 회색(쌓는 순서 완료 → 진행 중 → 실패). */
 .an {
   --an-t1: 18px;
   --an-t2: 14px;
@@ -9,6 +9,7 @@
   --an-c2: #2563eb;
   --an-c3: #ca8a04;
   --an-c4: #ea580c;
+  --an-c5: #64748b;
   --an-done: var(--color-success);
   --an-active: var(--color-info);
   --an-failed: var(--color-error);
@@ -23,6 +24,7 @@
   --an-c2: #4c8dff;
   --an-c3: #facc15;
   --an-c4: #ff8a3d;
+  --an-c5: #94a3b8;
 }
 .an h2,
 .an h3,
@@ -601,7 +603,7 @@
 }
 .an-journey-legs li {
   display: grid;
-  grid-template-columns: 20px 1fr auto 42px;
+  grid-template-columns: 20px 1fr auto 44px 42px;
   align-items: center;
   gap: 8px;
   padding: 6px 0;
@@ -954,12 +956,39 @@
 .an-ring .g1 {
   stop-color: var(--an-done);
 }
-.an-stack > i,
-.an-journey-bar > i,
-.an-strip .mk {
-  background-image: linear-gradient(to bottom, rgb(255 255 255 / 0.3), rgb(255 255 255 / 0) 80%);
+/* 막대는 흰 광택이 아니라 제 색이 한쪽으로 옅어지는 그라데이션(2026-11-21 사용자 "볼록한 음영 말고") — 색과 상관없이 쓰려고 투명도 마스크로 */
+.an-stack {
+  -webkit-mask-image: linear-gradient(to top, rgb(0 0 0 / 0.4), #000 85%);
+  mask-image: linear-gradient(to top, rgb(0 0 0 / 0.4), #000 85%);
 }
-/* 대시보드 위쪽 가로 막대(라이더·진행 중 배송 상태별) — 왼쪽은 살짝 진하게, 끝으로 밝게 */
 .pm-bar-fill {
-  background-image: linear-gradient(to right, rgb(0 0 0 / 0.12), rgb(255 255 255 / 0.22));
+  -webkit-mask-image: linear-gradient(to right, rgb(0 0 0 / 0.35), #000);
+  mask-image: linear-gradient(to right, rgb(0 0 0 / 0.35), #000);
+}
+
+/* 구간 건수(0.34.0 — 구간마다 잴 수 있었던 배송 수가 다르다) */
+.an-journey-legs .c {
+  text-align: right;
+  font-size: var(--an-t3);
+  color: var(--pm-sub);
+  font-variant-numeric: tabular-nums;
+}
+/* 약속(promisedAt)보다 늦은 배송 — 주황 고리. 목록은 상태 옆 작은 고리, 라이더 띠는 표시 둘레 */
+.an-late {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-left: 8px;
+  border-radius: 50%;
+  border: 2px solid var(--an-c4);
+  vertical-align: middle;
+}
+.an-strip .mk.late {
+  box-shadow: 0 0 0 2px var(--an-c4);
+}
+.an-tag.ok {
+  color: var(--an-done);
+}
+.an-tag.mute {
+  color: var(--pm-sub);
 }

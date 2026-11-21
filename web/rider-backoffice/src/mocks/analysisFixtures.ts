@@ -2,6 +2,7 @@
 // 지금 시각 기준 최근 7일에 걸친 배송 몇십 건을 지어 execution 직원 배송 목록(GET /deliveries)에 더한다. 실제 서버 동작이 아니다.
 // 거르기(주문·라이더·상태·묶음 ID 등)가 붙은 요청은 기본 목 핸들러로 넘긴다 — 배송 찾기 등 다른 화면 목은 그대로.
 // (2026-11-21 더함) 지은 배송의 상세(GET /deliveries/{id})도 준다 — 단계 이력(가게 도착·고객 도착, 일부는 자동 완료)·주문 요약. 지은 배송이 아니면 기본 목으로.
+// (2026-11-21 0.34.0) 목록 줄에 firstAssignedAt·arrivedAtStoreAt·arrivedAtCustomerAt·promisedAt·completionMethod — 이틀보다 오래된 배송은 null(배포 전 배정), 가게 도착을 안 누른 배송·고객 확인·자동 완료도 섞는다.
 import { http, HttpResponse } from 'msw';
 
 import type { components as ExecC } from '../api/generated/delivery-execution';
@@ -59,6 +60,13 @@ function generate(now: number): Summary[] {
     const done = state === 'COMPLETED' || state === 'FAILED' ? (picked ?? createdAt) + custMs : null;
     const iso = (t: number | null) => (t === null ? null : new Date(t).toISOString());
     const orderNumber = String(70000000 + Math.floor(rand() * 9999999));
+    // 0.34.0 필드: 이틀보다 오래된 배송은 배포 전 배정이라 모두 null. 그 뒤로도 가게 도착을 안 누른 배송(i%5===2) 몇 건, 재배정(i%13===3 — 첫 배정이 3분 앞)
+    const fresh = ago < 2 * 24 * HOUR;
+    const arrStoreRaw = picked !== null ? picked - (3 + rand() * 3) * MIN : state === 'ASSIGNED' && assigned !== null && ago > findMs + 4 * MIN ? assigned + 4 * MIN : null;
+    const arrStore = i % 5 === 2 ? null : arrStoreRaw;
+    const arrCust = picked !== null && done !== null ? done - (1 + rand() * 3) * MIN : null;
+    const first = assigned !== null && i % 13 === 3 ? assigned - 3 * MIN : assigned;
+    const method: Summary['completionMethod'] = state !== 'COMPLETED' ? null : i % 9 === 4 ? 'AUTO_COMPLETED' : i % 11 === 7 ? 'CUSTOMER_CONFIRMED' : i % 2 ? 'FACE' : 'CONTACTLESS';
     const row: Summary = {
       deliveryId: `DLV-AN-${i + 1}`,
       orderId: `ORD-AN-${i + 1}`,
@@ -72,6 +80,12 @@ function generate(now: number): Summary[] {
       assignedAt: iso(assigned),
       pickedUpAt: iso(picked),
       completedAt: iso(done),
+      firstAssignedAt: fresh ? iso(first) : null,
+      arrivedAtStoreAt: fresh ? iso(arrStore) : null,
+      arrivedAtCustomerAt: fresh ? iso(arrCust) : null,
+      // 약속 = 배정 시 확정 + 50분(한집·알뜰) — 배정 전·배포 전 null
+      promisedAt: fresh && assigned !== null ? iso(createdAt + 50 * MIN) : null,
+      completionMethod: method,
       version: 1,
     };
     out.push(row);
@@ -80,11 +94,11 @@ function generate(now: number): Summary[] {
     const add = (st: NonNullable<History['state']>, at: number | null, actor: NonNullable<History['actor']> = 'RIDER') => {
       if (at !== null && at <= now) h.push({ state: st, actor, occurredAt: new Date(at).toISOString(), recordedAt: new Date(at + 2_000).toISOString() });
     };
-    add('ASSIGNED', assigned, 'SYSTEM_EVENT');
-    if (assigned !== null) add('ARRIVED_AT_STORE', picked !== null ? picked - (3 + rand() * 3) * MIN : state === 'ASSIGNED' && ago > findMs + 4 * MIN ? assigned + 4 * MIN : null);
+    add('ASSIGNED', first, 'SYSTEM_EVENT');
+    add('ARRIVED_AT_STORE', arrStore);
     add('PICKED_UP', picked);
-    if (picked !== null) add('ARRIVED_AT_CUSTOMER', done !== null ? done - (1 + rand() * 3) * MIN : null);
-    if (state === 'COMPLETED') add('COMPLETED', done, i % 9 === 4 ? 'SYSTEM_EVENT' : 'RIDER');
+    add('ARRIVED_AT_CUSTOMER', arrCust);
+    if (state === 'COMPLETED') add('COMPLETED', done, method === 'AUTO_COMPLETED' ? 'SYSTEM_EVENT' : method === 'CUSTOMER_CONFIRMED' ? 'CUSTOMER' : 'RIDER');
     if (state === 'FAILED') {
       add('FAILURE_REPORTED', done);
       add('FAILED', done === null ? null : done + 6 * MIN, 'OPERATOR');

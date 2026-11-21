@@ -2,8 +2,10 @@
 // 셈의 원천은 execution 직원 배송 목록(GET /deliveries — StaffDeliverySummary: 상태·createdAt·assignedAt·pickedUpAt·completedAt).
 // (2026-11-21 더함) 지연·정시율은 dispatch GET /metrics/on-time-deliveries, 흐름의 가게 도착·고객 도착 시각과 주문 내역은 배송 상세 GET /deliveries/{id}(history·orderSummary).
 // 시각 해석(목록에 있는 시각만 쓰는 근사 — 서버 정본 단계 기록은 배송 상세 history):
-//   배차 요청 ≈ createdAt(배송이 생긴 때) · 라이더 찾기 = createdAt → assignedAt(지금 배정 기준 — 재배정이면 마지막 배정)
-//   MFC 이동·대기 = assignedAt → pickedUpAt · 고객에게 = pickedUpAt → completedAt · 한 건 = createdAt → completedAt(COMPLETED 만)
+//   배차 요청 ≈ createdAt(배송이 생긴 때) · 라이더 찾기 = createdAt → firstAssignedAt(0.34.0, 없으면 assignedAt)
+//   (0.34.0) MFC 이동 = 배정 → arrivedAtStoreAt · MFC 대기 = → pickedUpAt · 고객에게 = → arrivedAtCustomerAt · 고객 앞 = → completedAt
+//   도착 시각이 없는 배송은 합친 구간(MFC 이동·대기 / 고객에게·고객 앞)으로(phasesOf). 고객 확인·자동 완료는 완료 시각이 실제가 아니라 시간 평균에서 뺀다.
+//   건별 지연 = promisedAt(0.34.0)보다 늦게 끝남(진행 중이면 지금) — promisedAt 이 없으면 판정 없음, 정시로 세지 않음(lateness)
 // 시간대 칸 나누기는 라이더 시뮬레이터 ui/timeChart.ts 와 같은 고정 틀(최근 2시간 10분 칸 · 하루 1시간 칸 · 7일 하루 칸, 서울 시각).
 import type { components } from '../../api/generated/delivery-execution';
 
@@ -22,7 +24,7 @@ export function kindOf(state: string | null | undefined): Kind {
   return 'active';
 }
 
-/** 사람이 봐야 하는 상태(지연은 목록에 약속 시각이 없어 여기서 세지 않는다 — dispatch 정시 배송률 late 를 쓴다) */
+/** 사람이 봐야 하는 상태(지연 타일은 dispatch 정시 배송률 late — 건별 지연 표시는 lateness) */
 export const PROBLEM_STATES: ReadonlySet<string> = new Set(['FAILURE_REPORTED', 'FAILED', 'SUSPENDED']);
 
 export const KST = 9 * 3600_000;
@@ -146,16 +148,115 @@ export function niceStep(peak: number): number {
 const avg = (xs: readonly number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null);
 const gap = (a: number | null, b: number | null) => (a !== null && b !== null && b >= a ? (b - a) / 1000 : null);
 
+/** 완료 시각이 실제 전달 시각이 아닌 완료 방법(고객 확인·자동 완료) — 시간 평균·지연 판정에서 뺀다(계약 completionMethod 설명) */
+export const UNREAL_COMPLETION: ReadonlySet<string> = new Set(['CUSTOMER_CONFIRMED', 'AUTO_COMPLETED']);
+export const unrealCompletion = (r: Summary) => r.state === 'COMPLETED' && !!r.completionMethod && UNREAL_COMPLETION.has(r.completionMethod);
+
+/** 배정 끝 시각 — 첫 배정(재배정 전, 0.34.0)이 있으면 그것, 없으면 지금 배정 */
+export const firstAssigned = (r: Summary) => ms(r.firstAssignedAt) ?? ms(r.assignedAt);
+
+/**
+ * 구간(0.34.0): 라이더 찾기(생김 → 첫 배정) · MFC 이동(배정 → 가게 도착) · MFC 대기(가게 도착 → 픽업) · 고객에게(픽업 → 고객 도착) · 고객 앞(고객 도착 → 완료).
+ * 도착 시각이 없거나(0.34.0 전 배정·안 누름) 앞뒤가 맞지 않는 배송은 두 구간을 나누지 않고 합친 구간(store = MFC 이동·대기, customer = 고객에게·고객 앞)에 넣는다.
+ */
+export type LegKey = 'find' | 'toStore' | 'atStore' | 'store' | 'toCustomer' | 'atCustomer' | 'customer';
+export const LEG_ORDER: readonly LegKey[] = ['find', 'toStore', 'atStore', 'store', 'toCustomer', 'atCustomer', 'customer'];
+
+export interface Leg {
+  readonly key: LegKey;
+  /** 이 구간을 잴 수 있었던 배송만의 평균(초) */
+  readonly sec: number;
+  /** 평균의 바탕 건수 */
+  readonly n: number;
+  /** 전체 걸린 시간 중 이 구간 몫(0~1) — 막대 너비. 몫을 다 더하면 1 */
+  readonly share: number;
+}
+
+export interface Phases {
+  /** 구간 평균에 들어간 완료 건(생김·배정·픽업·완료 시각이 모두 있고 앞뒤가 맞는 것) */
+  readonly n: number;
+  /** 고객 확인·자동 완료라 뺀 완료 건 */
+  readonly excluded: number;
+  readonly segments: readonly Leg[];
+  /** 한 건 평균(n 건의 생김 → 완료) */
+  readonly totalSec: number;
+}
+
+/** 두 시각 사이에 있는 도착 시각이면 나눈 두 구간(초), 아니면 null(합친 구간으로) */
+const split = (a: number, mid: number | null, b: number) => (mid !== null && mid >= a && mid <= b ? ([(mid - a) / 1000, (b - mid) / 1000] as const) : null);
+
+export function phasesOf(rows: readonly Summary[]): Phases | null {
+  const sums = new Map<LegKey, { s: number; n: number }>();
+  const add = (k: LegKey, sec: number) => {
+    const x = sums.get(k) ?? { s: 0, n: 0 };
+    sums.set(k, { s: x.s + sec, n: x.n + 1 });
+  };
+  let n = 0;
+  let excluded = 0;
+  let total = 0;
+  for (const r of rows) {
+    if (r.state !== 'COMPLETED') continue;
+    if (unrealCompletion(r)) {
+      excluded++;
+      continue;
+    }
+    const c = ms(r.createdAt);
+    const a = firstAssigned(r);
+    const p = ms(r.pickedUpAt);
+    const e = ms(r.completedAt);
+    if (c === null || a === null || p === null || e === null || !(c <= a && a <= p && p <= e)) continue;
+    n++;
+    total += (e - c) / 1000;
+    add('find', (a - c) / 1000);
+    const st = split(a, ms(r.arrivedAtStoreAt), p);
+    if (st) {
+      add('toStore', st[0]);
+      add('atStore', st[1]);
+    } else add('store', (p - a) / 1000);
+    const cu = split(p, ms(r.arrivedAtCustomerAt), e);
+    if (cu) {
+      add('toCustomer', cu[0]);
+      add('atCustomer', cu[1]);
+    } else add('customer', (e - p) / 1000);
+  }
+  if (!n) return null;
+  const segments = LEG_ORDER.flatMap((key) => {
+    const x = sums.get(key);
+    return x ? [{ key, sec: x.s / x.n, n: x.n, share: total > 0 ? x.s / total : 0 }] : [];
+  });
+  return { n, excluded, segments, totalSec: total / n };
+}
+
+/** 약속(promisedAt, 0.34.0) 대비 판정. 약속이 없거나 판정할 수 없는 건은 judged false — 정시로 세지 않는다 */
+export type Lateness = { readonly judged: false } | { readonly judged: true; readonly promised: number; readonly late: boolean; readonly lateSec: number };
+
+export function lateness(r: Summary, now: number): Lateness {
+  const promised = ms(r.promisedAt);
+  if (promised === null) return { judged: false };
+  const kind = kindOf(r.state);
+  // 실패·취소·회수는 전달 약속을 판정하지 않는다. 고객 확인·자동 완료는 완료 시각이 실제 전달 시각이 아니다
+  if (kind === 'failed' || kind === 'other' || unrealCompletion(r)) return { judged: false };
+  const end = kind === 'done' ? ms(r.completedAt) : now;
+  if (end === null) return { judged: false };
+  return { judged: true, promised, late: end > promised, lateSec: Math.max(0, (end - promised) / 1000) };
+}
+export const isLate = (r: Summary, now: number) => {
+  const x = lateness(r, now);
+  return x.judged && x.late;
+};
+
 export interface Metrics {
   readonly total: number;
   readonly counts: Record<Kind, number>;
   readonly problems: number;
   /** 완료 / (완료 + 실패) — 끝난 것이 없으면 null */
   readonly rate: number | null;
+  /** 완료 건의 생김 → 완료(고객 확인·자동 완료는 뺌) */
   readonly avgTotalSec: number | null;
+  /** 생김 → 첫 배정(없으면 지금 배정) */
   readonly avgFindSec: number | null;
-  /** 구간별 평균(완료 건 중 세 시각이 모두 있는 것만) */
-  readonly phases: { readonly n: number; readonly segments: ReadonlyArray<{ readonly key: 'find' | 'store' | 'customer'; readonly sec: number }>; readonly totalSec: number } | null;
+  /** 구간별 평균 */
+  readonly phases: Phases | null;
   /** 최근 12시간 1시간마다 배송이 생긴 수 */
   readonly hourly: readonly number[];
 }
@@ -168,23 +269,10 @@ export function metrics(rows: readonly Summary[], now: number): Metrics {
     if (PROBLEM_STATES.has(r.state)) problems++;
   }
   const finished = counts.done + counts.failed;
-  const done = rows.filter((r) => r.state === 'COMPLETED');
+  const done = rows.filter((r) => r.state === 'COMPLETED' && !unrealCompletion(r));
   const totals = done.map((r) => gap(ms(r.createdAt), ms(r.completedAt))).filter((x): x is number => x !== null);
-  const finds = rows.map((r) => gap(ms(r.createdAt), ms(r.assignedAt))).filter((x): x is number => x !== null);
-  const full = done
-    .map((r) => [gap(ms(r.createdAt), ms(r.assignedAt)), gap(ms(r.assignedAt), ms(r.pickedUpAt)), gap(ms(r.pickedUpAt), ms(r.completedAt))] as const)
-    .filter((x): x is readonly [number, number, number] => x.every((v) => v !== null));
-  const phases = full.length
-    ? {
-        n: full.length,
-        segments: [
-          { key: 'find' as const, sec: avg(full.map((x) => x[0])) ?? 0 },
-          { key: 'store' as const, sec: avg(full.map((x) => x[1])) ?? 0 },
-          { key: 'customer' as const, sec: avg(full.map((x) => x[2])) ?? 0 },
-        ],
-        totalSec: avg(full.map((x) => x[0] + x[1] + x[2])) ?? 0,
-      }
-    : null;
+  const finds = rows.map((r) => gap(ms(r.createdAt), firstAssigned(r))).filter((x): x is number => x !== null);
+  const phases = phasesOf(rows);
   const hourly = Array.from({ length: 12 }, (_, i) => {
     const to = now - (11 - i) * HOUR;
     return rows.filter((r) => {
@@ -271,6 +359,8 @@ export interface FlowStep {
   readonly bad: boolean;
   /** 자동 완료(이력 actor SYSTEM_EVENT 의 COMPLETED, 또는 증빙 방법 AUTO_COMPLETED) */
   readonly auto: boolean;
+  /** 고객 확인으로 완료(completionMethod CUSTOMER_CONFIRMED) — 완료 시각이 실제 전달 시각이 아니다 */
+  readonly byCustomer: boolean;
 }
 
 /**
@@ -279,18 +369,22 @@ export interface FlowStep {
  */
 export function flowSteps(row: Summary, detail: Detail | undefined): FlowStep[] {
   const steps = new Map<StepKey, FlowStep>();
+  const byCustomer = row.completionMethod === 'CUSTOMER_CONFIRMED' || detail?.evidence?.method === 'CUSTOMER_CONFIRMED';
   const put = (key: StepKey, at: number | null, auto = false) => {
     if (at === null || steps.has(key)) return;
-    steps.set(key, { key, label: STEP_LABEL[key] ?? key, at, bad: key === 'FAILED' || key === 'FAILURE_REPORTED', auto });
+    steps.set(key, { key, label: STEP_LABEL[key] ?? key, at, bad: key === 'FAILED' || key === 'FAILURE_REPORTED', auto, byCustomer: key === 'COMPLETED' && byCustomer && !auto });
   };
   put('created', ms(row.createdAt));
-  const autoMethod = detail?.evidence?.method === 'AUTO_COMPLETED';
+  const autoMethod = detail?.evidence?.method === 'AUTO_COMPLETED' || row.completionMethod === 'AUTO_COMPLETED';
   for (const h of [...(detail?.history ?? [])].sort((a, b) => (ms(a.occurredAt) ?? 0) - (ms(b.occurredAt) ?? 0))) {
     if (!h.state || h.state === 'UNASSIGNED') continue;
     put(h.state, ms(h.occurredAt), h.state === 'COMPLETED' && (h.actor === 'SYSTEM_EVENT' || autoMethod));
   }
-  put('ASSIGNED', ms(row.assignedAt));
+  // 이력이 없거나 빠진 단계는 목록 시각(0.34.0 첫 배정·가게 도착·고객 도착 포함)으로 채운다
+  put('ASSIGNED', firstAssigned(row));
+  put('ARRIVED_AT_STORE', ms(row.arrivedAtStoreAt));
   put('PICKED_UP', ms(row.pickedUpAt));
+  put('ARRIVED_AT_CUSTOMER', ms(row.arrivedAtCustomerAt));
   const kind = kindOf(row.state);
   const endKey: StepKey = kind === 'done' ? 'COMPLETED' : kind === 'failed' ? (row.state === 'FAILED' ? 'FAILED' : 'FAILURE_REPORTED') : kind === 'other' ? row.state : 'COMPLETED';
   if (!(kind === 'failed' && steps.has('FAILURE_REPORTED'))) put(endKey, ms(row.completedAt), endKey === 'COMPLETED' && autoMethod);
