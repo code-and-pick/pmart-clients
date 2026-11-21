@@ -434,7 +434,9 @@ main table tbody tr.pm-inline-row:hover > td {
   flex-direction: column;
   gap: 12px;
 }
-@media (min-width: 1280px) {
+/* 보기 | 처리 두 칸은 1600px 이상에서만(2026-11-21 사용자 "응 바꿔") — 1280~1599px 에서는 처리 칸 400px 때문에 왼쪽이
+   560px 남짓이라 배정 이력(9칸) 같은 표가 반만 보였다. 그보다 좁으면 처리 칸을 위에 두고 표는 전체 폭으로. */
+@media (min-width: 1600px) {
   .pm-detail-grid {
     display: grid;
     grid-template-columns: minmax(0, 1fr) 400px;
@@ -448,10 +450,11 @@ main table tbody tr.pm-inline-row:hover > td {
     overflow-y: auto;
   }
 }
-@media (max-width: 1279px) {
+@media (max-width: 1599px) {
   .pm-detail-grid {
+    /* 보기(정보) 먼저, 처리는 그 아래 — 처리 칸을 위에 두면 상세를 열자마자 양식 셋이 화면을 다 덮었다. 처리는 위 구역 탭으로 바로 간다 */
     display: flex;
-    flex-direction: column-reverse;
+    flex-direction: column;
     gap: 16px;
   }
 }
@@ -586,4 +589,9 @@ main table tbody tr.pm-inline-row:hover > td {
   main :is(.pm-view-col, .pm-act-col, .pm-inline) .overflow-x-auto:has(> table) {
     overflow-x: auto;
   }
+}
+
+/* 배정 이력(9칸)은 칸 좌우 여백을 줄여 보통 폭에서 한 화면에 다 들어오게(2026-11-21) */
+#sec-assignments .table :is(th, td) {
+  padding-inline: 9px;
 }

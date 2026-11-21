@@ -829,7 +829,7 @@ function AssignmentHistory({ riderId, live = false }: { readonly riderId: string
                     <td className="whitespace-nowrap">
                       <StatusBadge tone={outcomeTone(it.outcome)}>{label(a.outcome, it.outcome)}</StatusBadge>
                     </td>
-                    <td className="min-w-56 text-xs">
+                    <td className="min-w-36 text-xs">
                       {it.cancellation ? (
                         <span className="flex flex-col">
                           <span>{`${label(a.requestedBy, it.cancellation.requestedBy)} · ${label(a.cancelReason, it.cancellation.reason)}`}</span>
