@@ -25,7 +25,7 @@ export function FailureAlert({ failure }: { readonly failure: PmartFailure }) {
     failure instanceof SessionExpiredFailure ? m.sessionExpired : code ? (problem[code] ?? m.rejectedTitle) : m.rejectedTitle;
   const details = failure instanceof ProblemFailure ? failure.problem.details : [];
   return (
-    <div role="alert" data-state="rejected" data-code={code} className="alert alert-error flex-col items-start">
+    <div role="alert" data-state="rejected" data-code={code} className="alert alert-error flex flex-col items-start gap-1">
       <span className="font-bold">{text}</span>
       {code && <span className="text-xs opacity-70">{code}</span>}
       {details.length > 0 && (

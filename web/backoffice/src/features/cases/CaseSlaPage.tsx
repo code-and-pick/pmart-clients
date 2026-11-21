@@ -171,7 +171,7 @@ export function CaseSlaPage() {
           {badRequest}
         </p>
       ) : unreachable ? (
-        <div role="alert" className="alert alert-error flex-col items-start text-sm" data-testid="case-sla-unreachable">
+        <div role="alert" className="alert alert-error flex flex-col items-start gap-1 text-sm" data-testid="case-sla-unreachable">
           <span className="font-bold">{m.unreachable}</span>
           <button type="button" className="btn btn-xs" onClick={() => void query.refetch()}>
             {m.retry}

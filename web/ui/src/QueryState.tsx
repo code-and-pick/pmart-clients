@@ -67,7 +67,7 @@ export function QueryState<T>({ state, children, onRetry, onCheckAgain, emptyTex
     case 'partial':
       return (
         <div data-state="partial">
-          <div role="alert" className="alert alert-warning mb-4">
+          <div role="alert" className="alert alert-warning mb-4 flex flex-wrap items-center gap-2">
             <span>{`${m.unavailableSources}: ${state.missing.join(', ')}`}</span>
             {onRetry && (
               <button type="button" className="btn btn-sm" onClick={onRetry}>
@@ -87,12 +87,12 @@ export function QueryState<T>({ state, children, onRetry, onCheckAgain, emptyTex
             ? m.configRequired
             : m.errorTitle;
       return (
-        <div role="alert" data-state="error" className="alert alert-error flex-col items-start">
+        <div role="alert" data-state="error" className="alert alert-error flex flex-col items-start gap-1">
           <h2 className="font-bold">{title}</h2>
-          <p>{m.errorBody}</p>
+          <p className="break-keep">{m.errorBody}</p>
           <RequestId id={f.requestId} />
           {onRetry && (
-            <button type="button" className="btn btn-sm" onClick={onRetry}>
+            <button type="button" className="btn btn-sm mt-1" onClick={onRetry}>
               {m.retry}
             </button>
           )}
@@ -101,20 +101,20 @@ export function QueryState<T>({ state, children, onRetry, onCheckAgain, emptyTex
     }
     case 'forbidden':
       return (
-        <div role="alert" data-state="forbidden" className="alert flex-col items-start">
+        <div role="alert" data-state="forbidden" className="alert flex flex-col items-start gap-1">
           <h2 className="font-bold">{m.forbiddenTitle}</h2>
-          <p>{m.forbiddenBody}</p>
+          <p className="break-keep">{m.forbiddenBody}</p>
           <RequestId id={state.requestId} />
         </div>
       );
     case 'unknown':
       return (
-        <div role="alert" data-state="unknown" className="alert alert-info flex-col items-start">
+        <div role="alert" data-state="unknown" className="alert alert-info flex flex-col items-start gap-1">
           <h2 className="font-bold">{m.unknownTitle}</h2>
-          <p>{m.unknownBody}</p>
+          <p className="break-keep">{m.unknownBody}</p>
           <RequestId id={state.requestId} />
           {onCheckAgain && (
-            <button type="button" className="btn btn-sm btn-outline" onClick={onCheckAgain}>
+            <button type="button" className="btn btn-sm btn-outline mt-1" onClick={onCheckAgain}>
               {m.checkAgain}
             </button>
           )}

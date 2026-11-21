@@ -115,7 +115,7 @@ export function AnswerView({
 
   if (answer.state === 'PROCESSING') {
     return (
-      <div role="status" data-state="processing" className="alert flex-col items-start">
+      <div role="status" data-state="processing" className="alert flex flex-col items-start gap-1">
         <span className="font-bold">{m.assistant.processingTitle}</span>
         <span>{m.assistant.processingBody}</span>
         {idLine}
@@ -132,7 +132,7 @@ export function AnswerView({
   if (notice) {
     const copy = m.assistant.notice[answer.state as keyof typeof m.assistant.notice];
     return (
-      <div role="status" data-state={notice.key} className={`alert flex-col items-start ${notice.tone}`}>
+      <div role="status" data-state={notice.key} className={`alert flex flex-col items-start gap-1 ${notice.tone}`}>
         <span className="font-bold">{copy.title}</span>
         <span className="whitespace-pre-wrap">{answer.answer.trim() ? answer.answer : copy.body}</span>
         {idLine}
