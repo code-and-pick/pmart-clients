@@ -438,10 +438,10 @@ function InquiryDetailPage() {
 
 
 /** 받은 뒤 지난 시간 — 10분 넘으면 주의, 30분 넘으면 경고 */
-function WaitBadge({ from, now }: { readonly from: string | null | undefined; readonly now: number | null }) {
+function WaitBadge({ from, now, muted = false }: { readonly from: string | null | undefined; readonly now: number | null; /** 우리가 기다리게 하는 건이 아니면(답변함 등) 색 없이 회색 — 2026-11-21 사용자 */ readonly muted?: boolean }) {
   const w = waited(from, now);
   if (!w) return <span className="text-base-content/40">—</span>;
-  return <StatusBadge tone={w.tone}>{w.text}</StatusBadge>;
+  return <StatusBadge tone={muted ? 'ghost' : w.tone}>{w.text}</StatusBadge>;
 }
 
 // ---------------- 상담함(도움요청 + 라이더 문의 한 목록 — 사용자 2026-11-19 "라이더문의랑 도움요청이 둘 다 있는 이유가 뭐냐")
@@ -484,6 +484,8 @@ type ConsultRow = {
   readonly riderId: string | null;
   readonly createdAt: string | undefined;
   readonly open: boolean;
+  /** 우리 답을 기다리는 중(답변함 문의는 라이더 차례라 false) — 기다린 시간 색은 이때만 */
+  readonly waiting?: boolean;
 };
 
 export function ConsultsMenu() {
@@ -661,6 +663,7 @@ function ConsultsPage({ tab }: { readonly tab: 'open' | 'done' }) {
         riderId: null,
         createdAt: it.createdAt,
         open: it.status !== 'CLOSED',
+        waiting: it.status === 'RECEIVED',
       }),
     ),
   ].sort((a, b) => (a.kind === b.kind ? (a.createdAt ?? '').localeCompare(b.createdAt ?? '') * (tab === 'open' ? 1 : -1) : kindOrder[a.kind] - kindOrder[b.kind]));
@@ -800,7 +803,7 @@ function ConsultsPage({ tab }: { readonly tab: 'open' | 'done' }) {
                   <td className="whitespace-nowrap font-mono" data-testid="consult-order">{(r.deliveryId && deliveryNos.get(r.deliveryId)?.orderNumber) || none}</td>
                   <td>{r.riderId ? <RiderName riderId={r.riderId} nameMasked={riders.get(r.riderId)?.nameMasked} riderNumber={riders.get(r.riderId)?.riderNumber} /> : none}</td>
                   <td className="whitespace-nowrap">{when(r.createdAt)}</td>
-                  <td className="whitespace-nowrap">{r.open ? <WaitBadge from={r.createdAt} now={now} /> : none}</td>
+                  <td className="whitespace-nowrap">{r.open ? <WaitBadge from={r.createdAt} now={now} muted={r.waiting === false} /> : none}</td>
                 </tr>
               ))}
             </tbody>

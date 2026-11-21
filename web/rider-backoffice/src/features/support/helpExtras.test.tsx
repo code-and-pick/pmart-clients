@@ -152,6 +152,19 @@ describe('전달 실패 결정 전에는 상담 완료를 막고, 결정 대기 
   });
 });
 
+describe('처리함 — 기다린 시간 색은 우리 차례인 건만(사용자 2026-11-21)', () => {
+  it('답변한 일반 문의는 기다린 시간이 회색, 답을 기다리는 문의는 색', async () => {
+    renderAt('/consults', as.riderOps);
+    const rows = await screen.findAllByTestId('consult-row');
+    const inquiries = rows.filter((r) => r.getAttribute('data-kind') === 'inquiry');
+    const waitTone = (r: HTMLElement) => r.querySelector('td:last-child .pm-status')?.getAttribute('data-tone');
+    const answered = inquiries.find((r) => r.textContent?.includes('답변함'))!;
+    const received = inquiries.find((r) => r.textContent?.includes('답 기다림'))!;
+    expect(waitTone(answered)).toBe('ghost');
+    expect(waitTone(received)).not.toBe('ghost');
+  });
+});
+
 describe('상담함 — 도움요청 여러 쪽', () => {
   it('서버가 오래된 것부터 50건씩 줘도 다음 쪽까지 읽어 최근 끝난 건이 끝남 탭에 보이고, 최근 7일만 묻는다', async () => {
     const asked: URLSearchParams[] = [];
