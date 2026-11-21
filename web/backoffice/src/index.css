@@ -10,3 +10,5 @@
 
 /* 콘솔(AWS 모양) 테마·겉모습은 공용 @pmart/web-ui console.css(2026-11-20 올림) — 이 앱만의 덧붙임은 그 아래 */
 @import '../../ui/src/console.css';
+/* 어두운 테마는 MFC 관제실 겉모습(공용 tower.css, 2026-11-21 PC 3 알림 A안) — 밝은 테마는 위 콘솔 그대로 */
+@import '../../ui/src/tower.css';
