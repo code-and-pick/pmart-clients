@@ -285,9 +285,10 @@ main:has([data-testid='preview-drawer']) {
 
 /* 긴 표 머리 고정(2026-11-19 — 목록을 내리면 칸 이름이 사라져 헷갈렸다). 표를 감싼 가로 스크롤 상자가 있으면 sticky 가 듣지 않아,
    넓은 화면(1280px 이상)에서는 그 상자의 가로 스크롤을 풀고 머리 칸을 화면 위에 붙인다. 좁은 화면은 지금처럼 가로 스크롤.
-   (2026-11-20: 1024px 부터 풀면 메뉴 220px 를 뺀 본문이 좁아 칸이 한 단어씩 세로로 꺾였다 — 1280px 부터로) */
+   (2026-11-20: 1024px 부터 풀면 메뉴 220px 를 뺀 본문이 좁아 칸이 한 단어씩 세로로 꺾였다 — 1280px 부터로)
+   (2026-11-21: 칸보다 넓은 표는 풀면 옆 칸 위로 넘치거나 바깥 상자에 잘려 뒤 칸을 못 봤다 — tableFit.ts 가 단 data-table-wide 감싸개는 가로 스크롤 그대로) */
 @media (min-width: 1280px) {
-  main .overflow-x-auto:has(> table) {
+  main .overflow-x-auto:has(> table):not([data-table-wide]) {
     overflow: visible;
   }
   main table > thead th {
