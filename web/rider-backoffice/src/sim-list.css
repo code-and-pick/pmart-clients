@@ -578,3 +578,12 @@ main table tbody tr.pm-inline-row:hover > td {
   appearance: auto;
   cursor: pointer;
 }
+
+/* 상세 화면 두 칸(보기 | 처리)·줄 펼침 안의 표는 가로 스크롤을 되살린다(2026-11-21 사용자 "라이더 찾기 UI 난리났잖아").
+   공용 console.css 가 1280px 이상에서 표 머리를 화면 위에 붙이려고 표 감싸개(overflow-x-auto)의 스크롤을 풀어 두어,
+   왼쪽 칸보다 넓은 표(배정 이력 9칸 등)가 오른쪽 처리 칸 위로 넘쳐 그려졌다. 이 칸들 안에서는 머리 고정 대신 칸 안 가로 스크롤. */
+@media (min-width: 1280px) {
+  main :is(.pm-view-col, .pm-act-col, .pm-inline) .overflow-x-auto:has(> table) {
+    overflow-x: auto;
+  }
+}

@@ -19,6 +19,20 @@ describe('탈퇴 — 신청 목록', () => {
     expect(within(rejected).getByRole('link')).toHaveAttribute('href', '/riders/RD-7');
   });
 
+  it('줄을 누르면 바로 아래에 라이더 상세가 펼쳐진다(탈퇴 완료도 — includeWithdrawn)', async () => {
+    const view = renderAt('/withdrawals', as.riderOps);
+    const rows = await screen.findAllByTestId('withdrawal-row');
+    const done = rows.find((r) => r.textContent?.includes('615204'))!;
+    await userEvent.click(within(done).getByText('다른 일을 하게 됐어요'));
+    const inline = await screen.findByTestId('withdrawal-inline');
+    expect(await within(inline).findByTestId('rider-inline-info')).toBeInTheDocument();
+    expect(within(inline).getByRole('link', { name: /전체 상세/ })).toHaveAttribute('href', '/riders/RD-W1');
+    expect(view.sent.some((r) => new URL(r.url).pathname.endsWith('/riders/RD-W1') && new URL(r.url).searchParams.get('includeWithdrawn') === 'true')).toBe(true);
+    // 다시 누르면 접힌다
+    await userEvent.click(within(done).getByText('다른 일을 하게 됐어요'));
+    expect(screen.queryByTestId('withdrawal-inline')).not.toBeInTheDocument();
+  });
+
   it('결과 칩·라이더 번호로 좁혀 서버에 보낸다', async () => {
     const view = renderAt('/withdrawals', as.riderOps);
     await screen.findAllByTestId('withdrawal-row');

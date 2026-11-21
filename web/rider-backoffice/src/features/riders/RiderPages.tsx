@@ -334,7 +334,7 @@ function RiderSearchPage({ signups = false }: { readonly signups?: boolean }) {
  * 왼쪽: 기본 정보(가린 이름·전화, 수단·운행·제한·가입, 배송 지역, 가입·탈퇴 시각), 오른쪽: 정산계좌·동의.
  * 원문 열람·계정 제한·수행료·배정·컴플레인은 "전체 상세 ›"에서(사유 입력 흐름 그대로).
  */
-function RiderInline({ riderId }: { readonly riderId: string }) {
+export function RiderInline({ riderId }: { readonly riderId: string }) {
   const api = useApi();
   const detail = useQuery({
     queryKey: ['rider', riderId],
@@ -504,7 +504,8 @@ function RiderDetailPage() {
               )}
             </QueryState>
           </ViewSection>
-          <div className="grid gap-3 lg:grid-cols-2">
+          {/* 처리 칸이 옆에 있으면 왼쪽이 좁아 반쪽 칸의 표가 꺾인다 — 그때는 아주 넓은 화면(2xl)에서만 두 칸 */}
+          <div className={`grid gap-3 ${canAct ? '2xl:grid-cols-2' : 'lg:grid-cols-2'}`}>
             <ViewSection
               id="sec-account"
               icon={<Icon name="card" className="h-4 w-4" />}
@@ -754,8 +755,8 @@ function AccountAndConsents({ detail }: { readonly detail: components['schemas']
             <tbody>
               {consents.map((c) => (
                 <tr key={c.consentType}>
-                  <td className="font-mono">{c.consentType}</td>
-                  <td className="font-mono">{c.version}</td>
+                  <td className="whitespace-nowrap font-mono">{c.consentType}</td>
+                  <td className="whitespace-nowrap font-mono">{c.version}</td>
                   <td className="whitespace-nowrap">{when(c.agreedAt)}</td>
                 </tr>
               ))}
@@ -800,18 +801,18 @@ function AssignmentHistory({ riderId, live = false }: { readonly riderId: string
                 {items.map((it, i) => (
                   <tr key={it.offerId ?? `${it.deliveryId}-${i}`} data-testid="assignment-row">
                     <td className="whitespace-nowrap">{when(it.assignedAt)}</td>
-                    <td className="font-semibold">
+                    <td className="whitespace-nowrap font-semibold">
                       <DeliveryRef deliveryId={it.deliveryId} numbers={assignNos.get(it.deliveryId)} />
                     </td>
-                    <td className="font-mono">{assignNos.get(it.deliveryId)?.orderNumber ?? none}</td>
-                    <td>{[it.type ? label(n.deliveryType, it.type) : null, it.purpose && it.purpose !== 'DELIVERY' ? label(n.purpose, it.purpose) : null].filter(Boolean).join(' · ') || none}</td>
-                    <td>{label(a.source, it.source)}</td>
-                    <td className="tabular-nums">{won(it.fee)}</td>
-                    <td>{label(n.dispatchState, it.deliveryState)}</td>
-                    <td>
+                    <td className="whitespace-nowrap font-mono">{assignNos.get(it.deliveryId)?.orderNumber ?? none}</td>
+                    <td className="whitespace-nowrap">{[it.type ? label(n.deliveryType, it.type) : null, it.purpose && it.purpose !== 'DELIVERY' ? label(n.purpose, it.purpose) : null].filter(Boolean).join(' · ') || none}</td>
+                    <td className="whitespace-nowrap">{label(a.source, it.source)}</td>
+                    <td className="whitespace-nowrap tabular-nums">{won(it.fee)}</td>
+                    <td className="whitespace-nowrap">{label(n.dispatchState, it.deliveryState)}</td>
+                    <td className="whitespace-nowrap">
                       <StatusBadge tone={outcomeTone(it.outcome)}>{label(a.outcome, it.outcome)}</StatusBadge>
                     </td>
-                    <td className="text-xs">
+                    <td className="min-w-56 text-xs">
                       {it.cancellation ? (
                         <span className="flex flex-col">
                           <span>{`${label(a.requestedBy, it.cancellation.requestedBy)} · ${label(a.cancelReason, it.cancellation.reason)}`}</span>

@@ -2,7 +2,7 @@
 // 완료(개인정보는 이미 지워져 라이더 번호만)와 거절(막은 것 — 진행 중 배송·확정 전 수행료 등)을 최근 신청 순으로. 통합 백오피스에는 없다.
 // 탈퇴한 라이더는 라이더 찾기·상세에서 빠지므로 번호를 링크로 걸지 않는다(거절된 라이더만 상세로 간다).
 import { useQuery } from '@tanstack/react-query';
-import { useState, type FormEvent } from 'react';
+import { Fragment, useState, type FormEvent } from 'react';
 import { Link, useSearchParams } from 'react-router';
 
 import { request } from '@pmart/web-core';
@@ -11,6 +11,8 @@ import type { components } from '../../api/generated/rider';
 import { useApi } from '../../app/ApiContext';
 import { ChipGroup, CursorPager, DataTable, GuideBox, PageHeader, ResultBar, SearchPanel, SearchRow, StatusBadge, type Tone } from '../../shared/admin';
 import { RiderName } from '../../shared/displayNumbers';
+import { Caret, expandRowProps, InlineDetail, useInlineOpen } from '../../shared/simList';
+import { RiderInline } from './RiderPages';
 import { none, when } from '../../shared/opsUi';
 import { ui } from '../../shared/uiMessages';
 
@@ -54,6 +56,8 @@ export function WithdrawalsMenu() {
   const riderNumber = params.get('riderNumber') ?? '';
   const page = Math.max(0, Number(params.get('page') ?? 0) || 0);
   const [draft, setDraft] = useState(riderNumber);
+  // 줄을 누르면 바로 아래에 라이더 상세를 펼친다(라이더 찾기와 같게 — 전에는 번호 글자만 링크라 줄을 눌러도 아무 일이 없었다, 사용자 2026-11-21)
+  const inline = useInlineOpen();
 
   const set = (patch: Record<string, string>) => {
     const next = new URLSearchParams(params);
@@ -136,11 +140,17 @@ export function WithdrawalsMenu() {
                   </tr>
                 </thead>
                 <tbody>
-                  {items.map((w, i) => (
-                    <tr key={`${w.riderId}-${w.requestedAt}-${i}`} data-testid="withdrawal-row">
+                  {items.map((w, i) => {
+                    const k = `${w.riderId}-${w.requestedAt}-${i}`;
+                    const isOpen = inline.isOpen(k);
+                    const to = `/riders/${encodeURIComponent(w.riderId)}`;
+                    return (
+                    <Fragment key={k}>
+                    <tr data-testid="withdrawal-row" {...expandRowProps(isOpen, () => inline.toggle(k))}>
                       <td className="font-mono font-semibold">
+                        <Caret open={isOpen} />
                         {/* 탈퇴 완료도 상세로(rider 0.20.0 includeWithdrawn — 남은 수행료·배정·컴플레인 기록) */}
-                        <Link className="hover:underline" to={`/riders/${encodeURIComponent(w.riderId)}`}>
+                        <Link className="hover:underline" to={to} onClick={(e) => e.stopPropagation()}>
                           <RiderName riderId={w.riderId} riderNumber={w.riderNumber} />
                         </Link>
                         {w.state === 'COMPLETED' && <span className="ml-1 text-xs font-normal text-base-content/50">{v.withdrawnNote}</span>}
@@ -153,7 +163,14 @@ export function WithdrawalsMenu() {
                       <td className="whitespace-nowrap">{when(w.requestedAt)}</td>
                       <td className="whitespace-nowrap">{w.completedAt ? when(w.completedAt) : none}</td>
                     </tr>
-                  ))}
+                    {isOpen && (
+                      <InlineDetail colSpan={6} to={to} testId="withdrawal-inline">
+                        <RiderInline riderId={w.riderId} />
+                      </InlineDetail>
+                    )}
+                    </Fragment>
+                    );
+                  })}
                 </tbody>
               </DataTable>
               <CursorPager hasPrev={page > 0} nextCursor={x.hasNext ? String(page + 1) : null} page={page + 1} onFirst={() => set({ page: '' })} onNext={(c) => set({ page: c })} />
