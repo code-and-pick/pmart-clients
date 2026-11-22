@@ -1,8 +1,8 @@
 import { AppLauncher, UiTextProvider } from '@pmart/web-ui';
-import { ConsoleBreadcrumb, ConsoleShell, type ConsoleNavGroup } from '@pmart/web-ui/console';
+import { AccountMenu, ConsoleBreadcrumb, ConsoleShell, RoleText, type ConsoleNavGroup } from '@pmart/web-ui/console';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ComponentType, ReactNode } from 'react';
-import { createBrowserRouter, createMemoryRouter, Link, Navigate, NavLink, Outlet, RouterProvider, useLocation, useParams } from 'react-router';
+import { createBrowserRouter, createMemoryRouter, Link, Navigate, NavLink, Outlet, RouterProvider, useLocation, useNavigate, useParams } from 'react-router';
 
 import { env } from '../env';
 import { AssignmentsMenu } from '../features/assignments/AssignmentPages';
@@ -24,7 +24,7 @@ import { TasksMenu } from '../features/tasks/TaskPages';
 import { WorkersMenu } from '../features/workers/WorkerPages';
 import { PreparingPage } from '../features/menus/PreparingPage';
 import { LoginCallbackPage, LoginPage } from '../features/session/LoginPage';
-import { SessionPage } from '../features/session/SessionPage';
+import { useMe } from '../features/me/useMe';
 import { MyInfoPage } from '../features/me/MyInfoPage';
 import { messages as m } from '../shared/messages';
 import { allMenus, centerPath, isWorkerOnly, navGroups, type MenuItem, type MenuKey } from './nav';
@@ -41,6 +41,27 @@ function useCenter(): { readonly mfcId: string; readonly mine: boolean } | null 
   const { session } = useSession();
   if (!mfcId) return null;
   return { mfcId, mine: session?.centers.includes(mfcId) ?? false };
+}
+
+/** 머리줄 내 정보 메뉴 — 이름·사번은 내 정보 화면과 같은 hr 본인 조회 */
+function MfcAccountMenu() {
+  const { session, logout } = useSession();
+  const me = useMe();
+  const navigate = useNavigate();
+  if (!session) return null;
+  return (
+    <AccountMenu
+      name={me.data?.name ?? null}
+      employeeNo={me.data?.employeeNo}
+      roles={session.roles.map((r) => m.roleName[r] ?? r)}
+      profileTo="/me"
+      onLogout={() =>
+        void logout().then((result) => {
+          if (result !== 'redirecting') void navigate('/login', { replace: true });
+        })
+      }
+    />
+  );
 }
 
 /** 화면 틀 — 통합 백오피스(web/backoffice)와 같은 모양(2026-11-19 사용자 "다른 통합 백오피스 앱 참조", PC 2 요청 "같은 느낌으로"):
@@ -92,11 +113,8 @@ function Layout() {
         />
       }
       locationAside={
-        session && session.roles.length > 0 ? (
-          <span className="badge badge-ghost badge-sm" data-testid="role-chip">
-            {session.roles.includes('MFC_SUPERVISOR') ? m.roleChip.supervisor : session.roles.join(', ')}
-          </span>
-        ) : undefined
+        // 역할은 단추·꼬리표 모양 없이 글자로(2026-11-23 통합 백오피스와 같은 공용 RoleText)
+        session && session.roles.length > 0 ? <RoleText roles={session.roles.map((r) => m.roleName[r] ?? r)} /> : undefined
       }
       banner={
         <>
@@ -115,14 +133,14 @@ function Layout() {
             <ShortcutHelp />
             <ThemeToggle />
           </span>
-          {session && (
-            <NavLink to="/me" className={({ isActive }) => `btn btn-ghost btn-xs hidden shrink-0 font-normal sm:inline-flex ${isActive ? 'btn-active' : ''}`}>
-              {m.nav.me}
+          {/* 내 정보 메뉴(2026-11-23 — 통합 백오피스와 같은 공용 AccountMenu): 머리글자 + 이름, 누르면 사번·역할·내 정보·로그아웃. 옛 "내 정보"·"내 세션" 링크 둘을 합침 */}
+          {session ? (
+            <MfcAccountMenu />
+          ) : (
+            <NavLink to="/login" className="btn btn-ghost btn-xs shrink-0 font-normal">
+              {m.nav.login}
             </NavLink>
           )}
-          <NavLink to={session ? '/session' : '/login'} className={({ isActive }) => `btn btn-ghost btn-xs shrink-0 font-normal ${isActive ? 'btn-active' : ''}`}>
-            {session ? m.nav.session : m.nav.login}
-          </NavLink>
           {/* 직원 웹 앱 바꾸기 — 머리줄 맨 오른쪽, 통합·인사팀 백오피스와 같게 */}
           <AppLauncher current="mfc-backoffice" />
         </>
@@ -233,7 +251,8 @@ const routes = [
     element: <Layout />,
     children: [
       { index: true, element: guarded(<Home />) },
-      { path: 'session', element: guarded(<SessionPage />) },
+      // 옛 내 세션 — 내 정보(/me)에 합침(2026-11-23)
+      { path: 'session', element: <Navigate to="/me" replace /> },
       { path: 'me', element: guarded(<MyInfoPage />) },
       { path: 'c/:mfcId', element: guarded(<Home />) },
       // 메뉴 아래 화면(목록·상세·등록)은 메뉴 화면이 자기 Routes 로 나눈다

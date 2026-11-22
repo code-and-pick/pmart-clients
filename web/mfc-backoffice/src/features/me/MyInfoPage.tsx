@@ -7,50 +7,53 @@
 //   화면에서도 형식을 먼저 막지만(phone 숫자·- 만 9~11자리, email, name 50자) 확정은 서버 판정.
 // - 이 센터 연락처 목록 `GET /mfcs/{mfcId}/staff-contacts`(모든 운영자·라이더가 봄) — 서버 순서 그대로.
 // - 회사 메일(로그인 ID)은 인사팀만 바꾼다. 연락처 값은 로그·주소·저장소에 남기지 않는다.
+// 2026-11-23 통합 백오피스와 같은 "내 정보" 모양(공용 @pmart/web-ui/console MyInfoView): 프로필·업무·로그인(옛 "내 세션" /session 을 합침)·계정·보안 사이에
+//   이 앱 칸(인사 정보·센터 휴게 번호·연락처)을 그대로 둔다. 운영자 ID·세션 ID 는 접힌 시스템 번호로.
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
+import { useNavigate } from 'react-router';
 
-import { ProblemCode, ProblemFailure, request } from '@pmart/web-core';
+import { centerDisplayName, request } from '@pmart/web-core';
 import { CommandFeedback, formatSeoul, QueryState, toUiState, useCommand } from '@pmart/web-ui';
+import { consoleMessages, InfoCard, LoginRows, MyInfoView } from '@pmart/web-ui/console';
 import { commandParams } from '../../api/command';
-import type { components } from '../../api/generated/hr';
 import type { components as CapComponents } from '../../api/generated/mfc-capacity';
 import { useApi } from '../../app/ApiContext';
 import { useSession } from '../../app/SessionContext';
 import { messages } from '../../shared/messages';
 import { Who } from '../../shared/OperatorLabel';
 import { BreakPinCard } from '../workers/BreakPinCard';
+import { useMe, type EmployeeSelf } from './useMe';
 
-type EmployeeSelf = components['schemas']['EmployeeSelf'];
 type StaffContact = CapComponents['schemas']['StaffContact'];
 
 const m = messages.me;
+const t = consoleMessages.account;
 
 export function MyInfoPage() {
   const api = useApi();
-  const { session } = useSession();
+  const navigate = useNavigate();
+  const { session, logout } = useSession();
   const centers = session?.centers ?? [];
   const [picked, setPicked] = useState<string | null>(null);
   const mfcId = picked && centers.includes(picked) ? picked : (centers[0] ?? null);
   const supervisor = session?.roles.includes('MFC_SUPERVISOR') ?? false;
-  const query = useQuery({
-    queryKey: ['hr', 'me', session?.subject],
+  const query = useMe();
+  const current = useQuery({
+    queryKey: ['employee-auth', 'session', session?.subject],
     enabled: session !== null,
-    queryFn: async (): Promise<EmployeeSelf | null> => {
-      try {
-        return await request('GET', api.hr.GET('/hr/employees/me', {}));
-      } catch (e) {
-        if (e instanceof ProblemFailure && e.problem.code === ProblemCode.notFound) return null;
-        throw e;
-      }
-    },
+    queryFn: () => request('GET', api.employeeAuth.GET('/employee-auth/sessions/current', {})),
   });
-  return (
-    <section className="max-w-3xl space-y-4">
-      <h1 className="text-xl font-bold">{m.title}</h1>
-      <QueryState state={toUiState(query, (me) => me === null)} onRetry={() => void query.refetch()} emptyText={m.noRecord}>
-        {(me) => me && <Profile me={me} />}
-      </QueryState>
+  if (!session) return null;
+  const roles = session.roles.map((r) => messages.roleName[r] ?? r);
+  const centerNames = session.centers.map((c) => centerDisplayName(session, c));
+  const extra = (
+    <>
+      <InfoCard title={m.hrInfo}>
+        <QueryState state={toUiState(query, (me) => me === null)} onRetry={() => void query.refetch()} emptyText={m.noRecord}>
+          {(me) => me && <Profile me={me} />}
+        </QueryState>
+      </InfoCard>
       {mfcId === null ? (
         <p className="rounded-box bg-base-100 p-4 text-sm" data-testid="me-no-center">
           {m.noCenter}
@@ -77,7 +80,40 @@ export function MyInfoPage() {
           <CenterContacts mfcId={mfcId} me={session?.subject ?? null} />
         </div>
       )}
-    </section>
+    </>
+  );
+  return (
+    <MyInfoView
+      name={query.data?.name ?? null}
+      nameFallback={query.isError ? t.nameFailed : query.isPending ? '…' : t.nameUnknown}
+      employeeNo={query.data?.employeeNo}
+      roles={roles}
+      noRolesNote={
+        session.roles.length === 0 && (
+          <p role="alert" className="alert alert-warning text-sm">
+            {messages.employeeLogin.noRoles}
+          </p>
+        )
+      }
+      work={[[t.centers, centerNames.length > 0 ? centerNames.join(', ') : t.allCenters]]}
+      login={
+        <QueryState state={toUiState(current)} onRetry={() => void current.refetch()}>
+          {(s) => <LoginRows app={s.app} issuedAt={formatSeoul(s.issuedAt)} expiresAt={formatSeoul(s.expiresAt)} />}
+        </QueryState>
+      }
+      extra={extra}
+      notes={[messages.employeeLogin.passwordNote, messages.employeeLogin.sharedPcNote, messages.session.ssoNote]}
+      onLogout={() =>
+        void logout().then((result) => {
+          // 'redirecting' 이면 브라우저가 Keycloak 로그아웃 주소로 떠난다(→ /login 으로 돌아온다).
+          if (result !== 'redirecting') void navigate('/login', { replace: true });
+        })
+      }
+      systemIds={[
+        { label: t.operatorId, id: session.subject },
+        { label: t.sessionId, id: current.data?.sessionId },
+      ]}
+    />
   );
 }
 
@@ -85,14 +121,13 @@ function Profile({ me }: { readonly me: EmployeeSelf }) {
   const rows: ReadonlyArray<readonly [string, string]> = [
     [m.fields.name, me.name],
     [m.fields.employeeNo, me.employeeNo],
-    [m.fields.operatorId, me.operatorId],
     [m.fields.mailAddress, me.mailAddress],
     [m.fields.employmentType, m.employmentType[me.employmentType] ?? me.employmentType],
     [m.fields.affiliation, me.affiliation.type === 'CENTER' ? m.center(me.affiliation.code) : m.department(me.affiliation.code)],
     [m.fields.status, m.status[me.status] ?? me.status],
   ];
   return (
-    <div className="space-y-2 rounded-box bg-base-100 p-4">
+    <div className="space-y-2">
       <dl className="grid grid-cols-[8rem_1fr] gap-x-4 gap-y-2 text-sm" data-testid="me-profile">
         {rows.map(([k, v]) => (
           <div key={k} className="contents">

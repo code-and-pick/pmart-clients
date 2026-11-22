@@ -1,78 +1,60 @@
-// 내 세션: 서버 세션(GET /employee-auth/sessions/current — 0.6.0 부터 역할·센터도 이 응답), 로그아웃.
-// 비밀번호는 Keycloak 이 관리해 이 앱에서 바꾸지 않는다.
+// 내 정보(2026-11-23 — 통합 백오피스와 같은 모양, 공용 @pmart/web-ui/console MyInfoView). 역할·센터는 sessions/current 0.6.0 응답,
+// 로그인 칸은 GET /employee-auth/sessions/current, 이름·사번은 hr employee-labels. 비밀번호는 Keycloak 이 관리해 이 앱에서 바꾸지 않는다.
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router';
 
 import { centerDisplayName, request } from '@pmart/web-core';
 import { formatSeoul, QueryState, toUiState } from '@pmart/web-ui';
+import { consoleMessages, LoginRows, MyInfoView } from '@pmart/web-ui/console';
 import { useApi } from '../../app/ApiContext';
 import { useSession } from '../../app/SessionContext';
+import { useEmployeeLabel } from '../../shared/employeeLabels';
 import { messages as m } from '../../shared/messages';
+
+const t = consoleMessages.account;
 
 export function SessionPage() {
   const api = useApi();
   const navigate = useNavigate();
   const { session, logout } = useSession();
+  const label = useEmployeeLabel(session?.subject);
   const current = useQuery({
     queryKey: ['employee-auth', 'session', session?.subject],
     enabled: session !== null,
     queryFn: () => request('GET', api.employeeAuth.GET('/employee-auth/sessions/current', {})),
   });
-
   if (!session) return null;
+  const centers = session.centers.map((c) => centerDisplayName(session, c));
   return (
-    <section className="max-w-2xl space-y-4">
-      <h1 className="text-xl font-bold">{m.session.title}</h1>
-      <div className="card bg-base-100 shadow-sm">
-        <div className="card-body">
-          <dl className="grid grid-cols-[8rem_1fr] gap-1 text-sm">
-            <dt>{m.session.subject}</dt>
-            <dd>{session.subject || m.none}</dd>
-            <dt>{m.session.roles}</dt>
-            <dd>{session.roles.join(', ') || m.none}</dd>
-            <dt>{m.session.centers}</dt>
-            <dd>{session.centers.map((c) => centerDisplayName(session, c)).join(', ') || m.none}</dd>
-          </dl>
-          {session.roles.length === 0 && (
-            <p role="alert" className="alert alert-warning text-sm">
-              {m.employeeLogin.noRoles}
-            </p>
-          )}
-
-          <h2 className="mt-2 text-sm font-semibold">{m.session.current}</h2>
-          <QueryState state={toUiState(current)} onRetry={() => void current.refetch()}>
-            {(s) => (
-              <dl className="grid grid-cols-[8rem_1fr] gap-1 text-sm">
-                <dt>{m.session.sessionId}</dt>
-                <dd>{s.sessionId}</dd>
-                <dt>{m.employeeLogin.app}</dt>
-                <dd>{s.app}</dd>
-                <dt>{m.employeeLogin.issuedAt}</dt>
-                <dd>{formatSeoul(s.issuedAt)}</dd>
-                <dt>{m.employeeLogin.tokenExpiresAt}</dt>
-                <dd>{formatSeoul(s.expiresAt)}</dd>
-              </dl>
-            )}
-          </QueryState>
-          <button
-            type="button"
-            className="btn btn-sm w-fit"
-            onClick={() =>
-              void logout().then((result) => {
-                // 'redirecting' 이면 브라우저가 Keycloak 로그아웃 주소로 떠난다(→ /login 으로 돌아온다).
-                if (result !== 'redirecting') void navigate('/login', { replace: true });
-              })
-            }
-          >
-            {m.session.signOut}
-          </button>
-        </div>
-      </div>
-      <div className="space-y-1 rounded-box bg-base-100 p-4 text-sm">
-        <p>{m.employeeLogin.passwordNote}</p>
-        <p>{m.employeeLogin.sharedPcNote}</p>
-        <p>{m.session.ssoNote}</p>
-      </div>
-    </section>
+    <MyInfoView
+      name={label.data?.name ?? null}
+      nameFallback={label.isError ? t.nameFailed : label.isPending ? '…' : t.nameUnknown}
+      employeeNo={label.data?.employeeNo}
+      roles={session.roles.map((r) => m.roleName[r] ?? r)}
+      noRolesNote={
+        session.roles.length === 0 && (
+          <p role="alert" className="alert alert-warning text-sm">
+            {m.employeeLogin.noRoles}
+          </p>
+        )
+      }
+      work={[[t.centers, centers.length > 0 ? centers.join(', ') : t.allCenters]]}
+      login={
+        <QueryState state={toUiState(current)} onRetry={() => void current.refetch()}>
+          {(s) => <LoginRows app={s.app} issuedAt={formatSeoul(s.issuedAt)} expiresAt={formatSeoul(s.expiresAt)} />}
+        </QueryState>
+      }
+      notes={[m.employeeLogin.passwordNote, m.employeeLogin.sharedPcNote, m.session.ssoNote]}
+      onLogout={() =>
+        void logout().then((result) => {
+          // 'redirecting' 이면 브라우저가 Keycloak 로그아웃 주소로 떠난다(→ /login 으로 돌아온다).
+          if (result !== 'redirecting') void navigate('/login', { replace: true });
+        })
+      }
+      systemIds={[
+        { label: t.operatorId, id: session.subject },
+        { label: t.sessionId, id: current.data?.sessionId },
+      ]}
+    />
   );
 }

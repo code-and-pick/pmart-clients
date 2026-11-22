@@ -84,7 +84,7 @@ export const messages = {
     home: '첫 화면',
     collapse: '메뉴 접기',
     expand: '메뉴 펴기',
-    session: '내 세션',
+    session: '내 정보',
     login: '로그인',
     employees: '직원 목록',
     register: '직원 등록',
@@ -121,7 +121,7 @@ export const messages = {
   employeeLogin: employeeLoginMessages,
 
   session: {
-    title: '내 세션',
+    title: '내 정보',
     signOut: '로그아웃',
     current: '서버 세션',
     sessionId: '세션 ID',

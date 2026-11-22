@@ -9,9 +9,10 @@ import { as, renderAt } from '../../test/render';
 import { server } from '../../test/server';
 
 describe('내 정보', () => {
-  it('왼쪽 메뉴 "내 정보" → 본인 인사 정보(서버 값 그대로), 회사 메일은 바꾸지 않음', async () => {
+  it('머리줄 내 정보 메뉴 → 본인 인사 정보(서버 값 그대로), 회사 메일은 바꾸지 않음 — 옛 /session 은 내 정보로(2026-11-23)', async () => {
     const view = renderAt('/session');
-    await userEvent.click(await screen.findByRole('link', { name: '내 정보' }));
+    await userEvent.click(await screen.findByRole('button', { name: /내 정보 메뉴/ }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: '내 정보' }));
     const profile = await screen.findByTestId('me-profile');
     expect(within(profile).getByText('정관리')).toBeInTheDocument();
     expect(within(profile).getByText('E-2026-0101')).toBeInTheDocument();

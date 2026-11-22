@@ -39,7 +39,7 @@ export const messages = {
   },
 
   nav: {
-    session: '내 세션',
+    session: '내 정보',
     login: '로그인',
     me: '내 정보',
     menu: '메뉴',
@@ -48,6 +48,8 @@ export const messages = {
   },
   /** 머리줄 역할 칩 */
   roleChip: { supervisor: '센터 관리자' },
+  /** 역할 이름(2026-11-23 내 정보 메뉴·위치 줄) — 모르는 코드는 그대로 */
+  roleName: { MFC_SUPERVISOR: '센터 관리자', MFC_WORKER: '센터 작업자', OPERATOR_ADMIN: '운영 관리자', RIDER_OPS: '라이더 운영', CS_AGENT: '상담원', HR_ADMIN: '인사팀' } as Readonly<Record<string, string>>,
 
   /** 화면 틀 보탬(2026-11-19 통합 백오피스와 같게) — 끊김 띠·최근 봄·제목 띠 */
   chrome: {
@@ -133,6 +135,7 @@ export const messages = {
     center: (code: string) => `센터 ${code}`,
     department: (code: string) => `본사 부서 ${code}`,
     mailNote: '회사 메일은 로그인 ID 이자 사서함이라 인사팀만 바꿔요.',
+    hrInfo: '인사 정보',
     centerPick: '센터',
     noCenter: '맡은 센터가 없어 센터 휴게 번호·연락처가 없어요.',
     centerSection: (code: string) => `센터 ${code}`,

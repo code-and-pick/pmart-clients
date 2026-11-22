@@ -76,7 +76,7 @@ describe('목 로그인(티켓 교환부터는 실제와 같은 코드)', () => 
     await userEvent.click(screen.getByRole('button', { name: /인사 담당/ }));
     expect(await screen.findByRole('heading', { name: '직원 목록' })).toBeInTheDocument();
     expect(await screen.findByText('한인사')).toBeInTheDocument();
-    expect(await screen.findByRole('link', { name: '내 세션: 한인사' })).toBeInTheDocument(); // 메뉴에는 운영자 ID 대신 이름
+    expect(await screen.findByRole('button', { name: '한인사 — 내 정보 메뉴' })).toBeInTheDocument(); // 머리줄 내 정보 메뉴 — 운영자 ID 대신 이름(2026-11-23)
 
     const exchange = view.mutations('/employee-auth/tokens')[0]!;
     expect(exchange.headers.get('Authorization')).toBeNull();
@@ -118,9 +118,9 @@ describe('목 로그인(티켓 교환부터는 실제와 같은 코드)', () => 
 describe('내 세션·로그아웃', () => {
   it('내 인사 정보(/hr/employees/me)와 서버 세션을 보인다 — 인사 권한이 없어도 본인 정보는 보인다', async () => {
     renderAt('/session', as.md);
-    expect(await screen.findByText('김상품')).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByTestId('my-profile')).toHaveTextContent('김상품')); // 머리줄 메뉴에도 이름이 있어 화면 프로필 안에서
     expect(screen.getByText('md.kim@pmart.com')).toBeInTheDocument();
-    expect(await screen.findByText('hr-backoffice')).toBeInTheDocument();
+    expect(await screen.findByText('인사 백오피스')).toBeInTheDocument(); // 로그인한 곳(서버 app 값을 이름으로)
   });
 
   it('로그아웃(SSO): 토큰을 지운 뒤 Keycloak 로그아웃 주소로 브라우저를 옮긴다', async () => {

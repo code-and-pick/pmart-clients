@@ -1,6 +1,28 @@
 // 공용 @pmart/web-ui/console(2026-11-20 — web/backoffice 에서 올림, ADR-0004 넓히기). 고칠 때는 이 파일을 고친다(앱마다 사본 아님).
 // 콘솔 부품 문구 — 백오피스 shared/messages.ts 의 같은 묶음을 옮김(부품 안에서 messages.listUi 처럼 같은 이름으로 쓴다).
 export const messages = {
+  /** 머리줄 내 정보 메뉴·내 정보 화면(2026-11-23 — 통합 백오피스에서 올림) */
+  account: {
+    title: '내 정보',
+    menuOf: (name: string) => `${name} — 내 정보 메뉴`,
+    signOut: '로그아웃',
+    none: '없음',
+    nameUnknown: '이름 없음',
+    nameFailed: '이름 확인 불가',
+    work: '업무',
+    roles: '역할',
+    centers: '담당 센터',
+    allCenters: '센터 제한 없음',
+    login: '로그인',
+    app: '로그인한 곳',
+    appName: { backoffice: '통합 백오피스', 'hr-backoffice': '인사 백오피스', 'mfc-backoffice': 'MFC 백오피스', 'rider-backoffice': '라이더 백오피스' } as Readonly<Record<string, string>>,
+    issuedAt: '로그인 시각',
+    expiresAt: '로그인 유지 끝',
+    security: '계정·보안',
+    systemNumbers: '시스템 번호',
+    operatorId: '운영자 ID',
+    sessionId: '세션 ID',
+  },
   listUi: {
     info: '정보',
     refresh: '새로 고침',

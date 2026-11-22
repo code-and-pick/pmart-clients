@@ -86,9 +86,9 @@ describe('화면 설명 ⓘ', () => {
 });
 
 describe('머리 줄 역할', () => {
-  it('역할은 작은 글자 한 줄로 그대로 보인다', async () => {
+  it('역할은 작은 글자 한 줄로 — 한글 이름(2026-11-23 공용 RoleText)', async () => {
     renderAt('/riders', as.riderOps);
-    expect(await screen.findByTestId('header-roles')).toHaveTextContent('RIDER_OPS');
+    expect(await screen.findByTestId('header-roles')).toHaveTextContent('라이더 운영');
   });
 });
 

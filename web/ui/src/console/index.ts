@@ -9,6 +9,7 @@ export * from './Charts';
 export * from './HelpPanel';
 export * from './Preview';
 export * from './CopyButton';
+export * from './Account';
 export * from './StickyTitle';
 export * from './dates';
 export { messages as consoleMessages } from './messages';

@@ -1,9 +1,9 @@
 import { ConnectionBanner, useDocumentTitle } from './PageChrome';
 import { AppLauncher, UiTextProvider } from '@pmart/web-ui';
-import { ConsoleBreadcrumb, ConsoleShell, type ConsoleNavGroup } from '@pmart/web-ui/console';
+import { AccountMenu, ConsoleBreadcrumb, ConsoleShell, type ConsoleNavGroup } from '@pmart/web-ui/console';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useEffect, type ReactNode } from 'react';
-import { createBrowserRouter, createMemoryRouter, NavLink, Outlet, RouterProvider, useLocation } from 'react-router';
+import { createBrowserRouter, createMemoryRouter, NavLink, Outlet, RouterProvider, useLocation, useNavigate } from 'react-router';
 
 import { env } from '../env';
 import { DepartmentsPage } from '../features/departments/departments';
@@ -53,9 +53,9 @@ function ScrollToTopOnNavigate() {
 }
 
 function Layout() {
-  const { session } = useSession();
+  const { session, logout } = useSession();
   const me = useMe();
-  const myName = me.data?.name;
+  const navigate = useNavigate();
   const { pathname } = useLocation();
   const [collapsed, toggleMenu] = useMenuCollapsed();
   const current = [...nav].sort((x, y) => y[0].length - x[0].length).find(([to]) => pathname === to || pathname.startsWith(`${to}/`));
@@ -89,10 +89,24 @@ function Layout() {
             {session && <LiveClock />}
             {env.isMock && <span className="badge badge-accent badge-sm">{m.mockBadge}</span>}
             <ThemeToggle />
-            {/* 로그인 직원 — 이름(없으면 "내 세션"). 로그인 시험이 이 링크 이름으로 찾는다 */}
-            <NavLink to={session ? '/session' : '/login'} className={session ? 'btn btn-ghost btn-xs font-normal' : 'btn btn-primary btn-xs'}>
-              {session ? (myName ? `${m.nav.session}: ${myName}` : m.nav.session) : m.nav.login}
-            </NavLink>
+            {/* 내 정보 메뉴(2026-11-23 — 통합 백오피스와 같은 공용 AccountMenu): 머리글자 + 이름, 누르면 사번·역할·내 정보·로그아웃 */}
+            {session ? (
+              <AccountMenu
+                name={me.data?.name ?? null}
+                employeeNo={me.data?.employeeNo}
+                roles={session.roles.map((r) => m.shell.roleName[r] ?? r)}
+                profileTo="/session"
+                onLogout={() =>
+                  void logout().then((result) => {
+                    if (result !== 'redirecting') void navigate('/login', { replace: true });
+                  })
+                }
+              />
+            ) : (
+              <NavLink to="/login" className="btn btn-primary btn-xs">
+                {m.nav.login}
+              </NavLink>
+            )}
             <AppLauncher current="hr-backoffice" />
           </>
         }
