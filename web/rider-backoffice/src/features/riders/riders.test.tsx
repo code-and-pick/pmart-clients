@@ -12,22 +12,22 @@ import { server } from '../../test/server';
 const openFilters = () => userEvent.click(screen.getByTestId('search-toggle'));
 
 describe('라이더 찾기 — 라이더 번호(ADR-0070)', () => {
-  it('목록은 라이더 번호로 보이고, 6자리 번호로 찾는다(긴 시스템 ID 칸 없음)', async () => {
+  it('목록은 라이더 번호로 보이고, R4829 번호로 찾는다(긴 시스템 ID 칸 없음)', async () => {
     const view = renderAt('/riders', as.riderOps);
     const rows = await screen.findAllByTestId('rider-row');
-    expect(rows[0]!.textContent).toMatch(/482913|730115/);
+    expect(rows[0]!.textContent).toMatch(/R4829|R7301/);
     expect(screen.queryByText('RD-7')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('라이더 ID')).not.toBeInTheDocument();
-    await userEvent.type(screen.getByLabelText('라이더 번호(6자리)'), '73-0115x');
+    await userEvent.type(screen.getByLabelText('라이더 번호(R4829)'), '73-01x');
     await userEvent.click(screen.getByRole('button', { name: '찾기' }));
     expect(await screen.findAllByTestId('rider-row')).toHaveLength(1);
-    expect(screen.getByTestId('rider-row')).toHaveTextContent('730115');
-    expect(view.sent.some((r) => new URL(r.url).searchParams.get('riderNumber') === '730115')).toBe(true);
+    expect(screen.getByTestId('rider-row')).toHaveTextContent('R7301');
+    expect(view.sent.some((r) => new URL(r.url).searchParams.get('riderNumber') === 'R7301')).toBe(true);
   });
 
   it('상세 제목은 라이더 번호, 시스템 ID 는 접힌 칸에', async () => {
     renderAt('/riders/RD-7', as.riderOps);
-    expect(await screen.findByRole('heading', { name: /482913/ })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: /R4829/ })).toBeInTheDocument();
     expect(screen.getByTestId('system-ids')).toHaveTextContent('RD-7');
   });
 });
@@ -41,13 +41,13 @@ describe('탈퇴한 라이더 — 기록 보기(rider 0.20.0)', () => {
     await screen.findByText(/탈퇴함/);
     const rows = screen.getAllByTestId('rider-row');
     expect(rows).toHaveLength(1);
-    expect(rows[0]).toHaveTextContent('615204');
+    expect(rows[0]).toHaveTextContent('R6152');
     expect(view.sent.some((r) => new URL(r.url).searchParams.get('withdrawn') === 'true')).toBe(true);
   });
 
   it('탈퇴한 라이더 상세는 안내와 기록만 — 원문 열람·계정 제한은 없다', async () => {
     const view = renderAt('/riders/RD-W1', as.riderOps);
-    expect(await screen.findByRole('heading', { name: /615204/ })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: /R6152/ })).toBeInTheDocument();
     expect(await screen.findByText(/탈퇴한 라이더예요/)).toBeInTheDocument();
     expect(view.sent.some((r) => new URL(r.url).pathname.endsWith('/riders/RD-W1') && new URL(r.url).searchParams.get('includeWithdrawn') === 'true')).toBe(true);
     expect(screen.queryByRole('form', { name: '이름·전화 원문 보기' })).not.toBeInTheDocument();
@@ -63,7 +63,7 @@ describe('라이더 찾기 — 거르기', () => {
     await openFilters();
     await userEvent.click(within(screen.getByRole('radiogroup', { name: '계정 제한' })).getByRole('radio', { name: '일시 중지' }));
     expect(await screen.findAllByTestId('rider-row')).toHaveLength(1);
-    expect(screen.getByTestId('rider-row')).toHaveTextContent('730115');
+    expect(screen.getByTestId('rider-row')).toHaveTextContent('R7301');
     expect(view.sent.some((r) => new URL(r.url).searchParams.get('restriction') === 'SUSPENDED')).toBe(true);
   });
 
@@ -76,7 +76,7 @@ describe('라이더 찾기 — 거르기', () => {
     await openFilters();
     await userEvent.click(within(screen.getByRole('radiogroup', { name: '수단' })).getByRole('radio', { name: '자전거' }));
     expect(await screen.findAllByTestId('rider-row')).toHaveLength(1);
-    expect(screen.getByTestId('rider-row')).toHaveTextContent('730115');
+    expect(screen.getByTestId('rider-row')).toHaveTextContent('R7301');
     expect(view.sent.some((r) => new URL(r.url).searchParams.get('vehicleType') === 'BICYCLE')).toBe(true);
 
     await userEvent.click(within(screen.getByRole('radiogroup', { name: '정렬' })).getByRole('radio', { name: '상태 바뀐 최근 순' }));
@@ -90,7 +90,7 @@ describe('제한 검토 — 상태 탭·결정', () => {
     const view = renderAt('/restriction-reviews', as.riderOps);
     const row = await screen.findByTestId('review-row');
     // 라이더 칸은 번호를 읽기 전엔 ID 끝, 읽은 뒤엔 라이더 번호 — 읽는 속도에 따라 갈려 늘 맞는 번호를 기다린다(2026-11-19 들쭉날쭉 시험 고침)
-    expect(await within(row).findByText('730115')).toBeInTheDocument();
+    expect(await within(row).findByText('R7301')).toBeInTheDocument();
     expect(row).not.toHaveTextContent('RC-4'); // 컴플레인 ID 는 목록에 내지 않는다(ADR-0070)
     expect(row).toHaveTextContent('3건');
     const gets = () => view.sent.filter((r) => r.method === 'GET' && new URL(r.url).pathname.endsWith('/restriction-reviews')).length;
@@ -99,7 +99,7 @@ describe('제한 검토 — 상태 탭·결정', () => {
     // 같은 줄이 닫힌 기록(상태·언제·누가)으로 바뀐다 — 결정 버튼은 사라진다
     await within(screen.getByTestId('review-row')).findByText('제한 안 함');
     const closed = screen.getByTestId('review-row');
-    expect(await within(closed).findByText('730115')).toBeInTheDocument(); // 라이더 번호(ADR-0070)
+    expect(await within(closed).findByText('R7301')).toBeInTheDocument(); // 라이더 번호(ADR-0070)
     expect(closed).toHaveTextContent(/나|직원/);
     expect(closed).not.toHaveTextContent('OP-');
     expect(within(closed).queryByRole('button', { name: '제한함' })).not.toBeInTheDocument();
@@ -110,7 +110,7 @@ describe('제한 검토 — 상태 탭·결정', () => {
     const view = renderAt('/restriction-reviews', as.riderOps);
     await screen.findByTestId('review-row');
     await userEvent.click(within(screen.getByRole('radiogroup', { name: '제한 검토' })).getByRole('radio', { name: '제한 안 함' }));
-    const row = await screen.findByText('482913'); // 라이더 번호(ADR-0070)
+    const row = await screen.findByText('R4829'); // 라이더 번호(ADR-0070)
     const tr = row.closest('tr')!;
     expect(tr).toHaveTextContent(/나|직원/);
     expect(tr).not.toHaveTextContent('OP-');
@@ -192,7 +192,7 @@ describe('라이더 상세 — 배정 이력', () => {
     expect(rows).toHaveLength(3);
     expect(rows[0]).toHaveTextContent('진행 중');
     expect(rows[0]).toHaveTextContent('3,900');
-    expect(await within(rows[0]!).findByRole('link', { name: /48213075-1/ })).toHaveAttribute('href', '/deliveries/DLV-1');
+    expect(await within(rows[0]!).findByRole('link', { name: /D48213075/ })).toHaveAttribute('href', '/deliveries/DLV-1');
     expect(rows[1]).toHaveTextContent('이 라이더가 완료');
     expect(rows[2]).toHaveTextContent('픽업 전 취소');
     expect(rows[2]).toHaveTextContent('운영자 · 라이더 미도착');

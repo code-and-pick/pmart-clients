@@ -89,7 +89,7 @@ function DeliverySearchPage() {
     refetchInterval: LIVE.deliveryList,
     placeholderData: keepPreviousData,
     queryFn: async () => {
-      // 라이더 번호 6자리로도 찾는다(ADR-0070) — 맞는 라이더가 없으면 빈 목록
+      // 라이더 번호(R4829, ADR-0085)로도 찾는다 — 맞는 라이더가 없으면 빈 목록
       const rid = riderId ? await resolveRiderId(api, riderId) : '';
       if (rid === null) return { items: [], page: { nextCursor: null } };
       return request(
@@ -168,11 +168,11 @@ function DeliverySearchPage() {
         resetLabel={m.reset}
         summary={[
           ['주문', orderNumber || (orderId ? '한 주문' : ''), () => clearText({ orderNumber: '', orderId: '' })],
-          ['라이더', riderId ? (/^\d{6}$/.test(riderId) ? riderId : '한 라이더') : '', () => clearText({ riderId: '' })],
+          ['라이더', riderId ? (/^[Rr]?\d{4,5}$/.test(riderId) ? riderId.toUpperCase() : '한 라이더') : '', () => clearText({ riderId: '' })],
           [m.state, state ? name(n.executionState, state) : '', () => set({ state: '' })],
           [m.type, type ? name(n.deliveryType, type) : '', () => set({ type: '' })],
         ]}
-        // 왼쪽 찾기 칸(시뮬레이터처럼) — 주문번호 8자리·라이더 번호 6자리. 상태·종류·시스템 번호는 깔때기 팝업
+        // 왼쪽 찾기 칸(시뮬레이터처럼) — 주문·배송 번호·라이더 번호(R4829). 상태·종류·시스템 번호는 깔때기 팝업
         search={
           <>
             <input type="search" className="input input-sm w-40" value={draft.orderNumber} maxLength={8} inputMode="numeric" placeholder={`${ops.actions.orderNumber} 8자리`} aria-label={ops.actions.orderNumber} onChange={(e) => setDraft({ ...draft, orderNumber: e.target.value })} />

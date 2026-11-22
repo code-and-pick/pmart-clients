@@ -10,7 +10,7 @@ import { QueryState, toUiState } from '@pmart/web-ui';
 import type { components } from '../../api/generated/rider';
 import { useApi } from '../../app/ApiContext';
 import { ChipGroup, CursorPager, DataTable, GuideBox, PageHeader, ResultBar, SearchPanel, SearchRow, StatusBadge, type Tone } from '../../shared/admin';
-import { RiderName } from '../../shared/displayNumbers';
+import { RiderName, riderNumberInput } from '../../shared/displayNumbers';
 import { Caret, expandRowProps, InlineDetail, useInlineOpen } from '../../shared/simList';
 import { RiderInline } from './RiderPages';
 import { none, when } from '../../shared/opsUi';
@@ -34,7 +34,7 @@ export const withdrawalMessages = {
     OPEN_HELP_REQUEST: '열린 도움요청',
     RESTRICTION_REVIEW: '제한 검토 중',
   } as const satisfies Record<Blocker, string>,
-  riderNumber: '라이더 번호(6자리)',
+  riderNumber: '라이더 번호(R4829)',
   findByNumber: '번호로 찾기',
   search: '찾기',
   reset: '초기화',
@@ -104,7 +104,7 @@ export function WithdrawalsMenu() {
           }],
           [v.stateLabel, state ? v.state[state] : '', () => set({ state: '' })],
         ]}
-        // 왼쪽 찾기 칸(시뮬레이터처럼) — 라이더 번호 6자리. 결과 거르기는 깔때기 팝업
+        // 왼쪽 찾기 칸(시뮬레이터처럼) — 라이더 번호(R4829). 결과 거르기는 깔때기 팝업
         search={
           <input
             type="search"
@@ -112,9 +112,9 @@ export function WithdrawalsMenu() {
             value={draft}
             maxLength={6}
             inputMode="numeric"
-            placeholder={`${v.riderNumber} 6자리`}
+            placeholder="R4829"
             aria-label={v.riderNumber}
-            onChange={(e) => setDraft(e.target.value.replace(/\D/g, '').slice(0, 6))}
+            onChange={(e) => setDraft(riderNumberInput(e.target.value))}
           />
         }
       >

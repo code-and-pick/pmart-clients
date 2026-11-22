@@ -17,21 +17,21 @@ describe('화면 틀', () => {
     expect(within(nav).getByRole('link', { name: '상담 관리' })).toBeInTheDocument();
   });
 
-  it('머리줄 통합 찾기: 라이더 번호 6자리면 그 라이더를 관제에서 연다', async () => {
+  it('머리줄 통합 찾기: 라이더 번호(R4829)면 그 라이더를 관제에서 연다', async () => {
     renderAt('/help-requests', as.riderOps);
     const box = await screen.findByRole('search', { name: '통합 찾기' });
-    await userEvent.type(within(box).getByRole('textbox', { name: '통합 찾기' }), '730115');
+    await userEvent.type(within(box).getByRole('textbox', { name: '통합 찾기' }), 'R7301');
     await userEvent.click(within(box).getByRole('button', { name: '통합 찾기로 관제에서 열기' }));
     const panel = await screen.findByTestId('control-panel');
-    expect(await within(panel).findByText('730115')).toBeInTheDocument();
+    expect(await within(panel).findByText('R7301')).toBeInTheDocument();
   });
 
   it('없는 라이더 번호는 그렇다고 알린다', async () => {
     renderAt('/dashboard', as.riderOps);
     const box = await screen.findByRole('search', { name: '통합 찾기' });
-    await userEvent.type(within(box).getByRole('textbox', { name: '통합 찾기' }), '000000');
+    await userEvent.type(within(box).getByRole('textbox', { name: '통합 찾기' }), 'R9999');
     await userEvent.click(within(box).getByRole('button', { name: '통합 찾기로 관제에서 열기' }));
-    expect(await within(box).findByTestId('control-search-note')).toHaveTextContent('라이더 번호 000000 인 라이더가 없어요');
+    expect(await within(box).findByTestId('control-search-note')).toHaveTextContent('라이더 번호 R9999 인 라이더가 없어요');
   });
 });
 

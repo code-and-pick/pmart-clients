@@ -9,7 +9,7 @@ describe('검색 — 찾기 칸 + 깔때기 팝업', () => {
   it('라이더 찾기: 번호·전화 칸은 늘 보이고, 상태 거르기는 팝업 안. 고르면 칩이 생기고 ✕ 로 푼다', async () => {
     const view = renderAt('/riders', as.riderOps);
     await screen.findAllByTestId('rider-row');
-    expect(screen.getByLabelText('라이더 번호(6자리)')).toBeVisible();
+    expect(screen.getByLabelText('라이더 번호(R4829)')).toBeVisible();
     expect(screen.queryByRole('radiogroup', { name: '계정 제한' })).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: '거르기 조건 열기' }));
     const pop = screen.getByTestId('search-popup');
@@ -39,7 +39,7 @@ describe('목록 줄 — 누르면 바로 아래에 펼친 상세', () => {
   it('배송 찾기: 줄을 누르면 화면을 옮기지 않고 아래에 수행·배차, 다시 누르면 접힌다', async () => {
     renderAt('/deliveries', as.riderOps);
     const rows = await screen.findAllByTestId('delivery-row');
-    const row = rows.find((r) => r.textContent?.includes('48213075-1'))!;
+    const row = rows.find((r) => r.textContent?.includes('D48213075'))!;
     expect(row).toHaveAttribute('aria-expanded', 'false');
     await userEvent.click(within(row).getByText('전달 실패 등록'));
     expect(row).toHaveAttribute('aria-expanded', 'true');

@@ -72,7 +72,7 @@ export function PayoutsMenu() {
   const list = useQuery({
     queryKey: ['rider-payouts', payoutDate, riderId, state],
     queryFn: async () => {
-      // 라이더 번호 6자리로도 찾는다(ADR-0070) — 맞는 라이더가 없으면 빈 목록
+      // 라이더 번호(R4829, ADR-0085)로도 찾는다 — 맞는 라이더가 없으면 빈 목록
       const rid = riderId ? await resolveRiderId(api, riderId) : '';
       if (rid === null) return { items: [] };
       return request(
@@ -114,7 +114,7 @@ export function PayoutsMenu() {
             patch({ payoutDate: '' });
           }],
           [t.state, state === 'ALL' ? '' : (t.stateName[state] ?? state), () => patch({ state: '' })],
-          ['라이더', riderId ? (/^\d{6}$/.test(riderId) ? riderId : '한 라이더') : '', () => {
+          ['라이더', riderId ? (/^[Rr]?\d{4,5}$/.test(riderId) ? riderId.toUpperCase() : '한 라이더') : '', () => {
             setRiderInput('');
             patch({ riderId: '' });
           }],

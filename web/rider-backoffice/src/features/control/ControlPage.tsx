@@ -209,7 +209,7 @@ export function ControlPage() {
                           >
                             <div className="flex items-start justify-between gap-2">
                               <span className="flex min-w-0 flex-wrap items-center gap-1">
-                                {/* 화면 번호(ADR-0070): "이* · 482913" */}
+                                {/* 화면 번호(ADR-0070): "이* · R4829" */}
                                 <RiderName riderId={r.riderId} nameMasked={r.nameMasked} riderNumber={r.riderNumber} />
                                 {r.restriction && r.restriction !== 'NORMAL' && <StatusBadge tone="warning">{label(n.restriction, r.restriction)}</StatusBadge>}
                               </span>

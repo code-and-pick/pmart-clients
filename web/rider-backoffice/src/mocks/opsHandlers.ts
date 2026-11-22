@@ -14,7 +14,7 @@ const canAct = (roles: readonly string[]) => roles.some((r) => OPS_ROLES.include
 
 interface MockRider {
   riderId: string;
-  /** rider 0.12.0 화면 라이더 번호 6자리(ADR-0070) */
+  /** rider 0.12.0 화면 라이더 번호 R + 4자리(ADR-0085) */
   riderNumber: string;
   nameMasked: string;
   phoneMasked: string;
@@ -27,14 +27,14 @@ interface MockRider {
 
 function seedRiders(): MockRider[] {
   return [
-    { riderId: 'RD-7', riderNumber: '482913', nameMasked: '김*수', phoneMasked: '010****5678', vehicleType: 'MOTORCYCLE', operatingStatus: 'ON_DUTY', restriction: 'NORMAL', joinedAt: '2026-11-17T01:00:00.000Z', version: 2 },
-    { riderId: 'RD-8', riderNumber: '730115', nameMasked: '이*', phoneMasked: '010****1234', vehicleType: 'BICYCLE', operatingStatus: 'OFF_DUTY', restriction: 'SUSPENDED', joinedAt: '2026-11-16T03:00:00.000Z', version: 1 },
+    { riderId: 'RD-7', riderNumber: 'R4829', nameMasked: '김*수', phoneMasked: '010****5678', vehicleType: 'MOTORCYCLE', operatingStatus: 'ON_DUTY', restriction: 'NORMAL', joinedAt: '2026-11-17T01:00:00.000Z', version: 2 },
+    { riderId: 'RD-8', riderNumber: 'R7301', nameMasked: '이*', phoneMasked: '010****1234', vehicleType: 'BICYCLE', operatingStatus: 'OFF_DUTY', restriction: 'SUSPENDED', joinedAt: '2026-11-16T03:00:00.000Z', version: 1 },
   ];
 }
 
 // 탈퇴한 라이더(rider 0.20.0 — withdrawn=true·includeWithdrawn 일 때만). 이름·전화는 탈퇴 때 지워져 없다. 통계·기본 목록에는 넣지 않는다
 const WITHDRAWN_RIDERS = [
-  { riderId: 'RD-W1', riderNumber: '615204', nameMasked: null, phoneMasked: '', vehicleType: 'BICYCLE', operatingStatus: 'OFF_DUTY', restriction: 'NORMAL', joinedAt: '2026-11-10T01:00:00.000Z', withdrawnAt: '2026-11-20T09:40:01.000Z', version: 3 },
+  { riderId: 'RD-W1', riderNumber: 'R6152', nameMasked: null, phoneMasked: '', vehicleType: 'BICYCLE', operatingStatus: 'OFF_DUTY', restriction: 'NORMAL', joinedAt: '2026-11-10T01:00:00.000Z', withdrawnAt: '2026-11-20T09:40:01.000Z', version: 3 },
 ] as const;
 
 type MockReview = { reviewId: string; riderId: string; complaintType: string; state: string; complaints: Array<{ complaintId: string; deliveryId: string; recordedAt: string }>; openedAt: string; decidedAt?: string; decidedBy?: string; note?: string };
@@ -332,7 +332,7 @@ export const opsHandlers = [
       items: [
         {
           riderId: 'RD-7',
-          riderNumber: '482913',
+          riderNumber: 'R4829',
           nameMasked: '김*수',
           vehicleType: 'MOTORCYCLE',
           newDispatchEnabled: true,

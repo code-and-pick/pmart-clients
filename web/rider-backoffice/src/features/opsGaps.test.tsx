@@ -67,7 +67,7 @@ describe('추가 배달료 거르기', () => {
     expect(await screen.findAllByTestId('surcharge-row')).toHaveLength(2);
     expect(surchargeQuery(view.sent).at(-1)!.has('state')).toBe(false);
 
-    await userEvent.type(screen.getByLabelText('라이더 번호 6자리(또는 라이더 ID)'), 'RD-8');
+    await userEvent.type(screen.getByLabelText('라이더 번호 R4829(또는 라이더 ID)'), 'RD-8');
     await userEvent.click(screen.getByRole('button', { name: '찾기' }));
     expect(await screen.findAllByTestId('surcharge-row')).toHaveLength(1);
     expect(surchargeQuery(view.sent).at(-1)!.get('riderId')).toBe('RD-8');

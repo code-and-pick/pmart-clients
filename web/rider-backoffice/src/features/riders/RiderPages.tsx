@@ -20,7 +20,7 @@ import { SavedViews } from '../../shared/SavedViews';
 import { ActionSection, Caret, expandRowProps, InlineDetail, SummaryBar, useInlineOpen, ViewSection } from '../../shared/simList';
 import { Icon } from '../../shared/icons';
 import { ui } from '../../shared/uiMessages';
-import { DeliveryRef, RiderName, RiderRef, StaffName, SystemIds, useDeliveryNumbers, useRiderSummaries } from '../../shared/displayNumbers';
+import { DeliveryRef, RiderName, RiderRef, StaffName, SystemIds, riderNumberInput, useDeliveryNumbers, useRiderSummaries } from '../../shared/displayNumbers';
 import { SimBadge } from '../../shared/sim';
 import { useSession } from '../../app/SessionContext';
 import { LIVE } from '../../shared/liveRefresh';
@@ -110,7 +110,7 @@ function RiderSearchPage({ signups = false }: { readonly signups?: boolean }) {
   };
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    set({ riderNumber: draft.riderNumber.replace(/\D/g, ''), riderId: '', phone: draft.phone.trim() });
+    set({ riderNumber: draft.riderNumber, riderId: '', phone: draft.phone.trim() });
   };
   const reset = () => {
     setDraft({ riderNumber: '', phone: '' });
@@ -197,7 +197,7 @@ function RiderSearchPage({ signups = false }: { readonly signups?: boolean }) {
             [r.operating, operatingStatus ? label(n.operatingStatus, operatingStatus) : '', () => set({ operatingStatus: '' })],
             [rm.search.vehicle, vehicleType ? label(n.vehicle, vehicleType) : '', () => set({ vehicleType: '' })],
           ]}
-          // 왼쪽 찾기 칸(시뮬레이터처럼) — 라이더 번호 6자리·전화. 상태·수단 거르기는 깔때기 팝업
+          // 왼쪽 찾기 칸(시뮬레이터처럼) — 라이더 번호(R4829)·전화. 상태·수단 거르기는 깔때기 팝업
           search={
             <>
               <input
@@ -206,9 +206,9 @@ function RiderSearchPage({ signups = false }: { readonly signups?: boolean }) {
                 value={draft.riderNumber}
                 maxLength={6}
                 inputMode="numeric"
-                placeholder={`${rm.riderNumber} 6자리`}
+                placeholder="R4829"
                 aria-label={rm.riderNumber}
-                onChange={(e) => setDraft({ ...draft, riderNumber: e.target.value.replace(/\D/g, '').slice(0, 6) })}
+                onChange={(e) => setDraft({ ...draft, riderNumber: riderNumberInput(e.target.value) })}
               />
               <input type="search" className="input input-sm w-40" value={draft.phone} maxLength={20} inputMode="tel" placeholder={r.phone} aria-label={r.phone} onChange={(e) => setDraft({ ...draft, phone: e.target.value })} />
             </>

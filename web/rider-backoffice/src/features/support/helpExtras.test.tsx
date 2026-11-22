@@ -113,7 +113,7 @@ describe('상담 화면에서 바로 배송 조치(사용자 2026-11-19 "배송�
   });
 });
 
-describe('반려 직후 "직접 실패 처리"가 같은 자리에 떠도 두 번 눌림으로 확정되지 않는다(28767701-1, 사용자 2026-11-19)', () => {
+describe('반려 직후 "직접 실패 처리"가 같은 자리에 떠도 두 번 눌림으로 확정되지 않는다(D28767701, 사용자 2026-11-19)', () => {
   it('직접 실패 처리는 확인 칸을 체크해야 보낼 수 있다', async () => {
     // 반려되면 서버가 픽업으로 되돌린다 — 그 뒤 상태를 흉내
     server.use(http.get(`${API_BASE}/deliveries/DLV-1`, () => HttpResponse.json({ ...mockDeliveries[0]!, state: 'PICKED_UP', failure: null })));
@@ -196,7 +196,7 @@ describe('상담함 — 찾기·주문번호·소명·이의 탭(2026-11-20)', (
     server.use(
       http.get(`${API_BASE}/deliveries`, ({ request }) => {
         const ids = (new URL(request.url).searchParams.get('deliveryIds') ?? '').split(',').filter(Boolean);
-        return HttpResponse.json({ items: ids.map((id, i) => ({ deliveryId: id, state: 'PICKED_UP', deliveryNumber: id === 'DLV-1' ? '48213075-1' : `5000000${i}-1`, orderNumber: id === 'DLV-1' ? '48213075' : `5000000${i}` })), page: { nextCursor: null } });
+        return HttpResponse.json({ items: ids.map((id, i) => ({ deliveryId: id, state: 'PICKED_UP', deliveryNumber: id === 'DLV-1' ? 'D48213075' : `5000000${i}-1`, orderNumber: id === 'DLV-1' ? '48213075' : `5000000${i}` })), page: { nextCursor: null } });
       }),
     );
     renderAt('/consults', as.riderOps);

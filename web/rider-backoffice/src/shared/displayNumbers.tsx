@@ -1,7 +1,7 @@
 // 화면 번호(ADR-0070, 2026-11-18 사용자 결정 — 백엔드 알림 notice-display-numbers) — 사람이 알아보는 라이더·배송 표시.
 // 실서버 확인(2026-11-18): 관제·배송 상세·배차에 라이더가 `RD-5c41a0e7-2ac3-…` 내부 ID 로만 보여 "기사 정보가 안 뜬다"고 느낌.
-// - 라이더: "이* · 482913"(가린 이름 · rider riderNumber 6자리). riderId 만 있는 목록은 `GET /riders?riderIds=`(50개까지)로 한 번에.
-// - 배송: "74939255-1"(execution deliveryNumber = 주문번호-순번).
+// - 라이더(ADR-0085, 2026-11-22): 목록엔 "R4829" 만(rider riderNumber — R + 4자리). 가린 이름은 마우스를 올리면(title)·상세에서. riderId 만 있는 목록은 `GET /riders?riderIds=`(50개까지)로 한 번에.
+// - 배송(ADR-0085): "D74939255"(execution deliveryNumber = D + 주문번호, 같은 주문 두 번째부터 "D74939255-2").
 // - 번호가 없으면 ID 끝 8자리를 회색으로 + "번호 없음". 내부 ID 전체는 상세의 "시스템 번호"로만(SystemIds).
 // - 이메일은 화면에 내지 않는다.
 import { useQueries, useQuery } from '@tanstack/react-query';
@@ -60,31 +60,50 @@ export function useRiderSummaries(riderIds: ReadonlyArray<string | null | undefi
   return byId;
 }
 
-/** "이* · 482913" + 시뮬 꼬리표. 이름·번호를 이미 알면 넘기고, 모르면 useRiderSummaries 결과를 넘긴다. */
+/**
+ * "R4829"(가린 이름은 title) + 시뮬 꼬리표(ADR-0085 — 목록엔 번호만). 상세·관제 패널처럼 한 라이더를 크게 보이는 곳은 showName 으로
+ * "R4829 · 김*수". 이름·번호를 이미 알면 넘기고, 모르면 useRiderSummaries 결과를 넘긴다.
+ */
 export function RiderName({
   riderId,
   nameMasked,
   riderNumber,
+  showName = false,
   className = '',
 }: {
   readonly riderId: string | null | undefined;
   readonly nameMasked?: string | null | undefined;
   readonly riderNumber?: string | null | undefined;
+  readonly showName?: boolean;
   readonly className?: string;
 }) {
   if (!riderId) return <span className="text-base-content/40">—</span>;
   return (
-    <span className={`inline-flex flex-wrap items-center gap-1 ${className}`} data-testid="rider-name">
-      {nameMasked && <span className="font-medium">{nameMasked}</span>}
-      {nameMasked && <span className="text-base-content/50" aria-hidden="true">·</span>}
-      {riderNumber ? <span className="font-mono font-semibold">{riderNumber}</span> : <NoNumber id={riderId} />}
+    <span className={`inline-flex flex-wrap items-center gap-1 ${className}`} data-testid="rider-name" title={nameMasked ?? undefined}>
+      {riderNumber ? (
+        <>
+          <span className="font-mono font-semibold">{riderNumber}</span>
+          {showName && nameMasked && (
+            <>
+              <span className="text-base-content/50" aria-hidden="true">·</span>
+              <span className="font-medium">{nameMasked}</span>
+            </>
+          )}
+        </>
+      ) : (
+        <>
+          {/* 번호를 못 받았을 때만 가린 이름을 글자로(옛 기록) */}
+          {nameMasked && <span className="font-medium">{nameMasked}</span>}
+          <NoNumber id={riderId} />
+        </>
+      )}
       <SimBadge riderId={riderId} />
     </span>
   );
 }
 
 /**
- * "74939255-1" — 배송 번호가 없으면(LAN 확인 2026-11-18: 번호 기능 전 배송은 null) 서버가 준 주문번호 "주문 43505165",
+ * "D74939255" — 배송 번호가 없으면(LAN 확인 2026-11-18: 번호 기능 전 배송은 null) 서버가 준 주문번호 "주문 43505165",
  * 그것도 없으면 ID 끝 8자리 회색 + "번호 없음".
  */
 export function DeliveryNo({
@@ -219,29 +238,48 @@ function StaffLabel({ operatorId }: { readonly operatorId: string }) {
 }
 
 /**
- * 찾기 칸 — 화면 번호로 찾는다(ADR-0070 "찾기는 화면 번호로"). 라이더 번호 6자리면 `GET /riders?riderNumber=` 로 라이더 ID 를 찾고,
+ * 찾기 칸 — 화면 번호로 찾는다(ADR-0070 "찾기는 화면 번호로"). 라이더 번호(R4829·4829, ADR-0085)면 `GET /riders?riderNumber=` 로 라이더 ID 를 찾고,
  * 그 밖 글자는 라이더 ID 로 그대로 쓴다. 번호에 맞는 라이더가 없으면 null(화면은 "없어요").
  */
 export async function resolveRiderId(api: ReturnType<typeof useApi>, text: string): Promise<string | null> {
   const q = text.trim();
-  if (!/^\d{6}$/.test(q)) return q;
+  if (!isRiderNumber(q)) return q;
   const r = await request('GET', api.riders.GET('/riders', { params: { query: { riderNumber: q, size: 1 } } }));
   return r.items?.[0]?.riderId ?? null;
 }
 
+/** 라이더 번호 입력 칸(ADR-0085): 숫자만 받아 앞에 R 을 붙인다("4829" → "R4829", 5자리까지). 비우면 빈 글자. */
+export const riderNumberInput = (v: string) => {
+  const d = v.replace(/\D/g, '').slice(0, 5);
+  return d ? `R${d}` : '';
+};
+
+/** 라이더 번호 찾기 글자(ADR-0085): R4829·r4829·4829(5자리도) — 서버가 같은 번호로 본다. */
+export const isRiderNumber = (q: string) => /^[Rr]?\d{4,5}$/.test(q.trim());
+
+/** 배송 번호 찾기 글자(ADR-0085): D74939255·d74939255·74939255, 두 번째 배송부터 -2. 주문번호 8자리와 순번(없으면 1). */
+export function parseDeliveryNumber(q: string): { readonly orderNumber: string; readonly seq: number } | null {
+  const m = /^[Dd]?(\d{8})(?:-(\d{1,3}))?$/.exec(q.trim());
+  return m ? { orderNumber: m[1]!, seq: m[2] ? Number(m[2]) : 1 } : null;
+}
+
+/** 주문번호·순번 → 화면 배송 번호(서버 deliveryNumber 와 같은 모양). */
+export const deliveryNumberOf = (orderNumber: string, seq: number) => `D${orderNumber}${seq > 1 ? `-${seq}` : ''}`;
+
 /**
- * 배송 찾기 칸 — 배송 번호("74939255-1")면 앞 8자리 주문번호로 찾아 그 번호의 배송 ID, 그 밖 글자는 배송 ID 로 그대로.
+ * 배송 찾기 칸 — 배송 번호("D74939255")면 앞 8자리 주문번호로 찾아 그 번호의 배송 ID, 그 밖 글자는 배송 ID 로 그대로.
  * 맞는 배송이 없으면 null.
  */
 export async function resolveDeliveryId(api: ReturnType<typeof useApi>, text: string): Promise<string | null> {
   const q = text.trim();
-  const m = /^(\d{8})-(\d+)$/.exec(q);
-  if (!m) return q;
-  const r = await request('GET', api.execution.GET('/deliveries', { params: { query: { orderNumber: m[1]!, size: 20 } } }));
-  return (r.items ?? []).find((d) => d.deliveryNumber === q)?.deliveryId ?? null;
+  const p = parseDeliveryNumber(q);
+  if (!p) return q;
+  const want = deliveryNumberOf(p.orderNumber, p.seq);
+  const r = await request('GET', api.execution.GET('/deliveries', { params: { query: { orderNumber: p.orderNumber, size: 20 } } }));
+  return (r.items ?? []).find((d) => d.deliveryNumber === want)?.deliveryId ?? null;
 }
 
 export const searchHint = {
-  rider: '라이더 번호 6자리(또는 라이더 ID)',
-  delivery: '배송 번호 74939255-1(또는 배송 ID)',
+  rider: '라이더 번호 R4829(또는 라이더 ID)',
+  delivery: '배송 번호 D74939255(또는 배송 ID)',
 } as const;

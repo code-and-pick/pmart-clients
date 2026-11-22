@@ -17,8 +17,8 @@ describe('화면 번호 — 시스템 ID 는 겉에 없다', () => {
   it('수행료 조정 카드: 배송 번호·라이더 번호, ERN·DLV·RD 는 접힌 시스템 번호에만', async () => {
     renderAt('/adjustments', as.riderOps);
     const card = (await screen.findAllByTestId('adjustment-row'))[0]!;
-    expect(await within(card).findByText('48213075-1')).toBeInTheDocument();
-    expect(await within(card).findByText('482913')).toBeInTheDocument();
+    expect(await within(card).findByText('D48213075')).toBeInTheDocument();
+    expect(await within(card).findByText('R4829')).toBeInTheDocument();
     const shown = visibleText(card);
     expect(shown).not.toMatch(/ERN-|DLV-|RD-/);
     expect(within(card).getByTestId('system-ids')).toHaveTextContent('ERN-1');
@@ -30,10 +30,10 @@ describe('화면 번호 — 시스템 ID 는 겉에 없다', () => {
     for (const r of rows) expect(visibleText(r)).not.toMatch(/OP-/);
   });
 
-  it('라이더 번호 6자리로 찾으면 그 라이더 ID 로 서버에 묻는다', async () => {
+  it('라이더 번호(R4829)로 찾으면 그 라이더 ID 로 서버에 묻는다', async () => {
     const view = renderAt('/surcharges', as.riderOps);
     await screen.findAllByTestId('surcharge-row');
-    await userEvent.type(screen.getByLabelText('라이더 번호 6자리(또는 라이더 ID)'), '482913');
+    await userEvent.type(screen.getByLabelText('라이더 번호 R4829(또는 라이더 ID)'), 'R4829');
     await userEvent.click(screen.getByRole('button', { name: '찾기' }));
     await screen.findAllByTestId('surcharge-row');
     const calls = view.sent.filter((r) => r.method === 'GET' && new URL(r.url).pathname.endsWith('/surcharge-requests'));
@@ -44,7 +44,7 @@ describe('화면 번호 — 시스템 ID 는 겉에 없다', () => {
     const view = renderAt('/surcharges', as.riderOps);
     await screen.findAllByTestId('surcharge-row');
     const before = view.sent.filter((r) => new URL(r.url).pathname.endsWith('/surcharge-requests')).length;
-    await userEvent.type(screen.getByLabelText('라이더 번호 6자리(또는 라이더 ID)'), '000000');
+    await userEvent.type(screen.getByLabelText('라이더 번호 R4829(또는 라이더 ID)'), 'R9999');
     await userEvent.click(screen.getByRole('button', { name: '찾기' }));
     expect(await screen.findByText(/없어요/)).toBeInTheDocument();
     expect(view.sent.filter((r) => new URL(r.url).pathname.endsWith('/surcharge-requests')).length).toBe(before);
@@ -54,7 +54,7 @@ describe('화면 번호 — 시스템 ID 는 겉에 없다', () => {
 describe('배송 번호는 묶음으로 한 번에(execution 0.31.0 deliveryIds — 백엔드 #217)', () => {
   it('목록의 배송 번호를 배송마다 묻지 않고 deliveryIds 한 번으로', async () => {
     const view = renderAt('/help-requests/DLV-1/HR-1', as.riderOps);
-    await screen.findAllByText('48213075-1');
+    await screen.findAllByText('D48213075');
     const batch = view.sent.filter((r) => r.method === 'GET' && new URL(r.url).pathname.endsWith('/deliveries') && new URL(r.url).searchParams.get('deliveryIds'));
     expect(batch.length).toBeGreaterThan(0);
     expect(new URL(batch[0]!.url).searchParams.get('deliveryIds')).toContain('DLV-1');
