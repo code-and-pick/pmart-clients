@@ -12,7 +12,8 @@ export function RoleChips({ roles }: { readonly roles: readonly string[] }) {
   const names = roles.map((r) => m.roleName[r] ?? r);
   const [first, ...rest] = names;
   return (
-    <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-base-300 bg-base-200/60 px-2 py-0.5 text-xs text-base-content/70" title={names.join(', ')} data-testid="header-roles">
+    // 단추처럼 보이지 않게 테두리·바탕 없이 글자로(2026-11-23 사용자 "권한 버튼처럼 나오는 거 별론데")
+    <span className="inline-flex shrink-0 items-center gap-1 text-xs text-base-content/55" title={names.join(', ')} data-testid="header-roles">
       <svg viewBox="0 0 24 24" className="h-3 w-3 fill-none stroke-current" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
         <path d="M12 3 4 6v6c0 4.5 3.4 8.4 8 9 4.6-.6 8-4.5 8-9V6l-8-3Z" />
       </svg>

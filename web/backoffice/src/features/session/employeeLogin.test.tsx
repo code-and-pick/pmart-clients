@@ -317,7 +317,7 @@ describe('화면', () => {
     // 머리줄 링크: 이름 · 사번(목에 없는 직원이면 "내 세션"만) — 운영자 ID 는 글자로 안 보인다(ADR-0070 덧붙임). 내 세션 화면 본문의 ID 는 상세라 그대로
     expect(screen.getByTestId('operator')).toHaveTextContent(/^.?내 정보/); // 목에 없는 직원 — 머리글자 "?" + "내 정보"
     expect(screen.getByTestId('operator')).not.toHaveTextContent('OP-ea-1');
-    expect(screen.getAllByText('가격 승인').length).toBeGreaterThan(0);
+    expect(screen.getByTestId('my-profile')).toHaveTextContent('가격 승인');
     expect(await screen.findByText('SES-ea-1')).toBeInTheDocument(); // 접힌 시스템 번호 칸
     expect(screen.getByText('통합 백오피스')).toBeInTheDocument();
     expect(screen.getByText(/직원 계정\(Keycloak\)에서 관리해요/)).toBeInTheDocument();

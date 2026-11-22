@@ -129,7 +129,7 @@ describe('목 로그인 화면', () => {
 
     expect(await screen.findByRole('heading', { name: '내 정보' })).toBeInTheDocument();
     expect(await screen.findByText('통합 백오피스')).toBeInTheDocument();
-    expect(screen.getByText('상품 승인, 전시 승인, 가격 승인')).toBeInTheDocument(); // 역할은 한글 이름(2026-11-23)
+    expect(screen.getByTestId('my-profile')).toHaveTextContent('상품 승인, 전시 승인, 가격 승인'); // 역할은 한글 이름, 글자로만(2026-11-23)
     expect(screen.queryByRole('button', { name: '비밀번호 변경' })).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: '로그아웃' }));
 
