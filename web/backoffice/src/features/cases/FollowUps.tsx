@@ -16,6 +16,7 @@ import { request } from '@pmart/web-core';
 import { CommandFeedback, QueryState, toUiState, useCommand } from '@pmart/web-ui';
 import { commandParams } from '../../api/command';
 import type { components } from '../../api/generated/case';
+import { useCenterScope } from '../../shared/centerScope';
 import { useApi } from '../../app/ApiContext';
 import { useSession } from '../../app/SessionContext';
 import { messages } from '../../shared/messages';
@@ -399,13 +400,15 @@ export function CsFollowUpPage() {
   const [params, setParams] = useSearchParams();
   const done = params.get('tab') === 'done';
   const queryClient = useQueryClient();
+  const centerId = useCenterScope(); // 머리줄 센터 고르기(2026-11-23, case 0.33.0 R-12 — 범위 ∩ 고른 센터)
+  const at = centerId ? { centerId } : {};
   const query = useQuery({
-    queryKey: ['obligations', 'CS', done],
+    queryKey: ['obligations', 'CS', done, centerId],
     queryFn: async () => {
-      if (!done) return request('GET', api.cases.GET('/obligations', { params: { query: { owner: 'CS', size: 50 } } }));
+      if (!done) return request('GET', api.cases.GET('/obligations', { params: { query: { owner: 'CS', size: 50, ...at } } }));
       // 처리 끝남 = 해소·면제·실패(서버 state 하나씩 — 세 번 읽어 합친다)
       const parts = await Promise.all(
-        (['RESOLVED', 'WAIVED', 'FAILED'] as const).map((state) => request('GET', api.cases.GET('/obligations', { params: { query: { owner: 'CS', state, size: 50 } } }))),
+        (['RESOLVED', 'WAIVED', 'FAILED'] as const).map((state) => request('GET', api.cases.GET('/obligations', { params: { query: { owner: 'CS', state, size: 50, ...at } } }))),
       );
       return { items: parts.flatMap((p) => p.items ?? []) };
     },

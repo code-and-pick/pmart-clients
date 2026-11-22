@@ -8,6 +8,7 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 import { request } from '@pmart/web-core';
 import { QueryState, toUiState, uiStateFromError } from '@pmart/web-ui';
 import type { components } from '../../api/generated/claim';
+import { useCenterScope } from '../../shared/centerScope';
 import { useApi } from '../../app/ApiContext';
 import { CodeLabel, DataTable, DetailHeader, NextAction, Notice, PropertyFilter, ResultBar, Section, StatCard, StatStrip, StatusBadge, type Tone, ListHeader, listCount, refreshOf, SectionTabs } from '../../shared/admin';
 import { EmptyBox, KindChip, ListFoot, SideFields, When } from '../lookup/parts';
@@ -45,8 +46,9 @@ export const claimTone = (s: string | null | undefined): Tone =>
 
 function useClaimList(filter: { orderId?: string | undefined; customerId?: string | undefined; type?: ClaimType | undefined; state?: ClaimState | undefined }) {
   const api = useApi();
+  const centerId = useCenterScope(); // 머리줄 센터 고르기(2026-11-23, bff 0.24.0 BF-4)
   return useInfiniteQuery({
-    queryKey: ['claims', 'list', filter],
+    queryKey: ['claims', 'list', filter, centerId],
     queryFn: ({ pageParam }) =>
       request(
         'GET',
@@ -59,6 +61,7 @@ function useClaimList(filter: { orderId?: string | undefined; customerId?: strin
               ...(filter.customerId ? { customerId: filter.customerId } : {}),
               ...(filter.type ? { type: filter.type } : {}),
               ...(filter.state ? { state: filter.state } : {}),
+              ...(centerId ? { centerId } : {}),
               ...(pageParam ? { cursor: pageParam } : {}),
             },
           },
@@ -289,13 +292,14 @@ export function ClaimListPage() {
   // 주문·종류 조건은 같이 건다(상태 조건은 카드가 단계라 걸지 않는다). 못 읽으면 0 이 아니라 "?"
   const orderIdParam = search.get('orderId') ?? '';
   const typeParam = search.get('type');
+  const center = useCenterScope(); // 머리줄 센터 고르기(2026-11-23, claim 0.13.0 CL-8 mfcId)
   const counts = useQuery({
-    queryKey: ['claims', 'counts', orderIdParam, customerId, typeParam],
+    queryKey: ['claims', 'counts', orderIdParam, customerId, typeParam, center],
     queryFn: () =>
       request(
         'GET',
         api.claims.GET('/claims/counts', {
-          params: { query: { ...(orderIdParam ? { orderId: orderIdParam } : {}), ...(customerId ? { customerId } : {}), ...(isType(typeParam) ? { type: typeParam } : {}) } },
+          params: { query: { ...(orderIdParam ? { orderId: orderIdParam } : {}), ...(customerId ? { customerId } : {}), ...(isType(typeParam) ? { type: typeParam } : {}), ...(center ? { mfcId: center } : {}) } },
         }),
       ),
   });

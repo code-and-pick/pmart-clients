@@ -207,7 +207,8 @@ export function SlaStat({ from, to }: { readonly from: string; readonly to: stri
 /** 운영 위험 합계 — 처리 대기 전체(결제 결과 불명 따로 표시) */
 export function RiskStat() {
   const api = useApi();
-  const q = useQuery({ queryKey: ['bff', 'pending-work'], refetchInterval: REFRESH_MS, queryFn: () => request('GET', api.bff.GET('/views/pending-work', {})) });
+  const center = useCenterScope(); // 머리줄 센터 고르기(2026-11-23)
+  const q = useQuery({ queryKey: ['bff', 'pending-work', center], refetchInterval: REFRESH_MS, queryFn: () => request('GET', api.bff.GET('/views/pending-work', center ? { params: { query: { centerId: center } } } : {})) });
   const items = q.data?.items ?? [];
   const pay = items.filter((i) => i.kind === 'STUCK_SAGA' && i.reasonCode === 'PAYMENT_UNKNOWN').length;
   return (
@@ -629,19 +630,20 @@ export interface WorkSum {
   readonly complete: boolean;
 }
 
-export function workCountsQuery(api: Api) {
+export function workCountsQuery(api: Api, center = '') {
   return {
-    queryKey: ['dashboard', 'work-counts'],
+    queryKey: ['dashboard', 'work-counts', center],
     refetchInterval: REFRESH_MS,
     retry: false,
-    queryFn: () => request('GET', api.bff.GET('/views/work-counts', {})),
+    queryFn: () => request('GET', api.bff.GET('/views/work-counts', center ? { params: { query: { centerId: center } } } : {})),
   };
 }
 
 /** 관리자만 부른다(그 밖 403). 반환: 묶음·셈(·나눔)의 합 — 읽는 중 undefined, 원천 실패 null */
 export function useWorkCounts(enabled: boolean) {
   const api = useApi();
-  const q = useQuery({ ...workCountsQuery(api), enabled });
+  const center = useCenterScope(); // 머리줄 센터 고르기(2026-11-23, bff BF-4)
+  const q = useQuery({ ...workCountsQuery(api, center), enabled });
   const sum = (group: WorkGroup, key: string, segment?: string): WorkSum | null | undefined => {
     if (!enabled || q.isPending) return undefined;
     if (q.isError) return null;
@@ -785,7 +787,7 @@ export function SalesPanel({ from, to }: { readonly from: string; readonly to: s
   const summary = useQuery(summaryQuery(api, from, to, center));
   const prev = useQuery(summaryQuery(api, addSeoulDays(from, -days.length), addSeoulDays(from, -1), center));
   const daily = useQueries({ queries: days.map((d) => summaryQuery(api, d, d, center)) });
-  const refunds = useQuery({ queryKey: ['dashboard', 'sales', 'refunds', from, to], refetchInterval: REFRESH_MS, retry: false, queryFn: () => request('GET', api.claims.GET('/claims/metrics/refunds', { params: { query: { from, to } } })) });
+  const refunds = useQuery({ queryKey: ['dashboard', 'sales', 'refunds', from, to, center], refetchInterval: REFRESH_MS, retry: false, queryFn: () => request('GET', api.claims.GET('/claims/metrics/refunds', { params: { query: { from, to, ...(center ? { mfcId: center } : {}) } } })) });
   // 하루라도 못 읽었으면 그 자리는 끊는다(0 으로 잇지 않음)
   const wonByDay = daily.map((q) => (q.data ? q.data.approvedAmount : null));
   const cntByDay = daily.map((q) => (q.data ? q.data.orderCount : null));

@@ -11,6 +11,7 @@ import { request } from '@pmart/web-core';
 import { QueryState, toUiState, uiStateFromError, useCommand } from '@pmart/web-ui';
 import { commandParams } from '../../api/command';
 import type { components } from '../../api/generated/case';
+import { useCenterScope } from '../../shared/centerScope';
 import { useApi } from '../../app/ApiContext';
 import { CommandFeedback } from '../../shared/Feedback';
 import { LeaveGuard } from '../../shared/LeaveGuard';
@@ -54,7 +55,8 @@ export function RiderComplaintTable({ riderId, deliveryId, complaintType, from, 
 }) {
   const api = useApi();
   const pv = usePreview((id) => `/rider-complaints/${encodeURIComponent(id)}`);
-  const filter = { riderId, deliveryId, complaintType, from, to };
+  const centerId = useCenterScope(); // 머리줄 센터 고르기(2026-11-23, bff 0.25.0 BF-4)
+  const filter = { riderId, deliveryId, complaintType, from, to, centerId };
   const query = useInfiniteQuery({
     queryKey: ['rider-complaints', 'list', filter],
     queryFn: ({ pageParam }) =>
@@ -69,6 +71,7 @@ export function RiderComplaintTable({ riderId, deliveryId, complaintType, from, 
               ...(complaintType ? { complaintType } : {}),
               ...(from ? { from: seoulDayStart(from) } : {}),
               ...(to ? { to: seoulDayEnd(to) } : {}),
+              ...(centerId ? { centerId } : {}),
               ...(pageParam ? { cursor: pageParam } : {}),
             },
           },
@@ -501,13 +504,14 @@ function ComplaintType({ type }: { readonly type: string | null | undefined }) {
 function ComplaintCounts({ riderId, deliveryId, from, to, active }: { readonly riderId?: string | undefined; readonly deliveryId?: string | undefined; readonly from?: string | undefined; readonly to?: string | undefined; readonly active?: ComplaintType | undefined }) {
   const api = useApi();
   const [search] = useSearchParams();
+  const centerId = useCenterScope(); // 머리줄 센터 고르기(2026-11-23, case 0.33.0 R-12)
   const q = useQuery({
-    queryKey: ['rider-complaints', 'counts', { riderId, deliveryId, from, to }],
+    queryKey: ['rider-complaints', 'counts', { riderId, deliveryId, from, to, centerId }],
     queryFn: () =>
       request(
         'GET',
         api.cases.GET('/rider-complaints/counts', {
-          params: { query: { ...(riderId ? { riderId } : {}), ...(deliveryId ? { deliveryId } : {}), ...(from ? { from: seoulDayStart(from) } : {}), ...(to ? { to: seoulDayEnd(to) } : {}) } },
+          params: { query: { ...(riderId ? { riderId } : {}), ...(deliveryId ? { deliveryId } : {}), ...(from ? { from: seoulDayStart(from) } : {}), ...(to ? { to: seoulDayEnd(to) } : {}), ...(centerId ? { centerId } : {}) } },
         }),
       ),
   });

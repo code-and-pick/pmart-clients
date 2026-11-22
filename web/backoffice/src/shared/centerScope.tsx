@@ -96,7 +96,8 @@ export function CenterPicker() {
  * 화면별 센터 고르기 적용(2026-11-23 계약 확인).
  * - applied: 이 화면 목록이 센터 인자를 받아 고른 센터 것만
  * - partial: 일부 칸만(대시보드 — 숫자·보드 중 센터 인자가 있는 것만)
- * - notApplied: 센터와 관련 있지만 계약에 센터 인자가 없어 모든 센터 — 화면에 알린다(PC 1 이 서비스별 요청)
+ * - notApplied: 센터와 관련 있지만 계약에 센터 인자가 없어 모든 센터 — 화면에 알린다(사용자 "주문에 붙은 것만" 2026-11-23 — 이 줄들은 그대로 둔다)
+ * - 클레임·라이더 컴플레인·CS 후속·처리 대기는 claim CL-8·case R-12·bff BF-4(LAN 배포) 로 applied(2026-11-23)
  * - 표에 없는 화면(상품·진열·검색·행사·고객·도우미 등)은 센터별이 아니라 알리지 않는다.
  *   승인함은 approval centerId 가 있지만 상품·진열·행사처럼 센터 없는 승인이 대부분이라 거르면 빠져 버려 걸지 않는다
  */
@@ -110,13 +111,13 @@ const SCOPE: ReadonlyArray<readonly [string, 'applied' | 'partial' | 'notApplied
   ['/case-metrics', 'notApplied'],
   ['/case-sla', 'applied'],
   ['/lookup', 'notApplied'],
-  ['/rider-complaints', 'notApplied'],
+  ['/rider-complaints', 'applied'],
   ['/inquiries', 'notApplied'],
   ['/inquiry-satisfaction', 'notApplied'],
   ['/rider-inquiries', 'notApplied'],
-  ['/claims', 'notApplied'],
-  ['/follow-ups', 'notApplied'],
-  ['/pending', 'notApplied'],
+  ['/claims', 'applied'],
+  ['/follow-ups', 'applied'],
+  ['/pending', 'applied'],
 ];
 
 export function centerScopeOf(pathname: string): 'applied' | 'partial' | 'notApplied' | null {

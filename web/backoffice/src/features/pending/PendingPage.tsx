@@ -23,6 +23,7 @@ import { CommandRejectedFailure, ProblemFailure, UnknownResultFailure, request }
 import { CommandFeedback, QueryState, uiStateFromError, useCommand, type UiState } from '@pmart/web-ui';
 import { commandParams } from '../../api/command';
 import type { components, paths } from '../../api/generated/backoffice-bff';
+import { useCenterScope } from '../../shared/centerScope';
 import { useApi } from '../../app/ApiContext';
 import { messages as m, messages } from '../../shared/messages';
 import { DisplayNumber } from '../../shared/displayNumber';
@@ -284,9 +285,10 @@ function Actions({ item }: { readonly item: Item }) {
 
 export function PendingPage() {
   const api = useApi();
+  const centerId = useCenterScope(); // 머리줄 센터 고르기(2026-11-23, bff 0.24.0 BF-4) — 고침 뒤 다시 읽기는 ['bff','pending-work'] 앞부분으로 모두
   const query = useQuery({
-    queryKey: ['bff', 'pending-work'],
-    queryFn: async (): Promise<View> => request('GET', api.bff.GET('/views/pending-work', {})),
+    queryKey: ['bff', 'pending-work', centerId],
+    queryFn: async (): Promise<View> => request('GET', api.bff.GET('/views/pending-work', centerId ? { params: { query: { centerId } } } : {})),
   });
   const state: UiState<View> = query.isPending
     ? { kind: 'loading' }

@@ -11,6 +11,7 @@ import { Link } from 'react-router';
 import { request } from '@pmart/web-core';
 import { APPROVAL_TYPES } from '../api/models';
 import { PENDING_KINDS, useApprovalTypeCounts } from './listCounts';
+import { useCenterScope } from '../shared/centerScope';
 import { useApi } from './ApiContext';
 import { GroupIcon } from './groupIcons';
 import { systemName } from '../shared/SourceStamps';
@@ -47,10 +48,11 @@ function Tile({ label, value, more, to, tone, testId }: { readonly label: string
 /** 운영 위험 — 처리 대기를 종류별로(결제 결과 불명은 따로) */
 export function RiskPanel() {
   const api = useApi();
+  const center = useCenterScope(); // 머리줄 센터 고르기(2026-11-23)
   const q = useQuery({
-    queryKey: ['bff', 'pending-work'],
+    queryKey: ['bff', 'pending-work', center],
     refetchInterval: 60_000,
-    queryFn: () => request('GET', api.bff.GET('/views/pending-work', {})),
+    queryFn: () => request('GET', api.bff.GET('/views/pending-work', center ? { params: { query: { centerId: center } } } : {})),
   });
   const items = q.data?.items ?? [];
   const count = (pred: (i: (typeof items)[number]) => boolean): number | null | undefined => (q.isError ? null : q.data ? items.filter(pred).length : undefined);

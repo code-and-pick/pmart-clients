@@ -28,9 +28,9 @@ describe('센터 고르기', () => {
     await waitFor(() => expect(calls(view.sent, '/deliveries/counts').at(-1)?.get('mfcId')).toBe('MFC-MOKPO-01'));
   });
 
-  it('센터 인자가 없는 화면(클레임)은 "모든 센터가 보여요" 알림 — 묻는 조건은 그대로', async () => {
+  it('센터 인자가 없는 화면(고객 문의)은 "모든 센터가 보여요" 알림 — 묻는 조건은 그대로', async () => {
     const user = userEvent.setup();
-    renderAt('/claims', as.admin);
+    renderAt('/inquiries', as.admin);
     const pick = await screen.findByRole('combobox', { name: '보는 센터' });
     expect(screen.queryByTestId('center-scope-note')).not.toBeInTheDocument(); // 전체면 알림 없음
     await waitFor(() => expect((pick as HTMLSelectElement).options.length).toBe(3));
@@ -45,5 +45,14 @@ describe('센터 고르기', () => {
     expect(centerScopeOf('/')).toBe('partial');
     expect(centerScopeOf('/products')).toBeNull(); // 상품은 센터별이 아님 — 알리지 않는다
     expect(centerScopeOf('/cases/handovers')).toBe('notApplied');
+  });
+
+  it('클레임(bff centerId·claim counts mfcId)·라이더 컴플레인·CS 후속·처리 대기도 고른 센터로 — 알림 없음(2026-11-23 CL-8·R-12·BF-4)', async () => {
+    sessionStorage.setItem('pmart.backoffice.centerScope', 'MFC-MOKPO-01');
+    const view = renderAt('/claims', as.admin);
+    await waitFor(() => expect(calls(view.sent, '/views/claims').at(-1)?.get('centerId')).toBe('MFC-MOKPO-01'));
+    await waitFor(() => expect(calls(view.sent, '/claims/counts').at(-1)?.get('mfcId')).toBe('MFC-MOKPO-01'));
+    expect(screen.queryByTestId('center-scope-note')).not.toBeInTheDocument();
+    for (const p of ['/rider-complaints', '/follow-ups/cs', '/pending']) expect(centerScopeOf(p)).toBe('applied');
   });
 });
