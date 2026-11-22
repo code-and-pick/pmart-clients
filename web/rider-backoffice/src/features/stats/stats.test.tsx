@@ -1,7 +1,11 @@
 // 운영 통계(2026-11-23) — 목(MSW) 기준: 날마다 RD-7(배정 5·완료 4·실패 1·늦음 1/4)·RD-8(배정 6·완료 5·실패 1·늦음 1/4), 배차 요청 12·배정 11.
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
+
+import { API_BASE } from '../../api/client';
+import { server } from '../../test/server';
 
 import { as, renderAt } from '../../test/render';
 
@@ -27,6 +31,14 @@ describe('운영 통계', () => {
     expect(calls(view.sent, '/metrics/on-time-deliveries')).toHaveLength(0);
     const q = new URL(calls(view.sent, '/delivery-metrics').at(-1)!.url).searchParams;
     expect(q.get('from')).toBe(q.get('to'));
+  });
+
+  it('배송 통계를 못 읽으면 0 이 아니라 오류 안내(조회 실패 ≠ 0)', async () => {
+    server.use(http.get(`${API_BASE}/delivery-metrics`, () => HttpResponse.json({ type: 'about:blank', title: 'unavailable', status: 503, code: 'DEPENDENCY_UNAVAILABLE' }, { status: 503 })));
+    renderAt('/stats', as.riderOps);
+    await waitFor(() => expect(screen.queryByTestId('tile-completion')).not.toBeInTheDocument());
+    expect(await screen.findByRole('button', { name: /다시/ })).toBeInTheDocument();
+    expect(screen.queryByText('완료 0 · 실패 0')).not.toBeInTheDocument();
   });
 
   it('라이더 상세 "성과" — 그 라이더의 최근 30일', async () => {

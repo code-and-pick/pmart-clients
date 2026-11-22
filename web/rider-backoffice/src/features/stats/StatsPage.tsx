@@ -85,6 +85,7 @@ export const statsMessages = {
     failure: (f: number, a: number) => `실패 ${f} / 배정 ${a}`,
     onTime: (o: number, d: number) => `정시 ${o} / ${d}`,
     onTimeNeedsCenter: '센터를 고르면 보여요',
+    failed: '불러오지 못했어요',
     count: (k: number) => `${k}건 평균`,
     assignRate: (a: number, c: number) => `배정 ${a} / 요청 ${c}`,
     reassign: (r: number, c: number) => `${r} / ${c}`,
@@ -226,8 +227,9 @@ export function StatsPage() {
   const dispByMfc = groupBy(drows, (r) => r.mfcId);
   const byRider = [...groupBy(rows, (r) => r.riderId).entries()].sort(([, x], [, y]) => total(y, (r) => r.assigned) - total(x, (r) => r.assigned));
 
+  // 배송 통계(execution)를 못 읽으면 숫자 0 대신 오류 안내 — 조회 실패 ≠ 0(PR 리뷰 2026-11-23). 배차 통계만 실패하면 그 칸에만 안내.
   const loading = exec.isPending || disp.isPending;
-  const failed = exec.isError && disp.isError;
+  const failed = exec.isError;
   return (
     <section className="space-y-4">
       <PageHeader
@@ -253,7 +255,7 @@ export function StatsPage() {
             <StatCard layout="row" label={s.tile.completion} value={pct(a.completed, a.completed + a.failed)} hint={s.hint.completion(a.completed, a.failed)} testId="tile-completion" />
             <StatCard layout="row" label={s.tile.late} value={pct(a.late, a.judged)} hint={s.hint.late(a.late, a.judged)} tone={a.judged > 0 && a.late / a.judged > 0.1 ? 'warning' : undefined} testId="tile-late" />
             <StatCard layout="row" label={s.tile.failure} value={pct(a.failed, a.assigned)} hint={s.hint.failure(a.failed, a.assigned)} testId="tile-failure" />
-            <StatCard layout="row" label={s.tile.onTime} value={onTime.data ? pct(otOn, otDue) : '—'} hint={onTime.data ? s.hint.onTime(otOn, otDue) : s.hint.onTimeNeedsCenter} testId="tile-on-time" />
+            <StatCard layout="row" label={s.tile.onTime} value={onTime.data ? pct(otOn, otDue) : '—'} hint={onTime.data ? s.hint.onTime(otOn, otDue) : onTime.isError ? s.hint.failed : s.hint.onTimeNeedsCenter} testId="tile-on-time" />
           </StatStrip>
           <StatStrip label={s.efficiency} testId="stats-efficiency">
             <StatCard layout="row" label={s.tile.assign} value={dur(dAvgAssign)} hint={s.hint.count(dAssigned)} testId="tile-assign" />
