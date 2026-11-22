@@ -1,5 +1,6 @@
 // 카카오 지도 위 라이더 현재 위치(관제). 키(VITE_KAKAO_JS_KEY)가 있을 때만 SDK 를 불러온다 — 키는 로그·화면에 남기지 않는다.
 // 키가 없거나 SDK 를 못 불러오면 안내만 하고 표(ControlPage)로 본다. 이동 이력·경로는 그리지 않는다(현재 위치만 — ADR-0068).
+// 2026-11-23(사용자 "대략 위치로 보이게 해"): 진행 중 배송의 대략 배송지(tracking dropArea — 약 1km 반올림)를 옅은 원으로, 지연(약속 + 20분)은 빨간 원.
 import { useEffect, useRef, useState } from 'react';
 
 const m = {
@@ -9,6 +10,8 @@ const m = {
     label: '라이더 위치 지도',
     center: '픽업 센터',
     drop: '전달지',
+    area: '배송지 근처',
+    areaLate: '지연 — 배송지 근처',
   },
 } as const;
 
@@ -16,6 +19,14 @@ const m = {
 export interface MapRoute {
   readonly deliveryId: string;
   readonly drop: { readonly lat: number; readonly lng: number };
+}
+
+/** 진행 중 배송의 대략 배송지(약 1km 반올림 — 정확한 주소 아님, 열람 기록 없음) */
+export interface MapArea {
+  readonly deliveryId: string;
+  readonly lat: number;
+  readonly lng: number;
+  readonly delayed: boolean;
 }
 
 export interface MapRider {
@@ -32,6 +43,7 @@ interface KakaoNs {
     LatLng: new (lat: number, lng: number) => unknown;
     Map: new (el: HTMLElement, opts: { center: unknown; level: number }) => { setCenter(p: unknown): void };
     CustomOverlay: new (opts: { position: unknown; content: HTMLElement; yAnchor?: number }) => { setMap(m: unknown): void };
+    Circle: new (opts: { center: unknown; radius: number; strokeWeight?: number; strokeColor?: string; strokeOpacity?: number; fillColor?: string; fillOpacity?: number }) => { setMap(m: unknown): void };
     Polyline: new (opts: { path: unknown[]; strokeWeight?: number; strokeColor?: string; strokeOpacity?: number; strokeStyle?: string }) => { setMap(m: unknown): void };
   };
 }
@@ -72,8 +84,11 @@ export function KakaoRiderMap({
   onSelect,
   selectedId = '',
   routes = [],
+  areas = [],
   heightClass = 'h-96',
 }: {
+  /** 진행 중 배송의 대략 배송지(관제 dropArea) */
+  readonly areas?: readonly MapArea[];
   /** 높이(관제 작업 화면은 칸을 가득 채운다) */
   readonly heightClass?: string;
   readonly routes?: readonly MapRoute[];
@@ -143,6 +158,31 @@ export function KakaoRiderMap({
       centerMark?.setMap(null);
     };
   }, [kakao, riders, center, onSelect, selectedId]);
+
+  // 대략 배송지 — 반지름 500m 원(반올림 칸 약 1km 안). 색은 테마 변수(지연 = error, 그 밖 = info).
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!kakao || !map || areas.length === 0) return;
+    const css = getComputedStyle(document.documentElement);
+    const info = css.getPropertyValue('--color-info').trim() || undefined;
+    const error = css.getPropertyValue('--color-error').trim() || undefined;
+    const drawn = areas.map((a) => {
+      const color = a.delayed ? error : info;
+      const c = new kakao.maps.Circle({
+        center: new kakao.maps.LatLng(a.lat, a.lng),
+        radius: 500,
+        strokeWeight: 1,
+        strokeOpacity: 0.6,
+        fillOpacity: a.delayed ? 0.25 : 0.12,
+        ...(color ? { strokeColor: color, fillColor: color } : {}),
+      });
+      c.setMap(map);
+      return c;
+    });
+    return () => {
+      for (const x of drawn) x.setMap(null);
+    };
+  }, [kakao, areas]);
 
   // 고른 라이더의 길: 센터 → 라이더 → 전달지 점선 + 전달지 핀. 색은 테마 변수에서 읽는다(하드코딩 안 함).
   useEffect(() => {

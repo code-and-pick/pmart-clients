@@ -22,7 +22,7 @@ import { ControlSearch } from './ControlSearch';
 import { RecentDeliveries } from './RecentDeliveries';
 import { useDropLocations } from './dropLocation';
 import { CONTROL_REFRESH_MS } from './refresh';
-import { KakaoRiderMap, type MapRider, type MapRoute } from './KakaoRiderMap';
+import { KakaoRiderMap, type MapArea, type MapRider, type MapRoute } from './KakaoRiderMap';
 
 const c = ops.control;
 const n = messages.names;
@@ -142,6 +142,10 @@ export function ControlPage() {
   const selectedRider = (board.data?.items ?? []).find((r) => r.riderId === selectedId);
   const routeIds = selectedRider?.activeDeliveries.length ? selectedRider.activeDeliveries.map((d) => d.deliveryId) : focusDeliveryId && selectedId ? [focusDeliveryId] : [];
   const drops = useDropLocations(routeIds);
+  // 대략 배송지(tracking dropArea, 2026-11-23 — 열람 기록 없음). 고른 라이더 배송은 정확한 전달지 핀이 있으니 원은 빼지 않고 함께(지연 색 보임)
+  const areas: MapArea[] = (board.data?.items ?? []).flatMap((r) =>
+    r.activeDeliveries.flatMap((d) => (d.dropArea?.lat != null && d.dropArea.lng != null ? [{ deliveryId: d.deliveryId, lat: d.dropArea.lat, lng: d.dropArea.lng, delayed: !!d.delayed }] : [])),
+  );
   const routes: MapRoute[] = drops.flatMap((q, i) => (q.data?.lat != null && q.data.lng != null ? [{ deliveryId: routeIds[i] ?? '', drop: { lat: q.data.lat, lng: q.data.lng } }] : []));
   return (
     <section className="space-y-4">
@@ -249,7 +253,7 @@ export function ControlPage() {
                   </div>
 
                   <div className="relative flex min-h-[420px] flex-col">
-                    <KakaoRiderMap center={centerPoint} riders={mapRiders} onSelect={select} selectedId={selectedId} routes={routes} heightClass="h-full min-h-[420px]" />
+                    <KakaoRiderMap center={centerPoint} riders={mapRiders} onSelect={select} selectedId={selectedId} routes={routes} areas={areas} heightClass="h-full min-h-[420px]" />
                     <span className="pointer-events-none absolute left-3 top-3 flex flex-wrap items-center gap-1">
                       <StatusBadge tone="success">{cx.legend.ok}</StatusBadge>
                       <StatusBadge tone="info">{cx.legend.delivering}</StatusBadge>

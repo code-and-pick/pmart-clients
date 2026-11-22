@@ -343,7 +343,7 @@ export const opsHandlers = [
           // tracking 0.9.0 — 운행 시작(배송 중이라 대기 아님 → waitingSince null)
           onDutySince: new Date(Date.now() - 2 * 3600_000).toISOString(),
           waitingSince: null,
-          activeDeliveries: [{ deliveryId: 'DLV-1', stage: 'TO_CUSTOMER', pickedUp: true, etaDrop: null }],
+          activeDeliveries: [{ deliveryId: 'DLV-1', stage: 'TO_CUSTOMER', pickedUp: true, etaDrop: null, promisedAt: new Date(Date.now() - 30 * 60_000).toISOString(), delayed: true, dropArea: { lat: 35.16, lng: 129.06 } }],
         },
         // 신규배차를 꺼 둔 운행 라이더 — 대기로 세지 않는다(waitingSince null)
         { riderId: 'RD-9', vehicleType: 'BICYCLE', newDispatchEnabled: false, restriction: 'NORMAL', location: null, staleSinceSeconds: null, stale: true, onDutySince: new Date(Date.now() - 40 * 60_000).toISOString(), waitingSince: null, activeDeliveries: [] },

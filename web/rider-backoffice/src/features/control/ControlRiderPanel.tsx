@@ -65,6 +65,9 @@ export const panelMessages = {
   eta: (t: string, min: number | null) => `${t}${min === null ? '' : ` · ${min}분 남음`}`,
   late: (min: number) => `${min}분 늦음`,
   delayAlert: '지연 알림',
+  // 관제 delayed(tracking 0.14.0 — 예상 도착/지금이 약속 + 20분을 넘음, 2026-11-23 사용자 "지연 기준 시간은 이미 있잖아")
+  delayed: '지연',
+  delayedTitle: (at: string) => `약속 ${at} + 20분을 넘겼어요`,
   open: '배송 상세 · 조치',
   orderFailed: '주문 정보 못 불러옴',
   pickupShort: '픽업',
@@ -248,6 +251,11 @@ export function ActiveDeliverySummary({ active }: { readonly active: ActiveDeliv
         <DeliveryNo deliveryId={active.deliveryId} deliveryNumber={x?.deliveryNumber} orderNumber={orderNo} />
       </Link>
       <StatusBadge tone="info">{label(n.stage, active.stage)}</StatusBadge>
+      {active.delayed && (
+        <span title={active.promisedAt ? p.delayedTitle(when(active.promisedAt)) : undefined} data-testid="row-delayed">
+          <StatusBadge tone="error">{p.delayed}</StatusBadge>
+        </span>
+      )}
       {x && <span className="text-xs text-base-content/70">{[orderNo ? `#${orderNo}` : null, x.mfcName ? `${p.pickupShort} ${x.mfcName}` : null].filter(Boolean).join(' · ')}</span>}
       {detail.isError && !x && <span className="text-xs text-error">{p.orderFailed}</span>}
       {active.etaDrop && <span className="text-xs text-base-content/60">{c.eta(when(active.etaDrop))}</span>}
@@ -328,7 +336,11 @@ function DeliveryCard({ active, focused }: { readonly active: ActiveDelivery; re
           <Link className="text-sm hover:underline" to={`/deliveries/${encodeURIComponent(deliveryId)}`}>
             <DeliveryNo deliveryId={deliveryId} deliveryNumber={detail.data?.deliveryNumber} orderNumber={detail.data?.orderNumber ?? detail.data?.orderSummary?.orderNumber} />
           </Link>
-          {eta.data?.delayAlertTriggered && <StatusBadge tone="error">{p.delayAlert}</StatusBadge>}
+          {(active.delayed || eta.data?.delayAlertTriggered) && (
+            <span title={active.promisedAt ? p.delayedTitle(when(active.promisedAt)) : undefined} data-testid="panel-delayed">
+              <StatusBadge tone="error">{p.delayed}</StatusBadge>
+            </span>
+          )}
         </span>
       </div>
       <Steps stage={stage} />
