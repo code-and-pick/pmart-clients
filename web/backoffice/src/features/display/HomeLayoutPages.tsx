@@ -412,7 +412,7 @@ function BannerCard({
       <div className="grid gap-3 md:grid-cols-[10rem_minmax(0,1fr)]">
         <Field label={m.placement}>
           <select className="select select-sm" disabled={locked} value={b.placement} onChange={(e) => setPlacement(e.target.value as Banner['placement'])}>
-            {(['HOME_TOP', 'HOME_MIDDLE', 'HOME_INLINE', 'POPUP', 'SPLASH'] as const).map((p) => (
+            {(['HOME_TOP', 'HOME_MIDDLE', 'HOME_INLINE', 'CATEGORY', 'POPUP', 'SPLASH'] as const).map((p) => (
               <option key={p} value={p}>
                 {m.placementName[p]}
               </option>
@@ -674,7 +674,7 @@ function TabCard({
   );
 }
 
-/** 고객 홈 미리보기(초안 본문) — 탭 줄 → 맨 위 배너 → 테마 순서대로, 가운데 배너는 첫 테마 뒤. 탭에 넣은 테마는 홈에서 빠진다. 팝업·로딩 화면은 아래에 따로 */
+/** 고객 홈 미리보기(초안 본문) — 탭 줄 → 맨 위 배너 → 테마 순서대로, 가운데 배너는 첫 테마 뒤. 탭에 넣은 테마는 홈에서 빠진다. 카테고리 화면·팝업·로딩 화면 배너는 아래에 따로 */
 function Preview({ body, sticky = true }: { readonly body: Body; readonly sticky?: boolean }) {
   const banners = body.banners ?? [];
   const tabs = body.tabs ?? [];
@@ -682,6 +682,8 @@ function Preview({ body, sticky = true }: { readonly body: Body; readonly sticky
   const themes = (body.themes ?? []).filter((t) => !tabbed.has(t.sectionId));
   const popups = banners.filter((b) => b.placement === 'POPUP');
   const splashes = banners.filter((b) => b.placement === 'SPLASH');
+  // 0.11.0 카테고리 화면 맨 위 — 홈에는 안 나오므로 휴대폰 홈 그림 밖에 따로
+  const category = banners.filter((b) => b.placement === 'CATEGORY');
   const top = banners.filter((b) => b.placement === 'HOME_TOP');
   const middle = banners.filter((b) => b.placement === 'HOME_MIDDLE');
   const strip = (list: readonly Banner[]) =>
@@ -777,6 +779,12 @@ function Preview({ body, sticky = true }: { readonly body: Body; readonly sticky
           </>
         )}
       </div>
+      {category.length > 0 && (
+        <div className="mx-auto w-[300px] space-y-1" data-testid="layout-preview-category">
+          <p className="text-xs text-base-content/55">{m.placementName['CATEGORY']}</p>
+          {carousel(category, 'category')}
+        </div>
+      )}
       {(popups.length > 0 || splashes.length > 0) && (
         <div className="flex flex-wrap justify-center gap-4">
           {fullScreen(m.placementName['POPUP'] ?? '', popups, 'layout-preview-popup')}
