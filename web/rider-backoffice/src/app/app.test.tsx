@@ -58,9 +58,9 @@ describe('로그인', () => {
     expect(await screen.findByRole('heading', { name: '라이더 관리' })).toBeInTheDocument();
   });
 
-  it('내 세션: 서버 세션의 app 이 rider-backoffice', async () => {
+  it('내 정보: 서버 세션의 app 이 rider-backoffice(로그인한 곳 "라이더 백오피스")', async () => {
     renderAt('/session');
-    expect(await screen.findByText('rider-backoffice')).toBeInTheDocument();
+    expect(await screen.findByText('라이더 백오피스')).toBeInTheDocument();
   });
 });
 

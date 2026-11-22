@@ -1,6 +1,6 @@
 // 라이더 백오피스 뼈대(2026-11-17, PC 1): 직원 로그인·세션·메뉴 자리. 메뉴 화면(관제 등)은 delivery 영역(PC 5)이 채운다.
 import { AppLauncher, UiTextProvider } from '@pmart/web-ui';
-import { ConsoleBreadcrumb, ConsoleShell, type ConsoleNavGroup } from '@pmart/web-ui/console';
+import { AccountMenu, ConsoleBreadcrumb, ConsoleShell, RoleText, type ConsoleNavGroup } from '@pmart/web-ui/console';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useState, type ReactNode } from 'react';
 import { createBrowserRouter, createMemoryRouter, Navigate, NavLink, Outlet, RouterProvider, useLocation, useNavigate } from 'react-router';
@@ -21,7 +21,7 @@ import { PreparingPage } from '../features/menus/PreparingPage';
 import { LoginCallbackPage, LoginPage } from '../features/session/LoginPage';
 import { SessionPage } from '../features/session/SessionPage';
 import { messages as m } from '../shared/messages';
-import { StaffName } from '../shared/displayNumbers';
+import { useEmployeeLabel } from '../shared/employeeLabels';
 import { Icon, type IconName } from '../shared/icons';
 import { SimulatorLink } from '../shared/sim';
 import { DETAIL_BAR_SLOT } from '../shared/StickyTitle';
@@ -78,6 +78,27 @@ function HeaderSearch() {
   );
 }
 
+/** 머리줄 내 정보 메뉴 — 이름·사번은 hr employee-labels(목록과 같은 조회) */
+function RiderAccountMenu() {
+  const { session, logout } = useSession();
+  const label = useEmployeeLabel(session?.subject);
+  const navigate = useNavigate();
+  if (!session) return null;
+  return (
+    <AccountMenu
+      name={label.data?.name ?? null}
+      employeeNo={label.data?.employeeNo}
+      roles={session.roles.map((r) => m.roleName[r] ?? r)}
+      profileTo="/session"
+      onLogout={() =>
+        void logout().then((result) => {
+          if (result !== 'redirecting') void navigate('/login', { replace: true });
+        })
+      }
+    />
+  );
+}
+
 // 화면 틀(2026-11-19 — 카페24 관리자·배민 주문접수 참고): 진한 남색 왼쪽 메뉴(묶음 아이콘 + 메뉴, 접으면 아이콘만),
 // 흰 머리줄(위치 · 통합 찾기 · 로그인 직원·역할), 연회색 본문은 넓은 화면을 다 쓴다.
 function Layout() {
@@ -119,10 +140,8 @@ function Layout() {
       }
       locationAside={
         session ? (
-          // 역할 — 칩 대신 조용한 작은 회색 글자 한 줄(2026-11-21 시뮬레이터 모양 — 정보는 그대로 보인다)
-          <span className="pm-roles" data-testid="header-roles" title="내 역할">
-            {session.roles.join(' · ')}
-          </span>
+          // 역할 — 조용한 작은 회색 글자(2026-11-21), 2026-11-23 통합 백오피스와 같은 공용 RoleText·한글 이름
+          <RoleText roles={session.roles.map((r) => m.roleName[r] ?? r)} />
         ) : undefined
       }
       banner={
@@ -142,14 +161,8 @@ function Layout() {
           {env.isMock && <span className="badge badge-accent badge-sm whitespace-nowrap">{m.mockBadge}</span>}
           <ThemeToggle />
           {session ? (
-            <>
-              <span className="text-xs" data-testid="operator">
-                <StaffName operatorId={session.subject} />
-              </span>
-              <NavLink to="/session" className="btn btn-ghost btn-xs">
-                {m.nav.session}
-              </NavLink>
-            </>
+            // 내 정보 메뉴(2026-11-23 — 통합 백오피스와 같은 공용 AccountMenu): 머리글자 + 이름, 누르면 사번·역할·내 정보·로그아웃
+            <RiderAccountMenu />
           ) : (
             <NavLink to="/login" className="btn btn-primary btn-xs">
               {m.nav.login}

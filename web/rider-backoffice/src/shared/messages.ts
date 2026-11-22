@@ -7,8 +7,10 @@ export const messages = {
   mockBadge: '목 데이터',
   ...uiMessages,
 
+  /** 역할 이름(2026-11-23 위치 줄·내 정보) — 모르는 코드는 그대로 */
+  roleName: { RIDER_OPS: '라이더 운영', CS_AGENT: '상담원', OPERATOR_ADMIN: '운영 관리자', MFC_SUPERVISOR: '센터 관리자', HR_ADMIN: '인사팀' } as Readonly<Record<string, string>>,
   nav: {
-    session: '내 세션',
+    session: '내 정보',
     login: '로그인',
     collapse: '메뉴 접기',
     expand: '메뉴 펼치기',
@@ -238,7 +240,7 @@ export const messages = {
   employeeLogin: employeeLoginMessages,
 
   session: {
-    title: '내 세션',
+    title: '내 정보',
     signOut: '로그아웃',
     current: '서버 세션',
     sessionId: '세션 ID',
