@@ -163,6 +163,17 @@ describe('라이더 상세 — 열린 제한 검토·컴플레인', () => {
     const q = new URL(view.sent.find((r) => new URL(r.url).pathname.endsWith('/delivery-help-requests'))!.url).searchParams;
     expect([q.get('riderId'), q.get('state'), q.get('sort')]).toEqual(['RD-7', 'ALL', 'NEWEST']);
   });
+
+  it('문의 — 이 라이더의 문의만 최근 순으로, 제목을 누르면 문의 대화로(case 0.32.0 R-11)', async () => {
+    const view = renderAt('/riders/RD-7', as.riderOps);
+    const rows = await screen.findAllByTestId('inquiry-row');
+    // 목: RD-7 의 문의는 INQ-1·INQ-4 둘(RD-8·RD-9 것은 빠진다)
+    expect(rows).toHaveLength(2);
+    expect(rows.map((r) => within(r).getAllByRole('link')[0]!.getAttribute('href')).sort()).toEqual(['/inquiries/INQ-1', '/inquiries/INQ-4']);
+    expect(screen.getByTestId('rider-summary')).toHaveTextContent('문의');
+    const q = new URL(view.sent.find((r) => new URL(r.url).pathname.endsWith('/inquiries') && new URL(r.url).searchParams.has('riderId'))!.url).searchParams;
+    expect(q.get('riderId')).toBe('RD-7');
+  });
 });
 
 describe('라이더 상세 — 정산계좌·동의', () => {

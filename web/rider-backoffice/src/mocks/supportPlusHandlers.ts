@@ -122,9 +122,10 @@ export const supportPlusHandlers = [
     if (!operator(request)) return unauthorized();
     const q = new URL(request.url).searchParams;
     const status = q.get('status');
-    const one = { inquiryId: 'INQ-1', category: 'SETTLEMENT', title: '정산 문의', status: ops.inquiryStatus, createdAt: '2026-11-17T00:30:00.000Z', answeredAt: null, requesterType: 'RIDER', version: 1 };
-    const extra = EXTRA_INQUIRIES.map((x) => ({ inquiryId: x.inquiryId, category: x.category, title: x.title, status: x.status, createdAt: x.createdAt, answeredAt: x.answeredAt, requesterType: 'RIDER', version: 1 }));
-    const all = [one, ...extra].filter((x) => !status || x.status === status).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    const riderId = q.get('riderId'); // case 0.32.0 R-11 — 라이더 상세 "문의"
+    const one = { inquiryId: 'INQ-1', riderId: 'RD-7', category: 'SETTLEMENT', title: '정산 문의', status: ops.inquiryStatus, createdAt: '2026-11-17T00:30:00.000Z', answeredAt: null, requesterType: 'RIDER', version: 1 };
+    const extra = EXTRA_INQUIRIES.map((x) => ({ inquiryId: x.inquiryId, riderId: x.riderId, category: x.category, title: x.title, status: x.status, createdAt: x.createdAt, answeredAt: x.answeredAt, requesterType: 'RIDER', version: 1 }));
+    const all = [one, ...extra].filter((x) => (!status || x.status === status) && (!riderId || x.riderId === riderId)).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
     return HttpResponse.json(page(all, q));
   }),
   http.get(`${API_BASE}/inquiries/:inquiryId/messages`, ({ request, params }) => {

@@ -421,6 +421,7 @@ function RiderDetailPage() {
   const reviews = useOpenReviews(riderId, canAct);
   const complaints = useComplaints(riderId);
   const helps = useHelpHistory(riderId);
+  const inquiries = useInquiryHistory(riderId);
   // 탈퇴한 라이더는 제한 이력을 부르지 않는다(서버 404 — 전과 같음)
   const restrictions = useRestrictionHistory(riderId, canAct);
   const tabs = [
@@ -431,6 +432,7 @@ function RiderDetailPage() {
     { id: 'sec-assignments', label: rm.tabs.assignments },
     { id: 'sec-complaints', label: rm.tabs.complaints },
     { id: 'sec-helps', label: rm.tabs.helps },
+    { id: 'sec-inquiries', label: rm.tabs.inquiries },
     { id: 'sec-reviews', label: rm.tabs.reviews },
     { id: 'sec-restriction', label: rm.tabs.restriction },
   ];
@@ -442,6 +444,9 @@ function RiderDetailPage() {
   const helpItems = helps.data?.pages.flatMap((p) => p.items ?? []) ?? [];
   const helpOpen = helpItems.filter((it) => it.state !== 'RESOLVED').length;
   const helpCount = `${helpItems.length}건${helps.hasNextPage ? ' 이상' : ''}`;
+  const inquiryItems = inquiries.data?.pages.flatMap((p) => p.items ?? []) ?? [];
+  const inquiryWaiting = inquiryItems.filter((it) => it.status === 'RECEIVED').length;
+  const inquiryCount = `${inquiryItems.length}건${inquiries.hasNextPage ? ' 이상' : ''}`;
   const reviewItems = reviews.data?.items ?? [];
   const restrictionItems = restrictions.data?.items ?? [];
   /** 요약 값 — 읽는 중 "…", 못 읽음 "?"(0 이 아님) */
@@ -481,6 +486,7 @@ function RiderDetailPage() {
           canAct && [rm.tabs.reviews, v(reviews, () => `${reviewItems.length}건`)],
           [rm.tabs.complaints, complaints.data ? `${complaintItems.length}건${complaints.hasNextPage ? ' 이상' : ''}` : complaints.isError ? ui.strip.unknown : ui.strip.loading],
           [rm.tabs.helps, helps.data ? (helpOpen > 0 ? `${helpCount}(${rm.helps.open(helpOpen)})` : helpCount) : helps.isError ? ui.strip.unknown : ui.strip.loading],
+          [rm.tabs.inquiries, inquiries.data ? (inquiryWaiting > 0 ? `${inquiryCount}(${rm.inquiries.waiting(inquiryWaiting)})` : inquiryCount) : inquiries.isError ? ui.strip.unknown : ui.strip.loading],
         ]}
       />
       <SystemIds ids={[[rm.systemRiderId, riderId]]} />
@@ -600,6 +606,16 @@ function RiderDetailPage() {
             empty={helps.isSuccess && helpItems.length === 0}
           >
             <HelpHistory riderId={riderId} />
+          </ViewSection>
+          <ViewSection
+            id="sec-inquiries"
+            icon={<Icon name="list" className="h-4 w-4" />}
+            title={rm.tabs.inquiries}
+            info={rm.inquiries.intro}
+            summary={inquiries.data ? (inquiryItems.length === 0 ? rm.inquiries.empty : inquiryWaiting > 0 ? `${inquiryCount} · ${rm.inquiries.waiting(inquiryWaiting)}` : inquiryCount) : undefined}
+            empty={inquiries.isSuccess && inquiryItems.length === 0}
+          >
+            <InquiryHistory riderId={riderId} />
           </ViewSection>
           {canAct && (
           <ViewSection
@@ -1234,6 +1250,76 @@ function useHelpHistory(riderId: string) {
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (last) => last.page?.nextCursor ?? undefined,
   });
+}
+
+/** 이 라이더 문의 — case `GET /inquiries?riderId=`(0.32.0 R-11, 최근 접수 순, cursor). 탈퇴한 라이더 것도 그대로. */
+function useInquiryHistory(riderId: string) {
+  const api = useApi();
+  return useInfiniteQuery({
+    queryKey: ['rider-inquiries', 'rider', riderId],
+    queryFn: ({ pageParam }) =>
+      request('GET', api.cases.GET('/inquiries', { params: { query: { riderId, size: PAGE_SIZE, ...(pageParam ? { cursor: pageParam } : {}) } } })),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (last) => last.page?.nextCursor ?? undefined,
+  });
+}
+
+/** 문의 기록 표 — 제목을 누르면 문의 대화(`/inquiries/{inquiryId}`). */
+function InquiryHistory({ riderId }: { readonly riderId: string }) {
+  const c = rm.inquiries;
+  const query = useInquiryHistory(riderId);
+  const items = query.data?.pages.flatMap((p) => p.items ?? []) ?? [];
+  if (query.isPending) return <QueryState state={{ kind: 'loading' }}>{() => null}</QueryState>;
+  if (query.isError && items.length === 0) {
+    return (
+      <QueryState state={toUiState(query)} onRetry={() => void query.refetch()}>
+        {() => null}
+      </QueryState>
+    );
+  }
+  if (items.length === 0) return <p className="text-sm text-base-content/60">{c.empty}</p>;
+  return (
+    <div className="space-y-3">
+      <ResultBar count={items.length} more={query.hasNextPage} />
+      <DataTable testId="rider-inquiries">
+        <thead>
+          <tr>
+            <th>{c.col.title}</th>
+            <th>{c.col.category}</th>
+            <th>{c.col.status}</th>
+            <th>{c.col.createdAt}</th>
+            <th>{c.col.answeredAt}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {items.map((it) => (
+            <tr key={it.inquiryId} data-testid="inquiry-row">
+              <td>
+                <Link className="link link-hover text-primary" to={`/inquiries/${encodeURIComponent(it.inquiryId)}`}>
+                  {it.inquiryNumber ? <span className="mr-1 font-mono text-xs text-base-content/60">{it.inquiryNumber}</span> : null}
+                  {it.title ?? label(n.inquiryCategory, it.category)}
+                </Link>
+              </td>
+              <td>{label(n.inquiryCategory, it.category)}</td>
+              <td>
+                <StatusBadge tone={it.status === 'RECEIVED' ? 'warning' : it.status === 'CLOSED' ? 'ghost' : 'info'}>{label(ops.inquiries.statusName, it.status)}</StatusBadge>
+              </td>
+              <td className="whitespace-nowrap">{when(it.createdAt)}</td>
+              <td className="whitespace-nowrap">{it.answeredAt ? when(it.answeredAt) : none}</td>
+            </tr>
+          ))}
+        </tbody>
+      </DataTable>
+      {query.isError && <Notice tone="warning">{rm.complaints.moreFailed}</Notice>}
+      {query.hasNextPage && (
+        <div className="flex justify-center">
+          <button type="button" className="btn btn-sm border-base-300 bg-base-100" disabled={query.isFetchingNextPage} onClick={() => void query.fetchNextPage()}>
+            {rm.complaints.more}
+          </button>
+        </div>
+      )}
+    </div>
+  );
 }
 
 /** 도움요청 기록 표 — 종류를 누르면 지원센터 대화(`/help-requests/{deliveryId}/{requestId}`). */

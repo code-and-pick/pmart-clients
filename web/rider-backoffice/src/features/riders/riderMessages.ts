@@ -29,7 +29,7 @@ export const riderMessages = {
     requestedBy: { RIDER: '라이더', STORE_STAFF: '매장', OPERATOR: '운영자', ORCHESTRATION: '주문 처리' } as Readonly<Record<string, string>>,
     cancelReason: { RIDER_UNABLE: '라이더 사정', STORE_REQUEST: '매장 요청', ORDER_CANCELLED: '주문 취소', NO_SHOW: '라이더 미도착', OPERATOR: '운영 판단' } as Readonly<Record<string, string>>,
   },
-  tabs: { info: '기본 정보', account: '정산계좌·동의', time: '운행시간', earnings: '수행료', assignments: '배정 이력', restriction: '계정 제한', reviews: '제한 검토', complaints: '컴플레인', helps: '도움요청' },
+  tabs: { info: '기본 정보', account: '정산계좌·동의', time: '운행시간', earnings: '수행료', assignments: '배정 이력', restriction: '계정 제한', reviews: '제한 검토', complaints: '컴플레인', helps: '도움요청', inquiries: '문의' },
   restrictionAside: '바꾸면 이력이 남아요',
   reviewsCount: (n: number) => `${n}건`,
   // 기본 백오피스에서 옮겨 온 것(2026-11-18, ADR-0068 — PC 2 요청): 수단 거르기·정렬, 제한 검토 상태 탭, 상세의 열린 검토·컴플레인
@@ -64,5 +64,12 @@ export const riderMessages = {
     empty: '도움요청 기록이 없어요.',
     col: { category: '종류', delivery: '배송', stage: '보낸 단계', state: '상태', createdAt: '접수시점', resolvedAt: '완료시점' },
     open: (n: number) => `열림 ${n}`,
+  },
+  // 라이더 문의(case 0.32.0 R-11 — 2026-11-21 사용자 "응", 2026-11-23 배포)
+  inquiries: {
+    intro: '이 라이더가 앱에서 남긴 문의예요(최근 접수 순, 모든 상태). 제목을 누르면 문의 대화로 가요.',
+    empty: '문의 기록이 없어요.',
+    col: { title: '제목', category: '종류', status: '상태', createdAt: '접수시점', answeredAt: '답변시점' },
+    waiting: (n: number) => `답 기다림 ${n}`,
   },
 } as const;
