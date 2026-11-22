@@ -49,8 +49,8 @@ const row = (n: number, extra: Partial<Row>): Row => ({
   promisedAt: '2099-01-01T02:00:00.000Z',
   openCases: [],
   orderNumber: `7493925${n}`,
-  deliveryNumber: `7493925${n}-1`,
-  riderNumber: `48291${n}`,
+  deliveryNumber: `D7493925${n}`,
+  riderNumber: `R478${n}`,
   riderName: '김*수',
   ...extra,
 });

@@ -481,7 +481,7 @@ export const messages = {
     recordSection: '기록',
   },
 
-  /** 화면 번호(ADR-0070, bff 0.14.0) — 주문 8자리·배송 "주문번호-순번"·라이더 가린 이름 + 번호 */
+  /** 화면 번호(ADR-0070, bff 0.14.0 · ADR-0085 2026-11-22) — 주문 8자리·배송 D+주문번호(-순번)·라이더 R+4자리 */
   displayNumber: {
     /** 직원 표시(ADR-0070 덧붙임 2026-11-19) */
     staffFailed: '직원 · 확인 불가',
@@ -1212,13 +1212,13 @@ export const messages = {
     recent: '최근 본 것 바로 열기',
     deliveryFormats: [
       { what: '주문번호', shape: '숫자 8자리' },
-      { what: '라이더 번호', shape: '숫자 6자리' },
+      { what: '라이더 번호', shape: 'R + 숫자 4자리' },
       { what: '주문·라이더 ID', shape: 'ORD-… / RID-…' },
-      { what: '배송 번호로 바로 열기', shape: '숫자 8자리-순번' },
+      { what: '배송 번호로 바로 열기', shape: 'D + 숫자 8자리' },
     ] as const,
     lookupFormats: [
       { what: '주문번호', shape: '숫자 8자리' },
-      { what: '배송 번호', shape: '숫자 8자리-순번' },
+      { what: '배송 번호', shape: 'D + 숫자 8자리' },
       { what: '접수 건·고객', shape: 'CASE-… / CUS-…' },
       { what: '그 밖의 ID', shape: '그대로 붙여 넣기' },
     ] as const,
@@ -1292,8 +1292,8 @@ export const messages = {
     loading: '번호로 찾는 중…',
     notFound: (kind: string, v: string) => `${kind} ${v} 을(를) 찾지 못했어요 — 번호를 확인해 주세요`,
     failed: '번호로 찾지 못했어요(조회 실패) — 잠시 뒤 다시 하거나 시스템 ID 를 넣어 주세요',
-    deliveryHint: '배송 번호(예 74939255-1) 또는 배송 ID',
-    riderHint: '라이더 번호(6자리) 또는 라이더 ID',
+    deliveryHint: '배송 번호(예 D74939255) 또는 배송 ID',
+    riderHint: '라이더 번호(예 R4785) 또는 라이더 ID',
   },
   preview: {
     resize: '끌어서 높이 바꾸기',
@@ -1581,7 +1581,7 @@ export const messages = {
     intro: '주문번호·라이더 번호(또는 ID)·상태로 배송을 찾거나 배송 번호로 바로 열어요. 상세는 배송 수행과 배차를 따로 읽어요(가져온 곳이 달라요).',
     search: '찾기',
     orderIdFilter: '주문번호(8자리) 또는 주문 ID',
-    riderIdFilter: '라이더 번호(6자리) 또는 라이더 ID',
+    riderIdFilter: '라이더 번호(예 R4785) 또는 라이더 ID',
     stateFilter: '상태',
     any: '전체',
     failureQueue: '전달 실패 확정 대기',

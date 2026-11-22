@@ -77,26 +77,40 @@ export async function orderIdOfNumber(api: ReturnType<typeof useApi>, orderNumbe
   return r.items[0]?.orderId ?? null;
 }
 
-/** 화면 라이더 번호(6자리) → 라이더 ID. 없으면 null */
+/** 화면 라이더 번호(R4785 — ADR-0085, 서버가 R4785·r4785·4785 를 같게 봄) → 라이더 ID. 없으면 null */
 export async function riderIdOfNumber(api: ReturnType<typeof useApi>, riderNumber: string): Promise<string | null> {
   const r = await request('GET', api.riders.GET('/riders', { params: { query: { riderNumber, size: 1 } } }));
   return r.items?.[0]?.riderId ?? null;
 }
 
 export const isOrderNumber = (v: string) => /^\d{8}$/.test(v.replace(/[\s-]/g, ''));
-export const isRiderNumber = (v: string) => /^[1-9]\d{5}$/.test(v.trim());
+/** 라이더 번호(ADR-0085 2026-11-22): R + 4자리(드물게 5자리). R 없이 숫자만 넣어도 된다 */
+export const isRiderNumber = (v: string) => /^[Rr]?\d{4,5}$/.test(v.trim());
 
-/** 화면 배송 번호(주문번호 8자리-순번, 예 74939255-1) */
-export const isDeliveryNumber = (v: string) => /^\d{8}-\d{1,3}$/.test(v.trim());
+/**
+ * 화면 배송 번호(ADR-0085 2026-11-22): D + 주문번호 8자리, 같은 주문 두 번째 배송부터 -순번(D74939255, D74939255-2).
+ * D·순번 없이 넣어도 되고(순번 없음 = 1), 예전 모양(74939255-1)도 같게 읽는다. 서버 orderNumber 는 숫자 8자리만 받는다.
+ */
+export function parseDeliveryNumber(v: string | null | undefined): { readonly orderNumber: string; readonly seq: number; readonly marked: boolean } | null {
+  const x = /^([Dd])?(\d{8})(?:-(\d{1,3}))?$/.exec((v ?? '').replace(/\s/g, ''));
+  return x ? { orderNumber: x[2]!, seq: x[3] ? Number(x[3]) : 1, marked: Boolean(x[1] || x[3]) } : null;
+}
+export const isDeliveryNumber = (v: string) => parseDeliveryNumber(v) !== null;
 
 /**
  * 화면 배송 번호 → 배송 ID(2026-11-19 사용자 "난수 ID 를 일일이 확인 안 하고 불러올 방법"). 새 API 없이:
  * execution `GET /deliveries?orderNumber=` 로 그 주문의 배송들을 받아 deliveryNumber 가 같은 것. 없으면 null.
  */
 export async function deliveryIdOfNumber(api: ReturnType<typeof useApi>, deliveryNumber: string): Promise<string | null> {
-  const v = deliveryNumber.trim();
-  const r = await request('GET', api.execution.GET('/deliveries', { params: { query: { orderNumber: v.slice(0, 8), size: 50 } } }));
-  return (r.items ?? []).find((d) => d.deliveryNumber === v)?.deliveryId ?? null;
+  const want = parseDeliveryNumber(deliveryNumber);
+  if (!want) return null;
+  const r = await request('GET', api.execution.GET('/deliveries', { params: { query: { orderNumber: want.orderNumber, size: 50 } } }));
+  return (
+    (r.items ?? []).find((d) => {
+      const got = parseDeliveryNumber(d.deliveryNumber);
+      return got?.orderNumber === want.orderNumber && got.seq === want.seq;
+    })?.deliveryId ?? null
+  );
 }
 
 export type RefKind = 'delivery' | 'rider' | 'order' | 'case';

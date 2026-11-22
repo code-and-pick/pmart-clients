@@ -46,7 +46,7 @@ const order1001: readonly MockMatch[] = [
     kind: 'DELIVERY',
     id: 'DLV-MOCK-1',
     system: 'delivery-execution-service',
-    summary: { deliveryId: 'DLV-MOCK-1', deliveryNumber: '74939255-1', orderNumber: '74939255', type: 'ORDER', state: 'IN_TRANSIT', riderId: 'RID-MOCK-1', mfcId: 'MFC-BSN-01', assignedAt: '2026-11-16T00:40:00.000Z', pickedUpAt: '2026-11-16T00:50:00.000Z', completedAt: null },
+    summary: { deliveryId: 'DLV-MOCK-1', deliveryNumber: 'D74939255', orderNumber: '74939255', type: 'ORDER', state: 'IN_TRANSIT', riderId: 'RID-MOCK-1', mfcId: 'MFC-BSN-01', assignedAt: '2026-11-16T00:40:00.000Z', pickedUpAt: '2026-11-16T00:50:00.000Z', completedAt: null },
   },
   {
     kind: 'DISPATCH',

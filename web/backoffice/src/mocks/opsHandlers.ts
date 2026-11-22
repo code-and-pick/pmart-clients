@@ -126,7 +126,7 @@ function execution(deliveryId: string, orderId: string, state: ExecutionC['schem
     deliveryId,
     orderId,
     orderNumber,
-    deliveryNumber: orderNumber && DELIVERY_SEQ[deliveryId] ? `${orderNumber}-${DELIVERY_SEQ[deliveryId]}` : null,
+    deliveryNumber: orderNumber && DELIVERY_SEQ[deliveryId] ? `D${orderNumber}${DELIVERY_SEQ[deliveryId] > 1 ? `-${DELIVERY_SEQ[deliveryId]}` : ''}` : null, // ADR-0085
     mfcId: 'MFC-BSN-01',
     type: 'FORWARD',
     state,
@@ -424,7 +424,7 @@ const MAX_DAYS = 31;
 
 /** rider 0.4.0 목 라이더(직원 찾기·상세·원문 열람). 계정 제한 상태·version 은 ops.riders 와 같은 값 */
 const RIDER_PROFILES = [
-  { riderId: 'RID-MOCK-1', riderNumber: '482913', name: '김라이더', phone: '01011112222', vehicleType: 'MOTORCYCLE' as const, operatingStatus: 'ON_DUTY' as const, newDispatchEnabled: true, operatingMfcId: 'MFC-BSN-01', joinedAt: '2026-10-01T00:00:00Z', lastHeartbeatAt: '2026-11-15T01:00:00Z' },
+  { riderId: 'RID-MOCK-1', riderNumber: 'R4785', name: '김라이더', phone: '01011112222', vehicleType: 'MOTORCYCLE' as const, operatingStatus: 'ON_DUTY' as const, newDispatchEnabled: true, operatingMfcId: 'MFC-BSN-01', joinedAt: '2026-10-01T00:00:00Z', lastHeartbeatAt: '2026-11-15T01:00:00Z' },
   { riderId: 'RID-MOCK-2', riderNumber: null as string | null, name: '이라이더', phone: '01033334444', vehicleType: 'BICYCLE' as const, operatingStatus: 'OFF_DUTY' as const, newDispatchEnabled: false, operatingMfcId: null, joinedAt: '2026-10-10T00:00:00Z', lastHeartbeatAt: null },
 ];
 
@@ -1083,8 +1083,8 @@ export const opsHandlers = [
     const items = RIDER_PROFILES.filter(
       (r) =>
         (!q.get('riderId') || r.riderId === q.get('riderId')) &&
-        // rider 0.12.0: 번호 완전 일치, 여러 ID(쉼표 50개까지)
-        (!q.get('riderNumber') || r.riderNumber === q.get('riderNumber')) &&
+        // rider 0.12.0: 번호 일치(0.21.0 — R4785·r4785·4785 같게), 여러 ID(쉼표 50개까지)
+        (!q.get('riderNumber') || r.riderNumber === `R${(q.get('riderNumber') ?? '').replace(/^[Rr]/, '')}`) &&
         (!q.get('riderIds') || (q.get('riderIds') ?? '').split(',').includes(r.riderId)) &&
         (!phone || r.phone === phone) &&
         (!q.get('restriction') || (ops.riders.get(r.riderId)?.current ?? 'NORMAL') === q.get('restriction')) &&

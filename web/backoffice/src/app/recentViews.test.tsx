@@ -28,7 +28,7 @@ describe('최근 본 항목', () => {
     await screen.findByTestId('execution-panel');
     await user.click(screen.getByRole('link', { name: '통합 조회' }));
     const guide = await screen.findByTestId('start-guide');
-    expect(within(guide).getByRole('link', { name: /배송.*74939001-1/ })).toHaveAttribute('href', '/deliveries/DLV-MOCK-1');
+    expect(within(guide).getByRole('link', { name: /배송.*D74939001/ })).toHaveAttribute('href', '/deliveries/DLV-MOCK-1');
   });
 
   it('직원마다 따로 — 다른 직원으로 들어오면 남의 목록이 보이지 않는다', async () => {

@@ -277,23 +277,23 @@ const LINKED_STATE: Readonly<Record<string, string>> = {
   'ORD-MOCK-1004': 'PAYMENT_PENDING',
 };
 
-/** bff 0.14.0 화면 번호 목(ADR-0070): 배송 "주문번호-순번"·주문 8자리. 표에 없는 ID 는 번호 전(null). */
+/** bff 0.14.0 화면 번호 목(ADR-0070·0085): 배송 D+주문번호(-순번)·주문 8자리. 표에 없는 ID 는 번호 전(null). */
 const DISPLAY_NUMBER: Readonly<Record<string, string>> = {
-  'DLV-MOCK-1': '74939255-1',
-  'DLV-MOCK-2': '74939256-1',
-  'DLV-MOCK-3': '74939257-1',
-  'DLV-MOCK-4': '74939258-1',
-  'DLV-MOCK-R1': '74939258-2',
-  'DLV-MOCK-S1': '74939258-3',
+  'DLV-MOCK-1': 'D74939255',
+  'DLV-MOCK-2': 'D74939256',
+  'DLV-MOCK-3': 'D74939257',
+  'DLV-MOCK-4': 'D74939258',
+  'DLV-MOCK-R1': 'D74939258-2',
+  'DLV-MOCK-S1': 'D74939258-3',
   'ORD-MOCK-1001': '74939255',
   'ORD-MOCK-1002': '74939256',
   'ORD-MOCK-1003': '74939258',
   'ORD-MOCK-1004': '74939259',
 };
 /** 배송의 주문번호(execution orderSummary.orderNumber) */
-const ORDER_NUMBER_OF_DELIVERY = (id: string) => DISPLAY_NUMBER[id]?.split('-')[0] ?? null;
+const ORDER_NUMBER_OF_DELIVERY = (id: string) => DISPLAY_NUMBER[id]?.replace(/^D/, '').split('-')[0] ?? null;
 /** rider-service 목 — RID-MOCK-2 는 탈퇴처럼 못 찾음(번호·이름 null) */
-const RIDER_DISPLAY: Readonly<Record<string, { riderNumber: string; nameMasked: string }>> = { 'RID-MOCK-1': { riderNumber: '482913', nameMasked: '김*수' } };
+const RIDER_DISPLAY: Readonly<Record<string, { riderNumber: string; nameMasked: string }>> = { 'RID-MOCK-1': { riderNumber: 'R4785', nameMasked: '김*수' } };
 
 export const caseHandlers = [
   // bff 0.5.0 사건함 — case 목록 + 연결 배송·주문의 지금 상태. 주문을 못 보는 역할(RIDER_OPS 만)은 주문 칸 UNKNOWN + unavailableSources order-service.

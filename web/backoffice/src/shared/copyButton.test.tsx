@@ -10,9 +10,9 @@ describe('번호 복사', () => {
   it('배송 상세 제목 옆 — 화면 배송 번호를 복사하고 "복사했어요"', async () => {
     const user = userEvent.setup(); // 시험용 클립보드
     renderAt('/deliveries/DLV-MOCK-1', as.csRider);
-    await screen.findByText('74939001-1');
-    await user.click(screen.getByRole('button', { name: '74939001-1 복사' }));
-    expect(await navigator.clipboard.readText()).toBe('74939001-1');
+    await screen.findByText('D74939001');
+    await user.click(screen.getByRole('button', { name: 'D74939001 복사' }));
+    expect(await navigator.clipboard.readText()).toBe('D74939001');
     expect(screen.getAllByRole('status').some((s) => s.textContent === '복사했어요')).toBe(true);
   });
 

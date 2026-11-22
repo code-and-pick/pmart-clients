@@ -100,7 +100,7 @@ describe('목록 번호는 bff 화면 조회 한 번으로(2026-11-19 백엔드 
 describe('라이더 컴플레인 종류별 수(case 0.26.0)', () => {
   it('종류마다 칸, 누르면 그 종류로 거르고 강조, 거르기 조건(라이더 등)은 수에도 그대로', async () => {
     const user = userEvent.setup();
-    const view = renderAt('/rider-complaints?riderId=482913', as.riderOps);
+    const view = renderAt('/rider-complaints?riderId=R4785', as.riderOps);
     const strip = await screen.findByTestId('complaint-counts');
     await waitFor(() => expect(within(strip).getAllByRole('link').length).toBe(3));
     await waitFor(() => expect(within(strip).getByTestId('complaint-count-MISDELIVERY')).toHaveTextContent(/\d/));

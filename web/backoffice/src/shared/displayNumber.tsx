@@ -1,5 +1,6 @@
 // 화면 번호(ADR-0070, bff 0.14.0 — 백엔드 알림 backoffice/2026-11-18-notice-bff-display-numbers).
-// - 목록·표에는 화면 번호만: 주문 orderNumber(8자리), 배송 deliveryNumber("주문번호-순번"), 라이더 가린 이름 + 라이더 번호 6자리.
+// - 목록·표에는 화면 번호만: 주문 orderNumber(8자리), 배송 deliveryNumber(D74939255, 같은 주문 두 번째부터 -2), 라이더는 번호만(R4785) — 가린 이름은
+//   마우스를 올리면(title)·미리보기·상세에(ADR-0085, 사용자 2026-11-22 "R4785 만").
 // - 시스템 ID(orderId·deliveryId·riderId)는 링크 대상과 상세의 접힌 "시스템 번호" 칸에만 둔다.
 // - 화면 번호가 null(옛 기록·번호 전 주문)이면 "번호 없음"만(2026-11-19 ADR-0070 덧붙임 — 끝 8자리도 쓰지 않는다).
 // - 원천을 못 읽어 번호가 null 이면(라이더 = unavailableSources 에 rider-service, 연결 주문 = 원천 UNKNOWN) "번호 없음"이 아니라 "번호 확인 불가"
@@ -39,13 +40,13 @@ export function DisplayNumber({ number, systemId, failed = false }: { readonly n
   return <Fallback systemId={systemId} failed={failed} />;
 }
 
-/** 라이더 한 칸 — "김*수 · 482913". 번호가 없으면 riderId 끝 8자리 + 번호 없음/확인 불가. 라이더가 없으면 부르는 쪽이 정한다. */
-export function RiderLabel({ rider, riderId, failed = false }: { readonly rider?: RiderDisplay | undefined; readonly riderId?: string | null | undefined; readonly failed?: boolean }) {
+/** 라이더 한 칸 — 목록·표는 "R4785" 만(가린 이름은 title), 미리보기·상세는 withName 으로 "김*수 · R4785". 번호가 없으면 번호 없음/확인 불가. 라이더가 없으면 부르는 쪽이 정한다. */
+export function RiderLabel({ rider, riderId, failed = false, withName = false }: { readonly rider?: RiderDisplay | undefined; readonly riderId?: string | null | undefined; readonly failed?: boolean; readonly withName?: boolean }) {
   const id = rider?.riderId ?? riderId ?? null;
   if (rider?.riderNumber)
     return (
-      <span data-testid="rider-label">
-        {rider.nameMasked ? `${rider.nameMasked} · ` : ''}
+      <span data-testid="rider-label" title={withName ? undefined : (rider.nameMasked ?? undefined)}>
+        {withName && rider.nameMasked ? `${rider.nameMasked} · ` : ''}
         <span className="font-mono">{rider.riderNumber}</span>
       </span>
     );

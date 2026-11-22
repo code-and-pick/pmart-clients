@@ -56,6 +56,6 @@ describe('배송 신고(case 0.16.0)', () => {
     expect(issue).toHaveTextContent('못 받음 · 배송');
     // 화면 배송 번호(ADR-0070) — 링크는 시스템 ID
     expect(within(issue).getByTestId('inquiry-delivery')).toHaveAttribute('href', '/deliveries/DLV-MOCK-1');
-    expect(await within(issue).findByText('74939001-1')).toBeInTheDocument();
+    expect(await within(issue).findByText('D74939001')).toBeInTheDocument();
   });
 });

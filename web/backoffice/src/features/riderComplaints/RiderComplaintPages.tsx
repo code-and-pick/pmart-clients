@@ -162,7 +162,7 @@ export function RiderComplaintTable({ riderId, deliveryId, complaintType, from, 
                   <ComplaintType type={c.complaintType} />
                   <PreviewFacts
                     rows={[
-                      [m.complaints.colRider, <RiderLabel key="r" rider={riders.get(c.riderId)} riderId={c.riderId} failed={riders.failed} />],
+                      [m.complaints.colRider, <RiderLabel key="r" rider={riders.get(c.riderId)} riderId={c.riderId} failed={riders.failed} withName />],
                       [m.complaints.colDelivery, <DisplayNumber key="d" number={deliveries.get(c.deliveryId)} systemId={c.deliveryId} failed={deliveries.failed(c.deliveryId)} />],
                       [m.complaints.colOrder, c.orderId ? <DisplayNumber key="o" number={orders.get(c.orderId)} systemId={c.orderId} failed={orders.failed(c.orderId)} /> : m.none],
                       [m.complaints.recordedBy, <Person key="p" id={c.recordedBy} />],

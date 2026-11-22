@@ -643,7 +643,7 @@ function DeliveryPreview({ deliveryId }: { readonly deliveryId: string }) {
           <PreviewFacts
             rows={[
               [m.deliveries.order, d.orderId ? <DisplayNumber key="o" number={d.orderNumber} systemId={d.orderId} /> : m.none],
-              [m.deliveries.rider, d.riderId ? <RiderLabel key="r" rider={riders.get(d.riderId)} riderId={d.riderId} failed={riders.failed} /> : m.deliveries.noAssignment],
+              [m.deliveries.rider, d.riderId ? <RiderLabel key="r" rider={riders.get(d.riderId)} riderId={d.riderId} failed={riders.failed} withName /> : m.deliveries.noAssignment],
               [m.deliveries.mfc, text(d.mfcId)],
               [m.deliveries.assignedAt, when(d.assignedAt)],
               [m.deliveries.completedAt, when(d.completedAt)],

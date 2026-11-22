@@ -104,7 +104,7 @@ describe('통합 조회', () => {
     // 요약 칸에는 시스템 ID 가 없다(접힌 칸에만)
     expect(within(order).getAllByText('ORD-MOCK-1001')).toHaveLength(1);
     const delivery = within(section('배송(수행)')).getByTestId('match-DELIVERY');
-    expect(within(delivery).getAllByTestId('display-number')[0]).toHaveTextContent('74939255-1');
+    expect(within(delivery).getAllByTestId('display-number')[0]).toHaveTextContent('D74939255');
     expect(within(delivery).getByTestId('system-numbers')).toHaveTextContent(/DLV-MOCK-1.*RID-MOCK-1/);
     expect(within(delivery).getAllByText('DLV-MOCK-1')).toHaveLength(1);
     expect(within(delivery).getAllByText('RID-MOCK-1')).toHaveLength(1);

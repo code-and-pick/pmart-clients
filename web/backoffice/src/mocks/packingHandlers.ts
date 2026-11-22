@@ -34,11 +34,11 @@ interface Row {
 }
 
 /** bff 0.14.0 화면 배송 번호(execution 값 흉내) — 표에 없는 배송은 null(번호 전) */
-const DELIVERY_NUMBER: Readonly<Record<string, string>> = { 'DLV-MOCK-24': '25111704-1' };
+const DELIVERY_NUMBER: Readonly<Record<string, string>> = { 'DLV-MOCK-24': 'D25111704' };
 /** rider-service 에서 읽는 라이더 번호·가린 이름(목) */
 const RIDERS: Readonly<Record<string, { riderNumber: string; nameMasked: string }>> = {
-  'RID-MOCK-1': { riderNumber: '482913', nameMasked: '김*수' },
-  'RID-MOCK-2': { riderNumber: '517204', nameMasked: '이*영' },
+  'RID-MOCK-1': { riderNumber: 'R4785', nameMasked: '김*수' },
+  'RID-MOCK-2': { riderNumber: 'R5172', nameMasked: '이*영' },
 };
 
 const rows: readonly Row[] = [

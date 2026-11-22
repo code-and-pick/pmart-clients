@@ -1,18 +1,17 @@
 // 머리줄 "번호로 바로 찾기"(2026-11-18 사용자 "UI 보충 — 추천 다"). Ctrl+K(맥 ⌘K) 로 어디서나 연다.
 // 번호 모양을 보고 그 화면으로 — 화면 번호(ADR-0070)는 계약에 있는 조회로 시스템 ID 를 찾아서 연다(새 API 없음):
 // - 8자리             → 주문(order `GET /orders/lookups?orderNumber=`)
-// - 8자리-순번         → 배송(execution `GET /deliveries?orderNumber=` 의 deliveryNumber 일치)
-// - 6자리(첫 자리 1~9) → 라이더(rider `GET /riders?riderNumber=`)
+// - D+8자리(-순번)     → 배송(execution `GET /deliveries?orderNumber=` 의 deliveryNumber 일치, ADR-0085 — 예전 8자리-순번도)
+// - R+4~5자리(R 없이도) → 라이더(rider `GET /riders?riderNumber=`)
 // - ORD-·DLV-·RID-·CLM-·INQ-·CASE- 로 시작 → 그 상세로 바로
 // - 그 밖(전화번호·고객 ID 등)  → 통합 조회(`/lookup?q=`)로 넘긴다 — 이 칸이 추측해 고르지 않는다
 // 찾지 못하면 "없음", 조회가 실패하면 "확인 못 함"으로 나눠 말한다(못 찾음 ≠ 실패). 입력값은 주소·로그에 남기지 않는다(통합 조회로 넘길 때만 그 화면 규칙대로).
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router';
 
-import { request } from '@pmart/web-core';
 import { useApi } from './ApiContext';
 import { messages as m } from '../shared/messages';
-import { orderIdOfNumber, riderIdOfNumber } from '../shared/numberLookups';
+import { deliveryIdOfNumber, isRiderNumber, orderIdOfNumber, parseDeliveryNumber, riderIdOfNumber } from '../shared/numberLookups';
 
 type Jump = { readonly kind: 'go'; readonly to: string } | { readonly kind: 'none'; readonly what: string };
 
@@ -30,17 +29,16 @@ export async function resolveJump(api: ReturnType<typeof useApi>, raw: string): 
   const v = raw.trim();
   const compact = v.replace(/\s/g, '');
   for (const [re, to] of PREFIX) if (re.test(v)) return { kind: 'go', to: to(v) };
-  const delivery = /^(\d{8})-(\d{1,3})$/.exec(compact);
-  if (delivery) {
-    const r = await request('GET', api.execution.GET('/deliveries', { params: { query: { orderNumber: delivery[1]!, size: 50 } } }));
-    const hit = (r.items ?? []).find((d) => d.deliveryNumber === compact);
-    return hit?.deliveryId ? { kind: 'go', to: `/deliveries/${encodeURIComponent(hit.deliveryId)}` } : { kind: 'none', what: m.quickJump.kindDelivery };
+  // 숫자 8자리만이면 주문 — 배송은 D 나 -순번이 붙은 것
+  if (parseDeliveryNumber(compact)?.marked) {
+    const id = await deliveryIdOfNumber(api, compact);
+    return id ? { kind: 'go', to: `/deliveries/${encodeURIComponent(id)}` } : { kind: 'none', what: m.quickJump.kindDelivery };
   }
   if (/^\d{8}$/.test(compact)) {
     const id = await orderIdOfNumber(api, compact);
     return id ? { kind: 'go', to: `/orders/${encodeURIComponent(id)}` } : { kind: 'none', what: m.quickJump.kindOrder };
   }
-  if (/^[1-9]\d{5}$/.test(compact)) {
+  if (isRiderNumber(compact)) {
     const id = await riderIdOfNumber(api, compact);
     return id ? { kind: 'go', to: `/riders/${encodeURIComponent(id)}` } : { kind: 'none', what: m.quickJump.kindRider };
   }

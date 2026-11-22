@@ -12,7 +12,7 @@ describe('배송 상세 — 배정 라이더 카드', () => {
   it('배정된 배송: 가린 이름·번호·가린 전화·운행·수단, 라이더 상세와 이 라이더의 배송 링크(원문 열람 버튼은 없음)', async () => {
     renderAt('/deliveries/DLV-MOCK-1', as.cs);
     const card = await screen.findByTestId('delivery-rider-card');
-    expect(await within(card).findByTestId('rider-card-name')).toHaveTextContent('김**더482913');
+    expect(await within(card).findByTestId('rider-card-name')).toHaveTextContent('김**더R4785');
     expect(card).toHaveTextContent('010****2222');
     expect(card).toHaveTextContent('운행 중');
     expect(card).toHaveTextContent('오토바이');

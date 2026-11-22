@@ -21,9 +21,9 @@ describe('지원센터 사건', () => {
     expect(list).toHaveLength(3);
     expect(list[0]).toHaveTextContent('라이더 도움요청');
     expect(within(list[0]!).getByText(/기한 넘김/)).toHaveAttribute('data-overdue', 'true');
-    expect(within(list[0]!).getByRole('link', { name: '배송 74939255-1' })).toHaveAttribute('href', '/deliveries/DLV-MOCK-1');
+    expect(within(list[0]!).getByRole('link', { name: '배송 D74939255' })).toHaveAttribute('href', '/deliveries/DLV-MOCK-1');
     expect(within(list[0]!).getByRole('link', { name: '주문 번호 확인 불가' })).toHaveAttribute('href', '/orders/ORD-MOCK-1001');
-    expect(within(list[0]!).getByRole('link', { name: '라이더 김*수 · 482913' })).toHaveAttribute('href', '/riders/RID-MOCK-1');
+    expect(within(list[0]!).getByRole('link', { name: '라이더 R4785' })).toHaveAttribute('href', '/riders/RID-MOCK-1');
     const q = inboxCalls(view.sent)[0]!;
     expect([q.get('unassigned'), q.get('size')]).toEqual(['true', '50']);
   });
@@ -291,7 +291,7 @@ describe('접수 건 목록 — 화면 번호(bff 0.14.0, ADR-0070)', () => {
     const help = list.find((r) => r.textContent?.includes('라이더 도움요청'))!;
     expect(within(help).getByRole('link', { name: '주문 74939255' })).toHaveAttribute('href', '/orders/ORD-MOCK-1001');
     // 배송 링크 글자는 화면 번호만(사고 refs incidentId 는 화면 번호 대상이 아니라 그대로)
-    expect(within(help).getByRole('link', { name: '배송 74939255-1' })).not.toHaveTextContent('DLV-MOCK-1');
+    expect(within(help).getByRole('link', { name: '배송 D74939255' })).not.toHaveTextContent('DLV-MOCK-1');
     expect(help).not.toHaveTextContent('ORD-MOCK-1001');
     expect(help).not.toHaveTextContent('RID-MOCK-1');
     // RID-MOCK-2 는 rider-service 에서 못 찾음(탈퇴 등) — 번호를 지어내지 않는다

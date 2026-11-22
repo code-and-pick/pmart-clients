@@ -186,7 +186,7 @@ describe('라이더 컴플레인', () => {
     await user.click(screen.getByRole('button', { name: '기록하기' }));
     await user.click(await screen.findByRole('link', { name: '기록한 컴플레인 보기' }));
     // 라이더는 화면 번호(ADR-0070) — 시스템 ID RID-MOCK-1 은 링크에만
-    expect(await within(await screen.findByTestId('complaint-detail')).findAllByText(/482913/)).not.toHaveLength(0);
+    expect(await within(await screen.findByTestId('complaint-detail')).findAllByText(/R4785/)).not.toHaveLength(0);
     expect(screen.getByTestId('complaint-note')).toHaveTextContent('상자가 찌그러짐');
 
     const [post] = view.mutations('/rider-complaints');
@@ -390,7 +390,7 @@ describe('라이더 상세(보기만 — 라이더 운영 묶음은 2026-11-18 �
     await user.click((await screen.findByRole('button', { name: '전달 실패 확정 대기' })));
     const rows = await screen.findAllByTestId('delivery-row');
     expect(rows).toHaveLength(1);
-    expect(rows[0]).toHaveTextContent('74939002-1'); // 화면 배송 번호(ADR-0070) — 시스템 ID DLV-MOCK-2 는 링크에만
+    expect(rows[0]).toHaveTextContent('D74939002'); // 화면 배송 번호(ADR-0070) — 시스템 ID DLV-MOCK-2 는 링크에만
     expect(within(rows[0]!).getAllByRole('link')[0]).toHaveAttribute('href', '/deliveries/DLV-MOCK-2');
     const get = view.sent.find((r) => new URL(r.url).pathname.endsWith('/deliveries'))!;
     expect(new URL(get.url).searchParams.get('state')).toBe('FAILURE_REPORTED');
@@ -401,7 +401,7 @@ describe('라이더 상세(보기만 — 라이더 운영 묶음은 2026-11-18 �
     renderAt('/orders/ORD-MOCK-1003', as.cs);
     const rows = await screen.findAllByTestId('delivery-row');
     // 화면 배송 번호, 번호가 없으면 ID 끝 8자리 + "번호 없음"(ADR-0070)
-    expect(rows.map((r) => within(r).getAllByRole('link')[0]!.textContent)).toEqual(expect.arrayContaining(['74939003-1', '번호 없음']));
+    expect(rows.map((r) => within(r).getAllByRole('link')[0]!.textContent)).toEqual(expect.arrayContaining(['D74939003', '번호 없음']));
   });
 
   it('도움요청 대기는 사건함으로 — 라이더 도움요청 사건 상세에 라이더가 쓴 내용', async () => {

@@ -15,7 +15,7 @@ describe('찾기 전 빈 화면', () => {
     await user.click(screen.getByRole('link', { name: '배송 번호 다시 넣기' }));
     const guide = await screen.findByTestId('start-guide');
     expect(within(guide).queryByRole('list', { name: '넣을 수 있는 번호' })).not.toBeInTheDocument();
-    expect(within(guide).getByRole('link', { name: /배송.*74939001-1/ })).toHaveAttribute('href', '/deliveries/DLV-MOCK-1');
+    expect(within(guide).getByRole('link', { name: /배송.*D74939001/ })).toHaveAttribute('href', '/deliveries/DLV-MOCK-1');
   });
 
   it('통합 조회: 본 것이 없으면 빈 상자도 그리지 않는다', async () => {

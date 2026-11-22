@@ -7,6 +7,7 @@ import { http, HttpResponse } from 'msw';
 
 import { API_BASE } from '../api/client';
 import { server } from '../test/server';
+import { isRiderNumber, parseDeliveryNumber } from '../shared/numberLookups';
 import { as, renderAt } from '../test/render';
 
 async function jump(text: string) {
@@ -18,9 +19,9 @@ async function jump(text: string) {
 }
 
 describe('번호로 바로 찾기', () => {
-  it('배송 번호(8자리-순번) → 배송 상세', async () => {
+  it('배송 번호(D+8자리, ADR-0085) → 배송 상세', async () => {
     renderAt('/', as.csRider);
-    await jump('74939001-1');
+    await jump('D74939001');
     expect(await screen.findByTestId('execution-panel')).toBeInTheDocument();
     expect(screen.getByTestId('page-title')).toHaveTextContent('배송·배차 확인');
   });
@@ -33,9 +34,9 @@ describe('번호로 바로 찾기', () => {
     expect((await screen.findAllByText(/ORD-MOCK-1003|74939003/)).length).toBeGreaterThan(0);
   });
 
-  it('라이더 번호(6자리) → 라이더 상세', async () => {
+  it('라이더 번호(R+4자리, ADR-0085) → 라이더 상세', async () => {
     renderAt('/', as.csRider);
-    await jump('482913');
+    await jump('R4785');
     expect(await screen.findByTestId('rider-ops-moved')).toBeInTheDocument();
   });
 
@@ -64,5 +65,26 @@ describe('번호로 바로 찾기', () => {
     const box = await screen.findByRole('textbox', { name: '번호로 바로 찾기' });
     fireEvent.keyDown(window, { key: 'k', ctrlKey: true });
     expect(box).toHaveFocus();
+  });
+});
+
+describe('짧은 화면 번호 모양(ADR-0085 2026-11-22)', () => {
+  it('라이더: R4785·r4785·4785·R48251 은 번호, 6자리 옛 번호·R123 은 아님', () => {
+    for (const v of ['R4785', 'r4785', '4785', 'R48251', ' R4785 ']) expect(isRiderNumber(v)).toBe(true);
+    for (const v of ['482913', 'R123', 'RID-MOCK-1', 'D74939255']) expect(isRiderNumber(v)).toBe(false);
+  });
+
+  it('배송: D 와 -순번을 떼어 주문번호 8자리·순번(없으면 1) — 예전 74939255-1 도 같은 배송, 숫자 8자리만은 주문으로', () => {
+    expect(parseDeliveryNumber('D74939255')).toEqual({ orderNumber: '74939255', seq: 1, marked: true });
+    expect(parseDeliveryNumber('d74939255-2')).toEqual({ orderNumber: '74939255', seq: 2, marked: true });
+    expect(parseDeliveryNumber('74939255-1')).toEqual({ orderNumber: '74939255', seq: 1, marked: true });
+    expect(parseDeliveryNumber('74939255')).toEqual({ orderNumber: '74939255', seq: 1, marked: false });
+    expect(parseDeliveryNumber('DLV-MOCK-1')).toBeNull();
+  });
+
+  it('바로 찾기: R 없이 숫자만 넣은 라이더 번호도 연다', async () => {
+    renderAt('/', as.csRider);
+    await jump('4785');
+    expect(await screen.findByTestId('rider-ops-moved')).toBeInTheDocument();
   });
 });

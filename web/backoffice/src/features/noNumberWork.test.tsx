@@ -32,9 +32,9 @@ describe('번호를 몰라도 찾아 고르기', () => {
     await user.click(within(picker).getByRole('tab', { name: '고객 연락처로' }));
     await user.type(within(picker).getByLabelText('고객(수령인) 연락처'), '010-1234-5678{Enter}');
     const row = (await within(picker).findAllByTestId('picker-row'))[0]!;
-    expect(row).toHaveTextContent('74939001-1');
+    expect(row).toHaveTextContent('D74939001');
     await user.click(row);
-    expect(screen.getByLabelText(/배송 번호/)).toHaveValue('74939001-1');
+    expect(screen.getByLabelText(/배송 번호/)).toHaveValue('D74939001');
     await waitFor(() => expect(screen.getByTestId('ref-status-delivery')).toHaveAttribute('data-state', 'found'));
     // 연락처는 주소창에 남지 않는다
     expect(view.sent.filter((r) => new URL(r.url).pathname.endsWith('/orders/lookups')).every((r) => new URL(r.url).searchParams.get('receiverPhone') === '01012345678')).toBe(true);
