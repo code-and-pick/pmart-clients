@@ -347,6 +347,21 @@
   "licenseFormat": "면허 번호 숫자 12자리를 모두 입력해 주세요",
   "menuInquiries": "지원센터 문의",
   "menuNotifications": "알림",
+  "menuArea": "배달 지역",
+  "areaChangeOnDuty": "운행을 종료한 뒤 배달 지역을 바꿀 수 있어요",
+  "areaChangeTitle": "배달 지역 바꾸기",
+  "areaChangeAsk": "배달 지역을 {name}(으)로 바꿀까요?\n바로 반영되고, 다음 운행부터 이 지점의 배차를 받아요.",
+  "@areaChangeAsk": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "areaChangeConfirm": "바꾸기",
+  "areaChangeDone": "배달 지역을 바꿨어요",
+  "areaChangeFailed": "배달 지역을 바꾸지 못했어요. 잠시 뒤 다시 해 주세요",
+  "areaChangeUnknown": "바뀌었는지 확인하지 못했어요. 마이페이지에서 배달 지역을 다시 확인해 주세요",
   "menuSupport": "지원센터",
   "supportCenterNote": "배송 중인 건은 배송 화면의 도움요청을 써 주세요.",
   "supportChat": "채팅 상담",

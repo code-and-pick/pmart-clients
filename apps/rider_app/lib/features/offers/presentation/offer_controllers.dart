@@ -182,7 +182,9 @@ class DutyController extends AsyncNotifier<OperatingState> {
             onDuty: onDuty,
             newDispatch: newDispatch,
             expectedVersion: current.version,
-            mfcId: current.mfcId,
+            // 운행을 새로 시작할 때는 비워 보낸다 — 서버가 배달 지역(한 곳)으로 정한다. 쉬는 동안 남은 mfcId 는
+            // 예전 운행 지점이라, 마이페이지에서 배달 지역을 바꾼 뒤에는 그대로 보내면 MFC_NOT_IN_AREAS 로 거절된다(2026-11-23).
+            mfcId: current.onDuty ? current.mfcId : null,
             key: IdempotencyKey.generate(),
           );
       if (!ref.mounted) return null;

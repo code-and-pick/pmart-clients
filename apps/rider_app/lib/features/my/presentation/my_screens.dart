@@ -14,6 +14,7 @@ import '../../offers/domain/offer_list.dart';
 import '../../offers/presentation/offer_controllers.dart';
 import '../data/profile.dart';
 import '../data/records.dart';
+import 'area_change.dart';
 
 /// 마이페이지. 레퍼런스의 친구초대·미션달성·오늘의 기록·명세서 발급은 PMart 업무 문서에 없는 기능이라 두지 않는다.
 class MyPageScreen extends ConsumerWidget {
@@ -26,6 +27,11 @@ class MyPageScreen extends ConsumerWidget {
     final l10n = AppLocalizations.of(context);
     final duty = ref.watch(dutyProvider).value;
     final today = ref.watch(todaySummaryProvider);
+    final profile = ref.watch(profileProvider);
+    // 쉬는 동안 운행 상태의 mfcId 는 예전 운행 지점이라, 배달 지역(내 정보)을 보인다.
+    final storeId = (duty?.onDuty ?? false)
+        ? duty?.mfcId
+        : profile.value?.deliveryAreaMfcId ?? duty?.mfcId;
     return Scaffold(
       appBar: AppBar(
         title: Text(l10n.myPage),
@@ -49,7 +55,7 @@ class MyPageScreen extends ConsumerWidget {
                     children: [
                       Text(
                         riderGreetingText(
-                          ref.watch(profileProvider).value?.name,
+                          profile.value?.name,
                           l10n.riderGreetingNamed,
                           l10n.riderGreeting,
                         ),
@@ -60,7 +66,7 @@ class MyPageScreen extends ConsumerWidget {
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        storeText(l10n, duty?.mfcId),
+                        storeText(l10n, storeId),
                         style: const TextStyle(
                           fontSize: 14,
                           color: RiderColors.ink,
@@ -171,6 +177,14 @@ class MyPageScreen extends ConsumerWidget {
                   icon: Icons.schedule,
                   label: l10n.menuTime,
                   onTap: () => context.push('/my/time'),
+                ),
+                // 배달 지역 바꾸기(사용자 2026-11-23) — 운행을 쉴 때만, 한 곳, 바로 반영.
+                MenuRow(
+                  key: const ValueKey('menu-area'),
+                  icon: Icons.place_outlined,
+                  label: l10n.menuArea,
+                  value: deliveryAreaText(l10n, profile),
+                  onTap: () => changeDeliveryArea(context, ref),
                 ),
                 // 지원센터: 배송과 상관없는 문의 + 소명·이의(사용자 2026-11-20 한 곳으로). 배송 건은 배송 화면의 도움요청.
                 MenuRow(

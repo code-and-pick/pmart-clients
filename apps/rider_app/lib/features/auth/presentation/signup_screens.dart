@@ -468,7 +468,7 @@ class _SignupFlowScreenState extends ConsumerState<SignupFlowScreen> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
-      builder: (_) => _AreaSheet(initial: _draft.area, areas: areas),
+      builder: (_) => AreaSheet(initial: _draft.area, areas: areas),
     );
     if (picked != null) _set(_draft.copyWith(area: picked));
   }
@@ -1097,17 +1097,17 @@ class _SelectBox extends StatelessWidget {
 }
 
 /// 배달 지역 고르기: 권역(충청·강원·전라·경상 — 2026-11-17) → 그 권역의 MFC 지점(레퍼런스의 두 단계 시트).
-class _AreaSheet extends StatefulWidget {
-  const _AreaSheet({this.initial, required this.areas});
+class AreaSheet extends StatefulWidget {
+  const AreaSheet({super.key, this.initial, required this.areas});
 
   final AreaOption? initial;
   final Map<MfcRegion, List<AreaOption>> areas;
 
   @override
-  State<_AreaSheet> createState() => _AreaSheetState();
+  State<AreaSheet> createState() => _AreaSheetState();
 }
 
-class _AreaSheetState extends State<_AreaSheet> {
+class _AreaSheetState extends State<AreaSheet> {
   late MfcRegion? _region = widget.initial?.region;
   late AreaOption? _branch = widget.initial;
   bool _second = false;
