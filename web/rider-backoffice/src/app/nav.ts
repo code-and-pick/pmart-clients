@@ -30,7 +30,8 @@ const done = (key: MenuKey, segment: string): MenuItem => ({ key, segment, ready
 
 // 2026-11-17(PC 5): 사용자 "추천대로 1~6번" — 대시보드·관제·라이더(찾기·가입 승인·제한 검토)·배송·지원센터(접수 건·도움요청·라이더 문의)·수행료(조정·추가 배달료).
 export const navGroups: readonly MenuGroup[] = [
-  { key: 'overview', items: [done('dashboard', 'dashboard')] },
+  // 2026-11-23: 운영 통계(사용자 "특히 2번이랑 4번" — execution 0.38.0·dispatch 0.16.0)
+  { key: 'overview', items: [done('dashboard', 'dashboard'), done('stats', 'stats')] },
   { key: 'control', items: [done('riderMap', 'control')] },
   { key: 'riders', items: [done('riders', 'riders'), done('signups', 'signups'), done('restrictionReviews', 'restriction-reviews'), done('withdrawals', 'withdrawals')] },
   { key: 'deliveries', items: [done('deliveries', 'deliveries')] },

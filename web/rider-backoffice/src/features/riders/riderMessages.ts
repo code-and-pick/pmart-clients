@@ -29,7 +29,7 @@ export const riderMessages = {
     requestedBy: { RIDER: '라이더', STORE_STAFF: '매장', OPERATOR: '운영자', ORCHESTRATION: '주문 처리' } as Readonly<Record<string, string>>,
     cancelReason: { RIDER_UNABLE: '라이더 사정', STORE_REQUEST: '매장 요청', ORDER_CANCELLED: '주문 취소', NO_SHOW: '라이더 미도착', OPERATOR: '운영 판단' } as Readonly<Record<string, string>>,
   },
-  tabs: { info: '기본 정보', account: '정산계좌·동의', time: '운행시간', earnings: '수행료', assignments: '배정 이력', restriction: '계정 제한', reviews: '제한 검토', complaints: '컴플레인', helps: '도움요청', inquiries: '문의' },
+  tabs: { info: '기본 정보', account: '정산계좌·동의', time: '운행시간', earnings: '수행료', assignments: '배정 이력', restriction: '계정 제한', reviews: '제한 검토', complaints: '컴플레인', helps: '도움요청', inquiries: '문의', performance: '성과' },
   restrictionAside: '바꾸면 이력이 남아요',
   reviewsCount: (n: number) => `${n}건`,
   // 기본 백오피스에서 옮겨 온 것(2026-11-18, ADR-0068 — PC 2 요청): 수단 거르기·정렬, 제한 검토 상태 탭, 상세의 열린 검토·컴플레인
@@ -64,6 +64,19 @@ export const riderMessages = {
     empty: '도움요청 기록이 없어요.',
     col: { category: '종류', delivery: '배송', stage: '보낸 단계', state: '상태', createdAt: '접수시점', resolvedAt: '완료시점' },
     open: (n: number) => `열림 ${n}`,
+  },
+  // 성과(2026-11-23 — execution 0.38.0 GET /delivery-metrics?riderId=, 최근 30일)
+  performance: {
+    intro: '최근 30일 이 라이더가 배정받은 고객 배송 기준이에요. 지연은 약속 시각 뒤 전달(고객 수령 확인·자동 완료는 빼요).',
+    empty: '최근 30일 배정된 배송이 없어요.',
+    deliveries: '배송',
+    completion: '완료율',
+    late: '지연율',
+    failed: '실패',
+    delivery: '평균 배송 소요',
+    pickupWait: '평균 픽업 대기',
+    summary: (n: number, c: string) => `${n}건 · 완료율 ${c}`,
+    all: '운영 통계에서 비교',
   },
   // 라이더 문의(case 0.32.0 R-11 — 2026-11-21 사용자 "응", 2026-11-23 배포)
   inquiries: {

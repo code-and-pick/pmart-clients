@@ -30,6 +30,7 @@ import { ops } from '../../shared/opsMessages';
 import { label, none, when, won } from '../../shared/opsUi';
 import { riderMessages as rm } from './riderMessages';
 import { helpTone } from '../support/supportUi';
+import { DAY, dur, seoulDate } from '../dashboard/analysisData';
 
 const r = ops.riders;
 const n = messages.names;
@@ -421,6 +422,7 @@ function RiderDetailPage() {
   const reviews = useOpenReviews(riderId, canAct);
   const complaints = useComplaints(riderId);
   const helps = useHelpHistory(riderId);
+  const perf = usePerformance(riderId);
   const inquiries = useInquiryHistory(riderId);
   // 탈퇴한 라이더는 제한 이력을 부르지 않는다(서버 404 — 전과 같음)
   const restrictions = useRestrictionHistory(riderId, canAct);
@@ -429,6 +431,7 @@ function RiderDetailPage() {
     { id: 'sec-account', label: rm.tabs.account },
     { id: 'sec-time', label: rm.tabs.time },
     { id: 'sec-earnings', label: rm.tabs.earnings },
+    { id: 'sec-performance', label: rm.tabs.performance },
     { id: 'sec-assignments', label: rm.tabs.assignments },
     { id: 'sec-complaints', label: rm.tabs.complaints },
     { id: 'sec-helps', label: rm.tabs.helps },
@@ -544,6 +547,30 @@ function RiderDetailPage() {
               </ViewSection>
             </div>
           </div>
+          <ViewSection
+            id="sec-performance"
+            icon={<Icon name="clock" className="h-4 w-4" />}
+            title={rm.tabs.performance}
+            info={rm.performance.intro}
+            summary={perf.data ? (perf.data.assigned === 0 ? rm.performance.empty : rm.performance.summary(perf.data.assigned, pctText(perf.data.completed, perf.data.completed + perf.data.failed))) : undefined}
+            empty={perf.isSuccess && perf.data.assigned === 0}
+          >
+            <QueryState state={toUiState(perf)} onRetry={() => void perf.refetch()}>
+              {(p) => (
+                <div className="space-y-2">
+                  <StatStrip label={rm.tabs.performance} testId="rider-performance">
+                    <StatCard layout="row" label={rm.performance.deliveries} value={`${p.assigned}건`} />
+                    <StatCard layout="row" label={rm.performance.completion} value={pctText(p.completed, p.completed + p.failed)} />
+                    <StatCard layout="row" label={rm.performance.late} value={pctText(p.late, p.judged)} />
+                    <StatCard layout="row" label={rm.performance.failed} value={`${p.failed}건`} />
+                    <StatCard layout="row" label={rm.performance.delivery} value={dur(p.delivery)} />
+                    <StatCard layout="row" label={rm.performance.pickupWait} value={dur(p.pickupWait)} />
+                  </StatStrip>
+                  <Link className="link link-hover text-xs" to="/stats">{rm.performance.all}</Link>
+                </div>
+              )}
+            </QueryState>
+          </ViewSection>
           <ViewSection
             id="sec-earnings"
             icon={<Icon name="won" className="h-4 w-4" />}
@@ -1249,6 +1276,44 @@ function useHelpHistory(riderId: string) {
       request('GET', api.execution.GET('/delivery-help-requests', { params: { query: { riderId, state: 'ALL', sort: 'NEWEST', size: PAGE_SIZE, ...(pageParam ? { cursor: pageParam } : {}) } } })),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (last) => last.page?.nextCursor ?? undefined,
+  });
+}
+
+const pctText = (num: number, den: number) => (den > 0 ? `${Math.round((num / den) * 1000) / 10}%` : '—');
+
+/** 최근 30일 성과 — execution `GET /delivery-metrics?riderId=`(0.38.0) 묶음을 더한다(평균은 건수로 가중). */
+function usePerformance(riderId: string) {
+  const api = useApi();
+  return useQuery({
+    queryKey: ['rider-performance', riderId],
+    queryFn: async () => {
+      const now = Date.now();
+      const to = seoulDate(now);
+      const from = seoulDate(now - 29 * DAY);
+      const r = await request('GET', api.execution.GET('/delivery-metrics', { params: { query: { riderId, from, to } } }));
+      const rows = r.rows ?? [];
+      const sum = (f: (x: (typeof rows)[number]) => number) => rows.reduce((a, x) => a + f(x), 0);
+      const wavg = (v: (x: (typeof rows)[number]) => number | null | undefined, w: (x: (typeof rows)[number]) => number) => {
+        let s = 0;
+        let k = 0;
+        for (const x of rows) {
+          const val = v(x);
+          if (val === null || val === undefined || w(x) <= 0) continue;
+          s += val * w(x);
+          k += w(x);
+        }
+        return k > 0 ? s / k : null;
+      };
+      return {
+        assigned: sum((x) => x.assigned),
+        completed: sum((x) => x.completed),
+        failed: sum((x) => x.failed),
+        late: sum((x) => x.late),
+        judged: sum((x) => x.judged),
+        delivery: wavg((x) => x.deliverySeconds, (x) => x.deliveryCount),
+        pickupWait: wavg((x) => x.pickupWaitSeconds, (x) => x.pickupWaitCount),
+      };
+    },
   });
 }
 

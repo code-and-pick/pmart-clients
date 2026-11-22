@@ -27,6 +27,7 @@ import { SimulatorLink } from '../shared/sim';
 import { DETAIL_BAR_SLOT } from '../shared/StickyTitle';
 import { ConnectionBanner, ThemeToggle, useDocumentTitle, useSlashToSearch } from './PageChrome';
 import { allMenus, hasRiderAppRole, isOperatorAdmin, menuPath, navGroups, visibleGroups, type GroupKey, type MenuItem } from './nav';
+import { StatsPage } from '../features/stats/StatsPage';
 import { CenterScopeProvider, HeaderCenterPicker } from './CenterScope';
 import { RequireSession, SessionProvider, useSession } from './SessionContext';
 
@@ -200,6 +201,8 @@ function MenuPage({ menu }: { readonly menu: MenuItem }) {
       return <DeliveriesMenu />;
     case 'dashboard':
       return <DashboardPage />;
+    case 'stats':
+      return <StatsPage />;
     case 'riderMap':
       return <ControlPage />;
     case 'riders':

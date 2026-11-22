@@ -27,6 +27,7 @@ export const messages = {
   },
   menus: {
     dashboard: '대시보드',
+    stats: '운영 통계',
     riderMap: '라이더 관제',
     riders: '라이더 관리',
     signups: '가입 승인',
