@@ -1,6 +1,6 @@
 // 목 모드 로그인(목 계정 버튼 → 목 티켓) — 티켓 교환부터는 실서버와 같은 코드(employee-auth-service).
 // 세션 복원·갱신(refresh 회전)·로그아웃을 목 서버로 끝까지 돌려 본다.
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it } from 'vitest';
 
@@ -60,7 +60,7 @@ describe('목 로그인 화면', () => {
     await clickAccount(user, /MD 김/);
 
     expect(await screen.findByRole('heading', { name: '상품 조회' })).toBeInTheDocument();
-    expect(await screen.findByRole('link', { name: '내 세션: [목] 김엠디 · P2026-00002' })).toBeInTheDocument(); // 운영자 ID 대신 이름 · 사번(ADR-0070 덧붙임)
+    expect(await screen.findByRole('button', { name: '[목] 김엠디 — 내 정보 메뉴' })).toBeInTheDocument(); // 운영자 ID 대신 이름 · 사번(ADR-0070 덧붙임)
 
     const post = rec.sent.find((r) => new URL(r.url).pathname.endsWith('/employee-auth/tokens'));
     expect(post?.headers.get('X-Source-System')).toBe('backoffice-web');
@@ -108,7 +108,7 @@ describe('목 로그인 화면', () => {
 
     expect(await screen.findByRole('heading', { name: '상품 조회' })).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: '운영자 로그인' })).not.toBeInTheDocument();
-    expect(await screen.findByRole('link', { name: '내 세션: [목] 김엠디 · P2026-00002' })).toBeInTheDocument(); // 운영자 ID 대신 이름 · 사번(ADR-0070 덧붙임)
+    expect(await screen.findByRole('button', { name: '[목] 김엠디 — 내 정보 메뉴' })).toBeInTheDocument(); // 운영자 ID 대신 이름 · 사번(ADR-0070 덧붙임)
     // refresh 는 회전된다(같은 값을 다시 쓰지 않는다).
     const rotated = (JSON.parse(sessionStorage.getItem(SESSION_STORAGE_KEY)!) as { refreshToken: string }).refreshToken;
     expect(rotated).not.toBe(savedRefresh);
@@ -122,14 +122,14 @@ describe('목 로그인 화면', () => {
     expect(sessionStorage.getItem(SESSION_STORAGE_KEY)).toBeNull();
   });
 
-  it('내 세션은 employee-auth 서버 세션을 보이고, 로그아웃하면 서버 세션을 끝내고 로그인 화면으로 간다', async () => {
+  it('내 정보는 employee-auth 서버 세션을 보이고, 로그아웃하면 서버 세션을 끝내고 로그인 화면으로 간다', async () => {
     const user = userEvent.setup();
     render(<App memory initialPath="/session" />);
     await clickAccount(user, /승인자 이/);
 
-    expect(await screen.findByRole('heading', { name: '내 세션' })).toBeInTheDocument();
-    expect(await screen.findByText('backoffice')).toBeInTheDocument();
-    expect(screen.getByText('PRODUCT_APPROVER, DISPLAY_APPROVER, PRICE_APPROVER')).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: '내 정보' })).toBeInTheDocument();
+    expect(await screen.findByText('통합 백오피스')).toBeInTheDocument();
+    expect(screen.getByText('상품 승인, 전시 승인, 가격 승인')).toBeInTheDocument(); // 역할은 한글 이름(2026-11-23)
     expect(screen.queryByRole('button', { name: '비밀번호 변경' })).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: '로그아웃' }));
 
@@ -208,5 +208,22 @@ describe('토큰 갱신(refresh 회전) — 목 서버', () => {
     const access = await refreshEmployeeTokens(api, store);
     const claims = JSON.parse(atob(access!.split('.')[1]!.replace(/-/g, '+').replace(/_/g, '/'))) as { roles: string[] };
     expect(claims.roles).toEqual(['MD', 'PRICE_APPROVER']);
+  });
+});
+
+describe('머리줄 내 정보 메뉴(2026-11-23)', () => {
+  it('누르면 이름·사번·역할과 "내 정보"·"로그아웃" — 운영자 ID 는 글자로 안 보인다, Esc 로 닫힘', async () => {
+    const user = userEvent.setup();
+    render(<App memory initialPath="/products" />);
+    await clickAccount(user, /MD 김/);
+    const trigger = await screen.findByRole('button', { name: '[목] 김엠디 — 내 정보 메뉴' });
+    await user.click(trigger);
+    const menu = screen.getByTestId('user-menu');
+    expect(menu).toHaveTextContent('P2026-00002');
+    expect(menu).toHaveTextContent('MD');
+    expect(menu).not.toHaveTextContent(/OP-/);
+    expect(within(menu).getByRole('menuitem', { name: '내 정보' })).toHaveAttribute('href', '/session');
+    await user.keyboard('{Escape}');
+    expect(screen.queryByTestId('user-menu')).not.toBeInTheDocument();
   });
 });

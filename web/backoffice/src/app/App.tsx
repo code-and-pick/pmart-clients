@@ -3,7 +3,6 @@ import { ContentsRedirect } from '../features/contents/ContentListPage';
 import { DETAIL_BAR_SLOT } from '../shared/StickyTitle';
 import { HelpPanelSlot, HelpProvider, HelpToggle } from '../shared/HelpPanel';
 import { ConnectionBanner, useDocumentTitle } from './PageChrome';
-import { useStaffText } from '../shared/employeeLabels';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AppLauncher, QueryState, UiTextProvider } from '@pmart/web-ui';
 import { lazy, Suspense, useEffect, useState, type ReactNode } from 'react';
@@ -21,6 +20,7 @@ import type { Api } from '../api/client';
 import { env } from '../env';
 import { useMenuCollapsed } from '../shared/sideMenu';
 import { QuickJump } from './QuickJump';
+import { UserMenu } from './UserMenu';
 import { CenterPicker, CenterScopeNote, CenterScopeProvider } from '../shared/centerScope';
 import { ShortcutHelp } from './ShortcutHelp';
 import { ThemeToggle } from './ThemeToggle';
@@ -228,8 +228,7 @@ function Layout() {
   // 메뉴 접기(2026-11-19) — 접으면 묶음 아이콘만(마우스를 올리면 이름, 누르면 그 묶음 첫 화면), 업무 알림 개수는 그대로
   const [collapsed, toggleMenu] = useMenuCollapsed();
   // 머리줄 내 세션 — 이름 · 사번(OP-… 대신, ADR-0070 덧붙임). 읽는 중·못 읽음은 "내 세션"만
-  const staff = useStaffText(signedIn && !restoring ? session?.subject : null); // 세션 복원이 끝난 뒤에만(복원 중에 부르면 401 → 토큰 갱신이 한 번 더)
-  const myName = staff && staff !== '…' && !staff.startsWith('직원 ·') ? staff : '';
+  const me = signedIn && !restoring ? (session?.subject ?? null) : null; // 이름은 세션 복원이 끝난 뒤에만(복원 중에 부르면 401 → 토큰 갱신이 한 번 더)
   const navigate = useNavigate();
   return (
     // 화면 틀(2026-11-20 AWS 개편 2단계, ADR-0004 · docs/apps/backoffice-ui-guide.md §2):
@@ -258,12 +257,8 @@ function Layout() {
             <ShortcutHelp />
             <ThemeToggle />
             {session ? (
-              <>
-                {/* 로그인 직원 — "내 세션: 직원 ID" 링크(로그인 시험이 이 이름으로 찾는다). 역할은 내 세션 화면에서 본다(머리줄에 두 번 보이지 않게) */}
-                <NavLink to="/session" className="btn btn-ghost btn-xs font-normal" data-testid="operator">
-                  {myName ? `${m.nav.session}: ${myName}` : m.nav.session}
-                </NavLink>
-              </>
+              // 내 정보(2026-11-23 "마이페이지처럼") — 머리글자 + 이름, 누르면 사번·역할·내 정보·로그아웃
+              <UserMenu subject={me} />
             ) : (
               <NavLink to="/login" className="btn btn-primary btn-xs">
                 {m.nav.login}

@@ -313,13 +313,13 @@ describe('화면', () => {
 
     render(<App memory initialPath="/auth/callback?ticket=TICKET-UI" />);
 
-    expect(await screen.findByRole('heading', { name: '내 세션' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: '내 정보' })).toBeInTheDocument();
     // 머리줄 링크: 이름 · 사번(목에 없는 직원이면 "내 세션"만) — 운영자 ID 는 글자로 안 보인다(ADR-0070 덧붙임). 내 세션 화면 본문의 ID 는 상세라 그대로
-    expect(screen.getByTestId('operator')).toHaveTextContent(/^내 세션/);
+    expect(screen.getByTestId('operator')).toHaveTextContent(/^.?내 정보/); // 목에 없는 직원 — 머리글자 "?" + "내 정보"
     expect(screen.getByTestId('operator')).not.toHaveTextContent('OP-ea-1');
-    expect(screen.getByText('PRICE_APPROVER')).toBeInTheDocument();
-    expect(await screen.findByText('SES-ea-1')).toBeInTheDocument();
-    expect(screen.getByText('backoffice')).toBeInTheDocument();
+    expect(screen.getAllByText('가격 승인').length).toBeGreaterThan(0);
+    expect(await screen.findByText('SES-ea-1')).toBeInTheDocument(); // 접힌 시스템 번호 칸
+    expect(screen.getByText('통합 백오피스')).toBeInTheDocument();
     expect(screen.getByText(/직원 계정\(Keycloak\)에서 관리해요/)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '비밀번호 변경' })).not.toBeInTheDocument();
     server.events.removeListener('request:start', listener);
@@ -495,7 +495,7 @@ describe('refresh 쿠키(ADR-0059, handoff 2026-11-13 web-common-request-refresh
     withCsrfCookie();
     await beginEmployeeLogin(API_BASE, '/session', new TokenStore(), { origin: ORIGIN });
     const first = render(<App memory initialPath="/auth/callback?ticket=TICKET-COOKIE" />);
-    expect(await screen.findByRole('heading', { name: '내 세션' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: '내 정보' })).toBeInTheDocument();
     const saved = sessionStorage.getItem(SESSION_STORAGE_KEY)!;
     expect(Object.keys(JSON.parse(saved) as Record<string, unknown>).sort()).toEqual(['deviceId', 'sessionId']);
     expect(saved).not.toContain('refresh');
@@ -505,7 +505,7 @@ describe('refresh 쿠키(ADR-0059, handoff 2026-11-13 web-common-request-refresh
     tokens.accessToken = null;
     sessionStorage.setItem(SESSION_STORAGE_KEY, saved);
     render(<App memory initialPath="/session" />);
-    expect(await screen.findByRole('heading', { name: '내 세션' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: '내 정보' })).toBeInTheDocument();
     expect(sent).toHaveLength(1);
     expect(sent[0]!.headers.get('X-CSRF-Token')).toBe(CSRF);
   });

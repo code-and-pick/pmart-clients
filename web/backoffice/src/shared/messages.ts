@@ -151,7 +151,7 @@ export const messages = {
     reviewPending: '심사 대기',
   },
   nav: {
-    session: '내 세션',
+    session: '내 정보',
     login: '로그인',
     approvals: '승인함',
     categories: '카테고리 트리',
@@ -1782,7 +1782,7 @@ export const messages = {
   },
 
   session: {
-    title: '내 세션',
+    title: '내 정보',
     signOut: '로그아웃',
     none: '로그인 전',
     current: '서버 세션',
@@ -1791,6 +1791,26 @@ export const messages = {
     roles: '역할',
     centers: '센터',
     needSession: '먼저 로그인해 주세요.',
+  },
+
+  /** 내 정보(2026-11-23 사용자 "마이페이지처럼") — 머리줄 메뉴와 화면 */
+  myPage: {
+    title: '내 정보',
+    menuOf: (name: string) => `${name} — 내 정보 메뉴`,
+    nameUnknown: '이름 없음',
+    nameFailed: '이름 확인 불가',
+    work: '업무',
+    roles: '역할',
+    centers: '담당 센터',
+    allCenters: '센터 제한 없음',
+    login: '로그인',
+    app: '로그인한 곳',
+    appName: { backoffice: '통합 백오피스', 'hr-backoffice': '인사 백오피스', 'mfc-backoffice': 'MFC 백오피스', 'rider-backoffice': '라이더 백오피스' } as Readonly<Record<string, string>>,
+    issuedAt: '로그인 시각',
+    expiresAt: '로그인 유지 끝',
+    security: '계정·보안',
+    operatorId: '운영자 ID',
+    sessionId: '세션 ID',
   },
 
   login: {

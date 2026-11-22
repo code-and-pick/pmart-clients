@@ -26,7 +26,7 @@ describe('메뉴 묶음 — 역할로 보이고(합집합) 접고 편다', () =>
     ];
     for (const [token, expected] of cases) {
       renderAt('/session', token);
-      await screen.findByRole('link', { name: /내 세션/ });
+      await screen.findByRole('heading', { name: '내 정보' }); // 2026-11-23 내 세션 → 내 정보
       expect(groupLabels()).toEqual(expected);
       cleanup();
     }
