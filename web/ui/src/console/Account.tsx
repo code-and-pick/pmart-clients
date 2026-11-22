@@ -70,13 +70,14 @@ export function AccountMenu({ name, employeeNo, roles, profileTo, onLogout }: Ac
         data-testid="operator"
       >
         <AccountAvatar name={name} />
-        <span className="max-w-[9rem] truncate">{name ?? t.title}</span>
-        <svg viewBox="0 0 24 24" className="h-3 w-3 fill-none stroke-current opacity-60" strokeWidth={2} aria-hidden="true">
+        {/* 좁은 화면(640px 미만)에서는 머리글자만 — 머리줄이 넘치지 않게(2026-11-23 PC 3 "390px 가로 스크롤") */}
+        <span className="hidden max-w-[9rem] truncate sm:inline">{name ?? t.title}</span>
+        <svg viewBox="0 0 24 24" className="hidden h-3 w-3 fill-none stroke-current opacity-60 sm:block" strokeWidth={2} aria-hidden="true">
           <path d="m6 9 6 6 6-6" />
         </svg>
       </button>
       {open && (
-        <div className="absolute right-0 top-full z-50 mt-1 w-64 rounded-box border border-base-300 bg-base-100 p-3 text-sm shadow-lg" role="menu" aria-label={t.title} data-testid="user-menu">
+        <div className="absolute right-0 top-full z-50 mt-1 w-64 max-w-[calc(100vw-1rem)] rounded-box border border-base-300 bg-base-100 p-3 text-sm shadow-lg" role="menu" aria-label={t.title} data-testid="user-menu">
           <div className="flex items-center gap-3">
             <AccountAvatar name={name} size="lg" />
             <div className="min-w-0">
