@@ -19,7 +19,7 @@ import { useSession } from '../../app/SessionContext';
 import { when } from '../../shared/opsUi';
 
 export const actionText = {
-  title: '조치 이력',
+  title: '조치 감사 기록',
   intro: '직원이 라이더·배송에 한 조치를 시각순으로 모아 봐요(계정 제한, 상태 바로잡기, 실패 확정, 수행료·지급, 소명·이의 결정, 배차 취소). 기간을 비우면 최근 7일, 최대 31일이에요.',
   from: '시작일',
   to: '끝일',

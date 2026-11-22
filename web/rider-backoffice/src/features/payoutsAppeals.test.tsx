@@ -45,6 +45,18 @@ describe('지급 관리', () => {
     expect(await within(form).findByText(/지급 예정일이 아직 안 됐어요/)).toBeInTheDocument();
   });
 
+  it('줄을 누르면 아래에 라이더 요약이 펼쳐지고, 라이더 번호는 라이더 상세로 간다(2026-11-23 "클릭해도 안 열려")', async () => {
+    renderAt('/payouts', as.riderOps);
+    const rows = await screen.findAllByTestId('payout-row');
+    expect(within(rows[0]!).getByTestId('payout-rider-link')).toHaveAttribute('href', '/riders/RD-7');
+    await userEvent.click(rows[0]!.querySelector('td:nth-child(2)')!);
+    const inline = await screen.findByTestId('payout-inline');
+    expect(within(inline).getByRole('link', { name: /전체 상세/ })).toHaveAttribute('href', '/riders/RD-7');
+    // 다시 누르면 접힌다
+    await userEvent.click(screen.getAllByTestId('payout-row')[0]!.querySelector('td:nth-child(2)')!);
+    expect(screen.queryByTestId('payout-inline')).toBeNull();
+  });
+
   it('라이더 운영은 보기만(결과 표시는 관리자)', async () => {
     renderAt('/payouts', as.riderOps);
     const rows = await screen.findAllByTestId('payout-row');

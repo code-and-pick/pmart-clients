@@ -42,7 +42,7 @@ export const navGroups: readonly MenuGroup[] = [
   { key: 'earnings', items: [done('adjustments', 'adjustments'), done('surcharges', 'surcharges'), done('payouts', 'payouts')] },
   // 2026-11-18(PC 5, 백엔드 notification 0.5.0·rider 0.14.0·execution 0.28.0·dispatch 0.11.0): 라이더 공지·직원 조치 이력(관리자만).
   { key: 'ops', items: [done('notices', 'notices')] },
-  // 2026-11-21: 기록 — 직원 조치 기록(옛 조치 이력, 관리자만, 주소 그대로)
+  // 2026-11-21: 기록 — 조치 감사 기록(2026-11-23 이름, 옛 직원 조치 기록·조치 이력, 관리자만, 주소 그대로)
   { key: 'records', items: [{ ...done('staffActions', 'staff-actions'), adminOnly: true }] },
 ];
 export const allMenus: readonly MenuItem[] = navGroups.flatMap((g) => g.items);

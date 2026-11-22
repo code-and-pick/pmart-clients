@@ -27,7 +27,7 @@ const todo = {
   hint: '처리를 기다리는 건수예요. 누르면 그 목록으로 가요.',
   failed: '불러오지 못함',
   inquiries: '라이더 문의',
-  reviews: '제한 검토',
+  reviews: '제한 검토 대기',
   appeals: '소명·이의',
 } as const;
 

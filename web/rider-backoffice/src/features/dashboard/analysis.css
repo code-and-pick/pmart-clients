@@ -5,11 +5,13 @@
   --an-t1: 18px;
   --an-t2: 14px;
   --an-t3: 13px;
-  --an-c1: #0d9488;
-  --an-c2: #2563eb;
-  --an-c3: #ca8a04;
-  --an-c4: #ea580c;
-  --an-c5: #64748b;
+  /* 2026-11-23 사용자 "그래프 나눠 놓은 색깔이 좀 칙칙해" — 겨자색·진한 청록·탁한 회색을 맑은 색으로.
+     막대 안 흰 숫자가 읽히게 흰 글자 대비 3:1 안팎(굵은 글자)을 지키고, 실패 빨강(--an-failed)과 겹치지 않게 4는 장밋빛. */
+  --an-c1: #0891b2;
+  --an-c2: #3b6ef6;
+  --an-c3: #d97706;
+  --an-c4: #e11d74;
+  --an-c5: #7c8db0;
   --an-done: var(--color-success);
   --an-active: var(--color-info);
   --an-failed: var(--color-error);

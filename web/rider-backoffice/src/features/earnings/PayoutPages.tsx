@@ -4,8 +4,8 @@
 // - 결과 표시: `POST /rider-payouts/{riderId}/{payoutDate}/results`(OPERATOR_ADMIN 만) — PAYING·PAID·FAILED(사유 필수).
 //   예정일 전 PAYING·PAID 는 422 PAYOUT_NOT_DUE, 바꿀 줄이 없으면 409. 라이더 알림함은 PAID·PAYMENT_FAILED 를 묶음마다 한 번(서버).
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState, type FormEvent } from 'react';
-import { useSearchParams } from 'react-router';
+import { Fragment, useState, type FormEvent } from 'react';
+import { Link, useSearchParams } from 'react-router';
 
 import { request } from '@pmart/web-core';
 import { CommandFeedback, QueryState, toUiState, useCommand } from '@pmart/web-ui';
@@ -17,6 +17,8 @@ import { ChipGroup, DataTable, PageHeader, ResultBar, SearchPanel, SearchRow, St
 import { SavedViews } from '../../shared/SavedViews';
 import { resolveRiderId, RiderName, searchHint, StaffName, useRiderSummaries, RIDER_NUMBER } from '../../shared/displayNumbers';
 import { when, won } from '../../shared/opsUi';
+import { Caret, expandRowProps, InlineDetail, useInlineOpen } from '../../shared/simList';
+import { RiderInline } from '../riders/RiderPages';
 
 export const payoutText = {
   title: '지급 관리',
@@ -83,6 +85,8 @@ export function PayoutsMenu() {
       );
     },
   });
+  // 줄을 누르면 아래에 라이더 요약(한 번에 한 줄)
+  const inline = useInlineOpen();
   // 표시가 끝나면 줄이 바뀌어(지급 완료 → 입력 칸 없음) 줄 안 알림이 사라지므로 위에 남긴다.
   const [done, setDone] = useState<string | null>(null);
   const riders = useRiderSummaries((list.data?.items ?? []).map((p) => p.riderId));
@@ -158,10 +162,18 @@ export function PayoutsMenu() {
                 {x.items.map((p) => {
                   const s = riders.get(p.riderId);
                   const last = p.lastResult;
+                  // 2026-11-23 사용자 "지급관리 라이더 클릭해도 안 열려" — 줄을 누르면 아래에 라이더 요약(정산계좌 포함), 번호는 라이더 상세로
+                  const k = `${p.riderId}-${p.payoutDate}`;
+                  const isOpen = inline.isOpen(k);
+                  const to = `/riders/${encodeURIComponent(p.riderId)}`;
                   return (
-                    <tr key={`${p.riderId}-${p.payoutDate}`} data-testid="payout-row">
-                      <td>
-                        <RiderName riderId={p.riderId} nameMasked={s?.nameMasked} riderNumber={s?.riderNumber} />
+                    <Fragment key={k}>
+                    <tr data-testid="payout-row" {...expandRowProps(isOpen, () => inline.toggle(k))}>
+                      <td className="whitespace-nowrap">
+                        <Caret open={isOpen} />
+                        <Link className="hover:underline" to={to} onClick={(e) => e.stopPropagation()} data-testid="payout-rider-link">
+                          <RiderName riderId={p.riderId} nameMasked={s?.nameMasked} riderNumber={s?.riderNumber} />
+                        </Link>
                       </td>
                       <td className="whitespace-nowrap">{p.payoutDate}</td>
                       <td className="text-right">
@@ -187,6 +199,12 @@ export function PayoutsMenu() {
                       </td>
                       <td>{p.state === 'PAID' ? '—' : admin ? <PayoutResultForm riderId={p.riderId} payoutDate={p.payoutDate} onDone={(r) => setDone(t.doneLine(s?.riderNumber ?? p.riderId, p.payoutDate, t.stateName[r.state] ?? r.state))} /> : <span className="text-xs text-base-content/50">{t.adminOnly}</span>}</td>
                     </tr>
+                    {isOpen && (
+                      <InlineDetail colSpan={7} to={to} testId="payout-inline">
+                        <RiderInline riderId={p.riderId} />
+                      </InlineDetail>
+                    )}
+                    </Fragment>
                   );
                 })}
               </tbody>

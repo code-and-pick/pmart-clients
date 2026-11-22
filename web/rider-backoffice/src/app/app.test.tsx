@@ -123,7 +123,7 @@ describe('메뉴 자리', () => {
     const nav = await screen.findByRole('navigation', { name: '메뉴' });
     for (const g of ['현황', '관제', '배송·배차', '지원센터', '수행료']) expect(within(nav).getByText(g)).toBeInTheDocument();
     expect(screen.getAllByText('라이더').length).toBeGreaterThan(0);
-    for (const name of ['대시보드', '라이더 관제', '라이더 관리', '가입 승인', '제한 검토', '배송 관리', '상담 관리', '수행료 조정', '추가 배달료']) {
+    for (const name of ['대시보드', '라이더 관제', '라이더 관리', '가입 승인', '제한 검토 대기', '배송 관리', '상담 관리', '수행료 조정', '추가 배달료']) {
       await userEvent.click(screen.getByRole('link', { name }));
       // 화면 10개를 차례로 처음 그린다 — 전체 실행 첫 번(차가운 변환)에서 기본 1초 기다림이 모자랐다(PC 1 PR 세션 2026-11-20)
       expect(await screen.findByRole('heading', { name }, { timeout: 5_000 })).toBeInTheDocument();
@@ -131,7 +131,7 @@ describe('메뉴 자리', () => {
     }
     // 2026-11-21 할 일/기록 나누기 — 접수 건 메뉴는 없고(처리함 배송 사건 탭), 조치 이력은 기록 › 직원 조치 기록(관리자만)
     expect(within(nav).queryByRole('link', { name: '접수 건' })).not.toBeInTheDocument();
-    expect(within(nav).queryByRole('link', { name: '직원 조치 기록' })).not.toBeInTheDocument();
+    expect(within(nav).queryByRole('link', { name: '조치 감사 기록' })).not.toBeInTheDocument();
     expect(allMenus.every((menu) => menu.ready)).toBe(true);
   }, 60_000);
 });
@@ -167,7 +167,7 @@ describe('할 일/기록 나누기(사용자 2026-11-21 — 접수 건·조치 �
     expect(tabs.map((t) => t.textContent)).toEqual(expect.arrayContaining(['상담 중', '배송 사건', '소명·이의', '완료']));
     const nav = screen.getByRole('navigation', { name: '메뉴' });
     expect(within(nav).getByText('기록')).toBeInTheDocument();
-    expect(within(nav).getByRole('link', { name: '직원 조치 기록' })).toHaveAttribute('href', '/staff-actions');
+    expect(within(nav).getByRole('link', { name: '조치 감사 기록' })).toHaveAttribute('href', '/staff-actions');
     expect(within(nav).queryByRole('link', { name: '접수 건' })).not.toBeInTheDocument();
   });
 });

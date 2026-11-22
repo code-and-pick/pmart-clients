@@ -84,3 +84,23 @@ export function DetailHeader({ back, title, badges, summary, actions, seen = fal
     </header>
   );
 }
+
+/**
+ * 항목명/값(공용 FieldList 를 이 앱에서 덮음 — 2026-11-23 사용자 "칸으로 나눠놓은 건 좋은데 글이 2줄로 내려가니까 가독성이 떨어져").
+ * 공용은 넓으면 4칸으로 고정이라, 반쪽 상자(배송 상세의 수행·배차 등)에서는 칸이 좁아 "11. 20. 오후 / 8:44" 처럼 꺾였다.
+ * 여기서는 칸 폭을 최소 11rem 으로 두고 들어가는 만큼만 칸을 만든다(상자가 좁으면 2~3칸, 넓으면 4칸 이상). 모양(굵은 이름·값 아래·칸 사이 선)은 같다.
+ */
+export function FieldList({ rows, testId }: { readonly rows: ReadonlyArray<readonly [ReactNode, ReactNode] | false | null | undefined>; readonly testId?: string }) {
+  return (
+    <dl className="grid grid-cols-[repeat(auto-fill,minmax(11rem,1fr))] gap-y-4 text-sm [&>div]:border-l [&>div]:border-base-300 [&>div]:pl-4 [&>div]:pr-4" data-testid={testId}>
+      {rows.map((r, i) =>
+        r ? (
+          <div key={i} className="min-w-0 space-y-0.5">
+            <dt className="font-semibold text-base-content/80">{r[0]}</dt>
+            <dd className="min-w-0 break-words">{r[1]}</dd>
+          </div>
+        ) : null,
+      )}
+    </dl>
+  );
+}

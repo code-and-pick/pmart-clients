@@ -82,7 +82,7 @@ describe('조치 이력', () => {
   it('관리자가 아니면 메뉴에 없고 주소로 열어도 안내만', async () => {
     renderAt('/staff-actions', as.riderOps);
     expect(await screen.findByTestId('admin-only')).toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: '조치 이력' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: '조치 감사 기록' })).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: '공지 보내기' })).toBeInTheDocument();
   });
 
