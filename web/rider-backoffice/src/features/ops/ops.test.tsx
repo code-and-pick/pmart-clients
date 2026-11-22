@@ -64,7 +64,7 @@ describe('조치 이력', () => {
     expect(rows[1]).toHaveTextContent('계정 제한');
     expect(rows[2]).toHaveTextContent('배차 취소');
     // RiderName — 라이더 번호(라이더 요약을 따로 불러온 뒤)
-    expect(await within(screen.getAllByTestId('staff-action-row')[1]!).findByText('730115')).toBeInTheDocument();
+    expect(await within(screen.getAllByTestId('staff-action-row')[1]!).findByText('R7301')).toBeInTheDocument();
   });
 
   it('줄 어디를 눌러도 바로 아래에 그 조치가 펼쳐진다(배송번호를 누르지 않아도 — 사용자 2026-11-21)', async () => {

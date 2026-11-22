@@ -67,7 +67,7 @@ describe('관제 — 라이더 한눈에', () => {
     await userEvent.click(within(row).getByText('김*수'));
 
     const panel = await screen.findByTestId('control-panel');
-    expect(panel).toHaveTextContent('482913'); // 화면 번호(ADR-0070) — 시스템 ID 가 아니라 라이더 번호
+    expect(panel).toHaveTextContent('R4829'); // 화면 번호(ADR-0070) — 시스템 ID 가 아니라 라이더 번호
     expect(within(panel).getByTestId('tile-location')).toHaveTextContent('수신 중 · 5초 전');
     expect(within(panel).getByTestId('tile-delivery')).toHaveTextContent('배송 중 1건');
     // 세 시간은 따로: 운행시간(수락~완료 5400초) · 접속(운행 켬 9000초, 운행 시작 2시간 5분째) · 대기(1800초)
@@ -88,7 +88,7 @@ describe('관제 — 라이더 한눈에', () => {
     expect(order).toHaveTextContent('그릭요거트 플레인 400g × 3');
     expect(order).toHaveTextContent('문 앞에 두고 벨 눌러 주세요');
     // 화면 배송 번호(ADR-0070) — 내부 ID(DLV-1) 대신
-    expect(within(panel).getByText('48213075-1')).toBeInTheDocument();
+    expect(within(panel).getByText('D48213075')).toBeInTheDocument();
     expect(within(panel).getByTestId('rider-name')).toHaveTextContent('김*수');
     // 라이더 정보 줄(2026-11-18): 가린 전화·가입일(라이더 조회)
     expect(await within(panel).findByText('010****5678')).toBeInTheDocument();
@@ -188,11 +188,11 @@ describe('관제 — 최근 배송(끝난 것까지)', () => {
     const recent = await screen.findByTestId('recent-deliveries');
     const rows = await within(recent).findAllByTestId('recent-row');
     expect(rows.length).toBeGreaterThanOrEqual(3);
-    const done = rows.find((r) => r.textContent?.includes('48213110-1'))!;
+    const done = rows.find((r) => r.textContent?.includes('D48213110'))!;
     expect(done).toHaveTextContent('전달 완료'); // 끝난 배송도 남는다
-    const live = rows.find((r) => r.textContent?.includes('48213075-1'))!;
-    expect(await within(live).findByText('482913')).toBeInTheDocument(); // GET /riders?riderIds= 로 붙인 번호
-    expect(live).toHaveTextContent('김*수');
+    const live = rows.find((r) => r.textContent?.includes('D48213075'))!;
+    expect(await within(live).findByText('R4829')).toBeInTheDocument(); // GET /riders?riderIds= 로 붙인 번호
+    expect(within(live).getByTestId('rider-name')).toHaveAttribute('title', '김*수'); // 가린 이름은 마우스를 올리면(ADR-0085)
     expect(live).not.toHaveTextContent('RD-7'); // 내부 ID 를 보이지 않는다
     const q = view.sent.find((r) => new URL(r.url).pathname.endsWith('/riders') && new URL(r.url).searchParams.get('riderIds'));
     expect(q).toBeTruthy();

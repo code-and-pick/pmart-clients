@@ -46,3 +46,7 @@ export function idempotent(request: Request, run: () => Reply) {
   db.idempotent.set(id, result);
   return HttpResponse.json(result.body as Record<string, unknown>, { status: result.status });
 }
+
+/** 서버처럼 라이더 번호 `R4785`·`r4785`·`4785` 를 같게 본다(ADR-0085). */
+export const sameRiderNo = (stored: string | null | undefined, query: string | null): boolean =>
+  !!stored && !!query && stored.replace(/^[Rr]/, '') === query.replace(/^[Rr]/, '');

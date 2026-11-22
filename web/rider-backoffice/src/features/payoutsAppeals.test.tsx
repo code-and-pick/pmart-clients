@@ -18,7 +18,7 @@ describe('지급 관리', () => {
     await userEvent.selectOptions(within(form).getByLabelText('결과'), 'PAID');
     await userEvent.click(within(form).getByRole('button', { name: '표시' }));
     // 표시가 끝나면 줄이 지급 완료로 바뀌어 입력 칸이 없어진다 — 결과는 위 알림에 남는다
-    expect(await screen.findByTestId('payout-done')).toHaveTextContent('482913 · 2026-11-19 묶음을 지급 완료(으)로 표시했어요.');
+    expect(await screen.findByTestId('payout-done')).toHaveTextContent('R4829 · 2026-11-19 묶음을 지급 완료(으)로 표시했어요.');
     expect(await within(screen.getAllByTestId('payout-row')[0]!).findByText('지급 완료')).toBeInTheDocument();
     const req = posts(view.sent, '/rider-payouts/RD-7/2026-11-19/results')[0]!;
     expect(req.headers.get('Idempotency-Key')).toBeTruthy();
@@ -65,7 +65,7 @@ describe('소명·이의', () => {
     await userEvent.type(within(form).getByLabelText(/결정 메모/), '포장 불량 사진 확인 — 제한 풀어요');
     await userEvent.click(within(form).getByRole('button', { name: '인정' }));
     // 결정하면 "결정 대기" 목록에서 빠진다 — 결과는 위 알림에(제한 소명이면 조정 버튼 없음)
-    expect(await screen.findByTestId('appeal-done')).toHaveTextContent('계정 제한 소명(730115)을 인정(으)로 결정했어요.');
+    expect(await screen.findByTestId('appeal-done')).toHaveTextContent('계정 제한 소명(R7301)을 인정(으)로 결정했어요.');
     expect(screen.queryByTestId('to-adjustment')).not.toBeInTheDocument();
     expect(await screen.findAllByTestId('appeal-row')).toHaveLength(1);
     expect(await posts(view.sent, '/rider-appeals/AP-1/decisions')[0]!.clone().json()).toEqual({ decision: 'ACCEPTED', note: '포장 불량 사진 확인 — 제한 풀어요' });

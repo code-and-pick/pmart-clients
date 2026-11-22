@@ -16,7 +16,7 @@ describe('접수 건 목록', () => {
     const help = rows.find((r) => r.textContent?.includes('고객 연락 안 됨'))!;
     expect(within(help).getByText('라이더 도움요청')).toBeInTheDocument();
     expect(within(help).getByText(/기한 넘김/)).toHaveAttribute('data-overdue', 'true');
-    expect(await within(help).findByRole('link', { name: /48213075-1/ })).toHaveAttribute('href', '/deliveries/DLV-1');
+    expect(await within(help).findByRole('link', { name: /D48213075/ })).toHaveAttribute('href', '/deliveries/DLV-1');
     const q = caseCalls(view.sent)[0]!;
     expect([q.get('state'), q.get('kind'), q.get('size')]).toEqual([null, null, '50']);
   });
@@ -91,7 +91,7 @@ describe('접수 건 처리 끝내기(사용자 2026-11-19 "처리 완료 버튼
   it('후속 처리가 남은 건은 서버가 막는다 — 이유를 알린다', async () => {
     renderAt('/cases/CASE-DF-1', as.riderOps);
     const form = await screen.findByRole('form', { name: '처리 끝내기' });
-    await userEvent.type(within(form).getByLabelText(/처리 내용/), '상담 관리');
+    await userEvent.type(within(form).getByLabelText(/처리 내용/), '배차 다시 요청함');
     await userEvent.click(within(form).getByRole('button', { name: '처리 끝내기' }));
     expect(await within(form).findByRole('alert')).toHaveTextContent('후속 처리');
   });

@@ -196,7 +196,7 @@ describe('상담함 — 찾기·주문번호·소명·이의 탭(2026-11-20)', (
     server.use(
       http.get(`${API_BASE}/deliveries`, ({ request }) => {
         const ids = (new URL(request.url).searchParams.get('deliveryIds') ?? '').split(',').filter(Boolean);
-        return HttpResponse.json({ items: ids.map((id, i) => ({ deliveryId: id, state: 'PICKED_UP', deliveryNumber: id === 'DLV-1' ? '48213075-1' : `5000000${i}-1`, orderNumber: id === 'DLV-1' ? '48213075' : `5000000${i}` })), page: { nextCursor: null } });
+        return HttpResponse.json({ items: ids.map((id, i) => ({ deliveryId: id, state: 'PICKED_UP', deliveryNumber: id === 'DLV-1' ? 'D48213075' : `D5000000${i}`, orderNumber: id === 'DLV-1' ? '48213075' : `5000000${i}` })), page: { nextCursor: null } });
       }),
     );
     renderAt('/consults', as.riderOps);

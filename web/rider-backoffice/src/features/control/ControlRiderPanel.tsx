@@ -125,9 +125,9 @@ export function ControlRiderPanel({
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="flex flex-wrap items-center gap-1 text-lg">
-            {/* "이* · 482913" — 운행 목록에 없으면(주문번호로 찾음) 라이더 조회로 이름·번호 */}
+            {/* "김*수 · R4829"(상세 머리라 이름도) — 운행 목록에 없으면(주문번호로 찾음) 라이더 조회로 이름·번호 */}
             <Link className="hover:underline" to={`/riders/${encodeURIComponent(selectedId)}`}>
-              <RiderName riderId={selectedId} nameMasked={rider?.nameMasked ?? looked?.nameMasked} riderNumber={rider?.riderNumber ?? looked?.riderNumber} />
+              <RiderName withName riderId={selectedId} nameMasked={rider?.nameMasked ?? looked?.nameMasked} riderNumber={rider?.riderNumber ?? looked?.riderNumber} />
             </Link>
           </p>
           {rider && (
@@ -324,7 +324,7 @@ function DeliveryCard({ active, focused }: { readonly active: ActiveDelivery; re
     <div className={`space-y-3 rounded-box border p-3 ${focused ? 'border-primary ring-1 ring-primary' : 'border-base-300'}`} data-testid="panel-delivery">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="flex flex-wrap items-center gap-1">
-          {/* 화면 배송 번호 "74939255-1"(execution deliveryNumber) — 내부 ID 는 배송 상세의 시스템 번호로 */}
+          {/* 화면 배송 번호 "D74939255"(execution deliveryNumber) — 내부 ID 는 배송 상세의 시스템 번호로 */}
           <Link className="text-sm hover:underline" to={`/deliveries/${encodeURIComponent(deliveryId)}`}>
             <DeliveryNo deliveryId={deliveryId} deliveryNumber={detail.data?.deliveryNumber} orderNumber={detail.data?.orderNumber ?? detail.data?.orderSummary?.orderNumber} />
           </Link>

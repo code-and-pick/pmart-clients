@@ -13,7 +13,7 @@ import { useApi } from '../../app/ApiContext';
 import { AllDone, ChipGroup, FieldList, PageHeader, ResultBar, SearchPanel, SearchRow, StatusBadge, type Tone } from '../../shared/admin';
 import { SavedViews } from '../../shared/SavedViews';
 import { ui } from '../../shared/uiMessages';
-import { DeliveryNo, resolveRiderId, RiderName, searchHint, StaffName, SystemIds, useDeliveryNumbers, useRiderSummaries } from '../../shared/displayNumbers';
+import { DeliveryNo, resolveRiderId, RiderName, searchHint, StaffName, SystemIds, useDeliveryNumbers, useRiderSummaries, RIDER_NUMBER } from '../../shared/displayNumbers';
 import { useSession } from '../../app/SessionContext';
 import { when, won } from '../../shared/opsUi';
 
@@ -73,7 +73,7 @@ export function AppealsMenu({ embedded = false }: { readonly embedded?: boolean 
   const list = useQuery({
     queryKey: ['rider-appeals', state, targetType, riderId],
     queryFn: async () => {
-      // 라이더 번호 6자리로도 찾는다(ADR-0070) — 맞는 라이더가 없으면 빈 목록
+      // 라이더 번호(R4785)로도 찾는다(ADR-0070) — 맞는 라이더가 없으면 빈 목록
       const rid = riderId ? await resolveRiderId(api, riderId) : '';
       if (rid === null) return { items: [] };
       return request(
@@ -129,7 +129,7 @@ export function AppealsMenu({ embedded = false }: { readonly embedded?: boolean 
         summary={[
           [t.state, state === 'OPEN' ? '' : state === 'ALL' ? t.all : (t.stateName[state] ?? state), () => patch({ state: '' })],
           [t.type, targetType === 'ALL' ? '' : (t.typeName[targetType] ?? targetType), () => patch({ targetType: '' })],
-          ['라이더', riderId ? (/^\d{6}$/.test(riderId) ? riderId : '한 라이더') : '', () => {
+          ['라이더', riderId ? (RIDER_NUMBER.test(riderId) ? riderId : '한 라이더') : '', () => {
             setRiderInput('');
             patch({ riderId: '' });
           }],

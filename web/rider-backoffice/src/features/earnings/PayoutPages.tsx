@@ -15,7 +15,7 @@ import { isOperatorAdmin } from '../../app/nav';
 import { useSession } from '../../app/SessionContext';
 import { ChipGroup, DataTable, PageHeader, ResultBar, SearchPanel, SearchRow, StatusBadge, type Tone } from '../../shared/admin';
 import { SavedViews } from '../../shared/SavedViews';
-import { resolveRiderId, RiderName, searchHint, StaffName, useRiderSummaries } from '../../shared/displayNumbers';
+import { resolveRiderId, RiderName, searchHint, StaffName, useRiderSummaries, RIDER_NUMBER } from '../../shared/displayNumbers';
 import { when, won } from '../../shared/opsUi';
 
 export const payoutText = {
@@ -72,7 +72,7 @@ export function PayoutsMenu() {
   const list = useQuery({
     queryKey: ['rider-payouts', payoutDate, riderId, state],
     queryFn: async () => {
-      // 라이더 번호 6자리로도 찾는다(ADR-0070) — 맞는 라이더가 없으면 빈 목록
+      // 라이더 번호(R4785)로도 찾는다(ADR-0070) — 맞는 라이더가 없으면 빈 목록
       const rid = riderId ? await resolveRiderId(api, riderId) : '';
       if (rid === null) return { items: [] };
       return request(
@@ -114,7 +114,7 @@ export function PayoutsMenu() {
             patch({ payoutDate: '' });
           }],
           [t.state, state === 'ALL' ? '' : (t.stateName[state] ?? state), () => patch({ state: '' })],
-          ['라이더', riderId ? (/^\d{6}$/.test(riderId) ? riderId : '한 라이더') : '', () => {
+          ['라이더', riderId ? (RIDER_NUMBER.test(riderId) ? riderId : '한 라이더') : '', () => {
             setRiderInput('');
             patch({ riderId: '' });
           }],

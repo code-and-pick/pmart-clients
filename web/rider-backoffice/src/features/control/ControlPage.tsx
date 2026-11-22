@@ -164,7 +164,7 @@ export function ControlPage() {
             const items = all.filter((r) => (filter === 'delivering' ? isDelivering(r) : filter === 'stale' ? isStale(r) : filter === 'sim' ? isSimRider(r.riderId) : true));
             const mapRiders: MapRider[] = items.flatMap((r) =>
               r.location?.lat != null && r.location.lng != null
-                ? [{ riderId: r.riderId, lat: r.location.lat, lng: r.location.lng, tone: isStale(r) ? 'stale' : isDelivering(r) ? 'delivering' : 'ok', label: [r.nameMasked, r.riderNumber ?? r.riderId.slice(-8)].filter(Boolean).join(' ') }]
+                ? [{ riderId: r.riderId, lat: r.location.lat, lng: r.location.lng, tone: isStale(r) ? 'stale' : isDelivering(r) ? 'delivering' : 'ok', label: r.riderNumber ?? [r.nameMasked, r.riderId.slice(-8)].filter(Boolean).join(' ') }]
                 : [],
             );
             return (
@@ -209,7 +209,7 @@ export function ControlPage() {
                           >
                             <div className="flex items-start justify-between gap-2">
                               <span className="flex min-w-0 flex-wrap items-center gap-1">
-                                {/* 화면 번호(ADR-0070): "이* · 482913" */}
+                                {/* 화면 번호(ADR-0070): "R4829"(가린 이름은 title, ADR-0085) */}
                                 <RiderName riderId={r.riderId} nameMasked={r.nameMasked} riderNumber={r.riderNumber} />
                                 {r.restriction && r.restriction !== 'NORMAL' && <StatusBadge tone="warning">{label(n.restriction, r.restriction)}</StatusBadge>}
                               </span>

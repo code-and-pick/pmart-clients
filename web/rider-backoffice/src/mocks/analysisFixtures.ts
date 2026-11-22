@@ -71,7 +71,7 @@ function generate(now: number): Summary[] {
       deliveryId: `DLV-AN-${i + 1}`,
       orderId: `ORD-AN-${i + 1}`,
       orderNumber: assigned !== null ? orderNumber : null,
-      deliveryNumber: assigned !== null ? `${orderNumber}-1` : null,
+      deliveryNumber: assigned !== null ? `D${orderNumber}` : null,
       type: 'FORWARD',
       state,
       riderId: assigned !== null ? (riders[Math.floor(rand() * riders.length)] ?? 'RD-7') : null,

@@ -31,7 +31,7 @@ import { ops } from '../../shared/opsMessages';
 import { AuthedPhotos } from '../../shared/AuthedPhotos';
 import { useEvidenceLoader } from '../../shared/evidenceLoader';
 import { when, won } from '../../shared/opsUi';
-import { DeliveryRef, resolveRiderId, RiderRef, searchHint, StaffName, SystemIds, useDeliveryNumbers, useRiderSummaries } from '../../shared/displayNumbers';
+import { DeliveryRef, resolveRiderId, RiderRef, searchHint, StaffName, SystemIds, useDeliveryNumbers, useRiderSummaries, RIDER_NUMBER } from '../../shared/displayNumbers';
 import { useSession } from '../../app/SessionContext';
 
 const e = ops.earnings;
@@ -283,7 +283,7 @@ export function SurchargesMenu() {
   const list = useQuery({
     queryKey: ['surcharge-requests', state, riderId, cursor],
     queryFn: async () => {
-      // 라이더 번호 6자리로도 찾는다(ADR-0070) — 맞는 라이더가 없으면 빈 목록
+      // 라이더 번호(R4785)로도 찾는다(ADR-0070) — 맞는 라이더가 없으면 빈 목록
       const rid = riderId ? await resolveRiderId(api, riderId) : '';
       if (rid === null) return { items: [], page: { nextCursor: null } };
       return request('GET', api.execution.GET('/surcharge-requests', { params: { query: { size: 50, ...(state === 'ALL' ? {} : { state }), ...(rid ? { riderId: rid } : {}), ...(cursor ? { cursor } : {}) } } }));
@@ -316,7 +316,7 @@ export function SurchargesMenu() {
         resetLabel={f.reset}
         summary={[
           [f.state, state === 'REQUESTED' ? '' : state === 'ALL' ? f.all : (f.stateName[state] ?? state), () => patch({ state: '' })],
-          ['라이더', riderId ? (/^\d{6}$/.test(riderId) ? riderId : '한 라이더') : '', () => {
+          ['라이더', riderId ? (RIDER_NUMBER.test(riderId) ? riderId : '한 라이더') : '', () => {
             setRiderInput('');
             patch({ riderId: '' });
           }],

@@ -129,7 +129,7 @@ export function StaffActionsMenu() {
     ...(riderId ? { riderId } : {}),
     ...(deliveryId ? { deliveryId } : {}),
   };
-  // 찾기 칸은 화면 번호로(ADR-0070) — 라이더 번호 6자리·배송 번호(74939255-1)를 시스템 ID 로 바꿔 부른다. 맞는 대상이 없으면 빈 목록.
+  // 찾기 칸은 화면 번호로(ADR-0070) — 라이더 번호(R4785)·배송 번호(D74939255)를 시스템 ID 로 바꿔 부른다. 맞는 대상이 없으면 빈 목록.
   const resolveQuery = async () => {
     const rid = riderId ? await resolveRiderId(api, riderId) : '';
     const did = deliveryId ? await resolveDeliveryId(api, deliveryId) : '';

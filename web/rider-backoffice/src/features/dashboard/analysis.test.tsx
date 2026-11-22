@@ -17,7 +17,7 @@ function rows(now: number): Summary[] {
   // 지금 1시간 안 — 최근 2시간 틀의 막대에 들어간다
   const base = (i: number, state: Summary['state'], extra: Partial<Summary> = {}): Summary => ({
     deliveryId: `DLV-T${i}`,
-    deliveryNumber: `5000000${i}-1`,
+    deliveryNumber: `D5000000${i}`,
     orderNumber: `5000000${i}`,
     version: 1,
     type: 'FORWARD',
@@ -308,7 +308,7 @@ describe('대시보드 분석 — 지연(정시 배송률)·펼친 흐름의 주
 
   it('늦은 배송만 목록·라이더 띠에 주황 고리, 펼치면 약속 시각과 "N분 늦음" · 약속 없는 건은 "판정 없음"', async () => {
     const now = Date.now();
-    const list = [...rows(now), { ...rows(now)[0]!, deliveryId: 'DLV-T4', deliveryNumber: '50000004-1', orderNumber: '50000004', promisedAt: null }];
+    const list = [...rows(now), { ...rows(now)[0]!, deliveryId: 'DLV-T4', deliveryNumber: 'D50000004', orderNumber: '50000004', promisedAt: null }];
     serve(list);
     renderAt('/dashboard', as.riderOps);
     const section = await screen.findByTestId('analysis');
@@ -333,7 +333,7 @@ describe('대시보드 분석 — 지연(정시 배송률)·펼친 흐름의 주
 
   it('구간별 평균 — 구간마다 바탕 건수, 고객 확인·자동 완료는 뺀 건수만 짧게', async () => {
     const now = Date.now();
-    const auto = { ...rows(now)[0]!, deliveryId: 'DLV-T5', deliveryNumber: '50000005-1', completedAt: iso(now - 1 * MIN), completionMethod: 'AUTO_COMPLETED' as const };
+    const auto = { ...rows(now)[0]!, deliveryId: 'DLV-T5', deliveryNumber: 'D50000005', completedAt: iso(now - 1 * MIN), completionMethod: 'AUTO_COMPLETED' as const };
     serve([...rows(now), auto]);
     renderAt('/dashboard', as.riderOps);
     const journey = await screen.findByTestId('an-journey');

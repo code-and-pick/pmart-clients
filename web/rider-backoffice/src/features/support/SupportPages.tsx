@@ -34,7 +34,7 @@ const n = messages.names;
 /** 이 화면에서만 쓰는 문구(공통 문구 파일은 다른 PC 와 같이 고치므로 여기에 둔다) */
 const sm = {
   helpCol: { stage: '배송 단계', photos: '사진', case: '접수 건' },
-  helpSearch: { state: '상태', category: '종류', allCategories: '모든 종류', rider: '라이더', riderHint: '라이더 번호 6자리' },
+  helpSearch: { state: '상태', category: '종류', allCategories: '모든 종류', rider: '라이더', riderHint: '라이더 번호 R4785' },
   autoRefresh: (s: number) => `${s}초마다 새로 불러와요`,
   photoCount: (k: number) => (k > 0 ? `${k}장` : none),
   hasCase: '사건 있음',

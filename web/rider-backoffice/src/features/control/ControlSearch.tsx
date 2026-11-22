@@ -1,11 +1,13 @@
-// 관제 찾기 — 주문번호(8자리)면 execution 직원용 배송 찾기(`orderNumber` 완전 일치 — 배정된 배송만 번호가 있다)로 배송·라이더·센터를 찾아
-// 그 라이더를 바로 연다. 라이더 번호(6자리, ADR-0070)면 rider `GET /riders?riderNumber=`(완전 일치)로 라이더 ID 를 찾는다.
+// 관제 찾기 — 주문번호(8자리)·배송 번호(D74939255·D74939255-2, ADR-0085)면 D·순번을 떼고 execution 직원용 배송 찾기
+// (`orderNumber` 완전 일치 — 배정된 배송만 번호가 있다)로 배송·라이더·센터를 찾아 그 라이더를 바로 연다(순번을 적었으면 그 순번의 배송).
+// 라이더 번호(R4785·4785, ADR-0085)면 rider `GET /riders?riderNumber=`(서버가 R 유무를 같게 봄)로 라이더 ID 를 찾는다.
 // 그 밖 글자는 라이더 ID 로 본다(이 센터 운행 목록에서 고름). 찾은 결과·실패는 칸 아래 한 줄로.
 // 2026-11-19: 머리줄 통합 찾기(compact)로도 쓴다 — 카페24 관리자 머리줄 검색처럼 어느 화면에서나 관제로 간다.
 import { useState, type FormEvent } from 'react';
 
 import { request } from '@pmart/web-core';
 import { useApi } from '../../app/ApiContext';
+import { RIDER_NUMBER, parseDeliveryNumber } from '../../shared/displayNumbers';
 import { Icon } from '../../shared/icons';
 import { messages } from '../../shared/messages';
 import { label } from '../../shared/opsUi';
@@ -14,7 +16,7 @@ export const searchMessages = {
   label: '주문번호·라이더 찾기',
   headerLabel: '통합 찾기',
   headerGo: '통합 찾기로 관제에서 열기',
-  placeholder: '주문번호 8자리 · 라이더 번호 6자리 · 라이더 ID',
+  placeholder: '주문·배송 번호(D74939255) · 라이더 번호(R4785) · 라이더 ID',
   go: '찾기',
   notFound: (no: string) => `주문번호 ${no} 로 배정된 배송이 없어요(배정 전 배송은 번호로 찾을 수 없어요).`,
   riderNotFound: (no: string) => `라이더 번호 ${no} 인 라이더가 없어요.`,
@@ -41,7 +43,7 @@ export function ControlSearch({ onFound, compact = false }: { readonly onFound: 
     const q = text.trim();
     if (!q) return;
     setNote(null);
-    if (/^\d{6}$/.test(q)) {
+    if (RIDER_NUMBER.test(q)) {
       setBusy(true);
       try {
         const r = await request('GET', api.riders.GET('/riders', { params: { query: { riderNumber: q, size: 1 } } }));
@@ -55,15 +57,18 @@ export function ControlSearch({ onFound, compact = false }: { readonly onFound: 
       }
       return;
     }
-    if (!/^\d{8}$/.test(q)) {
+    const want = parseDeliveryNumber(q);
+    if (!want) {
       onFound({ riderId: q });
       return;
     }
+    const seqGiven = /-\d+$/.test(q);
     setBusy(true);
     try {
-      const r = await request('GET', api.execution.GET('/deliveries', { params: { query: { orderNumber: q, size: 10 } } }));
-      const items = r.items ?? [];
-      // 진행 중(라이더 있음) 배송을 먼저 — 반납·재발송이 같은 주문번호로 함께 있을 수 있다
+      const r = await request('GET', api.execution.GET('/deliveries', { params: { query: { orderNumber: want.orderNumber, size: 10 } } }));
+      const all = r.items ?? [];
+      // 순번을 적었으면(D74939255-2) 그 배송만. 아니면 진행 중(라이더 있음) 배송을 먼저 — 반납·재발송이 같은 주문번호로 함께 있을 수 있다
+      const items = seqGiven ? all.filter((d) => d.deliveryNumber && parseDeliveryNumber(d.deliveryNumber)?.seq === want.seq) : all;
       const hit = items.find((d) => d.riderId) ?? items[0];
       if (!hit) setNote({ tone: 'error', text: s.notFound(q) });
       else if (!hit.riderId) setNote({ tone: 'error', text: s.unassigned(label(messages.names.executionState, hit.state)) });

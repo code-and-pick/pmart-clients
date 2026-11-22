@@ -13,7 +13,7 @@ import { useApi } from '../../app/ApiContext';
 import { isLiveDelivery, LIVE } from '../../shared/liveRefresh';
 import { messages } from '../../shared/messages';
 import { ChipGroup, CursorPager, DataTable, DetailHeader, FieldList, PageHeader, ResultBar, SearchPanel, SearchRow, Section, SectionTabs, StatCard, StatStrip, StatusBadge, type Tone } from '../../shared/admin';
-import { DeliveryNo, DeliveryRef, resolveRiderId, RiderName, SystemIds, useDeliveryNumbers, useRiderSummaries } from '../../shared/displayNumbers';
+import { DeliveryNo, DeliveryRef, resolveRiderId, RiderName, SystemIds, useDeliveryNumbers, useRiderSummaries, RIDER_NUMBER } from '../../shared/displayNumbers';
 import { ops } from '../../shared/opsMessages';
 import { statText, useListRows } from '../../shared/listKit';
 import { ProgressSteps, type StepPlace } from '../../shared/ProgressSteps';
@@ -89,7 +89,7 @@ function DeliverySearchPage() {
     refetchInterval: LIVE.deliveryList,
     placeholderData: keepPreviousData,
     queryFn: async () => {
-      // 라이더 번호 6자리로도 찾는다(ADR-0070) — 맞는 라이더가 없으면 빈 목록
+      // 라이더 번호(R4785)로도 찾는다(ADR-0070) — 맞는 라이더가 없으면 빈 목록
       const rid = riderId ? await resolveRiderId(api, riderId) : '';
       if (rid === null) return { items: [], page: { nextCursor: null } };
       return request(
@@ -168,15 +168,15 @@ function DeliverySearchPage() {
         resetLabel={m.reset}
         summary={[
           ['주문', orderNumber || (orderId ? '한 주문' : ''), () => clearText({ orderNumber: '', orderId: '' })],
-          ['라이더', riderId ? (/^\d{6}$/.test(riderId) ? riderId : '한 라이더') : '', () => clearText({ riderId: '' })],
+          ['라이더', riderId ? (RIDER_NUMBER.test(riderId) ? riderId : '한 라이더') : '', () => clearText({ riderId: '' })],
           [m.state, state ? name(n.executionState, state) : '', () => set({ state: '' })],
           [m.type, type ? name(n.deliveryType, type) : '', () => set({ type: '' })],
         ]}
-        // 왼쪽 찾기 칸(시뮬레이터처럼) — 주문번호 8자리·라이더 번호 6자리. 상태·종류·시스템 번호는 깔때기 팝업
+        // 왼쪽 찾기 칸(시뮬레이터처럼) — 주문번호 8자리·라이더 번호 R4785. 상태·종류·시스템 번호는 깔때기 팝업
         search={
           <>
             <input type="search" className="input input-sm w-40" value={draft.orderNumber} maxLength={8} inputMode="numeric" placeholder={`${ops.actions.orderNumber} 8자리`} aria-label={ops.actions.orderNumber} onChange={(e) => setDraft({ ...draft, orderNumber: e.target.value })} />
-            <input type="search" className="input input-sm w-40" value={draft.riderId} maxLength={64} placeholder={`${m.riderId} 6자리`} aria-label={m.riderId} onChange={(e) => setDraft({ ...draft, riderId: e.target.value })} />
+            <input type="search" className="input input-sm w-40" value={draft.riderId} maxLength={64} placeholder={`${m.riderId} R4785`} aria-label={m.riderId} onChange={(e) => setDraft({ ...draft, riderId: e.target.value })} />
           </>
         }
       >
@@ -444,7 +444,7 @@ function DeliveryDetailPage() {
               <span className="text-base-content/50" aria-hidden="true">·</span>
               {d.riderId ? (
                 <>
-                  라이더 <RiderName riderId={d.riderId} nameMasked={riders.get(d.riderId)?.nameMasked} riderNumber={riders.get(d.riderId)?.riderNumber} />
+                  라이더 <RiderName withName riderId={d.riderId} nameMasked={riders.get(d.riderId)?.nameMasked} riderNumber={riders.get(d.riderId)?.riderNumber} />
                 </>
               ) : (
                 m.noRider
