@@ -12,6 +12,11 @@ describe('대시보드', () => {
     renderAt('/dashboard', as.riderOps);
     expect(await screen.findByTestId('stat-riders-total')).toHaveTextContent('2');
     expect(screen.getByTestId('stat-on-duty')).toHaveTextContent('1');
+    // 2026-11-23: "운행 중"과 "새 배달 받는 중"의 관계를 이름·설명으로
+    expect(screen.getByTestId('stat-on-duty')).toHaveTextContent('운행 중 (전체)');
+    expect(screen.getByTestId('stat-on-duty')).toHaveTextContent('신규배차를 끄고 맡은 배송만 하는 라이더도 포함');
+    expect(screen.getByTestId('stat-accepting')).toHaveTextContent('새 배달 받는 중');
+    expect(screen.getByTestId('stat-accepting')).toHaveTextContent('운행 중이면서 신규배차를 켠 라이더');
     expect(await screen.findByTestId('stat-in-progress')).toHaveTextContent('4');
     expect(screen.getByTestId('stat-surcharges')).toHaveTextContent('1');
     expect(screen.getByTestId('stat-by-state')).toHaveTextContent(/픽업\s*2/);

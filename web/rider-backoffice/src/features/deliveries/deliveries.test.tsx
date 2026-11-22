@@ -7,7 +7,21 @@ import { as, renderAt } from '../../test/render';
 
 const searchCalls = (sent: readonly Request[]) => sent.filter((r) => new URL(r.url).pathname.endsWith('/deliveries')).map((r) => new URL(r.url).searchParams);
 
-describe('배송 찾기', () => {
+describe('배송 관리', () => {
+  it('라이더 번호로 거르면 "그 라이더가 맡은 배송"이라고 밝히고 라이더 정보로 가는 길을 둔다', async () => {
+    renderAt('/deliveries?riderId=R4829', as.riderOps);
+    const note = await screen.findByTestId('rider-filter-note');
+    expect(note).toHaveTextContent('R4829');
+    expect(note).toHaveTextContent('라이더가 맡은 배송이에요.');
+    expect(within(note).getByTestId('rider-filter-link')).toHaveAttribute('href', '/riders/RD-7');
+  });
+
+  it('라이더로 거르지 않으면 안내 줄이 없다', async () => {
+    renderAt('/deliveries', as.riderOps);
+    await screen.findAllByTestId('delivery-row');
+    expect(screen.queryByTestId('rider-filter-note')).toBeNull();
+  });
+
   it('비워 두면 최근 배송부터, 행을 누르면 상세', async () => {
     const view = renderAt('/deliveries', as.riderOps);
     const rows = await screen.findAllByTestId('delivery-row');

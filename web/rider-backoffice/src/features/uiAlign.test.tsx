@@ -80,7 +80,7 @@ describe('화면 틀', () => {
 
   it('브라우저 탭 제목: 화면 이름 + 아직 받지 않은 도움요청 수', async () => {
     renderAt('/deliveries', as.riderOps);
-    await waitFor(() => expect(document.title).toMatch(/^\(\d+\) 배송 찾기 \| 라이더백오피스$/));
+    await waitFor(() => expect(document.title).toMatch(/^\(\d+\) 배송 관리 \| 라이더백오피스$/));
   });
 
   it('인터넷이 끊기면 띠로 알리고, 다시 이어지면 잠깐 알린다', async () => {
@@ -175,7 +175,7 @@ describe('2차 — 겉모습·안내·다 끝났어요', () => {
     await screen.findAllByTestId('delivery-row');
     expect(document.querySelector('main')).not.toHaveAttribute('data-skin');
     expect(screen.getByTestId('side-menu')).toHaveClass('bg-base-100');
-    expect(screen.getByTestId('page-title')).toHaveTextContent('배송 찾기');
+    expect(screen.getByTestId('page-title')).toHaveTextContent('배송 관리');
   });
 
   it('진행 단계의 끝난 단계는 흰 선 체크(글자 ✓ 아님)', async () => {

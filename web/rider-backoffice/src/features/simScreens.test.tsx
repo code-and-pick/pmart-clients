@@ -48,7 +48,7 @@ describe('목록 줄 — 누르면 바로 아래에 펼친 상세', () => {
     expect(await within(inline).findByTestId('delivery-inline-dispatch')).toBeInTheDocument();
     expect(within(inline).getByRole('link', { name: '전체 상세 ›' })).toHaveAttribute('href', '/deliveries/DLV-1');
     // 제목(목록 화면) 그대로
-    expect(screen.getByRole('heading', { name: '배송 찾기' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '배송 관리' })).toBeInTheDocument();
     await userEvent.click(within(row).getByText('전달 실패 등록'));
     expect(screen.queryByTestId('delivery-inline')).not.toBeInTheDocument();
   });

@@ -121,8 +121,8 @@ export function DashboardPage() {
         <QueryState state={toUiState(riders)} onRetry={() => void riders.refetch()}>
           {(r) => (
             <>
-              <StatCard label={d.onDuty} value={num(r.onDuty)} to={controlLink} hint={d.asOf(when(r.asOf))} testId="stat-on-duty" />
-              <StatCard label={d.accepting} value={num(r.onDutyAcceptingNew)} to={controlLink} />
+              <StatCard label={d.onDuty} value={num(r.onDuty)} to={controlLink} hint={`${d.onDutyHint} · ${d.asOf(when(r.asOf))}`} testId="stat-on-duty" />
+              <StatCard label={d.accepting} value={num(r.onDutyAcceptingNew)} to={controlLink} hint={d.acceptingHint} testId="stat-accepting" />
               <StatCard label={d.total} value={num(r.total)} to="/riders" testId="stat-riders-total" />
             </>
           )}
@@ -147,7 +147,7 @@ export function DashboardPage() {
                   total={Math.max(r.total, 1)}
                   rows={[
                     { label: d.onDuty, value: r.onDuty, to: controlLink, tone: 'bg-[var(--pm-chart-1)]' },
-                    { label: d.accepting, value: r.onDutyAcceptingNew, to: controlLink, tone: 'bg-[var(--pm-chart-1)]' },
+                    { label: d.accepting, value: r.onDutyAcceptingNew, to: controlLink, tone: 'bg-[var(--pm-chart-1)]', sub: true },
                     { label: d.joinedToday, value: r.joinedToday, to: '/signups', tone: 'bg-[var(--pm-chart-1)]' },
                   ]}
                 />
@@ -190,13 +190,17 @@ export function DashboardPage() {
 }
 
 /** 가로 막대 줄(이름 · 막대 · 수) — 누르면 그 목록 */
-function Bars({ rows, total }: { readonly rows: ReadonlyArray<{ readonly label: string; readonly value: number; readonly to: string; readonly tone: string }>; readonly total: number }) {
+/** [sub] 줄은 바로 위 줄의 일부(들여 쓰고 └ — "운행 중 (전체)" 안의 "새 배달 받는 중") */
+function Bars({ rows, total }: { readonly rows: ReadonlyArray<{ readonly label: string; readonly value: number; readonly to: string; readonly tone: string; readonly sub?: boolean }>; readonly total: number }) {
   return (
     <ul className="space-y-2.5">
       {rows.map((r) => (
         <li key={r.label}>
           <Link to={r.to} aria-label={`${r.label} ${num(r.value)}`} className="grid grid-cols-[9rem_1fr_3rem] items-center gap-3 text-sm hover:opacity-80">
-            <span className="truncate text-base-content/70">{r.label}</span>
+            <span className={`truncate text-base-content/70 ${r.sub ? 'pl-3' : ''}`}>
+              {r.sub && <span aria-hidden="true" className="mr-1 text-base-content/40">└</span>}
+              {r.label}
+            </span>
             <span className="h-2 overflow-hidden rounded-full bg-base-200">
               <span className={`pm-bar-fill block h-full rounded-full ${r.tone}`} style={{ width: `${Math.min(100, Math.round((r.value / total) * 100))}%` }} />
             </span>

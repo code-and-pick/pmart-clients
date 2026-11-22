@@ -2,7 +2,7 @@
 // - 찾기: delivery-execution `GET /deliveries`(주문 ID·라이더 ID 완전 일치, 상태·종류, 정렬, cursor — execution 0.4.0 BOD-5). 개인정보 없음.
 // - 상세: 수행 `GET /deliveries/{id}`(execution) + 배차 `GET /deliveries/{id}/dispatch`(dispatch) — 서로 다른 서비스의 값이라 따로 보인다.
 // 1차(2026-11-17, PC 5): 보기만 — 배차 취소·전달 실패 확정은 다음 차례. 필터·쪽은 주소 쿼리에 둔다.
-import { keepPreviousData, useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Fragment, useState, type FormEvent } from 'react';
 import { Link, Route, Routes, useParams, useSearchParams } from 'react-router';
 
@@ -24,6 +24,8 @@ import { DeliveryActions } from './DeliveryActions';
 
 /** 이 화면에서 더한 문구(2026-11-19 통합 백오피스와 맞추기) */
 const dx = {
+  riderFilter: '라이더가 맡은 배송이에요.',
+  riderInfo: '라이더 정보 보기',
   stripLabel: '배송 상태별 수',
   inProgressAll: '진행 중 전체',
   stateCard: (s: string) => s,
@@ -85,6 +87,14 @@ function DeliverySearchPage() {
   };
 
   const cq = useCenterQuery(); // 머리줄 센터 고르기(RS-7)
+  // 라이더 번호(R4785) → 라이더 ID — 목록 조회와 "이 라이더가 맡은 배송" 안내 줄이 같은 결과를 쓴다(한 번만 묻는다)
+  const qc = useQueryClient();
+  const riderLookup = {
+    queryKey: ['resolve-rider', riderId] as const,
+    queryFn: () => resolveRiderId(api, riderId),
+    staleTime: 60_000,
+  };
+  const riderHit = useQuery({ ...riderLookup, enabled: !!riderId });
   const query = useQuery({
     queryKey: ['deliveries', cq.mfcId ?? '', orderId, orderNumber, riderId, state, type, oldest, cursor],
     // 20초마다 다시 — 새로 받는 동안 이전 목록을 그대로 둬 깜빡이지 않게
@@ -92,7 +102,7 @@ function DeliverySearchPage() {
     placeholderData: keepPreviousData,
     queryFn: async () => {
       // 라이더 번호(R4785)로도 찾는다(ADR-0070) — 맞는 라이더가 없으면 빈 목록
-      const rid = riderId ? await resolveRiderId(api, riderId) : '';
+      const rid = riderId ? await qc.fetchQuery(riderLookup) : '';
       if (rid === null) return { items: [], page: { nextCursor: null } };
       return request(
         'GET',
@@ -116,7 +126,7 @@ function DeliverySearchPage() {
   });
 
   // 라이더 칸: 가린 이름 · 라이더 번호(GET /riders?riderIds= 한 번에 — ADR-0070)
-  const riders = useRiderSummaries((query.data?.items ?? []).map((d) => d.riderId));
+  const riders = useRiderSummaries([...(query.data?.items ?? []).map((d) => d.riderId), riderHit.data]);
 
   const reset = () => {
     setDraft({ orderId: '', orderNumber: '', riderId: '' });
@@ -207,6 +217,17 @@ function DeliverySearchPage() {
           </label>
         </SearchRow>
       </SearchPanel>
+      {/* 라이더 번호로 걸렀으면 지금 보는 것이 "그 라이더가 맡은 배송"임을 밝히고 라이더 정보로 가는 길을 둔다(2026-11-23) */}
+      {riderId && riderHit.data && (
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-box border border-base-300 bg-base-200/50 px-4 py-2 text-sm" data-testid="rider-filter-note">
+          <span>
+            <RiderName riderId={riderHit.data} nameMasked={riders.get(riderHit.data)?.nameMasked} riderNumber={riders.get(riderHit.data)?.riderNumber ?? (RIDER_NUMBER.test(riderId) ? riderId.toUpperCase() : undefined)} /> {dx.riderFilter}
+          </span>
+          <Link to={`/riders/${encodeURIComponent(riderHit.data)}`} className="link link-primary font-medium" data-testid="rider-filter-link">
+            {dx.riderInfo} →
+          </Link>
+        </div>
+      )}
       <QueryState state={toUiState(query, (r) => (r.items ?? []).length === 0)} onRetry={() => void query.refetch()} emptyText={m.empty}>
         {(r) => {
           const nextCursor = r.page?.nextCursor ?? null;

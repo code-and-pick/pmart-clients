@@ -28,11 +28,11 @@ export const messages = {
   menus: {
     dashboard: '대시보드',
     riderMap: '라이더 관제',
-    riders: '라이더 찾기',
+    riders: '라이더 관리',
     signups: '가입 승인',
     restrictionReviews: '제한 검토',
     withdrawals: '탈퇴',
-    deliveries: '배송 찾기',
+    deliveries: '배송 관리',
     consults: '상담 관리',
     cases: '접수 건',
     helpRequests: '도움요청',
@@ -187,8 +187,9 @@ export const messages = {
 
   /** 배송 찾기(execution 직원용 찾기 + 배차 조회) — 개인정보 없음 */
   deliveries: {
-    title: '배송 찾기',
-    intro: '주문·배송 번호(D74939255)·라이더 번호(R4785)·상태로 배송을 찾아요. 비워 두면 최근 배송부터 보여요.',
+    title: '배송 관리',
+    // 2026-11-23 사용자 "배송찾기랑 라이더 찾기 … 구별되는 게 확실히 눈에 보이게" — 첫 문장은 이 화면이 다루는 것
+    intro: '배송 한 건의 진행·배차·증빙을 보고 조치해요. 주문·배송 번호(D74939255)·라이더 번호(R4785)·상태로 찾고, 비워 두면 최근 배송부터 보여요.',
     orderId: '주문 ID',
     riderId: '라이더 번호',
     state: '수행 상태',
@@ -206,7 +207,7 @@ export const messages = {
     resumeRequested: '재개 요청',
     next: '다음',
     first: '처음으로',
-    back: '배송 찾기',
+    back: '배송 관리',
     detailTitle: (id: string) => `배송 ${id}`,
     execution: '수행(delivery-execution)',
     dispatch: '배차(delivery-dispatch)',

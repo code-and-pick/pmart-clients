@@ -30,7 +30,7 @@ describe('머리줄 센터 고르기(RS-7)', () => {
     const view = renderAt('/riders', as.riderOps);
     await screen.findAllByTestId('rider-row');
     await pickHeaderCenter();
-    await userEvent.click(screen.getAllByRole('link', { name: '배송 찾기' })[0]!);
+    await userEvent.click(screen.getAllByRole('link', { name: '배송 관리' })[0]!);
     await waitFor(() => expect(listCalls(view.sent, '/deliveries').some((r) => new URL(r.url).searchParams.get('mfcId') === 'MFC-BSJ-01')).toBe(true));
   });
 });
