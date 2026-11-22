@@ -20,13 +20,16 @@ final class _NoGoogle implements GoogleIdTokenSource {
   int calls = 0;
 
   @override
-  Future<String?> obtain() async {
+  Future<String?> obtain({bool withdrawal = false}) async {
     calls++;
     return null;
   }
 
   @override
-  Future<void> signOut() async {}
+  Future<void> signOut({bool revoke = false}) async {}
+
+  @override
+  Future<void> abandonSignup() async {}
 }
 
 /// 카카오·네이버 로그인(목) · 휴대폰 본인 확인(OCTOMO, 목) · 이 번호로 가입한 계정 안내 · 재가입 제한.
@@ -334,6 +337,7 @@ void main() {
               required codeVerifier,
               required redirectUri,
               required key,
+              bool withdrawal = false,
             }) async {
               calls.add((authorizationCode, redirectUri));
               return 'ID-TOKEN';
@@ -354,6 +358,7 @@ void main() {
               required codeVerifier,
               required redirectUri,
               required key,
+              bool withdrawal = false,
             }) async {
               keys.add(key.value);
               if (keys.length == 1) throw const UnknownResultFailure();
@@ -378,6 +383,7 @@ void main() {
                     required codeVerifier,
                     required redirectUri,
                     required key,
+                    bool withdrawal = false,
                   }) async => throw ProblemFailure(
                     Problem.fromJson({
                       'type': 'about:blank',
@@ -414,4 +420,5 @@ Future<String> _noExchange({
   required String codeVerifier,
   required String redirectUri,
   required IdempotencyKey key,
+  bool withdrawal = false,
 }) async => throw StateError('부르면 안 된다');

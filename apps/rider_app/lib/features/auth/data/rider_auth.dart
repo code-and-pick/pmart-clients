@@ -120,9 +120,16 @@ final class RiderLoginProviderNotReady extends RiderLoginOutcome {
 /// 제공자 로그인 → 서버에 넘길 OIDC ID 토큰(Google·카카오·네이버). 토큰은 로그·오류 문구에 남기지 않는다.
 abstract interface class SocialTokenSource {
   /// 취소면 null. 설정 문제면 [RiderLoginMisconfigured] 를, 장애면 [RiderLoginUnavailable] 를 던진다.
-  Future<String?> obtain();
+  /// [withdrawal] = 탈퇴 전 재인증(네이버만 뜻이 있다 — 서버가 교환 뒤 네이버 앱 연결을 끊는다, rider-auth 0.4.0 RA-1).
+  Future<String?> obtain({bool withdrawal = false});
 
-  Future<void> signOut();
+  /// 이 기기의 제공자 로그인 흔적을 지운다(앱 로그아웃). [revoke] = 탈퇴가 끝났다 — 앱이 끊을 수 있는 제공자(구글)는
+  /// 앱 연결(정보 제공 동의)까지 끊어 다시 가입할 때 동의 화면이 다시 뜨게. 카카오·네이버는 서버가 끊는다. 실패는 던지지 않는다.
+  Future<void> signOut({bool revoke = false});
+
+  /// 제공자 동의는 했지만 가입을 마치지 않고 그만뒀다 — 다음 로그인 때 동의 화면이 다시 뜨게 앱 연결을 끊는다
+  /// (구글 disconnect·카카오 SDK unlink — 고객앱과 같게, RA-1). 네이버는 서버가 로그인 교환 때 끊는다. 실패는 던지지 않는다.
+  Future<void> abandonSignup();
 }
 
 /// Google 계정 선택 → ID 토큰.
@@ -135,8 +142,9 @@ final class GoogleSignInIdTokenSource implements GoogleIdTokenSource {
   final GoogleSignIn _signIn;
   Future<void>? _initialized;
 
+  /// 로그인 버튼마다 `authenticate()` = 계정 선택 창(자동 선택 없음, RA-1).
   @override
-  Future<String?> obtain() async {
+  Future<String?> obtain({bool withdrawal = false}) async {
     try {
       await (_initialized ??= _signIn.initialize(
         serverClientId: riderGoogleServerClientId,
@@ -160,16 +168,23 @@ final class GoogleSignInIdTokenSource implements GoogleIdTokenSource {
   }
 
   @override
-  Future<void> signOut() async {
+  Future<void> signOut({bool revoke = false}) async {
     try {
       await (_initialized ??= _signIn.initialize(
         serverClientId: riderGoogleServerClientId,
       ));
+      // 탈퇴(revoke): disconnect = 이번 실행에서 로그인한 계정의 Android `revokeAccess` 뒤 `clearCredentialState`
+      // (google_sign_in_android 7.2). 탈퇴 전에 앱을 껐다 켰으면 잡힌 계정이 없어 끊지 못할 수 있다.
+      // 로그아웃: signOut = `clearCredentialState` — 연결(동의)은 남기고, 다음 로그인 버튼은 계정 선택 창부터.
+      if (revoke) await _signIn.disconnect();
       await _signIn.signOut();
     } on Object {
       // 기기 Google 로그아웃 실패는 무시한다(PMart 토큰은 지웠다).
     }
   }
+
+  @override
+  Future<void> abandonSignup() => signOut(revoke: true);
 }
 
 final googleIdTokenSourceProvider = Provider<GoogleIdTokenSource>(
@@ -286,8 +301,47 @@ final class RiderLogin {
     return RiderLoggedIn(riderId: result.riderId, registered: registered);
   }
 
+  /// 탈퇴 신청 전 재인증(rider-auth 0.4.0 RA-1). 네이버로 가입한 라이더만 — 네이버 인가를 한 번 더 받아
+  /// `purpose: WITHDRAWAL` 로 교환하면 서버가 네이버 앱 연결을 끊는다(받은 id_token 은 쓰지 않는다).
+  /// [provider] = 세션에 저장된 제공자. 없으면(2026-11-22 전에 저장한 세션) 서버의 현재 세션
+  /// (`GET /rider-auth/sessions/current` `provider`, rider-auth 0.4.0)으로 정한다.
+  /// 다른 제공자·끝내 모름은 할 일 없이 true. 라이더가 네이버 화면을 닫으면 false.
+  /// 실패는 [RiderLoginMisconfigured]·[RiderLoginUnavailable] 를 던진다.
+  Future<bool> reauthenticateForWithdrawal(
+    RiderSocialProvider? provider,
+  ) async {
+    final source = naver;
+    if (source == null) return true;
+    final p = provider ?? await currentProvider();
+    if (p != RiderSocialProvider.naver) return true;
+    return await source.obtain(withdrawal: true) != null;
+  }
+
+  /// 서버가 아는 이 라이더의 로그인 수단(현재 세션 조회). 조회 실패·null 이면 null — 탈퇴를 막지 않는다
+  /// (그때는 네이버 연결이 남을 수 있다. 탈퇴 신청 자체는 서버가 따로 검사한다).
+  Future<RiderSocialProvider?> currentProvider() async {
+    try {
+      final res = await pmartGuard(() => _tokensApi.getCurrentRiderSession());
+      return switch (res.data?.provider) {
+        ra.RiderSessionProviderEnum.GOOGLE => RiderSocialProvider.google,
+        ra.RiderSessionProviderEnum.KAKAO => RiderSocialProvider.kakao,
+        ra.RiderSessionProviderEnum.NAVER => RiderSocialProvider.naver,
+        null => null,
+      };
+    } on PmartFailure {
+      return null;
+    }
+  }
+
   /// 서버 세션을 끝내고(이 기기만) 토큰을 지운다. 서버 호출이 실패해도 기기 토큰은 지운다.
-  Future<void> logout() async {
+  /// [provider] = 세션에 저장된 로그인 제공자(앱을 다시 켜 이번 실행에 로그인한 기록이 없을 때 쓴다).
+  /// [withdrawn] = 탈퇴가 끝났다(구글은 앱 연결까지 끊는다). [abandonSignup] = 가입을 마치지 않고 그만뒀다
+  /// (구글·카카오는 앱 연결을 끊어 다음 로그인 때 동의 화면이 다시 뜨게).
+  Future<void> logout({
+    RiderSocialProvider? provider,
+    bool withdrawn = false,
+    bool abandonSignup = false,
+  }) async {
     if (await tokens.readRefreshToken() != null) {
       final key = IdempotencyKey.generate();
       try {
@@ -304,9 +358,14 @@ final class RiderLogin {
       }
     }
     await tokens.clear();
-    final signedIn = _signedIn ?? google;
+    final signedIn =
+        _signedIn ?? (provider == null ? null : _sourceOf(provider)) ?? google;
     _signedIn = null;
-    await signedIn.signOut();
+    if (abandonSignup) {
+      await signedIn.abandonSignup();
+    } else {
+      await signedIn.signOut(revoke: withdrawn);
+    }
   }
 }
 

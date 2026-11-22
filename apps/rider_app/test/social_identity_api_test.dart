@@ -59,13 +59,16 @@ final class _Source implements SocialTokenSource {
   int signOuts = 0;
 
   @override
-  Future<String?> obtain() async {
+  Future<String?> obtain({bool withdrawal = false}) async {
     calls++;
     return token;
   }
 
   @override
-  Future<void> signOut() async => signOuts++;
+  Future<void> signOut({bool revoke = false}) async => signOuts++;
+
+  @override
+  Future<void> abandonSignup() async {}
 }
 
 final class _Google extends _Source implements GoogleIdTokenSource {

@@ -12,12 +12,19 @@ import 'rider_auth.dart';
 
 @immutable
 class RiderSession {
-  const RiderSession({required this.riderId, this.registered = true});
+  const RiderSession({
+    required this.riderId,
+    this.registered = true,
+    this.provider,
+  });
 
   final String riderId;
 
   /// 가입(rider-service 프로필)이 있는지. 로그인 뒤 `GET /riders/me` 가 404 면 false — 가입 화면으로 간다.
   final bool registered;
+
+  /// 로그인한 제공자(RA-1 — 탈퇴 전 네이버 재인증·로그아웃 때 그 SDK 정리). 2026-11-22 전에 저장한 세션은 null.
+  final RiderSocialProvider? provider;
 }
 
 /// 앱을 켰을 때의 세션. 시험에서 로그인된 상태로 시작하려면 이것을 바꾼다.
@@ -40,7 +47,13 @@ Future<RiderSession?> loadSavedSession(SecureKeyValueStore store) async {
       await store.delete(_sessionKey);
       return null;
     }
-    return RiderSession(riderId: id);
+    final p = m['provider'];
+    return RiderSession(
+      riderId: id,
+      provider: RiderSocialProvider.values
+          .where((v) => v.name == p)
+          .firstOrNull,
+    );
   } on Object {
     return null;
   }
@@ -103,6 +116,7 @@ class SessionController extends Notifier<RiderSession?> {
         RiderSession(
           riderId: MockDeliveryRepository.riderId,
           registered: !newAccount,
+          provider: provider,
         ),
       );
       return LoginResult.loggedIn;
@@ -112,7 +126,13 @@ class SessionController extends Notifier<RiderSession?> {
         .login(provider: provider);
     return switch (outcome) {
       RiderLoggedIn(:final riderId, :final registered) => () {
-        _set(RiderSession(riderId: riderId, registered: registered));
+        _set(
+          RiderSession(
+            riderId: riderId,
+            registered: registered,
+            provider: provider,
+          ),
+        );
         return LoginResult.loggedIn;
       }(),
       RiderLoginCanceled() => LoginResult.canceled,
@@ -133,13 +153,35 @@ class SessionController extends Notifier<RiderSession?> {
   /// 가입이 끝났다(서버가 프로필을 돌려준 뒤에만 부른다).
   void markRegistered() {
     final s = state;
-    if (s != null) _set(RiderSession(riderId: s.riderId, registered: true));
+    if (s != null) {
+      _set(
+        RiderSession(
+          riderId: s.riderId,
+          registered: true,
+          provider: s.provider,
+        ),
+      );
+    }
   }
 
+  /// 가입을 마치지 않은 세션(지원하기 중)에서 나가면 가입을 그만둔 것 — 구글·카카오 앱 연결을 끊는다(RA-1).
   void logout() => unawaited(_endSession());
 
+  /// 탈퇴가 끝났다(서버가 완료로 답한 뒤에만) — 로그아웃하고 구글은 앱 연결까지 끊는다(RA-1).
+  void withdrawn() => unawaited(_endSession(withdrawn: true));
+
+  /// 탈퇴 신청 전 재인증(네이버로 로그인한 라이더만 — 서버가 네이버 앱 연결을 끊는다, rider-auth 0.4.0 RA-1).
+  /// 목 모드·다른 제공자는 true. 라이더가 닫으면 false. 실패는 [RiderLoginOutcome] 을 던진다.
+  Future<bool> reauthenticateForWithdrawal() async {
+    if (ref.read(envProvider) == PmartEnv.mock) return true;
+    return ref
+        .read(riderLoginProvider)
+        .reauthenticateForWithdrawal(state?.provider);
+  }
+
   /// 세션을 바로 끝내고(화면은 로그인으로), 푸시 등록 해제·서버 로그아웃·토큰 지우기가 끝나면 완료되는 Future.
-  Future<void> _endSession() {
+  Future<void> _endSession({bool withdrawn = false}) {
+    final session = state;
     // 토큰을 지우기 전에 이 단말의 푸시 등록을 푼다(다른 라이더 알림이 이 단말로 오지 않게).
     final unregister = ref.read(pushUnregisterProvider);
     final real = ref.read(envProvider) != PmartEnv.mock;
@@ -147,7 +189,11 @@ class SessionController extends Notifier<RiderSession?> {
     final done = () async {
       // 오래 걸려도 로그아웃(토큰 지우기)을 붙잡지 않는다.
       await unregister().timeout(const Duration(seconds: 5), onTimeout: () {});
-      await login?.logout();
+      await login?.logout(
+        provider: session?.provider,
+        withdrawn: withdrawn,
+        abandonSignup: !withdrawn && session != null && !session.registered,
+      );
     }();
     _set(null);
     return done;
@@ -161,7 +207,11 @@ class SessionController extends Notifier<RiderSession?> {
           ? store.delete(_sessionKey)
           : store.write(
               _sessionKey,
-              jsonEncode({'riderId': s.riderId, 'registered': s.registered}),
+              jsonEncode({
+                'riderId': s.riderId,
+                'registered': s.registered,
+                if (s.provider case final p?) 'provider': p.name,
+              }),
             ),
     );
   }

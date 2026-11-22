@@ -5,6 +5,7 @@ import 'package:pmart_core/pmart_core.dart';
 import '../../../l10n/gen/app_localizations.dart';
 import '../../../shared/rider_style.dart';
 import '../../../shared/rider_widgets.dart';
+import '../../auth/data/rider_auth.dart' show RiderLoginOutcome;
 import '../../auth/data/session.dart';
 import '../data/withdrawal.dart';
 import '../../../shared/keyboard.dart';
@@ -74,6 +75,28 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
       _blockers = const [];
     });
     final repo = ref.read(withdrawalRepositoryProvider);
+    // 새 신청이면 먼저 재인증(네이버로 가입한 라이더만 — 서버가 네이버 앱 연결을 끊는다, rider-auth 0.4.0 RA-1).
+    // 결과를 모르는 신청을 같은 키로 다시 보낼 때는 다시 묻지 않는다.
+    if (_key == null) {
+      final bool go;
+      try {
+        go = await ref
+            .read(sessionProvider.notifier)
+            .reauthenticateForWithdrawal();
+      } on RiderLoginOutcome {
+        if (!mounted) return;
+        setState(() {
+          _busy = false;
+          _note = l10n.wdReauthFailed;
+        });
+        return;
+      }
+      if (!mounted) return;
+      if (!go) {
+        setState(() => _busy = false); // 네이버 화면을 닫음 — 아무 것도 보내지 않았다
+        return;
+      }
+    }
     try {
       // 결과를 모르는 신청은 같은 키로 다시 보낸다.
       final key = _key ??= IdempotencyKey.generate();
@@ -130,7 +153,7 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
       switch (s.state) {
         case WithdrawalState.completed:
           showRiderToast(context, l10n.wdDone);
-          ref.read(sessionProvider.notifier).logout();
+          ref.read(sessionProvider.notifier).withdrawn();
           return;
         case WithdrawalState.rejected:
           setState(() {

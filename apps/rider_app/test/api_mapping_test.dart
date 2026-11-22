@@ -741,8 +741,11 @@ class _FakeGoogle implements GoogleIdTokenSource {
   final String? token;
 
   @override
-  Future<String?> obtain() async => token;
+  Future<String?> obtain({bool withdrawal = false}) async => token;
 
   @override
-  Future<void> signOut() async {}
+  Future<void> signOut({bool revoke = false}) async {}
+
+  @override
+  Future<void> abandonSignup() async {}
 }
