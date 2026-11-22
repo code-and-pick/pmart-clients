@@ -62,14 +62,8 @@ export function SessionPage() {
         <Avatar name={name} size="lg" />
         <div className="min-w-0 flex-1 space-y-1.5">
           <p className="text-lg font-semibold">{name ?? (label.isError ? t.nameFailed : label.isPending ? '…' : t.nameUnknown)}</p>
-          {label.data?.employeeNo && <p className="font-mono text-sm text-base-content/60">{label.data.employeeNo}</p>}
-          <div className="flex flex-wrap gap-1.5">
-            {session.roles.map((r) => (
-              <span key={r} className="badge badge-primary badge-soft badge-sm" title={r}>
-                {m.shell.roleName[r] ?? r}
-              </span>
-            ))}
-          </div>
+          {/* 사번 · 역할을 회색 글자 한 줄로(2026-11-23 "권한 버튼처럼 나오는 거 별론데") */}
+          <p className="text-sm text-base-content/60">{[label.data?.employeeNo, session.roles.map((r) => m.shell.roleName[r] ?? r).join(', ')].filter(Boolean).join(' · ')}</p>
         </div>
       </div>
       {session.roles.length === 0 && (

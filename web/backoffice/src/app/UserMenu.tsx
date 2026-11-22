@@ -81,17 +81,10 @@ export function UserMenu({ subject }: { readonly subject: string | null }) {
             <div className="min-w-0">
               <p className="truncate font-semibold">{name ?? t.title}</p>
               {label.data?.employeeNo && <p className="font-mono text-xs text-base-content/60">{label.data.employeeNo}</p>}
+              {/* 역할은 글자로만(2026-11-23 "권한 버튼처럼 나오는 거 별론데") */}
+              {roles.length > 0 && <p className="mt-0.5 text-xs text-base-content/60">{roles.join(', ')}</p>}
             </div>
           </div>
-          {roles.length > 0 && (
-            <div className="mt-2 flex flex-wrap gap-1">
-              {roles.map((r) => (
-                <span key={r} className="badge badge-ghost badge-sm">
-                  {r}
-                </span>
-              ))}
-            </div>
-          )}
           <div className="mt-3 flex flex-col border-t border-base-300 pt-2">
             <Link to="/session" role="menuitem" className="rounded px-2 py-1.5 hover:bg-base-200">
               {t.title}
