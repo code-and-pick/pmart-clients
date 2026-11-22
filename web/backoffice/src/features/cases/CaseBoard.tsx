@@ -3,6 +3,7 @@
 import { useQueries } from '@tanstack/react-query';
 
 import { request } from '@pmart/web-core';
+import { useCenterScope } from '../../shared/centerScope';
 import { useApi } from '../../app/ApiContext';
 import { caseCard } from '../../app/DashboardBoard';
 import { KanbanBoard, type BoardColumn } from '../../shared/Kanban';
@@ -16,10 +17,11 @@ const FLOW = ['OPEN', 'ASSIGNED', 'ACTION_PENDING', 'MONITORING', 'RESOLUTION_RE
 
 export function CaseBoard({ kind }: { readonly kind?: Kind | undefined }) {
   const api = useApi();
+  const centerId = useCenterScope(); // 머리줄 센터 고르기(2026-11-23)
   const qs = useQueries({
     queries: FLOW.map((state) => ({
-      queryKey: ['board', 'case-state', state, kind ?? ''],
-      queryFn: () => request('GET', api.cases.GET('/cases', { params: { query: { state, ...(kind ? { kind } : {}), size: 50 } } })),
+      queryKey: ['board', 'case-state', state, kind ?? '', centerId],
+      queryFn: () => request('GET', api.cases.GET('/cases', { params: { query: { state, ...(kind ? { kind } : {}), ...(centerId ? { centerId } : {}), size: 50 } } })),
     })),
   });
   const columns: BoardColumn[] = FLOW.map((state, i) => {

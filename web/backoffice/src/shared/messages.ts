@@ -1325,6 +1325,17 @@ export const messages = {
     leave: '나가기',
   },
   /** 머리줄 번호로 바로 찾기(2026-11-18) */
+  /** 머리줄 센터 고르기(2026-11-23) — 보기만 거른다 */
+  centerScope: {
+    label: '센터',
+    pickerLabel: '보는 센터',
+    all: '전체 센터',
+    hint: '고른 센터 것만 보여요(센터로 거를 수 있는 화면만). 권한은 그대로예요.',
+    failed: '센터 목록을 읽지 못했어요 — 지금은 전체 센터로 봐요',
+    failedShort: '목록 못 읽음',
+    notApplied: (name: string) => `이 화면은 아직 센터로 거를 수 없어 모든 센터 것이 보여요(고른 센터: ${name}).`,
+    partial: (name: string) => `대시보드는 센터로 거를 수 있는 칸만 ${name} 것이에요. 나머지 칸은 모든 센터예요.`,
+  },
   quickJump: {
     label: '번호로 바로 찾기',
     placeholder: '주문·배송·라이더 번호, ID',

@@ -9,6 +9,7 @@ export const centerList: CenterList = {
   items: [
     { centerId: 'CDC01', type: 'CDC', name: '수도권 CDC', state: 'ACTIVE', address: '경기 이천시' },
     { centerId: 'MFC-BSN-01', type: 'MFC', name: '부산진구 MFC', state: 'ACTIVE', address: '부산 부산진구' },
+    { centerId: 'MFC-MOKPO-01', type: 'MFC', name: '목포 MFC', state: 'ACTIVE', address: '전남 목포시' }, // 2026-11-23 LAN 2호점
     { centerId: 'MFC-SEL-01', type: 'MFC', name: '송파 MFC', state: 'PLANNED', address: '서울 송파구' },
   ],
   page: { nextCursor: null, size: 50 },

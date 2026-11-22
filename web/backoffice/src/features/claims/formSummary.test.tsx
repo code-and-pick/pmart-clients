@@ -16,7 +16,8 @@ describe('입력 화면 요약', () => {
     const qty = (await screen.findAllByRole('spinbutton')).find((x) => !(x as HTMLInputElement).disabled)!;
     await user.clear(qty);
     await user.type(qty, '1');
-    await user.selectOptions(screen.getAllByRole('combobox')[0]!, screen.getAllByRole('combobox')[0]!.querySelectorAll('option')[1]!);
+    const reason = within(screen.getByRole('main')).getAllByRole('combobox')[0]!; // 머리줄 센터 고르기(2026-11-23) 말고 본문 첫 고르기
+    await user.selectOptions(reason, reason.querySelectorAll('option')[1]!);
     await user.click(screen.getAllByRole('radio')[0]!);
     await waitFor(() => expect(within(box).queryByTestId('return-missing')).not.toBeInTheDocument());
     expect(box).toHaveTextContent('1가지 · 1개');

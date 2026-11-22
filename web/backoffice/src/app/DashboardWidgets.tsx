@@ -8,6 +8,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { Link } from 'react-router';
 
 import { ProblemFailure, request } from '@pmart/web-core';
+import { useCenterScope } from '../shared/centerScope';
 import { useApi } from './ApiContext';
 import { liveQuery } from './DashboardSections';
 import { slaText } from '../features/cases/CaseSlaPage';
@@ -40,10 +41,11 @@ export function dayQuery(api: Api, day: string) {
 }
 
 /** CASE_SLA(처리 기한 지킴) 조회 — 숫자 카드·SLA 카드가 같은 queryKey */
-export function slaQuery(api: Api, from: string, to: string) {
+/** center: 머리줄 센터 고르기(2026-11-23, bff metrics centerId) — '' 면 모든 센터 */
+export function slaQuery(api: Api, from: string, to: string, center = '') {
   return {
-    queryKey: ['dashboard', 'sla', from, to],
-    queryFn: () => request('GET', api.bff.GET('/views/metrics', { params: { query: { metric: 'CASE_SLA', from, to, granularity: 'DAY' } } })),
+    queryKey: ['dashboard', 'sla', from, to, center],
+    queryFn: () => request('GET', api.bff.GET('/views/metrics', { params: { query: { metric: 'CASE_SLA', from, to, granularity: 'DAY', ...(center ? { centerId: center } : {}) } } })),
   };
 }
 
@@ -169,10 +171,11 @@ const ratioOf = (totals: ReadonlyArray<{ readonly numerator: number; readonly de
 
 export function SlaStat({ from, to }: { readonly from: string; readonly to: string }) {
   const api = useApi();
-  const q = useQuery(slaQuery(api, from, to));
+  const center = useCenterScope(); // 머리줄 센터 고르기(2026-11-23)
+  const q = useQuery(slaQuery(api, from, to, center));
   // 지난 7일과 비교(2026-11-18 사용자 "숫자만 보고 좋은지 나쁜지 알게") — 같은 서버 지표를 바로 앞 7일로 한 번 더 읽어 %p 차이만 보인다.
   // 목표치는 서버에 없어 만들지 않는다. 앞 기간을 못 읽었거나 판정된 건이 없으면 비교를 보이지 않는다(0 과 비교하지 않는다).
-  const prev = useQuery(slaQuery(api, addSeoulDays(from, -7), addSeoulDays(from, -1)));
+  const prev = useQuery(slaQuery(api, addSeoulDays(from, -7), addSeoulDays(from, -1), center));
   const { numerator, denominator, ratio } = ratioOf(q.data?.totals);
   const t = slaText({ numerator, denominator });
   const before = prev.data ? ratioOf(prev.data.totals).ratio : null;
@@ -226,12 +229,13 @@ export function RiskStat() {
 // 50건 상한 없이 정확한 건수와 결제 승인 금액을 본다(주문 수 | 결제 금액 바꿔 보기 — 두 축을 한 그림에 겹치지 않는다). 그 밖 역할은 주문 찾기 첫 쪽(50+ 로 밝힘).
 
 /** 주문 요약(관리자만 — order `GET /orders/metrics/summary`). 매출 칸·7일 막대·오늘 상태가 같은 queryKey */
-export function summaryQuery(api: Api, from: string, to: string) {
+/** center: 머리줄 센터 고르기(2026-11-23, order metrics mfcId) — '' 면 모든 센터 */
+export function summaryQuery(api: Api, from: string, to: string, center = '') {
   return {
-    queryKey: ['dashboard', 'sales', 'summary', from, to],
+    queryKey: ['dashboard', 'sales', 'summary', from, to, center],
     refetchInterval: REFRESH_MS,
     retry: false,
-    queryFn: () => request('GET', api.orders.GET('/orders/metrics/summary', { params: { query: { from, to } } })),
+    queryFn: () => request('GET', api.orders.GET('/orders/metrics/summary', { params: { query: { from, to, ...(center ? { mfcId: center } : {}) } } })),
   };
 }
 
@@ -240,9 +244,10 @@ const krwShort = (n: number) => (n >= 10_000 ? `${(n / 10_000).toLocaleString('k
 
 export function OrdersWeekChart({ days, admin = false }: { readonly days: readonly string[]; readonly admin?: boolean }) {
   const api = useApi();
+  const center = useCenterScope(); // 머리줄 센터 고르기(2026-11-23)
   const [measure, setMeasure] = useState<'count' | 'amount'>('count');
   const lookups = useQueries({ queries: days.map((d) => ({ ...dayQuery(api, d), enabled: !admin })) });
-  const sums = useQueries({ queries: days.map((d) => ({ ...summaryQuery(api, d, d), enabled: admin })) });
+  const sums = useQueries({ queries: days.map((d) => ({ ...summaryQuery(api, d, d, center), enabled: admin })) });
   const amount = admin && measure === 'amount';
   const raw = days.map((_, i) => {
     if (admin) {
@@ -325,8 +330,9 @@ const OFF = new Set(['CANCELLED', 'EXPIRED']);
 /** 오늘 주문 흐름 — 관리자는 주문 요약(정확), 그 밖은 오늘 주문 찾기 앞 50건(더 있으면 그렇게 밝힌다) */
 export function StatusDonut({ today, admin = false }: { readonly today: string; readonly admin?: boolean }) {
   const api = useApi();
+  const center = useCenterScope(); // 머리줄 센터 고르기(2026-11-23)
   const look = useQuery({ ...dayQuery(api, today), enabled: !admin });
-  const sum = useQuery({ ...summaryQuery(api, today, today), enabled: admin });
+  const sum = useQuery({ ...summaryQuery(api, today, today, center), enabled: admin });
   const pending = admin ? sum.isPending : look.isPending;
   const failed = admin ? sum.isError : look.isError;
   const counts: Record<string, number> = admin ? Object.fromEntries((sum.data?.statusCounts ?? []).map((c) => [c.status, c.count])) : (look.data?.byStatus ?? {});
@@ -418,6 +424,7 @@ function ago(iso: string): string {
 /** 새로 들어온 일 — 승인 요청·접수 건·고객 문의 첫 쪽 5건씩을 시각순으로(보이는 메뉴만, 못 읽은 원천은 아래에 밝힘) */
 export function ActivityFeed({ approvals, cases, inquiries }: { readonly approvals: boolean; readonly cases: boolean; readonly inquiries: boolean }) {
   const api = useApi();
+  const center = useCenterScope(); // 머리줄 센터 고르기(2026-11-23)
   const a = useQuery({
     queryKey: ['dashboard', 'activity', 'approvals'],
     enabled: approvals,
@@ -425,10 +432,10 @@ export function ActivityFeed({ approvals, cases, inquiries }: { readonly approva
     queryFn: () => request('GET', api.approval.GET('/approvals', { params: { query: { size: 5 } } })),
   });
   const c = useQuery({
-    queryKey: ['dashboard', 'activity', 'cases'],
+    queryKey: ['dashboard', 'activity', 'cases', center],
     enabled: cases,
     refetchInterval: REFRESH_MS,
-    queryFn: () => request('GET', api.cases.GET('/cases', { params: { query: { size: 5 } } })),
+    queryFn: () => request('GET', api.cases.GET('/cases', { params: { query: { size: 5, ...(center ? { centerId: center } : {}) } } })),
   });
   const q = useQuery({
     queryKey: ['dashboard', 'activity', 'inquiries'],
@@ -492,7 +499,8 @@ function isNotImplemented(e: unknown): boolean {
 /** 센터별 품절 상품 수(mfc-inventory 0.28.0 `GET /stock-summaries` — 지금 값, 기간과 무관). 취급 상품 중 가용 ≤ 0. 못 읽으면 "?"(0 아님) */
 function SoldOutRow() {
   const api = useApi();
-  const q = useQuery({ queryKey: ['dashboard', 'stock-summaries'], refetchInterval: REFRESH_MS, retry: false, queryFn: () => request('GET', api.mfcInventory.GET('/stock-summaries', {})) });
+  const center = useCenterScope(); // 머리줄 센터 고르기(2026-11-23)
+  const q = useQuery({ queryKey: ['dashboard', 'stock-summaries', center], refetchInterval: REFRESH_MS, retry: false, queryFn: () => request('GET', api.mfcInventory.GET('/stock-summaries', center ? { params: { query: { mfcId: center } } } : {})) });
   const items = q.data?.items ?? [];
   const soldOut = items.reduce((s, i) => s + i.soldOutSkuCount, 0);
   const handled = items.reduce((s, i) => s + i.handledSkuCount, 0);
@@ -525,6 +533,7 @@ function SoldOutRow() {
 
 export function MetricsPanel({ from, to }: { readonly from: string; readonly to: string }) {
   const api = useApi();
+  const center = useCenterScope(); // 머리줄 센터 고르기(2026-11-23)
   const days: string[] = [];
   for (let d = from; d <= to && days.length < 31; d = addSeoulDays(d, 1)) days.push(d);
   const live: MetricCell[] = [
@@ -533,9 +542,9 @@ export function MetricsPanel({ from, to }: { readonly from: string; readonly to:
   ];
   const qs = useQueries({
     queries: live.map((c) => ({
-      queryKey: ['dashboard', 'metric', c.key, from, to],
+      queryKey: ['dashboard', 'metric', c.key, from, to, center],
       retry: false,
-      queryFn: () => request('GET', api.bff.GET('/views/metrics', { params: { query: { metric: c.key as 'SHORTAGE_RATE' | 'ON_TIME_DELIVERY', from, to, granularity: 'DAY' } } })),
+      queryFn: () => request('GET', api.bff.GET('/views/metrics', { params: { query: { metric: c.key as 'SHORTAGE_RATE' | 'ON_TIME_DELIVERY', from, to, granularity: 'DAY', ...(center ? { centerId: center } : {}) } } })),
     })),
   });
   return (
@@ -771,10 +780,11 @@ function Kpi({ title, value, failed, sub, delta, trend, hero = false, testId, ch
 
 export function SalesPanel({ from, to }: { readonly from: string; readonly to: string }) {
   const api = useApi();
+  const center = useCenterScope(); // 머리줄 센터 고르기(2026-11-23)
   const days = daysBetween(from, to);
-  const summary = useQuery(summaryQuery(api, from, to));
-  const prev = useQuery(summaryQuery(api, addSeoulDays(from, -days.length), addSeoulDays(from, -1)));
-  const daily = useQueries({ queries: days.map((d) => summaryQuery(api, d, d)) });
+  const summary = useQuery(summaryQuery(api, from, to, center));
+  const prev = useQuery(summaryQuery(api, addSeoulDays(from, -days.length), addSeoulDays(from, -1), center));
+  const daily = useQueries({ queries: days.map((d) => summaryQuery(api, d, d, center)) });
   const refunds = useQuery({ queryKey: ['dashboard', 'sales', 'refunds', from, to], refetchInterval: REFRESH_MS, retry: false, queryFn: () => request('GET', api.claims.GET('/claims/metrics/refunds', { params: { query: { from, to } } })) });
   // 하루라도 못 읽었으면 그 자리는 끊는다(0 으로 잇지 않음)
   const wonByDay = daily.map((q) => (q.data ? q.data.approvedAmount : null));
@@ -839,13 +849,14 @@ const pct = (n: number, d: number) => (d > 0 ? `${((n / d) * 100).toFixed(1)}%` 
 
 export function ShortageTop({ from, to }: { readonly from: string; readonly to: string }) {
   const api = useApi();
+  const center = useCenterScope(); // 머리줄 센터 고르기(2026-11-23)
   const t = m.shortageTop;
   const [sort, setSort] = useState<ShortSort>('shortLines');
   const q = useQuery({
-    queryKey: ['dashboard', 'shortage-by-sku', from, to, sort],
+    queryKey: ['dashboard', 'shortage-by-sku', from, to, sort, center],
     refetchInterval: REFRESH_MS,
     retry: false,
-    queryFn: () => request('GET', api.bff.GET('/views/metrics/shortage-by-sku', { params: { query: { from, to, sort, limit: 5 } } })),
+    queryFn: () => request('GET', api.bff.GET('/views/metrics/shortage-by-sku', { params: { query: { from, to, sort, limit: 5, ...(center ? { centerId: center } : {}) } } })),
   });
   const items = q.data?.items ?? [];
   const maxLines = Math.max(1, ...items.map((i) => i.shortLines));
@@ -915,7 +926,8 @@ export function ShortageTop({ from, to }: { readonly from: string; readonly to: 
 /** 상품별 판매 상위 5 — 한 계열(수량)이라 막대는 한 색, 값은 끝에 */
 export function TopProducts({ from, to }: { readonly from: string; readonly to: string }) {
   const api = useApi();
-  const top = useQuery({ queryKey: ['dashboard', 'sales', 'top', from, to], refetchInterval: REFRESH_MS, retry: false, queryFn: () => request('GET', api.orders.GET('/orders/metrics/top-products', { params: { query: { from, to, limit: 5 } } })) });
+  const center = useCenterScope(); // 머리줄 센터 고르기(2026-11-23)
+  const top = useQuery({ queryKey: ['dashboard', 'sales', 'top', from, to, center], refetchInterval: REFRESH_MS, retry: false, queryFn: () => request('GET', api.orders.GET('/orders/metrics/top-products', { params: { query: { from, to, limit: 5, ...(center ? { mfcId: center } : {}) } } })) });
   // 상품 이름 — 상품 상세와 같은 조회(queryKey 공유)
   const ids = [...new Set((top.data?.items ?? []).map((i) => i.productId).filter((x): x is string => Boolean(x)))];
   const names = useQueries({ queries: ids.map((id) => ({ queryKey: ['product', 'detail', id], queryFn: () => request('GET', api.product.GET('/products/{productId}', { params: { path: { productId: id } } })) })) });

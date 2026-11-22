@@ -35,6 +35,7 @@ import { CommandFeedback, QueryState, toUiState, useCommand } from '@pmart/web-u
 import { commandParams, IdempotencyKey } from '../../api/command';
 import type { operations as BffOps } from '../../api/generated/backoffice-bff';
 import type { components } from '../../api/generated/case';
+import { useCenterScope } from '../../shared/centerScope';
 import { useApi } from '../../app/ApiContext';
 import { useSession } from '../../app/SessionContext';
 import { CodeLabel, NextAction, Notice, PageHeader, StatCard, StatStrip, StatusBadge, countCell, type Tone, AllDone, ListHeader, listCount, refreshOf, ActionsMenu } from '../../shared/admin';
@@ -433,8 +434,10 @@ export function CaseListPage() {
     const k = next.kind === undefined ? kind : next.kind || undefined;
     setParams({ tab: next.tab ?? tab, ...(k ? { kind: k } : {}), ...(next.cursor ? { cursor: next.cursor } : {}) });
   };
+  // 머리줄 센터 고르기(2026-11-23) — case-inbox centerId
+  const centerId = useCenterScope();
   const query = useQuery({
-    queryKey: ['cases', tab, me, kind ?? '', cursor],
+    queryKey: ['cases', tab, me, kind ?? '', cursor, centerId],
     queryFn: async (): Promise<InboxView> => {
       const view = await request(
         'GET',
@@ -447,6 +450,7 @@ export function CaseListPage() {
               ...(tab === 'mine' ? { assignee: me } : {}),
               ...(tab === 'overdue' ? { overdue: true } : {}),
               ...(tab === 'closed' ? { state: 'CLOSED' } : {}),
+              ...(centerId ? { centerId } : {}),
               ...(cursor ? { cursor } : {}),
             },
           },

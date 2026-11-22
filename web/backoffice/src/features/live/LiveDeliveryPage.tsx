@@ -15,6 +15,7 @@ import { Link, useSearchParams } from 'react-router';
 import { request } from '@pmart/web-core';
 import { QueryState, toUiState } from '@pmart/web-ui';
 import type { components } from '../../api/generated/backoffice-bff';
+import { useCenterScope, useSetCenterScope } from '../../shared/centerScope';
 import { useApi } from '../../app/ApiContext';
 import { messages } from '../../shared/messages';
 import { label, when } from '../../shared/ops';
@@ -111,13 +112,17 @@ function windowText(w: Record<string, unknown> | null | undefined): string {
 export function LiveDeliveryPage() {
   const api = useApi();
   const [params, setParams] = useSearchParams();
-  const mfcId = params.get('mfcId') ?? '';
+  // 센터(2026-11-23): 주소의 mfcId(다른 화면 링크)가 먼저, 없으면 머리줄에서 고른 센터. 이 화면 센터 칸은 머리줄 센터 고르기와 같은 것
+  const scope = useCenterScope();
+  const setScope = useSetCenterScope();
+  const urlMfc = params.get('mfcId') ?? '';
+  const mfcId = urlMfc || scope;
   const state = params.get('state') ?? '';
   // 먼저 확인 카드로 거르기(2026-11-19) — 읽어 온 줄 안에서(late·noRider·withCases). 서버 상태 거르기는 state
   const focus = (['late', 'noRider', 'withCases'] as const).find((x) => x === params.get('focus'));
   const cursor = state ? (params.get('cursor') ?? '') : '';
   const set = (next: { mfcId?: string; state?: string; cursor?: string; focus?: string }) => {
-    const merged = { mfcId, state, cursor: '', focus: '', ...next };
+    const merged = { mfcId: urlMfc, state, cursor: '', focus: '', ...next };
     const out: Record<string, string> = {};
     if (merged.mfcId) out.mfcId = merged.mfcId;
     if (merged.state) out.state = merged.state;
@@ -179,7 +184,7 @@ export function LiveDeliveryPage() {
           <div className="flex items-center gap-2">
             <span className="text-xs font-medium text-base-content/55">{m.center}</span>
             {/* 쳐서 찾는 고르기(2026-11-19 — 센터가 늘어도 이름·센터 코드로 바로) */}
-            <SearchSelect label={m.center} className="w-56" value={mfcId} allowEmpty={m.allCenters} options={(centers.data ?? []).flatMap((c) => (c.centerId ? [{ value: c.centerId, label: c.name ?? c.centerId, hint: c.centerId, keywords: c.centerId }] : []))} loading={centers.isPending} onChange={(v) => set({ mfcId: v })} />
+            <SearchSelect label={m.center} className="w-56" value={mfcId} allowEmpty={m.allCenters} options={(centers.data ?? []).flatMap((c) => (c.centerId ? [{ value: c.centerId, label: c.name ?? c.centerId, hint: c.centerId, keywords: c.centerId }] : []))} loading={centers.isPending} onChange={(v) => { setScope(v); set({ mfcId: '' }); }} />
           </div>
           {centers.isError && (
             <p role="alert" className="text-xs text-warning">

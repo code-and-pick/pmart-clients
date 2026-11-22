@@ -34,7 +34,7 @@ describe('실시간 배송 현황', () => {
     expect([sent.get('state'), sent.get('cursor'), sent.get('size')]).toEqual([null, null, '50']);
   });
 
-  it('센터를 고르면 그 센터만 — 주소에 남는다', async () => {
+  it('센터를 고르면 그 센터만 — 머리줄 센터 고르기와 같은 값(2026-11-23)', async () => {
     const view = renderAt('/live-delivery', as.admin);
     await screen.findAllByTestId('live-row');
     await pick(userEvent.setup(), '센터', /MFC-SEL-01/, 'SEL-01'); // 쳐서 찾는 고르기(2026-11-19)

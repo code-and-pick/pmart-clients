@@ -24,6 +24,7 @@ import { PreviewDrawer, PreviewFacts, usePreview } from '../../shared/Preview';
 import { StartGuide } from '../../shared/StartGuide';
 import { useSession } from '../../app/SessionContext';
 import { DeliveryStartActions } from '../../shared/StartActions';
+import { useCenterScope } from '../../shared/centerScope';
 import { deliveryIdOfNumber, isDeliveryNumber, isOrderNumber, isRiderNumber, riderIdOfNumber, useRiderLabels } from '../../shared/numberLookups';
 import { SavedViews } from '../../shared/SavedViews';
 import { CopyButton } from '../../shared/CopyButton';
@@ -223,6 +224,8 @@ export function DeliveryOpenPage() {
     state: EXECUTION_STATES.find((s) => s === params.get('state')) ?? '',
     oldest: params.get('sort') === 'OLDEST',
   };
+  // 머리줄 센터 고르기(2026-11-23) — execution deliveries·counts 의 mfcId
+  const mfcId = useCenterScope();
   const searched = applied.orderId !== '' || applied.riderId !== '' || applied.orderNumber !== '' || applied.riderNumber !== '' || applied.state !== '' || params.has('q');
   // 2026-11-20 AWS 개편: 속성 필터가 고친 조건(지금 조건 + 바뀐 것)으로 바로 go — 번호는 go 가 그대로 판정
   const now = { order: applied.orderNumber || applied.orderId, rider: applied.riderNumber || applied.riderId, state: applied.state, oldest: applied.oldest };
@@ -237,16 +240,17 @@ export function DeliveryOpenPage() {
       ...(applied.orderNumber ? { orderNumber: applied.orderNumber } : {}),
       ...(riderId ? { riderId } : {}),
       ...(applied.state ? { state: applied.state } : {}),
+      ...(mfcId ? { mfcId } : {}),
     };
   };
   // 상태별 정확한 수(execution 0.33.0 `GET /deliveries/counts`, DE-7 — 2026-11-20): 목록과 같은 조건(상태 제외), 모든 상태 0 까지.
   // 예전엔 관리자만 work-counts(진행 중만)로 거르기 칸 옆에 적었다 → 이제 모든 직원, 숫자 띠와 거르기 칸이 같은 수.
   const counts = useQuery({
-    queryKey: ['deliveries', 'counts', applied.orderId, applied.orderNumber, applied.riderId, applied.riderNumber],
+    queryKey: ['deliveries', 'counts', applied.orderId, applied.orderNumber, applied.riderId, applied.riderNumber, mfcId],
     queryFn: async () => {
       const riderId = applied.riderId || (applied.riderNumber ? await riderIdOfNumber(api, applied.riderNumber) : '');
       if (riderId === null) return null; // 없는 라이더 번호 — 셀 것이 없다(띠를 숨긴다)
-      return request('GET', api.execution.GET('/deliveries/counts', { params: { query: { ...(applied.orderId ? { orderId: applied.orderId } : {}), ...(applied.orderNumber ? { orderNumber: applied.orderNumber } : {}), ...(riderId ? { riderId } : {}) } } }));
+      return request('GET', api.execution.GET('/deliveries/counts', { params: { query: { ...(applied.orderId ? { orderId: applied.orderId } : {}), ...(applied.orderNumber ? { orderNumber: applied.orderNumber } : {}), ...(riderId ? { riderId } : {}), ...(mfcId ? { mfcId } : {}) } } }));
     },
   });
   const countByState = new Map((counts.data?.counts ?? []).map((c) => [c.key, c]));
@@ -255,9 +259,9 @@ export function DeliveryOpenPage() {
     return c ? `${c.count}${c.capped ? '+' : ''}` : undefined;
   };
   const [extra, setExtra] = useState<{ key: string; rows: StaffDeliverySummary[]; cursor: string | null }>({ key: '', rows: [], cursor: null });
-  const key = JSON.stringify(applied);
+  const key = JSON.stringify({ applied, mfcId });
   const query = useQuery({
-    queryKey: ['deliveries', 'search', applied],
+    queryKey: ['deliveries', 'search', applied, mfcId],
     enabled: searched,
     queryFn: async () => {
       const q = await baseQuery();

@@ -9,6 +9,7 @@ import type { ReactNode } from 'react';
 import { Link, useSearchParams } from 'react-router';
 
 import { ProblemFailure, request } from '@pmart/web-core';
+import { useCenterScope } from '../shared/centerScope';
 import { useApi } from './ApiContext';
 import { ALERT_SIZE, useAlertCount, type AlertKey } from './MenuAlerts';
 import { ApprovalTypes, LiveSummary, RiskPanel } from './DashboardSections';
@@ -68,7 +69,8 @@ function TaskRow({ alert, title, to, tone, group, exact }: { readonly alert: Ale
 
 function SlaCard({ from, to, days }: { readonly from: string; readonly to: string; readonly days: readonly string[] }) {
   const api = useApi();
-  const q = useQuery(slaQuery(api, from, to));
+  const center = useCenterScope(); // 머리줄 센터 고르기(2026-11-23)
+  const q = useQuery(slaQuery(api, from, to, center));
   let body: ReactNode;
   if (q.isPending) body = <p className="text-sm text-base-content/50">…</p>;
   else if (q.isError)

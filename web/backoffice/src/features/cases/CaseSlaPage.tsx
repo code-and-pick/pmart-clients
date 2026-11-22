@@ -13,6 +13,7 @@ import { useSearchParams } from 'react-router';
 import { ProblemFailure, request } from '@pmart/web-core';
 import { QueryState, uiStateFromError, type UiState } from '@pmart/web-ui';
 import type { paths } from '../../api/generated/backoffice-bff';
+import { useCenterScope } from '../../shared/centerScope';
 import { useApi } from '../../app/ApiContext';
 import { messages } from '../../shared/messages';
 import { addSeoulDays, label } from '../../shared/ops';
@@ -121,14 +122,17 @@ export function CaseSlaPage() {
     granularity,
     centerId: params.get('centerId') ?? '',
   };
+  // 머리줄 센터 고르기(2026-11-23) — 화면 센터 칸에 넣은 값이 먼저
+  const scope = useCenterScope();
+  const centerId = applied.centerId || scope;
   const [draft, setDraft] = useState(applied);
   const query = useQuery({
-    queryKey: ['bff', 'metrics', 'CASE_SLA', applied],
+    queryKey: ['bff', 'metrics', 'CASE_SLA', applied, centerId],
     queryFn: async (): Promise<CaseSlaView> =>
       await request(
         'GET',
         api.bff.GET('/views/metrics', {
-          params: { query: { metric: 'CASE_SLA', from: applied.from, to: applied.to, granularity: applied.granularity, ...(applied.centerId ? { centerId: applied.centerId } : {}) } },
+          params: { query: { metric: 'CASE_SLA', from: applied.from, to: applied.to, granularity: applied.granularity, ...(centerId ? { centerId } : {}) } },
         }),
       ),
   });

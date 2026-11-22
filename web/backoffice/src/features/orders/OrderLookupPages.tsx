@@ -29,6 +29,7 @@ import { DeliveriesOf } from '../deliveries/DeliveryPages';
 import { EmptyBox, Icon, KindChip, ListFoot, SideFields, Timeline, When } from '../lookup/parts';
 import { useHelp } from '../../shared/HelpPanel';
 import { PeriodPresets } from '../../shared/PeriodPresets';
+import { useCenterScope } from '../../shared/centerScope';
 
 type OrderStatus = components['schemas']['OrderStatus'];
 type Detail = components['schemas']['StaffOrderDetail'];
@@ -95,7 +96,10 @@ function queryOf(c: Criteria, page: number) {
 export function OrderLookupPage() {
   const api = useApi();
   const [search, setSearch] = useSearchParams();
-  const criteria = criteriaFrom(search);
+  const shown = criteriaFrom(search);
+  // 머리줄 센터 고르기(2026-11-23) — 화면 센터 칸에 넣은 값이 먼저, 없으면 고른 센터
+  const scope = useCenterScope();
+  const criteria = { ...shown, mfcId: shown.mfcId || scope };
   const page = Math.max(0, Number(search.get('page') ?? '0') || 0);
   const blocked = problemOf(criteria);
   // 도움말(2026-11-20) — 이 화면이 이미 지키는 입력 규칙
@@ -141,7 +145,7 @@ export function OrderLookupPage() {
       <div className="rounded-box border border-base-300 bg-base-100 px-5 py-3" data-list-part="top">
         <PropertyFilter
           props={filterProps}
-          value={{ orderId: criteria.orderId, customerId: criteria.customerId, mfcId: criteria.mfcId, receiverPhone: criteria.receiverPhone, status: criteria.status }}
+          value={{ orderId: criteria.orderId, customerId: criteria.customerId, mfcId: shown.mfcId, receiverPhone: criteria.receiverPhone, status: criteria.status }}
           onChange={setCriteria}
           testId="order-filter"
           lead={<SavedViews listKey="orders" />}

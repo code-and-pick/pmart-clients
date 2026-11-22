@@ -9,6 +9,7 @@
 import { useQuery } from '@tanstack/react-query';
 
 import { request } from '@pmart/web-core';
+import { useCenterScope } from '../shared/centerScope';
 import { useApi } from './ApiContext';
 import { useSession } from './SessionContext';
 import { approvalWhat } from '../features/approvals/ApprovalListPage';
@@ -45,9 +46,10 @@ export const caseCard = (c: CaseItem): BoardCard => ({
 export function DashboardBoard({ cases, inquiries, riderInquiries, approvals }: { readonly cases: boolean; readonly inquiries: boolean; readonly riderInquiries: boolean; readonly approvals: boolean }) {
   const api = useApi();
   const me = useSession().session?.subject ?? null;
+  const center = useCenterScope(); // 머리줄 센터 고르기(2026-11-23) — 접수 건 칸만(cases centerId). 문의·승인 칸은 센터 인자가 없다
   const caseQ = (key: string, query: Record<string, string | boolean | number>, enabled: boolean) =>
     // eslint-disable-next-line react-hooks/rules-of-hooks -- 칸 수가 역할로 정해져 화면 안에서 바뀌지 않는다(같은 순서로 부른다)
-    useQuery({ queryKey: ['board', 'cases', key, query], enabled, queryFn: () => request('GET', api.cases.GET('/cases', { params: { query: { ...query, size: SIZE } } })) });
+    useQuery({ queryKey: ['board', 'cases', key, query, center], enabled, queryFn: () => request('GET', api.cases.GET('/cases', { params: { query: { ...query, ...(center ? { centerId: center } : {}), size: SIZE } } })) });
   const overdue = caseQ('overdue', { overdue: true }, cases);
   const unassigned = caseQ('unassigned', { unassigned: true }, cases);
   const mine = caseQ('mine', { assigneeId: me ?? '' }, cases && me !== null);

@@ -21,6 +21,7 @@ import type { Api } from '../api/client';
 import { env } from '../env';
 import { useMenuCollapsed } from '../shared/sideMenu';
 import { QuickJump } from './QuickJump';
+import { CenterPicker, CenterScopeNote, CenterScopeProvider } from '../shared/centerScope';
 import { ShortcutHelp } from './ShortcutHelp';
 import { ThemeToggle } from './ThemeToggle';
 import { Toasts } from './Toasts';
@@ -248,6 +249,8 @@ function Layout() {
         </Link>
         {/* 번호로 바로 찾기(Ctrl+K, 2026-11-18) — 로그인했을 때만. AWS 처럼 로고 바로 옆 */}
         {session && <QuickJump />}
+        {/* 센터 고르기(2026-11-23) — 고른 센터 것만 보기, 화면을 옮겨도 그대로 */}
+        {session && <CenterPicker />}
         <div className="ml-auto flex items-center gap-2 text-sm">
             {session && <LiveClock />}
             {env.isMock && <span className="badge badge-accent badge-sm">{m.mockBadge}</span>}
@@ -336,6 +339,7 @@ function Layout() {
           {/* 본문 겉모습은 index.css "AWS 콘솔 겉모습"(2026-11-20 개편 시범, 공용 wing 겉모습은 이 앱에서 뺐다) */}
           <main className="min-w-0 flex-1 px-6 pb-6 pt-1">
             {/* 화면을 받는 동안 뼈대(QueryState 불러오는 중 모양, 2026-11-19) */}
+            {session && <CenterScopeNote pathname={pathname} />}
             <Suspense fallback={<QueryState state={{ kind: 'loading' }}>{() => null}</QueryState>}>
               <Outlet />
             </Suspense>
@@ -473,7 +477,9 @@ export function App({
       <UiTextProvider problem={m.problem} reason={m.reason}>
         <SessionProvider {...(initialToken ? { initialToken } : {})}>
           <AssistantProvider port={port}>
-            <RouterProvider router={router} />
+            <CenterScopeProvider>
+              <RouterProvider router={router} />
+            </CenterScopeProvider>
           </AssistantProvider>
         </SessionProvider>
       </UiTextProvider>
