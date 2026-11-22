@@ -9,6 +9,7 @@ import { request } from '@pmart/web-core';
 import { QueryState, toUiState } from '@pmart/web-ui';
 import type { components } from '../../api/generated/rider';
 import { useApi } from '../../app/ApiContext';
+import { useCenterQuery } from '../../app/CenterScope';
 import { ChipGroup, CursorPager, DataTable, GuideBox, PageHeader, ResultBar, SearchPanel, SearchRow, StatusBadge, type Tone } from '../../shared/admin';
 import { RiderName, riderNumberInput } from '../../shared/displayNumbers';
 import { Caret, expandRowProps, InlineDetail, useInlineOpen } from '../../shared/simList';
@@ -77,13 +78,14 @@ export function WithdrawalsMenu() {
     setParams({});
   };
 
+  const cq = useCenterQuery(); // 머리줄 센터 고르기(RS-7)
   const query = useQuery({
-    queryKey: ['rider-withdrawals', state, riderNumber, page],
+    queryKey: ['rider-withdrawals', cq.mfcId ?? '', state, riderNumber, page],
     queryFn: () =>
       request(
         'GET',
         api.riders.GET('/riders/withdrawals', {
-          params: { query: { ...(state ? { state } : {}), ...(riderNumber ? { riderNumber } : {}), page, size: PAGE_SIZE } },
+          params: { query: { ...cq, ...(state ? { state } : {}), ...(riderNumber ? { riderNumber } : {}), page, size: PAGE_SIZE } },
         }),
       ),
   });

@@ -10,6 +10,7 @@ import { request } from '@pmart/web-core';
 import { CommandFeedback, QueryState, toUiState, useCommand } from '@pmart/web-ui';
 import { commandParams } from '../../api/command';
 import { useApi } from '../../app/ApiContext';
+import { useCenterQuery } from '../../app/CenterScope';
 import { AllDone, ChipGroup, CursorPager, FieldList, GuideBox, PageHeader, ResultBar, SearchPanel, SearchRow, StatCard, StatStrip, StatusBadge, type Tone } from '../../shared/admin';
 import { statText } from '../../shared/listKit';
 import { SavedViews } from '../../shared/SavedViews';
@@ -21,10 +22,11 @@ const splitGuide = (t: string) => t.split(/(?<=[.요]) (?=\S)/).filter(Boolean);
 /** 숫자 띠(2026-11-19 통합 백오피스처럼) — 서버가 센 수(delivery-stats, 센터 무관) */
 function useEarningStats() {
   const api = useApi();
+  const cq = useCenterQuery(); // 머리줄 센터 고르기(RS-7)
   return useQuery({
-    queryKey: ['delivery-stats', ''],
+    queryKey: ['delivery-stats', cq.mfcId ?? ''],
     refetchInterval: 30_000,
-    queryFn: () => request('GET', api.execution.GET('/delivery-stats', { params: { query: {} } })),
+    queryFn: () => request('GET', api.execution.GET('/delivery-stats', { params: { query: { ...cq } } })),
   });
 }
 import { ops } from '../../shared/opsMessages';
@@ -59,9 +61,10 @@ export function AdjustmentsMenu() {
   // 소명·이의에서 수행료 이의를 인정하고 넘어오면 그 배송만(?deliveryId=). 조정 대기 목록에 없으면 이유를 알린다.
   const [params, setParams] = useSearchParams();
   const onlyDelivery = params.get('deliveryId') ?? '';
+  const cq = useCenterQuery(); // 머리줄 센터 고르기(RS-7)
   const queue = useQuery({
-    queryKey: ['adjustment-queue'],
-    queryFn: () => request('GET', api.execution.GET('/rider-earnings/adjustment-queue', { params: { query: { size: 50 } } })),
+    queryKey: ['adjustment-queue', cq.mfcId ?? ''],
+    queryFn: () => request('GET', api.execution.GET('/rider-earnings/adjustment-queue', { params: { query: { size: 50, ...cq } } })),
   });
   // 화면 번호(ADR-0070): 배송 번호·라이더 번호를 붙이고 시스템 ID 는 카드 안 접힌 칸으로
   const deliveryNos = useDeliveryNumbers((queue.data?.items ?? []).map((it) => it.deliveryId));
@@ -280,13 +283,14 @@ export function SurchargesMenu() {
     if (!('cursor' in next)) p.delete('cursor');
     setParams(p);
   };
+  const cq = useCenterQuery(); // 머리줄 센터 고르기(RS-7)
   const list = useQuery({
-    queryKey: ['surcharge-requests', state, riderId, cursor],
+    queryKey: ['surcharge-requests', cq.mfcId ?? '', state, riderId, cursor],
     queryFn: async () => {
       // 라이더 번호(R4785)로도 찾는다(ADR-0070) — 맞는 라이더가 없으면 빈 목록
       const rid = riderId ? await resolveRiderId(api, riderId) : '';
       if (rid === null) return { items: [], page: { nextCursor: null } };
-      return request('GET', api.execution.GET('/surcharge-requests', { params: { query: { size: 50, ...(state === 'ALL' ? {} : { state }), ...(rid ? { riderId: rid } : {}), ...(cursor ? { cursor } : {}) } } }));
+      return request('GET', api.execution.GET('/surcharge-requests', { params: { query: { size: 50, ...cq, ...(state === 'ALL' ? {} : { state }), ...(rid ? { riderId: rid } : {}), ...(cursor ? { cursor } : {}) } } }));
     },
   });
   const deliveryNos = useDeliveryNumbers((list.data?.items ?? []).map((it) => it.deliveryId));

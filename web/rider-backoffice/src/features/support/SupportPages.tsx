@@ -10,6 +10,7 @@ import { request } from '@pmart/web-core';
 import { CommandFeedback, QueryState, toUiState, useCommand } from '@pmart/web-ui';
 import { commandParams } from '../../api/command';
 import { useApi } from '../../app/ApiContext';
+import { useCenterQuery } from '../../app/CenterScope';
 import { useSession } from '../../app/SessionContext';
 import { photoMessages } from '../../shared/AuthedPhotos';
 import { AllDone, ChipGroup, DataTable, DetailHeader, GuideBox, FieldList, PageHeader, ResultBar, SearchPanel, Section, SectionTabs, StatCard, StatStrip, StatusBadge } from '../../shared/admin';
@@ -548,8 +549,9 @@ function ConsultsPage({ tab }: { readonly tab: 'open' | 'done' }) {
   };
   const helpStates: readonly HelpState[] = tab === 'open' ? ['OPEN', 'IN_PROGRESS'] : ['RESOLVED'];
   const inquiryStatuses: readonly InquiryStatus[] = tab === 'open' ? ['RECEIVED', 'ANSWERED'] : ['CLOSED'];
+  const cq = useCenterQuery(); // 머리줄 센터 고르기(RS-7)
   const help = useQuery({
-    queryKey: ['help-queue', 'consults', tab],
+    queryKey: ['help-queue', 'consults', tab, cq.mfcId ?? ''],
     refetchInterval: 15_000,
     // 서버는 오래된 것부터 한 쪽 50건(계약) — 첫 쪽만 읽으면 끝난 건이 50건을 넘을 때 최근 것이 빠졌다(2026-11-20 사용자 "상담함에 안 뜬다").
     // 다음 쪽까지 읽는다. 끝남 탭은 최근 7일만(끝난 건은 계속 쌓인다).
@@ -560,7 +562,7 @@ function ConsultsPage({ tab }: { readonly tab: 'open' | 'done' }) {
           const items = [];
           let cursor: string | undefined;
           for (let i = 0; i < HELP_MAX_PAGES; i++) {
-            const r = await request('GET', api.execution.GET('/delivery-help-requests', { params: { query: { size: HELP_PAGE_SIZE, state, ...(from ? { from } : {}), ...(cursor ? { cursor } : {}) } } }));
+            const r = await request('GET', api.execution.GET('/delivery-help-requests', { params: { query: { size: HELP_PAGE_SIZE, state, ...cq, ...(from ? { from } : {}), ...(cursor ? { cursor } : {}) } } }));
             items.push(...(r.items ?? []));
             cursor = r.page?.nextCursor ?? undefined;
             if (!cursor) break;
@@ -574,9 +576,9 @@ function ConsultsPage({ tab }: { readonly tab: 'open' | 'done' }) {
   });
   // 숫자 띠(2026-11-19 통합 백오피스처럼) — 서버가 센 수: 도움요청·전달 실패 결정 대기는 delivery-stats, 일반 문의는 목록 한 쪽(넘치면 "N건 이상")
   const stats = useQuery({
-    queryKey: ['delivery-stats', ''],
+    queryKey: ['delivery-stats', cq.mfcId ?? ''],
     refetchInterval: 15_000,
-    queryFn: () => request('GET', api.execution.GET('/delivery-stats', { params: { query: {} } })),
+    queryFn: () => request('GET', api.execution.GET('/delivery-stats', { params: { query: { ...cq } } })),
   });
   const openInquiries = useQuery({
     queryKey: ['rider-inquiries', 'consults-count'],
@@ -599,10 +601,10 @@ function ConsultsPage({ tab }: { readonly tab: 'open' | 'done' }) {
   // 전달 실패 결정(확정·반려)을 기다리는 배송 — 상담이 끝났어도 결정 전이면 여기 남긴다. 라이더가 "전달할 수 있어요"
   // (재개 요청)를 보내면 표시한다(사용자 2026-11-19 "지원센터에서 처리해버리면 반려해 달라고 해도 연락이 안 가지고").
   const failures = useQuery({
-    queryKey: ['deliveries', 'consults-failure-reported'],
+    queryKey: ['deliveries', 'consults-failure-reported', cq.mfcId ?? ''],
     enabled: tab === 'open',
     refetchInterval: 15_000,
-    queryFn: () => request('GET', api.execution.GET('/deliveries', { params: { query: { state: 'FAILURE_REPORTED', size: 50 } } })),
+    queryFn: () => request('GET', api.execution.GET('/deliveries', { params: { query: { state: 'FAILURE_REPORTED', size: 50, ...cq } } })),
   });
   const openHelpDeliveries = new Set((help.data?.items ?? []).filter((it) => it.state !== 'RESOLVED').map((it) => it.deliveryId));
   const pendingFailures = tab === 'open' ? (failures.data?.items ?? []) : [];

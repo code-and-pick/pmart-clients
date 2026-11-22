@@ -10,6 +10,7 @@ import { request } from '@pmart/web-core';
 import { formatSeoul, QueryState, toUiState } from '@pmart/web-ui';
 import type { components } from '../../api/generated/delivery-execution';
 import { useApi } from '../../app/ApiContext';
+import { useCenterQuery } from '../../app/CenterScope';
 import { isLiveDelivery, LIVE } from '../../shared/liveRefresh';
 import { messages } from '../../shared/messages';
 import { ChipGroup, CursorPager, DataTable, DetailHeader, FieldList, PageHeader, ResultBar, SearchPanel, SearchRow, Section, SectionTabs, StatCard, StatStrip, StatusBadge, type Tone } from '../../shared/admin';
@@ -83,8 +84,9 @@ function DeliverySearchPage() {
     set({ orderId: draft.orderId.trim(), orderNumber: draft.orderNumber.trim(), riderId: draft.riderId.trim() });
   };
 
+  const cq = useCenterQuery(); // 머리줄 센터 고르기(RS-7)
   const query = useQuery({
-    queryKey: ['deliveries', orderId, orderNumber, riderId, state, type, oldest, cursor],
+    queryKey: ['deliveries', cq.mfcId ?? '', orderId, orderNumber, riderId, state, type, oldest, cursor],
     // 20초마다 다시 — 새로 받는 동안 이전 목록을 그대로 둬 깜빡이지 않게
     refetchInterval: LIVE.deliveryList,
     placeholderData: keepPreviousData,
@@ -98,6 +100,7 @@ function DeliverySearchPage() {
           params: {
             query: {
               size: PAGE_SIZE,
+              ...cq,
               ...(orderId ? { orderId } : {}),
               ...(orderNumber ? { orderNumber } : {}),
               ...(rid ? { riderId: rid } : {}),
@@ -130,9 +133,9 @@ function DeliverySearchPage() {
 
   // 상태 숫자 띠(2026-11-19 통합 백오피스처럼) — 서버가 센 끝나지 않은 배송 상태별 수(delivery-stats). 누르면 그 상태로 거른다.
   const stats = useQuery({
-    queryKey: ['delivery-stats', ''],
+    queryKey: ['delivery-stats', cq.mfcId ?? ''],
     refetchInterval: LIVE.deliveryList,
-    queryFn: () => request('GET', api.execution.GET('/delivery-stats', { params: { query: {} } })),
+    queryFn: () => request('GET', api.execution.GET('/delivery-stats', { params: { query: { ...cq } } })),
   });
   const inProgress = stats.data?.inProgress;
   const liveStates = STATES.filter((s) => inProgress && s in inProgress);

@@ -11,6 +11,7 @@ import { request } from '@pmart/web-core';
 import { useTheme } from '../shared/theme';
 import { ui } from '../shared/uiMessages';
 import { useApi } from './ApiContext';
+import { useCenterQuery } from './CenterScope';
 
 const m = ui.chrome;
 const BACK_MS = 4_000;
@@ -21,11 +22,12 @@ const TAB_APP = '라이더백오피스';
 /** 아직 받지 않은 배송 도움요청 수(서버 목록 한 쪽 기준) — 못 읽거나 읽는 중이면 null */
 function useUrgentTotal(enabled: boolean): { readonly n: number; readonly more: boolean } | null {
   const api = useApi();
+  const cq = useCenterQuery(); // 머리줄 센터 고르기(RS-7)
   const q = useQuery({
-    queryKey: ['chrome-urgent-help'],
+    queryKey: ['chrome-urgent-help', cq.mfcId ?? ''],
     enabled,
     refetchInterval: 30_000,
-    queryFn: () => request('GET', api.execution.GET('/delivery-help-requests', { params: { query: { size: URGENT_PAGE, state: 'OPEN' } } })),
+    queryFn: () => request('GET', api.execution.GET('/delivery-help-requests', { params: { query: { size: URGENT_PAGE, state: 'OPEN', ...cq } } })),
   });
   if (!q.data) return null;
   return { n: (q.data.items ?? []).length, more: !!q.data.page?.nextCursor };

@@ -27,6 +27,7 @@ import { SimulatorLink } from '../shared/sim';
 import { DETAIL_BAR_SLOT } from '../shared/StickyTitle';
 import { ConnectionBanner, ThemeToggle, useDocumentTitle, useSlashToSearch } from './PageChrome';
 import { allMenus, hasRiderAppRole, isOperatorAdmin, menuPath, navGroups, visibleGroups, type GroupKey, type MenuItem } from './nav';
+import { CenterScopeProvider, HeaderCenterPicker } from './CenterScope';
 import { RequireSession, SessionProvider, useSession } from './SessionContext';
 
 /** 지금 주소의 메뉴(머리줄 "묶음 › 메뉴") */
@@ -133,6 +134,8 @@ function Layout() {
       }
       tools={
         <>
+          {/* 머리줄 센터 고르기(RS-7, 2026-11-23) — 고른 센터의 라이더·배송만 보기(권한은 그대로) */}
+          {session && <HeaderCenterPicker />}
           {/* 머리줄 통합 찾기 — 주문번호·라이더 번호로 관제의 그 라이더로 */}
           {session && <HeaderSearch />}
           <SimulatorLink />
@@ -290,7 +293,9 @@ export function App({
     <QueryClientProvider client={queryClient}>
       <UiTextProvider problem={m.problem} reason={m.reason}>
         <SessionProvider {...(initialToken ? { initialToken } : {})}>
-          <RouterProvider router={router} />
+          <CenterScopeProvider>
+            <RouterProvider router={router} />
+          </CenterScopeProvider>
         </SessionProvider>
       </UiTextProvider>
     </QueryClientProvider>

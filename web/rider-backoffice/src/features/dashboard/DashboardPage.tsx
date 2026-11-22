@@ -8,11 +8,12 @@ import { Link, useSearchParams } from 'react-router';
 import { request } from '@pmart/web-core';
 import { QueryState, toUiState } from '@pmart/web-ui';
 import { useApi } from '../../app/ApiContext';
+import { useCenterScope } from '../../app/CenterScope';
 import { PageHeader, Section, StatCard, StatStrip, StatusBadge } from '../../shared/admin';
 import { LIVE } from '../../shared/liveRefresh';
 import { messages } from '../../shared/messages';
 import { ops } from '../../shared/opsMessages';
-import { CenterPicker, label, when } from '../../shared/opsUi';
+import { label, when } from '../../shared/opsUi';
 import { AnalysisSection } from './AnalysisSection';
 
 const d = ops.dashboard;
@@ -60,8 +61,10 @@ function listCount<T extends { readonly items?: readonly unknown[] | null }>(q: 
 
 export function DashboardPage() {
   const api = useApi();
-  const [params, setParams] = useSearchParams();
-  const mfcId = params.get('mfcId') ?? '';
+  const [params] = useSearchParams();
+  // 센터 = 주소의 mfcId(관제 등에서 넘어올 때) 또는 머리줄 센터 고르기(RS-7, 2026-11-23 — 화면 안 고르기는 머리줄로 옮김)
+  const scope = useCenterScope();
+  const mfcId = params.get('mfcId') ?? scope.mfcId;
   const q = mfcId ? { mfcId } : {};
   // 30초마다 다시(탭이 안 보이면 멈춤)
   const riders = useQuery({
@@ -95,7 +98,7 @@ export function DashboardPage() {
   const inq = listCount(inquiries);
   return (
     <section className="space-y-4">
-      <PageHeader title={d.title} description={d.intro} actions={<CenterPicker value={mfcId} allowAll onChange={(v) => setParams(v ? { mfcId: v } : {})} />} />
+      <PageHeader title={d.title} description={d.intro} />
 
       {/* 오늘의 할 일 — 카페24 홈처럼 한 줄 */}
       <section className="overflow-hidden rounded-box border border-base-300 bg-base-100" data-testid="todo-strip" aria-label={todo.title}>

@@ -40,10 +40,13 @@ export function CenterPicker({
   value,
   onChange,
   allowAll = false,
+  compact = false,
 }: {
   readonly value: string;
   readonly onChange: (v: string) => void;
   readonly allowAll?: boolean;
+  /** 머리줄용 — 위 "센터" 글자 없이 한 줄(RS-7) */
+  readonly compact?: boolean;
 }) {
   const api = useApi();
   const centers = useQuery({
@@ -63,10 +66,10 @@ export function CenterPicker({
   // 쳐서 찾는 고르기(2026-11-19 통합 백오피스 SearchSelect 처럼 — 초성도). 센터 ID 는 보이지 않는 찾기 낱말로만(붙여 넣기용, ADR-0070)
   return (
     <div className="flex flex-col gap-1 text-sm">
-      <span aria-hidden="true">{ops.center.label}</span>
+      {!compact && <span aria-hidden="true">{ops.center.label}</span>}
       <SearchSelect
         label={ops.center.label}
-        className="w-56"
+        className={compact ? 'w-44' : 'w-56'}
         value={value}
         loading={centers.isPending}
         {...(allowAll ? { allowEmpty: ops.dashboard.allCenters } : {})}

@@ -14,6 +14,7 @@ import { CommandFeedback, QueryState, toUiState, useCommand } from '@pmart/web-u
 import { commandParams } from '../../api/command';
 import type { components } from '../../api/generated/rider';
 import { useApi } from '../../app/ApiContext';
+import { useCenterQuery } from '../../app/CenterScope';
 import { AllDone, ChipGroup, CursorPager, DataTable, GuideBox, DetailHeader, FieldList, Notice, PageHeader, ResultBar, SearchPanel, SearchRow, SectionTabs, StatCard, StatStrip, StatusBadge, type Tone } from '../../shared/admin';
 import { statText, useListRows } from '../../shared/listKit';
 import { SavedViews } from '../../shared/SavedViews';
@@ -122,8 +123,9 @@ function RiderSearchPage({ signups = false }: { readonly signups?: boolean }) {
     set(next);
   };
   const inline = useInlineOpen();
+  const cq = useCenterQuery(); // 머리줄 센터 고르기(RS-7)
   const query = useQuery({
-    queryKey: ['riders', withdrawn, riderNumber, riderId, phone, restriction, operatingStatus, vehicleType, sort, page],
+    queryKey: ['riders', cq.mfcId ?? '', withdrawn, riderNumber, riderId, phone, restriction, operatingStatus, vehicleType, sort, page],
     queryFn: () =>
       request(
         'GET',
@@ -132,6 +134,7 @@ function RiderSearchPage({ signups = false }: { readonly signups?: boolean }) {
             query: {
               size: PAGE_SIZE,
               page,
+              ...cq,
               // 가입 승인 화면은 늘 최근 가입 순
               sort: signups ? 'JOINED_DESC' : sort,
               ...(withdrawn && !signups ? { withdrawn: true } : {}),
@@ -148,9 +151,9 @@ function RiderSearchPage({ signups = false }: { readonly signups?: boolean }) {
   });
   // 숫자 띠(2026-11-19 통합 백오피스처럼) — 서버가 센 라이더 수(GET /riders/stats). 누르면 그 조건으로 거른다
   const stats = useQuery({
-    queryKey: ['rider-stats', ''],
+    queryKey: ['rider-stats', cq.mfcId ?? ''],
     refetchInterval: LIVE.dashboard,
-    queryFn: () => request('GET', api.riders.GET('/riders/stats', { params: { query: {} } })),
+    queryFn: () => request('GET', api.riders.GET('/riders/stats', { params: { query: { ...cq } } })),
   });
   const st = stats.data;
   const failed = stats.isError;

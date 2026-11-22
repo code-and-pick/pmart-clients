@@ -10,6 +10,7 @@ import { request } from '@pmart/web-core';
 import { QueryState, toUiState } from '@pmart/web-ui';
 import type { components } from '../../api/generated/delivery-tracking';
 import { useApi } from '../../app/ApiContext';
+import { useCenterScope } from '../../app/CenterScope';
 import { AllDone, ChipGroup, PageHeader, StatusBadge } from '../../shared/admin';
 import { RiderName } from '../../shared/displayNumbers';
 import { isSimRider } from '../../shared/sim';
@@ -91,7 +92,9 @@ export function ControlPage() {
     queryFn: () => request('GET', api.center.GET('/centers', { params: { query: { type: 'MFC' } } })),
   });
   // 센터를 아직 안 골랐으면 첫 센터로 연다(빈 화면에서 드롭다운을 찾아야 하지 않게 — 2026-11-18 사용자). 고른 뒤 바꾸는 건 그대로.
-  const firstCenter = centers.data?.items?.[0]?.centerId;
+  // RS-7(2026-11-23): 머리줄에서 센터를 골랐으면 그 센터부터
+  const scope = useCenterScope();
+  const firstCenter = scope.mfcId || centers.data?.items?.[0]?.centerId;
   useEffect(() => {
     if (!mfcId && firstCenter) {
       setParams(
@@ -147,7 +150,13 @@ export function ControlPage() {
         <PageHeader title={c.title} description={c.intro} />
         <div className="flex flex-wrap items-end gap-x-6 gap-y-3" aria-label="관제 조건" role="group">
           <ControlSearch onFound={found} />
-          <CenterPicker value={mfcId} onChange={(v) => setParams(v ? { mfcId: v } : {})} />
+          <CenterPicker
+            value={mfcId}
+            onChange={(v) => {
+              if (v) scope.setMfcId(v); // 머리줄 센터 고르기와 맞춘다(RS-7)
+              setParams(v ? { mfcId: v } : {});
+            }}
+          />
         </div>
       </div>
       {mfcId === '' ? (
