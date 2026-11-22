@@ -22,7 +22,7 @@ export const helpExtrasMessages = {
   resolve: {
     title: '상담 완료',
     button: '상담 완료',
-    resolved: '상담이 끝난 요청이에요.',
+    resolved: '상담이 완료된 요청이에요.',
     confirmTitle: '상담을 완료할까요?',
     confirmBody: '이 도움요청의 상담을 끝내요. 라이더 앱에는 "지원센터가 처리를 마쳤어요"로 보여요. 배송 상태는 바뀌지 않아요.',
     resultLabel: '결과',

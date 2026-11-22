@@ -39,7 +39,7 @@ export const withdrawalMessages = {
   search: '찾기',
   reset: '초기화',
   empty: '탈퇴 신청이 없어요.',
-  col: { rider: '라이더', state: '결과', blockers: '막은 이유', reason: '라이더가 적은 사유', requestedAt: '신청', completedAt: '탈퇴한 때' },
+  col: { rider: '라이더', state: '결과', blockers: '막은 이유', reason: '라이더가 적은 사유', requestedAt: '신청', completedAt: '탈퇴시점' },
   withdrawnNote: '탈퇴함',
 } as const;
 

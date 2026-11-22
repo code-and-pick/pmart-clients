@@ -17,9 +17,9 @@ const n = messages.names;
 
 export const recentMessages = {
   title: '최근 배송',
-  aside: '이 센터의 최근 20건 · 끝난 배송도 · 10초마다',
+  aside: '이 센터의 최근 20건 · 완료된 배송도 · 10초마다',
   empty: '이 센터의 배송이 아직 없어요.',
-  col: { delivery: '배송', state: '상태', rider: '라이더', assigned: '배정', pickedUp: '픽업', done: '끝남' },
+  col: { delivery: '배송', state: '상태', rider: '라이더', assigned: '배정', pickedUp: '픽업', done: '완료' },
   live: '진행 중',
 } as const;
 const m = recentMessages;

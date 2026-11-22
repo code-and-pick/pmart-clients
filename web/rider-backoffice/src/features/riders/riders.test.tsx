@@ -193,7 +193,7 @@ describe('라이더 상세 — 배정 이력', () => {
     expect(rows[0]).toHaveTextContent('진행 중');
     expect(rows[0]).toHaveTextContent('3,900');
     expect(await within(rows[0]!).findByRole('link', { name: /48213075-1/ })).toHaveAttribute('href', '/deliveries/DLV-1');
-    expect(rows[1]).toHaveTextContent('이 라이더로 끝남');
+    expect(rows[1]).toHaveTextContent('이 라이더가 완료');
     expect(rows[2]).toHaveTextContent('픽업 전 취소');
     expect(rows[2]).toHaveTextContent('운영자 · 라이더 미도착');
     expect(rows[2]).toHaveTextContent('20분 넘게 가게에 안 옴');

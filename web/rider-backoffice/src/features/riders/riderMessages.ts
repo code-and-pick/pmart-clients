@@ -17,14 +17,14 @@ export const riderMessages = {
     title: '지금 동의한 버전',
     note: '항목마다 마지막 동의만 남아요 — 과거 동의 이력은 서버가 저장하지 않아요.',
     empty: '동의한 항목이 없어요.',
-    col: { type: '항목', version: '버전', agreedAt: '동의한 때' },
+    col: { type: '항목', version: '버전', agreedAt: '동의시점' },
   },
   assignments: {
     title: '배정 이력',
     intro: '이 라이더에게 배정된 배송이에요(배정 최신순, delivery-dispatch).',
     empty: '배정 이력이 없어요.',
     col: { assignedAt: '배정', delivery: '배송', order: '주문', kind: '종류·목적', source: '배정 경로', fee: '수행료(수락 당시)', deliveryState: '배차 상태', outcome: '결과', cancellation: '배차 취소' },
-    outcome: { CURRENT: '진행 중', DONE: '이 라이더로 끝남', RELEASED: '배정 풀림', CANCELLED: '픽업 전 취소' } as Readonly<Record<string, string>>,
+    outcome: { CURRENT: '진행 중', DONE: '이 라이더가 완료', RELEASED: '배정 풀림', CANCELLED: '픽업 전 취소' } as Readonly<Record<string, string>>,
     source: { AI_RECOMMENDED: '제안 수락', DELIVERY_LIST: '목록에서 수락', FAILED_RETURN: '전달 실패 반납 배정' } as Readonly<Record<string, string>>,
     requestedBy: { RIDER: '라이더', STORE_STAFF: '매장', OPERATOR: '운영자', ORCHESTRATION: '주문 처리' } as Readonly<Record<string, string>>,
     cancelReason: { RIDER_UNABLE: '라이더 사정', STORE_REQUEST: '매장 요청', ORDER_CANCELLED: '주문 취소', NO_SHOW: '라이더 미도착', OPERATOR: '운영 판단' } as Readonly<Record<string, string>>,
@@ -54,7 +54,7 @@ export const riderMessages = {
   complaints: {
     intro: '상담원이 기록한 이 라이더 컴플레인이에요(최근 기록 순, case-service).',
     empty: '컴플레인 기록이 없어요.',
-    col: { id: '컴플레인', type: '종류', delivery: '배송', order: '주문', recordedAt: '기록한 때', recordedBy: '기록한 직원' },
+    col: { id: '컴플레인', type: '종류', delivery: '배송', order: '주문', recordedAt: '기록시점', recordedBy: '기록한 직원' },
     more: '더 보기',
     moreFailed: '다음 기록을 불러오지 못했어요 — 더 보기를 다시 눌러 주세요.',
   },
@@ -62,7 +62,7 @@ export const riderMessages = {
   helps: {
     intro: '이 라이더가 배송 중에 보낸 도움요청이에요(최근 접수 순, 모든 상태). 줄을 누르면 지원센터 대화로 가요.',
     empty: '도움요청 기록이 없어요.',
-    col: { category: '종류', delivery: '배송', stage: '보낸 단계', state: '상태', createdAt: '보낸 때', resolvedAt: '끝난 때' },
+    col: { category: '종류', delivery: '배송', stage: '보낸 단계', state: '상태', createdAt: '접수시점', resolvedAt: '완료시점' },
     open: (n: number) => `열림 ${n}`,
   },
 } as const;

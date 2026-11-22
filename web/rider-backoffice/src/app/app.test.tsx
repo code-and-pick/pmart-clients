@@ -123,7 +123,7 @@ describe('메뉴 자리', () => {
     const nav = await screen.findByRole('navigation', { name: '메뉴' });
     for (const g of ['현황', '관제', '배송·배차', '지원센터', '수행료']) expect(within(nav).getByText(g)).toBeInTheDocument();
     expect(screen.getAllByText('라이더').length).toBeGreaterThan(0);
-    for (const name of ['대시보드', '라이더 관제', '라이더 찾기', '가입 승인', '제한 검토', '배송 찾기', '처리함', '수행료 조정', '추가 배달료']) {
+    for (const name of ['대시보드', '라이더 관제', '라이더 찾기', '가입 승인', '제한 검토', '배송 찾기', '상담 관리', '수행료 조정', '추가 배달료']) {
       await userEvent.click(screen.getByRole('link', { name }));
       // 화면 10개를 차례로 처음 그린다 — 전체 실행 첫 번(차가운 변환)에서 기본 1초 기다림이 모자랐다(PC 1 PR 세션 2026-11-20)
       expect(await screen.findByRole('heading', { name }, { timeout: 5_000 })).toBeInTheDocument();
@@ -139,7 +139,7 @@ describe('메뉴 자리', () => {
 describe('지원센터 메뉴 정리(사용자 2026-11-19 "라이더문의랑 도움요청이 둘 다 있는 이유")', () => {
   it('도움요청·라이더 문의 메뉴는 없고 처리함 하나 — 옛 목록 주소는 처리함으로', async () => {
     renderAt('/help-requests', as.riderOps);
-    expect(await screen.findByRole('heading', { name: '처리함' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: '상담 관리' })).toBeInTheDocument();
     const nav = screen.getByRole('navigation', { name: '메뉴' });
     expect(within(nav).queryByRole('link', { name: '도움요청' })).not.toBeInTheDocument();
     expect(within(nav).queryByRole('link', { name: '라이더 문의' })).not.toBeInTheDocument();
@@ -149,7 +149,7 @@ describe('지원센터 메뉴 정리(사용자 2026-11-19 "라이더문의랑 �
 describe('할 일/기록 나누기(사용자 2026-11-21 — 접수 건·조치 이력·상담함 차이가 애매하다)', () => {
   it('옛 접수 건 주소 /cases?… 는 처리함 배송 사건 탭으로(조건 그대로)', async () => {
     renderAt('/cases?overdue=true', as.riderOps);
-    expect(await screen.findByRole('heading', { name: '처리함' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: '상담 관리' })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: '배송 사건' })).toHaveAttribute('aria-selected', 'true');
     const rows = await screen.findAllByTestId('case-row');
     expect(rows).toHaveLength(1); // overdue=true 가 넘어갔다
@@ -158,13 +158,13 @@ describe('할 일/기록 나누기(사용자 2026-11-21 — 접수 건·조치 �
   it('옛 상세 주소 /cases/:id 는 그 사건 상세가 그대로 열린다', async () => {
     renderAt('/cases/CASE-RH-0', as.riderOps);
     expect(await screen.findByTestId('case-detail')).toHaveTextContent('포장 대기 — 처리함');
-    expect(screen.getByRole('link', { name: '처리함 · 배송 사건' })).toHaveAttribute('href', '/consults?tab=cases');
+    expect(screen.getByRole('link', { name: '상담 관리 · 배송 사건' })).toHaveAttribute('href', '/consults?tab=cases');
   });
 
   it('처리함 탭 순서: 상담 중 · 배송 사건 · 소명·이의 · 끝남, 관리자에게 기록 › 직원 조치 기록', async () => {
     renderAt('/consults', as.admin);
     const tabs = await screen.findAllByRole('tab');
-    expect(tabs.map((t) => t.textContent)).toEqual(expect.arrayContaining(['상담 중', '배송 사건', '소명·이의', '끝남']));
+    expect(tabs.map((t) => t.textContent)).toEqual(expect.arrayContaining(['상담 중', '배송 사건', '소명·이의', '완료']));
     const nav = screen.getByRole('navigation', { name: '메뉴' });
     expect(within(nav).getByText('기록')).toBeInTheDocument();
     expect(within(nav).getByRole('link', { name: '직원 조치 기록' })).toHaveAttribute('href', '/staff-actions');

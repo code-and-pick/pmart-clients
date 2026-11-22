@@ -35,8 +35,8 @@ describe('접수 건 목록', () => {
     const q = caseCalls(view.sent).at(-1)!;
     expect([q.get('kind'), q.get('cursor')]).toEqual(['DISPATCH_FAILED', null]);
 
-    await userEvent.click(screen.getByRole('tab', { name: '처리 끝남' }));
-    expect(await screen.findByText('처리 끝난 접수 건이 없어요.')).toBeInTheDocument(); // 끝난 배차 실패는 없다
+    await userEvent.click(screen.getByRole('tab', { name: '처리 완료' }));
+    expect(await screen.findByText('처리 완료된 접수 건이 없어요.')).toBeInTheDocument(); // 끝난 배차 실패는 없다
     expect(caseCalls(view.sent).at(-1)!.get('state')).toBe('CLOSED');
   });
 
@@ -56,7 +56,7 @@ describe('접수 건 상세', () => {
     renderAt('/cases/CASE-RH-0', as.riderOps);
     const detail = await screen.findByTestId('case-detail');
     expect(detail).toHaveTextContent('포장 대기 — 처리함');
-    expect(detail).toHaveTextContent('처리 끝남');
+    expect(detail).toHaveTextContent('처리 완료');
     expect(detail).toHaveTextContent('해결 — 매장 확인 뒤 픽업');
     expect(screen.getByTestId('case-history')).toHaveTextContent('처리 끝냄');
     expect(screen.getByRole('note')).toHaveTextContent('처리 끝내기');
@@ -91,7 +91,7 @@ describe('접수 건 처리 끝내기(사용자 2026-11-19 "처리 완료 버튼
   it('후속 처리가 남은 건은 서버가 막는다 — 이유를 알린다', async () => {
     renderAt('/cases/CASE-DF-1', as.riderOps);
     const form = await screen.findByRole('form', { name: '처리 끝내기' });
-    await userEvent.type(within(form).getByLabelText(/처리 내용/), '처리함');
+    await userEvent.type(within(form).getByLabelText(/처리 내용/), '상담 관리');
     await userEvent.click(within(form).getByRole('button', { name: '처리 끝내기' }));
     expect(await within(form).findByRole('alert')).toHaveTextContent('후속 처리');
   });
