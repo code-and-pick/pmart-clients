@@ -85,7 +85,7 @@ void main() {
     await _openMyPage(t);
     final row = find.byKey(const ValueKey('menu-area'));
     expect(
-      find.descendant(of: row, matching: find.text('부산진구지점')),
+      find.descendant(of: row, matching: find.text('바로픽 부산진구')),
       findsOneWidget,
     );
 
@@ -99,14 +99,14 @@ void main() {
     await t.pump();
     await t.tap(find.byKey(const ValueKey('area-confirm')));
     await t.pumpAndSettle();
-    expect(find.textContaining('목포지점(으)로 바꿀까요?'), findsOneWidget);
+    expect(find.textContaining('바로픽 목포(으)로 바꿀까요?'), findsOneWidget);
     await t.tap(find.byKey(const ValueKey('area-change-confirm')));
     await _settle(t);
 
     expect(profile.areaMfcId, 'MFC-MPO-01');
     expect(find.text('배달 지역을 바꿨어요'), findsOneWidget);
     expect(
-      find.descendant(of: row, matching: find.text('목포지점')),
+      find.descendant(of: row, matching: find.text('바로픽 목포')),
       findsOneWidget,
     );
   });
@@ -160,11 +160,31 @@ void main() {
     expect(
       find.descendant(
         of: find.byKey(const ValueKey('menu-area')),
-        matching: find.text('부산진구지점'),
+        matching: find.text('바로픽 부산진구'),
       ),
       findsOneWidget,
     );
   });
+
+  testWidgets(
+    '고를 수 없는 지점(422 MFC_NOT_AVAILABLE)·운행 중(409 INVALID_STATE)은 그에 맞게 안내',
+    (t) async {
+      final profile = await pumpResting(t);
+      profile.failNextChange = const ProblemFailure(
+        Problem(status: 422, code: 'MFC_NOT_AVAILABLE'),
+      );
+      await pickMokpo(t);
+      expect(find.text('이 지점은 지금 고를 수 없어요. 다른 지점을 골라 주세요'), findsOneWidget);
+      await t.pump(const Duration(seconds: 5));
+      await _settle(t);
+      profile.failNextChange = const ProblemFailure(
+        Problem(status: 409, code: ProblemCode.invalidState),
+      );
+      await pickMokpo(t);
+      expect(find.text('운행을 종료한 뒤 배달 지역을 바꿀 수 있어요'), findsOneWidget);
+      expect(profile.areaMfcId, 'MFC-BSJ-01');
+    },
+  );
 
   testWidgets('운행 중이면 고르는 창을 열지 않고 안내한다', (t) async {
     final duty = _Duty(startOnDuty: true);

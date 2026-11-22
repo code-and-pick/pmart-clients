@@ -11,10 +11,13 @@ import '../../auth/presentation/signup_screens.dart' show AreaSheet;
 import '../../offers/presentation/offer_controllers.dart';
 import '../data/profile.dart';
 
+/// 고를 수 없는 지점(없음·MFC 아님·운영 중 아님) — rider 0.23.0 `PATCH /riders/me` 422.
+const mfcNotAvailableCode = 'MFC_NOT_AVAILABLE';
+
 /// 마이페이지 "배달 지역" 바꾸기(사용자 2026-11-23 — 이사했거나 다른 지점 근처로 옮긴 라이더).
 /// - 한 곳만(가입처럼 지점 하나를 다른 지점으로), 바로 반영(`PATCH /riders/me` deliveryAreas).
-/// - 운행을 쉴 때만: 운행 중(진행 배송 포함)이면 바꾸지 않고 안내한다. 서버는 아직 운행 중 변경을 막지 않는다 — 백엔드에 요청
-///   (`docs/handoff/rider-app/2026-11-23-backend-delivery-area-change.md`).
+/// - 운행을 쉴 때만: 운행 중(진행 배송 포함)이면 바꾸지 않고 안내한다. 서버도 409 INVALID_STATE 로 막는다(rider 0.23.0, 백엔드 #361 — 요청
+///   `docs/handoff/rider-app/2026-11-23-backend-delivery-area-change.md`).
 /// - 결과를 모르면(연결 끊김·5xx) 내 정보를 다시 읽어 바뀌었는지 맞춘다. 서버가 돌려준 값만 바뀐 것으로 보인다.
 Future<void> changeDeliveryArea(BuildContext context, WidgetRef ref) async {
   final l10n = AppLocalizations.of(context);
@@ -62,7 +65,9 @@ Future<void> changeDeliveryArea(BuildContext context, WidgetRef ref) async {
     context: context,
     builder: (context) => AlertDialog(
       title: Text(l10n.areaChangeTitle),
-      content: Text(l10n.areaChangeAsk(picked.name)),
+      content: Text(
+        l10n.areaChangeAsk(l10n.storeLabel(shortStoreName(picked.name))),
+      ),
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(false),
@@ -103,11 +108,14 @@ Future<void> changeDeliveryArea(BuildContext context, WidgetRef ref) async {
     );
     result = l10n.areaChangeDone;
   } on ProblemFailure catch (f) {
+    // rider 0.23.0(백엔드 #361): 운행 중·진행 배송 = 409 INVALID_STATE, 없는·운영 안 하는 지점 = 422 MFC_NOT_AVAILABLE.
     result = f.problem.status >= 500
         ? await resolve()
-        : f.problem.code == ProblemCode.invalidState
-        ? l10n.areaChangeOnDuty
-        : l10n.areaChangeFailed;
+        : switch (f.problem.code) {
+            ProblemCode.invalidState => l10n.areaChangeOnDuty,
+            mfcNotAvailableCode => l10n.areaChangeUnavailable,
+            _ => l10n.areaChangeFailed,
+          };
   } on PmartFailure {
     result = await resolve();
   }
@@ -124,7 +132,7 @@ String deliveryAreaText(
   AsyncValue<RiderProfileView> profile,
 ) => switch (profile) {
   AsyncData(:final value) => switch (value.deliveryAreaMfcId) {
-    final id? => storeNameOf(id) ?? id,
+    final id? => l10n.storeLabel(shortStoreName(storeNameOf(id) ?? id)),
     null => l10n.statUnavailable,
   },
   AsyncError() => l10n.statUnavailable,

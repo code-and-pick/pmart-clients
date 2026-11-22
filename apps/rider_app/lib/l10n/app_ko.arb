@@ -362,12 +362,13 @@
   "areaChangeDone": "배달 지역을 바꿨어요",
   "areaChangeFailed": "배달 지역을 바꾸지 못했어요. 잠시 뒤 다시 해 주세요",
   "areaChangeUnknown": "바뀌었는지 확인하지 못했어요. 마이페이지에서 배달 지역을 다시 확인해 주세요",
+  "areaChangeUnavailable": "이 지점은 지금 고를 수 없어요. 다른 지점을 골라 주세요",
   "menuSupport": "지원센터",
   "supportCenterNote": "배송 중인 건은 배송 화면의 도움요청을 써 주세요.",
   "supportChat": "채팅 상담",
   "supportChatSub": "상담원과 바로 이야기해요",
   "supportNew": "문의 남기기",
-  "supportNewSub": "답변이 오면 알림으로 알려 드려요",
+  "supportNewSub": "답변이 오면 알려 드려요",
   "supportTabInquiries": "문의",
   "supportTabAppeals": "소명·이의",
   "appealWhere": "계정 제한 소명은 홈의 제한 안내에서, 수행료 이의는 정산내역의 배송 건에서 신청할 수 있어요.",
@@ -429,7 +430,7 @@
   "endDuty": "운행종료",
   "newDispatchOffNotice": "신규배차를 켜면 배달을 시작할 수 있어요!",
   "detail": "상세",
-  "storeLabel": "PMart {mfcId}",
+  "storeLabel": "바로픽 {mfcId}",
   "@storeLabel": {
     "placeholders": {
       "mfcId": {

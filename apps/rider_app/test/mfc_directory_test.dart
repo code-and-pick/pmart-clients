@@ -31,4 +31,15 @@ void main() {
     expect(names(MfcRegion.gyeongsang), contains('부산진구지점'));
     expect([for (final r in MfcRegion.values) ...names(r)], hasLength(26));
   });
+
+  // 화면 지점 이름(사용자 2026-11-23 "바로픽 부산진구 · 바로픽 목포") — 앞 상표·뒤 "MFC"·"지점"을 뗀다.
+  test('짧은 지점 이름', () {
+    expect(shortStoreName('목포 MFC'), '목포');
+    expect(shortStoreName('부산진구 MFC'), '부산진구');
+    expect(shortStoreName('부산진구지점'), '부산진구');
+    expect(shortStoreName('PMart 부산진구지점'), '부산진구');
+    expect(shortStoreName('바로픽 목포'), '목포');
+    expect(shortStoreName('PMart [시험] 부산진구 MFC'), '[시험] 부산진구');
+    expect(shortStoreName('MFC'), 'MFC');
+  });
 }

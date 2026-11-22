@@ -205,7 +205,9 @@ class _OfferDetailScreenState extends ConsumerState<OfferDetailScreen> {
                           label: l10n.pickupPlace,
                           title: trip == null
                               ? storeText(l10n, offer.mfcId ?? dutyMfc)
-                              : l10n.storeLabel(trip.store.name),
+                              : l10n.storeLabel(
+                                  shortStoreName(trip.store.name),
+                                ),
                           lines: [?trip?.store.address],
                           linkKey: const ValueKey('call-store'),
                           // 지점 전화가 없으면 버튼을 숨긴다.

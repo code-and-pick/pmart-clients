@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:pmart_ui/pmart_ui.dart';
 
 import '../../../l10n/gen/app_localizations.dart';
+import '../../../shared/mfc_directory.dart';
 import '../../../shared/rider_style.dart';
 import '../domain/trip.dart';
 import 'delivery_texts.dart';
@@ -150,7 +151,9 @@ class OrderInfoSection extends StatelessWidget {
         const SizedBox(height: 10),
         TripLine(
           l10n.orderPlace,
-          t == null ? storeText(l10n, mfcId) : l10n.storeLabel(t.store.name),
+          t == null
+              ? storeText(l10n, mfcId)
+              : l10n.storeLabel(shortStoreName(t.store.name)),
         ),
         if (packageCount case final n?)
           TripLine(l10n.packagesLabel, packageCountText(l10n, n)),

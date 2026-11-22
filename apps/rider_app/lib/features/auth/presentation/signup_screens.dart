@@ -832,7 +832,7 @@ class _SignupFlowScreenState extends ConsumerState<SignupFlowScreen> {
     _SelectBox(
       key: const ValueKey('signup-area'),
       text: switch (_draft.area) {
-        final a? => '${regionText(l10n, a.region)} · ${a.name}',
+        final a? => '${regionText(l10n, a.region)} · ${shortStoreName(a.name)}',
         null => null,
       },
       hint: l10n.selectHint,
@@ -1144,7 +1144,7 @@ class _AreaSheetState extends State<AreaSheet> {
                   for (final a in areas[_region] ?? const <AreaOption>[])
                     PillOption(
                       key: ValueKey('area-${a.name}'),
-                      label: a.name,
+                      label: shortStoreName(a.name),
                       selected: a.mfcId == _branch?.mfcId,
                       onTap: () => setState(() => _branch = a),
                     )

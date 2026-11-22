@@ -58,24 +58,36 @@ class SupportCenterScreen extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // 가로로 긴 보라 버튼 두 줄(사용자 2026-11-20 "한 줄 한 줄 보라색, 흰 글자")
-                  _ActionTile(
-                    key: const ValueKey('live-chat'),
-                    icon: Icons.chat_bubble_rounded,
-                    title: l10n.supportChat,
-                    sub: l10n.supportChatSub,
-                    onTap: () => context.push('/my/inquiries/chat'),
-                  ),
-                  const SizedBox(height: 10),
-                  _ActionTile(
-                    key: const ValueKey('inquiry-new'),
-                    icon: Icons.edit_note_rounded,
-                    title: l10n.supportNew,
-                    sub: l10n.supportNewSub,
-                    onTap: () async {
-                      await context.push('/my/inquiries/new');
-                      ref.invalidate(inquiriesProvider);
-                    },
+                  // 흰 카드 두 칸을 나란히(사용자 2026-11-23 "보라 버튼 별로" — 전에는 가로로 긴 보라 버튼 두 줄).
+                  // 보라는 아이콘에만 쓰고, 아래 탭(고른 쪽 보라)과 겹쳐 화면이 무거워 보이지 않게 한다.
+                  IntrinsicHeight(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Expanded(
+                          child: _ActionTile(
+                            key: const ValueKey('live-chat'),
+                            icon: Icons.forum_outlined,
+                            title: l10n.supportChat,
+                            sub: l10n.supportChatSub,
+                            onTap: () => context.push('/my/inquiries/chat'),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: _ActionTile(
+                            key: const ValueKey('inquiry-new'),
+                            icon: Icons.edit_note_rounded,
+                            title: l10n.supportNew,
+                            sub: l10n.supportNewSub,
+                            onTap: () async {
+                              await context.push('/my/inquiries/new');
+                              ref.invalidate(inquiriesProvider);
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                   const SizedBox(height: 12),
                   Container(
@@ -161,7 +173,7 @@ class SupportCenterScreen extends ConsumerWidget {
   }
 }
 
-/// 위쪽 큰 버튼(채팅 상담·문의 남기기) — 가로로 긴 보라 바탕, 흰 글자, 흰 원 안 아이콘.
+/// 위쪽 버튼(채팅 상담·문의 남기기) — 흰 카드, 연보라 원 안 보라 아이콘, 제목·설명, 오른쪽 위 화살표.
 class _ActionTile extends StatelessWidget {
   const _ActionTile({
     super.key,
@@ -177,76 +189,59 @@ class _ActionTile extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) => DecoratedBox(
-    decoration: BoxDecoration(
-      borderRadius: BorderRadius.circular(16),
-      boxShadow: [
-        BoxShadow(
-          color: RiderColors.primary.withValues(alpha: 0.28),
-          blurRadius: 14,
-          offset: const Offset(0, 5),
-        ),
-      ],
+  Widget build(BuildContext context) => Material(
+    color: Colors.white,
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(14),
+      side: const BorderSide(color: RiderColors.line),
     ),
-    child: Material(
-      color: RiderColors.primary,
-      borderRadius: BorderRadius.circular(16),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(16),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 14, 16),
-          child: Row(
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.18),
-                  shape: BoxShape.circle,
+    clipBehavior: Clip.antiAlias,
+    child: InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 14, 12, 14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: const BoxDecoration(
+                    color: RiderColors.primaryMist,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(icon, size: 22, color: RiderColors.primary),
                 ),
-                child: Icon(icon, size: 24, color: Colors.white),
+                const Spacer(),
+                const Icon(
+                  Icons.chevron_right_rounded,
+                  size: 22,
+                  color: RiderColors.hint,
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+                color: RiderColors.ink,
               ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: const TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w800,
-                        color: Colors.white,
-                      ),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      sub,
-                      style: TextStyle(
-                        fontSize: 13,
-                        height: 1.35,
-                        color: Colors.white.withValues(alpha: 0.82),
-                      ),
-                    ),
-                  ],
-                ),
+            ),
+            const SizedBox(height: 3),
+            Text(
+              sub,
+              style: const TextStyle(
+                fontSize: 12.5,
+                height: 1.35,
+                color: RiderColors.sub,
               ),
-              Container(
-                width: 30,
-                height: 30,
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.18),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.arrow_forward_ios_rounded,
-                  size: 14,
-                  color: Colors.white,
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     ),

@@ -53,7 +53,7 @@ String placementText(AppLocalizations l10n, String? wire) => switch (wire) {
 String storeText(AppLocalizations l10n, String? mfcId) => switch (mfcId) {
   null => l10n.storeUnknown,
   // 이름을 모르면(서버 지점 목록을 아직 못 읽음) 코드를 보인다.
-  final id => l10n.storeLabel(storeNameOf(id) ?? id),
+  final id => l10n.storeLabel(shortStoreName(storeNameOf(id) ?? id)),
 };
 
 /// 단말 시각 → "HH:mm"(Asia/Seoul 표시).

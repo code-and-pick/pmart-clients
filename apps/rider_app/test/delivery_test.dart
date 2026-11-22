@@ -277,7 +277,10 @@ void main() {
       find.byKey(const ValueKey('navigate')).hitTestable(),
       findsOneWidget,
     );
-    expect(find.byKey(const ValueKey('arrive-store')), findsNothing);
+    expect(
+      find.byKey(const ValueKey('arrive-store')).hitTestable(),
+      findsNothing,
+    );
     expect(
       t.getTopLeft(find.byKey(const ValueKey('mart-info'))).dy,
       greaterThanOrEqualTo(screenBottom - 1),
@@ -327,11 +330,16 @@ void main() {
       t.getTopLeft(find.byKey(const ValueKey('sheet-handle'))).dy,
       closeTo(peek, 1),
     );
-    expect(find.byKey(const ValueKey('arrive-store')), findsNothing);
+    expect(
+      find.byKey(const ValueKey('arrive-store')).hitTestable(),
+      findsNothing,
+    );
 
     // 펼쳐서 진행한다(이 화면에 있는 동안 펼친 채로 둔다).
     await t.tap(find.byKey(const ValueKey('sheet-handle')));
     await t.pump();
+    await t.pump(const Duration(milliseconds: 400));
+    // 진행 버튼은 시트가 올라간 다음 프레임부터 미끄러져 올라온다.
     await t.pump(const Duration(milliseconds: 400));
     await t.tap(find.byKey(const ValueKey('arrive-store')));
     await settle();
@@ -341,7 +349,7 @@ void main() {
 
     // 주문정보: 8자리 주문번호 · 한글 지점명 · 품목 · 요청사항. 거절 코드·전송확인 버튼은 없다.
     expect(find.byKey(const ValueKey('order-info')), findsOneWidget);
-    expect(find.text('PMart 부산진구지점'), findsWidgets);
+    expect(find.text('바로픽 부산진구'), findsWidgets);
     // 고객앱 목의 진행 중 주문과 같은 품목.
     expect(find.textContaining('그릭요거트 플레인 400g'), findsOneWidget);
     expect(find.textContaining('INVALID_STATE'), findsNothing);
@@ -378,7 +386,10 @@ void main() {
     expect(find.byKey(const ValueKey('request-notes')), findsOneWidget);
     expect(find.byKey(const ValueKey('due-time')), findsOneWidget);
     // 고객도착 단계 버튼 없이 바로 전달완료.
-    expect(find.byKey(const ValueKey('arrive-customer')), findsNothing);
+    expect(
+      find.byKey(const ValueKey('arrive-customer')).hitTestable(),
+      findsNothing,
+    );
 
     // 사진을 올리기 전에는 전달완료를 누를 수 없다.
     final complete = find.byKey(const ValueKey('complete'));

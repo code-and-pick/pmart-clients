@@ -61,10 +61,14 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
   double _bodyHeight = 0;
 
   /// 반 넘게 펼침(안내 문구 "눌러서 지도 보기").
-  bool _sheetOpen = false;
+  /// 끄는 동안 화면 전체(지도 포함)를 다시 그리지 않게 값만 알린다(사용자 2026-11-23 "매끄럽지 않아").
+  final _sheetOpen = ValueNotifier(false);
 
   /// 기본 높이보다 올라감(진행 버튼을 띄운다).
-  bool _sheetRaised = false;
+  final _sheetRaised = ValueNotifier(false);
+
+  /// 시트 펼치기·접기·높이 맞추기와 진행 버튼이 함께 쓰는 움직임 시간.
+  static const _sheetAnim = Duration(milliseconds: 260);
 
   double get _peekSize => _bodyHeight <= 0
       ? 0.3
@@ -84,12 +88,9 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
       final size = _sheet.size;
       final open = size > (_peekSize + _sheetFull) / 2;
       final raised = size > _peekSize + 0.03;
-      if ((open != _sheetOpen || raised != _sheetRaised) && mounted) {
-        setState(() {
-          _sheetOpen = open;
-          _sheetRaised = raised;
-        });
-      }
+      if (!mounted) return;
+      _sheetOpen.value = open;
+      _sheetRaised.value = raised;
     });
   }
 
@@ -101,9 +102,16 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
     final h = box.size.height;
     if ((h - _peekPx).abs() < 0.5) return;
     setState(() => _peekPx = h);
+    // 다음 단계로 넘어가 기본 내용 높이가 바뀌면 접힌 시트를 끊기지 않게 새 높이로 옮긴다(전에는 jumpTo 로 툭 튀었다).
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted && !_sheetRaised && _sheet.isAttached) {
-        _sheet.jumpTo(_peekSize);
+      if (mounted && !_sheetRaised.value && _sheet.isAttached) {
+        unawaited(
+          _sheet.animateTo(
+            _peekSize,
+            duration: _sheetAnim,
+            curve: Curves.easeOutCubic,
+          ),
+        );
       }
     });
   }
@@ -295,6 +303,8 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
     _queuePoll?.cancel();
     _lifecycle?.dispose();
     _sheet.dispose();
+    _sheetOpen.dispose();
+    _sheetRaised.dispose();
     super.dispose();
   }
 
@@ -303,9 +313,9 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
     if (!_sheet.isAttached) return;
     unawaited(
       _sheet.animateTo(
-        _sheetRaised ? _peekSize : _sheetFull,
-        duration: const Duration(milliseconds: 250),
-        curve: Curves.easeOut,
+        _sheetRaised.value ? _peekSize : _sheetFull,
+        duration: _sheetAnim,
+        curve: Curves.easeOutCubic,
       ),
     );
   }
@@ -738,7 +748,7 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
     final store = trip?.store ?? mfcById(d.mfcId);
     final storeName = store == null
         ? storeText(l10n, d.mfcId)
-        : l10n.storeLabel(store.name);
+        : l10n.storeLabel(shortStoreName(store.name));
     final dropPoint = switch (drop) {
       DropInfo(:final lat?, :final lng?) => (lat: lat, lng: lng),
       _ => trip?.drop,
@@ -821,25 +831,28 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
                   ),
                 ),
                 const SizedBox(height: 2),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      _sheetOpen ? l10n.sheetCollapse : l10n.dragForDetail,
-                      key: const ValueKey('sheet-hint'),
-                      style: const TextStyle(
-                        fontSize: 11,
+                ValueListenableBuilder<bool>(
+                  valueListenable: _sheetOpen,
+                  builder: (context, open, _) => Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        open ? l10n.sheetCollapse : l10n.dragForDetail,
+                        key: const ValueKey('sheet-hint'),
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: RiderColors.hint,
+                        ),
+                      ),
+                      Icon(
+                        open
+                            ? Icons.keyboard_arrow_down
+                            : Icons.keyboard_arrow_up,
+                        size: 14,
                         color: RiderColors.hint,
                       ),
-                    ),
-                    Icon(
-                      _sheetOpen
-                          ? Icons.keyboard_arrow_down
-                          : Icons.keyboard_arrow_up,
-                      size: 14,
-                      color: RiderColors.hint,
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -1345,7 +1358,6 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
         gone ||
         d.state == ExecutionState.failureReported ||
         d.state == ExecutionState.failed;
-    final showAction = action != null && (_sheetRaised || actionAlways);
 
     // 접힌 높이는 기본 화면 내용(_peekKey)을 잰 값으로 맞춘다.
     WidgetsBinding.instance.addPostFrameCallback((_) => _measurePeek());
@@ -1354,7 +1366,10 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
       fit: StackFit.expand,
       children: [
         if (!widget.embedded) ...[
-          Positioned.fill(child: RiderMap(route: route)),
+          // 시트를 끄는 동안 지도를 다시 그리지 않게 따로 둔다.
+          Positioned.fill(
+            child: RepaintBoundary(child: RiderMap(route: route)),
+          ),
           Positioned(
             top: 0,
             left: 0,
@@ -1390,8 +1405,10 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
                     top: Radius.circular(14),
                   ),
                   clipBehavior: Clip.antiAlias,
+                  // 안쪽 목록 끝에서 늘어나는(stretch) 효과가 시트 끌기와 겹쳐 덜컹거리지 않게 끈다.
                   child: SingleChildScrollView(
                     controller: scroll,
+                    physics: const ClampingScrollPhysics(),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
@@ -1407,19 +1424,39 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
             },
           ),
         ),
-        if (showAction)
+        if (action != null)
           Positioned(
             left: 0,
             right: 0,
             bottom: 0,
-            child: Material(
-              color: Colors.white,
-              elevation: 12,
-              child: SafeArea(
-                top: false,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-                  child: action,
+            // 진행 버튼은 시트를 올리면 아래에서 미끄러져 올라온다(전에는 툭 나타났다 사라졌다).
+            child: ValueListenableBuilder<bool>(
+              valueListenable: _sheetRaised,
+              builder: (context, raised, child) {
+                final show = raised || actionAlways;
+                // 숨은 동안은 누를 수도, 화면 읽기에 잡히지도 않는다.
+                return IgnorePointer(
+                  ignoring: !show,
+                  child: ExcludeSemantics(
+                    excluding: !show,
+                    child: AnimatedSlide(
+                      offset: show ? Offset.zero : const Offset(0, 1),
+                      duration: _sheetAnim,
+                      curve: Curves.easeOutCubic,
+                      child: child,
+                    ),
+                  ),
+                );
+              },
+              child: Material(
+                color: Colors.white,
+                elevation: 12,
+                child: SafeArea(
+                  top: false,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                    child: action,
+                  ),
                 ),
               ),
             ),

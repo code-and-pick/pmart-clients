@@ -307,6 +307,20 @@ final serverStoreNames = <String, String>{};
 /// 지점 이름: 앱 지점표 → 서버에서 받은 이름 순. 모르면 null.
 String? storeNameOf(String id) => mfcById(id)?.name ?? serverStoreNames[id];
 
+/// 화면에 쓰는 짧은 지점 이름(사용자 2026-11-23 "바로픽 부산진구 · 바로픽 목포 이렇게") — 서버 이름
+/// "목포 MFC"·앱 지점표 "부산진구지점"·제안 요약 "PMart 부산진구지점"에서 앞의 상표와 뒤의 "MFC"·"지점"을 뗀다.
+/// 다 떼고 남는 게 없으면 원래 이름.
+String shortStoreName(String name) {
+  var n = name.trim();
+  for (final p in const ['바로픽', 'PMart']) {
+    if (n.startsWith(p)) n = n.substring(p.length).trim();
+  }
+  for (final s in const ['MFC', '지점']) {
+    if (n.endsWith(s)) n = n.substring(0, n.length - s.length).trim();
+  }
+  return n.isEmpty ? name.trim() : n;
+}
+
 MfcBranch? mfcById(String? id) =>
     id == null ? null : mfcBranches.where((b) => b.id == id).firstOrNull;
 
