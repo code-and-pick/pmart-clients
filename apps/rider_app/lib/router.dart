@@ -21,6 +21,7 @@ import 'features/delivery/presentation/support_thread_screen.dart';
 import 'features/home/presentation/home_screen.dart';
 import 'features/inquiries/presentation/inquiry_screens.dart';
 import 'features/inquiries/presentation/live_chat_screen.dart';
+import 'features/notifications/data/notifications.dart';
 import 'features/notifications/presentation/notification_screen.dart';
 import 'features/my/presentation/my_screens.dart';
 import 'features/my/presentation/record_screens.dart';
@@ -193,6 +194,15 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/notifications',
         builder: (_, _) => const NotificationScreen(),
+      ),
+      // 공지 전문 — 알림함에서 고른 공지를 extra 로(2026-11-24)
+      GoRoute(
+        path: '/notifications/notice',
+        builder: (_, s) => NoticeScreen(
+          notice: s.extra is RiderNotification
+              ? s.extra! as RiderNotification
+              : null,
+        ),
       ),
     ],
   );

@@ -84,6 +84,10 @@ class NotificationScreen extends ConsumerWidget {
       ref.invalidate(notificationInboxProvider);
     }
     if (!context.mounted) return;
+    if (e.latest.notice) {
+      unawaited(context.push('/notifications/notice', extra: e.latest));
+      return;
+    }
     switch (e.latest.target) {
       case HelpRequestTarget(:final deliveryId, :final requestId):
         unawaited(context.push('/deliveries/$deliveryId/support/$requestId'));
@@ -176,11 +180,13 @@ class _NotificationRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final n = e.latest;
-    final (icon, color) = switch (n.target) {
-      HelpRequestTarget() => (Icons.support_agent, RiderColors.drop),
-      InquiryTarget() => (Icons.chat_bubble_outline, RiderColors.primary),
-      NoTarget() => (Icons.notifications_none, RiderColors.sub),
-    };
+    final (icon, color) = n.notice
+        ? (Icons.campaign_rounded, RiderColors.pickup)
+        : switch (n.target) {
+            HelpRequestTarget() => (Icons.support_agent, RiderColors.drop),
+            InquiryTarget() => (Icons.chat_bubble_outline, RiderColors.primary),
+            NoTarget() => (Icons.notifications_none, RiderColors.sub),
+          };
     final body = n.body?.trim() ?? '';
     final unread = e.unread;
     return Material(
@@ -210,6 +216,29 @@ class _NotificationRow extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    if (n.notice)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 3),
+                        child: Container(
+                          key: ValueKey('noti-notice-${n.id}'),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 1,
+                          ),
+                          decoration: BoxDecoration(
+                            color: RiderColors.pickup.withValues(alpha: 0.14),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            l10n.noticeTag,
+                            style: const TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w700,
+                              color: RiderColors.pickup,
+                            ),
+                          ),
+                        ),
+                      ),
                     Text(
                       n.title,
                       style: TextStyle(
@@ -266,6 +295,85 @@ class _NotificationRow extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// 공지 전문(2026-11-24 사용자 "공지 보내는 곳은 있는데 라이더앱에 공지를 읽는 곳은 없네?") — 알림함 줄은 본문 2줄까지라 끝까지 읽을 곳.
+/// 서버 알림 그대로(제목·본문·받은 시각) 보인다. 지우기 API 가 없어 지우는 버튼은 없다.
+class NoticeScreen extends StatelessWidget {
+  const NoticeScreen({super.key, required this.notice});
+
+  final RiderNotification? notice;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final n = notice;
+    return Scaffold(
+      backgroundColor: Colors.white,
+      appBar: riderDarkBar(context, title: l10n.noticeTitle),
+      body: n == null
+          // 앱을 다시 켜 공지 정보를 잃었으면 알림함으로 돌아가 다시 고르게 한다.
+          ? Center(
+              child: Text(
+                l10n.noticeMissing,
+                style: const TextStyle(color: RiderColors.sub),
+              ),
+            )
+          : ListView(
+              key: const ValueKey('notice-detail'),
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
+              children: [
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.campaign_rounded,
+                      size: 20,
+                      color: RiderColors.pickup,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      l10n.noticeTag,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: RiderColors.pickup,
+                      ),
+                    ),
+                    const Spacer(),
+                    Text(
+                      notiWhenText(l10n, n.createdAt),
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: RiderColors.hint,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  n.title,
+                  style: const TextStyle(
+                    fontSize: 20,
+                    height: 1.35,
+                    fontWeight: FontWeight.w800,
+                    color: RiderColors.ink,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Divider(height: 1, color: RiderColors.gap),
+                const SizedBox(height: 16),
+                SelectableText(
+                  n.body?.trim() ?? '',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    height: 1.65,
+                    color: RiderColors.ink,
+                  ),
+                ),
+              ],
+            ),
     );
   }
 }

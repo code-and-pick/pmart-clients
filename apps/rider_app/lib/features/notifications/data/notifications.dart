@@ -38,6 +38,7 @@ class RiderNotification {
     required this.read,
     required this.target,
     this.body,
+    this.notice = false,
   });
 
   final String id;
@@ -46,7 +47,14 @@ class RiderNotification {
   final DateTime createdAt;
   final bool read;
   final NotificationTarget target;
+
+  /// 운영 공지(백오피스 "공지 보내기" — templateKey RIDER_NOTICE, 2026-11-24 사용자 "라이더앱에 공지를 읽는 곳은 없네?").
+  /// 알림함에 공지 꼬리표를 달고, 누르면 전문을 보인다(본문 최대 500자).
+  final bool notice;
 }
+
+/// 공지 알림 종류(notification 0.5.0 `sendRiderNotice` — 알림함 한 줄 templateKey).
+const riderNoticeTemplate = 'RIDER_NOTICE';
 
 typedef NotificationInbox = ({List<RiderNotification> items, int unread});
 
@@ -83,6 +91,7 @@ RiderNotification notificationFromContract(nt.Notification n) =>
         n.destination?.type?.value,
         n.destination?.ref,
       ),
+      notice: n.templateKey == riderNoticeTemplate,
     );
 
 final class ApiNotificationRepository implements NotificationRepository {
@@ -125,6 +134,18 @@ final class MockNotificationRepository implements NotificationRepository {
   final _read = <String>{};
 
   List<RiderNotification> get _all => [
+    RiderNotification(
+      id: 'ntf-0',
+      title: '12월 배달지역 운영 안내',
+      body:
+          '12월 1일부터 부산진구 센터의 배달 가능 시간이 오전 9시~밤 11시로 바뀌어요.\n'
+          '밤 10시 이후 주문은 가까운 거리만 배차돼요. 궁금한 점은 지원센터 문의로 남겨 주세요.\n\n'
+          '추운 날씨에 안전 운행 부탁드려요.',
+      createdAt: DateTime.now().subtract(const Duration(hours: 1)),
+      read: _read.contains('ntf-0'),
+      target: const NoTarget(),
+      notice: true,
+    ),
     RiderNotification(
       id: 'ntf-1',
       title: '지원센터 답장이 왔어요',

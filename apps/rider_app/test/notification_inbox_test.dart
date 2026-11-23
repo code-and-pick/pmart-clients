@@ -39,6 +39,7 @@ class _FakeInbox implements NotificationRepository {
                 createdAt: n.createdAt,
                 read: true,
                 target: n.target,
+                notice: n.notice,
               )
             : n,
     ];
@@ -169,5 +170,55 @@ void main() {
     await t.pumpAndSettle();
     expect(inbox.marked.toSet(), {'l0', 'l1', 'l2'});
     expect(find.text('thread req-live'), findsOneWidget);
+  });
+
+  testWidgets('공지(RIDER_NOTICE)는 꼬리표가 붙고, 누르면 전문 화면 — 읽음 표시(2026-11-24)', (
+    t,
+  ) async {
+    final repo = MockDeliveryRepository(latency: Duration.zero);
+    const long = '첫 줄이에요.\n둘째 줄이에요.\n셋째 줄 — 알림함에서는 두 줄까지만 보여요.\n넷째 줄 끝.';
+    final inbox = _FakeInbox([
+      RiderNotification(
+        id: 'nt-1',
+        title: '12월 운영 안내',
+        body: long,
+        createdAt: DateTime.now().subtract(const Duration(minutes: 5)),
+        read: false,
+        target: const NoTarget(),
+        notice: true,
+      ),
+    ]);
+    await t.pumpWidget(
+      ProviderScope(
+        retry: (_, _) => null,
+        overrides: [
+          envProvider.overrideWithValue(PmartEnv.mock),
+          deliveryRepositoryProvider.overrideWithValue(repo),
+          notificationRepositoryProvider.overrideWithValue(inbox),
+        ],
+        child: MaterialApp.router(
+          locale: const Locale('ko'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          routerConfig: GoRouter(
+            routes: [
+              GoRoute(path: '/', builder: (_, _) => const NotificationScreen()),
+              GoRoute(
+                path: '/notifications/notice',
+                builder: (_, st) =>
+                    NoticeScreen(notice: st.extra as RiderNotification?),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    await t.pumpAndSettle();
+    expect(find.byKey(const ValueKey('noti-notice-nt-1')), findsOneWidget);
+    await t.tap(find.byKey(const ValueKey('noti-nt-1')));
+    await t.pumpAndSettle();
+    expect(inbox.marked, ['nt-1']);
+    expect(find.byKey(const ValueKey('notice-detail')), findsOneWidget);
+    expect(find.text(long), findsOneWidget, reason: '본문 전문이 잘리지 않고 보인다');
   });
 }
