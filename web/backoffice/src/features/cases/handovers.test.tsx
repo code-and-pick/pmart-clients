@@ -132,5 +132,9 @@ describe('후임은 사번으로(hr 0.10.0 HR-5)', () => {
     await userEvent.clear(box);
     await userEvent.type(box, 'P2026-0007');
     expect(screen.getByTestId('handover-to-status')).toHaveAttribute('data-state', 'notFound');
+    // 퇴사자는 재직자만(activeOnly=true) 조회라 빠진다 — 고를 수 없음
+    await userEvent.clear(box);
+    await userEvent.type(box, 'P2025-00099');
+    await waitFor(() => expect(screen.getByTestId('handover-to-status')).toHaveTextContent('퇴사자는 고를 수 없어요'));
   });
 });

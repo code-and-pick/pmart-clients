@@ -14,7 +14,12 @@ export const MOCK_EMPLOYEE_LABELS: Readonly<Record<string, { name: string; emplo
   'op-marketing-1': { name: '[목] 윤마케', employeeNo: 'P2026-00008' },
   'op-marketing-2': { name: '[목] 서마케', employeeNo: 'P2026-00009' },
   'OP-seed-hr-1': { name: '[목] 홍인사', employeeNo: 'P2026-00014' },
+  // 퇴사자(hr 0.11.0 activeOnly=true 면 빠짐)
+  'op-left-1': { name: '[목] 오퇴사', employeeNo: 'P2025-00099' },
 };
+
+/** 퇴사자(LEFT) — activeOnly=true 면 빠진다 */
+const MOCK_LEFT: ReadonlySet<string> = new Set(['op-left-1']);
 
 export const hrLabelHandlers = [
   http.get(`${API_BASE}/hr/employee-labels`, ({ request }) => {
@@ -26,7 +31,8 @@ export const hrLabelHandlers = [
     if ((ids.length > 0) === (nos.length > 0)) return bad();
     if (nos.length > 0) {
       if (nos.length > 50 || nos.some((n) => !/^P\d{4}-\d{5}$/.test(n))) return bad();
-      return HttpResponse.json({ items: Object.entries(MOCK_EMPLOYEE_LABELS).filter(([, v]) => nos.includes(v.employeeNo)).map(([operatorId, v]) => ({ operatorId, ...v })) });
+      const activeOnly = q.get('activeOnly') === 'true';
+      return HttpResponse.json({ items: Object.entries(MOCK_EMPLOYEE_LABELS).filter(([id, v]) => nos.includes(v.employeeNo) && !(activeOnly && MOCK_LEFT.has(id))).map(([operatorId, v]) => ({ operatorId, ...v })) });
     }
     if (ids.length > 50) return bad();
     return HttpResponse.json({ items: ids.flatMap((operatorId) => (MOCK_EMPLOYEE_LABELS[operatorId] ? [{ operatorId, ...MOCK_EMPLOYEE_LABELS[operatorId] }] : [])) });

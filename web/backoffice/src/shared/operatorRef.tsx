@@ -1,8 +1,8 @@
 // 사람 입력 칸 — 사번으로 운영자 찾기(hr 0.10.0 HR-5, 2026-11-24 — 교대 인계 "후임"·접수 건 "다른 사람에게 배정" 이 OP-… 를 직접 쳐 넣게 하던 것).
 // - 사번(P<연도 4>-<5자리>, 계약 pattern 과 같게 — 소문자 p 도 받아 대문자로 보낸다)을 넣으면 `GET /hr/employee-labels?employeeNos=` 로 운영자 ID·이름.
 // - 사번 모양이 아니면 넣은 값을 운영자 ID 로 그대로(붙여 넣기·예전 입력).
-// - 퇴사자도 나온다(재직자만 거르기 activeOnly 는 아직 없음). 서버(case)는 맡기기·인계 작성 때 재직 여부를 보지 않으므로,
-//   "[이름] · 사번 에게 …" 확인 줄이 사람이 보고 고르는 유일한 확인 — 찾지 못했거나 찾는 중·실패면 보내지 못하게 한다.
+// - 재직자만(hr 0.11.0 activeOnly=true — 퇴사자 LEFT 는 빠짐, 사용자 결정 2026-11-24). 정지(SUSPENDED)는 재직이라 남는다(응답에 상태가 없어 화면이 구분 못 함).
+//   서버(case)는 맡기기·인계 작성 때 재직 여부를 보지 않으므로 "[이름] · 사번 에게 …" 확인 줄이 사람이 보는 확인 — 찾지 못했거나 찾는 중·실패면 보내지 못하게 한다.
 import { useQuery } from '@tanstack/react-query';
 
 import { request } from '@pmart/web-core';
@@ -17,10 +17,10 @@ export function useOperatorRef(input: string) {
   const no = value.toUpperCase();
   const byNo = isEmployeeNo(value);
   const q = useQuery({
-    queryKey: ['hr', 'employee-by-no', no],
+    queryKey: ['hr', 'employee-by-no', no, 'active'],
     enabled: byNo,
     staleTime: 60_000,
-    queryFn: () => request('GET', api.hr.GET('/hr/employee-labels', { params: { query: { employeeNos: [no] } } })),
+    queryFn: () => request('GET', api.hr.GET('/hr/employee-labels', { params: { query: { employeeNos: [no], activeOnly: true } } })),
   });
   if (value === '') return { id: null, state: 'empty' as const, label: null };
   // 사번처럼 시작했는데(P + 숫자) 모양이 틀리면 ID 로 보내지 않고 "없어요"(예: P2026-0007 — 경계값)
