@@ -24,6 +24,7 @@ import 'features/inquiries/presentation/live_chat_screen.dart';
 import 'features/notifications/presentation/notification_screen.dart';
 import 'features/my/presentation/my_screens.dart';
 import 'features/my/presentation/record_screens.dart';
+import 'features/my/presentation/delivery_record_screen.dart';
 import 'features/my/presentation/withdraw_screen.dart';
 import 'features/offers/presentation/offer_detail_screen.dart';
 
@@ -143,6 +144,12 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (_, _) => const SettlementsScreen(),
       ),
       GoRoute(path: '/my/history', builder: (_, _) => const HistoryScreen()),
+      // 끝난 배송 보기(읽기 전용 — 2026-11-23)
+      GoRoute(
+        path: '/my/history/:deliveryId',
+        builder: (_, s) =>
+            DeliveryRecordScreen(deliveryId: s.pathParameters['deliveryId']!),
+      ),
       // 소명·이의 신청(rider 0.15.0) — ?type=restriction|earning&deliveryId=
       // 지원센터의 소명·이의 탭(사용자 2026-11-20 — 문의와 한 곳에서)
       GoRoute(

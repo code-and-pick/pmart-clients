@@ -108,7 +108,11 @@ class DeliveryRecord {
     required this.fee,
     this.distanceKm,
     this.minutes,
+    this.deliveryId,
   });
+
+  /// 끝난 배송 보기(읽기 전용)로 가는 배송 ID — 없으면 줄을 누를 수 없다.
+  final String? deliveryId;
 
   final String code;
   final String store;
@@ -237,6 +241,7 @@ final class MockRecordsRepository implements RecordsRepository {
     await _wait();
     return [
       DeliveryRecord(
+        deliveryId: 'dlv-1',
         code: 'ORD-5111EHNE',
         store: 'PMart 부산진구지점',
         completedAt: DateTime(2026, 11, 13, 21, 56),
@@ -383,6 +388,7 @@ final class ApiRecordsRepository implements RecordsRepository {
       for (final d in res.data?.items ?? const <ex.DeliveryExecution>[])
         if (d.state == ex.ExecutionState.COMPLETED)
           DeliveryRecord(
+            deliveryId: d.deliveryId,
             // 주문번호·마트 이름(execution 0.11.0 — 그 배포 뒤 배정부터). 없으면 예전 값.
             code: d.orderNumber ?? d.orderId ?? d.deliveryId ?? '-',
             store: d.mfcName ?? d.mfcId ?? '-',

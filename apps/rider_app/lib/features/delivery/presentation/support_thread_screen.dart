@@ -3,12 +3,14 @@ import 'dart:async';
 import 'package:flutter/foundation.dart' show Uint8List;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../l10n/gen/app_localizations.dart';
 import '../../../shared/rider_style.dart';
 import '../../../shared/rider_widgets.dart';
 import '../data/delivery_repository.dart' show LocalPhoto;
 import '../domain/delivery.dart';
+import '../../my/presentation/delivery_record_screen.dart' show isEndedDelivery;
 import 'delivery_controller.dart';
 import 'delivery_texts.dart';
 
@@ -89,10 +91,33 @@ class _SupportThreadScreenState extends ConsumerState<SupportThreadScreen> {
         ref.watch(deliveryProvider(widget.deliveryId)).value?.state ==
         ExecutionState.failureReported;
     final resolved = ticket?.state == HelpState.resolved && !pendingDecision;
+    final deliveryState = ref
+        .watch(deliveryProvider(widget.deliveryId))
+        .value
+        ?.state;
+    final ended = deliveryState != null && isEndedDelivery(deliveryState);
     final canTalk = !thread.unavailable && !thread.missing && !resolved;
     return Scaffold(
       backgroundColor: RiderColors.field,
-      appBar: riderDarkBar(context, title: l10n.supportThreadTitle),
+      appBar: riderDarkBar(
+        context,
+        title: l10n.supportThreadTitle,
+        // 끝난 배송의 대화(알림함에서 들어옴)면 그 배송 내역으로 가는 길 — 배송 화면은 끝나 열 수 없다(2026-11-23).
+        actions: [
+          if (ended)
+            TextButton(
+              key: const ValueKey('thread-record'),
+              onPressed: () => context.push('/my/history/${widget.deliveryId}'),
+              child: Text(
+                l10n.recordOpen,
+                style: const TextStyle(
+                  color: RiderColors.primary,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+        ],
+      ),
       body: Column(
         children: [
           if (ticket != null) _TicketHeader(ticket: ticket),

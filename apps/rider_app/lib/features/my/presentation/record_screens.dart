@@ -334,65 +334,71 @@ class HistoryScreen extends ConsumerWidget {
                   ),
                 ),
                 for (final r in list) ...[
-                  Padding(
-                    key: ValueKey('record-${r.code}'),
-                    padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                r.code,
-                                style: const TextStyle(
-                                  color: Color(0xFFB9A8FF),
-                                  fontSize: 19,
-                                  fontWeight: FontWeight.w800,
+                  // 끝난 배송을 누르면 주문 요약·그때 도움요청 대화를 읽기 전용으로(사용자 2026-11-23)
+                  InkWell(
+                    onTap: r.deliveryId == null
+                        ? null
+                        : () => context.push('/my/history/${r.deliveryId}'),
+                    child: Padding(
+                      key: ValueKey('record-${r.code}'),
+                      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  r.code,
+                                  style: const TextStyle(
+                                    color: Color(0xFFB9A8FF),
+                                    fontSize: 19,
+                                    fontWeight: FontWeight.w800,
+                                  ),
                                 ),
                               ),
-                            ),
+                              Text(
+                                switch (r.fee) {
+                                  final int f => formatKrw(f),
+                                  null => l10n.feeUncalculated,
+                                },
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 15,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          if (r.minutes case final m?)
                             Text(
-                              switch (r.fee) {
-                                final int f => formatKrw(f),
-                                null => l10n.feeUncalculated,
-                              },
+                              l10n.tookMinutes(m),
                               style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 15,
+                                color: Color(0xFFBBBBBB),
+                                fontSize: 13,
                               ),
                             ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        if (r.minutes case final m?)
                           Text(
-                            l10n.tookMinutes(m),
+                            r.store,
                             style: const TextStyle(
-                              color: Color(0xFFBBBBBB),
-                              fontSize: 13,
+                              color: Colors.white,
+                              fontSize: 18,
+                              fontWeight: FontWeight.w800,
                             ),
                           ),
-                        Text(
-                          r.store,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 18,
-                            fontWeight: FontWeight.w800,
+                          Text(
+                            [
+                              formatSeoulDateTime(r.completedAt),
+                              if (r.distanceKm case final d?)
+                                l10n.distanceKm(d.toStringAsFixed(1)),
+                            ].join('  |  '),
+                            style: const TextStyle(
+                              color: Color(0xFF999999),
+                              fontSize: 12,
+                            ),
                           ),
-                        ),
-                        Text(
-                          [
-                            formatSeoulDateTime(r.completedAt),
-                            if (r.distanceKm case final d?)
-                              l10n.distanceKm(d.toStringAsFixed(1)),
-                          ].join('  |  '),
-                          style: const TextStyle(
-                            color: Color(0xFF999999),
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                   Container(height: 6, color: const Color(0xFF333333)),
