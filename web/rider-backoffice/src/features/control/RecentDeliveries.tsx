@@ -7,7 +7,7 @@ import { request } from '@pmart/web-core';
 import { QueryState, toUiState } from '@pmart/web-ui';
 import { useApi } from '../../app/ApiContext';
 import { DataTable, Section, StatusBadge, type Tone } from '../../shared/admin';
-import { DeliveryNo, RiderName, useRiderSummaries } from '../../shared/displayNumbers';
+import { DeliveryNo, RiderName, useRiderSummaries, RiderLink } from '../../shared/displayNumbers';
 import { isLiveDelivery } from '../../shared/liveRefresh';
 import { messages } from '../../shared/messages';
 import { label, none } from '../../shared/opsUi';
@@ -75,7 +75,7 @@ export function RecentDeliveries({ mfcId, selectedDeliveryId, onPick }: { readon
                       <StatusBadge tone={stateTone(d.state)}>{label(n.executionState, d.state)}</StatusBadge>
                     </td>
                     <td>
-                      <RiderName riderId={d.riderId} nameMasked={r?.nameMasked} riderNumber={r?.riderNumber} />
+                      {d.riderId ? <RiderLink riderId={d.riderId} nameMasked={r?.nameMasked} riderNumber={r?.riderNumber} /> : <RiderName riderId={d.riderId} />}
                     </td>
                     <td className="whitespace-nowrap tabular-nums">{clock(d.assignedAt)}</td>
                     <td className="whitespace-nowrap tabular-nums">{clock(d.pickedUpAt)}</td>

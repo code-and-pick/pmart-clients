@@ -18,7 +18,7 @@ import { AllDone, ChipGroup, DataTable, DetailHeader, GuideBox, FieldList, PageH
 import { listCountText, statText, useListRows } from '../../shared/listKit';
 import { useNewIds } from '../../shared/motion';
 import { ui } from '../../shared/uiMessages';
-import { DeliveryNo, DeliveryRef, RiderName, RiderRef, StaffName, SystemIds, useDeliveryNumbers, useRiderSummaries } from '../../shared/displayNumbers';
+import { DeliveryNo, DeliveryRef, RiderRef, StaffName, SystemIds, useDeliveryNumbers, useRiderSummaries, RiderLink } from '../../shared/displayNumbers';
 import { messages } from '../../shared/messages';
 import { ops } from '../../shared/opsMessages';
 import { label, none, when } from '../../shared/opsUi';
@@ -803,7 +803,7 @@ function ConsultsPage({ tab }: { readonly tab: 'open' | 'done' }) {
                   <td>{r.state}</td>
                   <td>{r.deliveryId ? <DeliveryRef deliveryId={r.deliveryId} numbers={deliveryNos.get(r.deliveryId)} /> : none}</td>
                   <td className="whitespace-nowrap font-mono" data-testid="consult-order">{(r.deliveryId && deliveryNos.get(r.deliveryId)?.orderNumber) || none}</td>
-                  <td>{r.riderId ? <RiderName riderId={r.riderId} nameMasked={riders.get(r.riderId)?.nameMasked} riderNumber={riders.get(r.riderId)?.riderNumber} /> : none}</td>
+                  <td>{r.riderId ? <RiderLink riderId={r.riderId} nameMasked={riders.get(r.riderId)?.nameMasked} riderNumber={riders.get(r.riderId)?.riderNumber} /> : none}</td>
                   <td className="whitespace-nowrap">{when(r.createdAt)}</td>
                   <td className="whitespace-nowrap">{r.open ? <WaitBadge from={r.createdAt} now={now} muted={r.waiting === false} /> : none}</td>
                 </tr>

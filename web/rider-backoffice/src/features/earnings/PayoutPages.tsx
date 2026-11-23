@@ -16,7 +16,7 @@ import { useSession } from '../../app/SessionContext';
 import { ChipGroup, DataTable, PageHeader, ResultBar, SearchPanel, SearchRow, StatusBadge, type Tone } from '../../shared/admin';
 import { SavedViews } from '../../shared/SavedViews';
 import { DeliveryRef, resolveRiderId, RiderName, searchHint, StaffName, useDeliveryNumbers, useRiderSummaries, RIDER_NUMBER } from '../../shared/displayNumbers';
-import { AdjustedTag, isAdjustedEarning } from '../../shared/adjustedTag';
+import { isAdjustedEarning } from '../../shared/adjustedTag';
 import { when, won } from '../../shared/opsUi';
 import { Caret, expandRowProps, InlineDetail, useInlineOpen } from '../../shared/simList';
 import { RiderDeliveriesButton, RiderInline } from '../riders/RiderPages';
@@ -43,11 +43,13 @@ export const payoutText = {
   adminOnly: '관리자만 표시할 수 있어요',
   compensations: (n: number) => `(보상 ${n})`,
   adjustedCount: (n: number) => `조정 ${n}`,
+  normalCount: (n: number) => `정상 ${n}`,
   lastLine: (result: string, at: string) => `${result} · ${at} ·`,
   items: {
     title: '이 묶음의 배송',
     col: { delivery: '배송', order: '주문번호', kind: '종류', amount: '금액' },
-    earning: '수행료',
+    earning: '정상 수행료',
+    adjustedEarning: '조정 수행료',
     compensation: '보상금',
     empty: '이 묶음의 배송을 찾지 못했어요',
     partial: (found: number, count: number) => `묶음 ${count}건 중 ${found}건만 찾았어요 — 오래전 배송을 늦게 조정한 건은 여기 안 보일 수 있어요`,
@@ -91,14 +93,22 @@ function usePayoutSources(riderId: string, payoutDate: string) {
  * 지급 관리 줄의 "조정 n"(2026-11-24 사용자 "지급관리에 조정한 수행료인지 정상지급 수행료인지 이건 계속 안 뜨네") — 줄을 펼치지 않아도
  * 그 묶음에 조정한 수행료가 몇 건인지. 못 읽거나 읽는 중이면 아무것도 붙이지 않는다(0 으로 보이지 않게).
  */
-function AdjustedCount({ riderId, payoutDate }: { readonly riderId: string; readonly payoutDate: string }) {
+/**
+ * 지급 관리 줄의 정상·조정 수(2026-11-24 사용자 "정상수행료인지 조정수행료인지 뜨게 하라고") — 조정이 없는 묶음도 "정상 2"처럼
+ * 늘 적는다(전에는 조정이 있을 때만 붙어 정상 묶음에는 아무 표시가 없었다). 못 읽거나 읽는 중이면 적지 않는다(0 으로 보이지 않게).
+ */
+function EarningKinds({ riderId, payoutDate }: { readonly riderId: string; readonly payoutDate: string }) {
   const [earnings] = usePayoutSources(riderId, payoutDate);
   if (!earnings.data) return null;
-  const n = (earnings.data.items ?? []).filter((it) => it.payoutDate === payoutDate && BUNDLED.has(it.settlementState ?? '') && isAdjustedEarning(it)).length;
-  if (n === 0) return null;
+  const mine = (earnings.data.items ?? []).filter((it) => it.payoutDate === payoutDate && BUNDLED.has(it.settlementState ?? ''));
+  const adjusted = mine.filter((it) => isAdjustedEarning(it)).length;
+  const normal = mine.length - adjusted;
   return (
-    <span className="ml-1 rounded border border-warning/50 px-1 py-px text-[11px] font-semibold text-warning" data-testid="payout-adjusted-count">
-      {payoutText.adjustedCount(n)}
+    <span className="mt-0.5 flex justify-end gap-1 text-[11px]" data-testid="payout-kinds">
+      <span className="rounded border border-base-300 px-1 py-px text-base-content/70">{payoutText.normalCount(normal)}</span>
+      <span className={`rounded border px-1 py-px font-semibold ${adjusted > 0 ? 'border-warning/50 text-warning' : 'border-base-300 text-base-content/40'}`} data-testid="payout-adjusted-count">
+        {payoutText.adjustedCount(adjusted)}
+      </span>
     </span>
   );
 }
@@ -109,7 +119,7 @@ function PayoutItems({ riderId, payoutDate, count }: { readonly riderId: string;
   const rows = [
     ...(earnings.data?.items ?? [])
       .filter((it) => it.payoutDate === payoutDate && BUNDLED.has(it.settlementState ?? ''))
-      .map((it) => ({ key: `e-${it.earningId}`, deliveryId: it.deliveryId, kind: t.earning, amount: it.total, adjusted: isAdjustedEarning(it) })),
+      .map((it) => ({ key: `e-${it.earningId}`, deliveryId: it.deliveryId, kind: isAdjustedEarning(it) ? t.adjustedEarning : t.earning, amount: it.total, adjusted: isAdjustedEarning(it) })),
     ...(comps.data?.items ?? [])
       .filter((it) => it.payoutDate === payoutDate && BUNDLED.has(it.settlementState))
       .map((it) => ({ key: `c-${it.compensationId}`, deliveryId: it.deliveryId, kind: t.compensation, amount: it.amount, adjusted: false })),
@@ -149,8 +159,9 @@ function PayoutItems({ riderId, payoutDate, count }: { readonly riderId: string;
                       </td>
                       <td className="font-mono">{no?.orderNumber ?? '—'}</td>
                       <td>
-                        {r.kind}
-                        {r.adjusted && <AdjustedTag />}
+                        <span className={r.adjusted ? 'font-semibold text-warning' : undefined} data-testid={r.adjusted ? 'payout-item-adjusted' : undefined}>
+                          {r.kind}
+                        </span>
                       </td>
                       <td className="text-right tabular-nums">{typeof r.amount === 'number' ? won(r.amount) : '—'}</td>
                     </tr>
@@ -306,7 +317,7 @@ export function PayoutsMenu() {
                       <td className="text-right">
                         {p.count}
                         {p.compensationCount ? <span className="ml-1 text-xs text-base-content/60">{t.compensations(p.compensationCount)}</span> : null}
-                        <AdjustedCount riderId={p.riderId} payoutDate={p.payoutDate} />
+                        <EarningKinds riderId={p.riderId} payoutDate={p.payoutDate} />
                       </td>
                       <td className="text-right font-semibold">{won(p.total)}</td>
                       <td>

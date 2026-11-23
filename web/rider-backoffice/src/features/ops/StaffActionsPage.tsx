@@ -14,7 +14,7 @@ import { request } from '@pmart/web-core';
 import { useApi } from '../../app/ApiContext';
 import { DataTable, Notice, PageHeader, ResultBar, SearchPanel, SearchRow } from '../../shared/admin';
 import { Caret, expandRowProps, InlineDetail, inlineMainButton, inlineSubButton, useInlineOpen } from '../../shared/simList';
-import { DeliveryNo, resolveDeliveryId, resolveRiderId, RiderName, StaffName, useDeliveryNumbers, useRiderSummaries } from '../../shared/displayNumbers';
+import { DeliveryNo, resolveDeliveryId, resolveRiderId, RiderName, StaffName, useDeliveryNumbers, useRiderSummaries, RiderLink } from '../../shared/displayNumbers';
 import { useSession } from '../../app/SessionContext';
 import { when } from '../../shared/opsUi';
 
@@ -354,7 +354,7 @@ export function StaffActionsMenu() {
                               [t.col.at, when(r.at)],
                               [t.col.action, t.actionName[r.action] ?? r.action],
                               [t.col.actor, <StaffName operatorId={r.actorId} me={me} />],
-                              [t.col.rider, r.riderId ? <RiderName riderId={r.riderId} nameMasked={s?.nameMasked} riderNumber={s?.riderNumber} /> : t.inline.none],
+                              [t.col.rider, r.riderId ? <RiderLink riderId={r.riderId} nameMasked={s?.nameMasked} riderNumber={s?.riderNumber} /> : t.inline.none],
                               [
                                 t.col.delivery,
                                 r.deliveryId ? (

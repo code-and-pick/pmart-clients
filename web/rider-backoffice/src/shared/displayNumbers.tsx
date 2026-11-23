@@ -268,3 +268,16 @@ export const searchHint = {
   rider: '라이더 번호 R4785(또는 라이더 ID)',
   delivery: '배송 번호 D74939255(또는 배송 ID)',
 } as const;
+
+/**
+ * 라이더 번호 + 라이더 상세로 가는 링크(점선 밑줄 — sim-look.css `a[href^='/riders/']`).
+ * 2026-11-24 사용자 "라이더 번호 밑에 점선 표시 안 했네. 해라" — 번호가 글자로만 나오던 곳(배송 관리·상담·관제 최근 배송·배차 제안 등)도
+ * 누르면 라이더 정보로 간다는 표시가 있게. 줄 펼치기와 겹치지 않게 누름은 줄로 올리지 않는다.
+ */
+export function RiderLink({ riderId, nameMasked, riderNumber, withName = false }: { readonly riderId: string; readonly nameMasked?: string | null | undefined; readonly riderNumber?: string | null | undefined; readonly withName?: boolean }) {
+  return (
+    <Link to={`/riders/${encodeURIComponent(riderId)}`} onClick={(e) => e.stopPropagation()} data-testid="rider-link">
+      <RiderName riderId={riderId} nameMasked={nameMasked} riderNumber={riderNumber} withName={withName} />
+    </Link>
+  );
+}

@@ -12,7 +12,7 @@ import type { components as TrackingC } from '../../api/generated/delivery-track
 import { useApi } from '../../app/ApiContext';
 import { AuthedPhotos } from '../../shared/AuthedPhotos';
 import { messages } from '../../shared/messages';
-import { RiderName, useRiderSummaries } from '../../shared/displayNumbers';
+import { RiderName, useRiderSummaries, RiderLink } from '../../shared/displayNumbers';
 import { label, none, when, won } from '../../shared/opsUi';
 import { useEvidenceLoader } from '../../shared/evidenceLoader';
 
@@ -119,7 +119,7 @@ export function DispatchAttempts({ attempts }: { readonly attempts: readonly Att
                       <ul>
                         {(t.offers ?? []).map((o, j) => (
                           <li key={o.offerId ?? `o-${j}`} className="flex flex-wrap items-center gap-1 whitespace-nowrap">
-                            <RiderName riderId={o.riderId} nameMasked={o.riderId ? riders.get(o.riderId)?.nameMasked : undefined} riderNumber={o.riderId ? riders.get(o.riderId)?.riderNumber : undefined} />
+                            {o.riderId ? <RiderLink riderId={o.riderId} nameMasked={riders.get(o.riderId)?.nameMasked} riderNumber={riders.get(o.riderId)?.riderNumber} /> : <RiderName riderId={o.riderId} />}
                             <span>{`· ${label(m.offerState, o.state)} · ${when(o.sentAt)}`}</span>
                           </li>
                         ))}

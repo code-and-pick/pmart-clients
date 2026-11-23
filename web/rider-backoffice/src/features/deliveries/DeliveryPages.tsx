@@ -14,7 +14,7 @@ import { useCenterQuery } from '../../app/CenterScope';
 import { isLiveDelivery, LIVE } from '../../shared/liveRefresh';
 import { messages } from '../../shared/messages';
 import { ChipGroup, CursorPager, DataTable, DetailHeader, FieldList, PageHeader, ResultBar, SearchPanel, SearchRow, Section, SectionTabs, StatCard, StatStrip, StatusBadge, type Tone } from '../../shared/admin';
-import { DeliveryNo, DeliveryRef, resolveRiderId, RiderName, SystemIds, useDeliveryNumbers, useRiderSummaries, RIDER_NUMBER } from '../../shared/displayNumbers';
+import { DeliveryNo, DeliveryRef, resolveRiderId, RiderName, SystemIds, useDeliveryNumbers, useRiderSummaries, RIDER_NUMBER, RiderLink } from '../../shared/displayNumbers';
 import { ops } from '../../shared/opsMessages';
 import { useAreaName, useCenterName } from '../../shared/opsUi';
 import { statText, useListRows } from '../../shared/listKit';
@@ -277,7 +277,7 @@ function DeliverySearchPage() {
                       </td>
                       <td>
                         {d.riderId ? (
-                          <RiderName riderId={d.riderId} nameMasked={riders.get(d.riderId)?.nameMasked} riderNumber={riders.get(d.riderId)?.riderNumber} />
+                          <RiderLink riderId={d.riderId} nameMasked={riders.get(d.riderId)?.nameMasked} riderNumber={riders.get(d.riderId)?.riderNumber} />
                         ) : (
                           <span className="text-base-content/40">{m.noRider}</span>
                         )}
@@ -323,7 +323,7 @@ function DeliveryInline({ deliveryId }: { readonly deliveryId: string }) {
     queryFn: () => request('GET', api.dispatch.GET('/deliveries/{deliveryId}/dispatch', { params: { path: { deliveryId } } })),
   });
   const riders = useRiderSummaries([execution.data?.riderId, dispatch.data?.assignment?.riderId]);
-  const rider = (id: string | null | undefined) => (id ? <RiderName riderId={id} nameMasked={riders.get(id)?.nameMasked} riderNumber={riders.get(id)?.riderNumber} /> : m.noRider);
+  const rider = (id: string | null | undefined) => (id ? <RiderLink riderId={id} nameMasked={riders.get(id)?.nameMasked} riderNumber={riders.get(id)?.riderNumber} /> : m.noRider);
   return (
     <div className="space-y-3">
       {execution.data && <DeliverySteps state={execution.data.state} />}
@@ -473,7 +473,7 @@ function DeliveryDetailPage() {
               <span className="text-base-content/50" aria-hidden="true">·</span>
               {d.riderId ? (
                 <>
-                  라이더 <RiderName withName riderId={d.riderId} nameMasked={riders.get(d.riderId)?.nameMasked} riderNumber={riders.get(d.riderId)?.riderNumber} />
+                  라이더 <RiderLink withName riderId={d.riderId} nameMasked={riders.get(d.riderId)?.nameMasked} riderNumber={riders.get(d.riderId)?.riderNumber} />
                 </>
               ) : (
                 m.noRider
@@ -509,7 +509,7 @@ function DeliveryDetailPage() {
                     [m.purpose, name(n.purpose, x.purpose)],
                     [m.orderNumber, <span className="font-mono">{x.orderNumber ?? none}</span>],
                     [m.col.mfc, x.mfcName ?? centerName(x.mfcId) ?? none],
-                    [m.col.rider, x.riderId ? <RiderName riderId={x.riderId} nameMasked={riders.get(x.riderId)?.nameMasked} riderNumber={riders.get(x.riderId)?.riderNumber} /> : m.noRider],
+                    [m.col.rider, x.riderId ? <RiderLink riderId={x.riderId} nameMasked={riders.get(x.riderId)?.nameMasked} riderNumber={riders.get(x.riderId)?.riderNumber} /> : m.noRider],
                     [m.col.assignedAt, when(x.assignedAt)],
                     [m.col.completedAt, when(x.completedAt)],
                   ]}
@@ -561,7 +561,7 @@ function DeliveryDetailPage() {
                     [
                       m.col.rider,
                       p.assignment?.riderId ? (
-                        <RiderName riderId={p.assignment.riderId} nameMasked={riders.get(p.assignment.riderId)?.nameMasked} riderNumber={riders.get(p.assignment.riderId)?.riderNumber} />
+                        <RiderLink riderId={p.assignment.riderId} nameMasked={riders.get(p.assignment.riderId)?.nameMasked} riderNumber={riders.get(p.assignment.riderId)?.riderNumber} />
                       ) : (
                         m.noRider
                       ),

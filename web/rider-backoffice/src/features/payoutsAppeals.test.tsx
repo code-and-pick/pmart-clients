@@ -11,8 +11,11 @@ describe('지급 관리', () => {
   it('줄을 펼치면 이 묶음의 배송(수행료·보상금)이 보이고, 건수가 맞으면 모자란다는 안내가 없다(2026-11-24)', async () => {
     renderAt('/payouts', as.admin);
     const rows = await screen.findAllByTestId('payout-row');
-    // 펼치지 않아도 줄에 조정 건수(2026-11-24 "조정한 수행료인지 정상지급 수행료인지 계속 안 뜨네")
-    expect(await within(rows[0]!).findByTestId('payout-adjusted-count')).toHaveTextContent('조정 1');
+    // 펼치지 않아도 줄에 정상·조정 수가 늘(2026-11-24 "정상수행료인지 조정수행료인지 뜨게 하라고")
+    expect(await within(rows[0]!).findByTestId('payout-kinds')).toHaveTextContent('정상 1');
+    expect(within(rows[0]!).getByTestId('payout-adjusted-count')).toHaveTextContent('조정 1');
+    // 조정이 없는 묶음도 "정상 n · 조정 0"
+    expect(await within(rows[1]!).findByTestId('payout-kinds')).toHaveTextContent(/정상 2.*조정 0/);
     await userEvent.click(rows[0]!);
     const box = await screen.findByTestId('payout-items');
     const items = await within(box).findAllByTestId('payout-item');
@@ -20,8 +23,10 @@ describe('지급 관리', () => {
     expect(box).toHaveTextContent('보상금');
     expect(box).toHaveTextContent('3,500원');
     expect(within(box).queryByTestId('payout-items-partial')).not.toBeInTheDocument();
-    // 조정한 수행료는 작게 "조정"(adjustmentRef) — 1건만
-    expect(within(box).getAllByTestId('adjusted-tag')).toHaveLength(1);
+    // 종류 칸에 늘 정상/조정 — 조정 1건, 정상 1건
+    expect(within(box).getAllByTestId('payout-item-adjusted')).toHaveLength(1);
+    expect(box).toHaveTextContent('조정 수행료');
+    expect(box).toHaveTextContent('정상 수행료');
   });
 
   it('관리자: 묶음을 보고 지급 완료로 표시한다(멱등 키)', async () => {
