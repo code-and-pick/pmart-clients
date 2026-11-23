@@ -251,15 +251,26 @@ export function Caret({ open }: { readonly open: boolean }) {
 }
 
 /** 줄 바로 아래 펼친 상세(.md-inline) — 오른쪽 위 "전체 상세 ›" 링크 */
-export function InlineDetail({ colSpan, to, linkLabel = t.full, children, testId = 'inline-detail' }: { readonly colSpan: number; readonly to?: string; readonly linkLabel?: string; readonly children: ReactNode; readonly testId?: string }) {
+/**
+ * 줄 아래 펼친 상세. "전체 상세 ›"(와 [actions])는 위쪽 오른쪽 한 줄에 같은 크기 버튼으로 모은다.
+ * 2026-11-24 사용자:
+ * - "이 라이더의 배송 UI랑 버튼 위치가 좀 애매" — 작은 버튼이 왼쪽 정보 밑에, 상세 링크는 오른쪽 칸 위에 떨어져 있었다.
+ * - "전체 상세 버튼이랑 그래프 UI 겹치네" — 오른쪽 위에 띄워 둔(float) 링크가 배송 단계 그래프 위에 겹쳤다.
+ */
+export function InlineDetail({ colSpan, to, linkLabel = t.full, actions, children, testId = 'inline-detail' }: { readonly colSpan: number; readonly to?: string; readonly linkLabel?: string; readonly actions?: ReactNode; readonly children: ReactNode; readonly testId?: string }) {
   return (
     <tr className="pm-inline-row">
       <td colSpan={colSpan}>
         <div className="pm-inline" data-testid={testId}>
-          {to && (
-            <Link className="pm-inline-link" to={to}>
-              {linkLabel}
-            </Link>
+          {(actions || to) && (
+            <div className="pm-inline-bar">
+              {actions}
+              {to && (
+                <Link className="btn btn-sm border-base-300 bg-base-100" to={to}>
+                  {linkLabel}
+                </Link>
+              )}
+            </div>
           )}
           {children}
         </div>

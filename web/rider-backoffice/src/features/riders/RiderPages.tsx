@@ -309,7 +309,12 @@ function RiderSearchPage({ signups = false }: { readonly signups?: boolean }) {
                       <td className="whitespace-nowrap">{when(row.joinedAt)}</td>
                     </tr>
                     {isOpen && (
-                      <InlineDetail colSpan={8} to={riderPath(row.riderId)} testId="rider-inline">
+                      <InlineDetail
+                        colSpan={8}
+                        to={riderPath(row.riderId)}
+                        testId="rider-inline"
+                        actions={<RiderDeliveriesButton riderId={k} />}
+                      >
                         <RiderInline riderId={k} />
                       </InlineDetail>
                     )}
@@ -330,6 +335,15 @@ function RiderSearchPage({ signups = false }: { readonly signups?: boolean }) {
         }}
       </QueryState>
     </section>
+  );
+}
+
+/** 펼친 라이더 요약 위 "이 라이더의 배송" — InlineDetail actions 로 "전체 상세 ›" 옆에 둔다. */
+export function RiderDeliveriesButton({ riderId }: { readonly riderId: string }) {
+  return (
+    <Link className="btn btn-sm border-base-300 bg-base-100" to={`/deliveries?riderId=${encodeURIComponent(riderId)}`}>
+      {r.deliveries}
+    </Link>
   );
 }
 
@@ -364,11 +378,6 @@ export function RiderInline({ riderId }: { readonly riderId: string }) {
                 ...(x.withdrawnAt ? [[rx.withdrawn, when(x.withdrawnAt)] as const] : []),
               ]}
             />
-            <div className="mt-3 flex flex-wrap gap-2">
-              <Link className="btn btn-xs" to={`/deliveries?riderId=${encodeURIComponent(riderId)}`}>
-                {r.deliveries}
-              </Link>
-            </div>
           </div>
           <div className="pm-inline-side">
             <h4>{rm.bank.title}</h4>

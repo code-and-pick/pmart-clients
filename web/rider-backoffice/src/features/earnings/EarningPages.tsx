@@ -32,7 +32,7 @@ function useEarningStats() {
 import { ops } from '../../shared/opsMessages';
 import { AuthedPhotos } from '../../shared/AuthedPhotos';
 import { useEvidenceLoader } from '../../shared/evidenceLoader';
-import { when, won } from '../../shared/opsUi';
+import { none, when, won } from '../../shared/opsUi';
 import { DeliveryRef, resolveRiderId, RiderRef, searchHint, StaffName, SystemIds, useDeliveryNumbers, useRiderSummaries, RIDER_NUMBER } from '../../shared/displayNumbers';
 import { useSession } from '../../app/SessionContext';
 
@@ -40,14 +40,14 @@ const e = ops.earnings;
 type Fault = 'RIDER' | 'CUSTOMER' | 'STORE' | 'PMART';
 
 /** 건 카드 — 머리 줄(꼬리표·번호, 오른쪽 시각) + 내용 + 아래 회색 처리 줄 */
-function ItemCard({ head, at, children, action, testId }: { readonly head: ReactNode; readonly at: ReactNode; readonly children?: ReactNode; readonly action: ReactNode; readonly testId: string }) {
+function ItemCard({ head, at, children, action, testId, compact = false }: { readonly head: ReactNode; readonly at: ReactNode; readonly children?: ReactNode; readonly action: ReactNode; readonly testId: string; readonly compact?: boolean }) {
   return (
     <li className="overflow-hidden rounded-box border border-base-300 bg-base-100 text-sm" data-testid={testId}>
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-base-200 px-5 py-3">
         <div className="flex flex-wrap items-center gap-2">{head}</div>
         <span className="text-xs text-base-content/55">{at}</span>
       </div>
-      {children && <div className="space-y-3 px-5 py-3">{children}</div>}
+      {children && <div className={compact ? 'space-y-2 px-5 py-3' : 'space-y-3 px-5 py-3'}>{children}</div>}
       <div className="border-t border-base-200 bg-base-200/50 px-5 py-3">{action}</div>
     </li>
   );
@@ -105,6 +105,7 @@ export function AdjustmentsMenu() {
                   <ItemCard
                     key={it.earningId}
                     testId="adjustment-row"
+                    compact
                     head={
                       <>
                         <StatusBadge tone="warning">산정 불가</StatusBadge>
@@ -114,21 +115,26 @@ export function AdjustmentsMenu() {
                     at={when(it.recordedAt)}
                     action={<AdjustForm earningId={it.earningId ?? ''} fee={acceptedFee(it.riderId, it.deliveryId)} onDone={() => void queryClient.invalidateQueries({ queryKey: ['adjustment-queue'] })} />}
                   >
-                    {/* 걸린 금액 크게 — 수락 당시 수행료(dispatch 배정 이력 fee, 서버 값). 모르면 모른다고(0 이 아님) */}
-                    <div className="flex flex-wrap items-end gap-x-8 gap-y-2">
+                    {/* 2026-11-24 사용자 "이 수행료 UI는 너무 정돈이 안 됐잖아" — 큰 금액·라이더·메모가 높이가 다른 칸으로 흩어져 있었다.
+                        같은 높이 세 칸(라이더 · 수락 당시 수행료 · 메모)으로 맞춘다. 금액은 서버 값(dispatch 배정 이력 fee), 모르면 모른다고 */}
+                    <dl className="pm-adj-grid">
                       <div>
-                        <p className="text-xs text-base-content/60">{adj.feeLabel}</p>
-                        <p className="pm-money" data-testid="adjust-fee">
-                          {feeText(acceptedFee(it.riderId, it.deliveryId))}
-                        </p>
+                        <dt>{e.col.rider}</dt>
+                        <dd>
+                          <RiderRef riderId={it.riderId} summary={riders.get(it.riderId ?? '')} />
+                        </dd>
                       </div>
-                      <FieldList
-                        rows={[
-                          [e.col.rider, <RiderRef riderId={it.riderId} summary={riders.get(it.riderId ?? '')} />],
-                          it.note ? [e.col.note, humanizeCodes(it.note)] : null,
-                        ]}
-                      />
-                    </div>
+                      <div>
+                        <dt>{adj.feeLabel}</dt>
+                        <dd className="font-bold tabular-nums" data-testid="adjust-fee">
+                          {feeText(acceptedFee(it.riderId, it.deliveryId))}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt>{e.col.note}</dt>
+                        <dd>{it.note ? humanizeCodes(it.note) : none}</dd>
+                      </div>
+                    </dl>
                     <SystemIds ids={[[sysLabel.earning, it.earningId], [sysLabel.delivery, it.deliveryId], [sysLabel.rider, it.riderId]]} />
                   </ItemCard>
                 ))}
@@ -148,12 +154,10 @@ const adj = {
   feeLoading: '…',
   feeUnknown: '알 수 없음',
   feeUnknownHint: '배정 이력 최근 50건에 없어요 — 조정하면 서버가 수락 당시 금액으로 매겨요',
-  step1: '귀책 고르기',
-  step2: '사유',
-  step3: '조정',
-  pickFirst: '귀책을 고르면 결과가 여기 보여요.',
+  pickFault: '귀책 고르기',
+  pickFirst: '귀책을 고르면 결과가 보여요',
   noPay: '라이더 귀책 → 미지급',
-  pay: (who: string, fee: string | null) => (fee ? `${who} 귀책 → ${fee}(수락 당시 금액)으로 바로 확정 · 지급 예정 조정일 + 3영업일` : `${who} 귀책 → 수락 당시 금액으로 바로 확정 · 지급 예정 조정일 + 3영업일`),
+  pay: (who: string, fee: string | null) => `${who} 귀책 → ${fee ?? '수락 당시 금액'} 확정 · 3영업일 뒤 지급`,
 } as const;
 
 /** 수락 당시 수행료 — undefined = 읽는 중, null = 모름 */
@@ -206,41 +210,19 @@ function AdjustForm({ earningId, fee, onDone }: { readonly earningId: string; re
         if (ok) void adjust.run({ fault, reason: reason.trim() });
       }}
     >
-      <div className="flex items-center gap-2 text-xs font-semibold text-base-content/60">
-        <span className="pm-act-tag">처리</span>
-        {e.adjustTitle}하기
-      </div>
-      <div className="pm-steps">
-        <label className="pm-step">
-          <span>
-            <span className="pm-step-n" aria-hidden="true">1</span>
-            {adj.step1}
-          </span>
+      <div className="flex flex-wrap items-center gap-2">
           <select className="select select-sm w-36" aria-label={e.fault} value={fault} onChange={(ev) => setFault(ev.target.value as Fault | '')}>
-            <option value="">—</option>
+            <option value="">{adj.pickFault}</option>
             {(Object.keys(e.faultName) as Fault[]).map((f) => (
               <option key={f} value={f}>
                 {e.faultName[f]}
               </option>
             ))}
           </select>
-        </label>
-        <label className="pm-step min-w-64 flex-1">
-          <span>
-            <span className="pm-step-n" aria-hidden="true">2</span>
-            {adj.step2}
-          </span>
-          <input className="input input-sm w-full" aria-label={e.reason} placeholder={e.reason} maxLength={300} value={reason} onChange={(ev) => setReason(ev.target.value)} />
-        </label>
-        <div className="pm-step">
-          <span>
-            <span className="pm-step-n" aria-hidden="true">3</span>
-            {adj.step3}
-          </span>
+          <input className="input input-sm min-w-48 flex-1" aria-label={e.reason} placeholder={e.reason} maxLength={300} value={reason} onChange={(ev) => setReason(ev.target.value)} />
           <button type="submit" className="btn btn-sm btn-primary w-20" disabled={!ok || adjust.busy || adjust.phase.kind === 'done'}>
             {e.adjust}
           </button>
-        </div>
       </div>
       <p className="pm-preview" data-tone={fault === 'RIDER' ? 'warning' : fault ? 'info' : undefined} data-testid="adjust-preview" aria-live="polite">
         {preview}

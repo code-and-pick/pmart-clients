@@ -129,28 +129,24 @@ function HelpChatPage() {
   // 화면 번호(ADR-0070): 배송 번호 — 시스템 ID 는 아래 접힌 "시스템 번호"
   const no = useDeliveryNumbers([deliveryId]).get(deliveryId);
   const deliveryLabel = no?.deliveryNumber ?? (no?.orderNumber ? `주문 ${no.orderNumber}` : `…${deliveryId.slice(-8)}`);
-  const tabs = [
-    { id: 'sec-request', label: sm.help.request },
-    { id: 'sec-photos', label: sm.help.photos },
-    { id: 'sec-chat', label: sm.help.chat },
-    { id: 'sec-actions', label: sm.help.actions },
-  ];
+  // 2026-11-24 사용자 "여기 UI 너무 복잡하다" — 같은 값이 제목·배지·요약 줄·요청 내용 칸에 여러 번 나왔다.
+  // 제목 = 종류, 배지 = 상태(+접수 건), 요약 줄 = 배송·단계·접수 시각(이름표 없이). 한 화면이라 구역 탭은 뺐다.
+  // 요청 내용 칸에는 위에 없는 것만(라이더가 쓴 말·배송 번호·처리 결과). 마지막 말 시각은 대화에 보인다.
   return (
     <section className="max-w-[1600px] space-y-4">
       <DetailHeader
         seen={!!d}
         back={{ to: '/consults', label: consultBack }}
-        title={d ? `${label(helpCategoryName, d.category)} 도움요청` : h.chatTitle('')}
+        title={d ? label(helpCategoryName, d.category) : h.chatTitle('')}
         badges={
           d && (
             <>
               <StatusBadge tone={helpTone(d.state)}>{label(n.helpState, d.state)}</StatusBadge>
-              <StatusBadge tone="accent">{label(helpCategoryName, d.category)}</StatusBadge>
               {d.caseId && <StatusBadge>{sm.hasCase}</StatusBadge>}
             </>
           )
         }
-        summary={d && [`배송 ${deliveryLabel}`, d.stage ? `${sm.helpCol.stage} ${label(n.executionState, d.stage)}` : null, `${h.col.createdAt} ${when(d.createdAt)}`].filter(Boolean).join(' · ')}
+        summary={d && [`배송 ${deliveryLabel}`, d.stage ? label(n.executionState, d.stage) : null, when(d.createdAt)].filter(Boolean).join(' · ')}
         actions={
           <>
             {d && <ResolvePanel help={d} deliveryId={deliveryId} requestId={requestId} />}
@@ -160,7 +156,6 @@ function HelpChatPage() {
           </>
         }
       />
-      <SectionTabs items={tabs} />
       <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
         <div className="space-y-4">
           <Section id="sec-request" title={sm.help.request}>
@@ -176,13 +171,7 @@ function HelpChatPage() {
                   <FieldList
                     testId="help-detail"
                     rows={[
-                      [h.col.category, label(helpCategoryName, x.category)],
-                      [h.col.state, label(n.helpState, x.state)],
-                      [sm.helpCol.stage, label(n.executionState, x.stage)],
                       [h.col.delivery, <DeliveryNo deliveryId={x.deliveryId ?? deliveryId} deliveryNumber={no?.deliveryNumber} orderNumber={no?.orderNumber} />],
-                      [h.col.createdAt, when(x.createdAt)],
-                      [sm.help.lastRider, when(x.lastRiderMessageAt)],
-                      [sm.help.lastSupport, when(x.lastSupportMessageAt)],
                       !!x.resolvedAt && [sm.help.resolvedAt, when(x.resolvedAt)],
                       !!x.resolvedBy && [sm.help.resolvedBy, <HelpClosedBy resolvedBy={x.resolvedBy} me={session?.subject} />],
                       !!x.resolutionNote && [sm.help.resolutionNote, <span className="whitespace-pre-wrap">{helpNoteText(x.resolutionNote)}</span>],

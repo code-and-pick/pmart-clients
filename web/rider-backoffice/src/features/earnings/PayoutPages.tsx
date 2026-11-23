@@ -18,7 +18,7 @@ import { SavedViews } from '../../shared/SavedViews';
 import { resolveRiderId, RiderName, searchHint, StaffName, useRiderSummaries, RIDER_NUMBER } from '../../shared/displayNumbers';
 import { when, won } from '../../shared/opsUi';
 import { Caret, expandRowProps, InlineDetail, useInlineOpen } from '../../shared/simList';
-import { RiderInline } from '../riders/RiderPages';
+import { RiderDeliveriesButton, RiderInline } from '../riders/RiderPages';
 
 export const payoutText = {
   title: '지급 관리',
@@ -200,7 +200,7 @@ export function PayoutsMenu() {
                       <td>{p.state === 'PAID' ? '—' : admin ? <PayoutResultForm riderId={p.riderId} payoutDate={p.payoutDate} onDone={(r) => setDone(t.doneLine(s?.riderNumber ?? p.riderId, p.payoutDate, t.stateName[r.state] ?? r.state))} /> : <span className="text-xs text-base-content/50">{t.adminOnly}</span>}</td>
                     </tr>
                     {isOpen && (
-                      <InlineDetail colSpan={7} to={to} testId="payout-inline">
+                      <InlineDetail colSpan={7} to={to} testId="payout-inline" actions={<RiderDeliveriesButton riderId={p.riderId} />}>
                         <RiderInline riderId={p.riderId} />
                       </InlineDetail>
                     )}

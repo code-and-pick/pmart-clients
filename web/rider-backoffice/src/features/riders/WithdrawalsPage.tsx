@@ -13,7 +13,7 @@ import { useCenterQuery } from '../../app/CenterScope';
 import { ChipGroup, CursorPager, DataTable, GuideBox, PageHeader, ResultBar, SearchPanel, SearchRow, StatusBadge, type Tone } from '../../shared/admin';
 import { RiderName, riderNumberInput } from '../../shared/displayNumbers';
 import { Caret, expandRowProps, InlineDetail, useInlineOpen } from '../../shared/simList';
-import { RiderInline } from './RiderPages';
+import { RiderDeliveriesButton, RiderInline } from './RiderPages';
 import { none, when } from '../../shared/opsUi';
 import { ui } from '../../shared/uiMessages';
 
@@ -165,7 +165,7 @@ export function WithdrawalsMenu() {
                       <td className="whitespace-nowrap">{w.completedAt ? when(w.completedAt) : none}</td>
                     </tr>
                     {isOpen && (
-                      <InlineDetail colSpan={6} to={to} testId="withdrawal-inline">
+                      <InlineDetail colSpan={6} to={to} testId="withdrawal-inline" actions={<RiderDeliveriesButton riderId={w.riderId} />}>
                         <RiderInline riderId={w.riderId} />
                       </InlineDetail>
                     )}

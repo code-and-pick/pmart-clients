@@ -295,15 +295,13 @@ main table tbody tr.pm-inline-row:hover > td {
   padding: 14px 20px 16px 34px;
   font-size: 13px;
 }
-.pm-inline-link {
-  float: right;
-  margin-left: 12px;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--color-primary);
-}
-.pm-inline-link:hover {
-  text-decoration: underline;
+.pm-inline-bar {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin: -2px 0 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--color-base-300);
 }
 .pm-inline-cols {
   display: grid;
@@ -594,4 +592,29 @@ main table tbody tr.pm-inline-row:hover > td {
 /* 배정 이력(9칸)은 칸 좌우 여백을 줄여 보통 폭에서 한 화면에 다 들어오게(2026-11-21) */
 #sec-assignments .table :is(th, td) {
   padding-inline: 9px;
+}
+
+/* 수행료 조정 카드 — 같은 높이 세 칸(라이더 · 수락 당시 수행료 · 메모), 2026-11-24 */
+.pm-adj-grid {
+  display: grid;
+  grid-template-columns: minmax(8rem, 1fr) minmax(8rem, 1fr) minmax(0, 3fr);
+  gap: 4px 24px;
+  margin: 0;
+}
+.pm-adj-grid dt {
+  font-size: 12px;
+  color: var(--pm-sub);
+}
+.pm-adj-grid dd {
+  margin: 2px 0 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+@media (max-width: 640px) {
+  .pm-adj-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+  .pm-adj-grid > div:last-child {
+    grid-column: 1 / -1;
+  }
 }

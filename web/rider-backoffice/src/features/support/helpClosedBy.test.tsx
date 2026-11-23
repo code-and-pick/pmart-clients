@@ -41,6 +41,7 @@ describe('도움요청 닫은 직원', () => {
     expect(detail).not.toHaveTextContent('case:');
     expect(detail).not.toHaveTextContent('RESOLVED');
     expect(detail).not.toHaveTextContent('사건함');
-    expect(detail).toHaveTextContent('처리 완료');
+    // 상태는 머리 배지로만(2026-11-24 같은 값 겹침 정리)
+    expect(screen.getByRole('heading', { level: 1 }).parentElement).toHaveTextContent('처리 완료');
   });
 });
