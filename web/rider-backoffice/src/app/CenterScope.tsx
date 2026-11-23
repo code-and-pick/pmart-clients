@@ -41,7 +41,8 @@ export function HeaderCenterPicker() {
   const urlMfc = new URLSearchParams(search).get('mfcId');
   const onUrlPage = URL_CENTER_PAGES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
   return (
-    <div data-testid="header-center">
+    // 좁은 화면에서는 칸을 줄인다(2026-11-23 — 390px 머리줄 넘침)
+    <div data-testid="header-center" className="w-28 sm:w-auto">
       <CenterPicker
         value={onUrlPage && urlMfc ? urlMfc : mfcId}
         allowAll

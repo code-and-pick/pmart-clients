@@ -16,6 +16,7 @@ export const searchMessages = {
   label: '주문번호·라이더 찾기',
   headerLabel: '통합 찾기',
   headerGo: '통합 찾기로 관제에서 열기',
+  headerOpen: '통합 찾기 열기',
   placeholder: '주문·배송 번호(D74939255) · 라이더 번호(R4785) · 라이더 ID',
   go: '찾기',
   notFound: (no: string) => `주문번호 ${no} 로 배정된 배송이 없어요(배정 전 배송은 번호로 찾을 수 없어요).`,
@@ -36,6 +37,7 @@ export function ControlSearch({ onFound, compact = false }: { readonly onFound: 
   const api = useApi();
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
+  const [open, setOpen] = useState(false);
   const [note, setNote] = useState<{ readonly tone: 'info' | 'error'; readonly text: string } | null>(null);
 
   const submit = async (e: FormEvent) => {
@@ -94,8 +96,13 @@ export function ControlSearch({ onFound, compact = false }: { readonly onFound: 
   );
 
   if (compact) {
+    // 좁은 화면(640px 미만, 2026-11-23 — 390px 에서 머리줄이 넘침)에서는 돋보기 단추만, 누르면 머리줄 아래에 찾기 칸
     return (
-      <form className="relative w-full max-w-md" onSubmit={(e) => void submit(e)} role="search" aria-label={s.headerLabel}>
+      <div className="sm:relative sm:w-full sm:max-w-md">
+        <button type="button" className="btn btn-ghost btn-xs btn-square sm:hidden" aria-label={s.headerOpen} aria-expanded={open} onClick={() => setOpen((o) => !o)} data-testid="header-search-toggle">
+          <Icon name="search" className="h-4 w-4" />
+        </button>
+      <form className={`${open ? 'absolute inset-x-2 top-full z-30 mt-1' : 'hidden'} sm:relative sm:inset-auto sm:mt-0 sm:block sm:w-full`} onSubmit={(e) => void submit(e)} role="search" aria-label={s.headerLabel}>
         <label className="input input-sm flex w-full items-center gap-2 bg-base-200/70">
           <Icon name="search" className="h-4 w-4 opacity-50" />
           <input className="grow" value={text} placeholder={s.placeholder} aria-label={s.headerLabel} maxLength={64} onChange={(e) => setText(e.target.value)} />
@@ -105,6 +112,7 @@ export function ControlSearch({ onFound, compact = false }: { readonly onFound: 
         </label>
         {noteEl}
       </form>
+      </div>
     );
   }
 

@@ -37,7 +37,8 @@ export function SimulatorLink() {
       }
       data-testid="simulator-link"
     >
-      시뮬레이터 <span aria-hidden>↗</span>
+      <span className="hidden sm:inline">시뮬레이터</span> <span aria-hidden>↗</span>
+      <span className="sr-only sm:hidden">시뮬레이터</span>
     </a>
   );
 }

@@ -69,7 +69,7 @@ export function CenterPicker({
       {!compact && <span aria-hidden="true">{ops.center.label}</span>}
       <SearchSelect
         label={ops.center.label}
-        className={compact ? 'w-44' : 'w-56'}
+        className={compact ? 'w-full sm:w-44' : 'w-56'}
         value={value}
         loading={centers.isPending}
         {...(allowAll ? { allowEmpty: ops.dashboard.allCenters } : {})}
