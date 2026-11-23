@@ -43,6 +43,17 @@ describe('고객센터 문의 목록', () => {
   });
 });
 
+describe('문의 담당 상담원(case 0.36.0 lastAnsweredBy)', () => {
+  it('목록 줄에 마지막으로 답한 직원 "이름 · 사번", 답 없으면 "-"', async () => {
+    renderAt('/inquiries', as.cs);
+    const rows = await screen.findAllByTestId('inquiry-row');
+    const answered = rows.find((r) => r.textContent?.includes('소비기한'))!;
+    await waitFor(() => expect(within(answered).getByTestId('inquiry-answered-by')).toHaveTextContent('P2026-00005'));
+    const waiting = rows.find((r) => within(r).queryByText('소비기한') === null)!;
+    expect(within(waiting).getByTestId('inquiry-answered-by')).toHaveTextContent('-');
+  });
+});
+
 describe('고객센터 문의 상세·답변', () => {
   const replies = (view: ReturnType<typeof renderAt>) => view.mutations('/replies');
 

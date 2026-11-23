@@ -114,6 +114,9 @@ const kindsFor = (roles: readonly string[]): string[] =>
 
 let inquiries = seed();
 const replied = new Map<string, Inquiry>(); // Idempotency-Key → 결과
+/** case 0.36.0 목록 lastAnsweredBy — 마지막으로 답한 직원(답 없으면 null) */
+const seedAnswerers = () => new Map<string, string>(seed().filter((i) => i.answeredAt).map((i) => [i.inquiryId, kindOf(i) === 'RIDER' ? 'op-rider-ops-1' : 'op-cs-1']));
+let answerers = seedAnswerers();
 
 /** 상담원 접수(case 0.12.0 — csIntakeHandlers)가 만드는 문의(STAFF_INTAKE). 새 문의 ID 를 돌려준다. */
 export function addStaffInquiry(x: {
@@ -165,6 +168,7 @@ export function mockAwaitingInquiries(): Array<{ requesterType: 'CUSTOMER' | 'RI
 export function resetMockInquiries(): void {
   inquiries = seed();
   replied.clear();
+  answerers = seedAnswerers();
 }
 
 const PAGE = 20;
@@ -230,6 +234,7 @@ export const inquiryHandlers = [
         deliveryIssue: i.deliveryIssue ?? null,
         createdAt: i.createdAt,
         answeredAt: i.answeredAt,
+        lastAnsweredBy: answerers.get(i.inquiryId) ?? null,
         version: i.version,
       })),
       page: { nextCursor: start + PAGE < all.length ? String(start + PAGE) : null, size: PAGE },
@@ -300,6 +305,7 @@ export const inquiryHandlers = [
       replies: [...found.replies, { replyId: `REP-MOCK-${found.replies.length + 2}`, authorType: 'AGENT', body, createdAt: at }],
     };
     inquiries[index] = next;
+    answerers.set(found.inquiryId, who.subject);
     replied.set(key, next);
     return HttpResponse.json(next);
   }),

@@ -381,6 +381,7 @@ function CustomerDetail({ d }: { readonly d: Detail }) {
                   <th>{m.inquiryCol.category}</th>
                   <th>{m.inquiryCol.status}</th>
                   <th>{m.inquiryCol.at}</th>
+                  <th>{m.inquiryCol.answeredBy}</th>
                 </tr>
               </thead>
               <tbody>
@@ -392,6 +393,8 @@ function CustomerDetail({ d }: { readonly d: Detail }) {
                     <td>{label(messages.inquiries.categoryName, x.category)}</td>
                     <td>{label(messages.inquiries.status, x.status)}</td>
                     <td>{ago(x.createdAt) ?? messages.none}</td>
+                    {/* 마지막으로 답한 직원(bff 0.27.0 — hr "이름 · 사번", 못 읽으면 이름만 null) */}
+                    <td data-testid="customer-inquiry-answered-by">{x.lastAnsweredByLabel?.name ?? messages.none}</td>
                   </tr>
                 ))}
               </tbody>

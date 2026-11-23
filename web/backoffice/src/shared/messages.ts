@@ -91,7 +91,7 @@ export const messages = {
     noneRows: '없음',
     sourceFailed: '확인 못 함 — 원천을 읽지 못했어요(0건이 아니에요)',
     intakeCol: { at: '받은 시각', channel: '경로', category: '분류', by: '받은 사람', link: '이어진 것' },
-    inquiryCol: { number: '문의 번호', category: '분류', status: '상태', at: '받은 시각' },
+    inquiryCol: { number: '문의 번호', category: '분류', status: '상태', at: '받은 시각', answeredBy: '답한 직원' },
     orderCol: { number: '주문', status: '주문 상태', at: '확정 시각', items: '수량', total: '결제 금액' },
     pii: { title: '원문 열람', fields: '열 항목', fieldName: { NAME: '이름', PHONE: '연락처' } as const, reason: '열람 사유', reasonHint: '2~200자. 예: 고객 전화 — 본인 확인', open: '열람', hide: '다시 가리기', opened: (logId: string, at: string) => `열람 기록 ${logId} · ${at} — 이 화면을 떠나면 다시 가려져요.` },
   },
@@ -2973,6 +2973,8 @@ export const messages = {
     statusLabel: '상태',
     createdAt: '접수 시각',
     answeredAt: '답변 시각',
+    /** case 0.36.0 — 마지막으로 답한 직원(2026-11-23 BF-5 "문의 담당 상담원") */
+    lastAnsweredBy: '답한 직원',
     more: '더 보기',
     moreFailed: '문의를 더 불러오지 못했어요.',
     fromAssistant: 'AI 상담에서 넘어옴',

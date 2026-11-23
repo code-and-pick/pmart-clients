@@ -50,6 +50,7 @@ describe('고객 상세', () => {
     expect(screen.getByTestId('customer-name')).toHaveAttribute('data-masked', 'true');
     expect(within(screen.getByTestId('customer-orders')).getByRole('link', { name: '74939001' })).toHaveAttribute('href', '/orders/ORD-MOCK-1001'); // 목 주문과 이어진다
     expect(within(screen.getByTestId('customer-inquiries')).getByRole('link', { name: '30418' })).toHaveAttribute('href', '/inquiries/INQ-MOCK-3');
+    expect(screen.getByTestId('customer-inquiry-answered-by')).toHaveTextContent('[목] 최상담'); // bff 0.27.0 마지막으로 답한 직원
     expect(within(screen.getByTestId('customer-intakes')).getByText('[목] 상담원')).toBeInTheDocument();
   });
 

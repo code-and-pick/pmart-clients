@@ -32,6 +32,7 @@ import { useRecordRecent } from '../../shared/recentViews';
 import { TabCount } from '../../app/MenuAlerts';
 import { PreviewDrawer, usePreview } from '../../shared/Preview';
 import { CaseNumber } from '../../shared/CaseNumber';
+import { StaffName } from '../lookup/parts';
 import { messages as m } from '../../shared/messages';
 
 type Inquiry = components['schemas']['Inquiry'];
@@ -231,6 +232,8 @@ export function InquiryListPage({ kind = 'CUSTOMER' }: { readonly kind?: Request
                     <th>{m.inquiries.statusLabel}</th>
                     <th className="text-right">{m.inquiries.createdAt}</th>
                     <th className="text-right">{m.inquiries.answeredAt}</th>
+                    {/* 마지막으로 답한 직원(case 0.36.0, 2026-11-23) — 답 없으면 "-" */}
+                    <th>{m.inquiries.lastAnsweredBy}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -278,6 +281,9 @@ export function InquiryListPage({ kind = 'CUSTOMER' }: { readonly kind?: Request
                       </td>
                       <td className="whitespace-nowrap text-right">
                         <Time iso={i.answeredAt} />
+                      </td>
+                      <td className="whitespace-nowrap" data-testid="inquiry-answered-by">
+                        <StaffName id={i.lastAnsweredBy} />
                       </td>
                     </tr>
                   ))}

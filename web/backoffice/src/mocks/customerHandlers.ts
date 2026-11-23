@@ -78,7 +78,7 @@ export const customerHandlers = [
         items: c.orderNumbers.map((n, i) => ({ orderId: orderIdsOf(c)[i], orderNumber: n, status: i === 0 ? 'CONFIRMED' : 'IN_DELIVERY', confirmedAt: ago(2 + i * 24), itemCount: 1 + i, totalAmount: 15100, deliveryMode: 'INSTANT', mfcId: 'MFC-BSN-01', openFulfillmentIssues: 0 })),
       },
       inquiries: first
-        ? { hasMore: false, items: [{ inquiryId: 'INQ-MOCK-3', inquiryNumber: '30418', category: 'DELIVERY', status: 'RECEIVED', channel: 'APP', origin: 'CUSTOMER', createdAt: ago(5 * 24), answeredAt: null, orderId: 'ORD-MOCK-1001' }] }
+        ? { hasMore: false, items: [{ inquiryId: 'INQ-MOCK-3', inquiryNumber: '30418', category: 'DELIVERY', status: 'ANSWERED', channel: 'APP', origin: 'CUSTOMER', createdAt: ago(5 * 24), answeredAt: ago(4 * 24), orderId: 'ORD-MOCK-1001', lastAnsweredBy: 'op-cs-1', lastAnsweredByLabel: { operatorId: 'op-cs-1', name: '[목] 최상담', employeeNo: 'P2026-00005' } }] }
         : { hasMore: false, items: [] },
       csIntakes: first
         ? { hasMore: false, items: [{ intakeId: 'CSI-MOCK-1', channel: 'PHONE', category: 'DELIVERY', callerRelation: 'SELF', receivedAt: ago(30), receivedBy: 'op-cs-1', receivedByLabel: { operatorId: 'op-cs-1', name: '[목] 상담원', employeeNo: 'P2026-00003' }, linked: true, caseId: null, inquiryId: 'INQ-MOCK-3', subjectRef: null }] }
