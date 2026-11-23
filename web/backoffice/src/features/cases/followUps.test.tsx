@@ -3,7 +3,11 @@ import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 
+import { http, HttpResponse } from 'msw';
+
+import { API_BASE } from '../../api/client';
 import { as, renderAt } from '../../test/render';
+import { server } from '../../test/server';
 
 const item = async (kind: string) => (await screen.findAllByTestId('follow-up')).find((r) => r.textContent?.includes(kind))!;
 
@@ -72,6 +76,29 @@ describe('후속 처리', () => {
     await userEvent.click(within(form).getByRole('button', { name: '후속 처리 추가' }));
     expect(await item('환불')).toHaveTextContent('기록 금액 0원/5,000원');
     expect(await view.mutations('/cases/CASE-MOCK-2/obligations')[0]!.json()).toEqual({ kind: 'REFUND', owner: 'ORDER_OPS', amount: 5000 });
+  });
+
+  it('결과를 모를 때(503) 금액을 고쳐도 "같은 요청으로 결과 확인"은 같은 키·처음 값 그대로(#410 후속)', async () => {
+    let first = true;
+    server.use(
+      http.post(`${API_BASE}/cases/CASE-MOCK-2/obligations`, () => {
+        if (!first) return undefined;
+        first = false;
+        return HttpResponse.json({ type: 'about:blank', title: 'x', status: 503, code: 'DEPENDENCY_UNAVAILABLE' }, { status: 503, headers: { 'content-type': 'application/problem+json' } });
+      }),
+    );
+    const view = renderAt('/cases/CASE-MOCK-2', as.admin);
+    const form = await screen.findByTestId('follow-up-add');
+    await userEvent.selectOptions(within(form).getByLabelText('종류'), 'REFUND');
+    await userEvent.type(within(form).getByLabelText('기록 금액(원, 선택)'), '5000');
+    await userEvent.click(within(form).getByRole('button', { name: '후속 처리 추가' }));
+    const again = await within(form).findByRole('button', { name: '같은 요청으로 결과 확인' });
+    await userEvent.type(within(form).getByLabelText('기록 금액(원, 선택)'), '0');
+    await userEvent.click(again);
+    await waitFor(() => expect(view.mutations('/cases/CASE-MOCK-2/obligations')).toHaveLength(2));
+    const [a, b] = view.mutations('/cases/CASE-MOCK-2/obligations');
+    expect(b!.headers.get('Idempotency-Key')).toBe(a!.headers.get('Idempotency-Key'));
+    expect(await b!.json()).toEqual({ kind: 'REFUND', amount: 5000 });
   });
 
   it('상담원은 접수 건 상세에서 후속 처리를 추가할 수 없다', async () => {

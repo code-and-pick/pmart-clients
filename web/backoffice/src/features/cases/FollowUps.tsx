@@ -178,19 +178,18 @@ function ResolveForm({ o, admin, onClose, onDone }: { readonly o: Obligation; re
   const qtyOk = !fulfilled || o.qty === undefined || (qty !== '' && Number(qty) >= 1);
   const amountOk = !fulfilled || o.amount === undefined || (amount !== '' && Number(amount) >= 0);
   const ok = ref.trim().length > 0 && system.trim().length > 0 && (!noteRequired || note.trim().length > 0) && qtyOk && amountOk;
-  const cmd = useCommand(async (_v: null, key) => {
+  // 보낼 값은 누른 때 만들어 명령 값으로(2026-11-23 #410 후속) — 결과 불명 뒤 "같은 요청으로 결과 확인"(같은 키)은 처음 값 그대로
+  const resolveBody = () => ({
+    outcome,
+    evidence: { system: system.trim(), ref: ref.trim() },
+    ...(fulfilled && o.qty !== undefined ? { resolvedQty: Number(qty) } : {}),
+    ...(fulfilled && o.amount !== undefined ? { resolvedAmount: Number(amount) } : {}),
+    ...(note.trim() ? { note: note.trim() } : {}),
+  });
+  const cmd = useCommand(async (body: ReturnType<typeof resolveBody>, key) => {
     const r = await request(
       'POST',
-      api.cases.POST('/obligations/{obligationId}/resolutions', {
-        ...commandParams(key, { path: { obligationId: o.obligationId ?? '' }, version: o.version }),
-        body: {
-          outcome,
-          evidence: { system: system.trim(), ref: ref.trim() },
-          ...(fulfilled && o.qty !== undefined ? { resolvedQty: Number(qty) } : {}),
-          ...(fulfilled && o.amount !== undefined ? { resolvedAmount: Number(amount) } : {}),
-          ...(note.trim() ? { note: note.trim() } : {}),
-        },
-      }),
+      api.cases.POST('/obligations/{obligationId}/resolutions', { ...commandParams(key, { path: { obligationId: o.obligationId ?? '' }, version: o.version }), body }),
     );
     onDone();
     return r;
@@ -203,7 +202,7 @@ function ResolveForm({ o, admin, onClose, onDone }: { readonly o: Obligation; re
         e.preventDefault();
         if (!ok) return;
         if (cmd.phase.kind === 'rejected') cmd.reset();
-        void cmd.run(null);
+        void cmd.run(resolveBody());
       }}
     >
       <div className="flex flex-wrap items-end gap-3">
@@ -278,21 +277,17 @@ function AddForm({ c, onDone }: { readonly c: Case; readonly onDone: () => void 
   const [amount, setAmount] = useState('');
   const [due, setDue] = useState('');
   const [note, setNote] = useState('');
-  const cmd = useCommand(async (_v: null, key) => {
-    const r = await request(
-      'POST',
-      api.cases.POST('/cases/{caseId}/obligations', {
-        ...commandParams(key, { path: { caseId: c.caseId ?? '' } }),
-        body: {
-          kind,
-          ...(owner ? { owner } : {}),
-          ...(qty ? { qty: Number(qty) } : {}),
-          ...(amount ? { amount: Number(amount) } : {}),
-          ...(due ? { dueAt: `${due}:00+09:00` } : {}), // datetime-local(한국 시간) → +09:00
-          ...(note.trim() ? { note: note.trim() } : {}),
-        },
-      }),
-    );
+  // 보낼 값은 누른 때 만들어 명령 값으로(2026-11-23 #410 후속) — 결과 불명 뒤 "같은 요청으로 결과 확인"(같은 키)은 처음 값 그대로
+  const addBody = () => ({
+    kind,
+    ...(owner ? { owner } : {}),
+    ...(qty ? { qty: Number(qty) } : {}),
+    ...(amount ? { amount: Number(amount) } : {}),
+    ...(due ? { dueAt: `${due}:00+09:00` } : {}), // datetime-local(한국 시간) → +09:00
+    ...(note.trim() ? { note: note.trim() } : {}),
+  });
+  const cmd = useCommand(async (body: ReturnType<typeof addBody>, key) => {
+    const r = await request('POST', api.cases.POST('/cases/{caseId}/obligations', { ...commandParams(key, { path: { caseId: c.caseId ?? '' } }), body }));
     onDone();
     return r;
   });
@@ -304,7 +299,7 @@ function AddForm({ c, onDone }: { readonly c: Case; readonly onDone: () => void 
       onSubmit={(e) => {
         e.preventDefault();
         if (cmd.phase.kind === 'rejected' || cmd.phase.kind === 'done') cmd.reset();
-        void cmd.run(null);
+        void cmd.run(addBody());
       }}
     >
       <div>

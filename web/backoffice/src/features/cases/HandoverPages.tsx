@@ -106,23 +106,19 @@ function WriteForm() {
   const setRow = (id: string, patch: Partial<Row>) => setRows((r) => ({ ...r, [id]: { ...rowOf(id), ...patch } }));
   const picked = mine.filter((c) => rowOf(c.caseId ?? '').picked);
   const ok = to.trim().length > 0 && to.trim() !== owner && picked.length > 0 && picked.every((c) => rowOf(c.caseId ?? '').nextAction.trim().length > 0);
-  const cmd = useCommand(async (_v: null, key) => {
-    const r = await request(
-      'POST',
-      api.cases.POST('/shift-handovers', {
-        ...commandParams(key),
-        body: {
-          group,
-          toOperatorId: to.trim(),
-          ...(fromApplied ? { fromOperatorId: fromApplied } : {}),
-          ...(note.trim() ? { note: note.trim() } : {}),
-          items: picked.map((c) => {
-            const row = rowOf(c.caseId ?? '');
-            return { caseId: c.caseId ?? '', nextAction: row.nextAction.trim(), ...(row.checkDue ? { checkDueAt: `${row.checkDue}:00+09:00` } : {}) };
-          }),
-        },
-      }),
-    );
+  // 보낼 값은 누른 때 만들어 명령 값으로(2026-11-23 #410 후속) — 결과 불명 뒤 "같은 요청으로 결과 확인"(같은 키)은 처음 값 그대로
+  const writeBody = () => ({
+    group,
+    toOperatorId: to.trim(),
+    ...(fromApplied ? { fromOperatorId: fromApplied } : {}),
+    ...(note.trim() ? { note: note.trim() } : {}),
+    items: picked.map((c) => {
+      const row = rowOf(c.caseId ?? '');
+      return { caseId: c.caseId ?? '', nextAction: row.nextAction.trim(), ...(row.checkDue ? { checkDueAt: `${row.checkDue}:00+09:00` } : {}) };
+    }),
+  });
+  const cmd = useCommand(async (body: ReturnType<typeof writeBody>, key) => {
+    const r = await request('POST', api.cases.POST('/shift-handovers', { ...commandParams(key), body }));
     void queryClient.invalidateQueries({ queryKey: ['handovers'] });
     return r;
   });
@@ -135,7 +131,7 @@ function WriteForm() {
         e.preventDefault();
         if (!ok) return;
         if (cmd.phase.kind === 'rejected' || cmd.phase.kind === 'done') cmd.reset();
-        void cmd.run(null);
+        void cmd.run(writeBody());
       }}
     >
       <div className="min-w-0 space-y-3 lg:col-span-2">
@@ -299,12 +295,13 @@ function HandoverCard({ h, mode }: { readonly h: Handover; readonly mode: 'inbox
     void queryClient.invalidateQueries({ queryKey: ['handovers'] });
     void queryClient.invalidateQueries({ queryKey: ['cases'] });
   };
-  const accept = useCommand(async (_v: null, key) => {
+  // 보낼 값은 누른 때 만들어 명령 값으로(2026-11-23 #410 후속) — 결과 불명 뒤 "같은 요청으로 결과 확인"(같은 키)은 처음 값 그대로
+  const accept = useCommand(async (excludedCaseIds: readonly string[], key) => {
     const r = await request(
       'POST',
       api.cases.POST('/shift-handovers/{shiftHandoverId}/acceptances', {
         ...commandParams(key, { path: { shiftHandoverId: h.shiftHandoverId ?? '' } }),
-        body: excluded.size > 0 ? { excludedCaseIds: [...excluded] } : {},
+        body: excludedCaseIds.length > 0 ? { excludedCaseIds: [...excludedCaseIds] } : {},
       }),
     );
     refresh();
@@ -392,7 +389,7 @@ function HandoverCard({ h, mode }: { readonly h: Handover; readonly mode: 'inbox
         <div className="space-y-2 border-t border-base-300 bg-base-200/40 px-4 py-3">
           {canAccept && (
             <div className="space-y-1">
-              <button type="button" className="btn btn-sm btn-primary" disabled={accept.busy} onClick={() => void accept.run(null)}>
+              <button type="button" className="btn btn-sm btn-primary" disabled={accept.busy} onClick={() => void accept.run([...excluded])}>
                 {excluded.size > 0 ? m.acceptSome(excluded.size) : m.acceptAll}
               </button>
               {accept.phase.kind === 'rejected' && accept.phase.failure instanceof ProblemFailure && accept.phase.failure.problem.code === 'FORBIDDEN' ? (

@@ -44,20 +44,16 @@ function NewActionRequest({ c }: { readonly c: Case }) {
   const [approvalRef, setApprovalRef] = useState('');
   const needsApproval = actionType === 'EXECUTE_APPROVED_COMPENSATION';
   const ok = targetService.trim() !== '' && command.trim() !== '' && (!needsApproval || approvalRef.trim() !== '');
-  const create = useCommand(async (_v: null, key) => {
-    const r = await request(
-      'POST',
-      api.cases.POST('/cases/{caseId}/action-requests', {
-        ...commandParams(key, { path: { caseId } }),
-        body: {
-          actionType,
-          targetService: targetService.trim(),
-          command: command.trim(),
-          ...(targetRef.trim() ? { targetRef: targetRef.trim() } : {}),
-          ...(needsApproval ? { approvalRef: approvalRef.trim() } : {}),
-        },
-      }),
-    );
+  // 보낼 값은 누른 때 만들어 명령 값으로(2026-11-23 #410 후속) — 결과 불명 뒤 "같은 요청으로 결과 확인"(같은 키)은 처음 값 그대로
+  const createBody = () => ({
+    actionType,
+    targetService: targetService.trim(),
+    command: command.trim(),
+    ...(targetRef.trim() ? { targetRef: targetRef.trim() } : {}),
+    ...(needsApproval ? { approvalRef: approvalRef.trim() } : {}),
+  });
+  const create = useCommand(async (body: ReturnType<typeof createBody>, key) => {
+    const r = await request('POST', api.cases.POST('/cases/{caseId}/action-requests', { ...commandParams(key, { path: { caseId } }), body }));
     refresh();
     return r;
   });
@@ -69,7 +65,7 @@ function NewActionRequest({ c }: { readonly c: Case }) {
         e.preventDefault();
         if (!ok) return;
         if (create.phase.kind === 'rejected' || create.phase.kind === 'done') create.reset();
-        void create.run(null);
+        void create.run(createBody());
       }}
     >
       <div className="flex flex-wrap items-end gap-2">
@@ -124,18 +120,17 @@ function ResultForm({ caseId, ar }: { readonly caseId: string; readonly ar: Acti
   const [note, setNote] = useState('');
   // 결과 ID 는 보유 서비스와 ID 를 같이(하나만이면 서버 400)
   const pairOk = (system.trim() === '') === (ref.trim() === '');
-  const save = useCommand(async (_v: null, key) => {
+  // 보낼 값은 누른 때 만들어 명령 값으로(2026-11-23 #410 후속) — 결과 불명 뒤 "같은 요청으로 결과 확인"(같은 키)은 처음 값 그대로
+  const resultBody = () => ({
+    state,
+    ...(system.trim() ? { resultSystem: system.trim(), resultRef: ref.trim() } : {}),
+    ...(kind && system.trim() ? { resultKind: kind } : {}),
+    ...(note.trim() ? { note: note.trim() } : {}),
+  });
+  const save = useCommand(async (body: ReturnType<typeof resultBody>, key) => {
     const r = await request(
       'POST',
-      api.cases.POST('/cases/{caseId}/action-requests/{actionRequestId}/results', {
-        ...commandParams(key, { path: { caseId, actionRequestId: ar.actionRequestId ?? '' } }),
-        body: {
-          state,
-          ...(system.trim() ? { resultSystem: system.trim(), resultRef: ref.trim() } : {}),
-          ...(kind && system.trim() ? { resultKind: kind } : {}),
-          ...(note.trim() ? { note: note.trim() } : {}),
-        },
-      }),
+      api.cases.POST('/cases/{caseId}/action-requests/{actionRequestId}/results', { ...commandParams(key, { path: { caseId, actionRequestId: ar.actionRequestId ?? '' } }), body }),
     );
     setOpen(false);
     refresh();
@@ -155,7 +150,7 @@ function ResultForm({ caseId, ar }: { readonly caseId: string; readonly ar: Acti
         e.preventDefault();
         if (!pairOk) return;
         if (save.phase.kind === 'rejected' || save.phase.kind === 'done') save.reset();
-        void save.run(null);
+        void save.run(resultBody());
       }}
     >
       <label className="flex flex-col gap-1 text-xs">

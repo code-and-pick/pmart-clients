@@ -302,21 +302,22 @@ function PromotionForm({ initial, existing, editable }: { readonly initial: Draf
   const tree = useQuery({ queryKey: ['product', 'category-tree'], queryFn: () => request('GET', api.product.GET('/categories/tree', {})), enabled: d.kind === 'PRICE_DISCOUNT' });
 
   /** 만들기(POST) 또는 고치기(PUT, X-Expected-Version) */
-  const put = async (key: IdempotencyKey): Promise<Promotion> => {
-    const body = inputOf(d);
+  const put = async (key: IdempotencyKey, now: Draft): Promise<Promotion> => {
+    const body = inputOf(now);
     const p = base.id
       ? await request('PUT', api.promotion.PUT('/promotions/{promotionId}', { ...commandParams(key, { path: { promotionId: base.id }, version: base.version }), body }))
       : await request('POST', api.promotion.POST('/promotions', { ...commandParams(key), body }));
-    setBase({ draft: d, version: p.version, id: p.promotionId });
+    setBase({ draft: now, version: p.version, id: p.promotionId });
     setSaved(p);
     qc.setQueryData(['promotions', 'one', p.promotionId], p);
     void qc.invalidateQueries({ queryKey: ['promotions', 'list'] });
     return p;
   };
-  const save = useCommand((_: void, key) => put(key));
+  // 보낼 값은 누른 때 만들어 명령 값으로(2026-11-23 #410 후속) — 결과 불명 뒤 "같은 요청으로 결과 확인"(같은 키)은 처음 값 그대로
+  const save = useCommand((now: Draft, key) => put(key, now));
   // 한 번 누르면: (새것이거나 바뀌었으면) 저장 → 제출(검사·잠금) → 승인 요청. 키 하나에서 단계별 키(다시 누르면 같은 키)
-  const submit = useCommand(async (_: void, key): Promise<{ id: string; requested: ApprovalRequested | null; retry: ApprovalRequestBody | null; failure: PmartFailure | null }> => {
-    const p = !base.id || dirty ? await put(new IdempotencyKey(`${key.value}:save`)) : saved!;
+  const submit = useCommand(async (v: { readonly draft: Draft; readonly needSave: boolean }, key): Promise<{ id: string; requested: ApprovalRequested | null; retry: ApprovalRequestBody | null; failure: PmartFailure | null }> => {
+    const p = v.needSave ? await put(new IdempotencyKey(`${key.value}:save`), v.draft) : saved!;
     const sub = await request('POST', api.promotion.POST('/promotions/{promotionId}/submissions', { ...commandParams(new IdempotencyKey(`${key.value}:submit`), { path: { promotionId: p.promotionId } }) }));
     void qc.invalidateQueries({ queryKey: ['promotions'] });
     const ap = sub.approvalRequest as unknown as ApprovalRequestBody;
@@ -338,7 +339,7 @@ function PromotionForm({ initial, existing, editable }: { readonly initial: Draf
       aria-label={existing ? existing.name : m.newTitle}
       onSubmit={(e) => {
         e.preventDefault();
-        if (!locked) void submit.run();
+        if (!locked) void submit.run({ draft: d, needSave: !base.id || dirty });
       }}
     >
       <LeaveGuard when={editable && dirty && result === null} />
@@ -495,7 +496,7 @@ function PromotionForm({ initial, existing, editable }: { readonly initial: Draf
 
       {editable && result === null && (
         <div className="flex flex-wrap gap-2">
-          <button type="button" className="btn btn-sm" disabled={locked || (!dirty && base.id !== null)} onClick={() => void save.run()}>
+          <button type="button" className="btn btn-sm" disabled={locked || (!dirty && base.id !== null)} onClick={() => void save.run(d)}>
             {f.save}
           </button>
           <button type="submit" className="btn btn-primary btn-sm" disabled={locked}>

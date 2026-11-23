@@ -217,10 +217,12 @@ function FillMissing({ draft, batchId }: { readonly draft: ProductDraft; readonl
   const sku = draft.input?.skus[0];
   const [weightG, setWeightG] = useState(sku?.weightG === undefined ? '' : String(sku.weightG));
   const [storageType, setStorageType] = useState<StorageType | ''>(sku?.storageType ?? '');
-  const save = useCommand(async (_: null, key) => {
+  // 보낼 값은 누른 때 만들어 명령 값으로(2026-11-23 #410 후속) — 결과 불명 뒤 "같은 요청으로 결과 확인"(같은 키)은 처음 값 그대로
+  const save = useCommand(async (v: { readonly weightG: string; readonly storageType: StorageType | '' }, key) => {
     const input = draft.input;
     if (!input || !sku) throw new Error('input');
-    const w = /^\d+$/.test(weightG.trim()) ? Number(weightG.trim()) : undefined;
+    const { storageType } = v;
+    const w = /^\d+$/.test(v.weightG.trim()) ? Number(v.weightG.trim()) : undefined;
     const first = {
       ...sku,
       ...(w === undefined ? {} : { weightG: w }),
@@ -253,7 +255,7 @@ function FillMissing({ draft, batchId }: { readonly draft: ProductDraft; readonl
           ))}
         </select>
       </label>
-      <button type="button" className="btn btn-xs btn-primary" disabled={save.busy || (!weightG.trim() && !storageType)} onClick={() => void save.run(null)}>
+      <button type="button" className="btn btn-xs btn-primary" disabled={save.busy || (!weightG.trim() && !storageType)} onClick={() => void save.run({ weightG, storageType })}>
         {m.products.fillSave}
       </button>
       <CommandFeedback command={save}>{() => <span className="text-success">{m.products.fillSaved(name)}</span>}</CommandFeedback>

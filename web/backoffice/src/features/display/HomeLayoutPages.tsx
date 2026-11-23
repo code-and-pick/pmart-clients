@@ -912,18 +912,19 @@ function Editor({ draft }: { readonly draft: Draft }) {
   const refresh = () => {
     void qc.invalidateQueries({ queryKey: ['storefront'] });
   };
-  const put = async (key: IdempotencyKey) => {
-    const sent = withOrder(body);
+  const put = async (key: IdempotencyKey, now: typeof body) => {
+    const sent = withOrder(now);
     const saved = await request('PUT', api.storefront.PUT('/storefront/layout-drafts/{draftId}', { ...commandParams(key, { path: { draftId: draft.draftId }, version: base.version }), body: sent }));
     setBase({ version: saved.version, body: sent });
     void qc.invalidateQueries({ queryKey: ['storefront', 'layout-drafts'] });
   };
   // 저장도 명령 — 다시 누르기(같은 시도)는 같은 키(PR #282 검토 댓글)
-  const save = useCommand((_: void, key) => put(key));
+  // 보낼 값은 누른 때 만들어 명령 값으로(2026-11-23 #410 후속) — 결과 불명 뒤 "같은 요청으로 결과 확인"(같은 키)은 처음 값 그대로
+  const save = useCommand((now: typeof body, key) => put(key, now));
 
   // 한 번 누르면: (바뀐 게 있으면) 저장 → 제출(검사·잠금) → 승인 요청. 키 하나에서 단계별 키를 만든다(다시 누르면 같은 키)
-  const submit = useCommand(async (_: void, key): Promise<SubmitResult> => {
-    if (dirty) await put(new IdempotencyKey(`${key.value}:save`));
+  const submit = useCommand(async (v: { readonly body: typeof body; readonly dirty: boolean }, key): Promise<SubmitResult> => {
+    if (v.dirty) await put(new IdempotencyKey(`${key.value}:save`), v.body);
     const sub = await request(
       'POST',
       api.storefront.POST('/storefront/layout-drafts/{draftId}/submissions', { ...commandParams(new IdempotencyKey(`${key.value}:submit`), { path: { draftId: draft.draftId } }) }),
@@ -951,12 +952,12 @@ function Editor({ draft }: { readonly draft: Draft }) {
   const runSave = () => {
     if (localDetails(body, false).length > 0) return setChecked('save');
     setChecked(null);
-    void save.run();
+    void save.run(body);
   };
   const runSubmit = () => {
     if (localDetails(body, true).length > 0) return setChecked('submit');
     setChecked(null);
-    void submit.run();
+    void submit.run({ body, dirty });
   };
   const locked = !editable || submit.busy || result !== null || save.busy;
   const orderWhy = problems.at('homeOrder').map((w) => w.text);
