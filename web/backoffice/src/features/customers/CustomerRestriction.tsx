@@ -124,13 +124,29 @@ function Release({ customerId, onDone }: { readonly customerId: string; readonly
   );
 }
 
+/**
+ * 이용제한·정지 꼬리표 — bff 0.28.0 찾기 줄·상세 머리의 restriction·restrictedUntil(customer 값 그대로). 제한 없음(NONE)·값 없음(배포 전 null)이면 그리지 않는다.
+ */
+export function RestrictionBadge({ restriction, until }: { readonly restriction: string | null | undefined; readonly until: string | null | undefined }) {
+  if (restriction !== 'RESTRICTED' && restriction !== 'SUSPENDED') return null;
+  return (
+    <span title={until ? m.until(when(until)) : undefined} data-testid="restriction-badge">
+      <StatusBadge tone={TONE[restriction] ?? 'warning'}>{m.levelName[restriction]}</StatusBadge>
+    </span>
+  );
+}
+
 /** 고객 상세 "계정 제한" 칸 — withdrawn(탈퇴 완료)면 걸기·풀기 없이 보기만 */
 export function CustomerRestriction({ customerId, withdrawn }: { readonly customerId: string; readonly withdrawn: boolean }) {
   const api = useApi();
   const qc = useQueryClient();
   const key = ['customers', 'restrictions', customerId];
   const q = useQuery({ queryKey: key, queryFn: () => request('GET', api.customer.GET('/customers/{customerId}/restrictions', { params: { path: { customerId } } })) });
-  const refresh = () => void qc.invalidateQueries({ queryKey: key });
+  // 상세 머리 꼬리표(bff restriction)도 같이 다시 읽는다
+  const refresh = () => {
+    void qc.invalidateQueries({ queryKey: key });
+    void qc.invalidateQueries({ queryKey: ['customers', 'detail', customerId] });
+  };
   return (
     <Section title={m.title} testId="customer-restriction">
       <QueryState state={toUiState(q)} onRetry={() => void q.refetch()}>

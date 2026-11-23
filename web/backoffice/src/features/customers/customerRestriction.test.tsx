@@ -1,5 +1,5 @@
 // 고객 계정 제한(customer 0.16.0 CU-7) — 지금 상태·7일 제한 걸기(한 번 더 묻기)·풀기·이력, 탈퇴 완료는 보기만.
-import { screen, waitFor, within } from '@testing-library/react';
+import { cleanup, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 
@@ -49,5 +49,26 @@ describe('고객 계정 제한', () => {
     const box = await screen.findByTestId('customer-restriction');
     expect(await within(box).findByText(/탈퇴를 마친 고객이라/)).toBeInTheDocument();
     expect(within(box).queryByRole('form', { name: '7일 제한 걸기' })).not.toBeInTheDocument();
+  });
+
+  it('bff 0.28.0 — 찾기 줄·상세 머리에 정지 꼬리표, 풀면 머리 꼬리표도 사라짐', async () => {
+    const user = userEvent.setup();
+    renderAt('/customers?orderNumber=74939005', as.cs);
+    const row = await screen.findByTestId('customer-row');
+    expect(within(row).getByTestId('restriction-badge')).toHaveTextContent('정지');
+    cleanup();
+    renderAt('/customers/CUS-1005', as.admin);
+    const head = await screen.findByTestId('customer-detail');
+    await waitFor(() => expect(within(head).getAllByTestId('restriction-badge')[0]).toHaveTextContent('정지'));
+    const form = await screen.findByRole('form', { name: '제한 풀기' });
+    await user.type(within(form).getByLabelText(/사유/), '자동 정지 오인식');
+    await user.click(within(form).getByRole('button', { name: '풀기' }));
+    await waitFor(() => expect(screen.queryByTestId('restriction-badge')).not.toBeInTheDocument());
+  });
+
+  it('제한 없는 고객은 꼬리표 없음', async () => {
+    renderAt('/customers/CUS-1001', as.cs);
+    await screen.findByTestId('customer-restriction-now');
+    expect(screen.queryByTestId('restriction-badge')).not.toBeInTheDocument();
   });
 });

@@ -27,7 +27,9 @@ const maskName = (n: string) => (n.length <= 1 ? '*' : `${n[0]}${'*'.repeat(Math
 const maskPhone = (p: string) => `${p.slice(0, 3)}-****-${p.slice(-4)}`;
 const maskEmail = (e: string) => `${e[0]}***@${e.split('@')[1] ?? ''}`;
 const gone = (c: MockCustomer) => c.status === 'WITHDRAW_COMPLETED';
-const summary = (c: MockCustomer) => ({ customerId: c.customerId, customerNumber: c.customerNumber, nameMasked: gone(c) ? null : maskName(c.name), phoneMasked: gone(c) ? null : maskPhone(c.phone), status: c.status });
+// bff 0.28.0 — 찾기 줄·상세 머리에 restriction·restrictedUntil(customer 값 그대로)
+const restrictionView = (c: MockCustomer) => ({ restriction: restrictionOf(c.customerId).restriction, restrictedUntil: restrictionOf(c.customerId).restrictedUntil });
+const summary = (c: MockCustomer) => ({ customerId: c.customerId, customerNumber: c.customerNumber, nameMasked: gone(c) ? null : maskName(c.name), phoneMasked: gone(c) ? null : maskPhone(c.phone), status: c.status, ...restrictionView(c) });
 
 /** CS_AGENT·OPERATOR_ADMIN 만(계약 x-roles) */
 function deny(request: Request): Response | null {
@@ -83,7 +85,7 @@ export const customerHandlers = [
     const first = c.customerId === 'CUS-1001';
     return HttpResponse.json({
       ...composed(),
-      customer: { customerId: c.customerId, customerNumber: c.customerNumber, nameMasked: gone(c) ? null : maskName(c.name), phoneMasked: gone(c) ? null : maskPhone(c.phone), emailMasked: gone(c) ? null : maskEmail(c.email), status: c.status, socialProvider: c.provider, phoneVerified: c.verified, joinedAt: c.joinedAt },
+      customer: { customerId: c.customerId, customerNumber: c.customerNumber, nameMasked: gone(c) ? null : maskName(c.name), phoneMasked: gone(c) ? null : maskPhone(c.phone), emailMasked: gone(c) ? null : maskEmail(c.email), status: c.status, socialProvider: c.provider, phoneVerified: c.verified, joinedAt: c.joinedAt, ...restrictionView(c) },
       orders: {
         hasMore: false,
         items: c.orderNumbers.map((n, i) => ({ orderId: orderIdsOf(c)[i], orderNumber: n, status: i === 0 ? 'CONFIRMED' : 'IN_DELIVERY', confirmedAt: ago(2 + i * 24), itemCount: 1 + i, totalAmount: 15100, deliveryMode: 'INSTANT', mfcId: 'MFC-BSN-01', openFulfillmentIssues: 0 })),

@@ -20,9 +20,10 @@ import { useCenterScope } from '../../shared/centerScope';
 import { useApi } from '../../app/ApiContext';
 import { useSession } from '../../app/SessionContext';
 import { messages } from '../../shared/messages';
-import { label, text, when, won } from '../../shared/ops';
+import { label, when, won } from '../../shared/ops';
 import { CodeLabel, NextAction, PageHeader, StatusBadge, type Tone } from '../../shared/admin';
 import { EmptyBox, Icon, ICON } from '../inquiries/HelpdeskParts';
+import { StaffName } from '../lookup/parts';
 
 const m = messages.followUps;
 /** 코드 값 → 한국어 이름(원래 코드는 마우스를 올리면), 값이 없으면 "—" */
@@ -134,7 +135,8 @@ function ObligationItem({ o, caseGroup, onChanged, caseLink }: { readonly o: Obl
                         {` ${r.evidence.ref}`}
                       </>
                     ) : null,
-                    text(r.resolvedBy),
+                    // 결과를 남긴 직원 — 이름 · 사번(ID 글자 대신, 2026-11-24)
+                    r.resolvedBy ? <StaffName key="by" id={r.resolvedBy} /> : null,
                     r.note ?? null,
                   ]
                     .filter(Boolean)

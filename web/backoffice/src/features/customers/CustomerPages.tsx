@@ -24,7 +24,7 @@ import { claimLabel, claimTone } from '../claims/ClaimPages';
 import { useHelp } from '../../shared/HelpPanel';
 import { CopyButton } from '../../shared/CopyButton';
 import { CustomerNotes } from './CustomerNotes';
-import { CustomerRestriction } from './CustomerRestriction';
+import { CustomerRestriction, RestrictionBadge } from './CustomerRestriction';
 
 const m = messages.customers;
 type Detail = components['schemas']['ComposedView'] & components['schemas']['CustomerDetailView'];
@@ -94,7 +94,11 @@ export function CustomerSearchPage() {
                         <td>{text(c.nameMasked)}</td>
                         <td className="font-mono text-sm">{text(c.phoneMasked)}</td>
                         <td>
-                          <StatusBadge tone={statusToneOf(c.status)}>{label(m.statusName, c.status)}</StatusBadge>
+                          <span className="flex flex-wrap items-center gap-1">
+                            <StatusBadge tone={statusToneOf(c.status)}>{label(m.statusName, c.status)}</StatusBadge>
+                            {/* 이용제한·정지(bff 0.28.0) */}
+                            <RestrictionBadge restriction={c.restriction} until={c.restrictedUntil} />
+                          </span>
                         </td>
                       </tr>
                     ))}
@@ -173,6 +177,7 @@ function CustomerDetail({ d }: { readonly d: Detail }) {
             {/* 고객번호 복사(2026-11-20 AWS 값 옆 복사) */}
             {c.customerNumber && <CopyButton value={c.customerNumber} />}
             <StatusBadge tone={statusToneOf(c.status)}>{label(m.statusName, c.status)}</StatusBadge>
+            <RestrictionBadge restriction={c.restriction} until={c.restrictedUntil} />
             {c.socialProvider && <span className="text-sm text-base-content/70">{label(m.providerName, c.socialProvider)}</span>}
           </>
         }
