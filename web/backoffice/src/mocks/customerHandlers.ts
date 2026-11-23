@@ -47,7 +47,18 @@ let noteSeq = 0;
 export const resetMockCustomerNotes = () => {
   notes = seedNotes();
   noteSeq = 0;
+  restrictions = seedRestrictions();
 };
+
+// customer 0.16.0 CU-7 계정 제한 — 7일(목은 고정), 탈퇴 완료 409 INVALID_STATE, 제한 없는데 풀기 409 NOT_RESTRICTED
+type MockRestriction = { restriction: 'NONE' | 'RESTRICTED' | 'SUSPENDED'; restrictedUntil: string | null; items: Array<{ recordId: string; restriction: 'NONE' | 'RESTRICTED' | 'SUSPENDED'; previous: 'NONE' | 'RESTRICTED' | 'SUSPENDED'; restrictedUntil: string | null; source: 'STAFF' | 'AUTO_PROFANITY'; reason: string | null; actor: string; createdAt: string }> };
+const seedRestrictions = (): Map<string, MockRestriction> =>
+  new Map([
+    ['CUS-1005', { restriction: 'SUSPENDED', restrictedUntil: ago(-5 * 24), items: [{ recordId: 'CR-MOCK-1', restriction: 'SUSPENDED', previous: 'NONE', restrictedUntil: ago(-5 * 24), source: 'AUTO_PROFANITY', reason: '문의에 위협·거친 말 — 자동 7일 정지', actor: 'system:case-profanity', createdAt: ago(2 * 24) }] }],
+  ]);
+let restrictions = seedRestrictions();
+let restrictionSeq = 0;
+const restrictionOf = (id: string): MockRestriction => restrictions.get(id) ?? { restriction: 'NONE', restrictedUntil: null, items: [] };
 
 const composed = () => ({ composedAt: new Date().toISOString(), sources: [], unavailableSources: [] as string[] });
 
@@ -123,6 +134,52 @@ export const customerHandlers = [
           }
         : null,
       ...(first ? {} : { unavailableSources: ['case-service'] }),
+    });
+  }),
+
+  http.get(`${API_BASE}/customers/:customerId/restrictions`, ({ request, params }) => {
+    const denied = deny(request);
+    if (denied) return denied;
+    const id = String(params['customerId']);
+    if (!MOCK_CUSTOMERS.some((c) => c.customerId === id)) return problem(404, 'NOT_FOUND');
+    const r = restrictionOf(id);
+    return HttpResponse.json({ customerId: id, restriction: r.restriction, restrictedUntil: r.restrictedUntil, items: [...r.items].reverse() });
+  }),
+
+  http.post(`${API_BASE}/customers/:customerId/restrictions`, async ({ request, params }) => {
+    const denied = deny(request);
+    if (denied) return denied;
+    const who = operator(request)!;
+    const body = (await request.clone().json()) as { restriction?: 'RESTRICTED' | 'SUSPENDED'; reason?: string };
+    return idempotent(request, () => {
+      const id = String(params['customerId']);
+      const c = MOCK_CUSTOMERS.find((x) => x.customerId === id);
+      if (!c) return problem(404, 'NOT_FOUND');
+      if (gone(c)) return problem(409, 'INVALID_STATE');
+      const reason = (body.reason ?? '').trim();
+      if (reason.length < 2 || reason.length > 200 || (body.restriction !== 'RESTRICTED' && body.restriction !== 'SUSPENDED')) return problem(400, 'VALIDATION_FAILED');
+      const r = restrictionOf(id);
+      const until = ago(-7 * 24);
+      const rec = { recordId: `CR-NEW-${++restrictionSeq}`, restriction: body.restriction, previous: r.restriction, restrictedUntil: until, source: 'STAFF' as const, reason, actor: who.subject, createdAt: new Date().toISOString() };
+      restrictions.set(id, { restriction: body.restriction, restrictedUntil: until, items: [...r.items, rec] });
+      return { status: 201, body: { requestId: keyOf(request), status: 'APPLIED', resultId: rec.recordId } };
+    });
+  }),
+
+  http.post(`${API_BASE}/customers/:customerId/restriction-releases`, async ({ request, params }) => {
+    const denied = deny(request);
+    if (denied) return denied;
+    const who = operator(request)!;
+    const body = (await request.clone().json()) as { reason?: string };
+    return idempotent(request, () => {
+      const id = String(params['customerId']);
+      const r = restrictionOf(id);
+      if (r.restriction === 'NONE') return problem(409, 'NOT_RESTRICTED');
+      const reason = (body.reason ?? '').trim();
+      if (reason.length < 2 || reason.length > 200) return problem(400, 'VALIDATION_FAILED');
+      const rec = { recordId: `CR-NEW-${++restrictionSeq}`, restriction: 'NONE' as const, previous: r.restriction, restrictedUntil: null, source: 'STAFF' as const, reason, actor: who.subject, createdAt: new Date().toISOString() };
+      restrictions.set(id, { restriction: 'NONE', restrictedUntil: null, items: [...r.items, rec] });
+      return { status: 200, body: { requestId: keyOf(request), status: 'APPLIED', resultId: rec.recordId } };
     });
   }),
 

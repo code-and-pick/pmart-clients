@@ -24,6 +24,7 @@ import { claimLabel, claimTone } from '../claims/ClaimPages';
 import { useHelp } from '../../shared/HelpPanel';
 import { CopyButton } from '../../shared/CopyButton';
 import { CustomerNotes } from './CustomerNotes';
+import { CustomerRestriction } from './CustomerRestriction';
 
 const m = messages.customers;
 type Detail = components['schemas']['ComposedView'] & components['schemas']['CustomerDetailView'];
@@ -241,6 +242,9 @@ function CustomerDetail({ d }: { readonly d: Detail }) {
           )}
         </aside>
       </div>
+
+      {/* 계정 제한(customer 0.16.0 CU-7) — 지금 상태·7일 이용제한/정지 걸기·풀기·이력 */}
+      <CustomerRestriction customerId={c.customerId} withdrawn={c.status === 'WITHDRAW_COMPLETED'} />
 
       {/* 상담 메모(case 0.34.0) — 상담원이 고객을 열면 먼저 보게 주문 위에 */}
       <CustomerNotes customerId={c.customerId} />
