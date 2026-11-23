@@ -9,7 +9,7 @@ import type { ReactNode } from 'react';
 import { Link, useSearchParams } from 'react-router';
 
 import { ProblemFailure, request } from '@pmart/web-core';
-import { useCenterScope } from '../shared/centerScope';
+import { AllCentersTag, useCenterScope } from '../shared/centerScope';
 import { useApi } from './ApiContext';
 import { ALERT_SIZE, useAlertCount, type AlertKey } from './MenuAlerts';
 import { ApprovalTypes, LiveSummary, RiskPanel } from './DashboardSections';
@@ -59,8 +59,9 @@ function TaskRow({ alert, title, to, tone, group, exact }: { readonly alert: Ale
         {has && tone !== 'info' && <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${tone === 'error' ? 'bg-error' : 'bg-warning'}`} aria-hidden="true" />}
         {title}
       </span>
-      <span className={`self-start text-[28px] font-semibold leading-tight tracking-tight group-hover:text-primary ${num}`} {...(failed ? { title: m.failed } : {})}>
+      <span className={`flex items-center self-start text-[28px] font-semibold leading-tight tracking-tight group-hover:text-primary ${num}`} {...(failed ? { title: m.failed } : {})}>
         {n === 0 ? '0' : text}
+        {sum?.allCenters && <AllCentersTag />}
       </span>
       <span className={`text-xs ${has ? 'text-primary group-hover:underline' : 'text-base-content/50'}`}>{failed ? m.failedShort : n === 0 ? m.noneLeft : has ? `${m.go} →` : ' '}</span>
     </Link>

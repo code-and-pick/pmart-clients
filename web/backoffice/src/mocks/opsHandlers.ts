@@ -336,7 +336,11 @@ export function mockClaimRowsOf(orderIds: readonly string[]) {
   return ops.claims
     .filter((c) => c.orderId && orderIds.includes(c.orderId))
     .sort((a, b) => (b.openedAt ?? '').localeCompare(a.openedAt ?? ''))
-    .map((c) => ({ claimId: c.claimId, claimSeq: c.claimSeq ?? null, orderId: c.orderId, orderNumber: (c.orderId && ORDER_NUMBERS[c.orderId]) ?? null, type: c.type, state: c.state, channel: c.channel ?? null, openedAt: c.openedAt, closedAt: c.closedAt ?? null, refundState: refundOf(c.claimId)?.state ?? null }));
+    .map((c) => {
+      const r = refundOf(c.claimId);
+      // bff 0.25.0 — 사유 코드·환불 요청·환불 끝 금액·환불 끝 시각
+      return { claimId: c.claimId, claimSeq: c.claimSeq ?? null, orderId: c.orderId, orderNumber: (c.orderId && ORDER_NUMBERS[c.orderId]) ?? null, type: c.type, state: c.state, channel: c.channel ?? null, openedAt: c.openedAt, closedAt: c.closedAt ?? null, refundState: r?.state ?? null, reason: c.reason ?? null, refundRequestedAmount: r?.requestedAmount ?? null, refundedAmount: r?.refundedAmount ?? null, refundCompletedAt: r?.completedAt ?? null };
+    });
 }
 
 function refundOf(claimId: string | undefined) {
@@ -605,7 +609,10 @@ export const opsHandlers = [
         .filter((x) => !x.done)
         .map((x) => ({ kind: x.kind, refId: x.refId, orderId: x.orderId, mfcId: x.mfcId, state: x.state, reasonCode: x.reasonCode, reasonMessage: x.reasonMessage, since: x.since, allowedActions: ['RETRY'], lastRetry: x.lastRetry, source: stamp('mfc-fulfillment-service') })),
     ].sort((a, b) => a.since.localeCompare(b.since));
-    return HttpResponse.json({ composedAt: now, sources: [stamp('order-orchestration-service'), stamp('order-service'), stamp('mfc-fulfillment-service')], unavailableSources: [], items: items.map((it) => ({
+    // bff 0.24.0 BF-4 centerId — 이행 확인·MFC 항목은 mfcId 로 거르고, 멈춘 사가는 센터가 없어 그대로 + centerUnfilteredSources
+    const centerId = new URL(request.url).searchParams.get('centerId');
+    const scoped = centerId ? items.filter((it) => it.kind === 'STUCK_SAGA' || ('mfcId' in it && it.mfcId === centerId)) : items;
+    return HttpResponse.json({ composedAt: now, sources: [stamp('order-orchestration-service'), stamp('order-service'), stamp('mfc-fulfillment-service')], unavailableSources: [], centerUnfilteredSources: centerId ? ['order-orchestration-service'] : [], items: scoped.map((it) => ({
         ...it,
         orderNumber: (it.orderId && ORDER_NUMBERS[it.orderId]) ?? null,
         ...('lastRetry' in it && it.lastRetry ? { lastRetry: { ...it.lastRetry, operator: operatorLabel(it.lastRetry.operatorId) } } : {}),

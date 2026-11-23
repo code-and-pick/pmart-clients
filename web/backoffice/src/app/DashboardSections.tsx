@@ -11,7 +11,7 @@ import { Link } from 'react-router';
 import { request } from '@pmart/web-core';
 import { APPROVAL_TYPES } from '../api/models';
 import { PENDING_KINDS, useApprovalTypeCounts } from './listCounts';
-import { useCenterScope } from '../shared/centerScope';
+import { AllCentersTag, useCenterScope } from '../shared/centerScope';
 import { useApi } from './ApiContext';
 import { GroupIcon } from './groupIcons';
 import { systemName } from '../shared/SourceStamps';
@@ -26,7 +26,7 @@ type Tone = 'error' | 'warning' | 'info';
 const toneDot: Record<Tone, string> = { error: 'bg-error', warning: 'bg-warning', info: 'bg-base-content/30' };
 
 /** 숫자 하나 + 이름 + 누르면 그 화면. value 가 null 이면 못 읽음("?") */
-function Tile({ label, value, more, to, tone, testId }: { readonly label: string; readonly value: number | null | undefined; readonly more?: boolean; readonly to: string; readonly tone: Tone; readonly testId: string }) {
+function Tile({ label, value, more, to, tone, testId, allCenters }: { readonly label: string; readonly value: number | null | undefined; readonly more?: boolean; readonly to: string; readonly tone: Tone; readonly testId: string; readonly allCenters?: boolean }) {
   const has = typeof value === 'number' && value > 0;
   const text = value === undefined ? '…' : value === null ? '?' : `${value}${more ? '+' : ''}`;
   return (
@@ -40,7 +40,10 @@ function Tile({ label, value, more, to, tone, testId }: { readonly label: string
         {has && <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${toneDot[tone]}`} aria-hidden="true" />}
         {label}
       </p>
-      <p className={`mt-0.5 text-[26px] font-semibold leading-tight tracking-tight ${value === null ? 'text-base-content/40' : has ? (tone === 'error' ? 'text-error' : '') : 'text-base-content/45'}`}>{text}</p>
+      <p className={`mt-0.5 flex items-center text-[26px] font-semibold leading-tight tracking-tight ${value === null ? 'text-base-content/40' : has ? (tone === 'error' ? 'text-error' : '') : 'text-base-content/45'}`}>
+        {text}
+        {allCenters && <AllCentersTag />}
+      </p>
     </Link>
   );
 }
@@ -58,6 +61,8 @@ export function RiskPanel() {
   const count = (pred: (i: (typeof items)[number]) => boolean): number | null | undefined => (q.isError ? null : q.data ? items.filter(pred).length : undefined);
   const more = Boolean(q.data?.truncated);
   const missing = q.data?.unavailableSources ?? [];
+  // bff 0.24.0 — 센터를 골라도 멈춘 주문 처리(사가)는 센터가 없어 모든 센터 값(결제 결과 불명·멈춘 주문 두 칸)
+  const sagaAll = (q.data?.centerUnfilteredSources ?? []).includes('order-orchestration-service');
   return (
     <Section
       title={
@@ -70,8 +75,8 @@ export function RiskPanel() {
       testId="dash-risk"
     >
       <div className="grid grid-cols-2 gap-px overflow-hidden rounded-box border border-base-300 bg-base-300 xl:grid-cols-5">
-        <Tile label={m.risk.paymentUnknown} value={count(PENDING_KINDS[0].match)} more={more} to="/pending" tone="error" testId="dash-risk-payment" />
-        <Tile label={m.risk.stuck} value={count(PENDING_KINDS[1].match)} more={more} to="/pending" tone="warning" testId="dash-risk-stuck" />
+        <Tile label={m.risk.paymentUnknown} value={count(PENDING_KINDS[0].match)} more={more} to="/pending" tone="error" testId="dash-risk-payment" allCenters={sagaAll} />
+        <Tile label={m.risk.stuck} value={count(PENDING_KINDS[1].match)} more={more} to="/pending" tone="warning" testId="dash-risk-stuck" allCenters={sagaAll} />
         <Tile label={m.risk.issue} value={count(PENDING_KINDS[2].match)} more={more} to="/pending" tone="warning" testId="dash-risk-issue" />
         <Tile label={m.risk.handover} value={count(PENDING_KINDS[3].match)} more={more} to="/pending" tone="warning" testId="dash-risk-handover" />
         <Tile label={m.risk.stop} value={count(PENDING_KINDS[4].match)} more={more} to="/pending" tone="warning" testId="dash-risk-stop" />

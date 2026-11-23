@@ -83,4 +83,21 @@ describe('고객 상세', () => {
     expect(screen.getByTestId('customer-name')).toHaveTextContent('-');
     expect(screen.getByTestId('customer-detail')).toHaveTextContent('탈퇴 완료');
   });
+
+  it('bff 0.25.0: 배송 칸(배송·주문 링크)·클레임 종류별 수(0 까지), 열람 기록은 관리자만 — 상담원은 "관리자만"(실패 아님)', async () => {
+    const view = renderAt('/customers/CUS-1001', as.cs);
+    const del = await screen.findByTestId('customer-deliveries');
+    expect(within(del).getByRole('link', { name: 'D74939001' })).toHaveAttribute('href', '/deliveries/DLV-MOCK-C482913-1');
+    expect(within(del).getAllByTestId('customer-delivery-row')[0]).toHaveTextContent('비대면');
+    const counts = screen.getByTestId('customer-claim-counts');
+    for (const t of ['취소', '반품', '교환']) expect(counts).toHaveTextContent(t);
+    expect(screen.getByTestId('customer-pii-logs-restricted')).toHaveTextContent('관리자만 볼 수 있어요');
+    expect(screen.queryByTestId('customer-pii-logs-failed')).not.toBeInTheDocument();
+    view.unmount();
+    renderAt('/customers/CUS-1001', as.admin);
+    const row = await screen.findByTestId('customer-pii-log-row');
+    expect(row).toHaveTextContent('[목] 상담원 · P2026-00003');
+    expect(row).toHaveTextContent('이름, 연락처');
+    expect(row).toHaveTextContent('고객 전화 — 본인 확인');
+  });
 });

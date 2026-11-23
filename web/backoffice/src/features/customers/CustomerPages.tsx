@@ -3,7 +3,7 @@
 // - 상세 `GET /backoffice/views/customer/{customerId}` — 머리는 가린 값 그대로. 칸(주문·문의·상담원 접수·클레임)은 원천 실패면 null → "확인 못 함"(0건 아님).
 // - 클레임 칸(bff 0.23.0, claim CL-7): 최근 10건, 더 있으면 클레임 목록(customerId)으로. 사유는 싣지 않는다 — 상세에서.
 // - 원문 `POST /customers/{id}/pii-reveals`(customer 0.11.0) — 사유 2~200자, 열람 기록이 남은 뒤 고른 항목만. 받은 원문은 메모리에만(라이더 상세와 같은 방식).
-// 클레임 칸은 claim CL-7 뒤(계약에 아직 없음 — 부르지 않는다).
+// - bff 0.25.0 BF-5(2026-11-23): 배송 칸(주문 칸 주문들의 배송, 주소 없음)·클레임 종류별 수(0 까지)·클레임 줄 사유·환불 금액·개인정보 열람 기록(관리자만 — 그 밖 직원은 늘 null 이라 "관리자만", 실패 아님).
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router';
@@ -14,6 +14,7 @@ import { commandParams } from '../../api/command';
 import type { components } from '../../api/generated/backoffice-bff';
 import type { components as CustomerC } from '../../api/generated/customer';
 import { useApi } from '../../app/ApiContext';
+import { useSession } from '../../app/SessionContext';
 import { ago } from '../../app/DashboardBoard';
 import { CodeLabel, DataTable, DetailHeader, FieldList, Notice, PropertyFilter, Section, StatusBadge, type FilterProp, type Tone, ListHeader, listCount, refreshOf } from '../../shared/admin';
 import { messages } from '../../shared/messages';
@@ -107,13 +108,20 @@ export function CustomerSearchPage() {
 }
 
 /** 칸 — 원천 실패(null)면 "확인 못 함", 비었으면 "없음", 더 있으면 "최근 10건만" */
-function Part<T>({ title, part, children, testId, more }: { readonly title: string; readonly part: { readonly hasMore?: boolean; readonly items?: readonly T[] } | null | undefined; readonly children: (items: readonly T[]) => React.ReactNode; readonly testId: string; readonly more?: React.ReactNode }) {
+function Part<T>({ title, part, children, testId, more, head, nullText }: { readonly title: string; readonly part: { readonly hasMore?: boolean; readonly items?: readonly T[] } | null | undefined; readonly children: (items: readonly T[]) => React.ReactNode; readonly testId: string; readonly more?: React.ReactNode; readonly head?: React.ReactNode; readonly nullText?: string }) {
   return (
     <Section title={title} testId={testId} aside={part?.hasMore ? (more ?? <span className="text-xs text-base-content/60">{m.recentOnly}</span>) : undefined}>
+      {part !== null && part !== undefined && head}
       {part === null || part === undefined ? (
-        <p className="text-sm text-warning" data-testid={`${testId}-failed`}>
-          {m.sourceFailed}
-        </p>
+        nullText ? (
+          <p className="text-sm text-base-content/60" data-testid={`${testId}-restricted`}>
+            {nullText}
+          </p>
+        ) : (
+          <p className="text-sm text-warning" data-testid={`${testId}-failed`}>
+            {m.sourceFailed}
+          </p>
+        )
       ) : (part.items ?? []).length === 0 ? (
         <p className="text-sm text-base-content/60">{m.noneRows}</p>
       ) : (
@@ -139,6 +147,9 @@ export function CustomerDetailPage() {
 
 function CustomerDetail({ d }: { readonly d: Detail }) {
   const api = useApi();
+  const { session } = useSession();
+  // 열람 기록은 OPERATOR_ADMIN 만 값이 온다 — 그 밖 직원의 null 은 장애가 아니다
+  const admin = session?.roles.includes('OPERATOR_ADMIN') ?? false;
   const c = d.customer;
   const [fields, setFields] = useState<readonly PiiField[]>(PII_FIELDS);
   const [reason, setReason] = useState('');
@@ -261,10 +272,56 @@ function CustomerDetail({ d }: { readonly d: Detail }) {
         )}
       </Part>
 
+      <Part title={m.deliveries} part={d.deliveries} testId="customer-deliveries">
+        {(items) => (
+          <DataTable>
+            <thead>
+              <tr>
+                <th>{m.deliveryCol.number}</th>
+                <th>{m.deliveryCol.order}</th>
+                <th>{m.deliveryCol.type}</th>
+                <th>{m.deliveryCol.state}</th>
+                <th>{m.deliveryCol.promisedAt}</th>
+                <th>{m.deliveryCol.completedAt}</th>
+                <th>{m.deliveryCol.method}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((x, i) => (
+                <tr key={x.deliveryId ?? i} data-testid="customer-delivery-row">
+                  <td>{x.deliveryId ? <Link to={`/deliveries/${encodeURIComponent(x.deliveryId)}`}>{x.deliveryNumber ?? messages.displayNumber.missing}</Link> : (x.deliveryNumber ?? messages.none)}</td>
+                  <td>{x.orderId ? <Link to={`/orders/${encodeURIComponent(x.orderId)}`}>{x.orderNumber ?? messages.displayNumber.missing}</Link> : messages.none}</td>
+                  <td>{x.type ? <CodeLabel code={x.type} names={messages.deliveries.typeName} /> : messages.none}</td>
+                  <td>{x.state ? <CodeLabel code={x.state} names={messages.deliveries.executionState} /> : messages.none}</td>
+                  <td>{when(x.promisedAt)}</td>
+                  <td>{when(x.completedAt)}</td>
+                  <td>{x.completionMethod ? <CodeLabel code={x.completionMethod} names={m.completionMethodName} /> : messages.none}</td>
+                </tr>
+              ))}
+            </tbody>
+          </DataTable>
+        )}
+      </Part>
+
       <Part
         title={m.claims}
         part={d.claims}
         testId="customer-claims"
+        head={
+          d.claimCounts ? (
+            <p className="mb-3 flex flex-wrap gap-x-4 gap-y-1 text-sm" aria-label={m.claimCountsLabel} data-testid="customer-claim-counts">
+              {(d.claimCounts.counts ?? []).map((k) => (
+                <span key={k.key} className={k.count ? '' : 'text-base-content/50'}>
+                  {label(messages.claims.typeName, k.key)} <b className="tabular-nums">{k.count ?? 0}</b>
+                </span>
+              ))}
+            </p>
+          ) : (
+            <p className="mb-3 text-xs text-warning" data-testid="customer-claim-counts-failed">
+              {m.claimCountsFailed}
+            </p>
+          )
+        }
         more={
           <Link className="text-xs text-primary hover:underline" to={`/claims?customerId=${encodeURIComponent(c.customerId)}`} data-testid="customer-claims-all">
             {m.allClaims}
@@ -277,6 +334,7 @@ function CustomerDetail({ d }: { readonly d: Detail }) {
               <tr>
                 <th>{m.claimCol.claim}</th>
                 <th>{m.claimCol.state}</th>
+                <th>{m.claimCol.reason}</th>
                 <th>{m.claimCol.refund}</th>
                 <th>{m.claimCol.at}</th>
               </tr>
@@ -290,7 +348,16 @@ function CustomerDetail({ d }: { readonly d: Detail }) {
                   <td>
                     <StatusBadge tone={claimTone(x.state)}>{label(messages.claims.stateName, x.state)}</StatusBadge>
                   </td>
-                  <td>{x.refundState ? label(messages.claims.listView.refundState, x.refundState) : messages.none}</td>
+                  <td>{x.reason ? <CodeLabel code={x.reason} names={messages.claims.reasonName} /> : messages.none}</td>
+                  <td>
+                    {x.refundState ? label(messages.claims.listView.refundState, x.refundState) : messages.none}
+                    {/* bff 0.25.0 — 서버 금액 그대로(계산하지 않는다) */}
+                    {(typeof x.refundRequestedAmount === 'number' || typeof x.refundedAmount === 'number') && (
+                      <span className="block text-xs tabular-nums text-base-content/60" data-testid="customer-claim-refund">
+                        {m.refundAmounts(typeof x.refundRequestedAmount === 'number' ? won(x.refundRequestedAmount) : messages.none, typeof x.refundedAmount === 'number' ? won(x.refundedAmount) : messages.none)}
+                      </span>
+                    )}
+                  </td>
                   <td>{ago(x.openedAt) ?? messages.none}</td>
                 </tr>
               ))}
@@ -359,6 +426,35 @@ function CustomerDetail({ d }: { readonly d: Detail }) {
           )}
         </Part>
       </div>
+
+      <Part title={m.piiLogs} part={d.piiAccessLogs} testId="customer-pii-logs" {...(admin ? {} : { nullText: m.piiLogsAdminOnly })}>
+        {(items) => (
+          <DataTable>
+            <thead>
+              <tr>
+                <th>{m.piiLogCol.at}</th>
+                <th>{m.piiLogCol.actor}</th>
+                <th>{m.piiLogCol.fields}</th>
+                <th>{m.piiLogCol.type}</th>
+                <th>{m.piiLogCol.purpose}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((x, i) => (
+                <tr key={`${x.occurredAt ?? ''}:${x.actorId ?? ''}:${i}`} data-testid="customer-pii-log-row">
+                  <td>{when(x.occurredAt)}</td>
+                  <td>{x.actorLabel?.name ? `${x.actorLabel.name}${x.actorLabel.employeeNo ? ` · ${x.actorLabel.employeeNo}` : ''}` : messages.none}</td>
+                  <td>{(x.fields ?? []).map((f) => label(messages.piiLogs.fieldName, f)).join(', ') || messages.none}</td>
+                  <td>{x.accessType ? <CodeLabel code={x.accessType} names={messages.piiLogs.accessTypeName} /> : messages.none}</td>
+                  <td className="max-w-[20rem] truncate" title={x.purpose ?? undefined}>
+                    {text(x.purpose)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </DataTable>
+        )}
+      </Part>
     </section>
   );
 }

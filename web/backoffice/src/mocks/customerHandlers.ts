@@ -76,6 +76,38 @@ export const customerHandlers = [
         const rows = mockClaimRowsOf(orderIdsOf(c));
         return { hasMore: rows.length > 10, items: rows.slice(0, 10) };
       })(),
+      // bff 0.25.0 BF-5 — 주문 칸 주문들의 배송(주소 없음)·클레임 종류별 수(0 까지)·열람 기록(OPERATOR_ADMIN 만, 그 밖 null)
+      deliveries: {
+        items: orderIdsOf(c).map((orderId, i) => ({
+          deliveryId: `DLV-MOCK-C${c.customerNumber}-${i + 1}`,
+          deliveryNumber: `D${c.orderNumbers[i]}`,
+          orderId,
+          orderNumber: c.orderNumbers[i] ?? null,
+          state: i === 0 ? 'COMPLETED' : 'PICKED_UP',
+          type: 'FORWARD',
+          purpose: 'ORDER',
+          mfcId: 'MFC-BSN-01',
+          riderId: 'RID-MOCK-1',
+          createdAt: ago(2 + i * 24),
+          firstAssignedAt: ago(1.9 + i * 24),
+          pickedUpAt: ago(1.7 + i * 24),
+          completedAt: i === 0 ? ago(1.4) : null,
+          completionMethod: i === 0 ? 'CONTACTLESS' : null,
+          promisedAt: ago(1.3 + i * 24),
+        })),
+      },
+      claimCounts: (() => {
+        const rows = mockClaimRowsOf(orderIdsOf(c));
+        return { counts: ['CANCEL', 'RETURN', 'EXCHANGE'].map((key) => ({ key, count: rows.filter((r) => r.type === key).length })) };
+      })(),
+      piiAccessLogs: operator(request)?.roles.includes('OPERATOR_ADMIN')
+        ? {
+            hasMore: false,
+            items: first
+              ? [{ occurredAt: ago(26), actorId: 'op-cs-1', actorLabel: { operatorId: 'op-cs-1', name: '[목] 상담원', employeeNo: 'P2026-00003' }, accessType: 'VIEW', fields: ['NAME', 'PHONE'], purpose: '고객 전화 — 본인 확인', screen: 'BACKOFFICE_CUSTOMER_DETAIL' }]
+              : [],
+          }
+        : null,
       ...(first ? {} : { unavailableSources: ['case-service'] }),
     });
   }),

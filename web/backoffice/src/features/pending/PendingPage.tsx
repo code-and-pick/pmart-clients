@@ -23,7 +23,7 @@ import { CommandRejectedFailure, ProblemFailure, UnknownResultFailure, request }
 import { CommandFeedback, QueryState, uiStateFromError, useCommand, type UiState } from '@pmart/web-ui';
 import { commandParams } from '../../api/command';
 import type { components, paths } from '../../api/generated/backoffice-bff';
-import { useCenterScope } from '../../shared/centerScope';
+import { AllCentersTag, useCenterScope } from '../../shared/centerScope';
 import { useApi } from '../../app/ApiContext';
 import { messages as m, messages } from '../../shared/messages';
 import { DisplayNumber } from '../../shared/displayNumber';
@@ -34,7 +34,7 @@ import { PENDING_KINDS } from '../../app/listCounts';
 import { stopErrorName, stopErrorText } from '../../shared/blockReason';
 
 type Item = components['schemas']['PendingWorkItem'];
-type View = components['schemas']['ComposedView'] & { items?: Item[]; truncated?: boolean };
+type View = components['schemas']['ComposedView'] & { items?: Item[]; truncated?: boolean; centerUnfilteredSources?: string[] };
 type Action = 'REQUERY_RESULT' | 'MARK_RESOLVED' | 'ACKNOWLEDGE' | 'RETRY';
 type CheckResult = paths['/commands/{targetService}/{command}/{requestId}']['get']['responses'][200]['content']['application/json'];
 
@@ -329,7 +329,7 @@ export function PendingPage() {
             )}
             <PendingNext items={view.items ?? []} />
             {/* 종류별 묶음(2026-11-18): 위 숫자 카드(누르면 그 묶음으로) → 묶음 카드마다 항목 줄 */}
-            <PendingGroups items={view.items ?? []} />
+            <PendingGroups items={view.items ?? []} unfiltered={view.centerUnfilteredSources ?? []} />
           </>
         )}
       </QueryState>
@@ -342,6 +342,9 @@ export function PendingPage() {
     </section>
   );
 }
+
+/** 종류 → 원천(bff 0.24.0 centerUnfilteredSources 와 맞춰 "모든 센터" 꼬리) — 멈춘 주문 처리는 사가에 센터가 없다 */
+const KIND_SOURCE: Readonly<Record<string, string>> = { STUCK_SAGA: ORCHESTRATION };
 
 /** 종류 색 — 이름이 있는 종류만 색을 준다. 모르는 종류는 회색 */
 const KIND_STYLE: Readonly<Record<string, { readonly chip: string; readonly bar: string; readonly icon: string }>> = {
@@ -373,7 +376,7 @@ function PendingNext({ items }: { readonly items: readonly Item[] }) {
   );
 }
 
-function PendingGroups({ items }: { readonly items: readonly Item[] }) {
+function PendingGroups({ items, unfiltered }: { readonly items: readonly Item[]; readonly unfiltered: readonly string[] }) {
   // 묶음 차례 = 서버 순서(오래된 것부터)에서 처음 나온 차례, 묶음 안도 서버 순서 그대로
   const kinds = [...new Set(items.map((i) => i.kind))];
   const groups = kinds.map((k) => ({ kind: k, items: items.filter((i) => i.kind === k) }));
@@ -404,6 +407,7 @@ function PendingGroups({ items }: { readonly items: readonly Item[] }) {
                 <KindIcon d={st.icon} />
               </span>
               <h2 className="font-semibold">{label(m.pending.kindName, g.kind)}</h2>
+              {KIND_SOURCE[g.kind] !== undefined && unfiltered.includes(KIND_SOURCE[g.kind]!) && <AllCentersTag />}
               <span className="badge badge-ghost badge-sm">{g.items.length}</span>
             </div>
             <ul className="divide-y divide-base-300/70">

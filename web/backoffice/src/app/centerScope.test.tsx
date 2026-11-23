@@ -1,5 +1,5 @@
 // 머리줄 센터 고르기(2026-11-23 — PC 1 요청서 backoffice/2026-11-23-request-center-filter) — 보기만 거른다
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 
@@ -54,5 +54,21 @@ describe('센터 고르기', () => {
     await waitFor(() => expect(calls(view.sent, '/claims/counts').at(-1)?.get('mfcId')).toBe('MFC-MOKPO-01'));
     expect(screen.queryByTestId('center-scope-note')).not.toBeInTheDocument();
     for (const p of ['/rider-complaints', '/follow-ups/cs', '/pending']) expect(centerScopeOf(p)).toBe('applied');
+  });
+
+  it('bff 0.24.0 centerUnfilteredSources: 센터를 골라도 못 거른 원천(멈춘 주문 처리·사건 지표)은 "모든 센터" 꼬리 — 안 고르면 없음', async () => {
+    const view = renderAt('/pending', as.admin);
+    await screen.findAllByTestId('pending-item');
+    expect(screen.queryByTestId('all-centers-tag')).not.toBeInTheDocument();
+    view.unmount();
+    sessionStorage.setItem('pmart.backoffice.centerScope', 'MFC-BSN-01');
+    const v2 = renderAt('/pending', as.admin);
+    const stuck = await screen.findByRole('region', { name: '멈춘 주문 처리' });
+    expect(within(stuck).getByTestId('all-centers-tag')).toHaveTextContent('모든 센터');
+    v2.unmount();
+    renderAt('/?tab=ops', as.admin);
+    expect(await within(await screen.findByTestId('dash-risk-payment')).findByTestId('all-centers-tag')).toBeInTheDocument();
+    expect(within(screen.getByTestId('dash-risk-issue')).queryByTestId('all-centers-tag')).not.toBeInTheDocument(); // 이행 확인은 센터로 거름
+    expect(await within(await screen.findByTestId('dash-work-cases-open')).findByTestId('all-centers-tag')).toBeInTheDocument(); // 사건 지표는 범위 밖
   });
 });

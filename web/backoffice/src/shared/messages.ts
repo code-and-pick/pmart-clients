@@ -76,7 +76,17 @@ export const messages = {
     // bff 0.23.0 고객 상세 클레임 칸(claim CL-7) — 최근 10건, 더 있으면 클레임 목록(customerId)으로
     claims: '최근 클레임',
     allClaims: '전체 클레임 보기',
-    claimCol: { claim: '클레임', state: '상태', refund: '환불', at: '접수 시각' },
+    claimCol: { claim: '클레임', state: '상태', reason: '사유', refund: '환불', at: '접수 시각' },
+    // bff 0.25.0 BF-5 — 환불 금액(서버 값 그대로), 종류별 수(0 까지 모든 종류), 배송, 열람 기록(관리자만)
+    refundAmounts: (requested: string, refunded: string) => `요청 ${requested} · 환불 ${refunded}`,
+    claimCountsLabel: '종류별 클레임 수',
+    claimCountsFailed: '종류별 수를 읽지 못했어요(0건이 아니에요)',
+    deliveries: '배송',
+    deliveryCol: { number: '배송', order: '주문', type: '종류', state: '상태', promisedAt: '도착 약속', completedAt: '끝난 시각', method: '전달 방식' },
+    completionMethodName: { FACE: '대면', CONTACTLESS: '비대면', CUSTOMER_CONFIRMED: '고객 확인', AUTO_COMPLETED: '자동 완료' } as Readonly<Record<string, string>>,
+    piiLogs: '개인정보 열람 기록',
+    piiLogsAdminOnly: '관리자만 볼 수 있어요',
+    piiLogCol: { at: '열람 시각', actor: '열람한 직원', fields: '열어 본 항목', type: '방식', purpose: '열람 사유' },
     recentOnly: '최근 10건만 — 전체는 해당 메뉴에서',
     noneRows: '없음',
     sourceFailed: '확인 못 함 — 원천을 읽지 못했어요(0건이 아니에요)',
@@ -1335,6 +1345,10 @@ export const messages = {
     failedShort: '목록 못 읽음',
     notApplied: (name: string) => `이 화면은 아직 센터로 거를 수 없어 모든 센터 것이 보여요(고른 센터: ${name}).`,
     partial: (name: string) => `대시보드는 센터로 거를 수 있는 칸만 ${name} 것이에요. 나머지 칸은 모든 센터예요.`,
+    /** bff 0.24.0 centerUnfilteredSources — 서버가 센터로 못 거른 원천의 칸·줄 */
+    allCenters: '모든 센터',
+    allCentersHint: '이 값은 센터로 거를 수 없어 모든 센터 것이에요',
+    unfiltered: (what: string) => `${what}은(는) 센터로 거를 수 없어 모든 센터 것이 보여요.`,
   },
   quickJump: {
     label: '번호로 바로 찾기',

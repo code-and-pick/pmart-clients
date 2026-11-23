@@ -126,6 +126,15 @@ export function centerScopeOf(pathname: string): 'applied' | 'partial' | 'notApp
   return hit ? hit[1] : null;
 }
 
+/** 칸·줄 옆 작은 꼬리 "모든 센터" — 서버가 centerUnfilteredSources 로 센터로 못 걸렀다고 한 값(bff 0.24.0 BF-4) */
+export function AllCentersTag() {
+  return (
+    <span className="ml-1.5 shrink-0 whitespace-nowrap rounded border border-base-300 px-1 text-[10px] font-normal leading-4 tracking-normal text-base-content/55" title={m.allCentersHint} data-testid="all-centers-tag">
+      {m.allCenters}
+    </span>
+  );
+}
+
 /** 본문 위 한 줄 — 센터를 골랐는데 이 화면이 거르지 못하면(또는 일부만) 알린다 */
 export function CenterScopeNote({ pathname }: { readonly pathname: string }) {
   const centerId = useCenterScope();

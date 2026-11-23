@@ -8,7 +8,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { Link } from 'react-router';
 
 import { ProblemFailure, request } from '@pmart/web-core';
-import { useCenterScope } from '../shared/centerScope';
+import { AllCentersTag, useCenterScope } from '../shared/centerScope';
 import { useApi } from './ApiContext';
 import { liveQuery } from './DashboardSections';
 import { slaText } from '../features/cases/CaseSlaPage';
@@ -628,6 +628,8 @@ const GROUP_SOURCES: Record<WorkGroup, readonly string[]> = {
 export interface WorkSum {
   readonly value: number;
   readonly complete: boolean;
+  /** bff 0.24.0 — 센터를 골랐는데 이 묶음 원천을 센터로 못 걸렀다(모든 센터 값) */
+  readonly allCenters?: boolean;
 }
 
 export function workCountsQuery(api: Api, center = '') {
@@ -650,7 +652,10 @@ export function useWorkCounts(enabled: boolean) {
     const missing = q.data.unavailableSources ?? [];
     if (GROUP_SOURCES[group].some((s) => missing.includes(s)) && !q.data.counts.some((c) => c.group === group)) return null;
     const rows = q.data.counts.filter((c) => c.group === group && c.key === key && (segment === undefined || c.segment === segment));
-    return { value: rows.reduce((n, c) => n + c.value, 0), complete: rows.every((c) => c.complete) };
+    // 묶음의 원천이 모두 centerUnfilteredSources 에 있을 때만 "모든 센터"(처리 대기처럼 일부만 거른 묶음은 대시보드 위 안내 한 줄로)
+    const unfiltered = q.data.centerUnfilteredSources ?? [];
+    const allCenters = GROUP_SOURCES[group].every((s) => unfiltered.includes(s));
+    return { value: rows.reduce((n, c) => n + c.value, 0), complete: rows.every((c) => c.complete), ...(allCenters ? { allCenters } : {}) };
   };
   const segments = (group: WorkGroup, key: string) => (q.data ? q.data.counts.filter((c) => c.group === group && c.key === key) : []);
   return { q, sum, segments };
@@ -669,9 +674,10 @@ function WorkTile({ label: title, sum, to, tone, testId }: { readonly label: str
         {has && <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${dot}`} aria-hidden="true" />}
         {title}
       </p>
-      <p className={`mt-0.5 text-[26px] font-semibold leading-tight tracking-tight ${sum === null ? 'text-base-content/40' : has ? (tone === 'error' ? 'text-error' : '') : 'text-base-content/45'}`} title={sum === null ? m.failed : undefined}>
+      <p className={`mt-0.5 flex items-center text-[26px] font-semibold leading-tight tracking-tight ${sum === null ? 'text-base-content/40' : has ? (tone === 'error' ? 'text-error' : '') : 'text-base-content/45'}`} title={sum === null ? m.failed : undefined}>
         {sum === undefined ? '…' : sum === null ? m.work.unknown : workText(sum)}
         {ch.badge}
+        {sum?.allCenters && <AllCentersTag />}
       </p>
     </Link>
   );

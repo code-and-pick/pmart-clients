@@ -58,7 +58,9 @@ export const workCountsHandlers = [
     if (!inquiriesOk && !unavailable.includes('case-service')) unavailable.push('case-service');
 
     // PENDING_WORK — 처리 대기와 같은 모음
-    const pw = (await getJson(request, `${BFF_BASE}/views/pending-work`)) as { items?: Array<{ kind: string }>; truncated?: boolean } | null;
+    // bff 0.24.0 BF-4 centerId — 처리 대기만 같은 규칙으로 거르고(목은 배송 줄은 그대로), 사건 지표·승인은 범위 밖 → centerUnfilteredSources
+    const centerId = new URL(request.url).searchParams.get('centerId');
+    const pw = (await getJson(request, `${BFF_BASE}/views/pending-work${centerId ? `?centerId=${encodeURIComponent(centerId)}` : ''}`)) as { items?: Array<{ kind: string }>; truncated?: boolean } | null;
     if (pw) {
       const byKind = new Map<string, number>();
       for (const i of pw.items ?? []) byKind.set(i.kind, (byKind.get(i.kind) ?? 0) + 1);
@@ -100,6 +102,6 @@ export const workCountsHandlers = [
       for (const [s, v] of byState) counts.push({ group: 'DELIVERIES', key: 'ACTIVE', segment: s, value: v, complete: !lv.page?.nextCursor, source: 'delivery-execution-service' });
     } else unavailable.push('delivery-execution-service');
 
-    return HttpResponse.json({ composedAt: now, sources, unavailableSources: unavailable, counts });
+    return HttpResponse.json({ composedAt: now, sources, unavailableSources: unavailable, centerUnfilteredSources: centerId ? ['order-orchestration-service', 'case-service', 'approval-service'] : [], counts });
   }),
 ];
