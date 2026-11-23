@@ -7,7 +7,7 @@
 // 화면(2026-11-18 사용자 "밋밋하다"): 접수 폼은 번호 단계 카드 4개(다 채우면 체크) + 오른쪽 "남기기 전에 확인" 카드(빈칸 목록·남기기 버튼), 연락 기록은 시간 순 줄(타임라인). 동작은 그대로.
 import { OrderNo } from '../../shared/RefNumber';
 import { StaffName } from '../lookup/parts';
-import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, type FormEvent, type ReactNode } from 'react';
 import { Link, useSearchParams } from 'react-router';
 
@@ -80,6 +80,29 @@ function problems(d: Draft): string[] {
   return out;
 }
 
+/**
+ * 고객 칸 — 고객번호(6자리)를 넣으면 bff 고객 찾기(완전 일치)로 고객 계정 ID 를 찾는다. 그 밖 값은 고객 계정 ID 로 그대로(고객 상세에서 넘어온 값 등).
+ * (2026-11-24 점검 — "고객 계정 ID" 를 직접 쳐 넣어야 했다.) 전화번호로는 찾지 않는다(칸 안내 "전화번호는 넣지 마세요").
+ */
+const isCustomerNumber = (v: string) => /^\d{6}$/.test(v);
+function useCustomerRef(input: string) {
+  const api = useApi();
+  const value = input.trim();
+  const byNumber = isCustomerNumber(value);
+  const q = useQuery({
+    queryKey: ['customers', 'by-number', value],
+    enabled: byNumber,
+    staleTime: 60_000,
+    queryFn: () => request('GET', api.bff.GET('/views/customer-search', { params: { query: { customerNumber: value } } })),
+  });
+  if (value === '') return { id: null, state: 'empty' as const, label: null };
+  if (!byNumber) return { id: value, state: 'id' as const, label: null };
+  if (q.isPending) return { id: null, state: 'loading' as const, label: null };
+  if (q.isError) return { id: null, state: 'failed' as const, label: null };
+  const c = q.data.items?.[0];
+  return c ? { id: c.customerId, state: 'found' as const, label: `${c.nameMasked ?? ''} · ${c.customerNumber ?? value}` } : { id: null, state: 'notFound' as const, label: null };
+}
+
 export function NewCsIntakePage() {
   const api = useApi();
   const queryClient = useQueryClient();
@@ -115,8 +138,9 @@ export function NewCsIntakePage() {
   const locked = save.busy || save.phase.kind === 'done';
   // 대상 주문 — 주문번호(8자리)로도(2026-11-19). 넣은 번호를 아직 못 찾았으면 보내지 않는다 — 연결 없이 새 문의가 되거나 다른 주문이 되지 않게
   const subject = useResolvedRef('order', d.subjectRef);
+  const customer = useCustomerRef(d.customerRef);
   const unresolved = (r: { readonly state: string }) => r.state === 'loading' || r.state === 'notFound' || r.state === 'failed';
-  const missing = [...problems(d), ...(unresolved(linkCase) ? [m.need.linkCaseResolved] : []), ...(unresolved(subject) ? [m.need.subjectResolved] : [])];
+  const missing = [...problems(d), ...(unresolved(linkCase) ? [m.need.linkCaseResolved] : []), ...(unresolved(subject) ? [m.need.subjectResolved] : []), ...(unresolved(customer) ? [m.need.customerResolved] : [])];
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
@@ -126,7 +150,7 @@ export function NewCsIntakePage() {
     void save.run({
       channel: d.channel,
       category: d.category,
-      customerRef: d.customerRef.trim(),
+      customerRef: customer.id ?? d.customerRef.trim(),
       ...(subject.id ? { subjectRef: subject.id } : {}),
       summary: d.summary.trim(),
       identityCheck: { method: d.method, ...(d.note.trim() ? { note: d.note.trim() } : {}) },
@@ -173,9 +197,19 @@ export function NewCsIntakePage() {
               <div>
                 <label className="block text-xs font-medium text-base-content/60">
                   {m.customerRef}
-                  <input className={`input input-sm font-mono text-base-content ${field}`} maxLength={64} value={d.customerRef} disabled={locked} onChange={(e) => set('customerRef', e.target.value)} />
+                  <input className={`input input-sm font-mono text-base-content ${field}`} maxLength={64} placeholder={m.customerPlaceholder} value={d.customerRef} disabled={locked} onChange={(e) => set('customerRef', e.target.value)} />
                 </label>
-                <p className="mt-1 text-xs text-base-content/50">{m.customerHint}</p>
+                {customer.state !== 'empty' && customer.state !== 'id' && (
+                  <span className={`text-xs ${customer.state === 'found' ? 'text-success' : customer.state === 'loading' ? 'text-base-content/50' : 'text-warning'}`} role="status" data-testid="intake-customer-status" data-state={customer.state}>
+                    {customer.state === 'found' ? m.customerFound(customer.label ?? '') : customer.state === 'loading' ? messages.refField.loading : customer.state === 'notFound' ? m.customerNotFound : messages.refField.failed}
+                  </span>
+                )}
+                <p className="mt-1 text-xs text-base-content/50">
+                  {m.customerHint}{' '}
+                  <Link className="link link-primary" to="/customers" target="_blank" rel="noreferrer">
+                    {m.findCustomer}
+                  </Link>
+                </p>
               </div>
               <div>
                 <label className="block text-xs font-medium text-base-content/60">

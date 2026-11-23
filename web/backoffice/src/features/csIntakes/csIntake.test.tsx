@@ -10,7 +10,7 @@ import { as, renderAt } from '../../test/render';
 
 const fill = async (o: { channel?: string; customer?: string; order?: string; method?: string; relation?: string; summary?: string; note?: string }) => {
   if (o.channel) await userEvent.click(await screen.findByRole('radio', { name: o.channel }));
-  if (o.customer) await userEvent.type(screen.getByLabelText('고객 계정 ID'), o.customer);
+  if (o.customer) await userEvent.type(screen.getByLabelText('고객'), o.customer);
   if (o.order) await userEvent.type(screen.getByLabelText('주문 번호(선택)'), o.order);
   if (o.method) await userEvent.click(screen.getByRole('radio', { name: o.method }));
   if (o.note) await userEvent.type(screen.getByLabelText('어떻게 확인했는지(필수, 200자)'), o.note);
@@ -45,6 +45,20 @@ describe('전화·채팅 접수', () => {
     expect(await screen.findByText('상담원이 전화·채팅·메일로 받아 남긴 문의예요', { exact: false })).toBeInTheDocument();
     expect(await screen.findAllByTestId('cs-intake-row')).toHaveLength(1);
     expect(screen.getByText(/답변은 고객에게 가지 않아요/)).toBeInTheDocument();
+  });
+
+  it('고객번호(6자리)를 넣으면 고객을 찾아 확인하고, 고객 계정 ID 로 보낸다 — 없는 번호면 보내지 못한다', async () => {
+    const view = renderAt('/cs-intakes/new', as.cs);
+    await fill({ channel: '전화', customer: '999999', order: 'ORD-MOCK-1001', method: '주문 내용 대조', relation: '본인', summary: '배송 문의' });
+    expect(await screen.findByTestId('intake-customer-status')).toHaveAttribute('data-state', 'notFound');
+    expect(screen.getByRole('button', { name: '접수 남기기' })).toBeDisabled();
+    const box = screen.getByLabelText('고객');
+    await userEvent.clear(box);
+    await userEvent.type(box, '482913');
+    await waitFor(() => expect(screen.getByTestId('intake-customer-status')).toHaveTextContent('김*객 · 482913 고객으로 남겨요'));
+    await userEvent.click(screen.getByRole('button', { name: '접수 남기기' }));
+    await screen.findByTestId('cs-intake-saved');
+    expect((await view.mutations('/cs-intakes')[0]!.json()).customerRef).toBe('CUS-1001');
   });
 
   it('본인 확인 규칙 — 전화면 앱 로그인 채팅을 못 고르고, 주문 대조는 주문 번호·기타는 메모가 있어야 보낸다', async () => {
