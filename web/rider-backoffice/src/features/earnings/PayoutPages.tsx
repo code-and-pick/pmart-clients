@@ -3,19 +3,20 @@
 // - 보기: `GET /rider-payouts?payoutDate&riderId&state`(RIDER_OPS·OPERATOR_ADMIN). payoutDate 기본 = 오늘(서버, Asia/Seoul).
 // - 결과 표시: `POST /rider-payouts/{riderId}/{payoutDate}/results`(OPERATOR_ADMIN 만) — PAYING·PAID·FAILED(사유 필수).
 //   예정일 전 PAYING·PAID 는 422 PAYOUT_NOT_DUE, 바꿀 줄이 없으면 409. 라이더 알림함은 PAID·PAYMENT_FAILED 를 묶음마다 한 번(서버).
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Fragment, useState, type FormEvent } from 'react';
 import { Link, useSearchParams } from 'react-router';
 
 import { request } from '@pmart/web-core';
-import { CommandFeedback, QueryState, toUiState, useCommand } from '@pmart/web-ui';
+import { CommandFeedback, QueryState, toUiState, uiStateFromError, useCommand } from '@pmart/web-ui';
 import { commandParams } from '../../api/command';
 import { useApi } from '../../app/ApiContext';
 import { isOperatorAdmin } from '../../app/nav';
 import { useSession } from '../../app/SessionContext';
 import { ChipGroup, DataTable, PageHeader, ResultBar, SearchPanel, SearchRow, StatusBadge, type Tone } from '../../shared/admin';
 import { SavedViews } from '../../shared/SavedViews';
-import { resolveRiderId, RiderName, searchHint, StaffName, useRiderSummaries, RIDER_NUMBER } from '../../shared/displayNumbers';
+import { DeliveryRef, resolveRiderId, RiderName, searchHint, StaffName, useDeliveryNumbers, useRiderSummaries, RIDER_NUMBER } from '../../shared/displayNumbers';
+import { AdjustedTag, isAdjustedEarning } from '../../shared/adjustedTag';
 import { when, won } from '../../shared/opsUi';
 import { Caret, expandRowProps, InlineDetail, useInlineOpen } from '../../shared/simList';
 import { RiderDeliveriesButton, RiderInline } from '../riders/RiderPages';
@@ -43,7 +44,110 @@ export const payoutText = {
   adminOnly: '관리자만 표시할 수 있어요',
   compensations: (n: number) => `(보상 ${n})`,
   lastLine: (result: string, at: string) => `${result} · ${at} ·`,
+  items: {
+    title: '이 묶음의 배송',
+    col: { delivery: '배송', order: '주문번호', kind: '종류', amount: '금액' },
+    earning: '수행료',
+    compensation: '보상금',
+    empty: '이 묶음의 배송을 찾지 못했어요',
+    partial: (found: number, count: number) => `묶음 ${count}건 중 ${found}건만 찾았어요 — 오래전 배송을 늦게 조정한 건은 여기 안 보일 수 있어요`,
+  },
 } as const;
+
+/** 묶음에 든 지급 상태(지급 예정일이 같아도 산정 전·조정 대기는 묶음이 아니다 — 계약 /rider-payouts 설명) */
+const BUNDLED = new Set(['CONFIRMED', 'PAYING', 'PAID', 'PAYMENT_FAILED']);
+/** 지급 예정일 = 수행일 + 3영업일이라, 그 앞 31일 수행분에서 찾는다(조정으로 늦게 확정된 오래된 건은 빠질 수 있어 건수를 맞춰 본다). */
+const LOOKBACK_DAYS = 31;
+function daysBefore(date: string, days: number): string {
+  const d = new Date(`${date}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() - days);
+  return d.toISOString().slice(0, 10);
+}
+
+/**
+ * 지급 묶음 안의 배송(2026-11-24 사용자 "지급 관리에 어떤 주문건에 관한 지급인지 볼 수가 없네").
+ * 묶음 조회(/rider-payouts)에는 건 목록이 없어, 같은 라이더의 수행료(/rider-earnings, 수행일 기간)와 보상금(/rider-compensations)에서
+ * payoutDate 가 같은 묶음 상태 건을 모은다. 찾은 수가 묶음 건수와 다르면 그대로 알린다(다 찾은 척 하지 않는다).
+ */
+function PayoutItems({ riderId, payoutDate, count }: { readonly riderId: string; readonly payoutDate: string; readonly count: number }) {
+  const api = useApi();
+  const t = payoutText.items;
+  const [earnings, comps] = useQueries({
+    queries: [
+      {
+        queryKey: ['payout-earnings', riderId, payoutDate],
+        queryFn: () =>
+          request('GET', api.execution.GET('/rider-earnings', { params: { query: { riderId, from: daysBefore(payoutDate, LOOKBACK_DAYS), to: payoutDate, size: 200 } } })),
+      },
+      {
+        queryKey: ['payout-compensations', riderId],
+        queryFn: () => request('GET', api.execution.GET('/rider-compensations', { params: { query: { riderId } } })),
+      },
+    ],
+  });
+  const rows = [
+    ...(earnings.data?.items ?? [])
+      .filter((it) => it.payoutDate === payoutDate && BUNDLED.has(it.settlementState ?? ''))
+      .map((it) => ({ key: `e-${it.earningId}`, deliveryId: it.deliveryId, kind: t.earning, amount: it.total, adjusted: isAdjustedEarning(it) })),
+    ...(comps.data?.items ?? [])
+      .filter((it) => it.payoutDate === payoutDate && BUNDLED.has(it.settlementState))
+      .map((it) => ({ key: `c-${it.compensationId}`, deliveryId: it.deliveryId, kind: t.compensation, amount: it.amount, adjusted: false })),
+  ];
+  const numbers = useDeliveryNumbers(rows.map((r) => r.deliveryId));
+  const loading = earnings.isPending || comps.isPending;
+  const failed = earnings.isError || comps.isError;
+  return (
+    <div className="mb-4" data-testid="payout-items">
+      <h4>{t.title}</h4>
+      <QueryState
+        state={loading ? { kind: 'loading' } : failed ? uiStateFromError(earnings.error ?? comps.error) : rows.length === 0 ? { kind: 'empty' } : { kind: 'ready', data: rows }}
+        onRetry={() => {
+          void earnings.refetch();
+          void comps.refetch();
+        }}
+        emptyText={t.empty}
+      >
+        {() => (
+          <>
+            <table className="table table-sm w-auto min-w-[28rem] bg-base-100">
+              <thead>
+                <tr>
+                  <th>{t.col.delivery}</th>
+                  <th>{t.col.order}</th>
+                  <th>{t.col.kind}</th>
+                  <th className="text-right">{t.col.amount}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r) => {
+                  const no = numbers.get(r.deliveryId ?? '');
+                  return (
+                    <tr key={r.key} data-testid="payout-item">
+                      <td>
+                        <DeliveryRef deliveryId={r.deliveryId} numbers={no} />
+                      </td>
+                      <td className="font-mono">{no?.orderNumber ?? '—'}</td>
+                      <td>
+                        {r.kind}
+                        {r.adjusted && <AdjustedTag />}
+                      </td>
+                      <td className="text-right tabular-nums">{typeof r.amount === 'number' ? won(r.amount) : '—'}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+            {rows.length !== count && (
+              <p className="mt-2 text-xs text-warning" data-testid="payout-items-partial">
+                {t.partial(rows.length, count)}
+              </p>
+            )}
+          </>
+        )}
+      </QueryState>
+    </div>
+  );
+}
 
 type PayoutState = 'CONFIRMED' | 'PAYING' | 'PAID' | 'PAYMENT_FAILED';
 const STATES: readonly PayoutState[] = ['CONFIRMED', 'PAYING', 'PAID', 'PAYMENT_FAILED'];
@@ -201,6 +305,7 @@ export function PayoutsMenu() {
                     </tr>
                     {isOpen && (
                       <InlineDetail colSpan={7} to={to} testId="payout-inline" actions={<RiderDeliveriesButton riderId={p.riderId} />}>
+                        <PayoutItems riderId={p.riderId} payoutDate={p.payoutDate} count={p.count} />
                         <RiderInline riderId={p.riderId} />
                       </InlineDetail>
                     )}

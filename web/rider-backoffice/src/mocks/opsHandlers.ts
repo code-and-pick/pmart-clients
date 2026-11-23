@@ -291,10 +291,21 @@ export const opsHandlers = [
   http.get(`${API_BASE}/rider-earnings`, ({ request }) => {
     const g = guard(request);
     if ('error' in g) return g.error;
+    // 지급 묶음(payoutAppealHandlers seed)과 맞는 확정 수행료도 — 지급 관리 "이 묶음의 배송"(2026-11-24). riderId 로 거른다.
+    const rid = new URL(request.url).searchParams.get('riderId');
+    const all = [
+      { earningId: 'ERN-9', deliveryId: 'DLV-3', riderId: 'RD-7', calculable: true, total: 3900, settlementState: 'PENDING_CONFIRMATION', recordedAt: '2026-11-17T02:00:00.000Z' },
+      { earningId: 'ERN-P1', deliveryId: 'DLV-1', riderId: 'RD-7', calculable: true, total: 3500, settlementState: 'CONFIRMED', payoutDate: '2026-11-19', recordedAt: '2026-11-14T02:00:00.000Z' },
+      { earningId: 'ERN-P2', deliveryId: 'DLV-2', riderId: 'RD-7', calculable: true, total: 4000, settlementState: 'CONFIRMED', payoutDate: '2026-11-19', adjustmentRef: 'ADJ-1', note: '지원센터 조정 — 지급(매장 귀책)', recordedAt: '2026-11-14T05:00:00.000Z' },
+      { earningId: 'ERN-P3', deliveryId: 'DLV-4', riderId: 'RD-8', calculable: true, total: 3500, settlementState: 'PAYING', payoutDate: '2026-11-19', recordedAt: '2026-11-14T03:00:00.000Z' },
+      { earningId: 'ERN-P4', deliveryId: 'DLV-5', riderId: 'RD-8', calculable: true, total: 3500, settlementState: 'PAYING', payoutDate: '2026-11-19', recordedAt: '2026-11-14T04:00:00.000Z' },
+      { earningId: 'ERN-P5', deliveryId: 'DLV-6', riderId: 'RD-7', calculable: true, total: 3500, settlementState: 'CONFIRMED', payoutDate: '2026-11-21', recordedAt: '2026-11-18T02:00:00.000Z' },
+    ];
+    const items = all.filter((it) => !rid || it.riderId === rid);
     return HttpResponse.json({
-      items: [{ earningId: 'ERN-9', deliveryId: 'DLV-3', riderId: 'RD-7', calculable: true, total: 3900, settlementState: 'PENDING_CONFIRMATION', recordedAt: '2026-11-17T02:00:00.000Z' }],
+      items,
       totals: { estimated: 3900, confirmed: 0, paid: 0 },
-      page: { size: 1 },
+      page: { size: items.length },
     });
   }),
   http.get(`${API_BASE}/rider-operating-time`, ({ request }) => {

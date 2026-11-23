@@ -60,7 +60,10 @@ const seed = () => ({
     { appealId: 'AP-2', riderId: 'RD-7', targetType: 'EARNING', targetRef: 'DLV-3', restriction: null, body: '엘리베이터 고장이었는데 추가 배달료가 반려됐어요.', state: 'OPEN', submittedAt: '2026-11-18T06:00:00.000Z', decidedAt: null, decidedBy: null, decisionNote: null },
     { appealId: 'AP-0', riderId: 'RD-7', targetType: 'EARNING', targetRef: 'DLV-1', restriction: null, body: '거리 계산이 틀렸어요.', state: 'UPHELD', submittedAt: '2026-11-16T05:00:00.000Z', decidedAt: '2026-11-16T07:00:00.000Z', decidedBy: 'OP-rops-1', decisionNote: '경로 확인 결과 정상 산정이에요.' },
   ] as MockAppeal[],
-  compensations: [] as MockCompensation[],
+  // RD-7 11-19 묶음(3건 중 보상 1)의 보상금 — 지급 관리 "이 묶음의 배송"(2026-11-24)
+  compensations: [
+    { compensationId: 'CMP-0', appealId: 'AP-old', deliveryId: 'DLV-3', riderId: 'RD-7', amount: 3000, reason: '이의 인정 보상', settlementState: 'CONFIRMED', payoutDate: '2026-11-19', recordedBy: 'OP-rops-1', recordedAt: '2026-11-16T07:00:00.000Z' },
+  ] as MockCompensation[],
 });
 
 export const payoutAppealState = seed();

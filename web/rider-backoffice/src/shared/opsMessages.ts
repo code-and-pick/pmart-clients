@@ -186,7 +186,7 @@ export const ops = {
     empty: '조정할 수행료가 없어요.',
     col: { earning: '수행료', delivery: '배송', rider: '라이더', performedOn: '수행일', note: '메모' },
     fault: '귀책',
-    faultName: { RIDER: '라이더', CUSTOMER: '고객', STORE: '매장', PMART: 'PMart' } as Readonly<Record<string, string>>,
+    faultName: { RIDER: '라이더', CUSTOMER: '고객', STORE: '센터(MFC)', PMART: '본사·시스템' } as Readonly<Record<string, string>>,
     reason: '사유(2~300자)',
     adjust: '조정',
     adjusted: '조정했어요.',

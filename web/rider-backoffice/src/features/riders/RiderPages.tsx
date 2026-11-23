@@ -27,6 +27,7 @@ import { useSession } from '../../app/SessionContext';
 import { LIVE } from '../../shared/liveRefresh';
 import { messages } from '../../shared/messages';
 import { ops } from '../../shared/opsMessages';
+import { AdjustedTag, isAdjustedEarning, unpaidText } from '../../shared/adjustedTag';
 import { label, none, when, won } from '../../shared/opsUi';
 import { riderMessages as rm } from './riderMessages';
 import { helpTone } from '../support/supportUi';
@@ -605,7 +606,10 @@ function RiderDetailPage() {
                           <DeliveryRef deliveryId={it.deliveryId} numbers={earningNos.get(it.deliveryId ?? '')} />
                         </td>
                         <td className="whitespace-nowrap">{when(it.recordedAt)}</td>
-                        <td className="tabular-nums">{it.calculable ? won(it.total) : <StatusBadge tone="warning">{r.notCalculable}</StatusBadge>}</td>
+                        <td className="tabular-nums">
+                          {it.calculable ? won(it.total) : it.settlementState === 'ADJUSTED' ? <span className="text-base-content/60">{unpaidText}</span> : <StatusBadge tone="warning">{r.notCalculable}</StatusBadge>}
+                          {isAdjustedEarning(it) && <AdjustedTag />}
+                        </td>
                         <td>{label(n.settlementState, it.settlementState)}</td>
                       </tr>
                     ))}

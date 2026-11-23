@@ -8,6 +8,20 @@ import { as, renderAt } from '../test/render';
 const posts = (sent: readonly Request[], part: string) => sent.filter((r) => r.method === 'POST' && new URL(r.url).pathname.includes(part));
 
 describe('지급 관리', () => {
+  it('줄을 펼치면 이 묶음의 배송(수행료·보상금)이 보이고, 건수가 맞으면 모자란다는 안내가 없다(2026-11-24)', async () => {
+    renderAt('/payouts', as.admin);
+    const rows = await screen.findAllByTestId('payout-row');
+    await userEvent.click(rows[0]!);
+    const box = await screen.findByTestId('payout-items');
+    const items = await within(box).findAllByTestId('payout-item');
+    expect(items).toHaveLength(3); // RD-7 11-19 묶음 3건(수행료 2 + 보상금 1)
+    expect(box).toHaveTextContent('보상금');
+    expect(box).toHaveTextContent('3,500원');
+    expect(within(box).queryByTestId('payout-items-partial')).not.toBeInTheDocument();
+    // 조정한 수행료는 작게 "조정"(adjustmentRef) — 1건만
+    expect(within(box).getAllByTestId('adjusted-tag')).toHaveLength(1);
+  });
+
   it('관리자: 묶음을 보고 지급 완료로 표시한다(멱등 키)', async () => {
     const view = renderAt('/payouts', as.admin);
     const rows = await screen.findAllByTestId('payout-row');

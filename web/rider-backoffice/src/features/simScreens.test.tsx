@@ -126,7 +126,7 @@ describe('상세 — 보기 구역·처리 구역(2026-11-21)', () => {
     await userEvent.selectOptions(within(row).getByLabelText('귀책'), 'RIDER');
     expect(preview).toHaveTextContent('라이더 귀책 → 미지급');
     await userEvent.selectOptions(within(row).getByLabelText('귀책'), 'STORE');
-    expect(preview).toHaveTextContent('매장 귀책 → ');
+    expect(preview).toHaveTextContent('센터(MFC) 귀책 → ');
     expect(preview).toHaveTextContent('확정');
   });
 });
