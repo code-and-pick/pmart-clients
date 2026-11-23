@@ -30,6 +30,8 @@ export default defineConfig(({ mode }) => {
       globals: true,
       setupFiles: ['./src/test/setup.ts'],
       include: ['src/**/*.test.{ts,tsx}'],
+      // 시험 하나 제한 시간(기본 5초) — 첫 기다림 8초보다 길게(2026-11-24, MFC 백오피스 15초와 같은 까닭)
+      testTimeout: 30_000,
     },
   };
 });

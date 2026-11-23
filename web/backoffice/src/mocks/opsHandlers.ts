@@ -1115,7 +1115,8 @@ export const opsHandlers = [
       vehicleType: r.vehicleType,
       joinedAt: r.joinedAt,
       lastHeartbeatAt: r.lastHeartbeatAt,
-      deliveryAreas: r.operatingMfcId ? [{ mfcId: r.operatingMfcId, zoneId: 'ZONE-MOCK-1' }] : [],
+      // rider 0.26.0 — zoneName(지금 발효 권역의 구역 이름, 못 읽으면 null)
+      deliveryAreas: r.operatingMfcId ? [{ mfcId: r.operatingMfcId, zoneId: 'ZONE-MOCK-1', zoneName: '서면 구역' }] : [],
       operating: { status: r.operatingStatus, newDispatchEnabled: r.newDispatchEnabled, activeDeliveryCount: r.operatingStatus === 'ON_DUTY' ? 1 : 0, ...(r.operatingMfcId ? { mfcId: r.operatingMfcId } : {}) },
       settings: { dispatchMode: 'AI_RECOMMENDED', oneAtATime: false },
       restriction: { state: s.restriction, until: null, reason: null },

@@ -1941,6 +1941,8 @@ export const messages = {
   },
 
   riders: {
+    /** rider 0.26.0 zoneName 이 없을 때(권역에 없는 구역·못 읽음) 구역 ID 옆 설명 */
+    zoneNameMissing: '구역 이름을 받지 못했어요 — 구역 ID 를 보여요',
     detailTitle: '라이더',
     basic: '기본 정보',
     moved: '라이더 찾기·계정 제한 걸기/풀기·제한 검토는 라이더 백오피스에서 해요. 여기서는 보기만 해요.',

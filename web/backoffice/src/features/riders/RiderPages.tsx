@@ -60,7 +60,7 @@ function RiderBasic({ rider }: { readonly rider: StaffRiderDetail }) {
               [m.riders.operating, <span key="op">{label(m.riders.operatingName, op?.status)}{op?.mfcId ? <> · <CenterName id={op.mfcId} /></> : null}</span>],
               [m.riders.newDispatch, op?.newDispatchEnabled === undefined ? m.none : op.newDispatchEnabled ? m.riders.newDispatchOn : m.riders.newDispatchOff],
               [m.riders.activeDeliveries, text(op?.activeDeliveryCount)],
-              [m.riders.areas, (rider.deliveryAreas ?? []).length > 0 ? <span key="a">{(rider.deliveryAreas ?? []).map((a, i) => <span key={i}>{i > 0 ? ', ' : ''}<CenterName id={a.mfcId} />{a.zoneId ? ` · ${a.zoneId}` : ''}</span>)}</span> : m.none],
+              [m.riders.areas, (rider.deliveryAreas ?? []).length > 0 ? <span key="a">{(rider.deliveryAreas ?? []).map((a, i) => <span key={i}>{i > 0 ? ', ' : ''}<CenterName id={a.mfcId} />{a.zoneName ? ` · ${a.zoneName}` : a.zoneId ? <span className="text-base-content/50" title={m.riders.zoneNameMissing}>{` · ${a.zoneId}`}</span> : null}</span>)}</span> : m.none],
               [m.riders.dispatchMode, rider.settings?.dispatchMode ? <CodeLabel key="d" code={rider.settings.dispatchMode} names={m.riders.dispatchModeName} /> : m.none],
               [m.riders.restriction, `${label(m.riders.restrictionName, rider.restriction?.state)}${rider.restriction?.until ? ` ~ ${when(rider.restriction.until)}` : ''}`],
               [m.riders.lastHeartbeat, when(rider.lastHeartbeatAt)],
