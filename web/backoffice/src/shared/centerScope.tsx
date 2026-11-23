@@ -67,9 +67,9 @@ export function CenterPicker() {
   const missing = centerId !== '' && !list.some((c) => c.centerId === centerId);
   return (
     <label className="flex shrink-0 items-center gap-1.5 text-xs text-base-content/70" title={centers.isError ? m.failed : m.hint}>
-      <span>{m.label}</span>
+      <span className="hidden sm:inline">{m.label}</span>
       <select
-        className={`select select-xs w-36 ${centerId ? 'border-primary font-semibold text-primary' : ''}`}
+        className={`select select-xs w-28 sm:w-36 ${centerId ? 'border-primary font-semibold text-primary' : ''}`}
         aria-label={m.pickerLabel}
         value={centerId}
         onChange={(e) => setCenterId(e.target.value)}

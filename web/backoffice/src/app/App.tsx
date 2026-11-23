@@ -239,23 +239,26 @@ function Layout() {
     <SectionMenuContext.Provider value={<WidgetMenuButton />}>
     <div className="flex min-h-screen flex-col bg-base-200">
       <ScrollToTopOnNavigate />
-      <header className="flex h-11 shrink-0 items-center gap-3 border-b border-base-300 bg-base-100 px-4">
+      {/* 좁은 화면(640px 미만, 2026-11-23 점검 — 390px 에서 머리줄이 571px 로 넘침): 앱 이름·시계·목 표시·단축키는 숨기고 센터 칸은 좁게 */}
+      <header className="flex h-11 shrink-0 items-center gap-2 border-b border-base-300 bg-base-100 px-2 sm:gap-3 sm:px-4">
         <Link to="/" className="flex shrink-0 items-center gap-2 font-bold text-base-content" aria-label={m.goHome}>
           {/* 로고 배지(2026-11-19 — 라이더 백오피스와 같게) */}
           <span className="grid h-6 w-6 shrink-0 place-items-center rounded bg-accent text-xs text-accent-content" aria-hidden="true">
             P
           </span>
-          <span className="truncate text-[15px]">{m.appTitle}</span>
+          <span className="hidden truncate text-[15px] sm:inline">{m.appTitle}</span>
         </Link>
         {/* 번호로 바로 찾기(Ctrl+K, 2026-11-18) — 로그인했을 때만. AWS 처럼 로고 바로 옆 */}
         {session && <QuickJump />}
         {/* 센터 고르기(2026-11-23) — 고른 센터 것만 보기, 화면을 옮겨도 그대로 */}
         {session && <CenterPicker />}
-        <div className="ml-auto flex items-center gap-2 text-sm">
-            {session && <LiveClock />}
-            {env.isMock && <span className="badge badge-accent badge-sm">{m.mockBadge}</span>}
-            {/* 단축키 안내(2026-11-19) */}
-            <ShortcutHelp />
+        <div className="ml-auto flex shrink-0 items-center gap-1 text-sm sm:gap-2">
+            <span className="hidden sm:contents">
+              {session && <LiveClock />}
+              {env.isMock && <span className="badge badge-accent badge-sm">{m.mockBadge}</span>}
+              {/* 단축키 안내(2026-11-19) — 좁은 화면(휴대폰)은 키보드가 없어 숨김 */}
+              <ShortcutHelp />
+            </span>
             <ThemeToggle />
             {session ? (
               // 내 정보(2026-11-23 "마이페이지처럼") — 머리글자 + 이름, 누르면 사번·역할·내 정보·로그아웃
