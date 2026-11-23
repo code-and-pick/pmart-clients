@@ -97,7 +97,7 @@ function PayoutItems({ riderId, payoutDate, count }: { readonly riderId: string;
   const loading = earnings.isPending || comps.isPending;
   const failed = earnings.isError || comps.isError;
   return (
-    <div className="mb-4" data-testid="payout-items">
+    <div data-testid="payout-items">
       <h4>{t.title}</h4>
       <QueryState
         state={loading ? { kind: 'loading' } : failed ? uiStateFromError(earnings.error ?? comps.error) : rows.length === 0 ? { kind: 'empty' } : { kind: 'ready', data: rows }}
@@ -305,8 +305,7 @@ export function PayoutsMenu() {
                     </tr>
                     {isOpen && (
                       <InlineDetail colSpan={7} to={to} testId="payout-inline" actions={<RiderDeliveriesButton riderId={p.riderId} />}>
-                        <PayoutItems riderId={p.riderId} payoutDate={p.payoutDate} count={p.count} />
-                        <RiderInline riderId={p.riderId} />
+                        <RiderInline riderId={p.riderId} lead={<PayoutItems riderId={p.riderId} payoutDate={p.payoutDate} count={p.count} />} />
                       </InlineDetail>
                     )}
                     </Fragment>

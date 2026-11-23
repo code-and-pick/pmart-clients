@@ -34,7 +34,7 @@ const cx = {
   onDuty: '운행 중',
   delivering: '배송 중',
   waiting: '대기',
-  staleOrNone: '위치 끊김·없음',
+  staleOrNone: '위치 미확인',
   people: (k: number) => `${k}명`,
   map: '위치 지도',
   list: '라이더 목록',

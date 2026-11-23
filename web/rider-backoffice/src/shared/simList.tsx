@@ -2,7 +2,7 @@
 // 기준: pmart-rider-simulation src/ui/SearchFilterBar.tsx(찾기 칸 + 깔때기 팝업 + 고른 것 ✕ 칩)·console-v2.css(.md-inline 줄 아래 펼침).
 // 공용 web/ui 는 다른 백오피스가 써서 고치지 않는다 — admin.tsx 가 이 파일의 SearchPanel·GuideBox·PageHeader 로 공용 것을 덮는다.
 // 정보는 줄이지 않는다: 긴 설명은 ⓘ 로 접어 두고(누르면 그대로 보임), 거르기는 모두 팝업 안에 남고, 건 조건은 칩으로 늘 보인다.
-import { type FormEvent, type KeyboardEvent, type MouseEvent, type ReactNode, useEffect, useId, useState } from 'react';
+import { type CSSProperties, type FormEvent, type KeyboardEvent, type MouseEvent, type ReactNode, useEffect, useId, useState } from 'react';
 import { Link } from 'react-router';
 
 const t = {
@@ -250,6 +250,14 @@ export function Caret({ open }: { readonly open: boolean }) {
   );
 }
 
+/**
+ * 펼친 칸 위 버튼 색(2026-11-24 사용자 "점선 밑에 있으니까 눈에 더 안들어와. 아까처럼 이 라이더의 배송은 그대로 하양, 전체 상세는 파랑으로").
+ * 표의 첫 칸 링크 규칙(DataTable — 이름 점선 밑줄)이 펼친 줄의 첫 칸 안 버튼에도 걸려 밑줄을 끈다. 앱 전체 `a { color: inherit }` 때문에
+ * 글자색도 직접 준다(btn-primary 클래스만으로는 글자가 바탕색과 같아 보이지 않았다).
+ */
+export const inlineMainButton: CSSProperties = { backgroundColor: 'var(--color-primary)', color: 'var(--color-primary-content)', textDecoration: 'none' };
+export const inlineSubButton: CSSProperties = { backgroundColor: '#ffffff', color: '#111827', borderColor: 'var(--color-base-300)', textDecoration: 'none' };
+
 /** 줄 바로 아래 펼친 상세(.md-inline) — 오른쪽 위 "전체 상세 ›" 링크 */
 /**
  * 줄 아래 펼친 상세. "전체 상세 ›"(와 [actions])는 위쪽 오른쪽 한 줄에 같은 크기 버튼으로 모은다.
@@ -266,7 +274,7 @@ export function InlineDetail({ colSpan, to, linkLabel = t.full, actions, childre
             <div className="pm-inline-bar">
               {actions}
               {to && (
-                <Link className="btn btn-sm border-base-300 bg-base-100" to={to}>
+                <Link className="btn btn-sm border-0" style={inlineMainButton} to={to}>
                   {linkLabel}
                 </Link>
               )}

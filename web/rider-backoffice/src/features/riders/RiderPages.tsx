@@ -18,7 +18,7 @@ import { useCenterQuery } from '../../app/CenterScope';
 import { AllDone, ChipGroup, CursorPager, DataTable, GuideBox, DetailHeader, FieldList, Notice, PageHeader, ResultBar, SearchPanel, SearchRow, SectionTabs, StatCard, StatStrip, StatusBadge, type Tone } from '../../shared/admin';
 import { statText, useListRows } from '../../shared/listKit';
 import { SavedViews } from '../../shared/SavedViews';
-import { ActionSection, Caret, expandRowProps, InlineDetail, SummaryBar, useInlineOpen, ViewSection } from '../../shared/simList';
+import { ActionSection, Caret, expandRowProps, InlineDetail, inlineSubButton, SummaryBar, useInlineOpen, ViewSection } from '../../shared/simList';
 import { Icon } from '../../shared/icons';
 import { ui } from '../../shared/uiMessages';
 import { DeliveryRef, RiderName, riderNumberInput, RiderRef, StaffName, SystemIds, useDeliveryNumbers, useRiderSummaries } from '../../shared/displayNumbers';
@@ -28,7 +28,7 @@ import { LIVE } from '../../shared/liveRefresh';
 import { messages } from '../../shared/messages';
 import { ops } from '../../shared/opsMessages';
 import { AdjustedTag, isAdjustedEarning, unpaidText } from '../../shared/adjustedTag';
-import { label, none, when, won } from '../../shared/opsUi';
+import { label, none, useAreaName, when, won } from '../../shared/opsUi';
 import { riderMessages as rm } from './riderMessages';
 import { helpTone } from '../support/supportUi';
 import { DAY, dur, seoulDate } from '../dashboard/analysisData';
@@ -342,7 +342,7 @@ function RiderSearchPage({ signups = false }: { readonly signups?: boolean }) {
 /** 펼친 라이더 요약 위 "이 라이더의 배송" — InlineDetail actions 로 "전체 상세 ›" 옆에 둔다. */
 export function RiderDeliveriesButton({ riderId }: { readonly riderId: string }) {
   return (
-    <Link className="btn btn-sm border-base-300 bg-base-100" to={`/deliveries?riderId=${encodeURIComponent(riderId)}`}>
+    <Link className="btn btn-sm" style={inlineSubButton} to={`/deliveries?riderId=${encodeURIComponent(riderId)}`}>
       {r.deliveries}
     </Link>
   );
@@ -353,12 +353,40 @@ export function RiderDeliveriesButton({ riderId }: { readonly riderId: string })
  * 왼쪽: 기본 정보(가린 이름·전화, 수단·운행·제한·가입, 배송 지역, 가입·탈퇴 시각), 오른쪽: 정산계좌·동의.
  * 원문 열람·계정 제한·수행료·배정·컴플레인은 "전체 상세 ›"에서(사유 입력 흐름 그대로).
  */
-export function RiderInline({ riderId }: { readonly riderId: string }) {
+export function RiderInline({ riderId, lead }: { readonly riderId: string; /** 지급 관리: 왼쪽에 둘 이 화면의 주 내용(묶음의 배송). 주면 오른쪽은 짧은 라이더 정보·정산계좌만(동의 표 없음) */ readonly lead?: ReactNode }) {
   const api = useApi();
+  const areaName = useAreaName();
   const detail = useQuery({
     queryKey: ['rider', riderId],
     queryFn: () => request('GET', api.riders.GET('/riders/{riderId}', { params: { path: { riderId }, query: { includeWithdrawn: true } } })),
   });
+  if (lead !== undefined) {
+    // 2026-11-24 사용자 "지급관리에 라이더 클릭했을 때 나타나는 세부창 간격이 왜 이래" — 묶음 표·정보 4칸·긴 동의 표가 위아래로 쌓여
+    // 왼쪽이 크게 비었다. 지급에 필요한 것만: 왼쪽 묶음의 배송, 오른쪽 누구에게(이름·전화·배달지역)·어디로(정산계좌·은행).
+    return (
+      <div className="pm-inline-cols">
+        <div>{lead}</div>
+        <div className="pm-inline-side">
+          <h4>{r.info}</h4>
+          <QueryState state={toUiState(detail)} onRetry={() => void detail.refetch()}>
+            {(x) => (
+              <div className="space-y-3">
+                <FieldList
+                  testId="rider-inline-info"
+                  rows={[
+                    [r.col.name, x.nameMasked ?? none],
+                    [r.col.phone, <span className="font-mono">{x.phoneMasked || none}</span>],
+                    [r.areas, (x.deliveryAreas ?? []).map((a) => areaName(a.mfcId)).join(', ') || none],
+                  ]}
+                />
+                <AccountAndConsents detail={x} consents={false} />
+              </div>
+            )}
+          </QueryState>
+        </div>
+      </div>
+    );
+  }
   return (
     <QueryState state={toUiState(detail)} onRetry={() => void detail.refetch()}>
       {(x) => (
@@ -374,7 +402,7 @@ export function RiderInline({ riderId }: { readonly riderId: string }) {
                 [r.col.operating, <StatusBadge tone={operatingTone(x.operating?.status)}>{label(n.operatingStatus, x.operating?.status)}</StatusBadge>],
                 [r.col.restriction, <StatusBadge tone={restrictionTone(x.restriction?.state)}>{label(n.restriction, x.restriction?.state)}</StatusBadge>],
                 [r.signupStatus, signupText(x.signupStatus, x.signupDecidedBy ?? null)],
-                [r.areas, (x.deliveryAreas ?? []).map((a) => a.mfcId).join(', ') || none],
+                [r.areas, (x.deliveryAreas ?? []).map((a) => areaName(a.mfcId)).join(', ') || none],
                 [r.col.joinedAt, when(x.joinedAt)],
                 ...(x.withdrawnAt ? [[rx.withdrawn, when(x.withdrawnAt)] as const] : []),
               ]}
@@ -404,6 +432,7 @@ function thisWeek(): { from: string; to: string } {
 // rider·execution·dispatch·case 는 서로 다른 서비스 값이라 구역도 따로, 못 읽은 구역만 오류.
 function RiderDetailPage() {
   const api = useApi();
+  const areaName = useAreaName();
   const { riderId = '' } = useParams();
   // 운행 중(ON_DUTY)이면 15초마다(배정·완료가 바로 보이게), 운행 중이 아니면 멈춤.
   // operating.activeDeliveryCount 는 계약에 있지만 rider-service 가 아직 채우지 않아(백엔드 확인 2026-11-18) 쓰지 않는다 — 진행 중은 배정 이력(CURRENT)으로 센다.
@@ -524,7 +553,7 @@ function RiderDetailPage() {
                     [r.col.operating, label(n.operatingStatus, x.operating?.status)],
                     [r.col.restriction, label(n.restriction, x.restriction?.state)],
                     [r.signupStatus, signupText(x.signupStatus, x.signupDecidedBy ?? null)],
-                    [r.areas, (x.deliveryAreas ?? []).map((a) => a.mfcId).join(', ') || none],
+                    [r.areas, (x.deliveryAreas ?? []).map((a) => areaName(a.mfcId)).join(', ') || none],
                     [r.col.joinedAt, when(x.joinedAt)],
                     ...(x.withdrawnAt ? [[rx.withdrawn, when(x.withdrawnAt)] as const] : []),
                   ]}
@@ -795,7 +824,7 @@ function RiderOpenReviews({ riderId }: { readonly riderId: string }) {
   );
 }
 /** 정산계좌 등록 여부·은행 이름(계좌번호는 오지 않는다) + 지금 동의한 버전(항목마다 마지막만) */
-function AccountAndConsents({ detail }: { readonly detail: components['schemas']['StaffRiderDetail'] }) {
+function AccountAndConsents({ detail, consents: withConsents = true }: { readonly detail: components['schemas']['StaffRiderDetail']; readonly consents?: boolean }) {
   const consents = detail.consents ?? [];
   const registered = detail.bankAccountRegistered;
   return (
@@ -811,6 +840,7 @@ function AccountAndConsents({ detail }: { readonly detail: components['schemas']
         ]}
       />
       <p className="text-xs text-base-content/50">{rm.bank.numberNote}</p>
+      {withConsents && (
       <div className="space-y-2">
         <p className="text-sm font-semibold">{rm.consents.title}</p>
         <p className="text-xs text-base-content/50">{rm.consents.note}</p>
@@ -839,6 +869,7 @@ function AccountAndConsents({ detail }: { readonly detail: components['schemas']
           </DataTable>
         )}
       </div>
+      )}
     </div>
   );
 }

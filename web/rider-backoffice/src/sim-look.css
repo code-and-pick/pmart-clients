@@ -268,3 +268,11 @@ main [role='alert'][data-state] > p.select-all {
   text-align: center;
   font-size: 0.875rem;
 }
+
+/* 결과 줄 정렬(최신순 | 과거순 — 공용 ResultBar 의 글자 단추)에도 위 고른 칩 테두리가 붙는데, 글자 단추라 여백이 없어
+   테두리가 글자에 붙어 겹쳤다(2026-11-24 사용자 "최신순 과거순 버튼 테두리가 너무 좁게 쳐져 있어 글자랑 겹치네"). 여백·둥근 모서리를 준다. */
+main [role='radiogroup'][aria-label='정렬'] > [role='radio'] {
+  padding: 3px 10px;
+  border-radius: 6px;
+  line-height: 1.4;
+}

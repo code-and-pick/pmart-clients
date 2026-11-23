@@ -101,7 +101,8 @@ export const ops = {
     seconds: (s: number) => (s < 60 ? `${s}초 전` : `${Math.floor(s / 60)}분 전`),
     staleCount: (n: number) => `위치 끊김 ${n}명`,
     eta: (t: string) => `도착 예정 ${t}`,
-    filter: { all: '전체', delivering: '배송 중', stale: '위치 끊김·없음', sim: '시뮬 라이더만' },
+    // 2026-11-24 사용자 "2 줄로 내려오니까 전체 | 배송중 | 위치 미확인 | 시험용 이렇게 바꿔줘" — 한 줄에 들어가게 짧게
+    filter: { all: '전체', delivering: '배송 중', stale: '위치 미확인', sim: '시험용' },
     emptyFiltered: '조건에 맞는 라이더가 없어요.',
   },
   actions: {

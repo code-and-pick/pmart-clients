@@ -13,7 +13,7 @@ import { Link, useSearchParams } from 'react-router';
 import { request } from '@pmart/web-core';
 import { useApi } from '../../app/ApiContext';
 import { DataTable, Notice, PageHeader, ResultBar, SearchPanel, SearchRow } from '../../shared/admin';
-import { Caret, expandRowProps, InlineDetail, useInlineOpen } from '../../shared/simList';
+import { Caret, expandRowProps, InlineDetail, inlineMainButton, inlineSubButton, useInlineOpen } from '../../shared/simList';
 import { DeliveryNo, resolveDeliveryId, resolveRiderId, RiderName, StaffName, useDeliveryNumbers, useRiderSummaries } from '../../shared/displayNumbers';
 import { useSession } from '../../app/SessionContext';
 import { when } from '../../shared/opsUi';
@@ -337,27 +337,44 @@ export function StaffActionsMenu() {
                         actions={
                           <>
                             {riderPath && (
-                              <Link className="btn btn-sm border-base-300 bg-base-100" to={`${riderPath}#${RIDER_SECTION[r.action]?.id ?? 'sec-info'}`}>
+                              <Link className="btn btn-sm border-0" style={inlineMainButton} to={`${riderPath}#${RIDER_SECTION[r.action]?.id ?? 'sec-info'}`}>
                                 {RIDER_SECTION[r.action]?.label ?? t.go.riderSection.rider}
                               </Link>
                             )}
                             {deliveryPath && (
-                              <Link className="btn btn-sm border-base-300 bg-base-100" to={deliveryPath}>
+                              <Link className="btn btn-sm" style={inlineSubButton} to={deliveryPath}>
                                 {t.go.delivery}
                               </Link>
                             )}
                           </>
                         }
                       >
-                        <dl className="grid gap-3 sm:grid-cols-2">
-                          <div>
-                            <dt className="text-xs text-base-content/60">{t.inline.result}</dt>
-                            <dd className="mt-1 text-sm font-semibold">{r.detail ? actionDetailText(r.action, r.detail) : t.inline.none}</dd>
-                          </div>
-                          <div>
-                            <dt className="text-xs text-base-content/60">{t.inline.reason}</dt>
-                            <dd className="mt-1 whitespace-pre-wrap text-sm">{r.reason ?? t.inline.none}</dd>
-                          </div>
+                        {/* 2026-11-24 사용자 "아까 정보는 잘 뜨던데 겹쳐서 문제였지. 지금은 정보를 다 날려 버렸네" — 정보는 전부 다시,
+                            겹친 건 좁은 칸(11rem) 때문이라 넓은 칸(최소 16rem)에 값은 줄바꿈 허용 */}
+                        <dl className="grid grid-cols-[repeat(auto-fill,minmax(16rem,1fr))] gap-x-8 gap-y-4" data-testid="staff-action-fields">
+                          {(
+                            [
+                              [t.col.at, when(r.at)],
+                              [t.col.action, t.actionName[r.action] ?? r.action],
+                              [t.col.actor, <StaffName operatorId={r.actorId} me={me} />],
+                              [t.col.rider, r.riderId ? <RiderName riderId={r.riderId} nameMasked={s?.nameMasked} riderNumber={s?.riderNumber} /> : t.inline.none],
+                              [
+                                t.col.delivery,
+                                r.deliveryId ? (
+                                  <DeliveryNo deliveryId={r.deliveryId} deliveryNumber={deliveryNos.get(r.deliveryId)?.deliveryNumber} orderNumber={deliveryNos.get(r.deliveryId)?.orderNumber} />
+                                ) : (
+                                  t.inline.none
+                                ),
+                              ],
+                              [t.inline.result, r.detail ? actionDetailText(r.action, r.detail) : t.inline.none],
+                              [t.inline.reason, r.reason ? <span className="whitespace-pre-wrap">{r.reason}</span> : t.inline.none],
+                            ] as const
+                          ).map(([k, v]) => (
+                            <div key={k} className="min-w-0 border-l border-base-300 pl-4">
+                              <dt className="text-xs font-medium text-base-content/55">{k}</dt>
+                              <dd className="mt-0.5 break-words text-[15px] font-semibold">{v}</dd>
+                            </div>
+                          ))}
                         </dl>
                       </InlineDetail>
                     )}

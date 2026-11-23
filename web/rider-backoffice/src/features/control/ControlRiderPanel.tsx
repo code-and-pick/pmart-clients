@@ -34,7 +34,8 @@ export const panelMessages = {
   title: '라이더 한눈에',
   pick: '주문번호나 라이더 번호로 찾거나, 왼쪽 목록·지도에서 라이더를 고르면 위치·전달 상황·운행 시간이 여기에 보여요.',
   joined: (d: string) => `가입 ${d}`,
-  gone: '이 라이더는 지금 이 센터의 운행 목록에 없어요(운행 종료·다른 센터).',
+  // 2026-11-24 사용자 "좋은데 길어서 2줄로 내려와" — 한 줄로
+  gone: '이 센터에서 운행 중이 아니에요(종료·다른 센터)',
   close: '닫기',
   tile: { location: '위치', delivery: '전달 상황', connected: '접속 시간', waiting: '대기 시간', operating: '오늘 운행시간' },
   receiving: (s: string) => `수신 중 · ${s}`,

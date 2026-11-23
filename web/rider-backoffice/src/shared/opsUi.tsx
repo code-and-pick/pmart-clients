@@ -95,3 +95,20 @@ export function useCenterName(): (id: string | null | undefined) => string | nul
   });
   return (id) => (id ? ((centers.data?.items ?? []).find((c) => c.centerId === id)?.name ?? id) : null);
 }
+
+/**
+ * 배달지역 짧은 이름(2026-11-24 사용자 "라이더 관리에 배달지역 목포 부산진구 이런식으로 적어줘") — center-master 이름에서
+ * 회사·시설 말("PMart ", " MFC", "지점", "센터")만 떼어 지역 이름만. 떼고 남는 게 없으면 원래 이름, 이름을 모르면 ID 그대로.
+ */
+export function useAreaName(): (id: string | null | undefined) => string | null {
+  const centerName = useCenterName();
+  return (id) => {
+    const full = centerName(id);
+    if (!full || full === id) return full;
+    const short = full
+      .replace(/^PMart\s*/i, '')
+      .replace(/\s*(MFC|지점|센터)$/i, '')
+      .trim();
+    return short || full;
+  };
+}

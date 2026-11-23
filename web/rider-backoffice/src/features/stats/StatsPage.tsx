@@ -81,6 +81,12 @@ export const statsMessages = {
   dailyChart: (n: number) => `날짜별 배송 ${n}일 — 완료·실패`,
   legendDone: '완료',
   legendFailed: '실패',
+  legendOther: '진행·취소',
+  legendResolved: '끝남',
+  legendOpen: '처리 중',
+  // 라이더 한 줄 막대 옆 글(2026-11-24 사용자 "배송, 완료, 실패, 건수, 끝남 UI 를 이렇게 해놓으니까 성과가 눈에 잘 안 들어와")
+  riderBarText: (assigned: number, done: number, failed: number) => `배송 ${assigned} · 완료 ${done}${failed > 0 ? ` · 실패 ${failed}` : ''}`,
+  incidentBarText: (count: number, resolved: number) => (resolved >= count ? `${count}건 모두 끝남` : `${count}건 중 ${count - resolved}건 처리 중`),
   byMfc: '센터별 비교',
   byRider: '라이더별 성과',
   incidents: '사고(도움요청) 통계',
@@ -130,6 +136,8 @@ export const statsMessages = {
     category: '종류',
     count: '건수',
     resolved: '끝남',
+    volume: '배송 · 완료 · 실패',
+    progress: '건수 · 처리',
     resolve: '평균 처리 시간',
   },
   empty: '이 기간에 배정된 배송이 없어요.',
@@ -228,6 +236,7 @@ export function StatsPage() {
 
   const rows: readonly ExecRow[] = exec.data?.rows ?? [];
   const incidents: readonly Incident[] = exec.data?.incidents ?? [];
+  const incidentMax = Math.max(1, ...incidents.map((x) => x.count));
   const drows: readonly DispRow[] = disp.data?.rows ?? [];
   const riderSummaries = useRiderSummaries(rows.map((r) => r.riderId));
 
@@ -247,6 +256,7 @@ export function StatsPage() {
   const byMfc = [...groupBy(rows, (r) => r.mfcId).entries()].sort(([, x], [, y]) => total(y, (r) => r.assigned) - total(x, (r) => r.assigned));
   const dispByMfc = groupBy(drows, (r) => r.mfcId);
   const byRider = [...groupBy(rows, (r) => r.riderId).entries()].sort(([, x], [, y]) => total(y, (r) => r.assigned) - total(x, (r) => r.assigned));
+  const riderMax = Math.max(1, ...byRider.map(([, rs]) => total(rs, (r) => r.assigned)));
 
   // 배송 통계(execution)를 못 읽으면 숫자 0 대신 오류 안내 — 조회 실패 ≠ 0(PR 리뷰 2026-11-23). 배차 통계만 실패하면 그 칸에만 안내.
   const loading = exec.isPending || disp.isPending;
@@ -416,13 +426,12 @@ export function StatsPage() {
                 </DataTable>
               </Section>
               <Section title={s.byRider} testId="stats-riders">
+                <Legend parts={[[s.legendDone, 'bg-success'], [s.legendFailed, 'bg-error'], [s.legendOther, 'bg-base-content/20']]} />
                 <DataTable testId="stats-rider-table">
                   <thead>
                     <tr>
                       <th>{s.col.rider}</th>
-                      <th>{s.col.deliveries}</th>
-                      <th>{s.col.completed}</th>
-                      <th>{s.col.failed}</th>
+                      <th className="w-[38%]">{s.col.volume}</th>
                       <th>{s.col.completion}</th>
                       <th>{s.col.late}</th>
                       <th>{s.col.delivery}</th>
@@ -439,10 +448,18 @@ export function StatsPage() {
                               <RiderName riderId={rider} nameMasked={sum?.nameMasked} riderNumber={sum?.riderNumber} />
                             </Link>
                           </td>
-                          <td>{x.assigned}</td>
-                          <td>{x.completed}</td>
-                          <td>{x.failed}</td>
-                          <td><RateCell num={x.completed} den={x.completed + x.failed} kind="done" /></td>
+                          <td>
+                            <StackBar
+                              max={riderMax}
+                              parts={[
+                                [x.completed, 'bg-success'],
+                                [x.failed, 'bg-error'],
+                                [Math.max(0, x.assigned - x.completed - x.failed), 'bg-base-content/20'],
+                              ]}
+                              text={s.riderBarText(x.assigned, x.completed, x.failed)}
+                            />
+                          </td>
+                          <td><BigRate num={x.completed} den={x.completed + x.failed} /></td>
                           <td><RateCell num={x.late} den={x.judged} kind="late" /></td>
                           <td>{dur(x.delivery)}</td>
                         </tr>
@@ -457,32 +474,87 @@ export function StatsPage() {
             {incidents.length === 0 ? (
               <p className="text-sm text-base-content/60">{s.noIncidents}</p>
             ) : (
+              <>
+              <Legend parts={[[s.legendResolved, 'bg-base-content/45'], [s.legendOpen, 'bg-warning']]} />
               <DataTable testId="stats-incident-table">
                 <thead>
                   <tr>
                     <th>{s.col.category}</th>
-                    <th>{s.col.count}</th>
-                    <th>{s.col.resolved}</th>
+                    <th className="w-[45%]">{s.col.progress}</th>
                     <th>{s.col.resolve}</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {incidents.map((x) => (
+                  {[...incidents].sort((p, q) => q.count - p.count).map((x) => (
                     <tr key={x.category} data-testid="stats-incident-row">
-                      <td>{label(n.helpCategory, x.category)}</td>
-                      <td>{x.count}</td>
-                      <td>{x.resolved}</td>
-                      <td>{dur(x.resolveSeconds)}</td>
+                      <td className="font-medium">{label(n.helpCategory, x.category)}</td>
+                      <td>
+                        <StackBar
+                          max={incidentMax}
+                          parts={[
+                            [x.resolved, 'bg-base-content/45'],
+                            [Math.max(0, x.count - x.resolved), 'bg-warning'],
+                          ]}
+                          text={s.incidentBarText(x.count, x.resolved)}
+                          warn={x.count > x.resolved}
+                        />
+                      </td>
+                      <td className="tabular-nums">{dur(x.resolveSeconds)}</td>
                     </tr>
                   ))}
                 </tbody>
               </DataTable>
+              </>
             )}
           </Section>
           <p className="text-xs text-base-content/50">{s.definitions}</p>
         </>
       )}
     </section>
+  );
+}
+
+/**
+ * 한 줄 쌓인 막대(2026-11-24) — 전체 길이 = 이 줄의 합(가장 큰 줄 기준), 칸마다 색, 칸 사이 2px 틈. 아래 작은 글로 실제 수.
+ * 색은 범례(Legend)와 함께라 색만으로 뜻을 전하지 않는다.
+ */
+function StackBar({ parts, max, text, warn = false }: { readonly parts: ReadonlyArray<readonly [number, string]>; readonly max: number; readonly text: string; readonly warn?: boolean }) {
+  const sum = parts.reduce((t, [v]) => t + v, 0);
+  return (
+    <div className="min-w-40 space-y-1" data-testid="stack-bar">
+      <div className="flex h-2.5 gap-[2px]" style={{ width: `${Math.max(4, (sum / max) * 100)}%` }} aria-hidden="true">
+        {parts
+          .filter(([v]) => v > 0)
+          .map(([v, cls], i) => (
+            <span key={i} className={`h-full rounded-[3px] ${cls}`} style={{ flexGrow: v, flexBasis: 0 }} />
+          ))}
+      </div>
+      <p className={`text-xs tabular-nums ${warn ? 'font-semibold text-warning' : 'text-base-content/70'}`}>{text}</p>
+    </div>
+  );
+}
+
+/** 범례 — 표 위 한 줄(색 점 + 이름) */
+function Legend({ parts }: { readonly parts: ReadonlyArray<readonly [string, string]> }) {
+  return (
+    <div className="mb-2 flex flex-wrap items-center gap-4 text-xs text-base-content/70" data-testid="stats-legend">
+      {parts.map(([name, cls]) => (
+        <span key={name} className="inline-flex items-center gap-1.5">
+          <span className={`h-2.5 w-2.5 rounded-[3px] ${cls}`} aria-hidden="true" />
+          {name}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+/** 완료율 크게(성과의 주인공) — 분모 0 이면 "—" */
+function BigRate({ num, den }: { readonly num: number; readonly den: number }) {
+  if (den <= 0) return <span className="text-base-content/40">—</span>;
+  return (
+    <span className="text-lg font-bold tabular-nums" data-testid="rate-done">
+      {pct(num, den)}
+    </span>
   );
 }
 

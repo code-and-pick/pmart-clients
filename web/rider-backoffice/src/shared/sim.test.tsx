@@ -40,7 +40,7 @@ describe('시뮬레이션 웹 연결', () => {
     expect(rows).toHaveLength(2);
     expect(within(rows.find((r) => r.id === 'control-RD-sim-01')!).getByTestId('sim-badge')).toHaveTextContent('시뮬');
     expect(within(rows.find((r) => r.id === 'control-RD-7')!).queryByTestId('sim-badge')).toBeNull();
-    await userEvent.click(screen.getByRole('radio', { name: '시뮬 라이더만' }));
+    await userEvent.click(screen.getByRole('radio', { name: '시험용' }));
     expect(screen.getAllByTestId('control-row').map((r) => r.id)).toEqual(['control-RD-sim-01']);
   });
 });
