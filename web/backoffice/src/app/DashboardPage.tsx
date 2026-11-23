@@ -9,7 +9,7 @@ import type { ReactNode } from 'react';
 import { Link, useSearchParams } from 'react-router';
 
 import { ProblemFailure, request } from '@pmart/web-core';
-import { AllCentersTag, useCenterScope } from '../shared/centerScope';
+import { AllCentersTag, useCenterScope, CenterName } from '../shared/centerScope';
 import { useApi } from './ApiContext';
 import { ALERT_SIZE, useAlertCount, type AlertKey } from './MenuAlerts';
 import { ApprovalTypes, LiveSummary, RiskPanel } from './DashboardSections';
@@ -199,7 +199,7 @@ function RecentOrders({ from, to }: { readonly from: string; readonly to: string
                   <StatusBadge tone={statusTone(o.status)}>{label(messages.orders.statusName, o.status)}</StatusBadge>
                 </td>
                 <td>{when(o.confirmedAt)}</td>
-                <td>{o.mfcId}</td>
+                <td><CenterName id={o.mfcId} /></td>
                 <td className="text-right tabular-nums">{won(o.approvedAmount)}</td>
               </tr>
             ))}

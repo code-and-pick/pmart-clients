@@ -19,6 +19,7 @@ import { toUiState } from '@pmart/web-ui';
 import { useCommand } from '@pmart/web-ui';
 import { ChipGroup, CodeLabel, PageHeader, StatusBadge } from '../../shared/admin';
 import { ago, EmptyState, tableClass, UnderlineTabs } from '../products/parts';
+import { CenterName } from '../../shared/centerScope';
 
 type CenterType = 'MFC' | 'CDC';
 
@@ -134,6 +135,12 @@ export function SkuHandlingPage() {
   const enabled = enabledParam === 'true' ? true : enabledParam === 'false' ? false : undefined;
   const cursor = params.get('cursor') ?? undefined;
   const [centerInput, setCenterInput] = useState(centerId);
+  // 고를 센터 — 지금 고른 종류(MFC·CDC)의 모든 센터
+  const centers = useQuery({
+    queryKey: ['centers', 'type', type],
+    staleTime: 5 * 60_000,
+    queryFn: async () => ((await request('GET', api.center.GET('/centers', { params: { query: { type } } }))).items ?? []).filter((c) => c.centerId),
+  });
   const [reason, setReason] = useState('');
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
   const [batchEnabled, setBatchEnabled] = useState(true);
@@ -179,21 +186,35 @@ export function SkuHandlingPage() {
             ]}
           />
         </div>
-        <form
-          className="space-y-1"
-          onSubmit={(e) => {
-            e.preventDefault();
-            setParam('center', centerInput.trim());
-          }}
-        >
-          <div className="text-xs font-medium text-base-content/55">{m.handlings.centerId}</div>
-          <div className="join">
-            <input aria-label={m.handlings.centerId} placeholder="MFC-BSN-01" className="input input-sm join-item font-mono" value={centerInput} onChange={(e) => setCenterInput(e.target.value)} />
-            <button type="submit" className="btn btn-sm btn-primary join-item">
-              {m.search}
-            </button>
-          </div>
-        </form>
+        {/* 센터는 이름으로 고른다(2026-11-24 점검 — "MFC-BSN-01" 같은 ID 를 직접 쳐 넣던 칸). 목록을 못 읽으면 ID 를 쳐 넣는 칸으로 */}
+        <label className="space-y-1">
+          <span className="block text-xs font-medium text-base-content/55">{m.handlings.centerId}</span>
+          {centers.isError ? (
+            <form
+              className="join"
+              onSubmit={(e) => {
+                e.preventDefault();
+                setParam('center', centerInput.trim());
+              }}
+            >
+              <input aria-label={m.handlings.centerId} className="input input-sm join-item font-mono" value={centerInput} onChange={(e) => setCenterInput(e.target.value)} />
+              <button type="submit" className="btn btn-sm btn-primary join-item">
+                {m.search}
+              </button>
+            </form>
+          ) : (
+            <select aria-label={m.handlings.centerId} className="select select-sm w-56" value={centerId} onChange={(e) => setParam('center', e.target.value)} data-testid="handling-center">
+              <option value="">{centers.isPending ? '…' : m.handlings.centerPlaceholder}</option>
+              {(centers.data ?? []).map((c) => (
+                <option key={c.centerId} value={c.centerId}>
+                  {c.name ?? c.centerId}
+                </option>
+              ))}
+              {/* 주소로 들어온 센터가 목록에 없으면 그 ID 도 남겨 둔다(몰래 바꾸지 않는다) */}
+              {centerId && !(centers.data ?? []).some((c) => c.centerId === centerId) && <option value={centerId}>{centerId}</option>}
+            </select>
+          )}
+        </label>
         <label className="min-w-0 flex-1 space-y-1 sm:min-w-64">
           <span className="block text-xs font-medium text-base-content/55">{`${m.reasonLabel} · ${m.handlings.reasonHint}`}</span>
           <input aria-label={m.reasonLabel} className="input input-sm w-full" maxLength={500} value={reason} onChange={(e) => setReason(e.target.value)} />
@@ -209,7 +230,7 @@ export function SkuHandlingPage() {
           {/* 센터 이름 줄 + 취급 탭(밑줄) */}
           <div className="flex items-center gap-2 border-b border-base-300 px-5 py-3">
             <span className="badge badge-neutral badge-sm">{type}</span>
-            <h2 className="font-mono font-bold">{centerId}</h2>
+            <h2 className="font-bold"><CenterName id={centerId} /></h2>
           </div>
           <UnderlineTabs<'' | 'true' | 'false'>
             label={m.handlings.filter}

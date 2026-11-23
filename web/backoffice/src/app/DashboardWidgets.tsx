@@ -8,7 +8,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { Link } from 'react-router';
 
 import { ProblemFailure, request } from '@pmart/web-core';
-import { AllCentersTag, useCenterScope } from '../shared/centerScope';
+import { AllCentersTag, useCenterScope, CenterName } from '../shared/centerScope';
 import { useApi } from './ApiContext';
 import { liveQuery } from './DashboardSections';
 import { slaText } from '../features/cases/CaseSlaPage';
@@ -520,7 +520,7 @@ function SoldOutRow() {
           {items.map((i) => (
             <li key={i.mfcId}>
               <span className="flex justify-between gap-2">
-                <span className="truncate text-base-content/60">{i.mfcId}</span>
+                <span className="truncate text-base-content/60"><CenterName id={i.mfcId} /></span>
                 <span className="font-semibold tabular-nums">{i.soldOutSkuCount}</span>
               </span>
               <Meter value={i.handledSkuCount > 0 ? i.soldOutSkuCount / i.handledSkuCount : null} tone={i.soldOutSkuCount > 0 ? 'danger' : 'neutral'} className="-mt-0.5 w-full" />

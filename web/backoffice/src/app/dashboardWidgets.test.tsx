@@ -116,7 +116,7 @@ describe('대시보드 지표(백엔드 회신 2026-11-18)', () => {
     // 목: 4/140 + 7/162 + 2/118 + 5/131 = 18/551
     await waitFor(() => expect(cell).toHaveTextContent('551건 중 18건'));
     expect(within(cell).getByTestId('dash-shortage-reasons')).toHaveTextContent('결품 14 · 파손 3 · 막힘 1');
-    expect(await screen.findByTestId('dash-soldout-centers')).toHaveTextContent('MFC-BSN-01');
+    await waitFor(async () => expect(await screen.findByTestId('dash-soldout-centers')).toHaveTextContent('부산진구 MFC')); // 센터는 이름(2026-11-24)
   });
 
   it('지표가 구현되면(200) 숫자와 "N건 중 M건"', async () => {

@@ -2959,7 +2959,8 @@ export const messages = {
   handlings: {
     title: '센터 SKU 취급',
     centerType: '센터 종류',
-    centerId: '센터 ID',
+    centerId: '센터',
+    centerPlaceholder: '센터를 고르세요',
     centerIdHint: '센터 목록이 아직 없어 센터 ID 를 직접 넣어요.',
     filter: '취급',
     on: 'ON',
@@ -2976,7 +2977,7 @@ export const messages = {
     skuState: 'SKU 상태',
     // 화면 다듬기(2026-11-18)
     intro: '센터마다 SKU 를 취급(ON)할지 말지(OFF) 정해요.',
-    pickCenter: '센터 종류를 고르고 센터 ID 를 넣어 조회하세요',
+    pickCenter: '센터 종류와 센터를 고르면 그 센터의 취급 상품이 보여요',
     selected: (n: number) => `${n}개 선택`,
     shown: (n: number, more: boolean) => `${n}개 표시${more ? ' · 다음 쪽 있음' : ''}`,
     skuStateName: { ACTIVE: '활성', INACTIVE: '비활성' } as Readonly<Record<string, string>>,
@@ -3070,7 +3071,7 @@ export const messages = {
     recordContact: '이 문의로 고객 연락 남기기',
     requester: '문의한 사람',
     requesterName: { CUSTOMER: '고객', RIDER: '라이더' } as Readonly<Record<string, string>>,
-    rider: '라이더 ID',
+    rider: '라이더',
     riderTitle: '라이더 문의',
     riderIntro: '라이더가 앱에서 남긴 정산·계정·앱 오류 등의 문의에 답해요(답변은 지원센터, 본사 관리자는 보기만). 답변은 응대일 뿐 정산·계정을 바꾸지 않아요.',
     riderReplyNote: '라이더는 앱의 문의에서 답변을 봐요. 답변은 고칠 수 없어요.',
