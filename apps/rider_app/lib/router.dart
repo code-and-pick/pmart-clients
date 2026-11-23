@@ -202,6 +202,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           notice: s.extra is RiderNotification
               ? s.extra! as RiderNotification
               : null,
+          notificationId: s.uri.queryParameters['id'],
         ),
       ),
     ],

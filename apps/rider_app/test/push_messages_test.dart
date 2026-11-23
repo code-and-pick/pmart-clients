@@ -78,6 +78,17 @@ void main() {
       pushRoute(PushMessage.fromData({'notificationId': 'n3', 'type': 'NONE'})),
       '/notifications',
     );
+    // 공지(RIDER_NOTICE)는 알림함이 아니라 그 공지 전문으로(2026-11-24)
+    expect(
+      pushRoute(
+        PushMessage.fromData({
+          'notificationId': 'nt-9',
+          'type': 'NONE',
+          'templateKey': 'RIDER_NOTICE',
+        }),
+      ),
+      '/notifications/notice?id=nt-9',
+    );
     expect(pushRoute(PushMessage.fromData({})), isNull);
     // 일반 배차모드 새 배달(백엔드 PR #192) → 배달리스트
     final list = PushMessage.fromData({

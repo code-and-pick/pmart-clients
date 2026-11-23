@@ -56,6 +56,10 @@ class RiderNotification {
 /// 공지 알림 종류(notification 0.5.0 `sendRiderNotice` — 알림함 한 줄 templateKey).
 const riderNoticeTemplate = 'RIDER_NOTICE';
 
+/// 공지 전문 화면 주소 — 알림 ID 로 알림함에서 찾아 보인다(푸시로 열거나 앱을 다시 켜도 같은 화면).
+String noticeRoute(String notificationId) =>
+    '/notifications/notice?id=${Uri.encodeQueryComponent(notificationId)}';
+
 typedef NotificationInbox = ({List<RiderNotification> items, int unread});
 
 /// `GET /me/notifications`·`POST /me/notifications/{id}/reads`(라이더 토큰). 휴대폰 푸시는 아직 없어

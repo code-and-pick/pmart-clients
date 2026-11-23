@@ -25,6 +25,7 @@ class PushMessage {
     this.ref,
     this.notificationId,
     this.offerId,
+    this.templateKey,
     this.title,
     this.body,
   });
@@ -43,6 +44,7 @@ class PushMessage {
       ref: s('ref') ?? s('destinationRef'),
       notificationId: s('notificationId'),
       offerId: s('offerId'),
+      templateKey: s('templateKey'),
       title: title,
       body: body,
     );
@@ -55,6 +57,9 @@ class PushMessage {
   final String? ref;
   final String? notificationId;
   final String? offerId;
+
+  /// 알림 종류(notification data `templateKey` — 공지는 RIDER_NOTICE)
+  final String? templateKey;
   final String? title;
   final String? body;
 
@@ -70,6 +75,10 @@ const deliveryListRoute = '/deliveries';
 String? pushRoute(PushMessage m) {
   if (m.isOffer) return '/';
   if (m.isDeliveryList) return deliveryListRoute;
+  // 공지 푸시는 알림함이 아니라 그 공지 전문으로(2026-11-24 — 알림함 공지 읽기 다음 단계)
+  if (m.templateKey == riderNoticeTemplate && m.notificationId != null) {
+    return noticeRoute(m.notificationId!);
+  }
   return switch (notificationTarget(m.type, m.ref)) {
     HelpRequestTarget(:final deliveryId, :final requestId) =>
       '/deliveries/$deliveryId/support/$requestId',

@@ -205,8 +205,10 @@ void main() {
               GoRoute(path: '/', builder: (_, _) => const NotificationScreen()),
               GoRoute(
                 path: '/notifications/notice',
-                builder: (_, st) =>
-                    NoticeScreen(notice: st.extra as RiderNotification?),
+                builder: (_, st) => NoticeScreen(
+                  notice: st.extra as RiderNotification?,
+                  notificationId: st.uri.queryParameters['id'],
+                ),
               ),
             ],
           ),
@@ -220,5 +222,50 @@ void main() {
     expect(inbox.marked, ['nt-1']);
     expect(find.byKey(const ValueKey('notice-detail')), findsOneWidget);
     expect(find.text(long), findsOneWidget, reason: '본문 전문이 잘리지 않고 보인다');
+  });
+
+  testWidgets('푸시로 연 공지(ID 만)도 알림함에서 찾아 전문을 보인다(2026-11-24)', (t) async {
+    final repo = MockDeliveryRepository(latency: Duration.zero);
+    final inbox = _FakeInbox([
+      RiderNotification(
+        id: 'nt-7',
+        title: '연말 운영 안내',
+        body: '본문 전체',
+        createdAt: DateTime.now(),
+        read: false,
+        target: const NoTarget(),
+        notice: true,
+      ),
+    ]);
+    await t.pumpWidget(
+      ProviderScope(
+        retry: (_, _) => null,
+        overrides: [
+          envProvider.overrideWithValue(PmartEnv.mock),
+          deliveryRepositoryProvider.overrideWithValue(repo),
+          notificationRepositoryProvider.overrideWithValue(inbox),
+        ],
+        child: MaterialApp.router(
+          locale: const Locale('ko'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          routerConfig: GoRouter(
+            initialLocation: noticeRoute('nt-7'),
+            routes: [
+              GoRoute(
+                path: '/notifications/notice',
+                builder: (_, st) => NoticeScreen(
+                  notice: st.extra as RiderNotification?,
+                  notificationId: st.uri.queryParameters['id'],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    await t.pumpAndSettle();
+    expect(find.byKey(const ValueKey('notice-detail')), findsOneWidget);
+    expect(find.text('본문 전체'), findsOneWidget);
   });
 }

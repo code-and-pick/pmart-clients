@@ -85,7 +85,7 @@ class NotificationScreen extends ConsumerWidget {
     }
     if (!context.mounted) return;
     if (e.latest.notice) {
-      unawaited(context.push('/notifications/notice', extra: e.latest));
+      unawaited(context.push(noticeRoute(e.latest.id), extra: e.latest));
       return;
     }
     switch (e.latest.target) {
@@ -327,15 +327,43 @@ class _NotificationRow extends StatelessWidget {
 /// - 위 판: 옅은 주황 판 안에 분류 꼬리표 → 큰 제목(촘촘한 자간) → 받은 시각. 문서 머리처럼 한 덩어리로.
 /// - 본문: 넓은 좌우 여백, 행간 1.75, 빈 줄로 나눈 문단마다 띄움(문단 간격).
 /// 서버 알림 그대로(제목·본문·받은 시각). 지우기 API 가 없어 지우는 버튼은 없다.
-class NoticeScreen extends StatelessWidget {
-  const NoticeScreen({super.key, required this.notice});
+class NoticeScreen extends ConsumerWidget {
+  const NoticeScreen({super.key, required this.notice, this.notificationId});
 
+  /// 알림함에서 고른 공지(있으면 바로)
   final RiderNotification? notice;
 
+  /// 푸시로 열었거나 앱을 다시 켜 [notice] 가 없으면 이 ID 로 알림함에서 찾는다
+  final String? notificationId;
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
-    final n = notice;
+    final id = notificationId;
+    final inbox = notice == null && id != null
+        ? ref.watch(notificationInboxProvider)
+        : null;
+    if (inbox != null && inbox.isLoading && !inbox.hasValue) {
+      return Scaffold(
+        backgroundColor: Colors.white,
+        appBar: riderDarkBar(context, title: ''),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+    // 알림함을 못 읽었으면 "공지를 열 수 없어요"가 아니라 조회 실패로(실패를 없음으로 보이지 않는다)
+    if (inbox != null && inbox.hasError && !inbox.hasValue) {
+      return Scaffold(
+        backgroundColor: Colors.white,
+        appBar: riderDarkBar(context, title: ''),
+        body: RiderLoadError(
+          key: const ValueKey('notice-error'),
+          title: l10n.notiLoadFailed,
+          onRetry: () => ref.invalidate(notificationInboxProvider),
+        ),
+      );
+    }
+    final RiderNotification? n =
+        notice ?? inbox?.value?.items.where((x) => x.id == id).firstOrNull;
     final paragraphs = (n?.body ?? '')
         .trim()
         .split(RegExp(r'\n\s*\n'))
