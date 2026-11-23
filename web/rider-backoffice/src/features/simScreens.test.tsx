@@ -86,9 +86,10 @@ describe('화면 설명 ⓘ', () => {
 });
 
 describe('머리 줄 역할', () => {
-  it('역할은 작은 글자 한 줄로 — 한글 이름(2026-11-23 공용 RoleText)', async () => {
+  it('위치 줄 오른쪽 역할 표시는 없다(2026-11-24 사용자 "다 빼")', async () => {
     renderAt('/riders', as.riderOps);
-    expect(await screen.findByTestId('header-roles')).toHaveTextContent('라이더 운영');
+    await screen.findByTestId('page-title');
+    expect(screen.queryByTestId('header-roles')).not.toBeInTheDocument();
   });
 });
 
@@ -132,7 +133,7 @@ describe('상세 — 보기 구역·처리 구역(2026-11-21)', () => {
 });
 
 describe('찾기 줄 — 지우기 단추 없음, 구분은 붙은 단추 줄(2026-11-21)', () => {
-  it('상담함: "지우기" 단추가 없고, 구분 고르기는 늘 보이며, 걸면 끝에 "모두 지우기"', async () => {
+  it('상담함: "지우기"·"모두 지우기" 단추가 없고, 구분은 고른 것을 다시 누르면 풀린다(2026-11-24)', async () => {
     renderAt('/consults', as.riderOps);
     const bar = await screen.findByTestId('consults-search');
     expect(within(bar).queryByRole('button', { name: '지우기' })).not.toBeInTheDocument();
@@ -140,7 +141,8 @@ describe('찾기 줄 — 지우기 단추 없음, 구분은 붙은 단추 줄(20
     const kinds = within(bar).getByRole('radiogroup', { name: '구분' });
     await userEvent.click(within(kinds).getByRole('radio', { name: '일반 문의' }));
     expect(within(kinds).getByRole('radio', { name: '일반 문의' })).toHaveAttribute('aria-checked', 'true');
-    await userEvent.click(within(bar).getByRole('button', { name: '모두 지우기' }));
+    expect(within(bar).queryByRole('button', { name: '모두 지우기' })).not.toBeInTheDocument();
+    await userEvent.click(within(kinds).getByRole('radio', { name: '일반 문의' }));
     expect(within(kinds).getByRole('radio', { name: '전체' })).toHaveAttribute('aria-checked', 'true');
   });
 });

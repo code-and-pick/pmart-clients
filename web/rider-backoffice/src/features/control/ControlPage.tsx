@@ -28,6 +28,9 @@ const c = ops.control;
 const n = messages.names;
 export { CONTROL_REFRESH_MS };
 
+/** 관제를 처음 열 때 고르는 센터 이름(띄어쓰기 무시) — 사용자 결정 2026-11-24 */
+const DEFAULT_CENTER_NAME = '부산진구';
+
 /** 이 화면에서만 쓰는 문구 */
 const cx = {
   view: '보기',
@@ -94,7 +97,10 @@ export function ControlPage() {
   // 센터를 아직 안 골랐으면 첫 센터로 연다(빈 화면에서 드롭다운을 찾아야 하지 않게 — 2026-11-18 사용자). 고른 뒤 바꾸는 건 그대로.
   // RS-7(2026-11-23): 머리줄에서 센터를 골랐으면 그 센터부터
   const scope = useCenterScope();
-  const firstCenter = scope.mfcId || centers.data?.items?.[0]?.centerId;
+  // 2026-11-24 사용자 "왜 라이더 관제에 기본이 부산 남구야? … 기본은 부산 진구로 해" — 목록 첫 센터(부산 남구)가 아니라
+  // 이름에 "부산진구"가 든 센터부터. 없으면(다른 환경) 전처럼 첫 센터.
+  const centerItems = centers.data?.items ?? [];
+  const firstCenter = scope.mfcId || (centerItems.find((c) => (c.name ?? '').replace(/\s/g, '').includes(DEFAULT_CENTER_NAME)) ?? centerItems[0])?.centerId;
   useEffect(() => {
     if (!mfcId && firstCenter) {
       setParams(

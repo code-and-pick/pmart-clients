@@ -1,6 +1,6 @@
 // 라이더 백오피스 뼈대(2026-11-17, PC 1): 직원 로그인·세션·메뉴 자리. 메뉴 화면(관제 등)은 delivery 영역(PC 5)이 채운다.
 import { AppLauncher, UiTextProvider } from '@pmart/web-ui';
-import { AccountMenu, ConsoleBreadcrumb, ConsoleShell, RoleText, type ConsoleNavGroup } from '@pmart/web-ui/console';
+import { AccountMenu, ConsoleBreadcrumb, ConsoleShell, type ConsoleNavGroup } from '@pmart/web-ui/console';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useState, type ReactNode } from 'react';
 import { createBrowserRouter, createMemoryRouter, Navigate, NavLink, Outlet, RouterProvider, useLocation, useNavigate } from 'react-router';
@@ -142,12 +142,8 @@ function Layout() {
           {...(current ? { current: current.menu } : {})}
         />
       }
-      locationAside={
-        session ? (
-          // 역할 — 조용한 작은 회색 글자(2026-11-21), 2026-11-23 통합 백오피스와 같은 공용 RoleText·한글 이름
-          <RoleText roles={session.roles.map((r) => m.roleName[r] ?? r)} />
-        ) : undefined
-      }
+      // 위치 줄 오른쪽 역할 표시(방패 + "상담원 +4")는 뺐다 — 2026-11-24 사용자 "이건 뭐야 왜 있는 거니 … 다 빼".
+      // 역할은 오른쪽 위 내 정보 메뉴에 그대로 있다.
       banner={
         <>
           {/* 상세 제목 띠 자리(2026-11-19) — 상세를 내리면 DetailHeader 가 여기에 얇은 제목 띠를 그린다 */}

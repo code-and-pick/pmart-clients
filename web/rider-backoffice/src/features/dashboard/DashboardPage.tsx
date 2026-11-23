@@ -121,8 +121,8 @@ export function DashboardPage() {
         <QueryState state={toUiState(riders)} onRetry={() => void riders.refetch()}>
           {(r) => (
             <>
-              <StatCard label={d.onDuty} value={num(r.onDuty)} to={controlLink} hint={`${d.onDutyHint} · ${d.asOf(when(r.asOf))}`} testId="stat-on-duty" />
-              <StatCard label={d.accepting} value={num(r.onDutyAcceptingNew)} to={controlLink} hint={d.acceptingHint} testId="stat-accepting" />
+              <StatCard label={d.onDuty} value={num(r.onDuty)} to={controlLink} hint={d.onDutyHint} testId="stat-on-duty" />
+              <StatCard label={d.accepting} value={num(r.onDutyAcceptingNew)} to={controlLink} testId="stat-accepting" />
               <StatCard label={d.total} value={num(r.total)} to="/riders" testId="stat-riders-total" />
             </>
           )}

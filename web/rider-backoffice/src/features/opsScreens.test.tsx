@@ -14,9 +14,9 @@ describe('대시보드', () => {
     expect(screen.getByTestId('stat-on-duty')).toHaveTextContent('1');
     // 2026-11-23: "운행 중"과 "새 배달 받는 중"의 관계를 이름·설명으로
     expect(screen.getByTestId('stat-on-duty')).toHaveTextContent('운행 중 (전체)');
-    expect(screen.getByTestId('stat-on-duty')).toHaveTextContent('신규배차를 끄고 맡은 배송만 하는 라이더도 포함');
-    expect(screen.getByTestId('stat-accepting')).toHaveTextContent('새 배달 받는 중');
-    expect(screen.getByTestId('stat-accepting')).toHaveTextContent('운행 중이면서 신규배차를 켠 라이더');
+    // 2026-11-24: 회색 글은 짧게, 둘째 칸은 이름만(설명 없음)
+    expect(screen.getByTestId('stat-on-duty')).toHaveTextContent('신규배차 끄고 배송');
+    expect(screen.getByTestId('stat-accepting')).toHaveTextContent('배차 대기 중');
     expect(await screen.findByTestId('stat-in-progress')).toHaveTextContent('4');
     expect(screen.getByTestId('stat-surcharges')).toHaveTextContent('1');
     expect(screen.getByTestId('stat-by-state')).toHaveTextContent(/픽업\s*2/);

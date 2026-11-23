@@ -36,7 +36,6 @@ export function SearchPanel({
   submit = true,
   search,
   filters,
-  active: activeProp = false,
   testId,
 }: {
   readonly onSubmit: (e: FormEvent) => void;
@@ -141,12 +140,8 @@ export function SearchPanel({
           )}
         </span>
       ))}
-      {/* "지우기" 단추 대신(2026-11-21 사용자) — 글자는 찾기 칸의 ×, 거르기가 걸렸을 때만 칩 줄 끝에 "모두 지우기" */}
-      {(active.length > 0 || activeProp) && (
-        <button type="button" className="pm-fbar-reset" onClick={onReset}>
-          {t.clearAll}
-        </button>
-      )}
+      {/* 칩 줄 끝 "모두 지우기"는 뺐다(2026-11-24 사용자 "터치한 거 한번 더 터치하면 필터 풀리는 걸로 하고 모두 지우기 버튼은 없애자")
+          — 칩마다 ✕, 고르기 단추는 다시 누르면 풀린다. 깔때기 팝업 안의 "모두 지우기"는 그대로. */}
     </form>
   );
 }

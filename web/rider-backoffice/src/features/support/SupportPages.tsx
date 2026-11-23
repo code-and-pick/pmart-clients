@@ -447,7 +447,9 @@ const consultText = {
   allKinds: '전체',
   truncated: '도움요청이 너무 많아 가장 최근 것 일부를 불러오지 못했어요. 찾기·구분으로 좁히거나 완료 탭은 기간이 지나면 줄어요.',
   noMatch: (q: string) => `"${q}"에 맞는 상담이 없어요.`,
-  kind: { help: '배송 도움요청', inquiry: '일반 문의', failure: '전달 실패 결정 대기' },
+  // 2026-11-24 사용자 "전달 실패 결정 대기라고 쓴 건 너무 길지 않아? 결정대기라고만 하면 결정대기 중인 게 다 떠야 하겠지?"
+  // — "결정 대기" 만으로는 무엇을 기다리는지 모른다. 라이더가 전달 실패를 신고해 확정·반려를 기다리는 건이라 "실패 신고"로.
+  kind: { help: '배송 도움요청', inquiry: '일반 문의', failure: '실패 신고' },
   /** 라이더 앱 채팅 상담으로 연 문의 꼬리표(2026-11-23) */
   chat: '채팅',
   failureTitle: '전달 불가 신고 — 확정·반려 기다림',
@@ -718,7 +720,8 @@ function ConsultsPage({ tab }: { readonly tab: 'open' | 'done' }) {
               label={consultText.col.kind}
               value={kindFilter}
               options={(['all', 'help', 'inquiry', ...(tab === 'open' ? (['failure'] as const) : [])] as const).map((k) => ({ value: k, label: k === 'all' ? consultText.allKinds : consultText.kind[k] }))}
-              onChange={(k) => patch({ kind: k === 'all' ? '' : k })}
+              // 고른 것을 한 번 더 누르면 풀린다(2026-11-24 사용자 — "모두 지우기" 대신)
+              onChange={(k) => patch({ kind: k === 'all' || k === kindFilter ? '' : k })}
             />
           </>
         }

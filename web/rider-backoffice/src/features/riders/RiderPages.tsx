@@ -56,7 +56,7 @@ const rx = {
   stripLabel: '라이더 수',
   total: '전체 라이더',
   onDuty: '운행 중',
-  accepting: (n: string) => `새 배차 받는 중 ${n}`,
+  accepting: (n: string) => `배차 대기 중 ${n}`,
   joinedToday: '오늘 가입',
   memberRow: '가입 상태',
   active: '이용 중 라이더',

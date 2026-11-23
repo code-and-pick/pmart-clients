@@ -10,9 +10,9 @@ export const ops = {
     // 2026-11-23 사용자 "운행 중이랑 운행중·신규배차켬은 뭐가 다른 건지 구분이 안 가" — 둘의 관계를 이름과 설명에 드러낸다.
     // rider stats: onDuty = 운행을 시작한 라이더 전부, onDutyAcceptingNew = 그중 신규배차를 켜 새 배달을 받을 수 있는 라이더.
     onDuty: '운행 중 (전체)',
-    onDutyHint: '신규배차를 끄고 맡은 배송만 하는 라이더도 포함',
-    accepting: '새 배달 받는 중',
-    acceptingHint: '운행 중이면서 신규배차를 켠 라이더',
+    // 2026-11-24 사용자 "운행 중 밑에 회색 글 신규배차 끄고 배송 이라고만 적어, 새 배달 받는 중은 배차 대기 중으로 바꾸고 설명 필요없어"
+    onDutyHint: '신규배차 끄고 배송',
+    accepting: '배차 대기 중',
     joinedToday: '오늘 가입',
     restricted: '계정 제한',
     deliveries: '배송',
