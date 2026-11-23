@@ -739,24 +739,29 @@ function Preview({ body, sticky = true }: { readonly body: Body; readonly sticky
         })
       : themes.map((t) => ({ theme: t }));
   const firstTheme = seq.findIndex((x) => 'theme' in x);
-  // 남은 시간 머리(BR-84): 라벨형 = 제목 위 분홍 글자, 띠형 = 연분홍 띠 + 시·분·초 칸
+  // 남은 시간 머리(BR-84) — 고객 앱과 같은 색(팔레트 tertiary, PC 1 2026-11-23): 라벨형 = 제목 위 분홍 시계 글자(바탕 없음),
+  // 띠형 = 연분홍 띠 안에 제목과 "남은 시간" + 흰 칸 분홍 숫자(시·분·초)
+  const band = (t: Theme) => t.showTimer && (t.timerStyle ?? 'LABEL') === 'BAND';
   const timerHead = (t: Theme) => {
     if (!t.showTimer) return null;
     const [h, mi, se] = remainParts(t.endsAt);
-    return (t.timerStyle ?? 'LABEL') === 'BAND' ? (
-      <div className="flex items-center justify-between rounded-md bg-error/10 px-2 py-1.5" data-testid="preview-timer-band">
-        <span className="text-[11px] font-semibold text-error">{m.timerLeft}</span>
-        <span className="flex items-center gap-0.5 font-mono text-[11px] font-bold">
-          {[h, mi, se].map((x, i) => (
-            <span key={i} className="flex items-center gap-0.5">
-              {i > 0 && <span className="text-error">:</span>}
-              <span className="rounded bg-error px-1 text-error-content">{x}</span>
-            </span>
-          ))}
-        </span>
+    return band(t) ? (
+      <div className="space-y-1 rounded-md bg-app-tertiary-container px-2 py-1.5 text-app-on-tertiary-container" data-testid="preview-timer-band">
+        <p className="text-sm font-bold">{t.title || m.untitledTheme}</p>
+        <div className="flex items-center justify-between">
+          <span className="text-[11px] font-semibold">{m.timerLeft}</span>
+          <span className="flex items-center gap-0.5 font-mono text-[11px] font-bold">
+            {[h, mi, se].map((x, i) => (
+              <span key={i} className="flex items-center gap-0.5">
+                {i > 0 && <span className="text-app-tertiary">:</span>}
+                <span className="rounded-md bg-white px-1 text-app-tertiary">{x}</span>
+              </span>
+            ))}
+          </span>
+        </div>
       </div>
     ) : (
-      <p className="text-[11px] font-semibold text-error" data-testid="preview-timer-label">
+      <p className="text-[13px] font-bold text-app-tertiary" data-testid="preview-timer-label">
         {m.timerLabel(`${h}:${mi}:${se}`)}
       </p>
     );
@@ -764,7 +769,7 @@ function Preview({ body, sticky = true }: { readonly body: Body; readonly sticky
   const themeBlock = (t: Theme) => (
     <div key={t.sectionId} className="space-y-1.5">
       {timerHead(t)}
-      <p className="flex flex-wrap items-center gap-1.5 text-sm font-bold">{t.title || m.untitledTheme}</p>
+      {!band(t) && <p className="flex flex-wrap items-center gap-1.5 text-sm font-bold">{t.title || m.untitledTheme}</p>}
       {t.subtitle && <p className="text-xs text-base-content/55">{t.subtitle}</p>}
       {t.kind === 'RANKING_AUTO' ? (
         <p className="rounded-md bg-base-200 px-2 py-3 text-center text-xs text-base-content/60">{m.autoPreview(t.autoSize ?? 0)}</p>

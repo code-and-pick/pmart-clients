@@ -12,3 +12,10 @@
 @import '../../ui/src/console.css';
 /* 어두운 테마는 MFC 관제실 겉모습(공용 tower.css, 2026-11-21 PC 3 알림 A안) — 밝은 테마는 위 콘솔 그대로 */
 @import '../../ui/src/tower.css';
+
+/* 고객 앱 미리보기 색(2026-11-23 PC 1 — 고객 앱 팔레트 tertiary, BR-84 남은 시간 머리). 미리보기는 고객 앱 모양이라 밝기 테마와 상관없이 같은 색 */
+@theme {
+  --color-app-tertiary: #d9457a;
+  --color-app-tertiary-container: #ffe3ec;
+  --color-app-on-tertiary-container: #5c0f2e;
+}
