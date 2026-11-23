@@ -494,7 +494,7 @@ export function ClaimDetailPage() {
                 { id: 'claim-logistics', label: m.claims.sectionLogistics },
               ]}
             />
-            <div className="grid items-start gap-4 lg:grid-cols-3">
+            <div className="grid items-start gap-4 lg:grid-cols-3 [&>*]:min-w-0">
               <div className="min-w-0 space-y-4 lg:col-span-2">
                 {/* 맨 위 운영 조치 — 반품 회수 조치(조건이 안 맞으면 칸이 없다) */}
                 <div id="recovery-actions" className="scroll-mt-12 empty:hidden">

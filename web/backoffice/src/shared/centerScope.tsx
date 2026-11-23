@@ -60,8 +60,15 @@ export function useCenterName(centerId: string): string {
 
 /** 센터 이름(2026-11-23 사용자 "복잡하게 해놨네" — MFC-MOKPO-01 같은 ID 대신 이름). 목록에 없거나 못 읽으면 ID 그대로, 없으면 "-" */
 export function CenterName({ id }: { readonly id: string | null | undefined }) {
-  const name = useCenterName(id ?? '');
-  return <span title={id ?? undefined}>{id ? name : messages.none}</span>;
+  // 이름은 모든 센터 목록에서(운영 준비 중·CDC 도 — 고르기 목록은 운영 중 MFC 만이라 그 밖 센터가 ID 로 보였다, 2026-11-23 점검)
+  const api = useApi();
+  const all = useQuery({
+    queryKey: ['centers', 'all'],
+    staleTime: 5 * 60_000,
+    queryFn: () => request('GET', api.center.GET('/centers', {})),
+  });
+  const name = all.data?.items?.find((c) => c.centerId === id)?.name;
+  return <span title={id ?? undefined}>{id ? (name ?? id) : messages.none}</span>;
 }
 
 /** 머리줄 센터 고르기 */

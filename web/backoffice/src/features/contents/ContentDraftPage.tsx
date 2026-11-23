@@ -404,7 +404,7 @@ export function ContentDraftPage() {
           <>
             <Steps steps={m.contents.draftSteps} now={d.state === 'PUBLISHED' ? 4 : d.state === 'SUBMITTED' ? 3 : d.submittable ? 2 : 1} />
             <ContentNextAction draft={d} />
-            <div className="grid items-start gap-4 lg:grid-cols-3">
+            <div className="grid items-start gap-4 lg:grid-cols-3 [&>*]:min-w-0">
               <div id="draft-form" className="scroll-mt-4 space-y-4 lg:col-span-2">
                 {d.state === 'DRAFT' && (
                   <ContentForm

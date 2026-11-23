@@ -109,7 +109,7 @@ function ReturnForm({ orderId }: { readonly orderId: string }) {
     <QueryState state={toUiState(order)} onRetry={() => void order.refetch()}>
       {(o) => (
         <form
-          className="grid items-start gap-4 lg:grid-cols-3"
+          className="grid items-start gap-4 lg:grid-cols-3 [&>*]:min-w-0"
           aria-label={m.formLabel}
           onSubmit={(e) => {
             e.preventDefault();

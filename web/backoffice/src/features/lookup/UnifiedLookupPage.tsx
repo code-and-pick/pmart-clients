@@ -279,7 +279,7 @@ function LookupResult({ view, onOpenOrder }: { readonly view: LookupView; readon
           )}
         </Section>
       ) : (
-        <div className="grid items-start gap-4 lg:grid-cols-3">
+        <div className="grid items-start gap-4 lg:grid-cols-3 [&>*]:min-w-0">
           <div className="min-w-0 space-y-4 lg:col-span-2">
             <Section title={m.section.ORDER!} icon="box" failed={orderFailed} count={of('ORDER').length}>
               {of('ORDER').length === 0 ? <Nothing /> : of('ORDER').map((o) => <MatchCard key={`ORDER-${o.id}`} match={o} />)}

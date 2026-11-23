@@ -322,7 +322,7 @@ export function NewRiderComplaintPage() {
     <section className="space-y-4">
       {/* 설명은 오른쪽 "기록 전에" 카드에 있다 — 머리말에 되풀이하지 않는다(2026-11-18) */}
       <PageHeader title={m.complaints.newTitle} back={{ to: '/rider-complaints', label: m.complaints.back }} />
-      <div className="grid items-start gap-4 lg:grid-cols-3">
+      <div className="grid items-start gap-4 lg:grid-cols-3 [&>*]:min-w-0">
         <form className="space-y-5 rounded-box border border-base-300 bg-base-100 p-5 shadow-sm lg:col-span-2" onSubmit={submit} aria-label={m.complaints.newTitle}>
           <LeaveGuard when={dirty} />
           <label className="block space-y-1 text-sm">
@@ -446,7 +446,7 @@ export function RiderComplaintDetailPage() {
             ) : (
               <NextAction tone="success" title={m.complaints.nextStep.noneTitle} body={m.complaints.nextStep.noneBody} />
             )}
-            <div className="grid items-start gap-4 lg:grid-cols-3" data-testid="complaint-detail">
+            <div className="grid items-start gap-4 lg:grid-cols-3 [&>*]:min-w-0" data-testid="complaint-detail">
               <div className="min-w-0 space-y-4 lg:col-span-2">
                 <Section title={m.complaints.note}>
                   <p className="whitespace-pre-wrap text-sm" data-testid="complaint-note">

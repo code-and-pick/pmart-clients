@@ -614,7 +614,7 @@ export function InquiryDetailPage({ kind = 'CUSTOMER' }: { readonly kind?: Reque
 
               <InquiryNextAction q={q} canReply={canReplyTo(q)} />
 
-              <div className="grid items-start gap-4 lg:grid-cols-3">
+              <div className="grid items-start gap-4 lg:grid-cols-3 [&>*]:min-w-0">
                 {/* 왼쪽: 대화 + 답변 쓰기 */}
                 <div className="space-y-4 lg:col-span-2">
                   {q.callerRelation === 'PROXY' && (

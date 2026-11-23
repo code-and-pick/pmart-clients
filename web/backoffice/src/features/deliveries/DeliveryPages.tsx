@@ -912,17 +912,23 @@ export function DeliveryDetailPage() {
         nav={<><SystemNumbers ids={[{ label: m.displayNumber.system.deliveryId, id: deliveryId }, { label: m.displayNumber.system.orderId, id: d?.orderId }, { label: m.displayNumber.system.riderId, id: d?.riderId }]} /> <QueueNav kind="delivery" id={deliveryId} /></>}
         title={
           <>
-            {d?.type && d.state ? m.deliveries.titleOf(label(m.deliveries.typeName, d.type), label(m.deliveries.executionState, d.state)) : m.deliveries.deliveryId}
-            <span className="ml-2 text-sm font-normal text-base-content/50">
-              <DisplayNumber number={d?.deliveryNumber} systemId={deliveryId} />
-            </span>
-            {/* 복사(2026-11-18): 화면 번호가 있으면 그 번호, 없으면 시스템 ID */}
-            <CopyButton value={d?.deliveryNumber ?? deliveryId} />
+            {d?.type && d.state ? m.deliveries.titleOf(label(m.deliveries.typeName, d.type), label(m.deliveries.executionState, d.state)) : m.deliveries.detailTitle}
+            {/* 번호·복사는 배송을 읽은 뒤에만(2026-11-23 점검 — 없는 배송이면 "배송 번호 · 번호 없음"이 보였다) */}
+            {d && (
+              <>
+                <span className="ml-2 text-sm font-normal text-base-content/50">
+                  <DisplayNumber number={d.deliveryNumber} systemId={deliveryId} />
+                </span>
+                {/* 복사(2026-11-18): 화면 번호가 있으면 그 번호, 없으면 시스템 ID */}
+                <CopyButton value={d.deliveryNumber ?? deliveryId} />
+              </>
+            )}
           </>
         }
         // 요약 한 줄(2026-11-23 "복잡하게" — "라이더 배정된 라이더가 없어요." 같은 문장 대신 짧게, 센터는 이름)
         summary={d ? <>{m.deliveries.summaryOrder(d.orderNumber ?? m.none)} · {m.deliveries.summaryRider(d.riderId ? (rl?.riderNumber ? `${rl.nameMasked ?? ''} · ${rl.riderNumber}` : (rl?.nameMasked ?? m.displayNumber.missing)) : m.deliveries.riderNone)} · <CenterName id={d.mfcId} /></> : undefined}
-        actions={<DeliveryStartActions deliveryId={deliveryId} />}
+        // 없는 배송(읽기 실패)이면 오배송 접수·컴플레인 단추도 숨김
+        actions={execution.isError ? undefined : <DeliveryStartActions deliveryId={deliveryId} />}
       />
       {/* 다음 할 일 — 서버 수행 상태가 전달 실패 등록(FAILURE_REPORTED)일 때만: 확정·반려 칸으로 */}
       {admin && d?.state === 'FAILURE_REPORTED' && (

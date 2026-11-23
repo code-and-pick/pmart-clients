@@ -315,7 +315,7 @@ function ChatView({ sessionId: routeId }: { readonly sessionId: string | null })
   const empty = messages.length === 0 && !showPending;
 
   return (
-    <div className="grid items-start gap-4 lg:grid-cols-3">
+    <div className="grid items-start gap-4 lg:grid-cols-3 [&>*]:min-w-0">
       <div className="min-w-0 overflow-hidden rounded-box border border-base-300 bg-base-100 shadow-sm lg:col-span-2">
         <div className="min-h-64 space-y-6 bg-base-200/30 p-4" data-testid="chat-thread">
           {sessionId !== null && chat.isPending ? (

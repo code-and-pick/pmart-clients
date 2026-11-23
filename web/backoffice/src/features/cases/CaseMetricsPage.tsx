@@ -78,7 +78,7 @@ export function CaseMetricsPage() {
               </KpiStrip>
               {topOverdue && <Insight>{m.mostOverdue(label(messages.cases.kindName, topOverdue.kind), topOverdue.overdue, topOverdue.open)}</Insight>}
 
-              <div className="grid items-start gap-4 lg:grid-cols-3">
+              <div className="grid items-start gap-4 lg:grid-cols-3 [&>*]:min-w-0">
                 <div className="min-w-0 lg:col-span-2">
                   <Section title={m.cases}>
                     {r.cases.length === 0 ? (

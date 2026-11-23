@@ -544,7 +544,7 @@ export function OrderDetailPage() {
               <NextAction tone="info" title={m.orders.nextStep.paymentTitle} body={m.orders.nextStep.paymentBody} />
             ) : null}
 
-            <div className="grid items-start gap-4 lg:grid-cols-3">
+            <div className="grid items-start gap-4 lg:grid-cols-3 [&>*]:min-w-0">
               <div className="min-w-0 space-y-4 lg:col-span-2">
                 <Section id="order-lines" title={m.orders.lines} aside={<span className="text-base-content/55">{m.orders.lineCount(o.lines.length)}</span>}>
                   <ul className="-my-2 divide-y divide-base-300/70">

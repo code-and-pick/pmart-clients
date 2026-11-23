@@ -279,7 +279,7 @@ export function ApprovalDetailPage() {
                 )}
               </CommandFeedback>
 
-              <div className="grid items-start gap-4 lg:grid-cols-3">
+              <div className="grid items-start gap-4 lg:grid-cols-3 [&>*]:min-w-0">
                 <div className="min-w-0 space-y-4 lg:col-span-2">
                   {/* 홈 진열 편성 승인 — 무엇을 승인하는지 초안 그대로(2026-11-20 백엔드 회신 ①: 전시 승인자도 초안·배너 그림을 읽음) */}
                   {a.targetService === 'storefront-service' && a.targetRef && (

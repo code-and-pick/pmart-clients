@@ -325,7 +325,7 @@ export function DashboardPage() {
           {/* 두 기둥을 따로 쌓는다(높이가 달라도 빈 틈 없이) —
               왼쪽: 지금 배송(늦음·라이더 없음·전달 실패) → 진행 중 배송 상태별(관리자), 오른쪽: 심사 대기 유형별 → 지금 일 전체(관리자) */}
           {(can('/live-delivery') || can('/approvals') || admin) && (
-            <div className="grid items-start gap-4 lg:grid-cols-3">
+            <div className="grid items-start gap-4 lg:grid-cols-3 [&>*]:min-w-0">
               {(can('/live-delivery') || admin) && (
                 <div className={`space-y-4 ${can('/approvals') || admin ? 'lg:col-span-2' : 'lg:col-span-3'}`}>
                   {can('/live-delivery') && <Widget id="live"><LiveSummary /></Widget>}

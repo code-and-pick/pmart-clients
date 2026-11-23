@@ -180,7 +180,7 @@ function CustomerDetail({ d }: { readonly d: Detail }) {
       />
       {(d.unavailableSources ?? []).length > 0 && <Notice tone="warning">{m.sourceFailed}</Notice>}
 
-      <div className="grid items-start gap-4 lg:grid-cols-3">
+      <div className="grid items-start gap-4 lg:grid-cols-3 [&>*]:min-w-0">
         <div className="min-w-0 lg:col-span-2">
           <Section title={m.basic}>
             <FieldList

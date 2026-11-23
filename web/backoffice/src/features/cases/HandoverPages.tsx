@@ -125,7 +125,7 @@ function WriteForm() {
   return (
     // 두 칸(2026-11-18): 왼쪽 = 넘길 접수 건 체크 목록(건마다 다음 조치), 오른쪽 = 후임·팀·메모·쓰기
     <form
-      className="grid items-start gap-4 lg:grid-cols-3"
+      className="grid items-start gap-4 lg:grid-cols-3 [&>*]:min-w-0"
       aria-label={m.write}
       onSubmit={(e) => {
         e.preventDefault();

@@ -1168,7 +1168,7 @@ export function CaseDetailPage() {
             <>
               <CaseNext c={c} me={me} viewer={!admin && !teamCan} canPick={!closed && canPickCase(c, { admin, team, agent })} canClose={canClose} openFollowUps={openFollowUps} onDone={onDone} />
               {/* 이슈 트래커처럼 두 칸(2026-11-18): 왼쪽 = 내용·후속 처리·행위 요청·메모·연락·이력, 오른쪽 = 속성·명령 */}
-              <div className="grid items-start gap-4 lg:grid-cols-3">
+              <div className="grid items-start gap-4 lg:grid-cols-3 [&>*]:min-w-0">
                 <div className="min-w-0 space-y-4 lg:col-span-2">
                   {/* 개요 — 종류·우선순위 배지, 요약을 크게 */}
                   <div className="rounded-box border border-base-300 bg-base-100 px-5 py-4 shadow-sm empty:hidden">
@@ -1493,7 +1493,7 @@ export function NewMisdeliveryPage() {
       <PageHeader title={m.cases.newTitle} back={{ to: '/cases', label: m.cases.back }} />
       {/* 단계 상자(2026-11-18): ① 배송·요약 ② 누구 잘못 ③ 고객이 고른 처리(+실제 주소) ④ 근거 — 오른쪽은 고른 처리 안내 */}
       <form
-        className="grid items-start gap-4 lg:grid-cols-3"
+        className="grid items-start gap-4 lg:grid-cols-3 [&>*]:min-w-0"
         onSubmit={(e) => {
           e.preventDefault();
           if (!ok) return;

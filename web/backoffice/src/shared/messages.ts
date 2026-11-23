@@ -1196,7 +1196,12 @@ export const messages = {
     /** 도착 시간대 — 다른 시각처럼 "11. 23. 오후 2:00~3:00"(2026-11-23 점검) */
     arrivalOf: (date: string, start: string, end: string) => {
       const [, mo, d] = date.split('-');
-      return `${Number(mo)}. ${Number(d)}. ${start}~${end}`;
+      // "14:00" → "오후 2:00" — 다른 시각(formatSeoul)과 같은 표기
+      const hm = (t: string) => {
+        const [h = 0, mi = 0] = t.split(':').map(Number);
+        return `${h < 12 ? '오전' : '오후'} ${h % 12 || 12}:${String(mi).padStart(2, '0')}`;
+      };
+      return `${Number(mo)}. ${Number(d)}. ${hm(start)}~${hm(end)}`;
     },
     payment: '결제',
     paymentAttemptId: '결제 시도 ID',
@@ -1925,6 +1930,7 @@ export const messages = {
     summaryOrder: (n: string) => `주문 ${n}`,
     summaryRider: (r: string) => `라이더 ${r}`,
     riderNone: '미배정',
+    detailTitle: '배송',
     attemptsAll: (n: number) => `모두 보기 (${n}개)`,
     attemptsLess: '최근 5개만 보기',
     nextStep: {

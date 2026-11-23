@@ -300,7 +300,7 @@ export function ProductDraftPage() {
                 <p className="opacity-80">{m.products.editNote}</p>
               </div>
             )}
-            <div className="grid items-start gap-4 lg:grid-cols-3">
+            <div className="grid items-start gap-4 lg:grid-cols-3 [&>*]:min-w-0">
               <div id="draft-form" className="scroll-mt-4 space-y-4 lg:col-span-2">
                 {d.state === 'DRAFT' && d.input ? (
                   <ProductDraftForm

@@ -321,7 +321,7 @@ export function PiiAccessLogDetailPage() {
       <QueryState state={toUiState(query)} onRetry={() => void query.refetch()}>
         {(log) => (
           // 감사 기록 한 건(2026-11-18): 왼쪽 = 누가·무엇을·왜(큰 상자), 오른쪽 = 기록 정보
-          <div className="grid items-start gap-4 lg:grid-cols-3" data-testid="pii-log-detail">
+          <div className="grid items-start gap-4 lg:grid-cols-3 [&>*]:min-w-0" data-testid="pii-log-detail">
             <div className="min-w-0 space-y-4 lg:col-span-2">
               <div className="rounded-box border border-base-300 bg-base-100 px-5 py-4 shadow-sm">
                 <div className="flex items-start gap-3">

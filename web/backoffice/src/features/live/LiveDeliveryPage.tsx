@@ -15,7 +15,7 @@ import { Link, useSearchParams } from 'react-router';
 import { request } from '@pmart/web-core';
 import { QueryState, toUiState } from '@pmart/web-ui';
 import type { components } from '../../api/generated/backoffice-bff';
-import { useCenterScope, useSetCenterScope } from '../../shared/centerScope';
+import { useCenterScope, useSetCenterScope, CenterName } from '../../shared/centerScope';
 import { useApi } from '../../app/ApiContext';
 import { messages } from '../../shared/messages';
 import { label, when } from '../../shared/ops';
@@ -436,7 +436,7 @@ function LiveTable({ items, composedAt, casesTruncated = false, riderFailed = fa
                   {it.type ? <KindChip icon={it.type === 'FORWARD' ? 'truck' : 'return'}><CodeLabel code={it.type} names={d.typeName} /></KindChip> : messages.none}
                   <span className="flex items-center gap-1 text-xs text-base-content/55">
                     <Icon name="store" className="h-3 w-3" />
-                    {it.mfcId ?? messages.none}
+                    <CenterName id={it.mfcId} />
                   </span>
                 </span>
               </td>

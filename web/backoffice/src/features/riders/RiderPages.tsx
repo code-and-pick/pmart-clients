@@ -48,7 +48,7 @@ function RiderBasic({ rider }: { readonly rider: StaffRiderDetail }) {
   const op = rider.operating;
   return (
     // 보기 전용 상세 카드(2026-11-18): 왼쪽 = 기본 정보, 오른쪽 = 지금 상태 요약 + 원문 열람
-    <div className="grid items-start gap-4 lg:grid-cols-3">
+    <div className="grid items-start gap-4 lg:grid-cols-3 [&>*]:min-w-0">
       <div className="min-w-0 lg:col-span-2">
         <Section title={m.riders.basic} aside={<span className="text-xs text-base-content/55">{m.riders.pii.note}</span>}>
           <FieldList

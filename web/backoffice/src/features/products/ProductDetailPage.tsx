@@ -303,7 +303,7 @@ export function ProductDetailPage() {
           {/* 상세 탭(2026-11-19 상품 묶음 합치기 1단계 — 백엔드 백오피스 제안 + 사용자 "조회부터"): 기본 정보 / 고객 화면 / 가격 / 센터 취급. 원천·수정 단추는 탭마다 따로 */}
           <UnderlineTabs<ProductTab> label={m.products.tabs.label} value={tab} onChange={setTab} options={PRODUCT_TABS.map((t) => ({ value: t, label: m.products.tabs[t] }))} />
           {tab === 'info' && (
-            <div className="grid items-start gap-4 lg:grid-cols-3">
+            <div className="grid items-start gap-4 lg:grid-cols-3 [&>*]:min-w-0">
               <div className="space-y-4 lg:col-span-2">
                 {/* 상품 사진(2026-11-19 사용자 "상품 조회 안에서도 사진") — 게시된 콘텐츠의 사진, 없으면 등록 안내 */}
                 {/* "고객 화면 탭에서 보기" 링크는 뺐다(2026-11-20 사용자 — 바로 옆 탭을 누르면 된다) */}
