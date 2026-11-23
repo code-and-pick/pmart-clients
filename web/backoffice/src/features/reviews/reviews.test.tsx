@@ -63,6 +63,7 @@ describe('FAQ 답 의견', () => {
     expect(rows.map((r) => within(r).getByTestId('faq-feedback-rate').textContent)).toEqual(['25%', '0%', '85.7%', '—']);
     expect(rows[0]).toHaveTextContent('환불은 언제 들어오나요?');
     expect(rows[0]).toHaveTextContent('환불');
+    expect(rows[2]).toHaveTextContent('주문 취소'); // 분류 이름(안내 문서 제목)
     expect(rows[1]).toHaveTextContent('지금 FAQ 에 없음');
     expect(helpfulRate(0, 0)).toBe('—');
   });

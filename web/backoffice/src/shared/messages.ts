@@ -782,7 +782,23 @@ export const messages = {
     empty: '아직 받은 의견이 없어요.',
     gone: '지금 FAQ 에 없음(질문이 바뀜)',
     col: { question: '질문', category: '분류', helpful: '도움됨', notHelpful: '도움 안 됨', rate: '도움 비율', lastAt: '마지막 의견' },
-    categoryName: { cancel: '취소', 'delivery-status': '배송 상태', refund: '환불' } as Readonly<Record<string, string>>,
+    // 분류 이름 — 안내 문서(docs/business/customer-faq/NN-<키>.md) 제목, 백엔드 알림 2026-11-23. 고객용 FAQ 목록 API(이름을 주는 곳)는 고객 토큰만이라
+    // 백오피스는 부를 수 없어 여기 둔다. 문서가 늘어 모르는 키가 오면 키 그대로 보인다.
+    categoryName: {
+      'customer-center': '고객센터 이용 안내',
+      cancel: '주문 취소',
+      'delivery-status': '배송 현황·지연·예약 시간',
+      'not-received': '못 받음·다른 주문 옴',
+      'missing-wrong-item': '빠진 상품·다른 상품',
+      'damage-quality': '파손·품질',
+      refund: '환불',
+      'return-exchange': '반품·교환',
+      shortage: '결품',
+      'address-area': '배송지·배송 지역·주소 변경',
+      'payment-fees': '결제·최소 주문금액·배달팁·봉투값',
+      account: '회원·로그인·비회원',
+      alcohol: '주류 구매',
+    } as Readonly<Record<string, string>>,
   },
   /** 배송 운영 통계(2026-11-23 — execution 0.38.0 delivery-metrics·dispatch 0.16.0 metrics/dispatch, 라이더 백오피스 #400 과 같은 정의) */
   deliveryStats: {
