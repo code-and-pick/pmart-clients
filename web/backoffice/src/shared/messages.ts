@@ -181,6 +181,8 @@ export const messages = {
     homeLayout: '홈 진열 편성',
     assistant: '업무 도우미',
     customers: '고객', // 2026-11-20 고객 메뉴(bff 0.22.0)
+    reviewReports: '리뷰 신고', // 2026-11-23 review 0.7.0 BR-90
+    faqFeedback: 'FAQ 답 의견', // 2026-11-23 customer-assistant 0.4.0 BR-91
     inquiries: '문의 답변',
     csIntake: '전화·채팅 접수',
     riderInquiries: '라이더 문의',
@@ -744,6 +746,43 @@ export const messages = {
     masked: '가렸어요.',
     maskedLine: (by: string, reason: string) => `가린 메모 — ${by} · ${reason}`,
     cancel: '취소',
+  },
+  /** 리뷰 신고 확인(review 0.7.0 BR-90, 2026-11-23) — 신고만으로 숨기지 않고 운영자가 확인한 뒤에만 */
+  reviewReports: {
+    title: '리뷰 신고',
+    intro: '고객이 신고한 리뷰를 확인해요. 신고만으로는 숨겨지지 않아요 — 숨김을 고르면 공개와 별점 계산에서 빠져요. 처리 결과는 신고한 고객에게 알리지 않아요.',
+    stateLabel: '처리 상태',
+    stateName: { OPEN: '확인 전', RESOLVED: '처리 끝' } as const,
+    emptyOpen: '확인할 신고가 없어요.',
+    emptyResolved: '처리한 신고가 없어요.',
+    rating: (n: number) => `별점 ${n}점`,
+    product: '상품',
+    hidden: '지금 숨김',
+    deleted: '작성자가 지움',
+    noText: '(글 없음 — 별점만)',
+    reportCount: (n: number) => `신고 ${n}건`,
+    reportedRange: (first: string, last: string) => `처음 ${first} · 마지막 ${last}`,
+    otherDetails: '기타 사유 글',
+    reasonName: { ABUSE: '욕설·비방', AD: '광고·홍보', IRRELEVANT: '상품과 무관', PRIVACY: '개인정보 노출', OTHER: '기타' } as Readonly<Record<string, string>>,
+    resolutionName: { HIDE: '숨김', KEEP: '문제없음' } as Readonly<Record<string, string>>,
+    note: '처리 메모(직원만 봐요, 선택)',
+    hide: '숨김',
+    keep: '문제없음',
+    confirm: '처리 확인',
+    askHide: '이 리뷰를 숨길까요? 공개와 별점에서 빠져요.',
+    askKeep: '문제없음으로 닫을까요? 리뷰는 그대로 보여요.',
+    cancel: '취소',
+    alreadyResolved: '다른 직원이 먼저 처리했어요 — 목록을 다시 읽었어요.',
+    more: '더 보기',
+  },
+  /** FAQ 답 의견 집계(customer-assistant 0.4.0 BR-91, 2026-11-23) */
+  faqFeedback: {
+    title: 'FAQ 답 의견',
+    intro: '고객이 FAQ 답에 남긴 "도움이 됐어요 / 안 됐어요" 수예요. 고칠 필요가 큰 것부터 보여요. 고객마다 마지막 의견만 세고, 의견 글은 없어요.',
+    empty: '아직 받은 의견이 없어요.',
+    gone: '지금 FAQ 에 없음(질문이 바뀜)',
+    col: { question: '질문', category: '분류', helpful: '도움됨', notHelpful: '도움 안 됨', rate: '도움 비율', lastAt: '마지막 의견' },
+    categoryName: { cancel: '취소', 'delivery-status': '배송 상태', refund: '환불' } as Readonly<Record<string, string>>,
   },
   /** 배송 운영 통계(2026-11-23 — execution 0.38.0 delivery-metrics·dispatch 0.16.0 metrics/dispatch, 라이더 백오피스 #400 과 같은 정의) */
   deliveryStats: {

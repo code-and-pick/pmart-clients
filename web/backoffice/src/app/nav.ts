@@ -110,6 +110,9 @@ export const navGroups: readonly NavGroup[] = [
       { to: '/return-intake', label: m.nav.returnIntake },
       // 후속 처리(case 0.8.0 의무, owner=CS) — 상담원이 고객 연락 등의 결과를 남긴다
       { to: '/follow-ups/cs', label: m.nav.csFollowUps },
+      // 리뷰 신고 확인(review 0.7.0 BR-90)·FAQ 답 의견(customer-assistant 0.4.0 BR-91) — 2026-11-23, 상담원·관리자
+      { to: '/review-reports', label: m.nav.reviewReports },
+      { to: '/faq-feedback', label: m.nav.faqFeedback },
     ],
   },
   {

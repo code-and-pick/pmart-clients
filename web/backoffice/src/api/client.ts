@@ -21,6 +21,8 @@ import type { paths as ContentPaths } from './generated/product-content';
 import type { paths as HrPaths } from './generated/hr';
 import type { paths as SearchPaths } from './generated/search';
 import type { paths as StorefrontPaths } from './generated/storefront';
+import type { paths as ReviewPaths } from './generated/review';
+import type { paths as CustomerAssistantPaths } from './generated/customer-assistant';
 import { SOURCE_SYSTEM } from './command';
 import { refreshEmployeeTokens } from './employeeAuth';
 import { createPmartFetch, TokenStore, type EmployeeAuthPaths, type PmartFetch } from '@pmart/web-core';
@@ -70,6 +72,10 @@ export function createApi(pmartFetch: PmartFetch, baseUrl = API_BASE) {
     storefront: createClient<StorefrontPaths>(options),
     // 행사·쿠폰(promotion 0.2.0, ADR-0082)
     promotion: createClient<PromotionPaths>(options),
+    // 리뷰 신고 확인(review 0.7.0 BR-90, 2026-11-23 — CS_AGENT·OPERATOR_ADMIN)
+    review: createClient<ReviewPaths>(options),
+    // FAQ 답 의견 집계(customer-assistant 0.4.0 BR-91, 2026-11-23 — CS_AGENT·OPERATOR_ADMIN)
+    customerAssistant: createClient<CustomerAssistantPaths>(options),
   };
 }
 

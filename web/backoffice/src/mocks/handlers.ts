@@ -24,6 +24,7 @@ import { promotionHandlers } from './promotionHandlers';
 import { operator, unauthorized } from './support';
 import { customerHandlers } from './customerHandlers';
 import { deliveryStatsHandlers } from './deliveryStatsHandlers';
+import { reviewHandlers } from './reviewHandlers';
 
 /** 게이트웨이 공개 경로(계약 security: []) */
 const PUBLIC = [`${API_BASE}/employee-auth/tokens`, `${API_BASE}/employee-auth/tokens/refresh`];
@@ -47,6 +48,7 @@ export const handlers = [
   ...inquiryHandlers,
   // 지표 경로(/orders/metrics/*·/claims/metrics/*)가 /claims/:claimId 같은 경로에 먼저 잡히지 않게 앞에
   ...salesMetricsHandlers,
+  ...reviewHandlers, // 리뷰 신고·FAQ 답 의견(2026-11-23)
   ...deliveryStatsHandlers, // 배송 운영 통계(execution delivery-metrics·dispatch metrics, 2026-11-23)
   ...opsHandlers,
   ...customerHandlers, // 고객 메뉴(bff 0.22.0, 2026-11-20)
