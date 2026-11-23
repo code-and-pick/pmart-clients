@@ -393,14 +393,13 @@ class DispatchModeScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 36),
               if (settings is AsyncError)
-                Row(
-                  children: [
-                    Expanded(child: Text(l10n.settingsLoadFailed)),
-                    TextButton(
-                      onPressed: () => ref.invalidate(dispatchSettingsProvider),
-                      child: Text(l10n.retry),
-                    ),
-                  ],
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: RiderLoadError(
+                    compact: true,
+                    title: l10n.settingsLoadFailed,
+                    onRetry: () => ref.invalidate(dispatchSettingsProvider),
+                  ),
                 ),
               _ModeCard(
                 key: const ValueKey('mode-ai'),

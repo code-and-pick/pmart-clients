@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../l10n/gen/app_localizations.dart';
 import 'rider_style.dart';
 
 /// 화면 아래 큰 버튼(레퍼런스: 폭 가득, 높이 56, 모서리 4).
@@ -32,89 +33,102 @@ class RiderButton extends StatefulWidget {
   State<RiderButton> createState() => _RiderButtonState();
 }
 
-/// 누르는 느낌(사용자 2026-11-23 "QR픽업이나 가게 도착 같은 버튼 누를 때 터치하는 느낌 … 은은한 빛이나 클릭되는 듯한 느낌"):
-/// 손가락이 닿으면 살짝 작아지고(0.97) 버튼 색의 은은한 빛이 퍼지며, 흰 물결이 번진다. 누르면 가벼운 진동 한 번.
-/// 손을 떼면 부드럽게 원래대로. 꺼진 버튼은 반응하지 않는다.
-class _RiderButtonState extends State<RiderButton> {
-  bool _down = false;
+/// 누르는 느낌(사용자 2026-11-23): "길게 누를 때가 아니라 한 번 가볍게 터치할 때 효과가 보이게", 빛 효과(그림자 번짐)는 되돌림.
+/// 누르면 손을 얼마나 오래 댔든 같은 짧은 움직임(약 0.24초)이 끝까지 돈다 — 버튼이 살짝 눌렸다(0.96) 돌아오고,
+/// 그동안 흰 막이 잠깐 덮였다 걷힌다. 가벼운 진동 한 번. 꺼진 버튼은 반응하지 않는다.
+class _RiderButtonState extends State<RiderButton>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _tap = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 240),
+  );
 
-  void _set(bool v) {
-    if (widget.onPressed == null || _down == v) return;
-    setState(() => _down = v);
+  /// 0 → 1 → 0 (앞 40% 동안 눌리고 나머지 동안 돌아온다).
+  late final Animation<double> _press = TweenSequence<double>([
+    TweenSequenceItem(
+      tween: Tween<double>(
+        begin: 0,
+        end: 1,
+      ).chain(CurveTween(curve: Curves.easeOut)),
+      weight: 40,
+    ),
+    TweenSequenceItem(
+      tween: Tween<double>(
+        begin: 1,
+        end: 0,
+      ).chain(CurveTween(curve: Curves.easeInOut)),
+      weight: 60,
+    ),
+  ]).animate(_tap);
+
+  @override
+  void dispose() {
+    _tap.dispose();
+    super.dispose();
+  }
+
+  void _pressed() {
+    HapticFeedback.lightImpact();
+    unawaited(_tap.forward(from: 0));
+    widget.onPressed!();
   }
 
   @override
   Widget build(BuildContext context) {
     final enabled = widget.onPressed != null;
     const radius = BorderRadius.all(Radius.circular(4));
-    return Listener(
-      onPointerDown: (_) => _set(true),
-      onPointerUp: (_) => _set(false),
-      onPointerCancel: (_) => _set(false),
-      child: AnimatedScale(
-        scale: _down ? 0.97 : 1,
-        duration: Duration(milliseconds: _down ? 90 : 160),
-        curve: Curves.easeOut,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 160),
-          curve: Curves.easeOut,
-          width: double.infinity,
-          height: widget.height,
-          decoration: BoxDecoration(
-            borderRadius: radius,
-            boxShadow: [
-              if (enabled)
-                BoxShadow(
-                  color: widget.color.withValues(alpha: _down ? 0.45 : 0.18),
-                  blurRadius: _down ? 18 : 8,
-                  spreadRadius: _down ? 1 : 0,
-                  offset: Offset(0, _down ? 2 : 3),
-                ),
-            ],
-          ),
-          child: FilledButton(
-            onPressed: enabled
-                ? () {
-                    HapticFeedback.lightImpact();
-                    widget.onPressed!();
-                  }
-                : null,
-            style:
-                FilledButton.styleFrom(
-                  backgroundColor: widget.color,
-                  foregroundColor: widget.foreground,
-                  disabledBackgroundColor: RiderColors.disabled,
-                  disabledForegroundColor: Colors.white,
-                  shape: const RoundedRectangleBorder(borderRadius: radius),
-                  elevation: 0,
-                  splashFactory: InkSparkle.splashFactory,
-                ).copyWith(
-                  // 누르는 동안 흰 빛이 살짝 덮인다(물결과 함께).
-                  overlayColor: WidgetStateProperty.resolveWith(
-                    (states) => states.contains(WidgetState.pressed)
-                        ? Colors.white.withValues(alpha: 0.22)
-                        : null,
+    return AnimatedBuilder(
+      animation: _press,
+      builder: (context, child) => Transform.scale(
+        scale: 1 - 0.04 * _press.value,
+        child: Stack(
+          children: [
+            child!,
+            Positioned.fill(
+              child: IgnorePointer(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    borderRadius: radius,
+                    color: Colors.white.withValues(alpha: 0.28 * _press.value),
                   ),
                 ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                if (widget.icon != null) ...[
-                  Icon(widget.icon, size: 24),
-                  const SizedBox(width: 8),
-                ],
-                Flexible(
-                  child: Text(
-                    widget.label,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 19,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ],
+              ),
             ),
+          ],
+        ),
+      ),
+      child: SizedBox(
+        width: double.infinity,
+        height: widget.height,
+        child: FilledButton(
+          key: const ValueKey('rider-button-surface'),
+          onPressed: enabled ? _pressed : null,
+          style: FilledButton.styleFrom(
+            backgroundColor: widget.color,
+            foregroundColor: widget.foreground,
+            disabledBackgroundColor: RiderColors.disabled,
+            disabledForegroundColor: Colors.white,
+            shape: const RoundedRectangleBorder(borderRadius: radius),
+            elevation: 0,
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              if (widget.icon != null) ...[
+                Icon(widget.icon, size: 24),
+                const SizedBox(width: 8),
+              ],
+              Flexible(
+                child: Text(
+                  widget.label,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 19,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -796,4 +810,113 @@ class RiderAlertDialog extends StatelessWidget {
       ),
     );
   }
+}
+
+/// 조회 실패 표시(사용자 2026-11-24 "불러오지 못했어요 다시 시도 글자랑 UI 너무 없어보여" →
+/// 큰 연보라 동그라미·큰 제목은 "ppt로 만든 것 같애" → 앱의 다른 화면처럼 조용하게).
+/// - 전체 화면(기본): 작은 회색 선 아이콘 · 제목 · 안내 한 줄 · 작은 보라 "다시 시도". 화면 바탕색을 그대로 쓴다.
+/// - [compact]: 한 줄 — 회색 아이콘 · 제목 · 오른쪽 작은 보라 "다시 시도"(홈 아래 칸·목록 위 같은 좁은 자리).
+/// 조회 실패를 빈 목록·0 으로 보이지 않는 규칙은 그대로다(이 표시가 그 자리를 대신한다).
+class RiderLoadError extends StatelessWidget {
+  const RiderLoadError({
+    super.key,
+    required this.title,
+    required this.onRetry,
+    this.compact = false,
+  });
+
+  final String title;
+  final VoidCallback onRetry;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final retry = _RetryButton(label: l10n.retry, onPressed: onRetry);
+    if (compact) {
+      return Row(
+        children: [
+          const Icon(Icons.wifi_off_rounded, size: 20, color: RiderColors.hint),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              title,
+              style: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: RiderColors.ink,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          retry,
+        ],
+      );
+    }
+    return Align(
+      // 가운데보다 조금 위(눈이 먼저 가는 자리).
+      alignment: const Alignment(0, -0.15),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.wifi_off_rounded,
+              size: 36,
+              color: RiderColors.hint,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: RiderColors.ink,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              l10n.loadFailedHint,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 13.5, color: RiderColors.sub),
+            ),
+            const SizedBox(height: 16),
+            retry,
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 앱의 주 버튼처럼 보라 바탕·흰 글씨(사용자 2026-11-24 "다시시도 버튼이 왜 하양색이니?"), 작게.
+class _RetryButton extends StatelessWidget {
+  const _RetryButton({required this.label, required this.onPressed});
+
+  final String label;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) => FilledButton(
+    key: const ValueKey('load-retry'),
+    onPressed: onPressed,
+    style: FilledButton.styleFrom(
+      foregroundColor: Colors.white,
+      backgroundColor: RiderColors.primary,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+      elevation: 0,
+      minimumSize: const Size(0, 36),
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      tapTargetSize: MaterialTapTargetSize.padded,
+      // 글꼴을 빼면 앱 글꼴(Pretendard)이 아닌 기본 글꼴로 바뀐다 — 함께 적는다.
+      textStyle: const TextStyle(
+        fontFamily: riderFontFamily,
+        fontSize: 14,
+        fontWeight: FontWeight.w700,
+      ),
+    ),
+    child: Text(label),
+  );
 }

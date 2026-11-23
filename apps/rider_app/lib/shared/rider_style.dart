@@ -7,6 +7,9 @@ abstract final class RiderColors {
   static const primary = PmartBrand.violet;
   static const primarySoft = PmartBrand.lavender;
   static const primaryMist = PmartBrand.lavenderMist;
+  static const primaryDeep = PmartBrand.deepViolet;
+  // lavender 와 lavenderMist 사이 — 흰 바탕과는 구분되고 lavender 보다 연하게(지원센터 대화 2026-11-24).
+  static const primaryPale = Color(0xFFF1EDFF);
 
   static const ink = Color(0xFF111111);
   static const sub = Color(0xFF6B6B6B);

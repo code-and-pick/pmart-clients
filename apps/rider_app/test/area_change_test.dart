@@ -232,7 +232,7 @@ void main() {
     await t.tap(find.byKey(const ValueKey('end-duty-confirm')));
     await _settle(t);
     expect(find.text('운행 종료됨'), findsOneWidget);
-    expect(find.text('운행을 종료했어요. 지금은 쉬는 중이에요'), findsOneWidget);
+    expect(find.text('운행을 종료했어요'), findsOneWidget);
     expect(find.byKey(const ValueKey('rider-toast')), findsNothing);
     expect(
       t.widget<TextButton>(find.byKey(const ValueKey('end-duty'))).onPressed,

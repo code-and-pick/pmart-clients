@@ -171,3 +171,40 @@ final notificationRepositoryProvider = Provider<NotificationRepository>(
 final notificationInboxProvider = FutureProvider.autoDispose<NotificationInbox>(
   (ref) => ref.watch(notificationRepositoryProvider).inbox(),
 );
+
+/// 알림함 한 줄 — 같은 도움요청의 알림은 한 줄로 묶는다(사용자 2026-11-24 "계속 반복되는 알림").
+/// [latest] 가 보이는 내용, [all] 은 묶인 알림 전부(최신 먼저), [unread] 는 그중 안 읽은 것이 있는지.
+@immutable
+class NotificationEntry {
+  const NotificationEntry(this.all);
+
+  final List<RiderNotification> all;
+
+  RiderNotification get latest => all.first;
+  int get count => all.length;
+  bool get unread => all.any((n) => !n.read);
+}
+
+/// 최신 먼저 정렬해 도움요청(같은 requestId)끼리 묶는다. 다른 알림은 한 건씩.
+List<NotificationEntry> groupNotifications(List<RiderNotification> items) {
+  final sorted = [...items]..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+  final byRequest = <String, List<RiderNotification>>{};
+  final order = <Object>[];
+  for (final n in sorted) {
+    if (n.target case HelpRequestTarget(:final requestId)) {
+      final list = byRequest[requestId];
+      if (list == null) {
+        byRequest[requestId] = [n];
+        order.add(requestId);
+      } else {
+        list.add(n);
+      }
+    } else {
+      order.add(n);
+    }
+  }
+  return [
+    for (final o in order)
+      NotificationEntry(o is String ? byRequest[o]! : [o as RiderNotification]),
+  ];
+}

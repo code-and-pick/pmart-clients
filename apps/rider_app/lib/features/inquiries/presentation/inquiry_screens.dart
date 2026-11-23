@@ -272,15 +272,14 @@ class _InquiryList extends ConsumerWidget {
               children: [for (final i in value) _InquiryCard(inquiry: i)],
             ),
             // 조회 실패를 "문의 없음"으로 보이지 않는다.
-            AsyncError() => Row(
-              key: const ValueKey('inquiry-error'),
-              children: [
-                Expanded(child: Text(l10n.inqLoadFailed)),
-                TextButton(
-                  onPressed: () => ref.invalidate(inquiriesProvider),
-                  child: Text(l10n.retry),
-                ),
-              ],
+            AsyncError() => Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: RiderLoadError(
+                key: const ValueKey('inquiry-error'),
+                compact: true,
+                title: l10n.inqLoadFailed,
+                onRetry: () => ref.invalidate(inquiriesProvider),
+              ),
             ),
             _ => const Padding(
               padding: EdgeInsets.all(24),
@@ -638,11 +637,9 @@ class _InquiryDetailScreenState extends ConsumerState<InquiryDetailScreen> {
             ],
           ),
         ),
-        AsyncError() => Center(
-          child: TextButton(
-            onPressed: () => ref.invalidate(p),
-            child: Text(l10n.inqLoadFailed),
-          ),
+        AsyncError() => RiderLoadError(
+          title: l10n.inqLoadFailed,
+          onRetry: () => ref.invalidate(p),
         ),
         _ => const Center(child: CircularProgressIndicator()),
       },

@@ -1,5 +1,5 @@
-// 픽라이더 앱 아이콘 만들기(사용자 2026-11-21 로고 — 흰 헬멧·보라 고리(행성 띠) · 보라 바탕). 원본: tool/icon/pick_rider_icon.png
-// (받은 그림이 흰 바탕 JPG 라 보라 둥근 사각만 잘라 정사각으로 맞추고 바깥 흰색을 투명으로 바꾼 PNG 를 원본으로 둔다.)
+// 픽라이더 앱 아이콘 만들기(사용자 2026-11-24 로고 — 보라 둥근 사각에 흰 "P라이더"·번개 줄). 원본: tool/icon/pick_rider_icon.png
+// (받은 그림이 흰 바탕이라 네 모서리에서 이어진 밝은 픽셀만 투명으로 바꾼 PNG 를 원본으로 둔다.)
 // 실행(이 앱 밖 임시 프로젝트에서 package:image 로): dart run gen_launcher_icon.dart <원본> <android/app/src/main/res>
 // - mipmap-*/ic_launcher.png: 정리한 그림에 둥근 사각(반지름 22%)을 새로 씌움 — 적응형을 안 쓰는 런처.
 // - mipmap-*/ic_launcher_foreground.png + mipmap-anydpi-v26/ic_launcher.xml: 적응형 아이콘. 런처가 모양(원·둥근 사각)을
@@ -84,10 +84,10 @@ void main(List<String> args) {
       interpolation: img.Interpolation.average,
     );
     File('$dir/ic_launcher.png').writeAsBytesSync(img.encodePng(legacy));
-    // 그림을 보이는 영역(72dp)의 78% 크기로 가운데에 두고, 바깥은 그림 가장자리 색을 그대로 늘여 칠한다.
-    // 72dp 에 꽉 채우면 런처(삼성 등)가 모양을 자르며 가장자리 보라와 그림 끝(고리)까지 잘려 헬멧만 크게 보였다
-    // (사용자 2026-11-21 "보라화면 자르지 마").
-    final canvas = (108 * k).round(), inner = (72 * k * 0.78).round();
+    // 그림을 보이는 영역(72dp)에 그대로 맞춘다 — 런처가 씌우는 모양이 그림의 둥근 사각과 거의 같아 받은 그림처럼 보이고
+    // 글자 비율도 그대로다(사용자 2026-11-24 "그림이랑 글자 크기 그대로"). 줄여 두면 그림 둘레에 네모 경계가 비쳤다.
+    // (예전 헬멧 로고는 고리가 그림 끝까지 닿아 78% 로 줄였었다 — 2026-11-21.)
+    final canvas = (108 * k).round(), inner = (72 * k).round();
     final fg = img.Image(width: canvas, height: canvas, numChannels: 4);
     final art = img.copyResize(
       edgeless,
@@ -95,13 +95,31 @@ void main(List<String> args) {
       interpolation: img.Interpolation.average,
     );
     final off = (canvas - inner) ~/ 2;
+    // 바깥: 가장자리 색을 줄마다 늘이면 그라데이션·번개 끝이 줄무늬로 번졌다(2026-11-24 새 로고) —
+    // 그림의 보라(흰 글자 빼고)를 평면 기울기로 맞춘 색을 바깥에 칠하고, 그림 가장자리 6% 는 그 색과 섞어 경계를 없앤다.
+    final plane = _fitPlane(art);
+    final feather = inner * 0.06;
     for (var y = 0; y < canvas; y++) {
       for (var x = 0; x < canvas; x++) {
-        final p = art.getPixel(
-          (x - off).clamp(0, inner - 1),
-          (y - off).clamp(0, inner - 1),
+        final ax = x - off, ay = y - off;
+        final u = (ax + 0.5) / inner, v = (ay + 0.5) / inner;
+        final bg = plane(u, v);
+        final inside = ax >= 0 && ay >= 0 && ax < inner && ay < inner;
+        if (!inside) {
+          fg.setPixelRgba(x, y, bg.$1, bg.$2, bg.$3, 255);
+          continue;
+        }
+        final edge = [ax, ay, inner - 1 - ax, inner - 1 - ay].reduce(math.min);
+        final t = (edge / feather).clamp(0.0, 1.0);
+        final p = art.getPixel(ax, ay);
+        fg.setPixelRgba(
+          x,
+          y,
+          (bg.$1 + (p.r - bg.$1) * t).round(),
+          (bg.$2 + (p.g - bg.$2) * t).round(),
+          (bg.$3 + (p.b - bg.$3) * t).round(),
+          255,
         );
-        fg.setPixelRgba(x, y, p.r, p.g, p.b, 255);
       }
     }
     File('$dir/ic_launcher_foreground.png').writeAsBytesSync(img.encodePng(fg));
@@ -167,6 +185,56 @@ img.Image _clearOutsideOwnShape(img.Image src) {
     }
   }
   return src;
+}
+
+/// 그림의 바탕 보라를 c = a + b·u + d·v (u,v 는 0~1 위치) 로 맞춘다 — 밝은 글자 픽셀은 뺀다. 바깥 칠하기용.
+(int, int, int) Function(double, double) _fitPlane(img.Image art) {
+  // 정규방정식 3x3 (채널마다 같은 행렬).
+  final m = List.generate(3, (_) => List<double>.filled(3, 0));
+  final rhs = List.generate(3, (_) => List<double>.filled(3, 0));
+  for (var y = 0; y < art.height; y += 2) {
+    for (var x = 0; x < art.width; x += 2) {
+      final p = art.getPixel(x, y);
+      if (p.g > 60) continue; // 흰 글자·번진 밝은 곳
+      final f = [1.0, x / art.width, y / art.height];
+      final c = [p.r.toDouble(), p.g.toDouble(), p.b.toDouble()];
+      for (var i = 0; i < 3; i++) {
+        for (var j = 0; j < 3; j++) {
+          m[i][j] += f[i] * f[j];
+        }
+        for (var ch = 0; ch < 3; ch++) {
+          rhs[ch][i] += f[i] * c[ch];
+        }
+      }
+    }
+  }
+  List<double> solve(List<double> b) {
+    final a = [
+      for (var i = 0; i < 3; i++) [...m[i], b[i]],
+    ];
+    for (var col = 0; col < 3; col++) {
+      for (var r = col + 1; r < 3; r++) {
+        final k = a[r][col] / a[col][col];
+        for (var c = col; c < 4; c++) {
+          a[r][c] -= k * a[col][c];
+        }
+      }
+    }
+    final s = List<double>.filled(3, 0);
+    for (var i = 2; i >= 0; i--) {
+      var v = a[i][3];
+      for (var j = i + 1; j < 3; j++) {
+        v -= a[i][j] * s[j];
+      }
+      s[i] = v / a[i][i];
+    }
+    return s;
+  }
+
+  final co = [for (var ch = 0; ch < 3; ch++) solve(rhs[ch])];
+  int at(int ch, double u, double v) =>
+      (co[ch][0] + co[ch][1] * u + co[ch][2] * v).round().clamp(0, 255);
+  return (u, v) => (at(0, u, v), at(1, u, v), at(2, u, v));
 }
 
 img.Image _roundedSquare(img.Image src, double radiusRatio) {

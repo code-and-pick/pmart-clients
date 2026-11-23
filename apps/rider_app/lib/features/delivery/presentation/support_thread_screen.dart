@@ -155,14 +155,36 @@ class _SupportThreadScreenState extends ConsumerState<SupportThreadScreen> {
               ),
             ),
           if (resolved)
+            // 흰 바탕 회색 글씨는 눈에 안 들어온다(사용자 2026-11-24) — 연보라 바탕·진한 보라 굵은 글씨.
             Container(
               key: const ValueKey('thread-resolved'),
               width: double.infinity,
-              color: Colors.white,
+              color: RiderColors.primaryPale,
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-              child: Text(
-                l10n.supportThreadClosed,
-                style: const TextStyle(fontSize: 14, color: RiderColors.sub),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Padding(
+                    padding: EdgeInsets.only(top: 1),
+                    child: Icon(
+                      Icons.check_circle_rounded,
+                      size: 20,
+                      color: RiderColors.primaryDeep,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      l10n.supportThreadClosed,
+                      style: const TextStyle(
+                        fontSize: 14.5,
+                        height: 1.4,
+                        fontWeight: FontWeight.w700,
+                        color: RiderColors.primaryDeep,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           Material(
@@ -228,9 +250,10 @@ class _TicketHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final (text, color) = helpStateLook(l10n, ticket.state);
+    // 흰 바탕이면 눈에 안 들어온다(사용자 2026-11-24) — 바탕만 흰색에 가까운 보라, 글자는 그대로.
     return Container(
       width: double.infinity,
-      color: Colors.white,
+      color: RiderColors.primaryMist,
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

@@ -58,7 +58,15 @@ class DeliveryView {
     this.goodsWithRider,
     this.returnDeliveryId,
     this.returnByOtherRider = false,
+    this.bundleId,
+    this.stopSequence,
   });
+
+  /// 알뜰 묶음(execution 0.40.0 — 배정 값 그대로). 묶음 아니면 null.
+  final String? bundleId;
+
+  /// 묶음 안 고객 전달 순서(1부터, execution 0.40.0). 묶음 아니면 null.
+  final int? stopSequence;
 
   /// 지원센터가 전달 불가를 확정했다(`failure.decision` CONFIRM — 배송은 FAILED).
   final bool failureConfirmed;

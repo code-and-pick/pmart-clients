@@ -787,6 +787,8 @@ DeliveryView deliveryFromContract(ex.DeliveryExecution d) => DeliveryView(
     null => null,
   },
   mfcPhone: d.mfcPhone,
+  bundleId: d.bundleId,
+  stopSequence: d.stopSequence,
   failureConfirmed:
       d.failure?.decision == ex.DeliveryExecutionFailureDecisionEnum.CONFIRM,
   goodsWithRider: switch (d.failure?.custody) {

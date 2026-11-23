@@ -1,6 +1,9 @@
 import 'dart:async';
+import 'dart:math' as math;
 
+import 'package:flutter/gestures.dart' show VelocityTracker;
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -8,6 +11,7 @@ import 'package:pmart_core/pmart_core.dart';
 import 'package:pmart_ui/pmart_ui.dart';
 
 import '../../my/data/records.dart' show settlementsProvider;
+import 'pickup_group.dart';
 import '../../../shared/blocked_words.dart';
 import '../../../l10n/gen/app_localizations.dart';
 import '../../../shared/kakao_navi.dart';
@@ -91,8 +95,20 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
       final open = size > (_peekSize + _sheetFull) / 2;
       final raised = size > _peekSize + 0.03;
       if (!mounted) return;
-      _sheetOpen.value = open;
-      _sheetRaised.value = raised;
+      void apply() {
+        if (!mounted) return;
+        _sheetOpen.value = open;
+        _sheetRaised.value = raised;
+      }
+
+      // 화면을 그리는 도중(시트 높이가 다시 정해질 때 — 예: 완료로 기본 높이가 바뀜)에는 다음 프레임에 알린다.
+      // 그리는 중에 알리면 "setState() called during build" 오류가 났다(시험에서 확인).
+      if (SchedulerBinding.instance.schedulerPhase ==
+          SchedulerPhase.persistentCallbacks) {
+        WidgetsBinding.instance.addPostFrameCallback((_) => apply());
+      } else {
+        apply();
+      }
     });
   }
 
@@ -312,17 +328,64 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
   }
 
   /// 회색바·헤더를 누르면 펼치고, 펼친 상태에서 누르면 접는다.
-  /// 시트를 끌다 손을 뗐을 때 관성 미끄러짐을 멈춘다(그 높이에 머문다). 끝까지 펼쳐 안쪽 내용을 넘기는 중이면 건드리지 않는다.
-  /// 손을 떼는 순간 시트가 관성 움직임을 시작하므로, 그 다음 차례(microtask)에 지금 높이로 다시 맞춰 멈춘다.
-  double? _downY;
+  ///
+  /// 시트를 끌다 손을 떼면, 손을 뗀 속도 그대로 이어 움직이다가 부드럽게 느려지며 멈춘다(사용자 2026-11-23
+  /// "자연스럽게 속도에 따라 멈추게" — 전에는 손을 떼는 순간 그 자리에 딱 멈춰 뚝뚝 끊겼고, 그 전에는 기본 관성이
+  /// 너무 멀리 미끄러졌다). 천천히 놓으면 거의 바로, 빠르게 튕기면 조금 더 가서 멈춘다(관성 거리 = 속도 × [_glide]).
+  /// 끝까지 펼쳐 안쪽 내용을 넘기는 중(시트 높이가 그대로)이면 건드리지 않는다.
+  static const _glide = 0.2;
+  double? _downSize;
+  VelocityTracker? _fingerSpeed;
 
-  void _holdSheet() {
+  void _sheetPointerDown(PointerDownEvent e) {
+    _downSize = _sheet.isAttached ? _sheet.size : null;
+    _fingerSpeed = VelocityTracker.withKind(e.kind)
+      ..addPosition(e.timeStamp, e.position);
+  }
+
+  void _sheetPointerMove(PointerMoveEvent e) =>
+      _fingerSpeed?.addPosition(e.timeStamp, e.position);
+
+  void _sheetPointerUp(PointerUpEvent e) {
+    final down = _downSize;
+    final tracker = _fingerSpeed;
+    _downSize = null;
+    _fingerSpeed = null;
+    if (down == null || tracker == null || !_sheet.isAttached) return;
+    // 시트 자체가 움직인 끌기만(누르기·안쪽 스크롤은 그대로).
+    if ((_sheet.size - down).abs() < 0.004 || _bodyHeight <= 0) return;
+    final dy = tracker.getVelocity().pixelsPerSecond.dy;
+    // 손을 떼는 순간 시트가 기본 관성 움직임을 시작한다 — 그 다음 차례(microtask)에 우리 움직임으로 바꾼다.
     unawaited(
       Future.microtask(() {
         if (!mounted || !_sheet.isAttached) return;
-        final size = _sheet.size;
-        if (size >= _sheetFull - 0.002 || size <= _peekSize + 0.002) return;
-        _sheet.jumpTo(size);
+        final from = _sheet.size;
+        // 손가락 아래로 = 시트 작아짐. 시트 높이는 화면 대비 비율.
+        final speed = -dy / _bodyHeight;
+        if (speed.abs() < 0.08) {
+          _sheet.jumpTo(from);
+          return;
+        }
+        final to = (from + speed * _glide)
+            .clamp(_peekSize, _sheetFull)
+            .toDouble();
+        // 새 움직임은 첫 프레임에 제자리다(시작 시각 0) — 그 한 프레임 멈춤이 "뚝" 끊기는 느낌이었다
+        // (시험으로 프레임마다 재 보니 놓은 직후 0px). 손가락 속도로 한 프레임만큼 먼저 옮겨 두고 거기서 이어 간다.
+        final start = (from + speed / 60)
+            .clamp(math.min(from, to), math.max(from, to))
+            .toDouble();
+        final distance = (to - start).abs();
+        _sheet.jumpTo(start);
+        if (distance < 0.002) return;
+        // easeOutCubic 의 첫 속도(거리×3/시간)를 손가락 속도와 맞춘다 — 놓는 순간 속도가 튀지 않는다.
+        final ms = (3 * distance / speed.abs() * 1000).clamp(80, 700).round();
+        unawaited(
+          _sheet.animateTo(
+            to,
+            duration: Duration(milliseconds: ms),
+            curve: Curves.easeOutCubic,
+          ),
+        );
       }),
     );
   }
@@ -461,8 +524,44 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
 
   void _finish() {
     ref.read(assignedDeliveriesProvider.notifier).remove(_id);
+    ref.read(finishingDeliveriesProvider.notifier).remove(_id);
+    // 함께 픽업한 다음 고객이 있으면 그 배송으로 바로 간다(없으면 홈).
+    final next = nextCustomerStop(
+      ref.read(myActiveDeliveriesProvider).value,
+      ref.read(bundleStopsProvider),
+      exceptId: _id,
+    );
     ref.invalidate(myActiveDeliveriesProvider);
-    context.go('/');
+    context.go(next == null ? '/' : '/deliveries/${next.deliveryId}');
+  }
+
+  /// 픽업 직후: 들고 있는 배송 가운데 방문 순서가 가장 앞인 고객으로(이 배송이면 그대로).
+  Future<void> _goFirstStop() async {
+    ref.invalidate(myActiveDeliveriesProvider);
+    final List<DeliveryView> active;
+    try {
+      active = await ref.read(myActiveDeliveriesProvider.future);
+    } on Object {
+      return; // 못 읽으면 지금 화면에 둔다.
+    }
+    if (!mounted) return;
+    final first = nextCustomerStop(active, ref.read(bundleStopsProvider));
+    if (first != null && first.deliveryId != _id) {
+      context.go('/deliveries/${first.deliveryId}');
+    }
+  }
+
+  /// 같은 가게 픽업 전 배송 모두 가게 도착(배송마다 따로 보낸다 — 같은 키 재시도·결과 확인은 배송마다).
+  /// 차례로 보낸다 — 동시에 넣으면 기기에 저장하는 명령 큐를 두 곳이 함께 고쳐 한 건이 덮였다(시험에서 확인).
+  Future<void> _arriveAll(List<DeliveryView> group) async {
+    for (final g in group) {
+      if (g.state != ExecutionState.assigned) continue;
+      await ref
+          .read(deliveryFlowProvider(g.deliveryId).notifier)
+          .arriveAtStore();
+      if (!mounted) return;
+    }
+    ref.invalidate(myActiveDeliveriesProvider);
   }
 
   void _back() => context.canPop() ? context.pop() : context.go('/');
@@ -637,6 +736,21 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
         showRiderToast(context, AppLocalizations.of(context).failureRejected);
       }
     });
+    // 같은 가게에서 함께 픽업했으면 방문 순서가 앞인 고객부터(사용자 2026-11-23 "1번째 고객 - 2번째 고객").
+    // 이 배송이 픽업으로 넘어갔는데 먼저 갈 고객이 다른 배송이면 그 화면으로 옮긴다.
+    // 완료 카드는 라이더가 닫을 때까지 둔다(목록을 다시 읽어도 사라지지 않게).
+    ref.listen(provider.select((a) => a.value?.state), (prev, next) {
+      if (next == ExecutionState.completed ||
+          next == ExecutionState.returnedToStore) {
+        ref.read(finishingDeliveriesProvider.notifier).add(_id);
+      }
+    });
+    ref.listen(provider.select((a) => a.value?.state), (prev, next) {
+      if (prev == ExecutionState.arrivedAtStore &&
+          next == ExecutionState.pickedUp) {
+        unawaited(_goFirstStop());
+      }
+    });
     // 확정 뒤 반납 배송이 생기면(같은 라이더, 몇 초 뒤) 그 회수 화면으로 넘어간다.
     ref.listen(provider.select((a) => a.value?.returnDeliveryId), (prev, next) {
       if (prev == null && next != null) unawaited(_openReturn(next));
@@ -689,18 +803,14 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
           child: SafeArea(
             top: false,
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 14, 8, 14),
+              padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
               // 조회 실패를 빈 화면으로 두지 않는다.
               child: state is AsyncError
-                  ? Row(
+                  ? RiderLoadError(
                       key: const ValueKey('delivery-load-failed'),
-                      children: [
-                        Expanded(child: Text(l10n.deliveryLoadFailed)),
-                        TextButton(
-                          onPressed: () => ref.invalidate(provider),
-                          child: Text(l10n.retry),
-                        ),
-                      ],
+                      compact: true,
+                      title: l10n.deliveryLoadFailed,
+                      onRetry: () => ref.invalidate(provider),
                     )
                   : const LinearProgressIndicator(),
             ),
@@ -723,6 +833,28 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
 
   Widget _ready(BuildContext context, DeliveryView d) {
     final l10n = AppLocalizations.of(context);
+    // 이미 끝난 배송으로 열렸어도(다시 그려짐) 완료 카드를 닫을 때까지 둔다.
+    if ((d.state == ExecutionState.completed ||
+            d.state == ExecutionState.returnedToStore) &&
+        !ref.read(finishingDeliveriesProvider).contains(_id)) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) ref.read(finishingDeliveriesProvider.notifier).add(_id);
+      });
+    }
+    // 같은 가게에서 함께 픽업할 내 배송(자기 포함, 방문 순서대로).
+    final group = pickupGroup(
+      d,
+      ref.watch(myActiveDeliveriesProvider).value,
+      ref.watch(bundleStopsProvider),
+    );
+    // 함께 보내는 배송의 명령·상태를 이 화면이 떠 있는 동안 살려 둔다.
+    for (final g in group) {
+      if (g.deliveryId == _id) continue;
+      ref
+        ..watch(deliveryProvider(g.deliveryId))
+        ..watch(deliveryFlowProvider(g.deliveryId))
+        ..watch(deliveryQueueProvider(g.deliveryId));
+    }
     final flow = ref.watch(deliveryFlowProvider(_id));
     final ctl = ref.read(deliveryFlowProvider(_id).notifier);
     final queue = ref.watch(deliveryQueueProvider(_id)).value ?? const [];
@@ -1216,16 +1348,39 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
         label: l10n.returnStoreButton,
         onPressed: busy ? null : _returnToStore,
       ),
+      // 같은 가게 배송이 여럿이면 한 번에 가게 도착·픽업.
       ExecutionState.assigned => RiderButton(
         key: const ValueKey('arrive-store'),
-        label: l10n.arriveStore,
-        onPressed: busy ? null : ctl.arriveAtStore,
+        label: group.length > 1
+            ? l10n.arriveStoreGroup(group.length)
+            : l10n.arriveStore,
+        onPressed: busy
+            ? null
+            : group.length > 1
+            ? () => _arriveAll(group)
+            : ctl.arriveAtStore,
       ),
       ExecutionState.arrivedAtStore => RiderButton(
         key: const ValueKey('qr-pickup'),
         icon: Icons.qr_code_scanner,
-        label: l10n.qrPickup,
-        onPressed: () => context.push('/deliveries/$_id/qr'),
+        label: group.length > 1
+            ? l10n.qrPickupGroup(group.length)
+            : l10n.qrPickup,
+        onPressed: () {
+          // 가게 도착이 아직 안 간 같은 가게 배송이 있으면 먼저 보낸다(픽업을 함께 하려면 도착이 먼저다).
+          if (group.any((g) => g.state == ExecutionState.assigned)) {
+            unawaited(_arriveAll(group));
+          }
+          final others = [
+            for (final g in group)
+              if (g.deliveryId != _id) g.deliveryId,
+          ];
+          context.push(
+            others.isEmpty
+                ? '/deliveries/$_id/qr'
+                : '/deliveries/$_id/qr?with=${others.join(',')}',
+          );
+        },
       ),
       // 고객 도착은 따로 누르지 않는다(촬영 창이 대신 보낸다).
       // 사진 올리기에 성공한 뒤에만 전달완료 → "어떻게 전달하셨나요?" 창.
@@ -1423,17 +1578,14 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
                     top: Radius.circular(14),
                   ),
                   clipBehavior: Clip.antiAlias,
-                  // 손을 떼면 그 자리에 멈춘다(관성으로 미끄러지지 않게 — 사용자 2026-11-23 "너무 빠르게 슬라이딩으로
-                  // 내려가서 정보를 못 보겠다 … 사람이 내리는 거에 따라 움직이고 멈추게"). 끝까지 펼친 뒤 안쪽 내용 스크롤은 그대로 둔다.
+                  // 손을 떼면 그 속도에 따라 조금 더 가다 부드럽게 멈춘다(_sheetPointerUp).
                   child: Listener(
-                    onPointerDown: (e) => _downY = e.position.dy,
-                    onPointerUp: (e) {
-                      // 누르기(펼치기·접기 단추)는 건드리지 않는다 — 실제로 끈 때만.
-                      final down = _downY;
-                      _downY = null;
-                      if (down != null && (e.position.dy - down).abs() > 18) {
-                        _holdSheet();
-                      }
+                    onPointerDown: _sheetPointerDown,
+                    onPointerMove: _sheetPointerMove,
+                    onPointerUp: _sheetPointerUp,
+                    onPointerCancel: (_) {
+                      _downSize = null;
+                      _fingerSpeed = null;
                     },
                     // 안쪽 목록 끝에서 늘어나는(stretch) 효과가 시트 끌기와 겹쳐 덜컹거리지 않게 끈다.
                     child: SingleChildScrollView(

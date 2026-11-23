@@ -53,6 +53,8 @@ Future<void> changeDuty(
 List<String> watchActiveDeliveryIds(WidgetRef ref) {
   final released = ref.watch(releasedDeliveriesProvider);
   return {
+    // 완료 카드를 띄운 배송이 앞(닫을 때까지 그 화면을 둔다).
+    ...ref.watch(finishingDeliveriesProvider),
     ...?ref.watch(myActiveDeliveriesProvider).value?.map((d) => d.deliveryId),
     ...ref.watch(assignedDeliveriesProvider),
   }.where((id) => !released.contains(id)).toList();
@@ -206,14 +208,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     if (st == null) {
       bottom = _Panel(
         child: duty is AsyncError
-            ? Row(
-                children: [
-                  Expanded(child: Text(l10n.dutyLoadFailed)),
-                  TextButton(
-                    onPressed: () => ref.invalidate(dutyProvider),
-                    child: Text(l10n.retry),
-                  ),
-                ],
+            ? RiderLoadError(
+                compact: true,
+                title: l10n.dutyLoadFailed,
+                onRetry: () => ref.invalidate(dutyProvider),
               )
             : const LinearProgressIndicator(),
       );

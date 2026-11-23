@@ -10,6 +10,7 @@ import '../data/mock_offer_repository.dart';
 import '../data/delivery_list_repository.dart';
 import '../data/offer_repository.dart';
 import '../domain/offer_list.dart';
+import '../../delivery/presentation/pickup_group.dart';
 
 /// 앱 목 모드의 서버 흉내. 운행 종료에서 시작하고, 첫 가입 기본값(AI 추천 배차)을 쓴다.
 final mockOfferRepositoryProvider = Provider<MockOfferRepository>(
@@ -354,6 +355,10 @@ class OfferResponder {
                 const <OfferItem>[]) {
           if (o.bundleId == bundle && o.deliveryId != null) {
             assigned.add(o.deliveryId!);
+            // 묶음 안 고객 방문 순서(같은 가게에서 함께 픽업한 뒤 1번 → 2번 고객).
+            if (o.stopSequence case final stop?) {
+              _ref.read(bundleStopsProvider.notifier).put(o.deliveryId!, stop);
+            }
           }
         }
       }
@@ -362,4 +367,22 @@ class OfferResponder {
     unawaited(_ref.read(offerPollerProvider.notifier).refreshNow());
     return outcome;
   }
+}
+
+/// 배달완료(반납완료) 카드를 띄운 배송 — 라이더가 카드를 눌러 닫을 때까지 홈에 남긴다.
+/// 완료 직후 진행 중 목록을 다시 읽으면 그 배송이 빠져 카드가 바로 사라졌다(사용자 2026-11-23 "배달완료도 너무 빨리 사라지잖아").
+final finishingDeliveriesProvider =
+    NotifierProvider<FinishingDeliveries, List<String>>(
+      FinishingDeliveries.new,
+    );
+
+class FinishingDeliveries extends Notifier<List<String>> {
+  @override
+  List<String> build() => const [];
+
+  void add(String deliveryId) {
+    if (!state.contains(deliveryId)) state = [...state, deliveryId];
+  }
+
+  void remove(String deliveryId) => state = [...state]..remove(deliveryId);
 }

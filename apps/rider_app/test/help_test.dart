@@ -148,7 +148,7 @@ void main() {
     // 올리기에 실패하면 촬영 창이 닫히지 않고 실패를 알린다.
     expect(find.byKey(const ValueKey('upload-failed')), findsOneWidget);
     // 촬영 창에서 돌아와 도움요청을 연다.
-    await t.tap(find.byType(BackButton));
+    await t.tap(find.byType(BackButton).hitTestable());
     await settle();
 
     // 도움요청 → 지원센터 화면.
@@ -180,7 +180,8 @@ void main() {
 
     // 보내면 그 요청의 진행상황·대화 화면으로 간다(접수됨, 상담원 배정 대기).
     expect(find.byKey(const ValueKey('thread-messages')), findsOneWidget);
-    expect(find.text('지원센터에 접수했어요'), findsOneWidget);
+    // 아래 지원센터 화면도 계속 그려지므로(잔상 막기 — opaque: false) 맨 위 화면에 보이는 것만 센다.
+    expect(find.text('지원센터에 접수했어요').hitTestable(), findsOneWidget);
     // 고른 문제·쓴 내용이 대화의 첫 말로 보인다.
     expect(find.text('사진을 올릴 수 없어요\n사진이 계속 안 올라가요'), findsOneWidget);
     expect(find.text('상담원이 배정되면 여기로 답장이 와요.'), findsOneWidget);
@@ -189,7 +190,7 @@ void main() {
     now = now.add(MockDeliveryRepository.assignAfter);
     await t.pump(const Duration(seconds: 4));
     await settle();
-    expect(find.text('지원센터가 처리하고 있어요'), findsOneWidget);
+    expect(find.text('지원센터가 처리하고 있어요').hitTestable(), findsOneWidget);
     // 접수 건 ID(시스템 ID)는 라이더 화면에 내지 않는다(ADR-0070, 사용자 2026-11-19)
     expect(find.textContaining('접수번호'), findsNothing);
     expect(find.textContaining('CS-'), findsNothing);
@@ -210,7 +211,7 @@ void main() {
 
     // 나갔다가 배송 화면에서도 진행상황이 보이고, 누르면 다시 들어간다.
     // 대화에서 뒤로 가면 지원센터(보내기 화면)를 건너뛰고 도움요청을 누른 배송 화면으로 간다.
-    await t.tap(find.byType(BackButton));
+    await t.tap(find.byType(BackButton).hitTestable());
     await settle();
     expect(find.byKey(const ValueKey('support-center')), findsNothing);
     expect(find.byKey(const ValueKey('help-status')), findsOneWidget);
@@ -240,7 +241,7 @@ void main() {
     await t.tap(ticket);
     await settle();
     expect(find.textContaining('매장과 확인해서'), findsOneWidget);
-    await t.tap(find.byType(BackButton));
+    await t.tap(find.byType(BackButton).hitTestable());
     await settle();
 
     // 처리 중에도 다른 도움요청을 새로 보낼 수 있다(새 요청 → 목록에 두 건).
@@ -248,7 +249,7 @@ void main() {
     await settle();
     await t.tap(send);
     await settle();
-    await t.tap(find.byType(BackButton)); // 새 요청의 대화 → 배송 화면
+    await t.tap(find.byType(BackButton).hitTestable()); // 새 요청의 대화 → 배송 화면
     await settle();
     await t.tap(find.byKey(const ValueKey('help-status'))); // 지원센터 다시
     await settle();
@@ -347,7 +348,8 @@ void main() {
     expect(find.byKey(const ValueKey('request-photo-view')), findsOneWidget);
     await t.tap(find.text('확인'));
     await settle();
-    expect(find.text('지원센터에 접수했어요'), findsOneWidget);
+    // 아래 지원센터 화면도 계속 그려지므로(잔상 막기 — opaque: false) 맨 위 화면에 보이는 것만 센다.
+    expect(find.text('지원센터에 접수했어요').hitTestable(), findsOneWidget);
     expect(find.byKey(const ValueKey('thread-input')), findsOneWidget);
     expect(repo.helpDetails.values, contains(summary));
     // 서버가 실패 등록과 함께 대화를 연다 — 앱이 도움요청을 따로 보내지 않는다(운영자 쪽 두 건 방지).
@@ -358,7 +360,7 @@ void main() {
     );
 
     // 대화에서 나오면 배송 화면: 운영자 확인 대기 + "지원센터와 대화하기"로 다시 들어간다.
-    await t.tap(find.byType(BackButton));
+    await t.tap(find.byType(BackButton).hitTestable());
     await settle();
     expect(find.byKey(const ValueKey('failure-waiting')), findsOneWidget);
     await t.tap(find.byKey(const ValueKey('failure-talk')));
@@ -366,7 +368,7 @@ void main() {
     expect(find.byKey(const ValueKey('thread-messages')), findsOneWidget);
     // 로그인 화면으로 가지 않는다.
     expect(find.byKey(const ValueKey('login-apply')), findsNothing);
-    await t.tap(find.byType(BackButton));
+    await t.tap(find.byType(BackButton).hitTestable());
     await settle();
 
     // 도움요청을 다시 열어도 접수됐다는 표시가 있고, 고객 연락 안 됨을 고르면 버튼이 계속 보인다 —
@@ -394,9 +396,9 @@ void main() {
     await settle();
     expect(find.text(summary), findsOneWidget);
     expect(repo.helpDetails, hasLength(1));
-    await t.tap(find.byType(BackButton));
+    await t.tap(find.byType(BackButton).hitTestable());
     await settle();
-    await t.tap(find.byType(BackButton));
+    await t.tap(find.byType(BackButton).hitTestable());
     await settle();
 
     // 그 사이 상담원과 두 번 주고받았다(전에는 목 상담원이 여기서 "처리 완료"로 닫아 재개 요청을 받지 않았다).
@@ -437,7 +439,7 @@ void main() {
     expect(find.text('전달 불가가 반려됐어요. 고객에게 전달을 계속해 주세요'), findsOneWidget);
 
     // 배송 화면은 확인해서 전달 단계로 돌아온다.
-    await t.tap(find.byType(BackButton));
+    await t.tap(find.byType(BackButton).hitTestable());
     await t.pump(const Duration(seconds: 8));
     await settle();
     expect(find.byKey(const ValueKey('failure-waiting')), findsNothing);

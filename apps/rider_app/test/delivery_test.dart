@@ -316,20 +316,42 @@ void main() {
     await settle();
     final dragged = t.getTopLeft(find.byKey(const ValueKey('sheet-handle'))).dy;
     expect(dragged, lessThan(peek - 200));
-    // 빠르게 튕겨 내려도 손을 뗀 자리 근처에 멈춘다(관성으로 접힘까지 미끄러지지 않음 — 사용자 2026-11-23).
-    await t.fling(
-      find.byKey(const ValueKey('sheet-handle')),
-      const Offset(0, 100),
-      3000,
+    // 끌어 내리다 놓으면 손을 뗀 속도로 조금 더 가다 부드럽게 느려지며 멈춘다(사용자 2026-11-23 "자연스럽게 속도에 따라 멈추게").
+    // 프레임마다 위치를 재서: 놓은 뒤에도 바로 이어 움직이고, 아래로만, 한 프레임 이동이 점점 준다.
+    final handle = find.byKey(const ValueKey('sheet-handle'));
+    final gesture = await t.startGesture(t.getCenter(handle));
+    for (var i = 0; i < 10; i++) {
+      await gesture.moveBy(
+        const Offset(0, 12),
+        timeStamp: Duration(milliseconds: 16 * (i + 1)),
+      );
+      await t.pump(const Duration(milliseconds: 16));
+    }
+    final released = t.getTopLeft(handle).dy;
+    await gesture.up(timeStamp: const Duration(milliseconds: 176));
+    final ys = <double>[released];
+    for (var i = 0; i < 50; i++) {
+      await t.pump(const Duration(milliseconds: 16));
+      ys.add(t.getTopLeft(handle).dy);
+    }
+    final steps = [for (var i = 1; i < ys.length; i++) ys[i] - ys[i - 1]];
+    // ignore: avoid_print
+    print(
+      'sheet glide px/frame: ${steps.take(30).map((v) => v.toStringAsFixed(1)).join(' ')}',
     );
-    await settle();
-    final flung = t.getTopLeft(find.byKey(const ValueKey('sheet-handle'))).dy;
-    expect(flung, closeTo(dragged + 100, 40));
-    expect(flung, lessThan(peek - 60));
-    // 끝까지 올리면 "눌러서 지도 보기".
+    expect(steps.first, greaterThan(2));
+    for (var i = 1; i < steps.length; i++) {
+      expect(steps[i], greaterThanOrEqualTo(-0.01));
+      expect(steps[i], lessThanOrEqualTo(steps[i - 1] + 0.5));
+    }
+    expect(steps.last.abs(), lessThan(0.5));
+    final flung = ys.last;
+    expect(flung, greaterThan(released + 20));
+    expect(flung, lessThan(peek - 30));
+    // 끝까지 올리면 "눌러서 지도 보기"(천천히 끌면 놓은 자리에 멈추므로 끝까지 끈다).
     await t.drag(
       find.byKey(const ValueKey('sheet-handle')),
-      const Offset(0, -800),
+      const Offset(0, -1600),
     );
     await settle();
     expect(find.text('눌러서 지도 보기'), findsOneWidget);

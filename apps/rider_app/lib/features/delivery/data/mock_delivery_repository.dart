@@ -63,6 +63,8 @@ base class MockDeliveryRepository
           'state': 'ASSIGNED',
           'packageIds': [pkg],
           'handoverIds': <String>[],
+          // 알뜰 묶음·전달 순서(execution 0.40.0) — 목 제안 bundle-1~3 과 같은 값.
+          ...?_mockBundleStops[n],
         };
         _packages[pkg] = {'state': 'SEALED'};
       }
@@ -165,6 +167,17 @@ base class MockDeliveryRepository
 
   /// 목 MFC 반납 인증번호(직원 화면에 뜬다고 가정).
   static const returnHandoverCode = ReturnHandoverCode.mockCode;
+
+  /// 목 묶음 배송의 묶음·전달 순서(목 제안 bundle-1: b1·b2, bundle-2: b3~b5, bundle-3: b6·b7).
+  static const _mockBundleStops = <String, Map<String, Object?>>{
+    'b1': {'bundleId': 'bundle-1', 'stopSequence': 1},
+    'b2': {'bundleId': 'bundle-1', 'stopSequence': 2},
+    'b3': {'bundleId': 'bundle-2', 'stopSequence': 1},
+    'b4': {'bundleId': 'bundle-2', 'stopSequence': 2},
+    'b5': {'bundleId': 'bundle-2', 'stopSequence': 3},
+    'b6': {'bundleId': 'bundle-3', 'stopSequence': 1},
+    'b7': {'bundleId': 'bundle-3', 'stopSequence': 2},
+  };
 
   final _deliveries = <String, Map<String, Object?>>{
     'dlv-1': {

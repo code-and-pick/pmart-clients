@@ -7,20 +7,33 @@ import '../../../l10n/gen/app_localizations.dart';
 import '../../../shared/qr_camera.dart';
 import '../../../shared/rider_style.dart';
 import '../../../shared/rider_widgets.dart';
+import '../data/delivery_repository.dart' show packageIdFromQr;
 import '../data/trip_repository.dart';
 import '../domain/delivery.dart';
 import 'delivery_controller.dart';
 import 'delivery_texts.dart';
+import 'pickup_group.dart';
 import '../../../shared/keyboard.dart';
 
 /// QR코드 픽업. 포장마다 스캔하고, 서버가 인계를 확정한 포장만 인계 완료로 센다.
 /// 모든 포장이 확정돼야 픽업 완료를 보낼 수 있다(스캔 ≠ 인계).
 /// 스캔이 안 되면 라벨의 숫자(4자리, 옛 포장 6자리)를 직접 입력한다 — 숫자로 허가를 받고(mfc-fulfillment
 /// `handover-code-authorizations`) 확정은 스캔과 같다. 5번 틀리면 숫자 입력이 막힌다(QR·직원 확인).
+///
+/// 같은 가게에서 함께 픽업하는 배송이 있으면([withIds], 사용자 2026-11-23 "가게는 한 번에 가서 2개 동시에 픽업")
+/// 이 화면 하나에서 모든 주문의 포장을 찍는다 — 찍은 포장이 속한 배송으로 인계를 보내고,
+/// 모든 주문의 포장이 확정되면 픽업 완료를 배송마다 보낸다.
 class QrPickupScreen extends ConsumerStatefulWidget {
-  const QrPickupScreen({super.key, required this.deliveryId});
+  const QrPickupScreen({
+    super.key,
+    required this.deliveryId,
+    this.withIds = const [],
+  });
 
   final String deliveryId;
+
+  /// 함께 픽업하는 같은 가게의 다른 배송.
+  final List<String> withIds;
 
   @override
   ConsumerState<QrPickupScreen> createState() => _QrPickupScreenState();
@@ -48,11 +61,39 @@ class _QrPickupScreenState extends ConsumerState<QrPickupScreen> {
 
   String get _id => widget.deliveryId;
 
-  Future<void> _scan(DeliveryView d, String code) async {
+  /// 함께 픽업하는 배송(이 배송 먼저). 화면에서 가게 도착 상태인 것만 쓴다.
+  /// 고객 방문 순서대로("1번 주문" = 먼저 갈 고객) — 숫자 입력 칸의 주문 고르기와 줄 순서가 같다.
+  List<DeliveryView> _members(DeliveryView d) => orderByStop(
+    [
+      d,
+      for (final id in widget.withIds)
+        if (ref.watch(deliveryProvider(id)).value case final o?
+            when o.mfcId == d.mfcId && o.state == ExecutionState.arrivedAtStore)
+          o,
+    ],
+    ref.watch(myActiveDeliveriesProvider).value,
+    ref.watch(bundleStopsProvider),
+  );
+
+  /// 마지막으로 찍은 포장의 배송 — 안내 문구를 그 배송 기준으로 보인다.
+  String? _lastFlowId;
+
+  /// 숫자 입력을 보낼 배송(여럿이면 고른다). 없으면 아직 다 안 받은 첫 배송.
+  String? _numberTarget;
+
+  Future<void> _scan(List<DeliveryView> members, String code) async {
     if (code.trim().isEmpty || _scanning) return;
     _scanning = true;
     try {
-      await ref.read(deliveryFlowProvider(_id).notifier).scan(d, code);
+      // 찍은 포장이 속한 배송으로 보낸다. 어느 배송 포장도 아니면 이 배송 기준(다른 배달 포장 안내).
+      final pkg = packageIdFromQr(code);
+      final owner =
+          members.where((m) => m.packageIds.contains(pkg)).firstOrNull ??
+          members.first;
+      setState(() => _lastFlowId = owner.deliveryId);
+      await ref
+          .read(deliveryFlowProvider(owner.deliveryId).notifier)
+          .scan(owner, code);
     } finally {
       _scanning = false;
     }
@@ -62,9 +103,10 @@ class _QrPickupScreenState extends ConsumerState<QrPickupScreen> {
   Future<void> _enterNumber(DeliveryView d, String digits) async {
     if (_scanning) return;
     _scanning = true;
+    setState(() => _lastFlowId = d.deliveryId);
     try {
       final step = await ref
-          .read(deliveryFlowProvider(_id).notifier)
+          .read(deliveryFlowProvider(d.deliveryId).notifier)
           .enterCode(d, digits);
       if (!mounted) return;
       final l10n = AppLocalizations.of(context);
@@ -73,7 +115,8 @@ class _QrPickupScreenState extends ConsumerState<QrPickupScreen> {
       final others = ref.read(myActiveDeliveriesProvider).value ?? const [];
       final pickingUpOthers = others.any(
         (o) =>
-            o.deliveryId != _id &&
+            o.deliveryId != d.deliveryId &&
+            !widget.withIds.contains(o.deliveryId) &&
             o.mfcId != null &&
             o.mfcId == d.mfcId &&
             (o.state == ExecutionState.assigned ||
@@ -104,9 +147,13 @@ class _QrPickupScreenState extends ConsumerState<QrPickupScreen> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final d = ref.watch(deliveryProvider(_id)).value;
+    final members = d == null ? const <DeliveryView>[] : _members(d);
     // 픽업이 이미 끝났거나(연타로 화면이 한 번 더 열림 — 2026-11-20 S23 실서버 재현) 배송이 다른 단계로 갔으면
-    // 이 화면을 닫는다. 남아 있으면 끝난 픽업 버튼이 켜진 채 보인다.
-    if (d != null && d.state != ExecutionState.arrivedAtStore && !_closing) {
+    // 이 화면을 닫는다. 남아 있으면 끝난 픽업 버튼이 켜진 채 보인다(함께 픽업하는 배송도 모두 넘어갔을 때).
+    final stillHere = members.any(
+      (m) => m.state == ExecutionState.arrivedAtStore,
+    );
+    if (d != null && !stillHere && !_closing) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) _close();
       });
@@ -114,16 +161,41 @@ class _QrPickupScreenState extends ConsumerState<QrPickupScreen> {
     final trip = ref.watch(tripInfoProvider(_id)).value;
     // 숫자 안내에서 같이 픽업하는 다른 주문이 있는지 본다(_enterNumber) — 화면이 떠 있는 동안 살려 둔다.
     ref.watch(myActiveDeliveriesProvider);
-    final flow = ref.watch(deliveryFlowProvider(_id));
-    final ctl = ref.read(deliveryFlowProvider(_id).notifier);
-    final queue = ref.watch(deliveryQueueProvider(_id)).value ?? const [];
+    // 배송마다 인계 상태·보낼 명령.
+    final flows = {
+      for (final m in members)
+        m.deliveryId: ref.watch(deliveryFlowProvider(m.deliveryId)),
+    };
+    // 모든 배송의 큐를 지켜본다(any 는 중간에 멈추므로 먼저 다 읽는다).
+    final queues = [
+      for (final m in members)
+        ref.watch(deliveryQueueProvider(m.deliveryId)).value ?? const [],
+    ];
+    final busy = queues.any((q) => q.any((i) => i.isOpen));
+    if (members.isEmpty) ref.watch(deliveryFlowProvider(_id));
+    final lastId = flows.containsKey(_lastFlowId) ? _lastFlowId! : _id;
+    final DeliveryFlowState flow =
+        flows[lastId] ?? ref.watch(deliveryFlowProvider(_id));
     final camera = ref.watch(qrCameraProvider);
-    final packages = d?.packageIds ?? const <String>[];
-    final done = packages
-        .where((p) => flow.phaseOf(p).phase == HandoverPhase.handedOver)
+    int handed(DeliveryView m) => m.packageIds
+        .where(
+          (p) =>
+              flows[m.deliveryId]!.phaseOf(p).phase == HandoverPhase.handedOver,
+        )
         .length;
-    final allHanded = packages.isNotEmpty && done == packages.length;
-    final busy = queue.any((q) => q.isOpen);
+    final packages = [for (final m in members) ...m.packageIds];
+    final done = members.fold<int>(0, (a, m) => a + handed(m));
+    final allHanded =
+        members.isNotEmpty &&
+        members.every(
+          (m) => m.packageIds.isNotEmpty && handed(m) == m.packageIds.length,
+        );
+    final group = members.length > 1;
+    // 숫자 입력 대상: 고른 배송, 없으면 아직 다 안 받은 첫 배송.
+    final numberTarget =
+        members.where((m) => m.deliveryId == _numberTarget).firstOrNull ??
+        members.where((m) => handed(m) < m.packageIds.length).firstOrNull ??
+        d;
 
     return Scaffold(
       backgroundColor: const Color(0xFF3A3A3A),
@@ -171,7 +243,7 @@ class _QrPickupScreenState extends ConsumerState<QrPickupScreen> {
                     ),
                     clipBehavior: Clip.hardEdge,
                     child: camera != null && d != null && !_cameraOff
-                        ? camera((code) => _scan(d, code))
+                        ? camera((code) => _scan(members, code))
                         : const Center(
                             child: Icon(
                               Icons.qr_code_scanner,
@@ -216,25 +288,55 @@ class _QrPickupScreenState extends ConsumerState<QrPickupScreen> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     // 카메라가 없거나(시험·카메라 오류) "스캔이 안 된다면"을 눌렀으면 숫자 입력 칸을 바로 보인다.
-                    if ((camera == null || _numberOpen) && d != null) ...[
+                    if ((camera == null || _numberOpen) &&
+                        numberTarget != null) ...[
+                      // 여러 주문이면 숫자를 어느 주문 포장에 넣을지 고른다(틀린 주문에 넣으면 남은 횟수가 준다).
+                      if (group)
+                        Wrap(
+                          spacing: 6,
+                          children: [
+                            for (final (i, m) in members.indexed)
+                              ChoiceChip(
+                                key: ValueKey('number-target-${m.deliveryId}'),
+                                label: Text(l10n.pickupOrderN(i + 1)),
+                                selected:
+                                    m.deliveryId == numberTarget.deliveryId,
+                                onSelected: (_) => setState(
+                                  () => _numberTarget = m.deliveryId,
+                                ),
+                              ),
+                          ],
+                        ),
                       _NumberField(
                         key: const ValueKey('number-inline'),
                         autofocus: _numberOpen,
-                        onSubmit: (v) => _enterNumber(d, v),
+                        onSubmit: (v) => _enterNumber(numberTarget, v),
                       ),
                       const SizedBox(height: 8),
                     ],
-                    Text(
-                      l10n.orderNumber,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        color: RiderColors.sub,
+                    if (!group) ...[
+                      Text(
+                        l10n.orderNumber,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          color: RiderColors.sub,
+                        ),
                       ),
-                    ),
-                    OrderCode(
-                      code: trip?.orderNo ?? d?.orderId ?? _id,
-                      size: 26,
-                    ),
+                      OrderCode(
+                        code: trip?.orderNo ?? d?.orderId ?? _id,
+                        size: 26,
+                      ),
+                    ] else
+                      // 함께 픽업하는 주문마다 받은 포장 수.
+                      for (final (i, m) in members.indexed)
+                        _GroupRow(
+                          key: ValueKey('group-row-${m.deliveryId}'),
+                          index: i + 1,
+                          deliveryId: m.deliveryId,
+                          fallback: m.orderId ?? m.deliveryId,
+                          done: handed(m),
+                          total: m.packageIds.length,
+                        ),
                     const SizedBox(height: 6),
                     Text(
                       l10n.handoverProgress(done, packages.length),
@@ -276,24 +378,31 @@ class _QrPickupScreenState extends ConsumerState<QrPickupScreen> {
                           color: RiderColors.danger,
                         ),
                       ),
-                    for (final pkg in packages)
-                      if (flow.phaseOf(pkg).phase == HandoverPhase.checking)
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Flexible(
-                              child: Text(
-                                '${l10n.packageLabel(pkg)} · ${l10n.hoChecking}',
-                                style: const TextStyle(fontSize: 13),
+                    for (final m in members)
+                      for (final pkg in m.packageIds)
+                        if (flows[m.deliveryId]!.phaseOf(pkg).phase ==
+                            HandoverPhase.checking)
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  '${l10n.packageLabel(pkg)} · ${l10n.hoChecking}',
+                                  style: const TextStyle(fontSize: 13),
+                                ),
                               ),
-                            ),
-                            TextButton(
-                              key: ValueKey('check-$pkg'),
-                              onPressed: () => ctl.checkAgain(pkg),
-                              child: Text(l10n.checkAgain),
-                            ),
-                          ],
-                        ),
+                              TextButton(
+                                key: ValueKey('check-$pkg'),
+                                onPressed: () => ref
+                                    .read(
+                                      deliveryFlowProvider(m.deliveryId)
+                                          .notifier,
+                                    )
+                                    .checkAgain(pkg),
+                                child: Text(l10n.checkAgain),
+                              ),
+                            ],
+                          ),
                     if (!allHanded && done > 0)
                       Text(
                         l10n.partialHandover,
@@ -307,11 +416,22 @@ class _QrPickupScreenState extends ConsumerState<QrPickupScreen> {
                     const SizedBox(height: 10),
                     RiderButton(
                       key: const ValueKey('pickup'),
-                      label: l10n.pickupDone,
-                      // 모든 포장의 인계가 서버에서 확정돼야 픽업 완료를 보낼 수 있다.
+                      label: group
+                          ? l10n.pickupDoneGroup(members.length)
+                          : l10n.pickupDone,
+                      // 모든 포장의 인계가 서버에서 확정돼야 픽업 완료를 보낼 수 있다(함께 픽업하면 모든 주문).
                       onPressed: (allHanded && !busy)
                           ? () async {
-                              await ctl.pickup();
+                              // 차례로(동시에 넣으면 기기에 저장하는 명령 큐를 함께 고쳐 한 건이 덮인다).
+                              for (final m in members) {
+                                await ref
+                                    .read(
+                                      deliveryFlowProvider(m.deliveryId)
+                                          .notifier,
+                                    )
+                                    .pickup();
+                                if (!context.mounted) return;
+                              }
                               if (context.mounted) _close();
                             }
                           : null,
@@ -387,6 +507,54 @@ class _NumberFieldState extends State<_NumberField> {
           child: Text(l10n.ok),
         ),
       ],
+    );
+  }
+}
+
+/// 함께 픽업하는 주문 한 줄 — "1번 주문 · 주문번호 · 받은 포장 n/m".
+class _GroupRow extends ConsumerWidget {
+  const _GroupRow({
+    super.key,
+    required this.index,
+    required this.deliveryId,
+    required this.fallback,
+    required this.done,
+    required this.total,
+  });
+
+  final int index;
+  final String deliveryId;
+  final String fallback;
+  final int done;
+  final int total;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
+    final orderNo = ref.watch(tripInfoProvider(deliveryId)).value?.orderNo;
+    final complete = total > 0 && done == total;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Row(
+        children: [
+          Text(
+            l10n.pickupOrderN(index),
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(width: 8),
+          Expanded(child: OrderCode(code: orderNo ?? fallback, size: 18)),
+          Icon(
+            complete ? Icons.check_circle : Icons.radio_button_unchecked,
+            size: 18,
+            color: complete ? RiderColors.primary : RiderColors.sub,
+          ),
+          const SizedBox(width: 4),
+          Text(
+            '$done/$total',
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+          ),
+        ],
+      ),
     );
   }
 }

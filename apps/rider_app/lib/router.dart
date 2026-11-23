@@ -94,8 +94,14 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/deliveries/:deliveryId/qr',
-        builder: (_, s) =>
-            QrPickupScreen(deliveryId: s.pathParameters['deliveryId']!),
+        builder: (_, s) => QrPickupScreen(
+          deliveryId: s.pathParameters['deliveryId']!,
+          // ?with=id2,id3 — 같은 가게에서 함께 픽업하는 배송.
+          withIds: [
+            for (final id in (s.uri.queryParameters['with'] ?? '').split(','))
+              if (id.isNotEmpty) id,
+          ],
+        ),
       ),
       GoRoute(
         path: '/deliveries/:deliveryId/photo',
@@ -199,34 +205,33 @@ Page<void> _overMap(GoRouterState s, Widget child) =>
     CustomTransitionPage<void>(
       key: s.pageKey,
       child: child,
+      // 아래 지도 화면을 계속 그린다 — 다 가려지면 지도(안드로이드 화면)가 멈췄다가, 닫을 때 멈췄던 옛 그림이
+      // 잔상처럼 남았다(사용자 2026-11-23 "잔상 남기면서 없어졌어").
+      opaque: false,
       transitionDuration: const Duration(milliseconds: 180),
       reverseTransitionDuration: const Duration(milliseconds: 140),
       transitionsBuilder: (_, animation, _, child) =>
           FadeTransition(opacity: animation, child: child),
     );
 
-/// 도움요청 화면 — 바로 뜨지 않고 아래에서 살짝 떠오르며 나타난다(사용자 2026-11-23 "도움요청 클릭할 때도 바로 뜨는 거 말고 애니메이션").
-/// 지도를 확대·축소하지 않게 아래 화면은 그대로 두고, 새 화면만 6% 아래에서 올라오며 서서히 보인다.
+/// 도움요청 화면 — 바로 뜨지 않고 아래에서 올라온다(사용자 2026-11-23 "바로 뜨는 거 말고 애니메이션").
+/// 닫을 때는 아래로 내려가며 사라진다. 투명도를 바꾸지 않는다(반투명하게 겹치면 지도 위에 잔상이 남았다 —
+/// 사용자 2026-11-23 "잔상 남기면서 없어졌어. 휴대폰에 문제 있는 것처럼 보여").
+/// 아래 지도 화면은 계속 그린다(opaque: false) — 다 가려진 동안 지도가 멈췄다가 닫을 때 옛 그림이 보이지 않게.
 Page<void> _riseUp(GoRouterState s, Widget child) => CustomTransitionPage<void>(
   key: s.pageKey,
   child: child,
-  transitionDuration: const Duration(milliseconds: 280),
-  reverseTransitionDuration: const Duration(milliseconds: 200),
-  transitionsBuilder: (_, animation, _, child) {
-    final curved = CurvedAnimation(
-      parent: animation,
-      curve: Curves.easeOutCubic,
-      reverseCurve: Curves.easeInCubic,
-    );
-    return FadeTransition(
-      opacity: curved,
-      child: SlideTransition(
-        position: Tween(
-          begin: const Offset(0, 0.06),
-          end: Offset.zero,
-        ).animate(curved),
-        child: child,
+  opaque: false,
+  transitionDuration: const Duration(milliseconds: 300),
+  reverseTransitionDuration: const Duration(milliseconds: 240),
+  transitionsBuilder: (_, animation, _, child) => SlideTransition(
+    position: Tween(begin: const Offset(0, 1), end: Offset.zero).animate(
+      CurvedAnimation(
+        parent: animation,
+        curve: Curves.easeOutCubic,
+        reverseCurve: Curves.easeInCubic,
       ),
-    );
-  },
+    ),
+    child: child,
+  ),
 );

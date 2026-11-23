@@ -116,48 +116,44 @@ class _DeliveryListScreenState extends ConsumerState<DeliveryListScreen> {
             )
           else ...[
             // 2026-11-23 사용자 "상단 제목 부분이 검정으로 뜨는 거 답답" — 흰 머리줄에 맞춰 회색 띠도 연보라·짙은 글자로.
-            Container(
-              width: double.infinity,
-              color: RiderColors.primaryMist,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    l10n.listBannerTitle(ids.length),
-                    style: const TextStyle(
-                      color: RiderColors.ink,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
+            // 목록을 못 읽었으면 "0건 진행 중"을 보이지 않는다(조회 실패를 0으로 보이지 않기 — 2026-11-24 폰 화면).
+            if (!(loaded is AsyncError && ids.isEmpty))
+              Container(
+                width: double.infinity,
+                color: RiderColors.primaryMist,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 14,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      l10n.listBannerTitle(ids.length),
+                      style: const TextStyle(
+                        color: RiderColors.ink,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    l10n.listBannerBody,
-                    style: const TextStyle(
-                      color: RiderColors.sub,
-                      fontSize: 13,
+                    const SizedBox(height: 2),
+                    Text(
+                      l10n.listBannerBody,
+                      style: const TextStyle(
+                        color: RiderColors.sub,
+                        fontSize: 13,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
             Expanded(
               // 조회 실패를 "배달 없음"으로 보이지 않는다.
               child: loaded is AsyncError && ids.isEmpty
-                  ? Center(
+                  ? RiderLoadError(
                       key: const ValueKey('list-error'),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(l10n.listLoadFailed),
-                          TextButton(
-                            onPressed: () =>
-                                ref.invalidate(myActiveDeliveriesProvider),
-                            child: Text(l10n.retry),
-                          ),
-                        ],
-                      ),
+                      title: l10n.listLoadFailed,
+                      onRetry: () => ref.invalidate(myActiveDeliveriesProvider),
                     )
                   : loaded.isLoading && ids.isEmpty
                   ? const Center(child: CircularProgressIndicator())
@@ -576,18 +572,10 @@ class _WaitingState extends ConsumerState<_Waiting> {
             ),
         ],
       ),
-      AsyncError() => Center(
+      AsyncError() => RiderLoadError(
         key: const ValueKey('waiting-error'),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(l10n.waitingLoadFailed),
-            TextButton(
-              onPressed: () => ref.invalidate(waitingListProvider),
-              child: Text(l10n.retry),
-            ),
-          ],
-        ),
+        title: l10n.waitingLoadFailed,
+        onRetry: () => ref.invalidate(waitingListProvider),
       ),
       _ => const Center(child: CircularProgressIndicator()),
     };

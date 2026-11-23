@@ -207,12 +207,23 @@ class RequestNotes extends StatelessWidget {
           // 2026-11-23 사용자 "주황색 배경으로 해놓은 거 치곤 폰트나 굵기가 좀 약해" — 머리는 아이콘 + 굵게, 내용은 크고 굵게.
           Row(
             children: [
-              const Icon(
-                Icons.priority_high_rounded,
-                size: 18,
-                color: RiderColors.pickup,
+              // 확인해 달라는 알림 — 주황 동그라미 안 흰 확성기(사용자 2026-11-23 "뜬금없이 ! 이거 하나만 있는 건 좀 아니지").
+              Container(
+                key: const ValueKey('request-notes-badge'),
+                width: 26,
+                height: 26,
+                decoration: const BoxDecoration(
+                  color: RiderColors.pickup,
+                  shape: BoxShape.circle,
+                ),
+                alignment: Alignment.center,
+                child: const Icon(
+                  Icons.campaign_rounded,
+                  size: 17,
+                  color: Colors.white,
+                ),
               ),
-              const SizedBox(width: 4),
+              const SizedBox(width: 8),
               Text(
                 l10n.checkRequestNote,
                 style: const TextStyle(
