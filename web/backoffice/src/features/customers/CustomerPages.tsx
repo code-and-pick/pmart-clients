@@ -23,6 +23,7 @@ import { statusTone } from '../orders/OrderLookupPages';
 import { claimLabel, claimTone } from '../claims/ClaimPages';
 import { useHelp } from '../../shared/HelpPanel';
 import { CopyButton } from '../../shared/CopyButton';
+import { CustomerNotes } from './CustomerNotes';
 
 const m = messages.customers;
 type Detail = components['schemas']['ComposedView'] & components['schemas']['CustomerDetailView'];
@@ -240,6 +241,9 @@ function CustomerDetail({ d }: { readonly d: Detail }) {
           )}
         </aside>
       </div>
+
+      {/* 상담 메모(case 0.34.0) — 상담원이 고객을 열면 먼저 보게 주문 위에 */}
+      <CustomerNotes customerId={c.customerId} />
 
       <Part title={m.orders} part={d.orders} testId="customer-orders">
         {(items) => (

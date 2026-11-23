@@ -36,6 +36,19 @@ function deny(request: Request): Response | null {
   return s.roles.some((r) => r === 'CS_AGENT' || r === 'OPERATOR_ADMIN') ? null : problem(403, 'FORBIDDEN');
 }
 
+// case 0.34.0 고객 상담 메모 — 쓰기 CS_AGENT 만, 목록 상담원·관리자, 고치기·지우기 쓴 사람만(관리자도 403)
+type MockNote = { noteId: string; customerId: string; text: string | null; authorId: string; createdAt: string; editedAt: string | null; deleted: boolean; deletedAt: string | null };
+const seedNotes = (): MockNote[] => [
+  { noteId: 'CN-MOCK-1', customerId: 'CUS-1001', text: '배송 요청사항을 자주 바꾸심 — 주문 때 다시 확인', authorId: 'op-cs-1', createdAt: ago(48), editedAt: null, deleted: false, deletedAt: null },
+  { noteId: 'CN-MOCK-2', customerId: 'CUS-1001', text: '반품 문의 때 사진 먼저 받기로 안내함', authorId: 'op-cs-rider-1', createdAt: ago(20), editedAt: ago(19), deleted: false, deletedAt: null },
+];
+let notes = seedNotes();
+let noteSeq = 0;
+export const resetMockCustomerNotes = () => {
+  notes = seedNotes();
+  noteSeq = 0;
+};
+
 const composed = () => ({ composedAt: new Date().toISOString(), sources: [], unavailableSources: [] as string[] });
 
 export const customerHandlers = [
@@ -109,6 +122,57 @@ export const customerHandlers = [
           }
         : null,
       ...(first ? {} : { unavailableSources: ['case-service'] }),
+    });
+  }),
+
+  http.get(`${API_BASE}/customer-notes`, ({ request }) => {
+    const denied = deny(request);
+    if (denied) return denied;
+    const customerId = new URL(request.url).searchParams.get('customerId') ?? '';
+    if (!customerId) return problem(400, 'VALIDATION_FAILED', [{ field: 'customerId', reason: 'REQUIRED' }]);
+    const items = notes.filter((n) => n.customerId === customerId && !n.deleted).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    return HttpResponse.json({ items, page: { nextCursor: null } });
+  }),
+
+  http.post(`${API_BASE}/customer-notes`, async ({ request }) => {
+    const who = operator(request);
+    if (!who) return unauthorized();
+    if (!who.roles.includes('CS_AGENT')) return problem(403, 'FORBIDDEN');
+    const body = (await request.clone().json()) as { customerId?: string; text?: string };
+    return idempotent(request, () => {
+      const t = (body.text ?? '').trim();
+      if (!body.customerId || t.length < 1 || t.length > 1000) return problem(400, 'VALIDATION_FAILED', [{ field: 'text', reason: 'INVALID_FORMAT' }]);
+      const n: MockNote = { noteId: `CN-NEW-${++noteSeq}`, customerId: body.customerId, text: t, authorId: who.subject, createdAt: new Date().toISOString(), editedAt: null, deleted: false, deletedAt: null };
+      notes.push(n);
+      return { status: 201, body: n };
+    });
+  }),
+
+  http.post(`${API_BASE}/customer-notes/:noteId/revisions`, async ({ request, params }) => {
+    const who = operator(request);
+    if (!who) return unauthorized();
+    const body = (await request.clone().json()) as { text?: string };
+    return idempotent(request, () => {
+      const n = notes.find((x) => x.noteId === params['noteId'] && !x.deleted);
+      if (!n) return problem(404, 'NOT_FOUND');
+      if (n.authorId !== who.subject) return problem(403, 'FORBIDDEN');
+      const t = (body.text ?? '').trim();
+      if (t.length < 1 || t.length > 1000) return problem(400, 'VALIDATION_FAILED', [{ field: 'text', reason: 'INVALID_FORMAT' }]);
+      n.text = t;
+      n.editedAt = new Date().toISOString();
+      return { status: 200, body: { ...n } };
+    });
+  }),
+
+  http.post(`${API_BASE}/customer-notes/:noteId/deletions`, ({ request, params }) => {
+    const who = operator(request);
+    if (!who) return unauthorized();
+    return idempotent(request, () => {
+      const n = notes.find((x) => x.noteId === params['noteId']);
+      if (!n) return problem(404, 'NOT_FOUND');
+      if (n.authorId !== who.subject) return problem(403, 'FORBIDDEN');
+      if (!n.deleted) Object.assign(n, { deleted: true, deletedAt: new Date().toISOString(), text: null });
+      return { status: 200, body: { ...n } };
     });
   }),
 

@@ -7,6 +7,7 @@ import { resetMockCases } from '../mocks/caseHandlers';
 import { resetMockCsIntakes } from '../mocks/csIntakeHandlers';
 import { resetMockInquiries } from '../mocks/inquiryHandlers';
 import { resetMockOps } from '../mocks/opsHandlers';
+import { resetMockCustomerNotes } from '../mocks/customerHandlers';
 import { pollConfig } from '@pmart/web-core';
 import { server } from './server';
 import { clearToasts } from '../shared/toast';
@@ -28,6 +29,7 @@ afterEach(() => {
   server.resetHandlers();
   resetDb();
   resetMockOps();
+  resetMockCustomerNotes();
   resetMockCases();
   resetMockCsIntakes();
   resetMockInquiries();

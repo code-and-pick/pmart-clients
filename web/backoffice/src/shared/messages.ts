@@ -744,6 +744,26 @@ export const messages = {
     maskedLine: (by: string, reason: string) => `가린 메모 — ${by} · ${reason}`,
     cancel: '취소',
   },
+  /** 고객 상담 메모(case 0.34.0 R-13, 2026-11-23) — 상담원이 쓰고, 고치기·지우기는 쓴 사람만 */
+  customerNotes: {
+    title: '상담 메모',
+    empty: '메모가 없어요.',
+    newNote: '메모 남기기(1~1000자) — 특이사항·인수인계',
+    piiHint: '개인정보(전화번호·주소)는 쓰지 마세요.',
+    ownOnly: '고치기·지우기는 쓴 사람만 할 수 있어요.',
+    readOnly: '메모는 상담원만 남길 수 있어요. 고치기·지우기는 쓴 사람만 해요.',
+    add: '메모 남기기',
+    added: '남겼어요.',
+    edit: '고치기',
+    editLabel: '메모 고치기',
+    edited: '(고침)',
+    save: '저장',
+    remove: '지우기',
+    removeAsk: '이 메모를 지울까요? 글은 지워지고 되돌릴 수 없어요.',
+    removeConfirm: '지우기',
+    cancel: '취소',
+    recentOnly: '최근 50건만',
+  },
   /** 교대 인계(case 0.9.0 shift-handovers, BO-27) */
   handovers: {
     title: '교대 인계',
