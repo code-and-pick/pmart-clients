@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pmart_core/pmart_core.dart';
 
+import '../../../shared/blocked_words.dart';
 import '../../../shared/providers.dart';
 import '../../auth/data/session.dart';
 import '../../offers/presentation/offer_controllers.dart'
@@ -1010,6 +1011,7 @@ class SupportThreadState {
     this.sending = false,
     this.missing = false,
     this.closedOnSend = false,
+    this.blocked = false,
   });
 
   final List<SupportMessage> messages;
@@ -1020,6 +1022,9 @@ class SupportThreadState {
 
   /// 보내는 순간 지원센터가 처리를 끝냈다(409 HELP_REQUEST_CLOSED) — 보내지 못했다.
   final bool closedOnSend;
+
+  /// 쓸 수 없는 말이 있어 받지 않았다(422 BLOCKED_WORDS) — 입력 칸 아래에 알리고 쓴 글은 그대로.
+  final bool blocked;
 
   /// 실서버: 대화 API 가 없다.
   final bool unavailable;
@@ -1036,6 +1041,7 @@ class SupportThreadState {
     bool? sending,
     bool? missing,
     bool? closedOnSend,
+    bool? blocked,
   }) => SupportThreadState(
     messages: messages ?? this.messages,
     loaded: loaded ?? this.loaded,
@@ -1044,6 +1050,7 @@ class SupportThreadState {
     sending: sending ?? this.sending,
     missing: missing ?? this.missing,
     closedOnSend: closedOnSend ?? this.closedOnSend,
+    blocked: blocked ?? this.blocked,
   );
 }
 
@@ -1092,6 +1099,11 @@ class SupportThreadController extends Notifier<SupportThreadState> {
     }
   }
 
+  /// 고치기 시작하면 쓸 수 없는 말 알림을 내린다.
+  void clearBlocked() {
+    if (state.blocked) state = state.copyWith(blocked: false);
+  }
+
   /// 보냈으면 true.
   Future<bool> send(String text) async {
     final t = text.trim();
@@ -1101,7 +1113,7 @@ class SupportThreadController extends Notifier<SupportThreadState> {
         : IdempotencyKey.generate();
     _pendingKey = key;
     _pendingText = t;
-    state = state.copyWith(sending: true, closedOnSend: false);
+    state = state.copyWith(sending: true, closedOnSend: false, blocked: false);
     try {
       await _repo.sendMessage(id.deliveryId, id.requestId, t, key: key);
       _pendingKey = null;
@@ -1131,6 +1143,13 @@ class SupportThreadController extends Notifier<SupportThreadState> {
       if (ref.mounted) state = state.copyWith(failed: true);
       return false;
     } on PmartFailure catch (f) {
+      if (isBlockedWords(f)) {
+        // 접수되지 않음(확정) — 글은 입력 칸에 그대로, 고쳐서 다시 보내게(다음은 새 키).
+        _pendingKey = null;
+        _pendingText = null;
+        if (ref.mounted) state = state.copyWith(sending: false, blocked: true);
+        return false;
+      }
       if (f is ProblemFailure && f.problem.code == helpRequestClosedCode) {
         // 보내는 순간 처리 완료됐다 — 일반 실패가 아니다. 상태를 바로 다시 받아 입력칸을 닫는다.
         _pendingKey = null;

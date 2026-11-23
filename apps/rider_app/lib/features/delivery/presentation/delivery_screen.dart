@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:pmart_core/pmart_core.dart';
 import 'package:pmart_ui/pmart_ui.dart';
 
+import '../../../shared/blocked_words.dart';
 import '../../../l10n/gen/app_localizations.dart';
 import '../../../shared/kakao_navi.dart';
 import '../../../shared/location.dart';
@@ -170,7 +171,8 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
         _resumeKey = null;
       } on ProblemFailure catch (f) {
         // 409 = 이미 전달 불가 상태가 아니다(반려됨 등) — 화면이 상태를 다시 읽는다.
-        if (f.problem.status == 409) _resumeKey = null;
+        // 422 BLOCKED_WORDS(note) = 접수되지 않음(확정) — 같은 키로 다시 보내지 않는다.
+        if (f.problem.status == 409 || isBlockedWords(f)) _resumeKey = null;
       } on PmartFailure {
         // 결과 불명 — 같은 키로 다시 누르면 된다.
       }

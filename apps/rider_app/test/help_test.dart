@@ -39,6 +39,36 @@ void main() {
     repo = MockDeliveryRepository(latency: Duration.zero, clock: () => now);
   });
 
+  test('도움요청·대화의 쓸 수 없는 말(422 BLOCKED_WORDS): 접수 안 됨(확정) — 보낸 것으로 두지 않고, 대화는 blocked', () async {
+    final c = ProviderContainer(retry: (_, _) => null, overrides: overrides());
+    addTearDown(c.dispose);
+    final p = helpFlowProvider('dlv-1');
+    c.listen(p, (_, _) {});
+
+    // 도움요청: 걸리면 이 요청을 목록에 남기지 않고 rejectedCode 로 알린다(화면은 입력 칸 아래 안내).
+    await c
+        .read(p.notifier)
+        .send(HelpCategory.customerUnreachable, detail: '금지어 들어간 말');
+    expect(c.read(p).rejectedCode, 'BLOCKED_WORDS');
+    expect(c.read(p).tickets, isEmpty);
+
+    // 고친 글은 새 요청으로 접수된다.
+    await c
+        .read(p.notifier)
+        .send(HelpCategory.customerUnreachable, detail: '고객이 전화를 안 받아요');
+    expect(c.read(p).last!.state, isNot(HelpState.unknown));
+
+    // 대화: 걸리면 false + blocked, 실패(failed)로 두지 않는다. 고치기 시작하면 내려간다.
+    final id = (deliveryId: 'dlv-1', requestId: c.read(p).key!.value);
+    final thread = supportThreadProvider(id);
+    c.listen(thread, (_, _) {});
+    expect(await c.read(thread.notifier).send('금지어 섞인 말'), isFalse);
+    expect(c.read(thread).blocked, isTrue);
+    expect(c.read(thread).failed, isFalse);
+    c.read(thread.notifier).clearBlocked();
+    expect(c.read(thread).blocked, isFalse);
+    expect(await c.read(thread.notifier).send('문 앞에 두고 갈까요?'), isTrue);
+  });
   test('도움요청 접수 응답을 잃어도 같은 키로 다시 보내 상태를 확인하고, 상담원과 대화한다', () async {
     final c = ProviderContainer(retry: (_, _) => null, overrides: overrides());
     addTearDown(c.dispose);

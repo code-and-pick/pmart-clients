@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../shared/blocked_words.dart';
 import '../../../l10n/gen/app_localizations.dart';
 import '../../../shared/rider_style.dart';
 import '../../../shared/rider_widgets.dart';
@@ -46,6 +47,9 @@ class _SupportScreenState extends ConsumerState<SupportScreen> {
   final _detail = TextEditingController();
   HelpCategory? _category;
 
+  /// 쓸 수 없는 말이 있어 서버가 받지 않았다(422 BLOCKED_WORDS) — 고칠 때까지 입력 칸 아래에 알린다.
+  bool _blocked = false;
+
   /// 보낸 요청은 최근 이만큼만 먼저 보인다.
   static const _ticketPreview = 3;
   bool _showAllTickets = false;
@@ -75,6 +79,11 @@ class _SupportScreenState extends ConsumerState<SupportScreen> {
     if (!mounted) return;
     final after = ref.read(helpFlowProvider(_id));
     // 서버가 거절했다 — 접수되지 않았으니 쓴 내용·고른 종류를 그대로 두고 실패를 알린다.
+    // 쓸 수 없는 말(422 BLOCKED_WORDS)은 입력 칸 아래에 알린다(고쳐서 다시 보내게).
+    if (after.rejectedCode == blockedWordsCode) {
+      setState(() => _blocked = true);
+      return;
+    }
     if (after.rejectedCode case final code?) {
       showRiderToast(
         context,
@@ -317,9 +326,14 @@ class _SupportScreenState extends ConsumerState<SupportScreen> {
             maxLength: 500,
             maxLines: 4,
             minLines: 2,
+            onChanged: (_) {
+              if (_blocked) setState(() => _blocked = false);
+            },
             decoration: InputDecoration(
               hintText: l10n.supportDetailHint,
               border: const OutlineInputBorder(),
+              errorText: _blocked ? l10n.blockedWords : null,
+              errorMaxLines: 2,
             ),
           ),
           const SizedBox(height: 6),

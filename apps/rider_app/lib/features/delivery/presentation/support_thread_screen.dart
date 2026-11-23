@@ -156,11 +156,20 @@ class _SupportThreadScreenState extends ConsumerState<SupportThreadScreen> {
                         maxLength: 500,
                         minLines: 1,
                         maxLines: 4,
+                        onChanged: (_) {
+                          if (thread.blocked) {
+                            ref
+                                .read(supportThreadProvider(_id).notifier)
+                                .clearBlocked();
+                          }
+                        },
                         decoration: InputDecoration(
                           hintText: l10n.supportThreadHint,
                           counterText: '',
                           border: const OutlineInputBorder(),
                           isDense: true,
+                          errorText: thread.blocked ? l10n.blockedWords : null,
+                          errorMaxLines: 2,
                         ),
                       ),
                     ),

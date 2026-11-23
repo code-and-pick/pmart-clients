@@ -5,6 +5,7 @@ import 'package:pmart_api_delivery_execution/pmart_api_delivery_execution.dart'
     as ex;
 import 'package:pmart_core/pmart_core.dart';
 
+import '../../../shared/blocked_words.dart';
 import '../domain/delivery.dart';
 import 'delivery_repository.dart';
 import 'trip_repository.dart' show mockDropInfo, mockTrip;
@@ -699,6 +700,7 @@ base class MockDeliveryRepository
     required IdempotencyKey key,
   }) async {
     await _wait();
+    if (mockHasBlockedWords(detail)) throw mockBlockedWordsFailure();
     if (rejectNextHelpCode case final code?) {
       rejectNextHelpCode = null;
       throw ProblemFailure(Problem(status: 422, code: code));
@@ -914,6 +916,7 @@ base class MockDeliveryRepository
     required IdempotencyKey key,
   }) async {
     await _wait();
+    if (mockHasBlockedWords(text)) throw mockBlockedWordsFailure();
     // 같은 키 = 같은 메시지.
     if (!_threadKeys.add(key.value)) {
       return;
