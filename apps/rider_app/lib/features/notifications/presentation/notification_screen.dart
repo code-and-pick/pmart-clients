@@ -340,30 +340,30 @@ class NoticeScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
     final id = notificationId;
-    final inbox = notice == null && id != null
-        ? ref.watch(notificationInboxProvider)
+    // 넘겨받은 공지가 없으면(푸시로 열었거나 앱을 다시 켬) 그 한 건을 서버에서 읽는다 — 알림함 첫 쪽에 없는 오래된 공지도
+    final one = notice == null && id != null
+        ? ref.watch(notificationByIdProvider(id))
         : null;
-    if (inbox != null && inbox.isLoading && !inbox.hasValue) {
+    if (one != null && one.isLoading && !one.hasValue) {
       return Scaffold(
         backgroundColor: Colors.white,
         appBar: riderDarkBar(context, title: ''),
         body: const Center(child: CircularProgressIndicator()),
       );
     }
-    // 알림함을 못 읽었으면 "공지를 열 수 없어요"가 아니라 조회 실패로(실패를 없음으로 보이지 않는다)
-    if (inbox != null && inbox.hasError && !inbox.hasValue) {
+    // 못 읽었으면 "공지를 열 수 없어요"가 아니라 조회 실패로(실패를 없음으로 보이지 않는다)
+    if (one != null && one.hasError && !one.hasValue) {
       return Scaffold(
         backgroundColor: Colors.white,
         appBar: riderDarkBar(context, title: ''),
         body: RiderLoadError(
           key: const ValueKey('notice-error'),
           title: l10n.notiLoadFailed,
-          onRetry: () => ref.invalidate(notificationInboxProvider),
+          onRetry: () => ref.invalidate(notificationByIdProvider(id!)),
         ),
       );
     }
-    final RiderNotification? n =
-        notice ?? inbox?.value?.items.where((x) => x.id == id).firstOrNull;
+    final RiderNotification? n = notice ?? one?.value;
     final paragraphs = (n?.body ?? '')
         .trim()
         .split(RegExp(r'\n\s*\n'))

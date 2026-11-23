@@ -66,6 +66,10 @@ typedef NotificationInbox = ({List<RiderNotification> items, int unread});
 /// 앱이 켜져 있을 때 주기적으로 확인한다.
 abstract interface class NotificationRepository {
   Future<NotificationInbox> inbox();
+
+  /// 알림 한 건(`GET /me/notifications/{id}`) — 알림함 첫 쪽에 없는 오래된 공지를 푸시로 열 때(PC 1 #460 리뷰 2026-11-24).
+  /// 없으면(404) null.
+  Future<RiderNotification?> notification(String id);
   Future<void> markRead(String id, {required IdempotencyKey key});
 }
 
@@ -115,6 +119,20 @@ final class ApiNotificationRepository implements NotificationRepository {
       items: items,
       unread: res.data?.unreadCount ?? items.where((n) => !n.read).length,
     );
+  }
+
+  @override
+  Future<RiderNotification?> notification(String id) async {
+    try {
+      final res = await pmartGuard(
+        () => _inbox.getMyNotification(notificationId: id),
+      );
+      final n = res.data;
+      return n == null ? null : notificationFromContract(n);
+    } on ProblemFailure catch (e) {
+      if (e.problem.status == 404) return null;
+      rethrow;
+    }
   }
 
   @override
@@ -176,6 +194,12 @@ final class MockNotificationRepository implements NotificationRepository {
   }
 
   @override
+  Future<RiderNotification?> notification(String id) async {
+    await Future<void>.delayed(latency);
+    return _all.where((n) => n.id == id).firstOrNull;
+  }
+
+  @override
   Future<void> markRead(String id, {required IdempotencyKey key}) async {
     await Future<void>.delayed(latency);
     _read.add(id);
@@ -192,6 +216,12 @@ final notificationRepositoryProvider = Provider<NotificationRepository>(
     PmartEnv.local => ApiNotificationRepository(ref.watch(dioProvider)),
   },
 );
+
+/// 알림 한 건 — 공지 전문을 ID 로 열 때(넘겨받은 공지가 없을 때)
+final notificationByIdProvider = FutureProvider.autoDispose
+    .family<RiderNotification?, String>(
+      (ref, id) => ref.watch(notificationRepositoryProvider).notification(id),
+    );
 
 final notificationInboxProvider = FutureProvider.autoDispose<NotificationInbox>(
   (ref) => ref.watch(notificationRepositoryProvider).inbox(),

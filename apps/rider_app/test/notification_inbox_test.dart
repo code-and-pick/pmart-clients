@@ -23,6 +23,10 @@ class _FakeInbox implements NotificationRepository {
   final marked = <String>[];
 
   @override
+  Future<RiderNotification?> notification(String id) async =>
+      items.where((n) => n.id == id).firstOrNull;
+
+  @override
   Future<NotificationInbox> inbox() async =>
       (items: items, unread: items.where((n) => !n.read).length);
 
@@ -268,4 +272,56 @@ void main() {
     expect(find.byKey(const ValueKey('notice-detail')), findsOneWidget);
     expect(find.text('본문 전체'), findsOneWidget);
   });
+
+  testWidgets('알림함 첫 쪽에 없는 오래된 공지도 한 건 조회로 연다(PC 1 #460 리뷰)', (t) async {
+    final repo = MockDeliveryRepository(latency: Duration.zero);
+    final old = RiderNotification(
+      id: 'nt-old',
+      title: '지난달 안내',
+      body: '오래된 공지 본문',
+      createdAt: DateTime.utc(2026, 10, 1),
+      read: true,
+      target: const NoTarget(),
+      notice: true,
+    );
+    final inbox = _OnlyById(old);
+    await t.pumpWidget(
+      ProviderScope(
+        retry: (_, _) => null,
+        overrides: [
+          envProvider.overrideWithValue(PmartEnv.mock),
+          deliveryRepositoryProvider.overrideWithValue(repo),
+          notificationRepositoryProvider.overrideWithValue(inbox),
+        ],
+        child: MaterialApp.router(
+          locale: const Locale('ko'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          routerConfig: GoRouter(
+            initialLocation: noticeRoute('nt-old'),
+            routes: [
+              GoRoute(
+                path: '/notifications/notice',
+                builder: (_, st) => NoticeScreen(
+                  notice: st.extra as RiderNotification?,
+                  notificationId: st.uri.queryParameters['id'],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    await t.pumpAndSettle();
+    expect(find.text('오래된 공지 본문'), findsOneWidget);
+  });
+}
+
+/// 알림함(첫 쪽)에는 없고 한 건 조회로만 찾아지는 저장소
+class _OnlyById extends _FakeInbox {
+  _OnlyById(this.one) : super([]);
+  final RiderNotification one;
+  @override
+  Future<RiderNotification?> notification(String id) async =>
+      id == one.id ? one : null;
 }
