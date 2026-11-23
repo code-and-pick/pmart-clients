@@ -73,10 +73,10 @@ export const reviewHandlers = [
     if (denied) return denied;
     return HttpResponse.json({
       items: [
-        { faqId: 'FAQ-REFUND-1', category: 'refund', question: '환불은 언제 들어오나요?', helpfulCount: 3, notHelpfulCount: 9, lastAt: ago(1) },
-        { faqId: 'FAQ-OLD-7', category: null, question: null, helpfulCount: 0, notHelpfulCount: 4, lastAt: ago(30) },
-        { faqId: 'FAQ-CANCEL-1', category: 'cancel', question: '주문을 취소하고 싶어요', helpfulCount: 12, notHelpfulCount: 2, lastAt: ago(3) },
-        { faqId: 'FAQ-NEW-1', category: 'delivery-status', question: '배송은 어디쯤 왔나요?', helpfulCount: 0, notHelpfulCount: 0, lastAt: ago(5) },
+        { faqId: 'FAQ-REFUND-1', category: 'refund', categoryTitle: '환불', question: '환불은 언제 들어오나요?', helpfulCount: 3, notHelpfulCount: 9, lastAt: ago(1) },
+        { faqId: 'FAQ-OLD-7', category: null, categoryTitle: null, question: null, helpfulCount: 0, notHelpfulCount: 4, lastAt: ago(30) },
+        { faqId: 'FAQ-CANCEL-1', category: 'cancel', categoryTitle: '주문 취소', question: '주문을 취소하고 싶어요', helpfulCount: 12, notHelpfulCount: 2, lastAt: ago(3) },
+        { faqId: 'FAQ-NEW-1', category: 'delivery-status', categoryTitle: '배송 현황·지연·예약 시간', question: '배송은 어디쯤 왔나요?', helpfulCount: 0, notHelpfulCount: 0, lastAt: ago(5) },
       ],
     });
   }),

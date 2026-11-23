@@ -79,7 +79,8 @@ export const customerHandlers = [
       },
       inquiries: first
         ? { hasMore: false, items: [{ inquiryId: 'INQ-MOCK-3', inquiryNumber: '30418', category: 'DELIVERY', status: 'ANSWERED', channel: 'APP', origin: 'CUSTOMER', createdAt: ago(5 * 24), answeredAt: ago(4 * 24), orderId: 'ORD-MOCK-1001', lastAnsweredBy: 'op-cs-1', lastAnsweredByLabel: { operatorId: 'op-cs-1', name: '[목] 최상담', employeeNo: 'P2026-00005' } }] }
-        : { hasMore: false, items: [] },
+        : // 두 번째 고객은 답한 직원은 있는데 hr 이름을 못 읽은 것처럼(bff 0.27.0 — 이름만 null)
+          { hasMore: false, items: [{ inquiryId: 'INQ-MOCK-1', inquiryNumber: '30416', category: 'PRODUCT', status: 'ANSWERED', channel: 'APP', origin: 'CUSTOMER', createdAt: ago(10 * 24), answeredAt: ago(9 * 24), orderId: null, lastAnsweredBy: 'op-cs-9', lastAnsweredByLabel: { operatorId: 'op-cs-9', name: null, employeeNo: null } }] },
       csIntakes: first
         ? { hasMore: false, items: [{ intakeId: 'CSI-MOCK-1', channel: 'PHONE', category: 'DELIVERY', callerRelation: 'SELF', receivedAt: ago(30), receivedBy: 'op-cs-1', receivedByLabel: { operatorId: 'op-cs-1', name: '[목] 상담원', employeeNo: 'P2026-00003' }, linked: true, caseId: null, inquiryId: 'INQ-MOCK-3', subjectRef: null }] }
         : // 두 번째 고객은 상담 접수 원천을 못 읽은 것처럼 — 칸 null + unavailableSources

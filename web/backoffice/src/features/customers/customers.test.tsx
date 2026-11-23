@@ -57,6 +57,7 @@ describe('고객 상세', () => {
   it('원천을 못 읽은 칸은 "확인 못 함" — 0건으로 보이지 않는다', async () => {
     renderAt('/customers/CUS-1005', as.cs);
     expect(await screen.findByTestId('customer-intakes-failed')).toHaveTextContent('확인 못 함');
+    expect(screen.getByTestId('customer-inquiry-answered-by')).toHaveTextContent('확인 불가'); // 답한 직원은 있는데 이름만 못 읽음 — "-"(없음)과 다르게
   });
 
   it('원문 열람: 사유 2자 이상이어야 누를 수 있고, 열면 고른 항목만 원문 + 열람 기록, 다시 가리기', async () => {

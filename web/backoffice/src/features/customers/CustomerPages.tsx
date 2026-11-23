@@ -394,7 +394,7 @@ function CustomerDetail({ d }: { readonly d: Detail }) {
                     <td>{label(messages.inquiries.status, x.status)}</td>
                     <td>{ago(x.createdAt) ?? messages.none}</td>
                     {/* 마지막으로 답한 직원(bff 0.27.0 — hr "이름 · 사번", 못 읽으면 이름만 null) */}
-                    <td data-testid="customer-inquiry-answered-by">{x.lastAnsweredByLabel?.name ?? messages.none}</td>
+                    <td data-testid="customer-inquiry-answered-by">{x.lastAnsweredByLabel?.name ?? (x.lastAnsweredBy ? messages.displayNumber.staffFailed : messages.none)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -417,7 +417,8 @@ function CustomerDetail({ d }: { readonly d: Detail }) {
                   <tr key={x.intakeId}>
                     <td>{ago(x.receivedAt) ?? messages.none}</td>
                     <td>{label(messages.csIntake.channelName, x.channel)}</td>
-                    <td>{x.receivedByLabel?.name ?? messages.none}</td>
+                    {/* 직원은 있는데 이름만 못 읽었으면 "확인 불가"(없음 "-" 과 구분, 2026-11-23 #423 리뷰) */}
+                    <td>{x.receivedByLabel?.name ?? (x.receivedBy ? messages.displayNumber.staffFailed : messages.none)}</td>
                     <td>
                       {x.caseId ? (
                         <Link to={`/cases/${encodeURIComponent(x.caseId)}`}>{messages.nav.cases}</Link>

@@ -47,7 +47,8 @@ export function FaqFeedbackPage() {
                   <td className="max-w-[28rem]">
                     {x.question ? <span className="line-clamp-2">{x.question}</span> : <span className="text-base-content/50" title={x.faqId}>{m.gone}</span>}
                   </td>
-                  <td>{x.category ? label(m.categoryName, x.category) : messages.none}</td>
+                  {/* 분류 이름은 서버 categoryTitle(0.4.1 CA-3) — 없으면 화면 이름표, 그것도 없으면 키 */}
+                  <td>{x.categoryTitle ?? (x.category ? label(m.categoryName, x.category) : messages.none)}</td>
                   <td className="text-right tabular-nums">{x.helpfulCount}</td>
                   <td className={`text-right tabular-nums ${x.notHelpfulCount > x.helpfulCount ? 'font-semibold text-error' : ''}`}>{x.notHelpfulCount}</td>
                   <td className="text-right tabular-nums" data-testid="faq-feedback-rate">
