@@ -11,6 +11,8 @@ describe('지급 관리', () => {
   it('줄을 펼치면 이 묶음의 배송(수행료·보상금)이 보이고, 건수가 맞으면 모자란다는 안내가 없다(2026-11-24)', async () => {
     renderAt('/payouts', as.admin);
     const rows = await screen.findAllByTestId('payout-row');
+    // 펼치지 않아도 줄에 조정 건수(2026-11-24 "조정한 수행료인지 정상지급 수행료인지 계속 안 뜨네")
+    expect(await within(rows[0]!).findByTestId('payout-adjusted-count')).toHaveTextContent('조정 1');
     await userEvent.click(rows[0]!);
     const box = await screen.findByTestId('payout-items');
     const items = await within(box).findAllByTestId('payout-item');

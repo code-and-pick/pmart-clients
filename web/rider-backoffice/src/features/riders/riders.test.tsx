@@ -109,8 +109,8 @@ describe('제한 검토 — 상태 탭·결정', () => {
   it('닫힌 검토 탭에서 결정 기록(언제·누가·메모)을 본다', async () => {
     const view = renderAt('/restriction-reviews', as.riderOps);
     await screen.findByTestId('review-row');
-    await userEvent.click(within(screen.getByRole('radiogroup', { name: '계정 제한' })).getByRole('radio', { name: '끝난 검토' }));
-    await userEvent.click(within(await screen.findByRole('radiogroup', { name: '끝난 검토' })).getByRole('radio', { name: '제한 안 함' }));
+    await userEvent.click(within(screen.getByRole('radiogroup', { name: '계정 제한' })).getByRole('radio', { name: '검토 완료' }));
+    await userEvent.click(within(await screen.findByRole('radiogroup', { name: '검토 완료' })).getByRole('radio', { name: '제한 안 함' }));
     const row = await screen.findByText('R4829'); // 라이더 번호(ADR-0070)
     const tr = row.closest('tr')!;
     expect(tr).toHaveTextContent(/나|직원/);

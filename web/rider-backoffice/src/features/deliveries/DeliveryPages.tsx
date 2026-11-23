@@ -16,7 +16,7 @@ import { messages } from '../../shared/messages';
 import { ChipGroup, CursorPager, DataTable, DetailHeader, FieldList, PageHeader, ResultBar, SearchPanel, SearchRow, Section, SectionTabs, StatCard, StatStrip, StatusBadge, type Tone } from '../../shared/admin';
 import { DeliveryNo, DeliveryRef, resolveRiderId, RiderName, SystemIds, useDeliveryNumbers, useRiderSummaries, RIDER_NUMBER } from '../../shared/displayNumbers';
 import { ops } from '../../shared/opsMessages';
-import { useCenterName } from '../../shared/opsUi';
+import { useAreaName, useCenterName } from '../../shared/opsUi';
 import { statText, useListRows } from '../../shared/listKit';
 import { ProgressSteps, type StepPlace } from '../../shared/ProgressSteps';
 import { SavedViews } from '../../shared/SavedViews';
@@ -58,6 +58,8 @@ export function DeliveriesMenu() {
 
 function DeliverySearchPage() {
   const api = useApi();
+  // 센터 칸: "MFC-SEED-01" 대신 지역 이름(2026-11-24 — 라이더 관리 배달지역과 같게)
+  const areaName = useAreaName();
   const [params, setParams] = useSearchParams();
   const orderId = params.get('orderId') ?? '';
   const orderNumber = params.get('orderNumber') ?? '';
@@ -280,7 +282,7 @@ function DeliverySearchPage() {
                           <span className="text-base-content/40">{m.noRider}</span>
                         )}
                       </td>
-                      <td className="font-mono">{d.mfcId ?? none}</td>
+                      <td>{areaName(d.mfcId) ?? none}</td>
                       <td className="whitespace-nowrap">{when(d.createdAt)}</td>
                       <td className="whitespace-nowrap">{when(d.completedAt)}</td>
                     </tr>

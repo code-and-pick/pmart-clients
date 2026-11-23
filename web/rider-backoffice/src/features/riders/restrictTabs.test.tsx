@@ -1,4 +1,4 @@
-// 계정 제한 메뉴(옛 "제한 검토 대기") 탭 — 검토 대기·제한 중·끝난 검토(2026-11-24 사용자). 목(MSW) 기준.
+// 계정 제한 메뉴(옛 "제한 검토 대기") 탭 — 검토 대기·제한 중·검토 완료(2026-11-24 사용자). 목(MSW) 기준.
 import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';

@@ -42,6 +42,7 @@ export const payoutText = {
   doneLine: (rider: string, date: string, s: string) => `${rider} · ${date} 묶음을 ${s}(으)로 표시했어요.`,
   adminOnly: '관리자만 표시할 수 있어요',
   compensations: (n: number) => `(보상 ${n})`,
+  adjustedCount: (n: number) => `조정 ${n}`,
   lastLine: (result: string, at: string) => `${result} · ${at} ·`,
   items: {
     title: '이 묶음의 배송',
@@ -68,10 +69,10 @@ function daysBefore(date: string, days: number): string {
  * 묶음 조회(/rider-payouts)에는 건 목록이 없어, 같은 라이더의 수행료(/rider-earnings, 수행일 기간)와 보상금(/rider-compensations)에서
  * payoutDate 가 같은 묶음 상태 건을 모은다. 찾은 수가 묶음 건수와 다르면 그대로 알린다(다 찾은 척 하지 않는다).
  */
-function PayoutItems({ riderId, payoutDate, count }: { readonly riderId: string; readonly payoutDate: string; readonly count: number }) {
+/** 묶음 건 조회(펼친 칸과 줄의 "조정 n"이 같은 캐시를 쓴다) */
+function usePayoutSources(riderId: string, payoutDate: string) {
   const api = useApi();
-  const t = payoutText.items;
-  const [earnings, comps] = useQueries({
+  return useQueries({
     queries: [
       {
         queryKey: ['payout-earnings', riderId, payoutDate],
@@ -84,6 +85,27 @@ function PayoutItems({ riderId, payoutDate, count }: { readonly riderId: string;
       },
     ],
   });
+}
+
+/**
+ * 지급 관리 줄의 "조정 n"(2026-11-24 사용자 "지급관리에 조정한 수행료인지 정상지급 수행료인지 이건 계속 안 뜨네") — 줄을 펼치지 않아도
+ * 그 묶음에 조정한 수행료가 몇 건인지. 못 읽거나 읽는 중이면 아무것도 붙이지 않는다(0 으로 보이지 않게).
+ */
+function AdjustedCount({ riderId, payoutDate }: { readonly riderId: string; readonly payoutDate: string }) {
+  const [earnings] = usePayoutSources(riderId, payoutDate);
+  if (!earnings.data) return null;
+  const n = (earnings.data.items ?? []).filter((it) => it.payoutDate === payoutDate && BUNDLED.has(it.settlementState ?? '') && isAdjustedEarning(it)).length;
+  if (n === 0) return null;
+  return (
+    <span className="ml-1 rounded border border-warning/50 px-1 py-px text-[11px] font-semibold text-warning" data-testid="payout-adjusted-count">
+      {payoutText.adjustedCount(n)}
+    </span>
+  );
+}
+
+function PayoutItems({ riderId, payoutDate, count }: { readonly riderId: string; readonly payoutDate: string; readonly count: number }) {
+  const t = payoutText.items;
+  const [earnings, comps] = usePayoutSources(riderId, payoutDate);
   const rows = [
     ...(earnings.data?.items ?? [])
       .filter((it) => it.payoutDate === payoutDate && BUNDLED.has(it.settlementState ?? ''))
@@ -287,6 +309,7 @@ export function PayoutsMenu() {
                       <td className="text-right">
                         {p.count}
                         {p.compensationCount ? <span className="ml-1 text-xs text-base-content/60">{t.compensations(p.compensationCount)}</span> : null}
+                        <AdjustedCount riderId={p.riderId} payoutDate={p.payoutDate} />
                       </td>
                       <td className="text-right font-semibold">{won(p.total)}</td>
                       <td>

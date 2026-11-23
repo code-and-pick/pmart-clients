@@ -1085,7 +1085,7 @@ type RestrictTab = 'open' | 'now' | 'closed';
 export function RestrictionReviewsMenu() {
   const [params, setParams] = useSearchParams();
   const raw = params.get('state');
-  // 탭(2026-11-24): 검토 대기(?tab 없음) · 제한 중(?tab=now) · 끝난 검토(?tab=closed&state=RESTRICTED|DISMISSED). 옛 주소 ?state= 도 그대로 열린다.
+  // 탭(2026-11-24): 검토 대기(?tab 없음) · 제한 중(?tab=now) · 검토 완료(?tab=closed&state=RESTRICTED|DISMISSED). 옛 주소 ?state= 도 그대로 열린다.
   const rawTab = params.get('tab');
   const tab: RestrictTab = rawTab === 'now' ? 'now' : rawTab === 'closed' || (raw && raw !== 'OPEN') ? 'closed' : 'open';
   const closedState: ReviewState = raw === 'DISMISSED' ? 'DISMISSED' : 'RESTRICTED';
@@ -1224,6 +1224,8 @@ function RestrictedNow() {
   const loading = qs.some((q) => q.isPending);
   const failed = qs.filter((q) => q.isError);
   const items = qs.flatMap((q) => q.data?.items ?? []);
+  // 한 단계가 한 쪽(50명)을 넘으면 그 뒤는 이 표에 없다 — "이상"으로 알리고 라이더 관리(그 단계 거르기)로 이어 준다(PC 1 PR #458 리뷰)
+  const more = qs.some((q) => !!q.data?.hasNext);
   if (loading) return <QueryState state={{ kind: 'loading' }}>{() => null}</QueryState>;
   if (failed.length === qs.length) {
     return (
@@ -1243,7 +1245,15 @@ function RestrictedNow() {
         <Notice>{v.nowEmpty}</Notice>
       ) : (
         <>
-          <ResultBar count={items.length} unit="명" />
+          <ResultBar count={items.length} unit="명" more={more} />
+          {more && (
+            <p className="text-xs text-base-content/60" data-testid="restricted-more">
+              {v.nowMore}{' '}
+              <Link className="link" to="/riders">
+                {v.nowMoreLink}
+              </Link>
+            </p>
+          )}
           <DataTable testId="restricted-now-table">
             <thead>
               <tr>
@@ -1263,7 +1273,9 @@ function RestrictedNow() {
                     <tr data-testid="restricted-row" {...expandRowProps(isOpen, () => inline.toggle(k))}>
                       <td className="font-mono font-semibold">
                         <Caret open={isOpen} />
-                        <RiderName riderId={row.riderId} riderNumber={row.riderNumber} />
+                        <Link to={`/riders/${encodeURIComponent(k)}`} onClick={(e) => e.stopPropagation()}>
+                          <RiderName riderId={row.riderId} riderNumber={row.riderNumber} />
+                        </Link>
                       </td>
                       <td>{row.nameMasked ?? none}</td>
                       <td>

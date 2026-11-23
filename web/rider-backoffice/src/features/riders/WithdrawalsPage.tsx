@@ -24,10 +24,11 @@ type StateFilter = '' | 'COMPLETED' | 'REJECTED';
 export const withdrawalMessages = {
   title: '탈퇴',
   intro:
-    '라이더가 앱에서 낸 탈퇴 신청이에요(최근 신청 순). 완료된 라이더는 이름·전화가 이미 지워져 라이더 번호만 남아요. 거절은 탈퇴를 막은 이유와 함께 보여요 — 라이더가 다시 신청하면 다시 검사해요.',
-  state: { '': '모두', COMPLETED: '탈퇴 완료', REJECTED: '거절' } as const satisfies Record<StateFilter, string>,
+    '라이더가 앱에서 낸 탈퇴 신청이에요(최근 신청 순). 완료된 라이더는 이름·전화가 이미 지워져 라이더 번호만 남아요. 탈퇴 불가는 진행 중 배송·확정 전 수행료 등으로 서버가 탈퇴를 막은 신청이에요(이유와 함께) — 라이더가 다시 신청하면 다시 검사해요.',
+  // 2026-11-24 사용자 "탈퇴 필터에 거절은 뭐야? 뭘 거절한 거야?" — 서버가 탈퇴를 막은 신청(진행 중 배송·확정 전 수행료 등)이라 "탈퇴 불가"
+  state: { '': '모두', COMPLETED: '탈퇴 완료', REJECTED: '탈퇴 불가' } as const satisfies Record<StateFilter, string>,
   stateLabel: '결과',
-  stateName: { PENDING: '처리 중', COMPLETED: '탈퇴 완료', REJECTED: '거절' } as Readonly<Record<string, string>>,
+  stateName: { PENDING: '처리 중', COMPLETED: '탈퇴 완료', REJECTED: '탈퇴 불가' } as Readonly<Record<string, string>>,
   blocker: {
     ACTIVE_DELIVERY: '진행 중 배송',
     UNCONFIRMED_EARNING: '확정 전 수행료',

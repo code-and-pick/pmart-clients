@@ -33,7 +33,7 @@ export const messages = {
     riderMap: '라이더 관제',
     riders: '라이더 관리',
     signups: '가입 승인',
-    // 2026-11-24 사용자 "제한 검토 대기 탭 이름을 바꾸고 거기에 탭 여러개를 두면" — 검토 대기·제한 중·끝난 검토
+    // 2026-11-24 사용자 "제한 검토 대기 탭 이름을 바꾸고 거기에 탭 여러개를 두면" — 검토 대기·제한 중·검토 완료
     restrictionReviews: '계정 제한',
     withdrawals: '탈퇴',
     deliveries: '배송 관리',

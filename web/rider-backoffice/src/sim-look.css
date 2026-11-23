@@ -276,3 +276,12 @@ main [role='radiogroup'][aria-label='정렬'] > [role='radio'] {
   border-radius: 6px;
   line-height: 1.4;
 }
+
+/* 라이더 번호 링크(라이더 상세로)는 표의 어느 칸이든 점선 밑줄 — 누르면 라이더 정보로 간다는 표시
+   (2026-11-24 사용자 "라이더 번호 밑에 점선 왜 없앴어 다시 복구 시켜. 이거 있어야 클릭하면 라이더 정보탭으로 가겠구나 하지").
+   표 첫 칸 링크만 점선이라 둘째 칸 이후(직원 처리 기록·상담·지급 등)·새 "제한 중" 표에서는 밑줄이 없었다. 단추 모양 링크는 제외. */
+main table tbody a[href^='/riders/']:not(.btn) {
+  text-decoration-line: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 2px;
+}

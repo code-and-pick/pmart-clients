@@ -12,7 +12,7 @@ import { CommandFeedback, QueryState, toUiState, useCommand } from '@pmart/web-u
 import { commandParams } from '../../api/command';
 import { useApi } from '../../app/ApiContext';
 import { CursorPager, DataTable, PageHeader, ResultBar, Section } from '../../shared/admin';
-import { CenterPicker, when } from '../../shared/opsUi';
+import { CenterPicker, useAreaName, when } from '../../shared/opsUi';
 import { StaffName } from '../../shared/displayNumbers';
 import { useSession } from '../../app/SessionContext';
 
@@ -38,7 +38,7 @@ export const noticeText = {
   list: '보낸 공지',
   empty: '보낸 공지가 없어요.',
   col: { at: '보낸 시각', subject: '제목', target: '받는 라이더', by: '보낸 사람', count: '받은 수' },
-  targetLine: (type: string, mfcId: string | null | undefined) => (type === 'MFC' ? `센터 ${mfcId ?? '—'}` : '전체'),
+  targetLine: (type: string, center: string | null | undefined) => (type === 'MFC' ? `센터 ${center ?? '—'}` : '전체'),
   people: (n: number) => `${n.toLocaleString('ko-KR')}명`,
 } as const;
 
@@ -164,6 +164,7 @@ function NoticeForm() {
 
 function SentNotices() {
   const api = useApi();
+  const areaName = useAreaName();
   const t = noticeText;
   const me = useSession().session?.subject;
   const [params, setParams] = useSearchParams();
@@ -202,7 +203,7 @@ function SentNotices() {
                       <p className="font-medium">{n.title}</p>
                       <p className="line-clamp-2 whitespace-pre-wrap text-xs text-base-content/60">{n.body}</p>
                     </td>
-                    <td className="whitespace-nowrap">{t.targetLine(n.targetType, n.mfcId)}</td>
+                    <td className="whitespace-nowrap">{t.targetLine(n.targetType, areaName(n.mfcId))}</td>
                     <td><StaffName operatorId={n.sentBy} me={me} /></td>
                     <td className="text-right">{t.people(n.recipientCount)}</td>
                   </tr>

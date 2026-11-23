@@ -37,7 +37,7 @@ describe('탈퇴 — 신청 목록', () => {
     const view = renderAt('/withdrawals', as.riderOps);
     await screen.findAllByTestId('withdrawal-row');
     await userEvent.click(screen.getByTestId('search-toggle')); // 결과는 깔때기 팝업 안(2026-11-21)
-    await userEvent.click(within(screen.getByRole('radiogroup', { name: '결과' })).getByRole('radio', { name: '거절' }));
+    await userEvent.click(within(screen.getByRole('radiogroup', { name: '결과' })).getByRole('radio', { name: '탈퇴 불가' }));
     expect(await screen.findAllByTestId('withdrawal-row')).toHaveLength(1);
     expect(view.sent.some((r) => new URL(r.url).searchParams.get('state') === 'REJECTED')).toBe(true);
     await userEvent.type(screen.getByLabelText('라이더 번호'), '6152');
