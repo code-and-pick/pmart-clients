@@ -150,7 +150,8 @@ export function OrderLookupPage() {
           testId="order-filter"
           lead={<SavedViews listKey="orders" />}
           aside={
-            <span className="flex items-center gap-2 text-sm">
+            // 좁은 화면에서 줄을 넘겨 감싼다(2026-11-23 점검 — 390px 에서 603px 로 넘침)
+            <span className="flex flex-wrap items-center gap-2 text-sm">
               <span className="font-semibold text-base-content/80">{m.orders.period}</span>
               <PeriodPresets from={criteria.from} to={criteria.to} onPick={(r) => setCriteria({ from: r.from, to: r.to })} />
               <input type="date" className="input input-sm w-40" aria-label={m.orders.from} value={criteria.from} onChange={(e) => setCriteria({ from: e.target.value })} />

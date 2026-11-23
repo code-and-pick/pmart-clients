@@ -288,9 +288,9 @@ export function ReturnIntakePage() {
         <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary" aria-hidden="true">
           <Icon name="box" className="h-4 w-4" />
         </span>
-        <label className="flex items-center gap-2">
+        <label className="flex min-w-0 flex-wrap items-center gap-2">
           <span className="text-xs font-medium text-base-content/55">{messages.claims.orderId}</span>
-          <input className="input input-sm w-64 font-mono" value={draft} maxLength={64} onChange={(e) => setDraft(e.target.value)} />
+          <input className="input input-sm w-full font-mono sm:w-64" value={draft} maxLength={64} onChange={(e) => setDraft(e.target.value)} />
         </label>
         <button type="submit" className="btn btn-sm btn-primary">
           {m.loadOrder}

@@ -171,7 +171,7 @@ export function PackingHandoverPage() {
         <div className="flex items-center gap-2">
           <span className="text-xs font-medium text-base-content/55">{m.center}</span>
           {/* 쳐서 찾는 고르기(2026-11-19) */}
-          <SearchSelect label={m.center} className="w-64" value={mfcId} placeholder={m.pickCenter} options={(centers.data ?? []).flatMap((c) => (c.centerId ? [{ value: c.centerId, label: c.name ?? c.centerId, hint: c.centerId, keywords: c.centerId }] : []))} loading={centers.isPending} onChange={(v) => { setScope(v); set({ mfcId: '' }); }} />
+          <SearchSelect label={m.center} className="w-full sm:w-64" value={mfcId} placeholder={m.pickCenter} options={(centers.data ?? []).flatMap((c) => (c.centerId ? [{ value: c.centerId, label: c.name ?? c.centerId, hint: c.centerId, keywords: c.centerId }] : []))} loading={centers.isPending} onChange={(v) => { setScope(v); set({ mfcId: '' }); }} />
         </div>
         {centers.isError && <p className="text-xs text-warning">{m.centersFailed}</p>}
       </div>

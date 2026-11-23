@@ -194,7 +194,7 @@ export function SkuHandlingPage() {
             </button>
           </div>
         </form>
-        <label className="min-w-64 flex-1 space-y-1">
+        <label className="min-w-0 flex-1 space-y-1 sm:min-w-64">
           <span className="block text-xs font-medium text-base-content/55">{`${m.reasonLabel} · ${m.handlings.reasonHint}`}</span>
           <input aria-label={m.reasonLabel} className="input input-sm w-full" maxLength={500} value={reason} onChange={(e) => setReason(e.target.value)} />
         </label>

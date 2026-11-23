@@ -232,7 +232,7 @@ function FilterForm({ initial, onApply }: { readonly initial: Filters; readonly 
         onChange={change}
         testId="pii-filter"
         aside={
-          <span className="flex items-center gap-2 text-sm">
+          <span className="flex flex-wrap items-center gap-2 text-sm">
             <span className="font-semibold text-base-content/80">{m.period}</span>
             <PeriodPresets from={initial.from} to={initial.to} onPick={(r) => change({ from: r.from, to: r.to })} />
             <input type="date" aria-label={m.filter.from} className="input input-sm w-40" value={initial.from} onChange={(e) => change({ from: e.target.value })} />

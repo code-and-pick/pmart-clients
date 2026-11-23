@@ -322,7 +322,7 @@ export function DeliveryOpenPage() {
         refresh={refreshOf(query)}
         actions={
           <form className="join" onSubmit={(e) => void open(e)} aria-label={m.deliveries.open}>
-            <label className="input input-sm join-item w-60">
+            <label className="input input-sm join-item w-44 sm:w-60">
               <Icon name="search" className="h-4 w-4 text-base-content/40" />
               <input aria-label={m.deliveries.deliveryId} placeholder={`${m.deliveries.quickOpen} — ${m.refField.deliveryHint}`} className="font-mono" value={id} onChange={(e) => setId(e.target.value)} />
             </label>

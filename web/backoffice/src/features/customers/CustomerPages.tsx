@@ -370,7 +370,8 @@ function CustomerDetail({ d }: { readonly d: Detail }) {
         )}
       </Part>
 
-      <div className="grid items-start gap-4 xl:grid-cols-2">
+      {/* 칸이 표 폭만큼 늘지 않게 min-w-0(표는 칸 안에서 가로로 밀림, 2026-11-23 점검 — 390px 에서 456px 로 넘침) */}
+      <div className="grid items-start gap-4 xl:grid-cols-2 [&>*]:min-w-0">
         <Part title={m.inquiries} part={d.inquiries} testId="customer-inquiries">
           {(items) => (
             <DataTable>

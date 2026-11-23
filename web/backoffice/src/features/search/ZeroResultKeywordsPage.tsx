@@ -39,7 +39,7 @@ export function ZeroResultKeywordsPage() {
             <button
               key={d}
               type="button"
-              className={`btn btn-sm join-item ${d === days ? 'btn-primary' : 'btn-ghost border-base-300'}`}
+              className={`btn btn-xs join-item sm:btn-sm ${d === days ? 'btn-primary' : 'btn-ghost border-base-300'}`}
               aria-pressed={d === days}
               data-testid={`zero-days-${d}`}
               onClick={() => setParams({ days: String(d) })}

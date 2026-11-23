@@ -219,7 +219,7 @@ export function ProductListPage() {
       <div className="flex flex-wrap items-end gap-x-5 gap-y-3 rounded-box bg-base-300/40 px-4 py-3" role="group" aria-label={l.filters}>
         <label className="flex min-w-56 flex-col gap-1 text-xs font-medium text-base-content/60">
           {l.name}
-          <span className="input input-sm flex w-64 items-center gap-2 bg-base-100">
+          <span className="input input-sm flex w-full items-center gap-2 bg-base-100 sm:w-64">
             <LineIcon name="search" className="h-4 w-4 text-base-content/40" />
             <input className="grow" aria-label={l.name} placeholder={l.nameHint} value={text} onChange={(e) => setText(e.target.value)} />
           </span>
@@ -228,7 +228,7 @@ export function ProductListPage() {
           <span>{l.category}</span>
           <SearchSelect
             label={l.category}
-            className="w-72"
+            className="w-full sm:w-72"
             value={categoryId}
             allowEmpty={l.allCategories}
             options={(tree.data?.nodes ?? []).map((n) => ({ value: n.categoryId, label: n.path ?? n.name }))}

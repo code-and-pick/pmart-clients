@@ -1,7 +1,7 @@
 // 왼쪽 메뉴 접기(2026-11-19 — 좁은 화면에서 본문이 답답하다)
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { as, renderAt } from '../test/render';
 
@@ -55,5 +55,23 @@ describe('왼쪽 메뉴 접기', () => {
     Object.defineProperty(window, 'innerWidth', { value: 1024, writable: true, configurable: true });
     renderAt('/', as.cs);
     expect(await screen.findByTestId('side-menu')).toHaveAttribute('data-collapsed', 'true');
+  });
+
+  it('휴대폰 폭(640px 미만)은 넓은 화면에서 "펴기"를 골라 뒀어도 접어서 시작 — 그때 편 것은 기억하지 않는다(2026-11-23)', async () => {
+    const user = userEvent.setup();
+    window.localStorage.setItem('pmart.backoffice.menu', 'open');
+    const listeners: Array<() => void> = [];
+    vi.stubGlobal('matchMedia', (q: string) => ({ matches: q === '(max-width: 639px)', media: q, addEventListener: (_: string, l: () => void) => listeners.push(l), removeEventListener: () => undefined }));
+    try {
+      renderAt('/', as.cs);
+      expect(await screen.findByTestId('side-menu')).toHaveAttribute('data-collapsed', 'true');
+      await user.click(screen.getByRole('button', { name: '메뉴 펴기' }));
+      expect(screen.getByTestId('side-menu')).toHaveAttribute('data-collapsed', 'false');
+      await user.click(screen.getByRole('button', { name: '메뉴 접기' }));
+      expect(screen.getByTestId('side-menu')).toHaveAttribute('data-collapsed', 'true');
+      expect(window.localStorage.getItem('pmart.backoffice.menu')).toBe('open'); // 넓은 화면에서 고른 값 그대로
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });

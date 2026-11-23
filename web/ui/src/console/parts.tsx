@@ -755,7 +755,7 @@ export function PagerMini({ label, prevLabel, nextLabel, canPrev, canNext, onPre
 }) {
   const [jump, setJump] = useState('');
   return (
-    <nav aria-label="쪽" className={`flex items-center gap-1 text-sm ${className}`} data-testid="pager-mini">
+    <nav aria-label="쪽" className={`flex flex-wrap items-center gap-1 text-sm ${className}`} data-testid="pager-mini">
       {onFirst && canPrev && (
         <button type="button" className="btn btn-ghost btn-sm h-8 px-2 text-xs" onClick={onFirst} data-testid="pager-first">
           {lm.pager.first}

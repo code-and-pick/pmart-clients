@@ -243,7 +243,7 @@ export function RiderComplaintListPage() {
           testId="complaint-filter"
           lead={<SavedViews listKey="rider-complaints" />}
           aside={
-            <span className="flex items-center gap-2 text-sm">
+            <span className="flex flex-wrap items-center gap-2 text-sm">
               <span className="font-semibold text-base-content/80">{m.complaints.period}</span>
               <PeriodPresets from={from} to={to} onPick={(r) => setCriteria({ from: r.from, to: r.to })} />
               <input type="date" aria-label={m.complaints.from} className="input input-sm w-40" value={from} onChange={(e) => setCriteria({ from: e.target.value })} />

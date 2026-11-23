@@ -1512,7 +1512,7 @@ export function NewMisdeliveryPage() {
           <Step n={1} title={m.cases.newStepWhat} done={delivery.id !== null && summary.trim() !== ''}>
             <label className="flex flex-col gap-1">
               {m.cases.deliveryId}
-              <input className="input input-sm w-64 font-mono" placeholder={m.refField.deliveryHint} value={deliveryId} onChange={(e) => setDeliveryId(e.target.value)} />
+              <input className="input input-sm w-full font-mono sm:w-64" placeholder={m.refField.deliveryHint} value={deliveryId} onChange={(e) => setDeliveryId(e.target.value)} />
               <RefStatus r={delivery} kind="delivery" />
             </label>
             {/* 번호를 몰라도 — 최근 본 배송·고객 연락처·라이더 전화로 찾아 고르기(2026-11-19) */}
@@ -1571,7 +1571,7 @@ export function NewMisdeliveryPage() {
                     <div className="flex flex-wrap gap-2">
                       <label className="flex flex-col gap-1">
                         {m.cases.detailAddress}
-                        <input className="input input-sm w-64" maxLength={100} autoComplete="off" value={address.detail} onChange={(e) => setAddr('detail', e.target.value)} />
+                        <input className="input input-sm w-full sm:w-64" maxLength={100} autoComplete="off" value={address.detail} onChange={(e) => setAddr('detail', e.target.value)} />
                       </label>
                       <label className="flex flex-col gap-1">
                         {m.cases.postalCode}
@@ -1591,7 +1591,7 @@ export function NewMisdeliveryPage() {
           <Step n={4} title={m.cases.newStepEvidence} done={evidence.trim() !== ''}>
             <label className="flex flex-col gap-1">
               {m.cases.evidence}
-              <input className="input input-sm w-64" value={evidence} onChange={(e) => setEvidence(e.target.value)} />
+              <input className="input input-sm w-full sm:w-64" value={evidence} onChange={(e) => setEvidence(e.target.value)} />
             </label>
           </Step>
         </div>
