@@ -2098,6 +2098,7 @@ export const messages = {
     decideTitle: '심사',
     requestInfo: '요청 정보',
     lineHead: { key: '행', qty: '수량', amount: '금액', detail: '내용' } as const,
+    grantTitleOf: (roles: string) => `직원 권한 요청 · ${roles}`,
     grant: {
       role: '역할',
       centers: '센터',

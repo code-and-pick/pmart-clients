@@ -138,6 +138,10 @@ describe('직원 권한 요청(GRANT) 승인 상세 — 백엔드 회신 2026-11
     expect(line).toHaveTextContent('기간2026-11-13 ~ 미설정'); // 종료일 없음을 "무기한"으로 바꾸지 않는다
     expect(line).toHaveTextContent('근거상품팀 배치');
     expect(line).toHaveTextContent('대상 직원P2026-00014 · hong@pmart.com · 본사 부서 HQ');
+    // 제목은 "직원 권한 요청 · 역할" — 사번·메일은 대상 직원 줄에만(2026-11-23, 서버 요약 그대로면 두 번 보였다)
+    const h1 = screen.getByRole('heading', { level: 1 });
+    expect(h1).toHaveTextContent('직원 권한 요청 · MD');
+    expect(h1).not.toHaveTextContent('hong@pmart.com');
     expect(screen.getByRole('button', { name: '승인' })).toBeInTheDocument();
   });
 

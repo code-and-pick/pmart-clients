@@ -2,6 +2,7 @@
 // 결정은 APPROVE·REJECT 만(나머지는 백엔드 미지원 → 버튼 없음). 결정 뒤 정본 반영은 비동기라 짧게 폴링한다.
 import { QueueNav, useQueueBack } from '../../shared/workQueue';
 import { StaffName } from '../lookup/parts';
+import { useEmployeeLabel } from '../../shared/employeeLabels';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link, useParams } from 'react-router';
@@ -79,7 +80,15 @@ function grantEmployeeId(attributes: Record<string, unknown> | undefined): strin
   return typeof id === 'string' ? id : null;
 }
 
+/** GRANT 행들의 역할 이름(한글) — 제목용 */
+function grantRoles(lines: ReadonlyArray<{ readonly attributes?: Record<string, unknown> }> | undefined): string[] {
+  const roles = (lines ?? []).map((l) => l.attributes?.['role']).filter((r): r is string => typeof r === 'string' && r !== '');
+  return [...new Set(roles)].map((r) => m.shell.roleName[r] ?? r);
+}
+
 function GrantLineAttributes({ attributes }: { readonly attributes: Record<string, unknown> | undefined }) {
+  const empLabel = useEmployeeLabel(grantEmployeeId(attributes));
+  const empName = empLabel.data?.name ?? null;
   if (!attributes || typeof attributes['role'] !== 'string') return null;
   const text = (v: unknown) => (typeof v === 'string' && v ? v : m.none);
   const centers = Array.isArray(attributes['centers']) ? (attributes['centers'] as unknown[]).filter((c) => typeof c === 'string').join(', ') : '';
@@ -89,7 +98,7 @@ function GrantLineAttributes({ attributes }: { readonly attributes: Record<strin
   return (
     <dl className="grid grid-cols-[5rem_1fr] gap-x-2 text-sm" data-testid="grant-line">
       <dt>{g.role}</dt>
-      <dd>{attributes['role']}</dd>
+      <dd>{m.shell.roleName[attributes['role']] ?? attributes['role']}</dd>
       <dt>{g.centers}</dt>
       <dd>{centers || m.none}</dd>
       <dt>{g.period}</dt>
@@ -100,6 +109,8 @@ function GrantLineAttributes({ attributes }: { readonly attributes: Record<strin
         <>
           <dt>{g.employee}</dt>
           <dd>
+            {/* 이름(hr 직원 이름 — 읽었을 때만) · 사번 · 메일. 이름을 못 읽어도 사번은 그대로 */}
+            {empName ? `${empName} · ` : ''}
             {`${text(emp['employeeNo'])} · ${text(emp['mailAddress'])}`}
             {aff && ` · ${g.affiliationType[text(aff['type'])] ?? text(aff['type'])} ${text(aff['code'])}`}
           </dd>
@@ -207,9 +218,10 @@ export function ApprovalDetailPage() {
                 // 시스템 번호·이전/다음은 뒤로 가기 줄 오른쪽에(2026-11-23 사용자 "복잡하게 해놨네" — 따로 두 줄 차지하던 것)
                 nav={<><SystemNumbers ids={[{ label: m.approvals.detailTitle, id: approvalId }, { label: m.approvals.target, id: a.targetRef }]} /> <QueueNav kind="approval" id={approvalId} /></>}
                 // 제목(2026-11-18 사용자 "직관적이지 않다"): 서버 요약을 앞에, 승인 번호는 옆에 작게. 요약 줄 = 요청자·상신 시각
+                // 직원 권한 요청은 "직원 권한 요청 · 역할"(2026-11-23 — 서버 요약의 사번·메일이 아래 대상 직원 줄과 두 번 보였다)
                 title={
                   <>
-                    {hideIds(a.summary) || m.approvals.detailTitle}
+                    {a.type === 'GRANT' && grantRoles(a.lines).length > 0 ? m.approvals.grantTitleOf(grantRoles(a.lines).join(', ')) : hideIds(a.summary) || m.approvals.detailTitle}
                   </>
                 }
                 badges={
