@@ -3394,7 +3394,11 @@ export const messages = {
     autoPreview: (n: number) => `랭킹 상위 ${n}개가 자동으로 보여요`,
     showTimer: '남은 시간 표시',
     showTimerHint: '켜면 끝 시각을 꼭 넣어 주세요. 끝나면 서버가 홈에서 자동으로 빼요.',
-    timerUntil: (t: string) => `${t}까지`,
+    // 0.12.0 BR-84 남은 시간 머리 모양
+    timerStyle: '모양',
+    timerStyleName: { LABEL: '라벨형(제목 위 글자)', BAND: '띠형(시·분·초 칸)' } as Readonly<Record<string, string>>,
+    timerLeft: '남은 시간',
+    timerLabel: (hms: string) => `⏱ ${hms} 남음`,
     inTab: (t: string) => `탭 "${t}"에 넣어서 홈에는 안 보이고 그 탭에서만 보여요.`,
     tabsTitle: 'MD 탭',
     addTab: '+ 탭',

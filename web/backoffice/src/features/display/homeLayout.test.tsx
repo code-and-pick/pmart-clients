@@ -172,6 +172,33 @@ describe('홈 진열 편성', () => {
     expect(sent.homeOrder).toEqual([]);
   });
 
+  it('0.12.0 남은 시간 모양(BR-84) — 켜면 라벨형 기본·미리보기 제목 위 글자, 띠형 고르면 띠·보낸 값 BAND, 끄면 null', async () => {
+    const user = userEvent.setup();
+    const view = renderAt('/display/home', as.md);
+    await user.click(await screen.findByTestId('layout-new-current'));
+    await screen.findByTestId('layout-state');
+    const theme = screen.getAllByTestId('layout-theme')[0]!;
+    expect(within(theme).queryByTestId('timer-style')).not.toBeInTheDocument();
+    await user.click(within(theme).getByRole('checkbox', { name: /남은 시간 표시/ }));
+    expect(within(theme).getByRole('radio', { name: '라벨형(제목 위 글자)' })).toBeChecked();
+    const preview = screen.getByTestId('layout-preview');
+    expect(within(preview).getByTestId('preview-timer-label')).toHaveTextContent(/⏱ .+ 남음/);
+    await user.click(within(theme).getByRole('radio', { name: '띠형(시·분·초 칸)' }));
+    expect(within(preview).getByTestId('preview-timer-band')).toHaveTextContent('남은 시간');
+    expect(within(preview).queryByTestId('preview-timer-label')).not.toBeInTheDocument();
+    fireEvent.change(within(theme).getByLabelText('끝'), { target: { value: '2099-12-31T18:00' } });
+    await user.click(screen.getByTestId('layout-save'));
+    await waitFor(() => expect(view.sent.some((q) => q.method === 'PUT')).toBe(true));
+    const first = (await view.sent.filter((q) => q.method === 'PUT').at(-1)!.clone().json()) as { themes: { showTimer: boolean; timerStyle: string | null }[] };
+    expect(first.themes[0]).toMatchObject({ showTimer: true, timerStyle: 'BAND' });
+    await user.click(within(theme).getByRole('checkbox', { name: /남은 시간 표시/ }));
+    expect(within(theme).queryByTestId('timer-style')).not.toBeInTheDocument();
+    await user.click(screen.getByTestId('layout-save'));
+    await waitFor(() => expect(view.sent.filter((q) => q.method === 'PUT')).toHaveLength(2));
+    const second = (await view.sent.filter((q) => q.method === 'PUT').at(-1)!.clone().json()) as { themes: { showTimer: boolean; timerStyle: string | null }[] };
+    expect(second.themes[0]).toMatchObject({ showTimer: false, timerStyle: null });
+  });
+
   it('홈 순서를 옮기지 않았고 묶음도 없으면 homeOrder 는 빈 채로(예전 순서)', async () => {
     const user = userEvent.setup();
     const view = renderAt('/display/home', as.md);

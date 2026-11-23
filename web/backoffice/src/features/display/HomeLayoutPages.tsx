@@ -7,7 +7,7 @@
 // storefront 0.10.0(같은 요청서 "추가 — 0.10.0"): 배너 넘김 간격(bannerIntervalSeconds 2~30초), 홈 중간 배너 묶음(HOME_INLINE + groupId G-…),
 // 홈 순서(homeOrder — 배너 묶음·테마를 보일 순서대로, 위/아래 단추로 옮김. 끌어 옮기기는 나중 — 사용자).
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useId, useMemo, useState, type ReactNode } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 
 import { PmartFailure, ProblemFailure, randomUuid, request } from '@pmart/web-core';
@@ -202,7 +202,7 @@ const whyOf = (why: readonly Why[], ...fields: string[]) => why.filter((w) => fi
 const whyRest = (why: readonly Why[], known: readonly string[]) => why.filter((w) => !known.includes(w.field)).map((w) => w.text);
 const BANNER_FIELDS = ['imageId', 'altText', 'linkRef', 'startsAt', 'endsAt', 'placement', 'groupId'];
 const NEW_GROUP = '__new';
-const THEME_FIELDS = ['title', 'subtitle', 'startsAt', 'endsAt', 'productIds', 'autoSize', 'showTimer', 'kind'];
+const THEME_FIELDS = ['title', 'subtitle', 'startsAt', 'endsAt', 'productIds', 'autoSize', 'showTimer', 'timerStyle', 'kind'];
 const TAB_FIELDS = ['title', 'sectionIds', 'startsAt', 'endsAt', 'showTimer'];
 
 interface Problems {
@@ -351,6 +351,34 @@ function TimerToggle({ checked, disabled, onChange }: { readonly checked: boolea
       </span>
     </label>
   );
+}
+
+/** 남은 시간 머리 모양(storefront 0.12.0 BR-84 timerStyle) — 켰을 때만. LABEL 제목 위 분홍 글자(기본)·BAND 연분홍 띠 + 시·분·초 칸 */
+function TimerStylePick({ value, disabled, onChange }: { readonly value: 'LABEL' | 'BAND'; readonly disabled: boolean; readonly onChange: (v: 'LABEL' | 'BAND') => void }) {
+  const name = useId();
+  return (
+    <fieldset className="ml-6 flex flex-wrap items-center gap-4 text-sm" data-testid="timer-style">
+      <legend className="sr-only">{m.timerStyle}</legend>
+      <span className="text-xs text-base-content/60" aria-hidden="true">
+        {m.timerStyle}
+      </span>
+      {(['LABEL', 'BAND'] as const).map((s) => (
+        <label key={s} className="flex items-center gap-1.5">
+          <input type="radio" className="radio radio-xs" name={name} checked={value === s} disabled={disabled} onChange={() => onChange(s)} />
+          {m.timerStyleName[s]}
+        </label>
+      ))}
+    </fieldset>
+  );
+}
+
+/** 미리보기 남은 시간(표시만 — 지금 시각과 끝 시각의 차, 서버 판정 아님). 끝 시각이 없으면 칸만 */
+function remainParts(endsAt: string | null | undefined): readonly [string, string, string] {
+  const ms = endsAt ? Date.parse(endsAt) - Date.now() : NaN;
+  if (Number.isNaN(ms)) return ['--', '--', '--'];
+  const s = Math.max(0, Math.floor(ms / 1000));
+  const p = (n: number) => String(n).padStart(2, '0');
+  return [p(Math.min(99, Math.floor(s / 3600))), p(Math.floor((s % 3600) / 60)), p(s % 60)];
 }
 
 function BannerCard({
@@ -598,8 +626,10 @@ function ThemeCard({
       </div>
       )}
       <Period startsAt={t.startsAt} endsAt={t.endsAt} disabled={locked} onChange={(s, e) => onChange({ ...t, startsAt: s, endsAt: e })} />
-      <TimerToggle checked={t.showTimer ?? false} disabled={locked} onChange={(on) => onChange({ ...t, showTimer: on })} />
-      <WhyText items={whyOf(why, 'startsAt', 'endsAt', 'showTimer')} />
+      {/* 켜면 모양 기본 라벨형, 끄면 모양 비움(서버도 null 로 저장 — BR-84) */}
+      <TimerToggle checked={t.showTimer ?? false} disabled={locked} onChange={(on) => onChange({ ...t, showTimer: on, timerStyle: on ? (t.timerStyle ?? 'LABEL') : null })} />
+      {t.showTimer && <TimerStylePick value={t.timerStyle ?? 'LABEL'} disabled={locked} onChange={(v) => onChange({ ...t, timerStyle: v })} />}
+      <WhyText items={whyOf(why, 'startsAt', 'endsAt', 'showTimer', 'timerStyle')} />
       <WhyText items={whyRest(why, THEME_FIELDS)} />
     </li>
   );
@@ -709,12 +739,32 @@ function Preview({ body, sticky = true }: { readonly body: Body; readonly sticky
         })
       : themes.map((t) => ({ theme: t }));
   const firstTheme = seq.findIndex((x) => 'theme' in x);
+  // 남은 시간 머리(BR-84): 라벨형 = 제목 위 분홍 글자, 띠형 = 연분홍 띠 + 시·분·초 칸
+  const timerHead = (t: Theme) => {
+    if (!t.showTimer) return null;
+    const [h, mi, se] = remainParts(t.endsAt);
+    return (t.timerStyle ?? 'LABEL') === 'BAND' ? (
+      <div className="flex items-center justify-between rounded-md bg-error/10 px-2 py-1.5" data-testid="preview-timer-band">
+        <span className="text-[11px] font-semibold text-error">{m.timerLeft}</span>
+        <span className="flex items-center gap-0.5 font-mono text-[11px] font-bold">
+          {[h, mi, se].map((x, i) => (
+            <span key={i} className="flex items-center gap-0.5">
+              {i > 0 && <span className="text-error">:</span>}
+              <span className="rounded bg-error px-1 text-error-content">{x}</span>
+            </span>
+          ))}
+        </span>
+      </div>
+    ) : (
+      <p className="text-[11px] font-semibold text-error" data-testid="preview-timer-label">
+        {m.timerLabel(`${h}:${mi}:${se}`)}
+      </p>
+    );
+  };
   const themeBlock = (t: Theme) => (
     <div key={t.sectionId} className="space-y-1.5">
-      <p className="flex flex-wrap items-center gap-1.5 text-sm font-bold">
-        {t.title || m.untitledTheme}
-        {t.showTimer && t.endsAt && <span className="badge badge-error badge-soft badge-xs font-normal">{m.timerUntil(formatSeoul(t.endsAt))}</span>}
-      </p>
+      {timerHead(t)}
+      <p className="flex flex-wrap items-center gap-1.5 text-sm font-bold">{t.title || m.untitledTheme}</p>
       {t.subtitle && <p className="text-xs text-base-content/55">{t.subtitle}</p>}
       {t.kind === 'RANKING_AUTO' ? (
         <p className="rounded-md bg-base-200 px-2 py-3 text-center text-xs text-base-content/60">{m.autoPreview(t.autoSize ?? 0)}</p>

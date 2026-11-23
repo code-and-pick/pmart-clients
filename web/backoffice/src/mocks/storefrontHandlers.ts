@@ -127,7 +127,9 @@ function check(body: Body): { field: string; reason: string }[] {
   return out;
 }
 
-const bodyOf = (b: Body): Body => ({ banners: b.banners ?? [], themes: b.themes ?? [], tabs: b.tabs ?? [], homeOrder: b.homeOrder ?? [], bannerIntervalSeconds: b.bannerIntervalSeconds ?? null, note: b.note ?? null });
+// 0.12.0 BR-84: 남은 시간을 끄면 timerStyle 은 null 로, 켜고 비우면 LABEL 로 저장(계약 설명대로)
+const themeOf = (t: NonNullable<Body['themes']>[number]) => ({ ...t, timerStyle: t.showTimer ? (t.timerStyle ?? 'LABEL') : null });
+const bodyOf = (b: Body): Body => ({ banners: b.banners ?? [], themes: (b.themes ?? []).map(themeOf), tabs: b.tabs ?? [], homeOrder: b.homeOrder ?? [], bannerIntervalSeconds: b.bannerIntervalSeconds ?? null, note: b.note ?? null });
 
 /** approval DISPLAY 결정(effects.decide) — 승인이면 새 진열 버전으로 게시, 반려면 REJECTED */
 export function decideLayout(draftId: string, approved: boolean, comment: string | null): void {
