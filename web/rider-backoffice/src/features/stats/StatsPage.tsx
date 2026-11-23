@@ -3,7 +3,7 @@
 //       dispatch `GET /metrics/dispatch`(0.16.0 — 생성일 × 센터 배차 효율, 실패 사유), `GET /metrics/on-time-deliveries`(정시 배송률, 관리자가 아니면 센터 필수).
 // 센터는 머리줄 센터 고르기(RS-7). 평균은 서버가 준 건수(*Count·assigned)로 가중해 다시 낸다. 직원 수동 배차는 없다(배정 출처 = AI 추천·배달리스트·반납).
 import { useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Link } from 'react-router';
 
 import { request } from '@pmart/web-core';
@@ -12,7 +12,7 @@ import { useApi } from '../../app/ApiContext';
 import { useCenterQuery } from '../../app/CenterScope';
 import { isOperatorAdmin } from '../../app/nav';
 import { useSession } from '../../app/SessionContext';
-import { DataTable, Notice, PageHeader, Section, StatCard, StatStrip } from '../../shared/admin';
+import { DataTable, Notice, PageHeader, Section } from '../../shared/admin';
 import { RiderName, useRiderSummaries } from '../../shared/displayNumbers';
 import { messages } from '../../shared/messages';
 import { label } from '../../shared/opsUi';
@@ -60,8 +60,19 @@ export const statsMessages = {
   range: { today: '오늘', d7: '최근 7일', d30: '최근 30일' } as const,
   rangeLabel: '기간',
   quality: '배송 품질',
-  efficiency: '배송 효율',
+  qualitySub: '끝난 배송이 얼마나 잘 갔나',
+  efficiency: '걸린 시간',
+  efficiencySub: '한 건 평균 — 배차 → 픽업 대기 → 배송',
   dispatch: '배차 효율',
+  dispatchSub: '라이더를 얼마나 잘 찾았나',
+  sourceTitle: '배정 출처',
+  sourceSub: '누가 배송을 가져갔나',
+  src: { ai: 'AI 추천', list: '배달리스트', ret: '실패 반납' },
+  noManual: '직원 수동 배차는 없어요.',
+  failureSub: '라이더를 못 찾은 회차의 까닭',
+  noFailures: '이 기간에 배차 실패가 없어요.',
+  // 구간마다 평균을 낸 건수가 달라(배차 77·픽업 56 …) 정확한 한 건 평균은 아니다 — 그렇다고 밝힌다
+  total: '세 구간 평균을 더한 값',
   daily: '날짜별',
   dailyChart: (n: number) => `날짜별 배송 ${n}일 — 완료·실패`,
   legendDone: '완료',
@@ -88,6 +99,7 @@ export const statsMessages = {
     failure: (f: number, a: number) => `실패 ${f} / 배정 ${a}`,
     onTime: (o: number, d: number) => `정시 ${o} / ${d}`,
     onTimeNeedsCenter: '센터를 고르면 보여요',
+    noJudged: '판정한 배송이 없어요',
     failed: '불러오지 못했어요',
     count: (k: number) => `${k}건 평균`,
     assignRate: (a: number, c: number) => `배정 ${a} / 요청 ${c}`,
@@ -254,43 +266,68 @@ export function StatsPage() {
         <QueryState state={toUiState(exec)} onRetry={() => { void exec.refetch(); void disp.refetch(); }}>{() => null}</QueryState>
       ) : (
         <>
-          <StatStrip label={s.quality} testId="stats-quality">
-            <StatCard layout="row" label={s.tile.completion} value={pct(a.completed, a.completed + a.failed)} hint={s.hint.completion(a.completed, a.failed)} testId="tile-completion" />
-            <StatCard layout="row" label={s.tile.late} value={pct(a.late, a.judged)} hint={s.hint.late(a.late, a.judged)} tone={a.judged > 0 && a.late / a.judged > 0.1 ? 'warning' : undefined} testId="tile-late" />
-            <StatCard layout="row" label={s.tile.failure} value={pct(a.failed, a.assigned)} hint={s.hint.failure(a.failed, a.assigned)} testId="tile-failure" />
-            <StatCard layout="row" label={s.tile.onTime} value={onTime.data ? pct(otOn, otDue) : '—'} hint={onTime.data ? s.hint.onTime(otOn, otDue) : onTime.isError ? s.hint.failed : s.hint.onTimeNeedsCenter} testId="tile-on-time" />
-          </StatStrip>
-          <StatStrip label={s.efficiency} testId="stats-efficiency">
-            <StatCard layout="row" label={s.tile.assign} value={dur(dAvgAssign)} hint={s.hint.count(dAssigned)} testId="tile-assign" />
-            <StatCard layout="row" label={s.tile.pickupWait} value={dur(a.pickupWait)} hint={s.hint.count(total(rows, (r) => r.pickupWaitCount))} testId="tile-pickup-wait" />
-            <StatCard layout="row" label={s.tile.delivery} value={dur(a.delivery)} hint={s.hint.count(total(rows, (r) => r.deliveryCount))} testId="tile-delivery" />
-          </StatStrip>
-          {disp.isError ? (
-            <Notice tone="warning">{s.dispatchFailed}</Notice>
-          ) : (
-            <Section title={s.dispatch} testId="stats-dispatch">
-              <StatStrip label={s.dispatch}>
-                <StatCard layout="row" label={s.tile.assignRate} value={pct(dAssigned, dCreated)} hint={s.hint.assignRate(dAssigned, dCreated)} testId="tile-assign-rate" />
-                <StatCard layout="row" label={s.tile.reassign} value={pct(dReassigned, dCreated)} hint={s.hint.reassign(dReassigned, dCreated)} testId="tile-reassign" />
-                <StatCard layout="row" label={s.tile.accept} value={pct(dAccepted, dSent)} hint={s.hint.accept(dAccepted, dSent)} testId="tile-accept" />
-                <StatCard layout="row" label={s.tile.autoCancel} value={`${total(drows, (r) => r.autoCancelled)}건`} testId="tile-auto-cancel" />
-              </StatStrip>
-              <p className="mt-2 text-xs text-base-content/60" data-testid="stats-source">
-                {s.source(total(drows, (r) => r.assignedByAi), total(drows, (r) => r.assignedByList), total(drows, (r) => r.assignedByFailedReturn))}
-              </p>
-              {(disp.data?.failureReasons ?? []).length > 0 && (
-                <div className="mt-3">
-                  <p className="mb-1 text-sm font-medium">{s.failureReasons}</p>
-                  <ul className="flex flex-wrap gap-2 text-sm" data-testid="stats-failure-reasons">
-                    {(disp.data?.failureReasons ?? []).map((x) => (
-                      <li key={x.reason} className="badge badge-ghost">
-                        {s.reason[x.reason] ?? x.reason} {x.rounds}
-                      </li>
-                    ))}
-                  </ul>
+          {/* 2026-11-23 사용자 "운영통계 이게 최선이니?" — 같은 크기 숫자 칸 11개를 품질·속도·배차 세 카드로 묶고 그림으로.
+              품질: 완료율 큰 원 + 나머지 비율 막대 / 속도: 배차 → 픽업 대기 → 배송 이어진 한 줄 / 배차: 비율 막대·배정 출처 쌓은 막대·실패 사유 가로 막대 */}
+          <div className="grid gap-4 xl:grid-cols-3">
+            <HeroCard title={s.quality} sub={s.qualitySub} testId="stats-quality">
+              <div className="flex items-center gap-6">
+                <Ring num={a.completed} den={a.completed + a.failed} label={s.tile.completion} hint={s.hint.completion(a.completed, a.failed)} testId="tile-completion" />
+                <div className="min-w-0 flex-1 space-y-4">
+                  <RateBar
+                    label={s.tile.onTime}
+                    num={otOn}
+                    den={otDue}
+                    hint={onTime.data ? s.hint.onTime(otOn, otDue) : onTime.isError ? s.hint.failed : s.hint.onTimeNeedsCenter}
+                    unavailable={!onTime.data}
+                    tone="good"
+                    testId="tile-on-time"
+                  />
+                  <RateBar label={s.tile.late} num={a.late} den={a.judged} hint={a.judged > 0 ? s.hint.late(a.late, a.judged) : s.hint.noJudged} tone="warn" testId="tile-late" />
+                  <RateBar label={s.tile.failure} num={a.failed} den={a.assigned} hint={s.hint.failure(a.failed, a.assigned)} tone="bad" testId="tile-failure" />
+                </div>
+              </div>
+            </HeroCard>
+            <HeroCard title={s.efficiency} sub={s.efficiencySub} testId="stats-efficiency">
+              <TimeFlow
+                legs={[
+                  { key: 'assign', label: s.tile.assign, sec: dAvgAssign, n: dAssigned, color: '#3b6ef6', testId: 'tile-assign' },
+                  { key: 'wait', label: s.tile.pickupWait, sec: a.pickupWait, n: total(rows, (r) => r.pickupWaitCount), color: '#0891b2', testId: 'tile-pickup-wait' },
+                  { key: 'delivery', label: s.tile.delivery, sec: a.delivery, n: total(rows, (r) => r.deliveryCount), color: '#d97706', testId: 'tile-delivery' },
+                ]}
+              />
+            </HeroCard>
+            <HeroCard title={s.dispatch} sub={s.dispatchSub} testId="stats-dispatch">
+              {disp.isError ? (
+                <Notice tone="warning">{s.dispatchFailed}</Notice>
+              ) : (
+                <div className="space-y-4">
+                  <RateBar label={s.tile.assignRate} num={dAssigned} den={dCreated} hint={s.hint.assignRate(dAssigned, dCreated)} tone="good" testId="tile-assign-rate" />
+                  <RateBar label={s.tile.accept} num={dAccepted} den={dSent} hint={s.hint.accept(dAccepted, dSent)} tone="neutral" testId="tile-accept" />
+                  <RateBar label={s.tile.reassign} num={dReassigned} den={dCreated} hint={s.hint.reassign(dReassigned, dCreated)} tone="warn" testId="tile-reassign" />
+                  <p className="flex items-baseline justify-between text-sm" data-testid="tile-auto-cancel">
+                    <span className="text-base-content/70">{s.tile.autoCancel}</span>
+                    <b className="tabular-nums">{total(drows, (r) => r.autoCancelled)}건</b>
+                  </p>
                 </div>
               )}
-            </Section>
+            </HeroCard>
+          </div>
+          {!disp.isError && (
+            <div className="grid gap-4 lg:grid-cols-2">
+              <HeroCard title={s.sourceTitle} sub={s.sourceSub} testId="stats-source">
+                <SourceBar
+                  parts={[
+                    { label: s.src.ai, n: total(drows, (r) => r.assignedByAi), color: '#3b6ef6' },
+                    { label: s.src.list, n: total(drows, (r) => r.assignedByList), color: '#0891b2' },
+                    { label: s.src.ret, n: total(drows, (r) => r.assignedByFailedReturn), color: '#d97706' },
+                  ]}
+                />
+                <p className="mt-3 text-xs text-base-content/60">{s.noManual}</p>
+              </HeroCard>
+              <HeroCard title={s.failureReasons} sub={s.failureSub} testId="stats-failure-reasons">
+                <ReasonBars items={(disp.data?.failureReasons ?? []).map((x) => ({ label: s.reason[x.reason] ?? x.reason, n: x.rounds }))} />
+              </HeroCard>
+            </div>
           )}
           {rows.length === 0 ? (
             <p className="text-sm text-base-content/60" data-testid="stats-empty">{s.empty}</p>
@@ -489,5 +526,128 @@ function DailyChart({ days }: { readonly days: ReadonlyArray<readonly [string, r
         })}
       </div>
     </div>
+  );
+}
+
+/** 카드 — 제목 + 한 줄 설명 */
+function HeroCard({ title, sub, testId, children }: { readonly title: string; readonly sub: string; readonly testId: string; readonly children: ReactNode }) {
+  return (
+    <section className="st-card rounded-box border border-base-300 bg-base-100 p-5" aria-label={title} data-testid={testId}>
+      <h2 className="text-base font-bold">{title}</h2>
+      <p className="mb-4 text-xs text-base-content/60">{sub}</p>
+      {children}
+    </section>
+  );
+}
+
+/** 큰 원(한 가지 대표 비율). 분모 0 이면 원은 비우고 "—" */
+function Ring({ num, den, label, hint, testId }: { readonly num: number; readonly den: number; readonly label: string; readonly hint: string; readonly testId: string }) {
+  const p = den > 0 ? num / den : 0;
+  const r = 42;
+  const c = 2 * Math.PI * r;
+  return (
+    <div className="flex shrink-0 flex-col items-center" data-testid={testId}>
+      <div className="relative h-28 w-28">
+        <svg viewBox="0 0 100 100" className="h-full w-full -rotate-90" aria-hidden="true">
+          <circle cx="50" cy="50" r={r} fill="none" stroke="var(--color-base-200)" strokeWidth="10" />
+          {den > 0 && <circle cx="50" cy="50" r={r} fill="none" stroke="var(--color-success)" strokeWidth="10" strokeLinecap="round" strokeDasharray={`${c * p} ${c}`} />}
+        </svg>
+        <span className="absolute inset-0 flex items-center justify-center text-2xl font-extrabold tabular-nums">{pct(num, den)}</span>
+      </div>
+      <span className="mt-1 text-sm font-semibold">{label}</span>
+      <span className="text-xs text-base-content/60">{hint}</span>
+    </div>
+  );
+}
+
+const TONE: Record<'good' | 'warn' | 'bad' | 'neutral', string> = { good: 'bg-success', warn: 'bg-warning', bad: 'bg-error', neutral: 'bg-info' };
+
+/** 비율 한 줄 — 이름 · 값(오른쪽) · 막대 · 건수. 분모 0·못 읽음은 막대 없이 사유 */
+function RateBar({ label, num, den, hint, tone, unavailable = false, testId }: { readonly label: string; readonly num: number; readonly den: number; readonly hint: string; readonly tone: keyof typeof TONE; readonly unavailable?: boolean; readonly testId: string }) {
+  const empty = unavailable || den <= 0;
+  return (
+    <div data-testid={testId}>
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="text-sm text-base-content/80">{label}</span>
+        <span className="text-lg font-bold tabular-nums">{empty ? '—' : pct(num, den)}</span>
+      </div>
+      <div className="mt-1 h-2 overflow-hidden rounded-full bg-base-200" aria-hidden="true">
+        {!empty && <div className={`h-full rounded-full ${TONE[tone]}`} style={{ width: `${Math.min(100, (num / den) * 100)}%` }} />}
+      </div>
+      <span className="text-xs text-base-content/60">{hint}</span>
+    </div>
+  );
+}
+
+/** 걸린 시간 — 세 구간을 이은 한 줄(길이 = 평균 시간 비율) + 구간별 값. 값이 없는 구간은 줄에서 빼고 "—" */
+function TimeFlow({ legs }: { readonly legs: ReadonlyArray<{ readonly key: string; readonly label: string; readonly sec: number | null; readonly n: number; readonly color: string; readonly testId: string }> }) {
+  const known = legs.filter((l) => l.sec !== null && l.sec > 0);
+  const sum = known.reduce((x, l) => x + (l.sec ?? 0), 0);
+  return (
+    <div>
+      <div className="flex items-baseline justify-between">
+        <span className="text-sm text-base-content/70">{s.total}</span>
+        <span className="text-3xl font-extrabold tabular-nums" data-testid="tile-total-time">{sum > 0 ? dur(sum) : '—'}</span>
+      </div>
+      <div className="mt-3 flex h-3 gap-0.5 overflow-hidden rounded-full bg-base-200" role="img" aria-label={legs.map((l) => `${l.label} ${dur(l.sec)}`).join(', ')}>
+        {known.map((l) => (
+          <span key={l.key} style={{ flexGrow: l.sec ?? 0, backgroundColor: l.color }} />
+        ))}
+      </div>
+      <ol className="mt-4 space-y-2.5">
+        {legs.map((l) => (
+          <li key={l.key} className="flex items-center gap-2 text-sm" data-testid={l.testId}>
+            <i className="inline-block h-2.5 w-2.5 shrink-0 rounded-sm" style={{ backgroundColor: l.color }} aria-hidden="true" />
+            <span className="flex-1 text-base-content/80">{l.label}</span>
+            <span className="text-xs text-base-content/50">{s.hint.count(l.n)}</span>
+            <b className="w-14 text-right tabular-nums">{dur(l.sec)}</b>
+          </li>
+        ))}
+      </ol>
+    </div>
+  );
+}
+
+/** 배정 출처 — 한 줄 쌓은 막대 + 범례(이름·건수·비율) */
+function SourceBar({ parts }: { readonly parts: ReadonlyArray<{ readonly label: string; readonly n: number; readonly color: string }> }) {
+  const sum = parts.reduce((x, p) => x + p.n, 0);
+  return (
+    <div>
+      <div className="flex h-3 gap-0.5 overflow-hidden rounded-full bg-base-200" role="img" aria-label={parts.map((p) => `${p.label} ${p.n}건`).join(', ')}>
+        {sum > 0 && parts.filter((p) => p.n > 0).map((p) => <span key={p.label} style={{ flexGrow: p.n, backgroundColor: p.color }} />)}
+      </div>
+      <ul className="mt-3 grid grid-cols-3 gap-2 text-sm">
+        {parts.map((p) => (
+          <li key={p.label}>
+            <span className="flex items-center gap-1.5 text-base-content/70">
+              <i className="inline-block h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: p.color }} aria-hidden="true" />
+              {p.label}
+            </span>
+            <b className="text-lg tabular-nums">{p.n}</b>
+            <span className="ml-1 text-xs text-base-content/50">{pct(p.n, sum)}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+/** 배차 실패 사유 — 많은 순 가로 막대(길이 = 가장 많은 사유 기준) */
+function ReasonBars({ items }: { readonly items: ReadonlyArray<{ readonly label: string; readonly n: number }> }) {
+  if (items.length === 0) return <p className="text-sm text-base-content/60">{s.noFailures}</p>;
+  const sorted = [...items].sort((x, y) => y.n - x.n);
+  const max = Math.max(1, ...sorted.map((x) => x.n));
+  return (
+    <ul className="space-y-2.5">
+      {sorted.map((x) => (
+        <li key={x.label} className="grid grid-cols-[6.5rem_1fr_2.5rem] items-center gap-3 text-sm">
+          <span className="truncate text-base-content/80">{x.label}</span>
+          <span className="h-2 overflow-hidden rounded-full bg-base-200" aria-hidden="true">
+            <span className="block h-full rounded-full bg-base-content/45" style={{ width: `${(x.n / max) * 100}%` }} />
+          </span>
+          <b className="text-right tabular-nums">{x.n}</b>
+        </li>
+      ))}
+    </ul>
   );
 }
