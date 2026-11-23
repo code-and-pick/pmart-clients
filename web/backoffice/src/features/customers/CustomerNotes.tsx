@@ -27,8 +27,9 @@ function NoteRow({ note, mine, onChanged }: { readonly note: Note; readonly mine
   const api = useApi();
   const [mode, setMode] = useState<'view' | 'edit' | 'delete'>('view');
   const [draft, setDraft] = useState(note.text ?? '');
-  const revise = useCommand(async (_v: null, key) => {
-    const r = await request('POST', api.cases.POST('/customer-notes/{noteId}/revisions', { ...commandParams(key, { path: { noteId: note.noteId } }), body: { text: draft.trim() } }));
+  // 보낼 글은 명령 값으로(2026-11-23 PR용 프론트 #409 댓글) — 결과 불명 뒤 같은 키로 다시 보낼 때 처음 글 그대로
+  const revise = useCommand(async (t: string, key) => {
+    const r = await request('POST', api.cases.POST('/customer-notes/{noteId}/revisions', { ...commandParams(key, { path: { noteId: note.noteId } }), body: { text: t } }));
     setMode('view');
     onChanged();
     return r;
@@ -80,7 +81,7 @@ function NoteRow({ note, mine, onChanged }: { readonly note: Note; readonly mine
             e.preventDefault();
             if (!okText(draft)) return;
             if (revise.phase.kind === 'rejected') revise.reset();
-            void revise.run(null);
+            void revise.run(draft.trim());
           }}
         >
           <textarea className="textarea textarea-sm w-full" rows={3} maxLength={MAX} aria-label={m.editLabel} value={draft} onChange={(e) => setDraft(e.target.value)} />
@@ -123,8 +124,8 @@ export function CustomerNotes({ customerId }: { readonly customerId: string }) {
   const query = useQuery({ queryKey: key, queryFn: () => request('GET', api.cases.GET('/customer-notes', { params: { query: { customerId, size: 50 } } })) });
   const refresh = () => void queryClient.invalidateQueries({ queryKey: key });
   const [draft, setDraft] = useState('');
-  const add = useCommand(async (_v: null, k) => {
-    const r = await request('POST', api.cases.POST('/customer-notes', { ...commandParams(k), body: { customerId, text: draft.trim() } }));
+  const add = useCommand(async (t: string, k) => {
+    const r = await request('POST', api.cases.POST('/customer-notes', { ...commandParams(k), body: { customerId, text: t } }));
     setDraft('');
     refresh();
     return r;
@@ -160,7 +161,7 @@ export function CustomerNotes({ customerId }: { readonly customerId: string }) {
               e.preventDefault();
               if (!okText(draft)) return;
               if (add.phase.kind === 'rejected' || add.phase.kind === 'done') add.reset();
-              void add.run(null);
+              void add.run(draft.trim());
             }}
           >
             <label className="flex flex-col gap-1 text-xs text-base-content/60">

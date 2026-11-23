@@ -23,10 +23,11 @@ function MaskForm({ caseId, note, onDone }: { readonly caseId: string; readonly 
   const api = useApi();
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState('');
-  const cmd = useCommand(async (_v: null, key) => {
+  // 사유·글은 명령 값으로(2026-11-23) — 결과 불명 뒤 같은 키로 다시 보낼 때 처음 값 그대로
+  const cmd = useCommand(async (why: string, key) => {
     const r = await request(
       'POST',
-      api.cases.POST('/cases/{caseId}/notes/{noteId}/maskings', { ...commandParams(key, { path: { caseId, noteId: note.noteId ?? '' } }), body: { reason: reason.trim() } }),
+      api.cases.POST('/cases/{caseId}/notes/{noteId}/maskings', { ...commandParams(key, { path: { caseId, noteId: note.noteId ?? '' } }), body: { reason: why } }),
     );
     onDone();
     return r;
@@ -45,7 +46,7 @@ function MaskForm({ caseId, note, onDone }: { readonly caseId: string; readonly 
         e.preventDefault();
         if (!reason.trim()) return;
         if (cmd.phase.kind === 'rejected') cmd.reset();
-        void cmd.run(null);
+        void cmd.run(reason.trim());
       }}
     >
       <label className="flex flex-col gap-1 text-xs">
@@ -75,8 +76,8 @@ export function CaseNotes({ caseId }: { readonly caseId: string }) {
   const query = useQuery({ queryKey: key, queryFn: () => request('GET', api.cases.GET('/cases/{caseId}/notes', { params: { path: { caseId } } })) });
   const refresh = () => void queryClient.invalidateQueries({ queryKey: key });
   const [draft, setDraft] = useState('');
-  const add = useCommand(async (_v: null, k) => {
-    const r = await request('POST', api.cases.POST('/cases/{caseId}/notes', { ...commandParams(k, { path: { caseId } }), body: { text: draft.trim() } }));
+  const add = useCommand(async (t: string, k) => {
+    const r = await request('POST', api.cases.POST('/cases/{caseId}/notes', { ...commandParams(k, { path: { caseId } }), body: { text: t } }));
     setDraft('');
     refresh();
     return r;
@@ -123,7 +124,7 @@ export function CaseNotes({ caseId }: { readonly caseId: string }) {
               e.preventDefault();
               if (!ok) return;
               if (add.phase.kind === 'rejected' || add.phase.kind === 'done') add.reset();
-              void add.run(null);
+              void add.run(draft.trim());
             }}
           >
             <label className="flex flex-col gap-1 text-xs text-base-content/60">

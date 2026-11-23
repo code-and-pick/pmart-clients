@@ -3,7 +3,11 @@ import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 
+import { http, HttpResponse } from 'msw';
+
+import { API_BASE } from '../../api/client';
 import { as, renderAt } from '../../test/render';
+import { server } from '../../test/server';
 
 const posts = (sent: readonly Request[], tail: string) => sent.filter((r) => r.method === 'POST' && new URL(r.url).pathname.endsWith(tail));
 
@@ -55,6 +59,30 @@ describe('고객 상담 메모', () => {
     await user.click(within(ask).getByRole('button', { name: '지우기' }));
     await waitFor(() => expect(screen.getAllByTestId('customer-note')).toHaveLength(1));
     expect(posts(view.sent, '/customer-notes/CN-MOCK-1/deletions')).toHaveLength(1);
+  });
+
+  it('결과를 모를 때(503) 입력란을 고쳐도 "같은 요청으로 결과 확인"은 같은 키·처음 글 그대로(#409 리뷰)', async () => {
+    const user = userEvent.setup();
+    let first = true;
+    server.use(
+      http.post(`${API_BASE}/customer-notes`, () => {
+        if (!first) return undefined;
+        first = false;
+        return HttpResponse.json({ type: 'about:blank', title: 'x', status: 503, code: 'DEPENDENCY_UNAVAILABLE' }, { status: 503, headers: { 'content-type': 'application/problem+json' } });
+      }),
+    );
+    const view = renderAt('/customers/CUS-1001', as.cs);
+    const form = await screen.findByRole('form', { name: '메모 남기기' });
+    const box = within(form).getByLabelText(/메모 남기기/);
+    await user.type(box, '처음 글');
+    await user.click(within(form).getByRole('button', { name: '메모 남기기' }));
+    const again = await within(form).findByRole('button', { name: '같은 요청으로 결과 확인' });
+    await user.type(box, ' 고침');
+    await user.click(again);
+    await waitFor(() => expect(posts(view.sent, '/customer-notes')).toHaveLength(2));
+    const [a, b] = posts(view.sent, '/customer-notes');
+    expect(b!.headers.get('Idempotency-Key')).toBe(a!.headers.get('Idempotency-Key'));
+    expect(await b!.clone().json()).toEqual({ customerId: 'CUS-1001', text: '처음 글' });
   });
 
   it('관리자는 보기만 — 입력란·고치기 단추 없음', async () => {
