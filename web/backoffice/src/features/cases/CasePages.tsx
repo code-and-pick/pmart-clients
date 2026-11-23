@@ -69,6 +69,7 @@ import { LayoutToggle } from '../../shared/Kanban';
 import { TableSettings } from '../../shared/TableSettings';
 import { useHelp } from '../../shared/HelpPanel';
 import { CopyButton } from '../../shared/CopyButton';
+import { OperatorRefStatus, operatorRefBlocked, useOperatorRef } from '../../shared/operatorRef';
 
 type Case = components['schemas']['Case'];
 type InboxView = BffOps['getCaseInboxView']['responses'][200]['content']['application/json'];
@@ -826,6 +827,8 @@ function AssignForm({ c, onDone, part }: { readonly c: Case; readonly onDone: (c
   const api = useApi();
   const { me, admin, team, agent } = useCaseRoles();
   const [other, setOther] = useState('');
+  // 다른 사람 — 사번이면 hr 로 찾아 "[이름] · 사번 에게 배정해요"로 확인(2026-11-24 HR-5). 서버는 재직 여부를 보지 않으니 화면 확인이 유일한 확인
+  const otherRef = useOperatorRef(other);
   const assign = useCommand(async (v: { assigneeId: string }, key) => {
     const r = await request(
       'POST',
@@ -857,14 +860,15 @@ function AssignForm({ c, onDone, part }: { readonly c: Case; readonly onDone: (c
         aria-label={m.cases.assignTo}
         onSubmit={(e: FormEvent) => {
           e.preventDefault();
-          if (other.trim()) run(other.trim());
+          if (otherRef.id && !operatorRefBlocked(otherRef)) run(otherRef.id);
         }}
       >
         <label className="flex min-w-0 flex-1 flex-col gap-1 text-xs text-base-content/60">
           {m.cases.assignTo}
-          <input className="input input-sm w-full" placeholder={m.cases.assignee_} value={other} onChange={(e) => setOther(e.target.value)} />
+          <input className="input input-sm w-full font-mono" placeholder={m.cases.assignee_} value={other} onChange={(e) => setOther(e.target.value)} />
+          <OperatorRefStatus r={otherRef} foundText={m.cases.assignToFound} testId="assign-other-status" />
         </label>
-        <button type="submit" className="btn btn-sm" disabled={!other.trim() || assign.busy}>
+        <button type="submit" className="btn btn-sm" disabled={!otherRef.id || operatorRefBlocked(otherRef) || assign.busy}>
           {m.cases.assign}
         </button>
       </form>

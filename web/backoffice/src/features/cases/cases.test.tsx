@@ -112,7 +112,7 @@ describe('지원센터 사건', () => {
   it('관리자는 다른 사람에게 배정할 수 있다', async () => {
     const view = renderAt('/cases/CASE-MOCK-1', as.admin);
     const form = await screen.findByRole('form', { name: '다른 사람에게 배정(관리자)' });
-    await userEvent.type(within(form).getByPlaceholderText('운영자 ID'), 'op-cs-rider-1');
+    await userEvent.type(within(form).getByPlaceholderText('사번(P2026-00012)'), 'P2026-00007');
     await userEvent.click(within(form).getByRole('button', { name: '배정' }));
     await waitFor(() => expect(screen.getByTestId('case-assignee')).toHaveTextContent('[목] 한상담 · P2026-00007'));
     expect(await view.mutations('/assignments')[0]!.json()).toEqual({ assigneeId: 'op-cs-rider-1' });

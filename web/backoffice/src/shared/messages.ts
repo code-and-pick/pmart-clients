@@ -629,7 +629,8 @@ export const messages = {
     viewOnly: '상담원은 접수 건을 보기만 해요(맡기·완료 처리는 지원센터 담당).',
     pick: '내가 맡기',
     assignTo: '다른 사람에게 배정(관리자)',
-    assignee_: '운영자 ID',
+    assignee_: '사번(P2026-00012)',
+    assignToFound: (label: string) => `${label} 에게 배정해요`,
     assign: '배정',
     picked: '맡았어요.',
     /** 목록 줄 빠른 맡기(2026-11-19) — 마우스를 올리면 보인다 */
@@ -735,6 +736,12 @@ export const messages = {
     cancel: '취소',
   },
   /** 접수 건 메모(case 0.10.0) — 덧붙이기만, 가림은 관리자 */
+  /** 사번으로 운영자 찾기(hr 0.10.0 HR-5) — 사람 입력 칸 아래 한 줄 */
+  operatorRef: {
+    loading: '사번으로 찾는 중…',
+    notFound: '그 사번의 직원이 없어요 — 사번을 다시 확인해 주세요.',
+    failed: '사번으로 찾지 못했어요(조회 실패) — 잠시 뒤 다시 해 주세요.',
+  },
   caseNotes: {
     title: '메모',
     empty: '메모가 없어요.',
@@ -930,7 +937,10 @@ export const messages = {
     loadCases: '그 사람 접수 건 불러오기',
     ownerLine: (id: string) => `${id} 가 맡은 처리 중 접수 건`,
     group: '팀',
-    to: '후임 운영자 ID',
+    to: '후임(사번)',
+    toPlaceholder: 'P2026-00012',
+    toFound: (label: string) => `${label} 에게 넘겨요`,
+    toSelf: '전임과 같은 사람에게는 넘길 수 없어요.',
     toRoleHint: '후임도 같은 팀 역할이 있어야 받아요.',
     acceptForbidden: '이 팀 인계를 받을 역할이 없어요 — 전임에게 다시 써 달라고 하세요.',
     noCases: '넘길 처리 중 접수 건이 없어요.',

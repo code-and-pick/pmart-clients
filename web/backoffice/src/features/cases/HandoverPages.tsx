@@ -24,6 +24,7 @@ import { caseSummaryText } from '../../shared/blockReason';
 import { label, text, when } from '../../shared/ops';
 import { CodeLabel, NextAction, Notice, PageHeader } from '../../shared/admin';
 import { StaffName } from '../lookup/parts';
+import { OperatorRefStatus, operatorRefBlocked, useOperatorRef } from '../../shared/operatorRef';
 
 const seoulParts = new Intl.DateTimeFormat('ko-KR', { timeZone: 'Asia/Seoul', month: 'numeric', day: 'numeric', hour: 'numeric', hourCycle: 'h23' });
 /** "11/19 오전 교대 인계" — 서울 시각 기준 표시만 */
@@ -105,11 +106,14 @@ function WriteForm() {
   const rowOf = (id: string): Row => rows[id] ?? { picked: true, nextAction: '', checkDue: '' };
   const setRow = (id: string, patch: Partial<Row>) => setRows((r) => ({ ...r, [id]: { ...rowOf(id), ...patch } }));
   const picked = mine.filter((c) => rowOf(c.caseId ?? '').picked);
-  const ok = to.trim().length > 0 && to.trim() !== owner && picked.length > 0 && picked.every((c) => rowOf(c.caseId ?? '').nextAction.trim().length > 0);
+  // 후임 — 사번이면 hr 로 운영자를 찾아 "[이름] · 사번 에게 넘겨요"로 확인(2026-11-24 HR-5). 찾지 못했으면 보내지 않는다
+  const toRef = useOperatorRef(to);
+  const toId = toRef.id ?? '';
+  const ok = toId !== '' && !operatorRefBlocked(toRef) && toId !== owner && picked.length > 0 && picked.every((c) => rowOf(c.caseId ?? '').nextAction.trim().length > 0);
   // 보낼 값은 누른 때 만들어 명령 값으로(2026-11-23 #410 후속) — 결과 불명 뒤 "같은 요청으로 결과 확인"(같은 키)은 처음 값 그대로
   const writeBody = () => ({
     group,
-    toOperatorId: to.trim(),
+    toOperatorId: toId,
     ...(fromApplied ? { fromOperatorId: fromApplied } : {}),
     ...(note.trim() ? { note: note.trim() } : {}),
     items: picked.map((c) => {
@@ -209,8 +213,14 @@ function WriteForm() {
         )}
         <label className="flex flex-col gap-1 text-xs text-base-content/60">
           {m.to}
-          <input className="input input-sm w-full font-mono" value={to} onChange={(e) => setTo(e.target.value)} />
+          <input className="input input-sm w-full font-mono" placeholder={m.toPlaceholder} value={to} onChange={(e) => setTo(e.target.value)} />
         </label>
+        <OperatorRefStatus r={toRef} foundText={m.toFound} testId="handover-to-status" />
+        {toId !== '' && toId === owner && (
+          <span className="text-xs text-warning" role="status" data-testid="handover-to-self">
+            {m.toSelf}
+          </span>
+        )}
         <p className="text-xs text-base-content/60" data-testid="handover-to-hint">
           {m.toRoleHint}
         </p>

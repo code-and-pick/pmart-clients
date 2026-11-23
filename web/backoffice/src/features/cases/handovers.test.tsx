@@ -11,7 +11,7 @@ async function writeHandover() {
   const row = await screen.findByTestId('handover-case');
   expect(row).toHaveTextContent('위치 끊김');
   await userEvent.type(within(row).getByLabelText('다음 조치'), '라이더에게 다시 연락');
-  await userEvent.type(screen.getByLabelText('후임 운영자 ID'), 'op-cs-rider-1');
+  await userEvent.type(screen.getByLabelText('후임(사번)'), 'P2026-00007');
   await userEvent.click(screen.getByRole('button', { name: '인계서 쓰기' }));
   expect(await screen.findByText(/인계서를 썼어요\(SH-MOCK-\d+\). 후임이 받을 때까지 담당은 그대로예요./)).toBeInTheDocument();
   return view;
@@ -23,11 +23,11 @@ describe('교대 인계', () => {
     expect((await screen.findByRole('note'))).toHaveTextContent('자동으로 넘어가거나 돌아가지 않고');
     const row = await screen.findByTestId('handover-case');
     const submit = screen.getByRole('button', { name: '인계서 쓰기' });
-    await userEvent.type(screen.getByLabelText('후임 운영자 ID'), 'op-rider-ops-1');
+    await userEvent.type(screen.getByLabelText('후임(사번)'), 'P2026-00006');
     await userEvent.type(within(row).getByLabelText('다음 조치'), '확인');
     expect(submit).toBeDisabled(); // 후임 = 나
-    await userEvent.clear(screen.getByLabelText('후임 운영자 ID'));
-    await userEvent.type(screen.getByLabelText('후임 운영자 ID'), 'op-cs-rider-1');
+    await userEvent.clear(screen.getByLabelText('후임(사번)'));
+    await userEvent.type(screen.getByLabelText('후임(사번)'), 'P2026-00007');
     await userEvent.clear(within(row).getByLabelText('다음 조치'));
     expect(submit).toBeDisabled(); // 다음 조치 필수
   });
@@ -108,7 +108,7 @@ describe('교대 인계 역할(case 0.13.1)', () => {
     renderAt('/cases/handovers', as.riderOps);
     const row = await screen.findByTestId('handover-case');
     await userEvent.type(within(row).getByLabelText('다음 조치'), '라이더에게 다시 연락');
-    await userEvent.type(screen.getByLabelText('후임 운영자 ID'), 'op-cs-1');
+    await userEvent.type(screen.getByLabelText('후임(사번)'), 'P2026-00005');
     await userEvent.click(screen.getByRole('button', { name: '인계서 쓰기' }));
     await screen.findByText(/인계서를 썼어요/);
     cleanup();
@@ -117,5 +117,20 @@ describe('교대 인계 역할(case 0.13.1)', () => {
     await userEvent.click(within(card).getByRole('button', { name: '모두 받기' }));
     expect(await screen.findByTestId('handover-accept-forbidden')).toHaveTextContent('전임에게 다시 써 달라고 하세요');
     expect(screen.getByTestId('handover')).toHaveAttribute('data-state', 'PENDING');
+  });
+});
+
+describe('후임은 사번으로(hr 0.10.0 HR-5)', () => {
+  it('사번을 넣으면 "[이름] · 사번 에게 넘겨요" — 소문자 p 도, 없는 사번·모양이 틀린 사번(P2026-0007)은 막힘', async () => {
+    renderAt('/cases/handovers', as.riderOps);
+    const box = await screen.findByLabelText('후임(사번)');
+    await userEvent.type(box, 'p2026-00007');
+    await waitFor(() => expect(screen.getByTestId('handover-to-status')).toHaveTextContent('[목] 한상담 · P2026-00007 에게 넘겨요'));
+    await userEvent.clear(box);
+    await userEvent.type(box, 'P2026-09999');
+    await waitFor(() => expect(screen.getByTestId('handover-to-status')).toHaveAttribute('data-state', 'notFound'));
+    await userEvent.clear(box);
+    await userEvent.type(box, 'P2026-0007');
+    expect(screen.getByTestId('handover-to-status')).toHaveAttribute('data-state', 'notFound');
   });
 });

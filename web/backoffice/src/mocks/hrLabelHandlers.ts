@@ -18,8 +18,17 @@ export const MOCK_EMPLOYEE_LABELS: Readonly<Record<string, { name: string; emplo
 
 export const hrLabelHandlers = [
   http.get(`${API_BASE}/hr/employee-labels`, ({ request }) => {
-    const ids = new URL(request.url).searchParams.getAll('operatorIds');
-    if (ids.length < 1 || ids.length > 50) return HttpResponse.json({ type: 'about:blank', title: 'bad', status: 400, code: 'VALIDATION_FAILED', traceId: 't' }, { status: 400, headers: { 'content-type': 'application/problem+json' } });
+    const q = new URL(request.url).searchParams;
+    const bad = () => HttpResponse.json({ type: 'about:blank', title: 'bad', status: 400, code: 'VALIDATION_FAILED', traceId: 't' }, { status: 400, headers: { 'content-type': 'application/problem+json' } });
+    const ids = q.getAll('operatorIds');
+    // hr 0.10.0 HR-5 — employeeNos(반복 또는 쉼표), operatorIds 와 둘 중 하나만, 사번 모양 P<연도 4>-<5자리> 아니면 400. 퇴사자 포함(목은 재직 구분 없음)
+    const nos = q.getAll('employeeNos').flatMap((v) => v.split(','));
+    if ((ids.length > 0) === (nos.length > 0)) return bad();
+    if (nos.length > 0) {
+      if (nos.length > 50 || nos.some((n) => !/^P\d{4}-\d{5}$/.test(n))) return bad();
+      return HttpResponse.json({ items: Object.entries(MOCK_EMPLOYEE_LABELS).filter(([, v]) => nos.includes(v.employeeNo)).map(([operatorId, v]) => ({ operatorId, ...v })) });
+    }
+    if (ids.length > 50) return bad();
     return HttpResponse.json({ items: ids.flatMap((operatorId) => (MOCK_EMPLOYEE_LABELS[operatorId] ? [{ operatorId, ...MOCK_EMPLOYEE_LABELS[operatorId] }] : [])) });
   }),
 ];
