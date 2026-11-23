@@ -73,8 +73,9 @@ describe('조치 이력', () => {
     expect(screen.queryByTestId('staff-action-inline')).not.toBeInTheDocument();
     await userEvent.click(within(rows[1]!).getByText('계정 제한'));
     const open = await screen.findByTestId('staff-action-inline');
-    expect(open).toHaveTextContent('결과·값');
-    expect(within(open).getByRole('link', { name: '라이더 상세 ›' })).toHaveAttribute('href', expect.stringMatching(/^\/riders\//));
+    expect(open).toHaveTextContent('결과');
+    // 계정 제한이면 라이더 상세의 계정 제한 구역으로(2026-11-24 — 그 정보가 있는 곳으로)
+    expect(within(open).getByRole('link', { name: '계정 제한 보기 ›' })).toHaveAttribute('href', expect.stringMatching(/^\/riders\/.+#sec-restriction-history$/));
     await userEvent.click(within(rows[1]!).getByText('계정 제한'));
     expect(screen.queryByTestId('staff-action-inline')).not.toBeInTheDocument();
   });
@@ -82,7 +83,7 @@ describe('조치 이력', () => {
   it('관리자가 아니면 메뉴에 없고 주소로 열어도 안내만', async () => {
     renderAt('/staff-actions', as.riderOps);
     expect(await screen.findByTestId('admin-only')).toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: '조치 감사 기록' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: '직원 처리 기록' })).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: '공지 보내기' })).toBeInTheDocument();
   });
 

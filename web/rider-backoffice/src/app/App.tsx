@@ -6,6 +6,7 @@ import { useState, type ReactNode } from 'react';
 import { createBrowserRouter, createMemoryRouter, Navigate, NavLink, Outlet, RouterProvider, useLocation, useNavigate } from 'react-router';
 
 import { env } from '../env';
+import { RouteScroll } from './RouteScroll';
 import { ControlPage } from '../features/control/ControlPage';
 import { ControlSearch } from '../features/control/ControlSearch';
 import { DashboardPage } from '../features/dashboard/DashboardPage';
@@ -37,7 +38,9 @@ function useCurrentMenu() {
   const seg = pathname.split('/')[1] ?? '';
   const group = navGroups.find((g) => g.items.some((i) => i.segment === seg));
   const item = group?.items.find((i) => i.segment === seg);
-  return group && item ? { group: m.groups[group.key], menu: m.menus[item.key] } : null;
+  // 메뉴에 없는 주소(hidden — 도움요청·라이더 문의 상세 등)는 그 화면이 속한 메뉴 이름으로(2026-11-24 사용자 "옆에 목록탭에는 없는 건데 이건 뭘 적어 놓은 거고")
+  const shown = item?.hidden ? (group?.items.find((i) => !i.hidden) ?? item) : item;
+  return group && shown ? { group: m.groups[group.key], menu: m.menus[shown.key] } : null;
 }
 
 /** 메뉴 묶음 아이콘(카페24 관리자처럼 묶음마다 하나) */
@@ -174,6 +177,7 @@ function Layout() {
         </>
       }
     >
+      <RouteScroll />
       <div className="space-y-5">
         <Outlet />
       </div>

@@ -12,15 +12,16 @@ import { Link, useSearchParams } from 'react-router';
 
 import { request } from '@pmart/web-core';
 import { useApi } from '../../app/ApiContext';
-import { DataTable, FieldList, Notice, PageHeader, ResultBar, SearchPanel, SearchRow } from '../../shared/admin';
+import { DataTable, Notice, PageHeader, ResultBar, SearchPanel, SearchRow } from '../../shared/admin';
 import { Caret, expandRowProps, InlineDetail, useInlineOpen } from '../../shared/simList';
-import { DeliveryNo, resolveDeliveryId, resolveRiderId, RiderName, StaffName, useRiderSummaries } from '../../shared/displayNumbers';
+import { DeliveryNo, resolveDeliveryId, resolveRiderId, RiderName, StaffName, useDeliveryNumbers, useRiderSummaries } from '../../shared/displayNumbers';
 import { useSession } from '../../app/SessionContext';
 import { when } from '../../shared/opsUi';
 
 export const actionText = {
-  title: '조치 감사 기록',
-  intro: '직원이 라이더·배송에 한 조치를 시각순으로 모아 봐요(계정 제한, 상태 바로잡기, 실패 확정, 수행료·지급, 소명·이의 결정, 배차 취소). 기간을 비우면 최근 7일, 최대 31일이에요.',
+  // 2026-11-24 사용자 "조치 감사 기록이란 말 와닿지 않으니까 고쳐" — 직원이 한 처리(계정 제한·상담 결과·수행료…)를 모은 곳
+  title: '직원 처리 기록',
+  intro: '직원이 라이더·배송에 한 처리를 시간순으로 모아 봐요(계정 제한, 배송 상태 바로잡기, 전달 실패 결정, 수행료·지급, 소명·이의, 배차 취소). 기간을 비우면 최근 7일, 최대 31일이에요.',
   from: '시작일',
   to: '끝일',
   period: '기간',
@@ -41,7 +42,14 @@ export const actionText = {
   col: { at: '시각', action: '조치', actor: '직원', rider: '라이더', delivery: '배송', detail: '결과·사유' },
   source: { rider: '라이더 계정', execution: '배송 수행', dispatch: '배차' },
   // 줄 펼침(2026-11-21 사용자 "배송번호를 눌러야만 상세를 볼 수 있다") — 줄 어디를 눌러도 아래에 그 조치 전부
-  inline: { result: '결과·값', reason: '사유', code: '원래 값', riderLink: '라이더 상세 ›', deliveryLink: '배송 상세 ›', none: '—' },
+  // 펼친 칸: 줄에 이미 있는 값(시각·조치·직원·라이더·배송)은 다시 쓰지 않고 결과·사유 전문만, 버튼은 그 정보가 있는 곳으로
+  inline: { result: '결과', reason: '사유', none: '—' },
+  go: {
+    riderSection: { restriction: '계정 제한 보기 ›', reviews: '제한 검토 보기 ›', earnings: '수행료 보기 ›', rider: '라이더 상세 ›' },
+    delivery: '배송 상세 ›',
+  },
+  // 수행료 조정 결과 글("STORE PAY 3200원")의 귀책·결정 코드(서버 감사 글 — 뜻은 그대로, 말만 바꾼다)
+  earningCodes: { RIDER: '라이더 귀책', CUSTOMER: '고객 귀책', STORE: '센터(MFC) 귀책', PMART: '본사·시스템 귀책', PAY: '지급', NO_PAY: '미지급' } as Readonly<Record<string, string>>,
   actionName: {
     RESTRICTION_SET: '계정 제한',
     RESTRICTION_LIFTED: '제한 풀기',
@@ -61,6 +69,29 @@ export const actionText = {
     COMPENSATION_RECORDED: '이의 인정 보상금',
   } as Readonly<Record<string, string>>,
 } as const;
+
+/** 조치 결과 글을 화면 말로 — 수행료 조정은 귀책·지급 코드와 금액 쉼표도 */
+export function actionDetailText(action: string, detail: string): string {
+  const base = humanizeCodes(detail);
+  if (action !== 'EARNING_ADJUSTED') return base;
+  return base
+    .replace(/\b(NO_PAY|PAY|RIDER|CUSTOMER|STORE|PMART)\b/g, (c) => actionText.earningCodes[c] ?? c)
+    .replace(/(\d{4,})원/g, (_m, d: string) => `${Number(d).toLocaleString('ko-KR')}원`);
+}
+
+/** 조치마다 그 정보가 있는 곳 — 라이더 상세의 구역(#sec-…). 그 밖은 라이더 상세 맨 위 */
+const RIDER_SECTION: Readonly<Record<string, { readonly id: string; readonly label: string }>> = {
+  RESTRICTION_SET: { id: 'sec-restriction-history', label: actionText.go.riderSection.restriction },
+  RESTRICTION_LIFTED: { id: 'sec-restriction-history', label: actionText.go.riderSection.restriction },
+  RESTRICTION_REVIEW_DECIDED: { id: 'sec-reviews', label: actionText.go.riderSection.reviews },
+  EARNING_ADJUSTED: { id: 'sec-earnings', label: actionText.go.riderSection.earnings },
+  SURCHARGE_APPROVED: { id: 'sec-earnings', label: actionText.go.riderSection.earnings },
+  SURCHARGE_REJECTED: { id: 'sec-earnings', label: actionText.go.riderSection.earnings },
+  PAYOUT_PAYING: { id: 'sec-earnings', label: actionText.go.riderSection.earnings },
+  PAYOUT_PAID: { id: 'sec-earnings', label: actionText.go.riderSection.earnings },
+  PAYOUT_FAILED: { id: 'sec-earnings', label: actionText.go.riderSection.earnings },
+  COMPENSATION_RECORDED: { id: 'sec-earnings', label: actionText.go.riderSection.earnings },
+};
 
 type SourceKey = keyof typeof actionText.source;
 const SOURCES: readonly SourceKey[] = ['rider', 'execution', 'dispatch'];
@@ -172,6 +203,8 @@ export function StaffActionsMenu() {
     }),
   );
   const riders = useRiderSummaries(shown.map((r) => r.riderId));
+  // 배송 번호(D74939255)로 — 시스템 ID 끝자리와 "번호 없음"만 보이던 것(2026-11-24 "알 수 없는 값")
+  const deliveryNos = useDeliveryNumbers(shown.map((r) => r.deliveryId));
   const me = useSession().session?.subject;
   const failed = SOURCES.filter((s) => sources[s].isError);
   const inline = useInlineOpen();
@@ -275,7 +308,7 @@ export function StaffActionsMenu() {
                       <td><StaffName operatorId={r.actorId} me={me} /></td>
                       <td>
                         {r.riderId ? (
-                          <Link to={`/riders/${encodeURIComponent(r.riderId)}`} className="hover:underline">
+                          <Link to={`/riders/${encodeURIComponent(r.riderId)}`} className="hover:underline" onClick={(e) => e.stopPropagation()}>
                             <RiderName riderId={r.riderId} nameMasked={s?.nameMasked} riderNumber={s?.riderNumber} />
                           </Link>
                         ) : (
@@ -284,57 +317,48 @@ export function StaffActionsMenu() {
                       </td>
                       <td>
                         {r.deliveryId ? (
-                          <Link to={`/deliveries/${encodeURIComponent(r.deliveryId)}`} className="hover:underline">
-                            <DeliveryNo deliveryId={r.deliveryId} />
+                          <Link to={`/deliveries/${encodeURIComponent(r.deliveryId)}`} className="hover:underline" onClick={(e) => e.stopPropagation()}>
+                            <DeliveryNo deliveryId={r.deliveryId} deliveryNumber={deliveryNos.get(r.deliveryId)?.deliveryNumber} orderNumber={deliveryNos.get(r.deliveryId)?.orderNumber} />
                           </Link>
                         ) : (
                           '—'
                         )}
                       </td>
                       <td className="text-xs">
-                        {r.detail && <p title={r.detail}>{humanizeCodes(r.detail)}</p>}
+                        {r.detail && <p>{actionDetailText(r.action, r.detail)}</p>}
                         {r.reason && <p className="whitespace-pre-wrap text-base-content/70">{r.reason}</p>}
                         {!r.detail && !r.reason && '—'}
                       </td>
                     </tr>
                     {isOpen && (
-                      <InlineDetail colSpan={6} testId="staff-action-inline">
-                        <FieldList
-                          rows={[
-                            [t.col.at, when(r.at)],
-                            [t.col.action, t.actionName[r.action] ?? r.action],
-                            [t.col.actor, <StaffName operatorId={r.actorId} me={me} />],
-                            [
-                              t.col.rider,
-                              r.riderId && riderPath ? (
-                                <span className="flex flex-wrap items-center gap-2">
-                                  <RiderName riderId={r.riderId} nameMasked={s?.nameMasked} riderNumber={s?.riderNumber} />
-                                  <Link className="text-primary hover:underline" to={riderPath}>
-                                    {t.inline.riderLink}
-                                  </Link>
-                                </span>
-                              ) : (
-                                t.inline.none
-                              ),
-                            ],
-                            [
-                              t.col.delivery,
-                              r.deliveryId && deliveryPath ? (
-                                <span className="flex flex-wrap items-center gap-2">
-                                  <DeliveryNo deliveryId={r.deliveryId} />
-                                  <Link className="text-primary hover:underline" to={deliveryPath}>
-                                    {t.inline.deliveryLink}
-                                  </Link>
-                                </span>
-                              ) : (
-                                t.inline.none
-                              ),
-                            ],
-                            [t.inline.result, r.detail ? humanizeCodes(r.detail) : t.inline.none],
-                            r.detail && humanizeCodes(r.detail) !== r.detail ? [t.inline.code, <span className="break-all text-base-content/60">{r.detail}</span>] : null,
-                            [t.inline.reason, r.reason ? <span className="whitespace-pre-wrap">{r.reason}</span> : t.inline.none],
-                          ]}
-                        />
+                      <InlineDetail
+                        colSpan={6}
+                        testId="staff-action-inline"
+                        actions={
+                          <>
+                            {riderPath && (
+                              <Link className="btn btn-sm border-base-300 bg-base-100" to={`${riderPath}#${RIDER_SECTION[r.action]?.id ?? 'sec-info'}`}>
+                                {RIDER_SECTION[r.action]?.label ?? t.go.riderSection.rider}
+                              </Link>
+                            )}
+                            {deliveryPath && (
+                              <Link className="btn btn-sm border-base-300 bg-base-100" to={deliveryPath}>
+                                {t.go.delivery}
+                              </Link>
+                            )}
+                          </>
+                        }
+                      >
+                        <dl className="grid gap-3 sm:grid-cols-2">
+                          <div>
+                            <dt className="text-xs text-base-content/60">{t.inline.result}</dt>
+                            <dd className="mt-1 text-sm font-semibold">{r.detail ? actionDetailText(r.action, r.detail) : t.inline.none}</dd>
+                          </div>
+                          <div>
+                            <dt className="text-xs text-base-content/60">{t.inline.reason}</dt>
+                            <dd className="mt-1 whitespace-pre-wrap text-sm">{r.reason ?? t.inline.none}</dd>
+                          </div>
+                        </dl>
                       </InlineDetail>
                     )}
                     </Fragment>

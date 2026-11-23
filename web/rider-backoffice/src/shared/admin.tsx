@@ -61,25 +61,28 @@ export function DetailHeader({ back, title, badges, summary, actions, seen = fal
   const { pathname } = useLocation();
   useRecordRecent(pathname, seen);
   return (
-    <header className="space-y-1">
+    <header>
       <StickyTitle show={past} title={title} badges={badges} />
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <Link to={back.to} className="inline-flex items-center gap-1 text-sm text-base-content/70 underline underline-offset-2 hover:text-primary">
-          <span aria-hidden>‹</span>
-          {back.label}
-        </Link>
-        {/* 목록 순서대로 이전·n/N·다음([ ] 키) — 마지막으로 본 목록에 이 건이 있을 때만 */}
-        <QueueNav />
-      </div>
-      <div ref={card} className="flex flex-wrap items-end justify-between gap-3">
+      {/* 2026-11-24 사용자 "< 상담함 이건 왜 제목 위에 있는 거며" — 제목이 맨 위. 목록으로 가기·이전/다음은 오른쪽 위 */}
+      <div ref={card} className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 space-y-1">
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-2xl font-bold">{title}</h1>
             {badges}
           </div>
-          {summary && <p className="text-sm text-base-content/70">{summary}</p>}
+          {summary && <p className="text-[15px] text-base-content/80">{summary}</p>}
         </div>
-        {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
+        <div className="flex flex-col items-end gap-2">
+          <div className="flex flex-wrap items-center justify-end gap-3 text-sm">
+            {/* 목록 순서대로 이전·n/N·다음([ ] 키) — 마지막으로 본 목록에 이 건이 있을 때만 */}
+            <QueueNav />
+            <Link to={back.to} className="btn btn-sm border-base-300 bg-base-100">
+              <span aria-hidden>‹</span>
+              {back.label}
+            </Link>
+          </div>
+          {actions && <div className="flex flex-wrap items-center justify-end gap-2">{actions}</div>}
+        </div>
       </div>
     </header>
   );

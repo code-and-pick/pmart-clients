@@ -43,7 +43,7 @@ export const messages = {
     adjustments: '수행료 조정',
     surcharges: '추가 배달료',
     notices: '공지 보내기',
-    staffActions: '조치 감사 기록',
+    staffActions: '직원 처리 기록',
     payouts: '지급 관리',
     appeals: '소명·이의',
   },

@@ -30,15 +30,16 @@ describe('채팅 상담(라이더 앱)', () => {
     expect(within(other).queryByTestId('consult-chat')).toBeNull();
   });
 
-  it('상세는 "채팅 상담" 대화 칸이 첫 탭·먼저 보인다', async () => {
+  it('상세는 "채팅 상담" 대화 칸이 먼저 보인다(구역 탭 줄은 2026-11-24 뺐다)', async () => {
     server.use(
       http.get(`${API_BASE}/inquiries/INQ-CHAT`, () =>
         HttpResponse.json({ ...chatInquiry, body: '정산이 안 들어왔어요', replies: [], photos: [] }),
       ),
     );
     renderAt('/inquiries/INQ-CHAT', as.riderOps);
-    expect(await screen.findByRole('heading', { name: '채팅 상담' })).toBeInTheDocument();
-    const tabs = screen.getAllByRole('link').filter((a) => a.getAttribute('href')?.startsWith('#sec-'));
-    expect(tabs[0]).toHaveTextContent('채팅 상담');
+    const chat = await screen.findByRole('heading', { name: '채팅 상담' });
+    // 대화 칸이 문의 내용 칸보다 먼저(화면 왼쪽·위) — lg:order-1
+    expect(chat.closest('.space-y-4')?.className).toContain('lg:order-1');
+    expect(screen.queryAllByRole('link').filter((a) => a.getAttribute('href')?.startsWith('#sec-'))).toHaveLength(0);
   });
 });

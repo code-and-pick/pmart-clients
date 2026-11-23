@@ -131,7 +131,7 @@ describe('메뉴 자리', () => {
     }
     // 2026-11-21 할 일/기록 나누기 — 접수 건 메뉴는 없고(처리함 배송 사건 탭), 조치 이력은 기록 › 직원 조치 기록(관리자만)
     expect(within(nav).queryByRole('link', { name: '접수 건' })).not.toBeInTheDocument();
-    expect(within(nav).queryByRole('link', { name: '조치 감사 기록' })).not.toBeInTheDocument();
+    expect(within(nav).queryByRole('link', { name: '직원 처리 기록' })).not.toBeInTheDocument();
     expect(allMenus.every((menu) => menu.ready)).toBe(true);
   }, 60_000);
 });
@@ -167,7 +167,7 @@ describe('할 일/기록 나누기(사용자 2026-11-21 — 접수 건·조치 �
     expect(tabs.map((t) => t.textContent)).toEqual(expect.arrayContaining(['상담 중', '배송 사건', '소명·이의', '완료']));
     const nav = screen.getByRole('navigation', { name: '메뉴' });
     expect(within(nav).getByText('기록')).toBeInTheDocument();
-    expect(within(nav).getByRole('link', { name: '조치 감사 기록' })).toHaveAttribute('href', '/staff-actions');
+    expect(within(nav).getByRole('link', { name: '직원 처리 기록' })).toHaveAttribute('href', '/staff-actions');
     expect(within(nav).queryByRole('link', { name: '접수 건' })).not.toBeInTheDocument();
   });
 });

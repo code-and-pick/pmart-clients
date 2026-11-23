@@ -12,6 +12,9 @@ const tables: readonly Readonly<Record<string, string>>[] = [
   n.helpState,
   n.caseState,
   n.decision,
+  // 2026-11-24 직원 처리 기록에 그대로 보이던 코드 — 전달 실패 사유(도움요청 종류와 같은 코드)·제한 검토 결정
+  n.helpCategory,
+  { RESTRICTED: '제한함', DISMISSED: '제한 안 함' },
 ];
 
 const lookup = (code: string): string | undefined => {

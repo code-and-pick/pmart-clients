@@ -14,7 +14,7 @@ import { humanizeCodes } from '../../shared/codeText';
 import { useCenterQuery } from '../../app/CenterScope';
 import { useSession } from '../../app/SessionContext';
 import { photoMessages } from '../../shared/AuthedPhotos';
-import { AllDone, ChipGroup, DataTable, DetailHeader, GuideBox, FieldList, PageHeader, ResultBar, SearchPanel, Section, SectionTabs, StatCard, StatStrip, StatusBadge } from '../../shared/admin';
+import { AllDone, ChipGroup, DataTable, DetailHeader, GuideBox, FieldList, PageHeader, ResultBar, SearchPanel, Section, StatCard, StatStrip, StatusBadge } from '../../shared/admin';
 import { listCountText, statText, useListRows } from '../../shared/listKit';
 import { useNewIds } from '../../shared/motion';
 import { ui } from '../../shared/uiMessages';
@@ -128,7 +128,6 @@ function HelpChatPage() {
   const photoRefs = d?.evidenceRefs ?? [];
   // 화면 번호(ADR-0070): 배송 번호 — 시스템 ID 는 아래 접힌 "시스템 번호"
   const no = useDeliveryNumbers([deliveryId]).get(deliveryId);
-  const deliveryLabel = no?.deliveryNumber ?? (no?.orderNumber ? `주문 ${no.orderNumber}` : `…${deliveryId.slice(-8)}`);
   // 2026-11-24 사용자 "여기 UI 너무 복잡하다" — 같은 값이 제목·배지·요약 줄·요청 내용 칸에 여러 번 나왔다.
   // 제목 = 종류, 배지 = 상태(+접수 건), 요약 줄 = 배송·단계·접수 시각(이름표 없이). 한 화면이라 구역 탭은 뺐다.
   // 요청 내용 칸에는 위에 없는 것만(라이더가 쓴 말·배송 번호·처리 결과). 마지막 말 시각은 대화에 보인다.
@@ -146,7 +145,6 @@ function HelpChatPage() {
             </>
           )
         }
-        summary={d && [`배송 ${deliveryLabel}`, d.stage ? label(n.executionState, d.stage) : null, when(d.createdAt)].filter(Boolean).join(' · ')}
         actions={
           <>
             {d && <ResolvePanel help={d} deliveryId={deliveryId} requestId={requestId} />}
@@ -172,6 +170,8 @@ function HelpChatPage() {
                     testId="help-detail"
                     rows={[
                       [h.col.delivery, <DeliveryNo deliveryId={x.deliveryId ?? deliveryId} deliveryNumber={no?.deliveryNumber} orderNumber={no?.orderNumber} />],
+                      [sm.helpCol.stage, label(n.executionState, x.stage)],
+                      [h.col.createdAt, when(x.createdAt)],
                       !!x.resolvedAt && [sm.help.resolvedAt, when(x.resolvedAt)],
                       !!x.resolvedBy && [sm.help.resolvedBy, <HelpClosedBy resolvedBy={x.resolvedBy} me={session?.subject} />],
                       !!x.resolutionNote && [sm.help.resolutionNote, <span className="whitespace-pre-wrap">{helpNoteText(x.resolutionNote)}</span>],
@@ -310,13 +310,7 @@ function InquiryDetailPage() {
   const riderSummary = useRiderSummaries([d?.riderId]).get(d?.riderId ?? '');
   const photoIds = (d?.photos ?? []).map((p) => p.photoId);
   const liveChat = isLiveChat(d?.title);
-  const tabs = [
-    ...(liveChat ? [{ id: 'sec-chat', label: sm.inquiry.liveChat }] : []),
-    { id: 'sec-content', label: sm.inquiry.content },
-    { id: 'sec-photos', label: sm.inquiry.photos },
-    ...(liveChat ? [] : [{ id: 'sec-chat', label: sm.inquiry.chat }]),
-    ...(closed ? [] : [{ id: 'sec-close', label: sm.inquiry.close }]),
-  ];
+  // 2026-11-24: 한 화면에 다 보여 구역 탭 줄을 뺐다(도움요청 상세와 같게)
   return (
     <section className="max-w-[1600px] space-y-4">
       <DetailHeader
@@ -331,9 +325,7 @@ function InquiryDetailPage() {
             </>
           )
         }
-        summary={d && [d.title, d.riderId && riderSummary?.riderNumber ? `${sm.inquiry.rider} ${riderSummary.nameMasked ?? ''} ${riderSummary.riderNumber}` : null, `${q.col.createdAt} ${when(d.createdAt)}`].filter(Boolean).join(' · ')}
       />
-      <SectionTabs items={tabs} />
       {/* 채팅 상담(라이더 앱)이면 대화가 주인공 — 대화 칸을 먼저(왼쪽)·넓게·높게, 문의 내용은 오른쪽 좁게(2026-11-23) */}
       <div className={`grid items-start gap-4 ${liveChat ? 'lg:grid-cols-[minmax(0,8fr)_minmax(0,4fr)]' : 'lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]'}`}>
         <div className={`space-y-4 ${liveChat ? 'lg:order-2' : ''}`}>
