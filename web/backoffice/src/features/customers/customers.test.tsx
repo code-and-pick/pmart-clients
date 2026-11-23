@@ -48,6 +48,16 @@ describe('고객번호 모양', () => {
     expect(await screen.findByTestId('customer-bad-number')).toHaveTextContent('1~9 로 시작하는 6자리');
     expect(searchCalls(view.sent)).toHaveLength(0);
   });
+
+  it('주문번호는 공백·하이픈을 빼고 8자리일 때만 묻는다 — 9자리면 안내', async () => {
+    const view = renderAt('/customers?orderNumber=7493-9005', as.cs);
+    expect(await screen.findByTestId('customer-row')).toHaveTextContent('517204');
+    expect(searchCalls(view.sent).at(-1)!.searchParams.get('orderNumber')).toBe('74939005');
+    view.unmount();
+    const v2 = renderAt('/customers?orderNumber=749390051', as.cs);
+    expect(await screen.findByTestId('customer-bad-number')).toHaveTextContent('숫자 8자리');
+    expect(searchCalls(v2.sent)).toHaveLength(0);
+  });
 });
 
 describe('고객 상세', () => {
