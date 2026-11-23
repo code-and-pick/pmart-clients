@@ -39,7 +39,7 @@ export const actionText = {
   hidden: (n: number) => `더 오래된 조치 ${n}건은 다른 원천을 마저 불러온 뒤 순서대로 보여요.`,
   sourceFailed: (name: string) => `${name} 조치 이력을 불러오지 못했어요 — 표에 빠져 있어요.`,
   retry: '다시 시도',
-  col: { at: '시각', action: '조치', actor: '직원', rider: '라이더', delivery: '배송', detail: '결과·사유' },
+  col: { at: '시각', action: '조치', actor: '직원', rider: '라이더', delivery: '배송', detail: '결과' },
   source: { rider: '라이더 계정', execution: '배송 수행', dispatch: '배차' },
   // 줄 펼침(2026-11-21 사용자 "배송번호를 눌러야만 상세를 볼 수 있다") — 줄 어디를 눌러도 아래에 그 조치 전부
   // 펼친 칸: 줄에 이미 있는 값(시각·조치·직원·라이더·배송)은 다시 쓰지 않고 결과·사유 전문만, 버튼은 그 정보가 있는 곳으로
@@ -324,11 +324,8 @@ export function StaffActionsMenu() {
                           '—'
                         )}
                       </td>
-                      <td className="text-xs">
-                        {r.detail && <p>{actionDetailText(r.action, r.detail)}</p>}
-                        {r.reason && <p className="whitespace-pre-wrap text-base-content/70">{r.reason}</p>}
-                        {!r.detail && !r.reason && '—'}
-                      </td>
+                      {/* 목록에는 결과만 — 사유는 줄을 펼친 칸에서(2026-11-24 사용자 "사유는 상세에 들어가야 뜨는 걸로") */}
+                      <td className="text-xs">{r.detail ? actionDetailText(r.action, r.detail) : '—'}</td>
                     </tr>
                     {isOpen && (
                       <InlineDetail
