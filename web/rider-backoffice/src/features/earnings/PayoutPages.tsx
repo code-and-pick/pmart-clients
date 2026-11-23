@@ -243,11 +243,8 @@ export function PayoutsMenu() {
         onReset={reset}
         submitLabel={t.search}
         resetLabel={t.reset}
+        // 지급 예정일은 찾기 줄 날짜 칸에 늘 보여 칩·필터 개수에 넣지 않는다(2026-11-24 사용자 "지급 관리에 날짜가 왜 필터야?")
         summary={[
-          [t.date, payoutDate, () => {
-            setDateInput(seoulToday());
-            patch({ payoutDate: '' });
-          }],
           [t.state, state === 'ALL' ? '' : (t.stateName[state] ?? state), () => patch({ state: '' })],
           ['라이더', riderId ? (RIDER_NUMBER.test(riderId) ? riderId : '한 라이더') : '', () => {
             setRiderInput('');
