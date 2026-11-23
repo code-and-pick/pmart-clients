@@ -18,6 +18,14 @@ export const riderMessages = {
     note: '항목마다 마지막 동의만 남아요 — 과거 동의 이력은 서버가 저장하지 않아요.',
     empty: '동의한 항목이 없어요.',
     col: { type: '항목', version: '버전', agreedAt: '동의시점' },
+    // 2026-11-23 사용자 "지금 동의한 버전 왜 영어로 뜨는 거니" — 라이더 앱 가입 화면과 같은 이름(모르는 코드는 코드 그대로)
+    typeName: {
+      DELIVERY_AGENCY_CONTRACT: '배송대행 계약서',
+      PRIVACY_COLLECTION: '개인정보 수집 및 이용 동의',
+      LOCATION_SERVICE: '위치기반서비스 이용약관 동의',
+      PRIVACY_THIRD_PARTY: '개인정보 및 위치정보 제3자 제공 동의',
+      MARKETING: '광고성 정보 수신 동의',
+    } as Readonly<Record<string, string>>,
   },
   assignments: {
     title: '배정 이력',

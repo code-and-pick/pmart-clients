@@ -16,6 +16,7 @@ import { messages } from '../../shared/messages';
 import { ChipGroup, CursorPager, DataTable, DetailHeader, FieldList, PageHeader, ResultBar, SearchPanel, SearchRow, Section, SectionTabs, StatCard, StatStrip, StatusBadge, type Tone } from '../../shared/admin';
 import { DeliveryNo, DeliveryRef, resolveRiderId, RiderName, SystemIds, useDeliveryNumbers, useRiderSummaries, RIDER_NUMBER } from '../../shared/displayNumbers';
 import { ops } from '../../shared/opsMessages';
+import { useCenterName } from '../../shared/opsUi';
 import { statText, useListRows } from '../../shared/listKit';
 import { ProgressSteps, type StepPlace } from '../../shared/ProgressSteps';
 import { SavedViews } from '../../shared/SavedViews';
@@ -308,6 +309,7 @@ function DeliverySearchPage() {
  */
 function DeliveryInline({ deliveryId }: { readonly deliveryId: string }) {
   const api = useApi();
+  const centerName = useCenterName();
   const execution = useQuery({
     queryKey: ['delivery', deliveryId],
     refetchInterval: (q) => (isLiveDelivery(q.state.data?.state) ? LIVE.delivery : false),
@@ -336,7 +338,7 @@ function DeliveryInline({ deliveryId }: { readonly deliveryId: string }) {
                     [m.col.type, name(n.deliveryType, x.type)],
                     [m.purpose, name(n.purpose, x.purpose)],
                     [m.orderNumber, <span className="font-mono">{x.orderNumber ?? none}</span>],
-                    [m.col.mfc, x.mfcName ?? x.mfcId ?? none],
+                    [m.col.mfc, x.mfcName ?? centerName(x.mfcId) ?? none],
                     [m.col.rider, rider(x.riderId)],
                     [m.col.assignedAt, when(x.assignedAt)],
                     [m.col.completedAt, when(x.completedAt)],
@@ -417,6 +419,7 @@ const executionTone = (s: string | undefined): Tone =>
 // 수행(execution)·배차(dispatch)·도착 예정(tracking)은 서로 다른 서비스 값이라 구역도 따로, 못 읽은 구역만 오류.
 function DeliveryDetailPage() {
   const api = useApi();
+  const centerName = useCenterName();
   const { deliveryId = '' } = useParams();
   // 진행 중 배송이면 10초마다(배정·픽업이 바로 보이게), 끝난 배송은 새로 고치지 않는다.
   const execution = useQuery({
@@ -503,7 +506,7 @@ function DeliveryDetailPage() {
                     [m.col.type, name(n.deliveryType, x.type)],
                     [m.purpose, name(n.purpose, x.purpose)],
                     [m.orderNumber, <span className="font-mono">{x.orderNumber ?? none}</span>],
-                    [m.col.mfc, x.mfcName ?? x.mfcId ?? none],
+                    [m.col.mfc, x.mfcName ?? centerName(x.mfcId) ?? none],
                     [m.col.rider, x.riderId ? <RiderName riderId={x.riderId} nameMasked={riders.get(x.riderId)?.nameMasked} riderNumber={riders.get(x.riderId)?.riderNumber} /> : m.noRider],
                     [m.col.assignedAt, when(x.assignedAt)],
                     [m.col.completedAt, when(x.completedAt)],

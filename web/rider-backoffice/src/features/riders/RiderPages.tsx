@@ -817,7 +817,7 @@ function AccountAndConsents({ detail }: { readonly detail: components['schemas']
             <tbody>
               {consents.map((c) => (
                 <tr key={c.consentType}>
-                  <td className="whitespace-nowrap font-mono">{c.consentType}</td>
+                  <td className="whitespace-nowrap" title={c.consentType}>{rm.consents.typeName[c.consentType] ?? c.consentType}</td>
                   <td className="whitespace-nowrap font-mono">{c.version}</td>
                   <td className="whitespace-nowrap">{when(c.agreedAt)}</td>
                 </tr>

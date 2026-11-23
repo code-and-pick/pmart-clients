@@ -9,7 +9,7 @@ import { Link } from 'react-router';
 import { request } from '@pmart/web-core';
 import { QueryState, toUiState } from '@pmart/web-ui';
 import { useApi } from '../../app/ApiContext';
-import { useCenterQuery } from '../../app/CenterScope';
+import { useCenterQuery, useCenterScope } from '../../app/CenterScope';
 import { isOperatorAdmin } from '../../app/nav';
 import { useSession } from '../../app/SessionContext';
 import { DataTable, Notice, PageHeader, Section } from '../../shared/admin';
@@ -71,6 +71,10 @@ export const statsMessages = {
   noManual: '직원 수동 배차는 없어요.',
   failureSub: '라이더를 못 찾은 회차의 까닭',
   noFailures: '이 기간에 배차 실패가 없어요.',
+  // 2026-11-23 사용자 "운영 통계 클릭하니까 아무데도 연결이 안 되는데" — 목록이 있는 수는 그 목록으로
+  unassignedLink: '지금 배정 전 배송 보기',
+  centerOnly: '이 센터만 보기',
+  consultsLink: '상담 관리에서 보기',
   // 구간마다 평균을 낸 건수가 달라(배차 77·픽업 56 …) 정확한 한 건 평균은 아니다 — 그렇다고 밝힌다
   total: '세 구간 평균을 더한 값',
   daily: '날짜별',
@@ -192,6 +196,8 @@ export function StatsPage() {
   const api = useApi();
   const { session } = useSession();
   const cq = useCenterQuery();
+  // 센터별 비교에서 센터를 누르면 그 센터만 본다(머리줄 센터 고르기와 같은 값)
+  const scope = useCenterScope();
   const [range, setRange] = useState<Range>('d7');
   // 화면을 연 때를 기준으로(렌더마다 바뀌지 않게)
   const [now] = useState(() => Date.now());
@@ -283,7 +289,7 @@ export function StatsPage() {
                     testId="tile-on-time"
                   />
                   <RateBar label={s.tile.late} num={a.late} den={a.judged} hint={a.judged > 0 ? s.hint.late(a.late, a.judged) : s.hint.noJudged} tone="warn" testId="tile-late" />
-                  <RateBar label={s.tile.failure} num={a.failed} den={a.assigned} hint={s.hint.failure(a.failed, a.assigned)} tone="bad" testId="tile-failure" />
+                  <RateBar label={s.tile.failure} num={a.failed} den={a.assigned} hint={s.hint.failure(a.failed, a.assigned)} tone="bad" to="/deliveries?state=FAILED" testId="tile-failure" />
                 </div>
               </div>
             </HeroCard>
@@ -326,6 +332,9 @@ export function StatsPage() {
               </HeroCard>
               <HeroCard title={s.failureReasons} sub={s.failureSub} testId="stats-failure-reasons">
                 <ReasonBars items={(disp.data?.failureReasons ?? []).map((x) => ({ label: s.reason[x.reason] ?? x.reason, n: x.rounds }))} />
+                <Link to="/deliveries?state=UNASSIGNED" className="mt-3 inline-block text-sm text-primary hover:underline" data-testid="stats-unassigned-link">
+                  {s.unassignedLink} ›
+                </Link>
               </HeroCard>
             </div>
           )}
@@ -388,7 +397,11 @@ export function StatsPage() {
                       const dd = dispByMfc.get(mfc) ?? [];
                       return (
                         <tr key={mfc} data-testid="stats-mfc-row">
-                          <td>{centerName(mfc)}</td>
+                          <td>
+                            <button type="button" className="link link-hover font-medium" title={s.centerOnly} onClick={() => scope.setMfcId(mfc)} data-testid="stats-mfc-pick">
+                              {centerName(mfc)}
+                            </button>
+                          </td>
                           <td>{x.assigned}</td>
                           <td>{x.riders}</td>
                           <td><RateCell num={x.completed} den={x.completed + x.failed} kind="done" /></td>
@@ -440,7 +453,7 @@ export function StatsPage() {
               </Section>
             </>
           )}
-          <Section title={s.incidents} testId="stats-incidents">
+          <Section title={s.incidents} testId="stats-incidents" aside={<Link to="/consults" className="text-sm text-primary hover:underline" data-testid="stats-consults-link">{s.consultsLink} ›</Link>}>
             {incidents.length === 0 ? (
               <p className="text-sm text-base-content/60">{s.noIncidents}</p>
             ) : (
@@ -563,12 +576,18 @@ function Ring({ num, den, label, hint, testId }: { readonly num: number; readonl
 const TONE: Record<'good' | 'warn' | 'bad' | 'neutral', string> = { good: 'bg-success', warn: 'bg-warning', bad: 'bg-error', neutral: 'bg-info' };
 
 /** 비율 한 줄 — 이름 · 값(오른쪽) · 막대 · 건수. 분모 0·못 읽음은 막대 없이 사유 */
-function RateBar({ label, num, den, hint, tone, unavailable = false, testId }: { readonly label: string; readonly num: number; readonly den: number; readonly hint: string; readonly tone: keyof typeof TONE; readonly unavailable?: boolean; readonly testId: string }) {
+function RateBar({ label, num, den, hint, tone, unavailable = false, to, testId }: { readonly label: string; readonly num: number; readonly den: number; readonly hint: string; readonly tone: keyof typeof TONE; readonly unavailable?: boolean; readonly to?: string; readonly testId: string }) {
   const empty = unavailable || den <= 0;
   return (
     <div data-testid={testId}>
       <div className="flex items-baseline justify-between gap-2">
-        <span className="text-sm text-base-content/80">{label}</span>
+        {to ? (
+          <Link to={to} className="text-sm text-base-content/80 underline decoration-dotted underline-offset-4 hover:text-primary" data-testid={`${testId}-link`}>
+            {label} ›
+          </Link>
+        ) : (
+          <span className="text-sm text-base-content/80">{label}</span>
+        )}
         <span className="text-lg font-bold tabular-nums">{empty ? '—' : pct(num, den)}</span>
       </div>
       <div className="mt-1 h-2 overflow-hidden rounded-full bg-base-200" aria-hidden="true">

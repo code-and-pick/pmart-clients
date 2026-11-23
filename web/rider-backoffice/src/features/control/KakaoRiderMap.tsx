@@ -160,12 +160,12 @@ export function KakaoRiderMap({
   }, [kakao, riders, center, onSelect, selectedId]);
 
   // 대략 배송지 — 반지름 500m 원(반올림 칸 약 1km 안). 색은 테마 변수(지연 = error, 그 밖 = info).
+  // 테마 변수는 oklch(…) 라 카카오 지도가 못 읽어 검은 원이 됐다(사용자 2026-11-23 "지도에 검정 점 뭐야") — #rrggbb 로 바꿔 넘긴다.
   useEffect(() => {
     const map = mapRef.current;
     if (!kakao || !map || areas.length === 0) return;
-    const css = getComputedStyle(document.documentElement);
-    const info = css.getPropertyValue('--color-info').trim() || undefined;
-    const error = css.getPropertyValue('--color-error').trim() || undefined;
+    const info = themeHex('--color-info');
+    const error = themeHex('--color-error');
     const drawn = areas.map((a) => {
       const color = a.delayed ? error : info;
       const c = new kakao.maps.Circle({
@@ -189,7 +189,7 @@ export function KakaoRiderMap({
     const map = mapRef.current;
     if (!kakao || !map || routes.length === 0) return;
     const me = riders.find((r) => r.riderId === selectedId);
-    const color = getComputedStyle(document.documentElement).getPropertyValue('--color-primary').trim() || undefined;
+    const color = themeHex('--color-primary');
     const drawn = routes.flatMap((rt) => {
       const pts = [center, me, rt.drop].filter((x): x is { lat: number; lng: number } => !!x).map((x) => new kakao.maps.LatLng(x.lat, x.lng));
       const line = new kakao.maps.Polyline({ path: pts, strokeWeight: 4, strokeOpacity: 0.8, strokeStyle: 'shortdash', ...(color ? { strokeColor: color } : {}) });
@@ -225,4 +225,31 @@ export function KakaoRiderMap({
     );
   }
   return <div ref={el} aria-label={m.map.label} className={`${heightClass} w-full rounded-box border border-base-300 bg-base-200`} data-testid="rider-map" />;
+}
+
+/**
+ * 테마 색 변수(daisyUI — oklch(…))를 카카오 지도가 읽는 #rrggbb 로. 1×1 캔버스에 칠해 읽는다(브라우저가 색 공간을 바꿔 준다).
+ * 못 바꾸면 undefined — 지도 기본색을 쓴다(검정으로 칠하지 않게, 모르는 값은 넘기지 않는다).
+ */
+function themeHex(varName: string): string | undefined {
+  const raw = getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
+  if (!raw) return undefined;
+  if (/^#[0-9a-f]{6}$/i.test(raw)) return raw;
+  try {
+    const canvas = document.createElement('canvas');
+    canvas.width = 1;
+    canvas.height = 1;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return undefined;
+    ctx.fillStyle = '#000000';
+    ctx.fillStyle = raw; // 읽지 못하는 값이면 앞의 값이 남는다
+    ctx.fillRect(0, 0, 1, 1);
+    const [r = 0, g = 0, b = 0, a = 0] = ctx.getImageData(0, 0, 1, 1).data;
+    if (a === 0) return undefined;
+    const hex = `#${[r, g, b].map((v) => v.toString(16).padStart(2, '0')).join('')}`;
+    // 칠이 바뀌지 않았으면(검정 그대로) 읽지 못한 것으로 본다
+    return hex === '#000000' && !/^(#000|black|rgb\(0,\s*0,\s*0\))/i.test(raw) ? undefined : hex;
+  } catch {
+    return undefined;
+  }
 }

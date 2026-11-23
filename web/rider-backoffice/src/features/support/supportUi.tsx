@@ -50,9 +50,17 @@ export function ChatBubble({ mine, who, at, children, footer, fresh = false }: {
 }
 
 /** 대화 칸 — 위로 쌓이고, 길면 이 칸만 스크롤 */
-export function ChatBox({ children, testId, empty }: { readonly children: ReactNode; readonly testId: string; readonly empty: boolean }) {
+/**
+ * 라이더 앱 "채팅 상담"으로 연 문의 — 앱이 제목을 이 글로 정해 보낸다(rider_app liveChatTitle). 서버에는 라이더 문의의
+ * 경로(채널) 칸이 없어 제목으로 가른다(2026-11-23 사용자 "목록에 채팅 표시를 달고, 누르면 대화 칸이 크게 먼저"). 경로 칸이 생기면 그것으로 바꾼다.
+ */
+export const LIVE_CHAT_TITLE = '실시간 채팅 상담';
+export const isLiveChat = (title: string | null | undefined) => title === LIVE_CHAT_TITLE;
+
+/** [tall] 이면 채팅 상담처럼 대화가 주인공인 화면 — 더 높게 */
+export function ChatBox({ children, testId, empty, tall = false }: { readonly children: ReactNode; readonly testId: string; readonly empty: boolean; readonly tall?: boolean }) {
   return (
-    <div className="max-h-[28rem] min-h-40 overflow-y-auto rounded-box bg-base-200/40 px-3 py-3">
+    <div className={`${tall ? 'h-[min(62vh,40rem)] min-h-72' : 'max-h-[28rem] min-h-40'} overflow-y-auto rounded-box bg-base-200/40 px-3 py-3`}>
       {empty && <p className="py-8 text-center text-sm text-base-content/50">아직 주고받은 말이 없어요.</p>}
       <ol className="space-y-1" data-testid={testId}>
         {children}

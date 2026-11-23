@@ -81,3 +81,17 @@ export function CenterPicker({
     </div>
   );
 }
+
+/**
+ * 센터 ID → 이름(center-master MFC 목록 — 센터 고르기와 같은 캐시). 배송 조회에 mfcName 이 없을 때(옛 배송 등) "MFC-SEED-01" 대신 이름을 보인다.
+ * 목록을 못 읽었거나 모르는 ID 는 ID 그대로(이름을 지어내지 않는다).
+ */
+export function useCenterName(): (id: string | null | undefined) => string | null {
+  const api = useApi();
+  const centers = useQuery({
+    queryKey: ['centers', 'MFC'],
+    queryFn: () => request('GET', api.center.GET('/centers', { params: { query: { type: 'MFC' } } })),
+    staleTime: 5 * 60_000,
+  });
+  return (id) => (id ? ((centers.data?.items ?? []).find((c) => c.centerId === id)?.name ?? id) : null);
+}

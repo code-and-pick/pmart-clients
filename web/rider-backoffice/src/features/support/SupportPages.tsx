@@ -26,7 +26,7 @@ import { DeliveryActions } from '../deliveries/DeliveryActions';
 import { AppealsMenu } from './AppealPages';
 import { CaseDetailPage, caseDetailPath, CaseListPage } from '../cases/CasePages';
 import { EvidencePhotos, helpExtrasMessages, InquiryPhotos, MaskMessage, ResolvePanel } from './HelpExtras';
-import { ChatBox, ChatBubble, helpTone, inquiryTone, StateTabs } from './supportUi';
+import { ChatBox, ChatBubble, helpTone, inquiryTone, isLiveChat, StateTabs } from './supportUi';
 
 const h = ops.help;
 const q = ops.inquiries;
@@ -58,6 +58,7 @@ const sm = {
     content: '문의 내용',
     photos: '사진',
     chat: '대화',
+    liveChat: '채팅 상담',
     close: '상담 완료',
     rider: '라이더',
     answeredAt: '답변시점',
@@ -317,10 +318,12 @@ function InquiryDetailPage() {
   const d = inquiry.data;
   const riderSummary = useRiderSummaries([d?.riderId]).get(d?.riderId ?? '');
   const photoIds = (d?.photos ?? []).map((p) => p.photoId);
+  const liveChat = isLiveChat(d?.title);
   const tabs = [
+    ...(liveChat ? [{ id: 'sec-chat', label: sm.inquiry.liveChat }] : []),
     { id: 'sec-content', label: sm.inquiry.content },
     { id: 'sec-photos', label: sm.inquiry.photos },
-    { id: 'sec-chat', label: sm.inquiry.chat },
+    ...(liveChat ? [] : [{ id: 'sec-chat', label: sm.inquiry.chat }]),
     ...(closed ? [] : [{ id: 'sec-close', label: sm.inquiry.close }]),
   ];
   return (
@@ -340,8 +343,9 @@ function InquiryDetailPage() {
         summary={d && [d.title, d.riderId && riderSummary?.riderNumber ? `${sm.inquiry.rider} ${riderSummary.nameMasked ?? ''} ${riderSummary.riderNumber}` : null, `${q.col.createdAt} ${when(d.createdAt)}`].filter(Boolean).join(' · ')}
       />
       <SectionTabs items={tabs} />
-      <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
-        <div className="space-y-4">
+      {/* 채팅 상담(라이더 앱)이면 대화가 주인공 — 대화 칸을 먼저(왼쪽)·넓게·높게, 문의 내용은 오른쪽 좁게(2026-11-23) */}
+      <div className={`grid items-start gap-4 ${liveChat ? 'lg:grid-cols-[minmax(0,8fr)_minmax(0,4fr)]' : 'lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]'}`}>
+        <div className={`space-y-4 ${liveChat ? 'lg:order-2' : ''}`}>
           <Section id="sec-content" title={sm.inquiry.content}>
             <QueryState state={toUiState(inquiry)} onRetry={() => void inquiry.refetch()}>
               {(x) => (
@@ -375,12 +379,12 @@ function InquiryDetailPage() {
             </Section>
           )}
         </div>
-        <div className="space-y-4">
-          <Section id="sec-chat" title={sm.inquiry.chat} aside={<span className="text-xs text-base-content/50">{sm.autoRefresh(5)}</span>}>
+        <div className={`space-y-4 ${liveChat ? 'lg:order-1' : ''}`}>
+          <Section id="sec-chat" title={liveChat ? sm.inquiry.liveChat : sm.inquiry.chat} aside={<span className="text-xs text-base-content/50">{sm.autoRefresh(5)}</span>}>
             <div className="space-y-3">
               <QueryState state={toUiState(chat)} onRetry={() => void chat.refetch()}>
                 {(c) => (
-                  <ChatBox testId="inquiry-messages" empty={(c.items ?? []).length === 0}>
+                  <ChatBox testId="inquiry-messages" empty={(c.items ?? []).length === 0} tall={liveChat}>
                     {(c.items ?? []).map((msg) => (
                       <ChatBubble key={msg.messageId} fresh={freshInquiry.has(msg.messageId ?? '')} mine={msg.senderType === 'SUPPORT'} who={msg.senderType === 'SUPPORT' ? h.support : h.rider} at={when(msg.createdAt)}>
                         {msg.body}
@@ -461,6 +465,8 @@ const consultText = {
   truncated: '도움요청이 너무 많아 가장 최근 것 일부를 불러오지 못했어요. 찾기·구분으로 좁히거나 완료 탭은 기간이 지나면 줄어요.',
   noMatch: (q: string) => `"${q}"에 맞는 상담이 없어요.`,
   kind: { help: '배송 도움요청', inquiry: '일반 문의', failure: '전달 실패 결정 대기' },
+  /** 라이더 앱 채팅 상담으로 연 문의 꼬리표(2026-11-23) */
+  chat: '채팅',
   failureTitle: '전달 불가 신고 — 확정·반려 기다림',
   resumeRequested: '라이더 재개 요청',
   col: { kind: '구분', title: '내용', state: '상태', delivery: '배송번호', order: '주문번호', rider: '라이더', createdAt: '접수시점', wait: '기다린 시간' },
@@ -477,6 +483,8 @@ const kindOrder = { failure: 0, help: 1, inquiry: 2 } as const;
 
 type ConsultRow = {
   readonly kind: 'help' | 'inquiry' | 'failure';
+  /** 라이더 앱 채팅 상담으로 연 문의 */
+  readonly chat?: boolean;
   readonly key: string;
   readonly to: string;
   readonly title: string;
@@ -660,6 +668,7 @@ function ConsultsPage({ tab }: { readonly tab: 'open' | 'done' }) {
         key: `i:${it.inquiryId}`,
         to: `/inquiries/${encodeURIComponent(it.inquiryId)}`,
         title: it.title ?? label(n.inquiryCategory, it.category),
+        chat: isLiveChat(it.title),
         state: <StatusBadge>{label(q.statusName, it.status)}</StatusBadge>,
         deliveryId: it.deliveryId ?? null,
         riderId: null,
@@ -793,6 +802,11 @@ function ConsultsPage({ tab }: { readonly tab: 'open' | 'done' }) {
                 <tr key={r.key} data-testid="consult-row" data-kind={r.kind} className={`cursor-pointer ${listRows.rowClass(r.to)}`} onClick={() => void navigate(r.to)}>
                   <td className="whitespace-nowrap">
                     <StatusBadge>{consultText.kind[r.kind]}</StatusBadge>
+                    {r.chat && (
+                      <span className="ml-1 inline-flex items-center rounded-full bg-primary px-2 py-0.5 text-[11px] font-bold text-primary-content" data-testid="consult-chat">
+                        {consultText.chat}
+                      </span>
+                    )}
                   </td>
                   <td className="font-semibold">
                     <Link className="hover:underline" to={r.to} onClick={(e) => e.stopPropagation()}>

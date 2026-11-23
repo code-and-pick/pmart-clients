@@ -87,6 +87,7 @@ export function DetailHeader({ back, title, badges, summary, actions, seen = fal
 
 /**
  * 항목명/값(공용 FieldList 를 이 앱에서 덮음 — 2026-11-23 사용자 "칸으로 나눠놓은 건 좋은데 글이 2줄로 내려가니까 가독성이 떨어져").
+ * 2026-11-23 사용자 "폰트 크기랑 색이 똑같아서 목록이랑 내용이 구분이 안 가" — 항목명은 작은 회색, 값은 조금 크고 굵은 짙은 글자.
  * 공용은 넓으면 4칸으로 고정이라, 반쪽 상자(배송 상세의 수행·배차 등)에서는 칸이 좁아 "11. 20. 오후 / 8:44" 처럼 꺾였다.
  * 여기서는 칸 폭을 최소 11rem 으로 두고 들어가는 만큼만 칸을 만든다(상자가 좁으면 2~3칸, 넓으면 4칸 이상). 모양(굵은 이름·값 아래·칸 사이 선)은 같다.
  */
@@ -96,8 +97,8 @@ export function FieldList({ rows, testId }: { readonly rows: ReadonlyArray<reado
       {rows.map((r, i) =>
         r ? (
           <div key={i} className="min-w-0 space-y-0.5">
-            <dt className="font-semibold text-base-content/80">{r[0]}</dt>
-            <dd className="min-w-0 break-words">{r[1]}</dd>
+            <dt className="text-xs font-medium text-base-content/55">{r[0]}</dt>
+            <dd className="min-w-0 break-words text-[15px] font-semibold text-base-content">{r[1]}</dd>
           </div>
         ) : null,
       )}
