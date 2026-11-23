@@ -64,7 +64,7 @@ describe('고객센터 주문 취소', () => {
 
   it('상품 준비가 시작된 주문은 버튼 대신 반품 안내', async () => {
     renderAt('/orders/ORD-MOCK-1003', as.cs);
-    expect(await screen.findByTestId('order-cancel-closed')).toHaveTextContent('받으신 뒤 반품으로 안내');
+    expect(await screen.findByTestId('order-cancel-closed')).toHaveTextContent('취소 대신 반품으로 안내');
     expect(screen.queryByRole('button', { name: '주문 취소' })).not.toBeInTheDocument();
   });
 

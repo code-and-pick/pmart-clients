@@ -325,7 +325,7 @@ export function ReturnProgress({ claim }: { readonly claim: Claim }) {
         <dt>{m.pickupAttempts}</dt>
         <dd data-testid="return-attempts">
           {m.attempts(text(claim.pickup?.attempts), text(claim.pickup?.failedAttempts))}
-          {claim.pickup?.countedFailures !== undefined && ` · ${m.countedFailures(text(claim.pickup.countedFailures))}`}
+          {claim.pickup?.countedFailures !== undefined && <span title={m.countedFailuresHint}>{` · ${m.countedFailures(text(claim.pickup.countedFailures))}`}</span>}
           {claim.pickup?.retryAllowed === false && <span className="text-warning">{` · ${m.noMoreRetry}`}</span>}
         </dd>
       </div>

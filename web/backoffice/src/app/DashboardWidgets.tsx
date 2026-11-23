@@ -508,7 +508,7 @@ function SoldOutRow() {
   return (
     <li className="flex items-center gap-4 py-3" data-testid="dash-metric-soldOut">
       <span className="min-w-0 flex-1">
-        <span className="block text-sm text-base-content/70">{m.metrics.soldOut}</span>
+        <span className="block whitespace-nowrap text-sm text-base-content/70">{m.metrics.soldOut}</span>
         <span className={`block text-[28px] font-semibold leading-tight ${q.isError ? 'text-base-content/40' : soldOut > 0 ? 'text-error' : ''}`} title={q.isError ? m.failed : undefined}>
           {q.isPending ? '…' : q.isError ? '?' : `${soldOut.toLocaleString('ko-KR')}개`}
         </span>

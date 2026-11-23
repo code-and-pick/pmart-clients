@@ -375,7 +375,14 @@ export function DeliveryStatsPage() {
               </DataTable>
             )}
           </Section>
-          <p className="text-xs text-base-content/50">{s.definitions}</p>
+          <p className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-base-content/50" data-testid="stats-definitions">
+            <span className="font-semibold">{s.definitionsTitle}</span>
+            {s.definitions.map((d) => (
+              <span key={d} className="whitespace-nowrap">
+                {d}
+              </span>
+            ))}
+          </p>
         </>
       )}
     </section>

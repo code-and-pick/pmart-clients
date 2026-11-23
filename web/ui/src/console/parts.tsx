@@ -250,9 +250,10 @@ export function Section({ id, title, aside, children, testId }: { readonly id?: 
   const sectionMenu = useContext(SectionMenuContext);
   return (
     <section id={id} className="scroll-mt-12 rounded-box border border-base-300 bg-base-100" data-testid={testId}>
-      <div className="flex items-center justify-between gap-2 px-5 pb-2 pt-4">
-        <h2 className="text-lg font-bold">{title}</h2>
-        <div className="flex items-center gap-2 text-sm">
+      {/* 좁은 칸(대시보드 1/3)에서 제목·덧붙임이 둘 다 두 줄로 접히던 것(2026-11-24) — 제목은 한 줄, 자리가 없으면 덧붙임이 아래 줄 오른쪽으로 */}
+      <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 px-5 pb-2 pt-4">
+        <h2 className="whitespace-nowrap text-lg font-bold">{title}</h2>
+        <div className="ml-auto flex items-center gap-2 whitespace-nowrap text-sm">
           {aside}
           {/* 앱이 넣은 구역 메뉴(예: 백오피스 대시보드 위젯 ⋮ — 위젯 밖이면 스스로 안 그린다) */}
           {sectionMenu}

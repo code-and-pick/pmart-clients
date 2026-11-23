@@ -19,7 +19,7 @@ describe('후속 처리', () => {
     expect(contact).toHaveTextContent('고객센터');
     expect(contact).toHaveTextContent('처리 중');
     expect(await item('회수')).toHaveTextContent('수량 0/1');
-    expect(screen.getByTestId('close-blocked')).toHaveTextContent('후속 처리가 남아 있어 완료 처리할 수 없어요(2건)');
+    expect(screen.getByTestId('close-blocked')).toHaveTextContent('후속 처리 2건이 남아 완료 처리할 수 없어요');
     expect(within(screen.getByRole('form', { name: '완료 처리' })).getByRole('button', { name: '완료 처리' })).toBeDisabled();
   });
 

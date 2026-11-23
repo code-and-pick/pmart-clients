@@ -98,7 +98,7 @@ describe('고객 상세', () => {
 
   it('탈퇴 완료 고객(customer 0.12.0): 지운 이름·연락처는 "-", 원문 열람 대신 안내, 상태 "탈퇴 완료"', async () => {
     renderAt('/customers/CUS-1009', as.cs);
-    expect(await screen.findByTestId('customer-withdrawn')).toHaveTextContent('원문이 없어요');
+    expect(await screen.findByTestId('customer-withdrawn')).toHaveTextContent('개인정보 없이 이력만');
     expect(screen.queryByRole('form', { name: '원문 열람' })).not.toBeInTheDocument();
     expect(screen.getByTestId('customer-name')).toHaveTextContent('-');
     expect(screen.getByTestId('customer-detail')).toHaveTextContent('탈퇴 완료');

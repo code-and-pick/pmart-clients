@@ -86,7 +86,7 @@ export function ColumnChart({ columns, big = false, testIdCol, label, avg }: { r
               </div>
               <span className={`absolute bottom-1 text-[11px] ${c.strong ? 'font-semibold text-base-content' : 'text-base-content/55'}`}>{c.label}</span>
               {/* 도움말(마우스·키보드) — 값은 진하게, 이름은 옅게 */}
-              <div className={`pointer-events-none invisible absolute bottom-[calc(100%-1rem)] z-20 min-w-36 rounded-box ${tipEdge(ci, columns.length)} border border-base-300 bg-base-100 px-3 py-2 text-xs shadow-lg group-hover:visible group-focus-visible:visible`} role="tooltip">
+              <div className={`pointer-events-none invisible absolute bottom-[calc(100%-1rem)] z-20 w-max min-w-36 whitespace-nowrap rounded-box ${tipEdge(ci, columns.length)} border border-base-300 bg-base-100 px-3 py-2 text-xs shadow-lg group-hover:visible group-focus-visible:visible`} role="tooltip">
                 <p className="mb-1 text-base-content/55">{c.title ?? c.label}</p>
                 {c.tip.map(([v, n]) => (
                   <p key={n} className="flex items-center justify-between gap-4">
@@ -325,7 +325,7 @@ export function LineChart({ points, label, avg, testId, testIdPoint, height = 'h
               {i === lastI && p.value !== null && (
                 <span className="absolute left-1/2 -translate-x-1/2 text-xs font-semibold text-base-content" style={{ top: `calc(${y(p.value)}% - 22px)` }}>{`${Math.round(p.value * 100)}%`}</span>
               )}
-              <div className={`pointer-events-none invisible absolute bottom-full z-20 mb-1 min-w-36 rounded-box border border-base-300 bg-base-100 px-3 py-2 text-xs shadow-lg group-hover:visible group-focus-visible:visible ${tipEdge(i, points.length)}`} role="tooltip">
+              <div className={`pointer-events-none invisible absolute bottom-full z-20 mb-1 w-max min-w-36 whitespace-nowrap rounded-box border border-base-300 bg-base-100 px-3 py-2 text-xs shadow-lg group-hover:visible group-focus-visible:visible ${tipEdge(i, points.length)}`} role="tooltip">
                 <p className="mb-1 text-base-content/55">{p.title ?? p.label}</p>
                 {p.tip.map(([v, nm]) => (
                   <p key={nm} className="flex items-center justify-between gap-4">

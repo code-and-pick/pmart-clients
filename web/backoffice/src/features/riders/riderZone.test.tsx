@@ -8,10 +8,20 @@ import { as, renderAt } from '../../test/render';
 import { server } from '../../test/server';
 
 describe('라이더 배달 지역', () => {
-  it('구역 이름이 있으면 "센터 이름 · 구역 이름"(구역 ID 는 안 보임)', async () => {
+  it('운행 센터와 같은 센터의 구역이면 구역 이름만(센터는 운행 칸에 — 좁은 칸 한 줄), 구역 ID 는 안 보임', async () => {
     renderAt('/riders/RID-MOCK-1', as.cs);
-    await waitFor(() => expect(screen.getByTestId('rider-basic')).toHaveTextContent('부산진구 MFC · 서면 구역'));
+    await waitFor(() => expect(screen.getByTestId('rider-basic')).toHaveTextContent('배달 지역서면 구역'));
     expect(screen.getByTestId('rider-basic')).not.toHaveTextContent('ZONE-MOCK-1');
+  });
+
+  it('다른 센터의 구역이면 "센터 이름 · 구역 이름"', async () => {
+    server.use(
+      http.get(`${API_BASE}/riders/:riderId`, ({ params }) =>
+        HttpResponse.json({ riderId: params['riderId'], riderNumber: 'R4785', nameMasked: '김**더', operating: { status: 'ON_DUTY', mfcId: 'MFC-BSN-01' }, deliveryAreas: [{ mfcId: 'MFC-MOKPO-01', zoneId: 'ZONE-M-1', zoneName: '목포 구역' }] }),
+      ),
+    );
+    renderAt('/riders/RID-MOCK-1', as.cs);
+    await waitFor(() => expect(screen.getByTestId('rider-basic')).toHaveTextContent('목포 MFC · 목포 구역'));
   });
 
   it('구역 이름이 null 이면 구역 ID 를 보인다(못 읽음 ≠ 없음)', async () => {

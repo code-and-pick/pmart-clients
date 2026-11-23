@@ -277,7 +277,7 @@ function Sla({ c }: { readonly c: Pick<Summary, 'slaDueAt' | 'overdue'> & { read
   // 서버가 넘겼다고 하지 않았고, 닫히지 않았고, 15분 안 — 화면은 남은 분만 센다(넘김 확정은 서버 overdue)
   const soon = !c.overdue && c.state !== 'CLOSED' && Number.isFinite(left) && left > 0 && left <= DUE_SOON_MS;
   return (
-    <span className={`inline-flex items-center gap-1 ${c.overdue ? 'font-semibold text-error' : soon ? 'font-semibold text-warning' : ''}`} data-overdue={c.overdue ? 'true' : 'false'} data-due-soon={soon ? 'true' : undefined}>
+    <span className={`inline-flex items-center gap-1 whitespace-nowrap ${c.overdue ? 'font-semibold text-error' : soon ? 'font-semibold text-warning' : ''}`} data-overdue={c.overdue ? 'true' : 'false'} data-due-soon={soon ? 'true' : undefined}>
       {c.overdue && <Icon d={ICON.alert} className="h-3.5 w-3.5 shrink-0" />}
       {soon && <span className="breathe h-2 w-2 shrink-0 rounded-full bg-warning" aria-hidden="true" data-testid="due-soon-dot" />}
       {when(c.slaDueAt)}
