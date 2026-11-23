@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../../shared/rider_widgets.dart';
 import '../../../l10n/gen/app_localizations.dart';
 import '../../../shared/rider_style.dart';
 import '../data/delivery_repository.dart';
@@ -89,7 +90,7 @@ class _EvidencePhotoBoxState extends ConsumerState<EvidencePhotoBox> {
     final l10n = AppLocalizations.of(context);
     final again = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (context) => RiderAlertDialog(
         key: const ValueKey('previous-photo'),
         title: Text(l10n.previousPhoto),
         contentPadding: const EdgeInsets.fromLTRB(16, 12, 16, 0),

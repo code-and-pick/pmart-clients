@@ -247,13 +247,16 @@ void main() {
     await t.pumpAndSettle(const Duration(milliseconds: 50));
     await t.tap(find.byKey(const ValueKey('end-duty')));
     await settle(t);
+    // "오늘도 수고하셨습니다 · 운행을 종료하시겠습니까?" → 운행종료
+    await t.tap(find.byKey(const ValueKey('end-duty-confirm')));
+    await settle(t);
     // 이전 안내를 내리고 새 안내를 띄우는 애니메이션을 기다린다.
     await t.pump(const Duration(seconds: 1));
 
     expect(find.text('진행 중인 배송이 있어서 운행을 끝낼 수 없어요'), findsOneWidget);
     // 서버가 거절했으니 여전히 운행 중이다(운행종료 버튼이 그대로 켜져 있다).
     expect(
-      t.widget<FilledButton>(find.byKey(const ValueKey('end-duty'))).onPressed,
+      t.widget<TextButton>(find.byKey(const ValueKey('end-duty'))).onPressed,
       isNotNull,
     );
   });

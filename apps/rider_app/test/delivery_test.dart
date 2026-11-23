@@ -316,6 +316,16 @@ void main() {
     await settle();
     final dragged = t.getTopLeft(find.byKey(const ValueKey('sheet-handle'))).dy;
     expect(dragged, lessThan(peek - 200));
+    // 빠르게 튕겨 내려도 손을 뗀 자리 근처에 멈춘다(관성으로 접힘까지 미끄러지지 않음 — 사용자 2026-11-23).
+    await t.fling(
+      find.byKey(const ValueKey('sheet-handle')),
+      const Offset(0, 100),
+      3000,
+    );
+    await settle();
+    final flung = t.getTopLeft(find.byKey(const ValueKey('sheet-handle'))).dy;
+    expect(flung, closeTo(dragged + 100, 40));
+    expect(flung, lessThan(peek - 60));
     // 끝까지 올리면 "눌러서 지도 보기".
     await t.drag(
       find.byKey(const ValueKey('sheet-handle')),
@@ -424,6 +434,8 @@ void main() {
     expect(find.byKey(const ValueKey('delivery-done')), findsOneWidget);
     // 완료 뒤에는 전달지를 부르지 않으니 주소 자리를 "확인 중"(읽는 중)으로 두지 않는다(2026-11-21 S23).
     expect(find.text('확인 중'), findsNothing);
+    // 완료 카드가 배달료(정산 내역)를 읽는 시간을 기다린다
+    await t.pump(const Duration(seconds: 2));
   });
 
   group('라벨 숫자 안내', () {

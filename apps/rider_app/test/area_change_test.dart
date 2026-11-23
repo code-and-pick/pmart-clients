@@ -89,7 +89,10 @@ void main() {
       findsOneWidget,
     );
 
+    await t.ensureVisible(row);
+    await t.pumpAndSettle();
     await t.tap(row);
+    await _settle(t);
     await t.pumpAndSettle();
     await t.tap(find.byKey(const ValueKey('area-jeolla')));
     await t.pump();
@@ -99,7 +102,15 @@ void main() {
     await t.pump();
     await t.tap(find.byKey(const ValueKey('area-confirm')));
     await t.pumpAndSettle();
-    expect(find.textContaining('바로픽 목포(으)로 바꿀까요?'), findsOneWidget);
+    final dialog = find.byType(Dialog);
+    expect(
+      find.descendant(of: dialog, matching: find.text('바로픽 부산진구')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: dialog, matching: find.text('바로픽 목포')),
+      findsOneWidget,
+    );
     await t.tap(find.byKey(const ValueKey('area-change-confirm')));
     await _settle(t);
 
@@ -112,7 +123,11 @@ void main() {
   });
 
   Future<void> pickMokpo(WidgetTester t) async {
+    await t.ensureVisible(find.byKey(const ValueKey('menu-area')));
+    await t.pumpAndSettle();
     await t.tap(find.byKey(const ValueKey('menu-area')));
+    // 열 때 운행 상태·내 정보를 서버에서 다시 읽는다
+    await _settle(t);
     await t.pumpAndSettle();
     await t.tap(find.byKey(const ValueKey('area-jeolla')));
     await t.pump();
@@ -152,7 +167,7 @@ void main() {
   testWidgets('서버가 거절하면(반영 안 됨) 바꾸지 못했다고 하고 지점은 그대로', (t) async {
     final profile = await pumpResting(t);
     profile.failNextChange = const ProblemFailure(
-      Problem(status: 409, code: ProblemCode.versionConflict),
+      Problem(status: 400, code: 'VALIDATION_FAILED'),
     );
     await pickMokpo(t);
     expect(profile.areaMfcId, 'MFC-BSJ-01');
@@ -186,6 +201,44 @@ void main() {
     },
   );
 
+  testWidgets('운행을 끈 뒤(라이더 행 버전이 오름) 바꿔도 409 없이 바뀐다 — 보내기 직전 버전을 다시 읽는다', (
+    t,
+  ) async {
+    final profile = await pumpResting(t);
+    // 마이페이지를 연 뒤 운행 종료·신규배차 끄기 등으로 서버 버전이 올랐다.
+    profile.version = 7;
+    await pickMokpo(t);
+    expect(profile.areaMfcId, 'MFC-MPO-01');
+    expect(find.text('배달 지역을 바꿨어요'), findsOneWidget);
+  });
+
+  testWidgets('마이페이지 운행종료: 누르면 그 자리에서 "운행 종료됨"과 안내 한 줄(위로 뜨는 알림 없이)', (
+    t,
+  ) async {
+    final duty = _Duty(startOnDuty: true);
+    await t.pumpWidget(
+      _app([
+        offerRepositoryProvider.overrideWithValue(duty),
+        dutyRepositoryProvider.overrideWithValue(duty),
+        profileRepositoryProvider.overrideWithValue(MockProfileRepository()),
+      ]),
+    );
+    await _settle(t);
+    await _openMyPage(t);
+    expect(find.text('운행종료'), findsOneWidget);
+    await t.tap(find.byKey(const ValueKey('end-duty')));
+    await _settle(t);
+    expect(find.text('오늘도 수고하셨습니다'), findsOneWidget);
+    await t.tap(find.byKey(const ValueKey('end-duty-confirm')));
+    await _settle(t);
+    expect(find.text('운행 종료됨'), findsOneWidget);
+    expect(find.text('운행을 종료했어요. 지금은 쉬는 중이에요'), findsOneWidget);
+    expect(find.byKey(const ValueKey('rider-toast')), findsNothing);
+    expect(
+      t.widget<TextButton>(find.byKey(const ValueKey('end-duty'))).onPressed,
+      isNull,
+    );
+  });
   testWidgets('운행 중이면 고르는 창을 열지 않고 안내한다', (t) async {
     final duty = _Duty(startOnDuty: true);
     final profile = MockProfileRepository();
@@ -198,6 +251,8 @@ void main() {
     );
     await _settle(t);
     await _openMyPage(t);
+    await t.ensureVisible(find.byKey(const ValueKey('menu-area')));
+    await t.pumpAndSettle();
     await t.tap(find.byKey(const ValueKey('menu-area')));
     await _settle(t);
 

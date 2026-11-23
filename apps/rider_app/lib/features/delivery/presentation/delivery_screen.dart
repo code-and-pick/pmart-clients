@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:pmart_core/pmart_core.dart';
 import 'package:pmart_ui/pmart_ui.dart';
 
+import '../../my/data/records.dart' show settlementsProvider;
 import '../../../shared/blocked_words.dart';
 import '../../../l10n/gen/app_localizations.dart';
 import '../../../shared/kakao_navi.dart';
@@ -311,6 +312,21 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
   }
 
   /// 회색바·헤더를 누르면 펼치고, 펼친 상태에서 누르면 접는다.
+  /// 시트를 끌다 손을 뗐을 때 관성 미끄러짐을 멈춘다(그 높이에 머문다). 끝까지 펼쳐 안쪽 내용을 넘기는 중이면 건드리지 않는다.
+  /// 손을 떼는 순간 시트가 관성 움직임을 시작하므로, 그 다음 차례(microtask)에 지금 높이로 다시 맞춰 멈춘다.
+  double? _downY;
+
+  void _holdSheet() {
+    unawaited(
+      Future.microtask(() {
+        if (!mounted || !_sheet.isAttached) return;
+        final size = _sheet.size;
+        if (size >= _sheetFull - 0.002 || size <= _peekSize + 0.002) return;
+        _sheet.jumpTo(size);
+      }),
+    );
+  }
+
   void _toggleSheet() {
     if (!_sheet.isAttached) return;
     unawaited(
@@ -355,7 +371,7 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
     final l10n = AppLocalizations.of(context);
     final sure = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (context) => RiderAlertDialog(
         title: Text(l10n.cancelAssignment),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -1407,18 +1423,31 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
                     top: Radius.circular(14),
                   ),
                   clipBehavior: Clip.antiAlias,
-                  // 안쪽 목록 끝에서 늘어나는(stretch) 효과가 시트 끌기와 겹쳐 덜컹거리지 않게 끈다.
-                  child: SingleChildScrollView(
-                    controller: scroll,
-                    physics: const ClampingScrollPhysics(),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        peek,
-                        ...details,
-                        // 아래에 뜨는 진행 버튼이 마지막 내용을 가리지 않게.
-                        const SizedBox(height: 110),
-                      ],
+                  // 손을 떼면 그 자리에 멈춘다(관성으로 미끄러지지 않게 — 사용자 2026-11-23 "너무 빠르게 슬라이딩으로
+                  // 내려가서 정보를 못 보겠다 … 사람이 내리는 거에 따라 움직이고 멈추게"). 끝까지 펼친 뒤 안쪽 내용 스크롤은 그대로 둔다.
+                  child: Listener(
+                    onPointerDown: (e) => _downY = e.position.dy,
+                    onPointerUp: (e) {
+                      // 누르기(펼치기·접기 단추)는 건드리지 않는다 — 실제로 끈 때만.
+                      final down = _downY;
+                      _downY = null;
+                      if (down != null && (e.position.dy - down).abs() > 18) {
+                        _holdSheet();
+                      }
+                    },
+                    // 안쪽 목록 끝에서 늘어나는(stretch) 효과가 시트 끌기와 겹쳐 덜컹거리지 않게 끈다.
+                    child: SingleChildScrollView(
+                      controller: scroll,
+                      physics: const ClampingScrollPhysics(),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          peek,
+                          ...details,
+                          // 아래에 뜨는 진행 버튼이 마지막 내용을 가리지 않게.
+                          const SizedBox(height: 110),
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -1467,6 +1496,7 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
             d.state == ExecutionState.returnedToStore)
           Positioned.fill(
             child: _DoneOverlay(
+              deliveryId: _id,
               onClose: _finish,
               label: isRec ? l10n.returnDoneBanner : null,
             ),
@@ -1629,69 +1659,237 @@ class _DropCard extends StatelessWidget {
   }
 }
 
-/// 배달완료 알림(서버가 전달 완료를 확정한 뒤). 캐릭터 그림 없이 브랜드 색 판만 쓴다.
-class _DoneOverlay extends StatelessWidget {
-  const _DoneOverlay({required this.onClose, this.label});
+/// 배달완료 알림(서버가 전달 완료를 확정한 뒤) — 사용자 2026-11-23 레퍼런스 모양: 보라 판(은은한 빛 방울) 위 큰 "배달완료",
+/// 판 아래에 걸친 캐릭터 자리(그림 파일을 받기 전까지 흰 원 안 스쿠터 표시), 흰 칸에 배달료와 감사 문구.
+/// 배달료는 서버가 산정한 수행료(정산 내역의 이 배송 — 산정 가능한 것)만 보인다. 아직 없으면 줄을 비운다(어림값을 지어내지 않는다).
+/// 띄울 때 살짝 튀어 오르며 나타나고, 아무 데나 누르면 닫힌다.
+class _DoneOverlay extends ConsumerWidget {
+  const _DoneOverlay({
+    required this.deliveryId,
+    required this.onClose,
+    this.label,
+  });
 
+  final String deliveryId;
   final VoidCallback onClose;
 
-  /// 회수 배송은 "반납 완료".
+  /// 회수 배송은 "반납완료".
   final String? label;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
-    return ColoredBox(
-      color: Colors.black54,
-      child: Center(
-        child: Container(
-          key: const ValueKey('delivery-done'),
-          margin: const EdgeInsets.symmetric(horizontal: 36),
-          color: Colors.white,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: double.infinity,
-                height: 170,
-                color: RiderColors.primary,
-                alignment: Alignment.center,
-                child: Text(
-                  label ?? l10n.doneBanner,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 52,
-                    fontWeight: FontWeight.w900,
+    final fee = switch (ref.watch(settlementsProvider)) {
+      AsyncData(:final value) =>
+        value.items
+            .where((x) => !x.compensation && x.deliveryId == deliveryId)
+            .map((x) => x.amount)
+            .whereType<int>()
+            .firstOrNull,
+      _ => null,
+    };
+    return GestureDetector(
+      key: const ValueKey('done-close'),
+      behavior: HitTestBehavior.opaque,
+      onTap: onClose,
+      child: ColoredBox(
+        color: Colors.black45,
+        child: Center(
+          child: TweenAnimationBuilder<double>(
+            tween: Tween(begin: 0, end: 1),
+            duration: const Duration(milliseconds: 420),
+            curve: Curves.easeOutBack,
+            builder: (context, v, child) => Opacity(
+              opacity: v.clamp(0, 1).toDouble(),
+              child: Transform.scale(scale: 0.86 + 0.14 * v, child: child),
+            ),
+            child: Container(
+              key: const ValueKey('delivery-done'),
+              margin: const EdgeInsets.symmetric(horizontal: 32),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(6),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Colors.black26,
+                    blurRadius: 24,
+                    offset: Offset(0, 8),
                   ),
-                ),
+                ],
               ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(24, 24, 24, 12),
-                child: Text(
-                  l10n.deliveryDone,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 16, height: 1.5),
-                ),
-              ),
-              TextButton(
-                key: const ValueKey('done-close'),
-                onPressed: onClose,
-                child: Text(
-                  l10n.ok,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    color: RiderColors.ink,
+              clipBehavior: Clip.antiAlias,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SizedBox(
+                    height: 250,
+                    child: Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        // 보라 판 — 위는 조금 밝고 아래로 진해지는 빛
+                        const Positioned.fill(
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: [
+                                  Color(0xFF9B6BFF),
+                                  RiderColors.primary,
+                                  Color(0xFF5A2BD8),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                        // 은은한 빛 방울(레퍼런스 왼쪽 위 빛 번짐)
+                        const _Glow(
+                          left: -30,
+                          top: -40,
+                          size: 150,
+                          alpha: 0.28,
+                        ),
+                        const _Glow(left: 70, top: 30, size: 70, alpha: 0.22),
+                        const _Glow(
+                          left: 170,
+                          top: -20,
+                          size: 110,
+                          alpha: 0.12,
+                        ),
+                        Positioned(
+                          left: 0,
+                          right: 0,
+                          top: 56,
+                          child: Text(
+                            label ?? l10n.doneBanner,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 58,
+                              height: 1,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: -1,
+                              shadows: [
+                                Shadow(
+                                  color: Color(0x33000000),
+                                  blurRadius: 12,
+                                  offset: Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        // 캐릭터 자리 — 판 아래 흰 칸에 걸친다
+                        Positioned(
+                          left: 0,
+                          right: 0,
+                          bottom: -34,
+                          child: Center(
+                            child: TweenAnimationBuilder<double>(
+                              tween: Tween(begin: 0, end: 1),
+                              duration: const Duration(milliseconds: 620),
+                              curve: Curves.elasticOut,
+                              builder: (context, v, child) => Transform.scale(
+                                scale: 0.6 + 0.4 * v,
+                                child: child,
+                              ),
+                              child: Container(
+                                width: 108,
+                                height: 108,
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: const Color(0xFFEDE6FF),
+                                    width: 4,
+                                  ),
+                                  boxShadow: const [
+                                    BoxShadow(
+                                      color: Color(0x33000000),
+                                      blurRadius: 14,
+                                      offset: Offset(0, 4),
+                                    ),
+                                  ],
+                                ),
+                                child: const Icon(
+                                  Icons.delivery_dining_rounded,
+                                  size: 64,
+                                  color: RiderColors.primary,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
+                  const SizedBox(height: 48),
+                  if (fee != null)
+                    Text(
+                      l10n.doneFee(formatKrw(fee)),
+                      key: const ValueKey('done-fee'),
+                      style: const TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w800,
+                        color: RiderColors.ink,
+                      ),
+                    ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 6, 24, 30),
+                    child: Text(
+                      l10n.deliveryDone,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 17,
+                        height: 1.5,
+                        color: RiderColors.ink,
+                      ),
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 8),
-            ],
+            ),
           ),
         ),
       ),
     );
   }
+}
+
+/// 보라 판 위 흰 빛 방울(가운데가 밝고 바깥으로 사라지는 원).
+class _Glow extends StatelessWidget {
+  const _Glow({
+    required this.left,
+    required this.top,
+    required this.size,
+    required this.alpha,
+  });
+
+  final double left;
+  final double top;
+  final double size;
+  final double alpha;
+
+  @override
+  Widget build(BuildContext context) => Positioned(
+    left: left,
+    top: top,
+    child: IgnorePointer(
+      child: Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: RadialGradient(
+            colors: [
+              Colors.white.withValues(alpha: alpha),
+              Colors.white.withValues(alpha: 0),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
 }
 
 /// 전달 완료 확인 팝업(레퍼런스): 요청하신 곳에 두었어요 / 고객에게 직접 전달 → 다음.
@@ -1812,7 +2010,7 @@ class _ReturnCodeDialogState extends ConsumerState<_ReturnCodeDialog> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final mock = ref.watch(envProvider) == PmartEnv.mock;
-    return AlertDialog(
+    return RiderAlertDialog(
       title: Text(l10n.returnStoreButton),
       content: Column(
         mainAxisSize: MainAxisSize.min,

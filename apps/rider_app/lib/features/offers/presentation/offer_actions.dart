@@ -80,7 +80,7 @@ Future<OfferOutcome> respondToOffer(
       if (rejectionNotice && navigator.mounted) {
         await showDialog<void>(
           context: navigator.context,
-          builder: (context) => AlertDialog(
+          builder: (context) => RiderAlertDialog(
             content: Text(l10n.rejectionNotice),
             actions: [
               TextButton(

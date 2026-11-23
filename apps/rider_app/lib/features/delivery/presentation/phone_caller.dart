@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../shared/rider_widgets.dart';
 import '../../../l10n/gen/app_localizations.dart';
 import 'delivery_controller.dart';
 
@@ -27,7 +28,7 @@ Future<void> callCustomerAndRecord(
   if (!context.mounted) return;
   final answered = await showDialog<bool>(
     context: context,
-    builder: (context) => AlertDialog(
+    builder: (context) => RiderAlertDialog(
       content: Text(l10n.callResultAsk),
       actions: [
         TextButton(

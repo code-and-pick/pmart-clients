@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:pmart_ui/pmart_ui.dart';
+import 'package:pmart_core/pmart_core.dart' show ProblemCode;
 
 import '../../../l10n/gen/app_localizations.dart';
 import '../../../shared/rider_style.dart';
@@ -9,7 +10,6 @@ import '../../../shared/rider_widgets.dart';
 import '../../auth/data/pickup_points.dart';
 import '../../auth/data/session.dart';
 import '../../delivery/presentation/delivery_texts.dart';
-import '../../home/presentation/home_screen.dart';
 import '../../offers/domain/offer_list.dart';
 import '../../offers/presentation/offer_controllers.dart';
 import '../data/profile.dart';
@@ -202,43 +202,7 @@ class MyPageScreen extends ConsumerWidget {
               ],
             ),
           ),
-          SafeArea(
-            top: false,
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: SizedBox(
-                width: double.infinity,
-                height: 54,
-                child: FilledButton(
-                  key: const ValueKey('end-duty'),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: const Color(0xFF8E8E93),
-                    disabledBackgroundColor: RiderColors.line,
-                    disabledForegroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                  ),
-                  // 진행 배송이 있으면 서버가 거절한다(그대로 안내).
-                  onPressed: (duty?.onDuty ?? false)
-                      ? () => changeDuty(
-                          context,
-                          ref,
-                          onDuty: false,
-                          newDispatch: false,
-                        )
-                      : null,
-                  child: Text(
-                    l10n.endDuty,
-                    style: const TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
+          const _EndDutyBar(),
         ],
       ),
     );
@@ -533,4 +497,170 @@ class _ModeCard extends StatelessWidget {
       ),
     ),
   );
+}
+
+/// 마이페이지 아래 운행종료(사용자 2026-11-23 "운행종료 눌러도 된 건지 안 된 건지 확실 안 하고").
+/// 누르면 그 자리에서 "종료하는 중…", 서버가 확정하면 버튼이 "운행 종료됨"으로 바뀌고 위에 한 줄 안내가 남는다.
+/// 거절(진행 배송 있음 등)도 버튼 바로 위 글로 남긴다 — 위로 뜨는 알림이 버튼을 가리지 않게.
+class _EndDutyBar extends ConsumerStatefulWidget {
+  const _EndDutyBar();
+
+  @override
+  ConsumerState<_EndDutyBar> createState() => _EndDutyBarState();
+}
+
+class _EndDutyBarState extends ConsumerState<_EndDutyBar> {
+  bool _busy = false;
+  String? _error;
+
+  /// 이 화면에서 방금 끝냈다(그때만 "운행을 종료했어요"를 보인다).
+  bool _justEnded = false;
+
+  Future<void> _end() async {
+    final l10n = AppLocalizations.of(context);
+    // 한 번 묻는다(레퍼런스 "오늘도 수고하셨습니다 · 운행을 종료하시겠습니까? [취소 | 운행종료]").
+    final sure = await showDialog<bool>(
+      context: context,
+      builder: (context) => RiderAlertDialog(
+        title: Text(l10n.endDutyAskTitle),
+        content: Text(l10n.endDutyAsk),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text(l10n.wdCancel),
+          ),
+          TextButton(
+            key: const ValueKey('end-duty-confirm'),
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text(l10n.endDuty),
+          ),
+        ],
+      ),
+    );
+    if (sure != true || !mounted) return;
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    final code = await ref
+        .read(dutyProvider.notifier)
+        .change(onDuty: false, newDispatch: false);
+    if (!mounted) return;
+    setState(() {
+      _busy = false;
+      if (code == null) {
+        _justEnded = true;
+      } else {
+        _error = switch (code) {
+          ProblemCode.invalidState => l10n.cannotEndWithActive,
+          _ => l10n.dutyChangeFailed,
+        };
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final duty = ref.watch(dutyProvider).value;
+    final onDuty = duty?.onDuty ?? false;
+    final ended = duty != null && !onDuty;
+    final note =
+        _error ??
+        (ended ? (_justEnded ? l10n.dutyEndedNow : l10n.dutyOffNote) : null);
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(top: BorderSide(color: RiderColors.line)),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (note != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Row(
+                    key: const ValueKey('end-duty-note'),
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        _error != null
+                            ? Icons.error_outline
+                            : Icons.check_circle,
+                        size: 18,
+                        color: _error != null
+                            ? RiderColors.danger
+                            : RiderColors.primary,
+                      ),
+                      const SizedBox(width: 6),
+                      Flexible(
+                        child: Text(
+                          note,
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: _error != null
+                                ? RiderColors.danger
+                                : RiderColors.ink,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              // 레퍼런스처럼 흰 바탕 위에 빨간 글자 "운행종료"(사용자 2026-11-23). 끝난 뒤는 회색 "운행 종료됨".
+              SizedBox(
+                width: double.infinity,
+                height: 54,
+                child: TextButton(
+                  key: const ValueKey('end-duty'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: RiderColors.danger,
+                    disabledForegroundColor: RiderColors.hint,
+                    backgroundColor: Colors.white,
+                    shape: const RoundedRectangleBorder(),
+                  ),
+                  // 진행 배송이 있으면 서버가 거절한다(버튼 위 글로 안내).
+                  onPressed: onDuty && !_busy ? _end : null,
+                  child: _busy
+                      ? Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: RiderColors.danger,
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Text(
+                              l10n.endingDuty,
+                              style: const TextStyle(
+                                fontSize: 17,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ],
+                        )
+                      : Text(
+                          ended ? l10n.dutyEndedButton : l10n.endDuty,
+                          style: const TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }

@@ -49,7 +49,7 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
     final l10n = AppLocalizations.of(context);
     final ok = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (context) => RiderAlertDialog(
         title: Text(l10n.wdConfirmTitle),
         content: Text(l10n.wdConfirmBody),
         actions: [

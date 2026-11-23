@@ -77,7 +77,11 @@ class _DeliveryListScreenState extends ConsumerState<DeliveryListScreen> {
             onPressed: () => context.push('/my/history'),
             child: Text(
               l10n.pastList,
-              style: const TextStyle(color: Colors.white, fontSize: 15),
+              style: const TextStyle(
+                color: RiderColors.primary,
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ),
         ],
@@ -111,9 +115,10 @@ class _DeliveryListScreenState extends ConsumerState<DeliveryListScreen> {
               ),
             )
           else ...[
+            // 2026-11-23 사용자 "상단 제목 부분이 검정으로 뜨는 거 답답" — 흰 머리줄에 맞춰 회색 띠도 연보라·짙은 글자로.
             Container(
               width: double.infinity,
-              color: const Color(0xFF6E6E6E),
+              color: RiderColors.primaryMist,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -121,7 +126,7 @@ class _DeliveryListScreenState extends ConsumerState<DeliveryListScreen> {
                   Text(
                     l10n.listBannerTitle(ids.length),
                     style: const TextStyle(
-                      color: Colors.white,
+                      color: RiderColors.ink,
                       fontSize: 16,
                       fontWeight: FontWeight.w800,
                     ),
@@ -129,7 +134,10 @@ class _DeliveryListScreenState extends ConsumerState<DeliveryListScreen> {
                   const SizedBox(height: 2),
                   Text(
                     l10n.listBannerBody,
-                    style: const TextStyle(color: Colors.white, fontSize: 13),
+                    style: const TextStyle(
+                      color: RiderColors.sub,
+                      fontSize: 13,
+                    ),
                   ),
                 ],
               ),
@@ -326,11 +334,19 @@ class _Tabs extends StatelessWidget {
         child: Container(
           height: 52,
           alignment: Alignment.center,
-          color: tab == i ? const Color(0xFF222222) : const Color(0xFF3A3A3A),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            border: Border(
+              bottom: BorderSide(
+                color: tab == i ? RiderColors.primary : RiderColors.line,
+                width: tab == i ? 3 : 1,
+              ),
+            ),
+          ),
           child: Text(
             count == null ? label : '$label $count',
             style: TextStyle(
-              color: tab == i ? Colors.white : Colors.white54,
+              color: tab == i ? RiderColors.primary : RiderColors.sub,
               fontSize: 17,
               fontWeight: FontWeight.w800,
             ),

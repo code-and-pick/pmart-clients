@@ -348,6 +348,12 @@
   "menuInquiries": "지원센터 문의",
   "menuNotifications": "알림",
   "menuArea": "배달 지역",
+  "endingDuty": "종료하는 중…",
+  "endDutyAskTitle": "오늘도 수고하셨습니다",
+  "endDutyAsk": "운행을 종료하시겠습니까?",
+  "dutyEndedButton": "운행 종료됨",
+  "dutyEndedNow": "운행을 종료했어요. 지금은 쉬는 중이에요",
+  "dutyOffNote": "지금은 운행 중이 아니에요(쉬는 중)",
   "areaChangeOnDuty": "운행을 종료한 뒤 배달 지역을 바꿀 수 있어요",
   "areaChangeTitle": "배달 지역 바꾸기",
   "areaChangeAsk": "배달 지역을 {name}(으)로 바꿀까요?\n바로 반영되고, 다음 운행부터 이 지점의 배차를 받아요.",
@@ -359,6 +365,9 @@
     }
   },
   "areaChangeConfirm": "바꾸기",
+  "areaNow": "지금",
+  "areaNext": "바꿀 곳",
+  "areaChangeNote": "바로 반영돼요. 다음 운행부터 바꾼 지점의 배차를 받아요.",
   "areaChangeDone": "배달 지역을 바꿨어요",
   "areaChangeFailed": "배달 지역을 바꾸지 못했어요. 잠시 뒤 다시 해 주세요",
   "areaChangeUnknown": "바뀌었는지 확인하지 못했어요. 마이페이지에서 배달 지역을 다시 확인해 주세요",
@@ -486,6 +495,14 @@
   "completeAsk": "고객님께 어떻게\n전달하셨나요?",
   "next": "다음",
   "doneBanner": "배달완료",
+  "doneFee": "배달료 {fee}",
+  "@doneFee": {
+    "placeholders": {
+      "fee": {
+        "type": "String"
+      }
+    }
+  },
   "photoTitle": "촬영하기",
   "photoAsk": "전달한 위치가\n사진에 잘 보이나요?",
   "photoHeading": "전달위치 촬영",

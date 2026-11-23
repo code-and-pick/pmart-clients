@@ -91,14 +91,13 @@ class _QrPickupScreenState extends ConsumerState<QrPickupScreen> {
     }
   }
 
-  Future<void> _openNumberPad(DeliveryView d) async {
-    final digits = await showModalBottomSheet<String>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      builder: (context) => const _NumberSheet(),
-    );
-    if (digits != null && mounted) await _enterNumber(d, digits);
+  /// "스캔이 안 된다면"을 눌렀다 — 숫자 칸을 이 화면 아래에 바로 연다(사용자 2026-11-23 "팝업창이 뜨게 하니까 느린데").
+  /// 전에는 아래 시트가 올라온 뒤 키보드가 또 올라와 두 번 움직였다. 이제 칸이 바로 생기고 키보드만 올라온다.
+  bool _numberOpen = false;
+
+  void _openNumberPad(DeliveryView d) {
+    if (_numberOpen) return;
+    setState(() => _numberOpen = true);
   }
 
   @override
@@ -216,9 +215,13 @@ class _QrPickupScreenState extends ConsumerState<QrPickupScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // 카메라가 없으면(시험·카메라 오류) 숫자 입력 칸을 바로 보인다.
-                    if (camera == null && d != null) ...[
-                      _NumberField(onSubmit: (v) => _enterNumber(d, v)),
+                    // 카메라가 없거나(시험·카메라 오류) "스캔이 안 된다면"을 눌렀으면 숫자 입력 칸을 바로 보인다.
+                    if ((camera == null || _numberOpen) && d != null) ...[
+                      _NumberField(
+                        key: const ValueKey('number-inline'),
+                        autofocus: _numberOpen,
+                        onSubmit: (v) => _enterNumber(d, v),
+                      ),
                       const SizedBox(height: 8),
                     ],
                     Text(
@@ -326,7 +329,11 @@ class _QrPickupScreenState extends ConsumerState<QrPickupScreen> {
 
 /// 라벨 숫자 입력 칸(숫자 키패드).
 class _NumberField extends StatefulWidget {
-  const _NumberField({required this.onSubmit, this.autofocus = false});
+  const _NumberField({
+    super.key,
+    required this.onSubmit,
+    this.autofocus = false,
+  });
 
   final Future<void> Function(String digits) onSubmit;
   final bool autofocus;
@@ -380,44 +387,6 @@ class _NumberFieldState extends State<_NumberField> {
           child: Text(l10n.ok),
         ),
       ],
-    );
-  }
-}
-
-/// "스캔이 안 된다면" → 숫자 입력 시트.
-class _NumberSheet extends StatelessWidget {
-  const _NumberSheet();
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
-    return Padding(
-      padding: EdgeInsets.fromLTRB(
-        20,
-        20,
-        20,
-        20 + MediaQuery.viewInsetsOf(context).bottom,
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            l10n.labelNumberTitle,
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            l10n.labelNumberGuide,
-            style: const TextStyle(fontSize: 14, color: RiderColors.sub),
-          ),
-          const SizedBox(height: 14),
-          _NumberField(
-            autofocus: true,
-            onSubmit: (v) async => Navigator.of(context).pop(v),
-          ),
-        ],
-      ),
     );
   }
 }

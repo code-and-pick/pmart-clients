@@ -343,7 +343,7 @@ class _RequestBubble extends ConsumerWidget {
     final l10n = AppLocalizations.of(context);
     showDialog<void>(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (context) => RiderAlertDialog(
         key: const ValueKey('request-photo-view'),
         title: Text(l10n.supportPhotoTitle),
         contentPadding: const EdgeInsets.fromLTRB(16, 12, 16, 0),

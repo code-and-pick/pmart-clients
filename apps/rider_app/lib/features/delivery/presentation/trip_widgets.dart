@@ -204,9 +204,24 @@ class RequestNotes extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            l10n.checkRequestNote,
-            style: const TextStyle(fontSize: 14, color: RiderColors.pickup),
+          // 2026-11-23 사용자 "주황색 배경으로 해놓은 거 치곤 폰트나 굵기가 좀 약해" — 머리는 아이콘 + 굵게, 내용은 크고 굵게.
+          Row(
+            children: [
+              const Icon(
+                Icons.priority_high_rounded,
+                size: 18,
+                color: RiderColors.pickup,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                l10n.checkRequestNote,
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                  color: RiderColors.pickup,
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 8),
           // 라벨을 위, 내용을 아래에 — 긴 요청이면 한 줄 배치에서 라벨이 "가게/요청사/항"으로 쪼개졌다.
@@ -237,13 +252,21 @@ class _Note extends StatelessWidget {
   Widget build(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      Text(label, style: const TextStyle(fontSize: 13, color: RiderColors.sub)),
-      const SizedBox(height: 2),
+      Text(
+        label,
+        style: const TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w700,
+          color: RiderColors.sub,
+        ),
+      ),
+      const SizedBox(height: 3),
       Text(
         text,
         style: const TextStyle(
-          fontSize: 16,
-          fontWeight: FontWeight.w600,
+          fontSize: 18,
+          height: 1.35,
+          fontWeight: FontWeight.w800,
           color: RiderColors.ink,
         ),
       ),

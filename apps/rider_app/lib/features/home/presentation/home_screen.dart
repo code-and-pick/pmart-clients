@@ -131,7 +131,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final l10n = AppLocalizations.of(context);
     final go = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (context) => RiderAlertDialog(
         key: ValueKey('$id-ask'),
         title: Text(title),
         content: Text(body),

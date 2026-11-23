@@ -116,7 +116,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/deliveries/:deliveryId/support',
-        pageBuilder: (_, s) => _overMap(
+        pageBuilder: (_, s) => _riseUp(
           s,
           SupportScreen(deliveryId: s.pathParameters['deliveryId']!),
         ),
@@ -197,3 +197,29 @@ Page<void> _overMap(GoRouterState s, Widget child) =>
       transitionsBuilder: (_, animation, _, child) =>
           FadeTransition(opacity: animation, child: child),
     );
+
+/// 도움요청 화면 — 바로 뜨지 않고 아래에서 살짝 떠오르며 나타난다(사용자 2026-11-23 "도움요청 클릭할 때도 바로 뜨는 거 말고 애니메이션").
+/// 지도를 확대·축소하지 않게 아래 화면은 그대로 두고, 새 화면만 6% 아래에서 올라오며 서서히 보인다.
+Page<void> _riseUp(GoRouterState s, Widget child) => CustomTransitionPage<void>(
+  key: s.pageKey,
+  child: child,
+  transitionDuration: const Duration(milliseconds: 280),
+  reverseTransitionDuration: const Duration(milliseconds: 200),
+  transitionsBuilder: (_, animation, _, child) {
+    final curved = CurvedAnimation(
+      parent: animation,
+      curve: Curves.easeOutCubic,
+      reverseCurve: Curves.easeInCubic,
+    );
+    return FadeTransition(
+      opacity: curved,
+      child: SlideTransition(
+        position: Tween(
+          begin: const Offset(0, 0.06),
+          end: Offset.zero,
+        ).animate(curved),
+        child: child,
+      ),
+    );
+  },
+);

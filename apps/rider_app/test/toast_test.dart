@@ -73,7 +73,7 @@ void main() {
     expect(find.text('새 알림'), findsNothing);
   });
 
-  testWidgets('새 안내가 오면 앞 안내를 바꾼다(겹치지 않음), 눌러서 닫을 수 있다', (t) async {
+  testWidgets('새 안내가 오면 앞 안내를 바꾼다(겹치지 않음)', (t) async {
     final ctx = await open(t);
     showRiderToast(ctx, '첫째');
     await t.pump(const Duration(milliseconds: 100));
@@ -81,8 +81,47 @@ void main() {
     await t.pump(const Duration(milliseconds: 300));
     expect(find.text('첫째'), findsNothing);
     expect(find.text('둘째'), findsOneWidget);
-    await t.tap(find.text('둘째'));
+  });
+
+  // 2026-11-23 사용자 "버튼 가리게 하지 말라니까" — 위 막대 아래에 뜨고, 버튼 없는 안내는 눌림을 밑으로 통과시킨다.
+  testWidgets('위 막대(뒤로·설정) 아래에 뜨고, 버튼 없는 안내 밑의 버튼은 그대로 눌린다', (t) async {
+    t.view
+      ..physicalSize = const Size(400, 800)
+      ..devicePixelRatio = 1;
+    addTearDown(t.view.reset);
+    var pressed = 0;
+    late BuildContext ctx;
+    await t.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          appBar: AppBar(title: const Text('제목')),
+          body: Builder(
+            builder: (c) {
+              ctx = c;
+              return Align(
+                alignment: Alignment.topCenter,
+                child: FilledButton(
+                  key: const ValueKey('under'),
+                  onPressed: () => pressed++,
+                  child: const Text('밑의 버튼'),
+                ),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+    showRiderToast(ctx, '안내');
+    await t.pump(const Duration(milliseconds: 100));
+    await t.pump(const Duration(milliseconds: 300)); // 내려오는 움직임이 끝난 뒤
+    final toast = find.byKey(const ValueKey('rider-toast'));
+    expect(
+      t.getRect(toast).top,
+      greaterThanOrEqualTo(kToolbarHeight),
+      reason: '위 막대 아래',
+    );
+    await t.tapAt(t.getCenter(find.byKey(const ValueKey('under'))));
     await t.pump();
-    expect(find.text('둘째'), findsNothing);
+    expect(pressed, 1);
   });
 }

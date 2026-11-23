@@ -1,11 +1,12 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'rider_style.dart';
 
 /// 화면 아래 큰 버튼(레퍼런스: 폭 가득, 높이 56, 모서리 4).
-class RiderButton extends StatelessWidget {
+class RiderButton extends StatefulWidget {
   const RiderButton({
     super.key,
     required this.label,
@@ -28,33 +29,97 @@ class RiderButton extends StatelessWidget {
   final Color foreground;
 
   @override
-  Widget build(BuildContext context) => SizedBox(
-    width: double.infinity,
-    height: height,
-    child: FilledButton(
-      onPressed: onPressed,
-      style: FilledButton.styleFrom(
-        backgroundColor: color,
-        foregroundColor: foreground,
-        disabledBackgroundColor: RiderColors.disabled,
-        disabledForegroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          if (icon != null) ...[Icon(icon, size: 24), const SizedBox(width: 8)],
-          Flexible(
-            child: Text(
-              label,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w700),
+  State<RiderButton> createState() => _RiderButtonState();
+}
+
+/// 누르는 느낌(사용자 2026-11-23 "QR픽업이나 가게 도착 같은 버튼 누를 때 터치하는 느낌 … 은은한 빛이나 클릭되는 듯한 느낌"):
+/// 손가락이 닿으면 살짝 작아지고(0.97) 버튼 색의 은은한 빛이 퍼지며, 흰 물결이 번진다. 누르면 가벼운 진동 한 번.
+/// 손을 떼면 부드럽게 원래대로. 꺼진 버튼은 반응하지 않는다.
+class _RiderButtonState extends State<RiderButton> {
+  bool _down = false;
+
+  void _set(bool v) {
+    if (widget.onPressed == null || _down == v) return;
+    setState(() => _down = v);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = widget.onPressed != null;
+    const radius = BorderRadius.all(Radius.circular(4));
+    return Listener(
+      onPointerDown: (_) => _set(true),
+      onPointerUp: (_) => _set(false),
+      onPointerCancel: (_) => _set(false),
+      child: AnimatedScale(
+        scale: _down ? 0.97 : 1,
+        duration: Duration(milliseconds: _down ? 90 : 160),
+        curve: Curves.easeOut,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          curve: Curves.easeOut,
+          width: double.infinity,
+          height: widget.height,
+          decoration: BoxDecoration(
+            borderRadius: radius,
+            boxShadow: [
+              if (enabled)
+                BoxShadow(
+                  color: widget.color.withValues(alpha: _down ? 0.45 : 0.18),
+                  blurRadius: _down ? 18 : 8,
+                  spreadRadius: _down ? 1 : 0,
+                  offset: Offset(0, _down ? 2 : 3),
+                ),
+            ],
+          ),
+          child: FilledButton(
+            onPressed: enabled
+                ? () {
+                    HapticFeedback.lightImpact();
+                    widget.onPressed!();
+                  }
+                : null,
+            style:
+                FilledButton.styleFrom(
+                  backgroundColor: widget.color,
+                  foregroundColor: widget.foreground,
+                  disabledBackgroundColor: RiderColors.disabled,
+                  disabledForegroundColor: Colors.white,
+                  shape: const RoundedRectangleBorder(borderRadius: radius),
+                  elevation: 0,
+                  splashFactory: InkSparkle.splashFactory,
+                ).copyWith(
+                  // 누르는 동안 흰 빛이 살짝 덮인다(물결과 함께).
+                  overlayColor: WidgetStateProperty.resolveWith(
+                    (states) => states.contains(WidgetState.pressed)
+                        ? Colors.white.withValues(alpha: 0.22)
+                        : null,
+                  ),
+                ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (widget.icon != null) ...[
+                  Icon(widget.icon, size: 24),
+                  const SizedBox(width: 8),
+                ],
+                Flexible(
+                  child: Text(
+                    widget.label,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 19,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
-        ],
+        ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 /// 테두리 버튼(도움요청·길찾기, '여기에 두었어요' 알리기).
@@ -176,12 +241,22 @@ PreferredSizeWidget riderDarkBar(
   List<Widget> actions = const [],
   bool centerTitle = false,
 }) => AppBar(
-  backgroundColor: RiderColors.header,
-  foregroundColor: Colors.white,
+  // 2026-11-23 사용자 "상단 제목 부분이 검정으로 뜨는 거 좀 답답해 보이는데" — 검정 막대 대신 마이페이지처럼
+  // 흰 바탕 · 짙은 굵은 제목 · 아래 얇은 선(내용과 구분). 위 상태바 글자도 짙게. 이름은 예전 호출과 맞추려고 그대로 둔다.
+  backgroundColor: Colors.white,
+  foregroundColor: RiderColors.ink,
+  surfaceTintColor: Colors.transparent,
+  elevation: 0,
+  scrolledUnderElevation: 0,
+  systemOverlayStyle: SystemUiOverlayStyle.dark,
   centerTitle: centerTitle,
   title: Text(title),
-  titleTextStyle: riderTitleStyle(context, color: Colors.white),
+  titleTextStyle: riderTitleStyle(context, color: RiderColors.ink),
   actions: actions,
+  bottom: const PreferredSize(
+    preferredSize: Size.fromHeight(1),
+    child: Divider(height: 1, thickness: 1, color: RiderColors.line),
+  ),
 );
 
 /// 둥근 선택 버튼(선택되면 주 색 테두리 + 체크). 지역 선택·사유 선택에 쓴다.
@@ -294,6 +369,8 @@ class MapCircleButton extends StatelessWidget {
 
 /// 짧은 안내(회색 팝업). 화면 **위쪽**에 띄워 아래 버튼·입력칸을 가리지 않는다(사용자 2026-11-19
 /// "버튼을 계속 가리니까 상단에"). [aboveActions] 는 예전 호출과 맞추려고 남겨 둔다(이제 늘 위쪽).
+/// 2026-11-23 사용자 "완전 아래 아니면 완전 위로 떠서 버튼 다 가리고" — 위 막대(뒤로·설정) 아래에 띄우고,
+/// 버튼이 없는 안내는 손가락을 그대로 통과시켜 밑의 버튼을 누를 수 있게 한다.
 void showRiderToast(
   BuildContext context,
   String text, {
@@ -388,7 +465,8 @@ class _TopToastState extends State<_TopToast> {
     final onDismiss = widget.onDismiss;
     final top = MediaQuery.paddingOf(context).top;
     return Positioned(
-      top: top + 8,
+      // 위 막대(뒤로·제목·설정) 아래 — 막대의 버튼을 가리지 않는다.
+      top: top + kToolbarHeight + 6,
       left: 16,
       right: 16,
       child: TweenAnimationBuilder<double>(
@@ -401,46 +479,50 @@ class _TopToastState extends State<_TopToast> {
             child: child,
           ),
         ),
-        child: Dismissible(
-          key: const ValueKey('rider-toast-dismiss'),
-          direction: DismissDirection.up,
-          onDismissed: (_) => onDismiss(),
-          child: Material(
-            key: const ValueKey('rider-toast'),
-            color: const Color(0xFF323232),
-            elevation: 6,
-            borderRadius: BorderRadius.circular(8),
-            child: InkWell(
+        // 버튼("보기" 등)이 없는 안내는 눌림을 받지 않는다 — 밑의 버튼이 그대로 눌린다(저절로 사라진다).
+        child: IgnorePointer(
+          ignoring: actionLabel == null,
+          child: Dismissible(
+            key: const ValueKey('rider-toast-dismiss'),
+            direction: DismissDirection.up,
+            onDismissed: (_) => onDismiss(),
+            child: Material(
+              key: const ValueKey('rider-toast'),
+              color: const Color(0xFF323232),
+              elevation: 6,
               borderRadius: BorderRadius.circular(8),
-              onTap: onDismiss,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        text,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
-                          height: 1.4,
-                        ),
-                      ),
-                    ),
-                    if (actionLabel case final label?)
-                      TextButton(
-                        onPressed: onAction,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(8),
+                onTap: onDismiss,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
+                  child: Row(
+                    children: [
+                      Expanded(
                         child: Text(
-                          label,
+                          text,
                           style: const TextStyle(
-                            color: Color(0xFFB9A8FF),
-                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                            fontSize: 14,
+                            height: 1.4,
                           ),
                         ),
-                      )
-                    else
-                      const SizedBox(width: 8),
-                  ],
+                      ),
+                      if (actionLabel case final label?)
+                        TextButton(
+                          onPressed: onAction,
+                          child: Text(
+                            label,
+                            style: const TextStyle(
+                              color: Color(0xFFB9A8FF),
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        )
+                      else
+                        const SizedBox(width: 8),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -602,4 +684,116 @@ class SupportEmpty extends StatelessWidget {
       ],
     ),
   );
+}
+
+/// 앱 공통 팝업(사용자 2026-11-23 "팝업창이랑 운행종료는 이런 식의 UI로" — 레퍼런스: 가운데 굵은 제목, 회색 설명,
+/// 가로 선 아래 꽉 찬 버튼 줄, 버튼이 둘이면 세로 선으로 나눔). [AlertDialog] 와 같은 이름의 인자라 바꿔 끼우기만 하면 된다.
+/// 버튼은 [actions] 의 위젯(보통 TextButton — 키·눌림은 그대로)을 칸마다 넣는다. 마지막 버튼이 주 동작(굵게),
+/// 버튼이 하나면 주 색 글자.
+class RiderAlertDialog extends StatelessWidget {
+  const RiderAlertDialog({
+    super.key,
+    this.title,
+    this.content,
+    this.actions,
+    this.contentPadding,
+  });
+
+  final Widget? title;
+  final Widget? content;
+  final List<Widget>? actions;
+
+  /// 예전 AlertDialog 호출과 맞추려고 받는다(본문 여백).
+  final EdgeInsetsGeometry? contentPadding;
+
+  @override
+  Widget build(BuildContext context) {
+    final acts = actions ?? const <Widget>[];
+    ButtonStyle style({required bool main}) => TextButton.styleFrom(
+      minimumSize: const Size.fromHeight(54),
+      shape: const RoundedRectangleBorder(),
+      foregroundColor: acts.length == 1
+          ? RiderColors.primary
+          : (main ? RiderColors.ink : RiderColors.sub),
+      textStyle: TextStyle(
+        fontFamily: 'Pretendard',
+        fontSize: 16,
+        fontWeight: main ? FontWeight.w800 : FontWeight.w500,
+      ),
+    );
+    return Dialog(
+      backgroundColor: Colors.white,
+      surfaceTintColor: Colors.transparent,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 36, vertical: 24),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Flexible(
+            child: SingleChildScrollView(
+              padding:
+                  contentPadding?.add(const EdgeInsets.only(top: 22)) ??
+                  const EdgeInsets.fromLTRB(22, 26, 22, 22),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (title case final t?)
+                    DefaultTextStyle.merge(
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        color: RiderColors.ink,
+                      ),
+                      child: Center(child: t),
+                    ),
+                  if (title != null && content != null)
+                    const SizedBox(height: 10),
+                  if (content case final c?)
+                    DefaultTextStyle.merge(
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        height: 1.45,
+                        color: RiderColors.sub,
+                      ),
+                      child: c,
+                    ),
+                ],
+              ),
+            ),
+          ),
+          if (acts.isNotEmpty) ...[
+            const Divider(height: 1, thickness: 1, color: RiderColors.line),
+            IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  for (var i = 0; i < acts.length; i++) ...[
+                    if (i > 0)
+                      const VerticalDivider(
+                        width: 1,
+                        thickness: 1,
+                        color: RiderColors.line,
+                      ),
+                    Expanded(
+                      child: TextButtonTheme(
+                        data: TextButtonThemeData(
+                          style: style(main: i == acts.length - 1),
+                        ),
+                        child: acts[i],
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
 }
