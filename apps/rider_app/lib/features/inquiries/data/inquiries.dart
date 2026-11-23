@@ -150,6 +150,19 @@ final class ApiInquiryRepository implements InquiryRepository {
   }
 }
 
+/// 쓸 수 없는 말(욕설 등)이 들어 있어 글을 받지 않았다 — case 0.37.0 `POST /inquiries`·`POST /inquiries/{id}/messages` 422
+/// (사용자 2026-11-23 "입력 자체가 안 되게"). 접수되지 않은 확정 거절이라 결과 불명이 아니다 — 쓴 글은 그대로 두고 고쳐 다시 보내게 한다.
+const blockedWordsCode = 'BLOCKED_WORDS';
+
+bool isBlockedWords(PmartFailure f) =>
+    f is ProblemFailure && f.problem.code == blockedWordsCode;
+
+/// 목에서 쓸 수 없는 말로 보는 시험 낱말(실제 목록은 서버에만 있다).
+const mockBlockedWords = ['금지어'];
+
+ProblemFailure mockBlockedWordsFailure() =>
+    const ProblemFailure(Problem(status: 422, code: blockedWordsCode));
+
 /// 목: 남긴 문의는 [answerAfter] 뒤 지원센터 답변이 달린다.
 final class MockInquiryRepository implements InquiryRepository {
   MockInquiryRepository({
@@ -211,6 +224,9 @@ final class MockInquiryRepository implements InquiryRepository {
     required IdempotencyKey key,
   }) async {
     await Future<void>.delayed(latency);
+    if (mockBlockedWords.any((w) => title.contains(w) || body.contains(w))) {
+      throw mockBlockedWordsFailure();
+    }
     final existing = _byKey[key.value];
     if (existing != null) return get(existing);
     final i = RiderInquiry(

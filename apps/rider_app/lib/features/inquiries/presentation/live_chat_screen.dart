@@ -11,6 +11,7 @@ import '../../../shared/rider_widgets.dart';
 import '../../delivery/domain/delivery.dart';
 import '../../delivery/presentation/delivery_texts.dart' show clockText;
 import '../data/live_chat.dart';
+import '../data/inquiries.dart' show isBlockedWords;
 
 /// 실시간 채팅 상담(배송과 상관없는 것). 3초마다 새 메시지를 확인한다.
 /// 실서버는 아직 경로가 없어 "준비 중" 안내와 문의 남기기로 이어 준다.
@@ -33,6 +34,9 @@ class _LiveChatScreenState extends ConsumerState<LiveChatScreen> {
   bool _closed = false;
   IdempotencyKey? _pendingKey;
   String? _pendingText;
+
+  /// 서버가 쓸 수 없는 말이 있다고 받지 않았다(422 BLOCKED_WORDS) — 고칠 때까지 입력 칸 아래에 알린다.
+  bool _blocked = false;
 
   @override
   void initState() {
@@ -113,8 +117,15 @@ class _LiveChatScreenState extends ConsumerState<LiveChatScreen> {
       if (mounted) setState(() => _closed = true);
     } on SupportThreadUnavailable {
       if (mounted) setState(() => _unavailable = true);
-    } on PmartFailure {
-      if (mounted) setState(() => _failed = true);
+    } on PmartFailure catch (f) {
+      if (isBlockedWords(f)) {
+        // 접수되지 않음(확정) — 글은 입력 칸에 그대로, 고쳐서 다시 보내게(다음은 새 키).
+        _pendingKey = null;
+        _pendingText = null;
+        if (mounted) setState(() => _blocked = true);
+      } else if (mounted) {
+        setState(() => _failed = true);
+      }
     } finally {
       if (mounted) setState(() => _sending = false);
     }
@@ -207,11 +218,16 @@ class _LiveChatScreenState extends ConsumerState<LiveChatScreen> {
                             maxLength: 1000,
                             minLines: 1,
                             maxLines: 4,
+                            onChanged: (_) {
+                              if (_blocked) setState(() => _blocked = false);
+                            },
                             decoration: InputDecoration(
                               hintText: l10n.liveChatHint,
                               counterText: '',
                               border: const OutlineInputBorder(),
                               isDense: true,
+                              errorText: _blocked ? l10n.blockedWords : null,
+                              errorMaxLines: 2,
                             ),
                           ),
                         ),

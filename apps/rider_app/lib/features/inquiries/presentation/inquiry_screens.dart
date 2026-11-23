@@ -400,6 +400,9 @@ class _InquiryNewScreenState extends ConsumerState<InquiryNewScreen> {
   IdempotencyKey? _key;
   String? _keyFor;
 
+  /// 서버가 쓸 수 없는 말이 있다고 받지 않았다 — 고칠 때까지 입력 칸 아래에 알린다.
+  bool _blocked = false;
+
   @override
   void dispose() {
     _title.dispose();
@@ -433,8 +436,16 @@ class _InquiryNewScreenState extends ConsumerState<InquiryNewScreen> {
       if (!mounted) return;
       showRiderToast(context, l10n.inqSent);
       context.pushReplacement('/my/inquiries/${created.id}');
-    } on PmartFailure {
+    } on PmartFailure catch (f) {
       if (!mounted) return;
+      if (isBlockedWords(f)) {
+        // 접수되지 않음(확정) — 쓴 글은 그대로, 고쳐서 다시 보내게.
+        setState(() {
+          _sending = false;
+          _blocked = true;
+        });
+        return;
+      }
       setState(() => _sending = false);
       showRiderToast(context, l10n.inqSendFailed);
     }
@@ -473,7 +484,7 @@ class _InquiryNewScreenState extends ConsumerState<InquiryNewScreen> {
             key: const ValueKey('inq-title'),
             controller: _title,
             maxLength: 100,
-            onChanged: (_) => setState(() {}),
+            onChanged: (_) => setState(() => _blocked = false),
             decoration: const InputDecoration(border: OutlineInputBorder()),
           ),
           const SizedBox(height: 8),
@@ -486,10 +497,12 @@ class _InquiryNewScreenState extends ConsumerState<InquiryNewScreen> {
             maxLength: 2000,
             minLines: 5,
             maxLines: 10,
-            onChanged: (_) => setState(() {}),
+            onChanged: (_) => setState(() => _blocked = false),
             decoration: InputDecoration(
               hintText: l10n.inqBodyHint,
               border: const OutlineInputBorder(),
+              errorText: _blocked ? l10n.blockedWords : null,
+              errorMaxLines: 2,
             ),
           ),
         ],

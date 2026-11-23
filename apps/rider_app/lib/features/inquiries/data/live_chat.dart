@@ -7,6 +7,7 @@ import 'package:pmart_core/pmart_core.dart';
 import '../../../l10n/gen/app_localizations.dart';
 import '../../../shared/providers.dart';
 import '../../delivery/domain/delivery.dart' show SupportMessage, SupportSender;
+import 'inquiries.dart' show mockBlockedWords, mockBlockedWordsFailure;
 
 /// 배송과 상관없는 실시간 채팅 상담(마이페이지 → 지원센터 문의 → 실시간 채팅 상담, 사용자 요청 2026-11-17).
 ///
@@ -189,6 +190,7 @@ final class MockLiveChatRepository implements LiveChatRepository {
   @override
   Future<void> send(String text, {required IdempotencyKey key}) async {
     await Future<void>.delayed(Duration.zero);
+    if (mockBlockedWords.any(text.contains)) throw mockBlockedWordsFailure();
     if (!_keys.add(key.value)) return;
     _advance();
     _items.add(_msg(SupportSender.rider, text, clock()));
