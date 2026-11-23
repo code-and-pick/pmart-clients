@@ -23,8 +23,8 @@ export function useOperatorRef(input: string) {
     queryFn: () => request('GET', api.hr.GET('/hr/employee-labels', { params: { query: { employeeNos: [no], activeOnly: true } } })),
   });
   if (value === '') return { id: null, state: 'empty' as const, label: null };
-  // 사번처럼 시작했는데(P + 숫자) 모양이 틀리면 ID 로 보내지 않고 "없어요"(예: P2026-0007 — 경계값)
-  if (!byNo && /^[Pp]\d/.test(value)) return { id: null, state: 'notFound' as const, label: null };
+  // 사번처럼 시작했는데(P + 숫자) 모양이 아직 아니면 ID 로 보내지 않고 "사번 모양" 안내(쓰는 중일 수 있어 경고가 아니라 회색 — 2026-11-24 점검, P2 만 쳐도 "없어요"가 뜨던 것)
+  if (!byNo && /^[Pp]\d/.test(value)) return { id: null, state: 'badFormat' as const, label: null };
   if (!byNo) return { id: value, state: 'id' as const, label: null };
   if (q.isPending) return { id: null, state: 'loading' as const, label: null };
   if (q.isError) return { id: null, state: 'failed' as const, label: null };
@@ -33,16 +33,17 @@ export function useOperatorRef(input: string) {
 }
 
 /** 찾는 중·없음·실패면 보내지 못한다(사번을 넣었는데 확인이 안 된 상태) */
-export const operatorRefBlocked = (r: ReturnType<typeof useOperatorRef>) => r.state === 'loading' || r.state === 'notFound' || r.state === 'failed';
+export const operatorRefBlocked = (r: ReturnType<typeof useOperatorRef>) => r.state === 'loading' || r.state === 'badFormat' || r.state === 'notFound' || r.state === 'failed';
 
 /** 칸 아래 한 줄 — 찾음(누구에게)·찾는 중·없음·실패 */
 export function OperatorRefStatus({ r, foundText, testId }: { readonly r: ReturnType<typeof useOperatorRef>; readonly foundText: (label: string) => string; readonly testId: string }) {
   if (r.state === 'empty' || r.state === 'id') return null;
   const m = messages.operatorRef;
-  const tone = r.state === 'found' ? 'text-success' : r.state === 'loading' ? 'text-base-content/50' : 'text-warning';
-  const text = r.state === 'found' ? foundText(r.label ?? '') : r.state === 'loading' ? m.loading : r.state === 'notFound' ? m.notFound : m.failed;
+  const tone = r.state === 'found' ? 'text-success' : r.state === 'loading' || r.state === 'badFormat' ? 'text-base-content/50' : 'text-warning';
+  const text = r.state === 'found' ? foundText(r.label ?? '') : r.state === 'loading' ? m.loading : r.state === 'badFormat' ? m.badFormat : r.state === 'notFound' ? m.notFound : m.failed;
+  // 한 줄씩(옆 안내와 붙지 않게)
   return (
-    <span className={`text-xs ${tone}`} role="status" data-testid={testId} data-state={r.state}>
+    <span className={`block break-keep text-xs ${tone}`} role="status" data-testid={testId} data-state={r.state}>
       {text}
     </span>
   );

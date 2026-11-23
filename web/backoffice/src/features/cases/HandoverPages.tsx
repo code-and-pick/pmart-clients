@@ -215,11 +215,13 @@ function WriteForm() {
           {m.to}
           <input className="input input-sm w-full font-mono" placeholder={m.toPlaceholder} value={to} onChange={(e) => setTo(e.target.value)} />
         </label>
-        <OperatorRefStatus r={toRef} foundText={m.toFound} testId="handover-to-status" />
-        {toId !== '' && toId === owner && (
-          <span className="text-xs text-warning" role="status" data-testid="handover-to-self">
+        {/* 전임 자신이면 "넘겨요"(초록) 대신 막는 안내만(2026-11-24 점검 — 둘이 한 줄에 같이 뜨던 것) */}
+        {toId !== '' && toId === owner ? (
+          <span className="block text-xs text-warning" role="status" data-testid="handover-to-self">
             {m.toSelf}
           </span>
+        ) : (
+          <OperatorRefStatus r={toRef} foundText={m.toFound} testId="handover-to-status" />
         )}
         <p className="text-xs text-base-content/60" data-testid="handover-to-hint">
           {m.toRoleHint}

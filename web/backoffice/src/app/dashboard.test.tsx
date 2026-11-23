@@ -11,6 +11,13 @@ import { server } from '../test/server';
 const forbidden = () => HttpResponse.json({ type: 'about:blank', title: 'x', status: 403, code: 'FORBIDDEN', traceId: 't' }, { status: 403, headers: { 'content-type': 'application/problem+json' } });
 
 describe('대시보드', () => {
+  it('접수 건을 맡지 않는 역할(센터)은 대시보드에서 접수 건을 묻지 않는다 — 403 을 내지 않게(2026-11-24 점검)', async () => {
+    const view = renderAt('/', as.center);
+    await screen.findByRole('heading', { level: 1 });
+    await new Promise((r) => setTimeout(r, 800));
+    expect(view.sent.some((r) => new URL(r.url).pathname.endsWith('/cases'))).toBe(false);
+  });
+
   it('관리자: 한눈에 = 내 할 일 숫자(오늘 주문·처리 대기·기한 지난 접수 건·답변 대기·심사 대기), 매출·통계 탭 = 7일 주문 막대·최근 주문, 운영 탭 = 처리 기한 지킴', async () => {
     const user = userEvent.setup();
     renderAt('/', as.admin);

@@ -17,7 +17,7 @@ interface Issue {
 }
 
 function useOverdueCases(enabled: boolean): { issue: Issue | null; failed: boolean; loading: boolean } {
-  const q = useAlertCount('casesOverdue' satisfies AlertKey);
+  const q = useAlertCount('casesOverdue' satisfies AlertKey, enabled);
   if (!enabled) return { issue: null, failed: false, loading: false };
   if (q.data) return { issue: q.data.n > 0 ? { text: m.overdueCases(q.data.more ? `${q.data.n}+` : String(q.data.n)), to: '/cases?tab=overdue' } : null, failed: false, loading: false };
   return { issue: null, failed: q.isError, loading: !q.isError };

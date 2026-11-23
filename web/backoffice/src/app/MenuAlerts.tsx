@@ -97,9 +97,10 @@ export function useUrgentTotal(): Count | undefined {
   return allowed ? q.data : undefined;
 }
 
-export function useAlertCount(key: AlertKey) {
+export function useAlertCount(key: AlertKey, enabled = true) {
   const api = useApi();
-  return useQuery(alertQuery(api, key));
+  // enabled=false 면 묻지 않는다(볼 수 없는 역할에 403 을 내지 않게 — 2026-11-24 점검, 센터 계정 대시보드)
+  return useQuery({ ...alertQuery(api, key), enabled });
 }
 
 /** 늘었을 때만 잠깐 true */

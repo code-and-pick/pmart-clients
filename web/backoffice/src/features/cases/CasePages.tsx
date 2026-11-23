@@ -866,12 +866,13 @@ function AssignForm({ c, onDone, part }: { readonly c: Case; readonly onDone: (c
         <label className="flex min-w-0 flex-1 flex-col gap-1 text-xs text-base-content/60">
           {m.cases.assignTo}
           <input className="input input-sm w-full font-mono" placeholder={m.cases.assignee_} value={other} onChange={(e) => setOther(e.target.value)} />
-          <OperatorRefStatus r={otherRef} foundText={m.cases.assignToFound} testId="assign-other-status" />
         </label>
         <button type="submit" className="btn btn-sm" disabled={!otherRef.id || operatorRefBlocked(otherRef) || assign.busy}>
           {m.cases.assign}
         </button>
       </form>
+      {/* 확인 줄은 칸·버튼 줄 아래(2026-11-24 점검 — 칸 안에 있으면 버튼이 확인 줄 높이로 내려갔다) */}
+      <OperatorRefStatus r={otherRef} foundText={m.cases.assignToFound} testId="assign-other-status" />
       <CommandFeedback command={assign}>{() => <span className="text-xs text-success">{m.cases.picked}</span>}</CommandFeedback>
     </div>
   );

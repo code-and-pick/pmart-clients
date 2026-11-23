@@ -1,4 +1,4 @@
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 
@@ -69,6 +69,18 @@ describe('센터 취급', () => {
     renderAt('/handlings?type=MFC&center=MFC-OTHER-01', as.center);
     expect(await screen.findByText('이용할 수 없는 화면이에요')).toBeInTheDocument();
     expect(screen.queryByText('표시할 내용이 없어요')).not.toBeInTheDocument();
+  });
+
+  it('센터 고르기에는 내 담당 센터만(그 종류 것만) — 담당이 아닌 센터는 고를 수 없다(2026-11-24 점검)', async () => {
+    const user = userEvent.setup();
+    renderAt('/handlings?type=MFC', as.center);
+    const pick = await screen.findByTestId('handling-center');
+    await waitFor(() => expect(within(pick).getByRole('option', { name: '부산진구 MFC' })).toBeInTheDocument());
+    expect(within(pick).queryByRole('option', { name: '목포 MFC' })).not.toBeInTheDocument();
+    expect(within(pick).queryByRole('option', { name: '수도권 CDC' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('radio', { name: 'CDC' }));
+    await waitFor(() => expect(within(screen.getByTestId('handling-center')).getByRole('option', { name: '수도권 CDC' })).toBeInTheDocument());
+    expect(within(screen.getByTestId('handling-center')).queryByRole('option', { name: '부산진구 MFC' })).not.toBeInTheDocument();
   });
 });
 

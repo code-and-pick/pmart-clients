@@ -26,6 +26,8 @@ describe('교대 인계', () => {
     await userEvent.type(screen.getByLabelText('후임(사번)'), 'P2026-00006');
     await userEvent.type(within(row).getByLabelText('다음 조치'), '확인');
     expect(submit).toBeDisabled(); // 후임 = 나
+    expect(screen.getByTestId('handover-to-self')).toHaveTextContent('전임과 같은 사람에게는 넘길 수 없어요');
+    expect(screen.queryByTestId('handover-to-status')).not.toBeInTheDocument(); // "넘겨요"와 같이 뜨지 않음
     await userEvent.clear(screen.getByLabelText('후임(사번)'));
     await userEvent.type(screen.getByLabelText('후임(사번)'), 'P2026-00007');
     await userEvent.clear(within(row).getByLabelText('다음 조치'));
@@ -131,7 +133,7 @@ describe('후임은 사번으로(hr 0.10.0 HR-5)', () => {
     await waitFor(() => expect(screen.getByTestId('handover-to-status')).toHaveAttribute('data-state', 'notFound'));
     await userEvent.clear(box);
     await userEvent.type(box, 'P2026-0007');
-    expect(screen.getByTestId('handover-to-status')).toHaveAttribute('data-state', 'notFound');
+    expect(screen.getByTestId('handover-to-status')).toHaveTextContent('사번은 P2026-00012 모양이에요');
     // 퇴사자는 재직자만(activeOnly=true) 조회라 빠진다 — 고를 수 없음
     await userEvent.clear(box);
     await userEvent.type(box, 'P2025-00099');

@@ -1,5 +1,5 @@
 // 센터 SKU 취급 ON/OFF(MFC·CDC). 기본 OFF(레코드 없음 = OFF, version 0). 자기 센터만(세션 centers — 서버는 토큰 centers 로 판정) — 판정은 서버.
-// 센터 목록 API(center-master)가 아직 없어 센터 ID 를 입력한다. 필터·센터·커서는 URL 쿼리.
+// 센터는 center-master 목록에서 내 담당 센터(세션 centers)만 이름으로 고른다(목록을 못 읽으면 ID 를 쳐 넣는 칸). 필터·센터·커서는 URL 쿼리.
 // 화면(2026-11-18 사용자 "밋밋하다"): 안내 띠 → 센터 고르기 줄(종류 칩·ID·사유) → 한 카드(센터 이름·ON/OFF 밑줄 탭·고르면 나오는 일괄 변경 줄·표·아래 건수). 센터 전에는 빈 상태 안내.
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
@@ -10,6 +10,7 @@ import type { Api } from '../../api/client';
 import { CommandRejectedFailure, UnknownResultFailure } from '@pmart/web-core';
 import type { SkuHandling, SkuHandlingBatchResult, SkuHandlingPage as Page, SkuHandlingResult } from '../../api/models';
 import { request } from '@pmart/web-core';
+import { useSession } from '../../app/SessionContext';
 import { useApi } from '../../app/ApiContext';
 import { CommandFeedback } from '../../shared/Feedback';
 import { formatSeoul } from '@pmart/web-ui';
@@ -135,12 +136,16 @@ export function SkuHandlingPage() {
   const enabled = enabledParam === 'true' ? true : enabledParam === 'false' ? false : undefined;
   const cursor = params.get('cursor') ?? undefined;
   const [centerInput, setCenterInput] = useState(centerId);
-  // 고를 센터 — 지금 고른 종류(MFC·CDC)의 모든 센터
+  // 고를 센터 — 지금 고른 종류(MFC·CDC) 중 내 담당 센터(세션 centers)만. 서버는 토큰 centers 에 없으면 403 이라
+  // 모든 센터를 보이면 고르자마자 "이용할 수 없는 화면"이 됐다(2026-11-24 점검). 이름은 center-master 목록에서.
+  const { session } = useSession();
+  const mine = session?.centers ?? [];
   const centers = useQuery({
     queryKey: ['centers', 'type', type],
     staleTime: 5 * 60_000,
     queryFn: async () => ((await request('GET', api.center.GET('/centers', { params: { query: { type } } }))).items ?? []).filter((c) => c.centerId),
   });
+  const myCenters = (centers.data ?? []).filter((c) => c.type === type && mine.includes(c.centerId ?? ''));
   const [reason, setReason] = useState('');
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
   const [batchEnabled, setBatchEnabled] = useState(true);
@@ -205,13 +210,13 @@ export function SkuHandlingPage() {
           ) : (
             <select aria-label={m.handlings.centerId} className="select select-sm w-56" value={centerId} onChange={(e) => setParam('center', e.target.value)} data-testid="handling-center">
               <option value="">{centers.isPending ? '…' : m.handlings.centerPlaceholder}</option>
-              {(centers.data ?? []).map((c) => (
+              {myCenters.map((c) => (
                 <option key={c.centerId} value={c.centerId}>
                   {c.name ?? c.centerId}
                 </option>
               ))}
               {/* 주소로 들어온 센터가 목록에 없으면 그 ID 도 남겨 둔다(몰래 바꾸지 않는다) */}
-              {centerId && !(centers.data ?? []).some((c) => c.centerId === centerId) && <option value={centerId}>{centerId}</option>}
+              {centerId && !myCenters.some((c) => c.centerId === centerId) && <option value={centerId}>{centerId}</option>}
             </select>
           )}
         </label>
