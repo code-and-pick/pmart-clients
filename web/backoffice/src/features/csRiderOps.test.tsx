@@ -50,7 +50,7 @@ describe('메뉴 묶음 — 역할로 보이고(합집합) 접고 편다', () =>
     const links = (g: string) => within(screen.getByTestId(`nav-group-${g}`)).getAllByRole('link', { hidden: true }).map((a) => a.childNodes[0]?.textContent); // 메뉴 이름만(업무 알림 숫자 빼고)
     renderAt('/session', as.admin);
     await screen.findByTestId('nav-group-lookup');
-    expect(links('lookup')).toEqual(['주문 조회', '통합 조회', '실시간 배송 현황', '포장 인계 현황', '배송·배차 확인', '라이더 컴플레인']);
+    expect(links('lookup')).toEqual(['주문 조회', '통합 조회', '실시간 배송 현황', '포장 인계 현황', '배송·배차 확인', '라이더 컴플레인', '배송 운영 통계']); // 배송 운영 통계(2026-11-23)
     expect(links('cs')).toEqual(['고객', '문의 답변', '전화·채팅 접수', '문의 만족도', '클레임 조회', '반품 접수', '고객센터 후속 처리']); // 고객(2026-11-20 bff 0.22.0) 맨 앞
     expect(screen.queryByTestId('nav-group-riderOps')).not.toBeInTheDocument(); // 라이더 백오피스로 옮김(2026-11-18)
     const all = [...document.querySelectorAll('[data-testid^="nav-group-"] a')].map((a) => a.getAttribute('href'));

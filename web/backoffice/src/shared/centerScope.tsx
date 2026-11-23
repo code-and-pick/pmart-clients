@@ -118,6 +118,7 @@ const SCOPE: ReadonlyArray<readonly [string, 'applied' | 'partial' | 'notApplied
   ['/claims', 'applied'],
   ['/follow-ups', 'applied'],
   ['/pending', 'applied'],
+  ['/delivery-stats', 'applied'],
 ];
 
 export function centerScopeOf(pathname: string): 'applied' | 'partial' | 'notApplied' | null {

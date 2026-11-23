@@ -72,6 +72,7 @@ const DeliveryDetailPage = lazy(() => import('../features/deliveries/DeliveryPag
 const DeliveryOpenPage = lazy(() => import('../features/deliveries/DeliveryPages').then((x) => ({ default: x.DeliveryOpenPage })));
 const CaseMetricsPage = lazy(() => import('../features/cases/CaseMetricsPage').then((x) => ({ default: x.CaseMetricsPage })));
 const CaseSlaPage = lazy(() => import('../features/cases/CaseSlaPage').then((x) => ({ default: x.CaseSlaPage })));
+const DeliveryStatsPage = lazy(() => import('../features/deliveryStats/DeliveryStatsPage').then((x) => ({ default: x.DeliveryStatsPage })));
 const InquiryDetailPage = lazy(() => import('../features/inquiries/InquiryPages').then((x) => ({ default: x.InquiryDetailPage })));
 const InquiryListPage = lazy(() => import('../features/inquiries/InquiryPages').then((x) => ({ default: x.InquiryListPage })));
 const SatisfactionPage = lazy(() => import('../features/inquiries/SatisfactionPage').then((x) => ({ default: x.SatisfactionPage })));
@@ -420,6 +421,7 @@ const routes = [
       { path: 'case-metrics', element: guarded(<CaseMetricsPage />) },
       // 처리 기한 지킴(bff 0.13.0 CASE_SLA — 백엔드 PR #164 병합 전, 목으로만)
       { path: 'case-sla', element: guarded(<CaseSlaPage />) },
+      { path: 'delivery-stats', element: guarded(<DeliveryStatsPage />) },
       { path: 'cases/new-misdelivery', element: guarded(<NewMisdeliveryPage />) },
       { path: 'cases/:caseId', element: guarded(<CaseDetailPage />) },
       { path: 'rider-complaints', element: guarded(<RiderComplaintListPage />) },

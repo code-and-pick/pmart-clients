@@ -89,6 +89,8 @@ export const navGroups: readonly NavGroup[] = [
       { to: '/packing-handover', label: m.nav.packing },
       { to: '/deliveries', label: m.nav.deliveries },
       { to: '/rider-complaints', label: m.nav.riderComplaints },
+      // 배송 운영 통계(2026-11-23 — execution delivery-metrics·dispatch metrics, 관리자·라이더 운영·상담원은 모든 센터)
+      { to: '/delivery-stats', label: m.nav.deliveryStats },
     ],
   },
   {

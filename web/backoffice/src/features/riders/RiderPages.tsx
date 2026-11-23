@@ -20,6 +20,7 @@ import { messages as m } from '../../shared/messages';
 import { SystemNumbers } from '../../shared/displayNumber';
 import { label, text, when } from '../../shared/ops';
 import { DeliveriesOf } from '../deliveries/DeliveryPages';
+import { RiderPerformance } from '../deliveryStats/DeliveryStatsPage';
 import { RiderComplaintTable } from '../riderComplaints/RiderComplaintPages';
 import { RESTRICTION_TONE } from './RiderCard';
 import { CodeLabel, FieldList, Notice, PageHeader, Section, StatusBadge } from '../../shared/admin';
@@ -174,6 +175,8 @@ export function RiderDetailPage() {
       <QueryState state={toUiState(detail)} onRetry={() => void detail.refetch()}>
         {(r) => <RiderBasic key={r.riderId} rider={r} />}
       </QueryState>
+      {/* 최근 30일 성과(execution 0.38.0 delivery-metrics?riderId=, 2026-11-23) */}
+      <RiderPerformance riderId={riderId} />
       <Section title={m.riders.deliveries}>
         <DeliveriesOf riderId={riderId} />
       </Section>
