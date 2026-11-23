@@ -5,7 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:pmart_core/pmart_core.dart';
 import 'package:pmart_ui/pmart_ui.dart'
-    show formatSeoulDateTime, toSeoulWallClock;
+    show formatSeoulDateTime, keepWords, toSeoulWallClock;
 
 import '../../../l10n/gen/app_localizations.dart';
 import '../../../shared/rider_style.dart';
@@ -124,8 +124,16 @@ class NotificationScreen extends ConsumerWidget {
             key: const ValueKey('noti-list'),
             padding: const EdgeInsets.only(bottom: 24),
             children: [
-              for (final e in value.entries)
+              for (final (i, e) in value.entries.indexed) ...[
+                if (i > 0)
+                  const Divider(
+                    height: 1,
+                    indent: 78,
+                    endIndent: 20,
+                    color: RiderColors.gap,
+                  ),
                 _NotificationRow(e: e, onTap: () => _open(context, ref, e)),
+              ],
             ],
           ),
           // 조회 실패를 "알림 없음"으로 보이지 않는다.
@@ -169,7 +177,37 @@ String notiWhenText(AppLocalizations l10n, DateTime t, {DateTime? now}) {
   return formatSeoulDateTime(t);
 }
 
-/// 알림 한 줄: 종류 그림 · 제목 · 내용 2줄 · 날짜·시각(묶였으면 "알림 n개") · 안 읽음 점.
+/// 알림함·공지의 제목 글꼴(2026-11-24 사용자 "글자체, UI 다 촌스러워 … SUIT·Paperlogy·Gmarket Sans 비교").
+/// PC 에 있는 글꼴(Noto Sans·Serif KR)로 바꿔 봤지만 사용자가 "더 별로야. 글씨체는 일단 그냥 둘게"(2026-11-24) — 앱 글꼴(Pretendard) 그대로.
+const _displayFont = riderFontFamily;
+
+/// 제목용 자간(em → px). 사용자 기준 -0.03~-0.05em.
+double _tight(double size, [double em = -0.04]) => size * em;
+
+/// 알림 종류: 작은 색 글자 이름 · 아이콘 · 색
+(String, IconData, Color) _kindOf(AppLocalizations l10n, RiderNotification n) =>
+    n.notice
+    ? (l10n.noticeTag, Icons.campaign_rounded, RiderColors.pickup)
+    : switch (n.target) {
+        HelpRequestTarget() => (
+          l10n.notiKindSupport,
+          Icons.support_agent_rounded,
+          RiderColors.drop,
+        ),
+        InquiryTarget() => (
+          l10n.notiKindInquiry,
+          Icons.chat_bubble_rounded,
+          RiderColors.primary,
+        ),
+        NoTarget() => (
+          l10n.notiKindAccount,
+          Icons.notifications_rounded,
+          RiderColors.sub,
+        ),
+      };
+
+/// 알림 한 줄(2026-11-24 다시 그림 — "ppt 같아, 트렌디하지 못해"):
+/// 위에 작은 종류·시각 한 줄, 그 아래 큰 제목(촘촘한 자간), 본문 두 줄. 안 읽음은 바탕 칠 대신 점 하나와 굵기로.
 class _NotificationRow extends StatelessWidget {
   const _NotificationRow({required this.e, required this.onTap});
 
@@ -180,119 +218,104 @@ class _NotificationRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final n = e.latest;
-    final (icon, color) = n.notice
-        ? (Icons.campaign_rounded, RiderColors.pickup)
-        : switch (n.target) {
-            HelpRequestTarget() => (Icons.support_agent, RiderColors.drop),
-            InquiryTarget() => (Icons.chat_bubble_outline, RiderColors.primary),
-            NoTarget() => (Icons.notifications_none, RiderColors.sub),
-          };
+    final (kind, icon, color) = _kindOf(l10n, n);
     final body = n.body?.trim() ?? '';
     final unread = e.unread;
-    return Material(
-      color: unread ? RiderColors.primaryMist : Colors.white,
-      child: InkWell(
-        key: ValueKey('noti-${n.id}'),
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.fromLTRB(20, 14, 16, 14),
-          decoration: const BoxDecoration(
-            border: Border(bottom: BorderSide(color: RiderColors.gap)),
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.12),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(icon, size: 21, color: color),
+    return InkWell(
+      key: ValueKey('noti-${n.id}'),
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: unread ? 0.12 : 0.07),
+                borderRadius: BorderRadius.circular(14),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (n.notice)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 3),
-                        child: Container(
-                          key: ValueKey('noti-notice-${n.id}'),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 1,
-                          ),
-                          decoration: BoxDecoration(
-                            color: RiderColors.pickup.withValues(alpha: 0.14),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            l10n.noticeTag,
-                            style: const TextStyle(
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.w700,
-                              color: RiderColors.pickup,
-                            ),
-                          ),
-                        ),
-                      ),
-                    Text(
-                      n.title,
-                      style: TextStyle(
-                        fontSize: 15,
-                        height: 1.35,
-                        fontWeight: unread ? FontWeight.w700 : FontWeight.w500,
-                        color: unread ? RiderColors.ink : RiderColors.sub,
-                      ),
-                    ),
-                    if (body.isNotEmpty) ...[
-                      const SizedBox(height: 2),
+              child: Icon(
+                icon,
+                size: 22,
+                color: unread ? color : color.withValues(alpha: 0.55),
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
                       Text(
-                        body,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          height: 1.4,
-                          color: RiderColors.sub,
+                        kind,
+                        key: n.notice ? ValueKey('noti-notice-${n.id}') : null,
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w700,
+                          color: unread ? color : RiderColors.hint,
                         ),
                       ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          [
+                            notiWhenText(l10n, n.createdAt),
+                            if (e.count > 1) l10n.notiGrouped(e.count),
+                          ].join(' · '),
+                          key: ValueKey('noti-when-${n.id}'),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 12.5,
+                            color: RiderColors.hint,
+                          ),
+                        ),
+                      ),
+                      if (unread)
+                        Container(
+                          key: ValueKey('noti-unread-${n.id}'),
+                          width: 7,
+                          height: 7,
+                          decoration: const BoxDecoration(
+                            color: RiderColors.primary,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
                     ],
-                    const SizedBox(height: 4),
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    n.title,
+                    style: TextStyle(
+                      fontFamily: _displayFont,
+                      fontSize: 16.5,
+                      height: 1.3,
+                      letterSpacing: _tight(16.5, -0.03),
+                      fontWeight: unread ? FontWeight.w700 : FontWeight.w600,
+                      color: unread ? RiderColors.ink : RiderColors.sub,
+                    ),
+                  ),
+                  if (body.isNotEmpty) ...[
+                    const SizedBox(height: 5),
                     Text(
-                      [
-                        notiWhenText(l10n, n.createdAt),
-                        if (e.count > 1) l10n.notiGrouped(e.count),
-                      ].join(' · '),
-                      key: ValueKey('noti-when-${n.id}'),
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: RiderColors.hint,
+                      body,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 14,
+                        height: 1.5,
+                        letterSpacing: -0.2,
+                        color: unread ? RiderColors.sub : RiderColors.hint,
                       ),
                     ),
                   ],
-                ),
+                ],
               ),
-              const SizedBox(width: 8),
-              SizedBox(
-                width: 8,
-                child: unread
-                    ? Container(
-                        key: ValueKey('noti-unread-${n.id}'),
-                        margin: const EdgeInsets.only(top: 6),
-                        height: 8,
-                        decoration: const BoxDecoration(
-                          color: RiderColors.primary,
-                          shape: BoxShape.circle,
-                        ),
-                      )
-                    : null,
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -300,7 +323,10 @@ class _NotificationRow extends StatelessWidget {
 }
 
 /// 공지 전문(2026-11-24 사용자 "공지 보내는 곳은 있는데 라이더앱에 공지를 읽는 곳은 없네?") — 알림함 줄은 본문 2줄까지라 끝까지 읽을 곳.
-/// 서버 알림 그대로(제목·본문·받은 시각) 보인다. 지우기 API 가 없어 지우는 버튼은 없다.
+/// 다시 그림(같은 날 "ppt 같아 … 정보의 크기 대비와 여백을 재설계"):
+/// - 위 판: 옅은 주황 판 안에 분류 꼬리표 → 큰 제목(촘촘한 자간) → 받은 시각. 문서 머리처럼 한 덩어리로.
+/// - 본문: 넓은 좌우 여백, 행간 1.75, 빈 줄로 나눈 문단마다 띄움(문단 간격).
+/// 서버 알림 그대로(제목·본문·받은 시각). 지우기 API 가 없어 지우는 버튼은 없다.
 class NoticeScreen extends StatelessWidget {
   const NoticeScreen({super.key, required this.notice});
 
@@ -310,9 +336,15 @@ class NoticeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final n = notice;
+    final paragraphs = (n?.body ?? '')
+        .trim()
+        .split(RegExp(r'\n\s*\n'))
+        .map((p) => p.trim())
+        .where((p) => p.isNotEmpty)
+        .toList();
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: riderDarkBar(context, title: l10n.noticeTitle),
+      appBar: riderDarkBar(context, title: ''),
       body: n == null
           // 앱을 다시 켜 공지 정보를 잃었으면 알림함으로 돌아가 다시 고르게 한다.
           ? Center(
@@ -323,55 +355,89 @@ class NoticeScreen extends StatelessWidget {
             )
           : ListView(
               key: const ValueKey('notice-detail'),
-              padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 48),
               children: [
-                Row(
-                  children: [
-                    const Icon(
-                      Icons.campaign_rounded,
-                      size: 20,
-                      color: RiderColors.pickup,
+                Container(
+                  padding: const EdgeInsets.fromLTRB(22, 22, 22, 24),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(24),
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        RiderColors.pickup.withValues(alpha: 0.13),
+                        RiderColors.pickup.withValues(alpha: 0.04),
+                      ],
                     ),
-                    const SizedBox(width: 6),
-                    Text(
-                      l10n.noticeTag,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: RiderColors.pickup,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.fromLTRB(8, 4, 10, 4),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.campaign_rounded,
+                              size: 16,
+                              color: RiderColors.pickup,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              l10n.noticeTag,
+                              style: const TextStyle(
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w800,
+                                color: RiderColors.pickup,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                    const Spacer(),
-                    Text(
-                      notiWhenText(l10n, n.createdAt),
-                      style: const TextStyle(
-                        fontSize: 13,
-                        color: RiderColors.hint,
+                      const SizedBox(height: 18),
+                      Text(
+                        keepWords(n.title),
+                        key: const ValueKey('notice-title'),
+                        style: TextStyle(
+                          fontFamily: _displayFont,
+                          fontSize: 27,
+                          height: 1.3,
+                          letterSpacing: _tight(27),
+                          fontWeight: FontWeight.w800,
+                          color: RiderColors.ink,
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  n.title,
-                  style: const TextStyle(
-                    fontSize: 20,
-                    height: 1.35,
-                    fontWeight: FontWeight.w800,
-                    color: RiderColors.ink,
+                      const SizedBox(height: 14),
+                      Text(
+                        notiWhenText(l10n, n.createdAt),
+                        style: const TextStyle(
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w500,
+                          color: RiderColors.sub,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 16),
-                const Divider(height: 1, color: RiderColors.gap),
-                const SizedBox(height: 16),
-                SelectableText(
-                  n.body?.trim() ?? '',
-                  style: const TextStyle(
-                    fontSize: 16,
-                    height: 1.65,
-                    color: RiderColors.ink,
+                const SizedBox(height: 30),
+                for (final (i, p) in paragraphs.indexed)
+                  Padding(
+                    padding: EdgeInsets.fromLTRB(8, i == 0 ? 0 : 20, 8, 0),
+                    child: SelectableText(
+                      p,
+                      style: const TextStyle(
+                        fontSize: 16.5,
+                        height: 1.75,
+                        letterSpacing: -0.25,
+                        color: Color(0xFF2B2B30),
+                      ),
+                    ),
                   ),
-                ),
               ],
             ),
     );
