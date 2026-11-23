@@ -37,9 +37,9 @@ export function SimulatorLink() {
       }
       data-testid="simulator-link"
     >
-      {/* 2026-11-23 사용자 "시뮬레이터가 아니라 관제시스템이라고, 폰트 두껍게" — 좁은 화면은 화살표만(f1081178) */}
-      <span className="hidden sm:inline">관제시스템</span> <span aria-hidden>↗</span>
-      <span className="sr-only sm:hidden">관제시스템</span>
+      {/* 2026-11-23 사용자 "시뮬레이터가 아니라 관제시스템이라고, 폰트 두껍게".
+          2026-11-24 "관제시스템 옆에 화살표 아이콘 없애주고 폰트 굵게" — ↗ 를 빼고, 단추 기본 굵기(.btn)에 눌리지 않게 글자에 직접 굵기 */}
+      <span style={{ fontWeight: 800 }}>관제시스템</span>
     </a>
   );
 }

@@ -8,7 +8,7 @@ import { Fragment, useState, type FormEvent } from 'react';
 import { Link, useSearchParams } from 'react-router';
 
 import { request } from '@pmart/web-core';
-import { CommandFeedback, QueryState, toUiState, uiStateFromError, useCommand } from '@pmart/web-ui';
+import { CommandFeedback, QueryState, toUiState, uiStateFromError, useCommand, type UiState } from '@pmart/web-ui';
 import { commandParams } from '../../api/command';
 import { useApi } from '../../app/ApiContext';
 import { isOperatorAdmin } from '../../app/nav';
@@ -44,6 +44,10 @@ export const payoutText = {
   compensations: (n: number) => `(보상 ${n})`,
   adjustedCount: (n: number) => `조정 ${n}`,
   normalCount: (n: number) => `정상 ${n}`,
+  kind: '수행료 구분',
+  kindName: { normal: '정상', adjusted: '조정' } as const,
+  kindEmpty: (k: string) => `이 날짜에 ${k} 수행료가 든 묶음이 없어요.`,
+  kindUnknown: (n: number) => `${n}개 묶음은 수행료를 불러오지 못해 구분 없이 그대로 보여요.`,
   lastLine: (result: string, at: string) => `${result} · ${at} ·`,
   items: {
     title: '이 묶음의 배송',
@@ -72,15 +76,30 @@ function daysBefore(date: string, days: number): string {
  * payoutDate 가 같은 묶음 상태 건을 모은다. 찾은 수가 묶음 건수와 다르면 그대로 알린다(다 찾은 척 하지 않는다).
  */
 /** 묶음 건 조회(펼친 칸과 줄의 "조정 n"이 같은 캐시를 쓴다) */
+/** 묶음의 수행료 조회(줄의 정상·조정 수, 펼친 칸, 구분 거르기가 같은 캐시를 쓴다) */
+function earningsQuery(api: ReturnType<typeof useApi>, riderId: string, payoutDate: string) {
+  return {
+    queryKey: ['payout-earnings', riderId, payoutDate],
+    queryFn: () =>
+      request('GET', api.execution.GET('/rider-earnings', { params: { query: { riderId, from: daysBefore(payoutDate, LOOKBACK_DAYS), to: payoutDate, size: 200 } } })),
+  };
+}
+
+type EarningItem = { readonly payoutDate?: string | null; readonly settlementState?: string | null; readonly adjustmentRef?: string | null; readonly note?: string | null };
+/** 그 묶음(지급 예정일)의 정상·조정 수 */
+function kindCounts(items: readonly EarningItem[], payoutDate: string): { readonly normal: number; readonly adjusted: number } {
+  const mine = items.filter((it) => it.payoutDate === payoutDate && BUNDLED.has(it.settlementState ?? ''));
+  const adjusted = mine.filter((it) => isAdjustedEarning(it)).length;
+  return { normal: mine.length - adjusted, adjusted };
+}
+
+type KindFilter = '' | 'normal' | 'adjusted';
+
 function usePayoutSources(riderId: string, payoutDate: string) {
   const api = useApi();
   return useQueries({
     queries: [
-      {
-        queryKey: ['payout-earnings', riderId, payoutDate],
-        queryFn: () =>
-          request('GET', api.execution.GET('/rider-earnings', { params: { query: { riderId, from: daysBefore(payoutDate, LOOKBACK_DAYS), to: payoutDate, size: 200 } } })),
-      },
+      earningsQuery(api, riderId, payoutDate),
       {
         queryKey: ['payout-compensations', riderId],
         queryFn: () => request('GET', api.execution.GET('/rider-compensations', { params: { query: { riderId } } })),
@@ -100,20 +119,22 @@ function usePayoutSources(riderId: string, payoutDate: string) {
 function EarningKinds({ riderId, payoutDate }: { readonly riderId: string; readonly payoutDate: string }) {
   const [earnings] = usePayoutSources(riderId, payoutDate);
   if (!earnings.data) return null;
-  const mine = (earnings.data.items ?? []).filter((it) => it.payoutDate === payoutDate && BUNDLED.has(it.settlementState ?? ''));
-  const adjusted = mine.filter((it) => isAdjustedEarning(it)).length;
-  const normal = mine.length - adjusted;
+  const { normal, adjusted } = kindCounts(earnings.data.items ?? [], payoutDate);
+  // 0 인 쪽은 적지 않는다(2026-11-24 사용자 "정상1 조정0 이렇게 되어있는데 0인 건 표시 안 해도 될 것 같아")
+  if (normal === 0 && adjusted === 0) return null;
   return (
     <span className="mt-0.5 flex justify-end gap-1 text-[11px]" data-testid="payout-kinds">
-      <span className="rounded border border-base-300 px-1 py-px text-base-content/70">{payoutText.normalCount(normal)}</span>
-      <span className={`rounded border px-1 py-px font-semibold ${adjusted > 0 ? 'border-warning/50 text-warning' : 'border-base-300 text-base-content/40'}`} data-testid="payout-adjusted-count">
-        {payoutText.adjustedCount(adjusted)}
-      </span>
+      {normal > 0 && <span className="rounded border border-base-300 px-1 py-px text-base-content/70">{payoutText.normalCount(normal)}</span>}
+      {adjusted > 0 && (
+        <span className="rounded border border-warning/50 px-1 py-px font-semibold text-warning" data-testid="payout-adjusted-count">
+          {payoutText.adjustedCount(adjusted)}
+        </span>
+      )}
     </span>
   );
 }
 
-function PayoutItems({ riderId, payoutDate, count }: { readonly riderId: string; readonly payoutDate: string; readonly count: number }) {
+function PayoutItems({ riderId, payoutDate, count, kind = '' }: { readonly riderId: string; readonly payoutDate: string; readonly count: number; readonly kind?: KindFilter }) {
   const t = payoutText.items;
   const [earnings, comps] = usePayoutSources(riderId, payoutDate);
   const rows = [
@@ -124,14 +145,16 @@ function PayoutItems({ riderId, payoutDate, count }: { readonly riderId: string;
       .filter((it) => it.payoutDate === payoutDate && BUNDLED.has(it.settlementState))
       .map((it) => ({ key: `c-${it.compensationId}`, deliveryId: it.deliveryId, kind: t.compensation, amount: it.amount, adjusted: false })),
   ];
-  const numbers = useDeliveryNumbers(rows.map((r) => r.deliveryId));
+  // 수행료 구분으로 걸렀으면 그 종류만(보상금은 수행료가 아니라 뺀다)
+  const shownRows = kind === '' ? rows : rows.filter((r) => r.key.startsWith('e-') && (kind === 'adjusted' ? r.adjusted : !r.adjusted));
+  const numbers = useDeliveryNumbers(shownRows.map((r) => r.deliveryId));
   const loading = earnings.isPending || comps.isPending;
   const failed = earnings.isError || comps.isError;
   return (
     <div data-testid="payout-items">
       <h4>{t.title}</h4>
       <QueryState
-        state={loading ? { kind: 'loading' } : failed ? uiStateFromError(earnings.error ?? comps.error) : rows.length === 0 ? { kind: 'empty' } : { kind: 'ready', data: rows }}
+        state={loading ? { kind: 'loading' } : failed ? uiStateFromError(earnings.error ?? comps.error) : shownRows.length === 0 ? { kind: 'empty' } : { kind: 'ready', data: shownRows }}
         onRetry={() => {
           void earnings.refetch();
           void comps.refetch();
@@ -150,7 +173,7 @@ function PayoutItems({ riderId, payoutDate, count }: { readonly riderId: string;
                 </tr>
               </thead>
               <tbody>
-                {rows.map((r) => {
+                {shownRows.map((r) => {
                   const no = numbers.get(r.deliveryId ?? '');
                   return (
                     <tr key={r.key} data-testid="payout-item">
@@ -169,7 +192,7 @@ function PayoutItems({ riderId, payoutDate, count }: { readonly riderId: string;
                 })}
               </tbody>
             </table>
-            {rows.length !== count && (
+            {kind === '' && rows.length !== count && (
               <p className="mt-2 text-xs text-warning" data-testid="payout-items-partial">
                 {t.partial(rows.length, count)}
               </p>
@@ -202,6 +225,9 @@ export function PayoutsMenu() {
   const riderId = params.get('riderId') ?? '';
   const rawState = params.get('state');
   const state = STATES.find((s) => s === rawState) ?? 'ALL';
+  // 수행료 구분 거르기(2026-11-24 사용자 "필터에 조정인지 정상 수행료인지 거를 수 있게") — 묶음 안 수행료를 보고 화면에서 거른다(서버 조회 조건에는 없음)
+  const rawKind = params.get('kind');
+  const kind: KindFilter = rawKind === 'normal' || rawKind === 'adjusted' ? rawKind : '';
   // 칸에는 늘 날짜가 보이게 — 비어 있으면 오늘(서울)(2026-11-24 사용자 "비우면 오늘이라고 적은 거 지우고 검색탭에 오늘 날짜를 2026-11-24 이렇게 적어")
   const [dateInput, setDateInput] = useState(payoutDate || seoulToday());
   const [riderInput, setRiderInput] = useState(riderId);
@@ -227,6 +253,22 @@ export function PayoutsMenu() {
       );
     },
   });
+  // 구분 거르기: 묶음마다 수행료를 읽어(펼친 칸과 같은 캐시) 고른 종류가 있는 묶음만. 읽는 중이면 기다리고, 못 읽은 묶음은 빼지 않고 알린다.
+  const bundles = list.data?.items ?? [];
+  const kindQs = useQueries({ queries: kind === '' ? [] : bundles.map((p) => earningsQuery(api, p.riderId, p.payoutDate)) });
+  const kindLoading = kind !== '' && kindQs.some((q) => q.isPending);
+  const unknownKinds = kind === '' ? 0 : kindQs.filter((q) => q.isError).length;
+  const kindItems =
+    kind === ''
+      ? bundles
+      : bundles.filter((p, i) => {
+          const q = kindQs[i];
+          if (!q?.data) return true; // 못 읽은 묶음은 남긴다(구분 모름 안내)
+          const c = kindCounts(q.data.items ?? [], p.payoutDate);
+          return kind === 'adjusted' ? c.adjusted > 0 : c.normal > 0;
+        });
+  const kindState: UiState<{ readonly items: typeof bundles }> =
+    list.isSuccess && !kindLoading ? (kindItems.length === 0 ? { kind: 'empty' } : { kind: 'ready', data: { items: kindItems } }) : kindLoading ? { kind: 'loading' } : toUiState(list, (x) => x.items.length === 0);
   // 줄을 누르면 아래에 라이더 요약(한 번에 한 줄)
   const inline = useInlineOpen();
   // 표시가 끝나면 줄이 바뀌어(지급 완료 → 입력 칸 없음) 줄 안 알림이 사라지므로 위에 남긴다.
@@ -257,6 +299,7 @@ export function PayoutsMenu() {
         // 지급 예정일은 찾기 줄 날짜 칸에 늘 보여 칩·필터 개수에 넣지 않는다(2026-11-24 사용자 "지급 관리에 날짜가 왜 필터야?")
         summary={[
           [t.state, state === 'ALL' ? '' : (t.stateName[state] ?? state), () => patch({ state: '' })],
+          [t.kind, kind === '' ? '' : t.kindName[kind], () => patch({ kind: '' })],
           ['라이더', riderId ? (RIDER_NUMBER.test(riderId) ? riderId : '한 라이더') : '', () => {
             setRiderInput('');
             patch({ riderId: '' });
@@ -278,12 +321,25 @@ export function PayoutsMenu() {
             onChange={(s) => patch({ state: s === 'ALL' ? '' : s })}
           />
         </SearchRow>
+        <SearchRow label={t.kind}>
+          <ChipGroup
+            label={t.kind}
+            value={kind === '' ? 'ALL' : kind}
+            options={[{ value: 'ALL' as const, label: t.all }, { value: 'normal' as const, label: t.kindName.normal }, { value: 'adjusted' as const, label: t.kindName.adjusted }]}
+            onChange={(k) => patch({ kind: k === 'ALL' ? '' : k })}
+          />
+        </SearchRow>
 
       </SearchPanel>
-      <QueryState state={toUiState(list, (x) => x.items.length === 0)} onRetry={() => void list.refetch()} emptyText={t.empty}>
+      <QueryState state={kindState} onRetry={() => void list.refetch()} emptyText={kind === '' ? t.empty : t.kindEmpty(t.kindName[kind])}>
         {(x) => (
           <div className="space-y-3">
             <ResultBar count={x.items.length} />
+            {unknownKinds > 0 && (
+              <p role="note" className="text-xs text-warning" data-testid="payout-kind-unknown">
+                {t.kindUnknown(unknownKinds)}
+              </p>
+            )}
             <DataTable testId="payouts">
               <thead>
                 <tr>
@@ -340,7 +396,7 @@ export function PayoutsMenu() {
                     </tr>
                     {isOpen && (
                       <InlineDetail colSpan={7} to={to} testId="payout-inline" actions={<RiderDeliveriesButton riderId={p.riderId} />}>
-                        <RiderInline riderId={p.riderId} lead={<PayoutItems riderId={p.riderId} payoutDate={p.payoutDate} count={p.count} />} />
+                        <RiderInline riderId={p.riderId} lead={<PayoutItems riderId={p.riderId} payoutDate={p.payoutDate} count={p.count} kind={kind} />} />
                       </InlineDetail>
                     )}
                     </Fragment>
