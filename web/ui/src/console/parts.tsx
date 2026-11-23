@@ -48,15 +48,28 @@ export function useRowLink() {
 }
 
 /** 쪽 머리말 — h1 은 화면마다 하나. 2026-11-20 AWS 개편: 아이콘 타일 없이 24px 굵은 제목 + 오른쪽 동작 */
-export function PageHeader({ title, description, actions, back }: { readonly title: ReactNode; /** 제목 아래 회색 한 줄(앱이 쓸 때만 — AWS 는 보통 도움말 패널로) */ readonly description?: ReactNode; readonly actions?: ReactNode; readonly back?: { readonly to: string; readonly label: string } }) {
+/** 뒤로 가기 한 줄 — 왼쪽 뒤로, 오른쪽 nav(시스템 번호·이전/다음 등). 상세 머리를 한 줄로(2026-11-23 사용자 "복잡하게 해놨네") */
+function BackRow({ back, nav }: { readonly back?: { readonly to: string; readonly label: string } | undefined; readonly nav?: ReactNode }) {
+  if (!back && !nav) return null;
   return (
-    <header className="space-y-1">
-      {back && (
+    <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+      {back ? (
         <Link to={back.to} className="inline-flex items-center gap-1 text-sm text-base-content/70 underline underline-offset-2 hover:text-primary">
           <span aria-hidden>‹</span>
           {back.label}
         </Link>
+      ) : (
+        <span />
       )}
+      {nav && <div className="flex flex-wrap items-center gap-x-3 gap-y-1">{nav}</div>}
+    </div>
+  );
+}
+
+export function PageHeader({ title, description, actions, back, nav }: { readonly title: ReactNode; /** 제목 아래 회색 한 줄(앱이 쓸 때만 — AWS 는 보통 도움말 패널로) */ readonly description?: ReactNode; readonly actions?: ReactNode; readonly back?: { readonly to: string; readonly label: string }; /** 뒤로 가기 줄 오른쪽(시스템 번호·이전/다음) */ readonly nav?: ReactNode }) {
+  return (
+    <header className="space-y-1">
+      <BackRow back={back} nav={nav} />
       <div className="flex flex-wrap items-end justify-between gap-3">
         <h1 className="min-w-0 text-2xl font-bold">{title}</h1>
         {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
@@ -166,17 +179,14 @@ export function CursorPager({ hasPrev, nextCursor, onFirst, onNext, page }: { re
 }
 
 /** 상세 머리 — 2026-11-20 AWS 개편: 상자 없이 24px 제목 + 표시, 아래 회색 요약 한 줄, 오른쪽 동작(흰 테두리 단추·주 단추 검정) */
-export function DetailHeader({ back, title, badges, summary, actions }: { readonly back: { readonly to: string; readonly label: string }; readonly title: ReactNode; readonly badges?: ReactNode; readonly summary?: ReactNode; readonly actions?: ReactNode }) {
+export function DetailHeader({ back, title, badges, summary, actions, nav }: { readonly back: { readonly to: string; readonly label: string }; readonly title: ReactNode; readonly badges?: ReactNode; readonly summary?: ReactNode; readonly actions?: ReactNode; /** 뒤로 가기 줄 오른쪽(시스템 번호·이전/다음) */ readonly nav?: ReactNode }) {
   // 제목이 화면 위로 지나가면 위에 얇은 제목 띠(2026-11-19)
   const card = useRef<HTMLDivElement>(null);
   const past = useScrolledPast(card);
   return (
     <header className="space-y-1">
       <StickyTitle show={past} title={title} badges={badges} />
-      <Link to={back.to} className="inline-flex items-center gap-1 text-sm text-base-content/70 underline underline-offset-2 hover:text-primary">
-        <span aria-hidden>‹</span>
-        {back.label}
-      </Link>
+      <BackRow back={back} nav={nav} />
       <div ref={card} className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 space-y-1">
           <div className="flex flex-wrap items-center gap-3">

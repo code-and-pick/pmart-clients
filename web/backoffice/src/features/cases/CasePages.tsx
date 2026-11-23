@@ -20,7 +20,7 @@
 //   버튼은 할 수 있어 보일 때만(판정은 서버 — 403·409·422 는 코드 문구).
 // - bff 0.14.0 화면 번호(ADR-0070): 목록 관련 칸은 배송·주문 번호(linked[].displayNumber)·라이더(riders[]) — 링크는 시스템 ID.
 //   상세는 case-service 직접(화면 번호 없음)이라 지금 모양 그대로.
-import { QueueNav, useRememberQueue } from '../../shared/workQueue';
+import { QueueNav, useRememberQueue, useQueueBack } from '../../shared/workQueue';
 import { pushToast } from '../../shared/toast';
 import { SeenMark } from '../../shared/SeenMark';
 import { useSeenIds } from '../../shared/recentViews';
@@ -1125,6 +1125,7 @@ export function CaseDetailPage() {
   };
   // 최근 본 항목(2026-11-18) — 서버 응답을 받은 뒤에만 남긴다
   // 최근 본 항목 이름은 화면 번호·요약(2026-11-19 — 시스템 ID 를 이름으로 남기던 것 고침, ADR-0070 덧붙임)
+  const back = useQueueBack('case', caseId, { to: '/cases', label: m.cases.back });
   useRecordRecent('case', caseId, query.data ? (query.data.caseNumber ?? label(m.cases.kindName, query.data.kind)) : null);
   return (
     <section className="space-y-4">
@@ -1142,12 +1143,10 @@ export function CaseDetailPage() {
             )}
           </>
         }
-        back={{ to: '/cases', label: m.cases.back }}
+        back={back}
+        // 시스템 번호·이전/다음은 뒤로 가기 줄 오른쪽에(2026-11-23 사용자 "복잡하게 해놨네" — 따로 두 줄 차지하던 것)
+        nav={<><SystemNumbers ids={[{ label: m.cases.title, id: caseId }]} /> <QueueNav kind="case" id={caseId} /></>}
       />
-      {/* 보던 목록 순서대로 이전·다음(2026-11-19) */}
-      <QueueNav kind="case" id={caseId} />
-      {/* 시스템 번호(ADR-0070 덧붙임) — 장애 문의·로그 대조용, 상세에서만 */}
-      <SystemNumbers ids={[{ label: m.cases.title, id: caseId }]} />
       <QueryState state={toUiState(query)} onRetry={() => void query.refetch()}>
         {(c) => {
           const closed = c.state === 'CLOSED';

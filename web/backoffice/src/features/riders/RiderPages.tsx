@@ -24,6 +24,7 @@ import { RiderPerformance } from '../deliveryStats/DeliveryStatsPage';
 import { RiderComplaintTable } from '../riderComplaints/RiderComplaintPages';
 import { RESTRICTION_TONE } from './RiderCard';
 import { CodeLabel, FieldList, Notice, PageHeader, Section, StatusBadge } from '../../shared/admin';
+import { CenterName } from '../../shared/centerScope';
 
 type PiiField = components['schemas']['RiderPiiField'];
 type StaffRiderDetail = components['schemas']['StaffRiderDetail'];
@@ -56,7 +57,7 @@ function RiderBasic({ rider }: { readonly rider: StaffRiderDetail }) {
               [m.riders.name, <span key="n" data-testid="rider-name" data-masked={!isOpen('NAME')}>{isOpen('NAME') ? text(opened?.name) : text(rider.nameMasked)}</span>],
               [m.orders.phone, <span key="p" className="font-mono" data-testid="rider-phone" data-masked={!isOpen('PHONE')}>{isOpen('PHONE') ? text(opened?.phone) : text(rider.phoneMasked)}</span>],
               [m.riders.vehicle, rider.vehicleType ? <CodeLabel key="v" code={rider.vehicleType} names={m.riders.vehicleName} /> : m.none],
-              [m.riders.operating, `${label(m.riders.operatingName, op?.status)}${op?.mfcId ? ` · ${op.mfcId}` : ''}`],
+              [m.riders.operating, <span key="op">{label(m.riders.operatingName, op?.status)}{op?.mfcId ? <> · <CenterName id={op.mfcId} /></> : null}</span>],
               [m.riders.newDispatch, op?.newDispatchEnabled === undefined ? m.none : op.newDispatchEnabled ? m.riders.newDispatchOn : m.riders.newDispatchOff],
               [m.riders.activeDeliveries, text(op?.activeDeliveryCount)],
               [m.riders.areas, (rider.deliveryAreas ?? []).map((a) => `${a.mfcId ?? ''}${a.zoneId ? `/${a.zoneId}` : ''}`).join(', ') || m.none],

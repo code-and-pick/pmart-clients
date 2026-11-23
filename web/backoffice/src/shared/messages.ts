@@ -1906,6 +1906,11 @@ export const messages = {
     /** 상세 제목 — 종류 + 지금 수행 상태(번호는 옆에 작게), 요약 줄 = 주문·라이더·센터 */
     titleOf: (type: string, state: string) => `${type} · ${state}`,
     summaryOf: (orderId: string, riderId: string, mfcId: string) => `주문 ${orderId} · 라이더 ${riderId} · 센터 ${mfcId}`,
+    summaryOrder: (n: string) => `주문 ${n}`,
+    summaryRider: (r: string) => `라이더 ${r}`,
+    riderNone: '미배정',
+    attemptsAll: (n: number) => `모두 보기 (${n}개)`,
+    attemptsLess: '최근 5개만 보기',
     nextStep: {
       failureTitle: '전달 실패를 확정하거나 반려해 주세요',
       failureBody: '라이더가 전달 실패를 등록했어요.',

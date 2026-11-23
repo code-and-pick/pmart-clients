@@ -46,13 +46,18 @@ export function OrderCancelAction({ order, open, onOpen }: { readonly order: Ord
         {m.button}
       </button>
     );
-  if (AFTER_PREPARING.has(order.status ?? ''))
-    return (
-      <span className="text-xs text-base-content/60" data-testid="order-cancel-closed">
-        {m.afterPreparing}
-      </span>
-    );
   return null;
+}
+
+/** 취소할 수 없는 이유 한 줄 — 머리 오른쪽(버튼 자리)이 아니라 요약 아래에(2026-11-23 "복잡하게" — 긴 글이 오른쪽 끝으로 밀려 잘렸다) */
+export function OrderCancelNote({ order }: { readonly order: Order }) {
+  const { session } = useSession();
+  if (!canCancelOrder(session?.roles ?? []) || !AFTER_PREPARING.has(order.status ?? '')) return null;
+  return (
+    <span className="block text-xs text-base-content/60" data-testid="order-cancel-closed">
+      {m.afterPreparing}
+    </span>
+  );
 }
 
 /** 확인 상자 — 사유·메모, 본인 확인(기타면 메모 필수), 연결할 CS 접수 */

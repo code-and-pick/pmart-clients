@@ -420,6 +420,8 @@ export function RiderComplaintDetailPage() {
           <>
             <DetailHeader
               back={{ to: '/rider-complaints', label: m.complaints.back }}
+              // 시스템 번호·이전/다음은 뒤로 가기 줄 오른쪽에(2026-11-23 사용자 "복잡하게 해놨네" — 따로 두 줄 차지하던 것)
+              nav={<><SystemNumbers ids={[{ label: m.complaints.detailTitle, id: complaintId }]} /></>}
               // 제목(2026-11-18 사용자 "직관적이지 않다"): 종류·라이더를 앞에, 컴플레인 번호는 옆에 작게
               title={
                 <>
@@ -433,8 +435,6 @@ export function RiderComplaintDetailPage() {
                 </>
               }
             />
-            {/* 시스템 번호(ADR-0070 덧붙임) — 상세에서만 */}
-            <SystemNumbers ids={[{ label: m.complaints.detailTitle, id: complaintId }]} />
             {/* 다음 할 일 — 서버가 준 접수 건이 있으면 거기서 이어서, 없으면 할 일 없음(제한 검토는 서버) */}
             {c.caseId ? (
               <NextAction tone="info" title={m.complaints.nextStep.caseTitle}>

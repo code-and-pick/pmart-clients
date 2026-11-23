@@ -8,7 +8,7 @@
 // 화면(2026-11-18 사용자 "밋밋하다 — 헬프데스크(Zendesk·Intercom)처럼"): 목록은 한 카드 안 상태 탭 → 표(제목 굵게·번호 작게·종류 색 꼬리표·"N분 전") → 아래 건수·더 보기.
 // 상세는 왼쪽 대화(고객/라이더 말풍선 ↔ 답변 말풍선, 아래 답변 쓰기 카드), 오른쪽 정보 카드(문의 정보·고객/라이더·이어서 할 일·연락 기록). 동작은 그대로.
 import { useNow } from '../../shared/motion';
-import { QueueNav, useRememberQueue } from '../../shared/workQueue';
+import { QueueNav, useRememberQueue, useQueueBack } from '../../shared/workQueue';
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, type ReactNode } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router';
@@ -580,13 +580,10 @@ export function InquiryDetailPage({ kind = 'CUSTOMER' }: { readonly kind?: Reque
 
   // 최근 본 항목(2026-11-18) — 서버 응답을 받은 뒤에만 남긴다
   // 최근 본 항목 이름(2026-11-19 — 시스템 ID 를 이름으로 남기던 것 고침, ADR-0070 덧붙임) — 문의는 분류
+  const back = useQueueBack(kind === 'RIDER' ? 'riderInquiry' : 'inquiry', inquiryId, { to: basePath(kind), label: kind === 'RIDER' ? m.inquiries.riderBack : m.inquiries.back });
   useRecordRecent(kind === 'RIDER' ? 'riderInquiry' : 'inquiry', inquiryId, query.data ? `${m.inquiries.categoryName[query.data.category] ?? query.data.category} 문의` : null); // 제목은 고객이 쓴 글이라(개인정보가 있을 수 있어) 분류만
   return (
     <section className="space-y-4">
-      {/* 보던 목록 순서대로 이전·다음(2026-11-19) */}
-      <QueueNav kind={kind === 'RIDER' ? 'riderInquiry' : 'inquiry'} id={inquiryId} />
-      {/* 고객 계정 ID 는 여기에만(2026-11-20 "시스템 값은 상세에만") — 고객 번호는 bff 고객 메뉴(0.22.0)가 들어오면 */}
-      <SystemNumbers ids={[{ label: m.inquiries.customer, id: query.data?.customerId }]} />
       <QueryState state={toUiState(query)} onRetry={() => void query.refetch()}>
         {(q) => {
           const riderAsk = q.requesterType === 'RIDER';
@@ -594,7 +591,9 @@ export function InquiryDetailPage({ kind = 'CUSTOMER' }: { readonly kind?: Reque
           return (
             <>
               <DetailHeader
-                back={{ to: basePath(kind), label: kind === 'RIDER' ? m.inquiries.riderBack : m.inquiries.back }}
+                back={back}
+                // 시스템 번호·이전/다음은 뒤로 가기 줄 오른쪽에(2026-11-23 사용자 "복잡하게 해놨네" — 따로 두 줄 차지하던 것)
+                nav={<><SystemNumbers ids={[{ label: m.inquiries.customer, id: query.data?.customerId }]} /> <QueueNav kind={kind === 'RIDER' ? 'riderInquiry' : 'inquiry'} id={inquiryId} /></>}
                 // 제목은 문의 제목(번호는 아래 줄에 작게) — 2026-11-18 "직관적이지 않다"
                 title={q.title ?? m.inquiries.untitled}
                 badges={

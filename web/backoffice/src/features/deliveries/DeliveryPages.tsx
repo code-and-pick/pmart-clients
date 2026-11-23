@@ -6,7 +6,7 @@
 //   이 앱에서는 전달 실패 확정·반려와 배차 취소를 관리자(OPERATOR_ADMIN)에게만 보이고, 그 밖 직원은 보기만 + 이 배송의 접수 건(지원센터 처리 상태)으로 잇는다(RiderOpsHandoff).
 //   이관(case transfers)은 상담원이 부를 수 없어(그 사건을 다루는 사람만) 상담원에게 넘기기 단추를 두지 않는다 — 관리자 팀으로 간 건을 돌려보내는 일은 관리자가 접수 건 상세에서.
 // 권한은 서버 판정(PC 5 PR #17 — BOD-1·2 반영): 배차 조회는 CS_AGENT·RIDER_OPS 도, 결정은 RIDER_OPS 도, 취소는 RIDER_OPS·관리자(CS_AGENT 는 취소하지 않음 — ADR-0060).
-import { QueueNav, RememberQueue } from '../../shared/workQueue';
+import { QueueNav, RememberQueue, useQueueBack } from '../../shared/workQueue';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, type FormEvent, type ReactNode } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
@@ -33,6 +33,7 @@ import { messages as m } from '../../shared/messages';
 import { label, text, when } from '../../shared/ops';
 import { CodeLabel, DataTable, DetailHeader, FieldList, NextAction, PropertyFilter, Section, StatusBadge, type Tone, useRowLink, ListHeader, refreshOf } from '../../shared/admin';
 import { Icon, KindChip, ListFoot, Timeline, When } from '../lookup/parts';
+import { CenterName } from '../../shared/centerScope';
 
 type DeliveryExecution = Execution['schemas']['DeliveryExecution'];
 type DispatchView = Dispatch['schemas']['Delivery'];
@@ -130,7 +131,7 @@ export function DeliveryTable({ rows, preview }: { readonly rows: readonly Staff
                 <span className="text-sm text-base-content/50">{m.deliveries.noAssignment}</span>
               )}
             </td>
-            <td className="text-sm">{text(d.mfcId)}</td>
+            <td className="text-sm"><CenterName id={d.mfcId} /></td>
             <td>
               <When iso={d.createdAt} />
             </td>
@@ -648,7 +649,7 @@ function DeliveryPreview({ deliveryId }: { readonly deliveryId: string }) {
             rows={[
               [m.deliveries.order, d.orderId ? <DisplayNumber key="o" number={d.orderNumber} systemId={d.orderId} /> : m.none],
               [m.deliveries.rider, d.riderId ? <RiderLabel key="r" rider={riders.get(d.riderId)} riderId={d.riderId} failed={riders.failed} withName /> : m.deliveries.noAssignment],
-              [m.deliveries.mfc, text(d.mfcId)],
+              [m.deliveries.mfc, <CenterName key="c" id={d.mfcId} />],
               [m.deliveries.assignedAt, when(d.assignedAt)],
               [m.deliveries.completedAt, when(d.completedAt)],
             ]}
@@ -699,7 +700,6 @@ function ExecutionPanel({ deliveryId }: { readonly deliveryId: string }) {
                 // 화면 번호(ADR-0070): 라이더 "가린 이름 · 번호", 주문 8자리 — 시스템 ID 는 링크와 머리의 "시스템 번호"에만
                 [m.deliveries.rider, d.riderId ? <Link key="r" className="hover:text-primary hover:underline" to={`/riders/${encodeURIComponent(d.riderId)}`}><RiderLabel rider={riders.get(d.riderId)} riderId={d.riderId} failed={riders.failed} /></Link> : m.deliveries.noAssignment],
                 [m.deliveries.order, d.orderId ? <Link key="o" className="text-primary hover:underline" to={`/orders/${encodeURIComponent(d.orderId)}`}><DisplayNumber number={d.orderNumber} systemId={d.orderId} /></Link> : m.none],
-                [m.deliveries.mfc, text(d.mfcId)],
                 [m.deliveries.assignedAt, when(d.assignedAt)],
                 [m.deliveries.completedAt, when(d.completedAt)],
               ]}
@@ -765,6 +765,8 @@ function ExecutionPanel({ deliveryId }: { readonly deliveryId: string }) {
   );
 }
 
+const ATTEMPTS_SHOWN = 5;
+
 function DispatchPanel({ deliveryId }: { readonly deliveryId: string }) {
   const api = useApi();
   const admin = useIsAdmin();
@@ -772,7 +774,7 @@ function DispatchPanel({ deliveryId }: { readonly deliveryId: string }) {
     queryKey: ['deliveries', deliveryId, 'dispatch'],
     queryFn: () => request('GET', api.dispatch.GET('/deliveries/{deliveryId}/dispatch', { params: { path: { deliveryId } } })),
   });
-  const dispatchRiders = useRiderLabels([query.data?.assignment?.riderId]);
+  const [allAttempts, setAllAttempts] = useState(false);
   return (
     <Section title={<PanelTitle icon="user" title={m.deliveries.dispatch} source="delivery-dispatch" />} testId="dispatch-panel">
       <QueryState state={toUiState(query)} onRetry={() => void query.refetch()}>
@@ -785,10 +787,9 @@ function DispatchPanel({ deliveryId }: { readonly deliveryId: string }) {
             </div>
             <FieldList
               rows={[
-                [m.deliveries.rider, d.assignment?.riderId ? <Link key="r" className="hover:text-primary hover:underline" to={`/riders/${encodeURIComponent(d.assignment.riderId)}`}><RiderLabel rider={dispatchRiders.get(d.assignment.riderId)} riderId={d.assignment.riderId} failed={dispatchRiders.failed} /></Link> : m.deliveries.noAssignment],
+                // 라이더·센터는 머리 요약·배송 수행 칸에 있어 여기서는 빼고 배차 시각만(2026-11-23 "복잡하게" — 두 칸에 같은 값)
                 [m.deliveries.assignedAt, when(d.assignment?.assignedAt)],
                 [m.deliveries.pickedUpAt, when(d.assignment?.pickedUpAt)],
-                [m.deliveries.mfc, text(d.mfcId)],
               ]}
             />
             {admin && (
@@ -801,8 +802,9 @@ function DispatchPanel({ deliveryId }: { readonly deliveryId: string }) {
               {(d.attempts ?? []).length === 0 ? (
                 <p className="text-sm text-base-content/60">{m.deliveries.noAttempts}</p>
               ) : (
+                <>
                 <Timeline
-                  items={newestFirst(d.attempts ?? [], (a) => a.startedAt).map((a, n) => ({
+                  items={newestFirst(d.attempts ?? [], (a) => a.startedAt).slice(0, allAttempts ? undefined : ATTEMPTS_SHOWN).map((a, n) => ({
                     key: a.attemptId ?? `attempt-${n}`,
                     tone: a.failureReason ? 'error' : 'info',
                     title: (
@@ -819,6 +821,13 @@ function DispatchPanel({ deliveryId }: { readonly deliveryId: string }) {
                     meta: when(a.startedAt),
                   }))}
                 />
+                {/* 최근 5개만 먼저(2026-11-23 "복잡하게" — 같은 "실패 · 시간 초과"가 수십 줄), 나머지는 눌러서 */}
+                {(d.attempts ?? []).length > ATTEMPTS_SHOWN && (
+                  <button type="button" className="btn btn-ghost btn-xs" onClick={() => setAllAttempts((v) => !v)} data-testid="attempts-toggle">
+                    {allAttempts ? m.deliveries.attemptsLess : m.deliveries.attemptsAll((d.attempts ?? []).length)}
+                  </button>
+                )}
+                </>
               )}
             </div>
           </div>
@@ -893,11 +902,14 @@ export function DeliveryDetailPage() {
   const rl = headRiders.get(d?.riderId);
   // 상세(2026-11-18): 상세 머리(종류·수행 상태가 먼저, 번호는 옆에 작게 + 컴플레인 기록) → 다음 할 일 → 원천 두 칸(배송 수행 | 배차) — 상태는 원천마다 따로, 합치지 않는다
   // 최근 본 항목(2026-11-18) — 서버 응답을 받은 뒤에만 남긴다
+  const back = useQueueBack('delivery', deliveryId, { to: '/deliveries', label: m.deliveries.back });
   useRecordRecent('delivery', deliveryId, d ? (d.deliveryNumber ?? m.displayNumber.missing) : null); // 번호 없으면 ID 대신 "번호 없음"(2026-11-19)
   return (
     <section className="space-y-4">
       <DetailHeader
-        back={{ to: '/deliveries', label: m.deliveries.back }}
+        back={back}
+        // 시스템 번호·이전/다음은 뒤로 가기 줄 오른쪽에(2026-11-23 사용자 "복잡하게 해놨네" — 따로 두 줄 차지하던 것)
+        nav={<><SystemNumbers ids={[{ label: m.displayNumber.system.deliveryId, id: deliveryId }, { label: m.displayNumber.system.orderId, id: d?.orderId }, { label: m.displayNumber.system.riderId, id: d?.riderId }]} /> <QueueNav kind="delivery" id={deliveryId} /></>}
         title={
           <>
             {d?.type && d.state ? m.deliveries.titleOf(label(m.deliveries.typeName, d.type), label(m.deliveries.executionState, d.state)) : m.deliveries.deliveryId}
@@ -908,12 +920,10 @@ export function DeliveryDetailPage() {
             <CopyButton value={d?.deliveryNumber ?? deliveryId} />
           </>
         }
-        summary={d ? m.deliveries.summaryOf(d.orderNumber ?? m.none, d.riderId ? (rl?.riderNumber ? `${rl.nameMasked ?? ''} · ${rl.riderNumber}` : m.none) : m.deliveries.noAssignment, text(d.mfcId)) : undefined}
+        // 요약 한 줄(2026-11-23 "복잡하게" — "라이더 배정된 라이더가 없어요." 같은 문장 대신 짧게, 센터는 이름)
+        summary={d ? <>{m.deliveries.summaryOrder(d.orderNumber ?? m.none)} · {m.deliveries.summaryRider(d.riderId ? (rl?.riderNumber ? `${rl.nameMasked ?? ''} · ${rl.riderNumber}` : m.none) : m.deliveries.riderNone)} · <CenterName id={d.mfcId} /></> : undefined}
         actions={<DeliveryStartActions deliveryId={deliveryId} />}
       />
-      {/* 보던 목록 순서대로 이전·다음(2026-11-19) */}
-      <QueueNav kind="delivery" id={deliveryId} />
-      <SystemNumbers ids={[{ label: m.displayNumber.system.deliveryId, id: deliveryId }, { label: m.displayNumber.system.orderId, id: d?.orderId }, { label: m.displayNumber.system.riderId, id: d?.riderId }]} />
       {/* 다음 할 일 — 서버 수행 상태가 전달 실패 등록(FAILURE_REPORTED)일 때만: 확정·반려 칸으로 */}
       {admin && d?.state === 'FAILURE_REPORTED' && (
         <NextAction tone="warning" title={m.deliveries.nextStep.failureTitle}>

@@ -1,6 +1,6 @@
 // 승인 상세·결정. 5축(요청·심사·실행·전달·사건)을 한 상태로 합치지 않는다.
 // 결정은 APPROVE·REJECT 만(나머지는 백엔드 미지원 → 버튼 없음). 결정 뒤 정본 반영은 비동기라 짧게 폴링한다.
-import { QueueNav } from '../../shared/workQueue';
+import { QueueNav, useQueueBack } from '../../shared/workQueue';
 import { StaffName } from '../lookup/parts';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
@@ -131,6 +131,7 @@ function lineAmountText(type: string | undefined, l: Line): string {
 
 export function ApprovalDetailPage() {
   const { approvalId = '' } = useParams();
+  const back = useQueueBack('approval', approvalId, { to: '/approvals', label: m.approvals.title });
   const api = useApi();
   const queryClient = useQueryClient();
   const { session } = useSession();
@@ -202,7 +203,9 @@ export function ApprovalDetailPage() {
           return (
             <>
               <DetailHeader
-                back={{ to: '/approvals', label: m.approvals.title }}
+                back={back}
+                // 시스템 번호·이전/다음은 뒤로 가기 줄 오른쪽에(2026-11-23 사용자 "복잡하게 해놨네" — 따로 두 줄 차지하던 것)
+                nav={<><SystemNumbers ids={[{ label: m.approvals.detailTitle, id: approvalId }, { label: m.approvals.target, id: a.targetRef }]} /> <QueueNav kind="approval" id={approvalId} /></>}
                 // 제목(2026-11-18 사용자 "직관적이지 않다"): 서버 요약을 앞에, 승인 번호는 옆에 작게. 요약 줄 = 요청자·상신 시각
                 title={
                   <>
@@ -232,10 +235,6 @@ export function ApprovalDetailPage() {
                   </>
                 }
               />
-              {/* 시스템 번호(ADR-0070 덧붙임 — 승인은 화면 번호가 없고 시스템 ID 는 상세에서만) */}
-              {/* 보던 목록 순서대로 이전·다음(2026-11-19) */}
-              <QueueNav kind="approval" id={approvalId} />
-              <SystemNumbers ids={[{ label: m.approvals.detailTitle, id: approvalId }, { label: m.approvals.target, id: a.targetRef }]} />
               {/* 진행 단계(2026-11-18) — 요청·심사·결정·반영 */}
               <ApprovalProgress approval={a} />
               {/* 다음 할 일 — 심사 칸이 열린 서버 상태(REVIEW_PENDING·EVIDENCE_REQUIRED)일 때만. 내 요청·내 권한 요청은 버튼 없이 안내 */}

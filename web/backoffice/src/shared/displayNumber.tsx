@@ -63,9 +63,10 @@ export function SystemNumbers({ ids }: { readonly ids: ReadonlyArray<{ readonly 
   const shown = ids.filter((x): x is { readonly label: string; readonly id: string } => typeof x.id === 'string' && x.id !== '');
   if (shown.length === 0) return null;
   return (
-    <details className="text-xs" data-testid="system-numbers">
-      <summary className="cursor-pointer text-base-content/60">{m.systemNumbers}</summary>
-      <dl className="mt-1 grid grid-cols-[6rem_1fr] gap-x-3 gap-y-0.5">
+    // 머리 뒤로 가기 줄 오른쪽에 작은 단추로(2026-11-23 — 따로 한 줄 차지하던 것), 펼치면 아래로 뜨는 판
+    <details className="relative text-xs" data-testid="system-numbers">
+      <summary className="cursor-pointer list-none text-base-content/60 hover:text-base-content [&::-webkit-details-marker]:hidden">{m.systemNumbers}<span aria-hidden="true"> ▾</span></summary>
+      <dl className="absolute right-0 top-full z-30 mt-1 grid w-max max-w-[90vw] grid-cols-[6rem_1fr] gap-x-3 gap-y-0.5 rounded-box border border-base-300 bg-base-100 p-3 shadow-lg">
         {shown.map((x) => (
           <div key={`${x.label}:${x.id}`} className="contents">
             <dt className="text-base-content/60">{x.label}</dt>

@@ -10,7 +10,8 @@ import { QueryState, toUiState } from "@pmart/web-ui";
 import { useApi } from "../../app/ApiContext";
 import { FieldList, Section, StatusBadge, type Tone } from "../../shared/admin";
 import { messages as m } from "../../shared/messages";
-import { label, text } from "../../shared/ops";
+import { label } from "../../shared/ops";
+import { CenterName } from '../../shared/centerScope';
 
 export const RESTRICTION_TONE: Readonly<Record<string, Tone>> = {
   NORMAL: "success",
@@ -91,7 +92,7 @@ export function RiderCard({ riderId }: { readonly riderId: string }) {
                         ? m.riders.newDispatchOn
                         : m.riders.newDispatchOff,
                   ],
-                  [m.deliveries.riderCard.mfc, text(op?.mfcId)],
+                  [m.deliveries.riderCard.mfc, <CenterName key="c" id={op?.mfcId} />],
                   [
                     m.riders.restriction,
                     label(m.riders.restrictionName, restriction),

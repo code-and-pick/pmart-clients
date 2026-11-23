@@ -2,7 +2,7 @@
 // 조건은 URL 쿼리에 둔다. orderId·customerId 가 없으면 기간 두 값이 필요하고 31일 이하(서버 400 — 화면은 보내기 전에 안내만).
 // 연락처는 숫자만 완전 일치(부분 검색 없음). 목록 연락처·상세 배송지는 서버가 가린 값(0.4.0·0.5.0) — 원문은 사유를 적고 pii-reveals(열람 기록).
 // 검색 조건·배송지·연락처를 로그에 남기지 않는다. 고객센터는 주문을 취소하지 않는다(ADR-0060) — 취소 버튼 없음.
-import { QueueNav, RememberQueue } from '../../shared/workQueue';
+import { QueueNav, RememberQueue, useQueueBack } from '../../shared/workQueue';
 import { useQuery } from '@tanstack/react-query';
 import { useState, type ReactNode } from 'react';
 import { useParams, useSearchParams } from 'react-router';
@@ -23,13 +23,14 @@ import { PreviewDrawer, PreviewFacts, usePreview } from '../../shared/Preview';
 import { messages as m } from '../../shared/messages';
 import { addSeoulDays, isSeoulDate, label, seoulDayEnd, seoulDayStart, seoulToday, spanDays, text, when, won } from '../../shared/ops';
 import { ClaimsOfOrder } from '../claims/ClaimPages';
-import { OrderCancelAction, OrderCancelForm } from '../claims/OrderCancel';
+import { OrderCancelAction, OrderCancelForm, OrderCancelNote } from '../claims/OrderCancel';
 import { ReturnIntakeLink } from '../claims/ReturnClaim';
 import { DeliveriesOf } from '../deliveries/DeliveryPages';
 import { EmptyBox, Icon, KindChip, ListFoot, SideFields, Timeline, When } from '../lookup/parts';
 import { useHelp } from '../../shared/HelpPanel';
 import { PeriodPresets } from '../../shared/PeriodPresets';
 import { useCenterScope } from '../../shared/centerScope';
+import { CenterName } from '../../shared/centerScope';
 
 type OrderStatus = components['schemas']['OrderStatus'];
 type Detail = components['schemas']['StaffOrderDetail'];
@@ -224,7 +225,7 @@ export function OrderLookupPage() {
                           <When iso={o.confirmedAt} />
                         </td>
                         <td>
-                          <KindChip icon="store">{o.mfcId}</KindChip>
+                          <KindChip icon="store"><CenterName id={o.mfcId} /></KindChip>
                         </td>
                         <td className="whitespace-nowrap text-sm">{text(o.receiverPhoneMasked)}</td>
                         <td className="text-right tabular-nums">{o.itemCount}</td>
@@ -457,7 +458,7 @@ export function OrderDetailPage() {
   // 고객센터 주문 취소(claim 0.4.0) — 상품준비 전만, 머리 오른쪽 버튼으로 연다
   const [cancelOpen, setCancelOpen] = useState(false);
 
-  const back = { to: '/orders', label: m.orders.back };
+  const back = useQueueBack('order', orderId, { to: '/orders', label: m.orders.back });
 
   // 상세(2026-11-18 Shopify 주문 상세처럼): 머리(번호·상태·요약) → 넓은 화면 두 칸
   // 왼쪽(넓게) = 주문 상품·금액·이행 확인·배송·클레임, 오른쪽 = 주문 정보·배송지(가림·원문 열람)
@@ -474,6 +475,8 @@ export function OrderDetailPage() {
           <>
             <DetailHeader
               back={back}
+              // 시스템 번호·이전/다음은 뒤로 가기 줄 오른쪽에(2026-11-23 사용자 "복잡하게 해놨네" — 따로 두 줄 차지하던 것)
+              nav={<><SystemNumbers ids={[{ label: m.displayNumber.system.orderId, id: orderId }, { label: m.displayNumber.system.customerId, id: query.data?.customerId }, { label: m.orders.paymentAttemptId, id: query.data?.payment.paymentAttemptId }, { label: m.orders.pgTransactionId, id: query.data?.payment.pgTransactionId }, { label: m.orders.version, id: query.data?.version === undefined ? null : String(query.data.version) }]} /> <QueueNav kind="order" id={orderId} /></>}
               title={
                 <>
                   {firstName ? m.orders.titleOf(firstName, o.lines.length - 1) : m.orders.detailTitle}
@@ -497,20 +500,8 @@ export function OrderDetailPage() {
                   )}
                 </>
               }
-              summary={`${when(o.confirmedAt)} · ${o.mfcId} · ${won(o.amounts.approvedAmount)}`}
+              summary={<>{when(o.confirmedAt)} · <CenterName id={o.mfcId} /> · {won(o.amounts.approvedAmount)}<OrderCancelNote order={o} /></>}
               actions={<OrderCancelAction order={o} open={cancelOpen} onOpen={() => setCancelOpen(true)} />}
-            />
-            {/* 보던 목록 순서대로 이전·다음(2026-11-19) */}
-            <QueueNav kind="order" id={orderId} />
-            {/* 결제 시도·PG 거래 ID 도 여기에만(2026-11-20 사용자 "pay-…·TEST_AUTO_pay-… 는 상세에만" — 금액 칸에서 뺌) */}
-            <SystemNumbers
-              ids={[
-                { label: m.displayNumber.system.orderId, id: orderId },
-                { label: m.displayNumber.system.customerId, id: query.data?.customerId },
-                { label: m.orders.paymentAttemptId, id: query.data?.payment.paymentAttemptId },
-                { label: m.orders.pgTransactionId, id: query.data?.payment.pgTransactionId },
-                { label: m.orders.version, id: query.data?.version === undefined ? null : String(query.data.version) },
-              ]}
             />
             {/* 주문 진행 단계(2026-11-18 Refine 참고) — 서버 상태를 계약 상태표 순서대로 */}
             <OrderProgress status={o.status} />

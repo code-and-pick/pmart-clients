@@ -252,6 +252,8 @@ export function ProductDetailPage() {
     <section className="space-y-4">
       <DetailHeader
         back={{ to: '/products', label: m.products.listTitle }}
+        // 시스템 번호·이전/다음은 뒤로 가기 줄 오른쪽에(2026-11-23 사용자 "복잡하게 해놨네" — 따로 두 줄 차지하던 것)
+        nav={<><SystemNumbers ids={[{ label: m.products.sys.product, id: productId }, { label: m.products.sys.baseProduct, id: p0?.baseProductId }, { label: m.products.sys.primaryCategory, id: p0?.primaryCategoryId }, { label: m.products.sys.approval, id: p0?.approvalId }]} /></>}
         // 제목은 관리용 명칭만 — 상품 ID 는 아래 "시스템 번호" 접기에(ADR-0070 덧붙임, 2026-11-19)
         title={p0?.internalName ?? m.products.detailTitleNoId}
         badges={
@@ -274,14 +276,6 @@ export function ProductDetailPage() {
             </Link>
           </>
         }
-      />
-      <SystemNumbers
-        ids={[
-          { label: m.products.sys.product, id: productId },
-          { label: m.products.sys.baseProduct, id: p0?.baseProductId },
-          { label: m.products.sys.primaryCategory, id: p0?.primaryCategoryId },
-          { label: m.products.sys.approval, id: p0?.approvalId },
-        ]}
       />
       <QueryState state={toUiState(query)} onRetry={() => void query.refetch()}>
         {(p) => (

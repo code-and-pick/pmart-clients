@@ -449,6 +449,8 @@ export function ClaimDetailPage() {
           <>
             <DetailHeader
               back={{ to: '/claims', label: m.claims.back }}
+              // 시스템 번호·이전/다음은 뒤로 가기 줄 오른쪽에(2026-11-23 사용자 "복잡하게 해놨네" — 따로 두 줄 차지하던 것)
+              nav={<><SystemNumbers ids={[{ label: m.claims.detailTitle, id: claimId }, { label: m.displayNumber.system.orderId, id: c.orderId }]} /></>}
               // 제목(2026-11-18 사용자 "직관적이지 않다"): 종류 · 사유를 앞에, 클레임 번호는 옆에 작게
               title={
                 <>
@@ -466,8 +468,6 @@ export function ClaimDetailPage() {
               }
               summary={`${m.claims.orderId} ${detailOrders.get(c.orderId) ?? (c.orderId ? m.claims.orderNumberUnknown : m.none)} · ${when(c.openedAt)}`}
             />
-            {/* 시스템 번호(ADR-0070 덧붙임) — 상세에서만 */}
-            <SystemNumbers ids={[{ label: m.claims.detailTitle, id: claimId }, { label: m.displayNumber.system.orderId, id: c.orderId }]} />
             {next && (
               <NextAction tone={next.tone} title={next.title} body={next.body}>
                 <a className="btn btn-sm" href="#recovery-actions">

@@ -61,6 +61,15 @@ export function RememberQueue({ kind, ids, from }: { readonly kind: RecentKind; 
 }
 
 /** 상세: 기억한 목록 안에 이 건이 있으면 이전·다음 띠. [ · ] 키로도 넘긴다 */
+/**
+ * 상세 머리의 뒤로 가기 — 목록에서 왔으면 "보던 목록으로"(거른 조건 그대로), 아니면 fallback(2026-11-23 사용자 "복잡하게 해놨네" —
+ * 뒤로 가기가 두 줄이던 것을 하나로). 이전·다음은 QueueNav 가 같은 줄 오른쪽에.
+ */
+export function useQueueBack(kind: RecentKind, id: string, fallback: { readonly to: string; readonly label: string }): { readonly to: string; readonly label: string } {
+  const q = useMemo(() => read(kind), [kind]);
+  return q && q.ids.includes(id) ? { to: q.from, label: m.backToList.replace(/^‹\s*/, '') } : fallback;
+}
+
 export function QueueNav({ kind, id }: { readonly kind: RecentKind; readonly id: string }) {
   const navigate = useNavigate();
   const q = useMemo(() => read(kind), [kind]);
@@ -81,10 +90,8 @@ export function QueueNav({ kind, id }: { readonly kind: RecentKind; readonly id:
   if (!q || at < 0 || q.ids.length < 2) return null;
   const btn = 'btn btn-ghost btn-xs';
   return (
+    // 뒤로 가기는 머리의 뒤로 가기 줄(useQueueBack)이 맡는다 — 여기는 이전·위치·다음만
     <nav aria-label={m.label} className="flex flex-wrap items-center justify-end gap-1 text-xs text-base-content/60" data-testid="queue-nav">
-      <Link to={q.from} className="mr-auto hover:text-base-content">
-        {m.backToList}
-      </Link>
       {prev ? (
         <Link to={recentPath[kind](prev)} className={btn} title={`${m.prev} ([)`} data-testid="queue-prev">
           ‹ {m.prev}

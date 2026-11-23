@@ -32,6 +32,7 @@ import { SourceStamps } from '../../shared/SourceStamps';
 import { CodeLabel, NextAction, StatCard, StatStrip, AllDone, ListHeader, refreshOf } from '../../shared/admin';
 import { PENDING_KINDS } from '../../app/listCounts';
 import { stopErrorName, stopErrorText } from '../../shared/blockReason';
+import { CenterName } from '../../shared/centerScope';
 
 type Item = components['schemas']['PendingWorkItem'];
 type View = components['schemas']['ComposedView'] & { items?: Item[]; truncated?: boolean; centerUnfilteredSources?: string[] };
@@ -452,7 +453,7 @@ function PendingGroups({ items, unfiltered }: { readonly items: readonly Item[];
                       {i.mfcId && (
                         <div className="flex gap-1.5">
                           <dt>{m.pending.mfc}</dt>
-                          <dd className="font-mono">{i.mfcId}</dd>
+                          <dd><CenterName id={i.mfcId} /></dd>
                         </div>
                       )}
                     </dl>
