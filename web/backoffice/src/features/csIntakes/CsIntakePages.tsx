@@ -20,7 +20,7 @@ import { useSession } from '../../app/SessionContext';
 import { CommandFeedback } from '../../shared/Feedback';
 import { LeaveGuard } from '../../shared/LeaveGuard';
 import { CaseNumber } from '../../shared/CaseNumber';
-import { useResolvedRef } from '../../shared/numberLookups';
+import { isCustomerNumber, useResolvedRef } from '../../shared/numberLookups';
 import { RefStatus } from '../../shared/RefField';
 import { messages } from '../../shared/messages';
 import { when } from '../../shared/ops';
@@ -84,11 +84,13 @@ function problems(d: Draft): string[] {
  * 고객 칸 — 고객번호(6자리)를 넣으면 bff 고객 찾기(완전 일치)로 고객 계정 ID 를 찾는다. 그 밖 값은 고객 계정 ID 로 그대로(고객 상세에서 넘어온 값 등).
  * (2026-11-24 점검 — "고객 계정 ID" 를 직접 쳐 넣어야 했다.) 전화번호로는 찾지 않는다(칸 안내 "전화번호는 넣지 마세요").
  */
-const isCustomerNumber = (v: string) => /^\d{6}$/.test(v);
+// 6자리 숫자인데 계약 모양(1~9 로 시작)이 아니면 조회하지 않고 "없어요"(서버 400 이 "조회 실패"로 보이던 것)
+const isSixDigits = (v: string) => /^\d{6}$/.test(v);
 function useCustomerRef(input: string) {
   const api = useApi();
   const value = input.trim();
   const byNumber = isCustomerNumber(value);
+  const badNumber = isSixDigits(value) && !byNumber;
   const q = useQuery({
     queryKey: ['customers', 'by-number', value],
     enabled: byNumber,
@@ -96,6 +98,7 @@ function useCustomerRef(input: string) {
     queryFn: () => request('GET', api.bff.GET('/views/customer-search', { params: { query: { customerNumber: value } } })),
   });
   if (value === '') return { id: null, state: 'empty' as const, label: null };
+  if (badNumber) return { id: null, state: 'notFound' as const, label: null };
   if (!byNumber) return { id: value, state: 'id' as const, label: null };
   if (q.isPending) return { id: null, state: 'loading' as const, label: null };
   if (q.isError) return { id: null, state: 'failed' as const, label: null };

@@ -25,6 +25,7 @@ import { useHelp } from '../../shared/HelpPanel';
 import { CopyButton } from '../../shared/CopyButton';
 import { CustomerNotes } from './CustomerNotes';
 import { CustomerRestriction, RestrictionBadge } from './CustomerRestriction';
+import { isCustomerNumber } from '../../shared/numberLookups';
 
 const m = messages.customers;
 type Detail = components['schemas']['ComposedView'] & components['schemas']['CustomerDetailView'];
@@ -41,9 +42,11 @@ export function CustomerSearchPage() {
   const given = KEYS.filter((k) => (params.get(k) ?? '').trim() !== '');
   const by: Key | undefined = given.length === 1 ? given[0] : undefined;
   const value = by ? (params.get(by) ?? '').trim() : '';
+  // 고객번호는 계약 모양(1~9 로 시작하는 6자리)일 때만 묻는다 — 아니면 서버 400 이 "불러오지 못했어요"로 보였다(2026-11-24)
+  const badNumber = by === 'customerNumber' && !isCustomerNumber(value);
   const query = useQuery({
     queryKey: ['customers', 'search', by, value],
-    enabled: by !== undefined,
+    enabled: by !== undefined && !badNumber,
     queryFn: () => request('GET', api.bff.GET('/views/customer-search', { params: { query: by ? { [by]: by === 'phone' ? value.replace(/[\s-]/g, '') : value } : {} } })),
   });
   // 하나만 — 새 조건을 고르면 다른 조건은 지운다(계약: 둘 이상이면 400)
@@ -66,7 +69,12 @@ export function CustomerSearchPage() {
         <PropertyFilter props={props} value={Object.fromEntries(KEYS.map((k) => [k, params.get(k) ?? undefined]))} onChange={change} testId="customer-filter" />
         <p className="mt-2 text-xs text-base-content/60">{m.searchHint}</p>
       </div>
-      {by && (
+      {badNumber && (
+        <p className="rounded-box border border-warning/40 bg-warning/5 px-5 py-4 text-sm" role="alert" data-testid="customer-bad-number">
+          {m.badCustomerNumber}
+        </p>
+      )}
+      {by && !badNumber && (
         <QueryState state={toUiState(query)} onRetry={() => void query.refetch()}>
           {(r) => (
             <div className="space-y-2">

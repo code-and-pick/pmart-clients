@@ -61,6 +61,13 @@ describe('전화·채팅 접수', () => {
     expect(((await view.mutations('/cs-intakes')[0]!.json()) as { customerRef?: string }).customerRef).toBe('CUS-1001');
   });
 
+  it('0 으로 시작하는 6자리는 고객번호가 아니라 조회하지 않고 "없어요"(계약 ^[1-9][0-9]{5}$)', async () => {
+    const view = renderAt('/cs-intakes/new', as.cs);
+    await fill({ customer: '012345' });
+    expect(await screen.findByTestId('intake-customer-status')).toHaveAttribute('data-state', 'notFound');
+    expect(view.sent.some((r) => new URL(r.url).pathname.endsWith('/views/customer-search'))).toBe(false);
+  });
+
   it('본인 확인 규칙 — 전화면 앱 로그인 채팅을 못 고르고, 주문 대조는 주문 번호·기타는 메모가 있어야 보낸다', async () => {
     renderAt('/cs-intakes/new', as.cs);
     await fill({ channel: '전화', customer: 'CUS-1001', relation: '본인', summary: '문의' });

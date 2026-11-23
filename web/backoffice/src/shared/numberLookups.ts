@@ -83,6 +83,9 @@ export async function riderIdOfNumber(api: ReturnType<typeof useApi>, riderNumbe
   return r.items?.[0]?.riderId ?? null;
 }
 
+/** 고객번호 — bff customer-search 계약 pattern ^[1-9][0-9]{5}$ 와 같게(0 으로 시작하면 고객번호가 아니다 — 2026-11-24 PR용 프론트 #442 리뷰) */
+export const isCustomerNumber = (v: string) => /^[1-9]\d{5}$/.test(v.trim());
+
 export const isOrderNumber = (v: string) => /^\d{8}$/.test(v.replace(/[\s-]/g, ''));
 /** 라이더 번호(ADR-0085 2026-11-22): R + 4자리(드물게 5자리). R 없이 숫자만 넣어도 된다 */
 export const isRiderNumber = (v: string) => /^[Rr]?\d{4,5}$/.test(v.trim());

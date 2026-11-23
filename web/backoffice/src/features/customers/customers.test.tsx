@@ -42,6 +42,14 @@ describe('고객 찾기', () => {
   });
 });
 
+describe('고객번호 모양', () => {
+  it('0 으로 시작하는 6자리면 묻지 않고 "1~9 로 시작하는 6자리" 안내(서버 400 을 "불러오지 못했어요"로 보이지 않음)', async () => {
+    const view = renderAt('/customers?customerNumber=012345', as.cs);
+    expect(await screen.findByTestId('customer-bad-number')).toHaveTextContent('1~9 로 시작하는 6자리');
+    expect(searchCalls(view.sent)).toHaveLength(0);
+  });
+});
+
 describe('고객 상세', () => {
   it('머리·기본 정보는 가린 값, 주문·문의·상담원 접수 칸 → 각 상세', async () => {
     renderAt('/customers/CUS-1001', as.cs);
