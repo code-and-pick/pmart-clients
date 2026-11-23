@@ -662,6 +662,16 @@ function DeliveryPreview({ deliveryId }: { readonly deliveryId: string }) {
   );
 }
 
+/** 기록(상태 이력·도움요청·배차 시도)은 최신 것이 위로(2026-11-23 사용자 "오늘 배차시도가 맨아래에 있으면 어떡해") — 시각 없는 줄은 맨 아래, 같은 시각은 서버 순서 */
+function newestFirst<T>(rows: readonly T[], at: (r: T) => string | null | undefined): T[] {
+  const t = (r: T) => {
+    const v = at(r);
+    const ms = v ? Date.parse(v) : NaN;
+    return Number.isFinite(ms) ? ms : -Infinity;
+  };
+  return rows.map((r, i) => ({ r, i })).sort((a, b) => t(b.r) - t(a.r) || a.i - b.i).map((x) => x.r);
+}
+
 function ExecutionPanel({ deliveryId }: { readonly deliveryId: string }) {
   const api = useApi();
   const admin = useIsAdmin();
@@ -725,7 +735,7 @@ function ExecutionPanel({ deliveryId }: { readonly deliveryId: string }) {
                   <p className="text-sm text-base-content/60">{m.none}</p>
                 ) : (
                   <Timeline
-                    items={(d.history ?? []).map((h, n) => ({
+                    items={newestFirst(d.history ?? [], (h) => h.occurredAt).map((h, n) => ({
                       key: `${h.state ?? ''}-${n}`,
                       tone: executionTone(h.state),
                       title: h.state ? <CodeLabel code={h.state} names={m.deliveries.executionState} /> : m.none,
@@ -744,7 +754,7 @@ function ExecutionPanel({ deliveryId }: { readonly deliveryId: string }) {
                 {(d.incidents ?? []).length === 0 ? (
                   <p className="text-sm text-base-content/60">{m.deliveries.noIncidents}</p>
                 ) : (
-                  <Timeline items={(d.incidents ?? []).map((i, n) => ({ key: i.incidentId ?? `incident-${n}`, tone: 'warning', title: i.category ? <CodeLabel code={i.category} names={m.deliveries.helpCategoryName} /> : m.none, meta: when(i.raisedAt) }))} />
+                  <Timeline items={newestFirst(d.incidents ?? [], (i) => i.raisedAt).map((i, n) => ({ key: i.incidentId ?? `incident-${n}`, tone: 'warning', title: i.category ? <CodeLabel code={i.category} names={m.deliveries.helpCategoryName} /> : m.none, meta: when(i.raisedAt) }))} />
                 )}
               </div>
             </div>
@@ -792,7 +802,7 @@ function DispatchPanel({ deliveryId }: { readonly deliveryId: string }) {
                 <p className="text-sm text-base-content/60">{m.deliveries.noAttempts}</p>
               ) : (
                 <Timeline
-                  items={(d.attempts ?? []).map((a, n) => ({
+                  items={newestFirst(d.attempts ?? [], (a) => a.startedAt).map((a, n) => ({
                     key: a.attemptId ?? `attempt-${n}`,
                     tone: a.failureReason ? 'error' : 'info',
                     title: (
