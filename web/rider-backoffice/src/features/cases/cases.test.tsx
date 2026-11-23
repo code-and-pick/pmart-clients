@@ -58,7 +58,7 @@ describe('접수 건 상세', () => {
     expect(detail).toHaveTextContent('포장 대기 — 처리함');
     expect(detail).toHaveTextContent('처리 완료');
     expect(detail).toHaveTextContent('해결 — 매장 확인 뒤 픽업');
-    expect(screen.getByTestId('case-history')).toHaveTextContent('처리 끝냄');
+    expect(screen.getByTestId('case-history')).toHaveTextContent('처리 완료');
     expect(screen.getByRole('note')).toHaveTextContent('처리 끝내기');
     expect(screen.queryByRole('button', { name: /맡기|닫기|처리 끝내기/ })).not.toBeInTheDocument();
   });

@@ -10,6 +10,7 @@ import { request } from '@pmart/web-core';
 import { CommandFeedback, QueryState, toUiState, useCommand } from '@pmart/web-ui';
 import { commandParams } from '../../api/command';
 import { useApi } from '../../app/ApiContext';
+import { humanizeCodes } from '../../shared/codeText';
 import { useCenterQuery } from '../../app/CenterScope';
 import { useSession } from '../../app/SessionContext';
 import { photoMessages } from '../../shared/AuthedPhotos';
@@ -51,6 +52,7 @@ const sm = {
     lastSupport: '지원센터 마지막 말',
     resolvedAt: '종료시점',
     resolvedBy: '닫은 직원',
+    viaConsults: '상담 관리에서 완료',
     resolutionNote: '처리 메모',
     goDelivery: '배송 상세',
   },
@@ -182,8 +184,8 @@ function HelpChatPage() {
                       [sm.help.lastRider, when(x.lastRiderMessageAt)],
                       [sm.help.lastSupport, when(x.lastSupportMessageAt)],
                       !!x.resolvedAt && [sm.help.resolvedAt, when(x.resolvedAt)],
-                      !!x.resolvedBy && [sm.help.resolvedBy, <StaffName operatorId={x.resolvedBy} me={session?.subject} />],
-                      !!x.resolutionNote && [sm.help.resolutionNote, <span className="whitespace-pre-wrap">{x.resolutionNote}</span>],
+                      !!x.resolvedBy && [sm.help.resolvedBy, <HelpClosedBy resolvedBy={x.resolvedBy} me={session?.subject} />],
+                      !!x.resolutionNote && [sm.help.resolutionNote, <span className="whitespace-pre-wrap">{helpNoteText(x.resolutionNote)}</span>],
                     ]}
                   />
                   <SystemIds
@@ -851,4 +853,33 @@ function HelpDeliveryActions({ deliveryId }: { readonly deliveryId: string }) {
       {(d) => <DeliveryActions delivery={d} dispatch={dispatch.data} />}
     </QueryState>
   );
+}
+
+/**
+ * 도움요청을 닫은 직원(2026-11-23 사용자 "영어로 뜨고 식별값도 너무 길어 … 직원 식별값 짧게 보이는 규칙 있잖아").
+ * 상담 관리(사건)에서 닫으면 execution 은 `resolvedBy` 에 "case:<사건 ID>" 를 남긴다 — 그 사건의 닫은 직원(closure.closedBy)을 읽어
+ * 다른 화면처럼 "이름 · 사번"(StaffName)으로 보인다. 사건을 못 읽으면 "상담 관리에서 완료"만(긴 ID 를 보이지 않는다).
+ */
+function HelpClosedBy({ resolvedBy, me }: { readonly resolvedBy: string; readonly me?: string | undefined }) {
+  const api = useApi();
+  const caseId = resolvedBy.startsWith('case:') ? resolvedBy.slice('case:'.length) : null;
+  const kase = useQuery({
+    queryKey: ['case', caseId],
+    enabled: !!caseId,
+    staleTime: 60_000,
+    queryFn: () => request('GET', api.cases.GET('/cases/{caseId}', { params: { path: { caseId: caseId! } } })),
+  });
+  if (!caseId) return <StaffName operatorId={resolvedBy} me={me} />;
+  const closer = kase.data?.closure?.closedBy;
+  return (
+    <span className="inline-flex flex-wrap items-baseline gap-x-1.5">
+      {closer && <StaffName operatorId={closer} me={me} />}
+      <span className={closer ? 'text-xs font-normal text-base-content/55' : ''}>{sm.help.viaConsults}</span>
+    </span>
+  );
+}
+
+/** 서버 처리 메모의 옛 말("사건함에서 닫음")·상태 코드("RESOLVED")를 화면 말로(뜻은 그대로). */
+function helpNoteText(note: string): string {
+  return humanizeCodes(note.replace(/사건함에서 닫음\s*\(RESOLVED\)/g, '상담 관리에서 완료').replace(/사건함에서 닫음/g, '상담 관리에서 완료'));
 }

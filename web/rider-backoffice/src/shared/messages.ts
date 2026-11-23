@@ -129,7 +129,7 @@ export const messages = {
       CLOSED: '처리 완료',
       REOPENED: '다시 처리 중',
     } as Readonly<Record<string, string>>,
-    caseAction: { OPENED: '접수', RECURRED: '재발', ASSIGNED: '맡음', CLOSED: '처리 끝냄', REOPENED: '다시 처리', TRANSFERRED: '넘김' } as Readonly<Record<string, string>>,
+    caseAction: { OPENED: '접수', RECURRED: '재발', ASSIGNED: '맡음', CLOSED: '처리 완료', REOPENED: '다시 처리', TRANSFERRED: '넘김' } as Readonly<Record<string, string>>,
     resolution: { RESOLVED: '해결', NOT_REPRODUCIBLE: '재현 안 됨', DUPLICATE: '중복', NO_ACTION_REQUIRED: '조치 필요 없음', ESCALATED_EXTERNAL: '외부로 넘김' } as Readonly<Record<string, string>>,
     refType: { deliveryId: '배송', orderId: '주문', riderId: '라이더' } as Readonly<Record<string, string>>,
     restriction: { NORMAL: '정상', DISPATCH_RESTRICTED: '신규배차 제한', SUSPENDED: '일시 중지', TERMINATED: '계약 종료' } as Readonly<Record<string, string>>,
@@ -160,7 +160,7 @@ export const messages = {
       DELIVERY_FAILURE: '전달 불가',
       OTHER: '기타',
     } as Readonly<Record<string, string>>,
-    helpState: { OPEN: '열림', IN_PROGRESS: '처리 중', RESOLVED: '처리 끝' } as Readonly<Record<string, string>>,
+    helpState: { OPEN: '열림', IN_PROGRESS: '처리 중', RESOLVED: '처리 완료' } as Readonly<Record<string, string>>,
     inquiryCategory: { SETTLEMENT: '정산', ACCOUNT: '계정', APP_ERROR: '앱 오류', OTHER: '기타' } as Readonly<Record<string, string>>,
   },
 
