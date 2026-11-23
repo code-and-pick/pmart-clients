@@ -52,7 +52,8 @@ export const riderMessages = {
     closedCol: '처리',
     closed: (at: string, by: string, note?: string) => [at, by, note].filter(Boolean).join(' · '),
     resultNow: (state: string) => `닫았어요 — ${state}`,
-    goRestrict: '계정 제한 걸러 가기',
+    goRestrict: '계정 제한 걸기',
+    goRestrictClose: '제한 걸기 접기',
     complaints: '쌓인 컴플레인',
   },
   detailReviews: {

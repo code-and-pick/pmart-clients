@@ -2,7 +2,7 @@
 // 이 앱에만 남긴 것: DetailHeader — 최근 본 것 기록(seen → recentViews)·목록 순서대로 이전·다음(QueueNav)이 이 앱 기능이라. 모양은 공용 콘솔 상세 머리와 같다(상자 없이 24px 제목).
 // 직접 내보낸 이름(DetailHeader)이 export * 보다 먼저다.
 import { type ComponentProps, type ReactNode, useRef } from 'react';
-import { Link, useLocation } from 'react-router';
+import { useLocation, useNavigate } from 'react-router';
 import { StatCard as ConsoleStatCard, type Tone } from '@pmart/web-ui/console';
 
 import { useRecordRecent } from './recentViews';
@@ -60,13 +60,16 @@ export function DetailHeader({ back, title, badges, summary, actions, seen = fal
   const past = useScrolledPast(card);
   const { pathname } = useLocation();
   useRecordRecent(pathname, seen);
+  const goBack = useGoBack(back.to);
   return (
     <header>
-      <StickyTitle show={past} title={title} badges={badges} />
-      {/* 2026-11-24 사용자 "< 상담함 이건 왜 제목 위에 있는 거며" — 제목이 맨 위. 목록으로 가기·이전/다음은 오른쪽 위 */}
+      <StickyTitle show={past} title={title} badges={badges} onBack={goBack} backLabel={back.label} />
+      {/* 2026-11-24 사용자 "< 상담함 이건 왜 제목 위에 있는 거며" — 제목이 맨 위. 이전/다음은 오른쪽 위.
+          같은 날 "세부 탭에 들어가고 나면 < 이런 뒤로가기 버튼이 어딘가에 있었으면" — 제목 바로 왼쪽에 둥근 ‹(내려가도 위 띠에 같은 단추) */}
       <div ref={card} className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 space-y-1">
           <div className="flex flex-wrap items-center gap-2">
+            <BackButton onClick={goBack} label={back.label} />
             <h1 className="text-2xl font-bold">{title}</h1>
             {badges}
           </div>
@@ -76,15 +79,40 @@ export function DetailHeader({ back, title, badges, summary, actions, seen = fal
           <div className="flex flex-wrap items-center justify-end gap-3 text-sm">
             {/* 목록 순서대로 이전·n/N·다음([ ] 키) — 마지막으로 본 목록에 이 건이 있을 때만 */}
             <QueueNav />
-            <Link to={back.to} className="btn btn-sm border-base-300 bg-base-100">
-              <span aria-hidden>‹</span>
-              {back.label}
-            </Link>
           </div>
           {actions && <div className="flex flex-wrap items-center justify-end gap-2">{actions}</div>}
         </div>
       </div>
     </header>
+  );
+}
+
+/**
+ * 뒤로 — 앱 안에서 넘어왔으면 브라우저 뒤로(목록의 거르기·스크롤·펼친 줄이 그대로), 주소로 바로 열었으면 그 목록으로.
+ * React Router 가 history.state.idx 에 앱 안 이동 순번을 적는다(0 = 이 탭의 첫 화면).
+ */
+export function useGoBack(fallback: string): () => void {
+  const navigate = useNavigate();
+  return () => {
+    const idx = (window.history.state as { readonly idx?: number } | null)?.idx ?? 0;
+    if (idx > 0) void navigate(-1);
+    else void navigate(fallback);
+  };
+}
+
+/** 제목 왼쪽 둥근 ‹ 단추(이름은 읽기 도구·마우스 올리면 — "라이더 찾기로" 등) */
+export function BackButton({ onClick, label, small = false }: { readonly onClick: () => void; readonly label: string; readonly small?: boolean }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      title={label}
+      data-testid="detail-back"
+      className={`btn btn-circle shrink-0 border-base-300 bg-base-100 ${small ? 'btn-xs text-base' : 'btn-sm text-xl'} leading-none`}
+    >
+      <span aria-hidden className="-mt-0.5">‹</span>
+    </button>
   );
 }
 

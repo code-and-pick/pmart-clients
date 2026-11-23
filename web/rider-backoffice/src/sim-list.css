@@ -37,7 +37,12 @@
 }
 .pm-funnel {
   position: relative;
-  width: 36px;
+  /* 글자 "필터"(2026-11-24) — 정사각 대신 글자 폭 */
+  min-width: 36px;
+  padding: 0 12px;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
   height: 36px;
   display: inline-flex;
   align-items: center;

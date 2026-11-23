@@ -123,7 +123,7 @@ describe('메뉴 자리', () => {
     const nav = await screen.findByRole('navigation', { name: '메뉴' });
     for (const g of ['현황', '관제', '배송·배차', '지원센터', '수행료']) expect(within(nav).getByText(g)).toBeInTheDocument();
     expect(screen.getAllByText('라이더').length).toBeGreaterThan(0);
-    for (const name of ['대시보드', '라이더 관제', '라이더 관리', '가입 승인', '제한 검토 대기', '배송 관리', '상담 관리', '수행료 조정', '추가 배달료']) {
+    for (const name of ['대시보드', '라이더 관제', '라이더 관리', '가입 승인', '계정 제한', '배송 관리', '상담 관리', '수행료 조정', '추가 배달료']) {
       await userEvent.click(screen.getByRole('link', { name }));
       // 화면 10개를 차례로 처음 그린다 — 전체 실행 첫 번(차가운 변환)에서 기본 1초 기다림이 모자랐다(PC 1 PR 세션 2026-11-20)
       expect(await screen.findByRole('heading', { name }, { timeout: 5_000 })).toBeInTheDocument();
@@ -158,7 +158,8 @@ describe('할 일/기록 나누기(사용자 2026-11-21 — 접수 건·조치 �
   it('옛 상세 주소 /cases/:id 는 그 사건 상세가 그대로 열린다', async () => {
     renderAt('/cases/CASE-RH-0', as.riderOps);
     expect(await screen.findByTestId('case-detail')).toHaveTextContent('포장 대기 — 처리함');
-    expect(screen.getByRole('link', { name: '상담 관리 · 배송 사건' })).toHaveAttribute('href', '/consults?tab=cases');
+    // 뒤로는 제목 왼쪽 ‹ 단추(2026-11-24) — 이름은 그대로 "상담 관리 · 배송 사건"
+    expect(screen.getByRole('button', { name: '상담 관리 · 배송 사건' })).toBeInTheDocument();
   });
 
   it('처리함 탭 순서: 상담 중 · 배송 사건 · 소명·이의 · 끝남, 관리자에게 기록 › 직원 조치 기록', async () => {

@@ -25,7 +25,6 @@ export const payoutText = {
   title: '지급 관리',
   intro: '지급은 외부 회계가 해요. 회계 결과를 여기서 표시하면 라이더 정산 내역과 알림에 반영돼요. 묶음 = 라이더 한 명의 같은 지급 예정일 수행료.',
   date: '지급 예정일',
-  dateHint: '비우면 오늘',
   rider: searchHint.rider,
   state: '상태',
   all: '전체',
@@ -149,6 +148,11 @@ function PayoutItems({ riderId, payoutDate, count }: { readonly riderId: string;
   );
 }
 
+/** 오늘(Asia/Seoul) YYYY-MM-DD — 날짜 칸 기본값(표시용) */
+function seoulToday(): string {
+  return new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10);
+}
+
 type PayoutState = 'CONFIRMED' | 'PAYING' | 'PAID' | 'PAYMENT_FAILED';
 const STATES: readonly PayoutState[] = ['CONFIRMED', 'PAYING', 'PAID', 'PAYMENT_FAILED'];
 type Result = 'PAYING' | 'PAID' | 'FAILED';
@@ -165,7 +169,8 @@ export function PayoutsMenu() {
   const riderId = params.get('riderId') ?? '';
   const rawState = params.get('state');
   const state = STATES.find((s) => s === rawState) ?? 'ALL';
-  const [dateInput, setDateInput] = useState(payoutDate);
+  // 칸에는 늘 날짜가 보이게 — 비어 있으면 오늘(서울)(2026-11-24 사용자 "비우면 오늘이라고 적은 거 지우고 검색탭에 오늘 날짜를 2026-11-24 이렇게 적어")
+  const [dateInput, setDateInput] = useState(payoutDate || seoulToday());
   const [riderInput, setRiderInput] = useState(riderId);
   const patch = (next: Record<string, string>) => {
     const p = new URLSearchParams(params);
@@ -199,7 +204,7 @@ export function PayoutsMenu() {
     patch({ payoutDate: dateInput, riderId: riderInput.trim() });
   };
   const reset = () => {
-    setDateInput('');
+    setDateInput(seoulToday());
     setRiderInput('');
     setParams({});
   };
@@ -218,7 +223,7 @@ export function PayoutsMenu() {
         resetLabel={t.reset}
         summary={[
           [t.date, payoutDate, () => {
-            setDateInput('');
+            setDateInput(seoulToday());
             patch({ payoutDate: '' });
           }],
           [t.state, state === 'ALL' ? '' : (t.stateName[state] ?? state), () => patch({ state: '' })],
@@ -231,8 +236,7 @@ export function PayoutsMenu() {
         search={
           <>
             <input type="search" className="input input-sm w-48" maxLength={64} value={riderInput} placeholder={t.rider} aria-label={t.rider} onChange={(ev) => setRiderInput(ev.target.value)} />
-            <input type="date" className="input input-sm w-40" aria-label={t.date} title={t.dateHint} value={dateInput} onChange={(ev) => setDateInput(ev.target.value)} />
-            <span className="text-xs text-base-content/55">{t.dateHint}</span>
+            <input type="date" className="input input-sm w-40" aria-label={t.date} value={dateInput} onChange={(ev) => setDateInput(ev.target.value)} />
           </>
         }
       >

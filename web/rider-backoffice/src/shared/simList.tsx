@@ -7,6 +7,7 @@ import { Link } from 'react-router';
 
 const t = {
   funnel: '거르기 조건',
+  filterWord: '필터',
   funnelOpen: (n: number) => (n > 0 ? `거르기 조건 열기 (${n}개 걸림)` : '거르기 조건 열기'),
   change: (k: string, v: string) => `${k} ${v} 조건 바꾸기`,
   clear: (k: string) => `${k} 조건 풀기`,
@@ -103,9 +104,8 @@ export function SearchPanel({
             onClick={() => setOpen((o) => !o)}
             data-testid="search-toggle"
           >
-            <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
-              <path d="M1.5 2.5h13l-5 6v5l-3-1.5v-3.5z" fill="currentColor" />
-            </svg>
+            {/* 깔때기 그림 대신 글자(2026-11-24 사용자 "깔때기 모양 말고 필터라고 적어") */}
+            <span aria-hidden="true">{t.filterWord}</span>
             {active.length > 0 && <span className="pm-funnel-n">{active.length}</span>}
           </button>
           {open && (

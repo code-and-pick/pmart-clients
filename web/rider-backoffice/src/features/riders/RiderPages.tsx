@@ -5,7 +5,7 @@
 // - 제한 검토: rider `GET /riders/restriction-reviews`·`POST …/decisions` — 상태 탭(검토 중·제한함·제한 안 함), 결정한 줄은 그 자리에 결과로 남김.
 // - 2026-11-18 기본 백오피스에서 마저 옮김(ADR-0068, PC 2 요청): 찾기의 수단 거르기·정렬, 상세의 열린 제한 검토·컴플레인 기록(case `GET /rider-complaints`).
 // 꾸밈(2026-11-18): 배민 관리자 구성 — 목록은 검색 조건 상자 → 결과 줄 → 표, 상세는 머리 → 구역 탭 → 구역 상자(DeliveryPages 와 같은 틀).
-import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useQuery, useQueryClient, useQueries } from '@tanstack/react-query';
 import { Fragment, useState, type FormEvent, type ReactNode } from 'react';
 import { Link, Route, Routes, useParams, useSearchParams } from 'react-router';
 
@@ -1080,10 +1080,16 @@ function RestrictionHistory({ riderId }: { readonly riderId: string }) {
   );
 }
 // 제한 검토 — 상태 탭(검토 중·제한함·제한 안 함, URL ?state=). 기본 백오피스에서 옮김(2026-11-18, ADR-0068).
+type RestrictTab = 'open' | 'now' | 'closed';
+
 export function RestrictionReviewsMenu() {
   const [params, setParams] = useSearchParams();
   const raw = params.get('state');
-  const state: ReviewState = REVIEW_STATES.find((s) => s === raw) ?? 'OPEN';
+  // 탭(2026-11-24): 검토 대기(?tab 없음) · 제한 중(?tab=now) · 끝난 검토(?tab=closed&state=RESTRICTED|DISMISSED). 옛 주소 ?state= 도 그대로 열린다.
+  const rawTab = params.get('tab');
+  const tab: RestrictTab = rawTab === 'now' ? 'now' : rawTab === 'closed' || (raw && raw !== 'OPEN') ? 'closed' : 'open';
+  const closedState: ReviewState = raw === 'DISMISSED' ? 'DISMISSED' : 'RESTRICTED';
+  const state: ReviewState = tab === 'closed' ? closedState : 'OPEN';
   const v = ops.reviews;
   // 검토 중 개수(2026-11-19 통합 백오피스 칩 옆 개수처럼) — 아래 표와 같은 조회(같은 키)라 한 번만 부른다. 못 읽으면 "?"(0 이 아님)
   const api = useApi();
@@ -1098,11 +1104,19 @@ export function RestrictionReviewsMenu() {
       <GuideBox title={ui.guideTitle} items={splitGuide(v.intro)} storeKey="restriction-reviews" testId="reviews-guide" />
       <ChipGroup
         label={v.title}
-        value={state}
-        options={REVIEW_STATES.map((s) => ({ value: s, label: rm.reviews.state[s], ...(s === 'OPEN' ? { count: openCount } : {}) }))}
-        onChange={(s) => setParams(s === 'OPEN' ? {} : { state: s })}
+        value={tab}
+        options={(['open', 'now', 'closed'] as const).map((k) => ({ value: k, label: v.tabs[k], ...(k === 'open' ? { count: openCount } : {}) }))}
+        onChange={(k) => setParams(k === 'open' ? {} : { tab: k })}
       />
-      <ReviewTable state={state} />
+      {tab === 'closed' && (
+        <ChipGroup
+          label={v.tabs.closed}
+          value={closedState}
+          options={REVIEW_STATES.filter((s) => s !== 'OPEN').map((s) => ({ value: s, label: rm.reviews.state[s] }))}
+          onChange={(s) => setParams({ tab: 'closed', state: s })}
+        />
+      )}
+      {tab === 'now' ? <RestrictedNow /> : <ReviewTable state={state} />}
     </section>
   );
 }
@@ -1192,11 +1206,105 @@ function ReviewTable({ state, riderId }: { readonly state: ReviewState; readonly
   );
 }
 
+/**
+ * 제한 중(2026-11-24) — 지금 제한된 라이더(rider `GET /riders?restriction=` 단계마다, 계약 그대로). 줄을 펼치면 그 자리에서 바꾸기·풀기와 이력.
+ * 한 단계만 못 읽으면 그 단계만 빠졌다고 알린다(빈 목록으로 숨기지 않는다).
+ */
+const RESTRICTED_NOW: readonly Restriction[] = ['DISPATCH_RESTRICTED', 'SUSPENDED', 'TERMINATED'];
+function RestrictedNow() {
+  const api = useApi();
+  const v = ops.reviews;
+  const qs = useQueries({
+    queries: RESTRICTED_NOW.map((restriction) => ({
+      queryKey: ['riders', 'restricted-now', restriction],
+      queryFn: () => request('GET', api.riders.GET('/riders', { params: { query: { restriction, size: 50 } } })),
+    })),
+  });
+  const inline = useInlineOpen();
+  const loading = qs.some((q) => q.isPending);
+  const failed = qs.filter((q) => q.isError);
+  const items = qs.flatMap((q) => q.data?.items ?? []);
+  if (loading) return <QueryState state={{ kind: 'loading' }}>{() => null}</QueryState>;
+  if (failed.length === qs.length) {
+    return (
+      <QueryState state={toUiState(qs[0]!)} onRetry={() => qs.forEach((q) => void q.refetch())}>
+        {() => null}
+      </QueryState>
+    );
+  }
+  return (
+    <div className="space-y-3" data-testid="restricted-now">
+      {failed.length > 0 && (
+        <p role="alert" className="alert alert-warning text-sm">
+          {v.nowPartial}
+        </p>
+      )}
+      {items.length === 0 ? (
+        <Notice>{v.nowEmpty}</Notice>
+      ) : (
+        <>
+          <ResultBar count={items.length} unit="명" />
+          <DataTable testId="restricted-now-table">
+            <thead>
+              <tr>
+                <th>{r.col.rider}</th>
+                <th>{r.col.name}</th>
+                <th>{r.col.restriction}</th>
+                <th>{r.col.operating}</th>
+                <th>{r.col.phone}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((row) => {
+                const k = row.riderId ?? '';
+                const isOpen = inline.isOpen(k);
+                return (
+                  <Fragment key={k}>
+                    <tr data-testid="restricted-row" {...expandRowProps(isOpen, () => inline.toggle(k))}>
+                      <td className="font-mono font-semibold">
+                        <Caret open={isOpen} />
+                        <RiderName riderId={row.riderId} riderNumber={row.riderNumber} />
+                      </td>
+                      <td>{row.nameMasked ?? none}</td>
+                      <td>
+                        <StatusBadge tone={restrictionTone(row.restriction)}>{label(n.restriction, row.restriction)}</StatusBadge>
+                      </td>
+                      <td>
+                        <StatusBadge tone={operatingTone(row.operatingStatus)}>{label(n.operatingStatus, row.operatingStatus)}</StatusBadge>
+                      </td>
+                      <td className="font-mono">{row.phoneMasked || none}</td>
+                    </tr>
+                    {isOpen && (
+                      <InlineDetail colSpan={5} to={`/riders/${encodeURIComponent(k)}`} testId="restricted-inline">
+                        <div className="pm-inline-cols">
+                          <div>
+                            <h4>{r.restrict}</h4>
+                            <RestrictionPanel riderId={k} />
+                          </div>
+                          <div className="pm-inline-side">
+                            <h4>{v.history}</h4>
+                            <RestrictionHistory riderId={k} />
+                          </div>
+                        </div>
+                      </InlineDetail>
+                    )}
+                  </Fragment>
+                );
+              })}
+            </tbody>
+          </DataTable>
+        </>
+      )}
+    </div>
+  );
+}
+
 function ReviewDecision({ review }: { readonly review: Review }) {
   const api = useApi();
   const queryClient = useQueryClient();
   const reviewId = review.reviewId ?? '';
   const [note, setNote] = useState('');
+  const [restrictOpen, setRestrictOpen] = useState(false);
   const v = ops.reviews;
   const decide = useCommand(async (body: { decision: 'RESTRICTED' | 'DISMISSED'; note?: string }, key) => {
     try {
@@ -1232,11 +1340,17 @@ function ReviewDecision({ review }: { readonly review: Review }) {
           </button>
         ))}
         {review.riderId && (
-          <Link className="btn btn-ghost btn-xs" to={`/riders/${encodeURIComponent(review.riderId)}#sec-restriction`}>
-            {rm.reviews.goRestrict}
-          </Link>
+          // 라이더 상세로 갔다 오지 않고 이 줄에서 제한을 건다(2026-11-24) — 상세의 "계정 제한 바꾸기"와 같은 부품
+          <button type="button" className="btn btn-ghost btn-xs" aria-expanded={restrictOpen} onClick={() => setRestrictOpen((o) => !o)} data-testid="review-restrict-toggle">
+            {restrictOpen ? rm.reviews.goRestrictClose : rm.reviews.goRestrict}
+          </button>
         )}
       </div>
+      {restrictOpen && review.riderId && (
+        <div className="rounded-box border border-base-300 bg-base-100 p-3" data-testid="review-restrict">
+          <RestrictionPanel riderId={review.riderId} />
+        </div>
+      )}
       {/* 성공하면 이 줄이 닫힌 기록으로 바뀐다(setQueriesData) — 여기는 실패·결과 모름만 보인다 */}
       <CommandFeedback command={decide}>
         {(x) => (
