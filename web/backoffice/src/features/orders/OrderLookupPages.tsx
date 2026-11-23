@@ -5,7 +5,7 @@
 import { QueueNav, RememberQueue, useQueueBack } from '../../shared/workQueue';
 import { useQuery } from '@tanstack/react-query';
 import { useState, type ReactNode } from 'react';
-import { useParams, useSearchParams } from 'react-router';
+import { Link, useParams, useSearchParams } from 'react-router';
 
 import { request } from '@pmart/web-core';
 import { CommandFeedback, QueryState, toUiState, useCommand } from '@pmart/web-ui';
@@ -23,7 +23,8 @@ import { PreviewDrawer, PreviewFacts, usePreview } from '../../shared/Preview';
 import { messages as m } from '../../shared/messages';
 import { addSeoulDays, isSeoulDate, label, seoulDayEnd, seoulDayStart, seoulToday, spanDays, text, when, won } from '../../shared/ops';
 import { ClaimsOfOrder } from '../claims/ClaimPages';
-import { OrderCancelAction, OrderCancelForm, OrderCancelNote } from '../claims/OrderCancel';
+import { AFTER_PREPARING, OrderCancelAction, OrderCancelForm } from '../claims/OrderCancel';
+import { useSession } from '../../app/SessionContext';
 import { ReturnIntakeLink } from '../claims/ReturnClaim';
 import { DeliveriesOf } from '../deliveries/DeliveryPages';
 import { EmptyBox, Icon, KindChip, ListFoot, SideFields, Timeline, When } from '../lookup/parts';
@@ -426,7 +427,7 @@ function OrderPreview({ orderId }: { readonly orderId: string }) {
           <PreviewFacts
             rows={[
               [m.orders.confirmedAt, when(o.confirmedAt)],
-              [m.orders.mfcId, o.mfcId],
+              [m.orders.mfcId, <CenterName key="c" id={o.mfcId} />],
               [m.orders.total, <span key="t" className="font-semibold">{won(o.amounts.approvedAmount)}</span>],
               [
                 m.preview.lines,
@@ -445,6 +446,20 @@ function OrderPreview({ orderId }: { readonly orderId: string }) {
         </div>
       )}
     </QueryState>
+  );
+}
+
+/** 주문 고객 — 고객 메뉴를 볼 수 있는 역할(상담원·관리자)이면 고객 상세로, 아니면 "-"(2026-11-23 점검 — "고객 ID: 고객 (고객번호 준비 중)") */
+function CustomerLink({ customerId }: { readonly customerId: string | null | undefined }) {
+  const { session } = useSession();
+  const can = session?.roles.some((r) => r === 'CS_AGENT' || r === 'OPERATOR_ADMIN') ?? false;
+  if (!customerId) return <>{m.none}</>;
+  return can ? (
+    <Link className="text-primary hover:underline" to={`/customers/${encodeURIComponent(customerId)}`}>
+      {m.orders.openCustomer}
+    </Link>
+  ) : (
+    <>{m.orders.customerHidden}</>
   );
 }
 
@@ -500,7 +515,7 @@ export function OrderDetailPage() {
                   )}
                 </>
               }
-              summary={<>{when(o.confirmedAt)} · <CenterName id={o.mfcId} /> · {won(o.amounts.approvedAmount)}<OrderCancelNote order={o} /></>}
+              summary={<>{when(o.confirmedAt)} · <CenterName id={o.mfcId} /> · {won(o.amounts.approvedAmount)}</>}
               actions={<OrderCancelAction order={o} open={cancelOpen} onOpen={() => setCancelOpen(true)} />}
             />
             {/* 주문 진행 단계(2026-11-18 Refine 참고) — 서버 상태를 계약 상태표 순서대로 */}
@@ -563,7 +578,7 @@ export function OrderDetailPage() {
                       }
                     />
                     <AmountRow name={m.orders.bagFee} value={won(o.amounts.bagFee)} />
-                    <AmountRow name={m.orders.firstPurchase} value={o.amounts.firstPurchaseApplied ? 'O' : 'X'} />
+                    <AmountRow name={m.orders.firstPurchase} value={o.amounts.firstPurchaseApplied ? m.orders.applied : m.orders.notApplied} />
                     <div className="my-1.5 border-t border-base-300" />
                     <AmountRow name={m.orders.totalAmount} value={won(o.amounts.totalAmount)} strong />
                     <AmountRow name={m.orders.approvedAmount} value={won(o.amounts.approvedAmount)} strong />
@@ -613,16 +628,17 @@ export function OrderDetailPage() {
                     testId="order-summary"
                     rows={[
                       [m.orders.confirmedAt, <When key="c" iso={o.confirmedAt} />],
-                      [m.orders.customerId, <span key="u" className="text-base-content/60">{m.displayNumber.customerPending}</span>],
-                      [m.orders.mfcId, o.mfcId],
+                      [m.orders.customer, <CustomerLink key="u" customerId={query.data?.customerId} />],
+                      [m.orders.mfcId, <CenterName key="c" id={o.mfcId} />],
                       [m.orders.deliveryMode, label(m.orders.mode, o.deliveryMode)],
-                      [m.orders.arrival, o.arrivalWindow ? `${o.arrivalWindow.date} ${o.arrivalWindow.start}~${o.arrivalWindow.end}` : m.none],
+                      [m.orders.arrival, o.arrivalWindow ? m.orders.arrivalOf(o.arrivalWindow.date, o.arrivalWindow.start, o.arrivalWindow.end) : m.none],
                       [m.orders.shipments, text(o.plannedShipments)],
                       [m.orders.oosPreference, label(m.orders.oos, o.outOfStockPreference)],
                       [m.orders.weight, o.weightG === undefined ? m.none : `${o.weightG}g`],
                     ]}
                   />
-                  <p className="mt-4 border-t border-base-300 pt-3 text-xs text-base-content/55">{m.orders.noCancelShort}</p>
+                  {/* 취소 안내는 여기 한 곳만(2026-11-23 점검 — 머리에도 같은 말이 있었다) */}
+                  <p className="mt-4 border-t border-base-300 pt-3 text-xs text-base-content/55" {...(AFTER_PREPARING.has(o.status ?? '') ? { 'data-testid': 'order-cancel-closed' } : {})}>{m.orders.noCancelShort}</p>
                 </Section>
 
                 <Section id="order-address-section" title={m.orders.address}>

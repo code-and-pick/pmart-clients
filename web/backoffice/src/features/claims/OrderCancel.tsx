@@ -30,7 +30,7 @@ type Order = OrderC['schemas']['StaffOrderDetail'];
 const REASONS: readonly Reason[] = ['CHANGE_OF_MIND', 'LATE_DELIVERY', 'ADDRESS_ERROR', 'OTHER'];
 const METHODS: readonly Method[] = ['ORDER_DETAILS_MATCH', 'APP_SIGNED_IN_CHAT', 'OTHER'];
 /** 상품준비가 시작된 뒤(버튼 대신 반품 안내) */
-const AFTER_PREPARING = new Set(['PREPARING', 'PARTIALLY_HANDED_OVER', 'IN_DELIVERY', 'PARTIALLY_DELIVERED', 'COMPLETED']);
+export const AFTER_PREPARING: ReadonlySet<string> = new Set(['PREPARING', 'PARTIALLY_HANDED_OVER', 'IN_DELIVERY', 'PARTIALLY_DELIVERED', 'COMPLETED']);
 
 export function canCancelOrder(roles: readonly string[]) {
   return roles.includes('CS_AGENT') || roles.includes('OPERATOR_ADMIN');
@@ -47,17 +47,6 @@ export function OrderCancelAction({ order, open, onOpen }: { readonly order: Ord
       </button>
     );
   return null;
-}
-
-/** 취소할 수 없는 이유 한 줄 — 머리 오른쪽(버튼 자리)이 아니라 요약 아래에(2026-11-23 "복잡하게" — 긴 글이 오른쪽 끝으로 밀려 잘렸다) */
-export function OrderCancelNote({ order }: { readonly order: Order }) {
-  const { session } = useSession();
-  if (!canCancelOrder(session?.roles ?? []) || !AFTER_PREPARING.has(order.status ?? '')) return null;
-  return (
-    <span className="block text-xs text-base-content/60" data-testid="order-cancel-closed">
-      {m.afterPreparing}
-    </span>
-  );
 }
 
 /** 확인 상자 — 사유·메모, 본인 확인(기타면 메모 필수), 연결할 CS 접수 */

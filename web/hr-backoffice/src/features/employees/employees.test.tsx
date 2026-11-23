@@ -292,7 +292,7 @@ describe('직원 상세', () => {
 
   it('없는 직원은 오류로 보인다(빈 화면 아님)', async () => {
     renderAt('/employees/OP-none');
-    expect(await screen.findByRole('alert')).toHaveAttribute('data-state', 'error');
+    expect(await screen.findByRole('alert')).toHaveAttribute('data-state', 'not-found'); // 공용 QueryState — 없는 건 "찾을 수 없어요"(2026-11-23)
   });
 });
 

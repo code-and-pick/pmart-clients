@@ -35,7 +35,7 @@ describe('접수 건 메모', () => {
     await userEvent.type(within(note).getByLabelText('가리는 사유'), '연락처가 들어감');
     await userEvent.click(within(note).getByRole('button', { name: '가리기' }));
     await waitFor(() => expect(screen.getByTestId('case-note')).toHaveAttribute('data-masked', 'true'));
-    expect(screen.getByTestId('case-note')).toHaveTextContent('가린 메모 — op-admin-1 · 연락처가 들어감');
+    expect(screen.getByTestId('case-note')).toHaveTextContent('가린 메모 — [목] 관리자 · P2026-00001 · 연락처가 들어감'); // 가린 사람은 이름 · 사번(ID 아님)
     expect(screen.getByTestId('case-note')).not.toHaveTextContent('전화 010');
   });
 });

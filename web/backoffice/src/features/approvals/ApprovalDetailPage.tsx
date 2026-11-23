@@ -93,7 +93,7 @@ function GrantLineAttributes({ attributes }: { readonly attributes: Record<strin
       <dt>{g.centers}</dt>
       <dd>{centers || m.none}</dd>
       <dt>{g.period}</dt>
-      <dd>{`${text(attributes['validFrom'])} ~ ${text(attributes['validTo'])}`}</dd>
+      <dd>{`${text(attributes['validFrom'])} ~ ${attributes['validTo'] ? text(attributes['validTo']) : m.approvals.noEnd}`}</dd>
       <dt>{g.reason}</dt>
       <dd>{text(attributes['reason'])}</dd>
       {emp && (
@@ -220,10 +220,10 @@ export function ApprovalDetailPage() {
                       </KindChip>
                     )}
                     <StatusBadge tone={a.reviewState ? (REVIEW_TONE[a.reviewState] ?? 'ghost') : 'ghost'} testId="review-state">
-                      {`${m.approvals.review} · ${a.reviewState ? m.approvals.reviewState[a.reviewState] : m.none}`}
+                      {a.reviewState ? m.approvals.reviewState[a.reviewState] : m.none}
                     </StatusBadge>
                     <StatusBadge tone={a.executionState ? (EXEC_TONE[a.executionState] ?? 'ghost') : 'ghost'} testId="execution-state">
-                      {`${m.approvals.execution} · ${a.executionState ? m.approvals.executionState[a.executionState] : m.none}`}
+                      {a.executionState ? m.approvals.executionState[a.executionState] : m.none}
                     </StatusBadge>
                   </>
                 }

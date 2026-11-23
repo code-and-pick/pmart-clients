@@ -8,6 +8,8 @@ export const uiMessages = {
   empty: '표시할 내용이 없어요',
   errorTitle: '정보를 불러오지 못했어요',
   errorBody: '잠시 후 다시 시도해 주세요. 지금 보이는 내용은 최신이 아닐 수 있어요.',
+  notFoundTitle: '찾을 수 없어요',
+  notFoundBody: '없는 번호이거나 지워진 항목이에요. 번호를 다시 확인해 주세요.',
   forbiddenTitle: '이용할 수 없는 화면이에요',
   forbiddenBody: '권한이 없거나 담당 범위가 아니에요.',
   unknownTitle: '처리 결과를 확인하고 있어요',

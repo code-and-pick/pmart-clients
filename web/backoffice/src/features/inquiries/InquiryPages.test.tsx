@@ -126,7 +126,7 @@ describe('고객센터 문의 상세·답변', () => {
 
   it('없는 문의는 오류로 보인다', async () => {
     renderAt('/inquiries/INQ-NOPE', as.cs);
-    expect(await screen.findByRole('alert')).toHaveAttribute('data-state', 'error');
+    expect(await screen.findByRole('alert')).toHaveAttribute('data-state', 'not-found'); // 없는 건 — "찾을 수 없어요"
     expect(screen.queryByTestId('inquiry-body')).not.toBeInTheDocument();
   });
 });

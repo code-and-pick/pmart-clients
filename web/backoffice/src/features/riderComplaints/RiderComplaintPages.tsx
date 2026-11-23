@@ -410,6 +410,7 @@ export function RiderComplaintDetailPage() {
     const r = detailRiders.get(id);
     if (r?.riderNumber) return `${r.nameMasked ?? ''} · ${r.riderNumber}`;
     // 못 읽음 ≠ 읽는 중 ≠ 번호 없음
+    if (r?.nameMasked) return r.nameMasked;
     return detailRiders.failed ? m.complaints.riderFailed : r ? m.displayNumber.missing : m.complaints.riderUnknown;
   };
   // 상세(2026-11-18): 상세 머리(번호·종류·기록 시각) → 두 칸(왼쪽 내부 메모·연결된 것, 오른쪽 기록 정보)
@@ -455,10 +456,10 @@ export function RiderComplaintDetailPage() {
                 <Section title={m.complaints.linked}>
                   <FieldList
                     rows={[
-                      [m.complaints.riderId, <Link key="r" className="text-primary hover:underline" to={`/riders/${encodeURIComponent(c.riderId)}`}><RiderLabel rider={detailRiders.get(c.riderId)} riderId={c.riderId} failed={detailRiders.failed} /></Link>],
+                      [m.complaints.rider, <Link key="r" className="text-primary hover:underline" to={`/riders/${encodeURIComponent(c.riderId)}`}><RiderLabel rider={detailRiders.get(c.riderId)} riderId={c.riderId} failed={detailRiders.failed} withName /></Link>],
                       [m.complaints.deliveryId, <Link key="d" className="text-primary hover:underline" to={`/deliveries/${encodeURIComponent(c.deliveryId)}`}><DisplayNumber number={detailDeliveries.get(c.deliveryId)} systemId={c.deliveryId} failed={detailDeliveries.failed(c.deliveryId)} /></Link>],
-                      [m.complaints.orderId, c.orderId ? <Link key="o" className="text-primary hover:underline" to={`/orders/${encodeURIComponent(c.orderId)}`}><DisplayNumber number={detailOrders.get(c.orderId)} systemId={c.orderId} failed={detailOrders.failed(c.orderId)} /></Link> : m.none],
-                      [m.complaints.inquiryId, c.inquiryId ? <Link key="i" className="font-mono text-primary hover:underline" to={`/inquiries/${encodeURIComponent(c.inquiryId)}`}>{c.inquiryId}</Link> : m.none],
+                      [m.complaints.order, c.orderId ? <Link key="o" className="text-primary hover:underline" to={`/orders/${encodeURIComponent(c.orderId)}`}><DisplayNumber number={detailOrders.get(c.orderId)} systemId={c.orderId} failed={detailOrders.failed(c.orderId)} /></Link> : m.none],
+                      [m.complaints.inquiry, c.inquiryId ? <Link key="i" className="text-primary hover:underline" to={`/inquiries/${encodeURIComponent(c.inquiryId)}`}>{m.complaints.openInquiry}</Link> : m.none],
                       [m.complaints.caseId, text(c.caseId)],
                     ]}
                   />

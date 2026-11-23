@@ -51,6 +51,8 @@ export function RiderLabel({ rider, riderId, failed = false, withName = false }:
       </span>
     );
   if (!id) return <span>{messages.none}</span>;
+  // 번호는 없지만 가린 이름이 있으면 이름("번호 없음"만 보이던 것, 2026-11-23 점검 — 같은 화면 다른 칸에는 이름이 보였다)
+  if (rider?.nameMasked) return <span data-testid="rider-label" title={id}>{rider.nameMasked}</span>;
   return (
     <span data-testid="rider-label">
       <Fallback systemId={id} failed={failed} />

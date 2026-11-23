@@ -135,7 +135,7 @@ describe('직원 권한 요청(GRANT) 승인 상세 — 백엔드 회신 2026-11
     const line = await screen.findByTestId('grant-line');
     expect(line).toHaveTextContent('역할MD');
     expect(line).toHaveTextContent('센터-'); // 센터 없음을 "전체"로 바꾸지 않는다
-    expect(line).toHaveTextContent('기간2026-11-13 ~ -'); // 종료일 없음을 "무기한"으로 바꾸지 않는다
+    expect(line).toHaveTextContent('기간2026-11-13 ~ 미설정'); // 종료일 없음을 "무기한"으로 바꾸지 않는다
     expect(line).toHaveTextContent('근거상품팀 배치');
     expect(line).toHaveTextContent('대상 직원P2026-00014 · hong@pmart.com · 본사 부서 HQ');
     expect(screen.getByRole('button', { name: '승인' })).toBeInTheDocument();

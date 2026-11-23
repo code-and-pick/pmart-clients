@@ -247,7 +247,7 @@ describe('업무 도우미 (계약 1.3.0 목)', () => {
     const { port } = setup();
     render(<App memory initialPath="/assistant/answers/ans-mock-999" initialToken={as.md} assistantPort={port} />);
     const alert = await screen.findByRole('alert');
-    expect(alert).toHaveAttribute('data-state', 'error');
+    expect(alert).toHaveAttribute('data-state', 'not-found');
     expect(screen.queryByText('근거 문서를 찾지 못했어요')).not.toBeInTheDocument();
   });
 
@@ -355,7 +355,7 @@ describe('업무 도우미 — 채팅 세션(1.3.0, 2026-11-21)', () => {
     const { port, keys } = setup();
     render(<App memory initialPath="/assistant/chats/chat-mock-999" initialToken={as.md} assistantPort={port} />);
     const alert = await within(screen.getByTestId('chat-thread')).findByRole('alert');
-    expect(alert).toHaveAttribute('data-state', 'error');
+    expect(alert).toHaveAttribute('data-state', 'not-found');
     expect(document.querySelector('[data-state="idle"]')).not.toBeInTheDocument();
     await userEvent.setup().type(screen.getByRole('textbox', { name: '질문' }), '질문');
     expect(screen.getByRole('button', { name: '질문 보내기' })).toBeDisabled();
@@ -472,7 +472,7 @@ describe('업무 도우미 — 계정 전환 뒤 이전 답변', () => {
       tokens.accessToken = as.approver;
     });
     const alert = await screen.findByRole('alert');
-    expect(alert).toHaveAttribute('data-state', 'error');
+    expect(alert).toHaveAttribute('data-state', 'not-found');
     expect(screen.queryByTestId('answer-text')).not.toBeInTheDocument();
   });
 });

@@ -105,7 +105,7 @@ export function CaseNotes({ caseId }: { readonly caseId: string }) {
                       <span className="text-base-content/50">{when(n.createdAt)}</span>
                     </div>
                     {n.masked ? (
-                      <p className="rounded-box border border-dashed border-base-300 px-3 py-2 italic text-base-content/60">{m.maskedLine(text(n.maskedBy), text(n.maskReason))}</p>
+                      <p className="rounded-box border border-dashed border-base-300 px-3 py-2 italic text-base-content/60">{m.maskedLineHead}<StaffName id={n.maskedBy} />{` · ${text(n.maskReason)}`}</p>
                     ) : (
                       <p className="whitespace-pre-wrap rounded-box rounded-tl-none bg-base-200/70 px-3 py-2">{n.text}</p>
                     )}

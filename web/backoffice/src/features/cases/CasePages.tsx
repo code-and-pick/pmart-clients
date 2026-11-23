@@ -52,6 +52,7 @@ import { CaseNumber } from '../../shared/CaseNumber';
 import { DispatchUnavailableCancel } from '../claims/DispatchUnavailableCancel';
 import { DeliveryNo, OrderNo, RiderNo } from '../../shared/RefNumber';
 import { useResolvedRef } from '../../shared/numberLookups';
+import { StaffName } from '../lookup/parts';
 import { RefStatus } from '../../shared/RefField';
 import { DeliveryStartActions } from '../../shared/StartActions';
 import { DeliveryPicker } from '../../shared/DeliveryPicker';
@@ -1212,7 +1213,7 @@ export function CaseDetailPage() {
                       <div className={`space-y-1 rounded-box border-l-4 px-4 py-3 text-sm ${closed ? 'border-success bg-success/5' : 'border-base-300 bg-base-200/50'}`} data-testid="case-closure">
                         <StatusBadge tone={closed ? 'success' : 'ghost'}>{label(m.cases.resolutionName, c.closure.resolution)}</StatusBadge>
                         <p className="whitespace-pre-wrap">{text(c.closure.summary)}</p>
-                        <p className="text-xs text-base-content/55">{`${text(c.closure.closedBy)} · ${when(c.closure.closedAt)}`}</p>
+                        <p className="text-xs text-base-content/55"><StaffName id={c.closure.closedBy} />{` · ${when(c.closure.closedAt)}`}</p>
                       </div>
                     </Panel>
                   )}

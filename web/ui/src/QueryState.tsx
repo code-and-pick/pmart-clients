@@ -80,6 +80,14 @@ export function QueryState<T>({ state, children, onRetry, onCheckAgain, emptyTex
       );
     case 'error': {
       const f = state.failure;
+      // 없는 건(404) — 다시 해도 같으니 "잠시 후 다시" 대신 번호 확인 안내, 다시 시도 단추 없음(2026-11-23 점검)
+      if (f instanceof ProblemFailure && f.problem.status === 404)
+        return (
+          <div role="alert" data-state="not-found" className="alert flex flex-col items-start gap-1">
+            <h2 className="font-bold">{m.notFoundTitle}</h2>
+            <p className="break-keep">{m.notFoundBody}</p>
+          </div>
+        );
       const title =
         f instanceof SessionExpiredFailure
           ? m.sessionExpired

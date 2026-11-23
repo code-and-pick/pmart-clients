@@ -60,7 +60,7 @@ function RiderBasic({ rider }: { readonly rider: StaffRiderDetail }) {
               [m.riders.operating, <span key="op">{label(m.riders.operatingName, op?.status)}{op?.mfcId ? <> · <CenterName id={op.mfcId} /></> : null}</span>],
               [m.riders.newDispatch, op?.newDispatchEnabled === undefined ? m.none : op.newDispatchEnabled ? m.riders.newDispatchOn : m.riders.newDispatchOff],
               [m.riders.activeDeliveries, text(op?.activeDeliveryCount)],
-              [m.riders.areas, (rider.deliveryAreas ?? []).map((a) => `${a.mfcId ?? ''}${a.zoneId ? `/${a.zoneId}` : ''}`).join(', ') || m.none],
+              [m.riders.areas, (rider.deliveryAreas ?? []).length > 0 ? <span key="a">{(rider.deliveryAreas ?? []).map((a, i) => <span key={i}>{i > 0 ? ', ' : ''}<CenterName id={a.mfcId} />{a.zoneId ? ` · ${a.zoneId}` : ''}</span>)}</span> : m.none],
               [m.riders.dispatchMode, rider.settings?.dispatchMode ? <CodeLabel key="d" code={rider.settings.dispatchMode} names={m.riders.dispatchModeName} /> : m.none],
               [m.riders.restriction, `${label(m.riders.restrictionName, rider.restriction?.state)}${rider.restriction?.until ? ` ~ ${when(rider.restriction.until)}` : ''}`],
               [m.riders.lastHeartbeat, when(rider.lastHeartbeatAt)],
@@ -163,6 +163,7 @@ export function RiderDetailPage() {
             {detail.data?.riderNumber && <span className="ml-2 font-mono text-xs font-normal text-base-content/45">{detail.data.riderNumber}</span>}
           </>
         }
+        nav={<SystemNumbers ids={[{ label: m.riders.detailTitle, id: riderId }]} />}
         actions={
           <a className="btn btn-sm border-base-300 bg-base-100" href={riderOpsUrl(riderId)}>
             {m.riders.openInRiderOps}
@@ -172,7 +173,6 @@ export function RiderDetailPage() {
       <Notice>
         <span data-testid="rider-ops-moved">{m.riders.moved}</span>
       </Notice>
-      <SystemNumbers ids={[{ label: m.riders.detailTitle, id: riderId }]} />
       <QueryState state={toUiState(detail)} onRetry={() => void detail.refetch()}>
         {(r) => <RiderBasic key={r.riderId} rider={r} />}
       </QueryState>

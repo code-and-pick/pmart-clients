@@ -16,7 +16,7 @@ import { DisplayNumber, SystemNumbers } from '../../shared/displayNumber';
 import { SavedViews } from '../../shared/SavedViews';
 import { useRecordRecent } from '../../shared/recentViews';
 import { messages as m } from '../../shared/messages';
-import { isOrderNumber, orderIdOfNumber, useOrderNumbers } from '../../shared/numberLookups';
+import { isOrderNumber, orderIdOfNumber, useDeliveryNumber, useOrderNumbers } from '../../shared/numberLookups';
 import { label, text, when, won } from '../../shared/ops';
 import { PreviewDrawer, PreviewFacts, usePreview } from '../../shared/Preview';
 import { availableActions, RecoveryActions, ReturnProgress } from './ReturnClaim';
@@ -417,6 +417,16 @@ function Refunds({ claimId }: { readonly claimId: string }) {
   );
 }
 
+/** 회수 배송 — 배송 번호(D…)로 링크(시스템 ID 를 글자로 보이지 않는다, 2026-11-23 점검) */
+function PickupDelivery({ deliveryId }: { readonly deliveryId: string }) {
+  const n = useDeliveryNumber(deliveryId);
+  return (
+    <Link className="text-primary hover:underline" to={`/deliveries/${encodeURIComponent(deliveryId)}`}>
+      <DisplayNumber number={n.number} systemId={deliveryId} failed={n.failed} />
+    </Link>
+  );
+}
+
 export function ClaimDetailPage() {
   const { claimId = '' } = useParams();
   const api = useApi();
@@ -557,7 +567,7 @@ export function ClaimDetailPage() {
                         c.pickup ? (
                           <span key="p">
                             {c.pickup.state ? <CodeLabel code={c.pickup.state} names={m.claims.pickupStateName} /> : m.none}
-                            {c.pickup.deliveryId ? ` · ${c.pickup.deliveryId}` : ''}
+                            {c.pickup.deliveryId ? <> · <PickupDelivery deliveryId={c.pickup.deliveryId} /></> : null}
                           </span>
                         ) : (
                           m.none

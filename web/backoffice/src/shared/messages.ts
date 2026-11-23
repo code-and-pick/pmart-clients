@@ -745,6 +745,7 @@ export const messages = {
     maskReason: '가리는 사유',
     masked: '가렸어요.',
     maskedLine: (by: string, reason: string) => `가린 메모 — ${by} · ${reason}`,
+    maskedLineHead: '가린 메모 — ',
     cancel: '취소',
   },
   /** 고객 계정 제한(customer 0.16.0 CU-7, 2026-11-23) — 7일 뒤 자동 해제, 영구 정지 없음 */
@@ -1187,6 +1188,16 @@ export const messages = {
     totalAmount: '합계',
     approvedAmount: 'PG 승인액',
     firstPurchase: '첫 구매 적용',
+    applied: '적용',
+    notApplied: '적용 안 함',
+    customer: '고객',
+    openCustomer: '고객 상세 보기',
+    customerHidden: '고객 메뉴 권한이 있는 직원만 볼 수 있어요',
+    /** 도착 시간대 — 다른 시각처럼 "11. 23. 오후 2:00~3:00"(2026-11-23 점검) */
+    arrivalOf: (date: string, start: string, end: string) => {
+      const [, mo, d] = date.split('-');
+      return `${Number(mo)}. ${Number(d)}. ${start}~${end}`;
+    },
     payment: '결제',
     paymentAttemptId: '결제 시도 ID',
     pgTransactionId: 'PG 거래 ID',
@@ -1276,6 +1287,11 @@ export const messages = {
     deliveryId: '배송 번호',
     orderId: '주문 ID',
     inquiryId: '문의 ID',
+    /** 상세 칸 이름(2026-11-23 점검 — 값은 번호·이름인데 칸 이름이 "ID") */
+    rider: '라이더',
+    order: '주문',
+    inquiry: '문의',
+    openInquiry: '문의 보기',
     type: '종류',
     from: '기록일 시작',
     to: '기록일 끝(포함)',
@@ -2002,6 +2018,8 @@ export const messages = {
   employeeLogin: employeeLoginMessages,
 
   approvals: {
+    /** 기간 끝이 비었을 때(2026-11-23 점검 — "~ -"). 무기한으로 보이게 하지 않는다(NOT_SET ≠ 무제한) */
+    noEnd: '미설정',
     /** 진행 단계(2026-11-18) */
     progress: {
       title: '승인 진행',
@@ -2472,7 +2490,7 @@ export const messages = {
     skus: 'SKU',
     changeSaleState: '판매 상태 변경',
     /** 판매 상태 변경은 MD 만(서버 설정 sale-state-change-role) — OPERATOR_ADMIN 은 상품 관리 묶음을 보지만 이 버튼은 없다 */
-    saleStateMdOnly: '판매 상태는 MD 만 바꿀 수 있습니다.',
+    saleStateMdOnly: '판매 상태는 MD 만 바꿀 수 있어요.',
     editStart: '상품 정보 수정 시작',
     editStartHint: '승인된 값으로 수정 초안을 만들어요. 제출하면 상품 승인을 거쳐 새 버전이 돼요.',
     editMdOnly: '상품 정보 수정은 MD 만 시작할 수 있어요.',

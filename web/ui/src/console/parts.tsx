@@ -264,9 +264,9 @@ export function Section({ id, title, aside, children, testId }: { readonly id?: 
 }
 
 /** 항목명/값 — 2026-11-20 AWS 개편(Key-value pairs): 이름은 굵은 회갈색, 값은 아래, 넓으면 2~4칸 + 칸 사이 세로 선 */
-export function FieldList({ rows, testId }: { readonly rows: ReadonlyArray<readonly [ReactNode, ReactNode] | false | null | undefined>; readonly testId?: string }) {
+export function FieldList({ rows, testId, columns = 4 }: { readonly rows: ReadonlyArray<readonly [ReactNode, ReactNode] | false | null | undefined>; readonly testId?: string; /** 반쪽 칸 안이면 2 — 4칸이면 값이 좁아 두 줄로 쪼개진다(2026-11-23) */ readonly columns?: 2 | 4 }) {
   return (
-    <dl className="grid gap-y-4 text-sm sm:grid-cols-2 xl:grid-cols-4 [&>div]:pr-4 sm:[&>div]:border-l sm:[&>div]:border-base-300 sm:[&>div]:pl-4" data-testid={testId}>
+    <dl className={`grid gap-y-4 text-sm sm:grid-cols-2 ${columns === 4 ? 'xl:grid-cols-4' : ''} [&>div]:pr-4 sm:[&>div]:border-l sm:[&>div]:border-base-300 sm:[&>div]:pl-4`} data-testid={testId}>
       {rows.map((r, i) =>
         r ? (
           <div key={i} className="min-w-0 space-y-0.5">

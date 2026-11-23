@@ -680,7 +680,6 @@ function ExecutionPanel({ deliveryId }: { readonly deliveryId: string }) {
     queryKey: ['deliveries', deliveryId, 'execution'],
     queryFn: () => request('GET', api.execution.GET('/deliveries/{deliveryId}', { params: { path: { deliveryId } } })),
   });
-  const riders = useRiderLabels([query.data?.riderId]);
   return (
     <Section title={<PanelTitle icon="truck" title={m.deliveries.execution} source="delivery-execution" />} testId="execution-panel">
       <QueryState state={toUiState(query)} onRetry={() => void query.refetch()}>
@@ -695,12 +694,11 @@ function ExecutionPanel({ deliveryId }: { readonly deliveryId: string }) {
                 {label(m.deliveries.typeName, d.type)}
               </KindChip>
             </div>
+            {/* 라이더는 머리 요약·아래 배정 라이더 칸, 배정 시각은 배차 칸에 있어 여기서는 주문·완료 시각만(2026-11-23 점검 — 라이더 세 번·배정 시각 두 번) */}
             <FieldList
+              columns={2}
               rows={[
-                // 화면 번호(ADR-0070): 라이더 "가린 이름 · 번호", 주문 8자리 — 시스템 ID 는 링크와 머리의 "시스템 번호"에만
-                [m.deliveries.rider, d.riderId ? <Link key="r" className="hover:text-primary hover:underline" to={`/riders/${encodeURIComponent(d.riderId)}`}><RiderLabel rider={riders.get(d.riderId)} riderId={d.riderId} failed={riders.failed} /></Link> : m.deliveries.noAssignment],
                 [m.deliveries.order, d.orderId ? <Link key="o" className="text-primary hover:underline" to={`/orders/${encodeURIComponent(d.orderId)}`}><DisplayNumber number={d.orderNumber} systemId={d.orderId} /></Link> : m.none],
-                [m.deliveries.assignedAt, when(d.assignedAt)],
                 [m.deliveries.completedAt, when(d.completedAt)],
               ]}
             />
@@ -711,9 +709,10 @@ function ExecutionPanel({ deliveryId }: { readonly deliveryId: string }) {
                   {m.deliveries.failure}
                 </h3>
                 <FieldList
+                  columns={2}
                   testId="delivery-failure"
                   rows={[
-                    [m.deliveries.failureReason, d.failure.reason ? <CodeLabel key="r" code={d.failure.reason} names={m.deliveries.deliveryFailureReasonName} /> : m.none],
+                    [m.deliveries.failureReason, d.failure.reason ? <CodeLabel key="r" code={d.failure.reason} names={{ ...m.deliveries.helpCategoryName, ...m.deliveries.deliveryFailureReasonName }} /> : m.none],
                     [m.deliveries.goodsLocation, d.failure.goodsLocation ? <CodeLabel key="g" code={d.failure.goodsLocation} names={m.deliveries.goodsLocationName} /> : m.none],
                     [m.deliveries.contactAttempts, text(d.failure.contactAttempts)],
                     [m.deliveries.reportedAt, when(d.failure.reportedAt)],
@@ -786,6 +785,7 @@ function DispatchPanel({ deliveryId }: { readonly deliveryId: string }) {
               </StatusBadge>
             </div>
             <FieldList
+              columns={2}
               rows={[
                 // 라이더·센터는 머리 요약·배송 수행 칸에 있어 여기서는 빼고 배차 시각만(2026-11-23 "복잡하게" — 두 칸에 같은 값)
                 [m.deliveries.assignedAt, when(d.assignment?.assignedAt)],
@@ -921,7 +921,7 @@ export function DeliveryDetailPage() {
           </>
         }
         // 요약 한 줄(2026-11-23 "복잡하게" — "라이더 배정된 라이더가 없어요." 같은 문장 대신 짧게, 센터는 이름)
-        summary={d ? <>{m.deliveries.summaryOrder(d.orderNumber ?? m.none)} · {m.deliveries.summaryRider(d.riderId ? (rl?.riderNumber ? `${rl.nameMasked ?? ''} · ${rl.riderNumber}` : m.none) : m.deliveries.riderNone)} · <CenterName id={d.mfcId} /></> : undefined}
+        summary={d ? <>{m.deliveries.summaryOrder(d.orderNumber ?? m.none)} · {m.deliveries.summaryRider(d.riderId ? (rl?.riderNumber ? `${rl.nameMasked ?? ''} · ${rl.riderNumber}` : (rl?.nameMasked ?? m.displayNumber.missing)) : m.deliveries.riderNone)} · <CenterName id={d.mfcId} /></> : undefined}
         actions={<DeliveryStartActions deliveryId={deliveryId} />}
       />
       {/* 다음 할 일 — 서버 수행 상태가 전달 실패 등록(FAILURE_REPORTED)일 때만: 확정·반려 칸으로 */}
