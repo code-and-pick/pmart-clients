@@ -38,6 +38,10 @@ export const payoutText = {
   reference: '회계 처리 번호(있으면)',
   failureReason: '실패 사유(필수, 계좌번호 등 개인정보 금지)',
   record: '표시',
+  // 2026-11-24 사용자 "응 넣어" — 지급 완료는 되돌릴 수 없고 라이더에게 알림이 가서, 한 번 더 묻는다(실제 돈은 외부 회계가 보낸다)
+  paidConfirm: '회계에서 실제로 지급했나요? 지급 완료로 표시하면 되돌릴 수 없고, 라이더에게 지급 완료 알림이 가요.',
+  paidConfirmYes: '지급 완료로 표시',
+  paidConfirmNo: '취소',
   recorded: (s: string) => `${s}(으)로 표시했어요.`,
   doneLine: (rider: string, date: string, s: string) => `${rider} · ${date} 묶음을 ${s}(으)로 표시했어요.`,
   adminOnly: '관리자만 표시할 수 있어요',
@@ -423,6 +427,8 @@ function PayoutResultForm({ riderId, payoutDate, onDone }: { readonly riderId: s
   const [result, setResult] = useState<Result | ''>('');
   const [reference, setReference] = useState('');
   const [reason, setReason] = useState('');
+  // 지급 완료는 한 번 더 묻는다(창 대신 칸 안에서)
+  const [confirming, setConfirming] = useState(false);
   const record = useCommand(async (body: { result: Result; reference?: string; failureReason?: string }, key) => {
     try {
       const res = await request('POST', api.execution.POST('/rider-payouts/{riderId}/{payoutDate}/results', { ...commandParams(key, { path: { riderId, payoutDate } }), body }));
@@ -441,6 +447,11 @@ function PayoutResultForm({ riderId, payoutDate, onDone }: { readonly riderId: s
       onSubmit={(ev) => {
         ev.preventDefault();
         if (!ok) return;
+        if (result === 'PAID' && !confirming) {
+          setConfirming(true);
+          return;
+        }
+        setConfirming(false);
         void record.run({
           result,
           ...(reference.trim() ? { reference: reference.trim() } : {}),
@@ -449,7 +460,10 @@ function PayoutResultForm({ riderId, payoutDate, onDone }: { readonly riderId: s
       }}
     >
       <div className="flex flex-wrap items-center gap-2">
-        <select className="select select-xs w-28" aria-label={t.pick} value={result} disabled={locked} onChange={(ev) => setResult(ev.target.value as Result | '')}>
+        <select className="select select-xs w-28" aria-label={t.pick} value={result} disabled={locked} onChange={(ev) => {
+            setResult(ev.target.value as Result | '');
+            setConfirming(false);
+          }}>
           <option value="">—</option>
           {(['PAYING', 'PAID', 'FAILED'] as const).map((r) => (
             <option key={r} value={r}>
@@ -458,10 +472,25 @@ function PayoutResultForm({ riderId, payoutDate, onDone }: { readonly riderId: s
           ))}
         </select>
         <input className="input input-xs w-36" aria-label={t.reference} placeholder={t.reference} maxLength={64} value={reference} disabled={locked} onChange={(ev) => setReference(ev.target.value)} />
-        <button type="submit" className="btn btn-xs btn-primary" disabled={!ok || locked}>
-          {t.record}
-        </button>
+        {!confirming && (
+          <button type="submit" className="btn btn-xs btn-primary" disabled={!ok || locked}>
+            {t.record}
+          </button>
+        )}
       </div>
+      {confirming && !locked && (
+        <div role="alert" className="space-y-1 rounded border border-warning/50 bg-warning/10 p-2 text-xs" data-testid="payout-paid-confirm">
+          <p>{t.paidConfirm}</p>
+          <div className="flex gap-2">
+            <button type="submit" className="btn btn-xs btn-warning">
+              {t.paidConfirmYes}
+            </button>
+            <button type="button" className="btn btn-xs" onClick={() => setConfirming(false)}>
+              {t.paidConfirmNo}
+            </button>
+          </div>
+        </div>
+      )}
       {result === 'FAILED' && <input className="input input-xs w-full" aria-label={t.failureReason} placeholder={t.failureReason} maxLength={200} value={reason} disabled={locked} onChange={(ev) => setReason(ev.target.value)} />}
       <CommandFeedback command={record}>{(p) => <p className="text-xs text-success">{t.recorded(t.stateName[p.state] ?? p.state)}</p>}</CommandFeedback>
     </form>

@@ -8,6 +8,18 @@ import { as, renderAt } from '../test/render';
 const posts = (sent: readonly Request[], part: string) => sent.filter((r) => r.method === 'POST' && new URL(r.url).pathname.includes(part));
 
 describe('지급 관리', () => {
+  it('지급 완료 확인에서 취소하면 보내지 않는다(2026-11-24)', async () => {
+    const view = renderAt('/payouts', as.admin);
+    const rows = await screen.findAllByTestId('payout-row');
+    const form = within(rows[0]!).getByRole('form', { name: /지급 결과 표시 RD-7/ });
+    await userEvent.selectOptions(within(form).getByLabelText('결과'), 'PAID');
+    await userEvent.click(within(form).getByRole('button', { name: '표시' }));
+    await userEvent.click(within(await within(form).findByTestId('payout-paid-confirm')).getByRole('button', { name: '취소' }));
+    expect(within(form).queryByTestId('payout-paid-confirm')).not.toBeInTheDocument();
+    expect(within(form).getByRole('button', { name: '표시' })).toBeEnabled();
+    expect(posts(view.sent, '/rider-payouts/RD-7/2026-11-19/results')).toHaveLength(0);
+  });
+
   it('수행료 구분 필터: 조정을 고르면 조정 수행료가 든 묶음만, 펼친 칸도 조정만(2026-11-24)', async () => {
     renderAt('/payouts?payoutDate=2026-11-19&kind=adjusted', as.admin);
     const rows = await screen.findAllByTestId('payout-row');
@@ -57,6 +69,11 @@ describe('지급 관리', () => {
     const form = within(rows[0]!).getByRole('form', { name: /지급 결과 표시 RD-7/ });
     await userEvent.selectOptions(within(form).getByLabelText('결과'), 'PAID');
     await userEvent.click(within(form).getByRole('button', { name: '표시' }));
+    // 지급 완료는 한 번 더 묻는다 — 묻는 동안은 보내지 않는다(2026-11-24)
+    const ask = await within(form).findByTestId('payout-paid-confirm');
+    expect(ask).toHaveTextContent('되돌릴 수 없고');
+    expect(posts(view.sent, '/rider-payouts/RD-7/2026-11-19/results')).toHaveLength(0);
+    await userEvent.click(within(ask).getByRole('button', { name: '지급 완료로 표시' }));
     // 표시가 끝나면 줄이 지급 완료로 바뀌어 입력 칸이 없어진다 — 결과는 위 알림에 남는다
     expect(await screen.findByTestId('payout-done')).toHaveTextContent('R4829 · 2026-11-19 묶음을 지급 완료(으)로 표시했어요.');
     expect(await within(screen.getAllByTestId('payout-row')[0]!).findByText('지급 완료')).toBeInTheDocument();
