@@ -60,7 +60,15 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
 
   /// 아래 시트(레퍼런스 image 14·15): 기본은 예정·장소·도움요청|길찾기까지(그 높이를 재서 맞춘다),
   /// 회색바·헤더를 누르거나 위로 올리면 배달 정보와 진행 버튼.
-  static const _sheetFull = 0.92;
+  static const _sheetFullMax = 0.92;
+
+  /// 끝까지 펼친 높이. 위 단추줄(홈: 알림·내 정보·목록, 따로 연 화면: 뒤로)은 가리지 않게
+  /// 화면 위에서 그 줄 높이만큼 남긴다(2026-11-24 사용자 "알림 버튼이 안눌러져" — 펼친 시트가 종을 덮었다).
+  double _sheetFull = _sheetFullMax;
+
+  /// 위에 남길 단추줄 높이(SafeArea 아래 12 여백 + 48 단추 + 8).
+  static const _topRowReserve = 68.0;
+
   final _sheet = DraggableScrollableController();
   final _peekKey = GlobalKey();
   double _peekPx = 190;
@@ -1563,6 +1571,15 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
             builder: (context, box) {
               _bodyHeight = box.maxHeight;
               final peekSize = _peekSize;
+              final top = MediaQuery.paddingOf(context).top + _topRowReserve;
+              _sheetFull = box.maxHeight <= 0
+                  ? _sheetFullMax
+                  : ((box.maxHeight - top) / box.maxHeight)
+                        .clamp(
+                          math.min(peekSize + 0.05, _sheetFullMax),
+                          _sheetFullMax,
+                        )
+                        .toDouble();
               return DraggableScrollableSheet(
                 key: const ValueKey('delivery-sheet'),
                 controller: _sheet,
@@ -1587,19 +1604,57 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
                       _downSize = null;
                       _fingerSpeed = null;
                     },
-                    // 안쪽 목록 끝에서 늘어나는(stretch) 효과가 시트 끌기와 겹쳐 덜컹거리지 않게 끈다.
-                    child: SingleChildScrollView(
-                      controller: scroll,
-                      physics: const ClampingScrollPhysics(),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          peek,
-                          ...details,
-                          // 아래에 뜨는 진행 버튼이 마지막 내용을 가리지 않게.
-                          const SizedBox(height: 110),
-                        ],
-                      ),
+                    // 2026-11-24 사용자 "여기가 고정되게 해줘"(손잡이·예정·장소·도움요청|길찾기) — 기본 화면은 시트 맨 위에
+                    // 고정하고, 그 아래 배달 정보만 넘어간다. 고정 칸은 위에 겹쳐 두고 배달 정보는 그 높이만큼 띄워 시작한다
+                    // (세로로 쌓으면 높이를 다시 맞추는 사이 넘쳤다). 고정 칸을 끌어도 시트가 움직인다(놓을 때는 위 Listener 가 이어 감).
+                    child: Stack(
+                      children: [
+                        Positioned.fill(
+                          // 안쪽 목록 끝에서 늘어나는(stretch) 효과가 시트 끌기와 겹쳐 덜컹거리지 않게 끈다.
+                          child: SingleChildScrollView(
+                            controller: scroll,
+                            physics: const ClampingScrollPhysics(),
+                            padding: EdgeInsets.only(top: _peekPx),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                ...details,
+                                // 아래에 뜨는 진행 버튼이 마지막 내용을 가리지 않게.
+                                const SizedBox(height: 110),
+                              ],
+                            ),
+                          ),
+                        ),
+                        Positioned(
+                          top: 0,
+                          left: 0,
+                          right: 0,
+                          child: GestureDetector(
+                            key: const ValueKey('sheet-fixed-top'),
+                            behavior: HitTestBehavior.translucent,
+                            onVerticalDragUpdate: (e) {
+                              if (!_sheet.isAttached || _bodyHeight <= 0) {
+                                return;
+                              }
+                              _sheet.jumpTo(
+                                (_sheet.size - e.delta.dy / _bodyHeight)
+                                    .clamp(_peekSize, _sheetFull)
+                                    .toDouble(),
+                              );
+                            },
+                            child: DecoratedBox(
+                              // 흰 바탕(아래 내용이 비치지 않게) + 경계 얇은 선
+                              decoration: const BoxDecoration(
+                                color: Colors.white,
+                                border: Border(
+                                  bottom: BorderSide(color: RiderColors.line),
+                                ),
+                              ),
+                              child: peek,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),

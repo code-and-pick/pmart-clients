@@ -226,10 +226,13 @@ class RequestNotes extends StatelessWidget {
               const SizedBox(width: 8),
               Text(
                 l10n.checkRequestNote,
+                // 2026-11-25 사용자 "주황글자 폰트만 좀 더 다듬어줘" → 안 C: 16·굵게(700)·자간 좁힘,
+                // 크림 바탕 위에서 흐리지 않게 주황을 한 톤 진하게.
                 style: const TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w800,
-                  color: RiderColors.pickup,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.3,
+                  color: Color(0xFFE0701A),
                 ),
               ),
             ],
