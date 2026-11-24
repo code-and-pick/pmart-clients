@@ -64,7 +64,8 @@ const rx = {
   withdrawn: '탈퇴함',
   withdrawnAt: (t: string) => `탈퇴함 ${t}`,
   withdrawnEmpty: '탈퇴한 라이더가 없어요.',
-  withdrawnNotice: (t: string) => `${t}에 탈퇴한 라이더예요. 이름·전화·계좌는 탈퇴 때 지워졌고 수행료·배정·컴플레인 기록은 남아 있어요. 계정 제한·원문 열람은 할 수 없어요.`,
+  // 2026-11-24 사용자 "줄줄 적어놓지 말고 핵심만" — 언제 탈퇴·무엇이 지워졌나·못 하는 것만
+  withdrawnNotice: (t: string) => `${t} 탈퇴 · 개인정보 삭제됨 · 기록 보기만 가능`,
 } as const;
 
 const restrictionTone = (s: string | null | undefined): Tone =>
@@ -508,7 +509,8 @@ function RiderDetailPage() {
             </>
           )
         }
-        summary={d && [d.nameMasked, d.phoneMasked, d.vehicleType ? label(n.vehicle, d.vehicleType) : null, d.joinedAt ? `${r.col.joinedAt} ${when(d.joinedAt)}` : null].filter(Boolean).join(' · ')}
+        // 2026-11-24 사용자 "자전거 가입이랑 가입 시간 … 제목 바로 밑에 올 만큼 중요한 정보는 아닌 것 같으니까 없애" — 이동수단·가입 시각은 아래 기본 정보에 있다
+        summary={d && [d.nameMasked, d.phoneMasked].filter(Boolean).join(' · ')}
         actions={
           <Link className="btn btn-sm border-base-300 bg-base-100" to={`/deliveries?riderId=${encodeURIComponent(riderId)}`}>
             {r.deliveries}
