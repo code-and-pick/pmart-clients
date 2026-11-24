@@ -14,12 +14,13 @@ import { useApi } from '../../app/ApiContext';
 import { messages } from '../../shared/messages';
 import { DeliveryRef, RiderRef, StaffName, SystemIds, useDeliveryNumbers, useRiderSummaries } from '../../shared/displayNumbers';
 import { useSession } from '../../app/SessionContext';
-import { AllDone, ChipGroup, GuideBox, CursorPager, DataTable, DetailHeader, FieldList, Notice, PageHeader, ResultBar, SearchPanel, SearchRow, Section, StatCard, StatStrip, StatusBadge } from '../../shared/admin';
+import { AllDone, ChipGroup, GuideBox, CursorPager, DataTable, DetailHeader, FieldList, PageHeader, ResultBar, SearchPanel, SearchRow, Section, StatCard, StatStrip, StatusBadge } from '../../shared/admin';
 import { ui } from '../../shared/uiMessages';
 import { listCountText, useListRows } from '../../shared/listKit';
 import { SavedViews } from '../../shared/SavedViews';
 import { Caret, expandRowProps, InlineDetail, useInlineOpen } from '../../shared/simList';
 import { useNow } from '../../shared/useNow';
+import { elapsedText } from '../deliveries/DeliveryExtras';
 import { caseTone, StateTabs } from '../support/supportUi';
 
 const m = messages.cases;
@@ -38,14 +39,15 @@ const PAGE_SIZE = 50;
 
 /** 기한 15분 안 — 남은 분(서버 기한 slaDueAt 과 지금 시각의 차, 넘김 판정은 서버 overdue). 2026-11-19 통합 백오피스처럼 숨쉬기 */
 const SOON_MIN = 15;
-function Sla({ slaDueAt, overdue, now }: { readonly slaDueAt: string | null | undefined; readonly overdue: boolean | null | undefined; readonly now?: number | null }) {
+function Sla({ slaDueAt, overdue, now, wrap = false }: { readonly slaDueAt: string | null | undefined; readonly overdue: boolean | null | undefined; readonly now?: number | null; readonly wrap?: boolean }) {
   if (!slaDueAt) return <>{none}</>;
   const left = !overdue && now != null ? Math.ceil((new Date(slaDueAt).getTime() - now) / 60_000) : null;
   const soon = left !== null && left > 0 && left <= SOON_MIN;
   return (
-    <span className={`whitespace-nowrap ${overdue ? 'font-semibold text-error' : ''}`} data-overdue={overdue ? 'true' : 'false'}>
+    <span className={`${wrap ? '' : 'whitespace-nowrap'} ${overdue ? 'font-semibold text-error' : ''}`} data-overdue={overdue ? 'true' : 'false'}>
       {when(slaDueAt)}
-      {overdue && ` · ${m.overdue}`}
+      {/* 좁은 칸(펼친 줄)에서는 "기한 넘김"을 다음 줄로 — 옆 "담당" 칸을 밀어 붙지 않게(2026-11-24) */}
+      {overdue && (wrap ? <span className="block">{m.overdue}</span> : ` · ${m.overdue}`)}
       {soon && (
         <span className="breathe ml-1 font-semibold text-warning" data-testid="sla-soon">
           · {cx.minutesLeft(left)}
@@ -89,9 +91,82 @@ function Refs({ refs }: { readonly refs: CaseSummary['refs'] }) {
   );
 }
 
+// 2026-11-24 사용자 "P2가 뭔데" — 계약 Priority(P1 긴급·P2 높음·P3 보통·P4 낮음)를 글자로, 코드는 올려 보면
+const PRIORITY_NAME: Readonly<Record<string, string>> = { P1: '긴급', P2: '높음', P3: '보통', P4: '낮음' };
 function PriorityBadge({ priority }: { readonly priority: string | null | undefined }) {
-  return <StatusBadge tone={priority === 'P1' ? 'error' : priority === 'P2' ? 'warning' : 'ghost'}>{priority ?? none}</StatusBadge>;
+  return (
+    <span title={priority ? `우선순위 ${priority}` : undefined}>
+      <StatusBadge tone={priority === 'P1' ? 'error' : priority === 'P2' ? 'warning' : 'ghost'}>{priority ? (PRIORITY_NAME[priority] ?? priority) : none}</StatusBadge>
+    </span>
+  );
 }
+
+type CaseHistoryItem = NonNullable<components['schemas']['Case']['history']>[number];
+/** 처음에 보이는 이력 수(2026-11-24 사용자 "일정 개수 넘어가면 더보기로 열게 해주고 최신 게 위에") */
+const HISTORY_SHOWN = 5;
+/** 동작 뒤 상태가 같은 뜻이면 상태를 빼고 동작만 */
+const SAME_AS_ACTION: Readonly<Record<string, readonly string[]>> = { OPENED: ['OPEN'], ASSIGNED: ['ASSIGNED'], CLOSED: ['CLOSED'], REOPENED: ['REOPENED'], RECURRED: ['OPEN', 'ASSIGNED', 'ACTION_PENDING', 'MONITORING'] };
+/** 이력 메모의 사건 이름(서버 영문) → 화면 글자 */
+const EVENT_NOTE: Readonly<Record<string, string>> = { DispatchFailed: '배차 실패', DeliveryIncidentRaised: '배송 사고 접수', RiderHelpRequested: '라이더 도움요청' };
+
+/** 사건 이력 — 최신이 위, 처음엔 5개 + "이전 기록 n개 더 보기" */
+function CaseHistoryList({ history, timeline = false, testId }: { readonly history: readonly CaseHistoryItem[]; readonly timeline?: boolean; readonly testId: string }) {
+  const [all, setAll] = useState(false);
+  const sorted = [...history].map((h, i) => ({ h, i })).sort((a, b) => (b.h.at ?? '').localeCompare(a.h.at ?? '') || b.i - a.i).map((x) => x.h);
+  const shown = all ? sorted : sorted.slice(0, HISTORY_SHOWN);
+  const hidden = sorted.length - shown.length;
+  if (sorted.length === 0) return <p className="text-sm text-base-content/50">{none}</p>;
+  return (
+    <div className="space-y-2">
+      <ol className={timeline ? 'relative space-y-3 border-l-2 border-base-300 pl-4 text-sm' : 'space-y-1.5 text-sm'} data-testid={testId}>
+        {shown.map((h, i) => (
+          <li key={`${h.at ?? ''}-${i}`} className={timeline ? 'relative' : undefined}>
+            {timeline && <span className="absolute -left-[1.4rem] top-1 size-2.5 rounded-full bg-accent" aria-hidden />}
+            {/* "접수 → 접수됨"·"맡음 → 맡음" 처럼 동작이 곧 상태면 동작만(2026-11-24 사용자 "접수 -> 접수됨은 뭐냐") */}
+            <span className="font-medium">{`${name(n.caseAction, h.action)}${h.toState && !SAME_AS_ACTION[h.action ?? '']?.includes(h.toState) ? ` → ${name(n.caseState, h.toState)}` : ''}`}</span>
+            <span className="ml-2 text-base-content/55">{when(h.at)}</span>
+            {h.note && <p className={timeline ? 'mt-0.5 text-base-content/70' : 'text-base-content/70'}>{EVENT_NOTE[h.note] ?? tidySummary(h.note)}</p>}
+          </li>
+        ))}
+      </ol>
+      {sorted.length > HISTORY_SHOWN && (
+        <button type="button" className="btn btn-ghost btn-xs w-full" onClick={() => setAll((v) => !v)} data-testid="case-history-more">
+          {all ? '최근 기록만 보기' : `이전 기록 ${hidden}개 더 보기`}
+        </button>
+      )}
+    </div>
+  );
+}
+
+/**
+ * 처리 안 된 채 기한을 넘긴 사건 — 펼친 칸·상세 맨 위 빨간 경고(2026-11-24 사용자 "4일째 배차 찾고 있는데 왜 아무데도 위급하다고 빨리 처리하라는
+ * 알림이나 글이 안 적혀 있냐고"). 기한 넘김은 서버 overdue 값, 경과는 처리 기한부터.
+ */
+function CaseUrgent({ c }: { readonly c: { readonly state?: string | null; readonly overdue?: boolean | null; readonly slaDueAt?: string | null; readonly assigneeId?: string | null; readonly history?: readonly CaseHistoryItem[] | null } }) {
+  const now = useNow();
+  if (c.state === 'CLOSED' || !c.overdue) return null;
+  const recurred = (c.history ?? []).filter((h) => h.action === 'RECURRED').length;
+  const over = c.slaDueAt && now !== null ? elapsedText(c.slaDueAt, now) : null;
+  return (
+    <div role="alert" className="flex items-start gap-3 rounded-box border border-error bg-error/10 px-4 py-3" data-testid="case-urgent">
+      <span className="mt-1 h-2.5 w-2.5 shrink-0 animate-pulse rounded-full bg-error" aria-hidden />
+      <div className="text-sm">
+        <p className="font-bold text-error">{over ? `처리 기한을 ${over} 넘겼어요 — 빨리 처리해 주세요` : '처리 기한을 넘겼어요 — 빨리 처리해 주세요'}</p>
+        <p>
+          {[c.assigneeId ? null : '아직 아무도 안 맡았어요', recurred > 0 ? `같은 문제가 ${recurred}번 더 생겼어요` : null].filter(Boolean).join(' · ')}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+/** 요약 글자 다듬기 — 서버 요약에 섞인 ISO 시각(2026-11-20T13:10:39.63Z)을 화면 시각으로 */
+const CODE_WORDS: Readonly<Record<string, string>> = { ...n.helpCategory, ...n.executionState };
+const tidySummary = (text: string) =>
+  tidyIso(text)
+    // 2026-11-24 사용자(상세 "라이더 도움요청 — APP_ERROR (ASSIGNED)") — 서버 요약 속 영문 코드를 화면 글자로
+    .replace(/\b[A-Z][A-Z_]{2,}\b/g, (code) => CODE_WORDS[code] ?? code);
+const tidyIso = (text: string) => text.replace(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})?/g, (iso) => when(iso));
 
 /** 처리함의 "배송 사건" 탭(2026-11-21) — embedded 면 쪽 제목 없이, 주소의 tab=cases 를 지킨다 */
 export function CaseListPage({ embedded = false }: { readonly embedded?: boolean }) {
@@ -236,13 +311,17 @@ export function CaseListPage({ embedded = false }: { readonly embedded?: boolean
                       {/* 줄을 누르면 바로 아래에 접수 내용·이력(시뮬레이터처럼). 처리 끝내기는 요약 링크·"전체 상세 ›"에서 */}
                       <tr data-testid="case-row" className={`${c.overdue ? 'bg-error/5' : ''} ${listRows.rowClass(casePath(c.caseId))}`} {...expandRowProps(isOpen, () => inline.toggle(k))}>
                         <td>
-                          <Caret open={isOpen} />
-                          <PriorityBadge priority={c.priority} />
+                          {/* 삼각형과 꼬리표를 한 줄로(2026-11-24 "조그만 삼각형 때문에 P2가 내려가 보이니") */}
+                          <span className="flex items-center gap-1 whitespace-nowrap">
+                            <Caret open={isOpen} />
+                            <PriorityBadge priority={c.priority} />
+                          </span>
                         </td>
                         <td className="whitespace-nowrap">{name(n.caseKind, c.kind)}</td>
                         <td className="font-medium">
-                          <Link className="hover:underline" to={casePath(c.caseId)} onClick={(e) => e.stopPropagation()}>
-                            {c.summary || name(n.caseKind, c.kind)}
+                          {/* 내용은 한 줄(넘치면 … — 전체는 올려 보거나 줄을 펼치면, 2026-11-24 "내용도 2줄 이상 되니까 보기 힘들잖아") */}
+                          <Link className="block max-w-md truncate hover:underline" title={tidySummary(c.summary || '')} to={casePath(c.caseId)} onClick={(e) => e.stopPropagation()}>
+                            {c.summary ? tidySummary(c.summary) : name(n.caseKind, c.kind)}
                           </Link>
                           {listRows.seenMark(casePath(c.caseId))}
                         </td>
@@ -288,17 +367,24 @@ function CaseInline({ caseId }: { readonly caseId: string }) {
   return (
     <QueryState state={toUiState(query)} onRetry={() => void query.refetch()}>
       {(x) => (
+        <div className="space-y-3">
+        <CaseUrgent c={x} />
         <div className="pm-inline-cols">
           <div>
             <h4>접수 내용</h4>
+            {/* 내용은 칸 하나에 3줄로 접혀 읽기 어려웠다(2026-11-24 "글 3줄 넘어가서 눈에 안 들어오고") — 위에 한 줄로 따로 */}
+            {x.summary && (
+              <p className="mb-3 text-[15px] font-semibold" data-testid="case-inline-summary">
+                {tidySummary(x.summary)}
+              </p>
+            )}
             <FieldList
               testId="case-inline-detail"
               rows={[
                 [m.col.kind, name(n.caseKind, x.kind)],
-                [m.col.summary, x.summary || none],
                 [m.col.refs, <Refs refs={x.refs} />],
                 [m.col.openedAt, when(x.openedAt)],
-                [m.col.sla, <Sla slaDueAt={x.slaDueAt} overdue={x.overdue} />],
+                [m.col.sla, <Sla slaDueAt={x.slaDueAt} overdue={x.overdue} wrap />],
                 [m.col.assignee, x.assigneeId ? <StaffName operatorId={x.assigneeId} me={me} /> : m.unassigned],
                 x.closure && [m.closure, `${name(n.resolution, x.closure.resolution)}${x.closure.summary ? ` — ${x.closure.summary}` : ''} (${when(x.closure.closedAt)})`],
               ]}
@@ -306,20 +392,9 @@ function CaseInline({ caseId }: { readonly caseId: string }) {
           </div>
           <div className="pm-inline-side">
             <h4>{m.history}</h4>
-            {(x.history ?? []).length === 0 ? (
-              <p className="text-sm text-base-content/50">{none}</p>
-            ) : (
-              <ol className="space-y-1.5 text-sm" data-testid="case-inline-history">
-                {(x.history ?? []).map((h, i) => (
-                  <li key={`${h.at ?? ''}-${i}`}>
-                    <span className="font-medium">{`${name(n.caseAction, h.action)}${h.toState ? ` → ${name(n.caseState, h.toState)}` : ''}`}</span>
-                    <span className="ml-2 text-base-content/55">{when(h.at)}</span>
-                    {h.note && <p className="text-base-content/70">{h.note}</p>}
-                  </li>
-                ))}
-              </ol>
-            )}
+            <CaseHistoryList history={x.history ?? []} testId="case-inline-history" />
           </div>
+        </div>
         </div>
       )}
     </QueryState>
@@ -346,7 +421,8 @@ export function CaseDetailPage() {
       <DetailHeader
         seen={!!c}
         back={{ to: CASE_LIST, label: m.back }}
-        title={c ? c.summary || name(n.caseKind, c.kind) : m.detailTitle('')}
+        // 2026-11-24 사용자 "위쪽에 왜 이렇게 UI 복잡한데 글도 줄줄 적혀 있고" — 제목은 요약(코드는 글자로), 밑줄은 종류·접수 시각만, 안내 상자 뺌
+        title={c ? (c.summary ? tidySummary(c.summary) : name(n.caseKind, c.kind)) : m.detailTitle('')}
         badges={
           c && (
             <>
@@ -356,9 +432,9 @@ export function CaseDetailPage() {
             </>
           )
         }
-        summary={c && [name(n.caseKind, c.kind), c.summary, `${m.col.openedAt} ${when(c.openedAt)}`].filter(Boolean).join(' · ')}
+        summary={c && [name(n.caseKind, c.kind), `${m.col.openedAt} ${when(c.openedAt)}`].join(' · ')}
       />
-      <Notice>{m.viewOnlyNote}</Notice>
+      {c && <CaseUrgent c={c} />}
       {closedNow && (
         <p role="status" className="rounded-box bg-success/10 px-4 py-3 text-sm text-success" data-testid="case-closed-now">
           {closeText.done}
@@ -371,13 +447,9 @@ export function CaseDetailPage() {
               <FieldList
                 testId="case-detail"
                 rows={[
-                  [m.col.kind, name(n.caseKind, x.kind)],
-                  [m.col.summary, x.summary || none],
-                  [m.col.priority, x.priority ?? none],
-                  [m.col.state, name(n.caseState, x.state)],
+                  // 제목·꼬리표에 있는 내용·긴급도·상태·종류·접수 시각은 다시 적지 않는다
                   [m.col.refs, <Refs refs={x.refs} />],
-                  [m.col.openedAt, when(x.openedAt)],
-                  [m.col.sla, <Sla slaDueAt={x.slaDueAt} overdue={x.overdue} />],
+                  [m.col.sla, <Sla slaDueAt={x.slaDueAt} overdue={x.overdue} wrap />],
                   [m.col.assignee, x.assigneeId ? <StaffName operatorId={x.assigneeId} me={me} /> : m.unassigned],
                   x.closure && [m.closure, `${name(n.resolution, x.closure.resolution)}${x.closure.summary ? ` — ${x.closure.summary}` : ''} (${when(x.closure.closedAt)})`],
                 ]}
@@ -390,20 +462,7 @@ export function CaseDetailPage() {
               </Section>
             )}
             <Section id="sec-history" title={m.history}>
-              {(x.history ?? []).length === 0 ? (
-                <p className="text-sm text-base-content/50">{none}</p>
-              ) : (
-                <ol className="relative space-y-3 border-l-2 border-base-300 pl-4 text-sm" data-testid="case-history">
-                  {(x.history ?? []).map((h, i) => (
-                    <li key={`${h.at ?? ''}-${i}`} className="relative">
-                      <span className="absolute -left-[1.4rem] top-1 size-2.5 rounded-full bg-accent" aria-hidden />
-                      <span className="font-medium">{`${name(n.caseAction, h.action)}${h.toState ? ` → ${name(n.caseState, h.toState)}` : ''}`}</span>
-                      <span className="ml-2 text-base-content/55">{when(h.at)}</span>
-                      {h.note && <p className="mt-0.5 text-base-content/70">{h.note}</p>}
-                    </li>
-                  ))}
-                </ol>
-              )}
+              <CaseHistoryList history={x.history ?? []} timeline testId="case-history" />
             </Section>
           </div>
         )}
@@ -414,7 +473,8 @@ export function CaseDetailPage() {
 
 const closeText = {
   title: '처리 끝내기',
-  intro: '상담·처리를 마쳤으면 결과와 처리 내용을 남기고 닫아요. 이 접수 건에 붙은 도움요청도 함께 "처리 끝"이 돼요.',
+  // 2026-11-24 회색 글 줄이기
+  intro: '닫으면 붙은 도움요청도 함께 처리 끝이 돼요.',
   resolution: '결과',
   summary: '처리 내용(라이더 개인정보는 적지 않아요, 1~2000자)',
   submit: '처리 끝내기',

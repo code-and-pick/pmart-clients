@@ -239,3 +239,24 @@ describe('상담함 — 읽기 상한(2026-11-20 PC 1 리뷰 후속)', () => {
     expect(n).toBe(20);
   });
 });
+
+describe('상담 대화 순서(2026-11-24)', () => {
+  it('라이더가 보낸 도움요청(분류·적은 말)이 대화 맨 앞, 상담사 말은 그 뒤', async () => {
+    server.use(
+      http.get(`${API_BASE}/deliveries/DLV-1/help-requests/HR-1/messages`, () =>
+        HttpResponse.json({
+          helpState: 'IN_PROGRESS',
+          items: [
+            { messageId: 'M-2', senderType: 'SUPPORT', body: '메롱', createdAt: '2026-11-23T10:47:00.000Z' },
+            { messageId: 'M-3', senderType: 'SUPPORT', body: '폽키', createdAt: '2026-11-23T10:47:10.000Z' },
+          ],
+        }),
+      ),
+    );
+    renderAt('/help-requests/DLV-1/HR-1', as.riderOps);
+    const box = await screen.findByTestId('help-messages');
+    await waitFor(() => expect(within(box).getByTestId('help-first-message')).toBeInTheDocument());
+    const text = box.textContent ?? '';
+    expect(text.indexOf(within(box).getByTestId('help-first-message').textContent ?? '#')).toBeLessThan(text.indexOf('메롱'));
+  });
+});

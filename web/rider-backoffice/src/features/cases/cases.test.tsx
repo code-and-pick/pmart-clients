@@ -1,13 +1,25 @@
 // 접수 건(case 0.22.0, 보기만) — 목(MSW) 기준. 실서버 확인은 아니다.
 import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 
+import { API_BASE } from '../../api/client';
 import { as, renderAt } from '../../test/render';
+import { server } from '../../test/server';
 
 const caseCalls = (sent: readonly Request[]) => sent.filter((r) => new URL(r.url).pathname.endsWith('/cases')).map((r) => new URL(r.url).searchParams);
 
 describe('접수 건 목록', () => {
+  it('우선순위는 글자(P1 긴급·P2 높음), 코드는 올려 보면 — 삼각형과 한 줄(2026-11-24)', async () => {
+    renderAt('/cases', as.riderOps);
+    const rows = await screen.findAllByTestId('case-row');
+    const cell = rows[0]!.querySelector('td')!;
+    expect(cell.textContent).toMatch(/긴급|높음|보통|낮음/);
+    expect(cell.textContent).not.toMatch(/P\d/);
+    expect(cell.querySelector('span.flex')).not.toBeNull();
+  });
+
   it('처리 중: 배송 쪽 종류만(라이더 운영), 기한 넘김 표시, 관련 배송은 배송 상세로', async () => {
     const view = renderAt('/cases', as.riderOps);
     const rows = await screen.findAllByTestId('case-row');
@@ -52,14 +64,43 @@ describe('접수 건 목록', () => {
 });
 
 describe('접수 건 상세', () => {
+  it('기한 넘긴 열린 사건: 맨 위 빨간 경고, 이력은 최신이 위·5개 + 더 보기, "접수 → 접수됨" 대신 "접수"(2026-11-24)', async () => {
+    const at = (h: number) => `2026-11-20T${String(h).padStart(2, '0')}:00:00.000Z`;
+    const history = [
+      { at: at(1), action: 'OPENED', toState: 'OPEN', note: 'DispatchFailed' },
+      ...[2, 3, 4, 5, 6, 7, 8].map((h) => ({ at: at(h), action: 'RECURRED', toState: 'OPEN', note: `배차 실패 ${h}번째` })),
+    ];
+    server.use(
+      http.get(`${API_BASE}/cases/CASE-X`, () =>
+        HttpResponse.json({ caseId: 'CASE-X', kind: 'DISPATCH_FAILED', state: 'OPEN', priority: 'P2', summary: '배차 실패 — 응답 만료', overdue: true, slaDueAt: at(1), openedAt: at(1), assigneeId: null, refs: [], history }),
+      ),
+    );
+    renderAt('/cases/CASE-X', as.riderOps);
+    const urgent = await screen.findByTestId('case-urgent');
+    expect(urgent).toHaveTextContent('빨리 처리해 주세요');
+    expect(urgent).toHaveTextContent('아직 아무도 안 맡았어요');
+    expect(urgent).toHaveTextContent('7번 더');
+    const list = screen.getByTestId('case-history');
+    const items = within(list).getAllByRole('listitem');
+    expect(items).toHaveLength(5);
+    expect(items[0]).toHaveTextContent('배차 실패 8번째');
+    await userEvent.click(screen.getByTestId('case-history-more'));
+    const all = within(screen.getByTestId('case-history')).getAllByRole('listitem');
+    expect(all).toHaveLength(8);
+    expect(all[7]).toHaveTextContent(/^접수\d/);
+    expect(all[7]).not.toHaveTextContent('접수됨');
+    expect(all[7]).toHaveTextContent('배차 실패');
+  });
+
   it('내용·상태·처리 결과·이력, 끝난 건은 처리 끝내기 칸이 없다', async () => {
     renderAt('/cases/CASE-RH-0', as.riderOps);
     const detail = await screen.findByTestId('case-detail');
-    expect(detail).toHaveTextContent('포장 대기 — 처리함');
-    expect(detail).toHaveTextContent('처리 완료');
+    // 2026-11-24 상세 단순화 — 내용은 제목, 상태는 제목 옆 꼬리표, 칸에는 다시 적지 않는다. 안내 상자는 없다
+    expect(screen.getByRole('heading', { name: /포장 대기 — 처리함/ })).toBeInTheDocument();
+    expect(detail).not.toHaveTextContent('포장 대기 — 처리함');
     expect(detail).toHaveTextContent('해결 — 매장 확인 뒤 픽업');
     expect(screen.getByTestId('case-history')).toHaveTextContent('처리 완료');
-    expect(screen.getByRole('note')).toHaveTextContent('처리 끝내기');
+    expect(screen.queryByRole('note')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /맡기|닫기|처리 끝내기/ })).not.toBeInTheDocument();
   });
 

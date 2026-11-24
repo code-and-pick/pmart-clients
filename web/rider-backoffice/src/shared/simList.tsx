@@ -157,8 +157,8 @@ export function SearchRow({ label, children }: { readonly label: ReactNode; read
 }
 
 /** 쪽 머리 — 제목 옆 ⓘ 에 설명을 접어 둔다(공용 PageHeader 와 같은 속성) */
-export function PageHeader({ title, description, actions, back }: { readonly title: ReactNode; readonly description?: ReactNode; readonly actions?: ReactNode; readonly back?: { readonly to: string; readonly label: string } }) {
-  const [open, setOpen] = useState(false);
+// 2026-11-24 사용자 "i 원문자 제목 옆에 안내 버튼 없애" — 제목 옆 ⓘ(화면 설명) 단추를 그리지 않는다(description 은 받기만, 화면마다 지우지 않아도 되게)
+export function PageHeader({ title, actions, back }: { readonly title: ReactNode; readonly description?: ReactNode; readonly actions?: ReactNode; readonly back?: { readonly to: string; readonly label: string } }) {
   return (
     <header className="space-y-1">
       {back && (
@@ -170,15 +170,9 @@ export function PageHeader({ title, description, actions, back }: { readonly tit
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2">
           <h1 className="min-w-0 text-xl font-bold">{title}</h1>
-          {description && (
-            <button type="button" className="pm-info-btn" aria-expanded={open} aria-label={t.infoLabel(open)} title={t.infoLabel(open)} onClick={() => setOpen((o) => !o)} data-testid="page-info">
-              {t.info}
-            </button>
-          )}
         </div>
         {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
       </div>
-      {description && open && <p className="pm-info-text">{description}</p>}
     </header>
   );
 }

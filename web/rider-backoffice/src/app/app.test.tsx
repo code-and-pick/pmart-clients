@@ -157,7 +157,9 @@ describe('할 일/기록 나누기(사용자 2026-11-21 — 접수 건·조치 �
 
   it('옛 상세 주소 /cases/:id 는 그 사건 상세가 그대로 열린다', async () => {
     renderAt('/cases/CASE-RH-0', as.riderOps);
-    expect(await screen.findByTestId('case-detail')).toHaveTextContent('포장 대기 — 처리함');
+    // 내용(요약)은 제목으로(2026-11-24 상세 단순화)
+    await screen.findByTestId('case-detail');
+    expect(screen.getByRole('heading', { name: /포장 대기 — 처리함/ })).toBeInTheDocument();
     // 뒤로는 제목 왼쪽 ‹ 단추(2026-11-24) — 이름은 그대로 "상담 관리 · 배송 사건"
     expect(screen.getByRole('button', { name: '상담 관리 · 배송 사건' })).toBeInTheDocument();
   });

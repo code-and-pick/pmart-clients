@@ -201,8 +201,18 @@ function HelpChatPage() {
           <div className="space-y-3">
             <QueryState state={toUiState(chat)} onRetry={() => void chat.refetch()}>
               {(c) => (
-                <ChatBox testId="help-messages" empty={(c.items ?? []).length === 0}>
-                  {(c.items ?? []).map((msg) => (
+                <ChatBox testId="help-messages" empty={(c.items ?? []).length === 0 && !d}>
+                  {/* 2026-11-24 사용자 "라이더가 뭐라고 보내왔는지부터 뜨게" — 대화 맨 앞에 라이더가 보낸 도움요청(분류·적은 말)을 첫 말풍선으로 */}
+                  {/* 서버가 같은 말을 첫 라이더 메시지로도 두면(목 등) 두 번 보이지 않게 */}
+                  {d && !(c.items ?? []).some((msg) => msg.senderType !== 'SUPPORT' && !!d.detail && msg.body === d.detail) && (
+                    <ChatBubble mine={false} who={h.rider} at={when(d.createdAt)}>
+                      <span data-testid="help-first-message">
+                        <b>{label(helpCategoryName, d.category)}</b>
+                        {d.detail ? <span className="block whitespace-pre-wrap">{d.detail}</span> : null}
+                      </span>
+                    </ChatBubble>
+                  )}
+                  {[...(c.items ?? [])].sort((p, q) => (p.createdAt ?? '').localeCompare(q.createdAt ?? '')).map((msg) => (
                     <ChatBubble
                       key={msg.messageId}
                       fresh={freshHelp.has(msg.messageId ?? '')}

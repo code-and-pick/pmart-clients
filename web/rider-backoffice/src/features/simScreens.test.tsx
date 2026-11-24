@@ -75,13 +75,10 @@ describe('목록 줄 — 누르면 바로 아래에 펼친 상세', () => {
 });
 
 describe('화면 설명 ⓘ', () => {
-  it('제목 아래 긴 설명은 처음엔 접혀 있고 ⓘ 로 연다(문장은 그대로)', async () => {
+  it('제목 옆 ⓘ 단추는 없다(2026-11-24 사용자 "i 원문자 제목 옆에 안내 버튼 없애")', async () => {
     renderAt('/deliveries', as.riderOps);
-    const info = await screen.findByTestId('page-info');
-    expect(info).toHaveAttribute('aria-expanded', 'false');
-    await userEvent.click(info);
-    expect(info).toHaveAttribute('aria-expanded', 'true');
-    expect(info.closest('header')!.querySelector('.pm-info-text')).not.toBeNull();
+    await screen.findByRole('heading', { name: '배송 관리' });
+    expect(screen.queryByTestId('page-info')).not.toBeInTheDocument();
   });
 });
 
