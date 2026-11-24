@@ -33,7 +33,7 @@ import { ops } from '../../shared/opsMessages';
 import { AuthedPhotos } from '../../shared/AuthedPhotos';
 import { useEvidenceLoader } from '../../shared/evidenceLoader';
 import { none, when, won } from '../../shared/opsUi';
-import { DeliveryRef, resolveRiderId, RiderRef, searchHint, StaffName, SystemIds, useDeliveryNumbers, useRiderSummaries, RIDER_NUMBER } from '../../shared/displayNumbers';
+import { DeliveryRef, resolveRiderId, RiderRef, searchHint, StaffName, SystemIds, useDeliveryNumbers, useRiderSummaries } from '../../shared/displayNumbers';
 import { useSession } from '../../app/SessionContext';
 
 const e = ops.earnings;
@@ -303,8 +303,8 @@ export function SurchargesMenu() {
         summary={[
           [f.state, state === 'REQUESTED' ? '' : state === 'ALL' ? f.all : (f.stateName[state] ?? state), () => patch({ state: '' })],
           // 2026-11-24 사용자 "이렇게 번호로 검색한 것도 필터로 치나?" — 찾기 칸에 적은 글자는 칸에 그대로 보여 칩·필터 개수에 넣지 않는다(지급 예정일과 같음)
-          // 링크로 온 라이더 ID(번호가 아닌 시스템 ID)만 칩
-          ['라이더', riderId && !RIDER_NUMBER.test(riderId) ? '한 라이더' : '', () => {
+          // 2026-11-24 사용자 "이렇게 검색한 게 필터에 한 라이더라고 뜰 필요 없는 것 같은데" — 찾기 칸이 비었을 때(링크로 옴)만 칩
+          ['라이더', riderId && !riderInput.trim() ? '한 라이더' : '', () => {
             setRiderInput('');
             patch({ riderId: '' });
           }],

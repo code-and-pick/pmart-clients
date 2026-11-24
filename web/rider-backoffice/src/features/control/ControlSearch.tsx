@@ -17,7 +17,8 @@ export const searchMessages = {
   headerLabel: '통합 찾기',
   headerGo: '통합 찾기로 관제에서 열기',
   headerOpen: '통합 찾기 열기',
-  placeholder: '주문·배송 번호(D74939255) · 라이더 번호(R4785) · 라이더 ID',
+  // 2026-11-24 사용자 "기니까 잘려서 안 보이잖아 주문배송번호 라이더 번호 이런 것만 적어" — 자세한 형식은 마우스를 올리면(headerTitle)
+  placeholder: '주문·배송 번호, 라이더 번호',
   // 머리줄 찾기 칸은 좁아 긴 안내가 잘렸다(2026-11-23 사용자 "상단바 검색창에 이렇게 뜨는 거 바꿔") — 짧게, 자세한 형식은 마우스를 올리면
   // 2026-11-24 사용자 "검색창에 적힌 거 너무 길어 … 라이더·주문 번호로 찾기 이 정도로만" (배송 번호도 그대로 찾아진다)
   headerPlaceholder: '라이더·주문 번호로 찾기',
@@ -138,7 +139,7 @@ export function ControlSearch({ onFound, onDelivery, compact = false }: { readon
     <form className="flex flex-col gap-1 text-sm" onSubmit={(e) => void submit(e)} role="search" aria-label={s.label}>
       <span>{s.label}</span>
       <span className="flex gap-1">
-        <input className="input input-sm w-72" value={text} placeholder={s.placeholder} aria-label={s.label} maxLength={64} onChange={(e) => setText(e.target.value)} />
+        <input className="input input-sm w-72" value={text} placeholder={s.placeholder} title={s.headerTitle} aria-label={s.label} maxLength={64} onChange={(e) => setText(e.target.value)} />
         <button type="submit" className="btn btn-sm btn-primary" disabled={busy || !text.trim()}>
           {s.go}
         </button>

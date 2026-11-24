@@ -183,6 +183,25 @@ describe('배송 상세', () => {
     expect(within(eta).getByText('약속보다 5분 늦음')).toBeInTheDocument();
   });
 
+  it('배차 시도: 최신이 위, 처음엔 3개만 — 더 보기로 나머지, 라이더 없이 20분 넘으면 빨간 배차 지연 경고(2026-11-24)', async () => {
+    const at = (h: number) => ({ attemptId: `AT-${h}`, trigger: 'RETRY', state: 'FAILED', failureReason: 'EXPIRED', startedAt: `2026-11-20T${String(h).padStart(2, '0')}:00:00.000Z`, offers: [] });
+    server.use(
+      http.get(`${API_BASE}/deliveries/DLV-2/dispatch`, () =>
+        HttpResponse.json({ deliveryId: 'DLV-2', orderId: 'ORD-2', mfcId: 'MFC-BSJ-01', type: 'FORWARD', state: 'DISPATCHING', attempts: [at(1), at(2), at(3), at(4), at(5)] }),
+      ),
+    );
+    renderAt('/deliveries/DLV-2', as.riderOps);
+    const shown = await screen.findAllByTestId('dispatch-attempt');
+    expect(shown).toHaveLength(3);
+    // 최신(05시)이 맨 위
+    expect(shown[0]).toHaveTextContent('11. 20. 오후 2:00');
+    await userEvent.click(screen.getByTestId('dispatch-attempts-more'));
+    expect(screen.getAllByTestId('dispatch-attempt')).toHaveLength(5);
+    const alert = await screen.findByTestId('dispatch-delay');
+    expect(alert).toHaveTextContent('배차 지연');
+    expect(alert).toHaveTextContent('배차 시도 5번');
+  });
+
   it('배차 실패한 배송은 시도마다 실패 사유', async () => {
     renderAt('/deliveries/DLV-2', as.riderOps);
     const attempts = await screen.findAllByTestId('dispatch-attempt');

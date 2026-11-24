@@ -33,7 +33,7 @@ const dx = {
   failedToday: '오늘 전달 실패',
   today: '오늘',
 } as const;
-import { DeliveryEarning, DeliveryProof, DeliveryStory, DispatchAttempts, EtaPanel, extrasMessages } from './DeliveryExtras';
+import { DeliveryEarning, DeliveryProof, DeliveryStory, DispatchAttempts, DispatchDelayAlert, dispatchDelaySince, elapsedText, EtaPanel, extrasMessages } from './DeliveryExtras';
 
 const m = messages.deliveries;
 const n = messages.names;
@@ -200,7 +200,7 @@ function DeliverySearchPage() {
           // 2026-11-24 사용자 "이렇게 번호로 검색한 것도 필터로 치나?" — 찾기 칸에 적은 글자는 칸에 그대로 보여 칩·필터 개수에 넣지 않는다(지급 예정일과 같음). 시스템 번호(주문 ID — 팝업 칸)로 거른 것만 칩
           ['주문', !orderNumber && orderId ? '한 주문' : '', () => clearText({ orderId: '' })],
           // 링크로 온 라이더 ID(번호가 아닌 시스템 ID)는 칸 글자로 알아보기 어려워 칩으로
-          ['라이더', riderId && !RIDER_NUMBER.test(riderId) ? '한 라이더' : '', () => clearText({ riderId: '' })],
+          ['라이더', riderId && !draft.riderId.trim() ? '한 라이더' : '', () => clearText({ riderId: '' })],
           [m.state, state ? name(n.executionState, state) : '', () => set({ state: '' })],
           [m.type, type ? name(n.deliveryType, type) : '', () => set({ type: '' })],
         ]}
@@ -296,6 +296,10 @@ function DeliverySearchPage() {
                         <span className="flex flex-wrap items-center gap-1">
                           <StatusBadge tone={stateTone(d.state)}>{name(n.executionState, d.state)}</StatusBadge>
                           {d.resumeRequestedAt && <StatusBadge tone="warning">{m.resumeRequested}</StatusBadge>}
+                          {/* 미배정인데 생성부터 20분이 넘으면 빨간 "배차 지연 n일"(Delivery 업무 §3.6) */}
+                          {d.state === 'UNASSIGNED' && dispatchDelaySince(d.createdAt, !!d.riderId) && (
+                            <StatusBadge tone="error" testId="list-dispatch-delay">{extrasMessages.dispatchDelayTag(elapsedText(d.createdAt ?? ''))}</StatusBadge>
+                          )}
                         </span>
                       </td>
                       <td>
@@ -514,6 +518,9 @@ function DeliveryDetailPage() {
             ['라이더 ID', d.riderId],
           ]}
         />
+      )}
+      {d && dispatch.data && (
+        <DispatchDelayAlert dispatchState={dispatch.data.state} attempts={dispatch.data.attempts ?? []} createdAt={null} hasRider={!!(d.riderId ?? dispatch.data.assignment?.riderId)} />
       )}
       {d && <DeliveryStory delivery={d} />}
       <SectionTabs items={tabs} />

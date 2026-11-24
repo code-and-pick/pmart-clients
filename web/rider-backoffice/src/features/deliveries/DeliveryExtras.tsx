@@ -1,7 +1,7 @@
 // 배송 상세 보탬(PC 5, 2026-11-17 — #88 위): 배차 시도 표(dispatch `GET /deliveries/{id}/dispatch` 의 attempts·offers)와
 // 도착 예정(tracking `GET /deliveries/{id}/eta`). 값은 서버 그대로 — 남은 분·km 는 서버 초·미터를 단위만 바꿔 보인다.
 import { useQueries, useQuery } from '@tanstack/react-query';
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Link } from 'react-router';
 
 import { request } from '@pmart/web-core';
@@ -32,6 +32,12 @@ export const extrasMessages = {
   attemptFailure: { NO_RIDER: '라이더 없음', REPEATED_REJECTION: '반복 거절', EXPIRED: '시간 초과', SYSTEM_FAILURE: '시스템 오류' } as Readonly<Record<string, string>>,
   offerState: { SENT: '보냄', ACCEPTED: '수락', REJECTED: '거절', EXPIRED: '만료', LATE: '늦은 응답', SEND_FAILED: '보내기 실패', SUPERSEDED: '대체됨' } as Readonly<Record<string, string>>,
   noOffers: '제안 없음',
+  attemptsMore: (n: number) => `이전 시도 ${n}개 더 보기`,
+  attemptsLess: '최근 시도만 보기',
+  // 배차 지연(Delivery 업무 §3.6 "배차지연시간이 일정기준(ex.20분)을 넘으면 MFC관리자·고객센터에 안내")
+  dispatchDelayTitle: '배차 지연 — 라이더를 못 찾고 있어요',
+  dispatchDelayBody: (since: string, tries: number) => `${since}째 배정되지 않았어요 · 배차 시도 ${tries}번. 운영 조치에서 배차를 직접 확인해 주세요.`,
+  dispatchDelayTag: (since: string) => `배차 지연 ${since}`,
   km: (v: number) => `${v}km`,
   retries: (n: number) => `${n}번`,
   eta: '도착 예정(delivery-tracking)',
@@ -103,7 +109,54 @@ const attemptTone = (st: string | null | undefined): Tone => (st === 'ASSIGNED' 
 const offerTone = (st: string | null | undefined): Tone =>
   st === 'ACCEPTED' ? 'success' : st === 'REJECTED' || st === 'SEND_FAILED' ? 'error' : st === 'SENT' ? 'info' : 'neutral';
 
-export function DispatchAttempts({ attempts }: { readonly attempts: readonly Attempt[] }) {
+/** 배차 지연 기준(분) — Delivery 업무 §3.6 예시값 20분 */
+export const DISPATCH_DELAY_MIN = 20;
+/** 경과 글자: "4일 2시간"·"3시간 5분"·"25분" */
+export function elapsedText(fromIso: string, now = Date.now()): string {
+  const min = Math.max(0, Math.floor((now - Date.parse(fromIso)) / 60_000));
+  const d = Math.floor(min / 1440);
+  const h = Math.floor((min % 1440) / 60);
+  const mm = min % 60;
+  if (d > 0) return h > 0 ? `${d}일 ${h}시간` : `${d}일`;
+  if (h > 0) return mm > 0 ? `${h}시간 ${mm}분` : `${h}시간`;
+  return `${mm}분`;
+}
+/** 아직 라이더가 없는 배송이 배차 시작(첫 시도, 없으면 배송 생성)부터 기준을 넘었으면 그 시작 시각 */
+export function dispatchDelaySince(startIso: string | null | undefined, hasRider: boolean, now = Date.now()): string | null {
+  if (hasRider || !startIso) return null;
+  const t = Date.parse(startIso);
+  return Number.isFinite(t) && now - t >= DISPATCH_DELAY_MIN * 60_000 ? startIso : null;
+}
+
+/**
+ * 배송 상세 맨 위 빨간 경고(2026-11-24 사용자 "4일째 배차 찾고 있는데 왜 아무데도 위급하다고 빨리 처리하라는 알림이나 글이 안 적혀 있어?").
+ * 배차 상태가 아직 찾는 중·실패(라이더 없음)이고 배차 시작부터 20분이 넘으면.
+ */
+export function DispatchDelayAlert({ dispatchState, attempts, createdAt, hasRider }: { readonly dispatchState: string | null | undefined; readonly attempts: readonly Attempt[]; readonly createdAt: string | null | undefined; readonly hasRider: boolean }) {
+  if (!['CREATED', 'DISPATCHING', 'DISPATCH_FAILED'].includes(dispatchState ?? '')) return null;
+  const first = attempts.map((a) => a.startedAt).filter((x): x is string => !!x).sort()[0] ?? createdAt ?? null;
+  const since = dispatchDelaySince(first, hasRider);
+  if (!since) return null;
+  return (
+    <div role="alert" className="flex items-start gap-3 rounded-box border border-error bg-error/10 px-4 py-3" data-testid="dispatch-delay">
+      <span className="mt-1 h-2.5 w-2.5 shrink-0 animate-pulse rounded-full bg-error" aria-hidden />
+      <div>
+        <p className="font-bold text-error">{m.dispatchDelayTitle}</p>
+        <p className="text-sm">{m.dispatchDelayBody(elapsedText(since), attempts.length)}</p>
+      </div>
+    </div>
+  );
+}
+
+/** 처음에 보이는 배차 시도 수(2026-11-24 사용자 "배차 시도가 일정 개수 넘어가면 더보기로 열게 해주고 최신 게 위에") */
+const ATTEMPTS_SHOWN = 3;
+
+export function DispatchAttempts({ attempts: raw }: { readonly attempts: readonly Attempt[] }) {
+  const [all, setAll] = useState(false);
+  // 최신 시도가 위(서버는 오래된 순) — 같은 시각이면 받은 순서를 뒤집은 순
+  const sorted = [...raw].map((t, i) => ({ t, i })).sort((a, b) => (b.t.startedAt ?? '').localeCompare(a.t.startedAt ?? '') || b.i - a.i).map((x) => x.t);
+  const attempts = all ? sorted : sorted.slice(0, ATTEMPTS_SHOWN);
+  const hidden = sorted.length - attempts.length;
   // 제안받은 라이더: 가린 이름 · 라이더 번호(ADR-0070, 한 번에 조회)
   const riders = useRiderSummaries(attempts.flatMap((t) => (t.offers ?? []).map((o) => o.riderId)));
   return (
@@ -152,6 +205,11 @@ export function DispatchAttempts({ attempts }: { readonly attempts: readonly Att
             </li>
           ))}
         </ol>
+      )}
+      {(hidden > 0 || all) && sorted.length > ATTEMPTS_SHOWN && (
+        <button type="button" className="btn btn-ghost btn-xs w-full" onClick={() => setAll((v) => !v)} data-testid="dispatch-attempts-more">
+          {all ? m.attemptsLess : m.attemptsMore(hidden)}
+        </button>
       )}
     </div>
   );

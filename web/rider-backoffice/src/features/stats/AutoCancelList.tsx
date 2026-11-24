@@ -16,8 +16,9 @@ type Filter = 'ALL' | 'CANCELLED' | 'BLOCKED' | 'BLOCKED_OPEN';
 export const autoCancelText = {
   title: '배차 불가 자동 취소',
   intro: '약속 + 30분이 지나도 라이더가 없어 시스템이 주문 취소를 요청한 배송이에요. 막힘은 취소가 거절돼 다시 요청하지 않으니 MFC 관리자가 직접 취소해야 해요.',
-  openTitle: (n: number) => `자동 취소 막힘 ${n}건 — 아직 배차 대기`,
-  openIntro: '자동 취소가 거절돼 그대로 배차 대기 중이에요. MFC 관리자가 직접 취소해야 해요.',
+  // 2026-11-24 사용자 "– 작대기 별론데 UI 이게 최선이야?"·"회색 글 너무 길다" — 제목 · 건수 알약, 안내는 한 마디
+  openTitle: '자동 취소 실패',
+  openIntro: 'MFC 관리자가 직접 취소해야 해요.',
   filter: { ALL: '전체', CANCELLED: '취소됨', BLOCKED: '막힘' } as const,
   cancelled: '취소됨',
   blocked: '막힘',
@@ -26,7 +27,7 @@ export const autoCancelText = {
   rejectCode: (c: string) => `거절 ${c}`,
   stillWaiting: '아직 배차 대기',
   empty: '이 기간에 자동 취소한 배송이 없어요.',
-  emptyOpen: '막힌 자동 취소가 없어요.',
+  emptyOpen: '직접 취소할 배송이 없어요.',
   failed: '자동 취소 내역을 불러오지 못했어요.',
   loading: '불러오는 중…',
   more: '200건까지 보여요 — 기간을 줄여 보세요.',
@@ -59,9 +60,16 @@ export function AutoCancelList({ from, to, mfcId, open = false, centerName }: { 
   });
   const items = list.data?.items ?? [];
   return (
-    <section aria-label={autoCancelText.title} className={`rounded-box border bg-base-100 ${open ? 'border-error/40' : 'border-base-300'}`} data-testid={open ? 'auto-cancel-open' : 'auto-cancel-list'}>
+    <section aria-label={autoCancelText.title} className={`rounded-box border bg-base-100 ${open && items.length > 0 ? 'border-error/40' : 'border-base-300'}`} data-testid={open ? 'auto-cancel-open' : 'auto-cancel-list'}>
       <div className="space-y-2 border-b border-base-300 px-4 py-3">
-        <h2 className="font-bold">{open ? autoCancelText.openTitle(items.length) : autoCancelText.title}</h2>
+        {open ? (
+          <h2 className="flex items-center gap-2 font-bold">
+            {autoCancelText.openTitle}
+            {list.data && <span className="pm-count" data-tone={items.length > 0 ? 'urgent' : 'todo'}>{items.length}건</span>}
+          </h2>
+        ) : (
+          <h2 className="font-bold">{autoCancelText.title}</h2>
+        )}
         <p className="text-xs text-base-content/60">{open ? autoCancelText.openIntro : autoCancelText.intro}</p>
         {!open && <ChipGroup label="결과" value={filter} options={(['ALL', 'CANCELLED', 'BLOCKED'] as const).map((f) => ({ value: f, label: autoCancelText.filter[f] }))} onChange={setFilter} />}
       </div>
@@ -72,7 +80,7 @@ export function AutoCancelList({ from, to, mfcId, open = false, centerName }: { 
           {autoCancelText.failed}
         </p>
       ) : items.length === 0 ? (
-        <p data-state="empty" className="p-4 text-sm text-base-content/60">
+        <p data-state="empty" className="p-4 text-sm text-base-content/60" style={{ fontWeight: 400 }}>
           {open ? autoCancelText.emptyOpen : autoCancelText.empty}
         </p>
       ) : (

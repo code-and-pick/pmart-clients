@@ -52,22 +52,27 @@ const cx = {
   allClear: '지금 먼저 볼 라이더가 없어요',
   allClearBody: (k: number) => `운행 중 ${k}명 모두 위치가 들어오고 있고 신규배차를 받고 있어요.`,
   deliveries: (k: number) => `${k}건`,
-  blocked: '자동 취소 막힘',
-  blockedHint: '라이더가 없어 취소를 요청했지만 거절돼 아직 대기 중',
+  // 2026-11-24 사용자 "자동취소막힘이 무슨 말인데 … 회색글도 너무 길고 뭐라는지 모르겠어" — 약속+30분 라이더 없음 → 시스템 취소가 거절된 배송: 사람이 취소해야 함
+  blocked: '자동 취소 실패',
+  blockedHint: '직접 취소해야 해요',
   late: '지연 배송',
   // 2026-11-24 사용자 "지연배송도 회색으로 20분 이상 이라고만" (서버 기준: 약속 + 20분을 넘겼거나 넘길 것으로 봄)
   lateHint: '20분 이상',
-  lateTitle: (k: number) => `지연 배송 ${k}건 — 많이 늦은 순`,
+  // 2026-11-24 사용자 "– 작대기 별론데 UI 이게 최선이야?" — 제목 · 건수 알약 · 오른쪽 작은 정렬 글자
+  lateTitle: '지연 배송',
+  lateSort: '늦은 순',
   lateNone: '지금 지연 배송이 없어요.',
   lateOver: (m: number) => (m > 0 ? `약속보다 ${m}분 지남` : '곧 늦을 예정'),
   lateNoPromise: '약속 시각 모름',
   latePromised: (t: string) => `약속 ${t}`,
-  basis: (riders: number, deliveries: number) => `이 센터 운행 중 라이더 ${riders}명·진행 중 배송 ${deliveries}건 기준(서버가 준 위치 목록). 배송 중 카드를 누르면 그 라이더만 보여요.`,
+  // 2026-11-24 사용자 "이런 회색 글 너무 길다니까 … 줄여" — 라이더·배송 수는 위 "운행 중 n명 · 기준" 줄에 있어 뺐다
+  basis: '카드를 누르면 그 라이더만 보여요. 다시 누르면 풀려요.',
 } as const;
 
 const FLOW_STAGES = ['TO_STORE', 'AT_STORE', 'TO_CUSTOMER', 'AT_CUSTOMER'] as const;
 
-type Filter = 'all' | 'delivering' | 'late' | 'stale' | 'dispatchOff' | 'sim';
+// 2026-11-24 사용자 "여기도 배송중만 클릭되는데 왜지?" — 진행 단계 카드(대기·단계별)도 거르기
+type Filter = 'all' | 'delivering' | 'late' | 'stale' | 'dispatchOff' | 'sim' | 'waiting' | (typeof FLOW_STAGES)[number];
 type Rider = components['schemas']['ControlRider'];
 type Active = Rider['activeDeliveries'][number];
 
@@ -105,7 +110,10 @@ export function ControlPage() {
   const [params, setParams] = useSearchParams();
   const mfcId = params.get('mfcId') ?? '';
   const rawFilter = params.get('filter');
-  const filter: Filter = rawFilter === 'delivering' || rawFilter === 'late' || rawFilter === 'stale' || rawFilter === 'dispatchOff' || rawFilter === 'sim' ? rawFilter : 'all';
+  const filter: Filter =
+    rawFilter === 'delivering' || rawFilter === 'late' || rawFilter === 'stale' || rawFilter === 'dispatchOff' || rawFilter === 'sim' || rawFilter === 'waiting' || (FLOW_STAGES as readonly string[]).includes(rawFilter ?? '')
+      ? (rawFilter as Filter)
+      : 'all';
   const setFilter = (f: Filter) => {
     const p = new URLSearchParams(params);
     if (f === 'all') p.delete('filter');
@@ -224,7 +232,7 @@ export function ControlPage() {
             const staleFlag = all.filter((r) => r.stale).length;
             const staleOrNone = all.filter(isStale).length;
             const delivering = all.filter(isDelivering).length;
-            const items = all.filter((r) => (filter === 'delivering' ? isDelivering(r) : filter === 'late' ? isLate(r) : filter === 'stale' ? isStale(r) : filter === 'dispatchOff' ? r.newDispatchEnabled === false : filter === 'sim' ? isSimRider(r.riderId) : true));
+            const items = all.filter((r) => (filter === 'delivering' ? isDelivering(r) : filter === 'late' ? isLate(r) : filter === 'stale' ? isStale(r) : filter === 'dispatchOff' ? r.newDispatchEnabled === false : filter === 'sim' ? isSimRider(r.riderId) : filter === 'waiting' ? !isDelivering(r) && !isStale(r) : (FLOW_STAGES as readonly string[]).includes(filter) ? r.activeDeliveries.some((d) => d.stage === filter) : true));
             const late = lateRows(all, b.asOf);
             const mapRiders: MapRider[] = items.flatMap((r) =>
               r.location?.lat != null && r.location.lng != null
@@ -425,12 +433,13 @@ function ControlBoards({
           <AllDone title={cx.allClear} body={cx.allClearBody(all.length)} testId="control-all-clear" />
         ) : (
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-            <KpiTile label={cx.late} value={cx.deliveries(lateCount)} hint={cx.lateHint} to={filterLink('late')} active={filter === 'late'} dot="bg-error" alert={lateCount > 0} testId="control-stat-late" />
+            {/* 2026-11-24 사용자 "자동취소막힘은 눌렀다 껐다가 되는데 왜 다른애들은 한 번 누르면 계속 눌려 있지?" — 켜진 카드를 다시 누르면 거르기를 푼다 */}
+            <KpiTile label={cx.late} value={cx.deliveries(lateCount)} hint={cx.lateHint} to={filterLink(filter === 'late' ? 'all' : 'late')} active={filter === 'late'} dot="bg-error" alert={lateCount > 0} testId="control-stat-late" />
             {/* 2026-11-24 — 자동 취소가 거절돼 아직 배차 대기(dispatch BLOCKED_OPEN). 못 읽으면 칸을 그리지 않는다 */}
             {blockedCount !== null && <KpiTile label={cx.blocked} value={cx.deliveries(blockedCount)} hint={cx.blockedHint} onClick={onToggleBlocked} active={showBlocked} dot="bg-error" alert={blockedCount > 0} testId="control-stat-auto-cancel-blocked" />}
-            <KpiTile label={cx.staleOrNone} value={cx.people(staleOrNone)} to={filterLink('stale')} active={filter === 'stale'} dot="bg-error" alert={staleOrNone > 0} testId="control-stat-stale" />
+            <KpiTile label={cx.staleOrNone} value={cx.people(staleOrNone)} to={filterLink(filter === 'stale' ? 'all' : 'stale')} active={filter === 'stale'} dot="bg-error" alert={staleOrNone > 0} testId="control-stat-stale" />
             {/* 2026-11-24 사용자 "신규배차 꺼짐은 왜 선택이 안 돼?" — 누르면 그 라이더들만(목록 거르기 "배차 꺼짐") */}
-            <KpiTile label={cx.dispatchOff} value={cx.people(dispatchOff)} to={filterLink('dispatchOff')} active={filter === 'dispatchOff'} dot="bg-warning" warn={dispatchOff > 0} testId="control-stat-dispatch-off" />
+            <KpiTile label={cx.dispatchOff} value={cx.people(dispatchOff)} to={filterLink(filter === 'dispatchOff' ? 'all' : 'dispatchOff')} active={filter === 'dispatchOff'} dot="bg-warning" warn={dispatchOff > 0} testId="control-stat-dispatch-off" />
           </div>
         )}
       </section>
@@ -442,11 +451,11 @@ function ControlBoards({
           </Link>
         </div>
         <ol className="grid grid-cols-2 gap-3 md:grid-cols-6" data-testid="control-flow">
-          {flowCell('waiting', cx.waiting, cx.people(waiting), null, false, false)}
-          {flowCell('delivering', cx.delivering, cx.people(delivering), filterLink('delivering'), filter === 'delivering', false)}
-          {FLOW_STAGES.map((st, i) => flowCell(st, label(n.stage, st), cx.deliveries(byStage(st)), null, false, i === FLOW_STAGES.length - 1))}
+          {flowCell('waiting', cx.waiting, cx.people(waiting), filterLink(filter === 'waiting' ? 'all' : 'waiting'), filter === 'waiting', false)}
+          {flowCell('delivering', cx.delivering, cx.people(delivering), filterLink(filter === 'delivering' ? 'all' : 'delivering'), filter === 'delivering', false)}
+          {FLOW_STAGES.map((st, i) => flowCell(st, label(n.stage, st), cx.deliveries(byStage(st)), filterLink(filter === st ? 'all' : st), filter === st, i === FLOW_STAGES.length - 1))}
         </ol>
-        <p className="text-xs text-base-content/50">{cx.basis(all.length, actives.length)}</p>
+        <p className="text-xs text-base-content/50">{cx.basis}</p>
       </section>
     </div>
   );
@@ -485,10 +494,16 @@ function KpiTile({ label: text, value, to, onClick, active = false, dot, alert =
 /** 지연 배송 목록(2026-11-24) — 이 센터 진행 중 배송 중 tracking delayed 인 것, 많이 늦은 순. 줄을 누르면 그 라이더·배송을 연다. */
 function LateDeliveries({ rows, selectedDeliveryId, onPick }: { readonly rows: readonly LateRow[]; readonly selectedDeliveryId: string; readonly onPick: (riderId: string, deliveryId: string) => void }) {
   return (
-    <section aria-label={cx.late} className="rounded-box border border-error/40 bg-base-100" data-testid="control-late">
-      <h2 className="border-b border-base-300 px-4 py-3 font-bold">{cx.lateTitle(rows.length)}</h2>
+    <section aria-label={cx.late} className={`rounded-box border bg-base-100 ${rows.length > 0 ? 'border-error/40' : 'border-base-300'}`} data-testid="control-late">
+      <div className="flex items-center justify-between gap-2 border-b border-base-300 px-4 py-3">
+        <h2 className="flex items-center gap-2 font-bold">
+          {cx.lateTitle}
+          <span className="pm-count" data-tone={rows.length > 0 ? 'urgent' : 'todo'}>{rows.length}건</span>
+        </h2>
+        {rows.length > 1 && <span className="text-xs text-base-content/50">{cx.lateSort}</span>}
+      </div>
       {rows.length === 0 ? (
-        <p data-state="empty" className="p-4 text-sm text-base-content/60">
+        <p data-state="empty" className="p-4 text-sm text-base-content/60" style={{ fontWeight: 400 }}>
           {cx.lateNone}
         </p>
       ) : (
