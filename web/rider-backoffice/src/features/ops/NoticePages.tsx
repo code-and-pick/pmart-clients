@@ -4,7 +4,7 @@
 // - 보낸 목록: 제목·대상·보낸 사람·받은 수·시각(최근 순, 커서).
 // 받는 라이더 쪽은 알림함(templateKey RIDER_NOTICE)·푸시 — 라이더 앱 알림함에 그대로 보인다.
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import { useSearchParams } from 'react-router';
 
 import { request } from '@pmart/web-core';
@@ -40,7 +40,35 @@ export const noticeText = {
   col: { at: '보낸 시각', subject: '제목', target: '받는 라이더', by: '보낸 사람', count: '받은 수' },
   targetLine: (type: string, center: string | null | undefined) => (type === 'MFC' ? `센터 ${center ?? '—'}` : '전체'),
   people: (n: number) => `${n.toLocaleString('ko-KR')}명`,
+  // 2026-11-24 사용자 "공지 보내기 기능이 너무 간단한데" → A1·3·4·5 고름
+  templates: '자주 쓰는 문구',
+  preview: '라이더 휴대폰에서',
+  previewPush: '푸시',
+  previewInbox: '알림함',
+  previewEmptyTitle: '제목',
+  previewEmptyBody: '내용을 쓰면 여기에 보여요.',
+  appName: 'PMart 라이더',
+  now: '지금',
+  reuse: '다시 쓰기',
+  reuseDone: '위 칸에 채웠어요. 고쳐서 보내세요.',
 } as const;
+
+/** 자주 쓰는 문구(고른 뒤 고쳐 쓴다 — 보내기 전 확인은 그대로) */
+const TEMPLATES: readonly { readonly name: string; readonly title: string; readonly body: string }[] = [
+  { name: '기상 악화', title: '기상 악화 — 안전 운행해 주세요', body: '비·눈으로 길이 미끄러워요. 속도를 줄이고 안전하게 운행해 주세요.' },
+  { name: '시스템 점검', title: '앱 점검 안내', body: '오늘 밤 0시부터 2시까지 앱을 점검해요. 그동안 배차가 잠시 멈춰요.' },
+  { name: '지급 안내', title: '수행료 지급 안내', body: '이번 지급일 수행료를 지급했어요. 앱 정산 내역에서 확인해 주세요.' },
+  { name: '센터 안내', title: '센터 이용 안내', body: '픽업할 때 센터 출입구 앞에서 기다려 주세요. 혼잡할 때는 점원 안내를 따라 주세요.' },
+];
+
+/** 공지 쓰기 칸 값(보낸 목록의 "다시 쓰기"가 채운다) */
+export interface NoticeDraft {
+  readonly subject: string;
+  readonly body: string;
+  readonly type: 'ALL' | 'MFC';
+  readonly mfcId: string;
+}
+const EMPTY_DRAFT: NoticeDraft = { subject: '', body: '', type: 'ALL', mfcId: '' };
 
 const TITLE_MAX = 40;
 const BODY_MAX = 500;
@@ -48,23 +76,64 @@ const BODY_MAX = 500;
 type Target = { readonly type: 'ALL' } | { readonly type: 'MFC'; readonly mfcId: string };
 
 export function NoticesMenu() {
+  const [draft, setDraft] = useState<NoticeDraft>(EMPTY_DRAFT);
+  const [reused, setReused] = useState(false);
   return (
     <section className="max-w-[1600px] space-y-4">
       <PageHeader title={noticeText.title} description={noticeText.intro} />
-      <NoticeForm />
-      <SentNotices />
+      <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
+        <NoticeForm draft={draft} setDraft={(d) => { setDraft(d); setReused(false); }} reused={reused} />
+        <NoticePreview subject={draft.subject} body={draft.body} />
+      </div>
+      <SentNotices
+        onReuse={(d) => {
+          setDraft(d);
+          setReused(true);
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
+      />
     </section>
   );
 }
 
-function NoticeForm() {
+/** 미리보기 — 라이더 휴대폰의 푸시 한 줄과 알림함 한 칸(글자는 쓰는 대로) */
+function NoticePreview({ subject, body }: { readonly subject: string; readonly body: string }) {
+  const t = noticeText;
+  const title = subject.trim() || t.previewEmptyTitle;
+  const text = body.trim() || t.previewEmptyBody;
+  return (
+    <Section title={t.preview} testId="notice-preview">
+      <div className="mx-auto w-full max-w-[17rem] rounded-[2rem] border-4 border-base-content/80 bg-base-200 p-3 shadow-sm">
+        <div className="mx-auto mb-3 h-1.5 w-16 rounded-full bg-base-content/30" aria-hidden />
+        <p className="mb-1 text-[11px] font-semibold text-base-content/50">{t.previewPush}</p>
+        <div className="mb-4 rounded-2xl bg-base-100 p-3 shadow" data-testid="notice-preview-push">
+          <p className="flex justify-between text-[11px] text-base-content/50">
+            <span>{t.appName}</span>
+            <span>{t.now}</span>
+          </p>
+          <p className="mt-0.5 truncate text-sm font-bold">{title}</p>
+          <p className="line-clamp-2 text-xs text-base-content/75">{text}</p>
+        </div>
+        <p className="mb-1 text-[11px] font-semibold text-base-content/50">{t.previewInbox}</p>
+        <div className="rounded-2xl bg-base-100 p-3" data-testid="notice-preview-inbox">
+          <p className="text-sm font-bold">{title}</p>
+          <p className="mt-1 whitespace-pre-wrap break-words text-xs text-base-content/80">{text}</p>
+          <p className="mt-2 text-[11px] text-base-content/45">{t.now}</p>
+        </div>
+      </div>
+    </Section>
+  );
+}
+
+function NoticeForm({ draft, setDraft, reused }: { readonly draft: NoticeDraft; readonly setDraft: (d: NoticeDraft) => void; readonly reused: boolean }) {
   const api = useApi();
   const queryClient = useQueryClient();
   const t = noticeText;
-  const [subject, setSubject] = useState('');
-  const [body, setBody] = useState('');
-  const [type, setType] = useState<'ALL' | 'MFC'>('ALL');
-  const [mfcId, setMfcId] = useState('');
+  const { subject, body, type, mfcId } = draft;
+  const setSubject = (v: string) => setDraft({ ...draft, subject: v });
+  const setBody = (v: string) => setDraft({ ...draft, body: v });
+  const setType = (v: 'ALL' | 'MFC') => setDraft({ ...draft, type: v });
+  const setMfcId = (v: string) => setDraft({ ...draft, mfcId: v });
   const [confirming, setConfirming] = useState(false);
   const send = useCommand(async (vars: { title: string; body: string; target: Target }, key) => {
     try {
@@ -78,8 +147,7 @@ function NoticeForm() {
   const done = send.phase.kind === 'done';
   const locked = send.busy || done;
   const reset = () => {
-    setSubject('');
-    setBody('');
+    setDraft(EMPTY_DRAFT);
     setConfirming(false);
     send.reset();
   };
@@ -92,6 +160,25 @@ function NoticeForm() {
           if (ready) setConfirming(true);
         }}
       >
+        {reused && (
+          <p role="status" className="text-sm font-medium text-primary" data-testid="notice-reused">
+            {t.reuseDone}
+          </p>
+        )}
+        <div className="flex flex-wrap items-center gap-2 text-sm" data-testid="notice-templates">
+          <span className="text-base-content/60">{t.templates}</span>
+          {TEMPLATES.map((tp) => (
+            <button
+              key={tp.name}
+              type="button"
+              className="btn btn-xs rounded-full border-base-300 bg-base-100 font-medium"
+              disabled={locked || confirming}
+              onClick={() => setDraft({ ...draft, subject: tp.title, body: tp.body })}
+            >
+              {tp.name}
+            </button>
+          ))}
+        </div>
         <label className="flex flex-col gap-1 text-sm">
           <span className="flex justify-between text-base-content/70">
             {t.subject}
@@ -162,8 +249,9 @@ function NoticeForm() {
   );
 }
 
-function SentNotices() {
+function SentNotices({ onReuse }: { readonly onReuse: (d: NoticeDraft) => void }) {
   const api = useApi();
+  const [open, setOpen] = useState('');
   const areaName = useAreaName();
   const t = noticeText;
   const me = useSession().session?.subject;
@@ -196,18 +284,44 @@ function SentNotices() {
                 </tr>
               </thead>
               <tbody>
-                {x.items.map((n) => (
-                  <tr key={n.noticeId} data-testid="notice-row">
-                    <td className="whitespace-nowrap">{when(n.sentAt)}</td>
-                    <td>
-                      <p className="font-medium">{n.title}</p>
-                      <p className="line-clamp-2 whitespace-pre-wrap text-xs text-base-content/60">{n.body}</p>
-                    </td>
-                    <td className="whitespace-nowrap">{t.targetLine(n.targetType, areaName(n.mfcId))}</td>
-                    <td><StaffName operatorId={n.sentBy} me={me} /></td>
-                    <td className="text-right">{t.people(n.recipientCount)}</td>
-                  </tr>
-                ))}
+                {x.items.map((n) => {
+                  const isOpen = open === n.noticeId;
+                  return (
+                    <Fragment key={n.noticeId}>
+                      <tr data-testid="notice-row" className="cursor-pointer hover:bg-base-200/50" aria-expanded={isOpen} onClick={() => setOpen(isOpen ? '' : n.noticeId)}>
+                        <td className="whitespace-nowrap">{when(n.sentAt)}</td>
+                        <td>
+                          <p className="font-medium">{n.title}</p>
+                          {!isOpen && <p className="line-clamp-1 text-xs text-base-content/60">{n.body}</p>}
+                        </td>
+                        <td className="whitespace-nowrap">{t.targetLine(n.targetType, areaName(n.mfcId))}</td>
+                        <td><StaffName operatorId={n.sentBy} me={me} /></td>
+                        <td className="text-right font-semibold tabular-nums">{t.people(n.recipientCount)}</td>
+                      </tr>
+                      {isOpen && (
+                        <tr data-testid="notice-row-open">
+                          <td />
+                          <td colSpan={4}>
+                            <div className="flex flex-wrap items-start justify-between gap-3 rounded-box bg-base-200/50 p-3">
+                              <p className="min-w-0 flex-1 whitespace-pre-wrap text-sm">{n.body}</p>
+                              <button
+                                type="button"
+                                className="btn btn-sm btn-primary"
+                                data-testid="notice-reuse"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onReuse({ subject: n.title, body: n.body, type: n.targetType === 'MFC' ? 'MFC' : 'ALL', mfcId: n.mfcId ?? '' });
+                                }}
+                              >
+                                {t.reuse}
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
+                  );
+                })}
               </tbody>
             </DataTable>
             <CursorPager hasPrev={!!cursor} nextCursor={x.nextCursor} onFirst={() => go('')} onNext={go} />

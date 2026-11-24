@@ -12,6 +12,23 @@ import { mergeActions, rangeProblem, seoulDayStart } from './StaffActionsPage';
 const posts = (sent: readonly Request[], part: string) => sent.filter((r) => r.method === 'POST' && new URL(r.url).pathname.includes(part));
 
 describe('공지 보내기', () => {
+  it('자주 쓰는 문구를 고르면 칸이 채워지고 미리보기에 그대로, 보낸 공지는 펼쳐 "다시 쓰기"(2026-11-24)', async () => {
+    renderAt('/notices', as.riderOps);
+    const rows = await screen.findAllByTestId('notice-row');
+    const form = screen.getByTestId('notice-form');
+    await userEvent.click(within(screen.getByTestId('notice-templates')).getByRole('button', { name: '기상 악화' }));
+    expect(within(form).getByLabelText(/제목/)).toHaveValue('기상 악화 — 안전 운행해 주세요');
+    expect(screen.getByTestId('notice-preview-push')).toHaveTextContent('기상 악화 — 안전 운행해 주세요');
+    expect(screen.getByTestId('notice-preview-inbox')).toHaveTextContent('속도를 줄이고');
+    // 보낸 공지: 줄을 누르면 본문 전체 + 다시 쓰기 → 칸이 그 공지로 채워진다
+    await userEvent.click(rows[0]!);
+    const open = await screen.findByTestId('notice-row-open');
+    const title = within(rows[0]!).getByText((_, el) => el?.tagName === 'P' && el.classList.contains('font-medium')).textContent ?? '';
+    await userEvent.click(within(open).getByTestId('notice-reuse'));
+    expect(within(form).getByLabelText(/제목/)).toHaveValue(title);
+    expect(screen.getByTestId('notice-reused')).toBeInTheDocument();
+  });
+
   it('쓰고 → 한 번 더 확인 → 보내면 서버가 알려 준 받은 수를 보이고 목록에 더한다', async () => {
     const view = renderAt('/notices', as.riderOps);
     expect(await screen.findAllByTestId('notice-row')).toHaveLength(1);

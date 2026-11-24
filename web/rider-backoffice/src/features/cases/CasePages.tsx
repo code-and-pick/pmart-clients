@@ -232,13 +232,7 @@ export function CaseListPage({ embedded = false }: { readonly embedded?: boolean
 
   return (
     <section className="space-y-4">
-      {embedded ? (
-        <div className="flex justify-end">
-          <SavedViews listKey="cases" />
-        </div>
-      ) : (
-        <PageHeader title={m.title} actions={<SavedViews listKey="cases" />} />
-      )}
+      {!embedded && <PageHeader title={m.title} actions={<SavedViews listKey="cases" />} />}
       <GuideBox title={ui.guideTitle} items={[m.intro]} storeKey="cases" testId="cases-guide" />
       <StatStrip label={cx.stripLabel} testId="case-strip">
         <StatCard layout="row" label={cx.unassigned} value={listCountText(unassignedCount.data, unassignedCount.isError)} to={`${CASE_LIST}&unassigned=true`} active={!closed && unassigned && !overdue} tone={(unassignedCount.data?.n ?? 0) > 0 ? 'warning' : undefined} testId="strip-unassigned" />
