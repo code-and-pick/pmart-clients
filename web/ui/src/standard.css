@@ -1,0 +1,935 @@
+/* 백오피스 화면 기준(공용 @pmart/web-ui, 2026-11-25 — PC 5 요청 docs/operations/2026-11-25-notice-backoffice-ui-standard.md, PC 2 사용자 "(가)로 진행").
+   정본은 라이더 백오피스 sim-look.css·sim-list.css(라이더 시뮬레이터 모양, 2026-11-21~24 사용자 지적 반영)에서 앱마다 같은 규칙만 올렸다.
+   앱 index.css 에서 console.css 다음에 읽는다(같은 이름 테마 변수를 덮는다). 라이더만의 규칙(지도·라이더/배송 번호 링크·배정 이력·수행료 카드)은 라이더 앱에 남는다.
+   원칙: 짙은 회색 바탕 + 얇은 선, 강조는 파랑 하나, 색은 문제·주의·진행 중에만, 줄·칸을 색으로 칠하지 않고 왼쪽 띠·점으로, 그림자 없음, 둥글기 10px(입력·단추 6px). */
+
+/* ① 색 토큰 — daisyUI 테마 변수를 다시 정한다(화면 코드는 변수만 써서 따라온다). 밝은 화면 = pmart(기본), 어두운 화면 = pmart-dark */
+:root,
+[data-theme='pmart'] {
+  --color-base-100: #ffffff;
+  --color-base-200: #f4f5f7;
+  --color-base-300: #e3e6eb;
+  --color-base-content: #111827;
+  --color-neutral: #111827;
+  --color-neutral-content: #f4f5f7;
+  --color-primary: #2563eb;
+  --color-primary-content: #ffffff;
+  --color-info: #2563eb;
+  --color-info-content: #ffffff;
+  --color-success: #16a34a;
+  --color-success-content: #ffffff;
+  --color-warning: #ea580c;
+  --color-warning-content: #ffffff;
+  --color-error: #dc2626;
+  --color-error-content: #ffffff;
+  --radius-box: 10px;
+  --radius-field: 6px;
+  --radius-selector: 6px;
+  --depth: 0;
+  --pm-soft: #f3f4f6; /* 옅은 판(고른 줄·머리) */
+  --pm-sub: #6b7280; /* 보조 글 */
+  --pm-row-line: #e3e6eb;
+  --pm-btn-main: #111827;
+  --pm-btn-main-fg: #ffffff;
+  --pm-btn-border: #cfd4dc;
+  --pm-btn-fg: #111827;
+  --pm-chart-1: #2563eb;
+  --pm-chart-1-soft: color-mix(in oklab, #2563eb 22%, #ffffff);
+}
+[data-theme='pmart-dark'] {
+  --color-base-100: #14171c;
+  --color-base-200: #0b0d10;
+  --color-base-300: #23272e;
+  --color-base-content: #e4e7ec;
+  --color-neutral: #1b1f25;
+  --color-neutral-content: #e4e7ec;
+  --color-primary: #4c8dff;
+  --color-primary-content: #0b0d10;
+  --color-info: #4c8dff;
+  --color-info-content: #0b0d10;
+  --color-success: #22c55e;
+  --color-success-content: #0b0d10;
+  --color-warning: #f59e0b;
+  --color-warning-content: #0b0d10;
+  --color-error: #f05252;
+  --color-error-content: #0b0d10;
+  --radius-box: 10px;
+  --radius-field: 6px;
+  --radius-selector: 6px;
+  --depth: 0;
+  --pm-soft: #1b1f25;
+  --pm-sub: #8b929d;
+  --pm-row-line: #23272e;
+  --pm-btn-main: #e4e7ec;
+  --pm-btn-main-fg: #0b0d10;
+  --pm-btn-border: #3a404a;
+  --pm-btn-fg: #e4e7ec;
+  --pm-chart-1: #4c8dff;
+  --pm-chart-1-soft: color-mix(in oklab, #4c8dff 32%, #14171c);
+}
+
+/* 주의 글자 — console.css 는 노랑이 흐려 본문색과 섞었다. 주황은 그대로 읽혀서 섞지 않는다 */
+main [class*='--color-warning)_60%'] {
+  color: var(--color-warning);
+}
+
+/* ② 상태 = 작은 점(7px) + 글자(shared/admin.tsx StatusText). 평상시 값은 보조 글색, 색 글자는 문제·주의·진행 중에만 */
+.pm-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--pm-sub);
+}
+.pm-status::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  flex-shrink: 0;
+  border-radius: 9999px;
+  background: color-mix(in oklab, var(--pm-sub) 70%, transparent);
+}
+.pm-status[data-tone='success']::before {
+  background: var(--color-success);
+}
+.pm-status[data-tone='error'] {
+  color: var(--color-error);
+}
+.pm-status[data-tone='error']::before {
+  background: var(--color-error);
+}
+.pm-status[data-tone='warning'] {
+  color: var(--color-warning);
+}
+.pm-status[data-tone='warning']::before {
+  background: var(--color-warning);
+}
+.pm-status:is([data-tone='info'], [data-tone='accent']) {
+  color: var(--color-info);
+}
+.pm-status:is([data-tone='info'], [data-tone='accent'])::before {
+  background: var(--color-info);
+}
+
+/* ③ 문제 줄 — 칠하지 않고 왼쪽 띠만(라이더 관제 목록은 ControlPage 에서 바탕을 뺐다). 옅은 색 바탕 상자도 판 색 + 왼쪽 띠로 */
+main :is([class~='bg-error/5'], [class~='bg-error/10']) {
+  background-color: var(--color-base-100);
+  box-shadow: inset 3px 0 0 var(--color-error);
+}
+main [class~='bg-warning/15'] {
+  background-color: var(--pm-soft);
+  box-shadow: inset 3px 0 0 var(--color-warning);
+}
+main [role='alert'].border-warning,
+main [role='alert'].border-error,
+main [role='alert'].border-info {
+  background-color: var(--color-base-100);
+}
+
+/* ④ 둥글기 10px, 그림자 없음 — console.css 가 2px 로 깎던 것을 되돌린다. 입력칸·단추는 6px(--radius-field) */
+main :is(.rounded-lg, .rounded-xl, .rounded-2xl) {
+  border-radius: var(--radius-box);
+}
+main .rounded-md {
+  border-radius: var(--radius-field);
+}
+main :is(.shadow-sm, .shadow) {
+  box-shadow: none;
+}
+
+/* ⑤ 고른 칩 — 파랑으로 꽉 채우지 않고 옅은 판 + 파랑 글자 + 1px 파랑 테두리 */
+main [role='radiogroup'] > [role='radio'][aria-checked='true'] {
+  background: var(--pm-soft);
+  color: var(--color-primary);
+  box-shadow: inset 0 0 0 1px var(--color-primary);
+}
+main [role='radiogroup'] > [role='radio'][aria-checked='true'] > span {
+  opacity: 1;
+  color: color-mix(in oklab, var(--color-primary) 75%, transparent);
+}
+main [role='radiogroup'] {
+  border-color: var(--color-base-300);
+}
+main [role='radiogroup'] > [role='radio'] {
+  border-color: var(--color-base-300);
+}
+/* 양 끝 칩은 상자 모서리(바깥 1px 안쪽)만큼 둥글게 — 상자가 overflow-hidden 이라 고른 칩의 파란 안쪽 테두리가 모서리에서 잘려 보였다(2026-11-21 사용자) */
+main [role='radiogroup'] > [role='radio']:first-child {
+  border-top-left-radius: calc(var(--radius-field) - 1px);
+  border-bottom-left-radius: calc(var(--radius-field) - 1px);
+}
+main [role='radiogroup'] > [role='radio']:last-child {
+  border-top-right-radius: calc(var(--radius-field) - 1px);
+  border-bottom-right-radius: calc(var(--radius-field) - 1px);
+}
+main .btn-neutral.btn-xs {
+  --btn-color: var(--pm-soft);
+  --btn-fg: var(--color-primary);
+  border-color: var(--color-primary);
+}
+
+/* ⑥ 숫자 — 고정폭 숫자. 숫자 칸 값이 0 이면 보조 글색(shared/admin.tsx StatCard 가 이름에 data-zero) */
+main :is(table, .pm-stat-value, .pm-kpi, time) {
+  font-variant-numeric: tabular-nums;
+}
+.pm-stat:has([data-zero]) .pm-stat-value {
+  color: var(--pm-sub);
+}
+/* ID·센터 코드·배송번호 — 모노 글꼴 대신 본문 글꼴 + 고정폭 숫자 */
+.font-mono {
+  font-family: inherit;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ⑧ 표 — 머리는 보조 글색 600·판과 같은 바탕·아래 1px 선, 줄 사이 선, 마우스를 올리면 옅은 판 */
+main table th {
+  color: var(--pm-sub);
+  font-weight: 600;
+  border-bottom: 1px solid var(--color-base-300);
+}
+@media (min-width: 1280px) {
+  main table > thead th {
+    background-color: var(--color-base-100);
+  }
+}
+main table tbody tr {
+  border-color: var(--pm-row-line);
+}
+main table tbody tr:hover > td {
+  background-color: var(--pm-soft);
+}
+
+/* ⑨ 머리 줄·왼쪽 메뉴 — 판 색 바탕 + 선 하나(어두운 화면은 바탕과 같은 짙은 색) */
+[data-theme='pmart-dark'] :is(header.h-11, [data-testid='side-menu']):not(main *) {
+  background-color: var(--color-base-200);
+}
+
+/* 오류·주의 알림(daisyUI alert) — 빨강·주황으로 꽉 채우지 않고 판 색 + 왼쪽 띠 + 색 글자 */
+main .alert:is(.alert-error, .alert-warning, .alert-info, .alert-success) {
+  background-color: var(--color-base-100);
+  border: 1px solid var(--color-base-300);
+  color: var(--color-base-content);
+}
+main .alert.alert-error {
+  box-shadow: inset 3px 0 0 var(--color-error);
+}
+main .alert.alert-warning {
+  box-shadow: inset 3px 0 0 var(--color-warning);
+}
+main .alert.alert-info {
+  box-shadow: inset 3px 0 0 var(--color-info);
+}
+main .alert.alert-success {
+  box-shadow: inset 3px 0 0 var(--color-success);
+}
+
+/* 불러오기 실패·권한 없음·결과 확인 중 상자(공용 QueryState, daisyUI alert) — daisyUI 가 넓은 화면에서 가로 칸 나눔(grid-auto-flow: column)으로 바꿔
+   좁은 칸에서는 설명 글이 한 글자씩 세로로 꺾였다(2026-11-21 사용자 "불러오지 못했다고 적어놓으면 되지 UI를 이렇게 하냐").
+   칸 나눔 없이 위에서 아래로: 제목 → 한 줄 설명 → 문의 번호(작게) → 다시 시도 */
+main [role='alert'][data-state]:is(.alert) {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.25rem;
+  padding: 0.75rem 1rem;
+  font-size: 0.875rem;
+  text-align: left;
+}
+main [role='alert'][data-state] > h2 {
+  font-size: 0.875rem;
+}
+main [role='alert'][data-state] > p {
+  color: var(--pm-sub);
+  word-break: keep-all;
+}
+main [role='alert'][data-state] > .btn {
+  margin-top: 0.25rem;
+}
+main [role='alert'][data-state] > p.select-all {
+  word-break: break-all;
+  font-size: 0.8125rem;
+}
+
+/* 할 일 0건(shared/admin.tsx AllDone) — 성공처럼 초록으로 칠하지 않고 판 위 회색 한 줄 */
+.pm-empty-line {
+  border: 1px solid var(--color-base-300);
+  border-radius: var(--radius-box);
+  background: var(--color-base-100);
+  color: var(--pm-sub);
+  padding: 1.25rem 1rem;
+  text-align: center;
+  font-size: 0.875rem;
+}
+
+/* 결과 줄 정렬(최신순 | 과거순 — 공용 ResultBar 의 글자 단추)에도 위 고른 칩 테두리가 붙는데, 글자 단추라 여백이 없어
+   테두리가 글자에 붙어 겹쳤다(2026-11-24 사용자 "최신순 과거순 버튼 테두리가 너무 좁게 쳐져 있어 글자랑 겹치네"). 여백·둥근 모서리를 준다. */
+/* 정렬(최신순|과거순·가입 최근 순|상태 바뀐 최근 순) — 2026-11-24 사용자 "얘네 비좁고 뚱뚱해 보여. UI 개별로":
+   붙은 테두리 단추 대신 떨어진 작은 알약, 안 고른 것은 테두리 없는 옅은 글자, 고른 것만 옅은 파랑 바탕·파란 글자 */
+main [role='radiogroup'][aria-label='정렬'] {
+  gap: 6px;
+  border: 0;
+  background: transparent;
+}
+main [role='radiogroup'][aria-label='정렬'] > [role='radio'] {
+  padding: 5px 12px;
+  border: 1px solid transparent;
+  border-radius: 9999px;
+  background: transparent;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.3;
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
+  box-shadow: none;
+}
+main [role='radiogroup'][aria-label='정렬'] > [role='radio'][aria-checked='true'] {
+  border-color: color-mix(in oklab, var(--color-primary) 35%, transparent);
+  background: color-mix(in oklab, var(--color-primary) 10%, transparent);
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
+/* 찾기 줄은 위 숫자 띠 바로 밑이 아니라 아래 목록 쪽에 붙게 — 위로 여백(2026-11-24 사용자 "검색창이 위에 통계 배너 바로 아래 있게 하지마. 밑에 목록 위쪽에 있게 해서 여백감을 두자. 다른 탭도") */
+main form.pm-fbar {
+  margin-top: 28px;
+}
+
+/* ---- 목록·상세 부품 모양(@pmart/web-ui/standard — SearchPanel·InlineDetail·ViewSection·ActionSection·SummaryBar) ---- */
+
+/* ① 찾기 줄: [찾기 칸][찾기][깔때기][칩 ✕][초기화] 왼쪽으로 모음 */
+.pm-fbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.pm-fbar-q {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.pm-fbar-q .input {
+  height: 36px;
+  border-radius: 8px;
+  border-color: var(--color-base-300);
+  background: var(--color-base-100);
+}
+.pm-fbar-q .input:focus,
+.pm-fbar-q .input:focus-within {
+  border-color: var(--color-primary);
+  outline: none;
+}
+.pm-fbar > .btn,
+.pm-fbar-q + .btn {
+  height: 36px;
+  min-height: 36px;
+  border-radius: 8px;
+}
+.pm-fwrap {
+  position: relative;
+}
+.pm-funnel {
+  position: relative;
+  /* 글자 "필터"(2026-11-24) — 정사각 대신 글자 폭 */
+  min-width: 36px;
+  padding: 0 12px;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  border: 1px solid var(--color-base-300);
+  background: var(--color-base-100);
+  color: var(--pm-sub);
+  cursor: pointer;
+}
+.pm-funnel:hover {
+  color: var(--color-base-content);
+}
+/* 2026-11-24 사용자 "필터 이렇게 뜨는 거 좀 세련되지 못하네" — 꽉 찬 파랑 + 떠 있는 검은 점 대신 테두리·옅은 바탕, 개수는 글자 옆 작은 알약 */
+.pm-funnel.on {
+  background: color-mix(in oklab, var(--color-primary) 8%, var(--color-base-100));
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+.pm-funnel-n {
+  position: static;
+  margin-left: 6px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 9999px;
+  background: var(--color-primary);
+  color: var(--color-primary-content);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+}
+.pm-pop-back {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+}
+.pm-pop {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 31;
+  width: max-content;
+  max-width: min(760px, calc(100vw - 32px));
+  max-height: min(70vh, 560px);
+  overflow: auto;
+  padding: 10px;
+  border-radius: 10px;
+  background: var(--color-base-100);
+  border: 1px solid var(--color-base-300);
+  box-shadow: 0 10px 28px color-mix(in oklab, var(--color-base-content) 22%, transparent);
+}
+.pm-pop-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 6px 14px;
+  min-width: min(520px, calc(100vw - 52px));
+}
+.pm-pop-sec {
+  min-width: 0;
+}
+.pm-pop-h {
+  margin: 4px 6px 4px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--pm-sub);
+}
+.pm-pop-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.pm-pop-body label {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2px;
+  padding: 0 6px;
+  font-size: 12px;
+}
+.pm-pop-body .input,
+.pm-pop-body .select {
+  width: 100%;
+}
+.pm-pop-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--color-base-300);
+}
+
+/* 팝업 안 고르기(ChipGroup) — 붙은 단추 줄 대신 시뮬레이터 목록: ✓ + 이름 + 건수 */
+.pm-pop [role='radiogroup'] {
+  display: flex;
+  flex-direction: column;
+  border: 0;
+  border-radius: 0;
+  overflow: visible;
+}
+main .pm-pop [role='radiogroup'] > [role='radio'],
+.pm-pop [role='radiogroup'] > [role='radio'] {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  box-shadow: none;
+  color: var(--color-base-content);
+  font-size: 13px;
+  font-weight: 400;
+  text-align: left;
+}
+.pm-pop [role='radiogroup'] > [role='radio']::before {
+  content: '';
+  color: var(--color-primary);
+  font-weight: 800;
+}
+main .pm-pop [role='radiogroup'] > [role='radio'][aria-checked='true'] {
+  background: var(--pm-soft);
+  color: var(--color-base-content);
+  box-shadow: none;
+  font-weight: 700;
+}
+.pm-pop [role='radiogroup'] > [role='radio'][aria-checked='true']::before {
+  content: '✓';
+}
+.pm-pop [role='radiogroup'] > [role='radio']:hover {
+  background: var(--pm-soft);
+}
+main .pm-pop [role='radiogroup'] > [role='radio'] > span {
+  color: var(--pm-sub);
+  margin: 0;
+}
+
+/* 건 조건 칩 — 옅은 파랑 판 + ✕ */
+.pm-fchip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px 4px 3px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--color-base-300);
+  background: var(--color-base-100);
+  color: var(--color-base-content);
+  font-size: 13px;
+  font-weight: 600;
+}
+.pm-fchip-k {
+  color: var(--pm-sub);
+  font-weight: 500;
+}
+.pm-fchip-x {
+  width: 20px;
+  height: 20px;
+  border-radius: 9999px;
+  color: var(--pm-sub);
+  font-size: 11px;
+}
+.pm-fchip-x:hover {
+  background: color-mix(in oklab, var(--color-primary) 22%, transparent);
+  color: var(--color-base-content);
+}
+.pm-fbar-reset {
+  font-size: 13px;
+  color: var(--pm-sub);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.pm-fbar-reset:hover {
+  color: var(--color-primary);
+}
+
+/* ② 화면 설명 ⓘ·화면 안내 — 상자 대신 작은 한 줄(누르면 원래 문장) */
+.pm-info-btn {
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  color: var(--pm-sub);
+  font-size: 15px;
+  line-height: 1;
+}
+.pm-info-btn:hover,
+.pm-info-btn[aria-expanded='true'] {
+  color: var(--color-primary);
+}
+.pm-info-text {
+  max-width: 72ch;
+  font-size: 13px;
+  color: var(--pm-sub);
+}
+.pm-guide-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--pm-sub);
+}
+.pm-guide-btn:hover,
+.pm-guide-btn[aria-expanded='true'] {
+  color: var(--color-primary);
+}
+.pm-guide[data-tone='warning'] .pm-guide-btn {
+  color: var(--color-warning);
+}
+.pm-guide-caret {
+  font-size: 10px;
+}
+.pm-guide-list {
+  margin-top: 6px;
+  padding: 8px 12px 8px 26px;
+  max-width: 80ch;
+  list-style: disc;
+  border-left: 2px solid var(--color-base-300);
+  font-size: 13px;
+  color: var(--pm-sub);
+}
+.pm-guide[data-tone='warning'] .pm-guide-list {
+  border-left-color: var(--color-warning);
+}
+.pm-guide-list > li + li {
+  margin-top: 2px;
+}
+
+/* ③ 줄 아래 펼침 상세(.md-inline) — 펼친 줄은 옅은 판 + 아래 파랑 2px, 상세는 같은 옅은 판 */
+main table tbody tr[aria-expanded] {
+  cursor: pointer;
+}
+main table tbody tr[aria-expanded]:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+}
+main table tbody tr[data-open] > td {
+  background-color: var(--pm-soft);
+}
+main table tbody tr.pm-inline-row > td {
+  padding: 0;
+  background-color: var(--pm-soft);
+  border-bottom: 2px solid var(--color-primary);
+  white-space: normal;
+}
+main table tbody tr.pm-inline-row:hover > td {
+  background-color: var(--pm-soft);
+}
+.pm-inline {
+  position: relative;
+  padding: 14px 20px 16px 34px;
+  font-size: 13px;
+}
+.pm-inline-bar {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin: -2px 0 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--color-base-300);
+}
+.pm-inline-cols {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+.pm-inline-side {
+  min-width: 0;
+  padding-left: 24px;
+  border-left: 1px solid var(--color-base-300);
+}
+.pm-inline h4 {
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--pm-sub);
+}
+.pm-caret {
+  display: inline-block;
+  width: 16px;
+  font-size: 11px;
+  color: var(--pm-sub);
+}
+@media (max-width: 1100px) {
+  .pm-inline-cols {
+    grid-template-columns: 1fr;
+  }
+  .pm-inline-side {
+    padding-left: 0;
+    padding-top: 12px;
+    border-left: 0;
+    border-top: 1px solid var(--color-base-300);
+  }
+}
+@media (max-width: 640px) {
+  .pm-inline {
+    padding: 12px 12px 14px;
+  }
+  .pm-pop-grid {
+    min-width: 0;
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ④ 머리 줄 역할 — 조용한 작은 회색 글자(정보는 그대로) */
+.pm-roles {
+  font-size: 11px;
+  color: var(--pm-sub);
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+
+/* ⑤ 상세 — 보기 구역(조용한 판)·처리 구역(왼쪽 파랑 띠 + "처리" 머리)·요약 띠 */
+.pm-vsec,
+.pm-act {
+  scroll-margin-top: 48px;
+  border: 1px solid var(--color-base-300);
+  border-radius: var(--radius-box);
+  background: var(--color-base-100);
+}
+.pm-sec-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  padding: 12px 16px;
+}
+.pm-vsec:not(.pm-vsec-empty) > .pm-sec-head,
+.pm-act > .pm-sec-head {
+  border-bottom: 1px solid var(--color-base-300);
+}
+.pm-sec-icon {
+  display: inline-flex;
+  color: var(--pm-sub);
+}
+.pm-sec-title {
+  font-size: 14px;
+  font-weight: 700;
+}
+.pm-sec-sum {
+  font-size: 13px;
+  color: var(--pm-sub);
+  font-variant-numeric: tabular-nums;
+}
+.pm-sec-sum::before {
+  content: '·';
+  margin-right: 6px;
+}
+.pm-sec-aside {
+  margin-left: auto;
+  font-size: 13px;
+}
+.pm-sec-info {
+  padding: 0 16px 10px;
+}
+.pm-sec-body {
+  padding: 14px 16px 16px;
+}
+.pm-vsec-empty {
+  background: transparent;
+  border-style: dashed;
+}
+.pm-vsec-empty .pm-sec-head {
+  padding: 8px 16px;
+}
+.pm-vsec-empty .pm-sec-title {
+  font-weight: 600;
+  color: var(--pm-sub);
+}
+.pm-act {
+  box-shadow: inset 3px 0 0 var(--color-primary);
+}
+.pm-act > .pm-sec-head {
+  background: var(--pm-soft);
+  border-top-right-radius: var(--radius-box);
+}
+.pm-act-tag {
+  padding: 1px 7px;
+  border-radius: 4px;
+  background: var(--color-primary);
+  color: var(--color-primary-content);
+  font-size: 11px;
+  font-weight: 700;
+}
+.pm-act-col {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+/* 보기 | 처리 두 칸은 1600px 이상에서만(2026-11-21 사용자 "응 바꿔") — 1280~1599px 에서는 처리 칸 400px 때문에 왼쪽이
+   560px 남짓이라 배정 이력(9칸) 같은 표가 반만 보였다. 그보다 좁으면 처리 칸을 위에 두고 표는 전체 폭으로. */
+@media (min-width: 1600px) {
+  .pm-detail-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 400px;
+    gap: 16px;
+    align-items: start;
+  }
+  .pm-act-col {
+    position: sticky;
+    top: 56px;
+    max-height: calc(100vh - 72px);
+    overflow-y: auto;
+  }
+}
+@media (max-width: 1599px) {
+  .pm-detail-grid {
+    /* 보기(정보) 먼저, 처리는 그 아래 — 처리 칸을 위에 두면 상세를 열자마자 양식 셋이 화면을 다 덮었다. 처리는 위 구역 탭으로 바로 간다 */
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+}
+.pm-view-col {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+.pm-sumbar {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  border: 1px solid var(--color-base-300);
+  border-radius: var(--radius-box);
+  background: var(--color-base-100);
+  overflow: hidden;
+}
+.pm-sumbar-cell {
+  min-width: 0;
+  padding: 10px 14px;
+  border-left: 1px solid var(--color-base-300);
+  margin-left: -1px;
+}
+.pm-sumbar-cell dt {
+  font-size: 12px;
+  color: var(--pm-sub);
+}
+.pm-sumbar-cell dd {
+  margin-top: 2px;
+  font-size: 15px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ⑥ 처리 카드(수행료 조정 등) — 걸린 금액 크게, 입력은 순서대로(1 → 2 → 3), 결과 미리보기 */
+.pm-money {
+  font-size: 22px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.pm-steps {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px 14px;
+}
+.pm-step {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+}
+.pm-step-n {
+  display: inline-flex;
+  width: 18px;
+  height: 18px;
+  align-items: center;
+  justify-content: center;
+  margin-right: 4px;
+  border-radius: 9999px;
+  border: 1px solid var(--color-base-300);
+  color: var(--pm-sub);
+  font-size: 11px;
+  font-weight: 700;
+}
+.pm-preview {
+  font-size: 13px;
+  color: var(--pm-sub);
+}
+.pm-preview[data-tone='warning'] {
+  color: var(--color-warning);
+}
+.pm-preview[data-tone='info'] {
+  color: var(--color-info);
+}
+
+/* ⑦ 찾기 줄 크기 한 체계(2026-11-21 사용자 "버튼 크기도 제각각인데 붙어있어서 뭐가 뭔지 모르겠잖아") —
+   한 줄의 입력·단추·깔때기·칩·붙은 고르기 단추 줄 모두 높이 36px, 찾기 단추는 찾기 칸에 붙이고 거르기와는 세로 선으로 떼어 둔다 */
+.pm-fbar {
+  --pm-h: 36px;
+}
+.pm-fbar-q .input,
+.pm-fbar > .btn,
+.pm-fbar .pm-funnel {
+  height: var(--pm-h);
+  min-height: var(--pm-h);
+}
+.pm-fbar > .btn {
+  margin-left: -4px;
+}
+.pm-fbar-q ~ .pm-fwrap,
+.pm-fbar-q ~ .pm-fbar-filters {
+  margin-left: 8px;
+  padding-left: 12px;
+  border-left: 1px solid var(--color-base-300);
+}
+.pm-fbar-filters {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.pm-fbar-filters-l {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--pm-sub);
+}
+.pm-fbar-filters [role='radiogroup'] {
+  height: var(--pm-h);
+  flex-wrap: nowrap;
+}
+.pm-fbar-filters [role='radiogroup'] > [role='radio'] {
+  height: calc(var(--pm-h) - 2px);
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+}
+.pm-fchip {
+  height: var(--pm-h);
+  padding-left: 12px;
+}
+/* 찾기 칸 안 × — 글자 지우기(브라우저 기본 search 지우기 단추를 보이게) */
+.pm-fbar-q input[type='search']::-webkit-search-cancel-button {
+  -webkit-appearance: searchfield-cancel-button;
+  appearance: auto;
+  cursor: pointer;
+}
+
+/* 상세 화면 두 칸(보기 | 처리)·줄 펼침 안의 표는 가로 스크롤을 되살린다(2026-11-21 사용자 "라이더 찾기 UI 난리났잖아").
+   공용 console.css 가 1280px 이상에서 표 머리를 화면 위에 붙이려고 표 감싸개(overflow-x-auto)의 스크롤을 풀어 두어,
+   왼쪽 칸보다 넓은 표(배정 이력 9칸 등)가 오른쪽 처리 칸 위로 넘쳐 그려졌다. 이 칸들 안에서는 머리 고정 대신 칸 안 가로 스크롤. */
+@media (min-width: 1280px) {
+  main :is(.pm-view-col, .pm-act-col, .pm-inline) .overflow-x-auto:has(> table) {
+    overflow-x: auto;
+  }
+}
+
+/* ---- 공용으로 올리며 더한 것(2026-11-25) ---- */
+
+/* 필터 팝업은 늘 그려 두고 닫히면 숨긴다(고르던 값이 남게) — standard.tsx SearchPanel */
+.pm-pop:not([data-open]) {
+  display: none;
+}
+
+/* 안내 띠(Notice)·다음 할 일(NextAction) — 판 색 + 1px 선 + 왼쪽 3px 띠, 꽉 채우지 않음 */
+.pm-note {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 10px 16px;
+  border: 1px solid var(--color-base-300);
+  border-radius: var(--radius-box);
+  background: var(--color-base-100);
+  box-shadow: inset 3px 0 0 var(--color-info);
+  font-size: 0.875rem;
+}
+.pm-note[data-tone='warning'] {
+  box-shadow: inset 3px 0 0 var(--color-warning);
+}
+.pm-note[data-tone='error'] {
+  box-shadow: inset 3px 0 0 var(--color-error);
+}
+.pm-note[data-tone='success'] {
+  box-shadow: inset 3px 0 0 var(--color-success);
+}
+.pm-next {
+  padding: 12px 16px;
+  font-size: 1rem;
+}
+.pm-next-k {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--pm-sub);
+}
+.pm-next-body {
+  font-size: 0.875rem;
+  color: var(--pm-sub);
+}

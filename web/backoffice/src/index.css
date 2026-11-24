@@ -10,8 +10,9 @@
 
 /* 콘솔(AWS 모양) 테마·겉모습은 공용 @pmart/web-ui console.css(2026-11-20 올림) — 이 앱만의 덧붙임은 그 아래 */
 @import '../../ui/src/console.css';
-/* 어두운 테마는 MFC 관제실 겉모습(공용 tower.css, 2026-11-21 PC 3 알림 A안) — 밝은 테마는 위 콘솔 그대로 */
-@import '../../ui/src/tower.css';
+/* 백오피스 화면 기준(공용 standard.css, 2026-11-25 PC 5 요청 — 라이더 백오피스와 같은 색·둥글기·상태 점·알림 띠·목록 틀).
+   어두운 테마도 이 파일(짙은 회색 #0b0d10 + 파랑) — 예전 MFC 관제실 tower.css(남색·보라)는 이 앱에서 뺐다 */
+@import '../../ui/src/standard.css';
 
 /* 고객 앱 미리보기 색(2026-11-23 PC 1 — 고객 앱 팔레트 tertiary, BR-84 남은 시간 머리). 미리보기는 고객 앱 모양이라 밝기 테마와 상관없이 같은 색 */
 @theme {
