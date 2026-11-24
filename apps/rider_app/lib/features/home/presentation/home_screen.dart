@@ -19,7 +19,7 @@ import '../../delivery/data/trip_repository.dart';
 import '../../delivery/presentation/delivery_controller.dart';
 import '../../delivery/presentation/delivery_screen.dart';
 import '../../offers/presentation/offer_detail_screen.dart'
-    show deliveryMapRoute, offerArrival, offerMapRoute;
+    show deliveryMapRoute, offerMapRoute;
 import '../../delivery/presentation/delivery_texts.dart';
 import '../../my/data/profile.dart';
 import '../../notifications/presentation/notification_screen.dart';
@@ -249,21 +249,27 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             : l10n.newDispatchOffNotice,
       );
     } else if (poll.reconnecting) {
-      // 조회 실패(503 등)는 "제안 없음"이 아니다. 아래 안내 자리에 그대로 두어 글자만 바뀐다 —
+      // 조회 실패(503 등)는 "제안 없음"이 아니다. 위쪽 "찾고 있어요" 띠 자리에서 글자만 바뀐다 —
       // 전에는 안내가 사라지고 가운데에 알약이 떴다가 다시 바뀌어 홈 배치가 흔들렸다(2026-11-21 S23).
-      bottom = _DarkNotice(
-        key: const ValueKey('reconnecting'),
-        // "제안 없음"과 같은 한 줄 높이(긴 문구는 두 줄로 꺾여 안내 칸이 커졌다 줄었다 한다).
-        text: l10n.reconnectingShort,
-      );
+      bottom = const SizedBox.shrink();
     } else if (poll.list != null) {
-      bottom = _DarkNotice(
-        key: const ValueKey('offers-empty'),
-        text: l10n.offersEmpty,
-      );
+      // 제안을 기다리는 중 — 아래 안내 대신 위쪽 "적합한 배달을 찾고 있어요" 띠(아래 Stack, 사용자 2026-11-25 레퍼런스).
+      bottom = const SizedBox.shrink();
     } else {
       bottom = const SizedBox.shrink();
     }
+
+    // 제안을 기다리는 동안(또는 그 사이 조회가 잠깐 실패하면) 위쪽 띠 — 사용자 2026-11-25 레퍼런스.
+    final banner =
+        bottom is SizedBox &&
+        (poll.list != null || poll.reconnecting) &&
+        offer == null &&
+        active.isEmpty &&
+        onDuty &&
+        !normalMode &&
+        (st?.newDispatchEnabled ?? false) &&
+        !poll.stopped &&
+        !(profile?.restriction.restricted ?? false);
 
     return Scaffold(
       body: Stack(
@@ -294,9 +300,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ),
           SafeArea(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+              // 레퍼런스(사용자 2026-11-25)에서 잰 값: 위 15.6, 왼쪽 16, 오른쪽 18, 둥근 단추 지름 48·사이 27,
+              // 신규배차 알약은 단추와 가운데를 맞춘다.
+              padding: const EdgeInsets.fromLTRB(16, 15.6, 18, 0),
               child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   if (onDuty)
                     _NewDispatchPill(
@@ -309,28 +317,34 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       ),
                     )
                   else
-                    MapPill(
-                      key: const ValueKey('my-page'),
-                      onTap: () => context.push('/my'),
-                      child: _PillLabel(
-                        icon: Icons.person_outline,
-                        text: l10n.myPage,
+                    NotificationBell(
+                      child: MapPill(
+                        key: const ValueKey('my-page'),
+                        onTap: () => context.push('/my'),
+                        child: _PillLabel(
+                          icon: Icons.person_outline,
+                          text: l10n.myPage,
+                        ),
                       ),
                     ),
                   const Spacer(),
-                  // 알림함(지원센터 답장·문의 답변·계정 제한) — 안 읽은 수 배지.
-                  const NotificationBell(),
-                  const SizedBox(width: 10),
                   if (onDuty) ...[
-                    MapCircleButton(
-                      key: const ValueKey('my-page'),
-                      icon: Icons.person_outline,
-                      onTap: () => context.push('/my'),
+                    // 안 읽은 알림 수는 마이페이지 단추에(알림함은 마이페이지 "알림" 메뉴).
+                    NotificationBell(
+                      child: MapCircleButton(
+                        key: const ValueKey('my-page'),
+                        size: 48,
+                        iconSize: 26,
+                        icon: Icons.person_outline,
+                        onTap: () => context.push('/my'),
+                      ),
                     ),
-                    const SizedBox(width: 10),
+                    const SizedBox(width: 27),
                     MapCircleButton(
                       key: const ValueKey('delivery-list'),
+                      size: 48,
                       icon: Icons.format_list_bulleted,
+                      child: const SortListIcon(),
                       onTap: () => context.push('/deliveries'),
                     ),
                   ] else
@@ -346,6 +360,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ),
             ),
           ),
+          if (banner)
+            SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(15.5, 71.5, 15.5, 0),
+                child: poll.reconnecting
+                    ? _SearchingBanner(
+                        key: const ValueKey('reconnecting'),
+                        text: l10n.reconnectingShort,
+                        waiting: false,
+                      )
+                    : _SearchingBanner(
+                        key: const ValueKey('offers-empty'),
+                        text: l10n.searchingOffers,
+                      ),
+              ),
+            ),
           if (profile != null && profile.restriction.restricted)
             SafeArea(
               child: Padding(
@@ -353,10 +383,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 child: _RestrictionBanner(profile: profile),
               ),
             ),
-          // 아래 안내 자리에 이미 보이면(위 bottom) 띄우지 않는다. 제안·배송 시트가 아래를 쓰고 있을 때만 위에 띄운다.
-          if (poll.reconnecting &&
-              (bottom is! _DarkNotice ||
-                  bottom.key != const ValueKey('reconnecting')))
+          // 위 띠에 이미 보이면 띄우지 않는다. 제안·배송 시트가 아래를 쓰고 있을 때만 알약을 띄운다.
+          if (poll.reconnecting && !banner)
             SafeArea(
               child: Align(
                 alignment: const Alignment(0, -0.72),
@@ -436,6 +464,88 @@ class _PillLabel extends StatelessWidget {
   );
 }
 
+/// 제안을 기다리는 동안 위쪽 띠(레퍼런스 사용자 2026-11-25): 주 색 → 파랑 번짐 바탕, 흰 굵은 글자,
+/// 오른쪽에 차례로 밝아지는 점 다섯 개.
+class _SearchingBanner extends StatefulWidget {
+  const _SearchingBanner({super.key, required this.text, this.waiting = true});
+
+  final String text;
+
+  /// false 면(연결 확인 중) 회색 바탕·점 없음 — 같은 자리·같은 높이에서 글자만 바뀐다.
+  final bool waiting;
+
+  @override
+  State<_SearchingBanner> createState() => _SearchingBannerState();
+}
+
+class _SearchingBannerState extends State<_SearchingBanner>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _dots = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1500),
+  )..repeat();
+
+  @override
+  void dispose() {
+    _dots.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 31,
+      padding: const EdgeInsets.fromLTRB(12.2, 0, 21, 0),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(4),
+        color: widget.waiting ? null : const Color(0xE6333333),
+        gradient: widget.waiting
+            ? LinearGradient(
+                colors: [
+                  RiderColors.primary.withValues(alpha: 0.92),
+                  RiderColors.drop.withValues(alpha: 0.92),
+                ],
+              )
+            : null,
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              widget.text,
+              style: const TextStyle(
+                fontSize: 13.5,
+                fontWeight: FontWeight.w600,
+                color: Colors.white,
+              ),
+            ),
+          ),
+          if (widget.waiting)
+            AnimatedBuilder(
+              animation: _dots,
+              builder: (context, _) => Row(
+                children: [
+                  for (var i = 0; i < 5; i++)
+                    Container(
+                      width: 2.6,
+                      height: 2.6,
+                      margin: const EdgeInsets.only(left: 5.2),
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.white.withValues(
+                          alpha: (_dots.value * 5).floor() % 5 == i ? 1 : 0.45,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
 /// 신규배차 켜기/끄기. 끄면 새 제안만 멈추고 진행 중인 배송은 그대로다.
 class _NewDispatchPill extends StatelessWidget {
   const _NewDispatchPill({required this.enabled, required this.onTap});
@@ -446,23 +556,29 @@ class _NewDispatchPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    return MapPill(
-      key: const ValueKey('new-dispatch'),
-      onTap: onTap,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            l10n.newDispatch,
-            style: TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w700,
-              color: enabled ? RiderColors.primary : RiderColors.ink,
+    // 레퍼런스: 신규배차 알약은 둥근 단추보다 약 5 위에 있다.
+    return Transform.translate(
+      offset: const Offset(0, -4.9),
+      child: MapPill(
+        key: const ValueKey('new-dispatch'),
+        // 레퍼런스 알약 높이 43·글자 앞 14.9(2026-11-25 잰 값)
+        padding: const EdgeInsets.fromLTRB(14, 13, 14, 13),
+        onTap: onTap,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              l10n.newDispatch,
+              style: TextStyle(
+                fontSize: 14.3,
+                fontWeight: FontWeight.w700,
+                color: enabled ? RiderColors.primary : RiderColors.ink,
+              ),
             ),
-          ),
-          const SizedBox(width: 8),
-          MiniSwitch(on: enabled),
-        ],
+            const SizedBox(width: 8),
+            MiniSwitch(on: enabled),
+          ],
+        ),
       ),
     );
   }
@@ -477,8 +593,8 @@ class MiniSwitch extends StatelessWidget {
   @override
   Widget build(BuildContext context) => AnimatedContainer(
     duration: const Duration(milliseconds: 150),
-    width: 36,
-    height: 20,
+    width: 27,
+    height: 15.5,
     padding: const EdgeInsets.all(2),
     alignment: on ? Alignment.centerRight : Alignment.centerLeft,
     decoration: BoxDecoration(
@@ -486,8 +602,8 @@ class MiniSwitch extends StatelessWidget {
       borderRadius: BorderRadius.circular(10),
     ),
     child: Container(
-      width: 16,
-      height: 16,
+      width: 11.5,
+      height: 11.5,
       decoration: const BoxDecoration(
         color: Colors.white,
         shape: BoxShape.circle,
@@ -588,8 +704,9 @@ String? modeText(AppLocalizations l10n, DeliveryMode? m) => switch (m) {
   null => null,
 };
 
-/// 배차 제안 카드(지도 아래): 배달료 · 상세 · 픽업/전달 · [거절][배차 수락 | n초 남음].
-/// 알뜰배달 묶음은 한 카드에 방문 순서대로 보이고, 하나에 응답하면 묶음 전체에 적용된다.
+/// 배차 제안(지도 아래) — 사용자 2026-11-25 레퍼런스: 옆으로 넘기는 구간 카드(묶음이면 고객마다 한 장,
+/// 다음 카드가 오른쪽에 살짝 보인다) · 흰 판 위 "총 배달료" · [모두 거절][n건 모두 수락 · n초].
+/// 알뜰배달 묶음은 하나에 응답하면 묶음 전체에 적용된다.
 class _OfferCard extends ConsumerWidget {
   const _OfferCard({required this.group, required this.mfcId});
 
@@ -600,180 +717,207 @@ class _OfferCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
     final offer = group.first;
-    final trip = switch (group.last.deliveryId) {
-      final id? => ref.watch(tripInfoProvider(id)).value,
-      null => null,
-    };
-    // 회수 제안: 회수지(대략) → MFC 반납. 도착 예상은 일반 배송 값이라 보이지 않는다.
-    final rec = offer.recovery;
-    final arrival = rec != null ? null : offerArrival(group.last, trip);
-    final bundle = group.length > 1;
     final fees = group.map((o) => o.estimatedFee);
     final fee = fees.contains(null)
         ? null
         : fees.whereType<int>().fold<int>(0, (a, b) => a + b);
-    final store = offer.mfcId ?? mfcId;
-    final mode = modeText(l10n, offer.mode);
-    final pickup = [
-      if (offer.pickupDistanceKm case final d?)
-        l10n.distanceKm(d.toStringAsFixed(1)),
-      if (offer.pickupEtaSeconds case final s?)
-        l10n.etaMinutes((s / 60).ceil()),
-    ].join(' · ');
-    return SafeArea(
-      top: false,
-      child: Card(
-        key: ValueKey('offer-${offer.offerId}'),
-        margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-        color: Colors.white,
-        surfaceTintColor: Colors.white,
-        elevation: 4,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
+    final width = MediaQuery.sizeOf(context).width;
+    // 카드 폭 = 화면의 80%(레퍼런스 299/375), 다음 카드가 9 사이를 두고 보인다.
+    final cardWidth = group.length > 1 ? width * 0.8 : width - 38;
+    return Column(
+      key: ValueKey('offer-${offer.offerId}'),
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // 카드 높이는 147 이상(레퍼런스에서 잰 값 2026-11-25) — 글자가 크면 카드가 늘어난다. 묶음 카드끼리 높이를 맞춘다.
+        Stack(
           children: [
-            InkWell(
-              key: ValueKey('offer-detail-${offer.offerId}'),
-              onTap: () => context.push('/offers/${offer.offerId}'),
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(14, 14, 10, 12),
+            // 카드 아래 49 뒤로 흰 판이 깔린다.
+            const Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              height: 49,
+              child: ColoredBox(color: Colors.white),
+            ),
+            SingleChildScrollView(
+              key: const ValueKey('offer-cards'),
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.fromLTRB(19, 4, 19, 8),
+              child: IntrinsicHeight(
                 child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    if (rec != null)
-                      Container(
-                        margin: const EdgeInsets.only(right: 8),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 3,
-                        ),
-                        decoration: BoxDecoration(
-                          color: RiderColors.danger.withValues(alpha: 0.10),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          recoveryPurposeText(l10n, rec),
-                          key: const ValueKey('offer-recovery'),
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            color: RiderColors.danger,
-                          ),
-                        ),
-                      )
-                    else if (bundle || mode != null)
-                      Container(
-                        margin: const EdgeInsets.only(right: 8),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 3,
-                        ),
-                        decoration: BoxDecoration(
-                          color: RiderColors.primarySoft,
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          bundle ? l10n.bundleCount(group.length) : mode!,
-                          key: const ValueKey('offer-mode'),
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            color: RiderColors.primary,
-                          ),
+                    for (final (i, o) in group.indexed) ...[
+                      if (i > 0) const SizedBox(width: 6),
+                      ConstrainedBox(
+                        constraints: BoxConstraints.tightFor(width: cardWidth)
+                            .copyWith(minHeight: 147),
+                        child: _StopCard(
+                          offer: o,
+                          mfcId: mfcId,
+                          detailKey: i == 0
+                              ? ValueKey('offer-detail-${offer.offerId}')
+                              : null,
                         ),
                       ),
-                    Expanded(
-                      child: Text(
-                        switch (fee) {
-                          final int f => l10n.offerFee(formatKrw(f)),
-                          null => l10n.offerFeeUnknown,
-                        },
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ),
-                    Text(
-                      l10n.detail,
-                      style: const TextStyle(
-                        fontSize: 15,
-                        color: RiderColors.sub,
-                      ),
-                    ),
-                    const Icon(Icons.chevron_right, color: RiderColors.sub),
+                    ],
                   ],
                 ),
               ),
             ),
-            const Divider(),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+          ],
+        ),
+        ColoredBox(
+          color: Colors.white,
+          child: SafeArea(
+            top: false,
+            // 아래 시스템 막대가 없어도 레퍼런스처럼 버튼 아래 34 를 비운다(흰 판 높이를 맞춤).
+            minimum: const EdgeInsets.only(bottom: 34),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(15.5, 5.2, 15.5, 14),
               child: Column(
                 children: [
-                  if (rec != null) ...[
-                    // 회수: 받는 곳(회수지 대략) → 두는 곳(MFC). 거리 = 회수지 → MFC.
-                    _PlaceLine(
-                      label: l10n.pinRecovery,
-                      value: offer.dropAreaLabel ?? l10n.dropAreaUnknown,
-                      trailing: null,
+                  Text(
+                    switch (fee) {
+                      final int f => l10n.offerTotalFee(formatKrw(f)),
+                      null => l10n.offerFeeUnknown,
+                    },
+                    key: const ValueKey('offer-total'),
+                    style: const TextStyle(
+                      fontSize: 22.5,
+                      fontWeight: FontWeight.w700,
+                      color: RiderColors.ink,
                     ),
-                    const SizedBox(height: 4),
-                    _PlaceLine(
-                      label: l10n.pinReturn,
-                      value: storeText(l10n, store),
-                      trailing: switch (offer.distanceKm) {
-                        final d? => l10n.distanceKm(d.toStringAsFixed(1)),
-                        null => null,
-                      },
-                    ),
-                  ] else ...[
-                    _PlaceLine(
-                      label: l10n.pinPickup,
-                      value: storeText(l10n, store),
-                      trailing: pickup.isEmpty ? null : pickup,
-                    ),
-                    for (final o in group) ...[
-                      const SizedBox(height: 4),
-                      _PlaceLine(
-                        label: bundle
-                            ? l10n.stopLabel(o.stopSequence ?? 0)
-                            : l10n.pinDrop,
-                        value: o.dropAreaLabel ?? l10n.dropAreaUnknown,
-                        trailing: switch (o.distanceKm) {
-                          final d? => l10n.distanceKm(d.toStringAsFixed(1)),
-                          null => null,
-                        },
-                      ),
-                    ],
-                  ],
-                  if (arrival != null) ...[
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.schedule,
-                          size: 18,
-                          color: RiderColors.primary,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          l10n.arriveDue(clockText(arrival)),
-                          key: const ValueKey('offer-arrival'),
-                          style: const TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w700,
-                            color: RiderColors.ink,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                  const SizedBox(height: 14),
-                  OfferResponseBar(offer: offer),
+                  ),
+                  const SizedBox(height: 13),
+                  OfferResponseBar(offer: offer, count: group.length),
                 ],
               ),
             ),
-          ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// 구간 카드 한 장: [꼬리표] ··· › / 픽업지 · 전달지 · 배달료(주황).
+class _StopCard extends StatelessWidget {
+  const _StopCard({required this.offer, required this.mfcId, this.detailKey});
+
+  final OfferItem offer;
+  final String? mfcId;
+  final Key? detailKey;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final rec = offer.recovery;
+    final store = storeText(l10n, offer.mfcId ?? mfcId);
+    final tag = rec != null
+        ? recoveryPurposeText(l10n, rec)
+        : offer.bundleSize != null && offer.bundleSize! > 1
+        ? l10n.stopLabel(offer.stopSequence ?? 0)
+        : modeText(l10n, offer.mode);
+    return Material(
+      color: Colors.white,
+      // 레퍼런스 카드: 또렷한 그림자 + 둥글기 8
+      elevation: 4,
+      shadowColor: Colors.black38,
+      borderRadius: BorderRadius.circular(8),
+      child: InkWell(
+        key: detailKey,
+        borderRadius: BorderRadius.circular(8),
+        onTap: () => context.push('/offers/${offer.offerId}'),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(15, 12.4, 12.4, 15.2),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(
+                height: 19.7,
+                child: Row(
+                  children: [
+                    if (tag != null)
+                      Container(
+                        key: ValueKey(
+                          rec != null ? 'offer-recovery' : 'offer-mode',
+                        ),
+                        height: 19.7,
+                        padding: const EdgeInsets.fromLTRB(4.7, 0, 4, 0),
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: rec != null
+                              ? RiderColors.danger.withValues(alpha: 0.10)
+                              : const Color(0xFFEDF7FF),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (rec == null) ...[
+                              const Icon(
+                                Icons.add_location,
+                                size: 16,
+                                color: Color(0xFF266CC2),
+                              ),
+                              const SizedBox(width: 2),
+                            ],
+                            Text(
+                              tag,
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: rec != null
+                                    ? RiderColors.danger
+                                    : const Color(0xFF266CC2),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    const Spacer(),
+                    const SizedBox(
+                      width: 26,
+                      child: OverflowBox(
+                        maxHeight: 26,
+                        child: Icon(
+                          Icons.chevron_right,
+                          size: 26,
+                          color: Color(0xFF8B8B8B),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 7.5),
+              _PlaceLine(
+                label: rec != null ? l10n.pinRecovery : l10n.pickupPlace,
+                value: rec != null
+                    ? offer.dropAreaLabel ?? l10n.dropAreaUnknown
+                    : store,
+              ),
+              const SizedBox(height: 0.9),
+              _PlaceLine(
+                label: rec != null ? l10n.pinReturn : l10n.dropPlace,
+                value: rec != null
+                    ? store
+                    : offer.dropAreaLabel ?? l10n.dropAreaUnknown,
+                maxLines: 2,
+              ),
+              const SizedBox(height: 0.9),
+              _PlaceLine(
+                label: l10n.deliveryFee,
+                value: switch (offer.estimatedFee) {
+                  final f? => formatKrw(f),
+                  null => l10n.offerFeeUnknown,
+                },
+                accent: true,
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -848,35 +992,44 @@ class _RestrictionBanner extends StatelessWidget {
 }
 
 class _PlaceLine extends StatelessWidget {
-  const _PlaceLine({required this.label, required this.value, this.trailing});
+  const _PlaceLine({
+    required this.label,
+    required this.value,
+    this.accent = false,
+    this.maxLines = 1,
+  });
 
   final String label;
   final String value;
-  final String? trailing;
+  final int maxLines;
+
+  /// 배달료 — 주황 굵게.
+  final bool accent;
 
   @override
   Widget build(BuildContext context) => Row(
+    crossAxisAlignment: CrossAxisAlignment.start,
     children: [
       SizedBox(
-        width: 40,
+        width: 47.5,
         child: Text(
           label,
-          style: const TextStyle(fontSize: 15, color: RiderColors.hint),
+          style: const TextStyle(fontSize: 16, color: RiderColors.hint),
         ),
       ),
       Expanded(
         child: Text(
           value,
-          maxLines: 1,
+          maxLines: maxLines,
           overflow: TextOverflow.ellipsis,
-          style: const TextStyle(fontSize: 17, color: RiderColors.ink),
+          // 배달료는 주황 보통 굵기 15(레퍼런스에서 잰 값).
+          style: TextStyle(
+            fontSize: accent ? 15 : 16,
+            fontWeight: accent ? FontWeight.w500 : FontWeight.w400,
+            color: accent ? const Color(0xFFE8821E) : RiderColors.ink,
+          ),
         ),
       ),
-      if (trailing != null)
-        Text(
-          trailing!,
-          style: const TextStyle(fontSize: 13, color: RiderColors.sub),
-        ),
     ],
   );
 }

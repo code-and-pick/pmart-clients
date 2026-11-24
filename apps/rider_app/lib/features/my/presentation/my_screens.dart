@@ -33,173 +33,238 @@ class MyPageScreen extends ConsumerWidget {
         ? duty?.mfcId
         : profile.value?.deliveryAreaMfcId ?? duty?.mfcId;
     return Scaffold(
+      // 레퍼런스(2026-11-25)에서 잰 머리: 높이 69, 제목 20 굵게, 뒤로 32, 톱니 26.5(오른쪽 17).
       appBar: AppBar(
+        toolbarHeight: 69,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, size: 32),
+          onPressed: () => Navigator.of(context).maybePop(),
+        ),
+        titleSpacing: 0,
         title: Text(l10n.myPage),
+        titleTextStyle: const TextStyle(
+          fontFamily: riderFontFamily,
+          fontSize: 20,
+          fontWeight: FontWeight.w700,
+          color: RiderColors.ink,
+        ),
         actions: [
           IconButton(
             key: const ValueKey('settings'),
-            icon: const Icon(Icons.settings_outlined),
+            icon: const Icon(Icons.settings_outlined, size: 26.5),
             onPressed: () => context.push('/my/settings'),
           ),
+          const SizedBox(width: 4.3),
         ],
       ),
       body: Column(
         children: [
           Expanded(
-            child: ListView(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        riderGreetingText(
-                          profile.value?.name,
-                          l10n.riderGreetingNamed,
-                          l10n.riderGreeting,
-                        ),
-                        style: const TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        storeText(l10n, storeId),
-                        style: const TextStyle(
-                          fontSize: 14,
-                          color: RiderColors.ink,
-                        ),
-                      ),
-                      const SizedBox(height: 18),
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.end,
+            child: ColoredBox(
+              // 메뉴 쪽은 옅은 회색 바탕(레퍼런스), 위 이름·안내는 흰 바탕.
+              color: const Color(0xFFFAFAFA),
+              child: ListView(
+                children: [
+                  // 사용자 2026-11-25 레퍼런스: 이름 22 굵게 + ›(누르면 환경설정) · 지역 15 · 완료건수/오늘수입 ·
+                  // 오른쪽 둥근 "오늘배달내역" · 안내 칸 · 메뉴(옅은 회색 바탕, 한 줄 53).
+                  ColoredBox(
+                    color: Colors.white,
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16.7, 6, 15.3, 0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _Stat(
-                            label: l10n.statCompleted,
-                            // 조회 실패·로딩을 0 으로 보이지 않는다.
-                            value: switch (today) {
-                              AsyncData(:final value) => l10n.countUnit(
-                                value.completedCount,
-                              ),
-                              AsyncError() => l10n.statUnavailable,
-                              _ => l10n.statLoading,
-                            },
-                          ),
-                          const SizedBox(width: 36),
-                          _Stat(
-                            label: l10n.statEarnings,
-                            value: switch (today) {
-                              AsyncData(:final value) =>
-                                switch (value.earnings) {
-                                  final int e => formatKrw(e),
-                                  null => l10n.feeUncalculated,
-                                },
-                              AsyncError() => l10n.statUnavailable,
-                              _ => l10n.statLoading,
-                            },
-                          ),
-                          const Spacer(),
-                          OutlinedButton(
-                            key: const ValueKey('today-history'),
-                            onPressed: () => context.push('/my/history'),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: RiderColors.ink,
-                              side: const BorderSide(color: RiderColors.line),
-                              shape: const StadiumBorder(),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                              ),
+                          Padding(
+                            padding: const EdgeInsets.only(left: 7.3),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                InkWell(
+                                  key: const ValueKey('my-name'),
+                                  onTap: () => context.push('/my/settings'),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Flexible(
+                                        child: Text(
+                                          riderGreetingText(
+                                            profile.value?.name,
+                                            l10n.riderGreetingNamed,
+                                            l10n.riderGreeting,
+                                          ),
+                                          style: const TextStyle(
+                                            fontSize: 24.3,
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 0),
+                                      const Icon(
+                                        Icons.chevron_right,
+                                        size: 27.5,
+                                        color: RiderColors.ink,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 0),
+                                Text(
+                                  storeText(l10n, storeId),
+                                  style: const TextStyle(
+                                    fontSize: 15,
+                                    color: RiderColors.ink,
+                                  ),
+                                ),
+                                const SizedBox(height: 14.3),
+                                Row(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: [
+                                    _Stat(
+                                      width: 90,
+                                      label: l10n.statCompleted,
+                                      // 조회 실패·로딩을 0 으로 보이지 않는다.
+                                      value: switch (today) {
+                                        AsyncData(:final value) =>
+                                          l10n.countUnit(value.completedCount),
+                                        AsyncError() => l10n.statUnavailable,
+                                        _ => l10n.statLoading,
+                                      },
+                                    ),
+                                    // 큰 글자 설정·긴 금액에도 넘치지 않게 오늘수입은 남은 폭 안에서 줄인다.
+                                    Expanded(
+                                      child: _Stat(
+                                        label: l10n.statEarnings,
+                                        value: switch (today) {
+                                          AsyncData(:final value) =>
+                                            switch (value.earnings) {
+                                              final int e => formatKrw(e),
+                                              null => l10n.feeUncalculated,
+                                            },
+                                          AsyncError() => l10n.statUnavailable,
+                                          _ => l10n.statLoading,
+                                        },
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    OutlinedButton(
+                                      key: const ValueKey('today-history'),
+                                      onPressed: () =>
+                                          context.push('/my/history'),
+                                      style: OutlinedButton.styleFrom(
+                                        foregroundColor: RiderColors.ink,
+                                        side: const BorderSide(
+                                          color: Color(0xFFDDDDDD),
+                                        ),
+                                        shape: const StadiumBorder(),
+                                        minimumSize: const Size(0, 32),
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 11,
+                                        ),
+                                      ),
+                                      child: Text(
+                                        l10n.todayHistory,
+                                        style: const TextStyle(
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.w400,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
                             ),
-                            child: Text(l10n.todayHistory),
                           ),
+                          const SizedBox(height: 26.4),
+                          Container(
+                            width: double.infinity,
+                            height: 85.7,
+                            alignment: Alignment.center,
+                            padding: const EdgeInsets.symmetric(horizontal: 20),
+                            decoration: BoxDecoration(
+                              color: RiderColors.primaryMist,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        l10n.safetyBannerTitle,
+                                        style: const TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        l10n.safetyHelmet,
+                                        style: const TextStyle(
+                                          fontSize: 13,
+                                          color: RiderColors.sub,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const Icon(
+                                  Icons.health_and_safety_outlined,
+                                  size: 40,
+                                  color: RiderColors.primary,
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 9.5),
                         ],
                       ),
-                      const SizedBox(height: 20),
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: RiderColors.primaryMist,
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    l10n.safetyBannerTitle,
-                                    style: const TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w800,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    l10n.safetyHelmet,
-                                    style: const TextStyle(
-                                      fontSize: 13,
-                                      color: RiderColors.sub,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const Icon(
-                              Icons.health_and_safety_outlined,
-                              size: 40,
-                              color: RiderColors.primary,
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                    ],
+                    ),
                   ),
-                ),
-                MenuRow(
-                  key: const ValueKey('menu-settlements'),
-                  icon: Icons.paid_outlined,
-                  label: l10n.menuSettlements,
-                  onTap: () => context.push('/my/settlements'),
-                ),
-                MenuRow(
-                  key: const ValueKey('menu-history'),
-                  icon: Icons.bar_chart,
-                  label: l10n.menuHistory,
-                  onTap: () => context.push('/my/history'),
-                ),
-                MenuRow(
-                  key: const ValueKey('menu-time'),
-                  icon: Icons.schedule,
-                  label: l10n.menuTime,
-                  onTap: () => context.push('/my/time'),
-                ),
-                // 배달 지역 바꾸기(사용자 2026-11-23) — 운행을 쉴 때만, 한 곳, 바로 반영.
-                MenuRow(
-                  key: const ValueKey('menu-area'),
-                  icon: Icons.place_outlined,
-                  label: l10n.menuArea,
-                  value: deliveryAreaText(l10n, profile),
-                  onTap: () => changeDeliveryArea(context, ref),
-                ),
-                // 지원센터: 배송과 상관없는 문의 + 소명·이의(사용자 2026-11-20 한 곳으로). 배송 건은 배송 화면의 도움요청.
-                MenuRow(
-                  key: const ValueKey('menu-inquiries'),
-                  icon: Icons.support_agent,
-                  label: l10n.menuSupport,
-                  onTap: () => context.push('/my/inquiries'),
-                ),
-                MenuRow(
-                  key: const ValueKey('menu-notifications'),
-                  icon: Icons.notifications_none,
-                  label: l10n.menuNotifications,
-                  onTap: () => context.push('/notifications'),
-                ),
-              ],
+                  MenuRow(
+                    key: const ValueKey('menu-settlements'),
+                    iconWidget: const WonCoinIcon(),
+                    icon: Icons.paid_outlined,
+                    label: l10n.menuSettlements,
+                    onTap: () => context.push('/my/settlements'),
+                  ),
+                  MenuRow(
+                    key: const ValueKey('menu-history'),
+                    icon: Icons.show_chart,
+                    label: l10n.menuHistory,
+                    onTap: () => context.push('/my/history'),
+                  ),
+                  MenuRow(
+                    key: const ValueKey('menu-time'),
+                    icon: Icons.schedule,
+                    label: l10n.menuTime,
+                    onTap: () => context.push('/my/time'),
+                  ),
+                  // 배달 지역 바꾸기(사용자 2026-11-23) — 운행을 쉴 때만, 한 곳, 바로 반영.
+                  MenuRow(
+                    key: const ValueKey('menu-area'),
+                    icon: Icons.place_outlined,
+                    label: l10n.menuArea,
+                    value: deliveryAreaText(l10n, profile),
+                    onTap: () => changeDeliveryArea(context, ref),
+                  ),
+                  // 지원센터: 배송과 상관없는 문의 + 소명·이의(사용자 2026-11-20 한 곳으로). 배송 건은 배송 화면의 도움요청.
+                  MenuRow(
+                    key: const ValueKey('menu-inquiries'),
+                    icon: Icons.support_agent,
+                    label: l10n.menuSupport,
+                    onTap: () => context.push('/my/inquiries'),
+                  ),
+                  MenuRow(
+                    key: const ValueKey('menu-notifications'),
+                    icon: Icons.notifications_none,
+                    label: l10n.menuNotifications,
+                    onTap: () => context.push('/notifications'),
+                  ),
+                ],
+              ),
             ),
           ),
           const _EndDutyBar(),
@@ -210,22 +275,34 @@ class MyPageScreen extends ConsumerWidget {
 }
 
 class _Stat extends StatelessWidget {
-  const _Stat({required this.label, required this.value});
+  const _Stat({required this.label, required this.value, this.width});
 
   final String label;
   final String value;
+  final double? width;
 
   @override
-  Widget build(BuildContext context) => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      Text(label, style: const TextStyle(fontSize: 13, color: RiderColors.sub)),
-      const SizedBox(height: 4),
-      Text(
-        value,
-        style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w800),
-      ),
-    ],
+  Widget build(BuildContext context) => SizedBox(
+    width: width,
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(fontSize: 14.7, color: RiderColors.hint),
+        ),
+        const SizedBox(height: 2.4),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Text(
+            value,
+            maxLines: 1,
+            style: const TextStyle(fontSize: 20.5, fontWeight: FontWeight.w700),
+          ),
+        ),
+      ],
+    ),
   );
 }
 
@@ -570,12 +647,13 @@ class _EndDutyBarState extends ConsumerState<_EndDutyBar> {
     return DecoratedBox(
       decoration: const BoxDecoration(
         color: Colors.white,
-        border: Border(top: BorderSide(color: RiderColors.line)),
+        border: Border(top: BorderSide(color: Color(0xFFEEEEEE))),
       ),
       child: SafeArea(
         top: false,
+        minimum: const EdgeInsets.only(bottom: 34),
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+          padding: const EdgeInsets.fromLTRB(16, 9, 16, 10),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -611,17 +689,20 @@ class _EndDutyBarState extends ConsumerState<_EndDutyBar> {
                     ],
                   ),
                 ),
-              // 레퍼런스처럼 흰 바탕 위에 빨간 글자 "운행종료"(사용자 2026-11-23). 끝난 뒤는 회색 "운행 종료됨".
+              // 사용자 2026-11-25 레퍼런스: 꽉 찬 버튼(높이 50) — 운행 중 빨강 "운행종료", 끝난 뒤 회색 "운행종료됨".
               SizedBox(
                 width: double.infinity,
-                height: 54,
+                height: 50.7,
                 child: TextButton(
                   key: const ValueKey('end-duty'),
                   style: TextButton.styleFrom(
-                    foregroundColor: RiderColors.danger,
-                    disabledForegroundColor: RiderColors.hint,
-                    backgroundColor: Colors.white,
-                    shape: const RoundedRectangleBorder(),
+                    foregroundColor: Colors.white,
+                    disabledForegroundColor: Colors.white,
+                    backgroundColor: RiderColors.danger,
+                    disabledBackgroundColor: const Color(0xFFD5D7DA),
+                    shape: const RoundedRectangleBorder(
+                      borderRadius: BorderRadius.all(Radius.circular(4)),
+                    ),
                   ),
                   // 진행 배송이 있으면 서버가 거절한다(버튼 위 글로 안내).
                   onPressed: onDuty && !_busy ? _end : null,
@@ -634,15 +715,15 @@ class _EndDutyBarState extends ConsumerState<_EndDutyBar> {
                               height: 18,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
-                                color: RiderColors.danger,
+                                color: Colors.white,
                               ),
                             ),
                             const SizedBox(width: 10),
                             Text(
                               l10n.endingDuty,
                               style: const TextStyle(
-                                fontSize: 17,
-                                fontWeight: FontWeight.w800,
+                                fontSize: 17.5,
+                                fontWeight: FontWeight.w700,
                               ),
                             ),
                           ],
@@ -650,7 +731,7 @@ class _EndDutyBarState extends ConsumerState<_EndDutyBar> {
                       : Text(
                           ended ? l10n.dutyEndedButton : l10n.endDuty,
                           style: const TextStyle(
-                            fontSize: 17,
+                            fontSize: 17.5,
                             fontWeight: FontWeight.w800,
                           ),
                         ),

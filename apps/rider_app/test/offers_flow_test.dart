@@ -118,7 +118,9 @@ void main() {
     expect(find.byKey(const ValueKey('reconnecting')), findsNothing);
   });
 
-  testWidgets('제안이 없을 때 조회가 실패하면 아래 안내 자리에서 글자만 바뀐다(홈 배치가 흔들리지 않음)', (t) async {
+  testWidgets('제안이 없을 때 조회가 실패하면 위 "찾고 있어요" 띠 자리에서 글자만 바뀐다(홈 배치가 흔들리지 않음)', (
+    t,
+  ) async {
     repo = MockOfferRepository(
       latency: Duration.zero,
       mode: DispatchMode.aiRecommended,
@@ -137,7 +139,7 @@ void main() {
     expect(
       reconnecting,
       findsOneWidget,
-      reason: '아래 자리 하나만 — 가운데 알약을 따로 띄우지 않는다',
+      reason: '띠 자리 하나만 — 가운데 알약을 따로 띄우지 않는다',
     );
     expect(empty, findsNothing, reason: '조회 실패는 "제안 없음"이 아니다');
     expect(t.getRect(reconnecting), before, reason: '안내 칸 자리·높이가 그대로');
@@ -150,16 +152,16 @@ void main() {
 
   testWidgets('남은 시간은 서버 값에서 단조 경과로 줄이고, 다시 조회하면 서버 값으로 맞춘다', (t) async {
     await start(t);
-    expect(find.text('42초 남음'), findsOneWidget);
+    expect(find.text('배차 수락  ·  42초', findRichText: true), findsOneWidget);
 
     mono = const Duration(seconds: 3);
     await t.pump(const Duration(seconds: 1));
-    expect(find.text('39초 남음'), findsOneWidget);
+    expect(find.text('배차 수락  ·  39초', findRichText: true), findsOneWidget);
 
     mono = const Duration(seconds: 50);
     await t.pump(const Duration(seconds: 1));
     expect(
-      find.text('0초 남음'),
+      find.text('배차 수락  ·  0초', findRichText: true),
       findsOneWidget,
       reason: '0 이어도 만료 확정이 아니라 버튼은 남는다',
     );
@@ -185,7 +187,7 @@ void main() {
     await start(t);
     final accept = find.byKey(const ValueKey('accept-offer-mock-1'));
     // 다시 그리기 없이 onPressed 를 세 번 — 실기기 adb 3연타(2026-11-20 S23 알뜰 수락 POST 2번)와 같은 상황
-    final onPressed = t.widget<FilledButton>(accept).onPressed!;
+    final onPressed = t.widget<InkWell>(accept).onTap!;
     onPressed();
     onPressed();
     onPressed();
@@ -204,7 +206,7 @@ void main() {
     // 다시 누를 수 있다(새 키) — 전에는 앱을 다시 켤 때까지 막혔다
     final accept = find.byKey(const ValueKey('accept-offer-mock-1'));
     if (accept.evaluate().isNotEmpty) {
-      expect(t.widget<FilledButton>(accept).onPressed, isNotNull);
+      expect(t.widget<InkWell>(accept).onTap, isNotNull);
       await t.tap(accept);
       await settle(t);
       expect(repo.respondKeys.toSet(), hasLength(2));

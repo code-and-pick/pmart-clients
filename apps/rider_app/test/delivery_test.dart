@@ -268,7 +268,10 @@ void main() {
     // 다른 제안이 와 있으면 제안 카드 위 '진행 중 배송' 한 줄을 눌러 들어간다.
     await t.tap(find.byKey(const ValueKey('delivery-dlv-1')));
     await settle();
-    expect(find.text('픽업지로 이동해주세요'), findsOneWidget);
+    // 포장이 끝난 배송은 상태 자리에 "포장완료" 꼬리표(사용자 2026-11-25 레퍼런스 "조리완료" 자리).
+    expect(find.byKey(const ValueKey('packed-tag')), findsOneWidget);
+    expect(find.text('포장완료'), findsOneWidget);
+    expect(find.byKey(const ValueKey('call-store')), findsOneWidget);
 
     // 기본 화면(레퍼런스 image 14): 예정·장소·도움요청|길찾기만. 배달 정보·진행 버튼은 펼쳐야 보인다.
     final screenBottom = t.view.physicalSize.height / t.view.devicePixelRatio;
@@ -282,22 +285,20 @@ void main() {
       findsNothing,
     );
     expect(
-      t.getTopLeft(find.byKey(const ValueKey('mart-info'))).dy,
+      t.getTopLeft(find.byKey(const ValueKey('order-info'))).dy,
       greaterThanOrEqualTo(screenBottom - 1),
     );
 
     // 아래 시트: 회색바를 누르면 펼쳐지고(배달 정보), 다시 누르면 접힌다.
     final peek = t.getTopLeft(find.byKey(const ValueKey('sheet-handle'))).dy;
-    expect(find.text('누르거나 위로 올려 배달 정보 보기'), findsOneWidget);
     await t.tap(find.byKey(const ValueKey('sheet-handle')));
     await t.pump();
     await t.pump(const Duration(milliseconds: 400)); // 펼치는 애니메이션
     final opened = t.getTopLeft(find.byKey(const ValueKey('sheet-handle'))).dy;
     expect(opened, lessThan(peek - 100));
-    expect(find.text('눌러서 지도 보기'), findsOneWidget);
     // 펼치면 배달 정보와 진행 버튼(가게 도착)이 보인다.
     expect(
-      t.getTopLeft(find.byKey(const ValueKey('mart-info'))).dy,
+      t.getTopLeft(find.byKey(const ValueKey('order-info'))).dy,
       lessThan(screenBottom - 100),
     );
     expect(find.byKey(const ValueKey('arrive-store')), findsOneWidget);
@@ -348,13 +349,12 @@ void main() {
     final flung = ys.last;
     expect(flung, greaterThan(released + 20));
     expect(flung, lessThan(peek - 30));
-    // 끝까지 올리면 "눌러서 지도 보기"(천천히 끌면 놓은 자리에 멈추므로 끝까지 끈다).
+    // 끝까지 올린 뒤 회색바를 누르면 접힌다(천천히 끌면 놓은 자리에 멈추므로 끝까지 끈다).
     await t.drag(
       find.byKey(const ValueKey('sheet-handle')),
       const Offset(0, -1600),
     );
     await settle();
-    expect(find.text('눌러서 지도 보기'), findsOneWidget);
     await t.tap(find.byKey(const ValueKey('sheet-handle')));
     await t.pump();
     await t.pump(const Duration(milliseconds: 400));
@@ -413,10 +413,11 @@ void main() {
     await t.tap(pickup);
     await settle();
     expect(find.text('전달지로 이동해주세요'), findsOneWidget);
-    expect(find.text('부산 부산진구 전포대로 210'), findsWidgets);
-    expect(find.byKey(const ValueKey('drop-card')), findsOneWidget);
-    expect(find.byKey(const ValueKey('request-notes')), findsOneWidget);
-    expect(find.byKey(const ValueKey('due-time')), findsOneWidget);
+    // 전달지 주소(도로명 + 상세)는 시트 위 큰 글씨, 고객 요청사항 + 공동현관 칸, 위 오른쪽 "고객 전화".
+    expect(find.textContaining('부산 부산진구 전포대로 210'), findsWidgets);
+    expect(find.byKey(const ValueKey('customer-request')), findsOneWidget);
+    expect(find.byKey(const ValueKey('entrance-box')), findsOneWidget);
+    expect(find.byKey(const ValueKey('call-customer')), findsOneWidget);
     // 고객도착 단계 버튼 없이 바로 전달완료.
     expect(
       find.byKey(const ValueKey('arrive-customer')).hitTestable(),
@@ -427,8 +428,8 @@ void main() {
     final complete = find.byKey(const ValueKey('complete'));
     expect(t.widget<RiderButton>(complete).onPressed, isNull);
 
-    // "'여기에 두었어요' 알리기" → 촬영하기 창(열 때 고객 도착을 앱이 대신 보낸다) → 올리면 닫힌다.
-    expect(find.text('‘여기에 두었어요’ 알리기'), findsOneWidget);
+    // "전달 사진 촬영하기" → 촬영하기 창(열 때 고객 도착을 앱이 대신 보낸다) → 올리면 닫힌다.
+    expect(find.text('전달 사진 촬영하기'), findsOneWidget);
     await t.tap(find.byKey(const ValueKey('photo')));
     await settle();
     expect(repo.deliveryJson('dlv-1')['state'], 'ARRIVED_AT_CUSTOMER');

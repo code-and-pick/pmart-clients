@@ -204,14 +204,13 @@ class _LiveMapState extends ConsumerState<_LiveMap> {
   kakao.RouteStyle? _lineStyle;
 
   /// 레퍼런스(image 11): 주황 굵은 선 + 흰 테두리 + 진행 방향 화살표(›) 무늬.
+  // 사용자 2026-11-25 레퍼런스: 회색 반투명 띠 위에 짙은 회색 꺾쇠(진행 방향).
   Future<kakao.RouteStyle> _style() async => _lineStyle ??= kakao.RouteStyle(
-    RiderColors.pickup,
-    9,
-    strokeColor: Colors.white,
-    strokeWidth: 2,
+    _routeBand,
+    16,
     pattern: kakao.RoutePattern(
       kakao.KImage.fromData(await _chevronPng(), 10, 10),
-      22,
+      24,
     ),
   );
 
@@ -406,19 +405,19 @@ class _LiveMapState extends ConsumerState<_LiveMap> {
         ),
       ),
       Align(
-        alignment: const Alignment(-0.92, -0.1),
+        alignment: const Alignment(-0.91, 0.33),
         child: Material(
           color: Colors.white,
           elevation: 3,
-          borderRadius: BorderRadius.circular(6),
+          borderRadius: BorderRadius.circular(22),
           child: InkWell(
             key: const ValueKey('locate-me'),
-            borderRadius: BorderRadius.circular(6),
+            borderRadius: BorderRadius.circular(22),
             onTap: _locate,
             child: const SizedBox(
               width: 44,
               height: 44,
-              child: Icon(Icons.my_location, color: RiderColors.ink),
+              child: Icon(Icons.gps_fixed, size: 26, color: RiderColors.ink),
             ),
           ),
         ),
@@ -437,10 +436,11 @@ Future<Uint8List> _dotPng() async {
     ..drawCircle(
       c,
       40,
-      Paint()..color = RiderColors.drop.withValues(alpha: 0.2),
+      Paint()..color = RiderColors.drop.withValues(alpha: 0.16),
     )
     ..drawCircle(c, 22, Paint()..color = Colors.white)
-    ..drawCircle(c, 17, Paint()..color = RiderColors.drop);
+    ..drawCircle(c, 19, Paint()..color = _meBlue)
+    ..drawPath(_arrowPath(c, 19), Paint()..color = Colors.white);
   final image = await recorder.endRecording().toImage(
     size.toInt(),
     size.toInt(),
@@ -461,7 +461,7 @@ Future<Uint8List> _chevronPng() async {
   canvas.drawPath(
     path,
     Paint()
-      ..color = Colors.white
+      ..color = const Color(0xFF6E6E6E)
       ..style = PaintingStyle.stroke
       ..strokeWidth = size * 0.14
       ..strokeCap = StrokeCap.round
@@ -475,21 +475,33 @@ Future<Uint8List> _chevronPng() async {
   return bytes!.buffer.asUint8List();
 }
 
-const _pinW = 28.0;
-const _pinH = 34.0;
+const _pinW = 32.0;
+const _pinH = 42.0;
+
+/// 경로 띠(회색 반투명)·내 위치 파랑 — 레퍼런스 색.
+const _routeBand = Color(0x55808080);
+const _meBlue = Color(0xFF1E6FE0);
+
+/// 내 위치 원 안 흰 진행 화살표(오른쪽 위를 향한 삼각 화살).
+Path _arrowPath(Offset c, double r) => Path()
+  ..moveTo(c.dx - r * 0.38, c.dy - r * 0.5)
+  ..lineTo(c.dx + r * 0.55, c.dy)
+  ..lineTo(c.dx - r * 0.38, c.dy + r * 0.5)
+  ..lineTo(c.dx - r * 0.18, c.dy)
+  ..close();
 
 /// 핀 위 예정시간 글씨(핀 색 + 흰 테두리, 배경 없음 — 레퍼런스 image 11).
 TextSpan _etaSpan(String text, Color color, {required bool outline}) =>
     TextSpan(
       text: text,
       style: TextStyle(
-        fontSize: 11,
+        fontSize: 13,
         height: 1.15,
         fontWeight: FontWeight.w800,
         foreground: outline
             ? (Paint()
                 ..style = PaintingStyle.stroke
-                ..strokeWidth = 3.0
+                ..strokeWidth = 3.5
                 ..strokeJoin = StrokeJoin.round
                 ..color = Colors.white)
             : null,
@@ -535,15 +547,15 @@ Future<({Uint8List bytes, int width, int height})> _pinPng(
       text: label,
       style: const TextStyle(
         color: Colors.white,
-        fontSize: 10,
-        fontWeight: FontWeight.w700,
+        fontSize: 12,
+        fontWeight: FontWeight.w800,
       ),
     ),
     textDirection: TextDirection.ltr,
   )..layout();
   text.paint(
     canvas,
-    Offset((_pinW - text.width) / 2, (_pinW - text.height) / 2),
+    Offset((_pinW - text.width) / 2, _pinW * 0.5 - text.height / 2),
   );
   canvas.restore();
   final image = await recorder.endRecording().toImage(
@@ -599,16 +611,14 @@ class _Pin extends StatelessWidget {
             height: _pinH,
             child: CustomPaint(
               painter: _PinPainter(color),
-              child: Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Center(
-                  child: Text(
-                    label,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
-                    ),
+              child: Align(
+                alignment: const Alignment(0, -0.29),
+                child: Text(
+                  label,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
               ),
@@ -627,17 +637,41 @@ class _PinPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    // 크기에 비례(원 반지름 r, 꼬리는 원 아래쪽에서 핀 끝까지).
-    final r = size.width / 2;
-    final paint = Paint()..color = color;
-    final tail = Path()
-      ..moveTo(r - r * 0.42, r + r * 0.63)
-      ..lineTo(r, size.height)
-      ..lineTo(r + r * 0.42, r + r * 0.63)
+    // 물방울 핀(레퍼런스): 둥근 머리에서 곡선으로 좁아져 아래 끝이 뾰족하다. 흰 테두리.
+    final w = size.width;
+    final r = w / 2 - 1.5;
+    final c = Offset(w / 2, r + 1.5);
+    final tip = Offset(w / 2, size.height - 1);
+    final drop = Path()
+      ..moveTo(tip.dx, tip.dy)
+      ..cubicTo(
+        c.dx - r * 0.35,
+        tip.dy - r * 0.55,
+        c.dx - r,
+        c.dy + r * 0.75,
+        c.dx - r,
+        c.dy,
+      )
+      ..arcToPoint(Offset(c.dx + r, c.dy), radius: Radius.circular(r))
+      ..cubicTo(
+        c.dx + r,
+        c.dy + r * 0.75,
+        c.dx + r * 0.35,
+        tip.dy - r * 0.55,
+        tip.dx,
+        tip.dy,
+      )
       ..close();
     canvas
-      ..drawPath(tail, paint)
-      ..drawCircle(Offset(r, r), r, paint);
+      ..drawShadow(drop, Colors.black, 2, false)
+      ..drawPath(
+        drop,
+        Paint()
+          ..color = Colors.white
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 3,
+      )
+      ..drawPath(drop, Paint()..color = color);
   }
 
   @override
@@ -653,19 +687,26 @@ class _MeDot extends StatelessWidget {
     height: 28,
     decoration: BoxDecoration(
       shape: BoxShape.circle,
-      color: RiderColors.drop.withValues(alpha: 0.18),
+      color: _meBlue.withValues(alpha: 0.16),
     ),
     alignment: Alignment.center,
-    child: Container(
-      width: 14,
-      height: 14,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: RiderColors.drop,
-        border: Border.all(color: Colors.white, width: 2),
-      ),
-    ),
+    child: CustomPaint(size: const Size(22, 22), painter: _MeArrowPainter()),
   );
+}
+
+class _MeArrowPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final c = size.center(Offset.zero);
+    final r = size.width / 2;
+    canvas
+      ..drawCircle(c, r, Paint()..color = Colors.white)
+      ..drawCircle(c, r - 1.5, Paint()..color = _meBlue)
+      ..drawPath(_arrowPath(c, r - 1.5), Paint()..color = Colors.white);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 /// 약도의 내 위치 → 목적지 직선(비율 좌표).
@@ -679,23 +720,36 @@ class _RoutePainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final from = Offset(size.width * fromRatio.dx, size.height * fromRatio.dy);
     final to = Offset(size.width * toRatio.dx, size.height * toRatio.dy);
-    canvas
-      ..drawLine(
-        from,
-        to,
-        Paint()
-          ..color = Colors.white
-          ..strokeWidth = 12
-          ..strokeCap = StrokeCap.round,
-      )
-      ..drawLine(
-        from,
-        to,
-        Paint()
-          ..color = RiderColors.pickup
-          ..strokeWidth = 8
-          ..strokeCap = StrokeCap.round,
+    canvas.drawLine(
+      from,
+      to,
+      Paint()
+        ..color = _routeBand
+        ..strokeWidth = 16
+        ..strokeCap = StrokeCap.round,
+    );
+    // 진행 방향 꺾쇠(24 간격)
+    final d = to - from;
+    final len = d.distance;
+    if (len < 1) return;
+    final u = d / len;
+    final n = Offset(-u.dy, u.dx);
+    final chev = Paint()
+      ..color = const Color(0xFF6E6E6E)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.8
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+    for (var t = 14.0; t < len - 10; t += 24) {
+      final p = from + u * t;
+      canvas.drawPath(
+        Path()
+          ..moveTo((p - u * 3 + n * 3.5).dx, (p - u * 3 + n * 3.5).dy)
+          ..lineTo((p + u * 1.5).dx, (p + u * 1.5).dy)
+          ..lineTo((p - u * 3 - n * 3.5).dx, (p - u * 3 - n * 3.5).dy),
+        chev,
       );
+    }
   }
 
   @override

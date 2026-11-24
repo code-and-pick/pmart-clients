@@ -84,6 +84,12 @@ void main() {
     await _settle(t);
     await _openMyPage(t);
     final row = find.byKey(const ValueKey('menu-area'));
+    // 마이페이지 위 칸이 커져(2026-11-25 레퍼런스) 800×600 시험 화면에서는 메뉴를 내려야 보인다.
+    await t.scrollUntilVisible(
+      row,
+      100,
+      scrollable: find.byType(Scrollable).last,
+    );
     expect(
       find.descendant(of: row, matching: find.text('바로픽 부산진구')),
       findsOneWidget,
@@ -123,7 +129,11 @@ void main() {
   });
 
   Future<void> pickMokpo(WidgetTester t) async {
-    await t.ensureVisible(find.byKey(const ValueKey('menu-area')));
+    await t.scrollUntilVisible(
+      find.byKey(const ValueKey('menu-area')),
+      100,
+      scrollable: find.byType(Scrollable).last,
+    );
     await t.pumpAndSettle();
     await t.tap(find.byKey(const ValueKey('menu-area')));
     // 열 때 운행 상태·내 정보를 서버에서 다시 읽는다

@@ -66,8 +66,8 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
   /// 화면 위에서 그 줄 높이만큼 남긴다(2026-11-24 사용자 "알림 버튼이 안눌러져" — 펼친 시트가 종을 덮었다).
   double _sheetFull = _sheetFullMax;
 
-  /// 위에 남길 단추줄 높이(SafeArea 아래 12 여백 + 48 단추 + 8).
-  static const _topRowReserve = 68.0;
+  /// 위에 남길 높이 — 레퍼런스(사용자 2026-11-25)처럼 단추줄(위 16 + 44) 아래로 지도가 한 뼘 보이게 105.
+  static const _topRowReserve = 105.0;
 
   final _sheet = DraggableScrollableController();
   final _peekKey = GlobalKey();
@@ -953,20 +953,16 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
     final gone =
         d.state == ExecutionState.unassigned ||
         d.state == ExecutionState.cancelled;
-    // 레퍼런스 image 14·17: "9분 후 픽업예정" / "전달예정 3분 지남".
-    final dueAt = pickupStage
-        ? trip?.pickupDueAt
-        : (dropStage ? trip?.dropDueAt : null);
-    final due = dueAt == null
-        ? null
-        : relativeDueText(
-            l10n,
-            pickupStage ? l10n.duePickupWord : l10n.dueDropWord,
-            dueAt,
-          );
     final tint = stageColor(d.state);
 
-    // 기본 화면(접힌 시트, 레퍼런스 image 14): 회색바 · 예정 · 장소 · 도움요청|길찾기.
+    // 기본 화면(접힌 시트) — 사용자 2026-11-25 레퍼런스 캡처와 같게: 회색바 · [상태 표시 ··· 가게/고객 전화] ·
+    // 큰 굵은 장소 · (픽업이면 가게 주소) · 테두리 버튼 두 개(도움요청 | 길찾기). 남은 시간은 지도 핀 위에 있다.
+    final packed = pickupStage && d.packageIds.isNotEmpty;
+    final String? callPhone = isRec
+        ? null
+        : pickupStage
+        ? (d.mfcPhone ?? store?.phone)
+        : drop?.receiverPhone;
     final peek = Column(
       key: _peekKey,
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -977,42 +973,16 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
           behavior: HitTestBehavior.opaque,
           onTap: _toggleSheet,
           child: Padding(
-            padding: const EdgeInsets.only(top: 8, bottom: 2),
-            child: Column(
-              children: [
-                Container(
-                  width: 40,
-                  height: 5,
-                  decoration: BoxDecoration(
-                    color: RiderColors.line,
-                    borderRadius: BorderRadius.circular(3),
-                  ),
+            padding: const EdgeInsets.only(top: 9, bottom: 17.4),
+            child: Center(
+              child: Container(
+                width: 38.4,
+                height: 3.3,
+                decoration: BoxDecoration(
+                  color: RiderColors.line,
+                  borderRadius: BorderRadius.circular(2),
                 ),
-                const SizedBox(height: 2),
-                ValueListenableBuilder<bool>(
-                  valueListenable: _sheetOpen,
-                  builder: (context, open, _) => Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        open ? l10n.sheetCollapse : l10n.dragForDetail,
-                        key: const ValueKey('sheet-hint'),
-                        style: const TextStyle(
-                          fontSize: 11,
-                          color: RiderColors.hint,
-                        ),
-                      ),
-                      Icon(
-                        open
-                            ? Icons.keyboard_arrow_down
-                            : Icons.keyboard_arrow_up,
-                        size: 14,
-                        color: RiderColors.hint,
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
         ),
@@ -1021,73 +991,70 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
           behavior: HitTestBehavior.opaque,
           onTap: _toggleSheet,
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+            padding: const EdgeInsets.fromLTRB(15.5, 0, 15.5, 0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // 예정(주황·파랑) ··· 지금 단계(레퍼런스의 회색 알약 자리).
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        due ??
-                            (isRec
+                SizedBox(
+                  height: 31.4,
+                  child: Row(
+                    children: [
+                      if (packed) ...[
+                        _StateTag(
+                          key: const ValueKey('packed-tag'),
+                          text: l10n.packedTag,
+                        ),
+                        const Spacer(),
+                      ] else
+                        Expanded(
+                          child: Text(
+                            isRec
                                 ? (recReturning
                                       ? l10n.recGoReturn
                                       : recoveryStageText(l10n, d.state))
-                                : executionText(l10n, d.state)),
-                        key: ValueKey(
-                          due == null ? 'execution-state' : 'due-time',
-                        ),
-                        style: TextStyle(
-                          fontSize: 17,
-                          fontWeight: FontWeight.w800,
-                          color: tint,
-                        ),
-                      ),
-                    ),
-                    if (rec != null)
-                      Container(
-                        key: const ValueKey('recovery-purpose'),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 5,
-                        ),
-                        decoration: BoxDecoration(
-                          color: RiderColors.danger.withValues(alpha: 0.10),
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: Text(
-                          recoveryPurposeText(l10n, rec),
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            color: RiderColors.danger,
+                                : executionText(l10n, d.state),
+                            key: const ValueKey('execution-state'),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 13.9,
+                              fontWeight: FontWeight.w700,
+                              // 전달 단계 파랑은 레퍼런스에서 잰 글자색(지도 핀 파랑보다 짙다).
+                              color: tint == RiderColors.drop
+                                  ? sheetBlue
+                                  : tint,
+                            ),
                           ),
                         ),
-                      ),
-                    if (due != null)
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 5,
+                      if (rec != null) ...[
+                        const SizedBox(width: 6),
+                        _StateTag(
+                          key: const ValueKey('recovery-purpose'),
+                          text: recoveryPurposeText(l10n, rec),
+                          color: RiderColors.danger,
                         ),
-                        decoration: BoxDecoration(
-                          color: RiderColors.field,
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: Text(
-                          executionText(l10n, d.state),
-                          key: const ValueKey('execution-state'),
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: RiderColors.sub,
+                      ],
+                      if (callPhone != null || (pickupStage && !isRec))
+                        _CallPill(
+                          key: ValueKey(
+                            pickupStage ? 'call-store' : 'call-customer',
                           ),
+                          label: pickupStage
+                              ? l10n.callStoreShort
+                              : l10n.callCustomerShort,
+                          onTap: () => pickupStage
+                              ? _call(callPhone, l10n.storePhoneUnavailable)
+                              : callCustomerAndRecord(
+                                  context,
+                                  ref,
+                                  _id,
+                                  callPhone!,
+                                ),
                         ),
-                      ),
-                  ],
+                    ],
+                  ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 10.4),
                 Text(
                   isRec
                       ? (recReturning ||
@@ -1096,16 +1063,36 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
                             : _recoveryPlaceTitle(l10n, contactAsync))
                       : pickupStage
                       ? storeName
-                      : address,
+                      : [
+                          address,
+                          if (drop != null && drop.detailAddress.isNotEmpty)
+                            drop.detailAddress,
+                        ].join(' '),
                   key: const ValueKey('place-title'),
-                  maxLines: 2,
+                  maxLines: 3,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w500,
+                  style: TextStyle(
+                    // 가게 이름·전달 주소 모두 22.5(레퍼런스 잉크 높이·폭 비율로 잰 값, 2026-11-25)
+                    fontSize: 22.5,
+                    height: 1.34,
+                    fontWeight: FontWeight.w700,
                     color: RiderColors.ink,
                   ),
                 ),
+                if (pickupStage && store != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 11.4),
+                    child: Text(
+                      store.address,
+                      key: const ValueKey('store-address'),
+                      style: const TextStyle(
+                        fontSize: 16.5,
+                        height: 1.31,
+                        fontWeight: FontWeight.w700,
+                        color: RiderColors.ink,
+                      ),
+                    ),
+                  ),
                 if (busy)
                   Padding(
                     padding: const EdgeInsets.only(top: 4),
@@ -1139,7 +1126,7 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
 
     // 펼친 시트(레퍼런스 image 15·17): 회색 띠 아래 배달 정보.
     final details = <Widget>[
-      Container(height: 8, color: RiderColors.field),
+      Container(height: 10, color: sheetBandColor),
       // 보낸 도움요청 진행상황 — 누르면 지원센터(보낸 요청·상담원 대화)로 다시 들어간다.
       if (help.last case final last?)
         Padding(
@@ -1222,14 +1209,15 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
       if (d.state == ExecutionState.pickedUp ||
           d.state == ExecutionState.arrivedAtCustomer)
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+          padding: const EdgeInsets.fromLTRB(15.5, 18.8, 15.5, 0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               RiderOutlineButton(
                 key: const ValueKey('photo'),
                 accent: true,
-                height: 52,
+                large: true,
+                height: 50.1,
                 icon: Icons.photo_camera_outlined,
                 label: flow.photoRef == null
                     ? l10n.takePhoto
@@ -1262,56 +1250,29 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
           onRouteRecovery: () =>
               _navigate(name: l10n.recoveryNaviName, to: recoveryPoint),
         ),
-      if (pickupStage) ...[
-        // 레퍼런스 image 12: 픽업지 주소 밑에 가게전화연결, 전달지 주소 밑에 고객전화연결.
-        PlaceSection(
-          key: const ValueKey('mart-info'),
-          label: l10n.martLabel,
-          title: storeName,
-          lines: [?store?.address],
-          linkKey: const ValueKey('call-store'),
-          // 지점 전화가 등록 안 됐으면 버튼을 숨긴다(백엔드 회신 2026-11-17).
-          linkText: (d.mfcPhone ?? store?.phone) == null
+      // 전달 단계: 고객 요청사항(파란 굵은 글씨) + 공동현관 칸(회색) — 사용자 2026-11-25 레퍼런스.
+      if (dropStage)
+        RequestBlock(
+          key: const ValueKey('customer-request'),
+          icon: Icons.person_outline,
+          label: l10n.customerRequestLabel,
+          text: drop?.deliveryNote ?? trip?.deliveryRequest,
+          boxLabel: switch (drop?.entranceMethod) {
+            EntranceMethod.free => l10n.entranceFree,
+            EntranceMethod.password => l10n.entrancePassword,
+            EntranceMethod.call => l10n.entranceCall,
+            EntranceMethod.other => l10n.entranceOther,
+            null => null,
+          },
+          boxValue: drop?.entranceNote,
+          footer: flow.contacts.isEmpty
               ? null
-              : l10n.callStore,
-          onLink: () =>
-              _call(d.mfcPhone ?? store?.phone, l10n.storePhoneUnavailable),
-          routeKey: const ValueKey('route-pickup'),
-          onRoute: store == null
-              ? null
-              : () => _navigate(name: storeName, to: store.point),
+              : l10n.contactCount(flow.contacts.length),
         ),
-        const Divider(indent: 16, endIndent: 16, height: 1),
-        PlaceSection(
-          key: const ValueKey('drop-place'),
-          label: l10n.dropPlace,
-          title: trip?.dropLabel ?? l10n.dropAreaUnknown,
-          lines: [l10n.dropDetailAfterPickup],
-          // 고객 연락처는 픽업한 뒤에 연다(사용자 결정 2026-11-16).
-          linkKey: const ValueKey('call-customer-locked'),
-          linkText: l10n.callCustomer,
-          linkLocked: true,
-          lockedNote: l10n.customerPhoneAfterPickup,
-        ),
-      ] else if (dropStage) ...[
-        TripSection(
-          icon: Icons.place_outlined,
-          title: l10n.dropPlace,
-          children: [
-            if (drop != null)
-              _DropCard(
-                info: drop,
-                contacts: flow.contacts.length,
-                onCall: (phone) =>
-                    callCustomerAndRecord(context, ref, _id, phone),
-              )
-            else
-              Text(address, style: const TextStyle(fontSize: 16)),
-          ],
-        ),
-      ],
       if (!isRec) ...[
-        const SectionGap(),
+        // 위 회색 띠 바로 밑이면(픽업 단계) 띠를 겹쳐 두껍게 하지 않는다.
+        if (dropStage || help.last != null)
+          Container(height: 10, color: sheetBandColor),
         OrderInfoSection(
           trip: trip,
           orderId: d.orderId,
@@ -1319,12 +1280,13 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
           packageCount: d.packageIds.length,
         ),
       ],
-      // 요청사항은 주황 칸 한 곳에만(주문정보 안의 같은 내용은 뺐다 — 사용자 2026-11-18 "겹쳐서").
-      // 픽업 단계에도 가게 요청사항이 보여야 하므로 모든 단계에 둔다(회수 배송은 주문정보가 없어 뺀다).
-      if (!isRec)
-        RequestNotes(
-          storeRequest: trip?.storeRequest,
-          deliveryRequest: drop?.deliveryNote ?? trip?.deliveryRequest,
+      // 픽업 단계: 가게 요청사항(주문정보 아래).
+      if (pickupStage)
+        RequestBlock(
+          key: const ValueKey('store-request'),
+          icon: Icons.storefront_outlined,
+          label: l10n.storeRequestLabel,
+          text: trip?.storeRequest,
         ),
       if (dropStage)
         Padding(
@@ -1642,16 +1604,8 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
                                     .toDouble(),
                               );
                             },
-                            child: DecoratedBox(
-                              // 흰 바탕(아래 내용이 비치지 않게) + 경계 얇은 선
-                              decoration: const BoxDecoration(
-                                color: Colors.white,
-                                border: Border(
-                                  bottom: BorderSide(color: RiderColors.line),
-                                ),
-                              ),
-                              child: peek,
-                            ),
+                            // 흰 바탕(아래 내용이 비치지 않게). 레퍼런스처럼 경계선은 없다.
+                            child: ColoredBox(color: Colors.white, child: peek),
                           ),
                         ),
                       ],
@@ -1686,13 +1640,16 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
                   ),
                 );
               },
-              child: Material(
-                color: Colors.white,
-                elevation: 12,
-                child: SafeArea(
-                  top: false,
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+              // 레퍼런스처럼 흰 판 없이 내용 위에 떠 있는 큰 버튼(높이 62.3, 글자 24, 좌우 15,
+              // 화면 아래에서 32.5 — 아래 시스템 막대가 더 높으면 그 위).
+              child: SafeArea(
+                top: false,
+                minimum: const EdgeInsets.only(bottom: 32.5),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 15),
+                  child: RiderButtonSize(
+                    height: 62.3,
+                    fontSize: 24,
                     child: action,
                   ),
                 ),
@@ -1715,7 +1672,7 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
   }
 }
 
-/// 레퍼런스 image 14: 시트 아래 꽉 찬 반반 버튼 — 도움요청 | 길찾기.
+/// 사용자 2026-11-25 레퍼런스: 시트 위 두 칸 테두리 버튼 — 도움요청 | 길찾기(높이 45, 사이 10).
 class _SplitActions extends StatelessWidget {
   const _SplitActions({required this.onHelp, required this.onNavigate});
 
@@ -1725,30 +1682,25 @@ class _SplitActions extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    return Container(
-      height: 58,
-      decoration: const BoxDecoration(
-        border: Border(top: BorderSide(color: RiderColors.line)),
-      ),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(15.5, 15, 15.5, 18.7),
       child: Row(
         children: [
           Expanded(
-            child: _FlatAction(
+            child: _BoxAction(
               key: const ValueKey('help'),
-              icon: Icons.notifications_active_outlined,
+              icon: Icons.sms_outlined,
+              iconSize: 21,
               label: l10n.helpRequest,
               onTap: onHelp,
             ),
           ),
-          const VerticalDivider(
-            width: 1,
-            thickness: 1,
-            color: RiderColors.line,
-          ),
+          const SizedBox(width: 8.4),
           Expanded(
-            child: _FlatAction(
+            child: _BoxAction(
               key: const ValueKey('navigate'),
               icon: Icons.map_outlined,
+              iconSize: 22,
               label: l10n.navigate,
               onTap: onNavigate,
             ),
@@ -1759,111 +1711,216 @@ class _SplitActions extends StatelessWidget {
   }
 }
 
-class _FlatAction extends StatelessWidget {
-  const _FlatAction({
+class _BoxAction extends StatelessWidget {
+  const _BoxAction({
     super.key,
     required this.icon,
     required this.label,
     required this.onTap,
+    this.iconSize = 21,
   });
 
   final IconData icon;
+  final double iconSize;
   final String label;
   final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final color = onTap == null ? RiderColors.disabled : RiderColors.ink;
-    return InkWell(
-      onTap: onTap,
-      child: Center(
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 24, color: color),
-            const SizedBox(width: 6),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 17,
-                fontWeight: FontWeight.w700,
-                color: color,
-              ),
-            ),
-          ],
+    const radius = BorderRadius.all(Radius.circular(4));
+    return Material(
+      color: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: radius,
+        side: BorderSide(color: Color(0xFFDDDDDD)),
+      ),
+      child: InkWell(
+        borderRadius: radius,
+        onTap: onTap,
+        child: SizedBox(
+          height: 46.4,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              if (icon == Icons.sms_outlined)
+                _ChatDotsIcon(size: iconSize, color: color)
+              else if (icon == Icons.map_outlined)
+                _MapPinIcon(size: iconSize, color: color)
+              else
+                Icon(icon, size: iconSize, color: color),
+              const SizedBox(width: 4.5),
+              Text(label, style: TextStyle(fontSize: 14, color: color)),
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
-/// 전달지(개인정보). 출입 메모는 공동현관 비밀번호일 수 있어 복사·공유 기능을 두지 않는다.
-class _DropCard extends StatelessWidget {
-  const _DropCard({
-    required this.info,
-    required this.contacts,
-    required this.onCall,
-  });
+/// 도움요청 그림 — 레퍼런스처럼 둥근 말풍선 안 점 세 개.
+class _ChatDotsIcon extends StatelessWidget {
+  const _ChatDotsIcon({required this.size, required this.color});
 
-  final DropInfo info;
-  final int contacts;
-  final Future<void> Function(String phone) onCall;
+  final double size;
+  final Color color;
 
   @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
-    final entrance = switch (info.entranceMethod) {
-      EntranceMethod.free => l10n.entranceFree,
-      EntranceMethod.password => l10n.entrancePassword,
-      EntranceMethod.call => l10n.entranceCall,
-      EntranceMethod.other => l10n.entranceOther,
-      null => null,
-    };
-    return Column(
-      key: const ValueKey('drop-card'),
-      crossAxisAlignment: CrossAxisAlignment.start,
+  Widget build(BuildContext context) => SizedBox(
+    width: size,
+    height: size,
+    child: Stack(
+      alignment: Alignment.center,
       children: [
-        Text(info.roadAddress, style: const TextStyle(fontSize: 18)),
-        if (info.detailAddress.isNotEmpty)
-          Text(
-            info.detailAddress,
-            style: const TextStyle(fontSize: 16, color: RiderColors.sub),
-          ),
-        if (entrance != null || info.entranceNote != null)
-          Padding(
-            padding: const EdgeInsets.only(top: 6),
-            child: Text(
-              [?entrance, ?info.entranceNote].join(' · '),
-              style: const TextStyle(fontSize: 14, color: RiderColors.sub),
-            ),
-          ),
-        if (info.receiverPhone case final phone?)
-          Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: Row(
-              children: [
-                OutlinedButton.icon(
-                  key: const ValueKey('call-customer'),
-                  onPressed: () => onCall(phone),
-                  icon: const Icon(Icons.call_outlined, size: 20),
-                  label: Text(l10n.callCustomer),
-                ),
-                const SizedBox(width: 8),
-                if (contacts > 0)
-                  Text(
-                    l10n.contactCount(contacts),
-                    key: const ValueKey('contact-count'),
-                    style: const TextStyle(
-                      fontSize: 13,
-                      color: RiderColors.sub,
-                    ),
+        CustomPaint(
+          size: Size.square(size),
+          painter: _RoundBubblePainter(color),
+        ),
+        Padding(
+          padding: EdgeInsets.only(bottom: size * 0.06, left: size * 0.04),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (var i = 0; i < 3; i++)
+                Container(
+                  width: size * 0.13,
+                  height: size * 0.13,
+                  margin: EdgeInsets.symmetric(horizontal: size * 0.04),
+                  decoration: BoxDecoration(
+                    color: color,
+                    shape: BoxShape.circle,
                   ),
-              ],
+                ),
+            ],
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+/// 둥근 말풍선(왼쪽 아래 꼬리) 테두리.
+class _RoundBubblePainter extends CustomPainter {
+  _RoundBubblePainter(this.color);
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width;
+    final p = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = w * 0.085
+      ..strokeJoin = StrokeJoin.round;
+    final c = Offset(w * 0.52, w * 0.47);
+    final r = w * 0.4;
+    final path = Path()
+      ..addArc(Rect.fromCircle(center: c, radius: r), 2.25, 5.6)
+      ..lineTo(w * 0.12, w * 0.9)
+      ..close();
+    canvas.drawPath(path, p);
+  }
+
+  @override
+  bool shouldRepaint(covariant _RoundBubblePainter old) => old.color != color;
+}
+
+/// 길찾기 그림 — 레퍼런스처럼 접힌 지도 오른쪽 위에 작은 핀.
+class _MapPinIcon extends StatelessWidget {
+  const _MapPinIcon({required this.size, required this.color});
+
+  final double size;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+    width: size * 1.1,
+    height: size,
+    child: Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Icon(Icons.map_outlined, size: size, color: color),
+        Positioned(
+          right: -size * 0.12,
+          top: -size * 0.08,
+          child: DecoratedBox(
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.location_on_outlined,
+              size: size * 0.55,
+              color: color,
             ),
           ),
+        ),
       ],
-    );
-  }
+    ),
+  );
+}
+
+/// 상태 꼬리표(포장완료 — 연주황 바탕 주황 굵은 글자, 회수 목적은 빨강).
+class _StateTag extends StatelessWidget {
+  const _StateTag({
+    super.key,
+    required this.text,
+    this.color = const Color(0xFFE67C0C),
+  });
+
+  final String text;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3.5),
+    decoration: BoxDecoration(
+      color: color.withValues(alpha: 0.10),
+      borderRadius: BorderRadius.circular(3),
+    ),
+    child: Text(
+      text,
+      style: TextStyle(
+        fontSize: 12.4,
+        fontWeight: FontWeight.w700,
+        color: color,
+      ),
+    ),
+  );
+}
+
+/// 오른쪽 위 둥근 전화 단추(가게 전화·고객 전화).
+class _CallPill extends StatelessWidget {
+  const _CallPill({super.key, required this.label, required this.onTap});
+
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Material(
+    color: Colors.white,
+    shape: const StadiumBorder(side: BorderSide(color: Color(0xFFDDDDDD))),
+    child: InkWell(
+      customBorder: const StadiumBorder(),
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(10, 6.2, 10.5, 6.2),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.call_outlined, size: 16.5, color: RiderColors.ink),
+            const SizedBox(width: 3.8),
+            Text(
+              label,
+              style: const TextStyle(fontSize: 14.3, color: RiderColors.ink),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
 }
 
 /// 배달완료 알림(서버가 전달 완료를 확정한 뒤) — 사용자 2026-11-23 레퍼런스 모양: 보라 판(은은한 빛 방울) 위 큰 "배달완료",

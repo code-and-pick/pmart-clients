@@ -145,7 +145,10 @@ void main() {
     // 첫 제안(예약)을 거절할 수 없는 일반 모드라 수락해서 넘긴다.
     await t.tap(find.byKey(const ValueKey('accept-offer-mock-1')));
     await _settle(t);
-    expect(find.text('알뜰 2건'), findsOneWidget);
+    // 묶음은 고객마다 구간 카드 한 장(1번·2번)과 "모두 거절 · 2건 모두 수락"(사용자 2026-11-25 레퍼런스).
+    expect(find.text('1번'), findsOneWidget);
+    expect(find.text('2번'), findsOneWidget);
+    expect(find.text('총 배달료 6,000원'), findsOneWidget);
 
     await t.tap(find.byKey(const ValueKey('accept-offer-bundle-1')));
     await _settle(t);

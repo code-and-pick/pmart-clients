@@ -45,8 +45,9 @@ void main() {
     await t.pumpAndSettle();
 
     expect(find.byKey(const ValueKey('offer-offer-mock-1')), findsOneWidget);
-    expect(find.text('42초 남음'), findsOneWidget);
-    expect(find.textContaining('3,500원'), findsOneWidget);
+    expect(find.text('배차 수락  ·  42초', findRichText: true), findsOneWidget);
+    // 구간 카드의 배달료와 아래 "총 배달료" 두 곳(사용자 2026-11-25 레퍼런스)
+    expect(find.textContaining('3,500원'), findsNWidgets(2));
     expect(find.text('지금은 새 제안을 받을 수 없는 상태예요'), findsNothing);
   });
 

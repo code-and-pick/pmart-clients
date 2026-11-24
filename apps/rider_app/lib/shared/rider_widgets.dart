@@ -7,6 +7,26 @@ import '../l10n/gen/app_localizations.dart';
 import 'rider_style.dart';
 
 /// 화면 아래 큰 버튼(레퍼런스: 폭 가득, 높이 56, 모서리 4).
+/// 아래 [RiderButton] 들의 높이·글자 크기를 바꾼다(배송 시트 진행 버튼 61·22 — 사용자 2026-11-25 레퍼런스).
+class RiderButtonSize extends InheritedWidget {
+  const RiderButtonSize({
+    super.key,
+    required this.height,
+    required this.fontSize,
+    required super.child,
+  });
+
+  final double height;
+  final double fontSize;
+
+  static RiderButtonSize? of(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<RiderButtonSize>();
+
+  @override
+  bool updateShouldNotify(RiderButtonSize old) =>
+      height != old.height || fontSize != old.fontSize;
+}
+
 class RiderButton extends StatefulWidget {
   const RiderButton({
     super.key,
@@ -76,6 +96,7 @@ class _RiderButtonState extends State<RiderButton>
   @override
   Widget build(BuildContext context) {
     final enabled = widget.onPressed != null;
+    final size = RiderButtonSize.of(context);
     const radius = BorderRadius.all(Radius.circular(4));
     return AnimatedBuilder(
       animation: _press,
@@ -99,7 +120,7 @@ class _RiderButtonState extends State<RiderButton>
       ),
       child: SizedBox(
         width: double.infinity,
-        height: widget.height,
+        height: size?.height ?? widget.height,
         child: FilledButton(
           key: const ValueKey('rider-button-surface'),
           onPressed: enabled ? _pressed : null,
@@ -122,8 +143,8 @@ class _RiderButtonState extends State<RiderButton>
                 child: Text(
                   widget.label,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 19,
+                  style: TextStyle(
+                    fontSize: size?.fontSize ?? 19,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -144,6 +165,7 @@ class RiderOutlineButton extends StatelessWidget {
     required this.onPressed,
     this.icon,
     this.accent = false,
+    this.large = false,
     this.height = 48,
   });
 
@@ -153,6 +175,9 @@ class RiderOutlineButton extends StatelessWidget {
 
   /// 주 색 테두리·글자(촬영 버튼).
   final bool accent;
+
+  /// 큰 글자(17 굵게, 아이콘 20) — 전달 사진 촬영하기(사용자 2026-11-25 레퍼런스).
+  final bool large;
   final double height;
 
   @override
@@ -166,6 +191,7 @@ class RiderOutlineButton extends StatelessWidget {
           foregroundColor: color,
           side: BorderSide(
             color: accent ? RiderColors.primary : RiderColors.line,
+            width: large ? 1.5 : 1,
           ),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
           padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -174,16 +200,16 @@ class RiderOutlineButton extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             if (icon != null) ...[
-              Icon(icon, size: 20),
-              const SizedBox(width: 6),
+              Icon(icon, size: large ? 22 : 20),
+              SizedBox(width: large ? 4.6 : 6),
             ],
             Flexible(
               child: Text(
                 label,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
+                style: TextStyle(
+                  fontSize: large ? 18 : 15,
+                  fontWeight: large ? FontWeight.w700 : FontWeight.w600,
                 ),
               ),
             ),
@@ -334,10 +360,16 @@ class PillOption extends StatelessWidget {
 
 /// 지도 위 흰 알약 버튼.
 class MapPill extends StatelessWidget {
-  const MapPill({super.key, required this.child, this.onTap});
+  const MapPill({
+    super.key,
+    required this.child,
+    this.onTap,
+    this.padding = const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+  });
 
   final Widget child;
   final VoidCallback? onTap;
+  final EdgeInsets padding;
 
   @override
   Widget build(BuildContext context) => Material(
@@ -348,9 +380,31 @@ class MapPill extends StatelessWidget {
     child: InkWell(
       customBorder: const StadiumBorder(),
       onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        child: child,
+      child: Padding(padding: padding, child: child),
+    ),
+  );
+}
+
+/// 원 안 ₩ (정산내역 아이콘 — 레퍼런스 사용자 2026-11-25).
+class WonCoinIcon extends StatelessWidget {
+  const WonCoinIcon({super.key});
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: 18,
+    height: 18,
+    alignment: Alignment.center,
+    decoration: BoxDecoration(
+      shape: BoxShape.circle,
+      border: Border.all(color: RiderColors.ink, width: 1.6),
+    ),
+    child: const Text(
+      '₩',
+      style: TextStyle(
+        fontSize: 10,
+        height: 1,
+        fontWeight: FontWeight.w700,
+        color: RiderColors.ink,
       ),
     ),
   );
@@ -358,10 +412,22 @@ class MapPill extends StatelessWidget {
 
 /// 지도 위 둥근 버튼.
 class MapCircleButton extends StatelessWidget {
-  const MapCircleButton({super.key, required this.icon, required this.onTap});
+  const MapCircleButton({
+    super.key,
+    required this.icon,
+    required this.onTap,
+    this.child,
+    this.size = 44,
+    this.iconSize = 24,
+  });
 
   final IconData icon;
   final VoidCallback onTap;
+  final double size;
+  final double iconSize;
+
+  /// [icon] 대신 그릴 그림(배달리스트의 [SortListIcon]).
+  final Widget? child;
 
   @override
   Widget build(BuildContext context) => Material(
@@ -373,12 +439,50 @@ class MapCircleButton extends StatelessWidget {
       customBorder: const CircleBorder(),
       onTap: onTap,
       child: SizedBox(
-        width: 44,
-        height: 44,
-        child: Icon(icon, color: RiderColors.ink, size: 24),
+        width: size,
+        height: size,
+        child: Center(
+          child: child ?? Icon(icon, color: RiderColors.ink, size: iconSize),
+        ),
       ),
     ),
   );
+}
+
+/// 배달리스트 단추 그림(레퍼런스 사용자 2026-11-25: 왼쪽 아래 화살표 + 오른쪽 세 줄).
+class SortListIcon extends StatelessWidget {
+  const SortListIcon({super.key});
+
+  @override
+  Widget build(BuildContext context) =>
+      // 레퍼런스 그림 크기(약 18×17)에 맞춰 24 판의 0.85 배로 그린다.
+      CustomPaint(size: const Size(20.5, 20.5), painter: _SortListPainter());
+}
+
+class _SortListPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    canvas.scale(size.width / 24);
+    final p = Paint()
+      ..color = RiderColors.ink
+      ..strokeWidth = 2
+      ..strokeCap = StrokeCap.round
+      ..style = PaintingStyle.stroke;
+    // 아래 화살표
+    canvas
+      ..drawLine(const Offset(5, 4), const Offset(5, 20), p)
+      ..drawLine(const Offset(2, 16.5), const Offset(5, 20), p)
+      ..drawLine(const Offset(8, 16.5), const Offset(5, 20), p);
+    // 세 줄(위 줄 앞 짧은 점 + 줄)
+    for (final y in [6.0, 12.0, 18.0]) {
+      canvas
+        ..drawLine(Offset(11, y), Offset(11.5, y), p)
+        ..drawLine(Offset(15, y), Offset(22, y), p);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 /// 짧은 안내(회색 팝업). 화면 **위쪽**에 띄워 아래 버튼·입력칸을 가리지 않는다(사용자 2026-11-19
@@ -556,6 +660,7 @@ class MenuRow extends StatelessWidget {
     super.key,
     required this.label,
     this.icon,
+    this.iconWidget,
     this.value,
     this.trailing,
     this.onTap,
@@ -563,6 +668,9 @@ class MenuRow extends StatelessWidget {
 
   final String label;
   final IconData? icon;
+
+  /// [icon] 대신 그릴 그림(정산내역의 [WonCoinIcon]).
+  final Widget? iconWidget;
   final String? value;
   final Widget? trailing;
   final VoidCallback? onTap;
@@ -570,18 +678,25 @@ class MenuRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) => InkWell(
     onTap: onTap,
+    // 사용자 2026-11-25 레퍼런스(마이페이지): 한 줄 53 · 왼쪽 24 · 아이콘 22 · 글자 17.
     child: Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      padding: const EdgeInsets.fromLTRB(23, 12.6, 13, 12.6),
       child: Row(
         children: [
-          if (icon != null) ...[
-            Icon(icon, size: 22, color: RiderColors.ink),
-            const SizedBox(width: 10),
+          if (iconWidget != null || icon != null) ...[
+            SizedBox(
+              width: 21,
+              child: Center(
+                child:
+                    iconWidget ?? Icon(icon, size: 21, color: RiderColors.ink),
+              ),
+            ),
+            const SizedBox(width: 12),
           ],
           Expanded(
             child: Text(
               label,
-              style: const TextStyle(fontSize: 17, color: RiderColors.ink),
+              style: const TextStyle(fontSize: 17.3, color: RiderColors.ink),
             ),
           ),
           if (value != null)
@@ -597,7 +712,7 @@ class MenuRow extends StatelessWidget {
                       child: Icon(
                         Icons.chevron_right,
                         color: RiderColors.sub,
-                        size: 22,
+                        size: 27.8,
                       ),
                     )),
         ],

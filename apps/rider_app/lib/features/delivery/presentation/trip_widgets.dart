@@ -7,7 +7,13 @@ import '../../../shared/rider_style.dart';
 import '../domain/trip.dart';
 import 'delivery_texts.dart';
 
-/// 화면 묶음 제목 + 아이콘.
+/// 배송 시트 회색 띠·회색 칸 색(레퍼런스에서 잰 값 2026-11-25).
+const sheetBandColor = Color(0xFFF4F5F7);
+
+/// 전달 단계 파란 글자(전달지로 이동해주세요·고객 요청사항) — 레퍼런스에서 잰 색.
+const sheetBlue = Color(0xFF2167C5);
+
+/// 화면 묶음 제목 + 아이콘(사용자 2026-11-25 레퍼런스: 진한 아이콘 · 보통 굵기 15 제목, 내용은 제목 글자 줄에 맞춤).
 class TripSection extends StatelessWidget {
   const TripSection({
     super.key,
@@ -22,24 +28,21 @@ class TripSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+    padding: const EdgeInsets.fromLTRB(16.2, 18.7, 15.5, 22),
     child: Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: const EdgeInsets.only(top: 1),
-          child: Icon(icon, size: 22, color: RiderColors.sub),
-        ),
-        const SizedBox(width: 8),
+        Icon(icon, size: 23, color: RiderColors.ink),
+        const SizedBox(width: 5.8),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 title,
-                style: const TextStyle(fontSize: 14, color: RiderColors.sub),
+                style: const TextStyle(fontSize: 16, color: RiderColors.ink),
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: 9.5),
               ...children,
             ],
           ),
@@ -87,7 +90,8 @@ class TripLine extends StatelessWidget {
   );
 }
 
-/// 주문정보: 주문번호 8자리 · 주문장소(픽업지) · 메뉴 품목 · 메뉴금액 · 고객요청사항.
+/// 주문정보(사용자 2026-11-25 레퍼런스): 큰 주문번호(앞 회색·끝 4자리 검정 굵게) · 메뉴금액(굵게) ·
+/// 가게명·포장(회색 이름 + 값) · 회색 칸 안 품목(이름 ··· 수량).
 /// [trip] 이 없으면(실서버 — 계약에 아직 없음) 주문 ID 와 포장 수만 보인다.
 class OrderInfoSection extends StatelessWidget {
   const OrderInfoSection({
@@ -109,54 +113,35 @@ class OrderInfoSection extends StatelessWidget {
     final t = trip;
     return TripSection(
       key: const ValueKey('order-info'),
-      icon: Icons.receipt_long_outlined,
+      icon: Icons.article_outlined,
       title: l10n.orderInfo,
       children: [
-        Text(
-          l10n.orderNumber,
-          style: const TextStyle(fontSize: 13, color: RiderColors.hint),
-        ),
         OrderCode(
           key: const ValueKey('order-no'),
           code: t?.orderNo ?? orderId ?? '-',
-          size: 26,
+          size: 30.5,
         ),
         // 메뉴 금액은 주문번호 바로 밑에 굵게(사용자 2026-11-18). 서버(주문) 값을 그대로 보인다.
         if (t?.menuTotal case final total?)
           Padding(
             key: const ValueKey('menu-total'),
-            padding: const EdgeInsets.only(top: 4),
-            child: Text.rich(
-              TextSpan(
-                children: [
-                  TextSpan(
-                    text: '${l10n.menuAmount}  ',
-                    style: const TextStyle(
-                      fontSize: 15,
-                      color: RiderColors.sub,
-                    ),
-                  ),
-                  TextSpan(
-                    text: formatKrw(total),
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w800,
-                      color: RiderColors.ink,
-                    ),
-                  ),
-                ],
+            padding: const EdgeInsets.only(top: 5.4),
+            child: Text(
+              '${l10n.menuAmount}   ${formatKrw(total)}',
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: RiderColors.ink,
               ),
             ),
           ),
-        const SizedBox(height: 10),
-        TripLine(
-          l10n.orderPlace,
+        _InfoRow(
+          top: 1.9,
+          l10n.storeNameLabel,
           t == null
               ? storeText(l10n, mfcId)
               : l10n.storeLabel(shortStoreName(t.store.name)),
         ),
-        if (packageCount case final n?)
-          TripLine(l10n.packagesLabel, packageCountText(l10n, n)),
         if (t == null)
           Padding(
             padding: const EdgeInsets.only(top: 6),
@@ -165,127 +150,196 @@ class OrderInfoSection extends StatelessWidget {
               style: const TextStyle(fontSize: 13, color: RiderColors.hint),
             ),
           )
-        else ...[
-          const SizedBox(height: 10),
-          Text(
-            l10n.menuItems,
-            style: const TextStyle(fontSize: 13, color: RiderColors.hint),
-          ),
-          for (final line in t.items)
-            TripLine(
-              l10n.itemLine(line.name, line.qty),
-              formatKrw(line.amount),
+        else if (t.items.isNotEmpty)
+          Container(
+            key: const ValueKey('menu-items'),
+            width: double.infinity,
+            margin: const EdgeInsets.only(top: 13.3),
+            padding: const EdgeInsets.fromLTRB(13, 10.6, 13, 12),
+            decoration: BoxDecoration(
+              color: sheetBandColor,
+              borderRadius: BorderRadius.circular(4),
             ),
-        ],
+            child: Column(
+              children: [
+                for (final (i, line) in t.items.indexed)
+                  Padding(
+                    padding: EdgeInsets.only(top: i == 0 ? 0 : 8),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            line.name,
+                            style: const TextStyle(
+                              fontSize: 15,
+                              height: 1.35,
+                              color: RiderColors.sub,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Text(
+                          l10n.itemQty(line.qty),
+                          style: const TextStyle(
+                            fontSize: 15,
+                            height: 1.35,
+                            color: RiderColors.sub,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+          ),
       ],
     );
   }
 }
 
-/// 가게·배달 고객요청사항(주문정보 아래 주황 칸 — 요청사항은 여기 한 곳에만).
-class RequestNotes extends StatelessWidget {
-  const RequestNotes({
+/// 회색 이름 + 값(가게명·포장) — 이름 칸 폭을 맞춰 값이 한 줄로 선다.
+class _InfoRow extends StatelessWidget {
+  const _InfoRow(this.label, this.value, {this.top = 4});
+
+  final String label;
+  final String value;
+  final double top;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: EdgeInsets.only(top: top),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 64,
+          child: Text(
+            label,
+            style: const TextStyle(fontSize: 16, color: RiderColors.sub),
+          ),
+        ),
+        Expanded(
+          child: Text(
+            value,
+            style: const TextStyle(fontSize: 16, color: RiderColors.ink),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+/// 요청사항 칸(사용자 2026-11-25 레퍼런스): 아이콘 + 이름 · 요청(파란 굵은 글씨, 없으면 회색 "없음") ·
+/// 회색 칸(공동현관 등 — 이름 굵게, 값 아래).
+class RequestBlock extends StatelessWidget {
+  const RequestBlock({
     super.key,
-    required this.storeRequest,
-    required this.deliveryRequest,
+    required this.icon,
+    required this.label,
+    required this.text,
+    this.boxLabel,
+    this.boxValue,
+    this.footer,
   });
 
-  final String? storeRequest;
-  final String? deliveryRequest;
+  final IconData icon;
+  final String label;
+  final String? text;
+  final String? boxLabel;
+  final String? boxValue;
+
+  /// 맨 아래 작은 회색 글(예: 연락 기록 n번).
+  final String? footer;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    return Container(
-      key: const ValueKey('request-notes'),
-      width: double.infinity,
-      color: RiderColors.notice,
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-      child: Column(
+    const boxInk = Color(0xFF444444);
+    // 치수는 레퍼런스(사용자 2026-11-25 전달 화면)에서 잰 값.
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16.6, 18.1, 15.5, 19.1),
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 2026-11-23 사용자 "주황색 배경으로 해놓은 거 치곤 폰트나 굵기가 좀 약해" — 머리는 아이콘 + 굵게, 내용은 크고 굵게.
-          Row(
-            children: [
-              // 확인해 달라는 알림 — 주황 동그라미 안 흰 확성기(사용자 2026-11-23 "뜬금없이 ! 이거 하나만 있는 건 좀 아니지").
-              Container(
-                key: const ValueKey('request-notes-badge'),
-                width: 26,
-                height: 26,
-                decoration: const BoxDecoration(
-                  color: RiderColors.pickup,
-                  shape: BoxShape.circle,
+          Icon(icon, size: 24, color: RiderColors.ink),
+          const SizedBox(width: 4.4),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: const TextStyle(fontSize: 16, color: RiderColors.ink),
                 ),
-                alignment: Alignment.center,
-                child: const Icon(
-                  Icons.campaign_rounded,
-                  size: 17,
-                  color: Colors.white,
+                const SizedBox(height: 9.7),
+                Text(
+                  text ?? l10n.noRequest,
+                  key: const ValueKey('request-text'),
+                  style: TextStyle(
+                    fontSize: 16.4,
+                    height: 1.4,
+                    fontWeight: text == null
+                        ? FontWeight.w400
+                        : FontWeight.w700,
+                    color: text == null ? RiderColors.hint : sheetBlue,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                l10n.checkRequestNote,
-                // 2026-11-25 사용자 "주황글자 폰트만 좀 더 다듬어줘" → 안 C: 16·굵게(700)·자간 좁힘,
-                // 크림 바탕 위에서 흐리지 않게 주황을 한 톤 진하게.
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: -0.3,
-                  color: Color(0xFFE0701A),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          // 라벨을 위, 내용을 아래에 — 긴 요청이면 한 줄 배치에서 라벨이 "가게/요청사/항"으로 쪼개졌다.
-          _Note(
-            key: const ValueKey('store-request'),
-            label: l10n.storeRequestLabel,
-            text: storeRequest ?? l10n.noRequest,
-          ),
-          const SizedBox(height: 10),
-          _Note(
-            key: const ValueKey('delivery-request'),
-            label: l10n.deliveryRequestLabel,
-            text: deliveryRequest ?? l10n.noRequest,
+                if (boxLabel != null || boxValue != null)
+                  Container(
+                    key: const ValueKey('entrance-box'),
+                    width: double.infinity,
+                    margin: const EdgeInsets.only(top: 8.7),
+                    padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+                    decoration: BoxDecoration(
+                      color: sheetBandColor,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (boxLabel case final l?)
+                          Text(
+                            l,
+                            style: const TextStyle(
+                              fontSize: 14.2,
+                              fontWeight: FontWeight.w700,
+                              color: boxInk,
+                            ),
+                          ),
+                        if (boxValue case final v?)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Text(
+                              v,
+                              style: const TextStyle(
+                                fontSize: 14.2,
+                                color: boxInk,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                if (footer case final f?)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text(
+                      f,
+                      key: const ValueKey('contact-count'),
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: RiderColors.sub,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
           ),
         ],
       ),
     );
   }
-}
-
-class _Note extends StatelessWidget {
-  const _Note({super.key, required this.label, required this.text});
-
-  final String label;
-  final String text;
-
-  @override
-  Widget build(BuildContext context) => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      Text(
-        label,
-        style: const TextStyle(
-          fontSize: 13,
-          fontWeight: FontWeight.w700,
-          color: RiderColors.sub,
-        ),
-      ),
-      const SizedBox(height: 3),
-      Text(
-        text,
-        style: const TextStyle(
-          fontSize: 18,
-          height: 1.35,
-          fontWeight: FontWeight.w800,
-          color: RiderColors.ink,
-        ),
-      ),
-    ],
-  );
 }
 
 /// 픽업지·전달지 칸(레퍼런스 image 12): 라벨 · 이름 · 주소 · 그 밑에 전화연결 글자 버튼,

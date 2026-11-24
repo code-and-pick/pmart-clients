@@ -107,9 +107,17 @@ Future<OfferOutcome> respondToOffer(
 /// 남은 시간은 서버 값에서 출발해 단말 경과 시간으로 줄인다. 0 이어도 만료 확정이 아니라 버튼은 남는다.
 /// 거절 버튼은 AI 추천 배차 모드에만 있다(일반 모드는 응답하지 않으면 만료).
 class OfferResponseBar extends ConsumerStatefulWidget {
-  const OfferResponseBar({super.key, required this.offer, this.onResponded});
+  const OfferResponseBar({
+    super.key,
+    required this.offer,
+    this.onResponded,
+    this.count = 1,
+  });
 
   final OfferItem offer;
+
+  /// 묶음 건수 — 2 이상이면 "모두 거절" / "n건 모두 수락".
+  final int count;
   final void Function(OfferOutcome outcome)? onResponded;
 
   @override
@@ -118,6 +126,9 @@ class OfferResponseBar extends ConsumerStatefulWidget {
 
 class _OfferResponseBarState extends ConsumerState<OfferResponseBar> {
   Timer? _ticker;
+
+  /// 처음 본 남은 시간 — 수락 버튼 안 줄어드는 막대의 기준.
+  int? _total;
 
   @override
   void initState() {
@@ -153,74 +164,95 @@ class _OfferResponseBarState extends ConsumerState<OfferResponseBar> {
     final remaining = ref
         .read(offerPollerProvider.notifier)
         .remainingFor(offer);
-    return Row(
-      children: [
-        if (aiMode) ...[
-          SizedBox(
-            width: 76,
-            height: 54,
-            child: OutlinedButton(
-              key: ValueKey('reject-${offer.offerId}'),
-              onPressed: busy ? null : () => _respond(false),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: RiderColors.sub,
-                side: const BorderSide(color: RiderColors.line, width: 1.5),
-                padding: EdgeInsets.zero,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(4),
+    final total = _total ??= remaining > 0 ? remaining : null;
+    final left = total == null ? 0.0 : (remaining / total).clamp(0.0, 1.0);
+    final many = widget.count > 1;
+    const radius = BorderRadius.all(Radius.circular(4));
+    // 사용자 2026-11-25 레퍼런스: [모두 거절](테두리, 폭 96) [n건 모두 수락 · n초](남은 시간만큼 진한 막대).
+    return SizedBox(
+      height: 47,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (aiMode) ...[
+            SizedBox(
+              width: 96,
+              child: OutlinedButton(
+                key: ValueKey('reject-${offer.offerId}'),
+                onPressed: busy ? null : () => _respond(false),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: RiderColors.ink,
+                  side: const BorderSide(color: Color(0xFFDDDDDD)),
+                  padding: EdgeInsets.zero,
+                  shape: const RoundedRectangleBorder(borderRadius: radius),
                 ),
-              ),
-              child: Text(
-                l10n.reject,
-                style: const TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w700,
+                child: Text(
+                  many ? l10n.rejectAll : l10n.reject,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
             ),
-          ),
-          const SizedBox(width: 8),
-        ],
-        Expanded(
-          child: SizedBox(
-            height: 54,
-            child: FilledButton(
-              key: ValueKey('accept-${offer.offerId}'),
-              onPressed: busy ? null : () => _respond(true),
-              style: FilledButton.styleFrom(
-                backgroundColor: RiderColors.primary,
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(4),
-                ),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    l10n.accept,
-                    style: const TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w700,
+            const SizedBox(width: 9),
+          ],
+          Expanded(
+            child: Material(
+              color: busy
+                  ? RiderColors.disabled
+                  : RiderColors.primary.withValues(alpha: 0.72),
+              borderRadius: radius,
+              clipBehavior: Clip.antiAlias,
+              child: InkWell(
+                key: ValueKey('accept-${offer.offerId}'),
+                onTap: busy ? null : () => _respond(true),
+                child: Stack(
+                  children: [
+                    if (!busy)
+                      Positioned.fill(
+                        child: FractionallySizedBox(
+                          key: const ValueKey('accept-left'),
+                          alignment: Alignment.centerLeft,
+                          widthFactor: left,
+                          child: const ColoredBox(color: RiderColors.primary),
+                        ),
+                      ),
+                    Center(
+                      child: Text.rich(
+                        TextSpan(
+                          children: [
+                            TextSpan(
+                              text: many
+                                  ? l10n.acceptAll(widget.count)
+                                  : l10n.accept,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            const TextSpan(text: '  ·  '),
+                            TextSpan(
+                              text: l10n.secondsLeft(remaining),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w400,
+                              ),
+                            ),
+                          ],
+                        ),
+                        key: ValueKey('remaining-${offer.offerId}'),
+                        style: const TextStyle(
+                          fontSize: 16,
+                          color: Colors.white,
+                        ),
+                      ),
                     ),
-                  ),
-                  Container(
-                    width: 1,
-                    height: 16,
-                    margin: const EdgeInsets.symmetric(horizontal: 10),
-                    color: Colors.white70,
-                  ),
-                  Text(
-                    l10n.offerRemaining(remaining),
-                    key: ValueKey('remaining-${offer.offerId}'),
-                    style: const TextStyle(fontSize: 16),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

@@ -472,9 +472,13 @@ class NoticeScreen extends ConsumerWidget {
   }
 }
 
-/// 홈 위쪽 종 버튼 + 안 읽은 수. 푸시가 없어 30초마다 확인한다(백엔드 회신 2026-11-17 "앱이 할 것").
+/// 안 읽은 알림 수 배지를 [child](홈 지도 위 마이페이지 단추)에 붙인다. 푸시가 없어 30초마다 확인한다
+/// (백엔드 회신 2026-11-17 "앱이 할 것"). 지도 위 종 단추는 뺐다 — 사용자 2026-11-25 레퍼런스(신규배차·마이페이지·
+/// 배달리스트만), 알림함은 마이페이지 "알림" 메뉴로 들어간다.
 class NotificationBell extends ConsumerStatefulWidget {
-  const NotificationBell({super.key});
+  const NotificationBell({super.key, required this.child});
+
+  final Widget child;
 
   @override
   ConsumerState<NotificationBell> createState() => _NotificationBellState();
@@ -503,14 +507,7 @@ class _NotificationBellState extends ConsumerState<NotificationBell> {
     return Stack(
       clipBehavior: Clip.none,
       children: [
-        MapCircleButton(
-          key: const ValueKey('notifications'),
-          icon: Icons.notifications_none,
-          onTap: () async {
-            await context.push('/notifications');
-            ref.invalidate(notificationInboxProvider);
-          },
-        ),
+        widget.child,
         if (unread > 0)
           Positioned(
             right: -2,
