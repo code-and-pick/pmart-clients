@@ -101,7 +101,7 @@ const seed = () => ({
     { riderId: 'RD-7', payoutDate: '2026-11-21', count: 1, total: 3500, deductionTotal: 0, expectedDeduction: 3500, netTotal: 0, state: 'CONFIRMED', lastResult: null },
     // 11-21 지급 실패 → 서버가 다음 지급일(11-24) 묶음으로 넘김(execution 0.42.0) — 다시 지급할 때까지 메뉴 숫자·경고·대시보드 할 일
     { riderId: 'RD-8', payoutDate: '2026-11-24', count: 1, total: 4000, rolledInCount: 1, rollCount: 1, state: 'CONFIRMED', lastResult: null },
-    // (0.43.0) 자동 넘김 3번을 다 쓰고 또 실패 — 직원이 직접 지급해야 함(날짜 무관 escalated=true)
+    // (0.43.0) 자동 넘김 상한을 다 쓰고 또 실패 — 직원이 직접 지급해야 함(날짜 무관 escalated=true)
     { riderId: 'RD-7', payoutDate: '2026-11-12', count: 1, total: 3200, rolledInCount: 1, rollCount: 3, finalAttempt: true, escalated: true, state: 'PAYMENT_FAILED', lastResult: { result: 'FAILED', recordedAt: '2026-11-12T02:00:00.000Z', recordedBy: 'OP-admin-1', reference: null, failureReason: '계좌 해지' } },
   ] as MockPayout[],
   appeals: [

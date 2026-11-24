@@ -88,11 +88,11 @@ describe('지급 실패 자동 넘김', () => {
   });
 });
 
-describe('넘김 상한 3번·직접 차감(execution 0.43.0)', () => {
+describe('넘김 상한·직접 차감(execution 0.43.0~0.43.2)', () => {
   it('상한을 다 쓴 묶음은 날짜와 상관없이 맨 위 "직접 지급" 경고, 묶음 줄에 꼬리표', async () => {
     renderAt('/payouts?payoutDate=2026-11-12', as.admin);
     const banner = await screen.findByTestId('payout-escalated-banner');
-    expect(banner).toHaveTextContent('직접 지급해야 할 묶음 1건 — 자동 넘김 3번을 다 썼어요');
+    expect(banner).toHaveTextContent('직접 지급해야 할 묶음 1건 — 자동 넘김을 다 썼어요');
     expect(banner).toHaveTextContent('11/12');
     const row = (await screen.findAllByTestId('payout-row'))[0]!;
     expect(within(row).getByTestId('payout-escalated')).toHaveTextContent('직접 지급');

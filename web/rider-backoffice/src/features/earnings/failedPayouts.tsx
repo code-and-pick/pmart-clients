@@ -31,7 +31,7 @@ export interface FailedPayouts {
   readonly failed: boolean;
   /** 아직 읽는 중 */
   readonly loading: boolean;
-  /** (0.43.0) 자동 넘김 3번을 다 쓰고 또 실패 — 직원이 직접 지급해야 하는 묶음(날짜 무관) */
+  /** (0.43.0) 자동 넘김 상한(0.43.2 기본 2번)을 다 쓰고 또 실패 — 직원이 직접 지급해야 하는 묶음(날짜 무관) */
   readonly escalated: readonly Bundle[];
 }
 
@@ -66,7 +66,7 @@ export function useFailedPayouts(enabled = true): FailedPayouts {
 export const failedText = {
   menuTitle: '다시 지급해야 할 묶음(지급 실패로 넘어옴)',
   bannerTitle: (n: number) => `지급 실패로 넘어온 묶음 ${n}건 — 그날 꼭 지급해요`,
-  escalatedTitle: (n: number) => `직접 지급해야 할 묶음 ${n}건 — 자동 넘김 3번을 다 썼어요`,
+  escalatedTitle: (n: number) => `직접 지급해야 할 묶음 ${n}건 — 자동 넘김을 다 썼어요`,
   escalatedBody: '더 넘어가지 않아요. 회계에서 직접 보낸 뒤 지급 완료로 표시해요.',
   escalatedItem: (rider: string, date: string, amount: string) => `${rider} · ${date} · ${amount}`,
   bannerBody: '실패한 줄은 다음 지급일로 자동으로 넘어가요.',

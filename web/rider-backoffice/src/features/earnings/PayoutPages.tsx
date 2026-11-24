@@ -50,11 +50,11 @@ export const payoutText = {
   // execution 0.42.0 — 지급 실패로 넘어온 줄·넘김 기록, 0.41.0 — 오배송 차감
   rolledChip: (n: number) => `실패분 ${n}`,
   rolledChipTitle: '지급 실패로 이 날짜에 넘어온 줄',
-  // 0.43.0 넘김 상한 3번
+  // 0.43.0 넘김 상한(0.43.2 부터 기본 2번 — 숫자는 화면에 쓰지 않는다)
   finalChip: '마지막 자동 시도',
   finalChipTitle: '이 날 또 실패하면 더 넘어가지 않고 직원이 직접 지급해요',
   escalatedChip: '직접 지급',
-  escalatedChipTitle: '자동 넘김 3번을 다 썼어요 — 회계에서 직접 보낸 뒤 지급 완료로 표시해요',
+  escalatedChipTitle: '자동 넘김을 다 썼어요 — 회계에서 직접 보낸 뒤 지급 완료로 표시해요',
   rolledFrom: (d: string) => `${d.slice(5).replace('-', '/')} 실패분`,
   rolledTo: (d: string) => `실패한 줄은 ${d}로 넘겼어요.`,
   deduction: (n: string) => `오배송 차감 −${n}`,
@@ -326,7 +326,7 @@ export function PayoutsMenu() {
   return (
     <section className="max-w-[1600px] space-y-4">
       <PageHeader title={t.title} description={t.intro} actions={<SavedViews listKey="payouts" />} />
-      {/* 자동 넘김 3번을 다 쓴 묶음(0.43.0) — 날짜와 상관없이 맨 위 가장 강한 경고 */}
+      {/* 자동 넘김을 다 쓴 묶음(0.43.0) — 날짜와 상관없이 맨 위 가장 강한 경고 */}
       {failedPayouts.escalated.length > 0 && (
         <div role="alert" className="flex flex-wrap items-start gap-3 rounded-box border-2 border-error bg-error/10 px-4 py-3" data-testid="payout-escalated-banner">
           <span className="mt-0.5 shrink-0 rounded bg-error px-1.5 py-0.5 text-xs font-bold text-white">직접 지급</span>
