@@ -276,15 +276,24 @@ function Field({ label, children, className = '' }: { readonly label: string; re
   );
 }
 
-/** 배너 그림 — 게시 전 그림은 운영자 토큰으로만 열린다(<img src> 는 토큰을 못 보내 blob URL) */
-function BannerImage({ imageId, alt, className, onSize }: { readonly imageId: string; readonly alt: string; readonly className?: string; readonly onSize?: (w: number, h: number) => void }) {
+/** 미리보기 배너 폭(화소) — 휴대폰 그림 칸 약 300px × 화소 비율 2 */
+const PREVIEW_W = 720;
+/** 팝업·로딩 화면 미리보기(w-28 = 112px) */
+const PREVIEW_SMALL_W = 360;
+
+/**
+ * 배너 그림 — 게시 전 그림은 운영자 토큰으로만 열린다(<img src> 는 토큰을 못 보내 blob URL).
+ * w 를 주면 축소본(storefront 0.16.0 `?w=`, JPEG — 장당 2MB PNG 원본 대신). 권장 규격 경고(onSize)는 원본 가로·세로가 필요해 w 없이 쓴다.
+ */
+function BannerImage({ imageId, alt, className, onSize, w }: { readonly imageId: string; readonly alt: string; readonly className?: string; readonly onSize?: (w: number, h: number) => void; readonly w?: number }) {
   const api = useApi();
   const q = useQuery({
-    queryKey: ['storefront', 'banner-image', imageId],
+    queryKey: ['storefront', 'banner-image', imageId, w ?? 'original'],
     enabled: imageId !== '',
     staleTime: Infinity,
     gcTime: Infinity,
-    queryFn: async () => URL.createObjectURL(await request('GET', api.storefront.GET('/storefront/banner-images/{imageId}', { params: { path: { imageId } }, parseAs: 'blob' }))),
+    queryFn: async () =>
+      URL.createObjectURL(await request('GET', api.storefront.GET('/storefront/banner-images/{imageId}', { params: { path: { imageId }, query: w ? { w } : {} }, parseAs: 'blob' }))),
   });
   if (!imageId) return <div className={`grid place-items-center bg-base-200 text-xs text-base-content/50 ${className ?? ''}`}>{m.noImage}</div>;
   if (q.isPending) return <div className={`skeleton ${className ?? ''}`} />;
@@ -762,13 +771,13 @@ function Preview({ body, sticky = true }: { readonly body: Body; readonly sticky
   const top = banners.filter((b) => b.placement === 'HOME_TOP');
   const middle = banners.filter((b) => b.placement === 'HOME_MIDDLE');
   const strip = (list: readonly Banner[]) =>
-    list.map((b) => <BannerImage key={b.bannerId} imageId={b.imageId} alt={b.altText} className="aspect-[3/1] w-full rounded-lg" />);
+    list.map((b) => <BannerImage key={b.bannerId} imageId={b.imageId} alt={b.altText} w={PREVIEW_W} className="aspect-[3/1] w-full rounded-lg" />);
   // 넘기는 배너(맨 위·묶음) — 첫 장과 "1/n · n초마다"(배너가 1개면 넘기지 않는다)
   const interval = body.bannerIntervalSeconds;
   const carousel = (list: readonly Banner[], key: string, testId?: string) =>
     list.length > 0 && (
       <div key={key} className="space-y-0.5" data-testid={testId}>
-        <BannerImage imageId={list[0]!.imageId} alt={list[0]!.altText} className="aspect-[3/1] w-full rounded-lg" />
+        <BannerImage imageId={list[0]!.imageId} alt={list[0]!.altText} w={PREVIEW_W} className="aspect-[3/1] w-full rounded-lg" />
         {list.length > 1 && <p className="text-right text-[10px] text-base-content/50">{m.carousel(list.length, interval ?? null)}</p>}
       </div>
     );
@@ -838,7 +847,7 @@ function Preview({ body, sticky = true }: { readonly body: Body; readonly sticky
       <div className="space-y-1" data-testid={testId}>
         <p className="text-xs text-base-content/55">{label}</p>
         {list.map((b) => (
-          <BannerImage key={b.bannerId} imageId={b.imageId} alt={b.altText} className="aspect-[9/16] w-28 rounded-lg border-2 border-base-300" />
+          <BannerImage key={b.bannerId} imageId={b.imageId} alt={b.altText} w={PREVIEW_SMALL_W} className="aspect-[9/16] w-28 rounded-lg border-2 border-base-300" />
         ))}
       </div>
     );

@@ -51,6 +51,17 @@ describe('홈 진열 편성', () => {
     expect(put!.headers.get('X-Expected-Version')).toMatch(/^\d+$/);
   });
 
+  it('미리보기 배너는 축소본(storefront 0.16.0 ?w=720), 편성 칸 그림은 원본(권장 규격 경고가 원본 가로·세로를 잼)', async () => {
+    const user = userEvent.setup();
+    const view = renderAt('/display/home', as.md);
+    await user.click(await screen.findByTestId('layout-new-current'));
+    expect((await within(await screen.findByTestId('layout-preview')).findAllByRole('img', { name: /겨울 제철 채소/ })).length).toBeGreaterThan(0);
+    const reads = view.sent.filter((q) => q.method === 'GET' && new URL(q.url).pathname.includes('/storefront/banner-images/'));
+    const widths = reads.map((q) => new URL(q.url).searchParams.get('w'));
+    expect(widths).toContain('720');
+    expect(widths).toContain(null);
+  });
+
   it('새 배너·테마 더하기, 테마를 빼면 그 테마로 가던 배너는 "아무 데도 안 감"', async () => {
     const user = userEvent.setup();
     renderAt('/display/home', as.md);
