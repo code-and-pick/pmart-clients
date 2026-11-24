@@ -182,7 +182,7 @@ function TreeView() {
                           <span className="truncate">{n.name}</span> <span className="font-mono text-xs text-base-content/45">({n.categoryId})</span>
                           {has && <span className="ml-auto rounded-full bg-base-200 px-1.5 text-[11px] text-base-content/60" aria-hidden="true">{childCount.get(n.categoryId)}</span>}
                         </button>
-                        {n.exposed === false && <span className="badge badge-ghost badge-xs">{m.categories.hidden}</span>}
+                        {n.exposed === false && <span className="badge badge-ghost badge-xs whitespace-nowrap" title={m.categories.hiddenWhy}>{m.categories.hidden}</span>}
                       </li>
                     );
                   })}
@@ -205,6 +205,7 @@ function TreeView() {
                         <StatusBadge tone="info">{LEVEL_DEPTH_NAME[sel.depth] ?? m.categories.depthN(sel.depth + 1)}</StatusBadge>
                         <StatusBadge tone={sel.exposed === false ? 'ghost' : 'success'}>{sel.exposed === false ? m.categories.hidden : m.categories.exposed}</StatusBadge>
                       </div>
+                      {sel.exposed === false && <p className="text-xs text-base-content/60" data-testid="category-hidden-why">{m.categories.hiddenWhy}</p>}
                       {kids.length > 0 && (
                         <div className="flex flex-wrap items-center gap-1.5 pt-1">
                           <span className="text-xs text-base-content/55">{m.categories.children(kids.length)}</span>

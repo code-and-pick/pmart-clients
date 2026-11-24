@@ -3,6 +3,7 @@ import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 
+import { db } from '../../mocks/db';
 import { as, renderAt } from '../../test/render';
 
 describe('카테고리 트리 화면', () => {
@@ -36,6 +37,17 @@ describe('카테고리 트리 화면', () => {
     await user.clear(screen.getByLabelText('분류 찾기'));
     await user.type(screen.getByLabelText('분류 찾기'), '없는분류');
     expect(within(tree).getByText('맞는 분류가 없어요.')).toBeInTheDocument();
+  });
+
+  it('exposed=false 는 "숨김(상품 없음)" — 직접 숨긴 것이 아니라 팔고 있는 상품이 없어서(product 0.6.0)', async () => {
+    const user = userEvent.setup();
+    db.tree = { ...db.tree!, nodes: db.tree!.nodes.map((n) => (n.categoryId === 'p03' ? { ...n, exposed: false } : n)) };
+    renderAt('/categories', as.md);
+    expect(await screen.findByTestId('category-stats')).toHaveTextContent('상품 없어 숨김1');
+    await user.click(await screen.findByRole('button', { name: '국·탕·찌개 (p03)' }));
+    const detail = screen.getByTestId('category-detail');
+    expect(detail).toHaveTextContent('숨김(상품 없음)');
+    expect(within(detail).getByTestId('category-hidden-why')).toHaveTextContent('팔고 있는 상품이 없어 고객 앱에서 숨겨요');
   });
 
   it('고르면 오른쪽에 경로·단계·노출·하위 분류', async () => {
