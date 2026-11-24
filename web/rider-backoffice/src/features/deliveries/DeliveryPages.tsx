@@ -13,7 +13,7 @@ import { useApi } from '../../app/ApiContext';
 import { useCenterQuery } from '../../app/CenterScope';
 import { isLiveDelivery, LIVE } from '../../shared/liveRefresh';
 import { messages } from '../../shared/messages';
-import { ChipGroup, CursorPager, DataTable, DetailHeader, FieldList, PageHeader, ResultBar, SearchPanel, SearchRow, Section, SectionTabs, StatCard, StatStrip, StatusBadge, type Tone } from '../../shared/admin';
+import { ChipGroup, CursorPager, DataTable, DetailHeader, FieldList, PageHeader, ResultBar, SearchPanel, SearchRow, Section, SectionTabs, StatusBadge, type Tone } from '../../shared/admin';
 import { DeliveryNo, DeliveryRef, resolveRiderId, RiderName, SystemIds, useDeliveryNumbers, useRiderSummaries, RIDER_NUMBER, RiderLink, parseDeliveryNumber } from '../../shared/displayNumbers';
 import { ops } from '../../shared/opsMessages';
 import { useAreaName, useCenterName } from '../../shared/opsUi';
@@ -32,6 +32,12 @@ const dx = {
   stateCard: (s: string) => s,
   failedToday: '오늘 전달 실패',
   today: '오늘',
+  // 2026-11-24 사용자 "이렇게 붙어있으니까 눈에 안 들어와. 전달 실패 등록은 뭔데? 오늘 전달 실패는 뭐고" — 두 무리(진행 단계 · 확인할 것)로 떼고 이름을 풀어 쓴다
+  flowTitle: '진행 단계',
+  checkTitle: '확인할 것',
+  failureReported: '실패 신고',
+  failureReportedHint: '판정 대기',
+  failedTodayShort: '실패 확정',
 } as const;
 import { DeliveryEarning, DeliveryProof, DeliveryStory, DispatchAttempts, DispatchDelayAlert, dispatchDelaySince, elapsedText, EtaPanel, extrasMessages, useServerNow } from './DeliveryExtras';
 
@@ -43,6 +49,42 @@ const when = (iso: string | null | undefined) => (iso ? formatSeoul(iso) : none)
 
 type ExecutionState = components['schemas']['ExecutionState'];
 const STATES = Object.keys(n.executionState) as ExecutionState[];
+/** 진행 단계(순서대로) — 숫자 칸을 떼어 화살표로 잇는다 */
+const FLOW = ['UNASSIGNED', 'ASSIGNED', 'ARRIVED_AT_STORE', 'PICKED_UP', 'ARRIVED_AT_CUSTOMER'] as const;
+
+/** 상태별 수 한 칸(관제 진행 단계와 같은 모양 — 떨어진 상자, 0 은 흐리게). 누르면 그 상태로, 켜진 칸을 다시 누르면 풀기 */
+function StateTile({ label: text, hint, value, to, active = false, tone, arrow = false, testId }: { readonly label: string; readonly hint?: string; readonly value: string; readonly to?: string; readonly active?: boolean; readonly tone?: 'primary' | 'warning' | 'error' | undefined; readonly arrow?: boolean; readonly testId: string }) {
+  const zero = /^0(\D|$)/.test(value);
+  const color = zero ? 'text-base-content/35' : tone === 'error' ? 'text-error' : tone === 'warning' ? 'text-warning' : tone === 'primary' ? 'text-primary' : '';
+  const cls = `flex h-full items-center justify-between gap-2 rounded-box border px-4 py-3 ${active ? 'border-primary bg-primary/5' : 'border-base-300 bg-base-100'}`;
+  const body = (
+    <>
+      <span className="min-w-0">
+        <span className="block text-sm font-semibold">{text}</span>
+        {hint && <span className="block text-[11px] text-base-content/50">{hint}</span>}
+      </span>
+      <span className={`text-2xl font-bold tabular-nums ${color}`}>{value}</span>
+    </>
+  );
+  return (
+    <li className="relative">
+      {to ? (
+        <Link to={to} className={`${cls} transition hover:border-primary`} aria-current={active ? 'true' : undefined} data-testid={testId}>
+          {body}
+        </Link>
+      ) : (
+        <div className={cls} data-testid={testId}>
+          {body}
+        </div>
+      )}
+      {arrow && (
+        <span className="pointer-events-none absolute -right-2.5 top-1/2 z-10 hidden -translate-y-1/2 text-base-content/30 xl:block" aria-hidden="true">
+          ›
+        </span>
+      )}
+    </li>
+  );
+}
 const TYPES = ['FORWARD', 'RETURN', 'RESHIPMENT'] as const;
 type DeliveryType = (typeof TYPES)[number];
 const PAGE_SIZE = 20;
@@ -177,21 +219,46 @@ function DeliverySearchPage() {
   return (
     <section className="space-y-4">
       <PageHeader title={m.title} description={m.intro} actions={<SavedViews listKey="deliveries" />} />
-      <StatStrip label={dx.stripLabel} testId="delivery-strip">
-        <StatCard layout="row" label={dx.inProgressAll} value={statText(inProgress ? Object.values(inProgress).reduce((a, b) => a + b, 0) : undefined, stats.isError)} to="/deliveries" active={!state} testId="strip-all" />
-        {(stats.isError || !inProgress ? (['UNASSIGNED', 'FAILURE_REPORTED'] as const) : liveStates).map((s) => (
-          <StatCard layout="row"
-            key={s}
-            label={dx.stateCard(name(n.executionState, s))}
-            value={statText(inProgress?.[s], stats.isError)}
-            to={stateLink(s)}
-            active={state === s}
-            tone={(inProgress?.[s] ?? 0) > 0 ? (s === 'FAILURE_REPORTED' ? 'error' : s === 'UNASSIGNED' ? 'warning' : undefined) : undefined}
-            testId={`strip-${s}`}
-          />
-        ))}
-        <StatCard layout="row" label={dx.failedToday} value={statText(stats.data?.failedToday, stats.isError)} tone={(stats.data?.failedToday ?? 0) > 0 ? 'error' : undefined} hint={dx.today} testId="strip-failed-today" />
-      </StatStrip>
+      <div className="space-y-3" role="group" aria-label={dx.stripLabel} data-testid="delivery-strip">
+        <section aria-label={dx.flowTitle} className="space-y-1.5">
+          <h2 className="text-sm font-bold">{dx.flowTitle}</h2>
+          <ol className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+            <StateTile label={dx.inProgressAll} value={statText(inProgress ? Object.values(inProgress).reduce((a, b) => a + b, 0) : undefined, stats.isError)} to="/deliveries" active={!state} tone="primary" testId="strip-all" />
+            {FLOW.map((st, i) => (
+              <StateTile
+                key={st}
+                label={name(n.executionState, st)}
+                value={statText(inProgress?.[st], stats.isError)}
+                to={state === st ? '/deliveries' : stateLink(st)}
+                active={state === st}
+                tone={st === 'UNASSIGNED' && (inProgress?.[st] ?? 0) > 0 ? 'warning' : undefined}
+                arrow={i < FLOW.length - 1}
+                testId={`strip-${st}`}
+              />
+            ))}
+          </ol>
+        </section>
+        <section aria-label={dx.checkTitle} className="space-y-1.5">
+          <h2 className="text-sm font-bold">{dx.checkTitle}</h2>
+          <ol className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+            <StateTile
+              label={dx.failureReported}
+              hint={dx.failureReportedHint}
+              value={statText(inProgress?.['FAILURE_REPORTED'], stats.isError)}
+              to={state === 'FAILURE_REPORTED' ? '/deliveries' : stateLink('FAILURE_REPORTED')}
+              active={state === 'FAILURE_REPORTED'}
+              tone={(inProgress?.['FAILURE_REPORTED'] ?? 0) > 0 ? 'error' : undefined}
+              testId="strip-FAILURE_REPORTED"
+            />
+            {liveStates
+              .filter((st) => !(FLOW as readonly string[]).includes(st) && st !== 'FAILURE_REPORTED')
+              .map((st) => (
+                <StateTile key={st} label={name(n.executionState, st)} value={statText(inProgress?.[st], stats.isError)} to={state === st ? '/deliveries' : stateLink(st)} active={state === st} testId={`strip-${st}`} />
+              ))}
+            <StateTile label={dx.failedTodayShort} hint={dx.today} value={statText(stats.data?.failedToday, stats.isError)} tone={(stats.data?.failedToday ?? 0) > 0 ? 'error' : undefined} testId="strip-failed-today" />
+          </ol>
+        </section>
+      </div>
       {/* 검색 조건 칩으로 접기(2026-11-19 통합 백오피스처럼) — 시스템 ID 조건은 "한 주문/한 라이더" */}
       <SearchPanel
         onSubmit={submit}
