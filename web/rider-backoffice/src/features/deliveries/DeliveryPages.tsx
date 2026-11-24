@@ -454,7 +454,7 @@ function DeliveryDetailPage() {
         back={{ to: '/deliveries', label: m.back }}
         title={
           <>
-            배송 <DeliveryNo deliveryId={deliveryId} deliveryNumber={d?.deliveryNumber} orderNumber={d?.orderNumber ?? d?.orderSummary?.orderNumber} />
+            배송 <DeliveryNo kindTag={false} deliveryId={deliveryId} deliveryNumber={d?.deliveryNumber} orderNumber={d?.orderNumber ?? d?.orderSummary?.orderNumber} />
           </>
         }
         badges={

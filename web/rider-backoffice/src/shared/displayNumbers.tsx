@@ -13,6 +13,7 @@ import { request } from '@pmart/web-core';
 import type { components } from '../api/generated/rider';
 import { useApi } from '../app/ApiContext';
 import { labelText, useEmployeeLabel } from './employeeLabels';
+import { messages } from './messages';
 import { SimBadge } from './sim';
 
 type RiderSummary = components['schemas']['StaffRiderSummary'];
@@ -99,12 +100,21 @@ export function DeliveryNo({
   deliveryId,
   deliveryNumber,
   orderNumber,
+  kindTag = true,
 }: {
   readonly deliveryId: string;
   readonly deliveryNumber?: string | null | undefined;
   readonly orderNumber?: string | null | undefined;
+  /** 같은 주문의 두 번째 배송부터(-2·-3…) 번호 뒤에 종류(회수·반납·재발송·다시 배송). 상세 머리처럼 종류 꼬리표가 따로 있으면 false */
+  readonly kindTag?: boolean;
 }) {
-  if (deliveryNumber) return <span className="font-mono font-semibold">{deliveryNumber}</span>;
+  if (deliveryNumber)
+    return (
+      <span className="inline-flex items-center gap-1 whitespace-nowrap">
+        <span className="font-mono font-semibold">{deliveryNumber}</span>
+        {kindTag && SEQ_SUFFIX.test(deliveryNumber) && <DeliveryKindTag deliveryId={deliveryId} />}
+      </span>
+    );
   if (orderNumber)
     return (
       <span className="font-mono font-semibold" title={numberMessages.noNumber}>
@@ -112,6 +122,31 @@ export function DeliveryNo({
       </span>
     );
   return <NoNumber id={deliveryId} />;
+}
+
+/** 번호 끝 -순번(ADR-0085 — 같은 주문의 두 번째 배송부터) */
+const SEQ_SUFFIX = /-\d+$/;
+
+/**
+ * -2·-3 배송의 종류(2026-11-24 사용자 "-1, -2, -3 뒤에 회수·반납·재발송·다시 배송 표시 안 되던데?") — ADR-0085 "종류 표시는 번호 옆에".
+ * 번호만 받은 칸이 많아 여기서 그 배송을 묶음 조회(`GET /deliveries?deliveryIds=`)로 한 번 읽는다(5분 캐시, -순번이 있는 번호만).
+ * 목적(purpose)이 있으면 목적, 없으면 종류(type). 읽는 중·못 읽음이면 꼬리표를 붙이지 않는다(지어내지 않음).
+ */
+function DeliveryKindTag({ deliveryId }: { readonly deliveryId: string }) {
+  const api = useApi();
+  const q = useQuery({
+    queryKey: ['delivery-kind', deliveryId],
+    staleTime: 5 * 60_000,
+    queryFn: () => request('GET', api.execution.GET('/deliveries', { params: { query: { deliveryIds: deliveryId, size: 1 } } })),
+  });
+  const d = q.data?.items?.find((x) => x.deliveryId === deliveryId);
+  const text = (d?.purpose && d.purpose !== 'DELIVERY' && messages.names.purpose[d.purpose]) || (d?.type && d.type !== 'FORWARD' && messages.names.deliveryType[d.type]) || '';
+  if (!text) return null;
+  return (
+    <span className="rounded border border-base-300 px-1 text-[11px] font-medium leading-4 text-base-content/70" data-testid="delivery-kind">
+      {text}
+    </span>
+  );
 }
 
 /** 상세의 접힌 "시스템 번호" — 내부 ID 전체 + 복사 */

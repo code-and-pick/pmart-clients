@@ -8,6 +8,15 @@ import { as, renderAt } from '../../test/render';
 const searchCalls = (sent: readonly Request[]) => sent.filter((r) => new URL(r.url).pathname.endsWith('/deliveries')).map((r) => new URL(r.url).searchParams);
 
 describe('배송 관리', () => {
+  it('-2·-3 배송은 번호 뒤에 종류(회수·반납·재발송·다시 배송), 첫 배송은 꼬리표 없음(2026-11-24)', async () => {
+    renderAt('/deliveries', as.riderOps);
+    const rows = await screen.findAllByTestId('delivery-row');
+    const second = rows.find((r) => r.textContent?.includes('D48213075-2'))!;
+    expect(await within(second).findByTestId('delivery-kind')).toHaveTextContent('전달 실패 반납');
+    const first = rows.find((r) => /D48213075(?!-)/.test(r.textContent ?? ''))!;
+    expect(within(first).queryByTestId('delivery-kind')).not.toBeInTheDocument();
+  });
+
   it('라이더 번호로 거르면 "그 라이더가 맡은 배송"이라고 밝히고 라이더 정보로 가는 길을 둔다', async () => {
     renderAt('/deliveries?riderId=R4829', as.riderOps);
     const note = await screen.findByTestId('rider-filter-note');

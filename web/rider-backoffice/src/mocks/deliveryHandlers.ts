@@ -85,6 +85,8 @@ export const summary = (d: Execution): ExecC['schemas']['StaffDeliverySummary'] 
   // ADR-0070 화면 배송 번호(주문번호-순번) — 배정 전처럼 주문번호를 모르면 null
   deliveryNumber: d.deliveryNumber ?? null,
   ...(d.type ? { type: d.type } : {}),
+  // 배송 목적(계약 StaffDeliverySummary.purpose, 2026-11-19) — 일반 배송은 null
+  purpose: d.purpose ?? null,
   state: d.state ?? 'UNASSIGNED',
   riderId: d.riderId ?? null,
   mfcId: d.mfcId ?? null,
