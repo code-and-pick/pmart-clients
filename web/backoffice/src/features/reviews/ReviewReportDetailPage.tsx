@@ -94,7 +94,8 @@ function Photos({ photos }: { readonly photos: readonly Photo[] }) {
 
 function ReportRow({ r }: { readonly r: Report }) {
   return (
-    <li className="grid gap-x-6 gap-y-2 px-5 py-3 text-sm md:grid-cols-[minmax(0,1fr)_minmax(14rem,20rem)]" data-testid="review-report-item" data-state={r.state}>
+    // 한 칸으로 — 처리 결과는 아래 줄(2026-11-24 화면 확인: 768px 에서 오른쪽 빈 칸 때문에 신고 시각이 "오/후"로 접혔다)
+    <li className="space-y-2 px-5 py-3 text-sm" data-testid="review-report-item" data-state={r.state}>
       <div className="min-w-0 space-y-1">
         <div className="flex flex-wrap items-center gap-2">
           <span className="font-semibold">{label(m.reasonName, r.reason)}</span>
@@ -105,9 +106,8 @@ function ReportRow({ r }: { readonly r: Report }) {
         </div>
         {r.detail && <p className="whitespace-pre-wrap text-base-content/75">{r.detail}</p>}
       </div>
-      <div className="min-w-0 space-y-1 text-xs">
-        {r.state === 'RESOLVED' && (
-          <>
+      {r.state === 'RESOLVED' && (
+        <div className="min-w-0 space-y-1 border-l-2 border-base-300 pl-3 text-xs">
             <StatusBadge tone={r.resolution === 'HIDE' ? 'warning' : 'success'}>{label(m.resolutionName, r.resolution ?? null)}</StatusBadge>
             <p className="text-base-content/60">
               <StaffName id={r.resolvedBy} /> · {when(r.resolvedAt)}
@@ -118,9 +118,8 @@ function ReportRow({ r }: { readonly r: Report }) {
                 {r.resolutionNote}
               </p>
             )}
-          </>
-        )}
-      </div>
+        </div>
+      )}
     </li>
   );
 }
@@ -172,7 +171,7 @@ function DetailBody({ d, onDone }: { readonly d: Detail; readonly onDone: () => 
             </p>
           )}
         </Section>
-        <Section title={m.reviewSection}>
+        <Section title={m.timesSection}>
           <FieldList
             columns={2}
             rows={[

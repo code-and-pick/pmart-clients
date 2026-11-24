@@ -820,6 +820,7 @@ export const messages = {
     resolveSection: '처리',
     openCount: (n: number) => `확인 전 신고 ${n}건`,
     nothingOpen: '확인 전 신고가 없어요 — 처리할 것이 없어요.',
+    timesSection: '작성·변경 시각',
     writtenAt: '작성',
     updatedAt: '마지막 변경',
     reportState: { OPEN: '확인 전', RESOLVED: '처리 끝' } as Readonly<Record<string, string>>,
