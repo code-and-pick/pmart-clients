@@ -34,7 +34,7 @@ describe('고객 찾기', () => {
 
   it('맞는 고객이 없으면 "없어요" — 조건이 없으면 부르지 않는다', async () => {
     const view = renderAt('/customers', as.cs);
-    await screen.findByRole('combobox', { name: '속성으로 거르기' });
+    await screen.findByRole('searchbox', { name: '찾기 칸' });
     expect(searchCalls(view.sent)).toHaveLength(0);
     view.unmount();
     renderAt('/customers?customerNumber=999999', as.cs);

@@ -43,9 +43,9 @@ describe('인터넷 끊김 띠', () => {
 });
 
 describe('"/" 단축키', () => {
-  it('속성 필터 검색칸으로 간다(2026-11-20 AWS 개편 — 검색 조건 상자 대신)', async () => {
+  it('속성 필터 찾기 칸으로 간다(2026-11-25 화면 기준 — 찾기 칸 + 필터 팝업)', async () => {
     renderAt('/orders', as.cs);
-    const box = await screen.findByRole('combobox', { name: '속성으로 거르기' });
+    const box = await screen.findByRole('searchbox', { name: '찾기 칸' });
     fireEvent.keyDown(window, { key: '/' });
     expect(document.activeElement).toBe(box);
   });

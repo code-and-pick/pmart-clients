@@ -45,9 +45,10 @@ describe('검색 조건 칩(속성 필터)', () => {
     expect(await screen.findAllByTestId('filter-chip')).toHaveLength(1);
   });
 
-  it('조건이 없으면 칩 없이 검색칸만', async () => {
+  it('조건이 없으면 칩 없이 찾기 칸·필터 단추만', async () => {
     renderAt('/claims', as.cs);
-    expect(await screen.findByRole('combobox', { name: '속성으로 거르기' })).toBeVisible();
+    expect(await screen.findByRole('searchbox', { name: '찾기 칸' })).toBeVisible();
+    expect(screen.getByTestId('filter-toggle')).toBeVisible();
     expect(screen.queryByTestId('filter-chip')).not.toBeInTheDocument();
   });
 });

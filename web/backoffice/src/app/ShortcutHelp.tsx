@@ -14,9 +14,9 @@ export function ShortcutHelp() {
         e.preventDefault();
         setOpen((o) => !o);
       } else if (e.key === '/' && !e.ctrlKey && !e.metaKey && !e.altKey) {
-        // 이 화면 속성 필터(2026-11-20 AWS 개편) 또는 검색 조건(SearchPanel)의 첫 입력 칸으로(2026-11-19). 둘 다 없는 화면이면 아무 일 없음
+        // 이 화면 속성 필터의 찾기 칸(2026-11-25 화면 기준 — 없으면 필터 단추) 또는 검색 조건(SearchPanel)의 첫 입력 칸으로(2026-11-19). 둘 다 없는 화면이면 아무 일 없음
         const first =
-          document.querySelector<HTMLElement>('main [role=combobox][aria-label="속성으로 거르기"]') ??
+          document.querySelector<HTMLElement>('main [role=search][aria-label="속성으로 거르기"] :is(input[type=search], [data-testid=filter-toggle])') ??
           document.querySelector<HTMLElement>('main form[data-list-part="top"] :is(input:not([type=hidden]):not([type=checkbox]):not([type=radio]), select, textarea):not([disabled])');
         if (first) {
           e.preventDefault();

@@ -76,11 +76,10 @@ describe('클레임 조회', () => {
     expect(rowOf('회수 실패')).toHaveTextContent('고객센터');
   });
 
-  it('상태(11가지)는 속성 필터의 값 목록(2026-11-20 AWS 개편)', async () => {
+  it('상태(11가지)는 필터 팝업의 값 목록(2026-11-25 화면 기준)', async () => {
     const user = userEvent.setup();
     renderAt('/claims', as.cs);
-    await user.click(await screen.findByRole('combobox', { name: '속성으로 거르기' }));
-    await user.click(screen.getByRole('option', { name: '상태' }));
-    expect(screen.getAllByRole('option').length).toBeGreaterThanOrEqual(11);
+    await user.click(await screen.findByTestId('filter-toggle'));
+    expect(within(screen.getByRole('radiogroup', { name: '상태' })).getAllByRole('radio').length).toBeGreaterThanOrEqual(11);
   });
 });

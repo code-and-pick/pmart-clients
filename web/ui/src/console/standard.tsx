@@ -6,7 +6,9 @@
 import { type ComponentProps, type CSSProperties, type FormEvent, type KeyboardEvent, type MouseEvent, type ReactNode, useContext, useEffect, useId, useState } from 'react';
 import { Link } from 'react-router';
 
-import { SectionMenuContext, StatCard as ConsoleStatCard, type Tone } from './parts';
+import { formatSeoul } from '../format';
+import { messages as lm } from './messages';
+import { type FilterProp, SectionMenuContext, StatCard as ConsoleStatCard, type Tone } from './parts';
 
 const t = {
   funnel: '거르기 조건',
@@ -269,6 +271,216 @@ export function SearchPanel({
         </span>
       ))}
     </form>
+  );
+}
+
+const pf = {
+  field: '찾을 항목',
+  box: '찾기 칸',
+  find: '찾기',
+  hint: (label: string) => `${label}로 찾기`,
+} as const;
+
+/**
+ * 속성 필터(공용 PropertyFilter 와 같은 이름·속성으로 덮음 — 목록 화면마다 한 번에 같은 틀).
+ * 한 줄: [lead(저장한 보기)][찾을 항목 ▾][찾기 칸][찾기] | [필터 → 팝업: 속성마다 값 목록(✓)][건 조건 칩 ✕] … [aside][tail].
+ * - 글자 값 속성(text — 번호·연락처 등)은 왼쪽 찾기 칸. 여럿이면 "찾을 항목"을 고른다. 찾기를 누르거나 Enter 면 그 속성 = 친 값.
+ * - 값 고르기 속성(options)은 필터 팝업 안. 고르면 바로 걸리고, 건 값을 한 번 더 누르면 풀린다. 팝업은 늘 그려 두고 닫히면 숨김.
+ * - 속성마다 값 하나(서버 조건이 하나씩) — 예전과 같다. 칩 = "속성 값 ✕".
+ */
+export function PropertyFilter({ props, value, onChange, testId, aside, lead, tail }: {
+  readonly props: readonly FilterProp[];
+  readonly value: Readonly<Record<string, string | undefined>>;
+  readonly onChange: (patch: Readonly<Record<string, string | null>>) => void;
+  readonly testId?: string;
+  readonly aside?: ReactNode;
+  readonly lead?: ReactNode;
+  readonly tail?: ReactNode;
+}) {
+  const textProps = props.filter((p) => p.text);
+  const optionProps = props.filter((p) => !p.text && (p.options ?? []).length > 0);
+  const [field, setField] = useState(textProps[0]?.key ?? '');
+  const [text, setText] = useState('');
+  const [open, setOpen] = useState(false);
+  const popId = useId();
+  const cur = textProps.find((p) => p.key === field) ?? textProps[0];
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: globalThis.KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open]);
+  const chips = props.flatMap((p) => {
+    const v = value[p.key];
+    if (!v) return [];
+    if (p.text) return [{ key: p.key, label: p.label, shown: p.text.show ? p.text.show(v) : v }];
+    const o = p.options?.find((x) => x.value === v);
+    return o ? [{ key: p.key, label: p.label, shown: o.chip ?? o.label }] : [];
+  });
+  const optionChips = chips.filter((c) => optionProps.some((p) => p.key === c.key)).length;
+  const find = () => {
+    const q = text.trim();
+    if (!cur || !q) return;
+    onChange({ [cur.key]: q });
+    setText('');
+  };
+  return (
+    <div className="space-y-2" data-testid={testId}>
+      <div className="pm-fbar" role="search" aria-label={lm.listUi.filterPlaceholder}>
+        {lead}
+        {cur && (
+          <>
+            <div className="pm-fbar-q">
+              {textProps.length > 1 && (
+                <select className="select select-sm w-auto" aria-label={pf.field} value={cur.key} onChange={(e) => setField(e.target.value)}>
+                  {textProps.map((p) => (
+                    <option key={p.key} value={p.key}>
+                      {p.label}
+                    </option>
+                  ))}
+                </select>
+              )}
+              <label className="input input-sm w-64">
+                <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0 fill-none stroke-current opacity-60" strokeWidth={2} strokeLinecap="round" aria-hidden="true">
+                  <circle cx="11" cy="11" r="7" />
+                  <path d="m20 20-3.5-3.5" />
+                </svg>
+                <input
+                  type="search"
+                  className="grow"
+                  aria-label={pf.box}
+                  placeholder={cur.text?.hint ?? pf.hint(cur.label)}
+                  value={text}
+                  maxLength={cur.text?.maxLength}
+                  inputMode={cur.text?.numeric ? 'numeric' : undefined}
+                  onChange={(e) => setText(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      find();
+                    }
+                  }}
+                />
+              </label>
+            </div>
+            <button type="button" className="btn btn-sm btn-primary" onClick={find}>
+              {pf.find}
+            </button>
+          </>
+        )}
+        {optionProps.length > 0 && (
+          <div className="pm-fwrap">
+            <button
+              type="button"
+              className={`pm-funnel ${optionChips > 0 ? 'on' : ''}`}
+              aria-haspopup="dialog"
+              aria-expanded={open}
+              aria-controls={popId}
+              aria-label={t.funnelOpen(optionChips)}
+              title={t.funnel}
+              onClick={() => setOpen((o) => !o)}
+              data-testid="filter-toggle"
+            >
+              <span aria-hidden="true">{t.filterWord}</span>
+              {optionChips > 0 && <span className="pm-funnel-n">{optionChips}</span>}
+            </button>
+            {open && <div className="pm-pop-back" onClick={() => setOpen(false)} aria-hidden="true" />}
+            <div className="pm-pop" id={popId} role="group" aria-label={t.funnel} data-testid="filter-popup" data-open={open ? '' : undefined}>
+              <div className="pm-pop-grid">
+                {optionProps.map((p) => (
+                  <div key={p.key} className="pm-pop-sec">
+                    <div className="pm-pop-h">{p.label}</div>
+                    <div role="radiogroup" aria-label={p.label}>
+                      {(p.options ?? []).map((o) => {
+                        const on = value[p.key] === o.value;
+                        return (
+                          <button key={o.value} type="button" role="radio" aria-checked={on} onClick={() => onChange({ [p.key]: on ? null : o.value })}>
+                            {o.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="pm-pop-foot">
+                <button type="button" className="btn btn-sm btn-ghost" onClick={() => onChange(Object.fromEntries(optionProps.map((p) => [p.key, null])))}>
+                  {t.clearAll}
+                </button>
+                <button type="button" className="btn btn-sm" onClick={() => setOpen(false)}>
+                  {t.close}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        {chips.map((c) => (
+          <span key={c.key} className="pm-fchip" data-testid="filter-chip">
+            <span className="pm-fchip-k">{c.label}</span>
+            <span className="ml-1">{c.shown}</span>
+            <button type="button" className="pm-fchip-x" aria-label={lm.listUi.removeChip(`${c.label} = ${c.shown}`)} onClick={() => onChange({ [c.key]: null })}>
+              ✕
+            </button>
+          </span>
+        ))}
+        {chips.length > 1 && (
+          <button type="button" className="pm-fbar-reset" onClick={() => onChange(Object.fromEntries(chips.map((c) => [c.key, null])))}>
+            {t.clearAll}
+          </button>
+        )}
+        {(aside || tail) && (
+          <div className="ml-auto flex flex-wrap items-center gap-2">
+            {aside}
+            {tail}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** 목록 머리(공용 ListHeader 와 같은 속성) — 제목 + (개수) + ⓘ(도움말 패널), 오른쪽 읽은 시각·새로 고침·주 동작 */
+export function ListHeader({ title, count, onInfo, refresh, actions }: {
+  readonly title: string;
+  readonly count?: string | undefined;
+  readonly onInfo?: (() => void) | undefined;
+  readonly refresh?: { readonly onClick: () => void; readonly busy: boolean; readonly readAt?: number | undefined } | undefined;
+  readonly actions?: ReactNode;
+}) {
+  const readAt = refresh?.readAt ? new Date(refresh.readAt) : null;
+  return (
+    <header className="flex flex-wrap items-center justify-between gap-3" data-list-part="head">
+      <div className="flex min-w-0 items-center gap-2">
+        <h1 className="text-2xl font-bold">{title}</h1>
+        {count !== undefined && (
+          <span className="text-xl text-base-content/50 tabular-nums" data-testid="list-count">
+            ({count})
+          </span>
+        )}
+        {onInfo && (
+          <button type="button" className="pm-info-btn" aria-label={lm.listUi.helpOpen} title={lm.listUi.helpOpen} onClick={onInfo} data-testid="list-info">
+            {t.info}
+          </button>
+        )}
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        {readAt && (
+          <span className="text-xs text-base-content/55" title={formatSeoul(readAt.toISOString())} data-testid="list-read-at">
+            {lm.listUi.readAt(readAt.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Seoul' }))}
+          </span>
+        )}
+        {refresh && (
+          <button type="button" className="btn btn-sm h-8 w-8 p-0" aria-label={lm.listUi.refresh} title={lm.listUi.refresh} disabled={refresh.busy} onClick={refresh.onClick} data-testid="list-refresh">
+            <svg viewBox="0 0 24 24" className={`h-4 w-4 fill-none stroke-current ${refresh.busy ? 'animate-spin' : ''}`} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7" />
+            </svg>
+          </button>
+        )}
+        {actions}
+      </div>
+    </header>
   );
 }
 

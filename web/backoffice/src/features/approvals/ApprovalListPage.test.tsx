@@ -1,5 +1,5 @@
 // 승인함 목록 — "더 보기"가 다음 쪽을 이어 붙인다(2026-11-17 사용자 신고: 눌러도 이전 기록이 안 나옴)
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
@@ -60,10 +60,10 @@ describe('승인함 — 내 일 기준(2026-11-20 "뭐가 뭔지 모르겠다")'
     expect(first).toHaveTextContent('요청 1');
     expect(first).toHaveTextContent('심사 기다림');
     expect(screen.getByTestId('approval-decide')).toHaveAttribute('href', '/approvals/APV-1');
-    // 심사할 것은 속성 필터에 심사 상태가 없다(늘 심사 기다림) — 2026-11-20 속성 필터(AWS 개편 3단계)
-    await userEvent.click(screen.getByRole('combobox', { name: '속성으로 거르기' }));
-    expect(screen.getByRole('option', { name: '무엇을 승인' })).toBeInTheDocument();
-    expect(screen.queryByRole('option', { name: '심사 상태' })).not.toBeInTheDocument();
+    // 심사할 것은 필터에 심사 상태가 없다(늘 심사 기다림) — 2026-11-25 화면 기준(필터 팝업)
+    await userEvent.click(screen.getByTestId('filter-toggle'));
+    expect(screen.getByRole('radiogroup', { name: '무엇을 승인' })).toBeInTheDocument();
+    expect(screen.queryByRole('radiogroup', { name: '심사 상태' })).not.toBeInTheDocument();
     await waitFor(() => expect(view.sent.some((r) => new URL(r.url).searchParams.get('decidableByMe') === 'true')).toBe(true));
   });
 
@@ -77,14 +77,10 @@ describe('승인함 — 내 일 기준(2026-11-20 "뭐가 뭔지 모르겠다")'
     const first = await screen.findByTestId('approval-row');
     expect(first).toHaveTextContent('상품 등록');
     expect(first).toHaveTextContent('승인됨 · 반영 완료'); // 심사·반영 두 축을 한 마디로
-    // 속성 필터: 속성 → 값 → 칩(2026-11-20 AWS 개편 3단계, 예전 상태 고르기 상자·종류 칩 줄 대신)
-    const filter = screen.getByRole('combobox', { name: '속성으로 거르기' });
-    await user.click(filter);
-    await user.click(screen.getByRole('option', { name: '심사 상태' }));
-    await user.click(screen.getByRole('option', { name: '반려됨' }));
-    await user.click(filter);
-    await user.click(screen.getByRole('option', { name: '무엇을 승인' }));
-    await user.click(screen.getByRole('option', { name: '가격 변경' }));
+    // 필터 팝업: 속성 묶음에서 값 → 칩(2026-11-25 화면 기준 — 찾기 줄 + 필터 팝업)
+    await user.click(screen.getByTestId('filter-toggle'));
+    await user.click(within(screen.getByRole('radiogroup', { name: '심사 상태' })).getByRole('radio', { name: '반려됨' }));
+    await user.click(within(screen.getByRole('radiogroup', { name: '무엇을 승인' })).getByRole('radio', { name: '가격 변경' }));
     expect(screen.getByRole('button', { name: '심사 상태 = 반려됨 지우기' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '무엇을 승인 = 가격 변경 지우기' })).toBeInTheDocument();
     await waitFor(() =>

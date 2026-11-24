@@ -36,15 +36,14 @@ describe('목록 탭 옆 개수', () => {
   it('배송 확인: 상태 값 옆에 정확한 건수 — 진행 중·끝난 상태 모두, 관리자가 아니어도', async () => {
     const user = userEvent.setup();
     const first = renderAt('/deliveries', as.admin);
-    await user.click(await screen.findByRole('combobox', { name: '속성으로 거르기' }));
-    await user.click(screen.getByRole('option', { name: '상태' }));
-    expect(await screen.findByRole('option', { name: /^미배정 \(\d+\)$/ })).toBeInTheDocument();
-    expect(screen.getByRole('option', { name: /^취소 \(\d+\)$/ })).toBeInTheDocument();
+    await user.click(await screen.findByTestId('filter-toggle'));
+    const states = screen.getByRole('radiogroup', { name: '상태' });
+    expect(await within(states).findByRole('radio', { name: /^미배정 \(\d+\)$/ })).toBeInTheDocument();
+    expect(within(states).getByRole('radio', { name: /^취소 \(\d+\)$/ })).toBeInTheDocument();
     first.unmount();
     renderAt('/deliveries', as.riderOps);
     await screen.findByTestId('delivery-counts');
-    await user.click(await screen.findByRole('combobox', { name: '속성으로 거르기' }));
-    await user.click(screen.getByRole('option', { name: '상태' }));
-    expect(await screen.findByRole('option', { name: /^미배정 \(\d+\)$/ })).toBeInTheDocument();
+    await user.click(await screen.findByTestId('filter-toggle'));
+    expect(await within(screen.getByRole('radiogroup', { name: '상태' })).findByRole('radio', { name: /^미배정 \(\d+\)$/ })).toBeInTheDocument();
   });
 });
