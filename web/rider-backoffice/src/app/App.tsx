@@ -12,6 +12,7 @@ import { ControlSearch } from '../features/control/ControlSearch';
 import { DashboardPage } from '../features/dashboard/DashboardPage';
 import { AdjustmentsMenu, SurchargesMenu } from '../features/earnings/EarningPages';
 import { PayoutsMenu } from '../features/earnings/PayoutPages';
+import { DeductionsMenu } from '../features/earnings/DeductionPages';
 import { NoticesMenu } from '../features/ops/NoticePages';
 import { StaffActionsMenu } from '../features/ops/StaffActionsPage';
 import { RestrictionReviewsMenu, RidersMenu, SignupsMenu } from '../features/riders/RiderPages';
@@ -244,6 +245,8 @@ function MenuPage({ menu }: { readonly menu: MenuItem }) {
       return <SurchargesMenu />;
     case 'payouts':
       return <PayoutsMenu />;
+    case 'deductions':
+      return <DeductionsMenu />;
     case 'appeals':
       // 소명·이의는 상담함 탭으로 합쳤다(2026-11-20) — 옛 주소·저장한 보기는 조건을 들고 그 탭으로
       return <AppealsRedirect />;

@@ -58,6 +58,7 @@ class Settlement {
     this.compensation = false,
     this.appealId,
     this.payoutDate,
+    this.rolledFrom,
   });
 
   final DateTime from;
@@ -79,8 +80,11 @@ class Settlement {
   /// 보상금이면 그 이의.
   final String? appealId;
 
-  /// 보상금 지급 예정일(서버, YYYY-MM-DD).
+  /// 지급 예정일(서버, YYYY-MM-DD) — 보상금, 그리고 지급 실패로 넘어온 수행료.
   final String? payoutDate;
+
+  /// 지급 실패로 넘어온 수행료면 원래(마지막으로 실패한) 지급일(execution 0.42.0 rolledFrom, YYYY-MM-DD).
+  final String? rolledFrom;
 
   /// 이의 신청을 보일 줄(rider 0.15.0 — 산정 불가·조정·결과 안내가 있는 줄. 맞는지는 직원이 판단한다). 보상금 줄은 아니다.
   bool get appealable =>
@@ -218,6 +222,16 @@ final class MockRecordsRepository implements RecordsRepository {
         compensation: true,
         appealId: 'AP-mock-A',
         payoutDate: '2026-11-20',
+      ),
+      // 목: 지급 실패로 넘어온 수행료(execution 0.42.0 — 11-21 실패 → 11-24 다시 지급)
+      Settlement(
+        from: DateTime(2026, 11, 17),
+        to: DateTime(2026, 11, 17),
+        amount: 4000,
+        status: SettlementStatus.confirmed,
+        deliveryId: 'dlv-rolled',
+        payoutDate: '2026-11-24',
+        rolledFrom: '2026-11-21',
       ),
     ];
     // 시험: 보상금만 못 읽은 경우(수행료는 보인다)
@@ -375,6 +389,8 @@ final class ApiRecordsRepository implements RecordsRepository {
             amount: (e.calculable ?? false) ? e.total : null,
             deliveryId: e.deliveryId,
             note: e.note,
+            payoutDate: e.payoutDate,
+            rolledFrom: e.rolledFrom,
             status: settlementStatusFromWire(e.settlementState?.value),
           ),
       ],

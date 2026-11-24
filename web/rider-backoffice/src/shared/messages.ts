@@ -46,6 +46,8 @@ export const messages = {
     notices: '공지 보내기',
     staffActions: '직원 처리 기록',
     payouts: '지급 관리',
+    // 2026-11-24 오배송 정산 차감(execution 0.41.0)
+    deductions: '오배송 차감',
     appeals: '소명·이의',
   },
 
@@ -282,6 +284,10 @@ export const messages = {
     APPEAL_EXISTS: '이 대상에는 이미 신청이 있어요.',
     APPEAL_NOT_ACCEPTED: '인정한 수행료 이의에만 보상금을 줄 수 있어요.',
     COMPENSATION_EXISTS: '이 이의에는 이미 보상금을 줬어요.',
+    // 직접 차감(execution 0.43.0)
+    DEDUCTION_EXISTS: '이 배송·사건에는 이미 차감이 있어요(취소된 것 포함).',
+    NO_RIDER: '이 배송에 배정됐던 라이더가 없어요.',
+    AMOUNT_EXCEEDS_ORDER: '차감 금액이 결제 금액 − 배달비보다 많아요.',
   } as Readonly<Record<string, string>>,
 
   /** 검증 사유 code → 문구(없는 code 는 code 그대로) */

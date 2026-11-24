@@ -40,7 +40,7 @@ export const navGroups: readonly MenuGroup[] = [
   // 옛 접수 건 주소(/cases, /cases/:id)는 처리함으로 넘긴다(hidden — 메뉴에는 없고 주소만).
   { key: 'support', items: [done('consults', 'consults'), { ...done('helpRequests', 'help-requests'), hidden: true }, { ...done('inquiries', 'inquiries'), hidden: true }, { ...done('appeals', 'appeals'), hidden: true }, { ...done('cases', 'cases'), hidden: true }] },
   // 2026-11-19: 지급 관리(execution 0.29.0)·소명·이의(rider 0.15.0)
-  { key: 'earnings', items: [done('adjustments', 'adjustments'), done('surcharges', 'surcharges'), done('payouts', 'payouts')] },
+  { key: 'earnings', items: [done('adjustments', 'adjustments'), done('surcharges', 'surcharges'), done('payouts', 'payouts'), done('deductions', 'deductions')] },
   // 2026-11-18(PC 5, 백엔드 notification 0.5.0·rider 0.14.0·execution 0.28.0·dispatch 0.11.0): 라이더 공지·직원 조치 이력(관리자만).
   { key: 'ops', items: [done('notices', 'notices')] },
   // 2026-11-21: 기록 — 조치 감사 기록(2026-11-23 이름, 옛 직원 조치 기록·조치 이력, 관리자만, 주소 그대로)

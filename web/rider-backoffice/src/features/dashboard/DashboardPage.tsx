@@ -121,10 +121,10 @@ export function DashboardPage() {
           <TodoCell label={todo.appeals} to="/appeals" {...listCount(appeals)} testId="todo-appeals" />
           <TodoCell label={d.adjustmentPending} to="/adjustments" count={s?.adjustmentPending} failed={deliveries.isError} testId="stat-adjustments" />
           <TodoCell label={d.surchargeRequested} to="/surcharges" count={s?.surchargeRequested} failed={deliveries.isError} testId="stat-surcharges" />
-          {/* 지급 실패(다시 지급해야 함, 최근 14일 지급일) — 2026-11-24 */}
+          {/* 지급 실패(다시 지급해야 함 — 실패로 넘어온 묶음, 오늘 앞뒤 15일) — 2026-11-24 */}
           <TodoCell
             label={failedText.todo}
-            to={payFail.dates[0] ? `/payouts?payoutDate=${payFail.dates[0]}&state=PAYMENT_FAILED` : '/payouts?state=PAYMENT_FAILED'}
+            to={payFail.dates[0] ? `/payouts?payoutDate=${payFail.dates[0]}` : '/payouts'}
             count={payFail.loading ? undefined : payFail.count}
             failed={payFail.failed && payFail.count === 0}
             testId="todo-payout-failed"

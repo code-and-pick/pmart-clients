@@ -81,6 +81,7 @@ const TITLES: Readonly<Record<string, string>> = {
   restrictionReviews: '제한 검토 대기',
   adjustments: '수행료 조정 대기',
   surcharges: '추가 배달료 신청',
+  deductions: '결정을 기다리는 오배송 차감 이의',
 };
 const FAILED = '개수를 읽지 못했어요(0 이 아니에요)';
 
@@ -133,6 +134,17 @@ function PayoutFailBadge() {
   );
 }
 
+/** 오배송 차감: 결정 기다리는 라이더 이의(OBJECTED) — 2026-11-24 */
+function DeductionBadge() {
+  const api = useApi();
+  const q = useQuery({
+    queryKey: ['menu-badge', 'deductions-objected'],
+    refetchInterval: REFRESH_MS,
+    queryFn: async () => ({ n: (await request('GET', api.execution.GET('/rider-deductions', { params: { query: { state: 'OBJECTED' } } }))).items.length, more: false }),
+  });
+  return <Chip parts={[q]} title={TITLES['deductions']!} menuKey="deductions" />;
+}
+
 function SurchargeBadge() {
   return <Chip parts={useStatPart(true, 'surchargeRequested')} title={TITLES['surcharges']!} menuKey="surcharges" />;
 }
@@ -150,6 +162,8 @@ export function menuBadge(key: string) {
       return <SurchargeBadge />;
     case 'payouts':
       return <PayoutFailBadge />;
+    case 'deductions':
+      return <DeductionBadge />;
     default:
       return undefined;
   }

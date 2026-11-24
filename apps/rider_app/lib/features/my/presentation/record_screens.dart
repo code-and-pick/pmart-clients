@@ -10,6 +10,7 @@ import '../../../shared/ui_state_of.dart';
 import '../../appeals/data/appeals.dart';
 import '../../appeals/presentation/appeal_screens.dart';
 import '../data/records.dart';
+import 'deduction_screens.dart';
 
 String _day(AppLocalizations l10n, DateTime d) => l10n.monthDay(d.month, d.day);
 
@@ -152,133 +153,164 @@ class SettlementsScreen extends ConsumerWidget {
           title: Text(l10n.menuSettlements),
           titleTextStyle: riderTitleStyle(context, color: Colors.white),
         ),
-        body: UiStateView<List<Settlement>>(
-          // 보상금만 못 읽었으면 수행료는 보이고 "일부만" 띠(백엔드 회신 2026-11-19 권고).
-          state: switch (ref.watch(settlementsProvider)) {
-            AsyncData(:final value) when value.compensationsFailed =>
-              UiPartial<List<Settlement>>(
-                value.items,
-                missing: const {'compensations'},
-              ),
-            final async => uiStateOf(
-              async.whenData((l) => l.items),
-              isEmpty: (l) => l.isEmpty,
-            ),
-          },
-          onRetry: () => ref.invalidate(settlementsProvider),
-          ready: (context, list) => ListView.separated(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            itemCount: list.length,
-            separatorBuilder: (_, _) => const Divider(color: Color(0xFF3A3A3A)),
-            itemBuilder: (context, i) {
-              final s = list[i];
-              return Padding(
-                key: ValueKey('settlement-$i'),
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+        // 오배송 차감(execution 0.41.0) — 있을 때만 맨 위에, 누르면 차감 목록. 정산내역이 비거나 못 읽어도 보인다
+        body: Column(
+          children: [
+            const DeductionBanner(),
+            Expanded(
+              child: UiStateView<List<Settlement>>(
+                // 보상금만 못 읽었으면 수행료는 보이고 "일부만" 띠(백엔드 회신 2026-11-19 권고).
+                state: switch (ref.watch(settlementsProvider)) {
+                  AsyncData(:final value) when value.compensationsFailed =>
+                    UiPartial<List<Settlement>>(
+                      value.items,
+                      missing: const {'compensations'},
+                    ),
+                  final async => uiStateOf(
+                    async.whenData((l) => l.items),
+                    isEmpty: (l) => l.isEmpty,
+                  ),
+                },
+                onRetry: () => ref.invalidate(settlementsProvider),
+                ready: (context, list) => ListView.separated(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  itemCount: list.length,
+                  separatorBuilder: (_, _) =>
+                      const Divider(color: Color(0xFF3A3A3A)),
+                  itemBuilder: (context, i) {
+                    final s = list[i];
+                    return Padding(
+                      key: ValueKey('settlement-$i'),
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      child: Row(
                         children: [
-                          Text(
-                            s.compensation
-                                // 이의 인정 보상금(원래 수행료와 따로 한 줄)
-                                ? l10n.compensationLine(
-                                    _day(l10n, s.from),
-                                    s.payoutDate ?? '-',
-                                  )
-                                : s.from.year == s.to.year &&
-                                      s.from.month == s.to.month &&
-                                      s.from.day == s.to.day
-                                ? _day(l10n, s.from)
-                                : '${_day(l10n, s.from)} ~ ${_day(l10n, s.to)}',
-                            key: s.compensation
-                                ? ValueKey('compensation-$i')
-                                : null,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 15,
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  s.compensation
+                                      // 이의 인정 보상금(원래 수행료와 따로 한 줄)
+                                      ? l10n.compensationLine(
+                                          _day(l10n, s.from),
+                                          s.payoutDate ?? '-',
+                                        )
+                                      : s.from.year == s.to.year &&
+                                            s.from.month == s.to.month &&
+                                            s.from.day == s.to.day
+                                      ? _day(l10n, s.from)
+                                      : '${_day(l10n, s.from)} ~ ${_day(l10n, s.to)}',
+                                  key: s.compensation
+                                      ? ValueKey('compensation-$i')
+                                      : null,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 15,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  switch (s.amount) {
+                                    final int a => formatKrw(a),
+                                    null => l10n.feeUncalculated,
+                                  },
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                                // 지급 실패로 넘어온 수행료(execution 0.42.0) — 언제 실패했고 언제 다시 주는지
+                                if (s.rolledFrom case final rf?) ...[
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    l10n.earningRolledFrom(
+                                      _ymdShort(rf),
+                                      _ymdShort(s.payoutDate ?? '-'),
+                                    ),
+                                    key: ValueKey('earning-rolled-$i'),
+                                    style: const TextStyle(
+                                      color: RiderColors.gold,
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ],
+                                // 보상 사유(라이더도 보는 값 — 백엔드 회신 2026-11-19)
+                                if (s.compensation && s.note != null) ...[
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    s.note!,
+                                    key: ValueKey('compensation-reason-$i'),
+                                    style: const TextStyle(
+                                      color: Colors.white70,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ],
+                              ],
                             ),
                           ),
-                          const SizedBox(height: 4),
-                          Text(
-                            switch (s.amount) {
-                              final int a => formatKrw(a),
-                              null => l10n.feeUncalculated,
-                            },
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 22,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                          // 보상 사유(라이더도 보는 값 — 백엔드 회신 2026-11-19)
-                          if (s.compensation && s.note != null) ...[
-                            const SizedBox(height: 4),
-                            Text(
-                              s.note!,
-                              key: ValueKey('compensation-reason-$i'),
-                              style: const TextStyle(
-                                color: Colors.white70,
-                                fontSize: 14,
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Text(
+                                settlementText(l10n, s.status),
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w700,
+                                  color: s.status == SettlementStatus.paid
+                                      ? RiderColors.gold
+                                      : s.status == SettlementStatus.payFailed
+                                      ? RiderColors.danger
+                                      : Colors.white,
+                                ),
                               ),
-                            ),
-                          ],
+                              // 수행료 이의 신청(rider 0.15.0) — 산정 불가·조정·결과 안내가 있는 줄
+                              if (s.appealable)
+                                TextButton(
+                                  key: ValueKey('appeal-earning-$i'),
+                                  style: TextButton.styleFrom(
+                                    foregroundColor: Colors.white70,
+                                    padding: const EdgeInsets.only(top: 4),
+                                    minimumSize: Size.zero,
+                                    tapTargetSize:
+                                        MaterialTapTargetSize.shrinkWrap,
+                                  ),
+                                  onPressed: () => context.push(
+                                    appealNewRoute(
+                                      AppealTarget.earning,
+                                      deliveryId: s.deliveryId,
+                                    ),
+                                  ),
+                                  child: Text(
+                                    l10n.appealButton,
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      decoration: TextDecoration.underline,
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
                         ],
                       ),
-                    ),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text(
-                          settlementText(l10n, s.status),
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                            color: s.status == SettlementStatus.paid
-                                ? RiderColors.gold
-                                : s.status == SettlementStatus.payFailed
-                                ? RiderColors.danger
-                                : Colors.white,
-                          ),
-                        ),
-                        // 수행료 이의 신청(rider 0.15.0) — 산정 불가·조정·결과 안내가 있는 줄
-                        if (s.appealable)
-                          TextButton(
-                            key: ValueKey('appeal-earning-$i'),
-                            style: TextButton.styleFrom(
-                              foregroundColor: Colors.white70,
-                              padding: const EdgeInsets.only(top: 4),
-                              minimumSize: Size.zero,
-                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                            ),
-                            onPressed: () => context.push(
-                              appealNewRoute(
-                                AppealTarget.earning,
-                                deliveryId: s.deliveryId,
-                              ),
-                            ),
-                            child: Text(
-                              l10n.appealButton,
-                              style: const TextStyle(
-                                fontSize: 14,
-                                decoration: TextDecoration.underline,
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ],
+                    );
+                  },
                 ),
-              );
-            },
-          ),
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 }
+
+/// YYYY-MM-DD → 11/21(그 밖이면 그대로).
+String _ymdShort(String ymd) => ymd.length >= 10
+    ? '${int.parse(ymd.substring(5, 7))}/${int.parse(ymd.substring(8, 10))}'
+    : ymd;
 
 /// 배달기록(어두운 화면).
 class HistoryScreen extends ConsumerWidget {

@@ -47,6 +47,27 @@ export const payoutText = {
   doneLine: (rider: string, date: string, s: string) => `${rider} · ${date} 묶음을 ${s}(으)로 표시했어요.`,
   adminOnly: '관리자만 표시할 수 있어요',
   compensationChip: (n: number) => `보상 ${n}`,
+  // execution 0.42.0 — 지급 실패로 넘어온 줄·넘김 기록, 0.41.0 — 오배송 차감
+  rolledChip: (n: number) => `실패분 ${n}`,
+  rolledChipTitle: '지급 실패로 이 날짜에 넘어온 줄',
+  // 0.43.0 넘김 상한 3번
+  finalChip: '마지막 자동 시도',
+  finalChipTitle: '이 날 또 실패하면 더 넘어가지 않고 직원이 직접 지급해요',
+  escalatedChip: '직접 지급',
+  escalatedChipTitle: '자동 넘김 3번을 다 썼어요 — 회계에서 직접 보낸 뒤 지급 완료로 표시해요',
+  rolledFrom: (d: string) => `${d.slice(5).replace('-', '/')} 실패분`,
+  rolledTo: (d: string) => `실패한 줄은 ${d}로 넘겼어요.`,
+  deduction: (n: string) => `오배송 차감 −${n}`,
+  net: (n: string) => `지급 ${n}`,
+  rollovers: {
+    title: '지급 실패 넘김 기록',
+    col: { rider: '라이더', from: '실패한 날', to: '다시 지급할 날', count: '줄', roll: '넘김', total: '금액', reason: '실패 사유', at: '넘긴 시각' },
+    roll: (n: number) => `${n}번째`,
+    last: '마지막',
+    empty: '넘긴 기록이 없어요.',
+    more: (n: number) => `더 보기 (${n})`,
+    less: '접기',
+  },
   adjustedCount: (n: number) => `조정 ${n}`,
   normalCount: (n: number) => `정상 ${n}`,
   kind: '수행료 구분',
@@ -152,10 +173,10 @@ function PayoutItems({ riderId, payoutDate, count, kind = '' }: { readonly rider
   const rows = [
     ...(earnings.data?.items ?? [])
       .filter((it) => it.payoutDate === payoutDate && BUNDLED.has(it.settlementState ?? ''))
-      .map((it) => ({ key: `e-${it.earningId}`, deliveryId: it.deliveryId, kind: isAdjustedEarning(it) ? t.adjustedEarning : t.earning, amount: it.total, adjusted: isAdjustedEarning(it) })),
+      .map((it) => ({ key: `e-${it.earningId}`, deliveryId: it.deliveryId, kind: isAdjustedEarning(it) ? t.adjustedEarning : t.earning, amount: it.total, adjusted: isAdjustedEarning(it), rolledFrom: it.rolledFrom ?? null })),
     ...(comps.data?.items ?? [])
       .filter((it) => it.payoutDate === payoutDate && BUNDLED.has(it.settlementState))
-      .map((it) => ({ key: `c-${it.compensationId}`, deliveryId: it.deliveryId, kind: t.compensation, amount: it.amount, adjusted: false })),
+      .map((it) => ({ key: `c-${it.compensationId}`, deliveryId: it.deliveryId, kind: t.compensation, amount: it.amount, adjusted: false, rolledFrom: null as string | null })),
   ];
   // 수행료 구분으로 걸렀으면 그 종류만(보상금은 수행료가 아니라 뺀다)
   const shownRows = kind === '' ? rows : rows.filter((r) => r.key.startsWith('e-') && (kind === 'adjusted' ? r.adjusted : !r.adjusted));
@@ -197,6 +218,11 @@ function PayoutItems({ riderId, payoutDate, count, kind = '' }: { readonly rider
                         <span className={r.adjusted ? 'font-semibold text-warning' : undefined} data-testid={r.adjusted ? 'payout-item-adjusted' : undefined}>
                           {r.kind}
                         </span>
+                        {r.rolledFrom && (
+                          <span className="ml-1 text-xs font-semibold text-error" data-testid="payout-item-rolled">
+                            {payoutText.rolledFrom(r.rolledFrom)}
+                          </span>
+                        )}
                       </td>
                       <td className="text-right tabular-nums">{typeof r.amount === 'number' ? won(r.amount) : '—'}</td>
                     </tr>
@@ -244,6 +270,7 @@ export function PayoutsMenu() {
   const [dateInput, setDateInput] = useState(payoutDate || seoulToday());
   const [riderInput, setRiderInput] = useState(riderId);
   const failedPayouts = useFailedPayouts();
+  const escRiders = useRiderSummaries(failedPayouts.escalated.map((p) => p.riderId));
   const patch = (next: Record<string, string>) => {
     const p = new URLSearchParams(params);
     for (const [k, v] of Object.entries(next)) {
@@ -299,12 +326,37 @@ export function PayoutsMenu() {
   return (
     <section className="max-w-[1600px] space-y-4">
       <PageHeader title={t.title} description={t.intro} actions={<SavedViews listKey="payouts" />} />
+      {/* 자동 넘김 3번을 다 쓴 묶음(0.43.0) — 날짜와 상관없이 맨 위 가장 강한 경고 */}
+      {failedPayouts.escalated.length > 0 && (
+        <div role="alert" className="flex flex-wrap items-start gap-3 rounded-box border-2 border-error bg-error/10 px-4 py-3" data-testid="payout-escalated-banner">
+          <span className="mt-0.5 shrink-0 rounded bg-error px-1.5 py-0.5 text-xs font-bold text-white">직접 지급</span>
+          <div className="min-w-0 flex-1 space-y-1">
+            <p className="font-bold text-error">{failedText.escalatedTitle(failedPayouts.escalated.length)}</p>
+            <p className="text-sm">{failedText.escalatedBody}</p>
+          </div>
+          <span className="flex flex-wrap gap-2">
+            {failedPayouts.escalated.map((p) => (
+              <button
+                key={`${p.riderId}-${p.payoutDate}`}
+                type="button"
+                className="btn btn-xs border-error/50 bg-base-100 text-error"
+                onClick={() => {
+                  setDateInput(p.payoutDate);
+                  patch({ payoutDate: p.payoutDate, state: '' });
+                }}
+              >
+                {failedText.escalatedItem(escRiders.get(p.riderId)?.riderNumber ?? p.riderId, p.payoutDate.slice(5).replace('-', '/'), won(p.total))}
+              </button>
+            ))}
+          </span>
+        </div>
+      )}
       {/* 지급 실패는 다시 지급할 때까지 맨 위 빨간 경고(2026-11-24 "무조건 줘야 하잖아") — 날짜를 누르면 그날 실패 묶음 */}
-      {failedPayouts.count > 0 && (
+      {failedPayouts.count - failedPayouts.escalated.length > 0 && (
         <div role="alert" className="flex flex-wrap items-start gap-3 rounded-box border border-error bg-error/10 px-4 py-3" data-testid="payout-failed-banner">
           <span className="mt-1 h-2.5 w-2.5 shrink-0 animate-pulse rounded-full bg-error" aria-hidden />
           <div className="min-w-0 flex-1 space-y-1">
-            <p className="font-bold text-error">{failedText.bannerTitle(failedPayouts.count)}</p>
+            <p className="font-bold text-error">{failedText.bannerTitle(failedPayouts.count - failedPayouts.escalated.length)}</p>
             <p className="text-sm">{failedText.bannerBody}</p>
           </div>
           <span className="flex flex-wrap gap-2">
@@ -315,7 +367,7 @@ export function PayoutsMenu() {
                 className="btn btn-xs border-error/50 bg-base-100 text-error"
                 onClick={() => {
                   setDateInput(d);
-                  patch({ payoutDate: d, state: 'PAYMENT_FAILED' });
+                  patch({ payoutDate: d, state: '' });
                 }}
               >
                 {failedText.dateLink(d)}
@@ -412,8 +464,26 @@ export function PayoutsMenu() {
                       <td className="whitespace-nowrap">{p.payoutDate}</td>
                       <td className="text-right">
                         <EarningKinds riderId={p.riderId} payoutDate={p.payoutDate} count={p.count} compensationCount={p.compensationCount ?? 0} />
+                        {(p.rolledInCount ?? 0) > 0 && (
+                          <span className="ml-1 rounded border border-error/50 px-1 py-px text-xs font-semibold text-error" title={t.rolledChipTitle} data-testid="payout-rolled-in">
+                            {t.rolledChip(p.rolledInCount ?? 0)}
+                          </span>
+                        )}
+                        {p.escalated ? (
+                          <span className="ml-1 rounded border border-error bg-error px-1 py-px text-xs font-bold text-error-content" title={t.escalatedChipTitle} data-testid="payout-escalated">
+                            {t.escalatedChip}
+                          </span>
+                        ) : (
+                          p.finalAttempt && (
+                            <span className="ml-1 rounded border border-warning/60 px-1 py-px text-xs font-semibold text-warning" title={t.finalChipTitle} data-testid="payout-final-attempt">
+                              {t.finalChip}
+                            </span>
+                          )
+                        )}
                       </td>
-                      <td className="text-right font-semibold">{won(p.total)}</td>
+                      <td className="text-right">
+                        <PayoutAmount total={p.total} deductionTotal={p.deductionTotal} expectedDeduction={p.expectedDeduction} netTotal={p.netTotal} />
+                      </td>
                       <td>
                         <StatusBadge tone={stateTone(p.state)}>{t.stateName[p.state] ?? p.state}</StatusBadge>
                       </td>
@@ -430,7 +500,7 @@ export function PayoutsMenu() {
                           '—'
                         )}
                       </td>
-                      <td>{p.state === 'PAID' ? '—' : admin ? <PayoutResultForm riderId={p.riderId} payoutDate={p.payoutDate} onDone={(r) => setDone(t.doneLine(s?.riderNumber ?? p.riderId, p.payoutDate, t.stateName[r.state] ?? r.state))} /> : <span className="text-xs text-base-content/50">{t.adminOnly}</span>}</td>
+                      <td>{p.state === 'PAID' ? '—' : admin ? <PayoutResultForm riderId={p.riderId} payoutDate={p.payoutDate} onDone={(r) => setDone(`${t.doneLine(s?.riderNumber ?? p.riderId, p.payoutDate, t.stateName[r.state] ?? r.state)}${r.rolledTo ? ` ${t.rolledTo(r.rolledTo)}` : ''}`)} /> : <span className="text-xs text-base-content/50">{t.adminOnly}</span>}</td>
                     </tr>
                     {isOpen && (
                       <InlineDetail colSpan={7} to={to} testId="payout-inline" actions={<RiderDeliveriesButton riderId={p.riderId} />}>
@@ -445,11 +515,12 @@ export function PayoutsMenu() {
           </div>
         )}
       </QueryState>
+      <PayoutRollovers riderId={riderId} />
     </section>
   );
 }
 
-function PayoutResultForm({ riderId, payoutDate, onDone }: { readonly riderId: string; readonly payoutDate: string; readonly onDone: (p: { readonly state: string }) => void }) {
+function PayoutResultForm({ riderId, payoutDate, onDone }: { readonly riderId: string; readonly payoutDate: string; readonly onDone: (p: { readonly state: string; readonly rolledTo?: string | null | undefined }) => void }) {
   const api = useApi();
   const queryClient = useQueryClient();
   const t = payoutText;
@@ -523,5 +594,105 @@ function PayoutResultForm({ riderId, payoutDate, onDone }: { readonly riderId: s
       {result === 'FAILED' && <input className="input input-xs w-full" aria-label={t.failureReason} placeholder={t.failureReason} maxLength={200} value={reason} disabled={locked} onChange={(ev) => setReason(ev.target.value)} />}
       <CommandFeedback command={record}>{(p) => <p className="text-xs text-success">{t.recorded(t.stateName[p.state] ?? p.state)}</p>}</CommandFeedback>
     </form>
+  );
+}
+
+/** 합계 칸 — 오배송 차감이 있으면 차감과 지급할 금액(서버 값 netTotal)을 아래에(2026-11-24, execution 0.41.0). 없으면 합계만. */
+function PayoutAmount({ total, deductionTotal, expectedDeduction, netTotal }: { readonly total: number; readonly deductionTotal?: number | undefined; readonly expectedDeduction?: number | undefined; readonly netTotal?: number | undefined }) {
+  const ded = (deductionTotal ?? 0) + (expectedDeduction ?? 0);
+  return (
+    <span className="inline-flex flex-col items-end" data-testid="payout-amount">
+      <span className="font-semibold">{won(total)}</span>
+      {ded > 0 && (
+        <>
+          <span className="text-xs font-semibold text-error" data-testid="payout-deduction">
+            {payoutText.deduction(won(ded))}
+          </span>
+          {typeof netTotal === 'number' && (
+            <span className="text-xs font-bold" data-testid="payout-net">
+              {payoutText.net(won(netTotal))}
+            </span>
+          )}
+        </>
+      )}
+    </span>
+  );
+}
+
+const ROLLOVER_SHOWN = 5;
+
+/** 지급 실패 넘김 기록(execution 0.42.0 `GET /rider-payout-rollovers`, 최근 순 200건) — 최신이 위, 5개 + 더 보기. 라이더를 찾았으면 그 라이더만. */
+function PayoutRollovers({ riderId }: { readonly riderId: string }) {
+  const api = useApi();
+  const t = payoutText.rollovers;
+  const [all, setAll] = useState(false);
+  const q = useQuery({
+    queryKey: ['rider-payout-rollovers', riderId],
+    queryFn: async () => {
+      const rid = riderId ? await resolveRiderId(api, riderId) : '';
+      if (rid === null) return { items: [] };
+      return request('GET', api.execution.GET('/rider-payout-rollovers', { params: { query: rid ? { riderId: rid } : {} } }));
+    },
+  });
+  const items = (q.data?.items ?? []).toSorted((a, b) => b.rolledAt.localeCompare(a.rolledAt));
+  const riders = useRiderSummaries(items.map((r) => r.riderId));
+  const shown = all ? items : items.slice(0, ROLLOVER_SHOWN);
+  return (
+    <section className="space-y-2" data-testid="payout-rollovers" aria-label={t.title}>
+      <h2 className="font-bold">{t.title}</h2>
+      <QueryState state={toUiState(q, (x) => x.items.length === 0)} onRetry={() => void q.refetch()} emptyText={t.empty}>
+        {() => (
+          <>
+            <DataTable testId="rollovers">
+              <thead>
+                <tr>
+                  <th>{t.col.rider}</th>
+                  <th>{t.col.from}</th>
+                  <th>{t.col.to}</th>
+                  <th className="text-right">{t.col.count}</th>
+                  <th>{t.col.roll}</th>
+                  <th className="text-right">{t.col.total}</th>
+                  <th>{t.col.reason}</th>
+                  <th>{t.col.at}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {shown.map((r) => {
+                  const s = riders.get(r.riderId);
+                  return (
+                    <tr key={r.rolloverId} data-testid="rollover-row">
+                      <td className="whitespace-nowrap">
+                        <Link className="hover:underline" to={`/riders/${encodeURIComponent(r.riderId)}`}>
+                          <RiderName riderId={r.riderId} nameMasked={s?.nameMasked} riderNumber={s?.riderNumber} />
+                        </Link>
+                      </td>
+                      <td className="whitespace-nowrap">{r.fromDate}</td>
+                      <td className="whitespace-nowrap">
+                        <Link className="link link-hover font-semibold" to={`/payouts?payoutDate=${r.toDate}`}>
+                          {r.toDate}
+                        </Link>
+                      </td>
+                      <td className="text-right">{r.lineCount}</td>
+                      <td className="whitespace-nowrap" data-testid="rollover-count">
+                        {typeof r.rollCount === 'number' ? t.roll(r.rollCount) : '—'}
+                        {r.finalAttempt && <span className="ml-1 text-xs font-bold text-warning">{t.last}</span>}
+                      </td>
+                      <td className="text-right font-semibold">{won(r.total)}</td>
+                      <td className="text-error">{r.failureReason ?? '—'}</td>
+                      <td className="whitespace-nowrap text-xs">{when(r.rolledAt)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </DataTable>
+            {items.length > ROLLOVER_SHOWN && (
+              <button type="button" className="btn btn-xs" onClick={() => setAll((v) => !v)} data-testid="rollover-more">
+                {all ? t.less : t.more(items.length - ROLLOVER_SHOWN)}
+              </button>
+            )}
+          </>
+        )}
+      </QueryState>
+    </section>
   );
 }

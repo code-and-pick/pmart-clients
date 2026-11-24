@@ -10,6 +10,7 @@ import 'package:rider_app/features/appeals/data/appeals.dart';
 import 'package:rider_app/features/auth/data/session.dart';
 import 'package:rider_app/features/delivery/data/mock_delivery_repository.dart';
 import 'package:rider_app/features/delivery/presentation/delivery_controller.dart';
+import 'package:rider_app/features/my/data/deductions.dart';
 import 'package:rider_app/features/my/data/profile.dart';
 import 'package:rider_app/features/my/data/records.dart';
 import 'package:rider_app/features/offers/data/mock_offer_repository.dart';
@@ -54,6 +55,10 @@ void main() {
             MockDeliveryRepository(latency: Duration.zero, seeded: false),
           ),
           appealRepositoryProvider.overrideWithValue(appeals),
+          // 정산내역 위 오배송 차감 띠(2026-11-24)가 기다리는 타이머를 남기지 않게
+          deductionsRepositoryProvider.overrideWithValue(
+            MockDeductionsRepository(latency: Duration.zero),
+          ),
           if (records != null)
             recordsRepositoryProvider.overrideWithValue(records),
         ],

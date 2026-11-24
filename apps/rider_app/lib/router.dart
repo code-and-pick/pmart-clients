@@ -24,6 +24,7 @@ import 'features/inquiries/presentation/live_chat_screen.dart';
 import 'features/notifications/data/notifications.dart';
 import 'features/notifications/presentation/notification_screen.dart';
 import 'features/my/presentation/my_screens.dart';
+import 'features/my/presentation/deduction_screens.dart';
 import 'features/my/presentation/record_screens.dart';
 import 'features/my/presentation/delivery_record_screen.dart';
 import 'features/my/presentation/withdraw_screen.dart';
@@ -151,6 +152,16 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (_, _) => const SettlementsScreen(),
       ),
       GoRoute(path: '/my/history', builder: (_, _) => const HistoryScreen()),
+      // 오배송 차감·이의(execution 0.41.0 — 2026-11-24)
+      GoRoute(
+        path: '/my/deductions',
+        builder: (_, _) => const DeductionsScreen(),
+      ),
+      GoRoute(
+        path: '/my/deductions/:id/objection',
+        builder: (_, s) =>
+            DeductionObjectionScreen(deductionId: s.pathParameters['id']!),
+      ),
       // 끝난 배송 보기(읽기 전용 — 2026-11-23)
       GoRoute(
         path: '/my/history/:deliveryId',

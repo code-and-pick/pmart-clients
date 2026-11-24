@@ -300,6 +300,8 @@ export const opsHandlers = [
       { earningId: 'ERN-P3', deliveryId: 'DLV-4', riderId: 'RD-8', calculable: true, total: 3500, settlementState: 'PAYING', payoutDate: '2026-11-19', recordedAt: '2026-11-14T03:00:00.000Z' },
       { earningId: 'ERN-P4', deliveryId: 'DLV-5', riderId: 'RD-8', calculable: true, total: 3500, settlementState: 'PAYING', payoutDate: '2026-11-19', recordedAt: '2026-11-14T04:00:00.000Z' },
       { earningId: 'ERN-P5', deliveryId: 'DLV-6', riderId: 'RD-7', calculable: true, total: 3500, settlementState: 'CONFIRMED', payoutDate: '2026-11-21', recordedAt: '2026-11-18T02:00:00.000Z' },
+      // 11-21 지급 실패 → 11-24 로 넘어온 줄(execution 0.42.0 rolledFrom·rolledAt)
+      { earningId: 'ERN-P6', deliveryId: 'DLV-7', riderId: 'RD-8', calculable: true, total: 4000, settlementState: 'CONFIRMED', payoutDate: '2026-11-24', rolledFrom: '2026-11-21', rolledAt: '2026-11-21T02:00:30.000Z', recordedAt: '2026-11-17T02:00:00.000Z' },
     ];
     const items = all.filter((it) => !rid || it.riderId === rid);
     return HttpResponse.json({
