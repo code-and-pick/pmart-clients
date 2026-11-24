@@ -61,6 +61,13 @@ const serve = (items: readonly Summary[]) =>
     }),
   );
 
+/** 라이더별 시간대 칸의 첫 칸을 눌러 목록을 열고, 첫 배송 번호를 눌러 흐름을 연다 */
+async function openFirstFromHeat(table: HTMLElement) {
+  await userEvent.click(within(table).getAllByTestId('an-heat-cell')[0]!);
+  const list = await screen.findByTestId('an-heat-list');
+  await userEvent.click(within(list).getAllByTestId('an-open-delivery')[0]!);
+}
+
 describe('대시보드 분석 셈', () => {
   it('완료율은 완료/(완료+실패), 한 건 평균은 완료 건의 생김 → 완료, 구간 셋', () => {
     const now = Date.now();
@@ -172,6 +179,31 @@ describe('대시보드 분석 구역', () => {
     expect(within(section).queryByTestId('an-problems-list')).not.toBeInTheDocument();
   });
 
+  it('완료율·한 건 평균·라이더 찾기 평균 타일도 누르면 그 셈에 쓴 배송 목록(2026-11-24)', async () => {
+    serve(rows(Date.now()));
+    renderAt('/dashboard', as.riderOps);
+    const section = await screen.findByTestId('analysis');
+    await within(section).findByTestId('an-tile-total');
+    // 완료율: 완료·실패 건, 실패가 위
+    await userEvent.click(within(section).getByTestId('an-tile-rate'));
+    const rate = await within(section).findByTestId('an-rate-list');
+    const rateRows = within(rate).getAllByTestId('an-tile-row');
+    expect(rateRows.length).toBeGreaterThan(1);
+    expect(rateRows[0]).toHaveTextContent('실패');
+    // 한 건 평균: 걸린 시간 칸, 오래 걸린 순 — 다른 타일을 누르면 바뀐다
+    await userEvent.click(within(section).getByTestId('an-tile-avg'));
+    expect(within(section).queryByTestId('an-rate-list')).not.toBeInTheDocument();
+    const avg = await within(section).findByTestId('an-avg-list');
+    expect(within(avg).getByRole('columnheader', { name: '걸린 시간' })).toBeInTheDocument();
+    expect(within(avg).getAllByTestId('an-tile-extra').length).toBeGreaterThan(0);
+    // 라이더 찾기 평균: 라이더 찾기 칸, 다시 누르면 닫힘
+    await userEvent.click(within(section).getByTestId('an-tile-find'));
+    const find = await within(section).findByTestId('an-find-list');
+    expect(within(find).getByRole('columnheader', { name: '라이더 찾기' })).toBeInTheDocument();
+    await userEvent.click(within(section).getByTestId('an-tile-find'));
+    expect(within(section).queryByTestId('an-find-list')).not.toBeInTheDocument();
+  });
+
   it('타일 수치 → 막대를 누르면 아래 목록 → 배송 번호를 누르면 같은 자리에 흐름', async () => {
     serve(rows(Date.now()));
     renderAt('/dashboard', as.riderOps);
@@ -194,12 +226,12 @@ describe('대시보드 분석 구역', () => {
     expect(screen.getByTestId('todo-strip')).toBeInTheDocument();
   });
 
-  it('라이더별 띠의 표시를 누르면 표 아래에 그 배송 흐름', async () => {
+  it('라이더별 시간대 칸: 숫자 = 배송 수, 칸을 누르면 그 배송 목록 → 번호를 누르면 흐름(2026-11-24 "점 말고 다른 UI")', async () => {
     serve(rows(Date.now()));
     renderAt('/dashboard', as.riderOps);
     const table = await screen.findByTestId('an-riders');
     expect(table).toHaveTextContent('3건');
-    await userEvent.click(within(table).getAllByTestId('an-mark')[0]!);
+    await openFirstFromHeat(table);
     expect(await screen.findByTestId('an-flow')).toHaveTextContent('배차 요청');
   });
 
@@ -314,7 +346,7 @@ describe('대시보드 분석 — 지연(정시 배송률)·펼친 흐름의 주
     serve(rows(now));
     renderAt('/dashboard', as.riderOps);
     const table = await screen.findByTestId('an-riders');
-    await userEvent.click(within(table).getAllByTestId('an-mark')[0]!);
+    await openFirstFromHeat(table);
     const flow = await screen.findByTestId('an-flow');
     const order = within(flow).getByTestId('an-order');
     expect(await within(order).findByText('그릭요거트 플레인 400g')).toBeInTheDocument();
@@ -336,7 +368,8 @@ describe('대시보드 분석 — 지연(정시 배송률)·펼친 흐름의 주
     const section = await screen.findByTestId('analysis');
     const table = await within(section).findByTestId('an-riders');
     // 2 만 늦음(1 은 약속 안, 3 은 실패라 판정 안 함, 4 는 약속 없음)
-    expect(within(table).getAllByTestId('an-mark').filter((b) => b.hasAttribute('data-late'))).toHaveLength(1);
+    // 칸에는 늦음 고리 대신 실패 테두리 — 실패 1건(3)이 든 칸 하나
+    expect(within(table).getAllByTestId('an-heat-cell').filter((b) => b.hasAttribute('data-failed'))).toHaveLength(1);
     const bar = within(section)
       .getAllByTestId('an-bar')
       .find((b) => /4건$/.test(b.getAttribute('aria-label') ?? ''));
@@ -372,7 +405,7 @@ describe('대시보드 분석 — 지연(정시 배송률)·펼친 흐름의 주
     serve(rows(Date.now()));
     renderAt('/dashboard', as.riderOps);
     const table = await screen.findByTestId('an-riders');
-    await userEvent.click(within(table).getAllByTestId('an-mark')[0]!);
+    await openFirstFromHeat(table);
     const flow = await screen.findByTestId('an-flow');
     await waitFor(() => expect(within(flow).getByTestId('an-order')).toHaveTextContent('불러오지 못했어요'), { timeout: 5_000 });
     expect(within(flow).getByTestId('an-steps')).toHaveTextContent('픽업');

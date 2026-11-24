@@ -28,6 +28,7 @@ import {
   dayStart,
   defaultView,
   dur,
+  findSecOf,
   flowSteps,
   frame,
   frameTitle,
@@ -46,12 +47,12 @@ import {
   ms,
   niceStep,
   onTimeTotals,
-  pack,
   seoulDate,
   seoulDay,
   shift,
   spanOf,
   type Summary,
+  totalSecOf,
   unrealCompletion,
   PROBLEM_STATES,
 } from './analysisData';
@@ -83,6 +84,12 @@ const t = {
   lateListTitle: '약속보다 늦은 배송(최근 7일)',
   problemsListTitle: '실패·이상 배송(최근 7일)',
   tileListEmpty: '해당 배송이 없어요.',
+  // 2026-11-24 사용자 "분석탭에 이 세 버튼도 클릭하면 관련 목록이나 상세 정보 뜨게 해"(완료율·한 건 평균·라이더 찾기 평균)
+  rateListTitle: '완료·실패 배송(최근 7일) — 실패 먼저',
+  avgListTitle: '완료 배송(최근 7일) — 오래 걸린 순',
+  findListTitle: '배차된 배송(최근 7일) — 라이더 찾기가 오래 걸린 순',
+  tookCol: '걸린 시간',
+  findCol: '라이더 찾기',
   lateListNote: (n: number) => `서버 집계(${n}건)와 조금 다를 수 있어요.`,
   timeTitle: '시간대별 배송 건수',
   state: '상태',
@@ -208,8 +215,8 @@ function AnalysisBody({ rows, partial, now, mfcId }: { readonly rows: readonly S
   const riders = useRiderSummaries(rows.map((r) => r.riderId));
   const name = (id: string | null | undefined) => (id ? <RiderName riderId={id} nameMasked={riders.get(id)?.nameMasked} riderNumber={riders.get(id)?.riderNumber} /> : <span className="an-sub-t">{t.noRider}</span>);
   const navigate = useNavigate();
-  const [tileOpen, setTileOpen] = useState<'late' | 'problems' | null>(null);
-  const toggleTile = (k: 'late' | 'problems') => setTileOpen((v) => (v === k ? null : k));
+  const [tileOpen, setTileOpen] = useState<TileKey | null>(null);
+  const toggleTile = (k: TileKey) => setTileOpen((v) => (v === k ? null : k));
   return (
     <>
       {partial && (
@@ -227,9 +234,11 @@ function AnalysisBody({ rows, partial, now, mfcId }: { readonly rows: readonly S
           unit={m.rate !== null ? '%' : ''}
           sub={t.rateSub(m.counts.done, m.counts.failed)}
           viz={m.rate !== null ? <Ring ratio={m.rate} /> : undefined}
+          onClick={() => toggleTile('rate')}
+          active={tileOpen === 'rate'}
         />
-        <Tile testId="an-tile-avg" label={t.avgTotal} value={dur(m.avgTotalSec)} sub={t.avgTotalSub} />
-        <Tile testId="an-tile-find" label={t.avgFind} value={dur(m.avgFindSec)} sub={t.avgFindSub} />
+        <Tile testId="an-tile-avg" label={t.avgTotal} value={dur(m.avgTotalSec)} sub={t.avgTotalSub} onClick={() => toggleTile('avg')} active={tileOpen === 'avg'} />
+        <Tile testId="an-tile-find" label={t.avgFind} value={dur(m.avgFindSec)} sub={t.avgFindSub} onClick={() => toggleTile('find')} active={tileOpen === 'find'} />
         {!canAll && !mfcId ? (
           <Tile testId="an-tile-late" label={t.late} value="—" sub={t.pickCentre} />
         ) : onTime.data ? (
@@ -272,6 +281,39 @@ function AnalysisBody({ rows, partial, now, mfcId }: { readonly rows: readonly S
       </div>
       {tileOpen === 'late' && (
         <TileList title={t.lateListTitle} rows={rows.filter((r) => isLateForList(r, now))} note={onTime.data && onTime.data.late !== rows.filter((r) => isLateForList(r, now)).length ? t.lateListNote(onTime.data.late) : undefined} now={now} name={name} onClose={() => setTileOpen(null)} testId="an-late-list" />
+      )}
+      {tileOpen === 'rate' && (
+        <TileList
+          title={t.rateListTitle}
+          rows={rows.filter((r) => kindOf(r.state) === 'done' || kindOf(r.state) === 'failed')}
+          order={(a, b) => Number(kindOf(b.state) === 'failed') - Number(kindOf(a.state) === 'failed') || b.createdAt.localeCompare(a.createdAt)}
+          now={now}
+          name={name}
+          onClose={() => setTileOpen(null)}
+          testId="an-rate-list"
+        />
+      )}
+      {tileOpen === 'avg' && (
+        <TileList
+          title={t.avgListTitle}
+          rows={rows.filter((r) => totalSecOf(r) !== null)}
+          extra={{ head: t.tookCol, sec: totalSecOf }}
+          now={now}
+          name={name}
+          onClose={() => setTileOpen(null)}
+          testId="an-avg-list"
+        />
+      )}
+      {tileOpen === 'find' && (
+        <TileList
+          title={t.findListTitle}
+          rows={rows.filter((r) => findSecOf(r) !== null)}
+          extra={{ head: t.findCol, sec: findSecOf }}
+          now={now}
+          name={name}
+          onClose={() => setTileOpen(null)}
+          testId="an-find-list"
+        />
       )}
       {tileOpen === 'problems' && (
         <TileList title={t.problemsListTitle} rows={rows.filter((r) => PROBLEM_STATES.has(r.state))} now={now} name={name} onClose={() => setTileOpen(null)} testId="an-problems-list" />
@@ -331,9 +373,17 @@ function Tile({ label: text, value, unit, sub, bad = false, viz, testId, onClick
   );
 }
 
-/** 타일 아래 배송 목록(지연·실패·이상) — 최근 7일 목록에서 고른 건, 최신 순. 번호를 누르면 배송 상세 */
-function TileList({ title, note, rows, now, name, onClose, testId }: { readonly title: string; readonly note?: string | undefined; readonly rows: readonly Summary[]; readonly now: number; readonly name: (id: string | null | undefined) => ReactNode; readonly onClose: () => void; readonly testId: string }) {
-  const sorted = [...rows].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+type TileKey = 'rate' | 'avg' | 'find' | 'late' | 'problems';
+const TILE_LIST_SHOWN = 10;
+
+/**
+ * 타일 아래 배송 목록 — 최근 7일 목록에서 고른 건. 기본 최신 순, [extra] 가 있으면 그 시간 칸을 붙여 오래 걸린 순, [order] 가 있으면 그 순서.
+ * 번호를 누르면 배송 상세.
+ */
+function TileList({ title, note, rows, now, name, onClose, testId, extra, order, openId, onOpen }: { readonly title: string; readonly note?: string | undefined; readonly rows: readonly Summary[]; readonly now: number; readonly name: (id: string | null | undefined) => ReactNode; readonly onClose: () => void; readonly testId: string; readonly extra?: { readonly head: string; readonly sec: (r: Summary) => number | null }; readonly order?: (a: Summary, b: Summary) => number; readonly openId?: string | null; readonly onOpen?: (deliveryId: string) => void }) {
+  const sorted = [...rows].sort(order ?? (extra ? (a, b) => (extra.sec(b) ?? 0) - (extra.sec(a) ?? 0) : (a, b) => b.createdAt.localeCompare(a.createdAt)));
+  // 길면 10줄만, 나머지는 "더 보기"(목록 규칙 — 2026-11-24)
+  const [all, setAll] = useState(false);
   return (
     <div className="an-detail" data-testid={testId}>
       <div className="an-detail-h">
@@ -360,10 +410,11 @@ function TileList({ title, note, rows, now, name, onClose, testId }: { readonly 
               <th>라이더</th>
               <th>상태</th>
               <th>{t.promised}</th>
+              {extra && <th className="num">{extra.head}</th>}
             </tr>
           </thead>
           <tbody>
-            {sorted.map((r) => {
+            {(all ? sorted : sorted.slice(0, TILE_LIST_SHOWN)).map((r) => {
               const at = ms(r.createdAt) ?? now;
               const promised = ms(r.promisedAt);
               return (
@@ -372,9 +423,16 @@ function TileList({ title, note, rows, now, name, onClose, testId }: { readonly 
                     {seoulDay(at)} {hhmm(at)}
                   </td>
                   <td>
-                    <Link to={`/deliveries/${encodeURIComponent(r.deliveryId)}`}>
-                      <DeliveryNo deliveryId={r.deliveryId} deliveryNumber={r.deliveryNumber} orderNumber={r.orderNumber} />
-                    </Link>
+                    {/* onOpen 이 있으면 같은 자리에 흐름(라이더별 칸 목록), 없으면 배송 상세로 */}
+                    {onOpen ? (
+                      <button type="button" className="an-link" aria-expanded={openId === r.deliveryId} onClick={() => onOpen(r.deliveryId)} data-testid="an-open-delivery">
+                        <DeliveryNo deliveryId={r.deliveryId} deliveryNumber={r.deliveryNumber} orderNumber={r.orderNumber} />
+                      </button>
+                    ) : (
+                      <Link to={`/deliveries/${encodeURIComponent(r.deliveryId)}`}>
+                        <DeliveryNo deliveryId={r.deliveryId} deliveryNumber={r.deliveryNumber} orderNumber={r.orderNumber} />
+                      </Link>
+                    )}
                   </td>
                   <td>{name(r.riderId)}</td>
                   <td>
@@ -385,11 +443,21 @@ function TileList({ title, note, rows, now, name, onClose, testId }: { readonly 
                     {isLate(r, now) && <LateMark />}
                   </td>
                   <td className="num">{promised !== null ? `${seoulDay(promised)} ${hhmm(promised)}` : '—'}</td>
+                  {extra && (
+                    <td className="num" data-testid="an-tile-extra">
+                      <b>{dur(extra.sec(r))}</b>
+                    </td>
+                  )}
                 </tr>
               );
             })}
           </tbody>
         </table>
+      )}
+      {sorted.length > TILE_LIST_SHOWN && (
+        <button type="button" className="an-link" onClick={() => setAll((v) => !v)} data-testid="an-tile-more">
+          {all ? '접기' : `더 보기 (${sorted.length - TILE_LIST_SHOWN})`}
+        </button>
       )}
     </div>
   );
@@ -538,19 +606,6 @@ function Journey({ segments, total }: { readonly segments: readonly Leg[]; reado
         </li>
       </ol>
     </div>
-  );
-}
-
-function Legend() {
-  return (
-    <span className="an-legend" aria-label="범례">
-      {KINDS.map((k) => (
-        <span key={k}>
-          <i className={`k-${k}`} />
-          {KIND_LABEL[k]}
-        </span>
-      ))}
-    </span>
   );
 }
 
@@ -917,30 +972,58 @@ function OrderItems({ order }: { readonly order: OrderSummary }) {
 
 type Range = 'today' | 'week';
 
+/**
+ * 라이더별 배송 — 시간대 칸(2026-11-24 사용자 "라이더별 배송 그래프에 점 말고 다른 UI 없니?" → "시간대 칸").
+ * 칸 = 한 시간(오늘) · 하루(7일). 숫자 = 그 칸에 배차 요청된 그 라이더 배송 수(위 "시간대별 배송 건수"와 같은 기준),
+ * 진할수록 많고, 실패가 섞인 칸은 빨간 테두리, 지금 칸은 아래 파란 줄. 칸을 누르면 표 아래에 그 배송 목록(다시 누르면 닫힘).
+ */
 function RiderTable({ rows, now, name }: { readonly rows: readonly Summary[]; readonly now: number; readonly name: NameFn }) {
   const [range, setRange] = useState<Range>('today');
-  const [picked, setPicked] = useState<string | null>(null);
+  const [picked, setPicked] = useState<{ readonly rider: string; readonly bin: number } | null>(null);
+  // 칸 목록에서 배송 번호를 누르면 같은 자리에 흐름(예전 띠 표시를 누르던 것과 같다)
+  const [openId, setOpenId] = useState<string | null>(null);
   const today = dayStart(now);
   const from = range === 'today' ? today : today - 6 * DAY;
-  const to = today + DAY;
-  const pct = (x: number) => Math.min(100, Math.max(0, ((x - from) / (to - from)) * 100));
-  const byRider = new Map<string, ReturnType<typeof spanOf>[]>();
+  const step = range === 'today' ? 3600_000 : DAY;
+  const bins = range === 'today' ? 24 : 7;
+  const binOf = (r: Summary) => {
+    const at = ms(r.createdAt);
+    if (at === null || at < from) return null;
+    const i = Math.floor((at - from) / step);
+    return i < bins ? i : null;
+  };
+  const nowBin = now >= from && now < from + bins * step ? Math.floor((now - from) / step) : null;
+  const byRider = new Map<string, Summary[][]>();
   for (const r of rows) {
-    const sp = spanOf(r, now);
-    if (!sp || sp.e < from) continue;
+    const b = binOf(r);
+    if (b === null) continue;
     const id = r.riderId ?? '';
-    byRider.set(id, [...(byRider.get(id) ?? []), sp]);
+    const lane = byRider.get(id) ?? Array.from({ length: bins }, () => [] as Summary[]);
+    lane[b]!.push(r);
+    byRider.set(id, lane);
   }
-  const lanes = [...byRider.entries()].sort((a, b) => (a[0] === '' ? 1 : b[0] === '' ? -1 : b[1].length - a[1].length));
-  const ticks = range === 'today' ? [0, 6, 12, 18, 24].map((h) => from + h * 3600_000) : Array.from({ length: 8 }, (_, i) => from + i * DAY);
-  const tickLabel = (x: number) => (range === 'today' ? `${Math.round((x - from) / 3600_000)}시` : seoulDay(x));
-  const pick = picked ? rows.find((r) => r.deliveryId === picked) : undefined;
+  const total = (lane: Summary[][]) => lane.reduce((a, c) => a + c.length, 0);
+  const lanes = [...byRider.entries()].sort((a, b) => (a[0] === '' ? 1 : b[0] === '' ? -1 : total(b[1]) - total(a[1])));
+  const max = Math.max(1, ...lanes.flatMap(([, lane]) => lane.map((c) => c.length)));
+  const binLabelOf = (i: number) => (range === 'today' ? `${i}` : seoulDay(from + i * step));
+  // 오늘은 3시간마다 숫자(칸이 좁아서), 7일은 날마다
+  const showLabel = (i: number) => range === 'week' || i % 3 === 0;
+  const binTitle = (i: number) => (range === 'today' ? `${i}시~${i + 1}시` : seoulDay(from + i * step));
+  const grid = { gridTemplateColumns: `repeat(${bins}, minmax(0, 1fr))` };
+  const pickRows = picked ? (byRider.get(picked.rider)?.[picked.bin] ?? []) : [];
   return (
     <>
       <div className="an-card-h">
         <h3>{t.riders}</h3>
         <div className="an-ctl">
-          <Legend />
+          <span className="an-heat-legend" aria-hidden>
+            <i style={{ background: 'color-mix(in oklab, var(--an-done) 20%, var(--color-base-100))' }} />
+            적음
+            <i style={{ background: 'color-mix(in oklab, var(--an-done) 90%, var(--color-base-100))' }} />
+            많음
+            <i style={{ border: '2px solid var(--an-failed)' }} />
+            실패 있음
+          </span>
           <Seg
             label="보는 기간"
             value={range}
@@ -968,10 +1051,10 @@ function RiderTable({ rows, now, name }: { readonly rows: readonly Summary[]; re
                 <th className="num">진행 중</th>
                 <th className="num">평균 걸린 시간</th>
                 <th className="strip-h">
-                  <span className="an-ticks">
-                    {ticks.map((x) => (
-                      <span key={x} style={{ left: `${pct(x)}%` }}>
-                        {tickLabel(x)}
+                  <span className="an-heat-h" style={grid}>
+                    {Array.from({ length: bins }, (_, i) => (
+                      <span key={i} className={i === nowBin ? 'now' : ''}>
+                        {showLabel(i) ? binLabelOf(i) : ''}
                       </span>
                     ))}
                   </span>
@@ -979,14 +1062,13 @@ function RiderTable({ rows, now, name }: { readonly rows: readonly Summary[]; re
               </tr>
             </thead>
             <tbody>
-              {lanes.map(([id, raw]) => {
-                const list = raw.filter((x): x is NonNullable<typeof x> => !!x);
-                const done = list.filter((x) => x.row.state === 'COMPLETED' && ms(x.row.completedAt) !== null);
-                const active = list.filter((x) => kindOf(x.row.state) === 'active').length;
+              {lanes.map(([id, lane]) => {
+                const list = lane.flat();
+                const done = list.filter((r) => r.state === 'COMPLETED' && ms(r.completedAt) !== null);
+                const active = list.filter((r) => kindOf(r.state) === 'active').length;
                 // 평균 걸린 시간은 완료 시각이 실제인 건만(고객 확인·자동 완료 뺌)
-                const timed = done.filter((x) => !unrealCompletion(x.row));
+                const timed = done.map((r) => spanOf(r, now)).filter((x): x is NonNullable<typeof x> => !!x && !unrealCompletion(x.row));
                 const avgSec = timed.length ? timed.reduce((a, x) => a + (x.e - x.s), 0) / timed.length / 1000 : null;
-                const packed = pack(list.map((x) => ({ ...x, s: Math.max(x.s, from) })));
                 return (
                   <tr key={id || 'none'} className={id ? '' : 'none'}>
                     <td className="name">{name(id || null)}</td>
@@ -995,25 +1077,34 @@ function RiderTable({ rows, now, name }: { readonly rows: readonly Summary[]; re
                     <td className="num">{active ? `${active}건` : '—'}</td>
                     <td className="num">{id && avgSec !== null ? dur(avgSec) : '—'}</td>
                     <td className="strip-c">
-                      <div className="an-strip" style={{ height: `${8 + packed.lines * 10}px` }}>
-                        {ticks.map((x) => (
-                          <i key={x} className="g" style={{ left: `${pct(x)}%` }} />
-                        ))}
-                        {now >= from && now <= to && <i className="nowline" style={{ left: `${pct(now)}%` }} />}
-                        {packed.placed.map(({ row, s, e, line }) => {
-                          const late = isLate(row, now);
-                          return (
+                      <div className="an-heat" style={grid}>
+                        {lane.map((cell, i) => {
+                          const n = cell.length;
+                          const failed = cell.filter((r) => kindOf(r.state) === 'failed').length;
+                          const on = picked?.rider === id && picked.bin === i;
+                          const heat = n ? Math.round(20 + 70 * (n / max)) : 0;
+                          const cls = `cell ${n ? 'has' : ''} ${heat >= 60 ? 'strong' : ''} ${failed ? 'fail' : ''} ${i === nowBin ? 'now' : ''} ${on ? 'on' : ''}`;
+                          const tip = `${binTitle(i)} · ${n}건${failed ? ` · 실패 ${failed}` : ''}`;
+                          return n ? (
                             <button
-                              key={row.deliveryId}
+                              key={i}
                               type="button"
-                              className={`mk k-${kindOf(row.state)} ${late ? 'late' : ''} ${picked === row.deliveryId ? 'on' : ''}`}
-                              style={{ left: `${pct(s)}%`, width: `max(6px, ${pct(e) - pct(s)}%)`, top: `${4 + line * 10}px` }}
-                              title={`${row.deliveryNumber ?? row.deliveryId} · ${KIND_LABEL[kindOf(row.state)]} · ${dur((e - s) / 1000)}${late ? ` · ${t.lateMark}` : ''}`}
-                              aria-label={`배송 ${row.deliveryNumber ?? row.deliveryId}${late ? ` ${t.lateMark}` : ''} 흐름 보기`}
-                              data-testid="an-mark"
-                              data-late={late || undefined}
-                              onClick={() => setPicked(picked === row.deliveryId ? null : row.deliveryId)}
-                            />
+                              className={cls}
+                              style={{ ['--heat' as string]: `${heat}%` }}
+                              title={tip}
+                              aria-label={`${tip} 배송 보기`}
+                              aria-pressed={on}
+                              data-testid="an-heat-cell"
+                              data-failed={failed > 0 || undefined}
+                              onClick={() => {
+                                setPicked(on ? null : { rider: id, bin: i });
+                                setOpenId(null);
+                              }}
+                            >
+                              {n}
+                            </button>
+                          ) : (
+                            <span key={i} className={cls} aria-hidden />
                           );
                         })}
                       </div>
@@ -1025,7 +1116,25 @@ function RiderTable({ rows, now, name }: { readonly rows: readonly Summary[]; re
           </table>
         </div>
       )}
-      {pick && <Flow row={pick} name={name} now={now} onClose={() => setPicked(null)} />}
+      {picked && (
+        <TileList
+          title={`${binTitle(picked.bin)} 배송`}
+          rows={pickRows}
+          now={now}
+          name={name}
+          onClose={() => {
+            setPicked(null);
+            setOpenId(null);
+          }}
+          testId="an-heat-list"
+          openId={openId}
+          onOpen={(d) => setOpenId(openId === d ? null : d)}
+        />
+      )}
+      {picked && openId && (() => {
+        const r = pickRows.find((x) => x.deliveryId === openId);
+        return r ? <Flow row={r} name={name} now={now} onClose={() => setOpenId(null)} /> : null;
+      })()}
     </>
   );
 }

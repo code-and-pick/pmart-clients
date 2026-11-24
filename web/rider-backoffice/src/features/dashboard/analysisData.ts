@@ -153,6 +153,11 @@ export const UNREAL_COMPLETION: ReadonlySet<string> = new Set(['CUSTOMER_CONFIRM
 export const unrealCompletion = (r: Summary) => r.state === 'COMPLETED' && !!r.completionMethod && UNREAL_COMPLETION.has(r.completionMethod);
 
 /** 배정 끝 시각 — 첫 배정(재배정 전, 0.34.0)이 있으면 그것, 없으면 지금 배정 */
+/** 배차 요청 → 전달 완료(초) — 한 건 평균과 같은 셈(실제 완료 시각만) */
+export const totalSecOf = (r: Summary): number | null => (r.state === 'COMPLETED' && !unrealCompletion(r) ? gap(ms(r.createdAt), ms(r.completedAt)) : null);
+/** 배차 요청 → 첫 배정(초) — 라이더 찾기 평균과 같은 셈 */
+export const findSecOf = (r: Summary): number | null => gap(ms(r.createdAt), firstAssigned(r));
+
 export const firstAssigned = (r: Summary) => ms(r.firstAssignedAt) ?? ms(r.assignedAt);
 
 /**
