@@ -3727,13 +3727,14 @@ export const messages = {
     imageUnavailable: '그림을 불러오지 못했어요',
     placement: '자리',
     // 2026-11-21 점검: "홈 가운데"·"홈 중간 묶음"이 같은 말로 읽혀 — 고정 자리와 홈 순서 안 자리로 나눠 부른다
-    placementName: { HOME_TOP: '홈 맨 위', HOME_MIDDLE: '홈 가운데(고정)', HOME_INLINE: '홈 순서 안 묶음', CATEGORY: '카테고리 화면 맨 위', POPUP: '앱 첫 화면 팝업', SPLASH: '처음 로딩 화면' } as Readonly<Record<string, string>>,
+    placementName: { HOME_TOP: '홈 맨 위', HOME_MIDDLE: '홈 가운데(고정)', HOME_INLINE: '홈 순서 안 묶음', CATEGORY: '카테고리 화면 맨 위', PRODUCT_DETAIL: '상품 상세 화면', POPUP: '앱 첫 화면 팝업', SPLASH: '처음 로딩 화면' } as Readonly<Record<string, string>>,
     // 규격은 서버 값(storefront 0.15.0 banner-image-specs, 2026-11-24 사용자 "규격 값은 백엔드 값으로") — 경고만, 막지 않음
     specPrefix: '규격:',
     warningCode: { BANNER_IMAGE_RATIO: '권장 비율과 달라요', BANNER_IMAGE_TOO_SMALL: '최소 크기보다 작아요', BANNER_IMAGE_SIZE_UNKNOWN: '그림 크기를 읽지 못했어요' } as Readonly<Record<string, string>>,
     placementHint: {
       HOME_MIDDLE: '테마 사이 정해진 자리예요(예전 앱 방식). 자리를 직접 정하려면 "홈 순서 안 묶음"을 고르세요.',
       CATEGORY: '모든 카테고리 화면 맨 위에 같이 보여요(카테고리마다 따로가 아니에요). 홈에는 나오지 않아요.',
+      PRODUCT_DETAIL: '모든 상품 상세 화면에 같이 보여요(상품마다 따로가 아니에요). 홈에는 나오지 않아요.',
     } as Readonly<Record<string, string>>,
     group: '배너 묶음',
     groupName: (k: number) => `배너 묶음 ${k}`,

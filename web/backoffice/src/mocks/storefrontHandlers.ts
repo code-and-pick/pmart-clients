@@ -42,6 +42,7 @@ const BANNER_MIN: Readonly<Record<string, { ratio: number; label: string; minW: 
   HOME_MIDDLE: { ratio: 2.8, label: '2.8:1', minW: 1080, minH: 386 },
   HOME_INLINE: { ratio: 2.8, label: '2.8:1', minW: 1080, minH: 386 },
   CATEGORY: { ratio: 2.8, label: '2.8:1', minW: 1080, minH: 386 },
+  PRODUCT_DETAIL: { ratio: 2.8, label: '2.8:1', minW: 1080, minH: 386 },
   POPUP: { ratio: 0.8, label: '4:5', minW: 720, minH: 900 },
   SPLASH: { ratio: 0.5625, label: '9:16', minW: 720, minH: 1280 },
 };
@@ -269,6 +270,7 @@ export const storefrontHandlers = [
         banner('HOME_MIDDLE'),
         banner('HOME_INLINE'),
         banner('CATEGORY'),
+        banner('PRODUCT_DETAIL'),
         { placement: 'POPUP', ratio: 0.8, ratioLabel: '4:5', recommendedWidth: 1080, recommendedHeight: 1350, minWidth: 720, minHeight: 900 },
         { placement: 'SPLASH', ratio: 0.5625, ratioLabel: '9:16', recommendedWidth: 1080, recommendedHeight: 1920, minWidth: 720, minHeight: 1280 },
       ],

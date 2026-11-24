@@ -494,7 +494,7 @@ function BannerCard({
       <div className="grid gap-3 md:grid-cols-[10rem_minmax(0,1fr)]">
         <Field label={m.placement}>
           <select className="select select-sm" disabled={locked} value={b.placement} onChange={(e) => setPlacement(e.target.value as Banner['placement'])}>
-            {(['HOME_TOP', 'HOME_MIDDLE', 'HOME_INLINE', 'CATEGORY', 'POPUP', 'SPLASH'] as const).map((p) => (
+            {(['HOME_TOP', 'HOME_MIDDLE', 'HOME_INLINE', 'CATEGORY', 'PRODUCT_DETAIL', 'POPUP', 'SPLASH'] as const).map((p) => (
               <option key={p} value={p}>
                 {m.placementName[p]}
               </option>
@@ -768,6 +768,8 @@ function Preview({ body, sticky = true }: { readonly body: Body; readonly sticky
   const splashes = banners.filter((b) => b.placement === 'SPLASH');
   // 0.11.0 카테고리 화면 맨 위 — 홈에는 안 나오므로 휴대폰 홈 그림 밖에 따로
   const category = banners.filter((b) => b.placement === 'CATEGORY');
+  // 0.17.0 상품 상세 화면(모든 상품 공통) — 카테고리와 같이 홈 그림 밖에 따로
+  const productDetail = banners.filter((b) => b.placement === 'PRODUCT_DETAIL');
   const top = banners.filter((b) => b.placement === 'HOME_TOP');
   const middle = banners.filter((b) => b.placement === 'HOME_MIDDLE');
   const strip = (list: readonly Banner[]) =>
@@ -892,6 +894,12 @@ function Preview({ body, sticky = true }: { readonly body: Body; readonly sticky
         <div className="mx-auto w-[300px] space-y-1" data-testid="layout-preview-category">
           <p className="text-xs text-base-content/55">{m.placementName['CATEGORY']}</p>
           {carousel(category, 'category')}
+        </div>
+      )}
+      {productDetail.length > 0 && (
+        <div className="mx-auto w-[300px] space-y-1" data-testid="layout-preview-product-detail">
+          <p className="text-xs text-base-content/55">{m.placementName['PRODUCT_DETAIL']}</p>
+          {carousel(productDetail, 'product-detail')}
         </div>
       )}
       {(popups.length > 0 || splashes.length > 0) && (

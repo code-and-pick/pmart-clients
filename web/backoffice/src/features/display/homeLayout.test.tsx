@@ -183,6 +183,29 @@ describe('홈 진열 편성', () => {
     expect(sent.homeOrder).toEqual([]);
   });
 
+  it('0.17.0 상품 상세 화면 배너 — 자리 고르기에 있고, 홈 그림 밖 "상품 상세 화면" 칸에만, 규격은 서버 값, groupId 없이 보낸다', async () => {
+    const user = userEvent.setup();
+    const view = renderAt('/display/home', as.md);
+    await user.click(await screen.findByTestId('layout-new-current'));
+    await screen.findByTestId('layout-state');
+    const banner = screen.getAllByTestId('layout-banner')[0]!;
+    await user.selectOptions(within(banner).getByLabelText('자리'), 'PRODUCT_DETAIL');
+    expect(within(banner).getByLabelText('자리')).toHaveDisplayValue('상품 상세 화면');
+    expect(within(banner).getByText(/모든 상품 상세 화면에 같이 보여요/)).toBeInTheDocument();
+    expect(await within(banner).findByText(/2\.8:1/)).toBeInTheDocument();
+    expect(within(banner).queryByLabelText('배너 묶음')).not.toBeInTheDocument();
+    const preview = screen.getByTestId('layout-preview');
+    expect(within(within(preview).getByTestId('layout-preview-product-detail')).getByRole('img', { name: '겨울 제철 채소 모음' })).toBeInTheDocument();
+    expect(within(preview).getAllByRole('img', { name: '겨울 제철 채소 모음' })).toHaveLength(1); // 홈 맨 위에는 없다
+    await user.click(screen.getByTestId('layout-submit'));
+    expect(await screen.findByTestId('layout-requested')).toBeInTheDocument();
+    const put = view.sent.filter((q) => q.method === 'PUT').at(-1)!;
+    const sent = (await put.clone().json()) as { banners: { placement: string; groupId?: string | null }[]; homeOrder: string[] };
+    expect(sent.banners[0]).toMatchObject({ placement: 'PRODUCT_DETAIL' });
+    expect(sent.banners[0]!.groupId ?? null).toBeNull();
+    expect(sent.homeOrder).toEqual([]);
+  });
+
   it('0.12.0 남은 시간 모양(BR-84) — 켜면 라벨형 기본·미리보기 제목 위 글자, 띠형 고르면 띠·보낸 값 BAND, 끄면 null', async () => {
     const user = userEvent.setup();
     const view = renderAt('/display/home', as.md);
