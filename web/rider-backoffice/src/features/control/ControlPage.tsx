@@ -448,6 +448,13 @@ function LateDeliveries({ rows, selectedDeliveryId, onPick }: { readonly rows: r
               aria-selected={active.deliveryId === selectedDeliveryId}
               className={`flex cursor-pointer flex-wrap items-center gap-x-3 gap-y-1 border-l-[3px] px-4 py-2 text-sm ${active.deliveryId === selectedDeliveryId ? 'border-primary bg-primary/10' : 'border-error hover:bg-base-200/60'}`}
               onClick={() => onPick(rider.riderId, active.deliveryId)}
+              // 키보드로도 고르기(PR #476 검토) — 줄 안에 배송 링크가 있어 button 으로 감싸지 않는다. 링크에서 누른 키는 링크 몫
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.target !== e.currentTarget || (e.key !== 'Enter' && e.key !== ' ')) return;
+                e.preventDefault();
+                onPick(rider.riderId, active.deliveryId);
+              }}
             >
               <span className={`w-32 shrink-0 font-semibold tabular-nums ${overMinutes !== null && overMinutes > 0 ? 'text-error' : 'text-warning'}`}>{overMinutes === null ? cx.lateNoPromise : cx.lateOver(overMinutes)}</span>
               <RiderName riderId={rider.riderId} nameMasked={rider.nameMasked} riderNumber={rider.riderNumber} />

@@ -34,6 +34,15 @@ describe('관제 — 지연', () => {
     expect(rows[0]).toHaveAttribute('aria-selected', 'true');
   });
 
+  it('지연 목록 줄은 키보드(Enter)로도 고른다', async () => {
+    renderAt('/control?mfcId=MFC-BSJ-01&filter=late', as.riderOps);
+    const row = (await screen.findAllByTestId('control-late-row'))[0]!;
+    row.focus();
+    await userEvent.keyboard('{Enter}');
+    expect(await screen.findByTestId('panel-delayed')).toHaveTextContent('지연');
+    expect(row).toHaveAttribute('aria-selected', 'true');
+  });
+
   it('lateRows — 많이 늦은 순, 약속 시각을 모르면 맨 뒤', () => {
     const asOf = '2026-11-24T10:00:00Z';
     const d = (id: string, promisedAt: string | null, delayed = true) => ({ deliveryId: id, stage: 'TO_CUSTOMER', pickedUp: true, promisedAt, delayed });
