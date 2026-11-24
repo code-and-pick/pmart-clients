@@ -9,8 +9,16 @@ const n = messages.names;
 const CODE_WORDS: Readonly<Record<string, string>> = { ...n.helpCategory, ...n.executionState };
 const ISO = /\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})?/g;
 
-export function caseSummaryText(text: string | null | undefined, kindLabel?: string): string {
+/**
+ * short: 목록 한 줄용 — 괄호 속 덧말("(10분마다 자동 재배차 중)"·"(마지막 …)"), 앞의 "n번째 — " 를 뗀다
+ * (2026-11-24 사용자 "상담 내용도 저렇게 길게 줄줄 써놓지 말고 핵심만"). 전체는 title·상세에서.
+ */
+export function caseSummaryText(text: string | null | undefined, kindLabel?: string, short = false): string {
   if (!text) return '';
+  if (short) {
+    const core = caseSummaryText(text, kindLabel).replace(/\s*\([^)]*\)/g, '').replace(/^\s*\d+번째\s*[—-]\s*/, '').trim();
+    return core || caseSummaryText(text, kindLabel);
+  }
   let s = text.replace(ISO, (iso) => when(iso)).replace(/\b[A-Z][A-Z_]{2,}\b/g, (code) => CODE_WORDS[code] ?? code);
   if (kindLabel && s.startsWith(kindLabel)) s = s.slice(kindLabel.length).replace(/^\s*[—\-:·]\s*/, '');
   return s.trim() || text;

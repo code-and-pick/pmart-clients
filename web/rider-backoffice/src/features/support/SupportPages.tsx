@@ -259,6 +259,31 @@ function HelpChatPage() {
   );
 }
 
+/**
+ * 목록 일부·전부를 못 읽었을 때(2026-11-24 사용자 "이거 너무 없어보인다") — 아이콘·굵은 제목·짧은 한 줄·오른쪽 "다시 시도" 단추.
+ * 일부만 못 읽었으면 노랑(아래 목록은 보임), 다 못 읽었으면 빨강.
+ */
+function LoadWarning({ what, partial = false, onRetry, testId }: { readonly what: string; readonly partial?: boolean; readonly onRetry: () => void; readonly testId: string }) {
+  return (
+    <div
+      role="alert"
+      className={`flex items-center gap-4 rounded-box border px-5 py-4 ${partial ? 'border-warning/60 bg-warning/10' : 'border-error/60 bg-error/10'}`}
+      data-testid={testId}
+    >
+      <span className={`grid size-9 shrink-0 place-items-center rounded-full text-lg font-bold ${partial ? 'bg-warning/20 text-warning' : 'bg-error/15 text-error'}`} aria-hidden="true">
+        !
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="font-bold">{consultText.loadFailTitle(what)}</p>
+        <p className="text-sm text-base-content/70">{partial ? consultText.loadFailPartial : consultText.loadFailAll}</p>
+      </div>
+      <button type="button" className="btn btn-sm btn-primary" onClick={onRetry}>
+        {consultText.retryNow}
+      </button>
+    </div>
+  );
+}
+
 // ---------------- 라이더 문의
 
 type InquiryStatus = 'RECEIVED' | 'ANSWERED' | 'CLOSED';
@@ -468,6 +493,10 @@ const consultText = {
   col: { kind: '구분', title: '내용', state: '상태', delivery: '배송번호', order: '주문번호', rider: '라이더', createdAt: '접수시점', wait: '기다린 시간' },
   empty: { open: '상담할 건이 없어요.', done: '최근 7일 동안 완료된 상담이 없어요.' },
   partial: (what: string) => `${what} 목록을 불러오지 못했어요 — 아래는 일부예요.`,
+  loadFailTitle: (what: string) => `${what}을 불러오지 못했어요`,
+  loadFailPartial: '아래 목록에 빠진 건이 있을 수 있어요.',
+  loadFailAll: '잠시 뒤 다시 시도해 주세요.',
+  retryNow: '다시 시도',
   retry: '다시 불러오기',
   stripLabel: '상담 대기 수',
   stripHelpHint: '받음·처리 중',
@@ -689,7 +718,8 @@ function ConsultsPage({ tab }: { readonly tab: 'open' | 'done' }) {
     void inquiries.refetch();
   };
   return (
-    <div className="space-y-4">
+    // 2026-11-24 사용자 "상하간격이 왜이렇게 비좁아" — 구역 사이를 넓힌다
+    <div className="space-y-6">
       {/* 2026-11-24 사용자 "i 화면 안내 없애" */}
       <StatStrip label={consultText.stripLabel} testId="consult-strip">
         <StatCard layout="row" label={consultText.kind.help} value={statText(stats.data?.openHelpRequests, stats.isError)} tone={(stats.data?.openHelpRequests ?? 0) > 0 ? 'warning' : undefined} onClick={() => patch({ kind: kindFilter === 'help' ? '' : 'help' })} active={kindFilter === 'help'} testId="strip-help" />
@@ -745,21 +775,9 @@ function ConsultsPage({ tab }: { readonly tab: 'open' | 'done' }) {
         }
       />
 
-      {partial && (
-        <p role="alert" className="alert alert-warning text-sm" data-testid="consults-partial">
-          {consultText.partial(help.isError ? consultText.kind.help : consultText.kind.inquiry)}
-          <button type="button" className="btn btn-xs" onClick={retryAll}>
-            {consultText.retry}
-          </button>
-        </p>
-      )}
+      {partial && <LoadWarning what={help.isError ? consultText.kind.help : consultText.kind.inquiry} partial onRetry={retryAll} testId="consults-partial" />}
       {bothFailed ? (
-        <p role="alert" className="alert alert-error text-sm">
-          {consultText.partial(`${consultText.kind.help}·${consultText.kind.inquiry}`)}
-          <button type="button" className="btn btn-xs" onClick={retryAll}>
-            {consultText.retry}
-          </button>
-        </p>
+        <LoadWarning what={`${consultText.kind.help}·${consultText.kind.inquiry}`} onRetry={retryAll} testId="consults-failed" />
       ) : loading ? (
         <span className="loading loading-spinner" aria-label="불러오는 중" />
       ) : allRows.length === 0 && !filtered && tab === 'open' && help.isSuccess && inquiries.isSuccess && failures.isSuccess ? (

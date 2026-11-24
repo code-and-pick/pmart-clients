@@ -179,25 +179,10 @@ export function PageHeader({ title, actions, back }: { readonly title: ReactNode
 }
 
 /** 화면 안내 — 상자 대신 작은 "ⓘ 화면 안내" 한 줄, 누르면 글머리(공용 GuideBox 와 같은 속성). 처음엔 접힘 */
-export function GuideBox({ title, items, testId, tone = 'info' }: { readonly title: string; readonly items: readonly ReactNode[]; readonly storeKey: string; readonly testId?: string; readonly tone?: 'info' | 'warning' }) {
-  const [open, setOpen] = useState(false);
-  return (
-    <div className="pm-guide" data-tone={tone} data-testid={testId}>
-      <button type="button" className="pm-guide-btn" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
-        <span aria-hidden="true">{tone === 'warning' ? '!' : t.info}</span> {title}
-        <span className="pm-guide-caret" aria-hidden="true">
-          {open ? '▴' : '▾'}
-        </span>
-      </button>
-      {open && (
-        <ul className="pm-guide-list">
-          {items.map((x, i) => (
-            <li key={i}>{x}</li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
+// 2026-11-24 사용자 "화면 안내 저런 안내같은 거 적혀있는 거 다른 탭에서도 다 없애" — 모든 화면에서 그리지 않는다(부르는 쪽은 그대로 둬도 됨)
+export function GuideBox(props: { readonly title: string; readonly items: readonly ReactNode[]; readonly storeKey: string; readonly testId?: string; readonly tone?: 'info' | 'warning' }) {
+  void props;
+  return null;
 }
 
 /** 줄 펼침 — 한 번에 한 줄만(시뮬레이터처럼). 상태는 화면 안에만(주소는 거르기·쪽만) */

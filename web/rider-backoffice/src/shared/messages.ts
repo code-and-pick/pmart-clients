@@ -179,7 +179,7 @@ export const messages = {
     emptyClosed: '처리 완료된 접수 건이 없어요.',
     col: { priority: '긴급도', kind: '종류', summary: '내용', refs: '관련', sla: '처리 기한', state: '상태', assignee: '담당', openedAt: '접수' },
     overdue: '기한 넘김',
-    unassigned: '아직 아무도 안 맡음',
+    unassigned: '상담사 배정 필요',
     next: '다음',
     first: '처음으로',
     back: '상담 관리 · 배송 사건',

@@ -18,7 +18,7 @@ import { AllDone, ChipGroup, GuideBox, CursorPager, DataTable, DetailHeader, Fie
 import { ui } from '../../shared/uiMessages';
 import { listCountText, useListRows } from '../../shared/listKit';
 import { SavedViews } from '../../shared/SavedViews';
-import { Caret, expandRowProps, InlineDetail, useInlineOpen } from '../../shared/simList';
+import { expandRowProps, InlineDetail, useInlineOpen } from '../../shared/simList';
 import { useNow } from '../../shared/useNow';
 import { caseSummaryText } from '../../shared/caseText';
 import { elapsedText } from '../deliveries/DeliveryExtras';
@@ -61,7 +61,8 @@ function Sla({ slaDueAt, overdue, now, wrap = false }: { readonly slaDueAt: stri
 /** 이 화면에서 더한 문구(2026-11-19 통합 백오피스와 맞추기) */
 const cx = {
   stripLabel: '처리 중 접수 건 수',
-  unassigned: '아무도 안 맡음',
+  // 2026-11-24 사용자 "아무도 안 맡음이 제목으로 적히는 게 맞아? 상담사 배정 필요 라고 적던가"
+  unassigned: '상담사 배정 필요',
   overdue: '기한 넘김',
   listHint: '불러온 것 기준',
   minutesLeft: (n: number) => `${n}분 남음`,
@@ -75,7 +76,8 @@ function Refs({ refs }: { readonly refs: CaseSummary['refs'] }) {
   const riders = useRiderSummaries(riderIds);
   if (deliveryIds.length === 0 && riderIds.length === 0) return <>{none}</>;
   return (
-    <span className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs">
+    // 2026-11-24 사용자 "좁히니까 줄 난리나네" — 참조마다 한 줄, 그 안에서는 줄바꿈 없이
+    <span className="flex flex-col gap-0.5 whitespace-nowrap text-xs">
       {deliveryIds.map((id) => (
         <span key={`d-${id}`} className="inline-flex items-center gap-1">
           <span className="text-base-content/50">{name(n.refType, 'deliveryId')}</span>
@@ -163,7 +165,7 @@ function CaseUrgent({ c }: { readonly c: { readonly state?: string | null; reado
 
 /** 요약 글자 다듬기 — 서버 요약에 섞인 ISO 시각(2026-11-20T13:10:39.63Z)을 화면 시각으로 */
 // 영문 코드·ISO 시각 → 화면 글자(shared/caseText). kindLabel 을 주면 앞의 "종류 — " 를 뗀다(종류가 따로 보이는 자리)
-const tidySummary = (text: string, kindLabel?: string) => caseSummaryText(text, kindLabel);
+const tidySummary = (text: string, kindLabel?: string, short = false) => caseSummaryText(text, kindLabel, short);
 
 /** 처리함의 "배송 사건" 탭(2026-11-21) — embedded 면 쪽 제목 없이, 주소의 tab=cases 를 지킨다 */
 export function CaseListPage({ embedded = false }: { readonly embedded?: boolean }) {
@@ -239,8 +241,8 @@ export function CaseListPage({ embedded = false }: { readonly embedded?: boolean
       )}
       <GuideBox title={ui.guideTitle} items={[m.intro]} storeKey="cases" testId="cases-guide" />
       <StatStrip label={cx.stripLabel} testId="case-strip">
-        <StatCard layout="row" label={cx.unassigned} value={listCountText(unassignedCount.data, unassignedCount.isError)} hint={cx.listHint} to={`${CASE_LIST}&unassigned=true`} active={!closed && unassigned && !overdue} tone={(unassignedCount.data?.n ?? 0) > 0 ? 'warning' : undefined} testId="strip-unassigned" />
-        <StatCard layout="row" label={cx.overdue} value={listCountText(overdueCount.data, overdueCount.isError)} hint={cx.listHint} to={`${CASE_LIST}&overdue=true`} active={!closed && overdue && !unassigned} tone={(overdueCount.data?.n ?? 0) > 0 ? 'error' : undefined} testId="strip-overdue" />
+        <StatCard layout="row" label={cx.unassigned} value={listCountText(unassignedCount.data, unassignedCount.isError)} to={`${CASE_LIST}&unassigned=true`} active={!closed && unassigned && !overdue} tone={(unassignedCount.data?.n ?? 0) > 0 ? 'warning' : undefined} testId="strip-unassigned" />
+        <StatCard layout="row" label={cx.overdue} value={listCountText(overdueCount.data, overdueCount.isError)} to={`${CASE_LIST}&overdue=true`} active={!closed && overdue && !unassigned} tone={(overdueCount.data?.n ?? 0) > 0 ? 'error' : undefined} testId="strip-overdue" />
       </StatStrip>
       <StateTabs
         label="처리 상태"
@@ -310,7 +312,7 @@ export function CaseListPage({ embedded = false }: { readonly embedded?: boolean
                         <td>
                           {/* 삼각형과 꼬리표를 한 줄로(2026-11-24 "조그만 삼각형 때문에 P2가 내려가 보이니") */}
                           <span className="flex items-center gap-1 whitespace-nowrap">
-                            <Caret open={isOpen} />
+                            {/* 줄 펼침 삼각형은 뺐다(2026-11-24 사용자 "높음 앞에 삼각형 없애") — 줄을 누르면 그대로 펼쳐진다 */}
                             <PriorityBadge priority={c.priority} />
                           </span>
                         </td>
@@ -318,7 +320,7 @@ export function CaseListPage({ embedded = false }: { readonly embedded?: boolean
                         <td className="font-medium">
                           {/* 내용은 한 줄(넘치면 … — 전체는 올려 보거나 줄을 펼치면, 2026-11-24 "내용도 2줄 이상 되니까 보기 힘들잖아") */}
                           <Link className="block max-w-md truncate hover:underline" title={tidySummary(c.summary || '', name(n.caseKind, c.kind))} to={casePath(c.caseId)} onClick={(e) => e.stopPropagation()}>
-                            {c.summary ? tidySummary(c.summary, name(n.caseKind, c.kind)) : name(n.caseKind, c.kind)}
+                            {c.summary ? tidySummary(c.summary, name(n.caseKind, c.kind), true) : name(n.caseKind, c.kind)}
                           </Link>
                           {listRows.seenMark(casePath(c.caseId))}
                         </td>

@@ -271,10 +271,34 @@ main [role='alert'][data-state] > p.select-all {
 
 /* 결과 줄 정렬(최신순 | 과거순 — 공용 ResultBar 의 글자 단추)에도 위 고른 칩 테두리가 붙는데, 글자 단추라 여백이 없어
    테두리가 글자에 붙어 겹쳤다(2026-11-24 사용자 "최신순 과거순 버튼 테두리가 너무 좁게 쳐져 있어 글자랑 겹치네"). 여백·둥근 모서리를 준다. */
+/* 정렬(최신순|과거순·가입 최근 순|상태 바뀐 최근 순) — 2026-11-24 사용자 "얘네 비좁고 뚱뚱해 보여. UI 개별로":
+   붙은 테두리 단추 대신 떨어진 작은 알약, 안 고른 것은 테두리 없는 옅은 글자, 고른 것만 옅은 파랑 바탕·파란 글자 */
+main [role='radiogroup'][aria-label='정렬'] {
+  gap: 6px;
+  border: 0;
+  background: transparent;
+}
 main [role='radiogroup'][aria-label='정렬'] > [role='radio'] {
-  padding: 3px 10px;
-  border-radius: 6px;
-  line-height: 1.4;
+  padding: 5px 12px;
+  border: 1px solid transparent;
+  border-radius: 9999px;
+  background: transparent;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.3;
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
+  box-shadow: none;
+}
+main [role='radiogroup'][aria-label='정렬'] > [role='radio'][aria-checked='true'] {
+  border-color: color-mix(in oklab, var(--color-primary) 35%, transparent);
+  background: color-mix(in oklab, var(--color-primary) 10%, transparent);
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
+/* 찾기 줄은 위 숫자 띠 바로 밑이 아니라 아래 목록 쪽에 붙게 — 위로 여백(2026-11-24 사용자 "검색창이 위에 통계 배너 바로 아래 있게 하지마. 밑에 목록 위쪽에 있게 해서 여백감을 두자. 다른 탭도") */
+main form.pm-fbar {
+  margin-top: 28px;
 }
 
 /* 라이더 번호 링크(라이더 상세로)는 표의 어느 칸이든 점선 밑줄 — 누르면 라이더 정보로 간다는 표시

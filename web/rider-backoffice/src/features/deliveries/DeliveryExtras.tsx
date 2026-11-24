@@ -409,7 +409,7 @@ export function DeliveryStory({ delivery }: { readonly delivery: Execution }) {
           <span className="badge badge-sm badge-outline">{label(messages.names.caseKind, c.kind)}</span>
           <span className="font-medium">{label(messages.names.caseState, c.state)}</span>
           {/* 꼬리표에 종류가 있으니 요약 앞 "종류 — " 는 떼고, 영문 코드는 한글로 */}
-          {c.summary && <span className="text-base-content/70">{caseSummaryText(c.summary, label(messages.names.caseKind, c.kind))}</span>}
+          {c.summary && <span className="text-base-content/70">{caseSummaryText(c.summary, label(messages.names.caseKind, c.kind), true)}</span>}
           <Link to={`/consults/cases/${encodeURIComponent(c.caseId ?? '')}`} className="link link-hover text-xs text-base-content/60">
             {c.caseNumber ?? s.caseLink} ›
           </Link>
