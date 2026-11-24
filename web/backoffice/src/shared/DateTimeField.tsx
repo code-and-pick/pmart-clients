@@ -7,7 +7,7 @@
 // - min 보다 이른 시각으로는 돌아가지 않고, min 날짜 앞 날은 고를 수 없다.
 // - 펼친 칸은 이름표(label) 밖 — body(대화 상자 안이면 그 상자)에 띄운다. label 안에 두면 달력 단추까지 칸 이름을 달고 누를 때 칸이 눌린다.
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
-import { createPortal } from 'react-dom';
+import { createPortal, flushSync } from 'react-dom';
 
 const T = {
   placeholder: '연도-월-일 --:--',
@@ -20,7 +20,6 @@ const T = {
   pm: '오후',
   clear: '지우기',
   now: '지금',
-  wheelHint: '마우스 휠로 돌려요',
   week: ['일', '월', '화', '수', '목', '금', '토'],
 } as const;
 
@@ -68,9 +67,14 @@ const nowLocal = () => {
   return Date.UTC(d.getFullYear(), d.getMonth(), d.getDate(), d.getHours(), d.getMinutes());
 };
 
-/** 휠 한 칸(마우스 한 눈금 ≈ 100px, 터치패드는 잘게 와서 모은다) */
-const WHEEL_STEP = 50;
-function useWheelSteps(onStep: (dir: 1 | -1) => void) {
+/** 휠 한 칸 = 마우스 한 눈금(≈100px). 터치패드는 잘게 와서 모은다. */
+const WHEEL_STEP = 100;
+const ROW = 32; // 줄 한 칸 높이(px)
+/** 휠 한 번에 몇 칸인지 — px·줄·쪽 단위를 px 로 */
+const wheelPx = (e: WheelEvent) => (e.deltaMode === 1 ? e.deltaY * 40 : e.deltaMode === 2 ? e.deltaY * 400 : e.deltaY);
+
+/** 달력 달 넘기기처럼 칸만 세는 휠(움직임 없음) */
+function useWheelSteps(onStep: (n: number) => void) {
   const acc = useRef(0);
   const cb = useRef(onStep);
   useLayoutEffect(() => {
@@ -81,12 +85,11 @@ function useWheelSteps(onStep: (dir: 1 | -1) => void) {
     if (!el) return;
     const on = (e: WheelEvent) => {
       e.preventDefault();
-      const dy = e.deltaMode === 1 ? e.deltaY * 40 : e.deltaMode === 2 ? e.deltaY * 400 : e.deltaY;
-      acc.current += dy;
-      while (Math.abs(acc.current) >= WHEEL_STEP) {
-        const dir = acc.current > 0 ? 1 : -1;
-        acc.current -= dir * WHEEL_STEP;
-        cb.current(dir);
+      acc.current += wheelPx(e);
+      const n = Math.trunc(acc.current / WHEEL_STEP);
+      if (n) {
+        acc.current -= n * WHEEL_STEP;
+        cb.current(n);
       }
     };
     el.addEventListener('wheel', on, { passive: false });
@@ -94,41 +97,130 @@ function useWheelSteps(onStep: (dir: 1 | -1) => void) {
   }, []);
 }
 
-/** 돌리는 줄 하나: 가운데가 지금 값, 위아래 두 칸씩. 위·아래 칸을 누르면 그만큼 옮긴다. */
+/** 지금 그려진 세로 이동(px) — 넘어가는 중이면 그 순간 자리 */
+const shownY = (el: HTMLElement) => {
+  if (typeof DOMMatrixReadOnly === 'undefined') return 0;
+  const t = getComputedStyle(el).transform;
+  return t && t !== 'none' ? new DOMMatrixReadOnly(t).m42 : 0;
+};
+
+/**
+ * 돌리는 줄 하나(2026-11-24 사용자 "시간 내릴 때 자연스럽게 내려가게"): 가운데가 지금 값, 위아래 두 칸씩 보인다.
+ * 줄 묶음(7칸)을 미끄러뜨려 움직인다 — 마우스 한 눈금이면 한 칸이 스르륵, 터치패드는 손가락을 따라가다 가까운 칸에 멈춘다.
+ * 값이 바뀌면 새 줄이 그려지므로, 그려지기 직전 자리(한 칸 아래)에서 제자리로 옮겨 이어 보이게 한다.
+ */
 function Wheel({ label, rows, onStep, testId }: { readonly label: string; readonly rows: readonly string[]; readonly onStep: (n: number) => void; readonly testId: string }) {
-  const ref = useWheelSteps((dir) => onStep(dir));
+  const list = useRef<HTMLDivElement>(null);
+  const acc = useRef(0); // 아직 한 칸이 안 된 휠 양(px)
+  const pending = useRef(0); // 값이 바뀌어 새로 그릴 때 더할 자리(px)
+  const idle = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const cb = useRef(onStep);
+  useLayoutEffect(() => {
+    cb.current = onStep;
+  });
+  const key = rows.join('|');
+  const lastKey = useRef(key);
+
+  const move = useCallback((from: number | null, to: number) => {
+    const el = list.current;
+    if (!el) return;
+    if (from !== null) {
+      el.style.transition = 'none';
+      el.style.transform = `translateY(${from}px)`;
+      void el.offsetHeight; // 시작 자리를 먼저 그리게
+    }
+    el.style.transition = 'transform 160ms ease-out';
+    el.style.transform = `translateY(${to}px)`;
+  }, []);
+  const step = useCallback(
+    (n: number) => {
+      if (!n) return;
+      pending.current += n * ROW;
+      // 바로 다시 그려 새 줄이 그려진 자리에서 이어 움직이게(아래 useLayoutEffect) — 기다리면 한 칸이 툭 바뀐다
+      flushSync(() => cb.current(n));
+      // 값이 그대로면(min 에 막힘) 새로 그려지지 않는다 — 제자리로만
+      if (pending.current) {
+        pending.current = 0;
+        move(null, -(acc.current / WHEEL_STEP) * ROW);
+      }
+    },
+    [move],
+  );
+
+  // 값이 바뀌어 새 줄이 그려졌다 — 방금 보이던 자리에서 이어 움직이기
+  useLayoutEffect(() => {
+    if (key === lastKey.current) return;
+    lastKey.current = key;
+    const el = list.current;
+    if (el && pending.current) {
+      const from = shownY(el) + pending.current;
+      pending.current = 0;
+      move(from, -(acc.current / WHEEL_STEP) * ROW);
+    }
+  }, [key, move]);
+
+  const wheelRef = useCallback(
+    (el: HTMLElement | null) => {
+      if (!el) return;
+      const on = (e: WheelEvent) => {
+        e.preventDefault();
+        acc.current += wheelPx(e);
+        const n = Math.trunc(acc.current / WHEEL_STEP);
+        acc.current -= n * WHEEL_STEP;
+        if (n) step(n);
+        else move(null, -(acc.current / WHEEL_STEP) * ROW);
+        // 멈추면 가까운 칸에 선다
+        clearTimeout(idle.current);
+        idle.current = setTimeout(() => {
+          const a = acc.current;
+          acc.current = 0;
+          if (Math.abs(a) >= WHEEL_STEP / 2) step(Math.sign(a));
+          else move(null, 0);
+        }, 160);
+      };
+      el.addEventListener('wheel', on, { passive: false });
+      return () => {
+        el.removeEventListener('wheel', on);
+        clearTimeout(idle.current);
+      };
+    },
+    [move, step],
+  );
+
   return (
     <div
-      ref={ref}
+      ref={wheelRef}
       role="spinbutton"
       aria-label={label}
-      aria-valuetext={rows[2]}
+      aria-valuetext={rows[3]}
       tabIndex={0}
       data-testid={testId}
-      title={T.wheelHint}
-      className="relative flex w-14 cursor-ns-resize select-none flex-col items-stretch rounded outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+      className="relative h-40 w-14 cursor-ns-resize select-none overflow-hidden rounded outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
       onKeyDown={(e) => {
         const n = e.key === 'ArrowDown' ? 1 : e.key === 'ArrowUp' ? -1 : e.key === 'PageDown' ? 10 : e.key === 'PageUp' ? -10 : 0;
         if (n) {
           e.preventDefault();
-          onStep(n);
+          step(n);
         }
       }}
     >
       {/* 가운데 띠 */}
-      <span aria-hidden className="pointer-events-none absolute inset-x-0 top-[64px] h-8 rounded bg-primary" />
-      {rows.map((r, i) => (
-        <button
-          key={i}
-          type="button"
-          tabIndex={-1}
-          aria-hidden={i !== 2}
-          className={`relative h-8 text-sm tabular-nums ${i === 2 ? 'font-semibold text-primary-content' : Math.abs(i - 2) === 1 ? 'text-base-content/70 hover:text-base-content' : 'text-base-content/35 hover:text-base-content/70'}`}
-          onClick={() => i !== 2 && r !== '' && onStep(i - 2)}
-        >
-          {r}
-        </button>
-      ))}
+      <span aria-hidden className="pointer-events-none absolute inset-x-0 top-16 h-8 rounded bg-primary" />
+      {/* 7칸 — 위아래 한 칸씩은 창 밖(움직일 때 들어온다) */}
+      <div ref={list} className="absolute inset-x-0 -top-8 flex flex-col">
+        {rows.map((r, i) => (
+          <button
+            key={i}
+            type="button"
+            tabIndex={-1}
+            aria-hidden={i !== 3}
+            className={`relative h-8 shrink-0 text-sm tabular-nums ${i === 3 ? 'font-semibold text-primary-content' : Math.abs(i - 3) === 1 ? 'text-base-content/70 hover:text-base-content' : 'text-base-content/35 hover:text-base-content/70'}`}
+            onClick={() => i !== 3 && r !== '' && step(i - 3)}
+          >
+            {r}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
@@ -232,7 +324,7 @@ export function DateTimeField({
     };
   }, [open]);
 
-  const monthWheel = useWheelSteps((dir) => setMonth(({ y, m }) => ({ y: y + Math.floor((m + dir) / 12), m: (m + dir + 12) % 12 })));
+  const monthWheel = useWheelSteps((n) => setMonth(({ y, m }) => ({ y: y + Math.floor((m + n) / 12), m: (((m + n) % 12) + 12) % 12 })));
 
   // 달력 6주
   const first = Date.UTC(month.y, month.m, 1);
@@ -248,14 +340,14 @@ export function DateTimeField({
 
   // 시각 줄에 보일 글자(가운데 = 지금 값)
   const base = cur ?? nowLocal();
-  const rowsOf = (stepMin: number, fmt: (t: number) => string) => [-2, -1, 0, 1, 2].map((k) => fmt(base + k * stepMin * MIN));
+  const rowsOf = (stepMin: number, fmt: (t: number) => string) => [-3, -2, -1, 0, 1, 2, 3].map((k) => fmt(base + k * stepMin * MIN));
   const hourRows = rowsOf(60, (t) => {
     const h = new Date(t).getUTCHours() % 12;
     return p2(h === 0 ? 12 : h);
   });
   const minuteRows = rowsOf(1, (t) => p2(new Date(t).getUTCMinutes()));
   const halfOf = (t: number) => (new Date(t).getUTCHours() < 12 ? T.am : T.pm);
-  const halfRows = ['', halfOf(base - 12 * 60 * MIN), halfOf(base), halfOf(base + 12 * 60 * MIN), ''];
+  const halfRows = ['', '', halfOf(base - 12 * 60 * MIN), halfOf(base), halfOf(base + 12 * 60 * MIN), '', ''];
 
   return (
     <span ref={box} className="relative inline-flex w-fit max-w-full">
@@ -369,7 +461,6 @@ export function DateTimeField({
               <Wheel label={T.minute} testId="wheel-minute" rows={minuteRows} onStep={(n) => shift(n)} />
               <Wheel label={T.half} testId="wheel-half" rows={halfRows} onStep={(n) => shift(Math.sign(n) * 12 * 60)} />
             </div>
-            <p className="mt-auto pt-1 text-center text-[11px] text-base-content/45">{T.wheelHint}</p>
           </div>
         </div>,
         host,

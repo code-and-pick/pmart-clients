@@ -44,11 +44,14 @@ describe('DateTimeField — 휠로 시각 돌리기', () => {
     open();
     wheel('wheel-half', 100);
     expect(value()).toBe('2026-11-24T21:00');
-    wheel('wheel-minute', 20);
-    wheel('wheel-minute', 20);
+    wheel('wheel-minute', 40);
+    wheel('wheel-minute', 40);
     expect(value()).toBe('2026-11-24T21:00');
-    wheel('wheel-minute', 20);
+    wheel('wheel-minute', 40);
     expect(value()).toBe('2026-11-24T21:01');
+    // 한 번에 세 칸(빠르게 굴림)도 세 칸 모두
+    wheel('wheel-minute', 300);
+    expect(value()).toBe('2026-11-24T21:04');
   });
 
   it('min 보다 이르게는 돌아가지 않고, min 앞 날은 고를 수 없다', () => {
