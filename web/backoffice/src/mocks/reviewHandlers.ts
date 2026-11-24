@@ -1,5 +1,5 @@
 // ⚠ 화면 개발·시험용 목 — 리뷰 신고 확인(review 0.7.0 BR-90)·FAQ 답 의견 집계(customer-assistant 0.4.0 BR-91), 2026-11-23.
-// 신고 상세 `GET /review-reports/{reviewId}`·사진 본문 `GET /review-photos/{photoId}`(review 0.8.0 — 백엔드 PR #430 병합 전, 2026-11-24). 신고자는 싣지 않는다.
+// 신고 상세 `GET /review-reports/{reviewId}`·사진 본문 `GET /review-photos/{photoId}`(review 0.8.0 — 백엔드 PR #430, 2026-11-24). 신고자는 싣지 않는다.
 // 계약 모양 그대로. CS_AGENT·OPERATOR_ADMIN 만(그 밖 403). 처리는 멱등 키로 같은 결과, 처리할 신고가 없으면 409 NO_OPEN_REPORTS.
 import { http, HttpResponse } from 'msw';
 
