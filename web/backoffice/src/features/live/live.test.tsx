@@ -37,9 +37,18 @@ describe('실시간 배송 현황', () => {
   it('센터를 고르면 그 센터만 — 머리줄 센터 고르기와 같은 값(2026-11-23)', async () => {
     const view = renderAt('/live-delivery', as.admin);
     await screen.findAllByTestId('live-row');
-    await pick(userEvent.setup(), '센터', /MFC-SEL-01/, 'SEL-01'); // 쳐서 찾는 고르기(2026-11-19)
+    await pick(userEvent.setup(), '센터', /MFC-MOKPO-01/, 'MOKPO'); // 쳐서 찾는 고르기(2026-11-19)
     await waitFor(() => expect(screen.getAllByTestId('live-row')).toHaveLength(1));
-    expect(liveCalls(view.sent).at(-1)!.get('mfcId')).toBe('MFC-SEL-01');
+    expect(liveCalls(view.sent).at(-1)!.get('mfcId')).toBe('MFC-MOKPO-01');
+  });
+
+  it('센터 칸은 머리줄과 같은 운영 중 MFC 만 — 준비 중(송파)은 없다(2026-11-24)', async () => {
+    renderAt('/live-delivery', as.admin);
+    await screen.findAllByTestId('live-row');
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('combobox', { name: '센터' }));
+    expect(await screen.findByRole('option', { name: /MFC-MOKPO-01/ })).toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: /MFC-SEL-01/ })).not.toBeInTheDocument();
   });
 
   it('상태를 고르면 쪽 넘김 — 다음 쪽은 서버 nextCursor 로', async () => {

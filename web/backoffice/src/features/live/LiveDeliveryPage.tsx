@@ -15,7 +15,7 @@ import { Link, useSearchParams } from 'react-router';
 import { request } from '@pmart/web-core';
 import { QueryState, toUiState } from '@pmart/web-ui';
 import type { components } from '../../api/generated/backoffice-bff';
-import { useCenterScope, useSetCenterScope, CenterName } from '../../shared/centerScope';
+import { useCenterScope, useScopeCenters, useSetCenterScope, CenterName } from '../../shared/centerScope';
 import { useApi } from '../../app/ApiContext';
 import { messages } from '../../shared/messages';
 import { label, when } from '../../shared/ops';
@@ -131,10 +131,8 @@ export function LiveDeliveryPage() {
     setParams(out);
   };
 
-  const centers = useQuery({
-    queryKey: ['centers', 'MFC'],
-    queryFn: async () => (await request('GET', api.center.GET('/centers', { params: { query: { type: 'MFC' } } }))).items ?? [],
-  });
+  // 머리줄 센터 고르기와 같은 목록 — 운영 중(ACTIVE) MFC 만(2026-11-24 사용자 "고를 수 있는 센터 수가 다른 이유" — 전에는 준비 중 센터까지)
+  const centers = useScopeCenters();
   const query = useQuery({
     queryKey: ['bff', 'live-delivery', mfcId, state, cursor],
     refetchInterval: REFRESH_MS,

@@ -59,7 +59,7 @@ const row = (n: number, extra: Partial<Row>): Row => ({
 const rows: readonly Row[] = [
   row(1, { execution: 'PICKED_UP', dispatch: 'PICKED_UP', promisedAt: '2026-11-16T01:00:00.000Z', openCases: [{ caseId: 'CASE-MOCK-1', kind: 'RIDER_HELP', priority: 'P1', overdue: true }], eta: { status: 'AVAILABLE', at: '2026-11-16T01:12:00.000Z', delay: 720 } }),
   row(2, { execution: 'FAILURE_REPORTED', type: 'RESHIPMENT', eta: { status: 'LOCATING', at: null, delay: null }, riderNumber: null, riderName: null }),
-  row(3, { mfcId: 'MFC-SEL-01', execution: 'ARRIVED_AT_STORE', eta: { status: 'ETA_PENDING', at: null, delay: null }, orderNumber: null, deliveryNumber: null }),
+  row(3, { mfcId: 'MFC-MOKPO-01', execution: 'ARRIVED_AT_STORE', eta: { status: 'ETA_PENDING', at: null, delay: null }, orderNumber: null, deliveryNumber: null }),
   row(4, { execution: 'COMPLETED', dispatch: 'CLOSED' }),
   ...[5, 6, 7, 8, 9].map((n) => row(n, { execution: 'UNASSIGNED', dispatch: 'DISPATCHING', riderId: null, window: null, promisedAt: null })),
 ];

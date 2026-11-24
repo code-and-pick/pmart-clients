@@ -10,14 +10,14 @@
 import { blockReasonLabel } from '../../shared/blockReason';
 import { SearchSelect } from '../../shared/SearchSelect';
 import { useNewIds } from '../../shared/motion';
-import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
 
 import { request } from '@pmart/web-core';
 import { QueryState, uiStateFromError, type UiState } from '@pmart/web-ui';
 import type { operations } from '../../api/generated/backoffice-bff';
-import { useCenterScope, useSetCenterScope } from '../../shared/centerScope';
+import { useCenterScope, useScopeCenters, useSetCenterScope } from '../../shared/centerScope';
 import { useApi } from '../../app/ApiContext';
 import { messages } from '../../shared/messages';
 import { label, text, when } from '../../shared/ops';
@@ -116,10 +116,8 @@ export function PackingHandoverPage() {
     const merged = { mfcId: urlMfc, state, ...next };
     setParams({ ...(merged.mfcId ? { mfcId: merged.mfcId } : {}), ...(merged.state ? { state: merged.state } : {}) });
   };
-  const centers = useQuery({
-    queryKey: ['centers', 'MFC'],
-    queryFn: async () => (await request('GET', api.center.GET('/centers', { params: { query: { type: 'MFC' } } }))).items ?? [],
-  });
+  // 머리줄 센터 고르기와 같은 목록 — 운영 중(ACTIVE) MFC 만(2026-11-24 사용자 "고를 수 있는 센터 수가 다른 이유" — 전에는 준비 중 센터까지)
+  const centers = useScopeCenters();
   const query = useInfiniteQuery({
     queryKey: ['bff', 'packing-handover', mfcId, state],
     enabled: mfcId !== '', // 본사 역할은 센터 필수(비우면 400)
