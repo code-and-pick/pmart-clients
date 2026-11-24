@@ -8,7 +8,7 @@
 // 전화·주소·고객 이름은 넣지 않는다(이름은 가린 값). 다른 화면으로 넘기지 않고 같은 자리에서 펼친다(배송 상세 링크만 작게).
 import { useQuery } from '@tanstack/react-query';
 import { type ReactNode, useEffect, useId, useRef, useState } from 'react';
-import { Link } from 'react-router';
+import { Link, useNavigate } from 'react-router';
 
 import { request } from '@pmart/web-core';
 import { QueryState, toUiState } from '@pmart/web-ui';
@@ -207,6 +207,7 @@ function AnalysisBody({ rows, partial, now, mfcId }: { readonly rows: readonly S
   const delayNow = delays.data ? delays.data.items.length : null;
   const riders = useRiderSummaries(rows.map((r) => r.riderId));
   const name = (id: string | null | undefined) => (id ? <RiderName riderId={id} nameMasked={riders.get(id)?.nameMasked} riderNumber={riders.get(id)?.riderNumber} /> : <span className="an-sub-t">{t.noRider}</span>);
+  const navigate = useNavigate();
   const [tileOpen, setTileOpen] = useState<'late' | 'problems' | null>(null);
   const toggleTile = (k: 'late' | 'problems') => setTileOpen((v) => (v === k ? null : k));
   return (
@@ -217,7 +218,8 @@ function AnalysisBody({ rows, partial, now, mfcId }: { readonly rows: readonly S
         </p>
       )}
       <div className="an-tiles">
-        <Tile testId="an-tile-total" label={t.deliveries} value={String(m.total)} unit="건" sub={t.active(m.counts.active)} viz={<Spark values={m.hourly} />} />
+        {/* 2026-11-24 사용자 "분석에 배송도 클릭하면 배송관리로 넘어가지게" */}
+        <Tile testId="an-tile-total" label={t.deliveries} value={String(m.total)} unit="건" sub={t.active(m.counts.active)} viz={<Spark values={m.hourly} />} onClick={() => void navigate('/deliveries')} />
         <Tile
           testId="an-tile-rate"
           label={t.rate}

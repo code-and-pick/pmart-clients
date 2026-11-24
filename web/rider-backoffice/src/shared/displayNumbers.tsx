@@ -14,7 +14,7 @@ import type { components } from '../api/generated/rider';
 import { useApi } from '../app/ApiContext';
 import { labelText, useEmployeeLabel } from './employeeLabels';
 import { messages } from './messages';
-import { SimBadge } from './sim';
+import { isSimRider } from './sim';
 
 type RiderSummary = components['schemas']['StaffRiderSummary'];
 
@@ -86,8 +86,18 @@ export function RiderName({
     <span className={`inline-flex flex-wrap items-center gap-1 ${className}`} data-testid="rider-name" title={nameMasked ?? undefined}>
       {showName && <span className="font-medium">{nameMasked}</span>}
       {showName && <span className="text-base-content/50" aria-hidden="true">·</span>}
-      {riderNumber ? <span className="font-mono font-semibold">{riderNumber}</span> : <NoNumber id={riderId} />}
-      <SimBadge riderId={riderId} />
+      {/* 2026-11-24 사용자 "시뮬레이션 라이더면 옆에 시뮬이라고 적지말고 라이더 번호 색을 파랑으로 해줘. 모든 구역에" — 꼬리표 대신 파란 번호 */}
+      {riderNumber ? (
+        <span className={`font-mono font-semibold ${isSimRider(riderId) ? 'text-primary' : ''}`} title={isSimRider(riderId) ? '시뮬레이션 라이더' : undefined} data-sim={isSimRider(riderId) ? 'true' : undefined}>
+          {riderNumber}
+        </span>
+      ) : isSimRider(riderId) ? (
+        <span className="font-mono font-semibold text-primary" title="시뮬레이션 라이더(번호 없음)" data-sim="true">
+          {tail(riderId)}
+        </span>
+      ) : (
+        <NoNumber id={riderId} />
+      )}
     </span>
   );
 }

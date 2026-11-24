@@ -151,6 +151,14 @@ describe('대시보드 분석 셈', () => {
 });
 
 describe('대시보드 분석 구역', () => {
+  it('배송 타일을 누르면 배송 관리로(2026-11-24)', async () => {
+    serve(rows(Date.now()));
+    renderAt('/dashboard', as.riderOps);
+    const section = await screen.findByTestId('analysis');
+    await userEvent.click(await within(section).findByTestId('an-tile-total'));
+    expect(await screen.findByRole('heading', { name: '배송 관리' })).toBeInTheDocument();
+  });
+
   it('실패·이상 타일을 누르면 아래에 그 배송 목록, 다시 누르면 닫힌다(2026-11-24)', async () => {
     serve(rows(Date.now()));
     renderAt('/dashboard', as.riderOps);

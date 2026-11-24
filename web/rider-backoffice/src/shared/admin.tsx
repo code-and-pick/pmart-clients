@@ -67,13 +67,14 @@ export function DetailHeader({ back, title, badges, summary, actions, seen = fal
       {/* 2026-11-24 사용자 "< 상담함 이건 왜 제목 위에 있는 거며" — 제목이 맨 위. 이전/다음은 오른쪽 위.
           같은 날 "세부 탭에 들어가고 나면 < 이런 뒤로가기 버튼이 어딘가에 있었으면" — 제목 바로 왼쪽에 둥근 ‹(내려가도 위 띠에 같은 단추) */}
       <div ref={card} className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0 space-y-1">
+        {/* 2026-11-24 사용자 "제목 밑 글이 … 제목에 딱 붙어서 답답" — 제목과 밑줄 사이를 띄우고 밑줄은 작고 옅게 */}
+        <div className="min-w-0 space-y-2">
           <div className="flex flex-wrap items-center gap-2">
             <BackButton onClick={goBack} label={back.label} />
             <h1 className="text-2xl font-bold">{title}</h1>
             {badges}
           </div>
-          {summary && <p className="text-[15px] text-base-content/80">{summary}</p>}
+          {summary && <p className="text-sm text-base-content/60">{summary}</p>}
         </div>
         <div className="flex flex-col items-end gap-2">
           <div className="flex flex-wrap items-center justify-end gap-3 text-sm">

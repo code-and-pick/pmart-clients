@@ -56,21 +56,21 @@
 .pm-funnel:hover {
   color: var(--color-base-content);
 }
+/* 2026-11-24 사용자 "필터 이렇게 뜨는 거 좀 세련되지 못하네" — 꽉 찬 파랑 + 떠 있는 검은 점 대신 테두리·옅은 바탕, 개수는 글자 옆 작은 알약 */
 .pm-funnel.on {
-  background: var(--color-primary);
+  background: color-mix(in oklab, var(--color-primary) 8%, var(--color-base-100));
   border-color: var(--color-primary);
-  color: var(--color-primary-content);
+  color: var(--color-primary);
 }
 .pm-funnel-n {
-  position: absolute;
-  top: -6px;
-  right: -6px;
+  position: static;
+  margin-left: 6px;
   min-width: 16px;
   height: 16px;
   padding: 0 4px;
   border-radius: 9999px;
-  background: var(--color-base-content);
-  color: var(--color-base-100);
+  background: var(--color-primary);
+  color: var(--color-primary-content);
   font-size: 10px;
   font-weight: 700;
   line-height: 16px;
@@ -190,8 +190,9 @@ main .pm-pop [role='radiogroup'] > [role='radio'] > span {
   align-items: center;
   gap: 2px;
   padding: 3px 4px 3px 10px;
-  border-radius: 9999px;
-  background: color-mix(in oklab, var(--color-primary) 13%, transparent);
+  border-radius: 8px;
+  border: 1px solid var(--color-base-300);
+  background: var(--color-base-100);
   color: var(--color-base-content);
   font-size: 13px;
   font-weight: 600;

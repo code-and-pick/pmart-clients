@@ -22,7 +22,7 @@ import { ActionSection, Caret, expandRowProps, InlineDetail, inlineSubButton, Su
 import { Icon } from '../../shared/icons';
 import { ui } from '../../shared/uiMessages';
 import { DeliveryRef, RiderName, riderNumberInput, RiderRef, StaffName, SystemIds, useDeliveryNumbers, useRiderSummaries } from '../../shared/displayNumbers';
-import { SimBadge } from '../../shared/sim';
+import { isSimRider } from '../../shared/sim';
 import { useSession } from '../../app/SessionContext';
 import { LIVE } from '../../shared/liveRefresh';
 import { messages } from '../../shared/messages';
@@ -499,11 +499,11 @@ function RiderDetailPage() {
       <DetailHeader
         seen={!!d}
         back={{ to: '/riders', label: r.back }}
-        title={d?.riderNumber ? r.detailTitle(d.riderNumber) : r.detailTitle(rm.noNumber)}
+        // 시뮬레이션 라이더는 제목 번호도 파랑(꼬리표 대신, 2026-11-24)
+        title={<span className={isSimRider(riderId) ? 'text-primary' : undefined} data-sim={isSimRider(riderId) ? 'true' : undefined}>{d?.riderNumber ? r.detailTitle(d.riderNumber) : r.detailTitle(rm.noNumber)}</span>}
         badges={
           d && (
             <>
-              <SimBadge riderId={riderId} />
               {gone && <StatusBadge tone="neutral">{rx.withdrawn}</StatusBadge>}
               <StatusBadge tone={signupTone(d.signupStatus)}>{signupText(d.signupStatus, d.signupDecidedBy ?? null)}</StatusBadge>
             </>

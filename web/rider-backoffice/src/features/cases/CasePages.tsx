@@ -20,6 +20,7 @@ import { listCountText, useListRows } from '../../shared/listKit';
 import { SavedViews } from '../../shared/SavedViews';
 import { Caret, expandRowProps, InlineDetail, useInlineOpen } from '../../shared/simList';
 import { useNow } from '../../shared/useNow';
+import { caseSummaryText } from '../../shared/caseText';
 import { elapsedText } from '../deliveries/DeliveryExtras';
 import { caseTone, StateTabs } from '../support/supportUi';
 
@@ -161,12 +162,8 @@ function CaseUrgent({ c }: { readonly c: { readonly state?: string | null; reado
 }
 
 /** 요약 글자 다듬기 — 서버 요약에 섞인 ISO 시각(2026-11-20T13:10:39.63Z)을 화면 시각으로 */
-const CODE_WORDS: Readonly<Record<string, string>> = { ...n.helpCategory, ...n.executionState };
-const tidySummary = (text: string) =>
-  tidyIso(text)
-    // 2026-11-24 사용자(상세 "라이더 도움요청 — APP_ERROR (ASSIGNED)") — 서버 요약 속 영문 코드를 화면 글자로
-    .replace(/\b[A-Z][A-Z_]{2,}\b/g, (code) => CODE_WORDS[code] ?? code);
-const tidyIso = (text: string) => text.replace(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})?/g, (iso) => when(iso));
+// 영문 코드·ISO 시각 → 화면 글자(shared/caseText). kindLabel 을 주면 앞의 "종류 — " 를 뗀다(종류가 따로 보이는 자리)
+const tidySummary = (text: string, kindLabel?: string) => caseSummaryText(text, kindLabel);
 
 /** 처리함의 "배송 사건" 탭(2026-11-21) — embedded 면 쪽 제목 없이, 주소의 tab=cases 를 지킨다 */
 export function CaseListPage({ embedded = false }: { readonly embedded?: boolean }) {
@@ -320,8 +317,8 @@ export function CaseListPage({ embedded = false }: { readonly embedded?: boolean
                         <td className="whitespace-nowrap">{name(n.caseKind, c.kind)}</td>
                         <td className="font-medium">
                           {/* 내용은 한 줄(넘치면 … — 전체는 올려 보거나 줄을 펼치면, 2026-11-24 "내용도 2줄 이상 되니까 보기 힘들잖아") */}
-                          <Link className="block max-w-md truncate hover:underline" title={tidySummary(c.summary || '')} to={casePath(c.caseId)} onClick={(e) => e.stopPropagation()}>
-                            {c.summary ? tidySummary(c.summary) : name(n.caseKind, c.kind)}
+                          <Link className="block max-w-md truncate hover:underline" title={tidySummary(c.summary || '', name(n.caseKind, c.kind))} to={casePath(c.caseId)} onClick={(e) => e.stopPropagation()}>
+                            {c.summary ? tidySummary(c.summary, name(n.caseKind, c.kind)) : name(n.caseKind, c.kind)}
                           </Link>
                           {listRows.seenMark(casePath(c.caseId))}
                         </td>
@@ -375,7 +372,7 @@ function CaseInline({ caseId }: { readonly caseId: string }) {
             {/* 내용은 칸 하나에 3줄로 접혀 읽기 어려웠다(2026-11-24 "글 3줄 넘어가서 눈에 안 들어오고") — 위에 한 줄로 따로 */}
             {x.summary && (
               <p className="mb-3 text-[15px] font-semibold" data-testid="case-inline-summary">
-                {tidySummary(x.summary)}
+                {tidySummary(x.summary, name(n.caseKind, x.kind))}
               </p>
             )}
             <FieldList
@@ -422,7 +419,7 @@ export function CaseDetailPage() {
         seen={!!c}
         back={{ to: CASE_LIST, label: m.back }}
         // 2026-11-24 사용자 "위쪽에 왜 이렇게 UI 복잡한데 글도 줄줄 적혀 있고" — 제목은 요약(코드는 글자로), 밑줄은 종류·접수 시각만, 안내 상자 뺌
-        title={c ? (c.summary ? tidySummary(c.summary) : name(n.caseKind, c.kind)) : m.detailTitle('')}
+        title={c ? (c.summary ? tidySummary(c.summary, name(n.caseKind, c.kind)) : name(n.caseKind, c.kind)) : m.detailTitle('')}
         badges={
           c && (
             <>

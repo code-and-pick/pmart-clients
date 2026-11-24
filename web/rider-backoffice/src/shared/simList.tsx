@@ -130,8 +130,9 @@ export function SearchPanel({
       {!search && children == null && submitBtn}
       {active.map(([k, v, clear]) => (
         <span key={k} className="pm-fchip" data-testid="search-chip">
-          <button type="button" className="pm-fchip-l" aria-label={t.change(k, v)} onClick={() => setOpen(true)}>
-            <span className="pm-fchip-k">{k}</span> {v}
+          {/* 값만("운행 운행 중" 처럼 되풀이하지 않게) — 무슨 조건인지는 올려 보면(title)·읽기 도구 이름 */}
+          <button type="button" className="pm-fchip-l" aria-label={t.change(k, v)} title={k} onClick={() => setOpen(true)}>
+            {v}
           </button>
           {clear && (
             <button type="button" className="pm-fchip-x" aria-label={t.clear(k)} onClick={clear}>

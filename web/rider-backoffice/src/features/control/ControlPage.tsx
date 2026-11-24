@@ -65,8 +65,7 @@ const cx = {
   lateOver: (m: number) => (m > 0 ? `약속보다 ${m}분 지남` : '곧 늦을 예정'),
   lateNoPromise: '약속 시각 모름',
   latePromised: (t: string) => `약속 ${t}`,
-  // 2026-11-24 사용자 "이런 회색 글 너무 길다니까 … 줄여" — 라이더·배송 수는 위 "운행 중 n명 · 기준" 줄에 있어 뺐다
-  basis: '카드를 누르면 그 라이더만 보여요. 다시 누르면 풀려요.',
+  // 2026-11-24 사용자 "카드를 누르면 … 이 회색글 없애" — 진행 단계 아래 설명 줄(basis)을 뺐다
 } as const;
 
 const FLOW_STAGES = ['TO_STORE', 'AT_STORE', 'TO_CUSTOMER', 'AT_CUSTOMER'] as const;
@@ -455,7 +454,6 @@ function ControlBoards({
           {flowCell('delivering', cx.delivering, cx.people(delivering), filterLink(filter === 'delivering' ? 'all' : 'delivering'), filter === 'delivering', false)}
           {FLOW_STAGES.map((st, i) => flowCell(st, label(n.stage, st), cx.deliveries(byStage(st)), filterLink(filter === st ? 'all' : st), filter === st, i === FLOW_STAGES.length - 1))}
         </ol>
-        <p className="text-xs text-base-content/50">{cx.basis}</p>
       </section>
     </div>
   );
@@ -463,17 +461,18 @@ function ControlBoards({
 
 /** 관제 핵심 수 — 누르면 그 거르기. 고른 거르기는 테두리, 문제가 있으면 빨강 */
 function KpiTile({ label: text, value, to, onClick, active = false, dot, alert = false, warn = false, hint, testId }: { readonly label: string; readonly value: string; readonly to?: string; readonly onClick?: () => void; readonly active?: boolean; readonly dot?: string; readonly alert?: boolean; readonly warn?: boolean; readonly hint?: string; readonly testId?: string }) {
-  const cls = `flex items-center justify-between gap-3 rounded-box border px-5 py-3 ${active ? 'border-primary bg-primary/5' : 'border-base-300 bg-base-100'} ${to || onClick ? 'hover:border-primary' : ''}`;
+  // 2026-11-24 사용자 "검은 글자 위치 맞추고 너무 얇아서 안 보이잖아" — 이름은 칸 위쪽 같은 줄·굵고 진하게, 숫자는 가운데
+  const cls = `flex items-start justify-between gap-3 rounded-box border px-5 py-3 ${active ? 'border-primary bg-primary/5' : 'border-base-300 bg-base-100'} ${to || onClick ? 'hover:border-primary' : ''}`;
   const body = (
     <>
       <span className="min-w-0">
-        <span className="flex items-center gap-2 text-sm text-base-content/65">
+        <span className="flex items-center gap-2 text-sm font-semibold text-base-content">
           {dot && <span className={`h-2 w-2 rounded-full ${dot}`} aria-hidden />}
           {text}
         </span>
         {hint && <span className="block text-[11px] text-base-content/45">{hint}</span>}
       </span>
-      <span className={`shrink-0 whitespace-nowrap text-2xl font-bold tabular-nums ${alert ? 'text-error' : warn ? 'text-warning' : ''}`}>{value}</span>
+      <span className={`shrink-0 self-center whitespace-nowrap text-2xl font-bold tabular-nums ${alert ? 'text-error' : warn ? 'text-warning' : ''}`}>{value}</span>
     </>
   );
   return to ? (

@@ -12,6 +12,7 @@ import type { components as TrackingC } from '../../api/generated/delivery-track
 import { useApi } from '../../app/ApiContext';
 import { AuthedPhotos } from '../../shared/AuthedPhotos';
 import { messages } from '../../shared/messages';
+import { caseSummaryText } from '../../shared/caseText';
 import { DeliveryNo, DeliveryRef, RiderName, shortDeliveryKind, useRiderSummaries, RiderLink } from '../../shared/displayNumbers';
 import { label, none, when, won } from '../../shared/opsUi';
 import { StatusBadge } from '../../shared/admin';
@@ -407,7 +408,8 @@ export function DeliveryStory({ delivery }: { readonly delivery: Execution }) {
         <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5" data-testid="story-case">
           <span className="badge badge-sm badge-outline">{label(messages.names.caseKind, c.kind)}</span>
           <span className="font-medium">{label(messages.names.caseState, c.state)}</span>
-          {c.summary && <span className="text-base-content/70">{c.summary}</span>}
+          {/* 꼬리표에 종류가 있으니 요약 앞 "종류 — " 는 떼고, 영문 코드는 한글로 */}
+          {c.summary && <span className="text-base-content/70">{caseSummaryText(c.summary, label(messages.names.caseKind, c.kind))}</span>}
           <Link to={`/consults/cases/${encodeURIComponent(c.caseId ?? '')}`} className="link link-hover text-xs text-base-content/60">
             {c.caseNumber ?? s.caseLink} ›
           </Link>

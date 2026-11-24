@@ -38,8 +38,11 @@ describe('시뮬레이션 웹 연결', () => {
     renderAt('/control?mfcId=MFC-BSJ-01', as.riderOps);
     const rows = await screen.findAllByTestId('control-row');
     expect(rows).toHaveLength(2);
-    expect(within(rows.find((r) => r.id === 'control-RD-sim-01')!).getByTestId('sim-badge')).toHaveTextContent('시뮬');
-    expect(within(rows.find((r) => r.id === 'control-RD-7')!).queryByTestId('sim-badge')).toBeNull();
+    // 꼬리표 대신 파란 번호(2026-11-24)
+    const sim = rows.find((r) => r.id === 'control-RD-sim-01')!;
+    expect(sim.querySelector('[data-sim="true"]')).toHaveClass('text-primary');
+    expect(within(sim).queryByText('시뮬')).toBeNull();
+    expect(rows.find((r) => r.id === 'control-RD-7')!.querySelector('[data-sim="true"]')).toBeNull();
     await userEvent.click(screen.getByRole('radio', { name: '시험' }));
     expect(screen.getAllByTestId('control-row').map((r) => r.id)).toEqual(['control-RD-sim-01']);
   });

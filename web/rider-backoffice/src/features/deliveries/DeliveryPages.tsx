@@ -56,14 +56,15 @@ const FLOW = ['UNASSIGNED', 'ASSIGNED', 'ARRIVED_AT_STORE', 'PICKED_UP', 'ARRIVE
 function StateTile({ label: text, hint, value, to, active = false, tone, arrow = false, testId }: { readonly label: string; readonly hint?: string; readonly value: string; readonly to?: string; readonly active?: boolean; readonly tone?: 'primary' | 'warning' | 'error' | undefined; readonly arrow?: boolean; readonly testId: string }) {
   const zero = /^0(\D|$)/.test(value);
   const color = zero ? 'text-base-content/35' : tone === 'error' ? 'text-error' : tone === 'warning' ? 'text-warning' : tone === 'primary' ? 'text-primary' : '';
-  const cls = `flex h-full items-center justify-between gap-2 rounded-box border px-4 py-3 ${active ? 'border-primary bg-primary/5' : 'border-base-300 bg-base-100'}`;
+  const cls = `flex h-full items-start justify-between gap-2 rounded-box border px-4 py-3 ${active ? 'border-primary bg-primary/5' : 'border-base-300 bg-base-100'}`;
   const body = (
     <>
       <span className="min-w-0">
         <span className="block text-sm font-semibold">{text}</span>
         {hint && <span className="block text-[11px] text-base-content/50">{hint}</span>}
       </span>
-      <span className={`text-2xl font-bold tabular-nums ${color}`}>{value}</span>
+      {/* 이름은 칸 위쪽 같은 줄에(2026-11-24 사용자 "검은 굵은 글자 위치 균일하게 일직선상으로"), 숫자는 가운데 */}
+      <span className={`self-center text-2xl font-bold tabular-nums ${color}`}>{value}</span>
     </>
   );
   return (
@@ -569,7 +570,8 @@ function DeliveryDetailPage() {
               <span className="text-base-content/50" aria-hidden="true">·</span>
               {d.riderId ? (
                 <>
-                  라이더 <RiderLink withName riderId={d.riderId} nameMasked={riders.get(d.riderId)?.nameMasked} riderNumber={riders.get(d.riderId)?.riderNumber} />
+                  {/* 2026-11-24 사용자 "라이더 이름은 빼주고" — 번호만 */}
+                  라이더 <RiderLink riderId={d.riderId} nameMasked={riders.get(d.riderId)?.nameMasked} riderNumber={riders.get(d.riderId)?.riderNumber} />
                 </>
               ) : (
                 m.noRider

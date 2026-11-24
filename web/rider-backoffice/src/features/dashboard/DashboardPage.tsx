@@ -95,6 +95,9 @@ export function DashboardPage() {
   });
   const s = deliveries.data;
   const controlLink = mfcId ? `/control?mfcId=${encodeURIComponent(mfcId)}` : '/control';
+  // 2026-11-24 사용자 "운행중 (전체) 5를 보고 클릭했는데 라이더 관제 전체에 3명밖에 안 떠" — 센터를 안 고르면 수는 모든 센터인데 관제는 한 센터만 보인다.
+  // 센터를 안 골랐으면 라이더 관리(운행 중, 모든 센터)로 — 수와 목록이 같게. 센터를 골랐으면 그 센터 관제
+  const onDutyLink = mfcId ? controlLink : '/riders?operatingStatus=ON_DUTY';
   const inq = listCount(inquiries);
   return (
     <section className="space-y-4">
@@ -121,8 +124,8 @@ export function DashboardPage() {
         <QueryState state={toUiState(riders)} onRetry={() => void riders.refetch()}>
           {(r) => (
             <>
-              <StatCard label={d.onDuty} value={num(r.onDuty)} to={controlLink} hint={d.onDutyHint} testId="stat-on-duty" />
-              <StatCard label={d.accepting} value={num(r.onDutyAcceptingNew)} to={controlLink} testId="stat-accepting" />
+              <StatCard label={d.onDuty} value={num(r.onDuty)} to={onDutyLink} hint={d.onDutyHint} testId="stat-on-duty" />
+              <StatCard label={d.accepting} value={num(r.onDutyAcceptingNew)} to={onDutyLink} testId="stat-accepting" />
               <StatCard label={d.total} value={num(r.total)} to="/riders" testId="stat-riders-total" />
             </>
           )}
@@ -146,8 +149,8 @@ export function DashboardPage() {
                 <Bars
                   total={Math.max(r.total, 1)}
                   rows={[
-                    { label: d.onDuty, value: r.onDuty, to: controlLink, tone: 'bg-[var(--pm-chart-1)]' },
-                    { label: d.accepting, value: r.onDutyAcceptingNew, to: controlLink, tone: 'bg-[var(--pm-chart-1)]', sub: true },
+                    { label: d.onDuty, value: r.onDuty, to: onDutyLink, tone: 'bg-[var(--pm-chart-1)]' },
+                    { label: d.accepting, value: r.onDutyAcceptingNew, to: onDutyLink, tone: 'bg-[var(--pm-chart-1)]', sub: true },
                     { label: d.joinedToday, value: r.joinedToday, to: '/signups', tone: 'bg-[var(--pm-chart-1)]' },
                   ]}
                 />
