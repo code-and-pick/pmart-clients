@@ -1,5 +1,5 @@
 // 지급 관리·소명·이의(2026-11-19, PC 5) — 목(MSW) 기준. 실서버 확인은 아니다.
-import { screen, within } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 
@@ -29,10 +29,11 @@ describe('지급 관리', () => {
     renderAt('/payouts', as.admin);
     const rows = await screen.findAllByTestId('payout-row');
     // 펼치지 않아도 줄에 정상·조정 수가 늘(2026-11-24 "정상수행료인지 조정수행료인지 뜨게 하라고")
-    expect(await within(rows[0]!).findByTestId('payout-kinds')).toHaveTextContent('정상 1');
-    expect(within(rows[0]!).getByTestId('payout-adjusted-count')).toHaveTextContent('조정 1');
+    expect(await within(rows[0]!).findByTestId('payout-adjusted-count')).toHaveTextContent('조정 1');
+    expect(within(rows[0]!).getByTestId('payout-kinds')).toHaveTextContent('정상 1');
     // 조정이 없는 묶음은 "정상 2"만 — 0 은 적지 않는다(2026-11-24)
-    expect(await within(rows[1]!).findByTestId('payout-kinds')).toHaveTextContent('정상 2');
+    await waitFor(() => expect(within(rows[1]!).getByTestId('payout-kinds')).toHaveTextContent('정상 2'));
+    expect(within(rows[1]!).queryByTestId('payout-count')).not.toBeInTheDocument();
     expect(within(rows[1]!).queryByTestId('payout-adjusted-count')).not.toBeInTheDocument();
     await userEvent.click(rows[0]!);
     const box = await screen.findByTestId('payout-items');
@@ -177,6 +178,9 @@ describe('이의 인정 보상금', () => {
   it('지급 묶음에 보상 건수', async () => {
     renderAt('/payouts', as.admin);
     const rows = await screen.findAllByTestId('payout-row');
-    expect(rows[0]).toHaveTextContent('(보상 1)');
+    expect(rows[0]).toHaveTextContent('보상 1');
+    // 정상·조정·보상을 더해 건수와 맞으면 따로 건수 숫자를 적지 않는다(2026-11-24 "건수 1이랑 정상1 둘 다 뜨는데 그냥 정상1 이것만")
+    await within(rows[0]!).findByTestId('payout-adjusted-count');
+    expect(within(rows[0]!).queryByTestId('payout-count')).not.toBeInTheDocument();
   });
 });

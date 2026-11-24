@@ -41,7 +41,7 @@ export const payoutText = {
   recorded: (s: string) => `${s}(으)로 표시했어요.`,
   doneLine: (rider: string, date: string, s: string) => `${rider} · ${date} 묶음을 ${s}(으)로 표시했어요.`,
   adminOnly: '관리자만 표시할 수 있어요',
-  compensations: (n: number) => `(보상 ${n})`,
+  compensationChip: (n: number) => `보상 ${n}`,
   adjustedCount: (n: number) => `조정 ${n}`,
   normalCount: (n: number) => `정상 ${n}`,
   kind: '수행료 구분',
@@ -116,20 +116,27 @@ function usePayoutSources(riderId: string, payoutDate: string) {
  * 지급 관리 줄의 정상·조정 수(2026-11-24 사용자 "정상수행료인지 조정수행료인지 뜨게 하라고") — 조정이 없는 묶음도 "정상 2"처럼
  * 늘 적는다(전에는 조정이 있을 때만 붙어 정상 묶음에는 아무 표시가 없었다). 못 읽거나 읽는 중이면 적지 않는다(0 으로 보이지 않게).
  */
-function EarningKinds({ riderId, payoutDate }: { readonly riderId: string; readonly payoutDate: string }) {
+function EarningKinds({ riderId, payoutDate, count, compensationCount }: { readonly riderId: string; readonly payoutDate: string; readonly count: number; readonly compensationCount: number }) {
   const [earnings] = usePayoutSources(riderId, payoutDate);
-  if (!earnings.data) return null;
-  const { normal, adjusted } = kindCounts(earnings.data.items ?? [], payoutDate);
-  // 0 인 쪽은 적지 않는다(2026-11-24 사용자 "정상1 조정0 이렇게 되어있는데 0인 건 표시 안 해도 될 것 같아")
-  if (normal === 0 && adjusted === 0) return null;
+  const c = earnings.data ? kindCounts(earnings.data.items ?? [], payoutDate) : null;
+  // 2026-11-24 사용자 "건수 1이랑 정상1 둘 다 뜨는데 그냥 정상1 이것만" — 정상·조정·보상을 더한 수가 서버 건수와 맞으면 칩만 적는다.
+  // 아직 못 읽었거나(읽는 중·실패) 수가 안 맞으면(31일보다 오래된 수행료 등) 서버 건수를 그대로 적는다 — 건수를 잃지 않게.
+  const whole = c !== null && c.normal + c.adjusted + compensationCount === count;
+  const chip = 'rounded border px-1 py-px';
   return (
-    <span className="mt-0.5 flex justify-end gap-1 text-[11px]" data-testid="payout-kinds">
-      {normal > 0 && <span className="rounded border border-base-300 px-1 py-px text-base-content/70">{payoutText.normalCount(normal)}</span>}
-      {adjusted > 0 && (
-        <span className="rounded border border-warning/50 px-1 py-px font-semibold text-warning" data-testid="payout-adjusted-count">
-          {payoutText.adjustedCount(adjusted)}
+    <span className="inline-flex flex-wrap items-center justify-end gap-1 text-xs" data-testid="payout-kinds">
+      {!whole && (
+        <span className="text-sm text-base-content" data-testid="payout-count">
+          {count}
         </span>
       )}
+      {c && c.normal > 0 && <span className={`${chip} border-base-300 text-base-content/70`}>{payoutText.normalCount(c.normal)}</span>}
+      {c && c.adjusted > 0 && (
+        <span className={`${chip} border-warning/50 font-semibold text-warning`} data-testid="payout-adjusted-count">
+          {payoutText.adjustedCount(c.adjusted)}
+        </span>
+      )}
+      {compensationCount > 0 && <span className={`${chip} border-base-300 text-base-content/60`}>{payoutText.compensationChip(compensationCount)}</span>}
     </span>
   );
 }
@@ -371,9 +378,7 @@ export function PayoutsMenu() {
                       </td>
                       <td className="whitespace-nowrap">{p.payoutDate}</td>
                       <td className="text-right">
-                        {p.count}
-                        {p.compensationCount ? <span className="ml-1 text-xs text-base-content/60">{t.compensations(p.compensationCount)}</span> : null}
-                        <EarningKinds riderId={p.riderId} payoutDate={p.payoutDate} />
+                        <EarningKinds riderId={p.riderId} payoutDate={p.payoutDate} count={p.count} compensationCount={p.compensationCount ?? 0} />
                       </td>
                       <td className="text-right font-semibold">{won(p.total)}</td>
                       <td>
