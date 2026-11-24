@@ -464,12 +464,13 @@ function Thumb({ card, name }: { readonly card: { readonly mainImage?: { readonl
 function RowActions({ productId }: { readonly productId: string }) {
   const detail = `/products/${encodeURIComponent(productId)}`;
   return (
-    <div className="join">
-      <Link className="btn btn-sm join-item" to={detail} data-testid="product-edit">
+    // join 을 쓰지 않는다 — ⋮ 를 감싼 dropdown 칸까지 join-item 이 되면 그 칸이 버튼 밖에 진한 테두리를 한 겹 더 그리고 1px 내려앉는다(2026-11-24 사용자 "점 부자연스러워")
+    <div className="inline-flex">
+      <Link className="btn btn-sm rounded-r-none" to={detail} data-testid="product-edit">
         {l.edit}
       </Link>
-      <div className="dropdown dropdown-end join-item">
-        <button type="button" className="btn btn-sm join-item px-2" aria-label={l.more} title={l.more}>
+      <div className="dropdown dropdown-end">
+        <button type="button" className="btn btn-sm -ml-px rounded-l-none px-2" aria-label={l.more} title={l.more}>
           ⋮
         </button>
         <ul tabIndex={0} className="menu dropdown-content z-30 mt-1 w-48 rounded-box border border-base-300 bg-base-100 p-1 text-sm shadow-lg">
