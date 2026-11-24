@@ -4,6 +4,7 @@
 //   처리할 신고가 없으면 409 NO_OPEN_REPORTS(다른 직원이 먼저 처리) → 목록을 다시 읽는다. 결과는 신고자에게 알리지 않는다(사용자 결정).
 // - 역할: CS_AGENT·OPERATOR_ADMIN(메뉴도 그 둘에게만). 신고만으로는 숨기지 않는다 — 운영자가 확인한 뒤에만.
 // - 보낼 값(처리·메모)은 누른 때 명령 값으로(#410 — 결과 불명 뒤 같은 키로 다시 확인할 때 처음 값 그대로).
+// - 줄의 리뷰 글·"상세 보기"를 누르면 신고 상세(`ReviewReportDetailPage`, review 0.8.0 — 2026-11-24 사용자 "눌러서 상세확인").
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
@@ -26,11 +27,12 @@ type Action = 'HIDE' | 'KEEP';
 const STATES: readonly State[] = ['OPEN', 'RESOLVED'];
 const KEY = ['review-reports'];
 
-const stars = (n: number) => `${'★'.repeat(Math.max(0, Math.min(5, n)))}${'☆'.repeat(Math.max(0, 5 - Math.min(5, n)))}`;
+export const stars = (n: number) => `${'★'.repeat(Math.max(0, Math.min(5, n)))}${'☆'.repeat(Math.max(0, 5 - Math.min(5, n)))}`;
 
-const isGone = (e: unknown) => e instanceof ProblemFailure && e.problem.code === 'NO_OPEN_REPORTS';
+export const isGone = (e: unknown) => e instanceof ProblemFailure && e.problem.code === 'NO_OPEN_REPORTS';
 
-function Resolve({ g, onDone }: { readonly g: Group; readonly onDone: () => void }) {
+/** 숨김·문제없음 처리 — 목록 줄과 상세가 같이 쓴다(처리 전 신고를 모두 닫는다). */
+export function Resolve({ g, onDone }: { readonly g: Pick<Group, 'reviewId' | 'reviewDeleted'>; readonly onDone: () => void }) {
   const api = useApi();
   const [note, setNote] = useState('');
   const [ask, setAsk] = useState<Action | null>(null);
@@ -97,6 +99,7 @@ function Resolve({ g, onDone }: { readonly g: Group; readonly onDone: () => void
 }
 
 function GroupRow({ g, onDone }: { readonly g: Group; readonly onDone: () => void }) {
+  const detailPath = `/review-reports/${encodeURIComponent(g.reviewId)}`;
   const reasons = Object.entries(g.reasonCounts ?? {}).filter(([, n]) => n > 0);
   return (
     <li className="grid gap-x-6 gap-y-3 px-5 py-4 text-sm md:grid-cols-[minmax(0,1fr)_minmax(16rem,22rem)]" data-testid="review-report" data-state={g.state}>
@@ -112,8 +115,14 @@ function GroupRow({ g, onDone }: { readonly g: Group; readonly onDone: () => voi
           </Link>
           {g.reviewHidden && <StatusBadge tone="warning">{m.hidden}</StatusBadge>}
           {g.reviewDeleted && <StatusBadge tone="ghost">{m.deleted}</StatusBadge>}
+          <Link className="link link-primary ml-auto" to={detailPath} aria-label={m.openDetailOf(text(g.authorMasked))}>
+            {m.openDetail}
+          </Link>
         </div>
-        <p className="whitespace-pre-wrap rounded-box bg-base-200/60 px-3 py-2">{g.text ? g.text : <span className="text-base-content/50">{m.noText}</span>}</p>
+        {/* 리뷰 글을 눌러도 상세로(2026-11-24 "눌러서 상세확인") */}
+        <Link to={detailPath} className="block whitespace-pre-wrap rounded-box bg-base-200/60 px-3 py-2 hover:bg-base-200" data-testid="review-report-text">
+          {g.text ? g.text : <span className="text-base-content/50">{m.noText}</span>}
+        </Link>
         <div className="flex flex-wrap items-center gap-2 text-xs">
           <span className="font-semibold">{m.reportCount(g.reportCount)}</span>
           {reasons.map(([k, n]) => (

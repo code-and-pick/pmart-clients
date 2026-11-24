@@ -45,6 +45,64 @@ describe('리뷰 신고', () => {
     await waitFor(() => expect(view.sent.filter((r) => r.method === 'GET' && new URL(r.url).pathname.endsWith('/review-reports')).length).toBeGreaterThan(1));
   });
 
+  it('줄의 리뷰 글을 누르면 상세(0.8.0) — 글 전체·사진·신고 한 건씩(최근 순), 신고자는 없다', async () => {
+    const user = userEvent.setup();
+    const view = renderAt('/review-reports', as.cs);
+    const rows = await screen.findAllByTestId('review-report');
+    await user.click(within(rows[0]!).getByTestId('review-report-text'));
+    const detail = await screen.findByTestId('review-report-detail');
+    expect(screen.getByRole('heading', { name: '김*수 님 리뷰 — 신고 4건' })).toBeInTheDocument();
+    expect(within(detail).getByTestId('review-report-full-text')).toHaveTextContent('이딴 걸 팔다니 ○○ 같은 가게');
+    const items = within(detail).getAllByTestId('review-report-item');
+    expect(items).toHaveLength(4);
+    expect(items[0]).toHaveTextContent('욕설·비방');
+    expect(items[1]).toHaveTextContent('기타');
+    expect(items[1]).toHaveTextContent('직원 욕을 써 놨어요');
+    expect(detail).toHaveTextContent('신고한 고객은 보이지 않아요.');
+    expect(within(detail).getByTestId('review-report-open-count')).toHaveTextContent('확인 전 신고 4건');
+    // 사진은 토큰을 붙여 받아 blob 으로 그린다(<img src> 에 서버 주소를 바로 넣지 않는다)
+    await waitFor(() => expect(within(detail).getAllByRole('img', { name: /리뷰 사진/ })).toHaveLength(2));
+    const imgs = within(detail).getAllByRole('img', { name: /리뷰 사진/ });
+    expect(imgs[0]!.getAttribute('src')).not.toContain('/review-photos/');
+    const photoReq = view.sent.find((r) => new URL(r.url).pathname.endsWith('/review-photos/RPH-MOCK-1'))!;
+    expect(photoReq.headers.get('Authorization')).toMatch(/^Bearer /);
+  });
+
+  it('상세에서 숨김 — 확인 전 신고가 모두 처리 끝(메모·처리 직원), 처리 단추는 사라진다', async () => {
+    const user = userEvent.setup();
+    const view = renderAt('/review-reports/RV-MOCK-2', as.admin);
+    const detail = await screen.findByTestId('review-report-detail');
+    await user.type(within(detail).getByLabelText(/처리 메모/), '광고 링크');
+    await user.click(within(detail).getByRole('button', { name: '숨김' }));
+    await user.click(within(within(detail).getByRole('group', { name: '처리 확인' })).getByRole('button', { name: '숨김' }));
+    expect(await screen.findByTestId('review-report-nothing-open')).toBeInTheDocument();
+    expect(posts(view.sent, '/review-reports/RV-MOCK-2/resolutions')[0]!.headers.get('Idempotency-Key')).toBeTruthy();
+    const items = screen.getAllByTestId('review-report-item');
+    expect(items.every((i) => i.dataset['state'] === 'RESOLVED')).toBe(true);
+    expect(items[0]).toHaveTextContent('광고 링크');
+    expect(screen.getByTestId('review-report-detail')).toHaveTextContent('지금 숨김');
+    expect(screen.queryByRole('button', { name: '숨김' })).not.toBeInTheDocument();
+  });
+
+  it('처리 끝 리뷰는 처리 단추 없이 결과·메모만, 없는 리뷰(404)는 다시 시도 대신 "찾을 수 없어요"', async () => {
+    const view = renderAt('/review-reports/RV-MOCK-3', as.cs);
+    const detail = await screen.findByTestId('review-report-detail');
+    expect(within(detail).getByTestId('review-report-nothing-open')).toBeInTheDocument();
+    expect(within(detail).queryByRole('button', { name: '문제없음' })).not.toBeInTheDocument();
+    expect(within(detail).getByTestId('review-report-item')).toHaveTextContent('상품 이야기라 그대로 둠');
+    view.unmount();
+    renderAt('/review-reports/RV-NONE', as.cs);
+    expect(await screen.findByText(/이 리뷰의 신고를 찾을 수 없어요/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /다시/ })).not.toBeInTheDocument();
+  });
+
+  it('사진을 못 열면(404) 빈칸이 아니라 "불러오지 못했어요"', async () => {
+    server.use(http.get(`${API_BASE}/review-photos/:photoId`, () => HttpResponse.json({ type: 'about:blank', title: 'x', status: 404, code: 'NOT_FOUND' }, { status: 404, headers: { 'content-type': 'application/problem+json' } })));
+    renderAt('/review-reports/RV-MOCK-1', as.cs);
+    await waitFor(() => expect(screen.getAllByTestId('review-photo-error')).toHaveLength(2));
+    expect(screen.getAllByTestId('review-photo-error')[0]).toHaveTextContent('사진을 불러오지 못했어요.');
+  });
+
   it('메뉴는 상담원·관리자만 — 라이더 운영에게는 없다', async () => {
     const view = renderAt('/session', as.cs);
     expect(await screen.findByRole('link', { name: '리뷰 신고', hidden: true })).toBeInTheDocument();

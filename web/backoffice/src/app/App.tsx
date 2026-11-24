@@ -74,6 +74,7 @@ const CaseMetricsPage = lazy(() => import('../features/cases/CaseMetricsPage').t
 const CaseSlaPage = lazy(() => import('../features/cases/CaseSlaPage').then((x) => ({ default: x.CaseSlaPage })));
 const DeliveryStatsPage = lazy(() => import('../features/deliveryStats/DeliveryStatsPage').then((x) => ({ default: x.DeliveryStatsPage })));
 const ReviewReportPage = lazy(() => import('../features/reviews/ReviewReportPage').then((x) => ({ default: x.ReviewReportPage })));
+const ReviewReportDetailPage = lazy(() => import('../features/reviews/ReviewReportDetailPage').then((x) => ({ default: x.ReviewReportDetailPage })));
 const FaqFeedbackPage = lazy(() => import('../features/reviews/FaqFeedbackPage').then((x) => ({ default: x.FaqFeedbackPage })));
 const InquiryDetailPage = lazy(() => import('../features/inquiries/InquiryPages').then((x) => ({ default: x.InquiryDetailPage })));
 const InquiryListPage = lazy(() => import('../features/inquiries/InquiryPages').then((x) => ({ default: x.InquiryListPage })));
@@ -430,6 +431,7 @@ const routes = [
       { path: 'case-sla', element: guarded(<CaseSlaPage />) },
       { path: 'delivery-stats', element: guarded(<DeliveryStatsPage />) },
       { path: 'review-reports', element: guarded(<ReviewReportPage />) },
+      { path: 'review-reports/:reviewId', element: guarded(<ReviewReportDetailPage />) },
       { path: 'faq-feedback', element: guarded(<FaqFeedbackPage />) },
       { path: 'cases/new-misdelivery', element: guarded(<NewMisdeliveryPage />) },
       { path: 'cases/:caseId', element: guarded(<CaseDetailPage />) },
