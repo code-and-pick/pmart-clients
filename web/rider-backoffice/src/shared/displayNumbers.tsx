@@ -132,6 +132,19 @@ const SEQ_SUFFIX = /-\d+$/;
  * 번호만 받은 칸이 많아 여기서 그 배송을 묶음 조회(`GET /deliveries?deliveryIds=`)로 한 번 읽는다(5분 캐시, -순번이 있는 번호만).
  * 목적(purpose)이 있으면 목적, 없으면 종류(type). 읽는 중·못 읽음이면 꼬리표를 붙이지 않는다(지어내지 않음).
  */
+/**
+ * 꼬리표 짧은 글자 네 가지(2026-11-24 사용자 "회수 · 반납 · 재발송 · 다시배송 네 가지로만 줄이고, 자세한 이름은 마우스를 올리면") —
+ * 회수(반품 회수·오배송 회수·회수 배송), 반납(전달 실패 반납), 재발송(오배송·사고 재발송 — MFC 에서 새 상품), 다시배송(잘못 둔 곳 → 실제 집, 원래 상품).
+ */
+const SHORT_PURPOSE: Readonly<Record<string, string>> = {
+  CLAIM_RETURN: '회수',
+  MISDELIVERY_RECOVERY: '회수',
+  FAILED_DELIVERY_RETURN: '반납',
+  MISDELIVERY_RESHIPMENT: '재발송',
+  MISDELIVERY_REDELIVERY: '다시배송',
+};
+const SHORT_TYPE: Readonly<Record<string, string>> = { RETURN: '회수', RESHIPMENT: '재발송' };
+
 function DeliveryKindTag({ deliveryId }: { readonly deliveryId: string }) {
   const api = useApi();
   const q = useQuery({
@@ -140,10 +153,14 @@ function DeliveryKindTag({ deliveryId }: { readonly deliveryId: string }) {
     queryFn: () => request('GET', api.execution.GET('/deliveries', { params: { query: { deliveryIds: deliveryId, size: 1 } } })),
   });
   const d = q.data?.items?.find((x) => x.deliveryId === deliveryId);
-  const text = (d?.purpose && d.purpose !== 'DELIVERY' && messages.names.purpose[d.purpose]) || (d?.type && d.type !== 'FORWARD' && messages.names.deliveryType[d.type]) || '';
+  const purpose = d?.purpose && d.purpose !== 'DELIVERY' ? d.purpose : null;
+  const type = d?.type && d.type !== 'FORWARD' ? d.type : null;
+  const text = (purpose && SHORT_PURPOSE[purpose]) || (type && SHORT_TYPE[type]) || '';
   if (!text) return null;
+  // 자세한 이름(반품 회수·전달 실패 반납 …)은 올려 보면
+  const full = (purpose && messages.names.purpose[purpose]) || (type && messages.names.deliveryType[type]) || text;
   return (
-    <span className="rounded border border-base-300 px-1 text-[11px] font-medium leading-4 text-base-content/70" data-testid="delivery-kind">
+    <span className="rounded border border-base-300 px-1 text-[11px] font-medium leading-4 text-base-content/70" title={full} data-testid="delivery-kind">
       {text}
     </span>
   );

@@ -12,7 +12,10 @@ describe('배송 관리', () => {
     renderAt('/deliveries', as.riderOps);
     const rows = await screen.findAllByTestId('delivery-row');
     const second = rows.find((r) => r.textContent?.includes('D48213075-2'))!;
-    expect(await within(second).findByTestId('delivery-kind')).toHaveTextContent('전달 실패 반납');
+    const tag = await within(second).findByTestId('delivery-kind');
+    // 짧게 "반납", 자세한 이름은 올려 보면(2026-11-24)
+    expect(tag).toHaveTextContent(/^반납$/);
+    expect(tag).toHaveAttribute('title', '전달 실패 반납');
     const first = rows.find((r) => /D48213075(?!-)/.test(r.textContent ?? ''))!;
     expect(within(first).queryByTestId('delivery-kind')).not.toBeInTheDocument();
   });
