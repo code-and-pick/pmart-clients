@@ -89,6 +89,20 @@
   background: var(--an-panel);
   border: 1px solid var(--an-line);
 }
+/* 누르는 타일(지연·실패·이상 — 아래에 목록) */
+button.an-tile {
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+button.an-tile:hover {
+  border-color: color-mix(in oklab, var(--color-primary) 55%, transparent);
+}
+.an-tile.on {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 1px var(--color-primary);
+}
 .an-tile.has-viz {
   padding-right: 92px;
 }
@@ -324,11 +338,13 @@
 .an-sum .right {
   margin-left: auto;
 }
+/* 가장 높은 막대 위 숫자(.val)가 그림 밖으로 올라가 위 "배차 요청 시각 · 1시간 단위" 줄과 겹쳤다(2026-11-24 사용자 "숫자 UI 겹치겠다") — 위 여유 */
 .an-plot {
   display: grid;
   grid-template-columns: 28px minmax(0, 1fr);
   gap: 6px;
-  height: 230px;
+  height: 252px;
+  padding-top: 22px;
   padding-bottom: 38px;
 }
 .an-yaxis {

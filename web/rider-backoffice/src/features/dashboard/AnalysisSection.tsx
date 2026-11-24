@@ -32,6 +32,7 @@ import {
   frame,
   frameTitle,
   isLate,
+  isLateForList,
   isRow,
   hhmm,
   KIND_LABEL,
@@ -52,6 +53,7 @@ import {
   spanOf,
   type Summary,
   unrealCompletion,
+  PROBLEM_STATES,
 } from './analysisData';
 
 /** 한 번에 읽는 최대 쪽 수(50건씩) — 넘으면 오래된 쪽이 빠졌다고 알린다 */
@@ -78,6 +80,10 @@ const t = {
   retry: '다시',
   problems: '실패·이상',
   problemsSub: '실패 등록·확정·보류',
+  lateListTitle: '약속보다 늦은 배송(최근 7일)',
+  problemsListTitle: '실패·이상 배송(최근 7일)',
+  tileListEmpty: '해당 배송이 없어요.',
+  lateListNote: (n: number) => `서버 집계(${n}건)와 조금 다를 수 있어요.`,
   timeTitle: '시간대별 배송 건수',
   state: '상태',
   phases: '구간별 평균',
@@ -201,6 +207,8 @@ function AnalysisBody({ rows, partial, now, mfcId }: { readonly rows: readonly S
   const delayNow = delays.data ? delays.data.items.length : null;
   const riders = useRiderSummaries(rows.map((r) => r.riderId));
   const name = (id: string | null | undefined) => (id ? <RiderName riderId={id} nameMasked={riders.get(id)?.nameMasked} riderNumber={riders.get(id)?.riderNumber} /> : <span className="an-sub-t">{t.noRider}</span>);
+  const [tileOpen, setTileOpen] = useState<'late' | 'problems' | null>(null);
+  const toggleTile = (k: 'late' | 'problems') => setTileOpen((v) => (v === k ? null : k));
   return (
     <>
       {partial && (
@@ -236,6 +244,8 @@ function AnalysisBody({ rows, partial, now, mfcId }: { readonly rows: readonly S
             }
             bad={onTime.data.late > 0}
             viz={onTime.data.rate !== null ? <Ring ratio={onTime.data.rate} name="정시율" /> : undefined}
+            onClick={() => toggleTile('late')}
+            active={tileOpen === 'late'}
           />
         ) : (
           <Tile
@@ -256,8 +266,14 @@ function AnalysisBody({ rows, partial, now, mfcId }: { readonly rows: readonly S
             }
           />
         )}
-        <Tile testId="an-tile-problems" label={t.problems} value={String(m.problems)} unit="건" sub={t.problemsSub} bad={m.problems > 0} />
+        <Tile testId="an-tile-problems" label={t.problems} value={String(m.problems)} unit="건" sub={t.problemsSub} bad={m.problems > 0} onClick={() => toggleTile('problems')} active={tileOpen === 'problems'} />
       </div>
+      {tileOpen === 'late' && (
+        <TileList title={t.lateListTitle} rows={rows.filter((r) => isLateForList(r, now))} note={onTime.data && onTime.data.late !== rows.filter((r) => isLateForList(r, now)).length ? t.lateListNote(onTime.data.late) : undefined} now={now} name={name} onClose={() => setTileOpen(null)} testId="an-late-list" />
+      )}
+      {tileOpen === 'problems' && (
+        <TileList title={t.problemsListTitle} rows={rows.filter((r) => PROBLEM_STATES.has(r.state))} now={now} name={name} onClose={() => setTileOpen(null)} testId="an-problems-list" />
+      )}
 
       <div className="an-row">
         <section className="an-card an-fill" aria-label={t.timeTitle}>
@@ -288,9 +304,10 @@ function AnalysisBody({ rows, partial, now, mfcId }: { readonly rows: readonly S
   );
 }
 
-function Tile({ label: text, value, unit, sub, bad = false, viz, testId }: { readonly label: string; readonly value: string; readonly unit?: string; readonly sub: ReactNode; readonly bad?: boolean; readonly viz?: ReactNode; readonly testId: string }) {
-  return (
-    <div className={`an-tile ${bad ? 'bad' : ''} ${viz ? 'has-viz' : ''}`} data-testid={testId}>
+function Tile({ label: text, value, unit, sub, bad = false, viz, testId, onClick, active = false }: { readonly label: string; readonly value: string; readonly unit?: string; readonly sub: ReactNode; readonly bad?: boolean; readonly viz?: ReactNode; readonly testId: string; readonly onClick?: () => void; readonly active?: boolean }) {
+  const cls = `an-tile ${bad ? 'bad' : ''} ${viz ? 'has-viz' : ''} ${onClick ? 'click' : ''} ${active ? 'on' : ''}`;
+  const body = (
+    <>
       <span className="l">{text}</span>
       <span className="v">
         {value}
@@ -298,6 +315,80 @@ function Tile({ label: text, value, unit, sub, bad = false, viz, testId }: { rea
       </span>
       <span className="s">{sub}</span>
       {viz && <span className="viz">{viz}</span>}
+    </>
+  );
+  // 2026-11-24 사용자 "대시보드에서 이 부분 선택하면 들어가서 지연 목록이랑 실패 목록 볼 수 있게" — 누르면 아래에 그 배송 목록(다시 누르면 닫기)
+  return onClick ? (
+    <button type="button" className={cls} aria-expanded={active} onClick={onClick} data-testid={testId}>
+      {body}
+    </button>
+  ) : (
+    <div className={cls} data-testid={testId}>
+      {body}
+    </div>
+  );
+}
+
+/** 타일 아래 배송 목록(지연·실패·이상) — 최근 7일 목록에서 고른 건, 최신 순. 번호를 누르면 배송 상세 */
+function TileList({ title, note, rows, now, name, onClose, testId }: { readonly title: string; readonly note?: string | undefined; readonly rows: readonly Summary[]; readonly now: number; readonly name: (id: string | null | undefined) => ReactNode; readonly onClose: () => void; readonly testId: string }) {
+  const sorted = [...rows].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  return (
+    <div className="an-detail" data-testid={testId}>
+      <div className="an-detail-h">
+        <b>
+          {title} · {sorted.length}건
+        </b>
+        <button type="button" className="an-x" aria-label={t.close} onClick={onClose}>
+          ✕
+        </button>
+      </div>
+      {note && (
+        <p className="an-note" data-testid="an-tile-list-note">
+          {note}
+        </p>
+      )}
+      {sorted.length === 0 ? (
+        <p className="an-note">{t.tileListEmpty}</p>
+      ) : (
+        <table className="an-table">
+          <thead>
+            <tr>
+              <th>배차 요청</th>
+              <th>배송</th>
+              <th>라이더</th>
+              <th>상태</th>
+              <th>{t.promised}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {sorted.map((r) => {
+              const at = ms(r.createdAt) ?? now;
+              const promised = ms(r.promisedAt);
+              return (
+                <tr key={r.deliveryId} data-testid="an-tile-row">
+                  <td className="num">
+                    {seoulDay(at)} {hhmm(at)}
+                  </td>
+                  <td>
+                    <Link to={`/deliveries/${encodeURIComponent(r.deliveryId)}`}>
+                      <DeliveryNo deliveryId={r.deliveryId} deliveryNumber={r.deliveryNumber} orderNumber={r.orderNumber} />
+                    </Link>
+                  </td>
+                  <td>{name(r.riderId)}</td>
+                  <td>
+                    <span className="an-state">
+                      <i className={`k-${kindOf(r.state)}`} />
+                      {label(messages.names.executionState, r.state)}
+                    </span>
+                    {isLate(r, now) && <LateMark />}
+                  </td>
+                  <td className="num">{promised !== null ? `${seoulDay(promised)} ${hhmm(promised)}` : '—'}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      )}
     </div>
   );
 }

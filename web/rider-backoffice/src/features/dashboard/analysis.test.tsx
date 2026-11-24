@@ -151,6 +151,19 @@ describe('대시보드 분석 셈', () => {
 });
 
 describe('대시보드 분석 구역', () => {
+  it('실패·이상 타일을 누르면 아래에 그 배송 목록, 다시 누르면 닫힌다(2026-11-24)', async () => {
+    serve(rows(Date.now()));
+    renderAt('/dashboard', as.riderOps);
+    const section = await screen.findByTestId('analysis');
+    await within(section).findByTestId('an-tile-total');
+    await userEvent.click(within(section).getByTestId('an-tile-problems'));
+    const list = await within(section).findByTestId('an-problems-list');
+    expect(within(list).getAllByTestId('an-tile-row')).toHaveLength(1);
+    expect(within(list).getByRole('link')).toHaveAttribute('href', expect.stringMatching(/^\/deliveries\//));
+    await userEvent.click(within(section).getByTestId('an-tile-problems'));
+    expect(within(section).queryByTestId('an-problems-list')).not.toBeInTheDocument();
+  });
+
   it('타일 수치 → 막대를 누르면 아래 목록 → 배송 번호를 누르면 같은 자리에 흐름', async () => {
     serve(rows(Date.now()));
     renderAt('/dashboard', as.riderOps);
@@ -225,8 +238,9 @@ describe('대시보드 분석 — 지연(정시 배송률)·펼친 흐름의 주
     );
     serve(rows(Date.now()));
     renderAt('/dashboard', as.admin);
-    const tile = await screen.findByTestId('an-tile-late');
-    await waitFor(() => expect(tile).toHaveTextContent('2건'));
+    // 읽으면 누르는 타일(button)로 바뀐다 — 다시 찾는다
+    await waitFor(() => expect(screen.getByTestId('an-tile-late')).toHaveTextContent('2건'));
+    const tile = screen.getByTestId('an-tile-late');
     expect(tile).toHaveTextContent('정시율 87%');
     await waitFor(() => expect(tile).toHaveTextContent('지금 배차 지연 1건'));
     expect(tile).toHaveClass('bad');

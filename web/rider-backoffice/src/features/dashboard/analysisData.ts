@@ -246,6 +246,16 @@ export function lateness(r: Summary, now: number): Lateness {
   if (end === null) return { judged: false };
   return { judged: true, promised, late: end > promised, lateSec: Math.max(0, (end - promised) / 1000) };
 }
+/**
+ * 지연 목록(대시보드 지연 타일을 눌렀을 때) — dispatch 정시 배송률의 late 와 같은 규칙: 약속 끝이 지났는데 그 전에 전달되지 않은 배송
+ * (아직 전달 전·실패 포함 — 뒤에 전달돼도 늦음). 취소는 뺀다.
+ */
+export const isLateForList = (r: Summary, now: number) => {
+  const promised = ms(r.promisedAt);
+  if (promised === null || promised > now || r.state === 'CANCELLED') return false;
+  const done = r.state === 'COMPLETED' ? ms(r.completedAt) : null;
+  return done === null || done > promised;
+};
 export const isLate = (r: Summary, now: number) => {
   const x = lateness(r, now);
   return x.judged && x.late;
