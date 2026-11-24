@@ -139,6 +139,9 @@ const SHORT_PURPOSE: Readonly<Record<string, string>> = {
   MISDELIVERY_REDELIVERY: '다시배송',
 };
 const SHORT_TYPE: Readonly<Record<string, string>> = { RETURN: '회수', RESHIPMENT: '재발송' };
+/** 배송 종류 짧은 이름(꼬리표와 같음) — 일반 배송은 null */
+export const shortDeliveryKind = (purpose: string | null | undefined, type: string | null | undefined): string | null =>
+  (purpose && purpose !== 'DELIVERY' ? SHORT_PURPOSE[purpose] : undefined) ?? (type && type !== 'FORWARD' ? SHORT_TYPE[type] : undefined) ?? null;
 
 /**
  * -2·-3 배송의 종류(2026-11-24 사용자 "-1, -2, -3 뒤에 회수·반납·재발송·다시 배송 표시 안 되던데?") — ADR-0085 "종류 표시는 번호 옆에".
@@ -231,11 +234,11 @@ export function useDeliveryNumbers(deliveryIds: ReadonlyArray<string | null | un
 }
 
 /** 배송 화면 번호 + 배송 상세로 가는 링크(줄 누르기와 따로) */
-export function DeliveryRef({ deliveryId, numbers }: { readonly deliveryId: string | null | undefined; readonly numbers?: DeliveryNumbers | undefined }) {
+export function DeliveryRef({ deliveryId, numbers, kindTag = true }: { readonly deliveryId: string | null | undefined; readonly numbers?: DeliveryNumbers | undefined; readonly kindTag?: boolean }) {
   if (!deliveryId) return <span className="text-base-content/40">—</span>;
   return (
     <Link to={`/deliveries/${encodeURIComponent(deliveryId)}`} className="hover:underline" onClick={(e) => e.stopPropagation()} data-testid="delivery-ref">
-      <DeliveryNo deliveryId={deliveryId} deliveryNumber={numbers?.deliveryNumber} orderNumber={numbers?.orderNumber} />
+      <DeliveryNo kindTag={kindTag} deliveryId={deliveryId} deliveryNumber={numbers?.deliveryNumber} orderNumber={numbers?.orderNumber} />
     </Link>
   );
 }

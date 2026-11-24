@@ -12,7 +12,7 @@ import type { components as TrackingC } from '../../api/generated/delivery-track
 import { useApi } from '../../app/ApiContext';
 import { AuthedPhotos } from '../../shared/AuthedPhotos';
 import { messages } from '../../shared/messages';
-import { DeliveryRef, RiderName, useRiderSummaries, RiderLink } from '../../shared/displayNumbers';
+import { DeliveryNo, DeliveryRef, RiderName, shortDeliveryKind, useRiderSummaries, RiderLink } from '../../shared/displayNumbers';
 import { label, none, when, won } from '../../shared/opsUi';
 import { StatusBadge } from '../../shared/admin';
 import type { Tone } from '@pmart/web-ui/console';
@@ -72,7 +72,10 @@ export const extrasMessages = {
   story: {
     title: '이 배송에 있었던 일',
     cases: '사건',
-    siblings: '같은 주문의 다른 배송',
+    siblings: '이 주문의 배송',
+    thisOne: '이 배송',
+    plain: '배송',
+    caseLink: '사건 보기',
     fee: '수행료',
     failure: '전달 실패 신고',
     casesFailed: '사건을 불러오지 못했어요',
@@ -255,16 +258,28 @@ export function DeliveryStory({ delivery }: { readonly delivery: Execution }) {
       const seen = new Set<string>();
       return pages
         .flatMap((p) => p.items ?? [])
-        .filter((c) => c.subjectRef === id || (c.refs ?? []).some((r) => r.refType === 'deliveryId' && r.refId === id))
+        // 이 배송을 가리키는 사건 + 주문 전체 사건(오배송 등은 주문을 주제로 연다 — 2026-11-24 D28767701-3)
+        .filter((c) => c.subjectRef === id || c.subjectRef === delivery.orderId || (c.refs ?? []).some((r) => r.refType === 'deliveryId' && r.refId === id))
         .filter((c) => !!c.caseId && (seen.has(c.caseId) ? false : (seen.add(c.caseId), true)));
     },
   });
+  // 수행료 이유(서버 note)에 적힌 사건 ID — 목록에 없으면 한 건 읽어 같은 줄로 보인다. 글자에서는 긴 ID 를 뺀다
+  const noteCaseId = /CASE-[0-9A-Za-z-]+/.exec(delivery.earning?.note ?? '')?.[0] ?? null;
+  const noteCase = useQuery({
+    queryKey: ['delivery-story-note-case', noteCaseId ?? ''],
+    enabled: !!noteCaseId && !!cases.data && !cases.data.some((c) => c.caseId === noteCaseId),
+    queryFn: () => request('GET', api.cases.GET('/cases/{caseId}', { params: { path: { caseId: noteCaseId! } } })),
+  });
+  const caseRows = [...(cases.data ?? []), ...(noteCase.data && !(cases.data ?? []).some((c) => c.caseId === noteCase.data.caseId) ? [noteCase.data] : [])];
   const siblings = useQuery({
     queryKey: ['delivery-story-siblings', orderNo ?? ''],
     enabled: !!orderNo,
     queryFn: () => request('GET', api.execution.GET('/deliveries', { params: { query: { orderNumber: orderNo!, size: 10 } } })),
   });
-  const others = (siblings.data?.items ?? []).filter((d) => d.deliveryId !== id);
+  // 이 주문의 배송 전부(이 배송 포함) — 순번 순. 다른 배송의 "전달 실패 확정" 이 이 배송 일로 보이지 않게 이 배송을 표시한다
+  const seqOf = (no: string | null | undefined) => Number(/-(\d+)$/.exec(no ?? '')?.[1] ?? '1');
+  const orderDeliveries = [...(siblings.data?.items ?? [])].sort((a, b) => seqOf(a.deliveryNumber) - seqOf(b.deliveryNumber));
+  const hasOthers = orderDeliveries.some((d) => d.deliveryId !== id);
   const e = delivery.earning;
   const f = delivery.failure;
   const rows: { readonly k: string; readonly v: ReactNode }[] = [];
@@ -280,7 +295,7 @@ export function DeliveryStory({ delivery }: { readonly delivery: Execution }) {
     });
   }
   if (cases.isError) rows.push({ k: s.cases, v: <span className="text-error">{s.casesFailed}</span> });
-  for (const c of cases.data ?? []) {
+  for (const c of caseRows) {
     rows.push({
       k: s.cases,
       v: (
@@ -289,29 +304,41 @@ export function DeliveryStory({ delivery }: { readonly delivery: Execution }) {
           <span className="font-medium">{label(messages.names.caseState, c.state)}</span>
           {c.summary && <span className="text-base-content/70">{c.summary}</span>}
           <Link to={`/consults/cases/${encodeURIComponent(c.caseId ?? '')}`} className="link link-hover text-xs text-base-content/60">
-            {c.caseNumber ?? '사건 보기'} ›
+            {c.caseNumber ?? s.caseLink} ›
           </Link>
         </span>
       ),
     });
   }
   if (siblings.isError) rows.push({ k: s.siblings, v: <span className="text-error">{s.siblingsFailed}</span> });
-  if (others.length > 0) {
+  if (hasOthers) {
     rows.push({
       k: s.siblings,
       v: (
-        <span className="flex flex-wrap items-center gap-x-4 gap-y-0.5" data-testid="story-siblings">
-          {others.map((d) => (
-            <span key={d.deliveryId} className="inline-flex items-center gap-1.5">
-              <DeliveryRef deliveryId={d.deliveryId} numbers={{ deliveryNumber: d.deliveryNumber ?? null, orderNumber: d.orderNumber ?? null }} />
-              <span className="text-xs text-base-content/60">{label(messages.names.executionState, d.state)}</span>
-            </span>
-          ))}
-        </span>
+        <ol className="space-y-0.5" data-testid="story-siblings">
+          {orderDeliveries.map((d) => {
+            const mine = d.deliveryId === id;
+            const kind = shortDeliveryKind(d.purpose, d.type) ?? s.plain;
+            return (
+              <li key={d.deliveryId} className={`flex flex-wrap items-center gap-2 ${mine ? 'font-semibold' : ''}`} data-testid={mine ? 'story-this' : undefined}>
+                {mine ? (
+                  <DeliveryNo kindTag={false} deliveryId={d.deliveryId ?? ''} deliveryNumber={d.deliveryNumber} orderNumber={d.orderNumber} />
+                ) : (
+                  <DeliveryRef kindTag={false} deliveryId={d.deliveryId} numbers={{ deliveryNumber: d.deliveryNumber ?? null, orderNumber: d.orderNumber ?? null }} />
+                )}
+                <span className="rounded border border-base-300 px-1 text-[11px] font-medium leading-4 text-base-content/70">{kind}</span>
+                <span className={`text-xs ${mine ? 'text-base-content' : 'text-base-content/60'}`}>{label(messages.names.executionState, d.state)}</span>
+                {mine && <span className="badge badge-primary badge-sm">{s.thisOne}</span>}
+              </li>
+            );
+          })}
+        </ol>
       ),
     });
   }
-  if (e && isUnpaid(e)) rows.push({ k: s.fee, v: <span>{m.unpaid}{e.note ? ` — ${e.note}` : ''}</span> });
+  // 수행료 이유에서 긴 사건 ID("(사건 CASE-…)")는 빼고 보인다 — 사건은 위 "사건" 줄에서 접수 번호·링크로
+  const noteText = (e?.note ?? '').replace(/\s*\(?사건\s+CASE-[0-9A-Za-z-]+…?\)?/g, '').trim();
+  if (e && isUnpaid(e)) rows.push({ k: s.fee, v: <span data-testid="story-fee">{m.unpaid}{noteText ? ` — ${noteText}` : ''}</span> });
   if (rows.length === 0) return null;
   return (
     <section className="rounded-box border border-warning/40 bg-warning/5 px-4 py-3" aria-label={s.title} data-testid="delivery-story">
@@ -344,7 +371,7 @@ export function DeliveryEarning({ delivery }: { readonly delivery: Execution }) 
                   {/* 미지급으로 끝난 건(ADJUSTED)은 "조정에서 정해요" 가 아니라 미지급 + 서버 이유 */}
                   <span className={`badge badge-sm ${isUnpaid(e) ? 'badge-error badge-soft' : 'badge-warning'}`}>{isUnpaid(e) ? m.unpaid : m.notCalculable}</span>
                 </Row>
-                {e.note && <Row k={m.reason}>{e.note}</Row>}
+                {e.note && <Row k={m.reason}>{e.note.replace(/\s*\(?사건\s+CASE-[0-9A-Za-z-]+…?\)?/g, '').trim()}</Row>}
               </>
             ) : (
               <>

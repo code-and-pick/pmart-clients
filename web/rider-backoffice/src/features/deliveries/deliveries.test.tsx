@@ -1,9 +1,13 @@
 // 배송 찾기(execution 0.4.0)·상세(수행 + 배차) — 목(MSW) 기준. 실서버 확인은 아니다.
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 
+import { API_BASE } from '../../api/client';
+import { mockDeliveries } from '../../mocks/deliveryHandlers';
 import { as, renderAt } from '../../test/render';
+import { server } from '../../test/server';
 
 const searchCalls = (sent: readonly Request[]) => sent.filter((r) => new URL(r.url).pathname.endsWith('/deliveries')).map((r) => new URL(r.url).searchParams);
 
@@ -93,7 +97,26 @@ describe('배송 상세', () => {
   it('이 배송에 있었던 일: 같은 주문의 다른 배송(종류 꼬리표와 함께)', async () => {
     renderAt('/deliveries/DLV-1', as.riderOps);
     const story = await screen.findByTestId('delivery-story');
-    expect(await within(story).findByTestId('story-siblings')).toHaveTextContent('D48213075-2');
+    const list = await within(story).findByTestId('story-siblings');
+    expect(list).toHaveTextContent('D48213075-2');
+    // 이 주문 배송을 순번 순으로, 이 배송은 "이 배송" 표시(다른 배송의 상태가 이 배송 일로 보이지 않게 — 2026-11-24)
+    expect(within(list).getByTestId('story-this')).toHaveTextContent('D48213075');
+    expect(within(list).getByTestId('story-this')).toHaveTextContent('이 배송');
+  });
+
+  it('수행료 미지급 이유에서 긴 사건 ID 는 빼고 보인다(2026-11-24)', async () => {
+    server.use(
+      http.get(`${API_BASE}/deliveries/DLV-3`, () =>
+        HttpResponse.json({
+          ...mockDeliveries.find((d) => d.deliveryId === 'DLV-3')!,
+          earning: { ...mockDeliveries.find((d) => d.deliveryId === 'DLV-3')!.earning!, calculable: false, settlementState: 'ADJUSTED', note: '라이더 귀책 오배송(사건 CASE-1a757af4-2bc4-4f0b-8876-be4b3856460d) — 배달료 미지급' },
+        }),
+      ),
+    );
+    renderAt('/deliveries/DLV-3', as.riderOps);
+    const fee = await screen.findByTestId('story-fee');
+    expect(fee).toHaveTextContent('미지급 — 라이더 귀책 오배송 — 배달료 미지급');
+    expect(fee).not.toHaveTextContent('CASE-');
   });
 
   it('수행·배차를 따로 — 전달 실패 사유, 주문 품목, 수행 이력', async () => {
