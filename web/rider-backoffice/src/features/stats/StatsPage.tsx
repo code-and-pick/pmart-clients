@@ -17,6 +17,7 @@ import { RiderName, useRiderSummaries } from '../../shared/displayNumbers';
 import { messages } from '../../shared/messages';
 import { label } from '../../shared/opsUi';
 import { DAY, dur, seoulDate } from '../dashboard/analysisData';
+import { AutoCancelList } from './AutoCancelList';
 
 type ExecRow = {
   readonly date: string;
@@ -207,6 +208,7 @@ export function StatsPage() {
   // 센터별 비교에서 센터를 누르면 그 센터만 본다(머리줄 센터 고르기와 같은 값)
   const scope = useCenterScope();
   const [range, setRange] = useState<Range>('d7');
+  const [showAutoCancel, setShowAutoCancel] = useState(false);
   // 화면을 연 때를 기준으로(렌더마다 바뀌지 않게)
   const [now] = useState(() => Date.now());
   const to = seoulDate(now);
@@ -320,14 +322,18 @@ export function StatsPage() {
                   <RateBar label={s.tile.assignRate} num={dAssigned} den={dCreated} hint={s.hint.assignRate(dAssigned, dCreated)} tone="good" testId="tile-assign-rate" />
                   <RateBar label={s.tile.accept} num={dAccepted} den={dSent} hint={s.hint.accept(dAccepted, dSent)} tone="neutral" testId="tile-accept" />
                   <RateBar label={s.tile.reassign} num={dReassigned} den={dCreated} hint={s.hint.reassign(dReassigned, dCreated)} tone="warn" testId="tile-reassign" />
-                  <p className="flex items-baseline justify-between text-sm" data-testid="tile-auto-cancel">
+                  {/* 2026-11-24 사용자 "자동 취소한 것도 확인" — 누르면 아래에 건별 목록(막힌 건 포함) */}
+                  <button type="button" className="flex w-full items-baseline justify-between text-left text-sm hover:underline" data-testid="tile-auto-cancel" aria-expanded={showAutoCancel} onClick={() => setShowAutoCancel((v) => !v)}>
                     <span className="text-base-content/70">{s.tile.autoCancel}</span>
-                    <b className="tabular-nums">{total(drows, (r) => r.autoCancelled)}건</b>
-                  </p>
+                    <b className="tabular-nums">
+                      {total(drows, (r) => r.autoCancelled)}건 <span aria-hidden>{showAutoCancel ? '▴' : '▾'}</span>
+                    </b>
+                  </button>
                 </div>
               )}
             </HeroCard>
           </div>
+          {showAutoCancel && <AutoCancelList from={from} to={to} {...cq} centerName={centerName} />}
           {!disp.isError && (
             <div className="grid gap-4 lg:grid-cols-2">
               <HeroCard title={s.sourceTitle} sub={s.sourceSub} testId="stats-source">

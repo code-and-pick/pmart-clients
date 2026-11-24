@@ -3,7 +3,7 @@
 // 거르기(전체·배송 중·위치 끊김)는 주소 쿼리 filter.
 // 2026-11-18: 관리자 화면 모양 — 머리말, 조건 상자(센터 + 보기 칩), 요약 카드(누르면 그 거르기), 지도 구역, 표(위치 상태 꼬리표).
 import { useQuery } from '@tanstack/react-query';
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
 
 import { request } from '@pmart/web-core';
@@ -20,6 +20,7 @@ import { CenterPicker, label, none, when } from '../../shared/opsUi';
 import { ActiveDeliverySummary, ControlRiderPanel } from './ControlRiderPanel';
 import { ControlSearch } from './ControlSearch';
 import { RecentDeliveries } from './RecentDeliveries';
+import { AutoCancelList, useBlockedAutoCancels } from '../stats/AutoCancelList';
 import { useDropLocations } from './dropLocation';
 import { CONTROL_REFRESH_MS } from './refresh';
 import { KakaoRiderMap, type MapArea, type MapRider, type MapRoute } from './KakaoRiderMap';
@@ -51,6 +52,8 @@ const cx = {
   allClear: '지금 먼저 볼 라이더가 없어요',
   allClearBody: (k: number) => `운행 중 ${k}명 모두 위치가 들어오고 있고 신규배차를 받고 있어요.`,
   deliveries: (k: number) => `${k}건`,
+  blocked: '자동 취소 막힘',
+  blockedHint: '라이더가 없어 취소를 요청했지만 거절돼 아직 대기 중',
   late: '지연 배송',
   // 2026-11-24 사용자 "지연배송도 회색으로 20분 이상 이라고만" (서버 기준: 약속 + 20분을 넘겼거나 넘길 것으로 봄)
   lateHint: '20분 이상',
@@ -171,6 +174,9 @@ export function ControlPage() {
       }),
     [setParams],
   );
+  // 자동 취소 막힘(dispatch BLOCKED_OPEN, 1분마다) — 카드를 누르면 아래에 목록
+  const blocked = useBlockedAutoCancels(mfcId);
+  const [showBlocked, setShowBlocked] = useState(false);
   // 지연 목록에서 고르기 — 지연 거르기는 그대로 두고 그 라이더·배송을 연다
   const pickLate = useCallback(
     (riderId: string, deliveryId: string) =>
@@ -228,7 +234,21 @@ export function ControlPage() {
             return (
               <div className="space-y-4">
                 {/* 두 줄 카드 — 위: 먼저 확인(문제, 빨강·주황) / 아래: 진행 단계(› 화살표). 누르면 그 거르기(목록·지도가 함께 바뀐다) */}
-                <ControlBoards all={all} filter={filter} filterLink={filterLink} asOf={b.asOf} staleOrNone={staleOrNone} delivering={delivering} lateCount={late.length} />
+                <ControlBoards
+                  all={all}
+                  filter={filter}
+                  filterLink={filterLink}
+                  asOf={b.asOf}
+                  staleOrNone={staleOrNone}
+                  delivering={delivering}
+                  lateCount={late.length}
+                  blockedCount={blocked.data ? blocked.data.items.length : null}
+                  showBlocked={showBlocked}
+                  onToggleBlocked={() => setShowBlocked((v) => !v)}
+                />
+
+                {/* 자동 취소 막힘(2026-11-24) — 카드를 누르면 건별 */}
+                {showBlocked && <AutoCancelList mfcId={mfcId} open />}
 
                 {/* 지연 거르기 — 지연 배송을 많이 늦은 순으로(2026-11-24 사용자 "지연 배송을 바로 볼 수 있는 기능"). 줄을 누르면 그 라이더·배송 */}
                 {filter === 'late' && <LateDeliveries rows={late} selectedDeliveryId={focusDeliveryId} onPick={pickLate} />}
@@ -341,12 +361,34 @@ export function ControlPage() {
  * 수는 모두 이 센터 위치 목록(서버 GET /rider-locations)에서 센다 — 끊김은 서버 stale·위치 없음, 단계는 서버 stage.
  * 먼저 확인할 것이 모두 0 일 때만 "먼저 볼 라이더가 없어요"(읽는 중·실패면 이 칸을 그리지 않는다 — 부르는 쪽이 성공일 때만).
  */
-function ControlBoards({ all, filter, filterLink, asOf, staleOrNone, delivering, lateCount }: { readonly all: readonly Rider[]; readonly filter: Filter; readonly filterLink: (f: Filter) => string; readonly asOf: string | undefined; readonly staleOrNone: number; readonly delivering: number; readonly lateCount: number }) {
+function ControlBoards({
+  all,
+  filter,
+  filterLink,
+  asOf,
+  staleOrNone,
+  delivering,
+  lateCount,
+  blockedCount,
+  showBlocked,
+  onToggleBlocked,
+}: {
+  readonly all: readonly Rider[];
+  readonly filter: Filter;
+  readonly filterLink: (f: Filter) => string;
+  readonly asOf: string | undefined;
+  readonly staleOrNone: number;
+  readonly delivering: number;
+  readonly lateCount: number;
+  readonly blockedCount: number | null;
+  readonly showBlocked: boolean;
+  readonly onToggleBlocked: () => void;
+}) {
   const dispatchOff = all.filter((r) => r.newDispatchEnabled === false).length;
   const actives = all.flatMap((r) => r.activeDeliveries);
   const byStage = (st: string) => actives.filter((x) => x.stage === st).length;
   const waiting = all.filter((r) => !isDelivering(r) && !isStale(r)).length;
-  const allClear = staleOrNone === 0 && dispatchOff === 0 && lateCount === 0;
+  const allClear = staleOrNone === 0 && dispatchOff === 0 && lateCount === 0 && !blockedCount;
   const flowCell = (key: string, text: string, value: string, to: string | null, active: boolean, last: boolean) => {
     const inner = (
       <>
@@ -384,6 +426,8 @@ function ControlBoards({ all, filter, filterLink, asOf, staleOrNone, delivering,
         ) : (
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             <KpiTile label={cx.late} value={cx.deliveries(lateCount)} hint={cx.lateHint} to={filterLink('late')} active={filter === 'late'} dot="bg-error" alert={lateCount > 0} testId="control-stat-late" />
+            {/* 2026-11-24 — 자동 취소가 거절돼 아직 배차 대기(dispatch BLOCKED_OPEN). 못 읽으면 칸을 그리지 않는다 */}
+            {blockedCount !== null && <KpiTile label={cx.blocked} value={cx.deliveries(blockedCount)} hint={cx.blockedHint} onClick={onToggleBlocked} active={showBlocked} dot="bg-error" alert={blockedCount > 0} testId="control-stat-auto-cancel-blocked" />}
             <KpiTile label={cx.staleOrNone} value={cx.people(staleOrNone)} to={filterLink('stale')} active={filter === 'stale'} dot="bg-error" alert={staleOrNone > 0} testId="control-stat-stale" />
             {/* 2026-11-24 사용자 "신규배차 꺼짐은 왜 선택이 안 돼?" — 누르면 그 라이더들만(목록 거르기 "배차 꺼짐") */}
             <KpiTile label={cx.dispatchOff} value={cx.people(dispatchOff)} to={filterLink('dispatchOff')} active={filter === 'dispatchOff'} dot="bg-warning" warn={dispatchOff > 0} testId="control-stat-dispatch-off" />
@@ -409,8 +453,8 @@ function ControlBoards({ all, filter, filterLink, asOf, staleOrNone, delivering,
 }
 
 /** 관제 핵심 수 — 누르면 그 거르기. 고른 거르기는 테두리, 문제가 있으면 빨강 */
-function KpiTile({ label: text, value, to, active = false, dot, alert = false, warn = false, hint, testId }: { readonly label: string; readonly value: string; readonly to?: string; readonly active?: boolean; readonly dot?: string; readonly alert?: boolean; readonly warn?: boolean; readonly hint?: string; readonly testId?: string }) {
-  const cls = `flex items-center justify-between gap-3 rounded-box border px-5 py-3 ${active ? 'border-primary bg-primary/5' : 'border-base-300 bg-base-100'} ${to ? 'hover:border-primary' : ''}`;
+function KpiTile({ label: text, value, to, onClick, active = false, dot, alert = false, warn = false, hint, testId }: { readonly label: string; readonly value: string; readonly to?: string; readonly onClick?: () => void; readonly active?: boolean; readonly dot?: string; readonly alert?: boolean; readonly warn?: boolean; readonly hint?: string; readonly testId?: string }) {
+  const cls = `flex items-center justify-between gap-3 rounded-box border px-5 py-3 ${active ? 'border-primary bg-primary/5' : 'border-base-300 bg-base-100'} ${to || onClick ? 'hover:border-primary' : ''}`;
   const body = (
     <>
       <span className="min-w-0">
@@ -427,6 +471,10 @@ function KpiTile({ label: text, value, to, active = false, dot, alert = false, w
     <Link to={to} className={cls} data-testid={testId} aria-current={active ? 'true' : undefined}>
       {body}
     </Link>
+  ) : onClick ? (
+    <button type="button" className={`${cls} w-full text-left`} data-testid={testId} aria-pressed={active} onClick={onClick}>
+      {body}
+    </button>
   ) : (
     <div className={cls} data-testid={testId}>
       {body}

@@ -41,6 +41,37 @@ describe('운영 통계', () => {
     expect(screen.queryByText('완료 0 · 실패 0')).not.toBeInTheDocument();
   });
 
+  it('배차 불가 자동 취소 n건을 누르면 건별 목록 — 취소됨·막힘(거절 코드), 결과로 거르기', async () => {
+    renderAt('/stats', as.riderOps);
+    await userEvent.click(await screen.findByTestId('tile-auto-cancel'));
+    const list = await screen.findByTestId('auto-cancel-list');
+    await waitFor(() => expect(within(list).getAllByTestId('auto-cancel-row')).toHaveLength(2));
+    expect(list).toHaveTextContent('D31110001');
+    expect(list).toHaveTextContent('거절 ORDER_NOT_CANCELLABLE');
+    await userEvent.click(within(list).getByRole('radio', { name: '막힘' }));
+    await waitFor(() => expect(within(list).getAllByTestId('auto-cancel-row')).toHaveLength(1));
+    expect(within(list).getByTestId('auto-cancel-row')).toHaveTextContent('D31110002');
+  });
+
+  it('관제 "자동 취소 막힘" — 막혔고 아직 대기인 건이 있으면 카드, 누르면 목록', async () => {
+    server.use(
+      http.get(`${API_BASE}/metrics/auto-cancellations`, () =>
+        HttpResponse.json({
+          from: '',
+          to: '',
+          items: [{ deliveryId: 'DLV-AC-3', orderId: 'ORD-AC-3', mfcId: 'MFC-BSJ-01', deliveryNumber: 'D31110003', promisedAt: null, attemptedAt: new Date().toISOString(), result: 'BLOCKED', rejectCode: 'ORDER_NOT_CANCELLABLE', deliveryState: 'DISPATCHING' }],
+        }),
+      ),
+    );
+    renderAt('/control?mfcId=MFC-BSJ-01', as.riderOps);
+    const tile = await screen.findByTestId('control-stat-auto-cancel-blocked');
+    await waitFor(() => expect(tile).toHaveTextContent('1건'));
+    await userEvent.click(tile);
+    const open = await screen.findByTestId('auto-cancel-open');
+    await waitFor(() => expect(within(open).getByTestId('auto-cancel-row')).toHaveTextContent('아직 배차 대기'));
+    expect(open).toHaveTextContent('D31110003');
+  });
+
   it('라이더 상세 "성과" — 그 라이더의 최근 30일', async () => {
     const view = renderAt('/riders/RD-7', as.riderOps);
     const strip = await screen.findByTestId('rider-performance');

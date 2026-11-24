@@ -37,6 +37,22 @@ export const metricsHandlers = [
     );
     return HttpResponse.json({ from, to, rows, incidents: [{ category: 'CUSTOMER_UNREACHABLE', count: 3, resolved: 2, resolveSeconds: 900 }, { category: 'ADDRESS_ISSUE', count: 1, resolved: 1, resolveSeconds: 600 }] });
   }),
+  // 배차 불가 자동 취소 내역(2026-11-24, dispatch 0.17.0) — 기간에는 취소됨 1·막힘 1(이미 취소됨). 막혔고 아직 대기(BLOCKED_OPEN)는 기본 없음
+  http.get(`${API_BASE}/metrics/auto-cancellations`, ({ request }) => {
+    if (!operator(request)) return unauthorized();
+    const q = new URL(request.url).searchParams;
+    const mfcId = q.get('mfcId') || 'MFC-BSJ-01';
+    const filter = q.get('filter') ?? 'ALL';
+    if (filter === 'BLOCKED_OPEN') return HttpResponse.json({ from: q.get('from') ?? '', to: q.get('to') ?? '', items: [] });
+    const { from, to } = range(q);
+    const at = new Date(Date.now() - 2 * 3_600_000).toISOString();
+    const promised = new Date(Date.now() - 3 * 3_600_000).toISOString();
+    const items = [
+      { deliveryId: 'DLV-AC-1', orderId: 'ORD-AC-1', mfcId, deliveryNumber: 'D31110001', promisedAt: promised, attemptedAt: at, result: 'CANCELLED' as const, rejectCode: null, deliveryState: 'CANCELLED' },
+      { deliveryId: 'DLV-AC-2', orderId: 'ORD-AC-2', mfcId, deliveryNumber: 'D31110002', promisedAt: promised, attemptedAt: at, result: 'BLOCKED' as const, rejectCode: 'ORDER_NOT_CANCELLABLE', deliveryState: 'CANCELLED' },
+    ].filter((x) => filter === 'ALL' || x.result === filter);
+    return HttpResponse.json({ from, to, items });
+  }),
   http.get(`${API_BASE}/metrics/dispatch`, ({ request }) => {
     if (!operator(request)) return unauthorized();
     const q = new URL(request.url).searchParams;
