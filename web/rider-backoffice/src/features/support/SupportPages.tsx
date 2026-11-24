@@ -704,7 +704,8 @@ function ConsultsPage({ tab }: { readonly tab: 'open' | 'done' }) {
         submitLabel={consultText.search}
         resetLabel={consultText.clear}
         summary={[
-          [consultText.searchLabel, needle ? query : '', () => {
+          // 2026-11-24 사용자 "이렇게 번호로 검색한 것도 필터로 치나?" — 찾기 칸에 적은 글자는 칸에 그대로 보여 칩·필터 개수에 넣지 않는다(지급 예정일과 같음)
+          [consultText.searchLabel, '', () => {
             setQueryInput('');
             patch({ q: '' });
           }],

@@ -197,8 +197,10 @@ function DeliverySearchPage() {
         submitLabel={m.search}
         resetLabel={m.reset}
         summary={[
-          ['주문', orderNumber || (orderId ? '한 주문' : ''), () => clearText({ orderNumber: '', orderId: '' })],
-          ['라이더', riderId ? (RIDER_NUMBER.test(riderId) ? riderId : '한 라이더') : '', () => clearText({ riderId: '' })],
+          // 2026-11-24 사용자 "이렇게 번호로 검색한 것도 필터로 치나?" — 찾기 칸에 적은 글자는 칸에 그대로 보여 칩·필터 개수에 넣지 않는다(지급 예정일과 같음). 시스템 번호(주문 ID — 팝업 칸)로 거른 것만 칩
+          ['주문', !orderNumber && orderId ? '한 주문' : '', () => clearText({ orderId: '' })],
+          // 링크로 온 라이더 ID(번호가 아닌 시스템 ID)는 칸 글자로 알아보기 어려워 칩으로
+          ['라이더', riderId && !RIDER_NUMBER.test(riderId) ? '한 라이더' : '', () => clearText({ riderId: '' })],
           [m.state, state ? name(n.executionState, state) : '', () => set({ state: '' })],
           [m.type, type ? name(n.deliveryType, type) : '', () => set({ type: '' })],
         ]}

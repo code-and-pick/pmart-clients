@@ -302,7 +302,9 @@ export function SurchargesMenu() {
         resetLabel={f.reset}
         summary={[
           [f.state, state === 'REQUESTED' ? '' : state === 'ALL' ? f.all : (f.stateName[state] ?? state), () => patch({ state: '' })],
-          ['라이더', riderId ? (RIDER_NUMBER.test(riderId) ? riderId : '한 라이더') : '', () => {
+          // 2026-11-24 사용자 "이렇게 번호로 검색한 것도 필터로 치나?" — 찾기 칸에 적은 글자는 칸에 그대로 보여 칩·필터 개수에 넣지 않는다(지급 예정일과 같음)
+          // 링크로 온 라이더 ID(번호가 아닌 시스템 ID)만 칩
+          ['라이더', riderId && !RIDER_NUMBER.test(riderId) ? '한 라이더' : '', () => {
             setRiderInput('');
             patch({ riderId: '' });
           }],

@@ -197,8 +197,8 @@ function RiderSearchPage({ signups = false }: { readonly signups?: boolean }) {
           resetLabel={r.reset}
           summary={[
             [rx.memberRow, withdrawn ? rx.withdrawnOnly : '', () => set({ withdrawn: '' })],
-            [rm.riderNumber, riderNumber || (riderId ? '한 라이더' : ''), () => clearText({ riderNumber: '', riderId: '' })],
-            [r.phone, phone ? '입력함' : '', () => clearText({ phone: '' })],
+            // 2026-11-24 사용자 "이렇게 번호로 검색한 것도 필터로 치나?" — 찾기 칸에 적은 글자는 칸에 그대로 보여 칩·필터 개수에 넣지 않는다(지급 예정일과 같음). 링크로 온 라이더 ID 만 칩
+            [rm.riderNumber, !riderNumber && riderId ? '한 라이더' : '', () => clearText({ riderNumber: '', riderId: '' })],
             [r.restriction, restriction ? label(n.restriction, restriction) : '', () => set({ restriction: '' })],
             [r.operating, operatingStatus ? label(n.operatingStatus, operatingStatus) : '', () => set({ operatingStatus: '' })],
             [rm.search.vehicle, vehicleType ? label(n.vehicle, vehicleType) : '', () => set({ vehicleType: '' })],
