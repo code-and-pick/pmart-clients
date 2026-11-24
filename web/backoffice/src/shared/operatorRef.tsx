@@ -1,7 +1,8 @@
 // 사람 입력 칸 — 사번으로 운영자 찾기(hr 0.10.0 HR-5, 2026-11-24 — 교대 인계 "후임"·접수 건 "다른 사람에게 배정" 이 OP-… 를 직접 쳐 넣게 하던 것).
 // - 사번(P<연도 4>-<5자리>, 계약 pattern 과 같게 — 소문자 p 도 받아 대문자로 보낸다)을 넣으면 `GET /hr/employee-labels?employeeNos=` 로 운영자 ID·이름.
 // - 사번 모양이 아니면 넣은 값을 운영자 ID 로 그대로(붙여 넣기·예전 입력).
-// - 재직자만(hr 0.11.0 activeOnly=true — 퇴사자 LEFT 는 빠짐, 사용자 결정 2026-11-24). 정지(SUSPENDED)는 재직이라 남는다(응답에 상태가 없어 화면이 구분 못 함).
+// - 재직자만(hr 0.11.0 activeOnly=true — 퇴사자 LEFT 는 빠짐, 사용자 결정 2026-11-24). 정지(SUSPENDED)는 재직이라 남는다 —
+//   hr 0.12.0(HR-6)부터 사번 조회에 status 가 와서, 정지면 "로그인할 수 없어요" 경고를 한 줄 더 띄운다(고르는 것은 막지 않음 — 사용자 결정 "보이되 경고"). status 가 없으면(옛 서버) 지금처럼.
 //   서버(case)는 맡기기·인계 작성 때 재직 여부를 보지 않으므로 "[이름] · 사번 에게 …" 확인 줄이 사람이 보는 확인 — 찾지 못했거나 찾는 중·실패면 보내지 못하게 한다.
 import { useQuery } from '@tanstack/react-query';
 
@@ -29,7 +30,7 @@ export function useOperatorRef(input: string) {
   if (q.isPending) return { id: null, state: 'loading' as const, label: null };
   if (q.isError) return { id: null, state: 'failed' as const, label: null };
   const e = q.data.items?.[0];
-  return e?.operatorId ? { id: e.operatorId, state: 'found' as const, label: `${e.name ?? ''} · ${e.employeeNo ?? no}` } : { id: null, state: 'notFound' as const, label: null };
+  return e?.operatorId ? { id: e.operatorId, state: 'found' as const, label: `${e.name ?? ''} · ${e.employeeNo ?? no}`, suspended: e.status === 'SUSPENDED' } : { id: null, state: 'notFound' as const, label: null };
 }
 
 /** 찾는 중·없음·실패면 보내지 못한다(사번을 넣었는데 확인이 안 된 상태) */
@@ -43,8 +44,15 @@ export function OperatorRefStatus({ r, foundText, testId }: { readonly r: Return
   const text = r.state === 'found' ? foundText(r.label ?? '') : r.state === 'loading' ? m.loading : r.state === 'badFormat' ? m.badFormat : r.state === 'notFound' ? m.notFound : m.failed;
   // 한 줄씩(옆 안내와 붙지 않게)
   return (
-    <span className={`block break-keep text-xs ${tone}`} role="status" data-testid={testId} data-state={r.state}>
-      {text}
-    </span>
+    <>
+      <span className={`block break-keep text-xs ${tone}`} role="status" data-testid={testId} data-state={r.state}>
+        {text}
+      </span>
+      {r.state === 'found' && 'suspended' in r && r.suspended && (
+        <span className="block break-keep text-xs text-warning" role="alert" data-testid={`${testId}-suspended`}>
+          {m.suspended}
+        </span>
+      )}
+    </>
   );
 }

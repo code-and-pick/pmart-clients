@@ -15,4 +15,4 @@
 - 교대 인계 "후임": 사번을 넣으면 "[이름] · P2026-00012 에게 넘겨요"로 확인하고 운영자 ID 로 보낸다. 없는 사번·실패면 보내지 못한다. 접수 건 "다른 사람에게 배정(관리자)" 칸도 같게.
 
 ## 끝남 (2026-11-24)
-- hr 0.10.0 `employeeNos`(#446)·0.11.0 `activeOnly`(#447)로 반영, LAN PC 5 배포. 정지 직원 경고(상태 값)는 새 요청서 `backoffice/2026-11-24-backend-employee-label-status.md` 가 이어받음.
+- hr 0.10.0 `employeeNos`(#446)·0.11.0 `activeOnly`(#447)로 반영, LAN PC 5 배포. 정지 직원 경고(상태 값)는 새 요청서 `archive/2026-11-24-backend-employee-label-status.md` 가 이어받음(hr 0.12.0 으로 반영 끝).

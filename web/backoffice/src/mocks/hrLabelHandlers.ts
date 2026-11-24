@@ -16,7 +16,12 @@ export const MOCK_EMPLOYEE_LABELS: Readonly<Record<string, { name: string; emplo
   'OP-seed-hr-1': { name: '[목] 홍인사', employeeNo: 'P2026-00014' },
   // 퇴사자(hr 0.11.0 activeOnly=true 면 빠짐)
   'op-left-1': { name: '[목] 오퇴사', employeeNo: 'P2025-00099' },
+  // 정지(hr 0.12.0 HR-6 — 재직이라 activeOnly 여도 남고 status SUSPENDED)
+  'op-suspended-1': { name: '[목] 강정지', employeeNo: 'P2026-00098' },
 };
+
+/** 정지(SUSPENDED) — 사번 조회에 status 로 */
+const MOCK_SUSPENDED: ReadonlySet<string> = new Set(['op-suspended-1']);
 
 /** 퇴사자(LEFT) — activeOnly=true 면 빠진다 */
 const MOCK_LEFT: ReadonlySet<string> = new Set(['op-left-1']);
@@ -32,7 +37,9 @@ export const hrLabelHandlers = [
     if (nos.length > 0) {
       if (nos.length > 50 || nos.some((n) => !/^P\d{4}-\d{5}$/.test(n))) return bad();
       const activeOnly = q.get('activeOnly') === 'true';
-      return HttpResponse.json({ items: Object.entries(MOCK_EMPLOYEE_LABELS).filter(([id, v]) => nos.includes(v.employeeNo) && !(activeOnly && MOCK_LEFT.has(id))).map(([operatorId, v]) => ({ operatorId, ...v })) });
+      // hr 0.12.0 HR-6 — 사번으로 부를 때만 줄마다 status(ACTIVE·SUSPENDED·LEFT), operatorIds 로 부르면 없음
+      const status = (id: string) => (MOCK_LEFT.has(id) ? 'LEFT' : MOCK_SUSPENDED.has(id) ? 'SUSPENDED' : 'ACTIVE');
+      return HttpResponse.json({ items: Object.entries(MOCK_EMPLOYEE_LABELS).filter(([id, v]) => nos.includes(v.employeeNo) && !(activeOnly && MOCK_LEFT.has(id))).map(([operatorId, v]) => ({ operatorId, ...v, status: status(operatorId) })) });
     }
     if (ids.length > 50) return bad();
     return HttpResponse.json({ items: ids.flatMap((operatorId) => (MOCK_EMPLOYEE_LABELS[operatorId] ? [{ operatorId, ...MOCK_EMPLOYEE_LABELS[operatorId] }] : [])) });

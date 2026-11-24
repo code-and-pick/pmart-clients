@@ -139,4 +139,19 @@ describe('후임은 사번으로(hr 0.10.0 HR-5)', () => {
     await userEvent.type(box, 'P2025-00099');
     await waitFor(() => expect(screen.getByTestId('handover-to-status')).toHaveTextContent('퇴사자는 고를 수 없어요'));
   });
+
+  it('정지 직원(hr 0.12.0 HR-6 status SUSPENDED)은 보이되 경고 — 고르는 것은 막지 않는다, 재직자는 경고 없음', async () => {
+    renderAt('/cases/handovers', as.riderOps);
+    const box = await screen.findByLabelText('후임(사번)');
+    await userEvent.type(box, 'P2026-00005');
+    await waitFor(() => expect(screen.getByTestId('handover-to-status')).toHaveAttribute('data-state', 'found'));
+    expect(screen.queryByTestId('handover-to-status-suspended')).not.toBeInTheDocument();
+    await userEvent.clear(box);
+    await userEvent.type(box, 'P2026-00098');
+    await waitFor(() => expect(screen.getByTestId('handover-to-status')).toHaveTextContent('[목] 강정지 · P2026-00098 에게 넘겨요'));
+    expect(screen.getByTestId('handover-to-status-suspended')).toHaveTextContent('정지 중 — 로그인할 수 없어 받지 못해요');
+    const row = screen.getByTestId('handover-case');
+    await userEvent.type(within(row).getByLabelText('다음 조치'), '라이더에게 다시 연락');
+    expect(screen.getByRole('button', { name: '인계서 쓰기' })).toBeEnabled();
+  });
 });
