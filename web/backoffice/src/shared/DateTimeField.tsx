@@ -204,8 +204,6 @@ function Wheel({ label, rows, onStep, testId }: { readonly label: string; readon
         }
       }}
     >
-      {/* 가운데 띠 */}
-      <span aria-hidden className="pointer-events-none absolute inset-x-0 top-16 h-8 rounded bg-primary" />
       {/* 7칸 — 위아래 한 칸씩은 창 밖(움직일 때 들어온다) */}
       <div ref={list} className="absolute inset-x-0 -top-8 flex flex-col">
         {rows.map((r, i) => (
@@ -214,7 +212,7 @@ function Wheel({ label, rows, onStep, testId }: { readonly label: string; readon
             type="button"
             tabIndex={-1}
             aria-hidden={i !== 3}
-            className={`relative h-8 shrink-0 text-sm tabular-nums ${i === 3 ? 'font-semibold text-primary-content' : Math.abs(i - 3) === 1 ? 'text-base-content/70 hover:text-base-content' : 'text-base-content/35 hover:text-base-content/70'}`}
+            className={`relative h-8 shrink-0 text-sm tabular-nums ${i === 3 ? 'font-semibold text-primary' : Math.abs(i - 3) === 1 ? 'text-base-content/70 hover:text-base-content' : 'text-base-content/35 hover:text-base-content/70'}`}
             onClick={() => i !== 3 && r !== '' && step(i - 3)}
           >
             {r}
@@ -456,7 +454,9 @@ export function DateTimeField({
               <span className="w-14 text-center">{T.minute}</span>
               <span className="w-14 text-center">&nbsp;</span>
             </div>
-            <div className="flex justify-around">
+            <div className="relative flex justify-around">
+              {/* 고른 줄: 세 줄을 잇는 옅은 띠 + 파란 굵은 글자(2026-11-24 사용자 "파란색 배경 눈 아픈데" — 진한 파랑 칸 세 개 대신) */}
+              <span aria-hidden data-testid="wheel-band" className="pointer-events-none absolute inset-x-0 top-16 h-8 rounded-md bg-primary/10" />
               <Wheel label={T.hour} testId="wheel-hour" rows={hourRows} onStep={(n) => shift(n * 60)} />
               <Wheel label={T.minute} testId="wheel-minute" rows={minuteRows} onStep={(n) => shift(n)} />
               <Wheel label={T.half} testId="wheel-half" rows={halfRows} onStep={(n) => shift(Math.sign(n) * 12 * 60)} />
