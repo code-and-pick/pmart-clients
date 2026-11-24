@@ -9,7 +9,9 @@ import { request } from '@pmart/web-core';
 import { QueryState, toUiState } from '@pmart/web-ui';
 import { useApi } from '../../app/ApiContext';
 import { useCenterScope } from '../../app/CenterScope';
+import { useSession } from '../../app/SessionContext';
 import { PageHeader, Section, StatCard, StatStrip, StatusBadge } from '../../shared/admin';
+import { failedText, useFailedPayouts } from '../earnings/failedPayouts';
 import { LIVE } from '../../shared/liveRefresh';
 import { messages } from '../../shared/messages';
 import { ops } from '../../shared/opsMessages';
@@ -94,6 +96,9 @@ export function DashboardPage() {
     queryFn: () => request('GET', api.riders.GET('/rider-appeals', { params: { query: { state: 'OPEN' } } })),
   });
   const s = deliveries.data;
+  // 지급 관리는 라이더 운영·관리자만(계약)
+  const roles = useSession().session?.roles ?? [];
+  const payFail = useFailedPayouts(roles.includes('RIDER_OPS') || roles.includes('OPERATOR_ADMIN'));
   const controlLink = mfcId ? `/control?mfcId=${encodeURIComponent(mfcId)}` : '/control';
   // 2026-11-24 사용자 "운행중 (전체) 5를 보고 클릭했는데 라이더 관제 전체에 3명밖에 안 떠" — 센터를 안 고르면 수는 모든 센터인데 관제는 한 센터만 보인다.
   // 센터를 안 골랐으면 라이더 관리(운행 중, 모든 센터)로 — 수와 목록이 같게. 센터를 골랐으면 그 센터 관제
@@ -109,13 +114,21 @@ export function DashboardPage() {
           <h2 className="font-bold">{todo.title}</h2>
           <span className="text-xs text-base-content/50">{todo.hint}</span>
         </div>
-        <div className="grid grid-cols-2 divide-x divide-y divide-base-200 md:grid-cols-3 xl:grid-cols-6 xl:divide-y-0">
+        <div className="grid grid-cols-2 divide-x divide-y divide-base-200 md:grid-cols-3 xl:grid-cols-7 xl:divide-y-0">
           <TodoCell label={d.openHelp} to="/help-requests" count={s?.openHelpRequests} failed={deliveries.isError} testId="stat-open-help" />
           <TodoCell label={todo.inquiries} to="/inquiries" count={inq.count} more={!!inquiries.data?.page?.nextCursor} failed={inq.failed} testId="todo-inquiries" />
           <TodoCell label={todo.reviews} to="/restriction-reviews" {...listCount(reviews)} testId="todo-reviews" />
           <TodoCell label={todo.appeals} to="/appeals" {...listCount(appeals)} testId="todo-appeals" />
           <TodoCell label={d.adjustmentPending} to="/adjustments" count={s?.adjustmentPending} failed={deliveries.isError} testId="stat-adjustments" />
           <TodoCell label={d.surchargeRequested} to="/surcharges" count={s?.surchargeRequested} failed={deliveries.isError} testId="stat-surcharges" />
+          {/* 지급 실패(다시 지급해야 함, 최근 14일 지급일) — 2026-11-24 */}
+          <TodoCell
+            label={failedText.todo}
+            to={payFail.dates[0] ? `/payouts?payoutDate=${payFail.dates[0]}&state=PAYMENT_FAILED` : '/payouts?state=PAYMENT_FAILED'}
+            count={payFail.loading ? undefined : payFail.count}
+            failed={payFail.failed && payFail.count === 0}
+            testId="todo-payout-failed"
+          />
         </div>
       </section>
 

@@ -30,7 +30,7 @@ export const noticeText = {
   send: '보내기',
   confirmTitle: '이 공지를 보낼까요?',
   confirmTarget: (t: string) => `받는 라이더: ${t}`,
-  confirmNote: '보내면 거둘 수 없어요. 받는 라이더 수는 보낸 뒤에 알려 드려요.',
+  confirmNote: '보내면 거둘 수 없어요.',
   confirmSend: '보내기',
   cancel: '고치기',
   sent: (n: number) => `${n}명에게 보냈어요.`,

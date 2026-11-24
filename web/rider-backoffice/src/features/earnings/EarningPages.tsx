@@ -153,7 +153,7 @@ const adj = {
   feeLabel: '수락 당시 수행료',
   feeLoading: '…',
   feeUnknown: '알 수 없음',
-  feeUnknownHint: '배정 이력 최근 50건에 없어요 — 조정하면 서버가 수락 당시 금액으로 매겨요',
+  feeUnknownHint: '금액은 조정하면 서버가 정해요',
   pickFault: '귀책 고르기',
   pickFirst: '귀책을 고르면 결과가 보여요',
   noPay: '라이더 귀책 → 미지급',

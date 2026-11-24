@@ -28,7 +28,7 @@ const n = messages.names;
 export const evidenceMessages = {
   label: '근거 사진',
   optional: '(선택)',
-  intro: 'JPEG·PNG·WEBP, 10MB 까지 — 최대 10장. 올린 사진은 이 배송에만 쓸 수 있어요.',
+  intro: 'JPEG·PNG·WEBP, 10MB·10장까지.',
   pick: '사진 올리기',
   uploading: '올리는 중…',
   uploaded: (count: number) => `${count}장 올림`,

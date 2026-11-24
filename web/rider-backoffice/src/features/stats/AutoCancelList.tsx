@@ -15,7 +15,7 @@ type Filter = 'ALL' | 'CANCELLED' | 'BLOCKED' | 'BLOCKED_OPEN';
 
 export const autoCancelText = {
   title: '배차 불가 자동 취소',
-  intro: '약속 + 30분이 지나도 라이더가 없어 시스템이 주문 취소를 요청한 배송이에요. 막힘은 취소가 거절돼 다시 요청하지 않으니 MFC 관리자가 직접 취소해야 해요.',
+  intro: '라이더가 없어 시스템이 취소를 요청한 배송이에요.',
   // 2026-11-24 사용자 "– 작대기 별론데 UI 이게 최선이야?"·"회색 글 너무 길다" — 제목 · 건수 알약, 안내는 한 마디
   openTitle: '자동 취소 실패',
   openIntro: 'MFC 관리자가 직접 취소해야 해요.',

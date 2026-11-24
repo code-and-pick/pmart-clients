@@ -54,6 +54,8 @@ const seed = () => ({
     { riderId: 'RD-7', payoutDate: '2026-11-19', count: 3, total: 10500, compensationCount: 1, state: 'CONFIRMED', lastResult: null },
     { riderId: 'RD-8', payoutDate: '2026-11-19', count: 2, total: 7000, state: 'PAYING', lastResult: { result: 'PAYING', recordedAt: '2026-11-19T00:30:00.000Z', recordedBy: 'OP-admin-1', reference: 'ACC-1119-02', failureReason: null } },
     { riderId: 'RD-7', payoutDate: '2026-11-21', count: 1, total: 3500, state: 'CONFIRMED', lastResult: null },
+    // 지급 실패 묶음(다시 지급해야 함 — 메뉴 숫자·지급 관리 경고·대시보드 할 일 보기, 2026-11-24)
+    { riderId: 'RD-8', payoutDate: '2026-11-21', count: 1, total: 4000, state: 'PAYMENT_FAILED', lastResult: { result: 'FAILED', recordedAt: '2026-11-21T02:00:00.000Z', recordedBy: 'OP-admin-1', reference: null, failureReason: '계좌 오류' } },
   ] as MockPayout[],
   appeals: [
     { appealId: 'AP-1', riderId: 'RD-8', targetType: 'RESTRICTION', targetRef: 'RH-3', restriction: 'SUSPENDED', body: '파손은 포장 불량이었어요. 사진 있어요.', state: 'OPEN', submittedAt: '2026-11-18T05:00:00.000Z', decidedAt: null, decidedBy: null, decisionNote: null },

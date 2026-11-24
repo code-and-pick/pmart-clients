@@ -273,7 +273,7 @@ function AppealDecision({ appealId, targetType, onDone }: { readonly appealId: s
 
 export const compensationText = {
   title: '이의 인정 보상금',
-  intro: '원래 수행료는 그대로 두고, 이 이의에 보상금 한 줄을 따로 기록해요. 지급 예정일은 서버가 정해요(오늘 + 3영업일).',
+  intro: '원래 수행료는 두고 보상금을 따로 줘요.',
   amount: '금액(원, 1~100,000)',
   reason: '사유(라이더에게도 전달돼요, 1~300자, 개인정보 금지)',
   give: '보상금 주기',

@@ -11,6 +11,7 @@ import { request } from '@pmart/web-core';
 import { CommandFeedback, QueryState, toUiState, uiStateFromError, useCommand, type UiState } from '@pmart/web-ui';
 import { commandParams } from '../../api/command';
 import { useApi } from '../../app/ApiContext';
+import { failedText, useFailedPayouts } from './failedPayouts';
 import { isOperatorAdmin } from '../../app/nav';
 import { useSession } from '../../app/SessionContext';
 import { ChipGroup, DataTable, PageHeader, ResultBar, SearchPanel, SearchRow, StatusBadge, type Tone } from '../../shared/admin';
@@ -242,6 +243,7 @@ export function PayoutsMenu() {
   // 칸에는 늘 날짜가 보이게 — 비어 있으면 오늘(서울)(2026-11-24 사용자 "비우면 오늘이라고 적은 거 지우고 검색탭에 오늘 날짜를 2026-11-24 이렇게 적어")
   const [dateInput, setDateInput] = useState(payoutDate || seoulToday());
   const [riderInput, setRiderInput] = useState(riderId);
+  const failedPayouts = useFailedPayouts();
   const patch = (next: Record<string, string>) => {
     const p = new URLSearchParams(params);
     for (const [k, v] of Object.entries(next)) {
@@ -297,6 +299,31 @@ export function PayoutsMenu() {
   return (
     <section className="max-w-[1600px] space-y-4">
       <PageHeader title={t.title} description={t.intro} actions={<SavedViews listKey="payouts" />} />
+      {/* 지급 실패는 다시 지급할 때까지 맨 위 빨간 경고(2026-11-24 "무조건 줘야 하잖아") — 날짜를 누르면 그날 실패 묶음 */}
+      {failedPayouts.count > 0 && (
+        <div role="alert" className="flex flex-wrap items-start gap-3 rounded-box border border-error bg-error/10 px-4 py-3" data-testid="payout-failed-banner">
+          <span className="mt-1 h-2.5 w-2.5 shrink-0 animate-pulse rounded-full bg-error" aria-hidden />
+          <div className="min-w-0 flex-1 space-y-1">
+            <p className="font-bold text-error">{failedText.bannerTitle(failedPayouts.count)}</p>
+            <p className="text-sm">{failedText.bannerBody}</p>
+          </div>
+          <span className="flex flex-wrap gap-2">
+            {failedPayouts.dates.map((d) => (
+              <button
+                key={d}
+                type="button"
+                className="btn btn-xs border-error/50 bg-base-100 text-error"
+                onClick={() => {
+                  setDateInput(d);
+                  patch({ payoutDate: d, state: 'PAYMENT_FAILED' });
+                }}
+              >
+                {failedText.dateLink(d)}
+              </button>
+            ))}
+          </span>
+        </div>
+      )}
       {done && (
         <p role="status" className="alert alert-success text-sm" data-testid="payout-done">
           {done}

@@ -9,6 +9,7 @@ import { useQuery } from '@tanstack/react-query';
 import { request } from '@pmart/web-core';
 import { useApi } from './ApiContext';
 import { useCenterQuery } from './CenterScope';
+import { failedText, useFailedPayouts } from '../features/earnings/failedPayouts';
 
 const REFRESH_MS = 30_000;
 const PAGE = 50;
@@ -114,6 +115,24 @@ function ReviewBadge() {
 function AdjustmentBadge() {
   return <Chip parts={useStatPart(true, 'adjustmentPending')} title={TITLES['adjustments']!} menuKey="adjustments" />;
 }
+/** 지급 관리: 다시 지급해야 할 지급 실패 묶음(빨강) — 2026-11-24 */
+function PayoutFailBadge() {
+  const f = useFailedPayouts();
+  if (f.loading) return null;
+  if (f.failed && f.count === 0)
+    return (
+      <span aria-hidden="true" className="pm-count" data-tone="unknown" title={FAILED} data-testid="menu-badge-payouts">
+        ?
+      </span>
+    );
+  if (f.count === 0) return null;
+  return (
+    <span aria-hidden="true" className="pm-count" data-tone="urgent" title={`${failedText.menuTitle} ${f.count}건`} data-testid="menu-badge-payouts">
+      {f.count}
+    </span>
+  );
+}
+
 function SurchargeBadge() {
   return <Chip parts={useStatPart(true, 'surchargeRequested')} title={TITLES['surcharges']!} menuKey="surcharges" />;
 }
@@ -129,6 +148,8 @@ export function menuBadge(key: string) {
       return <AdjustmentBadge />;
     case 'surcharges':
       return <SurchargeBadge />;
+    case 'payouts':
+      return <PayoutFailBadge />;
     default:
       return undefined;
   }
