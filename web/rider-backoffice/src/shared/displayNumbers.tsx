@@ -214,8 +214,9 @@ function StaffLabel({ operatorId }: { readonly operatorId: string }) {
   const label = useEmployeeLabel(operatorId);
   if (label.data) {
     return (
-      <span className="whitespace-nowrap" title={operatorId} data-testid="staff-name">
-        {labelText(label.data)}
+      // 2026-11-24 사용자 "Claude 개발 시험 · P2026-00001 이거 뭐야? 줄일 수 있으면 줄여" — 목록·표에는 이름만, 사번은 올려 보면(title)
+      <span className="whitespace-nowrap" title={`${labelText(label.data)} (${operatorId})`} data-testid="staff-name">
+        {label.data.name}
       </span>
     );
   }

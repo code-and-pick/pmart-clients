@@ -144,11 +144,12 @@ describe('움직임', () => {
 });
 
 describe('직원 이름 · 사번(hr employee-labels)', () => {
-  it('목록의 처리자는 이름 · 사번, hr 이 모르면 "직원 …끝 6자리" 그대로', async () => {
+  it('목록의 처리자는 이름만(사번은 올려 보면), hr 이 모르면 "직원 …끝 6자리" 그대로', async () => {
     renderAt('/staff-actions', as.admin);
     await screen.findAllByTestId('staff-action-row');
     const names = await screen.findAllByTestId('staff-name');
-    await waitFor(() => expect(names.some((n) => n.textContent?.includes('P2026-'))).toBe(true));
+    await waitFor(() => expect(names.some((n) => n.getAttribute('title')?.includes('P2026-'))).toBe(true));
+    for (const n of screen.getAllByTestId('staff-name')) expect(n.textContent).not.toMatch(/P2026-/);
     for (const n of screen.getAllByTestId('staff-name')) expect(n.textContent).not.toMatch(/^OP-/);
   });
 

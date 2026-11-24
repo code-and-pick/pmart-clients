@@ -90,47 +90,38 @@ export function DispatchAttempts({ attempts }: { readonly attempts: readonly Att
       {attempts.length === 0 ? (
         <p className="text-sm opacity-70">{m.noAttempts}</p>
       ) : (
-        <div className="overflow-x-auto rounded-box border border-base-300">
-          <table className="table table-xs [&_thead_th]:bg-base-200/70" data-testid="dispatch-attempts">
-            <thead>
-              <tr>
-                <th>{m.attemptCol.started}</th>
-                <th>{m.attemptCol.trigger}</th>
-                <th>{m.attemptCol.state}</th>
-                <th>{m.attemptCol.radius}</th>
-                <th>{m.attemptCol.retry}</th>
-                <th>{m.attemptCol.failure}</th>
-                <th>{m.attemptCol.offers}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {attempts.map((t, i) => (
-                <tr key={t.attemptId ?? `a-${i}`} data-testid="dispatch-attempt">
-                  <td className="whitespace-nowrap">{when(t.startedAt)}</td>
-                  <td>{label(m.attemptTrigger, t.trigger)}</td>
-                  <td>{label(m.attemptState, t.state)}</td>
-                  <td>{t.currentRadiusKm === undefined ? none : m.km(t.currentRadiusKm)}</td>
-                  <td>{t.retryCount === undefined ? none : m.retries(t.retryCount)}</td>
-                  <td>{label(m.attemptFailure, t.failureReason)}</td>
-                  <td>
-                    {(t.offers ?? []).length === 0 ? (
-                      <span className="opacity-70">{m.noOffers}</span>
-                    ) : (
-                      <ul>
-                        {(t.offers ?? []).map((o, j) => (
-                          <li key={o.offerId ?? `o-${j}`} className="flex flex-wrap items-center gap-1 whitespace-nowrap">
-                            {o.riderId ? <RiderLink riderId={o.riderId} nameMasked={riders.get(o.riderId)?.nameMasked} riderNumber={riders.get(o.riderId)?.riderNumber} /> : <RiderName riderId={o.riderId} />}
-                            <span>{`· ${label(m.offerState, o.state)} · ${when(o.sentAt)}`}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        // 2026-11-24 사용자 "이것도 스크롤 안 하게 하는 방법 없어?" — 좁은 칸에서 7칸 표가 옆으로 밀렸다. 시도마다 두 줄 카드로:
+        // 1줄 시각 · 계기 · 상태 · 반경 · 재시도(· 실패 사유), 2줄 제안(라이더 · 응답 · 보낸 시각)이 줄바꿈된다. 값은 같고 모양만 바꿨다.
+        <ol className="divide-y divide-base-300 rounded-box border border-base-300" data-testid="dispatch-attempts">
+          {attempts.map((t, i) => (
+            <li key={t.attemptId ?? `a-${i}`} className="space-y-1 px-3 py-2 text-xs" data-testid="dispatch-attempt">
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                <span className="font-medium">{when(t.startedAt)}</span>
+                <span>{label(m.attemptTrigger, t.trigger)}</span>
+                <span className="font-semibold">{label(m.attemptState, t.state)}</span>
+                <span className="text-base-content/70">
+                  {m.attemptCol.radius} {t.currentRadiusKm === undefined ? none : m.km(t.currentRadiusKm)}
+                </span>
+                <span className="text-base-content/70">
+                  {m.attemptCol.retry} {t.retryCount === undefined ? none : m.retries(t.retryCount)}
+                </span>
+                {t.failureReason && <span className="text-error">{label(m.attemptFailure, t.failureReason)}</span>}
+              </div>
+              {(t.offers ?? []).length === 0 ? (
+                <p className="text-base-content/60">{m.noOffers}</p>
+              ) : (
+                <ul className="flex flex-wrap gap-x-4 gap-y-0.5" aria-label={m.attemptCol.offers}>
+                  {(t.offers ?? []).map((o, j) => (
+                    <li key={o.offerId ?? `o-${j}`} className="flex flex-wrap items-center gap-1 whitespace-nowrap">
+                      {o.riderId ? <RiderLink riderId={o.riderId} nameMasked={riders.get(o.riderId)?.nameMasked} riderNumber={riders.get(o.riderId)?.riderNumber} /> : <RiderName riderId={o.riderId} />}
+                      <span>{`· ${label(m.offerState, o.state)} · ${when(o.sentAt)}`}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </li>
+          ))}
+        </ol>
       )}
     </div>
   );
