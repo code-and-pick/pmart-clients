@@ -130,7 +130,7 @@ describe('라이더 상세 — 열린 제한 검토·컴플레인', () => {
     expect(complaints).toHaveLength(3);
     expect(complaints[0]).not.toHaveTextContent('RC-6'); // 컴플레인 ID(시스템 ID)는 목록에 내지 않는다
     expect(within(complaints[0]!).getByRole('link', { name: /DLV-6/ })).toHaveAttribute('href', '/deliveries/DLV-6');
-    const rv = view.sent.find((r) => new URL(r.url).pathname.endsWith('/restriction-reviews'))!;
+    const rv = view.sent.find((r) => new URL(r.url).pathname.endsWith('/restriction-reviews') && new URL(r.url).searchParams.has('riderId'))!; // 메뉴 숫자 조회(riderId 없음)는 빼고
     expect([new URL(rv.url).searchParams.get('riderId'), new URL(rv.url).searchParams.get('state')]).toEqual(['RD-8', 'OPEN']);
     const rc = view.sent.find((r) => new URL(r.url).pathname.endsWith('/rider-complaints'))!;
     expect(new URL(rc.url).searchParams.get('riderId')).toBe('RD-8');
@@ -161,7 +161,7 @@ describe('라이더 상세 — 열린 제한 검토·컴플레인', () => {
     expect(rows).toHaveLength(2);
     expect(within(rows[0]!).getAllByRole('link')[0]).toHaveAttribute('href', '/help-requests/DLV-2/HR-2');
     expect(screen.getByTestId('rider-summary')).toHaveTextContent('2건(열림 1)');
-    const q = new URL(view.sent.find((r) => new URL(r.url).pathname.endsWith('/delivery-help-requests'))!.url).searchParams;
+    const q = new URL(view.sent.find((r) => new URL(r.url).pathname.endsWith('/delivery-help-requests') && new URL(r.url).searchParams.has('riderId'))!.url).searchParams;
     expect([q.get('riderId'), q.get('state'), q.get('sort')]).toEqual(['RD-7', 'ALL', 'NEWEST']);
   });
 

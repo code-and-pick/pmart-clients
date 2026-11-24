@@ -344,7 +344,7 @@ function DeliveryInline({ deliveryId }: { readonly deliveryId: string }) {
                     [m.col.rider, rider(x.riderId)],
                     [m.col.assignedAt, when(x.assignedAt)],
                     [m.col.completedAt, when(x.completedAt)],
-                    x.failure ? [m.failureReason, <span className="text-error">{name(n.failureReason, x.failure.reason)}</span>] : null,
+                    x.failure ? [m.failureReason, <span className={x.failure.decision === 'REJECT' ? undefined : 'text-error'}>{name(n.failureReason, x.failure.reason)}</span>] : null,
                     x.failure ? [m.decision, x.failure.decision ? `${name(n.decision, x.failure.decision)} (${when(x.failure.decidedAt)})` : none] : null,
                     x.failure ? [m.custody, name(n.custody, x.failure.custody)] : null,
                   ]}
@@ -515,8 +515,11 @@ function DeliveryDetailPage() {
                   ]}
                 />
                 {x.failure && (
-                  <div className="rounded-box bg-error/5 p-4">
-                    <p className="mb-2 text-sm font-semibold text-error">{m.failure}</p>
+                  // 반려된 신고(배송은 그대로 이어감)는 회색 지난 기록으로 — 빨간 "전달 실패"는 아직 판정 전이거나 확정일 때만
+                  <div className={x.failure.decision === 'REJECT' ? 'rounded-box bg-base-200/60 p-4' : 'rounded-box bg-error/5 p-4'} data-testid="failure-box">
+                    <p className={x.failure.decision === 'REJECT' ? 'mb-2 text-sm font-semibold text-base-content/70' : 'mb-2 text-sm font-semibold text-error'}>
+                      {x.failure.decision === 'REJECT' ? m.failureRejected : m.failure}
+                    </p>
                     <FieldList
                       testId="failure-detail"
                       rows={[

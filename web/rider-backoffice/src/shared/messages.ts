@@ -221,6 +221,8 @@ export const messages = {
     orderNumber: '주문번호',
     items: '주문 품목',
     failure: '전달 실패',
+    // 2026-11-24 사용자 "전달완료라고 되어있는데 밑에는 전달 실패라고" — 반려된 신고는 지난 기록으로
+    failureRejected: '전달 실패 신고 · 반려됨',
     failureReason: '사유',
     decision: '판정',
     custody: '상품 위치',

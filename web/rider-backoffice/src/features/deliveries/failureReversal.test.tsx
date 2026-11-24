@@ -23,6 +23,24 @@ const confirmed = (deliveryId: string, reason = 'CUSTOMER_ABSENT') => {
 };
 const posts = (sent: readonly Request[]) => sent.filter((r) => r.method === 'POST' && new URL(r.url).pathname.endsWith('/failure-reversals'));
 
+describe('반려된 전달 실패 신고(2026-11-24)', () => {
+  it('반려 뒤 전달 완료면 빨간 "전달 실패" 가 아니라 "전달 실패 신고 · 반려됨"', async () => {
+    server.use(
+      http.get(`${API_BASE}/deliveries/DLV-1`, () =>
+        HttpResponse.json({
+          ...mockDeliveries[0]!,
+          state: 'COMPLETED',
+          failure: { ...(mockDeliveries[0]!.failure ?? {}), reason: 'UNREACHABLE', decision: 'REJECT', decidedAt: '2026-11-20T03:45:00.000Z' },
+        }),
+      ),
+    );
+    renderAt('/deliveries/DLV-1', as.riderOps);
+    const box = await screen.findByTestId('failure-box');
+    expect(box).toHaveTextContent('전달 실패 신고 · 반려됨');
+    expect(box.className).not.toMatch(/bg-error/);
+  });
+});
+
 describe('전달 실패 확정 되돌리기', () => {
   it('사유와 확인을 넣어야 보낼 수 있고, 멱등 키로 보낸다', async () => {
     confirmed('DLV-1');

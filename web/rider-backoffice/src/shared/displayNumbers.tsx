@@ -128,11 +128,6 @@ export function DeliveryNo({
 const SEQ_SUFFIX = /-\d+$/;
 
 /**
- * -2·-3 배송의 종류(2026-11-24 사용자 "-1, -2, -3 뒤에 회수·반납·재발송·다시 배송 표시 안 되던데?") — ADR-0085 "종류 표시는 번호 옆에".
- * 번호만 받은 칸이 많아 여기서 그 배송을 묶음 조회(`GET /deliveries?deliveryIds=`)로 한 번 읽는다(5분 캐시, -순번이 있는 번호만).
- * 목적(purpose)이 있으면 목적, 없으면 종류(type). 읽는 중·못 읽음이면 꼬리표를 붙이지 않는다(지어내지 않음).
- */
-/**
  * 꼬리표 짧은 글자 네 가지(2026-11-24 사용자 "회수 · 반납 · 재발송 · 다시배송 네 가지로만 줄이고, 자세한 이름은 마우스를 올리면") —
  * 회수(반품 회수·오배송 회수·회수 배송), 반납(전달 실패 반납), 재발송(오배송·사고 재발송 — MFC 에서 새 상품), 다시배송(잘못 둔 곳 → 실제 집, 원래 상품).
  */
@@ -145,6 +140,11 @@ const SHORT_PURPOSE: Readonly<Record<string, string>> = {
 };
 const SHORT_TYPE: Readonly<Record<string, string>> = { RETURN: '회수', RESHIPMENT: '재발송' };
 
+/**
+ * -2·-3 배송의 종류(2026-11-24 사용자 "-1, -2, -3 뒤에 회수·반납·재발송·다시 배송 표시 안 되던데?") — ADR-0085 "종류 표시는 번호 옆에".
+ * 번호만 받은 칸이 많아 여기서 그 배송을 묶음 조회(`GET /deliveries?deliveryIds=`)로 한 번 읽는다(5분 캐시, -순번이 있는 번호만).
+ * 목적(purpose)이 있으면 목적, 없으면 종류(type). 읽는 중·못 읽음이면 꼬리표를 붙이지 않는다(지어내지 않음).
+ */
 function DeliveryKindTag({ deliveryId }: { readonly deliveryId: string }) {
   const api = useApi();
   const q = useQuery({

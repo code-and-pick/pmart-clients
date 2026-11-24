@@ -27,6 +27,7 @@ import { Icon, type IconName } from '../shared/icons';
 import { SimulatorLink } from '../shared/sim';
 import { DETAIL_BAR_SLOT } from '../shared/StickyTitle';
 import { ConnectionBanner, ThemeToggle, useDocumentTitle, useSlashToSearch } from './PageChrome';
+import { menuBadge } from './MenuBadges';
 import { allMenus, hasRiderAppRole, isOperatorAdmin, menuPath, navGroups, visibleGroups, type GroupKey, type MenuItem } from './nav';
 import { StatsPage } from '../features/stats/StatsPage';
 import { CenterScopeProvider, HeaderCenterPicker } from './CenterScope';
@@ -121,7 +122,8 @@ function Layout() {
         id: g.key,
         label: m.groups[g.key],
         icon: <Icon name={groupIcon[g.key]} className="h-5 w-5" />,
-        items: g.items.map((item) => ({ to: menuPath(item.segment), label: m.menus[item.key], end: false })),
+        // 메뉴 옆 할 일 숫자(2026-11-24 — 통합 백오피스처럼, MenuBadges)
+        items: g.items.map((item) => ({ to: menuPath(item.segment), label: m.menus[item.key], end: false, badge: menuBadge(item.key) })),
       }))
     : [];
   const currentGroup = navGroups.find((g) => g.items.some((i) => i.segment === seg));

@@ -6,6 +6,17 @@ import { describe, expect, it } from 'vitest';
 import { as, renderAt } from '../test/render';
 
 describe('화면 틀', () => {
+  it('메뉴 옆 할 일 숫자: 상담 관리에 기다리는 상담 수(통합 백오피스처럼, 2026-11-24)', async () => {
+    renderAt('/dashboard', as.riderOps);
+    const nav = await screen.findByRole('navigation', { name: '메뉴' });
+    const badge = await within(nav).findByTestId('menu-badge-consults');
+    expect(badge.textContent).toMatch(/^\d+\+?$/);
+    expect(Number(badge.textContent?.replace('+', ''))).toBeGreaterThan(0);
+    expect(badge).toHaveAttribute('title', expect.stringContaining('처리를 기다리는 상담'));
+    // 링크 이름에는 숫자가 섞이지 않는다
+    expect(within(nav).getByRole('link', { name: '상담 관리' })).toBeInTheDocument();
+  });
+
   it('메뉴를 접으면 아이콘만(묶음 이름은 링크 이름으로), 다시 펼칠 수 있다', async () => {
     renderAt('/dashboard', as.riderOps);
     const nav = await screen.findByRole('navigation', { name: '메뉴' });

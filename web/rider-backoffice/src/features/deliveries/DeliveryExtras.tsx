@@ -14,6 +14,8 @@ import { AuthedPhotos } from '../../shared/AuthedPhotos';
 import { messages } from '../../shared/messages';
 import { RiderName, useRiderSummaries, RiderLink } from '../../shared/displayNumbers';
 import { label, none, when, won } from '../../shared/opsUi';
+import { StatusBadge } from '../../shared/admin';
+import type { Tone } from '@pmart/web-ui/console';
 import { useEvidenceLoader } from '../../shared/evidenceLoader';
 
 type Attempt = NonNullable<DispatchC['schemas']['Delivery']['attempts']>[number];
@@ -60,7 +62,6 @@ export const extrasMessages = {
   proofPhoto: '완료 사진',
   substituteCase: '대체 증빙 접수 건',
   earning: '이 배송 수행료',
-  earningNote: '금액·지급 상태는 서버 값 그대로예요(화면에서 계산하지 않아요).',
   fee: { base: '기본', surcharge: '할증', compensation: '보상(추가 배달료 포함)', deduction: '차감', total: '합계' },
   settlement: '정산 상태',
   payoutDate: '지급 예정일',
@@ -82,6 +83,10 @@ function Row({ k, children }: { readonly k: string; readonly children: ReactNode
   );
 }
 
+const attemptTone = (st: string | null | undefined): Tone => (st === 'ASSIGNED' ? 'success' : st === 'FAILED' ? 'error' : st === 'CANCELLED' ? 'neutral' : 'info');
+const offerTone = (st: string | null | undefined): Tone =>
+  st === 'ACCEPTED' ? 'success' : st === 'REJECTED' || st === 'SEND_FAILED' ? 'error' : st === 'SENT' ? 'info' : 'neutral';
+
 export function DispatchAttempts({ attempts }: { readonly attempts: readonly Attempt[] }) {
   // 제안받은 라이더: 가린 이름 · 라이더 번호(ADR-0070, 한 번에 조회)
   const riders = useRiderSummaries(attempts.flatMap((t) => (t.offers ?? []).map((o) => o.riderId)));
@@ -90,31 +95,40 @@ export function DispatchAttempts({ attempts }: { readonly attempts: readonly Att
       {attempts.length === 0 ? (
         <p className="text-sm opacity-70">{m.noAttempts}</p>
       ) : (
-        // 2026-11-24 사용자 "이것도 스크롤 안 하게 하는 방법 없어?" — 좁은 칸에서 7칸 표가 옆으로 밀렸다. 시도마다 두 줄 카드로:
-        // 1줄 시각 · 계기 · 상태 · 반경 · 재시도(· 실패 사유), 2줄 제안(라이더 · 응답 · 보낸 시각)이 줄바꿈된다. 값은 같고 모양만 바꿨다.
-        <ol className="divide-y divide-base-300 rounded-box border border-base-300" data-testid="dispatch-attempts">
+        // 2026-11-24 사용자 "이것도 스크롤 안 하게 하는 방법 없어?" → 같은 날 "배차에 UI 이게 최선이니?" — 시도마다 카드:
+        // 머리 줄(상태 꼬리표·시각·계기 | 반경·재시도), 실패 사유, 제안은 라이더마다 한 줄(라이더 | 응답 꼬리표·보낸 시각). 옆 스크롤 없음.
+        <ol className="space-y-2" data-testid="dispatch-attempts">
           {attempts.map((t, i) => (
-            <li key={t.attemptId ?? `a-${i}`} className="space-y-1 px-3 py-2 text-xs" data-testid="dispatch-attempt">
-              <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-                <span className="font-medium">{when(t.startedAt)}</span>
-                <span>{label(m.attemptTrigger, t.trigger)}</span>
-                <span className="font-semibold">{label(m.attemptState, t.state)}</span>
-                <span className="text-base-content/70">
-                  {m.attemptCol.radius} {t.currentRadiusKm === undefined ? none : m.km(t.currentRadiusKm)}
+            <li key={t.attemptId ?? `a-${i}`} className="overflow-hidden rounded-box border border-base-300 bg-base-100" data-testid="dispatch-attempt">
+              <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 bg-base-200/50 px-3 py-2">
+                <span className="flex flex-wrap items-center gap-2">
+                  <StatusBadge tone={attemptTone(t.state)}>{label(m.attemptState, t.state)}</StatusBadge>
+                  <span className="text-sm font-semibold">{when(t.startedAt)}</span>
+                  <span className="text-xs text-base-content/60" title={m.attemptCol.trigger}>
+                    {label(m.attemptTrigger, t.trigger)}
+                  </span>
                 </span>
-                <span className="text-base-content/70">
-                  {m.attemptCol.retry} {t.retryCount === undefined ? none : m.retries(t.retryCount)}
+                <span className="text-xs text-base-content/60">
+                  {m.attemptCol.radius} {t.currentRadiusKm === undefined ? none : m.km(t.currentRadiusKm)} · {m.attemptCol.retry} {t.retryCount === undefined ? none : m.retries(t.retryCount)}
                 </span>
-                {t.failureReason && <span className="text-error">{label(m.attemptFailure, t.failureReason)}</span>}
               </div>
+              {t.failureReason && (
+                <p className="border-t border-base-200 px-3 py-1.5 text-xs">
+                  <span className="text-base-content/60">{m.attemptCol.failure} </span>
+                  <span className="font-medium text-error">{label(m.attemptFailure, t.failureReason)}</span>
+                </p>
+              )}
               {(t.offers ?? []).length === 0 ? (
-                <p className="text-base-content/60">{m.noOffers}</p>
+                <p className="border-t border-base-200 px-3 py-2 text-xs text-base-content/60">{m.noOffers}</p>
               ) : (
-                <ul className="flex flex-wrap gap-x-4 gap-y-0.5" aria-label={m.attemptCol.offers}>
+                <ul className="divide-y divide-base-200 border-t border-base-200" aria-label={m.attemptCol.offers}>
                   {(t.offers ?? []).map((o, j) => (
-                    <li key={o.offerId ?? `o-${j}`} className="flex flex-wrap items-center gap-1 whitespace-nowrap">
+                    <li key={o.offerId ?? `o-${j}`} className="flex flex-wrap items-center justify-between gap-2 px-3 py-1.5 text-sm">
                       {o.riderId ? <RiderLink riderId={o.riderId} nameMasked={riders.get(o.riderId)?.nameMasked} riderNumber={riders.get(o.riderId)?.riderNumber} /> : <RiderName riderId={o.riderId} />}
-                      <span>{`· ${label(m.offerState, o.state)} · ${when(o.sentAt)}`}</span>
+                      <span className="flex items-center gap-2">
+                        <StatusBadge tone={offerTone(o.state)}>{label(m.offerState, o.state)}</StatusBadge>
+                        <span className="text-xs text-base-content/60">{when(o.sentAt)}</span>
+                      </span>
                     </li>
                   ))}
                 </ul>
@@ -236,7 +250,7 @@ export function DeliveryEarning({ delivery }: { readonly delivery: Execution }) 
             <Row k={m.settlement}>{label(messages.names.settlementState, e.settlementState)}</Row>
             {e.payoutDate && <Row k={m.payoutDate}>{e.payoutDate}</Row>}
           </dl>
-          <p className="text-xs opacity-70">{m.earningNote}</p>
+          {/* 2026-11-24 사용자 "이렇게 긴 회색글들 필요한 말만 하고 줄여" — "서버 값 그대로" 안내 줄을 뺐다(값은 그대로 서버 값) */}
         </>
       )}
     </div>
