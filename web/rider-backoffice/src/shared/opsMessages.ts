@@ -108,7 +108,8 @@ export const ops = {
     staleCount: (n: number) => `위치 끊김 ${n}명`,
     eta: (t: string) => `도착 예정 ${t}`,
     // 2026-11-24 사용자 "2 줄로 내려오니까 전체 | 배송중 | 위치 미확인 | 시험용 이렇게 바꿔줘" — 한 줄에 들어가게 짧게
-    filter: { all: '전체', delivering: '배송 중', stale: '위치 미확인', sim: '시험용' },
+    // 2026-11-24 사용자 "지연 배송을 바로 볼 수 있는 기능" — 지연(tracking delayed: 약속 + 20분)
+    filter: { all: '전체', delivering: '배송 중', late: '지연', stale: '위치 미확인', sim: '시험용' },
     emptyFiltered: '조건에 맞는 라이더가 없어요.',
   },
   actions: {

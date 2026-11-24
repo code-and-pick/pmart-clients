@@ -52,17 +52,44 @@ const cx = {
   allClear: '지금 먼저 볼 라이더가 없어요',
   allClearBody: (k: number) => `운행 중 ${k}명 모두 위치가 들어오고 있고 신규배차를 받고 있어요.`,
   deliveries: (k: number) => `${k}건`,
+  late: '지연 배송',
+  lateHint: '약속 시각 + 20분을 넘겼거나 넘길 것으로 봐요',
+  lateTitle: (k: number) => `지연 배송 ${k}건 — 많이 늦은 순`,
+  lateNone: '지금 지연 배송이 없어요.',
+  lateOver: (m: number) => (m > 0 ? `약속보다 ${m}분 지남` : '곧 늦을 예정'),
+  lateNoPromise: '약속 시각 모름',
+  latePromised: (t: string) => `약속 ${t}`,
   basis: (riders: number, deliveries: number) => `이 센터 운행 중 라이더 ${riders}명·진행 중 배송 ${deliveries}건 기준(서버가 준 위치 목록). 배송 중 카드를 누르면 그 라이더만 보여요.`,
 } as const;
 
 const FLOW_STAGES = ['TO_STORE', 'AT_STORE', 'TO_CUSTOMER', 'AT_CUSTOMER'] as const;
 
-type Filter = 'all' | 'delivering' | 'stale' | 'sim';
+type Filter = 'all' | 'delivering' | 'late' | 'stale' | 'sim';
 type Rider = components['schemas']['ControlRider'];
+type Active = Rider['activeDeliveries'][number];
 
 // 거르기·지도 색은 서버 값으로만: stale(서버 3분 기준) 또는 위치 없음 = 끊김, 진행 중 배송 있음 = 배송 중.
 const isStale = (r: Rider) => r.stale || !r.location;
 const isDelivering = (r: Rider) => r.activeDeliveries.length > 0;
+// 지연 = tracking delayed(예상 도착 또는 지금이 약속 + 20분을 넘음 — 2026-11-23 tracking 0.14.0)
+const isLate = (r: Rider) => r.activeDeliveries.some((d) => d.delayed);
+
+/** 지연 배송 한 줄 — 라이더와 배송, 약속에서 지난 분(서버 기준 시각 asOf 로 센다). 많이 늦은 것부터. */
+type LateRow = { readonly rider: Rider; readonly active: Active; readonly overMinutes: number | null };
+
+export function lateRows(all: readonly Rider[], asOf: string | undefined): LateRow[] {
+  const now = asOf ? Date.parse(asOf) : Number.NaN;
+  const rows = all.flatMap((rider) =>
+    rider.activeDeliveries
+      .filter((d) => d.delayed)
+      .map((active) => {
+        const promised = active.promisedAt ? Date.parse(active.promisedAt) : Number.NaN;
+        const overMinutes = Number.isNaN(now) || Number.isNaN(promised) ? null : Math.floor((now - promised) / 60_000);
+        return { rider, active, overMinutes };
+      }),
+  );
+  return rows.sort((a, b) => (b.overMinutes ?? -Infinity) - (a.overMinutes ?? -Infinity));
+}
 
 function LocationBadge({ r }: { readonly r: Rider }) {
   if (!r.location) return <StatusBadge tone="error">{c.noLocation}</StatusBadge>;
@@ -75,7 +102,7 @@ export function ControlPage() {
   const [params, setParams] = useSearchParams();
   const mfcId = params.get('mfcId') ?? '';
   const rawFilter = params.get('filter');
-  const filter: Filter = rawFilter === 'delivering' || rawFilter === 'stale' || rawFilter === 'sim' ? rawFilter : 'all';
+  const filter: Filter = rawFilter === 'delivering' || rawFilter === 'late' || rawFilter === 'stale' || rawFilter === 'sim' ? rawFilter : 'all';
   const setFilter = (f: Filter) => {
     const p = new URLSearchParams(params);
     if (f === 'all') p.delete('filter');
@@ -144,6 +171,17 @@ export function ControlPage() {
       }),
     [setParams],
   );
+  // 지연 목록에서 고르기 — 지연 거르기는 그대로 두고 그 라이더·배송을 연다
+  const pickLate = useCallback(
+    (riderId: string, deliveryId: string) =>
+      setParams((prev) => {
+        const p = new URLSearchParams(prev);
+        p.set('rider', riderId);
+        p.set('delivery', deliveryId);
+        return p;
+      }),
+    [setParams],
+  );
   // 고른 라이더 배송의 전달지 — 상세 칸과 같은 캐시(배송마다 한 번, 열람 기록)
   const selectedRider = (board.data?.items ?? []).find((r) => r.riderId === selectedId);
   const routeIds = selectedRider?.activeDeliveries.length ? selectedRider.activeDeliveries.map((d) => d.deliveryId) : focusDeliveryId && selectedId ? [focusDeliveryId] : [];
@@ -180,7 +218,8 @@ export function ControlPage() {
             const staleFlag = all.filter((r) => r.stale).length;
             const staleOrNone = all.filter(isStale).length;
             const delivering = all.filter(isDelivering).length;
-            const items = all.filter((r) => (filter === 'delivering' ? isDelivering(r) : filter === 'stale' ? isStale(r) : filter === 'sim' ? isSimRider(r.riderId) : true));
+            const items = all.filter((r) => (filter === 'delivering' ? isDelivering(r) : filter === 'late' ? isLate(r) : filter === 'stale' ? isStale(r) : filter === 'sim' ? isSimRider(r.riderId) : true));
+            const late = lateRows(all, b.asOf);
             const mapRiders: MapRider[] = items.flatMap((r) =>
               r.location?.lat != null && r.location.lng != null
                 ? [{ riderId: r.riderId, lat: r.location.lat, lng: r.location.lng, tone: isStale(r) ? 'stale' : isDelivering(r) ? 'delivering' : 'ok', label: r.riderNumber ?? [r.nameMasked, r.riderId.slice(-8)].filter(Boolean).join(' ') }]
@@ -189,7 +228,10 @@ export function ControlPage() {
             return (
               <div className="space-y-4">
                 {/* 두 줄 카드 — 위: 먼저 확인(문제, 빨강·주황) / 아래: 진행 단계(› 화살표). 누르면 그 거르기(목록·지도가 함께 바뀐다) */}
-                <ControlBoards all={all} filter={filter} filterLink={filterLink} asOf={b.asOf} staleOrNone={staleOrNone} delivering={delivering} />
+                <ControlBoards all={all} filter={filter} filterLink={filterLink} asOf={b.asOf} staleOrNone={staleOrNone} delivering={delivering} lateCount={late.length} />
+
+                {/* 지연 거르기 — 지연 배송을 많이 늦은 순으로(2026-11-24 사용자 "지연 배송을 바로 볼 수 있는 기능"). 줄을 누르면 그 라이더·배송 */}
+                {filter === 'late' && <LateDeliveries rows={late} selectedDeliveryId={focusDeliveryId} onPick={pickLate} />}
 
                 {/* 작업 화면(배민 주문접수처럼): 왼쪽 라이더 목록 · 가운데 지도 · 오른쪽 고른 라이더 상세 — 한 화면에서 스크롤 없이 */}
                 <div ref={boardRef} className="scroll-mt-4 grid gap-4 xl:h-[calc(100vh-17rem)] xl:min-h-[560px] xl:grid-cols-[20rem_minmax(0,1fr)_24rem]">
@@ -207,7 +249,7 @@ export function ControlPage() {
                       <ChipGroup
                         label={cx.view}
                         value={filter}
-                        options={(['all', 'delivering', 'stale', 'sim'] as const).map((f) => ({ value: f, label: c.filter[f] }))}
+                        options={(['all', 'delivering', 'late', 'stale', 'sim'] as const).map((f) => ({ value: f, label: c.filter[f] }))}
                         onChange={setFilter}
                       />
                     </div>
@@ -296,12 +338,12 @@ export function ControlPage() {
  * 수는 모두 이 센터 위치 목록(서버 GET /rider-locations)에서 센다 — 끊김은 서버 stale·위치 없음, 단계는 서버 stage.
  * 먼저 확인할 것이 모두 0 일 때만 "먼저 볼 라이더가 없어요"(읽는 중·실패면 이 칸을 그리지 않는다 — 부르는 쪽이 성공일 때만).
  */
-function ControlBoards({ all, filter, filterLink, asOf, staleOrNone, delivering }: { readonly all: readonly Rider[]; readonly filter: Filter; readonly filterLink: (f: Filter) => string; readonly asOf: string | undefined; readonly staleOrNone: number; readonly delivering: number }) {
+function ControlBoards({ all, filter, filterLink, asOf, staleOrNone, delivering, lateCount }: { readonly all: readonly Rider[]; readonly filter: Filter; readonly filterLink: (f: Filter) => string; readonly asOf: string | undefined; readonly staleOrNone: number; readonly delivering: number; readonly lateCount: number }) {
   const dispatchOff = all.filter((r) => r.newDispatchEnabled === false).length;
   const actives = all.flatMap((r) => r.activeDeliveries);
   const byStage = (st: string) => actives.filter((x) => x.stage === st).length;
   const waiting = all.filter((r) => !isDelivering(r) && !isStale(r)).length;
-  const allClear = staleOrNone === 0 && dispatchOff === 0;
+  const allClear = staleOrNone === 0 && dispatchOff === 0 && lateCount === 0;
   const flowCell = (key: string, text: string, value: string, to: string | null, active: boolean, last: boolean) => {
     const inner = (
       <>
@@ -338,6 +380,7 @@ function ControlBoards({ all, filter, filterLink, asOf, staleOrNone, delivering 
           <AllDone title={cx.allClear} body={cx.allClearBody(all.length)} testId="control-all-clear" />
         ) : (
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <KpiTile label={cx.late} value={cx.deliveries(lateCount)} hint={cx.lateHint} to={filterLink('late')} active={filter === 'late'} dot="bg-error" alert={lateCount > 0} testId="control-stat-late" />
             <KpiTile label={cx.staleOrNone} value={cx.people(staleOrNone)} to={filterLink('stale')} active={filter === 'stale'} dot="bg-error" alert={staleOrNone > 0} testId="control-stat-stale" />
             <KpiTile label={cx.dispatchOff} value={cx.people(dispatchOff)} hint={cx.dispatchOffHint} dot="bg-warning" warn={dispatchOff > 0} testId="control-stat-dispatch-off" />
           </div>
@@ -384,5 +427,36 @@ function KpiTile({ label: text, value, to, active = false, dot, alert = false, w
     <div className={cls} data-testid={testId}>
       {body}
     </div>
+  );
+}
+
+/** 지연 배송 목록(2026-11-24) — 이 센터 진행 중 배송 중 tracking delayed 인 것, 많이 늦은 순. 줄을 누르면 그 라이더·배송을 연다. */
+function LateDeliveries({ rows, selectedDeliveryId, onPick }: { readonly rows: readonly LateRow[]; readonly selectedDeliveryId: string; readonly onPick: (riderId: string, deliveryId: string) => void }) {
+  return (
+    <section aria-label={cx.late} className="rounded-box border border-error/40 bg-base-100" data-testid="control-late">
+      <h2 className="border-b border-base-300 px-4 py-3 font-bold">{cx.lateTitle(rows.length)}</h2>
+      {rows.length === 0 ? (
+        <p data-state="empty" className="p-4 text-sm text-base-content/60">
+          {cx.lateNone}
+        </p>
+      ) : (
+        <ul className="max-h-72 divide-y divide-base-200 overflow-y-auto">
+          {rows.map(({ rider, active, overMinutes }) => (
+            <li
+              key={active.deliveryId}
+              data-testid="control-late-row"
+              aria-selected={active.deliveryId === selectedDeliveryId}
+              className={`flex cursor-pointer flex-wrap items-center gap-x-3 gap-y-1 border-l-[3px] px-4 py-2 text-sm ${active.deliveryId === selectedDeliveryId ? 'border-primary bg-primary/10' : 'border-error hover:bg-base-200/60'}`}
+              onClick={() => onPick(rider.riderId, active.deliveryId)}
+            >
+              <span className={`w-32 shrink-0 font-semibold tabular-nums ${overMinutes !== null && overMinutes > 0 ? 'text-error' : 'text-warning'}`}>{overMinutes === null ? cx.lateNoPromise : cx.lateOver(overMinutes)}</span>
+              <RiderName riderId={rider.riderId} nameMasked={rider.nameMasked} riderNumber={rider.riderNumber} />
+              <ActiveDeliverySummary active={active} />
+              {active.promisedAt && <span className="text-xs text-base-content/55">{cx.latePromised(when(active.promisedAt))}</span>}
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }
