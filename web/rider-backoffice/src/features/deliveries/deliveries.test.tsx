@@ -202,6 +202,32 @@ describe('배송 상세', () => {
     expect(alert).toHaveTextContent('배차 시도 5번');
   });
 
+  it('배차 지연: 서버가 낸 지연 알림(delayAlertedAt)이면 시간 계산 없이 경고, 기준은 배송 생성 시각(2026-11-24)', async () => {
+    const created = new Date(Date.now() - 5 * 60_000).toISOString(); // 5분 전 — 20분 전이라도 서버가 알렸으면 띄운다
+    server.use(
+      http.get(`${API_BASE}/deliveries/DLV-2/dispatch`, () =>
+        HttpResponse.json({ deliveryId: 'DLV-2', orderId: 'ORD-2', mfcId: 'MFC-BSJ-01', type: 'FORWARD', state: 'DISPATCHING', createdAt: created, delayAlertedAt: created, attempts: [] }),
+      ),
+    );
+    renderAt('/deliveries/DLV-2', as.riderOps);
+    expect(await screen.findByTestId('dispatch-delay')).toHaveTextContent('배차 지연');
+  });
+
+  it('배차 지연: 서버 시각으로 센다 — PC 시계가 늦어도 서버 기준 20분이 넘으면 경고', async () => {
+    const created = new Date(Date.now() - 10 * 60_000).toISOString(); // PC 기준 10분 전
+    const serverNow = new Date(Date.now() + 30 * 60_000).toISOString(); // 서버는 PC 보다 30분 앞
+    server.use(
+      http.get(`${API_BASE}/delivery-stats`, () =>
+        HttpResponse.json({ inProgress: {}, completedToday: 0, failedToday: 0, openHelpRequests: 0, adjustmentPending: 0, surchargeRequested: 0, asOf: serverNow }),
+      ),
+      http.get(`${API_BASE}/deliveries/DLV-2/dispatch`, () =>
+        HttpResponse.json({ deliveryId: 'DLV-2', orderId: 'ORD-2', mfcId: 'MFC-BSJ-01', type: 'FORWARD', state: 'DISPATCHING', createdAt: created, attempts: [] }),
+      ),
+    );
+    renderAt('/deliveries/DLV-2', as.riderOps);
+    expect(await screen.findByTestId('dispatch-delay')).toHaveTextContent('40분째');
+  });
+
   it('배차 실패한 배송은 시도마다 실패 사유', async () => {
     renderAt('/deliveries/DLV-2', as.riderOps);
     const attempts = await screen.findAllByTestId('dispatch-attempt');

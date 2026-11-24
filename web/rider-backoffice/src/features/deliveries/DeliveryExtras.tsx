@@ -132,17 +132,36 @@ export function dispatchDelaySince(startIso: string | null | undefined, hasRider
  * 배송 상세 맨 위 빨간 경고(2026-11-24 사용자 "4일째 배차 찾고 있는데 왜 아무데도 위급하다고 빨리 처리하라는 알림이나 글이 안 적혀 있어?").
  * 배차 상태가 아직 찾는 중·실패(라이더 없음)이고 배차 시작부터 20분이 넘으면.
  */
-export function DispatchDelayAlert({ dispatchState, attempts, createdAt, hasRider }: { readonly dispatchState: string | null | undefined; readonly attempts: readonly Attempt[]; readonly createdAt: string | null | undefined; readonly hasRider: boolean }) {
-  if (!['CREATED', 'DISPATCHING', 'DISPATCH_FAILED'].includes(dispatchState ?? '')) return null;
-  const first = attempts.map((a) => a.startedAt).filter((x): x is string => !!x).sort()[0] ?? createdAt ?? null;
-  const since = dispatchDelaySince(first, hasRider);
+/**
+ * 서버 시각(2026-11-24 PR #485 검토 — "PC 시계가 틀리면 어긋남"): execution `GET /delivery-stats` 의 asOf(서버 응답 시각)와 받은 때의 차이로
+ * 지금 서버 시각을 센다(1분마다 다시). 못 읽으면 PC 시계.
+ */
+export function useServerNow(): () => number {
+  const api = useApi();
+  const q = useQuery({
+    queryKey: ['server-clock'],
+    staleTime: 60_000,
+    refetchInterval: 60_000,
+    queryFn: () => request('GET', api.execution.GET('/delivery-stats', { params: { query: {} } })),
+  });
+  const asOf = q.data?.asOf ? Date.parse(q.data.asOf) : NaN;
+  const offset = Number.isFinite(asOf) && q.dataUpdatedAt ? asOf - q.dataUpdatedAt : 0;
+  return () => Date.now() + offset;
+}
+
+export function DispatchDelayAlert({ dispatchState, attempts, createdAt, delayAlertedAt, hasRider }: { readonly dispatchState: string | null | undefined; readonly attempts: readonly Attempt[]; readonly createdAt: string | null | undefined; readonly delayAlertedAt?: string | null | undefined; readonly hasRider: boolean }) {
+  const now = useServerNow()();
+  if (!['CREATED', 'DISPATCHING', 'DISPATCH_FAILED'].includes(dispatchState ?? '') || hasRider) return null;
+  // 기준은 목록과 같게 배송 생성 시각(없으면 첫 시도). 서버가 배차 지연 알림을 냈으면(delayAlertedAt) 그것을 먼저 믿는다
+  const start = createdAt ?? attempts.map((a) => a.startedAt).filter((x): x is string => !!x).sort()[0] ?? null;
+  const since = delayAlertedAt && start ? start : dispatchDelaySince(start, hasRider, now);
   if (!since) return null;
   return (
     <div role="alert" className="flex items-start gap-3 rounded-box border border-error bg-error/10 px-4 py-3" data-testid="dispatch-delay">
       <span className="mt-1 h-2.5 w-2.5 shrink-0 animate-pulse rounded-full bg-error" aria-hidden />
       <div>
         <p className="font-bold text-error">{m.dispatchDelayTitle}</p>
-        <p className="text-sm">{m.dispatchDelayBody(elapsedText(since), attempts.length)}</p>
+        <p className="text-sm">{m.dispatchDelayBody(elapsedText(since, now), attempts.length)}</p>
       </div>
     </div>
   );

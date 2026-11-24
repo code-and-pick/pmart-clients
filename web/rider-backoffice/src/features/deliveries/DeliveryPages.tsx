@@ -33,7 +33,7 @@ const dx = {
   failedToday: '오늘 전달 실패',
   today: '오늘',
 } as const;
-import { DeliveryEarning, DeliveryProof, DeliveryStory, DispatchAttempts, DispatchDelayAlert, dispatchDelaySince, elapsedText, EtaPanel, extrasMessages } from './DeliveryExtras';
+import { DeliveryEarning, DeliveryProof, DeliveryStory, DispatchAttempts, DispatchDelayAlert, dispatchDelaySince, elapsedText, EtaPanel, extrasMessages, useServerNow } from './DeliveryExtras';
 
 const m = messages.deliveries;
 const n = messages.names;
@@ -99,6 +99,8 @@ function DeliverySearchPage() {
   };
 
   const cq = useCenterQuery(); // 머리줄 센터 고르기(RS-7)
+  // 배차 지연 꼬리표는 서버 시각으로(PC 시계가 틀려도 같게)
+  const serverNow = useServerNow()();
   // 라이더 번호(R4785) → 라이더 ID — 목록 조회와 "이 라이더가 맡은 배송" 안내 줄이 같은 결과를 쓴다(한 번만 묻는다)
   const qc = useQueryClient();
   const riderLookup = {
@@ -297,8 +299,8 @@ function DeliverySearchPage() {
                           <StatusBadge tone={stateTone(d.state)}>{name(n.executionState, d.state)}</StatusBadge>
                           {d.resumeRequestedAt && <StatusBadge tone="warning">{m.resumeRequested}</StatusBadge>}
                           {/* 미배정인데 생성부터 20분이 넘으면 빨간 "배차 지연 n일"(Delivery 업무 §3.6) */}
-                          {d.state === 'UNASSIGNED' && dispatchDelaySince(d.createdAt, !!d.riderId) && (
-                            <StatusBadge tone="error" testId="list-dispatch-delay">{extrasMessages.dispatchDelayTag(elapsedText(d.createdAt ?? ''))}</StatusBadge>
+                          {d.state === 'UNASSIGNED' && dispatchDelaySince(d.createdAt, !!d.riderId, serverNow) && (
+                            <StatusBadge tone="error" testId="list-dispatch-delay">{extrasMessages.dispatchDelayTag(elapsedText(d.createdAt ?? '', serverNow))}</StatusBadge>
                           )}
                         </span>
                       </td>
@@ -520,7 +522,7 @@ function DeliveryDetailPage() {
         />
       )}
       {d && dispatch.data && (
-        <DispatchDelayAlert dispatchState={dispatch.data.state} attempts={dispatch.data.attempts ?? []} createdAt={null} hasRider={!!(d.riderId ?? dispatch.data.assignment?.riderId)} />
+        <DispatchDelayAlert dispatchState={dispatch.data.state} attempts={dispatch.data.attempts ?? []} createdAt={dispatch.data.createdAt ?? null} delayAlertedAt={dispatch.data.delayAlertedAt ?? null} hasRider={!!(d.riderId ?? dispatch.data.assignment?.riderId)} />
       )}
       {d && <DeliveryStory delivery={d} />}
       <SectionTabs items={tabs} />
