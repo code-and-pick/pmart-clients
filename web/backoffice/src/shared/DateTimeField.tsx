@@ -431,7 +431,7 @@ export function DateTimeField({
                     aria-label={key}
                     aria-pressed={picked}
                     onClick={() => pickDay(t)}
-                    className={`m-px h-7 rounded text-xs tabular-nums disabled:cursor-not-allowed disabled:opacity-30 ${picked ? 'bg-primary font-semibold text-primary-content' : key === today ? 'font-semibold text-primary ring-1 ring-inset ring-primary/40 hover:bg-base-200' : inMonth ? 'hover:bg-base-200' : 'text-base-content/35 hover:bg-base-200'}`}
+                    className={`m-px h-7 rounded text-xs tabular-nums disabled:cursor-not-allowed disabled:opacity-30 ${picked ? 'bg-primary/10 font-semibold text-primary' : key === today ? 'font-semibold text-primary ring-1 ring-inset ring-primary/40 hover:bg-base-200' : inMonth ? 'hover:bg-base-200' : 'text-base-content/35 hover:bg-base-200'}`}
                   >
                     {d.getUTCDate()}
                   </button>
