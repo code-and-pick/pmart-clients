@@ -125,9 +125,9 @@ const SCOPE: ReadonlyArray<readonly [string, 'applied' | 'partial' | 'notApplied
   ['/case-sla', 'applied'],
   ['/lookup', 'notApplied'],
   ['/rider-complaints', 'applied'],
-  ['/inquiries', 'notApplied'],
+  ['/inquiries', 'applied'], // case 0.40.0 R-17 — 센터 없는 문의는 늘 함께(2026-11-24 사용자 결정 b)
   ['/inquiry-satisfaction', 'notApplied'],
-  ['/rider-inquiries', 'notApplied'],
+  ['/rider-inquiries', 'applied'], // 라이더 문의 = 접수 때 운행 센터
   ['/claims', 'applied'],
   ['/follow-ups', 'applied'],
   ['/pending', 'applied'],

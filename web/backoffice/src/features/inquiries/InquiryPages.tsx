@@ -35,6 +35,7 @@ import { CaseNumber } from '../../shared/CaseNumber';
 import { StaffName } from '../lookup/parts';
 import { messages as m } from '../../shared/messages';
 import { MisdeliveryPanel } from './Misdelivery';
+import { useCenterScope } from '../../shared/centerScope';
 
 type Inquiry = components['schemas']['Inquiry'];
 type InquirySummary = components['schemas']['InquirySummary'];
@@ -120,13 +121,15 @@ export function InquiryListPage({ kind = 'CUSTOMER' }: { readonly kind?: Request
   const raw = search.get('status');
   const status = isStatus(raw) ? raw : undefined;
 
+  // 머리줄 센터 고르기(case 0.40.0 R-17 centerId) — 그 센터 문의 + 센터 없는 문의(늘 함께)
+  const center = useCenterScope();
   const query = useInfiniteQuery({
-    queryKey: ['inquiries', 'list', kind, status ?? 'ALL'],
+    queryKey: ['inquiries', 'list', kind, status ?? 'ALL', center],
     queryFn: ({ pageParam }) =>
       request(
         'GET',
         api.cases.GET('/inquiries', {
-          params: { query: { requesterType: kind, ...(status ? { status } : {}), ...(pageParam ? { cursor: pageParam } : {}) } },
+          params: { query: { requesterType: kind, ...(status ? { status } : {}), ...(center ? { centerId: center } : {}), ...(pageParam ? { cursor: pageParam } : {}) } },
         }),
       ),
     initialPageParam: undefined as string | undefined,
@@ -139,8 +142,8 @@ export function InquiryListPage({ kind = 'CUSTOMER' }: { readonly kind?: Request
   const wait = status === 'RECEIVED' && isWait(waitParam) ? waitParam : undefined;
   const items = wait ? loaded.filter((i) => waitOf(i.createdAt, now) === wait) : loaded;
   const open = useQuery({
-    queryKey: ['inquiries', 'list', kind, 'RECEIVED', 'waits'],
-    queryFn: () => request('GET', api.cases.GET('/inquiries', { params: { query: { requesterType: kind, status: 'RECEIVED' } } })),
+    queryKey: ['inquiries', 'list', kind, 'RECEIVED', 'waits', center],
+    queryFn: () => request('GET', api.cases.GET('/inquiries', { params: { query: { requesterType: kind, status: 'RECEIVED', ...(center ? { centerId: center } : {}) } } })),
   });
   const openItems = open.data?.items ?? [];
   const openMore = Boolean(open.data?.page?.nextCursor);
@@ -262,6 +265,12 @@ export function InquiryListPage({ kind = 'CUSTOMER' }: { readonly kind?: Request
                           {i.callerRelation === 'PROXY' && <span className="badge badge-warning badge-soft badge-xs">{m.inquiries.proxy}</span>}
                           {i.deliveryIssue && (
                             <span className="badge badge-error badge-soft badge-xs" data-testid="inquiry-delivery-issue">{m.inquiries.deliveryIssue} · {codeOf(m.inquiries.deliveryIssueName, i.deliveryIssue)}</span>
+                          )}
+                          {/* 센터를 골랐을 때 센터 없는 문의(주문 없는 고객 문의·운행 센터 없는 라이더)는 늘 함께 — "센터 없음"(case 0.40.0, 사용자 결정 b) */}
+                          {center && !i.centerId && (
+                            <span className="badge badge-ghost badge-xs" data-testid="inquiry-no-center">
+                              {m.inquiries.noCenter}
+                            </span>
                           )}
                           {/* 오배송 선택(case 0.39.0) — 선택 대기면 기한까지 */}
                           {i.misdeliveryState && (

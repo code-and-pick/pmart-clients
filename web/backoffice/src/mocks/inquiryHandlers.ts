@@ -110,6 +110,8 @@ const seed = (): Inquiry[] => [
 ];
 
 const kindOf = (i: Inquiry) => i.requesterType ?? 'CUSTOMER';
+/** case 0.40.0 문의 센터 — 고객 = 주문 이행 센터(목 주문은 모두 부산진구), 라이더 = 접수 때 운행 센터(목: R1 부산진구, R2 없음). 없으면 null */
+const centerOf = (i: Inquiry): string | null => (kindOf(i) === 'RIDER' ? (i.inquiryId === 'INQ-MOCK-R1' ? 'MFC-BSN-01' : null) : i.orderId ? 'MFC-BSN-01' : null);
 /** 이 직원이 보는 문의 종류(0.13.0) */
 const kindsFor = (roles: readonly string[]): string[] =>
   roles.includes('OPERATOR_ADMIN') ? ['CUSTOMER', 'RIDER'] : [...(roles.includes('CS_AGENT') ? ['CUSTOMER'] : []), ...(roles.includes('RIDER_OPS') ? ['RIDER'] : [])];
@@ -267,7 +269,9 @@ export const inquiryHandlers = [
     const wanted = url.searchParams.get('requesterType');
     if (wanted && !r.kinds.includes(wanted)) return problem(403, 'FORBIDDEN');
     const start = Number(url.searchParams.get('cursor') ?? '0');
-    const all = inquiries.filter((i) => r.kinds.includes(kindOf(i)) && (!wanted || kindOf(i) === wanted) && (!status || i.status === status));
+    // centerId(0.40.0): 그 센터 + 센터 없는 문의는 늘 함께(사용자 결정 b)
+    const centerId = url.searchParams.get('centerId');
+    const all = inquiries.filter((i) => r.kinds.includes(kindOf(i)) && (!wanted || kindOf(i) === wanted) && (!status || i.status === status) && (!centerId || centerOf(i) === centerId || centerOf(i) === null));
     const slice = all.slice(start, start + PAGE);
     return HttpResponse.json({
       // 목록은 InquirySummary — 본문·답변은 싣지 않는다.
@@ -283,6 +287,7 @@ export const inquiryHandlers = [
         channel: i.channel ?? null,
         callerRelation: i.callerRelation ?? null,
         deliveryIssue: i.deliveryIssue ?? null,
+        centerId: centerOf(i),
         misdeliveryState: i.misdelivery?.state ?? null,
         misdeliveryDeadlineAt: i.misdelivery?.state === 'AWAITING_CHOICE' ? i.misdelivery.deadlineAt : null,
         createdAt: i.createdAt,

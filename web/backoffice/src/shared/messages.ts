@@ -3009,6 +3009,7 @@ export const messages = {
   },
 
   inquiries: {
+    noCenter: '센터 없음',
     // 오배송 문의(case 0.39.0 R-16, ADR-0086 — 2026-11-24 사용자 "다시 보내거나 취소환불 할지를 선택하게 해서 배송이랑 주문 상태를 종결")
     misdelivery: {
       title: '오배송 처리',

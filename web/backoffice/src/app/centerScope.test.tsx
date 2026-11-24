@@ -28,14 +28,24 @@ describe('센터 고르기', () => {
     await waitFor(() => expect(calls(view.sent, '/deliveries/counts').at(-1)?.get('mfcId')).toBe('MFC-MOKPO-01'));
   });
 
-  it('센터 인자가 없는 화면(고객 문의)은 "모든 센터가 보여요" 알림 — 묻는 조건은 그대로', async () => {
+  it('고객 문의는 centerId 로 거르고(case 0.40.0), 센터 없는 문의는 늘 함께 "센터 없음" — 알림 없음(2026-11-24 사용자 결정 b)', async () => {
     const user = userEvent.setup();
-    renderAt('/inquiries', as.admin);
+    const view = renderAt('/inquiries', as.admin);
     const pick = await screen.findByRole('combobox', { name: '보는 센터' });
-    expect(screen.queryByTestId('center-scope-note')).not.toBeInTheDocument(); // 전체면 알림 없음
     await waitFor(() => expect((pick as HTMLSelectElement).options.length).toBe(3));
     await user.selectOptions(pick, 'MFC-MOKPO-01');
-    expect(await screen.findByTestId('center-scope-note')).toHaveTextContent('이 화면은 아직 센터로 거를 수 없어 모든 센터 것이 보여요(고른 센터: 목포 MFC)');
+    await waitFor(() => expect(calls(view.sent, '/inquiries').at(-1)?.get('centerId')).toBe('MFC-MOKPO-01'));
+    expect(screen.queryByTestId('center-scope-note')).not.toBeInTheDocument();
+    // 목 고객 문의는 모두 부산진구 주문이거나 주문 없음 → 목포를 고르면 주문 없는 문의만 "센터 없음"으로 남는다
+    const rows = await screen.findAllByTestId('inquiry-row');
+    expect(rows.length).toBeGreaterThan(0);
+    for (const row of rows) expect(within(row).getByTestId('inquiry-no-center')).toBeInTheDocument();
+  });
+
+  it('센터 적용표: 통합 조회는 아직 못 거름(알림), 고객·라이더 문의는 거름', () => {
+    expect(centerScopeOf('/lookup')).toBe('notApplied');
+    expect(centerScopeOf('/inquiries')).toBe('applied');
+    expect(centerScopeOf('/rider-inquiries')).toBe('applied');
   });
 
   it('접수 건은 case-inbox centerId, 대시보드는 "일부 칸만" 알림', async () => {
