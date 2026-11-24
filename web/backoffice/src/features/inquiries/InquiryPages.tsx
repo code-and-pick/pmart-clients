@@ -34,6 +34,7 @@ import { PreviewDrawer, usePreview } from '../../shared/Preview';
 import { CaseNumber } from '../../shared/CaseNumber';
 import { StaffName } from '../lookup/parts';
 import { messages as m } from '../../shared/messages';
+import { MisdeliveryPanel } from './Misdelivery';
 
 type Inquiry = components['schemas']['Inquiry'];
 type InquirySummary = components['schemas']['InquirySummary'];
@@ -261,6 +262,13 @@ export function InquiryListPage({ kind = 'CUSTOMER' }: { readonly kind?: Request
                           {i.callerRelation === 'PROXY' && <span className="badge badge-warning badge-soft badge-xs">{m.inquiries.proxy}</span>}
                           {i.deliveryIssue && (
                             <span className="badge badge-error badge-soft badge-xs" data-testid="inquiry-delivery-issue">{m.inquiries.deliveryIssue} · {codeOf(m.inquiries.deliveryIssueName, i.deliveryIssue)}</span>
+                          )}
+                          {/* 오배송 선택(case 0.39.0) — 선택 대기면 기한까지 */}
+                          {i.misdeliveryState && (
+                            <span className={`badge badge-soft badge-xs ${i.misdeliveryState === 'AWAITING_CHOICE' ? 'badge-warning' : 'badge-success'}`} data-testid="inquiry-misdelivery">
+                              {i.misdeliveryState === 'AWAITING_CHOICE' ? m.inquiries.misdelivery.badgeWaiting : m.inquiries.misdelivery.badgeChosen}
+                              {i.misdeliveryState === 'AWAITING_CHOICE' && i.misdeliveryDeadlineAt ? ` · ${formatSeoul(i.misdeliveryDeadlineAt)}까지` : ''}
+                            </span>
                           )}
                         </div>
                       </td>
@@ -577,6 +585,14 @@ export function InquiryDetailPage({ kind = 'CUSTOMER' }: { readonly kind?: Reque
   const riders = useRiderLabels([query.data?.riderId]);
   const orders = useOrderNumbers([query.data?.orderId]);
   const delivery = useDeliveryNumber(query.data?.deliveryId);
+  // 고객 문의 대화(case 0.39.0 /messages — 고객 이어 쓰기·시스템 안내 포함). 라이더 문의·상담원 접수는 예전처럼 답변 목록
+  const useThread = !!query.data && query.data.requesterType !== 'RIDER' && query.data.origin !== 'STAFF_INTAKE';
+  const thread = useQuery({
+    queryKey: ['inquiries', 'messages', inquiryId, query.data?.version],
+    enabled: useThread,
+    retry: false,
+    queryFn: () => request('GET', api.cases.GET('/inquiries/{inquiryId}/messages', { params: { path: { inquiryId } } })),
+  });
 
   // 최근 본 항목(2026-11-18) — 서버 응답을 받은 뒤에만 남긴다
   // 최근 본 항목 이름(2026-11-19 — 시스템 ID 를 이름으로 남기던 것 고침, ADR-0070 덧붙임) — 문의는 분류
@@ -614,6 +630,9 @@ export function InquiryDetailPage({ kind = 'CUSTOMER' }: { readonly kind?: Reque
 
               <InquiryNextAction q={q} canReply={canReplyTo(q)} />
 
+              {/* 오배송 처리(case 0.39.0 R-16) — 서버가 오배송 접수 건을 연 고객 문의만 */}
+              <MisdeliveryPanel q={q} canChoose={roles.includes('CS_AGENT') || roles.includes('OPERATOR_ADMIN')} />
+
               <div className="grid items-start gap-4 lg:grid-cols-3 [&>*]:min-w-0">
                 {/* 왼쪽: 대화 + 답변 쓰기 */}
                 <div className="space-y-4 lg:col-span-2">
@@ -641,7 +660,30 @@ export function InquiryDetailPage({ kind = 'CUSTOMER' }: { readonly kind?: Reque
                         {/* 문의 사진(case 0.14.0) — 고객·라이더가 붙인 것. 상담원 접수 문의에는 없다 */}
                         <InquiryPhotos photos={q.photos} />
                       </Bubble>
-                      {q.replies.map((r, i) => {
+                      {/* 고객 문의 대화(case 0.39.0): 고객이 이어 쓴 말·시스템 안내(오배송 선택)는 /messages 에만 있다 — 읽히면 그것으로, 못 읽으면 예전처럼 답변 목록 */}
+                      {thread.data ? (
+                        thread.data.items.map((msg) =>
+                          msg.senderType === 'SYSTEM' ? (
+                            <li key={msg.messageId} className="flex justify-center" data-testid="inquiry-system-message">
+                              <div className="max-w-[90%] rounded-box border border-dashed border-base-300 bg-base-200/40 px-3 py-2 text-xs text-base-content/70">
+                                <p className="mb-0.5 font-semibold">{m.inquiries.misdelivery.systemKind[msg.systemKind ?? ''] ?? m.inquiries.misdelivery.systemName} · {formatSeoul(msg.createdAt)}</p>
+                                <p className="whitespace-pre-wrap break-words">{msg.body}</p>
+                              </div>
+                            </li>
+                          ) : (
+                            <Bubble
+                              key={msg.messageId}
+                              mine={msg.senderType === 'SUPPORT'}
+                              who={msg.senderType === 'SUPPORT' ? m.inquiries.fromStaffReply : msg.senderType === 'RIDER' ? m.inquiries.fromRider : m.inquiries.misdelivery.fromCustomer}
+                              at={msg.createdAt}
+                              testId={msg.senderType === 'SUPPORT' ? 'inquiry-reply' : 'inquiry-message'}
+                              author={msg.senderType === 'SUPPORT' ? 'AGENT' : msg.senderType}
+                            >
+                              <p className="whitespace-pre-wrap break-words">{msg.body}</p>
+                            </Bubble>
+                          ),
+                        )
+                      ) : q.replies.map((r, i) => {
                         const fromRider = r.authorType === 'RIDER';
                         return (
                           <Bubble
@@ -657,7 +699,7 @@ export function InquiryDetailPage({ kind = 'CUSTOMER' }: { readonly kind?: Reque
                         );
                       })}
                     </ul>
-                    {q.replies.length === 0 && (
+                    {(thread.data ? thread.data.items.length === 0 : q.replies.length === 0) && (
                       <p className="flex items-center gap-3 text-xs text-base-content/50">
                         <span className="h-px flex-1 bg-base-300" />
                         {m.inquiries.noReplies}

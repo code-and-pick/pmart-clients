@@ -3009,6 +3009,38 @@ export const messages = {
   },
 
   inquiries: {
+    // 오배송 문의(case 0.39.0 R-16, ADR-0086 — 2026-11-24 사용자 "다시 보내거나 취소환불 할지를 선택하게 해서 배송이랑 주문 상태를 종결")
+    misdelivery: {
+      title: '오배송 처리',
+      waiting: '고객 선택 기다림',
+      deadline: (at: string) => `${at}까지`,
+      leftHours: (h: number, mm: number) => `${h}시간 ${mm}분 남음`,
+      leftMinutes: (mm: number) => `${mm}분 남음`,
+      passedSoonAuto: '— 기한이 지나 곧 서버가 자동 환불해요',
+      resolutionName: { RESHIP: '다시 보내기', REFUND: '취소·환불' } as const,
+      chosenByName: { CUSTOMER: '고객이 고름', STAFF: '상담원이 대신 고름', AUTO: '기한이 지나 자동 환불' } as Readonly<Record<string, string>>,
+      chosenBy: '고른 상담원',
+      unknown: '알 수 없음',
+      explain: '고르면 서버가 잘못 간 상품 회수와 다시 보내기(접수 건) 또는 주문 취소·환불(클레임)을 진행해요.',
+      openCase: '오배송 접수 건 보기',
+      openClaims: '환불(클레임) 보기',
+      chooseTitle: '상담원이 대신 고르기',
+      reason: '사유(2~200자, 고객에게는 안 보여요)',
+      reasonHint: '예: 고객 전화로 다시 보내기 원함',
+      choose: '고르기',
+      confirm: (what: string) => `"${what}"로 정해요. 한 번 고르면 바꿀 수 없어요 — 한 번 더 누르면 정해요.`,
+      confirmButton: '확정',
+      chosen: '정했어요. 진행은 접수 건·클레임에서 봐요.',
+      conflict: {
+        MISDELIVERY_ALREADY_CHOSEN: '이미 골랐어요(고객이 먼저 골랐을 수 있어요) — 화면을 다시 읽어 확인해 주세요.',
+        MISDELIVERY_CHOICE_EXPIRED: '고르기 기한이 지났어요 — 서버가 곧 자동으로 환불해요.',
+      } as const,
+      badgeWaiting: '오배송 · 선택 대기',
+      badgeChosen: '오배송 · 정해짐',
+      systemName: '안내',
+      systemKind: { MISDELIVERY_CHOICE_REQUEST: '오배송 선택 안내', MISDELIVERY_CHOSEN: '오배송 선택 결과' } as Readonly<Record<string, string>>,
+      fromCustomer: '고객',
+    },
     /** 문의 목록(2026-11-19 쿠팡 윙 고객문의 참고) */
     listView: {
       guideTitle: '문의 답변 안내',

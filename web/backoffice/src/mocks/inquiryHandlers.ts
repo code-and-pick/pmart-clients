@@ -35,6 +35,8 @@ const seed = (): Inquiry[] => [
     deliveryId: 'DLV-MOCK-1',
     photos: [photo('IPH-MOCK-1'), photo('IPH-MOCK-2')],
     replies: [],
+    // case 0.39.0 R-16 — 전달 완료 배송의 "받지 못함" 문의라 서버가 오배송 접수 건을 열고 고객 선택을 기다린다
+    misdelivery: { caseId: 'CASE-MOCK-3', deliveryId: 'DLV-MOCK-1', state: 'AWAITING_CHOICE', options: ['RESHIP', 'REFUND'], deadlineAt: new Date(Date.now() + 4 * 3_600_000).toISOString(), resolution: null, chosenByType: null, chosenAt: null, autoResolved: false, chosenBy: null, chosenReason: null },
   },
   {
     inquiryId: 'INQ-MOCK-2',
@@ -281,6 +283,8 @@ export const inquiryHandlers = [
         channel: i.channel ?? null,
         callerRelation: i.callerRelation ?? null,
         deliveryIssue: i.deliveryIssue ?? null,
+        misdeliveryState: i.misdelivery?.state ?? null,
+        misdeliveryDeadlineAt: i.misdelivery?.state === 'AWAITING_CHOICE' ? i.misdelivery.deadlineAt : null,
         createdAt: i.createdAt,
         answeredAt: i.answeredAt,
         lastAnsweredBy: answerers.get(i.inquiryId) ?? null,
@@ -298,6 +302,47 @@ export const inquiryHandlers = [
     // 만족도는 관리자에게만(0.15.0) — 상담원·지원센터 응답에는 없다
     const { satisfaction, ...rest } = found;
     return HttpResponse.json({ ...rest, inquiryNumber: mockInquiryNumber(found.inquiryId), requesterType: kindOf(found), ...(r.admin && satisfaction ? { satisfaction } : {}) });
+  }),
+
+  // case 0.39.0 문의 대화 — 답변(SUPPORT)·라이더(RIDER)·시스템 안내(오배송 선택 요청·결과), seq 순
+  http.get(`${API_BASE}/inquiries/:inquiryId/messages`, ({ request, params }) => {
+    const r = reader(request);
+    if ('denied' in r) return r.denied;
+    const found = inquiries.find((i) => i.inquiryId === params.inquiryId && r.kinds.includes(kindOf(i)));
+    if (!found) return problem(404, 'NOT_FOUND');
+    type Msg = { senderType: 'SUPPORT' | 'RIDER' | 'CUSTOMER' | 'SYSTEM'; systemKind: 'MISDELIVERY_CHOICE_REQUEST' | 'MISDELIVERY_CHOSEN' | null; body: string; createdAt: string };
+    const md = found.misdelivery;
+    const list: Msg[] = [
+      ...(md ? [{ senderType: 'SYSTEM' as const, systemKind: 'MISDELIVERY_CHOICE_REQUEST' as const, body: '다른 곳으로 배달된 것 같아요. 다시 보내기 또는 취소·환불 중 하나를 골라 주세요(5시간 안에 안 고르면 자동으로 환불돼요).', createdAt: found.createdAt }] : []),
+      ...found.replies.map((x) => ({ senderType: x.authorType === 'RIDER' ? ('RIDER' as const) : ('SUPPORT' as const), systemKind: null, body: x.body ?? '', createdAt: x.createdAt ?? found.createdAt })),
+      ...(md?.state === 'CHOSEN' && md.chosenAt ? [{ senderType: 'SYSTEM' as const, systemKind: 'MISDELIVERY_CHOSEN' as const, body: md.resolution === 'RESHIP' ? '다시 보내기로 정해졌어요.' : '취소·환불로 정해졌어요.', createdAt: md.chosenAt }] : []),
+    ].sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt));
+    return HttpResponse.json({ items: list.map((x, i) => ({ messageId: `MSG-${found.inquiryId}-${i + 1}`, seq: i + 1, senderId: null, ...x })), status: found.status });
+  }),
+
+  // case 0.39.0 오배송 — 상담원이 대신 고르기(사유 2~200 필수, 한 번만, 기한 안)
+  http.post(`${API_BASE}/inquiries/:inquiryId/misdelivery-choices`, async ({ request, params }) => {
+    const who = operator(request);
+    if (!who) return unauthorized();
+    if (!who.roles.some((x) => x === 'CS_AGENT' || x === 'OPERATOR_ADMIN')) return problem(403, 'FORBIDDEN');
+    const key = request.headers.get('Idempotency-Key') ?? '';
+    const saved = replied.get(key);
+    if (saved) return HttpResponse.json(saved);
+    const index = inquiries.findIndex((i) => i.inquiryId === params.inquiryId);
+    const found = inquiries[index];
+    const md = found?.misdelivery;
+    if (!found || !md) return problem(404, 'MISDELIVERY_NOT_FOUND');
+    if (md.state === 'CHOSEN') return problem(409, 'MISDELIVERY_ALREADY_CHOSEN');
+    if (Date.parse(md.deadlineAt) <= Date.now()) return problem(409, 'MISDELIVERY_CHOICE_EXPIRED');
+    const body = (await request.json()) as { resolution?: string; reason?: string | null };
+    if (body.resolution !== 'RESHIP' && body.resolution !== 'REFUND') return problem(400, 'VALIDATION_FAILED', [{ field: 'resolution', reason: 'INVALID_FORMAT' }]);
+    const reason = (body.reason ?? '').trim();
+    if (reason.length < 2 || reason.length > 200) return problem(400, 'VALIDATION_FAILED', [{ field: 'reason', reason: 'INVALID_FORMAT' }]);
+    const next: Inquiry = { ...found, misdelivery: { ...md, state: 'CHOSEN', resolution: body.resolution, chosenByType: 'STAFF', chosenAt: new Date().toISOString(), autoResolved: false, chosenBy: who.subject, chosenReason: reason } };
+    inquiries[index] = next;
+    const out = { ...next, inquiryNumber: mockInquiryNumber(next.inquiryId), requesterType: kindOf(next) };
+    replied.set(key, out);
+    return HttpResponse.json(out);
   }),
 
   // case 0.19.0 문의 닫기 — 답변 역할 직원만(관리자 403), 사유 2~500자, 이미 닫힘 409
