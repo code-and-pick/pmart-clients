@@ -50,7 +50,9 @@ export function AllDone({ title, body, testId = 'all-done' }: { readonly title: 
 /** 숫자 칸 — 값이 0 이면 숫자를 보조 글색으로(색은 0 이 아닐 때만). 숫자 바뀜 표시가 그대로 돌도록 값은 건드리지 않고 이름에 표시를 단다 */
 export function StatCard(p: ComponentProps<typeof ConsoleStatCard>) {
   const zero = p.value === 0 || p.value === '0';
-  return zero ? <ConsoleStatCard {...p} tone={undefined} label={<span data-zero="">{p.label}</span>} /> : <ConsoleStatCard {...p} />;
+  // 2026-11-24 사용자 "여기도 글자 얇아서 잘 안 보이네" — 칸 이름은 굵고 진하게(공용 카드의 옅은 글자 위에)
+  const name = <span className="font-semibold text-base-content">{p.label}</span>;
+  return zero ? <ConsoleStatCard {...p} tone={undefined} label={<span data-zero="">{name}</span>} /> : <ConsoleStatCard {...p} label={name} />;
 }
 
 /** 상세 머리 — 공용 콘솔 모양(상자 없이 24px 제목 + 표시, 아래 회색 요약, 오른쪽 동작) + 이 앱의 최근 본 것 기록·이전·다음 */

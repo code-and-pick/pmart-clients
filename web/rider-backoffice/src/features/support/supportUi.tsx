@@ -8,7 +8,8 @@ import type { Tone } from '../../shared/admin';
 /** 목록 위 상태 밑줄 탭(처리 중 / 처리 끝남 등) — role=tab */
 export function StateTabs<T extends string>({ value, options, onChange, label }: { readonly value: T; readonly options: ReadonlyArray<{ readonly value: T; readonly label: ReactNode }>; readonly onChange: (v: T) => void; readonly label: string }) {
   return (
-    <div role="tablist" aria-label={label} className="flex gap-1 border-b border-base-300">
+    // 2026-11-24 사용자 "탭이 중요한데 얇게 안 보이게 왼쪽에 쳐박아놨네" — 크고 굵은 탭, 고른 탭은 파란 굵은 밑줄
+    <div role="tablist" aria-label={label} className="flex gap-2 border-b-2 border-base-300">
       {options.map((o) => {
         const on = o.value === value;
         return (
@@ -17,7 +18,7 @@ export function StateTabs<T extends string>({ value, options, onChange, label }:
             type="button"
             role="tab"
             aria-selected={on}
-            className={`-mb-px border-b-2 px-4 py-2 text-sm ${on ? 'border-primary font-semibold text-base-content' : 'border-transparent text-base-content/60 hover:text-base-content'}`}
+            className={`-mb-0.5 border-b-[3px] px-5 py-2.5 text-base font-bold ${on ? 'border-primary text-primary' : 'border-transparent text-base-content/70 hover:text-base-content'}`}
             onClick={() => onChange(o.value)}
           >
             {o.label}

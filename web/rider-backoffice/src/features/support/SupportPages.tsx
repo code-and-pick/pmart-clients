@@ -14,7 +14,7 @@ import { humanizeCodes } from '../../shared/codeText';
 import { useCenterQuery } from '../../app/CenterScope';
 import { useSession } from '../../app/SessionContext';
 import { photoMessages } from '../../shared/AuthedPhotos';
-import { AllDone, ChipGroup, DataTable, DetailHeader, GuideBox, FieldList, PageHeader, ResultBar, SearchPanel, Section, StatCard, StatStrip, StatusBadge } from '../../shared/admin';
+import { AllDone, ChipGroup, DataTable, DetailHeader, FieldList, PageHeader, ResultBar, SearchPanel, Section, StatCard, StatStrip, StatusBadge } from '../../shared/admin';
 import { listCountText, statText, useListRows } from '../../shared/listKit';
 import { useNewIds } from '../../shared/motion';
 import { ui } from '../../shared/uiMessages';
@@ -25,7 +25,7 @@ import { label, none, when } from '../../shared/opsUi';
 import { useNow, waited } from '../../shared/useNow';
 import { DeliveryActions } from '../deliveries/DeliveryActions';
 import { AppealsMenu } from './AppealPages';
-import { CaseDetailPage, caseDetailPath, CaseListPage } from '../cases/CasePages';
+import { CaseDetailPage, CaseListPage } from '../cases/CasePages';
 import { EvidencePhotos, helpExtrasMessages, InquiryPhotos, MaskMessage, ResolvePanel } from './HelpExtras';
 import { ChatBox, ChatBubble, helpTone, inquiryTone, isLiveChat, StateTabs } from './supportUi';
 
@@ -40,6 +40,7 @@ const sm = {
   autoRefresh: (s: number) => `${s}초마다 새로 불러와요`,
   photoCount: (k: number) => (k > 0 ? `${k}장` : none),
   hasCase: '사건 있음',
+  inProgress: '진행 중',
   help: {
     request: '요청 내용',
     photos: '사진',
@@ -641,14 +642,9 @@ function ConsultsPage({ tab }: { readonly tab: 'open' | 'done' }) {
         title: label(helpCategoryName, it.category),
         state: (
           <span className="flex flex-wrap items-center gap-1">
-            <StatusBadge>{label(n.helpState, it.state)}</StatusBadge>
+            {/* 2026-11-24 사용자 "열림 사건있음 > 이거 그냥 진행 중 이란 뜻 아니냐?" — 끝나지 않은 도움요청은 "진행 중" 하나로(사건은 상세에서) */}
+            <StatusBadge tone={it.state === 'RESOLVED' ? 'neutral' : 'info'}>{it.state === 'RESOLVED' ? label(n.helpState, it.state) : sm.inProgress}</StatusBadge>
             {it.state !== 'RESOLVED' && it.deliveryId && resumeBy.has(it.deliveryId) && resumeBadge}
-            {/* 같은 일의 배송 사건(RIDER_HELP) — 처리함에서 한 줄로: 도움요청 줄에 "사건 있음 ›"(사건 상세로) */}
-            {it.caseId && (
-              <Link className="text-xs text-primary hover:underline" to={caseDetailPath(it.caseId)} onClick={(e) => e.stopPropagation()} data-testid="help-case-link">
-                {sm.hasCase} ›
-              </Link>
-            )}
           </span>
         ),
         deliveryId: it.deliveryId ?? null,
@@ -694,11 +690,11 @@ function ConsultsPage({ tab }: { readonly tab: 'open' | 'done' }) {
   };
   return (
     <div className="space-y-4">
-      <GuideBox title={ui.guideTitle} items={consultText.guide} storeKey="consults" testId="consults-guide" />
+      {/* 2026-11-24 사용자 "i 화면 안내 없애" */}
       <StatStrip label={consultText.stripLabel} testId="consult-strip">
-        <StatCard layout="row" label={consultText.kind.help} value={statText(stats.data?.openHelpRequests, stats.isError)} hint={consultText.stripHelpHint} tone={(stats.data?.openHelpRequests ?? 0) > 0 ? 'warning' : undefined} onClick={() => patch({ kind: kindFilter === 'help' ? '' : 'help' })} active={kindFilter === 'help'} testId="strip-help" />
+        <StatCard layout="row" label={consultText.kind.help} value={statText(stats.data?.openHelpRequests, stats.isError)} tone={(stats.data?.openHelpRequests ?? 0) > 0 ? 'warning' : undefined} onClick={() => patch({ kind: kindFilter === 'help' ? '' : 'help' })} active={kindFilter === 'help'} testId="strip-help" />
         <StatCard layout="row" label={consultText.kind.failure} value={statText(stats.data?.inProgress?.['FAILURE_REPORTED'], stats.isError)} tone={(stats.data?.inProgress?.['FAILURE_REPORTED'] ?? 0) > 0 ? 'error' : undefined} {...(tab === 'open' ? { onClick: () => patch({ kind: kindFilter === 'failure' ? '' : 'failure' }), active: kindFilter === 'failure' } : {})} testId="strip-failure" />
-        <StatCard layout="row" label={consultText.kind.inquiry} value={listCountText(openInquiries.data, openInquiries.isError)} hint={consultText.stripInquiryHint} onClick={() => patch({ kind: kindFilter === 'inquiry' ? '' : 'inquiry' })} active={kindFilter === 'inquiry'} testId="strip-inquiry" />
+        <StatCard layout="row" label={consultText.kind.inquiry} value={listCountText(openInquiries.data, openInquiries.isError)} onClick={() => patch({ kind: kindFilter === 'inquiry' ? '' : 'inquiry' })} active={kindFilter === 'inquiry'} testId="strip-inquiry" />
       </StatStrip>
       {/* 시뮬레이터 모양(2026-11-21): 왼쪽 찾기 칸 + 깔때기(종류) + 건 조건 칩 ✕ */}
       <SearchPanel

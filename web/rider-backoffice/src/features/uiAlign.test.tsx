@@ -186,15 +186,10 @@ describe('2차 — 겉모습·안내·다 끝났어요', () => {
     expect(steps).not.toHaveTextContent('✓');
   });
 
-  it('안내 상자: 화면 설명 문장을 글머리로, 접으면 닫힌다', async () => {
+  it('상담 관리에는 화면 안내(ⓘ) 줄이 없다(2026-11-24 사용자 "i 화면 안내 없애")', async () => {
     renderAt('/consults', as.riderOps);
-    // 2026-11-21 시뮬레이터 모양: 처음엔 "ⓘ 화면 안내" 한 줄로 접혀 있고, 누르면 같은 문장 3개
-    const guide = await screen.findByTestId('consults-guide');
-    expect(within(guide).queryAllByRole('listitem')).toHaveLength(0);
-    await userEvent.click(within(guide).getByRole('button', { name: /화면 안내/ }));
-    expect(within(guide).getAllByRole('listitem')).toHaveLength(3);
-    await userEvent.click(within(guide).getByRole('button', { name: /화면 안내/ }));
-    expect(within(guide).queryAllByRole('listitem')).toHaveLength(0);
+    await screen.findByTestId('strip-help');
+    expect(screen.queryByTestId('consults-guide')).not.toBeInTheDocument();
   });
 
   it('상담함: 세 원천이 모두 0건이면 "수고하셨어요", 하나라도 못 읽으면 그리지 않는다', async () => {
