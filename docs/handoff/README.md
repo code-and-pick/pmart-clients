@@ -93,5 +93,4 @@ pmart-clients 와 pmart-backend 는 서로의 저장소에 쓰지 않는다. 각
 | `customer-app/2026-11-23-backend-faq-feedback.md` | BR-91 FAQ 답 의견(도움이 되었어요/수정이 필요해요) |
 | `customer-app/2026-11-23-backend-lan-seed-popup-banner-coupon.md` | LAN 시험 데이터 — 홈 팝업 2·배너 몇 개·쿠폰 몇 개(계약 변경 아님) |
 | `backoffice/2026-11-24-backend-employee-label-status.md` | HR-5 이어서 — 직원 이름표에 재직 상태(status) — 사번으로 고를 때 정지(SUSPENDED) 직원은 보이되 경고(사용자 결정) — PC 1 백엔드로, 회신 대기 |
-| `backoffice/2026-11-24-backend-live-stock-stream.md` | 재고 증감 실시간(PC 1 사용자 결정 — 서버가 밀어 주기 SSE) — 통합 화면 설계(대시보드 센터별 품절 칸만, SKU 재고 목록은 통합에 없음)·스트림 계약에 바라는 것(이벤트 본문·다시 연결) — bff 중계 없음·mfc-inventory 스트림 하나(IV-7, PC 2 백엔드 회신), PC 3 계약 대기 |
-| `backoffice/2026-11-24-backend-inquiry-center-filter.md` | 문의 목록 센터 거르기 `centerId` — 고객 문의는 주문 센터(주문 없는 문의는 늘 함께·센터 없음 표시, 사용자 결정 b), 라이더 문의는 운행 센터 — PC 2 백엔드(case), 회신 대기 |
+| `backoffice/2026-11-24-backend-live-stock-stream.md` | 재고 증감 실시간(PC 1 사용자 결정 — SSE) — bff 중계 없이 mfc-inventory 0.46.0 `/stock-stream` 하나(IV-7). 대시보드 센터별 품절 칸에 반영(2026-11-24, summary-changed 가 오면 다시 읽기·끊기면 "실시간 끊김"+60초 다시 읽기). **남은 것: LAN 에서 품절 칸 "실시간" 확인 뒤 archive** |

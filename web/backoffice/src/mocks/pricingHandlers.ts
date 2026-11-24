@@ -6,6 +6,15 @@ import type { SkuHandling } from '../api/models';
 import { db, timestamp } from './db';
 import { expectedVersion, idempotent, keyOf, operator, problem, unauthorized } from './support';
 
+// 센터별 품절 수 — 목 화면(개발 서버)에서는 부산진구가 12초마다 9 ↔ 10(시각으로 정해 연결이 둘이어도 같은 값), 시험은 늘 9·3
+const DEMO = import.meta.env.MODE !== 'test';
+const DEMO_TICK_MS = 12_000;
+const soldOutOf = (mfcId: string) => (mfcId === 'MFC-BSN-01' ? 9 + (DEMO ? Math.floor(Date.now() / DEMO_TICK_MS) % 2 : 0) : 3);
+
+/** SSE 한 이벤트 글 */
+const NL = String.fromCharCode(10);
+export const sseEvent = (event: string, data: unknown, id?: string) => [...(id ? [`id: ${id}`] : []), `event: ${event}`, `data: ${JSON.stringify(data)}`, '', ''].join(NL);
+
 function current(sku: string) {
   const list = db.prices.get(sku) ?? [];
   const effective = list.find((v) => v.state === 'EFFECTIVE');
@@ -106,10 +115,46 @@ export const pricingHandlers = [
     if (!who) return unauthorized();
     const mfcId = new URL(request.url).searchParams.get('mfcId');
     const items = [
-      { mfcId: 'MFC-BSN-01', handledSkuCount: 412, soldOutSkuCount: 9 },
-      { mfcId: 'MFC-BSN-02', handledSkuCount: 388, soldOutSkuCount: 3 },
+      { mfcId: 'MFC-BSN-01', handledSkuCount: 412, soldOutSkuCount: soldOutOf('MFC-BSN-01') },
+      { mfcId: 'MFC-BSN-02', handledSkuCount: 388, soldOutSkuCount: soldOutOf('MFC-BSN-02') },
     ].filter((i) => !mfcId || i.mfcId === mfcId);
     return HttpResponse.json({ items, asOf: new Date().toISOString() });
+  }),
+  // mfc-inventory 0.46.0 재고 실시간 스트림(SSE) — 접속하면 ready, 5초마다 ": hb".
+  // 목 화면(개발 서버)만: 12초마다 부산진구 품절 수를 9 ↔ 10 으로 바꾸고 summary-changed 를 보낸다(시험 모드는 ready 만 — 시험은 스트림을 직접 만든다).
+  http.get(`${API_BASE}/stock-stream`, ({ request }) => {
+    const who = operator(request);
+    if (!who) return unauthorized();
+    const asked = new URL(request.url).searchParams.getAll('mfcId');
+    let seq = 0;
+    const timers: ReturnType<typeof setInterval>[] = [];
+    const stop = () => timers.splice(0).forEach(clearInterval);
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        const enc = new TextEncoder();
+        const send = (text: string) => {
+          try {
+            controller.enqueue(enc.encode(text));
+          } catch {
+            stop();
+          }
+        };
+        send(sseEvent('ready', { type: 'ready', resumed: false, mfcIds: asked }));
+        if (!DEMO) return;
+        timers.push(setInterval(() => send(`: hb${NL}${NL}`), 5_000));
+        timers.push(
+          setInterval(() => {
+            const mfcId = 'MFC-BSN-01';
+            if (asked.length > 0 && !asked.includes(mfcId)) return;
+            seq += 1;
+            send(sseEvent('summary-changed', { type: 'summary-changed', eventId: `EV-MOCK-${seq}`, mfcId, skus: ['E-MILK-1L'], occurredAt: new Date().toISOString() }, `EV-MOCK-${seq}`));
+          }, DEMO_TICK_MS),
+        );
+      },
+      cancel: stop,
+    });
+    request.signal.addEventListener('abort', stop);
+    return new HttpResponse(body, { headers: { 'content-type': 'text/event-stream', 'cache-control': 'no-cache' } });
   }),
   // SKU 일괄 가격 조회(최대 100건, 계약 listPrices) — 가격 미설정 SKU 는 items 에서 빼고 notSet 에(2026-11-19 가격 관리 목록)
   http.get(`${API_BASE}/prices`, ({ request }) => {

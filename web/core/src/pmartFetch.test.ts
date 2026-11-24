@@ -48,6 +48,17 @@ function setup(replies: Array<(req: Request) => Response | Promise<Response>>, r
 
 const url = 'http://test.invalid/api/v1/x';
 
+describe('Accept', () => {
+  it('기본은 JSON, 실시간 스트림(text/event-stream)을 달라고 하면 그대로 둔다', async () => {
+    const { pmartFetch, sent } = setup([() => json({}), () => new Response('', { headers: { 'content-type': 'text/event-stream' } })]);
+    await pmartFetch(new Request(url));
+    await pmartFetch(new Request(url, { headers: { Accept: 'text/event-stream' } }));
+    expect(sent[0]!.headers.get('Accept')).toBe('application/json, application/problem+json');
+    expect(sent[1]!.headers.get('Accept')).toBe('text/event-stream');
+    expect(sent[1]!.headers.get('Authorization')).toBe('Bearer a-1');
+  });
+});
+
 describe('요청 헤더', () => {
   it('변경 요청에 멱등 키·출처·인증·기대 버전을 붙인다', async () => {
     const { pmartFetch, sent } = setup([() => json({ status: 'ACCEPTED', requestId: 'k' }, 202)]);

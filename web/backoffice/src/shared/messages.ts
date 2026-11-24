@@ -3310,6 +3310,9 @@ export const messages = {
       soldOut: '센터별 품절 SKU',
       soldOutNote: '취급 상품 중 가용 0 이하 · 지금 값',
       soldOutOf: (handled: number) => `취급 ${handled.toLocaleString('ko-KR')}개 중 · 지금 값`,
+      // 재고 실시간(mfc-inventory 0.46.0 /stock-stream, 2026-11-24)
+      soldOutLive: '실시간',
+      soldOutDown: (at: string | null) => `실시간 끊김 — ${at ? `마지막 ${at} 기준, ` : ''}다시 연결하는 중(1분마다 다시 읽어요)`,
       reasonName: { SHORT: '결품', DAMAGED: '파손', BLOCKED: '막힘', SPOILED: '변질' } as Readonly<Record<string, string>>,
     },
     // bff 0.23.0 상품(SKU)별 결품 상위(BR-73 SK-2) — 비율은 화면이 결품 줄 ÷ 피킹 줄로

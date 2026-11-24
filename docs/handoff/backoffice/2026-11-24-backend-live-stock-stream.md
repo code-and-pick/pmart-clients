@@ -38,3 +38,10 @@
 - mfc-inventory 에 SSE 하나 요청(IV-7, PC 3): mfcId 주면 그 센터, 비우면 볼 수 있는 모든 센터. 권한은 `/stock-summaries` 와 같음. 이벤트 최소 `{eventId, mfcId, occurredAt}`, heartbeat 5초 안팎.
 - 화면은 위 설계(보일 때만 연결·그 센터만 다시 읽기·다시 연결 + 한 번 다시 읽기·끊김 표시·60초 다시 읽기는 끊겼을 때만) 그대로, 연결 대상만 mfc-inventory 하나로 바뀜.
 - 상태: PC 3 계약 대기 — 경로·이벤트 이름이 나오면 PC 2 백엔드가 알림. 그 전까지 구현하지 않는다.
+
+## 계약·반영(2026-11-24)
+- 계약: mfc-inventory 0.46.0 `GET /stock-stream`(백엔드 #428, PC 3) — `mfcId` 반복·선택(비우면 볼 수 있는 모든 센터), 이벤트 `ready`·`stock-changed`·`summary-changed`(가용 0 경계)·`resync`, heartbeat `: hb` 5초, Last-Event-ID 1시간, 최대 연결 30분, 연결 많으면 503 STREAM_LIMIT. LAN 게이트웨이 열림(PC1 백엔드 확인 — 45초 안 끊김).
+- 화면(`web/backoffice/src/shared/stockStream.ts`, `app/DashboardWidgets.tsx` SoldOutRow): 보일 때만 연결, 머리줄 센터면 `mfcId`, 전체면 없이 한 연결. `summary-changed`·`resync`·첫 `ready`(이어 받기 아님)·다시 붙은 `ready` 에 `/stock-summaries` 를 2초 모아 한 번 다시 읽는다(품절 수는 화면이 세지 않음). `stock-changed` 는 품절 칸에 쓰지 않는다.
+  연결돼 있으면 60초 다시 읽기를 멈추고 칸 제목 옆 "● 실시간", 끊기면 1·2·4…30초 뒤 Last-Event-ID 로 다시 연결하며 "실시간 끊김 — 마지막 HH:MM 기준" + 60초 다시 읽기.
+- 공용 `pmartFetch`(web/core)는 Accept 를 JSON 으로 덮어써 서버가 406 을 낼 수 있어, 부른 쪽이 `text/event-stream` 을 달라고 하면 그대로 두게 고침.
+- 설계와 다른 점: "그 센터 줄만 다시 읽기" 대신 `/stock-summaries` 한 번(이미 한 요청으로 모든 센터가 오고, 2초 모으기라 부담 같음).

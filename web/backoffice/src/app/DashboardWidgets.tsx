@@ -17,6 +17,7 @@ import { messages } from '../shared/messages';
 import { caseSummaryText } from '../shared/blockReason';
 import { addSeoulDays, label, seoulDayEnd, seoulDayStart } from '../shared/ops';
 import { Section } from '../shared/admin';
+import { useStockStream } from '../shared/stockStream';
 import { ColumnChart, Delta, Insight, Meter, SegmentBar, TrendLine, type Column } from './Charts';
 
 const m = messages.dashboard;
@@ -497,22 +498,42 @@ function isNotImplemented(e: unknown): boolean {
   return e instanceof ProblemFailure && (e.problem.status === 501 || e.problem.code === 'NOT_IMPLEMENTED');
 }
 
-/** 센터별 품절 상품 수(mfc-inventory 0.28.0 `GET /stock-summaries` — 지금 값, 기간과 무관). 취급 상품 중 가용 ≤ 0. 못 읽으면 "?"(0 아님) */
+/**
+ * 센터별 품절 상품 수(mfc-inventory 0.28.0 `GET /stock-summaries` — 지금 값, 기간과 무관). 취급 상품 중 가용 ≤ 0. 못 읽으면 "?"(0 아님)
+ * 실시간(0.46.0 `/stock-stream`, 2026-11-24): 가용이 0 경계를 넘으면(summary-changed) 다시 읽는다 — 연결돼 있는 동안 60초 다시 읽기는 멈추고,
+ * 끊기면 "실시간 끊김 — 마지막 HH:MM 기준" 과 함께 60초 다시 읽기로 돌아간다.
+ */
 function SoldOutRow() {
   const api = useApi();
   const center = useCenterScope(); // 머리줄 센터 고르기(2026-11-23)
-  const q = useQuery({ queryKey: ['dashboard', 'stock-summaries', center], refetchInterval: REFRESH_MS, retry: false, queryFn: () => request('GET', api.mfcInventory.GET('/stock-summaries', center ? { params: { query: { mfcId: center } } } : {})) });
+  const qc = useQueryClient();
+  const queryKey = ['dashboard', 'stock-summaries', center];
+  const live = useStockStream(center ? [center] : [], () => void qc.invalidateQueries({ queryKey }));
+  const q = useQuery({ queryKey, refetchInterval: live === 'live' ? false : REFRESH_MS, retry: false, queryFn: () => request('GET', api.mfcInventory.GET('/stock-summaries', center ? { params: { query: { mfcId: center } } } : {})) });
   const items = q.data?.items ?? [];
   const soldOut = items.reduce((s, i) => s + i.soldOutSkuCount, 0);
   const handled = items.reduce((s, i) => s + i.handledSkuCount, 0);
   return (
     <li className="flex items-center gap-4 py-3" data-testid="dash-metric-soldOut">
       <span className="min-w-0 flex-1">
-        <span className="block whitespace-nowrap text-sm text-base-content/70">{m.metrics.soldOut}</span>
+        <span className="flex items-center gap-2 whitespace-nowrap text-sm text-base-content/70">
+          {m.metrics.soldOut}
+          {live === 'live' && (
+            <span className="inline-flex items-center gap-1 text-[11px] text-success" data-testid="dash-soldout-live">
+              <span className="h-1.5 w-1.5 rounded-full bg-success" aria-hidden="true" />
+              {m.metrics.soldOutLive}
+            </span>
+          )}
+        </span>
         <span className={`block text-[28px] font-semibold leading-tight ${q.isError ? 'text-base-content/40' : soldOut > 0 ? 'text-error' : ''}`} title={q.isError ? m.failed : undefined}>
           {q.isPending ? '…' : q.isError ? '?' : `${soldOut.toLocaleString('ko-KR')}개`}
         </span>
         <span className="block truncate text-xs text-base-content/55">{q.isError ? m.failed : q.data ? m.metrics.soldOutOf(handled) : m.metrics.soldOutNote}</span>
+        {live === 'down' && (
+          <span className="block truncate text-xs text-warning" data-testid="dash-soldout-down">
+            {m.metrics.soldOutDown(q.dataUpdatedAt ? new Date(q.dataUpdatedAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Seoul' }) : null)}
+          </span>
+        )}
       </span>
       {/* 센터별 — 취급 중 품절 몫 막대(센터가 둘 이상일 때) */}
       {items.length > 1 && (

@@ -63,7 +63,9 @@ export function createPmartFetch(options: PmartFetchOptions): PmartFetch {
     const noIdempotency = headers.has(NO_IDEMPOTENCY_HEADER);
     headers.delete(NO_IDEMPOTENCY_HEADER);
     headers.set('X-Source-System', sourceSystem);
-    headers.set('Accept', 'application/json, application/problem+json');
+    // 실시간 스트림(SSE — mfc-inventory 0.46.0 `/stock-stream`, 2026-11-24)은 부른 쪽의 Accept: text/event-stream 을 그대로 둔다
+    // (JSON 으로 덮으면 서버가 406). 오류 응답은 그래도 problem+json 으로 온다.
+    if (!(headers.get('Accept') ?? '').includes('text/event-stream')) headers.set('Accept', 'application/json, application/problem+json');
     if (isMutation(req.method) && !noIdempotency && !headers.get('Idempotency-Key')) {
       throw new Error(`변경 요청에 Idempotency-Key 가 없다: ${req.method} ${new URL(req.url).pathname}`);
     }
