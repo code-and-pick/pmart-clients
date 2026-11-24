@@ -21,6 +21,7 @@ import { BATCH_TONE, BatchApprovals, multipart, UploadLayout, ZipUpload } from '
 import { seoulInputToIso } from './PricePage';
 import { NextAction, PageHeader, StatusBadge } from '../../shared/admin';
 import { Card, JumpLink, MiniStat, Steps, tableClass, TitleWithId } from '../products/parts';
+import { DateTimeField } from '../../shared/DateTimeField';
 
 const batchKey = (batchId: string) => ['pricing', 'import-batch', batchId] as const;
 
@@ -349,7 +350,7 @@ export function PriceImportPage() {
                 <CommandFeedback command={refresh} />
                 <label className="flex w-fit flex-col gap-1 text-sm">
                   <span className="text-xs font-medium text-base-content/60">{m.prices.submitEffectiveFrom}</span>
-                  <input type="datetime-local" className="input input-sm" value={effectiveFrom} disabled={submit.busy} onChange={(e) => setEffectiveFrom(e.target.value)} />
+                  <DateTimeField value={effectiveFrom} disabled={submit.busy} onChange={setEffectiveFrom} />
                 </label>
               </Card>
             )}

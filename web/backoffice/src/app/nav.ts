@@ -165,18 +165,18 @@ export function visibleGroups(roles: readonly string[], centers: readonly string
     .filter((g) => g.items.length > 0);
 }
 
-/** 메뉴 항목이 지금 경로의 화면인가(하위 경로 포함 — 상세 화면에서도 묶음을 펼쳐 둔다). */
 /**
- * 옛 주소(also)로 켤 메뉴 — 가장 길게 맞는 also 하나만(/prices/import 는 /prices(상품)보다 /prices/import(일괄 등록)).
- * 메뉴 주소 자체와 똑같으면 NavLink 가 켜므로 여기서는 also 만 본다.
+ * 켤 메뉴 하나 — 가장 길게 맞는 주소의 메뉴만(/prices/import 는 /prices(상품)보다 /prices/import(일괄 등록)).
  */
-export function aliasMenu(items: readonly NavItem[], pathname: string): string | null {
+export function hereMenu(items: readonly NavItem[], pathname: string): string | null {
+  // 메뉴 주소(to)와 옛 주소(also) 가운데 지금 주소를 가장 길게 덮는 메뉴 — 상세 화면(/orders/ORD-…)도 그 메뉴를 켠다
+  // (2026-11-24 사용자 "주문 조회에서 주문 선택하면 지금 어느 메뉴에 들어가있는지 없어지는데" — 전에는 주소가 메뉴와 똑같을 때만 켰다)
   let best: { to: string; len: number } | null = null;
-  for (const i of items) for (const a of i.also ?? []) if ((pathname === a || pathname.startsWith(`${a}/`)) && (!best || a.length > best.len)) best = { to: i.to, len: a.length };
-  if (items.some((i) => i.to === pathname)) return null;
+  for (const i of items) for (const a of [i.to, ...(i.also ?? [])]) if ((pathname === a || pathname.startsWith(`${a}/`)) && (!best || a.length > best.len)) best = { to: i.to, len: a.length };
   return best?.to ?? null;
 }
 
+/** 메뉴 항목이 지금 경로의 화면인가(하위 경로 포함 — 상세 화면에서도 묶음을 펼쳐 둔다). */
 export function covers(item: NavItem, pathname: string): boolean {
   const hit = (to: string) => pathname === to || pathname.startsWith(`${to}/`);
   return hit(item.to) || (item.also ?? []).some(hit);

@@ -20,6 +20,7 @@ import { CommandFeedback, FailureAlert } from '../../shared/Feedback';
 import { LeaveGuard } from '../../shared/LeaveGuard';
 import { messages } from '../../shared/messages';
 import { SearchSelect } from '../../shared/SearchSelect';
+import { DateTimeField } from '../../shared/DateTimeField';
 
 const m = messages.promotions;
 const f = m.form;
@@ -361,11 +362,11 @@ function PromotionForm({ initial, existing, editable }: { readonly initial: Draf
             </label>
             <label className={fieldCls}>
               {f.startsAt}
-              <input type="datetime-local" className="input input-sm" value={d.startsAt} disabled={locked} onChange={(e) => set({ startsAt: e.target.value })} />
+              <DateTimeField value={d.startsAt} disabled={locked} onChange={(v) => set({ startsAt: v })} />
             </label>
             <label className={fieldCls}>
               {coupon ? f.endsAtCoupon : f.endsAt}
-              <input type="datetime-local" className="input input-sm" value={d.endsAt} min={d.startsAt || undefined} disabled={locked} onChange={(e) => set({ endsAt: e.target.value })} />
+              <DateTimeField value={d.endsAt} min={d.startsAt || undefined} disabled={locked} onChange={(v) => set({ endsAt: v })} />
             </label>
             <label className={fieldCls}>
               {f.discountType}
@@ -435,7 +436,7 @@ function PromotionForm({ initial, existing, editable }: { readonly initial: Draf
               ) : (
                 <label className={fieldCls}>
                   {f.useUntil}
-                  <input type="datetime-local" className="input input-sm" value={d.useUntil} min={d.endsAt || undefined} disabled={locked} onChange={(e) => set({ useUntil: e.target.value })} />
+                  <DateTimeField value={d.useUntil} min={d.endsAt || undefined} disabled={locked} onChange={(v) => set({ useUntil: v })} />
                 </label>
               )}
             </fieldset>

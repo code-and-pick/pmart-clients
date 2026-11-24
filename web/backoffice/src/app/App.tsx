@@ -27,7 +27,7 @@ import { ThemeToggle } from './ThemeToggle';
 import { Toasts } from './Toasts';
 import { messages as m } from '../shared/messages';
 import { useApi } from './ApiContext';
-import { aliasMenu, covers, visibleGroups, type NavGroup } from './nav';
+import { covers, hereMenu, visibleGroups, type NavGroup } from './nav';
 import { RequireSession, SessionProvider, useSession } from './SessionContext';
 import { GroupIcon } from './groupIcons';
 import { GroupAlertBadge, MenuAlertLegend, MenuGroupAlert, MenuItemAlerts } from './MenuAlerts';
@@ -111,7 +111,7 @@ const defaultAssistantPort = (api: Api): AssistantPort =>
  */
 function NavGroupMenu({ group, pathname, open, onToggle }: { readonly group: NavGroup; readonly pathname: string; readonly open: boolean; readonly onToggle: () => void }) {
   const active = group.items.some((i) => covers(i, pathname));
-  const alias = aliasMenu(group.items, pathname); // 옛 주소로 켤 메뉴(2026-11-19 메뉴 정리)
+  const here = hereMenu(group.items, pathname); // 켤 메뉴 — 그 메뉴의 상세 화면·옛 주소(2026-11-19 메뉴 정리)도
   return (
     // 묶음 이름(2026-11-20 AWS 개편 2단계, ADR-0004): 흰 메뉴의 굵은 묶음 제목 — 왼쪽 펼침 화살표(▸ → 펼치면 ▾), 아이콘·바탕 없음.
     // 알림 합계는 오른쪽 끝(접혀 있을 때만, 2026-11-18 사용자 "메뉴에 업무 알람").
@@ -138,9 +138,9 @@ function NavGroupMenu({ group, pathname, open, onToggle }: { readonly group: Nav
             <NavLink
               to={item.to}
               end
-              data-active={alias === item.to ? 'alias' : undefined}
+              data-active={here === item.to && pathname !== item.to ? 'alias' : undefined}
               className={({ isActive }) =>
-                `flex items-center gap-1 py-[5px] pl-9 pr-3 text-sm transition-colors ${isActive || alias === item.to ? 'font-semibold text-primary' : 'text-base-content/85 hover:text-primary'}`
+                `flex items-center gap-1 py-[5px] pl-9 pr-3 text-sm transition-colors ${isActive || here === item.to ? 'font-semibold text-primary' : 'text-base-content/85 hover:text-primary'}`
               }
             >
               {item.label}

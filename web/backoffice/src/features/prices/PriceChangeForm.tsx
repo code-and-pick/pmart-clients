@@ -14,6 +14,7 @@ import { useApi } from '../../app/ApiContext';
 import { CommandFeedback } from '../../shared/Feedback';
 import { messages as m } from '../../shared/messages';
 import { priceChangeBody } from './PricePage';
+import { DateTimeField } from '../../shared/DateTimeField';
 
 const f = m.prices.form;
 const PRICE_NOT_SET = 'PRICE_NOT_SET';
@@ -146,7 +147,7 @@ export function PriceChangeForm({ skus, labels }: { readonly skus: readonly stri
           <input type="radio" className="radio radio-sm" name="price-when" checked={when === 'at'} onChange={() => setWhen('at')} />
           {f.atTime}
         </label>
-        {when === 'at' && <input type="datetime-local" aria-label={f.atTime} className="input input-sm" value={at} onChange={(e) => setAt(e.target.value)} />}
+        {when === 'at' && <DateTimeField aria-label={f.atTime} value={at} onChange={setAt} />}
       </fieldset>
       <div className="flex justify-end">
         <button

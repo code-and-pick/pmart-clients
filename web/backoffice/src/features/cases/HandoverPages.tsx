@@ -25,6 +25,7 @@ import { label, text, when } from '../../shared/ops';
 import { CodeLabel, NextAction, Notice, PageHeader } from '../../shared/admin';
 import { StaffName } from '../lookup/parts';
 import { OperatorRefStatus, operatorRefBlocked, useOperatorRef } from '../../shared/operatorRef';
+import { DateTimeField } from '../../shared/DateTimeField';
 
 const seoulParts = new Intl.DateTimeFormat('ko-KR', { timeZone: 'Asia/Seoul', month: 'numeric', day: 'numeric', hour: 'numeric', hourCycle: 'h23' });
 /** "11/19 오전 교대 인계" — 서울 시각 기준 표시만 */
@@ -172,7 +173,7 @@ function WriteForm() {
                         </label>
                         <label className="flex flex-col gap-1 text-xs text-base-content/60">
                           {m.checkDue}
-                          <input type="datetime-local" className="input input-sm" value={row.checkDue} onChange={(e) => setRow(id, { checkDue: e.target.value })} />
+                          <DateTimeField value={row.checkDue} onChange={(v) => setRow(id, { checkDue: v })} />
                         </label>
                       </div>
                     )}

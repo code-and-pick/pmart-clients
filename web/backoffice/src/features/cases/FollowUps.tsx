@@ -24,6 +24,7 @@ import { label, when, won } from '../../shared/ops';
 import { CodeLabel, NextAction, PageHeader, StatusBadge, type Tone } from '../../shared/admin';
 import { EmptyBox, Icon, ICON } from '../inquiries/HelpdeskParts';
 import { StaffName } from '../lookup/parts';
+import { DateTimeField } from '../../shared/DateTimeField';
 
 const m = messages.followUps;
 /** 코드 값 → 한국어 이름(원래 코드는 마우스를 올리면), 값이 없으면 "—" */
@@ -336,7 +337,7 @@ function AddForm({ c, onDone }: { readonly c: Case; readonly onDone: () => void 
         </label>
         <label className={fieldLabel}>
           {m.dueAt}
-          <input type="datetime-local" className="input input-sm w-full text-sm text-base-content" value={due} onChange={(e) => setDue(e.target.value)} />
+          <DateTimeField className="input input-sm w-full text-sm text-base-content" value={due} onChange={setDue} />
         </label>
         <label className={fieldLabel}>
           {m.qty}

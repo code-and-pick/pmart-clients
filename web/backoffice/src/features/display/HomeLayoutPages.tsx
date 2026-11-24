@@ -26,6 +26,7 @@ import { FailureAlert } from '../../shared/Feedback';
 import { LeaveGuard } from '../../shared/LeaveGuard';
 import { messages } from '../../shared/messages';
 import { SearchSelect } from '../../shared/SearchSelect';
+import { DateTimeField } from '../../shared/DateTimeField';
 
 const m = messages.homeLayout;
 type Draft = components['schemas']['LayoutDraft'];
@@ -333,9 +334,9 @@ function Period({ startsAt, endsAt, onChange, disabled }: { readonly startsAt: s
       <legend className="mb-1 text-xs font-medium text-base-content/60">
         {m.period} <span className="font-normal text-base-content/45">· {m.periodHint}</span>
       </legend>
-      <input type="datetime-local" aria-label={m.startsAt} className="input input-sm w-52" value={toLocal(startsAt)} onChange={(e) => onChange(fromLocal(e.target.value), endsAt ?? null)} />
+      <DateTimeField aria-label={m.startsAt} className="input input-sm w-52" value={toLocal(startsAt)} disabled={disabled} onChange={(v) => onChange(fromLocal(v), endsAt ?? null)} />
       <span className="pb-1 text-base-content/40">~</span>
-      <input type="datetime-local" aria-label={m.endsAt} className="input input-sm w-52" value={toLocal(endsAt)} onChange={(e) => onChange(startsAt ?? null, fromLocal(e.target.value))} />
+      <DateTimeField aria-label={m.endsAt} className="input input-sm w-52" value={toLocal(endsAt)} disabled={disabled} onChange={(v) => onChange(startsAt ?? null, fromLocal(v))} />
     </fieldset>
   );
 }
