@@ -1,5 +1,5 @@
 // 재고 실시간 스트림(mfc-inventory 0.46.0 `GET /stock-stream`, SSE — 2026-11-24 PC 1 사용자 "실시간 재고 차감 취소 시 증감이 바로바로 백오피스에 반영",
-// 요청서 docs/handoff/backoffice/2026-11-24-backend-live-stock-stream.md, bff 중계 없이 mfc-inventory 한 경로 — PC 2 백엔드 회신).
+// 요청서 docs/handoff/archive/2026-11-24-backend-live-stock-stream.md, bff 중계 없이 mfc-inventory 한 경로 — PC 2 백엔드 회신).
 // - 토큰이 메모리라 EventSource(헤더 못 붙임) 대신 fetch 스트림 + Authorization(공용 pmartFetch). Accept: text/event-stream.
 // - 화면이 보일 때만 연다(탭을 숨기면 닫고, 다시 보이면 연다). 센터를 고르면 mfcId, "전체 센터"면 mfcId 없이 — 연결 하나.
 // - 이벤트: ready(처음·이어 받기 실패면 스냅샷 다시 읽기) · summary-changed(가용 0 경계 — 품절 칸은 이것만) · resync(다시 읽기).
