@@ -104,6 +104,27 @@ describe('배송 상세', () => {
     expect(within(list).getByTestId('story-this')).toHaveTextContent('이 배송');
   });
 
+  it('이 주문의 배송: 미지급인 배송 줄 옆에 "미지급" 네모칸(이유는 올려 보면, 2026-11-24)', async () => {
+    const d4 = mockDeliveries.find((d) => d.deliveryId === 'DLV-4')!;
+    server.use(
+      http.get(`${API_BASE}/deliveries/DLV-4`, () =>
+        HttpResponse.json({
+          ...d4,
+          earning: { earningId: 'ERN-4', deliveryId: 'DLV-4', riderId: 'RD-7', calculable: false, settlementState: 'ADJUSTED', note: '라이더 귀책 오배송(사건 CASE-1a757af4-2bc4) — 배달료 미지급' },
+        }),
+      ),
+    );
+    renderAt('/deliveries/DLV-1', as.riderOps);
+    const list = await screen.findByTestId('story-siblings');
+    const rows = within(list).getAllByRole('listitem');
+    const second = rows.find((r) => r.textContent?.includes('D48213075-2'))!;
+    const tag = await within(second).findByTestId('story-fee-tag');
+    expect(tag).toHaveTextContent('미지급');
+    expect(tag).toHaveAttribute('title', '라이더 귀책 오배송 — 배달료 미지급');
+    // 따로 "수행료" 줄은 없다(줄 옆 네모칸으로)
+    expect(screen.queryByTestId('story-fee')).not.toBeInTheDocument();
+  });
+
   it('수행료 미지급 이유에서 긴 사건 ID 는 빼고 보인다(2026-11-24)', async () => {
     server.use(
       http.get(`${API_BASE}/deliveries/DLV-3`, () =>

@@ -1,6 +1,6 @@
 // 배송 상세 보탬(PC 5, 2026-11-17 — #88 위): 배차 시도 표(dispatch `GET /deliveries/{id}/dispatch` 의 attempts·offers)와
 // 도착 예정(tracking `GET /deliveries/{id}/eta`). 값은 서버 그대로 — 남은 분·km 는 서버 초·미터를 단위만 바꿔 보인다.
-import { useQuery } from '@tanstack/react-query';
+import { useQueries, useQuery } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { Link } from 'react-router';
 
@@ -68,6 +68,7 @@ export const extrasMessages = {
   notCalculable: '산정 불가 — 수행료 조정에서 귀책을 정해요',
   // 2026-11-24 라이더 백엔드 회신: settlementState ADJUSTED + calculable false = 최종 미지급(귀책 확정 등). 이유는 서버 note
   unpaid: '미지급',
+  notCalculableShort: '산정 불가',
   reason: '이유',
   story: {
     title: '이 배송에 있었던 일',
@@ -238,6 +239,23 @@ export function DeliveryProof({ delivery }: { readonly delivery: Execution }) {
 }
 
 const isUnpaid = (e: NonNullable<Execution['earning']>) => e.calculable === false && e.settlementState === 'ADJUSTED';
+const stripCaseId = (note: string | null | undefined) => (note ?? '').replace(/\s*\(?사건\s+CASE-[0-9A-Za-z-]+…?\)?/g, '').trim();
+
+/** 배송 줄 옆 수행료 네모칸 — 미지급(조정으로 끝남) 또는 산정 불가만. 이유(서버 note, 사건 ID 뺌)는 올려 보면 */
+function FeeTag({ earning }: { readonly earning: Execution['earning'] | undefined }) {
+  if (!earning || earning.calculable !== false) return null;
+  const unpaid = isUnpaid(earning);
+  const why = stripCaseId(earning.note);
+  return (
+    <span
+      className={`rounded border px-1 text-[11px] font-semibold leading-4 ${unpaid ? 'border-error/50 text-error' : 'border-warning/60 text-warning'}`}
+      title={why || undefined}
+      data-testid="story-fee-tag"
+    >
+      {unpaid ? m.unpaid : m.notCalculableShort}
+    </span>
+  );
+}
 
 /**
  * "이 배송에 있었던 일"(2026-11-24 사용자 "이 배송에 문제가 뭐였는지 백오피스에서 바로 보기가 힘들어") — 상세 맨 위 한 상자:
@@ -280,6 +298,16 @@ export function DeliveryStory({ delivery }: { readonly delivery: Execution }) {
   const seqOf = (no: string | null | undefined) => Number(/-(\d+)$/.exec(no ?? '')?.[1] ?? '1');
   const orderDeliveries = [...(siblings.data?.items ?? [])].sort((a, b) => seqOf(a.deliveryNumber) - seqOf(b.deliveryNumber));
   const hasOthers = orderDeliveries.some((d) => d.deliveryId !== id);
+  // 배송마다 수행료(2026-11-24 사용자 "그냥 이 주문의 배송 … 그 옆에 네모칸 안에 미지급 이렇게 적어") — 다른 배송은 상세를 한 번씩 읽는다(주문당 몇 건)
+  const otherIds = orderDeliveries.map((d) => d.deliveryId ?? '').filter((x) => !!x && x !== id);
+  const details = useQueries({
+    queries: otherIds.map((did) => ({
+      queryKey: ['delivery-story-detail', did],
+      staleTime: 60_000,
+      queryFn: () => request('GET', api.execution.GET('/deliveries/{deliveryId}', { params: { path: { deliveryId: did } } })),
+    })),
+  });
+  const earningOf = (did: string | null | undefined) => (did === id ? delivery.earning : details[otherIds.indexOf(did ?? '')]?.data?.earning);
   const e = delivery.earning;
   const f = delivery.failure;
   const rows: { readonly k: string; readonly v: ReactNode }[] = [];
@@ -328,6 +356,7 @@ export function DeliveryStory({ delivery }: { readonly delivery: Execution }) {
                 )}
                 <span className="rounded border border-base-300 px-1 text-[11px] font-medium leading-4 text-base-content/70">{kind}</span>
                 <span className={`text-xs ${mine ? 'text-base-content' : 'text-base-content/60'}`}>{label(messages.names.executionState, d.state)}</span>
+                <FeeTag earning={earningOf(d.deliveryId)} />
                 {mine && <span className="badge badge-primary badge-sm">{s.thisOne}</span>}
               </li>
             );
@@ -338,7 +367,8 @@ export function DeliveryStory({ delivery }: { readonly delivery: Execution }) {
   }
   // 수행료 이유에서 긴 사건 ID("(사건 CASE-…)")는 빼고 보인다 — 사건은 위 "사건" 줄에서 접수 번호·링크로
   const noteText = (e?.note ?? '').replace(/\s*\(?사건\s+CASE-[0-9A-Za-z-]+…?\)?/g, '').trim();
-  if (e && isUnpaid(e)) rows.push({ k: s.fee, v: <span data-testid="story-fee">{m.unpaid}{noteText ? ` — ${noteText}` : ''}</span> });
+  // 같은 주문 배송 줄이 있으면 미지급은 그 줄 옆 네모칸(이유는 올려 보면). 배송이 하나뿐일 때만 따로 한 줄
+  if (e && isUnpaid(e) && !hasOthers) rows.push({ k: s.fee, v: <span data-testid="story-fee">{m.unpaid}{noteText ? ` — ${noteText}` : ''}</span> });
   if (rows.length === 0) return null;
   return (
     <section className="rounded-box border border-warning/40 bg-warning/5 px-4 py-3" aria-label={s.title} data-testid="delivery-story">
