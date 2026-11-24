@@ -287,3 +287,12 @@ main a[href^='/riders/']:not(.btn) {
   text-decoration-style: dotted;
   text-underline-offset: 2px;
 }
+
+/* 배송 번호 링크(배송 상세로)도 같은 점선(2026-11-24 사용자 "배송번호 밑에 링크 들어가지는데 배송번호에 점선으로 밑줄 안 그어져 있네").
+   번호는 DeliveryNo 의 inline-flex 상자 안 font-mono 글자라 그 글자에 직접 준다(종류 꼬리표 네모칸에는 안 그음). 단추 모양 링크는 제외 */
+main a[href^='/deliveries/']:not(.btn) .font-mono,
+main a[href^='/deliveries/']:not(.btn) {
+  text-decoration-line: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 2px;
+}

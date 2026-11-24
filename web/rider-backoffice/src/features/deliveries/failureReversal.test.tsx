@@ -36,7 +36,7 @@ describe('반려된 전달 실패 신고(2026-11-24)', () => {
     );
     renderAt('/deliveries/DLV-1', as.riderOps);
     const box = await screen.findByTestId('failure-box');
-    expect(box).toHaveTextContent('전달 실패 신고 · 반려됨');
+    expect(box).toHaveTextContent('전달 실패 신고(연락 안 됨)는'); expect(box).toHaveTextContent('반려됐어요');
     expect(box.className).not.toMatch(/bg-error/);
   });
 });

@@ -225,6 +225,7 @@ export const messages = {
     failure: '전달 실패',
     // 2026-11-24 사용자 "전달완료라고 되어있는데 밑에는 전달 실패라고" — 반려된 신고는 지난 기록으로
     failureRejected: '전달 실패 신고 · 반려됨',
+    failureRejectedLine: (reason: string, at: string) => `전달 실패 신고(${reason})는 ${at}에 반려됐어요 — 그 뒤 배송을 이어갔어요.`,
     failureReason: '사유',
     decision: '판정',
     custody: '상품 위치',

@@ -536,12 +536,16 @@ function DeliveryDetailPage() {
                     [m.col.completedAt, when(x.completedAt)],
                   ]}
                 />
-                {x.failure && (
-                  // 반려된 신고(배송은 그대로 이어감)는 회색 지난 기록으로 — 빨간 "전달 실패"는 아직 판정 전이거나 확정일 때만
-                  <div className={x.failure.decision === 'REJECT' ? 'rounded-box bg-base-200/60 p-4' : 'rounded-box bg-error/5 p-4'} data-testid="failure-box">
-                    <p className={x.failure.decision === 'REJECT' ? 'mb-2 text-sm font-semibold text-base-content/70' : 'mb-2 text-sm font-semibold text-error'}>
-                      {x.failure.decision === 'REJECT' ? m.failureRejected : m.failure}
-                    </p>
+                {x.failure?.decision === 'REJECT' && (
+                  // 2026-11-24 사용자 "-3 배송은 완료했는데 전달실패신고 사유 연락안됨이 저렇게 크게 적혀 있는 이유" — 반려된 신고는 배송이 이어진
+                  // 지난 기록이라 큰 칸 대신 작은 회색 한 줄(사유·반려 시각)
+                  <p className="text-xs text-base-content/60" data-testid="failure-box">
+                    {m.failureRejectedLine(name(n.failureReason, x.failure.reason), when(x.failure.decidedAt))}
+                  </p>
+                )}
+                {x.failure && x.failure.decision !== 'REJECT' && (
+                  <div className="rounded-box bg-error/5 p-4" data-testid="failure-box">
+                    <p className="mb-2 text-sm font-semibold text-error">{m.failure}</p>
                     <FieldList
                       testId="failure-detail"
                       rows={[
