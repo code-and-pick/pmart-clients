@@ -37,7 +37,14 @@ export interface SearchHit {
   readonly deliveryId?: string;
 }
 
-export function ControlSearch({ onFound, compact = false }: { readonly onFound: (hit: SearchHit) => void; readonly compact?: boolean }) {
+/** 배송·주문 번호로 찾았을 때 — 배송 하나면 그 배송 ID, 여럿이면 없음(주문번호 목록으로) */
+export interface DeliveryHit {
+  readonly deliveryId?: string;
+  readonly orderNumber: string;
+  readonly query: string;
+}
+
+export function ControlSearch({ onFound, onDelivery, compact = false }: { readonly onFound: (hit: SearchHit) => void; readonly onDelivery?: (hit: DeliveryHit) => void; readonly compact?: boolean }) {
   const api = useApi();
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
@@ -76,6 +83,13 @@ export function ControlSearch({ onFound, compact = false }: { readonly onFound: 
       // 순번을 적었으면(D74939255-2) 그 배송만. 아니면 진행 중(라이더 있음) 배송을 먼저 — 반납·재발송이 같은 주문번호로 함께 있을 수 있다
       const items = seqGiven ? all.filter((d) => d.deliveryNumber && parseDeliveryNumber(d.deliveryNumber)?.seq === want.seq) : all;
       const hit = items.find((d) => d.riderId) ?? items[0];
+      // 머리줄(2026-11-24 사용자 "배송번호로 검색했으면 배송관리탭에서 바로 보여줘야") — 배송·주문 번호면 배송 관리로.
+      // 순번을 적었거나 배송이 하나면 그 배송 상세, 여럿이면 그 주문번호 목록. 라이더가 아직 없어도 연다.
+      if (onDelivery && hit) {
+        onDelivery({ ...(seqGiven || items.length === 1 ? { deliveryId: hit.deliveryId } : {}), orderNumber: want.orderNumber, query: q });
+        setText('');
+        return;
+      }
       if (!hit) setNote({ tone: 'error', text: s.notFound(q) });
       else if (!hit.riderId) setNote({ tone: 'error', text: s.unassigned(label(messages.names.executionState, hit.state)) });
       else {

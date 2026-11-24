@@ -48,12 +48,12 @@ const cx = {
   firstTitle: '먼저 확인해 주세요',
   flowTitle: '진행 단계',
   dispatchOff: '신규배차 꺼짐',
-  dispatchOffHint: '운행 중인데 새 배차를 받지 않아요',
   allClear: '지금 먼저 볼 라이더가 없어요',
   allClearBody: (k: number) => `운행 중 ${k}명 모두 위치가 들어오고 있고 신규배차를 받고 있어요.`,
   deliveries: (k: number) => `${k}건`,
   late: '지연 배송',
-  lateHint: '약속 시각 + 20분을 넘겼거나 넘길 것으로 봐요',
+  // 2026-11-24 사용자 "지연배송도 회색으로 20분 이상 이라고만" (서버 기준: 약속 + 20분을 넘겼거나 넘길 것으로 봄)
+  lateHint: '20분 이상',
   lateTitle: (k: number) => `지연 배송 ${k}건 — 많이 늦은 순`,
   lateNone: '지금 지연 배송이 없어요.',
   lateOver: (m: number) => (m > 0 ? `약속보다 ${m}분 지남` : '곧 늦을 예정'),
@@ -64,7 +64,7 @@ const cx = {
 
 const FLOW_STAGES = ['TO_STORE', 'AT_STORE', 'TO_CUSTOMER', 'AT_CUSTOMER'] as const;
 
-type Filter = 'all' | 'delivering' | 'late' | 'stale' | 'sim';
+type Filter = 'all' | 'delivering' | 'late' | 'stale' | 'dispatchOff' | 'sim';
 type Rider = components['schemas']['ControlRider'];
 type Active = Rider['activeDeliveries'][number];
 
@@ -102,7 +102,7 @@ export function ControlPage() {
   const [params, setParams] = useSearchParams();
   const mfcId = params.get('mfcId') ?? '';
   const rawFilter = params.get('filter');
-  const filter: Filter = rawFilter === 'delivering' || rawFilter === 'late' || rawFilter === 'stale' || rawFilter === 'sim' ? rawFilter : 'all';
+  const filter: Filter = rawFilter === 'delivering' || rawFilter === 'late' || rawFilter === 'stale' || rawFilter === 'dispatchOff' || rawFilter === 'sim' ? rawFilter : 'all';
   const setFilter = (f: Filter) => {
     const p = new URLSearchParams(params);
     if (f === 'all') p.delete('filter');
@@ -218,7 +218,7 @@ export function ControlPage() {
             const staleFlag = all.filter((r) => r.stale).length;
             const staleOrNone = all.filter(isStale).length;
             const delivering = all.filter(isDelivering).length;
-            const items = all.filter((r) => (filter === 'delivering' ? isDelivering(r) : filter === 'late' ? isLate(r) : filter === 'stale' ? isStale(r) : filter === 'sim' ? isSimRider(r.riderId) : true));
+            const items = all.filter((r) => (filter === 'delivering' ? isDelivering(r) : filter === 'late' ? isLate(r) : filter === 'stale' ? isStale(r) : filter === 'dispatchOff' ? r.newDispatchEnabled === false : filter === 'sim' ? isSimRider(r.riderId) : true));
             const late = lateRows(all, b.asOf);
             const mapRiders: MapRider[] = items.flatMap((r) =>
               r.location?.lat != null && r.location.lng != null
@@ -246,12 +246,15 @@ export function ControlPage() {
                           {staleFlag > 0 && <StatusBadge tone="error">{c.staleCount(staleFlag)}</StatusBadge>}
                         </p>
                       </div>
-                      <ChipGroup
-                        label={cx.view}
-                        value={filter}
-                        options={(['all', 'delivering', 'late', 'stale', 'sim'] as const).map((f) => ({ value: f, label: c.filter[f] }))}
-                        onChange={setFilter}
-                      />
+                      {/* 2026-11-24 사용자 "선택탭 2줄 되지 않게" — 작은 칩·짧은 이름으로 한 줄(넘치면 옆으로 밀기, 줄바꿈 없음) */}
+                      <div className="overflow-x-auto [&_[role=radiogroup]]:flex-nowrap [&_[role=radio]]:whitespace-nowrap [&_[role=radio]]:px-2 [&_[role=radio]]:text-xs" data-testid="control-filter">
+                        <ChipGroup
+                          label={cx.view}
+                          value={filter}
+                          options={(['all', 'delivering', 'late', 'stale', 'dispatchOff', 'sim'] as const).map((f) => ({ value: f, label: c.filter[f] }))}
+                          onChange={setFilter}
+                        />
+                      </div>
                     </div>
                     {items.length === 0 ? (
                       <p data-state="empty" className="p-6 text-center text-sm text-base-content/60">
@@ -382,7 +385,8 @@ function ControlBoards({ all, filter, filterLink, asOf, staleOrNone, delivering,
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             <KpiTile label={cx.late} value={cx.deliveries(lateCount)} hint={cx.lateHint} to={filterLink('late')} active={filter === 'late'} dot="bg-error" alert={lateCount > 0} testId="control-stat-late" />
             <KpiTile label={cx.staleOrNone} value={cx.people(staleOrNone)} to={filterLink('stale')} active={filter === 'stale'} dot="bg-error" alert={staleOrNone > 0} testId="control-stat-stale" />
-            <KpiTile label={cx.dispatchOff} value={cx.people(dispatchOff)} hint={cx.dispatchOffHint} dot="bg-warning" warn={dispatchOff > 0} testId="control-stat-dispatch-off" />
+            {/* 2026-11-24 사용자 "신규배차 꺼짐은 왜 선택이 안 돼?" — 누르면 그 라이더들만(목록 거르기 "배차 꺼짐") */}
+            <KpiTile label={cx.dispatchOff} value={cx.people(dispatchOff)} to={filterLink('dispatchOff')} active={filter === 'dispatchOff'} dot="bg-warning" warn={dispatchOff > 0} testId="control-stat-dispatch-off" />
           </div>
         )}
       </section>

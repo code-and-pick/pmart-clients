@@ -14,7 +14,7 @@ import { useCenterQuery } from '../../app/CenterScope';
 import { isLiveDelivery, LIVE } from '../../shared/liveRefresh';
 import { messages } from '../../shared/messages';
 import { ChipGroup, CursorPager, DataTable, DetailHeader, FieldList, PageHeader, ResultBar, SearchPanel, SearchRow, Section, SectionTabs, StatCard, StatStrip, StatusBadge, type Tone } from '../../shared/admin';
-import { DeliveryNo, DeliveryRef, resolveRiderId, RiderName, SystemIds, useDeliveryNumbers, useRiderSummaries, RIDER_NUMBER, RiderLink } from '../../shared/displayNumbers';
+import { DeliveryNo, DeliveryRef, resolveRiderId, RiderName, SystemIds, useDeliveryNumbers, useRiderSummaries, RIDER_NUMBER, RiderLink, parseDeliveryNumber } from '../../shared/displayNumbers';
 import { ops } from '../../shared/opsMessages';
 import { useAreaName, useCenterName } from '../../shared/opsUi';
 import { statText, useListRows } from '../../shared/listKit';
@@ -33,7 +33,7 @@ const dx = {
   failedToday: '오늘 전달 실패',
   today: '오늘',
 } as const;
-import { DeliveryEarning, DeliveryProof, DispatchAttempts, EtaPanel, extrasMessages } from './DeliveryExtras';
+import { DeliveryEarning, DeliveryProof, DeliveryStory, DispatchAttempts, EtaPanel, extrasMessages } from './DeliveryExtras';
 
 const m = messages.deliveries;
 const n = messages.names;
@@ -84,9 +84,18 @@ function DeliverySearchPage() {
       ...(v.cursor ? { cursor: v.cursor } : {}),
     });
   };
+  // 2026-11-24 사용자 "배송관리에 검색하기 누르면 이렇게 떠"(D28767701-3 이 8글자로 잘려 "D2876770" 이 서버로 가 조회 실패) —
+  // 찾기 칸은 배송 번호(D28767701·D28767701-3)·주문번호 8자리를 받는다. 모양이 틀리면 서버에 묻지 않고 칸 아래에 알린다.
+  const [numberNote, setNumberNote] = useState('');
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    set({ orderId: draft.orderId.trim(), orderNumber: draft.orderNumber.trim(), riderId: draft.riderId.trim() });
+    const no = draft.orderNumber.trim();
+    if (no && !parseDeliveryNumber(no)) {
+      setNumberNote(m.numberHint);
+      return;
+    }
+    setNumberNote('');
+    set({ orderId: draft.orderId.trim(), orderNumber: no.toUpperCase(), riderId: draft.riderId.trim() });
   };
 
   const cq = useCenterQuery(); // 머리줄 센터 고르기(RS-7)
@@ -107,7 +116,11 @@ function DeliverySearchPage() {
       // 라이더 번호(R4785)로도 찾는다(ADR-0070) — 맞는 라이더가 없으면 빈 목록
       const rid = riderId ? await qc.fetchQuery(riderLookup) : '';
       if (rid === null) return { items: [], page: { nextCursor: null } };
-      return request(
+      // 배송 번호면 D·순번을 떼고 주문번호 8자리로 묻고, 순번을 적었으면 그 배송만 남긴다(ADR-0085). 모양이 틀린 주소 값은 빈 목록
+      const want = orderNumber ? parseDeliveryNumber(orderNumber) : null;
+      if (orderNumber && !want) return { items: [], page: { nextCursor: null } };
+      const seqGiven = /-\d+$/.test(orderNumber);
+      const r = await request(
         'GET',
         api.execution.GET('/deliveries', {
           params: {
@@ -115,7 +128,7 @@ function DeliverySearchPage() {
               size: PAGE_SIZE,
               ...cq,
               ...(orderId ? { orderId } : {}),
-              ...(orderNumber ? { orderNumber } : {}),
+              ...(want ? { orderNumber: want.orderNumber } : {}),
               ...(rid ? { riderId: rid } : {}),
               ...(state ? { state } : {}),
               ...(type ? { type } : {}),
@@ -125,6 +138,7 @@ function DeliverySearchPage() {
           },
         }),
       );
+      return seqGiven && want ? { ...r, items: (r.items ?? []).filter((d) => d.deliveryNumber && parseDeliveryNumber(d.deliveryNumber)?.seq === want.seq) } : r;
     },
   });
 
@@ -191,7 +205,14 @@ function DeliverySearchPage() {
         // 왼쪽 찾기 칸(시뮬레이터처럼) — 주문번호 8자리·라이더 번호 R4785. 상태·종류·시스템 번호는 깔때기 팝업
         search={
           <>
-            <input type="search" className="input input-sm w-40" value={draft.orderNumber} maxLength={8} inputMode="numeric" placeholder={`${ops.actions.orderNumber} 8자리`} aria-label={ops.actions.orderNumber} onChange={(e) => setDraft({ ...draft, orderNumber: e.target.value })} />
+            <span className="relative">
+              <input type="search" className="input input-sm w-44" value={draft.orderNumber} maxLength={16} placeholder={m.numberPlaceholder} title={m.numberHint} aria-label={m.numberPlaceholder} onChange={(e) => setDraft({ ...draft, orderNumber: e.target.value })} />
+              {numberNote && (
+                <span role="alert" className="absolute left-0 top-full z-10 mt-1 w-max rounded-box border border-base-300 bg-base-100 px-2 py-1 text-xs text-error shadow" data-testid="delivery-number-note">
+                  {numberNote}
+                </span>
+              )}
+            </span>
             <input type="search" className="input input-sm w-40" value={draft.riderId} maxLength={64} placeholder={`${m.riderId} R4785`} aria-label={m.riderId} onChange={(e) => setDraft({ ...draft, riderId: e.target.value })} />
           </>
         }
@@ -492,6 +513,7 @@ function DeliveryDetailPage() {
           ]}
         />
       )}
+      {d && <DeliveryStory delivery={d} />}
       <SectionTabs items={tabs} />
       {/* 2026-11-21: 왼쪽 보기 구역, 오른쪽 처리 구역(운영 조치) 한곳 — 좁으면 처리가 위로 */}
       <div className="pm-detail-grid">

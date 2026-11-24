@@ -79,6 +79,10 @@ function HeaderSearch() {
         if (hit.deliveryId) p.set('delivery', hit.deliveryId);
         void navigate(`/control?${p.toString()}`);
       }}
+      // 배송·주문 번호는 배송 관리(2026-11-24) — 배송 하나면 상세, 여럿이면 그 주문번호 목록
+      onDelivery={(hit) => {
+        void navigate(hit.deliveryId ? `/deliveries/${encodeURIComponent(hit.deliveryId)}` : `/deliveries?orderNumber=${encodeURIComponent(hit.orderNumber)}`);
+      }}
     />
   );
 }

@@ -37,6 +37,14 @@ describe('화면 틀', () => {
     expect(await within(panel).findByText('R7301')).toBeInTheDocument();
   });
 
+  it('머리줄 통합 찾기: 배송 번호(D48213075-2)면 배송 관리의 그 배송 상세로(2026-11-24)', async () => {
+    renderAt('/dashboard', as.riderOps);
+    const box = await screen.findByRole('search', { name: '통합 찾기' });
+    await userEvent.type(within(box).getByRole('textbox', { name: '통합 찾기' }), 'D48213075-2');
+    await userEvent.click(within(box).getByRole('button', { name: '통합 찾기로 관제에서 열기' }));
+    expect(await screen.findByRole('heading', { name: /배송 D48213075-2/ })).toBeInTheDocument();
+  });
+
   it('없는 라이더 번호는 그렇다고 알린다', async () => {
     renderAt('/dashboard', as.riderOps);
     const box = await screen.findByRole('search', { name: '통합 찾기' });

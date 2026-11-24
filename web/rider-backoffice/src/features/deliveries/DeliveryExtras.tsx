@@ -12,7 +12,7 @@ import type { components as TrackingC } from '../../api/generated/delivery-track
 import { useApi } from '../../app/ApiContext';
 import { AuthedPhotos } from '../../shared/AuthedPhotos';
 import { messages } from '../../shared/messages';
-import { RiderName, useRiderSummaries, RiderLink } from '../../shared/displayNumbers';
+import { DeliveryRef, RiderName, useRiderSummaries, RiderLink } from '../../shared/displayNumbers';
 import { label, none, when, won } from '../../shared/opsUi';
 import { StatusBadge } from '../../shared/admin';
 import type { Tone } from '@pmart/web-ui/console';
@@ -66,6 +66,18 @@ export const extrasMessages = {
   settlement: '정산 상태',
   payoutDate: '지급 예정일',
   notCalculable: '산정 불가 — 수행료 조정에서 귀책을 정해요',
+  // 2026-11-24 라이더 백엔드 회신: settlementState ADJUSTED + calculable false = 최종 미지급(귀책 확정 등). 이유는 서버 note
+  unpaid: '미지급',
+  reason: '이유',
+  story: {
+    title: '이 배송에 있었던 일',
+    cases: '사건',
+    siblings: '같은 주문의 다른 배송',
+    fee: '수행료',
+    failure: '전달 실패 신고',
+    casesFailed: '사건을 불러오지 못했어요',
+    siblingsFailed: '다른 배송을 불러오지 못했어요',
+  },
   earningNone: '수행료 기록이 없어요.',
   returnFlow: '반납 방식',
   returnPickup: (v: boolean) => (v ? '받음 → 반납(다른 라이더가 원래 라이더에게서 받아 반납)' : '바로 반납(같은 라이더)'),
@@ -222,6 +234,100 @@ export function DeliveryProof({ delivery }: { readonly delivery: Execution }) {
   );
 }
 
+const isUnpaid = (e: NonNullable<Execution['earning']>) => e.calculable === false && e.settlementState === 'ADJUSTED';
+
+/**
+ * "이 배송에 있었던 일"(2026-11-24 사용자 "이 배송에 문제가 뭐였는지 백오피스에서 바로 보기가 힘들어") — 상세 맨 위 한 상자:
+ * 전달 실패 신고(판정), 이 배송이 걸린 사건(case `GET /cases?subjectRef=` 배송 ID·주문 ID — 배송을 참조로 가진 것만), 같은 주문의 다른 배송(회수·재발송 …),
+ * 수행료가 미지급이면 서버 이유. 보일 것이 없으면 상자도 없다. 못 읽은 부분은 그렇다고 적는다(없다고 하지 않음).
+ */
+export function DeliveryStory({ delivery }: { readonly delivery: Execution }) {
+  const api = useApi();
+  const s = m.story;
+  const id = delivery.deliveryId ?? '';
+  const orderNo = delivery.orderNumber ?? delivery.orderSummary?.orderNumber ?? null;
+  const subjects = [id, delivery.orderId].filter((x): x is string => !!x);
+  const cases = useQuery({
+    queryKey: ['delivery-story-cases', id, delivery.orderId ?? ''],
+    enabled: !!id,
+    queryFn: async () => {
+      const pages = await Promise.all(subjects.map((ref) => request('GET', api.cases.GET('/cases', { params: { query: { subjectRef: ref, size: 20 } } }))));
+      const seen = new Set<string>();
+      return pages
+        .flatMap((p) => p.items ?? [])
+        .filter((c) => c.subjectRef === id || (c.refs ?? []).some((r) => r.refType === 'deliveryId' && r.refId === id))
+        .filter((c) => !!c.caseId && (seen.has(c.caseId) ? false : (seen.add(c.caseId), true)));
+    },
+  });
+  const siblings = useQuery({
+    queryKey: ['delivery-story-siblings', orderNo ?? ''],
+    enabled: !!orderNo,
+    queryFn: () => request('GET', api.execution.GET('/deliveries', { params: { query: { orderNumber: orderNo!, size: 10 } } })),
+  });
+  const others = (siblings.data?.items ?? []).filter((d) => d.deliveryId !== id);
+  const e = delivery.earning;
+  const f = delivery.failure;
+  const rows: { readonly k: string; readonly v: ReactNode }[] = [];
+  if (f) {
+    rows.push({
+      k: s.failure,
+      v: (
+        <span>
+          {label(messages.names.failureReason, f.reason)}
+          {f.decision ? ` · ${label(messages.names.decision, f.decision)}` : ''}
+        </span>
+      ),
+    });
+  }
+  if (cases.isError) rows.push({ k: s.cases, v: <span className="text-error">{s.casesFailed}</span> });
+  for (const c of cases.data ?? []) {
+    rows.push({
+      k: s.cases,
+      v: (
+        <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5" data-testid="story-case">
+          <span className="badge badge-sm badge-outline">{label(messages.names.caseKind, c.kind)}</span>
+          <span className="font-medium">{label(messages.names.caseState, c.state)}</span>
+          {c.summary && <span className="text-base-content/70">{c.summary}</span>}
+          <Link to={`/consults/cases/${encodeURIComponent(c.caseId ?? '')}`} className="link link-hover text-xs text-base-content/60">
+            {c.caseNumber ?? '사건 보기'} ›
+          </Link>
+        </span>
+      ),
+    });
+  }
+  if (siblings.isError) rows.push({ k: s.siblings, v: <span className="text-error">{s.siblingsFailed}</span> });
+  if (others.length > 0) {
+    rows.push({
+      k: s.siblings,
+      v: (
+        <span className="flex flex-wrap items-center gap-x-4 gap-y-0.5" data-testid="story-siblings">
+          {others.map((d) => (
+            <span key={d.deliveryId} className="inline-flex items-center gap-1.5">
+              <DeliveryRef deliveryId={d.deliveryId} numbers={{ deliveryNumber: d.deliveryNumber ?? null, orderNumber: d.orderNumber ?? null }} />
+              <span className="text-xs text-base-content/60">{label(messages.names.executionState, d.state)}</span>
+            </span>
+          ))}
+        </span>
+      ),
+    });
+  }
+  if (e && isUnpaid(e)) rows.push({ k: s.fee, v: <span>{m.unpaid}{e.note ? ` — ${e.note}` : ''}</span> });
+  if (rows.length === 0) return null;
+  return (
+    <section className="rounded-box border border-warning/40 bg-warning/5 px-4 py-3" aria-label={s.title} data-testid="delivery-story">
+      <h2 className="mb-1.5 text-sm font-bold">{s.title}</h2>
+      <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
+        {rows.map((r, i) => (
+          <div key={i} className="contents">
+            <dt className="text-base-content/60">{r.k}</dt>
+            <dd className="min-w-0">{r.v}</dd>
+          </div>
+        ))}
+      </dl>
+    </section>
+  );
+}
+
 /** 이 배송의 수행료(execution `earning`) — 서버 금액 그대로 */
 export function DeliveryEarning({ delivery }: { readonly delivery: Execution }) {
   const e = delivery.earning;
@@ -233,9 +339,13 @@ export function DeliveryEarning({ delivery }: { readonly delivery: Execution }) 
         <>
           <dl className={DL}>
             {e.calculable === false ? (
-              <Row k={m.fee.total}>
-                <span className="badge badge-warning badge-sm">{m.notCalculable}</span>
-              </Row>
+              <>
+                <Row k={m.fee.total}>
+                  {/* 미지급으로 끝난 건(ADJUSTED)은 "조정에서 정해요" 가 아니라 미지급 + 서버 이유 */}
+                  <span className={`badge badge-sm ${isUnpaid(e) ? 'badge-error badge-soft' : 'badge-warning'}`}>{isUnpaid(e) ? m.unpaid : m.notCalculable}</span>
+                </Row>
+                {e.note && <Row k={m.reason}>{e.note}</Row>}
+              </>
             ) : (
               <>
                 <Row k={m.fee.base}>{won(e.baseFee)}</Row>
@@ -248,7 +358,8 @@ export function DeliveryEarning({ delivery }: { readonly delivery: Execution }) 
               </>
             )}
             <Row k={m.settlement}>{label(messages.names.settlementState, e.settlementState)}</Row>
-            {e.payoutDate && <Row k={m.payoutDate}>{e.payoutDate}</Row>}
+            {/* 미지급이면 지급 예정일을 숨긴다(서버가 예전 날짜를 지우지 않는다 — 라이더 백엔드 2026-11-24) */}
+            {e.payoutDate && !isUnpaid(e) && <Row k={m.payoutDate}>{e.payoutDate}</Row>}
           </dl>
           {/* 2026-11-24 사용자 "이렇게 긴 회색글들 필요한 말만 하고 줄여" — "서버 값 그대로" 안내 줄을 뺐다(값은 그대로 서버 값) */}
         </>

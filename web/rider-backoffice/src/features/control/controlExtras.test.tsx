@@ -29,9 +29,9 @@ describe('관제 — 거르기·지도', () => {
     expect(await screen.findAllByTestId('control-row')).toHaveLength(4);
     await userEvent.click(screen.getByRole('radio', { name: '배송 중' }));
     expect(screen.getAllByTestId('control-row').map((r) => r.id)).toEqual(['control-RD-7']);
-    await userEvent.click(screen.getByRole('radio', { name: '위치 미확인' }));
+    await userEvent.click(screen.getByRole('radio', { name: '끊김' }));
     expect(screen.getAllByTestId('control-row').map((r) => r.id)).toEqual(['control-RD-8', 'control-RD-9']);
-    expect(screen.getByRole('radio', { name: '위치 미확인' })).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByRole('radio', { name: '끊김' })).toHaveAttribute('aria-checked', 'true');
   });
 
   it('주소의 filter 로 바로 열리고, 맞는 라이더가 없으면 "없어요"', async () => {

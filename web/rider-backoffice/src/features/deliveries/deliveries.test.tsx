@@ -1,5 +1,5 @@
 // 배송 찾기(execution 0.4.0)·상세(수행 + 배차) — 목(MSW) 기준. 실서버 확인은 아니다.
-import { screen, within } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 
@@ -8,6 +8,19 @@ import { as, renderAt } from '../../test/render';
 const searchCalls = (sent: readonly Request[]) => sent.filter((r) => new URL(r.url).pathname.endsWith('/deliveries')).map((r) => new URL(r.url).searchParams);
 
 describe('배송 관리', () => {
+  it('찾기 칸에 배송 번호(D48213075-2)를 넣으면 그 배송만, 모양이 틀리면 서버에 묻지 않고 알린다(2026-11-24)', async () => {
+    const view = renderAt('/deliveries', as.riderOps);
+    const box = await screen.findByLabelText('배송·주문 번호');
+    await userEvent.type(box, 'D48213075-2{Enter}');
+    await waitFor(() => expect(screen.getAllByTestId('delivery-row')).toHaveLength(1));
+    expect(screen.getByTestId('delivery-row')).toHaveTextContent('D48213075-2');
+    const sent = view.sent.filter((r) => new URL(r.url).pathname.endsWith('/deliveries') && new URL(r.url).searchParams.get('orderNumber'));
+    expect(sent.every((r) => new URL(r.url).searchParams.get('orderNumber') === '48213075')).toBe(true);
+    await userEvent.clear(box);
+    await userEvent.type(box, 'D2876770{Enter}');
+    expect(await screen.findByTestId('delivery-number-note')).toHaveTextContent('배송 번호');
+  });
+
   it('-2·-3 배송은 번호 뒤에 종류(회수·반납·재발송·다시 배송), 첫 배송은 꼬리표 없음(2026-11-24)', async () => {
     renderAt('/deliveries', as.riderOps);
     const rows = await screen.findAllByTestId('delivery-row');
@@ -71,6 +84,18 @@ describe('배송 관리', () => {
 });
 
 describe('배송 상세', () => {
+  it('이 배송에 있었던 일: 걸린 사건·같은 주문의 다른 배송(2026-11-24)', async () => {
+    renderAt('/deliveries/DLV-2', as.riderOps);
+    const story = await screen.findByTestId('delivery-story');
+    expect(await within(story).findByTestId('story-case')).toHaveTextContent('배차 실패');
+  });
+
+  it('이 배송에 있었던 일: 같은 주문의 다른 배송(종류 꼬리표와 함께)', async () => {
+    renderAt('/deliveries/DLV-1', as.riderOps);
+    const story = await screen.findByTestId('delivery-story');
+    expect(await within(story).findByTestId('story-siblings')).toHaveTextContent('D48213075-2');
+  });
+
   it('수행·배차를 따로 — 전달 실패 사유, 주문 품목, 수행 이력', async () => {
     renderAt('/deliveries/DLV-1', as.riderOps);
     const exec = await screen.findByTestId('execution-detail');

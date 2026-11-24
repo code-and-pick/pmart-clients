@@ -219,6 +219,8 @@ export const messages = {
     dispatchNone: '배차 기록이 없어요.',
     purpose: '목적',
     orderNumber: '주문번호',
+    numberPlaceholder: '배송·주문 번호',
+    numberHint: '배송 번호(D28767701, D28767701-3) 또는 주문번호 8자리로 찾아요',
     items: '주문 품목',
     failure: '전달 실패',
     // 2026-11-24 사용자 "전달완료라고 되어있는데 밑에는 전달 실패라고" — 반려된 신고는 지난 기록으로

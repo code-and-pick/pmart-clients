@@ -100,6 +100,8 @@ export const caseHandlers = [
       .filter((c) => visibleTo(who.roles, c))
       .filter((c) => (closed ? c.state === 'CLOSED' : c.state !== 'CLOSED'))
       .filter((c) => !q.get('kind') || c.kind === q.get('kind'))
+      // subjectRef(배송·주문 ID) — 목은 refs 로 맞춘다(목 사건에 subjectRef 칸이 없다)
+      .filter((c) => !q.get('subjectRef') || (c.refs ?? []).some((r) => r.refId === q.get('subjectRef')))
       .filter((c) => q.get('overdue') !== 'true' || c.overdue)
       .filter((c) => q.get('unassigned') !== 'true' || !c.assigneeId);
     const items = rows.slice(skip, skip + PAGE);
