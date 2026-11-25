@@ -146,7 +146,21 @@ class _InfoRow extends StatelessWidget {
 /// 운행수단 바꾸기(`PATCH /riders/me` vehicleType). 배송 중이면 서버가 409 INVALID_STATE 로 막는다 — 앱도 먼저 안내.
 /// 오토바이·자동차·킥보드인데 등록된 면허가 없으면 면허 번호를 받아 함께 보낸다(422 LICENSE_REQUIRED).
 /// 결과를 모르면(연결 끊김·5xx) 내 정보를 다시 읽어 맞춘다. 서버가 돌려준 값만 바뀐 것으로 보인다.
+/// 이미 진행 중이면 또 시작하지 않는다(연타하면 안내가 여러 번 늦게 떴다 — 2026-11-25).
+final _vehicleBusy = Expando<bool>();
+
 Future<void> changeVehicle(BuildContext context, WidgetRef ref) async {
+  final owner = ProviderScope.containerOf(context, listen: false);
+  if (_vehicleBusy[owner] ?? false) return;
+  _vehicleBusy[owner] = true;
+  try {
+    await _changeVehicle(context, ref);
+  } finally {
+    _vehicleBusy[owner] = false;
+  }
+}
+
+Future<void> _changeVehicle(BuildContext context, WidgetRef ref) async {
   final l10n = AppLocalizations.of(context);
   void toast(String text) {
     if (context.mounted) showRiderToast(context, text);

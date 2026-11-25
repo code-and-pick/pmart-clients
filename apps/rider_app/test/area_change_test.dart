@@ -263,6 +263,28 @@ void main() {
     },
   );
 
+  testWidgets('배달 지역을 연타해도 화면이 한 번만 열린다(2026-11-25 "연타하면 회색 팝업창이 우루루")', (
+    t,
+  ) async {
+    await pumpResting(t);
+    await t.scrollUntilVisible(
+      find.byKey(const ValueKey('menu-area')),
+      100,
+      scrollable: find.byType(Scrollable).last,
+    );
+    await t.pumpAndSettle();
+    for (var i = 0; i < 4; i++) {
+      await t.tap(find.byKey(const ValueKey('menu-area')), warnIfMissed: false);
+    }
+    await _settle(t);
+    await t.pumpAndSettle();
+    expect(find.byKey(const ValueKey('area-change-list')), findsOneWidget);
+    Navigator.of(t.element(find.byKey(const ValueKey('area-change-list'))))
+        .pop();
+    await t.pumpAndSettle();
+    expect(find.byKey(const ValueKey('area-change-list')), findsNothing);
+  });
+
   testWidgets('운행을 끈 뒤(라이더 행 버전이 오름) 바꿔도 409 없이 바뀐다 — 보내기 직전 버전을 다시 읽는다', (
     t,
   ) async {

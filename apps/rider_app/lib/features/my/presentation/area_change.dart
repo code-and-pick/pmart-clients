@@ -23,7 +23,23 @@ const mfcNotAvailableCode = 'MFC_NOT_AVAILABLE';
 /// - 운행을 쉴 때만: 운행 중(진행 배송 포함)이면 바꾸지 않고 안내한다. 서버도 409 INVALID_STATE 로 막는다(rider 0.23.0, 백엔드 #361 — 요청
 ///   `docs/handoff/rider-app/2026-11-23-backend-delivery-area-change.md`).
 /// - 결과를 모르면(연결 끊김·5xx) 내 정보를 다시 읽어 바뀌었는지 맞춘다. 서버가 돌려준 값만 바뀐 것으로 보인다.
+/// 이미 진행 중이면 또 시작하지 않는다(2026-11-25 사용자 "연타하면 회색 팝업창이 뒤늦게 우루루 여러개 떠" — 누를 때마다 흐름이 새로 돌아
+/// 늦게 끝난 것들의 안내가 차례로 떴다).
+/// 앱 상태(ProviderContainer)마다 따로 — 시험마다 새 앱이라 서로 섞이지 않는다.
+final _areaBusy = Expando<bool>();
+
 Future<void> changeDeliveryArea(BuildContext context, WidgetRef ref) async {
+  final owner = ProviderScope.containerOf(context, listen: false);
+  if (_areaBusy[owner] ?? false) return;
+  _areaBusy[owner] = true;
+  try {
+    await _changeDeliveryArea(context, ref);
+  } finally {
+    _areaBusy[owner] = false;
+  }
+}
+
+Future<void> _changeDeliveryArea(BuildContext context, WidgetRef ref) async {
   final l10n = AppLocalizations.of(context);
   void toast(String text) {
     if (context.mounted) showRiderToast(context, text);
@@ -147,11 +163,18 @@ Future<void> changeDeliveryArea(BuildContext context, WidgetRef ref) async {
 /// — 그때는 서버가 LOCATION_UNKNOWN 으로 알려 준다.
 Future<void> _sendHere(WidgetRef ref) async {
   try {
-    final point = await ref.read(locationSourceProvider)?.current();
+    // 위치 잡기·올리기가 늦어도 화면을 오래 붙잡지 않는다(각 3초) — 못 보냈으면 서버가 LOCATION_UNKNOWN 으로 알려 준다.
+    final point = await ref
+        .read(locationSourceProvider)
+        ?.current()
+        .timeout(const Duration(seconds: 3), onTimeout: () => null);
     if (point == null) return;
-    await ref.read(locationUploaderProvider).upload([
-      (lat: point.lat, lng: point.lng, recordedAt: DateTime.now().toUtc()),
-    ], key: IdempotencyKey.generate());
+    await ref
+        .read(locationUploaderProvider)
+        .upload([
+          (lat: point.lat, lng: point.lng, recordedAt: DateTime.now().toUtc()),
+        ], key: IdempotencyKey.generate())
+        .timeout(const Duration(seconds: 3));
   } on Object {
     // 보내지 못했다 — 바꾸기에서 서버가 판단한다.
   }

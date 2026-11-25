@@ -401,7 +401,20 @@ class _InquiryNewScreenState extends ConsumerState<InquiryNewScreen> {
 
   /// 수행료 이의: 정산내역의 배송 수행료 줄(최신 20개)에서 배송을 골라 이의 신청 화면으로.
   /// 목록을 못 읽으면 빈 목록이라 하지 않고 못 불러왔다고 알린다.
+  /// 배송 목록을 읽는 동안 또 눌러도 다시 시작하지 않는다(연타 — 2026-11-25)
+  bool _picking = false;
+
   Future<void> _toEarningAppeal() async {
+    if (_picking) return;
+    _picking = true;
+    try {
+      await _pickEarningAppeal();
+    } finally {
+      if (mounted) _picking = false;
+    }
+  }
+
+  Future<void> _pickEarningAppeal() async {
     final l10n = AppLocalizations.of(context);
     final List<Settlement> items;
     try {
