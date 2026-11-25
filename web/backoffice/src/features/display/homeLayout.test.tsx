@@ -3,8 +3,12 @@ import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 
+import { http, HttpResponse } from 'msw';
+
+import { API_BASE } from '../../api/client';
 import { decideLayout, layouts } from '../../mocks/storefrontHandlers';
 import { as, renderAt } from '../../test/render';
+import { server } from '../../test/server';
 
 describe('홈 진열 편성', () => {
   it('목록: 지금 홈 버전·게시본에 "지금 홈", 줄을 누르면 바로 편성 화면', async () => {
@@ -192,7 +196,7 @@ describe('홈 진열 편성', () => {
     await user.selectOptions(within(banner).getByLabelText('자리'), 'PRODUCT_DETAIL');
     expect(within(banner).getByLabelText('자리')).toHaveDisplayValue('상품 상세 화면');
     expect(within(banner).getByText(/모든 상품 상세 화면, 홈에는 안 나와요/)).toBeInTheDocument();
-    expect(await within(banner).findByText(/2\.8:1/)).toBeInTheDocument();
+    expect(await within(banner).findByText(/4\.5:1/)).toBeInTheDocument(); // 0.20.0 고객 앱 칸에 맞춘 서버 규격
     expect(within(banner).queryByLabelText('배너 묶음')).not.toBeInTheDocument();
     const preview = screen.getByTestId('layout-preview');
     expect(within(within(preview).getByTestId('layout-preview-product-detail')).getByRole('img', { name: '겨울 제철 채소 모음' })).toBeInTheDocument();
@@ -204,6 +208,52 @@ describe('홈 진열 편성', () => {
     expect(sent.banners[0]).toMatchObject({ placement: 'PRODUCT_DETAIL' });
     expect(sent.banners[0]!.groupId ?? null).toBeNull();
     expect(sent.homeOrder).toEqual([]);
+  });
+
+  it('0.20.0 상품페이지 관리 카드 — 구획 만들기 → 빈 칸은 보내기 전에 막고, 그림·제목·설명을 넣으면 careCards(순서 포함)로 보내고 미리보기에 보인다, 구획 빼기 = null', async () => {
+    const user = userEvent.setup();
+    // jsdom 에서는 목이 multipart 본문을 읽지 못해(Premature close) 올리기 응답만 직접 — 이미 올라가 있는 목 그림 번호
+    server.use(http.post(`${API_BASE}/storefront/banner-images`, () => HttpResponse.json({ imageId: 'bimg-seed-winter', url: '/api/v1/storefront/banner-images/bimg-seed-winter', contentType: 'image/png', width: null, height: null }, { status: 201 })));
+    const view = renderAt('/display/home', as.md);
+    await user.click(await screen.findByTestId('layout-new-current'));
+    await screen.findByTestId('layout-state');
+    const sec = screen.getByTestId('layout-care-cards');
+    expect(within(sec).getByText('구획이 없어요')).toBeInTheDocument();
+    await user.click(within(sec).getByTestId('layout-care-on'));
+    // 빈 제목·빈 카드면 승인 요청 전에 그 칸에 까닭(서버에 보내지 않음)
+    await user.click(screen.getByTestId('layout-submit'));
+    expect(await within(sec).findAllByText('제목을 넣어 주세요')).toHaveLength(2); // 구획 제목·카드 제목
+    expect(within(sec).getByText('설명을 넣어 주세요')).toBeInTheDocument();
+    expect(within(sec).getByText('그림을 올려 주세요')).toBeInTheDocument();
+    expect(view.sent.some((q) => q.method === 'PUT')).toBe(false);
+    // 채우기 — 규격은 서버 값(CARE_CARD 16:9)
+    expect(await within(sec).findByTestId('care-image-size')).toHaveTextContent('16:9');
+    await user.upload(within(sec).getByLabelText('카드 1 그림'), new File([new Uint8Array([137, 80, 78, 71])], 'care.png', { type: 'image/png' }));
+    await waitFor(() => expect(within(sec).queryByText('그림을 올려 주세요')).not.toBeInTheDocument(), { timeout: 4000 });
+    await user.type(within(sec).getByLabelText('구획 제목'), '우리동네 PMart, 이렇게 관리해요');
+    await user.type(within(sec).getByLabelText(/^카드 제목/), '매일 아침 신선 검수');
+    await user.type(within(sec).getByLabelText(/^설명 두 줄/), '들어온 채소를{enter}하나씩 확인해요');
+    await user.click(within(sec).getByTestId('layout-add-care-card'));
+    expect(within(sec).getAllByTestId('layout-care-card')).toHaveLength(2);
+    await user.click(within(within(sec).getAllByTestId('layout-care-card')[1]!).getByRole('button', { name: '빼기' }));
+    expect(within(sec).getAllByTestId('layout-care-card')).toHaveLength(1);
+    // 미리보기 — 고객 앱 상품 상세 칸
+    const pv = within(screen.getByTestId('layout-preview-care'));
+    expect(pv.getByText('우리동네 PMart, 이렇게 관리해요')).toBeInTheDocument();
+    expect(pv.getByText('매일 아침 신선 검수')).toBeInTheDocument();
+    await user.click(screen.getByTestId('layout-save'));
+    await waitFor(() => expect(view.sent.some((q) => q.method === 'PUT')).toBe(true));
+    const sent = (await view.sent.filter((q) => q.method === 'PUT').at(-1)!.clone().json()) as { careCards: { title: string; items: { cardId: string; imageId: string; title: string; body: string; sortOrder: number }[] } | null };
+    expect(sent.careCards).toMatchObject({ title: '우리동네 PMart, 이렇게 관리해요', items: [{ title: '매일 아침 신선 검수', body: '들어온 채소를' + String.fromCharCode(10) + '하나씩 확인해요', sortOrder: 0 }] });
+    expect(sent.careCards!.items[0]!.cardId).toMatch(/^C-/);
+    expect(sent.careCards!.items[0]!.imageId).toBeTruthy();
+    // 구획 빼기 → null
+    await user.click(within(sec).getByTestId('layout-care-off'));
+    expect(screen.queryByTestId('layout-preview-care')).not.toBeInTheDocument();
+    await user.click(screen.getByTestId('layout-save'));
+    await waitFor(() => expect(view.sent.filter((q) => q.method === 'PUT')).toHaveLength(2));
+    const off = (await view.sent.filter((q) => q.method === 'PUT').at(-1)!.clone().json()) as { careCards: unknown };
+    expect(off.careCards).toBeNull();
   });
 
   it('0.12.0 남은 시간 모양(BR-84) — 켜면 라벨형 기본·미리보기 제목 위 글자, 띠형 고르면 띠·보낸 값 BAND, 끄면 null', async () => {

@@ -36,6 +36,10 @@ type Banner = components['schemas']['LayoutBanner'];
 type LayoutWarning = components['schemas']['LayoutDraftWarning'];
 type Theme = components['schemas']['LayoutTheme'];
 type Tab = components['schemas']['LayoutTab'];
+type CareCards = NonNullable<components['schemas']['LayoutCareCards']>;
+type CareCard = components['schemas']['LayoutCareCard'];
+/** 0.20.0 관리 카드 한 구획 최대 장수(INVALID_CARD_COUNT 1~10) */
+const MAX_CARE_CARDS = 10;
 type State = Draft['state'];
 
 const STATES = ['DRAFT', 'SUBMITTED', 'PUBLISHED', 'REJECTED'] as const;
@@ -155,6 +159,7 @@ const bodyOf = (d: Draft): Body => ({
   homeOrder: d.homeOrder ?? [],
   bannerIntervalSeconds: d.bannerIntervalSeconds ?? null,
   note: d.note ?? null,
+  careCards: d.careCards ?? null,
 });
 
 /** 홈 중간 배너 묶음(HOME_INLINE) groupId — 배너 순서에서 처음 나온 순서. 화면에는 "배너 묶음 1·2…"로만 보인다 */
@@ -182,6 +187,7 @@ const withOrder = (b: Body): Body => ({
   themes: (b.themes ?? []).map((x, i) => ({ ...x, sortOrder: i })),
   tabs: (b.tabs ?? []).map((x, i) => ({ ...x, sortOrder: i })),
   homeOrder: homeOrderOf(b),
+  careCards: b.careCards ? { ...b.careCards, items: b.careCards.items.map((x, i) => ({ ...x, sortOrder: i })) } : null,
 });
 
 /** datetime-local(서울 시각) ↔ ISO */
@@ -207,6 +213,7 @@ const BANNER_FIELDS = ['imageId', 'altText', 'linkRef', 'startsAt', 'endsAt', 'p
 const NEW_GROUP = '__new';
 const THEME_FIELDS = ['title', 'subtitle', 'startsAt', 'endsAt', 'productIds', 'autoSize', 'showTimer', 'timerStyle', 'kind'];
 const TAB_FIELDS = ['title', 'sectionIds', 'startsAt', 'endsAt', 'showTimer'];
+const CARE_FIELDS = ['imageId', 'title', 'body', 'cardId'];
 
 interface Problems {
   readonly at: (prefix: string) => readonly Why[];
@@ -237,9 +244,20 @@ function localDetails(body: Body, forSubmit: boolean): readonly Detail[] {
     if (!t.title.trim()) out.push({ field: `tabs[${i}].title`, reason: 'TAB_TITLE_REQUIRED' });
     if (t.sectionIds.length === 0) out.push({ field: `tabs[${i}].sectionIds`, reason: 'TAB_EMPTY' });
   });
+  // 0.20.0 관리 카드 — 계약 minLength·minItems(서버면 400). 승인 요청이면 그림 없는 카드도
+  const cc = body.careCards;
+  if (cc) {
+    if (!cc.title.trim()) out.push({ field: 'careCards.title', reason: 'TITLE_REQUIRED' });
+    if (cc.items.length === 0) out.push({ field: 'careCards.items', reason: 'INVALID_CARD_COUNT' });
+    cc.items.forEach((c, i) => {
+      if (forSubmit && !c.imageId) out.push({ field: `careCards.items[${i}].imageId`, reason: 'IMAGE_MISSING' });
+      if (!c.title.trim()) out.push({ field: `careCards.items[${i}].title`, reason: 'TITLE_REQUIRED' });
+      if (!c.body.trim()) out.push({ field: `careCards.items[${i}].body`, reason: 'BODY_REQUIRED' });
+    });
+  }
   return out;
 }
-const PLACED = /^(banners|themes|tabs)\[\d+\]|^homeOrder|^bannerIntervalSeconds$/;
+const PLACED = /^(banners|themes|tabs)\[\d+\]|^homeOrder|^bannerIntervalSeconds$|^careCards\.(title|items)/;
 function problemsOf(details: readonly Detail[]): Problems {
   const text = (r: string | undefined) => (r && m.reason[r]) || m.reason['VALUE_INVALID'] || '';
   return {
@@ -690,6 +708,74 @@ function ThemeCard({
 }
 
 /** MD 탭(0.9.0) — 이름·넣을 테마(다른 탭에 들어간 테마는 고를 수 없음)·기간·남은 시간 표시 */
+/**
+ * 상품페이지 관리 카드 한 장(storefront 0.20.0 BR-102) — 그림(배너 그림 올리기 그대로, 규격 CARE_CARD 16:9 경고만)·제목 1~30·설명 1~80(줄바꿈 그대로)·순서.
+ */
+function CareCardItem({ c, i, n, locked, why, serverWarning = null, onChange, onMove, onRemove }: {
+  readonly c: CareCard;
+  readonly i: number;
+  readonly n: number;
+  readonly locked: boolean;
+  readonly why: readonly Why[];
+  readonly serverWarning?: LayoutWarning | null;
+  readonly onChange: (c: CareCard) => void;
+  readonly onMove: (to: number) => void;
+  readonly onRemove: () => void;
+}) {
+  const api = useApi();
+  const specs = useBannerSpecs();
+  const spec = specs.data?.by['CARE_CARD'];
+  const upload = useCommand((file: File, key) =>
+    request('POST', api.storefront.POST('/storefront/banner-images', { ...commandParams(key), body: { file: '' }, ...multipart({ file }) })),
+  );
+  const [size, setSize] = useState<{ id: string; w: number; h: number } | null>(null);
+  const fit = serverWarning ? (serverWarning.detail ?? m.warningCode[serverWarning.code] ?? serverWarning.code) : size && size.id === c.imageId ? fitWarning(size.w, size.h, spec) : null;
+  const pick = async (file: File | undefined) => {
+    if (!file) return;
+    const r = await upload.run(file);
+    if (r.kind === 'done') onChange({ ...c, imageId: r.result.imageId });
+  };
+  return (
+    <li className={`space-y-3 rounded-box border p-3 ${why.length ? 'border-error/50' : 'border-base-300'}`} data-testid="layout-care-card">
+      <div className="flex items-start gap-3">
+        <BannerImage imageId={c.imageId} alt={c.title} className="aspect-video w-40 shrink-0 rounded-md" onSize={(w, h) => setSize({ id: c.imageId, w, h })} />
+        <div className="flex min-w-0 flex-1 flex-col gap-2">
+          <div className="flex items-center justify-between gap-2">
+            <label className={`btn btn-sm ${locked || upload.busy ? 'btn-disabled' : ''}`}>
+              {upload.busy ? m.uploading : c.imageId ? m.change : m.upload}
+              <input type="file" className="hidden" accept="image/jpeg,image/png,image/webp" aria-label={m.careImage(i + 1)} disabled={locked || upload.busy} onChange={(e) => void pick(e.target.files?.[0])} />
+            </label>
+            <Mover i={i} n={n} onMove={onMove} onRemove={onRemove} disabled={locked} />
+          </div>
+          {spec && (
+            <span className="text-xs text-base-content/50" data-testid="care-image-size">
+              {specText(spec, true)}
+            </span>
+          )}
+          {fit && (
+            <span className="text-xs text-warning" data-testid="care-image-fit">
+              {fit}
+            </span>
+          )}
+          <WhyText items={whyOf(why, 'imageId')} />
+          {upload.phase.kind === 'rejected' &&
+            (upload.phase.failure instanceof ProblemFailure && upload.phase.failure.problem.code === 'IMAGE_INVALID' ? <p className="text-xs text-error">{m.imageInvalid}</p> : <FailureAlert failure={upload.phase.failure} />)}
+        </div>
+      </div>
+      <Field label={m.careCardTitle}>
+        <input className="input input-sm w-full" maxLength={30} disabled={locked} value={c.title} onChange={(e) => onChange({ ...c, title: e.target.value })} />
+        <WhyText items={whyOf(why, 'title')} />
+      </Field>
+      <Field label={m.careCardBody}>
+        <textarea className="textarea textarea-sm w-full" rows={2} maxLength={80} disabled={locked} value={c.body} onChange={(e) => onChange({ ...c, body: e.target.value })} />
+        <span className="text-right text-xs tabular-nums text-base-content/45">{c.body.length}/80</span>
+        <WhyText items={whyOf(why, 'body')} />
+      </Field>
+      <WhyText items={whyRest(why, CARE_FIELDS)} />
+    </li>
+  );
+}
+
 function TabCard({
   tab,
   i,
@@ -902,6 +988,22 @@ function Preview({ body, sticky = true }: { readonly body: Body; readonly sticky
           {carousel(productDetail, 'product-detail')}
         </div>
       )}
+      {/* 0.20.0 상품페이지 관리 카드 — 고객 앱 상품 상세 칸(268.6×152dp 그림 + 제목 + 설명 두 줄), 옆으로 넘김 */}
+      {body.careCards && body.careCards.items.length > 0 && (
+        <div className="mx-auto w-[300px] space-y-1.5" data-testid="layout-preview-care">
+          <p className="text-xs text-base-content/55">{m.carePreview}</p>
+          <p className="text-sm font-bold">{body.careCards.title || m.untitledCare}</p>
+          <div className="flex gap-2 overflow-x-auto pb-1">
+            {body.careCards.items.map((c) => (
+              <div key={c.cardId} className="w-[220px] shrink-0 space-y-1">
+                <BannerImage imageId={c.imageId} alt={c.title} w={PREVIEW_W} className="aspect-[1.767] w-full rounded-lg" />
+                <p className="truncate text-[13px] font-bold">{c.title || m.untitledCare}</p>
+                <p className="line-clamp-2 whitespace-pre-line text-[11px] leading-snug text-base-content/60">{c.body}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       {(popups.length > 0 || splashes.length > 0) && (
         <div className="flex flex-wrap justify-center gap-4">
           {fullScreen(m.placementName['POPUP'] ?? '', popups, 'layout-preview-popup')}
@@ -1045,6 +1147,18 @@ function Editor({ draft }: { readonly draft: Draft }) {
       ...x,
       banners: [...(x.banners ?? []), { bannerId: `B-${shortId()}`, placement: 'HOME_TOP', imageId: '', altText: '', linkType: themes[0] ? 'SECTION' : 'NONE', linkRef: themes[0]?.sectionId ?? null, sortOrder: 0, startsAt: null, endsAt: null }],
     }));
+  // 0.20.0 상품페이지 관리 카드 — 구획을 켜면 빈 제목·카드 한 장, 끄면 null(구획 없음)
+  const careCards = body.careCards ?? null;
+  const setCare = (f: (cc: CareCards) => CareCards | null) => setBody((x) => ({ ...x, careCards: x.careCards ? f(x.careCards) : null }));
+  const newCard = (): CareCard => ({ cardId: `C-${shortId()}`, imageId: '', title: '', body: '', sortOrder: 0 });
+  const careWarnOf = (c: CareCard): LayoutWarning | null => {
+    const saved = base.body.careCards?.items ?? [];
+    const j = saved.findIndex((x) => x.cardId === c.cardId);
+    if (j < 0 || saved[j]?.imageId !== c.imageId) return null;
+    return warnings.find((w) => w.field === `careCards.items[${j}].imageId`) ?? null;
+  };
+  // 구획 제목·카드 장수 까닭만(카드 안 칸 까닭은 그 카드에) — 정확히 그 경로인 것
+  const careWhy = [...problems.at('careCards.title'), ...problems.at('careCards.items').filter((w) => w.field === '')].map((w) => w.text);
   const addTheme = () => setBody((x) => ({ ...x, themes: [...(x.themes ?? []), { sectionId: `T-${shortId()}`, kind: 'THEME', title: '', subtitle: null, productIds: [], sortOrder: 0, startsAt: null, endsAt: null, showTimer: false }] }));
   const removeTheme = (i: number) =>
     setBody((x) => {
@@ -1218,6 +1332,58 @@ function Editor({ draft }: { readonly draft: Draft }) {
                   />
                 ))}
               </ul>
+            )}
+          </section>
+
+          <section className={`space-y-3 rounded-box border bg-base-100 p-4 shadow-sm ${careWhy.length ? 'border-error/50' : 'border-base-300'}`} aria-label={m.careCards} data-testid="layout-care-cards">
+            <div className="flex items-center justify-between">
+              <h2 className="font-bold">
+                {m.careCards} <span className="text-sm font-normal text-base-content/50">{careCards ? careCards.items.length : 0}</span>
+              </h2>
+              {!locked &&
+                (careCards ? (
+                  <span className="flex items-center gap-2">
+                    {careCards.items.length < MAX_CARE_CARDS && (
+                      <button type="button" className="btn btn-sm btn-outline btn-primary" data-testid="layout-add-care-card" onClick={() => setCare((cc) => ({ ...cc, items: [...cc.items, newCard()] }))}>
+                        {m.addCareCard}
+                      </button>
+                    )}
+                    <button type="button" className="btn btn-ghost btn-sm text-error" data-testid="layout-care-off" onClick={() => setBody((x) => ({ ...x, careCards: null }))}>
+                      {m.careOff}
+                    </button>
+                  </span>
+                ) : (
+                  <button type="button" className="btn btn-sm btn-outline btn-primary" data-testid="layout-care-on" onClick={() => setBody((x) => ({ ...x, careCards: { title: '', items: [newCard()] } }))}>
+                    {m.careOn}
+                  </button>
+                ))}
+            </div>
+            <p className="text-xs text-base-content/55">{m.careHint}</p>
+            {!careCards ? (
+              <p className="text-sm text-base-content/55">{m.careEmpty}</p>
+            ) : (
+              <>
+                <Field label={m.careSectionTitle}>
+                  <input className="input input-sm w-full" maxLength={30} disabled={locked} placeholder={m.careTitleHint} value={careCards.title} onChange={(e) => setCare((cc) => ({ ...cc, title: e.target.value }))} />
+                </Field>
+                <WhyText items={careWhy} />
+                <ul className="space-y-3">
+                  {careCards.items.map((c, i) => (
+                    <CareCardItem
+                      key={c.cardId}
+                      c={c}
+                      i={i}
+                      n={careCards.items.length}
+                      locked={locked}
+                      why={problems.at(`careCards.items[${i}]`)}
+                      serverWarning={careWarnOf(c)}
+                      onChange={(x) => setCare((cc) => ({ ...cc, items: cc.items.map((y, j) => (j === i ? x : y)) }))}
+                      onMove={(to) => setCare((cc) => ({ ...cc, items: move(cc.items, i, to) }))}
+                      onRemove={() => setCare((cc) => ({ ...cc, items: cc.items.filter((_, j) => j !== i) }))}
+                    />
+                  ))}
+                </ul>
+              </>
             )}
           </section>
 
