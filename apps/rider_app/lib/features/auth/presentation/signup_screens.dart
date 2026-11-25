@@ -1366,9 +1366,10 @@ class SignupDoneScreen extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const SizedBox(height: 76),
+              // 2026-11-25 사용자 "라이더 지원하기 완료하면 나오는 UI 너무 별로니까 1번째 사진처럼" — 굵은 제목, 위·사이 간격을 사진대로
+              const SizedBox(height: 60),
               Text(l10n.signupDoneTitle, style: _headline),
-              const SizedBox(height: 24),
+              const SizedBox(height: 16),
               Text(
                 l10n.signupDoneBody,
                 style: const TextStyle(
@@ -1378,18 +1379,16 @@ class SignupDoneScreen extends ConsumerWidget {
                 ),
               ),
               const Spacer(),
-              const Center(
-                child: CircleAvatar(
-                  radius: 56,
-                  backgroundColor: RiderColors.primarySoft,
-                  child: Icon(
-                    Icons.celebration_outlined,
-                    size: 56,
-                    color: RiderColors.primary,
-                  ),
+              // 사용자가 준 사진의 색 폭죽 그림(연보라 원 포함)을 그대로 잘라 넣었다 — 아이콘으로 대신하지 않는다.
+              Center(
+                child: Image.asset(
+                  'assets/images/signup_done.png',
+                  key: const ValueKey('signup-done-art'),
+                  width: 100,
+                  height: 100,
                 ),
               ),
-              const SizedBox(height: 40),
+              const SizedBox(height: 28),
               RiderButton(
                 key: const ValueKey('signup-finish'),
                 label: l10n.signupToHome,

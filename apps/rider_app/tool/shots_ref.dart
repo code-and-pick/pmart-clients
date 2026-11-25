@@ -291,6 +291,16 @@ void main() {
       '01012345678',
     );
     await shot('phone-verify-screen');
+    // 가입 완료(2026-11-25 사용자 사진대로)
+    router().go('/signup/done');
+    await settle();
+    await t.runAsync(
+      () => precacheImage(
+        const AssetImage('assets/images/signup_done.png'),
+        t.element(find.byType(Scaffold).last),
+      ),
+    );
+    await shot('signup-done');
 
     router().go('/my/inquiries/new');
     await shot('support-new');
