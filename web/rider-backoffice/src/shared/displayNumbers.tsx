@@ -42,6 +42,14 @@ function NoNumber({ id }: { readonly id: string }) {
 
 /** 라이더 여럿의 가린 이름·번호를 한 번에(50개씩). 못 읽으면 빈 표 — 화면은 "번호 없음"으로 보인다(이름을 지어내지 않는다). */
 export function useRiderSummaries(riderIds: ReadonlyArray<string | null | undefined>) {
+  return useRiderSummariesState(riderIds).byId;
+}
+
+/**
+ * [useRiderSummaries] + 다 읽었는지(loaded). 직원 목록 GET /riders(riderIds)는 탈퇴한 라이더를 돌려주지 않는다(rider 0.20.0 —
+ * includeWithdrawn 은 상세에만) — 다 읽었는데 없는 ID 는 탈퇴한 라이더다. 못 읽었으면 loaded=false(아무도 빼지 않는다).
+ */
+export function useRiderSummariesState(riderIds: ReadonlyArray<string | null | undefined>): { readonly byId: ReadonlyMap<string, RiderSummary>; readonly loaded: boolean } {
   const api = useApi();
   const ids = [...new Set(riderIds.filter((x): x is string => !!x))].sort();
   const chunks: string[][] = [];
@@ -59,7 +67,7 @@ export function useRiderSummaries(riderIds: ReadonlyArray<string | null | undefi
   });
   const byId = new Map<string, RiderSummary>();
   for (const r of query.data ?? []) if (r.riderId) byId.set(r.riderId, r);
-  return byId;
+  return { byId, loaded: query.isSuccess };
 }
 
 /**

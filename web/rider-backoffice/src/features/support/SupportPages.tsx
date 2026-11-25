@@ -461,20 +461,41 @@ function InquiryDetailPage() {
 }
 
 
-/** 받은 뒤 지난 시간 — 10분 넘으면 주의, 30분 넘으면 경고 */
+/** 새로 들어온 상담으로 보는 시간(분) — 이 안이면 "새 요청"(파랑). */
+const FRESH_MIN = 10;
+
+/**
+ * 받은 뒤 지난 시간 — 10분 안은 "새 요청"(파랑), 10분 넘으면 주의, 30분 넘으면 경고.
+ * 2026-11-25 사용자 "최근 상담 들어온 게 제일 중요한 건데 상담 완료한 것들이랑 구분이 안 되게" — 전에는 10분 안이 회색이라
+ * 끝난 건처럼 보였다.
+ */
 function WaitBadge({ from, now, muted = false }: { readonly from: string | null | undefined; readonly now: number | null; /** 우리가 기다리게 하는 건이 아니면(답변함 등) 색 없이 회색 — 2026-11-21 사용자 */ readonly muted?: boolean }) {
   const w = waited(from, now);
   if (!w) return <span className="text-base-content/40">—</span>;
-  return <StatusBadge tone={muted ? 'ghost' : w.tone}>{w.text}</StatusBadge>;
+  if (muted) return <StatusBadge tone="ghost">{w.text}</StatusBadge>;
+  if (isFresh(from, now)) {
+    return (
+      <StatusBadge tone="info" testId="consult-fresh">
+        <b>{consultText.fresh}</b> · {w.text}
+      </StatusBadge>
+    );
+  }
+  return <StatusBadge tone={w.tone}>{w.text}</StatusBadge>;
+}
+
+function isFresh(from: string | null | undefined, now: number | null): boolean {
+  if (!from || now === null) return false;
+  return now - new Date(from).getTime() < FRESH_MIN * 60_000;
 }
 
 // ---------------- 상담함(도움요청 + 라이더 문의 한 목록 — 사용자 2026-11-19 "라이더문의랑 도움요청이 둘 다 있는 이유가 뭐냐")
 
 const consultText = {
   title: '상담 관리',
-  intro: '라이더가 보낸 배송 도움요청(급함)과 일반 문의를 한곳에서 봐요. 배송 도움요청이 먼저, 그 안에서는 오래 기다린 것부터. 누르면 대화를 열고, 끝나면 "상담 완료".',
+  intro: '라이더가 보낸 배송 도움요청(급함)과 일반 문의를 한곳에서 봐요. 배송 도움요청이 먼저, 그 안에서는 최근 것부터. 누르면 대화를 열고, 끝나면 "상담 완료".',
   // 안내 상자 글머리(2026-11-19) — 위 intro 를 문장으로 나눈 것(새 규칙 아님)
-  guide: ['라이더가 보낸 배송 도움요청(급함)과 일반 문의를 한곳에서 봐요.', '배송 도움요청이 먼저, 그 안에서는 오래 기다린 것부터.', '누르면 대화를 열고, 끝나면 "상담 완료".'],
+  guide: ['라이더가 보낸 배송 도움요청(급함)과 일반 문의를 한곳에서 봐요.', '배송 도움요청이 먼저, 그 안에서는 최근 것부터.', '누르면 대화를 열고, 끝나면 "상담 완료".'],
+  fresh: '새 요청',
   tabs: { open: '상담 중', cases: '배송 사건', appeals: '소명·이의', done: '완료' },
   searchLabel: '찾기',
   searchHint: '배송번호·주문번호·라이더 이름·번호·내용',
@@ -697,7 +718,8 @@ function ConsultsPage({ tab }: { readonly tab: 'open' | 'done' }) {
         waiting: it.status === 'RECEIVED',
       }),
     ),
-  ].sort((a, b) => (a.kind === b.kind ? (a.createdAt ?? '').localeCompare(b.createdAt ?? '') * (tab === 'open' ? 1 : -1) : kindOrder[a.kind] - kindOrder[b.kind]));
+  // 같은 구분 안에서는 최근 것이 위(2026-11-25 사용자 "오래된 건 자동 만료처리할 건데 최근 상담 들어온 게 제일 중요") — 전에는 진행 중 탭이 오래된 것부터였다.
+  ].sort((a, b) => (a.kind === b.kind ? (b.createdAt ?? '').localeCompare(a.createdAt ?? '') : kindOrder[a.kind] - kindOrder[b.kind]));
   // 찾기·구분 거르기 — 불러온 목록 안에서(서버 목록에 번호 검색이 없어 화면에서 거른다)
   const needle = norm(query);
   const rows = allRows.filter((r) => {

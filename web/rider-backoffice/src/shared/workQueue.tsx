@@ -80,9 +80,7 @@ export function QueueNav() {
   const btn = 'btn btn-ghost btn-xs';
   return (
     <nav aria-label={m.label} className="flex flex-wrap items-center justify-end gap-1 text-xs text-base-content/60" data-testid="queue-nav">
-      <Link to={q.from} className="mr-auto hover:text-base-content">
-        {m.backToList}
-      </Link>
+      {/* "‹ 보던 목록으로"는 뺐다 — 제목 앞 ‹ 단추가 같은 일을 한다(2026-11-25 사용자) */}
       {prev ? (
         <Link to={prev} className={btn} title={`${m.prev} ([)`} data-testid="queue-prev">
           ‹ {m.prev}

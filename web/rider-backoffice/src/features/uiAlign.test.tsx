@@ -52,7 +52,10 @@ describe('목록 → 상세', () => {
     expect(within(nav).getByTestId('queue-pos')).toHaveTextContent('2 / 4');
     await userEvent.keyboard(']');
     await waitFor(() => expect(screen.getByTestId('queue-pos')).toHaveTextContent('3 / 4'));
-    await userEvent.click(within(screen.getByTestId('queue-nav')).getByRole('link', { name: '‹ 보던 목록으로' }));
+    // "‹ 보던 목록으로"는 없앴다(2026-11-25) — 제목 앞 ‹ 단추로 돌아간다
+    expect(within(screen.getByTestId('queue-nav')).queryByText(/보던 목록으로/)).toBeNull();
+    // 시험 라우터는 history 순번이 없어 ‹ 가 바로 그 목록으로 간다(브라우저에서는 앱 안 이동이면 뒤로)
+    await userEvent.click(screen.getAllByTestId('detail-back')[0]!);
     await screen.findAllByTestId('delivery-row');
     // 상세 두 건을 열어 봤다 — 그 두 줄에 "최근 봄"(이 브라우저에만 기억)
     expect(await screen.findAllByTestId('seen-mark')).toHaveLength(2);
@@ -238,8 +241,8 @@ describe('2차 — 겉모습·안내·다 끝났어요', () => {
   });
 });
 
-describe('2차 — 관제 두 줄 카드', () => {
-  it('위: 먼저 확인(위치 끊김·신규배차 꺼짐), 아래: 진행 단계(서버 stage 별 배송 수)', async () => {
+describe('관제 — 시뮬레이터 모양(2026-11-25)', () => {
+  it('맨 위 한 줄 확인할 일(위치 끊김·신규배차 꺼짐), 아래 숫자 칸(운행 중·배송 중·대기·위치 끊김)', async () => {
     server.use(
       http.get(`${API_BASE}/rider-locations`, () =>
         HttpResponse.json({
@@ -255,16 +258,19 @@ describe('2차 — 관제 두 줄 카드', () => {
     const boards = await screen.findByTestId('control-boards');
     expect(within(boards).getByTestId('control-stat-stale')).toHaveTextContent(/1명$/);
     expect(within(boards).getByTestId('control-stat-dispatch-off')).toHaveTextContent(/1명$/);
-    expect(within(boards).getByTestId('control-flow-TO_CUSTOMER')).toHaveTextContent(/1건$/);
-    expect(within(boards).getByTestId('control-flow-AT_STORE')).toHaveTextContent(/1건$/);
+    expect(within(boards).getByTestId('control-issue-stale')).toHaveTextContent('위치 끊김·없음 1명');
+    expect(within(boards).getByTestId('control-stat-all')).toHaveTextContent(/2명$/);
+    expect(within(boards).getByTestId('control-flow-waiting')).toHaveTextContent(/0명$/);
+    // 단계별 수 칸은 없다(배송 관리 진행 단계에 있음)
+    expect(within(boards).queryByTestId('control-flow-TO_CUSTOMER')).toBeNull();
     expect(within(boards).getByTestId('control-flow-delivering')).toHaveTextContent(/1명$/);
     await userEvent.click(within(boards).getByTestId('control-stat-stale'));
     await waitFor(() => expect(screen.getAllByTestId('control-row').map((r) => r.id)).toEqual(['control-RD-8']));
   });
 
-  it('먼저 확인할 것이 모두 0 이면 "먼저 볼 라이더가 없어요"', async () => {
+  it('확인할 일이 모두 0 이면 한 줄 "이상 없음"', async () => {
     server.use(http.get(`${API_BASE}/rider-locations`, () => HttpResponse.json({ asOf: at, items: [{ riderId: 'RD-7', location: gps, stale: false, newDispatchEnabled: true, activeDeliveries: [] }] })));
     renderAt('/control?mfcId=MFC-BSJ-01', as.riderOps);
-    expect(await screen.findByTestId('control-all-clear')).toHaveTextContent('지금 먼저 볼 라이더가 없어요');
+    expect(await screen.findByTestId('control-all-clear')).toHaveTextContent('이상 없음 — 지금 확인할 일이 없어요');
   });
 });

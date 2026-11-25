@@ -260,3 +260,31 @@ describe('상담 대화 순서(2026-11-24)', () => {
     expect(text.indexOf(within(box).getByTestId('help-first-message').textContent ?? '#')).toBeLessThan(text.indexOf('메롱'));
   });
 });
+
+describe('상담함 — 새로 들어온 상담이 눈에 띄고 최근 것이 위(사용자 2026-11-25)', () => {
+  it('10분 안에 들어온 도움요청은 "새 요청"(파랑), 같은 구분 안에서 최근 것이 맨 위', async () => {
+    const now = Date.now();
+    const iso = (minAgo: number) => new Date(now - minAgo * 60_000).toISOString();
+    server.use(
+      http.get(`${API_BASE}/delivery-help-requests`, () =>
+        HttpResponse.json({
+          items: [
+            { requestId: 'HR-OLD', deliveryId: 'DLV-OLD', riderId: 'RD-7', category: 'APP_ERROR', state: 'OPEN', createdAt: iso(60 * 45) },
+            { requestId: 'HR-NEW', deliveryId: 'DLV-NEW', riderId: 'RD-7', category: 'APP_ERROR', state: 'OPEN', createdAt: iso(1) },
+          ],
+          page: { nextCursor: null },
+        }),
+      ),
+    );
+    renderAt('/consults', as.riderOps);
+    const rows = await screen.findAllByTestId('consult-row');
+    const help = rows.filter((r) => r.getAttribute('data-kind') === 'help');
+    expect(help[0]!.querySelector('a')?.getAttribute('href')).toContain('HR-NEW');
+    const fresh = within(help[0]!).getByTestId('consult-fresh');
+    expect(fresh).toHaveTextContent('새 요청');
+    expect(fresh).toHaveAttribute('data-tone', 'info');
+    // 오래된 건은 새 요청 표시가 없다(기다린 시간 경고 색)
+    expect(within(help.at(-1)!).queryByTestId('consult-fresh')).toBeNull();
+    expect(help.at(-1)!.querySelector('td:last-child .pm-status')?.getAttribute('data-tone')).toBe('error');
+  });
+});

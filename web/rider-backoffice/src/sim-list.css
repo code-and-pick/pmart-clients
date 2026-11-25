@@ -570,7 +570,9 @@ main table tbody tr.pm-inline-row:hover > td {
   flex-wrap: nowrap;
 }
 .pm-fbar-filters [role='radiogroup'] > [role='radio'] {
-  height: calc(var(--pm-h) - 2px);
+  /* 상자 안쪽 높이를 그대로 채운다(칸 높이를 따로 계산하면 배율에 따라 아래 1px 가 잘렸다 — 2026-11-25) */
+  height: auto;
+  align-self: stretch;
   display: inline-flex;
   align-items: center;
   white-space: nowrap;

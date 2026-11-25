@@ -975,7 +975,7 @@ type Range = 'today' | 'week';
 /**
  * 라이더별 배송 — 시간대 칸(2026-11-24 사용자 "라이더별 배송 그래프에 점 말고 다른 UI 없니?" → "시간대 칸").
  * 칸 = 한 시간(오늘) · 하루(7일). 숫자 = 그 칸에 배차 요청된 그 라이더 배송 수(위 "시간대별 배송 건수"와 같은 기준),
- * 진할수록 많고, 실패가 섞인 칸은 빨간 테두리, 지금 칸은 아래 파란 줄. 칸을 누르면 표 아래에 그 배송 목록(다시 누르면 닫힘).
+ * 진할수록 많고, 실패가 섞인 칸은 빨간 테두리, 지금 칸은 아래 파란 줄(머리에 "지금", 범례에 "지금 시간"). 칸을 누르면 표 아래에 그 배송 목록(다시 누르면 닫힘).
  */
 function RiderTable({ rows, now, name }: { readonly rows: readonly Summary[]; readonly now: number; readonly name: NameFn }) {
   const [range, setRange] = useState<Range>('today');
@@ -1023,6 +1023,13 @@ function RiderTable({ rows, now, name }: { readonly rows: readonly Summary[]; re
             많음
             <i style={{ border: '2px solid var(--an-failed)' }} />
             실패 있음
+            {/* 2026-11-25 사용자 "칸 아래쪽에 파란 줄이 있는데 이거 뭐야? 에러야?" — 지금 시간대 표시라고 범례에 적는다 */}
+            {nowBin !== null && (
+              <>
+                <i style={{ boxShadow: 'inset 0 -3px 0 var(--an-active)', background: 'var(--pm-soft)' }} />
+                {range === 'today' ? '지금 시간' : '오늘'}
+              </>
+            )}
           </span>
           <Seg
             label="보는 기간"
@@ -1054,7 +1061,8 @@ function RiderTable({ rows, now, name }: { readonly rows: readonly Summary[]; re
                   <span className="an-heat-h" style={grid}>
                     {Array.from({ length: bins }, (_, i) => (
                       <span key={i} className={i === nowBin ? 'now' : ''}>
-                        {showLabel(i) ? binLabelOf(i) : ''}
+                        {/* 지금 칸 위에는 "지금"(위 시간대별 그래프와 같게) — 아래 파란 줄이 무엇인지 보이게 */}
+                        {i === nowBin && range === 'today' ? '지금' : showLabel(i) ? binLabelOf(i) : ''}
                       </span>
                     ))}
                   </span>

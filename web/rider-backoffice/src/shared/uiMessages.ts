@@ -14,7 +14,6 @@ export const ui = {
   },
   queue: {
     label: '목록 순서대로 넘기기',
-    backToList: '‹ 보던 목록으로',
     prev: '이전',
     next: '다음',
     position: (at: number, total: number) => `${at} / ${total}`,

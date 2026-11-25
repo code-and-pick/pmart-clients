@@ -11,7 +11,7 @@ import { QueryState, toUiState } from '@pmart/web-ui';
 import type { components } from '../../api/generated/delivery-tracking';
 import { useApi } from '../../app/ApiContext';
 import { useCenterScope } from '../../app/CenterScope';
-import { AllDone, ChipGroup, PageHeader, StatusBadge } from '../../shared/admin';
+import { ChipGroup, PageHeader, StatusBadge } from '../../shared/admin';
 import { RiderName } from '../../shared/displayNumbers';
 import { isSimRider } from '../../shared/sim';
 import { messages } from '../../shared/messages';
@@ -38,19 +38,19 @@ const cx = {
   onDuty: '운행 중',
   delivering: '배송 중',
   waiting: '대기',
-  staleOrNone: '위치 미확인',
+  staleOrNone: '위치 끊김·없음',
   people: (k: number) => `${k}명`,
   map: '위치 지도',
   list: '라이더 목록',
   receiving: '수신 중',
-  legend: { ok: '대기', delivering: '배송 중', stale: '끊김' },
+  legend: { ok: '대기', delivering: '배송 중', stale: '위치 끊김' },
   refresh: '10초마다 새로 불러와요',
   // 두 줄 카드(2026-11-19 통합 백오피스 실시간 배송 LiveBoards 처럼 — 위는 먼저 확인할 것, 아래는 진행 단계)
   firstTitle: '먼저 확인해 주세요',
   flowTitle: '진행 단계',
   dispatchOff: '신규배차 꺼짐',
-  allClear: '지금 먼저 볼 라이더가 없어요',
-  allClearBody: (k: number) => `운행 중 ${k}명 모두 위치가 들어오고 있고 신규배차를 받고 있어요.`,
+  allClear: '이상 없음 — 지금 확인할 일이 없어요',
+  issues: '확인할 일',
   deliveries: (k: number) => `${k}건`,
   // 2026-11-24 사용자 "자동취소막힘이 무슨 말인데 … 회색글도 너무 길고 뭐라는지 모르겠어" — 약속+30분 라이더 없음 → 시스템 취소가 거절된 배송: 사람이 취소해야 함
   blocked: '자동 취소 실패',
@@ -274,11 +274,11 @@ export function ControlPage() {
                         </p>
                       </div>
                       {/* 2026-11-24 사용자 "선택탭 2줄 되지 않게" — 작은 칩·짧은 이름으로 한 줄(넘치면 옆으로 밀기, 줄바꿈 없음) */}
-                      <div className="overflow-x-auto [&_[role=radiogroup]]:flex-nowrap [&_[role=radio]]:whitespace-nowrap [&_[role=radio]]:px-2 [&_[role=radio]]:text-xs" data-testid="control-filter">
+                      <div className="pm-pill-chips overflow-x-auto" data-testid="control-filter">
                         <ChipGroup
                           label={cx.view}
                           value={filter}
-                          options={(['all', 'delivering', 'late', 'stale', 'dispatchOff', 'sim'] as const).map((f) => ({ value: f, label: c.filter[f] }))}
+                          options={(['all', 'delivering', 'waiting', 'stale', 'late', 'dispatchOff', 'sim'] as const).map((f) => ({ value: f, label: c.filter[f] }))}
                           onChange={setFilter}
                         />
                       </div>
@@ -332,10 +332,11 @@ export function ControlPage() {
 
                   <div className="relative flex min-h-[420px] flex-col">
                     <KakaoRiderMap center={centerPoint} riders={mapRiders} onSelect={select} selectedId={selectedId} routes={routes} areas={areas} heightClass="h-full min-h-[420px]" />
-                    <span className="pointer-events-none absolute left-3 top-3 flex flex-wrap items-center gap-1">
-                      <StatusBadge tone="success">{cx.legend.ok}</StatusBadge>
-                      <StatusBadge tone="info">{cx.legend.delivering}</StatusBadge>
-                      <StatusBadge tone="warning">{cx.legend.stale}</StatusBadge>
+                    {/* 시뮬레이터처럼 지도 위 왼쪽 어두운 알약 범례 */}
+                    <span className="pointer-events-none absolute left-3 top-3 flex flex-wrap items-center gap-3 rounded-full bg-neutral/85 px-3 py-1.5 text-xs font-semibold text-neutral-content shadow" data-testid="control-legend">
+                      <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-success" aria-hidden />{cx.legend.ok}</span>
+                      <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-info" aria-hidden />{cx.legend.delivering}</span>
+                      <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-warning" aria-hidden />{cx.legend.stale}</span>
                     </span>
                   </div>
 
@@ -392,70 +393,59 @@ function ControlBoards({
   readonly onToggleBlocked: () => void;
 }) {
   const dispatchOff = all.filter((r) => r.newDispatchEnabled === false).length;
-  const actives = all.flatMap((r) => r.activeDeliveries);
-  const byStage = (st: string) => actives.filter((x) => x.stage === st).length;
   const waiting = all.filter((r) => !isDelivering(r) && !isStale(r)).length;
   const allClear = staleOrNone === 0 && dispatchOff === 0 && lateCount === 0 && !blockedCount;
-  const flowCell = (key: string, text: string, value: string, to: string | null, active: boolean, last: boolean) => {
-    const inner = (
-      <>
-        <span className="block text-sm font-semibold">{text}</span>
-        {/* 0 은 흐리게(2026-11-21 라이더 시뮬레이터 모양 시범) — 값이 있는 단계만 눈에 띄게 */}
-        <span className={`mt-1 block text-2xl font-bold tabular-nums ${/^0(\D|$)/.test(value) ? 'text-base-content/40' : ''}`}>{value}</span>
-      </>
-    );
-    const cls = `block w-full rounded-box border px-4 py-3.5 text-left ${active ? 'border-primary bg-primary/5' : 'border-base-300 bg-base-100'}`;
-    return (
-      <li key={key} className="relative">
-        {to ? (
-          <Link to={to} aria-current={active ? 'true' : undefined} data-testid={`control-flow-${key}`} className={`${cls} transition hover:-translate-y-0.5`}>
-            {inner}
-          </Link>
-        ) : (
-          <div data-testid={`control-flow-${key}`} className={cls}>
-            {inner}
-          </div>
-        )}
-        {!last && (
-          <span className="pointer-events-none absolute -right-2.5 top-1/2 z-10 hidden -translate-y-1/2 text-base-content/30 md:block" aria-hidden="true">
-            ›
-          </span>
-        )}
-      </li>
-    );
-  };
   return (
-    <div className="space-y-4" data-testid="control-boards">
-      <section aria-label={cx.firstTitle} className="space-y-2">
-        <h2 className="text-sm font-bold">{cx.firstTitle}</h2>
-        {allClear && all.length > 0 ? (
-          <AllDone title={cx.allClear} body={cx.allClearBody(all.length)} testId="control-all-clear" />
+    <div className="space-y-3" data-testid="control-boards">
+      {/* 2026-11-25 사용자 "라이더 시뮬레이션 배송관제·라이더관제 보고 바꿀 수 있는 부분은 UI 바꾸라니까" — 시뮬레이터처럼
+          맨 위 한 줄: 이상 없으면 "이상 없음", 있으면 확인할 일만 알약으로(누르면 그 거르기). 예전 "먼저 확인해 주세요" 카드 4장 대신. */}
+      <section
+        aria-label={cx.firstTitle}
+        className={`flex flex-wrap items-center gap-2 rounded-box border px-4 py-2 text-sm ${allClear ? 'border-base-300 bg-base-100' : 'border-error/30 bg-error/5'}`}
+      >
+        {allClear ? (
+          <p className="flex items-center gap-2 text-base-content/70" data-testid="control-all-clear">
+            <span className="h-2 w-2 rounded-full bg-base-content/40" aria-hidden />
+            {cx.allClear}
+          </p>
         ) : (
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-            {/* 2026-11-24 사용자 "자동취소막힘은 눌렀다 껐다가 되는데 왜 다른애들은 한 번 누르면 계속 눌려 있지?" — 켜진 카드를 다시 누르면 거르기를 푼다 */}
-            <KpiTile label={cx.late} value={cx.deliveries(lateCount)} hint={cx.lateHint} to={filterLink(filter === 'late' ? 'all' : 'late')} active={filter === 'late'} dot="bg-error" alert={lateCount > 0} testId="control-stat-late" />
-            {/* 2026-11-24 — 자동 취소가 거절돼 아직 배차 대기(dispatch BLOCKED_OPEN). 못 읽으면 칸을 그리지 않는다 */}
-            {blockedCount !== null && <KpiTile label={cx.blocked} value={cx.deliveries(blockedCount)} hint={cx.blockedHint} onClick={onToggleBlocked} active={showBlocked} dot="bg-error" alert={blockedCount > 0} testId="control-stat-auto-cancel-blocked" />}
-            <KpiTile label={cx.staleOrNone} value={cx.people(staleOrNone)} to={filterLink(filter === 'stale' ? 'all' : 'stale')} active={filter === 'stale'} dot="bg-error" alert={staleOrNone > 0} testId="control-stat-stale" />
-            {/* 2026-11-24 사용자 "신규배차 꺼짐은 왜 선택이 안 돼?" — 누르면 그 라이더들만(목록 거르기 "배차 꺼짐") */}
-            <KpiTile label={cx.dispatchOff} value={cx.people(dispatchOff)} to={filterLink(filter === 'dispatchOff' ? 'all' : 'dispatchOff')} active={filter === 'dispatchOff'} dot="bg-warning" warn={dispatchOff > 0} testId="control-stat-dispatch-off" />
-          </div>
+          <>
+            <span className="flex items-center gap-2 font-semibold text-error">
+              <span className="h-2 w-2 rounded-full bg-error" aria-hidden />
+              {cx.issues}
+            </span>
+            {lateCount > 0 && <IssuePill text={`${cx.late} ${cx.deliveries(lateCount)}`} to={filterLink(filter === 'late' ? 'all' : 'late')} active={filter === 'late'} testId="control-stat-late" />}
+            {/* 자동 취소가 거절돼 아직 배차 대기(dispatch BLOCKED_OPEN) — 누르면 아래에 건별. 못 읽으면 그리지 않는다 */}
+            {blockedCount !== null && blockedCount > 0 && <IssuePill text={`${cx.blocked} ${cx.deliveries(blockedCount)}`} onClick={onToggleBlocked} active={showBlocked} testId="control-stat-auto-cancel-blocked" />}
+            {staleOrNone > 0 && <IssuePill text={`${cx.staleOrNone} ${cx.people(staleOrNone)}`} to={filterLink(filter === 'stale' ? 'all' : 'stale')} active={filter === 'stale'} testId="control-issue-stale" />}
+            {dispatchOff > 0 && <IssuePill text={`${cx.dispatchOff} ${cx.people(dispatchOff)}`} to={filterLink(filter === 'dispatchOff' ? 'all' : 'dispatchOff')} active={filter === 'dispatchOff'} tone="warning" testId="control-stat-dispatch-off" />}
+          </>
         )}
+        <span className="ml-auto text-xs text-base-content/50">{ops.dashboard.asOf(when(asOf))}</span>
       </section>
-      <section aria-label={cx.flowTitle} className="space-y-2">
-        <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <h2 className="text-sm font-bold">{cx.flowTitle}</h2>
-          <Link to={filterLink('all')} className={`text-xs ${filter === 'all' ? 'font-semibold text-primary' : 'text-base-content/60 hover:text-base-content'}`} data-testid="control-stat-all">
-            {cx.onDuty} {cx.people(all.length)} · {ops.dashboard.asOf(when(asOf))}
-          </Link>
-        </div>
-        <ol className="grid grid-cols-2 gap-3 md:grid-cols-6" data-testid="control-flow">
-          {flowCell('waiting', cx.waiting, cx.people(waiting), filterLink(filter === 'waiting' ? 'all' : 'waiting'), filter === 'waiting', false)}
-          {flowCell('delivering', cx.delivering, cx.people(delivering), filterLink(filter === 'delivering' ? 'all' : 'delivering'), filter === 'delivering', false)}
-          {FLOW_STAGES.map((st, i) => flowCell(st, label(n.stage, st), cx.deliveries(byStage(st)), filterLink(filter === st ? 'all' : st), filter === st, i === FLOW_STAGES.length - 1))}
-        </ol>
-      </section>
+      {/* 시뮬레이터 라이더 관제처럼 숫자 칸 넷: 운행 중 · 배송 중 · 대기 · 위치 끊김·없음(누르면 거르기, 다시 누르면 풂).
+          단계별(가게로·고객에게 …) 수는 배송 관리 위 진행 단계에 있다 — 줄마다 배송 단계도 그대로 보인다. */}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <KpiTile label={cx.onDuty} value={cx.people(all.length)} to={filterLink('all')} active={filter === 'all'} testId="control-stat-all" />
+        <KpiTile label={cx.delivering} value={cx.people(delivering)} to={filterLink(filter === 'delivering' ? 'all' : 'delivering')} active={filter === 'delivering'} dot="bg-info" testId="control-flow-delivering" />
+        <KpiTile label={cx.waiting} value={cx.people(waiting)} to={filterLink(filter === 'waiting' ? 'all' : 'waiting')} active={filter === 'waiting'} dot="bg-success" testId="control-flow-waiting" />
+        <KpiTile label={cx.staleOrNone} value={cx.people(staleOrNone)} to={filterLink(filter === 'stale' ? 'all' : 'stale')} active={filter === 'stale'} dot="bg-error" alert={staleOrNone > 0} testId="control-stat-stale" />
+      </div>
     </div>
+  );
+}
+
+/** 맨 위 "확인할 일" 알약 — 누르면 그 거르기(다시 누르면 풂) */
+function IssuePill({ text, to, onClick, active, tone = 'error', testId }: { readonly text: string; readonly to?: string; readonly onClick?: () => void; readonly active: boolean; readonly tone?: 'error' | 'warning'; readonly testId: string }) {
+  const cls = `inline-flex items-center rounded-full border px-3 py-0.5 text-sm font-semibold transition-colors active:scale-95 ${active ? 'border-primary bg-primary text-primary-content' : tone === 'error' ? 'border-error/40 bg-base-100 text-error hover:bg-error/10' : 'border-warning/50 bg-base-100 text-warning hover:bg-warning/10'}`;
+  return to ? (
+    <Link to={to} className={cls} aria-current={active ? 'true' : undefined} data-testid={testId}>
+      {text}
+    </Link>
+  ) : (
+    <button type="button" className={cls} aria-pressed={active} onClick={onClick} data-testid={testId}>
+      {text}
+    </button>
   );
 }
 

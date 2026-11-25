@@ -81,3 +81,28 @@ describe('운영 통계', () => {
     expect(strip).toHaveTextContent('80%'); // 날마다 완료 4 · 실패 1
   });
 });
+
+describe('운영 통계 — 날짜별·센터별 누르기, 탈퇴 라이더 빼기(사용자 2026-11-25)', () => {
+  it('날짜 줄을 누르면 그날 센터별이 펼쳐지고 다시 누르면 접힌다', async () => {
+    renderAt('/stats', as.riderOps);
+    const days = await screen.findAllByTestId('stats-day-row');
+    expect(screen.queryByTestId('stats-day-center')).toBeNull();
+    await userEvent.click(days[0]!);
+    expect(await screen.findAllByTestId('stats-day-center')).not.toHaveLength(0);
+    expect(days[0]).toHaveAttribute('aria-expanded', 'true');
+    await userEvent.click(days[0]!);
+    expect(screen.queryByTestId('stats-day-center')).toBeNull();
+  });
+
+  it('직원 라이더 목록에 없는(탈퇴한) 라이더는 라이더별 성과에서 빠진다', async () => {
+    server.use(
+      http.get(`${API_BASE}/riders`, ({ request }) => {
+        const ids = (new URL(request.url).searchParams.get('riderIds') ?? '').split(',').filter(Boolean);
+        // RD-8 은 탈퇴 — 목록이 돌려주지 않는다
+        return HttpResponse.json({ items: ids.filter((id) => id !== 'RD-8').map((id) => ({ riderId: id, riderNumber: 'R1234', nameMasked: '김*수' })), page: 0, size: ids.length, total: ids.length });
+      }),
+    );
+    renderAt('/stats', as.riderOps);
+    await waitFor(() => expect(screen.getAllByTestId('stats-rider-row')).toHaveLength(1));
+  });
+});

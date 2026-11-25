@@ -165,6 +165,60 @@ main [role='radiogroup'] > [role='radio']:last-child {
   border-top-right-radius: calc(var(--radius-field) - 1px);
   border-bottom-right-radius: calc(var(--radius-field) - 1px);
 }
+/* 2026-11-25 사용자 "구분 탭 선택할 때 클릭하는 느낌으로 바꾸고, 선택된 거 파란 테두리 … 아래테두리 잘리네"
+   — 상자가 overflow-hidden 이고 칩 높이가 상자 안쪽에 딱 맞아(36-2=34) 배율(125% 등)에 따라 고른 칩 아래 1px 가 잘렸다.
+   상자는 자르지 않고(양 끝 칩은 위에서 모서리를 둥글게 맞춤), 칩은 상자 높이를 그대로 채운다.
+   누르는 동안 살짝 들어가고(눌림 색·크기), 마우스를 올리면 손가락 모양. */
+main [role='radiogroup'] {
+  overflow: visible;
+}
+main [role='radiogroup'] > [role='radio'] {
+  cursor: pointer;
+  transition:
+    background-color 0.12s ease,
+    transform 0.08s ease,
+    box-shadow 0.12s ease;
+}
+main [role='radiogroup'] > [role='radio']:active {
+  transform: scale(0.96);
+  background: var(--color-base-200);
+}
+main [role='radiogroup'] > [role='radio'][aria-checked='true']:active {
+  background: color-mix(in oklab, var(--color-primary) 16%, var(--color-base-100));
+}
+/* 화면 안 탭(상담 중·배송 사건 등 밑줄 탭) — 2026-11-25 사용자 "탭 선택할 때도 선택하는 UI가 너무 딱딱해. 클릭되는 느낌"
+   마우스를 올리면 손가락·옅은 판·글자 진하게, 누르는 동안 살짝 들어가고, 밑줄·색은 부드럽게 바뀐다. */
+main [role='tablist'] > [role='tab'] {
+  cursor: pointer;
+  border-top-left-radius: 8px;
+  border-top-right-radius: 8px;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease,
+    border-color 0.2s ease,
+    transform 0.08s ease;
+}
+main [role='tablist'] > [role='tab']:hover {
+  /* 바탕이 base-200 이라 같은 색은 안 보였다 — 주 색을 옅게 */
+  background: color-mix(in oklab, var(--color-primary) 7%, transparent);
+}
+main [role='tablist'] > [role='tab'][aria-selected='false']:hover {
+  color: var(--color-base-content);
+}
+main [role='tablist'] > [role='tab']:active {
+  transform: translateY(1px) scale(0.98);
+  background: color-mix(in oklab, var(--color-primary) 14%, transparent);
+}
+main [role='tablist'] > [role='tab']:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+}
+main [role='radiogroup'] > [role='radio']:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 1px;
+  position: relative;
+  z-index: 1;
+}
 main .btn-neutral.btn-xs {
   --btn-color: var(--pm-soft);
   --btn-fg: var(--color-primary);
@@ -295,4 +349,34 @@ main a[href^='/deliveries/']:not(.btn) {
   text-decoration-line: underline;
   text-decoration-style: dotted;
   text-underline-offset: 2px;
+}
+
+/* 라이더 관제 목록 거르기 — 라이더 시뮬레이터처럼 둥근 알약(2026-11-25). 시뮬레이터처럼 넘치면 다음 줄로(한 줄이면 칩이 잘려 보였다) */
+.pm-pill-chips [role='radiogroup'] {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  border: 0;
+  border-radius: 0;
+}
+.pm-pill-chips [role='radiogroup'] > [role='radio'] {
+  white-space: nowrap;
+  border: 1px solid var(--color-base-300);
+  border-radius: 9999px !important;
+  padding: 4px 12px;
+  font-size: 13px;
+  background: var(--color-base-100);
+}
+.pm-pill-chips [role='radiogroup'] > [role='radio'][aria-checked='true'] {
+  background: var(--color-base-content);
+  color: var(--color-base-100);
+  border-color: var(--color-base-content);
+  box-shadow: none;
+}
+/* 넘치면 옆으로 밀되 스크롤 막대는 숨긴다(막대가 칩 밑에 보였다) */
+.pm-pill-chips {
+  scrollbar-width: none;
+}
+.pm-pill-chips::-webkit-scrollbar {
+  display: none;
 }

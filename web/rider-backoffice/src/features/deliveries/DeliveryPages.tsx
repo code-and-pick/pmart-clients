@@ -38,6 +38,15 @@ const dx = {
   failureReported: '실패 신고',
   failureReportedHint: '판정 대기',
   failedTodayShort: '실패 확정',
+  // 시뮬레이터 배송 관제의 단계 이름(2026-11-25). 표의 수행 상태 이름은 그대로(칸에 올리면 원래 이름).
+  flowName: {
+    UNASSIGNED: '라이더 찾는 중',
+    ASSIGNED: '가게로',
+    ARRIVED_AT_STORE: '가게 대기',
+    PICKED_UP: '고객에게',
+    ARRIVED_AT_CUSTOMER: '고객 앞',
+  } as Readonly<Record<string, string>>,
+  inProgressSplit: (finding: number, delivering: number) => `찾는 중 ${finding} · 배송 중 ${delivering}`,
 } as const;
 import { DeliveryEarning, DeliveryProof, DeliveryStory, DispatchAttempts, DispatchDelayAlert, dispatchDelaySince, elapsedText, EtaPanel, extrasMessages, useServerNow } from './DeliveryExtras';
 
@@ -220,28 +229,51 @@ function DeliverySearchPage() {
   return (
     <section className="space-y-4">
       <PageHeader title={m.title} description={m.intro} actions={<SavedViews listKey="deliveries" />} />
-      <div className="space-y-3" role="group" aria-label={dx.stripLabel} data-testid="delivery-strip">
-        <section aria-label={dx.flowTitle} className="space-y-1.5">
-          <h2 className="text-sm font-bold">{dx.flowTitle}</h2>
-          <ol className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
-            <StateTile label={dx.inProgressAll} value={statText(inProgress ? Object.values(inProgress).reduce((a, b) => a + b, 0) : undefined, stats.isError)} to="/deliveries" active={!state} tone="primary" testId="strip-all" />
-            {FLOW.map((st, i) => (
-              <StateTile
-                key={st}
-                label={name(n.executionState, st)}
-                value={statText(inProgress?.[st], stats.isError)}
-                to={state === st ? '/deliveries' : stateLink(st)}
-                active={state === st}
-                tone={st === 'UNASSIGNED' && (inProgress?.[st] ?? 0) > 0 ? 'warning' : undefined}
-                arrow={i < FLOW.length - 1}
-                testId={`strip-${st}`}
-              />
-            ))}
+      {/* 2026-11-25 사용자 "라이더 시뮬레이션 배송관제 … 보고 바꿀 수 있는 부분은 UI 바꾸라니까" — 시뮬레이터 배송 관제 위쪽처럼 한 줄:
+          왼쪽 진행 중(전체) · 가운데 단계 흐름(한 상자 안에 › 로 이음, 시뮬레이터 이름) · 오른쪽 확인할 것(작은 칸). 누르면 그 상태로, 다시 누르면 풂. */}
+      <div className="grid gap-3 xl:grid-cols-[11rem_minmax(0,1fr)_auto]" role="group" aria-label={dx.stripLabel} data-testid="delivery-strip">
+        <ol className="contents">
+          <StateTile
+            label={dx.inProgressAll}
+            // 시뮬레이터처럼 "찾는 중 n · 배송 중 m"(배송 중 = 가게로 ~ 고객 앞)
+            {...(inProgress ? { hint: dx.inProgressSplit(inProgress['UNASSIGNED'] ?? 0, FLOW.filter((st) => st !== 'UNASSIGNED').reduce((a, st) => a + (inProgress[st] ?? 0), 0)) } : {})}
+            value={statText(inProgress ? Object.values(inProgress).reduce((a, b) => a + b, 0) : undefined, stats.isError)}
+            to="/deliveries"
+            active={!state}
+            tone="primary"
+            testId="strip-all"
+          />
+        </ol>
+        <section aria-label={dx.flowTitle}>
+          <ol className="flex h-full flex-wrap items-stretch gap-1 rounded-box border border-base-300 bg-base-200/60 p-1.5" data-testid="delivery-flow">
+            {FLOW.map((st, i) => {
+              const v = statText(inProgress?.[st], stats.isError);
+              const zero = /^0(\D|$)/.test(v);
+              const on = state === st;
+              return (
+                <li key={st} className="flex min-w-28 flex-1 items-stretch">
+                  <Link
+                    to={on ? '/deliveries' : stateLink(st)}
+                    aria-current={on ? 'true' : undefined}
+                    data-testid={`strip-${st}`}
+                    title={name(n.executionState, st)}
+                    className={`flex flex-1 flex-col justify-between rounded-[calc(var(--radius-box)-4px)] px-3 py-2 transition-colors active:scale-[0.98] ${on ? 'bg-primary/10 ring-1 ring-primary' : 'bg-base-100 hover:bg-base-100/70'}`}
+                  >
+                    <span className="text-sm font-semibold">{dx.flowName[st]}</span>
+                    <span className={`mt-1 text-2xl font-bold tabular-nums ${zero ? 'text-base-content/35' : st === 'UNASSIGNED' ? 'text-warning' : ''}`}>{v}</span>
+                  </Link>
+                  {i < FLOW.length - 1 && (
+                    <span className="flex items-center px-0.5 text-base-content/30" aria-hidden="true">
+                      ›
+                    </span>
+                  )}
+                </li>
+              );
+            })}
           </ol>
         </section>
-        <section aria-label={dx.checkTitle} className="space-y-1.5">
-          <h2 className="text-sm font-bold">{dx.checkTitle}</h2>
-          <ol className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+        <section aria-label={dx.checkTitle}>
+          <ol className="flex h-full flex-wrap items-stretch gap-2 [&>li>*]:min-w-28">
             <StateTile
               label={dx.failureReported}
               hint={dx.failureReportedHint}

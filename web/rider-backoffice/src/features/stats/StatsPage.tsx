@@ -3,7 +3,7 @@
 //       dispatch `GET /metrics/dispatch`(0.16.0 — 생성일 × 센터 배차 효율, 실패 사유), `GET /metrics/on-time-deliveries`(정시 배송률, 관리자가 아니면 센터 필수).
 // 센터는 머리줄 센터 고르기(RS-7). 평균은 서버가 준 건수(*Count·assigned)로 가중해 다시 낸다. 직원 수동 배차는 없다(배정 출처 = AI 추천·배달리스트·반납).
 import { useQuery } from '@tanstack/react-query';
-import { useState, type ReactNode } from 'react';
+import { Fragment, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { Link } from 'react-router';
 
 import { request } from '@pmart/web-core';
@@ -13,7 +13,7 @@ import { useCenterQuery, useCenterScope } from '../../app/CenterScope';
 import { isOperatorAdmin } from '../../app/nav';
 import { useSession } from '../../app/SessionContext';
 import { DataTable, Notice, PageHeader, Section } from '../../shared/admin';
-import { RiderName, useRiderSummaries } from '../../shared/displayNumbers';
+import { RiderName, useRiderSummariesState } from '../../shared/displayNumbers';
 import { messages } from '../../shared/messages';
 import { label } from '../../shared/opsUi';
 import { DAY, dur, seoulDate } from '../dashboard/analysisData';
@@ -75,6 +75,8 @@ export const statsMessages = {
   // 2026-11-23 사용자 "운영 통계 클릭하니까 아무데도 연결이 안 되는데" — 목록이 있는 수는 그 목록으로
   unassignedLink: '지금 배정 전 배송 보기',
   centerOnly: '이 센터만 보기',
+  dayOpen: (d: string) => `${d} 센터별로 펼치기`,
+  dayCenters: '이날 센터별',
   consultsLink: '상담 관리에서 보기',
   // 구간마다 평균을 낸 건수가 달라(배차 77·픽업 56 …) 정확한 한 건 평균은 아니다 — 그렇다고 밝힌다
   total: '세 구간 평균을 더한 값',
@@ -209,6 +211,8 @@ export function StatsPage() {
   const scope = useCenterScope();
   const [range, setRange] = useState<Range>('d7');
   const [showAutoCancel, setShowAutoCancel] = useState(false);
+  // 날짜별 표 — 누르면 그날 센터별로 펼친다(2026-11-25 사용자 "날짜별 클릭해도 아무데도 안 들어가져"). 배송 목록은 날짜로 거르는 계약이 없다.
+  const [openDay, setOpenDay] = useState<string | null>(null);
   // 화면을 연 때를 기준으로(렌더마다 바뀌지 않게)
   const [now] = useState(() => Date.now());
   const to = seoulDate(now);
@@ -240,7 +244,7 @@ export function StatsPage() {
   const incidents: readonly Incident[] = exec.data?.incidents ?? [];
   const incidentMax = Math.max(1, ...incidents.map((x) => x.count));
   const drows: readonly DispRow[] = disp.data?.rows ?? [];
-  const riderSummaries = useRiderSummaries(rows.map((r) => r.riderId));
+  const { byId: riderSummaries, loaded: ridersLoaded } = useRiderSummariesState(rows.map((r) => r.riderId));
 
   const a = agg(rows);
   const ot = onTime.data?.items ?? [];
@@ -257,7 +261,8 @@ export function StatsPage() {
   const dispByDay = groupBy(drows, (r) => r.date);
   const byMfc = [...groupBy(rows, (r) => r.mfcId).entries()].sort(([, x], [, y]) => total(y, (r) => r.assigned) - total(x, (r) => r.assigned));
   const dispByMfc = groupBy(drows, (r) => r.mfcId);
-  const byRider = [...groupBy(rows, (r) => r.riderId).entries()].sort(([, x], [, y]) => total(y, (r) => r.assigned) - total(x, (r) => r.assigned));
+  // 탈퇴한 라이더는 뺀다(2026-11-25 사용자) — 직원 목록이 탈퇴 라이더를 돌려주지 않아, 다 읽었는데 없으면 탈퇴. 못 읽었으면 아무도 빼지 않는다.
+  const byRider = [...groupBy(rows, (r) => r.riderId).entries()].filter(([id]) => !ridersLoaded || riderSummaries.has(id)).sort(([, x], [, y]) => total(y, (r) => r.assigned) - total(x, (r) => r.assigned));
   const riderMax = Math.max(1, ...byRider.map(([, rs]) => total(rs, (r) => r.assigned)));
 
   // 배송 통계(execution)를 못 읽으면 숫자 0 대신 오류 안내 — 조회 실패 ≠ 0(PR 리뷰 2026-11-23). 배차 통계만 실패하면 그 칸에만 안내.
@@ -360,76 +365,46 @@ export function StatsPage() {
             <>
               <Section title={s.daily} testId="stats-daily">
                 <DailyChart days={daily} />
-                <DataTable testId="stats-daily-table">
-                  <thead>
-                    <tr>
-                      <th>{s.col.date}</th>
-                      <th>{s.col.requests}</th>
-                      <th>{s.col.assign}</th>
-                      <th>{s.col.deliveries}</th>
-                      <th>{s.col.completed}</th>
-                      <th>{s.col.failed}</th>
-                      <th>{s.col.late}</th>
-                      <th>{s.col.delivery}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {daily.map(([day, rs]) => {
-                      const x = agg(rs);
-                      const dd = dispByDay.get(day) ?? [];
-                      return (
-                        <tr key={day} data-testid="stats-day-row">
-                          <td className="whitespace-nowrap">{day}</td>
-                          <td>{total(dd, (r) => r.created)}</td>
-                          <td>{dur(wavg(dd, (r) => r.avgAssignSeconds, (r) => r.assigned))}</td>
-                          <td>{x.assigned}</td>
-                          <td>{x.completed}</td>
-                          <td>{x.failed}</td>
-                          <td><RateCell num={x.late} den={x.judged} kind="late" /></td>
-                          <td>{dur(x.delivery)}</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </DataTable>
+                {/* 날짜를 누르면 그날 센터별(배송 목록은 날짜로 거르는 계약이 없다 — 2026-11-25) */}
+                <MetricTable
+                  testId="stats-daily-table"
+                  nameHead={s.col.date}
+                  lines={daily.map(([day, rs]) => ({
+                    key: day,
+                    label: day,
+                    rs,
+                    dd: dispByDay.get(day) ?? [],
+                    testId: 'stats-day-row',
+                    title: s.dayOpen(day),
+                    expanded: openDay === day,
+                    onClick: () => setOpenDay(openDay === day ? null : day),
+                    children: [...groupBy(rs, (r) => r.mfcId).entries()]
+                      .sort(([, p], [, q]) => total(q, (r) => r.assigned) - total(p, (r) => r.assigned))
+                      .map(([mfc, cr]) => ({
+                        key: `${day}:${mfc}`,
+                        label: centerName(mfc),
+                        rs: cr,
+                        dd: (dispByDay.get(day) ?? []).filter((r) => r.mfcId === mfc),
+                        testId: 'stats-day-center',
+                      })),
+                  }))}
+                />
               </Section>
               <Section title={s.byMfc} testId="stats-mfc">
-                <DataTable testId="stats-mfc-table">
-                  <thead>
-                    <tr>
-                      <th>{s.col.mfc}</th>
-                      <th>{s.col.deliveries}</th>
-                      <th>{s.col.riders}</th>
-                      <th>{s.col.completion}</th>
-                      <th>{s.col.late}</th>
-                      <th>{s.col.pickupWait}</th>
-                      <th>{s.col.delivery}</th>
-                      <th>{s.col.assign}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {byMfc.map(([mfc, rs]) => {
-                      const x = agg(rs);
-                      const dd = dispByMfc.get(mfc) ?? [];
-                      return (
-                        <tr key={mfc} data-testid="stats-mfc-row">
-                          <td>
-                            <button type="button" className="link link-hover font-medium" title={s.centerOnly} onClick={() => scope.setMfcId(mfc)} data-testid="stats-mfc-pick">
-                              {centerName(mfc)}
-                            </button>
-                          </td>
-                          <td>{x.assigned}</td>
-                          <td>{x.riders}</td>
-                          <td><RateCell num={x.completed} den={x.completed + x.failed} kind="done" /></td>
-                          <td><RateCell num={x.late} den={x.judged} kind="late" /></td>
-                          <td>{dur(x.pickupWait)}</td>
-                          <td>{dur(x.delivery)}</td>
-                          <td>{dur(wavg(dd, (r) => r.avgAssignSeconds, (r) => r.assigned))}</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </DataTable>
+                {/* 2026-11-25 사용자 "센터별 비교에도 클릭 안 되네" — 줄 어디를 눌러도 그 센터만 보기 */}
+                <MetricTable
+                  testId="stats-mfc-table"
+                  nameHead={s.col.mfc}
+                  lines={byMfc.map(([mfc, rs]) => ({
+                    key: mfc,
+                    label: <span data-testid="stats-mfc-pick" className="text-primary">{centerName(mfc)} ›</span>,
+                    rs,
+                    dd: dispByMfc.get(mfc) ?? [],
+                    testId: 'stats-mfc-row',
+                    title: s.centerOnly,
+                    onClick: () => scope.setMfcId(mfc),
+                  }))}
+                />
               </Section>
               <Section title={s.byRider} testId="stats-riders">
                 <Legend parts={[[s.legendDone, 'bg-success'], [s.legendFailed, 'bg-error'], [s.legendOther, 'bg-base-content/20']]} />
@@ -660,7 +635,8 @@ function RateBar({ label, num, den, hint, tone, unavailable = false, to, testId 
     <div data-testid={testId}>
       <div className="flex items-baseline justify-between gap-2">
         {to ? (
-          <Link to={to} className="text-sm text-base-content/80 underline decoration-dotted underline-offset-4 hover:text-primary" data-testid={`${testId}-link`}>
+          // 2026-11-25 사용자 "전달실패율 아래에 점선 없애줘 지저분해 보여. 옆에 > 이거 있으니까" — 점선 밑줄 없이 › 만, 올리면 밑줄
+          <Link to={to} className="text-sm text-base-content/80 hover:text-primary hover:underline underline-offset-4" data-testid={`${testId}-link`}>
             {label} ›
           </Link>
         ) : (
@@ -747,4 +723,144 @@ function ReasonBars({ items }: { readonly items: ReadonlyArray<{ readonly label:
       ))}
     </ul>
   );
+}
+
+/**
+ * 날짜별·센터별 한 줄(2026-11-25 사용자 "숫자만 일렬로 띡띡 적혀 있으니까 UI를 직관적으로 이해하기가 어려워").
+ * 숫자 칸 8개 대신: 배송 결과(완료·실패 막대 + 한 줄) · 완료율(크게) · 지연율(막대) · 걸린 시간(배차 → 배송).
+ * 시안 둘(표 + 막대 / 카드) 중 사용자가 "표 + 막대"를 골랐다(2026-11-25).
+ */
+
+type MetricLine = {
+  readonly key: string;
+  readonly label: ReactNode;
+  readonly rs: readonly ExecRow[];
+  readonly dd: readonly DispRow[];
+  readonly testId: string;
+  readonly title?: string;
+  readonly onClick?: () => void;
+  readonly expanded?: boolean;
+  /** 펼친 줄 아래에 그릴 하위 줄(그날 센터별) */
+  readonly children?: readonly MetricLine[];
+};
+
+const mt = {
+  result: '배송 결과',
+  completion: '완료율',
+  late: '지연율',
+  time: '걸린 시간',
+  assign: '배차',
+  delivery: '배송',
+  barText: (req: number, n: number, done: number, failed: number) => `요청 ${req} · 배송 ${n} · 완료 ${done} · 실패 ${failed}`,
+};
+
+function lineNumbers(l: MetricLine) {
+  const x = agg(l.rs);
+  return {
+    x,
+    req: total(l.dd, (r) => r.created),
+    assignSec: wavg(l.dd, (r) => r.avgAssignSeconds, (r) => r.assigned),
+  };
+}
+
+function TimePair({ assignSec, deliverySec }: { readonly assignSec: number | null; readonly deliverySec: number | null }) {
+  return (
+    <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-sm">
+      <span className="text-base-content/60">{mt.assign}</span>
+      <b className="tabular-nums">{dur(assignSec)}</b>
+      <span className="text-base-content/40" aria-hidden>→</span>
+      <span className="text-base-content/60">{mt.delivery}</span>
+      <b className="tabular-nums">{dur(deliverySec)}</b>
+    </span>
+  );
+}
+
+function ResultBar({ l, max }: { readonly l: MetricLine; readonly max: number }) {
+  const { x, req } = lineNumbers(l);
+  return (
+    <StackBar
+      max={max}
+      parts={[
+        [x.completed, 'bg-success'],
+        [x.failed, 'bg-error'],
+        [Math.max(0, x.assigned - x.completed - x.failed), 'bg-base-content/20'],
+      ]}
+      text={mt.barText(req, x.assigned, x.completed, x.failed)}
+    />
+  );
+}
+
+function rowProps(l: MetricLine) {
+  if (!l.onClick) return {};
+  const on = l.onClick;
+  return {
+    className: 'cursor-pointer',
+    tabIndex: 0,
+    title: l.title,
+    onClick: on,
+    onKeyDown: (e: KeyboardEvent) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        on();
+      }
+    },
+    ...(l.expanded === undefined ? {} : { 'aria-expanded': l.expanded }),
+  };
+}
+
+function Caret({ l }: { readonly l: MetricLine }) {
+  if (l.expanded === undefined) return null;
+  return (
+    <span aria-hidden className="mr-1 inline-block w-3 text-base-content/50">
+      {l.expanded ? '▾' : '▸'}
+    </span>
+  );
+}
+
+export function MetricTable({ lines, nameHead, testId }: { readonly lines: readonly MetricLine[]; readonly nameHead: string; readonly testId: string }) {
+  const max = Math.max(1, ...lines.map((l) => agg(l.rs).assigned));
+    const row = (l: MetricLine, sub: boolean) => {
+      const { x, assignSec } = lineNumbers(l);
+      return (
+        <tr key={l.key} data-testid={l.testId} {...rowProps(l)} className={`${l.onClick ? 'cursor-pointer' : ''} ${sub ? 'bg-base-200/50' : ''}`}>
+          <td className={`whitespace-nowrap font-medium ${sub ? 'pl-8 text-sm' : ''}`}>
+            <Caret l={l} />
+            {l.label}
+          </td>
+          <td className="w-[34%]">
+            <ResultBar l={l} max={max} />
+          </td>
+          <td>
+            <BigRate num={x.completed} den={x.completed + x.failed} />
+          </td>
+          <td>
+            <RateCell num={x.late} den={x.judged} kind="late" />
+          </td>
+          <td>
+            <TimePair assignSec={assignSec} deliverySec={x.delivery} />
+          </td>
+        </tr>
+      );
+    };
+    return (
+      <DataTable testId={testId}>
+        <thead>
+          <tr>
+            <th>{nameHead}</th>
+            <th>{mt.result}</th>
+            <th>{mt.completion}</th>
+            <th>{mt.late}</th>
+            <th>{mt.time}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {lines.map((l) => (
+            <Fragment key={l.key}>
+              {row(l, false)}
+              {l.expanded && (l.children ?? []).map((c) => row(c, true))}
+            </Fragment>
+          ))}
+        </tbody>
+      </DataTable>
+    );
 }
