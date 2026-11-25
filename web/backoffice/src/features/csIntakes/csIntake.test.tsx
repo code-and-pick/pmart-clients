@@ -95,7 +95,7 @@ describe('전화·채팅 접수', () => {
     await userEvent.click(screen.getByRole('button', { name: '접수 남기기' }));
     await userEvent.click(within(await screen.findByTestId('cs-intake-saved')).getByRole('link', { name: /^문의 / }));
     expect(await screen.findByTestId('inquiry-proxy-warning')).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('link', { name: '문의 목록' }));
+    await userEvent.click(screen.getByRole('button', { name: '문의 목록' })); // 제목 왼쪽 ‹ 단추(2026-11-25 화면 기준)
     const row = (await screen.findAllByTestId('inquiry-row'))[0]!;
     expect(row).toHaveTextContent('상담원 접수 · 채팅');
     expect(row).toHaveTextContent('대리');

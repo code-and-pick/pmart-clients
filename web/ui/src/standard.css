@@ -933,3 +933,92 @@ main table tbody tr.pm-inline-row:hover > td {
   font-size: 0.875rem;
   color: var(--pm-sub);
 }
+
+/* ---- 2026-11-25 라이더 사용자 2차 지적 반영(PC 5 전달 — 간격·밑줄·탭·숫자 칸) ---- */
+
+/* 간격: 쪽 머리 아래 내용은 16px 더 띄운다(답답하지 않게). 찾기 줄은 위 숫자 띠에서 떨어져 목록 쪽에 */
+main .pm-head {
+  margin-bottom: 8px;
+}
+main [role='search'].pm-fbar {
+  margin-top: 12px;
+}
+
+/* 밑줄 규칙 하나 — 상세로 가는 이름·번호 링크(표·항목값·펼친 줄·구역 안) = 점선 / 단추 모양 링크 = 없음 / 그 밖 글자 = 없음 */
+main a {
+  text-decoration-line: none;
+}
+main :is(table, dl, .pm-inline, .pm-vsec, .pm-act, .pm-note) a:not(.btn),
+main a.link:not(.btn) {
+  text-decoration-line: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 2px;
+}
+main a.btn,
+main .pm-inline-bar a {
+  text-decoration-line: none;
+}
+/* 글자 단추(초기화 등)는 작은 회색 실선 — .pm-fbar-reset(위) */
+
+/* 상태 탭 — 16px 굵게·좌우 20px, 고른 탭은 파란 3px 밑줄, 탭 줄 아래 2px 선 */
+main [role='tablist'] {
+  border-bottom: 2px solid var(--color-base-300);
+}
+main [role='tablist'] > [role='tab'] {
+  margin-bottom: -2px;
+  padding: 10px 20px;
+  border-bottom: 3px solid transparent;
+  font-size: 1rem;
+  font-weight: 700;
+  color: color-mix(in oklab, var(--color-base-content) 70%, transparent);
+}
+main [role='tablist'] > [role='tab'][aria-selected='true'] {
+  border-bottom-color: var(--color-primary);
+  color: var(--color-primary);
+}
+main [role='tablist'] > [role='tab']:hover {
+  color: var(--color-base-content);
+}
+
+/* 숫자 칸 — 이름은 칸 위쪽 같은 줄에 굵게(칸마다 일직선), 숫자는 오른쪽 가운데 큰 굵은 글자. 보조 글은 이름 아래 */
+.pm-stat:not(:has(> span)) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: 8px;
+  align-items: start;
+}
+.pm-stat:not(:has(> span)) > * {
+  margin: 0;
+}
+.pm-stat:not(:has(> span)) > p:first-child {
+  grid-column: 1;
+  grid-row: 1;
+  font-weight: 600;
+  color: var(--color-base-content);
+}
+.pm-stat:not(:has(> span)) > .pm-stat-value {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  align-self: center;
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+.pm-stat:not(:has(> span)) > p:nth-child(3) {
+  grid-column: 1;
+  grid-row: 2;
+}
+
+/* 결과 줄 건수 알약 */
+.pm-count-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px 10px;
+  border-radius: 9999px;
+  background: var(--pm-soft);
+  color: var(--pm-sub);
+  font-size: 0.8125rem;
+}
+.pm-count-pill > span {
+  color: var(--color-base-content);
+}

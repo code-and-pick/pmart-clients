@@ -13,7 +13,7 @@ describe('그 배송이 있는 곳에서 바로 시작', () => {
     const start = await screen.findByTestId('start-misdelivery');
     expect(screen.getByTestId('start-complaint')).toBeInTheDocument();
     await user.click(start);
-    expect(await screen.findByLabelText(/배송 번호/)).toHaveValue('DLV-MOCK-2');
+    expect(await screen.findByRole('textbox', { name: /배송 번호/ })).toHaveValue('DLV-MOCK-2');
   });
 
   it('역할로 열 수 없는 메뉴의 단추는 없다(MD)', async () => {

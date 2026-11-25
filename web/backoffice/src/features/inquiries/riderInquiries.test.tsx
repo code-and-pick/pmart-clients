@@ -47,8 +47,8 @@ describe('라이더 문의', () => {
     expect(sent).toHaveLength(1);
     expect(sent[0]!.headers.get('Idempotency-Key')).toBeTruthy();
     expect(sent[0]!.headers.get('X-Expected-Version')).toBe('1');
-    // 목록에서 들어왔으면 뒤로 가기는 하나 — "보던 목록으로"(거른 조건 그대로, 2026-11-23 머리 한 줄 정리)
-    expect(screen.getByRole('link', { name: '보던 목록으로' }).getAttribute('href')).toMatch(/^\/rider-inquiries/);
+    // 목록에서 들어왔으면 뒤로 가기는 하나 — 제목 왼쪽 ‹ "보던 목록으로"(2026-11-25 화면 기준 — 누르면 방금 보던 목록, 거른 조건 그대로)
+    expect(screen.getByRole('button', { name: '보던 목록으로' })).toBeInTheDocument();
   });
 
   it('고객센터 문의 목록은 requesterType=CUSTOMER — 라이더 문의가 섞이지 않는다', async () => {

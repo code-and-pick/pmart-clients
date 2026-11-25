@@ -66,8 +66,8 @@ describe('개인정보 열람 기록', () => {
       (l) => l.actor.actorId === 'op-cs-1' && l.subjectType === 'CUSTOMER' && l.occurredAt >= '2026-11-14T15:00:00Z' && l.occurredAt < '2026-11-15T15:00:00Z',
     );
     await waitFor(() => expect(screen.getAllByTestId('pii-log-row')).toHaveLength(expected.length));
-    // 거르기는 주소에서 다시 읽는다(다시 그려도 칩이 남는다)
-    expect(screen.getByRole('button', { name: '열람한 직원(운영자 ID) = op-cs-1 지우기' })).toBeInTheDocument();
+    // 거르기는 주소에서 다시 읽는다(다시 그려도 찾기 칸에 남는다 — 2026-11-25 화면 기준, 글자 값은 칩 대신 칸에)
+    expect(screen.getByRole('searchbox', { name: '찾기 칸' })).toHaveValue('op-cs-1');
   });
 
   it('시작일이 종료일보다 늦으면 부르지 않고 안내', async () => {
@@ -108,7 +108,7 @@ describe('개인정보 열람 기록', () => {
     expect(within(detail).getByTitle('rider-service')).toHaveTextContent('라이더'); // 기록한 서비스 = 업무 이름 + 원래 이름(title)
     expect(within(detail).getByTitle('RIDER_OPS')).toHaveTextContent('라이더 운영');
     expect(detail).toHaveTextContent(target.piiAccessLogId);
-    await userEvent.click(screen.getByRole('link', { name: '목록으로' }));
+    await userEvent.click(screen.getByRole('button', { name: '목록으로' })); // 제목 왼쪽 ‹ 단추
     expect(await screen.findByRole('button', { name: `정보주체 종류 = ${SUBJECT_RIDER} 지우기` })).toBeInTheDocument(); // 거르기 칩 유지
   });
 });

@@ -96,7 +96,7 @@ describe('승인함 — 제목줄·속성 필터·도움말(2026-11-20 AWS 개�
     const view = renderAt('/approvals?view=all&type=PRICE&state=REJECTED', as.admin);
     expect(await screen.findByTestId('list-count')).toHaveTextContent('(2+)'); // 다음 쪽이 있으면 +
     expect(screen.getAllByTestId('filter-chip')).toHaveLength(2);
-    await user.click(screen.getByTestId('list-info'));
+    await user.click(screen.getByTestId('help-toggle')); // 제목 옆 ⓘ 는 없앰(2026-11-25) — 머리줄 도움 단추
     const panel = screen.getByTestId('help-panel');
     expect(panel).toHaveTextContent('내가 심사할 것');
     await user.click(screen.getByRole('button', { name: '도움말 닫기', hidden: false }));

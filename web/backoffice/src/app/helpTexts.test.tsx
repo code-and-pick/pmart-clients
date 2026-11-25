@@ -13,7 +13,7 @@ describe('도움말 패널 글', () => {
   ] as const)('%s', async (path, token, text) => {
     const user = userEvent.setup();
     renderAt(path, token);
-    await user.click(await screen.findByTestId('list-info'));
+    await user.click(await screen.findByTestId('help-toggle')); // 제목 옆 ⓘ 는 없앰(2026-11-25) — 머리줄 도움 단추
     expect(await screen.findByTestId('help-panel')).toHaveTextContent(text);
   });
 });

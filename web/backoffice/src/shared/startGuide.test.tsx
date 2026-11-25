@@ -12,7 +12,7 @@ describe('찾기 전 빈 화면', () => {
     const user = userEvent.setup();
     renderAt('/deliveries/DLV-MOCK-1', as.csRider);
     await screen.findByTestId('execution-panel');
-    await user.click(screen.getByRole('link', { name: '배송 번호 다시 넣기' }));
+    await user.click(screen.getByRole('button', { name: '배송 번호 다시 넣기' })); // 제목 왼쪽 ‹ 단추(2026-11-25 화면 기준)
     const guide = await screen.findByTestId('start-guide');
     expect(within(guide).queryByRole('list', { name: '넣을 수 있는 번호' })).not.toBeInTheDocument();
     expect(within(guide).getByRole('link', { name: /배송.*D74939001/ })).toHaveAttribute('href', '/deliveries/DLV-MOCK-1');

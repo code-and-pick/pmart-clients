@@ -5,6 +5,11 @@ export * from '@pmart/web-ui/console';
 // 안내·다음 할 일 = 판 색 + 왼쪽 띠, 설명은 ⓘ, 검색 조건 = 찾기 줄 + 필터 팝업 + 칩, 구역 = 보기/처리. 같은 이름으로 덮는다(직접 내보낸 이름이 export * 보다 먼저).
 export {
   ActionSection,
+  BackButton,
+  DetailHeader,
+  FieldList,
+  ResultBar,
+  useGoBack,
   AllDone,
   Caret,
   expandRowProps,

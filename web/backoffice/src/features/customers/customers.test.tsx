@@ -29,7 +29,9 @@ describe('고객 찾기', () => {
     await waitFor(() => expect(screen.getByTestId('customer-row')).toHaveTextContent('517204'));
     const q = searchCalls(view.sent).at(-1)!.searchParams;
     expect([q.get('orderNumber'), q.get('customerNumber')]).toEqual(['74939005', null]);
-    expect(screen.getAllByTestId('filter-chip')).toHaveLength(1);
+    // 걸린 글자 값은 찾기 칸에 그대로(칩으로 다시 보이지 않음 — 2026-11-25 화면 기준), 앞 조건 칩도 없다
+    expect(screen.getByRole('searchbox', { name: '찾기 칸' })).toHaveValue('74939005');
+    expect(screen.queryByTestId('filter-chip')).not.toBeInTheDocument();
   });
 
   it('맞는 고객이 없으면 "없어요" — 조건이 없으면 부르지 않는다', async () => {

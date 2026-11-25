@@ -3,12 +3,14 @@
 // 앱은 shared/admin.tsx 에서 `export * from '@pmart/web-ui/console'` 다음에 `export { … } from '@pmart/web-ui/standard'` 로 같은 이름을 덮는다
 // (직접 내보낸 이름이 export * 보다 먼저). 모양은 web/ui/src/standard.css — 앱 index.css 가 console.css 다음에 읽는다.
 // 정보·기능은 줄이지 않는다: 긴 설명은 ⓘ 로 접고(누르면 그대로), 거르기는 모두 팝업 안에 남고, 건 조건은 칩으로 늘 보인다.
-import { type ComponentProps, type CSSProperties, type FormEvent, type KeyboardEvent, type MouseEvent, type ReactNode, useContext, useEffect, useId, useState } from 'react';
-import { Link } from 'react-router';
+import { type ComponentProps, type CSSProperties, type FormEvent, type KeyboardEvent, type MouseEvent, type ReactNode, useContext, useEffect, useId, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { Link, useNavigate } from 'react-router';
 
 import { formatSeoul } from '../format';
 import { messages as lm } from './messages';
 import { type FilterProp, SectionMenuContext, StatCard as ConsoleStatCard, type Tone } from './parts';
+import { DETAIL_BAR_SLOT, useScrolledPast } from './StickyTitle';
 
 const t = {
   funnel: '거르기 조건',
@@ -97,56 +99,152 @@ function InfoButton({ open, onToggle }: { readonly open: boolean; readonly onTog
   );
 }
 
-/** 쪽 머리 — 제목 + ⓘ(설명이 있을 때, 누르면 한 줄) + 오른쪽 주 동작. 뒤로·nav 줄은 공용 콘솔과 같다 */
-export function PageHeader({ title, description, actions, back, nav }: { readonly title: ReactNode; readonly description?: ReactNode; readonly actions?: ReactNode; readonly back?: { readonly to: string; readonly label: string }; readonly nav?: ReactNode }) {
-  const [open, setOpen] = useState(false);
+/**
+ * 뒤로 — 앱 안에서 넘어왔으면 브라우저 뒤로(목록의 거르기·스크롤·펼친 줄 그대로), 주소로 바로 열었으면 그 목록으로.
+ * React Router 가 history.state.idx 에 앱 안 이동 순번을 적는다(0 = 이 탭의 첫 화면). 라이더 백오피스 useGoBack 과 같다.
+ */
+export function useGoBack(fallback: string): () => void {
+  const navigate = useNavigate();
+  return () => {
+    const idx = (window.history.state as { readonly idx?: number } | null)?.idx ?? 0;
+    if (idx > 0) void navigate(-1);
+    else void navigate(fallback);
+  };
+}
+
+/** 제목 왼쪽 둥근 ‹ 단추 — 이름은 읽기 도구·마우스 올리면만("홈 진열 편성으로") */
+export function BackButton({ onClick, label, small = false }: { readonly onClick: () => void; readonly label: string; readonly small?: boolean }) {
   return (
-    <header className="space-y-1">
-      {(back || nav) && (
-        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
-          {back ? (
-            <Link to={back.to} className="inline-flex items-center gap-1 text-sm text-base-content/70 underline underline-offset-2 hover:text-primary">
-              <span aria-hidden>‹</span>
-              {back.label}
-            </Link>
-          ) : (
-            <span />
-          )}
-          {nav && <div className="flex flex-wrap items-center gap-x-3 gap-y-1">{nav}</div>}
-        </div>
-      )}
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      title={label}
+      data-testid="detail-back"
+      className={`btn btn-circle shrink-0 border-base-300 bg-base-100 ${small ? 'btn-xs text-base' : 'btn-sm text-xl'} leading-none`}
+    >
+      <span aria-hidden className="-mt-0.5">
+        ‹
+      </span>
+    </button>
+  );
+}
+
+/** 내려서 제목이 지나가면 위에 얇은 제목 띠(작은 ‹ + 제목 + 표시) — 단추(명령)는 복제하지 않는다 */
+function StickyBand({ show, title, badges, onBack, backLabel }: { readonly show: boolean; readonly title: ReactNode; readonly badges?: ReactNode; readonly onBack?: () => void; readonly backLabel?: string }) {
+  const slot = typeof document === 'undefined' ? null : document.getElementById(DETAIL_BAR_SLOT);
+  if (!show || !slot) return null;
+  return createPortal(
+    <div className="flex items-center gap-3 border-b border-base-300 bg-base-100/95 px-6 py-2 backdrop-blur" data-testid="sticky-title">
+      {onBack && backLabel && <BackButton onClick={onBack} label={backLabel} small />}
+      <p className="min-w-0 truncate text-sm font-semibold">{title}</p>
+      <div className="flex min-w-0 flex-wrap items-center gap-1.5">{badges}</div>
+    </div>,
+    slot,
+  );
+}
+
+/**
+ * 쪽 머리 — 제목이 맨 위, 뒤로는 제목 왼쪽 둥근 ‹(제목 위 "‹ 목록" 글자 링크 없음). 오른쪽 이전·다음(nav)·주 동작.
+ * 화면 설명(description)은 받기만 하고 그리지 않는다(라이더 사용자 2026-11-24 "제목 옆 안내 버튼 없애" — 도움말은 머리줄 도움 단추로).
+ */
+export function PageHeader({ title, actions, back, nav }: { readonly title: ReactNode; readonly description?: ReactNode; readonly actions?: ReactNode; readonly back?: { readonly to: string; readonly label: string }; readonly nav?: ReactNode }) {
+  const goBack = useGoBack(back?.to ?? '/');
+  return (
+    <header className="pm-head">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2">
+          {back && <BackButton onClick={goBack} label={back.label} />}
           <h1 className="min-w-0 text-2xl font-bold">{title}</h1>
-          {description && <InfoButton open={open} onToggle={() => setOpen((o) => !o)} />}
         </div>
-        {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
+        {(nav || actions) && (
+          <div className="flex flex-wrap items-center gap-2">
+            {nav}
+            {actions}
+          </div>
+        )}
       </div>
-      {description && open && <p className="pm-info-text">{description}</p>}
     </header>
   );
 }
 
-/** 화면 안내 — 상자 대신 "ⓘ 화면 안내" 한 줄, 누르면 글머리 목록(처음엔 접힘, 글은 그대로) */
-export function GuideBox({ title = t.guide, items, testId, tone = 'info' }: { readonly title?: string; readonly items: readonly ReactNode[]; readonly storeKey?: string; readonly testId?: string; readonly tone?: 'info' | 'warning' }) {
-  const [open, setOpen] = useState(false);
-  if (items.length === 0) return null;
+/**
+ * 상세 머리 — 한 줄 [‹][제목][상태 점·꼬리표] … 오른쪽 위 이전·n/N·다음(nav)·동작. 제목 밑 요약은 8px 띄워 작고 옅게.
+ * 내려서 제목이 지나가면 위에 얇은 제목 띠(작은 ‹ + 제목). 라이더 백오피스 DetailHeader 와 같은 모양(공용 콘솔과 같은 속성).
+ */
+export function DetailHeader({ back, title, badges, summary, actions, nav }: { readonly back: { readonly to: string; readonly label: string }; readonly title: ReactNode; readonly badges?: ReactNode; readonly summary?: ReactNode; readonly actions?: ReactNode; readonly nav?: ReactNode }) {
+  const card = useRef<HTMLDivElement>(null);
+  const past = useScrolledPast(card);
+  const goBack = useGoBack(back.to);
   return (
-    <div className="pm-guide" data-tone={tone} data-testid={testId}>
-      <button type="button" className="pm-guide-btn" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
-        <span aria-hidden="true">{t.info}</span>
-        {title}
-        <span className="pm-guide-caret" aria-hidden="true">
-          {open ? '▴' : '▾'}
-        </span>
-      </button>
-      {open && (
-        <ul className="pm-guide-list">
-          {items.map((it, i) => (
-            <li key={i}>{it}</li>
-          ))}
-        </ul>
+    <header className="pm-head">
+      <StickyBand show={past} title={title} badges={badges} onBack={goBack} backLabel={back.label} />
+      <div ref={card} className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0 space-y-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <BackButton onClick={goBack} label={back.label} />
+            <h1 className="text-2xl font-bold">{title}</h1>
+            {badges}
+          </div>
+          {summary && <p className="text-sm text-base-content/60">{summary}</p>}
+        </div>
+        {(nav || actions) && (
+          <div className="flex flex-col items-end gap-2">
+            {nav && <div className="flex flex-wrap items-center justify-end gap-3 text-sm">{nav}</div>}
+            {actions && <div className="flex flex-wrap items-center justify-end gap-2">{actions}</div>}
+          </div>
+        )}
+      </div>
+    </header>
+  );
+}
+
+/** 화면 안내 — 그리지 않는다(라이더 사용자 2026-11-24 "화면 안내 … 다른 탭에서도 다 없애"). 부르는 쪽은 그대로 둬도 된다 */
+export function GuideBox(props: { readonly title?: string; readonly items: readonly ReactNode[]; readonly storeKey?: string; readonly testId?: string; readonly tone?: 'info' | 'warning' }) {
+  void props;
+  return null;
+}
+
+/**
+ * 항목명/값 — 항목명은 작은 회색, 값은 조금 크고 굵은 짙은 글자. 칸 폭 최소 11rem 으로 들어가는 만큼만 칸(두 줄 꺾임 없게), 칸 사이 왼쪽 선.
+ * columns 는 공용과 맞춘 이름(받기만 — 칸 수는 폭이 정한다).
+ */
+export function FieldList({ rows, testId }: { readonly rows: ReadonlyArray<readonly [ReactNode, ReactNode] | false | null | undefined>; readonly testId?: string; readonly columns?: 2 | 4 }) {
+  return (
+    <dl className="grid grid-cols-[repeat(auto-fill,minmax(11rem,1fr))] gap-y-4 text-sm [&>div]:border-l [&>div]:border-base-300 [&>div]:pl-4 [&>div]:pr-4" data-testid={testId}>
+      {rows.map((r, i) =>
+        r ? (
+          <div key={i} className="min-w-0 space-y-0.5">
+            <dt className="text-xs font-medium text-base-content/55">{r[0]}</dt>
+            <dd className="min-w-0 break-words text-[15px] font-semibold text-base-content">{r[1]}</dd>
+          </div>
+        ) : null,
       )}
+    </dl>
+  );
+}
+
+/** 결과 줄 — 건수 알약 + 오른쪽 작은 정렬 글자(공용 ResultBar 와 같은 속성) */
+export function ResultBar({ count, more, sort, extra, unit = '건' }: { readonly unit?: string; readonly count: number; readonly more?: boolean; readonly sort?: { readonly oldest: boolean; readonly onChange: (oldest: boolean) => void; readonly newest?: string; readonly oldestLabel?: string }; readonly extra?: ReactNode }) {
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-2 py-1" data-list-part="mid">
+      <p className="pm-count-pill" data-testid="result-count">
+        <span className="font-bold">{count}</span>
+        {more ? `${unit} 이상` : unit}
+      </p>
+      <div className="flex items-center gap-3">
+        {extra}
+        {sort && (
+          <div role="radiogroup" aria-label="정렬" className="flex items-center">
+            <button type="button" role="radio" aria-checked={!sort.oldest} onClick={() => sort.onChange(false)}>
+              {sort.newest ?? '최신순'}
+            </button>
+            <button type="button" role="radio" aria-checked={sort.oldest} onClick={() => sort.onChange(true)}>
+              {sort.oldestLabel ?? '과거순'}
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -196,6 +294,7 @@ export function SearchPanel({
 }) {
   const [open, setOpen] = useState(false);
   const popId = useId();
+  void onReset;
   const active = (summary ?? []).filter(([, v]) => v !== '');
   useEffect(() => {
     if (!open) return;
@@ -246,9 +345,7 @@ export function SearchPanel({
           <div className="pm-pop" id={popId} role="group" aria-label={t.funnel} data-testid="search-popup" data-open={open ? '' : undefined}>
             <div className="pm-pop-grid">{children}</div>
             <div className="pm-pop-foot">
-              <button type="button" className="btn btn-sm btn-ghost" onClick={onReset}>
-                {t.clearAll}
-              </button>
+              {/* "모두 지우기"는 없앴다(라이더 사용자 2026-11-24) — 칩마다 ✕, 고른 값을 다시 누르면 풀림 */}
               {!search && submitBtn}
               <button type="button" className="btn btn-sm" onClick={() => setOpen(false)}>
                 {t.close}
@@ -299,8 +396,18 @@ export function PropertyFilter({ props, value, onChange, testId, aside, lead, ta
 }) {
   const textProps = props.filter((p) => p.text);
   const optionProps = props.filter((p) => !p.text && (p.options ?? []).length > 0);
-  const [field, setField] = useState(textProps[0]?.key ?? '');
-  const [text, setText] = useState('');
+  // 찾기 칸은 지금 걸린 글자 값을 그대로 보인다(칩에 두 번 보이지 않게) — 처음엔 값이 걸린 첫 글자 속성.
+  // 단 show 로 바꿔 보이는 값(시스템 ID 를 그대로 보이지 않게, ADR-0070 — "한 고객" 등)은 칸에 넣지 않고 칩으로 남긴다.
+  const inBox = (p: FilterProp, v: string | undefined) => !!v && (!p.text?.show || p.text.show(v) === v);
+  const [field, setField] = useState((textProps.find((p) => inBox(p, value[p.key])) ?? textProps[0])?.key ?? '');
+  const fieldProp = textProps.find((p) => p.key === field);
+  const shownValue = fieldProp && inBox(fieldProp, value[field]) ? (value[field] ?? '') : '';
+  const [text, setText] = useState(shownValue);
+  const [synced, setSynced] = useState(shownValue);
+  if (synced !== shownValue) {
+    setSynced(shownValue);
+    setText(shownValue);
+  }
   const [open, setOpen] = useState(false);
   const popId = useId();
   const cur = textProps.find((p) => p.key === field) ?? textProps[0];
@@ -314,17 +421,18 @@ export function PropertyFilter({ props, value, onChange, testId, aside, lead, ta
   }, [open]);
   const chips = props.flatMap((p) => {
     const v = value[p.key];
-    if (!v) return [];
+    // 찾기 칸에 보이는 값은 칩으로 다시 보이지 않는다(라이더 사용자 2026-11-24)
+    if (!v || (p.key === field && inBox(p, v))) return [];
     if (p.text) return [{ key: p.key, label: p.label, shown: p.text.show ? p.text.show(v) : v }];
     const o = p.options?.find((x) => x.value === v);
     return o ? [{ key: p.key, label: p.label, shown: o.chip ?? o.label }] : [];
   });
   const optionChips = chips.filter((c) => optionProps.some((p) => p.key === c.key)).length;
   const find = () => {
+    if (!cur) return;
     const q = text.trim();
-    if (!cur || !q) return;
-    onChange({ [cur.key]: q });
-    setText('');
+    // 칸을 비우고 찾기 = 그 조건 풀기
+    onChange({ [cur.key]: q || null });
   };
   return (
     <div className="space-y-2" data-testid={testId}>
@@ -406,9 +514,6 @@ export function PropertyFilter({ props, value, onChange, testId, aside, lead, ta
                 ))}
               </div>
               <div className="pm-pop-foot">
-                <button type="button" className="btn btn-sm btn-ghost" onClick={() => onChange(Object.fromEntries(optionProps.map((p) => [p.key, null])))}>
-                  {t.clearAll}
-                </button>
                 <button type="button" className="btn btn-sm" onClick={() => setOpen(false)}>
                   {t.close}
                 </button>
@@ -425,11 +530,6 @@ export function PropertyFilter({ props, value, onChange, testId, aside, lead, ta
             </button>
           </span>
         ))}
-        {chips.length > 1 && (
-          <button type="button" className="pm-fbar-reset" onClick={() => onChange(Object.fromEntries(chips.map((c) => [c.key, null])))}>
-            {t.clearAll}
-          </button>
-        )}
         {(aside || tail) && (
           <div className="ml-auto flex flex-wrap items-center gap-2">
             {aside}
@@ -450,8 +550,9 @@ export function ListHeader({ title, count, onInfo, refresh, actions }: {
   readonly actions?: ReactNode;
 }) {
   const readAt = refresh?.readAt ? new Date(refresh.readAt) : null;
+  void onInfo;
   return (
-    <header className="flex flex-wrap items-center justify-between gap-3" data-list-part="head">
+    <header className="pm-head flex flex-wrap items-center justify-between gap-3" data-list-part="head">
       <div className="flex min-w-0 items-center gap-2">
         <h1 className="text-2xl font-bold">{title}</h1>
         {count !== undefined && (
@@ -459,11 +560,7 @@ export function ListHeader({ title, count, onInfo, refresh, actions }: {
             ({count})
           </span>
         )}
-        {onInfo && (
-          <button type="button" className="pm-info-btn" aria-label={lm.listUi.helpOpen} title={lm.listUi.helpOpen} onClick={onInfo} data-testid="list-info">
-            {t.info}
-          </button>
-        )}
+        {/* 제목 옆 ⓘ 는 그리지 않는다(라이더 사용자 2026-11-24) — 도움말은 머리줄 도움 단추(help-toggle). onInfo 는 받기만 */}
       </div>
       <div className="flex flex-wrap items-center gap-2">
         {readAt && (
