@@ -118,6 +118,9 @@ describe('대시보드 지표(백엔드 회신 2026-11-18)', () => {
     const cell = await screen.findByTestId('dash-metric-lowStock');
     await waitFor(() => expect(within(cell).getByTestId('dash-lowstock-basis')).toHaveTextContent('기준을 아직 못 받음'));
     expect(within(cell).getByTestId('dash-lowstock-unknown')).toHaveTextContent('기준 모름 9개');
+    // 센 것이 없으니 "0개"(곧 품절 없음)가 아니라 "—"(2026-11-25 LAN)
+    expect(within(cell).getByTestId('dash-lowstock-count')).toHaveTextContent('—');
+    expect(within(cell).queryByText('0개')).not.toBeInTheDocument();
     first.unmount();
 
     server.use(http.get(`${API_BASE}/stock-summaries`, () => HttpResponse.json({ asOf, items: [{ mfcId: 'MFC-BSN-01', handledSkuCount: 10, soldOutSkuCount: 1 }] })));

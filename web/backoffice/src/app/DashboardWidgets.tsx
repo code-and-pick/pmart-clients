@@ -579,23 +579,25 @@ function LowStockRow({ pending, failed, items }: { readonly pending: boolean; re
   const low = items.reduce((s, i) => s + i.lowStockSkuCount, 0);
   const unknown = items.reduce((s, i) => s + i.lowStockUnknownSkuCount, 0);
   const bad = failed || !known;
+  // 어느 센터도 기준을 못 받았으면 센 것이 없다 — "0개"(곧 품절 없음)로 읽히지 않게 숫자 대신 "—"(2026-11-25 LAN: 5센터 모두 기준 전, 2,515개 모두 기준 모름)
+  const noBasis = items.length > 0 && items.every((i) => !i.lowStockBasis);
   return (
     <li className="flex items-center gap-4 py-3" data-testid="dash-metric-lowStock">
       <span className="min-w-0 flex-1">
         <span className="block whitespace-nowrap text-sm text-base-content/70">{m.metrics.lowStock}</span>
-        <span className={`block text-[28px] font-semibold leading-tight ${bad ? 'text-base-content/40' : low > 0 ? 'text-warning' : ''}`} title={bad ? m.failed : undefined}>
-          {pending ? '…' : bad ? '?' : `${low.toLocaleString('ko-KR')}개`}
+        <span className={`block text-[28px] font-semibold leading-tight ${bad || noBasis ? 'text-base-content/40' : low > 0 ? 'text-warning' : ''}`} title={bad ? m.failed : undefined} data-testid="dash-lowstock-count">
+          {pending ? '…' : bad ? '?' : noBasis ? '—' : `${low.toLocaleString('ko-KR')}개`}
         </span>
-        <span className="block truncate text-xs text-base-content/55" data-testid="dash-lowstock-basis">
+        <span className="block text-xs text-base-content/55" data-testid="dash-lowstock-basis">
           {bad ? m.failed : pending ? '' : lowStockBasisText(items)}
         </span>
         {!bad && !pending && unknown > 0 && (
-          <span className="block truncate text-[11px] text-base-content/45" data-testid="dash-lowstock-unknown">
+          <span className="block text-[11px] text-base-content/45" data-testid="dash-lowstock-unknown">
             {m.metrics.lowStockUnknown(unknown)}
           </span>
         )}
       </span>
-      {!bad && items.length > 1 && (
+      {!bad && !noBasis && items.length > 1 && (
         <ul className="w-40 shrink-0 space-y-1.5 text-[11px]" data-testid="dash-lowstock-centers">
           {items.map((i) => (
             <li key={i.mfcId}>
