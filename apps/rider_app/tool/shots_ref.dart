@@ -25,6 +25,8 @@ import 'package:rider_app/features/delivery/presentation/delivery_controller.dar
 import 'package:rider_app/features/my/data/profile.dart'
     show LocationArea, LocationState;
 import 'package:rider_app/features/my/data/records.dart';
+import 'package:rider_app/features/my/presentation/phone_verify_prompt.dart'
+    show PhoneVerifyDialog;
 import 'package:rider_app/features/offers/data/mock_offer_repository.dart';
 import 'package:rider_app/features/offers/domain/offer_list.dart';
 import 'package:rider_app/features/offers/presentation/offer_controllers.dart';
@@ -270,6 +272,18 @@ void main() {
       Navigator.of(t.element(find.byKey(const ValueKey('area-confirm')))).pop();
       await settle();
     }
+    // 전화번호 인증 안 한 기존 가입자 팝업(2026-11-25) — 홈 위에
+    router().go('/');
+    await settle();
+    unawaited(
+      showDialog<bool>(
+        context: t.element(find.byType(Scaffold).last),
+        barrierDismissible: false,
+        builder: (_) => const PhoneVerifyDialog(),
+      ),
+    );
+    await shot('phone-verify-dialog');
+    await tap('phone-verify-later');
 
     router().go('/my/inquiries/new');
     await shot('support-new');

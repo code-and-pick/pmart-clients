@@ -22,6 +22,7 @@ import '../../offers/presentation/offer_detail_screen.dart'
     show deliveryMapRoute, offerMapRoute;
 import '../../delivery/presentation/delivery_texts.dart';
 import '../../my/data/profile.dart';
+import '../../my/presentation/phone_verify_prompt.dart';
 import '../../notifications/presentation/notification_screen.dart';
 import '../../offers/domain/offer_list.dart';
 import '../../offers/presentation/offer_actions.dart';
@@ -193,6 +194,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             delivering: active.isNotEmpty,
           );
       if (reportLocation && !wasActive) unawaited(_askLocation());
+    });
+    // 전화번호 인증을 안 한 기존 가입자에게 한 번(2026-11-25 사용자) — 내 정보를 읽은 뒤
+    ref.listen(profileProvider.select((p) => p.value?.phoneVerified), (
+      prev,
+      next,
+    ) {
+      if (next == false) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) unawaited(maybeAskPhoneVerify(context, ref));
+        });
+      }
     });
     // 제한이 풀리면 한 번 알린다(신규배차는 라이더가 다시 켠다).
     ref.listen(profileProvider.select((p) => p.value?.restriction), (

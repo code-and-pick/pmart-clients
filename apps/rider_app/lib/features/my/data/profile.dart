@@ -40,6 +40,7 @@ class RiderProfileView {
     this.phoneMasked,
     this.vehicle,
     this.licenseNumberMasked,
+    this.phoneVerified,
     this.restriction = Restriction.normal,
     this.restrictedUntil,
     this.deliveryAreaMfcId,
@@ -57,6 +58,9 @@ class RiderProfileView {
 
   /// 등록된 운전면허(가린 값). 없으면 null — 오토바이·자동차·킥보드로 바꿀 때 번호가 필요하다.
   final String? licenseNumberMasked;
+
+  /// 전화번호 인증을 했는지. 계약에 아직 없다(라이더 백엔드 요청 P-1, 2026-11-25) — 실서버는 null(모름 → 묻지 않음), 목만 값.
+  final bool? phoneVerified;
   final Restriction restriction;
 
   /// 제한 기한. null 이면 무기한.
@@ -236,6 +240,9 @@ final class MockProfileRepository implements ProfileRepository {
   /// 시험용: 다음 운행수단 변경을 이 실패로 끝낸다(반영하지 않음).
   PmartFailure? failNextVehicle;
 
+  /// 목 전화번호 인증 여부(null = 모름 — 팝업 없음). 계약 요청 중(P-1).
+  bool? phoneVerified;
+
   /// 목 지금 위치 권역. null = 모든 지점 안(목 기본 — 어느 지점으로든 바꿀 수 있다).
   LocationArea? here;
 
@@ -264,6 +271,7 @@ final class MockProfileRepository implements ProfileRepository {
       phoneMasked: '010****5678',
       vehicle: vehicle,
       licenseNumberMasked: license,
+      phoneVerified: phoneVerified,
       restriction: restriction,
       restrictedUntil: until,
       deliveryAreaMfcId: areaMfcId,
