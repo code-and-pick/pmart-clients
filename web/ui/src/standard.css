@@ -226,32 +226,8 @@ main .alert.alert-success {
   box-shadow: inset 3px 0 0 var(--color-success);
 }
 
-/* 불러오기 실패·권한 없음·결과 확인 중 상자(공용 QueryState, daisyUI alert) — daisyUI 가 넓은 화면에서 가로 칸 나눔(grid-auto-flow: column)으로 바꿔
-   좁은 칸에서는 설명 글이 한 글자씩 세로로 꺾였다(2026-11-21 사용자 "불러오지 못했다고 적어놓으면 되지 UI를 이렇게 하냐").
-   칸 나눔 없이 위에서 아래로: 제목 → 한 줄 설명 → 문의 번호(작게) → 다시 시도 */
-main [role='alert'][data-state]:is(.alert) {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.25rem;
-  padding: 0.75rem 1rem;
-  font-size: 0.875rem;
-  text-align: left;
-}
-main [role='alert'][data-state] > h2 {
-  font-size: 0.875rem;
-}
-main [role='alert'][data-state] > p {
-  color: var(--pm-sub);
-  word-break: keep-all;
-}
-main [role='alert'][data-state] > .btn {
-  margin-top: 0.25rem;
-}
-main [role='alert'][data-state] > p.select-all {
-  word-break: break-all;
-  font-size: 0.8125rem;
-}
+/* 불러오기 실패·권한 없음·결과 확인 중 상자는 공용 QueryState 가 직접 모양을 그린다(2026-11-25 5단계 — 아이콘·제목·한 줄·오른쪽 단추).
+   예전 daisyUI alert 세로 쌓기 규칙은 지웠다(새 상자의 오른쪽 "다시 시도" 단추가 4px 내려가던 것 — PC 5 2026-11-25). */
 
 /* 할 일 0건(shared/admin.tsx AllDone) — 성공처럼 초록으로 칠하지 않고 판 위 회색 한 줄 */
 .pm-empty-line {
