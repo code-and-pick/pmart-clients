@@ -190,3 +190,9 @@ html[data-theme='pmart-dark'] {
   --pm-cat-4: #c98500;
   --pm-cat-5: #d55181;
 }
+
+/* DC 백오피스 표(2026-11-26 좁은 화면 점검): 번호·시각이 여러 줄로 꺾이지 않게 칸은 한 줄 — 넘치면 표 상자가 가로로 밀린다(overflow-x-auto).
+   긴 글(사유·내용·몫)은 칸에 whitespace-normal 을 붙여 꺾는다. */
+.table :where(th, td) {
+  white-space: nowrap;
+}

@@ -18,6 +18,14 @@ describe('TRF 목록', () => {
     expect(within(rows[0]!).getAllByText('2').some((el) => el.classList.contains('text-error'))).toBe(true);
   });
 
+  it('칸 이름: 줄 → 품목 수, 할당은 그대로 — 칸 이름에 마우스를 올리면 설명(2026-11-26)', async () => {
+    renderAt('/c/CDC01/trf-wave');
+    const table = await screen.findByTestId('trf-table');
+    expect(within(table).getByRole('columnheader', { name: '품목 수' })).toHaveAttribute('title', '이 TRF 에 든 상품(SKU) 종류 수');
+    expect(within(table).getByRole('columnheader', { name: '할당' }).getAttribute('title')).toContain('예약한');
+    expect(within(table).queryByRole('columnheader', { name: '줄' })).not.toBeInTheDocument();
+  });
+
   it('상태 거르기는 주소 쿼리로 서버에 보낸다', async () => {
     const view = renderAt('/c/CDC01/trf-wave');
     await screen.findAllByTestId('trf-row');

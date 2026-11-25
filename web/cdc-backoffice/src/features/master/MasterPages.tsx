@@ -148,7 +148,7 @@ function HandlingTab({ cdcId }: { readonly cdcId: string }) {
                         <span className={`badge badge-sm ${r.handlingEnabled ? 'badge-success' : 'badge-ghost'}`}>{r.handlingEnabled ? h.on : h.off}</span>
                       </td>
                       <td className="font-mono text-xs">{r.changedBy ?? messages.none}</td>
-                      <td>{r.reason ?? messages.none}</td>
+                      <td className="whitespace-normal">{r.reason ?? messages.none}</td>
                       <td>{r.updatedAt ? formatSeoul(r.updatedAt) : messages.none}</td>
                       <td className="text-right">
                         <button
@@ -332,7 +332,7 @@ function LocationDetailPage({ cdcId }: { readonly cdcId: string }) {
                   x.locationType === 'PICK_FACE'
                     ? [l.pickFace, `${x.pickFaceMinQty ?? l.notSet} / ${x.pickFaceTargetQty ?? l.notSet}`]
                     : null,
-                  ['version', x.version ?? messages.none],
+                  [l.version, x.version ?? messages.none],
                   [l.updatedAt, x.updatedAt ? formatSeoul(x.updatedAt) : messages.none],
                 ]}
               />

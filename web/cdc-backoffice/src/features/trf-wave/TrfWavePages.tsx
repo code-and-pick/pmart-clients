@@ -309,11 +309,11 @@ function TransferListPage({ cdcId }: { readonly cdcId: string }) {
                     <th>{m.fields.mfc}</th>
                     <th>{m.fields.state}</th>
                     <th>{m.fields.dueAt}</th>
-                    <th className="text-right">{m.fields.lines}</th>
-                    <th className="text-right">{m.fields.approved}</th>
-                    <th className="text-right">{m.fields.allocated}</th>
-                    <th className="text-right">{m.fields.picked}</th>
-                    <th className="text-right">{m.fields.short}</th>
+                    <th className="text-right" title={m.hint.lines}>{m.fields.lines}</th>
+                    <th className="text-right" title={m.hint.approved}>{m.fields.approved}</th>
+                    <th className="text-right" title={m.hint.allocated}>{m.fields.allocated}</th>
+                    <th className="text-right" title={m.hint.picked}>{m.fields.picked}</th>
+                    <th className="text-right" title={m.hint.short}>{m.fields.short}</th>
                     <th>{m.fields.wave}</th>
                   </tr>
                 </thead>
@@ -443,10 +443,10 @@ function TransferDetailPage({ cdcId }: { readonly cdcId: string }) {
                   <thead>
                     <tr>
                       <th>{m.fields.sku}</th>
-                      <th className="text-right">{m.fields.approved}</th>
-                      <th className="text-right">{m.fields.allocated}</th>
-                      <th className="text-right">{m.fields.picked}</th>
-                      <th className="text-right">{m.fields.short}</th>
+                      <th className="text-right" title={m.hint.approved}>{m.fields.approved}</th>
+                      <th className="text-right" title={m.hint.allocated}>{m.fields.allocated}</th>
+                      <th className="text-right" title={m.hint.picked}>{m.fields.picked}</th>
+                      <th className="text-right" title={m.hint.short}>{m.fields.short}</th>
                     </tr>
                   </thead>
                   <tbody>

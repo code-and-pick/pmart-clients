@@ -53,6 +53,7 @@ export const messages = {
   },
   menus: {
     dashboard: '대시보드·관제',
+    floor: '센터 평면도',
     trfWave: 'TRF·Wave',
     tasks: '통합 작업관리',
     picking: '피킹·분배',
@@ -124,8 +125,16 @@ export const messages = {
     page: (n: number) => `${n + 1}쪽`,
     detail: 'TRF 상세',
     back: 'TRF 목록으로',
-    lines: '줄별 수량',
-    linesEmpty: '줄이 없어요.',
+    lines: '품목별 수량',
+    linesEmpty: '품목이 없어요.',
+    /** 칸 이름에 마우스를 올리면 보이는 설명(사용자 2026-11-26 "줄이랑 할당 칼럼은 뭘 말하는 거야?") */
+    hint: {
+      lines: '이 TRF 에 든 상품(SKU) 종류 수',
+      approved: 'MFC 가 요청해 승인된 수량',
+      allocated: 'DC 재고에서 이 TRF 몫으로 잡아 둔(예약한) 수량 — 승인보다 적으면 재고가 모자라 일부만 잡은 것',
+      picked: '할당한 것 중 현장에서 실제로 집은 수량',
+      short: '집으러 갔는데 칸에 없어 못 집은 수량',
+    },
     selectHint: '확보(ALLOCATED·일부 확보)되고 Wave 에 안 든 TRF 를 골라 Wave 를 만들 수 있어요.',
     pick: (id: string) => `${id} 고르기`,
     picked: (n: number) => `${n}개 골랐어요`,
@@ -137,7 +146,7 @@ export const messages = {
       dueAt: '기한',
       deadline: '기한 뜻',
       wave: 'Wave',
-      lines: '줄',
+      lines: '품목 수',
       approved: '승인',
       allocated: '할당',
       picked: '피킹',
@@ -310,6 +319,7 @@ export const messages = {
       detailBack: '로케이션 목록으로',
       restrictions: '사용 제한',
       pickFace: '피킹면 최소·목표',
+      version: '버전',
       notSet: '미설정',
       updatedAt: '바뀐 시각',
       actionTitle: '상태 바꾸기',
@@ -403,6 +413,23 @@ export const messages = {
     tasks: '작업 종류·상태별',
     empty: '없음',
     noInbound: '입고 현황은 입고 서비스가 아직 없어 보이지 않아요.',
+  },
+
+  /** 센터 평면도(2D) — 시뮬레이터 배치 */
+  floor: {
+    none: '이 DC 의 평면도가 아직 없어요.',
+    source: (s: string) => `가상 현장 배치(${s}) — 실측 도면이 아니에요. 칸 재고는 서버 값이에요.`,
+    pickHint: '통로 번호판을 누르면 그 통로 칸 재고가 여기에 보여요.',
+    rack: '팔레트 랙',
+    shelf: '피킹 선반',
+    area: '작업 자리',
+    lift: (n: number) => `승강기 ${n}`,
+    liftLegend: '승강기(번호)',
+    aisleLabel: (plate: string) => `통로 ${plate}`,
+    svgLabel: (floor: string) => `${floor} 평면도`,
+    close: '닫기',
+    toLocations: '이 구역·층 로케이션 목록 ›',
+    stock: '이 통로 칸 재고',
   },
 
   /** 출고관리 — 출발 검증 결과(cdc-outbound 0.16.0 M-3) */

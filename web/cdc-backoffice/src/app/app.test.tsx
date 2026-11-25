@@ -43,13 +43,13 @@ describe('로그인', () => {
 });
 
 describe('메뉴', () => {
-  it('14개 메뉴가 모두 DC 아래 주소 — 설비·환경·물류 자산 메뉴는 없다', async () => {
+  it('15개 메뉴가 모두 DC 아래 주소 — 설비·환경·물류 자산 메뉴는 없다', async () => {
     renderAt('/');
     expect(await screen.findByRole('heading', { name: '오늘 출고 현황' })).toBeInTheDocument();
     for (const menu of allMenus) {
       expect(screen.getByRole('link', { name: m.menus[menu.key] })).toHaveAttribute('href', `/c/CDC01/${menu.segment}`);
     }
-    expect(allMenus).toHaveLength(14);
+    expect(allMenus).toHaveLength(15);
     expect(screen.getByRole('link', { name: 'TRF·Wave' })).toHaveAttribute('href', '/c/CDC01/trf-wave');
     expect(screen.getByRole('link', { name: '재고관리' })).toHaveAttribute('href', '/c/CDC01/inventory');
     for (const gone of ['시설·설비', '환경·품질', '물류 자산']) expect(screen.queryByText(gone)).not.toBeInTheDocument();

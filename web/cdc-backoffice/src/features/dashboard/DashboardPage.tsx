@@ -96,23 +96,26 @@ function Breakdown({ title, rows, name, link, testId }: { readonly title: string
       ) : (
         <ul className="space-y-2">
           {rows.map((r) => {
+            // 이름·수 한 줄, 막대는 그 아래 전체 폭(좁은 화면에서도 막대가 보이게 — 2026-11-26 점검)
             const body = (
-              <>
-                <span className="w-32 shrink-0 truncate text-sm">{name(r.key)}</span>
-                <span className="h-2 flex-1 overflow-hidden rounded-full bg-base-200">
+              <span className="block w-full space-y-1">
+                <span className="flex items-center justify-between gap-2">
+                  <span className="truncate text-sm">{name(r.key)}</span>
+                  <span className="text-sm font-semibold tabular-nums">{r.count}</span>
+                </span>
+                <span className="block h-1.5 overflow-hidden rounded-full bg-base-200">
                   <span className="block h-full rounded-full bg-primary/70" style={{ width: `${(r.count / max) * 100}%` }} />
                 </span>
-                <span className="w-10 text-right text-sm font-semibold tabular-nums">{r.count}</span>
-              </>
+              </span>
             );
             return (
               <li key={r.key}>
                 {link ? (
-                  <Link className="flex items-center gap-3 rounded px-1 hover:bg-base-200" to={link(r.key)}>
+                  <Link className="flex rounded px-1 py-0.5 hover:bg-base-200" to={link(r.key)}>
                     {body}
                   </Link>
                 ) : (
-                  <div className="flex items-center gap-3 px-1">{body}</div>
+                  <div className="flex px-1 py-0.5">{body}</div>
                 )}
               </li>
             );

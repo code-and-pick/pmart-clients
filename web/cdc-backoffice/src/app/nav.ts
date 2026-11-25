@@ -34,6 +34,14 @@ export const navGroups: readonly MenuGroup[] = [
         apiReady: ['그날 TRF 상태별 수·수량 합·진행률, Wave·작업 상태별(cdc-outbound 0.11.0 outbound-summary)'],
         apiMissing: ['입고 진행(입고 서비스 없음)', '층·구역 현황·병목·KPI 집계'],
       },
+      {
+        // 2D 평면도(사용자 2026-11-26 "MFC 백오피스처럼") — 배치는 시뮬레이터, 칸 재고는 서버
+        key: 'floor',
+        segment: 'floor',
+        ready: true,
+        apiReady: ['통로 칸 재고(location-stocks)'],
+        apiMissing: ['작업자 위치(M-1 — 배포 중)', '칸 좌표 서버 API(시뮬레이터 배치를 씀)'],
+      },
     ],
   },
   {

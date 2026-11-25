@@ -185,7 +185,7 @@ function DepartureDetail({ cdcId, d }: { readonly cdcId: string; readonly d: Dep
                 <td className="text-error">{x.kind ? (t.mismatchKind[x.kind] ?? x.kind) : messages.none}</td>
                 <td className="font-mono">{x.lpn ?? messages.none}</td>
                 <td className="font-mono">{x.trfId ?? messages.none}</td>
-                <td>{x.detail ?? messages.none}</td>
+                <td className="whitespace-normal">{x.detail ?? messages.none}</td>
               </tr>
             ))}
           </tbody>

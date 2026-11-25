@@ -285,7 +285,7 @@ function TaskDetailPage({ cdcId }: { readonly cdcId: string }) {
                       <td className="text-right tabular-nums">{messages.qty(l.pickedQty ?? 0)}</td>
                       <td className={`text-right tabular-nums ${(l.shortQty ?? 0) > 0 ? 'font-semibold text-error' : ''}`}>{messages.qty(l.shortQty ?? 0)}</td>
                       <td>{l.shortReason ?? messages.none}</td>
-                      <td className="text-xs">
+                      <td className="whitespace-normal text-xs">
                         {(l.shares ?? []).length === 0
                           ? messages.none
                           : (l.shares ?? []).map((s) => (

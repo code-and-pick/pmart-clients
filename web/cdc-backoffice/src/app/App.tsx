@@ -10,6 +10,7 @@ import { env } from '../env';
 import { CenterSwitcher } from '../features/centers/centers';
 import { useMe } from '../features/me/useMe';
 import { DashboardPage } from '../features/dashboard/DashboardPage';
+import { FloorMenu } from '../features/floor/FloorPage';
 import { InventoryMenu } from '../features/inventory/InventoryPages';
 import { MasterMenu } from '../features/master/MasterPages';
 import { PreparingPage } from '../features/menus/PreparingPage';
@@ -166,6 +167,7 @@ function CenterScope({ menu }: { readonly menu: MenuItem }) {
 /** 만든 메뉴 화면(nav.ts `ready`). 아직이면 "준비 중" */
 const menuPages: Partial<Record<MenuKey, ComponentType<{ readonly cdcId: string }>>> = {
   dashboard: DashboardPage,
+  floor: FloorMenu,
   trfWave: TrfWaveMenu,
   tasks: TasksMenu,
   master: MasterMenu,
