@@ -385,7 +385,7 @@ export function SearchPanel({
 const pf = {
   field: '찾을 항목',
   box: '찾기 칸',
-  find: '찾기',
+  find: '조회', // 찾기 단추 글자 통일 "조회"(2026-11-25 사용자 결정, PC 5 전달)
   hint: (label: string) => `${label}로 찾기`,
 } as const;
 

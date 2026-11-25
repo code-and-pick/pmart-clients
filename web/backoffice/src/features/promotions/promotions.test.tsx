@@ -152,7 +152,7 @@ describe('행사·쿠폰', () => {
     await user.type(within(finder).getByLabelText('값'), '4829');
     expect(within(finder).getByText('고객번호는 숫자 6자리예요.')).toBeInTheDocument(); // 모양이 틀리면 묻지 않는다
     await user.type(within(finder).getByLabelText('값'), '13');
-    await user.click(within(finder).getByRole('button', { name: '찾기' }));
+    await user.click(within(finder).getByRole('button', { name: '조회' }));
     const item = await screen.findByTestId('grant-search-item');
     expect(item).toHaveTextContent('482913');
     expect(item).not.toHaveTextContent('김고객'); // 원문 이름은 없다
@@ -172,7 +172,7 @@ describe('행사·쿠폰', () => {
     renderAt('/promotions/PRM-seed-1', as.marketing);
     const finder = await screen.findByRole('search', { name: '받을 고객 찾기' });
     await user.type(within(finder).getByLabelText('값'), '482913');
-    await user.click(within(finder).getByRole('button', { name: '찾기' }));
+    await user.click(within(finder).getByRole('button', { name: '조회' }));
     expect(await screen.findByText(/이 역할은 고객 찾기를 쓸 수 없어요/)).toBeInTheDocument();
     expect(screen.queryByText('맞는 고객이 없어요.')).not.toBeInTheDocument();
   });

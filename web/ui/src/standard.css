@@ -1071,3 +1071,12 @@ main a.pm-row-link .pm-row-title {
 .pm-note[data-tone='neutral'] {
   box-shadow: inset 3px 0 0 var(--color-base-300);
 }
+
+/* 왼쪽 메뉴 폭 고정 — 메뉴가 화면보다 길면 스크롤 막대가 폭을 먹어 메뉴·본문 시작이 약 10px 줄던 것(대시보드처럼 펼친 메뉴가 많을 때,
+   PC 5 2026-11-25). 막대는 숨기고 휠·터치 스크롤은 그대로 — 어느 화면이든 220px */
+[data-testid='side-menu'] {
+  scrollbar-width: none;
+}
+[data-testid='side-menu']::-webkit-scrollbar {
+  display: none;
+}

@@ -12,7 +12,7 @@ const section = (name: string) => screen.getByRole('region', { name });
 
 async function search(q: string) {
   await userEvent.type(await screen.findByRole('textbox', { name: '찾을 번호' }), q);
-  await userEvent.click(screen.getByRole('button', { name: '찾기' }));
+  await userEvent.click(screen.getByRole('button', { name: '조회' }));
 }
 
 describe('통합 조회', () => {
