@@ -1368,7 +1368,16 @@ class SignupDoneScreen extends ConsumerWidget {
             children: [
               // 2026-11-25 사용자 "라이더 지원하기 완료하면 나오는 UI 너무 별로니까 1번째 사진처럼" — 굵은 제목, 위·사이 간격을 사진대로
               const SizedBox(height: 60),
-              Text(l10n.signupDoneTitle, style: _headline),
+              // 2026-11-25 사용자 "제목 글자 아주 조금만 더 납작하고 굵게" — 세로 94%로 눌러 납작하게, 굵기 한 단계 위(w800)
+              Transform(
+                alignment: Alignment.topLeft,
+                transform: Matrix4.diagonal3Values(1, 0.94, 1),
+                child: Text(
+                  l10n.signupDoneTitle,
+                  key: const ValueKey('signup-done-title'),
+                  style: _headline.copyWith(fontWeight: FontWeight.w800),
+                ),
+              ),
               const SizedBox(height: 16),
               Text(
                 l10n.signupDoneBody,
@@ -1379,14 +1388,13 @@ class SignupDoneScreen extends ConsumerWidget {
                 ),
               ),
               const Spacer(),
-              // 사용자가 준 사진의 색 폭죽 그림(연보라 원 포함)을 그대로 잘라 넣었다 — 아이콘으로 대신하지 않는다.
-              Center(
-                child: Image.asset(
-                  'assets/images/signup_done.png',
-                  key: const ValueKey('signup-done-art'),
-                  width: 100,
-                  height: 100,
-                ),
+              // 2026-11-25 사용자가 만든 배달기사 캐릭터(폭죽·불꽃 포함) 그림을 그대로 — 잘라 넣은 작은 폭죽 그림은 뺐다(해상도)
+              Image.asset(
+                'assets/images/signup_done_rider.png',
+                key: const ValueKey('signup-done-art'),
+                width: double.infinity,
+                fit: BoxFit.contain,
+                filterQuality: FilterQuality.medium,
               ),
               const SizedBox(height: 28),
               RiderButton(

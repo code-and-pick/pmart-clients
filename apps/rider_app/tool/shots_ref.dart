@@ -296,7 +296,7 @@ void main() {
     await settle();
     await t.runAsync(
       () => precacheImage(
-        const AssetImage('assets/images/signup_done.png'),
+        const AssetImage('assets/images/signup_done_rider.png'),
         t.element(find.byType(Scaffold).last),
       ),
     );
