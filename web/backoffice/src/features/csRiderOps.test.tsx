@@ -265,7 +265,7 @@ describe('배송 확인', () => {
     expect(await screen.findByTestId('execution-state')).toHaveTextContent('전달 실패 등록');
     expect(screen.getByTestId('delivery-failure')).toHaveTextContent('세 번 전화했지만');
     const box = screen.getByTestId('rider-ops-handoff');
-    expect(box).toHaveTextContent('라이더 백오피스(지원센터)에서');
+    expect(box).toHaveTextContent('라이더 백오피스에서');
     const link = await within(box).findByTestId('rider-ops-case');
     expect(link).toHaveAttribute('href', '/cases/CASE-MOCK-2');
     expect(link).toHaveTextContent('전달 실패');

@@ -87,7 +87,7 @@ describe('행사·쿠폰', () => {
     await user.type(within(form).getByLabelText('할인액(원)'), '5000');
     await user.selectOptions(within(form).getByLabelText('받는 방법'), 'ADMIN');
     await user.click(within(form).getByRole('button', { name: '저장하고 승인 요청' }));
-    expect(await screen.findByText('승인을 요청했어요. 승인되면 시작 시각부터 고객에게 적용돼요.')).toBeInTheDocument();
+    expect(await screen.findByText('승인을 요청했어요')).toBeInTheDocument();
     const cr = view.mutations('/change-requests')[0]!;
     const body = (await cr.clone().json()) as { type: string; targetService: string; allowedActions: string[] };
     expect(body).toMatchObject({ type: 'PROMOTION', targetService: 'promotion-service', allowedActions: ['ACTIVATE_PROMOTION'] });

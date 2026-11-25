@@ -10,7 +10,7 @@ describe('문의 닫기', () => {
     const view = renderAt('/inquiries/INQ-MOCK-3', as.cs);
     await userEvent.click(await screen.findByRole('button', { name: '문의 닫기' }));
     const form = screen.getByRole('form', { name: '문의 닫기' });
-    expect(within(form).getByRole('note')).toHaveTextContent('다시 열 수 없고');
+    expect(within(form).getByRole('note')).toHaveTextContent('다시 열 수 없어요');
     const submit = within(form).getByRole('button', { name: '닫기' });
     await userEvent.type(within(form).getByLabelText('닫는 사유(필수, 2~500자)'), '중');
     expect(submit).toBeDisabled();

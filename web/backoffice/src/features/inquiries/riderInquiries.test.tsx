@@ -38,7 +38,7 @@ describe('라이더 문의', () => {
     expect(await within(screen.getByTestId('inquiry-rider')).findByText(/R4785/)).toBeInTheDocument();
     expect(screen.queryByText('고객 ID')).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: '이 문의로 라이더 컴플레인 기록' })).not.toBeInTheDocument();
-    expect(screen.getByText('라이더는 앱의 문의에서 답변을 봐요. 답변은 고칠 수 없어요.')).toBeInTheDocument();
+    expect(screen.getByText('답변은 고칠 수 없어요')).toBeInTheDocument();
 
     await userEvent.type(screen.getByLabelText('답변 쓰기'), '정산은 내일 반영돼요');
     await userEvent.click(screen.getByRole('button', { name: '답변 보내기' }));

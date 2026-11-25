@@ -13,7 +13,7 @@ describe('반품 회수 실패 접수 건', () => {
     const claim = await screen.findByTestId('case-claim');
     expect(await within(claim).findByTestId('case-claim-state')).toHaveTextContent('회수 실패');
     expect(within(claim).getByTestId('recovery-actions')).toBeInTheDocument();
-    expect(within(claim).getByText(/저절로 끝나지 않아요/)).toBeInTheDocument();
+    expect(within(claim).getByText(/조치 뒤 직접 완료 처리해요/)).toBeInTheDocument();
 
     expect(screen.getByRole('button', { name: '내가 맡기' })).toBeInTheDocument();
     expect(screen.queryByTestId('case-transfer')).not.toBeInTheDocument();

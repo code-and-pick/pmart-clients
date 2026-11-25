@@ -7,7 +7,7 @@ import { renderAt } from '../../test/render';
 describe('본인 인사 처리·권한 요청', () => {
   it('내 직원 상세: 소속 변경·정지·퇴사 버튼 없이 "다른 인사 담당자가 처리해요"', async () => {
     renderAt('/employees/OP-hr-1'); // 로그인 = OP-hr-1
-    expect(await screen.findByTestId('self-action-note')).toHaveTextContent('다른 인사 담당자가 처리해요');
+    expect(await screen.findByTestId('self-action-note')).toHaveTextContent('내 계정은 인사 처리를 할 수 없어요');
     expect(screen.queryByRole('button', { name: '소속 변경' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '정지' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '퇴사' })).not.toBeInTheDocument();

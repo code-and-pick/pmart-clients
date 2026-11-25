@@ -68,7 +68,7 @@ describe('권한 관리', () => {
     await userEvent.type(within(form).getByLabelText('요청 사유'), '상품 승인 겸직');
     await userEvent.click(within(form).getByRole('button', { name: '승인 요청' }));
     await waitFor(() => expect(screen.getAllByTestId('grant-request').some((li) => li.textContent?.includes('승인 대기'))).toBe(true));
-    expect(screen.getByText(/결정되지 않은 요청이 있어/)).toBeInTheDocument();
+    expect(screen.getByText(/결정 전 요청이 있어/)).toBeInTheDocument();
     const sent = view.mutations('/grant-requests')[0]!;
     expect(sent.headers.get('X-Expected-Version')).toBe('3');
     expect(await sent.json()).toEqual({ grants: [{ role: 'PRODUCT_APPROVER' }], reason: '상품 승인 겸직' });

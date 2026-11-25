@@ -143,7 +143,7 @@ describe('지원센터 사건', () => {
     expect(await screen.findByRole('radio', { name: '고객 주소 오입력 등' })).toBeEnabled();
     expect(screen.queryByTestId('rider-fee-note')).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole('radio', { name: '라이더 실수' }));
-    expect(screen.getByTestId('rider-fee-note')).toHaveTextContent('라이더 원래 배달료가 지급되지 않습니다');
+    expect(screen.getByTestId('rider-fee-note')).toHaveTextContent('라이더 실수면 배달료가 안 나가요');
     await userEvent.selectOptions(screen.getByLabelText(/고객이 고른 처리/), 'REFUND');
     expect(screen.getByText(/전 품목을 환불해요/)).toBeInTheDocument();
     await userEvent.type(screen.getByLabelText('요약'), '다른 동에 놓음');
@@ -157,7 +157,7 @@ describe('지원센터 사건', () => {
     await userEvent.click(await screen.findByRole('radio', { name: '고객 주소 오입력 등' }));
     const select = screen.getByLabelText('고객이 고른 처리');
     expect([...within(select).getAllByRole('option')].map((o) => o.textContent)).toEqual(['다시 배송', '환불(상품값 − 9,000원)']);
-    expect(screen.getByTestId('choice-note')).toHaveTextContent('200m 안이면 원래 라이더가 무료로');
+    expect(screen.getByTestId('choice-note')).toHaveTextContent('200m 안 무료, 넘으면 9,000원');
     const box = screen.getByTestId('redelivery-address');
     await userEvent.type(screen.getByLabelText('요약'), '고객이 동 호수를 잘못 입력');
     expect(screen.getByRole('button', { name: '오배송 접수하기' })).toBeDisabled(); // 주소·사유 필수
@@ -377,7 +377,7 @@ describe('사건 다시 열기(case 0.6.0)·넘기기(0.7.0)', () => {
     await userEvent.click(within(form).getByRole('button', { name: '관리자에게 넘기기' }));
     await waitFor(() => expect(screen.getByTestId('case-group')).toHaveTextContent('관리자 팀'));
     expect(screen.getByTestId('case-group')).toHaveTextContent('관리자 처리 중');
-    expect(screen.getByTestId('next-action')).toHaveTextContent('아직 처리가 끝나지 않았어요'); // 관리자 처리 중 안내는 다음 할 일 카드로(2026-11-18)
+    expect(screen.getByTestId('next-action')).toHaveTextContent('관리자 팀이 처리 중이에요'); // 관리자 처리 중 안내는 다음 할 일 카드로(2026-11-18)
     // 지원센터에는 맡기·닫기·넘기기가 없다
     expect(screen.queryByRole('button', { name: '맡기' })).not.toBeInTheDocument();
     expect(screen.queryByRole('form', { name: '완료 처리' })).not.toBeInTheDocument();

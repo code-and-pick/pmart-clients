@@ -391,7 +391,7 @@ describe('업무 도우미 — 채팅 세션(1.3.0, 2026-11-21)', () => {
     render(<App memory initialPath="/assistant" initialToken={as.md} assistantPort={port} />);
     await ask('사과 팔아요?');
     expect(await screen.findByTestId('answer-text')).toHaveTextContent('사과 1.5kg');
-    expect(screen.getByTestId('product-info')).toHaveTextContent('상품 검색 결과');
+    expect(screen.getByTestId('product-info')).toHaveTextContent('확정 값은 상품 화면에서');
     expect(screen.queryByText('근거 문서가 붙지 않은 답변이에요. 확정 정보로 쓰지 마세요.')).not.toBeInTheDocument();
   });
 });

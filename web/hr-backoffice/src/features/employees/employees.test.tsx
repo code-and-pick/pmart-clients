@@ -201,7 +201,7 @@ describe('직원 상세', () => {
     await screen.findByRole('heading', { name: /이피킹/ });
     await userEvent.click(screen.getByRole('button', { name: '정지' }));
     const dialog = within(screen.getByRole('dialog', { name: '정지' }));
-    expect(dialog.getByRole('note')).toHaveTextContent('로그인이 바로 막혀요');
+    expect(dialog.getByRole('note')).toHaveTextContent('바로 로그인이 막혀요');
     expect(dialog.getByRole('button', { name: '확인' })).toBeDisabled(); // 사유 필수
     await userEvent.type(dialog.getByLabelText('사유'), '계약 위반');
     await userEvent.click(dialog.getByRole('button', { name: '확인' }));
@@ -235,7 +235,7 @@ describe('직원 상세', () => {
     await screen.findByRole('heading', { name: /이피킹/ });
     await userEvent.click(screen.getByRole('button', { name: '소속 변경' }));
     const dialog = within(screen.getByRole('dialog', { name: '소속 변경' }));
-    expect(dialog.getByText(/이전 센터 권한은 내일 00:00 에 자동으로 끝나요/)).toBeInTheDocument();
+    expect(dialog.getByText(/이전 센터 권한은 내일 0시에 끝, 새 권한은 따로 요청/)).toBeInTheDocument();
     await dialog.findByRole('combobox', { name: '센터' });
     await pick(userEvent.setup(), '센터', /MFC-SEL-01/, 'ㅅㅍ'); // 쳐서 찾는 고르기(2026-11-19) — 초성(송파)으로
     await userEvent.type(dialog.getByLabelText('사유'), '센터 이동');

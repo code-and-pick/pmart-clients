@@ -45,7 +45,7 @@ describe('오배송 회수 진행', () => {
     renderAt('/cases/CASE-MOCK-4', as.riderOps);
     expect(await screen.findByRole('link', { name: /^회수 배송 / })).toHaveAttribute('href', '/deliveries/DLV-MOCK-R1'); // 글자는 화면 번호(없으면 번호 없음), ID 는 링크 대상
     expect(screen.getByRole('link', { name: /^재발송 배송 / })).toHaveAttribute('href', '/deliveries/DLV-MOCK-S1');
-    expect(screen.getByTestId('case-recovery-note')).toHaveTextContent('저절로 닫히지 않아요');
+    expect(screen.getByTestId('case-recovery-note')).toHaveTextContent('회수가 끝나도 직접 완료 처리해요');
     for (const t of ['회수 배송 생김', '회수함', '매장 반납 · SYSTEM · MFC-BSN-01', '재발송 배송 생김 · SYSTEM · DLV-MOCK-S1']) expect(screen.getByText(new RegExp(t))).toBeInTheDocument();
   });
 

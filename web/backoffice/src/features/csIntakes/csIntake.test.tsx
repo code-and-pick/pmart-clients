@@ -42,9 +42,9 @@ describe('전화·채팅 접수', () => {
     });
 
     await userEvent.click(within(saved).getByRole('link', { name: /^문의 / }));
-    expect(await screen.findByText('상담원이 전화·채팅·메일로 받아 남긴 문의예요', { exact: false })).toBeInTheDocument();
+    expect(await screen.findByText('상담원이 남긴 문의예요', { exact: false })).toBeInTheDocument();
     expect(await screen.findAllByTestId('cs-intake-row')).toHaveLength(1);
-    expect(screen.getByText(/답변은 고객에게 가지 않아요/)).toBeInTheDocument();
+    expect(screen.getByText(/고객에게 가지 않는 기록용 답변이에요/)).toBeInTheDocument();
   });
 
   it('고객번호(6자리)를 넣으면 고객을 찾아 확인하고, 고객 계정 ID 로 보낸다 — 없는 번호면 보내지 못한다', async () => {
@@ -91,7 +91,7 @@ describe('전화·채팅 접수', () => {
   it('대리를 고르면 취소·환불 경고, 남긴 문의 상세에도 대리 경고', async () => {
     renderAt('/cs-intakes/new', as.cs);
     await fill({ channel: '채팅', customer: 'CUS-1001', method: '앱 로그인 채팅', relation: '대리(가족 등)', summary: '어머니 대신 문의' });
-    expect(screen.getByTestId('cs-intake-proxy-warning')).toHaveTextContent('본인 확인 전에는 취소·환불을 요청하지 마세요');
+    expect(screen.getByTestId('cs-intake-proxy-warning')).toHaveTextContent('본인 확인 전 취소·환불 금지');
     await userEvent.click(screen.getByRole('button', { name: '접수 남기기' }));
     await userEvent.click(within(await screen.findByTestId('cs-intake-saved')).getByRole('link', { name: /^문의 / }));
     expect(await screen.findByTestId('inquiry-proxy-warning')).toBeInTheDocument();

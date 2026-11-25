@@ -32,7 +32,7 @@ describe('처리 대기', () => {
     const view = renderAt('/pending', as.admin);
     const row = (await screen.findAllByTestId('pending-item')).find((r) => r.textContent?.includes('MFC 예약 거절'))!;
     await userEvent.click(within(row).getByRole('button', { name: '처리 완료(밖에서 해결)' }));
-    expect(within(row).getByRole('alert')).toHaveTextContent('주문·재고는 바뀌지 않으니');
+    expect(within(row).getByRole('alert')).toHaveTextContent('환불·정정은 각 메뉴에서');
     expect(within(row).getByRole('button', { name: '보내기' })).toBeDisabled();
     await userEvent.type(within(row).getByLabelText('처리 사유'), 'MFC 재예약으로 해결');
     await userEvent.click(within(row).getByRole('button', { name: '보내기' }));
@@ -111,7 +111,7 @@ describe('처리 대기', () => {
     expect(within(row.closest('section')!).getByRole('heading', { name: 'MFC 중지 실패(취소 멈춤)' })).toBeInTheDocument(); // 종류는 묶음 머리에
     expect(within(row).queryByRole('button', { name: '처리 완료(밖에서 해결)' })).not.toBeInTheDocument();
     await userEvent.click(within(row).getByRole('button', { name: '다시 시도' }));
-    expect(within(row).getByText(/누가·사유가 MFC 재시도 기록으로 남아요/)).toBeInTheDocument();
+    expect(within(row).getByText(/1~500자\. 개인정보는 적지 마세요/)).toBeInTheDocument();
     expect(within(row).getByRole('button', { name: '보내기' })).toBeDisabled();
     await userEvent.type(within(row).getByLabelText('다시 시도 사유(필수)'), 'PDA 재부팅 확인');
     await userEvent.click(within(row).getByRole('button', { name: '보내기' }));
@@ -126,7 +126,7 @@ describe('처리 대기', () => {
     const view = renderAt('/pending', as.admin);
     const row = await rowOf('재고와 인계 수량이 다름');
     await userEvent.click(within(row).getByRole('button', { name: '다시 시도' }));
-    expect(within(row).getByRole('note')).toHaveTextContent('실물을 확인하고 재고를 정정한 뒤');
+    expect(within(row).getByRole('note')).toHaveTextContent('실물 확인·재고 정정 뒤');
     await userEvent.type(within(row).getByLabelText('다시 시도 사유(필수)'), '재고 정정함');
     await userEvent.click(within(row).getByRole('button', { name: '보내기' }));
     expect(await within(row).findByTestId('retry-rejected')).toHaveTextContent('다시 실패했어요');

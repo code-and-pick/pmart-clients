@@ -46,7 +46,7 @@ describe('매출·환불·상품별 판매(관리자)', () => {
 describe('승인 — 서버가 판정한 "결정할 수 있나"(AP-3)', () => {
   it('승인자에게 직원 권한 요청은 NO_ROLE — "다른 승인자가 심사해요", 버튼 꺼짐', async () => {
     renderAt('/approvals/apv-seed-grant-1', as.approver);
-    expect(await screen.findByTestId('decide-blocked')).toHaveTextContent('승인 역할이 없어 보기만 해요');
+    expect(await screen.findByTestId('decide-blocked')).toHaveTextContent('심사 역할이 없어 보기만 해요');
     expect(screen.getByTestId('next-action')).toHaveTextContent('다른 승인자가 심사해요');
     expect(screen.getByRole('button', { name: '승인' })).toBeDisabled();
   });

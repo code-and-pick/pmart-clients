@@ -105,7 +105,7 @@ describe('반품 claim 0.3.0', () => {
     claimAs({ pickup: { ...pickup, feeRefundOnCancel: 'AGENT_CHOOSES' } });
     renderAt('/claims/CLM-MOCK-RF', as.cs);
     const box = await screen.findByTestId('recovery-actions');
-    expect(within(box).getByRole('checkbox', { name: /낸 회수비 돌려주기/ })).toHaveAccessibleName(/상담원이 정해요/);
+    expect(within(box).getByRole('checkbox', { name: /낸 회수비 돌려주기/ })).toHaveAccessibleName(/안 고르면 돌려주지 않아요/);
     expect(within(box).queryByTestId('fee-on-cancel')).not.toBeInTheDocument();
   });
 
@@ -153,7 +153,7 @@ describe('반품 claim 0.3.0', () => {
     );
     const view = renderAt('/claims/CLM-MOCK-RF', as.cs);
     const box = await screen.findByTestId('recovery-actions');
-    expect(within(box).getByTestId('close-as-received-hint')).toHaveTextContent('남은 수량은 환불이 없고');
+    expect(within(box).getByTestId('close-as-received-hint')).toHaveTextContent('받은 수량만 환불하고 끝내요');
     expect(within(box).queryByRole('button', { name: '반품 취소' })).not.toBeInTheDocument();
     expect(within(box).queryByRole('button', { name: '다시 회수 요청' })).not.toBeInTheDocument();
     await userEvent.type(within(box).getByRole('textbox'), '고객이 하나는 이미 썼음');
