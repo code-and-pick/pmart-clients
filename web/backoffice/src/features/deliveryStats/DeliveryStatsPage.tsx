@@ -55,16 +55,9 @@ interface DispRow {
 }
 
 /** 초 → "N초·N분·N시간 N분", 값 없으면 — */
-export function dur(sec: number | null | undefined): string {
-  if (sec === null || sec === undefined || !Number.isFinite(sec)) return '—';
-  const x = Math.max(0, Math.round(sec));
-  if (x < 60) return `${x}초`;
-  const mi = Math.round(x / 60);
-  if (mi < 60) return `${mi}분`;
-  const h = Math.floor(mi / 60);
-  return mi % 60 ? `${h}시간 ${mi % 60}분` : `${h}시간`;
-}
-export const pct = (num: number, den: number) => (den > 0 ? `${Math.round((num / den) * 1000) / 10}%` : '—');
+import { BigRate, DailyChart, dur, HeroCard, Legend, pct, RateBar, RateCell, ReasonBars, Ring, SourceBar, StackBar, TimeFlow } from './statsCharts';
+
+export { dur, pct };
 /** 가중 평균(초) — 값이 없는 묶음은 건너뛴다 */
 function wavg<T>(rows: readonly T[], value: (r: T) => number | null | undefined, weight: (r: T) => number): number | null {
   let sum = 0;
@@ -167,6 +160,8 @@ export function DeliveryStatsPage() {
   const byMfc = [...groupBy(rows, (r) => r.mfcId).entries()].sort(([, x], [, y]) => total(y, (r) => r.assigned) - total(x, (r) => r.assigned));
   const dispByMfc = groupBy(drows, (r) => r.mfcId);
   const byRider = [...groupBy(rows, (r) => r.riderId).entries()].sort(([, x], [, y]) => total(y, (r) => r.assigned) - total(x, (r) => r.assigned));
+  const riderMax = Math.max(1, ...byRider.map(([, rs]) => total(rs, (r) => r.assigned)));
+  const incidentMax = Math.max(1, ...incidents.map((x) => x.count));
 
   return (
     <section className="space-y-4" data-testid="delivery-stats">
@@ -191,52 +186,74 @@ export function DeliveryStatsPage() {
         </QueryState>
       ) : (
         <>
-          <StatStrip label={s.quality} testId="stats-quality">
-            <StatCard layout="row" label={s.tile.completion} value={pct(a.completed, a.completed + a.failed)} hint={s.hint.completion(a.completed, a.failed)} testId="tile-completion" />
-            <StatCard layout="row" label={s.tile.late} value={pct(a.late, a.judged)} hint={s.hint.late(a.late, a.judged)} tone={a.judged > 0 && a.late / a.judged > 0.1 ? 'warning' : undefined} testId="tile-late" />
-            <StatCard layout="row" label={s.tile.failure} value={pct(a.failed, a.assigned)} hint={s.hint.failure(a.failed, a.assigned)} testId="tile-failure" />
-            <StatCard
-              layout="row"
-              label={s.tile.onTime}
-              value={onTime.data ? pct(otOn, otDue) : onTime.isError ? '?' : '—'}
-              hint={onTime.data ? s.hint.onTime(otOn, otDue) : onTime.isError ? s.hint.failed : !admin && !centerId ? s.hint.onTimeNeedsCenter : '…'}
-              testId="tile-on-time"
-            />
-          </StatStrip>
-          <StatStrip label={s.efficiency} testId="stats-efficiency">
-            <StatCard layout="row" label={s.tile.assign} value={disp.data ? dur(dAvgAssign) : disp.isError ? '?' : '…'} hint={disp.data ? s.hint.count(dAssigned) : disp.isError ? s.hint.failed : undefined} testId="tile-assign" />
-            <StatCard layout="row" label={s.tile.pickupWait} value={dur(a.pickupWait)} hint={s.hint.count(a.pickupWaitCount)} testId="tile-pickup-wait" />
-            <StatCard layout="row" label={s.tile.delivery} value={dur(a.delivery)} hint={s.hint.count(a.deliveryCount)} testId="tile-delivery" />
-          </StatStrip>
-          {disp.isError ? (
-            <Notice tone="warning">
-              <span data-testid="stats-dispatch-failed">{s.dispatchFailed}</span>
-            </Notice>
-          ) : disp.data ? (
-            <Section title={s.dispatch} testId="stats-dispatch">
-              <StatStrip label={s.dispatch}>
-                <StatCard layout="row" label={s.tile.assignRate} value={pct(dAssigned, dCreated)} hint={s.hint.assignRate(dAssigned, dCreated)} testId="tile-assign-rate" />
-                <StatCard layout="row" label={s.tile.reassign} value={pct(dReassigned, dCreated)} hint={s.hint.reassign(dReassigned, dCreated)} testId="tile-reassign" />
-                <StatCard layout="row" label={s.tile.accept} value={pct(dAccepted, dSent)} hint={s.hint.accept(dAccepted, dSent)} testId="tile-accept" />
-                <StatCard layout="row" label={s.tile.autoCancel} value={s.countText(total(drows, (r) => r.autoCancelled))} testId="tile-auto-cancel" />
-              </StatStrip>
-              <p className="mt-2 text-xs text-base-content/60" data-testid="stats-source">
-                {s.source(total(drows, (r) => r.assignedByAi), total(drows, (r) => r.assignedByList), total(drows, (r) => r.assignedByFailedReturn))}
-              </p>
-              {(disp.data.failureReasons ?? []).length > 0 && (
-                <div className="mt-3">
-                  <p className="mb-1 text-sm font-medium">{s.failureReasons}</p>
-                  <ul className="flex flex-wrap gap-2 text-sm" data-testid="stats-failure-reasons">
-                    {(disp.data.failureReasons ?? []).map((x) => (
-                      <li key={x.reason} className="badge badge-ghost">
-                        {label(s.reason, x.reason)} {x.rounds}
-                      </li>
-                    ))}
-                  </ul>
+          {/* 2026-11-25 라이더 운영 통계 모양 — 품질(큰 원 + 비율 막대)·걸린 시간(이어진 한 줄)·배차(비율 막대) 세 카드 */}
+          <div className="grid gap-4 xl:grid-cols-3">
+            <HeroCard title={s.quality} sub={s.qualitySub} testId="stats-quality">
+              <div className="flex items-center gap-6">
+                <Ring num={a.completed} den={a.completed + a.failed} label={s.tile.completion} hint={s.hint.completion(a.completed, a.failed)} testId="tile-completion" />
+                <div className="min-w-0 flex-1 space-y-4">
+                  <RateBar
+                    label={s.tile.onTime}
+                    num={otOn}
+                    den={otDue}
+                    hint={onTime.data ? s.hint.onTime(otOn, otDue) : onTime.isError ? s.hint.failed : !admin && !centerId ? s.hint.onTimeNeedsCenter : '…'}
+                    unavailable={!onTime.data}
+                    tone="good"
+                    testId="tile-on-time"
+                  />
+                  <RateBar label={s.tile.late} num={a.late} den={a.judged} hint={s.hint.late(a.late, a.judged)} tone="warn" testId="tile-late" />
+                  <RateBar label={s.tile.failure} num={a.failed} den={a.assigned} hint={s.hint.failure(a.failed, a.assigned)} tone="bad" testId="tile-failure" />
+                </div>
+              </div>
+            </HeroCard>
+            <HeroCard title={s.efficiency} sub={s.efficiencySub} testId="stats-efficiency">
+              <TimeFlow
+                legs={[
+                  // 배차 통계를 못 읽었으면 그 구간은 "—"·"불러오지 못했어요"(0 아님)
+                  { key: 'assign', label: s.tile.assign, sec: disp.data ? dAvgAssign : null, n: disp.data ? dAssigned : null, color: '#3b6ef6', testId: 'tile-assign' },
+                  { key: 'wait', label: s.tile.pickupWait, sec: a.pickupWait, n: a.pickupWaitCount, color: '#0891b2', testId: 'tile-pickup-wait' },
+                  { key: 'delivery', label: s.tile.delivery, sec: a.delivery, n: a.deliveryCount, color: '#d97706', testId: 'tile-delivery' },
+                ]}
+              />
+            </HeroCard>
+            <HeroCard title={s.dispatch} sub={s.dispatchSub} testId="stats-dispatch">
+              {disp.isError ? (
+                <Notice tone="warning">
+                  <span data-testid="stats-dispatch-failed">{s.dispatchFailed}</span>
+                </Notice>
+              ) : (
+                <div className="space-y-4">
+                  <RateBar label={s.tile.assignRate} num={dAssigned} den={dCreated} hint={s.hint.assignRate(dAssigned, dCreated)} tone="good" testId="tile-assign-rate" />
+                  <RateBar label={s.tile.accept} num={dAccepted} den={dSent} hint={s.hint.accept(dAccepted, dSent)} tone="neutral" testId="tile-accept" />
+                  <RateBar label={s.tile.reassign} num={dReassigned} den={dCreated} hint={s.hint.reassign(dReassigned, dCreated)} tone="warn" testId="tile-reassign" />
+                  <p className="flex items-baseline justify-between text-sm" data-testid="tile-auto-cancel">
+                    <span className="text-base-content/70">{s.tile.autoCancel}</span>
+                    <b className="tabular-nums">{s.countText(total(drows, (r) => r.autoCancelled))}</b>
+                  </p>
                 </div>
               )}
-            </Section>
-          ) : null}
+            </HeroCard>
+          </div>
+          {disp.data && (
+            <div className="grid gap-4 lg:grid-cols-2">
+              <HeroCard title={s.sourceTitle} sub={s.sourceSub} testId="stats-source">
+                <SourceBar
+                  parts={[
+                    { label: s.src.ai, n: total(drows, (r) => r.assignedByAi), color: '#3b6ef6' },
+                    { label: s.src.list, n: total(drows, (r) => r.assignedByList), color: '#0891b2' },
+                    { label: s.src.ret, n: total(drows, (r) => r.assignedByFailedReturn), color: '#d97706' },
+                  ]}
+                />
+                <p className="mt-3 text-xs text-base-content/60">{s.noManual}</p>
+              </HeroCard>
+              <HeroCard title={s.failureReasons} sub={s.failureSub} testId="stats-failure-card">
+                <ReasonBars items={(disp.data.failureReasons ?? []).map((x) => ({ label: label(s.reason, x.reason), n: x.rounds }))} />
+                <Link to="/deliveries?state=UNASSIGNED" className="mt-3 inline-block text-sm text-primary hover:underline" data-testid="stats-unassigned-link">
+                  {s.unassignedLink} ›
+                </Link>
+              </HeroCard>
+            </div>
+          )}
           {rows.length === 0 ? (
             <p className="text-sm text-base-content/60" data-testid="stats-empty">
               {s.empty}
@@ -244,17 +261,23 @@ export function DeliveryStatsPage() {
           ) : (
             <>
               <Section title={s.daily} testId="stats-daily">
+                <DailyChart
+                  points={[...daily].reverse().map(([d, rs]) => {
+                    const x = agg(rs);
+                    return { d, done: x.completed, failed: x.failed };
+                  })}
+                />
                 <DataTable>
                   <thead>
                     <tr>
                       <th>{s.col.date}</th>
-                      <th className="text-right">{s.col.requests}</th>
-                      <th className="text-right">{s.col.assign}</th>
-                      <th className="text-right">{s.col.deliveries}</th>
-                      <th className="text-right">{s.col.completed}</th>
-                      <th className="text-right">{s.col.failed}</th>
-                      <th className="text-right">{s.col.late}</th>
-                      <th className="text-right">{s.col.delivery}</th>
+                      <th>{s.col.requests}</th>
+                      <th>{s.col.assign}</th>
+                      <th>{s.col.deliveries}</th>
+                      <th>{s.col.completed}</th>
+                      <th>{s.col.failed}</th>
+                      <th>{s.col.late}</th>
+                      <th>{s.col.delivery}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -265,13 +288,15 @@ export function DeliveryStatsPage() {
                         <tr key={day} data-testid="stats-day-row">
                           <td className="whitespace-nowrap">{day}</td>
                           {/* 배차 통계를 못 읽었으면 그 칸은 "?"(0 아님) */}
-                          <td className="text-right tabular-nums">{disp.data ? total(dd, (r) => r.created) : '?'}</td>
-                          <td className="text-right tabular-nums">{disp.data ? dur(wavg(dd, (r) => r.avgAssignSeconds, (r) => r.assigned)) : '?'}</td>
-                          <td className="text-right tabular-nums">{x.assigned}</td>
-                          <td className="text-right tabular-nums">{x.completed}</td>
-                          <td className="text-right tabular-nums">{x.failed}</td>
-                          <td className="text-right tabular-nums">{pct(x.late, x.judged)}</td>
-                          <td className="text-right tabular-nums">{dur(x.delivery)}</td>
+                          <td className="tabular-nums">{disp.data ? total(dd, (r) => r.created) : '?'}</td>
+                          <td className="tabular-nums">{disp.data ? dur(wavg(dd, (r) => r.avgAssignSeconds, (r) => r.assigned)) : '?'}</td>
+                          <td className="tabular-nums">{x.assigned}</td>
+                          <td className="tabular-nums">{x.completed}</td>
+                          <td className="tabular-nums">{x.failed}</td>
+                          <td>
+                            <RateCell num={x.late} den={x.judged} kind="late" />
+                          </td>
+                          <td className="tabular-nums">{dur(x.delivery)}</td>
                         </tr>
                       );
                     })}
@@ -283,13 +308,13 @@ export function DeliveryStatsPage() {
                   <thead>
                     <tr>
                       <th>{s.col.mfc}</th>
-                      <th className="text-right">{s.col.deliveries}</th>
-                      <th className="text-right">{s.col.riders}</th>
-                      <th className="text-right">{s.col.completion}</th>
-                      <th className="text-right">{s.col.late}</th>
-                      <th className="text-right">{s.col.pickupWait}</th>
-                      <th className="text-right">{s.col.delivery}</th>
-                      <th className="text-right">{s.col.assign}</th>
+                      <th>{s.col.deliveries}</th>
+                      <th>{s.col.riders}</th>
+                      <th>{s.col.completion}</th>
+                      <th>{s.col.late}</th>
+                      <th>{s.col.pickupWait}</th>
+                      <th>{s.col.delivery}</th>
+                      <th>{s.col.assign}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -298,14 +323,18 @@ export function DeliveryStatsPage() {
                       const dd = dispByMfc.get(mfc) ?? [];
                       return (
                         <tr key={mfc} data-testid="stats-mfc-row">
-                          <td>{nameOf(mfc)}</td>
-                          <td className="text-right tabular-nums">{x.assigned}</td>
-                          <td className="text-right tabular-nums">{x.riders}</td>
-                          <td className="text-right tabular-nums">{pct(x.completed, x.completed + x.failed)}</td>
-                          <td className="text-right tabular-nums">{pct(x.late, x.judged)}</td>
-                          <td className="text-right tabular-nums">{dur(x.pickupWait)}</td>
-                          <td className="text-right tabular-nums">{dur(x.delivery)}</td>
-                          <td className="text-right tabular-nums">{disp.data ? dur(wavg(dd, (r) => r.avgAssignSeconds, (r) => r.assigned)) : '?'}</td>
+                          <td className="font-medium">{nameOf(mfc)}</td>
+                          <td className="tabular-nums">{x.assigned}</td>
+                          <td className="tabular-nums">{x.riders}</td>
+                          <td>
+                            <RateCell num={x.completed} den={x.completed + x.failed} kind="done" />
+                          </td>
+                          <td>
+                            <RateCell num={x.late} den={x.judged} kind="late" />
+                          </td>
+                          <td className="tabular-nums">{dur(x.pickupWait)}</td>
+                          <td className="tabular-nums">{dur(x.delivery)}</td>
+                          <td className="tabular-nums">{disp.data ? dur(wavg(dd, (r) => r.avgAssignSeconds, (r) => r.assigned)) : '?'}</td>
                         </tr>
                       );
                     })}
@@ -313,16 +342,15 @@ export function DeliveryStatsPage() {
                 </DataTable>
               </Section>
               <Section title={s.byRider} testId="stats-riders">
+                <Legend parts={[[s.legendDone, 'bg-success'], [s.legendFailed, 'bg-error'], [s.legendOther, 'bg-base-content/20']]} />
                 <DataTable>
                   <thead>
                     <tr>
                       <th>{s.col.rider}</th>
-                      <th className="text-right">{s.col.deliveries}</th>
-                      <th className="text-right">{s.col.completed}</th>
-                      <th className="text-right">{s.col.failed}</th>
-                      <th className="text-right">{s.col.completion}</th>
-                      <th className="text-right">{s.col.late}</th>
-                      <th className="text-right">{s.col.delivery}</th>
+                      <th className="w-[38%]">{s.col.volume}</th>
+                      <th>{s.col.completion}</th>
+                      <th>{s.col.late}</th>
+                      <th>{s.col.delivery}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -335,12 +363,24 @@ export function DeliveryStatsPage() {
                               <RiderLabel rider={riders.get(rider)} riderId={rider} failed={riders.failed} withName />
                             </Link>
                           </td>
-                          <td className="text-right tabular-nums">{x.assigned}</td>
-                          <td className="text-right tabular-nums">{x.completed}</td>
-                          <td className="text-right tabular-nums">{x.failed}</td>
-                          <td className="text-right tabular-nums">{pct(x.completed, x.completed + x.failed)}</td>
-                          <td className="text-right tabular-nums">{pct(x.late, x.judged)}</td>
-                          <td className="text-right tabular-nums">{dur(x.delivery)}</td>
+                          <td>
+                            <StackBar
+                              max={riderMax}
+                              parts={[
+                                [x.completed, 'bg-success'],
+                                [x.failed, 'bg-error'],
+                                [Math.max(0, x.assigned - x.completed - x.failed), 'bg-base-content/20'],
+                              ]}
+                              text={s.riderBarText(x.assigned, x.completed, x.failed)}
+                            />
+                          </td>
+                          <td>
+                            <BigRate num={x.completed} den={x.completed + x.failed} />
+                          </td>
+                          <td>
+                            <RateCell num={x.late} den={x.judged} kind="late" />
+                          </td>
+                          <td className="tabular-nums">{dur(x.delivery)}</td>
                         </tr>
                       );
                     })}
@@ -349,30 +389,51 @@ export function DeliveryStatsPage() {
               </Section>
             </>
           )}
-          <Section title={s.incidents} testId="stats-incidents">
+          <Section
+            title={s.incidents}
+            testId="stats-incidents"
+            aside={
+              <Link to="/cases" className="text-sm text-primary hover:underline" data-testid="stats-cases-link">
+                {s.casesLink} ›
+              </Link>
+            }
+          >
             {incidents.length === 0 ? (
               <p className="text-sm text-base-content/60">{s.noIncidents}</p>
             ) : (
-              <DataTable>
-                <thead>
-                  <tr>
-                    <th>{s.col.category}</th>
-                    <th className="text-right">{s.col.count}</th>
-                    <th className="text-right">{s.col.resolved}</th>
-                    <th className="text-right">{s.col.resolve}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {incidents.map((x) => (
-                    <tr key={x.category} data-testid="stats-incident-row">
-                      <td>{label(messages.deliveries.helpCategoryName, x.category)}</td>
-                      <td className="text-right tabular-nums">{x.count}</td>
-                      <td className="text-right tabular-nums">{x.resolved}</td>
-                      <td className="text-right tabular-nums">{dur(x.resolveSeconds)}</td>
+              <>
+                <Legend parts={[[s.legendResolved, 'bg-base-content/45'], [s.legendOpen, 'bg-warning']]} />
+                <DataTable>
+                  <thead>
+                    <tr>
+                      <th>{s.col.category}</th>
+                      <th className="w-[45%]">{s.col.progress}</th>
+                      <th>{s.col.resolve}</th>
                     </tr>
-                  ))}
-                </tbody>
-              </DataTable>
+                  </thead>
+                  <tbody>
+                    {[...incidents]
+                      .sort((p, q) => q.count - p.count)
+                      .map((x) => (
+                        <tr key={x.category} data-testid="stats-incident-row">
+                          <td className="font-medium">{label(messages.deliveries.helpCategoryName, x.category)}</td>
+                          <td>
+                            <StackBar
+                              max={incidentMax}
+                              parts={[
+                                [x.resolved, 'bg-base-content/45'],
+                                [Math.max(0, x.count - x.resolved), 'bg-warning'],
+                              ]}
+                              text={s.incidentBarText(x.count, x.resolved)}
+                              warn={x.count > x.resolved}
+                            />
+                          </td>
+                          <td className="tabular-nums">{dur(x.resolveSeconds)}</td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </DataTable>
+              </>
             )}
           </Section>
           <p className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-base-content/50" data-testid="stats-definitions">

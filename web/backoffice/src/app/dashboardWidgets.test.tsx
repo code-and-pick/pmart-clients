@@ -1,6 +1,5 @@
 // 대시보드 2판(2026-11-18): 한눈에 숫자 카드(어제 대비·추세선)·오늘 주문 상태 도넛·최근 활동 — 서버 값만, 못 읽으면 숨기지 않고 알린다
 import { screen, waitFor, within } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -23,23 +22,23 @@ describe('대시보드 2판', () => {
     expect(await within(screen.getByTestId('dash-stat-risk')).findByText(/결제 결과 불명 1건/)).toBeInTheDocument();
   });
 
-  it('탭(사용자 2026-11-18 "스크롤을 내려야 할 만큼 많다"): 첫 화면 = 숫자 카드 → 내 할 일, 7일 막대는 매출·통계 탭 — 고른 탭은 주소에', async () => {
-    const user = userEvent.setup();
+  it('한 화면(2026-11-25 사용자 "급한거, 통계, 처리해야 할 일이 바로 보이게") — 급한 것 → 오늘의 할 일 → 현황 숫자 → 분석(7일 막대) 순서, 탭 없음', async () => {
     renderAt('/', as.admin);
     const work = await screen.findByTestId('dash-my-work');
-    expect(screen.getByTestId('dash-glance').compareDocumentPosition(work) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy(); // 2026-11-19: 숫자 띠(내 할 일)가 맨 위
-    expect(screen.queryByTestId('dash-orders-week')).not.toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: '한눈에' })).toHaveAttribute('aria-selected', 'true');
-
-    await user.click(screen.getByRole('tab', { name: '매출·통계' }));
-    expect(await screen.findByTestId('dash-orders-week')).toBeInTheDocument();
-    expect(screen.getByTestId('dash-my-work')).toBeInTheDocument(); // 2026-11-19: 숫자 띠는 탭과 상관없이 늘 위
-    expect(screen.getByTestId('dash-side')).toBeInTheDocument(); // 최근 활동은 오른쪽 패널에 늘
+    const status = screen.getByTestId('dash-status');
+    const glance = screen.getByTestId('dash-glance');
+    const week = await screen.findByTestId('dash-orders-week');
+    expect(status.compareDocumentPosition(work) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy(); // 이상 띠가 맨 위
+    expect(work.compareDocumentPosition(glance) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy(); // 할 일 → 현황 숫자
+    expect(glance.compareDocumentPosition(week) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy(); // → 분석 그림
+    expect(screen.getByTestId('dash-side')).toBeInTheDocument(); // 새로 들어온 일
+    expect(screen.queryByRole('tab', { name: '한눈에' })).not.toBeInTheDocument();
   });
 
-  it('볼 것이 없는 탭은 숨긴다 — 승인자에게 매출·통계 탭 없음, 없는 탭 주소는 한눈에', async () => {
+  it('볼 것이 없는 칸은 그리지 않는다 — 승인자에게 주문 분석 없음', async () => {
     renderAt('/?tab=sales', as.approver);
-    expect(await screen.findByRole('tab', { name: '한눈에' })).toHaveAttribute('aria-selected', 'true');
+    await screen.findByTestId('dash-my-work');
+    expect(screen.queryByTestId('dash-orders-week')).not.toBeInTheDocument();
     expect(screen.queryByRole('tab', { name: '매출·통계' })).not.toBeInTheDocument();
   });
 
@@ -145,7 +144,8 @@ describe('대시보드 지표(백엔드 회신 2026-11-18)', () => {
 });
 
 describe('처리 기한 지킴 — 지난 7일 대비(2026-11-18 "숫자만 보고 좋은지 나쁜지")', () => {
-  const sla = (n: number, d: number) => HttpResponse.json({ metric: 'CASE_SLA', totals: [{ numerator: n, denominator: d }], series: [] });
+  // bucket 은 계약 필수 — 분석의 처리 기한 칸(같은 조회)이 날짜별로 읽는다(2026-11-25 탭 없앰 뒤 같은 화면)
+  const sla = (n: number, d: number) => HttpResponse.json({ metric: 'CASE_SLA', totals: [{ bucket: '2026-11-25T00:00:00+09:00', numerator: n, denominator: d }], series: [] });
   it('이번 7일 80% · 앞 7일 50% → "지난 7일보다 30%p ▲"', async () => {
     const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul' }).format(new Date());
     server.use(http.get(`${BFF_BASE}/views/metrics`, ({ request }) => (new URL(request.url).searchParams.get('to') === today ? sla(8, 10) : sla(5, 10))));

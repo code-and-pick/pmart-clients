@@ -43,7 +43,7 @@ describe('배송 운영 통계', () => {
     server.use(http.get(`${API_BASE}/metrics/dispatch`, fail503));
     const v1 = renderAt('/delivery-stats', as.admin);
     expect(await screen.findByTestId('stats-dispatch-failed')).toBeInTheDocument();
-    expect(screen.getByTestId('tile-assign')).toHaveTextContent('?');
+    expect(screen.getByTestId('tile-assign')).toHaveTextContent('불러오지 못했어요'); // 걸린 시간 카드의 배차 구간 — "—"·못 읽음(0 아님)
     expect(screen.getAllByTestId('stats-day-row')[0]).toHaveTextContent('?');
     v1.unmount();
     server.use(http.get(`${API_BASE}/delivery-metrics`, fail503));

@@ -10,7 +10,7 @@ describe('내 할 일(첫 화면)', () => {
     const user = userEvent.setup();
     renderAt('/', as.cs);
     const work = await screen.findByTestId('dash-my-work');
-    expect(within(work).getByRole('heading', { name: '내 할 일' })).toBeInTheDocument();
+    expect(within(work).getByRole('heading', { name: '오늘의 할 일' })).toBeInTheDocument();
     // 숫자 띠(2026-11-19 사용자가 보여 준 관제 화면 — 탭과 상관없이 맨 위): 내 할 일 띠가 오늘 주문 카드보다 앞
     const orders = screen.queryByTestId('dash-kpi-orders');
     if (orders) expect(orders.compareDocumentPosition(work) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy();
