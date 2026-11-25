@@ -5,7 +5,7 @@
 - 근거: 백엔드 요청 `../pmart-backend/docs/handoff/clients/all/2026-11-25-request-cdc-backoffice.md`, 계획 `../pmart-backend/docs/cdc/cdc-backoffice-plan.md`.
 - 사용자: DC 관리자(`CDC_SUPERVISOR` — 토큰 centers 의 DC 만), 운영 관리자(`OPERATOR_ADMIN`). `CDC_WORKER` 만 있으면 "PDA 에서" 안내. 그 밖 역할은 막지 않고 안내만(판정은 서버).
 - 겉모양: **MFC 백오피스와 같게**(사용자 2026-11-25) — 공용 콘솔 틀(`ConsoleShell`)·왼쪽 메뉴 묶음·머리줄(시계·DC 고르기·단축키·밝기·내 정보·앱 바꾸기).
-- **상태(2026-11-25): 뼈대만** — 로그인·세션·DC 고르기·메뉴 14개 자리(모두 "화면 준비 중"). 목 모드 시험 12개.
+- **상태(2026-11-25): 1단계 화면** — 대시보드(출고 집계)·TRF·Wave·통합 작업관리·기준정보·재고. 나머지 9개 메뉴는 "준비 중". 시뮬레이터 관제 빈칸은 `docs/handoff/cdc-backoffice/2026-11-25-backend-monitoring-gaps.md`.
 
 ## 1. 앱과 로그인
 

@@ -9,7 +9,12 @@ import { createBrowserRouter, createMemoryRouter, Link, Navigate, NavLink, Outle
 import { env } from '../env';
 import { CenterSwitcher } from '../features/centers/centers';
 import { useMe } from '../features/me/useMe';
+import { DashboardPage } from '../features/dashboard/DashboardPage';
+import { InventoryMenu } from '../features/inventory/InventoryPages';
+import { MasterMenu } from '../features/master/MasterPages';
 import { PreparingPage } from '../features/menus/PreparingPage';
+import { TasksMenu } from '../features/tasks/TaskPages';
+import { TrfWaveMenu } from '../features/trf-wave/TrfWavePages';
 import { LoginCallbackPage, LoginPage } from '../features/session/LoginPage';
 import { SessionPage } from '../features/session/SessionPage';
 import { messages as m } from '../shared/messages';
@@ -154,7 +159,13 @@ function CenterScope({ menu }: { readonly menu: MenuItem }) {
 }
 
 /** 만든 메뉴 화면(nav.ts `ready`). 아직이면 "준비 중" */
-const menuPages: Partial<Record<MenuKey, ComponentType<{ readonly cdcId: string }>>> = {};
+const menuPages: Partial<Record<MenuKey, ComponentType<{ readonly cdcId: string }>>> = {
+  dashboard: DashboardPage,
+  trfWave: TrfWaveMenu,
+  tasks: TasksMenu,
+  master: MasterMenu,
+  inventory: InventoryMenu,
+};
 
 function MenuPage({ menu, cdcId }: { readonly menu: MenuItem; readonly cdcId: string }) {
   const Page = menu.ready ? menuPages[menu.key] : undefined;

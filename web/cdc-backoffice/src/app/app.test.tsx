@@ -34,10 +34,10 @@ describe('로그인', () => {
     expect(assign.mock.calls[0]![0]).toContain('/api/v1/employee-auth/logins?app=cdc-backoffice');
   });
 
-  it('목 모드: 목 계정 버튼 → 티켓 교환 → 맡은 DC 의 첫 메뉴(준비 중)', async () => {
+  it('목 모드: 목 계정 버튼 → 티켓 교환 → 맡은 DC 의 첫 메뉴(대시보드)', async () => {
     renderAt('/', null);
     await userEvent.click(await screen.findByRole('button', { name: 'DC 관리자 — 칠곡 DC(claude-cdc-sup)' }));
-    expect(await screen.findByRole('heading', { name: '대시보드·관제' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: '오늘 출고 현황' })).toBeInTheDocument();
     expect(await screen.findByText('칠곡 중앙물류센터(칠곡 DC) (CDC01)')).toBeInTheDocument();
   });
 });
@@ -45,7 +45,7 @@ describe('로그인', () => {
 describe('메뉴', () => {
   it('14개 메뉴가 모두 DC 아래 주소 — 설비·환경·물류 자산 메뉴는 없다', async () => {
     renderAt('/');
-    expect(await screen.findByRole('heading', { name: '대시보드·관제' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: '오늘 출고 현황' })).toBeInTheDocument();
     for (const menu of allMenus) {
       expect(screen.getByRole('link', { name: m.menus[menu.key] })).toHaveAttribute('href', `/c/CDC01/${menu.segment}`);
     }

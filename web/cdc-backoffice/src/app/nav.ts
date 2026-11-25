@@ -30,7 +30,7 @@ export const navGroups: readonly MenuGroup[] = [
       {
         key: 'dashboard',
         segment: 'dashboard',
-        ready: false,
+        ready: true,
         apiReady: ['그날 TRF 상태별 수·수량 합·진행률, Wave·작업 상태별(cdc-outbound 0.11.0 outbound-summary)'],
         apiMissing: ['입고 진행(입고 서비스 없음)', '층·구역 현황·병목·KPI 집계'],
       },
@@ -42,14 +42,14 @@ export const navGroups: readonly MenuGroup[] = [
       {
         key: 'trfWave',
         segment: 'trf-wave',
-        ready: false,
+        ready: true,
         apiReady: ['TRF 목록·상세(줄별 승인·할당·피킹·부족)', 'Wave 목록·상세·만들기·내리기(release)', '미출발 취소'],
         apiMissing: [],
       },
       {
         key: 'tasks',
         segment: 'tasks',
-        ready: false,
+        ready: true,
         apiReady: ['작업 목록·상세', '구역(regions)'],
         apiMissing: ['재배정·보류·우선순위 변경'],
       },
@@ -82,7 +82,7 @@ export const navGroups: readonly MenuGroup[] = [
       {
         key: 'master',
         segment: 'master',
-        ready: false,
+        ready: true,
         apiReady: ['상품 취급·온도대(sku-handlings)', '로케이션 목록·상세·상태 변경', '통로별 피킹 방식(aisle-pick-methods)'],
         apiMissing: ['거래처·차량·기사·노선'],
       },
@@ -96,7 +96,7 @@ export const navGroups: readonly MenuGroup[] = [
       {
         key: 'inventory',
         segment: 'inventory',
-        ready: false,
+        ready: true,
         apiReady: ['SKU별 현물·가용·예약, LOT·위치별(cdc-inventory stock-snapshot)'],
         apiMissing: ['재고 원장·이동·실사', '격리·리콜·폐기(cdc-quality 계약만)'],
       },
