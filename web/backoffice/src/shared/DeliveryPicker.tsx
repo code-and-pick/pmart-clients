@@ -135,7 +135,7 @@ export function DeliveryPicker({ onPick }: { readonly onPick: (value: string) =>
   };
   if (!open)
     return (
-      <button type="button" className="btn btn-ghost btn-xs self-start text-primary" onClick={() => setOpen(true)} data-testid="delivery-picker-open">
+      <button type="button" className="pm-fbar-reset self-start" onClick={() => setOpen(true)} data-testid="delivery-picker-open">
         {m.open}
       </button>
     );

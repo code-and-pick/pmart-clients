@@ -218,7 +218,7 @@ describe('홈 진열 편성', () => {
     await user.click(await screen.findByTestId('layout-new-current'));
     await screen.findByTestId('layout-state');
     const sec = screen.getByTestId('layout-care-cards');
-    expect(within(sec).getByText('구획이 없어요')).toBeInTheDocument();
+    expect(within(sec).getByText('카드가 없어요')).toBeInTheDocument();
     await user.click(within(sec).getByTestId('layout-care-on'));
     // 빈 제목·빈 카드면 승인 요청 전에 그 칸에 까닭(서버에 보내지 않음)
     await user.click(screen.getByTestId('layout-submit'));

@@ -21,13 +21,13 @@ import { RequestApproval } from '../approvals/RequestApproval';
 import { ProductPicker } from '../contents/ProductPicker';
 import { Person } from '../lookup/parts';
 import { multipart } from '../products/ProductImportPage';
-import { DataTable, PageHeader, StatusBadge, type Tone } from '../../shared/admin';
+import { DataTable, PageHeader, ResultBar, StatusBadge, type Tone } from '../../shared/admin';
 import { FailureAlert } from '../../shared/Feedback';
 import { LeaveGuard } from '../../shared/LeaveGuard';
 import { messages } from '../../shared/messages';
 import { SearchSelect } from '../../shared/SearchSelect';
 import { DateTimeField } from '../../shared/DateTimeField';
-import { fitWarning, formatText, specText, useBannerSpecs } from '../../shared/imageFit';
+import { fitWarning, specLine, useBannerSpecs } from '../../shared/imageFit';
 
 const m = messages.homeLayout;
 type Draft = components['schemas']['LayoutDraft'];
@@ -106,6 +106,9 @@ export function HomeLayoutListPage() {
       </div>
       <QueryState state={query.data && query.data.items.length === 0 ? { kind: 'empty' } : toUiState(query)} onRetry={() => void query.refetch()} emptyText={m.empty}>
         {(r) => (
+          <>
+          {/* 표 상자 안 건수 줄(다른 목록처럼 — PC5 대조 2026-11-25) */}
+          <ResultBar count={r.items.length} />
           <DataTable>
             <thead>
               <tr>
@@ -144,6 +147,7 @@ export function HomeLayoutListPage() {
               ))}
             </tbody>
           </DataTable>
+          </>
         )}
       </QueryState>
     </section>
@@ -493,12 +497,10 @@ function BannerCard({
             <Mover i={i} n={n} onMove={onMove} onRemove={onRemove} disabled={locked} />
           </div>
           {/* 규격은 서버 값(storefront banner-image-specs) — 못 읽으면 형식·용량만 */}
-          <span className="text-xs text-base-content/50">{specs.data ? `${m.specPrefix} ${formatText(specs.data.contentTypes, specs.data.maxBytes)}` : m.imageHint}</span>
-          {spec && (
-            <span className="text-xs text-base-content/50" data-testid="banner-image-size">
-              {specText(spec, true)}
-            </span>
-          )}
+          {/* 형식·용량·권장 한 줄(PC5 대조 2026-11-25) — 최소보다 작으면 아래 주황 경고 */}
+          <span className="text-xs text-base-content/50" data-testid="banner-image-size">
+            {specs.data ? specLine(specs.data.contentTypes, specs.data.maxBytes, spec) : m.imageHint}
+          </span>
           {fit && (
             <span className="text-xs text-warning" data-testid="banner-image-fit">
               {fit}
@@ -747,11 +749,9 @@ function CareCardItem({ c, i, n, locked, why, serverWarning = null, onChange, on
             </label>
             <Mover i={i} n={n} onMove={onMove} onRemove={onRemove} disabled={locked} />
           </div>
-          {spec && (
-            <span className="text-xs text-base-content/50" data-testid="care-image-size">
-              {specText(spec, true)}
-            </span>
-          )}
+          <span className="text-xs text-base-content/50" data-testid="care-image-size">
+            {specs.data ? specLine(specs.data.contentTypes, specs.data.maxBytes, spec) : m.imageHint}
+          </span>
           {fit && (
             <span className="text-xs text-warning" data-testid="care-image-fit">
               {fit}
@@ -1219,7 +1219,7 @@ function Editor({ draft }: { readonly draft: Draft }) {
           <section className="space-y-3 rounded-box border border-base-300 bg-base-100 p-4 shadow-sm" aria-label={m.banners}>
             <div className="flex items-center justify-between">
               <h2 className="font-bold">
-                {m.banners} <span className="text-sm font-normal text-base-content/50">{banners.length}</span>
+                {m.banners} <span className="pm-count-pill ml-1.5 align-middle text-xs font-normal"><span>{banners.length}</span>개</span>
               </h2>
               {!locked && (
                 <button type="button" className="btn btn-sm btn-outline btn-primary" data-testid="layout-add-banner" onClick={addBanner}>
@@ -1269,7 +1269,7 @@ function Editor({ draft }: { readonly draft: Draft }) {
           <section className="space-y-3 rounded-box border border-base-300 bg-base-100 p-4 shadow-sm" aria-label={m.themes}>
             <div className="flex items-center justify-between">
               <h2 className="font-bold">
-                {m.themes} <span className="text-sm font-normal text-base-content/50">{themes.length}</span>
+                {m.themes} <span className="pm-count-pill ml-1.5 align-middle text-xs font-normal"><span>{themes.length}</span>개</span>
               </h2>
               {!locked && (
                 <button type="button" className="btn btn-sm btn-outline btn-primary" data-testid="layout-add-theme" onClick={addTheme}>
@@ -1303,7 +1303,7 @@ function Editor({ draft }: { readonly draft: Draft }) {
           <section className="space-y-3 rounded-box border border-base-300 bg-base-100 p-4 shadow-sm" aria-label={m.tabsTitle}>
             <div className="flex items-center justify-between">
               <h2 className="font-bold">
-                {m.tabsTitle} <span className="text-sm font-normal text-base-content/50">{tabs.length}</span>
+                {m.tabsTitle} <span className="pm-count-pill ml-1.5 align-middle text-xs font-normal"><span>{tabs.length}</span>개</span>
               </h2>
               {!locked && tabs.length < 5 && (
                 <button type="button" className="btn btn-sm btn-outline btn-primary" data-testid="layout-add-tab" onClick={addTab}>
@@ -1338,7 +1338,7 @@ function Editor({ draft }: { readonly draft: Draft }) {
           <section className={`space-y-3 rounded-box border bg-base-100 p-4 shadow-sm ${careWhy.length ? 'border-error/50' : 'border-base-300'}`} aria-label={m.careCards} data-testid="layout-care-cards">
             <div className="flex items-center justify-between">
               <h2 className="font-bold">
-                {m.careCards} <span className="text-sm font-normal text-base-content/50">{careCards ? careCards.items.length : 0}</span>
+                {m.careCards} <span className="pm-count-pill ml-1.5 align-middle text-xs font-normal"><span>{careCards ? careCards.items.length : 0}</span>개</span>
               </h2>
               {!locked &&
                 (careCards ? (
@@ -1389,7 +1389,7 @@ function Editor({ draft }: { readonly draft: Draft }) {
 
           <section className={`space-y-3 rounded-box border bg-base-100 p-4 shadow-sm ${orderWhy.length ? 'border-error/50' : 'border-base-300'}`} aria-label={m.homeOrder}>
             <h2 className="font-bold">
-              {m.homeOrder} <span className="text-sm font-normal text-base-content/50">{orderList.length}</span>
+              {m.homeOrder} <span className="pm-count-pill ml-1.5 align-middle text-xs font-normal"><span>{orderList.length}</span>개</span>
             </h2>
             <p className="text-xs text-base-content/55">{m.homeOrderHint}</p>
             {orderList.length === 0 ? (

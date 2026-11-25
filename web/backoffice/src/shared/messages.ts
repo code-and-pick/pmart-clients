@@ -1501,7 +1501,7 @@ export const messages = {
   },
   /** 배송 고르기(2026-11-19) — 번호를 몰라도 사람이 아는 것으로 */
   deliveryPicker: {
-    open: '번호를 몰라요 — 찾아서 고르기',
+    open: '번호를 몰라요? 찾아서 고르기',
     title: '배송 찾는 방법',
     way: { recent: '최근 본 배송', customer: '고객 연락처로', rider: '라이더 전화로' } as const,
     customerPhone: '고객(수령인) 연락처',
@@ -3862,7 +3862,7 @@ export const messages = {
     // 0.20.0 상품페이지 관리 카드(BR-102 "우리동네 PMart, 이렇게 관리해요")
     careCards: '상품페이지 관리 카드',
     careHint: '모든 상품 상세 화면에 같이 보여요',
-    careEmpty: '구획이 없어요',
+    careEmpty: '카드가 없어요',
     careOn: '+ 구획 만들기',
     careOff: '구획 빼기',
     addCareCard: '+ 카드',

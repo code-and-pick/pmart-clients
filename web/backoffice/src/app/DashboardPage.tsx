@@ -55,7 +55,8 @@ function TaskRow({ alert, title, to, tone, group, exact }: { readonly alert: Ale
       data-group={group}
       className="pm-row-link group flex min-w-0 flex-col gap-1 px-5 py-1"
     >
-      <span className="flex items-center gap-1.5 truncate text-sm text-base-content/70">
+      {/* 칸 이름은 굵고 진하게(공지 §12-8, 라이더 숫자 칸 기준 — PC5 대조 2026-11-25) */}
+      <span className="flex items-center gap-1.5 truncate text-sm font-semibold text-base-content">
         {has && tone !== 'info' && <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${tone === 'error' ? 'bg-error' : 'bg-warning'}`} aria-hidden="true" />}
         {title}
       </span>

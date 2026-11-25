@@ -94,6 +94,13 @@ export function formatText(contentTypes: readonly string[], maxBytes: number): s
   return `${names} · ${Math.round(maxBytes / 1024 / 1024)}MB 이하`;
 }
 
+/** 그림 칸 옆 한 줄(PC5 대조 2026-11-25 "회색 세 줄이 길다") — JPEG·PNG·WEBP 5MB · 권장 1960×700(2.8:1). 최소는 넘으면 주황 경고로 */
+export function specLine(contentTypes: readonly string[], maxBytes: number, s: ImageSpec | undefined): string {
+  const names = contentTypes.map((t) => t.replace(/^image\//, '').toUpperCase()).join('·');
+  const rec = specText(s, false);
+  return `${names} ${Math.round(maxBytes / 1024 / 1024)}MB${rec ? ` · ${rec}` : ''}`;
+}
+
 /** 권장과 다른 점(없으면 null). w·h 는 그림의 실제 픽셀 */
 export function fitWarning(w: number, h: number, spec: ImageSpec | undefined): string | null {
   if (!spec || !(w > 0) || !(h > 0)) return null;

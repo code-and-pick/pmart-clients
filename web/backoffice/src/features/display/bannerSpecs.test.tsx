@@ -12,8 +12,7 @@ describe('배너 그림 규격', () => {
     bannerDims.set('bimg-seed-winter', { w: 1984, h: 793 });
     renderAt('/display/home/LD-seed-1', as.admin);
     const card = (await screen.findAllByTestId('layout-banner'))[0]!;
-    expect(await within(card).findByTestId('banner-image-size')).toHaveTextContent('권장 1960×700(2.8:1) · 최소 1080×386');
+    expect(await within(card).findByTestId('banner-image-size')).toHaveTextContent('JPEG·PNG·WEBP 5MB · 권장 1960×700(2.8:1)'); // 한 줄(PC5 대조 2026-11-25) — 최소는 넘으면 주황 경고
     expect(await within(card).findByTestId('banner-image-fit')).toHaveTextContent('지금 1984×793 — HOME_TOP 권장 2.8:1');
-    expect(within(card).getByText(/JPEG·PNG·WEBP · 5MB 이하/)).toBeInTheDocument();
   });
 });

@@ -1563,9 +1563,9 @@ export function NewMisdeliveryPage() {
             </fieldset>
           </Step>
           <Step n={3} title={m.cases.choiceQuestion} done={fault !== '' && addressOk}>
+            {/* 구역 제목과 같은 칸 이름은 빼고 읽는 이름(aria-label)만(PC5 대조 2026-11-25 "겹친다") */}
             <label className="flex flex-col gap-1">
-              {m.cases.choiceQuestion}
-              <select className="select select-sm w-56" value={choice} disabled={fault === ''} onChange={(e) => setChoice((CHOICES_OF[fault || 'RIDER'].find((c) => c === e.target.value) ?? 'RESHIP'))}>
+              <select className="select select-sm w-56" aria-label={m.cases.choiceQuestion} value={choice} disabled={fault === ''} onChange={(e) => setChoice((CHOICES_OF[fault || 'RIDER'].find((c) => c === e.target.value) ?? 'RESHIP'))}>
                 {CHOICES_OF[fault || 'RIDER'].map((c) => (
                   <option key={c} value={c}>
                     {fault === 'CUSTOMER' && c === 'REFUND' ? m.cases.customerRefundName : m.cases.resolutionChoiceName[c]}
