@@ -35,6 +35,16 @@ describe('대시보드 2판', () => {
     expect(screen.queryByRole('tab', { name: '한눈에' })).not.toBeInTheDocument();
   });
 
+  it('분석 숫자 칸(2026-11-25 라이더 대시보드 참고) — 7일 주문 추세선·처리 기한·정시 배송·결품 원·품절, 못 읽은 칸은 "?"(0 아님)', async () => {
+    server.use(http.get(`${BFF_BASE}/views/metrics`, ({ request }) => (new URL(request.url).searchParams.get('metric') === 'SHORTAGE_RATE' ? forbidden() : undefined)));
+    renderAt('/', as.admin);
+    const tiles = await screen.findByTestId('dash-analysis-tiles');
+    for (const id of ['dash-a-orders', 'dash-a-sla', 'dash-a-ON_TIME_DELIVERY', 'dash-a-SHORTAGE_RATE', 'dash-a-soldout']) expect(within(tiles).getByTestId(id)).toBeInTheDocument();
+    await waitFor(() => expect(within(screen.getByTestId('dash-a-SHORTAGE_RATE')).getByText('?')).toBeInTheDocument());
+    await waitFor(() => expect(within(screen.getByTestId('dash-a-ON_TIME_DELIVERY')).getByText(/%$/)).toBeInTheDocument());
+    expect(screen.getByTestId('dash-a-orders')).toHaveAttribute('href', '/orders');
+  });
+
   it('볼 것이 없는 칸은 그리지 않는다 — 승인자에게 주문 분석 없음', async () => {
     renderAt('/?tab=sales', as.approver);
     await screen.findByTestId('dash-my-work');

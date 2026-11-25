@@ -16,7 +16,7 @@ import { ApprovalTypes, LiveSummary, RiskPanel } from './DashboardSections';
 import { Insight, LineChart, Meter } from './Charts';
 import { DashboardStatus } from './DashboardStatus';
 import { DisplayNumber } from '../shared/displayNumber';
-import { ActivityFeed, LiveStat, MetricsPanel, OrdersWeekChart, SalesPanel, ShortageTop, TopProducts, WorkCountsPanel, useWorkCounts, workText, type WorkSum, RefreshBar, RiskStat, SlaStat, StatusDonut, TodayOrdersStat, slaQuery } from './DashboardWidgets';
+import { ActivityFeed, AnalysisTiles, LiveStat, MetricsPanel, OrdersWeekChart, SalesPanel, ShortageTop, TopProducts, WorkCountsPanel, useWorkCounts, workText, type WorkSum, RefreshBar, RiskStat, SlaStat, StatusDonut, TodayOrdersStat, slaQuery } from './DashboardWidgets';
 import { visibleGroups } from './nav';
 import { useSession } from './SessionContext';
 import { slaText } from '../features/cases/CaseSlaPage';
@@ -328,6 +328,8 @@ export function DashboardPage() {
             </h2>
             <span className="text-sm text-base-content/55">{m.analysisRange}</span>
           </div>
+          {/* 라이더 대시보드 분석 칸처럼 — 큰 숫자 + 작은 그림(추세선·원) 한 줄 */}
+          <AnalysisTiles days={days} from={weekFrom} to={today} orders={can('/orders')} sla={can('/case-sla')} metrics={can('/case-sla')} />
           {admin && <Widget id="sales"><SalesPanel from={weekFrom} to={today} /></Widget>}
           {can('/orders') && (
             <div className="grid gap-4 lg:grid-cols-3">

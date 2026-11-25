@@ -999,3 +999,127 @@ export function TopProducts({ from, to }: { readonly from: string; readonly to: 
     </Section>
   );
 }
+
+// ───────────────────────── 분석 숫자 칸(2026-11-25 사용자 "대시보드도 라이더 백오피스 참고") ─────────────────────────
+// 라이더 대시보드·시뮬레이터 분석 칸처럼 — 칸마다 큰 숫자 + 오른쪽 작은 그림(추세선·원). 아래 위젯과 같은 조회 키라 서버를 더 부르지 않는다.
+// 못 읽으면 "?"·그림 없음(0 으로 그리지 않는다), 분모 0 이면 "—".
+
+/** 작은 원 — 비율 하나(0~1). 값이 없으면 회색 빈 원 */
+function MiniRing({ ratio, tone = 'success', testId }: { readonly ratio: number | null; readonly tone?: 'success' | 'warning' | 'error'; readonly testId?: string }) {
+  const r = 18;
+  const c = 2 * Math.PI * r;
+  const color = tone === 'error' ? 'var(--color-error)' : tone === 'warning' ? 'var(--color-warning)' : 'var(--color-success)';
+  return (
+    <svg viewBox="0 0 44 44" className="h-12 w-12 shrink-0 -rotate-90" aria-hidden="true" data-testid={testId}>
+      <circle cx="22" cy="22" r={r} fill="none" stroke="var(--color-base-200)" strokeWidth="5" />
+      {ratio !== null && <circle cx="22" cy="22" r={r} fill="none" stroke={color} strokeWidth="5" strokeLinecap="round" strokeDasharray={`${c * Math.min(1, Math.max(0, ratio))} ${c}`} />}
+    </svg>
+  );
+}
+
+function AnalysisTile({ title, value, sub, to, testId, failed = false, children }: { readonly title: string; readonly value: string; readonly sub?: ReactNode; readonly to?: string; readonly testId: string; readonly failed?: boolean; readonly children?: ReactNode }) {
+  const body = (
+    <>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-sm font-semibold text-base-content">{title}</span>
+        <span className={`block text-[28px] font-bold leading-tight tabular-nums ${failed ? 'text-base-content/45' : ''}`}>{value}</span>
+        {sub && <span className="block truncate text-xs text-base-content/55">{sub}</span>}
+      </span>
+      {children}
+    </>
+  );
+  const cls = 'pm-row-link flex min-w-0 items-center gap-3 rounded-box border border-base-300 bg-base-100 px-4 py-3';
+  return to ? (
+    <Link to={to} className={`${cls} transition-colors hover:border-primary/60`} data-testid={testId}>
+      {body}
+    </Link>
+  ) : (
+    <div className={cls} data-testid={testId}>
+      {body}
+    </div>
+  );
+}
+
+const ratioText = (n: number, d: number) => (d > 0 ? `${Math.round((n / d) * 1000) / 10}%` : '—');
+
+export function AnalysisTiles({ days, from, to, orders, sla, metrics }: { readonly days: readonly string[]; readonly from: string; readonly to: string; readonly orders: boolean; readonly sla: boolean; readonly metrics: boolean }) {
+  const api = useApi();
+  const center = useCenterScope();
+  const dq = useQueries({ queries: orders ? days.map((d) => dayQuery(api, d)) : [] });
+  const sq = useQuery({ ...slaQuery(api, from, to, center), enabled: sla });
+  const keys = ['ON_TIME_DELIVERY', 'SHORTAGE_RATE'] as const;
+  const mq = useQueries({
+    queries: metrics
+      ? keys.map((k) => ({
+          queryKey: ['dashboard', 'metric', k, from, to, center],
+          retry: false,
+          queryFn: () => request('GET', api.bff.GET('/views/metrics', { params: { query: { metric: k, from, to, granularity: 'DAY', ...(center ? { centerId: center } : {}) } } })),
+        }))
+      : [],
+  });
+  const stock = useQuery({
+    queryKey: ['dashboard', 'stock-summaries', center],
+    enabled: metrics,
+    retry: false,
+    queryFn: () => request('GET', api.mfcInventory.GET('/stock-summaries', center ? { params: { query: { mfcId: center } } } : {})),
+  });
+  const sum = (totals: ReadonlyArray<{ readonly numerator: number; readonly denominator: number }> | undefined) =>
+    (totals ?? []).reduce((a, t) => ({ n: a.n + t.numerator, d: a.d + t.denominator }), { n: 0, d: 0 });
+
+  const tiles: ReactNode[] = [];
+  if (orders) {
+    const known = dq.every((q) => q.data);
+    const more = dq.some((q) => q.data?.more);
+    const total = dq.reduce((a, q) => a + (q.data?.n ?? 0), 0);
+    tiles.push(
+      <AnalysisTile key="orders" title={m.analysisTiles.orders} value={known ? `${total}${more ? '+' : ''}` : dq.some((q) => q.isError) ? '?' : '…'} sub={m.analysisTiles.ordersSub} to="/orders" testId="dash-a-orders" failed={dq.some((q) => q.isError)}>
+        {known && <TrendLine values={dq.map((q) => q.data?.n ?? null)} className="h-10 w-20" />}
+      </AnalysisTile>,
+    );
+  }
+  if (sla) {
+    const s = sum(sq.data?.totals);
+    tiles.push(
+      <AnalysisTile key="sla" title={m.analysisTiles.sla} value={sq.data ? ratioText(s.n, s.d) : sq.isError ? '?' : '…'} sub={sq.data ? `${s.n}/${s.d}건` : undefined} to="/case-sla" testId="dash-a-sla" failed={sq.isError}>
+        <MiniRing ratio={sq.data && s.d > 0 ? s.n / s.d : null} />
+      </AnalysisTile>,
+    );
+  }
+  if (metrics) {
+    keys.forEach((k, i) => {
+      const q = mq[i];
+      const s = sum(q?.data?.totals);
+      const soon = !!q?.isError && isNotImplemented(q.error);
+      tiles.push(
+        <AnalysisTile
+          key={k}
+          title={k === 'ON_TIME_DELIVERY' ? m.metrics.onTime : m.metrics.shortage}
+          value={q?.data ? ratioText(s.n, s.d) : soon ? m.metrics.soon : q?.isError ? '?' : '…'}
+          sub={q?.data ? `${s.n}/${s.d}` : undefined}
+          testId={`dash-a-${k}`}
+          failed={!!q?.isError}
+        >
+          <MiniRing ratio={q?.data && s.d > 0 ? s.n / s.d : null} tone={k === 'SHORTAGE_RATE' ? 'error' : 'success'} />
+        </AnalysisTile>,
+      );
+    });
+    const items = stock.data?.items ?? [];
+    const soldOut = items.reduce((a, x) => a + x.soldOutSkuCount, 0);
+    tiles.push(
+      <AnalysisTile
+        key="soldout"
+        title={m.metrics.soldOut}
+        value={stock.data ? `${soldOut}개` : stock.isError ? '?' : '…'}
+        sub={stock.data ? m.analysisTiles.soldOutSub(items.reduce((a, x) => a + x.handledSkuCount, 0)) : undefined}
+        testId="dash-a-soldout"
+        failed={stock.isError}
+      />,
+    );
+  }
+  if (tiles.length === 0) return null;
+  return (
+    <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:auto-cols-fr xl:grid-flow-col xl:grid-cols-none" data-testid="dash-analysis-tiles">
+      {tiles}
+    </div>
+  );
+}
