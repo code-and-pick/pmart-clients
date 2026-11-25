@@ -1,0 +1,192 @@
+@import 'tailwindcss';
+/* 글꼴 Pretendard(통합 백오피스와 같음) */
+@import 'pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css';
+/* 공용 움직임(@pmart/web-ui) */
+@import '../../ui/src/motion.css';
+@plugin "daisyui";
+/* 공유 패키지(@pmart/web-ui)의 컴포넌트가 쓰는 클래스도 읽는다 */
+@source "../../ui/src";
+
+/* 2026-11-20 웹 백오피스 맞추기 3단계: 쿠팡 윙(wing.css)·자체 테마·윙 덧붙임 대신 공용 콘솔(AWS 모양) 테마·겉모습 — 통합 백오피스와 같다 */
+@import '../../ui/src/console.css';
+
+/* 백오피스 UI 통일(2026-11-25) — 색 토큰·상태 점·문제 줄 띠·표·둥글기는 look.css(라이더 백오피스 sim-look.css 기준).
+   2026-11-21 관제실 겉모습(남색·보라·유리 패널·그림자·배지 떠오름)은 걷었다. 관제실 화면 구조·그래프 모양·움직임은 그대로. */
+/* 공용 백오피스 화면 기준(PC2 web/ui standard.css — 라이더 백오피스 모양). 그 뒤 MFC 만의 것(look.css·list.css) */
+@import '../../ui/src/standard.css';
+@import './look.css';
+@import './list.css';
+
+/* 조치 단추 — 화면 코드는 pm-action 만 붙인다(색은 테마 변수로) */
+.pm-action {
+  --btn-bg: color-mix(in oklab, var(--color-primary) 12%, var(--color-base-100));
+  --btn-border: color-mix(in oklab, var(--color-primary) 40%, var(--color-base-100));
+  --btn-fg: var(--color-primary);
+}
+/* 골라 보기 */
+.pm-seg {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  border-radius: var(--radius-field);
+  border: 1px solid var(--color-base-300);
+  background: var(--color-base-200);
+}
+.pm-seg > button {
+  padding: 0.3125rem 0.625rem;
+  border-radius: calc(var(--radius-field) - 2px);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--pm-sub);
+  transition: background-color 0.18s, color 0.18s;
+}
+.pm-seg > button:hover:not([aria-pressed='true']) {
+  color: var(--color-base-content);
+}
+.pm-seg > button[aria-pressed='true'] {
+  color: var(--color-primary);
+  background: var(--pm-soft);
+  box-shadow: inset 0 0 0 1px var(--color-primary);
+}
+/* 진행 막대 */
+.pm-meter-track {
+  background: color-mix(in oklab, var(--color-base-content) 10%, transparent);
+}
+.pm-meter-fill {
+  background: var(--color-primary);
+}
+/* 시각·번호는 고정폭 숫자(본문 글꼴) */
+.pm-mono {
+  font-variant-numeric: tabular-nums;
+}
+/* 살아 있음 점 — 퍼지는 고리(움직임 규칙 그대로, 색만 초록 토큰) */
+.pm-live {
+  box-shadow: 0 0 0 0 color-mix(in oklab, var(--color-success) 70%, transparent);
+  animation: pm-live 2s infinite;
+}
+@keyframes pm-live {
+  70% { box-shadow: 0 0 0 7px transparent; }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pm-live { animation: none; }
+}
+
+/* 실사 잠김 칸 숨쉬기(구역 칸 지도) */
+.pm-pulse {
+  animation: pm-pulse 2.4s ease-in-out infinite;
+}
+@keyframes pm-pulse {
+  50% { opacity: 0.45; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pm-pulse { animation: none; }
+}
+
+/* 센터 도면 구역 바탕·작업자 점(대시보드 B안) — 테마 변수(밝은/어두운) */
+/* 모두 바탕(base-200)과 섞은 불투명 단색 — 겹쳐 그려도 진하게 비치지 않는다 */
+:root {
+  --pm-zone-frozen: color-mix(in oklab, #3b82f6 14%, var(--color-base-200));
+  --pm-zone-chilled: color-mix(in oklab, #14b8a6 13%, var(--color-base-200));
+  --pm-zone-ambient: color-mix(in oklab, #f59e0b 11%, var(--color-base-200));
+  --pm-zone-packing: color-mix(in oklab, var(--color-primary) 16%, var(--color-base-200));
+  --pm-zone-quarantine: color-mix(in oklab, #ef4444 18%, var(--color-base-200));
+  --pm-zone-neutral: color-mix(in oklab, var(--color-base-content) 6%, var(--color-base-200));
+  --pm-floor-rack: color-mix(in oklab, var(--color-base-content) 24%, var(--color-base-200));
+  --pm-floor-table: color-mix(in oklab, var(--color-base-content) 32%, var(--color-base-200));
+  --pm-floor-wall: color-mix(in oklab, var(--color-base-content) 58%, var(--color-base-200));
+  --pm-floor-label-bg: color-mix(in oklab, var(--color-base-100) 88%, var(--color-base-content));
+  --pm-floor-reserve: color-mix(in oklab, var(--color-base-content) 14%, var(--color-base-200));
+  --pm-floor-yard: color-mix(in oklab, var(--color-base-content) 4%, var(--color-base-200));
+}
+.pm-floor-dot {
+  transition: transform 0.5s linear;
+  cursor: pointer;
+}
+/* 누른 뒤 남는 브라우저 포커스 테두리(큰 흰 상자)는 숨기고, 키보드로 올 때만 점 테두리를 밝게 */
+.pm-floor-dot:focus { outline: none; }
+.pm-floor-dot:focus-visible .pm-floor-core { stroke: var(--color-base-content); }
+@media (prefers-reduced-motion: reduce) {
+  .pm-floor-dot { transition: none; }
+}
+/* 센터 도면 — 누를 수 있는 랙 */
+.pm-floor-rack {
+  fill: var(--pm-floor-rack);
+  cursor: pointer;
+  transition: fill 0.15s;
+}
+.pm-floor-rack:hover {
+  fill: color-mix(in oklab, var(--color-primary) 55%, var(--pm-floor-rack));
+}
+/* 누른 뒤 남던 브라우저 포커스 테두리(큰 흰 사각형)는 없애고, 누르는 동안만 랙 둘레에 흰 테두리 · 고른 랙은 강조색(2026-11-21 사용자 — 2026-11-25 보라 → 파랑) */
+.pm-floor-rack:focus {
+  outline: none;
+}
+.pm-floor-rack:active,
+.pm-floor-rack:focus-visible {
+  stroke: #fff;
+  stroke-width: 0.08;
+}
+.pm-floor-rack[aria-pressed='true'] {
+  fill: var(--color-primary);
+}
+
+/* 추이 그래프 차오르기(2026-11-21 사용자 "가로선에 일자로 붙어있다가 등고선 생기며 그래프 완성") —
+   처음 그릴 때·기간을 바꿀 때 선·영역이 가로축(아래 끝)에서 위로 펴지고, 영역 색은 조금 늦게 번진다 */
+.pm-chart-rise {
+  transform-box: view-box;
+  transform-origin: 50% 100%;
+  animation: pm-chart-rise 1s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+.pm-chart-fill {
+  animation: pm-chart-fill 1.1s ease-out both;
+}
+@keyframes pm-chart-rise {
+  from { transform: scaleY(0.002); }
+  to { transform: scaleY(1); }
+}
+@keyframes pm-chart-fill {
+  0%, 35% { opacity: 0; }
+  100% { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pm-chart-rise, .pm-chart-fill { animation: none; }
+}
+
+/* 원 그래프 — 3시에서 시계방향으로 부채 펼치듯(2026-11-24 사용자). 가림막 원 테두리가 그려지며 조각이 드러난다 */
+.pm-pie-sweep {
+  stroke-dashoffset: 0;
+  animation: pm-pie-sweep 0.9s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+@keyframes pm-pie-sweep {
+  from { stroke-dashoffset: var(--pm-pie-c); }
+  to { stroke-dashoffset: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pm-pie-sweep { animation: none; }
+}
+
+/* 끌기 — 맞춰질 칸 표시는 칸이 바뀔 때 부드럽게 미끄러진다(띠 자체는 손을 그대로 따라감) */
+.pm-brush-snap {
+  transition: left 0.12s ease-out, width 0.12s ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .pm-brush-snap { transition: none; }
+}
+
+/* 범주 색(쌓은 막대 등 — 결품 사유) — dataviz 기준 팔레트 앞 4칸(파랑·주황·청록·노랑), 밝은/어두운 따로 골라 검사(validate_palette: 어두운 면 #131722 모두 통과,
+   밝은 면은 청록·노랑 대비 3:1 미만 → 범례·표로 보기를 늘 함께). 상태색(성공·경고·오류)과 섞지 않는다 */
+:root {
+  --pm-cat-1: #2a78d6;
+  --pm-cat-2: #eb6834;
+  --pm-cat-3: #1baf7a;
+  --pm-cat-4: #eda100;
+  --pm-cat-5: #e87ba4; /* 5번 자홍 — 센터 도면 '재고 이동'(2026-11-24) */
+}
+html[data-theme='pmart-dark'] {
+  --pm-cat-1: #3987e5;
+  --pm-cat-2: #d95926;
+  --pm-cat-3: #199e70;
+  --pm-cat-4: #c98500;
+  --pm-cat-5: #d55181;
+}

@@ -1,0 +1,159 @@
+/* 목록 한 틀(2026-11-25 백오피스 UI 통일, PC5 요청) — 찾기 줄·필터 팝업·조건 칩·ⓘ·줄 아래 펼침의 기본 모양은 공용 ../../ui/src/standard.css(index.css 에서 먼저 읽음).
+   이 파일은 MFC 에만 있는 것(SearchBar 팝업 칸·기본값 칩·글자 없는 ▸·상세 dt·상태 탭·밑줄 규칙)만. */
+
+/* 번호·이름 링크(상세로) — 점선 밑줄(라이더 백오피스와 같음: 누르면 상세로 간다는 표시). 단추 모양 링크는 제외 */
+main a.pm-id-link:not(.btn) {
+  text-decoration-line: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 2px;
+}
+main a.pm-id-link:not(.btn):hover {
+  color: var(--color-primary);
+}
+
+/* 줄 아래 펼침의 이름/값 — 이름은 작은 보조 글색(상세 화면 dt 의 굵은 14px 보다 작게, 라이더 펼침의 h4 와 같은 크기) */
+main .pm-inline dt:not([class*='text-info']) {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--pm-sub);
+}
+
+/* SearchBar 팝업 안 입력(라벨 + 고르기) — 칸마다 세로로 이름 위·입력 아래, 여러 칸은 한 줄에 감싸며 */
+.pm-pop-fields {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px 20px;
+  font-size: 0.875rem;
+}
+.pm-pop[hidden] {
+  display: none;
+}
+
+/* 표 안 상세 링크(daisyUI .link — 실선 밑줄)도 점선으로 — 모든 목록 메뉴가 같은 표시 */
+main table tbody td a.link:not(.btn) {
+  text-decoration-style: dotted;
+  text-underline-offset: 2px;
+}
+
+/* 기본값 칩(풀 것이 없는 "진행 중"·"활성만(기본)" 등) — 파랑 판 대신 테두리만, 보조 글색 */
+.pm-fchip.pm-fchip-def {
+  background: transparent;
+  border-color: var(--color-base-300);
+  color: var(--pm-sub);
+}
+
+/* 줄 앞 ▸/▾ — 글자 대신 CSS(simList Caret) */
+.pm-caret::before {
+  content: '▸';
+}
+.pm-caret[data-open]::before {
+  content: '▾';
+}
+
+/* 상세 화면 항목/값(2026-11-25 요청서 §5-1, 라이더 FieldList 와 같은 읽힘) — 항목명은 작은 보조 글, 값은 조금 크고 굵게.
+   상세 화면(제목 머리 DetailTop 이 있는 section)의 dl 만 — 대시보드·관제실 숫자 칸은 건드리지 않는다 */
+main section:has(> [data-testid='detail-top']) dl.grid > dt:not([class*='text-info']),
+main section:has(> [data-testid='detail-top']) dl.grid > div > dt:not([class*='text-info']) {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--pm-sub);
+  opacity: 1;
+}
+main section:has(> [data-testid='detail-top']) dl.grid > dd,
+main section:has(> [data-testid='detail-top']) dl.grid > div > dd {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+/* ---- 2차(2026-11-25 PC5 — 사용자 "제목과 내용 간격, 밑줄/점선 통일 안 됨") ---- */
+
+/* 불러오기 실패 상자는 공용 QueryState·standard.css 가 그린다(2026-11-25 PC2 17809797 — 예전 CSS 사본이 "다시 시도"를 4px 내렸다) */
+
+/* 상태 탭(라이더 support StateTabs) — 16px 굵게, 고른 탭은 파랑 글자 + 파란 3px 밑줄, 탭 줄 아래 2px 선. daisyUI tabs-box 상자 모양을 걷는다 */
+main [role='tablist'].tabs.tabs-box {
+  gap: 0.5rem;
+  padding: 0;
+  border: 0;
+  border-bottom: 2px solid var(--color-base-300);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+main [role='tablist'].tabs.tabs-box > .tab {
+  height: auto;
+  margin-bottom: -2px;
+  padding: 0.625rem 1.25rem;
+  border: 0;
+  border-bottom: 3px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  font-size: 1rem;
+  font-weight: 700;
+  color: color-mix(in oklab, var(--color-base-content) 70%, transparent);
+}
+main [role='tablist'].tabs.tabs-box > .tab:hover {
+  color: var(--color-base-content);
+}
+main [role='tablist'].tabs.tabs-box > .tab.tab-active {
+  border-bottom-color: var(--color-primary);
+  background: transparent;
+  color: var(--color-primary);
+}
+
+/* 밑줄 한 규칙: 상세로 가는 이름·번호 링크 = 점선(표 칸·펼친 줄·상세 값), 단추 모양 링크 = 없음, 그 밖 글자 링크 = 없음 */
+main a.link:not(.btn) {
+  text-decoration-line: none;
+}
+main a.link:not(.btn):hover {
+  color: var(--color-primary);
+}
+main :is(table tbody td, .pm-inline, dd) a.link:not(.btn),
+main a.pm-id-link:not(.btn) {
+  text-decoration-line: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 2px;
+}
+main a.btn {
+  text-decoration-line: none;
+}
+
+/* 찾기 줄은 숫자 띠에서 28px 띄움(라이더 sim-look main form.pm-fbar) */
+
+
+/* 3차(2026-11-25 PC5 비교 — 라이더 "라이더 관리"와 같은 폭에서 나란히) */
+/* 표 상자: 머리줄 왼쪽 건수(ResultBar) + 표를 한 상자로 */
+main .pm-list-box {
+  overflow: hidden;
+  border: 1px solid var(--color-base-300);
+  border-radius: var(--radius-box);
+  background: var(--color-base-100);
+}
+main .pm-list-box > [data-list-part='mid'] {
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--color-base-300);
+}
+/* 표 머리 칸 글자 — 보조 글색 600 13px */
+main table th {
+  font-size: 13px;
+}
+
+/* 4차(2026-11-25 PC5 #531 확인) */
+/* 숫자 띠 → 찾기 줄 28px — 찾기 줄이 목록 묶음 첫 줄이면 위 여백이 바깥과 겹쳐(마진 겹침) 18px 로 보였다. 띠 아래 여백으로 준다 */
+main .pm-stat-strip:has(+ .pm-fbar, + * > .pm-fbar:first-child) {
+  margin-block-end: 28px;
+}
+main .pm-stat-strip + .pm-fbar,
+main .pm-stat-strip + * > .pm-fbar:first-child {
+  margin-top: 0;
+}
+/* 표 상자 머리 건수 — 알약 바탕 없이 굵은 글자 13px 600(라이더 "2건") */
+main .pm-list-box .pm-count-pill {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-base-content);
+}

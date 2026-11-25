@@ -1,14 +1,14 @@
 // 직원 웹 앱 바꾸기 메뉴(⋮⋮⋮) — 백엔드 요청 all/2026-11-17-request-app-launcher(사용자 2026-11-17).
-// - 직원용 백오피스 4개를 모두에게 똑같이 보인다(역할로 거르지 않는다 — 메뉴는 편의, 권한은 각 앱·서버가 막는다). 세션을 읽지 않는다.
+// - 직원용 백오피스 5개를 모두에게 똑같이 보인다(역할로 거르지 않는다 — 메뉴는 편의, 권한은 각 앱·서버가 막는다). 세션을 읽지 않는다.
 // - 같은 탭으로 연다: 보통 <a href>(휠클릭·Ctrl+클릭으로 새 탭은 브라우저에 맡긴다). 지금 앱은 강조만.
-// - 주소 = 지금 페이지의 프로토콜·호스트 이름 + 앱 포트. https(LAN)는 443·8444·8445·8446(443 은 포트 없음), 그 밖(개발·목 http)은 5173~5176.
+// - 주소 = 지금 페이지의 프로토콜·호스트 이름 + 앱 포트. https(LAN)는 443·8444·8445·8446·8447(443 은 포트 없음), 그 밖(개발·목 http)은 5173~5177.
 //   코드에 IP 를 적지 않는다 — 192.168.0.40 으로 열었든 d603-16 으로 열었든 같은 호스트로 간다.
 // - 모양(2026-11-18 사용자 — Google 앱 런처처럼): 머리줄 오른쪽 격자 단추 → 앱마다 둥근 회색 칸 안 선 아이콘 + 아래 이름, 격자로.
 import { useEffect, useId, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react';
 
 import { uiMessages as m } from './messages';
 
-export type StaffApp = 'backoffice' | 'hr-backoffice' | 'mfc-backoffice' | 'rider-backoffice';
+export type StaffApp = 'backoffice' | 'hr-backoffice' | 'mfc-backoffice' | 'rider-backoffice' | 'cdc-backoffice';
 
 /** 앱 목록 — 이 컴포넌트 한 곳에만 둔다(순서 = 화면 순서) */
 export const STAFF_APPS: ReadonlyArray<{ readonly app: StaffApp; readonly name: string; readonly lanPort: number; readonly devPort: number }> = [
@@ -16,6 +16,8 @@ export const STAFF_APPS: ReadonlyArray<{ readonly app: StaffApp; readonly name: 
   { app: 'hr-backoffice', name: m.appNames['hr-backoffice'], lanPort: 8444, devPort: 5174 },
   { app: 'mfc-backoffice', name: m.appNames['mfc-backoffice'], lanPort: 8445, devPort: 5175 },
   { app: 'rider-backoffice', name: m.appNames['rider-backoffice'], lanPort: 8446, devPort: 5176 },
+  // DC 백오피스(2026-11-25 백엔드 요청 clients/all/2026-11-25-request-cdc-backoffice §2-3)
+  { app: 'cdc-backoffice', name: m.appNames['cdc-backoffice'], lanPort: 8447, devPort: 5177 },
 ];
 
 /** 앱 첫 화면 주소 — 지금 페이지(protocol·hostname) 기준 */
@@ -37,12 +39,13 @@ function GridIcon() {
   );
 }
 
-/** 앱마다 선 아이콘(24 격자, 굵기 1.6) — 본사 백오피스 = 상자, 인사팀 = 사람들, MFC 센터 = 창고, 라이더 운영 = 배송 트럭 */
+/** 앱마다 선 아이콘(24 격자, 굵기 1.6) — 본사 백오피스 = 상자, 인사팀 = 사람들, MFC 센터 = 창고, 라이더 운영 = 배송 트럭, DC = 팔레트 위 상자 */
 const APP_ICON: Readonly<Record<StaffApp, string>> = {
   backoffice: 'M12 3 20 7.5v9L12 21l-8-4.5v-9L12 3Zm0 0v0M4 7.5l8 4.5 8-4.5M12 12v9',
   'hr-backoffice': 'M9 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Zm-6 9c0-3.3 2.7-6 6-6s6 2.7 6 6M16 4.5a3.5 3.5 0 0 1 0 6.5M18 14.5c1.8.8 3 2.7 3 5.5',
   'mfc-backoffice': 'M3 9.5 12 4l9 5.5V20H3V9.5ZM7 20v-7h10v7M7 16h10',
   'rider-backoffice': 'M2.5 6.5h11v10h-11zM13.5 10h4l3 3.5v3h-7M6 19a2 2 0 1 0 0-4 2 2 0 0 0 0 4Zm11 0a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z',
+  'cdc-backoffice': 'M3 17.5h18M3 20.5h18M5 17.5v3M12 17.5v3M19 17.5v3M5 9.5h6v8H5zM13 5.5h6v12h-6zM8 9.5v2M16 5.5v2',
 };
 
 function AppIcon({ app }: { readonly app: StaffApp }) {

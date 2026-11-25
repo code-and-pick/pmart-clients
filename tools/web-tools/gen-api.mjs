@@ -36,6 +36,12 @@ const copies = [
     // order·product: 센터 대시보드 주문 수·매출 `GET /orders/metrics/series|summary|top-products`(order 0.20.0 O-11 — MFC_SUPERVISOR 토큰 센터, PC 3 2026-11-23)·카테고리 `GET /categories/tree`
     services: ['approval', 'backoffice-bff', 'case', 'center-master', 'claim', 'delivery-dispatch', 'delivery-execution', 'hr', 'mfc-capacity', 'mfc-fulfillment', 'mfc-inbound', 'mfc-inventory', 'mfc-location', 'mfc-quality', 'order', 'product', 'product-content', 'rider'],
   },
+  {
+    label: 'web/cdc-backoffice',
+    dir: join(repo, 'web/cdc-backoffice/src/api/generated'),
+    // DC 백오피스(2026-11-25 백엔드 요청 clients/all/2026-11-25-request-cdc-backoffice): hr = 내 정보, cdc-* = 작업·Wave·TRF·기준정보·재고
+    services: ['center-master', 'hr', 'cdc-inventory', 'cdc-location', 'cdc-outbound'],
+  },
 ];
 const excluded = ['/internal', '/webhooks', '/actuator'];
 

@@ -15,7 +15,7 @@ export const messages = {
     allCenters: '센터 제한 없음',
     login: '로그인',
     app: '로그인한 곳',
-    appName: { backoffice: '통합 백오피스', 'hr-backoffice': '인사 백오피스', 'mfc-backoffice': 'MFC 백오피스', 'rider-backoffice': '라이더 백오피스' } as Readonly<Record<string, string>>,
+    appName: { backoffice: '통합 백오피스', 'hr-backoffice': '인사 백오피스', 'mfc-backoffice': 'MFC 백오피스', 'rider-backoffice': '라이더 백오피스', 'cdc-backoffice': 'DC 백오피스' } as Readonly<Record<string, string>>,
     issuedAt: '로그인 시각',
     expiresAt: '로그인 유지 끝',
     security: '계정·보안',
