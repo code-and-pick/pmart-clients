@@ -690,6 +690,62 @@ void main() {
     );
   });
 
+  test(
+    '탈퇴: 구글 접근 토큰을 본문 providerAccessToken 으로(rider 0.30.0), 없으면 빼고',
+    () async {
+      final a = _FakeAdapter({
+        'POST /api/v1/riders/me/withdrawals': (
+          202,
+          {'requestId': 'wd-1', 'state': 'COMPLETED', 'status': 'APPLIED'},
+        ),
+      });
+      final dio = _dio(a);
+      final bodies = <Object?>[];
+      dio.interceptors.add(
+        InterceptorsWrapper(
+          onRequest: (o, h) {
+            bodies.add(o.data);
+            h.next(o);
+          },
+        ),
+      );
+      final repo = ApiWithdrawalRepository(dio);
+      await repo.request(
+        reason: '그만둠',
+        providerAccessToken: 'ya29.test',
+        key: IdempotencyKey.generate(),
+      );
+      await repo.request(key: IdempotencyKey.generate());
+      String body(Object? b) => b is String ? b : jsonEncode(b);
+      expect(jsonDecode(body(bodies[0])), {
+        'reason': '그만둠',
+        'providerAccessToken': 'ya29.test',
+      });
+      expect(
+        (jsonDecode(body(bodies[1])) as Map).containsKey('providerAccessToken'),
+        isFalse,
+      );
+    },
+  );
+
+  test('소셜 실명(provider-profile): 이름 있으면 그대로, 카카오처럼 없거나 실패면 null', () async {
+    Future<String?> nameFor(Map<String, Object?> json) => ApiSignupRepository(
+      _dio(
+        _FakeAdapter({'GET /api/v1/riders/me/provider-profile': (200, json)}),
+      ),
+    ).providerName();
+    expect(await nameFor({'provider': 'GOOGLE', 'name': '김구글'}), '김구글');
+    expect(
+      await nameFor({'provider': 'KAKAO', 'providerNickname': '카톡닉'}),
+      isNull,
+    );
+    expect(await nameFor({}), isNull);
+    expect(
+      await ApiSignupRepository(_dio(_FakeAdapter({}))).providerName(),
+      isNull,
+    );
+  });
+
   test('운행시간: 오늘 + 이번 주(월~일) 두 번 묻고 초를 시간으로', () async {
     final a = _FakeAdapter({});
     final dio = _dio(a);

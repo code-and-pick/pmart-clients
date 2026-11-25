@@ -190,6 +190,12 @@ class SessionController extends Notifier<RiderSession?> {
         .reauthenticateForWithdrawal(state?.provider);
   }
 
+  /// 구글로 로그인한 라이더의 탈퇴 접근 토큰(서버가 구글 연결을 끊는다 — rider-service 0.30.0). 목·다른 제공자·못 받음은 null.
+  Future<String?> withdrawalAccessToken() async {
+    if (ref.read(envProvider) == PmartEnv.mock) return null;
+    return ref.read(riderLoginProvider).withdrawalAccessToken(state?.provider);
+  }
+
   /// 세션을 바로 끝내고(화면은 로그인으로), 푸시 등록 해제·서버 로그아웃·토큰 지우기가 끝나면 완료되는 Future.
   Future<void> _endSession({bool withdrawn = false}) {
     final session = state;

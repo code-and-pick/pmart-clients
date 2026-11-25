@@ -16,7 +16,10 @@ const generatorVersion = '7.26.0';
 const generatorSha1 = 'b96b148fcf482808037f68fbad99cb4d7e65d40b';
 
 const backendDir = '../pmart-backend';
-const contractsDir = '$backendDir/contracts/openapi';
+// 백엔드 작업 폴더가 다른 커밋에 있을 때(웹 gen-api.mjs 와 같다): `git -C ../pmart-backend archive origin/main contracts` 를 푼
+// 폴더를 PMART_CONTRACTS_DIR, 그 커밋을 PMART_CONTRACTS_SHA 로. 백엔드 작업 폴더는 읽기만 한다.
+final contractsDir =
+    Platform.environment['PMART_CONTRACTS_DIR'] ?? '$backendDir/contracts/openapi';
 const cacheDir = 'tools/.cache';
 const genDir = 'packages/pmart_api/gen';
 
@@ -71,7 +74,8 @@ Future<void> main(List<String> args) async {
   final build = !args.contains('--no-build');
 
   _ensureRoot();
-  final sha = _git(['rev-parse', 'HEAD']);
+  final sha =
+      Platform.environment['PMART_CONTRACTS_SHA'] ?? _git(['rev-parse', 'HEAD']);
   final dirty = _git(['status', '--porcelain', '--', 'contracts']).isNotEmpty;
   if (dirty) {
     stderr.writeln(

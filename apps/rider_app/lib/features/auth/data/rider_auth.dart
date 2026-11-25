@@ -194,6 +194,27 @@ final class GoogleSignInIdTokenSource implements GoogleIdTokenSource {
 
   @override
   Future<void> abandonSignup() => signOut(revoke: true);
+
+  /// 탈퇴 때 서버가 구글 연결을 끊을 접근 토큰(rider-service 0.30.0 `providerAccessToken` — 고객 앱 BR-105 와 같은 방법).
+  /// 화면 없이 지난번 계정으로만 받는다(계정 선택·동의 창을 띄우지 않는다). 못 받으면 null — 빼고 보낸다.
+  /// 토큰은 저장·로그하지 않는다.
+  Future<String?> withdrawalAccessToken() async {
+    try {
+      await (_initialized ??= _signIn.initialize(
+        serverClientId: riderGoogleServerClientId,
+      ));
+      final account = await _signIn.attemptLightweightAuthentication();
+      if (account == null) return null;
+      final token = (await account.authorizationClient.authorizationForScopes(
+        const ['email'],
+      ))?.accessToken;
+      return token == null || token.isEmpty || token.length > 4096
+          ? null
+          : token;
+    } on Object {
+      return null;
+    }
+  }
 }
 
 final googleIdTokenSourceProvider = Provider<GoogleIdTokenSource>(
@@ -328,6 +349,15 @@ final class RiderLogin {
     final p = provider ?? await currentProvider();
     if (p != RiderSocialProvider.naver) return true;
     return await source.obtain(withdrawal: true) != null;
+  }
+
+  /// 구글로 로그인한 라이더의 탈퇴 — 서버가 구글 연결을 끊을 접근 토큰(rider-service 0.30.0). 다른 제공자·못 받음은 null.
+  Future<String?> withdrawalAccessToken(RiderSocialProvider? provider) async {
+    final g = google;
+    if (g is! GoogleSignInIdTokenSource) return null;
+    final p = provider ?? await currentProvider();
+    if (p != RiderSocialProvider.google) return null;
+    return g.withdrawalAccessToken();
   }
 
   /// 서버가 아는 이 라이더의 로그인 수단(현재 세션 조회). 조회 실패·null 이면 null — 탈퇴를 막지 않는다

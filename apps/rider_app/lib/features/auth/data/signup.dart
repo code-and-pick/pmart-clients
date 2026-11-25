@@ -217,6 +217,10 @@ abstract interface class SignupRepository {
 
   /// 은행 목록(이름·금융결제원 코드). `GET /riders/bank-codes`. 서버에 없으면 앱 목록.
   Future<List<BankOption>> banks();
+
+  /// 소셜 계정 실명(rider-service 0.30.0 `GET /riders/me/provider-profile` `name` — 가입 전에도). 가입 화면 이름 칸을
+  /// 미리 채우는 데만 쓴다. 카카오(실명 없음)·아직 없음·실패는 null — 빈 칸으로 두고 입력받는다.
+  Future<String?> providerName();
 }
 
 /// 서버에 그 경로가 아직 없다(배포 전) — 확인을 "가입 때"로 미룬다. 실패를 통과로 바꾸지 않는다.
@@ -298,6 +302,12 @@ final class MockSignupRepository implements SignupRepository {
 
   @override
   Future<List<BankOption>> banks() async => SignupOptions.banks;
+
+  /// 목 소셜 실명(기본 없음 — 시험에서 넣는다).
+  String? mockProviderName;
+
+  @override
+  Future<String?> providerName() async => mockProviderName;
 }
 
 /// 실서버 가입(rider-service 0.7.0). 라이더 토큰(Google 로그인)이 있어야 부를 수 있다.
@@ -308,9 +318,23 @@ final class MockSignupRepository implements SignupRepository {
 /// - 은행은 금융결제원 코드 3자리, 약관은 앱이 보여 준 버전([SignupOptions.termsVersion])을 보낸다.
 final class ApiSignupRepository implements SignupRepository {
   ApiSignupRepository(Dio dio)
-    : _signup = rd.PmartApiRider(dio: dio).getSignupApi();
+    : _signup = rd.PmartApiRider(dio: dio).getSignupApi(),
+      _me = rd.PmartApiRider(dio: dio).getMeApi();
 
   final rd.SignupApi _signup;
+  final rd.MeApi _me;
+
+  @override
+  Future<String?> providerName() async {
+    try {
+      final res = await pmartGuard(() => _me.getMyProviderProfile());
+      final name = res.data?.name?.trim();
+      return name == null || name.isEmpty ? null : name;
+    } on PmartFailure {
+      return null; // 미리 채우기만 못 한다 — 가입은 그대로
+    }
+  }
+
   IdempotencyKey? _key;
 
   @override

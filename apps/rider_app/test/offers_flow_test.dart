@@ -364,6 +364,53 @@ void main() {
     expect(find.byKey(const ValueKey('new-dispatch')), findsOneWidget);
   });
 
+  testWidgets(
+    '가입 이름 칸은 소셜 실명으로 미리 채운다(rider 0.30.0 provider-profile — 2026-11-25)',
+    (t) async {
+      t.view
+        ..physicalSize = const Size(800, 2000)
+        ..devicePixelRatio = 1;
+      addTearDown(t.view.reset);
+      final signups = MockSignupRepository(latency: Duration.zero)
+        ..mockProviderName = '김구글';
+      await t.pumpWidget(
+        ProviderScope(
+          retry: (_, _) => null,
+          overrides: [
+            envProvider.overrideWithValue(PmartEnv.mock),
+            offerRepositoryProvider.overrideWithValue(repo),
+            dutyRepositoryProvider.overrideWithValue(repo),
+            deliveryRepositoryProvider.overrideWithValue(
+              MockDeliveryRepository(latency: Duration.zero, seeded: false),
+            ),
+            signupRepositoryProvider.overrideWithValue(signups),
+            phoneIdentityRepositoryProvider.overrideWithValue(
+              MockPhoneIdentityRepository(delay: Duration.zero),
+            ),
+          ],
+          child: const RiderApp(),
+        ),
+      );
+      Future<void> tap(String key) async {
+        await t.tap(find.byKey(ValueKey(key)));
+        await t.pumpAndSettle(const Duration(milliseconds: 50));
+      }
+
+      await t.pumpAndSettle(const Duration(milliseconds: 50));
+      await tap('login-apply');
+      await tap('signup-start');
+      for (final c in SignupOptions.consents.where((c) => c.required)) {
+        await t.tap(find.byKey(ValueKey('consent-${c.type}')));
+      }
+      await t.pump();
+      await tap('signup-next');
+      final field = t.widget<TextField>(
+        find.byKey(const ValueKey('signup-name')),
+      );
+      expect(field.controller?.text, '김구글');
+    },
+  );
+
   testWidgets('처음 로그인한 계정은 가입 화면으로 가고, 가입을 마치면 홈으로 간다', (t) async {
     t.view
       ..physicalSize = const Size(800, 2000)

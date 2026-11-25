@@ -42,7 +42,12 @@ class WithdrawalBlockedFailure implements Exception {
 /// 진행 중 배송·미정산 수행료·제한 조사 중이면 서버가 409 INVALID_STATE 로 거절한다.
 abstract interface class WithdrawalRepository {
   /// 접수되면 requestId. 같은 키 재전송은 같은 신청이다.
-  Future<String> request({String? reason, required IdempotencyKey key});
+  /// [providerAccessToken] = 구글로 로그인한 라이더만(rider-service 0.30.0 — 탈퇴가 끝나면 서버가 구글 연결을 끊는다). 저장·로그 안 함.
+  Future<String> request({
+    String? reason,
+    String? providerAccessToken,
+    required IdempotencyKey key,
+  });
   Future<WithdrawalStatus> status(String requestId);
 }
 
@@ -53,7 +58,11 @@ final class ApiWithdrawalRepository implements WithdrawalRepository {
   final rd.MeApi _me;
 
   @override
-  Future<String> request({String? reason, required IdempotencyKey key}) async {
+  Future<String> request({
+    String? reason,
+    String? providerAccessToken,
+    required IdempotencyKey key,
+  }) async {
     final Response<rd.CreateMyWithdrawal202Response> res;
     try {
       res = await pmartGuard(
@@ -64,6 +73,7 @@ final class ApiWithdrawalRepository implements WithdrawalRepository {
             reason: reason == null || reason.trim().isEmpty
                 ? null
                 : reason.trim(),
+            providerAccessToken: providerAccessToken,
           ),
           extra: commandOptions(key).extra,
         ),
@@ -114,8 +124,16 @@ final class MockWithdrawalRepository implements WithdrawalRepository {
   final bool notImplemented;
   final _done = <String>{};
 
+  /// 마지막으로 받은 접근 토큰(시험용 — 실제 앱은 목에서 토큰을 받지 않는다).
+  String? lastProviderAccessToken;
+
   @override
-  Future<String> request({String? reason, required IdempotencyKey key}) async {
+  Future<String> request({
+    String? reason,
+    String? providerAccessToken,
+    required IdempotencyKey key,
+  }) async {
+    lastProviderAccessToken = providerAccessToken;
     await Future<void>.delayed(Duration.zero);
     if (notImplemented) {
       throw const UnknownResultFailure(httpStatus: 501);

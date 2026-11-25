@@ -35,6 +35,9 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
   IdempotencyKey? _key;
   String? _requestId;
 
+  /// 구글 탈퇴 접근 토큰 — 이 화면 메모리에만(같은 키로 다시 보낼 때 같이). 저장·로그 안 함.
+  String? _googleToken;
+
   /// 화면 아래 결과 안내(거절 사유·처리 중 등).
   String? _note;
   List<WithdrawalBlocker> _blockers = const [];
@@ -96,11 +99,20 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
         setState(() => _busy = false); // 네이버 화면을 닫음 — 아무 것도 보내지 않았다
         return;
       }
+      // 구글이면 서버가 연결을 끊을 접근 토큰(화면 없이 — 못 받으면 빼고 보낸다).
+      _googleToken = await ref
+          .read(sessionProvider.notifier)
+          .withdrawalAccessToken();
+      if (!mounted) return;
     }
     try {
       // 결과를 모르는 신청은 같은 키로 다시 보낸다.
       final key = _key ??= IdempotencyKey.generate();
-      _requestId ??= await repo.request(reason: _reason.text, key: key);
+      _requestId ??= await repo.request(
+        reason: _reason.text,
+        providerAccessToken: _googleToken,
+        key: key,
+      );
       await _check();
     } on WithdrawalBlockedFailure catch (f) {
       // 막힘(409 INVALID_STATE + 사유). 같은 키로 다시 내면 서버가 다시 검사한다(백엔드 회신 2026-11-17).

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -286,6 +288,20 @@ class _SignupFlowScreenState extends ConsumerState<SignupFlowScreen> {
     super.initState();
     // 한글 조합이 끝났는지(자음만 남았는지)는 글자가 안 바뀌어도 바뀐다 — 다시 그린다.
     _name.addListener(_redraw);
+    unawaited(_prefillName());
+  }
+
+  /// 이름 칸을 소셜 계정 실명으로 미리 채운다(rider-service 0.30.0 provider-profile — 구글·네이버만, 카카오는 비움).
+  /// 라이더가 이미 적었으면 덮지 않는다. 고쳐서 가입하면 그 값이 실명이다.
+  Future<void> _prefillName() async {
+    final name = await ref
+        .read(signupRepositoryProvider)
+        .providerName()
+        .timeout(const Duration(seconds: 3), onTimeout: () => null)
+        .catchError((Object _) => null);
+    if (!mounted || name == null || _name.text.isNotEmpty) return;
+    _name.text = name;
+    _set(_draft.copyWith(name: name));
   }
 
   void _redraw() {
