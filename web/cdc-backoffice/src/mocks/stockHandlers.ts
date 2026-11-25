@@ -134,6 +134,26 @@ const productNames: Readonly<Record<string, string>> = {
 };
 
 export const stockHandlers = [
+  http.get(`${API_BASE}/skus/:sku`, ({ request, params }) => {
+    if (!operator(request)) return unauthorized();
+    const sku = String(params.sku);
+    if (!productNames[sku]) return problem(404, 'NOT_FOUND');
+    const frozen = sku === 'SKU-1001';
+    return HttpResponse.json({
+      sku,
+      productId: `PRD-${sku}`,
+      baseProductId: `PRD-${sku}`,
+      unitType: 'E',
+      unitsPerSku: 1,
+      weightG: 1050,
+      netContent: { amount: 1000, unit: 'G' },
+      saleState: 'ON_SALE',
+      barcodes: ['8801234567890'],
+      shelfLifeGuarantee: { minRemainingDays: 30 },
+      logistics: { unitsPerBox: 12, boxesPerPallet: 40, ti: 8, hi: 5, storageType: frozen ? 'FROZEN' : 'CHILLED' },
+      version: 1,
+    });
+  }),
   http.get(`${API_BASE}/products`, ({ request }) => {
     if (!operator(request)) return unauthorized();
     const q = new URL(request.url).searchParams.get('q') ?? '';

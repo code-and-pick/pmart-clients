@@ -26,6 +26,18 @@ describe('상품 취급', () => {
     expect(within(rows[0]!).getByTestId('operator-label')).toHaveAttribute('title', 'OP-cdc-sup');
   });
 
+  it('SKU 줄을 누르면 아래에 상품 정보(이름·보관 온도·단위) — 켜기/끄기 단추는 펼치지 않는다(2026-11-26)', async () => {
+    renderAt('/c/CDC01/master');
+    const rows = await screen.findAllByTestId('handling-row');
+    await userEvent.click(within(rows[0]!).getByText('SKU-1001'));
+    const info = await screen.findByTestId('sku-info');
+    expect(await within(info).findByText('냉동 만두 1kg')).toBeInTheDocument();
+    expect(info).toHaveTextContent('냉동');
+    expect(info).toHaveTextContent('박스당 12개');
+    await userEvent.click(within(rows[0]!).getByText('SKU-1001'));
+    expect(screen.queryByTestId('sku-info')).not.toBeInTheDocument();
+  });
+
   it('판매 중지 상품을 켜면 서버 거절(SKU_INACTIVE)을 보인다', async () => {
     renderAt('/c/CDC01/master?tab=handling');
     await screen.findAllByTestId('handling-row');

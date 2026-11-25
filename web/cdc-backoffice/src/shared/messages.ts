@@ -456,6 +456,28 @@ export const messages = {
     stock: '이 통로 칸 재고',
   },
 
+  /** 상품 정보(SKU 를 누르면 — product-service skus/{sku}) */
+  skuInfo: {
+    nameUnknown: '상품 이름 없음',
+    nameFailed: '상품 이름을 불러오지 못했어요',
+    storage: '보관 온도',
+    unit: '판매 단위',
+    unitType: { E: '낱개', B: '묶음' } as Readonly<Record<string, string>>,
+    units: (n: number) => `${n}개 구성`,
+    net: '내용량',
+    weight: '포장 무게',
+    box: '박스 입수',
+    perBox: (n: number) => `박스당 ${n}개`,
+    pallet: '팔레트 적재',
+    perPallet: (n: number) => `팔레트당 ${n}박스`,
+    life: '소비기한 보장',
+    minRemain: (d: number) => `${d}일 이상 남은 상품`,
+    maxSinceMfg: (d: number) => `제조 ${d}일 이내`,
+    barcodes: '바코드',
+    saleState: '판매 상태',
+    sale: { ON_SALE: '판매 중', TEMPORARILY_SOLD_OUT: '일시 품절', SALE_STOPPED: '판매 중지' } as Readonly<Record<string, string>>,
+  },
+
   /** 출고관리 — 출발 검증 결과(cdc-outbound 0.16.0 M-3) */
   shipping: {
     title: '출발 검증',
