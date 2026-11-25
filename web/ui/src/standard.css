@@ -936,12 +936,23 @@ main table tbody tr.pm-inline-row:hover > td {
 
 /* ---- 2026-11-25 라이더 사용자 2차 지적 반영(PC 5 전달 — 간격·밑줄·탭·숫자 칸) ---- */
 
-/* 간격: 쪽 머리 아래 내용은 16px 더 띄운다(답답하지 않게). 찾기 줄은 위 숫자 띠에서 떨어져 목록 쪽에 */
-main .pm-head {
-  margin-bottom: 8px;
+/* 간격(라이더와 같게 — 사용자 "제목과 내용 시작 간격 답답하지 않게"): 쪽 머리 아래 첫 내용까지 16px, 구역 많은 상세 머리 아래 24px.
+   목록 머리가 바로 아래 목록 상자의 머리로 붙는 경우(data-list-part)는 띄우지 않는다 */
+main .pm-head:not(:has(+ [data-list-part])) {
+  margin-bottom: 16px;
 }
+main .pm-head.pm-head-detail {
+  margin-bottom: 24px;
+}
+/* 찾기 줄은 위 숫자 띠에서 28px 떨어져 목록 쪽에 — 흰 상자 안이면 상자를 띄우고(상자 안 여백 그대로), 상자 없으면 찾기 줄을 */
 main [role='search'].pm-fbar {
-  margin-top: 12px;
+  margin-top: 28px;
+}
+main [data-list-part] [role='search'].pm-fbar {
+  margin-top: 0;
+}
+main :not([data-list-part]) + [data-list-part='top']:has([role='search'].pm-fbar) {
+  margin-top: 28px;
 }
 
 /* 밑줄 규칙 하나 — 상세로 가는 이름·번호 링크(표·항목값·펼친 줄·구역 안) = 점선 / 단추 모양 링크 = 없음 / 그 밖 글자 = 없음 */

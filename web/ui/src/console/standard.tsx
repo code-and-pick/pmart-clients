@@ -177,7 +177,7 @@ export function DetailHeader({ back, title, badges, summary, actions, nav }: { r
   const past = useScrolledPast(card);
   const goBack = useGoBack(back.to);
   return (
-    <header className="pm-head">
+    <header className="pm-head pm-head-detail">
       <StickyBand show={past} title={title} badges={badges} onBack={goBack} backLabel={back.label} />
       <div ref={card} className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 space-y-2">

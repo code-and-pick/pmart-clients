@@ -40,7 +40,35 @@ interface Props<T> {
 }
 
 function RequestId({ id }: { readonly id: string | undefined }) {
-  return id ? <p className="text-xs opacity-70 select-all">{m.requestId(id)}</p> : null;
+  return id ? <p className="text-xs text-base-content/55 select-all">{m.requestId(id)}</p> : null;
+}
+
+/**
+ * 못 읽음·권한 없음·확인 중 상자 — 아이콘 · 굵은 제목 · 짧은 한 줄 · 오른쪽 단추(2026-11-25 백오피스 화면 기준,
+ * 라이더 백오피스 LoadWarning — 라이더 사용자 2026-11-24 "불러오지 못했다고 적어놓으면 되지 … 너무 없어보인다"). 모든 웹 앱 공용.
+ */
+const boxTone = {
+  error: { box: 'border-error/60 bg-error/10', icon: 'bg-error/15 text-error' },
+  warning: { box: 'border-warning/60 bg-warning/10', icon: 'bg-warning/20 text-warning' },
+  info: { box: 'border-info/50 bg-info/5', icon: 'bg-info/15 text-info' },
+  muted: { box: 'border-base-300 bg-base-100', icon: 'bg-base-200 text-base-content/60' },
+} as const;
+
+function StateBox({ state, tone, title, body, requestId, action }: { readonly state: string; readonly tone: keyof typeof boxTone; readonly title: string; readonly body: string; readonly requestId?: string | undefined; readonly action?: ReactNode }) {
+  const t = boxTone[tone];
+  return (
+    <div role="alert" data-state={state} className={`flex flex-wrap items-center gap-4 rounded-box border px-5 py-4 ${t.box}`}>
+      <span className={`grid size-9 shrink-0 place-items-center rounded-full text-lg font-bold ${t.icon}`} aria-hidden="true">
+        {tone === 'info' ? 'i' : '!'}
+      </span>
+      <div className="min-w-0 flex-1 space-y-0.5">
+        <h2 className="font-bold">{title}</h2>
+        <p className="break-keep text-sm text-base-content/70">{body}</p>
+        <RequestId id={requestId} />
+      </div>
+      {action}
+    </div>
+  );
 }
 
 export function QueryState<T>({ state, children, onRetry, onCheckAgain, emptyText }: Props<T>) {
@@ -67,8 +95,11 @@ export function QueryState<T>({ state, children, onRetry, onCheckAgain, emptyTex
     case 'partial':
       return (
         <div data-state="partial">
-          <div role="alert" className="alert alert-warning mb-4 flex flex-wrap items-center gap-2">
-            <span>{`${m.unavailableSources}: ${state.missing.join(', ')}`}</span>
+          <div role="alert" className={`mb-4 flex flex-wrap items-center gap-4 rounded-box border px-5 py-3 ${boxTone.warning.box}`}>
+            <span className={`grid size-8 shrink-0 place-items-center rounded-full font-bold ${boxTone.warning.icon}`} aria-hidden="true">
+              !
+            </span>
+            <span className="min-w-0 flex-1 text-sm">{`${m.unavailableSources}: ${state.missing.join(', ')}`}</span>
             {onRetry && (
               <button type="button" className="btn btn-sm" onClick={onRetry}>
                 {m.retry}
@@ -81,13 +112,7 @@ export function QueryState<T>({ state, children, onRetry, onCheckAgain, emptyTex
     case 'error': {
       const f = state.failure;
       // 없는 건(404) — 다시 해도 같으니 "잠시 후 다시" 대신 번호 확인 안내, 다시 시도 단추 없음(2026-11-23 점검)
-      if (f instanceof ProblemFailure && f.problem.status === 404)
-        return (
-          <div role="alert" data-state="not-found" className="alert flex flex-col items-start gap-1">
-            <h2 className="font-bold">{m.notFoundTitle}</h2>
-            <p className="break-keep">{m.notFoundBody}</p>
-          </div>
-        );
+      if (f instanceof ProblemFailure && f.problem.status === 404) return <StateBox state="not-found" tone="muted" title={m.notFoundTitle} body={m.notFoundBody} />;
       const title =
         f instanceof SessionExpiredFailure
           ? m.sessionExpired
@@ -95,38 +120,40 @@ export function QueryState<T>({ state, children, onRetry, onCheckAgain, emptyTex
             ? m.configRequired
             : m.errorTitle;
       return (
-        <div role="alert" data-state="error" className="alert alert-error flex flex-col items-start gap-1">
-          <h2 className="font-bold">{title}</h2>
-          <p className="break-keep">{m.errorBody}</p>
-          <RequestId id={f.requestId} />
-          {onRetry && (
-            <button type="button" className="btn btn-sm mt-1" onClick={onRetry}>
-              {m.retry}
-            </button>
-          )}
-        </div>
+        <StateBox
+          state="error"
+          tone="error"
+          title={title}
+          body={m.errorBody}
+          requestId={f.requestId}
+          action={
+            onRetry && (
+              <button type="button" className="btn btn-sm btn-primary" onClick={onRetry}>
+                {m.retry}
+              </button>
+            )
+          }
+        />
       );
     }
     case 'forbidden':
-      return (
-        <div role="alert" data-state="forbidden" className="alert flex flex-col items-start gap-1">
-          <h2 className="font-bold">{m.forbiddenTitle}</h2>
-          <p className="break-keep">{m.forbiddenBody}</p>
-          <RequestId id={state.requestId} />
-        </div>
-      );
+      return <StateBox state="forbidden" tone="muted" title={m.forbiddenTitle} body={m.forbiddenBody} requestId={state.requestId} />;
     case 'unknown':
       return (
-        <div role="alert" data-state="unknown" className="alert alert-info flex flex-col items-start gap-1">
-          <h2 className="font-bold">{m.unknownTitle}</h2>
-          <p className="break-keep">{m.unknownBody}</p>
-          <RequestId id={state.requestId} />
-          {onCheckAgain && (
-            <button type="button" className="btn btn-sm btn-outline mt-1" onClick={onCheckAgain}>
-              {m.checkAgain}
-            </button>
-          )}
-        </div>
+        <StateBox
+          state="unknown"
+          tone="info"
+          title={m.unknownTitle}
+          body={m.unknownBody}
+          requestId={state.requestId}
+          action={
+            onCheckAgain && (
+              <button type="button" className="btn btn-sm btn-outline" onClick={onCheckAgain}>
+                {m.checkAgain}
+              </button>
+            )
+          }
+        />
       );
   }
 }
