@@ -468,7 +468,12 @@ class _SignupFlowScreenState extends ConsumerState<SignupFlowScreen> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
-      builder: (_) => AreaSheet(initial: _draft.area, areas: areas),
+      // 거주지 주소의 권역 안에서만 고를 수 있다 — 고르는 건 다 되고, "선택완료"에서 팝업으로 막는다(2026-11-25 사용자)
+      builder: (_) => AreaSheet(
+        initial: _draft.area,
+        areas: areas,
+        residence: _draft.roadAddress,
+      ),
     );
     if (picked != null) _set(_draft.copyWith(area: picked));
   }
@@ -1098,10 +1103,18 @@ class _SelectBox extends StatelessWidget {
 
 /// 배달 지역 고르기: 권역(충청·강원·전라·경상 — 2026-11-17) → 그 권역의 MFC 지점(레퍼런스의 두 단계 시트).
 class AreaSheet extends StatefulWidget {
-  const AreaSheet({super.key, this.initial, required this.areas});
+  const AreaSheet({
+    super.key,
+    this.initial,
+    required this.areas,
+    this.residence,
+  });
 
   final AreaOption? initial;
   final Map<MfcRegion, List<AreaOption>> areas;
+
+  /// 거주지 도로명 주소. 주면 "선택완료"에서 그 권역의 지점만 받는다(가입). 배달 지역 바꾸기 화면은 주지 않는다.
+  final String? residence;
 
   @override
   State<AreaSheet> createState() => _AreaSheetState();
@@ -1111,6 +1124,48 @@ class _AreaSheetState extends State<AreaSheet> {
   late MfcRegion? _region = widget.initial?.region;
   late AreaOption? _branch = widget.initial;
   bool _second = false;
+
+  /// "선택완료" — 거주지 주소의 권역이 아니면 팝업으로 알리고 닫지 않는다.
+  Future<void> _finish() async {
+    final branch = _branch;
+    final residence = widget.residence;
+    if (branch == null) return;
+    if (residence == null) return Navigator.of(context).pop(branch);
+    final l10n = AppLocalizations.of(context);
+    final home = regionOfAddress(residence);
+    final String? message = residence.trim().isEmpty
+        ? l10n.areaNeedResidence
+        : home == null
+        ? l10n.areaResidenceOutside
+        : home != branch.region
+        ? l10n.areaResidenceOnly(regionText(l10n, home))
+        : null;
+    if (message == null) return Navigator.of(context).pop(branch);
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        key: const ValueKey('area-residence-dialog'),
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        content: Text(
+          message,
+          style: const TextStyle(
+            fontSize: 16,
+            height: 1.5,
+            color: RiderColors.ink,
+          ),
+        ),
+        actions: [
+          TextButton(
+            key: const ValueKey('area-residence-ok'),
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: Text(l10n.ok),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1193,7 +1248,7 @@ class _AreaSheetState extends State<AreaSheet> {
                             if (!_second) {
                               setState(() => _second = true);
                             } else {
-                              Navigator.of(context).pop(_branch);
+                              _finish();
                             }
                           },
                     child: Text(

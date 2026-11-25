@@ -2,6 +2,7 @@
 //   flutter test tool/screenshots.dart --update-goldens --dart-define=SHOT_DIR=<절대 경로>
 // 글꼴: 테스트 러너에는 한글 글꼴이 없어 이 PC 의 맑은 고딕을 읽는다(캡처에만 쓰고 앱에 넣지 않는다).
 // 지도는 카카오 지도가 아니라 약도 자리표시로 나온다(테스트 러너에는 지도 SDK 가 없다).
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -15,6 +16,9 @@ import 'package:pmart_ui/pmart_ui.dart';
 import 'package:rider_app/app.dart';
 import 'package:rider_app/features/auth/data/session.dart';
 import 'package:rider_app/features/auth/data/signup.dart';
+import 'package:rider_app/features/auth/presentation/signup_screens.dart'
+    show AreaSheet;
+import 'package:rider_app/shared/mfc_directory.dart' show MfcRegion;
 import 'package:rider_app/features/auth/presentation/postcode_screen.dart';
 import 'package:rider_app/features/delivery/data/mock_delivery_repository.dart';
 import 'package:rider_app/features/delivery/presentation/delivery_controller.dart';
@@ -246,6 +250,24 @@ void main() {
       await t.tap(find.byKey(ValueKey('area-${other.name}')));
       await shot('area-change');
       nav.pop();
+      await settle();
+      // 가입 배달 지역: 거주지(부산)와 다른 권역 지점 → 선택완료에서 팝업(2026-11-25)
+      final mokpo = areas[MfcRegion.jeolla]!.first;
+      unawaited(
+        showModalBottomSheet<void>(
+          context: t.element(find.byType(Scaffold).last),
+          isScrollControlled: true,
+          builder: (_) => AreaSheet(areas: areas, residence: '부산 부산진구 동천로 109'),
+        ),
+      );
+      await settle();
+      await tap('area-jeolla');
+      await tap('area-confirm');
+      await tap('area-${mokpo.name}');
+      await tap('area-confirm');
+      await shot('signup-area-dialog');
+      await tap('area-residence-ok');
+      Navigator.of(t.element(find.byKey(const ValueKey('area-confirm')))).pop();
       await settle();
     }
 

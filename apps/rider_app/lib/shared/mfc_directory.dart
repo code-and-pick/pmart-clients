@@ -326,3 +326,19 @@ MfcBranch? mfcById(String? id) =>
 
 /// 목 시연의 기본 지점.
 final MfcBranch demoMfc = mfcById('MFC-BSJ-01')!;
+
+/// 도로명·지번 주소의 시·도로 권역을 정한다(2026-11-25 사용자 "가입할 때 … 거주지 주소의 권역 안에서만 선택가능").
+/// 권역은 지점표와 같은 넷(충청·강원·전라·경상). 그 밖(수도권·제주 등)이나 못 읽으면 null.
+MfcRegion? regionOfAddress(String address) {
+  final first = address.trim().split(RegExp(r'\s+')).first;
+  const table = <MfcRegion, List<String>>{
+    MfcRegion.gyeongsang: ['부산', '대구', '울산', '경남', '경상남도', '경북', '경상북도'],
+    MfcRegion.jeolla: ['광주', '전남', '전라남도', '전북', '전라북도', '전북특별자치도'],
+    MfcRegion.chungcheong: ['대전', '세종', '충남', '충청남도', '충북', '충청북도'],
+    MfcRegion.gangwon: ['강원', '강원도', '강원특별자치도'],
+  };
+  for (final e in table.entries) {
+    if (e.value.any((name) => first.startsWith(name))) return e.key;
+  }
+  return null;
+}
