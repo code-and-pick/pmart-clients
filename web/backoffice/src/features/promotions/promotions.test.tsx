@@ -56,6 +56,26 @@ describe('행사·쿠폰', () => {
     expect(screen.getByTestId('promotion-stage-note')).toHaveTextContent('쿠폰은 주문서에서 써요'); // 2026-11-24 — 백엔드 적용 끝("다음 단계" 문구 없앰)
   });
 
+  it('줄을 누르면 아래로 펼침(2026-11-25 화면 기준) — 대상·만든 사람·막히는 곳·"전체 상세 ›", 한 번에 한 줄, 다시 누르면 접힘', async () => {
+    const user = userEvent.setup();
+    renderAt('/promotions', as.cs);
+    const rows = await screen.findAllByTestId('promotion-row');
+    const fruit = rows.find((r) => r.textContent?.includes('겨울 과일'))!;
+    expect(screen.queryByTestId('promotion-inline')).not.toBeInTheDocument();
+    await user.click(within(fruit).getAllByRole('cell')[1]!);
+    expect(fruit).toHaveAttribute('aria-expanded', 'true');
+    const inline = screen.getByTestId('promotion-inline');
+    expect(within(inline).getByText('만든 사람')).toBeInTheDocument();
+    expect(within(inline).getByTestId('promotion-problems')).toHaveTextContent('1곳'); // 서버 problems 그대로
+    expect(within(inline).getByRole('link', { name: '전체 상세 ›' })).toHaveAttribute('href', expect.stringMatching(/^\/promotions\//));
+    const coupon = rows.find((r) => r.textContent?.includes('첫 주문 3천원 쿠폰'))!;
+    await user.click(within(coupon).getAllByRole('cell')[1]!);
+    expect(screen.getAllByTestId('promotion-inline')).toHaveLength(1); // 한 번에 한 줄
+    expect(fruit).toHaveAttribute('aria-expanded', 'false');
+    await user.click(within(coupon).getAllByRole('cell')[1]!);
+    expect(screen.queryByTestId('promotion-inline')).not.toBeInTheDocument();
+  });
+
   it('쿠폰 만들기 → 저장하고 승인 요청(제출 → change-requests PROMOTION) → 만든 본인은 승인 못 하고 다른 마케터가 승인 → 진행 중', async () => {
     const user = userEvent.setup();
     const view = renderAt('/promotions/new', as.marketing);

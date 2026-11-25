@@ -3549,6 +3549,7 @@ export const messages = {
     issueModeName: { DOWNLOAD: '앱에서 내려받기', ADMIN: '직원 지정 발급', SIGNUP: '가입 축하(가입하면 자동 발급)' } as Readonly<Record<string, string>>,
     targetTypeName: { SKU: 'SKU', CATEGORY: '카테고리(그 아래 상품 전부)', THEME: '홈 진열 테마(그 테마 상품 전부)' } as Readonly<Record<string, string>>,
     col: { name: '이름', kind: '종류', state: '상태', period: '기간', discount: '할인', coupons: '발급·사용', updatedAt: '바뀐 때' },
+    inlineMore: (n: number) => `외 ${n}개`,
     empty: '조건에 맞는 행사가 없어요.',
     more: '더 보기',
     rate: (v: number, max?: number | null) => `${v}%${max ? ` (최대 ${max.toLocaleString('ko-KR')}원)` : ''}`,

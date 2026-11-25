@@ -17,7 +17,7 @@ import { CouponRecords } from './CouponRecords';
 import { useSession } from '../../app/SessionContext';
 import { RequestApproval } from '../approvals/RequestApproval';
 import { Person } from '../lookup/parts';
-import { DataTable, FieldList, ListHeader, listCount, PageHeader, refreshOf, Section, StatusBadge, type Tone } from '../../shared/admin';
+import { Caret, DataTable, expandRowProps, FieldList, InlineDetail, ListHeader, listCount, PageHeader, refreshOf, Section, StatusBadge, type Tone, useInlineOpen } from '../../shared/admin';
 import { CommandFeedback, FailureAlert } from '../../shared/Feedback';
 import { LeaveGuard } from '../../shared/LeaveGuard';
 import { messages } from '../../shared/messages';
@@ -64,6 +64,7 @@ export function PromotionListPage() {
     getNextPageParam: (last) => last.page?.nextCursor ?? undefined,
   });
   const items = query.data?.pages.flatMap((p) => p.items ?? []) ?? [];
+  const inline = useInlineOpen();
   const setParam = (k: string, v: string) => {
     const next = new URLSearchParams(params);
     if (v) next.set(k, v);
@@ -125,9 +126,12 @@ export function PromotionListPage() {
               </tr>
             </thead>
             <tbody>
-              {items.map((p) => (
-                <tr key={p.promotionId} data-testid="promotion-row">
+              {items.map((p) => {
+                const open = inline.isOpen(p.promotionId);
+                return [
+                <tr key={p.promotionId} data-testid="promotion-row" {...expandRowProps(open, () => inline.toggle(p.promotionId))}>
                   <td>
+                    <Caret open={open} />
                     <Link className="font-medium hover:underline" to={`/promotions/${encodeURIComponent(p.promotionId)}`}>
                       {p.name}
                     </Link>
@@ -147,8 +151,14 @@ export function PromotionListPage() {
                   <td className="text-xs tabular-nums">{periodText(p)}</td>
                   <td className="text-right tabular-nums">{discountText(p)}</td>
                   <td className="text-right text-xs tabular-nums">{p.kind === 'COUPON' ? m.coupons(p.issuedCount ?? 0, p.usedCount ?? 0, p.coupon?.totalQuantity) : <span className="text-base-content/35">—</span>}</td>
-                </tr>
-              ))}
+                </tr>,
+                open && (
+                  <InlineDetail key={`${p.promotionId}-inline`} colSpan={6} to={`/promotions/${encodeURIComponent(p.promotionId)}`} testId="promotion-inline">
+                    <PromotionInline p={p} />
+                  </InlineDetail>
+                ),
+                ];
+              })}
             </tbody>
           </DataTable>
         )}
@@ -286,6 +296,25 @@ const fieldName = (field: string) => FIELD_NAME[field] ?? FIELD_NAME[field.repla
 function rejectedProblems(failure: PmartFailure | null): ReadonlyArray<{ field: string; reason: string }> {
   if (!(failure instanceof ProblemFailure) || failure.problem.code !== 'PROMOTION_INVALID') return [];
   return (failure.problem.details ?? []).map((d) => ({ field: d.field ?? '', reason: d.reason ?? '' }));
+}
+
+/** 목록 줄 아래 펼침(2026-11-25 백오피스 화면 기준 — 라이더 백오피스 줄 펼침) — 줄에 이미 받은 값만(더 읽지 않음): 대상·만든 사람·바뀐 때·승인·막히는 곳 */
+function PromotionInline({ p }: { readonly p: Promotion }) {
+  const targets = p.targets.map((t) => `${label(m.targetTypeName, t.type)} ${t.title ?? t.id}`);
+  return (
+    <div className="space-y-3">
+      <FieldList
+        columns={4}
+        rows={[
+          [m.detail.target, targets.length === 0 ? messages.none : `${targets.slice(0, 3).join(', ')}${targets.length > 3 ? ` ${m.inlineMore(targets.length - 3)}` : ''}`],
+          [m.detail.createdBy, <Person key="by" id={p.createdBy} />],
+          [m.col.updatedAt, formatSeoul(p.updatedAt)],
+          [m.detail.approval, p.approvalId ? <Link key="apv" className="link" to={`/approvals/${encodeURIComponent(p.approvalId)}`}>{m.detail.openApproval}</Link> : messages.none],
+        ]}
+      />
+      <Problems items={p.problems} />
+    </div>
+  );
 }
 
 function Problems({ items }: { readonly items: ReadonlyArray<{ field: string; reason: string }> }) {
