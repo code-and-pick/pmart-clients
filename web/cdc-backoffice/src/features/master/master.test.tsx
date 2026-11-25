@@ -18,6 +18,14 @@ describe('상품 취급', () => {
     await waitFor(() => expect(screen.getByTestId('handling-toggle-SKU-1001')).toHaveTextContent('켜기'));
   });
 
+  it('바꾼 사람은 운영자 ID 가 아니라 이름 · 사번(ADR-0070, 2026-11-26)', async () => {
+    renderAt('/c/CDC01/master');
+    const rows = await screen.findAllByTestId('handling-row');
+    expect(await within(rows[0]!).findByText('칠관리')).toBeInTheDocument();
+    expect(within(rows[0]!).queryByText('OP-cdc-sup')).not.toBeInTheDocument();
+    expect(within(rows[0]!).getByTestId('operator-label')).toHaveAttribute('title', 'OP-cdc-sup');
+  });
+
   it('판매 중지 상품을 켜면 서버 거절(SKU_INACTIVE)을 보인다', async () => {
     renderAt('/c/CDC01/master?tab=handling');
     await screen.findAllByTestId('handling-row');

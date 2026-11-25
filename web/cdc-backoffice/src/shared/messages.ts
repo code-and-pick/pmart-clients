@@ -6,6 +6,11 @@ export const messages = {
   appTitle: 'PMart DC',
   goHome: 'PMart DC 백오피스 홈으로',
   mockBadge: '목 데이터',
+  /** 운영자 표시(ADR-0070 — OP-… 는 화면 글자로 내지 않는다) */
+  operator: {
+    unknown: '직원',
+    failed: '직원(이름 못 읽음)',
+  },
   theme: { toDark: '어두운 화면으로', toLight: '밝은 화면으로' },
   ...uiMessages,
 

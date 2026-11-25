@@ -13,6 +13,7 @@ import { FieldList } from '@pmart/web-ui/standard';
 import { commandParams } from '../../api/command';
 import { useApi } from '../../app/ApiContext';
 import { messages } from '../../shared/messages';
+import { Who } from '../../shared/OperatorLabel';
 
 const c = messages.countSession;
 
@@ -127,10 +128,10 @@ function CountSessionView({ cdcId, sessionId }: { readonly cdcId: string; readon
               <FieldList
                 rows={[
                   [c.locations, (s.locationCodes ?? []).join(', ') || messages.none],
-                  [c.startedBy, s.startedBy ?? messages.none],
-                  [c.firstCounter, s.firstCounterId ?? messages.none],
-                  [c.recounter, s.recounterId ?? messages.none],
-                  [c.decidedBy, s.decidedBy ?? messages.none],
+                  [c.startedBy, <Who id={s.startedBy} />],
+                  [c.firstCounter, <Who id={s.firstCounterId} />],
+                  [c.recounter, <Who id={s.recounterId} />],
+                  [c.decidedBy, <Who id={s.decidedBy} />],
                   [c.createdAt, s.createdAt ? formatSeoul(s.createdAt) : messages.none],
                   [c.decidedAt, s.decidedAt ? formatSeoul(s.decidedAt) : messages.none],
                   [c.reason, s.reason ?? messages.none],

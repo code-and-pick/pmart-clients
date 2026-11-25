@@ -12,6 +12,7 @@ import type { components } from '../../api/generated/cdc-outbound';
 import { useApi } from '../../app/ApiContext';
 import { centerPath } from '../../app/nav';
 import { messages } from '../../shared/messages';
+import { Who } from '../../shared/OperatorLabel';
 import { SkuName } from '../../shared/SkuName';
 import { wavePath, WaveStateBadge } from '../trf-wave/TrfWavePages';
 
@@ -201,7 +202,7 @@ function TaskListPage({ cdcId }: { readonly cdcId: string }) {
                             <td>
                               <TaskStateBadge state={t.state} />
                             </td>
-                            <td className="font-mono text-xs">{t.assigneeId ?? <span className="text-base-content/40">{m.unassigned}</span>}</td>
+                            <td>{t.assigneeId ? <Who id={t.assigneeId} /> : <span className="text-base-content/40">{m.unassigned}</span>}</td>
                             <td className="text-right tabular-nums">
                               {`${messages.qty(sum(t, 'pickedQty'))} / ${messages.qty(sum(t, 'plannedQty'))}`}
                               {short > 0 && <span className="ml-1 font-semibold text-error">{`(${m.fields.short} ${messages.qty(short)})`}</span>}
@@ -261,7 +262,7 @@ function TaskDetailPage({ cdcId }: { readonly cdcId: string }) {
                   [m.fields.method, t.pickMethod ?? messages.none],
                   [m.fields.region, t.regionCode ?? messages.none],
                   [m.fields.dueAt, t.dueAt ? formatSeoul(t.dueAt) : messages.none],
-                  [m.fields.assignee, t.assigneeId ?? m.unassigned],
+                  [m.fields.assignee, t.assigneeId ? <Who id={t.assigneeId} /> : m.unassigned],
                   [m.fields.createdAt, t.createdAt ? formatSeoul(t.createdAt) : messages.none],
                   [m.fields.completedAt, t.completedAt ? formatSeoul(t.completedAt) : messages.none],
                 ]}

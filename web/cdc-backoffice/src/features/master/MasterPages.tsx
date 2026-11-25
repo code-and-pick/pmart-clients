@@ -18,6 +18,7 @@ import type { components as LocSchemas } from '../../api/generated/cdc-location'
 import { useApi } from '../../app/ApiContext';
 import { centerPath } from '../../app/nav';
 import { messages } from '../../shared/messages';
+import { Who } from '../../shared/OperatorLabel';
 import { LocationStockTable } from '../inventory/LocationStock';
 
 const t = messages.master;
@@ -147,7 +148,9 @@ function HandlingTab({ cdcId }: { readonly cdcId: string }) {
                       <td>
                         <span className={`badge badge-sm ${r.handlingEnabled ? 'badge-success' : 'badge-ghost'}`}>{r.handlingEnabled ? h.on : h.off}</span>
                       </td>
-                      <td className="font-mono text-xs">{r.changedBy ?? messages.none}</td>
+                      <td>
+                        <Who id={r.changedBy} />
+                      </td>
                       <td className="whitespace-normal">{r.reason ?? messages.none}</td>
                       <td>{r.updatedAt ? formatSeoul(r.updatedAt) : messages.none}</td>
                       <td className="text-right">
@@ -466,7 +469,9 @@ function AislesTab({ cdcId }: { readonly cdcId: string }) {
                   <td>{r.floor}</td>
                   <td className="font-mono">{r.aisle}</td>
                   <td>{r.pickMethod ? (a.methods[r.pickMethod] ?? r.pickMethod) : messages.none}</td>
-                  <td className="font-mono text-xs">{r.updatedBy ?? messages.none}</td>
+                  <td>
+                    <Who id={r.updatedBy} />
+                  </td>
                   <td>{r.updatedAt ? formatSeoul(r.updatedAt) : messages.none}</td>
                 </tr>
               ))}
