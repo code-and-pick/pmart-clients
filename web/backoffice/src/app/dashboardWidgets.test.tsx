@@ -18,7 +18,7 @@ describe('대시보드 2판', () => {
     renderAt('/', as.admin);
     const glance = await screen.findByTestId('dash-glance');
     for (const id of ['dash-kpi-orders', 'dash-stat-live', 'dash-stat-sla', 'dash-stat-risk']) expect(within(glance).getByTestId(id)).toBeInTheDocument();
-    expect(await within(screen.getByTestId('dash-kpi-orders')).findByText(/어제(보다|와)/)).toBeInTheDocument();
+    expect(await within(screen.getByTestId('dash-kpi-orders')).findByText(/^(±0건|\d+건 [▲▼])$/)).toBeInTheDocument();
     expect(await within(screen.getByTestId('dash-kpi-orders')).findByTestId('dash-sparkline')).toBeInTheDocument();
     expect(await within(screen.getByTestId('dash-stat-risk')).findByText(/결제 결과 불명 1건/)).toBeInTheDocument();
   });
@@ -106,7 +106,7 @@ describe('대시보드 지표(백엔드 회신 2026-11-18)', () => {
     renderAt('/?tab=sales', as.admin);
     const cell = await screen.findByTestId('dash-metric-ON_TIME_DELIVERY');
     // 목: 18/20 + 22/24 + 19/19 = 59/63, 약속 전 3, 판단 밖 3
-    await waitFor(() => expect(cell).toHaveTextContent('63건 중 59건'));
+    await waitFor(() => expect(cell).toHaveTextContent('59/63건'));
     expect(within(cell).getByTestId('dash-ontime-outside')).toHaveTextContent('약속 전 3 · 판단 밖 3 (분모 밖)');
   });
 
@@ -114,7 +114,7 @@ describe('대시보드 지표(백엔드 회신 2026-11-18)', () => {
     renderAt('/?tab=sales', as.admin);
     const cell = await screen.findByTestId('dash-metric-SHORTAGE_RATE');
     // 목: 4/140 + 7/162 + 2/118 + 5/131 = 18/551
-    await waitFor(() => expect(cell).toHaveTextContent('551건 중 18건'));
+    await waitFor(() => expect(cell).toHaveTextContent('18/551건'));
     expect(within(cell).getByTestId('dash-shortage-reasons')).toHaveTextContent('결품 14 · 파손 3 · 막힘 1');
     await waitFor(async () => expect(await screen.findByTestId('dash-soldout-centers')).toHaveTextContent('부산진구 MFC')); // 센터는 이름(2026-11-24)
   });
@@ -150,7 +150,7 @@ describe('처리 기한 지킴 — 지난 7일 대비(2026-11-18 "숫자만 보�
     const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul' }).format(new Date());
     server.use(http.get(`${BFF_BASE}/views/metrics`, ({ request }) => (new URL(request.url).searchParams.get('to') === today ? sla(8, 10) : sla(5, 10))));
     renderAt('/', as.admin);
-    expect(await within(await screen.findByTestId('dash-stat-sla')).findByTestId('dash-sla-vs-prev')).toHaveTextContent('지난 7일보다 30%p ▲');
+    expect(await within(await screen.findByTestId('dash-stat-sla')).findByTestId('dash-sla-vs-prev')).toHaveTextContent('30%p ▲');
   });
 
   it('앞 7일을 못 읽으면 비교를 보이지 않는다(0 과 비교하지 않는다)', async () => {

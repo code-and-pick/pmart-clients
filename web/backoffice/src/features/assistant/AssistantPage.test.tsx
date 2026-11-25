@@ -299,7 +299,7 @@ describe('업무 도우미 — 채팅 세션(1.3.0, 2026-11-21)', () => {
   it('이어 묻기: 첫 질문은 sessionId 없이(새 채팅) → 그 채팅 화면, 다음 질문은 같은 sessionId 로 — 대화가 차례로 쌓인다', async () => {
     const { port, sessions, mock } = setup();
     render(<App memory initialPath="/assistant" initialToken={as.md} assistantPort={port} />);
-    expect(screen.getByTestId('chat-retention')).toHaveTextContent('마지막 질문 뒤 14일이 지나면 자동으로 지워져요');
+    expect(screen.getByTestId('chat-retention')).toHaveTextContent('채팅은 14일 뒤 지워져요');
     const user = await ask('반품 기한은 며칠인가요?');
     await screen.findByRole('link', { name: '답변 번호 ans-mock-1' });
     expect(screen.getByRole('textbox', { name: '질문' })).toHaveValue(''); // 보낸 뒤 입력칸은 비운다

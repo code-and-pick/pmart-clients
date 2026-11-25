@@ -16,7 +16,7 @@ const stamp = { system: 'case-service', confidence: 'DIRECT', asOf: { asOf: '202
 describe('처리 기한 지킴', () => {
   it('metric=CASE_SLA 로 묻고, 기간 합계는 "N건 중 M건" + 비율, 기한 없음은 따로', async () => {
     const view = renderAt('/case-sla?from=2026-11-12&to=2026-11-18', as.admin);
-    expect(await screen.findByTestId('case-sla-count')).toHaveTextContent('14건 중 10건'); // 4/5 + 1/2 + 0/0 + 3/3 + 2/4
+    expect(await screen.findByTestId('case-sla-count')).toHaveTextContent('10/14건'); // 4/5 + 1/2 + 0/0 + 3/3 + 2/4
     expect(screen.getByTestId('case-sla-ratio')).toHaveTextContent('71.4%');
     expect(screen.getByTestId('case-sla-unjudged')).toHaveTextContent('3건');
     const url = new URL(view.sent.find((r) => r.url.includes('/views/metrics'))!.url);
@@ -28,7 +28,7 @@ describe('처리 기한 지킴', () => {
     await screen.findByTestId('case-sla-count');
     const split = screen.getByTestId('case-sla-split');
     const help = within(split).getAllByTestId('case-sla-split-row').find((r) => r.textContent?.includes('라이더 도움요청'))!;
-    expect(help).toHaveTextContent('0건 중 0건');
+    expect(help).toHaveTextContent('0/0건');
     expect(help).toHaveTextContent('—');
     expect(help).toHaveTextContent('2건');
     expect(help).not.toHaveTextContent('0%');
@@ -40,7 +40,7 @@ describe('처리 기한 지킴', () => {
     await userEvent.click(screen.getByRole('radio', { name: '팀별' }));
     const rows = within(screen.getByTestId('case-sla-split')).getAllByTestId('case-sla-split-row');
     expect(rows.map((r) => r.querySelector('td')?.textContent)).toEqual(['지원센터', '고객센터', '관리자 팀']);
-    expect(rows[0]).toHaveTextContent('8건 중 7건');
+    expect(rows[0]).toHaveTextContent('7/8건');
   });
 
   it('503 은 "원천에 닿지 않았어요"(0건으로 그리지 않는다)', async () => {
@@ -68,7 +68,7 @@ describe('처리 기한 지킴', () => {
   });
 
   it('규칙: 분모 0 이면 비율 "—"', () => {
-    expect(slaText({ numerator: 0, denominator: 0 })).toEqual({ count: '0건 중 0건', ratio: '—' });
-    expect(slaText({ numerator: 1, denominator: 3 })).toEqual({ count: '3건 중 1건', ratio: '33.3%' });
+    expect(slaText({ numerator: 0, denominator: 0 })).toEqual({ count: '0/0건', ratio: '—' });
+    expect(slaText({ numerator: 1, denominator: 3 })).toEqual({ count: '1/3건', ratio: '33.3%' });
   });
 });

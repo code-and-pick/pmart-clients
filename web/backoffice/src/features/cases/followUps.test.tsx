@@ -69,7 +69,7 @@ describe('후속 처리', () => {
   it('후속 처리 추가: 종류·담당 팀·기록 금액(환불 아님 안내) → 목록에 생김', async () => {
     const view = renderAt('/cases/CASE-MOCK-2', as.admin);
     const form = await screen.findByTestId('follow-up-add');
-    expect(form).toHaveTextContent('실제 환불·보상은 클레임·결제 메뉴에서');
+    expect(form).toHaveTextContent('금액은 기록만, 환불은 클레임에서');
     await userEvent.selectOptions(within(form).getByLabelText('종류'), 'REFUND');
     await userEvent.selectOptions(within(form).getByLabelText('담당 팀'), 'ORDER_OPS');
     await userEvent.type(within(form).getByLabelText('기록 금액(원, 선택)'), '5000');

@@ -23,7 +23,7 @@ describe('접수 건 현황', () => {
     renderAt('/case-metrics', as.admin);
     const row = await screen.findByTestId('metrics-case');
     expect(row).toHaveTextContent('오배송');
-    expect(row).toHaveTextContent('3건 중 1건');
+    expect(row).toHaveTextContent('1/3건');
     expect(within(row).getByTestId('metrics-overdue')).toHaveAttribute('href', '/cases?tab=overdue&kind=MISDELIVERY');
     expect(screen.getByTestId('metrics-obligation')).toHaveTextContent('고객센터 · 처리 중 2 · 기한 지남 0 / 2');
     expect(screen.getByTestId('metrics-handovers')).toHaveTextContent('받기 전 인계서 1');

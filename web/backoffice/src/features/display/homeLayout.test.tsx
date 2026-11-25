@@ -169,7 +169,7 @@ describe('홈 진열 편성', () => {
     const banner = screen.getAllByTestId('layout-banner')[0]!;
     await user.selectOptions(within(banner).getByLabelText('자리'), 'CATEGORY');
     expect(within(banner).getByLabelText('자리')).toHaveDisplayValue('카테고리 화면 맨 위');
-    expect(within(banner).getByText(/홈에는 나오지 않아요/)).toBeInTheDocument();
+    expect(within(banner).getByText(/홈에는 안 나와요/)).toBeInTheDocument();
     expect(within(banner).queryByLabelText('배너 묶음')).not.toBeInTheDocument();
     const preview = screen.getByTestId('layout-preview');
     expect(within(within(preview).getByTestId('layout-preview-category')).getByRole('img', { name: '겨울 제철 채소 모음' })).toBeInTheDocument();
@@ -191,7 +191,7 @@ describe('홈 진열 편성', () => {
     const banner = screen.getAllByTestId('layout-banner')[0]!;
     await user.selectOptions(within(banner).getByLabelText('자리'), 'PRODUCT_DETAIL');
     expect(within(banner).getByLabelText('자리')).toHaveDisplayValue('상품 상세 화면');
-    expect(within(banner).getByText(/모든 상품 상세 화면에 같이 보여요/)).toBeInTheDocument();
+    expect(within(banner).getByText(/모든 상품 상세 화면, 홈에는 안 나와요/)).toBeInTheDocument();
     expect(await within(banner).findByText(/2\.8:1/)).toBeInTheDocument();
     expect(within(banner).queryByLabelText('배너 묶음')).not.toBeInTheDocument();
     const preview = screen.getByTestId('layout-preview');

@@ -8,7 +8,7 @@ import { as, renderAt } from '../../test/render';
 describe('문의 만족도', () => {
   it('관리자: 기간의 "답변 N건 중 M건 응답"·평균·점수별 — 서버에 답변 시각 기간으로 묻는다', async () => {
     const view = renderAt('/inquiry-satisfaction?from=2026-11-10&to=2026-11-16', as.admin);
-    expect(await screen.findByTestId('satisfaction-response')).toHaveTextContent('답변 1건 중 1건 응답(1/1)'); // 고객 문의만(라이더 문의 제외 — 계약, 2026-11-24 목 바로잡음)
+    expect(await screen.findByTestId('satisfaction-response')).toHaveTextContent('응답 1/1건'); // 고객 문의만(라이더 문의 제외 — 계약, 2026-11-24 목 바로잡음)
     expect(screen.getByTestId('satisfaction-average')).toHaveTextContent('4.00점');
     const rows = screen.getAllByTestId('satisfaction-score');
     expect(rows.map((r) => r.textContent)).toEqual(['5점0%0건', '4점100%1건', '3점0%0건', '2점0%0건', '1점0%0건']); // 2026-11-20 몫(%) 칸 더함 — 응답 1건 중

@@ -59,7 +59,7 @@ export const messages = {
     byStatusBody: '상태로 걸러 목록을 열어요',
     seeList: '목록',
     flowTitle: '직원 한 명이 일을 시작하기까지',
-    flow: ['직원 등록에서 기본 정보와 요청 권한을 넣어요.', '서버가 사서함 → 로그인 계정 → 안내 메일 순서로 계정을 발급해요(직원 상세에서 진행을 봐요).', '요청 권한은 승인자가 백오피스 승인함에서 승인하면 붙어요.'] as readonly string[],
+    flow: ['직원 등록에서 정보와 권한을 넣어요', '서버가 계정을 발급해요', '권한은 승인되면 붙어요'] as readonly string[],
   },
   /** 머리줄 맥락 꼬리표(2026-11-19 관제 형식, 백오피스와 같게) */
   shell: {
@@ -273,7 +273,7 @@ export const messages = {
       list: '같은 역할을 두 줄 넣었어요 — 여러 센터는 한 줄에 모아 주세요.',
     } as const,
     submit: '등록',
-    after: '등록하면 사서함 → 로그인 계정 → 비밀번호 설정 메일 순서로 계정이 발급돼요(몇 초~수 분).',
+    after: '등록하면 몇 분 안에 계정이 발급돼요',
   },
 
   detail: {
@@ -398,7 +398,7 @@ export const messages = {
     live: '유효',
     ended: '끝남',
     revoked: (by: string, at: string) => `회수됨(${by}, ${at})`,
-    directRoles: '관리자 보정 값(계정에 직접 둔 역할 — 여기서 회수하지 않아요)',
+    directRoles: '관리자 보정 값, 여기서 회수하지 않아요',
     revoke: '회수',
     revokeWarn: '회수하면 바로 로그아웃돼요',
     revokeReason: '회수 사유',
