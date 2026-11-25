@@ -49,6 +49,28 @@ void main() {
     expect(find.byKey(const ValueKey('phone-verify-dialog')), findsNothing);
   });
 
+  testWidgets('지금 인증하기 → 번호 넣는 화면, 010 11자리 전에는 인증하기가 꺼져 있다(rider 0.28.0)', (
+    t,
+  ) async {
+    await _pump(t, false);
+    await t.tap(find.byKey(const ValueKey('phone-verify-go')));
+    await t.pumpAndSettle(const Duration(milliseconds: 50));
+    expect(find.byKey(const ValueKey('phone-verify-input')), findsOneWidget);
+    FilledButton button() => t.widget<FilledButton>(
+      find.descendant(
+        of: find.byKey(const ValueKey('phone-verify-start')),
+        matching: find.byType(FilledButton),
+      ),
+    );
+    expect(button().onPressed, isNull);
+    await t.enterText(
+      find.byKey(const ValueKey('phone-verify-input')),
+      '01012345678',
+    );
+    await t.pump();
+    expect(button().onPressed, isNotNull);
+  });
+
   testWidgets('인증 여부를 모르면(null — 실서버 지금) 묻지 않는다', (t) async {
     await _pump(t, null);
     expect(find.byKey(const ValueKey('phone-verify-dialog')), findsNothing);

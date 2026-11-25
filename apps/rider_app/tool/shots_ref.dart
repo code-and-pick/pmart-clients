@@ -284,6 +284,13 @@ void main() {
     );
     await shot('phone-verify-dialog');
     await tap('phone-verify-later');
+    unawaited(router().push('/my/phone-verify'));
+    await settle();
+    await t.enterText(
+      find.byKey(const ValueKey('phone-verify-input')),
+      '01012345678',
+    );
+    await shot('phone-verify-screen');
 
     router().go('/my/inquiries/new');
     await shot('support-new');

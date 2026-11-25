@@ -1,9 +1,15 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:pmart_core/pmart_core.dart';
 
 import '../../../l10n/gen/app_localizations.dart';
 import '../../../shared/rider_style.dart';
+import '../../../shared/phone_format.dart';
 import '../../../shared/rider_widgets.dart';
+import '../../auth/data/phone_identity.dart' show phoneIdentitySkipped;
 import '../data/profile.dart';
 
 /// 이번 실행에서 이미 물었는지 — "나중에"를 누르면 앱을 다시 켤 때까지 다시 묻지 않는다.
@@ -20,7 +26,7 @@ class _Shown extends Notifier<bool> {
 
 /// 전화번호 인증을 안 한 기존 가입자에게 한 번 묻는다(2026-11-25 사용자 "전화번호 인증이 뒤늦게 생겨서 이미 가입했는데
 /// 인증 안 한 계정은 전화번호 인증하라고 팝업"). 서버가 `phoneVerified` 를 false 로 줄 때만 — 모르면(null) 묻지 않는다.
-/// 계약(인증 여부·가입한 라이더가 인증을 붙이는 길)은 라이더 백엔드에 요청 중이라, 지금은 목 모드에서만 뜬다.
+/// rider 0.28.0 — 인증은 [PhoneVerifyScreen](번호 → 본인 확인 → PATCH /riders/me phone + phoneVerificationId).
 Future<void> maybeAskPhoneVerify(BuildContext context, WidgetRef ref) async {
   final profile = ref.read(profileProvider).value;
   if (profile == null || profile.phoneVerified != false) return;
@@ -32,8 +38,7 @@ Future<void> maybeAskPhoneVerify(BuildContext context, WidgetRef ref) async {
     builder: (_) => const PhoneVerifyDialog(),
   );
   if (go == true && context.mounted) {
-    // 인증 화면은 가입한 라이더용 계약이 나오면 연다(지금은 안내만).
-    showRiderToast(context, AppLocalizations.of(context).phoneVerifySoon);
+    unawaited(context.push('/my/phone-verify'));
   }
 }
 
@@ -129,6 +134,147 @@ class PhoneVerifyDialog extends StatelessWidget {
               ],
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 가입한 라이더의 전화번호 인증 — 번호 넣기 → 본인 확인(가입과 같은 OCTOMO 화면) → 내 정보에 붙이기.
+/// 서버가 붙였다고 답할 때만 "마쳤어요"(결과를 모르면 내 정보를 다시 읽어 맞춘다).
+class PhoneVerifyScreen extends ConsumerStatefulWidget {
+  const PhoneVerifyScreen({super.key});
+
+  @override
+  ConsumerState<PhoneVerifyScreen> createState() => _PhoneVerifyScreenState();
+}
+
+class _PhoneVerifyScreenState extends ConsumerState<PhoneVerifyScreen> {
+  final _phone = TextEditingController();
+  bool _busy = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _phone.dispose();
+    super.dispose();
+  }
+
+  bool get _valid {
+    final d = phoneDigits(_phone.text);
+    return d.length == 11 && d.startsWith('010');
+  }
+
+  Future<void> _start() async {
+    if (_busy || !_valid) return;
+    final l10n = AppLocalizations.of(context);
+    final phone = phoneDigits(_phone.text);
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      final id = await context.push<String>(
+        '/my/phone-verify/check',
+        extra: phone,
+      );
+      if (!mounted || id == null || id == phoneIdentitySkipped) return;
+      final repo = ref.read(profileRepositoryProvider);
+      final key = IdempotencyKey.generate();
+      try {
+        final fresh = await repo.me();
+        await repo.attachVerifiedPhone(
+          phone: phone,
+          phoneVerificationId: id,
+          expectedVersion: fresh.version,
+          key: key,
+        );
+      } on ProblemFailure catch (f) {
+        if (f.problem.status < 500) {
+          setState(
+            () => _error = switch (f.problem.code) {
+              'PHONE_NOT_VERIFIED' => l10n.phoneAttachNotVerified,
+              'IDENTITY_ALREADY_REGISTERED' => l10n.phoneAttachOther,
+              'RIDER_REJOIN_BLOCKED' => l10n.phoneAttachBlocked,
+              _ => l10n.phoneAttachFailed,
+            },
+          );
+          return;
+        }
+      } on PmartFailure {
+        // 결과를 모른다 — 아래에서 내 정보를 다시 읽어 맞춘다.
+      }
+      final now = await ref.refresh(profileProvider.future);
+      if (!mounted) return;
+      if (now.phoneVerified == true) {
+        showRiderToast(context, l10n.phoneAttachDone);
+        context.pop();
+      } else {
+        setState(() => _error = l10n.phoneAttachFailed);
+      }
+    } on PmartFailure {
+      if (mounted) setState(() => _error = l10n.phoneAttachFailed);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return Scaffold(
+      backgroundColor: Colors.white,
+      appBar: AppBar(title: Text(l10n.phoneVerifyTitleShort)),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                l10n.phoneVerifyHeadline,
+                style: const TextStyle(
+                  fontSize: 22,
+                  height: 1.4,
+                  fontWeight: FontWeight.w700,
+                  color: RiderColors.ink,
+                ),
+              ),
+              const SizedBox(height: 28),
+              Text(
+                l10n.phoneVerifyField,
+                style: const TextStyle(fontSize: 15, color: RiderColors.ink),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                key: const ValueKey('phone-verify-input'),
+                controller: _phone,
+                autofocus: true,
+                enabled: !_busy,
+                keyboardType: TextInputType.phone,
+                inputFormatters: const [PhoneNumberFormatter()],
+                decoration: const InputDecoration(hintText: '010-0000-0000'),
+                onChanged: (_) => setState(() => _error = null),
+              ),
+              if (_error case final e?) ...[
+                const SizedBox(height: 8),
+                Text(
+                  e,
+                  key: const ValueKey('phone-verify-error'),
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: RiderColors.danger,
+                  ),
+                ),
+              ],
+              const Spacer(),
+              RiderButton(
+                key: const ValueKey('phone-verify-start'),
+                label: l10n.phoneVerifyStart,
+                onPressed: _busy || !_valid ? null : _start,
+              ),
+            ],
+          ),
         ),
       ),
     );

@@ -59,7 +59,7 @@ class RiderProfileView {
   /// 등록된 운전면허(가린 값). 없으면 null — 오토바이·자동차·킥보드로 바꿀 때 번호가 필요하다.
   final String? licenseNumberMasked;
 
-  /// 전화번호 인증을 했는지. 계약에 아직 없다(라이더 백엔드 요청 P-1, 2026-11-25) — 실서버는 null(모름 → 묻지 않음), 목만 값.
+  /// 전화번호 인증을 했는지(rider 0.28.0 `phoneVerified`). 모르면 null(묻지 않음).
   final bool? phoneVerified;
   final Restriction restriction;
 
@@ -111,6 +111,15 @@ abstract interface class ProfileRepository {
     required IdempotencyKey key,
   });
 
+  /// 이미 가입한 라이더가 확인한 휴대폰 번호를 붙인다(rider 0.28.0 `PATCH /riders/me` phone + phoneVerificationId — 둘은 같이).
+  /// 통과하면 phoneVerified true. 422 PHONE_NOT_VERIFIED · 409 IDENTITY_ALREADY_REGISTERED · 409 RIDER_REJOIN_BLOCKED.
+  Future<RiderProfileView> attachVerifiedPhone({
+    required String phone,
+    required String phoneVerificationId,
+    required int? expectedVersion,
+    required IdempotencyKey key,
+  });
+
   /// 배달 지역을 [mfcId] 한 곳으로 바꾼다(`PATCH /riders/me` deliveryAreas — 바로 반영, 사용자 2026-11-23).
   /// 서버가 돌려준 프로필을 돌려준다. 실패는 [PmartFailure].
   Future<RiderProfileView> changeDeliveryArea({
@@ -124,6 +133,7 @@ RiderProfileView _view(rd.RiderProfile p) => RiderProfileView(
   riderId: p.riderId ?? (throw const ContractViolationFailure('riderId 없음')),
   name: p.name,
   phoneMasked: p.phoneMasked,
+  phoneVerified: p.phoneVerified,
   vehicle: switch (p.vehicleType) {
     rd.VehicleType.MOTORCYCLE => Vehicle.motorcycle,
     rd.VehicleType.BICYCLE => Vehicle.bicycle,
@@ -154,6 +164,31 @@ final class ApiProfileRepository implements ProfileRepository {
   @override
   Future<RiderProfileView> me() async {
     final res = await pmartGuard(() => _me.getMyRider());
+    return _view(
+      res.data ?? (throw const ContractViolationFailure('RiderProfile 본문 없음')),
+    );
+  }
+
+  @override
+  Future<RiderProfileView> attachVerifiedPhone({
+    required String phone,
+    required String phoneVerificationId,
+    required int? expectedVersion,
+    required IdempotencyKey key,
+  }) async {
+    // 다른 프로필 항목과 섞지 않고 따로 보낸다(백엔드 회신 2026-11-25).
+    final res = await pmartGuard(
+      () => _me.updateMyRider(
+        idempotencyKey: key.value,
+        xSourceSystem: sourceSystem,
+        xExpectedVersion: expectedVersion,
+        riderProfileUpdate: rd.RiderProfileUpdate(
+          phone: phone,
+          phoneVerificationId: phoneVerificationId,
+        ),
+        extra: commandOptions(key).extra,
+      ),
+    );
     return _view(
       res.data ?? (throw const ContractViolationFailure('RiderProfile 본문 없음')),
     );
@@ -240,8 +275,28 @@ final class MockProfileRepository implements ProfileRepository {
   /// 시험용: 다음 운행수단 변경을 이 실패로 끝낸다(반영하지 않음).
   PmartFailure? failNextVehicle;
 
-  /// 목 전화번호 인증 여부(null = 모름 — 팝업 없음). 계약 요청 중(P-1).
+  /// 목 전화번호 인증 여부(null = 모름 — 팝업 없음).
   bool? phoneVerified;
+
+  /// 시험용: 다음 번호 붙이기를 이 실패로 끝낸다.
+  PmartFailure? failNextPhone;
+
+  @override
+  Future<RiderProfileView> attachVerifiedPhone({
+    required String phone,
+    required String phoneVerificationId,
+    required int? expectedVersion,
+    required IdempotencyKey key,
+  }) async {
+    await Future<void>.delayed(latency);
+    if (failNextPhone case final f?) {
+      failNextPhone = null;
+      throw f;
+    }
+    phoneVerified = true;
+    version += 1;
+    return me();
+  }
 
   /// 목 지금 위치 권역. null = 모든 지점 안(목 기본 — 어느 지점으로든 바꿀 수 있다).
   LocationArea? here;

@@ -25,6 +25,7 @@ import 'features/notifications/data/notifications.dart';
 import 'features/notifications/presentation/notification_screen.dart';
 import 'features/my/presentation/my_screens.dart';
 import 'features/my/presentation/account_screen.dart';
+import 'features/my/presentation/phone_verify_prompt.dart';
 import 'features/my/presentation/deduction_screens.dart';
 import 'features/my/presentation/record_screens.dart';
 import 'features/my/presentation/delivery_record_screen.dart';
@@ -64,6 +65,15 @@ final routerProvider = Provider<GoRouter>((ref) {
       // 휴대폰 본인 확인(OCTOMO, rider 0.17.0) — 가입 전화번호 단계에서 연다.
       GoRoute(
         path: '/signup/phone',
+        builder: (_, s) => PhoneIdentityScreen(phone: s.extra as String? ?? ''),
+      ),
+      // 가입한 라이더의 전화번호 인증(rider 0.28.0, 2026-11-25) — 번호 넣기 → 같은 본인 확인 화면 → 내 정보에 붙이기
+      GoRoute(
+        path: '/my/phone-verify',
+        builder: (_, _) => const PhoneVerifyScreen(),
+      ),
+      GoRoute(
+        path: '/my/phone-verify/check',
         builder: (_, s) => PhoneIdentityScreen(phone: s.extra as String? ?? ''),
       ),
       // 가입이 409(다른 계정·탈퇴한 번호)로 거절됐을 때 안내.
