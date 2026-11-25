@@ -18,6 +18,8 @@ import 'package:rider_app/features/auth/data/signup.dart';
 import 'package:rider_app/features/auth/presentation/postcode_screen.dart';
 import 'package:rider_app/features/delivery/data/mock_delivery_repository.dart';
 import 'package:rider_app/features/delivery/presentation/delivery_controller.dart';
+import 'package:rider_app/features/my/data/profile.dart'
+    show LocationArea, LocationState;
 import 'package:rider_app/features/my/data/records.dart';
 import 'package:rider_app/features/offers/data/mock_offer_repository.dart';
 import 'package:rider_app/features/offers/domain/offer_list.dart';
@@ -229,7 +231,15 @@ void main() {
       final nav = Navigator.of(t.element(find.byType(Scaffold).last));
       nav.push(
         MaterialPageRoute<void>(
-          builder: (_) => AreaChangeScreen(current: cur, areas: areas),
+          builder: (_) => AreaChangeScreen(
+            current: cur,
+            areas: areas,
+            // 지금 위치 권역(rider 0.27.0) — 현 지역·고른 지점 말고는 "지역 밖"
+            here: LocationArea(
+              state: LocationState.fresh,
+              mfcIds: {cur.mfcId, other.mfcId},
+            ),
+          ),
         ),
       );
       await settle();

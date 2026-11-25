@@ -5,6 +5,7 @@ import 'package:pmart_api_rider/pmart_api_rider.dart' as rd;
 import 'package:pmart_core/pmart_core.dart';
 
 import '../../../shared/providers.dart';
+import '../../../shared/mfc_directory.dart' show mfcBranches;
 import '../../auth/data/signup.dart' show Vehicle;
 
 /// 계정 제한(rider-service `AccountRestriction`, RS-1).
@@ -68,7 +69,32 @@ class RiderProfileView {
   final int? version;
 }
 
+/// 지금 위치 상태(rider 0.27.0 `GET /riders/me/location-area`). FRESH 가 아니면 바꿀 수 있는 지점을 모른다.
+enum LocationState { fresh, stale, unknown }
+
+/// 지금 위치가 들어가는 배달 권역(rider 0.27.0, 2026-11-25 사용자 "배달 가능 지역 내부에 있을 때만 해당 지역으로 권역 변경").
+/// [mfcIds] = 이 지점들로만 바꿀 수 있다(FRESH 가 아니면 빈 목록). 좌표는 오지 않는다.
+@immutable
+class LocationArea {
+  const LocationArea({required this.state, required this.mfcIds, this.mfcId});
+
+  final LocationState state;
+  final Set<String> mfcIds;
+
+  /// 지금 위치의 담당 지점(겹치면 판정 규칙대로 하나, 모르면 null).
+  final String? mfcId;
+}
+
+/// 지금 위치를 모름(위치 없음·서버 수신 5분 넘음) — rider 0.27.0 `PATCH /riders/me` 409.
+const locationUnknownCode = 'LOCATION_UNKNOWN';
+
+/// 지금 위치가 바꿀 지점의 배달 지역 밖 — rider 0.27.0 `PATCH /riders/me` 422.
+const outsideDeliveryAreaCode = 'OUTSIDE_DELIVERY_AREA';
+
 abstract interface class ProfileRepository {
+  /// 지금 위치가 들어가는 배달 권역. 실패는 [PmartFailure](권역 밖으로 보이지 않는다).
+  Future<LocationArea> locationArea();
+
   /// 미가입이면 404 [ProblemFailure].
   Future<RiderProfileView> me();
 
@@ -126,6 +152,23 @@ final class ApiProfileRepository implements ProfileRepository {
     final res = await pmartGuard(() => _me.getMyRider());
     return _view(
       res.data ?? (throw const ContractViolationFailure('RiderProfile 본문 없음')),
+    );
+  }
+
+  @override
+  Future<LocationArea> locationArea() async {
+    final res = await pmartGuard(() => _me.getMyLocationArea());
+    final a =
+        res.data ??
+        (throw const ContractViolationFailure('RiderLocationArea 본문 없음'));
+    return LocationArea(
+      state: switch (a.locationState) {
+        rd.RiderLocationAreaLocationStateEnum.FRESH => LocationState.fresh,
+        rd.RiderLocationAreaLocationStateEnum.STALE => LocationState.stale,
+        _ => LocationState.unknown,
+      },
+      mfcIds: a.mfcIds.toSet(),
+      mfcId: a.mfcId,
     );
   }
 
@@ -192,6 +235,19 @@ final class MockProfileRepository implements ProfileRepository {
 
   /// 시험용: 다음 운행수단 변경을 이 실패로 끝낸다(반영하지 않음).
   PmartFailure? failNextVehicle;
+
+  /// 목 지금 위치 권역. null = 모든 지점 안(목 기본 — 어느 지점으로든 바꿀 수 있다).
+  LocationArea? here;
+
+  @override
+  Future<LocationArea> locationArea() async {
+    await Future<void>.delayed(latency);
+    return here ??
+        LocationArea(
+          state: LocationState.fresh,
+          mfcIds: {for (final m in mfcBranches) m.id},
+        );
+  }
 
   /// 시험용: 다음 배달 지역 변경을 이 실패로 끝낸다(반영하지 않음).
   PmartFailure? failNextChange;
@@ -270,6 +326,19 @@ final class MockProfileRepository implements ProfileRepository {
       throw const ProblemFailure(
         Problem(status: 409, code: ProblemCode.versionConflict),
       );
+    }
+    // 지금 위치 검사(rider 0.27.0) — 새로 넣는 지점만, 운행 상태 검사는 화면이 먼저 한다.
+    if (here case final h? when mfcId != areaMfcId) {
+      if (h.state != LocationState.fresh) {
+        throw const ProblemFailure(
+          Problem(status: 409, code: locationUnknownCode),
+        );
+      }
+      if (!h.mfcIds.contains(mfcId)) {
+        throw const ProblemFailure(
+          Problem(status: 422, code: outsideDeliveryAreaCode),
+        );
+      }
     }
     areaMfcId = mfcId;
     version += 1;

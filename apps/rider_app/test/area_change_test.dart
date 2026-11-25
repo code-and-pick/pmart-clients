@@ -201,6 +201,68 @@ void main() {
     },
   );
 
+  testWidgets('지금 위치 권역 밖 지점은 흐리게 "지역 밖", 눌러도 고르지 않는다(rider 0.27.0)', (
+    t,
+  ) async {
+    final profile = await pumpResting(t);
+    // 지금 위치는 부산진구 권역 안 — 목포로는 못 바꾼다
+    profile.here = const LocationArea(
+      state: LocationState.fresh,
+      mfcIds: {'MFC-BSJ-01'},
+    );
+    await t.scrollUntilVisible(
+      find.byKey(const ValueKey('menu-area')),
+      100,
+      scrollable: find.byType(Scrollable).last,
+    );
+    await t.pumpAndSettle();
+    await t.tap(find.byKey(const ValueKey('menu-area')));
+    await _settle(t);
+    await t.pumpAndSettle();
+    await t.tap(find.byKey(const ValueKey('area-jeolla')));
+    await t.pump();
+    expect(
+      find.byKey(const ValueKey('area-outside-MFC-MPO-01')),
+      findsOneWidget,
+    );
+    await t.tap(find.byKey(const ValueKey('area-목포지점')));
+    await t.pump();
+    expect(find.text('지금 위치에서는 이 지점으로 바꿀 수 없어요'), findsOneWidget);
+    final btn = t.widget<FilledButton>(
+      find.descendant(
+        of: find.byKey(const ValueKey('area-change-confirm')),
+        matching: find.byType(FilledButton),
+      ),
+    );
+    expect(btn.onPressed, isNull);
+    expect(profile.areaMfcId, 'MFC-BSJ-01');
+    await t.pump(const Duration(seconds: 5));
+    await _settle(t);
+  });
+
+  testWidgets(
+    '서버가 위치로 거절하면(422 OUTSIDE_DELIVERY_AREA·409 LOCATION_UNKNOWN) 그에 맞게 안내',
+    (t) async {
+      final profile = await pumpResting(t);
+      profile.failNextChange = const ProblemFailure(
+        Problem(status: 422, code: 'OUTSIDE_DELIVERY_AREA'),
+      );
+      await pickMokpo(t);
+      expect(
+        find.text('지금 위치가 이 지점 배달 지역 밖이에요. 그 지역 안에서 바꿔 주세요'),
+        findsOneWidget,
+      );
+      await t.pump(const Duration(seconds: 5));
+      await _settle(t);
+      profile.failNextChange = const ProblemFailure(
+        Problem(status: 409, code: 'LOCATION_UNKNOWN'),
+      );
+      await pickMokpo(t);
+      expect(find.text('지금 위치를 확인하지 못했어요. 위치를 켜고 다시 해 주세요'), findsOneWidget);
+      expect(profile.areaMfcId, 'MFC-BSJ-01');
+    },
+  );
+
   testWidgets('운행을 끈 뒤(라이더 행 버전이 오름) 바꿔도 409 없이 바뀐다 — 보내기 직전 버전을 다시 읽는다', (
     t,
   ) async {

@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pmart_core/pmart_core.dart';
 
 import '../../../l10n/gen/app_localizations.dart';
+import '../../../shared/location.dart' show locationSourceProvider;
+import '../../../shared/location_reporter.dart' show locationUploaderProvider;
 import '../../../shared/mfc_directory.dart';
 import '../../../shared/rider_style.dart';
 import '../../../shared/rider_widgets.dart';
@@ -55,6 +57,16 @@ Future<void> changeDeliveryArea(BuildContext context, WidgetRef ref) async {
   } on PmartFailure {
     return toast(l10n.areaLoadFailed);
   }
+  // 지금 위치 한 점을 보내고(쉬는 동안은 위치를 안 보내 서버가 모른다 — 백엔드 회신 2026-11-25) 지금 위치 권역을 묻는다.
+  // 권역을 못 읽으면(장애) 흐리게 하지 않는다 — 서버가 바꾸기에서 다시 검사한다.
+  final repo = ref.read(profileRepositoryProvider);
+  await _sendHere(ref);
+  LocationArea? here;
+  try {
+    here = await repo.locationArea();
+  } on PmartFailure {
+    here = null;
+  }
   if (!context.mounted) return;
   final current = profile.deliveryAreaMfcId;
   final initial = areas.values
@@ -64,14 +76,16 @@ Future<void> changeDeliveryArea(BuildContext context, WidgetRef ref) async {
   // 2026-11-25 사용자 "지역 바꾸기 팝업창 너무 별론데" — 아래 창 + 확인 팝업 대신 새 화면 하나(아래 버튼이 확인).
   final picked = await Navigator.of(context).push<AreaOption>(
     MaterialPageRoute(
-      builder: (_) => AreaChangeScreen(current: initial, areas: areas),
+      builder: (_) =>
+          AreaChangeScreen(current: initial, areas: areas, here: here),
     ),
   );
   if (picked == null || picked.mfcId == current || !context.mounted) return;
   // 묻는 동안 운행을 시작했을 수 있다.
   if (!resting()) return toast(l10n.areaChangeOnDuty);
+  // 바꾸기 직전에 한 번 더 지금 위치(화면에 오래 머물렀으면 5분이 지나 LOCATION_UNKNOWN 이 된다)
+  await _sendHere(ref);
 
-  final repo = ref.read(profileRepositoryProvider);
   final key = IdempotencyKey.generate();
   // 결과 불명 — 실패로 정하지 않고 내 정보로 맞춘다.
   Future<String> resolve() async {
@@ -114,6 +128,9 @@ Future<void> changeDeliveryArea(BuildContext context, WidgetRef ref) async {
         : switch (f.problem.code) {
             ProblemCode.invalidState => l10n.areaChangeOnDuty,
             mfcNotAvailableCode => l10n.areaChangeUnavailable,
+            // rider 0.27.0 — 지금 위치가 그 지점 배달 지역 밖 / 지금 위치를 모름
+            outsideDeliveryAreaCode => l10n.areaOutside,
+            locationUnknownCode => l10n.areaLocationUnknown,
             _ => l10n.areaChangeFailed,
           };
   } on PmartFailure {
@@ -124,6 +141,20 @@ Future<void> changeDeliveryArea(BuildContext context, WidgetRef ref) async {
     ..invalidate(profileProvider)
     ..invalidate(dutyProvider);
   toast(result);
+}
+
+/// 지금 위치 한 점을 서버에 보낸다(`POST /riders/me/locations`). 권한이 없거나 못 잡았거나 실패해도 흐름을 막지 않는다
+/// — 그때는 서버가 LOCATION_UNKNOWN 으로 알려 준다.
+Future<void> _sendHere(WidgetRef ref) async {
+  try {
+    final point = await ref.read(locationSourceProvider)?.current();
+    if (point == null) return;
+    await ref.read(locationUploaderProvider).upload([
+      (lat: point.lat, lng: point.lng, recordedAt: DateTime.now().toUtc()),
+    ], key: IdempotencyKey.generate());
+  } on Object {
+    // 보내지 못했다 — 바꾸기에서 서버가 판단한다.
+  }
 }
 
 /// 마이페이지 줄에 보일 배달 지역 이름. 읽는 중·실패를 빈 값으로 보이지 않는다.
@@ -147,11 +178,15 @@ class AreaChangeScreen extends StatefulWidget {
     super.key,
     required this.current,
     required this.areas,
+    this.here,
   });
 
   /// 지금 배달 지역(지점). 모르면 null.
   final AreaOption? current;
   final Map<MfcRegion, List<AreaOption>> areas;
+
+  /// 지금 위치 권역(null = 못 읽음 — 흐리게 하지 않는다).
+  final LocationArea? here;
 
   @override
   State<AreaChangeScreen> createState() => _AreaChangeScreenState();
@@ -224,6 +259,21 @@ class _AreaChangeScreenState extends State<AreaChangeScreen> {
                       ),
                     ),
                   ),
+                  // 지금 위치를 모르면(위치 꺼짐·오래됨) 한 줄 — 서버가 바꾸기를 거절한다(LOCATION_UNKNOWN)
+                  if (widget.here case final h?
+                      when h.state != LocationState.fresh)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
+                      child: Text(
+                        l10n.areaLocationNote,
+                        key: const ValueKey('area-location-note'),
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: RiderColors.pickup,
+                        ),
+                      ),
+                    ),
                   _label(l10n.areaRegion),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -294,6 +344,13 @@ class _AreaChangeScreenState extends State<AreaChangeScreen> {
   List<Widget> _branches(MfcRegion? region) {
     final l10n = AppLocalizations.of(context);
     final list = widget.areas[region] ?? const <AreaOption>[];
+    // 지금 위치가 들어가는 권역의 지점만 고를 수 있다(rider 0.27.0 — 2026-11-25 사용자 "배달 가능 지역 내부에 있을 때만").
+    // 권역을 못 읽었으면(null) 흐리게 하지 않는다. 지금 지점은 그대로 둔다(바꾸는 게 아니다).
+    final here = widget.here;
+    bool outside(AreaOption a) =>
+        here != null &&
+        a.mfcId != widget.current?.mfcId &&
+        (here.state != LocationState.fresh || !here.mfcIds.contains(a.mfcId));
     return [
       for (final (i, a) in list.indexed) ...[
         if (i > 0) const Divider(height: 1, indent: 20, endIndent: 20),
@@ -302,7 +359,9 @@ class _AreaChangeScreenState extends State<AreaChangeScreen> {
           // 권역 칩과 같게 물결 없이 옅은 눌림만.
           splashFactory: NoSplash.splashFactory,
           highlightColor: const Color(0x0A000000),
-          onTap: () => setState(() => _branch = a),
+          onTap: outside(a)
+              ? () => showRiderToast(context, l10n.areaOutsideShort)
+              : () => setState(() => _branch = a),
           child: Padding(
             padding: const EdgeInsets.fromLTRB(20, 14, 18, 14),
             child: Row(
@@ -315,10 +374,21 @@ class _AreaChangeScreenState extends State<AreaChangeScreen> {
                       fontWeight: a.mfcId == _branch?.mfcId
                           ? FontWeight.w600
                           : FontWeight.w400,
-                      color: RiderColors.ink,
+                      color: outside(a) ? RiderColors.hint : RiderColors.ink,
                     ),
                   ),
                 ),
+                if (outside(a)) ...[
+                  Text(
+                    l10n.areaOutsideTag,
+                    key: ValueKey('area-outside-${a.mfcId}'),
+                    style: const TextStyle(
+                      fontSize: 12.5,
+                      color: RiderColors.hint,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                ],
                 if (a.mfcId == widget.current?.mfcId) ...[
                   Text(
                     l10n.areaNow,
