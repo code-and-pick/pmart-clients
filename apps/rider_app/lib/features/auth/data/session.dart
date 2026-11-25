@@ -7,6 +7,7 @@ import 'package:pmart_core/pmart_core.dart';
 
 import '../../../shared/providers.dart';
 import '../../delivery/data/mock_delivery_repository.dart';
+import '../../my/data/profile_photo.dart';
 import '../../push/push_tokens.dart';
 import 'rider_auth.dart';
 
@@ -124,6 +125,16 @@ class SessionController extends Notifier<RiderSession?> {
     final outcome = await ref
         .read(riderLoginProvider)
         .login(provider: provider);
+    // 로그인 때 받은 프로필 사진 주소를 이 기기에 적어 둔다(마이페이지 동그라미). 세션을 세우기 전에 — 화면이 바로 읽게.
+    // 이번 로그인에 사진이 없으면 예전 사진을 지운다(보이는 사진 = 지금 로그인한 계정의 사진).
+    if (outcome case RiderLoggedIn(:final riderId, :final account)) {
+      try {
+        await ref.read(loginAccountStoreProvider).save(riderId, account);
+      } on Object {
+        // 사진·이메일은 로그인을 막지 않는다.
+      }
+      ref.invalidate(loginAccountProvider);
+    }
     return switch (outcome) {
       RiderLoggedIn(:final riderId, :final registered) => () {
         _set(
@@ -186,6 +197,15 @@ class SessionController extends Notifier<RiderSession?> {
     final unregister = ref.read(pushUnregisterProvider);
     final real = ref.read(envProvider) != PmartEnv.mock;
     final login = real ? ref.read(riderLoginProvider) : null;
+    // 탈퇴면 이 기기에 둔 프로필 사진도 지운다.
+    if (withdrawn && session != null) {
+      unawaited(
+        ref
+            .read(loginAccountStoreProvider)
+            .delete(session.riderId)
+            .catchError((Object _) {}),
+      );
+    }
     final done = () async {
       // 오래 걸려도 로그아웃(토큰 지우기)을 붙잡지 않는다.
       await unregister().timeout(const Duration(seconds: 5), onTimeout: () {});

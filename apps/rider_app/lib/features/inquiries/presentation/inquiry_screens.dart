@@ -1,16 +1,20 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:pmart_core/pmart_core.dart';
-import 'package:pmart_ui/pmart_ui.dart' show formatSeoulDateTime;
+import 'package:pmart_ui/pmart_ui.dart' show formatKrw, formatSeoulDateTime;
 
 import '../../../l10n/gen/app_localizations.dart';
 import '../../../shared/rider_style.dart';
 import '../../../shared/rider_widgets.dart';
-import '../../appeals/data/appeals.dart' show myAppealsProvider;
-import '../../appeals/presentation/appeal_screens.dart' show AppealList;
+import '../../appeals/data/appeals.dart'
+    show Appeal, AppealTarget, myAppealsProvider;
+import '../../appeals/presentation/appeal_screens.dart'
+    show AppealRow, appealNewRoute;
+import '../../my/data/records.dart' show Settlement, settlementsProvider;
 import '../data/inquiries.dart';
 import '../../../shared/keyboard.dart';
 
@@ -28,144 +32,149 @@ String inquiryKindText(AppLocalizations l10n, InquiryKind k) => switch (k) {
       InquiryState.unknown => (l10n.inqUnknown, RiderColors.sub),
     };
 
-/// 지원센터(사용자 2026-11-20 "소명·이의도 결국 지원센터에 남기는 것") — 마이페이지 한 곳에서
-/// 채팅 상담·문의 남기기와, 남긴 것을 탭 둘로 본다: 문의(case-service) | 소명·이의(rider-service 0.15.0).
-/// 서버 기록은 따로다(소명·이의는 라이더 운영이 유지·인정으로 결정 — 제한·수행료에 반영).
+/// 지원센터(사용자 2026-11-20 "소명·이의도 결국 지원센터에 남기는 것") — 마이페이지 한 곳.
+/// 2026-11-25 사용자 "소명이의도 그냥 문의 남기기에서 하면 되는 거 아니야? 왜 탭이 따로 있어?" → 탭 없이 "내 문의" 한 목록
+/// (문의·소명·이의, 최신이 위, 회색 바탕 위 흰 카드).
+/// 이어서 "다 하양이라 눈에 안 들어와 · UI 자체가 구리다" → 실제 화면 시안 셋 중 사용자가 고른 "보라 머리"
+/// (보라 제목 막대·머리 + "무엇을 도와드릴까요?" + 머리에 걸친 흰 카드 두 장).
+/// 서버 기록은 따로다: 문의 = case-service, 소명·이의 = rider-service 0.15.0(라이더 운영이 유지·인정 → 제한·보상금에 반영).
+/// 그래서 "문의 남기기"에서 수행료 이의·계정 제한 소명을 고르면 이의 신청으로 보낸다(문의로 보내면 보상 처리가 안 된다).
 /// 배송 중인 건은 배송 화면의 도움요청.
 class SupportCenterScreen extends ConsumerWidget {
-  const SupportCenterScreen({super.key, this.initialTab = 0});
+  const SupportCenterScreen({super.key});
 
-  /// 0 = 문의, 1 = 소명·이의
-  final int initialTab;
+  static const _bg = Color(0xFFF4F5F7);
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
-    final inquiries = ref.watch(inquiriesProvider).value?.length;
-    final appeals = ref.watch(myAppealsProvider).value?.length;
-    String tab(String label, int? n) =>
-        n == null || n == 0 ? label : '$label $n';
-    return DefaultTabController(
-      length: 2,
-      initialIndex: initialTab,
-      child: Scaffold(
-        backgroundColor: RiderColors.gap,
-        appBar: riderDarkBar(context, title: l10n.menuSupport),
-        body: Column(
+    final inquiries = ref.watch(inquiriesProvider);
+    final appeals = ref.watch(myAppealsProvider);
+    // 인정된 수행료 이의의 보상금(정산내역의 보상 줄 — execution 0.30.0). 못 읽었으면 금액을 붙이지 않는다(0원으로 지어내지 않음).
+    final compensations = <String, int>{
+      for (final s
+          in ref.watch(settlementsProvider).value?.items ??
+              const <Settlement>[])
+        if (s.compensation && s.appealId != null && s.amount != null)
+          s.appealId!: s.amount!,
+    };
+    final rows = <(DateTime, Widget)>[
+      for (final i in inquiries.value ?? const <RiderInquiry>[])
+        (i.createdAt, _InquiryRow(inquiry: i)),
+      for (final a in appeals.value ?? const <Appeal>[])
+        (
+          a.submittedAt,
+          AppealRow(
+            key: ValueKey('appeal-${a.appealId}'),
+            appeal: a,
+            compensation: compensations[a.appealId],
+          ),
+        ),
+    ]..sort((a, b) => b.$1.compareTo(a.$1));
+    final loading =
+        (inquiries.isLoading && !inquiries.hasValue) ||
+        (appeals.isLoading && !appeals.hasValue);
+
+    Future<void> openNew() async {
+      await context.push('/my/inquiries/new');
+      ref
+        ..invalidate(inquiriesProvider)
+        ..invalidate(myAppealsProvider);
+    }
+
+    void openChat() => context.push('/my/inquiries/chat');
+
+    return Scaffold(
+      backgroundColor: _bg,
+      appBar: AppBar(
+        backgroundColor: RiderColors.primary,
+        foregroundColor: Colors.white,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        systemOverlayStyle: SystemUiOverlayStyle.light,
+        title: Text(l10n.menuSupport),
+        titleTextStyle: riderTitleStyle(context, color: Colors.white),
+      ),
+      body: RefreshIndicator(
+        onRefresh: () async {
+          ref
+            ..invalidate(inquiriesProvider)
+            ..invalidate(myAppealsProvider);
+          await Future.wait([
+            ref.read(inquiriesProvider.future).catchError((Object _) {
+              return const <RiderInquiry>[];
+            }),
+            ref.read(myAppealsProvider.future).catchError((Object _) {
+              return const <Appeal>[];
+            }),
+          ]);
+        },
+        child: ListView(
+          key: const ValueKey('support-list'),
+          padding: const EdgeInsets.only(bottom: 24),
           children: [
+            _VioletHeader(onChat: openChat, onNew: openNew),
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+              padding: const EdgeInsets.fromLTRB(20, 18, 20, 8),
+              child: Row(
                 children: [
-                  // 흰 카드 두 칸을 나란히(사용자 2026-11-23 "보라 버튼 별로" — 전에는 가로로 긴 보라 버튼 두 줄).
-                  // 보라는 아이콘에만 쓰고, 아래 탭(고른 쪽 보라)과 겹쳐 화면이 무거워 보이지 않게 한다.
-                  IntrinsicHeight(
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Expanded(
-                          child: _ActionTile(
-                            key: const ValueKey('live-chat'),
-                            icon: Icons.forum_outlined,
-                            title: l10n.supportChat,
-                            sub: l10n.supportChatSub,
-                            onTap: () => context.push('/my/inquiries/chat'),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: _ActionTile(
-                            key: const ValueKey('inquiry-new'),
-                            icon: Icons.edit_note_rounded,
-                            title: l10n.supportNew,
-                            sub: l10n.supportNewSub,
-                            onTap: () async {
-                              await context.push('/my/inquiries/new');
-                              ref.invalidate(inquiriesProvider);
-                            },
-                          ),
-                        ),
-                      ],
+                  Text(
+                    l10n.supportMine,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: RiderColors.ink,
                     ),
                   ),
-                  const SizedBox(height: 12),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 11,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(
-                          Icons.info_outline_rounded,
-                          size: 18,
-                          color: RiderColors.primary,
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            l10n.supportCenterNote,
-                            style: const TextStyle(
-                              fontSize: 13,
-                              height: 1.4,
-                              color: RiderColors.sub,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  // 알약 모양 탭 — 고른 쪽이 보라, 숫자는 옆에
-                  Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: TabBar(
-                      labelColor: Colors.white,
-                      unselectedLabelColor: RiderColors.sub,
-                      labelStyle: const TextStyle(
-                        fontSize: 15,
+                  if (rows.isNotEmpty) ...[
+                    const SizedBox(width: 6),
+                    Text(
+                      '${rows.length}',
+                      style: const TextStyle(
+                        fontSize: 16,
                         fontWeight: FontWeight.w700,
-                      ),
-                      unselectedLabelStyle: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                      ),
-                      indicator: BoxDecoration(
                         color: RiderColors.primary,
-                        borderRadius: BorderRadius.circular(10),
                       ),
-                      indicatorSize: TabBarIndicatorSize.tab,
-                      dividerColor: Colors.transparent,
-                      splashBorderRadius: BorderRadius.circular(10),
-                      tabs: [
-                        Tab(
-                          key: const ValueKey('tab-inquiries'),
-                          height: 42,
-                          text: tab(l10n.supportTabInquiries, inquiries),
-                        ),
-                        Tab(
-                          key: const ValueKey('tab-appeals'),
-                          height: 42,
-                          text: tab(l10n.supportTabAppeals, appeals),
-                        ),
-                      ],
                     ),
-                  ),
+                  ],
                 ],
               ),
             ),
-            const Expanded(
-              child: TabBarView(children: [_InquiryList(), AppealList()]),
-            ),
+            // 조회 실패를 "문의 없음"으로 보이지 않는다 — 못 읽은 쪽만 알리고, 읽은 쪽은 보인다.
+            if (inquiries.hasError && !inquiries.hasValue)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+                child: RiderLoadError(
+                  key: const ValueKey('inquiry-error'),
+                  compact: true,
+                  title: l10n.inqLoadFailed,
+                  onRetry: () => ref.invalidate(inquiriesProvider),
+                ),
+              ),
+            if (appeals.hasError && !appeals.hasValue)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+                child: RiderLoadError(
+                  key: const ValueKey('appeal-error-load'),
+                  compact: true,
+                  title: l10n.appealLoadFailed,
+                  onRetry: () => ref.invalidate(myAppealsProvider),
+                ),
+              ),
+            if (loading && rows.isEmpty)
+              const Padding(
+                padding: EdgeInsets.all(24),
+                child: Center(child: CircularProgressIndicator()),
+              )
+            else if (rows.isEmpty && inquiries.hasValue && appeals.hasValue)
+              SupportEmpty(
+                key: const ValueKey('inquiry-empty'),
+                icon: Icons.forum_outlined,
+                text: l10n.inqEmpty,
+              )
+            else
+              for (final (_, row) in rows) _RowCard(child: row),
           ],
         ),
       ),
@@ -173,127 +182,172 @@ class SupportCenterScreen extends ConsumerWidget {
   }
 }
 
-/// 위쪽 버튼(채팅 상담·문의 남기기) — 흰 카드, 연보라 원 안 보라 아이콘, 제목·설명, 오른쪽 위 화살표.
-class _ActionTile extends StatelessWidget {
-  const _ActionTile({
-    super.key,
-    required this.icon,
-    required this.title,
-    required this.sub,
-    required this.onTap,
-  });
+/// 내 문의 한 장 — 회색 바탕 위 흰 카드(둥글기 12, 아주 옅은 그림자).
+class _RowCard extends StatelessWidget {
+  const _RowCard({required this.child});
 
-  final IconData icon;
-  final String title;
-  final String sub;
-  final VoidCallback onTap;
+  final Widget child;
 
   @override
-  Widget build(BuildContext context) => Material(
-    color: Colors.white,
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(14),
-      side: const BorderSide(color: RiderColors.line),
+  Widget build(BuildContext context) => Container(
+    margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(12),
+      boxShadow: const [
+        BoxShadow(
+          color: Color(0x0A000000),
+          blurRadius: 6,
+          offset: Offset(0, 1),
+        ),
+      ],
     ),
     clipBehavior: Clip.antiAlias,
-    child: InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 14, 12, 14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: const BoxDecoration(
-                    color: RiderColors.primaryMist,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(icon, size: 22, color: RiderColors.primary),
-                ),
-                const Spacer(),
-                const Icon(
-                  Icons.chevron_right_rounded,
-                  size: 22,
-                  color: RiderColors.hint,
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Text(
-              title,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w800,
-                color: RiderColors.ink,
-              ),
-            ),
-            const SizedBox(height: 3),
-            Text(
-              sub,
-              style: const TextStyle(
-                fontSize: 12.5,
-                height: 1.35,
-                color: RiderColors.sub,
-              ),
-            ),
-          ],
-        ),
-      ),
-    ),
+    child: Material(color: Colors.transparent, child: child),
   );
 }
 
-/// 남긴 문의(최근 것이 위).
-class _InquiryList extends ConsumerWidget {
-  const _InquiryList();
+/// 보라 머리 + 흰 칸 한 장(반으로 나눠 채팅 상담 | 문의 남기기)이 머리 아래에 걸쳐 뜬다.
+/// 2026-11-25 사용자 "폰트랑 간격 때문에 ppt로 만든 느낌" → 시안 둘 중 고른 "한 장 반반"(머리 18 · 칸 높이 72 · 아이콘+이름 한 줄).
+class _VioletHeader extends StatelessWidget {
+  const _VioletHeader({required this.onChat, required this.onNew});
+
+  final VoidCallback onChat;
+  final VoidCallback onNew;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final list = ref.watch(inquiriesProvider);
-    return RefreshIndicator(
-      onRefresh: () => ref.refresh(inquiriesProvider.future),
-      child: ListView(
-        key: const ValueKey('inquiry-list'),
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+    const headerH = 92.0;
+    const tileH = 72.0;
+    const overlap = 30.0;
+    final chat = (
+      key: const ValueKey('live-chat'),
+      icon: Icons.forum_outlined,
+      title: l10n.supportChat,
+      onTap: onChat,
+    );
+    final ask = (
+      key: const ValueKey('inquiry-new'),
+      icon: Icons.edit_note_rounded,
+      title: l10n.supportNew,
+      onTap: onNew,
+    );
+    return SizedBox(
+      height: headerH + tileH - overlap,
+      child: Stack(
         children: [
-          switch (list) {
-            AsyncData(:final value) when value.isEmpty => SupportEmpty(
-              key: const ValueKey('inquiry-empty'),
-              icon: Icons.forum_outlined,
-              text: l10n.inqEmpty,
+          Container(
+            height: headerH,
+            width: double.infinity,
+            color: RiderColors.primary,
+            padding: const EdgeInsets.fromLTRB(20, 6, 20, 0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  l10n.supportHello,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  l10n.supportCenterNote,
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    color: Color(0xCCFFFFFF),
+                  ),
+                ),
+              ],
             ),
-            AsyncData(:final value) => Column(
-              children: [for (final i in value) _InquiryCard(inquiry: i)],
-            ),
-            // 조회 실패를 "문의 없음"으로 보이지 않는다.
-            AsyncError() => Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              child: RiderLoadError(
-                key: const ValueKey('inquiry-error'),
-                compact: true,
-                title: l10n.inqLoadFailed,
-                onRetry: () => ref.invalidate(inquiriesProvider),
+          ),
+          Positioned(
+            left: 16,
+            right: 16,
+            top: headerH - overlap,
+            height: tileH,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x14000000),
+                    blurRadius: 10,
+                    offset: Offset(0, 3),
+                  ),
+                ],
+              ),
+              child: Row(
+                children: [
+                  for (final (i, t) in [chat, ask].indexed) ...[
+                    if (i > 0)
+                      const VerticalDivider(
+                        width: 1,
+                        indent: 18,
+                        endIndent: 18,
+                        color: RiderColors.line,
+                      ),
+                    Expanded(
+                      child: _FlatHalf(
+                        key: t.key,
+                        icon: t.icon,
+                        title: t.title,
+                        onTap: t.onTap,
+                      ),
+                    ),
+                  ],
+                ],
               ),
             ),
-            _ => const Padding(
-              padding: EdgeInsets.all(24),
-              child: Center(child: CircularProgressIndicator()),
-            ),
-          },
+          ),
         ],
       ),
     );
   }
 }
 
-class _InquiryCard extends StatelessWidget {
-  const _InquiryCard({required this.inquiry});
+/// 반 칸 — 보라 아이콘(22) + 제목 15 굵게, 가운데 정렬.
+class _FlatHalf extends StatelessWidget {
+  const _FlatHalf({
+    super.key,
+    required this.icon,
+    required this.title,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => InkWell(
+    onTap: onTap,
+    borderRadius: BorderRadius.circular(12),
+    child: Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(icon, size: 22, color: RiderColors.primary),
+        const SizedBox(width: 8),
+        Text(
+          title,
+          style: const TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w700,
+            color: RiderColors.ink,
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+/// 내 문의 한 줄 — [상태] 종류 · 날짜 / 굵은 제목 / 회색 내용 한 줄 / ›.
+class _InquiryRow extends StatelessWidget {
+  const _InquiryRow({required this.inquiry});
 
   final RiderInquiry inquiry;
 
@@ -302,82 +356,25 @@ class _InquiryCard extends StatelessWidget {
     final l10n = AppLocalizations.of(context);
     final (text, color) = inquiryStateLook(l10n, inquiry.state);
     final body = inquiry.body.trim();
-    return SupportCard(
+    return InkWell(
       key: ValueKey('inquiry-${inquiry.id}'),
       onTap: () => context.push('/my/inquiries/${inquiry.id}'),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // 제목이 먼저, 상태는 오른쪽 위
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Text(
-                  inquiry.title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    color: RiderColors.ink,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              StatusPill(label: text, color: color),
-            ],
-          ),
-          if (body.isNotEmpty) ...[
-            const SizedBox(height: 6),
-            Text(
-              body,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                fontSize: 14,
-                height: 1.45,
-                color: RiderColors.sub,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 13, 10, 13),
+        child: Row(
+          children: [
+            Expanded(
+              child: SupportRowBody(
+                state: StatusPill(label: text, color: color),
+                kind: inquiryKindText(l10n, inquiry.kind),
+                at: inquiry.createdAt,
+                title: inquiry.title,
+                body: body.isEmpty ? null : body,
               ),
             ),
+            const Icon(Icons.chevron_right, size: 24, color: RiderColors.sub),
           ],
-          const SizedBox(height: 12),
-          const Divider(height: 1, color: RiderColors.gap),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                decoration: BoxDecoration(
-                  color: RiderColors.field,
-                  borderRadius: BorderRadius.circular(5),
-                ),
-                child: Text(
-                  inquiryKindText(l10n, inquiry.kind),
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: RiderColors.sub,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  formatSeoulDateTime(inquiry.createdAt),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 12, color: RiderColors.hint),
-                ),
-              ),
-              const Icon(
-                Icons.chevron_right,
-                size: 20,
-                color: RiderColors.hint,
-              ),
-            ],
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -401,6 +398,80 @@ class _InquiryNewScreenState extends ConsumerState<InquiryNewScreen> {
 
   /// 서버가 쓸 수 없는 말이 있다고 받지 않았다 — 고칠 때까지 입력 칸 아래에 알린다.
   bool _blocked = false;
+
+  /// 수행료 이의: 정산내역의 배송 수행료 줄(최신 20개)에서 배송을 골라 이의 신청 화면으로.
+  /// 목록을 못 읽으면 빈 목록이라 하지 않고 못 불러왔다고 알린다.
+  Future<void> _toEarningAppeal() async {
+    final l10n = AppLocalizations.of(context);
+    final List<Settlement> items;
+    try {
+      items = [
+        for (final s in (await ref.read(settlementsProvider.future)).items)
+          if (!s.compensation && s.deliveryId != null) s,
+      ]..sort((a, b) => b.from.compareTo(a.from));
+    } on Object {
+      if (mounted) showRiderToast(context, l10n.appealPickFailed);
+      return;
+    }
+    if (!mounted) return;
+    if (items.isEmpty) return showRiderToast(context, l10n.appealPickNone);
+    final picked = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.sizeOf(ctx).height * 0.7,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+                child: Text(
+                  l10n.appealPickDelivery,
+                  style: const TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              Flexible(
+                child: ListView(
+                  shrinkWrap: true,
+                  children: [
+                    for (final s in items.take(20))
+                      ListTile(
+                        key: ValueKey('appeal-pick-${s.deliveryId}'),
+                        title: Text(
+                          s.deliveryId!,
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                        subtitle: Text(formatSeoulDateTime(s.from)),
+                        trailing: Text(switch (s.amount) {
+                          final int a => formatKrw(a),
+                          null => l10n.feeUncalculated,
+                        }, style: const TextStyle(fontSize: 15)),
+                        onTap: () => Navigator.of(ctx).pop(s.deliveryId),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (picked == null || !mounted) return;
+    context.pushReplacement(
+      appealNewRoute(AppealTarget.earning, deliveryId: picked),
+    );
+  }
 
   @override
   void dispose() {
@@ -473,6 +544,22 @@ class _InquiryNewScreenState extends ConsumerState<InquiryNewScreen> {
                   selectedColor: RiderColors.primarySoft,
                   onSelected: (_) => setState(() => _kind = k),
                 ),
+              // 사용자 2026-11-25 "소명이의도 그냥 문의 남기기에서" — 고르면 이의 신청(rider-service)으로 간다.
+              // 문의로 보내면 라이더 운영의 유지·인정 결정·보상금 처리가 안 되기 때문.
+              ChoiceChip(
+                key: const ValueKey('inq-kind-appeal-earning'),
+                label: Text(l10n.appealKindEarning),
+                selected: false,
+                onSelected: (_) => _toEarningAppeal(),
+              ),
+              ChoiceChip(
+                key: const ValueKey('inq-kind-appeal-restriction'),
+                label: Text(l10n.appealRestrictionTitle),
+                selected: false,
+                onSelected: (_) => context.pushReplacement(
+                  appealNewRoute(AppealTarget.restriction),
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 18),

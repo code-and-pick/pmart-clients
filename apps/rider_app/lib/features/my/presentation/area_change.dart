@@ -8,7 +8,7 @@ import '../../../shared/rider_style.dart';
 import '../../../shared/rider_widgets.dart';
 import '../../auth/data/pickup_points.dart';
 import '../../auth/data/signup.dart';
-import '../../auth/presentation/signup_screens.dart' show AreaSheet;
+import '../../auth/presentation/signup_screens.dart' show regionText;
 import '../../offers/presentation/offer_controllers.dart';
 import '../../offers/domain/offer_list.dart' show OperatingState;
 import '../data/profile.dart';
@@ -61,27 +61,13 @@ Future<void> changeDeliveryArea(BuildContext context, WidgetRef ref) async {
       .expand((list) => list)
       .where((a) => a.mfcId == current)
       .firstOrNull;
-  final picked = await showModalBottomSheet<AreaOption>(
-    context: context,
-    isScrollControlled: true,
-    backgroundColor: Colors.white,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+  // 2026-11-25 사용자 "지역 바꾸기 팝업창 너무 별론데" — 아래 창 + 확인 팝업 대신 새 화면 하나(아래 버튼이 확인).
+  final picked = await Navigator.of(context).push<AreaOption>(
+    MaterialPageRoute(
+      builder: (_) => AreaChangeScreen(current: initial, areas: areas),
     ),
-    builder: (_) => AreaSheet(initial: initial, areas: areas),
   );
   if (picked == null || picked.mfcId == current || !context.mounted) return;
-  // 2026-11-23 사용자 "배달지역 바꾸기 팝업창 UI 별로야" — 글만 있던 기본 창 대신 "지금 → 바꿀 곳"을 칸으로 보이는 확인 창.
-  final sure = await showDialog<bool>(
-    context: context,
-    builder: (context) => _AreaChangeDialog(
-      from: current == null
-          ? null
-          : l10n.storeLabel(shortStoreName(storeNameOf(current) ?? current)),
-      to: l10n.storeLabel(shortStoreName(picked.name)),
-    ),
-  );
-  if (sure != true) return;
   // 묻는 동안 운행을 시작했을 수 있다.
   if (!resting()) return toast(l10n.areaChangeOnDuty);
 
@@ -153,124 +139,254 @@ String deliveryAreaText(
   _ => l10n.statLoading,
 };
 
-/// 배달 지역 바꾸기 확인 — 제목, "지금 → 바꿀 곳" 두 칸, 반영 안내, 꽉 찬 두 버튼(취소 · 바꾸기).
-class _AreaChangeDialog extends StatelessWidget {
-  const _AreaChangeDialog({required this.from, required this.to});
+/// 배달 지역 바꾸기 화면(팝업·아래 창 대신 새 화면). 지점을 고르고 아래 "이 지점으로 바꾸기"를 누르면 그 지점을 돌려준다
+/// (따로 묻는 창 없이 — 버튼이 확인). 뒤로 가면 null.
+/// 사용자 2026-11-25 "지역 바꾸기 팝업창 너무 별론데" → 시안 둘 중 고른 "한 화면"(권역 칩 + 지점 목록).
+class AreaChangeScreen extends StatefulWidget {
+  const AreaChangeScreen({
+    super.key,
+    required this.current,
+    required this.areas,
+  });
 
-  final String? from;
-  final String to;
+  /// 지금 배달 지역(지점). 모르면 null.
+  final AreaOption? current;
+  final Map<MfcRegion, List<AreaOption>> areas;
+
+  @override
+  State<AreaChangeScreen> createState() => _AreaChangeScreenState();
+}
+
+class _AreaChangeScreenState extends State<AreaChangeScreen> {
+  late MfcRegion? _region = widget.current?.region ?? _regions.firstOrNull;
+  AreaOption? _branch;
+
+  List<MfcRegion> get _regions => [
+    for (final r in MfcRegion.values)
+      if (widget.areas[r]?.isNotEmpty ?? false) r,
+  ];
+
+  bool get _canSubmit =>
+      _branch != null && _branch!.mfcId != widget.current?.mfcId;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    // 한 줄: 왼쪽 "지금"/"바꿀 곳", 오른쪽 지점 이름 — 이름이 길어도 꺾이지 않게 가로 한 줄 칸을 위아래로 둔다.
-    Widget place(String label, String? name, {required bool next}) => Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      decoration: BoxDecoration(
-        color: next ? RiderColors.primaryMist : RiderColors.gap,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: next ? RiderColors.primary : RiderColors.line,
-          width: next ? 1.5 : 1,
-        ),
-      ),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 56,
-            child: Text(
-              label,
-              style: const TextStyle(fontSize: 13, color: RiderColors.sub),
-            ),
-          ),
-          Expanded(
-            child: Text(
-              name ?? '—',
-              textAlign: TextAlign.right,
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w800,
-                color: next ? RiderColors.primary : RiderColors.ink,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-    return Dialog(
+    final region = _region;
+    return Scaffold(
       backgroundColor: Colors.white,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 24),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 22, 20, 16),
+      appBar: riderDarkBar(context, title: l10n.areaChangeTitle),
+      body: SafeArea(
         child: Column(
-          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(
-              l10n.areaChangeTitle,
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
-            ),
-            const SizedBox(height: 16),
-            place(l10n.areaNow, from, next: false),
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 4),
-              child: Icon(
-                Icons.arrow_downward_rounded,
-                size: 20,
-                color: RiderColors.sub,
-              ),
-            ),
-            place(l10n.areaNext, to, next: true),
-            const SizedBox(height: 14),
-            Text(
-              l10n.areaChangeNote,
-              style: const TextStyle(
-                fontSize: 13,
-                height: 1.45,
-                color: RiderColors.sub,
-              ),
-            ),
-            const SizedBox(height: 18),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    style: OutlinedButton.styleFrom(
-                      minimumSize: const Size.fromHeight(48),
-                      foregroundColor: RiderColors.ink,
-                      side: const BorderSide(color: RiderColors.line),
-                      shape: RoundedRectangleBorder(
+            Expanded(
+              child: ListView(
+                key: const ValueKey('area-change-list'),
+                padding: const EdgeInsets.only(bottom: 12),
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 12,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF4F5F7),
                         borderRadius: BorderRadius.circular(10),
                       ),
+                      child: Row(
+                        children: [
+                          Text(
+                            l10n.areaNow,
+                            style: const TextStyle(
+                              fontSize: 13.5,
+                              color: RiderColors.sub,
+                            ),
+                          ),
+                          const Spacer(),
+                          Text(
+                            switch (widget.current) {
+                              final c? => l10n.storeLabel(
+                                shortStoreName(c.name),
+                              ),
+                              null => '—',
+                            },
+                            key: const ValueKey('area-now'),
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              color: RiderColors.ink,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                    onPressed: () => Navigator.of(context).pop(false),
-                    child: Text(l10n.wdCancel),
                   ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: FilledButton(
+                  _label(l10n.areaRegion),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        for (final r in _regions)
+                          _Chip(
+                            key: ValueKey('area-${r.name}'),
+                            label: regionText(l10n, r),
+                            selected: r == region,
+                            onTap: () => setState(() {
+                              if (_region != r) _branch = null;
+                              _region = r;
+                            }),
+                          ),
+                      ],
+                    ),
+                  ),
+                  _label(l10n.areaBranch),
+                  ..._branches(region),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 6, 16, 12),
+              child: Column(
+                children: [
+                  Text(
+                    l10n.areaChangeNote,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 12.5,
+                      color: RiderColors.sub,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  RiderButton(
                     key: const ValueKey('area-change-confirm'),
-                    style: FilledButton.styleFrom(
-                      minimumSize: const Size.fromHeight(48),
-                      backgroundColor: RiderColors.primary,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                    ),
-                    onPressed: () => Navigator.of(context).pop(true),
-                    child: Text(
-                      l10n.areaChangeConfirm,
-                      style: const TextStyle(fontWeight: FontWeight.w700),
-                    ),
+                    label: l10n.areaChangeSubmit,
+                    onPressed: _canSubmit
+                        ? () => Navigator.of(context).pop(_branch)
+                        : null,
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ],
         ),
       ),
     );
   }
+
+  Widget _label(String text) => Padding(
+    padding: const EdgeInsets.fromLTRB(20, 22, 20, 10),
+    child: Text(
+      text,
+      style: const TextStyle(
+        fontSize: 14,
+        fontWeight: FontWeight.w600,
+        color: RiderColors.sub,
+      ),
+    ),
+  );
+
+  /// 지점 줄 — 이름(15.5) + 오른쪽 둥근 고르기 표시. 지금 지점에는 "지금" 꼬리표.
+  List<Widget> _branches(MfcRegion? region) {
+    final l10n = AppLocalizations.of(context);
+    final list = widget.areas[region] ?? const <AreaOption>[];
+    return [
+      for (final (i, a) in list.indexed) ...[
+        if (i > 0) const Divider(height: 1, indent: 20, endIndent: 20),
+        InkWell(
+          key: ValueKey('area-${a.name}'),
+          // 권역 칩과 같게 물결 없이 옅은 눌림만.
+          splashFactory: NoSplash.splashFactory,
+          highlightColor: const Color(0x0A000000),
+          onTap: () => setState(() => _branch = a),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 14, 18, 14),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    shortStoreName(a.name),
+                    style: TextStyle(
+                      fontSize: 15.5,
+                      fontWeight: a.mfcId == _branch?.mfcId
+                          ? FontWeight.w600
+                          : FontWeight.w400,
+                      color: RiderColors.ink,
+                    ),
+                  ),
+                ),
+                if (a.mfcId == widget.current?.mfcId) ...[
+                  Text(
+                    l10n.areaNow,
+                    style: const TextStyle(
+                      fontSize: 12.5,
+                      color: RiderColors.sub,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                ],
+                Icon(
+                  a.mfcId == _branch?.mfcId
+                      ? Icons.radio_button_checked
+                      : Icons.radio_button_unchecked,
+                  size: 22,
+                  color: a.mfcId == _branch?.mfcId
+                      ? RiderColors.primary
+                      : RiderColors.disabled,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+      // 사용자 2026-11-25 "맨 마지막에 있는 지역 밑에도 회색 구분선" — 마지막 줄 아래도 같은 선.
+      if (list.isNotEmpty) const Divider(height: 1, indent: 20, endIndent: 20),
+    ];
+  }
+}
+
+/// 권역 칩 — 고르면 보라 바탕·흰 글씨, 아니면 흰 바탕·회색 테두리.
+class _Chip extends StatelessWidget {
+  const _Chip({
+    super.key,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Material(
+    color: selected ? RiderColors.primary : Colors.white,
+    shape: StadiumBorder(
+      side: BorderSide(
+        color: selected ? RiderColors.primary : RiderColors.line,
+      ),
+    ),
+    child: InkWell(
+      customBorder: const StadiumBorder(),
+      // 사용자 2026-11-25 "권역 버튼 클릭할 때 물결효과 너무 강해" — 물결 없이 아주 옅은 눌림만.
+      splashFactory: NoSplash.splashFactory,
+      highlightColor: const Color(0x0F000000),
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+            color: selected ? Colors.white : RiderColors.ink,
+          ),
+        ),
+      ),
+    ),
+  );
 }

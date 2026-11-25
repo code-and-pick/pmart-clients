@@ -369,8 +369,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               child: SafeArea(
                 top: false,
                 minimum: const EdgeInsets.only(bottom: 16),
+                // 이어서 "너무 아래에 떠 조금만 위로" — 아래로 24 더 띄운다.
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
                   child: poll.reconnecting
                       ? _SearchingBanner(
                           key: const ValueKey('reconnecting'),

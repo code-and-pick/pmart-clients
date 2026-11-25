@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:pmart_ui/pmart_ui.dart' show formatSeoulDateTime;
 
 import '../l10n/gen/app_localizations.dart';
 import 'rider_style.dart';
@@ -1033,5 +1034,68 @@ class _RetryButton extends StatelessWidget {
       ),
     ),
     child: Text(label),
+  );
+}
+
+/// 지원센터 "내 문의" 한 줄의 안쪽 — [상태 꼬리표] 종류 · 날짜 / 굵은 제목(두 줄까지) / 회색 내용 한 줄 / 덧붙임.
+class SupportRowBody extends StatelessWidget {
+  const SupportRowBody({
+    super.key,
+    required this.state,
+    required this.kind,
+    required this.at,
+    required this.title,
+    this.body,
+    this.extra = const [],
+  });
+
+  final Widget state;
+  final String kind;
+  final DateTime at;
+  final String title;
+  final String? body;
+  final List<Widget> extra;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Row(
+        children: [
+          state,
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              '$kind · ${formatSeoulDateTime(at)}',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 12.5, color: RiderColors.sub),
+            ),
+          ),
+        ],
+      ),
+      const SizedBox(height: 5),
+      Text(
+        title,
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(
+          fontSize: 15,
+          fontWeight: FontWeight.w600,
+          height: 1.35,
+          color: RiderColors.ink,
+        ),
+      ),
+      if (body case final b?) ...[
+        const SizedBox(height: 3),
+        Text(
+          b,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontSize: 13.5, color: RiderColors.sub),
+        ),
+      ],
+      for (final w in extra) ...[const SizedBox(height: 8), w],
+    ],
   );
 }

@@ -476,7 +476,8 @@ Future<Uint8List> _chevronPng() async {
 }
 
 const _pinW = 32.0;
-const _pinH = 42.0;
+// 사용자 2026-11-25 "핀 크기가 세로로 조금 긴 것 같아" — 42 → 38.
+const _pinH = 38.0;
 
 /// 경로 띠(회색 반투명)·내 위치 파랑 — 레퍼런스 색.
 const _routeBand = Color(0x55808080);
@@ -501,7 +502,8 @@ TextSpan _etaSpan(String text, Color color, {required bool outline}) =>
         foreground: outline
             ? (Paint()
                 ..style = PaintingStyle.stroke
-                ..strokeWidth = 3.5
+                // 사용자 2026-11-25 "도착예상 시간 글자에 하얀 테두리도 너무 두껍다" — 3.5 → 2.
+                ..strokeWidth = 2
                 ..strokeJoin = StrokeJoin.round
                 ..color = Colors.white)
             : null,
@@ -612,7 +614,8 @@ class _Pin extends StatelessWidget {
             child: CustomPaint(
               painter: _PinPainter(color),
               child: Align(
-                alignment: const Alignment(0, -0.29),
+                // 글자는 둥근 머리 가운데(위에서 핀 폭의 절반)에.
+                alignment: const Alignment(0, _pinW / _pinH - 1),
                 child: Text(
                   label,
                   style: const TextStyle(

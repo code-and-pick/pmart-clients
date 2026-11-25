@@ -7,8 +7,6 @@ import 'package:pmart_ui/pmart_ui.dart';
 import '../../../l10n/gen/app_localizations.dart';
 import '../../../shared/rider_style.dart';
 import '../../../shared/rider_widgets.dart';
-import '../../../shared/ui_state_of.dart';
-import '../../my/data/records.dart';
 import '../data/appeals.dart';
 import '../../../shared/keyboard.dart';
 
@@ -197,58 +195,10 @@ class _AppealNewScreenState extends ConsumerState<AppealNewScreen> {
       AppealState.accepted => (l10n.appealAccepted, RiderColors.primary),
     };
 
-/// 지원센터의 "소명·이의" 탭 — 결정 대기·유지·인정과 결정 이유.
-class AppealList extends ConsumerWidget {
-  const AppealList({super.key});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final l10n = AppLocalizations.of(context);
-    // 인정된 수행료 이의의 보상금(정산내역의 보상 줄 — execution 0.30.0). 못 읽었으면 금액을 붙이지 않는다(0원으로 지어내지 않음).
-    final compensations = <String, int>{
-      for (final s
-          in ref.watch(settlementsProvider).value?.items ??
-              const <Settlement>[])
-        if (s.compensation && s.appealId != null && s.amount != null)
-          s.appealId!: s.amount!,
-    };
-    return RefreshIndicator(
-      onRefresh: () => ref.refresh(myAppealsProvider.future),
-      child: UiStateView<List<Appeal>>(
-        state: uiStateOf(
-          ref.watch(myAppealsProvider),
-          isEmpty: (l) => l.isEmpty,
-        ),
-        onRetry: () => ref.invalidate(myAppealsProvider),
-        empty: (_) => ListView(
-          children: [
-            SupportEmpty(
-              key: const ValueKey('appeal-none'),
-              icon: Icons.gavel_outlined,
-              text: l10n.appealNone,
-              note: l10n.appealWhere,
-            ),
-          ],
-        ),
-        ready: (context, list) => ListView(
-          key: const ValueKey('appeal-list'),
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-          children: [
-            for (final a in list)
-              _AppealCard(
-                key: ValueKey('appeal-${a.appealId}'),
-                appeal: a,
-                compensation: compensations[a.appealId],
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _AppealCard extends StatelessWidget {
-  const _AppealCard({super.key, required this.appeal, this.compensation});
+/// 지원센터 "내 문의"의 소명·이의 한 줄 — [상태] 종류 · 날짜 / 굵은 내용 / 보상금 / 결정 이유(회색 칸).
+/// 문의 줄과 같은 모양([SupportRowBody]). 결정은 라이더 운영이 백오피스에서(유지·인정).
+class AppealRow extends StatelessWidget {
+  const AppealRow({super.key, required this.appeal, this.compensation});
 
   final Appeal appeal;
   final int? compensation;
@@ -258,46 +208,17 @@ class _AppealCard extends StatelessWidget {
     final l10n = AppLocalizations.of(context);
     final a = appeal;
     final (stateText, stateColor) = appealStateLook(l10n, a.state);
-    return SupportCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              StatusPill(label: stateText, color: stateColor),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  formatSeoulDateTime(a.submittedAt),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 12, color: RiderColors.hint),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            a.target == AppealTarget.restriction
-                ? l10n.appealRestrictionTitle
-                : l10n.appealEarningTitle,
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
-              color: RiderColors.ink,
-            ),
-          ),
-          const SizedBox(height: 3),
-          Text(
-            a.body,
-            style: const TextStyle(
-              fontSize: 14,
-              height: 1.4,
-              color: RiderColors.sub,
-            ),
-          ),
-          if (compensation case final won?) ...[
-            const SizedBox(height: 8),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 13, 16, 13),
+      child: SupportRowBody(
+        state: StatusPill(label: stateText, color: stateColor),
+        kind: a.target == AppealTarget.restriction
+            ? l10n.appealRestrictionTitle
+            : l10n.appealKindEarning,
+        at: a.submittedAt,
+        title: a.body,
+        extra: [
+          if (compensation case final won?)
             Text(
               l10n.appealCompensation(formatKrw(won)),
               key: ValueKey('appeal-compensation-${a.appealId}'),
@@ -307,9 +228,7 @@ class _AppealCard extends StatelessWidget {
                 color: RiderColors.primary,
               ),
             ),
-          ],
-          if (a.decisionNote case final note?) ...[
-            const SizedBox(height: 10),
+          if (a.decisionNote case final note?)
             Container(
               width: double.infinity,
               padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
@@ -326,7 +245,6 @@ class _AppealCard extends StatelessWidget {
                 ),
               ),
             ),
-          ],
         ],
       ),
     );

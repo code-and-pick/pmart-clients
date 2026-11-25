@@ -23,6 +23,11 @@ import 'package:rider_app/features/offers/data/mock_offer_repository.dart';
 import 'package:rider_app/features/offers/domain/offer_list.dart';
 import 'package:rider_app/features/offers/presentation/offer_controllers.dart';
 import 'package:rider_app/shared/providers.dart';
+import 'package:rider_app/features/inquiries/data/inquiries.dart';
+import 'package:rider_app/features/my/presentation/area_change.dart'
+    show AreaChangeScreen;
+import 'package:rider_app/features/auth/data/pickup_points.dart'
+    show areaOptionsProvider;
 
 const _dir = String.fromEnvironment('SHOT_DIR');
 
@@ -78,11 +83,28 @@ void main() {
       latency: Duration.zero,
       visible: (id) => offers.assignedDeliveries.contains(id),
     );
+    // 지원센터 캡처용 문의 두 건(목).
+    final inquiriesRepo = MockInquiryRepository(latency: Duration.zero);
+    await t.runAsync(() async {
+      await inquiriesRepo.create(
+        InquiryKind.settlement,
+        title: '지급일이 언제인가요?',
+        body: '11월 24일 배달한 수행료 지급일이 궁금해요.',
+        key: IdempotencyKey.generate(),
+      );
+      await inquiriesRepo.create(
+        InquiryKind.appError,
+        title: '지도가 가끔 하얗게 나와요',
+        body: '배송 중에 지도가 안 보일 때가 있어요.',
+        key: IdempotencyKey.generate(),
+      );
+    });
     await t.pumpWidget(
       ProviderScope(
         retry: (_, _) => null,
         overrides: [
           envProvider.overrideWithValue(PmartEnv.mock),
+          inquiryRepositoryProvider.overrideWithValue(inquiriesRepo),
           initialSessionProvider.overrideWithValue(
             const RiderSession(riderId: 'rider-mock-1'),
           ),
@@ -179,6 +201,46 @@ void main() {
 
     await tap('my-page');
     await shot('my-page');
+    // 내 정보(사용자 2026-11-25 '라이더님 ›').
+    await tap('my-name');
+    await shot('my-info');
+    await tap('info-vehicle');
+    await shot('my-info-vehicle');
+    await tap('vehicle-motorcycle');
+    await shot('my-info-license');
+    // 지원센터(문의·소명이의 탭).
+    router().go('/my/inquiries');
+    await shot('support');
+    router().go('/my');
+    await settle();
+    final container = ProviderScope.containerOf(
+      t.element(find.byType(Scaffold).last),
+    );
+    final areas = (await t.runAsync(
+      () => container.read(areaOptionsProvider.future),
+    ))!;
+    final all = areas.values.expand((l) => l).toList();
+    final cur = all.firstWhere(
+      (a) => a.mfcId == 'MFC-BSJ-01',
+      orElse: () => all.first,
+    );
+    final other = areas[cur.region]!.firstWhere((a) => a.mfcId != cur.mfcId);
+    {
+      final nav = Navigator.of(t.element(find.byType(Scaffold).last));
+      nav.push(
+        MaterialPageRoute<void>(
+          builder: (_) => AreaChangeScreen(current: cur, areas: areas),
+        ),
+      );
+      await settle();
+      await t.tap(find.byKey(ValueKey('area-${other.name}')));
+      await shot('area-change');
+      nav.pop();
+      await settle();
+    }
+
+    router().go('/my/inquiries/new');
+    await shot('support-new');
     debugDisableShadows = true;
   });
 

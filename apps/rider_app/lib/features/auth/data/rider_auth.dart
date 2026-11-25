@@ -6,6 +6,8 @@ import 'package:pmart_api_rider_auth/pmart_api_rider_auth.dart' as ra;
 import 'package:pmart_core/pmart_core.dart';
 
 import '../../../shared/providers.dart';
+import '../../my/data/profile_photo.dart'
+    show LoginAccountInfo, accountFromIdToken;
 import 'kakao_naver_token_sources.dart';
 
 /// 라이더용 Google 웹 클라이언트 ID(serverClientId). Google 이 주는 ID 토큰의 `aud` 가 이 값이고,
@@ -79,9 +81,16 @@ sealed class RiderLoginOutcome {
 
 /// 로그인됨. [registered] = rider-service 프로필이 있음(`GET /riders/me` 404 면 false → 가입 화면).
 final class RiderLoggedIn extends RiderLoginOutcome {
-  const RiderLoggedIn({required this.riderId, required this.registered});
+  const RiderLoggedIn({
+    required this.riderId,
+    required this.registered,
+    this.account = const LoginAccountInfo(),
+  });
   final String riderId;
   final bool registered;
+
+  /// 제공자 ID 토큰의 프로필 사진·이메일 — 마이페이지·내 정보에 이 기기에서만 쓴다.
+  final LoginAccountInfo account;
 }
 
 /// 계정 선택 창을 닫았다(서버를 부르지 않는다).
@@ -298,7 +307,11 @@ final class RiderLogin {
     } on PmartFailure {
       // 확인하지 못했다 — 새 계정 여부로 판단한다.
     }
-    return RiderLoggedIn(riderId: result.riderId, registered: registered);
+    return RiderLoggedIn(
+      riderId: result.riderId,
+      registered: registered,
+      account: accountFromIdToken(idToken),
+    );
   }
 
   /// 탈퇴 신청 전 재인증(rider-auth 0.4.0 RA-1). 네이버로 가입한 라이더만 — 네이버 인가를 한 번 더 받아

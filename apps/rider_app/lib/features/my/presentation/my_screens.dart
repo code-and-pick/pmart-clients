@@ -15,6 +15,7 @@ import '../../offers/presentation/offer_controllers.dart';
 import '../data/profile.dart';
 import '../data/records.dart';
 import 'area_change.dart';
+import 'profile_avatar.dart';
 
 /// 마이페이지. 레퍼런스의 친구초대·미션달성·오늘의 기록·명세서 발급은 PMart 업무 문서에 없는 기능이라 두지 않는다.
 class MyPageScreen extends ConsumerWidget {
@@ -79,41 +80,59 @@ class MyPageScreen extends ConsumerWidget {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                InkWell(
-                                  key: const ValueKey('my-name'),
-                                  onTap: () => context.push('/my/settings'),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Flexible(
-                                        child: Text(
-                                          riderGreetingText(
-                                            profile.value?.name,
-                                            l10n.riderGreetingNamed,
-                                            l10n.riderGreeting,
+                                // 사용자 2026-11-25: 톱니 밑(오른쪽)에 동그라미 프로필 사진.
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          InkWell(
+                                            key: const ValueKey('my-name'),
+                                            // 사용자 2026-11-25: "라이더님 ›" → 내 정보.
+                                            onTap: () =>
+                                                context.push('/my/account'),
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Flexible(
+                                                  child: Text(
+                                                    riderGreetingText(
+                                                      profile.value?.name,
+                                                      l10n.riderGreetingNamed,
+                                                      l10n.riderGreeting,
+                                                    ),
+                                                    style: const TextStyle(
+                                                      fontSize: 24.3,
+                                                      fontWeight:
+                                                          FontWeight.w700,
+                                                    ),
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 0),
+                                                const Icon(
+                                                  Icons.chevron_right,
+                                                  size: 27.5,
+                                                  color: RiderColors.ink,
+                                                ),
+                                              ],
+                                            ),
                                           ),
-                                          style: const TextStyle(
-                                            fontSize: 24.3,
-                                            fontWeight: FontWeight.w700,
+                                          const SizedBox(height: 0),
+                                          Text(
+                                            storeText(l10n, storeId),
+                                            style: const TextStyle(
+                                              fontSize: 15,
+                                              color: RiderColors.ink,
+                                            ),
                                           ),
-                                        ),
+                                        ],
                                       ),
-                                      const SizedBox(width: 0),
-                                      const Icon(
-                                        Icons.chevron_right,
-                                        size: 27.5,
-                                        color: RiderColors.ink,
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(height: 0),
-                                Text(
-                                  storeText(l10n, storeId),
-                                  style: const TextStyle(
-                                    fontSize: 15,
-                                    color: RiderColors.ink,
-                                  ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    const ProfileAvatar(),
+                                  ],
                                 ),
                                 const SizedBox(height: 14.3),
                                 Row(

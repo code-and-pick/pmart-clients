@@ -24,6 +24,7 @@ import 'features/inquiries/presentation/live_chat_screen.dart';
 import 'features/notifications/data/notifications.dart';
 import 'features/notifications/presentation/notification_screen.dart';
 import 'features/my/presentation/my_screens.dart';
+import 'features/my/presentation/account_screen.dart';
 import 'features/my/presentation/deduction_screens.dart';
 import 'features/my/presentation/record_screens.dart';
 import 'features/my/presentation/delivery_record_screen.dart';
@@ -142,6 +143,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(path: '/my', builder: (_, _) => const MyPageScreen()),
       GoRoute(path: '/my/settings', builder: (_, _) => const SettingsScreen()),
+      GoRoute(path: '/my/account', builder: (_, _) => const AccountScreen()),
       GoRoute(
         path: '/my/dispatch-mode',
         builder: (_, _) => const DispatchModeScreen(),
@@ -169,10 +171,10 @@ final routerProvider = Provider<GoRouter>((ref) {
             DeliveryRecordScreen(deliveryId: s.pathParameters['deliveryId']!),
       ),
       // 소명·이의 신청(rider 0.15.0) — ?type=restriction|earning&deliveryId=
-      // 지원센터의 소명·이의 탭(사용자 2026-11-20 — 문의와 한 곳에서)
+      // 지원센터 "내 문의"(사용자 2026-11-25 탭 없이 문의·소명·이의 한 목록)
       GoRoute(
         path: '/my/appeals',
-        builder: (_, _) => const SupportCenterScreen(initialTab: 1),
+        builder: (_, _) => const SupportCenterScreen(),
       ),
       GoRoute(
         path: '/my/appeals/new',

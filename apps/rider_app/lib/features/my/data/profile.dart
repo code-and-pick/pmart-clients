@@ -5,6 +5,7 @@ import 'package:pmart_api_rider/pmart_api_rider.dart' as rd;
 import 'package:pmart_core/pmart_core.dart';
 
 import '../../../shared/providers.dart';
+import '../../auth/data/signup.dart' show Vehicle;
 
 /// 계정 제한(rider-service `AccountRestriction`, RS-1).
 enum Restriction {
@@ -35,6 +36,9 @@ class RiderProfileView {
   const RiderProfileView({
     required this.riderId,
     this.name,
+    this.phoneMasked,
+    this.vehicle,
+    this.licenseNumberMasked,
     this.restriction = Restriction.normal,
     this.restrictedUntil,
     this.deliveryAreaMfcId,
@@ -43,6 +47,15 @@ class RiderProfileView {
 
   final String riderId;
   final String? name;
+
+  /// 가린 전화번호(예 010****5678) — 서버가 가려서 준다.
+  final String? phoneMasked;
+
+  /// 운행수단. 서버가 모르는 값이면 null.
+  final Vehicle? vehicle;
+
+  /// 등록된 운전면허(가린 값). 없으면 null — 오토바이·자동차·킥보드로 바꿀 때 번호가 필요하다.
+  final String? licenseNumberMasked;
   final Restriction restriction;
 
   /// 제한 기한. null 이면 무기한.
@@ -59,6 +72,15 @@ abstract interface class ProfileRepository {
   /// 미가입이면 404 [ProblemFailure].
   Future<RiderProfileView> me();
 
+  /// 운행수단을 바꾼다(`PATCH /riders/me` vehicleType — 사용자 2026-11-25). 등록된 면허가 없는데 오토바이·자동차·킥보드면
+  /// [licenseNumber] 가 필요하다(422 LICENSE_REQUIRED). 진행 중 배송이 있으면 409 INVALID_STATE. 실패는 [PmartFailure].
+  Future<RiderProfileView> changeVehicle({
+    required Vehicle vehicle,
+    String? licenseNumber,
+    required int? expectedVersion,
+    required IdempotencyKey key,
+  });
+
   /// 배달 지역을 [mfcId] 한 곳으로 바꾼다(`PATCH /riders/me` deliveryAreas — 바로 반영, 사용자 2026-11-23).
   /// 서버가 돌려준 프로필을 돌려준다. 실패는 [PmartFailure].
   Future<RiderProfileView> changeDeliveryArea({
@@ -71,6 +93,20 @@ abstract interface class ProfileRepository {
 RiderProfileView _view(rd.RiderProfile p) => RiderProfileView(
   riderId: p.riderId ?? (throw const ContractViolationFailure('riderId 없음')),
   name: p.name,
+  phoneMasked: p.phoneMasked,
+  vehicle: switch (p.vehicleType) {
+    rd.VehicleType.MOTORCYCLE => Vehicle.motorcycle,
+    rd.VehicleType.BICYCLE => Vehicle.bicycle,
+    rd.VehicleType.E_BIKE => Vehicle.eBike,
+    rd.VehicleType.KICKBOARD => Vehicle.kickboard,
+    rd.VehicleType.CAR => Vehicle.car,
+    rd.VehicleType.WALK => Vehicle.walk,
+    _ => null,
+  },
+  licenseNumberMasked: switch (p.licenseNumberMasked?.trim()) {
+    final l? when l.isNotEmpty => l,
+    _ => null,
+  },
   restriction: Restriction.fromWire(p.restriction?.state?.value),
   restrictedUntil: p.restriction?.until,
   deliveryAreaMfcId: p.deliveryAreas
@@ -88,6 +124,30 @@ final class ApiProfileRepository implements ProfileRepository {
   @override
   Future<RiderProfileView> me() async {
     final res = await pmartGuard(() => _me.getMyRider());
+    return _view(
+      res.data ?? (throw const ContractViolationFailure('RiderProfile 본문 없음')),
+    );
+  }
+
+  @override
+  Future<RiderProfileView> changeVehicle({
+    required Vehicle vehicle,
+    String? licenseNumber,
+    required int? expectedVersion,
+    required IdempotencyKey key,
+  }) async {
+    final res = await pmartGuard(
+      () => _me.updateMyRider(
+        idempotencyKey: key.value,
+        xSourceSystem: sourceSystem,
+        xExpectedVersion: expectedVersion,
+        riderProfileUpdate: rd.RiderProfileUpdate(
+          vehicleType: vehicleWire(vehicle),
+          licenseNumber: licenseNumber,
+        ),
+        extra: commandOptions(key).extra,
+      ),
+    );
     return _view(
       res.data ?? (throw const ContractViolationFailure('RiderProfile 본문 없음')),
     );
@@ -126,7 +186,12 @@ final class MockProfileRepository implements ProfileRepository {
   Restriction restriction = Restriction.normal;
   DateTime? until;
   String areaMfcId = 'MFC-BSJ-01';
+  Vehicle vehicle = Vehicle.bicycle;
+  String? license;
   int version = 1;
+
+  /// 시험용: 다음 운행수단 변경을 이 실패로 끝낸다(반영하지 않음).
+  PmartFailure? failNextVehicle;
 
   /// 시험용: 다음 배달 지역 변경을 이 실패로 끝낸다(반영하지 않음).
   PmartFailure? failNextChange;
@@ -140,11 +205,54 @@ final class MockProfileRepository implements ProfileRepository {
     return RiderProfileView(
       riderId: 'rider-mock-1',
       name: '홍길동',
+      phoneMasked: '010****5678',
+      vehicle: vehicle,
+      licenseNumberMasked: license,
       restriction: restriction,
       restrictedUntil: until,
       deliveryAreaMfcId: areaMfcId,
       version: version,
     );
+  }
+
+  @override
+  Future<RiderProfileView> changeVehicle({
+    required Vehicle vehicle,
+    String? licenseNumber,
+    required int? expectedVersion,
+    required IdempotencyKey key,
+  }) async {
+    await Future<void>.delayed(latency);
+    if (failNextVehicle case final f?) {
+      failNextVehicle = null;
+      throw f;
+    }
+    if (expectedVersion != null && expectedVersion != version) {
+      throw const ProblemFailure(
+        Problem(status: 409, code: ProblemCode.versionConflict),
+      );
+    }
+    final needs =
+        vehicle == Vehicle.motorcycle ||
+        vehicle == Vehicle.car ||
+        vehicle == Vehicle.kickboard;
+    if (needs && license == null && (licenseNumber ?? '').isEmpty) {
+      throw const ProblemFailure(
+        Problem(status: 422, code: licenseRequiredCode),
+      );
+    }
+    if (licenseNumber != null && licenseNumber.isNotEmpty) {
+      final d = licenseNumber.replaceAll(RegExp(r'[^0-9]'), '');
+      if (d == '112233333344') {
+        throw const ProblemFailure(
+          Problem(status: 409, code: duplicateLicenseCode),
+        );
+      }
+      license = '${d.substring(0, 2)}-**-******-${d.substring(10)}';
+    }
+    this.vehicle = vehicle;
+    version += 1;
+    return me();
   }
 
   @override
@@ -179,6 +287,22 @@ final profileRepositoryProvider = Provider<ProfileRepository>(
     PmartEnv.local => ApiProfileRepository(ref.watch(dioProvider)),
   },
 );
+
+/// 오토바이·자동차·킥보드로 바꾸는데 등록된 면허가 없음(rider `PATCH /riders/me` 422).
+const licenseRequiredCode = 'LICENSE_REQUIRED';
+
+/// 다른 라이더가 등록한 면허(409).
+const duplicateLicenseCode = 'DUPLICATE_LICENSE';
+
+/// 계약 값(`VehicleType`).
+rd.VehicleType vehicleWire(Vehicle v) => switch (v) {
+  Vehicle.motorcycle => rd.VehicleType.MOTORCYCLE,
+  Vehicle.bicycle => rd.VehicleType.BICYCLE,
+  Vehicle.eBike => rd.VehicleType.E_BIKE,
+  Vehicle.kickboard => rd.VehicleType.KICKBOARD,
+  Vehicle.car => rd.VehicleType.CAR,
+  Vehicle.walk => rd.VehicleType.WALK,
+};
 
 /// 내 정보. 앱 실행·포그라운드 복귀·운행 상태 변경 실패 때 다시 읽는다.
 final profileProvider = FutureProvider<RiderProfileView>(

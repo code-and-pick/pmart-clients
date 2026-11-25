@@ -72,7 +72,7 @@ void main() {
   GoRouter router(WidgetTester t) =>
       GoRouter.of(t.element(find.byType(Scaffold).last));
 
-  testWidgets('계정 제한 띠의 "소명하기" → 쓰고 신청 → 지원센터 소명·이의 탭에 결정 대기로', (t) async {
+  testWidgets('계정 제한 띠의 "소명하기" → 쓰고 신청 → 지원센터 내 문의에 결정 대기로', (t) async {
     final appeals = MockAppealRepository(latency: Duration.zero);
     await pumpApp(t, appeals: appeals, restriction: Restriction.suspended);
     await t.tap(find.byKey(const ValueKey('appeal-restriction')));
@@ -98,7 +98,14 @@ void main() {
     expect(find.byKey(const ValueKey('appeal-done')), findsOneWidget);
 
     await t.tap(find.text('신청 내역'));
+    await t.pump(const Duration(seconds: 1));
     await settle(t);
+    // 한 목록이라 아래쪽 줄은 내려서 본다.
+    await t.scrollUntilVisible(
+      find.text('결정 이유: 경로 확인 결과 정상 산정이에요.'),
+      200,
+      scrollable: find.byType(Scrollable).last,
+    );
     expect(find.text('결정 대기'), findsOneWidget);
     expect(find.text('파손은 포장 불량이었어요'), findsOneWidget);
     // 앞서 결정된 신청은 결정 이유와 함께
@@ -203,20 +210,69 @@ void main() {
     expect(find.byKey(const ValueKey('compensation-4')), findsNothing);
   });
 
-  testWidgets('지원센터 한 곳에서 문의 | 소명·이의 탭(사용자 2026-11-20)', (t) async {
+  testWidgets('지원센터: 탭 없이 "내 문의" 한 목록(문의·소명·이의, 최신이 위 — 사용자 2026-11-25)', (
+    t,
+  ) async {
     await pumpApp(t, appeals: MockAppealRepository(latency: Duration.zero));
     router(t).go('/my');
     await settle(t);
     await t.tap(find.byKey(const ValueKey('menu-inquiries')));
+    await t.pump(const Duration(seconds: 2));
     await settle(t);
     expect(find.byKey(const ValueKey('menu-appeals')), findsNothing);
-    expect(find.byKey(const ValueKey('inquiry-list')), findsOneWidget);
+    expect(find.byKey(const ValueKey('support-list')), findsOneWidget);
     expect(find.byKey(const ValueKey('live-chat')), findsOneWidget);
-    await t.tap(find.byKey(const ValueKey('tab-appeals')));
+    expect(find.byKey(const ValueKey('inquiry-new')), findsOneWidget);
+    expect(find.byType(TabBar), findsNothing);
+    expect(find.text('내 문의'), findsOneWidget);
+    await t.scrollUntilVisible(
+      find.text('결정 이유: 경로 확인 결과 정상 산정이에요.'),
+      200,
+      scrollable: find.byType(Scrollable).last,
+    );
+    // 최신이 위: 11-17 인정 줄이 11-16 유지 줄보다 위.
+    final rows = find.byWidgetPredicate(
+      (w) =>
+          w.key is ValueKey<String> &&
+          (w.key! as ValueKey<String>).value.startsWith('appeal-AP-'),
+    );
+    final ys = [
+      for (final e in rows.evaluate()) t.getTopLeft(find.byWidget(e.widget)).dy,
+    ];
+    expect(ys.length, greaterThanOrEqualTo(2));
+    expect(ys, orderedEquals([...ys]..sort()));
+    await t.pump(const Duration(seconds: 2)); // 목 지연(문의·정산) 끝까지
+  });
+
+  testWidgets('문의 남기기에서 "계정 제한 소명"·"수행료 이의"를 고르면 이의 신청으로 간다', (t) async {
+    await pumpApp(t, appeals: MockAppealRepository(latency: Duration.zero));
+    router(t).go('/my/inquiries/new');
+    await settle(t);
+    await t.tap(find.byKey(const ValueKey('inq-kind-appeal-restriction')));
+    await settle(t);
+    expect(find.byKey(const ValueKey('appeal-body')), findsOneWidget);
+    expect(find.text('계정 제한 소명'), findsOneWidget);
+
+    router(t).go('/my/inquiries/new');
+    await settle(t);
+    await t.tap(find.byKey(const ValueKey('inq-kind-appeal-earning')));
     await t.pump(const Duration(seconds: 1));
     await settle(t);
-    expect(find.byKey(const ValueKey('appeal-list')), findsOneWidget);
-    expect(find.text('결정 이유: 경로 확인 결과 정상 산정이에요.'), findsOneWidget);
-    await t.pump(const Duration(seconds: 2)); // 목 지연(문의·정산) 끝까지
+    // 목 정산내역에 배송 ID 줄이 없으면 안내만, 있으면 배송 고르기.
+    final pick = find.byWidgetPredicate(
+      (w) =>
+          w.key is ValueKey<String> &&
+          (w.key! as ValueKey<String>).value.startsWith('appeal-pick-'),
+    );
+    if (pick.evaluate().isEmpty) {
+      expect(find.text('이의 신청할 수 있는 배송이 없어요'), findsOneWidget);
+    } else {
+      await t.tap(pick.first);
+      await settle(t);
+      expect(find.text('수행료 이의 신청'), findsOneWidget);
+      expect(find.byKey(const ValueKey('appeal-body')), findsOneWidget);
+    }
+    await t.pump(const Duration(seconds: 5));
+    await settle(t);
   });
 }

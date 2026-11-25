@@ -100,23 +100,17 @@ void main() {
     await t.tap(row);
     await _settle(t);
     await t.pumpAndSettle();
+    // 팝업 대신 새 화면(사용자 2026-11-25): 위에 지금 지역, 권역 칩 → 지점 → 아래 버튼이 확인.
+    expect(find.text('배달 지역 바꾸기'), findsWidgets);
+    expect(find.byType(Dialog), findsNothing);
+    expect(
+      t.widget<Text>(find.byKey(const ValueKey('area-now'))).data,
+      '바로픽 부산진구',
+    );
     await t.tap(find.byKey(const ValueKey('area-jeolla')));
     await t.pump();
-    await t.tap(find.byKey(const ValueKey('area-confirm')));
-    await t.pumpAndSettle();
     await t.tap(find.byKey(const ValueKey('area-목포지점')));
     await t.pump();
-    await t.tap(find.byKey(const ValueKey('area-confirm')));
-    await t.pumpAndSettle();
-    final dialog = find.byType(Dialog);
-    expect(
-      find.descendant(of: dialog, matching: find.text('바로픽 부산진구')),
-      findsOneWidget,
-    );
-    expect(
-      find.descendant(of: dialog, matching: find.text('바로픽 목포')),
-      findsOneWidget,
-    );
     await t.tap(find.byKey(const ValueKey('area-change-confirm')));
     await _settle(t);
 
@@ -141,12 +135,8 @@ void main() {
     await t.pumpAndSettle();
     await t.tap(find.byKey(const ValueKey('area-jeolla')));
     await t.pump();
-    await t.tap(find.byKey(const ValueKey('area-confirm')));
-    await t.pumpAndSettle();
     await t.tap(find.byKey(const ValueKey('area-목포지점')));
     await t.pump();
-    await t.tap(find.byKey(const ValueKey('area-confirm')));
-    await t.pumpAndSettle();
     await t.tap(find.byKey(const ValueKey('area-change-confirm')));
     await _settle(t);
   }
@@ -267,7 +257,7 @@ void main() {
     await _settle(t);
 
     expect(find.text('운행을 종료한 뒤 배달 지역을 바꿀 수 있어요'), findsOneWidget);
-    expect(find.byKey(const ValueKey('area-confirm')), findsNothing);
+    expect(find.byKey(const ValueKey('area-change-confirm')), findsNothing);
     expect(profile.areaMfcId, 'MFC-BSJ-01');
   });
 
