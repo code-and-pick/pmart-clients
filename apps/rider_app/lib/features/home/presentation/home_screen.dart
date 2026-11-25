@@ -360,20 +360,28 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ),
             ),
           ),
+          // 사용자 2026-11-25 "적합한 배달을 찾고 있어요 하단에 두껍게" — 화면 아래 두꺼운 띠.
           if (banner)
-            SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(15.5, 71.5, 15.5, 0),
-                child: poll.reconnecting
-                    ? _SearchingBanner(
-                        key: const ValueKey('reconnecting'),
-                        text: l10n.reconnectingShort,
-                        waiting: false,
-                      )
-                    : _SearchingBanner(
-                        key: const ValueKey('offers-empty'),
-                        text: l10n.searchingOffers,
-                      ),
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: SafeArea(
+                top: false,
+                minimum: const EdgeInsets.only(bottom: 16),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: poll.reconnecting
+                      ? _SearchingBanner(
+                          key: const ValueKey('reconnecting'),
+                          text: l10n.reconnectingShort,
+                          waiting: false,
+                        )
+                      : _SearchingBanner(
+                          key: const ValueKey('offers-empty'),
+                          text: l10n.searchingOffers,
+                        ),
+                ),
               ),
             ),
           if (profile != null && profile.restriction.restricted)
@@ -494,10 +502,10 @@ class _SearchingBannerState extends State<_SearchingBanner>
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 31,
-      padding: const EdgeInsets.fromLTRB(12.2, 0, 21, 0),
+      height: 64,
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(4),
+        borderRadius: BorderRadius.circular(10),
         color: widget.waiting ? null : const Color(0xE6333333),
         gradient: widget.waiting
             ? LinearGradient(
@@ -514,8 +522,8 @@ class _SearchingBannerState extends State<_SearchingBanner>
             child: Text(
               widget.text,
               style: const TextStyle(
-                fontSize: 13.5,
-                fontWeight: FontWeight.w600,
+                fontSize: 17,
+                fontWeight: FontWeight.w700,
                 color: Colors.white,
               ),
             ),
@@ -527,9 +535,9 @@ class _SearchingBannerState extends State<_SearchingBanner>
                 children: [
                   for (var i = 0; i < 5; i++)
                     Container(
-                      width: 2.6,
-                      height: 2.6,
-                      margin: const EdgeInsets.only(left: 5.2),
+                      width: 5,
+                      height: 5,
+                      margin: const EdgeInsets.only(left: 7),
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         color: Colors.white.withValues(
