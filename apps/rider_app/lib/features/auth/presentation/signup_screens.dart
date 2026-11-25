@@ -1368,16 +1368,8 @@ class SignupDoneScreen extends ConsumerWidget {
             children: [
               // 2026-11-25 사용자 "라이더 지원하기 완료하면 나오는 UI 너무 별로니까 1번째 사진처럼" — 굵은 제목, 위·사이 간격을 사진대로
               const SizedBox(height: 60),
-              // 2026-11-25 사용자 "제목 글자 아주 조금만 더 납작하고 굵게" — 세로 94%로 눌러 납작하게, 굵기 한 단계 위(w800)
-              Transform(
-                alignment: Alignment.topLeft,
-                transform: Matrix4.diagonal3Values(1, 0.94, 1),
-                child: Text(
-                  l10n.signupDoneTitle,
-                  key: const ValueKey('signup-done-title'),
-                  style: _headline.copyWith(fontWeight: FontWeight.w800),
-                ),
-              ),
+              // 2026-11-25 납작·더 굵게 해 봤다가 사용자 "납작한 거 취소 다시 전으로" — 원래(_headline)대로
+              Text(l10n.signupDoneTitle, style: _headline),
               const SizedBox(height: 16),
               Text(
                 l10n.signupDoneBody,
