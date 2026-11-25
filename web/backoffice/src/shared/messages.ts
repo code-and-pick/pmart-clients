@@ -3339,6 +3339,12 @@ export const messages = {
       soldOutNote: '취급 상품 중 가용 0 이하 · 지금 값',
       soldOutOf: (handled: number) => `취급 ${handled.toLocaleString('ko-KR')}개 중 · 지금 값`,
       // 재고 실시간(mfc-inventory 0.46.0 /stock-stream, 2026-11-24)
+      // 곧 품절(mfc-inventory 0.47.0, 2026-11-25 사용자 "품절되기전에 알아야" → "하루 판매량 기준")
+      lowStock: '곧 품절 SKU',
+      lowStockBasis: (safetyDays: number, windowDays: number) => `${safetyDays === 1 ? '하루' : `${safetyDays}일`} 판매량 이하로 남음 · 지난 ${windowDays}일 평균`,
+      lowStockPolicy: '온도대마다 센터 정책 기준',
+      lowStockNoBasis: '기준을 아직 못 받음 — 판매 실적 계산 전',
+      lowStockUnknown: (n: number) => `기준 모름 ${n.toLocaleString('ko-KR')}개(판매 이력 부족 등)`,
       soldOutLive: '실시간',
       soldOutDown: (at: string | null) => `실시간 끊김 — ${at ? `마지막 ${at} 기준, ` : ''}다시 연결하는 중(1분마다 다시 읽어요)`,
       reasonName: { SHORT: '결품', DAMAGED: '파손', BLOCKED: '막힘', SPOILED: '변질' } as Readonly<Record<string, string>>,

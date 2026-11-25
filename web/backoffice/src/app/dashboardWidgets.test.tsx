@@ -102,6 +102,31 @@ describe('대시보드 지표(백엔드 회신 2026-11-18)', () => {
     expect(screen.queryByTestId('dash-metric-top')).not.toBeInTheDocument();
   });
 
+  it('곧 품절(mfc-inventory 0.47.0): 품절과 같은 조회 — 합한 수·하루 판매량 기준 한 줄·기준 모름은 따로, 센터별', async () => {
+    renderAt('/?tab=sales', as.admin);
+    const cell = await screen.findByTestId('dash-metric-lowStock');
+    expect(await within(cell).findByText('11개')).toBeInTheDocument(); // 목: 7 + 4
+    expect(within(cell).getByTestId('dash-lowstock-basis')).toHaveTextContent('하루 판매량 이하로 남음 · 지난 28일 평균');
+    expect(within(cell).getByTestId('dash-lowstock-unknown')).toHaveTextContent('기준 모름 2개');
+    expect(within(cell).getByTestId('dash-lowstock-centers')).toBeInTheDocument();
+  });
+
+  it('곧 품절: 기준을 못 받은 센터가 있으면 그렇다고, 0.47.0 전 서버(칸 없음)면 0 이 아니라 "?"', async () => {
+    const asOf = new Date().toISOString();
+    server.use(http.get(`${API_BASE}/stock-summaries`, () => HttpResponse.json({ asOf, items: [{ mfcId: 'MFC-BSN-01', handledSkuCount: 10, soldOutSkuCount: 1, lowStockSkuCount: 0, lowStockUnknownSkuCount: 9, lowStockBasis: null }] })));
+    const first = renderAt('/?tab=sales', as.admin);
+    const cell = await screen.findByTestId('dash-metric-lowStock');
+    await waitFor(() => expect(within(cell).getByTestId('dash-lowstock-basis')).toHaveTextContent('기준을 아직 못 받음'));
+    expect(within(cell).getByTestId('dash-lowstock-unknown')).toHaveTextContent('기준 모름 9개');
+    first.unmount();
+
+    server.use(http.get(`${API_BASE}/stock-summaries`, () => HttpResponse.json({ asOf, items: [{ mfcId: 'MFC-BSN-01', handledSkuCount: 10, soldOutSkuCount: 1 }] })));
+    renderAt('/?tab=sales', as.admin);
+    const old = await screen.findByTestId('dash-metric-lowStock');
+    expect(await within(old).findByText('?')).toBeInTheDocument();
+    expect(within(old).queryByText('0개')).not.toBeInTheDocument();
+  });
+
   it('정시 배송률(bff 0.21.0): 분자·분모 합으로 비율, 약속 전·판단 밖은 분모 밖이라 옆에 따로', async () => {
     renderAt('/?tab=sales', as.admin);
     const cell = await screen.findByTestId('dash-metric-ON_TIME_DELIVERY');

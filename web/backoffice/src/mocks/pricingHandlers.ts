@@ -114,9 +114,11 @@ export const pricingHandlers = [
     const who = operator(request);
     if (!who) return unauthorized();
     const mfcId = new URL(request.url).searchParams.get('mfcId');
+    // 0.47.0 곧 품절 — 0 < 가용 ≤ 하루 판매량 × safetyDays(1), 지난 28일 평균. 기준 모름은 따로(0 으로 채우지 않음)
+    const basis = { uniform: true, safetyDays: 1, averageWindowDays: 28, salesThrough: new Date(Date.now() - 86_400_000).toISOString().slice(0, 10), calculatedAt: new Date().toISOString(), policies: [] };
     const items = [
-      { mfcId: 'MFC-BSN-01', handledSkuCount: 412, soldOutSkuCount: soldOutOf('MFC-BSN-01') },
-      { mfcId: 'MFC-BSN-02', handledSkuCount: 388, soldOutSkuCount: soldOutOf('MFC-BSN-02') },
+      { mfcId: 'MFC-BSN-01', handledSkuCount: 412, soldOutSkuCount: soldOutOf('MFC-BSN-01'), lowStockSkuCount: 7, lowStockUnknownSkuCount: 2, lowStockBasis: basis },
+      { mfcId: 'MFC-BSN-02', handledSkuCount: 388, soldOutSkuCount: soldOutOf('MFC-BSN-02'), lowStockSkuCount: 4, lowStockUnknownSkuCount: 0, lowStockBasis: basis },
     ].filter((i) => !mfcId || i.mfcId === mfcId);
     return HttpResponse.json({ items, asOf: new Date().toISOString() });
   }),

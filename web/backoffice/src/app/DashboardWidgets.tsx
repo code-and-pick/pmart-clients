@@ -509,11 +509,12 @@ function SoldOutRow() {
   const qc = useQueryClient();
   const queryKey = ['dashboard', 'stock-summaries', center];
   const live = useStockStream(center ? [center] : [], () => void qc.invalidateQueries({ queryKey }));
-  const q = useQuery({ queryKey, refetchInterval: live === 'live' ? false : REFRESH_MS, retry: false, queryFn: () => request('GET', api.mfcInventory.GET('/stock-summaries', center ? { params: { query: { mfcId: center } } } : {})) });
+  const q = useQuery({ queryKey, refetchInterval: live === 'live' ? false : REFRESH_MS, retry: false, queryFn: () => readStockSummaries(api, center) });
   const items = q.data?.items ?? [];
   const soldOut = items.reduce((s, i) => s + i.soldOutSkuCount, 0);
   const handled = items.reduce((s, i) => s + i.handledSkuCount, 0);
   return (
+    <>
     <li className="flex items-center gap-4 py-3" data-testid="dash-metric-soldOut">
       <span className="min-w-0 flex-1">
         <span className="flex items-center gap-2 whitespace-nowrap text-sm text-base-content/70">
@@ -545,6 +546,64 @@ function SoldOutRow() {
                 <span className="font-semibold tabular-nums">{i.soldOutSkuCount}</span>
               </span>
               <Meter value={i.handledSkuCount > 0 ? i.soldOutSkuCount / i.handledSkuCount : null} tone={i.soldOutSkuCount > 0 ? 'danger' : 'neutral'} className="-mt-0.5 w-full" />
+            </li>
+          ))}
+        </ul>
+      )}
+    </li>
+    <LowStockRow pending={q.isPending} failed={q.isError} items={items} />
+    </>
+  );
+}
+
+type StockSummary = NonNullable<Awaited<ReturnType<typeof readStockSummaries>>>['items'][number];
+type ApiOf = ReturnType<typeof useApi>;
+const readStockSummaries = (api: ApiOf, center: string | null) => request('GET', api.mfcInventory.GET('/stock-summaries', center ? { params: { query: { mfcId: center } } } : {}));
+
+/** 곧 품절 기준 한 줄 — 센터가 모두 같은 하루 판매량 기준이면 그 값, 다르면 "센터 정책", 기준을 못 받은 센터가 있으면 그렇다고 */
+function lowStockBasisText(items: readonly StockSummary[]): string {
+  const bases = items.map((i) => i.lowStockBasis ?? null);
+  if (bases.length === 0 || bases.some((b) => b === null)) return m.metrics.lowStockNoBasis;
+  const first = bases[0]!;
+  const same = bases.every((b) => b!.uniform && b!.safetyDays === first.safetyDays && b!.averageWindowDays === first.averageWindowDays);
+  return same && first.safetyDays != null && first.averageWindowDays != null ? m.metrics.lowStockBasis(first.safetyDays, first.averageWindowDays) : m.metrics.lowStockPolicy;
+}
+
+/**
+ * 곧 품절 상품 수(mfc-inventory 0.47.0 `lowStockSkuCount` — 취급 ON 중 0 < 가용 ≤ 하루 판매량 × safetyDays, 품절과 겹치지 않음).
+ * 품절 칸과 같은 조회·같은 실시간(SS 경계에서도 summary-changed). 기준을 몰라 못 센 상품은 0 으로 넣지 않고 따로 적는다.
+ */
+function LowStockRow({ pending, failed, items }: { readonly pending: boolean; readonly failed: boolean; readonly items: readonly StockSummary[] }) {
+  // 0.47.0 전 서버면 칸이 없다 — 0 이 아니라 "?"
+  const known = items.every((i) => typeof i.lowStockSkuCount === 'number' && typeof i.lowStockUnknownSkuCount === 'number');
+  const low = items.reduce((s, i) => s + i.lowStockSkuCount, 0);
+  const unknown = items.reduce((s, i) => s + i.lowStockUnknownSkuCount, 0);
+  const bad = failed || !known;
+  return (
+    <li className="flex items-center gap-4 py-3" data-testid="dash-metric-lowStock">
+      <span className="min-w-0 flex-1">
+        <span className="block whitespace-nowrap text-sm text-base-content/70">{m.metrics.lowStock}</span>
+        <span className={`block text-[28px] font-semibold leading-tight ${bad ? 'text-base-content/40' : low > 0 ? 'text-warning' : ''}`} title={bad ? m.failed : undefined}>
+          {pending ? '…' : bad ? '?' : `${low.toLocaleString('ko-KR')}개`}
+        </span>
+        <span className="block truncate text-xs text-base-content/55" data-testid="dash-lowstock-basis">
+          {bad ? m.failed : pending ? '' : lowStockBasisText(items)}
+        </span>
+        {!bad && !pending && unknown > 0 && (
+          <span className="block truncate text-[11px] text-base-content/45" data-testid="dash-lowstock-unknown">
+            {m.metrics.lowStockUnknown(unknown)}
+          </span>
+        )}
+      </span>
+      {!bad && items.length > 1 && (
+        <ul className="w-40 shrink-0 space-y-1.5 text-[11px]" data-testid="dash-lowstock-centers">
+          {items.map((i) => (
+            <li key={i.mfcId}>
+              <span className="flex justify-between gap-2">
+                <span className="truncate text-base-content/60"><CenterName id={i.mfcId} /></span>
+                <span className="font-semibold tabular-nums">{i.lowStockSkuCount}</span>
+              </span>
+              <Meter value={i.handledSkuCount > 0 ? i.lowStockSkuCount / i.handledSkuCount : null} tone={i.lowStockSkuCount > 0 ? 'warning' : 'neutral'} className="-mt-0.5 w-full" />
             </li>
           ))}
         </ul>
