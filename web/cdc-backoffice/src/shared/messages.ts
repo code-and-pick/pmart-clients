@@ -16,6 +16,7 @@ export const messages = {
     menu: '메뉴',
     collapse: '메뉴 접기',
     expand: '메뉴 펴기',
+    groupMenu: (group: string) => `${group} 메뉴`,
   },
   /** 역할 이름 — 모르는 코드는 그대로 */
   roleName: {

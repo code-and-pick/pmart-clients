@@ -98,11 +98,34 @@ function Layout() {
         />
       }
       locationAside={session && session.roles.length > 0 ? <RoleText roles={session.roles.map((r) => m.roleName[r] ?? r)} /> : undefined}
-      banner={<ConnectionBanner />}
+      banner={
+        <>
+          <ConnectionBanner />
+          {/* 메뉴가 접혔을 때(좁은 화면 — 휴대폰) 묶음 아이콘만 남으니, 지금 묶음의 메뉴를 화면 위 줄로(2026-11-26 사용자 "목록이 안 뜨고 4개만 버튼처럼") */}
+          {collapsed && showMenus && currentGroup && (
+            <nav aria-label={m.nav.groupMenu(m.groups[currentGroup.key])} className="flex gap-1.5 overflow-x-auto px-6 pb-2" data-testid="group-chips">
+              {currentGroup.items.map((item) => (
+                <NavLink
+                  key={item.key}
+                  to={centerPath(target, item.segment)}
+                  className={({ isActive }) => `btn btn-xs shrink-0 whitespace-nowrap ${isActive ? 'btn-primary' : 'btn-ghost border border-base-300'}`}
+                >
+                  {m.menus[item.key]}
+                </NavLink>
+              ))}
+            </nav>
+          )}
+        </>
+      }
       tools={
         <>
           <LiveClock />
-          {session && center?.mine && <CenterSwitcher centers={dc.centers} current={center.cdcId} segment={segment} />}
+          {/* 좁은 화면에서는 DC 이름을 숨긴다 — 머리줄이 화면 밖으로 넘쳐 페이지 전체가 넓어지지 않게(2026-11-26 휴대폰) */}
+          {session && center?.mine && (
+            <span className="hidden min-w-0 sm:contents">
+              <CenterSwitcher centers={dc.centers} current={center.cdcId} segment={segment} />
+            </span>
+          )}
           {env.isMock && <span className="badge badge-accent badge-sm hidden sm:inline-flex">{m.mockBadge}</span>}
           <span className="hidden sm:contents">
             <ShortcutHelp />
