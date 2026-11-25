@@ -467,7 +467,7 @@ function Thumb({ card, name }: { readonly card: { readonly mainImage?: { readonl
   const id = card?.mainImage?.imageId;
   return (
     <span className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-base-300 bg-base-200 text-base-content/45" data-testid="product-thumb">
-      {id ? <AuthedImage imageId={id} alt={name} className="h-full w-full object-cover" /> : <LineIcon name="box" className="h-5 w-5" />}
+      {id ? <AuthedImage imageId={id} width={240} alt={name} className="h-full w-full object-cover" /> : <LineIcon name="box" className="h-5 w-5" />}
     </span>
   );
 }

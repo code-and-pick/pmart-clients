@@ -596,6 +596,9 @@ export const catalogHandlers = [
   }),
   http.get(`${API_BASE}/content-images/:id`, ({ request, params }) => {
     if (!operator(request)) return unauthorized();
+    // product-content 0.3.0 축소본 ?w= — 240·480·720 만(그 밖은 400). 목은 같은 그림을 준다
+    const w = new URL(request.url).searchParams.get('w');
+    if (w !== null && !['240', '480', '720'].includes(w)) return problem(400, 'VALIDATION_FAILED');
     const img = db.images.get(String(params['id']));
     if (img) return new HttpResponse(img.bytes, { headers: { 'content-type': img.contentType } });
     // 목 사과 그림(상품 조회 썸네일 확인용) — 그 밖 img-seed 는 1px

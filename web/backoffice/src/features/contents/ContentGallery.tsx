@@ -53,7 +53,7 @@ export function ContentGallery({ productId, withText = false }: { readonly produ
             ) : (
               <div className="space-y-2">
                 <div className="flex aspect-square max-h-80 w-full max-w-80 items-center justify-center overflow-hidden rounded-lg border border-base-300 bg-base-200">
-                  {main?.imageId && <AuthedImage key={main.imageId} imageId={main.imageId} alt={c.name ?? m.photo} className="h-full w-full object-contain" />}
+                  {main?.imageId && <AuthedImage key={main.imageId} imageId={main.imageId} width={720} alt={c.name ?? m.photo} className="h-full w-full object-contain" />}
                 </div>
                 {images.length > 1 && (
                   <ul className="flex flex-wrap gap-2" aria-label={m.photos}>
@@ -66,7 +66,7 @@ export function ContentGallery({ productId, withText = false }: { readonly produ
                           aria-label={m.photoN(i + 1, m.role[img.role as keyof typeof m.role] ?? '')}
                           className={`h-14 w-14 overflow-hidden rounded-md border-2 bg-base-200 ${i === pick ? 'border-primary' : 'border-transparent'}`}
                         >
-                          <AuthedImage imageId={img.imageId ?? ''} alt="" className="h-full w-full object-cover" />
+                          <AuthedImage imageId={img.imageId ?? ''} width={240} alt="" className="h-full w-full object-cover" />
                         </button>
                       </li>
                     ))}

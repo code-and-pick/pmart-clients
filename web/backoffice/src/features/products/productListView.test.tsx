@@ -57,10 +57,13 @@ describe('상품 조회', () => {
 });
 
 describe('상품 조회 — 사진·이름 찾기(2026-11-19)', () => {
-  it('게시된 상품은 대표 이미지 썸네일, 미게시는 상자 아이콘', async () => {
-    renderAt('/products', as.md);
+  it('게시된 상품은 대표 이미지 썸네일(축소본 ?w=240 — product-content 0.3.0), 미게시는 상자 아이콘', async () => {
+    const view = renderAt('/products', as.md);
     await waitFor(() => expect(within(rowOf('사과 1.5kg')).getByTestId('product-thumb').querySelector('img')).not.toBeNull());
     expect(within(rowOf('소고기 미역국')).getByTestId('product-thumb').querySelector('img')).toBeNull();
+    const images = view.sent.filter((r) => new URL(r.url).pathname.includes('/content-images/'));
+    expect(images.length).toBeGreaterThan(0);
+    expect(images.every((r) => new URL(r.url).searchParams.get('w') === '240')).toBe(true); // 원본을 받지 않는다
   });
 
   it('상품명 칸은 서버 찾기(product 0.5.0 PD-4 q) — 관리용 명칭 부분 일치, 주소에 q 로 남는다', async () => {

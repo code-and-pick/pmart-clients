@@ -53,7 +53,7 @@ export function ProductPreviewBody({ productId, category, imageId, customerName 
       {/* 머리 — 큰 대표 이미지 + 고객용 이름·카테고리 */}
       <div className="flex gap-4">
         <span className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-base-300 bg-base-200 text-base-content/40">
-          {imageId ? <AuthedImage imageId={imageId} alt={p.internalName ?? ''} className="h-full w-full object-cover" /> : <LineIcon name="box" className="h-8 w-8" />}
+          {imageId ? <AuthedImage imageId={imageId} width={240} alt={p.internalName ?? ''} className="h-full w-full object-cover" /> : <LineIcon name="box" className="h-8 w-8" />}
         </span>
         <div className="min-w-0 space-y-1.5">
           {p.saleState && <StatusBadge tone={SALE_TONE[p.saleState]}>{m.products.saleStateName[p.saleState]}</StatusBadge>}

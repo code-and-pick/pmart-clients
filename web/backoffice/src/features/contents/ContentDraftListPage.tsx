@@ -92,7 +92,7 @@ export function ContentDraftListPage() {
                       <td>
                         <Link to={`/contents/drafts/${encodeURIComponent(x.draftId)}`} className="flex items-center gap-3 font-medium hover:underline">
                           <span className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded border border-base-300 bg-base-200">
-                            {x.imageId ? <AuthedImage imageId={x.imageId} alt="" className="h-full w-full object-cover" /> : <LineIcon name="box" className="h-5 w-5 text-base-content/35" />}
+                            {x.imageId ? <AuthedImage imageId={x.imageId} width={240} alt="" className="h-full w-full object-cover" /> : <LineIcon name="box" className="h-5 w-5 text-base-content/35" />}
                           </span>
                           {x.name ?? <span className="text-base-content/50">{d.noName}</span>}
                         </Link>

@@ -437,7 +437,7 @@ export function ContentDraftPage() {
                     <div className="flex flex-wrap gap-3">
                       {(d.images ?? []).map((img) => (
                         <figure key={img.imageId} className="w-32 overflow-hidden rounded-lg border border-base-300 text-xs">
-                          <AuthedImage imageId={img.imageId} alt={`${m.contents.imageRole[img.role]} ${img.sortOrder}`} className="h-32 w-32 bg-base-200 object-contain" />
+                          <AuthedImage imageId={img.imageId} width={480} alt={`${m.contents.imageRole[img.role]} ${img.sortOrder}`} className="h-32 w-32 bg-base-200 object-contain" />
                           <figcaption className="px-2 py-1">{`${m.contents.imageRole[img.role]} · ${img.sortOrder}`}</figcaption>
                         </figure>
                       ))}

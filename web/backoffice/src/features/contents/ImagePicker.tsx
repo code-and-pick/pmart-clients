@@ -219,7 +219,7 @@ function RoleSection({
         <ul className="grid grid-cols-3 gap-2" aria-label={m.contents.imageListOf(label)}>
           {existing.map((img) => (
             <li key={img.imageId} className="relative aspect-square overflow-hidden rounded-box border border-base-300 bg-base-200">
-              <AuthedImage imageId={img.imageId} alt={`${label} ${img.sortOrder}`} className="h-full w-full object-contain" />
+              <AuthedImage imageId={img.imageId} width={480} alt={`${label} ${img.sortOrder}`} className="h-full w-full object-contain" />
               <span className="badge badge-neutral badge-xs absolute top-1 left-1">{img.sortOrder}</span>
             </li>
           ))}
