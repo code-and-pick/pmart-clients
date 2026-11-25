@@ -13,6 +13,8 @@ import type { components } from '../../api/generated/cdc-inventory';
 import { useApi } from '../../app/ApiContext';
 import { centerPath } from '../../app/nav';
 import { messages } from '../../shared/messages';
+import { CountTab } from './CountTab';
+import { LocationStockTable } from './LocationStock';
 
 const t = messages.inventory;
 type Tab = keyof typeof t.tabs;
@@ -36,8 +38,44 @@ export function InventoryMenu({ cdcId }: { readonly cdcId: string }) {
           </Link>
         ))}
       </div>
-      {tab === 'stock' ? <StockTab cdcId={cdcId} /> : <RecountTab cdcId={cdcId} />}
+      {tab === 'stock' && <StockTab cdcId={cdcId} />}
+      {tab === 'places' && <PlacesTab cdcId={cdcId} />}
+      {tab === 'count' && <CountTab cdcId={cdcId} />}
+      {tab === 'recount' && <RecountTab cdcId={cdcId} />}
     </section>
+  );
+}
+
+/** 칸별 재고 — 칸 코드 앞부분(층·통로)으로 불러온다(한 번에 최대 500줄) */
+function PlacesTab({ cdcId }: { readonly cdcId: string }) {
+  const l = messages.locStock;
+  const [params, setParams] = useSearchParams();
+  const prefix = params.get('prefix') ?? '';
+  const [draft, setDraft] = useState(prefix || `${cdcId}-`);
+  return (
+    <div className="space-y-3">
+      <form
+        className="flex flex-wrap items-end gap-3 rounded-box border border-base-300 bg-base-100 p-3"
+        data-list-part="top"
+        onSubmit={(e) => {
+          e.preventDefault();
+          const q = new URLSearchParams(params);
+          if (draft.trim()) q.set('prefix', draft.trim());
+          else q.delete('prefix');
+          setParams(q, { replace: true });
+        }}
+      >
+        <label className="flex flex-col gap-1 text-sm">
+          {l.prefix}
+          <input className="input input-sm w-56 font-mono" value={draft} placeholder={l.prefixPlaceholder} onChange={(e) => setDraft(e.target.value)} data-testid="places-prefix" />
+        </label>
+        <button type="submit" className="btn btn-sm btn-primary" disabled={!draft.trim()}>
+          {l.search}
+        </button>
+        <span className="text-xs text-base-content/55">{l.prefixHint}</span>
+      </form>
+      {prefix && <LocationStockTable cdcId={cdcId} prefix={prefix} />}
+    </div>
   );
 }
 

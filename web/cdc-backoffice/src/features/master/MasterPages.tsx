@@ -18,6 +18,7 @@ import type { components as LocSchemas } from '../../api/generated/cdc-location'
 import { useApi } from '../../app/ApiContext';
 import { centerPath } from '../../app/nav';
 import { messages } from '../../shared/messages';
+import { LocationStockTable } from '../inventory/LocationStock';
 
 const t = messages.master;
 type Tab = keyof typeof t.tabs;
@@ -341,6 +342,8 @@ function LocationDetailPage({ cdcId }: { readonly cdcId: string }) {
                 {x.state === accepted ? l.accepted : l.applied}
               </p>
             )}
+            <h2 className="text-base font-semibold">{messages.locStock.title}</h2>
+            <LocationStockTable cdcId={cdcId} prefix={x.locationCode} single />
             <LocationActions
               cdcId={cdcId}
               loc={x}

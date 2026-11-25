@@ -29,11 +29,27 @@ function issue(s: MockSession) {
 }
 
 /** 목 DC 이름 — LAN center-master CDC01(2026-11-25 등록)과 같은 ID·이름. 없는 센터는 name: null(서버가 못 읽은 경우와 같다) */
-export const mockCenterNames: ReadonlyMap<string, string> = new Map([['CDC01', '칠곡 중앙물류센터(칠곡 DC)']]);
+export const mockCenterNames: ReadonlyMap<string, string> = new Map([
+  ['CDC01', '칠곡 중앙물류센터(칠곡 DC)'],
+  ['MFC-BJG-01', '부산진구 MFC'],
+]);
+
+/** center-master 목 — 센터 유형(DC 백오피스는 type=CDC 만 고른다) */
+export const mockCenterTypes: ReadonlyMap<string, 'CDC' | 'MFC'> = new Map([
+  ['CDC01', 'CDC'],
+  ['MFC-BJG-01', 'MFC'],
+]);
 
 const available =(operatorId: string) => db.grants.has(operatorId) && !db.suspended.has(operatorId);
 
 export const authHandlers = [
+  http.get(`${API_BASE}/centers`, ({ request }) => {
+    if (!operator(request)) return unauthorized();
+    const type = new URL(request.url).searchParams.get('type');
+    const items = [...mockCenterTypes].filter(([, t]) => !type || t === type).map(([centerId, t]) => ({ centerId, type: t, name: mockCenterNames.get(centerId), state: 'ACTIVE', version: 1 }));
+    return HttpResponse.json({ items, page: { nextCursor: null, size: items.length } });
+  }),
+
   http.post(`${API_BASE}/employee-auth/tokens`, async ({ request }) => {
     const body = (await request.json()) as { ticket?: string; codeVerifier?: string };
     const deviceId = request.headers.get('X-Device-Id');

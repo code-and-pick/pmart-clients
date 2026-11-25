@@ -433,6 +433,7 @@ function TransferDetailPage({ cdcId }: { readonly cdcId: string }) {
                 ]}
               />
             </div>
+            <Readiness cdcId={cdcId} trfId={t.trfId} />
             <h2 className="text-base font-semibold">{m.lines}</h2>
             {t.lines.length === 0 ? (
               <p className="text-sm text-base-content/60">{m.linesEmpty}</p>
@@ -474,6 +475,39 @@ function TransferDetailPage({ cdcId }: { readonly cdcId: string }) {
         )}
       </QueryState>
     </section>
+  );
+}
+
+/** 출발 준비(cdc-outbound 0.16.0 `GET /cdcs/{cdcId}/transfers/{trfId}/readiness`) — 단계·준비 LPN·수량·무게·막힌 이유 */
+function Readiness({ cdcId, trfId }: { readonly cdcId: string; readonly trfId: string }) {
+  const r = messages.readiness;
+  const api = useApi();
+  const query = useQuery({
+    queryKey: ['cdc', cdcId, 'transfer', trfId, 'readiness'],
+    queryFn: () => request('GET', api.outbound.GET('/cdcs/{cdcId}/transfers/{trfId}/readiness', { params: { path: { cdcId, trfId } } })),
+  });
+  return (
+    <div className="space-y-2">
+      <h2 className="text-base font-semibold">{r.title}</h2>
+      <QueryState state={toUiState(query)} onRetry={() => void query.refetch()}>
+        {(x) => (
+          <div className="rounded-box border border-base-300 bg-base-100 p-4">
+            <FieldList
+              testId="trf-readiness"
+              rows={[
+                [r.stage, x.readiness ? (r.stages[x.readiness] ?? x.readiness) : messages.none],
+                [r.lpn, x.readyLpnCount ?? messages.none],
+                [r.qty, x.readyQty !== undefined ? messages.qty(x.readyQty) : messages.none],
+                [r.weight, x.totalWeightG !== undefined ? r.kg(x.totalWeightG) : messages.none],
+                [r.zones, x.temperatureZones?.length ? x.temperatureZones.map((z) => messages.master.loc.zones[z] ?? z).join(', ') : messages.none],
+                [r.earliest, x.earliestReadyAt ? formatSeoul(x.earliestReadyAt) : messages.none],
+                [r.blockers, x.blockers?.length ? <span className="text-warning" title={x.blockers.join(', ')}>{x.blockers.map((k) => r.blocker[k] ?? k).join(', ')}</span> : r.none],
+              ]}
+            />
+          </div>
+        )}
+      </QueryState>
+    </div>
   );
 }
 

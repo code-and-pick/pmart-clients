@@ -125,7 +125,32 @@ function seed() {
       completedAt: at(8, 10),
     },
   ];
-  return { transfers, waves, tasks, seq: 2 };
+  const departures: components['schemas']['DepartureValidation'][] = [
+    {
+      departureId: 'DEP-0002',
+      tripId: 'TRIP-0002',
+      vehicleId: 'VH-11',
+      source: 'SIMULATED',
+      validatedAt: at(8, 40),
+      overallResult: 'PARTIALLY_MATCHED',
+      transfers: [
+        { trfId: 'TRF-20261126-0001', result: 'MATCHED', departedQty: 52, postingStatus: 'APPLIED', residualStatus: 'DONE' },
+        { trfId: 'TRF-20261126-0002', result: 'MISMATCHED', departedQty: 0, postingStatus: 'REJECTED', residualStatus: 'FAILED', residualReason: '409 INVALID_STATE' },
+      ],
+      mismatches: [{ kind: 'LPN_NOT_LOADED', lpn: 'BOX-00042', trfId: 'TRF-20261126-0002', detail: '검품 합격 BOX 가 상차되지 않음' }],
+    },
+    {
+      departureId: 'DEP-0001',
+      tripId: 'TRIP-0001',
+      vehicleId: 'VH-07',
+      source: 'SIMULATED',
+      validatedAt: at(6, 10),
+      overallResult: 'MATCHED',
+      transfers: [{ trfId: 'TRF-20261125-0009', result: 'MATCHED', departedQty: 40, postingStatus: 'APPLIED', residualStatus: 'DONE' }],
+      mismatches: [],
+    },
+  ];
+  return { transfers, waves, tasks, departures, seq: 2 };
 }
 
 let store = seed();
@@ -162,6 +187,35 @@ export const outboundHandlers = [
       .filter((t) => (!state || t.state === state) && (!mfcId || t.mfcId === mfcId))
       .sort((a, b) => a.dueAt.localeCompare(b.dueAt) || a.trfId.localeCompare(b.trfId));
     return HttpResponse.json({ items: rows.slice(page * size, page * size + size).map(summary), page, size, hasNext: rows.length > (page + 1) * size });
+  }),
+
+  http.get(`${API_BASE}/cdcs/:cdcId/departures`, ({ request, params }) => {
+    const denied = guard(request, String(params.cdcId));
+    if (denied) return denied;
+    const q = new URL(request.url).searchParams;
+    const result = q.get('result');
+    const page = Number(q.get('page') ?? '0');
+    const size = Number(q.get('size') ?? '50');
+    const rows = store.departures.filter((d) => !result || d.overallResult === result);
+    return HttpResponse.json({ items: rows.slice(page * size, page * size + size), page, size, hasNext: rows.length > (page + 1) * size });
+  }),
+
+  http.get(`${API_BASE}/cdcs/:cdcId/transfers/:trfId/readiness`, ({ request, params }) => {
+    const denied = guard(request, String(params.cdcId));
+    if (denied) return denied;
+    const t = store.transfers.find((x) => x.trfId === params.trfId);
+    if (!t) return problem(404, 'NOT_FOUND');
+    const stage = t.state === 'PICKING' ? 'PICKING' : t.state === 'PICKED' ? 'PICKED' : t.state === 'DEPARTED' ? 'DEPARTED' : 'NOT_STARTED';
+    return HttpResponse.json({
+      trfId: t.trfId,
+      readiness: stage,
+      readyLpnCount: t.pickedQty > 0 ? 3 : 0,
+      readyQty: t.pickedQty,
+      totalWeightG: t.pickedQty * 450,
+      temperatureZones: ['FROZEN'],
+      earliestReadyAt: null,
+      blockers: t.shortQty > 0 ? ['SHORTAGE_REALLOCATING'] : [],
+    });
   }),
 
   http.get(`${API_BASE}/cdcs/:cdcId/transfers/:trfId`, ({ request, params }) => {

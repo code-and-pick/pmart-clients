@@ -63,8 +63,8 @@ export const navGroups: readonly MenuGroup[] = [
       {
         key: 'shipping',
         segment: 'shipping',
-        ready: false,
-        apiReady: ['분류·검품·상차 실적 조회(work-results)'],
+        ready: true,
+        apiReady: ['출발 검증 결과(0.16.0)', 'TRF 출발 준비(TRF 상세)'],
         apiMissing: ['LPN·출고 대기 목록'],
       },
       {

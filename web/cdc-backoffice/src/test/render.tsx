@@ -12,6 +12,8 @@ export const as = {
   adminNoCenter: token('OP-admin-1', ['OPERATOR_ADMIN'], []),
   worker: token('OP-cdc-wkr', ['CDC_WORKER'], ['CDC01']),
   mfc: token('OP-sup-1', ['MFC_SUPERVISOR'], ['MFC-BJG-01']),
+  otherRole: token('OP-hr-1', ['HR_ADMIN'], ['CDC01']),
+  mixed: token('OP-mixed', ['CDC_SUPERVISOR', 'MFC_SUPERVISOR'], ['MFC-BJG-01', 'CDC01']),
 };
 
 /** 화면 + 보낸 요청 기록(헤더·본문 확인용) */

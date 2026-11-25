@@ -13,6 +13,7 @@ import { DashboardPage } from '../features/dashboard/DashboardPage';
 import { InventoryMenu } from '../features/inventory/InventoryPages';
 import { MasterMenu } from '../features/master/MasterPages';
 import { PreparingPage } from '../features/menus/PreparingPage';
+import { ShippingMenu } from '../features/shipping/ShippingPage';
 import { TasksMenu } from '../features/tasks/TaskPages';
 import { TrfWaveMenu } from '../features/trf-wave/TrfWavePages';
 import { LoginCallbackPage, LoginPage } from '../features/session/LoginPage';
@@ -22,15 +23,16 @@ import { LiveClock } from './LiveClock';
 import { allMenus, centerPath, isDcManager, isWorkerOnly, navGroups, type MenuItem, type MenuKey } from './nav';
 import { ConnectionBanner, ShortcutHelp, useDocumentTitle, useSlashToSearch } from './PageChrome';
 import { RequireSession, SessionProvider, useSession } from './SessionContext';
+import { useDcCenters } from './dcCenters';
 import { groupIcon, useMenuCollapsed } from './sideMenu';
 import { ThemeToggle } from './ThemeToggle';
 
-/** 주소의 DC(`/c/:cdcId/…`). 세션 centers(sessions/current)에 있을 때만 그 DC */
+/** 주소의 DC(`/c/:cdcId/…`). 세션 centers 중 DC(useDcCenters)에 있을 때만 그 DC */
 function useCenter(): { readonly cdcId: string; readonly mine: boolean } | null {
   const { cdcId } = useParams();
-  const { session } = useSession();
+  const dc = useDcCenters();
   if (!cdcId) return null;
-  return { cdcId, mine: session?.centers.includes(cdcId) ?? false };
+  return { cdcId, mine: dc.centers.includes(cdcId) };
 }
 
 /** 머리줄 내 정보 메뉴 — 이름·사번은 내 정보 화면과 같은 hr 본인 조회 */
@@ -59,7 +61,8 @@ function Layout() {
   const center = useCenter();
   const { pathname } = useLocation();
   const [collapsed, toggleMenu] = useMenuCollapsed();
-  const target = center?.mine ? center.cdcId : session?.centers[0];
+  const dc = useDcCenters();
+  const target = center?.mine ? center.cdcId : dc.centers[0];
   // 지금 메뉴(`/c/:cdcId/<segment>/…`) — DC 를 바꾸면 같은 메뉴로 간다
   const segment = pathname.split('/')[3] ?? allMenus[0]!.segment;
   const showMenus = !!target && !isWorkerOnly(session?.roles ?? []);
@@ -98,7 +101,7 @@ function Layout() {
       tools={
         <>
           <LiveClock />
-          {session && center?.mine && <CenterSwitcher centers={session.centers} current={center.cdcId} segment={segment} />}
+          {session && center?.mine && <CenterSwitcher centers={dc.centers} current={center.cdcId} segment={segment} />}
           {env.isMock && <span className="badge badge-accent badge-sm hidden sm:inline-flex">{m.mockBadge}</span>}
           <span className="hidden sm:contents">
             <ShortcutHelp />
@@ -126,17 +129,19 @@ function Layout() {
 function CenterScope({ menu }: { readonly menu: MenuItem }) {
   const { session } = useSession();
   const center = useCenter();
+  const dc = useDcCenters();
   if (!session || !center) return null;
   if (isWorkerOnly(session.roles)) return <WorkerOnly />;
+  if (dc.loading) return <Loading />;
   if (!center.mine) {
     return (
       <div className="space-y-3">
         <p role="alert" className="alert alert-warning text-sm">
-          {session.centers.length === 0 ? m.center.none : m.center.notMine}
+          {dc.centers.length === 0 ? m.center.none : m.center.notMine}
         </p>
-        {session.centers.length > 0 && (
+        {dc.centers.length > 0 && (
           <ul className="menu rounded-box bg-base-100 w-fit">
-            {session.centers.map((c) => (
+            {dc.centers.map((c) => (
               <li key={c}>
                 <Link to={centerPath(c, menu.segment)}>{c}</Link>
               </li>
@@ -165,11 +170,20 @@ const menuPages: Partial<Record<MenuKey, ComponentType<{ readonly cdcId: string 
   tasks: TasksMenu,
   master: MasterMenu,
   inventory: InventoryMenu,
+  shipping: ShippingMenu,
 };
 
 function MenuPage({ menu, cdcId }: { readonly menu: MenuItem; readonly cdcId: string }) {
   const Page = menu.ready ? menuPages[menu.key] : undefined;
   return Page ? <Page cdcId={cdcId} /> : <PreparingPage menu={menu} />;
+}
+
+function Loading() {
+  return (
+    <p role="status" className="p-6 text-sm opacity-70">
+      {m.loading}
+    </p>
+  );
 }
 
 function WorkerOnly() {
@@ -183,9 +197,11 @@ function WorkerOnly() {
 /** 첫 화면: 맡은 첫 DC 의 첫 메뉴로. DC 가 없거나 작업자 전용이면 안내 */
 function Home() {
   const { session } = useSession();
+  const dc = useDcCenters();
   if (!session) return null;
   if (isWorkerOnly(session.roles)) return <WorkerOnly />;
-  const first = session.centers[0];
+  if (dc.loading) return <Loading />;
+  const first = dc.centers[0];
   if (!first) {
     return (
       <p role="alert" className="alert alert-warning text-sm">

@@ -82,9 +82,27 @@ describe('역할·DC', () => {
   });
 
   it('DC 관리자·운영 관리자가 아니면 막지 않고 안내만', async () => {
-    renderAt('/c/MFC-BJG-01/tasks', as.mfc);
+    renderAt('/c/CDC01/tasks', as.otherRole);
     expect(await screen.findByText('DC 관리자 권한이 없어요.')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: '통합 작업관리' })).toBeInTheDocument();
+  });
+
+  it('MFC 센터만 맡은 계정은 DC 가 없다고 안내(MFC 센터를 DC 로 열지 않는다)', async () => {
+    renderAt('/', as.mfc);
+    expect(await screen.findByText('맡은 DC 가 없어요.')).toBeInTheDocument();
+  });
+
+  it('DC·MFC 를 함께 맡으면 DC 만 — 첫 화면은 DC, 머리줄 고르기에 MFC 없음, MFC 주소는 막음', async () => {
+    renderAt('/', as.mixed);
+    expect(await screen.findByRole('heading', { name: '오늘 출고 현황' })).toBeInTheDocument();
+    expect(screen.getByText('칠곡 중앙물류센터(칠곡 DC) (CDC01)')).toBeInTheDocument();
+    expect(screen.queryByRole('combobox', { name: 'DC 고르기' })).not.toBeInTheDocument();
+  });
+
+  it('DC·MFC 를 함께 맡아도 MFC 주소로는 DC 화면을 열지 않는다', async () => {
+    renderAt('/c/MFC-BJG-01/tasks', as.mixed);
+    expect(await screen.findByText('이 DC 권한이 없습니다. 맡은 DC 를 골라 주세요.')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'CDC01' })).toHaveAttribute('href', '/c/CDC01/tasks');
   });
 
   it('운영 관리자(CDC01 포함)는 안내 없이 메뉴', async () => {

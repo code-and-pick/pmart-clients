@@ -86,7 +86,23 @@ function seed() {
     { area: 'B', floor: '6', aisle: '67', pickMethod: 'LINE' as const, updatedBy: 'OP-cdc-sup', updatedAt: '2026-11-25T00:00:00Z' },
     { area: 'C', floor: '5', aisle: '70', pickMethod: 'FC' as const, updatedBy: 'OP-cdc-sup', updatedAt: '2026-11-25T00:00:00Z' },
   ];
-  return { stock, holds, handlings, locations, aisles };
+  const counts: Inv['schemas']['CountSession'][] = [
+    {
+      sessionId: 'CNT-0001',
+      cdcId: 'CDC01',
+      state: 'PENDING_APPROVAL',
+      locationCodes: ['CDC01-B-6-67-01-1-1'],
+      sheet: [{ locationCode: 'CDC01-B-6-67-01-1-1', sku: 'SKU-1002', lot: 'LOT-B7' }],
+      startedBy: 'OP-other-sup',
+      firstCounterId: 'cdcw-qc-01',
+      recounterId: 'cdcw-qc-02',
+      decidedBy: null,
+      reason: '피킹 부족 재계수',
+      createdAt: '2026-11-26T00:10:00Z',
+      decidedAt: null,
+    },
+  ];
+  return { stock, holds, handlings, locations, aisles, counts, cseq: 1 };
 }
 
 let store = seed();
@@ -211,6 +227,72 @@ export const stockHandlers = [
       x.version = (x.version ?? 0) + 1;
       x.updatedAt = new Date().toISOString();
       return { status: 202, body: { status: 'APPLIED', requestId: 'req-mock' } };
+    });
+  }),
+
+  http.get(`${API_BASE}/cdcs/:cdcId/location-stocks`, ({ request, params }) => {
+    const denied = guard(request, String(params.cdcId));
+    if (denied) return denied;
+    const q = new URL(request.url).searchParams;
+    const prefix = q.get('locationPrefix') ?? '';
+    const limit = Number(q.get('limit') ?? '500');
+    const rows = store.stock
+      .flatMap((a) => (a.lots ?? []).flatMap((lot) => (lot.locations ?? []).map((p) => ({ locationCode: p.locationCode ?? '', sku: a.sku ?? '', lot: lot.lot ?? '', qualityState: p.qualityState ?? 'RELEASED', onHand: p.onHand ?? 0, reserved: p.reserved ?? 0, expiresAt: lot.expiresAt ?? null }))))
+      .filter((r) => r.locationCode.startsWith(prefix))
+      .sort((x, y) => x.locationCode.localeCompare(y.locationCode) || x.sku.localeCompare(y.sku));
+    return HttpResponse.json({ cdcId: params.cdcId, asOf, truncated: rows.length > limit, items: rows.slice(0, limit) });
+  }),
+
+  http.post(`${API_BASE}/cdcs/:cdcId/count-sessions`, async ({ request, params }) => {
+    const denied = guard(request, String(params.cdcId));
+    if (denied) return denied;
+    const body = (await request.json()) as { locationCodes: string[]; reason?: string };
+    return idempotent(request, () => {
+      if (body.locationCodes.some((c) => c.split('-')[3] === '91')) return problem(400, 'STAGING_NOT_COUNTED');
+      if (store.counts.some((s) => ['COUNTING', 'RECOUNT_REQUIRED', 'PENDING_APPROVAL'].includes(s.state ?? '') && s.locationCodes?.some((c) => body.locationCodes.includes(c))))
+        return problem(409, 'COUNT_IN_PROGRESS');
+      store.cseq += 1;
+      const s: Inv['schemas']['CountSession'] = {
+        sessionId: `CNT-${String(store.cseq).padStart(4, '0')}`,
+        cdcId: String(params.cdcId),
+        state: 'COUNTING',
+        locationCodes: body.locationCodes,
+        sheet: body.locationCodes.flatMap((code) => store.stock.flatMap((a) => (a.lots ?? []).filter((l) => l.locations?.some((p) => p.locationCode === code)).map((l) => ({ locationCode: code, sku: a.sku ?? '', lot: l.lot ?? '' })))),
+        startedBy: operator(request)?.subject ?? '',
+        firstCounterId: null,
+        recounterId: null,
+        decidedBy: null,
+        reason: body.reason ?? null,
+        createdAt: new Date().toISOString(),
+        decidedAt: null,
+      };
+      store.counts.push(s);
+      return { status: 201, body: s };
+    });
+  }),
+
+  http.get(`${API_BASE}/cdcs/:cdcId/count-sessions/:sessionId`, ({ request, params }) => {
+    const denied = guard(request, String(params.cdcId));
+    if (denied) return denied;
+    const s = store.counts.find((x) => x.sessionId === params.sessionId);
+    return s ? HttpResponse.json(s) : problem(404, 'NOT_FOUND');
+  }),
+
+  http.post(`${API_BASE}/cdcs/:cdcId/count-sessions/:sessionId/decisions`, async ({ request, params }) => {
+    const denied = guard(request, String(params.cdcId));
+    if (denied) return denied;
+    const body = (await request.json()) as { decision: 'APPROVE' | 'REJECT'; reason: string };
+    return idempotent(request, () => {
+      const s = store.counts.find((x) => x.sessionId === params.sessionId);
+      if (!s) return problem(404, 'NOT_FOUND');
+      if (s.state !== 'PENDING_APPROVAL') return problem(409, 'INVALID_STATE');
+      const me = operator(request)?.subject;
+      if (me && [s.startedBy, s.firstCounterId, s.recounterId].includes(me)) return problem(422, 'SELF_APPROVAL');
+      s.state = body.decision === 'APPROVE' ? 'APPROVED' : 'REJECTED';
+      s.decidedBy = me ?? null;
+      s.decidedAt = new Date().toISOString();
+      s.lines = (s.sheet ?? []).map((x) => ({ ...x, bookQty: 30, firstQty: 27, finalQty: 28, deltaQty: -2 }));
+      return { status: 200, body: s };
     });
   }),
 
