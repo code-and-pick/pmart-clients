@@ -22,6 +22,7 @@ pmart-clients 와 pmart-backend 는 서로의 저장소에 쓰지 않는다. 각
 
 | 문서 | 기다리는 것 |
 |---|---|
+| `backoffice/2026-11-25-backend-customer-withdrawal-reasons.md` | 직원이 보는 고객 탈퇴 목록(탈퇴 사유) — 고객 앱이 보낸 reasonCode·reasonText 를 읽는 직원 API 없음(라이더는 rider 0.19.0 으로 됨). CW-1 목록, CW-2 고객 상세, 사유 글 보관·가리기 결정. **기다리는 것: customer 계약** |
 | `backoffice/2026-11-25-backend-low-stock-count.md` | 대시보드 "곧 품절" 상품 수 — 사용자 결정 "하루 판매량 기준"(0 < 가용 ≤ SS = d × safetyDays, 발주 수량 추천과 같은 d·공급 정책). LS-1 stock-summaries `lowStockSkuCount`, LS-2 목록, LS-3 summary-changed 경계(선택). **기다리는 것: mfc 계약** |
 | `web-common/2026-11-18-backend-csrf-cookie-pileup.md` | 백오피스 CSRF 쿠키(`__Secure-pmart_ea_csrf_{sessionId}`, Path=/·만료 없음)가 같은 호스트에 쌓여 431 — C1 Max-Age 반영 회신(employee-auth 0.12.1, 앱 변경 없음). **남은 것: LAN 배포 뒤 백오피스 사이트 데이터 한 번 지우기 안내, 확인되면 archive** |
 | `mfc-app/2026-11-10-backend-pda-work-areas.md` | BR-52·BR-53 회신(R1~R4 일부·R8~R11·R19-1·**R20 출하대기 랙(2026-11-19 회신, PDA 반영)** 은 받음 — 나머지. 다음 차례 R12) |
