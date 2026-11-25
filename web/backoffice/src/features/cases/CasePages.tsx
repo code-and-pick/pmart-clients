@@ -51,7 +51,7 @@ import { DisplayNumber, RiderLabel, riderSourceFailed, SystemNumbers } from '../
 import { CaseNumber } from '../../shared/CaseNumber';
 import { DispatchUnavailableCancel } from '../claims/DispatchUnavailableCancel';
 import { DeliveryNo, OrderNo, RiderNo } from '../../shared/RefNumber';
-import { useResolvedRef } from '../../shared/numberLookups';
+import { isDeliveryNumber, useDeliveryNumber, useResolvedRef } from '../../shared/numberLookups';
 import { StaffName } from '../lookup/parts';
 import { RefStatus } from '../../shared/RefField';
 import { DeliveryStartActions } from '../../shared/StartActions';
@@ -1435,7 +1435,12 @@ export function NewMisdeliveryPage() {
   const api = useApi();
   const navigate = useNavigate();
   const [params] = useSearchParams();
-  const [deliveryId, setDeliveryId] = useState(params.get('deliveryId') ?? '');
+  const linked = params.get('deliveryId') ?? '';
+  // 다른 화면에서 배송 ID 로 넘어오면(?deliveryId=DLV-…) 칸에는 화면 배송 번호로 보인다(2026-11-25 사용자 "저 긴거 뭔데" — 시스템 ID 는 화면에 내지 않음, ADR-0070).
+  // 손대기 전(typed null)에는 받은 번호, 번호를 못 받으면(없음·조회 실패) ID 그대로 — 그래도 접수는 된다
+  const linkedNo = useDeliveryNumber(linked !== '' && !isDeliveryNumber(linked) ? linked : null);
+  const [typed, setDeliveryId] = useState<string | null>(null);
+  const deliveryId = typed ?? (linkedNo.number || linked);
   const [summary, setSummary] = useState('');
   const [evidence, setEvidence] = useState('');
   const [fault, setFault] = useState<Fault | ''>('');
@@ -1492,7 +1497,9 @@ export function NewMisdeliveryPage() {
     return c;
   });
   // 배송 번호(74939255-1)로도 — 찾은 배송 ID 로 보낸다(2026-11-19)
-  const delivery = useResolvedRef('delivery', deliveryId);
+  // 넘어온 그대로(손대기 전)면 배송 ID 를 이미 안다 — 번호로 다시 찾지 않는다(찾는 동안 접수 단추가 꺼지지 않게)
+  const resolved = useResolvedRef('delivery', typed === null ? '' : deliveryId);
+  const delivery = typed === null && linked !== '' ? { id: linked, state: 'id' as const, value: deliveryId } : resolved;
   const recorded = needsAddress && destination !== null && destination.deliveryId === delivery.id;
   const addressOk =
     !needsAddress ||

@@ -120,7 +120,9 @@ describe('지원센터 사건', () => {
 
   it('오배송 열기: MISDELIVERY·DELIVERY·배송 번호 → 새 사건 상세, 같은 배송 다시 열면 409 CASE_ALREADY_OPEN', async () => {
     const view = renderAt('/cases/new-misdelivery?deliveryId=DLV-MOCK-2', as.cs);
-    expect(await screen.findByLabelText('배송 번호')).toHaveValue('DLV-MOCK-2');
+    // 배송 ID 로 넘어와도 칸에는 화면 배송 번호(2026-11-25 "저 긴거 뭔데"), 보내는 것은 찾은 배송 ID
+    await waitFor(async () => expect(await screen.findByLabelText('배송 번호')).toHaveValue('D74939002'));
+    expect(document.body.textContent).not.toContain('DLV-MOCK-2');
     await userEvent.type(screen.getByLabelText('요약'), '옆 동 경비실로 전달됨(고객 확인)');
     expect(screen.getByRole('button', { name: '오배송 접수하기' })).toBeDisabled(); // 귀책을 골라야
     await userEvent.click(screen.getByRole('radio', { name: '지도·시스템 오류' }));
@@ -136,6 +138,13 @@ describe('지원센터 사건', () => {
     await userEvent.click(screen.getByRole('radio', { name: '지도·시스템 오류' }));
     await userEvent.click(screen.getByRole('button', { name: '오배송 접수하기' }));
     expect(await screen.findByText('같은 일로 처리 중인 접수 건이 이미 있어요. 그 접수 건에서 처리해 주세요.')).toBeInTheDocument();
+  });
+
+  it('배송 번호가 없는 배송(목 DLV-MOCK-4)으로 넘어오면 ID 그대로 — 지우지 않는다', async () => {
+    renderAt('/cases/new-misdelivery?deliveryId=DLV-MOCK-4', as.cs);
+    const input = await screen.findByLabelText('배송 번호');
+    await new Promise((r) => setTimeout(r, 300));
+    expect(input).toHaveValue('DLV-MOCK-4');
   });
 
   it('오배송 귀책(ADR-0065): 라이더 실수는 배달료 미지급 안내, 환불 선택은 그대로 보낸다', async () => {
