@@ -42,23 +42,28 @@ const BANNER_MIN: Readonly<Record<string, { ratio: number; label: string; minW: 
   HOME_MIDDLE: { ratio: 2.8, label: '2.8:1', minW: 1080, minH: 386 },
   HOME_INLINE: { ratio: 2.8, label: '2.8:1', minW: 1080, minH: 386 },
   CATEGORY: { ratio: 2.8, label: '2.8:1', minW: 1080, minH: 386 },
-  PRODUCT_DETAIL: { ratio: 2.8, label: '2.8:1', minW: 1080, minH: 386 },
+  PRODUCT_DETAIL: { ratio: 4.5, label: '4.5:1', minW: 1080, minH: 240 },
+  CARE_CARD: { ratio: 16 / 9, label: '16:9', minW: 720, minH: 405 },
   POPUP: { ratio: 0.8, label: '4:5', minW: 720, minH: 900 },
   SPLASH: { ratio: 0.5625, label: '9:16', minW: 720, minH: 1280 },
 };
 /** storefront 0.15.0 초안 warnings — 막지 않는 배너 그림 규격 경고(서버와 같은 뜻: 비율 ±10%, 최소 크기) */
+function fitWarn(imageId: string, place: string, field: string) {
+  const dim = bannerDims.get(imageId);
+  const spec = BANNER_MIN[place];
+  if (!dim || !spec) return [];
+  const out: { field: string; code: 'BANNER_IMAGE_RATIO' | 'BANNER_IMAGE_TOO_SMALL'; detail: string }[] = [];
+  if (Math.abs(dim.w / dim.h - spec.ratio) / spec.ratio > 0.1) out.push({ field, code: 'BANNER_IMAGE_RATIO', detail: `지금 ${dim.w}×${dim.h} — ${place} 권장 ${spec.label}` });
+  else if (dim.w < spec.minW || dim.h < spec.minH) out.push({ field, code: 'BANNER_IMAGE_TOO_SMALL', detail: `지금 ${dim.w}×${dim.h} — 최소 ${spec.minW}×${spec.minH}` });
+  return out;
+}
 const withWarnings = (d: Draft): Draft => ({
   ...d,
-  warnings: (d.banners ?? []).flatMap((b, i) => {
-    const dim = bannerDims.get(b.imageId);
-    const spec = BANNER_MIN[b.placement];
-    if (!dim || !spec) return [];
-    const field = `banners[${i}].imageId`;
-    const out: { field: string; code: 'BANNER_IMAGE_RATIO' | 'BANNER_IMAGE_TOO_SMALL'; detail: string }[] = [];
-    if (Math.abs(dim.w / dim.h - spec.ratio) / spec.ratio > 0.1) out.push({ field, code: 'BANNER_IMAGE_RATIO', detail: `지금 ${dim.w}×${dim.h} — ${b.placement} 권장 ${spec.label}` });
-    else if (dim.w < spec.minW || dim.h < spec.minH) out.push({ field, code: 'BANNER_IMAGE_TOO_SMALL', detail: `지금 ${dim.w}×${dim.h} — 최소 ${spec.minW}×${spec.minH}` });
-    return out;
-  }),
+  warnings: [
+    ...(d.banners ?? []).flatMap((b, i) => fitWarn(b.imageId, b.placement, `banners[${i}].imageId`)),
+    // 0.20.0 관리 카드 그림 CARE_CARD 16:9 — 경고만
+    ...(d.careCards?.items ?? []).flatMap((c, i) => fitWarn(c.imageId, 'CARE_CARD', `careCards.items[${i}].imageId`)),
+  ],
 });
 export function resetLayouts(): void {
   Object.assign(layouts, seed());
@@ -119,6 +124,25 @@ function check(body: Body): { field: string; reason: string }[] {
       if (db.products.get(p)?.saleState !== 'ON_SALE') out.push({ field: p, reason: 'PRODUCT_NOT_PUBLISHED' });
     });
   });
+  // 0.20.0 상품페이지 관리 카드(BR-102) — 제목 1~30, 카드 1~10장, cardId C-…·중복, 올린 그림, 카드 제목 1~30, 설명 1~80, 판촉 문구 금지
+  const cc = body.careCards;
+  if (cc) {
+    if (!cc.title || cc.title.length > 30) out.push({ field: 'careCards.title', reason: 'INVALID_TITLE' });
+    else if (PROMO.test(cc.title)) out.push({ field: 'careCards.title', reason: 'PROMOTION_NOT_ALLOWED' });
+    if (cc.items.length < 1 || cc.items.length > 10) out.push({ field: 'careCards.items', reason: 'INVALID_CARD_COUNT' });
+    const seenC = new Set<string>();
+    cc.items.forEach((c, i) => {
+      const at = `careCards.items[${i}]`;
+      if (!/^C-[A-Za-z0-9_-]{1,38}$/.test(c.cardId)) out.push({ field: `${at}.cardId`, reason: 'INVALID_CARD_ID' });
+      else if (seenC.has(c.cardId)) out.push({ field: `${at}.cardId`, reason: 'DUPLICATE_ID' });
+      seenC.add(c.cardId);
+      if (!layouts.images.has(c.imageId)) out.push({ field: `${at}.imageId`, reason: 'IMAGE_NOT_FOUND' });
+      if (!c.title || c.title.length > 30) out.push({ field: `${at}.title`, reason: 'INVALID_TITLE' });
+      else if (PROMO.test(c.title)) out.push({ field: `${at}.title`, reason: 'PROMOTION_NOT_ALLOWED' });
+      if (!c.body || c.body.length > 80) out.push({ field: `${at}.body`, reason: 'INVALID_BODY' });
+      else if (PROMO.test(c.body)) out.push({ field: `${at}.body`, reason: 'PROMOTION_NOT_ALLOWED' });
+    });
+  }
   // 0.10.0 넘김 간격·배너 묶음·홈 순서
   const iv = body.bannerIntervalSeconds;
   if (iv != null && (iv < 2 || iv > 30)) out.push({ field: 'bannerIntervalSeconds', reason: 'INVALID_INTERVAL' });
@@ -156,7 +180,7 @@ function check(body: Body): { field: string; reason: string }[] {
 
 // 0.12.0 BR-84: 남은 시간을 끄면 timerStyle 은 null 로, 켜고 비우면 LABEL 로 저장(계약 설명대로)
 const themeOf = (t: NonNullable<Body['themes']>[number]) => ({ ...t, timerStyle: t.showTimer ? (t.timerStyle ?? 'LABEL') : null });
-const bodyOf = (b: Body): Body => ({ banners: b.banners ?? [], themes: (b.themes ?? []).map(themeOf), tabs: b.tabs ?? [], homeOrder: b.homeOrder ?? [], bannerIntervalSeconds: b.bannerIntervalSeconds ?? null, note: b.note ?? null });
+const bodyOf = (b: Body): Body => ({ banners: b.banners ?? [], themes: (b.themes ?? []).map(themeOf), tabs: b.tabs ?? [], homeOrder: b.homeOrder ?? [], bannerIntervalSeconds: b.bannerIntervalSeconds ?? null, note: b.note ?? null, careCards: b.careCards ?? null });
 
 /** approval DISPLAY 결정(effects.decide) — 승인이면 새 진열 버전으로 게시, 반려면 REJECTED */
 export function decideLayout(draftId: string, approved: boolean, comment: string | null): void {
@@ -270,7 +294,9 @@ export const storefrontHandlers = [
         banner('HOME_MIDDLE'),
         banner('HOME_INLINE'),
         banner('CATEGORY'),
-        banner('PRODUCT_DETAIL'),
+        // 0.20.0 상품 상세 배너 4.5:1(고객 앱 칸 411×91dp), 관리 카드 그림 16:9
+        { placement: 'PRODUCT_DETAIL', ratio: 4.5, ratioLabel: '4.5:1', recommendedWidth: 1960, recommendedHeight: 436, minWidth: 1080, minHeight: 240 },
+        { placement: 'CARE_CARD', ratio: 16 / 9, ratioLabel: '16:9', recommendedWidth: 1080, recommendedHeight: 608, minWidth: 720, minHeight: 405 },
         { placement: 'POPUP', ratio: 0.8, ratioLabel: '4:5', recommendedWidth: 1080, recommendedHeight: 1350, minWidth: 720, minHeight: 900 },
         { placement: 'SPLASH', ratio: 0.5625, ratioLabel: '9:16', recommendedWidth: 1080, recommendedHeight: 1920, minWidth: 720, minHeight: 1280 },
       ],
