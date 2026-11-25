@@ -204,7 +204,7 @@ describe('상담함 — 찾기·주문번호·소명·이의 탭(2026-11-20)', (
     await waitFor(() => expect(screen.getAllByTestId('consult-order').map((o) => o.textContent)).toContain('48213075'));
     const before = (await screen.findAllByTestId('consult-row')).length;
     await userEvent.type(screen.getByRole('searchbox'), '48213075');
-    await userEvent.click(within(screen.getByTestId('consults-search')).getByRole('button', { name: '찾기' }));
+    await userEvent.click(within(screen.getByTestId('consults-search')).getByRole('button', { name: '조회' }));
     const rows = await screen.findAllByTestId('consult-row');
     expect(rows.length).toBeLessThan(before);
     expect(rows.every((r) => within(r).getByTestId('consult-order').textContent === '48213075')).toBe(true);

@@ -40,7 +40,7 @@ export const ops = {
     operating: '운행',
     allRestrictions: '모두',
     allOperating: '모두',
-    search: '찾기',
+    search: '조회',
     reset: '지우기',
     empty: '조건에 맞는 라이더가 없어요.',
     col: { rider: '라이더', name: '이름', phone: '전화', vehicle: '수단', operating: '운행', restriction: '제한', signup: '가입 승인', joinedAt: '가입' },

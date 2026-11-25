@@ -34,7 +34,7 @@ describe('화면 번호 — 시스템 ID 는 겉에 없다', () => {
     const view = renderAt('/surcharges', as.riderOps);
     await screen.findAllByTestId('surcharge-row');
     await userEvent.type(screen.getByLabelText('라이더 번호 R4785(또는 라이더 ID)'), 'R4829');
-    await userEvent.click(screen.getByRole('button', { name: '찾기' }));
+    await userEvent.click(screen.getByRole('button', { name: '조회' }));
     await screen.findAllByTestId('surcharge-row');
     const calls = view.sent.filter((r) => r.method === 'GET' && new URL(r.url).pathname.endsWith('/surcharge-requests'));
     expect(new URL(calls.at(-1)!.url).searchParams.get('riderId')).toBe('RD-7');
@@ -45,7 +45,7 @@ describe('화면 번호 — 시스템 ID 는 겉에 없다', () => {
     await screen.findAllByTestId('surcharge-row');
     const before = view.sent.filter((r) => new URL(r.url).pathname.endsWith('/surcharge-requests')).length;
     await userEvent.type(screen.getByLabelText('라이더 번호 R4785(또는 라이더 ID)'), 'R0000');
-    await userEvent.click(screen.getByRole('button', { name: '찾기' }));
+    await userEvent.click(screen.getByRole('button', { name: '조회' }));
     expect(await screen.findByText(/없어요/)).toBeInTheDocument();
     expect(view.sent.filter((r) => new URL(r.url).pathname.endsWith('/surcharge-requests')).length).toBe(before);
   });

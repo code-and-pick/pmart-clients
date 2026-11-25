@@ -26,7 +26,7 @@ export const deductionText = {
   all: '전체',
   stateName: { PENDING_OBJECTION: '이의 기간', OBJECTED: '이의 결정 대기', CONFIRMED: '확정', CANCELLED: '취소' } as Readonly<Record<string, string>>,
   rider: searchHint.rider,
-  search: '찾기',
+  search: '조회',
   reset: '지우기',
   empty: '이 조건의 차감이 없어요.',
   allDone: '결정할 차감 이의가 없어요.',

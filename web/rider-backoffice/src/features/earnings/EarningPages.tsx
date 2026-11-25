@@ -239,7 +239,7 @@ const surchargeFilter = {
   all: '전체',
   stateName: { REQUESTED: '신청', APPROVED: '승인', REJECTED: '반려' } as Readonly<Record<string, string>>,
   riderId: searchHint.rider,
-  search: '찾기',
+  search: '조회',
   reset: '지우기',
   decidedLine: (state: string, at: string) => `${state} · ${at} ·`,
   photo: '추가 배달료 사진',

@@ -19,7 +19,7 @@ describe('라이더 찾기 — 라이더 번호(ADR-0070)', () => {
     expect(screen.queryByText('RD-7')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('라이더 ID')).not.toBeInTheDocument();
     await userEvent.type(screen.getByLabelText('라이더 번호'), 'r73-01x');
-    await userEvent.click(screen.getByRole('button', { name: '찾기' }));
+    await userEvent.click(screen.getByRole('button', { name: '조회' }));
     expect(await screen.findAllByTestId('rider-row')).toHaveLength(1);
     expect(screen.getByTestId('rider-row')).toHaveTextContent('R7301');
     expect(view.sent.some((r) => new URL(r.url).searchParams.get('riderNumber') === 'R7301')).toBe(true);

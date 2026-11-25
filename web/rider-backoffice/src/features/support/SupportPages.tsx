@@ -478,7 +478,7 @@ const consultText = {
   tabs: { open: '상담 중', cases: '배송 사건', appeals: '소명·이의', done: '완료' },
   searchLabel: '찾기',
   searchHint: '배송번호·주문번호·라이더 이름·번호·내용',
-  search: '찾기',
+  search: '조회',
   clear: '지우기',
   allKinds: '전체',
   truncated: '도움요청이 너무 많아 가장 최근 것 일부를 불러오지 못했어요. 찾기·구분으로 좁히거나 완료 탭은 기간이 지나면 줄어요.',

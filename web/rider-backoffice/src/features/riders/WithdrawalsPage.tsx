@@ -38,7 +38,7 @@ export const withdrawalMessages = {
   } as const satisfies Record<Blocker, string>,
   riderNumber: '라이더 번호',
   findByNumber: '번호로 찾기',
-  search: '찾기',
+  search: '조회',
   reset: '초기화',
   empty: '탈퇴 신청이 없어요.',
   col: { rider: '라이더', state: '결과', blockers: '막은 이유', reason: '라이더가 적은 사유', requestedAt: '신청', completedAt: '탈퇴시점' },

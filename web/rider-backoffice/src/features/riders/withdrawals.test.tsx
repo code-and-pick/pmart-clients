@@ -41,7 +41,7 @@ describe('탈퇴 — 신청 목록', () => {
     expect(await screen.findAllByTestId('withdrawal-row')).toHaveLength(1);
     expect(view.sent.some((r) => new URL(r.url).searchParams.get('state') === 'REJECTED')).toBe(true);
     await userEvent.type(screen.getByLabelText('라이더 번호'), '6152');
-    await userEvent.click(screen.getByRole('button', { name: '찾기' }));
+    await userEvent.click(screen.getByRole('button', { name: '조회' }));
     expect(await screen.findByText('탈퇴 신청이 없어요.')).toBeInTheDocument();
     expect(view.sent.some((r) => new URL(r.url).searchParams.get('riderNumber') === '6152')).toBe(true);
   });

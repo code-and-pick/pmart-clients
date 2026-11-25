@@ -73,7 +73,7 @@ describe('배송 관리', () => {
     // 시스템 번호(주문 ID)는 깔때기 팝업 안(2026-11-21 시뮬레이터 모양)
     await userEvent.click(screen.getByTestId('search-toggle'));
     await userEvent.type(screen.getByLabelText('주문 ID'), 'ORD-1');
-    await userEvent.click(screen.getByRole('button', { name: '찾기' }));
+    await userEvent.click(screen.getByRole('button', { name: '조회' }));
     expect(await screen.findAllByTestId('delivery-row')).toHaveLength(2); // 원래 배송 + 반납 배송
     expect(searchCalls(view.sent).at(-1)!.get('orderId')).toBe('ORD-1');
 

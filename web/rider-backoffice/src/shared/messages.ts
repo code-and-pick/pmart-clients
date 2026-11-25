@@ -205,7 +205,7 @@ export const messages = {
     sort: '정렬',
     newest: '최근 것부터',
     oldest: '오래된 것부터',
-    search: '찾기',
+    search: '조회',
     reset: '지우기',
     empty: '조건에 맞는 배송이 없어요.',
     col: { delivery: '배송', order: '주문', type: '종류', state: '수행 상태', rider: '라이더', mfc: '센터', createdAt: '생성', assignedAt: '배정', completedAt: '완료' },
