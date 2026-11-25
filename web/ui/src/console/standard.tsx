@@ -61,7 +61,9 @@ export function AllDone({ title, body, testId = 'all-done' }: { readonly title: 
 export function StatCard(p: ComponentProps<typeof ConsoleStatCard>) {
   const zero = p.value === 0 || p.value === '0';
   const name = <span className="font-semibold text-base-content">{p.label}</span>;
-  return zero ? <ConsoleStatCard {...p} tone={undefined} label={<span data-zero="">{name}</span>} /> : <ConsoleStatCard {...p} label={name} />;
+  // 기본은 가로(이름 왼쪽 위 굵게·숫자 오른쪽 28px) — 목록마다 같은 모양(2026-11-25 라이더 사용자 지적, PC 5 전달)
+  const layout = p.layout ?? 'row';
+  return zero ? <ConsoleStatCard {...p} layout={layout} tone={undefined} label={<span data-zero="">{name}</span>} /> : <ConsoleStatCard {...p} layout={layout} label={name} />;
 }
 
 // ---- 알림(안내 띠·다음 할 일) — 판 색 + 왼쪽 3px 띠, 꽉 채우지 않음 ----
@@ -227,11 +229,20 @@ export function FieldList({ rows, testId }: { readonly rows: ReadonlyArray<reado
 /** 결과 줄 — 건수 알약 + 오른쪽 작은 정렬 글자(공용 ResultBar 와 같은 속성) */
 export function ResultBar({ count, more, sort, extra, unit = '건' }: { readonly unit?: string; readonly count: number; readonly more?: boolean; readonly sort?: { readonly oldest: boolean; readonly onChange: (oldest: boolean) => void; readonly newest?: string; readonly oldestLabel?: string }; readonly extra?: ReactNode }) {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-2 py-1" data-list-part="mid">
-      <p className="pm-count-pill" data-testid="result-count">
-        <span className="font-bold">{count}</span>
+    <>
+      {(sort || extra) && <ResultTools sort={sort} extra={extra} />}
+      {/* 건수는 표 상자 안 머리줄 왼쪽 — 바로 뒤 표(data-list-part)와 한 상자로 붙는다 */}
+      <p className="pm-resbar-head" data-list-part="mid" data-testid="result-count">
+        <span className="font-bold text-base-content">{count}</span>
         {more ? `${unit} 이상` : unit}
       </p>
+    </>
+  );
+}
+
+function ResultTools({ sort, extra }: { readonly sort?: { readonly oldest: boolean; readonly onChange: (oldest: boolean) => void; readonly newest?: string; readonly oldestLabel?: string } | undefined; readonly extra?: ReactNode }) {
+  return (
+    <div className="pm-resbar-tools">
       <div className="flex items-center gap-3">
         {extra}
         {sort && (
@@ -552,7 +563,7 @@ export function ListHeader({ title, count, onInfo, refresh, actions }: {
   const readAt = refresh?.readAt ? new Date(refresh.readAt) : null;
   void onInfo;
   return (
-    <header className="pm-head flex flex-wrap items-center justify-between gap-3" data-list-part="head">
+    <header className="pm-head flex flex-wrap items-center justify-between gap-3">
       <div className="flex min-w-0 items-center gap-2">
         <h1 className="text-2xl font-bold">{title}</h1>
         {count !== undefined && (

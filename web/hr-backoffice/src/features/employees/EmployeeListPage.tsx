@@ -51,6 +51,14 @@ export function EmployeeListPage() {
   const q = params.get('q') ?? '';
   // 입력 중인 값(조회를 눌러야 URL·요청에 반영된다)
   const [draft, setDraft] = useState({ status: status ?? '', affiliationCode, q });
+  const apply = (d: { readonly status: string; readonly affiliationCode: string; readonly q: string }) => {
+    setDraft({ ...d });
+    const next = new URLSearchParams();
+    if (d.status) next.set('status', d.status);
+    if (d.affiliationCode.trim()) next.set('affiliationCode', d.affiliationCode.trim());
+    if (d.q.trim()) next.set('q', d.q.trim());
+    setParams(next);
+  };
   const extra = extraFilters(params);
   const extraKey = JSON.stringify(extra);
 
@@ -95,13 +103,15 @@ export function EmployeeListPage() {
         title={m.list.title}
         description={m.list.intro}
         actions={
-          <Link to="/employees/new" className="btn btn-primary btn-sm">
-            {m.list.register}
-          </Link>
+          <>
+            {/* 내 보기(2026-11-19 — 백오피스와 같음): 상태·소속 조건만 이 브라우저에 저장(검색어 = 이름은 저장하지 않는다). 2026-11-25 쪽 머리 오른쪽으로 */}
+            <SavedViews listKey="employees" />
+            <Link to="/employees/new" className="btn btn-primary btn-sm">
+              {m.list.register}
+            </Link>
+          </>
         }
       />
-      {/* 내 보기(2026-11-19 — 백오피스와 같음): 상태·소속 조건만 이 브라우저에 저장(검색어 = 이름은 저장하지 않는다) */}
-      <SavedViews listKey="employees" />
       {/* 첫 화면 숫자 칸에서 넘어온 조건(2026-11-19 H-D1) — 무엇으로 걸렀는지 보이고 지울 수 있다 */}
       {Object.keys(extra).length > 0 && (
         <p className="flex flex-wrap items-center gap-2 rounded-box border border-primary/30 bg-primary/5 px-3 py-2 text-sm" data-testid="extra-filter">
@@ -121,23 +131,25 @@ export function EmployeeListPage() {
         onReset={() => setDraft({ status: '', affiliationCode: '', q: '' })}
         onSubmit={(e) => {
           e.preventDefault();
-          const next = new URLSearchParams();
-          if (draft.status) next.set('status', draft.status);
-          if (draft.affiliationCode.trim()) next.set('affiliationCode', draft.affiliationCode.trim());
-          if (draft.q.trim()) next.set('q', draft.q.trim());
-          setParams(next);
+          apply(draft);
         }}
-      >
-        <SearchRow label={m.list.q}>
+        // 걸린 조건 칩(2026-11-25 — 상태·소속은 필터 팝업 안이라 칩으로 보이고 ✕ 로 푼다. 찾기 칸 글자는 칸에 보이니 칩 아님)
+        summary={[
+          [m.fields.status, status ? m.employmentStatus[status] : '', () => apply({ ...draft, status: '' })],
+          [m.fields.affiliationCode, affiliationCode, () => apply({ ...draft, affiliationCode: '' })],
+        ]}
+        search={
           <input
+            type="search"
             aria-label={m.list.q}
-            className="input input-sm w-64"
+            className="input input-sm w-72"
             maxLength={60}
             placeholder={m.list.qHint}
             value={draft.q}
             onChange={(e) => setDraft((d) => ({ ...d, q: e.target.value }))}
           />
-        </SearchRow>
+        }
+      >
         <SearchRow label={m.fields.status}>
           <select aria-label={m.fields.status} className="select select-sm w-40" value={draft.status} onChange={(e) => setDraft((d) => ({ ...d, status: e.target.value }))}>
             <option value="">{m.list.allStatuses}</option>

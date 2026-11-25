@@ -42,12 +42,13 @@ export function DashboardStatus({ cases, live }: { readonly cases: boolean; read
 
   const tone = issues.length > 0 ? 'error' : failed > 0 ? 'warning' : loading ? 'neutral' : 'success';
   // 2026-11-20 AWS 개편(Alert): 색 테두리 2px + 옅은 바탕
-  const box = { error: 'border-2 border-error bg-error/5', warning: 'border-2 border-warning bg-warning/10', neutral: 'border border-base-300 bg-base-100', success: 'border-2 border-success bg-success/5' }[tone];
+  // 2026-11-25 백오피스 화면 기준: 꽉 채운 색 테두리 대신 판 색 + 1px 회색 선 + 왼쪽 3px 띠(pm-note)
+  const box = 'pm-note';
   const dot = { error: 'bg-error', warning: 'bg-warning', neutral: 'bg-base-content/30', success: 'bg-success' }[tone];
   const title = issues.length > 0 ? m.issues(issues.length) : failed > 0 ? m.unknown : loading ? m.checking : m.ok;
   // 2026-11-20 사용자 "이상도 너무 작게 뜨고, 눌러도 들어가지지 않아 — 누르는 범위를 넓게": 큰 글씨 + 이상마다 큰 버튼(칸 전체가 링크)
   return (
-    <div className={`rounded-box px-4 py-3 ${box}`} aria-live="polite" data-testid="dash-status" data-tone={tone}>
+    <div className={`${box} block`} aria-live="polite" data-testid="dash-status" data-tone={tone}>
       <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
         <span className="flex items-center gap-2.5">
           <span className="relative flex h-3 w-3" aria-hidden="true">
@@ -60,7 +61,7 @@ export function DashboardStatus({ cases, live }: { readonly cases: boolean; read
           <Link
             key={i.to}
             to={i.to}
-            className="flex min-w-56 flex-1 items-center justify-between gap-3 rounded-box border border-error/40 bg-base-100 px-4 py-2.5 text-base font-semibold text-error underline-offset-2 transition hover:border-error hover:underline sm:flex-none"
+            className="btn pm-row-link min-w-56 flex-1 justify-between font-semibold sm:flex-none"
           >
             <span>{i.text}</span>
             <span aria-hidden="true">→</span>

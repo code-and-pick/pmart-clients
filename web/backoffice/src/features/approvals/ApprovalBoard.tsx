@@ -44,7 +44,6 @@ export function ApprovalBoard({ requesterId, type }: { readonly requesterId?: st
   });
   return (
     <div className="space-y-2">
-      <p className="text-xs text-base-content/60">{m.board.note}</p>
       <KanbanBoard columns={columns} label={m.approvals.inbox.boardLabel} testId="approval-board" />
     </div>
   );

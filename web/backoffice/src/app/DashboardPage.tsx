@@ -53,7 +53,7 @@ function TaskRow({ alert, title, to, tone, group, exact }: { readonly alert: Ale
       data-testid={`dash-kpi-${alert}`}
       data-tone={has ? tone : 'none'}
       data-group={group}
-      className="group flex min-w-0 flex-col gap-1 px-5 py-1"
+      className="pm-row-link group flex min-w-0 flex-col gap-1 px-5 py-1"
     >
       <span className="flex items-center gap-1.5 truncate text-sm text-base-content/70">
         {has && tone !== 'info' && <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${tone === 'error' ? 'bg-error' : 'bg-warning'}`} aria-hidden="true" />}
@@ -63,7 +63,7 @@ function TaskRow({ alert, title, to, tone, group, exact }: { readonly alert: Ale
         {n === 0 ? '0' : text}
         {sum?.allCenters && <AllCentersTag />}
       </span>
-      <span className={`text-xs ${has ? 'text-primary group-hover:underline' : 'text-base-content/50'}`}>{failed ? m.failedShort : n === 0 ? m.noneLeft : has ? `${m.go} →` : ' '}</span>
+      <span className="text-xs text-base-content/50">{failed ? m.failedShort : n === 0 ? m.noneLeft : ' '}</span>
     </Link>
   );
 }

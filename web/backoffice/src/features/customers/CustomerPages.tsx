@@ -69,7 +69,6 @@ export function CustomerSearchPage() {
       <ListHeader title={m.title} count={by ? listCount(query) : undefined} refresh={by ? refreshOf(query) : undefined} onInfo={help?.open} />
       <div className="rounded-box border border-base-300 bg-base-100 px-5 py-3" data-list-part="top">
         <PropertyFilter props={props} value={Object.fromEntries(KEYS.map((k) => [k, params.get(k) ?? undefined]))} onChange={change} testId="customer-filter" />
-        <p className="mt-2 text-xs text-base-content/60">{m.searchHint}</p>
       </div>
       {badNumber && (
         <p className="rounded-box border border-warning/40 bg-warning/5 px-5 py-4 text-sm" role="alert" data-testid="customer-bad-number">

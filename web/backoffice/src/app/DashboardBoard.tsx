@@ -107,7 +107,6 @@ export function DashboardBoard({ cases, inquiries, riderInquiries, approvals }: 
 
   return (
     <div className="space-y-2">
-      <p className="text-xs text-base-content/60">{messages.board.note}</p>
       <KanbanBoard columns={columns} label={m.label} testId="dash-board" />
     </div>
   );

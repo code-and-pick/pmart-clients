@@ -185,7 +185,7 @@ function Breadcrumbs({ current, pathname }: { readonly current: ReturnType<typeo
             {last || c.to === pathname ? (
               <span className={last ? 'font-semibold text-base-content' : 'text-base-content/70'}>{c.label}</span>
             ) : (
-              <Link to={c.to} className="text-base-content/80 underline underline-offset-2 hover:text-primary">
+              <Link to={c.to} className="text-base-content/60 no-underline underline-offset-2 hover:text-primary hover:underline">
                 {c.label}
               </Link>
             )}

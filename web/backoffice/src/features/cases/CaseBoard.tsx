@@ -37,7 +37,6 @@ export function CaseBoard({ kind }: { readonly kind?: Kind | undefined }) {
   });
   return (
     <div className="space-y-2">
-      <p className="text-xs text-base-content/60">{m.board.note}</p>
       <KanbanBoard columns={columns} label={m.cases.boardLabel} testId="case-board" />
     </div>
   );

@@ -471,9 +471,9 @@ export function ActivityFeed({ approvals, cases, inquiries }: { readonly approva
         <ul className="-mx-2 divide-y divide-base-200">
           {feed.map((x) => (
             <li key={`${x.kind}-${x.to}`} data-testid="dash-activity-item">
-              <Link to={x.to} title={x.full || undefined} className="flex items-center gap-2 rounded-md px-2 py-2 text-sm hover:bg-base-200/60">
+              <Link to={x.to} title={x.full || undefined} className="pm-row-link flex items-center gap-2 rounded-md px-2 py-2 text-sm hover:bg-base-200/60">
                 <span className={`shrink-0 rounded px-1.5 py-0.5 text-[11px] font-semibold ${ACT_CHIP[x.kind].cls}`}>{ACT_CHIP[x.kind].label}</span>
-                <span className="min-w-0 flex-1 truncate font-medium">{x.what}</span>
+                <span className="pm-row-title min-w-0 flex-1 truncate font-medium">{x.what}</span>
                 <span className="shrink-0 text-xs tabular-nums text-base-content/50">{ago(x.at)}</span>
               </Link>
             </li>
