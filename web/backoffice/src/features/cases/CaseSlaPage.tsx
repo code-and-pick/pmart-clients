@@ -19,7 +19,7 @@ import { messages } from '../../shared/messages';
 import { addSeoulDays, label } from '../../shared/ops';
 import { SourceStamps } from '../../shared/SourceStamps';
 import { ChipGroup, DataTable, PageHeader, SearchPanel, SearchRow, Section } from '../../shared/admin';
-import { Insight, KpiCell, KpiStrip, LineChart, Meter, TrendLine } from '../../app/Charts';
+import { Insight, KpiCell, KpiStrip, LineChart, Meter } from '../../app/Charts';
 import { PeriodPresets } from '../../shared/PeriodPresets';
 
 const m = messages.caseSla;
@@ -199,14 +199,14 @@ export function CaseSlaPage() {
             return (
               <>
                 <SourceStamps sources={v.sources} unavailableSources={v.unavailableSources} />
-                {/* 숫자 줄(2026-11-20 통계 개편) — 한 상자에 셋, 기한 지킴은 날마다 비율 추세선 */}
+                {/* 숫자 줄(2026-11-20 통계 개편) — 한 상자에 셋. 2026-11-25 사용자 "끊겨있으니까 오류난 거 같잖아": 닫힌 건 없는 날마다 끊기던
+                    작은 추세선은 뺀다(축·날짜가 없어 뜻을 알 수 없고, 같은 흐름은 아래 날짜별 그래프·표에 있다) */}
                 <KpiStrip>
                   <KpiCell
                     hero
                     label={m.inTimeTotal}
                     value={<span data-testid="case-sla-ratio">{t.ratio}</span>}
                     sub={<span data-testid="case-sla-count">{t.count}</span>}
-                    trend={<TrendLine values={slots.map(slotRatio)} max={1} />}
                   >
                     <Meter value={all.denominator > 0 ? all.numerator / all.denominator : null} />
                   </KpiCell>
