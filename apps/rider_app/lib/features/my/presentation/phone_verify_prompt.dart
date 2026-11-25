@@ -42,7 +42,7 @@ Future<void> maybeAskPhoneVerify(BuildContext context, WidgetRef ref) async {
   }
 }
 
-/// 흰 팝업 — 연보라 원 안 전화 그림 · 굵은 제목 · 한두 줄 · [나중에] [지금 인증하기].
+/// 흰 팝업 — 굵은 제목(전화 그림은 2026-11-25 사용자 요청으로 뺌) · 한두 줄 · [나중에] [지금 인증하기].
 class PhoneVerifyDialog extends StatelessWidget {
   const PhoneVerifyDialog({super.key});
 
@@ -61,23 +61,6 @@ class PhoneVerifyDialog extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Container(
-                width: 44,
-                height: 44,
-                decoration: const BoxDecoration(
-                  color: RiderColors.primaryPale,
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.phone_iphone_rounded,
-                  size: 24,
-                  color: RiderColors.primary,
-                ),
-              ),
-            ),
-            const SizedBox(height: 14),
             Text(
               l10n.phoneVerifyTitle,
               style: const TextStyle(

@@ -44,6 +44,7 @@ class _FakeInbox implements NotificationRepository {
                 read: true,
                 target: n.target,
                 notice: n.notice,
+                templateKey: n.templateKey,
               )
             : n,
     ];
@@ -56,6 +57,7 @@ RiderNotification _n(
   NotificationTarget target = const NoTarget(),
   bool read = false,
   String title = '지원센터 답장이 왔어요',
+  String? template,
 }) => RiderNotification(
   id: id,
   title: title,
@@ -63,6 +65,7 @@ RiderNotification _n(
   createdAt: at,
   read: read,
   target: target,
+  templateKey: template,
 );
 
 void main() {
@@ -132,6 +135,55 @@ void main() {
     expect(feed.unread, 2, reason: '종 배지 = 보이는 줄의 안 읽은 수');
   });
 
+  test('마무리 알림(도움요청 처리 끝)은 5시간 지나면 빠진다 — 다른 알림은 그대로(2026-11-25)', () async {
+    final repo = MockDeliveryRepository(latency: Duration.zero);
+    final now = DateTime.now();
+    const oldReq = HelpRequestTarget('dlv-1', 'req-old');
+    const newReq = HelpRequestTarget('dlv-1', 'req-new');
+    final inbox = _FakeInbox([
+      // 6시간 전에 끝난 도움요청 — 답장까지 한 줄로 묶여 통째로 빠진다
+      _n('o1', now.subtract(const Duration(hours: 7)), target: oldReq),
+      _n(
+        'o2',
+        now.subtract(const Duration(hours: 6)),
+        target: oldReq,
+        template: helpRequestClosedTemplate,
+      ),
+      // 4시간 59분 전에 끝난 것 — 아직 보인다
+      _n(
+        'n1',
+        now.subtract(const Duration(hours: 4, minutes: 59)),
+        target: newReq,
+        template: helpRequestClosedTemplate,
+      ),
+      // 오래된 일반 알림 — 마무리 알림이 아니라 그대로
+      _n(
+        'g1',
+        now.subtract(const Duration(days: 2)),
+        template: 'RIDER_EARNING_ADJUSTED',
+      ),
+    ]);
+    final c = ProviderContainer(
+      retry: (_, _) => null,
+      overrides: [
+        envProvider.overrideWithValue(PmartEnv.mock),
+        deliveryRepositoryProvider.overrideWithValue(repo),
+        notificationRepositoryProvider.overrideWithValue(inbox),
+      ],
+    );
+    addTearDown(c.dispose);
+    final feed = await c.read(notificationFeedProvider.future);
+    expect(feed.entries.map((e) => e.latest.id), ['n1', 'g1']);
+    expect(feed.unread, 2);
+    final at = DateTime.utc(2026, 11, 25, 1);
+    final closed = _n('c', at, template: helpRequestClosedTemplate);
+    expect(finishedLongAgo(closed, at.add(const Duration(hours: 5))), isTrue);
+    expect(
+      finishedLongAgo(closed, at.add(const Duration(hours: 4, minutes: 59))),
+      isFalse,
+    );
+  });
+
   testWidgets('알림함 화면: 한 줄에 날짜·"알림 3개", 누르면 묶인 3건 읽음', (t) async {
     final repo = MockDeliveryRepository(latency: Duration.zero);
     final now = DateTime.now();
@@ -174,6 +226,48 @@ void main() {
     await t.pumpAndSettle();
     expect(inbox.marked.toSet(), {'l0', 'l1', 'l2'});
     expect(find.text('thread req-live'), findsOneWidget);
+  });
+
+  testWidgets('문의 답변 알림은 오래돼도 남고, 누르면 그 문의로(사용자 2026-11-25)', (t) async {
+    final repo = MockDeliveryRepository(latency: Duration.zero);
+    final inbox = _FakeInbox([
+      _n(
+        'q1',
+        DateTime.now().subtract(const Duration(days: 3)),
+        target: const InquiryTarget('inq-7'),
+        title: '문의에 답변이 등록되었어요',
+        template: 'RIDER_INQUIRY_ANSWERED',
+      ),
+    ]);
+    await t.pumpWidget(
+      ProviderScope(
+        retry: (_, _) => null,
+        overrides: [
+          envProvider.overrideWithValue(PmartEnv.mock),
+          deliveryRepositoryProvider.overrideWithValue(repo),
+          notificationRepositoryProvider.overrideWithValue(inbox),
+        ],
+        child: MaterialApp.router(
+          locale: const Locale('ko'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          routerConfig: GoRouter(
+            routes: [
+              GoRoute(path: '/', builder: (_, _) => const NotificationScreen()),
+              GoRoute(
+                path: '/my/inquiries/:id',
+                builder: (_, s) => Text('inquiry ${s.pathParameters['id']}'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    await t.pumpAndSettle();
+    await t.tap(find.byKey(const ValueKey('noti-q1')));
+    await t.pumpAndSettle();
+    expect(inbox.marked, ['q1']);
+    expect(find.text('inquiry inq-7'), findsOneWidget);
   });
 
   testWidgets('공지(RIDER_NOTICE)는 꼬리표가 붙고, 누르면 전문 화면 — 읽음 표시(2026-11-24)', (

@@ -39,6 +39,7 @@ class RiderNotification {
     required this.target,
     this.body,
     this.notice = false,
+    this.templateKey,
   });
 
   final String id;
@@ -51,7 +52,19 @@ class RiderNotification {
   /// 운영 공지(백오피스 "공지 보내기" — templateKey RIDER_NOTICE, 2026-11-24 사용자 "라이더앱에 공지를 읽는 곳은 없네?").
   /// 알림함에 공지 꼬리표를 달고, 누르면 전문을 보인다(본문 최대 500자).
   final bool notice;
+
+  /// 알림 종류(notification 0.4.4 `templateKey`). 모르면 null.
+  final String? templateKey;
+
+  /// 마무리 알림 — 도움요청 처리가 끝났다(사용자 2026-11-25 "마무리된 알림은 5시간 뒤 자동 없어짐").
+  bool get finished => templateKey == helpRequestClosedTemplate;
 }
+
+/// 도움요청 처리 끝 알림 종류(notification-service CaseClosed RIDER_HELP).
+const helpRequestClosedTemplate = 'HELP_REQUEST_CLOSED';
+
+/// 마무리 알림이 알림함에 남아 있는 시간(사용자 2026-11-25). 지나면 알림함·종 배지에서 뺀다(서버 기록은 그대로).
+const finishedNotificationTtl = Duration(hours: 5);
 
 /// 공지 알림 종류(notification 0.5.0 `sendRiderNotice` — 알림함 한 줄 templateKey).
 const riderNoticeTemplate = 'RIDER_NOTICE';
@@ -100,6 +113,7 @@ RiderNotification notificationFromContract(nt.Notification n) =>
         n.destination?.ref,
       ),
       notice: n.templateKey == riderNoticeTemplate,
+      templateKey: n.templateKey,
     );
 
 final class ApiNotificationRepository implements NotificationRepository {

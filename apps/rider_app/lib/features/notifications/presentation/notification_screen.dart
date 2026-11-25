@@ -23,6 +23,7 @@ final _endedDeliveriesProvider = Provider<Set<String>>((_) => <String>{});
 /// - 같은 도움요청의 알림은 한 줄로 묶는다.
 /// - 배송이 끝난 도움요청 알림은 알림함에서 뺀다 — 그 대화는 배달기록 > 배달 내역에서 본다.
 ///   배송 상태를 못 읽으면 빼지 않는다(모르는 것을 끝난 것으로 치지 않는다).
+/// - 마무리 알림(도움요청 처리 끝)이 맨 위인 줄은 5시간 지나면 뺀다(사용자 2026-11-25).
 /// - 안 읽은 수는 보이는 줄 기준(종 배지와 알림함이 같은 수를 보인다).
 final notificationFeedProvider =
     FutureProvider.autoDispose<({List<NotificationEntry> entries, int unread})>(
@@ -40,9 +41,10 @@ final notificationFeedProvider =
               if (isEndedDelivery(d.state)) ended.add(id);
             }, onError: (Object _) {}),
         ]);
+        final now = DateTime.now();
         final entries = [
           for (final e in groupNotifications(inbox.items))
-            if (!_hidden(e, ended)) e,
+            if (!_hidden(e, ended, now)) e,
         ];
         return (
           entries: entries,
@@ -51,11 +53,17 @@ final notificationFeedProvider =
       },
     );
 
-bool _hidden(NotificationEntry e, Set<String> ended) =>
+bool _hidden(NotificationEntry e, Set<String> ended, DateTime now) =>
+    finishedLongAgo(e.latest, now) ||
     switch (e.latest.target) {
       HelpRequestTarget(:final deliveryId) => ended.contains(deliveryId),
       _ => false,
     };
+
+/// 마무리 알림이고 받은 지 5시간이 지났다.
+@visibleForTesting
+bool finishedLongAgo(RiderNotification n, DateTime now) =>
+    n.finished && now.difference(n.createdAt) >= finishedNotificationTtl;
 
 /// 알림함: 지원센터 답장·처리 끝·문의 답변·계정 제한/해제. 누르면 읽음 처리 뒤 그 화면으로.
 class NotificationScreen extends ConsumerWidget {
