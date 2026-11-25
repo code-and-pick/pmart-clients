@@ -38,7 +38,13 @@ String vehicleText(AppLocalizations l10n, Vehicle v) => switch (v) {
   Vehicle.walk => l10n.vehicleWalk,
 };
 
-const _headline = TextStyle(fontSize: 26, height: 1.45, color: RiderColors.ink);
+// 2026-11-25 사용자 "입력해주세요 글자 굵게" — 가입 단계 제목 모두 굵게(단계마다 같은 모양)
+const _headline = TextStyle(
+  fontSize: 26,
+  height: 1.45,
+  fontWeight: FontWeight.w700,
+  color: RiderColors.ink,
+);
 const _label = TextStyle(fontSize: 15, color: RiderColors.ink);
 
 /// 가입 안내(레퍼런스 "누구나 할 수 있는" 화면). 캐릭터 그림 대신 이동 수단 아이콘을 쓴다.
@@ -831,7 +837,8 @@ class _SignupFlowScreenState extends ConsumerState<SignupFlowScreen> {
       decoration: InputDecoration(hintText: l10n.fieldResidenceDetailHint),
       onChanged: (v) => _set(_draft.copyWith(addressDetail: v)),
     ),
-    const SizedBox(height: 24),
+    // 2026-11-25 사용자 "거주지·배달지역·배달수단·운전면허 사이 간격 아주 조금만 넓혀" — 24 → 30
+    const SizedBox(height: 30),
     Text(l10n.fieldArea, style: _label),
     const SizedBox(height: 8),
     _SelectBox(
@@ -856,7 +863,8 @@ class _SignupFlowScreenState extends ConsumerState<SignupFlowScreen> {
         ),
       ),
     ),
-    const SizedBox(height: 24),
+    // 2026-11-25 사용자 "거주지·배달지역·배달수단·운전면허 사이 간격 아주 조금만 넓혀" — 24 → 30
+    const SizedBox(height: 30),
     Text(l10n.fieldVehicle, style: _label),
     const SizedBox(height: 8),
     _SelectBox(
@@ -868,7 +876,8 @@ class _SignupFlowScreenState extends ConsumerState<SignupFlowScreen> {
       hint: l10n.selectHint,
       onTap: _pickVehicle,
     ),
-    const SizedBox(height: 24),
+    // 2026-11-25 사용자 "거주지·배달지역·배달수단·운전면허 사이 간격 아주 조금만 넓혀" — 24 → 30
+    const SizedBox(height: 30),
     Text(
       licenseRequired(_draft.vehicle)
           ? l10n.fieldLicenseRequired
@@ -957,7 +966,8 @@ class _SignupFlowScreenState extends ConsumerState<SignupFlowScreen> {
             Text(
               l10n.feeGuideLink,
               style: const TextStyle(
-                fontSize: 17,
+                fontSize:
+                    19, // 2026-11-25 사용자 "배달료 확인하기 글자도 조금만 더 키워" — 17 → 19
                 fontWeight: FontWeight.w800,
                 color: RiderColors.primary,
               ),
