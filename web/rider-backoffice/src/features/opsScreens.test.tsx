@@ -73,10 +73,9 @@ describe('관제', () => {
   it('센터를 고르면 운행 중 라이더 위치·끊김', async () => {
     renderAt('/control?mfcId=MFC-BSJ-01', as.riderOps);
     const rows = await screen.findAllByTestId('control-row');
-    expect(rows).toHaveLength(2);
+    // 목 기본은 위치가 들어오는 R4829 한 명(번호 없는 목 라이더 RD-9 는 2026-11-25 뺐다). 끊김은 controlExtras 시험이 따로 본다.
+    expect(rows).toHaveLength(1);
     expect(rows[0]).toHaveTextContent('35.15850, 129.06200');
-    expect(rows[1]).toHaveTextContent('위치 없음');
-    expect(screen.getByText('위치 끊김 1명')).toBeInTheDocument();
   });
   it('상담원은 서버가 막는다(403 그대로)', async () => {
     renderAt('/control?mfcId=MFC-BSJ-01', as.cs);

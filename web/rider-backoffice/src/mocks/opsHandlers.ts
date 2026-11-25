@@ -358,8 +358,7 @@ export const opsHandlers = [
           waitingSince: null,
           activeDeliveries: [{ deliveryId: 'DLV-1', stage: 'TO_CUSTOMER', pickedUp: true, etaDrop: null, promisedAt: new Date(Date.now() - 30 * 60_000).toISOString(), delayed: true, dropArea: { lat: 35.16, lng: 129.06 } }],
         },
-        // 신규배차를 꺼 둔 운행 라이더 — 대기로 세지 않는다(waitingSince null)
-        { riderId: 'RD-9', vehicleType: 'BICYCLE', newDispatchEnabled: false, restriction: 'NORMAL', location: null, staleSinceSeconds: null, stale: true, onDutySince: new Date(Date.now() - 40 * 60_000).toISOString(), waitingSince: null, activeDeliveries: [] },
+        // RD-9(라이더 명단에 없어 "번호 없음"으로 보이던 목 라이더)는 뺐다 — 2026-11-25 사용자 "번호 없음인데 없애라"
       ],
     });
   }),
