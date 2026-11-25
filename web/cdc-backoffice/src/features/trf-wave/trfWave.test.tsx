@@ -41,6 +41,18 @@ describe('TRF 목록', () => {
     expect(screen.queryByText('조건에 맞는 TRF 가 없어요.')).not.toBeInTheDocument();
   });
 
+  it('품목별 수량에 상품 이름 — SKU 로 상품 서비스에 묻고, 못 찾으면 SKU 만(2026-11-26)', async () => {
+    server.use(http.get(`${API_BASE}/products`, ({ request }) => {
+      const q = new URL(request.url).searchParams.get('q');
+      return HttpResponse.json({ items: q === 'SKU-1001' ? [{ productId: 'P1', internalName: '냉동 만두 1kg' }] : [], page: { nextCursor: null } });
+    }));
+    renderAt('/c/CDC01/trf-wave/trf/TRF-20261126-0001');
+    const lines = await screen.findByTestId('trf-lines');
+    expect(await within(lines).findByText('냉동 만두 1kg')).toBeInTheDocument();
+    const other = within(lines).getByText('SKU-1002').closest('[data-testid="sku-name"]')!;
+    expect(other.textContent).toBe('SKU-1002');
+  });
+
   it('TRF 상세: 줄별 승인·할당·피킹·부족', async () => {
     renderAt('/c/CDC01/trf-wave/trf/TRF-20261126-0001');
     const lines = await screen.findByTestId('trf-lines');
@@ -58,7 +70,7 @@ describe('Wave 만들기', () => {
     expect(screen.getByTestId('wave-create')).toBeDisabled();
     await userEvent.click(screen.getByRole('checkbox', { name: 'TRF-20261126-0004 고르기' }));
     await userEvent.click(screen.getByTestId('wave-create'));
-    expect(await screen.findByRole('heading', { name: 'Wave WAVE-20261126-03' })).toBeInTheDocument();
+    expect(await screen.findByText('시스템 번호 WAVE-20261126-03')).toBeInTheDocument();
     const post = view.sent.find((r) => r.method === 'POST' && new URL(r.url).pathname.endsWith('/waves'))!;
     expect(post.headers.get('Idempotency-Key')).toBeTruthy();
     expect(post.headers.get('X-Source-System')).toBe('cdc-backoffice-web');
@@ -79,7 +91,7 @@ describe('Wave 만들기', () => {
 describe('Wave 릴리스', () => {
   it('PLANNED 만 릴리스 — 확인 뒤 기대 버전을 붙여 보내고, 서버 상태가 바뀐 뒤에만 "릴리스됐어요"', async () => {
     const view = renderAt('/c/CDC01/trf-wave/waves/WAVE-20261126-02');
-    expect(await screen.findByRole('heading', { name: 'Wave WAVE-20261126-02' })).toBeInTheDocument();
+    expect(await screen.findByText('시스템 번호 WAVE-20261126-02')).toBeInTheDocument();
     await userEvent.click(screen.getByTestId('wave-release'));
     await userEvent.click(screen.getByTestId('wave-release-go'));
     expect(await screen.findByText('릴리스됐어요. 피킹 작업이 만들어졌어요.')).toBeInTheDocument();
@@ -91,11 +103,21 @@ describe('Wave 릴리스', () => {
   it('ACCEPTED 만 받으면 "접수"로만 — 완료라고 하지 않는다', async () => {
     server.use(http.post(`${API_BASE}/waves/:waveId/releases`, () => HttpResponse.json({ status: 'ACCEPTED', requestId: 'r1' }, { status: 202 })));
     renderAt('/c/CDC01/trf-wave/waves/WAVE-20261126-02');
-    await screen.findByRole('heading', { name: 'Wave WAVE-20261126-02' });
+    await screen.findByText('시스템 번호 WAVE-20261126-02');
     await userEvent.click(screen.getByTestId('wave-release'));
     await userEvent.click(screen.getByTestId('wave-release-go'));
     expect(await screen.findByText('릴리스를 접수했어요. 상태가 바뀌면 여기에 보여요.')).toBeInTheDocument();
     expect(screen.queryByText('릴리스됐어요. 피킹 작업이 만들어졌어요.')).not.toBeInTheDocument();
+  });
+
+  it('Wave 상세: 무엇을 묶었는지 — 설명·받는 MFC·수량 합·TRF 표(2026-11-26)', async () => {
+    renderAt('/c/CDC01/trf-wave/waves/WAVE-20261126-01');
+    const summary = await screen.findByTestId('wave-summary');
+    await waitFor(() => expect(summary).toHaveTextContent('MFC-BJG-01, MFC-BNG-01'));
+    expect(summary).toHaveTextContent('94');
+    expect(screen.getByText('묶은 TRF 2건')).toBeInTheDocument();
+    expect(screen.getAllByTestId('wave-trf-row')).toHaveLength(2);
+    expect(screen.getByText(/함께 피킹·출고하려고 묶은 단위/)).toBeInTheDocument();
   });
 
   it('진행 중 Wave 는 릴리스 단추가 꺼져 있다', async () => {

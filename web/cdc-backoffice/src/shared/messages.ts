@@ -155,7 +155,7 @@ export const messages = {
       allocationError: '할당 거절 사유',
       createdAt: '받은 시각',
       updatedAt: '바뀐 시각',
-      sku: 'SKU',
+      sku: '상품',
     },
     state: {
       RECEIVED: '받음',
@@ -182,6 +182,9 @@ export const messages = {
     creating: 'Wave 를 만드는 중이에요',
     created: (id: string) => `Wave ${id} 를 만들었어요.`,
     title: (id: string) => `Wave ${id}`,
+    titleAt: (at: string) => `${at} 에 만든 Wave`,
+    titleNoDate: 'Wave',
+    systemId: '시스템 번호',
     back: 'TRF·Wave 로',
     release: '릴리스',
     cancel: '그만두기',
@@ -191,6 +194,16 @@ export const messages = {
     releaseApplied: '릴리스됐어요. 피킹 작업이 만들어졌어요.',
     tasks: '이 Wave 의 작업 보기',
     noWave: 'Wave 없음',
+    /** Wave 가 묶은 것(2026-11-26) */
+    contents: {
+      title: (n: number) => `묶은 TRF ${n}건`,
+      lead: 'Wave 는 MFC 들이 요청해 승인된 출고 요청(TRF)을 함께 피킹·출고하려고 묶은 단위예요. 릴리스하면 이 TRF 들의 피킹 작업이 만들어져요.',
+      mfcs: '받는 MFC',
+      due: '기한',
+      unknown: '확인 불가',
+      someFailed: '일부 TRF 를 불러오지 못해 합계를 낼 수 없어요.',
+      rowFailed: '이 TRF 를 불러오지 못했어요.',
+    },
     tabTrf: 'TRF',
     tabWaves: 'Wave',
     listEmpty: '조건에 맞는 Wave 가 없어요.',
@@ -234,7 +247,7 @@ export const messages = {
     more: '다음 쪽',
     detail: '작업 상세',
     back: '작업 목록으로',
-    lines: '줄',
+    lines: '피킹할 품목',
     shares: 'TRF 별 몫',
     fields: {
       taskId: '작업',
@@ -252,7 +265,7 @@ export const messages = {
       progress: '피킹 / 계획',
       createdAt: '만든 시각',
       completedAt: '끝난 시각',
-      sku: 'SKU',
+      sku: '상품',
       lot: 'LOT',
       location: '위치',
       planned: '계획',
@@ -275,6 +288,11 @@ export const messages = {
     } as Readonly<Record<string, string>>,
     unassigned: '담당 없음',
     batch: (n: number) => `묶음 TRF ${n}개`,
+    titleOf: (kind: string, place: string) => `${kind} 작업 · ${place}`,
+    taskWord: '작업',
+    noLines: '피킹할 품목이 없어요.',
+    noLinesCancelled: '취소된 작업이라 피킹할 품목이 없어요.',
+    shortReasons: { NOT_FOUND: '칸에 없음', DAMAGED: '파손', EXPIRED: '기한 지남', LOCATION_BLOCKED: '칸 막힘', OTHER: '기타' } as Readonly<Record<string, string>>,
   },
 
   /** 기준정보 — 상품 취급(cdc-inventory)·로케이션·통로 피킹 방식(cdc-location) */
@@ -524,6 +542,7 @@ export const messages = {
     emptyPrefix: '조건에 맞는 칸 재고가 없어요.',
     truncated: '줄이 많아 앞부분만 보여요. 칸 코드를 더 좁혀 주세요.',
     location: '칸',
+    product: '상품',
   },
 
   /** 실사(cdc-inventory 0.8.0 count-sessions) */

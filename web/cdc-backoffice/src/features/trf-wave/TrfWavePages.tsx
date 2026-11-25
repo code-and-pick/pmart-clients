@@ -5,7 +5,7 @@
 // - Wave 상세 `GET /waves/{waveId}`, 릴리스 `POST /waves/{waveId}/releases`(X-Expected-Version, 202 CommandResponse).
 //   ACCEPTED 는 완료로 보이지 않는다 — Wave 를 다시 읽어 상태가 바뀐 것만 보인다.
 // - Wave 목록 `GET /cdcs/{cdcId}/waves?state=&page=&size=`(0.15.0 W-1 — 만든 시각 최신 순). 화면 위 [TRF | Wave] 탭(?view=waves).
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, type FormEvent } from 'react';
 import { Link, Route, Routes, useNavigate, useParams, useSearchParams } from 'react-router';
 
@@ -17,6 +17,7 @@ import type { components } from '../../api/generated/cdc-outbound';
 import { useApi } from '../../app/ApiContext';
 import { centerPath } from '../../app/nav';
 import { messages } from '../../shared/messages';
+import { SkuName } from '../../shared/SkuName';
 
 const m = messages.trf;
 const w = messages.wave;
@@ -452,7 +453,9 @@ function TransferDetailPage({ cdcId }: { readonly cdcId: string }) {
                   <tbody>
                     {t.lines.map((l) => (
                       <tr key={l.sku}>
-                        <td className="font-mono text-xs">{l.sku}</td>
+                        <td>
+                          <SkuName sku={l.sku} />
+                        </td>
                         <td className="text-right">
                           <Qty n={l.approvedQty} />
                         </td>
@@ -511,6 +514,110 @@ function Readiness({ cdcId, trfId }: { readonly cdcId: string; readonly trfId: s
   );
 }
 
+/**
+ * Wave 가 묶은 것(사용자 2026-11-26 "어떤 요청을 묶은 단위인지 설명이 없어도 되는 건가?") — 한 줄 설명 + 받는 MFC·기한·품목·수량 합 +
+ * 묶인 TRF 표(받는 MFC·상태·기한·품목 수·승인·할당·피킹·부족). 수량은 TRF 상세(서버 값)를 더한 것 — 한 건이라도 못 읽으면 합계는 "확인 불가".
+ */
+function WaveContents({ cdcId, trfIds }: { readonly cdcId: string; readonly trfIds: readonly string[] }) {
+  const api = useApi();
+  const results = useQueries({
+    queries: trfIds.map((trfId) => ({
+      queryKey: ['cdc', cdcId, 'transfer', trfId],
+      queryFn: () => request('GET', api.outbound.GET('/cdcs/{cdcId}/transfers/{trfId}', { params: { path: { cdcId, trfId } } })),
+    })),
+  });
+  const rows = results.map((r) => r.data).filter((x): x is NonNullable<typeof x> => !!x);
+  const allLoaded = rows.length === trfIds.length;
+  const failed = results.some((r) => r.isError);
+  const sum = (k: 'lineCount' | 'approvedQty' | 'allocatedQty' | 'pickedQty' | 'shortQty') => (allLoaded ? messages.qty(rows.reduce((a, t) => a + t[k], 0)) : failed ? w.contents.unknown : '…');
+  const mfcs = [...new Set(rows.map((t) => t.mfcId))];
+  const dues = rows.map((t) => t.dueAt).sort();
+  return (
+    <section className="space-y-3" data-testid="wave-contents">
+      <div>
+        <h2 className="text-base font-semibold">{w.contents.title(trfIds.length)}</h2>
+        <p className="text-sm text-base-content/60">{w.contents.lead}</p>
+      </div>
+      <div className="rounded-box border border-base-300 bg-base-100 p-4">
+        <FieldList
+          testId="wave-summary"
+          rows={[
+            [w.contents.mfcs, allLoaded ? mfcs.join(', ') || messages.none : failed ? w.contents.unknown : '…'],
+            [w.contents.due, dues.length ? (dues.length > 1 && dues[0] !== dues[dues.length - 1] ? `${formatSeoul(dues[0]!)} ~ ${formatSeoul(dues[dues.length - 1]!)}` : formatSeoul(dues[0]!)) : messages.none],
+            [m.fields.lines, sum('lineCount')],
+            [m.fields.approved, sum('approvedQty')],
+            [m.fields.allocated, sum('allocatedQty')],
+            [m.fields.picked, sum('pickedQty')],
+            [m.fields.short, sum('shortQty')],
+          ]}
+        />
+      </div>
+      {failed && (
+        <p role="alert" className="alert alert-warning text-sm">
+          {w.contents.someFailed}
+        </p>
+      )}
+      <div className="overflow-x-auto rounded-box border border-base-300 bg-base-100">
+        <table className="table table-sm" data-testid="wave-trfs">
+          <thead>
+            <tr>
+              <th>{m.fields.trfId}</th>
+              <th>{m.fields.mfc}</th>
+              <th>{m.fields.state}</th>
+              <th>{m.fields.dueAt}</th>
+              <th className="text-right" title={m.hint.lines}>{m.fields.lines}</th>
+              <th className="text-right" title={m.hint.approved}>{m.fields.approved}</th>
+              <th className="text-right" title={m.hint.allocated}>{m.fields.allocated}</th>
+              <th className="text-right" title={m.hint.picked}>{m.fields.picked}</th>
+              <th className="text-right" title={m.hint.short}>{m.fields.short}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {trfIds.map((id, i) => {
+              const t = results[i]?.data;
+              return (
+                <tr key={id} data-testid="wave-trf-row">
+                  <td>
+                    <Link className="link font-mono text-xs" to={trfWavePath(cdcId, `trf/${encodeURIComponent(id)}`)}>
+                      {id}
+                    </Link>
+                  </td>
+                  {t ? (
+                    <>
+                      <td className="font-mono text-xs">{t.mfcId}</td>
+                      <td>
+                        <TrfStateBadge state={t.state} />
+                      </td>
+                      <td>{formatSeoul(t.dueAt)}</td>
+                      <td className="text-right">{t.lineCount}</td>
+                      <td className="text-right">
+                        <Qty n={t.approvedQty} />
+                      </td>
+                      <td className="text-right">
+                        <Qty n={t.allocatedQty} />
+                      </td>
+                      <td className="text-right">
+                        <Qty n={t.pickedQty} />
+                      </td>
+                      <td className="text-right">
+                        <Qty n={t.shortQty} warn />
+                      </td>
+                    </>
+                  ) : (
+                    <td colSpan={8} className="text-sm text-base-content/55">
+                      {results[i]?.isError ? w.contents.rowFailed : '…'}
+                    </td>
+                  )}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
 // ---------------------------------------------------------------- Wave 상세·릴리스
 
 function WaveDetailPage({ cdcId }: { readonly cdcId: string }) {
@@ -537,8 +644,10 @@ function WaveDetailPage({ cdcId }: { readonly cdcId: string }) {
           <>
             <DetailHeader
               back={{ to: trfWavePath(cdcId), label: w.back }}
-              title={w.title(v.waveId ?? waveId)}
+              // 화면 번호(W…)가 서버에 생기기 전까지 제목은 '언제 만든 Wave' 로 — 긴 시스템 ID 는 아래 작은 글씨(ADR-0070: 목록·제목에 시스템 ID 를 크게 내지 않는다)
+              title={v.createdAt ? w.titleAt(formatSeoul(v.createdAt)) : w.titleNoDate}
               badges={<WaveStateBadge state={v.state} />}
+              summary={<span className="font-mono text-xs" data-testid="wave-system-id">{`${w.systemId} ${v.waveId ?? waveId}`}</span>}
               actions={
                 <>
                   <Link className="btn btn-sm" to={`${centerPath(cdcId, 'tasks')}?waveId=${encodeURIComponent(v.waveId ?? waveId)}`}>
@@ -611,16 +720,7 @@ function WaveDetailPage({ cdcId }: { readonly cdcId: string }) {
                 ]}
               />
             </div>
-            <h2 className="text-base font-semibold">{w.fields.trfs}</h2>
-            <ul className="flex flex-wrap gap-2" data-testid="wave-trfs">
-              {(v.trfIds ?? []).map((id) => (
-                <li key={id}>
-                  <Link className="badge badge-outline font-mono" to={trfWavePath(cdcId, `trf/${encodeURIComponent(id)}`)}>
-                    {id}
-                  </Link>
-                </li>
-              ))}
-            </ul>
+            <WaveContents cdcId={cdcId} trfIds={v.trfIds ?? []} />
           </>
         )}
       </QueryState>

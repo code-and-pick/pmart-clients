@@ -12,6 +12,7 @@ import type { components } from '../../api/generated/cdc-outbound';
 import { useApi } from '../../app/ApiContext';
 import { centerPath } from '../../app/nav';
 import { messages } from '../../shared/messages';
+import { SkuName } from '../../shared/SkuName';
 import { wavePath, WaveStateBadge } from '../trf-wave/TrfWavePages';
 
 const m = messages.task;
@@ -241,9 +242,15 @@ function TaskDetailPage({ cdcId }: { readonly cdcId: string }) {
           <>
             <DetailHeader
               back={{ to: t.waveId ? `${tasksPath(cdcId)}?waveId=${encodeURIComponent(t.waveId)}` : tasksPath(cdcId), label: m.back }}
-              title={t.taskId ?? taskId}
+              // 화면 번호(K…) 전까지 제목은 '종류 작업 · 구역·층' — 시스템 ID 는 아래 작은 글씨
+              title={m.titleOf(t.kind ? (m.kind[t.kind] ?? t.kind) : m.taskWord, place(t))}
               badges={<TaskStateBadge state={t.state} />}
-              summary={[t.kind ? (m.kind[t.kind] ?? t.kind) : null, t.pickMode ? (m.mode[t.pickMode] ?? t.pickMode) : null, place(t)].filter(Boolean).join(' · ')}
+              summary={
+                <span className="space-x-2">
+                  <span>{[t.pickMode ? (m.mode[t.pickMode] ?? t.pickMode) : null, t.pickMethod ?? null].filter(Boolean).join(' · ')}</span>
+                  <span className="font-mono text-xs" data-testid="task-system-id">{`${messages.wave.systemId} ${t.taskId ?? taskId}`}</span>
+                </span>
+              }
             />
             <div className="rounded-box border border-base-300 bg-base-100 p-4">
               <FieldList
@@ -276,15 +283,24 @@ function TaskDetailPage({ cdcId }: { readonly cdcId: string }) {
                   </tr>
                 </thead>
                 <tbody>
+                  {(t.lines ?? []).length === 0 && (
+                    <tr>
+                      <td colSpan={8} className="text-center text-sm text-base-content/60" data-testid="task-no-lines">
+                        {t.state === 'CANCELLED' ? m.noLinesCancelled : m.noLines}
+                      </td>
+                    </tr>
+                  )}
                   {(t.lines ?? []).map((l, i) => (
                     <tr key={`${l.sku}-${l.lot}-${l.locationCode}-${i}`}>
-                      <td className="font-mono text-xs">{l.sku}</td>
+                      <td>
+                        <SkuName sku={l.sku ?? ''} />
+                      </td>
                       <td className="font-mono text-xs">{l.lot ?? messages.none}</td>
                       <td className="font-mono text-xs">{l.locationCode ?? messages.none}</td>
                       <td className="text-right tabular-nums">{messages.qty(l.plannedQty ?? 0)}</td>
                       <td className="text-right tabular-nums">{messages.qty(l.pickedQty ?? 0)}</td>
                       <td className={`text-right tabular-nums ${(l.shortQty ?? 0) > 0 ? 'font-semibold text-error' : ''}`}>{messages.qty(l.shortQty ?? 0)}</td>
-                      <td>{l.shortReason ?? messages.none}</td>
+                      <td title={l.shortReason}>{l.shortReason ? (m.shortReasons[l.shortReason] ?? l.shortReason) : messages.none}</td>
                       <td className="whitespace-normal text-xs">
                         {(l.shares ?? []).length === 0
                           ? messages.none

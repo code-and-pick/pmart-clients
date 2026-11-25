@@ -8,6 +8,7 @@ import type { paths as InventoryPaths } from './generated/cdc-inventory';
 import type { paths as LocationPaths } from './generated/cdc-location';
 import type { paths as OutboundPaths } from './generated/cdc-outbound';
 import type { paths as HrPaths } from './generated/hr';
+import type { paths as ProductPaths } from './generated/product';
 
 export { SOURCE_SYSTEM };
 
@@ -27,6 +28,8 @@ export function createApi(pmartFetch: PmartFetch, baseUrl = API_BASE) {
     location: createClient<LocationPaths>(options),
     // 내 정보 — hr-service 본인 조회
     hr: createClient<HrPaths>(options),
+    // 상품 이름(관리용 명칭) — CDC 응답에 이름이 없어 SKU 로 찾는다(shared/SkuName, 백엔드 P-1 요청)
+    product: createClient<ProductPaths>(options),
   };
 }
 

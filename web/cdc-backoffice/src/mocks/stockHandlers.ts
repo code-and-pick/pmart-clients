@@ -125,7 +125,22 @@ const NEXT: Readonly<Record<string, Readonly<Record<string, Location['state']>>>
   RETIRE: { DRAFT: 'RETIRED' },
 };
 
+/** product-service 목 — GET /products?q=<SKU>(SKU 코드 완전 일치) */
+const productNames: Readonly<Record<string, string>> = {
+  'SKU-1001': '냉동 만두 1kg',
+  'SKU-1002': '냉장 우유 900ml',
+  'SKU-1003': '생수 2L 6입',
+  'SKU-2001': '양파 3kg',
+};
+
 export const stockHandlers = [
+  http.get(`${API_BASE}/products`, ({ request }) => {
+    if (!operator(request)) return unauthorized();
+    const q = new URL(request.url).searchParams.get('q') ?? '';
+    const name = productNames[q];
+    return HttpResponse.json({ items: name ? [{ productId: `PRD-${q}`, internalName: name, saleState: 'ON_SALE', version: 1 }] : [], page: { nextCursor: null, size: 1 } });
+  }),
+
   http.get(`${API_BASE}/cdcs/:cdcId/stock-snapshot`, ({ request, params }) => {
     const denied = guard(request, String(params.cdcId));
     if (denied) return denied;

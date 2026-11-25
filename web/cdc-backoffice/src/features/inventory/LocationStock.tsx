@@ -6,6 +6,7 @@ import { request } from '@pmart/web-core';
 import { formatSeoulDate, QueryState, toUiState } from '@pmart/web-ui';
 import { useApi } from '../../app/ApiContext';
 import { messages } from '../../shared/messages';
+import { SkuName } from '../../shared/SkuName';
 
 const t = messages.locStock;
 
@@ -29,7 +30,7 @@ export function LocationStockTable({ cdcId, prefix, single = false }: { readonly
               <thead>
                 <tr>
                   {!single && <th>{t.location}</th>}
-                  <th>{messages.inventory.sku}</th>
+                  <th>{t.product}</th>
                   <th>{messages.inventory.lot}</th>
                   <th>{messages.inventory.expires}</th>
                   <th>{messages.inventory.quality}</th>
@@ -41,7 +42,9 @@ export function LocationStockTable({ cdcId, prefix, single = false }: { readonly
                 {data.items.map((r) => (
                   <tr key={`${r.locationCode}-${r.sku}-${r.lot}-${r.qualityState}`} data-testid="location-stock-row">
                     {!single && <td className="font-mono text-xs">{r.locationCode}</td>}
-                    <td className="font-mono text-xs">{r.sku}</td>
+                    <td>
+                      <SkuName sku={r.sku} lookup={data.items.length <= 100} />
+                    </td>
                     <td className="font-mono text-xs">{r.lot}</td>
                     <td>{r.expiresAt ? formatSeoulDate(r.expiresAt) : messages.none}</td>
                     <td>{messages.inventory.qualityState[r.qualityState] ?? r.qualityState}</td>
