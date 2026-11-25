@@ -33,6 +33,12 @@ const employees: Readonly<Record<string, EmployeeSelf>> = {
 const labels: Readonly<Record<string, Omit<EmployeeLabel, 'operatorId'>>> = {
   'OP-cdc-sup': { name: '칠관리', employeeNo: 'E-2026-0401' },
   'OP-admin-cdc': { name: '오운영', employeeNo: 'E-2026-0002' },
+  'OP-other-sup': { name: '박관리', employeeNo: 'E-2026-0402' },
+  'cdcw-fc-01': { name: '김피킹', employeeNo: 'E-2026-0501' },
+  'cdcw-dl-02': { name: '이분배', employeeNo: 'E-2026-0502' },
+  'cdcw-fc-03': { name: '한피킹', employeeNo: 'E-2026-0503' },
+  'cdcw-qc-01': { name: '최검품', employeeNo: 'E-2026-0504' },
+  'cdcw-qc-02': { name: '정검품', employeeNo: 'E-2026-0505' },
 };
 
 export const meHandlers = [

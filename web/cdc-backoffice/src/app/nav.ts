@@ -64,7 +64,7 @@ export const navGroups: readonly MenuGroup[] = [
       {
         key: 'picking',
         segment: 'picking',
-        ready: false,
+        ready: true,
         apiReady: ['FC 피킹 작업(묶음 피킹 지역)'],
         apiMissing: ['DPS·AutoStore·분배·DAS·Wheel Sorter·자키 작업(작업 화면만 — 설비 상태는 두지 않음)'],
       },

@@ -14,6 +14,7 @@ import { FloorMenu } from '../features/floor/FloorPage';
 import { InventoryMenu } from '../features/inventory/InventoryPages';
 import { MasterMenu } from '../features/master/MasterPages';
 import { PreparingPage } from '../features/menus/PreparingPage';
+import { PickingMenu } from '../features/picking/PickingPage';
 import { ShippingMenu } from '../features/shipping/ShippingPage';
 import { TasksMenu } from '../features/tasks/TaskPages';
 import { TrfWaveMenu } from '../features/trf-wave/TrfWavePages';
@@ -196,6 +197,7 @@ const menuPages: Partial<Record<MenuKey, ComponentType<{ readonly cdcId: string 
   master: MasterMenu,
   inventory: InventoryMenu,
   shipping: ShippingMenu,
+  picking: PickingMenu,
 };
 
 function MenuPage({ menu, cdcId }: { readonly menu: MenuItem; readonly cdcId: string }) {

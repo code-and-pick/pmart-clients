@@ -257,7 +257,7 @@ export const messages = {
     fields: {
       taskId: '작업',
       kind: '종류',
-      mode: '피킹 방식',
+      mode: '묶는 방식',
       method: '통로 방식',
       place: '구역·층',
       region: '지역',
@@ -476,6 +476,26 @@ export const messages = {
     barcodes: '바코드',
     saleState: '판매 상태',
     sale: { ON_SALE: '판매 중', TEMPORARILY_SOLD_OUT: '일시 품절', SALE_STOPPED: '판매 중지' } as Readonly<Record<string, string>>,
+  },
+
+  /** 피킹·분배 — 진행 중 Wave 의 피킹 작업, 통로 피킹 방식별 */
+  picking: {
+    lead: '진행 중인 Wave(릴리스·진행 중, 최근 20개)의 피킹 작업이에요. 통로 피킹 방식별로 나눠 봐요. 배정·착수·실적은 현장 PDA 에서 해요.',
+    method: '피킹 방식',
+    methods: { ALL: '전체', FC: 'FC', DPS: 'DPS(냉동)', BOX_PICK: '박스 피킹', DISTRIBUTION: '분배', LINE: '라인(DAS)', NONE: '팔레트 랙' } as Readonly<Record<string, string>>,
+    methodHint: {
+      ALL: '모든 피킹 작업이에요. 탭 옆 숫자는 끝나지 않은 작업 수예요.',
+      FC: '상온·생활 선반 — 지역 카트에 지역 몫을 묶어 집어요.',
+      DPS: '냉동 선반 — TRF 하나씩, 선반 통로마다 자리를 지키는 작업자가 자기 통로 몫만 집어요.',
+      BOX_PICK: '무거운 상자 — 지역 묶음으로 박스째 집어요.',
+      DISTRIBUTION: '6층 야채 — 지역 묶음으로 집어 분배대에서 MFC 크레이트로 나눠요.',
+      LINE: '6층 라인(DAS) — Wave 안 모든 MFC 몫을 SKU 묶음으로 집어 라인 칸으로 나눠요.',
+      NONE: '피킹 방식이 정해지지 않은 위치(팔레트 랙 등) — TRF 하나씩 집어요.',
+    } as Readonly<Record<string, string>>,
+    cards: { open: '끝나지 않은 작업', unassigned: '담당 없음', exception: '예외·일부', waves: '진행 중 Wave' },
+    noWaves: '진행 중인 Wave 가 없어요. TRF·Wave 에서 Wave 를 릴리스하면 피킹 작업이 생겨요.',
+    empty: '이 방식의 피킹 작업이 없어요.',
+    someFailed: '일부 Wave 의 작업을 불러오지 못했어요. 숫자가 모자랄 수 있어요.',
   },
 
   /** 출고관리 — 출발 검증 결과(cdc-outbound 0.16.0 M-3) */
