@@ -6,7 +6,7 @@
 // 개인정보: 주문 목록은 서버가 가린 값만(연락처 열은 보이지 않는다).
 import { useQuery } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
-import { Link } from 'react-router';
+import { Link, useSearchParams } from 'react-router';
 
 import { ProblemFailure, request } from '@pmart/web-core';
 import { AllCentersTag, useCenterScope, CenterName } from '../shared/centerScope';
@@ -245,13 +245,18 @@ export function DashboardPage() {
 
   const hour = Number(new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Seoul', hour: 'numeric', hourCycle: 'h23' }).format(new Date()));
 
-  // 2026-11-25 사용자 "대시보드는 백오피스의 얼굴인데 한 눈에 직관적으로 급한거, 통계, 처리해야 할 일이 바로 보이게 … 라이더 백오피스 참고":
-  // 탭(한눈에·운영·매출·통계)을 없애고 라이더 대시보드처럼 한 화면에 위에서 아래로 — 급한 것(이상) → 오늘의 할 일 → 현황 숫자 →
-  // 지금 운영(배송·심사 상자 + 새로 들어온 일) → 분석(최근 7일 그림) → 처리할 건 보드. 칸마다 그 조회만 부르는 것은 같다(위젯 숨기기·순서는 그대로).
-  const showOps = can('/live-delivery') || can('/approvals') || can('/pending') || admin;
-  const showAnalysis = can('/orders') || can('/case-sla') || admin;
+  // 탭(2026-11-18 사용자 "스크롤을 내려서 봐야 할 정도로 양이 많다" — Shopify·Medusa 처럼 첫 화면은 지금 할 일, 통계는 따로).
+  // 한눈에(기본) = 숫자 카드 · 최근 본 · 내 할 일 | 최근 활동 / 운영 = 지금 배송·심사 유형·지금 일 전체·운영 위험·기한 지킴 / 매출·통계 = 주문 추세·매출·최근 주문·지표.
+  // 볼 것이 없는 탭은 숨긴다. 고른 탭은 주소(?tab=)에 — 안 보이는 탭 주소면 한눈에. 고른 탭의 덩어리만 그려서 그 조회만 부른다.
+  const showOps = can('/live-delivery') || can('/approvals') || can('/pending') || can('/case-sla') || admin;
+  const showSales = can('/orders') || admin;
+  // 보드(2026-11-20 사용자 "보드로 보기") — 내 할 일과 같은 서버 조회로 칸, 볼 일이 하나라도 있는 역할만.
+  // 2026-11-21 사용자 "한눈에탭 밑에다가 보드 내용 그대로 붙이고 보드탭은 없애" — 탭을 없애고 한눈에 숫자 칸 아래에 붙인다(옛 ?tab=board 주소는 한눈에로).
   const board = { cases: can('/cases') && claimsCases, inquiries: can('/inquiries'), riderInquiries: can('/rider-inquiries'), approvals: can('/approvals') };
   const showBoard = board.cases || board.inquiries || board.riderInquiries || board.approvals;
+  const tabs = [{ id: 'overview', label: m.tabs.overview }, ...(showOps ? [{ id: 'ops', label: m.tabs.ops }] : []), ...(showSales ? [{ id: 'sales', label: m.tabs.sales }] : [])] as const;
+  const [params, setParams] = useSearchParams();
+  const tab = tabs.find((t) => t.id === params.get('tab'))?.id ?? 'overview';
 
   return (
     <DashboardLayoutProvider>
@@ -266,69 +271,91 @@ export function DashboardPage() {
         </div>
       </header>
 
-      {/* ① 급한 것 — 이상 없음 / 이상 N(기한 지난 접수 건·약속 넘긴 배송), 못 읽으면 "확인 못 함" */}
-      <DashboardStatus cases={can('/cases') && claimsCases} live={can('/live-delivery')} />
-
-      {/* ② 오늘의 할 일 — 처리를 기다리는 건수(누르면 그 목록). 넓은 화면에서 한 줄 */}
+      {/* 숫자 띠(2026-11-19 사용자가 보여 준 배송 관제 화면 참고 — 탭과 상관없이 늘 맨 위, 급한 것부터). 누르면 그 일만 모은 목록 */}
       {tasks.length > 0 && (
         <section aria-labelledby="dash-my-work" data-testid="dash-my-work" className="rounded-box border border-base-300 bg-base-100 pb-4 pt-4">
-          <div className="flex flex-wrap items-baseline justify-between gap-2 px-5 pb-3">
-            <h2 id="dash-my-work" className="text-base font-bold">
-              {m.myWork}
-            </h2>
-            <span className="text-xs text-base-content/55">{m.myWorkHint}</span>
-          </div>
-          <div className="grid grid-cols-2 gap-y-4 md:grid-cols-3 xl:auto-cols-fr xl:grid-flow-col xl:grid-cols-none [&>a]:border-l [&>a]:border-base-300">{tasks}</div>
+          <h2 id="dash-my-work" className="px-5 pb-3 text-lg font-bold">
+            {m.myWork}
+          </h2>
+          {/* 칸 사이 세로 선(AWS 리소스 숫자 칸) */}
+          <div className="grid grid-cols-2 gap-y-4 md:grid-cols-3 2xl:grid-cols-6 [&>a]:border-l [&>a]:border-base-300">{tasks}</div>
         </section>
       )}
 
-      {/* ③ 현황 숫자 — 오늘 주문(어제 대비·7일 추세선)·진행 중 배송·처리 기한 지킴·확인 필요 문제 */}
-      {stats.length > 0 && (
-        <div className="pm-stat-strip flex flex-wrap gap-px overflow-hidden rounded-box border border-base-300 bg-base-300" aria-label={m.glance} data-testid="dash-glance">
-          {stats}
+      {/* 이상 없음 / 이상 N — 기한 지난 접수 건·약속 넘긴 배송(서버 숫자), 못 읽으면 "확인 못 함" */}
+      <DashboardStatus cases={can('/cases') && claimsCases} live={can('/live-delivery')} />
+
+      {/* 가운데 = 탭 내용, 오른쪽 = 최근 활동(넓은 화면에서 붙어 있음) */}
+      <div className={`grid items-start gap-5 ${hasActivity ? 'xl:grid-cols-[minmax(0,1fr)_22rem]' : ''}`}>
+      <div className="min-w-0 space-y-5">
+      {tabs.length > 1 && (
+        <div role="tablist" aria-label={m.tabs.label} className="flex gap-1 border-b border-base-300" data-testid="dash-tabs">
+          {tabs.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              role="tab"
+              aria-selected={tab === t.id}
+              className={`-mb-px border-b-2 px-4 py-2 text-sm transition-colors ${tab === t.id ? 'border-primary font-bold text-primary' : 'border-transparent text-base-content/60 hover:text-base-content'}`}
+              onClick={() => setParams(t.id === 'overview' ? {} : { tab: t.id }, { replace: true })}
+            >
+              {t.label}
+            </button>
+          ))}
         </div>
       )}
 
-      {/* ④ 지금 운영 — 배송(늦음·라이더 없음·전달 실패)·심사 대기 유형·지금 일 전체·운영 위험, 오른쪽 새로 들어온 일 */}
-      {(showOps || hasActivity) && (
-        <div className={`grid items-start gap-4 ${hasActivity ? 'xl:grid-cols-[minmax(0,1fr)_22rem]' : ''}`}>
-          <div className="min-w-0 space-y-4">
-            {(can('/live-delivery') || can('/approvals') || admin) && (
-              <div className="grid items-start gap-4 lg:grid-cols-2 [&>*]:min-w-0">
-                {(can('/live-delivery') || admin) && (
-                  <div className="space-y-4">
-                    {can('/live-delivery') && <Widget id="live"><LiveSummary /></Widget>}
-                    {admin && <Widget id="work-deliveries"><WorkCountsPanel part="deliveries" /></Widget>}
-                  </div>
-                )}
-                {(can('/approvals') || admin) && (
-                  <div className="space-y-4">
-                    {can('/approvals') && <Widget id="approval-types"><ApprovalTypes /></Widget>}
-                    {admin && <Widget id="work-tiles"><WorkCountsPanel part="tiles" /></Widget>}
-                  </div>
-                )}
-              </div>
-            )}
-            {can('/pending') && <Widget id="risk"><RiskPanel /></Widget>}
-          </div>
-          {hasActivity && (
-            <aside className="xl:sticky xl:top-4" data-testid="dash-side">
-              <ActivityFeed {...activity} />
-            </aside>
+      {tab === 'overview' && (
+        <div role="tabpanel" aria-label={m.tabs.overview} className="space-y-5">
+          {/* 숫자 카드(가로) — 누르면 그 화면으로 */}
+          {stats.length > 0 && (
+            <div className="pm-stat-strip flex flex-wrap gap-px overflow-hidden rounded-box border border-base-300 bg-base-300" aria-label={m.glance} data-testid="dash-glance">
+              {stats}
+            </div>
           )}
+
+          {/* 최근 본 항목 줄은 뺐다(2026-11-20 사용자 "대시보드가 메인인데 없어 보이게 떠 있어야 하니") — 통합 조회·배송 확인 빈 화면에만 */}
+
+          {tasks.length === 0 && stats.length === 0 && !hasActivity && !showBoard && <p className="text-sm text-base-content/60">{m.nothing}</p>}
         </div>
       )}
 
-      {/* ⑤ 분석(최근 7일) — 매출 숫자 줄 → 7일 주문 | 오늘 상태 → 처리 기한 지킴 → 상품별 판매 | 지표 → 결품 많은 상품 → 최근 주문 */}
-      {showAnalysis && (
-        <section className="space-y-4" aria-labelledby="dash-analysis" data-testid="dash-analysis">
-          <div className="flex items-baseline gap-2">
-            <h2 id="dash-analysis" className="text-lg font-bold">
-              {m.analysis}
-            </h2>
-            <span className="text-sm text-base-content/55">{m.analysisRange}</span>
-          </div>
+      {tab === 'ops' && (
+        <div role="tabpanel" aria-label={m.tabs.ops} className="space-y-5">
+          {/* 두 기둥을 따로 쌓는다(높이가 달라도 빈 틈 없이) —
+              왼쪽: 지금 배송(늦음·라이더 없음·전달 실패) → 진행 중 배송 상태별(관리자), 오른쪽: 심사 대기 유형별 → 지금 일 전체(관리자) */}
+          {(can('/live-delivery') || can('/approvals') || admin) && (
+            <div className="grid items-start gap-4 lg:grid-cols-3 [&>*]:min-w-0">
+              {(can('/live-delivery') || admin) && (
+                <div className={`space-y-4 ${can('/approvals') || admin ? 'lg:col-span-2' : 'lg:col-span-3'}`}>
+                  {can('/live-delivery') && <Widget id="live"><LiveSummary /></Widget>}
+                  {admin && <Widget id="work-deliveries"><WorkCountsPanel part="deliveries" /></Widget>}
+                  {/* 운영 위험도 왼쪽 기둥 아래 — 오른쪽(심사 대기 + 지금 일 전체)과 높이가 비슷해진다 */}
+                  {can('/pending') && <Widget id="risk"><RiskPanel /></Widget>}
+                </div>
+              )}
+              {(can('/approvals') || admin) && (
+                <div className="space-y-4">
+                  {can('/approvals') && <Widget id="approval-types"><ApprovalTypes /></Widget>}
+                  {admin && <Widget id="work-tiles"><WorkCountsPanel part="tiles" /></Widget>}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* 운영 위험만 볼 수 있고 왼쪽 기둥이 없는 역할(처리 대기 메뉴만)일 때 */}
+          {can('/pending') && !(can('/live-delivery') || admin) && <Widget id="risk"><RiskPanel /></Widget>}
+
+          {/* 처리 기한 지킴(최근 7일) — 아래 한 줄 */}
+          {can('/case-sla') && <Widget id="sla"><SlaCard from={weekFrom} to={today} days={days} /></Widget>}
+        </div>
+      )}
+
+      {tab === 'sales' && (
+        <div role="tabpanel" aria-label={m.tabs.sales} className="space-y-5">
+          {/* 2026-11-20 그림 개편: 맨 위 매출 숫자 줄(관리자) → 7일 주문 | 오늘 상태 → 상품별 판매 | 지표 → 최근 주문 */}
           {admin && <Widget id="sales"><SalesPanel from={weekFrom} to={today} /></Widget>}
+
           {can('/orders') && (
             <div className="grid gap-4 lg:grid-cols-3">
               <div className="lg:col-span-2">
@@ -337,22 +364,31 @@ export function DashboardPage() {
               <Widget id="status-donut"><StatusDonut today={today} admin={admin} /></Widget>
             </div>
           )}
-          {can('/case-sla') && <Widget id="sla"><SlaCard from={weekFrom} to={today} days={days} /></Widget>}
+
           {(admin || can('/case-sla')) && (
             <div className={`grid items-start gap-4 ${admin && can('/case-sla') ? 'xl:grid-cols-2' : ''}`}>
               {admin && <Widget id="top-products"><TopProducts from={weekFrom} to={today} /></Widget>}
               {can('/case-sla') && <Widget id="metrics"><MetricsPanel from={weekFrom} to={today} /></Widget>}
             </div>
           )}
+
+          {/* bff 0.23.0 결품 많은 상품(관리자) */}
           {admin && <Widget id="shortage-top"><ShortageTop from={weekFrom} to={today} /></Widget>}
+
           {can('/orders') && <Widget id="recent-orders"><RecentOrders from={weekFrom} to={today} /></Widget>}
-        </section>
+        </div>
       )}
+      </div>
+      {/* 오른쪽 패널 — 최근 활동(승인·접수 건·문의, 최신 순). 넓은 화면에선 내려도 붙어 있다 */}
+      {hasActivity && (
+        <aside className="xl:sticky xl:top-4" data-testid="dash-side">
+          <ActivityFeed {...activity} />
+        </aside>
+      )}
+      </div>
 
-      {/* ⑥ 처리할 건 보드 — 내 할 일과 같은 서버 조회로 칸 */}
-      {showBoard && <DashboardBoard {...board} />}
-
-      {tasks.length === 0 && stats.length === 0 && !hasActivity && !showBoard && !showOps && !showAnalysis && <p className="text-sm text-base-content/60">{m.nothing}</p>}
+      {/* 보드 — 지금 처리할 건(2026-11-21 보드 탭을 한눈에로). 오른쪽 최근 활동 칸 옆에선 다섯 칸이 다 안 보여 그 아래 전체 폭으로 */}
+      {tab === 'overview' && showBoard && <DashboardBoard {...board} />}
     </section>
     </DashboardLayoutProvider>
   );

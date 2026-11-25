@@ -1,5 +1,6 @@
 // 지금 일 건수(bff 0.15.0 work-counts, 2026-11-18) — 관리자 대시보드: 정확한 건수, complete=false "N건 이상", 원천 실패 "확인 못 함"
 import { screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 
@@ -36,7 +37,8 @@ describe('지금 일 건수(관리자)', () => {
     renderAt('/?tab=ops', as.admin);
     expect(await within(await screen.findByTestId('dash-work-evidence')).findByText('확인 못 함')).toBeInTheDocument();
     expect(within(screen.getByTestId('dash-work-handovers')).getByText('0')).toBeInTheDocument(); // case-service 는 읽었고 줄이 없음 = 0
-    // 할 일의 심사 대기 숫자도 0 이 아니라 "?"(같은 화면 — 2026-11-25 탭 없앰)
+    // 한눈에 탭의 심사 대기 숫자도 0 이 아니라 "?"
+    await userEvent.setup().click(screen.getByRole('tab', { name: '한눈에' }));
     expect(await within(await screen.findByTestId('dash-kpi-approvals')).findByText('?')).toBeInTheDocument();
   });
 

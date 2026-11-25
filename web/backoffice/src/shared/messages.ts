@@ -3255,9 +3255,7 @@ export const messages = {
     toPending: '처리 대기',
     casesOverdue: '기한 지난 접수 건',
     casesUnassigned: '아무도 안 맡은 접수 건',
-    myWork: '오늘의 할 일',
-    analysis: '분석',
-    analysisRange: '최근 7일',
+    myWork: '내 할 일',
     // 대시보드 2판(2026-11-18)
     refreshedNow: '방금 갱신',
     refreshedAgo: (n: number) => `${n}분 전 갱신`,
@@ -3401,7 +3399,7 @@ export const messages = {
     },
     approvalTypes: '심사 대기', // 좁은 칸 한 줄(줄마다 유형 — 2026-11-24)
     slaNoClosed: '닫힌 건 없음',
-    myWorkHint: '누르면 그 목록으로 가요',
+    myWorkHint: '급한 것부터',
     /** 이상 한 줄(2026-11-19) — 서버 숫자로만, 못 읽으면 이상 없음이라 하지 않는다 */
     health: {
       ok: '이상 없음',
