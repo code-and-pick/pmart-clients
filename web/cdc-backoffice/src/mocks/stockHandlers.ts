@@ -106,8 +106,10 @@ function seed() {
 }
 
 let store = seed();
+const mockFirst = new Map<string, Array<{ locationCode: string; sku: string; lot: string; qty: number }>>();
 export const resetStock = () => {
   store = seed();
+  mockFirst.clear();
 };
 
 function guard(request: Request, cdcId: string) {
@@ -311,6 +313,39 @@ export const stockHandlers = [
     if (denied) return denied;
     const s = store.counts.find((x) => x.sessionId === params.sessionId);
     return s ? HttpResponse.json(s) : problem(404, 'NOT_FOUND');
+  }),
+
+  // 첫 계수·재계수 — 장부(목: stock 의 칸 현물)와 같으면 MATCHED
+  http.post(`${API_BASE}/cdcs/:cdcId/count-sessions/:sessionId/:step`, async ({ request, params }) => {
+    const step = String(params.step);
+    if (step !== 'counts' && step !== 'recounts') return undefined;
+    const denied = guard(request, String(params.cdcId));
+    if (denied) return denied;
+    const body = (await request.json()) as { lines: Array<{ locationCode: string; sku: string; lot: string; qty: number }> };
+    return idempotent(request, () => {
+      const sess = store.counts.find((x) => x.sessionId === params.sessionId);
+      if (!sess) return problem(404, 'NOT_FOUND');
+      const me = operator(request)?.subject ?? '';
+      if (step === 'counts' && sess.state !== 'COUNTING') return problem(409, 'INVALID_STATE');
+      if (step === 'recounts' && sess.state !== 'RECOUNT_REQUIRED') return problem(409, 'INVALID_STATE');
+      if (step === 'recounts' && sess.firstCounterId === me) return problem(409, 'SAME_COUNTER');
+      const book = (x: { locationCode: string; sku: string; lot: string }) =>
+        store.stock.find((a) => a.sku === x.sku)?.lots?.find((l) => l.lot === x.lot)?.locations?.find((l) => l.locationCode === x.locationCode)?.onHand ?? 0;
+      const same = body.lines.every((x) => x.qty === book(x));
+      if (step === 'counts') {
+        sess.firstCounterId = me;
+        mockFirst.set(sess.sessionId ?? '', body.lines);
+        sess.state = same ? 'MATCHED' : 'RECOUNT_REQUIRED';
+      } else {
+        sess.recounterId = me;
+        sess.state = same ? 'MATCHED' : 'PENDING_APPROVAL';
+      }
+      if (sess.state === 'MATCHED' || sess.state === 'PENDING_APPROVAL') {
+        const first = mockFirst.get(sess.sessionId ?? '') ?? body.lines;
+        sess.lines = body.lines.map((x) => ({ ...x, bookQty: book(x), firstQty: first.find((f) => f.locationCode === x.locationCode && f.sku === x.sku && f.lot === x.lot)?.qty ?? x.qty, finalQty: x.qty, deltaQty: x.qty - book(x) }));
+      }
+      return { status: 200, body: sess };
+    });
   }),
 
   http.post(`${API_BASE}/cdcs/:cdcId/count-sessions/:sessionId/decisions`, async ({ request, params }) => {

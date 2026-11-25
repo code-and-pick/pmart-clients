@@ -56,15 +56,47 @@ describe('칸별 재고', () => {
 });
 
 describe('실사', () => {
-  it('칸을 넣고 시작하면 그 실사로 — 계수표만(장부 수량 없음), 현장 계수 대기', async () => {
+  it('구역·층으로 칸을 불러 체크해서 시작 → 계수표(칸·상품·LOT)마다 수량 칸, 장부 수량은 없음', async () => {
     const view = renderAt('/c/CDC01/inventory?tab=count');
-    await userEvent.type(await screen.findByTestId('count-codes'), 'CDC01-A-5-03-02-1-1');
+    await userEvent.selectOptions(await screen.findByTestId('count-area'), 'A');
+    await userEvent.click(await screen.findByRole('checkbox', { name: 'CDC01-A-5-03-02-1-1 고르기' }));
+    expect(screen.getByTestId('count-picked')).toHaveTextContent('고른 칸 1');
     await userEvent.click(screen.getByTestId('count-start-go'));
     expect(await screen.findByRole('heading', { name: '실사 CNT-0002' })).toBeInTheDocument();
-    expect(screen.getByText('현장 PDA 계수를 기다리는 중이에요.')).toBeInTheDocument();
-    expect(screen.getByTestId('count-sheet')).toHaveTextContent('SKU-1001');
+    const sheet = await screen.findByTestId('count-sheet');
+    expect(within(sheet).getByText('LOT-A1')).toBeInTheDocument();
+    expect(within(sheet).queryByText('700')).not.toBeInTheDocument();
     const post = view.sent.find((r) => r.method === 'POST')!;
     expect(await post.json()).toEqual({ locationCodes: ['CDC01-A-5-03-02-1-1'] });
+  });
+
+  it('수량을 다 넣어야 보내고(빈 칸 ≠ 0), 장부와 다르면 재계수 — 같은 사람은 재계수 못 함', async () => {
+    const view = renderAt('/c/CDC01/inventory?tab=count');
+    await userEvent.selectOptions(await screen.findByTestId('count-area'), 'A');
+    await userEvent.click(await screen.findByRole('checkbox', { name: 'CDC01-A-5-03-02-1-1 고르기' }));
+    await userEvent.click(screen.getByTestId('count-start-go'));
+    await screen.findByTestId('count-sheet');
+    await userEvent.click(screen.getByTestId('count-submit'));
+    expect(screen.getByText('수량을 넣지 않은 줄이 1개 있어요. 없으면 0 을 넣어 주세요.')).toBeInTheDocument();
+    expect(view.sent.filter((r) => r.method === 'POST')).toHaveLength(1);
+    await userEvent.type(screen.getByRole('textbox', { name: 'CDC01-A-5-03-02-1-1 SKU-1001 LOT-A1 센 수량' }), '690');
+    await userEvent.click(screen.getByTestId('count-submit'));
+    expect(await screen.findByText('재계수 입력')).toBeInTheDocument();
+    await userEvent.type(screen.getByRole('textbox', { name: 'CDC01-A-5-03-02-1-1 SKU-1001 LOT-A1 센 수량' }), '695');
+    await userEvent.click(screen.getByTestId('count-submit'));
+    expect(await screen.findByText('첫 계수한 사람은 재계수할 수 없어요. 다른 사람이 넣어 주세요.')).toBeInTheDocument();
+  });
+
+  it('장부와 같게 세면 바로 일치 — 결과 줄(장부·첫 계수·최종·차이 0)', async () => {
+    renderAt('/c/CDC01/inventory?tab=count');
+    await userEvent.selectOptions(await screen.findByTestId('count-area'), 'A');
+    await userEvent.click(await screen.findByRole('checkbox', { name: 'CDC01-A-5-03-02-1-1 고르기' }));
+    await userEvent.click(screen.getByTestId('count-start-go'));
+    await userEvent.type(await screen.findByRole('textbox', { name: 'CDC01-A-5-03-02-1-1 SKU-1001 LOT-A1 센 수량' }), '700');
+    await userEvent.click(screen.getByTestId('count-submit'));
+    const lines = await screen.findByTestId('count-lines');
+    expect(lines).toHaveTextContent('700');
+    expect(screen.getAllByText('일치').length).toBeGreaterThan(0);
   });
 
   it('결정 대기 실사를 번호로 열어 승인 — 결과 줄(장부·최종·차이)', async () => {
@@ -73,7 +105,10 @@ describe('실사', () => {
     expect(screen.getByTestId('count-approve')).toBeDisabled();
     await userEvent.type(screen.getByTestId('count-decision-reason'), '재계수 맞음');
     await userEvent.click(screen.getByTestId('count-approve'));
-    expect(await screen.findByText('결정했어요.')).toBeInTheDocument();
+    // 결정 뒤에는 결정 칸이 사라지고 서버 상태(조정 승인)와 결과 줄만 남는다
+    await screen.findByTestId('count-lines');
+    expect(await screen.findByText('조정 승인')).toBeInTheDocument();
+    expect(screen.queryByTestId('count-decide')).not.toBeInTheDocument();
     expect(await screen.findByTestId('count-lines')).toHaveTextContent('-2');
   });
 });
