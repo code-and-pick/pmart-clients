@@ -41,6 +41,7 @@ class RiderProfileView {
     this.vehicle,
     this.licenseNumberMasked,
     this.phoneVerified,
+    this.profileImageUrl,
     this.restriction = Restriction.normal,
     this.restrictedUntil,
     this.deliveryAreaMfcId,
@@ -61,6 +62,9 @@ class RiderProfileView {
 
   /// 전화번호 인증을 했는지(rider 0.28.0 `phoneVerified`). 모르면 null(묻지 않음).
   final bool? phoneVerified;
+
+  /// 소셜 프로필 사진 서버 사본 주소(rider 0.31.0 — `?v=` 가 바뀌면 새 사진). 없으면 null(기본 그림).
+  final String? profileImageUrl;
   final Restriction restriction;
 
   /// 제한 기한. null 이면 무기한.
@@ -96,6 +100,9 @@ const locationUnknownCode = 'LOCATION_UNKNOWN';
 const outsideDeliveryAreaCode = 'OUTSIDE_DELIVERY_AREA';
 
 abstract interface class ProfileRepository {
+  /// 소셜 프로필 사진 바이트(rider 0.31.0 `GET /riders/me/profile-image` — 본인 토큰 헤더로). 없으면(404) null.
+  Future<Uint8List?> profileImage();
+
   /// 지금 위치가 들어가는 배달 권역. 실패는 [PmartFailure](권역 밖으로 보이지 않는다).
   Future<LocationArea> locationArea();
 
@@ -134,6 +141,7 @@ RiderProfileView _view(rd.RiderProfile p) => RiderProfileView(
   name: p.name,
   phoneMasked: p.phoneMasked,
   phoneVerified: p.phoneVerified,
+  profileImageUrl: p.profileImageUrl,
   vehicle: switch (p.vehicleType) {
     rd.VehicleType.MOTORCYCLE => Vehicle.motorcycle,
     rd.VehicleType.BICYCLE => Vehicle.bicycle,
@@ -160,6 +168,18 @@ final class ApiProfileRepository implements ProfileRepository {
   ApiProfileRepository(Dio dio) : _me = rd.PmartApiRider(dio: dio).getMeApi();
 
   final rd.MeApi _me;
+
+  @override
+  Future<Uint8List?> profileImage() async {
+    try {
+      final res = await pmartGuard(() => _me.getMyRiderProfileImage());
+      final bytes = res.data;
+      return bytes == null || bytes.isEmpty ? null : bytes;
+    } on ProblemFailure catch (f) {
+      if (f.problem.status == 404) return null;
+      rethrow;
+    }
+  }
 
   @override
   Future<RiderProfileView> me() async {
@@ -265,6 +285,12 @@ final class MockProfileRepository implements ProfileRepository {
   MockProfileRepository({this.latency = Duration.zero});
 
   final Duration latency;
+
+  /// 목 소셜 사진(기본 없음 — 시험에서 넣는다).
+  Uint8List? mockImage;
+
+  @override
+  Future<Uint8List?> profileImage() async => mockImage;
   Restriction restriction = Restriction.normal;
   DateTime? until;
   String areaMfcId = 'MFC-BSJ-01';
@@ -327,6 +353,9 @@ final class MockProfileRepository implements ProfileRepository {
       vehicle: vehicle,
       licenseNumberMasked: license,
       phoneVerified: phoneVerified,
+      profileImageUrl: mockImage == null
+          ? null
+          : '/api/v1/riders/me/profile-image?v=1',
       restriction: restriction,
       restrictedUntil: until,
       deliveryAreaMfcId: areaMfcId,

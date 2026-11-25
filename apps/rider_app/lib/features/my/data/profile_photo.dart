@@ -7,6 +7,7 @@ import 'package:pmart_core/pmart_core.dart';
 
 import '../../../shared/providers.dart';
 import '../../auth/data/session.dart';
+import 'profile.dart';
 
 /// 로그인한 제공자(구글·네이버·카카오) 계정에서 받은 것 — 마이페이지 프로필 사진·내 정보의 "로그인 계정" 이메일.
 /// (사용자 2026-11-25 "네이버랑 구글에서 로그인할 때 받아온 프로필 사진이 떠야 해" · "로그인한 계정 이메일")
@@ -100,7 +101,21 @@ final loginAccountProvider = FutureProvider<LoginAccountInfo>((ref) async {
   return ref.read(loginAccountStoreProvider).load(riderId);
 });
 
-/// 마이페이지 동그라미 사진 주소. 없으면 null.
+/// 서버가 둔 소셜 프로필 사진(rider 0.31.0) — `profileImageUrl` 이 있을 때만 받는다(주소의 `v` 가 바뀌면 다시).
+/// 없음(404)·실패는 null — 아래 기기 사진 주소나 기본 그림으로.
+final serverProfileImageProvider = FutureProvider<Uint8List?>((ref) async {
+  final url = ref.watch(
+    profileProvider.select((p) => p.value?.profileImageUrl),
+  );
+  if (url == null) return null;
+  try {
+    return await ref.read(profileRepositoryProvider).profileImage();
+  } on PmartFailure {
+    return null;
+  }
+});
+
+/// 마이페이지 동그라미 사진 주소(로그인 ID 토큰의 사진 — 서버 사본이 없을 때). 없으면 null.
 final profilePhotoProvider = Provider<String?>(
   (ref) => ref.watch(loginAccountProvider).value?.pictureUrl,
 );

@@ -147,6 +147,32 @@ void main() {
     expect((img.image as NetworkImage).url, 'https://lh3.example.com/a.jpg');
   });
 
+  testWidgets('마이페이지 동그라미: 서버 사본(rider 0.31.0 profile-image)이 있으면 그것을 먼저', (
+    t,
+  ) async {
+    final secure = MemoryKeyValueStore();
+    await LoginAccountStore(secure).save(
+      'rider-mock-1',
+      const LoginAccountInfo(pictureUrl: 'https://lh3.example.com/a.jpg'),
+    );
+    // 1×1 투명 PNG
+    final png = base64Decode(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=',
+    );
+    final profile = MockProfileRepository()..mockImage = png;
+    await openMyPage(t, secure, profile: profile);
+    expect(find.byKey(const ValueKey('profile-photo-server')), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('profile-photo')),
+        matching: find.byWidgetPredicate(
+          (w) => w is Image && w.image is NetworkImage,
+        ),
+      ),
+      findsNothing,
+    );
+  });
+
   String rowText(WidgetTester t, String key) => t
       .widgetList<Text>(
         find.descendant(

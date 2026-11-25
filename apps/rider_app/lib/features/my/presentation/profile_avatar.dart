@@ -14,6 +14,8 @@ class ProfileAvatar extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // 서버 사본이 먼저(rider 0.31.0), 없으면 로그인 때 받은 사진 주소, 그것도 없으면 기본 그림.
+    final bytes = ref.watch(serverProfileImageProvider).value;
     final url = ref.watch(profilePhotoProvider);
     final placeholder = ColoredBox(
       key: const ValueKey('profile-photo-empty'),
@@ -32,7 +34,15 @@ class ProfileAvatar extends ConsumerWidget {
           border: Border.all(color: RiderColors.line),
         ),
         child: ClipOval(
-          child: url == null
+          child: bytes != null
+              ? Image.memory(
+                  bytes,
+                  key: const ValueKey('profile-photo-server'),
+                  fit: BoxFit.cover,
+                  gaplessPlayback: true,
+                  errorBuilder: (_, _, _) => placeholder,
+                )
+              : url == null
               ? placeholder
               : Image.network(
                   url,
