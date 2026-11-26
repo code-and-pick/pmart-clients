@@ -55,11 +55,8 @@ describe('메뉴', () => {
     for (const gone of ['시설·설비', '환경·품질', '물류 자산']) expect(screen.queryByText(gone)).not.toBeInTheDocument();
   });
 
-  it('아직 만들지 않은 메뉴는 "준비 중" — 지어낸 숫자 없이 서버 API 있고 없음만', async () => {
-    renderAt('/c/CDC01/reports');
-    expect(await screen.findByRole('heading', { name: m.menus.reports })).toBeInTheDocument();
-    expect(await screen.findByText('화면 준비 중')).toBeInTheDocument();
-    expect(screen.getByTestId('api-missing')).toHaveTextContent('KP-1');
+  it('모든 메뉴에 화면이 있다 — "준비 중" 메뉴 없음(2026-11-26 리포트·작업자까지)', () => {
+    expect(allMenus.filter((x) => !x.ready).map((x) => x.key)).toEqual([]);
   });
 });
 

@@ -34,8 +34,8 @@
 | 입고·재고 | 입고관리 | `inbound` | 적치 지시·목록·취소(cdc-inbound 0.2.0) — ASN·검수는 3단계 |
 | 입고·재고 | 재고관리 | `inventory` | stock-snapshot(합계 카드·거르기·상품 이름 productName 0.17.0)·location-stocks·count-sessions·recount-holds·품질 보류·폐기·리콜(cdc-quality 0.3.0)·이동 이력(stock-movements 0.20.0) |
 | 입고·재고 | 보충관리 | `replenishment` | 자동 보충 작업(putaway-tasks kind=REPLENISHMENT)·보충 판단(replenishment-checks) |
-| 인력·시스템 | 작업자·인력 | `workers` | 없음 — 요청 WF-1(처리량)·WF-2(근무 — 설계 필요) |
-| 인력·시스템 | 리포트·KPI | `reports` | 없음 — 요청 `2026-11-26-backend-kpi-workforce` KP-1·2 |
+| 인력·시스템 | 작업자·인력 | `workers` | 근무조·계획 인원(시뮬레이터 값)·배치·출근·현황(cdc-outbound 0.29.0 WF-2) |
+| 인력·시스템 | 리포트·KPI | `reports` | 운영 확인 기준(operating-metrics 0.28.0 — 있는 자료만, 나머지 N/A)·일별 출고(0.27.0)·작업자 실적(0.27.0) |
 
 **빼는 것**(사용자 2026-11-25 "설비센서자산 같은 건 제외"): 시설·설비, 환경·품질(온도·HACCP), 물류 자산 — 자리도 없다.
 다음 차례(사용자 추천 순서): 작업관리·Wave → 기준정보 → 재고 → 대시보드.

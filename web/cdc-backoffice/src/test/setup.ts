@@ -11,6 +11,7 @@ import { resetStock } from '../mocks/stockHandlers';
 import { resetTransport } from '../mocks/transportHandlers';
 import { resetMovements } from '../mocks/movementHandlers';
 import { resetFleet } from '../mocks/fleetHandlers';
+import { resetWorkforce } from '../mocks/workforceHandlers';
 import { server } from './server';
 
 // 목에 없는 요청은 테스트 실패로 본다(네트워크로 새지 않게).
@@ -27,6 +28,7 @@ afterEach(() => {
   resetTransport();
   resetMovements();
   resetFleet();
+  resetWorkforce();
   resetQuality();
   resetInbound();
   resetPurchase();
