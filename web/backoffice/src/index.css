@@ -20,3 +20,133 @@
   --color-app-tertiary-container: #ffe3ec;
   --color-app-on-tertiary-container: #5c0f2e;
 }
+
+/* ── 한눈에 읽히게(2026-11-26 사용자 "모든 탭 UI 눈에 하나도 안 들어온다. 직관적으로 딱딱딱") ──
+   공용 web-ui 는 그대로 두고 이 앱에서만 덮는다(.claude/rules/backoffice-ui.md). 화면 구조·글자는 그대로, 읽기만 쉽게:
+   ① 작은 글자 12px → 13px  ② 흐린 회색 글(40~70%)을 진하게  ③ 보조 글색 진하게  ④ 구역 제목 크게
+   ⑤ 입력 칸 이름 굵게  ⑥ 만들기·고치기 화면 구역에 순서 번호(①②③)  ⑦ 입력 칸이 두 열 양 끝으로 흩어지지 않게 왼쪽부터 붙임 */
+@theme {
+  --text-xs: 0.8125rem;
+  --text-xs--line-height: 1.4;
+}
+:root,
+[data-theme='pmart'] {
+  --pm-sub: #4b5563;
+}
+[data-theme='pmart-dark'] {
+  --pm-sub: #a8afba;
+}
+@layer utilities {
+  .text-base-content\/40,
+  .text-base-content\/45,
+  .text-base-content\/50 {
+    color: color-mix(in oklab, var(--color-base-content) 62%, transparent);
+  }
+  .text-base-content\/55,
+  .text-base-content\/60 {
+    color: color-mix(in oklab, var(--color-base-content) 74%, transparent);
+  }
+  .text-base-content\/65,
+  .text-base-content\/70 {
+    color: color-mix(in oklab, var(--color-base-content) 84%, transparent);
+  }
+}
+.pm-sec-title {
+  font-size: 15px;
+}
+/* ⑤ 입력 칸 이름 — 칸을 감싼 label 의 글자만 굵게(입력값·고르기 글자는 보통 굵기) */
+form label {
+  font-weight: 600;
+}
+form label :is(input, select, textarea, button, .btn, [role='combobox'], [role='option']),
+form label.label,
+form label:has(> input[type='radio']),
+form label:has(> input[type='checkbox']) {
+  font-weight: 400;
+}
+/* ⑥ 구역이 둘 이상인 입력 화면 — 구역 제목 앞에 순서 번호 */
+form:has(.pm-vsec ~ .pm-vsec) {
+  counter-reset: pm-step;
+}
+form:has(.pm-vsec ~ .pm-vsec) .pm-vsec > .pm-sec-head .pm-sec-title::before {
+  counter-increment: pm-step;
+  content: counter(pm-step);
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  margin-right: 8px;
+  border-radius: 9999px;
+  background: var(--color-primary);
+  color: var(--color-primary-content);
+  font-size: 12px;
+  font-weight: 700;
+  vertical-align: 1px;
+}
+/* ⑦ 입력 화면의 두 열 판 — 칸 너비만큼 왼쪽부터 붙인다(넓은 화면에서 칸이 양 끝으로 떨어지지 않게). 두 열 다 쓰는 줄은 줄 전체 */
+@media (min-width: 40rem) {
+  form .grid.sm\:grid-cols-2 {
+    grid-template-columns: repeat(auto-fill, minmax(15rem, max-content));
+    column-gap: 2.5rem;
+  }
+  form .grid.sm\:grid-cols-2 > .sm\:col-span-2 {
+    grid-column: 1 / -1;
+  }
+}
+/* 묶음 칸 이름(legend)도 칸 이름처럼 굵게 */
+form legend {
+  font-weight: 600;
+}
+
+/* ── 여유 있게(2026-11-26 사용자 "글 박스 전반적으로 간격이 너무 다닥다닥 붙어 있네, 답답해 보여") ──
+   구역 안쪽 여백·칸 사이·칸 이름과 입력 사이·입력 높이·줄 간격을 넓힌다(배치·순서는 그대로) */
+.pm-sec-head {
+  padding: 16px 24px;
+}
+.pm-sec-body {
+  padding: 22px 24px 26px;
+}
+.pm-sec-info {
+  padding: 0 24px 12px;
+}
+body {
+  line-height: 1.6;
+}
+@layer utilities {
+  /* 입력 화면: 구역 사이·구역 안 줄 사이 */
+  form.space-y-4 > :not(:last-child),
+  form .space-y-4 > :not(:last-child) {
+    margin-block-end: 1.5rem;
+  }
+  form .space-y-3 > :not(:last-child),
+  form .space-y-2 > :not(:last-child) {
+    margin-block-end: 1rem;
+  }
+  form .grid.gap-3,
+  form .grid.gap-4 {
+    row-gap: 1.375rem;
+  }
+  form .flex.gap-2 {
+    gap: 0.625rem;
+  }
+  /* 칸 이름 ↔ 입력 칸 */
+  form label.flex-col.gap-1,
+  form .flex-col.gap-1 {
+    gap: 0.5rem;
+  }
+  /* 입력 칸 — 조금 높고 안쪽 여유 */
+  /* 높이만(좌우 안쪽 여백을 바꾸면 고르기 상자 화살표·아이콘 단추가 깨짐 — 2026-11-26 확인) */
+  .input-sm,
+  .select-sm {
+    --size: 2.375rem;
+    font-size: 0.875rem;
+  }
+  .textarea-sm {
+    font-size: 0.875rem;
+    padding: 0.625rem 0.75rem;
+    line-height: 1.6;
+  }
+  .btn-sm:not(.btn-square):not(.btn-circle) {
+    --size: 2.25rem;
+  }
+}

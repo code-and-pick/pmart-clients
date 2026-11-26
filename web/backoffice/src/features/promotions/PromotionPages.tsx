@@ -420,6 +420,10 @@ function PromotionForm({ initial, existing, editable }: { readonly initial: Draf
             ))}
           </div>
           <p className="text-xs text-base-content/60">{f.kindHint[d.kind]}</p>
+        </div>
+      </Section>
+      {/* 2026-11-26 사용자 "모든 탭 눈에 안 들어온다" — 한 상자에 몰려 있던 칸을 종류 → 이름·기간 → 혜택 순서 구역으로 */}
+      <Section title={f.basics}>
           <div className="grid gap-3 sm:grid-cols-2">
             <label className={`${fieldCls} sm:col-span-2`}>
               {f.name}
@@ -433,10 +437,13 @@ function PromotionForm({ initial, existing, editable }: { readonly initial: Draf
               {coupon ? f.endsAtCoupon : f.endsAt}
               <DateTimeField value={d.endsAt} min={d.startsAt || undefined} disabled={locked} onChange={(v) => set({ endsAt: v })} />
             </label>
+          </div>
+      </Section>
+      <Section title={offer ? f.offer : f.benefit}>
+          <div className="grid gap-3 sm:grid-cols-2">
             {offer ? (
               // 수량 조건 — 자주 쓰는 1+1·2+1·3+1 바로 고르기 + "[N]개 사면 [M]개 더" 한 문장(2026-11-26 사용자 "눈에 직관적으로 안 들어온다")
               <fieldset className="space-y-2 sm:col-span-2" data-testid="offer-fields">
-                <legend className="mb-1 text-sm">{f.offer}</legend>
                 <div className="flex flex-wrap gap-2">
                   {OFFER_PRESETS.map(([b, fr]) => {
                     const on = num(d.offerBuy) === b && num(d.offerFree) === fr;
@@ -483,7 +490,6 @@ function PromotionForm({ initial, existing, editable }: { readonly initial: Draf
             </>
             )}
           </div>
-        </div>
       </Section>
 
       {coupon ? (

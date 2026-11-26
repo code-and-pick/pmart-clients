@@ -3627,6 +3627,8 @@ export const messages = {
       amountPerUnit: '정액은 상품 1개당 금액이에요',
       offerBuy: '사는 수량(개)',
       offerFree: '더 주는 수량(개)',
+      basics: '이름·기간',
+      benefit: '할인',
       offerBuySuffix: '개 사면',
       offerFreeSuffix: '개 더 줘요(같은 상품)',
       offerLimits: '바로 고르거나 숫자를 넣어요 — 사는 수량 1~10개, 더 주는 수량은 사는 수량까지',
