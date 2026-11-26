@@ -1,6 +1,7 @@
 보낸 앱: cdc-backoffice
 받는 백엔드 영역: platform(cdc — procurement·supplier·cdc-inbound)
 작성: pmart-clients PC 3(사용자 지시로 CDC 백오피스 작업), 2026-11-26
+상태: **철회(2026-11-26, PC 5)** — 사용자 "상품 발주 목록 없애" → DC 백오피스에서 상품 발주 메뉴·화면·목을 지움(입고관리 메뉴도 뺌). PO-1~4 는 만들지 않아도 된다. archive 로 옮긴다.
 
 # 요청: 상품 발주·공급사 관리 + 가짜 공급사 회신 → CDC 입고
 

@@ -1,6 +1,6 @@
-// 입고관리(적치)·보충관리 — cdc-inbound 0.2.0(사용자 2026-11-26 "응" — 백엔드 회신 2026-11-26-reply-backend-missing-screens: IB·RP 이미 있음).
+// 보충관리 — cdc-inbound 0.2.0 putaway-tasks kind=REPLENISHMENT·replenishment-checks. 입고관리(적치 지시) 메뉴는 뺐다(사용자 2026-11-26 "입고관리도 빼줘").
 // - 목록 `GET /cdcs/{cdcId}/putaway-tasks?state=&kind=&size=&cursor=`(최신 순, cursor 쪽 나눔 — nextCursor null 이면 끝). 보충 = kind=REPLENISHMENT(따로 자원 없음).
-// - 적치 지시 `POST /cdcs/{cdcId}/putaway-tasks`(Idempotency-Key, 409 SOURCE_SHORT·DESTINATION_INVALID·CAPACITY_EXCEEDED — 판정은 서버), 취소 `…/{taskId}/cancellations {reason}`(CDC_MANAGER, 남은 수량만).
+// - 취소 `…/{taskId}/cancellations {reason}`(CDC_MANAGER, 남은 수량만). 적치 지시(POST putaway-tasks)는 입고관리와 함께 뺐다.
 // - 보충 판단 `GET /cdcs/{cdcId}/replenishment-checks?reason=&limit=`(피킹 선반마다 마지막 계산 — 0 이면 사유). 수동 보충은 서버에 없다.
 // 작업 상태는 서버 값만 — 결과(results)의 재고 반영이 PENDING 이면 "반영 중"(옮김 확정 아님).
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -23,31 +23,10 @@ type Kind = S['PutawayTaskKind'];
 type State = S['PutawayTaskState'];
 const STATES: readonly State[] = ['DISPATCHED', 'IN_PROGRESS', 'PARTIALLY_COMPLETED', 'COMPLETED', 'FAILED', 'CANCELLED'];
 const CANCELLABLE = new Set(['DISPATCHED', 'IN_PROGRESS', 'PARTIALLY_COMPLETED']);
-const toInt = (v: string) => (/^\d+$/.test(v.trim()) ? Number(v.trim()) : null);
 
 function StateBadge({ state }: { readonly state: string | undefined }) {
   const tone = state === 'COMPLETED' ? 'badge-success' : state === 'FAILED' ? 'badge-error' : state === 'CANCELLED' ? 'badge-ghost' : state === 'PARTIALLY_COMPLETED' ? 'badge-warning' : 'badge-info';
   return <span className={`badge badge-sm whitespace-nowrap ${tone}`}>{state ? (t.state[state] ?? state) : messages.none}</span>;
-}
-
-/** `/c/:cdcId/inbound` */
-export function InboundMenu({ cdcId }: { readonly cdcId: string }) {
-  const [creating, setCreating] = useState(false);
-  return (
-    <section className="space-y-4">
-      <div className="flex flex-wrap items-end justify-between gap-2">
-        <div>
-          <h1>{messages.menus.inbound}</h1>
-          <p className="max-w-4xl text-sm text-base-content/60">{t.leadInbound}</p>
-        </div>
-        <button type="button" className="btn btn-sm btn-primary" onClick={() => setCreating(!creating)} data-testid="putaway-new">
-          {t.newTask}
-        </button>
-      </div>
-      {creating && <NewPutaway cdcId={cdcId} onClose={() => setCreating(false)} />}
-      <TaskList cdcId={cdcId} kind="PUTAWAY" />
-    </section>
-  );
 }
 
 /** `/c/:cdcId/replenishment` */
@@ -252,92 +231,6 @@ function CancelForm({ cdcId, taskId, onClose }: { readonly cdcId: string; readon
         {() => (
           <p role="status" className="alert alert-info py-1 text-sm">
             {t.cancelled}
-          </p>
-        )}
-      </CommandFeedback>
-    </form>
-  );
-}
-
-function NewPutaway({ cdcId, onClose }: { readonly cdcId: string; readonly onClose: () => void }) {
-  const api = useApi();
-  const qc = useQueryClient();
-  const [f, setF] = useState({ sku: '', lot: '', from: '', to: '', qty: '', quality: 'RELEASED' as 'RELEASED' | 'HELD' | 'QUARANTINED', reason: '' });
-  const set = (k: keyof typeof f, v: string) => setF({ ...f, [k]: v });
-  const qty = toInt(f.qty);
-  const valid = f.sku.trim() && f.lot.trim() && f.from.trim() && f.to.trim() && f.from.trim() !== f.to.trim() && qty !== null && qty > 0;
-  const cmd = useCommand(async (body: S['PutawayTaskInput'], key) => request('POST', api.inbound.POST('/cdcs/{cdcId}/putaway-tasks', { ...commandParams(key, { path: { cdcId } }), body })));
-  return (
-    <form
-      className="space-y-3 rounded-box border border-base-300 bg-base-100 p-4"
-      onSubmit={(e) => {
-        e.preventDefault();
-        if (!valid) return;
-        void cmd
-          .run({
-            sku: f.sku.trim(),
-            lot: f.lot.trim(),
-            fromLocationCode: f.from.trim(),
-            toLocationCode: f.to.trim(),
-            qty: qty,
-            qualityState: f.quality,
-            ...(f.reason.trim() ? { reason: f.reason.trim() } : {}),
-          })
-          .then((phase) => {
-            if (phase.kind === 'done') void qc.invalidateQueries({ queryKey: ['cdc', cdcId, 'putaway-tasks'] });
-          });
-      }}
-      data-testid="putaway-form"
-    >
-      <p className="text-xs text-base-content/60">{t.newHint}</p>
-      <div className="flex flex-wrap items-end gap-3">
-        <label className="flex flex-col gap-1 text-sm">
-          {t.sku}(SKU)
-          <input className="input input-sm w-36" value={f.sku} onChange={(e) => set('sku', e.target.value)} data-testid="putaway-sku" />
-        </label>
-        <label className="flex flex-col gap-1 text-sm">
-          {t.lot}
-          <input className="input input-sm w-32" value={f.lot} onChange={(e) => set('lot', e.target.value)} data-testid="putaway-lot" />
-        </label>
-        <label className="flex flex-col gap-1 text-sm">
-          {t.from}
-          <input className="input input-sm w-56" value={f.from} onChange={(e) => set('from', e.target.value)} data-testid="putaway-from" />
-        </label>
-        <label className="flex flex-col gap-1 text-sm">
-          {t.to}
-          <input className="input input-sm w-56" value={f.to} onChange={(e) => set('to', e.target.value)} data-testid="putaway-to" />
-        </label>
-        <label className="flex flex-col gap-1 text-sm">
-          {t.qty}
-          <input className="input input-sm w-24" inputMode="numeric" value={f.qty} onChange={(e) => set('qty', e.target.value)} data-testid="putaway-qty" />
-        </label>
-        <label className="flex flex-col gap-1 text-sm">
-          {t.qualityLabel}
-          <select className="select select-sm w-28" value={f.quality} onChange={(e) => set('quality', e.target.value)}>
-            {(['RELEASED', 'HELD', 'QUARANTINED'] as const).map((q) => (
-              <option key={q} value={q}>
-                {t.quality[q]}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="flex flex-1 flex-col gap-1 text-sm">
-          {t.reason}
-          <input className="input input-sm w-full min-w-48" value={f.reason} maxLength={300} onChange={(e) => set('reason', e.target.value)} />
-        </label>
-      </div>
-      <div className="flex gap-2">
-        <button type="submit" className="btn btn-sm btn-primary" disabled={!valid || cmd.busy} data-testid="putaway-go">
-          {t.go}
-        </button>
-        <button type="button" className="btn btn-ghost btn-sm" onClick={onClose}>
-          {t.close}
-        </button>
-      </div>
-      <CommandFeedback command={cmd}>
-        {(task: Task) => (
-          <p role="status" className="alert alert-info text-sm">
-            {t.created(task.taskId ?? '')} <StateBadge state={task.state} />
           </p>
         )}
       </CommandFeedback>
