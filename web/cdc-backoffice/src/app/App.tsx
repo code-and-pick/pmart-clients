@@ -67,9 +67,11 @@ function Layout() {
   const dc = useDcCenters();
   const target = center?.mine ? center.cdcId : dc.centers[0];
   // 지금 메뉴(`/c/:cdcId/<segment>/…`) — DC 를 바꾸면 같은 메뉴로 간다
-  const segment = pathname.split('/')[3] ?? allMenus[0]!.segment;
+  // DC 밖 주소(/me 등)는 메뉴가 아니다 — 위치 줄에 첫 메뉴(대시보드)가 나오지 않게(2026-11-26 UI 점검)
+  const inCenter = pathname.startsWith('/c/');
+  const segment = (inCenter ? pathname.split('/')[3] : undefined) ?? allMenus[0]!.segment;
   const showMenus = !!target && !isWorkerOnly(session?.roles ?? []);
-  const currentGroup = navGroups.find((g) => g.items.some((i) => i.segment === segment));
+  const currentGroup = inCenter ? navGroups.find((g) => g.items.some((i) => i.segment === segment)) : undefined;
   const currentItem = currentGroup?.items.find((i) => i.segment === segment);
   useDocumentTitle(currentItem ? m.menus[currentItem.key] : null);
   useSlashToSearch();

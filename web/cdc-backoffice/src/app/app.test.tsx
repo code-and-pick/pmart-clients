@@ -121,6 +121,12 @@ describe('머리줄', () => {
     expect(within(panel).getByRole('link', { name: 'MFC 센터' })).toHaveAttribute('href', 'http://localhost:5175/');
   });
 
+  it('내 정보 화면 위치 줄에 메뉴(대시보드)가 나오지 않는다(2026-11-26 UI 점검)', async () => {
+    renderAt('/me');
+    await screen.findAllByText('칠관리');
+    expect(screen.getByTestId('page-title')).not.toHaveTextContent('대시보드');
+  });
+
   it('내 정보: hr 본인 조회 이름·역할·DC', async () => {
     renderAt('/me');
     expect((await screen.findAllByText('칠관리')).length).toBeGreaterThan(0);

@@ -96,10 +96,13 @@ export function CountTab({ cdcId }: { readonly cdcId: string }) {
 /** 실사 시작 — 구역·층·통로로 칸을 불러 체크해서 고른다(출고대기 91·접안 90 은 실사 대상 아님) */
 function StartForm({ cdcId, onStarted }: { readonly cdcId: string; readonly onStarted: (id: string) => void }) {
   const api = useApi();
-  const [area, setArea] = useState<(typeof AREAS)[number]>('C');
-  const [floor, setFloor] = useState<(typeof FLOORS)[number]>('5');
-  const [aisle, setAisle] = useState('');
-  const [picked, setPicked] = useState<ReadonlySet<string>>(new Set());
+  // ?loc=<칸 코드> 로 오면(재계수 대기 [이 칸 실사]) 그 칸의 구역·층·통로를 열고 미리 고른다
+  const [params] = useSearchParams();
+  const preset = params.get('loc')?.split('-') ?? [];
+  const [area, setArea] = useState<(typeof AREAS)[number]>((AREAS as readonly string[]).includes(preset[1] ?? '') ? (preset[1] as (typeof AREAS)[number]) : 'C');
+  const [floor, setFloor] = useState<(typeof FLOORS)[number]>((FLOORS as readonly string[]).includes(preset[2] ?? '') ? (preset[2] as (typeof FLOORS)[number]) : '5');
+  const [aisle, setAisle] = useState(preset[3] ?? '');
+  const [picked, setPicked] = useState<ReadonlySet<string>>(() => new Set(params.get('loc') ? [params.get('loc')!] : []));
   const [reason, setReason] = useState('');
   const locs = useQuery({
     queryKey: ['cdc', cdcId, 'locations', 'count-pick', area, floor],

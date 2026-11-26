@@ -13,6 +13,7 @@ import type { components } from '../../api/generated/cdc-inventory';
 import { useApi } from '../../app/ApiContext';
 import { centerPath } from '../../app/nav';
 import { messages } from '../../shared/messages';
+import { SkuName } from '../../shared/SkuName';
 import { CountTab } from './CountTab';
 import { LocationStockTable } from './LocationStock';
 
@@ -268,7 +269,7 @@ function RecountTab({ cdcId }: { readonly cdcId: string }) {
             <table className="table table-sm" data-testid="recount-table">
               <thead>
                 <tr>
-                  <th>{t.sku}</th>
+                  <th>{messages.locStock.product}</th>
                   <th>{t.lot}</th>
                   <th>{r.location}</th>
                   <th className="text-right">{r.short}</th>
@@ -281,13 +282,20 @@ function RecountTab({ cdcId }: { readonly cdcId: string }) {
                 {rows.map((h) => (
                   <Fragment key={h.holdId}>
                     <tr data-testid="recount-row">
-                      <td className="font-mono text-xs">{h.sku}</td>
+                      <td>
+                        <SkuName sku={h.sku ?? ''} />
+                      </td>
                       <td className="font-mono text-xs">{h.lot}</td>
                       <td className="font-mono text-xs">{h.locationCode}</td>
                       <td className="text-right tabular-nums font-semibold text-error">{messages.qty(h.shortQty ?? 0)}</td>
                       <td>{h.createdAt ? formatSeoul(h.createdAt) : messages.none}</td>
                       <td>{h.releasedAt ? formatSeoul(h.releasedAt) : messages.none}</td>
                       <td className="text-right">
+                        {h.state === 'HELD' && (
+                          <Link className="btn btn-xs mr-1" to={`${invPath(cdcId)}?tab=count&loc=${encodeURIComponent(h.locationCode ?? '')}`} data-testid={`recount-count-${h.holdId}`}>
+                            {r.countThis}
+                          </Link>
+                        )}
                         {h.state === 'HELD' && (
                           <button
                             type="button"

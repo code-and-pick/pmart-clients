@@ -7,7 +7,7 @@ export function PreparingPage({ menu }: { readonly menu: MenuItem }) {
   return (
     <section className="max-w-2xl space-y-4">
       <h1 className="text-xl font-bold">{m.menus[menu.key]}</h1>
-      <div role="status" className="alert">
+      <div role="status" className="rounded-box border border-dashed border-base-300 bg-base-100 p-4">
         <div>
           <p className="font-semibold">{m.preparing.title}</p>
           <p className="text-sm">{m.preparing.body}</p>

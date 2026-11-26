@@ -26,6 +26,14 @@ describe('재고 현황', () => {
 });
 
 describe('재계수 대기', () => {
+  it('[이 칸 실사] — 그 칸을 미리 고른 실사 시작으로', async () => {
+    renderAt('/c/CDC01/inventory?tab=recount');
+    await userEvent.click(await screen.findByTestId('recount-count-RCH-1'));
+    expect(await screen.findByTestId('count-picked')).toHaveTextContent('고른 칸 1');
+    expect(screen.getByTestId('count-area')).toHaveValue('B');
+    expect(screen.getByTestId('count-floor')).toHaveValue('6');
+  });
+
   it('대기 중만 기본, 사유를 적어 풀면 목록에서 빠진다', async () => {
     const view = renderAt('/c/CDC01/inventory?tab=recount');
     const rows = await screen.findAllByTestId('recount-row');
