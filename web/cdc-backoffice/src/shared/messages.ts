@@ -924,7 +924,7 @@ export const messages = {
   /** 출하·운송 — TMS 1단계 transport-planning·transport-execution 0.2.0(운행·배차·잔여 물량·노선) */
   transport: {
     lead: '오늘 이 DC 에서 출발하는 간선 운행과 배차예요. 기사 앱이 아직 없어 입차·상차·출차·인계는 직원이 대신 넣거나 시뮬레이터가 넣어요. 실시간 위치(GPS)는 없고, 예상 도착은 서버가 계산해요.',
-    views: { trips: '운행', orders: '배차', requests: '잔여 물량', routes: '노선', fleet: '차량·기사' } as const,
+    views: { trips: '운행', orders: '배차', docks: '도크', requests: '잔여 물량', routes: '노선', fleet: '차량·기사' } as const,
     shipDate: '출고일',
     all: '전체',
     refresh: '15초마다 다시 읽어요',
@@ -1143,7 +1143,16 @@ export const messages = {
     maxRt: (n: number) => `최대 R/T ${n}`,
     inactive: '쉬는 노선',
     emptyRoutes: '노선이 없어요.',
-    noDock: '도크 배정은 아직 없어요(층 도크 확정 뒤).',
+    noDock: '도크 배정 없음',
+    dock: '도크',
+    dockLead: '계획완료하면 서버가 그 온도대의 빈 도크를 자동으로 잡아요(상차 시작 ~ 계획 출차). 출차하거나 지시서를 취소하면 풀려요. 사람이 도크를 바꾸는 기능은 아직 없어요.',
+    dockNone: '이 DC 에 도크 칸이 아직 없어요(위치 배치 전환 전) — 그동안 계획완료는 도크 없이 돼요.',
+    dockSummary: (docks: number, reserved: number) => `도크 ${docks}칸 · 지금 잡힌 예약 ${reserved}건`,
+    dockFloor: (f: string) => (/^\d+$/.test(f) ? `${f}층` : f || '층 모름'),
+    dockWindow: '상차 창',
+    dockState: { RESERVED: '예약', RELEASED: '해제', IN_USE: '사용 중', COMPLETED: '끝', EXPIRED: '만료' } as Readonly<Record<string, string>>,
+    dockRelease: { DEPARTED: '출차', CANCELLED: '취소' } as Readonly<Record<string, string>>,
+    dockFull: '그 시간대 도크가 다 차 있으면 계획완료가 거절돼요(CAPACITY_EXCEEDED).',
   },
 
   /** 재고 이동 이력 — cdc-inventory 0.20.0 stock-movements(원장 줄) */

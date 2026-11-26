@@ -211,6 +211,11 @@ function OrderDetail({ cdcId, order: o, all }: { readonly cdcId: string; readonl
           </tbody>
         </table>
       </div>
+      {o.state !== 'PLANNING' && (
+        <p className="text-sm" data-testid="order-dock">
+          <span className="text-base-content/60">{t.dock}</span> {o.dockCode ? <span className="font-mono">{o.dockCode}</span> : <span className="text-base-content/55">{t.noDock}</span>}
+        </p>
+      )}
       {o.reason && <p className="text-sm">{`${t.reason.replace('(필수)', '')}: ${o.reason}`}</p>}
       {(planning || cancellable) && (
         <div className="space-y-2 rounded-box border border-base-300 bg-base-100 p-3" data-testid="order-actions">
@@ -236,11 +241,11 @@ function OrderDetail({ cdcId, order: o, all }: { readonly cdcId: string; readonl
               </button>
             )}
           </div>
-          {planning && <p className="text-xs text-base-content/55">{over ? t.overCapacity : t.confirmHint}</p>}
+          {planning && <p className="text-xs text-base-content/55">{over ? t.overCapacity : `${t.confirmHint} ${t.dockFull}`}</p>}
           <CommandFeedback command={confirm.cmd}>
             {(r) => (
               <p role="status" className="alert alert-info py-1 text-sm">
-                {t.confirmed(t.orderState[r.state] ?? r.state)}
+                {t.confirmed(t.orderState[r.state] ?? r.state)} · {t.dock} {r.dockCode ?? t.noDock}
               </p>
             )}
           </CommandFeedback>

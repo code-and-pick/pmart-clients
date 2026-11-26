@@ -15,6 +15,7 @@ import type { components } from '../../api/generated/transport-execution';
 import { useApi } from '../../app/ApiContext';
 import { messages } from '../../shared/messages';
 import { Who } from '../../shared/OperatorLabel';
+import { DockView } from './DockView';
 import { FleetView } from './FleetPages';
 import { OrdersView, RequestsView, RoutesView } from './TransportPlanning';
 
@@ -25,7 +26,7 @@ type TripState = S['TripState'];
 type Stop = Trip['stops'][number];
 type IncidentType = S['IncidentType'];
 const TRIP_STATES: readonly TripState[] = ['SCHEDULED', 'CHECKED_IN', 'LOADED', 'DEPARTED', 'COMPLETED', 'CANCELLED'];
-const VIEWS = ['trips', 'orders', 'requests', 'routes', 'fleet'] as const;
+const VIEWS = ['trips', 'orders', 'docks', 'requests', 'routes', 'fleet'] as const;
 type View = (typeof VIEWS)[number];
 const MANUAL_INCIDENTS: readonly IncidentType[] = ['DELAY', 'VEHICLE_BREAKDOWN', 'ACCIDENT', 'UNLOADING_WAIT', 'TEMPERATURE_EXCURSION', 'OTHER'];
 
@@ -84,6 +85,7 @@ export function TransportMenu({ cdcId }: { readonly cdcId: string }) {
       </div>
       {view === 'trips' && <TripsView cdcId={cdcId} date={date} />}
       {view === 'orders' && <OrdersView cdcId={cdcId} date={date} />}
+      {view === 'docks' && <DockView cdcId={cdcId} date={date} />}
       {view === 'requests' && <RequestsView cdcId={cdcId} date={date} />}
       {view === 'routes' && <RoutesView cdcId={cdcId} />}
       {view === 'fleet' && <FleetView />}
@@ -176,7 +178,10 @@ function TripsView({ cdcId, date }: { readonly cdcId: string; readonly date: str
                             </td>
                             <td className="whitespace-nowrap">
                               {x.plateNo ?? x.vehicleId ?? messages.none}
-                              <span className="block text-xs text-base-content/55">{x.driverName ?? x.driverId ?? messages.none}</span>
+                              <span className="block text-xs text-base-content/55">
+                                {x.driverName ?? x.driverId ?? messages.none}
+                                {x.dockCode ? ` · ${t.dock} ${x.dockCode.split('-').slice(1, 5).join('-')}` : ''}
+                              </span>
                             </td>
                             <td className="whitespace-nowrap">{fmt(x.plannedDepartureAt)}</td>
                             <td>
@@ -262,7 +267,9 @@ function TripDetail({ cdcId, trip }: { readonly cdcId: string; readonly trip: Tr
           {trip.outboundLinkage ? ` · ${t.linkage[trip.outboundLinkage] ?? trip.outboundLinkage}` : ''}
           {trip.outboundResult ? ` · ${messages.shipping.results[trip.outboundResult] ?? trip.outboundResult}` : ''}
         </p>
-        <p className="text-xs text-base-content/55">{t.noDock}</p>
+        <p data-testid="trip-dock">
+          <span className="text-base-content/60">{t.dock}</span> {trip.dockCode ? <span className="font-mono">{trip.dockCode}</span> : <span className="text-base-content/55">{t.noDock}</span>}
+        </p>
       </div>
 
       <StopsTable cdcId={cdcId} trip={trip} />

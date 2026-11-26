@@ -91,3 +91,24 @@ describe('출하·운송 — 배차', () => {
     expect(cards[0]).toHaveTextContent('최대 R/T 12');
   });
 });
+
+describe('출하·운송 — 도크', () => {
+  it('층별 도크 × 시간 — 잡힌 예약과 해제된 예약, 운행 펼침에 도크', async () => {
+    renderAt('/c/CDC01/transport?v=docks');
+    expect(await screen.findAllByTestId('dock-lane')).toHaveLength(12);
+    const bars = screen.getAllByTestId('dock-bar');
+    expect(bars.filter((b) => b.dataset.state === 'RESERVED')).toHaveLength(2);
+    expect(bars.filter((b) => b.dataset.state === 'RELEASED')).toHaveLength(2);
+    expect(screen.getByTestId('dock-summary')).toHaveTextContent('도크 12칸 · 지금 잡힌 예약 2건');
+    await userEvent.click(screen.getByRole('tab', { name: '운행' }));
+    await userEvent.click(await row('trip-row', `TO-${d}-003`));
+    expect(await screen.findByTestId('trip-dock')).toHaveTextContent('CDC01-H-5-90-03-0-1');
+  });
+
+  it('계획완료하면 서버가 도크를 잡아 지시서에 보임', async () => {
+    renderAt('/c/CDC01/transport?v=orders');
+    await userEvent.click(await row('order-row', `TO-${d}-005`));
+    await userEvent.click(await screen.findByTestId('order-confirm'));
+    expect(await screen.findByText(/도크 CDC01-A-6-90-01-0-1/)).toBeInTheDocument();
+  });
+});

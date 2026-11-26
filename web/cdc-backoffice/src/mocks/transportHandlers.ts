@@ -5,6 +5,7 @@ import { http, HttpResponse } from 'msw';
 
 import { API_BASE } from '../api/client';
 import type { components as Exec } from '../api/generated/transport-execution';
+import type { components as Loc } from '../api/generated/cdc-location';
 import type { components as Plan } from '../api/generated/transport-planning';
 import { expectedVersion, idempotent, operator, problem, unauthorized } from './support';
 
@@ -12,6 +13,8 @@ type Trip = Exec['schemas']['Trip'];
 type Order = Plan['schemas']['TransportOrder'];
 type Req = Plan['schemas']['TransportRequest'];
 type Route = Plan['schemas']['Route'];
+type Dock = { dockCode: string; floor: string; temperatureZone: string };
+type DockRes = Loc['schemas']['DockReservation'];
 
 export const mockShipDate = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul' }).format(new Date());
 
@@ -127,7 +130,59 @@ function seed() {
     req('TRF-20261126-0011', 'MFC-BJG-01', 'HELD', 'MIXED_TEMPERATURE', null, { tempClass: null, tempClasses: ['AMBIENT', 'CHILLED'] }),
     req('TRF-20261126-0012', 'MFC-BNG-01', 'HELD', 'ALLOCATION_PENDING', null, { allocationState: 'ALLOCATING', acceptedQty: 0, rtCount: null, lateReceipt: true }),
   ];
-  return { routes, trips, orders, requests, seq: 6 };
+  // 도크(cdc-location 0.8.0 — R-25: 5층 냉장 G 2·냉동 H 2, 6층 상온 A 4, 7층 상온 E 4). 계획완료 때 자동 배정, 출차·취소 때 해제.
+  const docks: Dock[] = [
+    ...[1, 2].map((n) => ({ dockCode: `CDC01-G-5-90-0${n}-0-1`, floor: '5', temperatureZone: 'CHILLED' })),
+    ...[3, 4].map((n) => ({ dockCode: `CDC01-H-5-90-0${n}-0-1`, floor: '5', temperatureZone: 'FROZEN' })),
+    ...[1, 2, 3, 4].map((n) => ({ dockCode: `CDC01-A-6-90-0${n}-0-1`, floor: '6', temperatureZone: 'AMBIENT' })),
+    ...[1, 2, 3, 4].map((n) => ({ dockCode: `CDC01-E-7-90-0${n}-0-1`, floor: '7', temperatureZone: 'AMBIENT' })),
+  ];
+  const s = { routes, trips, orders, requests, docks, reservations: [] as DockRes[], seq: 6 };
+  for (const o of orders) {
+    if (o.state !== 'DISPATCHED') continue;
+    const r = reserveDock(s, o);
+    if (r instanceof Response) continue;
+    const trip = trips.find((x) => x.tripId === o.orderId);
+    if (r && trip && ['DEPARTED', 'COMPLETED'].includes(trip.state)) releaseDock(s, o, 'DEPARTED');
+  }
+  return s;
+}
+
+type Store = ReturnType<typeof seed>;
+
+/** 그 온도대 빈 도크(코드 순) — 칸이 없으면 null(도크 없이 계획완료), 다 차 있으면 409 CAPACITY_EXCEEDED */
+function reserveDock(s: Store, o: Order) {
+  const start = o.plannedLoadingStartAt ?? '';
+  const end = o.plannedDepartureAt ?? '';
+  const mine = s.docks.filter((x) => x.temperatureZone === o.tempClass);
+  if (mine.length === 0) {
+    o.dockCode = null;
+    o.dockReservationId = null;
+    return null;
+  }
+  const busy = (code: string) => s.reservations.some((r) => r.dockCode === code && r.state === 'RESERVED' && (r.window?.start ?? '') < end && start < (r.window?.end ?? ''));
+  const dock = mine.find((x) => !busy(x.dockCode));
+  if (!dock) return problem(409, 'CAPACITY_EXCEEDED');
+  const trip = s.trips.find((x) => x.tripId === o.orderId);
+  const r: DockRes = {
+    dockReservationId: `DKR-${o.orderId.slice(-3)}`, centerId: o.cdcId, dockCode: dock.dockCode, tripId: o.orderId, purpose: 'OUTBOUND_LOADING', state: 'RESERVED',
+    window: { start, end }, version: 1, floor: dock.floor, temperatureZone: dock.temperatureZone, vehicleId: o.vehicleId ?? null, routeId: o.routeId, plateNo: trip?.plateNo ?? null, releaseReason: null, createdAt: o.updatedAt ?? '',
+  };
+  s.reservations.push(r);
+  o.dockCode = dock.dockCode;
+  o.dockReservationId = r.dockReservationId ?? null;
+  if (trip) {
+    trip.dockCode = dock.dockCode;
+  }
+  return r;
+}
+
+function releaseDock(s: Store, o: { dockReservationId?: string | null }, reason: string) {
+  const r = s.reservations.find((x) => x.dockReservationId === o.dockReservationId);
+  if (r && r.state === 'RESERVED') {
+    r.state = 'RELEASED';
+    r.releaseReason = reason;
+  }
 }
 
 let store = seed();
@@ -250,6 +305,7 @@ export const transportHandlers = [
     x.departureId = `DEP-${Date.now()}`;
     x.outboundLinkage = 'ACKNOWLEDGED';
     x.outboundResult = 'MATCHED';
+    releaseDock(store, store.orders.find((o) => o.orderId === x.tripId) ?? {}, 'DEPARTED');
     event(x, 'DEPARTED');
     return x;
   }),
@@ -320,6 +376,19 @@ export const transportHandlers = [
       return { status: 200, body: x };
     });
   }),
+  // ---- cdc-location 0.8.0 도크 예약(DK-1) — 창이 그 서울 날짜에 걸친 예약, 도크 코드 → 시작 순
+  http.get(`${API_BASE}/cdcs/:cdcId/dock-reservations`, ({ request, params }) => {
+    const denied = guard(request, String(params.cdcId));
+    if (denied) return denied;
+    const q = new URL(request.url).searchParams;
+    const date = q.get('date') ?? mockShipDate();
+    const from = new Date(`${date}T00:00:00+09:00`).toISOString();
+    const to = new Date(new Date(`${date}T00:00:00+09:00`).getTime() + 86_400_000).toISOString();
+    const items = store.reservations
+      .filter((r) => (r.window?.start ?? '') < to && from < (r.window?.end ?? '') && (!q.get('state') || r.state === q.get('state')) && (!q.get('dockCode') || r.dockCode === q.get('dockCode')))
+      .sort((a, b) => (a.dockCode ?? '').localeCompare(b.dockCode ?? '') || (a.window?.start ?? '').localeCompare(b.window?.start ?? ''));
+    return HttpResponse.json({ docks: store.docks, items });
+  }),
   // ---- planning
   http.get(`${API_BASE}/cdcs/:cdcId/routes`, ({ request, params }) => guard(request, String(params.cdcId)) ?? HttpResponse.json({ items: store.routes })),
   http.get(`${API_BASE}/cdcs/:cdcId/transport-requests`, ({ request, params }) => {
@@ -354,6 +423,8 @@ export const transportHandlers = [
     if (o.state !== 'PLANNING') return problem(409, 'INVALID_STATE');
     if (o.trfIds?.length === 0) return problem(409, 'NO_REQUESTS');
     if (o.flags?.includes('OVER_CAPACITY')) return problem(409, 'OVER_CAPACITY');
+    const dock = reserveDock(store, o);
+    if (dock instanceof Response) return dock;
     o.state = 'DISPATCHED';
     o.tripState = 'SCHEDULED';
     o.reservationId = `RSV-${o.vehicleId}`;
@@ -364,7 +435,7 @@ export const transportHandlers = [
       checkedInAt: null, loadedAt: null, departedAt: null, endedAt: null, departureId: null, outboundLinkage: null, outboundResult: null, trfCount: o.trfIds?.length ?? 0, boxCount: 0, rtCount: 0,
       stops: (o.stops ?? []).map((s) => ({ seq: s.seq ?? 1, mfcId: s.mfcId ?? '', state: 'PLANNED', trfIds: s.trfIds ?? [], ...(s.plannedArrivalAt ? { plannedArrivalAt: s.plannedArrivalAt } : {}), estimatedArrivalAt: null, arrivedAt: null, handedOverAt: null, departedAt: null, delayed: false, handover: null })),
       transfers: (o.stops ?? []).flatMap((s) => (s.trfIds ?? []).map((trfId) => ({ trfId, stopSeq: s.seq ?? 1, loaded: false, lpns: [], rtCount: null }))),
-      events: [], incidents: [], version: 1,
+      events: [], incidents: [], version: 1, dockCode: o.dockCode ?? null,
     });
     return o;
   }),
@@ -379,6 +450,7 @@ export const transportHandlers = [
     const trip = store.trips.find((t) => t.tripId === o.orderId);
     if (trip && ['DEPARTED', 'COMPLETED'].includes(trip.state)) return problem(409, 'ALREADY_DEPARTED');
     if (trip) trip.state = 'CANCELLED';
+    releaseDock(store, o, 'CANCELLED');
     o.state = 'CANCELLED';
     o.reason = (body.reason as string | undefined) ?? '';
     for (const r of store.requests) if (r.orderId === o.orderId) {
