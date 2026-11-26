@@ -13,6 +13,9 @@ type Task = components['schemas']['Task'];
 const CDC = 'CDC01';
 const at = (h: number, m = 0) => new Date(Date.UTC(2026, 10, 26, h - 9, m)).toISOString(); // 2026-11-26 서울 h:m
 
+/** 화면 번호(ADR-0070·0085 — W+4, 무작위·바뀌지 않음) */
+const WAVE_NUMBERS: Record<string, string> = { 'WAVE-20261126-01': 'W4821', 'WAVE-20261126-02': 'W1937' };
+
 function trf(id: string, mfcId: string, state: string, due: string, lines: Array<[string, number, number, number, number]>, waveId: string | null = null, allocationError: string | null = null): TransferDetail {
   const s = (i: number) => lines.reduce((a, l) => a + (l[i] as number), 0);
   return {
@@ -23,6 +26,7 @@ function trf(id: string, mfcId: string, state: string, due: string, lines: Array
     deadlineMeaning: 'ARRIVAL',
     dueAt: due,
     waveId,
+    waveNumber: waveId ? (WAVE_NUMBERS[waveId] ?? null) : null,
     allocationError,
     lineCount: lines.length,
     approvedQty: s(1),
@@ -46,7 +50,7 @@ function seed() {
   ];
   const waves: Wave[] = [
     {
-      waveId: 'WAVE-20261126-01',
+      waveId: 'WAVE-20261126-01', waveNumber: 'W4821',
       cdcId: CDC,
       state: 'IN_PROGRESS',
       version: 3,
@@ -55,12 +59,12 @@ function seed() {
       createdAt: at(7),
       releasedAt: at(7, 30),
     },
-    { waveId: 'WAVE-20261126-02', cdcId: CDC, state: 'PLANNED', version: 1, trfIds: ['TRF-20261126-0003'], taskSummary: { total: 0, done: 0, exception: 0 }, createdAt: at(8) },
+    { waveId: 'WAVE-20261126-02', waveNumber: 'W1937', cdcId: CDC, state: 'PLANNED', version: 1, trfIds: ['TRF-20261126-0003'], taskSummary: { total: 0, done: 0, exception: 0 }, createdAt: at(8) },
   ];
   const tasks: Task[] = [
     {
       taskId: 'TSK-0001',
-      waveId: 'WAVE-20261126-01',
+      waveId: 'WAVE-20261126-01', waveNumber: 'W4821',
       trfId: null,
       trfIds: ['TRF-20261126-0001', 'TRF-20261126-0002'],
       pickMode: 'REGION_BATCH',
@@ -91,7 +95,7 @@ function seed() {
     },
     {
       taskId: 'TSK-0002',
-      waveId: 'WAVE-20261126-01',
+      waveId: 'WAVE-20261126-01', waveNumber: 'W4821',
       trfId: 'TRF-20261126-0001',
       trfIds: ['TRF-20261126-0001'],
       pickMode: 'DISCRETE',
@@ -109,7 +113,7 @@ function seed() {
     },
     {
       taskId: 'TSK-0003',
-      waveId: 'WAVE-20261126-01',
+      waveId: 'WAVE-20261126-01', waveNumber: 'W4821',
       trfId: 'TRF-20261126-0002',
       trfIds: ['TRF-20261126-0002'],
       pickMode: 'DISCRETE',
@@ -128,7 +132,7 @@ function seed() {
     {
       taskId: 'TSK-0004',
       taskNumber: 'K48213',
-      waveId: 'WAVE-20261126-02',
+      waveId: 'WAVE-20261126-02', waveNumber: 'W1937',
       trfId: 'TRF-20261126-0003',
       trfIds: ['TRF-20261126-0003'],
       pickMode: 'DISCRETE',
@@ -262,6 +266,7 @@ export const outboundHandlers = [
       store.seq += 1;
       const wave: Wave = {
         waveId: `WAVE-20261126-${String(store.seq).padStart(2, '0')}`,
+        waveNumber: `W${String(5000 + store.seq * 37).slice(-4)}`,
         cdcId: body.cdcId,
         state: 'PLANNED',
         version: 1,
@@ -272,6 +277,7 @@ export const outboundHandlers = [
       store.waves.push(wave);
       for (const t of picked) {
         t!.waveId = wave.waveId!;
+        t!.waveNumber = wave.waveNumber ?? null;
         t!.state = 'IN_WAVE';
       }
       return { status: 201, body: wave };
@@ -388,7 +394,7 @@ export const outboundHandlers = [
         const move = body.trfIds ?? [];
         if (from !== 'PLANNED' || move.length === 0 || move.length >= (v.trfIds ?? []).length) return problem(409, 'INVALID_STATE');
         v.trfIds = (v.trfIds ?? []).filter((id) => !move.includes(id));
-        const made: Wave = { waveId: `WAVE-SPLIT-${store.waves.length + 1}`, cdcId: v.cdcId ?? CDC, state: 'PLANNED', version: 1, trfIds: move, taskSummary: { total: 0, done: 0, exception: 0 }, createdAt: new Date().toISOString() };
+        const made: Wave = { waveId: `WAVE-SPLIT-${store.waves.length + 1}`, waveNumber: `W${String(7000 + store.waves.length * 41).slice(-4)}`, cdcId: v.cdcId ?? CDC, state: 'PLANNED', version: 1, trfIds: move, taskSummary: { total: 0, done: 0, exception: 0 }, createdAt: new Date().toISOString() };
         store.waves.push(made);
         v.version = (v.version ?? 0) + 1;
         log('SPLIT_OUT', v, made.waveId ?? null, move);

@@ -53,7 +53,8 @@ function useRecentWaves(cdcId: string) {
     queryKey: ['cdc', cdcId, 'waves', 'recent'],
     queryFn: async () => {
       const page = await request('GET', api.outbound.GET('/cdcs/{cdcId}/waves', { params: { path: { cdcId }, query: { size: 200 } } }));
-      return page.items.map((v) => v.waveId).filter((x): x is string => !!x);
+      // 화면 번호(waveNumber — 없으면 옛 기록이라 시스템 ID)로 고르게 한다
+      return page.items.filter((v) => !!v.waveId).map((v) => ({ id: v.waveId!, label: v.waveNumber ?? v.waveId! }));
     },
   });
 }
@@ -107,7 +108,7 @@ function TaskListPage({ cdcId }: { readonly cdcId: string }) {
           {m.wavesFromTrf}
           <select
             className="select select-sm w-52"
-            value={waves.data?.includes(waveId) ? waveId : ''}
+            value={waves.data?.some((x) => x.id === waveId) ? waveId : ''}
             onChange={(e) => {
               setDraft(e.target.value);
               set('waveId', e.target.value);
@@ -116,9 +117,9 @@ function TaskListPage({ cdcId }: { readonly cdcId: string }) {
             data-testid="task-wave-select"
           >
             <option value="">{waves.isError ? messages.loadFailed : waves.data && waves.data.length === 0 ? m.noWaves : m.choose}</option>
-            {(waves.data ?? []).map((id) => (
-              <option key={id} value={id}>
-                {id}
+            {(waves.data ?? []).map((x) => (
+              <option key={x.id} value={x.id}>
+                {x.label}
               </option>
             ))}
           </select>
@@ -152,8 +153,8 @@ function TaskListPage({ cdcId }: { readonly cdcId: string }) {
         <>
           {wave.data && (
             <div className="flex flex-wrap items-center gap-2 text-sm" data-testid="task-wave-head">
-              <Link className="link font-mono" to={wavePath(cdcId, waveId)}>
-                {waveId}
+              <Link className="link font-mono" to={wavePath(cdcId, waveId)} title={waveId}>
+                {wave.data.waveNumber ?? waveId}
               </Link>
               <WaveStateBadge state={wave.data.state} />
               {wave.data.taskSummary && (

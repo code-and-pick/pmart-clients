@@ -354,8 +354,8 @@ function TransferListPage({ cdcId }: { readonly cdcId: string }) {
                         </td>
                         <td>
                           {t.waveId ? (
-                            <Link className="link font-mono text-xs" to={wavePath(cdcId, t.waveId)}>
-                              {t.waveId}
+                            <Link className="link font-mono text-xs" to={wavePath(cdcId, t.waveId)} title={t.waveId}>
+                              {t.waveNumber ?? t.waveId}
                             </Link>
                           ) : (
                             <span className="text-base-content/40">{messages.none}</span>

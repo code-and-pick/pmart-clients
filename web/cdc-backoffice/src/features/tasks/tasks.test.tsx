@@ -16,7 +16,7 @@ describe('작업 목록', () => {
   it('최근 TRF 의 Wave 를 고르면 그 Wave 작업 — 묶음은 TRF 수, 부족은 빨강', async () => {
     renderAt('/c/CDC01/tasks');
     const select = await screen.findByTestId('task-wave-select');
-    await waitFor(() => expect(within(select).getAllByRole('option').map((o) => o.textContent)).toContain('WAVE-20261126-01'));
+    await waitFor(() => expect(within(select).getAllByRole('option').map((o) => o.textContent)).toContain('W4821'));
     await userEvent.selectOptions(select, 'WAVE-20261126-01');
     const rows = await screen.findAllByTestId('task-row');
     expect(rows).toHaveLength(3);

@@ -14,7 +14,7 @@ describe('TRF 목록', () => {
     const rows = await screen.findAllByTestId('trf-row');
     expect(rows).toHaveLength(6);
     expect(within(rows[0]!).getByText('TRF-20261126-0001')).toBeInTheDocument();
-    expect(within(rows[0]!).getByRole('link', { name: 'WAVE-20261126-01' })).toHaveAttribute('href', '/c/CDC01/trf-wave/waves/WAVE-20261126-01');
+    expect(within(rows[0]!).getByRole('link', { name: 'W4821' })).toHaveAttribute('href', '/c/CDC01/trf-wave/waves/WAVE-20261126-01');
     expect(within(rows[0]!).getAllByText('2').some((el) => el.classList.contains('text-error'))).toBe(true);
   });
 
@@ -57,7 +57,7 @@ describe('TRF 목록', () => {
     renderAt('/c/CDC01/trf-wave/trf/TRF-20261126-0001');
     const lines = await screen.findByTestId('trf-lines');
     expect(within(lines).getByText('SKU-1002')).toBeInTheDocument();
-    expect(screen.getByTestId('trf-fields')).toHaveTextContent('WAVE-20261126-01');
+    expect(screen.getByTestId('trf-fields')).toHaveTextContent('W4821');
   });
 });
 
