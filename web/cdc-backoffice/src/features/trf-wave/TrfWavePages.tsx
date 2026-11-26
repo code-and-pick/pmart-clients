@@ -51,17 +51,27 @@ export function TrfWaveMenu({ cdcId }: { readonly cdcId: string }) {
 
 export function TrfStateBadge({ state }: { readonly state: string | undefined }) {
   if (!state) return <>{messages.none}</>;
+  // 색 = 어디까지 왔나(사용자 2026-11-26 "검품 끝도 진행 중인 건데 취소랑 똑같은 색"): MFC 재고 이동 화면의 걸음과 같은 나눔.
+  // 받음·확보 = 테두리만, Wave·피킹 = 파랑, 피킹 끝~상차 끝(실을 준비) = 보라, 출발 = 초록, 일부 확보·버전 = 노랑, 실패·불일치 = 빨강, 취소만 흐리게 + 줄 긋기.
   const tone =
     state === 'ALLOCATION_FAILED' || state === 'MISMATCHED'
       ? 'badge-error'
       : state === 'PARTIALLY_ALLOCATED' || state === 'CHANGING'
         ? 'badge-warning'
-        : state === 'ALLOCATED' || state === 'IN_WAVE' || state === 'PICKING'
+        : state === 'IN_WAVE' || state === 'PICKING'
           ? 'badge-info'
-          : state === 'DEPARTED' || state === 'PICKED' || state === 'LOADED'
-            ? 'badge-success'
-            : 'badge-ghost';
-  return <span className={`badge badge-sm ${tone}`}>{m.state[state] ?? state}</span>;
+          : state === 'PICKED' || state === 'SORTED' || state === 'INSPECTED' || state === 'LOADED'
+            ? 'badge-secondary'
+            : state === 'DEPARTED'
+              ? 'badge-success'
+              : state === 'CANCELLED'
+                ? 'badge-ghost line-through opacity-60'
+                : 'badge-outline';
+  return (
+    <span className={`badge badge-sm whitespace-nowrap ${tone}`} data-state={state}>
+      {m.state[state] ?? state}
+    </span>
+  );
 }
 
 export function WaveStateBadge({ state }: { readonly state: string | undefined }) {

@@ -16,6 +16,9 @@
   --color-primary-content: #ffffff;
   --color-accent: #2563eb;
   --color-accent-content: #ffffff;
+  /* 실을 준비(피킹 끝~상차 끝) — 진행 중(파랑)·출발(초록)과 구분 */
+  --color-secondary: #7c3aed;
+  --color-secondary-content: #ffffff;
   --color-info: #2563eb;
   --color-info-content: #ffffff;
   --color-success: #16a34a;
@@ -50,6 +53,8 @@ html[data-theme='pmart-dark'] {
   --color-primary-content: #0b0d10;
   --color-accent: #4c8dff;
   --color-accent-content: #0b0d10;
+  --color-secondary: #a78bfa;
+  --color-secondary-content: #0b0d10;
   --color-info: #4c8dff;
   --color-info-content: #0b0d10;
   --color-success: #22c55e;
@@ -126,6 +131,16 @@ main .badge.badge-warning:not(.badge-outline) {
 main .badge:is(.badge-info, .badge-primary, .badge-accent):not(.badge-outline) {
   --pm-dot: var(--color-info);
   color: var(--color-info);
+}
+
+main .badge.badge-secondary:not(.badge-outline) {
+  --pm-dot: var(--color-secondary);
+  color: var(--color-secondary);
+}
+/* 취소 — 점도 글도 흐리게, 줄 긋기(진행 중 회색과 구분) */
+main .badge.badge-ghost.line-through::before {
+  background: transparent;
+  border: 1px solid currentColor;
 }
 
 /* ③ 문제 줄 — 칠하지 않고 왼쪽 띠만. 옅은 색 바탕 상자도 판 색 + 왼쪽 띠로 */
