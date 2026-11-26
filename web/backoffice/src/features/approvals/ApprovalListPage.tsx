@@ -5,6 +5,7 @@
 //   ③ 심사 상태 8개 탭·숫자 카드·반영 칸은 없앰 → 줄마다 "지금" 한 칸(심사 기다림·승인됨·반영 완료·반려됨…), 상태 거르기는 "내가 올린 것·모두"에서만 고르기 상자
 //   ④ 내가 결정할 수 있는 줄은 오른쪽 "심사하기", 내 요청은 "내 요청"
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
 
 import { request } from '@pmart/web-core';
@@ -24,6 +25,7 @@ import { useRememberQueue } from '../../shared/workQueue';
 import { Person } from '../lookup/parts';
 import { approvalPlace } from './ApprovalProgress';
 import { ApprovalBoard } from './ApprovalBoard';
+import { BatchDecide } from './BatchDecide';
 import { LayoutToggle } from '../../shared/Kanban';
 
 type Summary = components['schemas']['ApprovalSummary'];
@@ -113,6 +115,18 @@ export function ApprovalListPage() {
   };
 
   const rows = query.data?.pages.flatMap((p) => p.items ?? []) ?? [];
+  // 일괄 심사 고르기(2026-11-26) — 지금 보이는 줄 중 내가 결정할 수 있는 것만 남긴다(다시 읽어 빠진 줄은 저절로 빠짐)
+  const [pickedRaw, setPicked] = useState<ReadonlySet<string>>(() => new Set());
+  const decidable = rows.flatMap((a) => (a.viewerCanDecide && a.approvalId ? [a.approvalId] : []));
+  const picked = decidable.filter((id) => pickedRaw.has(id));
+  const allPicked = decidable.length > 0 && picked.length === decidable.length;
+  const toggle = (id: string) =>
+    setPicked((x) => {
+      const next = new Set(x);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
   useRememberQueue('approval', query.data ? rows.flatMap((a) => (a.approvalId ? [a.approvalId] : [])) : undefined, `/approvals?${params.toString()}`);
   const todoEmpty = view === 'todo' && query.isSuccess && rows.length === 0 && !type;
   // 2026-11-20 AWS 개편 3단계(ADR-0004): 제목줄(개수·정보·새로 고침)·속성 필터·상태 아이콘 글자·도움말 패널. 세 갈래 탭은 그대로(사용자 결정)
@@ -172,6 +186,16 @@ export function ApprovalListPage() {
           <PropertyFilter props={filterProps} value={{ type, state }} onChange={set} testId="approval-filter" />
         </div>
 
+        {/* 일괄 심사 띠·확인·결과 — 표 밖에 두어 다 처리해 목록이 비어도 결과가 남는다 */}
+        {!board && (
+          <BatchDecide
+            rows={rows}
+            picked={picked}
+            me={me}
+            onClear={() => setPicked(new Set())}
+            onDecided={(ids) => setPicked((x) => new Set([...x].filter((id) => !ids.includes(id))))}
+          />
+        )}
         {board ? (
           <div className="p-4">
             <ApprovalBoard requesterId={view === 'mine' ? (me ?? undefined) : undefined} type={type} />
@@ -191,6 +215,7 @@ export function ApprovalListPage() {
                 <div className="overflow-x-auto">
                   <table className="table table-fixed min-w-[56rem] [&_tbody_tr:hover]:bg-base-200/60">
                     <colgroup>
+                      <col className="w-10" />
                       <col />
                       <col className="w-48" />
                       <col className="w-28" />
@@ -199,6 +224,18 @@ export function ApprovalListPage() {
                     </colgroup>
                     <thead>
                       <tr>
+                        <th>
+                          {decidable.length > 0 && (
+                            <input
+                              type="checkbox"
+                              className="checkbox checkbox-sm"
+                              aria-label={t.batch.pickAll}
+                              data-testid="approval-pick-all"
+                              checked={allPicked}
+                              onChange={() => setPicked(allPicked ? new Set() : new Set(decidable))}
+                            />
+                          )}
+                        </th>
                         <th>{t.col.what}</th>
                         <th>{t.col.requester}</th>
                         <th>{t.col.submitted}</th>
@@ -212,6 +249,18 @@ export function ApprovalListPage() {
                         const mine = me !== null && a.requesterId === me;
                         return (
                           <tr key={a.approvalId ?? `row-${i}`} data-testid="approval-row" {...pv.row(a.approvalId)}>
+                            <td onClick={(e) => e.stopPropagation()}>
+                              {a.viewerCanDecide && a.approvalId && (
+                                <input
+                                  type="checkbox"
+                                  className="checkbox checkbox-sm"
+                                  aria-label={`${hideIds(a.summary) || m.approvals.untitled} ${t.batch.pick}`}
+                                  data-testid="approval-pick"
+                                  checked={pickedRaw.has(a.approvalId)}
+                                  onChange={() => toggle(a.approvalId!)}
+                                />
+                              )}
+                            </td>
                             <td className="min-w-0">
                               <div className="flex min-w-0 items-center gap-2">
                                 {/* 종류는 회색 작은 글자(꼬리표 대신), 요약은 점선 밑줄 링크 — 누르면 상세(AWS 이름 칸) */}
