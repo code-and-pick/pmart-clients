@@ -86,9 +86,9 @@ export const navGroups: readonly MenuGroup[] = [
       {
         key: 'transport',
         segment: 'transport',
-        ready: false,
-        apiReady: [],
-        apiMissing: ['배차·운송(transport-*·fleet 계약만, 서비스 없음)'],
+        ready: true,
+        apiReady: ['운행·정차·예상 도착·인계 대조·예외(transport-execution 0.2.0)', '배차 생성·계획완료·결행·취소·요청서 옮기기, 잔여 물량, 노선(transport-planning 0.2.0)'],
+        apiMissing: ['도크 배정(층 도크 확정 뒤)', '노선 등록·정규차 지정 화면(다음 단계)', '실시간 위치(GPS 없음)'],
       },
     ],
   },
@@ -100,7 +100,7 @@ export const navGroups: readonly MenuGroup[] = [
         segment: 'master',
         ready: true,
         apiReady: ['상품 취급·온도대(sku-handlings)', '로케이션 목록·상세·상태 변경', '통로별 피킹 방식(aisle-pick-methods)'],
-        apiMissing: ['거래처·차량·기사·노선'],
+        apiMissing: ['거래처·차량·기사(fleet — 화면 다음 단계)'],
       },
       {
         // 상품 발주 + 공급사 관리(사용자 2026-11-26) — 진짜 공급사 없이 가짜 공급사가 회신·ASN, 입고 확정하면 재고에 더한다

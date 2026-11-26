@@ -8,6 +8,7 @@ import { fakeSupplier, resetPurchase } from '../mocks/purchaseHandlers';
 import { resetInbound } from '../mocks/inboundHandlers';
 import { resetQuality } from '../mocks/qualityHandlers';
 import { resetStock } from '../mocks/stockHandlers';
+import { resetTransport } from '../mocks/transportHandlers';
 import { server } from './server';
 
 // 목에 없는 요청은 테스트 실패로 본다(네트워크로 새지 않게).
@@ -21,6 +22,7 @@ afterEach(() => {
   resetDb();
   resetOutbound();
   resetStock();
+  resetTransport();
   resetQuality();
   resetInbound();
   resetPurchase();

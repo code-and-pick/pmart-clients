@@ -19,6 +19,7 @@ import { PreparingPage } from '../features/menus/PreparingPage';
 import { PickingMenu } from '../features/picking/PickingPage';
 import { PurchaseMenu } from '../features/purchase/PurchasePages';
 import { ShippingMenu } from '../features/shipping/ShippingPage';
+import { TransportMenu } from '../features/transport/TransportPage';
 import { TasksMenu } from '../features/tasks/TaskPages';
 import { TrfWaveMenu } from '../features/trf-wave/TrfWavePages';
 import { LoginCallbackPage, LoginPage } from '../features/session/LoginPage';
@@ -206,6 +207,7 @@ const menuPages: Partial<Record<MenuKey, ComponentType<{ readonly cdcId: string 
   purchase: PurchaseMenu,
   inventory: InventoryMenu,
   shipping: ShippingMenu,
+  transport: TransportMenu,
   picking: PickingMenu,
 };
 

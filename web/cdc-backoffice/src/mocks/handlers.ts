@@ -8,6 +8,7 @@ import { purchaseHandlers } from './purchaseHandlers';
 import { inboundHandlers } from './inboundHandlers';
 import { qualityHandlers } from './qualityHandlers';
 import { stockHandlers } from './stockHandlers';
+import { transportHandlers } from './transportHandlers';
 import { operator, unauthorized } from './support';
 
 /** 게이트웨이 공개 경로(계약 security: []) */
@@ -21,4 +22,4 @@ const gateway = http.all(`${API_BASE}/*`, ({ request }) => {
 });
 
 // DC 이름은 sessions/current 의 centerDetails 로 온다(authHandlers 의 mockCenterNames).
-export const handlers = [gateway, ...authHandlers, ...meHandlers, ...outboundHandlers, ...stockHandlers, ...qualityHandlers, ...inboundHandlers, ...purchaseHandlers];
+export const handlers = [gateway, ...authHandlers, ...meHandlers, ...outboundHandlers, ...stockHandlers, ...qualityHandlers, ...inboundHandlers, ...transportHandlers, ...purchaseHandlers];

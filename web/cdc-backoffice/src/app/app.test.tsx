@@ -56,10 +56,10 @@ describe('메뉴', () => {
   });
 
   it('아직 만들지 않은 메뉴는 "준비 중" — 지어낸 숫자 없이 서버 API 있고 없음만', async () => {
-    renderAt('/c/CDC01/transport');
-    expect(await screen.findByRole('heading', { name: '출하·운송' })).toBeInTheDocument();
-    expect(screen.getByText('화면 준비 중')).toBeInTheDocument();
-    expect(screen.getByTestId('api-missing')).toHaveTextContent('transport-*·fleet');
+    renderAt('/c/CDC01/returns');
+    expect(await screen.findByRole('heading', { name: m.menus.returns })).toBeInTheDocument();
+    expect(await screen.findByText('화면 준비 중')).toBeInTheDocument();
+    expect(screen.getByTestId('api-missing')).toHaveTextContent('계약 없음');
   });
 });
 
