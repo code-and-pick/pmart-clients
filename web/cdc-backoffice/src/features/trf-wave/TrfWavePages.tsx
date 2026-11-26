@@ -18,6 +18,7 @@ import { useApi } from '../../app/ApiContext';
 import { centerPath } from '../../app/nav';
 import { messages } from '../../shared/messages';
 import { SkuName } from '../../shared/SkuName';
+import { WaveControls } from './WaveControls';
 
 const m = messages.trf;
 const w = messages.wave;
@@ -153,7 +154,7 @@ function WaveListPage({ cdcId }: { readonly cdcId: string }) {
                     <tr key={v.waveId} data-testid="wave-row">
                       <td>
                         <Link className="link font-mono text-xs" to={wavePath(cdcId, v.waveId ?? '')}>
-                          {v.waveId}
+                          {v.waveNumber ?? v.waveId}
                         </Link>
                       </td>
                       <td>
@@ -330,7 +331,7 @@ function TransferListPage({ cdcId }: { readonly cdcId: string }) {
                         </td>
                         <td>
                           <Link className="link font-mono text-xs" to={trfWavePath(cdcId, `trf/${encodeURIComponent(t.trfId)}`)}>
-                            {t.trfId}
+                            {t.trfNumber ?? t.trfId}
                           </Link>
                         </td>
                         <td className="font-mono text-xs">{t.mfcId}</td>
@@ -416,14 +417,14 @@ function TransferDetailPage({ cdcId }: { readonly cdcId: string }) {
       <QueryState state={toUiState(query)} onRetry={() => void query.refetch()}>
         {(t) => (
           <>
-            <DetailHeader back={{ to: trfWavePath(cdcId), label: m.back }} title={t.trfId} badges={<TrfStateBadge state={t.state} />} summary={`${m.fields.mfc} ${t.mfcId} · ${m.fields.dueAt} ${formatSeoul(t.dueAt)}`} />
+            <DetailHeader back={{ to: trfWavePath(cdcId), label: m.back }} title={t.trfNumber ?? t.trfId} badges={<TrfStateBadge state={t.state} />} summary={`${m.fields.mfc} ${t.mfcId} · ${m.fields.dueAt} ${formatSeoul(t.dueAt)}${t.trfNumber ? ` · ${w.systemId} ${t.trfId}` : ''}`} />
             <div className="rounded-box border border-base-300 bg-base-100 p-4">
               <FieldList
                 testId="trf-fields"
                 rows={[
                   [m.fields.version, t.trfVersion],
                   [m.fields.deadline, t.deadlineMeaning ? (m.deadline[t.deadlineMeaning] ?? t.deadlineMeaning) : messages.none],
-                  [m.fields.wave, t.waveId ? <Link className="link" to={wavePath(cdcId, t.waveId)}>{t.waveId}</Link> : w.noWave],
+                  [m.fields.wave, t.waveId ? <Link className="link" to={wavePath(cdcId, t.waveId)}>{t.waveNumber ?? t.waveId}</Link> : w.noWave],
                   [m.fields.approved, messages.qty(t.approvedQty)],
                   [m.fields.allocated, messages.qty(t.allocatedQty)],
                   [m.fields.picked, messages.qty(t.pickedQty)],
@@ -579,7 +580,7 @@ function WaveContents({ cdcId, trfIds }: { readonly cdcId: string; readonly trfI
                 <tr key={id} data-testid="wave-trf-row">
                   <td>
                     <Link className="link font-mono text-xs" to={trfWavePath(cdcId, `trf/${encodeURIComponent(id)}`)}>
-                      {id}
+                      {t?.trfNumber ?? id}
                     </Link>
                   </td>
                   {t ? (
@@ -645,7 +646,7 @@ function WaveDetailPage({ cdcId }: { readonly cdcId: string }) {
             <DetailHeader
               back={{ to: trfWavePath(cdcId), label: w.back }}
               // 화면 번호(W…)가 서버에 생기기 전까지 제목은 '언제 만든 Wave' 로 — 긴 시스템 ID 는 아래 작은 글씨(ADR-0070: 목록·제목에 시스템 ID 를 크게 내지 않는다)
-              title={v.createdAt ? w.titleAt(formatSeoul(v.createdAt)) : w.titleNoDate}
+              title={v.waveNumber ?? (v.createdAt ? w.titleAt(formatSeoul(v.createdAt)) : w.titleNoDate)}
               badges={<WaveStateBadge state={v.state} />}
               summary={<span className="font-mono text-xs" data-testid="wave-system-id">{`${w.systemId} ${v.waveId ?? waveId}`}</span>}
               actions={
@@ -720,6 +721,16 @@ function WaveDetailPage({ cdcId }: { readonly cdcId: string }) {
                 ]}
               />
             </div>
+            <WaveControls
+              cdcId={cdcId}
+              wave={v}
+              newWavePath={(id) => wavePath(cdcId, id)}
+              onChanged={() => {
+                void queryClient.invalidateQueries({ queryKey: ['cdc', 'wave', waveId] });
+                void queryClient.invalidateQueries({ queryKey: ['cdc', cdcId, 'waves'] });
+                void queryClient.invalidateQueries({ queryKey: ['cdc', cdcId, 'tasks'] });
+              }}
+            />
             <WaveContents cdcId={cdcId} trfIds={v.trfIds ?? []} />
           </>
         )}

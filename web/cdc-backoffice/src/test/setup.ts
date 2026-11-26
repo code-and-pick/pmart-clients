@@ -5,6 +5,7 @@ import { afterAll, afterEach, beforeAll } from 'vitest';
 import { resetDb } from '../mocks/db';
 import { resetOutbound } from '../mocks/outboundHandlers';
 import { fakeSupplier, resetPurchase } from '../mocks/purchaseHandlers';
+import { resetQuality } from '../mocks/qualityHandlers';
 import { resetStock } from '../mocks/stockHandlers';
 import { server } from './server';
 
@@ -19,6 +20,7 @@ afterEach(() => {
   resetDb();
   resetOutbound();
   resetStock();
+  resetQuality();
   resetPurchase();
   // 가짜 공급사 회신·ASN — 시험은 바로(목 웹은 몇 초 뒤)
   fakeSupplier.replyMs = 0;

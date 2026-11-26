@@ -1,6 +1,6 @@
 // 통합 작업관리 — cdc-outbound `GET /cdcs/{cdcId}/tasks?waveId=&state=&pageSize=&cursor=`(waveId 필수)·`GET /cdcs/{cdcId}/tasks/{taskId}`.
 // - Wave 고르기: `GET /cdcs/{cdcId}/waves`(0.15.0) 최근 200개에서 고르거나 번호를 넣는다.
-// - 보기만(재배정·보류·우선순위는 서버에 없음 — 계획서 §2 #7). 착수·실적은 현장 PDA 일이라 이 화면에 없다.
+// - 상세에서 담당 바꾸기·보류·우선순위(0.20.0, TaskControls). 착수·실적은 현장 PDA 일이라 이 화면에 없다.
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { Link, Route, Routes, useParams, useSearchParams } from 'react-router';
@@ -15,12 +15,13 @@ import { messages } from '../../shared/messages';
 import { Who } from '../../shared/OperatorLabel';
 import { SkuName } from '../../shared/SkuName';
 import { wavePath, WaveStateBadge } from '../trf-wave/TrfWavePages';
+import { TaskControls } from './TaskControls';
 
 const m = messages.task;
 
 export type Task = components['schemas']['Task'];
 type TaskState = components['schemas']['TaskState'];
-const STATES: readonly TaskState[] = ['CREATED', 'ASSIGNED', 'ACCEPTED', 'IN_PROGRESS', 'PARTIAL', 'DONE', 'EXCEPTION', 'CANCELLED'];
+const STATES: readonly TaskState[] = ['CREATED', 'ASSIGNED', 'ACCEPTED', 'IN_PROGRESS', 'PARTIAL', 'DONE', 'EXCEPTION', 'HELD', 'CANCELLED'];
 const isState = (v: string | null): v is TaskState => !!v && (STATES as readonly string[]).includes(v);
 
 const tasksPath = (cdcId: string, rest = '') => centerPath(cdcId, rest ? `tasks/${rest}` : 'tasks');
@@ -43,7 +44,7 @@ export function TaskStateBadge({ state }: { readonly state: string | undefined }
 
 const sum = (t: Task, k: 'plannedQty' | 'pickedQty' | 'shortQty') => (t.lines ?? []).reduce((a, l) => a + (l[k] ?? 0), 0);
 const place = (t: Task) => [t.zone, t.floor ? `${t.floor}층` : null, t.aisle].filter(Boolean).join(' · ') || messages.none;
-const trfText = (t: Task) => t.trfId ?? ((t.trfIds?.length ?? 0) > 1 ? m.batch(t.trfIds!.length) : (t.trfIds?.[0] ?? messages.none));
+const trfText = (t: Task) => ((t.trfIds?.length ?? 0) > 1 ? m.batch(t.trfIds!.length) : (t.trfNumber ?? t.trfNumbers?.[0] ?? t.trfId ?? t.trfIds?.[0] ?? messages.none));
 
 /** 최근 Wave 200개(만든 시각 최신 순 — cdc-outbound 0.15.0) */
 function useRecentWaves(cdcId: string) {
@@ -187,7 +188,7 @@ function TaskListPage({ cdcId }: { readonly cdcId: string }) {
                           <tr key={t.taskId} data-testid="task-row">
                             <td>
                               <Link className="link font-mono text-xs" to={tasksPath(cdcId, encodeURIComponent(t.taskId ?? ''))}>
-                                {t.taskId}
+                                {t.taskNumber ?? t.taskId}
                               </Link>
                             </td>
                             <td>{t.kind ? (m.kind[t.kind] ?? t.kind) : messages.none}</td>
@@ -244,7 +245,7 @@ function TaskDetailPage({ cdcId }: { readonly cdcId: string }) {
             <DetailHeader
               back={{ to: t.waveId ? `${tasksPath(cdcId)}?waveId=${encodeURIComponent(t.waveId)}` : tasksPath(cdcId), label: m.back }}
               // 화면 번호(K…) 전까지 제목은 '종류 작업 · 구역·층' — 시스템 ID 는 아래 작은 글씨
-              title={m.titleOf(t.kind ? (m.kind[t.kind] ?? t.kind) : m.taskWord, place(t))}
+              title={`${t.taskNumber ? `${t.taskNumber} · ` : ''}${m.titleOf(t.kind ? (m.kind[t.kind] ?? t.kind) : m.taskWord, place(t))}`}
               badges={<TaskStateBadge state={t.state} />}
               summary={
                 <span className="space-x-2">
@@ -253,12 +254,13 @@ function TaskDetailPage({ cdcId }: { readonly cdcId: string }) {
                 </span>
               }
             />
+            <TaskControls cdcId={cdcId} task={t} />
             <div className="rounded-box border border-base-300 bg-base-100 p-4">
               <FieldList
                 testId="task-fields"
                 rows={[
-                  [messages.trf.fields.wave, t.waveId ? <Link className="link" to={wavePath(cdcId, t.waveId)}>{t.waveId}</Link> : messages.none],
-                  [m.fields.trf, (t.trfIds?.length ? t.trfIds : t.trfId ? [t.trfId] : []).join(', ') || messages.none],
+                  [messages.trf.fields.wave, t.waveId ? <Link className="link" to={wavePath(cdcId, t.waveId)}>{t.waveNumber ?? t.waveId}</Link> : messages.none],
+                  [m.fields.trf, (t.trfNumbers?.length ? t.trfNumbers : t.trfIds?.length ? t.trfIds : t.trfId ? [t.trfId] : []).join(', ') || messages.none],
                   [m.fields.method, t.pickMethod ?? messages.none],
                   [m.fields.region, t.regionCode ?? messages.none],
                   [m.fields.dueAt, t.dueAt ? formatSeoul(t.dueAt) : messages.none],

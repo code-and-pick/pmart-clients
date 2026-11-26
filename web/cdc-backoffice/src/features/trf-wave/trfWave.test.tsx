@@ -130,3 +130,23 @@ describe('Wave 릴리스', () => {
     expect(await screen.findByText('맡은 DC 가 없어요.')).toBeInTheDocument();
   });
 });
+
+describe('Wave 조작', () => {
+  it('보류는 사유가 있어야, 보류하면 안내와 [보류 풀기]', async () => {
+    renderAt('/c/CDC01/trf-wave/waves/WAVE-20261126-02');
+    await userEvent.click(await screen.findByTestId('wave-op-hold'));
+    expect(screen.getByTestId('wave-op-go')).toBeDisabled();
+    await userEvent.type(screen.getByTestId('wave-op-reason'), '차량 늦음');
+    await userEvent.click(screen.getByTestId('wave-op-go'));
+    expect(await screen.findByTestId('wave-held')).toHaveTextContent('차량 늦음');
+    expect(screen.getByTestId('wave-op-resume')).toBeInTheDocument();
+  });
+
+  it('진행 중 Wave 는 취소·합치기·나누기 버튼이 없다', async () => {
+    renderAt('/c/CDC01/trf-wave/waves/WAVE-20261126-01');
+    await screen.findByTestId('wave-controls');
+    expect(screen.getByTestId('wave-op-hold')).toBeInTheDocument();
+    expect(screen.queryByTestId('wave-op-cancel')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('wave-op-merge')).not.toBeInTheDocument();
+  });
+});

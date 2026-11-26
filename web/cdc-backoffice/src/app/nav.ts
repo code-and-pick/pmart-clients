@@ -122,7 +122,7 @@ export const navGroups: readonly MenuGroup[] = [
         segment: 'inventory',
         ready: true,
         apiReady: ['SKU별 현물·가용·예약, LOT·위치별(cdc-inventory stock-snapshot)'],
-        apiMissing: ['재고 원장·이동·실사', '격리·리콜·폐기(cdc-quality 계약만)'],
+        apiMissing: ['재고 이동 이력(원장)'],
       },
       {
         key: 'replenishment',

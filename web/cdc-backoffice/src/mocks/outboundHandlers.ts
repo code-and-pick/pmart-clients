@@ -124,6 +124,24 @@ function seed() {
       createdAt: at(7, 30),
       completedAt: at(8, 10),
     },
+    // 시작 전 작업(작업 조작 시연) — 계획 Wave 에 둔다(진행 중 Wave 의 집계·피킹 화면은 그대로)
+    {
+      taskId: 'TSK-0004',
+      taskNumber: 'K48213',
+      waveId: 'WAVE-20261126-02',
+      trfId: 'TRF-20261126-0003',
+      trfIds: ['TRF-20261126-0003'],
+      pickMode: 'DISCRETE',
+      kind: 'PICK',
+      zone: 'B',
+      floor: '6',
+      priority: 0,
+      dueAt: at(10),
+      state: 'CREATED',
+      version: 1,
+      lines: [{ sku: 'SKU-1002', lot: 'LOT-B7', locationCode: 'CDC01-B-6-67-01-1-1', plannedQty: 8, pickedQty: 0, shortQty: 0 }],
+      createdAt: at(8, 5),
+    },
   ];
   const departures: components['schemas']['DepartureValidation'][] = [
     {
@@ -154,8 +172,15 @@ function seed() {
 }
 
 let store = seed();
+type WaveLog = components['schemas']['WaveAdjustment'] & { waveId: string };
+type TaskLog = components['schemas']['TaskAdjustment'] & { taskId: string };
+const waveLog: WaveLog[] = [];
+const taskLog: TaskLog[] = [];
+
 export const resetOutbound = () => {
   store = seed();
+  waveLog.length = 0;
+  taskLog.length = 0;
 };
 
 const summary = (t: TransferDetail) => {
@@ -322,6 +347,111 @@ export const outboundHandlers = [
     const rows = store.tasks.filter((t) => t.waveId === waveId && (!state || t.state === state));
     const next = from + size < rows.length ? String(from + size) : null;
     return HttpResponse.json({ items: rows.slice(from, from + size), page: { nextCursor: next, size } });
+  }),
+
+  // Wave 조작(0.22.0) — 목: 버전 확인·상태 조건만, 이력은 메모리
+  http.post(`${API_BASE}/waves/:waveId/:op`, async ({ request, params }) => {
+    const op = String(params.op);
+    if (!['holds', 'resumptions', 'cancellations', 'merges', 'splits'].includes(op)) return undefined;
+    const v = store.waves.find((x) => x.waveId === params.waveId);
+    if (!v) return operator(request) ? problem(404, 'NOT_FOUND') : unauthorized();
+    const denied = guard(request, v.cdcId ?? '');
+    if (denied) return denied;
+    const body = (await request.json().catch(() => ({}))) as { reason?: string; sourceWaveId?: string; trfIds?: string[] };
+    const who = operator(request)?.subject ?? '';
+    return idempotent(request, () => {
+      const expected = expectedVersion(request);
+      if (expected !== undefined && expected !== v.version) return problem(409, 'VERSION_CONFLICT');
+      const from = v.state ?? '';
+      const log = (action: string, w: Wave, other: string | null, trfIds: string[]) =>
+        waveLog.push({ waveId: w.waveId ?? '', adjustmentId: `WA-${waveLog.length + 1}`, action, fromState: from, toState: w.state ?? '', otherWaveId: other, trfIds, reason: body.reason ?? null, actorId: who, adjustedAt: new Date().toISOString() });
+      if (op === 'holds') {
+        if (v.hold || !['PLANNED', 'RELEASED', 'IN_PROGRESS'].includes(from)) return problem(409, 'INVALID_STATE');
+        v.hold = { reason: body.reason ?? '', heldBy: who, heldAt: new Date().toISOString() };
+        log('HOLD', v, null, []);
+      } else if (op === 'resumptions') {
+        if (!v.hold) return problem(409, 'INVALID_STATE');
+        delete v.hold;
+        log('RESUME', v, null, []);
+      } else if (op === 'cancellations') {
+        if (from === 'IN_PROGRESS') return problem(409, 'PICKING_STARTED');
+        if (from !== 'PLANNED' && from !== 'RELEASED') return problem(409, 'INVALID_STATE');
+        v.state = 'CANCELLED';
+        log('CANCEL', v, null, v.trfIds ?? []);
+      } else if (op === 'merges') {
+        const src = store.waves.find((x) => x.waveId === body.sourceWaveId);
+        if (!src || src.state !== 'PLANNED' || from !== 'PLANNED') return problem(409, 'INVALID_STATE');
+        v.trfIds = [...(v.trfIds ?? []), ...(src.trfIds ?? [])];
+        src.state = 'CANCELLED';
+        log('MERGE_IN', v, src.waveId ?? null, src.trfIds ?? []);
+      } else {
+        const move = body.trfIds ?? [];
+        if (from !== 'PLANNED' || move.length === 0 || move.length >= (v.trfIds ?? []).length) return problem(409, 'INVALID_STATE');
+        v.trfIds = (v.trfIds ?? []).filter((id) => !move.includes(id));
+        const made: Wave = { waveId: `WAVE-SPLIT-${store.waves.length + 1}`, cdcId: v.cdcId ?? CDC, state: 'PLANNED', version: 1, trfIds: move, taskSummary: { total: 0, done: 0, exception: 0 }, createdAt: new Date().toISOString() };
+        store.waves.push(made);
+        v.version = (v.version ?? 0) + 1;
+        log('SPLIT_OUT', v, made.waveId ?? null, move);
+        return { status: 201, body: made };
+      }
+      v.version = (v.version ?? 0) + 1;
+      return { status: 200, body: v };
+    });
+  }),
+  http.get(`${API_BASE}/waves/:waveId/adjustments`, ({ request, params }) => {
+    if (!operator(request)) return unauthorized();
+    return HttpResponse.json({ items: waveLog.filter((a) => a.waveId === params.waveId).reverse() });
+  }),
+
+  // 작업 조작(0.20.0)
+  http.post(`${API_BASE}/cdcs/:cdcId/tasks/:taskId/:op`, async ({ request, params }) => {
+    const op = String(params.op);
+    if (!['reassignments', 'holds', 'resumptions', 'priority-changes'].includes(op)) return undefined;
+    const denied = guard(request, String(params.cdcId));
+    if (denied) return denied;
+    const t = store.tasks.find((x) => x.taskId === params.taskId);
+    if (!t) return problem(404, 'NOT_FOUND');
+    const body = (await request.json().catch(() => ({}))) as { reason?: string; workerId?: string | null; priority?: number };
+    const who = operator(request)?.subject ?? '';
+    return idempotent(request, () => {
+      const expected = expectedVersion(request);
+      if (expected !== undefined && expected !== t.version) return problem(409, 'VERSION_CONFLICT');
+      const from = t.state ?? '';
+      const fromAssignee = t.assigneeId ?? null;
+      const fromPriority = t.priority ?? 0;
+      const notStarted = ['CREATED', 'ASSIGNED', 'ACCEPTED'].includes(from);
+      let action: string;
+      if (op === 'reassignments') {
+        if (!notStarted) return problem(409, 'INVALID_STATE');
+        if (body.workerId) {
+          t.assigneeId = body.workerId;
+          t.state = 'ASSIGNED';
+        } else {
+          delete t.assigneeId;
+          t.state = 'CREATED';
+        }
+        action = 'REASSIGN';
+      } else if (op === 'holds') {
+        if (!notStarted) return problem(409, 'INVALID_STATE');
+        t.state = 'HELD';
+        action = 'HOLD';
+      } else if (op === 'resumptions') {
+        if (from !== 'HELD') return problem(409, 'INVALID_STATE');
+        t.state = 'CREATED';
+        action = 'RESUME';
+      } else {
+        t.priority = body.priority ?? 0;
+        action = 'PRIORITY';
+      }
+      t.version = (t.version ?? 0) + 1;
+      taskLog.push({ taskId: t.taskId ?? '', adjustmentId: `TA-${taskLog.length + 1}`, action, fromState: from, toState: t.state ?? '', fromAssignee, toAssignee: t.assigneeId ?? null, fromPriority, toPriority: t.priority ?? 0, reason: body.reason ?? null, actorId: who, adjustedAt: new Date().toISOString() });
+      return { status: 200, body: t };
+    });
+  }),
+  http.get(`${API_BASE}/cdcs/:cdcId/tasks/:taskId/adjustments`, ({ request, params }) => {
+    const denied = guard(request, String(params.cdcId));
+    if (denied) return denied;
+    return HttpResponse.json({ items: taskLog.filter((a) => a.taskId === params.taskId).reverse() });
   }),
 
   // 작업자 현황(0.18.0 M-1) — 목은 고정 3명(2명 최근 스캔, 1명 오래됨)

@@ -41,3 +41,28 @@ describe('작업 상세', () => {
     expect(screen.getByTestId('task-fields')).toHaveTextContent('BUSAN');
   });
 });
+
+describe('작업 조작', () => {
+  it('시작 전 작업 — 보류하면 서버 상태(보류)로, 멱등키·버전과 함께', async () => {
+    const view = renderAt('/c/CDC01/tasks/TSK-0004');
+    await userEvent.click(await screen.findByTestId('task-op-hold'));
+    await userEvent.click(screen.getByTestId('task-op-go'));
+    await waitFor(() => expect(screen.getByTestId('task-op-resume')).toBeInTheDocument());
+    const post = view.sent.find((r) => r.method === 'POST' && r.url.endsWith('/holds'))!;
+    expect(post.headers.get('Idempotency-Key')).toBeTruthy();
+    expect(post.headers.get('X-Expected-Version')).toBeTruthy();
+  });
+
+  it('우선순위 — 지금 값과 같거나 범위를 벗어나면 못 보냄', async () => {
+    renderAt('/c/CDC01/tasks/TSK-0004');
+    await userEvent.click(await screen.findByTestId('task-op-priority'));
+    expect(screen.getByTestId('task-op-go')).toBeDisabled();
+    await userEvent.clear(screen.getByTestId('task-priority'));
+    await userEvent.type(screen.getByTestId('task-priority'), '200');
+    expect(screen.getByTestId('task-op-go')).toBeDisabled();
+    await userEvent.clear(screen.getByTestId('task-priority'));
+    await userEvent.type(screen.getByTestId('task-priority'), '50');
+    await userEvent.click(screen.getByTestId('task-op-go'));
+    await waitFor(() => expect(screen.getByTestId('task-controls')).toHaveTextContent('우선순위 50'));
+  });
+});

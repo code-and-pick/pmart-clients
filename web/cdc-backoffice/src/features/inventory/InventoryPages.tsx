@@ -15,6 +15,7 @@ import { useApi } from '../../app/ApiContext';
 import { centerPath } from '../../app/nav';
 import { messages } from '../../shared/messages';
 import { SkuName } from '../../shared/SkuName';
+import { QualityTab } from '../quality/QualityTab';
 import { CountTab } from './CountTab';
 import { LocationStockTable } from './LocationStock';
 
@@ -44,6 +45,7 @@ export function InventoryMenu({ cdcId }: { readonly cdcId: string }) {
       {tab === 'places' && <PlacesTab cdcId={cdcId} />}
       {tab === 'count' && <CountTab cdcId={cdcId} />}
       {tab === 'recount' && <RecountTab cdcId={cdcId} />}
+      {tab === 'quality' && <QualityTab cdcId={cdcId} />}
     </section>
   );
 }
