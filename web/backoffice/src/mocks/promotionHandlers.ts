@@ -28,6 +28,7 @@ const iso = (ms: number) => new Date(ms).toISOString();
 
 function seed(): { items: Map<string, Promotion>; seq: number; grants: Map<string, Map<string, number>>; records: CouponRecord[] } {
   const now = Date.now();
+  const couponDiscount = { type: 'AMOUNT' as const, value: 3000, maxAmount: null };
   const running: Promotion = {
     promotionId: 'PRM-seed-1',
     kind: 'COUPON',
@@ -37,7 +38,7 @@ function seed(): { items: Map<string, Promotion>; seq: number; grants: Map<strin
     startsAt: iso(now - 3 * DAY),
     endsAt: iso(now + 27 * DAY),
     endedAt: null,
-    discount: { type: 'AMOUNT', value: 3000, maxAmount: null },
+    discount: couponDiscount,
     targets: [],
     coupon: { issueMode: 'ADMIN', minOrderAmount: 15000, totalQuantity: 1000, perCustomerLimit: 1, useDays: 7, useUntil: null },
     issuedCount: 12,
@@ -68,11 +69,31 @@ function seed(): { items: Map<string, Promotion>; seq: number; grants: Map<strin
   };
   // promotion 0.3.1 쿠폰 발급 기록(2026-11-24 PRM-1) — 고객·행사 기준 조회용 씨앗
   const records: CouponRecord[] = [
-    { couponId: 'CPN-seed-1', promotionId: running.promotionId, promotionName: running.name, customerId: 'CUS-1001', status: 'USED', source: 'STAFF', issuedBy: 'op-cs-1', issueReason: '배송 지연 보상', issuedAt: iso(now - 2 * DAY), validUntil: iso(now + 5 * DAY), orderId: 'ORD-MOCK-1001', usedAt: iso(now - DAY), discount: running.discount },
-    { couponId: 'CPN-seed-2', promotionId: running.promotionId, promotionName: running.name, customerId: 'CUS-1005', status: 'AVAILABLE', source: 'STAFF', issuedBy: 'op-cs-1', issueReason: '상품 누락 사과', issuedAt: iso(now - 0.5 * DAY), validUntil: iso(now + 6.5 * DAY), orderId: null, usedAt: null, discount: running.discount },
+    { couponId: 'CPN-seed-1', promotionId: running.promotionId, promotionName: running.name, customerId: 'CUS-1001', status: 'USED', source: 'STAFF', issuedBy: 'op-cs-1', issueReason: '배송 지연 보상', issuedAt: iso(now - 2 * DAY), validUntil: iso(now + 5 * DAY), orderId: 'ORD-MOCK-1001', usedAt: iso(now - DAY), discount: couponDiscount },
+    { couponId: 'CPN-seed-2', promotionId: running.promotionId, promotionName: running.name, customerId: 'CUS-1005', status: 'AVAILABLE', source: 'STAFF', issuedBy: 'op-cs-1', issueReason: '상품 누락 사과', issuedAt: iso(now - 0.5 * DAY), validUntil: iso(now + 6.5 * DAY), orderId: null, usedAt: null, discount: couponDiscount },
     { couponId: 'CPN-seed-3', promotionId: 'PRM-COMP', promotionName: '배차 불가 보상 2천원', customerId: 'CUS-1001', status: 'EXPIRED', source: 'COMPENSATION', issuedBy: null, issueReason: '배차 불가로 주문 취소', issuedAt: iso(now - 40 * DAY), validUntil: iso(now - 10 * DAY), orderId: null, usedAt: null, discount: { type: 'AMOUNT', value: 2000, maxAmount: null } },
   ];
-  return { items: new Map([running, draft].map((p) => [p.promotionId, p])), seq: 2, grants: new Map(), records };
+  // 0.5.0 수량 행사 1+1(ADR-0090) — 진행 중, 대상 SKU 1개
+  const offer: Promotion = {
+    promotionId: 'PRM-seed-3',
+    kind: 'QUANTITY_OFFER',
+    name: '우유 1+1',
+    state: 'APPROVED',
+    phase: 'RUNNING',
+    startsAt: iso(now - DAY),
+    endsAt: iso(now + 6 * DAY),
+    endedAt: null,
+    discount: null,
+    offer: { buyQuantity: 1, freeQuantity: 1 },
+    targets: [{ type: 'SKU', id: 'SKU-MILK-900' }],
+    coupon: null,
+    problems: [],
+    approvalId: 'apv-seed-promo-3',
+    version: 3,
+    createdBy: 'op-marketing-1',
+    updatedAt: iso(now - DAY),
+  };
+  return { items: new Map([running, draft, offer].map((p) => [p.promotionId, p])), seq: 3, grants: new Map(), records };
 }
 
 const store = seed();
@@ -94,7 +115,20 @@ export function checkPromotion(i: Input): Problem[] {
   if (!i.name?.trim()) out.push({ field: 'name', reason: '이름을 넣어 주세요' });
   else if (i.name.length > 60) out.push({ field: 'name', reason: '이름은 60자까지예요' });
   if (!(Date.parse(i.startsAt) < Date.parse(i.endsAt))) out.push({ field: 'endsAt', reason: '끝 시각은 시작 시각 뒤여야 해요' });
-  const d = i.discount;
+  if (i.kind === 'QUANTITY_OFFER') {
+    // 0.5.0 — 서버 PromotionRules.checkOffer 와 같은 뜻
+    const o = i.offer;
+    if (!o) out.push({ field: 'offer', reason: '수량 조건(몇 개 사면 몇 개 더)이 필요합니다.' });
+    else {
+      if (o.buyQuantity < 1 || o.buyQuantity > 10) out.push({ field: 'offer.buyQuantity', reason: '사는 수량은 1~10개입니다.' });
+      if (o.freeQuantity < 1 || o.freeQuantity > o.buyQuantity) out.push({ field: 'offer.freeQuantity', reason: '더 주는 수량은 1개부터 사는 수량까지입니다.' });
+    }
+    if (i.discount) out.push({ field: 'discount', reason: '수량 행사에는 할인값을 두지 않습니다.' });
+    if (!i.targets?.length) out.push({ field: 'targets', reason: '대상 SKU·카테고리·테마를 1개 이상 넣어 주세요' });
+    return out;
+  }
+  if (i.offer) out.push({ field: 'offer', reason: '수량 조건은 수량 행사(QUANTITY_OFFER)에만 둡니다.' });
+  const d = i.discount ?? { type: 'AMOUNT' as const, value: 0, maxAmount: null };
   if (d.type === 'RATE' && (d.value < 1 || d.value > 90)) out.push({ field: 'discount.value', reason: '정률은 1~90% 예요' });
   if (d.type === 'AMOUNT' && d.value < 1) out.push({ field: 'discount.value', reason: '정액은 1원 이상이에요' });
   if (i.kind === 'PRICE_DISCOUNT') {
@@ -129,7 +163,7 @@ function deny(request: Request, roles: readonly string[]) {
 
 const view = (p: Promotion): Promotion => ({ ...p, phase: phaseOf(p) });
 /** 저장된 행사 → 검사용 입력 */
-const inputFrom = (p: Promotion): Input => ({ kind: p.kind, name: p.name, startsAt: p.startsAt, endsAt: p.endsAt, discount: p.discount, targets: p.targets, ...(p.coupon ? { coupon: p.coupon } : {}) });
+const inputFrom = (p: Promotion): Input => ({ kind: p.kind, name: p.name, startsAt: p.startsAt, endsAt: p.endsAt, ...(p.discount ? { discount: p.discount } : {}), ...(p.offer ? { offer: p.offer } : {}), targets: p.targets, ...(p.coupon ? { coupon: p.coupon } : {}) });
 
 /** approval PROMOTION 결정 반영(목 effects 가 부른다) — ACTIVATE 승인 → APPROVED, END 승인 → ENDED, 반려 → REJECTED(발효) 또는 그대로(종료) */
 export function decidePromotion(promotionId: string, approved: boolean, action: string | undefined): void {
@@ -155,8 +189,9 @@ function save(input: Input, base: Partial<Promotion> & { promotionId: string; ve
     name: input.name,
     startsAt: input.startsAt,
     endsAt: input.endsAt,
-    discount: input.discount,
-    targets: input.kind === 'PRICE_DISCOUNT' ? (input.targets ?? []).map((t) => ({ type: t.type, id: t.id, ...(t.type === 'THEME' ? { title: themeTitle(t.id) } : {}) })) : [],
+    discount: input.kind === 'QUANTITY_OFFER' ? null : (input.discount ?? null),
+    offer: input.kind === 'QUANTITY_OFFER' ? (input.offer ?? null) : null,
+    targets: input.kind !== 'COUPON' ? (input.targets ?? []).map((t) => ({ type: t.type, id: t.id, ...(t.type === 'THEME' ? { title: themeTitle(t.id) } : {}) })) : [],
     coupon: input.kind === 'COUPON' ? (input.coupon ?? null) : null,
     // 0.3.0 받을 고객별 결과 — 승인 뒤 시작 때 발급(목: 넣은 순서로 PENDING)
     recipientResults: input.kind === 'COUPON' && input.coupon?.issueMode === 'ADMIN' && input.coupon.recipients ? input.coupon.recipients.accountIds.map((accountId) => ({ accountId, result: 'PENDING' as const, couponId: null, processedAt: null })) : [],
@@ -170,7 +205,7 @@ function save(input: Input, base: Partial<Promotion> & { promotionId: string; ve
 }
 
 function approvalRequest(p: Promotion, action: 'ACTIVATE_PROMOTION' | 'END_PROMOTION', draftHash: string, reason?: string) {
-  const what = p.kind === 'COUPON' ? '쿠폰' : '기간 할인';
+  const what = p.kind === 'COUPON' ? '쿠폰' : p.kind === 'QUANTITY_OFFER' ? `수량 행사 ${p.offer?.buyQuantity ?? 0}+${p.offer?.freeQuantity ?? 0}` : '기간 할인';
   return {
     type: 'PROMOTION',
     targetService: 'promotion-service',
@@ -189,8 +224,9 @@ function approvalRequest(p: Promotion, action: 'ACTIVATE_PROMOTION' | 'END_PROMO
           startsAt: p.startsAt,
           endsAt: p.endsAt,
           // 실제 키(PC 1 2026-11-21): discount 객체가 아니라 discountType·discountValue, maxAmount 없음
-          discountType: p.discount.type,
-          discountValue: p.discount.value,
+          // 수량 행사는 서버가 AMOUNT·0 으로 싣는다(0.5.0)
+          discountType: p.discount?.type ?? 'AMOUNT',
+          discountValue: p.discount?.value ?? 0,
           ...(reason ? { reason } : {}),
         },
       },
@@ -300,7 +336,7 @@ export const promotionHandlers = [
         issued += 1;
         const couponId = `CPN-${p.promotionId}-${issued}`;
         const now = Date.now();
-        store.records.unshift({ couponId, promotionId: p.promotionId, promotionName: p.name, customerId: accountId, status: 'AVAILABLE', source: 'STAFF', issuedBy: who?.subject ?? null, issueReason: body.reason, issuedAt: new Date(now).toISOString(), validUntil: new Date(now + (p.coupon?.useDays ?? 7) * DAY).toISOString(), orderId: null, usedAt: null, discount: p.discount });
+        store.records.unshift({ couponId, promotionId: p.promotionId, promotionName: p.name, customerId: accountId, status: 'AVAILABLE', source: 'STAFF', issuedBy: who?.subject ?? null, issueReason: body.reason, issuedAt: new Date(now).toISOString(), validUntil: new Date(now + (p.coupon?.useDays ?? 7) * DAY).toISOString(), orderId: null, usedAt: null, discount: p.discount ?? { type: 'AMOUNT', value: 0, maxAmount: null } });
         return { accountId, result: 'ISSUED' as const, couponId };
       });
       store.grants.set(p.promotionId, mine);

@@ -475,7 +475,8 @@ function PromotionLine({ attributes, targetRef }: { readonly attributes: Readonl
   };
   const kind = s('kind');
   const value = attributes?.['discountValue'];
-  const discountText = typeof value === 'number' ? (s('discountType') === 'RATE' ? pm.rate(value, null) : pm.amount(value, kind === 'PRICE_DISCOUNT')) : null;
+  // 수량 행사(0.5.0)는 discountType·discountValue 가 AMOUNT·0 으로 실린다 — 할인 글을 쓰지 않는다(N+M 은 서버 요약에)
+  const discountText = kind !== 'QUANTITY_OFFER' && typeof value === 'number' ? (s('discountType') === 'RATE' ? pm.rate(value, null) : pm.amount(value, kind === 'PRICE_DISCOUNT')) : null;
   const starts = s('startsAt');
   const ends = s('endsAt');
   const end = s('action') === 'END';

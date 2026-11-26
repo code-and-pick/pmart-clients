@@ -45,7 +45,11 @@ describe('행사·쿠폰', () => {
   it('목록: 서버 상태·단계·할인·발급 수 그대로, 상담원은 보기만(만들기 단추 없음)', async () => {
     renderAt('/promotions', as.cs);
     const rows = await screen.findAllByTestId('promotion-row');
-    expect(rows).toHaveLength(2);
+    expect(rows).toHaveLength(3);
+    // 0.5.0 수량 행사 — 할인 칸 자리에 N+M(discount 는 null)
+    const offer = rows.find((r) => r.textContent?.includes('우유 1+1'))!;
+    expect(offer).toHaveTextContent('수량 행사 1+1·2+1');
+    expect(offer).toHaveTextContent('1+1 (1개 사면 1개 더)');
     const coupon = rows.find((r) => r.textContent?.includes('첫 주문 3천원 쿠폰'))!;
     expect(coupon).toHaveTextContent('승인됨');
     expect(coupon).toHaveTextContent('진행 중');
@@ -109,6 +113,70 @@ describe('행사·쿠폰', () => {
     await user.click(await screen.findByRole('link', { name: '행사 화면으로' }));
     await waitFor(() => expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('승인됨'));
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('진행 중');
+  });
+
+  it('수량 행사(1+1·2+1, promotion 0.5.0): 할인 대신 "N개 사면 M개 더" 두 칸 + 대상, 보내는 값 offer(discount 없음), 승인 화면은 0원 글 없이', async () => {
+    const user = userEvent.setup();
+    const view = renderAt('/promotions/new', as.marketing);
+    const form = await screen.findByRole('form', { name: '행사 만들기' });
+    await user.click(within(form).getByRole('radio', { name: '수량 행사 1+1·2+1' }));
+    expect(within(form).queryByLabelText('할인 방식')).not.toBeInTheDocument();
+    expect(within(form).queryByLabelText('할인율(%)')).not.toBeInTheDocument();
+    await user.type(within(form).getByLabelText('이름(고객에게 보여요)'), '라면 2+1');
+    fireEvent.change(within(form).getByLabelText('시작'), { target: { value: local(-1) } });
+    fireEvent.change(within(form).getByLabelText('끝'), { target: { value: local(72) } });
+    await user.clear(within(form).getByLabelText('사는 수량(개)'));
+    await user.type(within(form).getByLabelText('사는 수량(개)'), '2');
+    expect(within(form).getByTestId('offer-hint')).toHaveTextContent('2+1 (2개 사면 1개 더)');
+    await user.click(within(form).getByRole('button', { name: '대상 더하기' }));
+    await user.type(within(form).getByLabelText('SKU 코드'), 'SKU-RAMEN-5');
+    await user.click(within(form).getByRole('button', { name: '저장하고 승인 요청' }));
+    expect(await screen.findByText('승인을 요청했어요')).toBeInTheDocument();
+    const body = (await view.mutations('/promotions')[0]!.clone().json()) as Record<string, unknown>;
+    expect(body).toMatchObject({ kind: 'QUANTITY_OFFER', offer: { buyQuantity: 2, freeQuantity: 1 }, targets: [{ type: 'SKU', id: 'SKU-RAMEN-5' }] });
+    expect(body).not.toHaveProperty('discount');
+    expect(body).not.toHaveProperty('coupon');
+    const href = screen.getByRole('link', { name: '승인 보기' }).getAttribute('href')!;
+    view.unmount();
+
+    renderAt(href, as.marketing2);
+    const line = await screen.findByTestId('promotion-line');
+    expect(line).toHaveTextContent('수량 행사 1+1·2+1');
+    expect(line).toHaveTextContent('라면 2+1');
+    expect(line).not.toHaveTextContent('0원'); // 서버는 discountType·discountValue 를 AMOUNT·0 으로 싣는다
+  });
+
+  it('수량 행사: 사는 수량을 비우면 저장은 되고 제출 422 — "사는 수량" 칸 이름으로(1~10·더 주는 수량 ≤ 사는 수량은 칸 min·max 와 서버 검사)', async () => {
+    const user = userEvent.setup();
+    const view = renderAt('/promotions/new', as.marketing);
+    const form = await screen.findByRole('form', { name: '행사 만들기' });
+    await user.click(within(form).getByRole('radio', { name: '수량 행사 1+1·2+1' }));
+    await user.type(within(form).getByLabelText('이름(고객에게 보여요)'), '수량 빠진 행사');
+    fireEvent.change(within(form).getByLabelText('시작'), { target: { value: local(1) } });
+    fireEvent.change(within(form).getByLabelText('끝'), { target: { value: local(48) } });
+    await user.clear(within(form).getByLabelText('사는 수량(개)'));
+    await user.click(within(form).getByRole('button', { name: '대상 더하기' }));
+    await user.type(within(form).getByLabelText('SKU 코드'), 'SKU-1');
+    await user.click(within(form).getByRole('button', { name: '저장하고 승인 요청' }));
+    expect(await screen.findByTestId('promotion-problems')).toHaveTextContent('사는 수량(개)');
+    expect(view.mutations('/change-requests')).toHaveLength(0);
+  });
+
+  it('수량 행사 상세: 종류·N+M·대상 SKU, 기간 할인 만들기에는 "1+1 만 받아요" 안내', async () => {
+    const view = renderAt('/promotions/PRM-seed-3', as.marketing);
+    const summary = await screen.findByTestId('promotion-summary');
+    expect(summary).toHaveTextContent('수량 행사 1+1·2+1');
+    expect(summary).toHaveTextContent('1+1 (1개 사면 1개 더)');
+    expect(screen.getByTestId('promotion-targets')).toHaveTextContent('SKU-MILK-900');
+    expect(screen.getByRole('button', { name: '조기 종료 승인 요청' })).toBeInTheDocument();
+    expect(screen.queryByText('받은 쿠폰은 기간까지 쓸 수 있어요')).not.toBeInTheDocument(); // 쿠폰 안내는 쿠폰만
+    view.unmount();
+
+    const user = userEvent.setup();
+    renderAt('/promotions/new', as.marketing);
+    const form = await screen.findByRole('form', { name: '행사 만들기' });
+    await user.click(within(form).getByRole('radio', { name: '기간 할인' }));
+    expect(within(form).getByTestId('price-with-offer-note')).toHaveTextContent('고객은 1+1 만 받아요');
   });
 
   it('기간 할인에 대상이 없으면 저장은 되고 제출은 422 PROMOTION_INVALID — 고칠 곳을 칸 이름으로, 승인 요청은 보내지 않는다', async () => {

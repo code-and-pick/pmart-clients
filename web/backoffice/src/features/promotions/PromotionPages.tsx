@@ -39,9 +39,15 @@ const label = (names: Readonly<Record<string, string>>, v: string | null | undef
 const stateTone = (s: string): Tone => (s === 'APPROVED' ? 'success' : s === 'REJECTED' ? 'error' : s === 'SUBMITTED' ? 'warning' : s === 'ENDED' ? 'ghost' : 'info');
 const phaseTone = (p: string): Tone => (p === 'RUNNING' ? 'success' : p === 'SCHEDULED' ? 'info' : 'ghost');
 
-export function discountText(p: Pick<Promotion, 'kind' | 'discount'>): string {
-  return p.discount.type === 'RATE' ? m.rate(p.discount.value, p.discount.maxAmount) : m.amount(p.discount.value, p.kind === 'PRICE_DISCOUNT');
+/** 할인 칸 글 — 수량 행사(0.5.0)는 discount 가 null 이고 offer 로 "N+M". 둘 다 없으면 "없음" */
+export function discountText(p: Pick<Promotion, 'kind' | 'discount' | 'offer'>): string {
+  if (p.kind === 'QUANTITY_OFFER') return p.offer ? m.offer(p.offer.buyQuantity, p.offer.freeQuantity) : messages.none;
+  const d = p.discount;
+  if (!d) return messages.none;
+  return d.type === 'RATE' ? m.rate(d.value, d.maxAmount) : m.amount(d.value, p.kind === 'PRICE_DISCOUNT');
 }
+/** 대상(SKU·카테고리·테마)을 고르는 종류 — 기간 할인·수량 행사 */
+const hasTargets = (k: PromotionKind) => k === 'PRICE_DISCOUNT' || k === 'QUANTITY_OFFER';
 const periodText = (p: Pick<Promotion, 'startsAt' | 'endsAt'>) => `${formatSeoul(p.startsAt)} ~ ${formatSeoul(p.endsAt)}`;
 
 // ── 시각 칸: datetime-local(서울 시각) ↔ ISO ──
@@ -186,6 +192,9 @@ interface Draft {
   readonly discountType: 'RATE' | 'AMOUNT';
   readonly value: string;
   readonly maxAmount: string;
+  /** 0.5.0 수량 행사 — N개 사면 M개 더 */
+  readonly offerBuy: string;
+  readonly offerFree: string;
   readonly targets: ReadonlyArray<{ readonly type: TargetType; readonly id: string }>;
   readonly issueMode: CouponPolicy['issueMode'];
   /** 0.3.0 지정 발급 — 만들 때 받을 고객(시작 때 서버가 발급)·발급 사유 */
@@ -207,6 +216,8 @@ const emptyDraft = (kind: PromotionKind): Draft => ({
   discountType: 'RATE',
   value: '',
   maxAmount: '',
+  offerBuy: '1',
+  offerFree: '1',
   targets: [],
   issueMode: 'DOWNLOAD',
   recipients: [],
@@ -226,9 +237,11 @@ function draftOf(p: Promotion): Draft {
     name: p.name,
     startsAt: toLocalInput(p.startsAt),
     endsAt: toLocalInput(p.endsAt),
-    discountType: p.discount.type,
-    value: String(p.discount.value),
-    maxAmount: p.discount.maxAmount ? String(p.discount.maxAmount) : '',
+    discountType: p.discount?.type ?? 'RATE',
+    value: p.discount ? String(p.discount.value) : '',
+    maxAmount: p.discount?.maxAmount ? String(p.discount.maxAmount) : '',
+    offerBuy: p.offer ? String(p.offer.buyQuantity) : '1',
+    offerFree: p.offer ? String(p.offer.freeQuantity) : '1',
     targets: (p.targets ?? []).map((t) => ({ type: t.type, id: t.id })),
     issueMode: c?.issueMode ?? 'DOWNLOAD',
     recipients: (c?.recipients?.accountIds ?? []).map((id) => ({ id })),
@@ -246,14 +259,12 @@ const num = (v: string) => (v.trim() === '' ? null : Number(v));
 
 /** 화면 칸 → 계약 본문(검사는 서버 — 비운 숫자는 0·null 로 보내고 서버 problems 로 돌려받는다) */
 function inputOf(d: Draft): PromotionInput {
-  const base = {
-    kind: d.kind,
-    name: d.name.trim(),
-    startsAt: fromLocalInput(d.startsAt),
-    endsAt: fromLocalInput(d.endsAt),
-    discount: { type: d.discountType, value: num(d.value) ?? 0, maxAmount: d.kind === 'COUPON' && d.discountType === 'RATE' ? num(d.maxAmount) : null },
-  };
-  if (d.kind === 'PRICE_DISCOUNT') return { ...base, targets: d.targets.filter((t) => t.id.trim() !== '').map((t) => ({ type: t.type, id: t.id.trim() })) };
+  const common = { kind: d.kind, name: d.name.trim(), startsAt: fromLocalInput(d.startsAt), endsAt: fromLocalInput(d.endsAt) };
+  const targets = d.targets.filter((t) => t.id.trim() !== '').map((t) => ({ type: t.type, id: t.id.trim() }));
+  // 수량 행사는 discount 를 두지 않는다(같이 주면 서버 problems "discount")
+  if (d.kind === 'QUANTITY_OFFER') return { ...common, offer: { buyQuantity: num(d.offerBuy) ?? 0, freeQuantity: num(d.offerFree) ?? 0 }, targets };
+  const base = { ...common, discount: { type: d.discountType, value: num(d.value) ?? 0, maxAmount: d.kind === 'COUPON' && d.discountType === 'RATE' ? num(d.maxAmount) : null } };
+  if (d.kind === 'PRICE_DISCOUNT') return { ...base, targets };
   return {
     ...base,
     coupon: {
@@ -278,6 +289,9 @@ const FIELD_NAME: Readonly<Record<string, string>> = {
   'discount.type': f.discountType,
   'discount.value': f.value.RATE ?? '',
   'discount.maxAmount': f.maxAmount,
+  offer: f.offer,
+  'offer.buyQuantity': f.offerBuy,
+  'offer.freeQuantity': f.offerFree,
   targets: f.targets,
   coupon: f.issueMode,
   'coupon.issueMode': f.issueMode,
@@ -346,9 +360,9 @@ function PromotionForm({ initial, existing, editable }: { readonly initial: Draf
   const [saved, setSaved] = useState<Promotion | null>(existing);
   const dirty = JSON.stringify(d) !== JSON.stringify(base.draft);
   const set = (patch: Partial<Draft>) => setD((x) => ({ ...x, ...patch }));
-  const tree = useQuery({ queryKey: ['product', 'category-tree'], queryFn: () => request('GET', api.product.GET('/categories/tree', {})), enabled: d.kind === 'PRICE_DISCOUNT' });
+  const tree = useQuery({ queryKey: ['product', 'category-tree'], queryFn: () => request('GET', api.product.GET('/categories/tree', {})), enabled: hasTargets(d.kind) });
   // 고를 수 있는 진열 테마(0.3.0 — promotion 이 1분마다 받아 둔 지금 게시본). 자동 랭킹은 고를 수 없어 목록에서 뺀다
-  const themes = useQuery({ queryKey: ['promotions', 'theme-targets'], queryFn: () => request('GET', api.promotion.GET('/promotions/theme-targets', {})), enabled: d.kind === 'PRICE_DISCOUNT' && d.targets.some((t) => t.type === 'THEME') });
+  const themes = useQuery({ queryKey: ['promotions', 'theme-targets'], queryFn: () => request('GET', api.promotion.GET('/promotions/theme-targets', {})), enabled: hasTargets(d.kind) && d.targets.some((t) => t.type === 'THEME') });
 
   /** 만들기(POST) 또는 고치기(PUT, X-Expected-Version) */
   const put = async (key: IdempotencyKey, now: Draft): Promise<Promotion> => {
@@ -381,6 +395,7 @@ function PromotionForm({ initial, existing, editable }: { readonly initial: Draf
   const shown = problems.length > 0 ? problems : (saved?.problems ?? []);
   const locked = !editable || save.busy || submit.busy || result !== null;
   const coupon = d.kind === 'COUPON';
+  const offer = d.kind === 'QUANTITY_OFFER';
 
   return (
     <form
@@ -416,6 +431,23 @@ function PromotionForm({ initial, existing, editable }: { readonly initial: Draf
               {coupon ? f.endsAtCoupon : f.endsAt}
               <DateTimeField value={d.endsAt} min={d.startsAt || undefined} disabled={locked} onChange={(v) => set({ endsAt: v })} />
             </label>
+            {offer ? (
+              <>
+                <label className={fieldCls}>
+                  {f.offerBuy}
+                  <input type="number" inputMode="numeric" className="input input-sm w-32" min={1} max={10} value={d.offerBuy} disabled={locked} onChange={(e) => set({ offerBuy: e.target.value })} />
+                </label>
+                <label className={fieldCls}>
+                  {f.offerFree}
+                  <input type="number" inputMode="numeric" className="input input-sm w-32" min={1} max={num(d.offerBuy) ?? 10} value={d.offerFree} disabled={locked} onChange={(e) => set({ offerFree: e.target.value })} />
+                </label>
+                <p className="text-xs text-base-content/60 sm:col-span-2" data-testid="offer-hint">
+                  {num(d.offerBuy) && num(d.offerFree) ? `${m.offer(num(d.offerBuy)!, num(d.offerFree)!)} · ` : ''}
+                  {f.offerHint}
+                </p>
+              </>
+            ) : (
+            <>
             <label className={fieldCls}>
               {f.discountType}
               <select className="select select-sm w-40" value={d.discountType} disabled={locked} onChange={(e) => set({ discountType: e.target.value === 'AMOUNT' ? 'AMOUNT' : 'RATE' })}>
@@ -433,6 +465,13 @@ function PromotionForm({ initial, existing, editable }: { readonly initial: Draf
                 {f.maxAmount}
                 <input type="number" inputMode="numeric" className="input input-sm w-40" min={1} value={d.maxAmount} disabled={locked} onChange={(e) => set({ maxAmount: e.target.value })} />
               </label>
+            )}
+            {d.kind === 'PRICE_DISCOUNT' && (
+              <p className="text-xs text-base-content/60 sm:col-span-2" data-testid="price-with-offer-note">
+                {f.priceWithOfferNote}
+              </p>
+            )}
+            </>
             )}
           </div>
         </div>
@@ -693,7 +732,7 @@ export function PromotionDetailPage() {
                 </>
               ) : (
                 <>
-                  {p.kind === 'PRICE_DISCOUNT' && <TargetList p={p} />}
+                  {hasTargets(p.kind) && <TargetList p={p} />}
                   {p.problems.length > 0 && <Problems items={p.problems} />}
                   {(p.state === 'DRAFT' || p.state === 'REJECTED' || p.state === 'SUBMITTED') && <p className="text-xs text-base-content/55">{f.locked}</p>}
                 </>
@@ -801,7 +840,8 @@ function EndPromotion({ p }: { readonly p: Promotion }) {
           if (reason.trim()) void cmd.run(reason.trim());
         }}
       >
-        <p className="text-xs text-base-content/60">{m.end.intro}</p>
+        {/* 쿠폰만 해당하는 안내(받은 쿠폰) — 기간 할인·수량 행사에는 보이지 않게 */}
+        {p.kind === 'COUPON' && <p className="text-xs text-base-content/60">{m.end.intro}</p>}
         <label className={fieldCls}>
           {m.end.reason}
           <input className="input input-sm w-full max-w-lg" maxLength={200} value={reason} disabled={cmd.busy || done} onChange={(e) => setReason(e.target.value)} />

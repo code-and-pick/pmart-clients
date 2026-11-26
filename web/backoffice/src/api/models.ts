@@ -74,7 +74,9 @@ export type PromotionState = PR['PromotionState'];
 export type PromotionPhase = PR['PromotionPhase'];
 export type PromotionTarget = PR['PromotionTarget'];
 export type CouponPolicy = PR['CouponPolicy'];
-export const PROMOTION_KINDS = ['PRICE_DISCOUNT', 'COUPON'] as const satisfies readonly PromotionKind[];
+export type QuantityOffer = PR['QuantityOffer'];
+/** 0.5.0 QUANTITY_OFFER 수량 행사 1+1·2+1(ADR-0090) */
+export const PROMOTION_KINDS = ['PRICE_DISCOUNT', 'COUPON', 'QUANTITY_OFFER'] as const satisfies readonly PromotionKind[];
 export const PROMOTION_STATES = ['DRAFT', 'SUBMITTED', 'APPROVED', 'REJECTED', 'ENDED'] as const satisfies readonly PromotionState[];
 export const ISSUE_MODES = ['DOWNLOAD', 'ADMIN', 'SIGNUP'] as const satisfies readonly CouponPolicy['issueMode'][];
 export type ContentImage = C['ContentImage'];
