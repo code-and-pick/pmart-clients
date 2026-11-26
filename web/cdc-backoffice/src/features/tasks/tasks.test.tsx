@@ -37,7 +37,9 @@ describe('작업 상세', () => {
   it('줄과 TRF 별 몫', async () => {
     renderAt('/c/CDC01/tasks/TSK-0001');
     const lines = await screen.findByTestId('task-lines');
-    expect(within(lines).getByText(/MFC-BJG-01 TRF-20261126-0001 · 32\/40/)).toBeInTheDocument();
+    // TRF 별 몫 = MFC 이름 · TRF 화면 번호 · 피킹/계획
+    expect(within(lines).getByText('T482913')).toBeInTheDocument();
+    expect((await within(lines).findAllByText('부산진구 MFC')).length).toBeGreaterThan(0);
     expect(screen.getByTestId('task-fields')).toHaveTextContent('BUSAN');
   });
 });

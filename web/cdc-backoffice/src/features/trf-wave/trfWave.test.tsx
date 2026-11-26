@@ -13,7 +13,7 @@ describe('TRF 목록', () => {
     renderAt('/c/CDC01/trf-wave');
     const rows = await screen.findAllByTestId('trf-row');
     expect(rows).toHaveLength(6);
-    expect(within(rows[0]!).getByText('TRF-20261126-0001')).toBeInTheDocument();
+    expect(within(rows[0]!).getByText('T482913')).toBeInTheDocument();
     expect(within(rows[0]!).getByRole('link', { name: 'W4821' })).toHaveAttribute('href', '/c/CDC01/trf-wave/waves/WAVE-20261126-01');
     expect(within(rows[0]!).getAllByText('2').some((el) => el.classList.contains('text-error'))).toBe(true);
   });

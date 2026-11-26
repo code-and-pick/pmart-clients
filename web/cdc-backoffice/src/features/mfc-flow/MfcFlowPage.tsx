@@ -14,6 +14,7 @@ import type { components } from '../../api/generated/cdc-outbound';
 import { useApi } from '../../app/ApiContext';
 import { centerPath } from '../../app/nav';
 import { messages } from '../../shared/messages';
+import { MfcName } from '../../shared/MfcName';
 import { ResultBadge } from '../shipping/ShippingPage';
 import { trfWavePath } from '../trf-wave/TrfWavePages';
 
@@ -157,7 +158,7 @@ function FlowBody({
                 <tr key={mfcId} data-testid="flow-row">
                   <td className="font-mono text-xs">
                     <Link className="link" to={`${centerPath(cdcId, 'trf-wave')}?mfcId=${encodeURIComponent(mfcId)}`}>
-                      {mfcId}
+                      <MfcName id={mfcId} />
                     </Link>
                   </td>
                   {STAGES.map((st) => (
@@ -221,10 +222,10 @@ function RecentDepartures({ cdcId, trfs }: { readonly cdcId: string; readonly tr
                     <li key={`${dep.departureId}-${x.trfId}`} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2 text-sm" data-testid="flow-recent-row">
                       <span className="w-28 shrink-0 text-xs text-base-content/60">{dep.validatedAt ? formatSeoul(dep.validatedAt) : messages.none}</span>
                       <Link className="link font-mono text-xs" to={trfWavePath(cdcId, `trf/${encodeURIComponent(x.trfId ?? '')}`)}>
-                        {trf ? trfLabel(trf) : x.trfId}
+                        {x.trfNumber ?? (trf ? trfLabel(trf) : x.trfId)}
                       </Link>
                       <span aria-hidden className="text-base-content/40">→</span>
-                      <span className="font-mono text-xs">{trf?.mfcId ?? messages.none}</span>
+                      <DepartureMfc cdcId={cdcId} trfId={x.trfId ?? ''} known={trf?.mfcId} />
                       <span className="tabular-nums">{t.departedLine(x.departedQty ?? 0)}</span>
                       <ResultBadge result={x.result} />
                       {dep.vehicleId && <span className="text-xs text-base-content/55">{`${messages.shipping.vehicle} ${dep.vehicleId}`}</span>}
@@ -238,4 +239,17 @@ function RecentDepartures({ cdcId, trfs }: { readonly cdcId: string; readonly tr
       </QueryState>
     </section>
   );
+}
+
+/** 최근 출발의 받는 MFC — 오늘 TRF 목록에 없는(지난 날) TRF 는 TRF 상세에서 찾는다(출발 검증 응답에는 MFC 가 없다) */
+function DepartureMfc({ cdcId, trfId, known }: { readonly cdcId: string; readonly trfId: string; readonly known: string | undefined }) {
+  const api = useApi();
+  const q = useQuery({
+    queryKey: ['cdc', cdcId, 'transfer', trfId],
+    enabled: !known && !!trfId,
+    staleTime: 5 * 60_000,
+    queryFn: () => request('GET', api.outbound.GET('/cdcs/{cdcId}/transfers/{trfId}', { params: { path: { cdcId, trfId } } })),
+  });
+  const id = known ?? q.data?.mfcId;
+  return id ? <MfcName id={id} className="text-xs" /> : <span className="text-xs text-base-content/50">{q.isError ? messages.loadFailed : messages.none}</span>;
 }

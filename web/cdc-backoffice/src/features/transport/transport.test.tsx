@@ -100,7 +100,7 @@ describe('출하·운송 — 배차', () => {
     await userEvent.click(screen.getByRole('tab', { name: '노선' }));
     const cards = await screen.findAllByTestId('route-card');
     expect(cards).toHaveLength(3);
-    expect(cards[0]).toHaveTextContent('MFC-BJG-01');
+    expect(cards[0]).toHaveTextContent('부산진구 MFC');
     expect(cards[0]).toHaveTextContent('최대 R/T 12');
   });
 });

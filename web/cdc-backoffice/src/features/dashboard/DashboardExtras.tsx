@@ -9,6 +9,7 @@ import { StatCard } from '@pmart/web-ui/standard';
 import { useApi } from '../../app/ApiContext';
 import { centerPath } from '../../app/nav';
 import { messages } from '../../shared/messages';
+import { MfcName } from '../../shared/MfcName';
 
 const t = messages.dashboard;
 const REFRESH = 30_000;
@@ -119,7 +120,9 @@ export function ByMfc({ cdcId, rows }: { readonly cdcId: string; readonly rows: 
                 const pct = r.approvedQty > 0 ? Math.round((r.pickedQty / r.approvedQty) * 100) : null;
                 return (
                   <tr key={r.mfcId} data-testid="dash-bymfc-row">
-                    <td className="font-mono text-xs">{r.mfcId}</td>
+                    <td className="text-xs">
+                      <MfcName id={r.mfcId} />
+                    </td>
                     <td className="text-right">{r.transferCount}</td>
                     <td className="text-right tabular-nums">{messages.qty(r.approvedQty)}</td>
                     <td className="text-right tabular-nums">{messages.qty(r.pickedQty)}</td>

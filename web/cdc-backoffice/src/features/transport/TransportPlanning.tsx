@@ -12,6 +12,7 @@ import { commandParams } from '../../api/command';
 import type { components } from '../../api/generated/transport-planning';
 import { useApi } from '../../app/ApiContext';
 import { messages } from '../../shared/messages';
+import { MfcName } from '../../shared/MfcName';
 import { Who } from '../../shared/OperatorLabel';
 import { NewRouteForm, RegularVehicleForm } from './FleetPages';
 import { tempLabel, TripStateBadge, tripsKey } from './TransportPage';
@@ -198,7 +199,9 @@ function OrderDetail({ cdcId, order: o, all }: { readonly cdcId: string; readonl
             {(o.stops ?? []).map((s) => (
               <tr key={s.seq}>
                 <td>{t.stopSeq(s.seq ?? 0)}</td>
-                <td className="font-mono">{s.mfcId}</td>
+                <td>
+                  <MfcName id={s.mfcId} />
+                </td>
                 <td>{fmt(s.plannedArrivalAt)}</td>
                 <td className="font-mono">{(s.trfIds ?? []).join(', ') || messages.none}</td>
                 <td className="text-right">
@@ -403,7 +406,7 @@ export function RoutesView({ cdcId }: { readonly cdcId: string }) {
                         →
                       </span>
                       <span className="badge badge-sm badge-outline font-mono">
-                        {s.mfcId} {s.plannedArrivalOffsetMinutes !== undefined ? t.offset(s.plannedArrivalOffsetMinutes) : ''}
+                        <MfcName id={s.mfcId} /> {s.plannedArrivalOffsetMinutes !== undefined ? t.offset(s.plannedArrivalOffsetMinutes) : ''}
                       </span>
                     </li>
                   ))}

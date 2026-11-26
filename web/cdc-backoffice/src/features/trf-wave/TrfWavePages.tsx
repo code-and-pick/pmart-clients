@@ -16,7 +16,9 @@ import { commandParams } from '../../api/command';
 import type { components } from '../../api/generated/cdc-outbound';
 import { useApi } from '../../app/ApiContext';
 import { centerPath } from '../../app/nav';
+import { findWaveId } from '../../shared/findByNumber';
 import { messages } from '../../shared/messages';
+import { MfcName, useMfcLabel } from '../../shared/MfcName';
 import { SkuName } from '../../shared/SkuName';
 import { WaveControls } from './WaveControls';
 
@@ -194,17 +196,19 @@ function TransferListPage({ cdcId }: { readonly cdcId: string }) {
   const [params, setParams] = useSearchParams();
   const state = params.get('state') ?? '';
   const mfcId = params.get('mfcId') ?? '';
+  const no = params.get('no') ?? '';
   const page = Math.max(0, Number(params.get('page') ?? '0') || 0);
   const [mfcDraft, setMfcDraft] = useState(mfcId);
+  const [noDraft, setNoDraft] = useState(no);
   const [picked, setPicked] = useState<ReadonlySet<string>>(new Set());
 
   const query = useQuery({
-    queryKey: ['cdc', cdcId, 'transfers', state, mfcId, page],
+    queryKey: ['cdc', cdcId, 'transfers', state, mfcId, no, page],
     queryFn: () =>
       request(
         'GET',
         api.outbound.GET('/cdcs/{cdcId}/transfers', {
-          params: { path: { cdcId }, query: { page, size: PAGE_SIZE, ...(state ? { state } : {}), ...(mfcId ? { mfcId } : {}) } },
+          params: { path: { cdcId }, query: { page, size: PAGE_SIZE, ...(state ? { state } : {}), ...(mfcId ? { mfcId } : {}), ...(no ? { number: no } : {}) } },
         }),
       ),
   });
@@ -220,7 +224,7 @@ function TransferListPage({ cdcId }: { readonly cdcId: string }) {
   };
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    setQuery({ mfcId: mfcDraft.trim(), page: '' });
+    setQuery({ mfcId: mfcDraft.trim(), no: noDraft.trim(), page: '' });
   };
 
   const create = useCommand(async (trfIds: readonly string[], key) =>
@@ -261,16 +265,21 @@ function TransferListPage({ cdcId }: { readonly cdcId: string }) {
           {m.mfcFilter}
           <input className="input input-sm w-44" value={mfcDraft} placeholder={m.mfcPlaceholder} onChange={(e) => setMfcDraft(e.target.value)} data-testid="trf-mfc" />
         </label>
+        <label className="flex flex-col gap-1 text-sm">
+          {m.numberFilter}
+          <input className="input input-sm w-36 font-mono" value={noDraft} placeholder="T482913" onChange={(e) => setNoDraft(e.target.value)} data-testid="trf-number" />
+        </label>
         <button type="submit" className="btn btn-sm btn-primary">
           {m.search}
         </button>
-        {(state || mfcId) && (
+        {(state || mfcId || no) && (
           <button
             type="button"
             className="btn btn-sm btn-ghost"
             onClick={() => {
               setMfcDraft('');
-              setQuery({ state: '', mfcId: '', page: '' });
+              setNoDraft('');
+              setQuery({ state: '', mfcId: '', no: '', page: '' });
             }}
           >
             {m.reset}
@@ -334,7 +343,9 @@ function TransferListPage({ cdcId }: { readonly cdcId: string }) {
                             {t.trfNumber ?? t.trfId}
                           </Link>
                         </td>
-                        <td className="font-mono text-xs">{t.mfcId}</td>
+                        <td className="text-xs">
+                          <MfcName id={t.mfcId} />
+                        </td>
                         <td>
                           <TrfStateBadge state={t.state} />
                         </td>
@@ -383,18 +394,28 @@ function TransferListPage({ cdcId }: { readonly cdcId: string }) {
   );
 }
 
-/** Wave 번호로 열기 — Wave 목록 조회가 계약에 없어서(요청함) */
+/** Wave 번호(W4821)로 열기 — waves?number=. 시스템 ID(WAVE-…)도 받는다 */
 function WaveOpenForm({ cdcId }: { readonly cdcId: string }) {
+  const api = useApi();
   const navigate = useNavigate();
   const [id, setId] = useState('');
+  const [miss, setMiss] = useState<string | null>(null);
   return (
     <form
-      className="flex items-center gap-2"
+      className="flex flex-wrap items-center gap-2"
       onSubmit={(e) => {
         e.preventDefault();
-        if (id.trim()) void navigate(wavePath(cdcId, id.trim()));
+        const v = id.trim();
+        if (!v) return;
+        setMiss(null);
+        void findWaveId(api, cdcId, v).then(
+          (found) => (found ? void navigate(wavePath(cdcId, found)) : setMiss(v)),
+          () => setMiss(v),
+        );
       }}
+      data-testid="wave-open"
     >
+      {miss && <span className="text-xs text-error">{w.notFound(miss)}</span>}
       <input className="input input-sm w-40" aria-label={w.openById} placeholder={w.waveIdPlaceholder} value={id} onChange={(e) => setId(e.target.value)} />
       <button type="submit" className="btn btn-sm" disabled={!id.trim()}>
         {w.open}
@@ -408,6 +429,7 @@ function WaveOpenForm({ cdcId }: { readonly cdcId: string }) {
 function TransferDetailPage({ cdcId }: { readonly cdcId: string }) {
   const api = useApi();
   const { trfId = '' } = useParams();
+  const mfcLabel = useMfcLabel();
   const query = useQuery({
     queryKey: ['cdc', cdcId, 'transfer', trfId],
     queryFn: () => request('GET', api.outbound.GET('/cdcs/{cdcId}/transfers/{trfId}', { params: { path: { cdcId, trfId } } })),
@@ -417,7 +439,7 @@ function TransferDetailPage({ cdcId }: { readonly cdcId: string }) {
       <QueryState state={toUiState(query)} onRetry={() => void query.refetch()}>
         {(t) => (
           <>
-            <DetailHeader back={{ to: trfWavePath(cdcId), label: m.back }} title={t.trfNumber ?? t.trfId} badges={<TrfStateBadge state={t.state} />} summary={`${m.fields.mfc} ${t.mfcId} · ${m.fields.dueAt} ${formatSeoul(t.dueAt)}${t.trfNumber ? ` · ${w.systemId} ${t.trfId}` : ''}`} />
+            <DetailHeader back={{ to: trfWavePath(cdcId), label: m.back }} title={t.trfNumber ?? t.trfId} badges={<TrfStateBadge state={t.state} />} summary={`${m.fields.mfc} ${mfcLabel(t.mfcId)} · ${m.fields.dueAt} ${formatSeoul(t.dueAt)}${t.trfNumber ? ` · ${w.systemId} ${t.trfId}` : ''}`} />
             <div className="rounded-box border border-base-300 bg-base-100 p-4">
               <FieldList
                 testId="trf-fields"
@@ -585,7 +607,9 @@ function WaveContents({ cdcId, trfIds }: { readonly cdcId: string; readonly trfI
                   </td>
                   {t ? (
                     <>
-                      <td className="font-mono text-xs">{t.mfcId}</td>
+                      <td className="text-xs">
+                          <MfcName id={t.mfcId} />
+                        </td>
                       <td>
                         <TrfStateBadge state={t.state} />
                       </td>

@@ -8,6 +8,8 @@ import { request } from '@pmart/web-core';
 import { formatSeoul, QueryState, toUiState } from '@pmart/web-ui';
 import { useApi } from '../../app/ApiContext';
 import { messages } from '../../shared/messages';
+import { MfcName } from '../../shared/MfcName';
+import { findTrfId } from '../../shared/findByNumber';
 import { Who } from '../../shared/OperatorLabel';
 import { SkuName } from '../../shared/SkuName';
 import { trfWavePath } from '../trf-wave/TrfWavePages';
@@ -31,6 +33,7 @@ export function LpnList({ cdcId }: { readonly cdcId: string }) {
   const trfId = params.get('trf') ?? '';
   const page = Math.max(0, Number(params.get('lp') ?? '0') || 0);
   const [draft, setDraft] = useState(trfId);
+  const [miss, setMiss] = useState<string | null>(null);
   const [open, setOpen] = useState<string | null>(null);
   const set = (next: Record<string, string>) => {
     const q = new URLSearchParams(params);
@@ -52,7 +55,16 @@ export function LpnList({ cdcId }: { readonly cdcId: string }) {
         className="flex flex-wrap items-end gap-3 rounded-box border border-base-300 bg-base-100 p-3"
         onSubmit={(e) => {
           e.preventDefault();
-          set({ trf: draft.trim(), lp: '' });
+          const v = draft.trim();
+          setMiss(null);
+          if (!v) {
+            set({ trf: '', lp: '' });
+            return;
+          }
+          void findTrfId(api, cdcId, v).then(
+            (found) => (found ? set({ trf: found, lp: '' }) : setMiss(v)),
+            () => setMiss(v),
+          );
         }}
       >
         <label className="flex flex-col gap-1 text-sm">
@@ -69,6 +81,7 @@ export function LpnList({ cdcId }: { readonly cdcId: string }) {
         <label className="flex flex-col gap-1 text-sm">
           TRF
           <input className="input input-sm w-56" value={draft} placeholder={l.trfPlaceholder} onChange={(e) => setDraft(e.target.value)} data-testid="lpn-trf" />
+          {miss && <span className="text-xs text-error">{messages.wave.notFound(miss)}</span>}
         </label>
         <button type="submit" className="btn btn-sm">
           {l.search}
@@ -110,13 +123,13 @@ export function LpnList({ cdcId }: { readonly cdcId: string }) {
                             <Link className="link font-mono" to={trfWavePath(cdcId, `trf/${encodeURIComponent(x.trfId)}`)} onClick={(e) => e.stopPropagation()}>
                               {x.trfId}
                             </Link>
-                            {x.mfcId && <span className="ml-1 text-base-content/60">{x.mfcId}</span>}
+                            {x.mfcId && <MfcName id={x.mfcId} className="ml-1 text-base-content/60" />}
                           </td>
                           <td>
                             <Stage x={x} />
                           </td>
                           <td className="text-xs">{x.sealNo ?? l.sealState[x.sealState] ?? x.sealState}</td>
-                          <td className="text-xs">{x.temperatureZone ?? messages.none}</td>
+                          <td className="text-xs">{x.temperatureZone ? (messages.transport.temp[x.temperatureZone] ?? x.temperatureZone) : messages.none}</td>
                           <td className="text-xs">{x.vehicleId ? `${x.vehicleId}${x.dockCode ? ` · ${x.dockCode}` : ''}` : messages.none}</td>
                           <td className="text-xs">{x.sortedAt ? formatSeoul(x.sortedAt) : messages.none}</td>
                         </tr>

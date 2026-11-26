@@ -105,7 +105,7 @@ export function ShippingMenu({ cdcId }: { readonly cdcId: string }) {
                             <span aria-hidden className="mr-1 inline-block w-3 text-base-content/50">
                               {isOpen ? '▾' : '▸'}
                             </span>
-                            {k}
+                            {d.departureNumber ?? k}
                           </td>
                           <td>{d.validatedAt ? formatSeoul(d.validatedAt) : messages.none}</td>
                           <td>
@@ -165,8 +165,8 @@ function DepartureDetail({ cdcId, d }: { readonly cdcId: string; readonly d: Dep
           {(d.transfers ?? []).map((x) => (
             <tr key={x.trfId}>
               <td>
-                <Link className="link font-mono" to={trfWavePath(cdcId, `trf/${encodeURIComponent(x.trfId ?? '')}`)}>
-                  {x.trfId}
+                <Link className="link font-mono" to={trfWavePath(cdcId, `trf/${encodeURIComponent(x.trfId ?? '')}`)} title={x.trfId}>
+                  {x.trfNumber ?? x.trfId}
                 </Link>
               </td>
               <td>

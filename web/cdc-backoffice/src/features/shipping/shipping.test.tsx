@@ -15,7 +15,7 @@ describe('출발 검증', () => {
     const detail = screen.getByTestId('departure-detail');
     expect(within(detail).getByText('409 INVALID_STATE')).toBeInTheDocument();
     expect(within(screen.getByTestId('departure-mismatches')).getByText('실리지 않은 LPN')).toBeInTheDocument();
-    expect(within(detail).getByRole('link', { name: 'TRF-20261126-0001' })).toHaveAttribute('href', '/c/CDC01/trf-wave/trf/TRF-20261126-0001');
+    expect(within(detail).getByRole('link', { name: 'T482913' })).toHaveAttribute('href', '/c/CDC01/trf-wave/trf/TRF-20261126-0001');
   });
 
   it('결과 거르기는 서버로', async () => {

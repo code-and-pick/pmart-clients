@@ -14,12 +14,24 @@ const CDC = 'CDC01';
 const at = (h: number, m = 0) => new Date(Date.UTC(2026, 10, 26, h - 9, m)).toISOString(); // 2026-11-26 서울 h:m
 
 /** 화면 번호(ADR-0070·0085 — W+4, 무작위·바뀌지 않음) */
+const TRF_NUMBERS: Record<string, string> = {
+  'TRF-20261126-0001': 'T482913',
+  'TRF-20261126-0002': 'T771204',
+  'TRF-20261126-0003': 'T305518',
+  'TRF-20261126-0004': 'T640271',
+  'TRF-20261126-0005': 'T118835',
+  'TRF-20261126-0006': 'T927460',
+  'TRF-20261125-0009': 'T553019',
+};
+/** 화면 번호 맞추기(목) — 앞 글자 없이 숫자만도, 대소문자 무시 */
+const sameNumber = (n: string | null | undefined, q: string) => !!n && n.replace(/^[A-Za-z]/, '').toUpperCase() === q.trim().replace(/^[A-Za-z]/, '').toUpperCase();
 const WAVE_NUMBERS: Record<string, string> = { 'WAVE-20261126-01': 'W4821', 'WAVE-20261126-02': 'W1937' };
 
 function trf(id: string, mfcId: string, state: string, due: string, lines: Array<[string, number, number, number, number]>, waveId: string | null = null, allocationError: string | null = null): TransferDetail {
   const s = (i: number) => lines.reduce((a, l) => a + (l[i] as number), 0);
   return {
     trfId: id,
+    trfNumber: TRF_NUMBERS[id] ?? null,
     trfVersion: 1,
     mfcId,
     state,
@@ -64,6 +76,7 @@ function seed() {
   const tasks: Task[] = [
     {
       taskId: 'TSK-0001',
+      taskNumber: 'K20481',
       waveId: 'WAVE-20261126-01', waveNumber: 'W4821',
       trfId: null,
       trfIds: ['TRF-20261126-0001', 'TRF-20261126-0002'],
@@ -86,8 +99,8 @@ function seed() {
           pickedQty: 42,
           shortQty: 0,
           shares: [
-            { trfId: 'TRF-20261126-0001', mfcId: 'MFC-BJG-01', dueAt: at(9), plannedQty: 40, pickedQty: 32, shortQty: 0 },
-            { trfId: 'TRF-20261126-0002', mfcId: 'MFC-BNG-01', dueAt: at(9, 30), plannedQty: 30, pickedQty: 10, shortQty: 0 },
+            { trfId: 'TRF-20261126-0001', trfNumber: 'T482913', mfcId: 'MFC-BJG-01', dueAt: at(9), plannedQty: 40, pickedQty: 32, shortQty: 0 },
+            { trfId: 'TRF-20261126-0002', trfNumber: 'T771204', mfcId: 'MFC-BNG-01', dueAt: at(9, 30), plannedQty: 30, pickedQty: 10, shortQty: 0 },
           ],
         },
       ],
@@ -95,6 +108,7 @@ function seed() {
     },
     {
       taskId: 'TSK-0002',
+      taskNumber: 'K53902',
       waveId: 'WAVE-20261126-01', waveNumber: 'W4821',
       trfId: 'TRF-20261126-0001',
       trfIds: ['TRF-20261126-0001'],
@@ -113,6 +127,7 @@ function seed() {
     },
     {
       taskId: 'TSK-0003',
+      taskNumber: 'K71136',
       waveId: 'WAVE-20261126-01', waveNumber: 'W4821',
       trfId: 'TRF-20261126-0002',
       trfIds: ['TRF-20261126-0002'],
@@ -150,25 +165,27 @@ function seed() {
   const departures: components['schemas']['DepartureValidation'][] = [
     {
       departureId: 'DEP-0002',
+      departureNumber: 'S240518',
       tripId: 'TRIP-0002',
       vehicleId: 'VH-11',
       source: 'SIMULATED',
       validatedAt: at(8, 40),
       overallResult: 'PARTIALLY_MATCHED',
       transfers: [
-        { trfId: 'TRF-20261126-0001', result: 'MATCHED', departedQty: 52, postingStatus: 'APPLIED', residualStatus: 'DONE' },
-        { trfId: 'TRF-20261126-0002', result: 'MISMATCHED', departedQty: 0, postingStatus: 'REJECTED', residualStatus: 'FAILED', residualReason: '409 INVALID_STATE' },
+        { trfId: 'TRF-20261126-0001', trfNumber: 'T482913', result: 'MATCHED', departedQty: 52, postingStatus: 'APPLIED', residualStatus: 'DONE' },
+        { trfId: 'TRF-20261126-0002', trfNumber: 'T771204', result: 'MISMATCHED', departedQty: 0, postingStatus: 'REJECTED', residualStatus: 'FAILED', residualReason: '409 INVALID_STATE' },
       ],
       mismatches: [{ kind: 'LPN_NOT_LOADED', lpn: 'BOX-00042', trfId: 'TRF-20261126-0002', detail: '검품 합격 BOX 가 상차되지 않음' }],
     },
     {
       departureId: 'DEP-0001',
+      departureNumber: 'S108274',
       tripId: 'TRIP-0001',
       vehicleId: 'VH-07',
       source: 'SIMULATED',
       validatedAt: at(6, 10),
       overallResult: 'MATCHED',
-      transfers: [{ trfId: 'TRF-20261125-0009', result: 'MATCHED', departedQty: 40, postingStatus: 'APPLIED', residualStatus: 'DONE' }],
+      transfers: [{ trfId: 'TRF-20261125-0009', trfNumber: 'T553019', result: 'MATCHED', departedQty: 40, postingStatus: 'APPLIED', residualStatus: 'DONE' }],
       mismatches: [],
     },
   ];
@@ -210,10 +227,11 @@ export const outboundHandlers = [
     const q = new URL(request.url).searchParams;
     const state = q.get('state');
     const mfcId = q.get('mfcId');
+    const number = q.get('number');
     const page = Number(q.get('page') ?? '0');
     const size = Number(q.get('size') ?? '50');
     const rows = (cdcId === CDC ? store.transfers : [])
-      .filter((t) => (!state || t.state === state) && (!mfcId || t.mfcId === mfcId))
+      .filter((t) => (!state || t.state === state) && (!mfcId || t.mfcId === mfcId) && (!number || sameNumber(t.trfNumber, number)))
       .sort((a, b) => a.dueAt.localeCompare(b.dueAt) || a.trfId.localeCompare(b.trfId));
     return HttpResponse.json({ items: rows.slice(page * size, page * size + size).map(summary), page, size, hasNext: rows.length > (page + 1) * size });
   }),
@@ -292,8 +310,9 @@ export const outboundHandlers = [
     const state = q.get('state');
     const page = Number(q.get('page') ?? '0');
     const size = Number(q.get('size') ?? '50');
+    const number = q.get('number');
     const rows = store.waves
-      .filter((v) => v.cdcId === cdcId && (!state || v.state === state))
+      .filter((v) => v.cdcId === cdcId && (!state || v.state === state) && (!number || sameNumber(v.waveNumber, number)))
       .sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? '') || (b.waveId ?? '').localeCompare(a.waveId ?? ''));
     return HttpResponse.json({ items: rows.slice(page * size, page * size + size), page, size, hasNext: rows.length > (page + 1) * size });
   }),

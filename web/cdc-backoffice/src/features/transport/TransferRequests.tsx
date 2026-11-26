@@ -16,6 +16,7 @@ import type { components } from '../../api/generated/transport-planning';
 import { useApi } from '../../app/ApiContext';
 import { centerPath } from '../../app/nav';
 import { messages } from '../../shared/messages';
+import { MfcName } from '../../shared/MfcName';
 import { SkuName } from '../../shared/SkuName';
 import { trfWavePath } from '../trf-wave/TrfWavePages';
 import { tempLabel } from './TransportPage';
@@ -132,7 +133,9 @@ export function TransferRequestsView({ cdcId, date }: { readonly cdcId: string; 
                                 {x.trfNumber ?? x.trfId}
                                 <span className="ml-1 text-base-content/45">v{x.trfVersion}</span>
                               </td>
-                              <td className="font-mono text-xs">{x.mfcId}</td>
+                              <td className="text-xs">
+                                <MfcName id={x.mfcId} />
+                              </td>
                               <td className="whitespace-nowrap">{x.dueAt ? formatSeoul(x.dueAt) : messages.none}</td>
                               <td className="whitespace-nowrap">{x.tempClass ? tempLabel(x.tempClass) : (x.tempClasses ?? []).map(tempLabel).join('+') || messages.none}</td>
                               <td className="whitespace-nowrap text-right tabular-nums">

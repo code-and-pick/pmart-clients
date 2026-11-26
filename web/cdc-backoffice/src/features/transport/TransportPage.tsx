@@ -14,6 +14,7 @@ import { commandParams } from '../../api/command';
 import type { components } from '../../api/generated/transport-execution';
 import { useApi } from '../../app/ApiContext';
 import { messages } from '../../shared/messages';
+import { MfcName, useMfcLabel } from '../../shared/MfcName';
 import { Who } from '../../shared/OperatorLabel';
 import { DockView } from './DockView';
 import { FleetView } from './FleetPages';
@@ -367,7 +368,7 @@ function StopsTable({ cdcId, trip }: { readonly cdcId: string; readonly trip: Tr
                 <tr data-testid="stop-row">
                   <td>{t.stopSeq(seq)}</td>
                   <td className="font-mono text-xs">
-                    {s.mfcId}
+                    <MfcName id={s.mfcId} />
                     <span className="block text-base-content/55">{(s.trfIds ?? []).join(', ')}</span>
                   </td>
                   <td>
@@ -562,6 +563,7 @@ function HandoverForm({ cdcId, trip, stop, seq, onClose }: { readonly cdcId: str
 
 function IncidentForm({ cdcId, trip, onClose }: { readonly cdcId: string; readonly trip: Trip; readonly onClose: () => void }) {
   const api = useApi();
+  const mfcLabel = useMfcLabel();
   const [type, setType] = useState<IncidentType>('DELAY');
   const [stopSeq, setStopSeq] = useState('');
   const [desc, setDesc] = useState('');
@@ -594,7 +596,7 @@ function IncidentForm({ cdcId, trip, onClose }: { readonly cdcId: string; readon
           <option value="">{t.noStop}</option>
           {trip.stops.map((s) => (
             <option key={s.seq} value={String(s.seq)}>
-              {t.stopSeq(s.seq ?? 0)} {s.mfcId}
+              {t.stopSeq(s.seq ?? 0)} {mfcLabel(s.mfcId)}
             </option>
           ))}
         </select>

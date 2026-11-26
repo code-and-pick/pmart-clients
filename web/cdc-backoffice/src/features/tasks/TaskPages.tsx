@@ -11,7 +11,9 @@ import { DetailHeader, FieldList } from '@pmart/web-ui/standard';
 import type { components } from '../../api/generated/cdc-outbound';
 import { useApi } from '../../app/ApiContext';
 import { centerPath } from '../../app/nav';
+import { findWaveId } from '../../shared/findByNumber';
 import { messages } from '../../shared/messages';
+import { MfcName } from '../../shared/MfcName';
 import { Who } from '../../shared/OperatorLabel';
 import { SkuName } from '../../shared/SkuName';
 import { wavePath, WaveStateBadge } from '../trf-wave/TrfWavePages';
@@ -66,7 +68,8 @@ function TaskListPage({ cdcId }: { readonly cdcId: string }) {
   const raw = params.get('state');
   const state = isState(raw) ? raw : undefined;
   const waves = useRecentWaves(cdcId);
-  const [draft, setDraft] = useState(waveId);
+  const [draft, setDraft] = useState('');
+  const [miss, setMiss] = useState<string | null>(null);
   const set = (k: string, v: string) => {
     const q = new URLSearchParams(params);
     if (v) q.set(k, v);
@@ -101,7 +104,17 @@ function TaskListPage({ cdcId }: { readonly cdcId: string }) {
         data-list-part="top"
         onSubmit={(e) => {
           e.preventDefault();
-          set('waveId', draft.trim());
+          const v = draft.trim();
+          if (!v) return;
+          setMiss(null);
+          void findWaveId(api, cdcId, v).then(
+            (found) => {
+              if (!found) return setMiss(v);
+              setDraft('');
+              set('waveId', found);
+            },
+            () => setMiss(v),
+          );
         }}
       >
         <label className="flex flex-col gap-1 text-sm">
@@ -110,7 +123,7 @@ function TaskListPage({ cdcId }: { readonly cdcId: string }) {
             className="select select-sm w-52"
             value={waves.data?.some((x) => x.id === waveId) ? waveId : ''}
             onChange={(e) => {
-              setDraft(e.target.value);
+              setDraft('');
               set('waveId', e.target.value);
             }}
             disabled={!waves.data}
@@ -127,6 +140,7 @@ function TaskListPage({ cdcId }: { readonly cdcId: string }) {
         <label className="flex flex-col gap-1 text-sm">
           {m.pickWave}
           <input className="input input-sm w-40" value={draft} placeholder={messages.wave.waveIdPlaceholder} onChange={(e) => setDraft(e.target.value)} data-testid="task-wave-input" />
+          {miss && <span className="text-xs text-error">{messages.wave.notFound(miss)}</span>}
         </label>
         <button type="submit" className="btn btn-sm btn-primary" disabled={!draft.trim()}>
           {messages.wave.open}
@@ -309,7 +323,9 @@ function TaskDetailPage({ cdcId }: { readonly cdcId: string }) {
                         {(l.shares ?? []).length === 0
                           ? messages.none
                           : (l.shares ?? []).map((s) => (
-                              <div key={s.trfId} className="font-mono">{`${s.mfcId ?? ''} ${s.trfId ?? ''} · ${messages.qty(s.pickedQty ?? 0)}/${messages.qty(s.plannedQty ?? 0)}`}</div>
+                              <div key={s.trfId}>
+                                <MfcName id={s.mfcId} /> <span className="font-mono" title={s.trfId}>{s.trfNumber ?? s.trfId}</span>{` · ${messages.qty(s.pickedQty ?? 0)}/${messages.qty(s.plannedQty ?? 0)}`}
+                              </div>
                             ))}
                       </td>
                     </tr>

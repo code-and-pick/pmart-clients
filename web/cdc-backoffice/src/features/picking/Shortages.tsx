@@ -8,6 +8,7 @@ import { formatSeoul, QueryState, toUiState } from '@pmart/web-ui';
 import { useApi } from '../../app/ApiContext';
 import { centerPath } from '../../app/nav';
 import { messages } from '../../shared/messages';
+import { MfcName } from '../../shared/MfcName';
 import { SkuName } from '../../shared/SkuName';
 import { trfWavePath } from '../trf-wave/TrfWavePages';
 
@@ -86,7 +87,7 @@ export function Shortages({ cdcId }: { readonly cdcId: string }) {
                       <Link className="link font-mono" to={trfWavePath(cdcId, `trf/${encodeURIComponent(x.trfId)}`)}>
                         {x.trfId}
                       </Link>
-                      {x.mfcId && <span className="ml-1 text-base-content/60">{x.mfcId}</span>}
+                      {x.mfcId && <MfcName id={x.mfcId} className="ml-1 text-base-content/60" />}
                     </td>
                     <td className="text-right tabular-nums font-semibold text-error">{messages.qty(x.shortQty)}</td>
                     <td className="text-right tabular-nums">{messages.qty(x.reallocatedQty)}</td>

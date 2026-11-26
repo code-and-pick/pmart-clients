@@ -32,12 +32,20 @@ function issue(s: MockSession) {
 export const mockCenterNames: ReadonlyMap<string, string> = new Map([
   ['CDC01', '칠곡 중앙물류센터(칠곡 DC)'],
   ['MFC-BJG-01', '부산진구 MFC'],
+  ['MFC-BNG-01', '부산남구 MFC'],
+  ['MFC-SEJ-01', '세종 MFC'],
+  ['MFC-CHC-01', '춘천 MFC'],
+  ['MFC-MOKPO-01', '목포 MFC'],
 ]);
 
 /** center-master 목 — 센터 유형(DC 백오피스는 type=CDC 만 고른다) */
 export const mockCenterTypes: ReadonlyMap<string, 'CDC' | 'MFC'> = new Map([
   ['CDC01', 'CDC'],
   ['MFC-BJG-01', 'MFC'],
+  ['MFC-BNG-01', 'MFC'],
+  ['MFC-SEJ-01', 'MFC'],
+  ['MFC-CHC-01', 'MFC'],
+  ['MFC-MOKPO-01', 'MFC'],
 ]);
 
 const available =(operatorId: string) => db.grants.has(operatorId) && !db.suspended.has(operatorId);
