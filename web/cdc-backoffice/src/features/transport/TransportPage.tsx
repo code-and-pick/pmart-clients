@@ -202,7 +202,7 @@ function TripsView({ cdcId, date }: { readonly cdcId: string; readonly date: str
                           </tr>
                           {isOpen && (
                             <tr>
-                              <td colSpan={8} className="bg-base-200/50">
+                              <td colSpan={8} className="pm-detail bg-base-200/50">
                                 <TripDetail cdcId={cdcId} trip={x} />
                               </td>
                             </tr>

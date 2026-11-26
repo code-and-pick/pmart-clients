@@ -5,16 +5,18 @@
 // 작업 상태는 서버 값만 — 결과(results)의 재고 반영이 PENDING 이면 "반영 중"(옮김 확정 아님).
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Fragment, useState } from 'react';
-import { useSearchParams } from 'react-router';
+import { Link, useSearchParams } from 'react-router';
 
 import { request } from '@pmart/web-core';
 import { CommandFeedback, formatSeoul, QueryState, toUiState, useCommand } from '@pmart/web-ui';
 import { commandParams } from '../../api/command';
 import type { components } from '../../api/generated/cdc-inbound';
 import { useApi } from '../../app/ApiContext';
+import { centerPath } from '../../app/nav';
 import { messages } from '../../shared/messages';
 import { Who } from '../../shared/OperatorLabel';
 import { SkuName } from '../../shared/SkuName';
+import { CheckDetail } from './CheckDetail';
 
 const t = messages.putaway;
 type S = components['schemas'];
@@ -131,7 +133,7 @@ function TaskList({ cdcId, kind }: { readonly cdcId: string; readonly kind: Kind
                         </tr>
                         {isOpen && (
                           <tr>
-                            <td colSpan={7} className="bg-base-200/50">
+                            <td colSpan={7} className="pm-detail bg-base-200/50">
                               <TaskDetail cdcId={cdcId} task={x} />
                             </td>
                           </tr>
@@ -160,6 +162,18 @@ function TaskDetail({ cdcId, task }: { readonly cdcId: string; readonly task: Ta
   const [cancelling, setCancelling] = useState(false);
   return (
     <div className="space-y-2 p-1 text-sm" data-testid="putaway-detail">
+      <p data-testid="putaway-story">
+        {t.story(task.fromLocationCode ?? messages.none, task.toLocationCode ?? messages.none, messages.qty(task.qty ?? 0), messages.qty(task.completedQty ?? 0))}{' '}
+        <span className="text-base-content/60">{t.stateLong[task.state ?? ''] ?? ''}</span>
+      </p>
+      <div className="flex flex-wrap gap-2">
+        <Link className="btn btn-xs" to={centerPath(cdcId, `master/locations/${encodeURIComponent(task.fromLocationCode ?? '')}`)}>
+          {t.fromLink}
+        </Link>
+        <Link className="btn btn-xs" to={centerPath(cdcId, `master/locations/${encodeURIComponent(task.toLocationCode ?? '')}`)}>
+          {t.toLink}
+        </Link>
+      </div>
       <div className="flex flex-wrap gap-x-6 gap-y-1 text-xs text-base-content/70">
         <span className="font-mono">{`${t.id} ${task.taskId}`}</span>
         {task.deviceId && <span>{`${t.device} ${task.deviceId}`}</span>}
@@ -242,6 +256,7 @@ function CancelForm({ cdcId, taskId, onClose }: { readonly cdcId: string; readon
 function Checks({ cdcId }: { readonly cdcId: string }) {
   const api = useApi();
   const [reason, setReason] = useState('');
+  const [openLoc, setOpenLoc] = useState<string | null>(null);
   const query = useQuery({
     queryKey: ['cdc', cdcId, 'replenishment-checks'],
     refetchInterval: 60_000,
@@ -251,7 +266,7 @@ function Checks({ cdcId }: { readonly cdcId: string }) {
     <section className="space-y-2" data-testid="repl-checks">
       <div>
         <h2 className="text-base font-semibold">{t.checks}</h2>
-        <p className="text-xs text-base-content/60">{t.checksLead}</p>
+        <p className="text-xs text-base-content/60">{t.checksLead} {t.checkHint}</p>
       </div>
       <QueryState state={toUiState(query, (d) => (d.items ?? []).length === 0)} onRetry={() => void query.refetch()} emptyText={t.checkEmpty}>
         {(d) => {
@@ -295,8 +310,14 @@ function Checks({ cdcId }: { readonly cdcId: string }) {
                       const n = (v: number | null | undefined) => (v === null || v === undefined ? messages.none : messages.qty(v));
                       const warn = ['UNIT_MISSING', 'SOURCE_SHORT', 'ROOM_SHORT', 'RESERVE_FAILED'].includes(x.reason ?? '');
                       return (
-                        <tr key={x.locationCode} data-testid="repl-check-row">
-                          <td className="font-mono text-xs">{x.locationCode}</td>
+                        <Fragment key={x.locationCode}>
+                        <tr data-testid="repl-check-row" className="cursor-pointer hover" onClick={() => setOpenLoc(openLoc === x.locationCode ? null : (x.locationCode ?? null))} aria-expanded={openLoc === x.locationCode}>
+                          <td className="whitespace-nowrap font-mono text-xs">
+                            <span aria-hidden className="mr-1 inline-block w-3 text-base-content/50">
+                              {openLoc === x.locationCode ? '▾' : '▸'}
+                            </span>
+                            {x.locationCode}
+                          </td>
                           <td>{x.sku ? <SkuName sku={x.sku} lookup={shown.length <= 100} /> : messages.none}</td>
                           <td className="text-right tabular-nums">{n(x.currentQty)}</td>
                           <td className="text-right tabular-nums">{messages.qty(x.minQty ?? 0)}</td>
@@ -308,6 +329,14 @@ function Checks({ cdcId }: { readonly cdcId: string }) {
                           <td className={warn ? 'text-warning' : ''}>{t.checkReason[x.reason ?? ''] ?? x.reason}</td>
                           <td className="text-xs">{x.checkedAt ? formatSeoul(x.checkedAt) : messages.none}</td>
                         </tr>
+                        {openLoc === x.locationCode && (
+                          <tr>
+                            <td colSpan={11} className="pm-detail bg-base-200/50">
+                              <CheckDetail cdcId={cdcId} x={x} />
+                            </td>
+                          </tr>
+                        )}
+                        </Fragment>
                       );
                     })}
                   </tbody>

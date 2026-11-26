@@ -196,3 +196,18 @@ html[data-theme='pmart-dark'] {
 .table :where(th, td) {
   white-space: nowrap;
 }
+
+/* 표 줄을 펼친 상세 칸(사용자 2026-11-26 "상세 UI 화면 벗어남") — 표가 화면보다 넓어도 상세는 보이는 너비에 맞추고 가로로 스크롤해도 왼쪽에 붙어 있게 */
+td.pm-detail {
+  white-space: normal;
+}
+td.pm-detail > * {
+  position: sticky;
+  left: 0;
+  max-width: calc(100vw - 7.5rem);
+}
+@media (min-width: 1024px) {
+  td.pm-detail > * {
+    max-width: calc(100vw - 18rem);
+  }
+}

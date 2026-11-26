@@ -230,7 +230,7 @@ function StockTab({ cdcId }: { readonly cdcId: string }) {
                         </tr>
                         {isOpen && (
                           <tr>
-                            <td colSpan={10} className="bg-base-200/50">
+                            <td colSpan={10} className="pm-detail bg-base-200/50">
                               <Places cdcId={cdcId} sku={k} />
                             </td>
                           </tr>
@@ -391,7 +391,7 @@ function RecountTab({ cdcId }: { readonly cdcId: string }) {
                     </tr>
                     {releasing === h.holdId && (
                       <tr>
-                        <td colSpan={7} className="bg-base-200/50">
+                        <td colSpan={7} className="pm-detail bg-base-200/50">
                           <form
                             className="flex flex-wrap items-end gap-2"
                             onSubmit={(e) => {

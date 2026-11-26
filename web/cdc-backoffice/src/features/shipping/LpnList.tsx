@@ -135,7 +135,7 @@ export function LpnList({ cdcId }: { readonly cdcId: string }) {
                         </tr>
                         {isOpen && (
                           <tr>
-                            <td colSpan={8} className="bg-base-200/50">
+                            <td colSpan={8} className="pm-detail bg-base-200/50">
                               <div className="space-y-2 p-1 text-sm" data-testid="lpn-detail">
                                 <div className="flex flex-wrap gap-x-6 gap-y-1 text-xs text-base-content/70">
                                   <span>

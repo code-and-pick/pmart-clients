@@ -282,7 +282,7 @@ function HandlingTab({ cdcId }: { readonly cdcId: string }) {
                       </tr>
                       {open === r.sku && (
                         <tr>
-                          <td colSpan={7} className="bg-base-200/50">
+                          <td colSpan={7} className="pm-detail bg-base-200/50">
                             <SkuInfo sku={r.sku} />
                           </td>
                         </tr>
@@ -403,6 +403,8 @@ function LocationsTab({ cdcId }: { readonly cdcId: string }) {
       </select>
     </label>
   );
+  // 위치 서비스가 점유를 아직 계산하지 않으면(모든 칸 null) "모름" 칸을 늘어놓지 않는다 — 재고는 칸 상세에서
+  const occKnown = rows.some((x) => x.occupiedQty !== null && x.occupiedQty !== undefined);
   return (
     <div className="space-y-3">
       <div
@@ -447,6 +449,11 @@ function LocationsTab({ cdcId }: { readonly cdcId: string }) {
       >
         {() => (
           <>
+            {!occKnown && (
+              <p className="text-xs text-base-content/60" data-testid="loc-occ-note">
+                {l.occNote}
+              </p>
+            )}
             <div className="overflow-x-auto rounded-box border border-base-300 bg-base-100">
               <table className="table table-sm" data-testid="loc-table">
                 <thead>
@@ -456,9 +463,9 @@ function LocationsTab({ cdcId }: { readonly cdcId: string }) {
                     <th>{l.type}</th>
                     <th>{l.state}</th>
                     <th className="text-right">{l.capacity}</th>
-                    <th className="text-right">{l.occupied}</th>
+                    {occKnown && <th className="text-right">{l.occupied}</th>}
                     <th className="text-right">{l.reserved}</th>
-                    <th className="text-right">{l.available}</th>
+                    {occKnown && <th className="text-right">{l.available}</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -482,18 +489,22 @@ function LocationsTab({ cdcId }: { readonly cdcId: string }) {
                       </td>
                       <td className="text-right tabular-nums">
                         {x.capacity.maxQty !== undefined
-                          ? `${messages.qty(x.capacity.maxQty)} ${x.capacity.unit ?? ""}`
+                          ? `${messages.qty(x.capacity.maxQty)} ${l.unitName[x.capacity.unit ?? ""] ?? x.capacity.unit ?? ""}`
                           : messages.none}
                       </td>
-                      <td className="text-right tabular-nums">
-                        {qtyOrUnknown(x.occupiedQty)}
-                      </td>
+                      {occKnown && (
+                        <td className="text-right tabular-nums">
+                          {qtyOrUnknown(x.occupiedQty)}
+                        </td>
+                      )}
                       <td className="text-right tabular-nums">
                         {messages.qty(x.openReservedQty ?? 0)}
                       </td>
-                      <td className="text-right tabular-nums">
-                        {qtyOrUnknown(x.availableQty)}
-                      </td>
+                      {occKnown && (
+                        <td className="text-right tabular-nums">
+                          {qtyOrUnknown(x.availableQty)}
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>
@@ -537,6 +548,17 @@ function LocationDetailPage({ cdcId }: { readonly cdcId: string }) {
     refetchInterval: (q) =>
       accepted && q.state.data?.state === accepted ? 2_000 : false,
   });
+  // 위치 서비스 점유를 모를 때 보일 그 칸 재고 합(cdc-inventory location-stocks — 아래 표와 같은 조회)
+  const stock = useQuery({
+    queryKey: ["cdc", cdcId, "location-stocks", code],
+    queryFn: () =>
+      request(
+        "GET",
+        api.inventory.GET("/cdcs/{cdcId}/location-stocks", {
+          params: { path: { cdcId }, query: { locationPrefix: code, limit: 500 } },
+        }),
+      ),
+  });
   return (
     <section className="space-y-4">
       <QueryState state={toUiState(query)} onRetry={() => void query.refetch()}>
@@ -564,12 +586,19 @@ function LocationDetailPage({ cdcId }: { readonly cdcId: string }) {
                   [
                     l.capacity,
                     x.capacity.maxQty !== undefined
-                      ? `${messages.qty(x.capacity.maxQty)} ${x.capacity.unit ?? ""}`
+                      ? `${messages.qty(x.capacity.maxQty)} ${l.unitName[x.capacity.unit ?? ""] ?? x.capacity.unit ?? ""}`
                       : messages.none,
                   ],
-                  [l.occupied, qtyOrUnknown(x.occupiedQty)],
-                  [l.reserved, messages.qty(x.openReservedQty ?? 0)],
-                  [l.available, qtyOrUnknown(x.availableQty)],
+                  ...(x.occupiedQty !== null && x.occupiedQty !== undefined
+                    ? ([
+                        [l.occupied, messages.qty(x.occupiedQty)],
+                        [l.reserved, messages.qty(x.openReservedQty ?? 0)],
+                        [l.available, qtyOrUnknown(x.availableQty)],
+                      ] as const)
+                    : ([
+                        [l.onHandHere, stock.data ? messages.qty(stock.data.items.reduce((a, r) => a + r.onHand, 0)) : stock.isError ? messages.loadFailed : "…"],
+                        [l.reservedHere, stock.data ? messages.qty(stock.data.items.reduce((a, r) => a + r.reserved, 0)) : stock.isError ? messages.loadFailed : "…"],
+                      ] as const)),
                   [
                     l.restrictions,
                     x.restrictions?.length

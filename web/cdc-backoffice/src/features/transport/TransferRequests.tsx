@@ -159,7 +159,7 @@ export function TransferRequestsView({ cdcId, date }: { readonly cdcId: string; 
                             </tr>
                             {isOpen && (
                               <tr>
-                                <td colSpan={8} className="bg-base-200/50">
+                                <td colSpan={8} className="pm-detail bg-base-200/50">
                                   <RequestDetail cdcId={cdcId} req={x} />
                                 </td>
                               </tr>

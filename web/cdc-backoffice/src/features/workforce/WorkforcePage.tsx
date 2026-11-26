@@ -14,12 +14,19 @@ import { useApi } from '../../app/ApiContext';
 import { centerPath } from '../../app/nav';
 import { messages } from '../../shared/messages';
 import { Who } from '../../shared/OperatorLabel';
+import { AssignmentDetail } from './AssignmentDetail';
 
 const t = messages.workforce;
 type S = components['schemas'];
 type Role = S['WorkRole'];
 type Cell = S['StaffingCell'];
 type Assignment = S['ShiftAssignment'];
+/** 현황 표에서 고른 칸(근무조 · 층 · 직무) — 아래 배치 목록 거르기 */
+interface CellKey {
+  readonly shiftCode: string;
+  readonly floor: string;
+  readonly role: string;
+}
 const ROLES: readonly Role[] = ['FC', 'SORT', 'JOCKEY', 'REPLENISH', 'DPS', 'INSPECTOR', 'NIGHT_JOCKEY', 'LOADER'];
 const FLOORS = ['5', '6', '7', 'ALL'] as const;
 const isDate = (v: string | null): v is string => !!v && /^\d{4}-\d{2}-\d{2}$/.test(v);
@@ -38,6 +45,7 @@ export function WorkforceMenu({ cdcId }: { readonly cdcId: string }) {
     queryFn: () => request('GET', api.outbound.GET('/cdcs/{cdcId}/staffing', { params: { path: { cdcId }, query: { date } } })),
   });
   const [assigning, setAssigning] = useState(false);
+  const [cell, setCell] = useState<CellKey | null>(null);
   return (
     <section className="space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-2">
@@ -75,7 +83,7 @@ export function WorkforceMenu({ cdcId }: { readonly cdcId: string }) {
             {(st) => (
               <div className="grid grid-cols-1 gap-3 xl:grid-cols-3" data-testid="shift-cards">
                 {sd.shifts.map((s) => (
-                  <ShiftCard key={s.shiftCode} shift={s} cells={st.cells.filter((c) => c.shiftCode === s.shiftCode)} />
+                  <ShiftCard key={s.shiftCode} shift={s} cells={st.cells.filter((c) => c.shiftCode === s.shiftCode)} picked={cell} onPick={setCell} />
                 ))}
               </div>
             )}
@@ -83,12 +91,12 @@ export function WorkforceMenu({ cdcId }: { readonly cdcId: string }) {
         )}
       </QueryState>
       {shifts.data?.shifts[0]?.source && <p className="text-xs text-base-content/55">{t.source(shifts.data.shifts[0].source)}</p>}
-      <Assignments cdcId={cdcId} date={date} shiftNames={Object.fromEntries((shifts.data?.shifts ?? []).map((s) => [s.shiftCode ?? '', s.name ?? '']))} />
+      <Assignments cdcId={cdcId} date={date} cell={cell} onClear={() => setCell(null)} shiftNames={Object.fromEntries((shifts.data?.shifts ?? []).map((s) => [s.shiftCode ?? '', s.name ?? '']))} />
     </section>
   );
 }
 
-function ShiftCard({ shift, cells }: { readonly shift: { shiftCode?: string; name?: string; startTime?: string; endTime?: string; breaks?: string[] }; readonly cells: readonly Cell[] }) {
+function ShiftCard({ shift, cells, picked, onPick }: { readonly shift: { shiftCode?: string; name?: string; startTime?: string; endTime?: string; breaks?: string[] }; readonly cells: readonly Cell[]; readonly picked: CellKey | null; readonly onPick: (c: CellKey | null) => void }) {
   const sum = (k: 'planned' | 'assigned' | 'checkedIn') => cells.reduce((a, c) => a + (c[k] ?? 0), 0);
   const floors = FLOORS.filter((f) => cells.some((c) => c.floor === f));
   return (
@@ -122,7 +130,7 @@ function ShiftCard({ shift, cells }: { readonly shift: { shiftCode?: string; nam
                 const assigned = c.assigned ?? 0;
                 const tone = assigned > planned ? 'text-warning' : assigned < planned ? 'text-base-content/50' : 'text-success';
                 return (
-                  <tr key={`${f}-${c.role}`} data-testid="staffing-row">
+                  <tr key={`${f}-${c.role}`} data-testid="staffing-row" className={`cursor-pointer hover ${picked && picked.shiftCode === c.shiftCode && picked.floor === c.floor && picked.role === c.role ? 'bg-primary/10' : ''}`} onClick={() => onPick(picked && picked.shiftCode === c.shiftCode && picked.floor === c.floor && picked.role === c.role ? null : { shiftCode: c.shiftCode ?? '', floor: c.floor ?? '', role: c.role ?? '' })}>
                     <td className="whitespace-nowrap">{i === 0 ? t.floorLabel(f) : ''}</td>
                     <td className="whitespace-nowrap">{t.roles[c.role ?? ''] ?? c.role}</td>
                     <td className="text-right tabular-nums">{planned}</td>
@@ -140,7 +148,7 @@ function ShiftCard({ shift, cells }: { readonly shift: { shiftCode?: string; nam
   );
 }
 
-function Assignments({ cdcId, date, shiftNames }: { readonly cdcId: string; readonly date: string; readonly shiftNames: Readonly<Record<string, string>> }) {
+function Assignments({ cdcId, date, shiftNames, cell, onClear }: { readonly cdcId: string; readonly date: string; readonly shiftNames: Readonly<Record<string, string>>; readonly cell: CellKey | null; readonly onClear: () => void }) {
   const api = useApi();
   const query = useQuery({
     queryKey: [...key(cdcId), 'assignments', date],
@@ -149,7 +157,18 @@ function Assignments({ cdcId, date, shiftNames }: { readonly cdcId: string; read
   });
   return (
     <section className="space-y-2">
-      <h2 className="text-base font-semibold">{t.assignments}</h2>
+      <div className="flex flex-wrap items-center gap-2">
+        <h2 className="text-base font-semibold">{t.assignments}</h2>
+        {cell && (
+          <span className="badge badge-primary badge-outline gap-1" data-testid="assignment-filter">
+            {t.filtered(`${shiftNames[cell.shiftCode ?? ''] ?? cell.shiftCode} · ${t.floorLabel(cell.floor ?? '')} · ${t.roles[cell.role ?? ''] ?? cell.role}`)}
+            <button type="button" className="btn btn-ghost btn-xs" onClick={onClear}>
+              {t.clearFilter}
+            </button>
+          </span>
+        )}
+      </div>
+      <p className="text-xs text-base-content/60">{t.rowHint}</p>
       <QueryState state={toUiState(query, (d) => d.items.length === 0)} onRetry={() => void query.refetch()} emptyText={t.noAssignments}>
         {(data) => (
           <div className="overflow-x-auto rounded-box border border-base-300 bg-base-100">
@@ -166,7 +185,7 @@ function Assignments({ cdcId, date, shiftNames }: { readonly cdcId: string; read
                 </tr>
               </thead>
               <tbody>
-                {data.items.map((a) => (
+                {data.items.filter((a) => !cell || (a.shiftCode === cell.shiftCode && a.floor === cell.floor && a.role === cell.role)).map((a) => (
                   <AssignmentRow key={a.assignmentId} cdcId={cdcId} a={a} shiftName={shiftNames[a.shiftCode ?? ''] ?? a.shiftCode ?? ''} />
                 ))}
               </tbody>
@@ -191,9 +210,16 @@ function AssignmentRow({ cdcId, a, shiftName }: { readonly cdcId: string; readon
     void cmd.run(op).then((p) => {
       if (p.kind === 'done') void qc.invalidateQueries({ queryKey: key(cdcId) });
     });
+  const [open, setOpen] = useState(false);
   return (
-    <tr data-testid="assignment-row">
-      <td className="whitespace-nowrap">{shiftName}</td>
+    <>
+    <tr data-testid="assignment-row" className="cursor-pointer hover" onClick={() => setOpen(!open)} aria-expanded={open}>
+      <td className="whitespace-nowrap">
+        <span aria-hidden className="mr-1 inline-block w-3 text-base-content/50">
+          {open ? '▾' : '▸'}
+        </span>
+        {shiftName}
+      </td>
       <td>
         <Who id={a.workerId} />
       </td>
@@ -201,7 +227,7 @@ function AssignmentRow({ cdcId, a, shiftName }: { readonly cdcId: string; readon
       <td className="whitespace-nowrap">{t.roles[a.role ?? ''] ?? a.role}</td>
       <td className="whitespace-nowrap">{a.checkInAt ? formatSeoul(a.checkInAt) : messages.none}</td>
       <td className="whitespace-nowrap">{a.checkOutAt ? formatSeoul(a.checkOutAt) : messages.none}</td>
-      <td className="whitespace-nowrap text-right">
+      <td className="whitespace-nowrap text-right" onClick={(e) => e.stopPropagation()}>
         {!a.checkInAt && (
           <button type="button" className="btn btn-xs btn-primary" disabled={cmd.busy} onClick={() => run('in')} data-testid="check-in">
             {t.checkIn}
@@ -215,6 +241,14 @@ function AssignmentRow({ cdcId, a, shiftName }: { readonly cdcId: string; readon
         <CommandFeedback command={cmd}>{() => null}</CommandFeedback>
       </td>
     </tr>
+    {open && (
+      <tr>
+        <td colSpan={7} className="pm-detail bg-base-200/50">
+          <AssignmentDetail cdcId={cdcId} a={a} />
+        </td>
+      </tr>
+    )}
+    </>
   );
 }
 

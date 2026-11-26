@@ -185,7 +185,7 @@ function Holds({ cdcId }: { readonly cdcId: string }) {
                       </tr>
                       {isOpen && (
                         <tr>
-                          <td colSpan={8} className="bg-base-200/50">
+                          <td colSpan={8} className="pm-detail bg-base-200/50">
                             <HoldDetail cdcId={cdcId} holdId={id} />
                           </td>
                         </tr>
@@ -632,7 +632,7 @@ function Disposals({ cdcId }: { readonly cdcId: string }) {
                       </tr>
                       {isOpen && (
                         <tr>
-                          <td colSpan={8} className="bg-base-200/50">
+                          <td colSpan={8} className="pm-detail bg-base-200/50">
                             <DisposalDetail cdcId={cdcId} d={x} />
                           </td>
                         </tr>
@@ -856,7 +856,7 @@ function Recalls({ cdcId }: { readonly cdcId: string }) {
                       </tr>
                       {isOpen && (
                         <tr>
-                          <td colSpan={8} className="bg-base-200/50">
+                          <td colSpan={8} className="pm-detail bg-base-200/50">
                             <RecallDetail cdcId={cdcId} recallId={id} />
                           </td>
                         </tr>

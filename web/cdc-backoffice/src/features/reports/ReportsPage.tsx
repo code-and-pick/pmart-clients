@@ -9,13 +9,11 @@ import { useSearchParams } from 'react-router';
 
 import { request } from '@pmart/web-core';
 import { formatSeoul, QueryState, toUiState } from '@pmart/web-ui';
-import type { components } from '../../api/generated/cdc-outbound';
 import { useApi } from '../../app/ApiContext';
 import { messages } from '../../shared/messages';
-import { Who } from '../../shared/OperatorLabel';
+import { DailyView, WorkersView } from './ReportViews';
 
 const t = messages.reports;
-type Metrics = NonNullable<components['schemas']['OutboundSummary']>;
 const VIEWS = ['metrics', 'daily', 'workers'] as const;
 type View = (typeof VIEWS)[number];
 const isDate = (v: string | null): v is string => !!v && /^\d{4}-\d{2}-\d{2}$/.test(v);
@@ -30,7 +28,8 @@ export function ReportsMenu({ cdcId }: { readonly cdcId: string }) {
   // 기본 기간 = 최근 7일(오늘 포함)
   const [today] = useState(() => seoul(Date.now()));
   const [weekAgo] = useState(() => seoul(Date.now() - 6 * 86_400_000));
-  const from = isDate(params.get('from')) ? params.get('from')! : weekAgo;
+  // 작업자 실적은 하루(오늘)가 기본 — 여러 날이면 시간당·그날 근무를 보일 수 없다
+  const from = isDate(params.get('from')) ? params.get('from')! : view === 'workers' ? today : weekAgo;
   const to = isDate(params.get('to')) ? params.get('to')! : today;
   const mfcId = params.get('mfc') ?? '';
   const [f, setF] = useState({ from, to, mfc: mfcId });
@@ -157,106 +156,3 @@ function MetricsView({ cdcId, from, to, mfcId }: { readonly cdcId: string; reado
   );
 }
 
-function DailyView({ cdcId, from, to }: { readonly cdcId: string; readonly from: string; readonly to: string }) {
-  const api = useApi();
-  const query = useQuery({
-    queryKey: ['cdc', cdcId, 'outbound-daily', from, to],
-    queryFn: () => request('GET', api.outbound.GET('/cdcs/{cdcId}/outbound-summary/daily', { params: { path: { cdcId }, query: { from, to } } })),
-  });
-  return (
-    <QueryState state={toUiState(query, (d) => d.items.length === 0)} onRetry={() => void query.refetch()} emptyText={t.emptyDaily}>
-      {(data) => {
-        const max = Math.max(1, ...data.items.map((d: Metrics) => d.approvedQty));
-        return (
-          <div className="overflow-x-auto rounded-box border border-base-300 bg-base-100">
-            <table className="table table-sm" data-testid="daily-table">
-              <thead>
-                <tr>
-                  <th>{t.date}</th>
-                  <th className="text-right">{t.trfs}</th>
-                  <th className="text-right">{t.approved}</th>
-                  <th className="text-right">{t.allocated}</th>
-                  <th className="text-right">{t.picked}</th>
-                  <th className="text-right">{t.short}</th>
-                  <th className="w-64">{t.progress}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.items.map((d: Metrics) => (
-                  <tr key={d.date} data-testid="daily-row">
-                    <td className="whitespace-nowrap">{d.date}</td>
-                    <td className="text-right tabular-nums">{num(d.transferCount)}</td>
-                    <td className="text-right tabular-nums">{num(d.approvedQty)}</td>
-                    <td className="text-right tabular-nums">{num(d.allocatedQty)}</td>
-                    <td className="text-right tabular-nums">{num(d.pickedQty)}</td>
-                    <td className={`text-right tabular-nums ${d.shortQty > 0 ? 'text-error' : ''}`}>{num(d.shortQty)}</td>
-                    <td>
-                      <span className="flex items-center gap-2">
-                        <span className="relative h-2 flex-1 rounded bg-base-200">
-                          <span className="absolute inset-y-0 left-0 rounded bg-base-300" style={{ width: `${(d.approvedQty / max) * 100}%` }} />
-                          <span className="absolute inset-y-0 left-0 rounded bg-primary" style={{ width: `${(d.pickedQty / max) * 100}%` }} />
-                        </span>
-                        <span className="w-14 text-right text-xs tabular-nums">{pct(d.progress)}</span>
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        );
-      }}
-    </QueryState>
-  );
-}
-
-function WorkersView({ cdcId, from, to }: { readonly cdcId: string; readonly from: string; readonly to: string }) {
-  const api = useApi();
-  const query = useQuery({
-    queryKey: ['cdc', cdcId, 'worker-throughput', from, to],
-    queryFn: () => request('GET', api.outbound.GET('/cdcs/{cdcId}/worker-throughput', { params: { path: { cdcId }, query: { from, to } } })),
-  });
-  return (
-    <div className="space-y-2">
-      <p className="text-xs text-base-content/60">{t.workersNote}</p>
-      <QueryState state={toUiState(query, (d) => d.items.length === 0)} onRetry={() => void query.refetch()} emptyText={t.emptyWorkers}>
-        {(data) => (
-          <div className="overflow-x-auto rounded-box border border-base-300 bg-base-100">
-            <table className="table table-sm" data-testid="throughput-table">
-              <thead>
-                <tr>
-                  <th>{t.worker}</th>
-                  <th className="text-right">{t.tasks}</th>
-                  <th className="text-right">{t.pickedLines}</th>
-                  <th className="text-right">{t.pickedQty}</th>
-                  <th className="text-right">{t.shortLabel}</th>
-                  <th>{t.first}</th>
-                  <th>{t.last}</th>
-                  <th>{t.main}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.items.map((w) => (
-                  <tr key={w.workerId} data-testid="throughput-row">
-                    <td>
-                      <Who id={w.workerId} />
-                    </td>
-                    <td className="text-right tabular-nums">{num(w.tasks)}</td>
-                    <td className="text-right tabular-nums">{num(w.pickedLines)}</td>
-                    <td className="text-right tabular-nums">{num(w.pickedQty)}</td>
-                    <td className={`text-right tabular-nums ${w.shortLines > 0 ? 'text-error' : ''}`}>
-                      {num(w.shortLines)} · {num(w.shortQty)}
-                    </td>
-                    <td className="whitespace-nowrap">{w.firstStartedAt ? formatSeoul(w.firstStartedAt) : messages.none}</td>
-                    <td className="whitespace-nowrap">{w.lastCompletedAt ? formatSeoul(w.lastCompletedAt) : messages.none}</td>
-                    <td className="whitespace-nowrap">{[w.mainFloor ? `${w.mainFloor}층` : null, w.mainZone].filter(Boolean).join(' · ') || messages.none}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </QueryState>
-    </div>
-  );
-}

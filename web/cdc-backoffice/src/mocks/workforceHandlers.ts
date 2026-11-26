@@ -95,7 +95,12 @@ function summary(cdcId: string, date: string, i: number): S['OutboundSummary'] {
   return {
     cdcId, date, transferCount: 18 + (i % 5), approvedQty: approved, allocatedQty: approved - 20, pickedQty: picked, shortQty: 6 + (i % 4), progress: picked / approved,
     transfersByState: [{ key: 'DEPARTED', count: 14 + (i % 4) }, { key: 'PICKING', count: 3 }], wavesByState: [{ key: 'CLOSED', count: 4 }], tasksByKindState: [{ key: 'PICK:DONE', count: 40 + i }],
-    byMfc: [], asOf: new Date().toISOString(),
+    byMfc: [
+      { mfcId: 'MFC-BJG-01', transferCount: 6, approvedQty: Math.round(approved * 0.4), allocatedQty: Math.round(approved * 0.4) - 8, pickedQty: Math.round(picked * 0.4), shortQty: 3 },
+      { mfcId: 'MFC-BNG-01', transferCount: 5, approvedQty: Math.round(approved * 0.3), allocatedQty: Math.round(approved * 0.3) - 6, pickedQty: Math.round(picked * 0.3), shortQty: 2 },
+      { mfcId: 'MFC-SEJ-01', transferCount: 4, approvedQty: Math.round(approved * 0.3), allocatedQty: Math.round(approved * 0.3) - 6, pickedQty: Math.round(picked * 0.3), shortQty: 1 + (i % 4) },
+    ],
+    asOf: new Date().toISOString(),
   };
 }
 

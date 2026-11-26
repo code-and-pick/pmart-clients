@@ -118,7 +118,7 @@ export function ShippingMenu({ cdcId }: { readonly cdcId: string }) {
                         </tr>
                         {isOpen && (
                           <tr>
-                            <td colSpan={7} className="bg-base-200/50">
+                            <td colSpan={7} className="pm-detail bg-base-200/50">
                               <DepartureDetail cdcId={cdcId} d={d} />
                             </td>
                           </tr>
