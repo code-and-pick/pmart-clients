@@ -1344,31 +1344,27 @@ export const messages = {
 
   /** MFC 재고 이동 — DC → MFC 로 가는 재고(TRF 단계·출발), 15초마다 다시 읽기 */
   mfcFlow: {
-    lead: 'DC 에서 MFC 로 보내는 재고가 지금 어디까지 왔는지예요. TRF 단계(확보 → Wave·피킹 → 출고 준비 → 출발)를 MFC 별로 보고, 최근 출발을 시각 순으로 봐요. 15초마다 다시 읽어요.',
+    lead: 'DC 에서 MFC 로 가는 물건이 지금 어디 있는지 보여 줘요. 15초마다 새로 읽어요.',
     asOf: (t: string) => `기준 ${t}`,
-    stages: { WAIT: '확보·대기', PICK: 'Wave·피킹', READY: '출고 준비', DEPARTED: '출발' } as Readonly<Record<string, string>>,
-    stageHint: {
-      WAIT: '받음·확보·일부 확보·확보 실패·버전 대체 중 — 아직 Wave 에 안 든 TRF',
-      PICK: 'Wave 에 듦·피킹 중',
-      READY: '피킹 끝·분류·검품·상차 끝 — 차에 실리기 전',
-      DEPARTED: '출발한 TRF(MFC 수령 전에는 재고의 "운송 중")',
-    } as Readonly<Record<string, string>>,
-    trfs: (n: number) => `TRF ${n}건`,
+    steps: { PREP: 'DC 에서 준비 중', READY: '실을 준비 끝', GOING: '차 타고 가는 중' } as Readonly<Record<string, string>>,
+    goingSub: (n: number) => `출발한 TRF ${n}건 · MFC 가 받기 전`,
+    arrive: 'MFC 도착',
+    trfs: (n: number) => `${n}건`,
     units: (n: number) => `${n.toLocaleString('ko-KR')}개`,
-    transit: '운송 중',
-    transitHint: 'MFC 수령 전 수량',
     byMfc: 'MFC 별',
-    mfc: 'MFC',
-    today: '오늘 기한',
-    todayApproved: '승인',
-    todayPicked: '피킹',
-    todayShort: '부족',
+    rowText: (all: number, prep: number, ready: number, going: number) =>
+      [`TRF ${all}건`, prep ? `준비 중 ${prep}` : null, ready ? `실을 준비 끝 ${ready}` : null, going ? `가는 중 ${going}` : null].filter(Boolean).join(' · '),
     recent: '최근 출발',
     recentEmpty: '아직 출발한 TRF 가 없어요.',
     noTrf: '진행 중인 TRF 가 없어요.',
     partial: '최근 TRF 200건까지만 봐요 — 더 있으면 TRF·Wave 에서 거르세요.',
-    departedLine: (qty: number) => `${qty.toLocaleString('ko-KR')}개 출발`,
+    toward: ' 로',
+    unknownMfc: '받는 MFC 확인 못 함',
+    sentLine: (qty: number) => `${qty.toLocaleString('ko-KR')}개 출발`,
+    okLoad: '✓ 실은 것 맞음',
+    badLoad: '! 실은 것 안 맞음',
   },
+
 
   /** 출고관리 — 출발 검증 결과(cdc-outbound 0.16.0 M-3) */
   shipping: {

@@ -19,7 +19,9 @@ describe('MFC 재고 이동', () => {
     const rows = await screen.findAllByTestId('flow-row');
     expect(rows.length).toBeGreaterThan(0);
     const stages = screen.getByTestId('flow-stages');
-    expect(within(stages).getByText('확보·대기')).toBeInTheDocument();
+    expect(within(stages).getByText('DC 에서 준비 중')).toBeInTheDocument();
+    expect(within(stages).getByText('차 타고 가는 중')).toBeInTheDocument();
+    expect(rows[0]).toHaveTextContent('TRF');
     expect(await screen.findByTestId('flow-recent')).toBeInTheDocument();
   });
 });
