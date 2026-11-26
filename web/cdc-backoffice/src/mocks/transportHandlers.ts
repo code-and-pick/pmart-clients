@@ -119,10 +119,13 @@ function seed() {
     planning(6, 'RT-03', 'CHILLED', kst(d, 0, 30, 1), 'MFC-MOKPO-01', ['TRF-20261126-0007', 'TRF-20261126-0008'], 13, 10, 'VH-32'),
   ];
   const req = (trfId: string, mfcId: string, state: Req['state'], reason: string | null, orderId: string | null, extra: Partial<Req> = {}): Req => ({
-    trfId, trfNumber: `T+${trfId.slice(-2)}`, trfVersion: 1, cdcId: 'CDC01', mfcId, shipDate: d, dueAt: kst(d, 9, 0, 1), tempClass: 'AMBIENT', tempClasses: ['AMBIENT'], allocationState: 'ALLOCATED',
+    trfId, trfNumber: `T${String(100000 + Number(trfId.slice(-4)) * 7919).slice(-6)}`, trfVersion: 1, cdcId: 'CDC01', mfcId, shipDate: d, dueAt: kst(d, 9, 0, 1), tempClass: 'AMBIENT', tempClasses: ['AMBIENT'], allocationState: 'ALLOCATED',
     approvedQty: 120, acceptedQty: 120, boxCount: 12, rtCount: 4, weightKg: 320, state, reason, lateReceipt: false, orderId, receivedAt: kst(d, 20), updatedAt: kst(d, 20), ...extra,
   });
   const requests: Req[] = [
+    req('TRF-20261126-0001', 'MFC-BJG-01', 'DEPARTED', null, id(1), { tempClass: 'CHILLED', tempClasses: ['CHILLED'], trfNumber: 'T482913' }),
+    req('TRF-20261126-0002', 'MFC-BNG-01', 'DEPARTED', null, id(1), { tempClass: 'CHILLED', tempClasses: ['CHILLED'], trfNumber: 'T771204' }),
+    req('TRF-20261126-0003', 'MFC-BJG-01', 'ASSIGNED', null, id(2), { trfNumber: 'T305518' }),
     req('TRF-20261126-0006', 'MFC-MOKPO-01', 'ACCEPTED', null, id(5)),
     req('TRF-20261126-0007', 'MFC-MOKPO-01', 'ACCEPTED', null, id(6), { tempClass: 'CHILLED', tempClasses: ['CHILLED'] }),
     req('TRF-20261126-0008', 'MFC-MOKPO-01', 'ACCEPTED', null, id(6), { tempClass: 'CHILLED', tempClasses: ['CHILLED'] }),

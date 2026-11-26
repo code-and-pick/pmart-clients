@@ -17,7 +17,8 @@ import { messages } from '../../shared/messages';
 import { Who } from '../../shared/OperatorLabel';
 import { DockView } from './DockView';
 import { FleetView } from './FleetPages';
-import { OrdersView, RequestsView, RoutesView } from './TransportPlanning';
+import { TransferRequestsView } from './TransferRequests';
+import { OrdersView, RoutesView } from './TransportPlanning';
 
 const t = messages.transport;
 type S = components['schemas'];
@@ -86,7 +87,7 @@ export function TransportMenu({ cdcId }: { readonly cdcId: string }) {
       {view === 'trips' && <TripsView cdcId={cdcId} date={date} />}
       {view === 'orders' && <OrdersView cdcId={cdcId} date={date} />}
       {view === 'docks' && <DockView cdcId={cdcId} date={date} />}
-      {view === 'requests' && <RequestsView cdcId={cdcId} date={date} />}
+      {view === 'requests' && <TransferRequestsView cdcId={cdcId} date={date} />}
       {view === 'routes' && <RoutesView cdcId={cdcId} />}
       {view === 'fleet' && <FleetView />}
     </section>

@@ -73,17 +73,30 @@ describe('출하·운송 — 배차', () => {
     expect(await screen.findAllByTestId('trip-row')).toHaveLength(5);
   });
 
+  it('이관요청서 받기 — 배차 생성으로 TRF 를 가져와 상태별 수', async () => {
+    renderAt('/c/CDC01/transport?v=requests');
+    await userEvent.click(await screen.findByTestId('requests-receive'));
+    expect(await screen.findByTestId('requests-received')).toHaveTextContent('배차 대기 3');
+  });
+
   it('배차 생성 — 만들지 못한 노선·온도대를 보여 줌', async () => {
     renderAt('/c/CDC01/transport?v=orders');
     await userEvent.click(await screen.findByTestId('orders-generate'));
     expect(await screen.findByTestId('orders-generated')).toHaveTextContent('정규차 없음');
   });
 
-  it('잔여 물량은 기본 보류만 — 사유와 함께, 노선은 정차 순서·정규차', async () => {
+  it('이관요청서 — 받은 것 전부(상태별), 보류·반려 카드로 거르고, 펼치면 검증 사유·보완 주체·상품별 수량', async () => {
     renderAt('/c/CDC01/transport?v=requests');
-    const rows = await screen.findAllByTestId('request-row');
-    expect(rows).toHaveLength(3);
-    expect(rows.map((r) => r.textContent).join()).toContain('노선 없는 MFC');
+    expect(await screen.findAllByTestId('request-row')).toHaveLength(9);
+    await userEvent.click(screen.getByTestId('request-blocked'));
+    const held = screen.getAllByTestId('request-row');
+    expect(held).toHaveLength(3);
+    await userEvent.click(held.find((r) => r.textContent.includes('노선 없는 MFC'))!);
+    expect(await screen.findByTestId('request-check')).toHaveTextContent('V2');
+    expect(screen.getByTestId('request-check')).toHaveTextContent('보완: 기준정보(노선 등록)');
+    await userEvent.click(screen.getByTestId('request-filter').querySelector('button')!);
+    await userEvent.click((await screen.findAllByTestId('request-row')).find((r) => r.textContent.includes('T482913'))!);
+    expect(await screen.findByTestId('request-lines')).toHaveTextContent('40');
     await userEvent.click(screen.getByRole('tab', { name: '노선' }));
     const cards = await screen.findAllByTestId('route-card');
     expect(cards).toHaveLength(3);

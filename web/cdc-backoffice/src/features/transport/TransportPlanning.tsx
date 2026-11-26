@@ -5,7 +5,6 @@
 // 적재율·적재 초과·결행 후보는 서버 값 그대로. 계획완료가 CONFIRMING 으로 남으면 "계획완료 진행 중"(확정 아님).
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Fragment, useState } from 'react';
-import { useSearchParams } from 'react-router';
 
 import { request } from '@pmart/web-core';
 import { CommandFeedback, formatSeoul, QueryState, toUiState, useCommand } from '@pmart/web-ui';
@@ -20,7 +19,6 @@ import { tempLabel, TripStateBadge, tripsKey } from './TransportPage';
 const t = messages.transport;
 type S = components['schemas'];
 type Order = S['TransportOrder'];
-type ReqState = S['TransportRequestState'];
 const fmt = (v: string | null | undefined) => (v ? formatSeoul(v) : messages.none);
 const ordersKey = (cdcId: string) => ['cdc', cdcId, 'transport-orders'] as const;
 
@@ -364,87 +362,6 @@ function MoveForm({ cdcId, order: o, all, onClose }: { readonly cdcId: string; r
         <CommandFeedback command={c.cmd}>{() => <p role="status" className="alert alert-info py-1 text-sm">{t.done}</p>}</CommandFeedback>
       </div>
     </form>
-  );
-}
-
-const REQ_FILTERS: readonly (ReqState | '')[] = ['HELD', 'ACCEPTED', 'REJECTED', 'ASSIGNED', ''];
-
-export function RequestsView({ cdcId, date }: { readonly cdcId: string; readonly date: string }) {
-  const api = useApi();
-  const [params, setParams] = useSearchParams();
-  const raw = params.get('state');
-  const state: ReqState | '' = raw === 'all' ? '' : (REQ_FILTERS.find((s) => s === raw) ?? 'HELD');
-  const query = useQuery({
-    queryKey: ['cdc', cdcId, 'transport-requests', date, state],
-    queryFn: () => request('GET', api.transportPlanning.GET('/cdcs/{cdcId}/transport-requests', { params: { path: { cdcId }, query: { shipDate: date, size: 200, ...(state ? { state } : {}) } } })),
-  });
-  const pick = (s: ReqState | '') => {
-    const q = new URLSearchParams(params);
-    q.set('state', s || 'all');
-    setParams(q, { replace: true });
-  };
-  return (
-    <div className="space-y-3">
-      <p className="text-sm text-base-content/60">{t.requestsLead}</p>
-      <div className="flex flex-wrap gap-2" data-testid="request-filter">
-        {REQ_FILTERS.map((s) => (
-          <button key={s || 'all'} type="button" className={`btn btn-xs ${state === s ? 'btn-primary' : ''}`} onClick={() => pick(s)}>
-            {s ? t.reqState[s] : t.all}
-          </button>
-        ))}
-      </div>
-      <QueryState state={toUiState(query, (d) => d.items.length === 0)} onRetry={() => void query.refetch()} emptyText={t.emptyRequests}>
-        {(data) => (
-          <div className="overflow-x-auto rounded-box border border-base-300 bg-base-100">
-            <table className="table table-sm" data-testid="request-table">
-              <thead>
-                <tr>
-                  <th>TRF</th>
-                  <th>{t.mfc}</th>
-                  <th>{t.dueAt}</th>
-                  <th>{t.tempLabel}</th>
-                  <th className="text-right">{t.qty}</th>
-                  <th className="text-right">{t.boxes}</th>
-                  <th>{t.state}</th>
-                  <th>{t.order}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.items.map((r) => (
-                  <tr key={r.trfId} data-testid="request-row">
-                    <td className="whitespace-nowrap font-mono text-xs">
-                      {r.trfNumber ?? r.trfId}
-                      {r.trfNumber && <span className="block text-base-content/50">{r.trfId}</span>}
-                    </td>
-                    <td className="font-mono text-xs">{r.mfcId}</td>
-                    <td className="whitespace-nowrap">{fmt(r.dueAt)}</td>
-                    <td className="whitespace-nowrap">{r.tempClass ? tempLabel(r.tempClass) : (r.tempClasses ?? []).map(tempLabel).join('+') || messages.none}</td>
-                    <td className="whitespace-nowrap text-right">
-                      {r.acceptedQty ?? 0} / {r.approvedQty ?? 0}
-                    </td>
-                    <td className="whitespace-nowrap text-right">
-                      {r.boxCount ?? 0} · {r.rtCount ?? t.rtPending}
-                    </td>
-                    <td>
-                      <span className="flex flex-wrap gap-1">
-                        <span className={`badge badge-sm whitespace-nowrap ${r.state === 'HELD' || r.state === 'REJECTED' ? 'badge-warning' : 'badge-outline'}`}>{t.reqState[r.state] ?? r.state}</span>
-                        {r.reason && <span className="text-xs">{t.reqReason[r.reason] ?? r.reason}</span>}
-                        {r.lateReceipt && (
-                          <span className="badge badge-sm badge-ghost whitespace-nowrap" title={t.lateHint}>
-                            {t.late}
-                          </span>
-                        )}
-                      </span>
-                    </td>
-                    <td className="font-mono text-xs">{r.orderId ?? messages.none}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </QueryState>
-    </div>
   );
 }
 
