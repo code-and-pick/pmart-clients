@@ -17,6 +17,7 @@ export function ProgressSteps({
   label,
   testId,
   endedTestId,
+  times,
 }: {
   readonly steps: readonly string[];
   readonly place: StepPlace | null;
@@ -26,6 +27,8 @@ export function ProgressSteps({
   readonly label: string;
   readonly testId: string;
   readonly endedTestId: string;
+  /** 단계마다 끝난(닿은) 시각 글자 — 있는 칸만, 끝났거나 지금인 칸에만 이름 아래 작게(2026-11-25 주문 진행) */
+  readonly times?: readonly (string | undefined)[] | undefined;
 }) {
   return (
     <section aria-label={label} className="rounded-box border border-base-300 bg-base-100 px-5 py-3" data-testid={testId}>
@@ -56,7 +59,14 @@ export function ProgressSteps({
                     <span className="flex h-5 w-5 items-center justify-center rounded-full border border-current text-[11px]">{i + 1}</span>
                   )}
                 </span>
-                <span className={state === 'done' ? 'text-base-content/80' : ''}>{name}</span>
+                {times?.[i] && state !== 'todo' ? (
+                  <span className="flex flex-col leading-tight">
+                    <span className={state === 'done' ? 'text-base-content/80' : ''}>{name}</span>
+                    <span className="text-[11px] font-normal text-base-content/55" data-testid="step-time">{times[i]}</span>
+                  </span>
+                ) : (
+                  <span className={state === 'done' ? 'text-base-content/80' : ''}>{name}</span>
+                )}
               </span>
               {state === 'now' && place?.note && <span className={`text-xs ${place.warn ? warnText : 'text-base-content/60'}`}>({place.note})</span>}
             </li>

@@ -14,7 +14,7 @@ import type { components } from '../../api/generated/order';
 import { useApi } from '../../app/ApiContext';
 import { CodeLabel, DataTable, DetailHeader, NextAction, Notice, PropertyFilter, Section, StatusBadge, type FilterProp, type Tone, ListHeader, listCount, refreshOf, SectionTabs, PagerMini, SortTh, useLocalSort } from '../../shared/admin';
 import { SavedViews } from '../../shared/SavedViews';
-import { OrderProgress } from './OrderProgress';
+import { OrderProgress, useOrderStepTimes } from './OrderProgress';
 import { CopyButton } from '../../shared/CopyButton';
 import { useRecordRecent } from '../../shared/recentViews';
 import { DisplayNumber, SystemNumbers } from '../../shared/displayNumber';
@@ -472,6 +472,7 @@ export function OrderDetailPage() {
   });
   // 고객센터 주문 취소(claim 0.4.0) — 상품준비 전만, 머리 오른쪽 버튼으로 연다
   const [cancelOpen, setCancelOpen] = useState(false);
+  const stepTimesOf = useOrderStepTimes(orderId, query.data?.confirmedAt);
 
   const back = useQueueBack('order', orderId, { to: '/orders', label: m.orders.back });
 
@@ -518,8 +519,8 @@ export function OrderDetailPage() {
               summary={<>{when(o.confirmedAt)} · <CenterName id={o.mfcId} /> · {won(o.amounts.approvedAmount)}</>}
               actions={<OrderCancelAction order={o} open={cancelOpen} onOpen={() => setCancelOpen(true)} />}
             />
-            {/* 주문 진행 단계(2026-11-18 Refine 참고) — 서버 상태를 계약 상태표 순서대로 */}
-            <OrderProgress status={o.status} />
+            {/* 주문 진행 단계(2026-11-18 Refine 참고) — 서버 상태를 계약 상태표 순서대로 — 시각은 확정·픽업·완료만(useOrderStepTimes) */}
+            <OrderProgress status={o.status} times={stepTimesOf} />
             {/* 상세 탭(2026-11-20 AWS) — 누르면 그 구역으로, 지금 보는 구역 밑줄 */}
             <SectionTabs
               items={[

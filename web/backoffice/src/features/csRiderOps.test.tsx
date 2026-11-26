@@ -75,7 +75,7 @@ describe('메뉴 묶음 — 역할로 보이고(합집합) 접고 편다', () =>
 describe('주문 조회', () => {
   it('기본 기간(7일)으로 찾고, 목록 연락처는 서버가 가린 값만 보인다', async () => {
     const view = renderAt('/orders', as.cs);
-    expect(await screen.findAllByTestId('order-row')).toHaveLength(4); // ORD-MOCK-1005(상품 준비 전 — 주문 취소 화면용) 더함
+    expect(await screen.findAllByTestId('order-row')).toHaveLength(5); // ORD-MOCK-1005(상품 준비 전 — 주문 취소 화면용)·1007(전달 완료 시연용) 더함
     expect(screen.getAllByText('010-****-5678')).toHaveLength(2);
     expect(document.body.textContent).not.toContain('01012345678');
     const sent = view.sent.find((r) => r.url.includes('/orders/lookups'));

@@ -36,7 +36,7 @@ const HOUR = 3_600_000;
 const ago = (hours: number) => new Date(Date.now() - hours * HOUR).toISOString();
 
 /** 목 화면 주문번호(8자리, ADR-0070) — 다른 목(실시간 배송 등)과 따로 정한 값 */
-const ORDER_NUMBERS: Readonly<Record<string, string>> = { 'ORD-MOCK-1001': '74939001', 'ORD-MOCK-1002': '74939002', 'ORD-MOCK-1003': '74939003', 'ORD-MOCK-1005': '74939005' };
+const ORDER_NUMBERS: Readonly<Record<string, string>> = { 'ORD-MOCK-1001': '74939001', 'ORD-MOCK-1002': '74939002', 'ORD-MOCK-1003': '74939003', 'ORD-MOCK-1005': '74939005', 'ORD-MOCK-1007': '74939007' };
 
 function order(orderId: string, status: StaffOrder['status'], confirmedAt: string, phone: string): StaffOrder {
   return {
@@ -118,7 +118,7 @@ function maskedDetail(o: StaffOrder): StaffOrder {
 }
 
 /** 목 배송 번호 — DLV-MOCK-4 는 null("번호 없음" 대체 표시 확인용) */
-const DELIVERY_SEQ: Readonly<Record<string, number>> = { 'DLV-MOCK-1': 1, 'DLV-MOCK-2': 1, 'DLV-MOCK-3': 1 };
+const DELIVERY_SEQ: Readonly<Record<string, number>> = { 'DLV-MOCK-1': 1, 'DLV-MOCK-2': 1, 'DLV-MOCK-3': 1, 'DLV-MOCK-7': 1 };
 
 function execution(deliveryId: string, orderId: string, state: ExecutionC['schemas']['ExecutionState'], riderId: string | undefined): Execution {
   const orderNumber = ORDER_NUMBERS[orderId] ?? null;
@@ -191,7 +191,29 @@ interface OpsState {
   bffResults: Map<string, { requestId: string; status: 'APPLIED'; occurredAt: string }>;
 }
 
+/** 시연용 배송의 생긴 시각 — 목록이 순번으로 만드는 시각 대신 이력과 맞춘다 */
+const DEMO_CREATED: Readonly<Record<string, string>> = { 'DLV-MOCK-7': ago(2.7) };
+
+/** 시연용(2026-11-25): 주문부터 전달 완료까지 이력이 다 찬 배송 — 주문 74939007 */
+function completedDemo(): { execution: Execution; dispatch: DispatchView } {
+  const e = execution('DLV-MOCK-7', 'ORD-MOCK-1007', 'COMPLETED', 'RID-MOCK-1');
+  e.assignedAt = ago(2.6);
+  e.completedAt = ago(2);
+  e.history = [
+    { state: 'ASSIGNED', actor: 'SYSTEM_EVENT', occurredAt: ago(2.6) },
+    { state: 'ARRIVED_AT_STORE', actor: 'RIDER', occurredAt: ago(2.4) },
+    { state: 'PICKED_UP', actor: 'RIDER', occurredAt: ago(2.3) },
+    { state: 'ARRIVED_AT_CUSTOMER', actor: 'RIDER', occurredAt: ago(2.05) },
+    { state: 'COMPLETED', actor: 'RIDER', occurredAt: ago(2) },
+  ];
+  const d = dispatch('DLV-MOCK-7', 'ORD-MOCK-1007', 'CLOSED', 'RID-MOCK-1');
+  d.assignment = { riderId: 'RID-MOCK-1', assignedAt: ago(2.6), state: 'PICKED_UP', pickedUpAt: ago(2.3) };
+  d.attempts = [{ attemptId: 'ATT-DLV-MOCK-7', state: 'ASSIGNED', trigger: 'AUTO', startedAt: ago(2.7) }];
+  return { execution: e, dispatch: d };
+}
+
 function seed(): OpsState {
+  const demo = completedDemo();
   const failed = execution('DLV-MOCK-2', 'ORD-MOCK-1002', 'FAILURE_REPORTED', 'RID-MOCK-2');
   failed.failure = { reason: 'CUSTOMER_UNREACHABLE', detail: '세 번 전화했지만 받지 않았어요.', goodsLocation: 'WITH_RIDER', contactAttempts: 3, reportedAt: ago(1) };
   return {
@@ -214,6 +236,7 @@ function seed(): OpsState {
       order('ORD-MOCK-1001', 'IN_DELIVERY', ago(1), '01012345678'),
       order('ORD-MOCK-1002', 'IN_DELIVERY', ago(26), '01055556666'),
       order('ORD-MOCK-1003', 'PREPARING', ago(72), '01012345678'),
+      order('ORD-MOCK-1007', 'COMPLETED', ago(3), '01023456789'),
       { ...order('ORD-MOCK-1005', 'CONFIRMED', ago(0.5), '01077778888'), lines: [{ orderLineId: 'ORD-MOCK-1005-L1', sku: 'E-00000001', productName: '사과 1.5kg', originalQty: 2, cancelledBeforeShipQty: 0, unfulfilledQty: 2, handedOverQty: 0, deliveredQty: 0, returnedQty: 0, unitPrice: 6000, lineAmount: 12000 }] },
     ],
     executions: new Map([
@@ -221,12 +244,14 @@ function seed(): OpsState {
       ['DLV-MOCK-2', failed],
       ['DLV-MOCK-3', execution('DLV-MOCK-3', 'ORD-MOCK-1003', 'ASSIGNED', 'RID-MOCK-1')],
       ['DLV-MOCK-4', execution('DLV-MOCK-4', 'ORD-MOCK-1003', 'UNASSIGNED', undefined)],
+      ['DLV-MOCK-7', demo.execution],
     ]),
     dispatches: new Map([
       ['DLV-MOCK-1', dispatch('DLV-MOCK-1', 'ORD-MOCK-1001', 'PICKED_UP', 'RID-MOCK-1')],
       ['DLV-MOCK-2', dispatch('DLV-MOCK-2', 'ORD-MOCK-1002', 'PICKED_UP', 'RID-MOCK-2')],
       ['DLV-MOCK-3', dispatch('DLV-MOCK-3', 'ORD-MOCK-1003', 'ASSIGNED', 'RID-MOCK-1')],
       ['DLV-MOCK-4', dispatch('DLV-MOCK-4', 'ORD-MOCK-1003', 'DISPATCHING', undefined)],
+      ['DLV-MOCK-7', demo.dispatch],
     ]),
     complaints: [
       { complaintId: 'RCP-MOCK-2', complaintType: 'MISDELIVERY', deliveryId: 'DLV-MOCK-21', riderId: 'RID-MOCK-2', recordedAt: ago(20), recordedBy: 'op-cs-1', source: 'CS_AGENT', note: '옆집에 두고 감' },
@@ -1170,7 +1195,7 @@ export const opsHandlers = [
         riderId: e.riderId ?? null,
         state: e.state,
         type: e.type,
-        createdAt: ago(10 - i),
+        createdAt: DEMO_CREATED[e.deliveryId ?? ''] ?? ago(10 - i),
         assignedAt: e.assignedAt ?? null,
         version: e.version,
       }))
