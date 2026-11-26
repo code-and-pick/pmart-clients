@@ -38,6 +38,9 @@ function seed() {
           locations: [
             { locationCode: 'CDC01-A-5-03-02-1-1', qualityState: 'RELEASED', onHand: 700, reserved: 70 },
             { locationCode: 'CDC01-A-5-63-01-2-1', qualityState: 'RELEASED', onHand: 100, reserved: 0 },
+            // 새 배치(R-25) 칸 — 평면도에서 재고 있는 통로 보이기
+            { locationCode: 'CDC01-G-5-03-02-1-1', qualityState: 'RELEASED', onHand: 40, reserved: 0 },
+            { locationCode: 'CDC01-H-5-05-01-1-1', qualityState: 'RELEASED', onHand: 24, reserved: 0 },
           ],
         },
         { lot: 'LOT-A2', expiresAt: '2027-01-10', remainingDays: 45, eligible: 380, reserved: 0, held: 20, locations: [{ locationCode: 'CDC01-A-5-04-02-1-1', qualityState: 'HELD', onHand: 400, reserved: 0 }] },

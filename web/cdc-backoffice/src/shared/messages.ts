@@ -538,9 +538,11 @@ export const messages = {
 
   /** 센터 평면도(2D) — 시뮬레이터 배치 */
   floor: {
-    zoneEmpty: (prefix: string) =>
-      `이 구역·층(${prefix}…) 칸 전체에 재고가 하나도 없어요. 평면도는 시뮬레이터 새 배치(R-25)인데, 서버 위치가 아직 옛 배치면 칸 코드가 달라 여기서 안 보여요 — 재고관리 › 칸별 재고에서 층으로 찾아보세요.`,
-    aisleEmpty: '이 통로 칸에는 지금 재고가 없어요(같은 구역의 다른 통로에는 있어요).',
+    aisleEmptyGo: '이 통로 칸에는 지금 재고가 없어요. 재고가 있는 통로는 그림에서 파란 번호예요 — 아래에서 바로 골라요.',
+    stockedTitle: (n: number) => `이 층에서 재고가 있는 통로 ${n}곳(많은 순)`,
+    floorEmpty: '이 층 칸에는 지금 재고가 없어요.',
+    stockTruncated: '줄이 많아 일부 통로만 셌어요.',
+    stockedLegend: '재고 있는 통로',
     workers: '이 층 작업자',
     workersEmpty: '이 층에 위치를 아는 작업자가 없어요.',
     workersHint: 'PDA 로 마지막에 스캔한 칸 기준이에요. 10분 넘게 스캔이 없으면 "모름"으로 바뀌고 그림에서 빠져요.',

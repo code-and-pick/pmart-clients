@@ -4,16 +4,14 @@
 // - 층(5·6·7F) 탭, 온도대 방·보관 구역·랙 줄·피킹 선반 줄·통로 번호판·승강기·작업 자리 이름.
 // - 통로를 누르면 오른쪽에 그 통로 칸 재고(cdc-inventory location-stocks?locationPrefix=CDC01-{구역}-{층}-{통로}-)와 로케이션 목록 링크.
 // - 설비 상태·표시등·로봇은 그리지 않는다(사용자 "설비센서자산 같은 건 제외") — 작업 자리는 이름만.
-import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 import { Link, useSearchParams } from "react-router";
 
-import { request } from "@pmart/web-core";
-import { useApi } from "../../app/ApiContext";
 import { centerPath } from "../../app/nav";
 import { messages } from "../../shared/messages";
 import { aisleOf, useWorkers, WorkerDot, WorkerList, type WorkerLocation } from './FloorWorkers';
 import { LocationStockTable } from "../inventory/LocationStock";
+import { aisleKey, useFloorStock, type FloorStock } from "./FloorStock";
 import plan from "./layouts/CDC01.json";
 
 const t = messages.floor;
@@ -113,6 +111,8 @@ export function FloorMenu({ cdcId }: { readonly cdcId: string }) {
   const workers = useWorkers(cdcId);
   const aisle =
     floor?.aisles.find((a) => `${a.zone}${a.no}` === picked) ?? null;
+  const zones = [...new Set((floor?.aisles ?? []).map((a) => a.zone))];
+  const stock = useFloorStock(cdcId, p?.centerId ?? cdcId, floor?.floor ?? "", zones);
   const set = (next: Record<string, string>) => {
     const q = new URLSearchParams(params);
     for (const [k, v] of Object.entries(next)) {
@@ -166,6 +166,7 @@ export function FloorMenu({ cdcId }: { readonly cdcId: string }) {
             picked={aisle}
             onPick={(a) => set({ aisle: a ? `${a.zone}${a.no}` : "" })}
             workers={workers.data?.workers ?? []}
+            stock={stock}
           />
         </div>
         <aside className="space-y-3" data-testid="floor-side">
@@ -176,11 +177,14 @@ export function FloorMenu({ cdcId }: { readonly cdcId: string }) {
               floor={floor}
               aisle={aisle}
               onClose={() => set({ aisle: "" })}
+              stock={stock}
+              onPick={(a) => set({ aisle: `${a.zone}${a.no}` })}
             />
           ) : (
-            <p className="rounded-box border border-dashed border-base-300 p-4 text-sm text-base-content/60">
-              {t.pickHint}
-            </p>
+            <div className="space-y-2 rounded-box border border-dashed border-base-300 p-4 text-sm text-base-content/70">
+              <p>{t.pickHint}</p>
+              <StockedList floor={floor} stock={stock} onPick={(a) => set({ aisle: `${a.zone}${a.no}` })} />
+            </div>
           )}
           <WorkerList query={workers} floor={floor.floor} />
         </aside>
@@ -220,6 +224,10 @@ function Legend() {
         {t.area}
       </li>
       <li className="flex items-center gap-1.5">
+        <span className="text-[11px] font-bold text-primary">G01</span>
+        {t.stockedLegend}
+      </li>
+      <li className="flex items-center gap-1.5">
         <span className="inline-grid h-3.5 w-3.5 place-items-center rounded-sm bg-neutral text-[9px] font-bold text-neutral-content">
           1
         </span>
@@ -235,12 +243,14 @@ function FloorSvg({
   picked,
   onPick,
   workers,
+  stock,
 }: {
   readonly plan: Plan;
   readonly floor: PlanFloor;
   readonly picked: PlanAisle | null;
   readonly onPick: (a: PlanAisle | null) => void;
   readonly workers: readonly WorkerLocation[];
+  readonly stock: FloorStock;
 }) {
   // FRESH 작업자만 그 통로 가운데에 — 같은 통로 여럿이면 세로로 비켜 찍는다
   const dots = useMemo(() => {
@@ -268,6 +278,7 @@ function FloorSvg({
     const a = floor.aisles.find((x) => x.zone === r.zone && x.no === r.aisle);
     if (a) onPick(a);
   };
+  const has = (a: { readonly zone: string; readonly no: number }) => (stock.byAisle.get(aisleKey(a.zone, a.no))?.qty ?? 0) > 0;
   return (
     <svg
       viewBox={vb}
@@ -421,8 +432,8 @@ function FloorSvg({
               y={a.z0}
               width={w}
               height={a.z1 - a.z0}
-              fill={on ? "var(--color-primary)" : "transparent"}
-              fillOpacity={on ? 0.35 : 0}
+              fill={on || has(a) ? "var(--color-primary)" : "transparent"}
+              fillOpacity={on ? 0.35 : has(a) ? 0.14 : 0}
               className="hover:fill-[var(--color-primary)] hover:[fill-opacity:0.15]"
             />
             <text
@@ -430,9 +441,9 @@ function FloorSvg({
               y={a.z0 - 0.4}
               textAnchor="middle"
               fontSize={a.kind === "RACK" ? 1.5 : 1.1}
-              fontWeight={on ? 700 : 500}
-              fill={on ? "var(--color-primary)" : "var(--color-base-content)"}
-              fillOpacity={on ? 1 : 0.75}
+              fontWeight={on || has(a) ? 700 : 500}
+              fill={on || has(a) ? "var(--color-primary)" : "var(--color-base-content)"}
+              fillOpacity={on || has(a) ? 1 : stock.loading ? 0.75 : 0.4}
             >
               {a.plate}
             </text>
@@ -490,12 +501,16 @@ function AislePanel({
   floor,
   aisle,
   onClose,
+  stock,
+  onPick,
 }: {
   readonly cdcId: string;
   readonly centerId: string;
   readonly floor: PlanFloor;
   readonly aisle: PlanAisle;
   readonly onClose: () => void;
+  readonly stock: FloorStock;
+  readonly onPick: (a: PlanAisle) => void;
 }) {
   const prefix = aislePrefix(centerId, floor.floor, aisle);
   return (
@@ -534,28 +549,37 @@ function AislePanel({
       </Link>
       <h3 className="text-sm font-semibold">{t.stock}</h3>
       <LocationStockTable cdcId={cdcId} prefix={prefix} />
-      <ZoneHint cdcId={cdcId} centerId={centerId} floor={floor.floor} zone={aisle.zone} aislePrefix={prefix} />
+      {!stock.loading && !stock.byAisle.has(aisleKey(aisle.zone, aisle.no)) && (
+        <div className="space-y-1 rounded-box border border-dashed border-base-300 p-3 text-xs" data-testid="aisle-empty">
+          <p>{t.aisleEmptyGo}</p>
+          <StockedList floor={floor} stock={stock} onPick={onPick} />
+        </div>
+      )}
     </div>
   );
 }
 
-/** 통로가 비어 보일 때 — 같은 구역·층 전체에도 재고가 없으면 칸 코드가 서버와 다를 수 있다고 알린다(실서버 위치가 아직 새 배치 전이면) */
-function ZoneHint({ cdcId, centerId, floor, zone, aislePrefix: ap }: { readonly cdcId: string; readonly centerId: string; readonly floor: string; readonly zone: string; readonly aislePrefix: string }) {
-  const api = useApi();
-  const zonePrefix = `${centerId}-${zone}-${floor}-`;
-  const aisleQ = useQuery({
-    queryKey: ['cdc', cdcId, 'location-stocks', ap],
-    queryFn: () => request('GET', api.inventory.GET('/cdcs/{cdcId}/location-stocks', { params: { path: { cdcId }, query: { locationPrefix: ap, limit: 500 } } })),
-  });
-  const zoneQ = useQuery({
-    queryKey: ['cdc', cdcId, 'location-stocks', zonePrefix, 'any'],
-    enabled: aisleQ.data?.items.length === 0,
-    queryFn: () => request('GET', api.inventory.GET('/cdcs/{cdcId}/location-stocks', { params: { path: { cdcId }, query: { locationPrefix: zonePrefix, limit: 1 } } })),
-  });
-  if (aisleQ.data?.items.length !== 0 || !zoneQ.data) return null;
+
+/** 이 층에서 재고가 있는 통로 — 많은 순, 누르면 그 통로 */
+function StockedList({ floor, stock, onPick }: { readonly floor: PlanFloor; readonly stock: FloorStock; readonly onPick: (a: PlanAisle) => void }) {
+  if (stock.loading) return <p className="text-xs text-base-content/55">…</p>;
+  if (stock.failed) return <p className="text-xs text-error">{messages.loadFailed}</p>;
+  const list = floor.aisles
+    .map((a) => ({ a, s: stock.byAisle.get(aisleKey(a.zone, a.no)) }))
+    .filter((x): x is { a: PlanAisle; s: { qty: number; lines: number } } => !!x.s && x.s.qty > 0)
+    .sort((x, y) => y.s.qty - x.s.qty);
+  if (list.length === 0) return <p className="text-xs text-base-content/60">{t.floorEmpty}</p>;
   return (
-    <p role="note" className="rounded-box border border-dashed border-base-300 p-3 text-xs text-base-content/70" data-testid="zone-hint">
-      {zoneQ.data.items.length === 0 ? t.zoneEmpty(zonePrefix) : t.aisleEmpty}
-    </p>
+    <div className="space-y-1" data-testid="stocked-aisles">
+      <p className="text-xs text-base-content/60">{t.stockedTitle(list.length)}</p>
+      <div className="flex flex-wrap gap-1">
+        {list.slice(0, 24).map(({ a, s: st }) => (
+          <button key={aisleKey(a.zone, a.no)} type="button" className="btn btn-xs" onClick={() => onPick(a)}>
+            {a.plate} <span className="text-base-content/60">{st.qty.toLocaleString("ko-KR")}</span>
+          </button>
+        ))}
+      </div>
+      {stock.truncated && <p className="text-xs text-warning">{t.stockTruncated}</p>}
+    </div>
   );
 }

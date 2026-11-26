@@ -40,13 +40,22 @@ describe('평면도 작업자', () => {
   });
 });
 
-describe('랙 누르기', () => {
-  it('랙 줄을 눌러도 그 통로 칸 재고, 구역 전체가 비면 왜 비었는지 알림', async () => {
-    const view = renderAt('/c/CDC01/floor?f=5');
-    const racks = await screen.findAllByTestId(/^rack-G3-/);
-    await userEvent.click(racks[0]!);
-    expect(await screen.findByTestId('aisle-panel')).toHaveTextContent('CDC01-G-5-03-');
-    await waitFor(() => expect(view.gets('/location-stocks').some((r) => new URL(r.url).searchParams.get('locationPrefix') === 'CDC01-G-5-03-')).toBe(true));
-    expect(await screen.findByTestId('zone-hint')).toHaveTextContent('서버 위치가 아직 옛 배치면');
+describe('랙 누르기·재고 있는 통로', () => {
+  it('랙 줄을 눌러도 그 통로 칸 재고', async () => {
+    renderAt('/c/CDC01/floor?f=5');
+    await userEvent.click((await screen.findAllByTestId(/^rack-G3-/))[0]!);
+    const panel = await screen.findByTestId('aisle-panel');
+    expect(panel).toHaveTextContent('CDC01-G-5-03-');
+    expect(await within(panel).findByTestId('location-stock-row')).toHaveTextContent('LOT-A1');
+  });
+
+  it('빈 통로를 누르면 이 층에서 재고 있는 통로를 바로 고를 수 있음', async () => {
+    renderAt('/c/CDC01/floor?f=5');
+    await userEvent.click((await screen.findAllByTestId(/^rack-G1-/))[0]!);
+    const empty = await screen.findByTestId('aisle-empty');
+    const list = within(empty).getByTestId('stocked-aisles');
+    expect(list).toHaveTextContent('G03');
+    await userEvent.click(within(list).getByRole('button', { name: /H05/ }));
+    expect(await screen.findByTestId('aisle-panel')).toHaveTextContent('CDC01-H-5-05-');
   });
 });
