@@ -39,3 +39,14 @@ describe('평면도 작업자', () => {
     expect(rows[1]).toHaveTextContent('위치 모름');
   });
 });
+
+describe('랙 누르기', () => {
+  it('랙 줄을 눌러도 그 통로 칸 재고, 구역 전체가 비면 왜 비었는지 알림', async () => {
+    const view = renderAt('/c/CDC01/floor?f=5');
+    const racks = await screen.findAllByTestId(/^rack-G3-/);
+    await userEvent.click(racks[0]!);
+    expect(await screen.findByTestId('aisle-panel')).toHaveTextContent('CDC01-G-5-03-');
+    await waitFor(() => expect(view.gets('/location-stocks').some((r) => new URL(r.url).searchParams.get('locationPrefix') === 'CDC01-G-5-03-')).toBe(true));
+    expect(await screen.findByTestId('zone-hint')).toHaveTextContent('서버 위치가 아직 옛 배치면');
+  });
+});

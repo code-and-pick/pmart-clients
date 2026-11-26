@@ -4,9 +4,12 @@
 // - 층(5·6·7F) 탭, 온도대 방·보관 구역·랙 줄·피킹 선반 줄·통로 번호판·승강기·작업 자리 이름.
 // - 통로를 누르면 오른쪽에 그 통로 칸 재고(cdc-inventory location-stocks?locationPrefix=CDC01-{구역}-{층}-{통로}-)와 로케이션 목록 링크.
 // - 설비 상태·표시등·로봇은 그리지 않는다(사용자 "설비센서자산 같은 건 제외") — 작업 자리는 이름만.
+import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 import { Link, useSearchParams } from "react-router";
 
+import { request } from "@pmart/web-core";
+import { useApi } from "../../app/ApiContext";
 import { centerPath } from "../../app/nav";
 import { messages } from "../../shared/messages";
 import { aisleOf, useWorkers, WorkerDot, WorkerList, type WorkerLocation } from './FloorWorkers';
@@ -260,6 +263,11 @@ function FloorSvg({
     () => floor.zones.filter((z) => z.kind === "RACK" || z.kind === "SHELF"),
     [floor],
   );
+  // 랙·선반 줄 → 그 줄이 속한 통로(같은 구역·통로 번호)
+  const pickRow = (r: { readonly zone: string; readonly aisle: number }) => {
+    const a = floor.aisles.find((x) => x.zone === r.zone && x.no === r.aisle);
+    if (a) onPick(a);
+  };
   return (
     <svg
       viewBox={vb}
@@ -335,6 +343,9 @@ function FloorSvg({
       {floor.rows.map((r, i) => (
         <rect
           key={`row-${i}`}
+          className="cursor-pointer"
+          onClick={() => pickRow(r)}
+          data-testid={`rack-${r.zone}${r.aisle}-${i}`}
           x={r.cx - RACK_W / 2}
           y={r.z0}
           width={RACK_W}
@@ -346,6 +357,8 @@ function FloorSvg({
       {floor.shelfRows.map((r, i) => (
         <rect
           key={`shelf-${i}`}
+          className="cursor-pointer"
+          onClick={() => pickRow(r)}
           x={r.cx - 0.3}
           y={r.z0}
           width={0.6}
@@ -521,6 +534,28 @@ function AislePanel({
       </Link>
       <h3 className="text-sm font-semibold">{t.stock}</h3>
       <LocationStockTable cdcId={cdcId} prefix={prefix} />
+      <ZoneHint cdcId={cdcId} centerId={centerId} floor={floor.floor} zone={aisle.zone} aislePrefix={prefix} />
     </div>
+  );
+}
+
+/** 통로가 비어 보일 때 — 같은 구역·층 전체에도 재고가 없으면 칸 코드가 서버와 다를 수 있다고 알린다(실서버 위치가 아직 새 배치 전이면) */
+function ZoneHint({ cdcId, centerId, floor, zone, aislePrefix: ap }: { readonly cdcId: string; readonly centerId: string; readonly floor: string; readonly zone: string; readonly aislePrefix: string }) {
+  const api = useApi();
+  const zonePrefix = `${centerId}-${zone}-${floor}-`;
+  const aisleQ = useQuery({
+    queryKey: ['cdc', cdcId, 'location-stocks', ap],
+    queryFn: () => request('GET', api.inventory.GET('/cdcs/{cdcId}/location-stocks', { params: { path: { cdcId }, query: { locationPrefix: ap, limit: 500 } } })),
+  });
+  const zoneQ = useQuery({
+    queryKey: ['cdc', cdcId, 'location-stocks', zonePrefix, 'any'],
+    enabled: aisleQ.data?.items.length === 0,
+    queryFn: () => request('GET', api.inventory.GET('/cdcs/{cdcId}/location-stocks', { params: { path: { cdcId }, query: { locationPrefix: zonePrefix, limit: 1 } } })),
+  });
+  if (aisleQ.data?.items.length !== 0 || !zoneQ.data) return null;
+  return (
+    <p role="note" className="rounded-box border border-dashed border-base-300 p-3 text-xs text-base-content/70" data-testid="zone-hint">
+      {zoneQ.data.items.length === 0 ? t.zoneEmpty(zonePrefix) : t.aisleEmpty}
+    </p>
   );
 }
