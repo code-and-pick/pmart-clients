@@ -125,9 +125,13 @@ describe('행사·쿠폰', () => {
     await user.type(within(form).getByLabelText('이름(고객에게 보여요)'), '라면 2+1');
     fireEvent.change(within(form).getByLabelText('시작'), { target: { value: local(-1) } });
     fireEvent.change(within(form).getByLabelText('끝'), { target: { value: local(72) } });
-    await user.clear(within(form).getByLabelText('사는 수량(개)'));
-    await user.type(within(form).getByLabelText('사는 수량(개)'), '2');
-    expect(within(form).getByTestId('offer-hint')).toHaveTextContent('2+1 (2개 사면 1개 더)');
+    // 바로 고르기 2+1 → 두 칸이 2·1, 고른 단추만 눌림
+    await user.click(within(form).getByRole('button', { name: '2+1' }));
+    expect(within(form).getByLabelText('사는 수량(개)')).toHaveValue(2);
+    expect(within(form).getByLabelText('더 주는 수량(개)')).toHaveValue(1);
+    expect(within(form).getByRole('button', { name: '2+1' })).toHaveAttribute('aria-pressed', 'true');
+    expect(within(form).getByRole('button', { name: '1+1' })).toHaveAttribute('aria-pressed', 'false');
+    expect(within(form).getByTestId('offer-fields')).toHaveTextContent('개 사면');
     await user.click(within(form).getByRole('button', { name: '대상 더하기' }));
     await user.type(within(form).getByLabelText('SKU 코드'), 'SKU-RAMEN-5');
     await user.click(within(form).getByRole('button', { name: '저장하고 승인 요청' }));
