@@ -466,6 +466,21 @@ export const outboundHandlers = [
     return HttpResponse.json({ asOf: '2026-11-26T00:30:00Z', workers, byFloor: [{ key: '5', count: 1 }, { key: '6', count: 1 }] });
   }),
 
+  // LPN(0.19.0) — 목은 박스 2·롤테이너 1
+  http.get(`${API_BASE}/cdcs/:cdcId/lpns`, ({ request, params }) => {
+    const denied = guard(request, String(params.cdcId));
+    if (denied) return denied;
+    const q = new URL(request.url).searchParams;
+    const unit = q.get('unitType');
+    const trf = q.get('trfId');
+    const rows = [
+      { lpn: 'RT-0001', trfId: 'TRF-20261126-0001', mfcId: 'MFC-BJG-01', waveId: 'WAVE-20261126-01', unitType: 'RT', parentLpn: null, sealState: 'SEALED', sealNo: 'SL-77', temperatureZone: 'AMBIENT', weightG: null, sortedBy: 'OP-cdc-worker-1', sortedAt: '2026-11-25T23:30:00Z', inspection: 'PASS', failReason: null, inspectedAt: '2026-11-25T23:35:00Z', loaded: true, tripId: 'TRIP-0002', vehicleId: 'VH-11', dockCode: 'D3', loadedAt: '2026-11-25T23:38:00Z', departureId: 'DEP-0002', contents: [] },
+      { lpn: 'BOX-0001', trfId: 'TRF-20261126-0001', mfcId: 'MFC-BJG-01', waveId: 'WAVE-20261126-01', unitType: 'BOX', parentLpn: 'RT-0001', sealState: 'SEALED', sealNo: null, temperatureZone: 'AMBIENT', weightG: 6200, sortedBy: 'OP-cdc-worker-1', sortedAt: '2026-11-25T23:20:00Z', inspection: 'PASS', failReason: null, inspectedAt: '2026-11-25T23:35:00Z', loaded: true, tripId: 'TRIP-0002', vehicleId: 'VH-11', dockCode: 'D3', loadedAt: '2026-11-25T23:38:00Z', departureId: 'DEP-0002', contents: [{ sku: 'SKU-1003', lot: 'LOT-C2', qty: 12 }] },
+      { lpn: 'BOX-0002', trfId: 'TRF-20261126-0002', mfcId: 'MFC-BNG-01', waveId: 'WAVE-20261126-01', unitType: 'BOX', parentLpn: null, sealState: 'UNSEALED', sealNo: null, temperatureZone: 'CHILLED', weightG: null, sortedBy: 'OP-cdc-worker-2', sortedAt: '2026-11-26T00:10:00Z', inspection: null, failReason: null, inspectedAt: null, loaded: false, tripId: null, vehicleId: null, dockCode: null, loadedAt: null, departureId: null, contents: [{ sku: 'SKU-1002', lot: 'LOT-B7', qty: 6 }] },
+    ].filter((r) => (!unit || r.unitType === unit) && (!trf || r.trfId === trf));
+    return HttpResponse.json({ items: rows, page: 0, size: 50, hasNext: false });
+  }),
+
   // 피킹 부족 재할당(0.19.0) — 목은 1건 진행 중
   http.get(`${API_BASE}/cdcs/:cdcId/shortages`, ({ request, params }) => {
     const denied = guard(request, String(params.cdcId));

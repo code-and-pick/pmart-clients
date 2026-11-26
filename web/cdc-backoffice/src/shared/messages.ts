@@ -618,6 +618,10 @@ export const messages = {
 
   /** 센터 평면도(2D) — 시뮬레이터 배치 */
   floor: {
+    workers: '이 층 작업자',
+    workersEmpty: '이 층에 위치를 아는 작업자가 없어요.',
+    workersHint: 'PDA 로 마지막에 스캔한 칸 기준이에요. 10분 넘게 스캔이 없으면 "모름"으로 바뀌고 그림에서 빠져요.',
+    unknownPlace: '위치 모름(10분 넘음)',
     none: '이 DC 의 평면도가 아직 없어요.',
     source: (s: string) => `가상 현장 배치(${s}) — 실측 도면이 아니에요. 칸 재고는 서버 값이에요.`,
     pickHint: '통로 번호판을 누르면 그 통로 칸 재고가 여기에 보여요.',
@@ -794,6 +798,53 @@ export const messages = {
     unreconciled: '미정산',
     severityLabel: '등급',
     cancel: '닫기',
+  },
+
+  /** 피킹 부족 재할당(cdc-outbound 0.19.0 shortages) */
+  shortages: {
+    title: '피킹 부족 재할당',
+    lead: 'PDA 가 부족을 올리면 서버가 그 칸을 재계수 대기로 빼고 다른 칸에서 다시 할당해 새 작업을 만들어요. 서버가 진행해요.',
+    stateFilter: '상태',
+    all: '전체',
+    state: { PENDING: '재할당 중', RELEASED: '재할당 중(해제됨)', DONE: '끝', FAILED: '재할당 실패' } as Readonly<Record<string, string>>,
+    stateLabel: '상태',
+    empty: '이 조건의 부족 건이 없어요.',
+    sku: '상품',
+    location: '부족 난 칸',
+    short: '부족',
+    reallocated: '다시 할당',
+    unresolved: '못 채움',
+    createdAt: '올라온 시각',
+  },
+
+  /** LPN(출고 단위) 목록(cdc-outbound 0.19.0 lpns) */
+  lpn: {
+    lead: '분류 최신 순 · 분류·검품·상차는 현장 PDA 에서 해요.',
+    unit: '단위',
+    units: { BOX: '박스', PLT: '팔레트', RT: '롤테이너' } as Readonly<Record<string, string>>,
+    all: '전체',
+    trfPlaceholder: 'TRF 시스템 번호',
+    search: '찾기',
+    empty: 'LPN 이 없어요.',
+    stage: '어디까지',
+    sorted: '분류됨',
+    inspected: '검품',
+    inspectFail: '검품 불합격',
+    loaded: '상차',
+    seal: '봉인',
+    sealState: { SEALED: '봉인', UNSEALED: '봉인 전', OPEN: '열림', BROKEN: '훼손' } as Readonly<Record<string, string>>,
+    temp: '온도대',
+    vehicle: '차량·도크',
+    sortedAt: '분류 시각',
+    sortedBy: '분류',
+    trip: '운행',
+    weight: (g: number) => `무게 ${(g / 1000).toLocaleString('ko-KR')}kg`,
+    inParent: (p: string) => `↳ ${p} 안`,
+    noContents: '내용 기록이 없어요.',
+    container: '그릇(안의 박스는 따로 줄)',
+    prev: '이전',
+    next: '다음',
+    views: { departures: '출발 검증', lpns: 'LPN' } as Readonly<Record<string, string>>,
   },
 
   /** MFC 재고 이동 — DC → MFC 로 가는 재고(TRF 단계·출발), 15초마다 다시 읽기 */

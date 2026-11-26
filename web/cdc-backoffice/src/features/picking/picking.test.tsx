@@ -28,3 +28,12 @@ describe('피킹·분배', () => {
     expect(await screen.findByText(/진행 중인 Wave 가 없어요/)).toBeInTheDocument();
   });
 });
+
+describe('피킹 부족 재할당', () => {
+  it('기본은 재할당 중 — 부족·못 채움 수량', async () => {
+    renderAt('/c/CDC01/picking');
+    const rows = await screen.findAllByTestId('shortage-row');
+    expect(rows).toHaveLength(1);
+    expect(within(rows[0]!).getByText('재할당 중')).toBeInTheDocument();
+  });
+});

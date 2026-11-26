@@ -112,3 +112,15 @@ describe('실사', () => {
     expect(await screen.findByTestId('count-lines')).toHaveTextContent('-2');
   });
 });
+
+describe('LPN', () => {
+  it('출고관리 LPN 탭 — 어디까지(상차·분류), 펼치면 내용', async () => {
+    renderAt('/c/CDC01/shipping?v=lpns');
+    const rows = await screen.findAllByTestId('lpn-row');
+    expect(rows).toHaveLength(3);
+    expect(within(rows[0]!).getByText('상차')).toBeInTheDocument();
+    expect(within(rows[2]!).getByText('분류됨')).toBeInTheDocument();
+    await userEvent.click(rows[2]!);
+    expect(await screen.findByTestId('lpn-detail')).toHaveTextContent('LOT-B7');
+  });
+});

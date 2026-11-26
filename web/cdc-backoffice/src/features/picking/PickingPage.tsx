@@ -16,6 +16,7 @@ import { centerPath } from '../../app/nav';
 import { messages } from '../../shared/messages';
 import { Who } from '../../shared/OperatorLabel';
 import { TaskStateBadge } from '../tasks/TaskPages';
+import { Shortages } from './Shortages';
 
 const t = messages.picking;
 type Task = components['schemas']['Task'];
@@ -143,6 +144,7 @@ export function PickingMenu({ cdcId }: { readonly cdcId: string }) {
           </>
         )}
       </QueryState>
+      <Shortages cdcId={cdcId} />
     </section>
   );
 }

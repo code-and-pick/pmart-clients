@@ -9,6 +9,7 @@ import { Link, useSearchParams } from "react-router";
 
 import { centerPath } from "../../app/nav";
 import { messages } from "../../shared/messages";
+import { aisleOf, useWorkers, WorkerDot, WorkerList, type WorkerLocation } from './FloorWorkers';
 import { LocationStockTable } from "../inventory/LocationStock";
 import plan from "./layouts/CDC01.json";
 
@@ -106,6 +107,7 @@ export function FloorMenu({ cdcId }: { readonly cdcId: string }) {
     : (floors[0]?.floor ?? "");
   const floor = floors.find((f) => f.floor === floorNo);
   const picked = params.get("aisle");
+  const workers = useWorkers(cdcId);
   const aisle =
     floor?.aisles.find((a) => `${a.zone}${a.no}` === picked) ?? null;
   const set = (next: Record<string, string>) => {
@@ -160,6 +162,7 @@ export function FloorMenu({ cdcId }: { readonly cdcId: string }) {
             floor={floor}
             picked={aisle}
             onPick={(a) => set({ aisle: a ? `${a.zone}${a.no}` : "" })}
+            workers={workers.data?.workers ?? []}
           />
         </div>
         <aside className="space-y-3" data-testid="floor-side">
@@ -176,6 +179,7 @@ export function FloorMenu({ cdcId }: { readonly cdcId: string }) {
               {t.pickHint}
             </p>
           )}
+          <WorkerList query={workers} floor={floor.floor} />
         </aside>
       </div>
     </section>
@@ -227,12 +231,29 @@ function FloorSvg({
   floor,
   picked,
   onPick,
+  workers,
 }: {
   readonly plan: Plan;
   readonly floor: PlanFloor;
   readonly picked: PlanAisle | null;
   readonly onPick: (a: PlanAisle | null) => void;
+  readonly workers: readonly WorkerLocation[];
 }) {
+  // FRESH 작업자만 그 통로 가운데에 — 같은 통로 여럿이면 세로로 비켜 찍는다
+  const dots = useMemo(() => {
+    const seen = new Map<string, number>();
+    return workers.flatMap((w) => {
+      if (w.locationState !== "FRESH") return [];
+      const at = aisleOf(w.locationCode);
+      if (!at || at.floor !== floor.floor) return [];
+      const a = floor.aisles.find((x) => x.zone === at.zone && x.no === at.no);
+      if (!a) return [];
+      const k = `${a.zone}-${a.no}`;
+      const i = seen.get(k) ?? 0;
+      seen.set(k, i + 1);
+      return [{ w, x: a.cx, y: (a.z0 + a.z1) / 2 + i * 2.6 }];
+    });
+  }, [workers, floor]);
   const pad = 2;
   const vb = `${-pad} ${-pad} ${p.width + pad * 2} ${p.depth + pad * 2}`;
   const storage = useMemo(
@@ -405,6 +426,9 @@ function FloorSvg({
           </g>
         );
       })}
+      {dots.map((d) => (
+        <WorkerDot key={d.w.workerId} w={d.w} x={d.x} y={d.y} />
+      ))}
       {/* 이름(맨 위) — 보관 구역·작업 자리 */}
       {storage.map((z) => (
         <text

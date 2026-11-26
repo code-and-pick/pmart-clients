@@ -57,14 +57,14 @@ export function QualityTab({ cdcId }: { readonly cdcId: string }) {
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
-        <div role="tablist" className="join" data-testid="quality-views">
+        <div role="tablist" className="tabs tabs-box tabs-sm w-fit" data-testid="quality-views">
           {VIEWS.map((v) => (
             <button
               key={v}
               type="button"
               role="tab"
               aria-selected={view === v}
-              className={`btn btn-sm join-item ${view === v ? 'btn-primary' : ''}`}
+              className={`tab ${view === v ? 'tab-active' : ''}`}
               onClick={() => {
                 const n = new URLSearchParams(params);
                 n.set('qv', v);

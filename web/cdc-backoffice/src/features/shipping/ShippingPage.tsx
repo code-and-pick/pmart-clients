@@ -11,6 +11,7 @@ import type { components } from '../../api/generated/cdc-outbound';
 import { useApi } from '../../app/ApiContext';
 import { messages } from '../../shared/messages';
 import { trfWavePath } from '../trf-wave/TrfWavePages';
+import { LpnList } from './LpnList';
 
 const t = messages.shipping;
 type Departure = components['schemas']['DepartureValidation'];
@@ -31,6 +32,7 @@ export function ShippingMenu({ cdcId }: { readonly cdcId: string }) {
   const raw = params.get('result');
   const result = (RESULTS as readonly string[]).includes(raw ?? '') ? (raw as Result) : undefined;
   const page = Math.max(0, Number(params.get('page') ?? '0') || 0);
+  const view = params.get("v") === "lpns" ? "lpns" : "departures";
   const [open, setOpen] = useState<string | null>(null);
   const set = (next: Record<string, string>) => {
     const q = new URLSearchParams(params);
@@ -50,6 +52,17 @@ export function ShippingMenu({ cdcId }: { readonly cdcId: string }) {
         <h1>{messages.menus.shipping}</h1>
         <p className="text-sm text-base-content/60">{t.lead}</p>
       </div>
+      <div role="tablist" className="tabs tabs-box w-fit" data-testid="shipping-views">
+        {(["departures", "lpns"] as const).map((k) => (
+          <button key={k} type="button" role="tab" aria-selected={view === k} className={`tab ${view === k ? "tab-active" : ""}`} onClick={() => set({ v: k === "lpns" ? k : "" })}>
+            {messages.lpn.views[k]}
+          </button>
+        ))}
+      </div>
+      {view === "lpns" ? (
+        <LpnList cdcId={cdcId} />
+      ) : (
+      <>
       <div className="flex flex-wrap items-end gap-3 rounded-box border border-base-300 bg-base-100 p-3">
         <label className="flex flex-col gap-1 text-sm">
           {t.resultFilter}
@@ -128,6 +141,8 @@ export function ShippingMenu({ cdcId }: { readonly cdcId: string }) {
           </>
         )}
       </QueryState>
+      </>
+      )}
     </section>
   );
 }
