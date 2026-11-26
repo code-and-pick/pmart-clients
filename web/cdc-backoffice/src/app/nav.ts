@@ -113,9 +113,9 @@ export const navGroups: readonly MenuGroup[] = [
       {
         key: 'inbound',
         segment: 'inbound',
-        ready: false,
-        apiReady: [],
-        apiMissing: ['ASN·검수·적치(cdc-inbound 계약만, 서비스 없음)'],
+        ready: true,
+        apiReady: ['적치 지시·목록·취소(cdc-inbound 0.2.0)'],
+        apiMissing: ['입고 예정(ASN)·실수령·검수(3단계)'],
       },
       {
         key: 'inventory',
@@ -127,9 +127,9 @@ export const navGroups: readonly MenuGroup[] = [
       {
         key: 'replenishment',
         segment: 'replenishment',
-        ready: false,
-        apiReady: [],
-        apiMissing: ['보충 이동(cdc-inbound replenishment-moves 계약만)'],
+        ready: true,
+        apiReady: ['자동 보충 작업(putaway-tasks kind=REPLENISHMENT)', '피킹 선반별 보충 판단(replenishment-checks)'],
+        apiMissing: ['수동 보충 지시(서버에 없음 — 적치 지시로)'],
       },
       {
         key: 'returns',

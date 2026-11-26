@@ -7,6 +7,7 @@ import type { paths as CenterPaths } from './generated/center-master';
 import type { paths as InventoryPaths } from './generated/cdc-inventory';
 import type { paths as LocationPaths } from './generated/cdc-location';
 import type { paths as OutboundPaths } from './generated/cdc-outbound';
+import type { paths as InboundPaths } from './generated/cdc-inbound';
 import type { paths as QualityPaths } from './generated/cdc-quality';
 import type { paths as HrPaths } from './generated/hr';
 import type { paths as ProductPaths } from './generated/product';
@@ -30,6 +31,8 @@ export function createApi(pmartFetch: PmartFetch, baseUrl = API_BASE) {
     location: createClient<LocationPaths>(options),
     // 품질 보류·해제·폐기·리콜(cdc-quality 0.3.0)
     quality: createClient<QualityPaths>(options),
+    // 적치·보충(cdc-inbound 0.2.0)
+    inbound: createClient<InboundPaths>(options),
     // 내 정보 — hr-service 본인 조회
     hr: createClient<HrPaths>(options),
     // 상품 이름(관리용 명칭) — CDC 응답에 이름이 없어 SKU 로 찾는다(shared/SkuName, 백엔드 P-1 요청)

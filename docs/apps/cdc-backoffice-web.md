@@ -15,7 +15,7 @@
 | 주소 | 개발 `http://localhost:5177`(`npm run dev -w web/cdc-backoffice`), LAN `https://192.168.0.40:8447` — 빌드·올리기는 PC 1(`npm run build:lan -w web/cdc-backoffice` → `lan.sh publish-cdc-backoffice <dist>`) |
 | `X-Source-System` | `cdc-backoffice-web` |
 | DC | 주소 `/c/:cdcId/<메뉴>` — 세션 `centers` 의 DC 만(지금 `CDC01` 칠곡 DC). 이름은 sessions/current `centerDetails` |
-| 생성 타입 | `tools/web-tools/gen-api.mjs` 복사 대상: center-master·hr·cdc-inventory·cdc-location·cdc-outbound |
+| 생성 타입 | `tools/web-tools/gen-api.mjs` 복사 대상: center-master·hr·product·cdc-inventory·cdc-location·cdc-outbound·cdc-quality·cdc-inbound |
 | 앱 바꾸기 | `web/ui` `AppLauncher` 에 `cdc-backoffice`("DC 백오피스", 8447·5177) — 모든 직원에게 보임 |
 
 ## 2. 메뉴 자리 (`src/app/nav.ts`)
@@ -31,9 +31,9 @@
 | 출고 운영 | 출하·운송 | `transport` | 계약만 |
 | 입고·재고 | 기준정보 | `master` | sku-handlings·locations·aisle-pick-methods |
 | 입고·재고 | 상품 발주(발주·공급사 관리) | `purchase` | 제안 계약·목 전용 — 가짜 공급사 회신·ASN → 입고 확정 → 재고(2026-11-26, handoff `2026-11-26-backend-purchase-orders`) |
-| 입고·재고 | 입고관리 | `inbound` | 계약만 |
+| 입고·재고 | 입고관리 | `inbound` | 적치 지시·목록·취소(cdc-inbound 0.2.0) — ASN·검수는 3단계 |
 | 입고·재고 | 재고관리 | `inventory` | stock-snapshot(합계 카드·거르기·상품 이름 productName 0.17.0)·location-stocks·count-sessions·recount-holds·품질 보류·폐기·리콜(cdc-quality 0.3.0) |
-| 입고·재고 | 보충관리 | `replenishment` | 계약만 |
+| 입고·재고 | 보충관리 | `replenishment` | 자동 보충 작업(putaway-tasks kind=REPLENISHMENT)·보충 판단(replenishment-checks) |
 | 입고·재고 | 반품·회수 | `returns` | 없음 |
 | 인력·시스템 | 작업자·인력 | `workers` | 없음 |
 | 인력·시스템 | 리포트·KPI | `reports` | 없음 |
