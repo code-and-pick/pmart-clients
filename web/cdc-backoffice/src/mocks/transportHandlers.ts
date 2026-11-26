@@ -131,11 +131,14 @@ function seed() {
 }
 
 let store = seed();
+/** 노선 등록·정규차 지정 목(fleetHandlers)이 같은 노선 목록을 쓴다 */
+export const transportRoutes = () => store.routes;
+
 export function resetTransport() {
   store = seed();
 }
 
-function guard(request: Request, cdcId: string) {
+export function guard(request: Request, cdcId: string) {
   const who = operator(request);
   if (!who) return unauthorized();
   if (!who.centers.includes(cdcId)) return problem(403, 'FORBIDDEN');

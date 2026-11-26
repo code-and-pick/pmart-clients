@@ -28,11 +28,11 @@
 | 출고 운영 | 통합 작업관리 | `tasks` | tasks·regions·담당 바꾸기·보류·우선순위(0.20.0) |
 | 출고 운영 | 피킹·분배 | `picking` | FC 피킹만(DPS·AutoStore·소터는 작업 화면만, 설비 칸 없음)·피킹 부족 재할당(shortages) |
 | 출고 운영 | 출고관리 | `shipping` | departures·LPN(lpns 0.19.0) |
-| 출고 운영 | 출하·운송 | `transport` | TMS 1단계(2026-11-26): 운행 trips·정차·예상 도착·인계 대조·예외 + 직원 대신 입력(transport-execution 0.2.0), 배차 생성·계획완료·결행·취소·요청서 옮기기·잔여 물량·노선(transport-planning 0.2.0) — 도크·노선 등록·fleet 화면 없음 |
+| 출고 운영 | 출하·운송 | `transport` | TMS 1단계(2026-11-26): 운행 trips·정차·예상 도착·인계 대조·예외 + 직원 대신 입력(transport-execution 0.2.0), 배차 생성·계획완료·결행·취소·요청서 옮기기·잔여 물량·노선(transport-planning 0.2.0) · 차량·기사·운송사(fleet 0.2.0)·노선 등록·정규차 지정 — 도크 없음(요청 `2026-11-26-backend-dock-assignment`) |
 | 입고·재고 | 기준정보 | `master` | sku-handlings·locations·aisle-pick-methods |
 | 입고·재고 | 상품 발주(발주·공급사 관리) | `purchase` | 제안 계약·목 전용 — 가짜 공급사 회신·ASN → 입고 확정 → 재고(2026-11-26, handoff `2026-11-26-backend-purchase-orders`) |
 | 입고·재고 | 입고관리 | `inbound` | 적치 지시·목록·취소(cdc-inbound 0.2.0) — ASN·검수는 3단계 |
-| 입고·재고 | 재고관리 | `inventory` | stock-snapshot(합계 카드·거르기·상품 이름 productName 0.17.0)·location-stocks·count-sessions·recount-holds·품질 보류·폐기·리콜(cdc-quality 0.3.0) |
+| 입고·재고 | 재고관리 | `inventory` | stock-snapshot(합계 카드·거르기·상품 이름 productName 0.17.0)·location-stocks·count-sessions·recount-holds·품질 보류·폐기·리콜(cdc-quality 0.3.0)·이동 이력(stock-movements 0.20.0) |
 | 입고·재고 | 보충관리 | `replenishment` | 자동 보충 작업(putaway-tasks kind=REPLENISHMENT)·보충 판단(replenishment-checks) |
 | 입고·재고 | 반품·회수 | `returns` | 없음 |
 | 인력·시스템 | 작업자·인력 | `workers` | 없음 |

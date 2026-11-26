@@ -7,6 +7,7 @@ import { formatSeoulDate, QueryState, toUiState } from '@pmart/web-ui';
 import { useApi } from '../../app/ApiContext';
 import { messages } from '../../shared/messages';
 import { SkuName } from '../../shared/SkuName';
+import { HistoryLink } from './HistoryTab';
 
 const t = messages.locStock;
 
@@ -36,6 +37,7 @@ export function LocationStockTable({ cdcId, prefix, single = false }: { readonly
                   <th>{messages.inventory.quality}</th>
                   <th className="text-right">{messages.inventory.onHand}</th>
                   <th className="text-right">{messages.inventory.reserved}</th>
+                  <th />
                 </tr>
               </thead>
               <tbody>
@@ -50,6 +52,9 @@ export function LocationStockTable({ cdcId, prefix, single = false }: { readonly
                     <td>{messages.inventory.qualityState[r.qualityState] ?? r.qualityState}</td>
                     <td className="text-right tabular-nums">{messages.qty(r.onHand)}</td>
                     <td className="text-right tabular-nums">{messages.qty(r.reserved)}</td>
+                    <td className="text-right">
+                      <HistoryLink cdcId={cdcId} loc={r.locationCode} sku={r.sku} lot={r.lot} />
+                    </td>
                   </tr>
                 ))}
               </tbody>

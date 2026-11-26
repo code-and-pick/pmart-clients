@@ -17,6 +17,7 @@ import { messages } from '../../shared/messages';
 import { SkuName } from '../../shared/SkuName';
 import { QualityTab } from '../quality/QualityTab';
 import { CountTab } from './CountTab';
+import { HistoryLink, HistoryTab } from './HistoryTab';
 import { LocationStockTable } from './LocationStock';
 
 const t = messages.inventory;
@@ -46,6 +47,7 @@ export function InventoryMenu({ cdcId }: { readonly cdcId: string }) {
       {tab === 'count' && <CountTab cdcId={cdcId} />}
       {tab === 'recount' && <RecountTab cdcId={cdcId} />}
       {tab === 'quality' && <QualityTab cdcId={cdcId} />}
+      {tab === 'history' && <HistoryTab cdcId={cdcId} />}
     </section>
   );
 }
@@ -271,9 +273,19 @@ function Places({ cdcId, sku }: { readonly cdcId: string; readonly sku: string }
             {lots.flatMap((lot) =>
               (lot.locations?.length ? lot.locations : [undefined]).map((p, i) => (
                 <tr key={`${lot.lot}-${p?.locationCode ?? i}-${p?.qualityState ?? ''}`}>
-                  <td className="font-mono">{i === 0 ? lot.lot : ''}</td>
+                  <td className="font-mono">
+                    {i === 0 ? (
+                      <>
+                        {lot.lot} <HistoryLink cdcId={cdcId} sku={sku} lot={lot.lot} testId="places-history" />
+                      </>
+                    ) : (
+                      ''
+                    )}
+                  </td>
                   <td>{i === 0 && lot.expiresAt ? `${formatSeoulDate(lot.expiresAt)}${lot.remainingDays !== undefined ? ` · ${t.remain(lot.remainingDays)}` : ''}` : ''}</td>
-                  <td className="font-mono">{p?.locationCode ?? messages.none}</td>
+                  <td className="font-mono">
+                    {p?.locationCode ?? messages.none} {p?.locationCode && <HistoryLink cdcId={cdcId} loc={p.locationCode} />}
+                  </td>
                   <td>{p?.qualityState ? (t.qualityState[p.qualityState] ?? p.qualityState) : messages.none}</td>
                   <td className="text-right tabular-nums">{p ? messages.qty(p.onHand ?? 0) : messages.none}</td>
                   <td className="text-right tabular-nums">{p ? messages.qty(p.reserved ?? 0) : messages.none}</td>
@@ -350,7 +362,9 @@ function RecountTab({ cdcId }: { readonly cdcId: string }) {
                         <SkuName sku={h.sku ?? ''} />
                       </td>
                       <td className="font-mono text-xs">{h.lot}</td>
-                      <td className="font-mono text-xs">{h.locationCode}</td>
+                      <td className="font-mono text-xs">
+                        {h.locationCode} <HistoryLink cdcId={cdcId} loc={h.locationCode ?? ''} sku={h.sku} lot={h.lot} testId="recount-history" />
+                      </td>
                       <td className="text-right tabular-nums font-semibold text-error">{messages.qty(h.shortQty ?? 0)}</td>
                       <td>{h.createdAt ? formatSeoul(h.createdAt) : messages.none}</td>
                       <td>{h.releasedAt ? formatSeoul(h.releasedAt) : messages.none}</td>

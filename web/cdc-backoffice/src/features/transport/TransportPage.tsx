@@ -1,7 +1,7 @@
 // 출하·운송 — TMS 1단계(백엔드 회신 2026-11-26-reply-transport, TR-1·TR-2). 탭 ?v=trips|orders|requests|routes, 출고일 ?date=(기본 오늘 Asia/Seoul).
 // - 운행: transport-execution `GET /cdcs/{cdcId}/trips?shipDate=&state=&delayed=`(계획 출차 순). 줄을 펼치면 정차·예상 도착·인계 대조·예외·기록과
 //   직원이 대신 넣는 입력(입차·상차 스캔·출차·정차 도착/인계/출발·DC 복귀·예외) — 모두 Idempotency-Key, 상태는 서버가 돌려준 값으로 다시 읽는다.
-// - 배차·잔여 물량·노선: TransportPlanning.tsx.
+// - 배차·잔여 물량·노선: TransportPlanning.tsx. 차량·기사(fleet)·노선 등록·정규차 지정: FleetPages.tsx.
 // 지연(delayed)·인계 결과(MATCHED/MISMATCHED)·예상 도착은 서버 판정만 보여 준다. 도크는 아직 없다(TR-3 뒤로).
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Fragment, useState } from 'react';
@@ -15,6 +15,7 @@ import type { components } from '../../api/generated/transport-execution';
 import { useApi } from '../../app/ApiContext';
 import { messages } from '../../shared/messages';
 import { Who } from '../../shared/OperatorLabel';
+import { FleetView } from './FleetPages';
 import { OrdersView, RequestsView, RoutesView } from './TransportPlanning';
 
 const t = messages.transport;
@@ -24,7 +25,7 @@ type TripState = S['TripState'];
 type Stop = Trip['stops'][number];
 type IncidentType = S['IncidentType'];
 const TRIP_STATES: readonly TripState[] = ['SCHEDULED', 'CHECKED_IN', 'LOADED', 'DEPARTED', 'COMPLETED', 'CANCELLED'];
-const VIEWS = ['trips', 'orders', 'requests', 'routes'] as const;
+const VIEWS = ['trips', 'orders', 'requests', 'routes', 'fleet'] as const;
 type View = (typeof VIEWS)[number];
 const MANUAL_INCIDENTS: readonly IncidentType[] = ['DELAY', 'VEHICLE_BREAKDOWN', 'ACCIDENT', 'UNLOADING_WAIT', 'TEMPERATURE_EXCURSION', 'OTHER'];
 
@@ -74,7 +75,7 @@ export function TransportMenu({ cdcId }: { readonly cdcId: string }) {
             </button>
           ))}
         </div>
-        {view !== 'routes' && (
+        {view !== 'routes' && view !== 'fleet' && (
           <label className="flex items-center gap-2 text-sm">
             {t.shipDate}
             <input type="date" className="input input-sm w-40" value={date} onChange={(e) => set({ date: e.target.value })} data-testid="transport-date" />
@@ -85,6 +86,7 @@ export function TransportMenu({ cdcId }: { readonly cdcId: string }) {
       {view === 'orders' && <OrdersView cdcId={cdcId} date={date} />}
       {view === 'requests' && <RequestsView cdcId={cdcId} date={date} />}
       {view === 'routes' && <RoutesView cdcId={cdcId} />}
+      {view === 'fleet' && <FleetView />}
     </section>
   );
 }

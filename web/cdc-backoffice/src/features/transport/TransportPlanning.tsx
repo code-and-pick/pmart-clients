@@ -14,6 +14,7 @@ import type { components } from '../../api/generated/transport-planning';
 import { useApi } from '../../app/ApiContext';
 import { messages } from '../../shared/messages';
 import { Who } from '../../shared/OperatorLabel';
+import { NewRouteForm, RegularVehicleForm } from './FleetPages';
 import { tempLabel, TripStateBadge, tripsKey } from './TransportPage';
 
 const t = messages.transport;
@@ -448,9 +449,17 @@ export function RoutesView({ cdcId }: { readonly cdcId: string }) {
     queryKey: ['cdc', cdcId, 'routes'],
     queryFn: () => request('GET', api.transportPlanning.GET('/cdcs/{cdcId}/routes', { params: { path: { cdcId } } })),
   });
+  const [creating, setCreating] = useState(false);
+  const [regular, setRegular] = useState<string | null>(null);
   return (
     <div className="space-y-3">
-      <p className="text-sm text-base-content/60">{t.routesLead}</p>
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <p className="min-w-64 max-w-3xl flex-1 text-sm text-base-content/60">{t.routesLead}</p>
+        <button type="button" className="btn btn-sm btn-primary" onClick={() => setCreating(!creating)} data-testid="route-new">
+          {t.newRoute}
+        </button>
+      </div>
+      {creating && <NewRouteForm cdcId={cdcId} onClose={() => setCreating(false)} />}
       <QueryState state={toUiState(query, (d) => d.items.length === 0)} onRetry={() => void query.refetch()} emptyText={t.emptyRoutes}>
         {(data) => (
           <div className="grid grid-cols-1 gap-3 lg:grid-cols-2" data-testid="route-list">
@@ -488,6 +497,13 @@ export function RoutesView({ cdcId }: { readonly cdcId: string }) {
                     ))
                   )}
                 </ul>
+                {regular === r.routeId ? (
+                  <RegularVehicleForm cdcId={cdcId} route={r} onClose={() => setRegular(null)} />
+                ) : (
+                  <button type="button" className="btn btn-xs" onClick={() => setRegular(r.routeId)} data-testid="regular-open">
+                    {t.setRegular}
+                  </button>
+                )}
               </article>
             ))}
           </div>

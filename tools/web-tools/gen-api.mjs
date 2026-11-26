@@ -40,7 +40,7 @@ const copies = [
     label: 'web/cdc-backoffice',
     dir: join(repo, 'web/cdc-backoffice/src/api/generated'),
     // DC 백오피스(2026-11-25 백엔드 요청 clients/all/2026-11-25-request-cdc-backoffice): hr = 내 정보, cdc-* = 작업·Wave·TRF·기준정보·재고
-    services: ['center-master', 'hr', 'product', 'cdc-inventory', 'cdc-location', 'cdc-outbound', 'cdc-quality', 'cdc-inbound', 'transport-planning', 'transport-execution'],
+    services: ['center-master', 'hr', 'product', 'cdc-inventory', 'cdc-location', 'cdc-outbound', 'cdc-quality', 'cdc-inbound', 'transport-planning', 'transport-execution', 'fleet'],
   },
 ];
 const excluded = ['/internal', '/webhooks', '/actuator'];

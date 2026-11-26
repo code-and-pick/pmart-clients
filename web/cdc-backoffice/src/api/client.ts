@@ -9,6 +9,7 @@ import type { paths as LocationPaths } from './generated/cdc-location';
 import type { paths as OutboundPaths } from './generated/cdc-outbound';
 import type { paths as InboundPaths } from './generated/cdc-inbound';
 import type { paths as QualityPaths } from './generated/cdc-quality';
+import type { paths as FleetPaths } from './generated/fleet';
 import type { paths as TransportExecutionPaths } from './generated/transport-execution';
 import type { paths as TransportPlanningPaths } from './generated/transport-planning';
 import type { paths as HrPaths } from './generated/hr';
@@ -38,6 +39,8 @@ export function createApi(pmartFetch: PmartFetch, baseUrl = API_BASE) {
     // 운송(TMS 1단계 — transport-planning·transport-execution 0.2.0): 배차·잔여 물량·노선 / 운행
     transportPlanning: createClient<TransportPlanningPaths>(options),
     transportExecution: createClient<TransportExecutionPaths>(options),
+    // 운송사·차량·기사(fleet 0.2.0 — 센터 밖 경로)
+    fleet: createClient<FleetPaths>(options),
     // 내 정보 — hr-service 본인 조회
     hr: createClient<HrPaths>(options),
     // 상품 이름(관리용 명칭) — CDC 응답에 이름이 없어 SKU 로 찾는다(shared/SkuName, 백엔드 P-1 요청)
