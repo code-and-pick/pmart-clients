@@ -22,7 +22,8 @@
 
 | 묶음 | 메뉴 | 경로 | 서버 |
 |---|---|---|---|
-| 실시간 관제 | 대시보드·관제 | `dashboard` | outbound-summary(0.11.0) — 입고·KPI 없음 |
+| 실시간 관제 | 대시보드·관제 | `dashboard` | outbound-summary(byMfc 0.18.0)·주의할 일(shortages·recount-holds·count-sessions·departures·waves hold·stock-snapshot)·workers byFloor — 입고·KPI 없음 |
+| 실시간 관제 | MFC 재고 이동 | `mfc-flow` | transfers(단계)·departures·outbound-summary byMfc·stock-snapshot transit — 15초마다(2026-11-26) |
 | 출고 운영 | TRF·Wave | `trf-wave` | transfers·waves·미출발 취소 |
 | 출고 운영 | 통합 작업관리 | `tasks` | tasks·regions |
 | 출고 운영 | 피킹·분배 | `picking` | FC 피킹만(DPS·AutoStore·소터는 작업 화면만, 설비 칸 없음) |
@@ -31,7 +32,7 @@
 | 입고·재고 | 기준정보 | `master` | sku-handlings·locations·aisle-pick-methods |
 | 입고·재고 | 상품 발주(발주·공급사 관리) | `purchase` | 제안 계약·목 전용 — 가짜 공급사 회신·ASN → 입고 확정 → 재고(2026-11-26, handoff `2026-11-26-backend-purchase-orders`) |
 | 입고·재고 | 입고관리 | `inbound` | 계약만 |
-| 입고·재고 | 재고관리 | `inventory` | stock-snapshot(cdc-inventory 0.6.0+) |
+| 입고·재고 | 재고관리 | `inventory` | stock-snapshot(합계 카드·거르기·상품 이름 productName 0.17.0)·location-stocks·count-sessions·recount-holds |
 | 입고·재고 | 보충관리 | `replenishment` | 계약만 |
 | 입고·재고 | 반품·회수 | `returns` | 없음 |
 | 인력·시스템 | 작업자·인력 | `workers` | 없음 |

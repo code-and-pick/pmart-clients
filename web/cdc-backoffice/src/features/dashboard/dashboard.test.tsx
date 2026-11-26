@@ -44,3 +44,24 @@ describe('대시보드', () => {
     expect(screen.queryByTestId('dash-trf')).not.toBeInTheDocument();
   });
 });
+
+describe('대시보드 — 주의할 일·MFC 별·층별 작업자', () => {
+  it('목록 조회 건수를 카드로, 누르면 그 화면', async () => {
+    renderAt('/c/CDC01/dashboard');
+    const attn = await screen.findByTestId('dash-attention');
+    await waitFor(() => expect(within(attn).getByTestId('attn-shortages')).toHaveTextContent('1'));
+    expect(within(attn).getByTestId('attn-recount')).toHaveTextContent('1');
+    expect(within(attn).getByTestId('attn-shortages').closest('a') ?? within(attn).getByTestId('attn-shortages')).toBeInTheDocument();
+    expect((await screen.findAllByTestId('dash-bymfc-row')).length).toBeGreaterThan(0);
+    const workers = screen.getByTestId('dash-workers');
+    expect(await within(workers).findByText('5층')).toBeInTheDocument();
+    expect(within(workers).getAllByText('1명')).toHaveLength(2);
+  });
+
+  it('주의할 일 조회가 실패하면 0 이 아니라 "?"', async () => {
+    server.use(http.get(`${API_BASE}/cdcs/:cdcId/shortages`, () => HttpResponse.json({ status: 500 }, { status: 500 })));
+    renderAt('/c/CDC01/dashboard');
+    const card = await screen.findByTestId('attn-shortages');
+    await waitFor(() => expect(card).toHaveTextContent('?'), { timeout: 5000 });
+  });
+});

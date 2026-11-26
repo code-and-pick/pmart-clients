@@ -194,6 +194,7 @@ export const stockHandlers = [
     const withPlaces = q.get('withPlaces') === 'true';
     const items = store.stock
       .filter((a) => !sku || a.sku === sku)
+      .map((a) => ({ ...a, productName: productNames[a.sku ?? ''] ?? null }))
       .map((a) => (withPlaces ? a : { ...a, lots: (a.lots ?? []).map(({ locations: _l, ...lot }) => (void _l, lot)) }));
     return HttpResponse.json({ snapshotId: 'SNAP-mock', cdcId: params.cdcId, asOf, items });
   }),
@@ -331,6 +332,14 @@ export const stockHandlers = [
     });
   }),
 
+  // 실사 목록(0.12.0 CS-1)
+  http.get(`${API_BASE}/cdcs/:cdcId/count-sessions`, ({ request, params }) => {
+    const denied = guard(request, String(params.cdcId));
+    if (denied) return denied;
+    const state = new URL(request.url).searchParams.get('state');
+    const rows = store.counts.filter((x) => !state || x.state === state);
+    return HttpResponse.json({ items: rows, page: 0, size: 50, hasNext: false });
+  }),
   http.get(`${API_BASE}/cdcs/:cdcId/count-sessions/:sessionId`, ({ request, params }) => {
     const denied = guard(request, String(params.cdcId));
     if (denied) return denied;

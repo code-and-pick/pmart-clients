@@ -11,6 +11,7 @@ import type { components } from '../../api/generated/cdc-outbound';
 import { useApi } from '../../app/ApiContext';
 import { centerPath } from '../../app/nav';
 import { messages } from '../../shared/messages';
+import { Attention, ByMfc, WorkersByFloor } from './DashboardExtras';
 
 const t = messages.dashboard;
 type CountByKey = components['schemas']['CountByKey'];
@@ -50,7 +51,7 @@ export function DashboardPage({ cdcId }: { readonly cdcId: string }) {
       <QueryState state={toUiState(query)} onRetry={() => void query.refetch()}>
         {(s) => (
           <>
-            <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6" data-testid="dash-cards">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6" data-testid="dash-cards">
               <StatCard label={t.trfCount} value={s.transferCount} to={centerPath(cdcId, 'trf-wave')} testId="dash-trf" />
               <StatCard label={t.progress} hint={t.progressHint} value={s.progress === null || s.progress === undefined ? t.noProgress : `${Math.round(s.progress * 100)}%`} testId="dash-progress" tone="info" />
               <StatCard label={t.approved} value={messages.qty(s.approvedQty)} testId="dash-approved" />
@@ -61,6 +62,11 @@ export function DashboardPage({ cdcId }: { readonly cdcId: string }) {
             {s.progress !== null && s.progress !== undefined && (
               <progress className="progress progress-primary h-2 w-full" value={Math.round(s.progress * 100)} max={100} aria-label={t.progress} />
             )}
+            <Attention cdcId={cdcId} />
+            <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+              <ByMfc cdcId={cdcId} rows={s.byMfc ?? null} />
+              <WorkersByFloor cdcId={cdcId} />
+            </div>
             <div className="grid gap-4 lg:grid-cols-3">
               <Breakdown title={t.byState} rows={s.transfersByState} name={(k) => messages.trf.state[k] ?? k} link={(k) => `${centerPath(cdcId, 'trf-wave')}?state=${encodeURIComponent(k)}`} testId="dash-trf-states" />
               <Breakdown title={t.waves} rows={s.wavesByState} name={(k) => messages.wave.state[k] ?? k} link={(k) => `${centerPath(cdcId, 'trf-wave')}?view=waves&state=${encodeURIComponent(k)}`} testId="dash-waves" />

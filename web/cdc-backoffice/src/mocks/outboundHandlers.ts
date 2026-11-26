@@ -324,6 +324,29 @@ export const outboundHandlers = [
     return HttpResponse.json({ items: rows.slice(from, from + size), page: { nextCursor: next, size } });
   }),
 
+  // 작업자 현황(0.18.0 M-1) — 목은 고정 3명(2명 최근 스캔, 1명 오래됨)
+  http.get(`${API_BASE}/cdcs/:cdcId/workers`, ({ request, params }) => {
+    const denied = guard(request, String(params.cdcId));
+    if (denied) return denied;
+    const workers = [
+      { workerId: 'OP-cdc-worker-1', locationCode: 'CDC01-A-5-63-01-2-1', zone: 'A', floor: '5', source: 'SCAN', scannedAt: '2026-11-26T00:28:00Z', locationState: 'FRESH', taskId: null, taskKind: null, taskState: null },
+      { workerId: 'OP-cdc-worker-2', locationCode: 'CDC01-B-6-67-01-1-1', zone: 'B', floor: '6', source: 'PICK_RESULT', scannedAt: '2026-11-26T00:29:00Z', locationState: 'FRESH', taskId: null, taskKind: null, taskState: null },
+      { workerId: 'OP-cdc-worker-3', locationCode: 'CDC01-A-5-61-01-1-1', zone: 'A', floor: '5', source: 'SCAN', scannedAt: '2026-11-25T23:00:00Z', locationState: 'STALE', taskId: null, taskKind: null, taskState: null },
+    ];
+    return HttpResponse.json({ asOf: '2026-11-26T00:30:00Z', workers, byFloor: [{ key: '5', count: 1 }, { key: '6', count: 1 }] });
+  }),
+
+  // 피킹 부족 재할당(0.19.0) — 목은 1건 진행 중
+  http.get(`${API_BASE}/cdcs/:cdcId/shortages`, ({ request, params }) => {
+    const denied = guard(request, String(params.cdcId));
+    if (denied) return denied;
+    const state = new URL(request.url).searchParams.get('state');
+    const rows = [
+      { followupId: 'SF-1', trfId: 'TRF-20261126-0001', mfcId: 'MFC-BJG-01', waveId: 'WAVE-1', taskId: 'TASK-1', sku: 'SKU-1002', lot: 'LOT-B7', locationCode: 'CDC01-B-6-67-01-1-1', shortQty: 2, state: 'PENDING', reallocatedQty: 0, unresolvedQty: 2, newTaskIds: [], reason: null, createdAt: '2026-11-26T00:20:00Z', updatedAt: '2026-11-26T00:20:00Z' },
+    ].filter((r) => !state || r.state === state);
+    return HttpResponse.json({ items: rows, page: 0, size: 50, hasNext: false });
+  }),
+
   // 그날 출고 집계 — 목은 날짜와 상관없이 지금 TRF·Wave·작업으로 센다
   http.get(`${API_BASE}/cdcs/:cdcId/outbound-summary`, ({ request, params }) => {
     const cdcId = String(params.cdcId);
@@ -346,6 +369,11 @@ export const outboundHandlers = [
       progress: approved === 0 ? null : total('pickedQty') / approved,
       wavesByState: count(store.waves.map((v) => v.state ?? '')),
       tasksByKindState: count(store.tasks.map((t) => `${t.kind}:${t.state}`)),
+      byMfc: [...new Set(trfs.map((t) => t.mfcId))].sort().map((mfcId) => {
+        const mine = trfs.filter((t) => t.mfcId === mfcId);
+        const sum = (k: 'approvedQty' | 'allocatedQty' | 'pickedQty' | 'shortQty') => mine.reduce((a, t) => a + t[k], 0);
+        return { mfcId, transferCount: mine.length, approvedQty: sum('approvedQty'), allocatedQty: sum('allocatedQty'), pickedQty: sum('pickedQty'), shortQty: sum('shortQty') };
+      }),
       asOf: '2026-11-26T00:30:00Z',
     });
   }),

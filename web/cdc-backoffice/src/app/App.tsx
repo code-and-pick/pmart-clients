@@ -11,6 +11,7 @@ import { CenterSwitcher } from '../features/centers/centers';
 import { useMe } from '../features/me/useMe';
 import { DashboardPage } from '../features/dashboard/DashboardPage';
 import { FloorMenu } from '../features/floor/FloorPage';
+import { MfcFlowMenu } from '../features/mfc-flow/MfcFlowPage';
 import { InventoryMenu } from '../features/inventory/InventoryPages';
 import { MasterMenu } from '../features/master/MasterPages';
 import { PreparingPage } from '../features/menus/PreparingPage';
@@ -195,6 +196,7 @@ function CenterScope({ menu }: { readonly menu: MenuItem }) {
 const menuPages: Partial<Record<MenuKey, ComponentType<{ readonly cdcId: string }>>> = {
   dashboard: DashboardPage,
   floor: FloorMenu,
+  mfcFlow: MfcFlowMenu,
   trfWave: TrfWaveMenu,
   tasks: TasksMenu,
   master: MasterMenu,

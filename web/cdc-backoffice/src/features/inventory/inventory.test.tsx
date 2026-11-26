@@ -49,3 +49,23 @@ describe('재계수 대기', () => {
     expect(await post.json()).toEqual({ reason: '다시 세어 맞음' });
   });
 });
+
+describe('전체 재고', () => {
+  it('합계 카드·상품 이름, 거르기 버튼은 서버 값으로', async () => {
+    renderAt('/c/CDC01/inventory');
+    const cards = await screen.findByTestId('stock-cards');
+    expect(within(cards).getByText('총 현물')).toBeInTheDocument();
+    expect(await screen.findByText('냉동 만두 1kg')).toBeInTheDocument();
+    await userEvent.click(within(screen.getByTestId('stock-filters')).getByRole('button', { name: /보류 있음/ }));
+    const rows = screen.getAllByTestId('stock-row');
+    expect(rows.length).toBeGreaterThan(0);
+    expect(screen.getByTestId('stock-shown')).toHaveTextContent(`${rows.length} / 3 SKU`);
+  });
+
+  it('상품 이름으로 찾기', async () => {
+    renderAt('/c/CDC01/inventory');
+    await screen.findAllByTestId('stock-row');
+    await userEvent.type(screen.getByTestId('stock-find'), '양파');
+    expect(screen.getAllByTestId('stock-row')).toHaveLength(1);
+  });
+});

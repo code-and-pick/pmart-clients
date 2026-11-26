@@ -36,6 +36,14 @@ export const navGroups: readonly MenuGroup[] = [
       },
       {
         // 2D 평면도(사용자 2026-11-26 "MFC 백오피스처럼") — 배치는 시뮬레이터, 칸 재고는 서버
+        // MFC 재고 이동(사용자 2026-11-26 "mfc로의 실시간 재고이동을 바로 볼 수 있는 거") — transfers·departures·outbound-summary·stock-snapshot
+        key: 'mfcFlow',
+        segment: 'mfc-flow',
+        ready: true,
+        apiReady: ['TRF 단계·MFC(transfers)', '출발 검증(departures)', '오늘 MFC 별(outbound-summary byMfc)', '운송 중(stock-snapshot transit)'],
+        apiMissing: ['MFC 수령 확인 목록(운송 중 대사 — 내부 경로만)'],
+      },
+      {
         key: 'floor',
         segment: 'floor',
         ready: true,
