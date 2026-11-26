@@ -49,6 +49,25 @@ describe('배차 지연', () => {
     expect(post.headers.get('X-Source-System')).toBe('mfc-backoffice-web');
   });
 
+  it('지연 종류를 나눈다 — 라이더 없음 = 배차 탐색 지연(자동 취소 안내·배차 실패 접수로), 배정됨 = 픽업 지연(취소 전 라이더·포장 영향 경고)', async () => {
+    server.use(
+      http.get(`${API_BASE}/cases`, () =>
+        HttpResponse.json({ items: [{ caseId: 'CASE-DF-1', caseNumber: 'C-1126-0007', kind: 'DISPATCH_FAILED', state: 'OPEN', subjectType: 'DELIVERY', subjectRef: 'DLV-DD-1', overdue: false, refs: [] }], page: { nextCursor: null } }),
+      ),
+    );
+    renderAt('/c/MFC-BJG-01/dispatch-delays');
+    await waitFor(() => expect(rows()).toHaveLength(2));
+    expect(within(rows()[0]!).getByTestId('delay-kind')).toHaveTextContent('배차 탐색 지연');
+    expect(within(rows()[0]!).getByTestId('delay-next')).toHaveTextContent('자동 취소 대상');
+    expect(await within(rows()[0]!).findByTestId('delay-failure-link')).toHaveTextContent('C-1126-0007');
+    expect(within(rows()[1]!).getByTestId('delay-kind')).toHaveTextContent('픽업 지연');
+    expect(within(rows()[1]!).getByTestId('delay-next')).toHaveTextContent('라이더가 배정돼 오는 중');
+    expect(within(rows()[1]!).queryByTestId('delay-failure-link')).not.toBeInTheDocument();
+    await userEvent.click(within(rows()[1]!).getByRole('button', { name: '배차 불가로 취소' }));
+    expect(screen.getByTestId('dispatch-cancel-assigned')).toHaveTextContent('라이더의 배송이 거둬지고');
+    expect(screen.getByTestId('dispatch-cancel-confirm')).toHaveTextContent('복귀 작업');
+  });
+
   it('이미 라이더에게 넘겼으면(422 ORDER_NOT_CANCELLABLE) 반품 안내', async () => {
     server.use(http.post(`${API_BASE}/claims`, () => HttpResponse.json({ status: 422, code: 'ORDER_NOT_CANCELLABLE', type: 'about:blank' }, { status: 422, headers: { 'content-type': 'application/problem+json' } })));
     renderAt('/c/MFC-BJG-01/dispatch-delays');

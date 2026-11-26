@@ -12,12 +12,11 @@ import { useMe } from '../features/me/useMe';
 import { DashboardPage } from '../features/dashboard/DashboardPage';
 import { FloorMenu } from '../features/floor/FloorPage';
 import { MfcFlowMenu } from '../features/mfc-flow/MfcFlowPage';
-import { InboundMenu, ReplenishmentMenu } from '../features/inbound/PutawayPages';
+import { ReplenishmentMenu } from '../features/inbound/PutawayPages';
 import { InventoryMenu } from '../features/inventory/InventoryPages';
 import { MasterMenu } from '../features/master/MasterPages';
 import { PreparingPage } from '../features/menus/PreparingPage';
 import { PickingMenu } from '../features/picking/PickingPage';
-import { PurchaseMenu } from '../features/purchase/PurchasePages';
 import { ShippingMenu } from '../features/shipping/ShippingPage';
 import { TransportMenu } from '../features/transport/TransportPage';
 import { ReportsMenu } from '../features/reports/ReportsPage';
@@ -201,12 +200,10 @@ const menuPages: Partial<Record<MenuKey, ComponentType<{ readonly cdcId: string 
   dashboard: DashboardPage,
   floor: FloorMenu,
   mfcFlow: MfcFlowMenu,
-  inbound: InboundMenu,
   replenishment: ReplenishmentMenu,
   trfWave: TrfWaveMenu,
   tasks: TasksMenu,
   master: MasterMenu,
-  purchase: PurchaseMenu,
   inventory: InventoryMenu,
   shipping: ShippingMenu,
   transport: TransportMenu,

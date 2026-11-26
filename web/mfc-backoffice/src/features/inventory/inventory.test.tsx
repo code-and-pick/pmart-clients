@@ -18,6 +18,9 @@ describe('상품별 재고·정정', () => {
     await userEvent.type(await screen.findByRole('searchbox', { name: '상품명·상품 코드' }), 'milk');
     await userEvent.click(screen.getByRole('button', { name: '조회' }));
     await waitFor(() => expect(screen.getAllByTestId('stock-product-row')).toHaveLength(1));
+    // 보유·가용·격리 칸(2026-11-26 화면 검토) — 가용은 센터 LOT 합(stocks)
+    expect(screen.getByRole('columnheader', { name: '가용' })).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByTestId('stock-product-available')).not.toHaveTextContent('—'));
     // 카드형으로도
     await userEvent.click(screen.getByRole('button', { name: '카드' }));
     await userEvent.click(within((await screen.findAllByTestId('stock-product-card'))[0]!).getByText('SKU-MILK-1'));

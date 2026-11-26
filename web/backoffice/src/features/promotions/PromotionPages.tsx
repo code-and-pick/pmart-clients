@@ -48,6 +48,8 @@ export function discountText(p: Pick<Promotion, 'kind' | 'discount' | 'offer'>):
 }
 /** 대상(SKU·카테고리·테마)을 고르는 종류 — 기간 할인·수량 행사 */
 const hasTargets = (k: PromotionKind) => k === 'PRICE_DISCOUNT' || k === 'QUANTITY_OFFER';
+/** 수량 행사 바로 고르기(사는 수량, 더 주는 수량) — 그 밖 조합은 숫자 칸에서 */
+const OFFER_PRESETS: ReadonlyArray<readonly [number, number]> = [[1, 1], [2, 1], [3, 1]];
 const periodText = (p: Pick<Promotion, 'startsAt' | 'endsAt'>) => `${formatSeoul(p.startsAt)} ~ ${formatSeoul(p.endsAt)}`;
 
 // ── 시각 칸: datetime-local(서울 시각) ↔ ISO ──
@@ -432,20 +434,27 @@ function PromotionForm({ initial, existing, editable }: { readonly initial: Draf
               <DateTimeField value={d.endsAt} min={d.startsAt || undefined} disabled={locked} onChange={(v) => set({ endsAt: v })} />
             </label>
             {offer ? (
-              <>
-                <label className={fieldCls}>
-                  {f.offerBuy}
-                  <input type="number" inputMode="numeric" className="input input-sm w-32" min={1} max={10} value={d.offerBuy} disabled={locked} onChange={(e) => set({ offerBuy: e.target.value })} />
-                </label>
-                <label className={fieldCls}>
-                  {f.offerFree}
-                  <input type="number" inputMode="numeric" className="input input-sm w-32" min={1} max={num(d.offerBuy) ?? 10} value={d.offerFree} disabled={locked} onChange={(e) => set({ offerFree: e.target.value })} />
-                </label>
-                <p className="text-xs text-base-content/60 sm:col-span-2" data-testid="offer-hint">
-                  {num(d.offerBuy) && num(d.offerFree) ? `${m.offer(num(d.offerBuy)!, num(d.offerFree)!)} · ` : ''}
-                  {f.offerHint}
-                </p>
-              </>
+              // 수량 조건 — 자주 쓰는 1+1·2+1·3+1 바로 고르기 + "[N]개 사면 [M]개 더" 한 문장(2026-11-26 사용자 "눈에 직관적으로 안 들어온다")
+              <fieldset className="space-y-2 sm:col-span-2" data-testid="offer-fields">
+                <legend className="mb-1 text-sm">{f.offer}</legend>
+                <div className="flex flex-wrap gap-2">
+                  {OFFER_PRESETS.map(([b, fr]) => {
+                    const on = num(d.offerBuy) === b && num(d.offerFree) === fr;
+                    return (
+                      <button key={`${b}+${fr}`} type="button" className={`btn btn-sm min-w-16 ${on ? 'btn-primary' : 'btn-outline'}`} aria-pressed={on} disabled={locked} onClick={() => set({ offerBuy: String(b), offerFree: String(fr) })}>
+                        {b}+{fr}
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="flex flex-wrap items-center gap-2 text-sm">
+                  <input type="number" inputMode="numeric" className="input input-sm w-16 text-center" aria-label={f.offerBuy} min={1} max={10} value={d.offerBuy} disabled={locked} onChange={(e) => set({ offerBuy: e.target.value })} />
+                  <span>{f.offerBuySuffix}</span>
+                  <input type="number" inputMode="numeric" className="input input-sm w-16 text-center" aria-label={f.offerFree} min={1} max={num(d.offerBuy) ?? 10} value={d.offerFree} disabled={locked} onChange={(e) => set({ offerFree: e.target.value })} />
+                  <span>{f.offerFreeSuffix}</span>
+                </div>
+                <p className="text-xs text-base-content/55">{f.offerLimits}</p>
+              </fieldset>
             ) : (
             <>
             <label className={fieldCls}>

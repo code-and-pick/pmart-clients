@@ -14,7 +14,6 @@ import type { paths as TransportExecutionPaths } from './generated/transport-exe
 import type { paths as TransportPlanningPaths } from './generated/transport-planning';
 import type { paths as HrPaths } from './generated/hr';
 import type { paths as ProductPaths } from './generated/product';
-import type { paths as PurchasePaths } from './proposed/purchase';
 
 export { SOURCE_SYSTEM };
 
@@ -45,8 +44,6 @@ export function createApi(pmartFetch: PmartFetch, baseUrl = API_BASE) {
     hr: createClient<HrPaths>(options),
     // 상품 이름(관리용 명칭) — CDC 응답에 이름이 없어 SKU 로 찾는다(shared/SkuName, 백엔드 P-1 요청)
     product: createClient<ProductPaths>(options),
-    // 상품 발주·공급사 — 제안 계약(목 전용, api/proposed/purchase.ts). 실서버에서는 부르지 않는다
-    purchase: createClient<PurchasePaths>(options),
   };
 }
 

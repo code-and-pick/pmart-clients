@@ -15,7 +15,7 @@ import { messages } from '../../shared/messages';
 const m = messages.dispatchDelays;
 type Claim = components['schemas']['Claim'];
 
-export function DispatchCancelButton({ orderId, label }: { readonly orderId: string; readonly label: string }) {
+export function DispatchCancelButton({ orderId, label, kind = 'SEARCH' }: { readonly orderId: string; readonly label: string; readonly kind?: 'SEARCH' | 'PICKUP' }) {
   const api = useApi();
   const [confirming, setConfirming] = useState(false);
   const [detail, setDetail] = useState('');
@@ -54,8 +54,13 @@ export function DispatchCancelButton({ orderId, label }: { readonly orderId: str
               {m.confirmTitle}
             </h3>
             <p className="text-sm">{m.confirmTarget(label)}</p>
+            {kind === 'PICKUP' && (
+              <p role="alert" className="alert alert-warning text-sm" data-testid="dispatch-cancel-assigned">
+                {m.assignedWarning}
+              </p>
+            )}
             <ul className="list-disc space-y-1 pl-5 text-sm text-base-content/75">
-              {m.confirmPoints.map((p) => (
+              {[...m.confirmPoints, ...(kind === 'PICKUP' ? m.assignedPoints : [])].map((p) => (
                 <li key={p}>{p}</li>
               ))}
             </ul>

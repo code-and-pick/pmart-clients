@@ -336,7 +336,7 @@ function TaskList({ title, empty, list, mfcId, failed, testId }: { readonly titl
                   {t.headline?.productName && (
                     <span className="block truncate text-xs text-base-content/60">
                       {m.headline(t.headline.productName, t.headline.otherLineCount ?? 0)}
-                      {t.plannedQty ? <span className="pm-mono ml-1.5">{m.progress(t.completedQty ?? 0, t.plannedQty)}</span> : null}
+                      {t.plannedQty ? <span className="ml-1.5">{' · '}{m.progress(t.completedQty ?? 0, t.plannedQty)}</span> : null}
                     </span>
                   )}
                 </span>

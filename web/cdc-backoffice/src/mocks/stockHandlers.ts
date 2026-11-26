@@ -112,29 +112,6 @@ export const resetStock = () => {
   mockFirst.clear();
 };
 
-/** 발주 입고 확정(목 purchaseHandlers) → 그 SKU 에 LOT 로 더한다. 입고장(출고대기 칸 CDC01-C-5-91-01-0-1)에 정상 품질로 */
-export function receiveIntoStock(cdcId: string, sku: string, lot: string, expiresAt: string | null, qty: number) {
-  const dock = 'CDC01-C-5-91-01-0-1';
-  let a = store.stock.find((x) => x.cdcId === cdcId && x.sku === sku);
-  if (!a) {
-    a = { cdcId, sku, onHand: 0, eligible: 0, reserved: 0, held: 0, safety: { state: 'NOT_SET' }, available: null, transit: 0, handlingActive: true, lots: [] };
-    store.stock.push(a);
-  }
-  a.onHand = (a.onHand ?? 0) + qty;
-  a.eligible = (a.eligible ?? 0) + qty;
-  if (typeof a.available === 'number') a.available += qty;
-  const days = expiresAt ? Math.round((Date.parse(expiresAt) - Date.now()) / 86_400_000) : undefined;
-  (a.lots ??= []).push({
-    lot,
-    ...(expiresAt ? { expiresAt } : {}),
-    ...(days !== undefined ? { remainingDays: days } : {}),
-    eligible: qty,
-    reserved: 0,
-    held: 0,
-    locations: [{ locationCode: dock, qualityState: 'RELEASED', onHand: qty, reserved: 0 }],
-  });
-}
-
 function guard(request: Request, cdcId: string) {
   const who = operator(request);
   if (!who) return unauthorized();

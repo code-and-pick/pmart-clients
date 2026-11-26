@@ -1,6 +1,8 @@
 // 재고 > 상품별 재고 — 목록·카드(2026-11-25 사용자 "상품별 재고 탭도 카드, 리스트로 볼 수 있고. 들어가면 귀속된 로트정보 및 상품정보 보이게").
 // - 목록: 센터 재고 `GET /mfcs/{mfcId}/stock-units`(수량 > 0 단위 행, 품질·위치 앞부분은 서버 거르기)를 상품(SKU)별로 묶는다. 상품명·코드 글자는 받은 목록 안에서.
 // - 사진·고객용 이름: sku → productId 는 이 센터 취급 목록(`sku-handlings`, SKU 투영 전체), 사진은 product-content(shared/productCards).
+// - 보유·가용·격리(2026-11-26 화면 검토 "격리가 보유에 드는지, 가용이 얼마인지 목록에서 안 읽힌다"): 지금 쪽 상품만 `GET /mfcs/{mfcId}/stocks?sku=`(1~100)로
+//   LOT 합 — 보유 H(격리 포함), 가용 A = 판매 가능 E − 예약 R(격리·보류·이동 중 빠짐), 격리 Q. 센터 전체 값이라 품질·위치 거르기와 무관(거르면 "거른 칸" 칸을 따로).
 // - 누르면(?sku=) 상품 정보(product-service `GET /skus/{sku}` — 판매 단위·중량·용량·바코드·본사 판매 상태, 이 센터 취급 ON/OFF) + 아래에 지금처럼 LOT 별 요약·위치·상태별 재고.
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
@@ -21,6 +23,32 @@ const LIST_PAGE = 200;
 const LIST_MAX_PAGES = 20;
 const ROWS = 24;
 type UnitRow = InvPaths['/mfcs/{mfcId}/stock-units']['get']['responses']['200']['content']['application/json']['items'][number];
+
+interface SkuTotals {
+  readonly onHand: number;
+  readonly available: number;
+  readonly quarantined: number;
+}
+
+/** 지금 쪽 상품의 센터 합계(LOT 합) — stocks 는 한 번에 100개까지 */
+function useSkuTotals(mfcId: string, skus: readonly string[]) {
+  const api = useApi();
+  return useQuery({
+    queryKey: ['list', 'stock-units', mfcId, 'totals', skus.join(',')],
+    enabled: skus.length > 0,
+    queryFn: async () => {
+      const out = new Map<string, SkuTotals>();
+      for (let i = 0; i < skus.length; i += 100) {
+        const page = await request('GET', api.inventory.GET('/mfcs/{mfcId}/stocks', { params: { path: { mfcId }, query: { sku: skus.slice(i, i + 100) } } }));
+        for (const s of page.items ?? []) {
+          const sum = (k: 'onHand' | 'available' | 'quarantined') => (s.lots ?? []).reduce((a, l) => a + (l[k] ?? 0), 0);
+          out.set(s.sku, { onHand: sum('onHand'), available: Math.max(0, sum('available')), quarantined: sum('quarantined') });
+        }
+      }
+      return out;
+    },
+  });
+}
 
 interface ProductRow {
   readonly sku: string;
@@ -115,6 +143,15 @@ export function StockProductList({ mfcId, onOpen }: { readonly mfcId: string; re
   const products = units.data ? groupBySku(units.data.rows, q) : [];
   const paging = usePage(products.length, ROWS);
   const shown = products.slice(paging.from, paging.to);
+  const totals = useSkuTotals(mfcId, shown.map((p) => p.sku));
+  const filteredView = !!(quality || prefix);
+  const num = (p: ProductRow, k: keyof SkuTotals) => {
+    const t = totals.data?.get(p.sku);
+    if (t) return t[k];
+    if (totals.isError && k === 'onHand' && !filteredView) return p.qty; // 합계를 못 읽으면 보유만 단위 행 합으로
+    return null;
+  };
+  const dash = (v: number | null) => (v === null ? <span className="text-base-content/40">—</span> : v);
   const handlings = useSkuHandlings(mfcId);
   const cards = useProductCards(shown.map((p) => handlings.data?.get(p.sku)?.productId));
   const infoOf = (sku: string) => {
@@ -172,7 +209,7 @@ export function StockProductList({ mfcId, onOpen }: { readonly mfcId: string; re
                       <span className="line-clamp-2 font-semibold">{nameOf(p)}</span>
                       <span className="font-mono text-xs text-base-content/60">{p.sku}</span>
                       <span className="mt-auto flex flex-wrap items-center gap-2 text-xs">
-                        <span className="text-base font-bold">{p.qty}</span>
+                        <span className="w-full">{m.cardTotals(num(p, 'onHand'), num(p, 'available'), num(p, 'quarantined'))}</span>
                         <span className="text-base-content/60">{`${m.lotsText(p.lots)} · ${m.placesText(p.places)}`}</span>
                         {qualityBadge(p)}
                       </span>
@@ -183,12 +220,16 @@ export function StockProductList({ mfcId, onOpen }: { readonly mfcId: string; re
             ) : (
               <div className="pm-list-box">
                 <ResultBar count={products.length} />
+                <p className="px-4 pb-1 text-xs text-base-content/60">{totals.isError ? m.totalsFailed : m.availableHint}</p>
                 <div className="overflow-x-auto" data-list-part="table">
                   <table className="table table-sm">
                     <thead>
                       <tr>
                         <th>{m.col.product}</th>
-                        <th className="text-right">{m.col.qty}</th>
+                        <th className="text-right">{m.col.onHand}</th>
+                        <th className="text-right" title={m.availableHint}>{m.col.available}</th>
+                        <th className="text-right">{m.col.quarantinedQty}</th>
+                        {filteredView && <th className="text-right">{m.col.filteredQty}</th>}
                         <th className="text-right">{m.col.lots}</th>
                         <th className="text-right">{m.col.places}</th>
                         <th>{m.col.quality}</th>
@@ -206,7 +247,10 @@ export function StockProductList({ mfcId, onOpen }: { readonly mfcId: string; re
                               </span>
                             </button>
                           </td>
-                          <td className="text-right font-semibold">{p.qty}</td>
+                          <td className="text-right">{dash(num(p, 'onHand'))}</td>
+                          <td className="text-right font-semibold" data-testid="stock-product-available">{dash(num(p, 'available'))}</td>
+                          <td className="text-right">{dash(num(p, 'quarantined'))}</td>
+                          {filteredView && <td className="text-right">{p.qty}</td>}
                           <td className="text-right">{p.lots}</td>
                           <td className="text-right">{p.places}</td>
                           <td>{qualityBadge(p)}</td>

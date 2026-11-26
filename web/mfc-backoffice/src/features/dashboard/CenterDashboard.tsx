@@ -241,9 +241,14 @@ function Dashboard({ mfcId }: { readonly mfcId: string }) {
   const sums = tBuckets.map((b) => ({ b, t: sumOf(b) }));
   const tipLabel = (b: Bucket) => (b.hour !== undefined ? `${shortDate(b.from)} ${b.hour}시` : b.from === b.to ? shortDate(b.from) : `${b.label} (${shortDate(b.from)}–${shortDate(b.to)})`);
   // 기간 끝이 잘린 주·월 칸 — 옅은 막대 + 말풍선에 "n일 중 m일만"
+  // 오늘이 든 칸(2026-11-26 화면 검토 — 집계 중인 오늘 176건이 어제 348건과 같은 막대라 급감처럼 읽혔다)도 옅게, 하루 칸 축 글자 "오늘", 말풍선 "오늘 16:27까지"
+  const nowText = hm.format(nowMs);
   const cut = (b: Bucket, c: Column): Column => {
+    const live = b.hour !== undefined ? b.from === today && b.hour === nowHour : b.to === today;
     const p = partialOf(b, unit);
-    return p ? { ...c, partial: true, tip: `${c.tip} · ${m.chart.partial(p.full, p.days)}` } : c;
+    let out = p ? { ...c, partial: true, tip: `${c.tip} · ${m.chart.partial(p.full, p.days)}` } : c;
+    if (live) out = { ...out, partial: true, label: b.hour === undefined && b.from === b.to ? m.chart.todayLabel : out.label, tip: `${out.tip} · ${m.chart.untilNow(nowText)}` };
+    return out;
   };
   const tPickedCols: Column[] = sums.map(({ b, t }) => cut(b, { key: b.key, label: b.label, value: t.picked, tip: m.pickTip(tipLabel(b), t.picked, t.short) }));
   // 결품 — 사유별 쌓은 막대(드문 사건이라 비율 선보다 "몇 줄·왜"). 사유 합은 결품 줄보다 클 수 있다(계약)

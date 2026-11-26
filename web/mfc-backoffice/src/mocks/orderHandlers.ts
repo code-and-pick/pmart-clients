@@ -5,6 +5,7 @@
 import { http, HttpResponse } from 'msw';
 
 import { API_BASE } from '../api/client';
+import { db } from './db';
 import { SIM_CATEGORIES, SIM_PRODUCTS, simAt } from './orderSim';
 import { operator, problem, unauthorized } from './support';
 import { DEMO_HOME, demoScale, hasDemoData, scaled } from './demoCenters';
@@ -152,7 +153,21 @@ export const orderHandlers = [
     if (!op.centers.includes(mfcId)) return problem(403, 'FORBIDDEN');
     const skus = [...new Set(new URL(request.url).searchParams.getAll('sku'))];
     if (skus.length < 1 || skus.length > 100) return problem(400, 'VALIDATION_FAILED');
-    const items = skus.map((sku) => ({ mfcId, sku, productName: SIM_PRODUCTS.find((p) => p.sku === sku)?.name ?? null, barcodes: [], lots: [], units: [] }));
+    // LOT 요약은 목 센터 재고(db.stockUnits)에서 — 단건 /stock 목과 같은 계산(목록의 보유·가용·격리 칸)
+    const items = skus.map((sku) => {
+      const units = db.stockUnits
+        .filter((u) => u.mfcId === mfcId && u.sku === sku)
+        .map((u) => ({ locationCode: u.locationCode, lotId: u.lotId, qualityState: u.qualityState, workState: u.workState, qty: u.qty }));
+      const lots = [...new Set(units.map((u) => u.lotId))].map((lotId) => {
+        const of = units.filter((u) => u.lotId === lotId);
+        const onHand = of.reduce((n, u) => n + u.qty, 0);
+        const quarantined = of.filter((u) => u.qualityState === 'QUARANTINED').reduce((n, u) => n + u.qty, 0);
+        const sellable = onHand - quarantined;
+        return { lotId, tracking: 'TRACKED', expiryDate: null, manufactureDate: null, onHand, quarantined, sellable, reserved: 0, available: sellable };
+      });
+      const name = SIM_PRODUCTS.find((p) => p.sku === sku)?.name ?? db.stockUnits.find((u) => u.sku === sku)?.productName ?? null;
+      return { mfcId, sku, productName: name, barcodes: [], lots, units };
+    });
     return HttpResponse.json({ mfcId, items, asOf: new Date().toISOString() });
   }),
 ];
