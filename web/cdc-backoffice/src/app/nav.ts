@@ -1,5 +1,6 @@
 // 메뉴 묶음(백엔드 계획 docs/cdc/cdc-backoffice-plan.md §2 — 2026-11-25). 모든 메뉴가 DC 하나(`/c/:cdcId/…`) 아래에 있다.
 // 빼는 것(사용자 2026-11-25 "설비센서자산 같은 건 제외"): 시설·설비, 환경·품질(온도·HACCP), 물류 자산 — 자리도 두지 않는다.
+// 반품·회수(사용자 2026-11-25 "회수는 빼" — TMS D-11)와 시스템관리도 뺐다(사용자 2026-11-26 빈 메뉴 정리 — 권한은 통합 백오피스 HR·권한 승인, 감사 기록은 audit).
 // 화면을 만들면 그 메뉴의 `ready` 를 true 로 바꾼다. 그 전에는 "준비 중"(지어낸 숫자를 보이지 않는다).
 import { messages as m } from '../shared/messages';
 
@@ -131,13 +132,6 @@ export const navGroups: readonly MenuGroup[] = [
         apiReady: ['자동 보충 작업(putaway-tasks kind=REPLENISHMENT)', '피킹 선반별 보충 판단(replenishment-checks)'],
         apiMissing: ['수동 보충 지시(서버에 없음 — 적치 지시로)'],
       },
-      {
-        key: 'returns',
-        segment: 'returns',
-        ready: false,
-        apiReady: [],
-        apiMissing: ['반품·회수(계약 없음)'],
-      },
     ],
   },
   {
@@ -148,21 +142,14 @@ export const navGroups: readonly MenuGroup[] = [
         segment: 'workers',
         ready: false,
         apiReady: [],
-        apiMissing: ['근무조·배치·생산성(계정은 인사팀 백오피스)'],
+        apiMissing: ['작업자별 처리량(요청 WF-1)', '근무조·출근·배치(설계·사용자 결정 필요 WF-2 — 계정은 인사팀 백오피스)'],
       },
       {
         key: 'reports',
         segment: 'reports',
         ready: false,
         apiReady: [],
-        apiMissing: ['리포트·KPI 집계'],
-      },
-      {
-        key: 'system',
-        segment: 'system',
-        ready: false,
-        apiReady: [],
-        apiMissing: ['바코드·PDA·연동 상태(권한은 통합 백오피스, 감사 기록은 audit)'],
+        apiMissing: ['운영 확인 지표·일별 출고 추이(요청 2026-11-26-backend-kpi-workforce KP-1·2)'],
       },
     ],
   },

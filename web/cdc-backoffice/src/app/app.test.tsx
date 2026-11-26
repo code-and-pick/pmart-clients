@@ -49,17 +49,17 @@ describe('메뉴', () => {
     for (const menu of allMenus) {
       expect(screen.getByRole('link', { name: m.menus[menu.key] })).toHaveAttribute('href', `/c/CDC01/${menu.segment}`);
     }
-    expect(allMenus).toHaveLength(17);
+    expect(allMenus).toHaveLength(15);
     expect(screen.getByRole('link', { name: 'TRF·Wave' })).toHaveAttribute('href', '/c/CDC01/trf-wave');
     expect(screen.getByRole('link', { name: '재고관리' })).toHaveAttribute('href', '/c/CDC01/inventory');
     for (const gone of ['시설·설비', '환경·품질', '물류 자산']) expect(screen.queryByText(gone)).not.toBeInTheDocument();
   });
 
   it('아직 만들지 않은 메뉴는 "준비 중" — 지어낸 숫자 없이 서버 API 있고 없음만', async () => {
-    renderAt('/c/CDC01/returns');
-    expect(await screen.findByRole('heading', { name: m.menus.returns })).toBeInTheDocument();
+    renderAt('/c/CDC01/reports');
+    expect(await screen.findByRole('heading', { name: m.menus.reports })).toBeInTheDocument();
     expect(await screen.findByText('화면 준비 중')).toBeInTheDocument();
-    expect(screen.getByTestId('api-missing')).toHaveTextContent('계약 없음');
+    expect(screen.getByTestId('api-missing')).toHaveTextContent('KP-1');
   });
 });
 
