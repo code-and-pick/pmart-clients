@@ -15,19 +15,18 @@ describe('센터 평면도', () => {
     const view = renderAt('/c/CDC01/floor');
     expect(await screen.findByTestId('floor-svg')).toBeInTheDocument();
     expect(within(screen.getByTestId('floor-tabs')).getAllByRole('tab')).toHaveLength(3);
-    await userEvent.click(screen.getByRole('button', { name: '통로 A03' }));
+    await userEvent.click(screen.getByRole('button', { name: '통로 G03' }));
     const panel = await screen.findByTestId('aisle-panel');
-    expect(panel).toHaveTextContent('CDC01-A-5-03-');
-    await screen.findByTestId('location-stock-row');
-    expect(view.gets('/location-stocks').map((r) => new URL(r.url).searchParams.get('locationPrefix'))).toContain('CDC01-A-5-03-');
-    expect(within(panel).getByRole('link', { name: /로케이션 목록/ })).toHaveAttribute('href', '/c/CDC01/master?tab=locations&area=A&floor=5');
+    expect(panel).toHaveTextContent('CDC01-G-5-03-');
+    await waitFor(() => expect(view.gets('/location-stocks').map((r) => new URL(r.url).searchParams.get('locationPrefix'))).toContain('CDC01-G-5-03-'));
+    expect(within(panel).getByRole('link', { name: /로케이션 목록/ })).toHaveAttribute('href', '/c/CDC01/master?tab=locations&area=G&floor=5');
   });
 
-  it('6층으로 바꾸면 냉장 B 통로', async () => {
+  it('6층으로 바꾸면 상온 A~D 통로(시뮬레이터 R-25)', async () => {
     renderAt('/c/CDC01/floor');
-    await userEvent.click(await screen.findByRole('tab', { name: '6F 냉장' }));
+    await userEvent.click(await screen.findByRole('tab', { name: '6F 상온' }));
     expect(screen.getByRole('button', { name: '통로 B01' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: '통로 A01' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '통로 G01' })).not.toBeInTheDocument();
   });
 });
 

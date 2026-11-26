@@ -465,9 +465,9 @@ export const outboundHandlers = [
     const denied = guard(request, String(params.cdcId));
     if (denied) return denied;
     const workers = [
-      { workerId: 'OP-cdc-worker-1', locationCode: 'CDC01-A-5-63-01-2-1', zone: 'A', floor: '5', source: 'SCAN', scannedAt: '2026-11-26T00:28:00Z', locationState: 'FRESH', taskId: null, taskKind: null, taskState: null },
-      { workerId: 'OP-cdc-worker-2', locationCode: 'CDC01-B-6-67-01-1-1', zone: 'B', floor: '6', source: 'PICK_RESULT', scannedAt: '2026-11-26T00:29:00Z', locationState: 'FRESH', taskId: null, taskKind: null, taskState: null },
-      { workerId: 'OP-cdc-worker-3', locationCode: 'CDC01-A-5-61-01-1-1', zone: 'A', floor: '5', source: 'SCAN', scannedAt: '2026-11-25T23:00:00Z', locationState: 'STALE', taskId: null, taskKind: null, taskState: null },
+      { workerId: 'OP-cdc-worker-1', locationCode: 'CDC01-G-5-63-01-2-1', zone: 'G', floor: '5', source: 'SCAN', scannedAt: '2026-11-26T00:28:00Z', locationState: 'FRESH', taskId: null, taskKind: null, taskState: null },
+      { workerId: 'OP-cdc-worker-2', locationCode: 'CDC01-D-6-67-01-1-1', zone: 'D', floor: '6', source: 'PICK_RESULT', scannedAt: '2026-11-26T00:29:00Z', locationState: 'FRESH', taskId: null, taskKind: null, taskState: null },
+      { workerId: 'OP-cdc-worker-3', locationCode: 'CDC01-G-5-61-01-1-1', zone: 'G', floor: '5', source: 'SCAN', scannedAt: '2026-11-25T23:00:00Z', locationState: 'STALE', taskId: null, taskKind: null, taskState: null },
     ];
     return HttpResponse.json({ asOf: '2026-11-26T00:30:00Z', workers, byFloor: [{ key: '5', count: 1 }, { key: '6', count: 1 }] });
   }),
