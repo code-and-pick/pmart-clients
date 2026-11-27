@@ -12,6 +12,7 @@ import { useMe } from '../features/me/useMe';
 import { DashboardPage } from '../features/dashboard/DashboardPage';
 import { FloorMenu } from '../features/floor/FloorPage';
 import { MfcFlowMenu } from '../features/mfc-flow/MfcFlowPage';
+import { MfcReceiptsMenu } from '../features/mfc-flow/MfcReceiptsPage';
 import { ReplenishmentMenu } from '../features/inbound/PutawayPages';
 import { InventoryMenu } from '../features/inventory/InventoryPages';
 import { MasterMenu } from '../features/master/MasterPages';
@@ -200,6 +201,7 @@ const menuPages: Partial<Record<MenuKey, ComponentType<{ readonly cdcId: string 
   dashboard: DashboardPage,
   floor: FloorMenu,
   mfcFlow: MfcFlowMenu,
+  mfcReceipts: MfcReceiptsMenu,
   replenishment: ReplenishmentMenu,
   trfWave: TrfWaveMenu,
   tasks: TasksMenu,

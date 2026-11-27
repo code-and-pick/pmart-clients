@@ -25,3 +25,5 @@ MFC 가 수령을 확정해 MFC 재고에 반영됐는지(`MfcReceiptPosted` →
 - 또는 `GET /cdcs/{cdcId}/transfers/{trfId}` 응답에 같은 `receipt` 요약을 붙여도 된다(TRF 상세에서 한 건씩).
 
 화면은 이 값이 오면 넷째 단계를 "MFC 인계 → MFC 재고 반영" 두 칸으로 나누고, 미정산(t > 0)은 경고로 보인다. 오기 전에는 인계까지만 보이고 "재고 반영은 아직 조회가 없음"이라고 화면에 적어 두었다.
+
+> 끝남(2026-11-27): cdc-inventory 0.22.0 `GET /cdcs/{cdcId}/transits`(#545, LAN 배포) — DC 백오피스 "MFC 입고 확인" 메뉴·TRF 목록·MFC 재고 이동에 반영.

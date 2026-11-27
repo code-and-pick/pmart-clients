@@ -61,6 +61,7 @@ export const messages = {
     dashboard: '대시보드·관제',
     floor: '센터 평면도',
     mfcFlow: 'MFC 재고 이동',
+    mfcReceipts: 'MFC 입고 확인',
     trfWave: 'TRF·Wave',
     tasks: '통합 작업관리',
     picking: '피킹·분배',
@@ -1358,15 +1359,19 @@ export const messages = {
 
   /** MFC 재고 이동 — DC → MFC 로 가는 재고(TRF 단계·출발), 15초마다 다시 읽기 */
   mfcFlow: {
-    lead: 'DC 에서 MFC 로 가는 물건이 지금 어디 있는지 — DC 에서 준비 → 차에 실어 출발 → MFC 가 박스를 받아 인계까지. 15초마다 새로 읽어요.',
+    lead: 'DC 에서 MFC 로 가는 물건이 지금 어디 있는지 — DC 에서 준비 → 차에 실어 출발 → MFC 가 박스를 받아 인계 → MFC 재고에 입고까지. 15초마다 새로 읽어요.',
     asOf: (t: string) => `기준 ${t}`,
-    steps: { PREP: 'DC 에서 준비 중', READY: '실을 준비 끝', GOING: '차 타고 가는 중', DONE: 'MFC 도착·인계' } as Readonly<Record<string, string>>,
+    steps: { PREP: 'DC 에서 준비 중', READY: '실을 준비 끝', GOING: '차 타고 가는 중', DONE: 'MFC 도착·인계', STOCKED: 'MFC 입고' } as Readonly<Record<string, string>>,
     goingSub: (n: number) => `DC 재고에서 빠짐 · MFC 받기 전(TRF ${n}건)`,
     stopsDone: (n: number) => `오늘 ${n}곳 인계`,
+    stockedToday: (n: number) => `오늘 ${n}건 입고`,
+    stockedSub: (recv: number, sent: number, bad: number) =>
+      [`MFC 반영 ${recv.toLocaleString('ko-KR')} / 보낸 ${sent.toLocaleString('ko-KR')}개`, bad ? `안 맞음 ${bad}건` : null].filter(Boolean).join(' · '),
+    toReceipts: 'MFC 입고 확인 ›',
     doneSub: (recv: number, sent: number, arrived: number) =>
       [`받은 박스 ${recv.toLocaleString('ko-KR')} / 보낸 ${sent.toLocaleString('ko-KR')}`, arrived ? `도착·인계 전 ${arrived}곳` : null].filter(Boolean).join(' · '),
-    stockLine: '재고는 이렇게 옮겨 가요: 출발 검증이 맞으면 DC 재고에서 빠져 "운송 중"이 되고, MFC 가 박스를 받아 인계하면 MFC 쪽에서 입고·재고 반영을 해요.',
-    receiptNote: 'MFC 인계는 운송(운행 정차) 기록이에요. MFC 재고에 실제로 반영(수령 확정)됐는지는 DC 가 볼 조회가 아직 서버에 없어요 — 백엔드에 요청했어요(MF-1).',
+    stockLine: '재고는 이렇게 옮겨 가요: 출발 검증이 맞으면 DC 재고에서 빠져 "운송 중"이 되고, MFC 가 박스를 받아 인계한 뒤 입고(수령)를 확정하면 MFC 재고에 반영되고 운송 중에서 빠져요.',
+    receiptNote: 'MFC 인계는 운송(운행 정차) 기록, MFC 입고는 MFC 가 수령을 확정해 재고에 반영한 결과(재고 서버)예요. 입고가 운행 기록보다 먼저 보일 수도 있어요.',
     side: {
       onWay: (eta: string, late: boolean) => `가는 중 · 도착 예정 ${eta}${late ? ' (늦음)' : ''}`,
       arrived: (at: string) => `MFC 도착 ${at} · 인계 전`,
@@ -1378,8 +1383,17 @@ export const messages = {
     trfs: (n: number) => `${n}건`,
     units: (n: number) => `${n.toLocaleString('ko-KR')}개`,
     byMfc: 'MFC 별',
-    rowText: (all: number, prep: number, ready: number, going: number, done: number) =>
-      [`TRF ${all}건`, prep ? `준비 중 ${prep}` : null, ready ? `실을 준비 끝 ${ready}` : null, going ? `가는 중 ${going}` : null, done ? `인계 ${done}` : null].filter(Boolean).join(' · '),
+    rowText: (all: number, prep: number, ready: number, going: number, done: number, stocked: number) =>
+      [
+        `TRF ${all}건`,
+        prep ? `준비 중 ${prep}` : null,
+        ready ? `실을 준비 끝 ${ready}` : null,
+        going ? `가는 중 ${going}` : null,
+        done ? `인계 ${done}` : null,
+        stocked ? `입고 ${stocked}` : null,
+      ]
+        .filter(Boolean)
+        .join(' · '),
     recent: '최근 출발',
     rowLinkTitle: '이 MFC 로 가는 TRF 목록',
     recentHint: '줄을 누르면 그 출발이 MFC 까지 어떻게 갔는지 펼쳐져요.',
@@ -1388,6 +1402,11 @@ export const messages = {
       eta: '도착 예정',
       arrived: 'MFC 도착',
       handed: 'MFC 인계',
+      stocked: 'MFC 입고',
+      stockedDone: (sent: number, recv: number) => `MFC 재고에 반영됐어요 — 보낸 ${sent.toLocaleString('ko-KR')}개 중 ${recv.toLocaleString('ko-KR')}개, 수량이 맞아요.`,
+      stockedBad: (sent: number, recv: number, diff: number) =>
+        `MFC 가 입고했는데 보낸 ${sent.toLocaleString('ko-KR')}개 중 ${recv.toLocaleString('ko-KR')}개만 반영됐어요 — ${diff.toLocaleString('ko-KR')}개가 안 맞아요.`,
+      toReceipts: 'MFC 입고 확인 ›',
       late: '— 예상 도착이 늦어요.',
       noTrip: '이 출발이 실린 운행 기록을 찾지 못했어요(시뮬레이터 출발이거나 운행 없이 출발 검증만 들어온 경우). MFC 도착·인계는 운행 기록이 있어야 보여요.',
       story: (vehicle: string, driver: string | null, seq: number | null, stops: number) =>
@@ -1414,16 +1433,77 @@ export const messages = {
   },
 
 
+  /** MFC 입고 확인 — 출발한 TRF 의 MFC 수령 반영(cdc-inventory 0.22.0 transits, 2026-11-27) */
+  receipt: {
+    lead: 'DC 에서 출발한 TRF 를 MFC 가 받아 재고에 반영했는지 봐요. MFC 가 입고(수령)를 확정하면 서버가 보낸 수량과 맞춰 봐요. 출발 최신 순, 15초마다 새로 읽어요. 줄을 누르면 상품별로 펼쳐져요.',
+    chipWaiting: 'MFC 입고 전',
+    chipMismatch: (n: number) => `입고 · ${n.toLocaleString('ko-KR')}개 안 맞음`,
+    chipMismatchShort: '입고 · 안 맞음',
+    chipDone: '✓ MFC 입고 완료',
+    chipNone: '입고 기록 없음',
+    chipFailed: '입고 못 읽음',
+    chipAt: (at: string) => `MFC 반영 ${at}`,
+    legend: {
+      WAITING: 'DC 재고에서 빠져 가는 중이거나, MFC 가 아직 입고를 확정하지 않았어요.',
+      MISMATCH: 'MFC 가 입고했는데 보낸 수량과 달라요(덜 받음).',
+      DONE: '보낸 수량이 MFC 재고에 다 반영됐어요.',
+    },
+    filterState: '입고 상태',
+    filterDate: '출발한 날',
+    all: '전체',
+    stateLabel: { TRANSIT_OPEN: 'MFC 입고 전', RECEIPT_POSTED_AWAITING_ACK: '입고 · 안 맞음', TRANSIT_RECONCILED: 'MFC 입고 완료' } as Readonly<Record<string, string>>,
+    col: {
+      departed: 'DC 출발',
+      trf: 'TRF',
+      mfc: '받는 MFC',
+      sent: '보낸 수량',
+      received: 'MFC 받은 수량',
+      diff: '안 맞음',
+      diffHint: '보낸 수량 − 받은 수량 − 승인된 운송 손실(아직 정리 안 된 수량)',
+      state: 'MFC 입고',
+      receivedAt: 'MFC 반영 시각',
+    },
+    closed: '· 입고 종결',
+    empty: '조건에 맞는 출발이 없어요.',
+    page: (p: number) => `${p + 1}쪽`,
+    prev: '이전',
+    next: '다음',
+    note: 'MFC 입고 반영은 MFC 가 수령을 확정한 결과(재고 서버 기준)예요. 안 맞는 수량은 MFC 가 더 받거나 수령을 정정하면 맞춰지고, MFC 입고 종결 뒤에는 운송 손실 승인으로 정리해요.',
+    detail: {
+      departed: 'DC 출발',
+      firstReceipt: 'MFC 처음 반영',
+      lastReceipt: 'MFC 마지막 반영',
+      reconciled: '수량 맞춰 끝남',
+      closed: 'MFC 입고 종결',
+      storyWaiting: (q: number) => `${q.toLocaleString('ko-KR')}개가 DC 에서 출발했고, MFC 입고 반영은 아직이에요.`,
+      storyMismatch: (q: number, rcv: number, t: number) =>
+        `${q.toLocaleString('ko-KR')}개 보냈는데 MFC 가 ${rcv.toLocaleString('ko-KR')}개를 받았어요 — ${t.toLocaleString('ko-KR')}개가 아직 안 맞아요.`,
+      storyDone: (q: number, rcv: number, loss: number) =>
+        `${q.toLocaleString('ko-KR')}개 보내 MFC 가 ${rcv.toLocaleString('ko-KR')}개를 재고에 반영했어요${loss ? ` (운송 손실 승인 ${loss.toLocaleString('ko-KR')}개)` : ''}.`,
+      quality: (normal: number, quarantined: number, pending: number) =>
+        `받은 것 중 정상 ${normal.toLocaleString('ko-KR')} · 격리 ${quarantined.toLocaleString('ko-KR')} · 품질 판정 전 ${pending.toLocaleString('ko-KR')}개.`,
+      product: '상품',
+      normal: '정상',
+      quarantined: '격리',
+      pending: '판정 전',
+      loss: '운송 손실',
+      toTrf: (n: string | null) => `TRF ${n ?? ''} 상세 ›`,
+    },
+  },
+
   /** TRF 한 건 DC→MFC 진행(2026-11-27) */
   journey: {
     title: 'DC → MFC 진행',
-    steps: { RECEIVED: '접수', ALLOCATED: '재고 확보', PICKING: '피킹', READY: '실을 준비', DEPARTED: '출발', ARRIVED: 'MFC 도착', HANDED_OVER: 'MFC 인계' } as Readonly<Record<string, string>>,
-    sides: '왼쪽 다섯 칸은 DC(TRF 상태), 오른쪽 두 칸은 MFC(운행 정차 기록)예요. 15초마다 새로 읽어요.',
+    steps: { RECEIVED: '접수', ALLOCATED: '재고 확보', PICKING: '피킹', READY: '실을 준비', DEPARTED: '출발', ARRIVED: 'MFC 도착', HANDED_OVER: 'MFC 인계', STOCKED: 'MFC 입고' } as Readonly<Record<string, string>>,
+    sides: '왼쪽 다섯 칸은 DC(TRF 상태), 오른쪽 세 칸은 MFC(도착·인계 = 운행 정차 기록, 입고 = MFC 재고 반영)예요. 15초마다 새로 읽어요.',
+    stocked: (at: string, sent: number, recv: number) => `${at} MFC 재고에 반영됐어요 — 보낸 ${sent.toLocaleString('ko-KR')}개 중 ${recv.toLocaleString('ko-KR')}개, 수량이 다 맞아요.`,
+    stockedMismatch: (at: string, sent: number, recv: number, diff: number) =>
+      `${at} MFC 가 입고했는데 보낸 ${sent.toLocaleString('ko-KR')}개 중 ${recv.toLocaleString('ko-KR')}개만 반영됐어요 — ${diff.toLocaleString('ko-KR')}개가 안 맞아요(MFC 입고 확인 메뉴).`,
     planned: (vehicle: string, eta: string) => `배차됨 — 차량 ${vehicle}, MFC 도착 계획 ${eta}`,
     onWay: (eta: string, late: boolean) => `차 타고 가는 중 — 도착 예정 ${eta}${late ? ' (늦음)' : ''}. DC 재고에서는 빠졌고 MFC 가 아직 받기 전이에요.`,
     arrived: (at: string) => `${at} MFC 에 도착했어요 — 박스 인계 전이에요.`,
     handed: (at: string, recv: number | null, sent: number | null, bad: boolean) =>
-      `${at} MFC 가 박스를 받았어요${recv !== null && sent !== null ? ` — ${sent}개 중 ${recv}개` : ''}${bad ? '. 빠지거나 파손된 박스가 있어요(출하·운송 › 운행 예외).' : '.'} MFC 재고 반영은 MFC 쪽에서 해요.`,
+      `${at} MFC 가 박스를 받았어요${recv !== null && sent !== null ? ` — ${sent}개 중 ${recv}개` : ''}${bad ? '. 빠지거나 파손된 박스가 있어요(출하·운송 › 운행 예외).' : '.'} MFC 입고(재고 반영)는 아직이에요.`,
     noTrip: '이 TRF 가 실린 운행 기록을 오늘·어제 출고일에서 못 찾았어요.',
     tripFailed: '운행 기록을 못 읽었어요.',
   },

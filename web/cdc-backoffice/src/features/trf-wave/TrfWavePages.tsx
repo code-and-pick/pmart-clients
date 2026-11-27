@@ -17,7 +17,9 @@ import type { components } from '../../api/generated/cdc-outbound';
 import { useApi } from '../../app/ApiContext';
 import { centerPath } from '../../app/nav';
 import { findWaveId } from '../../shared/findByNumber';
+import { TrfReceiptChip } from '../mfc-flow/ReceiptChip';
 import { TrfJourney } from '../mfc-flow/TrfJourney';
+import { useTransits } from '../mfc-flow/transits';
 import { messages } from '../../shared/messages';
 import { shortRef } from '../../shared/shortRef';
 import { MfcName, useMfcLabel } from '../../shared/MfcName';
@@ -218,6 +220,8 @@ function TransferListPage({ cdcId }: { readonly cdcId: string }) {
   const [mfcDraft, setMfcDraft] = useState(mfcId);
   const [noDraft, setNoDraft] = useState(no);
   const [picked, setPicked] = useState<ReadonlySet<string>>(new Set());
+  // 출발한 TRF 는 MFC 입고 반영도 함께(사용자 2026-11-27 "mfc에서 적치까지 완료했는데 왜 계속 출발이라고") — cdc-inventory transits
+  const transits = useTransits(cdcId, 30_000);
 
   const query = useQuery({
     queryKey: ['cdc', cdcId, 'transfers', state, mfcId, no, sort === 'recent' ? 'recent' : page],
@@ -382,7 +386,10 @@ function TransferListPage({ cdcId }: { readonly cdcId: string }) {
                           <MfcName id={t.mfcId} />
                         </td>
                         <td>
-                          <TrfStateBadge state={t.state} />
+                          <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                            <TrfStateBadge state={t.state} />
+                            {t.state === 'DEPARTED' && <TrfReceiptChip cdcId={cdcId} trfId={t.trfId} transits={transits} />}
+                          </span>
                         </td>
                         <td>{formatSeoul(t.dueAt)}</td>
                         <td className="text-xs text-base-content/70">{t.updatedAt ? formatSeoul(t.updatedAt) : messages.none}</td>

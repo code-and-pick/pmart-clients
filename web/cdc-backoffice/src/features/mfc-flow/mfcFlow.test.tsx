@@ -51,6 +51,18 @@ describe('MFC 재고 이동', () => {
     expect(within(detail).getByRole('link', { name: 'TRF T553019 상세 ›' })).toBeInTheDocument();
   });
 
+  it('다섯째 걸음 MFC 입고 — 최근 출발 줄에 입고 반영, 펼치면 MFC 입고 시각·안 맞음(transits 0.22.0)', async () => {
+    renderAt('/c/CDC01/mfc-flow');
+    const stocked = await screen.findByTestId('flow-step-STOCKED');
+    await waitFor(() => expect(stocked).toHaveTextContent(/오늘 \d건 입고/));
+    expect(within(stocked).getByTestId('flow-to-receipts')).toHaveAttribute('href', '/c/CDC01/mfc-receipts');
+    const rows = await screen.findAllByTestId('flow-recent-row');
+    const row = rows.find((r) => r.textContent?.includes('T553019'))!;
+    await waitFor(() => expect(within(row).getByTestId('receipt-chip')).toHaveTextContent('입고 · 8개 안 맞음'));
+    await userEvent.click(within(row).getByRole('button'));
+    expect(within(row).getByTestId('flow-recent-stocked')).toHaveTextContent('40개 중 32개만 반영됐어요 — 8개가 안 맞아요.');
+  });
+
   it('TRF 상세 — DC → MFC 진행 줄(배차된 운행이 있으면 차량·도착 계획)', async () => {
     renderAt('/c/CDC01/trf-wave/trf/TRF-20261126-0001');
     const j = await screen.findByTestId('trf-journey');

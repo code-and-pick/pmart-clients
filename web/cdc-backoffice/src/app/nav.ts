@@ -41,8 +41,16 @@ export const navGroups: readonly MenuGroup[] = [
         key: 'mfcFlow',
         segment: 'mfc-flow',
         ready: true,
-        apiReady: ['TRF 단계·MFC(transfers)', '출발 검증(departures)', '오늘 MFC 별(outbound-summary byMfc)', '운송 중(stock-snapshot transit)', 'MFC 도착·인계(transport-execution trips 정차 — 2026-11-27)'],
-        apiMissing: ['TRF 별 MFC 재고 반영(수령 확정) 조회 — 내부 경로만(요청 MF-1)'],
+        apiReady: ['TRF 단계·MFC(transfers)', '출발 검증(departures)', '오늘 MFC 별(outbound-summary byMfc)', '운송 중(stock-snapshot transit)', 'MFC 도착·인계(transport-execution trips 정차 — 2026-11-27)', 'MFC 입고 반영(cdc-inventory 0.22.0 transits)'],
+        apiMissing: [],
+      },
+      {
+        // MFC 입고 확인(사용자 2026-11-27 "mfc에 정상도착 및 입고 완료 정보 받아서 … 볼 수 있는 곳이 따로 있어야") — cdc-inventory 0.22.0 transits(MF-1)
+        key: 'mfcReceipts',
+        segment: 'mfc-receipts',
+        ready: true,
+        apiReady: ['출발 × TRF 별 MFC 수령 반영·안 맞음·입고 종결(cdc-inventory 0.22.0 transits)'],
+        apiMissing: [],
       },
       {
         key: 'floor',

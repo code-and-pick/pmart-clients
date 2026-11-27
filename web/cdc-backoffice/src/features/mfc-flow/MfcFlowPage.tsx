@@ -4,7 +4,8 @@
 // 새 API 없이 기존 직원 조회만, 15초마다 다시 읽는다:
 //   `GET /cdcs/{cdcId}/transfers?size=200`(TRF 단계·MFC) · `GET /cdcs/{cdcId}/departures?size=30`(출발 검증) · `GET /cdcs/{cdcId}/stock-snapshot`(transit = 출발했지만 MFC 가 아직 안 받은 수량).
 // (2026-11-27 사용자 "mfc랑 재고 연동되는 거 실시간으로") 넷째 걸음 "MFC 도착·인계" — 운행 정차(transport-execution trips, 오늘·어제 출고일)의 도착·인계 대조.
-//   TRF 마다 실린 정차를 찾아 "가는 중·도착 예정 / MFC 도착 / 인계 끝·박스 받은/보낸" 을 붙인다. MFC 재고 반영(수령 확정)은 DC 가 볼 조회가 없어 인계까지(요청 MF-1).
+//   TRF 마다 실린 정차를 찾아 "가는 중·도착 예정 / MFC 도착 / 인계 끝·박스 받은/보낸" 을 붙인다.
+// (2026-11-27 사용자 "mfc에서 적치까지 완료했는데 왜 계속 출발이라고") 다섯째 걸음 "MFC 입고" — cdc-inventory 0.22.0 transits(MF-1)의 수령 반영. 자세히는 MFC 입고 확인 메뉴.
 // 단계는 TRF 상태(서버 값)로 나눈다. 못 읽으면 그 칸은 실패로(0 으로 꾸미지 않는다).
 import { useQuery } from '@tanstack/react-query';
 import { Fragment, useMemo, useState } from 'react';
@@ -21,17 +22,27 @@ import { MfcName } from '../../shared/MfcName';
 import { shortRef } from '../../shared/shortRef';
 import { SkuName } from '../../shared/SkuName';
 import { trfWavePath } from '../trf-wave/TrfWavePages';
+import { TrfReceiptChip } from './ReceiptChip';
+import { receiptOf, useTransits, type CenterTransit, type Transits } from './transits';
 import { mfcSideOf, useTripStops, type StopOfTrf, type TripStops } from './tripStops';
 
 const t = messages.mfcFlow;
 type TransferSummary = components['schemas']['TransferSummary'];
 type Stage = 'WAIT' | 'PICK' | 'READY' | 'DEPARTED';
 /** 화면에 보이는 세 걸음 — 확보·대기와 Wave·피킹은 "DC에서 준비 중" 하나로 */
-const STEPS = ['PREP', 'READY', 'GOING', 'DONE'] as const;
+const STEPS = ['PREP', 'READY', 'GOING', 'DONE', 'STOCKED'] as const;
 type Step = (typeof STEPS)[number];
-const stepOf = (st: Stage, at: StopOfTrf | undefined): Step =>
-  st === 'WAIT' || st === 'PICK' ? 'PREP' : st === 'READY' ? 'READY' : at && mfcSideOf(at.stop) === 'HANDED_OVER' ? 'DONE' : 'GOING';
-const STEP_COLOR: Record<Step, string> = { PREP: 'bg-base-content/30', READY: 'bg-secondary', GOING: 'bg-info', DONE: 'bg-success' };
+const stepOf = (st: Stage, at: StopOfTrf | undefined, ct: CenterTransit | undefined): Step =>
+  st === 'WAIT' || st === 'PICK'
+    ? 'PREP'
+    : st === 'READY'
+      ? 'READY'
+      : ct && receiptOf(ct) !== 'WAITING'
+        ? 'STOCKED'
+        : at && mfcSideOf(at.stop) === 'HANDED_OVER'
+          ? 'DONE'
+          : 'GOING';
+const STEP_COLOR: Record<Step, string> = { PREP: 'bg-base-content/30', READY: 'bg-secondary', GOING: 'bg-info', DONE: 'bg-accent', STOCKED: 'bg-success' };
 const REFRESH = 15_000;
 
 /** TRF 상태 → 단계(취소는 빼고) */
@@ -44,7 +55,7 @@ export function stageOf(state: string): Stage | null {
 }
 
 type Count = { n: number; qty: number };
-const zero = (): Record<Step, Count> => ({ PREP: { n: 0, qty: 0 }, READY: { n: 0, qty: 0 }, GOING: { n: 0, qty: 0 }, DONE: { n: 0, qty: 0 } });
+const zero = (): Record<Step, Count> => ({ PREP: { n: 0, qty: 0 }, READY: { n: 0, qty: 0 }, GOING: { n: 0, qty: 0 }, DONE: { n: 0, qty: 0 }, STOCKED: { n: 0, qty: 0 } });
 
 /** `/c/:cdcId/mfc-flow` */
 export function MfcFlowMenu({ cdcId }: { readonly cdcId: string }) {
@@ -60,6 +71,7 @@ export function MfcFlowMenu({ cdcId }: { readonly cdcId: string }) {
     queryFn: () => request('GET', api.inventory.GET('/cdcs/{cdcId}/stock-snapshot', { params: { path: { cdcId } } })),
   });
   const stops = useTripStops(cdcId, REFRESH);
+  const transits = useTransits(cdcId, REFRESH);
   const transit = stock.data ? (stock.data.items ?? []).reduce((a, s) => a + (s.transit ?? 0), 0) : null;
 
   return (
@@ -72,9 +84,9 @@ export function MfcFlowMenu({ cdcId }: { readonly cdcId: string }) {
         {transfers.dataUpdatedAt > 0 && <span className="text-xs text-base-content/55">{t.asOf(formatSeoul(new Date(transfers.dataUpdatedAt).toISOString()))}</span>}
       </div>
       <QueryState state={toUiState(transfers, (d) => d.items.length === 0)} onRetry={() => void transfers.refetch()} emptyText={t.noTrf}>
-        {(data) => <FlowBody cdcId={cdcId} trfs={data.items} partial={data.hasNext} transit={transit} transitFailed={stock.isError} stops={stops} />}
+        {(data) => <FlowBody cdcId={cdcId} trfs={data.items} partial={data.hasNext} transit={transit} transitFailed={stock.isError} stops={stops} transits={transits} />}
       </QueryState>
-      <RecentDepartures cdcId={cdcId} trfs={transfers.data?.items ?? []} stops={stops} />
+      <RecentDepartures cdcId={cdcId} trfs={transfers.data?.items ?? []} stops={stops} transits={transits} />
       <p role="note" className="text-xs text-base-content/55">
         {t.receiptNote}
       </p>
@@ -89,6 +101,7 @@ function FlowBody({
   transit,
   transitFailed,
   stops,
+  transits,
 }: {
   readonly cdcId: string;
   readonly trfs: readonly TransferSummary[];
@@ -96,6 +109,7 @@ function FlowBody({
   readonly transit: number | null;
   readonly transitFailed: boolean;
   readonly stops: TripStops;
+  readonly transits: Transits;
 }) {
   // MFC → 걸음별 TRF 수·수량(준비 중 = 승인 수량, 실을 준비·가는 중 = 피킹 수량)
   const rows = useMemo(() => {
@@ -103,14 +117,14 @@ function FlowBody({
     for (const x of trfs) {
       const st = stageOf(x.state);
       if (!st) continue;
-      const step = stepOf(st, stops.byTrf.get(x.trfId));
+      const step = stepOf(st, stops.byTrf.get(x.trfId), transits.byTrf.get(x.trfId));
       const row = m.get(x.mfcId) ?? zero();
       row[step].n += 1;
       row[step].qty += step === 'PREP' ? x.approvedQty : x.pickedQty;
       m.set(x.mfcId, row);
     }
     return [...m.entries()].sort((a, b) => a[0].localeCompare(b[0]));
-  }, [trfs, stops.byTrf]);
+  }, [trfs, stops.byTrf, transits.byTrf]);
   // 넷째 걸음 — 오늘·어제 출고일 운행에서 MFC 가 인계받은 정차(박스 받은/보낸)
   const today = todaySeoul();
   const seoulDay = (iso: string) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul' }).format(new Date(iso));
@@ -118,6 +132,11 @@ function FlowBody({
   const recvBoxes = handed.reduce((a, sp) => a + (sp.handover?.receivedBoxes ?? 0), 0);
   const sentBoxes = handed.reduce((a, sp) => a + (sp.handover?.shippedBoxes ?? 0), 0);
   const arrivedNotHanded = stops.trips.flatMap((tr) => tr.stops.filter((sp) => mfcSideOf(sp) === 'ARRIVED')).length;
+  // 다섯째 걸음 — 오늘 MFC 가 재고에 반영한 출발(마지막 반영 시각이 오늘)
+  const stockedToday = transits.items.filter((x) => receiptOf(x) !== 'WAITING' && !!x.transit.lastReceiptAt && seoulDay(x.transit.lastReceiptAt) === today);
+  const stockedRecv = stockedToday.reduce((a, x) => a + (x.totals.receivedQty ?? 0), 0);
+  const stockedSent = stockedToday.reduce((a, x) => a + (x.totals.departedQty ?? 0), 0);
+  const stockedBad = stockedToday.filter((x) => receiptOf(x) === 'MISMATCH').length;
   const total = (s: Step) => rows.reduce((a, [, r]) => ({ n: a.n + r[s].n, qty: a.qty + r[s].qty }), { n: 0, qty: 0 });
   return (
     <div className="space-y-5">
@@ -138,9 +157,22 @@ function FlowBody({
                   : stops.loading
                     ? '…'
                     : t.stopsDone(handed.length)
-                : t.trfs(c.n);
-          const small = s === 'GOING' ? t.goingSub(c.n) : s === 'DONE' ? t.doneSub(recvBoxes, sentBoxes, arrivedNotHanded) : t.units(c.qty);
-          const live = c.n > 0 || (s === 'GOING' && (transit ?? 0) > 0) || (s === 'DONE' && handed.length > 0);
+                : s === 'STOCKED'
+                  ? transits.failed
+                    ? messages.loadFailed
+                    : transits.loading
+                      ? '…'
+                      : t.stockedToday(stockedToday.length)
+                  : t.trfs(c.n);
+          const small =
+            s === 'GOING'
+              ? t.goingSub(c.n)
+              : s === 'DONE'
+                ? t.doneSub(recvBoxes, sentBoxes, arrivedNotHanded)
+                : s === 'STOCKED'
+                  ? t.stockedSub(stockedRecv, stockedSent, stockedBad)
+                  : t.units(c.qty);
+          const live = c.n > 0 || (s === 'GOING' && (transit ?? 0) > 0) || (s === 'DONE' && handed.length > 0) || (s === 'STOCKED' && stockedToday.length > 0);
           return (
             <Fragment key={s}>
               <li className={`flex-1 rounded-box border p-4 ${live ? 'border-base-300 bg-base-100' : 'border-dashed border-base-300'}`} data-testid={`flow-step-${s}`}>
@@ -150,8 +182,13 @@ function FlowBody({
                 </p>
                 <p className="mt-1 text-2xl font-semibold tabular-nums">{big}</p>
                 <p className="text-xs text-base-content/60">{small}</p>
+                {s === 'STOCKED' && (
+                  <Link className="link mt-1 inline-block text-xs" to={centerPath(cdcId, 'mfc-receipts')} data-testid="flow-to-receipts">
+                    {t.toReceipts}
+                  </Link>
+                )}
               </li>
-              {s !== 'DONE' && (
+              {s !== 'STOCKED' && (
                 <li aria-hidden className="hidden text-2xl text-base-content/30 md:block">
                   →
                 </li>
@@ -185,7 +222,7 @@ function FlowBody({
                   {STEPS.map((s) => (r[s].n > 0 ? <span key={s} className={STEP_COLOR[s]} style={{ width: `${(r[s].n / all) * 100}%` }} /> : null))}
                 </div>
                 <p className="text-sm text-base-content/80" data-testid="flow-row-text">
-                  {t.rowText(all, r.PREP.n, r.READY.n, r.GOING.n, r.DONE.n)}
+                  {t.rowText(all, r.PREP.n, r.READY.n, r.GOING.n, r.DONE.n, r.STOCKED.n)}
                   <span aria-hidden className="ml-2 text-base-content/40">
                     ›
                   </span>
@@ -201,7 +238,7 @@ function FlowBody({
 }
 
 /** ③ 최근 출발 — "언제 · 어느 MFC 로 · 몇 개 · 차량 · 맞았는지" 한 문장 */
-function RecentDepartures({ cdcId, trfs, stops }: { readonly cdcId: string; readonly trfs: readonly TransferSummary[]; readonly stops: TripStops }) {
+function RecentDepartures({ cdcId, trfs, stops, transits }: { readonly cdcId: string; readonly trfs: readonly TransferSummary[]; readonly stops: TripStops; readonly transits: Transits }) {
   const api = useApi();
   const query = useQuery({
     queryKey: ['cdc', cdcId, 'departures', 'flow'],
@@ -227,6 +264,7 @@ function RecentDepartures({ cdcId, trfs, stops }: { readonly cdcId: string; read
                     x={x}
                     trf={x.trfId ? byTrf.get(x.trfId) : undefined}
                     stops={stops}
+                    transits={transits}
                     open={open === `${dep.departureId}-${x.trfId}`}
                     onToggle={() => setOpen(open === `${dep.departureId}-${x.trfId}` ? null : `${dep.departureId}-${x.trfId}`)}
                   />
@@ -254,6 +292,7 @@ function DepartureRow({
   x,
   trf,
   stops,
+  transits,
   open,
   onToggle,
 }: {
@@ -262,6 +301,7 @@ function DepartureRow({
   readonly x: DepTrf;
   readonly trf: TransferSummary | undefined;
   readonly stops: TripStops;
+  readonly transits: Transits;
   readonly open: boolean;
   readonly onToggle: () => void;
 }) {
@@ -297,6 +337,7 @@ function DepartureRow({
         <span>{t.sentLine(x.departedQty ?? 0)}</span>
         <span className={ok ? 'text-success' : 'text-error'}>{ok ? t.okLoad : t.badLoad}</span>
         <MfcSideChip at={at} loading={stops.loading || one.isFetching} failed={stops.failed && one.isError} />
+        {x.trfId && <TrfReceiptChip cdcId={cdcId} trfId={x.trfId} transits={transits} />}
         <span className="ml-auto flex items-center gap-3 text-xs text-base-content/55">
           {dep.vehicleId && <span>{`${messages.shipping.vehicle} ${dep.vehicleId}`}</span>}
           <span className="font-mono" title={x.trfId}>
@@ -304,7 +345,7 @@ function DepartureRow({
           </span>
         </span>
       </button>
-      {open && <DepartureDetail cdcId={cdcId} dep={dep} x={x} at={at} trfLabel={trfLabel} />}
+      {open && <DepartureDetail cdcId={cdcId} dep={dep} x={x} at={at} trfLabel={trfLabel} ct={x.trfId ? transits.byTrf.get(x.trfId) : undefined} />}
     </li>
   );
 }
@@ -346,7 +387,21 @@ function SentLines({ cdcId, trfId }: { readonly cdcId: string; readonly trfId: s
 }
 
 /** 펼친 출발 — 시각 줄(DC 출발·도착 예정·MFC 도착·MFC 인계)과 인계 대조, 가는 길 */
-function DepartureDetail({ cdcId, dep, x, at, trfLabel }: { readonly cdcId: string; readonly dep: Departure; readonly x: DepTrf; readonly at: StopOfTrf | undefined; readonly trfLabel: string }) {
+function DepartureDetail({
+  cdcId,
+  dep,
+  x,
+  at,
+  trfLabel,
+  ct,
+}: {
+  readonly cdcId: string;
+  readonly dep: Departure;
+  readonly x: DepTrf;
+  readonly at: StopOfTrf | undefined;
+  readonly trfLabel: string;
+  readonly ct: CenterTransit | undefined;
+}) {
   const d = t.detail;
   const stop = at?.stop;
   const h = stop?.handover;
@@ -356,6 +411,7 @@ function DepartureDetail({ cdcId, dep, x, at, trfLabel }: { readonly cdcId: stri
     { key: 'eta', label: d.eta, time: hm(stop?.estimatedArrivalAt ?? stop?.plannedArrivalAt), done: !!stop?.arrivedAt },
     { key: 'arr', label: d.arrived, time: hm(stop?.arrivedAt), done: !!stop?.arrivedAt },
     { key: 'ho', label: d.handed, time: hm(stop?.handedOverAt), done: !!stop && mfcSideOf(stop) === 'HANDED_OVER' },
+    { key: 'st', label: d.stocked, time: hm(ct?.transit.lastReceiptAt), done: !!ct && receiptOf(ct) === 'DONE' },
   ];
   const missing = [...(h?.missingLpns ?? []), ...(h?.damagedLpns ?? [])];
   const shipDate = at?.trip.shipDate ?? todaySeoul();
@@ -384,6 +440,11 @@ function DepartureDetail({ cdcId, dep, x, at, trfLabel }: { readonly cdcId: stri
           {stop?.delayed && <span className="text-error">{` ${d.late}`}</span>}
         </p>
       )}
+      {ct && receiptOf(ct) !== 'WAITING' && (
+        <p className={receiptOf(ct) === 'MISMATCH' ? 'text-warning' : ''} data-testid="flow-recent-stocked">
+          {receiptOf(ct) === 'DONE' ? d.stockedDone(ct.totals.departedQty ?? 0, ct.totals.receivedQty ?? 0) : d.stockedBad(ct.totals.departedQty ?? 0, ct.totals.receivedQty ?? 0, ct.totals.unreconciledQty ?? 0)}
+        </p>
+      )}
       {x.trfId && <SentLines cdcId={cdcId} trfId={x.trfId} />}
       {missing.length > 0 && (
         <p className="text-xs text-warning" data-testid="flow-recent-missing">
@@ -393,6 +454,9 @@ function DepartureDetail({ cdcId, dep, x, at, trfLabel }: { readonly cdcId: stri
       <p className="flex flex-wrap gap-x-4 gap-y-1 text-xs">
         <Link className="link" to={trfWavePath(cdcId, `trf/${encodeURIComponent(x.trfId ?? '')}`)}>
           {d.toTrf(trfLabel)}
+        </Link>
+        <Link className="link" to={centerPath(cdcId, 'mfc-receipts')}>
+          {d.toReceipts}
         </Link>
         <Link className="link" to={centerPath(cdcId, 'shipping')}>
           {d.toDeparture(dep.departureNumber ?? shortRef(dep.departureId))}
