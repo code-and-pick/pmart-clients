@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:pmart_ui/pmart_ui.dart';
 
 import '../../../l10n/gen/app_localizations.dart';
+import '../../../shared/field_repositories.dart';
 import '../../../shared/pda_theme.dart';
 import '../../../shared/product_hints.dart';
 import '../../../shared/ui_state_of.dart';
@@ -67,6 +68,42 @@ final trfNumberProvider = FutureProvider.autoDispose.family<String?, String>((
     return null;
   }
 });
+
+/// 작업을 다시 읽어 상품을 보는 업무 종류 — 출고 작업(fulfillment) · 입고 작업(mfc-inbound)
+const _fulfillmentTypes = {'PICK', 'PACK', 'RETURN'};
+const _inboundTaskTypes = {'INSPECT', 'PUTAWAY'};
+const _taskTypes = {..._fulfillmentTypes, ..._inboundTaskTypes};
+
+typedef WorkTaskProduct = ({String sku, String? name, int qty, String sub});
+
+/// 업무 내역 한 건(종류, 작업 번호)의 상품 줄 — 서버 작업 조회 값 그대로
+final workTaskProductsProvider = FutureProvider.autoDispose
+    .family<List<WorkTaskProduct>, (String, String)>((ref, key) async {
+      final (type, taskId) = key;
+      if (_inboundTaskTypes.contains(type)) {
+        final t = await ref
+            .watch(qualityRepositoryProvider)
+            .inboundTask(taskId);
+        return [
+          (
+            sku: t.sku,
+            name: t.productName,
+            qty: t.doneQty,
+            sub: ['LOT ${t.lotId}', t.locationCode].join(' · '),
+          ),
+        ];
+      }
+      final t = await ref.watch(taskRepositoryProvider).task(taskId);
+      return [
+        for (final l in t.lines)
+          (
+            sku: l.sku,
+            name: l.productName,
+            qty: l.completedQty,
+            sub: '${l.completedQty} / ${l.plannedQty}',
+          ),
+      ];
+    });
 
 class MyWorkBar extends ConsumerWidget implements PreferredSizeWidget {
   const MyWorkBar({super.key});
@@ -456,6 +493,66 @@ class _WorkProducts extends ConsumerWidget {
               ),
             ),
           );
+        default:
+          rows.add(
+            const Padding(
+              padding: EdgeInsets.all(24),
+              child: Center(child: CircularProgressIndicator()),
+            ),
+          );
+      }
+    } else if (item.taskId != null && _taskTypes.contains(item.type)) {
+      // 피킹·포장·취소품 복귀(출고 작업)·품질검사·적치(입고 작업) — 기록에 상품이 없어도 작업을 다시 읽어 상품을(사용자 2026-11-27)
+      switch (ref.watch(workTaskProductsProvider((item.type, item.taskId!)))) {
+        case AsyncData(:final value) when value.isNotEmpty:
+          for (final x in value) {
+            rows.add(
+              _ProductRow(
+                name: x.name ?? hints.bySku(x.sku)?.name ?? x.sku,
+                sku: x.sku,
+                main: l10n.myWorkProductQty(x.qty),
+                sub: x.sub,
+              ),
+            );
+          }
+        case AsyncData():
+          rows.add(
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text(
+                l10n.myWorkProductsNone,
+                style: const TextStyle(color: PdaColors.muted, fontSize: 16),
+              ),
+            ),
+          );
+        case AsyncError():
+          // 작업을 못 읽으면 기록에 있는 상품이라도(없으면 실패 안내 — 빈 목록으로 꾸미지 않음)
+          final own = [
+            for (final x in siblings.isEmpty ? [item] : siblings)
+              if (x.sku != null) x,
+          ];
+          if (own.isEmpty) {
+            rows.add(
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text(
+                  l10n.myWorkProductsFailed,
+                  key: const ValueKey('my-work-products-failed'),
+                  style: const TextStyle(color: PdaColors.danger, fontSize: 16),
+                ),
+              ),
+            );
+          }
+          for (final x in own) {
+            rows.add(
+              _ProductRow(
+                name: hints.bySku(x.sku!)?.name ?? x.sku!,
+                sku: x.sku!,
+                main: x.qty == null ? '—' : l10n.myWorkProductQty(x.qty!),
+                sub: formatSeoulTime(x.at),
+              ),
+            );
+          }
         default:
           rows.add(
             const Padding(

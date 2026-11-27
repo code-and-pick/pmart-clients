@@ -10,6 +10,9 @@ import '../domain/quality.dart';
 /// 품질검사 업무: 입고 품질검사(mfc-inbound inbound-tasks INSPECT)와 회수품 검수(mfc-quality return-inspections).
 /// 적치(PUTAWAY)도 같은 입고 작업 API 라 여기 둔다 — 화면은 재고 이동 업무.
 abstract interface class QualityRepository {
+  /// `GET /inbound-tasks/{taskId}` — 업무 내역에서 적치·품질검사 한 건의 상품(사용자 2026-11-27)
+  Future<InboundTaskView> inboundTask(String taskId);
+
   /// `GET /inbound-tasks` (READY 기본).
   Future<List<InboundTaskView>> inboundTasks(
     String mfcId, {
@@ -54,6 +57,14 @@ final class ApiQualityRepository implements QualityRepository {
 
   final ib.InboundTasksApi _tasks;
   final q.ReturnInspectionsApi _returns;
+
+  @override
+  Future<InboundTaskView> inboundTask(String taskId) async {
+    final res = await pmartGuard(() => _tasks.getInboundTask(taskId: taskId));
+    return inboundTaskFromContract(
+      res.data ?? (throw const ContractViolationFailure('입고 작업 없음')),
+    );
+  }
 
   @override
   Future<List<InboundTaskView>> inboundTasks(

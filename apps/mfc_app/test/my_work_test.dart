@@ -148,6 +148,51 @@ void main() {
     expect(find.text('12개'), findsWidgets);
   });
 
+  testWidgets('취소품 복귀·적치 기록은 상품이 기록에 없어도 작업을 다시 읽어 상품을', (t) async {
+    await pump(
+      t,
+      extra: [
+        WorkActivity(
+          source: 'mfc-fulfillment',
+          type: 'RETURN',
+          refId: 'RET-REC-1',
+          taskId: 'shp-9-RETURN',
+          result: 'APPLIED',
+          at: DateTime.now().toUtc(),
+        ),
+        WorkActivity(
+          source: 'mfc-inbound',
+          type: 'PUTAWAY',
+          refId: 'PUT-REC-1',
+          taskId: 'TSK-INS-mock-1',
+          result: 'APPLIED',
+          at: DateTime.now().toUtc(),
+        ),
+      ],
+    );
+    await t.tap(find.byKey(const ValueKey('my-work-chip')));
+    await t.pumpAndSettle();
+    await t.tap(find.byKey(const ValueKey('my-work-tap-RET-REC-1')));
+    await t.pumpAndSettle();
+    final sheet = find.byKey(const ValueKey('my-work-products'));
+    expect(
+      find.descendant(of: sheet, matching: find.text('그릭요거트 플레인 400g')),
+      findsWidgets,
+    );
+    expect(find.text('이 기록에는 상품 정보가 없어요'), findsNothing);
+    await t.tapAt(const Offset(200, 40));
+    await t.pumpAndSettle();
+    await t.tap(find.byKey(const ValueKey('my-work-tap-PUT-REC-1')));
+    await t.pumpAndSettle();
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('my-work-products')),
+        matching: find.textContaining('LOT-Y-1110'),
+      ),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('못 읽은 원장이 있으면 빈 내역으로 두지 않고 "일부 내역을 못 불러왔어요"', (t) async {
     await pump(t, unavailable: ['mfc-quality'], empty: true);
     await t.tap(find.byKey(const ValueKey('my-work-chip')));

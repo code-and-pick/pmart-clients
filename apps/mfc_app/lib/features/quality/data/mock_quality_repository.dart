@@ -67,6 +67,15 @@ final class MockQualityRepository implements QualityRepository {
   InboundTaskView? task(String id) => _tasks[id];
 
   @override
+  Future<InboundTaskView> inboundTask(String taskId) async {
+    await _wait();
+    return _tasks[taskId] ??
+        (throw const ProblemFailure(
+          Problem(status: 404, code: ProblemCode.notFound),
+        ));
+  }
+
+  @override
   Future<List<InboundTaskView>> inboundTasks(
     String mfcId, {
     InboundTaskKind? kind,
