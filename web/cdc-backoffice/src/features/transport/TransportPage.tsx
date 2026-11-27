@@ -197,7 +197,13 @@ function TripsView({ cdcId, date }: { readonly cdcId: string; readonly date: str
                             <td className="whitespace-nowrap">
                               {done} / {x.stops.length}
                             </td>
-                            <td className="whitespace-nowrap">{nextStop && x.state === 'DEPARTED' ? `${nextStop.mfcId} ${fmt(nextStop.estimatedArrivalAt ?? nextStop.plannedArrivalAt)}` : messages.none}</td>
+                            <td className="whitespace-nowrap">{nextStop && x.state === 'DEPARTED' ? (
+                              <>
+                                <MfcName id={nextStop.mfcId} /> {fmt(nextStop.estimatedArrivalAt ?? nextStop.plannedArrivalAt)}
+                              </>
+                            ) : (
+                              messages.none
+                            )}</td>
                             <td className="whitespace-nowrap text-right">
                               {x.boxCount ?? 0} · {x.rtCount ?? 0}
                             </td>
@@ -267,7 +273,7 @@ function TripDetail({ cdcId, trip }: { readonly cdcId: string; readonly trip: Tr
           {trip.departedAt ? ` → ${fmt(trip.departedAt)}` : ''}
         </p>
         <p>
-          <span className="text-base-content/60">{t.outbound}</span> {trip.departureId ? shortRef(trip.departureId) : messages.none}
+          <span className="text-base-content/60">{t.outbound}</span> {trip.departureId ? <span title={trip.departureId}>{trip.departureNumber || shortRef(trip.departureId)}</span> : messages.none}
           {trip.outboundLinkage ? ` · ${t.linkage[trip.outboundLinkage] ?? trip.outboundLinkage}` : ''}
           {trip.outboundResult ? ` · ${messages.shipping.results[trip.outboundResult] ?? trip.outboundResult}` : ''}
         </p>
@@ -283,7 +289,7 @@ function TripDetail({ cdcId, trip }: { readonly cdcId: string; readonly trip: Tr
         <ul className="flex flex-wrap gap-2 text-xs">
           {(trip.transfers ?? []).map((x) => (
             <li key={x.trfId} className={`badge badge-sm ${x.loaded ? 'badge-success badge-outline' : 'badge-ghost'}`}>
-              {x.trfId ? <TrfNo cdcId={cdcId} trfId={x.trfId} /> : messages.none} · {x.loaded ? t.lpnCount(x.lpns?.length ?? 0) : t.notLoaded}
+              {x.trfId ? <TrfNo cdcId={cdcId} trfId={x.trfId} known={x.trfNumber} /> : messages.none} · {x.loaded ? t.lpnCount(x.lpns?.length ?? 0) : t.notLoaded}
             </li>
           ))}
         </ul>
@@ -371,7 +377,7 @@ function StopsTable({ cdcId, trip }: { readonly cdcId: string; readonly trip: Tr
                   <td>{t.stopSeq(seq)}</td>
                   <td className="font-mono text-xs">
                     <MfcName id={s.mfcId} />
-                    <span className="block text-base-content/55">{(s.trfIds ?? []).map((id, i) => (<span key={id}>{i > 0 && ', '}<TrfNo cdcId={cdcId} trfId={id} /></span>))}</span>
+                    <span className="block text-base-content/55">{(s.trfIds ?? []).map((id, i) => (<span key={id}>{i > 0 && ', '}<TrfNo cdcId={cdcId} trfId={id} known={s.trfNumbers?.[i]} /></span>))}</span>
                   </td>
                   <td>
                     <span className="flex flex-wrap gap-1">

@@ -510,8 +510,8 @@ export const outboundHandlers = [
     const unit = q.get('unitType');
     const trf = q.get('trfId');
     const rows = [
-      { lpn: 'RT-0001', trfId: 'TRF-20261126-0001', mfcId: 'MFC-BJG-01', waveId: 'WAVE-20261126-01', unitType: 'RT', parentLpn: null, sealState: 'SEALED', sealNo: 'SL-77', temperatureZone: 'AMBIENT', weightG: null, sortedBy: 'OP-cdc-worker-1', sortedAt: '2026-11-25T23:30:00Z', inspection: 'PASS', failReason: null, inspectedAt: '2026-11-25T23:35:00Z', loaded: true, tripId: 'TRIP-0002', vehicleId: 'VH-11', dockCode: 'D3', loadedAt: '2026-11-25T23:38:00Z', departureId: 'DEP-0002', contents: [] },
-      { lpn: 'BOX-0001', trfId: 'TRF-20261126-0001', mfcId: 'MFC-BJG-01', waveId: 'WAVE-20261126-01', unitType: 'BOX', parentLpn: 'RT-0001', sealState: 'SEALED', sealNo: null, temperatureZone: 'AMBIENT', weightG: 6200, sortedBy: 'OP-cdc-worker-1', sortedAt: '2026-11-25T23:20:00Z', inspection: 'PASS', failReason: null, inspectedAt: '2026-11-25T23:35:00Z', loaded: true, tripId: 'TRIP-0002', vehicleId: 'VH-11', dockCode: 'D3', loadedAt: '2026-11-25T23:38:00Z', departureId: 'DEP-0002', contents: [{ sku: 'SKU-1003', lot: 'LOT-C2', qty: 12 }] },
+      { lpn: 'RT-0001', trfId: 'TRF-20261126-0001', trfNumber: 'T482913', mfcId: 'MFC-BJG-01', waveId: 'WAVE-20261126-01', unitType: 'RT', parentLpn: null, sealState: 'SEALED', sealNo: 'SL-77', temperatureZone: 'AMBIENT', weightG: null, sortedBy: 'OP-cdc-worker-1', sortedAt: '2026-11-25T23:30:00Z', inspection: 'PASS', failReason: null, inspectedAt: '2026-11-25T23:35:00Z', loaded: true, tripId: 'TRIP-0002', vehicleId: 'VH-11', dockCode: 'D3', loadedAt: '2026-11-25T23:38:00Z', departureId: 'DEP-0002', contents: [] },
+      { lpn: 'BOX-0001', trfId: 'TRF-20261126-0001', trfNumber: 'T482913', mfcId: 'MFC-BJG-01', waveId: 'WAVE-20261126-01', unitType: 'BOX', parentLpn: 'RT-0001', sealState: 'SEALED', sealNo: null, temperatureZone: 'AMBIENT', weightG: 6200, sortedBy: 'OP-cdc-worker-1', sortedAt: '2026-11-25T23:20:00Z', inspection: 'PASS', failReason: null, inspectedAt: '2026-11-25T23:35:00Z', loaded: true, tripId: 'TRIP-0002', vehicleId: 'VH-11', dockCode: 'D3', loadedAt: '2026-11-25T23:38:00Z', departureId: 'DEP-0002', contents: [{ sku: 'SKU-1003', lot: 'LOT-C2', qty: 12 }] },
       { lpn: 'BOX-0002', trfId: 'TRF-20261126-0002', mfcId: 'MFC-BNG-01', waveId: 'WAVE-20261126-01', unitType: 'BOX', parentLpn: null, sealState: 'UNSEALED', sealNo: null, temperatureZone: 'CHILLED', weightG: null, sortedBy: 'OP-cdc-worker-2', sortedAt: '2026-11-26T00:10:00Z', inspection: null, failReason: null, inspectedAt: null, loaded: false, tripId: null, vehicleId: null, dockCode: null, loadedAt: null, departureId: null, contents: [{ sku: 'SKU-1002', lot: 'LOT-B7', qty: 6 }] },
     ].filter((r) => (!unit || r.unitType === unit) && (!trf || r.trfId === trf));
     return HttpResponse.json({ items: rows, page: 0, size: 50, hasNext: false });
@@ -523,7 +523,7 @@ export const outboundHandlers = [
     if (denied) return denied;
     const state = new URL(request.url).searchParams.get('state');
     const rows = [
-      { followupId: 'SF-1', trfId: 'TRF-20261126-0001', mfcId: 'MFC-BJG-01', waveId: 'WAVE-1', taskId: 'TASK-1', sku: 'SKU-1002', lot: 'LOT-B7', locationCode: 'CDC01-B-6-67-01-1-1', shortQty: 2, state: 'PENDING', reallocatedQty: 0, unresolvedQty: 2, newTaskIds: [], reason: null, createdAt: '2026-11-26T00:20:00Z', updatedAt: '2026-11-26T00:20:00Z' },
+      { followupId: 'SF-1', trfId: 'TRF-20261126-0001', trfNumber: 'T482913', mfcId: 'MFC-BJG-01', waveId: 'WAVE-1', taskId: 'TASK-1', sku: 'SKU-1002', lot: 'LOT-B7', locationCode: 'CDC01-B-6-67-01-1-1', shortQty: 2, state: 'PENDING', reallocatedQty: 0, unresolvedQty: 2, newTaskIds: [], reason: null, createdAt: '2026-11-26T00:20:00Z', updatedAt: '2026-11-26T00:20:00Z' },
     ].filter((r) => !state || r.state === state);
     return HttpResponse.json({ items: rows, page: 0, size: 50, hasNext: false });
   }),

@@ -86,7 +86,7 @@ export function Shortages({ cdcId }: { readonly cdcId: string }) {
                     </td>
                     <td className="text-xs">
                       <Link className="link font-mono" to={trfWavePath(cdcId, `trf/${encodeURIComponent(x.trfId)}`)}>
-                        <TrfNo cdcId={cdcId} trfId={x.trfId} />
+                        <TrfNo cdcId={cdcId} trfId={x.trfId} known={x.trfNumber} />
                       </Link>
                       {x.mfcId && <MfcName id={x.mfcId} className="ml-1 text-base-content/60" />}
                     </td>

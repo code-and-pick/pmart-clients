@@ -204,7 +204,7 @@ function OrderDetail({ cdcId, order: o, all }: { readonly cdcId: string; readonl
                   <MfcName id={s.mfcId} />
                 </td>
                 <td>{fmt(s.plannedArrivalAt)}</td>
-                <td className="font-mono">{(s.trfIds ?? []).map(shortRef).join(', ') || messages.none}</td>
+                <td className="font-mono">{(s.trfIds ?? []).map((id, i) => s.trfNumbers?.[i] || shortRef(id)).join(', ') || messages.none}</td>
                 <td className="text-right">
                   {s.boxCount ?? 0} · {s.rtCount ?? 0}
                 </td>
@@ -335,9 +335,9 @@ function MoveForm({ cdcId, order: o, all, onClose }: { readonly cdcId: string; r
       <label className="flex flex-col gap-1 text-sm">
         {t.moveTrf}
         <select className="select select-sm w-52" value={trfId} onChange={(e) => setTrfId(e.target.value)} data-testid="move-trf">
-          {(o.trfIds ?? []).map((id) => (
+          {(o.trfIds ?? []).map((id, i) => (
             <option key={id} value={id}>
-              {id}
+              {o.trfNumbers?.[i] || id}
             </option>
           ))}
         </select>

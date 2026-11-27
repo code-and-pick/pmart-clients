@@ -38,14 +38,14 @@ function seed() {
     {
       tripId: id(1), cdcId: 'CDC01', shipDate: d, routeId: 'RT-01', tempClass: 'CHILLED', vehicleId: 'VH-11', plateNo: '경기 81바 1101', driverId: 'DR-11', driverName: '박기사', state: 'DEPARTED', delayed: true,
       plannedLoadingStartAt: kst(d, 21, 30), plannedDepartureAt: kst(d, 22), plannedReturnAt: kst(d, 2, 0, 1), checkedInAt: kst(d, 21, 20), loadedAt: kst(d, 21, 55), departedAt: kst(d, 22, 5), endedAt: null,
-      departureId: 'DEP-0001', outboundLinkage: 'ACKNOWLEDGED', outboundResult: 'MATCHED', trfCount: 2, boxCount: 14, rtCount: 6,
+      departureId: 'DEP-0001', departureNumber: 'S240518', outboundLinkage: 'ACKNOWLEDGED', outboundResult: 'MATCHED', trfCount: 2, boxCount: 14, rtCount: 6,
       stops: [
-        { seq: 1, mfcId: 'MFC-BJG-01', state: 'DEPARTED', trfIds: ['TRF-20261126-0001'], plannedArrivalAt: kst(d, 23), estimatedArrivalAt: kst(d, 23, 5), arrivedAt: kst(d, 23, 5), handedOverAt: kst(d, 23, 25), departedAt: kst(d, 23, 35), delayed: false, handover: ho(8) },
-        { seq: 2, mfcId: 'MFC-BNG-01', state: 'PLANNED', trfIds: ['TRF-20261126-0002'], plannedArrivalAt: kst(d, 0, 10, 1), estimatedArrivalAt: kst(d, 0, 50, 1), arrivedAt: null, handedOverAt: null, departedAt: null, delayed: true, handover: null },
+        { seq: 1, mfcId: 'MFC-BJG-01', state: 'DEPARTED', trfIds: ['TRF-20261126-0001'], trfNumbers: ['T482913'], plannedArrivalAt: kst(d, 23), estimatedArrivalAt: kst(d, 23, 5), arrivedAt: kst(d, 23, 5), handedOverAt: kst(d, 23, 25), departedAt: kst(d, 23, 35), delayed: false, handover: ho(8) },
+        { seq: 2, mfcId: 'MFC-BNG-01', state: 'PLANNED', trfIds: ['TRF-20261126-0002'], trfNumbers: ['T771204'], plannedArrivalAt: kst(d, 0, 10, 1), estimatedArrivalAt: kst(d, 0, 50, 1), arrivedAt: null, handedOverAt: null, departedAt: null, delayed: true, handover: null },
       ],
       transfers: [
-        { trfId: 'TRF-20261126-0001', stopSeq: 1, loaded: true, lpns: ['LPN-A01', 'LPN-A02', 'LPN-A03', 'LPN-A04', 'LPN-A05', 'LPN-A06', 'LPN-A07', 'LPN-A08'], rtCount: 3 },
-        { trfId: 'TRF-20261126-0002', stopSeq: 2, loaded: true, lpns: ['LPN-B01', 'LPN-B02', 'LPN-B03', 'LPN-B04', 'LPN-B05', 'LPN-B06'], rtCount: 3 },
+        { trfId: 'TRF-20261126-0001', trfNumber: 'T482913', stopSeq: 1, loaded: true, lpns: ['LPN-A01', 'LPN-A02', 'LPN-A03', 'LPN-A04', 'LPN-A05', 'LPN-A06', 'LPN-A07', 'LPN-A08'], rtCount: 3 },
+        { trfId: 'TRF-20261126-0002', trfNumber: 'T771204', stopSeq: 2, loaded: true, lpns: ['LPN-B01', 'LPN-B02', 'LPN-B03', 'LPN-B04', 'LPN-B05', 'LPN-B06'], rtCount: 3 },
       ],
       events: [
         { at: kst(d, 21, 20), type: 'CHECKED_IN', stopSeq: null, location: 'DC 정문', temperatureC: 3.1, actorId: 'OP-cdc-sup', source: 'REAL' },

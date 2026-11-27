@@ -22,6 +22,10 @@ describe('출하·운송 — 운행', () => {
     expect(within(stops[0]!).getByTestId('handover-cell')).toHaveTextContent('일치');
     expect(within(stops[1]!).getByText('지연')).toBeInTheDocument();
     expect(screen.getByTestId('trip-incidents')).toHaveTextContent('고속도로 정체');
+    // 화면 번호(DN-3, transport-execution 0.6.0) — 운행이 준 번호를 그대로, TRF 상세로 다시 묻지 않는다
+    expect(stops[0]).toHaveTextContent('T482913');
+    expect(screen.getByText('S240518')).toBeInTheDocument();
+    expect(view.gets('/transfers/TRF-20261126-0001')).toHaveLength(0);
   });
 
   it('입차 — 멱등키를 붙여 보내고 서버 상태로 바뀜', async () => {
