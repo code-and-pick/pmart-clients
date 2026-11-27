@@ -34,3 +34,26 @@ describe('머리줄 센터 고르기(RS-7)', () => {
     await waitFor(() => expect(listCalls(view.sent, '/deliveries').some((r) => new URL(r.url).searchParams.get('mfcId') === 'MFC-BSJ-01')).toBe(true));
   });
 });
+
+// 2026-11-27 사용자 "대시보드·관제는 부산진구인데 운영 통계·배송 관리는 모든 센터 — 같은 센터로 고정"
+describe('처음 머리줄 센터 = 부산진구(2026-11-27)', () => {
+  it('운영 통계·배송 관리도 처음부터 부산진구 센터로 묻는다', async () => {
+    const view = renderAt('/deliveries', as.riderOps, '부산진구');
+    await waitFor(() => expect(listCalls(view.sent, '/deliveries').some((r) => new URL(r.url).searchParams.get('mfcId') === 'MFC-BSJ-01')).toBe(true));
+    await userEvent.click(screen.getAllByRole('link', { name: '운영 통계' })[0]!);
+    await waitFor(() => expect(view.sent.some((r) => new URL(r.url).pathname.includes('metrics') && new URL(r.url).searchParams.get('mfcId') === 'MFC-BSJ-01')).toBe(true));
+  });
+
+  it('"모든 센터"를 고르면 다시 덮지 않는다', async () => {
+    const view = renderAt('/riders', as.riderOps, '부산진구');
+    await waitFor(() => expect(listCalls(view.sent, '/riders').some((r) => new URL(r.url).searchParams.get('mfcId') === 'MFC-BSJ-01')).toBe(true));
+    const picker = within(await screen.findByTestId('header-center')).getByRole('combobox', { name: '센터' });
+    await userEvent.click(picker);
+    const options = await screen.findAllByRole('option');
+    await userEvent.click(options.find((o) => o.textContent?.includes('모든 센터'))!);
+    // 기본 센터로 다시 돌아가지 않는다 — 다른 화면으로 가도 모든 센터
+    await userEvent.click(screen.getAllByRole('link', { name: '배송 관리' })[0]!);
+    await waitFor(() => expect(listCalls(view.sent, '/deliveries').length).toBeGreaterThan(0));
+    expect(listCalls(view.sent, '/deliveries').every((r) => !new URL(r.url).searchParams.has('mfcId'))).toBe(true);
+  });
+});

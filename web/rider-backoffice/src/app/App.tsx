@@ -306,19 +306,22 @@ export function App({
   memory = false,
   initialPath = '/',
   initialToken,
+  defaultCenterName,
 }: {
   readonly queryClient?: QueryClient;
   readonly memory?: boolean;
   readonly initialPath?: string;
   /** 테스트에서 바로 세션을 시작한다. */
   readonly initialToken?: string;
+  /** 처음 머리줄 센터(기본 "부산진구" — 2026-11-27). 테스트는 빈 글자로 모든 센터부터 */
+  readonly defaultCenterName?: string;
 }) {
   const router = memory ? createMemoryRouter(routes, { initialEntries: [initialPath] }) : createBrowserRouter(routes);
   return (
     <QueryClientProvider client={queryClient}>
       <UiTextProvider problem={m.problem} reason={m.reason}>
         <SessionProvider {...(initialToken ? { initialToken } : {})}>
-          <CenterScopeProvider>
+          <CenterScopeProvider {...(defaultCenterName !== undefined ? { defaultCenterName } : {})}>
             <RouterProvider router={router} />
           </CenterScopeProvider>
         </SessionProvider>

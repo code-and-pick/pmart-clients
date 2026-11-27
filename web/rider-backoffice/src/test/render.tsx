@@ -13,13 +13,14 @@ export const as = {
 };
 
 /** 화면 + 보낸 요청 기록(헤더·본문 확인용) */
-export function renderAt(path: string, accessToken: string | null = as.riderOps) {
+/** defaultCenter: 처음 머리줄 센터 이름(운영 기본 "부산진구"). 기존 시험은 모든 센터부터라 기본은 빈 글자 */
+export function renderAt(path: string, accessToken: string | null = as.riderOps, defaultCenter = '') {
   const sent: Request[] = [];
   const listener = ({ request }: { request: Request }) => {
     sent.push(request.clone());
   };
   server.events.on('request:start', listener);
-  const view = render(<App memory initialPath={path} {...(accessToken ? { initialToken: accessToken } : {})} />);
+  const view = render(<App memory initialPath={path} defaultCenterName={defaultCenter} {...(accessToken ? { initialToken: accessToken } : {})} />);
   return {
     ...view,
     sent,
