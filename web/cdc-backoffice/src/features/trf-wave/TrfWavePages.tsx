@@ -6,7 +6,7 @@
 //   ACCEPTED 는 완료로 보이지 않는다 — Wave 를 다시 읽어 상태가 바뀐 것만 보인다.
 // - Wave 목록 `GET /cdcs/{cdcId}/waves?state=&page=&size=`(0.15.0 W-1 — 만든 시각 최신 순). 화면 위 [TRF | Wave] 탭(?view=waves).
 import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState, type FormEvent } from 'react';
+import { Fragment, useState, type FormEvent } from 'react';
 import { Link, Route, Routes, useNavigate, useParams, useSearchParams } from 'react-router';
 
 import { request } from '@pmart/web-core';
@@ -35,6 +35,7 @@ const STATES = ['RECEIVED', 'ALLOCATED', 'PARTIALLY_ALLOCATED', 'ALLOCATION_FAIL
 /** Wave 에 넣을 수 있는 TRF(계약 createWave 설명) */
 const WAVEABLE = new Set(['ALLOCATED', 'PARTIALLY_ALLOCATED']);
 const PAGE_SIZE = 50;
+const RECENT_SIZE = 200;
 
 export const trfWavePath = (cdcId: string, rest = '') => centerPath(cdcId, rest ? `trf-wave/${rest}` : 'trf-wave');
 export const wavePath = (cdcId: string, waveId: string) => trfWavePath(cdcId, `waves/${encodeURIComponent(waveId)}`);
@@ -210,19 +211,30 @@ function TransferListPage({ cdcId }: { readonly cdcId: string }) {
   const mfcId = params.get('mfcId') ?? '';
   const no = params.get('no') ?? '';
   const page = Math.max(0, Number(params.get('page') ?? '0') || 0);
+  // 정렬(사용자 2026-11-27 "최신순이 위로 안 올라와서 방금 보낸 작업번호가 뭔지 모르겠어") — 기본은 최근 바뀐 순.
+  // 서버는 기한 순만 주므로(정렬 인자 없음 — 백엔드 요청 TL-1) 최근 순은 최근 200건을 받아 바뀐 시각(updatedAt) 내림으로 놓는다.
+  const sort = params.get('sort') === 'due' ? 'due' : 'recent';
+  const [openRow, setOpenRow] = useState<string | null>(null);
   const [mfcDraft, setMfcDraft] = useState(mfcId);
   const [noDraft, setNoDraft] = useState(no);
   const [picked, setPicked] = useState<ReadonlySet<string>>(new Set());
 
   const query = useQuery({
-    queryKey: ['cdc', cdcId, 'transfers', state, mfcId, no, page],
-    queryFn: () =>
-      request(
+    queryKey: ['cdc', cdcId, 'transfers', state, mfcId, no, sort === 'recent' ? 'recent' : page],
+    queryFn: async () => {
+      const d = await request(
         'GET',
         api.outbound.GET('/cdcs/{cdcId}/transfers', {
-          params: { path: { cdcId }, query: { page, size: PAGE_SIZE, ...(state ? { state } : {}), ...(mfcId ? { mfcId } : {}), ...(no ? { number: no } : {}) } },
+          params: {
+            path: { cdcId },
+            query: { page: sort === 'recent' ? 0 : page, size: sort === 'recent' ? RECENT_SIZE : PAGE_SIZE, ...(state ? { state } : {}), ...(mfcId ? { mfcId } : {}), ...(no ? { number: no } : {}) },
+          },
         }),
-      ),
+      );
+      if (sort !== 'recent') return d;
+      const at = (x: (typeof d.items)[number]) => Date.parse(x.updatedAt ?? x.createdAt ?? '') || 0;
+      return { ...d, items: [...d.items].sort((a, b) => at(b) - at(a)) };
+    },
   });
 
   const setQuery = (next: Record<string, string>) => {
@@ -281,6 +293,13 @@ function TransferListPage({ cdcId }: { readonly cdcId: string }) {
           {m.numberFilter}
           <input className="input input-sm w-36 font-mono" value={noDraft} placeholder="T482913" onChange={(e) => setNoDraft(e.target.value)} data-testid="trf-number" />
         </label>
+        <label className="flex flex-col gap-1 text-sm">
+          {m.sort}
+          <select className="select select-sm w-40" value={sort} onChange={(e) => setQuery({ sort: e.target.value === 'due' ? 'due' : '', page: '' })} data-testid="trf-sort">
+            <option value="recent">{m.sortRecent}</option>
+            <option value="due">{m.sortDue}</option>
+          </select>
+        </label>
         <button type="submit" className="btn btn-sm btn-primary">
           {m.search}
         </button>
@@ -332,6 +351,7 @@ function TransferListPage({ cdcId }: { readonly cdcId: string }) {
                     <th>{m.fields.mfc}</th>
                     <th>{m.fields.state}</th>
                     <th>{m.fields.dueAt}</th>
+                    <th>{m.fields.updatedAt}</th>
                     <th className="text-right" title={m.hint.lines}>{m.fields.lines}</th>
                     <th className="text-right" title={m.hint.approved}>{m.fields.approved}</th>
                     <th className="text-right" title={m.hint.allocated}>{m.fields.allocated}</th>
@@ -343,17 +363,20 @@ function TransferListPage({ cdcId }: { readonly cdcId: string }) {
                 <tbody>
                   {data.items.map((t) => {
                     const canPick = WAVEABLE.has(t.state) && !t.waveId;
+                    const isOpen = openRow === t.trfId;
                     return (
-                      <tr key={t.trfId} data-testid="trf-row">
-                        <td>
+                      <Fragment key={t.trfId}>
+                      <tr data-testid="trf-row" className="cursor-pointer hover" aria-expanded={isOpen} onClick={() => setOpenRow(isOpen ? null : t.trfId)}>
+                        <td onClick={(e) => e.stopPropagation()}>
                           {canPick && (
                             <input type="checkbox" className="checkbox checkbox-sm" aria-label={m.pick(t.trfId)} checked={picked.has(t.trfId)} onChange={() => toggle(t.trfId)} />
                           )}
                         </td>
-                        <td>
-                          <Link className="link font-mono text-xs" to={trfWavePath(cdcId, `trf/${encodeURIComponent(t.trfId)}`)}>
-                            {t.trfNumber ?? shortRef(t.trfId)}
-                          </Link>
+                        <td className="whitespace-nowrap font-mono text-xs font-semibold" title={t.trfId}>
+                          <span aria-hidden className="mr-1 inline-block w-3 text-base-content/50">
+                            {isOpen ? '▾' : '▸'}
+                          </span>
+                          {t.trfNumber ?? shortRef(t.trfId)}
                         </td>
                         <td className="text-xs">
                           <MfcName id={t.mfcId} />
@@ -362,6 +385,7 @@ function TransferListPage({ cdcId }: { readonly cdcId: string }) {
                           <TrfStateBadge state={t.state} />
                         </td>
                         <td>{formatSeoul(t.dueAt)}</td>
+                        <td className="text-xs text-base-content/70">{t.updatedAt ? formatSeoul(t.updatedAt) : messages.none}</td>
                         <td className="text-right">{t.lineCount}</td>
                         <td className="text-right">
                           <Qty n={t.approvedQty} />
@@ -377,7 +401,7 @@ function TransferListPage({ cdcId }: { readonly cdcId: string }) {
                         </td>
                         <td>
                           {t.waveId ? (
-                            <Link className="link font-mono text-xs" to={wavePath(cdcId, t.waveId)} title={t.waveId}>
+                            <Link className="link font-mono text-xs" to={wavePath(cdcId, t.waveId)} title={t.waveId} onClick={(e) => e.stopPropagation()}>
                               {t.waveNumber ?? t.waveId}
                             </Link>
                           ) : (
@@ -385,17 +409,25 @@ function TransferListPage({ cdcId }: { readonly cdcId: string }) {
                           )}
                         </td>
                       </tr>
+                      {isOpen && (
+                        <tr>
+                          <td colSpan={12} className="pm-detail bg-base-200/40 p-0">
+                            <TrfRowDetail cdcId={cdcId} summary={t} />
+                          </td>
+                        </tr>
+                      )}
+                      </Fragment>
                     );
                   })}
                 </tbody>
               </table>
             </div>
             <div className="flex items-center justify-end gap-2 text-sm">
-              <button type="button" className="btn btn-sm" disabled={page === 0} onClick={() => setQuery({ page: page - 1 > 0 ? String(page - 1) : '' })}>
+              <button type="button" className="btn btn-sm" disabled={sort === 'recent' || page === 0} onClick={() => setQuery({ page: page - 1 > 0 ? String(page - 1) : '' })}>
                 {m.prev}
               </button>
-              <span data-testid="trf-page">{m.page(page)}</span>
-              <button type="button" className="btn btn-sm" disabled={!data.hasNext} onClick={() => setQuery({ page: String(page + 1) })}>
+              <span data-testid="trf-page">{sort === 'recent' ? m.recentNote(data.items.length, data.hasNext) : m.page(page)}</span>
+              <button type="button" className="btn btn-sm" disabled={sort === 'recent' || !data.hasNext} onClick={() => setQuery({ page: String(page + 1) })}>
                 {m.next}
               </button>
             </div>
@@ -403,6 +435,71 @@ function TransferListPage({ cdcId }: { readonly cdcId: string }) {
         )}
       </QueryState>
     </section>
+  );
+}
+
+/**
+ * TRF 줄을 누르면 아래에 펼치는 상세(사용자 2026-11-27 "들어가지게 하지 말고 클릭하면 밑에 상세 정보(제품명, 제품 번호, 무슨 mfc로 보냈는지)") —
+ * 받는 MFC·기한·Wave·바뀐 시각, DC → MFC 진행, 품목(상품명·SKU·승인·할당·피킹·부족). 전체 상세(출발 준비 등)는 링크로.
+ */
+function TrfRowDetail({ cdcId, summary }: { readonly cdcId: string; readonly summary: components['schemas']['TransferSummary'] }) {
+  const api = useApi();
+  const q = useQuery({
+    queryKey: ['cdc', cdcId, 'transfer', summary.trfId],
+    refetchInterval: 15_000,
+    queryFn: () => request('GET', api.outbound.GET('/cdcs/{cdcId}/transfers/{trfId}', { params: { path: { cdcId, trfId: summary.trfId } } })),
+  });
+  return (
+    <div className="space-y-3 p-4" data-testid="trf-row-detail">
+      <p className="text-sm">
+        {m.rowStory(summary.trfNumber ?? shortRef(summary.trfId), formatSeoul(summary.dueAt))} <MfcName id={summary.mfcId} className="font-semibold" />
+        {m.rowStoryTail(summary.approvedQty, summary.lineCount)}
+      </p>
+      <TrfJourney cdcId={cdcId} trfId={summary.trfId} state={summary.state} />
+      <QueryState state={toUiState(q)} onRetry={() => void q.refetch()}>
+        {(d) =>
+          d.lines.length === 0 ? (
+            <p className="text-sm text-base-content/60">{m.linesEmpty}</p>
+          ) : (
+            <table className="table table-sm rounded-box bg-base-100" data-testid="trf-row-lines">
+              <thead>
+                <tr>
+                  <th>{m.fields.sku}</th>
+                  <th className="text-right">{m.fields.approved}</th>
+                  <th className="text-right">{m.fields.allocated}</th>
+                  <th className="text-right">{m.fields.picked}</th>
+                  <th className="text-right">{m.fields.short}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {d.lines.map((l) => (
+                  <tr key={l.sku}>
+                    <td>
+                      <SkuName sku={l.sku} />
+                    </td>
+                    <td className="text-right">
+                      <Qty n={l.approvedQty} />
+                    </td>
+                    <td className="text-right">
+                      <Qty n={l.allocatedQty} />
+                    </td>
+                    <td className="text-right">
+                      <Qty n={l.pickedQty} />
+                    </td>
+                    <td className="text-right">
+                      <Qty n={l.shortQty} warn />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )
+        }
+      </QueryState>
+      <Link className="link text-xs" to={trfWavePath(cdcId, `trf/${encodeURIComponent(summary.trfId)}`)}>
+        {m.fullDetail}
+      </Link>
+    </div>
   );
 }
 

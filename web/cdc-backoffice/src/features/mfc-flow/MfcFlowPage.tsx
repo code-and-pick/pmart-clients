@@ -7,17 +7,19 @@
 //   TRF 마다 실린 정차를 찾아 "가는 중·도착 예정 / MFC 도착 / 인계 끝·박스 받은/보낸" 을 붙인다. MFC 재고 반영(수령 확정)은 DC 가 볼 조회가 없어 인계까지(요청 MF-1).
 // 단계는 TRF 상태(서버 값)로 나눈다. 못 읽으면 그 칸은 실패로(0 으로 꾸미지 않는다).
 import { useQuery } from '@tanstack/react-query';
-import { Fragment, useMemo } from 'react';
+import { Fragment, useMemo, useState } from 'react';
 import { Link } from 'react-router';
 
 import { request } from '@pmart/web-core';
 import { formatSeoul, QueryState, toUiState } from '@pmart/web-ui';
 import type { components } from '../../api/generated/cdc-outbound';
+import { todaySeoul } from '../transport/TransportPage';
 import { useApi } from '../../app/ApiContext';
 import { centerPath } from '../../app/nav';
 import { messages } from '../../shared/messages';
 import { MfcName } from '../../shared/MfcName';
 import { shortRef } from '../../shared/shortRef';
+import { SkuName } from '../../shared/SkuName';
 import { trfWavePath } from '../trf-wave/TrfWavePages';
 import { mfcSideOf, useTripStops, type StopOfTrf, type TripStops } from './tripStops';
 
@@ -110,7 +112,9 @@ function FlowBody({
     return [...m.entries()].sort((a, b) => a[0].localeCompare(b[0]));
   }, [trfs, stops.byTrf]);
   // 넷째 걸음 — 오늘·어제 출고일 운행에서 MFC 가 인계받은 정차(박스 받은/보낸)
-  const handed = stops.trips.flatMap((tr) => tr.stops.filter((sp) => mfcSideOf(sp) === 'HANDED_OVER'));
+  const today = todaySeoul();
+  const seoulDay = (iso: string) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul' }).format(new Date(iso));
+  const handed = stops.trips.flatMap((tr) => tr.stops.filter((sp) => mfcSideOf(sp) === 'HANDED_OVER' && !!sp.handedOverAt && seoulDay(sp.handedOverAt) === today));
   const recvBoxes = handed.reduce((a, sp) => a + (sp.handover?.receivedBoxes ?? 0), 0);
   const sentBoxes = handed.reduce((a, sp) => a + (sp.handover?.shippedBoxes ?? 0), 0);
   const arrivedNotHanded = stops.trips.flatMap((tr) => tr.stops.filter((sp) => mfcSideOf(sp) === 'ARRIVED')).length;
@@ -172,16 +176,21 @@ function FlowBody({
           {rows.map(([mfcId, r]) => {
             const all = STEPS.reduce((a, s) => a + r[s].n, 0);
             return (
-              <li key={mfcId} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3" data-testid="flow-row">
-                <Link className="link w-36 shrink-0 font-semibold" to={`${centerPath(cdcId, 'trf-wave')}?mfcId=${encodeURIComponent(mfcId)}`}>
+              <li key={mfcId} data-testid="flow-row">
+                <Link className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3 hover:bg-base-200" to={`${centerPath(cdcId, 'trf-wave')}?mfcId=${encodeURIComponent(mfcId)}`} title={t.rowLinkTitle}>
+                <span className="w-36 shrink-0 font-semibold">
                   <MfcName id={mfcId} />
-                </Link>
+                </span>
                 <div className="flex h-3 min-w-40 flex-1 overflow-hidden rounded-full bg-base-200" aria-hidden>
                   {STEPS.map((s) => (r[s].n > 0 ? <span key={s} className={STEP_COLOR[s]} style={{ width: `${(r[s].n / all) * 100}%` }} /> : null))}
                 </div>
                 <p className="text-sm text-base-content/80" data-testid="flow-row-text">
                   {t.rowText(all, r.PREP.n, r.READY.n, r.GOING.n, r.DONE.n)}
+                  <span aria-hidden className="ml-2 text-base-content/40">
+                    ›
+                  </span>
                 </p>
+                </Link>
               </li>
             );
           })}
@@ -200,41 +209,201 @@ function RecentDepartures({ cdcId, trfs, stops }: { readonly cdcId: string; read
     queryFn: () => request('GET', api.outbound.GET('/cdcs/{cdcId}/departures', { params: { path: { cdcId }, query: { size: 30 } } })),
   });
   const byTrf = useMemo(() => new Map(trfs.map((x) => [x.trfId, x])), [trfs]);
+  const [open, setOpen] = useState<string | null>(null);
   return (
     <section className="space-y-2">
       <h2 className="text-base font-semibold">{t.recent}</h2>
+      <p className="text-xs text-base-content/55">{t.recentHint}</p>
       <QueryState state={toUiState(query, (d) => d.items.length === 0)} onRetry={() => void query.refetch()} emptyText={t.recentEmpty}>
         {(d) => (
           <ol className="divide-y divide-base-300 rounded-box border border-base-300 bg-base-100" data-testid="flow-recent">
             {d.items.map((dep) => (
               <Fragment key={dep.departureId}>
-                {(dep.transfers ?? []).map((x) => {
-                  const trf = x.trfId ? byTrf.get(x.trfId) : undefined;
-                  const ok = x.result === 'MATCHED';
-                  return (
-                    <li key={`${dep.departureId}-${x.trfId}`} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2.5 text-sm" data-testid="flow-recent-row">
-                      <span className="shrink-0 whitespace-nowrap text-base-content/60">{dep.validatedAt ? formatSeoul(dep.validatedAt) : messages.none}</span>
-                      <span className="font-semibold">
-                        <DepartureMfc cdcId={cdcId} trfId={x.trfId ?? ''} known={trf?.mfcId ?? (x.trfId ? stops.byTrf.get(x.trfId)?.stop.mfcId : undefined)} />
-                      </span>
-                      <span>{t.sentLine(x.departedQty ?? 0)}</span>
-                      <span className={ok ? 'text-success' : 'text-error'}>{ok ? t.okLoad : t.badLoad}</span>
-                      <MfcSideChip at={x.trfId ? stops.byTrf.get(x.trfId) : undefined} loading={stops.loading} failed={stops.failed} />
-                      <span className="ml-auto flex items-center gap-3 text-xs text-base-content/55">
-                        {dep.vehicleId && <span>{`${messages.shipping.vehicle} ${dep.vehicleId}`}</span>}
-                        <Link className="link font-mono" to={trfWavePath(cdcId, `trf/${encodeURIComponent(x.trfId ?? '')}`)} title={x.trfId}>
-                          {x.trfNumber ?? trf?.trfNumber ?? shortRef(x.trfId)}
-                        </Link>
-                      </span>
-                    </li>
-                  );
-                })}
+                {(dep.transfers ?? []).map((x) => (
+                  <DepartureRow
+                    key={`${dep.departureId}-${x.trfId}`}
+                    cdcId={cdcId}
+                    dep={dep}
+                    x={x}
+                    trf={x.trfId ? byTrf.get(x.trfId) : undefined}
+                    stops={stops}
+                    open={open === `${dep.departureId}-${x.trfId}`}
+                    onToggle={() => setOpen(open === `${dep.departureId}-${x.trfId}` ? null : `${dep.departureId}-${x.trfId}`)}
+                  />
+                ))}
               </Fragment>
             ))}
           </ol>
         )}
       </QueryState>
     </section>
+  );
+}
+
+type Departure = components['schemas']['DepartureValidation'];
+type DepTrf = NonNullable<Departure['transfers']>[number];
+
+/**
+ * 최근 출발 한 줄(사용자 2026-11-27 "이거 목록 클릭하게 해") — 누르면 그 출발의 DC → MFC 과정을 펼친다:
+ * DC 출발 → (도착 예정) → MFC 도착 → MFC 인계(받은 사람·박스·빠진 LPN), 그리고 TRF·출발 검증·운행으로 가는 길.
+ * 운행은 오늘·어제 출고일 목록에서 TRF 로 찾고, 없으면 출발의 tripId 로 운행 하나를 읽는다(그 밖의 출고일 운행).
+ */
+function DepartureRow({
+  cdcId,
+  dep,
+  x,
+  trf,
+  stops,
+  open,
+  onToggle,
+}: {
+  readonly cdcId: string;
+  readonly dep: Departure;
+  readonly x: DepTrf;
+  readonly trf: TransferSummary | undefined;
+  readonly stops: TripStops;
+  readonly open: boolean;
+  readonly onToggle: () => void;
+}) {
+  const api = useApi();
+  const listed = x.trfId ? stops.byTrf.get(x.trfId) : undefined;
+  const tripId = dep.tripId ?? '';
+  const one = useQuery({
+    queryKey: ['cdc', cdcId, 'trip', tripId],
+    enabled: !listed && !stops.loading && !!tripId,
+    refetchInterval: REFRESH,
+    queryFn: () => request('GET', api.transportExecution.GET('/trips/{tripId}', { params: { path: { tripId } } })),
+  });
+  const at: StopOfTrf | undefined =
+    listed ??
+    (one.data
+      ? (() => {
+          const stop = one.data.stops.find((sp) => (sp.trfIds ?? []).includes(x.trfId ?? ''));
+          return stop ? { trip: one.data, stop } : undefined;
+        })()
+      : undefined);
+  const ok = x.result === 'MATCHED';
+  const trfLabel = x.trfNumber ?? trf?.trfNumber ?? shortRef(x.trfId);
+  return (
+    <li data-testid="flow-recent-row">
+      <button type="button" className="flex w-full flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2.5 text-left text-sm hover:bg-base-200" onClick={onToggle} aria-expanded={open}>
+        <span aria-hidden className="w-3 text-base-content/50">
+          {open ? '▾' : '▸'}
+        </span>
+        <span className="shrink-0 whitespace-nowrap text-base-content/60">{dep.validatedAt ? formatSeoul(dep.validatedAt) : messages.none}</span>
+        <span className="font-semibold">
+          <DepartureMfc cdcId={cdcId} trfId={x.trfId ?? ''} known={trf?.mfcId ?? at?.stop.mfcId} />
+        </span>
+        <span>{t.sentLine(x.departedQty ?? 0)}</span>
+        <span className={ok ? 'text-success' : 'text-error'}>{ok ? t.okLoad : t.badLoad}</span>
+        <MfcSideChip at={at} loading={stops.loading || one.isFetching} failed={stops.failed && one.isError} />
+        <span className="ml-auto flex items-center gap-3 text-xs text-base-content/55">
+          {dep.vehicleId && <span>{`${messages.shipping.vehicle} ${dep.vehicleId}`}</span>}
+          <span className="font-mono" title={x.trfId}>
+            {trfLabel}
+          </span>
+        </span>
+      </button>
+      {open && <DepartureDetail cdcId={cdcId} dep={dep} x={x} at={at} trfLabel={trfLabel} />}
+    </li>
+  );
+}
+
+/** 이 TRF 로 보낸 상품(상품명·SKU·보낸 수량 = 피킹 수량·부족) — TRF 상세(cdc-outbound) 줄 */
+function SentLines({ cdcId, trfId }: { readonly cdcId: string; readonly trfId: string }) {
+  const api = useApi();
+  const q = useQuery({
+    queryKey: ['cdc', cdcId, 'transfer', trfId],
+    staleTime: 60_000,
+    queryFn: () => request('GET', api.outbound.GET('/cdcs/{cdcId}/transfers/{trfId}', { params: { path: { cdcId, trfId } } })),
+  });
+  return (
+    <QueryState state={toUiState(q, (d) => d.lines.length === 0)} onRetry={() => void q.refetch()} emptyText={t.detail.noLines}>
+      {(d) => (
+        <table className="table table-sm rounded-box bg-base-100" data-testid="flow-recent-lines">
+          <thead>
+            <tr>
+              <th>{t.detail.product}</th>
+              <th className="text-right">{t.detail.sentQty}</th>
+              <th className="text-right">{t.detail.shortQty}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {d.lines.map((l) => (
+              <tr key={l.sku}>
+                <td>
+                  <SkuName sku={l.sku} />
+                </td>
+                <td className="text-right tabular-nums">{messages.qty(l.pickedQty)}</td>
+                <td className={`text-right tabular-nums ${l.shortQty > 0 ? 'text-error' : ''}`}>{messages.qty(l.shortQty)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </QueryState>
+  );
+}
+
+/** 펼친 출발 — 시각 줄(DC 출발·도착 예정·MFC 도착·MFC 인계)과 인계 대조, 가는 길 */
+function DepartureDetail({ cdcId, dep, x, at, trfLabel }: { readonly cdcId: string; readonly dep: Departure; readonly x: DepTrf; readonly at: StopOfTrf | undefined; readonly trfLabel: string }) {
+  const d = t.detail;
+  const stop = at?.stop;
+  const h = stop?.handover;
+  const hm = (iso: string | null | undefined) => (iso ? formatSeoul(iso) : null);
+  const points: { key: string; label: string; time: string | null; done: boolean }[] = [
+    { key: 'dep', label: d.departed, time: hm(at?.trip.departedAt ?? dep.validatedAt), done: true },
+    { key: 'eta', label: d.eta, time: hm(stop?.estimatedArrivalAt ?? stop?.plannedArrivalAt), done: !!stop?.arrivedAt },
+    { key: 'arr', label: d.arrived, time: hm(stop?.arrivedAt), done: !!stop?.arrivedAt },
+    { key: 'ho', label: d.handed, time: hm(stop?.handedOverAt), done: !!stop && mfcSideOf(stop) === 'HANDED_OVER' },
+  ];
+  const missing = [...(h?.missingLpns ?? []), ...(h?.damagedLpns ?? [])];
+  const shipDate = at?.trip.shipDate ?? todaySeoul();
+  return (
+    <div className="space-y-3 border-t border-base-300 bg-base-200/40 px-4 py-3 text-sm" data-testid="flow-recent-detail">
+      <ol className="flex flex-wrap items-start gap-x-2 gap-y-2">
+        {points.map((pt, i) => (
+          <li key={pt.key} className="flex items-center gap-2">
+            <span className={`flex flex-col rounded-box px-3 py-1.5 ${pt.done ? 'bg-success/15' : 'bg-base-100'}`}>
+              <span className={`text-xs ${pt.done ? 'text-success' : 'text-base-content/60'}`}>
+                {pt.done ? '✓ ' : ''}
+                {pt.label}
+              </span>
+              <span className="font-medium tabular-nums">{pt.time ?? messages.none}</span>
+            </span>
+            {i < points.length - 1 && <span className="text-base-content/30">→</span>}
+          </li>
+        ))}
+      </ol>
+      {!at ? (
+        <p className="text-xs text-base-content/60">{d.noTrip}</p>
+      ) : (
+        <p data-testid="flow-recent-story">
+          {d.story(at.trip.plateNo ?? at.trip.vehicleId ?? dep.vehicleId ?? messages.none, at.trip.driverName ?? null, stop?.seq ?? null, at.trip.stops.length)}
+          {h && ` ${d.handover(h.receiverName ?? null, h.receivedBoxes ?? 0, h.shippedBoxes ?? 0)}`}
+          {stop?.delayed && <span className="text-error">{` ${d.late}`}</span>}
+        </p>
+      )}
+      {x.trfId && <SentLines cdcId={cdcId} trfId={x.trfId} />}
+      {missing.length > 0 && (
+        <p className="text-xs text-warning" data-testid="flow-recent-missing">
+          {d.missing(h?.missingLpns ?? [], h?.damagedLpns ?? [])}
+        </p>
+      )}
+      <p className="flex flex-wrap gap-x-4 gap-y-1 text-xs">
+        <Link className="link" to={trfWavePath(cdcId, `trf/${encodeURIComponent(x.trfId ?? '')}`)}>
+          {d.toTrf(trfLabel)}
+        </Link>
+        <Link className="link" to={centerPath(cdcId, 'shipping')}>
+          {d.toDeparture(dep.departureNumber ?? shortRef(dep.departureId))}
+        </Link>
+        {at && (
+          <Link className="link" to={`${centerPath(cdcId, 'transport')}?date=${shipDate}`}>
+            {d.toTrip(at.trip.tripId)}
+          </Link>
+        )}
+      </p>
+    </div>
   );
 }
 

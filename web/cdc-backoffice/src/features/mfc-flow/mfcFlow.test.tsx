@@ -1,5 +1,6 @@
 // MFC 재고 이동 — TRF 단계(서버 상태)로 MFC 별 칸 나눔, 운송 중 = 재고 transit 합, 최근 출발.
 import { screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 
 import { renderAt } from '../../test/render';
@@ -28,13 +29,26 @@ describe('MFC 재고 이동', () => {
   it('MFC 쪽 — 출발한 TRF 마다 운행 정차의 인계·가는 중, 넷째 걸음은 인계한 곳 수', async () => {
     renderAt('/c/CDC01/mfc-flow');
     const done = await screen.findByTestId('flow-step-DONE');
-    await waitFor(() => expect(done).toHaveTextContent('2곳 인계'));
+    await waitFor(() => expect(done).toHaveTextContent('오늘 2곳 인계'));
     expect(done).toHaveTextContent('받은 박스 12 / 보낸 13');
     await waitFor(() => expect(screen.getAllByTestId('mfc-side').length).toBeGreaterThan(2));
     const text = screen.getAllByTestId('mfc-side').map((x) => x.textContent).join(' | ');
     expect(text).toContain('박스 8/8');
     expect(text).toContain('가는 중 · 도착 예정');
     expect(text).toContain('빠짐·파손 1');
+  });
+
+  it('최근 출발 줄을 누르면 DC 출발 → MFC 인계까지 펼침(받은 사람·박스·빠진 박스·가는 길)', async () => {
+    renderAt('/c/CDC01/mfc-flow');
+    const rows = await screen.findAllByTestId('flow-recent-row');
+    await waitFor(() => expect(rows.find((r) => r.textContent?.includes('T553019'))).toHaveTextContent('빠짐·파손 1'));
+    const row = rows.find((r) => r.textContent?.includes('T553019'))!;
+    await userEvent.click(within(row).getByRole('button'));
+    const detail = within(row).getByTestId('flow-recent-detail');
+    expect(detail).toHaveTextContent('✓ MFC 인계');
+    expect(within(detail).getByTestId('flow-recent-story')).toHaveTextContent('김인수 님이 박스 5개 중 4개를 받았어요.');
+    expect(within(detail).getByTestId('flow-recent-missing')).toHaveTextContent('빠진 박스 LPN-C05');
+    expect(within(detail).getByRole('link', { name: 'TRF T553019 상세 ›' })).toBeInTheDocument();
   });
 
   it('TRF 상세 — DC → MFC 진행 줄(배차된 운행이 있으면 차량·도착 계획)', async () => {

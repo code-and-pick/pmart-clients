@@ -18,6 +18,20 @@ describe('TRF 목록', () => {
     expect(within(rows[0]!).getAllByText('2').some((el) => el.classList.contains('text-error'))).toBe(true);
   });
 
+  it('줄을 누르면 화면을 옮기지 않고 아래에 상품명·SKU·받는 MFC·진행, 기본 순서는 최근 바뀐 순(200건)', async () => {
+    const view = renderAt('/c/CDC01/trf-wave');
+    const rows = await screen.findAllByTestId('trf-row');
+    expect(screen.getByTestId('trf-sort')).toHaveValue('recent');
+    expect(view.gets('/cdcs/CDC01/transfers').some((r) => new URL(r.url).searchParams.get('size') === '200')).toBe(true);
+    await userEvent.click(within(rows[0]!).getByText('T482913'));
+    const detail = await screen.findByTestId('trf-row-detail');
+    expect(detail).toHaveTextContent('부산진구 MFC');
+    expect(await within(detail).findByText('냉동 만두 1kg')).toBeInTheDocument();
+    expect(within(detail).getByText('SKU-1001')).toBeInTheDocument();
+    expect(within(detail).getByTestId('trf-journey')).toBeInTheDocument();
+    expect(window.location.pathname).not.toContain('/trf/');
+  });
+
   it('칸 이름: 줄 → 품목 수, 할당은 그대로 — 칸 이름에 마우스를 올리면 설명(2026-11-26)', async () => {
     renderAt('/c/CDC01/trf-wave');
     const table = await screen.findByTestId('trf-table');
