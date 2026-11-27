@@ -45,14 +45,6 @@ export const navGroups: readonly MenuGroup[] = [
         apiMissing: [],
       },
       {
-        // MFC 입고 확인(사용자 2026-11-27 "mfc에 정상도착 및 입고 완료 정보 받아서 … 볼 수 있는 곳이 따로 있어야") — cdc-inventory 0.22.0 transits(MF-1)
-        key: 'mfcReceipts',
-        segment: 'mfc-receipts',
-        ready: true,
-        apiReady: ['출발 × TRF 별 MFC 수령 반영·안 맞음·입고 종결(cdc-inventory 0.22.0 transits)'],
-        apiMissing: [],
-      },
-      {
         key: 'floor',
         segment: 'floor',
         ready: true,

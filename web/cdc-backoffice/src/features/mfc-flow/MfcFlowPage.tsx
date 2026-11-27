@@ -5,11 +5,13 @@
 //   `GET /cdcs/{cdcId}/transfers?size=200`(TRF 단계·MFC) · `GET /cdcs/{cdcId}/departures?size=30`(출발 검증) · `GET /cdcs/{cdcId}/stock-snapshot`(transit = 출발했지만 MFC 가 아직 안 받은 수량).
 // (2026-11-27 사용자 "mfc랑 재고 연동되는 거 실시간으로") 넷째 걸음 "MFC 도착·인계" — 운행 정차(transport-execution trips, 오늘·어제 출고일)의 도착·인계 대조.
 //   TRF 마다 실린 정차를 찾아 "가는 중·도착 예정 / MFC 도착 / 인계 끝·박스 받은/보낸" 을 붙인다.
-// (2026-11-27 사용자 "mfc에서 적치까지 완료했는데 왜 계속 출발이라고") 다섯째 걸음 "MFC 입고" — cdc-inventory 0.22.0 transits(MF-1)의 수령 반영. 자세히는 MFC 입고 확인 메뉴.
+// (2026-11-27 사용자 "mfc에서 적치까지 완료했는데 왜 계속 출발이라고") 다섯째 걸음 "MFC 입고" — cdc-inventory 0.22.0 transits(MF-1)의 수령 반영.
+// (2026-11-27 사용자 "mfc 재고이동이랑 입고확인 기능 하나에 다 몰아서 합치고 하나는 없애") 따로 있던 "MFC 입고 확인" 메뉴를 없애고 최근 출발 목록에 합침:
+//   줄마다 인계·입고 칸, 입고 상태로 거르기(?receipt=), 펼치면 MFC 입고 시각·상품·LOT 별 보낸·정상·격리·판정 전·운송 손실·안 맞음.
 // 단계는 TRF 상태(서버 값)로 나눈다. 못 읽으면 그 칸은 실패로(0 으로 꾸미지 않는다).
 import { useQuery } from '@tanstack/react-query';
 import { Fragment, useMemo, useState } from 'react';
-import { Link } from 'react-router';
+import { Link, useSearchParams } from 'react-router';
 
 import { request } from '@pmart/web-core';
 import { formatSeoul, QueryState, toUiState } from '@pmart/web-ui';
@@ -23,7 +25,7 @@ import { shortRef } from '../../shared/shortRef';
 import { SkuName } from '../../shared/SkuName';
 import { trfWavePath } from '../trf-wave/TrfWavePages';
 import { TrfReceiptChip } from './ReceiptChip';
-import { receiptOf, useTransits, type CenterTransit, type Transits } from './transits';
+import { receiptOf, useTransits, type CenterTransit, type Receipt, type Transits } from './transits';
 import { mfcSideOf, useTripStops, type StopOfTrf, type TripStops } from './tripStops';
 
 const t = messages.mfcFlow;
@@ -182,9 +184,9 @@ function FlowBody({
                 </p>
                 <p className="mt-1 text-2xl font-semibold tabular-nums">{big}</p>
                 <p className="text-xs text-base-content/60">{small}</p>
-                {s === 'STOCKED' && (
-                  <Link className="link mt-1 inline-block text-xs" to={centerPath(cdcId, 'mfc-receipts')} data-testid="flow-to-receipts">
-                    {t.toReceipts}
+                {s === 'STOCKED' && stockedBad > 0 && (
+                  <Link className="link mt-1 inline-block text-xs text-warning" to="?receipt=MISMATCH#flow-recent" data-testid="flow-to-mismatch">
+                    {t.toMismatch(stockedBad)}
                   </Link>
                 )}
               </li>
@@ -243,20 +245,58 @@ function RecentDepartures({ cdcId, trfs, stops, transits }: { readonly cdcId: st
   const query = useQuery({
     queryKey: ['cdc', cdcId, 'departures', 'flow'],
     refetchInterval: REFRESH,
-    queryFn: () => request('GET', api.outbound.GET('/cdcs/{cdcId}/departures', { params: { path: { cdcId }, query: { size: 30 } } })),
+    queryFn: () => request('GET', api.outbound.GET('/cdcs/{cdcId}/departures', { params: { path: { cdcId }, query: { size: 50 } } })),
   });
   const byTrf = useMemo(() => new Map(trfs.map((x) => [x.trfId, x])), [trfs]);
   const [open, setOpen] = useState<string | null>(null);
+  const [params, setParams] = useSearchParams();
+  const raw = params.get('receipt') ?? '';
+  const filter: ReceiptFilter = (RECEIPT_FILTERS as readonly string[]).includes(raw) ? (raw as ReceiptFilter) : 'ALL';
+  const kindOf = (trfId: string | undefined): Receipt | 'NONE' => {
+    const ct = trfId ? transits.byTrf.get(trfId) : undefined;
+    return ct ? receiptOf(ct) : 'NONE';
+  };
+  const setFilter = (f: ReceiptFilter) => {
+    const q = new URLSearchParams(params);
+    if (f === 'ALL') q.delete('receipt');
+    else q.set('receipt', f);
+    setParams(q, { replace: true });
+    setOpen(null);
+  };
   return (
-    <section className="space-y-2">
+    <section className="space-y-2" id="flow-recent">
       <h2 className="text-base font-semibold">{t.recent}</h2>
       <p className="text-xs text-base-content/55">{t.recentHint}</p>
       <QueryState state={toUiState(query, (d) => d.items.length === 0)} onRetry={() => void query.refetch()} emptyText={t.recentEmpty}>
-        {(d) => (
+        {(d) => {
+          const rows = d.items.flatMap((dep) => (dep.transfers ?? []).map((x) => ({ dep, x, kind: kindOf(x.trfId) })));
+          const count = (f: ReceiptFilter) => (f === 'ALL' ? rows.length : rows.filter((r) => r.kind === f).length);
+          const shown = filter === 'ALL' ? rows : rows.filter((r) => r.kind === filter);
+          return (
+            <>
+              <div className="flex flex-wrap items-center gap-2" role="group" aria-label={t.receiptFilter} data-testid="flow-receipt-filter">
+                <span className="text-xs text-base-content/60">{t.receiptFilter}</span>
+                {RECEIPT_FILTERS.map((f) => (
+                  <button
+                    key={f}
+                    type="button"
+                    className={`btn btn-xs ${filter === f ? (f === 'MISMATCH' ? 'btn-warning' : 'btn-neutral') : 'btn-ghost border-base-300'}`}
+                    aria-pressed={filter === f}
+                    onClick={() => setFilter(f)}
+                    data-testid={`flow-receipt-${f}`}
+                  >
+                    {t.receiptFilters[f]} {transits.loading && f !== 'ALL' ? '' : count(f)}
+                  </button>
+                ))}
+                {transits.failed && <span className="text-xs text-error">{messages.receipt.chipFailed}</span>}
+              </div>
+              {shown.length === 0 ? (
+                <p className="rounded-box border border-dashed border-base-300 p-4 text-sm text-base-content/60">{t.receiptFilterEmpty}</p>
+              ) : (
           <ol className="divide-y divide-base-300 rounded-box border border-base-300 bg-base-100" data-testid="flow-recent">
             {d.items.map((dep) => (
               <Fragment key={dep.departureId}>
-                {(dep.transfers ?? []).map((x) => (
+                {(dep.transfers ?? []).filter((x) => filter === 'ALL' || kindOf(x.trfId) === filter).map((x) => (
                   <DepartureRow
                     key={`${dep.departureId}-${x.trfId}`}
                     cdcId={cdcId}
@@ -272,11 +312,17 @@ function RecentDepartures({ cdcId, trfs, stops, transits }: { readonly cdcId: st
               </Fragment>
             ))}
           </ol>
-        )}
+              )}
+            </>
+          );
+        }}
       </QueryState>
     </section>
   );
 }
+
+const RECEIPT_FILTERS = ['ALL', 'WAITING', 'MISMATCH', 'DONE'] as const;
+type ReceiptFilter = (typeof RECEIPT_FILTERS)[number];
 
 type Departure = components['schemas']['DepartureValidation'];
 type DepTrf = NonNullable<Departure['transfers']>[number];
@@ -386,6 +432,49 @@ function SentLines({ cdcId, trfId }: { readonly cdcId: string; readonly trfId: s
   );
 }
 
+/** MFC 가 입고한 상품 — 재고 서버 Transit 줄(상품·LOT 별 보낸 q = 받은 r(정상·격리·판정 전) + 운송 손실 l + 안 맞음 t) */
+function ReceiptLines({ ct }: { readonly ct: CenterTransit }) {
+  const r = messages.receipt;
+  const q = (n: number | undefined) => messages.qty(n ?? 0);
+  const tot = ct.totals;
+  return (
+    <div className="space-y-1">
+      {(tot.quarantinedQty ?? 0) + (tot.pendingQty ?? 0) > 0 && <p className="text-xs text-base-content/70">{r.quality(tot.receivedNormalQty ?? 0, tot.quarantinedQty ?? 0, tot.pendingQty ?? 0)}</p>}
+      <table className="table table-sm rounded-box bg-base-100" data-testid="flow-receipt-lines">
+        <thead>
+          <tr>
+            <th>{r.product}</th>
+            <th>LOT</th>
+            <th className="text-right">{r.sent}</th>
+            <th className="text-right">{r.normal}</th>
+            <th className="text-right">{r.quarantined}</th>
+            <th className="text-right">{r.pending}</th>
+            <th className="text-right">{r.loss}</th>
+            <th className="text-right" title={r.diffHint}>
+              {r.diff}
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {(ct.transit.lines ?? []).map((l) => (
+            <tr key={`${l.sku ?? ''}-${l.lot ?? ''}`}>
+              <td>{l.sku ? <SkuName sku={l.sku} /> : messages.none}</td>
+              <td className="font-mono text-xs">{l.lot ?? messages.none}</td>
+              <td className="text-right tabular-nums">{q(l.q)}</td>
+              <td className="text-right tabular-nums">{q(l.normalQty)}</td>
+              <td className="text-right tabular-nums">{q(l.quarantinedQty)}</td>
+              <td className="text-right tabular-nums">{q(l.pendingQty)}</td>
+              <td className="text-right tabular-nums">{q(l.l)}</td>
+              <td className={`text-right tabular-nums ${(l.t ?? 0) > 0 ? 'font-semibold text-warning' : ''}`}>{q(l.t)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {ct.closure?.closedAt && <p className="text-xs text-base-content/60">{r.closedAt(formatSeoul(ct.closure.closedAt))}</p>}
+    </div>
+  );
+}
+
 /** 펼친 출발 — 시각 줄(DC 출발·도착 예정·MFC 도착·MFC 인계)과 인계 대조, 가는 길 */
 function DepartureDetail({
   cdcId,
@@ -445,7 +534,7 @@ function DepartureDetail({
           {receiptOf(ct) === 'DONE' ? d.stockedDone(ct.totals.departedQty ?? 0, ct.totals.receivedQty ?? 0) : d.stockedBad(ct.totals.departedQty ?? 0, ct.totals.receivedQty ?? 0, ct.totals.unreconciledQty ?? 0)}
         </p>
       )}
-      {x.trfId && <SentLines cdcId={cdcId} trfId={x.trfId} />}
+      {ct && receiptOf(ct) !== 'WAITING' ? <ReceiptLines ct={ct} /> : x.trfId && <SentLines cdcId={cdcId} trfId={x.trfId} />}
       {missing.length > 0 && (
         <p className="text-xs text-warning" data-testid="flow-recent-missing">
           {d.missing(h?.missingLpns ?? [], h?.damagedLpns ?? [])}
@@ -454,9 +543,6 @@ function DepartureDetail({
       <p className="flex flex-wrap gap-x-4 gap-y-1 text-xs">
         <Link className="link" to={trfWavePath(cdcId, `trf/${encodeURIComponent(x.trfId ?? '')}`)}>
           {d.toTrf(trfLabel)}
-        </Link>
-        <Link className="link" to={centerPath(cdcId, 'mfc-receipts')}>
-          {d.toReceipts}
         </Link>
         <Link className="link" to={centerPath(cdcId, 'shipping')}>
           {d.toDeparture(dep.departureNumber ?? shortRef(dep.departureId))}
