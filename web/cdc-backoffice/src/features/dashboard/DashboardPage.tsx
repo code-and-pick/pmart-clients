@@ -11,6 +11,7 @@ import type { components } from '../../api/generated/cdc-outbound';
 import { useApi } from '../../app/ApiContext';
 import { centerPath } from '../../app/nav';
 import { messages } from '../../shared/messages';
+import { FlowBoard } from '../flow/FlowBoard';
 import { Attention, ByMfc, WorkersByFloor } from './DashboardExtras';
 
 const t = messages.dashboard;
@@ -48,6 +49,10 @@ export function DashboardPage({ cdcId }: { readonly cdcId: string }) {
           />
         </label>
       </div>
+      {/* 사용자 2026-11-27 "실시간 흐름을 파악하기가 너무 어렵다" — 맨 위에 흐름 일곱 칸과 손봐야 할 것, 그 아래 출고 숫자 */}
+      <FlowBoard cdcId={cdcId} />
+      <Attention cdcId={cdcId} />
+      <h2 className="pt-2 text-base font-semibold">{t.todayStats}</h2>
       <QueryState state={toUiState(query)} onRetry={() => void query.refetch()}>
         {(s) => (
           <>
@@ -62,7 +67,6 @@ export function DashboardPage({ cdcId }: { readonly cdcId: string }) {
             {s.progress !== null && s.progress !== undefined && (
               <progress className="progress progress-primary h-2 w-full" value={Math.round(s.progress * 100)} max={100} aria-label={t.progress} />
             )}
-            <Attention cdcId={cdcId} />
             <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
               <ByMfc cdcId={cdcId} rows={s.byMfc ?? null} />
               <WorkersByFloor cdcId={cdcId} />

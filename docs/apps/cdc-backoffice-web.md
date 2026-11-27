@@ -22,7 +22,7 @@
 
 | 묶음 | 메뉴 | 경로 | 서버 |
 |---|---|---|---|
-| 실시간 관제 | 대시보드·관제 | `dashboard` | outbound-summary(byMfc 0.18.0)·주의할 일(shortages·recount-holds·count-sessions·departures·waves hold·stock-snapshot)·workers byFloor — 입고·KPI 없음 |
+| 실시간 관제 | 대시보드·관제 | `dashboard` | 맨 위 "오늘 흐름" 일곱 칸(최근 TRF 200건·운행 정차·transits — 칸 누르면 그 단계 요청, 2026-11-27)·"지금 손봐야 할 것"(건수 있는 일만 이유와 함께 — 재고 못 찾음·피킹 부족·출발 불일치·지연 운행·MFC 입고 안 맞음·보류 Wave·재계수·실사 결정·가용 0·기한 임박) · outbound-summary(byMfc 0.18.0)·주의할 일(shortages·recount-holds·count-sessions·departures·waves hold·stock-snapshot)·workers byFloor — 입고·KPI 없음 |
 | 실시간 관제 | MFC 재고 이동 | `mfc-flow` | transfers(단계)·departures·stock-snapshot transit·trips 정차(MFC 도착·인계)·transits(MFC 입고 — 다섯째 걸음, cdc-inventory 0.22.0) — 15초마다. 최근 출발 50건 줄마다 인계·입고, 입고 상태 거르기(`?receipt=`), 펼치면 상품·LOT 별 입고 수량(2026-11-27 "MFC 입고 확인" 메뉴를 합침). TRF 목록 "출발" 옆·TRF 진행 줄 마지막 칸도 transits |
 | 출고 운영 | TRF·Wave | `trf-wave` | transfers·waves·미출발 취소·Wave 보류·취소·합치기·나누기(0.22.0)·화면 번호 |
 | 출고 운영 | 통합 작업관리 | `tasks` | tasks·regions·담당 바꾸기·보류·우선순위(0.20.0) |

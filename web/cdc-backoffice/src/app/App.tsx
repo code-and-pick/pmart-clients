@@ -12,6 +12,7 @@ import { useMe } from '../features/me/useMe';
 import { DashboardPage } from '../features/dashboard/DashboardPage';
 import { FloorMenu } from '../features/floor/FloorPage';
 import { MfcFlowMenu } from '../features/mfc-flow/MfcFlowPage';
+import { NumberSearch } from '../shared/NumberSearch';
 import { ReplenishmentMenu } from '../features/inbound/PutawayPages';
 import { InventoryMenu } from '../features/inventory/InventoryPages';
 import { MasterMenu } from '../features/master/MasterPages';
@@ -127,6 +128,8 @@ function Layout() {
       }
       tools={
         <>
+          {/* 번호로 찾기(사용자 2026-11-27 "TRF 번호 하나로 다 보기") — 어느 화면에서나 */}
+          {session && center?.mine && <NumberSearch cdcId={center.cdcId} />}
           <LiveClock />
           {/* 좁은 화면에서는 DC 이름을 숨긴다 — 머리줄이 화면 밖으로 넘쳐 페이지 전체가 넓어지지 않게(2026-11-26 휴대폰) */}
           {session && center?.mine && (

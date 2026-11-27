@@ -543,6 +543,93 @@ export const messages = {
     floorLabel: (f: string) => `${f}층`,
     people: (n: number) => `${n}명`,
     more: '자세히 ›',
+    todayStats: '오늘 기한 출고 숫자',
+  },
+
+  /** 오늘 흐름 — DC → MFC 일곱 칸(사용자 2026-11-27 "백오피스로 내용이나 실시간 흐름을 파악하기가 너무 어렵다" → 1·2·4) */
+  flowBoard: {
+    title: '오늘 흐름 — MFC 가 요청한 물건이 지금 어디에',
+    lead: '칸마다 지금 그 단계에 있는 요청(TRF) 수예요. 칸을 누르면 그 요청들이 아래에 나오고, 요청을 누르면 처음부터 끝까지 따라가 볼 수 있어요. 15초마다 새로 읽어요.',
+    steps: {
+      RECEIVED: '① 요청 접수',
+      ALLOCATED: '② 재고 확보',
+      PICKING: '③ 꺼내기(피킹)',
+      PACKING: '④ 포장·싣기 준비',
+      ON_WAY: '⑤ 차로 가는 중',
+      HANDED: '⑥ MFC 가 받음',
+      STOCKED: '⑦ MFC 입고 끝',
+    } as Readonly<Record<string, string>>,
+    says: {
+      RECEIVED: 'MFC 가 보낸 요청서가 들어와 DC 재고를 찾는 중',
+      ALLOCATED: '보낼 물건을 창고에서 찜해 둠 — 묶음(Wave)에 넣으면 꺼내기 시작',
+      PICKING: '작업자가 선반에서 물건을 꺼내는 중',
+      PACKING: '박스에 담고 검사해서 차에 실을 준비',
+      ON_WAY: 'DC 를 떠났고 DC 재고에서 빠짐',
+      HANDED: 'MFC 직원이 박스를 받음 — 입고 확정 전',
+      STOCKED: '오늘 MFC 재고에 들어간 것',
+    } as Readonly<Record<string, string>>,
+    count: (n: number) => `${n}건`,
+    problems: (n: number) => `손볼 것 ${n}`,
+    partial: '최근 바뀐 요청 200건 안에서 셌어요.',
+    pick: '칸을 눌러 그 단계의 요청을 봐요.',
+    listTitle: (step: string, n: number) => `${step} — ${n}건`,
+    listEmpty: '이 단계에 있는 요청이 없어요.',
+    col: { no: '요청 번호', mfc: '받는 MFC', due: '기한', updated: '바뀐 시각', note: '눈여겨볼 것' },
+    more: (n: number) => `${n}건 더 — TRF·Wave 에서 봐요 ›`,
+    flag: {
+      ALLOCATION_FAILED: '재고를 못 찾음',
+      PARTIALLY_ALLOCATED: '일부만 확보',
+      MISMATCHED: '실은 박스 안 맞음',
+      short: (n: number) => `부족 ${n}개`,
+      late: '도착 늦음',
+      receiptBad: 'MFC 입고 수량 안 맞음',
+    },
+    failed: '흐름을 다 읽지 못했어요 — 운행·입고 칸은 비어 보일 수 있어요.',
+  },
+
+  /** 지금 손봐야 할 것 — 사람이 봐야 하는 일만(서버 목록의 건수) */
+  todo: {
+    title: '지금 손봐야 할 것',
+    lead: '사람이 확인하거나 처리해야 하는 것만 모았어요. 줄을 누르면 처리하는 화면으로 가요.',
+    allClear: '지금 손볼 것이 없어요.',
+    clearTitle: '문제 없음',
+    loading: '…',
+    failed: '못 읽음',
+    items: {
+      allocFailed: { label: '재고를 못 찾은 요청', why: 'DC 에 보낼 물건이 없거나 모자라요 — 요청을 확인하거나 재고를 채워요.' },
+      shortages: { label: '피킹 부족', why: '작업자가 선반에서 물건이 모자란다고 했어요 — 다른 칸에서 다시 잡거나 못 찾음으로 처리해요.' },
+      mismatch: { label: '실은 박스가 안 맞는 출발', why: '차에 실은 박스가 요청과 달라요 — 빠진 박스를 확인해요.' },
+      late: { label: '도착이 늦는 운행', why: '예상 도착이 계획보다 늦어요 — MFC 에 알려야 할 수 있어요.' },
+      receiptBad: { label: 'MFC 입고 수량이 안 맞는 출발', why: 'MFC 가 보낸 것보다 적게 받았어요 — MFC 에 확인하거나 운송 손실로 정리해요.' },
+      held: { label: '보류 중인 묶음(Wave)', why: '누군가 멈춰 둔 꺼내기 묶음이에요 — 이유를 보고 풀어요.' },
+      recount: { label: '다시 세야 하는 칸', why: '피킹 때 수량이 안 맞아 그 칸을 다시 세야 해요.' },
+      countDecide: { label: '실사 결정 대기', why: '센 결과를 반영할지 관리자가 정해야 해요.' },
+      noStock: { label: '가용 0 상품', why: '창고엔 있지만 보낼 수 있는 수량이 0 이에요(예약·보류).' },
+      expiring: { label: '소비기한 7일 안 LOT', why: '먼저 내보내거나 처리해야 해요.' },
+    } as Readonly<Record<string, { readonly label: string; readonly why: string }>>,
+  },
+
+  /** 번호로 찾기 — 머리줄(사용자 2026-11-27 "2. TRF 번호 하나로 다 보기") */
+  search: {
+    label: '번호로 찾기',
+    placeholder: 'T482913 · W4821',
+    go: '찾기',
+    notFound: (v: string) => `${v} 를 찾지 못했어요`,
+    unknown: 'T(요청)·W(묶음) 번호를 넣어요',
+    failed: '찾기 실패 — 다시 해 봐요',
+  },
+
+  /** TRF 상세 — 이 건에서 손볼 것 */
+  trfIssues: {
+    title: '이 요청에서 손볼 것',
+    none: '손볼 것이 없어요.',
+    allocFailed: (reason: string | null) => `재고를 못 찾았어요${reason ? ` (${reason})` : ''} — 재고를 채우거나 요청을 확인해요.`,
+    partial: (alloc: number, approved: number) => `${approved}개 중 ${alloc}개만 재고를 확보했어요.`,
+    shortage: (sku: string, n: number, loc: string) => `${sku} ${n}개가 ${loc} 칸에서 모자라요 — 피킹·분배에서 다시 잡아요.`,
+    lpnFail: (lpn: string, why: string | null) => `박스 ${lpn} 검사 불합격${why ? ` (${why})` : ''}.`,
+    mismatched: '차에 실은 박스가 요청과 안 맞아요 — 출고관리에서 안 맞은 박스를 봐요.',
+    receiptBad: (n: number) => `MFC 가 ${n}개를 덜 받았어요 — MFC 재고 이동에서 상품별로 봐요.`,
+    failed: '일부를 못 읽었어요.',
   },
 
   /** 센터 평면도(2D) — 시뮬레이터 배치 */

@@ -18,6 +18,7 @@ import { useApi } from '../../app/ApiContext';
 import { centerPath } from '../../app/nav';
 import { findWaveId } from '../../shared/findByNumber';
 import { TrfReceiptChip } from '../mfc-flow/ReceiptChip';
+import { TrfIssues } from '../flow/TrfIssues';
 import { TrfJourney } from '../mfc-flow/TrfJourney';
 import { useTransits } from '../mfc-flow/transits';
 import { messages } from '../../shared/messages';
@@ -575,6 +576,7 @@ function TransferDetailPage({ cdcId }: { readonly cdcId: string }) {
               />
             </div>
             <TrfJourney cdcId={cdcId} trfId={t.trfId} state={t.state} />
+            <TrfIssues cdcId={cdcId} trf={t} />
             <Readiness cdcId={cdcId} trfId={t.trfId} />
             <h2 className="text-base font-semibold">{m.lines}</h2>
             {t.lines.length === 0 ? (
