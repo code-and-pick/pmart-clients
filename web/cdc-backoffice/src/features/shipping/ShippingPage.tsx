@@ -10,6 +10,7 @@ import { formatSeoul, QueryState, toUiState } from '@pmart/web-ui';
 import type { components } from '../../api/generated/cdc-outbound';
 import { useApi } from '../../app/ApiContext';
 import { messages } from '../../shared/messages';
+import { TrfNo } from '../../shared/TrfNo';
 import { trfWavePath } from '../trf-wave/TrfWavePages';
 import { shortRef } from '../../shared/shortRef';
 import { LpnList } from './LpnList';
@@ -204,7 +205,7 @@ function DepartureDetail({ cdcId, d }: { readonly cdcId: string; readonly d: Dep
               <tr key={`${x.kind}-${x.lpn}-${i}`}>
                 <td className="text-error">{x.kind ? (t.mismatchKind[x.kind] ?? x.kind) : messages.none}</td>
                 <td className="font-mono">{x.lpn ?? messages.none}</td>
-                <td className="font-mono" title={x.trfId}>{x.trfId ? shortRef(x.trfId) : messages.none}</td>
+                <td className="font-mono" title={x.trfId}>{x.trfId ? <TrfNo cdcId={cdcId} trfId={x.trfId} /> : messages.none}</td>
                 <td className="whitespace-normal">{x.detail ?? messages.none}</td>
               </tr>
             ))}

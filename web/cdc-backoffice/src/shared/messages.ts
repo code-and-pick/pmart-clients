@@ -298,6 +298,8 @@ export const messages = {
     wavesFromTrf: 'Wave(최근 200개)',
     noWaves: 'Wave 가 아직 없어요.',
     choose: 'Wave 를 골라 주세요.',
+    pickRecent: '어느 Wave 의 작업을 볼까요? 최근 Wave 예요(진행 중인 것 먼저) — 누르면 그 Wave 의 작업이 나와요.',
+    recentLine: (trf: number, done: number | null, total: number | null) => `TRF ${trf}건${total !== null ? ` · 작업 ${done ?? 0}/${total} 끝` : ''}`,
     stateFilter: '상태',
     all: '전체',
     empty: '이 Wave 에 조건에 맞는 작업이 없어요.',
@@ -1201,7 +1203,7 @@ export const messages = {
     count: (n: number) => `${n.toLocaleString('ko-KR')}건`,
     minutes: (n: number) => `${Math.round(n)}분`,
     sources: (n: number) => `원천 TRF ${n}건`,
-    receiptNote: 'MFC 수령 사건이 아직 연결되지 않아 LAN 에서는 승인 수요 충족률이 낮게·잠정으로 보일 수 있어요.',
+    receiptNote: 'MFC 가 수령을 확정해야 수령률이 확정돼요. 아직 받지 않은 TRF 가 있으면 잠정으로 보여요.',
     // 일별
     date: '날짜',
     trfs: 'TRF',
@@ -1349,16 +1351,28 @@ export const messages = {
 
   /** MFC 재고 이동 — DC → MFC 로 가는 재고(TRF 단계·출발), 15초마다 다시 읽기 */
   mfcFlow: {
-    lead: 'DC 에서 MFC 로 가는 물건이 지금 어디 있는지 보여 줘요. 15초마다 새로 읽어요.',
+    lead: 'DC 에서 MFC 로 가는 물건이 지금 어디 있는지 — DC 에서 준비 → 차에 실어 출발 → MFC 가 박스를 받아 인계까지. 15초마다 새로 읽어요.',
     asOf: (t: string) => `기준 ${t}`,
-    steps: { PREP: 'DC 에서 준비 중', READY: '실을 준비 끝', GOING: '차 타고 가는 중' } as Readonly<Record<string, string>>,
-    goingSub: (n: number) => `출발한 TRF ${n}건 · MFC 가 받기 전`,
-    arrive: 'MFC 도착',
+    steps: { PREP: 'DC 에서 준비 중', READY: '실을 준비 끝', GOING: '차 타고 가는 중', DONE: 'MFC 도착·인계' } as Readonly<Record<string, string>>,
+    goingSub: (n: number) => `DC 재고에서 빠짐 · MFC 받기 전(TRF ${n}건)`,
+    stopsDone: (n: number) => `${n}곳 인계`,
+    doneSub: (recv: number, sent: number, arrived: number) =>
+      [`받은 박스 ${recv.toLocaleString('ko-KR')} / 보낸 ${sent.toLocaleString('ko-KR')}`, arrived ? `도착·인계 전 ${arrived}곳` : null].filter(Boolean).join(' · '),
+    stockLine: '재고는 이렇게 옮겨 가요: 출발 검증이 맞으면 DC 재고에서 빠져 "운송 중"이 되고, MFC 가 박스를 받아 인계하면 MFC 쪽에서 입고·재고 반영을 해요.',
+    receiptNote: 'MFC 인계는 운송(운행 정차) 기록이에요. MFC 재고에 실제로 반영(수령 확정)됐는지는 DC 가 볼 조회가 아직 서버에 없어요 — 백엔드에 요청했어요(MF-1).',
+    side: {
+      onWay: (eta: string, late: boolean) => `가는 중 · 도착 예정 ${eta}${late ? ' (늦음)' : ''}`,
+      arrived: (at: string) => `MFC 도착 ${at} · 인계 전`,
+      handed: (at: string, recv: number | null, sent: number | null) => `MFC 인계 ${at}${recv !== null && sent !== null ? ` · 박스 ${recv}/${sent}` : ''}`,
+      short: (n: number) => `빠짐·파손 ${n}`,
+      noTrip: '운행 기록 없음',
+      failed: '운행 못 읽음',
+    },
     trfs: (n: number) => `${n}건`,
     units: (n: number) => `${n.toLocaleString('ko-KR')}개`,
     byMfc: 'MFC 별',
-    rowText: (all: number, prep: number, ready: number, going: number) =>
-      [`TRF ${all}건`, prep ? `준비 중 ${prep}` : null, ready ? `실을 준비 끝 ${ready}` : null, going ? `가는 중 ${going}` : null].filter(Boolean).join(' · '),
+    rowText: (all: number, prep: number, ready: number, going: number, done: number) =>
+      [`TRF ${all}건`, prep ? `준비 중 ${prep}` : null, ready ? `실을 준비 끝 ${ready}` : null, going ? `가는 중 ${going}` : null, done ? `인계 ${done}` : null].filter(Boolean).join(' · '),
     recent: '최근 출발',
     recentEmpty: '아직 출발한 TRF 가 없어요.',
     noTrf: '진행 중인 TRF 가 없어요.',
@@ -1370,6 +1384,20 @@ export const messages = {
     badLoad: '! 실은 것 안 맞음',
   },
 
+
+  /** TRF 한 건 DC→MFC 진행(2026-11-27) */
+  journey: {
+    title: 'DC → MFC 진행',
+    steps: { RECEIVED: '접수', ALLOCATED: '재고 확보', PICKING: '피킹', READY: '실을 준비', DEPARTED: '출발', ARRIVED: 'MFC 도착', HANDED_OVER: 'MFC 인계' } as Readonly<Record<string, string>>,
+    sides: '왼쪽 다섯 칸은 DC(TRF 상태), 오른쪽 두 칸은 MFC(운행 정차 기록)예요. 15초마다 새로 읽어요.',
+    planned: (vehicle: string, eta: string) => `배차됨 — 차량 ${vehicle}, MFC 도착 계획 ${eta}`,
+    onWay: (eta: string, late: boolean) => `차 타고 가는 중 — 도착 예정 ${eta}${late ? ' (늦음)' : ''}. DC 재고에서는 빠졌고 MFC 가 아직 받기 전이에요.`,
+    arrived: (at: string) => `${at} MFC 에 도착했어요 — 박스 인계 전이에요.`,
+    handed: (at: string, recv: number | null, sent: number | null, bad: boolean) =>
+      `${at} MFC 가 박스를 받았어요${recv !== null && sent !== null ? ` — ${sent}개 중 ${recv}개` : ''}${bad ? '. 빠지거나 파손된 박스가 있어요(출하·운송 › 운행 예외).' : '.'} MFC 재고 반영은 MFC 쪽에서 해요.`,
+    noTrip: '이 TRF 가 실린 운행 기록을 오늘·어제 출고일에서 못 찾았어요.',
+    tripFailed: '운행 기록을 못 읽었어요.',
+  },
 
   /** 출고관리 — 출발 검증 결과(cdc-outbound 0.16.0 M-3) */
   shipping: {

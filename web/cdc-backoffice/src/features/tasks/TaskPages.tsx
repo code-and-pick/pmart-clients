@@ -27,6 +27,9 @@ type TaskState = components['schemas']['TaskState'];
 const STATES: readonly TaskState[] = ['CREATED', 'ASSIGNED', 'ACCEPTED', 'IN_PROGRESS', 'PARTIAL', 'DONE', 'EXCEPTION', 'HELD', 'CANCELLED'];
 const isState = (v: string | null): v is TaskState => !!v && (STATES as readonly string[]).includes(v);
 
+/** 끝난 Wave(완료·취소) — 최근 목록에서 뒤로 */
+const isOver = (s: string | undefined) => s === 'WORK_DONE' || s === 'CANCELLED' || s === 'CLOSED';
+
 const tasksPath = (cdcId: string, rest = '') => centerPath(cdcId, rest ? `tasks/${rest}` : 'tasks');
 
 /** `/c/:cdcId/tasks/*` */
@@ -57,7 +60,17 @@ function useRecentWaves(cdcId: string) {
     queryFn: async () => {
       const page = await request('GET', api.outbound.GET('/cdcs/{cdcId}/waves', { params: { path: { cdcId }, query: { size: 200 } } }));
       // 화면 번호(waveNumber — 없으면 옛 기록이라 시스템 ID)로 고르게 한다
-      return page.items.filter((v) => !!v.waveId).map((v) => ({ id: v.waveId!, label: v.waveNumber ?? v.waveId! }));
+      return page.items
+        .filter((v) => !!v.waveId)
+        .map((v) => ({
+          id: v.waveId!,
+          label: v.waveNumber ?? v.waveId!,
+          state: v.state,
+          createdAt: v.createdAt,
+          trfCount: v.trfIds?.length ?? 0,
+          done: v.taskSummary?.done ?? null,
+          total: v.taskSummary?.total ?? null,
+        }));
     },
   });
 }
@@ -161,9 +174,29 @@ function TaskListPage({ cdcId }: { readonly cdcId: string }) {
       <p className="text-xs text-base-content/55">{m.pickWaveHint}</p>
 
       {!waveId ? (
-        <p className="rounded-box border border-dashed border-base-300 p-6 text-center text-sm text-base-content/60" data-testid="task-no-wave">
-          {m.choose}
-        </p>
+        // Wave 를 안 골랐으면 빈 칸 대신 최근 Wave 를 바로 누를 수 있게(사용자 2026-11-27 "못 알아보게 만든 페이지 직관적으로") — 끝나지 않은 것 먼저
+        <div className="space-y-2" data-testid="task-no-wave">
+          <p className="text-sm text-base-content/70">{m.pickRecent}</p>
+          <QueryState state={toUiState(waves, (d) => d.length === 0)} onRetry={() => void waves.refetch()} emptyText={m.noWaves}>
+            {(list) => (
+              <ul className="divide-y divide-base-300 rounded-box border border-base-300 bg-base-100">
+                {[...list]
+                  .sort((a, b) => Number(isOver(a.state)) - Number(isOver(b.state)))
+                  .slice(0, 12)
+                  .map((x) => (
+                    <li key={x.id}>
+                      <button type="button" className="flex w-full flex-wrap items-center gap-x-4 gap-y-1 px-4 py-2.5 text-left text-sm hover:bg-base-200" onClick={() => set('waveId', x.id)} data-testid="task-recent-wave">
+                        <span className="w-24 font-mono font-semibold">{x.label}</span>
+                        <WaveStateBadge state={x.state} />
+                        <span className="text-base-content/70">{m.recentLine(x.trfCount, x.done, x.total)}</span>
+                        <span className="ml-auto text-xs text-base-content/55">{x.createdAt ? formatSeoul(x.createdAt) : ''}</span>
+                      </button>
+                    </li>
+                  ))}
+              </ul>
+            )}
+          </QueryState>
+        </div>
       ) : (
         <>
           {wave.data && (

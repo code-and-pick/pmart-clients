@@ -17,6 +17,7 @@ import type { components } from '../../api/generated/cdc-outbound';
 import { useApi } from '../../app/ApiContext';
 import { centerPath } from '../../app/nav';
 import { findWaveId } from '../../shared/findByNumber';
+import { TrfJourney } from '../mfc-flow/TrfJourney';
 import { messages } from '../../shared/messages';
 import { shortRef } from '../../shared/shortRef';
 import { MfcName, useMfcLabel } from '../../shared/MfcName';
@@ -443,6 +444,7 @@ function TransferDetailPage({ cdcId }: { readonly cdcId: string }) {
   const mfcLabel = useMfcLabel();
   const query = useQuery({
     queryKey: ['cdc', cdcId, 'transfer', trfId],
+    refetchInterval: 15_000,
     queryFn: () => request('GET', api.outbound.GET('/cdcs/{cdcId}/transfers/{trfId}', { params: { path: { cdcId, trfId } } })),
   });
   return (
@@ -468,6 +470,7 @@ function TransferDetailPage({ cdcId }: { readonly cdcId: string }) {
                 ]}
               />
             </div>
+            <TrfJourney cdcId={cdcId} trfId={t.trfId} state={t.state} />
             <Readiness cdcId={cdcId} trfId={t.trfId} />
             <h2 className="text-base font-semibold">{m.lines}</h2>
             {t.lines.length === 0 ? (

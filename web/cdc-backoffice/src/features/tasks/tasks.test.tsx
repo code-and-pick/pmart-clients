@@ -13,6 +13,17 @@ describe('작업 목록', () => {
     expect(view.gets('/cdcs/CDC01/tasks')).toHaveLength(0);
   });
 
+  it('Wave 를 안 골랐으면 최근 Wave 를 진행 중 먼저 보이고, 누르면 그 Wave 작업', async () => {
+    const view = renderAt('/c/CDC01/tasks');
+    const rows = await screen.findAllByTestId('task-recent-wave');
+    expect(rows).toHaveLength(2);
+    const w = rows.find((r) => r.textContent?.includes('W4821'))!;
+    expect(w).toHaveTextContent('TRF 2건');
+    await userEvent.click(w);
+    await waitFor(() => expect(view.gets('/cdcs/CDC01/tasks').length).toBeGreaterThan(0));
+    expect(new URL(view.gets('/cdcs/CDC01/tasks')[0]!.url).searchParams.get('waveId')).toBe('WAVE-20261126-01');
+  });
+
   it('최근 TRF 의 Wave 를 고르면 그 Wave 작업 — 묶음은 TRF 수, 부족은 빨강', async () => {
     renderAt('/c/CDC01/tasks');
     const select = await screen.findByTestId('task-wave-select');

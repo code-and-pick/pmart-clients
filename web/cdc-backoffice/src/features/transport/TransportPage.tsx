@@ -14,6 +14,7 @@ import { commandParams } from '../../api/command';
 import type { components } from '../../api/generated/transport-execution';
 import { useApi } from '../../app/ApiContext';
 import { messages } from '../../shared/messages';
+import { TrfNo } from '../../shared/TrfNo';
 import { shortRef } from '../../shared/shortRef';
 import { MfcName, useMfcLabel } from '../../shared/MfcName';
 import { Who } from '../../shared/OperatorLabel';
@@ -282,7 +283,7 @@ function TripDetail({ cdcId, trip }: { readonly cdcId: string; readonly trip: Tr
         <ul className="flex flex-wrap gap-2 text-xs">
           {(trip.transfers ?? []).map((x) => (
             <li key={x.trfId} className={`badge badge-sm ${x.loaded ? 'badge-success badge-outline' : 'badge-ghost'}`}>
-              {shortRef(x.trfId)} · {x.loaded ? t.lpnCount(x.lpns?.length ?? 0) : t.notLoaded}
+              {x.trfId ? <TrfNo cdcId={cdcId} trfId={x.trfId} /> : messages.none} · {x.loaded ? t.lpnCount(x.lpns?.length ?? 0) : t.notLoaded}
             </li>
           ))}
         </ul>
@@ -370,7 +371,7 @@ function StopsTable({ cdcId, trip }: { readonly cdcId: string; readonly trip: Tr
                   <td>{t.stopSeq(seq)}</td>
                   <td className="font-mono text-xs">
                     <MfcName id={s.mfcId} />
-                    <span className="block text-base-content/55">{(s.trfIds ?? []).map(shortRef).join(', ')}</span>
+                    <span className="block text-base-content/55">{(s.trfIds ?? []).map((id, i) => (<span key={id}>{i > 0 && ', '}<TrfNo cdcId={cdcId} trfId={id} /></span>))}</span>
                   </td>
                   <td>
                     <span className="flex flex-wrap gap-1">

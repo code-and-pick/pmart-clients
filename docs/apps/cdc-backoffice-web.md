@@ -23,7 +23,7 @@
 | 묶음 | 메뉴 | 경로 | 서버 |
 |---|---|---|---|
 | 실시간 관제 | 대시보드·관제 | `dashboard` | outbound-summary(byMfc 0.18.0)·주의할 일(shortages·recount-holds·count-sessions·departures·waves hold·stock-snapshot)·workers byFloor — 입고·KPI 없음 |
-| 실시간 관제 | MFC 재고 이동 | `mfc-flow` | transfers(단계)·departures·outbound-summary byMfc·stock-snapshot transit — 15초마다(2026-11-26) |
+| 실시간 관제 | MFC 재고 이동 | `mfc-flow` | transfers(단계)·departures·stock-snapshot transit·trips 정차(MFC 도착·인계, 2026-11-27) — 15초마다. MFC 재고 반영은 요청 MF-1 |
 | 출고 운영 | TRF·Wave | `trf-wave` | transfers·waves·미출발 취소·Wave 보류·취소·합치기·나누기(0.22.0)·화면 번호 |
 | 출고 운영 | 통합 작업관리 | `tasks` | tasks·regions·담당 바꾸기·보류·우선순위(0.20.0) |
 | 출고 운영 | 피킹·분배 | `picking` | FC 피킹만(DPS·AutoStore·소터는 작업 화면만, 설비 칸 없음)·피킹 부족 재할당(shortages) |

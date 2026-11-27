@@ -28,6 +28,7 @@ import type { components as LocSchemas } from "../../api/generated/cdc-location"
 import { useApi } from "../../app/ApiContext";
 import { centerPath } from "../../app/nav";
 import { messages } from "../../shared/messages";
+import { SkuName } from "../../shared/SkuName";
 import { Who } from "../../shared/OperatorLabel";
 import { LocationStockTable } from "../inventory/LocationStock";
 import { SkuInfo } from "../../shared/SkuInfo";
@@ -222,14 +223,14 @@ function HandlingTab({ cdcId }: { readonly cdcId: string }) {
                         aria-expanded={open === r.sku}
                         onClick={() => setOpen(open === r.sku ? null : r.sku)}
                       >
-                        <td className="font-mono text-xs">
+                        <td className="text-xs">
                           <span
                             aria-hidden
-                            className="mr-1 inline-block w-3 text-base-content/50"
+                            className="mr-1 inline-block w-3 align-top text-base-content/50"
                           >
                             {open === r.sku ? "▾" : "▸"}
                           </span>
-                          {r.sku}
+                          <SkuName sku={r.sku} lookup={rows.length <= 60} />
                         </td>
                         <td>
                           {r.skuState === "INACTIVE" ? (

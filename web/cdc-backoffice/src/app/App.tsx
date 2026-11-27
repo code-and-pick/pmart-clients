@@ -272,7 +272,9 @@ const routes = [
 
 /** 재시도는 pmartFetch(429·retryable) 규칙만 따른다. TanStack Query 의 자동 재시도는 끈다. */
 export function createQueryClient() {
-  return new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
+  // 화면을 켜 두면 옛 값이 남지 않게(사용자 2026-11-27 "백오피스 정보 옛날 거 갖고 있진 않은지") — 따로 정하지 않은 조회도 30초마다 다시 읽는다.
+  // 관제 화면(MFC 재고 이동·운행·대시보드 등)은 각자 15초. 탭이 안 보일 때는 쉬고, 돌아오면 바로 다시 읽는다(TanStack 기본).
+  return new QueryClient({ defaultOptions: { queries: { retry: false, refetchInterval: 30_000 }, mutations: { retry: false } } });
 }
 
 export function App({
