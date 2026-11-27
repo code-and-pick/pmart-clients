@@ -1,8 +1,10 @@
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:dio/dio.dart';
 import 'package:pmart_api_delivery_dispatch/pmart_api_delivery_dispatch.dart';
 import 'package:pmart_api_rider/pmart_api_rider.dart' as rd;
 import 'package:pmart_core/pmart_core.dart';
 
+import '../../../shared/demo.dart';
 import '../domain/offer_list.dart';
 import 'offer_repository.dart';
 
@@ -19,6 +21,7 @@ base class MockOfferRepository implements OfferRepository, DutyRepository {
     bool demoBundle = false,
     bool demoManyBundles = false,
     bool demoSingles = false,
+    DemoScenario? demo,
   }) {
     if (demoBundle) {
       // 시연: 첫 제안 다음에 알뜰배달 묶음(2건)이 온다.
@@ -112,6 +115,7 @@ base class MockOfferRepository implements OfferRepository, DutyRepository {
           },
       ]);
     }
+    if (demo != null) _holdForDemo(demo);
     if (!startOnDuty) {
       _duty = {..._duty, 'status': 'OFF_DUTY', 'newDispatchEnabled': false};
     }
@@ -221,6 +225,131 @@ base class MockOfferRepository implements OfferRepository, DutyRepository {
 
   int _sizeOf(Map<String, Object?> offer) => (offer['bundleSize'] as int?) ?? 1;
 
+  /// 시연 빌드(사용자 2026-11-27 "주문이 들어오고 … 배차되고 … 영상"): 제안을 처음부터 다 보이지 않고 [_held] 에 두었다가
+  /// 운행을 시작하면 4초 뒤 하나(묶음은 묶음째)씩 내보낸다. 보이는 제안이 있으면 기다리고, 응답한 뒤 6초 뒤 다음 것.
+  /// 받을 수 없는 것(한집 진행 중·최대 건수)은 건너뛰고 받을 수 있는 다음 것을 보낸다.
+  final _held = <Map<String, Object?>>[];
+  DateTime? _nextAt;
+
+  void _holdForDemo(DemoScenario demo) {
+    String id(Map<String, Object?> o) => o['offerId']! as String;
+    final List<String> order = switch (demo) {
+      DemoScenario.single => [
+        'offer-single-1',
+        'offer-single-2',
+        'offer-single-3',
+      ],
+      DemoScenario.bundle => [
+        'offer-bundle-1',
+        'offer-bundle-2',
+        'offer-bundle-3',
+        'offer-bundle-4',
+        'offer-bundle-5',
+        'offer-bundle-6',
+        'offer-bundle-7',
+      ],
+      // 섞어서: 한집 → 알뜰 2건 → 반품 회수 → 한집 → 알뜰 3건 → 예약 → 한집 → 알뜰 2건
+      DemoScenario.all => [
+        'offer-single-1',
+        'offer-bundle-1',
+        'offer-bundle-2',
+        'offer-return-1',
+        'offer-single-2',
+        'offer-bundle-3',
+        'offer-bundle-4',
+        'offer-bundle-5',
+        'offer-mock-1',
+        'offer-single-3',
+        'offer-bundle-6',
+        'offer-bundle-7',
+      ],
+    };
+    for (final o in order) {
+      final found = _offers.where((x) => id(x) == o).firstOrNull;
+      if (found != null) _held.add(found);
+    }
+    _offers.clear();
+  }
+
+  void _drip({required bool receiving}) {
+    if (_held.isEmpty) return;
+    final now = DateTime.now();
+    if (!receiving) {
+      _nextAt = null;
+      return;
+    }
+    if (_offers.any(_fits)) return;
+    final next = _nextAt;
+    if (next == null) {
+      _nextAt = now.add(const Duration(seconds: 4));
+      return;
+    }
+    if (now.isBefore(next)) return;
+    final i = _held.indexWhere(_fits);
+    // 시연 확인용(값에 개인정보 없음 — 목 배송 ID 만)
+    debugPrint(
+      '[demo] drip held=${_held.map((o) => o['offerId']).join(',')} '
+      'visible=${_offers.map((o) => o['offerId']).join(',')} '
+      'assigned=${assignedDeliveries.join(',')} active=$activeCount pick=$i',
+    );
+    if (i < 0) return;
+    final bundle = _held[i]['bundleId'];
+    final group = bundle == null
+        ? [_held[i]]
+        : _held.where((o) => o['bundleId'] == bundle).toList();
+    _held.removeWhere(group.contains);
+    _offers.addAll(group);
+    for (final o in group) {
+      _sentAt[o['offerId']! as String] = now;
+    }
+    _nextAt = now.add(const Duration(seconds: 6));
+  }
+
+  /// 시연: 내보낸 시각 — 남은 시간을 그때부터 줄이고(60초), 0 이 되면 만료로 거둔다(서버처럼).
+  final _sentAt = <String, DateTime>{};
+
+  Map<String, Object?> _ticking(Map<String, Object?> o) {
+    final sent = _sentAt[o['offerId']];
+    if (sent == null) return o;
+    final left = 60 - DateTime.now().difference(sent).inSeconds;
+    return {...o, 'remainingSec': left < 0 ? 0 : left};
+  }
+
+  void _expireDemo() {
+    final now = DateTime.now();
+    final gone = _offers
+        .where((o) {
+          final sent = _sentAt[o['offerId']];
+          return sent != null && now.difference(sent).inSeconds >= 60;
+        })
+        .map((o) => o['bundleId'] ?? o['offerId'])
+        .toSet();
+    if (gone.isEmpty) return;
+    _recycle(
+      _offers.where((o) => gone.contains(o['bundleId'] ?? o['offerId'])),
+    );
+    _offers.removeWhere((o) => gone.contains(o['bundleId'] ?? o['offerId']));
+    _nextAt = now.add(const Duration(seconds: 6));
+  }
+
+  /// 시연: 거절·만료된 제안은 새 제안 ID 로 대기열 맨 뒤에 다시 넣는다 — 녹화 중 주문이 바닥나지 않게
+  /// (2편 녹화에서 거절·신규배차 끈 사이 만료로 알뜰 묶음을 다 써 "찾고 있어요"에서 멈춤). 배송 ID 는 그대로(수락 전이라 배송 상태가 처음 그대로다).
+  var _round = 0;
+
+  void _recycle(Iterable<Map<String, Object?>> group) {
+    final list = group.toList();
+    if (list.isEmpty || _sentAt.isEmpty) return;
+    _round++;
+    _held.addAll([
+      for (final o in list)
+        {
+          ...o,
+          'offerId': '${o['offerId']}~$_round',
+          if (o['bundleId'] != null) 'bundleId': '${o['bundleId']}~$_round',
+        },
+    ]);
+  }
+
   /// 조회 횟수(폴링 간격 확인용).
   int fetches = 0;
 
@@ -269,13 +398,15 @@ base class MockOfferRepository implements OfferRepository, DutyRepository {
         _duty['status'] == 'ON_DUTY' && _duty['newDispatchEnabled'] == true;
     // 일반 배차모드는 제안을 보내지 않는다 — 배달리스트에서 골라 수락(원문 §2.2·2.4).
     final aiMode = _settings['dispatchMode'] == 'AI_RECOMMENDED';
+    _expireDemo();
+    _drip(receiving: receiving && aiMode && !_cannotReceive);
     return offerListFromContract(
       ListMyOffers200Response.fromJson({
         ...fixture,
         'items': receiving && aiMode
             ? [
                 for (final o in _offers)
-                  if (_fits(o)) o,
+                  if (_fits(o)) _ticking(o),
               ]
             : const <Object?>[],
         // 계약: 하나씩 배달 진행 중이면 제안을 받을 수 없어 null(폴링 멈춤).
@@ -347,12 +478,24 @@ base class MockOfferRepository implements OfferRepository, DutyRepository {
       };
     }
     final bundleOf = offer?['bundleId'];
+    if (!accept && offer != null && _sentAt.containsKey(offerId)) {
+      _recycle(
+        _offers.where(
+          (o) =>
+              o['offerId'] == offerId ||
+              (bundleOf != null && o['bundleId'] == bundleOf),
+        ),
+      );
+    }
     _offers.removeWhere(
       (o) =>
           o['offerId'] == offerId ||
           (bundleOf != null && o['bundleId'] == bundleOf),
     );
     _responses[key.value] = result;
+    if (_held.isNotEmpty) {
+      _nextAt = DateTime.now().add(const Duration(seconds: 6));
+    }
     if (loseNextResponse) {
       loseNextResponse = false;
       return const OfferUnknown();

@@ -15,6 +15,7 @@ import '../../offers/domain/offer_list.dart';
 import '../../offers/presentation/offer_actions.dart';
 import '../../offers/presentation/offer_controllers.dart';
 import '../data/trip_repository.dart';
+import '../domain/delivery.dart' show ExecutionState;
 import 'delivery_controller.dart';
 import 'delivery_texts.dart';
 import 'trip_widgets.dart' show packageCountText;
@@ -226,12 +227,25 @@ class _Stop extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
     final d = ref.watch(deliveryProvider(deliveryId)).value;
+    // 회수(반품·고객 거부 반납) — 받기 전 = 회수지(회수 핀), 받은 뒤 = MFC(반납 핀). 주문번호·포장 수 대신 회수 목적·상품 수
+    // (2026-11-27 시연 녹화: 회수 건이 "픽업 바로픽 · 주문 …"·"전달지 정보를 불러오지 못했어요"로 보였다).
+    final rec = d != null && d.isRecovery;
+    final recCollect =
+        rec &&
+        !d.directReturn &&
+        (d.state == ExecutionState.assigned ||
+            d.state == ExecutionState.failureReported);
+    final recContact = recCollect
+        ? ref.watch(recoveryContactProvider(deliveryId)).value
+        : null;
     // 알뜰 여러 건이 모두 같은 점포로 보여 구분이 안 됐다(2026-11-20 S23) — 주문번호를 함께.
-    final orderNo = ref.watch(tripInfoProvider(deliveryId)).value?.orderNo;
-    final drop = d != null && !isPickupStage(d.state)
+    final orderNo = rec
+        ? null
+        : ref.watch(tripInfoProvider(deliveryId)).value?.orderNo;
+    final drop = d != null && !rec && !isPickupStage(d.state)
         ? ref.watch(dropInfoProvider(deliveryId)).value
         : null;
-    final pickup = d == null || isPickupStage(d.state);
+    final pickup = rec ? recCollect : d == null || isPickupStage(d.state);
     final color = pickup ? RiderColors.pickup : RiderColors.drop;
     return Container(
       key: ValueKey('delivery-$deliveryId'),
@@ -248,7 +262,11 @@ class _Stop extends ConsumerWidget {
                 radius: 17,
                 backgroundColor: color,
                 child: Text(
-                  pickup ? l10n.pinPickup : l10n.pinDrop,
+                  rec
+                      ? (recCollect ? l10n.pinRecovery : l10n.pinReturn)
+                      : pickup
+                      ? l10n.pinPickup
+                      : l10n.pinDrop,
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 11,
@@ -264,6 +282,11 @@ class _Stop extends ConsumerWidget {
                     Text(
                       d == null
                           ? l10n.deliveryNumber(deliveryId)
+                          : rec
+                          ? (recCollect
+                                ? (recContact?.roadAddress ??
+                                      l10n.recoveryNaviName)
+                                : storeText(l10n, d.mfcId))
                           : pickup
                           ? storeText(l10n, d.mfcId)
                           : (drop?.roadAddress ?? l10n.dropInfoUnavailable),
@@ -275,7 +298,9 @@ class _Stop extends ConsumerWidget {
                     const SizedBox(height: 10),
                     if (d != null)
                       Text(
-                        executionText(l10n, d.state),
+                        rec
+                            ? recoveryStageText(l10n, d.state)
+                            : executionText(l10n, d.state),
                         style: const TextStyle(
                           fontSize: 15,
                           color: RiderColors.sub,
@@ -286,8 +311,11 @@ class _Stop extends ConsumerWidget {
                         padding: const EdgeInsets.only(top: 4),
                         child: Text(
                           [
+                            if (rec && d.recovery != null)
+                              recoveryPurposeText(l10n, d.recovery!),
                             if (orderNo != null) l10n.orderNoShort(orderNo),
-                            packageCountText(l10n, d.packageIds.length),
+                            if (!rec)
+                              packageCountText(l10n, d.packageIds.length),
                           ].join(' · '),
                           style: const TextStyle(
                             fontSize: 15,

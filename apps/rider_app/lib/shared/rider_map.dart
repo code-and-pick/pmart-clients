@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kakao_map_sdk/kakao_map_sdk.dart' as kakao;
 
 import '../l10n/gen/app_localizations.dart';
+import 'demo.dart';
 import 'location.dart';
 import 'rider_style.dart';
 import 'rider_widgets.dart';
@@ -172,11 +173,26 @@ class _LiveMapState extends ConsumerState<_LiveMap> {
   @override
   void didUpdateWidget(covariant _LiveMap old) {
     super.didUpdateWidget(old);
-    if (old.route != widget.route) unawaited(_drawRoute());
+    if (old.route != widget.route) {
+      _demoAim();
+      unawaited(_drawRoute());
+    }
+  }
+
+  /// 시연 빌드: 가짜 위치가 이 지도의 목적지(픽업 전 MFC, 픽업 뒤 고객)로 가게 한다.
+  /// 경로 없는 지도(빈 홈)는 목적지를 지우지 않는다 — 화면을 오가도 가던 길을 계속 간다.
+  void _demoAim() {
+    if (!kDemo) return;
+    final target = widget.route?.target;
+    if (target == null) return;
+    Future.microtask(() {
+      if (mounted) ref.read(demoTargetProvider.notifier).set(target);
+    });
   }
 
   Future<void> _onReady(kakao.KakaoMapController controller) async {
     _map = controller;
+    _demoAim();
     _readyCap = Timer(const Duration(milliseconds: 700), _reveal);
     final source = ref.read(locationSourceProvider);
     // 위치 받기는 지도가 준비되자마자 시작한다 — 전에는 경로 그리기를 기다린 뒤에 구독해서, 그리기가 끝나지

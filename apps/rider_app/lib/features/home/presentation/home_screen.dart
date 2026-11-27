@@ -20,6 +20,9 @@ import '../../delivery/presentation/delivery_controller.dart';
 import '../../delivery/presentation/delivery_screen.dart';
 import '../../offers/presentation/offer_detail_screen.dart'
     show deliveryMapRoute, offerMapRoute;
+import '../../../shared/mfc_directory.dart' show mfcById;
+import '../../delivery/domain/delivery.dart'
+    show ExecutionState, RecoveryContactView;
 import '../../delivery/presentation/delivery_texts.dart';
 import '../../my/data/profile.dart';
 import '../../my/presentation/phone_verify_prompt.dart';
@@ -298,14 +301,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     ref.watch(tripInfoProvider(o.deliveryId!)).value,
                     st?.mfcId,
                   ),
-                (null, final String id) => deliveryMapRoute(
-                  ref.watch(tripInfoProvider(id)).value,
-                  ref.watch(deliveryProvider(id)).value?.mfcId ?? st?.mfcId,
-                  pickupStage: switch (ref.watch(deliveryProvider(id)).value) {
-                    final d? => isPickupStage(d.state),
-                    null => true,
-                  },
-                ),
+                (null, final String id) => _activeRoute(ref, id, st?.mfcId),
                 _ => null,
               },
             ),
@@ -1094,4 +1090,32 @@ class _ActiveSlim extends StatelessWidget {
       ),
     );
   }
+}
+
+/// 진행 중 배송의 지도 경로. 회수(반품·고객 거부 반납)는 회수지 → MFC(배송 수행 화면과 같다 — 2026-11-27 시연 녹화에서
+/// 홈 지도가 회수 중에도 MFC → 전달지로 그려 라이더 점이 MFC 로 갔다). 그 밖은 픽업지 → 전달지.
+MapRoute? _activeRoute(WidgetRef ref, String id, String? dutyMfc) {
+  final d = ref.watch(deliveryProvider(id)).value;
+  final trip = ref.watch(tripInfoProvider(id)).value;
+  if (d != null && d.isRecovery) {
+    final store = (trip?.store ?? mfcById(d.mfcId))?.point;
+    if (store == null) return null;
+    final returning =
+        d.directReturn || d.state == ExecutionState.returnPickedUp;
+    final contact = d.directReturn
+        ? null
+        : ref.watch(recoveryContactProvider(id)).value;
+    final GeoPoint? at = switch (contact) {
+      RecoveryContactView(:final lat?, :final lng?) => (lat: lat, lng: lng),
+      _ => null,
+    };
+    return at == null
+        ? MapRoute(pickup: store)
+        : MapRoute(pickup: at, drop: store, toDrop: returning);
+  }
+  return deliveryMapRoute(
+    trip,
+    d?.mfcId ?? dutyMfc,
+    pickupStage: d == null || isPickupStage(d.state),
+  );
 }

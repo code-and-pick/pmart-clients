@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:pmart_api_delivery_dispatch/pmart_api_delivery_dispatch.dart';
 import 'package:pmart_core/pmart_core.dart';
 
+import '../../../shared/demo.dart';
 import '../../../shared/providers.dart' show sourceSystem;
 import '../domain/offer_list.dart';
 import 'offer_repository.dart';
@@ -115,7 +116,52 @@ final class MockDeliveryListRepository implements DeliveryListRepository {
   MockDeliveryListRepository({
     this.latency = const Duration(milliseconds: 300),
     this.onAssigned,
-  });
+    DemoScenario? demo,
+  }) {
+    if (demo != null) _holdForDemo(demo);
+  }
+
+  /// 시연 빌드: 대기 배송을 처음부터 다 보이지 않고 8초마다 하나씩 올린다(최대 3건 보이게).
+  final _held = <WaitingDelivery>[];
+  DateTime? _nextAt;
+
+  void _holdForDemo(DemoScenario demo) {
+    WaitingDelivery single(String id, String area, num km, int fee) =>
+        WaitingDelivery(
+          deliveryId: id,
+          mfcId: 'MFC-BSJ-01',
+          dropAreaLabel: area,
+          mode: DeliveryMode.single,
+          distanceKm: km,
+          estimatedFee: fee,
+          weightG: 2100,
+          bagCount: 1,
+          containsAlcohol: false,
+        );
+    final singles = [
+      single('dlv-s1', '부산진구 양정동', 1.5, 4000),
+      single('dlv-s2', '부산진구 연지동', 2.1, 4300),
+      single('dlv-s3', '부산진구 초읍동', 2.7, 4600),
+    ];
+    _held.addAll(switch (demo) {
+      DemoScenario.single || DemoScenario.bundle => singles,
+      DemoScenario.all => [..._items, ...singles],
+    });
+    _items.clear();
+  }
+
+  void _drip() {
+    if (_held.isEmpty) return;
+    final now = DateTime.now();
+    final next = _nextAt;
+    if (next == null) {
+      _nextAt = now.add(const Duration(seconds: 4));
+      return;
+    }
+    if (now.isBefore(next) || _items.length >= 3) return;
+    _items.add(_held.removeAt(0));
+    _nextAt = now.add(const Duration(seconds: 8));
+  }
 
   final Duration latency;
 
@@ -151,6 +197,7 @@ final class MockDeliveryListRepository implements DeliveryListRepository {
   @override
   Future<WaitingList> list() async {
     await Future<void>.delayed(latency);
+    _drip();
     return WaitingList(
       items: List.unmodifiable(_items),
       pollAfter: const Duration(seconds: 5),

@@ -5,6 +5,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 
+import 'demo.dart';
+import 'mfc_directory.dart' show demoMfc;
+
 typedef GeoPoint = ({double lat, double lng});
 
 /// 앱을 내려도 위치를 계속 받을 때 띄우는 Android 상시 알림 문구.
@@ -26,6 +29,16 @@ abstract interface class LocationSource {
 /// 시험 실행에는 위치 서비스가 없어 null 이다.
 final locationSourceProvider = Provider<LocationSource?>((ref) {
   if (Platform.environment.containsKey('FLUTTER_TEST')) return null;
+  // 시연 빌드: 가짜 위치가 MFC 근처(북동쪽 약 500m)에서 시작해 지도의 목적지로 움직인다.
+  if (kDemo) {
+    final mfc = demoMfc.point ?? (lat: 35.1580, lng: 129.0600);
+    final demo = DemoLocationSource(
+      start: (lat: mfc.lat + 0.0035, lng: mfc.lng + 0.0028),
+      target: () => ref.read(demoTargetProvider),
+    );
+    ref.onDispose(demo.dispose);
+    return demo;
+  }
   final source = DeviceLocationSource();
   ref.onDispose(source.dispose);
   return source;

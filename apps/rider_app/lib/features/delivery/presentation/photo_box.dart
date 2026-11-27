@@ -1,11 +1,13 @@
 import 'dart:async';
 import 'dart:io' show Platform;
 import 'dart:typed_data';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../../shared/demo.dart';
 import '../../../shared/rider_widgets.dart';
 import '../../../l10n/gen/app_localizations.dart';
 import '../../../shared/rider_style.dart';
@@ -28,6 +30,8 @@ bool get _testing => Platform.environment.containsKey('FLUTTER_TEST');
 final photoCaptureProvider = Provider<Future<LocalPhoto?> Function()>(
   (_) => () async {
     if (_testing) return (bytes: testPhotoBytes, filename: 'test.png');
+    // 시연 빌드: 카메라 앱을 열지 않는다 — 여는 동안 Android 가 라이더앱을 내려 목 상태가 날아갔다(2026-11-27 녹화).
+    if (kDemo) return (bytes: await _demoPhoto(), filename: 'demo.png');
     final shot = await ImagePicker().pickImage(
       source: ImageSource.camera,
       // 10MB 제한 안으로 줄인다.
@@ -39,6 +43,41 @@ final photoCaptureProvider = Provider<Future<LocalPhoto?> Function()>(
     return (bytes: await shot.readAsBytes(), filename: shot.name);
   },
 );
+
+/// 시연용 증빙 사진(그려서 만든다 — 문 앞에 놓인 상자).
+Future<Uint8List> _demoPhoto() async {
+  const w = 800.0, h = 600.0;
+  final rec = ui.PictureRecorder();
+  final c = Canvas(rec);
+  c.drawRect(
+    const Rect.fromLTWH(0, 0, w, h),
+    Paint()..color = const Color(0xFFE9E4DA),
+  );
+  c.drawRect(
+    const Rect.fromLTWH(0, 430, w, 170),
+    Paint()..color = const Color(0xFFBFB6A6),
+  );
+  c.drawRect(
+    const Rect.fromLTWH(250, 40, 300, 400),
+    Paint()..color = const Color(0xFF8A6A4F),
+  );
+  c.drawCircle(
+    const Offset(515, 250),
+    10,
+    Paint()..color = const Color(0xFFD9C27A),
+  );
+  c.drawRect(
+    const Rect.fromLTWH(310, 340, 180, 140),
+    Paint()..color = const Color(0xFFC79A5B),
+  );
+  c.drawRect(
+    const Rect.fromLTWH(390, 340, 20, 140),
+    Paint()..color = const Color(0xFFE8D3A8),
+  );
+  final img = await rec.endRecording().toImage(w.toInt(), h.toInt());
+  final data = await img.toByteData(format: ui.ImageByteFormat.png);
+  return data!.buffer.asUint8List();
+}
 
 /// 카메라를 여는 동안 Android 가 앱을 내렸다가 다시 켰으면, 찍은 사진을 되찾는다.
 Future<LocalPhoto?> recoverLostPhoto() async {

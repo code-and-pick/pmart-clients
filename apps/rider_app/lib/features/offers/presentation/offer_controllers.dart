@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pmart_core/pmart_core.dart';
 
+import '../../../shared/demo.dart';
 import '../../../shared/providers.dart';
 import '../data/mock_offer_repository.dart';
 import '../data/delivery_list_repository.dart';
@@ -20,6 +21,8 @@ final mockOfferRepositoryProvider = Provider<MockOfferRepository>(
     demoBundle: true,
     demoManyBundles: true,
     demoSingles: true,
+    // 시연 빌드: 제안이 하나씩 들어온다(lib/shared/demo.dart).
+    demo: kDemo ? readDemoScenario() : null,
   ),
 );
 
@@ -36,6 +39,7 @@ final deliveryListRepositoryProvider = Provider<DeliveryListRepository>(
     PmartEnv.mock => MockDeliveryListRepository(
       onAssigned: (id) =>
           ref.read(mockOfferRepositoryProvider).assignedDeliveries.add(id),
+      demo: kDemo ? readDemoScenario() : null,
     ),
     PmartEnv.local => ApiDeliveryListRepository(ref.watch(dioProvider)),
   },
