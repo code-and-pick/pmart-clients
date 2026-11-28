@@ -153,7 +153,11 @@ export const navGroups: readonly NavGroup[] = [
     id: 'assistant',
     label: m.nav.group.assistant,
     visibleTo: 'ALL',
-    items: [{ to: '/assistant', label: m.nav.assistant }],
+    items: [
+      { to: '/assistant', label: m.nav.assistant },
+      // 운영자 RAG 문서 관리(ai-assistant 1.4.0, ADR-0092 — 2026-11-28): 보기는 운영자 누구나, 고치기는 OPERATOR_ADMIN(화면 안에서)
+      { to: '/assistant/documents', label: m.nav.knowledge },
+    ],
   },
 ];
 

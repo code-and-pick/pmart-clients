@@ -7,7 +7,7 @@
 import { request, requestNoContent } from '@pmart/web-core';
 import type { Api } from '../../api/client';
 import { SOURCE_SYSTEM, type IdempotencyKey } from '../../api/command';
-import type { AssistantPort } from './port';
+import type { AskContext, AssistantPort } from './port';
 import { answerFromWire, chatPageFromWire, chatSessionFromWire } from './wire';
 
 export function createHttpAssistant(api: Pick<Api, 'assistant'>): AssistantPort {
@@ -15,13 +15,13 @@ export function createHttpAssistant(api: Pick<Api, 'assistant'>): AssistantPort 
     connected: true,
     mock: false,
 
-    async ask(question: string, key: IdempotencyKey, sessionId?: string | null) {
+    async ask(question: string, key: IdempotencyKey, sessionId?: string | null, context?: AskContext) {
       // 200 완료 또는 202 처리 중(state=PROCESSING) — 둘 다 PolicyAnswer 본문.
       const wire = await request(
         'POST',
         api.assistant.POST('/assistant/policy-questions', {
           params: { header: { 'Idempotency-Key': key.value, 'X-Source-System': SOURCE_SYSTEM } },
-          body: sessionId ? { question, sessionId } : { question },
+          body: { question, ...(sessionId ? { sessionId } : {}), ...(context?.screen ? { context: { screen: context.screen } } : {}) },
         }),
       );
       return answerFromWire(wire, key.value);

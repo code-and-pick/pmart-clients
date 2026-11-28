@@ -1,4 +1,5 @@
 // 화면 문구(1차 한국어). 컴포넌트에 문구를 흩어 쓰지 않는다.
+import { knowledgeMessages } from './messagesKnowledge';
 import { employeeLoginMessages, uiMessages } from '@pmart/web-ui';
 
 export const messages = {
@@ -8,6 +9,7 @@ export const messages = {
   goHome: 'PMart 백오피스 홈으로',
   mockBadge: '목 데이터',
   ...uiMessages,
+  ...knowledgeMessages, // 업무 도우미 문서 관리·상담 도우미(2026-11-28)
   sources: '가져온 곳',
   freshness: { CURRENT: '최신', STALE: '지연', UNAVAILABLE: '확인 불가' } as const,
   confidence: { DIRECT: '원래 정보', COPY: '옮겨 온 정보', UNKNOWN: '확인 안 됨' } as const,
@@ -182,6 +184,7 @@ export const messages = {
     synonyms: '검색 동의어',
     homeLayout: '홈 진열 편성',
     assistant: '업무 도우미',
+    knowledge: '문서 관리', // 2026-11-28 운영자 RAG 문서 관리(ADR-0092)
     customers: '고객', // 2026-11-20 고객 메뉴(bff 0.22.0)
     reviewReports: '리뷰 신고', // 2026-11-23 review 0.7.0 BR-90
     faqFeedback: 'FAQ 답 의견', // 2026-11-23 customer-assistant 0.4.0 BR-91
@@ -2263,6 +2266,7 @@ export const messages = {
       MFC_STOCK_ADJUSTMENT: '센터 재고 조정',
       MFC_OPERATION_RESTRICTION: '센터 운영 제한 해제',
       SEARCH_SYNONYM: '검색 동의어',
+      RAG_DOCUMENT: '업무 도우미 문서', // approval 0.7.0(ADR-0092)
     } as Readonly<Record<string, string>>,
     /** approval DeliveryState(정본에 전달) */
     deliveryStateName: { PENDING: '전달 대기', DELIVERED: '전달됨', ACKNOWLEDGED: '수신 확인', RETRY_PENDING: '다시 보내기 대기', FAILED: '전달 실패' } as Readonly<Record<string, string>>,

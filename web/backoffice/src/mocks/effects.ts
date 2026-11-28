@@ -5,6 +5,7 @@ import { settlePriceImportBatch } from './priceImportHandlers';
 import { decideLayout } from './storefrontHandlers';
 import { decidePromotion } from './promotionHandlers';
 import { applySynonyms } from './synonymStore';
+import { decideKnowledge } from './knowledgeHandlers';
 
 const draftIdsOf = (a: ApprovalDetail) => (a.lines ?? []).map((l) => l.lineKey);
 
@@ -167,6 +168,8 @@ export function decide(a: ApprovalDetail, approved: boolean): void {
     const cr = db.changeRequests.get(a.changeRequestId ?? '');
     applySynonyms(a, cr?.targetExpectedVersion, a.decisions?.at(-1)?.approverId ?? null);
   }
+  // 운영자 RAG 문서(approval 0.7.0 RAG_DOCUMENT, ADR-0092)
+  if (a.targetService === 'ai-assistant-service') decideKnowledge(a, approved);
   if (approved && a.approvalId) db.applying.add(a.approvalId);
 }
 

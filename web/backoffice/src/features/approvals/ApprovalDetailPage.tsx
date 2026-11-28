@@ -28,6 +28,7 @@ import { ContentRegistration } from '../contents/ContentRegistration';
 import { CodeLabel, DataTable, DetailHeader, NextAction, Section, StatusBadge, type Tone } from '../../shared/admin';
 import { KindChip, Person, SideFields, Timeline, When } from '../lookup/parts';
 import { LayoutDraftPreview } from '../display/HomeLayoutPages';
+import { KnowledgeDraftReview } from '../knowledge/KnowledgeParts';
 
 const OPEN_REVIEW: readonly ReviewState[] = ['REVIEW_PENDING', 'EVIDENCE_REQUIRED'];
 const FINAL_EXECUTION: readonly ExecutionState[] = ['APPLIED', 'PARTIAL', 'REJECTED'];
@@ -299,6 +300,12 @@ export function ApprovalDetailPage() {
                       <LayoutDraftPreview draftId={a.targetRef} />
                     </Section>
                   )}
+                  {/* 업무 도우미 문서(approval 0.7.0 RAG_DOCUMENT, ADR-0092): 초안(targetRef) ↔ 지금 판 비교 */}
+                  {a.type === 'RAG_DOCUMENT' && a.targetRef && (
+                    <Section title={m.knowledge.reviewTitle} testId="approval-knowledge-review">
+                      <KnowledgeDraftReview draftId={a.targetRef} />
+                    </Section>
+                  )}
                   <Section title={m.approvals.lines} aside={<span className="text-base-content/55">{m.approvals.lineCount((a.lines ?? []).length)}</span>}>
                     <DataTable>
                       <thead>
@@ -313,7 +320,7 @@ export function ApprovalDetailPage() {
                         {(a.lines ?? []).map((l, i) => (
                           <tr key={l.lineKey}>
                             {/* 항목 키가 시스템 ID(PD-… 초안 등)면 순번만 — 무엇인지는 오른쪽 내용 칸(상품명 등) */}
-                            <td className="font-mono" title={l.lineKey}>{isSystemId(l.lineKey) || a.type === 'SEARCH_SYNONYM' || a.targetService === 'storefront-service' || a.type === 'PROMOTION' ? String(i + 1) : l.lineKey}</td>
+                            <td className="font-mono" title={l.lineKey}>{isSystemId(l.lineKey) || a.type === 'SEARCH_SYNONYM' || a.type === 'RAG_DOCUMENT' || a.targetService === 'storefront-service' || a.type === 'PROMOTION' ? String(i + 1) : l.lineKey}</td>
                             <td className="text-right tabular-nums" data-testid="line-qty">{lineQtyText(l)}</td>
                             <td className="text-right font-semibold tabular-nums" data-testid="line-amount">{lineAmountText(a.type, l)}</td>
                             <td className="space-y-1">

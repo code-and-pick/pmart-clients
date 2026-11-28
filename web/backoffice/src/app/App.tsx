@@ -97,6 +97,10 @@ const NewProductDraftPage = lazy(() => import('../features/products/ProductDraft
 const ProductDraftPage = lazy(() => import('../features/products/ProductDraftPage').then((x) => ({ default: x.ProductDraftPage })));
 const NewProductImportPage = lazy(() => import('../features/products/ProductImportPage').then((x) => ({ default: x.NewProductImportPage })));
 const ProductImportPage = lazy(() => import('../features/products/ProductImportPage').then((x) => ({ default: x.ProductImportPage })));
+const KnowledgeDocumentsPage = lazy(() => import('../features/knowledge/KnowledgeDocumentsPage').then((x) => ({ default: x.KnowledgeDocumentsPage })));
+const KnowledgeDocumentPage = lazy(() => import('../features/knowledge/KnowledgeEditPages').then((x) => ({ default: x.KnowledgeDocumentPage })));
+const NewKnowledgeDraftPage = lazy(() => import('../features/knowledge/KnowledgeEditPages').then((x) => ({ default: x.NewKnowledgeDraftPage })));
+const KnowledgeDraftPage = lazy(() => import('../features/knowledge/KnowledgeEditPages').then((x) => ({ default: x.KnowledgeDraftPage })));
 const ProductListPage = lazy(() => import('../features/products/ProductListPage').then((x) => ({ default: x.ProductListPage })));
 
 /** 업무 도우미: 목 모드는 draftMock(계약 모양), 실서버 모드(local·lan)는 게이트웨이의 ai-assistant-service(2026-11-09 LAN 배포). */
@@ -451,6 +455,11 @@ const routes = [
       { path: 'assistant', element: guarded(<AssistantPage />) },
       { path: 'assistant/chats/:sessionId', element: guarded(<AssistantPage />) },
       { path: 'assistant/answers/:answerId', element: guarded(<AssistantAnswerPage />) },
+      // 운영자 RAG 문서 관리(ai-assistant 1.4.0 + approval 0.7.0 RAG_DOCUMENT, ADR-0092 — 2026-11-28)
+      { path: 'assistant/documents', element: guarded(<KnowledgeDocumentsPage />) },
+      { path: 'assistant/documents/view', element: guarded(<KnowledgeDocumentPage />) },
+      { path: 'assistant/documents/new', element: guarded(<NewKnowledgeDraftPage />) },
+      { path: 'assistant/documents/drafts/:draftId', element: guarded(<KnowledgeDraftPage />) },
     ],
   },
 ];

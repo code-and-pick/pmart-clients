@@ -15,6 +15,8 @@ export const mockAccounts = [
   // 마케팅(행사·쿠폰, ADR-0082 — employee-auth 역할 MARKETING, 2026-11-20). 행사 만들기·제출·승인(남의 것)·지정 발급
   { operatorId: 'op-marketing-1', label: '마케팅 윤', roles: ['MARKETING'], centers: [] },
   { operatorId: 'op-marketing-2', label: '마케팅 서', roles: ['MARKETING'], centers: [] },
+  // 두 번째 운영 관리자 — 운영자 RAG 문서 승인(자기 승인 금지라 다른 관리자가 승인, ADR-0092 2026-11-28)
+  { operatorId: 'op-admin-2', label: '총괄 오', roles: ['OPERATOR_ADMIN'], centers: [] },
 ] as const;
 
 /** 테스트용: 로그인 없이 바로 세션을 여는 목 access token */

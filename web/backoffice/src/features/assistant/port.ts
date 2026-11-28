@@ -4,6 +4,11 @@
 import type { IdempotencyKey } from '../../api/command';
 import type { AssistantAnswer, ChatPage, ChatSession } from './model';
 
+/** 화면 힌트(계약 PolicyQuestion.context) — 권한·검색 범위를 넓히지 않는다. 상담 접수 칸은 screen "cs-intake"(ADR-0093). */
+export interface AskContext {
+  readonly screen?: string;
+}
+
 export interface AssistantPort {
   /** connected=false 면 화면은 호출하지 않고 "연결 전" 안내만 보인다. */
   readonly connected: boolean;
@@ -17,7 +22,7 @@ export interface AssistantPort {
    * Problem(4xx: 403·409 IDEMPOTENCY_CONFLICT·422 CONFIG_REQUIRED) = 거절 확정,
    * UnknownResultFailure(타임아웃·503 DEPENDENCY_UNAVAILABLE·응답 유실) = 결과 불명 → 같은 키로 다시 보낸다.
    */
-  ask(question: string, key: IdempotencyKey, sessionId?: string | null): Promise<AssistantAnswer>;
+  ask(question: string, key: IdempotencyKey, sessionId?: string | null, context?: AskContext): Promise<AssistantAnswer>;
   /** 답변 다시 보기 GET /assistant/policy-questions/{answerId}. 없거나 남의 답변·현재 권한 없음 = NOT_FOUND. */
   get(answerId: string): Promise<AssistantAnswer>;
   /** 내 채팅 목록 GET /assistant/chat-sessions (마지막 질문 최근 순, 1.3.0). */

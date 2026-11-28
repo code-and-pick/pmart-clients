@@ -26,6 +26,7 @@ import { messages } from '../../shared/messages';
 import { when } from '../../shared/ops';
 import { CodeLabel, PageHeader } from '../../shared/admin';
 import { Icon, ICON } from '../inquiries/HelpdeskParts';
+import { ConsultGuidePanel } from './ConsultGuide';
 
 const m = messages.csIntake;
 type Intake = components['schemas']['Intake'];
@@ -106,6 +107,18 @@ function useCustomerRef(input: string) {
   return c ? { id: c.customerId, state: 'found' as const, label: `${c.nameMasked ?? ''} · ${c.customerNumber ?? value}` } : { id: null, state: 'notFound' as const, label: null };
 }
 
+/** 연결한 주문의 상태 이름(order 직원 주문 찾기 — 상담 도우미에만 보낸다). 못 읽으면 보내지 않는다 */
+function useOrderStatus(orderId: string | null) {
+  const api = useApi();
+  const q = useQuery({
+    queryKey: ['orders', 'status', orderId ?? ''],
+    enabled: Boolean(orderId),
+    staleTime: 60_000,
+    queryFn: async () => (await request('GET', api.orders.GET('/orders/lookups', { params: { query: { orderId: orderId ?? '', page: 0, size: 1 } } }))).items[0]?.status ?? null,
+  });
+  return orderId ? (q.data ?? null) : null;
+}
+
 export function NewCsIntakePage() {
   const api = useApi();
   const queryClient = useQueryClient();
@@ -142,6 +155,9 @@ export function NewCsIntakePage() {
   // 대상 주문 — 주문번호(8자리)로도(2026-11-19). 넣은 번호를 아직 못 찾았으면 보내지 않는다 — 연결 없이 새 문의가 되거나 다른 주문이 되지 않게
   const subject = useResolvedRef('order', d.subjectRef);
   const customer = useCustomerRef(d.customerRef);
+  // 상담 도우미(ADR-0093): 회원 조회 결과(찾음·못 찾음만 — 직접 넣은 ID 는 보내지 않음)와 연결한 주문의 상태 이름
+  const memberFound = customer.state === 'found' ? true : customer.state === 'notFound' ? false : undefined;
+  const orderStatus = useOrderStatus(subject.id);
   const unresolved = (r: { readonly state: string }) => r.state === 'loading' || r.state === 'notFound' || r.state === 'failed';
   const missing = [...problems(d), ...(unresolved(linkCase) ? [m.need.linkCaseResolved] : []), ...(unresolved(subject) ? [m.need.subjectResolved] : []), ...(unresolved(customer) ? [m.need.customerResolved] : [])];
 
@@ -371,6 +387,7 @@ export function NewCsIntakePage() {
               </CommandFeedback>
             </div>
           </div>
+          <ConsultGuidePanel category={d.category} memberFound={memberFound} orderStatus={orderStatus} />
         </aside>
       </form>
     </section>

@@ -17,6 +17,8 @@ const approverRole: Partial<Record<ApprovalType, string | readonly string[]>> = 
   SEARCH_SYNONYM: 'OPERATOR_ADMIN',
   // 행사(approval 0.6.0, ADR-0082) — 승인자 MARKETING 또는 OPERATOR_ADMIN(쉼표로 여럿 중 하나), 자기 승인 금지
   PROMOTION: ['MARKETING', 'OPERATOR_ADMIN'],
+  // 운영자 RAG 문서(approval 0.7.0, ADR-0092) — 다른 운영 관리자, 자기 승인 금지
+  RAG_DOCUMENT: 'OPERATOR_ADMIN',
 };
 /** 이 종류를 승인할 수 있는 역할을 가졌나(설정이 여럿이면 그중 하나) */
 const hasApproverRole = (type: ApprovalType, roles: readonly string[]) => {

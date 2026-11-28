@@ -25,6 +25,7 @@ import { operator, unauthorized } from './support';
 import { customerHandlers } from './customerHandlers';
 import { deliveryStatsHandlers } from './deliveryStatsHandlers';
 import { reviewHandlers } from './reviewHandlers';
+import { knowledgeHandlers } from './knowledgeHandlers';
 
 /** 게이트웨이 공개 경로(계약 security: []) */
 const PUBLIC = [`${API_BASE}/employee-auth/tokens`, `${API_BASE}/employee-auth/tokens/refresh`];
@@ -63,4 +64,5 @@ export const handlers = [
   ...searchHandlers,
   ...storefrontHandlers,
   ...promotionHandlers,
+  ...knowledgeHandlers, // 운영자 RAG 문서 관리·상담 도우미(ai-assistant 1.4.0, 2026-11-28)
 ];
